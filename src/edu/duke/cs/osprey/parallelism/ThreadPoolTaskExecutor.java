@@ -131,6 +131,11 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	}
 	
 	@Override
+	public boolean isWorking() {
+		return getNumRunningTasks() > 0;
+	}
+	
+	@Override
 	public <T> void submit(Task<T> task, TaskListener<T> listener) {
 		try {
 			

@@ -139,18 +139,18 @@ public interface KStarScoreWriter {
 
 		public String format(ScoreInfo info);
 
-		public static class SequencePfuncsScore implements Formatter {
+		public static class SequenceKStarPfuncs implements Formatter {
 
 			@Override
 			public String format(ScoreInfo info) {
-				return String.format("sequence %4d/%4d   %s   protein: %-18s   ligand: %-18s   complex: %-18s   K*(log10): %s",
+				return String.format("sequence %4d/%4d   %s   K*(log10): %-34s   protein: %-18s   ligand: %-18s   complex: %-18s",
 					info.sequenceNumber + 1,
 					info.numSequences,
-					info.sequence,
+					info.sequence.toString(KStar.Sequence.makeWildType(info.complexConfSpace)),
+					info.kstarScore.toString(),
 					info.kstarScore.protein.toString(),
 					info.kstarScore.ligand.toString(),
-					info.kstarScore.complex.toString(),
-					info.kstarScore.toString()
+					info.kstarScore.complex.toString()
 				);
 			}
 		}

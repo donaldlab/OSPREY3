@@ -26,6 +26,7 @@ public class TestBBKStar {
 		AtomicReference<Results> resultsRef = new AtomicReference<>(null);
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
+		//Parallelism parallelism = Parallelism.make(4, 1, 8);
 
 		// how should we compute energies of molecules?
 		new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
@@ -58,8 +59,8 @@ public class TestBBKStar {
 					.setEpsilon(epsilon)
 					.setMaxSimultaneousMutations(1)
 					.setNumBestSequences(numSequences)
-					//.setShowPfuncProgress(true)
 					.setNumConfsPerBatch(8)
+					.addScoreConsoleWriter()
 					.build();
 				Results results = new Results();
 				results.bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
@@ -111,6 +112,26 @@ public class TestBBKStar {
 		assertDecreasingUpperBounds(results.sequences);
 	}
 
+	@Test
+	public void test1GUA11() {
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
+		final double epsilon = 0.99;
+		final int numSequences = 6;
+		Results results = runBBKStar(confSpaces, numSequences, epsilon);
+
+		// K* bounds collected with e = 0.1 from original K* algo
+		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS ARG", 17.522258,17.636342);
+		assertSequence(results, "ILE ILE GLN HID VAL TYR LYS VAL", 16.939674,17.014507);
+		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS HIE", 16.833695,16.930972);
+		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS HID", 16.659839,16.738627);
+		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS LYS", 16.571112,16.683562);
+		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS VAL", 16.474293,16.552681);
+
+		assertThat(results.sequences.size(), is(numSequences));
+		assertDecreasingUpperBounds(results.sequences);
+	}
+
 	private void assertSequence(Results results, String sequence, Double estKStarLowerLog10, Double estKStarUpperLog10) {
 
 		// find the sequence
@@ -121,16 +142,15 @@ public class TestBBKStar {
 				// found it
 
 				// check the K* bounds
+				assertThat(scoredSequence.score, is(not(nullValue())));
 				if (estKStarLowerLog10 != null && estKStarUpperLog10 != null) {
-
-					assertThat(scoredSequence.score, is(not(nullValue())));
 
 					// make sure these bounds contain the estimated bounds
 					assertThat(scoredSequence.score.lowerBoundLog10(), lessThanOrEqualTo(estKStarLowerLog10));
 					assertThat(scoredSequence.score.upperBoundLog10(), greaterThanOrEqualTo(estKStarUpperLog10));
 
 				} else {
-					assertThat(scoredSequence.score, is(nullValue()));
+					assertThat(scoredSequence.score.score, is(nullValue()));
 				}
 
 				return;
@@ -145,11 +165,10 @@ public class TestBBKStar {
 		double minUpperBoundLog10 = Double.POSITIVE_INFINITY;
 		for (BBKStar.ScoredSequence sequence : sequences) {
 
-			if (sequence.score == null) {
+			Double upperBoundLog10 = sequence.score.upperBoundLog10();
+			if (upperBoundLog10 == null) {
 				break;
 			}
-			Double upperBoundLog10 = sequence.score.upperBoundLog10();
-			assertThat(upperBoundLog10, is(not(nullValue())));
 			assertThat(upperBoundLog10, lessThanOrEqualTo(minUpperBoundLog10));
 			minUpperBoundLog10 = upperBoundLog10;
 		}

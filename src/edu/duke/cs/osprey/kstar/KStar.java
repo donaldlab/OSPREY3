@@ -56,7 +56,7 @@ public class KStar {
 			}
 
 			public Builder addScoreConsoleWriter() {
-				return addScoreConsoleWriter(new KStarScoreWriter.Formatter.SequencePfuncsScore());
+				return addScoreConsoleWriter(new KStarScoreWriter.Formatter.SequenceKStarPfuncs());
 			}
 
 			public Builder addScoreFileWriter(File file, KStarScoreWriter.Formatter val) {
@@ -91,6 +91,10 @@ public class KStar {
 	}
 
 	public static class Sequence extends ArrayList<String> {
+
+		public static Sequence makeWildType(SimpleConfSpace confSpace) {
+			return new KStar.Sequence(confSpace.positions.size()).fillWildType(confSpace);
+		}
 
 		public Sequence(int size) {
 			super(size);
@@ -155,6 +159,23 @@ public class KStar {
 		@Override
 		public String toString() {
 			return String.join(" ", this);
+		}
+
+		/** highlight mutations in upper case, show wild type residues in lower case */
+		public String toString(KStar.Sequence wildtype) {
+			List<String> resTypes = new ArrayList<>();
+			for (int i=0; i<size(); i++) {
+				String resType = get(i);
+				String resWildType = wildtype.get(i);
+				if (resType == null) {
+					resTypes.add(null);
+				} else if (resType.equals(resWildType)) {
+					resTypes.add(resType.toLowerCase());
+				} else {
+					resTypes.add(resType.toUpperCase());
+				}
+			}
+			return String.join(" ", resTypes);
 		}
 
 		public String toString(List<SimpleConfSpace.Position> positions) {

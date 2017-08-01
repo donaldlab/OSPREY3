@@ -232,18 +232,18 @@ public class TestKStar {
 	}
 
 	@Test
-	public void test1GUA_11() {
+	public void test1GUA11() {
 
 		double epsilon = 0.99;
 		Result result = runKStar(make1GUA11(), epsilon);
 
 		// check the results (values collected with e = 0.1)
-		assertSequence(result,   0, "ILE ILE GLN HIE VAL TYR LYS VAL", 1.1838e+42, 2.7098e+7, 1.1195e+66, epsilon);
-		assertSequence(result,   1, "ILE ILE GLN HIE VAL TYR LYS HID", 1.1838e+42, 5.5334e+7, 3.3455e+66, epsilon);
-		assertSequence(result,   2, "ILE ILE GLN HIE VAL TYR LYS HIE", 1.1838e+42, 5.8485e+6, 5.5426e+65, epsilon);
-		assertSequence(result,   3, "ILE ILE GLN HIE VAL TYR LYS LYS", 1.1838e+42, 6.3856e+4, 3.3162e+63, epsilon);
-		assertSequence(result,   4, "ILE ILE GLN HIE VAL TYR LYS ARG", 1.1838e+42, 1.1527e+5, 5.3772e+64, epsilon);
-		assertSequence(result,   5, "ILE ILE GLN HID VAL TYR LYS VAL", 9.7448e+41, 2.7098e+7, 2.6775e+66, epsilon);
+		assertSequence(result,   0, "ILE ILE GLN HIE VAL TYR LYS VAL", 1.186918e+42, 2.889247e+07, 1.120029e+66, epsilon); // K*(log10) = 16.514024 in [16.474293,16.552681]
+		assertSequence(result,   1, "ILE ILE GLN HIE VAL TYR LYS HID", 1.186918e+42, 5.660522e+07, 3.345776e+66, epsilon); // K*(log10) = 16.697220 in [16.659839,16.738627]
+		assertSequence(result,   2, "ILE ILE GLN HIE VAL TYR LYS HIE", 1.186918e+42, 6.004540e+06, 5.543155e+65, epsilon); // K*(log10) = 16.890857 in [16.833695,16.930972]
+		assertSequence(result,   3, "ILE ILE GLN HIE VAL TYR LYS LYS", 1.186918e+42, 6.428165e+04, 3.315168e+63, epsilon); // K*(log10) = 16.637998 in [16.571112,16.683562]
+		assertSequence(result,   4, "ILE ILE GLN HIE VAL TYR LYS ARG", 1.186918e+42, 1.162382e+05, 5.375725e+64, epsilon); // K*(log10) = 17.590668 in [17.522258,17.636342]
+		assertSequence(result,   5, "ILE ILE GLN HID VAL TYR LYS VAL", 9.769759e+41, 2.889247e+07, 2.678490e+66, epsilon); // K*(log10) = 16.977221 in [16.939674,17.014507]
 	}
 
 	public static void assertSequence(Result result, int sequenceIndex, String sequence, Double proteinQStar, Double ligandQStar, Double complexQStar, double epsilon) {

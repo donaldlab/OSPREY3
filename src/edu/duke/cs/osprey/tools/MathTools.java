@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.tools;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -108,5 +110,43 @@ public class MathTools {
 				}
 			};
 		};
+	}
+
+	// HACKHACK: need a way to represent infinity for big decimals
+	// our "infinity" value still needs an actual value though,
+	// so use the biggest number we can and hope it never happens in a real design
+
+	/** This is a complete hack. Don't try to use this value in any arithmetic. That won't work.
+	 * Just compare BigDecimal references to check for infinity, e.g. if (myval == BigPositiveInfinity) { ... }
+	 */
+	public static final BigDecimal BigPositiveInfinity = new BigDecimal(new BigInteger("1"), Integer.MAX_VALUE) {
+		// these checks won't cover all our bases, but it's a start
+		@Override public BigDecimal add     (BigDecimal other) { throw new UnsupportedOperationException("don't do math on infinity"); }
+		@Override public BigDecimal subtract(BigDecimal other) { throw new UnsupportedOperationException("don't do math on infinity"); }
+		@Override public BigDecimal multiply(BigDecimal other) { throw new UnsupportedOperationException("don't do math on infinity"); }
+		@Override public BigDecimal divide  (BigDecimal other) { throw new UnsupportedOperationException("don't do math on infinity"); }
+
+		@Override
+		public double doubleValue() {
+			return Double.POSITIVE_INFINITY;
+		}
+	};
+
+	/** See BigPositiveInfinity for usage instructions */
+	public static final BigDecimal BigNegativeInfinity = new BigDecimal(new BigInteger("-1"), Integer.MAX_VALUE) {
+		// these checks won't cover all our bases, but it's a start
+		@Override public BigDecimal add     (BigDecimal other) { throw new UnsupportedOperationException("don't do math on infinity"); }
+		@Override public BigDecimal subtract(BigDecimal other) { throw new UnsupportedOperationException("don't do math on infinity"); }
+		@Override public BigDecimal multiply(BigDecimal other) { throw new UnsupportedOperationException("don't do math on infinity"); }
+		@Override public BigDecimal divide  (BigDecimal other) { throw new UnsupportedOperationException("don't do math on infinity"); }
+
+		@Override
+		public double doubleValue() {
+			return Double.NEGATIVE_INFINITY;
+		}
+	};
+
+	public static boolean isZero(BigDecimal d) {
+		return d.compareTo(BigDecimal.ZERO) == 0;
 	}
 }

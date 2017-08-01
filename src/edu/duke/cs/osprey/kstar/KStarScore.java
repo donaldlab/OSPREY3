@@ -1,9 +1,12 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+
+import static edu.duke.cs.osprey.tools.MathTools.isZero;
 
 public class KStarScore {
 
@@ -11,10 +14,13 @@ public class KStarScore {
 	public final PartitionFunction.Result ligand;
 	public final PartitionFunction.Result complex;
 
-	/** guaranteed to be an epsilon-approximation to K* or null */
+	/** the K* score, guaranteed to be an epsilon-approximation or null */
 	public final BigDecimal score;
 
+	/** lower bound on K* score */
 	public final BigDecimal lowerBound;
+
+	/** upper bound on K* score, could be singleton instance MathTools.BigPositiveInfinity */
 	public final BigDecimal upperBound;
 
 	public KStarScore(PartitionFunction.Result protein, PartitionFunction.Result ligand, PartitionFunction.Result complex) {
@@ -35,34 +41,43 @@ public class KStarScore {
 			this.score = null;
 		}
 
-		// calculate the lower bound
+		// calculate the K* bounds
+		BigDecimal proteinLowerBound = protein.values.calcLowerBound();
 		BigDecimal proteinUpperBound = protein.values.calcUpperBound();
+		BigDecimal ligandLowerBound = ligand.values.calcLowerBound();
 		BigDecimal ligandUpperBound = ligand.values.calcUpperBound();
-		if (proteinUpperBound.compareTo(BigDecimal.ZERO) == 0 || ligandUpperBound.compareTo(BigDecimal.ZERO) == 0) {
-			// can't represent infinity in BigDecimal, so use null instead
-			this.lowerBound = null;
+		BigDecimal complexLowerBound = complex.values.calcLowerBound();
+		BigDecimal complexUpperBound = complex.values.calcUpperBound();
+
+		if (isZero(proteinUpperBound) || isZero(ligandUpperBound) || isZero(complexUpperBound)) {
+
+			// these must be highly unfavorable structures
+			// Boltzmann says they will happen only with infinitesimally small probability
+			// but we apparently ran out of precision calculating e^(-energy), so let's just call it zero
+			this.lowerBound = BigDecimal.ZERO;
+			this.upperBound = BigDecimal.ZERO;
+
 		} else {
-			this.lowerBound = complex.values.calcLowerBound()
+
+			this.lowerBound = complexLowerBound
 				.divide(proteinUpperBound, RoundingMode.HALF_UP)
 				.divide(ligandUpperBound, RoundingMode.HALF_UP);
-		}
 
-		// calculate the upper bound
-		BigDecimal proteinLowerBound = protein.values.calcLowerBound();
-		BigDecimal ligandLowerBound = ligand.values.calcLowerBound();
-		if (proteinLowerBound.compareTo(BigDecimal.ZERO) == 0 || ligandLowerBound.compareTo(BigDecimal.ZERO) == 0) {
-			// can't represent infinity in BigDecimal, so use null instead
-			this.upperBound = null;
-		} else {
-			this.upperBound = complex.values.calcUpperBound()
-				.divide(proteinLowerBound, RoundingMode.HALF_UP)
-				.divide(ligandLowerBound, RoundingMode.HALF_UP);
+			if (isZero(proteinLowerBound) || isZero(ligandLowerBound)) {
+				// this *should* be impossible for a single-sequence bound (since if the lower bound is zero,
+				// the upper bound *should* be zero too), but it could easily happen for a multi-sequence bound
+				this.upperBound = MathTools.BigPositiveInfinity;
+			} else {
+				this.upperBound = complexUpperBound
+					.divide(proteinLowerBound, RoundingMode.HALF_UP)
+					.divide(ligandLowerBound, RoundingMode.HALF_UP);
+			}
 		}
 	}
 
 	@Override
 	public String toString() {
-		return String.format("%s in [%s,%s]",
+		return String.format("%-9s in [%-9s,%-9s]",
 			scoreLog10String(),
 			lowerBoundLog10String(),
 			upperBoundLog10String()

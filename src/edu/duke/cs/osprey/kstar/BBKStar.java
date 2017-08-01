@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -30,6 +31,7 @@ public class BBKStar {
 			private boolean showPfuncProgress = false;
 			private int numBestSequences = 1;
 			private int numConfsPerBatch = 8;
+			private KStarScoreWriter.Writers scoreWriters = new KStarScoreWriter.Writers();
 
 			public Builder setEpsilon(double val) {
 				epsilon = val;
@@ -56,8 +58,29 @@ public class BBKStar {
 				return this;
 			}
 
+			public Builder addScoreWriter(KStarScoreWriter val) {
+				scoreWriters.add(val);
+				return this;
+			}
+
+			public Builder addScoreConsoleWriter(KStarScoreWriter.Formatter val) {
+				return addScoreWriter(new KStarScoreWriter.ToConsole(val));
+			}
+
+			public Builder addScoreConsoleWriter() {
+				return addScoreConsoleWriter(new KStarScoreWriter.Formatter.SequenceKStarPfuncs());
+			}
+
+			public Builder addScoreFileWriter(File file, KStarScoreWriter.Formatter val) {
+				return addScoreWriter(new KStarScoreWriter.ToFile(file, val));
+			}
+
+			public Builder addScoreFileWriter(File file) {
+				return addScoreFileWriter(file, new KStarScoreWriter.Formatter.Log());
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, maxSimultaneousMutations, showPfuncProgress, numBestSequences, numConfsPerBatch);
+				return new Settings(epsilon, maxSimultaneousMutations, showPfuncProgress, numBestSequences, numConfsPerBatch, scoreWriters);
 			}
 		}
 
@@ -66,13 +89,15 @@ public class BBKStar {
 		public final boolean showPfuncProgress;
 		public final int numBestSequences;
 		public final int numConfsPerBatch;
+		public final KStarScoreWriter.Writers scoreWriters;
 
-		public Settings(double epsilon, int maxSimultaneousMutations, boolean dumpPfuncConfs, int numBestSequences, int numConfsPerBatch) {
+		public Settings(double epsilon, int maxSimultaneousMutations, boolean dumpPfuncConfs, int numBestSequences, int numConfsPerBatch, KStarScoreWriter.Writers scoreWriters) {
 			this.epsilon = epsilon;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
 			this.showPfuncProgress = dumpPfuncConfs;
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
+			this.scoreWriters = scoreWriters;
 		}
 	}
 
@@ -117,10 +142,6 @@ public class BBKStar {
 			}
 		}
 
-		public KStar.Sequence makeWildTypeSequence() {
-			return new KStar.Sequence(confSpace.positions.size()).fillWildType(confSpace);
-		}
-
 		public RCs makeRCs(KStar.Sequence sequence) {
 			return new RCs(confSpace, (pos, resConf) -> {
 
@@ -156,8 +177,8 @@ public class BBKStar {
 			this.sequence = sequence;
 
 			// split complex sequence into protein/ligand sequences
-			proteinSequence = BBKStar.this.protein.makeWildTypeSequence();
-			ligandSequence = BBKStar.this.ligand.makeWildTypeSequence();
+			proteinSequence = KStar.Sequence.makeWildType(BBKStar.this.protein.confSpace);
+			ligandSequence = KStar.Sequence.makeWildType(BBKStar.this.ligand.confSpace);
 			for (SimpleConfSpace.Position pos : BBKStar.this.complex.confSpace.positions) {
 
 				SimpleConfSpace.Position proteinPos = complexToProteinMap.get(pos);
@@ -520,14 +541,7 @@ public class BBKStar {
 					case Estimated:
 
 						// sequence is finished, return it!
-						KStarScore score = ssnode.makeKStarScore();
-						scoredSequences.add(new ScoredSequence(ssnode.sequence, score));
-
-						// TODO: logging
-						System.out.println(String.format("finished sequence: %s  kstar: %s",
-							ssnode.sequence,
-							score
-						));
+						reportSequence(ssnode, scoredSequences);
 
 					break;
 					case Estimating:
@@ -541,13 +555,7 @@ public class BBKStar {
 
 						// from here on out, it's all blocked sequences
 						// so it's ok to put them in the sorted order now
-						scoredSequences.add(new ScoredSequence(ssnode.sequence, null));
-
-						// TODO: logging
-						System.out.println(String.format("unscorable sequence: %s  K*: %s",
-							ssnode.sequence,
-							ssnode.makeKStarScore()
-						));
+						reportSequence(ssnode, scoredSequences);
 				}
 
 			} else if (node instanceof MultiSequenceNode) {
@@ -563,6 +571,30 @@ public class BBKStar {
 			}
 		}
 
+		if (scoredSequences.size() < settings.numBestSequences) {
+			if (tree.isEmpty()) {
+				// all is well, we just don't have that many sequences in the design
+				System.out.println("Tried to find " + settings.numBestSequences + " sequences,"
+					+ " but design flexibility only allowed " + scoredSequences.size() + " sequences.");
+			} else {
+				throw new Error("BBK* ended, but the tree isn't empty and we didn't return enough sequences. This is a bug.");
+			}
+		}
+
 		return scoredSequences;
+	}
+
+	private void reportSequence(SingleSequenceNode ssnode, List<ScoredSequence> scoredSequences) {
+
+		KStarScore kstarScore = ssnode.makeKStarScore();
+		scoredSequences.add(new ScoredSequence(ssnode.sequence, kstarScore));
+
+		settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
+			scoredSequences.size(),
+			settings.numBestSequences,
+			ssnode.sequence,
+			complex.confSpace,
+			kstarScore
+		));
 	}
 }

@@ -20,6 +20,10 @@ public class TaskExecutor implements AutoCleanable {
 		return false;
 	}
 
+	public boolean isWorking() {
+		return false;
+	}
+
 	public <T> void submit(Task<T> task, TaskListener<T> listener) {
 		T result = task.run();
 		listener.onFinished(result);

@@ -103,7 +103,10 @@ public class SimplePartitionFunction implements PartitionFunction {
 		if (status == null) {
 			throw new IllegalStateException("pfunc was not initialized. Call init() before compute()");
 		}
-		
+
+		// WARNING: if this is too big, we'll never reach the pfunc epsilon!
+		final double upperBoundEpsilon = 0.00001;
+
 		int numConfsScored = 0;
 		while (true) {
 
@@ -119,9 +122,6 @@ public class SimplePartitionFunction implements PartitionFunction {
 			}
 
 			// nope, need to do some more work
-
-			// WARNING: if this is too big, we'll never reach the pfunc epsilon!
-			final double upperBoundEpsilon = 0.00001;
 
 			if (ecalc.tasks instanceof ThreadPoolTaskExecutor) {
 
@@ -183,6 +183,13 @@ public class SimplePartitionFunction implements PartitionFunction {
 			// otherwise, the bounds will be wrong
 			while (numConfsScored > upperBound.numScoredConfs) {
 				upperBound.scoreNextConf();
+			}
+		}
+
+		// if we're still waiting on energy threads, refine q' a bit more on the main thread
+		if (ecalc.tasks instanceof ThreadPoolTaskExecutor) {
+			while (upperBound.delta > upperBoundEpsilon && ecalc.tasks.isWorking()) {
+				upperBound.run(scoreConfsBatchSize, upperBoundEpsilon);
 			}
 		}
 
