@@ -15,6 +15,14 @@ import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Implementation of the K* algorithm to predict protein sequence mutations that improve
+ * binding affinity by computing provably accurate Boltzmann-weighted ensembles
+ * {@cite Lilien2008 Ryan H. Lilien, Brian W. Stevens, Amy C. Anderson, and Bruce R. Donald, 2005.
+ * A Novel Ensemble-Based Scoring and Search Algorithm for Protein Redesign and Its Application
+ * to Modify the Substrate Specificity of the Gramicidin Synthetase A Phenylalanine Adenylation Enzyme
+ * In Journal of Computational Biology (vol 12. num. 6 pp. 740–761).}.
+ */
 public class KStar {
 
 	public static interface ConfEnergyCalculatorFactory {
@@ -31,9 +39,23 @@ public class KStar {
 
 		public static class Builder {
 
+			/**
+			 * Value of epsilon in (0,1] for the epsilon-approximation to a partition function.
+			 *
+			 * Smaller values for epsilon yield more accurate predictions, but can take
+			 * longer to run.
+			 */
 			private double epsilon = 0.683;
+
+			/** The maximum number of simultaneous residue mutations to consider for each sequence mutant */
 			private int maxSimultaneousMutations = 1;
+
 			private KStarScoreWriter.Writers scoreWriters = new KStarScoreWriter.Writers();
+
+			/**
+			 * If true, prints out information to the console for each minimized conformation during
+			 * partition function approximation
+			 */
 			private boolean showPfuncProgress = false;
 
 			public Builder setEpsilon(double val) {
@@ -186,6 +208,26 @@ public class KStar {
 		}
 	}
 
+	public static class ScoredSequence {
+
+		public final KStar.Sequence sequence;
+		public final KStarScore score;
+
+		public ScoredSequence(KStar.Sequence sequence, KStarScore score) {
+			this.sequence = sequence;
+			this.score = score;
+		}
+
+		@Override
+		public String toString() {
+			return "sequence: " + sequence + "   K*(log10): " + score;
+		}
+
+		public String toString(KStar.Sequence wildtype) {
+			return "sequence: " + sequence.toString(wildtype) + "   K*(log10): " + score;
+		}
+	}
+
 	public class ConfSpaceInfo {
 
 		public final SimpleConfSpace confSpace;
@@ -247,25 +289,40 @@ public class KStar {
 		}
 	}
 
+	/** A configuration space containing just the protein strand */
 	public final ConfSpaceInfo protein;
+
+	/** A configuration space containing just the ligand strand */
 	public final ConfSpaceInfo ligand;
+
+	/** A configuration space containing both the protein and ligand strands */
 	public final ConfSpaceInfo complex;
+
+	/** Calculates the energy for a molecule */
+	public final EnergyCalculator ecalc;
+
+	/** A function that makes a ConfEnergyCalculator with the desired options */
 	public final ConfEnergyCalculatorFactory confEcalcFactory;
+
+	/** A function that makes a ConfSearchFactory (e.g, A* search) with the desired options */
 	public final ConfSearchFactory confSearchFactory;
+
+	/** Optional and overridable settings for K* */
 	public final Settings settings;
 
 	public KStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator ecalc, ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, Settings settings) {
 		this.protein = new ConfSpaceInfo(protein, confEcalcFactory.make(protein, ecalc));
 		this.ligand = new ConfSpaceInfo(ligand, confEcalcFactory.make(ligand, ecalc));
 		this.complex = new ConfSpaceInfo(complex, confEcalcFactory.make(complex, ecalc));
+		this.ecalc = ecalc;
 		this.confEcalcFactory = confEcalcFactory;
 		this.confSearchFactory = confSearchFactory;
 		this.settings = settings;
 	}
 
-	public List<KStarScore> run() {
+	public List<ScoredSequence> run() {
 
-		List<KStarScore> scores = new ArrayList<>();
+		List<ScoredSequence> scores = new ArrayList<>();
 
 		// compute energy matrices
 		protein.calcEmat();
@@ -341,7 +398,7 @@ public class KStar {
 
 			// compute the K* score if possible
 			KStarScore kstarScore = new KStarScore(proteinResult, ligandResult, complexResult);
-			scores.add(kstarScore);
+			scores.add(new ScoredSequence(complex.sequences.get(i), kstarScore));
 
 			// report scores
 			settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(

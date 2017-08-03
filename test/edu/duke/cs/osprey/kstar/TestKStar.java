@@ -34,7 +34,7 @@ public class TestKStar {
 
 	public static class Result {
 		public KStar kstar;
-		public List<KStarScore> scores;
+		public List<KStar.ScoredSequence> scores;
 	}
 
 	public static Result runKStar(ConfSpaces confSpaces, double epsilon) {
@@ -248,15 +248,15 @@ public class TestKStar {
 
 	public static void assertSequence(Result result, int sequenceIndex, String sequence, Double proteinQStar, Double ligandQStar, Double complexQStar, double epsilon) {
 
-		KStarScore score = result.scores.get(sequenceIndex);
+		KStar.ScoredSequence scoredSequence = result.scores.get(sequenceIndex);
 
 		// check the sequence
-		assertThat(result.kstar.complex.sequences.get(sequenceIndex), is(new KStar.Sequence(sequence)));
+		assertThat(scoredSequence.sequence, is(new KStar.Sequence(sequence)));
 
 		// check q* values and epsilon
-		assertResult(score.protein, proteinQStar, epsilon);
-		assertResult(score.ligand, ligandQStar, epsilon);
-		assertResult(score.complex, complexQStar, epsilon);
+		assertResult(scoredSequence.score.protein, proteinQStar, epsilon);
+		assertResult(scoredSequence.score.ligand, ligandQStar, epsilon);
+		assertResult(scoredSequence.score.complex, complexQStar, epsilon);
 	}
 
 	public static void assertResult(PartitionFunction.Result result, Double qstar, double epsilon) {

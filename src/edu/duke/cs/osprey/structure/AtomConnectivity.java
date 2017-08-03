@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.HashCalculator;
 
 /**
@@ -49,12 +50,17 @@ public class AtomConnectivity {
 		
 		private Set<ResidueTemplate> templates = new HashSet<>();
 		private Parallelism parallelism = Parallelism.makeCpu(1);
-		
+
 		public Builder addTemplates(Collection<ResidueTemplate> val) {
 			templates.addAll(val);
 			return this;
 		}
-		
+
+		public Builder addTemplates(ResidueTemplateLibrary val) {
+			addTemplates(val.templates);
+			return this;
+		}
+
 		public Builder addTemplates(SimpleConfSpace confSpace) {
 			addTemplates(collectTemplates(confSpace));
 			return this;

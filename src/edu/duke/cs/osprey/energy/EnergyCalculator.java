@@ -25,6 +25,7 @@ import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -71,7 +72,14 @@ public class EnergyCalculator implements AutoCleanable {
 		private DofTypes dofTypes = DofTypes.Any;
 		private AtomConnectivity.Builder atomConnectivityBuilder = new AtomConnectivity.Builder();
 		private ResPairCache resPairCache;
+
+		/** True to minimize continuous degrees of freedom in conformations. False to use only rigid structures. */
 		private boolean isMinimizing = true;
+
+		public Builder(ResidueTemplateLibrary templateLib, ForcefieldParams ffparams) {
+			this.ffparams = ffparams;
+			this.atomConnectivityBuilder.addTemplates(templateLib);
+		}
 
 		public Builder(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
 			this.ffparams = ffparams;
@@ -137,6 +145,11 @@ public class EnergyCalculator implements AutoCleanable {
 		}
 	}
 
+	/**
+	 * Create an energy calculator that shares resources with an existing energy calculator,
+	 * (including thread pools, GPUs, atom connectivity cache, forcefield),
+	 * but can have different configuration.
+	 */
 	public static class SharedBuilder {
 
 		private EnergyCalculator parent;

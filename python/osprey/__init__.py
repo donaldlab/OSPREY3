@@ -25,6 +25,7 @@ Forcefield = None
 SolvationForcefield = None
 EnergyPartition = None
 ExternalMemory = None
+Sequence = None
 
 
 def _get_builder(jclass, builder_name='Builder'):
@@ -108,6 +109,8 @@ def start(heapSizeMB=1024, enableAssertions=False, stackSizeMB=8):
 	EnergyPartition = c.energy.EnergyPartition
 	global ExternalMemory
 	ExternalMemory = c.externalMemory.ExternalMemory
+	global Sequence
+	Sequence = jvm.getInnerClass(c.kstar.KStar, 'Sequence')
 
 	# expose static builder methods too
 	Parallelism.makeCpu = c.parallelism.Parallelism.makeCpu
@@ -365,7 +368,7 @@ def ForcefieldParams(forcefield=None):
 	return c.energy.forcefield.ForcefieldParams()
 
 
-def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None):
+def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimizing=None):
 	'''
 	:java:classdoc:`.energy.EnergyCalculator`
 
@@ -374,6 +377,7 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None):
 	:builder_option ffparams .energy.EnergyCalculator$Builder#ffparams:
 	:builder_option parallelism .energy.EnergyCalculator$Builder#parallelism:
 	:builder_option type .energy.EnergyCalculator$Builder#type:
+	:builder_option isMinimizing .energy.EnergyCalculator$Builder#isMinimizing:
 	:builder_return .energy.EnergyCalculator$Builder:
 	'''
 	builder = _get_builder(c.energy.EnergyCalculator)(confSpace, ffparams)
@@ -383,6 +387,26 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None):
 
 	if type is not None:
 		builder.setType(type)
+
+	if isMinimizing is not None:
+		builder.setIsMinimizing(isMinimizing)
+
+	return builder.build()
+
+
+def SharedEnergyCalculator(ecalc, isMinimizing=None):
+	'''
+	:java:classdoc:`.energy.EnergyCalculator$SharedBuilder`
+
+	:param ecalc: The existing energy calculator with which to share resources
+	:type ecalc: :java:ref:`.energy.EnergyCalculator`
+	:builder_option isMinimizing .energy.EnergyCalculator$Builder#isMinimizing:
+	:builder_return .energy.EnergyCalculator$SharedBuilder:
+	'''
+	builder = jvm.getInnerClass(c.energy.EnergyCalculator, 'SharedBuilder')(ecalc)
+
+	if isMinimizing is not None:
+		builder.setIsMinimizing(isMinimizing)
 
 	return builder.build()
 
@@ -591,12 +615,35 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	return bbflex
 
 
-def KStar(protein, ligand, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=None, maxSimultaneousMutations=None):
-	# TODO: docstring
+def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=None, maxSimultaneousMutations=None, writeSequencesToConsole=False, writeSequencesToFile=None):
+	'''
+	:java:classdoc:`.kstar.KStar`
+
+	For examples using K*, see the examples/python.KStar directory in your Osprey distribution.
+
+	:param proteinConfSpace: :java:fielddoc:`.kstar.KStar#protein`
+	:type proteinConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param ligandConfSpace: :java:fielddoc:`.kstar.KStar#ligand`
+	:type ligandConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param complexConfSpace: :java:fielddoc:`.kstar.KStar#complex`
+	:type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param ecalc: :java:fielddoc:`.kstar.KStar#ecalc`
+	:type ecalc: :java:ref:`.energy.EnergyCalculator`
+	:param confEcalcFactory: :java:fielddoc:`.kstar.KStar#confEcalcFactory`
+	:type confEcalcFactory: :java:ref:`.kstar.KStar$ConfEnergyCalculatorFactory`
+	:param astarFactory: :java:fielddoc:`.kstar.KStar#confSearchFactory`
+	:type astarFactory: :java:ref:`.kstar.KStar$ConfSearchFactory`
+	:builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
+	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
+	:param bool writeSequencesToConsole: True to write sequences and scores to the console
+	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format)
+
+	:rtype: :java:ref:`.kstar.KStar`
+	'''
 
 	# convert functions from python to java
 	confEcalcFactory = jpype.JProxy(jvm.getInnerClass(c.kstar.KStar, 'ConfEnergyCalculatorFactory'), dict={ 'make': confEcalcFactory })
-	astarFactory = jpype.JProxy(c.gmec.ConfSearchFactory, dict={ 'make': astarFactory })
+	astarFactory = jpype.JProxy(jvm.getInnerClass(c.kstar.KStar, 'ConfSearchFactory'), dict={ 'make': astarFactory })
 
 	# build settings
 	settingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.KStar, 'Settings'))()
@@ -604,11 +651,63 @@ def KStar(protein, ligand, complexConfSpace, ecalc, confEcalcFactory, astarFacto
 		settingsBuilder.setEpsilon(epsilon)
 	if maxSimultaneousMutations is not None:
 		settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+	if writeSequencesToConsole:
+		settingsBuilder.addScoreConsoleWriter()
+	if writeSequencesToFile is not None:
+		settingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
 	settings = settingsBuilder.build()
 
-	kstar = c.kstar.KStar(protein, ligand, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
+	return c.kstar.KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
 
-	# TEMP
-	#score = kstar.calcConfSpaceScore()
-	#print('K* score: %e' % score.doubleValue())
-	kstar.run()
+
+def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=None, maxSimultaneousMutations=None, numBestSequences=None, numConfsPerBatch=None, writeSequencesToConsole=False, writeSequencesToFile=None):
+	'''
+	:java:classdoc:`.kstar.BBKStar`
+
+	For examples using BBK*, see the examples/python.KStar directory in your Osprey distribution.
+
+	:param proteinConfSpace: :java:fielddoc:`.kstar.BBKStar#protein`
+	:type proteinConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param ligandConfSpace: :java:fielddoc:`.kstar.BBKStar#ligand`
+	:type ligandConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param complexConfSpace: :java:fielddoc:`.kstar.BBKStar#complex`
+	:type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param rigidEcalc: :java:fielddoc:`.kstar.BBKStar#rigidEcalc`
+	:type rigidEcalc: :java:ref:`.energy.EnergyCalculator`
+	:param minimizingEcalc: :java:fielddoc:`.kstar.BBKStar#minimizingEcalc`
+	:type minimizingEcalc: :java:ref:`.energy.EnergyCalculator`
+	:param confEcalcFactory: :java:fielddoc:`.kstar.BBKStar#confEcalcFactory`
+	:type confEcalcFactory: :java:ref:`.kstar.KStar$ConfEnergyCalculatorFactory`
+	:param astarFactory: :java:fielddoc:`.kstar.BBKStar#confSearchFactory`
+	:type astarFactory: :java:ref:`.kstar.KStar$ConfSearchFactory`
+	:builder_option epsilon .kstar.BBKStar$Settings$Builder#epsilon:
+	:builder_option maxSimultaneousMutations .kstar.BBKStar$Settings$Builder#maxSimultaneousMutations:
+	:builder_option numBestSequences .kstar.BBKStar$Settings$Builder#numBestSequences:
+	:builder_option numConfsPerBatch .kstar.BBKStar$Settings$Builder#numConfsPerBatch:
+	:param bool writeSequencesToConsole: True to write sequences and scores to the console
+	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format)
+
+	:rtype: :java:ref:`.kstar.BBKStar`
+	'''
+
+	# convert functions from python to java
+	confEcalcFactory = jpype.JProxy(jvm.getInnerClass(c.kstar.KStar, 'ConfEnergyCalculatorFactory'), dict={ 'make': confEcalcFactory })
+	astarFactory = jpype.JProxy(jvm.getInnerClass(c.kstar.KStar, 'ConfSearchFactory'), dict={ 'make': astarFactory })
+
+	# build settings
+	settingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.BBKStar, 'Settings'))()
+	if epsilon is not None:
+		settingsBuilder.setEpsilon(epsilon)
+	if maxSimultaneousMutations is not None:
+		settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+	if numBestSequences is not None:
+		settingsBuilder.setNumBestSequences(numBestSequences)
+	if numConfsPerBatch is not None:
+		settingsBuilder.setNumConfsPerBatch(numConfsPerBatch)
+	if writeSequencesToConsole:
+		settingsBuilder.addScoreConsoleWriter()
+	if writeSequencesToFile is not None:
+		settingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
+	settings = settingsBuilder.build()
+
+	return c.kstar.BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, settings)

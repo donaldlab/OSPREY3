@@ -41,5 +41,6 @@ public class TestPythonScripts {
 		run("examples/python.KStar", script);
 	}
 
-	@Test public void kstarSingleSequence() { runKStar("kstar.singleSequence.py"); }
+	@Test public void kstar() { runKStar("kstar.py"); }
+	@Test public void bbkstar() { runKStar("bbkstar.py"); }
 }

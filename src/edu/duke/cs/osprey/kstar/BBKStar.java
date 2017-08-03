@@ -18,6 +18,14 @@ import java.math.RoundingMode;
 import java.util.*;
 import java.util.function.Function;
 
+/**
+ * Implementation of the BBK* algorithm to predict protein sequence mutations that improve
+ * binding affinity by computing provably accurate Boltzmann-weighted ensembles
+ * {@cite Ojewole2008 Adegoke A. Ojewole, Jonathan D. Jou, Vance G. Fowler, Jr., and Bruce R. Donald, 2017.
+ * BBK* (Branch and Bound over K*): A Provable and Efficient Ensemble-Based Algorithm to Optimize
+ * Stability and Binding Affinity over Large Sequence Spaces
+ * In Research in Computational Molecular Biology (accepted, in press).}.
+ */
 public class BBKStar {
 
 	// *sigh* Java makes this stuff so verbose to do...
@@ -26,11 +34,30 @@ public class BBKStar {
 
 		public static class Builder {
 
+			/**
+			 * Value of epsilon in (0,1] for the epsilon-approximation to a partition function.
+			 *
+			 * Smaller values for epsilon yield more accurate predictions, but can take
+			 * longer to run.
+			 */
 			private double epsilon = 0.683;
-			private int maxSimultaneousMutations = Integer.MAX_VALUE;
+
+			/** The maximum number of simultaneous residue mutations to consider for each sequence mutant */
+			private int maxSimultaneousMutations = 1;
+
 			private boolean showPfuncProgress = false;
+
+			/** The number of best (by K* score) sequences to evaluate before finishing */
 			private int numBestSequences = 1;
+
+			/**
+			 * The number of conformations to evaluate per batch of partition function refinement
+			 *
+			 * For best results, make this a multiple of the available parallelism. e.g., if using 4 threads,
+			 * try a batch size of 4, 8, 12, 16, etc.
+			 */
 			private int numConfsPerBatch = 8;
+
 			private KStarScoreWriter.Writers scoreWriters = new KStarScoreWriter.Writers();
 
 			public Builder setEpsilon(double val) {
@@ -456,22 +483,28 @@ public class BBKStar {
 		}
 	}
 
-	public static class ScoredSequence {
-
-		public final KStar.Sequence sequence;
-		public final KStarScore score;
-
-		public ScoredSequence(KStar.Sequence sequence, KStarScore score) {
-			this.sequence = sequence;
-			this.score = score;
-		}
-	}
-
+	/** A configuration space containing just the protein strand */
 	public final ConfSpaceInfo protein;
+
+	/** A configuration space containing just the ligand strand */
 	public final ConfSpaceInfo ligand;
+
+	/** A configuration space containing both the protein and ligand strands */
 	public final ConfSpaceInfo complex;
+
+	/** Calculates the rigid-rotamer energy for a molecule */
+	public final EnergyCalculator rigidEcalc;
+
+	/** Calculates the continuous-rotamer (minimized) energy for a molecule */
+	public final EnergyCalculator minimizingEcalc;
+
+	/** A function that makes a ConfEnergyCalculator with the desired options */
 	public final KStar.ConfEnergyCalculatorFactory confEcalcFactory;
+
+	/** A function that makes a ConfSearchFactory (e.g, A* search) with the desired options */
 	public final ConfSearchFactory confSearchFactory;
+
+	/** Optional and overridable settings for BBK* */
 	public final Settings settings;
 
 	private final Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToProteinMap;
@@ -502,6 +535,8 @@ public class BBKStar {
 			confEcalcFactory.make(complex, rigidEcalc),
 			confEcalcFactory.make(complex, minimizingEcalc)
 		);
+		this.rigidEcalc = rigidEcalc;
+		this.minimizingEcalc = minimizingEcalc;
 		this.confEcalcFactory = confEcalcFactory;
 		this.confSearchFactory = confSearchFactory;
 		this.settings = settings;
@@ -514,13 +549,13 @@ public class BBKStar {
 		complexPfuncs = new HashMap<>();
 	}
 
-	public List<ScoredSequence> run() {
+	public List<KStar.ScoredSequence> run() {
 
 		protein.calcEmatsIfNeeded();
 		ligand.calcEmatsIfNeeded();
 		complex.calcEmatsIfNeeded();
 
-		List<ScoredSequence> scoredSequences = new ArrayList<>();
+		List<KStar.ScoredSequence> scoredSequences = new ArrayList<>();
 
 		// start the BBK* tree with the root node
 		PriorityQueue<Node> tree = new PriorityQueue<>();
@@ -528,6 +563,7 @@ public class BBKStar {
 
 		// start searching the tree
 		System.out.println("computing K* scores for the " + settings.numBestSequences + " best sequences to epsilon = " + settings.epsilon + " ...");
+		settings.scoreWriters.writeHeader();
 		while (!tree.isEmpty() && scoredSequences.size() < settings.numBestSequences) {
 
 			// get the next node
@@ -584,13 +620,13 @@ public class BBKStar {
 		return scoredSequences;
 	}
 
-	private void reportSequence(SingleSequenceNode ssnode, List<ScoredSequence> scoredSequences) {
+	private void reportSequence(SingleSequenceNode ssnode, List<KStar.ScoredSequence> scoredSequences) {
 
 		KStarScore kstarScore = ssnode.makeKStarScore();
-		scoredSequences.add(new ScoredSequence(ssnode.sequence, kstarScore));
+		scoredSequences.add(new KStar.ScoredSequence(ssnode.sequence, kstarScore));
 
 		settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
-			scoredSequences.size(),
+			scoredSequences.size() - 1,
 			settings.numBestSequences,
 			ssnode.sequence,
 			complex.confSpace,

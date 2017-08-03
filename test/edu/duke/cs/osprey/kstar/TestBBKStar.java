@@ -18,7 +18,7 @@ public class TestBBKStar {
 
 	public static class Results {
 		public BBKStar bbkstar;
-		public List<BBKStar.ScoredSequence> sequences;
+		public List<KStar.ScoredSequence> sequences;
 	}
 
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon) {
@@ -135,7 +135,7 @@ public class TestBBKStar {
 	private void assertSequence(Results results, String sequence, Double estKStarLowerLog10, Double estKStarUpperLog10) {
 
 		// find the sequence
-		for (BBKStar.ScoredSequence scoredSequence : results.sequences) {
+		for (KStar.ScoredSequence scoredSequence : results.sequences) {
 
 			if (scoredSequence.sequence.toString().equals(sequence)) {
 
@@ -160,10 +160,10 @@ public class TestBBKStar {
 		fail("sequence not found: " + sequence);
 	}
 
-	private void assertDecreasingUpperBounds(List<BBKStar.ScoredSequence> sequences) {
+	private void assertDecreasingUpperBounds(List<KStar.ScoredSequence> sequences) {
 
 		double minUpperBoundLog10 = Double.POSITIVE_INFINITY;
-		for (BBKStar.ScoredSequence sequence : sequences) {
+		for (KStar.ScoredSequence sequence : sequences) {
 
 			Double upperBoundLog10 = sequence.score.upperBoundLog10();
 			if (upperBoundLog10 == null) {
