@@ -236,6 +236,9 @@ tasks {
 			// delete old cruft
 			delete {
 				delete(pythonWheelDir)
+				delete(fileTree(pythonBuildDir) {
+					include("*.whl")
+				})
 			}
 
 			// copy python sources
