@@ -501,12 +501,15 @@ public class EnergyCalculator implements AutoCleanable {
 		}
 	}
 
+	public EnergyFunction makeEnergyFunction(ParametricMolecule pmol, ResidueInteractions inters) {
+		return context.efuncs.make(inters, pmol.mol);
+	}
+
 	public MoleculeObjectiveFunction makeEnergyObjFcn(ParametricMolecule pmol, ResidueInteractions inters) {
 		//represent the energy indicated by inters as a function of the degrees of freedom in pmol,
 		//valid within the specified bounds
 		//calcEnergy gives the minimum of this function
-		EnergyFunction efunc = context.efuncs.make(inters, pmol.mol);
-		return new MoleculeObjectiveFunction(pmol, efunc);
+		return new MoleculeObjectiveFunction(pmol, makeEnergyFunction(pmol, inters));
 	}
 
 	public void writeMinimizedStruct(ParametricMolecule pmol, ResidueInteractions inters, String fileName) {
