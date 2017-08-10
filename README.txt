@@ -1,5 +1,9 @@
 This is the development version of OSPREY.  For stable versions, please visit http://www.cs.duke.edu/donaldlab/osprey.php
 
+OSPREY is controlled using config files; the test folder contains various examples of these.  
+For example, with the compiled OSPREY classes and the jar files in lib on your classpath, you can run the example test/1CC8 using the command
+java -Xmx2g edu.duke.cs.osprey.control.Main -c KStar.cfg findGMEC System.cfg DEE.cfg
+A more convenient Python interface is coming soon.  
 
 OSPREY Protein Redesign Software
 Copyright (C) 2001-2017 Bruce Donald Lab, Duke University
