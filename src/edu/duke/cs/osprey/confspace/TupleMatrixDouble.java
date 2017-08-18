@@ -5,6 +5,8 @@
 package edu.duke.cs.osprey.confspace;
 
 import java.util.ArrayList;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import org.apache.commons.collections4.iterators.ArrayIterator;
 
@@ -92,5 +94,81 @@ public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
 		for (int i=0; i<pairwise.length; i++) {
 			pairwise[i] = -pairwise[i];
 		}
+	}
+
+	@Override
+	public String toString() {
+
+    	StringBuilder buf = new StringBuilder();
+
+    	final String spacer = "  ";
+		BiConsumer<Integer,Integer> labelPrinter = (pos, rc) -> {
+			buf.append(spacer);
+			buf.append(String.format("%2d:%03d", pos, rc));
+		};
+		Consumer<Double> energyPrinter = (energy) -> {
+			buf.append(spacer);
+			if (energy == Double.POSITIVE_INFINITY) {
+				buf.append(String.format("%6s", "inf"));
+			} else if (energy == Double.NEGATIVE_INFINITY) {
+				buf.append(String.format("%6s", "-inf"));
+			} else if (energy >= 1000) {
+				buf.append(String.format("%6s", ">1k"));
+			} else {
+				buf.append(String.format("%6.2f", energy));
+			}
+		};
+		Runnable blankPrinter = () -> {
+			buf.append(spacer);
+			buf.append("      ");
+		};
+
+    	// singles
+		buf.append("singles:\n");
+		blankPrinter.run();
+		for (int pos1=0; pos1<getNumPos(); pos1++) {
+			int n1 = getNumConfAtPos(pos1);
+			for (int rc1=0; rc1<n1; rc1++) {
+				labelPrinter.accept(pos1, rc1);
+			}
+		}
+		buf.append("\n");
+		blankPrinter.run();
+		for (int pos1=0; pos1<getNumPos(); pos1++) {
+			int n1 = getNumConfAtPos(pos1);
+			for (int rc1=0; rc1<n1; rc1++) {
+				energyPrinter.accept(getOneBody(pos1, rc1));
+			}
+		}
+		buf.append("\n");
+
+		// pairs
+		buf.append("pairs:\n");
+		blankPrinter.run();
+		for (int pos1=0; pos1<getNumPos(); pos1++) {
+			int n1 = getNumConfAtPos(pos1);
+			for (int rc1=0; rc1<n1; rc1++) {
+				labelPrinter.accept(pos1, rc1);
+			}
+		}
+		buf.append("\n");
+		for (int pos1=1; pos1<getNumPos(); pos1++) {
+			int n1 = getNumConfAtPos(pos1);
+			for (int rc1=0; rc1<n1; rc1++) {
+
+				labelPrinter.accept(pos1, rc1);
+
+				for (int pos2=0; pos2<pos1; pos2++) {
+					int n2 = getNumConfAtPos(pos2);
+					for (int rc2=0; rc2<n2; rc2++) {
+						energyPrinter.accept(getPairwise(pos1, rc1, pos2, rc2));
+					}
+				}
+
+				buf.append("\n");
+			}
+		}
+
+		return buf.toString();
 	}
 }

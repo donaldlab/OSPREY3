@@ -489,7 +489,7 @@ public class TestForcefieldEnergy extends TestBase {
 		// mutate to a proline, which will be broken at this pos
 		Residue res = r.gly15;
 		res.pucker = new ProlinePucker(strand.templateLib, res);
-		ResidueTypeDOF.switchToTemplate(strand.templateLib, res, "PRO");
+		ResidueTypeDOF.switchToTemplate(strand.templateLib, res, strand.templateLib.getTemplate("PRO"), true);
 		
 		assertThat(res.confProblems.size(), is(1));
 		checkEnergies(efuncs, residues,

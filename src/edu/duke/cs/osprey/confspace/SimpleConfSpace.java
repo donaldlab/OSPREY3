@@ -146,17 +146,19 @@ public class SimpleConfSpace implements Serializable {
 		}
 
 		public void updateResidue(ResidueTemplateLibrary templateLib, Residue res) {
-			
+
 			// HACKHACK: make sure prolines have puckers
-			if (res.template.name.equalsIgnoreCase("PRO") || template.name.equalsIgnoreCase("PRO")) {
+			boolean toProline = template.name.equalsIgnoreCase("PRO");
+			if (toProline) {
 				res.pucker = new ProlinePucker(templateLib, res);
 			}
-			
+
+			ResidueTypeDOF.switchToTemplate(templateLib, res, template, false);
+
+			// NOTE: currently only set for prolines, will idealize sidechain and check for problems
 			if (postTemplateModifier != null) {
 				postTemplateModifier.modify(res);
 			}
-			
-			ResidueTypeDOF.switchToTemplate(templateLib, res, template, false);
 		}
 		
 		public String getRotamerCode() {
@@ -334,7 +336,7 @@ public class SimpleConfSpace implements Serializable {
 		//make one RC for each (backbone voxel, rotamer) pair
 		for (HashMap<String,double[]> bbState : listBackboneVoxels(pos)) {
 
-			if (template.name.equalsIgnoreCase("PRO")) {
+			if (template.name.equalsIgnoreCase("PRO") && type == ResidueConf.Type.Library) {
 
 				// HACKHACK: add one conf for each proline pucker
 				for (ProlinePucker.Direction dir : ProlinePucker.Direction.values()) {
@@ -458,7 +460,7 @@ public class SimpleConfSpace implements Serializable {
 		}
 
 		// OK now apply all DOF vals including puckers
-		
+
 		// make all the DOFs
 		List<DegreeOfFreedom> dofs = new ArrayList<>();
 		
@@ -520,7 +522,7 @@ public class SimpleConfSpace implements Serializable {
 				}
 			}
 		}
-		
+
 		return new ParametricMolecule(mol, dofs, dofBounds);
 	}
 	

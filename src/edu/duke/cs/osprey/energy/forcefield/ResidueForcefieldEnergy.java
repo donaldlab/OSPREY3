@@ -23,8 +23,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	public final Residues residues;
 	
 	public final ResPair[] resPairs;
-	
-	private boolean isBroken;
+	public final boolean isBroken;
 	
 	private double coulombFactor;
 	private double scaledCoulombFactor;
@@ -53,7 +52,6 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		}
 		
 		// is this a broken conformation?
-		isBroken = false;
 		for (ResPair pair : resPairs) {
 			if (pair.res1.confProblems.size() + pair.res2.confProblems.size() > 0) {
 				isBroken = true;
@@ -62,7 +60,8 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 				return;
 			}
 		}
-		
+		isBroken = false;
+
 		// pre-compute some constants needed by getEnergy()
 		coulombFactor = ForcefieldParams.coulombConstant/resPairCache.ffparams.dielectric;
 		scaledCoulombFactor = coulombFactor*resPairCache.ffparams.forcefld.coulombScaling;

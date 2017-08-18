@@ -35,7 +35,7 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 	public final ResidueInteractions inters;
 	public final Residues residues;
 	
-	private boolean isBroken;
+	public final boolean isBroken;
 	
 	/* buffer layout:
 	 * NOTE: try to use 8-byte alignments to be happy on 64-bit machines
@@ -107,7 +107,6 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		this.residues = inters.filter(residues);
 		
 		// is this a broken conformation?
-		isBroken = false;
 		for (Residue res : this.residues) {
 			if (!res.confProblems.isEmpty()) {
 				isBroken = true;
@@ -116,6 +115,7 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 				return;
 			}
 		}
+		isBroken = false;
 		
 		// compute solvation info if needed
 		SolvationForcefield.ResiduesInfo solvInfo = null;

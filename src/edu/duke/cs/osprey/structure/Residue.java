@@ -83,7 +83,7 @@ public class Residue implements Serializable {
         
         this.indexInMolecule = other.indexInMolecule;
         this.template = other.template;
-        this.confProblems = other.confProblems;
+        this.confProblems = new ArrayList<>(other.confProblems);
         this.pucker = other.pucker;
         this.secondaryStruct = other.secondaryStruct;
         

@@ -82,10 +82,6 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     	switchToTemplate(templateLib, res, newTemplate, idealizeSidechainAfterMutation);
     }
     
-    public static void switchToTemplate(ResidueTemplateLibrary templateLib, Residue res, String resType) {
-    	switchToTemplate(templateLib, res, templateLib.getTemplate(resType));
-    }
-    
     public static void switchToTemplate(ResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate) {
     	switchToTemplate(templateLib, res, newTemplate, false);
     }
@@ -151,7 +147,9 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
         
         //special case if sidechain loops back in additional place to backbone...
         if(oldTemplate.name.equalsIgnoreCase("PRO") || newTemplate.name.equalsIgnoreCase("PRO")){
-            SidechainIdealizer.idealizeSidechain(templateLib, res);
+            if (idealizeSidechainAfterMutation) {
+                SidechainIdealizer.idealizeSidechain(templateLib, res);
+            }
             if(!newTemplate.name.equalsIgnoreCase("PRO")){//if mutating from Pro, no ring closure issues possible anymore
                 if(res.pucker!=null){
                     if(res.pucker.puckerProblem != null){

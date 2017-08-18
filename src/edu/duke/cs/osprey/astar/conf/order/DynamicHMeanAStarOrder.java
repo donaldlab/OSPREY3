@@ -20,23 +20,25 @@ public class DynamicHMeanAStarOrder implements AStarOrder {
 		
 		int bestPos = -1;
 		double bestScore = Double.NEGATIVE_INFINITY;
-		
+
 		for (int i=0; i<confIndex.numUndefined; i++) {
 			
 			int pos = confIndex.undefinedPos[i];
 			double score = scorePos(confIndex, rcs, pos);
-			
+
 			if (score > bestScore) {
 				bestScore = score;
 				bestPos = pos;
 			}
 		}
-			
-		if (bestPos == -1) {
-			throw new RuntimeException("ERROR: Can't find next position for dynamic A*");
+
+		if (bestPos >= 0) {
+			return bestPos;
 		}
-		
-		return bestPos;
+
+		// sometimes, all the positions have infinite energies
+		// so just pick one arbitrarily
+		return confIndex.undefinedPos[0];
 	}
 
 	double scorePos(ConfIndex confIndex, RCs rcs, int pos) {

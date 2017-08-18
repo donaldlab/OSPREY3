@@ -148,8 +148,9 @@ public class SimpleGMECFinder {
 		}
 		ScoredConf minScoreConf = search.nextConf();
 		if (minScoreConf == null) {
-			
+
 			// no confs in the search space
+			System.out.println("No conformations found with finite energies");
 			return Queue.FIFOFactory.of();
 		}
 		System.out.println("Found min score conformation in " + minScoreStopwatch.getTime(1));

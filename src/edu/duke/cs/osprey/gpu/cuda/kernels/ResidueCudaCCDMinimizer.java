@@ -160,6 +160,11 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		} else {
 			throw new Error("energy function should be a " + ResidueForcefieldEnergy.class.getSimpleName() + ", not a " + mof.efunc.getClass().getSimpleName() + ". this is a bug");
 		}
+
+		// no need to waste time on broken conformations
+		if (efunc.isBroken) {
+			return;
+		}
 		
 		// make sure this thread can use the cuda context
 		stream.getContext().attachCurrentThread();
@@ -366,6 +371,11 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 	
 	@Override
 	public Minimizer.Result minimize() {
+
+		// no need to waste time on broken conformations
+		if (efunc.isBroken) {
+			return new Minimizer.Result(null, Double.POSITIVE_INFINITY);
+		}
 		
 		// put the molecule in the staring state
 		// TODO: do initial pose on the GPU?
