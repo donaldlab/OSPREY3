@@ -194,7 +194,7 @@ public class TestDEEGMECFinder {
 	public void findMultipleStrands() {
 		EnergiedConf conf = problemMultipleStrands.makeBuilder().build().calcGMEC();
 		assertThat(conf.getAssignments(), is(new int[] { 0, 0, 0, 0, 0, 0 }));
-		assertThat(conf.getEnergy(), isAbsolutely(-84.428153, EnergyEpsilon));
-		assertThat(conf.getScore(), isAbsolutely(-84.428153, EnergyEpsilon));
+		assertThat(conf.getEnergy(), isAbsolutely(-84.555275, EnergyEpsilon));
+		assertThat(conf.getScore(), isAbsolutely(-84.555275, EnergyEpsilon));
 	}
 }
