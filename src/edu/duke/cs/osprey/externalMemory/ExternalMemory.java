@@ -2,6 +2,8 @@ package edu.duke.cs.osprey.externalMemory;
 
 import edu.duke.cs.tpie.TPIE;
 
+import java.io.File;
+
 public class ExternalMemory {
 	
 	private static boolean limitSet = false;
@@ -48,19 +50,33 @@ public class ExternalMemory {
 	/**
 	 * Set temporary directory to host external memory.
 	 * 
-	 * @param dir Path to directory. This directory must exist.
+	 * @param dir Path to directory. The directory will be created if it does not exist
 	 */
 	public static void setTempDir(String dir) {
+
+		// create the directory if needed
+		File dirFile = new File(dir);
+		if (!dirFile.exists()) {
+			dirFile.mkdirs();
+		}
+
 		TPIE.setTempDir(dir);
 	}
 	
 	/**
 	 * Set temporary directory to host external memory.
 	 * 
-	 * @param dir Path to directory. This directory must exist.
+	 * @param dir Path to directory. This directory will be created if it does not exist.
 	 * @param subdir Name of subdirectory within dir. This directory will be created if it does not exist.
 	 */
 	public static void setTempDir(String dir, String subdir) {
+
+		// create the directory if needed
+		File dirFile = new File(dir);
+		if (!dirFile.exists()) {
+			dirFile.mkdirs();
+		}
+
 		TPIE.setTempDir(dir, subdir);
 	}
 	

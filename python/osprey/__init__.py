@@ -184,6 +184,40 @@ def printGpuInfo():
 	c.gpu.opencl.Diagnostics.main(None)
 
 
+def initExternalMemory(internalSizeMiB, tempDir=None, tempSubdir=None):
+	'''
+	Initializes external memory for calculations.
+
+	:param int internalSizeMiB: :java:methoddoc:`.externalMemory.ExternalMemory#setInternalLimit`
+	:param str tempDir: Path to temporary directory to host external memory
+	:default tempDir: <system temp dir>
+	:param str tempSubdir: name of subdirectory within tempDir
+	:default tempSubdir: <automatically generated>
+	'''
+
+	ExternalMemory.setInternalLimit(internalSizeMiB)
+	if tempDir is not None:
+		if tempSubdir is not None:
+			ExternalMemory.setTempDir(tempDir, tempSubdir)
+		else:
+			ExternalMemory.setTempDir(tempDir)
+
+	# make a function we can call to cleanup the external memory
+	def cleanupExternalMemory():
+		ExternalMemory.cleanup()
+		pass
+
+	# automatically cleanup the external memory at exit
+	import atexit
+	atexit.register(cleanupExternalMemory)
+
+	# and cleanup at sigint (e.g., ctrl-c) too
+	import signal
+	def sigint_handler(signal, frame):
+		cleanupExternalMemory()
+	signal.signal(signal.SIGINT, sigint_handler)
+
+
 #-------------------------------------#
 # pythonic wrappers for Java builders #
 #-------------------------------------#

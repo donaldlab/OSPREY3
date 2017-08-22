@@ -20,7 +20,7 @@ ecalc = osprey.EnergyCalculator(confSpace, ffparams)
 confEcalc = osprey.ConfEnergyCalculator(confSpace, ecalc)
 
 # configure external memory settings
-osprey.ExternalMemory.setInternalLimit(64)
+osprey.initExternalMemory(64)
 
 # how should confs be ordered and searched?
 emat = osprey.EnergyMatrix(confEcalc)
@@ -28,8 +28,3 @@ astar = osprey.AStarMPLP(emat, confSpace, useExternalMemory=True)
 
 # find the best sequence and rotamers
 gmec = osprey.GMECFinder(astar, confEcalc, useExternalMemory=True).find()
-
-# explicitly cleanup the external memory
-# skipping this step will cause a nasty segfault
-osprey.ExternalMemory.cleanup()
-
