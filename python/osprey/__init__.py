@@ -482,6 +482,7 @@ def AStarTraditional(emat, confSpaceOrPmat, useExternalMemory=False):
 	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
 	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
+	builder.setShowProgress(True)
 	builder.setTraditional()
 
 	if useExternalMemory == True:
@@ -525,6 +526,7 @@ def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergen
 		mplpBuilder.setConvergenceThreshold(convergenceThreshold)
 
 	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
+	builder.setShowProgress(True)
 	builder.setMPLP(mplpBuilder)
 
 	if useExternalMemory == True:
