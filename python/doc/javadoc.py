@@ -333,6 +333,20 @@ class DefaultDoctag(Doctag):
 				val = '%s.%s' % (ast.qualifier, val)
 			return val
 
+		elif isinstance(ast, javalang.tree.BinaryOperation):
+
+			# expr is e.g., 4 + 4
+
+			left = self.render_ast_expression(ast.operandl)
+			if isinstance(ast.operandl, javalang.tree.BinaryOperation):
+				left = '(%s)' % left
+
+			right = self.render_ast_expression(ast.operandr)
+			if isinstance(ast.operandr, javalang.tree.BinaryOperation):
+				right = '(%s)' % right
+
+			return '%s %s %s' % (left, ast.operator, right)
+
 		else:
 			raise ValueError("java expression is a %s, don't know how to render" % ast)
 	
@@ -999,7 +1013,7 @@ class JavaClassDirective(ParsingDirective):
 		if len(constants) > 0:
 			self.show_header(rst, 'Constants')
 			for constant in constants:
-				self.show_field(rst, ref, constant, ast)
+				self.show_field_constant(rst, ref, constant, ast)
 
 		# show fields
 		fields = [field for field in ast.fields if should_show(field, ast) and not is_constant(field, ast)]
@@ -1019,7 +1033,7 @@ class JavaClassDirective(ParsingDirective):
 		if isinstance(ast, javalang.tree.EnumDeclaration):
 			self.show_header(rst, 'Constants')
 			for value in ast.body.constants:
-				self.show_constant(rst, ref, value, ast)
+				self.show_enum_constant(rst, ref, value, ast)
 				
 
 		# add a message if we didn't show anything
@@ -1086,6 +1100,33 @@ class JavaClassDirective(ParsingDirective):
 			rst.append('')
 
 
+	def show_field_constant(self, rst, ref, field, ast):
+
+		# get the javadoc, if any
+		javadoc = None
+		if field.documentation is not None:
+			try:
+				javadoc = Javadoc(field.documentation, ast, self.config)
+			except ValueError as e:
+				self.warn("Can't parse javadoc for field %s#%s" % (ref, field.name), cause=e)
+
+		# show the field name and javadoc
+		for decl in field.declarators:
+
+			# render the value
+			renderer = DefaultDoctag()
+			value = renderer.map_constants(renderer.render_ast_expression(decl.initializer))
+
+			rst.append('.. py:attribute:: %s.%s = %s' % (ref.classname, decl.name, value))
+			rst.append('')
+			if javadoc is not None:
+				rst.append(self.indent(self.format(javadoc.description)))
+				rst.append('')
+
+			rst.append('\t:type: %s' % resolve_type(field.type, ast, self.config))
+			rst.append('')
+
+
 	def show_method(self, rst, ref, method, ast):
 
 		# get the javadoc, if any
@@ -1125,7 +1166,7 @@ class JavaClassDirective(ParsingDirective):
 		rst.append('')
 
 
-	def show_constant(self, rst, ref, value, ast):
+	def show_enum_constant(self, rst, ref, value, ast):
 		
 		# get the javadoc, if any
 		javadoc = None

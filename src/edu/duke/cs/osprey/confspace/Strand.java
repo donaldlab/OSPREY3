@@ -160,21 +160,14 @@ public class Strand implements Serializable {
 		public ResidueFlex setDiscrete() {
 			return setVoxelShape(new VoxelShape.Point());
 		}
-		
+
+		/** Uses a continuous voxel with default half width of {@link VoxelShape#DefaultHalfWidthDegrees} */
 		public ResidueFlex setContinuous() {
 			return setVoxelShape(new VoxelShape.Rect());
 		}
-		
-		public ResidueFlex setContinuous(double voxelWidth) {
-			return setVoxelShape(new VoxelShape.Rect(voxelWidth));
-		}
-		
-		public ResidueFlex setContinuousEllipses() {
-			return setVoxelShape(new VoxelShape.Ellipse());
-		}
-		
-		public ResidueFlex setContinuousEllipses(double voxelWidth) {
-			return setVoxelShape(new VoxelShape.Ellipse(voxelWidth));
+
+		public ResidueFlex setContinuous(double voxelHalfWidth) {
+			return setVoxelShape(new VoxelShape.Rect(voxelHalfWidth));
 		}
 		
 		public ResidueFlex setVoxelShape(VoxelShape voxelShape) {

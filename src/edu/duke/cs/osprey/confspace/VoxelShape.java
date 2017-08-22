@@ -13,7 +13,7 @@ import java.io.Serializable;
 
 public abstract class VoxelShape implements Serializable {
 	
-	public static final double DefaultWidthDegrees = 9;
+	public static final double DefaultHalfWidthDegrees = 9;
 	
 	/**
 	 * make degrees of freedom for the residue in its current state (ie, ignore possible mutations)
@@ -51,14 +51,14 @@ public abstract class VoxelShape implements Serializable {
 	
 	public static class Rect extends VoxelShape {
 		
-		public final double width;
+		public final double halfWidth;
 		
 		public Rect() {
-			this(DefaultWidthDegrees);
+			this(DefaultHalfWidthDegrees);
 		}
 		
-		public Rect(double width) {
-			this.width = width;
+		public Rect(double halfWidth) {
+			this.halfWidth = halfWidth;
 		}
 
 		@Override
@@ -75,7 +75,7 @@ public abstract class VoxelShape implements Serializable {
 			DofBounds bounds = new DofBounds(template.numDihedrals);
 			for (int d=0; d<template.numDihedrals; d++) {
 				double chi = template.getRotamericDihedrals(rotamerIndex, d);
-				bounds.set(d, chi - width, chi + width);
+				bounds.set(d, chi - halfWidth, chi + halfWidth);
 			}
 			return bounds;
 		}
@@ -84,40 +84,5 @@ public abstract class VoxelShape implements Serializable {
 		public DofTypes getDofTypes() {
 			return DofTypes.OnlyDihedrals;
 		}
-	}
-	
-	public static class Ellipse extends VoxelShape {
-
-		public final double width;
-		
-		public Ellipse() {
-			this(DefaultWidthDegrees);
-		}
-		
-		public Ellipse(double width) {
-			this.width = width;
-		}
-		
-		@Override
-		public List<DegreeOfFreedom> makeDihedralDOFs(Residue res) {
-			
-			Rect rectVoxel = new Rect(width);
-			List<DegreeOfFreedom> dihedrals = rectVoxel.makeDihedralDOFs(res);
-			
-			// TODO: build elliptical DOFs
-			throw new UnsupportedOperationException("not implement yet");
-		}
-
-		@Override
-		public DofBounds makeDihedralBounds(ResidueTemplate template, int rotamerIndex) {
-			// TODO: implement me
-			throw new UnsupportedOperationException("not implement yet");
-		}
-
-		@Override
-		public DofTypes getDofTypes() {
-			// TODO: implement me
-			throw new UnsupportedOperationException("not implement yet");
-		} 
 	}
 }

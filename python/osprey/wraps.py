@@ -58,11 +58,6 @@ def wrapResidueFlex(c):
 			return old(self, float(angle))
 	wrapMethod(jtype, 'setContinuous', newSetContinuous)
 
-	# autocast setContinuousEllipses() to float
-	def newSetContinuousEllipses(old, self, angle):
-		return old(self, float(angle))
-	wrapMethod(jtype, 'setContinuousEllipses', newSetContinuousEllipses)
-	
 	# NOTE: property wrapping example
 	#def newGetter(oldGetter, self):
 	#	return oldGetter(self)
