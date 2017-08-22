@@ -41,7 +41,7 @@ public class TestSimpleConfSpace extends TestBase {
 	public void moleculeCopy() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers();
+		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		int[] conf = { 0 };
 		ParametricMolecule pmol = confSpace.makeMolecule(conf);
@@ -71,7 +71,7 @@ public class TestSimpleConfSpace extends TestBase {
 	public void onePosition() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers();
+		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -87,8 +87,8 @@ public class TestSimpleConfSpace extends TestBase {
 	public void twoPositions() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers();
-		strand.flexibility.get(42).setLibraryRotamers();
+		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get(42).setLibraryRotamers(Strand.WildType);
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -109,7 +109,7 @@ public class TestSimpleConfSpace extends TestBase {
 	public void onePositionShell() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers();
+		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -127,8 +127,8 @@ public class TestSimpleConfSpace extends TestBase {
 	public void twoPositionsShell() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers();
-		strand.flexibility.get(42).setLibraryRotamers();
+		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get(42).setLibraryRotamers(Strand.WildType);
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -146,7 +146,7 @@ public class TestSimpleConfSpace extends TestBase {
 	public void oneDiscreteWildType() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers();
+		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
 		assertThat(strand.mol.getResByPDBResNumber("2").fullName, is("ALA A   2"));
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();

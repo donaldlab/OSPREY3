@@ -98,8 +98,8 @@ public class TestStrand {
 			.setResidues(2, 5)
 			.build();
 		
-		strand.flexibility.get(2).setLibraryRotamers();
-		strand.flexibility.get(4).setLibraryRotamers();
+		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get(4).setLibraryRotamers(Strand.WildType);
 		
 		assertThat(strand.flexibility.getFlexibleResidueNumbers(), contains("2", "4"));
 	}
@@ -111,8 +111,8 @@ public class TestStrand {
 			.setResidues(2, 5)
 			.build();
 		
-		strand.flexibility.get(2).setLibraryRotamers();
-		strand.flexibility.get(4).setLibraryRotamers();
+		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get(4).setLibraryRotamers(Strand.WildType);
 		
 		assertThat(strand.flexibility.getStaticResidueNumbers(), contains("3", "5"));
 	}

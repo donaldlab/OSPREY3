@@ -21,7 +21,7 @@ So, without further ado, here's our first Python script.
 	strand = osprey.Strand('1CC8.ss.pdb')
 	strand.flexibility[2].setLibraryRotamers('ALA', 'GLY')
 	strand.flexibility[3].setLibraryRotamers(osprey.WILD_TYPE, 'VAL')
-	strand.flexibility[4].setLibraryRotamers()
+	strand.flexibility[4].setLibraryRotamers(osprey.WILD_TYPE)
 
 	# make the conf space
 	confSpace = osprey.ConfSpace(strand)
@@ -72,7 +72,7 @@ from the Python script.
 	strand = osprey.Strand('1CC8.ss.pdb')
 	strand.flexibility[2].setLibraryRotamers('ALA', 'GLY')
 	strand.flexibility[3].setLibraryRotamers(osprey.WILD_TYPE, 'VAL')
-	strand.flexibility[4].setLibraryRotamers()
+	strand.flexibility[4].setLibraryRotamers(osprey.WILD_TYPE)
 
 These lines are where much of the configuration for your design will take place, since
 this is where we define what flexibility is allowed in the design.
@@ -91,14 +91,9 @@ For residue ``2`` specifically, we're forcing the sequence to mutate to either A
 For residue ``3``, we're allowing a mutation to Valine, but the sequence can also stay at whatever
 amino acid is present in the PDB file by using the magic constant, :py:const:`osprey.WILD_TYPE`.
 
-For residue ``4``, calling ``setLibraryRotamers`` without any arguments assumes we want to keep the
-wild-type amino acid at that residue and not allow any mutations, but still allow rotameric flexibility.
-It's actually the same as calling::
-
-	setLibraryRotamers(osprey.WILD_TYPE)
-
-This will just set the flexibility to the template library rotamers for the wild-type amino acid at
-that residue.
+For residue ``4``, we're not allowing any mutations this time, but, by using :py:const:`osprey.WILD_TYPE`
+for the amino acid, we're still allowing flexibilty at this design position. Only the rotamers
+defined for the wild-type amino acid will be used at this position though.
 
 The rest of the residues have no flexibilty specified, so they will remain completely fixed
 in the conformation specified by the PDB file throughout all of Osprey's analyses.

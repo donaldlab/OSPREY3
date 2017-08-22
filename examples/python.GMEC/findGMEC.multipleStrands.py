@@ -7,15 +7,15 @@ mol = osprey.readPdb('1CC8.ss.pdb')
 
 # define a strand
 strand1 = osprey.Strand(mol, residues=[2,20])
-strand1.flexibility[2].setLibraryRotamers().addWildTypeRotamers()
-strand1.flexibility[3].setLibraryRotamers().addWildTypeRotamers()
-strand1.flexibility[4].setLibraryRotamers().addWildTypeRotamers()
+strand1.flexibility[2].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
+strand1.flexibility[3].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
+strand1.flexibility[4].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
 
 # define another strand
 strand2 = osprey.Strand(mol, residues=[21,40])
-strand2.flexibility[21].setLibraryRotamers().addWildTypeRotamers()
-strand2.flexibility[22].setLibraryRotamers().addWildTypeRotamers()
-strand2.flexibility[23].setLibraryRotamers().addWildTypeRotamers()
+strand2.flexibility[21].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
+strand2.flexibility[22].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
+strand2.flexibility[23].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
 
 # make the conf space
 confSpace = osprey.ConfSpace([strand1, strand2])

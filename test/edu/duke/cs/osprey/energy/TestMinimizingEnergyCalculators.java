@@ -52,11 +52,11 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 		Strand strand = new Strand.Builder(PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb")).build();
 		strand.flexibility.get(39).setLibraryRotamers("ALA").setContinuous();
 		strand.flexibility.get(43).setLibraryRotamers("ALA").setContinuous();
-		strand.flexibility.get(40).setLibraryRotamers().setContinuous();
-		strand.flexibility.get(41).setLibraryRotamers().setContinuous();
-		strand.flexibility.get(42).setLibraryRotamers().setContinuous();
-		strand.flexibility.get(44).setLibraryRotamers().setContinuous();
-		strand.flexibility.get(45).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(40).setLibraryRotamers(Strand.WildType).setContinuous();
+		strand.flexibility.get(41).setLibraryRotamers(Strand.WildType).setContinuous();
+		strand.flexibility.get(42).setLibraryRotamers(Strand.WildType).setContinuous();
+		strand.flexibility.get(44).setLibraryRotamers(Strand.WildType).setContinuous();
+		strand.flexibility.get(45).setLibraryRotamers(Strand.WildType).setContinuous();
 		confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
 		ffparams = new ForcefieldParams();

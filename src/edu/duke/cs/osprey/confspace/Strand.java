@@ -138,8 +138,8 @@ public class Strand implements Serializable {
 			
 			if (resTypes.isEmpty()) {
 				
-				// no mutations explicitly chosen, assume wild type only
-				this.resTypes.add(wildType);
+				// no mutations explicitly chosen, don't assume anything, this is an error
+				throw new IllegalArgumentException("no residue types chosen");
 				
 			} else {
 				

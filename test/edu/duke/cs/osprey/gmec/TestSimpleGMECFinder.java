@@ -63,7 +63,7 @@ public class TestSimpleGMECFinder {
 		Strand strand1 = new Strand.Builder(mol).build();
 		strand1.flexibility.get(2).setLibraryRotamers("ALA", "GLY");
 		strand1.flexibility.get(3).setLibraryRotamers(Strand.WildType, "VAL");
-		strand1.flexibility.get(4).setLibraryRotamers();
+		strand1.flexibility.get(4).setLibraryRotamers(Strand.WildType);
 		problemDiscrete = new Problem(strand1);
 		
 		Strand strand2 = new Strand.Builder(mol).setResidues(2, 30).build();

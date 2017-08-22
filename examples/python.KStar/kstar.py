@@ -14,16 +14,16 @@ templateLib = osprey.TemplateLibrary(ffparams.forcefld, moleculesForWildTypeRota
 # define the protein strand
 protein = osprey.Strand(mol, templateLib=templateLib, residues=[648, 654])
 protein.flexibility[649].setLibraryRotamers(osprey.WILD_TYPE, 'TYR', 'ALA', 'VAL', 'ILE', 'LEU').addWildTypeRotamers().setContinuous()
-protein.flexibility[650].setLibraryRotamers().addWildTypeRotamers().setContinuous()
-protein.flexibility[651].setLibraryRotamers().addWildTypeRotamers().setContinuous()
-protein.flexibility[654].setLibraryRotamers().addWildTypeRotamers().setContinuous()
+protein.flexibility[650].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
+protein.flexibility[651].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
+protein.flexibility[654].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
 
 # define the ligand strand
 ligand = osprey.Strand(mol, templateLib=templateLib, residues=[155, 194])
-ligand.flexibility[156].setLibraryRotamers().addWildTypeRotamers().setContinuous()
-ligand.flexibility[172].setLibraryRotamers().addWildTypeRotamers().setContinuous()
-ligand.flexibility[192].setLibraryRotamers().addWildTypeRotamers().setContinuous()
-ligand.flexibility[193].setLibraryRotamers().addWildTypeRotamers().setContinuous()
+ligand.flexibility[156].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
+ligand.flexibility[172].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
+ligand.flexibility[192].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
+ligand.flexibility[193].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
 
 # make the conf space for the protein
 proteinConfSpace = osprey.ConfSpace(protein)
