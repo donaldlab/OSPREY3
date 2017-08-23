@@ -46,8 +46,6 @@ public class KStarScoreLowerBound extends KStarScoreDiscrete {
 	public BigDecimal getScore() {
 		PartitionFunction complex = partitionFunctions[numStates-1];
 		if(complex == null) return BigDecimal.ZERO;
-		
-		BigDecimal score = super.getScore();
 
 		//denom = 0
 		//this node must be pruned
@@ -58,6 +56,7 @@ public class KStarScoreLowerBound extends KStarScoreDiscrete {
 
 		//denom > 0
 		else {
+			BigDecimal score = super.getScore();
 			return score;
 		}
 	}

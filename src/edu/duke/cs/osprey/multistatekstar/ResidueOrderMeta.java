@@ -60,8 +60,8 @@ public class ResidueOrderMeta extends ResidueOrder {
 			
 			if(DEBUG) {
 				System.out.println("metaRank: "+metaRank+
-						" dCoeff: "+gCoeff+" rank: "+g2A2Rank.get(gmecScores.get(i).assignment.toString())+
-						" mCoeff: "+mCoeff+" rank: "+m2A2Rank.get(gmecScores.get(i).assignment.toString()));
+						" gCoeff: "+gCoeff+" gRank: "+g2A2Rank.get(gmecScores.get(i).assignment.toString())+
+						" mCoeff: "+mCoeff+" mRank: "+m2A2Rank.get(gmecScores.get(i).assignment.toString()));
 			}
 			
 			if(metaRank<bestMetaRank) {

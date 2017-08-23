@@ -37,7 +37,7 @@ public class PartialStructureSwitch extends Perturbation {
         //the same numbers as resDirectlyAffected
         //in the altConfPDBFiles
         for(String altPDB : altConfPDBFiles){
-            Molecule altMolec = PDBFileReader.readPDBFile(altPDB, null);
+            Molecule altMolec = PDBFileReader.readPDBFile(altPDB);
             ArrayList<ResBBState> altConf = new ArrayList<>();
             
             for(Residue origRes : resDirectlyAffected){

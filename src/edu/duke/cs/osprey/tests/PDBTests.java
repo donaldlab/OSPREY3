@@ -19,7 +19,7 @@ public class PDBTests {
     public static void testPDBReadWrite(){
         
         EnvironmentVars.assignTemplatesToStruct = false;//this would create changes that would go to copy2
-        Molecule m = PDBFileReader.readPDBFile("1CC8.copy.pdb", null);
+        Molecule m = PDBFileReader.readPDBFile("1CC8.copy.pdb");
         EnvironmentVars.assignTemplatesToStruct = true;
         PDBFileWriter.writePDBFile(m, "testResults/1CC8.copy2.pdb");
                 

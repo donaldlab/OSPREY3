@@ -319,7 +319,9 @@ public class ConfSpace implements Serializable {
                 }                
                 
                 // AAO 2016: mutation assumes residue is an amino acid. throws an exception otherwise
-                if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL")) {
+                if(HardCodedResidueInfo.hasAminoAcidBB(res) 
+                		&& !res.fullName.startsWith("FOL")
+                		&& !res.fullName.startsWith("DYF")) {
                 	mutDOF.mutateTo(resName);
                 }
             }

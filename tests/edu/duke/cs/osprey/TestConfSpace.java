@@ -98,7 +98,7 @@ public class TestConfSpace extends TestBase {
     public void testDihedral(){
         //Checking that the dihedral application and measurement functions are consistent
         
-        Molecule m = PDBFileReader.readPDBFile("test/1CC8/1CC8.ss.pdb", null);
+        Molecule m = PDBFileReader.readPDBFile("test/1CC8/1CC8.ss.pdb");
         Residue res = m.residues.get(37);
         
         FreeDihedral chi1 = new FreeDihedral(res,0);//Ser 39

@@ -50,10 +50,9 @@ public class KStarScoreUpperBound extends KStarScoreDiscrete {
 		PartitionFunction complex = partitionFunctions[numStates-1];
 		if(complex == null) return KStarScore.MAX_VALUE;
 
-		BigDecimal score = super.getScore();
-
 		//denom > 0
 		if(getDenom().compareTo(BigDecimal.ZERO)>0) {
+			BigDecimal score = super.getScore();
 			return score;
 		}
 

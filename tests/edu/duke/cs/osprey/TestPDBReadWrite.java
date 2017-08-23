@@ -41,7 +41,7 @@ public class TestPDBReadWrite extends TestBase {
         String copiedFileName = "test/1CC8/testResults/1CC8.copy2.pdb";
         
         EnvironmentVars.assignTemplatesToStruct = false;//this would create changes that would go to copy2
-        Molecule m = PDBFileReader.readPDBFile(origFileName, null);
+        Molecule m = PDBFileReader.readPDBFile(origFileName);
         EnvironmentVars.assignTemplatesToStruct = true;//return to normal in case we do other stuff later
         PDBFileWriter.writePDBFile(m, copiedFileName);
         
