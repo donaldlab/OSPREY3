@@ -26,7 +26,7 @@ public class LigandResEnergies {
     
     
     public LigandResEnergies(ParamSet params){
-        Molecule m = PDBFileReader.readPDBFile(params.getValue("pdbName"), null);
+        Molecule m = PDBFileReader.readPDBFile(params.getValue("pdbName"));
         String ligandTermini[] = new String[] {params.getValue("ligandStart"),params.getValue("ligandEnd")};
         String targetTermini[] = new String[] {params.getValue("targetStart"),params.getValue("targetEnd")};
         ligandRes = m.resListFromTermini(ligandTermini, null);

@@ -21,10 +21,18 @@ import java.util.ArrayList;
 public class PDBFileReader {
 
 	public static Molecule readPDBFile(String PDBFile) {
-		return readPDBFile(PDBFile, null);
+		return readPDBFile(PDBFile, (ArrayList<ResidueTermini>)null);
 	}
 	
+	@SuppressWarnings("serial")
 	public static Molecule readPDBFile( String PDBFile, ResidueTermini termini ){
+		if(termini == null) {
+			return readPDBFile(PDBFile);
+		}
+		return readPDBFile( PDBFile, new ArrayList<ResidueTermini>() {{add(termini);}} );
+	}
+	
+	public static Molecule readPDBFile( String PDBFile, ArrayList<ResidueTermini> termini ){
 		//Take pretty much verbatim from PDBChemModel
 		//if templates not null, four things we may decide to do (should give options):
 		//1. Assign templates to residues 2. Rename atoms in matching residues to match templates
@@ -98,7 +106,7 @@ public class PDBFileReader {
 						
 						Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
 						
-						if(termini != null && !termini.contains(newRes)) {
+						if(termini != null && !ResidueTermini.contains(termini, newRes)) {
 							filter.add(m.residues.size());
 						}
 						
@@ -130,7 +138,7 @@ public class PDBFileReader {
 			//make last residue
 			if( ! curResAtoms.isEmpty() ){
 				Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
-				if(termini != null && !termini.contains(newRes)) filter.add(m.residues.size());
+				if(termini != null && !ResidueTermini.contains(termini, newRes)) filter.add(m.residues.size());
 				m.appendResidue(newRes);
 			}
 

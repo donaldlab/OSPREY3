@@ -54,7 +54,7 @@ public class InputValidation {
 		//Given the config file parser for a state, make sure AATypeOptions
 		//matches the allowed AA types for this state
 
-		Molecule wtMolec = PDBFileReader.readPDBFile( stateCfp.getParams().getValue("PDBName"), null );
+		Molecule wtMolec = PDBFileReader.readPDBFile( stateCfp.getParams().getValue("PDBName") );
 
 		ArrayList<Integer> mutRes = state2MutableResNums.get(state).get(subState);
 		ArrayList<ArrayList<String>> subStateAAOptions = stateCfp.getAllowedAAs(mutRes);

@@ -81,7 +81,7 @@ public class MSConfigFileParser extends ConfigFileParser {
 	}
 
 	public String[] getWtSeq(ArrayList<Integer> mutRes) {
-		Molecule m = PDBFileReader.readPDBFile(params.getValue("PDBNAME"), null);
+		Molecule m = PDBFileReader.readPDBFile(params.getValue("PDBNAME"));
 		int numPos = mutRes.size();
 		String[] wt = new String[numPos];
 
