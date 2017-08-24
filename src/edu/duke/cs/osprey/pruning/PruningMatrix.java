@@ -40,8 +40,11 @@ public class PruningMatrix extends TupleMatrixBoolean {
         fill(false);
     }
 
-    public PruningMatrix(SimpleConfSpace confSpace, double pruningInterval) {
-    	super(confSpace, pruningInterval, false);
+	public PruningMatrix(SimpleConfSpace confSpace) {
+    	super(confSpace, 0, false);
+
+    	// start with everything unpruned
+		fill(false);
 	}
     
     public PruningMatrix(int numPos, int[] numAllowedAtPos, double pruningInterval) {
@@ -220,9 +223,25 @@ public class PruningMatrix extends TupleMatrixBoolean {
         //if we get here, not pruned
         return false;
     }
-    
-    
-    
+
+    public void pruneSingle(int pos, int rc) {
+    	setOneBody(pos, rc, true);
+	}
+
+	public void prunePair(int pos1, int rc1, int pos2, int rc2) {
+    	setPairwise(pos1, rc1, pos2, rc2, true);
+	}
+
+	public boolean isSinglePruned(int pos, int rc) {
+    	return getOneBody(pos, rc);
+	}
+
+	public boolean isPairPruned(int pos1, int rc1, int pos2, int rc2) {
+    	return isSinglePruned(pos1, rc1)
+			|| isSinglePruned(pos2, rc2)
+			|| getPairwise(pos1, rc1, pos2, rc2);
+	}
+
     public void markAsPruned(RCTuple tup){
         setTupleValue(tup, true);
         /*
