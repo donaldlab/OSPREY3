@@ -34,13 +34,14 @@ public interface KStarScore {
 	public BigDecimal getScore();
 	public BigDecimal getLowerBoundScore();
 	public BigDecimal getUpperBoundScore();
+	public BigDecimal getDenom();
 	
 	public PartitionFunction getPartitionFunction(int state);
 	
 	public String toString();
-	public void compute(int maxNumConfs);
-	public void computeUnboundStates(int maxNumConfs);
-	public void computeBoundState(int maxNumConfs);
+	public void compute(long maxNumConfs);
+	public void computeUnboundStates(long maxNumConfs);
+	public void computeBoundState(long maxNumConfs);
 	public boolean constrSatisfied();
 	public boolean isFullyAssigned();
 	public boolean isFinal();

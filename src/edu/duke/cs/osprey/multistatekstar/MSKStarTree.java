@@ -220,6 +220,7 @@ public class MSKStarTree {
 		
 		initNodeStaticVars(ans);
 		
+		ans.isRoot = true;
 		return ans;
 	}
 

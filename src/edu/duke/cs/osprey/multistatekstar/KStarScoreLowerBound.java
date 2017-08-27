@@ -14,25 +14,27 @@ public class KStarScoreLowerBound extends KStarScoreDiscrete {
 	}
 
 	@Override
-	protected void compute(int state, int maxNumConfs) {
+	protected void compute(int state, long maxNumConfs) {
 		super.compute(state, maxNumConfs);
 		//all unbound states are partition function upper bounds, so check 
 		//against state-specific constraints that are lower bounds
 		if(state <= numStates-2) {			
-			if(constrSatisfied)
+			if(constrSatisfied) {
 				constrSatisfied = checkConstraints(state, true);
+			}
 		}
 
 		//bound state is a partition function lower bound, so check
 		//against state-specific constraints that are upper bounds
 		else {
-			if(constrSatisfied)
+			if(constrSatisfied) {
 				constrSatisfied = checkConstraints(state, false);
+			}
 		}
 	}
 
 	@Override
-	public void compute(int maxNumConfs) {
+	public void compute(long maxNumConfs) {
 		super.compute(maxNumConfs);
 
 		if(getDenom().compareTo(BigDecimal.ZERO)==0) {
@@ -45,13 +47,13 @@ public class KStarScoreLowerBound extends KStarScoreDiscrete {
 
 	public BigDecimal getScore() {
 		PartitionFunction complex = partitionFunctions[numStates-1];
-		if(complex == null) return BigDecimal.ZERO;
+		if(complex == null) return toLog10(BigDecimal.ZERO);
 
 		//denom = 0
 		//this node must be pruned
 		if(getDenom().compareTo(BigDecimal.ZERO)==0) {
 			if(constrSatisfied) throw new RuntimeException("ERROR: this node must be pruned");
-			return KStarScore.MAX_VALUE;
+			return toLog10(KStarScore.MAX_VALUE);
 		}
 
 		//denom > 0

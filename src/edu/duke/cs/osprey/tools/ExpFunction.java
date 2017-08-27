@@ -154,8 +154,7 @@ public class ExpFunction implements Serializable {
 	public BigDecimal log10ToBigDecimal(BigDecimal num) {
 		BigDecimal loge = log(num);
 		BigDecimal denom = log(new BigDecimal("10"));
-		BigDecimal result = loge.divide(denom, num.scale(),
-				BigDecimal.ROUND_HALF_EVEN);
+		BigDecimal result = loge.divide(denom, num.scale(), BigDecimal.ROUND_HALF_EVEN);
 		return result;
 	}
 	

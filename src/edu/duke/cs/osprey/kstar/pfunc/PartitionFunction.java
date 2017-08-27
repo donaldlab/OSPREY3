@@ -86,5 +86,5 @@ public interface PartitionFunction {
 	int getParallelism();
 	
 	void compute();
-	void compute(int maxNumConfs);
+	void compute(long maxNumConfs);
 }

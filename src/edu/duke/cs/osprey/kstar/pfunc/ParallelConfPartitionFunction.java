@@ -29,7 +29,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	protected BoltzmannCalculator boltzmann;
 	protected ConfSearch.Splitter.Stream scoreConfs;
 	protected ConfSearch.Splitter.Stream energyConfs;
-	protected int numConfsEvaluated;
+	protected long numConfsEvaluated;
 	protected BigInteger numConfsToScore;
 	protected BigDecimal qprimeUnevaluated;
 	protected BigDecimal qprimeUnscored;
@@ -154,13 +154,13 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	}
 
 	@Override
-	public void compute(int maxNumConfs) {
+	public void compute(long maxNumConfs) {
 		
 		if (!status.canContinue()) {
 			throw new IllegalStateException("can't continue from status " + status);
 		}
 		
-		int stopAtConf = numConfsEvaluated + maxNumConfs;
+		long stopAtConf = numConfsEvaluated + maxNumConfs;
 		while (true) {
 			
 			ScoredConf conf;

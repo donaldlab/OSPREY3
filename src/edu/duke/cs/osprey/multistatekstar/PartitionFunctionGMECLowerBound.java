@@ -23,7 +23,7 @@ public class PartitionFunctionGMECLowerBound extends PartitionFunctionGMECUpperB
 	}
 	
 	@Override
-	public void compute(int maxNumConfs) {
+	public void compute(long maxNumConfs) {
 		super.compute(maxNumConfs);
 	}
 }

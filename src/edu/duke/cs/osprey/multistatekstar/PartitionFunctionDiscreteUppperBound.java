@@ -27,7 +27,7 @@ public class PartitionFunctionDiscreteUppperBound extends PartitionFunctionDiscr
 	}
 
 	@Override
-	public void compute(int maxNumConfs) {
+	public void compute(long maxNumConfs) {
 		super.compute(maxNumConfs);
 		if(status == Status.Estimated) {
 			double effectiveEpsilon = getEffectiveEpsilon();
@@ -36,7 +36,7 @@ public class PartitionFunctionDiscreteUppperBound extends PartitionFunctionDiscr
 	}
 
 	@Override
-	public void compute(BigDecimal targetScoreWeights, int maxNumConfs) {
+	public void compute(BigDecimal targetScoreWeights, long maxNumConfs) {
 		super.compute(targetScoreWeights, maxNumConfs);
 		double effectiveEpsilon = getEffectiveEpsilon();
 		if(!Double.isNaN(effectiveEpsilon)) values.qstar = values.qstar.multiply(new BigDecimal(1.0+effectiveEpsilon));
