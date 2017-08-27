@@ -35,7 +35,7 @@ public class PartitionFunctionGMECUpperBound extends PartitionFunctionDiscrete {
 	}
 
 	@Override
-	public void compute(int maxNumConfs) {
+	public void compute(long maxNumConfs) {
 		if (!status.canContinue()) {
 			throw new IllegalStateException("can't continue from status " + status);
 		}

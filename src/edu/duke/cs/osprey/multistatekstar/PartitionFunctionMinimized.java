@@ -141,7 +141,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			values.qstar = boltzmann.calc(minGMEC.getEnergy());
 			numConfsEvaluated++;
 			
-			qprimeUnevaluated = qprimeUnevaluated.subtract(boltzmann.calc(minGMEC.getScore()));
 			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
 			
 			if (confListener != null) {
@@ -172,9 +171,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				break;
 			}
 			
-			if(minGMEC != null && equals(minGMEC.getAssignments(), conf.getAssignments())) {
+			if(minGMEC != null && !scoredGMECEnumerated && equals(minGMEC.getAssignments(), conf.getAssignments())) {
 				scoredGMECEnumerated = true;
-				if(energiedGMECEnumerated && scoredGMECEnumerated) minGMEC = null;
 				continue;
 			}
 
@@ -228,9 +226,9 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				return null;
 			}
 			
-			if(minGMEC != null && equals(minGMEC.getAssignments(), conf.getAssignments())) {
+			//skip mingmec if it has already been enumerated
+			if(minGMEC != null && !energiedGMECEnumerated && equals(minGMEC.getAssignments(), conf.getAssignments())) {
 				energiedGMECEnumerated = true;
-				if(energiedGMECEnumerated && scoredGMECEnumerated) minGMEC = null;
 				continue;
 			}
 
@@ -266,7 +264,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	}
 
 	protected void handlePhase1Conf(EnergiedConf econf) {
-		if(status == Status.Estimating) {
+		if(status != Status.Estimated) {
 
 			// get the boltzmann weight
 			BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
@@ -299,7 +297,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	}
 
 	protected void handlePhase2Conf(EnergiedConf econf, BigDecimal targetScoreWeights) {
-		if(status == Status.Estimating) {
+		if(status != Status.Estimated) {
 
 			// get the boltzmann weight
 			BigDecimal scoreWeight = boltzmann.calc(econf.getScore());
@@ -335,13 +333,13 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	}
 
 	@Override
-	public void compute(int maxNumConfs) {
+	public void compute(long maxNumConfs) {
 
 		if (!status.canContinue()) {
 			throw new IllegalStateException("can't continue from status " + status);
 		}
 
-		int stopAtConf = numConfsEvaluated + maxNumConfs;
+		long stopAtConf = numConfsEvaluated + maxNumConfs;
 		while (true) {
 
 			// get a conf from the tree
@@ -421,13 +419,13 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				));
 	}
 
-	public void compute(BigDecimal targetScoreWeights, int maxNumConfs) {
+	public void compute(BigDecimal targetScoreWeights, long maxNumConfs) {
 
 		if (!status.canContinue()) {
 			throw new IllegalStateException("can't continue from status " + status);
 		}
 
-		int stopAtConf = numConfsEvaluated + maxNumConfs;
+		long stopAtConf = numConfsEvaluated + maxNumConfs;
 		while (true) {
 
 			// get a conf from the tree
@@ -521,13 +519,15 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 		scoredConfs = null;
 		energiedConfs = null;
+		
+		minGMEC = null;
 	}
 	
-	public void setNumConfsEvaluated(int val) {
+	public void setNumConfsEvaluated(long val) {
 		this.numConfsEvaluated = val;
 	}
 	
-	public int getNumConfsEvaluated() {
+	public long getNumConfsEvaluated() {
 		return this.numConfsEvaluated;
 	}
 	

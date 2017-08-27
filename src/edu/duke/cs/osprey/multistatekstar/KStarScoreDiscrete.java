@@ -31,12 +31,12 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 	}
 
 	@Override
-	public void compute(int maxNumConfs) {
+	public void compute(long maxNumConfs) {
 		super.compute(maxNumConfs);
 	}
 
 	@Override
-	protected void compute(int state, int maxNumConfs) {
+	protected void compute(int state, long maxNumConfs) {
 		super.compute(state, maxNumConfs);
 	
 		PartitionFunctionDiscrete pf = (PartitionFunctionDiscrete) partitionFunctions[state];

@@ -15,7 +15,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction.Status;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction.Values;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.ExpFunction;
+import edu.duke.cs.osprey.tools.BigDecimalUtil;
 
 /**
  * @author Adegoke Ojewole (ao68@duke.edu)
@@ -58,30 +58,32 @@ public class KStarScoreMinimized implements KStarScore {
 		return partitionFunctions[state];
 	}
 
-	protected BigDecimal getDenom() {
+	public BigDecimal getDenom() {
 		PartitionFunction pf;
 		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
 		for(int state=0;state<numStates-1;++state) {
 			pf = partitionFunctions[state];
-			if(pf==null || pf.getValues().qstar.compareTo(BigDecimal.ZERO)==0)
+			if(pf==null || pf.getValues().qstar.compareTo(BigDecimal.ZERO)==0) {
 				return BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+			}
 			ans = ans.multiply(pf.getValues().qstar);
 		}
 		return ans;
 	}
-	
+
 	public BigDecimal toLog10(BigDecimal val) {
 		if(val.compareTo(BigDecimal.ZERO)==0)
 			return KStarScore.MIN_VALUE;
 		
-		return new ExpFunction().log10ToBigDecimal(val);
+		return BigDecimalUtil.log10(val);
 	}
 	
 	public BigDecimal getScore() {
 		BigDecimal den = getDenom();
-		if(den.compareTo(BigDecimal.ZERO) == 0) return den;
+		if(den.compareTo(BigDecimal.ZERO) == 0) return toLog10(den);
 		PartitionFunction pf = partitionFunctions[numStates-1];
-		return pf==null ? BigDecimal.ZERO : pf.getValues().qstar.setScale(64, RoundingMode.HALF_UP).divide(den, RoundingMode.HALF_UP);
+		BigDecimal ans = pf==null ? BigDecimal.ZERO : pf.getValues().qstar.setScale(64, RoundingMode.HALF_UP).divide(den, RoundingMode.HALF_UP);
+		return toLog10(ans);
 	}
 
 	@Override
@@ -94,12 +96,13 @@ public class KStarScoreMinimized implements KStarScore {
 		if(isComputed()) return getScore();
 
 		BigDecimal den = getDenom();
-		if(den.compareTo(BigDecimal.ZERO) == 0) return den;
+		if(den.compareTo(BigDecimal.ZERO) == 0) return toLog10(den);
 		PartitionFunction pf = partitionFunctions[numStates-1];
-		if(pf==null) return BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+		if(pf==null) return toLog10(BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP));
 		BigDecimal num = pf.getValues().qstar.setScale(64, RoundingMode.HALF_UP);
 		num = (num.add(pf.getValues().qprime)).add(pf.getValues().pstar);
-		return num.divide(den, RoundingMode.HALF_UP);
+		BigDecimal ans = num.divide(den, RoundingMode.HALF_UP);
+		return toLog10(ans);
 	}
 
 	public String toString() {
@@ -258,7 +261,7 @@ public class KStarScoreMinimized implements KStarScore {
 	 * compute until maxNumConfs conformations have been processed
 	 * @param maxNumConfs
 	 */
-	public void compute(int maxNumConfs) {
+	public void compute(long maxNumConfs) {
 
 		for(int state=0;state<numStates;++state){
 
@@ -279,7 +282,9 @@ public class KStarScoreMinimized implements KStarScore {
 		if(settings.isFinal && constrSatisfied) 
 			constrSatisfied = checkConstraints();
 
-		if(isComputed()) cleanup();
+		if(isComputed()) {
+			cleanup();
+		}
 	}
 
 	/**
@@ -287,15 +292,16 @@ public class KStarScoreMinimized implements KStarScore {
 	 * @param maxNumConfs
 	 */
 	@Override
-	public void computeUnboundStates(int maxNumConfs) {
+	public void computeUnboundStates(long maxNumConfs) {
 		for(int state=0;state<numStates-1;++state){
 
 			if(!constrSatisfied)//state-specific constraints
 				return;
 
-			if(!initialized[state])
+			if(!initialized[state]) {
 				initialized[state] = init(state);
-
+			}
+			
 			if(partitionFunctions[state].getStatus() != Status.Estimated)
 				compute(state, maxNumConfs);
 
@@ -308,7 +314,7 @@ public class KStarScoreMinimized implements KStarScore {
 		}
 	}
 
-	public void computeBoundState(int maxNumConfs) {
+	public void computeBoundState(long maxNumConfs) {
 		if(!constrSatisfied)
 			return;
 
@@ -338,7 +344,7 @@ public class KStarScoreMinimized implements KStarScore {
 	 * compute until a conf score boltzmann weight of minbound has been processed.
 	 * this is used in the second phase to process confs from p*
 	 */
-	private PartitionFunction phase2(int state, int maxNumConfs) {
+	private PartitionFunction phase2(int state, long maxNumConfs) {
 		// we have p* / q* = epsilon1 > target epsilon
 		// we want p1* / q* <= target epsilon
 		// therefore, p1* <= q* x target epsilon
@@ -393,7 +399,7 @@ public class KStarScoreMinimized implements KStarScore {
 		return settings.isFinal && state==numStates-1 && settings.cfp.getParams().getBool("ComputeMaxNumConfs");
 	}
 
-	protected void compute(int state, int maxNumConfs) {			
+	protected void compute(int state, long maxNumConfs) {			
 		PartitionFunctionMinimized pf = partitionFunctions[state];
 
 		//in the bound state, can override maxNumConfs with value from config
@@ -472,6 +478,7 @@ public class KStarScoreMinimized implements KStarScore {
 			for(int s=0;s<numStates;++s){
 				PartitionFunctionMinimized pf = partitionFunctions[s];
 				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
+				stateVals[s] = toLog10(stateVals[s]);
 			}
 
 			//can short circuit computation of k* score if any of the unbound
@@ -513,6 +520,7 @@ public class KStarScoreMinimized implements KStarScore {
 			for(int s=0;s<numStates;++s){
 				PartitionFunctionMinimized pf = partitionFunctions[s];
 				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
+				stateVals[s] = toLog10(stateVals[s]);
 			}
 
 			if(constr.eval(stateVals).compareTo(BigDecimal.ZERO) >= 0)
@@ -558,4 +566,5 @@ public class KStarScoreMinimized implements KStarScore {
 	public boolean isFullyAssigned() {
 		return settings.search[numStates-1].isFullyAssigned();
 	}
+
 }
