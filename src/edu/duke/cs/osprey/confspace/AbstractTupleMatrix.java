@@ -3,6 +3,9 @@ package edu.duke.cs.osprey.confspace;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializable {
 
@@ -268,4 +271,76 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     		higherTerms.set(getPairwiseIndex(res1, conf1, res2, conf2), val);
     	}
     }
+
+	public String toString(int cellWidth, Function<T,String> formatter) {
+
+		StringBuilder buf = new StringBuilder();
+
+		// make sure the cell width is at least 6
+		final int fCellWidth = Math.max(cellWidth, 6);
+
+		final String spacer = "  ";
+		BiConsumer<Integer,Integer> labelPrinter = (pos, rc) -> {
+			String label = String.format("%02d:%03d", pos, rc);
+			buf.append(String.format("%s%" + fCellWidth + "s", spacer, label));
+		};
+		Consumer<T> valuePrinter = (energy) -> {
+			String value = formatter.apply(energy);
+			buf.append(spacer);
+			buf.append(String.format("%" + fCellWidth + "s", value));
+		};
+		Runnable blankPrinter = () -> {
+			buf.append(spacer);
+			for (int i=0; i<fCellWidth; i++) {
+				buf.append(" ");
+			}
+		};
+
+		// singles
+		buf.append("singles:\n");
+		for (int pos1=0; pos1<getNumPos(); pos1++) {
+			int n1 = getNumConfAtPos(pos1);
+
+			blankPrinter.run();
+			for (int rc1=0; rc1<n1; rc1++) {
+				labelPrinter.accept(pos1, rc1);
+			}
+			buf.append("\n");
+
+			blankPrinter.run();
+			for (int rc1=0; rc1<n1; rc1++) {
+				valuePrinter.accept(getOneBody(pos1, rc1));
+			}
+			buf.append("\n");
+		}
+
+		// pairs
+		buf.append("pairs:\n");
+		blankPrinter.run();
+		for (int pos1=0; pos1<getNumPos() - 1; pos1++) {
+			int n1 = getNumConfAtPos(pos1);
+			for (int rc1=0; rc1<n1; rc1++) {
+				labelPrinter.accept(pos1, rc1);
+			}
+		}
+		buf.append("\n");
+		for (int pos1=1; pos1<getNumPos(); pos1++) {
+			int n1 = getNumConfAtPos(pos1);
+			for (int rc1=0; rc1<n1; rc1++) {
+
+				labelPrinter.accept(pos1, rc1);
+
+				for (int pos2=0; pos2<pos1; pos2++) {
+					int n2 = getNumConfAtPos(pos2);
+					for (int rc2=0; rc2<n2; rc2++) {
+						valuePrinter.accept(getPairwise(pos1, rc1, pos2, rc2));
+					}
+				}
+
+				buf.append("\n");
+			}
+		}
+
+		return buf.toString();
+	}
 }
