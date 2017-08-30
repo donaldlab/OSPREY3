@@ -10,6 +10,7 @@ import java.util.PriorityQueue;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.ParamSet;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -185,6 +186,9 @@ public class MSKStarTree {
 		ThreadParallelism.setNumThreads(astarThreads);
 		MSKStarNode.PARALLEL_EXPANSION = astarThreads > 1 ? true : false;
 		MSKStarNode.SUBLINEAR_AT_LEAF_NODES = this.msParams.getBool("SUBLINEARATLEAFNODES");
+		
+		MultiTermEnergyFunction.setVerbose(false);
+		MultiTermEnergyFunction.setNumThreads(astarThreads);
 		
 		MSKStarTree.DEBUG = false;
 		MSSearchProblem.DEBUG = false;

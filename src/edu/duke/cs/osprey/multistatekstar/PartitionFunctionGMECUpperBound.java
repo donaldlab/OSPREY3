@@ -40,9 +40,13 @@ public class PartitionFunctionGMECUpperBound extends PartitionFunctionDiscrete {
 			throw new IllegalStateException("can't continue from status " + status);
 		}
 
-		ScoredConf conf;
+		// avoid overflow by capping min score
+		ScoredConf conf; final double minScore = -4000;
 		if ((conf = scoreConfs.next()) != null) {
-			values.qstar = boltzmann.calc(conf.getScore());
+			double score = conf.getScore();
+			if(score < minScore) score = minScore;
+			values.qstar = boltzmann.calc(score);
+			//values.qstar = BigDecimalUtil.exp(BigDecimal.valueOf(-conf.getScore()/PoissonBoltzmannEnergy.constRT), BigDecimalUtil.getScale());
 		}
 
 		this.targetEpsilon = 0;
