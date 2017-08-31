@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.confspace;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -280,9 +281,45 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
 		final int fCellWidth = Math.max(cellWidth, 6);
 
 		final String spacer = "  ";
+		Consumer<String> center = (val) -> {
+			int length = val.length();
+
+			if (length > fCellWidth) {
+				buf.append(val.substring(0, fCellWidth));
+				return;
+			}
+
+			int pad = fCellWidth - length;
+			int halfPad = pad/2;
+			if (pad % 2 == 0) {
+				for (int i=0; i<halfPad; i++) {
+					buf.append(" ");
+				}
+				buf.append(val);
+				for (int i=0; i<halfPad; i++) {
+					buf.append(" ");
+				}
+			} else {
+				for (int i=0; i<halfPad; i++) {
+					buf.append(" ");
+				}
+				buf.append(val);
+				for (int i=0; i<halfPad+1; i++) {
+					buf.append(" ");
+				}
+			}
+		};
+		Consumer<Integer> posPrinter = (pos) -> {
+			buf.append(spacer);
+			center.accept(String.format("%d", pos));
+		};
+		Consumer<Integer> rcPrinter = (rc) -> {
+			buf.append(spacer);
+			center.accept(String.format("%3d", rc));
+		};
 		BiConsumer<Integer,Integer> labelPrinter = (pos, rc) -> {
-			String label = String.format("%02d:%03d", pos, rc);
-			buf.append(String.format("%s%" + fCellWidth + "s", spacer, label));
+			String label = String.format("%2d:%-3d", pos, rc);
+			buf.append(String.format("%s%-" + fCellWidth + "s", spacer, label));
 		};
 		Consumer<T> valuePrinter = (energy) -> {
 			String value = formatter.apply(energy);
@@ -296,18 +333,23 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
 			}
 		};
 
+		// find the position with the most singles
+		int maxNumRcs = 0;
+		for (int pos1=0; pos1<getNumPos(); pos1++) {
+			maxNumRcs = Math.max(maxNumRcs, getNumConfAtPos(pos1));
+		}
+
 		// singles
 		buf.append("singles:\n");
+		blankPrinter.run();
+		for (int rc=0; rc<maxNumRcs; rc++) {
+			rcPrinter.accept(rc);
+		}
+		buf.append("\n");
 		for (int pos1=0; pos1<getNumPos(); pos1++) {
 			int n1 = getNumConfAtPos(pos1);
 
-			blankPrinter.run();
-			for (int rc1=0; rc1<n1; rc1++) {
-				labelPrinter.accept(pos1, rc1);
-			}
-			buf.append("\n");
-
-			blankPrinter.run();
+			posPrinter.accept(pos1);
 			for (int rc1=0; rc1<n1; rc1++) {
 				valuePrinter.accept(getOneBody(pos1, rc1));
 			}
@@ -342,5 +384,51 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
 		}
 
 		return buf.toString();
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		return other instanceof AbstractTupleMatrix
+			&& equals((AbstractTupleMatrix<?>) other);
+	}
+
+	public boolean equals(AbstractTupleMatrix<?> other) {
+
+		if (this.getNumPos() != other.getNumPos()) {
+			return false;
+		}
+		int n = this.getNumPos();
+
+		for (int pos1=0; pos1<n; pos1++) {
+
+			if (this.getNumConfAtPos(pos1) != other.getNumConfAtPos(pos1)) {
+				return false;
+			}
+			int n1 = this.getNumConfAtPos(pos1);
+
+			for (int rc1=0; rc1<n1; rc1++) {
+
+				if (!Objects.equals(this.getOneBody(pos1, rc1), other.getOneBody(pos1, rc1))) {
+					return false;
+				}
+
+				for (int pos2=0; pos2<pos1; pos2++) {
+
+					if (this.getNumConfAtPos(pos2) != other.getNumConfAtPos(pos2)) {
+						return false;
+					}
+					int n2 = this.getNumConfAtPos(pos2);
+
+					for (int rc2=0; rc2<n2; rc2++) {
+
+						if (!Objects.equals(this.getPairwise(pos1, rc1, pos2, rc2), other.getPairwise(pos1, rc1, pos2, rc2))) {
+							return false;
+						}
+					}
+				}
+			}
+		}
+
+		return true;
 	}
 }

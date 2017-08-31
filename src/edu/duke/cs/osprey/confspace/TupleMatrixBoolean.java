@@ -89,7 +89,7 @@ public class TupleMatrixBoolean extends AbstractTupleMatrix<Boolean> {
 	@Override
 	public String toString() {
 		return toString(6, (isPruned) -> {
-			return isPruned ? "  ><  " : "      ";
+			return isPruned ? "  X   " : "      ";
 		});
 	}
 }

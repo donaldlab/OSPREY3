@@ -224,8 +224,14 @@ public class PruningMatrix extends TupleMatrixBoolean {
         return false;
     }
 
-    public void pruneSingle(int pos, int rc) {
-    	setOneBody(pos, rc, true);
+    public void pruneSingle(int pos1, int rc1) {
+    	setOneBody(pos1, rc1, true);
+    	for (int pos2=0; pos2<pos1; pos2++) {
+    		int n2 = getNumConfAtPos(pos2);
+    		for (int rc2=0; rc2<n2; rc2++) {
+    			setPairwise(pos1, rc1, pos2, rc2, true);
+			}
+		}
 	}
 
 	public void prunePair(int pos1, int rc1, int pos2, int rc2) {
@@ -237,9 +243,9 @@ public class PruningMatrix extends TupleMatrixBoolean {
 	}
 
 	public boolean isPairPruned(int pos1, int rc1, int pos2, int rc2) {
-    	return isSinglePruned(pos1, rc1)
-			|| isSinglePruned(pos2, rc2)
-			|| getPairwise(pos1, rc1, pos2, rc2);
+    	return getPairwise(pos1, rc1, pos2, rc2)
+			|| isSinglePruned(pos1, rc1)
+			|| isSinglePruned(pos2, rc2);
 	}
 
     public void markAsPruned(RCTuple tup){

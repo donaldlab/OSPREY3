@@ -275,19 +275,7 @@ public class ConfAStarTree implements ConfSearch {
 	
 	@Override
 	public BigInteger getNumConformations() {
-		
-		if (rcs.hasConfs()) {
-			
-			BigInteger num = BigInteger.valueOf(1);
-			for (int pos=0; pos<rcs.getNumPos(); pos++) {
-				num = num.multiply(BigInteger.valueOf(rcs.get(pos).length));
-			}
-			return num;
-			
-		} else {
-			
-			return BigInteger.ZERO;
-		}
+		return rcs.getNumConformations();
 	}
 
 	@Override

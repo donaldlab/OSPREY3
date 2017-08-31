@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.astar.conf;
 
+import java.math.BigInteger;
 import java.util.List;
 import java.util.function.BiPredicate;
 
@@ -84,7 +85,31 @@ public class RCs {
 		}
 		return count;
 	}
-	
+
+	/**
+	 * Counts the number of full conformations in the conformation space.
+	 * The count ignores conformations disallowed by pruned RC singles,
+	 * but conformations disallowed by pruned RC pairs are still counted.
+	 */
+	public BigInteger getNumConformations() {
+
+		if (!hasConfs()) {
+			return BigInteger.ZERO;
+		}
+
+		BigInteger count = BigInteger.ONE;
+		for (int[] rcs : unprunedRCsAtPos) {
+			count = count.multiply(BigInteger.valueOf(rcs.length));
+		}
+		return count;
+
+		// NOTE: it's super non-trivial to account for pruned n-tuples for n > 1!
+		// so we're ingoring pair pruning here entirely
+
+		// accounting for pruned pairs might actually require doing an exponential amount of work,
+		// but I'm not entirely sure about that
+	}
+
 	public int[] get(int pos) {
 		return unprunedRCsAtPos[pos];
 	}
