@@ -13,6 +13,8 @@ import java.util.function.Consumer;
  */
 public class SimpleDEE {
 
+	// TODO: implement parallelism?
+
 	private static class Reporter {
 
 		int numSingles = 0;
@@ -42,9 +44,7 @@ public class SimpleDEE {
 
 		public void report(String prefix) {
 
-			System.out.print("\t");
-			System.out.print(prefix);
-			System.out.print(": ");
+			System.out.print(String.format("%30s: ", prefix));
 
 			// report singles
 			System.out.print(String.format("pruned %d singles,  %d/%d (%.1f%%) total",
@@ -52,11 +52,7 @@ public class SimpleDEE {
 				numSinglesPruned, numSingles, 100.0f*numSinglesPruned/numSingles
 			));
 
-			System.out.print("\n\t");
-			for (int i=0; i<prefix.length(); i++) {
-				System.out.print(" ");
-			}
-			System.out.print(": ");
+			System.out.print(String.format("\n%30s: ", ""));
 
 			// report pairs
 			System.out.print(String.format("pruned %d pairs,  %d/%d (%.1f%%) total",
@@ -161,6 +157,10 @@ public class SimpleDEE {
 			if (singlesGoldsteinDiffThreshold != null || pairsGoldsteinDiffThreshold != null) {
 				for (int i = 0; i<numIterations; i++) {
 
+					if (showProgress) {
+						System.out.println("DEE iteration " + (i+1) + "...");
+					}
+
 					int numPruned = reporter.numSinglesPruned + reporter.numPairsPruned;
 
 					// 2.1 Goldstein criterion
@@ -176,7 +176,8 @@ public class SimpleDEE {
 					// TODO: other pruning criteria?
 
 					// stop if we didn't prune anything
-					if (reporter.numSinglesPruned + reporter.numPairsPruned <= numPruned) {
+					int numPrunedThisRound = reporter.numSinglesPruned + reporter.numPairsPruned - numPruned;
+					if (numPrunedThisRound <= 0) {
 						break;
 					}
 				}
@@ -187,9 +188,9 @@ public class SimpleDEE {
 				BigInteger allConfs = new RCs(confSpace).getNumConformations();
 				BigInteger remainingConfs = new RCs(dee.pmat).getNumConformations();
 				BigInteger prunedConfs = allConfs.subtract(remainingConfs);
-				System.out.println("\tConformations defined by conformation space:    " + allConfs.floatValue());
-				System.out.println("\tConformations remaining after pruning singles:  " + remainingConfs.floatValue());
-				System.out.println("\tPercent conformations pruned by singles:        " + 100.0*prunedConfs.doubleValue()/allConfs.doubleValue());
+				System.out.println("Conformations defined by conformation space:    " + String.format("%e", allConfs.floatValue()));
+				System.out.println("Conformations remaining after pruning singles:  " + String.format("%e", remainingConfs.floatValue()));
+				System.out.println("Percent conformations pruned by singles:        " + 100.0*prunedConfs.doubleValue()/allConfs.doubleValue());
 			}
 
 			return dee.pmat;
@@ -358,7 +359,6 @@ public class SimpleDEE {
 		});
 	}
 
-	// TODO: optimize
 	public void pruneSinglesGoldstein(double energyDiffThreshold, boolean typeDependent) {
 		pruneSingles((candidatePos, candidateRc) -> {
 
@@ -421,7 +421,6 @@ public class SimpleDEE {
 		});
 	}
 
-	// TODO: optimize
 	public void prunePairsGoldstein(double energyDiffThreshold, boolean typeDependent) {
 		prunePairs((candidatePos1, candidateRc1, candidatePos2, candidateRc2) -> {
 

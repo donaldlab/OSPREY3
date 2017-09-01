@@ -77,19 +77,7 @@ public class TestSimpleDEE extends TestBase {
 		).prune();
 
 		// update pruned pairs with singles info
-		for (int pos1=0; pos1<search.pruneMat.getNumPos(); pos1++) {
-			for (int rc1=0; rc1<search.pruneMat.getNumConfAtPos(pos1); rc1++) {
-
-				if (search.pruneMat.getOneBody(pos1, rc1)) {
-
-					for (int pos2=0; pos2<pos1; pos2++) {
-						for (int rc2=0; rc2<search.pruneMat.getNumConfAtPos(pos2); rc2++) {
-							search.pruneMat.setPairwise(pos1, rc1, pos2, rc2, true);
-						}
-					}
-				}
-			}
-		}
+		search.pruneMat.prunePairsFromSingles();
 
 		System.out.println(search.pruneMat);
 		System.out.println(writePmat(search.pruneMat));

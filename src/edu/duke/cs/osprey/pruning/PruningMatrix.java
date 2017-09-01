@@ -226,16 +226,38 @@ public class PruningMatrix extends TupleMatrixBoolean {
 
     public void pruneSingle(int pos1, int rc1) {
     	setOneBody(pos1, rc1, true);
-    	for (int pos2=0; pos2<pos1; pos2++) {
-    		int n2 = getNumConfAtPos(pos2);
-    		for (int rc2=0; rc2<n2; rc2++) {
-    			setPairwise(pos1, rc1, pos2, rc2, true);
-			}
-		}
+    	prunePairsFromSingle(pos1, rc1);
 	}
 
 	public void prunePair(int pos1, int rc1, int pos2, int rc2) {
     	setPairwise(pos1, rc1, pos2, rc2, true);
+	}
+
+	public void prunePairsFromSingles() {
+		int n = getNumPos();
+		for (int pos1=0; pos1<n; pos1++) {
+			int n1 = getNumConfAtPos(pos1);
+			for (int rc1=0; rc1<n1; rc1++) {
+
+				if (getOneBody(pos1, rc1)) {
+					prunePairsFromSingle(pos1, rc1);
+				}
+			}
+		}
+	}
+
+	public void prunePairsFromSingle(int pos1, int rc1) {
+		int n = getNumPos();
+		for (int pos2=0; pos2<n; pos2++) {
+
+			if (pos1 == pos2) {
+				continue;
+			}
+			int n2 = getNumConfAtPos(pos2);
+			for (int rc2=0; rc2<n2; rc2++) {
+				setPairwise(pos1, rc1, pos2, rc2, true);
+			}
+		}
 	}
 
 	public boolean isSinglePruned(int pos, int rc) {
@@ -301,8 +323,4 @@ public class PruningMatrix extends TupleMatrixBoolean {
         //look up 1-body
         return getOneBody(pos,rcNum);
     }*/
-    
-    
-    
-    
 }
