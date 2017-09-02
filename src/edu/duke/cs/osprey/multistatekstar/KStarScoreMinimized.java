@@ -58,7 +58,8 @@ public class KStarScoreMinimized implements KStarScore {
 		return partitionFunctions[state];
 	}
 
-	public BigDecimal getDenom() {
+	@Override
+	public BigDecimal getDenominator() {
 		PartitionFunction pf;
 		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
 		for(int state=0;state<numStates-1;++state) {
@@ -70,6 +71,13 @@ public class KStarScoreMinimized implements KStarScore {
 		}
 		return ans;
 	}
+	
+	@Override
+	public BigDecimal getNumerator() {
+		BigDecimal ans = partitionFunctions[numStates-1].getValues().qstar;
+		if(ans == null) ans = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+		return ans;
+	}
 
 	public BigDecimal toLog10(BigDecimal val) {
 		if(val.compareTo(BigDecimal.ZERO)==0)
@@ -79,7 +87,7 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 	
 	public BigDecimal getScore() {
-		BigDecimal den = getDenom();
+		BigDecimal den = getDenominator();
 		if(den.compareTo(BigDecimal.ZERO) == 0) return toLog10(den);
 		PartitionFunction pf = partitionFunctions[numStates-1];
 		BigDecimal ans = pf==null ? BigDecimal.ZERO : pf.getValues().qstar.setScale(64, RoundingMode.HALF_UP).divide(den, RoundingMode.HALF_UP);
@@ -95,7 +103,7 @@ public class KStarScoreMinimized implements KStarScore {
 	public BigDecimal getUpperBoundScore() {
 		if(isComputed()) return getScore();
 
-		BigDecimal den = getDenom();
+		BigDecimal den = getDenominator();
 		if(den.compareTo(BigDecimal.ZERO) == 0) return toLog10(den);
 		PartitionFunction pf = partitionFunctions[numStates-1];
 		if(pf==null) return toLog10(BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP));

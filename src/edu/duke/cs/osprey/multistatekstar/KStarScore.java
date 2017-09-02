@@ -36,7 +36,8 @@ public interface KStarScore {
 	public BigDecimal getScore();
 	public BigDecimal getLowerBoundScore();
 	public BigDecimal getUpperBoundScore();
-	public BigDecimal getDenom();
+	public BigDecimal getDenominator();
+	public BigDecimal getNumerator();
 	
 	public PartitionFunction getPartitionFunction(int state);
 	

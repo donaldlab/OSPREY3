@@ -115,16 +115,25 @@ public class MSKStarNode {
 		return numPruned;
 	}
 
-	boolean keepUBScore() {
+	boolean keepParentScore() {
 		KStarScore[] scores = getStateKStarObjects(OBJ_FUNC);
-		int size = scores.length;
+		int numStates = scores.length;
 
-		for(int i=0; i<size; ++i) {
-			KStarScore ofScore = scores[i];
-			KStarScore lbScore = ksLB[i];
+		for(int state=0; state<numStates; ++state) {
+			KStarScore ofScore = scores[state];
+			
+			KStarScore lbScore = ksLB[state];
+			KStarScore ubScore = ksUB[state];
+			
 			if(ofScore != null && ofScore instanceof KStarScoreUpperBound && 
-					ofScore.getDenom().compareTo(BigDecimal.ZERO)==0 &&
-					lbScore.getDenom().compareTo(BigDecimal.ZERO)>0) {
+					ofScore.getDenominator().compareTo(BigDecimal.ZERO)==0 &&
+					lbScore.getDenominator().compareTo(BigDecimal.ZERO)>0) {
+				return true;
+			}
+			
+			else if(ofScore != null && ofScore instanceof KStarScoreLowerBound && 
+					ofScore.getNumerator().compareTo(BigDecimal.ZERO)==0 &&
+					ubScore.getNumerator().compareTo(BigDecimal.ZERO)>0) {
 				return true;
 			}
 		}
@@ -270,6 +279,8 @@ public class MSKStarNode {
 		//remove nodes that violate local constraints
 		ArrayList<MSKStarNode> remove = new ArrayList<>();
 		for(MSKStarNode node : nodes) {
+			//the order of condition checks is critical!
+			
 			if(!node.constrSatisfiedLocal()) {
 				remove.add(node);
 				continue;
@@ -289,7 +300,7 @@ public class MSKStarNode {
 			//we must keep the node and expand it to a leaf. this is because the
 			//lower bound partition function is defined on the rigid rotamer emat.
 			//keeping the parent score ensures that we will process this node first
-			else if(!this.isRoot && node.keepUBScore()) {
+			else if(!this.isRoot && node.keepParentScore()) {
 				node.setScore(this.getScore());
 			}
 
@@ -298,7 +309,7 @@ public class MSKStarNode {
 				node.setScore(OBJ_FUNC);
 			}
 
-			//finally verify scores
+			//finally verify score consistency
 			if(childScoreIsLessThanParentScore(node)) {
 				throw new RuntimeException("ERROR: child score must be >= parent score");
 			}

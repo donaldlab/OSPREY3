@@ -37,7 +37,7 @@ public class KStarScoreLowerBound extends KStarScoreDiscrete {
 	public void compute(long maxNumConfs) {
 		super.compute(maxNumConfs);
 
-		if(getDenom().compareTo(BigDecimal.ZERO)==0) {
+		if(getDenominator().compareTo(BigDecimal.ZERO)==0) {
 			//denom = 0. here, denom consists of upper bounds, which only get
 			//smaller as we descend the tree, meaning that all subsequent 
 			//upper bounds will be 0. So we can safely prune this node.
@@ -51,7 +51,7 @@ public class KStarScoreLowerBound extends KStarScoreDiscrete {
 
 		//denom = 0
 		//this node must be pruned
-		if(getDenom().compareTo(BigDecimal.ZERO)==0) {
+		if(getDenominator().compareTo(BigDecimal.ZERO)==0) {
 			if(constrSatisfied) throw new RuntimeException("ERROR: this node must be pruned");
 			return toLog10(KStarScore.MAX_VALUE);
 		}
