@@ -567,4 +567,16 @@ public class KStarScoreMinimized implements KStarScore {
 		return settings.search[numStates-1].isFullyAssigned();
 	}
 
+	@Override
+	public ArrayList<MSSearchProblem> getUpperBoundSearch() {
+		ArrayList<MSSearchProblem> ans = new ArrayList<>();
+		for(int i=0; i<numStates; ++i) {
+			PartitionFunctionMinimized pf = partitionFunctions[i];
+			if(pf.getClass().getSimpleName().toLowerCase().contains("upperbound")) {
+				ans.add(settings.search[i]);
+			}
+		}
+		return ans;
+	}
+
 }

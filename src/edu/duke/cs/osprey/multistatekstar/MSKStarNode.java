@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -54,6 +55,47 @@ public class MSKStarNode {
 		this.score = null;
 		this.numPruned = 0;
 		this.isRoot = false;
+	}
+
+	public boolean hasZeroConfs() {
+		ArrayList<MSSearchProblem> search = new ArrayList<>();
+		int numStates = getNumStates();
+		
+		for(int state=0; state<numStates; ++state) {
+			search.clear();
+			
+			search.addAll(ksLB[state].getUpperBoundSearch());
+			search.addAll(ksUB[state].getUpperBoundSearch());
+
+			//if there are no upper bound search objects,
+			//then use all objects from LB
+			if(search.size()==0) {
+				for(MSSearchProblem s : ksLB[state].getSettings().search) {
+					search.add(s);
+				}
+			}
+			
+			if(search.size() != getNumSubStates()) {
+				throw new RuntimeException("ERROR: num search problems "+search.size()+" != num substates "+getNumSubStates());
+			}
+			
+			//check the number of confs
+			if(hasZeroConfs(search)) {
+				return true;
+			}
+			
+		}
+		return false;
+	}
+
+	private boolean hasZeroConfs(ArrayList<MSSearchProblem> search) {
+		for(MSSearchProblem s : search) {
+			BigInteger confs = s.getNumConfs(true);
+			if(confs.compareTo(BigInteger.ZERO)==0) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public String getSequence(int state) {
@@ -127,20 +169,20 @@ public class MSKStarNode {
 	private void printDebugStatement(MSKStarNode node) {
 		KStarScore[] parentScore = getStateKStarObjects(OBJ_FUNC);
 		KStarScore[] childScore = node.getStateKStarObjects(OBJ_FUNC);
-		
+
 		for(int state=0;state<getNumStates();++state) {
 
 			System.out.println();
 			System.out.println("state: "+state);
-			
+
 			KStarScore parent = parentScore[state];
 			System.out.println("parent score type: "+parent.getClass().getSimpleName());
 			System.out.println("parent: "+parent.toString());
-			
+
 			KStarScore child = childScore[state];
 			System.out.println("child score type: "+child.getClass().getSimpleName());
 			System.out.println("child: "+child.toString());
-			
+
 			System.out.println();
 		}
 	}
@@ -148,7 +190,7 @@ public class MSKStarNode {
 	private boolean childScoreIsLessThanParentScore(MSKStarNode node) {
 		//root node can have a null score, since all its children are valid
 		if(this.getScore()==null) return false;
-		
+
 		if(node.getScore().compareTo(this.getScore())<0) {
 
 			System.out.println(String.format("child-parent: %12e", node.getScore().subtract(this.getScore())));
@@ -156,7 +198,7 @@ public class MSKStarNode {
 			if(DEBUG) {
 				printDebugStatement(node);
 			}
-			
+
 			return true;
 		}
 		return false;
@@ -233,8 +275,17 @@ public class MSKStarNode {
 				continue;
 			}
 
-			//this is an interesting corner case. if the upper bound score object
+			//this is an interesting corner case. if there are no defined conformations
+			//for any substate within any state, then the node cannot yield a valid
+			//child and therefore can be safely pruned
+			else if(!this.isRoot && node.hasZeroConfs()) {
+				remove.add(node);
+				continue;
+			}
+
+			//this is another interesting corner case. if the upper bound score object
 			//has a denom value of 0 (i.e. the partition function lower bounds are 0),
+			//but the lower bound score object has a non-zero denominator,
 			//we must keep the node and expand it to a leaf. this is because the
 			//lower bound partition function is defined on the rigid rotamer emat.
 			//keeping the parent score ensures that we will process this node first
@@ -247,7 +298,7 @@ public class MSKStarNode {
 				node.setScore(OBJ_FUNC);
 			}
 
-			//check scores
+			//finally verify scores
 			if(childScoreIsLessThanParentScore(node)) {
 				throw new RuntimeException("ERROR: child score must be >= parent score");
 			}

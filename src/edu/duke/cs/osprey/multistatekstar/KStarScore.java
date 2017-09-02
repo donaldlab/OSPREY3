@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 
 /**
@@ -47,5 +49,6 @@ public interface KStarScore {
 	public boolean isFinal();
 	public boolean isComputed();
 	public boolean isFullyProcessed();
+	public ArrayList<MSSearchProblem> getUpperBoundSearch();
 	
 }
