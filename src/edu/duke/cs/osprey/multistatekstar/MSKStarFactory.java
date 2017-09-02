@@ -19,7 +19,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  * 
  */
 public class MSKStarFactory {
-	
+
 	public static KStarScoreType getKStarScoreType(ParamSet sParams) {
 		boolean doMinimize = sParams.getBool("DOMINIMIZE");
 		String scoreType = sParams.getValue("SCORETYPE", "FINAL").toLowerCase();
@@ -34,7 +34,7 @@ public class MSKStarFactory {
 			throw new UnsupportedOperationException("ERROR: unsupported K* score type "+scoreType);
 		}
 	}
-	
+
 	public static KStarScore makeKStarScore(MSKStarSettings settings, PartitionFunction[] pfs) {
 		switch(settings.scoreType) {
 		case Minimized: return new KStarScoreMinimized(settings, pfs);
@@ -47,7 +47,7 @@ public class MSKStarFactory {
 		default: throw new UnsupportedOperationException("ERROR: unsupported K* score type"+settings.scoreType);
 		}
 	}
-	
+
 	public static KStarScore makeKStarScore(
 			ParamSet msParams,
 			int state,
@@ -85,7 +85,7 @@ public class MSKStarFactory {
 			}
 			settings.isFinal = true;
 			return new KStarScoreMinimized(settings);
-			
+
 		case PairWiseMinimized:
 			for(int subState=0;subState<numPartFuncs;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.Discrete;
@@ -95,7 +95,7 @@ public class MSKStarFactory {
 			settings.isFinal = true;
 			settings.numTopConfsToSave = 0;
 			return new KStarScoreDiscrete(settings);
-			
+
 		case MinimizedUpperBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.Discrete;
@@ -111,7 +111,7 @@ public class MSKStarFactory {
 			settings.isReportingProgress = false;
 			settings.numTopConfsToSave = 0;
 			return new KStarScoreUpperBound(settings);
-			
+
 		case MinimizedLowerBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.UpperBound;
@@ -127,7 +127,7 @@ public class MSKStarFactory {
 			settings.isReportingProgress = false;
 			settings.numTopConfsToSave = 0;
 			return new KStarScoreLowerBound(settings);
-			
+
 		case Discrete:
 			for(int subState=0;subState<numPartFuncs;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.Discrete;
@@ -136,7 +136,7 @@ public class MSKStarFactory {
 			}
 			settings.isFinal = true;
 			return new KStarScoreDiscrete(settings);
-			
+
 		case DiscreteUpperBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.LowerBound;
@@ -152,7 +152,7 @@ public class MSKStarFactory {
 			settings.isReportingProgress = false;
 			settings.numTopConfsToSave = 0;
 			return new KStarScoreUpperBound(settings);
-			
+
 		case DiscreteLowerBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.UpperBound;
@@ -168,7 +168,7 @@ public class MSKStarFactory {
 			settings.isReportingProgress = false;
 			settings.numTopConfsToSave = 0;
 			return new KStarScoreLowerBound(settings);
-			
+
 		default:
 			throw new UnsupportedOperationException("ERROR: unsupported K* score type"+settings.scoreType);
 		}

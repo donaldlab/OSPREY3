@@ -34,19 +34,18 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 	public static boolean SYNCHRONIZED_MINIMIZATION = false;
 	public static double QPRIME_TIMEOUT_HRS = 0.0;
-	
 	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
 	protected BigDecimal qstarScoreWeights;
 	protected PruningMatrix invmat;
 	protected ArrayList<ScoredConf> scoredConfs;
 	protected ArrayList<EnergiedConf> energiedConfs;
-	
+
 	protected EnergiedConf minGMEC;
 	protected boolean computeGMECRatio;
 	protected boolean energiedGMECEnumerated;
 	protected boolean scoredGMECEnumerated;
-	
+
 	protected boolean computeMaxNumConfs;
 
 	public PartitionFunctionMinimized(
@@ -65,6 +64,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		this.minGMEC = null;
 		this.computeGMECRatio = false;
 		this.computeMaxNumConfs = false;
+		this.boltzmann = new MSBoltzmannCalculator();
 	}
 
 	protected void writeTopConfs(int state, MSSearchProblem search) {
@@ -134,20 +134,20 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 		qstarScoreWeights = BigDecimal.ZERO;
 		maxNumTopConfs = 0;
-		
+
 		// treat the partition function state as if we have already processed 
 		// the minGMEC
 		if(minGMEC != null) {
 			values.qstar = boltzmann.calc(minGMEC.getEnergy());
 			numConfsEvaluated++;
-			
+
 			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
-			
+
 			if (confListener != null) {
 				confListener.onConf(minGMEC);
 			}
 		}
-		
+
 		energiedGMECEnumerated = false;
 		scoredGMECEnumerated = false;
 
@@ -158,19 +158,19 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	protected BigDecimal updateQprime(EnergiedConf econf) {
 
 		Stopwatch stopwatch = computeMaxNumConfs ? new Stopwatch().start() : null;
-		
+
 		// look through the conf tree to get conf scores
 		// (which should be lower bounds on the conf energy)
 		while (true) {
 
 			// read a conf from the tree
 			ScoredConf conf = scoreConfs.next();
-			
+
 			if (conf == null) {
 				qprimeUnscored = BigDecimal.ZERO;
 				break;
 			}
-			
+
 			if(minGMEC != null && !scoredGMECEnumerated && equals(minGMEC.getAssignments(), conf.getAssignments())) {
 				scoredGMECEnumerated = true;
 				continue;
@@ -187,13 +187,13 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
 			qprimeUnevaluated = qprimeUnevaluated.add(scoreWeight);
 			qprimeUnscored = scoreWeight.multiply(new BigDecimal(numConfsToScore));
-			
+
 			// stop if the bound on q' is tight enough
 			double tightness = qprimeUnscored.divide(qprimeUnevaluated.add(qprimeUnscored), RoundingMode.HALF_UP).doubleValue();
 			if (tightness <= 0.01) {
 				break;
 			}
-			
+
 			//reaching desired tightness can take a really long time
 			//in a design, so ignore tightness if we are only interested
 			//in computing the partition function to MaxNumConfs
@@ -212,20 +212,20 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		}
 		return true;
 	}
-	
+
 	protected ScoredConf getScoredConf() {
 		ScoredConf conf;
 
 		//don't double count the mingmec
 		while (true) {
-		
+
 			conf = energyConfs.next();
-			
+
 			if (conf == null) {
 				if(status != Status.Estimated) status = Status.NotEnoughConformations;
 				return null;
 			}
-			
+
 			//skip mingmec if it has already been enumerated
 			if(minGMEC != null && !energiedGMECEnumerated && equals(minGMEC.getAssignments(), conf.getAssignments())) {
 				energiedGMECEnumerated = true;
@@ -236,7 +236,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
 				return null;
 			}
-			
+
 			break;
 		}
 
@@ -265,7 +265,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 	protected void handlePhase1Conf(EnergiedConf econf) {
 		if(status != Status.Estimated) {
-
 			// get the boltzmann weight
 			BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
 
@@ -349,6 +348,13 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 			synchronized (this) {
 
+				// did we win?
+				boolean hitEpsilonTarget = values.getEffectiveEpsilon() <= targetEpsilon;
+				if (hitEpsilonTarget) {
+					status = Status.Estimated;
+					break;
+				}
+
 				// should we keep going?
 				if (!status.canContinue() || numConfsEvaluated >= stopAtConf) {
 					break;
@@ -356,15 +362,21 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 				// get a list of scored confs
 				if (SYNCHRONIZED_MINIMIZATION) {
-					if((scoredConfs = getScoredConfs(ecalc.getParallelism())) == null)
-						break;
+					scoredConfs = getScoredConfs(ecalc.getParallelism());
 				}
 
 				// or a single scored conf
 				else {
-					if ((conf = getScoredConf()) == null) 
-						break;
+					conf = getScoredConf();
 				}
+			}
+
+			if (!status.canContinue()) {
+				// we hit a failure condition and need to stop
+				// but wait for current async minimizations to finish in case that pushes over the epsilon target
+				// NOTE: don't wait for finish inside the sync, since that will definitely deadlock
+				ecalc.waitForFinish();
+				continue;
 			}
 
 			// now handle scored confs
@@ -443,15 +455,21 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 				// get a list of scored confs
 				if (SYNCHRONIZED_MINIMIZATION) {
-					if((scoredConfs = getScoredConfs(ecalc.getParallelism())) == null)
-						break;
+					scoredConfs = getScoredConfs(ecalc.getParallelism());
 				}
 
 				// or a single scored conf
 				else {
-					if ((conf = getScoredConf()) == null) 
-						break;
+					conf = getScoredConf();
 				}
+			}
+			
+			if (!status.canContinue()) {
+				// we hit a failure condition and need to stop
+				// but wait for current async minimizations to finish in case that pushes over the epsilon target
+				// NOTE: don't wait for finish inside the sync, since that will definitely deadlock
+				ecalc.waitForFinish();
+				continue;
 			}
 
 			// wait for all confs to finish minimizing, then process confs in order of score
@@ -508,7 +526,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	public void setStatus(Status val) {
 		status = val;
 	}
-	
+
 	public void setValues(Values val) {
 		this.values = val;
 	}
@@ -519,34 +537,34 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 		scoredConfs = null;
 		energiedConfs = null;
-		
+
 		minGMEC = null;
 	}
-	
+
 	public void setNumConfsEvaluated(long val) {
 		this.numConfsEvaluated = val;
 	}
-	
+
 	public long getNumConfsEvaluated() {
 		return this.numConfsEvaluated;
 	}
-	
+
 	public void setComputeGMECRatio(boolean val) {
 		this.computeGMECRatio = val;
 	}
-	
+
 	public ConfListener getConfListener() {
 		return this.confListener;
 	}
-	
+
 	public void setMinGMEC(EnergiedConf val) {
 		this.minGMEC = val;
 	}
-	
+
 	public BoltzmannCalculator getBoltzmannCalculator() {
 		return this.boltzmann;
 	}
-	
+
 	public void setComputeMaxNumConfs(boolean val) {
 		this.computeMaxNumConfs = val;
 	}

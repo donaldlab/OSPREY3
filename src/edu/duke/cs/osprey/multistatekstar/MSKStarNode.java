@@ -55,7 +55,7 @@ public class MSKStarNode {
 		this.numPruned = 0;
 		this.isRoot = false;
 	}
-	
+
 	public String getSequence(int state) {
 		int numSubStates = ksLB[state].getSettings().search.length;
 		return ksLB[state].getSettings().search[numSubStates-1].settings.getFormattedSequence();
@@ -76,7 +76,7 @@ public class MSKStarNode {
 	boolean keepUBScore() {
 		KStarScore[] scores = getStateKStarObjects(OBJ_FUNC);
 		int size = scores.length;
-		
+
 		for(int i=0; i<size; ++i) {
 			KStarScore ofScore = scores[i];
 			KStarScore lbScore = ksLB[i];
@@ -124,41 +124,39 @@ public class MSKStarNode {
 		return true;
 	}
 
+	private void printDebugStatement(MSKStarNode node) {
+		KStarScore[] parentScore = getStateKStarObjects(OBJ_FUNC);
+		KStarScore[] childScore = node.getStateKStarObjects(OBJ_FUNC);
+		
+		for(int state=0;state<getNumStates();++state) {
+
+			System.out.println();
+			System.out.println("state: "+state);
+			
+			KStarScore parent = parentScore[state];
+			System.out.println("parent score type: "+parent.getClass().getSimpleName());
+			System.out.println("parent: "+parent.toString());
+			
+			KStarScore child = childScore[state];
+			System.out.println("child score type: "+child.getClass().getSimpleName());
+			System.out.println("child: "+child.toString());
+			
+			System.out.println();
+		}
+	}
+
 	private boolean childScoreIsLessThanParentScore(MSKStarNode node) {
 		//root node can have a null score, since all its children are valid
 		if(this.getScore()==null) return false;
-
+		
 		if(node.getScore().compareTo(this.getScore())<0) {
 
 			System.out.println(String.format("child-parent: %12e", node.getScore().subtract(this.getScore())));
 
 			if(DEBUG) {
-				KStarScore[] parentScore = getStateKStarObjects(OBJ_FUNC);
-				KStarScore[] childScore = node.getStateKStarObjects(OBJ_FUNC);
-				for(int state=0;state<getNumStates();++state) {
-
-					System.out.println();
-
-					System.out.println("state: "+state);
-					KStarScore parent = parentScore[state];
-					KStarScore child = childScore[state];
-
-					String scoreType = child.getClass().getSimpleName();
-					System.out.println("score type: "+scoreType);
-					System.out.println("parent: "+parent.toString());
-					System.out.println("child: "+child.toString());
-
-					BigDecimal neg1 = new BigDecimal("-1");
-					BigDecimal pLMBscore = scoreType.toLowerCase().contains("upperbound") ? parent.getUpperBoundScore().multiply(neg1) : parent.getLowerBoundScore();
-					BigDecimal cLMBscore = scoreType.toLowerCase().contains("upperbound") ? child.getUpperBoundScore().multiply(neg1) : child.getLowerBoundScore();		
-					System.out.println(String.format("parent state LMB score: %12e\nchild state LMB score: %12e", pLMBscore, cLMBscore));
-
-					//child state lmb score must always be bigger than parent, otherwise, there is an error
-					if(cLMBscore.compareTo(pLMBscore)<0) {
-						System.out.println(String.format("ERROR: child state LMB score < parent state LMB score. csLMB-psLMB: %12e", cLMBscore.subtract(pLMBscore)));
-					}
-				}
+				printDebugStatement(node);
 			}
+			
 			return true;
 		}
 		return false;
@@ -249,7 +247,7 @@ public class MSKStarNode {
 				node.setScore(OBJ_FUNC);
 			}
 
-			//refine scores if necessary
+			//check scores
 			if(childScoreIsLessThanParentScore(node)) {
 				throw new RuntimeException("ERROR: child score must be >= parent score");
 			}

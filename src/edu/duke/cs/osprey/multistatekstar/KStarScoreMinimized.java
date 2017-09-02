@@ -267,7 +267,7 @@ public class KStarScoreMinimized implements KStarScore {
 
 			if(!constrSatisfied)//state-specific constraints
 				return;
-
+			
 			if(!initialized[state]) {
 				initialized[state] = init(state);
 			}
