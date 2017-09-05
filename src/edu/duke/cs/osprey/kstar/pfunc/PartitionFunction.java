@@ -1,9 +1,13 @@
 package edu.duke.cs.osprey.kstar.pfunc;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.function.Function;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.kstar.KStarScore;
+import edu.duke.cs.osprey.tools.MathTools;
 
 public interface PartitionFunction {
 	
@@ -12,7 +16,9 @@ public interface PartitionFunction {
 		Estimating(true),
 		Estimated(false),
 		OutOfConformations(false),
-		OutOfLowEnergies(false);
+		OutOfLowEnergies(false),
+		Unstable(false),
+		Aborted(false);
 		
 		private boolean canContinue;
 		
@@ -24,6 +30,8 @@ public interface PartitionFunction {
 			return canContinue;
 		}
 	}
+
+	public final MathContext decimalPrecision = new MathContext(64, RoundingMode.HALF_UP);
 	
 	public static class Values {
 		
@@ -32,9 +40,21 @@ public interface PartitionFunction {
 		public BigDecimal pstar; // pfunc value of all pruned confs
 		
 		public Values() {
-			qstar = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+			qstar = BigDecimal.ZERO;
 			qprime = BigDecimal.ZERO;
 			pstar = BigDecimal.ZERO;
+
+			// NOTE: q' should probably default to +inf
+			// but our +inf implementaiton is a giant hack,
+			// and will break existing code that's not expecting it
+			// if your code wants the defualt +inf,
+			// use the static factory method instead of this constructor
+		}
+
+		public static Values makeFullRange() {
+			Values values = new Values();
+			values.qprime = MathTools.BigPositiveInfinity;
+			return values;
 		}
 		
 		public double getEffectiveEpsilon() {
@@ -68,17 +88,9 @@ public interface PartitionFunction {
 			// e* = ((q* + s) - q*)/qu
 			//    = s/qu
 
-			BigDecimal s = qprime.add(pstar);
-			BigDecimal qu = s.add(qstar);
-			
-			if (qu.compareTo(BigDecimal.ZERO) == 0) {
-				// this is really bad... it should never happen
-				// it means the upper bound on the pfunc value is zero
-				// it probably means there are zero conformations in the tree?
-				return Double.NaN;
-			}
-			
-			return s.divide(qu, RoundingMode.HALF_UP).doubleValue();
+			BigDecimal s = MathTools.bigAdd(qprime, pstar, decimalPrecision);
+			BigDecimal qu = MathTools.bigAdd(s, qstar, decimalPrecision);
+			return MathTools.bigDivide(s, qu, decimalPrecision).doubleValue();
 		}
 
 		public BigDecimal calcLowerBound() {
@@ -86,7 +98,9 @@ public interface PartitionFunction {
 		}
 
 		public BigDecimal calcUpperBound() {
-			return qstar.add(qprime).add(pstar);
+			BigDecimal x = MathTools.bigAdd(qstar, qprime, decimalPrecision);
+			x = MathTools.bigAdd(x, pstar, decimalPrecision);
+			return x;
 		}
 	}
 
@@ -104,10 +118,28 @@ public interface PartitionFunction {
 
 		@Override
 		public String toString() {
-			if (status == PartitionFunction.Status.Estimated) {
-				return String.format("%e", values.qstar.doubleValue());
+			Function<String,String> trim = (s) -> {
+				if (s.length() > 9) {
+					return s.substring(0, 9);
+				} else {
+					return s;
+				}
+			};
+			StringBuilder buf = new StringBuilder();
+			buf.append(String.format("[%-9s,%9s]",
+				trim.apply(KStarScore.scoreToLog10String(values.calcLowerBound())),
+				trim.apply(KStarScore.scoreToLog10String(values.calcUpperBound()))
+			));
+			if (status == Status.Estimated) {
+				buf.append(String.format(" %-26s", "(log10)"));
+			} else {
+				buf.append(String.format(" %-26s", "(log10," + status.name() + ")"));
 			}
-			return status.toString();
+			return buf.toString();
+		}
+
+		public static Result makeAborted() {
+			return new Result(Status.Aborted, Values.makeFullRange(), 0);
 		}
 	}
 	
@@ -119,7 +151,17 @@ public interface PartitionFunction {
 	void setConfListener(ConfListener val);
 	
 	void init(double targetEpsilon);
-	
+
+	/**
+	 * Initializes the partition function for calculation.
+	 * @param targetEpsilon The accuracy with which to estimate the partition function.
+	 * @param stabilityThreshold If the partition function upper bound value falls below
+	 *                           this threshold, the sequence is considered unstable.
+	 */
+	default void init(double targetEpsilon, BigDecimal stabilityThreshold) {
+		throw new UnsupportedOperationException(getClass().getName() + " does not yet support stability thresholds");
+	}
+
 	Status getStatus();
 	Values getValues();
 	int getParallelism();

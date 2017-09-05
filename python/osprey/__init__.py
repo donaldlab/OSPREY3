@@ -501,7 +501,7 @@ def ReferenceEnergies(confSpace, ecalc, addResEntropy=None):
 	return builder.build()
 
 
-def AStarTraditional(emat, confSpaceOrPmat, useExternalMemory=False):
+def AStarTraditional(emat, confSpaceOrPmat, showProgress=True, useExternalMemory=False):
 	'''
 	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setTraditional`
 
@@ -516,7 +516,7 @@ def AStarTraditional(emat, confSpaceOrPmat, useExternalMemory=False):
 	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
 	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
-	builder.setShowProgress(True)
+	builder.setShowProgress(showProgress)
 	builder.setTraditional()
 
 	if useExternalMemory == True:
@@ -651,7 +651,7 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	return bbflex
 
 
-def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=None, maxSimultaneousMutations=None, writeSequencesToConsole=False, writeSequencesToFile=None):
+def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=None, stabilityThreshold=None, maxSimultaneousMutations=None, writeSequencesToConsole=False, writeSequencesToFile=None):
 	'''
 	:java:classdoc:`.kstar.KStar`
 
@@ -670,6 +670,7 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcF
 	:param astarFactory: :java:fielddoc:`.kstar.KStar#confSearchFactory`
 	:type astarFactory: :java:ref:`.kstar.KStar$ConfSearchFactory`
 	:builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
+	:builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
 	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
 	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format)
@@ -685,6 +686,8 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcF
 	settingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.KStar, 'Settings'))()
 	if epsilon is not None:
 		settingsBuilder.setEpsilon(epsilon)
+	if stabilityThreshold is not None:
+		settingsBuilder.setStabilityThreshold(stabilityThreshold)
 	if maxSimultaneousMutations is not None:
 		settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
 	if writeSequencesToConsole:
@@ -696,7 +699,7 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcF
 	return c.kstar.KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
 
 
-def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=None, maxSimultaneousMutations=None, numBestSequences=None, numConfsPerBatch=None, writeSequencesToConsole=False, writeSequencesToFile=None):
+def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=None, stabilityThreshold=None, maxSimultaneousMutations=None, numBestSequences=None, numConfsPerBatch=None, writeSequencesToConsole=False, writeSequencesToFile=None):
 	'''
 	:java:classdoc:`.kstar.BBKStar`
 
@@ -716,8 +719,9 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, min
 	:type confEcalcFactory: :java:ref:`.kstar.KStar$ConfEnergyCalculatorFactory`
 	:param astarFactory: :java:fielddoc:`.kstar.BBKStar#confSearchFactory`
 	:type astarFactory: :java:ref:`.kstar.KStar$ConfSearchFactory`
-	:builder_option epsilon .kstar.BBKStar$Settings$Builder#epsilon:
-	:builder_option maxSimultaneousMutations .kstar.BBKStar$Settings$Builder#maxSimultaneousMutations:
+	:builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
+	:builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
+	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
 	:builder_option numBestSequences .kstar.BBKStar$Settings$Builder#numBestSequences:
 	:builder_option numConfsPerBatch .kstar.BBKStar$Settings$Builder#numConfsPerBatch:
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
@@ -731,19 +735,24 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, min
 	astarFactory = jpype.JProxy(jvm.getInnerClass(c.kstar.KStar, 'ConfSearchFactory'), dict={ 'make': astarFactory })
 
 	# build settings
-	settingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.BBKStar, 'Settings'))()
+	kstarSettingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.KStar, 'Settings'))()
 	if epsilon is not None:
-		settingsBuilder.setEpsilon(epsilon)
+		kstarSettingsBuilder.setEpsilon(epsilon)
+	if stabilityThreshold is not None:
+		kstarSettingsBuilder.setStabilityThreshold(stabilityThreshold)
 	if maxSimultaneousMutations is not None:
-		settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
-	if numBestSequences is not None:
-		settingsBuilder.setNumBestSequences(numBestSequences)
-	if numConfsPerBatch is not None:
-		settingsBuilder.setNumConfsPerBatch(numConfsPerBatch)
+		kstarSettingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
 	if writeSequencesToConsole:
-		settingsBuilder.addScoreConsoleWriter()
+		kstarSettingsBuilder.addScoreConsoleWriter()
 	if writeSequencesToFile is not None:
-		settingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
-	settings = settingsBuilder.build()
+		kstarSettingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
+	kstarSettings = kstarSettingsBuilder.build()
 
-	return c.kstar.BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, settings)
+	bbkstarSettingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.BBKStar, 'Settings'))()
+	if numBestSequences is not None:
+		bbkstarSettingsBuilder.setNumBestSequences(numBestSequences)
+	if numConfsPerBatch is not None:
+		bbkstarSettingsBuilder.setNumConfsPerBatch(numConfsPerBatch)
+	bbkstarSettings = bbkstarSettingsBuilder.build()
+
+	return c.kstar.BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, kstarSettings, bbkstarSettings)

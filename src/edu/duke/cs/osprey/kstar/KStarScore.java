@@ -4,9 +4,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-
-import static edu.duke.cs.osprey.tools.MathTools.isZero;
+import java.util.function.Function;
 
 public class KStarScore {
 
@@ -23,6 +21,17 @@ public class KStarScore {
 	/** upper bound on K* score, could be singleton instance MathTools.BigPositiveInfinity */
 	public final BigDecimal upperBound;
 
+	public KStarScore(BigDecimal score, BigDecimal lowerBound, BigDecimal upperBound) {
+
+		this.protein = null;
+		this.ligand = null;
+		this.complex = null;
+
+		this.score = score;
+		this.lowerBound = lowerBound;
+		this.upperBound = upperBound;
+	}
+
 	public KStarScore(PartitionFunction.Result protein, PartitionFunction.Result ligand, PartitionFunction.Result complex) {
 
 		this.protein = protein;
@@ -30,58 +39,94 @@ public class KStarScore {
 		this.complex = complex;
 
 		// calculate the K* score
+		// or don't. I'm not the boss of you
 		if (protein.status == PartitionFunction.Status.Estimated
 				&& ligand.status == PartitionFunction.Status.Estimated
 				&& complex.status == PartitionFunction.Status.Estimated) {
 
-			this.score = complex.values.qstar
-				.divide(protein.values.qstar, RoundingMode.HALF_UP)
-				.divide(ligand.values.qstar, RoundingMode.HALF_UP);
+			BigDecimal x = MathTools.bigDivideDivide(
+				complex.values.qstar,
+				protein.values.qstar,
+				ligand.values.qstar,
+				PartitionFunction.decimalPrecision
+			);
+			if (MathTools.isNaN(x)) {
+				this.score = null;
+			} else {
+				this.score = x;
+			}
+
 		} else {
+
+			// pfuncs not estimated enough, so we don't have a score at all
 			this.score = null;
 		}
 
-		// calculate the K* bounds
-		BigDecimal proteinLowerBound = protein.values.calcLowerBound();
-		BigDecimal proteinUpperBound = protein.values.calcUpperBound();
-		BigDecimal ligandLowerBound = ligand.values.calcLowerBound();
-		BigDecimal ligandUpperBound = ligand.values.calcUpperBound();
-		BigDecimal complexLowerBound = complex.values.calcLowerBound();
-		BigDecimal complexUpperBound = complex.values.calcUpperBound();
+		// calc the lower bound
+		this.lowerBound = MathTools.bigDivideDivide(
+			complex.values.calcLowerBound(),
+			protein.values.calcUpperBound(),
+			ligand.values.calcUpperBound(),
+			PartitionFunction.decimalPrecision
+		);
 
-		if (isZero(proteinUpperBound) || isZero(ligandUpperBound) || isZero(complexUpperBound)) {
+		// calc the upper bound
+		this.upperBound = MathTools.bigDivideDivide(
+			complex.values.calcUpperBound(),
+			protein.values.calcLowerBound(),
+			ligand.values.calcLowerBound(),
+			PartitionFunction.decimalPrecision
+		);
+	}
 
-			// these must be highly unfavorable structures
-			// Boltzmann says they will happen only with infinitesimally small probability
-			// but we apparently ran out of precision calculating e^(-energy), so let's just call it zero
-			this.lowerBound = BigDecimal.ZERO;
-			this.upperBound = BigDecimal.ZERO;
+	public static boolean isLigandComplexUseful(PartitionFunction.Result protein) {
 
-		} else {
+		// assuming we compute pfuncs in order of: protein, ligand, complex:
+		// unbound stability is the only thing that would
+		// make the ligand or complex pfunc results useless at this point
+		return protein.status != PartitionFunction.Status.Unstable;
+	}
 
-			this.lowerBound = complexLowerBound
-				.divide(proteinUpperBound, RoundingMode.HALF_UP)
-				.divide(ligandUpperBound, RoundingMode.HALF_UP);
+	public static boolean isComplexUseful(PartitionFunction.Result protein, PartitionFunction.Result ligand) {
 
-			if (isZero(proteinLowerBound) || isZero(ligandLowerBound)) {
-				// this *should* be impossible for a single-sequence bound (since if the lower bound is zero,
-				// the upper bound *should* be zero too), but it could easily happen for a multi-sequence bound
-				this.upperBound = MathTools.BigPositiveInfinity;
-			} else {
-				this.upperBound = complexUpperBound
-					.divide(proteinLowerBound, RoundingMode.HALF_UP)
-					.divide(ligandLowerBound, RoundingMode.HALF_UP);
-			}
-		}
+		// assuming we compute pfuncs in order of: protein, ligand, complex:
+		// unbound stability is the only thing that would
+		// make the complex pfunc results useless at this point
+		return protein.status != PartitionFunction.Status.Unstable
+			&& ligand.status != PartitionFunction.Status.Unstable;
 	}
 
 	@Override
 	public String toString() {
-		return String.format("%-9s in [%-9s,%-9s]",
-			scoreLog10String(),
-			lowerBoundLog10String(),
-			upperBoundLog10String()
+		Function<String,String> trim = (s) -> {
+			if (s.length() > 9) {
+				return s.substring(0, 9);
+			} else {
+				return s;
+			}
+		};
+		return String.format("%-9s in [%-9s,%9s] (log10)",
+			trim.apply(scoreLog10String()),
+			trim.apply(lowerBoundLog10String()),
+			trim.apply(upperBoundLog10String())
 		);
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		return other instanceof KStarScore && equals((KStarScore)other);
+	}
+
+	public boolean equals(KStarScore other) {
+		return MathTools.isSameValue(this.score, other.score)
+			&& MathTools.isSameValue(this.lowerBound, other.lowerBound)
+			&& MathTools.isSameValue(this.upperBound, other.upperBound);
+	}
+
+	public boolean isSimilarTo(KStarScore other, double relativeEpsilon) {
+		return MathTools.isRelativelySame(this.score, other.score, PartitionFunction.decimalPrecision, relativeEpsilon)
+			&& MathTools.isRelativelySame(this.lowerBound, other.lowerBound, PartitionFunction.decimalPrecision, relativeEpsilon)
+			&& MathTools.isRelativelySame(this.upperBound, other.upperBound, PartitionFunction.decimalPrecision, relativeEpsilon);
 	}
 
 	public Double scoreLog10() { return scoreToLog10(score); }

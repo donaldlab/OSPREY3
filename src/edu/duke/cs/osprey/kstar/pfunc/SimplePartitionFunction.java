@@ -4,15 +4,16 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 
 public class SimplePartitionFunction implements PartitionFunction {
 
@@ -32,6 +33,7 @@ public class SimplePartitionFunction implements PartitionFunction {
     public int scoreConfsBatchSize = 1000;
 
 	private double targetEpsilon = Double.NaN;
+	private BigDecimal upperBoundThreshold = null;
 	private Status status = null;
 	private Values values = null;
 	private LowerBoundCalculator lowerBound;
@@ -78,11 +80,17 @@ public class SimplePartitionFunction implements PartitionFunction {
 
 	@Override
 	public void init(double targetEpsilon) {
-		
+		init(targetEpsilon, BigDecimal.ZERO);
+	}
+
+	@Override
+	public void init(double targetEpsilon, BigDecimal stabilityThreshold) {
+
 		this.targetEpsilon = targetEpsilon;
+		this.upperBoundThreshold = stabilityThreshold;
 		
 		status = Status.Estimating;
-		values = new Values();
+		values = Values.makeFullRange();
 
 		// NOTE: don't use DEE with this pfunc calculator
 		// DEE actually makes the problem harder to solve, not easier
@@ -107,18 +115,33 @@ public class SimplePartitionFunction implements PartitionFunction {
 		// WARNING: if this is too big, we'll never reach the pfunc epsilon!
 		final double upperBoundEpsilon = 0.00001;
 
+		// step the upper bound calculator at least once,
+		// so we try to get a non-inf upper bound before working on the lower bound
+		upperBound.scoreNextConf();
+		values.qprime = upperBound.totalBound;
+
 		int numConfsScored = 0;
 		while (true) {
 
-			// did we hit the epsilon target?
-			if (values.getEffectiveEpsilon() <= targetEpsilon) {
-				status = Status.Estimated;
-				break;
-			}
+			// don't race the calculators while we're checking stopping criteria
+			synchronized (this) {
 
-			// should we stop anyway?
-			if (!status.canContinue() || numConfsScored >= maxNumConfs) {
-				break;
+				// did we drop below the stability threshold?
+				if (lowerBound.numConfsEnergied > 0 && MathTools.isLessThan(values.calcUpperBound(), upperBoundThreshold)) {
+					status = Status.Unstable;
+					break;
+				}
+
+				// did we hit the epsilon target?
+				if (values.getEffectiveEpsilon() <= targetEpsilon) {
+					status = Status.Estimated;
+					break;
+				}
+
+				// should we stop anyway?
+				if (!status.canContinue() || numConfsScored >= maxNumConfs) {
+					break;
+				}
 			}
 
 			// nope, need to do some more work
@@ -195,6 +218,14 @@ public class SimplePartitionFunction implements PartitionFunction {
 
 		// wait for any remaining async minimizations to finish
 		ecalc.tasks.waitForFinish();
+
+		// after we've decided this pfunc is sufficiently estimated,
+		// sometimes extra energies can arrive asynchronously
+		// and push us into unstable territory,
+		// so check for that after waiting on the ecalc to finish
+		if (status != Status.Unstable && MathTools.isLessThan(values.calcUpperBound(), upperBoundThreshold)) {
+			status = Status.Unstable;
+		}
 	}
 
 	public static class LowerBoundCalculator {
@@ -213,7 +244,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 		public int numConfsScored = 0;
 		public int numConfsEnergied = 0;
 
-		private BoltzmannCalculator boltzmann = new BoltzmannCalculator();
+		private BoltzmannCalculator boltzmann = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
 		public LowerBoundCalculator(ConfSearch tree, ConfEnergyCalculator ecalc) {
 			this.tree = tree;
@@ -244,7 +275,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 				return Status.OutOfConfs;
 			}
 			numConfsScored++;
-			if (Double.isInfinite(conf.getScore()) || boltzmann.calc(conf.getScore()).compareTo(BigDecimal.ZERO) == 0) {
+			if (Double.isInfinite(conf.getScore()) || MathTools.isZero(boltzmann.calc(conf.getScore()))) {
 				return Status.OutOfLowEnergies;
 			}
 
@@ -296,7 +327,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 		public BigDecimal totalBound = BigDecimal.ZERO;
 		public double delta = 1.0;
 
-		private BoltzmannCalculator boltzmann = new BoltzmannCalculator();
+		private BoltzmannCalculator boltzmann = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
 		public UpperBoundCalculator(ConfSearch tree) {
 			this.tree = tree;
@@ -341,12 +372,10 @@ public class SimplePartitionFunction implements PartitionFunction {
 			totalBound = weightedScoreSum.add(unscoredBound);
 
 			// update delta
-			if (totalBound.compareTo(BigDecimal.ZERO) != 0) {
-				delta = unscoredBound.divide(totalBound, RoundingMode.HALF_UP).doubleValue();
-			}
+			delta = MathTools.bigDivide(unscoredBound, totalBound, PartitionFunction.decimalPrecision).doubleValue();
 
 			// keep going if the boltzmann weight is greater than zero
-			return weightedScore.compareTo(BigDecimal.ZERO) > 0;
+			return MathTools.isGreaterThan(weightedScore, BigDecimal.ZERO);
 		}
 
 		@Override

@@ -73,11 +73,16 @@ public class ExpFunction implements Serializable {
 
 	BigDecimal exp = new BigDecimal("2.71828182845904523536"); //Euler's number to 20 decimal digits
 
-	final int maxPrecision = 8; //the number of decimal digits to which the BigDecimal numbers must be accurate
+	public final int maxPrecision; //the number of decimal digits to which the BigDecimal numbers must be accurate
 	public static MathContext mc = new MathContext(100, RoundingMode.HALF_EVEN);
 	//constructor
-	public ExpFunction() {
 
+	public ExpFunction() {
+		this.maxPrecision = 8;
+	}
+
+	public ExpFunction(MathContext mathContext) {
+		this.maxPrecision = mathContext.getPrecision();
 	}
 
 	//Computes exp(x) using BigDecimal arithmetic for large x or the standard Math.exp() function for small x;

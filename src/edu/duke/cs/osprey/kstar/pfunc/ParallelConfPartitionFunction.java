@@ -144,7 +144,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 			boundOnAll = sum.add(boundOnRemaining);
 			
 			// stop if the bound is tight enough
-			double effectiveEpsilon = boundOnRemaining.divide(boundOnAll, RoundingMode.HALF_UP).doubleValue();
+			double effectiveEpsilon = boundOnRemaining.divide(boundOnAll, PartitionFunction.decimalPrecision).doubleValue();
 			if (effectiveEpsilon <= 0.01) {
 				break;
 			}
@@ -269,7 +269,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 			qprimeUnscored = scoreWeight.multiply(new BigDecimal(numConfsToScore));
 			
 			// stop if the bound on q' is tight enough
-			double tightness = qprimeUnscored.divide(qprimeUnevaluated.add(qprimeUnscored), RoundingMode.HALF_UP).doubleValue();
+			double tightness = qprimeUnscored.divide(qprimeUnevaluated.add(qprimeUnscored), PartitionFunction.decimalPrecision).doubleValue();
 			if (tightness <= 0.01) {
 				break;
 			}

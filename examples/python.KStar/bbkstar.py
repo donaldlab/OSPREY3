@@ -49,7 +49,7 @@ def confEcalcFactory(confSpace, ecalc):
 
 # how should confs be ordered and searched?
 def astarFactory(emat, rcs):
-	return osprey.AStarTraditional(emat, rcs)
+	return osprey.AStarTraditional(emat, rcs, showProgress=False)
 	# or
 	# return osprey.AStarMPLP(emat, rcs, numIterations=5)
 

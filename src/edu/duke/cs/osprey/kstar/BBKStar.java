@@ -8,13 +8,13 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
+import edu.duke.cs.osprey.tools.MathTools;
 
-import java.io.File;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.util.*;
 import java.util.function.Function;
 
@@ -34,19 +34,6 @@ public class BBKStar {
 
 		public static class Builder {
 
-			/**
-			 * Value of epsilon in (0,1] for the epsilon-approximation to a partition function.
-			 *
-			 * Smaller values for epsilon yield more accurate predictions, but can take
-			 * longer to run.
-			 */
-			private double epsilon = 0.683;
-
-			/** The maximum number of simultaneous residue mutations to consider for each sequence mutant */
-			private int maxSimultaneousMutations = 1;
-
-			private boolean showPfuncProgress = false;
-
 			/** The number of best (by K* score) sequences to evaluate before finishing */
 			private int numBestSequences = 1;
 
@@ -58,23 +45,6 @@ public class BBKStar {
 			 */
 			private int numConfsPerBatch = 8;
 
-			private KStarScoreWriter.Writers scoreWriters = new KStarScoreWriter.Writers();
-
-			public Builder setEpsilon(double val) {
-				epsilon = val;
-				return this;
-			}
-
-			public Builder setMaxSimultaneousMutations(int val) {
-				maxSimultaneousMutations = val;
-				return this;
-			}
-
-			public Builder setShowPfuncProgress(boolean val) {
-				showPfuncProgress = val;
-				return this;
-			}
-
 			public Builder setNumBestSequences(int val) {
 				numBestSequences = val;
 				return this;
@@ -85,46 +55,17 @@ public class BBKStar {
 				return this;
 			}
 
-			public Builder addScoreWriter(KStarScoreWriter val) {
-				scoreWriters.add(val);
-				return this;
-			}
-
-			public Builder addScoreConsoleWriter(KStarScoreWriter.Formatter val) {
-				return addScoreWriter(new KStarScoreWriter.ToConsole(val));
-			}
-
-			public Builder addScoreConsoleWriter() {
-				return addScoreConsoleWriter(new KStarScoreWriter.Formatter.SequenceKStarPfuncs());
-			}
-
-			public Builder addScoreFileWriter(File file, KStarScoreWriter.Formatter val) {
-				return addScoreWriter(new KStarScoreWriter.ToFile(file, val));
-			}
-
-			public Builder addScoreFileWriter(File file) {
-				return addScoreFileWriter(file, new KStarScoreWriter.Formatter.Log());
-			}
-
 			public Settings build() {
-				return new Settings(epsilon, maxSimultaneousMutations, showPfuncProgress, numBestSequences, numConfsPerBatch, scoreWriters);
+				return new Settings(numBestSequences, numConfsPerBatch);
 			}
 		}
 
-		public final double epsilon;
-		public final int maxSimultaneousMutations;
-		public final boolean showPfuncProgress;
 		public final int numBestSequences;
 		public final int numConfsPerBatch;
-		public final KStarScoreWriter.Writers scoreWriters;
 
-		public Settings(double epsilon, int maxSimultaneousMutations, boolean dumpPfuncConfs, int numBestSequences, int numConfsPerBatch, KStarScoreWriter.Writers scoreWriters) {
-			this.epsilon = epsilon;
-			this.maxSimultaneousMutations = maxSimultaneousMutations;
-			this.showPfuncProgress = dumpPfuncConfs;
+		public Settings(int numBestSequences, int numConfsPerBatch) {
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
-			this.scoreWriters = scoreWriters;
 		}
 	}
 
@@ -143,6 +84,7 @@ public class BBKStar {
 
 		public EnergyMatrix rigidNegatedEmat = null;
 		public EnergyMatrix minimizedEmat = null;
+		public BigDecimal stabilityThreshold = BigDecimal.ZERO;
 
 		public ConfSpaceInfo(ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator rigidConfEcalc, ConfEnergyCalculator minimizingConfEcalc) {
 			this.type = type;
@@ -198,6 +140,9 @@ public class BBKStar {
 
 		/** for comparing in the tree, higher is first */
 		public double score;
+
+		/** signals whether or not partition function values are allowed the stability threshold */
+		public boolean isUnboundUnstable;
 
 		protected Node(KStar.Sequence sequence) {
 
@@ -260,7 +205,7 @@ public class BBKStar {
 			Set<String> resTypes = new HashSet<>(assignPos.resFlex.resTypes);
 
 			// add wild-type option if mutations are limited
-			if (settings.maxSimultaneousMutations < positions.size()) {
+			if (kstarSettings.maxSimultaneousMutations < positions.size()) {
 				resTypes.add(assignPos.resFlex.wildType);
 			}
 
@@ -275,7 +220,7 @@ public class BBKStar {
 					// fully assigned, make single sequence node
 					children.add(new SingleSequenceNode(s));
 
-				} else if (s.countMutations(complex.confSpace) == settings.maxSimultaneousMutations) {
+				} else if (s.countMutations(complex.confSpace) == kstarSettings.maxSimultaneousMutations) {
 
 					// mutation limit reached, fill unassigned positions with wild-type
 					s.fillWildType(complex.confSpace);
@@ -298,6 +243,62 @@ public class BBKStar {
 			// NOTE: for the correctness of the bounds, the number of confs must be the same for every node
 			// meaning, it might not be sound to do epsilon-based iterative approximations here
 			final int numConfs = 1000;
+
+			if (MathTools.isFinite(protein.stabilityThreshold)) {
+
+				// tank the sequence if the protein is unstable
+				BigDecimal proteinUpperBound = calcUpperBound(protein, proteinSequence, numConfs);
+				if (MathTools.isLessThan(proteinUpperBound, protein.stabilityThreshold)) {
+					score = Double.NEGATIVE_INFINITY;
+					isUnboundUnstable = true;
+					return;
+				}
+			}
+
+			BigDecimal proteinLowerBound = calcLowerBound(protein, proteinSequence, numConfs);
+
+			// if the first few conf upper bound scores (for the pfunc lower bound) are too high,
+			// then the K* upper bound is also too high
+			if (MathTools.isZero(proteinLowerBound)) {
+				score = Double.POSITIVE_INFINITY;
+				isUnboundUnstable = false;
+				return;
+			}
+
+			if (MathTools.isFinite(ligand.stabilityThreshold)) {
+
+				// tank the sequence if the ligand is unstable
+				BigDecimal ligandUpperBound = calcUpperBound(ligand, ligandSequence, numConfs);
+				if (MathTools.isLessThan(ligandUpperBound, ligand.stabilityThreshold)) {
+					score = Double.NEGATIVE_INFINITY;
+					isUnboundUnstable = true;
+					return;
+				}
+			}
+
+			BigDecimal ligandLowerBound = calcLowerBound(ligand, ligandSequence, numConfs);
+
+			// if the first few conf upper bound scores (for the pfunc lower bound) are too high,
+			// then the K* upper bound is also too high
+			if (MathTools.isZero(ligandLowerBound)) {
+				score = Double.POSITIVE_INFINITY;
+				isUnboundUnstable = false;
+				return;
+			}
+
+			BigDecimal complexUpperBound = calcUpperBound(complex, sequence, numConfs);
+
+			// compute the node score
+			score = MathTools.bigDivideDivide(
+				complexUpperBound,
+				proteinLowerBound,
+				ligandLowerBound,
+				PartitionFunction.decimalPrecision
+			).doubleValue();
+			isUnboundUnstable = false;
+		}
+
+		private BigDecimal calcLowerBound(ConfSpaceInfo info, KStar.Sequence sequence, int numConfs) {
 
 			// to compute lower bounds on pfuncs, we'll use the upper bound calculator,
 			// but feed it upper-bound scores in order of greatest upper bound
@@ -323,64 +324,23 @@ public class BBKStar {
 				}
 			};
 
-			// calculate a lower bound on the protein partition function
-			BigDecimal proteinLowerBound;
-			{
-				SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
-					astarNegater.apply(confSearchFactory.make(protein.rigidNegatedEmat, protein.makeRCs(proteinSequence)))
-				);
-				calc.run(numConfs);
-				proteinLowerBound = calc.totalBound;
-			}
+			SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
+				astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, info.makeRCs(sequence)))
+			);
+			calc.run(numConfs);
+			return calc.totalBound;
+		}
 
-			// if the first few conf upper bound scores (for the pfunc lower bound) are too high,
-			// then the K* upper bound is also too high
-			if (proteinLowerBound.compareTo(BigDecimal.ZERO) == 0) {
-				score = Double.POSITIVE_INFINITY;
-				return;
-			}
+		private BigDecimal calcUpperBound(ConfSpaceInfo info, KStar.Sequence sequence, int numConfs) {
 
-			// calculate a lower bound on the ligand partition function
-			BigDecimal ligandLowerBound;
-			{
-				SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
-					astarNegater.apply(confSearchFactory.make(ligand.rigidNegatedEmat, ligand.makeRCs(ligandSequence)))
-				);
-				calc.run(numConfs);
-				ligandLowerBound = calc.totalBound;
-			}
-
-			// if the first few conf upper bound scores (for the pfunc lower bound) are too high,
-			// then the K* upper bound is also too high
-			if (ligandLowerBound.compareTo(BigDecimal.ZERO) == 0) {
-				score = Double.POSITIVE_INFINITY;
-				return;
-			}
-
-			// NOTE: to compute upper bounds on pfuncs,
+			// to compute upper bounds on pfuncs,
 			// we'll use the upper bound calculator in the usual way
 
-			// calculate an upper bound on the complex partition function
-			BigDecimal complexUpperBound;
-			{
-				SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
-					confSearchFactory.make(complex.minimizedEmat, complex.makeRCs(sequence))
-				);
-				calc.run(numConfs);
-				complexUpperBound = calc.totalBound;
-			}
-
-			// if there are no low-energy confs, then make this node last in the queue
-			if (ligandLowerBound.compareTo(BigDecimal.ZERO) == 0) {
-				score = Double.NEGATIVE_INFINITY;
-				return;
-			}
-
-			// compute the node score
-			score = Math.log10(complexUpperBound
-				.divide(proteinLowerBound, RoundingMode.HALF_UP)
-				.divide(ligandLowerBound, RoundingMode.HALF_UP)
-				.doubleValue());
+			SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
+				confSearchFactory.make(info.minimizedEmat, info.makeRCs(sequence))
+			);
+			calc.run(numConfs);
+			return calc.totalBound;
 		}
 
 		@Override
@@ -424,33 +384,74 @@ public class BBKStar {
 
 			// make the partition function
 			pfunc = new SimplePartitionFunction(confSearchFactory.make(info.minimizedEmat, rcs), info.minimizingConfEcalc);
-			pfunc.setReportProgress(settings.showPfuncProgress);
-			pfunc.init(settings.epsilon);
+			pfunc.setReportProgress(kstarSettings.showPfuncProgress);
+			pfunc.init(kstarSettings.epsilon, info.stabilityThreshold);
+			pfuncCache.put(sequence, pfunc);
 			return pfunc;
 		}
 
 		@Override
 		public void estimateScore() {
 
+			// tank the sequence if either unbound strand is unstable
+			// yeah, we haven't refined any pfuncs yet this estimation,
+			// but since pfuncs get cached, check before we do any more estimation
+			if (protein.getStatus() == PartitionFunction.Status.Unstable
+				|| ligand.getStatus() == PartitionFunction.Status.Unstable) {
+				score = Double.NEGATIVE_INFINITY;
+				isUnboundUnstable = true;
+				return;
+			}
+
 			// refine the pfuncs if needed
 			if (protein.getStatus().canContinue()) {
-				protein.compute(settings.numConfsPerBatch);
+				protein.compute(bbkstarSettings.numConfsPerBatch);
+
+				// tank the sequence if the unbound protein is unstable
+				if (protein.getStatus() == PartitionFunction.Status.Unstable) {
+					score = Double.NEGATIVE_INFINITY;
+					isUnboundUnstable = true;
+					return;
+				}
 			}
+
 			if (ligand.getStatus().canContinue()) {
-				ligand.compute(settings.numConfsPerBatch);
+				ligand.compute(bbkstarSettings.numConfsPerBatch);
+
+				// tank the sequence if the unbound ligand is unstable
+				if (ligand.getStatus() == PartitionFunction.Status.Unstable) {
+					score = Double.NEGATIVE_INFINITY;
+					isUnboundUnstable = true;
+					return;
+				}
 			}
+
 			if (complex.getStatus().canContinue()) {
-				complex.compute(settings.numConfsPerBatch);
+				complex.compute(bbkstarSettings.numConfsPerBatch);
+			}
+
+			// update the score
+			score = Math.log10(makeKStarScore().upperBound.doubleValue());
+			isUnboundUnstable = false;
+		}
+
+		public KStarScore computeScore() {
+
+			// refine the pfuncs until done
+			while (protein.getStatus().canContinue()) {
+				protein.compute(bbkstarSettings.numConfsPerBatch);
+			}
+			while (ligand.getStatus().canContinue()) {
+				ligand.compute(bbkstarSettings.numConfsPerBatch);
+			}
+			while (complex.getStatus().canContinue()) {
+				complex.compute(bbkstarSettings.numConfsPerBatch);
 			}
 
 			// update the score
 			KStarScore kstarScore = makeKStarScore();
-			if (kstarScore.upperBound == null) {
-				// give the lowest score, so this node polls last
-				score = Double.NEGATIVE_INFINITY;
-			} else {
-				score = Math.log10(kstarScore.upperBound.doubleValue());
-			}
+			score = Math.log10(kstarScore.upperBound.doubleValue());
+			return kstarScore;
 		}
 
 		public KStarScore makeKStarScore() {
@@ -504,8 +505,11 @@ public class BBKStar {
 	/** A function that makes a ConfSearchFactory (e.g, A* search) with the desired options */
 	public final ConfSearchFactory confSearchFactory;
 
+	/** Optional and overridable settings for BBK*, shared with K* */
+	public final KStar.Settings kstarSettings;
+
 	/** Optional and overridable settings for BBK* */
-	public final Settings settings;
+	public final Settings bbkstarSettings;
 
 	private final Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToProteinMap;
 	private final Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToLigandMap;
@@ -515,7 +519,7 @@ public class BBKStar {
 	private final Map<KStar.Sequence,PartitionFunction> ligandPfuncs;
 	private final Map<KStar.Sequence,PartitionFunction> complexPfuncs;
 
-	public BBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator rigidEcalc, EnergyCalculator minimizingEcalc, KStar.ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, Settings settings) {
+	public BBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator rigidEcalc, EnergyCalculator minimizingEcalc, KStar.ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, KStar.Settings kstarSettings, Settings bbkstarSettings) {
 
 		this.protein = new ConfSpaceInfo(
 			ConfSpaceType.Protein,
@@ -539,7 +543,8 @@ public class BBKStar {
 		this.minimizingEcalc = minimizingEcalc;
 		this.confEcalcFactory = confEcalcFactory;
 		this.confSearchFactory = confSearchFactory;
-		this.settings = settings;
+		this.kstarSettings = kstarSettings;
+		this.bbkstarSettings = bbkstarSettings;
 
 		complexToProteinMap = this.complex.confSpace.mapPositionsTo(this.protein.confSpace);
 		complexToLigandMap = this.complex.confSpace.mapPositionsTo(this.ligand.confSpace);
@@ -557,14 +562,29 @@ public class BBKStar {
 
 		List<KStar.ScoredSequence> scoredSequences = new ArrayList<>();
 
+		// calculate wild-type first
+		System.out.println("computing K* score for the wild-type sequence...");
+		SingleSequenceNode wildTypeNode = new SingleSequenceNode(KStar.Sequence.makeWildType(complex.confSpace));
+		KStarScore wildTypeScore = wildTypeNode.computeScore();
+		kstarSettings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
+			-1,
+			0,
+			wildTypeNode.sequence,
+			complex.confSpace,
+			wildTypeScore
+		));
+		BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(kstarSettings.stabilityThreshold);
+		protein.stabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
+		ligand.stabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+
 		// start the BBK* tree with the root node
 		PriorityQueue<Node> tree = new PriorityQueue<>();
 		tree.add(new MultiSequenceNode(new KStar.Sequence(complex.confSpace.positions.size())));
 
 		// start searching the tree
-		System.out.println("computing K* scores for the " + settings.numBestSequences + " best sequences to epsilon = " + settings.epsilon + " ...");
-		settings.scoreWriters.writeHeader();
-		while (!tree.isEmpty() && scoredSequences.size() < settings.numBestSequences) {
+		System.out.println("computing K* scores for the " + bbkstarSettings.numBestSequences + " best sequences to epsilon = " + kstarSettings.epsilon + " ...");
+		kstarSettings.scoreWriters.writeHeader();
+		while (!tree.isEmpty() && scoredSequences.size() < bbkstarSettings.numBestSequences) {
 
 			// get the next node
 			Node node = tree.poll();
@@ -584,7 +604,9 @@ public class BBKStar {
 
 						// needs more estimation, catch-and-release
 						ssnode.estimateScore();
-						tree.add(ssnode);
+						if (!ssnode.isUnboundUnstable) {
+							tree.add(ssnode);
+						}
 
 					break;
 					case Blocked:
@@ -598,20 +620,21 @@ public class BBKStar {
 				MultiSequenceNode msnode = (MultiSequenceNode)node;
 
 				// partial sequence, expand children
-				List<Node> children = msnode.makeChildren();
 				// TODO: parallelize the multi-sequence node scoring here?
-				for (Node child : children) {
+				for (Node child : msnode.makeChildren()) {
 					child.estimateScore();
+					if (!child.isUnboundUnstable) {
+						tree.add(child);
+					}
 				}
-				tree.addAll(children);
 			}
 		}
 
-		if (scoredSequences.size() < settings.numBestSequences) {
+		if (scoredSequences.size() < bbkstarSettings.numBestSequences) {
 			if (tree.isEmpty()) {
 				// all is well, we just don't have that many sequences in the design
-				System.out.println("Tried to find " + settings.numBestSequences + " sequences,"
-					+ " but design flexibility only allowed " + scoredSequences.size() + " sequences.");
+				System.out.println("Tried to find " + bbkstarSettings.numBestSequences + " sequences,"
+					+ " but design flexibility and sequence filters only allowed " + scoredSequences.size() + " sequences.");
 			} else {
 				throw new Error("BBK* ended, but the tree isn't empty and we didn't return enough sequences. This is a bug.");
 			}
@@ -625,9 +648,9 @@ public class BBKStar {
 		KStarScore kstarScore = ssnode.makeKStarScore();
 		scoredSequences.add(new KStar.ScoredSequence(ssnode.sequence, kstarScore));
 
-		settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
+		kstarSettings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
 			scoredSequences.size() - 1,
-			settings.numBestSequences,
+			bbkstarSettings.numBestSequences,
 			ssnode.sequence,
 			complex.confSpace,
 			kstarScore

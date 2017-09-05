@@ -55,15 +55,18 @@ public class TestBBKStar {
 					.build();
 
 				// run BBK*
-				BBKStar.Settings settings = new BBKStar.Settings.Builder()
+				KStar.Settings kstarSettings = new KStar.Settings.Builder()
 					.setEpsilon(epsilon)
+					.setStabilityThreshold(Double.POSITIVE_INFINITY)
 					.setMaxSimultaneousMutations(1)
-					.setNumBestSequences(numSequences)
-					.setNumConfsPerBatch(8)
 					.addScoreConsoleWriter()
 					.build();
+				BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
+					.setNumBestSequences(numSequences)
+					.setNumConfsPerBatch(8)
+					.build();
 				Results results = new Results();
-				results.bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
+				results.bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, kstarSettings, bbkstarSettings);
 				results.sequences = results.bbkstar.run();
 
 				// pass back the ref
@@ -93,6 +96,7 @@ public class TestBBKStar {
 		assertSequence(results, "PHE ASP GLU THR VAL LYS ILE THR", 14.655568, 14.724370);
 		assertSequence(results, "PHE ASP GLU THR LEU LYS ILE THR", 14.619748, 14.704462);
 		assertSequence(results, "PHE ASP GLU THR PHE LYS VAL THR", 14.561234, 14.647761);
+		assertSequence(results, "PHE ASP GLU THR PHE LYS LEU THR", 14.324171,14.405292);
 		assertSequence(results, "PHE ASP GLU THR ALA LYS ILE THR", 14.159251, 14.225284);
 		assertSequence(results, "PHE GLU GLU THR PHE LYS ILE THR", 14.056796, 14.148018);
 		assertSequence(results, "PHE ASP GLU THR PHE LYS ALA THR", 13.987814, 14.064762);
@@ -104,7 +108,6 @@ public class TestBBKStar {
 		assertSequence(results, "TYR ASP GLU THR PHE LYS ILE THR", 11.550098, 11.633104);
 		assertSequence(results, "PHE ASP GLU THR PHE ASP ILE THR", 10.805317, 10.871671);
 		assertSequence(results, "PHE ASP GLU THR PHE GLU ILE THR", 10.012310, 10.079659);
-		assertSequence(results, "PHE ASP GLU THR PHE LYS LEU THR", null, null);
 		assertSequence(results, "PHE ASP GLU THR PHE LYS PHE THR", null, null);
 		assertSequence(results, "PHE ASP GLU THR PHE LYS TYR THR", null, null);
 
@@ -116,7 +119,7 @@ public class TestBBKStar {
 	public void test1GUA11() {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
-		final double epsilon = 0.99;
+		final double epsilon = 0.999999;
 		final int numSequences = 6;
 		Results results = runBBKStar(confSpaces, numSequences, epsilon);
 

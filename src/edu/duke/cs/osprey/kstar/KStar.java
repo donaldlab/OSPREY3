@@ -7,12 +7,16 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -47,6 +51,23 @@ public class KStar {
 			 */
 			private double epsilon = 0.683;
 
+			/**
+			 * Pruning criteria to remove sequences with unstable unbound states relative to the wild type sequence.
+			 * Defined in units of kcal/mol.
+			 *
+			 * More precisely, a sequence is pruned when the following expression is true:
+			 *
+			 * U(Z_s) < L(W_s) * B(t)
+			 *
+			 * where:
+			 *   - s represents the unbound protein strand, or unbound ligand strand
+			 *   - U(Z_s) is the upper bound on the partition function for strand s
+			 *   - L(W_s) is the lower bound on the partition function for strand s in the wild type
+			 *   - t is the stability threshold
+			 *   - B() is the Boltzmann weighting function
+			 */
+			private double stabilityThreshold = 5.0;
+
 			/** The maximum number of simultaneous residue mutations to consider for each sequence mutant */
 			private int maxSimultaneousMutations = 1;
 
@@ -60,6 +81,11 @@ public class KStar {
 
 			public Builder setEpsilon(double val) {
 				epsilon = val;
+				return this;
+			}
+
+			public Builder setStabilityThreshold(double val) {
+				stabilityThreshold = val;
 				return this;
 			}
 
@@ -95,17 +121,19 @@ public class KStar {
 			}
 
 			public Settings build() {
-				return new Settings(epsilon, maxSimultaneousMutations, scoreWriters, showPfuncProgress);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress);
 			}
 		}
 
 		public final double epsilon;
+		public final double stabilityThreshold;
 		public final int maxSimultaneousMutations;
 		public final KStarScoreWriter.Writers scoreWriters;
 		public final boolean showPfuncProgress;
 
-		public Settings(double epsilon, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs) {
+		public Settings(double epsilon, double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs) {
 			this.epsilon = epsilon;
+			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
 			this.scoreWriters = scoreWriters;
 			this.showPfuncProgress = dumpPfuncConfs;
@@ -176,6 +204,16 @@ public class KStar {
 				}
 			}
 			return count;
+		}
+
+		public boolean isWildType(SimpleConfSpace confSpace) {
+			for (SimpleConfSpace.Position pos : confSpace.positions) {
+				String resType = get(pos.index);
+				if (resType != null && !resType.equals(pos.resFlex.wildType)) {
+					return false;
+				}
+			}
+			return true;
 		}
 
 		@Override
@@ -256,7 +294,7 @@ public class KStar {
 			return sequence;
 		}
 
-		public PartitionFunction.Result calcPfunc(int sequenceIndex) {
+		public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold) {
 
 			Sequence sequence = sequences.get(sequenceIndex);
 
@@ -279,7 +317,7 @@ public class KStar {
 			pfunc.setReportProgress(settings.showPfuncProgress);
 
 			// compute it
-			pfunc.init(settings.epsilon);
+			pfunc.init(settings.epsilon, stabilityThreshold);
 			pfunc.compute();
 
 			// save the result
@@ -287,6 +325,10 @@ public class KStar {
 			pfuncResults.put(sequence, result);
 			return result;
 		}
+	}
+
+	private static interface Scorer {
+		KStarScore score(int sequenceNumber, PartitionFunction.Result proteinResult, PartitionFunction.Result ligandResult, PartitionFunction.Result complexResult);
 	}
 
 	/** A configuration space containing just the protein strand */
@@ -383,31 +425,64 @@ public class KStar {
 
 		// TODO: sequence filtering? do we need to reject some mutation combinations for some reason?
 
+		// now we know how many sequences there are in total
+		int n = complex.sequences.size();
+
+		// make the sequence scorer and reporter
+		Scorer scorer = (sequenceNumber, proteinResult, ligandResult, complexResult) -> {
+
+			// compute the K* score
+			KStarScore kstarScore = new KStarScore(proteinResult, ligandResult, complexResult);
+			Sequence complexSequence = complex.sequences.get(sequenceNumber);
+			scores.add(new ScoredSequence(complexSequence, kstarScore));
+
+			// report scores
+			settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
+				sequenceNumber,
+				n,
+				complexSequence,
+				complex.confSpace,
+				kstarScore
+			));
+
+			return kstarScore;
+		};
+
 		System.out.println("computing K* scores for " + complex.sequences.size() + " sequences to epsilon = " + settings.epsilon + " ...");
 		settings.scoreWriters.writeHeader();
 		// TODO: progress bar?
 
-		// compute all the partition functions and K* scores
-		int n = complex.sequences.size();
-		for (int i=0; i<n; i++) {
+		// compute wild type partition functions first (always at pos 0)
+		KStarScore wildTypeScore = scorer.score(
+			0,
+			protein.calcPfunc(0, BigDecimal.ZERO),
+			ligand.calcPfunc(0, BigDecimal.ZERO),
+			complex.calcPfunc(0, BigDecimal.ZERO)
+		);
+		BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(settings.stabilityThreshold);
+		BigDecimal proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
+		BigDecimal ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
 
-			// get the pfuncs
-			PartitionFunction.Result proteinResult = protein.calcPfunc(i);
-			PartitionFunction.Result ligandResult = ligand.calcPfunc(i);
-			PartitionFunction.Result complexResult = complex.calcPfunc(i);
+		// compute all the partition functions and K* scores for the rest of the sequences
+		for (int i=1; i<n; i++) {
 
-			// compute the K* score if possible
-			KStarScore kstarScore = new KStarScore(proteinResult, ligandResult, complexResult);
-			scores.add(new ScoredSequence(complex.sequences.get(i), kstarScore));
+			// get the pfuncs, with short circuits as needed
+			final PartitionFunction.Result proteinResult = protein.calcPfunc(i, proteinStabilityThreshold);
+			final PartitionFunction.Result ligandResult;
+			final PartitionFunction.Result complexResult;
+			if (!KStarScore.isLigandComplexUseful(proteinResult)) {
+				ligandResult = PartitionFunction.Result.makeAborted();
+				complexResult = PartitionFunction.Result.makeAborted();
+			} else {
+				ligandResult = ligand.calcPfunc(i, ligandStabilityThreshold);
+				if (!KStarScore.isComplexUseful(proteinResult, ligandResult)) {
+					complexResult = PartitionFunction.Result.makeAborted();
+				} else {
+					complexResult = complex.calcPfunc(i, BigDecimal.ZERO);
+				}
+			}
 
-			// report scores
-			settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
-				i,
-				n,
-				complex.sequences.get(i),
-				complex.confSpace,
-				kstarScore
-			));
+			scorer.score(i, proteinResult, ligandResult, complexResult);
 		}
 
 		return scores;
