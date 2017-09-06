@@ -10,14 +10,14 @@ import edu.duke.cs.osprey.control.ConfigFileParser;
 
 /**
  *
- * @author lowegard
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * Anna Lowegard(anna.lowegard@duke.edu)
  */
 public class EWAKRatios {
-    
-    private SearchProblem[] search;
-    
+
     public EWAKRatios(ConfigFileParser cfp) {
-        
+        EWAKConfigFileParser ecfp = new EWAKConfigFileParser(cfp);
+        SearchProblem[] sps = ecfp.makeSearchProblems();
     }
     
     public void run() {

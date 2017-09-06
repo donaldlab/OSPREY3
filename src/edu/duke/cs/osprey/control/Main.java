@@ -4,7 +4,7 @@
  */
 package edu.duke.cs.osprey.control;
 
-import EWAKStar.EWAKRatios;
+import edu.duke.cs.osprey.EWAKStar.EWAKRatios;
 import edu.duke.cs.osprey.energy.LigandResEnergies;
 import java.util.HashMap;
 import java.util.Map;
@@ -187,7 +187,7 @@ public class Main {
                 commands.put("calcEWAKStar", new Runnable() {
 			@Override
 			public void run() {
-				EWAKRatios ewr = new EWAKRatios();
+				EWAKRatios ewr = new EWAKRatios(cfp);
                                 ewr.run();
 			}
 		});
