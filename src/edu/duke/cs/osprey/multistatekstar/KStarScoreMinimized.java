@@ -271,10 +271,11 @@ public class KStarScoreMinimized implements KStarScore {
 	 */
 	public void compute(long maxNumConfs) {
 
-		for(int state=0;state<numStates;++state){
-
-			if(!constrSatisfied)//state-specific constraints
+		for(int state=0;state<numStates;++state) {
+			
+			if(!constrSatisfied) {//state-specific constraints 
 				return;
+			}
 			
 			if(!initialized[state]) {
 				initialized[state] = init(state);
@@ -287,8 +288,9 @@ public class KStarScoreMinimized implements KStarScore {
 
 		//check all constraints now. technically, we should only check constraints
 		//that don't pertain to only one state, which we have already checked in compute(state)
-		if(settings.isFinal && constrSatisfied) 
+		if(settings.isFinal && constrSatisfied) {
 			constrSatisfied = checkConstraints();
+		}
 
 		if(isComputed()) {
 			cleanup();
@@ -305,18 +307,20 @@ public class KStarScoreMinimized implements KStarScore {
 
 			if(!constrSatisfied)//state-specific constraints
 				return;
-
+			
 			if(!initialized[state]) {
 				initialized[state] = init(state);
 			}
 			
-			if(partitionFunctions[state].getStatus() != Status.Estimated)
+			if(partitionFunctions[state].getStatus() != Status.Estimated) {
 				compute(state, maxNumConfs);
+			}
 
 			//don't check all constraints, because we are not computing 
 			//the bound state partition function
-			if(settings.isFinal && constrSatisfied) 
+			if(settings.isFinal && constrSatisfied) {
 				constrSatisfied = checkConstraints(state);
+			}
 
 			partitionFunctions[state].cleanup();
 		}
@@ -325,20 +329,24 @@ public class KStarScoreMinimized implements KStarScore {
 	public void computeBoundState(long maxNumConfs) {
 		if(!constrSatisfied)
 			return;
-
+		
 		int state = numStates-1;
-		if(!initialized[state])
+		if(!initialized[state]) {
 			initialized[state] = init(state);
-
-		if(partitionFunctions[state].getStatus() != Status.Estimated)
+		}
+		
+		if(partitionFunctions[state].getStatus() != Status.Estimated) {
 			compute(state, maxNumConfs);
+		}
 
 		if(partitionFunctions[state].getStatus()==Status.Estimated) {//assumption: unbound states are complete
 			if(settings.isFinal && constrSatisfied) 
 				constrSatisfied = checkConstraints();
 		}
 
-		if(isComputed()) cleanup();
+		if(isComputed()) {
+			cleanup();
+		}
 	}
 
 	private void cleanup() {
@@ -415,14 +423,24 @@ public class KStarScoreMinimized implements KStarScore {
 		if(computeMaxNumConfs) maxNumConfs = settings.cfp.getParams().getInt("MaxNumConfs");
 
 		pf.compute(maxNumConfs);
-
-		if(computeMaxNumConfs && pf.getStatus() == Status.Estimating) 
-			pf.setStatus(Status.Estimated);
 		
-		//we are not trying to compute the partition function to completion
-		if(pf.getStatus() == Status.Estimating)
-			return;
+		if(pf.getStatus() == Status.Estimated) {
+			//yay!
+		}
 
+		else if(pf.getStatus() == Status.NotEnoughFiniteEnergies) {
+			pf.setStatus(Status.Estimated);
+		}
+		
+		else if(computeMaxNumConfs && pf.getNumConfsEvaluated()>=maxNumConfs) {
+			pf.setStatus(Status.Estimated);
+		}
+
+		//we are not trying to compute the partition function to completion
+		else if(!computeMaxNumConfs && pf.getStatus() == Status.Estimating) {
+			return;
+		}
+		
 		//no more q conformations, and we have not reached epsilon
 		else if(pf.getStatus() == Status.NotEnoughConformations) {
 			maxNumConfs = computeMaxNumConfs ? maxNumConfs-pf.getNumConfsEvaluated() : Integer.MAX_VALUE;
@@ -434,9 +452,9 @@ public class KStarScoreMinimized implements KStarScore {
 
 			if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0)
 				pf.saveEConfs(p2pf.topConfs);
+			
+			pf.setStatus(Status.Estimated);
 		}
-
-		pf.setStatus(Status.Estimated);
 
 		if(isFinal()) {//final is a superset of fully defined
 			if(constrSatisfied) constrSatisfied = checkConstraints(state);

@@ -35,6 +35,8 @@ public class MSKStarNode {
 	public static boolean PARALLEL_EXPANSION;
 	public static boolean SUBLINEAR_AT_LEAF_NODES;
 	public static boolean DEBUG = false;
+	
+	private final static BigDecimal NUMERICAL_TOLERANCE = new BigDecimal("1e-8"); 
 
 	private KStarScore[] ksLB;//lower bound k* objects
 	private KStarScore[] ksUB;//upper bound k* objects
@@ -42,7 +44,8 @@ public class MSKStarNode {
 	private BigDecimal[] kss;//kstar score values
 	private BigDecimal score;//objective function value; smaller is better
 	private int numPruned;
-	public boolean isRoot;
+	private boolean isRoot;
+	private boolean scoreRevisedDownwards;
 
 	public MSKStarNode(
 			KStarScore[] ksLB, 
@@ -55,8 +58,25 @@ public class MSKStarNode {
 		this.score = null;
 		this.numPruned = 0;
 		this.isRoot = false;
+		this.scoreRevisedDownwards = false;
 	}
 
+	public boolean scoreRevisedDownwards() {
+		return scoreRevisedDownwards;
+	}
+	
+	public void scoreRevisedDownwards(boolean val) {
+		scoreRevisedDownwards = val;
+	}
+	
+	public void isRoot(boolean val) {
+		isRoot = val;
+	}
+	
+	public boolean isRoot() {
+		return isRoot;
+	}
+	
 	public boolean hasZeroConfs() {
 		ArrayList<MSSearchProblem> search = new ArrayList<>();
 		int numStates = getNumStates();
@@ -175,7 +195,30 @@ public class MSKStarNode {
 		return true;
 	}
 
+	//unfortunately, numerical precision issues abound, even with conformation
+	//scores. adjust parent and child scores to the lower of the two if child score
+	//is less than parent score to within 1e-8
+	private boolean adjustForNumericalPrecision(MSKStarNode node) {
+		BigDecimal childScore = node.getScore(), parentScore = this.getScore();
+		if(parentScore.compareTo(childScore)>0 && parentScore.subtract(childScore).compareTo(NUMERICAL_TOLERANCE)<=0) {
+			//set parent score to child score, which is smaller
+			this.setScore(childScore);
+			this.scoreRevisedDownwards(true);
+			
+			if(DEBUG) {
+				System.out.println("WARNING: adjusting parent score for numerical precision. "
+						+String.format("parent-child: %12e", parentScore.subtract(childScore)));
+			}
+			
+			return true;
+		}
+		
+		return false;
+	}
+	
 	private void printDebugStatement(MSKStarNode node) {
+		System.out.println(String.format("child-parent: %12e", node.getScore().subtract(this.getScore())));
+		
 		KStarScore[] parentScore = getStateKStarObjects(OBJ_FUNC);
 		KStarScore[] childScore = node.getStateKStarObjects(OBJ_FUNC);
 
@@ -193,23 +236,41 @@ public class MSKStarNode {
 			System.out.println("child: "+child.toString());
 
 			System.out.println();
+			
+			//compare substates
+			for(int substate=0; substate<node.getNumSubStates(); ++substate) {
+				System.out.println("substate "+substate+":");
+				
+				BigDecimal parentQStar = parent.getPartitionFunction(substate).getValues().qstar;
+				BigDecimal childQStar = child.getPartitionFunction(substate).getValues().qstar;
+				
+				System.out.println("parent q*: "+parentQStar);
+				System.out.println("child q*: "+childQStar);
+				System.out.println("parent-child: "+parentQStar.subtract(childQStar));
+				System.out.println("child-parent: "+childQStar.subtract(parentQStar));
+				
+				System.out.println();
+			}
 		}
 	}
 
-	private boolean childScoreIsLessThanParentScore(MSKStarNode node) {
+	private boolean childScoreLessParentScore(MSKStarNode node) {
 		//root node can have a null score, since all its children are valid
 		if(this.getScore()==null) return false;
 
 		if(node.getScore().compareTo(this.getScore())<0) {
 
-			System.out.println(String.format("child-parent: %12e", node.getScore().subtract(this.getScore())));
-
+			if(adjustForNumericalPrecision(node)) {
+				return false;
+			}
+				
 			if(DEBUG) {
 				printDebugStatement(node);
 			}
 
 			return true;
 		}
+		
 		return false;
 	}
 
@@ -289,7 +350,7 @@ public class MSKStarNode {
 			//this is an interesting corner case. if there are no defined conformations
 			//for any substate within any state, then the node cannot yield a valid
 			//child and therefore can be safely pruned
-			else if(!this.isRoot && node.hasZeroConfs()) {
+			else if(!this.isRoot() && node.hasZeroConfs()) {
 				remove.add(node);
 				continue;
 			}
@@ -300,7 +361,7 @@ public class MSKStarNode {
 			//we must keep the node and expand it to a leaf. this is because the
 			//lower bound partition function is defined on the rigid rotamer emat.
 			//keeping the parent score ensures that we will process this node first
-			else if(!this.isRoot && node.keepParentScore()) {
+			else if(!this.isRoot() && node.keepParentScore()) {
 				node.setScore(this.getScore());
 			}
 
@@ -309,8 +370,8 @@ public class MSKStarNode {
 				node.setScore(OBJ_FUNC);
 			}
 
-			//finally verify score consistency
-			if(childScoreIsLessThanParentScore(node)) {
+			//finally verify score consistency. scores must be non-decreasing
+			if(childScoreLessParentScore(node)) {
 				throw new RuntimeException("ERROR: child score must be >= parent score");
 			}
 		}
