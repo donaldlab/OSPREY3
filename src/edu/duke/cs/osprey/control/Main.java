@@ -4,7 +4,7 @@
  */
 package edu.duke.cs.osprey.control;
 
-import edu.duke.cs.osprey.ewakstar.EWAKRatios;
+import edu.duke.cs.osprey.EWAKStar.EWAKRatios;
 import edu.duke.cs.osprey.energy.LigandResEnergies;
 import java.util.HashMap;
 import java.util.Map;
