@@ -13,6 +13,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.PriorityQueue;
 
+import com.jogamp.common.util.InterruptSource.Thread;
+
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -148,7 +150,9 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			numConfsEvaluated++;
 			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
 
-			//values.qprime = updateQprime(minGMEC);
+			//start up qprime before evaluating confs, because we would immediately
+			//hit target epsilon otherwise
+			values.qprime = updateQprime(null);
 
 			if (confListener != null) {
 				confListener.onConf(minGMEC);
@@ -250,7 +254,9 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			if(stopwatch != null && stopwatch.getTimeH() >= QPRIME_TIMEOUT_HRS) break;
 		}
 
-		qprimeUnevaluated = qprimeUnevaluated.subtract(boltzmann.calc(econf.getScore()));
+		if(econf != null) {
+			qprimeUnevaluated = qprimeUnevaluated.subtract(boltzmann.calc(econf.getScore()));
+		}
 		return qprimeUnevaluated.add(qprimeUnscored);
 	}
 
@@ -406,12 +412,12 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				}
 
 				// should we keep going?
-				if (!status.canContinue() || numConfsEvaluated >= stopAtConf) {
+				else if (!status.canContinue() || numConfsEvaluated >= stopAtConf) {
 					break;
 				}
 
 				// get a list of scored confs
-				if (SYNCHRONIZED_MINIMIZATION) {
+				else if (SYNCHRONIZED_MINIMIZATION) {
 					scoredConfs = getScoredConfs(ecalc.getParallelism());
 				}
 
@@ -444,14 +450,12 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				}
 
 				while(energiedConfs.size() != scoredConfs.size()) {
-					try { Thread.sleep(1); } 
-					catch (Exception e) {
+					try { Thread.sleep(1); } catch (Exception e) {
 						e.printStackTrace();
 						System.exit(1);
 					}
+					ecalc.waitForFinish();
 				}
-				
-				ecalc.waitForFinish();
 
 				// sort energied confs by score
 				Collections.sort(energiedConfs, new Comparator<EnergiedConf>() {
@@ -464,6 +468,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				for (EnergiedConf econf : energiedConfs) {
 					handlePhase1Conf(econf);
 				}
+				
 				energiedConfs.clear();
 			}
 
@@ -501,6 +506,11 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		}
 
 		long stopAtConf = numConfsEvaluated + maxNumConfs;
+		
+		//start up qprime before evaluating confs, because we would immediately
+		//hit target epsilon otherwise
+		values.qprime = updateQprime(null);
+		
 		while (true) {
 
 			// get a conf from the tree
@@ -557,14 +567,12 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				}
 				
 				while(energiedConfs.size() != scoredConfs.size()) {
-					try { Thread.sleep(1); } 
-					catch (Exception e) {
+					try { Thread.sleep(1); } catch (Exception e) {
 						e.printStackTrace();
 						System.exit(1);
 					}
+					ecalc.waitForFinish();
 				}
-				
-				ecalc.waitForFinish();
 
 				// sort energied confs by score
 				Collections.sort(energiedConfs, new Comparator<EnergiedConf>() {
@@ -577,6 +585,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				for (EnergiedConf econf : energiedConfs) {
 					handlePhase2Conf(econf, targetScoreWeights);
 				}
+				
 				energiedConfs.clear();
 			}
 

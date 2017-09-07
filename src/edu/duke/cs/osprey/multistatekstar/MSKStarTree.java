@@ -323,6 +323,7 @@ public class MSKStarTree {
 
 				//expand
 				ArrayList<MSKStarNode> children = getChildren(curNode);
+				//score can get revised downwards for numerical precision reasons
 				if(curNode.scoreRevisedDownwards()) {
 					prevScore = curNode.getScore();
 					curNode.scoreRevisedDownwards(false);
