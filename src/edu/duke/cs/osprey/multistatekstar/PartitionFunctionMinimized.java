@@ -631,6 +631,12 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		scoredConfs = null;
 		energiedConfs = null;
 
+		confSearchFactory = null;
+		confListener = null;
+		
+		emat = null;
+		pmat = null;
+		
 		minGMEC = null;
 	}
 
