@@ -116,7 +116,7 @@ public class KStarScoreMinimized implements KStarScore {
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("Seq: "+settings.search[numStates-1].settings.getFormattedSequence()+", ");
-		sb.append(String.format("score: %12e, ", getScore()));
+		sb.append(String.format("log10(score): %12e, ", getScore()));
 		for(int state=0;state<numStates;++state) {
 			BigDecimal qstar = partitionFunctions[state]==null ? BigDecimal.ZERO : 
 				partitionFunctions[state].getValues().qstar;

@@ -194,9 +194,9 @@ public class MSKStarTree {
 		MSSearchProblem.DEBUG = false;
 		ResidueOrderMeta.DEBUG = false;
 		ResidueOrderGMECProxy.DEBUG = false;
+		PartitionFunctionDiscrete.DEBUG = false;
 		
 		MSKStarNode.DEBUG = true;
-		PartitionFunctionDiscrete.DEBUG = true;
 	}
 	
 	private static boolean doMinimize(MSConfigFileParser[] cfps) {

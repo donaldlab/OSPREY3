@@ -647,6 +647,37 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	public long getNumConfsEvaluated() {
 		return this.numConfsEvaluated;
 	}
+	
+	private long getNumPStarConfs() {
+		ConfSearch ptree = confSearchFactory.make(emat, invmat);
+		return ptree.getNumConformations().longValue();
+	}
+	
+	private BigDecimal ExpE0() {
+		ConfSearch ptree = confSearchFactory.make(emat, invmat);
+		if(ptree instanceof ConfAStarTree) ((ConfAStarTree)ptree).stopProgress();
+		
+		ScoredConf conf = ptree.nextConf();
+		
+		if (conf == null) {
+			return BigDecimal.ONE;
+		}
+		
+		// compute the boltzmann weight for this conf
+		BigDecimal weight = boltzmann.calc(conf.getScore());
+		return weight;
+	}
+	
+	private double rho() {
+		return this.targetEpsilon/(1.0-this.targetEpsilon);
+	}
+	
+	public long getAdditionalConfs() {
+		BigDecimal k = new BigDecimal(getNumPStarConfs());
+		BigDecimal quotient = new BigDecimal(this.rho()).multiply(values.qstar).divide(this.ExpE0());
+		BigDecimal ans = k.subtract(quotient);
+		return ans.longValue()+1;
+	}
 
 	public void setComputeGMECRatio(boolean val) {
 		this.computeGMECRatio = val;
