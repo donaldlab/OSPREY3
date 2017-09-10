@@ -71,7 +71,7 @@ public class KStarScoreMinimized implements KStarScore {
 		}
 		return ans;
 	}
-	
+
 	@Override
 	public BigDecimal getNumerator() {
 		BigDecimal ans = partitionFunctions[numStates-1].getValues().qstar;
@@ -82,10 +82,10 @@ public class KStarScoreMinimized implements KStarScore {
 	public BigDecimal toLog10(BigDecimal val) {
 		if(val.compareTo(BigDecimal.ZERO)==0)
 			return KStarScore.MIN_VALUE;
-		
+
 		return BigDecimalUtil.log10(val);
 	}
-	
+
 	public BigDecimal getScore() {
 		BigDecimal den = getDenominator();
 		if(den.compareTo(BigDecimal.ZERO) == 0) return toLog10(den);
@@ -128,63 +128,68 @@ public class KStarScoreMinimized implements KStarScore {
 
 	protected boolean computeMinGMEC() {
 		return settings.cfp.getParams().getBool("DOMINIMIZE") && 
-			(computeMinGMECRatio() || computeGMEC());
+				(computeMinGMECRatio() || computeGMEC());
 	}
-	
+
 	protected boolean computeMinGMECRatio() {
 		return computeGMECRatio() && 
-			settings.cfp.getParams().getBool("DOMINIMIZE");
+				settings.cfp.getParams().getBool("DOMINIMIZE");
 	}
-	
+
 	protected boolean computeGMEC() {
 		return settings.isFinal && settings.computeGMEC;
 	}
-	
+
 	protected boolean computeGMECRatio() {
 		return settings.isFinal &&
-			settings.cfp.getParams().getBool("ComputeGMECRatio");
+				settings.cfp.getParams().getBool("ComputeGMECRatio");
 	}
-	
+
 	protected EnergiedConf findMinGMEC(int state) {
-		
-		if(settings.isReportingProgress) {
-			System.out.println();
-			System.out.println("computing GMEC");
+		List<EnergiedConf> energiedConfs = null;
+		try {
+			if(settings.isReportingProgress) {
+				System.out.println();
+				System.out.println("computing GMEC");
+			}
+
+			GMECFinder gmecFinder = new GMECFinder();
+			gmecFinder.setLogConfsToConsole(settings.isReportingProgress);
+			gmecFinder.isReportingProgress(settings.isReportingProgress);
+			gmecFinder.init(settings.cfp, 
+					settings.search[state],
+					MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp),
+					settings.ecalcs[state]);
+			energiedConfs = gmecFinder.calcGMEC(settings.search[state]);
+
+			if(settings.isReportingProgress) {
+				System.out.println();
+				System.out.println("done computing GMEC");
+			}
+		} catch (Exception e) {
+			e.printStackTrace(System.out);
+			throw new RuntimeException(e);
 		}
 		
-		GMECFinder gmecFinder = new GMECFinder();
-		gmecFinder.setLogConfsToConsole(settings.isReportingProgress);
-		gmecFinder.isReportingProgress(settings.isReportingProgress);
-        gmecFinder.init(settings.cfp, settings.search[state]);
-        List<EnergiedConf> energiedConfs = gmecFinder.calcGMEC(settings.search[state]);
-        
-        if(MSSearchProblem.DEBUG) 
-        	settings.search[state].checkPruningMatrix();
-        
-        if(settings.isReportingProgress) {
-			System.out.println();
-			System.out.println("done computing GMEC");
-		}
-        
-        return energiedConfs.size() > 0 ? energiedConfs.get(0) : null;
+		return energiedConfs != null && energiedConfs.size() > 0 ? energiedConfs.get(0) : null;
 	}
-	
+
 	protected boolean init(int state) {		
 		if(settings.isReportingProgress) {
 			System.out.println();
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence()+" "+settings.pfTypes[state]);
 		}
-		
+
 		//find the gmec if we are asked to do so
 		//it's important find gmec here, before the prunepmat step, since gmec finding
 		//sets the ival to a level required to find the gmec
 		EnergiedConf minGMEC = computeMinGMEC() ? findMinGMEC(state) : null;
-		
+
 		if(settings.isReportingProgress) {
 			System.out.println();
 			System.out.println("pruning matrix...");
 		}
-		
+
 		//first prune the pruning matrix
 		boolean doPruning = isFinal() || settings.cfp.getParams().getBool("PRUNEPARTIALSEQCONFS");
 		settings.search[state].prunePmat(doPruning, 
@@ -194,7 +199,7 @@ public class KStarScoreMinimized implements KStarScore {
 		if(settings.isReportingProgress) {
 			System.out.println("...finished pruning matrix");
 		}
-		
+
 		//make conf search factory (i.e. A* tree)
 		ConfSearchFactory confSearchFactory = MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
 
@@ -211,31 +216,31 @@ public class KStarScoreMinimized implements KStarScore {
 		PartitionFunctionMinimized pf = partitionFunctions[state];
 		pf.setReportProgress(settings.isReportingProgress);
 		pf.setComputeMaxNumConfs(computeMaxNumConfs(state));
-		
+
 		//skip initialization if we are only interested in the gmec ratio approximation of the k* score
 		if(computeMinGMECRatio()) {
 			pf.setValues(new Values());
 			if(minGMEC != null) pf.getValues().qstar = pf.getBoltzmannCalculator().calc(minGMEC.getEnergy());
 			pf.setStatus(Status.Estimated);
 		}
-		
+
 		//init partition function
 		else {
 			pf.setComputeGMECRatio(computeGMECRatio());
 			if(minGMEC != null) pf.setMinGMEC(minGMEC);
-			
+
 			if(settings.isReportingProgress) {
 				System.out.println();
 				System.out.print("initializing partition function...");
 			}
-			
+
 			pf.init(settings.targetEpsilon);
-			
+
 			if(settings.isReportingProgress) {
 				System.out.println(" done");
 			}
 		}
-		
+
 		//create priority queue for top confs if requested
 		if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0) {
 
@@ -251,7 +256,7 @@ public class KStarScoreMinimized implements KStarScore {
 			});
 
 		}
-		
+
 		//save mingmec conf immediately
 		if(minGMEC != null && pf.getConfListener() != null) {
 			pf.getConfListener().onConf(minGMEC);
@@ -272,11 +277,11 @@ public class KStarScoreMinimized implements KStarScore {
 	public void compute(long maxNumConfs) {
 
 		for(int state=0;state<numStates;++state) {
-			
+
 			if(!constrSatisfied) {//state-specific constraints 
 				return;
 			}
-			
+
 			if(!initialized[state]) {
 				initialized[state] = init(state);
 			}
@@ -307,11 +312,11 @@ public class KStarScoreMinimized implements KStarScore {
 
 			if(!constrSatisfied)//state-specific constraints
 				return;
-			
+
 			if(!initialized[state]) {
 				initialized[state] = init(state);
 			}
-			
+
 			if(partitionFunctions[state].getStatus() != Status.Estimated) {
 				compute(state, maxNumConfs);
 			}
@@ -329,12 +334,12 @@ public class KStarScoreMinimized implements KStarScore {
 	public void computeBoundState(long maxNumConfs) {
 		if(!constrSatisfied)
 			return;
-		
+
 		int state = numStates-1;
 		if(!initialized[state]) {
 			initialized[state] = init(state);
 		}
-		
+
 		if(partitionFunctions[state].getStatus() != Status.Estimated) {
 			compute(state, maxNumConfs);
 		}
@@ -423,7 +428,7 @@ public class KStarScoreMinimized implements KStarScore {
 		if(computeMaxNumConfs) maxNumConfs = settings.cfp.getParams().getInt("MaxNumConfs");
 
 		pf.compute(maxNumConfs);
-		
+
 		if(pf.getStatus() == Status.Estimated) {
 			//yay!
 		}
@@ -431,7 +436,7 @@ public class KStarScoreMinimized implements KStarScore {
 		else if(pf.getStatus() == Status.NotEnoughFiniteEnergies) {
 			pf.setStatus(Status.Estimated);
 		}
-		
+
 		else if(computeMaxNumConfs && pf.getNumConfsEvaluated()>=maxNumConfs) {
 			pf.setStatus(Status.Estimated);
 		}
@@ -440,11 +445,11 @@ public class KStarScoreMinimized implements KStarScore {
 		else if(!computeMaxNumConfs && pf.getStatus() == Status.Estimating) {
 			return;
 		}
-		
+
 		//no more q conformations, and we have not reached epsilon
 		else if(pf.getStatus() == Status.NotEnoughConformations) {
 			maxNumConfs = computeMaxNumConfs ? maxNumConfs-pf.getNumConfsEvaluated() : Integer.MAX_VALUE;
-				
+
 			PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) phase2(state, maxNumConfs);
 
 			pf.getValues().qstar = p2pf.getValues().qstar;
@@ -452,7 +457,7 @@ public class KStarScoreMinimized implements KStarScore {
 
 			if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0)
 				pf.saveEConfs(p2pf.topConfs);
-			
+
 			pf.setStatus(Status.Estimated);
 		}
 

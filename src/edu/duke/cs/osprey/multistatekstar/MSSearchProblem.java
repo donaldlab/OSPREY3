@@ -25,6 +25,7 @@ public class MSSearchProblem extends SearchProblem {
 
 	public MSSearchSettings settings;
 	private int numAssignedPos;
+	private PruningMatrix origPruneMat;
 
 	public MSSearchProblem(SearchProblem other, 
 			MSSearchSettings settings) {
@@ -32,6 +33,7 @@ public class MSSearchProblem extends SearchProblem {
 		if(settings==null) throw new RuntimeException("ERROR: search settings cannot be null");
 		this.settings = settings;
 		this.numAssignedPos = other.confSpace.numPos-Collections.frequency(settings.mutRes, "-1");
+		this.origPruneMat = other instanceof MSSearchProblem ? ((MSSearchProblem)other).origPruneMat : other.pruneMat;
 	}
 	
 	public MultiTermEnergyFunction getDecomposedEnergy(int[] conf, boolean doMinimize) {
@@ -186,7 +188,7 @@ public class MSSearchProblem extends SearchProblem {
 				System.out.println("elapsed: "+stopwatch.getTime(2));
 			}
 			
-			if(stopwatch.getTimeH() > MSSearchSettings.PRUNING_TIMEOUT_HRS) {
+			if(stopwatch.getTimeH() >= MSSearchSettings.PRUNING_TIMEOUT_HRS) {
 				break;
 			}
 			
@@ -220,9 +222,9 @@ public class MSSearchProblem extends SearchProblem {
 			ArrayList<Integer> splitPosNums, 
 			ArrayList<ArrayList<String>> splitAAs
 			) {
-		UpdatedPruningMatrix ans = new UpdatedPruningMatrix(pruneMat);
+		UpdatedPruningMatrix ans = new UpdatedPruningMatrix(origPruneMat);
 		for(int pos : splitPosNums) {
-			for(int rc : pruneMat.unprunedRCsAtPos(pos)) {
+			for(int rc : origPruneMat.unprunedRCsAtPos(pos)) {
 				String rcAAType = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
 				//is in split position, but not a desired AA type
 				if(!splitAAs.get(pos).contains(rcAAType))
@@ -234,7 +236,7 @@ public class MSSearchProblem extends SearchProblem {
 
 	protected void updatePruningMatrix(UpdatedPruningMatrix upmat, 
 			int splitPosNum, String splitAA) {
-		for(int rc : pruneMat.unprunedRCsAtPos(splitPosNum)) {
+		for(int rc : origPruneMat.unprunedRCsAtPos(splitPosNum)) {
 			String rcAAType = confSpace.posFlex.get(splitPosNum).RCs.get(rc).AAType;
 			//in split position, but not a desired AA type
 			if(!splitAA.equalsIgnoreCase(rcAAType))
@@ -243,7 +245,7 @@ public class MSSearchProblem extends SearchProblem {
 	}
 
 	public PruningMatrix updatePruningMatrix(HashMap<Integer, String> splitPos2aa) {
-		UpdatedPruningMatrix ans = new UpdatedPruningMatrix(pruneMat);
+		UpdatedPruningMatrix ans = new UpdatedPruningMatrix(origPruneMat);
 		for(int splitPosNum : splitPos2aa.keySet())
 			updatePruningMatrix(ans, splitPosNum, splitPos2aa.get(splitPosNum));
 		return ans;
