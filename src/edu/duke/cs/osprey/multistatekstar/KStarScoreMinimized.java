@@ -374,7 +374,6 @@ public class KStarScoreMinimized implements KStarScore {
 		MSSearchProblem search = settings.search[state];
 		//double oldPruningWindow = search.settings.pruningWindow;
 		//double oldStericThreshold = search.settings.stericThreshold;
-		final double maxStericThresh = 100.0;
 		double effectiveEpsilon = 1.0;
 
 		do {
@@ -413,6 +412,9 @@ public class KStarScoreMinimized implements KStarScore {
 				effectiveEpsilon > settings.targetEpsilon &&
 				search.settings.pruningWindow < search.settings.stericThreshold);
 
+		/*
+		// we can optionally prune to a steric threshold of 100
+		final double maxStericThresh = 100.0;
 		if(effectiveEpsilon > settings.targetEpsilon && search.settings.stericThreshold < maxStericThresh) {
 			// we have not been successful within the limits of the steric threshold, 
 			// so unprune to max steric threshold and proceed
@@ -442,6 +444,7 @@ public class KStarScoreMinimized implements KStarScore {
 			p2pf.setMinGMEC(pf.getMinGMEC());
 			p2pf.init(settings.targetEpsilon);
 		}
+		*/
 		
 		p2pf.compute(maxNumConfs);
 		p2pf.setStatus(Status.Estimated);
