@@ -36,13 +36,6 @@ public class PartitionFunctionDiscreteUppperBound extends PartitionFunctionDiscr
 	}
 
 	@Override
-	public void compute(BigDecimal targetScoreWeights, long maxNumConfs) {
-		super.compute(targetScoreWeights, maxNumConfs);
-		double effectiveEpsilon = getEffectiveEpsilon();
-		if(!Double.isNaN(effectiveEpsilon)) values.qstar = values.qstar.multiply(new BigDecimal(1.0+effectiveEpsilon));
-	}
-
-	@Override
 	protected double getEffectiveEpsilon() {
 		BigDecimal s = values.qprime.add(values.pstar);
 		BigDecimal q = s.add(values.qstar);

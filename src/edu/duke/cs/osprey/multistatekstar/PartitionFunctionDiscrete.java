@@ -102,7 +102,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 
 				// report progress if needed
 				if (isReportingProgress && numConfsEvaluated % 1024 == 0) {
-					phase1Output(conf);
+					confOutput(conf);
 				}
 
 				// report confs if needed
@@ -117,77 +117,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 				}
 				else if (effectiveEpsilon <= targetEpsilon) {
 					status = Status.Estimated;
-					if (isReportingProgress) phase1Output(conf);//just to let the user know we reached epsilon
-				}
-			}
-		}
-	}
-
-	@Override
-	public void compute(BigDecimal targetScoreWeights, long maxNumConfs) {
-
-		if (!status.canContinue()) {
-			throw new IllegalStateException("can't continue from status " + status);
-		}
-
-		ScoredConf conf;
-		BigDecimal scoreWeight;
-
-		long stopAtConf = numConfsEvaluated + maxNumConfs;
-		while (true) {
-
-			// should we keep going?
-			if (!status.canContinue() 
-					|| qstarScoreWeights.compareTo(targetScoreWeights) >= 0
-					|| numConfsEvaluated >= stopAtConf) {
-				break;
-			}
-
-			if ((conf = energyConfs.next()) == null) {
-				if(status != Status.Estimated) status = Status.NotEnoughConformations;
-				break;
-			}
-
-			numConfsEvaluated++;
-
-			scoreWeight = boltzmann.calc(conf.getScore());
-			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
-
-			if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
-				values.qprime = updateQprime(scoreWeight);
-				double effectiveEpsilon = getEffectiveEpsilon();	
-				if (!Double.isNaN(effectiveEpsilon) && effectiveEpsilon <= targetEpsilon) status = Status.Estimated;
-				else if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
-				break;
-			}
-
-			if(status == Status.Estimating) {
-				// get the boltzmann weight
-				qstarScoreWeights = qstarScoreWeights.add(scoreWeight);	
-
-				// update pfunc state
-				values.qstar = values.qstar.add(scoreWeight);
-				values.qprime = updateQprime(scoreWeight);
-				BigDecimal pdiff = targetScoreWeights.subtract(qstarScoreWeights);
-
-				// report progress if needed
-				if (isReportingProgress && numConfsEvaluated % 1024 == 0) {
-					phase2Output(conf, pdiff);
-				}
-
-				// report confs if needed
-				if (confListener != null) {
-					confListener.onConf(conf);
-				}
-
-				// update status if needed
-				double effectiveEpsilon = getEffectiveEpsilon();
-				if(Double.isNaN(effectiveEpsilon)) {
-					status = Status.NotEnoughFiniteEnergies;
-				}
-				else if (effectiveEpsilon <= targetEpsilon) {
-					status = Status.Estimated;
-					if (isReportingProgress) phase2Output(conf, pdiff);
+					if (isReportingProgress) confOutput(conf);//just to let the user know we reached epsilon
 				}
 			}
 		}
