@@ -24,7 +24,7 @@ public class PositionSpecificRotamerLibrary extends ResidueTemplateLibrary {
 	{
 
 		PositionSpecificRotamerLibrary library = new PositionSpecificRotamerLibrary();
-		Molecule m = PDBFileReader.readPDBFile(pdbFileName, null);
+		Molecule m = PDBFileReader.readPDBFile(pdbFileName);
 		PDBRotamerReader.createTemplates(m, library, pdbFileName);
 
 

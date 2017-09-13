@@ -14,13 +14,14 @@ public class KStarScoreUpperBound extends KStarScoreDiscrete {
 	}
 
 	@Override
-	protected void compute(int state, int maxNumConfs) {
+	protected void compute(int state, long maxNumConfs) {
 		super.compute(state, maxNumConfs);
 		//all unbound states are partition function lower bounds, so check 
 		//against state-specific constraints that are upper bounds
 		if(state <= numStates-2) {
-			if(constrSatisfied)
+			if(constrSatisfied) {
 				constrSatisfied = checkConstraints(state, false);
+			}
 		}
 
 		//bound state partition function is an upper bound, so check 
@@ -32,7 +33,7 @@ public class KStarScoreUpperBound extends KStarScoreDiscrete {
 	}
 
 	@Override
-	public void compute(int maxNumConfs) {
+	public void compute(long maxNumConfs) {
 		super.compute(maxNumConfs);
 		/*
 		//complex is null only for root node
@@ -48,12 +49,13 @@ public class KStarScoreUpperBound extends KStarScoreDiscrete {
 
 	public BigDecimal getScore() {
 		PartitionFunction complex = partitionFunctions[numStates-1];
-		if(complex == null) return KStarScore.MAX_VALUE;
-
-		BigDecimal score = super.getScore();
+		if(complex == null) {
+			return toLog10(KStarScore.MAX_VALUE);
+		}
 
 		//denom > 0
 		if(getDenom().compareTo(BigDecimal.ZERO)>0) {
+			BigDecimal score = super.getScore();
 			return score;
 		}
 
@@ -62,7 +64,7 @@ public class KStarScoreUpperBound extends KStarScoreDiscrete {
 			//denom = 0. here, denom consists of lower bounds, which increase
 			//as we descend the tree. so descendants might have good k* scores,
 			//so we want to expand this node.
-			return KStarScore.MAX_VALUE;
+			return toLog10(KStarScore.MAX_VALUE);
 		}
 	}
 

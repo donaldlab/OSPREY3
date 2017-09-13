@@ -146,7 +146,9 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
             // in all_amino_coords.in and not for generic non-AA residues. skipping this
             // step for non AAs (for now).
             Residue res = cSpace.posFlex.get(posNum).res;
-            if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL")) {
+            if(HardCodedResidueInfo.hasAminoAcidBB(res) 
+            		&& !res.fullName.startsWith("FOL")
+            		&& !res.fullName.startsWith("DYF")) {
                 
                 ResidueTypeDOF mutDOF = cSpace.mutDOFs.get(posNum);
                 

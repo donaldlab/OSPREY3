@@ -10,7 +10,8 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
  */
 public interface KStarScore {
 
-	public static final BigDecimal MAX_VALUE = new BigDecimal("2e1024");
+	public static final BigDecimal MAX_VALUE = new BigDecimal("2e2048");
+	public static final BigDecimal MIN_VALUE = new BigDecimal("-2e2048");
 	
 	public enum KStarScoreType {
 	    Minimized,//i.e. minimization
@@ -33,13 +34,14 @@ public interface KStarScore {
 	public BigDecimal getScore();
 	public BigDecimal getLowerBoundScore();
 	public BigDecimal getUpperBoundScore();
+	public BigDecimal getDenom();
 	
 	public PartitionFunction getPartitionFunction(int state);
 	
 	public String toString();
-	public void compute(int maxNumConfs);
-	public void computeUnboundStates(int maxNumConfs);
-	public void computeBoundState(int maxNumConfs);
+	public void compute(long maxNumConfs);
+	public void computeUnboundStates(long maxNumConfs);
+	public void computeBoundState(long maxNumConfs);
 	public boolean constrSatisfied();
 	public boolean isFullyAssigned();
 	public boolean isFinal();

@@ -124,7 +124,9 @@ public class PerturbationSelector {
        
         	// AAO 2016: mutation assumes residue is an amino acid. throws an exception otherwise
             Residue res = m.getResByPDBResNumber(resNum);
-            if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL"))
+            if(HardCodedResidueInfo.hasAminoAcidBB(res) 
+            		&& !res.fullName.startsWith("FOL")
+            		&& !res.fullName.startsWith("DYF"))
             	new ResidueTypeDOF(res).mutateTo("GLY");
         }
     }

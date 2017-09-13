@@ -57,7 +57,7 @@ public class TestAmberEnergy extends TestBase {
 	throws Exception {
 		
 		// setup the test
-		Molecule m = PDBFileReader.readPDBFile("test/1CC8/1CC8.ss.pdb", null);
+		Molecule m = PDBFileReader.readPDBFile("test/1CC8/1CC8.ss.pdb");
 		assertThat(m, is(not(nullValue())));
 		EnergyFunction efunc = makeEfunc(m, true);
 		
@@ -73,7 +73,7 @@ public class TestAmberEnergy extends TestBase {
 	throws Exception {
 		
 		// setup the test
-		Molecule m = PDBFileReader.readPDBFile("test/1CC8/1CC8.ss.pdb", null);
+		Molecule m = PDBFileReader.readPDBFile("test/1CC8/1CC8.ss.pdb");
 		assertThat(m, is(not(nullValue())));
 		EnergyFunction efunc = makeEfunc(m, false);
 		

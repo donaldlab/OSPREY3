@@ -41,6 +41,7 @@ public class MSKStarNode {
 	private BigDecimal[] kss;//kstar score values
 	private BigDecimal score;//objective function value; smaller is better
 	private int numPruned;
+	public boolean isRoot;
 
 	public MSKStarNode(
 			KStarScore[] ksLB, 
@@ -52,8 +53,9 @@ public class MSKStarNode {
 		this.kss = new BigDecimal[ksLB.length];
 		this.score = null;
 		this.numPruned = 0;
+		this.isRoot = false;
 	}
-
+	
 	public String getSequence(int state) {
 		int numSubStates = ksLB[state].getSettings().search.length;
 		return ksLB[state].getSettings().search[numSubStates-1].settings.getFormattedSequence();
@@ -69,6 +71,22 @@ public class MSKStarNode {
 
 	public int getNumPruned() {
 		return numPruned;
+	}
+
+	boolean keepUBScore() {
+		KStarScore[] scores = getStateKStarObjects(OBJ_FUNC);
+		int size = scores.length;
+		
+		for(int i=0; i<size; ++i) {
+			KStarScore ofScore = scores[i];
+			KStarScore lbScore = ksLB[i];
+			if(ofScore != null && ofScore instanceof KStarScoreUpperBound && 
+					ofScore.getDenom().compareTo(BigDecimal.ZERO)==0 &&
+					lbScore.getDenom().compareTo(BigDecimal.ZERO)>0) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public int getNumAssignedResidues() {
@@ -106,10 +124,10 @@ public class MSKStarNode {
 		return true;
 	}
 
-	private boolean scoreNeedsRefinement(MSKStarNode node) {
+	private boolean childScoreIsLessThanParentScore(MSKStarNode node) {
 		//root node can have a null score, since all its children are valid
 		if(this.getScore()==null) return false;
-		
+
 		if(node.getScore().compareTo(this.getScore())<0) {
 
 			System.out.println(String.format("child-parent: %12e", node.getScore().subtract(this.getScore())));
@@ -136,8 +154,9 @@ public class MSKStarNode {
 					System.out.println(String.format("parent state LMB score: %12e\nchild state LMB score: %12e", pLMBscore, cLMBscore));
 
 					//child state lmb score must always be bigger than parent, otherwise, there is an error
-					if(cLMBscore.compareTo(pLMBscore)<0)
+					if(cLMBscore.compareTo(pLMBscore)<0) {
 						System.out.println(String.format("ERROR: child state LMB score < parent state LMB score. csLMB-psLMB: %12e", cLMBscore.subtract(pLMBscore)));
+					}
 				}
 			}
 			return true;
@@ -145,10 +164,11 @@ public class MSKStarNode {
 		return false;
 	}
 
-	private void setChildScores(ArrayList<MSKStarNode> nodes, boolean parallel) {
+	private void setChildScores(ArrayList<MSKStarNode> nodes, boolean parallel) {		
 		if(!parallel) {
 			KStarScore score;
-			for(MSKStarNode node : nodes) {	
+			for(MSKStarNode node : nodes) {
+
 				for(int state=0;state<ksLB.length;++state) {
 
 					if(OBJ_FUNC.getCoeffs()[state].compareTo(BigDecimal.ZERO)==0)
@@ -156,7 +176,9 @@ public class MSKStarNode {
 
 					score = node.ksLB[state];
 					if(score!=null) {
-						if(!score.isFinal()) score.compute(Integer.MAX_VALUE);
+						if(!score.isFinal()) {
+							score.compute(Integer.MAX_VALUE);
+						}
 						else {
 							score.computeUnboundStates(Integer.MAX_VALUE);
 							score.computeBoundState(SUBLINEAR_AT_LEAF_NODES ? score.getSettings().ecalcs[0].getParallelism() : Integer.MAX_VALUE);
@@ -165,12 +187,15 @@ public class MSKStarNode {
 
 					score = node.ksUB[state];
 					if(score!=null && !node.ksLB[state].equals(node.ksUB[state])) {
-						if(!score.isFinal()) score.compute(Integer.MAX_VALUE);
+						if(!score.isFinal()) {
+							score.compute(Integer.MAX_VALUE);
+						}
 						else {
 							score.computeUnboundStates(Integer.MAX_VALUE);
 							score.computeBoundState(SUBLINEAR_AT_LEAF_NODES ? score.getSettings().ecalcs[0].getParallelism() : Integer.MAX_VALUE);
 						}
 					}
+
 				}
 			}		
 		} 
@@ -183,11 +208,14 @@ public class MSKStarNode {
 					if(OBJ_FUNC.getCoeffs()[state].compareTo(BigDecimal.ZERO)==0)
 						continue;
 
-					if(node.ksLB[state]!=null) scores.add(node.ksLB[state]);
+					if(node.ksLB[state]!=null) {
+						scores.add(node.ksLB[state]);
+					}
 					// for leaves, upper and lower bounds are the same, so don't 
 					// try to compute both
-					if(node.ksUB[state]!=null && !node.ksUB[state].equals(node.ksLB[state])) 
+					if(node.ksUB[state]!=null && !node.ksUB[state].equals(node.ksLB[state])) {
 						scores.add(node.ksUB[state]);
+					}
 				}
 			}
 			scores.parallelStream().forEach(score -> {	
@@ -206,12 +234,23 @@ public class MSKStarNode {
 				remove.add(node);
 				continue;
 			}
-			
-			//set scores
-			node.setScore(OBJ_FUNC);
+
+			//this is an interesting corner case. if the upper bound score object
+			//has a denom value of 0 (i.e. the partition function lower bounds are 0),
+			//we must keep the node and expand it to a leaf. this is because the
+			//lower bound partition function is defined on the rigid rotamer emat.
+			//keeping the parent score ensures that we will process this node first
+			else if(!this.isRoot && node.keepUBScore()) {
+				node.setScore(this.getScore());
+			}
+
+			//set score based on k* bound scores
+			else {
+				node.setScore(OBJ_FUNC);
+			}
 
 			//refine scores if necessary
-			if(scoreNeedsRefinement(node)) {
+			if(childScoreIsLessThanParentScore(node)) {
 				throw new RuntimeException("ERROR: child score must be >= parent score");
 			}
 		}
@@ -375,7 +414,7 @@ public class MSKStarNode {
 			BigDecimal parentScore = this.getScore();
 
 			child.setScore(OBJ_FUNC);
-			
+
 			if(DEBUG) {
 				BigDecimal childScore = child.getScore();
 				if(childScore.compareTo(parentScore)<0)
@@ -410,7 +449,7 @@ public class MSKStarNode {
 				);
 
 		ans.getSettings().computeGMEC = true;
-		
+
 		return ans;
 	}
 

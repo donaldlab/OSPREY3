@@ -151,6 +151,13 @@ public class ExpFunction implements Serializable {
 		return sum;
 	}
 	
+	public BigDecimal log10ToBigDecimal(BigDecimal num) {
+		BigDecimal loge = log(num);
+		BigDecimal denom = log(new BigDecimal("10"));
+		BigDecimal result = loge.divide(denom, num.scale(), BigDecimal.ROUND_HALF_EVEN);
+		return result;
+	}
+	
 	// Returns the natural logarithm of a big decimal
 	public double logToDouble(BigDecimal num){
 		double eDoub = 2.71828182845904523536;

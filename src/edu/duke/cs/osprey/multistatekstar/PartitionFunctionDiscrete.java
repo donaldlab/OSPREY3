@@ -51,7 +51,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 	}
 
 	@Override
-	public void compute(int maxNumConfs) {
+	public void compute(long maxNumConfs) {
 
 		if (!status.canContinue()) {
 			throw new IllegalStateException("can't continue from status " + status);
@@ -60,7 +60,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 		ScoredConf conf;
 		BigDecimal scoreWeight;
 		
-		int stopAtConf = numConfsEvaluated + maxNumConfs;
+		long stopAtConf = numConfsEvaluated + maxNumConfs;
 
 		double lastScore = Double.NEGATIVE_INFINITY;
 
@@ -124,7 +124,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 	}
 
 	@Override
-	public void compute(BigDecimal targetScoreWeights, int maxNumConfs) {
+	public void compute(BigDecimal targetScoreWeights, long maxNumConfs) {
 
 		if (!status.canContinue()) {
 			throw new IllegalStateException("can't continue from status " + status);
@@ -133,7 +133,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 		ScoredConf conf;
 		BigDecimal scoreWeight;
 
-		int stopAtConf = numConfsEvaluated + maxNumConfs;
+		long stopAtConf = numConfsEvaluated + maxNumConfs;
 		while (true) {
 
 			// should we keep going?

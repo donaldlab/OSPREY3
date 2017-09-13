@@ -44,7 +44,9 @@ public class EnergyCalculator {
 			
 			// AAO 2016: switch template assumes an amino acid. will throw an exception otherwise.
 			Residue res = search.confSpace.m.getResByPDBResNumber( search.confSpace.flexibleRes.get(i) );
-            if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL")) {
+            if(HardCodedResidueInfo.hasAminoAcidBB(res) 
+            		&& !res.fullName.startsWith("FOL")
+            		&& !res.fullName.startsWith("DYF")) {
             	search.confSpace.mutDOFs.get(i).switchToTemplate(rc.template);
             }
 		}
