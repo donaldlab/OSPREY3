@@ -12,13 +12,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import com.jogamp.common.util.InterruptSource.Thread;
+
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -250,6 +251,30 @@ public class GMECFinder {
 				}
 			});
 		}
+    }
+    
+    public void init(ConfigFileParser cfp, 
+    		MSSearchProblem search,
+    		ConfSearchFactory confSearchFactory,
+    		ConfEnergyCalculator.Async ecalc) {
+    	
+    	this.ecalc = ecalc;
+    	this.searchSpace = search;
+    	this.confSearchFactory = confSearchFactory;
+    	
+    	this.searchSpace = search;
+        //this.pruningControl = pruningControl;
+        this.Ew = cfp.getParams().getDouble("EW");
+        this.I0 = cfp.params.getDouble("Ival");
+        this.doIMinDEE = cfp.getParams().getBool("IMINDEE");
+        this.useContFlex = search.contSCFlex;
+        this.useTupExp = search.useTupExpForSearch;
+        this.useEPIC = search.useEPIC;
+        this.checkApproxE = cfp.params.getBool("CheckApproxE");
+        this.outputGMECStruct = cfp.params.getBool("OUTPUTGMECSTRUCT");
+        this.EFullConfOnly = cfp.params.getBool("UsePoissonBoltzmann");
+        this.confFileName = cfp.params.getRunSpecificFileName("CONFFILENAME", ".confs.txt");
+        this.stericThresh = search.settings.stericThreshold;
     }
     
     public void setLogConfsToConsole(boolean val) {
@@ -487,7 +512,7 @@ public class GMECFinder {
         if(isReportingProgress) System.out.println("Calculating GMEC with interval = " + interval);
         
         boolean printEPICEnergy = checkApproxE && useEPIC && useTupExp;
-        ConfPrinter confPrinter = new ConfPrinter(searchSpace, confFileName, printEPICEnergy);
+        ConfPrinter confPrinter = isReportingProgress ? new ConfPrinter(searchSpace, confFileName, printEPICEnergy) : null;
         
         // 11/11/2015 JJ: This logic belongs out here. A function that does nothing if a flag is false should 
         // have its flag promoted outside of the function, unless it's used multiple times. In that case
@@ -496,15 +521,15 @@ public class GMECFinder {
             checkEPICThresh2(interval);//Make sure EPIC thresh 2 matches current interval
         }
 
-        msSearch.settings.pruningWindow = interval;
+        msSearch.settings.pruningWindow = interval + Ew;
         msSearch.prunePmat(true, false, isReportingProgress);
         
         // start searching for the min score conf
         if(isReportingProgress) System.out.println("Searching for min score conformation...");
         Stopwatch minScoreStopwatch = new Stopwatch().start();
-        ConfSearch confSearch = confSearchFactory.make(searchSpace.emat, searchSpace.pruneMat);
+        ConfSearch confSearch = confSearchFactory.make(msSearch.emat, msSearch.pruneMat);
         
-        if(confSearch instanceof ConfAStarTree) ((ConfAStarTree)confSearch).stopProgress();
+        if(!isReportingProgress && confSearch instanceof ConfAStarTree) ((ConfAStarTree)confSearch).stopProgress();
 
         try {
             if(isReportingProgress) System.out.println("\t(among " + confSearch.getNumConformations().floatValue() + " possibilities)");
@@ -513,7 +538,6 @@ public class GMECFinder {
         }
         ScoredConf minScoreConf = confSearch.nextConf();
         if (minScoreConf == null) {
-            
             // no confs in the search space, can't recover, just bail
             if(isReportingProgress) System.out.println("All conformations pruned. Try choosing a larger pruning interval or steric threshold.");
             return new ArrayList<>();
@@ -587,38 +611,67 @@ public class GMECFinder {
 
                 // what to do when we get a conf energy?
                 ConfEnergyCalculator.Async.Listener ecalcListener = new ConfEnergyCalculator.Async.Listener() {
-                        @Override
-                        public void onEnergy(EnergiedConf econf) {
+                	@Override
+                	public void onEnergy(EnergiedConf econf) {
 
-                                handleEnergiedConf(econfs, confPrinter, window, econf);
-                                if(isReportingProgress) progress.incrementProgress();
+                		handleEnergiedConf(econfs, confPrinter, window, econf);
+                		if(isReportingProgress) progress.incrementProgress();
 
-                                // refine the estimate of the top of the energy window
-                                boolean changed = window.update(econf.getEnergy());
-                                if (changed) {
+                		// refine the estimate of the top of the energy window
+                		boolean changed = window.update(econf.getEnergy());
+                		
+                		if (changed) {
+                			//AAO 2017: avoid racing main thread that calls ecalc.
+                			//faster to lock outside the for loop, since we do fewer 
+                			//minimizations that way
+                			synchronized(lowEnergyConfs) {
+                				
+                				// prune conformations with the new window
+                				for (int i=lowEnergyConfs.size()-1; i>=0; i--) {
+                					if (lowEnergyConfs.get(i).getScore() > window.getMax()) {
+                						lowEnergyConfs.remove(i);
+                					} else {
+                						break;
+                					}
+                				}
+                				
+                			}
 
-                                        // prune conformations with the new window
-                                        for (int i=lowEnergyConfs.size()-1; i>=0; i--) {
-                                                if (lowEnergyConfs.get(i).getScore() > window.getMax()) {
-                                                        lowEnergyConfs.remove(i);
-                                                } else {
-                                                        break;
-                                                }
-                                        }
-
-                                        // update progress
-                                        if(isReportingProgress) System.out.println(String.format("\nNew lowest energy: %.6f", window.getMin()));
-                                        if(isReportingProgress) System.out.println(String.format("\tReduced to %d low-energy conformations", lowEnergyConfs.size()));
-                                        progress.setTotalWork(lowEnergyConfs.size());
-                                }
-                        }
+                			// update progress
+                			if(isReportingProgress) System.out.println(String.format("\nNew lowest energy: %.6f", window.getMin()));
+                			if(isReportingProgress) System.out.println(String.format("\tReduced to %d low-energy conformations", lowEnergyConfs.size()));
+                			if(isReportingProgress) progress.setTotalWork(lowEnergyConfs.size());
+                		}
+                	}
                 };
 
                 // calc the conf energy asynchronously
                 if(isReportingProgress) System.out.println(String.format("\nComputing energies for %d conformations...", lowEnergyConfs.size()));
+                /*
                 for (; indexToMinimizeNext<lowEnergyConfs.size(); indexToMinimizeNext++) {
                         ecalc.calcEnergyAsync(lowEnergyConfs.get(indexToMinimizeNext), ecalcListener);
                 }
+                */
+                
+                while(true) {
+                	//AAO 2017: avoid racing ecalc listener
+                	synchronized(lowEnergyConfs) {
+                		if(indexToMinimizeNext < lowEnergyConfs.size()) {
+                			ecalc.calcEnergyAsync(lowEnergyConfs.get(indexToMinimizeNext), ecalcListener);
+                			indexToMinimizeNext++;
+                		}
+                		else {
+                			break;
+                		}                		
+            		}
+                	
+                	//allow listener thread some free reign 
+                	try { Thread.sleep(1); } 
+                	catch (InterruptedException e) {
+						throw new RuntimeException(e);
+					}
+                }
+                
                 ecalc.waitForFinish();
         }
 		
@@ -660,6 +713,7 @@ public class GMECFinder {
                     intervalPad = 0.2;
                 nextInterval += intervalPad;
 
+                if(isReportingProgress) System.out.println("Starting phase 2 of iMinDee...");
                 return calcGMEC(nextInterval, msSearch);
             }
         }
@@ -685,7 +739,9 @@ public class GMECFinder {
             if(isReportingProgress) System.out.println(String.format("Also found %d more conformations in energy window", econfs.size() - 1));
         }
         
-        ecalc.cleanup();//Clean up once both rounds of iMinDEE (if applicable) are done
+        //ecalc.cleanup();//Clean up once both rounds of iMinDEE (if applicable) are done
+        //do not clean up, since we passed in the ecalc
+        ecalc = null;
         return econfs;
     }
     
@@ -838,10 +894,9 @@ public class GMECFinder {
 			}
 
 		} catch (Exception e) {
-			e.printStackTrace();
+			e.printStackTrace(System.out);
 		} finally {
-			if(ecalc != null) ecalc.cleanup();
-			ecalc = null;
+			ecalc.cleanup();
 		}
 	}
     

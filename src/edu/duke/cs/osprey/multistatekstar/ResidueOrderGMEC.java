@@ -252,11 +252,11 @@ public class ResidueOrderGMEC extends ResidueOrder {
 		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(tree);
 		ConfSearch.Splitter.Stream scoreConfs = confsSplitter.makeStream();
 
-		//get rigid gmec
+		//get gmec
 		ScoredConf conf = scoreConfs.next();
 		if(conf == null) return;
-		MultiTermEnergyFunction mef = search.getDecomposedEnergy(conf.getAssignments(), false);
-
+		//if continuous, get min conf energy
+		MultiTermEnergyFunction mef = search.getDecomposedEnergy(conf.getAssignments(), search.contSCFlex);
 		double offset = (mef.getPreCompE()-conf.getScore())/(double)search.getNumPos();
 		/*
 		if(Math.abs(offset)>0.1)

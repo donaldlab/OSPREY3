@@ -10,6 +10,7 @@ import java.util.PriorityQueue;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.ParamSet;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -183,16 +184,26 @@ public class MSKStarTree {
 		
 		int astarThreads = this.msParams.getInt("ASTARTHREADS");
 		ThreadParallelism.setNumThreads(astarThreads);
-		MSKStarNode.PARALLEL_EXPANSION = astarThreads > 1 ? true : false;
+		MSKStarNode.PARALLEL_EXPANSION = astarThreads > 1 && !doMinimize(cfps) ? true : false;
 		MSKStarNode.SUBLINEAR_AT_LEAF_NODES = this.msParams.getBool("SUBLINEARATLEAFNODES");
+		
+		MultiTermEnergyFunction.setVerbose(false);
+		MultiTermEnergyFunction.setNumThreads(astarThreads);
 		
 		MSKStarTree.DEBUG = false;
 		MSSearchProblem.DEBUG = false;
 		ResidueOrderMeta.DEBUG = false;
 		ResidueOrderGMECProxy.DEBUG = false;
+		PartitionFunctionDiscrete.DEBUG = false;
 		
 		MSKStarNode.DEBUG = true;
-		PartitionFunctionDiscrete.DEBUG = true;
+	}
+	
+	private static boolean doMinimize(MSConfigFileParser[] cfps) {
+		for(MSConfigFileParser cfp : cfps) {
+			if(cfp.getParams().getBool("DOMINIMIZE")) return true;
+		}
+		return false;
 	}
 
 	private MSKStarNode getRootNode() {
@@ -220,7 +231,7 @@ public class MSKStarTree {
 		
 		initNodeStaticVars(ans);
 		
-		ans.isRoot = true;
+		ans.isRoot(true);
 		return ans;
 	}
 
@@ -280,19 +291,21 @@ public class MSKStarTree {
 			
 			numExtracted++;
 			
-			if(prevScore != null && prevScore.compareTo(curNode.getScore())>0) {				
-				throw new RuntimeException(String.format("ERROR: A* scores must "
+			if(prevScore != null && prevScore.compareTo(curNode.getScore())>0) {
+				String errorMsg = String.format("ERROR: A* scores must "
 						+ "be non-decreasing.\nlastScore: %12e, lastSeq: %s\n"
 						+ "curScore: %12e, curSeq: %s\n"
 						+ "last-cur: %12e", 
 						prevScore, prevSeq, 
 						curNode.getScore(), curNode.getSequence(0),
-						prevScore.subtract(curNode.getScore())));
+						prevScore.subtract(curNode.getScore()));
+				System.out.println(errorMsg);
+				throw new RuntimeException(errorMsg);
 			}
 			
 			prevScore = curNode.getScore();
 			prevSeq = curNode.getSequence(0);
-
+			
 			//if(numExpanded % 8==0) 
 			reportProgress(curNode);
 
@@ -310,6 +323,12 @@ public class MSKStarTree {
 
 				//expand
 				ArrayList<MSKStarNode> children = getChildren(curNode);
+				//score can get revised downwards for numerical precision reasons
+				if(curNode.scoreRevisedDownwards()) {
+					prevScore = curNode.getScore();
+					curNode.scoreRevisedDownwards(false);
+				}
+				
 				//count number pruned by local constraints
 				numPruned += curNode.getNumPruned();
 				//expansion is either a refinement of the same node or creation

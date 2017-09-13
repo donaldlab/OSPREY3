@@ -13,6 +13,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.PriorityQueue;
 
+import com.jogamp.common.util.InterruptSource.Thread;
+
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -34,19 +36,19 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 	public static boolean SYNCHRONIZED_MINIMIZATION = false;
 	public static double QPRIME_TIMEOUT_HRS = 0.0;
-	
 	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
 	protected BigDecimal qstarScoreWeights;
 	protected PruningMatrix invmat;
 	protected ArrayList<ScoredConf> scoredConfs;
 	protected ArrayList<EnergiedConf> energiedConfs;
-	
+
 	protected EnergiedConf minGMEC;
 	protected boolean computeGMECRatio;
 	protected boolean energiedGMECEnumerated;
-	protected boolean scoredGMECEnumerated;
-	
+	protected boolean scoredGMECPStarEnumerated;
+	protected boolean scoredGMECQPrimeEnumerated;
+
 	protected boolean computeMaxNumConfs;
 
 	public PartitionFunctionMinimized(
@@ -65,6 +67,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		this.minGMEC = null;
 		this.computeGMECRatio = false;
 		this.computeMaxNumConfs = false;
+		this.boltzmann = new MSBoltzmannCalculator();
 	}
 
 	protected void writeTopConfs(int state, MSSearchProblem search) {
@@ -114,6 +117,10 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		status = Status.Estimating;
 		values = new Values();
 
+		energiedGMECEnumerated = false;
+		scoredGMECPStarEnumerated = false;
+		scoredGMECQPrimeEnumerated = false;
+
 		// compute p*: boltzmann-weight the scores for all pruned conformations
 		if(!(computeMaxNumConfs || computeGMECRatio)) {
 			ConfSearch ptree = confSearchFactory.make(emat, invmat);
@@ -134,45 +141,92 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 		qstarScoreWeights = BigDecimal.ZERO;
 		maxNumTopConfs = 0;
-		
+
 		// treat the partition function state as if we have already processed 
 		// the minGMEC
 		if(minGMEC != null) {
 			values.qstar = boltzmann.calc(minGMEC.getEnergy());
+
 			numConfsEvaluated++;
-			
 			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
-			
+
+			//start up qprime before evaluating confs, because we would immediately
+			//hit target epsilon otherwise
+			values.qprime = updateQprime(null);
+
 			if (confListener != null) {
 				confListener.onConf(minGMEC);
 			}
 		}
-		
-		energiedGMECEnumerated = false;
-		scoredGMECEnumerated = false;
 
 		stopwatch = new Stopwatch().start();
+	}
+
+	protected BigDecimal calcWeightSumUpperBound(ConfSearch tree) {
+
+		BigDecimal sum = BigDecimal.ZERO;
+		BigDecimal boundOnAll = BigDecimal.ZERO;
+
+		BigInteger numConfsRemaining = tree.getNumConformations();
+
+		while (true) {
+
+			// get the next conf
+			ScoredConf conf = tree.nextConf();
+			if (conf == null) {
+				break;
+			}
+
+			if(minGMEC != null && !scoredGMECPStarEnumerated && equals(minGMEC.getAssignments(), conf.getAssignments())) {
+				scoredGMECPStarEnumerated = true;
+				continue;
+			}
+
+			// compute the boltzmann weight for this conf
+			BigDecimal weight = boltzmann.calc(conf.getScore());
+			if (weight.compareTo(BigDecimal.ZERO) == 0) {
+				break;
+			}
+
+			// update the sum
+			sum = sum.add(weight);
+
+			// update the upper bound on the remaining sum
+			numConfsRemaining = numConfsRemaining.subtract(BigInteger.ONE);
+			BigDecimal boundOnRemaining = weight.multiply(new BigDecimal(numConfsRemaining));
+
+			// update the upper bound on the total sum
+			boundOnAll = sum.add(boundOnRemaining);
+
+			// stop if the bound is tight enough
+			double tightness = boundOnRemaining.divide(boundOnAll, RoundingMode.HALF_UP).doubleValue();
+			if (tightness <= 0.01) {
+				break;
+			}
+		}
+
+		return boundOnAll;
 	}
 
 	@Override
 	protected BigDecimal updateQprime(EnergiedConf econf) {
 
 		Stopwatch stopwatch = computeMaxNumConfs ? new Stopwatch().start() : null;
-		
+
 		// look through the conf tree to get conf scores
 		// (which should be lower bounds on the conf energy)
 		while (true) {
 
 			// read a conf from the tree
 			ScoredConf conf = scoreConfs.next();
-			
+
 			if (conf == null) {
 				qprimeUnscored = BigDecimal.ZERO;
 				break;
 			}
-			
-			if(minGMEC != null && !scoredGMECEnumerated && equals(minGMEC.getAssignments(), conf.getAssignments())) {
-				scoredGMECEnumerated = true;
+
+			if(minGMEC != null && !scoredGMECQPrimeEnumerated && equals(minGMEC.getAssignments(), conf.getAssignments())) {
+				scoredGMECQPrimeEnumerated = true;
 				continue;
 			}
 
@@ -187,20 +241,22 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
 			qprimeUnevaluated = qprimeUnevaluated.add(scoreWeight);
 			qprimeUnscored = scoreWeight.multiply(new BigDecimal(numConfsToScore));
-			
+
 			// stop if the bound on q' is tight enough
 			double tightness = qprimeUnscored.divide(qprimeUnevaluated.add(qprimeUnscored), RoundingMode.HALF_UP).doubleValue();
 			if (tightness <= 0.01) {
 				break;
 			}
-			
+
 			//reaching desired tightness can take a really long time
 			//in a design, so ignore tightness if we are only interested
 			//in computing the partition function to MaxNumConfs
 			if(stopwatch != null && stopwatch.getTimeH() >= QPRIME_TIMEOUT_HRS) break;
 		}
 
-		qprimeUnevaluated = qprimeUnevaluated.subtract(boltzmann.calc(econf.getScore()));
+		if(econf != null) {
+			qprimeUnevaluated = qprimeUnevaluated.subtract(boltzmann.calc(econf.getScore()));
+		}
 		return qprimeUnevaluated.add(qprimeUnscored);
 	}
 
@@ -212,20 +268,20 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		}
 		return true;
 	}
-	
+
 	protected ScoredConf getScoredConf() {
 		ScoredConf conf;
 
 		//don't double count the mingmec
 		while (true) {
-		
+
 			conf = energyConfs.next();
-			
+
 			if (conf == null) {
 				if(status != Status.Estimated) status = Status.NotEnoughConformations;
 				return null;
 			}
-			
+
 			//skip mingmec if it has already been enumerated
 			if(minGMEC != null && !energiedGMECEnumerated && equals(minGMEC.getAssignments(), conf.getAssignments())) {
 				energiedGMECEnumerated = true;
@@ -236,7 +292,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
 				return null;
 			}
-			
+
 			break;
 		}
 
@@ -263,9 +319,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		return numScored > 0 ? scoredConfs : null;
 	}
 
-	protected void handlePhase1Conf(EnergiedConf econf) {
+	protected void handleEnergiedConf(EnergiedConf econf) {
 		if(status != Status.Estimated) {
-
 			// get the boltzmann weight
 			BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
 
@@ -276,7 +331,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 			// report progress if needed
 			if (isReportingProgress && numConfsEvaluated % ecalc.getParallelism() == 0) {
-				phase1Output(econf);
+				confOutput(econf);
 			}
 
 			// report confs if needed
@@ -291,43 +346,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			}
 			else if (effectiveEpsilon <= targetEpsilon) {
 				status = Status.Estimated;
-				if (isReportingProgress) phase1Output(econf);//just to let the user know we reached epsilon
-			}
-		}
-	}
-
-	protected void handlePhase2Conf(EnergiedConf econf, BigDecimal targetScoreWeights) {
-		if(status != Status.Estimated) {
-
-			// get the boltzmann weight
-			BigDecimal scoreWeight = boltzmann.calc(econf.getScore());
-			qstarScoreWeights = qstarScoreWeights.add(scoreWeight);	
-			BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
-
-			// update pfunc state
-			numConfsEvaluated++;
-			values.qstar = values.qstar.add(energyWeight);
-			values.qprime = updateQprime(econf);
-			BigDecimal pdiff = targetScoreWeights.subtract(qstarScoreWeights);
-
-			// report progress if needed
-			if (isReportingProgress && numConfsEvaluated % ecalc.getParallelism() == 0) {
-				phase2Output(econf, pdiff);
-			}
-
-			// report confs if needed
-			if (confListener != null) {
-				confListener.onConf(econf);
-			}
-
-			// update status if needed
-			double effectiveEpsilon = values.getEffectiveEpsilon();
-			if(Double.isNaN(effectiveEpsilon)) {
-				status = Status.NotEnoughFiniteEnergies;
-			}
-			else if (effectiveEpsilon <= targetEpsilon) {
-				status = Status.Estimated;
-				if (isReportingProgress) phase2Output(econf, pdiff);
+				if (isReportingProgress) confOutput(econf);//just to let the user know we reached epsilon
 			}
 		}
 	}
@@ -349,33 +368,58 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 			synchronized (this) {
 
+				// did we win?
+				boolean hitEpsilonTarget = values.getEffectiveEpsilon() <= targetEpsilon;
+				if (hitEpsilonTarget) {
+					status = Status.Estimated;
+					break;
+				}
+
 				// should we keep going?
-				if (!status.canContinue() || numConfsEvaluated >= stopAtConf) {
+				else if (!status.canContinue() || numConfsEvaluated >= stopAtConf) {
 					break;
 				}
 
 				// get a list of scored confs
-				if (SYNCHRONIZED_MINIMIZATION) {
-					if((scoredConfs = getScoredConfs(ecalc.getParallelism())) == null)
-						break;
+				else if (SYNCHRONIZED_MINIMIZATION) {
+					scoredConfs = getScoredConfs(ecalc.getParallelism());
 				}
 
 				// or a single scored conf
 				else {
-					if ((conf = getScoredConf()) == null) 
-						break;
+					conf = getScoredConf();
+				}
+			}
+
+			if (!status.canContinue()) {
+				// we hit a failure condition and need to stop
+				// but wait for current async minimizations to finish in case that pushes over the epsilon target
+				// NOTE: don't wait for finish inside the sync, since that will definitely deadlock
+				ecalc.waitForFinish();
+				if(scoredConfs == null) {
+					continue;
 				}
 			}
 
 			// now handle scored confs
 			// wait for all confs to finish minimizing, then process confs in order of score
 			if (SYNCHRONIZED_MINIMIZATION) {
-				for (ScoredConf sconf : scoredConfs) ecalc.calcEnergyAsync(sconf, (EnergiedConf econf) -> {
-					synchronized(this) {
-						energiedConfs.add(econf);
+				
+				for (ScoredConf sconf : scoredConfs) {
+					ecalc.calcEnergyAsync(sconf, (EnergiedConf econf) -> {
+						synchronized (this) {
+							energiedConfs.add(econf);
+						}
+					});
+				}
+
+				while(energiedConfs.size() != scoredConfs.size()) {
+					try { Thread.sleep(1); } catch (Exception e) {
+						e.printStackTrace();
+						System.exit(1);
 					}
-				});
-				ecalc.waitForFinish();
+					ecalc.waitForFinish();
+				}
 
 				// sort energied confs by score
 				Collections.sort(energiedConfs, new Comparator<EnergiedConf>() {
@@ -385,10 +429,10 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 					}
 				});
 
-				synchronized (this) {
-					for (EnergiedConf econf : energiedConfs) 
-						handlePhase1Conf(econf);
+				for (EnergiedConf econf : energiedConfs) {
+					handleEnergiedConf(econf);
 				}
+				
 				energiedConfs.clear();
 			}
 
@@ -399,7 +443,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 					// this is (potentially) running on a task executor listener thread
 					// so lock to keep from racing the main thread
 					synchronized (this) {
-						handlePhase1Conf(econf);
+						handleEnergiedConf(econf);
 					}
 				});
 			}
@@ -409,7 +453,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		ecalc.waitForFinish();
 	}
 
-	void phase1Output(ScoredConf conf) {
+	void confOutput(ScoredConf conf) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
 		double confVal = conf instanceof EnergiedConf ? ((EnergiedConf)conf).getEnergy() : conf.getScore();
 		System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
@@ -419,96 +463,10 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				));
 	}
 
-	public void compute(BigDecimal targetScoreWeights, long maxNumConfs) {
-
-		if (!status.canContinue()) {
-			throw new IllegalStateException("can't continue from status " + status);
-		}
-
-		long stopAtConf = numConfsEvaluated + maxNumConfs;
-		while (true) {
-
-			// get a conf from the tree
-			// lock though to keep from racing the listener thread on the conf tree
-			ScoredConf conf = null;
-			ArrayList<ScoredConf> scoredConfs = null;
-			synchronized (this) {
-
-				// should we keep going?
-				if (!status.canContinue() 
-						|| qstarScoreWeights.compareTo(targetScoreWeights) >= 0 
-						|| numConfsEvaluated >= stopAtConf) {
-					break;
-				}
-
-				// get a list of scored confs
-				if (SYNCHRONIZED_MINIMIZATION) {
-					if((scoredConfs = getScoredConfs(ecalc.getParallelism())) == null)
-						break;
-				}
-
-				// or a single scored conf
-				else {
-					if ((conf = getScoredConf()) == null) 
-						break;
-				}
-			}
-
-			// wait for all confs to finish minimizing, then process confs in order of score
-			if (SYNCHRONIZED_MINIMIZATION) {
-				for (ScoredConf sconf : scoredConfs) ecalc.calcEnergyAsync(sconf, (EnergiedConf econf) -> {
-					synchronized(this) {
-						energiedConfs.add(econf);
-					}
-				});
-				ecalc.waitForFinish();
-
-				// sort energied confs by score
-				Collections.sort(energiedConfs, new Comparator<EnergiedConf>() {
-					@Override
-					public int compare(EnergiedConf o1, EnergiedConf o2) {
-						return o1.getScore() <= o2.getScore() ? -1 : 1;
-					}
-				});
-
-				synchronized (this) {
-					for (EnergiedConf econf : energiedConfs) 
-						handlePhase2Conf(econf, targetScoreWeights);
-				}
-				energiedConfs.clear();
-			}
-
-			// or just handle the conf asynchronously
-			else {
-				ecalc.calcEnergyAsync(conf, (EnergiedConf econf) -> {
-					// energy calculation done
-					// this is (potentially) running on a task executor listener thread
-					// so lock to keep from racing the main thread
-					synchronized (this) {
-						handlePhase2Conf(econf, targetScoreWeights);
-					}
-				});
-			}
-		}
-
-		// wait for any remaining async minimizations to finish
-		ecalc.waitForFinish();
-	}
-
-	protected void phase2Output(ScoredConf conf, BigDecimal pdiff) {
-		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		double val = conf instanceof EnergiedConf ? ((EnergiedConf)conf).getEnergy() : conf.getScore();
-		System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, score diff: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-				numConfsEvaluated, val, values.qstar, values.qprime, pdiff, values.getEffectiveEpsilon(),
-				stopwatch.getTime(2),
-				100f*heapMem.getUsed()/heapMem.getMax()
-				));
-	}
-
 	public void setStatus(Status val) {
 		status = val;
 	}
-	
+
 	public void setValues(Values val) {
 		this.values = val;
 	}
@@ -519,34 +477,75 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 		scoredConfs = null;
 		energiedConfs = null;
+
+		confSearchFactory = null;
+		confListener = null;
+		
+		emat = null;
+		pmat = null;
 		
 		minGMEC = null;
 	}
-	
+
 	public void setNumConfsEvaluated(long val) {
 		this.numConfsEvaluated = val;
 	}
-	
+
 	public long getNumConfsEvaluated() {
 		return this.numConfsEvaluated;
 	}
 	
+	private long getNumPStarConfs() {
+		ConfSearch ptree = confSearchFactory.make(emat, invmat);
+		return ptree.getNumConformations().longValue();
+	}
+	
+	private BigDecimal ExpE0() {
+		ConfSearch ptree = confSearchFactory.make(emat, invmat);
+		if(ptree instanceof ConfAStarTree) ((ConfAStarTree)ptree).stopProgress();
+		
+		ScoredConf conf = ptree.nextConf();
+		
+		if (conf == null) {
+			return BigDecimal.ONE;
+		}
+		
+		// compute the boltzmann weight for this conf
+		BigDecimal weight = boltzmann.calc(conf.getScore());
+		return weight;
+	}
+	
+	private double rho() {
+		return this.targetEpsilon/(1.0-this.targetEpsilon);
+	}
+	
+	public long computeAdditionalConfs() {
+		BigDecimal k = new BigDecimal(getNumPStarConfs());
+		BigDecimal quotient = new BigDecimal(this.rho()).multiply(values.qstar).divide(this.ExpE0());
+		BigDecimal ans = k.subtract(quotient);
+		return ans.longValue()+1;
+	}
+
 	public void setComputeGMECRatio(boolean val) {
 		this.computeGMECRatio = val;
 	}
-	
+
 	public ConfListener getConfListener() {
 		return this.confListener;
 	}
-	
+
 	public void setMinGMEC(EnergiedConf val) {
 		this.minGMEC = val;
 	}
 	
+	public EnergiedConf getMinGMEC() {
+		return this.minGMEC;
+	}
+
 	public BoltzmannCalculator getBoltzmannCalculator() {
 		return this.boltzmann;
 	}
-	
+
 	public void setComputeMaxNumConfs(boolean val) {
 		this.computeMaxNumConfs = val;
 	}

@@ -170,7 +170,7 @@ public class MSKStarDoer {
 
 			//set verbosity to false now
 			cfps[state].getParams().setVerbosity(false);
-			
+
 			System.out.println();
 			System.out.println("State "+state+" matrices ready");
 			System.out.println();
@@ -434,7 +434,7 @@ public class MSKStarDoer {
 			listAllSeqsHelper(subStateAATypeOptions, stateOutput, wt, buf, depth+1, nDist);
 		}
 	}
-	
+
 	private void setStaticMembers() {
 		PartitionFunctionMinimized.SYNCHRONIZED_MINIMIZATION = this.msParams.getBool("SYNCHRONIZEDMINIMIZATION");
 		MSKStarSettings.TIMEOUT_HRS = this.msParams.getDouble("TIMEOUTHRS");
@@ -443,7 +443,7 @@ public class MSKStarDoer {
 
 	public void calcBestSequences() {
 		setStaticMembers();
-		
+
 		final String algOption = msParams.getValue("MultStateAlgOption");
 		switch(algOption.toLowerCase()) {
 		case "exhaustive":
@@ -532,7 +532,9 @@ public class MSKStarDoer {
 			//make sure they exist in seqList; print warnings for/remove those that don't
 			ArrayList<ArrayList<String>> keep = new ArrayList<>();
 			for(ArrayList<String> seq : mutSeqs){
-				if(seqList.get(0).contains(seq)) keep.add(seq);
+				for(int state = 0;state<seqList.size(); ++state) {
+					if(seqList.get(state).contains(seq)) keep.add(seq);
+				}
 			}
 			keep.trimToSize();
 			mutSeqs.removeAll(keep);
@@ -547,7 +549,19 @@ public class MSKStarDoer {
 				System.out.println();
 			}
 			//set seqlist to the mutants of interest
-			for(int state=0;state<numStates;++state) seqList.set(state, keep);
+			ArrayList<ArrayList<ArrayList<String>>> updatedKeepList = new ArrayList<>();
+			for(int state=0; state<seqList.size(); ++state) updatedKeepList.add(new ArrayList<>());
+			for(ArrayList<String> seq : keep){
+				for(int state=0;state<numStates;++state) {
+					int index = seqList.get(state).indexOf(seq);
+					if(index == -1) continue;
+					
+					for(int i=0; i<numStates; ++i) {
+						updatedKeepList.get(i).add(seqList.get(i).get(index));
+					}
+				}
+			}
+			seqList = updatedKeepList;
 		}
 
 		//resume
