@@ -104,6 +104,8 @@ public abstract class ConfMinimizer {
 				
 				return new EnergiedConf(conf, result.energy);
 			
+			} catch(Exception e) {
+				throw new RuntimeException(e);
 			} finally {
 				synchronized (taskStuffPool) {
 					taskStuffPool.release(stuff);

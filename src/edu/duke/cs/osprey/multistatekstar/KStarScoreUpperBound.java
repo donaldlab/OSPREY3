@@ -54,7 +54,7 @@ public class KStarScoreUpperBound extends KStarScoreDiscrete {
 		}
 
 		//denom > 0
-		if(getDenom().compareTo(BigDecimal.ZERO)>0) {
+		if(getDenominator().compareTo(BigDecimal.ZERO)>0) {
 			BigDecimal score = super.getScore();
 			return score;
 		}

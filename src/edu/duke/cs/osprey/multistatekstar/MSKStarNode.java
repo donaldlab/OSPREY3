@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -34,6 +35,8 @@ public class MSKStarNode {
 	public static boolean PARALLEL_EXPANSION;
 	public static boolean SUBLINEAR_AT_LEAF_NODES;
 	public static boolean DEBUG = false;
+	
+	private final static BigDecimal NUMERICAL_TOLERANCE = new BigDecimal("1e-8"); 
 
 	private KStarScore[] ksLB;//lower bound k* objects
 	private KStarScore[] ksUB;//upper bound k* objects
@@ -41,7 +44,8 @@ public class MSKStarNode {
 	private BigDecimal[] kss;//kstar score values
 	private BigDecimal score;//objective function value; smaller is better
 	private int numPruned;
-	public boolean isRoot;
+	private boolean isRoot;
+	private boolean scoreRevisedDownwards;
 
 	public MSKStarNode(
 			KStarScore[] ksLB, 
@@ -54,8 +58,66 @@ public class MSKStarNode {
 		this.score = null;
 		this.numPruned = 0;
 		this.isRoot = false;
+		this.scoreRevisedDownwards = false;
+	}
+
+	public boolean scoreRevisedDownwards() {
+		return scoreRevisedDownwards;
 	}
 	
+	public void scoreRevisedDownwards(boolean val) {
+		scoreRevisedDownwards = val;
+	}
+	
+	public void isRoot(boolean val) {
+		isRoot = val;
+	}
+	
+	public boolean isRoot() {
+		return isRoot;
+	}
+	
+	public boolean hasZeroConfs() {
+		ArrayList<MSSearchProblem> search = new ArrayList<>();
+		int numStates = getNumStates();
+		
+		for(int state=0; state<numStates; ++state) {
+			search.clear();
+			
+			search.addAll(ksLB[state].getUpperBoundSearch());
+			search.addAll(ksUB[state].getUpperBoundSearch());
+
+			//if there are no upper bound search objects,
+			//then use all objects from LB
+			if(search.size()==0) {
+				for(MSSearchProblem s : ksLB[state].getSettings().search) {
+					search.add(s);
+				}
+			}
+			
+			if(search.size() != getNumSubStates()) {
+				throw new RuntimeException("ERROR: num search problems "+search.size()+" != num substates "+getNumSubStates());
+			}
+			
+			//check the number of confs
+			if(hasZeroConfs(search)) {
+				return true;
+			}
+			
+		}
+		return false;
+	}
+
+	private boolean hasZeroConfs(ArrayList<MSSearchProblem> search) {
+		for(MSSearchProblem s : search) {
+			BigInteger confs = s.getNumConfs(true);
+			if(confs.compareTo(BigInteger.ZERO)==0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public String getSequence(int state) {
 		int numSubStates = ksLB[state].getSettings().search.length;
 		return ksLB[state].getSettings().search[numSubStates-1].settings.getFormattedSequence();
@@ -73,16 +135,25 @@ public class MSKStarNode {
 		return numPruned;
 	}
 
-	boolean keepUBScore() {
+	boolean keepParentScore() {
 		KStarScore[] scores = getStateKStarObjects(OBJ_FUNC);
-		int size = scores.length;
-		
-		for(int i=0; i<size; ++i) {
-			KStarScore ofScore = scores[i];
-			KStarScore lbScore = ksLB[i];
+		int numStates = scores.length;
+
+		for(int state=0; state<numStates; ++state) {
+			KStarScore ofScore = scores[state];
+			
+			KStarScore lbScore = ksLB[state];
+			KStarScore ubScore = ksUB[state];
+			
 			if(ofScore != null && ofScore instanceof KStarScoreUpperBound && 
-					ofScore.getDenom().compareTo(BigDecimal.ZERO)==0 &&
-					lbScore.getDenom().compareTo(BigDecimal.ZERO)>0) {
+					ofScore.getDenominator().compareTo(BigDecimal.ZERO)==0 &&
+					lbScore.getDenominator().compareTo(BigDecimal.ZERO)>0) {
+				return true;
+			}
+			
+			else if(ofScore != null && ofScore instanceof KStarScoreLowerBound && 
+					ofScore.getNumerator().compareTo(BigDecimal.ZERO)==0 &&
+					ubScore.getNumerator().compareTo(BigDecimal.ZERO)>0) {
 				return true;
 			}
 		}
@@ -124,43 +195,82 @@ public class MSKStarNode {
 		return true;
 	}
 
-	private boolean childScoreIsLessThanParentScore(MSKStarNode node) {
+	//unfortunately, numerical precision issues abound, even with conformation
+	//scores. adjust parent and child scores to the lower of the two if child score
+	//is less than parent score to within 1e-8
+	private boolean adjustForNumericalPrecision(MSKStarNode node) {
+		BigDecimal childScore = node.getScore(), parentScore = this.getScore();
+		if(parentScore.compareTo(childScore)>0 && parentScore.subtract(childScore).compareTo(NUMERICAL_TOLERANCE)<=0) {
+			//set parent score to child score, which is smaller
+			this.setScore(childScore);
+			this.scoreRevisedDownwards(true);
+			
+			if(DEBUG) {
+				System.out.println("WARNING: adjusting parent score for numerical precision. "
+						+String.format("parent-child: %12e", parentScore.subtract(childScore)));
+			}
+			
+			return true;
+		}
+		
+		return false;
+	}
+	
+	private void printDebugStatement(MSKStarNode node) {
+		System.out.println(String.format("child-parent: %12e", node.getScore().subtract(this.getScore())));
+		
+		KStarScore[] parentScore = getStateKStarObjects(OBJ_FUNC);
+		KStarScore[] childScore = node.getStateKStarObjects(OBJ_FUNC);
+
+		for(int state=0;state<getNumStates();++state) {
+
+			System.out.println();
+			System.out.println("state: "+state);
+
+			KStarScore parent = parentScore[state];
+			System.out.println("parent score type: "+parent.getClass().getSimpleName());
+			System.out.println("parent: "+parent.toString());
+
+			KStarScore child = childScore[state];
+			System.out.println("child score type: "+child.getClass().getSimpleName());
+			System.out.println("child: "+child.toString());
+
+			System.out.println();
+			
+			//compare substates
+			for(int substate=0; substate<node.getNumSubStates(); ++substate) {
+				System.out.println("substate "+substate+":");
+				
+				BigDecimal parentQStar = parent.getPartitionFunction(substate).getValues().qstar;
+				BigDecimal childQStar = child.getPartitionFunction(substate).getValues().qstar;
+				
+				System.out.println("parent q*: "+parentQStar);
+				System.out.println("child q*: "+childQStar);
+				System.out.println("parent-child: "+parentQStar.subtract(childQStar));
+				System.out.println("child-parent: "+childQStar.subtract(parentQStar));
+				
+				System.out.println();
+			}
+		}
+	}
+
+	private boolean childScoreLessParentScore(MSKStarNode node) {
 		//root node can have a null score, since all its children are valid
 		if(this.getScore()==null) return false;
 
 		if(node.getScore().compareTo(this.getScore())<0) {
 
-			System.out.println(String.format("child-parent: %12e", node.getScore().subtract(this.getScore())));
-
-			if(DEBUG) {
-				KStarScore[] parentScore = getStateKStarObjects(OBJ_FUNC);
-				KStarScore[] childScore = node.getStateKStarObjects(OBJ_FUNC);
-				for(int state=0;state<getNumStates();++state) {
-
-					System.out.println();
-
-					System.out.println("state: "+state);
-					KStarScore parent = parentScore[state];
-					KStarScore child = childScore[state];
-
-					String scoreType = child.getClass().getSimpleName();
-					System.out.println("score type: "+scoreType);
-					System.out.println("parent: "+parent.toString());
-					System.out.println("child: "+child.toString());
-
-					BigDecimal neg1 = new BigDecimal("-1");
-					BigDecimal pLMBscore = scoreType.toLowerCase().contains("upperbound") ? parent.getUpperBoundScore().multiply(neg1) : parent.getLowerBoundScore();
-					BigDecimal cLMBscore = scoreType.toLowerCase().contains("upperbound") ? child.getUpperBoundScore().multiply(neg1) : child.getLowerBoundScore();		
-					System.out.println(String.format("parent state LMB score: %12e\nchild state LMB score: %12e", pLMBscore, cLMBscore));
-
-					//child state lmb score must always be bigger than parent, otherwise, there is an error
-					if(cLMBscore.compareTo(pLMBscore)<0) {
-						System.out.println(String.format("ERROR: child state LMB score < parent state LMB score. csLMB-psLMB: %12e", cLMBscore.subtract(pLMBscore)));
-					}
-				}
+			if(adjustForNumericalPrecision(node)) {
+				return false;
 			}
+				
+			if(DEBUG) {
+				printDebugStatement(node);
+			}
+
 			return true;
 		}
+		
 		return false;
 	}
 
@@ -230,17 +340,28 @@ public class MSKStarNode {
 		//remove nodes that violate local constraints
 		ArrayList<MSKStarNode> remove = new ArrayList<>();
 		for(MSKStarNode node : nodes) {
+			//the order of condition checks is critical!
+			
 			if(!node.constrSatisfiedLocal()) {
 				remove.add(node);
 				continue;
 			}
 
-			//this is an interesting corner case. if the upper bound score object
+			//this is an interesting corner case. if there are no defined conformations
+			//for any substate within any state, then the node cannot yield a valid
+			//child and therefore can be safely pruned
+			else if(!this.isRoot() && node.hasZeroConfs()) {
+				remove.add(node);
+				continue;
+			}
+
+			//this is another interesting corner case. if the upper bound score object
 			//has a denom value of 0 (i.e. the partition function lower bounds are 0),
+			//but the lower bound score object has a non-zero denominator,
 			//we must keep the node and expand it to a leaf. this is because the
 			//lower bound partition function is defined on the rigid rotamer emat.
 			//keeping the parent score ensures that we will process this node first
-			else if(!this.isRoot && node.keepUBScore()) {
+			else if(!this.isRoot() && node.keepParentScore()) {
 				node.setScore(this.getScore());
 			}
 
@@ -249,8 +370,8 @@ public class MSKStarNode {
 				node.setScore(OBJ_FUNC);
 			}
 
-			//refine scores if necessary
-			if(childScoreIsLessThanParentScore(node)) {
+			//finally verify score consistency. scores must be non-decreasing
+			if(childScoreLessParentScore(node)) {
 				throw new RuntimeException("ERROR: child score must be >= parent score");
 			}
 		}
