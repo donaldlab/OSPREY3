@@ -3,18 +3,21 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey.EWAKStar;
+package edu.duke.cs.osprey.ewakstar;
 
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.ewakstar.EWAKRatios;
+
 import org.junit.Test;
 
 /**
- *
- * @author MCIC
- */
+*
+* @author Anna Lowegard(anna.lowegard@duke.edu)
+* Adegoke Ojewole (ao68@duke.edu)
+*/
 public class TestEWAKStar {
-
-    public void testEWAKStar(ConfigFileParser cfp) {
+	
+	public void testEWAKStar(ConfigFileParser cfp) {
         double ew = cfp.getParams().getDouble("EW");
         EWAKRatios ewr = new EWAKRatios(cfp);
     }

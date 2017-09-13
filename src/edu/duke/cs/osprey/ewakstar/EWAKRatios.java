@@ -3,21 +3,27 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey.EWAKStar;
+package edu.duke.cs.osprey.ewakstar;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 
 /**
  *
- * @author Adegoke Ojewole (ao68@duke.edu)
- * Anna Lowegard(anna.lowegard@duke.edu)
+ * @author Anna Lowegard(anna.lowegard@duke.edu)
+ * Adegoke Ojewole (ao68@duke.edu)
  */
 public class EWAKRatios {
 
     public EWAKRatios(ConfigFileParser cfp) {
-        EWAKConfigFileParser ecfp = new EWAKConfigFileParser(cfp);
-        SearchProblem[] sps = ecfp.makeSearchProblems();
+        // parse config file
+    	EWAKConfigFileParser ecfp = new EWAKConfigFileParser(cfp);
+        
+    	// make search problem
+        ecfp.getSearchProblems();
+        ecfp.loadEnergyMatrices();
+        ecfp.pruneMatrices();
+   
     }
     
     public void run() {

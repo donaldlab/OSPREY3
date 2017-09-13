@@ -3,12 +3,13 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey.EWAKStar;
+package edu.duke.cs.osprey.ewakstar;
 
 /**
- *
- * @author lowegard
- */
+*
+* @author Anna Lowegard(anna.lowegard@duke.edu)
+* Adegoke Ojewole (ao68@duke.edu)
+*/
 public class EWAK {
     
 }
