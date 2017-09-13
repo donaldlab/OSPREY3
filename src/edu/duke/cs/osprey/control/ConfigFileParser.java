@@ -173,7 +173,7 @@ public class ConfigFileParser {
     
     
     
-    protected ArrayList<String> getFlexRes(){
+    public ArrayList<String> getFlexRes(){
         //list of flexible residues.  PDB-based residue numbers
         //we'll include all flexible residues: for compatibility (MAY BE TEMPORARY),
         //all residues in a "StrandMut" record will be included here
