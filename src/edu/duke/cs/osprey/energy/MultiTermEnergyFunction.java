@@ -27,6 +27,7 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 	private static final long serialVersionUID = -3516267414126293331L;
 
 	private static int NUM_THREADS = 1;
+	private static boolean IS_VERBOSE = true;
 
 	ArrayList<EnergyFunction> terms = new ArrayList<>();
 	ArrayList<Double> coeffs = new ArrayList<>();
@@ -54,6 +55,11 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 		indexes.add(indexes.size());
 	}
 
+	
+	public static void setVerbose(boolean val) {
+		IS_VERBOSE = val;
+	}
+	
 
 	public static void setNumThreads( int threads ) { 
 		NUM_THREADS = threads;
@@ -65,8 +71,10 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 		
 		if (NUM_THREADS > 1) {
 			// TODO: make user-friendly error message
-			System.out.println("\n\nWARNING (for Osprey programmers): energy function-level parallelism probably isn't the fastest tool anymore."
-				+ " Try the new parallel SimpleEnergyMatrixCalculator and parallel/gpu-friendly ConfMinimizer classes instead.\n");
+			if(IS_VERBOSE) {
+				System.out.println("\n\nWARNING (for Osprey programmers): energy function-level parallelism probably isn't the fastest tool anymore."
+						+ " Try the new parallel SimpleEnergyMatrixCalculator and parallel/gpu-friendly ConfMinimizer classes instead.\n");
+			}
 		}
 	}
 
