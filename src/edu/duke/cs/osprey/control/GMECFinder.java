@@ -12,6 +12,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import com.jogamp.common.util.InterruptSource.Thread;
+
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
@@ -662,6 +664,12 @@ public class GMECFinder {
                 			break;
                 		}                		
             		}
+                	
+                	//allow listener thread some free reign 
+                	try { Thread.sleep(1); } 
+                	catch (InterruptedException e) {
+						throw new RuntimeException(e);
+					}
                 }
                 
                 ecalc.waitForFinish();
