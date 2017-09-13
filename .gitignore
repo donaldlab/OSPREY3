@@ -9,3 +9,7 @@ bin
 
 .DS_Store
 /build/
+/OSPREY_refactor_master/nbproject/private/
+/OSPREY_refactor_master/build/
+/OSPREY_refactor_master/dist/
+*.dat
