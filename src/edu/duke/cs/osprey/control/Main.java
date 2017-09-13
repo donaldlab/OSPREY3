@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.control;
 
+import edu.duke.cs.osprey.EWAKStar.EWAKRatios;
 import edu.duke.cs.osprey.energy.LigandResEnergies;
 import java.util.HashMap;
 import java.util.Map;
@@ -180,6 +181,14 @@ public class Main {
 			public void run() {
 				SeqGMECFinder sgf = new SeqGMECFinder(args, cfp.getParams().getValue("MutFile"));
                                 sgf.calcAllSeqGMECs();
+			}
+		});
+                
+                commands.put("calcEWAKStar", new Runnable() {
+			@Override
+			public void run() {
+				EWAKRatios ewr = new EWAKRatios(cfp);
+                                ewr.run();
 			}
 		});
 	}
