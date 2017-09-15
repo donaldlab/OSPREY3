@@ -68,6 +68,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		this.computeGMECRatio = false;
 		this.computeMaxNumConfs = false;
 		this.boltzmann = new MSBoltzmannCalculator();
+		this.maxNumTopConfs = 0;
 	}
 
 	protected void writeTopConfs(int state, MSSearchProblem search) {
@@ -91,7 +92,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	}
 
 	protected void saveConf(ScoredConf conf) {
-		if(topConfs.size() >= maxNumTopConfs) {
+		if(!topConfs.isEmpty() && topConfs.size() >= maxNumTopConfs) {
 
 			ScoredConf head = topConfs.peek();
 			double e1 = head instanceof EnergiedConf ? ((EnergiedConf)head).getEnergy() : head.getScore();
@@ -114,8 +115,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 		this.targetEpsilon = targetEpsilon;
 
-		status = Status.Estimating;
 		values = new Values();
+		status = Status.Estimating;
 
 		energiedGMECEnumerated = false;
 		scoredGMECPStarEnumerated = false;
@@ -140,12 +141,20 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		qprimeUnscored = BigDecimal.ZERO;
 
 		qstarScoreWeights = BigDecimal.ZERO;
-		maxNumTopConfs = 0;
 
 		// treat the partition function state as if we have already processed 
 		// the minGMEC
 		if(minGMEC != null) {
 			values.qstar = boltzmann.calc(minGMEC.getEnergy());
+			
+			if (confListener != null) {
+				confListener.onConf(minGMEC);
+			}
+			
+			if(computeGMECRatio) {
+				status = Status.Estimated;
+				return;
+			}
 
 			numConfsEvaluated++;
 			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
@@ -153,10 +162,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			//start up qprime before evaluating confs, because we would immediately
 			//hit target epsilon otherwise
 			values.qprime = updateQprime(null);
-
-			if (confListener != null) {
-				confListener.onConf(minGMEC);
-			}
 		}
 
 		stopwatch = new Stopwatch().start();

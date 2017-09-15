@@ -216,32 +216,11 @@ public class KStarScoreMinimized implements KStarScore {
 		pf.setReportProgress(settings.isReportingProgress);
 		pf.setComputeMaxNumConfs(computeMaxNumConfs(state));
 
-		//skip initialization if we are only interested in the gmec ratio approximation of the k* score
-		if(computeMinGMECRatio()) {
-			pf.setValues(new Values());
-			if(minGMEC != null) pf.getValues().qstar = pf.getBoltzmannCalculator().calc(minGMEC.getEnergy());
-			pf.setStatus(Status.Estimated);
-		}
-
-		//init partition function
-		else {
-			pf.setComputeGMECRatio(computeGMECRatio());
-			if(minGMEC != null) pf.setMinGMEC(minGMEC);
-
-			if(settings.isReportingProgress) {
-				System.out.println();
-				System.out.print("initializing partition function...");
-			}
-
-			pf.init(settings.targetEpsilon);
-
-			if(settings.isReportingProgress) {
-				System.out.println(" done");
-			}
-		}
-
+		pf.setComputeGMECRatio(computeGMECRatio());
+		if(minGMEC != null) pf.setMinGMEC(minGMEC);
+		
 		//create priority queue for top confs if requested
-		if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0) {
+		if(settings.isFinal && settings.numTopConfsToSave > 0) {
 
 			pf.topConfs = new PriorityQueue<ScoredConf>(
 					settings.numTopConfsToSave, 
@@ -256,14 +235,16 @@ public class KStarScoreMinimized implements KStarScore {
 
 		}
 
-		//save mingmec conf immediately
-		if(minGMEC != null && pf.getConfListener() != null) {
-			pf.getConfListener().onConf(minGMEC);
-			if(computeMinGMECRatio()) {
-				//we are done computing the partition function, so we should
-				//write conf now
-				pf.writeTopConfs(settings.state, settings.search[state]);
-			}
+		//init partition function
+		if(settings.isReportingProgress) {
+			System.out.println();
+			System.out.print("initializing partition function...");
+		}
+
+		pf.init(settings.targetEpsilon);
+
+		if(settings.isReportingProgress) {
+			System.out.println(" done");
 		}
 
 		return true;
@@ -420,7 +401,7 @@ public class KStarScoreMinimized implements KStarScore {
 			// so unprune to max steric threshold and proceed
 			search.settings.pruningWindow = maxStericThresh;
 			search.settings.stericThreshold = maxStericThresh;
-			
+
 			boolean doPruning = isFinal() || settings.cfp.getParams().getBool("PRUNEPARTIALSEQCONFS");
 			search.prunePmat(doPruning, 
 					settings.cfp.getParams().getInt("ALGOPTION")>=3,
@@ -444,11 +425,11 @@ public class KStarScoreMinimized implements KStarScore {
 			p2pf.setMinGMEC(pf.getMinGMEC());
 			p2pf.init(settings.targetEpsilon);
 		}
-		*/
-		
+		 */
+
 		p2pf.compute(maxNumConfs);
 		p2pf.setStatus(Status.Estimated);
-		
+
 		return p2pf;
 	}
 
