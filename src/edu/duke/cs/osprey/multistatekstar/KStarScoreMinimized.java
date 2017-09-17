@@ -242,6 +242,14 @@ public class KStarScoreMinimized implements KStarScore {
 		}
 
 		pf.init(settings.targetEpsilon);
+		
+		//special case: if init results in epsilon due
+		//to gmec computation then print top confs
+		if(pf.getStatus() == Status.Estimated && settings.numTopConfsToSave > 0) {
+			pf.writeTopConfs(settings.state, 
+					settings.search[state], 
+					settings.cfp.getParams().getValue("TopConfsDir"));
+		}
 
 		if(settings.isReportingProgress) {
 			System.out.println(" done");
@@ -477,7 +485,7 @@ public class KStarScoreMinimized implements KStarScore {
 
 		if(isFinal()) {//final is a superset of fully defined
 			if(constrSatisfied) constrSatisfied = checkConstraints(state);
-			if(settings.numTopConfsToSave > 0) {
+			if(constrSatisfied && settings.numTopConfsToSave > 0) {
 				pf.writeTopConfs(settings.state, settings.search[state], settings.cfp.getParams().getValue("TopConfsDir"));
 			}
 		}
