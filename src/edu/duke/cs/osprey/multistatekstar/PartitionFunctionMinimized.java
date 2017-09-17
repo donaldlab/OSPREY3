@@ -71,14 +71,14 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		this.maxNumTopConfs = 0;
 	}
 
-	protected void writeTopConfs(int state, MSSearchProblem search) {
+	protected void writeTopConfs(int state, MSSearchProblem search, String baseDir) {
 		if(topConfs==null || topConfs.size()==0) return;
 		String seq = search.settings.getFormattedSequence();
 		if(isReportingProgress) {
 			System.out.println("Writing top "+ topConfs.size()+" confs:");
 		}
 		seq = seq.replace(" ", ".");
-		String dir = "topConfs"+File.separator+"State."+state+File.separator+seq;
+		String dir = baseDir+File.separator+"State."+state+File.separator+seq;
 		ObjectIO.makeDir(dir, false);
 		for(int i=topConfs.size()-1;i>-1;--i) {
 			if(isReportingProgress) {
@@ -113,10 +113,11 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	@Override
 	public void init(double targetEpsilon) {
 
+		status = Status.Estimating;
+		
 		this.targetEpsilon = targetEpsilon;
 
 		values = new Values();
-		status = Status.Estimating;
 
 		energiedGMECEnumerated = false;
 		scoredGMECPStarEnumerated = false;

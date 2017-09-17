@@ -477,7 +477,9 @@ public class KStarScoreMinimized implements KStarScore {
 
 		if(isFinal()) {//final is a superset of fully defined
 			if(constrSatisfied) constrSatisfied = checkConstraints(state);
-			if(settings.numTopConfsToSave > 0) pf.writeTopConfs(settings.state, settings.search[state]);
+			if(settings.numTopConfsToSave > 0) {
+				pf.writeTopConfs(settings.state, settings.search[state], settings.cfp.getParams().getValue("TopConfsDir"));
+			}
 		}
 	}
 
