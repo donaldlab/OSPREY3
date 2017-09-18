@@ -27,20 +27,18 @@ public class TestEWAKStar {
         // read config from files
         ConfigFileParser cfp = new ConfigFileParser(new String[]{
             "-c",
-            "test/2RL0.kstar/cfgKStar.txt",
+            "test/2RL0.ewakstar/cfgKStar.txt",
             "Dummy command",
-            "test/2RL0.kstar/cfgMutSearch.txt",
-            "test/2RL0.kstar/cfgSystem.txt"
+            "test/2RL0.ewakstar/cfgMutSearch.txt",
+            "test/2RL0.ewakstar/cfgSystem.txt"
         });
         cfp.loadData();
 
         // override file-based config
         // I'm guessing most people have at least two cores, so compute the energy matrix a bit faster
         cfp.getParams().setValue("EmatThreads", "2");
-
-        // this test takes several minutes at the config file's value of e=0.95,
-        // but it only takes about two minutes at e=0.99
-        cfp.getParams().setValue("epsilon", "0.99");
+        cfp.getParams().setValue("IVAL", "5.0");
+        cfp.getParams().setValue("EW", "2.0");
 
         return cfp;
     }

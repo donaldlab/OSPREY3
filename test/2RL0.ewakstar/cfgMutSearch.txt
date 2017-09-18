@@ -1,0 +1,29 @@
+runName 2RL0-ewakstar-output
+
+useERef true
+AddResEntropy true
+
+NumMPLPIters 2
+MPLPAlg edge
+
+iMinDEE true
+typedep true
+stericthresh 100
+ival 5.0
+ew 2.0
+
+doMinimize true
+
+addWT true
+addWTRots true
+
+EmatThreads 4
+MinimizationThreads 4
+MinimizationGpus 0
+MinimizationStreamsPerGpu 32
+
+resAllowed649 PHE TYR ALA VAL ILE LEU
+resAllowed651 GLU ASP
+resAllowed156 PHE TYR ALA VAL ILE LEU
+resAllowed172 LYS ASP GLU
+resAllowed192 ILE ALA VAL LEU PHE TYR
