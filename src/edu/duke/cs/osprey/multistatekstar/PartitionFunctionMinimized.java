@@ -68,16 +68,17 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		this.computeGMECRatio = false;
 		this.computeMaxNumConfs = false;
 		this.boltzmann = new MSBoltzmannCalculator();
+		this.maxNumTopConfs = 0;
 	}
 
-	protected void writeTopConfs(int state, MSSearchProblem search) {
+	protected void writeTopConfs(int state, MSSearchProblem search, String baseDir) {
 		if(topConfs==null || topConfs.size()==0) return;
 		String seq = search.settings.getFormattedSequence();
 		if(isReportingProgress) {
 			System.out.println("Writing top "+ topConfs.size()+" confs:");
 		}
 		seq = seq.replace(" ", ".");
-		String dir = "topConfs"+File.separator+"State."+state+File.separator+seq;
+		String dir = baseDir+File.separator+"State."+state+File.separator+seq;
 		ObjectIO.makeDir(dir, false);
 		for(int i=topConfs.size()-1;i>-1;--i) {
 			if(isReportingProgress) {
@@ -91,7 +92,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	}
 
 	protected void saveConf(ScoredConf conf) {
-		if(topConfs.size() >= maxNumTopConfs) {
+		if(!topConfs.isEmpty() && topConfs.size() >= maxNumTopConfs) {
 
 			ScoredConf head = topConfs.peek();
 			double e1 = head instanceof EnergiedConf ? ((EnergiedConf)head).getEnergy() : head.getScore();
@@ -112,9 +113,10 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	@Override
 	public void init(double targetEpsilon) {
 
+		status = Status.Estimating;
+		
 		this.targetEpsilon = targetEpsilon;
 
-		status = Status.Estimating;
 		values = new Values();
 
 		energiedGMECEnumerated = false;
@@ -140,12 +142,20 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		qprimeUnscored = BigDecimal.ZERO;
 
 		qstarScoreWeights = BigDecimal.ZERO;
-		maxNumTopConfs = 0;
 
 		// treat the partition function state as if we have already processed 
 		// the minGMEC
 		if(minGMEC != null) {
 			values.qstar = boltzmann.calc(minGMEC.getEnergy());
+			
+			if (confListener != null) {
+				confListener.onConf(minGMEC);
+			}
+			
+			if(computeGMECRatio) {
+				status = Status.Estimated;
+				return;
+			}
 
 			numConfsEvaluated++;
 			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
@@ -153,10 +163,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			//start up qprime before evaluating confs, because we would immediately
 			//hit target epsilon otherwise
 			values.qprime = updateQprime(null);
-
-			if (confListener != null) {
-				confListener.onConf(minGMEC);
-			}
 		}
 
 		stopwatch = new Stopwatch().start();
