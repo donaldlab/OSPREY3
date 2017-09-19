@@ -157,6 +157,7 @@ public class MSKStarNode {
 				return true;
 			}
 		}
+		
 		return false;
 	}
 

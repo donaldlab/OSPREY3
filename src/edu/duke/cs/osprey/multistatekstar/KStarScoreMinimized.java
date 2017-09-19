@@ -136,7 +136,7 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 
 	protected boolean computeGMEC() {
-		return settings.isFinal && settings.computeGMEC;
+		return settings.isFinal && (settings.computeGMEC || settings.cfp.getParams().getBool("ComputeGMEC"));
 	}
 
 	protected boolean computeGMECRatio() {
@@ -144,7 +144,7 @@ public class KStarScoreMinimized implements KStarScore {
 				settings.cfp.getParams().getBool("ComputeGMECRatio");
 	}
 
-	protected EnergiedConf findMinGMEC(int state) {
+	protected List<EnergiedConf> findMinGMEC(int state) {
 		List<EnergiedConf> energiedConfs = null;
 		try {
 			if(settings.isReportingProgress) {
@@ -170,7 +170,7 @@ public class KStarScoreMinimized implements KStarScore {
 			throw new RuntimeException(e);
 		}
 
-		return energiedConfs != null && energiedConfs.size() > 0 ? energiedConfs.get(0) : null;
+		return energiedConfs != null && energiedConfs.size() > 0 ? energiedConfs : null;
 	}
 
 	protected boolean init(int state) {		
@@ -182,7 +182,7 @@ public class KStarScoreMinimized implements KStarScore {
 		//find the gmec if we are asked to do so
 		//it's important find gmec here, before the prunepmat step, since gmec finding
 		//sets the ival to a level required to find the gmec
-		EnergiedConf minGMEC = computeMinGMEC() ? findMinGMEC(state) : null;
+		List<EnergiedConf> minGMECConfs = computeMinGMEC() ? findMinGMEC(state) : null;
 
 		if(settings.isReportingProgress) {
 			System.out.println();
@@ -217,7 +217,7 @@ public class KStarScoreMinimized implements KStarScore {
 		pf.setComputeMaxNumConfs(computeMaxNumConfs(state));
 
 		pf.setComputeGMECRatio(computeGMECRatio());
-		if(minGMEC != null) pf.setMinGMEC(minGMEC);
+		if(minGMECConfs != null) pf.setMinGMECConfs(minGMECConfs);
 		
 		//create priority queue for top confs if requested
 		if(settings.isFinal && settings.numTopConfsToSave > 0) {
@@ -389,7 +389,7 @@ public class KStarScoreMinimized implements KStarScore {
 					);
 
 			p2pf.setReportProgress(settings.isReportingProgress);
-			p2pf.setMinGMEC(pf.getMinGMEC());
+			p2pf.setMinGMECConfs(pf.getMinGMECConfs());
 			p2pf.init(settings.targetEpsilon);
 
 			pstar = p2pf.getValues().pstar;
