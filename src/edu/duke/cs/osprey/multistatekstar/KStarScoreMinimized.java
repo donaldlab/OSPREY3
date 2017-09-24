@@ -399,6 +399,7 @@ public class KStarScoreMinimized implements KStarScore {
 
 			p2pf.setReportProgress(settings.isReportingProgress);
 			p2pf.setMinGMECConfs(pf.getMinGMECConfs());
+			p2pf.setComputeMaxNumConfs(pf.getComputeMaxNumConfs());
 			p2pf.init(settings.targetEpsilon);
 
 			pstar = p2pf.getValues().pstar;

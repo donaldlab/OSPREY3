@@ -571,4 +571,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	public void setComputeMaxNumConfs(boolean val) {
 		this.computeMaxNumConfs = val;
 	}
+	
+	public boolean getComputeMaxNumConfs() {
+		return this.computeMaxNumConfs;
+	}
 }
