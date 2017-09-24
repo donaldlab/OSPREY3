@@ -11,6 +11,8 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
 import java.util.PriorityQueue;
 
 import com.jogamp.common.util.InterruptSource.Thread;
@@ -43,7 +45,9 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	protected ArrayList<ScoredConf> scoredConfs;
 	protected ArrayList<EnergiedConf> energiedConfs;
 
-	protected EnergiedConf minGMEC;
+	protected List<EnergiedConf> minGMECConfs;
+	protected HashSet<ArrayList<Integer>> minGMECAssignments;
+	
 	protected boolean computeGMECRatio;
 	protected boolean energiedGMECEnumerated;
 	protected boolean scoredGMECPStarEnumerated;
@@ -64,7 +68,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		this.topConfs = null;
 		this.scoredConfs = null;
 		this.energiedConfs = null;
-		this.minGMEC = null;
+		this.minGMECConfs = null;
+		this.minGMECAssignments = null;
 		this.computeGMECRatio = false;
 		this.computeMaxNumConfs = false;
 		this.boltzmann = new MSBoltzmannCalculator();
@@ -145,11 +150,12 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 		// treat the partition function state as if we have already processed 
 		// the minGMEC
-		if(minGMEC != null) {
-			values.qstar = boltzmann.calc(minGMEC.getEnergy());
-			
-			if (confListener != null) {
-				confListener.onConf(minGMEC);
+		if(minGMECConfs != null) {
+			for(EnergiedConf conf : minGMECConfs) {
+				values.qstar = values.qstar.add(boltzmann.calc(conf.getEnergy()));
+				if (confListener != null) {
+					confListener.onConf(conf);
+				}
 			}
 			
 			if(computeGMECRatio) {
@@ -157,8 +163,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				return;
 			}
 
-			numConfsEvaluated++;
-			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
+			numConfsEvaluated += minGMECConfs.size();
+			numConfsToScore = numConfsToScore.subtract(BigInteger.valueOf(minGMECConfs.size()));
 
 			//start up qprime before evaluating confs, because we would immediately
 			//hit target epsilon otherwise
@@ -183,10 +189,13 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				break;
 			}
 
-			if(minGMEC != null && !scoredGMECPStarEnumerated && equals(minGMEC.getAssignments(), conf.getAssignments())) {
+			/*
+			//minGMECConfs are guaranteed not to be here, so no need to check here
+			if(minGMECAssignments != null && !scoredGMECPStarEnumerated && contains(conf.getAssignments())) {
 				scoredGMECPStarEnumerated = true;
 				continue;
 			}
+			*/
 
 			// compute the boltzmann weight for this conf
 			BigDecimal weight = boltzmann.calc(conf.getScore());
@@ -231,7 +240,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				break;
 			}
 
-			if(minGMEC != null && !scoredGMECQPrimeEnumerated && equals(minGMEC.getAssignments(), conf.getAssignments())) {
+			if(minGMECAssignments != null && !scoredGMECQPrimeEnumerated && contains(conf.getAssignments())) {
 				scoredGMECQPrimeEnumerated = true;
 				continue;
 			}
@@ -265,14 +274,11 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		}
 		return qprimeUnevaluated.add(qprimeUnscored);
 	}
-
-	boolean equals(int[] lhs, int[] rhs) {
-		int len = lhs.length;
-		if(len != rhs.length) return false;
-		for(int i=0; i<len; ++i) {
-			if(lhs[i] != rhs[i]) return false;
-		}
-		return true;
+	
+	boolean contains(int[] other) {
+		ArrayList<Integer> assignment = new ArrayList<>();
+		for(int rotamer : other) assignment.add(rotamer);
+		return minGMECAssignments == null ? false : minGMECAssignments.contains(assignment);
 	}
 
 	protected ScoredConf getScoredConf() {
@@ -289,7 +295,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			}
 
 			//skip mingmec if it has already been enumerated
-			if(minGMEC != null && !energiedGMECEnumerated && equals(minGMEC.getAssignments(), conf.getAssignments())) {
+			if(minGMECAssignments != null && !energiedGMECEnumerated && contains(conf.getAssignments())) {
 				energiedGMECEnumerated = true;
 				continue;
 			}
@@ -490,7 +496,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		emat = null;
 		pmat = null;
 		
-		minGMEC = null;
+		minGMECConfs = null;
+		minGMECAssignments = null;
 	}
 
 	public void setNumConfsEvaluated(long val) {
@@ -540,12 +547,21 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		return this.confListener;
 	}
 
-	public void setMinGMEC(EnergiedConf val) {
-		this.minGMEC = val;
+	public void setMinGMECConfs(List<EnergiedConf> val) {
+		this.minGMECConfs = val;
+		if(val == null) return;
+		
+		this.minGMECAssignments = new HashSet<>();
+		for(EnergiedConf conf : val) {
+			ArrayList<Integer> assignment = new ArrayList<>();
+			for(Integer rotamer : conf.getAssignments()) assignment.add(rotamer);
+			assignment.trimToSize();
+			this.minGMECAssignments.add(assignment);
+		}
 	}
 	
-	public EnergiedConf getMinGMEC() {
-		return this.minGMEC;
+	public List<EnergiedConf> getMinGMECConfs() {
+		return this.minGMECConfs;
 	}
 
 	public BoltzmannCalculator getBoltzmannCalculator() {
