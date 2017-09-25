@@ -664,6 +664,7 @@ public class MSKStarDoer {
 		try (BufferedReader br = new BufferedReader(new FileReader(fname))) {
 			String line;
 			while ((line = br.readLine()) != null) {
+				line = line.replace("| ", "");
 				line = line.trim();
 				if(line.length()==0) continue;
 
