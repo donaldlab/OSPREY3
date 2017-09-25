@@ -81,7 +81,7 @@ public class MSKStarDoer {
 			throw new RuntimeException("ERROR: bad arguments (should start with -c)");
 
 		totalNumSeqs = 0;
-		
+
 		// multistate spec parameters
 		msParams = new ParamSet();
 		msParams.setVerbosity(false);
@@ -422,11 +422,12 @@ public class MSKStarDoer {
 		//List all sequences for the subset of mutable positions with max distance
 		//from wt starting at depth=0 and going to the last mutable position
 		if(depth==numMutRes){
+			totalNumSeqs++;
+
 			if(countOnly) {
-				totalNumSeqs++;
 				return;
 			}
-			
+
 			//String[] seq = new String[numTreeLevels];
 			//System.arraycopy(buf, 0, seq, 0, numTreeLevels);
 			ArrayList<String> seq = new ArrayList<String>(Arrays.asList(buf));
@@ -563,7 +564,7 @@ public class MSKStarDoer {
 				for(int state=0;state<numStates;++state) {
 					int index = seqList.get(state).indexOf(seq);
 					if(index == -1) continue;
-					
+
 					for(int i=0; i<numStates; ++i) {
 						updatedKeepList.get(i).add(seqList.get(i).get(index));
 					}
@@ -663,6 +664,7 @@ public class MSKStarDoer {
 		try (BufferedReader br = new BufferedReader(new FileReader(fname))) {
 			String line;
 			while ((line = br.readLine()) != null) {
+				line = line.replace("| ", "");
 				line = line.trim();
 				if(line.length()==0) continue;
 
@@ -691,6 +693,7 @@ public class MSKStarDoer {
 			int state=0;
 			while ((line = br.readLine()) != null) {
 
+				line = line.replace("| ", "");
 				if(line.length()==0) continue;
 
 				//first find state
@@ -708,6 +711,7 @@ public class MSKStarDoer {
 					while(st.hasMoreTokens()) {
 						String token = st.nextToken();
 						if(!token.contains("score")) continue;
+						token = token.replace("log10(score)", "");
 						token = token.replace("score", "");
 						token = token.replace(",", "");
 						token = token.trim();
