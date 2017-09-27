@@ -114,7 +114,16 @@ public class KStarScoreMinimized implements KStarScore {
 
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("Seq: "+settings.search[numStates-1].settings.getFormattedSequence()+", ");
+		//sb.append("Seq: "+settings.search[numStates-1].settings.getFormattedSequence()+", ");
+		String seq = "";
+		for(int state = 0; state < numStates-1; ++state) {
+			seq += (settings.search[state].settings.getFormattedSequence()+" | ");
+		}
+		int ind = seq.lastIndexOf("|");
+		if(ind>=0) seq = new StringBuilder(seq).replace(ind, ind+1,"").toString();
+		seq = seq.trim();
+		sb.append("Seq: "+seq+", ");
+		
 		sb.append(String.format("log10(score): %12e, ", getScore()));
 		for(int state=0;state<numStates;++state) {
 			BigDecimal qstar = partitionFunctions[state]==null ? BigDecimal.ZERO : 
@@ -136,7 +145,7 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 
 	protected boolean computeGMEC() {
-		return settings.isFinal && settings.computeGMEC;
+		return settings.isFinal && (settings.computeGMEC || settings.cfp.getParams().getBool("ComputeGMEC"));
 	}
 
 	protected boolean computeGMECRatio() {
@@ -144,7 +153,7 @@ public class KStarScoreMinimized implements KStarScore {
 				settings.cfp.getParams().getBool("ComputeGMECRatio");
 	}
 
-	protected EnergiedConf findMinGMEC(int state) {
+	protected List<EnergiedConf> findMinGMEC(int state) {
 		List<EnergiedConf> energiedConfs = null;
 		try {
 			if(settings.isReportingProgress) {
@@ -170,7 +179,7 @@ public class KStarScoreMinimized implements KStarScore {
 			throw new RuntimeException(e);
 		}
 
-		return energiedConfs != null && energiedConfs.size() > 0 ? energiedConfs.get(0) : null;
+		return energiedConfs != null && energiedConfs.size() > 0 ? energiedConfs : null;
 	}
 
 	protected boolean init(int state) {		
@@ -182,7 +191,7 @@ public class KStarScoreMinimized implements KStarScore {
 		//find the gmec if we are asked to do so
 		//it's important find gmec here, before the prunepmat step, since gmec finding
 		//sets the ival to a level required to find the gmec
-		EnergiedConf minGMEC = computeMinGMEC() ? findMinGMEC(state) : null;
+		List<EnergiedConf> minGMECConfs = computeMinGMEC() ? findMinGMEC(state) : null;
 
 		if(settings.isReportingProgress) {
 			System.out.println();
@@ -217,7 +226,7 @@ public class KStarScoreMinimized implements KStarScore {
 		pf.setComputeMaxNumConfs(computeMaxNumConfs(state));
 
 		pf.setComputeGMECRatio(computeGMECRatio());
-		if(minGMEC != null) pf.setMinGMEC(minGMEC);
+		if(minGMECConfs != null) pf.setMinGMECConfs(minGMECConfs);
 		
 		//create priority queue for top confs if requested
 		if(settings.isFinal && settings.numTopConfsToSave > 0) {
@@ -389,7 +398,8 @@ public class KStarScoreMinimized implements KStarScore {
 					);
 
 			p2pf.setReportProgress(settings.isReportingProgress);
-			p2pf.setMinGMEC(pf.getMinGMEC());
+			p2pf.setMinGMECConfs(pf.getMinGMECConfs());
+			p2pf.setComputeMaxNumConfs(pf.getComputeMaxNumConfs());
 			p2pf.init(settings.targetEpsilon);
 
 			pstar = p2pf.getValues().pstar;

@@ -41,6 +41,7 @@ public class MSKStarDoer {
 	LMB[][] sConstr;//state-specific constraints
 	int numStates;//number of states considered
 	int numMutRes;//number of mutable positions
+	long totalNumSeqs;//total number of posssible sequences
 
 	ArrayList<String[]> wtSeqs;//bound state wild type sequences for each state
 
@@ -78,6 +79,8 @@ public class MSKStarDoer {
 		//check format of args
 		if(!args[0].equalsIgnoreCase("-c"))
 			throw new RuntimeException("ERROR: bad arguments (should start with -c)");
+
+		totalNumSeqs = 0;
 
 		// multistate spec parameters
 		msParams = new ParamSet();
@@ -362,7 +365,7 @@ public class MSKStarDoer {
 	}
 
 	protected void printAllSeqs(){
-		ArrayList<ArrayList<ArrayList<String>>> stateSeqLists = listAllSeqs();
+		ArrayList<ArrayList<ArrayList<String>>> stateSeqLists = listAllSeqs(false);
 		for(int state=0;state<stateSeqLists.size();++state){
 
 			int numSeqs=stateSeqLists.get(state).size();
@@ -383,7 +386,7 @@ public class MSKStarDoer {
 	 * from the wilt type sequence.
 	 * @return
 	 */
-	private ArrayList<ArrayList<ArrayList<String>>> listAllSeqs(){
+	private ArrayList<ArrayList<ArrayList<String>>> listAllSeqs(boolean countOnly){
 
 		System.out.println();
 		System.out.print("Counting number of possible sequences...");
@@ -401,13 +404,13 @@ public class MSKStarDoer {
 			ArrayList<ArrayList<String>> stateOutput = new ArrayList<>();
 
 			//get allowed sequences for this state's bound complex
-			listAllSeqsHelper(subStateAATypeOptions, stateOutput, wtSeqs.get(state), buf, 0, 0);
+			listAllSeqsHelper(subStateAATypeOptions, stateOutput, wtSeqs.get(state), buf, 0, 0, countOnly);
 			stateOutput.trimToSize();
 			ans.add(stateOutput);
 		}
 
 		System.out.println("done");
-		System.out.println("Number of possible sequences: "+ans.get(0).size()*numStates);
+		System.out.println("Number of possible sequences: "+totalNumSeqs*numStates);
 		System.out.println();
 
 		ans.trimToSize();
@@ -415,10 +418,16 @@ public class MSKStarDoer {
 	}
 
 	private void listAllSeqsHelper(ArrayList<ArrayList<String>> subStateAATypeOptions, 
-			ArrayList<ArrayList<String>> stateOutput, String[] wt, String[] buf, int depth, int dist){
+			ArrayList<ArrayList<String>> stateOutput, String[] wt, String[] buf, int depth, int dist, boolean countOnly){
 		//List all sequences for the subset of mutable positions with max distance
 		//from wt starting at depth=0 and going to the last mutable position
 		if(depth==numMutRes){
+			totalNumSeqs++;
+
+			if(countOnly) {
+				return;
+			}
+
 			//String[] seq = new String[numTreeLevels];
 			//System.arraycopy(buf, 0, seq, 0, numTreeLevels);
 			ArrayList<String> seq = new ArrayList<String>(Arrays.asList(buf));
@@ -431,7 +440,7 @@ public class MSKStarDoer {
 			buf[depth]=subStateAATypeOptions.get(depth).get(aaIndex);
 			int nDist=buf[depth].equalsIgnoreCase(wt[depth]) ? dist : dist+1;
 			if(nDist>numMaxMut) continue;
-			listAllSeqsHelper(subStateAATypeOptions, stateOutput, wt, buf, depth+1, nDist);
+			listAllSeqsHelper(subStateAATypeOptions, stateOutput, wt, buf, depth+1, nDist, countOnly);
 		}
 	}
 
@@ -509,7 +518,7 @@ public class MSKStarDoer {
 		System.out.println();
 
 		//this prints out the total number of sequences
-		listAllSeqs();
+		listAllSeqs(true);
 	}
 
 	/**
@@ -522,7 +531,7 @@ public class MSKStarDoer {
 		System.out.println();
 
 		Stopwatch stopwatch = new Stopwatch().start();
-		ArrayList<ArrayList<ArrayList<String>>> seqList = listAllSeqs();
+		ArrayList<ArrayList<ArrayList<String>>> seqList = listAllSeqs(false);
 
 		//process selected mutants
 		String mutFname = msParams.getValue("MUTFILE", "");
@@ -555,7 +564,7 @@ public class MSKStarDoer {
 				for(int state=0;state<numStates;++state) {
 					int index = seqList.get(state).indexOf(seq);
 					if(index == -1) continue;
-					
+
 					for(int i=0; i<numStates; ++i) {
 						updatedKeepList.get(i).add(seqList.get(i).get(index));
 					}
@@ -655,6 +664,7 @@ public class MSKStarDoer {
 		try (BufferedReader br = new BufferedReader(new FileReader(fname))) {
 			String line;
 			while ((line = br.readLine()) != null) {
+				line = line.replace("| ", "");
 				line = line.trim();
 				if(line.length()==0) continue;
 
@@ -683,6 +693,7 @@ public class MSKStarDoer {
 			int state=0;
 			while ((line = br.readLine()) != null) {
 
+				line = line.replace("| ", "");
 				if(line.length()==0) continue;
 
 				//first find state
@@ -700,6 +711,7 @@ public class MSKStarDoer {
 					while(st.hasMoreTokens()) {
 						String token = st.nextToken();
 						if(!token.contains("score")) continue;
+						token = token.replace("log10(score)", "");
 						token = token.replace("score", "");
 						token = token.replace(",", "");
 						token = token.trim();

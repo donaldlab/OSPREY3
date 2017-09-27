@@ -26,8 +26,9 @@ public class MSSearchSettings implements Serializable {
 	}
 	
 	public String getFormattedSequence() {
-		if(AATypeOptions.size()!=mutRes.size())
+		if(AATypeOptions.size()!=mutRes.size()) {
 			throw new RuntimeException("ERROR: sequence length != number of mutable residues");
+		}
 		
 		StringBuilder sb = new StringBuilder();
 		for(int i=0;i<mutRes.size();++i) {
