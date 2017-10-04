@@ -24,6 +24,8 @@ public class EWAKRatios {
     	complexes.init(cfp);
     	List<EnergiedConf> complexConfs = complexes.calcGMEC();
     	
+    	PartitionFuncDict pfd = new PartitionFuncDict(complexConfs, cfp.getSearchProblem());
+    	    	
     	/* TODO:
     	 * 1) iterate through list of complex confs
     	 * 		map confs to sequence
