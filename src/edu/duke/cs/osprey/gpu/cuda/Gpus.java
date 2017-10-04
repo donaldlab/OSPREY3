@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.gpu.cuda;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -52,6 +54,10 @@ public class Gpus {
 					gpus.add(gpu);
 				}
 			}
+		} catch (UnsatisfiedLinkError ex) {
+			StringWriter buf = new StringWriter();
+			ex.printStackTrace(new PrintWriter(buf));
+			print(buf.toString());
 		} finally {
 			if (gpus.isEmpty()) {
 				print(" none found\n");
