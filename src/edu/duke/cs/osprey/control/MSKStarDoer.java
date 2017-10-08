@@ -386,7 +386,7 @@ public class MSKStarDoer {
 	 * from the wilt type sequence.
 	 * @return
 	 */
-	private ArrayList<ArrayList<ArrayList<String>>> listAllSeqs(boolean countOnly){
+	private ArrayList<ArrayList<ArrayList<String>>> listAllSeqs(boolean countOnly) {
 
 		System.out.println();
 		System.out.print("Counting number of possible sequences...");
@@ -410,7 +410,7 @@ public class MSKStarDoer {
 		}
 
 		System.out.println("done");
-		System.out.println("Number of possible sequences: "+totalNumSeqs*numStates);
+		System.out.println("Number of possible sequences: "+totalNumSeqs);
 		System.out.println();
 
 		ans.trimToSize();
