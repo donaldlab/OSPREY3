@@ -729,6 +729,8 @@ public class MSKStarDoer {
 
 		} catch (IOException e) { e.printStackTrace(); }
 
+		for(ArrayList<ArrayList<String>> stateSeqs : ans) stateSeqs.trimToSize();
+		ans.trimToSize();
 		return ans;
 	}
 }
