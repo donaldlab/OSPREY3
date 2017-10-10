@@ -15,7 +15,7 @@ NumStateConstr 2
 StateConstr0 -1 -16
 StateConstr1 1 -16
 
-StateCFGFiles0 2rl0/cfg/cfgKStar.txt 2rl0/cfg/cfgSystem.txt 2rl0/cfg/cfgMutSearch.txt
+StateCFGFiles0 test/2RL0-neg-des.mskstar/2rl0/cfg/cfgKStar.txt test/2RL0-neg-des.mskstar/2rl0/cfg/cfgSystem.txt test/2RL0-neg-des.mskstar/2rl0/cfg/cfgMutSearch.txt
 
 IsReportingProgress false
 Resume false

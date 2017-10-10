@@ -1,1 +1,1 @@
-DataDir ../../dataFiles
+DataDir dataFiles

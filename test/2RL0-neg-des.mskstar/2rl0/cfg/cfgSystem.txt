@@ -1,5 +1,5 @@
 %bound state limits are inferred from min, max of unbound state limits
-PdbName 2rl0/pdb/shell.pdb
+PdbName test/2RL0-neg-des.mskstar/2rl0/pdb/shell.pdb
 NumOfStrands 2
 Strand0 648 654
 Strand1 155 194
