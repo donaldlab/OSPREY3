@@ -392,21 +392,29 @@ public class MSKStarDoer {
 		return stateCfp;
 	}
 
-	protected void printAllSeqs(){
-		ArrayList<ArrayList<ArrayList<String>>> stateSeqLists = listAllSeqs(false);
-		for(int state=0;state<stateSeqLists.size();++state){
+	protected ArrayList<ArrayList<ArrayList<String>>> printAllSeqs(boolean countOnly) {
+		ArrayList<ArrayList<ArrayList<String>>> stateSeqLists = listAllSeqs(countOnly);
 
-			int numSeqs=stateSeqLists.get(state).size();
+		if(msParams.getBool("PrintAllSeqsOnly", false)) {
+			for(int state=0;state<stateSeqLists.size();++state) {
 
-			System.out.println();
-			System.out.println("State"+state+": "+numSeqs+" sequences with <= "+numMaxMut+" mutation(s) from wild-type");
-			System.out.println();
+				int numSeqs=stateSeqLists.get(state).size();
 
-			for(ArrayList<String> seq : stateSeqLists.get(state)){ 
-				for(String aa : seq) System.out.print(aa+" ");
 				System.out.println();
+				System.out.println("State"+state+": "+numSeqs+" sequences with <= "+numMaxMut+" mutation(s) from wild-type");
+				System.out.println();
+
+				for(ArrayList<String> seq : stateSeqLists.get(state)){ 
+					for(String aa : seq) System.out.print(aa+" ");
+					System.out.println();
+				}
 			}
+			
+			cleanup();
+			System.exit(0);
 		}
+		
+		return stateSeqLists;
 	}
 
 	/**
@@ -559,7 +567,7 @@ public class MSKStarDoer {
 		System.out.println();
 
 		Stopwatch stopwatch = new Stopwatch().start();
-		ArrayList<ArrayList<ArrayList<String>>> seqList = listAllSeqs(false);
+		ArrayList<ArrayList<ArrayList<String>>> seqList = printAllSeqs(false);
 
 		//process selected mutants
 		String mutFname = msParams.getValue("MUTFILE", "");
