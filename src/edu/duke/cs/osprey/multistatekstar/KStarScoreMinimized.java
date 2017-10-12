@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.PriorityQueue;
 
@@ -28,6 +29,8 @@ public class KStarScoreMinimized implements KStarScore {
 	public boolean[] initialized;
 	public int numStates;
 	protected boolean constrSatisfied;
+	
+	public static HashMap<Integer, HashMap<Integer, HashMap<String, PartitionFunctionMinimized>>> MEMOIZED_PFS;
 
 	public KStarScoreMinimized(MSKStarSettings settings) {
 		this.settings = settings;
@@ -266,6 +269,40 @@ public class KStarScoreMinimized implements KStarScore {
 
 		return true;
 	}
+	
+	public boolean getMemoizedPartFunc(int state, int subState, MSSearchProblem search) {
+		if(MSKStarSettings.memoizePFs(state, subState) == false) {
+			return false;
+		}
+		
+		String seq = search.settings.getFormattedSequence()+" "+settings.pfTypes[state];
+		PartitionFunctionMinimized pf = KStarScoreMinimized.MEMOIZED_PFS.get(state).get(subState).get(seq);
+		
+		if(pf != null) {
+			initialized[subState] = true;
+			partitionFunctions[subState] = pf;
+			
+			if(settings.isReportingProgress) {
+				System.out.println();
+				System.out.println("state"+subState+": "+seq);
+				System.out.println();
+				System.out.println("retrieved memoized partition function");
+				System.out.println(String.format("pf: %2d, q*: %12e", subState, pf.getValues().qstar));
+				System.out.println();
+				System.out.println("done");
+			}
+			
+			return true;
+		}
+		
+		return false;
+	}
+	
+	public void memoizePartFunc(int state, int subState, MSSearchProblem search) {
+		String seq = search.settings.getFormattedSequence()+" "+settings.pfTypes[state];
+		PartitionFunctionMinimized pf = partitionFunctions[subState];
+		KStarScoreMinimized.MEMOIZED_PFS.get(state).get(subState).put(seq, pf);
+	}
 
 	/**
 	 * compute until maxNumConfs conformations have been processed
@@ -275,6 +312,12 @@ public class KStarScoreMinimized implements KStarScore {
 
 		for(int state=0;state<numStates;++state) {
 
+			if(getMemoizedPartFunc(settings.state, state, settings.search[state]) && 
+					constrSatisfied) {
+				constrSatisfied = checkConstraints(state);
+				continue;
+			}
+			
 			if(!constrSatisfied) {//state-specific constraints 
 				return;
 			}
@@ -285,6 +328,10 @@ public class KStarScoreMinimized implements KStarScore {
 
 			if(partitionFunctions[state].getStatus() != Status.Estimated) {
 				compute(state, maxNumConfs);
+				
+				if(MSKStarSettings.memoizePFs(settings.state, state)) {
+					memoizePartFunc(settings.state, state, settings.search[state]);
+				}
 			}
 		}
 
@@ -306,6 +353,12 @@ public class KStarScoreMinimized implements KStarScore {
 	@Override
 	public void computeUnboundStates(long maxNumConfs) {
 		for(int state=0;state<numStates-1;++state){
+			
+			if(getMemoizedPartFunc(settings.state, state, settings.search[state]) && 
+					constrSatisfied) {
+				constrSatisfied = checkConstraints(state);
+				continue;
+			}
 
 			if(!constrSatisfied)//state-specific constraints
 				return;
@@ -316,6 +369,10 @@ public class KStarScoreMinimized implements KStarScore {
 
 			if(partitionFunctions[state].getStatus() != Status.Estimated) {
 				compute(state, maxNumConfs);
+				
+				if(MSKStarSettings.memoizePFs(settings.state, state)) {
+					memoizePartFunc(settings.state, state, settings.search[state]);
+				}
 			}
 
 			//don't check all constraints, because we are not computing 
@@ -329,16 +386,28 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 
 	public void computeBoundState(long maxNumConfs) {
+
+		int state = numStates-1;
+		
+		if(getMemoizedPartFunc(settings.state, state, settings.search[state]) && 
+				constrSatisfied) {
+			constrSatisfied = checkConstraints(state);
+			return;
+		}
+		
 		if(!constrSatisfied)
 			return;
 
-		int state = numStates-1;
 		if(!initialized[state]) {
 			initialized[state] = init(state);
 		}
 
 		if(partitionFunctions[state].getStatus() != Status.Estimated) {
 			compute(state, maxNumConfs);
+			
+			if(MSKStarSettings.memoizePFs(settings.state, state)) {
+				memoizePartFunc(settings.state, state, settings.search[state]);
+			}
 		}
 
 		if(partitionFunctions[state].getStatus()==Status.Estimated) {//assumption: unbound states are complete
