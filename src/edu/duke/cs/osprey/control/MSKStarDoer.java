@@ -396,6 +396,10 @@ public class MSKStarDoer {
 		ArrayList<ArrayList<ArrayList<String>>> stateSeqLists = listAllSeqs(countOnly);
 
 		if(msParams.getBool("PrintAllSeqsOnly", false)) {
+			System.out.println();
+			System.out.println("Printing all state sequences...");
+			System.out.println();
+			
 			for(int state=0;state<stateSeqLists.size();++state) {
 
 				int numSeqs=stateSeqLists.get(state).size();
@@ -411,6 +415,11 @@ public class MSKStarDoer {
 			}
 			
 			cleanup();
+			
+			System.out.println();
+			System.out.println("done ... exiting.");
+			System.out.println();
+			
 			System.exit(0);
 		}
 		
