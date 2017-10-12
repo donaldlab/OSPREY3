@@ -229,6 +229,18 @@ public class InputValidation {
 		if(ubStateLimits.get(0).get(0) <= ubStateLimits.get(1).get(1) && 
 				ubStateLimits.get(1).get(0) <= ubStateLimits.get(0).get(1))
 			throw new RuntimeException("ERROR: STRAND are not disjoint");
+		
+		//check that memoized partition functions respect strand numbers
+		String memoizeSubStates = sParams.getValue("MemoizeSubStatePFs");
+		if(!memoizeSubStates.trim().equals("-1")) {
+			st = new StringTokenizer(memoizeSubStates);
+			while(st.hasMoreTokens()) {
+				Integer subState = Integer.valueOf(st.nextToken());
+				if(subState < 0 || subState > numUbStates) {
+					throw new RuntimeException("ERROR: for state "+ state +", substates in MemoizeSubStatePFs must be >= 0 and <= "+ numUbStates);
+				}
+			}
+		}
 	}
 	
 }
