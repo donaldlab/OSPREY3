@@ -30,11 +30,17 @@ public class PartitionFuncDict {
 	private HashMap<String, PartitionFunction> seqDict; 
 	private SearchProblem sp;
 	
-	public PartitionFuncDict(List<EnergiedConf> energyConfs, SearchProblem sp) {
+	public PartitionFuncDict(List<EnergiedConf> energyConfs, SearchProblem sp, HashSet<String> allowedSeqs) {
 		seqDict = new HashMap<>();
 		this.sp = sp;
 		for (EnergiedConf conf:energyConfs) {
 			String sequence = confToSequence(conf);
+			
+			//only add allowed sequences to dictionary
+			if(allowedSeqs != null && !allowedSeqs.contains(sequence)) {
+				continue;
+			}
+			
 			//if the sequence is in the dictionary, update the pf with the new energy
 			if (seqDict.containsKey(sequence)) { 
 				seqDict.get(sequence).addEnergy(conf.getEnergy());

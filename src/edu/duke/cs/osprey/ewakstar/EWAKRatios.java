@@ -6,6 +6,8 @@
 package edu.duke.cs.osprey.ewakstar;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
@@ -25,18 +27,33 @@ public class EWAKRatios {
 	private ConfigFileParser cfp;
 	private PartitionFuncDict complexPfd;
 	private ArrayList<PartitionFuncDict> strandPfd;
+	private HashMap<Integer, HashSet<String>> unboundAllowedSeqsByStrand;
+	private HashMap<Integer, HashSet<String>> missedSeqsByStrand;
+	private int numStrands;
 	
 	public EWAKRatios(ConfigFileParser cfp) {
 		
 		this.cfp = cfp;
 		this.strandPfd = null;
+		this.unboundAllowedSeqsByStrand = null;
+		this.missedSeqsByStrand = null;
+		
+		this.numStrands = cfp.getParams().searchParams("STRANDMUT").size() 
+				- cfp.getParams().searchParams("STRANDMUTNUMS").size();
 		
 		GMECFinder complexes = new GMECFinder();
 		complexes.init(cfp);
 		List<EnergiedConf> complexConfs = complexes.calcGMEC();
 
-		complexPfd = new PartitionFuncDict(complexConfs, cfp.getSearchProblem());
-		strandPfd = createStrandPartitionFuncDicts();
+		complexPfd = new PartitionFuncDict(complexConfs, 
+				cfp.getSearchProblem(),
+				null);
+		
+		//get allowed unbound sequences
+		unboundAllowedSeqsByStrand = getUnboundAllowedSeqsByStrand();
+		//make unbound state partition function dictionaries
+		strandPfd = createUnboundPartitionFuncDicts();
+		missedSeqsByStrand = computeMissedSeqsByStrand();
 		
 		System.out.println();
 		System.out.println("Printing complex sequences ...");
@@ -79,12 +96,9 @@ public class EWAKRatios {
 		*/
 	}
 
-	public ArrayList<PartitionFuncDict> createStrandPartitionFuncDicts() {
+	public ArrayList<PartitionFuncDict> createUnboundPartitionFuncDicts() {
 		ArrayList<PartitionFuncDict> ans = new ArrayList<>();
 		EWAKConfigFileParser ecfp = new EWAKConfigFileParser(cfp);
-		
-		int numStrands = cfp.getParams().searchParams("STRANDMUT").size() 
-				- cfp.getParams().searchParams("STRANDMUTNUMS").size();
 
 		//creating strand searchproblems+emats
 		for(int strand = 0; strand < numStrands; ++strand) {
@@ -116,9 +130,42 @@ public class EWAKRatios {
 			GMECFinder strandGMEC = new GMECFinder();
 			strandGMEC.init(cfp, search);
 			List<EnergiedConf> strandConfs = strandGMEC.calcGMEC();
-			ans.add(new PartitionFuncDict(strandConfs, search));
+			ans.add(new PartitionFuncDict(strandConfs, 
+					search, 
+					unboundAllowedSeqsByStrand.get(strand)));
 		}
 		
+		return ans;
+	}
+	
+	private HashMap<Integer, HashSet<String>> getUnboundAllowedSeqsByStrand() {
+		HashMap<Integer, HashSet<String>> ans = new HashMap<>();
+		
+		for(int strand = 0; strand < numStrands; ++strand) {
+			SubSequenceBounds ssb = new SubSequenceBounds(cfp, strand);
+			
+			HashSet<String> strandSeqs = new HashSet<>();
+			for(String seq : complexPfd.getSequences()) {
+				String strandSeq = seq.substring(ssb.start, Math.min(ssb.end, seq.length())).trim();
+				strandSeqs.add(strandSeq);
+			}
+			
+			ans.put(strand, strandSeqs);
+		}
+		
+		return ans;
+	}
+	
+	private HashMap<Integer, HashSet<String>> computeMissedSeqsByStrand() {
+		HashMap<Integer, HashSet<String>> ans = new HashMap<>();
+		for(int strand = 0; strand < numStrands; ++strand) {
+			ans.put(strand, new HashSet<>());
+			for(String seq : unboundAllowedSeqsByStrand.get(strand)) {
+				if(!strandPfd.get(strand).getSequences().contains(seq)) {
+					ans.get(strand).add(seq);
+				}
+			}
+		}
 		return ans;
 	}
 	
