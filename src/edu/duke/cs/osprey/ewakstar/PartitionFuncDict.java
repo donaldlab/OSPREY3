@@ -6,14 +6,20 @@
 package edu.duke.cs.osprey.ewakstar;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
+import java.util.StringTokenizer;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.control.ConfigFileParser;
 
 /**
  *
- * @author lowegard
+ * @author Anna Lowegard(anna.lowegard@duke.edu)
+ * Adegoke Ojewole (ao68@duke.edu)
  */
 
 //takes in a list of conformations with their information and returns a dictionary 
@@ -67,8 +73,54 @@ public class PartitionFuncDict {
 		return ans;
 	}
 	
+	//gets sequences in dictionary
+	public Set<String> getSequences() {
+		return seqDict.keySet();
+	}
 	
+	//filters allowed aas by residue
+	public LinkedHashMap<Integer, Set<String>> getAllowedAAsByResidue() {
+		LinkedHashMap<Integer, Set<String>> ans = new LinkedHashMap<>();
+		
+		for(String seq : seqDict.keySet()) {
+			StringTokenizer st = new StringTokenizer(seq);
+			while(st.hasMoreTokens()) {
+				String token = st.nextToken();
+				int res = Integer.valueOf(token.split("-")[1]);
+				String aa = token.split("-")[0];
+				
+				if(!ans.containsKey(res)) {
+					ans.put(res, new HashSet<String>());
+				}
+				
+				ans.get(res).add(aa);
+			}
+		}
+		
+		return ans;
+	}
 	
-	
+	//filters allowed aas by strand
+	public LinkedHashMap<Integer, Set<String>> getAllowedAAsByStrand(ConfigFileParser cfp, int strand) {
+		//get set of flexible residues in specified strand
+		String flexResByStrand = cfp.getParams().getValue("STRANDMUT"+strand, "").trim();
+		HashSet<Integer> flexResSet = new HashSet<>();
+		StringTokenizer st = new StringTokenizer(flexResByStrand);
+		while(st.hasMoreTokens()) {
+			flexResSet.add(Integer.valueOf(st.nextToken()));
+		}
+		
+		//remove residues not in this set
+		LinkedHashMap<Integer, Set<String>> all = getAllowedAAsByResidue();
+		HashSet<Integer> toRemove = new HashSet<>();
+		for(Integer res : all.keySet()) {
+			if(!flexResSet.contains(res)) {
+				toRemove.add(res);
+			}
+		}
+		
+		for(Integer key : toRemove) all.remove(key);
+		return all;
+	}
     
 }

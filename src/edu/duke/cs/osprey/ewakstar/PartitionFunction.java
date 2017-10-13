@@ -12,7 +12,8 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 
 /**
  *
- * @author lowegard
+ * @author Anna Lowegard(anna.lowegard@duke.edu)
+ * Adegoke Ojewole (ao68@duke.edu)
  */
 public class PartitionFunction {
 	

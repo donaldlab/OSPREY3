@@ -38,7 +38,7 @@ public class TestEWAKStar {
         // I'm guessing most people have at least two cores, so compute the energy matrix a bit faster
         cfp.getParams().setValue("EmatThreads", "2");
         cfp.getParams().setValue("IVAL", "5.0");
-        cfp.getParams().setValue("EW", "2.0");
+        cfp.getParams().setValue("EW", "5.0");
 
         return cfp;
     }

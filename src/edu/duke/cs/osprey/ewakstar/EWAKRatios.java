@@ -5,7 +5,9 @@
  */
 package edu.duke.cs.osprey.ewakstar;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.control.ConfigFileParser;
@@ -18,44 +20,60 @@ import edu.duke.cs.osprey.control.GMECFinder;
  */
 public class EWAKRatios {
 
-    public EWAKRatios(ConfigFileParser cfp) {
-        
-    	GMECFinder complexes = new GMECFinder();
-    	complexes.init(cfp);
-    	List<EnergiedConf> complexConfs = complexes.calcGMEC();
-    	
-    	PartitionFuncDict pfd = new PartitionFuncDict(complexConfs, cfp.getSearchProblem());
-    	    	
-    	/* TODO:
-    	 * 1) iterate through list of complex confs
-    	 * 		map confs to sequence
-    	 * 		update partition function of sequence
-    	 * 2) make list of P and L only sequences from complex sequences
-    	 * 		limit P and L pruning matrices accordingly
-    	 * 3) repeat step 1 for P and L
-    	 * 4) print output to file
-    	 */
-    	
-    		
-    	
-    	/*
+	public EWAKRatios(ConfigFileParser cfp) {
+
+		GMECFinder complexes = new GMECFinder();
+		complexes.init(cfp);
+		List<EnergiedConf> complexConfs = complexes.calcGMEC();
+
+		PartitionFuncDict pfd = new PartitionFuncDict(complexConfs, cfp.getSearchProblem());
+
+		int numStrands = cfp.getParams().getInt("NUMOFSTRANDS");
+		for(int strand = 0; strand < numStrands; ++strand) {
+			//for each strand, get resallowed
+			System.out.println("Strand"+strand+":");
+			LinkedHashMap<Integer, Set<String>> seqsByRes = pfd.getAllowedAAsByStrand(cfp, strand);
+			for(Integer res : seqsByRes.keySet()) {
+				System.out.print("resAllowed"+res+" ");
+				StringBuilder sb = new StringBuilder();
+				for(String aa : seqsByRes.get(res)) {
+					sb.append(aa + " ");
+				}
+				System.out.println(sb.toString().trim());
+			}
+			System.out.println();
+		}
+
+		/* TODO:
+		 * 1) iterate through list of complex confs
+		 * 		map confs to sequence
+		 * 		update partition function of sequence
+		 * 2) make list of P and L only sequences from complex sequences
+		 * 		limit P and L pruning matrices accordingly
+		 * 3) repeat step 1 for P and L
+		 * 4) print output to file
+		 */
+
+
+
+		/*
     	// parse config file
     	EWAKConfigFileParser ecfp = new EWAKConfigFileParser(cfp);
     	// make search problem
         SearchProblem[] sps = ecfp.getSearchProblems();
         ecfp.loadEnergyMatrices();
         ecfp.pruneMatrices();
-        
+
         GMECFinder[] gfs = new GMECFinder[sps.length];
         for(int i = 0; i < gfs.length; ++i) {
         	gfs[i] = new GMECFinder();
         	gfs[i].init(cfp, sps[i]);
         	gfs[i].calcGMEC();
         }
-    	*/
-    }
-    
-    public void run() {
-    };
-    
+		 */
+	}
+
+	public void run() {
+	};
+
 }
