@@ -52,5 +52,9 @@ public class PartitionFunction {
 		return numConfs;
 	}
 	
+	public String toString() {
+		return "seq: " + getSequence() + ", " + String.format("z*: %12e", z);
+	}
+	
     
 }

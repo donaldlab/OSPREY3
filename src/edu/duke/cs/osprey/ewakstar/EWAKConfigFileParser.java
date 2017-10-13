@@ -47,25 +47,29 @@ public class EWAKConfigFileParser {
 		}
 		return search;
 	}
-	
+
 	public void loadEnergyMatrices() {
 		for(SearchProblem search : getSearchProblems()) {
-        	search.loadEnergyMatrix();
-        }
+			search.loadEnergyMatrix();
+		}
 	}
 
 	public void pruneMatrices() {
 		for(SearchProblem search : getSearchProblems()) {
 			//prune
-			if(!params.getBool("UsePoissonBoltzmann")) {
-				PruningControl pc =cfp.setupPruning(search, 
-						params.getDouble("Ival")+params.getDouble("Ew"), 
-						params.getBool("UseEpic"), 
-						params.getBool("UseTupExp"));
-				//silence output
-				pc.setReportMode(null);
-				pc.prune();
-			}
+			pruneMatrix(search);
+		}
+	}
+	
+	public void pruneMatrix(SearchProblem search) {
+		if(!params.getBool("UsePoissonBoltzmann")) {
+			PruningControl pc = cfp.setupPruning(search, 
+					params.getDouble("Ival")+params.getDouble("Ew"), 
+					params.getBool("UseEpic"), 
+					params.getBool("UseTupExp"));
+			//silence output
+			pc.setReportMode(null);
+			pc.prune();
 		}
 	}
 
@@ -78,7 +82,7 @@ public class EWAKConfigFileParser {
 		SearchProblem[] ans = new SearchProblem[numStrands + 1];
 
 		for (int strand = 0; strand < numStrands+1; ++strand) {
-			ans[strand] = makeSearchProblem(strand);
+			ans[strand] = makeSearchProblem(strand, null, null);
 		}
 
 		return ans;
@@ -89,25 +93,29 @@ public class EWAKConfigFileParser {
 	 * @param strand
 	 * @return
 	 */
-	private SearchProblem makeSearchProblem(int strand) {
+	public SearchProblem makeSearchProblem(int strand, ArrayList<String> mutRes, ArrayList<ArrayList<String>> allowedAAs) {
 		boolean cont = params.getBool("DOMINIMIZE");
 		String flexibility = cont ? "cont" : "disc";
 
-		ArrayList<String> mutRes = new ArrayList<>();
+		boolean addWT = mutRes == null ? params.getBool("AddWT") : false;
+		
+		if(mutRes == null) {
+			mutRes = new ArrayList<>();
 
-		int numStrands = params.searchParams("STRANDMUT").size() 
-				- params.searchParams("STRANDMUTNUMS").size();
+			int numStrands = params.searchParams("STRANDMUT").size() 
+					- params.searchParams("STRANDMUTNUMS").size();
 
-		if(strand < numStrands) {
-			StringTokenizer st = new StringTokenizer(params.getValue("STRANDMUT" + strand));
-			while (st.hasMoreTokens()) {
-				mutRes.add(st.nextToken());
+			if(strand < numStrands) {
+				StringTokenizer st = new StringTokenizer(params.getValue("STRANDMUT" + strand));
+				while (st.hasMoreTokens()) {
+					mutRes.add(st.nextToken());
+				}
 			}
-		}
 
-		else {
-			mutRes = cfp.getFlexRes();
-			Collections.sort(mutRes);
+			else {
+				mutRes = cfp.getFlexRes();
+				Collections.sort(mutRes);
+			}
 		}
 
 		DEEPerSettings deeperSettings = setupDEEPer(strand, mutRes, cont);
@@ -122,11 +130,15 @@ public class EWAKConfigFileParser {
 		String dir = params.getValue("RunName") + File.separator + params.getValue("EmatDir");
 		ObjectIO.makeDir(dir, false);
 
+		if(allowedAAs == null) {
+			allowedAAs = getAllowedAAs(mutRes);
+		}
+		
 		SearchProblem ans = new SearchProblem(
 				dir + File.separator + "Strand." + strand + "." + flexibility,
 				params.getValue("PDBNAME"),
-				mutRes, getAllowedAAs(mutRes),
-				params.getBool("AddWT"),
+				mutRes, allowedAAs,
+				addWT,
 				cont,
 				params.getBool("UseEPIC"),
 				epicSettings,

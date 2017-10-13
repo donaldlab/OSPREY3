@@ -78,6 +78,13 @@ public class PartitionFuncDict {
 		return seqDict.keySet();
 	}
 	
+	//print formatted sequences
+	public void printSequences() {
+		for(String key : seqDict.keySet()) {
+			System.out.println(seqDict.get(key).toString());
+		}
+	}
+	
 	//filters allowed aas by residue
 	public LinkedHashMap<Integer, Set<String>> getAllowedAAsByResidue() {
 		LinkedHashMap<Integer, Set<String>> ans = new LinkedHashMap<>();
@@ -101,7 +108,7 @@ public class PartitionFuncDict {
 	}
 	
 	//filters allowed aas by strand
-	public LinkedHashMap<Integer, Set<String>> getAllowedAAsByStrand(ConfigFileParser cfp, int strand) {
+	public LinkedHashMap<Integer, Set<String>> getAllowedAAs(ConfigFileParser cfp, int strand) {
 		//get set of flexible residues in specified strand
 		String flexResByStrand = cfp.getParams().getValue("STRANDMUT"+strand, "").trim();
 		HashSet<Integer> flexResSet = new HashSet<>();

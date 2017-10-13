@@ -5,10 +5,12 @@
  */
 package edu.duke.cs.osprey.ewakstar;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 
+import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.GMECFinder;
@@ -20,28 +22,33 @@ import edu.duke.cs.osprey.control.GMECFinder;
  */
 public class EWAKRatios {
 
+	private ConfigFileParser cfp;
+	private PartitionFuncDict complexPfd;
+	private ArrayList<PartitionFuncDict> strandPfd;
+	
 	public EWAKRatios(ConfigFileParser cfp) {
-
+		
+		this.cfp = cfp;
+		this.strandPfd = null;
+		
 		GMECFinder complexes = new GMECFinder();
 		complexes.init(cfp);
 		List<EnergiedConf> complexConfs = complexes.calcGMEC();
 
-		PartitionFuncDict pfd = new PartitionFuncDict(complexConfs, cfp.getSearchProblem());
-
-		int numStrands = cfp.getParams().getInt("NUMOFSTRANDS");
-		for(int strand = 0; strand < numStrands; ++strand) {
-			//for each strand, get resallowed
-			System.out.println("Strand"+strand+":");
-			LinkedHashMap<Integer, Set<String>> seqsByRes = pfd.getAllowedAAsByStrand(cfp, strand);
-			for(Integer res : seqsByRes.keySet()) {
-				System.out.print("resAllowed"+res+" ");
-				StringBuilder sb = new StringBuilder();
-				for(String aa : seqsByRes.get(res)) {
-					sb.append(aa + " ");
-				}
-				System.out.println(sb.toString().trim());
-			}
+		complexPfd = new PartitionFuncDict(complexConfs, cfp.getSearchProblem());
+		strandPfd = createStrandPartitionFuncDicts();
+		
+		System.out.println();
+		System.out.println("Printing complex sequences ...");
+		complexPfd.printSequences();
+		System.out.println(" ... done!");
+		
+		for(int strand = 0; strand < strandPfd.size(); ++strand) {
+			PartitionFuncDict pfd = strandPfd.get(strand);
 			System.out.println();
+			System.out.println("Printing strand"+strand+" sequences ...");
+			pfd.printSequences();
+			System.out.println(" ... done!");
 		}
 
 		/* TODO:
@@ -53,7 +60,6 @@ public class EWAKRatios {
 		 * 3) repeat step 1 for P and L
 		 * 4) print output to file
 		 */
-
 
 
 		/*
@@ -70,9 +76,52 @@ public class EWAKRatios {
         	gfs[i].init(cfp, sps[i]);
         	gfs[i].calcGMEC();
         }
-		 */
+		*/
 	}
 
+	public ArrayList<PartitionFuncDict> createStrandPartitionFuncDicts() {
+		ArrayList<PartitionFuncDict> ans = new ArrayList<>();
+		EWAKConfigFileParser ecfp = new EWAKConfigFileParser(cfp);
+		
+		int numStrands = cfp.getParams().searchParams("STRANDMUT").size() 
+				- cfp.getParams().searchParams("STRANDMUTNUMS").size();
+
+		//creating strand searchproblems+emats
+		for(int strand = 0; strand < numStrands; ++strand) {
+			//get res2allowedaas
+			LinkedHashMap<Integer, Set<String>> res2AllowedAAs = complexPfd.getAllowedAAs(cfp, strand);
+
+			ArrayList<String> mutRes = new ArrayList<>();
+			ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
+
+			//convert allowed aas to form accepted by config file parser
+			for(Integer res : res2AllowedAAs.keySet()) {
+				
+				System.out.print("RESALLOWED"+res+" ");
+				StringBuilder sb = new StringBuilder();
+				for(String aa : res2AllowedAAs.get(res)) {
+					sb.append(aa + " ");
+				}
+				System.out.println(sb.toString().trim());
+				
+				mutRes.add(res.toString());
+				allowedAAs.add(new ArrayList<>(res2AllowedAAs.get(res)));
+
+			}
+			
+			SearchProblem search = ecfp.makeSearchProblem(strand, mutRes, allowedAAs);
+			search.loadEnergyMatrix();
+			ecfp.pruneMatrix(search);
+			
+			GMECFinder strandGMEC = new GMECFinder();
+			strandGMEC.init(cfp, search);
+			List<EnergiedConf> strandConfs = strandGMEC.calcGMEC();
+			ans.add(new PartitionFuncDict(strandConfs, search));
+		}
+		
+		return ans;
+	}
+	
 	public void run() {
 	};
 
