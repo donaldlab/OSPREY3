@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.StringTokenizer;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -24,6 +25,7 @@ import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
 import edu.duke.cs.osprey.multistatekstar.MSSearchSettings;
 import edu.duke.cs.osprey.multistatekstar.PartitionFunctionMinimized;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
+import edu.duke.cs.osprey.multistatekstar.KStarScoreMinimized;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -151,8 +153,31 @@ public class MSKStarDoer {
 			int numUbConstr = sParams.getInt("NUMSTRANDCONSTR");
 			int numPartFuncs = sParams.getInt("NUMOFSTRANDS")+1;
 			sConstr[state] = new LMB[numUbConstr];
-			for(int constr=0;constr<numUbConstr;constr++)
+			for(int constr=0;constr<numUbConstr;constr++) {
 				sConstr[state][constr] = new LMB(sParams.getValue("STRANDCONSTR"+constr), numPartFuncs);
+			}
+			
+			//populate memoize state partition functions
+			String memoizeSubStates = sParams.getValue("MemoizeSubStatePFs");
+			if(!memoizeSubStates.trim().equals("-1")) {
+				
+				if(MSKStarSettings.MEMOIZE_STATE_PFS == null) {
+					MSKStarSettings.MEMOIZE_STATE_PFS = new HashMap<>();
+					KStarScoreMinimized.MEMOIZED_PFS = new HashMap<>();
+				}
+				
+				if(!MSKStarSettings.MEMOIZE_STATE_PFS.containsKey(state)) {
+					MSKStarSettings.MEMOIZE_STATE_PFS.put(state, new HashMap<>());
+					KStarScoreMinimized.MEMOIZED_PFS.put(state, new HashMap<>());
+				}
+				
+				StringTokenizer st = new StringTokenizer(memoizeSubStates);
+				while(st.hasMoreTokens()) {
+					Integer subState = Integer.valueOf(st.nextToken());
+					MSKStarSettings.MEMOIZE_STATE_PFS.get(state).put(subState, true);
+					KStarScoreMinimized.MEMOIZED_PFS.get(state).put(subState, new HashMap<>());
+				}
+			}
 
 			System.out.println();
 			System.out.println("State "+state+" parameters checked");
@@ -217,6 +242,9 @@ public class MSKStarDoer {
 	}
 
 	private void cleanup() {
+		MSKStarSettings.MEMOIZE_STATE_PFS = null;
+		KStarScoreMinimized.MEMOIZED_PFS = null;
+		
 		cleanupEnergyCalculators(ecalcsCont);
 		cleanupEnergyCalculators(ecalcsDisc);
 	}
@@ -386,7 +414,7 @@ public class MSKStarDoer {
 	 * from the wilt type sequence.
 	 * @return
 	 */
-	private ArrayList<ArrayList<ArrayList<String>>> listAllSeqs(boolean countOnly){
+	private ArrayList<ArrayList<ArrayList<String>>> listAllSeqs(boolean countOnly) {
 
 		System.out.println();
 		System.out.print("Counting number of possible sequences...");
@@ -410,7 +438,7 @@ public class MSKStarDoer {
 		}
 
 		System.out.println("done");
-		System.out.println("Number of possible sequences: "+totalNumSeqs*numStates);
+		System.out.println("Number of possible sequences: "+totalNumSeqs);
 		System.out.println();
 
 		ans.trimToSize();
@@ -729,6 +757,8 @@ public class MSKStarDoer {
 
 		} catch (IOException e) { e.printStackTrace(); }
 
+		for(ArrayList<ArrayList<String>> stateSeqs : ans) stateSeqs.trimToSize();
+		ans.trimToSize();
 		return ans;
 	}
 }

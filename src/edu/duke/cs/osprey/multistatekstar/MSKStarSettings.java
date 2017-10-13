@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.multistatekstar;
 
+import java.util.HashMap;
+
 import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
@@ -11,6 +13,7 @@ import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
 public class MSKStarSettings {
 	
 	public static double TIMEOUT_HRS = Double.MAX_VALUE;
+	public static HashMap<Integer, HashMap<Integer, Boolean>> MEMOIZE_STATE_PFS;
 	
 	public boolean isReportingProgress;
 	public double targetEpsilon;
@@ -24,7 +27,7 @@ public class MSKStarSettings {
 	public LMB[] constraints;
 	public PartitionFunctionType[] pfTypes;
 	public ConfEnergyCalculator.Async[] ecalcs;
-
+	
 	public MSKStarSettings() {}
 	
 	public MSKStarSettings(MSKStarSettings other) {
@@ -47,5 +50,11 @@ public class MSKStarSettings {
 		
 		this.ecalcs = new ConfEnergyCalculator.Async[other.ecalcs.length];
 		System.arraycopy(other.ecalcs, 0, this.ecalcs, 0, other.ecalcs.length);
+	}
+	
+	static boolean memoizePFs(int state, int substate) {
+		if(MEMOIZE_STATE_PFS == null || MEMOIZE_STATE_PFS.get(state) == null) return false;
+		Boolean ans = MEMOIZE_STATE_PFS.get(state).get(substate);
+		return ans == null ? false : ans;
 	}
 }
