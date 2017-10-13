@@ -65,6 +65,11 @@ public class EWAKRatios {
 			System.out.println();
 			System.out.println("Printing strand"+strand+" sequences ...");
 			pfd.printSequences();
+			//print missed sequences
+			System.out.println("Missed sequences");
+			for(String seq : missedSeqsByStrand.get(strand)) {
+				System.out.println(seq);
+			}
 			System.out.println(" ... done!");
 		}
 
