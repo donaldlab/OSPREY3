@@ -47,25 +47,29 @@ public class EWAKConfigFileParser {
 		}
 		return search;
 	}
-	
+
 	public void loadEnergyMatrices() {
 		for(SearchProblem search : getSearchProblems()) {
-        	search.loadEnergyMatrix();
-        }
+			search.loadEnergyMatrix();
+		}
 	}
 
 	public void pruneMatrices() {
 		for(SearchProblem search : getSearchProblems()) {
 			//prune
-			if(!params.getBool("UsePoissonBoltzmann")) {
-				PruningControl pc =cfp.setupPruning(search, 
-						params.getDouble("Ival")+params.getDouble("Ew"), 
-						params.getBool("UseEpic"), 
-						params.getBool("UseTupExp"));
-				//silence output
-				pc.setReportMode(null);
-				pc.prune();
-			}
+			pruneMatrix(search);
+		}
+	}
+
+	public void pruneMatrix(SearchProblem search) {
+		if(!params.getBool("UsePoissonBoltzmann")) {
+			PruningControl pc = cfp.setupPruning(search, 
+					params.getDouble("Ival")+params.getDouble("Ew"), 
+					params.getBool("UseEpic"), 
+					params.getBool("UseTupExp"));
+			//silence output
+			pc.setReportMode(null);
+			pc.prune();
 		}
 	}
 
@@ -89,7 +93,7 @@ public class EWAKConfigFileParser {
 	 * @param strand
 	 * @return
 	 */
-	private SearchProblem makeSearchProblem(int strand) {
+	public SearchProblem makeSearchProblem(int strand) {
 		boolean cont = params.getBool("DOMINIMIZE");
 		String flexibility = cont ? "cont" : "disc";
 
