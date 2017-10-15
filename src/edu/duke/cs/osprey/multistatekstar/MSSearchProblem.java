@@ -255,12 +255,12 @@ public class MSSearchProblem extends SearchProblem implements UpdatePruningMatri
 		return updatePruningMatrix(posNums, AATypeOptions);
 	}
 	
-	private PruningMatrix getUpdatedPruningMatrix() {
+	public PruningMatrix updatePruningMatrix() {
 		return getUpdatedPruningMatrix(getPosNums(true), settings.AATypeOptions);
 	}
 	
 	private void setPruningMatrix() {
-		this.pruneMat = getUpdatedPruningMatrix();
+		this.pruneMat = updatePruningMatrix();
 	}
 
 	public void prunePmat(boolean doPruning, boolean prunePairs, boolean reportProgress) {

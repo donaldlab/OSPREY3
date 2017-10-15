@@ -5,19 +5,26 @@ import java.util.ArrayList;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.multistatekstar.UpdatePruningMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 @SuppressWarnings("serial")
-public class EWAKSearchProblem extends SearchProblem {
-	
+public class EWAKSearchProblem extends SearchProblem implements UpdatePruningMatrix {
+
+	private ArrayList<Integer> splitPosNums; 
+	private ArrayList<ArrayList<String>> splitAAs;
 	private PruningMatrix origPruneMat;
 
-	public EWAKSearchProblem(SearchProblem other) {
+	public EWAKSearchProblem(SearchProblem other,
+			ArrayList<Integer> splitPosNums, 
+			ArrayList<ArrayList<String>> splitAAs) {
 		super(other);
 		this.origPruneMat = pruneMat;
+		this.splitAAs = splitAAs;
+		this.splitPosNums = splitPosNums;
 	}
-	
-	public void updatePruningMatrix(
+
+	public PruningMatrix updatePruningMatrix(
 			ArrayList<Integer> splitPosNums, 
 			ArrayList<ArrayList<String>> splitAAs
 			) {
@@ -31,6 +38,12 @@ public class EWAKSearchProblem extends SearchProblem {
 			}
 		}
 		pruneMat = ans;
+
+		return pruneMat;
+	}
+
+	public PruningMatrix updatePruningMatrix() {
+		return updatePruningMatrix(splitPosNums, splitAAs);
 	}
 
 }

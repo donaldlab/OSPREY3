@@ -48,10 +48,6 @@ public class EWAKRatios {
 	public ArrayList<PartitionFuncDict> createUnboundPartitionFuncDicts() {
 		ArrayList<PartitionFuncDict> ans = new ArrayList<>();
 
-		//we don't necessarily need the wild type
-		cfp.getParams().setValue("ADDWT", "FALSE");
-		cfp.getParams().setValue("EW", "0");
-
 		//creating strand searchproblems+emats
 		for(int strand = 0; strand < numStrands; ++strand) {
 			//get res2allowedaas
@@ -86,11 +82,11 @@ public class EWAKRatios {
 		SearchProblem search = ecfp.makeSearchProblem(strand);
 		search.loadEnergyMatrix();
 		ecfp.pruneMatrix(search);
-		EWAKSearchProblem ewakSearch = new EWAKSearchProblem(search);
-
+		
 		ArrayList<Integer> pos = new ArrayList<>();
 		for(int i = 0; i < allowedAAs.size(); ++i) pos.add(i);
-		ewakSearch.updatePruningMatrix(pos, allowedAAs);
+		EWAKSearchProblem ewakSearch = new EWAKSearchProblem(search, pos, allowedAAs);
+		ewakSearch.updatePruningMatrix();
 
 		GMECFinder strandGMEC = new GMECFinder();
 		strandGMEC.init(cfp, ewakSearch);
@@ -100,9 +96,6 @@ public class EWAKRatios {
 
 	public HashMap<Integer, ArrayList<PartitionFuncDict>> computeMissedUnboundPartitionFuncDicts() {
 		HashMap<Integer, ArrayList<PartitionFuncDict>> ans = new HashMap<>();
-
-		//we don't necessarily need the wild type
-		cfp.getParams().setValue("ADDWT", "FALSE");
 
 		for(int strand = 0; strand < numStrands; ++strand) {
 			ans.put(strand, new ArrayList<>());
@@ -209,6 +202,8 @@ public class EWAKRatios {
 
 		printMetaData();
 
+		//if ival+ew missed any unbound sequences, compute them individually and
+		//merge them into the correct strand partition function dictionary
 		for(HashSet<String> seqsByStrand : missedSeqsByStrand.values()) {
 			if(seqsByStrand.size() > 0) {
 
