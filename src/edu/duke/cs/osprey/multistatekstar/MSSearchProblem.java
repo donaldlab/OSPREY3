@@ -20,7 +20,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
  * 
  */
 @SuppressWarnings("serial")
-public class MSSearchProblem extends SearchProblem {
+public class MSSearchProblem extends SearchProblem implements UpdatePruningMatrix {
 	public static boolean DEBUG = false;
 
 	public MSSearchSettings settings;
