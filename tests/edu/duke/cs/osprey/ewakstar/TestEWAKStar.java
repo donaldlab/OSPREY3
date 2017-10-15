@@ -18,8 +18,8 @@ import org.junit.Test;
 public class TestEWAKStar {
 	
 	public void testEWAKStar(ConfigFileParser cfp) {
-        double ew = cfp.getParams().getDouble("EW");
         EWAKRatios ewr = new EWAKRatios(cfp);
+        ewr.run();
     }
     
     private ConfigFileParser make2RL0Config() {

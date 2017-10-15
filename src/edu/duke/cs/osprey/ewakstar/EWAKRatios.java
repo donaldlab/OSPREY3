@@ -32,6 +32,8 @@ public class EWAKRatios {
 	private int numStrands;
 	
 	public EWAKRatios(ConfigFileParser cfp) {
+		//we need type dependent DEE to be true
+		cfp.getParams().setValue("TypeDep", "true");
 		
 		this.cfp = cfp;
 		this.strandPfd = null;
@@ -40,65 +42,6 @@ public class EWAKRatios {
 		
 		this.numStrands = cfp.getParams().searchParams("STRANDMUT").size() 
 				- cfp.getParams().searchParams("STRANDMUTNUMS").size();
-		
-		GMECFinder complexes = new GMECFinder();
-		complexes.init(cfp);
-		List<EnergiedConf> complexConfs = complexes.calcGMEC();
-
-		complexPfd = new PartitionFuncDict(complexConfs, 
-				cfp.getSearchProblem(),
-				null);
-		
-		//get allowed unbound sequences
-		unboundAllowedSeqsByStrand = getUnboundAllowedSeqsByStrand();
-		//make unbound state partition function dictionaries
-		strandPfd = createUnboundPartitionFuncDicts();
-		missedSeqsByStrand = computeMissedSeqsByStrand();
-		
-		System.out.println();
-		System.out.println("Printing complex sequences ...");
-		complexPfd.printSequences();
-		System.out.println(" ... done!");
-		
-		for(int strand = 0; strand < strandPfd.size(); ++strand) {
-			PartitionFuncDict pfd = strandPfd.get(strand);
-			System.out.println();
-			System.out.println("Printing strand"+strand+" sequences ...");
-			pfd.printSequences();
-			//print missed sequences
-			System.out.println("Missed sequences");
-			for(String seq : missedSeqsByStrand.get(strand)) {
-				System.out.println(seq);
-			}
-			System.out.println(" ... done!");
-		}
-
-		/* TODO:
-		 * 1) iterate through list of complex confs
-		 * 		map confs to sequence
-		 * 		update partition function of sequence
-		 * 2) make list of P and L only sequences from complex sequences
-		 * 		limit P and L pruning matrices accordingly
-		 * 3) repeat step 1 for P and L
-		 * 4) print output to file
-		 */
-
-
-		/*
-    	// parse config file
-    	EWAKConfigFileParser ecfp = new EWAKConfigFileParser(cfp);
-    	// make search problem
-        SearchProblem[] sps = ecfp.getSearchProblems();
-        ecfp.loadEnergyMatrices();
-        ecfp.pruneMatrices();
-
-        GMECFinder[] gfs = new GMECFinder[sps.length];
-        for(int i = 0; i < gfs.length; ++i) {
-        	gfs[i] = new GMECFinder();
-        	gfs[i].init(cfp, sps[i]);
-        	gfs[i].calcGMEC();
-        }
-		*/
 	}
 
 	public ArrayList<PartitionFuncDict> createUnboundPartitionFuncDicts() {
@@ -175,6 +118,64 @@ public class EWAKRatios {
 	}
 	
 	public void run() {
+		GMECFinder complexes = new GMECFinder();
+		complexes.init(cfp);
+		List<EnergiedConf> complexConfs = complexes.calcGMEC();
+
+		complexPfd = new PartitionFuncDict(complexConfs, 
+				cfp.getSearchProblem(),
+				null);
+		
+		//get allowed unbound sequences
+		unboundAllowedSeqsByStrand = getUnboundAllowedSeqsByStrand();
+		//make unbound state partition function dictionaries
+		strandPfd = createUnboundPartitionFuncDicts();
+		missedSeqsByStrand = computeMissedSeqsByStrand();
+		
+		System.out.println();
+		System.out.println("Printing complex sequences ...");
+		complexPfd.printSequences();
+		System.out.println(" ... done!");
+		
+		for(int strand = 0; strand < strandPfd.size(); ++strand) {
+			PartitionFuncDict pfd = strandPfd.get(strand);
+			System.out.println();
+			System.out.println("Printing strand"+strand+" sequences ...");
+			pfd.printSequences();
+			//print missed sequences
+			System.out.println("Missed sequences");
+			for(String seq : missedSeqsByStrand.get(strand)) {
+				System.out.println(seq);
+			}
+			System.out.println(" ... done!");
+		}
+
+		/* TODO:
+		 * 1) iterate through list of complex confs
+		 * 		map confs to sequence
+		 * 		update partition function of sequence
+		 * 2) make list of P and L only sequences from complex sequences
+		 * 		limit P and L pruning matrices accordingly
+		 * 3) repeat step 1 for P and L
+		 * 4) print output to file
+		 */
+
+
+		/*
+    	// parse config file
+    	EWAKConfigFileParser ecfp = new EWAKConfigFileParser(cfp);
+    	// make search problem
+        SearchProblem[] sps = ecfp.getSearchProblems();
+        ecfp.loadEnergyMatrices();
+        ecfp.pruneMatrices();
+
+        GMECFinder[] gfs = new GMECFinder[sps.length];
+        for(int i = 0; i < gfs.length; ++i) {
+        	gfs[i] = new GMECFinder();
+        	gfs[i].init(cfp, sps[i]);
+        	gfs[i].calcGMEC();
+        }
+		*/
 	};
 
 }

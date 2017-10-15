@@ -96,8 +96,6 @@ public class EWAKConfigFileParser {
 	public SearchProblem makeSearchProblem(int strand, ArrayList<String> mutRes, ArrayList<ArrayList<String>> allowedAAs) {
 		boolean cont = params.getBool("DOMINIMIZE");
 		String flexibility = cont ? "cont" : "disc";
-
-		boolean addWT = mutRes == null ? params.getBool("AddWT") : false;
 		
 		if(mutRes == null) {
 			mutRes = new ArrayList<>();
@@ -138,7 +136,7 @@ public class EWAKConfigFileParser {
 				dir + File.separator + "Strand." + strand + "." + flexibility,
 				params.getValue("PDBNAME"),
 				mutRes, allowedAAs,
-				addWT,
+				params.getBool("AddWT"),
 				cont,
 				params.getBool("UseEPIC"),
 				epicSettings,

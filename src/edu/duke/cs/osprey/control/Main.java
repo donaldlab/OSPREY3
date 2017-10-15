@@ -28,9 +28,9 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 public class Main {
 
 	public static Map<String, Runnable> commands;
-        
-        private static final String usageString = "Command expects arguments "
-                + "(e.g. -c KStar.cfg {findGMEC|calcKStar} System.cfg DEE.cfg";
+
+	private static final String usageString = "Command expects arguments "
+			+ "(e.g. -c KStar.cfg {findGMEC|calcKStar} System.cfg DEE.cfg";
 
 	public static void main(String[] args){
 		//args expected to be "-c KStar.cfg command config_file_1.cfg ..."
@@ -39,7 +39,7 @@ public class Main {
 
 		String command = "";
 		try{
-                    command = args[2];
+			command = args[2];
 		}
 		catch(Exception e){
 			System.out.println(usageString);
@@ -52,7 +52,7 @@ public class Main {
 
 		ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
 
-                EnvironmentVars.openSpecialWarningLogs(cfp);
+		EnvironmentVars.openSpecialWarningLogs(cfp);
 
 		//load data files
 		cfp.loadData();
@@ -66,24 +66,24 @@ public class Main {
 			commands.get(command).run();
 		else
 			throw new RuntimeException("ERROR: OSPREY command unrecognized: "+command);
-                
-                EnvironmentVars.closeSpecialWarningLogs();
-                
+
+		EnvironmentVars.closeSpecialWarningLogs();
+
 		System.out.println("Total OSPREY execution time: " + stopwatch.getTime(2));
 		System.out.println("OSPREY finished");
 	}
 
 	private static void initCommands(String[] args, ConfigFileParser cfp) {
-		
+
 		// set degree of thread parallelism
 		// NOTE: if we're going to use the config files here, don't override its defaults
 		ThreadParallelism.setNumThreads(cfp.params.getInt("NumThreads"));
 		MultiTermEnergyFunction.setNumThreads(ThreadParallelism.getNumThreads());
 
-                CCDMinimizer.EConvTol = cfp.params.getDouble("CCDEConvTol");
-                CCDMinimizer.numIter = cfp.params.getInt("CCDNumIter");
-                EnvironmentVars.alwaysIdealizeSidechainsAfterMutation = cfp.params.getBool("ALWAYSIDEALIZESIDECHAINSAFTERMUTATION");
-                
+		CCDMinimizer.EConvTol = cfp.params.getDouble("CCDEConvTol");
+		CCDMinimizer.numIter = cfp.params.getInt("CCDNumIter");
+		EnvironmentVars.alwaysIdealizeSidechainsAfterMutation = cfp.params.getBool("ALWAYSIDEALIZESIDECHAINSAFTERMUTATION");
+
 		// TODO Auto-generated method stub
 		commands = new HashMap<String, Runnable>();
 
@@ -95,7 +95,7 @@ public class Main {
 				gf.calcGMEC();
 			}
 		});
-		
+
 		commands.put("findSequences", new Runnable() {
 			@Override
 			public void run() {
@@ -104,13 +104,13 @@ public class Main {
 				gf.calcSequences();
 			}
 		});
-		
+
 		commands.put("scoreLowestConfs", new Runnable() {
 			@Override
 			public void run() {
 				BigForcefieldEnergy.ParamInfo.printWarnings = false;
 				ForcefieldParams.printWarnings = false;
-				
+
 				GMECFinder gf = new GMECFinder();
 				gf.init(cfp);
 				gf.setLogConfsToConsole(false);
@@ -124,7 +124,7 @@ public class Main {
 				// kstar subclasses configfileparser, so re-load
 				KSConfigFileParser ksCfp = new KSConfigFileParser(args);
 				ksCfp.loadData();
-				
+
 				KStarCalculator ksc = new KStarCalculator(ksCfp);
 				ksc.calcKStarScores();
 			}
@@ -144,7 +144,7 @@ public class Main {
 				cd.calcBestSequences();
 			}
 		});
-		
+
 		commands.put("doMSKStar", new Runnable() {
 			@Override
 			public void run() {
@@ -175,20 +175,20 @@ public class Main {
 				ci.outputConfInfo();
 			}
 		});
-                
-                commands.put("findSeqGMECs", new Runnable() {
+
+		commands.put("findSeqGMECs", new Runnable() {
 			@Override
 			public void run() {
 				SeqGMECFinder sgf = new SeqGMECFinder(args, cfp.getParams().getValue("MutFile"));
-                                sgf.calcAllSeqGMECs();
+				sgf.calcAllSeqGMECs();
 			}
 		});
-                
-                commands.put("calcEWAKStar", new Runnable() {
+
+		commands.put("calcEWAKStar", new Runnable() {
 			@Override
 			public void run() {
 				EWAKRatios ewr = new EWAKRatios(cfp);
-                                ewr.run();
+				ewr.run();
 			}
 		});
 	}
