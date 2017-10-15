@@ -27,6 +27,7 @@ import edu.duke.cs.osprey.partcr.PartCRConfPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.multistatekstar.UpdatePruningMatrix;
 import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -318,6 +319,11 @@ public class GMECFinder {
         //precompute the energy, pruning, and maybe EPIC or tup-exp matrices
         //must be done separately for each round of iMinDEE
         precomputeMatrices(Ew + interval);
+        
+        //AAO 2017-10-15: for searchproblems such as ewak and multistatek*
+        if(searchSpace instanceof UpdatePruningMatrix) {
+        	((UpdatePruningMatrix)searchSpace).updatePruningMatrix();
+        }
         
         // start searching for the min score conf
         System.out.println("Searching for min score conformation...");
