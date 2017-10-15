@@ -57,6 +57,18 @@ public class PartitionFuncDict {
 		}
 	}
 	
+	//import partition function dictionary entries from other
+	public void merge(PartitionFuncDict other) {
+		for(String seq : other.seqDict.keySet()) {
+			if(this.seqDict.containsKey(seq)) {
+				System.out.println("WARNING: sequence " + seq + " already exists. skipping...");
+				continue;
+			}
+			
+			this.seqDict.put(seq, other.seqDict.get(seq));
+		}
+	}
+	
 	//constructs a new partition function for a given sequence
 	public PartitionFunction sequenceToPartitionFunction(String sequence) {
 		PartitionFunction pf = new PartitionFunction();

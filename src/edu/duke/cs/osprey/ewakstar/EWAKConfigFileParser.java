@@ -60,7 +60,7 @@ public class EWAKConfigFileParser {
 			pruneMatrix(search);
 		}
 	}
-	
+
 	public void pruneMatrix(SearchProblem search) {
 		if(!params.getBool("UsePoissonBoltzmann")) {
 			PruningControl pc = cfp.setupPruning(search, 
@@ -82,7 +82,7 @@ public class EWAKConfigFileParser {
 		SearchProblem[] ans = new SearchProblem[numStrands + 1];
 
 		for (int strand = 0; strand < numStrands+1; ++strand) {
-			ans[strand] = makeSearchProblem(strand, null, null);
+			ans[strand] = makeSearchProblem(strand);
 		}
 
 		return ans;
@@ -93,27 +93,25 @@ public class EWAKConfigFileParser {
 	 * @param strand
 	 * @return
 	 */
-	public SearchProblem makeSearchProblem(int strand, ArrayList<String> mutRes, ArrayList<ArrayList<String>> allowedAAs) {
+	public SearchProblem makeSearchProblem(int strand) {
 		boolean cont = params.getBool("DOMINIMIZE");
 		String flexibility = cont ? "cont" : "disc";
-		
-		if(mutRes == null) {
-			mutRes = new ArrayList<>();
 
-			int numStrands = params.searchParams("STRANDMUT").size() 
-					- params.searchParams("STRANDMUTNUMS").size();
+		ArrayList<String> mutRes = new ArrayList<>();
 
-			if(strand < numStrands) {
-				StringTokenizer st = new StringTokenizer(params.getValue("STRANDMUT" + strand));
-				while (st.hasMoreTokens()) {
-					mutRes.add(st.nextToken());
-				}
+		int numStrands = params.searchParams("STRANDMUT").size() 
+				- params.searchParams("STRANDMUTNUMS").size();
+
+		if(strand < numStrands) {
+			StringTokenizer st = new StringTokenizer(params.getValue("STRANDMUT" + strand));
+			while (st.hasMoreTokens()) {
+				mutRes.add(st.nextToken());
 			}
+		}
 
-			else {
-				mutRes = cfp.getFlexRes();
-				Collections.sort(mutRes);
-			}
+		else {
+			mutRes = cfp.getFlexRes();
+			Collections.sort(mutRes);
 		}
 
 		DEEPerSettings deeperSettings = setupDEEPer(strand, mutRes, cont);
@@ -128,14 +126,10 @@ public class EWAKConfigFileParser {
 		String dir = params.getValue("RunName") + File.separator + params.getValue("EmatDir");
 		ObjectIO.makeDir(dir, false);
 
-		if(allowedAAs == null) {
-			allowedAAs = getAllowedAAs(mutRes);
-		}
-		
 		SearchProblem ans = new SearchProblem(
 				dir + File.separator + "Strand." + strand + "." + flexibility,
 				params.getValue("PDBNAME"),
-				mutRes, allowedAAs,
+				mutRes, getAllowedAAs(mutRes),
 				params.getBool("AddWT"),
 				cont,
 				params.getBool("UseEPIC"),
