@@ -200,7 +200,7 @@ public class EWAKRatios {
 		//computed sequences not enumeated by ival+ew
 		missedSeqsByStrand = getMissedSeqsByStrand();
 
-		printMetaData();
+		//printMetaData();
 
 		//if ival+ew missed any unbound sequences, compute them individually and
 		//merge them into the correct strand partition function dictionary
@@ -218,11 +218,17 @@ public class EWAKRatios {
 					}
 				}
 
-				printMetaData();
+				//printMetaData();
 
 				break;
 			}
 		}
+	
+		EWAKScores ews = new EWAKScores(complexPfd, strandPfd);
+		ews.sort();
+		System.out.println();
+		System.out.println(ews.toString());
+		System.out.println();
 	}
 
 }
