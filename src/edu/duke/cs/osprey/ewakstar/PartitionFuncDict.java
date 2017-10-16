@@ -5,6 +5,7 @@
  */
 package edu.duke.cs.osprey.ewakstar;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -49,12 +50,32 @@ public class PartitionFuncDict {
 			//if the sequence is not in the dictionary, create a new partition function,
 			//add the initial energy to the pf, and add the sequence & pf to the dict
 			else {
-				PartitionFunction pf = sequenceToPartitionFunction(sequence);
+				PartitionFunction pf = createPartitionFunction(sequence);
 				pf.addEnergy(conf.getEnergy());
 				seqDict.put(sequence, pf);
 			}
 			
 		}
+	}
+	
+	//get matching sequences
+	public ArrayList<String> getMatchingSequences(String sequence) {
+		ArrayList<String> ans = new ArrayList<>();
+		
+		for(String val : getSequences()) {
+			if(sequence.contains(val)) {
+				ans.add(val);
+			}
+		}
+		
+		ans.trimToSize();
+		return ans;
+	}
+	
+	//get partition function from sequence
+	public PartitionFunction getPartitionFunction(String sequence) {
+		if(!seqDict.containsKey(sequence)) return null;
+		return seqDict.get(sequence);
 	}
 	
 	//import partition function dictionary entries from other
@@ -70,7 +91,7 @@ public class PartitionFuncDict {
 	}
 	
 	//constructs a new partition function for a given sequence
-	public PartitionFunction sequenceToPartitionFunction(String sequence) {
+	public PartitionFunction createPartitionFunction(String sequence) {
 		PartitionFunction pf = new PartitionFunction();
 		pf.setSequence(sequence);
 		return pf;

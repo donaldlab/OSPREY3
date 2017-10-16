@@ -4,6 +4,12 @@ import java.util.StringTokenizer;
 
 import edu.duke.cs.osprey.control.ConfigFileParser;
 
+/**
+*
+* @author Anna Lowegard(anna.lowegard@duke.edu)
+* Adegoke Ojewole (ao68@duke.edu)
+*/
+
 public class SubSequenceBounds {
 
 	public int start;
