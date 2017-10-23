@@ -129,7 +129,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		scoredGMECQPrimeEnumerated = false;
 
 		// compute p*: boltzmann-weight the scores for all pruned conformations
-		if(!(computeMaxNumConfs || computeGMECRatio)) {
+		if(!computeGMECRatio) {
 			ConfSearch ptree = confSearchFactory.make(emat, invmat);
 			if(ptree instanceof ConfAStarTree) ((ConfAStarTree)ptree).stopProgress();
 			values.pstar = calcWeightSumUpperBound(ptree);
