@@ -73,6 +73,19 @@ public class KStarScoreMinimized implements KStarScore {
 		}
 		return ans;
 	}
+	
+	public BigDecimal getDenominatorUB() {
+		PartitionFunctionMinimized pf;
+		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
+		for(int state=0;state<numStates-1;++state) {
+			pf = partitionFunctions[state];
+			if(pf==null || pf.getUpperBound().compareTo(BigDecimal.ZERO)==0) {
+				return BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+			}
+			ans = ans.multiply(pf.getUpperBound());
+		}
+		return ans;
+	}
 
 	@Override
 	public BigDecimal getNumerator() {
@@ -101,13 +114,22 @@ public class KStarScoreMinimized implements KStarScore {
 		return getScore();
 	}
 	
-	private BigDecimal forceUpperBoundScore() {
+	private BigDecimal computeMaxScore() {
 		BigDecimal den = getDenominator();
 		if(den.compareTo(BigDecimal.ZERO) == 0) return toLog10(den);
-		PartitionFunction pf = partitionFunctions[numStates-1];
+		PartitionFunctionMinimized pf = (PartitionFunctionMinimized)partitionFunctions[numStates-1];
+		if(pf==null) return toLog10(BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP));
+		BigDecimal num = pf.getUpperBound().setScale(64, RoundingMode.HALF_UP);
+		BigDecimal ans = num.divide(den, RoundingMode.HALF_UP);
+		return toLog10(ans);
+	}
+	
+	private BigDecimal computeMinScore() {
+		BigDecimal den = getDenominatorUB();
+		if(den.compareTo(BigDecimal.ZERO) == 0) return toLog10(den);
+		PartitionFunctionMinimized pf = (PartitionFunctionMinimized)partitionFunctions[numStates-1];
 		if(pf==null) return toLog10(BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP));
 		BigDecimal num = pf.getValues().qstar.setScale(64, RoundingMode.HALF_UP);
-		num = (num.add(pf.getValues().qprime)).add(pf.getValues().pstar);
 		BigDecimal ans = num.divide(den, RoundingMode.HALF_UP);
 		return toLog10(ans);
 	}
@@ -116,7 +138,7 @@ public class KStarScoreMinimized implements KStarScore {
 	public BigDecimal getUpperBoundScore() {
 		if(isComputed()) return getScore();
 
-		return forceUpperBoundScore();
+		return computeMaxScore();
 	}
 
 	public String toString() {
@@ -133,7 +155,7 @@ public class KStarScoreMinimized implements KStarScore {
 		
 		sb.append(String.format("log10(score): %12e, ", getScore()));
 		
-		sb.append(String.format("range: [%12e, %12e], ", getLowerBoundScore(), forceUpperBoundScore()));
+		sb.append(String.format("range: [%12e, %12e], ", computeMinScore(), computeMaxScore()));
 		
 		for(int state=0;state<numStates;++state) {
 			BigDecimal qstar = partitionFunctions[state]==null ? BigDecimal.ZERO : 
