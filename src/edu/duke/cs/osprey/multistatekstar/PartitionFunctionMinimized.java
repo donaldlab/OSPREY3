@@ -468,7 +468,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	void confOutput(ScoredConf conf) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
 		double confVal = conf instanceof EnergiedConf ? ((EnergiedConf)conf).getEnergy() : conf.getScore();
-		System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*: %12e, range[%12e, %12e], epsilon: %.6f, time: %10s, heapMem: %.0f%%",
+		System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*: %12e, range: [%12e, %12e], epsilon: %.6f, time: %10s, heapMem: %.0f%%",
 				numConfsEvaluated, confVal, values.qstar, values.qprime, values.pstar, values.qstar, values.qstar.add(values.qprime).add(values.pstar), 
 				values.getEffectiveEpsilon(),
 				stopwatch.getTime(2),
