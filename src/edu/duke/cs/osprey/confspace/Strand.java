@@ -48,7 +48,8 @@ public class Strand implements Serializable {
 		}
 		
 		public Builder setResidues(int firstResNum, int lastResNum) {
-			return setResidues(Integer.toString(firstResNum), Integer.toString(lastResNum));
+			return setResidues(stringResNumForMolec(firstResNum,mol),
+					stringResNumForMolec(lastResNum,mol));
 		}
 		
 		public Builder setResidues(String firstResNum, String lastResNum) {
@@ -188,7 +189,7 @@ public class Strand implements Serializable {
 		}
 		
 		public ResidueFlex get(int resNum) {
-			return get(Integer.toString(resNum));
+			return get(stringResNumForMolec(resNum, mol));
 		}
 		
 		public ResidueFlex get(String resNum) {
@@ -233,7 +234,7 @@ public class Strand implements Serializable {
 	
 	/** Flexibility parameters for this strand */
 	public final Flexibility flexibility;
-	
+		
 	private Strand(Molecule mol, String firstResNumber, String lastResNumber, ResidueTemplateLibrary templateLib, boolean errorOnNonTemplateResidues) {
 		
 		// make sure the mol has these residues, otherwise the ranges won't work correctly
@@ -314,5 +315,12 @@ public class Strand implements Serializable {
 		
 		// init flexibility
 		flexibility = new Flexibility(this.mol.residues);
+	}
+	
+	private static String stringResNumForMolec(int resNumInt, Molecule molec) {
+		//given an integer residue number, find the full (with chain ID) residue number
+		//in this molec that matches it.  Error if more than one.  
+		String pureNumber = Integer.toString(resNumInt);
+		return molec.getResByPDBResNumber(pureNumber).getPDBResNumber();
 	}
 }

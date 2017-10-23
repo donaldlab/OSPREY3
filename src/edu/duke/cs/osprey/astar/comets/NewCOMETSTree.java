@@ -31,7 +31,7 @@ import java.util.PriorityQueue;
  * 
  * @author mhall44
  */
-public class NewCOMETSTree extends AStarTree<FullAStarNode> {
+public class NewCOMETSTree extends AStarTree<COMETSNode> {
     
     int numTreeLevels;//number of residues with sequence changes
     
@@ -100,9 +100,8 @@ public class NewCOMETSTree extends AStarTree<FullAStarNode> {
     
     
     @Override
-    public ArrayList<FullAStarNode> getChildren(FullAStarNode curNode) {
-        COMETSNode seqNode = (COMETSNode)curNode;
-        ArrayList<FullAStarNode> ans = new ArrayList<>();
+    public ArrayList<COMETSNode> getChildren(COMETSNode seqNode) {
+        ArrayList<COMETSNode> ans = new ArrayList<>();
                 
         if(seqNode.isFullyDefined()){
             seqNode.expandConfTree();
@@ -248,7 +247,7 @@ public class NewCOMETSTree extends AStarTree<FullAStarNode> {
     
 
     @Override
-    public FullAStarNode rootNode() {
+    public COMETSNode rootNode() {
         int[] conf = new int[numTreeLevels];
         Arrays.fill(conf,-1);//indicates sequence not assigned
         
@@ -264,12 +263,11 @@ public class NewCOMETSTree extends AStarTree<FullAStarNode> {
     
     
     @Override
-    public boolean canPruneNode(FullAStarNode node){
+    public boolean canPruneNode(COMETSNode seqNode){
         //check if the node can be pruned based on the constraints
         //each constraint function must be <=0, so if any constraint function's lower bound
         //over sequences in seqNode is > 0,
         //we can prune seqNode
-        COMETSNode seqNode = (COMETSNode)node;
        
         if(numMaxMut!=-1){
             //we have a cap on the number of mutations...prune if exceeded
@@ -300,15 +298,13 @@ public class NewCOMETSTree extends AStarTree<FullAStarNode> {
     
     
     @Override
-    public boolean isFullyAssigned(FullAStarNode node) {
+    public boolean isFullyAssigned(COMETSNode seqNode) {
         //This checks if the node is returnable
         //So it must be fully processed (state GMECs found, not just fully defined sequence)
         
-        if( ! node.isFullyDefined() )//sequence not fully defined
+        if( ! seqNode.isFullyDefined() )//sequence not fully defined
             return false;
-        
-        COMETSNode seqNode = (COMETSNode)node;
-        
+                
         for(int state=0; state<numStates; state++){
             if(seqNode.stateTrees[state]!=null){
                 FullAStarNode bestNodeForState = seqNode.stateTrees[state].getQueue().peek();
@@ -324,9 +320,9 @@ public class NewCOMETSTree extends AStarTree<FullAStarNode> {
     
     
     @Override
-    public ConfSearch.ScoredConf outputNode(FullAStarNode node){
+    public ConfSearch.ScoredConf outputNode(COMETSNode node){
         //Let's print more info when outputting a node
-        printBestSeqInfo((COMETSNode)node);
+        printBestSeqInfo(node);
         return new ConfSearch.ScoredConf(node.getNodeAssignments(), node.getScore());
     }
     

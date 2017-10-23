@@ -228,9 +228,9 @@ public class PDBIO {
 				// HELIX    2   2 THR A   23  ASP A   37  1                                  15    
 				// HELIX    3   3 VAL A   40  GLN A   55  1                                  16    
 
-				String startResNum = line.substring(21, 25).trim();
-				String stopResNum = line.substring(33, 37).trim();
 				char chain = line.charAt(19);
+				String startResNum = chain + line.substring(21, 25).trim();
+				String stopResNum = chain + line.substring(33, 37).trim();
 				
 				for (Molecule mol : mols) {
 					for (Residue res : mol.getResRangeByPDBResNumber(startResNum, stopResNum)) {
@@ -250,9 +250,9 @@ public class PDBIO {
 				// SHEET    3   A 4 LEU A  44  THR A  49 -1  N  THR A  49   O  LYS A   5
 				// SHEET    4   A 4 VAL A  33  SER A  39 -1  N  SER A  39   O  LEU A  44
 
-				String startResNum = line.substring(22, 26).trim();
-				String stopResNum = line.substring(33, 37).trim();
 				char chain = line.charAt(21);
+				String startResNum = chain + line.substring(22, 26).trim();
+				String stopResNum = chain + line.substring(33, 37).trim();
 				
 				for (Molecule mol : mols) {
 					for (Residue res : mol.getResRangeByPDBResNumber(startResNum, stopResNum)) {

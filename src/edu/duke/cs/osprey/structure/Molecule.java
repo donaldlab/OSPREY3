@@ -73,25 +73,29 @@ public class Molecule implements Serializable {
     
     public List<Residue> getResRangeByPDBResNumber(String firstResNum, String lastResNum) {
     	
-    	List<Residue> residues = new ArrayList<>();
-    	
-    	boolean isInside = false;
-    	for (Residue res : this.residues) {
-    		
-    		String resNum = res.getPDBResNumber();
-    		
-    		if (resNum.equals(firstResNum)) {
-    			isInside = true;
-    		}
-    		
-    		if (isInside) {
-    			residues.add(res);
-    		}
-    		
-    		if (resNum.equals(lastResNum)) {
-    			break;
-    		}
-    	}
+    		//check that the residue numbers exist in the molecule, and add chain numbers if needed to match molecule
+	    firstResNum = residues.getOrThrow(firstResNum).getPDBResNumber();
+	    lastResNum = residues.getOrThrow(lastResNum).getPDBResNumber();
+	    	
+	    	List<Residue> residues = new ArrayList<>();
+	    	
+	    	boolean isInside = false;
+	    	for (Residue res : this.residues) {
+	    		
+	    		String resNum = res.getPDBResNumber();
+	    		
+	    		if (resNum.equals(firstResNum)) {
+	    			isInside = true;
+	    		}
+	    		
+	    		if (isInside) {
+	    			residues.add(res);
+	    		}
+	    		
+	    		if (resNum.equals(lastResNum)) {
+	    			break;
+	    		}
+	    	}
     	
     	return residues;
     }
@@ -170,8 +174,11 @@ public class Molecule implements Serializable {
             
         Residue curRes = getResByPDBResNumber(termini[0]);
         resList.add(curRes);
+        
+	    String lastResNum = residues.getOrThrow(termini[1]).getPDBResNumber();
+	    //make sure it's there, and add chain ID if needed to match molecule
 
-        while ( ! curRes.getPDBResNumber().equalsIgnoreCase(termini[1]) ) {//not at other end
+        while ( ! curRes.getPDBResNumber().equalsIgnoreCase(lastResNum) ) {//not at other end
 
             int curIndex = curRes.indexInMolecule;
             if(curIndex==residues.size()-1){

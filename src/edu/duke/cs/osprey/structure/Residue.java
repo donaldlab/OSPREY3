@@ -152,7 +152,16 @@ public class Residue implements Serializable {
         // populate the cache if needed
         if (resNum == null) {
             if (fullName.length() > 5) {
-                resNum = StringParsing.getToken(fullName.substring(5),1);
+            		//let's include the chain ID in case there are multiple chains
+            		//with overlapping numbers
+            		if(fullName.charAt(2)==' ') {//two-letter residue template name
+            			resNum = StringParsing.getToken(fullName.substring(2,4),1)
+                        		+ StringParsing.getToken(fullName.substring(4),1);
+            		}
+            		else {
+            			resNum = StringParsing.getToken(fullName.substring(3,5),1)
+            					+ StringParsing.getToken(fullName.substring(5),1);
+            		}
             } else {
                 resNum = Integer.toString(indexInMolecule+1);
             }

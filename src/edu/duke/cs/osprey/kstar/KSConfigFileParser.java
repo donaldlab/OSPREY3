@@ -107,7 +107,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 			for( Iterator<String> iterator2 = hot.iterator(); iterator2.hasNext(); ) {
 				String pdbResNum = iterator2.next();
 
-				if(!strand.contains(Integer.parseInt(pdbResNum)))
+				if(!strand.contains(pdbResNum))
 					iterator2.remove();
 			}
 
@@ -160,10 +160,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				{ StringParsing.getToken(strandLimitsString, 1),
 						StringParsing.getToken(strandLimitsString, 2) };
 
-			int begin = Integer.parseInt(termini[0]);
-			int end = Integer.parseInt(termini[1]);
-
-			if(limits == null || (limits.contains(begin) && limits.contains(end)))
+			if(limits == null || (limits.contains(termini[0]) && limits.contains(termini[1])))
 				ans.add(termini);
 		}
 
@@ -187,10 +184,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 					{ StringParsing.getToken(strandLimitsString, 1),
 							StringParsing.getToken(strandLimitsString, 2) };
 
-				int begin = Integer.parseInt(termini[0]);
-				int end = Integer.parseInt(termini[1]);
-
-				if(limits == null || (limits.contains(begin) && limits.contains(end)))
+				if(limits == null || (limits.contains(termini[0]) && limits.contains(termini[1])))
 					ans.add(termini);
 			}
 		}
@@ -216,7 +210,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 			strLimits.add( tokenizer.nextToken() );
 		}
 
-		return new ResidueTermini( strand, Integer.valueOf(strLimits.get(0)), Integer.valueOf(strLimits.get(1)) );
+		return new ResidueTermini( strand, strLimits.get(0), strLimits.get(1) );
 
 	}
 
@@ -304,7 +298,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 		// x1 <= C <= x2
 		// y1 <= C <= y2
 		// x1 <= y2 && y1 <= x2
-		if(s0.lBound <= s1.uBound && s1.lBound <= s0.uBound)
+		if(s0.lBound.compareTo(s1.uBound)<=0 && s1.lBound.compareTo(s0.uBound)<=0)
 			throw new RuntimeException("ERROR: strand0 overlaps with strand1. Please fix strand termini.");
 	}
 
@@ -376,7 +370,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 		ArrayList<String> flexRes2 = (ArrayList<String>)ObjectIO.deepCopy(flexRes);
 
 		for( int it = 0; it < flexRes2.size(); ) {
-			if( !strandLimits.contains( Integer.parseInt(flexRes2.get(it)) ) ) {
+			if( !strandLimits.contains( flexRes2.get(it) ) ) {
 
 				String removed = flexRes2.remove(it);
 
@@ -390,7 +384,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 		ArrayList<String> limits = new ArrayList<>();
 		limits.add(flexRes2.get(0));
 		limits.add(flexRes2.get(flexRes2.size()-1));
-		ResidueTermini ans = new ResidueTermini(strand, Integer.valueOf(limits.get(0)), Integer.valueOf(limits.get(1)));
+		ResidueTermini ans = new ResidueTermini(strand, limits.get(0), limits.get(1));
 
 		return ans;
 	}
@@ -403,7 +397,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 		ArrayList<String> strandResNums = getFlexResByStrand(strand);
 
 		for( int it = 0; it < flexRes.size(); ) {
-			if( !strandLimits.contains( Integer.parseInt(flexRes.get(it)) ) ) {
+			if( !strandLimits.contains( flexRes.get(it) ) ) {
 
 				String removed = flexRes.remove(it);
 

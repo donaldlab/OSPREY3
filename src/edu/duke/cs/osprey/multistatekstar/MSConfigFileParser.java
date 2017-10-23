@@ -115,18 +115,18 @@ public class MSConfigFileParser extends ConfigFileParser {
 
 	ResidueTermini subState2Termini(int subState) {
 		String key = params.searchParams("UbStateLimits").size() > 0 ? "UbStateLimits" : "Strand";
-		ArrayList<Integer> alTmni = new ArrayList<>();
+		ArrayList<String> alTmni = new ArrayList<>();
 		if(params.getValue(key+subState, "").length()==0) {
 			//complex
 			for(int unbound=0;unbound<subState;++unbound) {
 				StringTokenizer st = new StringTokenizer(params.getValue(key+unbound));
-				while(st.hasMoreTokens()) alTmni.add(Integer.valueOf(st.nextToken()));
+				while(st.hasMoreTokens()) alTmni.add(st.nextToken());
 			}
 		}
 		else {
 			//unbound state
 			StringTokenizer st = new StringTokenizer(params.getValue(key+subState));
-			while(st.hasMoreTokens()) alTmni.add(Integer.valueOf(st.nextToken()));
+			while(st.hasMoreTokens()) alTmni.add(st.nextToken());
 		}
 		Collections.sort(alTmni);
 		return new ResidueTermini(subState, alTmni.get(0), alTmni.get(alTmni.size()-1));
@@ -170,11 +170,8 @@ public class MSConfigFileParser extends ConfigFileParser {
 					StringParsing.getToken(val, 1), 
 					StringParsing.getToken(val, 2) };
 
-			int begin = Integer.valueOf(bbfTmni[0]);
-			int end = Integer.valueOf(bbfTmni[1]);
-
 			ResidueTermini tmni = subState2Termini(subState);
-			if(tmni.contains(begin) && tmni.contains(end))
+			if(tmni.contains(bbfTmni[0]) && tmni.contains(bbfTmni[1]))
 				ans.add(bbfTmni);
 		}
 		return ans;

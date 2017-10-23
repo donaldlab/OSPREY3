@@ -25,8 +25,8 @@ public class TestStrand {
 			.setErrorOnNonTemplateResidues(true)
 			.build();
 		
-		assertThat(strand.mol.residues.get(0).getPDBResNumber(), is("2"));
-		assertThat(strand.mol.residues.get(strand.mol.residues.size() - 1).getPDBResNumber(), is("73"));
+		assertThat(strand.mol.residues.get(0).getPDBResNumber(), is("A2"));
+		assertThat(strand.mol.residues.get(strand.mol.residues.size() - 1).getPDBResNumber(), is("A73"));
 	}
 	
 	@Test
@@ -36,8 +36,8 @@ public class TestStrand {
 			.setResidues(5, 70)
 			.build();
 		
-		assertThat(strand.mol.residues.get(0).getPDBResNumber(), is("5"));
-		assertThat(strand.mol.residues.get(strand.mol.residues.size() - 1).getPDBResNumber(), is("70"));
+		assertThat(strand.mol.residues.get(0).getPDBResNumber(), is("A5"));
+		assertThat(strand.mol.residues.get(strand.mol.residues.size() - 1).getPDBResNumber(), is("A70"));
 	}
 	
 	@Test
@@ -88,7 +88,7 @@ public class TestStrand {
 		}
 		
 		assertThat(strand.flexibility.getFlexibleResidueNumbers().isEmpty(), is(true));
-		assertThat(strand.flexibility.getStaticResidueNumbers(), contains("2", "3", "4", "5"));
+		assertThat(strand.flexibility.getStaticResidueNumbers(), contains("A2", "A3", "A4", "A5"));
 	}
 	
 	@Test
@@ -101,7 +101,7 @@ public class TestStrand {
 		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
 		strand.flexibility.get(4).setLibraryRotamers(Strand.WildType);
 		
-		assertThat(strand.flexibility.getFlexibleResidueNumbers(), contains("2", "4"));
+		assertThat(strand.flexibility.getFlexibleResidueNumbers(), contains("A2", "A4"));
 	}
 	
 	@Test
@@ -114,6 +114,6 @@ public class TestStrand {
 		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
 		strand.flexibility.get(4).setLibraryRotamers(Strand.WildType);
 		
-		assertThat(strand.flexibility.getStaticResidueNumbers(), contains("3", "5"));
+		assertThat(strand.flexibility.getStaticResidueNumbers(), contains("A3", "A5"));
 	}
 }

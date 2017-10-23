@@ -80,7 +80,7 @@ public class TestSimpleConfSpace extends TestBase {
 		SimpleConfSpace.Position pos = confSpace.positions.get(0);
 		assertThat(pos.index, is(0));
 		assertThat(pos.strand, is(strand));
-		assertThat(pos.resNum, is("2"));
+		assertThat(pos.resNum, is("A2"));
 	}
 	
 	@Test
@@ -97,12 +97,12 @@ public class TestSimpleConfSpace extends TestBase {
 		SimpleConfSpace.Position pos = confSpace.positions.get(0);
 		assertThat(pos.index, is(0));
 		assertThat(pos.strand, is(strand));
-		assertThat(pos.resNum, is("2"));
+		assertThat(pos.resNum, is("A2"));
 		
 		pos = confSpace.positions.get(1);
 		assertThat(pos.index, is(1));
 		assertThat(pos.strand, is(strand));
-		assertThat(pos.resNum, is("42"));
+		assertThat(pos.resNum, is("A42"));
 	}
 	
 	@Test
@@ -459,28 +459,28 @@ public class TestSimpleConfSpace extends TestBase {
 		Position pos = confSpace.positions.get(0);
 		assertThat(pos.index, is(0));
 		assertThat(pos.strand, is(strand1));
-		assertThat(pos.resNum, is("2"));
+		assertThat(pos.resNum, is("A2"));
 		assertThat(pos.resConfs.size(), is(1));
 		assertThat(pos.resConfs.get(0).template, is(strand1.templateLib.getTemplate("GLY")));
 		
 		pos = confSpace.positions.get(1);
 		assertThat(pos.index, is(1));
 		assertThat(pos.strand, is(strand1));
-		assertThat(pos.resNum, is("3"));
+		assertThat(pos.resNum, is("A3"));
 		assertThat(pos.resConfs.size(), is(1));
 		assertThat(pos.resConfs.get(0).template, is(strand1.templateLib.getTemplate("GLY")));
 		
 		pos = confSpace.positions.get(2);
 		assertThat(pos.index, is(2));
 		assertThat(pos.strand, is(strand2));
-		assertThat(pos.resNum, is("10"));
+		assertThat(pos.resNum, is("A10"));
 		assertThat(pos.resConfs.size(), is(1));
 		assertThat(pos.resConfs.get(0).template, is(strand2.templateLib.getTemplate("GLY")));
 		
 		pos = confSpace.positions.get(3);
 		assertThat(pos.index, is(3));
 		assertThat(pos.strand, is(strand2));
-		assertThat(pos.resNum, is("11"));
+		assertThat(pos.resNum, is("A11"));
 		assertThat(pos.resConfs.size(), is(1));
 		assertThat(pos.resConfs.get(0).template, is(strand2.templateLib.getTemplate("GLY")));
 	}
@@ -500,10 +500,10 @@ public class TestSimpleConfSpace extends TestBase {
 		
 		// all the residues should be there
 		assertThat(pmol.mol.residues.size(), is(4));
-		assertThat(pmol.mol.residues.get(0).getPDBResNumber(), is("2"));
-		assertThat(pmol.mol.residues.get(1).getPDBResNumber(), is("3"));
-		assertThat(pmol.mol.residues.get(2).getPDBResNumber(), is("10"));
-		assertThat(pmol.mol.residues.get(3).getPDBResNumber(), is("11"));
+		assertThat(pmol.mol.residues.get(0).getPDBResNumber(), is("A2"));
+		assertThat(pmol.mol.residues.get(1).getPDBResNumber(), is("A3"));
+		assertThat(pmol.mol.residues.get(2).getPDBResNumber(), is("A10"));
+		assertThat(pmol.mol.residues.get(3).getPDBResNumber(), is("A11"));
 		
 		// and the indices should be set
 		for (int i=0; i<pmol.mol.residues.size(); i++) {

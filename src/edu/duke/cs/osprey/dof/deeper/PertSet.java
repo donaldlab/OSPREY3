@@ -195,7 +195,7 @@ public class PertSet implements Serializable {
 
             for(int b=0;b<numAffectedRes;b++){
                 String inputNumber = st.nextToken();
-                if(termini == null || termini.contains(Integer.valueOf(inputNumber))) {
+                if(termini == null || termini.contains(inputNumber)) {
                 	pertResNums.add(inputNumber);
                 }
             }

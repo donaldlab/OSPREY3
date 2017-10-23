@@ -138,7 +138,23 @@ public class Residues extends ArrayList<Residue> {
 	}
 	
 	public Integer findIndex(String num) {
-		return indicesByNum.get(num);
+		Integer index = indicesByNum.get(num);
+		if(index==null) {
+			//for backwards compatibility, support num without chains if unambiguous
+			//This is slower but will be used less (only for processing input)
+			for(String num2 : indicesByNum.keySet()) {
+				if(num2.substring(1).equalsIgnoreCase(num)) {//strip chain ID
+					if(index!=null) {
+						throw new RuntimeException("ERROR: Residue number "+num+
+								" appears multiple times in molecule.  Please specify chain ID. ");
+					}
+					else
+						index = indicesByNum.get(num2);
+				}
+			}
+		}
+		
+		return index;
 	}
 	
 	public int findIndexOrThrow(Residue res) {

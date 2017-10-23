@@ -22,7 +22,14 @@ import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
-public class TestPartitionFunction extends TestBase {
+
+/*
+ * This is a version of TestPartitionFunction
+ * that tests the ability to handle residue numbers with different chain IDs
+ * including if the residue numbers overlap
+ */
+
+public class TestPartitionFunctionChainID extends TestBase {
 	
 	private static final int NumThreads = 2;
 	private static final int NumGpus = 0;
@@ -157,7 +164,7 @@ public class TestPartitionFunction extends TestBase {
 	}
 	
 	private PFAbstract makeAndComputePfunc(String pfImpl, int strand, String firstRes, String lastRes, String flexibility, double targetEpsilon) {
-		KSSearchProblem search = makeSearch("examples/2RL0.kstar/2RL0.min.reduce.pdb", strand, firstRes, lastRes, flexibility);
+		KSSearchProblem search = makeSearch("examples/2RL0.kstar/2RL0.min.reduce.numoverlap.pdb", strand, firstRes, lastRes, flexibility);
 		PFAbstract pfunc = makePfunc(search, pfImpl, strand, flexibility);
 		PFAbstract.targetEpsilon = targetEpsilon;
 		pfunc.start();
@@ -167,11 +174,11 @@ public class TestPartitionFunction extends TestBase {
 	}
 	
 	private PFAbstract makeAndComputeProteinPfunc(String pfImpl, String flexibility, double targetEpsilon) {
-		return makeAndComputePfunc(pfImpl, 0, "648", "654", flexibility, targetEpsilon);
+		return makeAndComputePfunc(pfImpl, 0, "G148", "G154", flexibility, targetEpsilon);
 	}
 	
 	private PFAbstract makeAndComputeLigandPfunc(String pfImpl, String flexibility, double targetEpsilon) {
-		return makeAndComputePfunc(pfImpl, 1, "155", "194", flexibility, targetEpsilon);
+		return makeAndComputePfunc(pfImpl, 1, "A155", "A194", flexibility, targetEpsilon);
 	}
 	
 	private PFAbstract makeAndComputeComplexPfunc(String pfImpl, String flexibility, double targetEpsilon) {
@@ -180,7 +187,7 @@ public class TestPartitionFunction extends TestBase {
 	
 	private void testProteinWildType(String pfImpl, double targetEpsilon) {
 		
-		PFAbstract pfunc = makeAndComputeProteinPfunc(pfImpl, "649 650 651 654", targetEpsilon);
+		PFAbstract pfunc = makeAndComputeProteinPfunc(pfImpl, "G149 G150 G151 G154", targetEpsilon);
 	
 		// is this the right partition function?
 		assertThat(pfunc.getNumUnPruned().intValueExact(), is(80));
@@ -192,7 +199,7 @@ public class TestPartitionFunction extends TestBase {
 	
 	private void testLigandWildType(String pfImpl, double targetEpsilon) {
 		
-		PFAbstract pfunc = makeAndComputeLigandPfunc(pfImpl, "156 172 192 193", targetEpsilon);
+		PFAbstract pfunc = makeAndComputeLigandPfunc(pfImpl, "A156 A172 A192 A193", targetEpsilon);
 		
 		// is this the right partition function?
 		assertThat(pfunc.getNumUnPruned().intValueExact(), is(896));
@@ -204,7 +211,7 @@ public class TestPartitionFunction extends TestBase {
 	
 	private void testComplexWildType(String pfImpl, double targetEpsilon) {
 		
-		PFAbstract pfunc = makeAndComputeComplexPfunc(pfImpl, "649 650 651 654 156 172 192 193", targetEpsilon);
+		PFAbstract pfunc = makeAndComputeComplexPfunc(pfImpl, "G149 G150 G151 G154 A156 A172 A192 A193", targetEpsilon);
 		
 		// is this the right partition function?
 		assertThat(pfunc.getNumUnPruned().intValueExact(), is(8064));
@@ -278,43 +285,43 @@ public class TestPartitionFunction extends TestBase {
 	
 	@Test
 	public void testLigandNotPossibleTraditional() {
-		PFAbstract pfunc = makeAndComputeLigandPfunc("traditional", "PHE-156 LYS-172 LEU-192 THR-193", 0.95);
+		PFAbstract pfunc = makeAndComputeLigandPfunc("traditional", "PHE-A156 LYS-A172 LEU-A192 THR-A193", 0.95);
 		assertPfunc(pfunc, EApproxReached.NOT_POSSIBLE);
 	}
 	
 	@Test
 	public void testLigandNotPossibleParallel() {
-		PFAbstract pfunc = makeAndComputeLigandPfunc("parallel0", "PHE-156 LYS-172 LEU-192 THR-193", 0.95);
+		PFAbstract pfunc = makeAndComputeLigandPfunc("parallel0", "PHE-A156 LYS-A172 LEU-A192 THR-A193", 0.95);
 		assertPfunc(pfunc, EApproxReached.NOT_POSSIBLE);
 	}
 	
 	@Test
 	public void testLigandNotPossibleParallelConf() {
-		PFAbstract pfunc = makeAndComputeLigandPfunc("parallelConf", "PHE-156 LYS-172 LEU-192 THR-193", 0.95);
+		PFAbstract pfunc = makeAndComputeLigandPfunc("parallelConf", "PHE-A156 LYS-A172 LEU-A192 THR-A193", 0.95);
 		assertPfunc(pfunc, EApproxReached.NOT_POSSIBLE);
 	}
 	
 	@Test
 	public void testComplexMutant1Parallel0() {
-		PFAbstract pfunc = makeAndComputeComplexPfunc("parallel0", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193", 0.95);
+		PFAbstract pfunc = makeAndComputeComplexPfunc("parallel0", "PHE-G149 ASP-G150 GLU-G151 THR-G154 PHE-A156 LYS-A172 ILE-A192 THR-A193", 0.95);
 		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54"); // e=0.05
 	}
 	
 	@Test
 	public void testComplexMutant1ParallelConf() {
-		PFAbstract pfunc = makeAndComputeComplexPfunc("parallelConf", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193", 0.95);
+		PFAbstract pfunc = makeAndComputeComplexPfunc("parallelConf", "PHE-G149 ASP-G150 GLU-G151 THR-G154 PHE-A156 LYS-A172 ILE-A192 THR-A193", 0.95);
 		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54"); // e=0.05
 	}
 	
 	@Test
 	public void testComplexMutant2Parallel0() {
-		PFAbstract pfunc = makeAndComputeComplexPfunc("parallel0", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 LEU-192 THR-193", 0.95);
+		PFAbstract pfunc = makeAndComputeComplexPfunc("parallel0", "PHE-G149 ASP-G150 GLU-G151 THR-G154 PHE-A156 LYS-A172 LEU-A192 THR-A193", 0.95);
 		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12"); // e=0.05
 	}
 	
 	@Test
 	public void testComplexMutant2ParallelConf() {
-		PFAbstract pfunc = makeAndComputeComplexPfunc("parallelConf", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 LEU-192 THR-193", 0.95);
+		PFAbstract pfunc = makeAndComputeComplexPfunc("parallelConf", "PHE-G149 ASP-G150 GLU-G151 THR-G154 PHE-A156 LYS-A172 LEU-A192 THR-A193", 0.95);
 		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12"); // e=0.05
 	}
 }
