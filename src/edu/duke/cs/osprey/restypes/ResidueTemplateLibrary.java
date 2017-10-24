@@ -200,7 +200,7 @@ public class ResidueTemplateLibrary implements Serializable {
 	public final ArrayList<ResidueTemplate> templates = new ArrayList<>();
 	public final Map<String,ResidueTemplate> wildTypeTemplates = new HashMap<>();
 	public final ResidueEntropies residueEntropies = new ResidueEntropies();
-	public final int totalNumRotamers;//total number of rotamers read in from rotamer library file(s), starts at 0
+	public int totalNumRotamers;//total number of rotamers read in from rotamer library file(s), starts at 0
 
 	public ResidueTemplateLibrary(ForcefieldParams.Forcefield forcefield, List<String> templatesTexts, List<String> templateCoordTexts, List<String> rotamersTexts, List<String> backboneDependentRotamerTexts, List<String> resEntropyTexts, boolean makeDAminoAcids, List<Molecule> molsForRotamers) {
 
@@ -350,4 +350,13 @@ public class ResidueTemplateLibrary implements Serializable {
 		wildTypeTemplates.put(resNum, template);
 		return template;
 	}
+	
+    public boolean containsName(String name){
+        //Is there a template with the specified name?
+        for(ResidueTemplate templ : templates){
+            if(templ.name.equalsIgnoreCase(name))
+                return true;
+        }
+        return false;
+    }
 }

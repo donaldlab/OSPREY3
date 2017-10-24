@@ -571,7 +571,7 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
     
     
      @Override
-    void refineScore(T node){
+    public void refineScore(T node){
         
             
         if(minPartialConfs || isFullyAssigned(node)){

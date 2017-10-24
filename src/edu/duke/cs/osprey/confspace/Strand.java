@@ -259,39 +259,7 @@ public class Strand implements Serializable {
 		
 		// assign templates and mark intra-residue bonds
 		this.templateLib = templateLib;
-		nonTemplateResNames = new LinkedHashSet<>();
-		for (Residue res : this.mol.residues) {
-			
-			// We accept D-amino acid named using the usual L names,
-			// but must change them here so the right template name is used
-			DAminoAcidHandler.tryRenamingAsD(res);
-			for (Residue altRes : this.mol.getAlternates(res.indexInMolecule)) {
-				DAminoAcidHandler.tryRenamingAsD(altRes);
-			}
-			
-			// try to assign the template
-			boolean templateAssigned = res.assignTemplate(templateLib);
-			if (templateAssigned) {
-				
-				// assign the alternates too
-				Iterator<Residue> altIter = this.mol.getAlternates(res.indexInMolecule).iterator();
-				while (altIter.hasNext()) {
-					Residue altRes = altIter.next();
-					boolean altTemplateAssigned = altRes.assignTemplate(templateLib);
-					if (!altTemplateAssigned) {
-						
-						// sometimes alts have fewer atoms than the main residue and we can't do template assignment
-						// just delete the alt
-						altIter.remove();
-					
-						nonTemplateResNames.add(altRes.fullName + " alternate");
-					}
-				}
-				
-			} else {
-				nonTemplateResNames.add(res.fullName);
-			}
-		}
+		nonTemplateResNames = tryAssigningTemplates(this.mol, templateLib);
 		
 		// delete non template residues if needed
 		if (!nonTemplateResNames.isEmpty()) {
@@ -316,6 +284,44 @@ public class Strand implements Serializable {
 		// init flexibility
 		flexibility = new Flexibility(this.mol.residues);
 	}
+        
+        
+    public static LinkedHashSet<String> tryAssigningTemplates(Molecule mol, ResidueTemplateLibrary templateLib){
+        LinkedHashSet<String> nonTemplateResNames = new LinkedHashSet<>();
+        for (Residue res : mol.residues) {
+
+                // We accept D-amino acid named using the usual L names,
+                // but must change them here so the right template name is used
+                DAminoAcidHandler.tryRenamingAsD(res);
+                for (Residue altRes : mol.getAlternates(res.indexInMolecule)) {
+                        DAminoAcidHandler.tryRenamingAsD(altRes);
+                }
+
+                // try to assign the template
+                boolean templateAssigned = res.assignTemplate(templateLib);
+                if (templateAssigned) {
+
+                        // assign the alternates too
+                        Iterator<Residue> altIter = mol.getAlternates(res.indexInMolecule).iterator();
+                        while (altIter.hasNext()) {
+                                Residue altRes = altIter.next();
+                                boolean altTemplateAssigned = altRes.assignTemplate(templateLib);
+                                if (!altTemplateAssigned) {
+
+                                        // sometimes alts have fewer atoms than the main residue and we can't do template assignment
+                                        // just delete the alt
+                                        altIter.remove();
+
+                                        nonTemplateResNames.add(altRes.fullName + " alternate");
+                                }
+                        }
+
+                } else {
+                        nonTemplateResNames.add(res.fullName);
+                }
+        }
+        return nonTemplateResNames;
+    }
 	
 	private static String stringResNumForMolec(int resNumInt, Molecule molec) {
 		//given an integer residue number, find the full (with chain ID) residue number

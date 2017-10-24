@@ -11,6 +11,8 @@ import java.util.List;
 import org.apache.commons.collections4.queue.CircularFifoQueue;
 
 import edu.duke.cs.osprey.gmec.ConsoleConfPrinter;
+import java.util.HashMap;
+
 
 //This is a general interface for things that search conformational space
 //like an A* trees, a BWM* search, or a WCSP solver
@@ -164,6 +166,10 @@ public interface ConfSearch {
          */
         public String toString(SimpleConfSpace confSpace) {
         	return ConsoleConfPrinter.makeReport(this, confSpace, null);
+        }
+        
+        public HashMap<String,List<String>> getProperties(SimpleConfSpace confSpace){
+            return ConsoleConfPrinter.makeReportMap(this, confSpace, null);
         }
     }
     

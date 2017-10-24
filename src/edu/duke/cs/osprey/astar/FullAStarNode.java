@@ -40,6 +40,8 @@ public class FullAStarNode implements AStarNode, Serializable {
     private double gscore;
     private double hscore;
     
+    //indicates the score needs to be refined (e.g. with EPIC continuous terms)
+    //always false in simpler versions of A*
     boolean scoreNeedsRefinement;
 
     
@@ -51,14 +53,24 @@ public class FullAStarNode implements AStarNode, Serializable {
     
     
     
-    //indicates the score needs to be refined (e.g. with EPIC continuous terms)
-    //always false in simpler versions of A*
+
     public FullAStarNode(int[] nodeAssignments) {
         this.nodeAssignments = nodeAssignments;
         this.score = Double.NaN;
         this.gscore = Double.NaN;
         this.hscore = Double.NaN;
         this.scoreNeedsRefinement = false;
+    }
+    
+    public FullAStarNode(FullAStarNode fan){
+        //copy constructor.  Shallow copy
+        UB = fan.UB;
+        UBConf = fan.UBConf;
+        gscore = fan.gscore;
+        hscore = fan.hscore;
+        nodeAssignments = fan.nodeAssignments;
+        score = fan.score;
+        scoreNeedsRefinement = fan.scoreNeedsRefinement;
     }
 
     @Override

@@ -5,11 +5,13 @@
  */
 package edu.duke.cs.osprey.gmec;
 
+import java.io.Serializable;
+
 /**
  *
  * @author mhall44
  */
-public class PruningSettings {
+public class PruningSettings implements Serializable {
     public boolean typedep = false;
     public double boundsThresh = 100;
     public int algOption = 1;

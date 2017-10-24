@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.astar.GMECMutSpace;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -163,7 +164,8 @@ public class DEEGMECFinder extends SimpleGMECFinder {
         else
             lbSearch = new ConfAStarTree.Builder(emat, new RCs(precompMat.pruneMat)).build();
         System.out.println("Computing lowest pairwise-minimized bound");
-        double bound = lbSearch.nextConf().getScore();
+        ScoredConf lbConf = lbSearch.nextConf();
+        double bound = lbConf==null ? Double.POSITIVE_INFINITY : lbConf.getScore();
         System.out.println("Lowest bound: "+bound);
         return bound;
     }

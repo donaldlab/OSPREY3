@@ -115,7 +115,7 @@ public class ResidueTemplate implements Serializable {
         return dihedralMovingAtoms.get(dihedralNum);
     }
 
-    void computeDihedralMovingAtoms(){
+    public void computeDihedralMovingAtoms(){
         //compute what atoms move when a dihedral is changed
         //Compute from dihedral4Atoms, and write answer in dihedralMovingAtoms
         //we assume atom 4 (from the dihedral4Atoms) moves and the others are fixed; 

@@ -142,7 +142,7 @@ public class PDBIO {
 				int atomNum = Integer.parseInt(line.substring(6, 11).trim());
 				String atomName = line.substring(12,16).trim();
 				char alt = line.charAt(16);
-				String resName = line.substring(17,27).trim();
+				String resName = trimRight(line.substring(17,27));
 				double x = Double.parseDouble(line.substring(30, 38).trim());
 				double y = Double.parseDouble(line.substring(38, 46).trim());
 				double z = Double.parseDouble(line.substring(46, 54).trim());
@@ -342,7 +342,7 @@ public class PDBIO {
 				setField(line, atom.getCoords()[2], 3, 46, 53, Justify.Right);
 				
 				// write the element
-				setField(line, atom.elementType, 76, 77, Justify.Right);
+				setField(line, atom.elementType.toUpperCase(), 76, 77, Justify.Right);
 
 				buf.append(line);
 				buf.append("\n");
@@ -401,4 +401,12 @@ public class PDBIO {
 		}
 		field.getChars(0, size, line, start);
 	}
+	
+    private static String trimRight(String str){
+        //modification of trim that only trims the right side
+        int len = str.length();
+        while( (len>0) && (str.charAt(len-1) <= ' ') )
+            len--;
+        return (len<str.length()) ? str.substring(0,len) : str;
+    }
 }

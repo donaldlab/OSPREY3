@@ -41,8 +41,12 @@ public class Molecule implements Serializable {
         alternates = new HashMap<>();
     }
     
-    public Molecule(Molecule other) {
-    	this();
+    public Molecule(Molecule other){
+        this(other, true);
+    }
+    
+    public Molecule(Molecule other, boolean redoInterResBonds) {
+    		this();
         
         // make a deep copy of the residues
         for (Residue residue : other.residues) {
@@ -60,7 +64,8 @@ public class Molecule implements Serializable {
         }
         
         // re-do all the inter-res bonds
-        HardCodedResidueInfo.markInterResBonds(this);
+        if(redoInterResBonds)
+        		HardCodedResidueInfo.markInterResBonds(this);
     }
     
     public Residue getResByPDBResNumber(String resNum) {
@@ -206,5 +211,13 @@ public class Molecule implements Serializable {
             hashes.add(Arrays.hashCode(residue.coords));
         }
         return hashes.hashCode();
+    }
+    
+    public Residue getResByFullName(String fullName){
+        for(Residue res : residues){
+            if(res.fullName.equalsIgnoreCase(fullName))
+                return res;
+        }
+        throw new RuntimeException("ERROR: Can't find residue with full name "+fullName);
     }
 }

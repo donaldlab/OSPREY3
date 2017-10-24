@@ -318,11 +318,15 @@ public class NewCOMETSTree extends AStarTree<COMETSNode> {
         return true;
     }
     
+    public void incrementNumSeqsReturned(){
+        numSeqsReturned++;
+    }
     
     @Override
     public ConfSearch.ScoredConf outputNode(COMETSNode node){
         //Let's print more info when outputting a node
-        printBestSeqInfo(node);
+    		incrementNumSeqsReturned();
+    		printBestSeqInfo(node);
         return new ConfSearch.ScoredConf(node.getNodeAssignments(), node.getScore());
     }
     
@@ -341,9 +345,7 @@ public class NewCOMETSTree extends AStarTree<COMETSNode> {
         //About to return the given fully assigned sequence from A*
         //provide information
         System.out.println("SeqTree: A* returning conformation; lower bound = "+seqNode.getScore()+" nodes expanded: "+numExpanded);
-        
-        numSeqsReturned++;
-        
+                
         System.out.print("Sequence: ");
         
         String seq = seqAsString(seqNode.getNodeAssignments());
@@ -373,6 +375,11 @@ public class NewCOMETSTree extends AStarTree<COMETSNode> {
             }
         }
         
+        System.out.println();
+        printNodeExpansionData();
+    }
+     
+    public void printNodeExpansionData(){
         int numSeqDefNodes = 0;
         for(FullAStarNode node : getQueue()){
             if(node.isFullyDefined())
@@ -380,7 +387,6 @@ public class NewCOMETSTree extends AStarTree<COMETSNode> {
         }
             
         
-        System.out.println();
         System.out.println(numExpanded+" expanded; "+getQueue().size()+" nodes in tree, of which "
                             +numSeqDefNodes+" are fully defined; "+
                             numPruned+" pruned.");

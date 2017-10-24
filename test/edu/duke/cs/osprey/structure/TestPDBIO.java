@@ -104,7 +104,7 @@ public class TestPDBIO {
 		assertAtom(mol.getAlternates(57).get(0).atoms.get(0), "N", "N", 15.456, 28.995, 29.847, 8.93);
 		assertAtom(mol.getAlternates(57).get(0).atoms.get(22), "HZ3", "H", 16.269, 35.709, 27.594, 18.55);
 
-		assertRes(mol.residues.get(58), "ZN A 101", 58, "A101");
+		assertRes(mol.residues.get(58), " ZN A 101", 58, "A101");
 		assertAtom(mol.residues.get(58).atoms.get(0), "ZN", "Zn", 17.919, 29.932, 34.195, 5.56);
 		assertThat(mol.getAlternates(58).isEmpty(), is(true));
 		

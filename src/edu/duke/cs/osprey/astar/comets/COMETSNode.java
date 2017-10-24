@@ -37,7 +37,13 @@ public class COMETSNode extends FullAStarNode {
         this.pruneMat = pruneMat;
     }
     
-    
+    public COMETSNode(COMETSNode cn){
+        //copy constructor.  COMETS-specific things are big so let's not copy them unnecessarily
+        super(cn);
+        pruneMat = cn.pruneMat;
+        stateTrees = cn.stateTrees;
+        stateUB = cn.stateUB;
+    }
     
     void expandConfTree(){
         //Pick one of the conformational search trees and expand it

@@ -4,6 +4,10 @@ import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 
 public class ConsoleConfPrinter implements ConfPrinter {
 	
@@ -56,4 +60,43 @@ public class ConsoleConfPrinter implements ConfPrinter {
 		
 		return buf.toString();
 	}
+	
+	
+	public static HashMap<String,List<String>> makeReportMap(EnergiedConf conf, SimpleConfSpace confSpace, EnergyRange range) {
+		
+                HashMap<String,List<String>> map = new HashMap<>();
+                
+                ArrayList<String> confRCs = new ArrayList<>();
+                for(int rc : conf.getAssignments())
+                    confRCs.add(String.valueOf(rc));
+                map.put("CONF", confRCs);
+                
+		
+		if (confSpace != null) {
+                        
+                        ArrayList<String> seq = new ArrayList<>();
+			for (Position pos : confSpace.positions) {
+				ResidueConf resConf = pos.resConfs.get(conf.getAssignments()[pos.index]);
+				seq.add(resConf.template.name);
+			}
+			map.put("SEQ", seq);
+                        
+                        ArrayList<String> rots = new ArrayList<>();
+			for (Position pos : confSpace.positions) {
+				ResidueConf resConf = pos.resConfs.get(conf.getAssignments()[pos.index]);
+				rots.add(resConf.getRotamerCode());
+			}
+                        map.put("ROTS", rots);
+                }
+                
+                map.put("ENERGY", Arrays.asList(String.format("%.2f",conf.getEnergy())));//DEBUG!!
+                map.put("SCORE", Arrays.asList(String.valueOf(conf.getScore())));
+                if(range!=null){
+                    map.put("BESTENERGY", Arrays.asList(String.valueOf(range.getMin())));
+                    map.put("BESTSCORE", Arrays.asList(String.valueOf(range.getMax() - conf.getScore())));
+                }
+                
+		return map;
+	}
+
 }

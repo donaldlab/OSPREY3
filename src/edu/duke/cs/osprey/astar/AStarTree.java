@@ -148,7 +148,7 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch, Seri
     }
     
     
-    void refineScore(T node){//e.g. add the EPIC contribution
+    public void refineScore(T node){//e.g. add the EPIC contribution
         //In trees without score refinement, we should 
         //not be calling this method
         throw new UnsupportedOperationException("ERROR: Score refinement not supported"
@@ -176,6 +176,10 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch, Seri
     public PriorityQueue<T> getQueue() {
         //direct access to queue.  Use with caution.  
         return pq;
+    }
+    
+    public double curBestScore(){
+        return pq.peek().getScore();
     }
     
     

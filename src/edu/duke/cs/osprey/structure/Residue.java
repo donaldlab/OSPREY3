@@ -17,6 +17,8 @@ import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
+import java.util.BitSet;
+import java.util.List;
 
 /**
  *
@@ -154,14 +156,8 @@ public class Residue implements Serializable {
             if (fullName.length() > 5) {
             		//let's include the chain ID in case there are multiple chains
             		//with overlapping numbers
-            		if(fullName.charAt(2)==' ') {//two-letter residue template name
-            			resNum = StringParsing.getToken(fullName.substring(2,4),1)
-                        		+ StringParsing.getToken(fullName.substring(4),1);
-            		}
-            		else {
-            			resNum = StringParsing.getToken(fullName.substring(3,5),1)
+            		resNum = StringParsing.getToken(fullName.substring(3,5),1)
             					+ StringParsing.getToken(fullName.substring(5),1);
-            		}
             } else {
                 resNum = Integer.toString(indexInMolecule+1);
             }
@@ -193,13 +189,16 @@ public class Residue implements Serializable {
         if(templCandidates.isEmpty())
             return false;
         
-        
+        return assignTemplate(templCandidates, templateLib.ffparams);
+    }
+            
+    public boolean assignTemplate(List<ResidueTemplate> templCandidates, ForcefieldParams ffParams) {    
         //now try to match up atoms
         ResTemplateMatching bestMatching = null;
         double bestScore = Double.POSITIVE_INFINITY;
         
         for(ResidueTemplate templ : templCandidates){
-            ResTemplateMatching templMatching = new ResTemplateMatching(this, templ, templateLib.ffparams);
+            ResTemplateMatching templMatching = new ResTemplateMatching(this, templ, ffParams);
             if(templMatching.score < bestScore){
                 bestScore = templMatching.score;
                 bestMatching = templMatching;
@@ -479,5 +478,29 @@ public class Residue implements Serializable {
         for(Residue res : resList)
             ans.add(res.equivalentInMolec(mol));
         return ans;
+    }
+    
+    public void deleteHydrogens(){
+        //remove any hydrogens
+        BitSet isHeavy = new BitSet();
+        ArrayList<Atom> newAtoms = new ArrayList<>();
+        for(int at=0; at<atoms.size(); at++){
+            if(!atoms.get(at).isHydrogen()){
+                isHeavy.set(at);
+                newAtoms.add(atoms.get(at));
+            }
+        }
+        
+        double newCoords[] = new double[3*isHeavy.cardinality()];
+        int newAtCounter = 0;
+        for(int at=0; at<atoms.size(); at++){
+            if(isHeavy.get(at)){
+                System.arraycopy(coords, 3*at, newCoords, 3*newAtCounter, 3);
+                newAtCounter++;
+            }
+        }
+        
+        atoms = newAtoms;
+        coords = newCoords;
     }
 }

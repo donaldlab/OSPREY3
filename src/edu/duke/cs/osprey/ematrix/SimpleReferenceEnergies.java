@@ -14,12 +14,13 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import java.io.Serializable;
 
 /**
  * This class stores a reference energy for each residue position & AA type
  * (which is the minimum intra-RC energy at that position & AA type)
  */
-public class SimpleReferenceEnergies {
+public class SimpleReferenceEnergies implements Serializable {
 	
 	// *sigh* this would be soooo much easier if Java supported optional function args...
 	public static class Builder {
