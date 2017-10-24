@@ -501,6 +501,47 @@ def ReferenceEnergies(confSpace, ecalc, addResEntropy=None):
 	return builder.build()
 
 
+def DEE(confSpace, emat, singlesThreshold=None, pairsThreshold=None, singlesGoldsteinDiffThreshold=None, pairsGoldsteinDiffThreshold=None, typeDependent=None, numIterations=None, showProgress=None):
+	'''
+	:java:classdoc:`.pruning.SimpleDEE$Runner`
+
+	:param confSpace: The design conformation space
+	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param emat: An energy matrix computed for the conformation space
+	:type emat: :java:ref:`.ematrix.EnergyMatrix`
+
+	:builder_option singlesThreshold .pruning.SimpleDEE$Runner#singlesThreshold:
+	:builder_option pairsThreshold .pruning.SimpleDEE$Runner#pairsThreshold:
+	:builder_option singlesGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#singlesGoldsteinDiffThreshold:
+	:builder_option pairsGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#pairsGoldsteinDiffThreshold:
+	:builder_option typeDependent .pruning.SimpleDEE$Runner#typeDependent:
+	:builder_option numIterations .pruning.SimpleDEE$Runner#numIterations:
+	:builder_option showProgress .pruning.SimpleDEE$Runner#showProgress:
+	'''
+
+	runner = _get_builder(c.pruning.SimpleDEE, 'Runner')()
+
+	def boxDouble(val):
+		return jvm.c.java.lang.Double(val)
+
+	if singlesThreshold is not None:
+		runner.setSinglesThreshold(boxDouble(singlesThreshold))
+	if pairsThreshold is not None:
+		runner.setPairsThreshold(boxDouble(pairsThreshold))
+	if singlesGoldsteinDiffThreshold is not None:
+		runner.setSinglesGoldsteinDiffThreshold(boxDouble(singlesGoldsteinDiffThreshold))
+	if pairsGoldsteinDiffThreshold is not None:
+		runner.setPairsGoldsteinDiffThreshold(boxDouble(pairsGoldsteinDiffThreshold))
+	if typeDependent is not None:
+		runner.setTypeDependent(typeDependent)
+	if numIterations is not None:
+		runner.setNumIterations(numIterations)
+	if showProgress is not None:
+		runner.setShowProgress(showProgress)
+
+	return runner.run(confSpace, emat)
+
+
 def AStarTraditional(emat, confSpaceOrPmat, showProgress=True, useExternalMemory=False):
 	'''
 	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setTraditional`

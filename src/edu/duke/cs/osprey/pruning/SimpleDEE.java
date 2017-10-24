@@ -68,6 +68,9 @@ public class SimpleDEE {
 		}
 	}
 
+	/**
+	 * Runs Dead-End Elimination (DEE) to remove tuples of RCs that will not appear in low-energy conformations.
+	 */
 	public static class Runner {
 
 		private Double singlesThreshold = 100.0;

@@ -125,6 +125,11 @@ public class TestSimpleDEE extends TestBase {
 				return val;
 			}
 		});
+
+		// SimpleDEE prunes pairs if either of the corresponding singles are pruned
+		// so do the same for the old pmats, to be comparable
+		pmat.prunePairsFromSingles();
+
 		return pmat;
 	}
 
