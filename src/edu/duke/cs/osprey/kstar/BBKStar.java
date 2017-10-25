@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
@@ -69,15 +70,9 @@ public class BBKStar {
 		}
 	}
 
-	public static enum ConfSpaceType {
-		Protein,
-		Ligand,
-		Complex
-	}
-
 	public class ConfSpaceInfo {
 
-		public final ConfSpaceType type;
+		public final KStar.ConfSpaceType type;
 		public final SimpleConfSpace confSpace;
 		public final ConfEnergyCalculator rigidConfEcalc;
 		public final ConfEnergyCalculator minimizingConfEcalc;
@@ -86,7 +81,7 @@ public class BBKStar {
 		public EnergyMatrix minimizedEmat = null;
 		public BigDecimal stabilityThreshold = BigDecimal.ZERO;
 
-		public ConfSpaceInfo(ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator rigidConfEcalc, ConfEnergyCalculator minimizingConfEcalc) {
+		public ConfSpaceInfo(KStar.ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator rigidConfEcalc, ConfEnergyCalculator minimizingConfEcalc) {
 			this.type = type;
 			this.confSpace = confSpace;
 			this.rigidConfEcalc = rigidConfEcalc;
@@ -95,9 +90,11 @@ public class BBKStar {
 
 		public void calcEmatsIfNeeded() {
 			if (rigidNegatedEmat == null) {
-				rigidNegatedEmat = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc)
-					.build()
-					.calcEnergyMatrix();
+				SimplerEnergyMatrixCalculator.Builder builder = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc);
+				if (kstarSettings.energyMatrixCachePattern != null) {
+					builder.setCacheFile(new File(kstarSettings.applyEnergyMatrixCachePattern(type.name().toLowerCase() + ".rigidNegated")));
+				}
+				rigidNegatedEmat = builder.build().calcEnergyMatrix();
 
 				// negate the rigid energy matrix, so we can convince A* to return scores
 				// in descending order instead of ascending order
@@ -105,24 +102,12 @@ public class BBKStar {
 				rigidNegatedEmat.negate();
 			}
 			if (minimizedEmat == null) {
-				minimizedEmat = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc)
-					.build()
-					.calcEnergyMatrix();
-			}
-		}
-
-		public RCs makeRCs(KStar.Sequence sequence) {
-			return new RCs(confSpace, (pos, resConf) -> {
-
-				// if there's an assignment here, only keep matching RCs
-				String resType = sequence.get(pos.index);
-				if (resType != null) {
-					return resConf.template.name.equals(resType);
+				SimplerEnergyMatrixCalculator.Builder builder = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc);
+				if (kstarSettings.energyMatrixCachePattern != null) {
+					builder.setCacheFile(new File(kstarSettings.applyEnergyMatrixCachePattern(type.name().toLowerCase())));
 				}
-
-				// otherwise, keep everything
-				return true;
-			});
+				minimizedEmat = builder.build().calcEnergyMatrix();
+			}
 		}
 	}
 
@@ -325,7 +310,7 @@ public class BBKStar {
 			};
 
 			SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
-				astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, info.makeRCs(sequence)))
+				astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, sequence.makeRCs(info.confSpace)))
 			);
 			calc.run(numConfs);
 			return calc.totalBound;
@@ -337,7 +322,7 @@ public class BBKStar {
 			// we'll use the upper bound calculator in the usual way
 
 			SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
-				confSearchFactory.make(info.minimizedEmat, info.makeRCs(sequence))
+				confSearchFactory.make(info.minimizedEmat, sequence.makeRCs(info.confSpace))
 			);
 			calc.run(numConfs);
 			return calc.totalBound;
@@ -377,12 +362,8 @@ public class BBKStar {
 
 			// cache miss, need to compute the partition function
 
-			// get RCs for just this sequence
-			RCs rcs = new RCs(info.confSpace, (pos, resConf) -> {
-				return resConf.template.name.equals(sequence.get(pos.index));
-			});
-
 			// make the partition function
+			RCs rcs = sequence.makeRCs(info.confSpace);
 			pfunc = new SimplePartitionFunction(confSearchFactory.make(info.minimizedEmat, rcs), info.minimizingConfEcalc);
 			pfunc.setReportProgress(kstarSettings.showPfuncProgress);
 			pfunc.init(kstarSettings.epsilon, info.stabilityThreshold);
@@ -522,19 +503,19 @@ public class BBKStar {
 	public BBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator rigidEcalc, EnergyCalculator minimizingEcalc, KStar.ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, KStar.Settings kstarSettings, Settings bbkstarSettings) {
 
 		this.protein = new ConfSpaceInfo(
-			ConfSpaceType.Protein,
+			KStar.ConfSpaceType.Protein,
 			protein,
 			confEcalcFactory.make(protein, rigidEcalc),
 			confEcalcFactory.make(protein, minimizingEcalc)
 		);
 		this.ligand = new ConfSpaceInfo(
-			ConfSpaceType.Ligand,
+			KStar.ConfSpaceType.Ligand,
 			ligand,
 			confEcalcFactory.make(ligand, rigidEcalc),
 			confEcalcFactory.make(ligand, minimizingEcalc)
 		);
 		this.complex = new ConfSpaceInfo(
-			ConfSpaceType.Complex,
+			KStar.ConfSpaceType.Complex,
 			complex,
 			confEcalcFactory.make(complex, rigidEcalc),
 			confEcalcFactory.make(complex, minimizingEcalc)

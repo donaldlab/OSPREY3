@@ -15,8 +15,6 @@ import edu.duke.cs.osprey.tools.MathTools;
 import java.io.File;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -79,6 +77,20 @@ public class KStar {
 			 */
 			private boolean showPfuncProgress = false;
 
+			/**
+			 * Pattern of the filename to cache energy matrices.
+			 *
+			 * K*-type algorithms must calculate multiple energy matrices.
+			 * By default, these energy matrices are not cached between runs.
+			 * To cache energy matrices between runs, supply a pattern such as:
+			 *
+			 * "theFolder/emat.*.dat"
+			 *
+			 * The * in the pattern is a wildcard character that will be replaced with
+			 * each type of energy matrix used by the K*-type algorithm.
+			 */
+			private String energyMatrixCachePattern = null;
+
 			public Builder setEpsilon(double val) {
 				epsilon = val;
 				return this;
@@ -120,8 +132,13 @@ public class KStar {
 				return this;
 			}
 
+			public Builder setEnergyMatrixCachePattern(String val) {
+				energyMatrixCachePattern = val;
+				return this;
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, energyMatrixCachePattern);
 			}
 		}
 
@@ -130,13 +147,25 @@ public class KStar {
 		public final int maxSimultaneousMutations;
 		public final KStarScoreWriter.Writers scoreWriters;
 		public final boolean showPfuncProgress;
+		public final String energyMatrixCachePattern;
 
-		public Settings(double epsilon, double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs) {
+		public Settings(double epsilon, double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
 			this.scoreWriters = scoreWriters;
 			this.showPfuncProgress = dumpPfuncConfs;
+			this.energyMatrixCachePattern = energyMatrixCachePattern;
+		}
+
+		public String applyEnergyMatrixCachePattern(String type) {
+
+			// the pattern has a * right?
+			if (energyMatrixCachePattern.indexOf('*') < 0) {
+				throw new IllegalArgumentException("energyMatrixCachePattern (which is '" + energyMatrixCachePattern + "') has no wildcard character (which is *)");
+			}
+
+			return energyMatrixCachePattern.replace("*", type);
 		}
 	}
 
@@ -216,6 +245,20 @@ public class KStar {
 			return true;
 		}
 
+		public RCs makeRCs(SimpleConfSpace confSpace) {
+			return new RCs(confSpace, (pos, resConf) -> {
+
+				// if there's an assignment here, only keep matching RCs
+				String resType = get(pos.index);
+				if (resType != null) {
+					return resConf.template.name.equalsIgnoreCase(resType);
+				}
+
+				// otherwise, keep everything
+				return true;
+			});
+		}
+
 		@Override
 		public String toString() {
 			return String.join(" ", this);
@@ -229,7 +272,7 @@ public class KStar {
 				String resWildType = wildtype.get(i);
 				if (resType == null) {
 					resTypes.add(null);
-				} else if (resType.equals(resWildType)) {
+				} else if (resType.equalsIgnoreCase(resWildType)) {
 					resTypes.add(resType.toLowerCase());
 				} else {
 					resTypes.add(resType.toUpperCase());
@@ -266,8 +309,15 @@ public class KStar {
 		}
 	}
 
+	public static enum ConfSpaceType {
+		Protein,
+		Ligand,
+		Complex
+	}
+
 	public class ConfSpaceInfo {
 
+		public final ConfSpaceType type;
 		public final SimpleConfSpace confSpace;
 		public final ConfEnergyCalculator confEcalc;
 
@@ -275,15 +325,18 @@ public class KStar {
 		public EnergyMatrix emat = null;
 		public final Map<Sequence,PartitionFunction.Result> pfuncResults = new HashMap<>();
 
-		public ConfSpaceInfo(SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc) {
+		public ConfSpaceInfo(ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc) {
+			this.type = type;
 			this.confSpace = confSpace;
 			this.confEcalc = confEcalc;
 		}
 
 		public void calcEmat() {
-			emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-				.build()
-				.calcEnergyMatrix();
+			SimplerEnergyMatrixCalculator.Builder builder = new SimplerEnergyMatrixCalculator.Builder(confEcalc);
+			if (settings.energyMatrixCachePattern != null) {
+				builder.setCacheFile(new File(settings.applyEnergyMatrixCachePattern(type.name().toLowerCase())));
+			}
+			emat = builder.build().calcEnergyMatrix();
 		}
 
 		public Sequence makeWildTypeSequence() {
@@ -306,12 +359,8 @@ public class KStar {
 
 			// cache miss, need to compute the partition function
 
-			// get RCs for just this sequence
-			RCs rcs = new RCs(confSpace, (pos, resConf) -> {
-				return resConf.template.name.equals(sequence.get(pos.index));
-			});
-
 			// make the partition function
+			RCs rcs = sequence.makeRCs(confSpace);
 			ConfSearch astar = confSearchFactory.make(emat, rcs);
 			PartitionFunction pfunc = new SimplePartitionFunction(astar, confEcalc);
 			pfunc.setReportProgress(settings.showPfuncProgress);
@@ -353,9 +402,9 @@ public class KStar {
 	public final Settings settings;
 
 	public KStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator ecalc, ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, Settings settings) {
-		this.protein = new ConfSpaceInfo(protein, confEcalcFactory.make(protein, ecalc));
-		this.ligand = new ConfSpaceInfo(ligand, confEcalcFactory.make(ligand, ecalc));
-		this.complex = new ConfSpaceInfo(complex, confEcalcFactory.make(complex, ecalc));
+		this.protein = new ConfSpaceInfo(ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, ecalc));
+		this.ligand = new ConfSpaceInfo(ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, ecalc));
+		this.complex = new ConfSpaceInfo(ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, ecalc));
 		this.ecalc = ecalc;
 		this.confEcalcFactory = confEcalcFactory;
 		this.confSearchFactory = confSearchFactory;

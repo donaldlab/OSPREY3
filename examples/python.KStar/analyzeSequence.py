@@ -37,10 +37,7 @@ complexConfSpace = osprey.ConfSpace([protein, ligand])
 # how should we compute energies of molecules?
 # (give the complex conf space to the ecalc since it knows about all the templates and degrees of freedom)
 parallelism = osprey.Parallelism(cpuCores=4)
-minimizingEcalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallelism, isMinimizing=True)
-
-# BBK* needs a rigid energy calculator too, for multi-sequence bounds on K*
-rigidEcalc = osprey.SharedEnergyCalculator(minimizingEcalc, isMinimizing=False)
+ecalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallelism, isMinimizing=True)
 
 # how should we define energies of conformations?
 def confEcalcFactory(confSpace, ecalc):
@@ -50,27 +47,47 @@ def confEcalcFactory(confSpace, ecalc):
 # how should confs be ordered and searched?
 def astarFactory(emat, rcs):
 	return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	# or
-	# return osprey.AStarMPLP(emat, rcs, numIterations=5)
 
-# run K*
-bbkstar = osprey.BBKStar(
+# get the sequence analyzer
+analyzer = osprey.SequenceAnalyzer(
 	proteinConfSpace,
 	ligandConfSpace,
 	complexConfSpace,
-	rigidEcalc,
-	minimizingEcalc,
+	ecalc,
 	confEcalcFactory,
 	astarFactory,
-	numBestSequences=2,
-	epsilon=0.99, # you proabably want something more precise in your real designs
-	energyMatrixCachePattern='emat.*.dat',
-	writeSequencesToConsole=True,
-	writeSequencesToFile='bbkstar.results.tsv'
+	energyMatrixCachePattern='emat.*.dat'
 )
-scoredSequences = bbkstar.run()
 
-# use results
-wildtype = osprey.Sequence.makeWildType(complexConfSpace)
-for sequence in scoredSequences:
-	print(sequence.toString(wildtype))
+# how big should the ensembles be? (in terms of energy from the min)
+energyWindowSize = 1.0
+
+# analyze the wild-type complex
+analysis = analyzer.analyze(
+	osprey.Sequence("phe asp glu thr phe lys ile thr"),
+	osprey.ConfSpaceType.Complex,
+	energyWindowSize
+)
+print('\n')
+print(analysis)
+analysis.writePdbs('ensemble-wt-complex/conf.*.pdb')
+
+# analyze the wild-type unbound protein
+analysis = analyzer.analyze(
+	osprey.Sequence("phe asp glu thr phe lys ile thr"),
+	osprey.ConfSpaceType.Protein,
+	energyWindowSize
+)
+print('\n')
+print(analysis)
+analysis.writePdbs('ensemble-wt-protein/conf.*.pdb')
+
+# analyze a mutant complex
+analysis = analyzer.analyze(
+	osprey.Sequence("ILE asp glu thr phe lys ile thr"),
+	osprey.ConfSpaceType.Complex,
+	energyWindowSize
+)
+print('\n')
+print(analysis)
+analysis.writePdbs('ensemble-ile/conf.*.pdb')

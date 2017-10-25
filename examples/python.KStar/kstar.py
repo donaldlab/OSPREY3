@@ -59,6 +59,7 @@ kstar = osprey.KStar(
 	confEcalcFactory,
 	astarFactory,
 	epsilon=0.99, # you proabably want something more precise in your real designs
+	energyMatrixCachePattern='emat.*.dat',
 	writeSequencesToConsole=True,
 	writeSequencesToFile='kstar.results.tsv'
 )
