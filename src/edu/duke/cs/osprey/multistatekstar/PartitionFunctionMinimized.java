@@ -367,7 +367,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				if (isReportingProgress) confOutput(econf);//just to let the user know we reached epsilon
 			}
 			
-			if(numConfsEvaluated % (16 * ecalc.getParallelism()) == 0) {
+			if(numConfsEvaluated % (2 * ecalc.getParallelism()) == 0) {
 				if(checkConstraints() == false) {
 					status = Status.ViolatedConstraints;
 				}
