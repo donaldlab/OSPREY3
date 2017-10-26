@@ -27,20 +27,24 @@ public class TestPythonScripts {
 	private void runGMEC(String script) {
 		run("examples/python.GMEC", script);
 	}
-	
-	@Test public void findGMEC() { runGMEC("findGMEC.py"); }
+
 	@Test public void findGMECAdvanced() { runGMEC("findGMEC.advanced.py"); }
-	@Test public void findGMECReferenceEnergies() { runGMEC("findGMEC.referenceEnergies.py"); }
-	@Test public void findGMECExternalMemory() { runGMEC("findGMEC.externalMemory.py"); }
-	@Test public void findGMECMultipleStrands() { runGMEC("findGMEC.multipleStrands.py"); }
+	@Test public void findGMECDEE() { runGMEC("findGMEC.DEE.py"); }
 	@Test public void findGMECDEEPer() { runGMEC("findGMEC.DEEPer.py"); }
+	@Test public void findGMECExternalMemory() { runGMEC("findGMEC.externalMemory.py"); }
+	@Test public void findGMECEnergyPartitions() { runGMEC("findGMEC.energyPartitions.py"); }
 	@Test public void findGMECLUTE() { runGMEC("findGMEC.LUTE.py"); }
+	@Test public void findGMECMultipleStrands() { runGMEC("findGMEC.multipleStrands.py"); }
+	@Test public void findGMEC() { runGMEC("findGMEC.py"); }
+	@Test public void findGMECReferenceEnergies() { runGMEC("findGMEC.referenceEnergies.py"); }
+	@Test public void findGMECResEntropy() { runGMEC("findGMEC.resEntropy.py"); }
 	@Test public void templateLibrary() { runGMEC("templateLibrary.py"); }
 
 	private void runKStar(String script) {
 		run("examples/python.KStar", script);
 	}
 
-	@Test public void kstar() { runKStar("kstar.py"); }
+	@Test public void analyzeSequence() { runKStar("analyzeSequence.py"); }
 	@Test public void bbkstar() { runKStar("bbkstar.py"); }
+	@Test public void kstar() { runKStar("kstar.py"); }
 }
