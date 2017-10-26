@@ -5,9 +5,9 @@ osprey.start()
 
 # define a strand
 strand = osprey.Strand('1CC8.ss.pdb')
-strand.flexibility[2].setLibraryRotamers('ALA', 'GLY')
-strand.flexibility[3].setLibraryRotamers(osprey.WILD_TYPE, 'VAL')
-strand.flexibility[4].setLibraryRotamers(osprey.WILD_TYPE)
+strand.flexibility['A2'].setLibraryRotamers('ALA', 'GLY')
+strand.flexibility['A3'].setLibraryRotamers(osprey.WILD_TYPE, 'VAL')
+strand.flexibility['A4'].setLibraryRotamers(osprey.WILD_TYPE)
 
 # make the conf space
 confSpace = osprey.ConfSpace(strand)

@@ -24,11 +24,11 @@ public class EnergyPartitionsPlayground {
 		
 		// configure flexibility
 		for (int i=2; i<=6; i++) {
-			strand.flexibility.get(i).setLibraryRotamers("LEU", "ILE").setContinuous();
+			strand.flexibility.get("A" + i).setLibraryRotamers("LEU", "ILE").setContinuous();
 		}
 		/*
 		for (int i=2; i<=8; i++) {
-			strand.flexibility.get(i).setLibraryRotamers("GLY", "ALA", "VAL", "LEU", "ILE", "SER", "THR", "CYS", "ASN", "GLN", "ASP", "GLU", "PHE", "TRP", "TYR", "HIE", "HID", "LYS", "ARG", "MET").setContinuous();
+			strand.flexibility.get("A" + i).setLibraryRotamers("GLY", "ALA", "VAL", "LEU", "ILE", "SER", "THR", "CYS", "ASN", "GLN", "ASP", "GLU", "PHE", "TRP", "TYR", "HIE", "HID", "LYS", "ARG", "MET").setContinuous();
 		}
 		*/
 		

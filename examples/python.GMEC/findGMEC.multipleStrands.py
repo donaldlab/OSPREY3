@@ -6,16 +6,16 @@ osprey.start()
 mol = osprey.readPdb('1CC8.ss.pdb')
 
 # define a strand
-strand1 = osprey.Strand(mol, residues=[2,20])
-strand1.flexibility[2].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
-strand1.flexibility[3].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
-strand1.flexibility[4].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
+strand1 = osprey.Strand(mol, residues=['A2','A20'])
+strand1.flexibility['A2'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
+strand1.flexibility['A3'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
+strand1.flexibility['A4'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
 
 # define another strand
-strand2 = osprey.Strand(mol, residues=[21,40])
-strand2.flexibility[21].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
-strand2.flexibility[22].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
-strand2.flexibility[23].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
+strand2 = osprey.Strand(mol, residues=['A21','A40'])
+strand2.flexibility['A21'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
+strand2.flexibility['A22'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
+strand2.flexibility['A23'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
 
 # make the conf space
 confSpace = osprey.ConfSpace([strand1, strand2])

@@ -158,9 +158,9 @@ public class TestSimpleDEE extends TestBase {
 
 	public static SimpleConfSpace make1CC8_3Pos() {
 		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
-		strand.flexibility.get(3).setLibraryRotamers(Strand.WildType);
-		strand.flexibility.get(4).setLibraryRotamers(Strand.WildType);
-		strand.flexibility.get(6).setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A3").setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A6").setLibraryRotamers(Strand.WildType);
 		return new SimpleConfSpace.Builder()
 			.addStrand(strand)
 			.build();

@@ -41,7 +41,7 @@ public class TestSimpleConfSpace extends TestBase {
 	public void moleculeCopy() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		int[] conf = { 0 };
 		ParametricMolecule pmol = confSpace.makeMolecule(conf);
@@ -71,7 +71,7 @@ public class TestSimpleConfSpace extends TestBase {
 	public void onePosition() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -87,8 +87,8 @@ public class TestSimpleConfSpace extends TestBase {
 	public void twoPositions() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
-		strand.flexibility.get(42).setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A42").setLibraryRotamers(Strand.WildType);
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -109,7 +109,7 @@ public class TestSimpleConfSpace extends TestBase {
 	public void onePositionShell() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -127,8 +127,8 @@ public class TestSimpleConfSpace extends TestBase {
 	public void twoPositionsShell() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
-		strand.flexibility.get(42).setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A42").setLibraryRotamers(Strand.WildType);
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -146,8 +146,8 @@ public class TestSimpleConfSpace extends TestBase {
 	public void oneDiscreteWildType() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
-		assertThat(strand.mol.getResByPDBResNumber("2").fullName, is("ALA A   2"));
+		strand.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
+		assertThat(strand.mol.getResByPDBResNumber("A2").fullName, is("ALA A   2"));
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -171,7 +171,7 @@ public class TestSimpleConfSpace extends TestBase {
 	public void oneDiscreteGlycine() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers("GLY");
+		strand.flexibility.get("A2").setLibraryRotamers("GLY");
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -195,7 +195,7 @@ public class TestSimpleConfSpace extends TestBase {
 	public void oneDiscreteWildTypeAndGlycine() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType, "GLY");
+		strand.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "GLY");
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -232,7 +232,7 @@ public class TestSimpleConfSpace extends TestBase {
 	public void oneDiscreteValine() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers("VAL");
+		strand.flexibility.get("A2").setLibraryRotamers("VAL");
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -262,32 +262,32 @@ public class TestSimpleConfSpace extends TestBase {
 		// check sequence, DOFs, and bounds
 		int[] conf = { 0 };
 		ParametricMolecule pmol = confSpace.makeMolecule(conf);
-		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("VAL"));
+		assertThat(pmol.mol.getResByPDBResNumber("A2").template.name, is("VAL"));
 		assertThat(pmol.dofs.size(), is(0)); // valine has one chi angle, but this is discrete flex
 		assertThat(pmol.dofBounds.size(), is(0));
 		
 		double expChi1 = template.getRotamericDihedrals(0, 0);
-		double obsChi1 = new FreeDihedral(pmol.mol.getResByPDBResNumber("2"), 0).measureDihedralDegrees();
+		double obsChi1 = new FreeDihedral(pmol.mol.getResByPDBResNumber("A2"), 0).measureDihedralDegrees();
 		assertThat(obsChi1, isRelatively(expChi1));
 		
 		conf = new int[] { 1 };
 		pmol = confSpace.makeMolecule(conf);
-		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("VAL"));
+		assertThat(pmol.mol.getResByPDBResNumber("A2").template.name, is("VAL"));
 		assertThat(pmol.dofs.size(), is(0));
 		assertThat(pmol.dofBounds.size(), is(0));
 		
 		expChi1 = template.getRotamericDihedrals(1, 0);
-		obsChi1 = new FreeDihedral(pmol.mol.getResByPDBResNumber("2"), 0).measureDihedralDegrees();
+		obsChi1 = new FreeDihedral(pmol.mol.getResByPDBResNumber("A2"), 0).measureDihedralDegrees();
 		assertThat(obsChi1, isRelatively(expChi1));
 		
 		conf = new int[] { 2 };
 		pmol = confSpace.makeMolecule(conf);
-		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("VAL"));
+		assertThat(pmol.mol.getResByPDBResNumber("A2").template.name, is("VAL"));
 		assertThat(pmol.dofs.size(), is(0));
 		assertThat(pmol.dofBounds.size(), is(0));
 		
 		expChi1 = template.getRotamericDihedrals(2, 0);
-		obsChi1 = new FreeDihedral(pmol.mol.getResByPDBResNumber("2"), 0).measureDihedralDegrees();
+		obsChi1 = new FreeDihedral(pmol.mol.getResByPDBResNumber("A2"), 0).measureDihedralDegrees();
 		assertThat(obsChi1, isRelatively(expChi1));
 	}
 	
@@ -295,7 +295,7 @@ public class TestSimpleConfSpace extends TestBase {
 	public void oneContinuousValine() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers("VAL").setContinuous(3);
+		strand.flexibility.get("A2").setLibraryRotamers("VAL").setContinuous(3);
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -304,7 +304,7 @@ public class TestSimpleConfSpace extends TestBase {
 		// check DOFs and bounds
 		int[] conf = { 0 };
 		ParametricMolecule pmol = confSpace.makeMolecule(conf);
-		Residue res = pmol.mol.getResByPDBResNumber("2");
+		Residue res = pmol.mol.getResByPDBResNumber("A2");
 		assertThat(res.template.name, is("VAL"));
 		
 		assertThat(pmol.dofs.size(), is(1)); // valine has one chi angle
@@ -319,7 +319,7 @@ public class TestSimpleConfSpace extends TestBase {
 		
 		conf = new int[] { 1 };
 		pmol = confSpace.makeMolecule(conf);
-		res = pmol.mol.getResByPDBResNumber("2");
+		res = pmol.mol.getResByPDBResNumber("A2");
 		assertThat(res.template.name, is("VAL"));
 		
 		assertThat(pmol.dofs.size(), is(1));
@@ -334,7 +334,7 @@ public class TestSimpleConfSpace extends TestBase {
 		
 		conf = new int[] { 2 };
 		pmol = confSpace.makeMolecule(conf);
-		res = pmol.mol.getResByPDBResNumber("2");
+		res = pmol.mol.getResByPDBResNumber("A2");
 		assertThat(res.template.name, is("VAL"));
 		
 		assertThat(pmol.dofs.size(), is(1));
@@ -352,8 +352,8 @@ public class TestSimpleConfSpace extends TestBase {
 	public void wildTypeRotamersOnly() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).addWildTypeRotamers();
-		assertThat(strand.mol.getResByPDBResNumber("2").fullName, is("ALA A   2"));
+		strand.flexibility.get("A2").addWildTypeRotamers();
+		assertThat(strand.mol.getResByPDBResNumber("A2").fullName, is("ALA A   2"));
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -370,7 +370,7 @@ public class TestSimpleConfSpace extends TestBase {
 		// check sequence, DOFs, and bounds
 		int[] conf = { 0 };
 		ParametricMolecule pmol = confSpace.makeMolecule(conf);
-		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("ALA"));
+		assertThat(pmol.mol.getResByPDBResNumber("A2").template.name, is("ALA"));
 		assertThat(pmol.dofs.size(), is(0));
 		assertThat(pmol.dofBounds.size(), is(0));
 	}
@@ -379,8 +379,8 @@ public class TestSimpleConfSpace extends TestBase {
 	public void wildTypeAndLibraryRotamers() {
 		
 		Strand strand = makeStrand();
-		strand.flexibility.get(2).setLibraryRotamers("VAL").addWildTypeRotamers();
-		assertThat(strand.mol.getResByPDBResNumber("2").fullName, is("ALA A   2"));
+		strand.flexibility.get("A2").setLibraryRotamers("VAL").addWildTypeRotamers();
+		assertThat(strand.mol.getResByPDBResNumber("A2").fullName, is("ALA A   2"));
 		
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
@@ -420,25 +420,25 @@ public class TestSimpleConfSpace extends TestBase {
 		// check sequence, DOFs, and bounds
 		int[] conf = { 0 };
 		ParametricMolecule pmol = confSpace.makeMolecule(conf);
-		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("VAL"));
+		assertThat(pmol.mol.getResByPDBResNumber("A2").template.name, is("VAL"));
 		assertThat(pmol.dofs.size(), is(0));
 		assertThat(pmol.dofBounds.size(), is(0));
 		
 		conf = new int[] { 1 };
 		pmol = confSpace.makeMolecule(conf);
-		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("VAL"));
+		assertThat(pmol.mol.getResByPDBResNumber("A2").template.name, is("VAL"));
 		assertThat(pmol.dofs.size(), is(0));
 		assertThat(pmol.dofBounds.size(), is(0));
 		
 		conf = new int[] { 2 };
 		pmol = confSpace.makeMolecule(conf);
-		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("VAL"));
+		assertThat(pmol.mol.getResByPDBResNumber("A2").template.name, is("VAL"));
 		assertThat(pmol.dofs.size(), is(0));
 		assertThat(pmol.dofBounds.size(), is(0));
 		
 		conf = new int[] { 3 };
 		pmol = confSpace.makeMolecule(conf);
-		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("ALA"));
+		assertThat(pmol.mol.getResByPDBResNumber("A2").template.name, is("ALA"));
 		assertThat(pmol.dofs.size(), is(0));
 		assertThat(pmol.dofBounds.size(), is(0));
 	}
@@ -446,12 +446,12 @@ public class TestSimpleConfSpace extends TestBase {
 	@Test
 	public void twoStrands() {
 		
-		Strand strand1 = new Strand.Builder(mol).setResidues(2, 3).build();
-		strand1.flexibility.get(2).setLibraryRotamers("GLY");
-		strand1.flexibility.get(3).setLibraryRotamers("GLY");
-		Strand strand2 = new Strand.Builder(mol).setResidues(10, 11).build();
-		strand2.flexibility.get(10).setLibraryRotamers("GLY");
-		strand2.flexibility.get(11).setLibraryRotamers("GLY");
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A3").build();
+		strand1.flexibility.get("A2").setLibraryRotamers("GLY");
+		strand1.flexibility.get("A3").setLibraryRotamers("GLY");
+		Strand strand2 = new Strand.Builder(mol).setResidues("A10", "A11").build();
+		strand2.flexibility.get("A10").setLibraryRotamers("GLY");
+		strand2.flexibility.get("A11").setLibraryRotamers("GLY");
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrands(strand1, strand2).build();
 		
 		assertThat(confSpace.positions.size(), is(4));
@@ -488,12 +488,12 @@ public class TestSimpleConfSpace extends TestBase {
 	@Test
 	public void twoStrandsMakeMolecule() {
 		
-		Strand strand1 = new Strand.Builder(mol).setResidues(2, 3).build();
-		strand1.flexibility.get(2).setLibraryRotamers("GLY");
-		strand1.flexibility.get(3).setLibraryRotamers("GLY");
-		Strand strand2 = new Strand.Builder(mol).setResidues(10, 11).build();
-		strand2.flexibility.get(10).setLibraryRotamers("GLY");
-		strand2.flexibility.get(11).setLibraryRotamers("GLY");
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A3").build();
+		strand1.flexibility.get("A2").setLibraryRotamers("GLY");
+		strand1.flexibility.get("A3").setLibraryRotamers("GLY");
+		Strand strand2 = new Strand.Builder(mol).setResidues("A10", "A11").build();
+		strand2.flexibility.get("A10").setLibraryRotamers("GLY");
+		strand2.flexibility.get("A11").setLibraryRotamers("GLY");
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrands(strand1, strand2).build();
 		
 		ParametricMolecule pmol = confSpace.makeMolecule(new int[] { 0, 0, 0, 0 });
@@ -514,22 +514,22 @@ public class TestSimpleConfSpace extends TestBase {
 	@Test
 	public void twoStrandsShell() {
 
-		Strand strand1 = new Strand.Builder(mol).setResidues(2, 10).build();
-		strand1.flexibility.get(2).setLibraryRotamers("GLY");
-		strand1.flexibility.get(3).setLibraryRotamers("GLY");
-		Strand strand2 = new Strand.Builder(mol).setResidues(11, 20).build();
-		strand2.flexibility.get(11).setLibraryRotamers("GLY");
-		strand2.flexibility.get(12).setLibraryRotamers("GLY");
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers("GLY");
+		strand1.flexibility.get("A3").setLibraryRotamers("GLY");
+		Strand strand2 = new Strand.Builder(mol).setResidues("A11", "A20").build();
+		strand2.flexibility.get("A11").setLibraryRotamers("GLY");
+		strand2.flexibility.get("A12").setLibraryRotamers("GLY");
 		SimpleConfSpace separateConfSpace = new SimpleConfSpace.Builder()
 			.addStrands(strand1, strand2)
 			.setShellDistance(9)
 			.build();
 
-		Strand combinedStrand = new Strand.Builder(mol).setResidues(2, 20).build();
-		combinedStrand.flexibility.get(2).setLibraryRotamers("GLY");
-		combinedStrand.flexibility.get(3).setLibraryRotamers("GLY");
-		combinedStrand.flexibility.get(11).setLibraryRotamers("GLY");
-		combinedStrand.flexibility.get(12).setLibraryRotamers("GLY");
+		Strand combinedStrand = new Strand.Builder(mol).setResidues("A2", "A20").build();
+		combinedStrand.flexibility.get("A2").setLibraryRotamers("GLY");
+		combinedStrand.flexibility.get("A3").setLibraryRotamers("GLY");
+		combinedStrand.flexibility.get("A11").setLibraryRotamers("GLY");
+		combinedStrand.flexibility.get("A12").setLibraryRotamers("GLY");
 		SimpleConfSpace combinedConfSpace = new SimpleConfSpace.Builder()
 			.addStrands(combinedStrand)
 			.setShellDistance(9)

@@ -4,13 +4,13 @@ osprey.start()
 
 # define a strand
 strand = osprey.Strand('1CC8.ss.pdb')
-strand.flexibility[38].setLibraryRotamers('ILE','ALA', 'GLY').setContinuous()
-strand.flexibility[39].setLibraryRotamers("Ser","Ala","Gly").setContinuous()
-strand.flexibility[40].setLibraryRotamers("Met","Ser","Ala","Gly","Leu").setContinuous()
-strand.flexibility[41].setLibraryRotamers("Glu","Ala","Gly").setContinuous()
+strand.flexibility['A38'].setLibraryRotamers('ILE','ALA', 'GLY').setContinuous()
+strand.flexibility['A39'].setLibraryRotamers("Ser","Ala","Gly").setContinuous()
+strand.flexibility['A40'].setLibraryRotamers("Met","Ser","Ala","Gly","Leu").setContinuous()
+strand.flexibility['A41'].setLibraryRotamers("Glu","Ala","Gly").setContinuous()
 
 # make the conf space
-bbflex = osprey.DEEPerStrandFlex(strand, '1CC8.d.pert', ['38','39','40','41'], '1CC8.ss.pdb')
+bbflex = osprey.DEEPerStrandFlex(strand, '1CC8.d.pert', ['A38','A39','A40','A41'], '1CC8.ss.pdb')
 confSpace = osprey.ConfSpace([[strand,bbflex]])
 
 # choose a forcefield

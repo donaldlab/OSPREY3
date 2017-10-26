@@ -22,11 +22,11 @@ templateLib = osprey.TemplateLibrary()
 mol = osprey.readPdb('1CC8.ss.pdb')
 
 # define the protein strand
-protein = osprey.Strand(mol, residues=[2, 30])
+protein = osprey.Strand(mol, residues=['A2', 'A30'])
 
-protein.flexibility[2].setLibraryRotamers('ALA', 'GLY')
-protein.flexibility[3].setLibraryRotamers(osprey.WILD_TYPE, 'VAL', 'ARG').setContinuous(10)
-protein.flexibility[4].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
+protein.flexibility['A2'].setLibraryRotamers('ALA', 'GLY')
+protein.flexibility['A3'].setLibraryRotamers(osprey.WILD_TYPE, 'VAL', 'ARG').setContinuous(10)
+protein.flexibility['A4'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
 
 # make the conf space
 confSpace = osprey.ConfSpace(protein)

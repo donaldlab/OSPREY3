@@ -5,13 +5,13 @@ osprey.start()
 
 # define a strand
 strand = osprey.Strand('1CC8.ss.pdb')
-strand.flexibility[38].setLibraryRotamers('ILE','ALA', 'GLY').setContinuous()
-strand.flexibility[39].setLibraryRotamers("Ser","Ala","Gly").setContinuous()
-strand.flexibility[40].setLibraryRotamers("Met","Ser","Ala","Gly").setContinuous()
-strand.flexibility[41].setLibraryRotamers("Glu","Ala","Gly").setContinuous()
-strand.flexibility[42].setLibraryRotamers("Ala","Gly").setContinuous()
-strand.flexibility[43].setLibraryRotamers("Gln","Ala","Gly").setContinuous()
-strand.flexibility[44].setLibraryRotamers("Leu","Ala","Gly").setContinuous()
+strand.flexibility['A38'].setLibraryRotamers('ILE', 'ALA', 'GLY').setContinuous()
+strand.flexibility['A39'].setLibraryRotamers('Ser', 'Ala', 'Gly').setContinuous()
+strand.flexibility['A40'].setLibraryRotamers('Met', 'Ser', 'Ala', 'Gly').setContinuous()
+strand.flexibility['A41'].setLibraryRotamers('Glu', 'Ala', 'Gly').setContinuous()
+strand.flexibility['A42'].setLibraryRotamers('Ala', 'Gly').setContinuous()
+strand.flexibility['A43'].setLibraryRotamers('Gln', 'Ala', 'Gly').setContinuous()
+strand.flexibility['A44'].setLibraryRotamers('Leu', 'Ala', 'Gly').setContinuous()
 
 # make the conf space
 confSpace = osprey.ConfSpace(strand)

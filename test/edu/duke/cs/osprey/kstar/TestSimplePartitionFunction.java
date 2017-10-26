@@ -102,21 +102,21 @@ public class TestSimplePartitionFunction {
 
 		info.protein = new Strand.Builder(info.mol)
 			.setTemplateLibrary(info.templateLib)
-			.setResidues("648", "654")
+			.setResidues("G648", "G654")
 			.build();
-		info.protein.flexibility.get(649).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		info.protein.flexibility.get(650).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		info.protein.flexibility.get(651).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		info.protein.flexibility.get(654).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		info.ligand = new Strand.Builder(info.mol)
 			.setTemplateLibrary(info.templateLib)
-			.setResidues("155", "194")
+			.setResidues("A155", "A194")
 			.build();
-		info.ligand.flexibility.get(156).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		info.ligand.flexibility.get(172).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		info.ligand.flexibility.get(192).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		info.ligand.flexibility.get(193).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.ligand.flexibility.get("A156").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.ligand.flexibility.get("A172").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.ligand.flexibility.get("A193").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		return info;
 	}
@@ -157,10 +157,10 @@ public class TestSimplePartitionFunction {
 		// and also add the extra residues in the PDB file that aren't in the strands
 		TestInfo info = make2RL0TestInfo();
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
-			.addStrand(new Strand.Builder(info.mol).setTemplateLibrary(info.templateLib).setResidues(153, 154).build())
+			.addStrand(new Strand.Builder(info.mol).setTemplateLibrary(info.templateLib).setResidues("A153", "A154").build())
 			.addStrand(info.ligand)
-			.addStrand(new Strand.Builder(info.mol).setTemplateLibrary(info.templateLib).setResidues(195, 241).build())
-			.addStrand(new Strand.Builder(info.mol).setTemplateLibrary(info.templateLib).setResidues(638, 647).build())
+			.addStrand(new Strand.Builder(info.mol).setTemplateLibrary(info.templateLib).setResidues("A195", "A241").build())
+			.addStrand(new Strand.Builder(info.mol).setTemplateLibrary(info.templateLib).setResidues("G638", "G647").build())
 			.addStrand(info.protein)
 			.build();
 
@@ -193,19 +193,19 @@ public class TestSimplePartitionFunction {
 			.setTemplateLibrary(info.templateLib)
 			.setResidues("1", "180")
 			.build();
-		info.protein.flexibility.get(21).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		info.protein.flexibility.get(24).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		info.protein.flexibility.get(25).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		info.protein.flexibility.get(27).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		info.protein.flexibility.get(29).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		info.protein.flexibility.get(40).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.protein.flexibility.get("21").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.protein.flexibility.get("24").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.protein.flexibility.get("25").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.protein.flexibility.get("27").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.protein.flexibility.get("29").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.protein.flexibility.get("40").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		info.ligand = new Strand.Builder(info.mol)
 			.setTemplateLibrary(info.templateLib)
 			.setResidues("181", "215")
 			.build();
-		info.ligand.flexibility.get(209).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		info.ligand.flexibility.get(213).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.ligand.flexibility.get("209").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		info.ligand.flexibility.get("213").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		return info;
 	}

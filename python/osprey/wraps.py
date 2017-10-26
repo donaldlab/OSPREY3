@@ -31,6 +31,35 @@ def init(c):
 	wrapStrandFlex(c)
 	wrapResidueFlex(c)
 	wrapGMECFinder(c)
+	wrapStrandBuilder(c)
+
+
+def checkDeprecatedResNumbers(resNums, fnnames):
+
+	import traceback
+
+	hasIntResNum = False
+	for key in resNums:
+		if isinstance(key, (int, long, float)):
+			hasIntResNum = True
+			break
+
+	if hasIntResNum:
+
+		print('WARNING: Number-valued residue numbers (e.g., 4, 123) are deprecated and will be not be supported in a future version.'
+			+ ' Instead, use String-valued residue numbers prefixed with the chain ID (e.g., \'A4\', \'G123\').')
+
+		# get the stack trace, and remove the specified osprey frames
+		stacktrace = traceback.extract_stack()
+		for i in range(len(fnnames)):
+			fnname = stacktrace[-1][2]
+			if fnname == fnnames[i]:
+				stacktrace = stacktrace[:-1]
+
+		print('\tresidue numbers: %s' % resNums)
+		for (filename, lineno, fnname, line) in stacktrace:
+			print('\tat %s:%d' % (filename, lineno))
+			#print((filename, lineno, fnname))
 
 
 def wrapStrandFlex(c):
@@ -38,6 +67,10 @@ def wrapStrandFlex(c):
 
 	# use array access to call get()
 	def getItem(self, key):
+
+		# TEMP: check for integer-valued residue numbers, which are now deprecated
+		checkDeprecatedResNumbers([key], ['checkDeprecatedResNumbers', 'getItem'])
+
 		return self.get(key)
 	jtype.__getitem__ = getItem
 
@@ -76,3 +109,15 @@ def wrapGMECFinder(c):
 			return old(self)
 	wrapMethod(jtype, 'find', newFind)
 
+
+def wrapStrandBuilder(c):
+	jtype = jvm.getInnerClass(c.confspace.Strand, 'Builder')
+
+	# public Builder setResidues(int firstResNum, int lastResNum) {
+	def newSetResidues(old, self, start, stop):
+
+		# TEMP: check for integer-valued residue numbers, which are now deprecated
+		checkDeprecatedResNumbers([start, stop], ['checkDeprecatedResNumbers', 'newSetResidues', 'curried', 'Strand'])
+
+		old(self, start, stop)
+	wrapMethod(jtype, 'setResidues', newSetResidues)

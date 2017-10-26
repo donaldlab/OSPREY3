@@ -323,7 +323,7 @@ def Strand(pathOrMol, residues=None, templateLib=None):
 	:type pathOrMol: str or :java:ref:`.structure.Molecule`
 
 	:param residues: range of residue numbers, inclusive. `None` to include all residues.
-	:type residues: [int, int]
+	:type residues: [str, str]
 
 	:builder_option templateLib .confspace.Strand$Builder#templateLib:
 

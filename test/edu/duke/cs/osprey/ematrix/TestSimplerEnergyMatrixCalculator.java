@@ -801,9 +801,9 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		
 		int resNum = firstResNum;
 		for (String aminoAcid : aminoAcids) {
-			strand.flexibility.get(resNum).setLibraryRotamers(aminoAcid);
+			strand.flexibility.get("A" + resNum).setLibraryRotamers(aminoAcid);
 			if (doMinimize) {
-				strand.flexibility.get(resNum).setContinuous();
+				strand.flexibility.get("A" + resNum).setContinuous();
 			}
 			resNum++;
 		}

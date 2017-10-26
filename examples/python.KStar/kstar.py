@@ -6,24 +6,24 @@ osprey.start()
 ffparams = osprey.ForcefieldParams()
 
 # read a PDB file for molecular info
-mol = osprey.readPdb("2RL0.min.reduce.pdb")
+mol = osprey.readPdb('2RL0.min.reduce.pdb')
 
 # make sure all strands share the same template library (including wild-type rotamers)
 templateLib = osprey.TemplateLibrary(ffparams.forcefld, moleculesForWildTypeRotamers=[mol])
 
 # define the protein strand
-protein = osprey.Strand(mol, templateLib=templateLib, residues=[648, 654])
-protein.flexibility[649].setLibraryRotamers(osprey.WILD_TYPE, 'TYR', 'ALA', 'VAL', 'ILE', 'LEU').addWildTypeRotamers().setContinuous()
-protein.flexibility[650].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
-protein.flexibility[651].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
-protein.flexibility[654].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
+protein = osprey.Strand(mol, templateLib=templateLib, residues=['G648', 'G654'])
+protein.flexibility['G649'].setLibraryRotamers(osprey.WILD_TYPE, 'TYR', 'ALA', 'VAL', 'ILE', 'LEU').addWildTypeRotamers().setContinuous()
+protein.flexibility['G650'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
+protein.flexibility['G651'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
+protein.flexibility['G654'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
 
 # define the ligand strand
-ligand = osprey.Strand(mol, templateLib=templateLib, residues=[155, 194])
-ligand.flexibility[156].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
-ligand.flexibility[172].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
-ligand.flexibility[192].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
-ligand.flexibility[193].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
+ligand = osprey.Strand(mol, templateLib=templateLib, residues=['A155', 'A194'])
+ligand.flexibility['A156'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
+ligand.flexibility['A172'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
+ligand.flexibility['A192'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
+ligand.flexibility['A193'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
 
 # make the conf space for the protein
 proteinConfSpace = osprey.ConfSpace(protein)

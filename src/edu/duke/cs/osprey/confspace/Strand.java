@@ -46,7 +46,8 @@ public class Strand implements Serializable {
 			this.templateLib = new ResidueTemplateLibrary.Builder().build();
 			this.errorOnNonTemplateResidues = false;
 		}
-		
+
+		@Deprecated
 		public Builder setResidues(int firstResNum, int lastResNum) {
 			return setResidues(stringResNumForMolec(firstResNum,mol),
 					stringResNumForMolec(lastResNum,mol));
@@ -187,7 +188,8 @@ public class Strand implements Serializable {
 				this.residues.put(res.getPDBResNumber(), new ResidueFlex(res.template.name));
 			}
 		}
-		
+
+		@Deprecated
 		public ResidueFlex get(int resNum) {
 			return get(stringResNumForMolec(resNum, mol));
 		}

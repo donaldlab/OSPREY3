@@ -89,9 +89,9 @@ customizedTemplateLib = osprey.TemplateLibrary(
 protein = osprey.Strand('1CC8.ss.pdb', templateLib=customizedTemplateLib)
 
 # make the conf space
-protein.flexibility[2].setLibraryRotamers('ALA', 'GLY')
-protein.flexibility[3].setLibraryRotamers(osprey.WILD_TYPE, 'VAL', 'ARG').setContinuous(10)
-protein.flexibility[4].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
+protein.flexibility['A2'].setLibraryRotamers('ALA', 'GLY')
+protein.flexibility['A3'].setLibraryRotamers(osprey.WILD_TYPE, 'VAL', 'ARG').setContinuous(10)
+protein.flexibility['A4'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers()
 confSpace = osprey.ConfSpace(protein)
 
 # continue design with confSpace

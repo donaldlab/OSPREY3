@@ -61,25 +61,25 @@ public class TestSimpleGMECFinder {
 		Molecule mol = PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb");
 		
 		Strand strand1 = new Strand.Builder(mol).build();
-		strand1.flexibility.get(2).setLibraryRotamers("ALA", "GLY");
-		strand1.flexibility.get(3).setLibraryRotamers(Strand.WildType, "VAL");
-		strand1.flexibility.get(4).setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A2").setLibraryRotamers("ALA", "GLY");
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "VAL");
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
 		problemDiscrete = new Problem(strand1);
 		
-		Strand strand2 = new Strand.Builder(mol).setResidues(2, 30).build();
-		strand2.flexibility.get(2).setLibraryRotamers("ALA", "GLY");
-		strand2.flexibility.get(3).setLibraryRotamers(Strand.WildType, "VAL", "ARG").setContinuous(10);
-		strand2.flexibility.get(4).addWildTypeRotamers();
+		Strand strand2 = new Strand.Builder(mol).setResidues("A2", "A30").build();
+		strand2.flexibility.get("A2").setLibraryRotamers("ALA", "GLY");
+		strand2.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "VAL", "ARG").setContinuous(10);
+		strand2.flexibility.get("A4").addWildTypeRotamers();
 		problemContinuous = new Problem(strand2);
 		
-		Strand strand3 = new Strand.Builder(mol).setResidues(2, 30).build();
-		strand3.flexibility.get(2).addWildTypeRotamers();
-		strand3.flexibility.get(3).addWildTypeRotamers();
-		strand3.flexibility.get(4).addWildTypeRotamers();
-		Strand strand4 = new Strand.Builder(mol).setResidues(31, 60).build();
-		strand4.flexibility.get(31).addWildTypeRotamers();
-		strand4.flexibility.get(32).addWildTypeRotamers();
-		strand4.flexibility.get(33).addWildTypeRotamers();
+		Strand strand3 = new Strand.Builder(mol).setResidues("A2", "A30").build();
+		strand3.flexibility.get("A2").addWildTypeRotamers();
+		strand3.flexibility.get("A3").addWildTypeRotamers();
+		strand3.flexibility.get("A4").addWildTypeRotamers();
+		Strand strand4 = new Strand.Builder(mol).setResidues("A31", "A60").build();
+		strand4.flexibility.get("A31").addWildTypeRotamers();
+		strand4.flexibility.get("A32").addWildTypeRotamers();
+		strand4.flexibility.get("A33").addWildTypeRotamers();
 		problemMultipleStrands = new Problem(strand3, strand4);
 	}
 

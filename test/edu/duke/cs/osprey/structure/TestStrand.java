@@ -33,7 +33,7 @@ public class TestStrand {
 	public void subsequenceResidues() {
 		
 		Strand strand = new Strand.Builder(mol)
-			.setResidues(5, 70)
+			.setResidues("A5", "A70")
 			.build();
 		
 		assertThat(strand.mol.residues.get(0).getPDBResNumber(), is("A5"));
@@ -79,7 +79,7 @@ public class TestStrand {
 	public void defaultFlexibilty() {
 		
 		Strand strand = new Strand.Builder(mol)
-			.setResidues(2, 5)
+			.setResidues("A2", "A5")
 			.build();
 		
 		for (Residue res : strand.mol.residues) {
@@ -95,11 +95,11 @@ public class TestStrand {
 	public void flexibleResidueNumbers() {
 		
 		Strand strand = new Strand.Builder(mol)
-			.setResidues(2, 5)
+			.setResidues("A2", "A5")
 			.build();
 		
-		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
-		strand.flexibility.get(4).setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
 		
 		assertThat(strand.flexibility.getFlexibleResidueNumbers(), contains("A2", "A4"));
 	}
@@ -108,11 +108,11 @@ public class TestStrand {
 	public void staticResidueNumbers() {
 		
 		Strand strand = new Strand.Builder(mol)
-			.setResidues(2, 5)
+			.setResidues("A2", "A5")
 			.build();
 		
-		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType);
-		strand.flexibility.get(4).setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
+		strand.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
 		
 		assertThat(strand.flexibility.getStaticResidueNumbers(), contains("A3", "A5"));
 	}

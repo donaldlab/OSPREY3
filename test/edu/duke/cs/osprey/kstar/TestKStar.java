@@ -118,22 +118,22 @@ public class TestKStar {
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
 			.setTemplateLibrary(templateLib)
-			.setResidues(648, 654)
+			.setResidues("G648", "G654")
 			.build();
-		protein.flexibility.get(649).setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get(650).setLibraryRotamers(Strand.WildType, "GLU").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get(651).setLibraryRotamers(Strand.WildType, "ASP").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get(654).setLibraryRotamers(Strand.WildType, "SER", "ASN", "GLN").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType, "GLU").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType, "ASP").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType, "SER", "ASN", "GLN").addWildTypeRotamers().setContinuous();
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
 			.setTemplateLibrary(templateLib)
-			.setResidues(155, 194)
+			.setResidues("A155", "A194")
 			.build();
-		ligand.flexibility.get(156).setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get(172).setLibraryRotamers(Strand.WildType, "ASP", "GLU").addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get(192).setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "PHE", "TYR").addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get(193).setLibraryRotamers(Strand.WildType, "SER", "ASN").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A156").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A172").setLibraryRotamers(Strand.WildType, "ASP", "GLU").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "PHE", "TYR").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A193").setLibraryRotamers(Strand.WildType, "SER", "ASN").addWildTypeRotamers().setContinuous();
 
 		// make the conf spaces ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
@@ -202,22 +202,22 @@ public class TestKStar {
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
 			.setTemplateLibrary(templateLib)
-			.setResidues(1, 180)
+			.setResidues("1", "180")
 			.build();
-		protein.flexibility.get(21).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get(24).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get(25).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get(27).setLibraryRotamers(Strand.WildType, "HID").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get(29).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get(40).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("21").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("24").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("25").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("27").setLibraryRotamers(Strand.WildType, "HID").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("29").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("40").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
 			.setTemplateLibrary(templateLib)
-			.setResidues(181, 215)
+			.setResidues("181", "215")
 			.build();
-		ligand.flexibility.get(209).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get(213).setLibraryRotamers(Strand.WildType, "HID", "HIE", "LYS", "ARG").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("209").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("213").setLibraryRotamers(Strand.WildType, "HID", "HIE", "LYS", "ARG").addWildTypeRotamers().setContinuous();
 
 		// make the complex conf space ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()

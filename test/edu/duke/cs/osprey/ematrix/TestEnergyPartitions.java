@@ -31,7 +31,7 @@ public class TestEnergyPartitions {
 		
 		// make a conf space that allows only the wild type conf
 		for (int i=2; i<=6; i++) {
-			strand.flexibility.get(i).addWildTypeRotamers();
+			strand.flexibility.get("A" + i).addWildTypeRotamers();
 		}
 		confSpace = new SimpleConfSpace.Builder()
 			.addStrand(strand)

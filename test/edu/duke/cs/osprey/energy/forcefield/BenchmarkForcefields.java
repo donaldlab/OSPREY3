@@ -43,13 +43,13 @@ public class BenchmarkForcefields extends TestBase {
 		
 		// get a conf space
 		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
-		strand.flexibility.get(39).setLibraryRotamers("ALA").setContinuous();
-		strand.flexibility.get(43).setLibraryRotamers("ALA").setContinuous();
-		strand.flexibility.get(40).setLibraryRotamers(Strand.WildType).setContinuous();
-		strand.flexibility.get(41).setLibraryRotamers(Strand.WildType).setContinuous();
-		strand.flexibility.get(42).setLibraryRotamers(Strand.WildType).setContinuous();
-		strand.flexibility.get(44).setLibraryRotamers(Strand.WildType).setContinuous();
-		strand.flexibility.get(45).setLibraryRotamers(Strand.WildType).setContinuous();
+		strand.flexibility.get("A39").setLibraryRotamers("ALA").setContinuous();
+		strand.flexibility.get("A43").setLibraryRotamers("ALA").setContinuous();
+		strand.flexibility.get("A40").setLibraryRotamers(Strand.WildType).setContinuous();
+		strand.flexibility.get("A41").setLibraryRotamers(Strand.WildType).setContinuous();
+		strand.flexibility.get("A42").setLibraryRotamers(Strand.WildType).setContinuous();
+		strand.flexibility.get("A44").setLibraryRotamers(Strand.WildType).setContinuous();
+		strand.flexibility.get("A45").setLibraryRotamers(Strand.WildType).setContinuous();
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
 		// pre-compute atom connectivities

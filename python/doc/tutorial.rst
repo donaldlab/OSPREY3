@@ -19,9 +19,9 @@ So, without further ado, here's our first Python script.
 
 	# define a strand
 	strand = osprey.Strand('1CC8.ss.pdb')
-	strand.flexibility[2].setLibraryRotamers('ALA', 'GLY')
-	strand.flexibility[3].setLibraryRotamers(osprey.WILD_TYPE, 'VAL')
-	strand.flexibility[4].setLibraryRotamers(osprey.WILD_TYPE)
+	strand.flexibility['A2'].setLibraryRotamers('ALA', 'GLY')
+	strand.flexibility['A3'].setLibraryRotamers(osprey.WILD_TYPE, 'VAL')
+	strand.flexibility['A4'].setLibraryRotamers(osprey.WILD_TYPE)
 
 	# make the conf space
 	confSpace = osprey.ConfSpace(strand)
@@ -70,9 +70,9 @@ from the Python script.
 
 	# define a strand
 	strand = osprey.Strand('1CC8.ss.pdb')
-	strand.flexibility[2].setLibraryRotamers('ALA', 'GLY')
-	strand.flexibility[3].setLibraryRotamers(osprey.WILD_TYPE, 'VAL')
-	strand.flexibility[4].setLibraryRotamers(osprey.WILD_TYPE)
+	strand.flexibility['A2'].setLibraryRotamers('ALA', 'GLY')
+	strand.flexibility['A3'].setLibraryRotamers(osprey.WILD_TYPE, 'VAL')
+	strand.flexibility['A4'].setLibraryRotamers(osprey.WILD_TYPE)
 
 These lines are where much of the configuration for your design will take place, since
 this is where we define what flexibility is allowed in the design.
@@ -81,17 +81,17 @@ An :py:func:`osprey.Strand` is molecule fragment that we have annotated with inf
 about sequence mutations and conformational flexibility. In this case, we've defined
 a strand based on the molecule in PDB file ``1CC8.ss.pdb``.
 
-For residues 2, 3, and 4, we've called the :java:ref:`.confspace.Strand$ResidueFlex#setLibraryRotamers`
+For residues 2, 3, and 4 in chain A, we've called the :java:ref:`.confspace.Strand$ResidueFlex#setLibraryRotamers`
 function to define flexibility information. The *Template Library* in Osprey contains rotamers for
 each amino acid, so calling ``setLibraryRotamers`` sets the flexibility for that residue to
 the rotamers from the specified amino acids.
 
-For residue ``2`` specifically, we're forcing the sequence to mutate to either Alanine or Glycine.
+For residue ``A2`` specifically, we're forcing the sequence to mutate to either Alanine or Glycine.
 
-For residue ``3``, we're allowing a mutation to Valine, but the sequence can also stay at whatever
+For residue ``A3``, we're allowing a mutation to Valine, but the sequence can also stay at whatever
 amino acid is present in the PDB file by using the magic constant, :py:const:`osprey.WILD_TYPE`.
 
-For residue ``4``, we're not allowing any mutations this time, but, by using :py:const:`osprey.WILD_TYPE`
+For residue ``A4``, we're not allowing any mutations this time, but, by using :py:const:`osprey.WILD_TYPE`
 for the amino acid, we're still allowing flexibilty at this design position. Only the rotamers
 defined for the wild-type amino acid will be used at this position though.
 
