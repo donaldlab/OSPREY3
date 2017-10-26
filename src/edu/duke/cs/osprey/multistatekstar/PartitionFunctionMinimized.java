@@ -54,6 +54,9 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	protected boolean scoredGMECQPrimeEnumerated;
 
 	protected boolean computeMaxNumConfs;
+	
+	protected KStarScore score;
+	protected int state;
 
 	public PartitionFunctionMinimized(
 			EnergyMatrix emat, 
@@ -74,6 +77,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		this.computeMaxNumConfs = false;
 		this.boltzmann = new MSBoltzmannCalculator();
 		this.maxNumTopConfs = 0;
+		this.score = null;
+		this.state = -1;
 	}
 
 	protected void writeTopConfs(int state, MSSearchProblem search, String baseDir) {
@@ -356,9 +361,16 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			if(Double.isNaN(effectiveEpsilon)) {
 				status = Status.NotEnoughFiniteEnergies;
 			}
+			
 			else if (effectiveEpsilon <= targetEpsilon) {
 				status = Status.Estimated;
 				if (isReportingProgress) confOutput(econf);//just to let the user know we reached epsilon
+			}
+			
+			if(numConfsEvaluated % (16 * ecalc.getParallelism()) == 0) {
+				if(checkConstraints() == false) {
+					status = Status.ViolatedConstraints;
+				}
 			}
 		}
 	}
@@ -499,6 +511,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		
 		minGMECConfs = null;
 		minGMECAssignments = null;
+		
+		score = null;
 	}
 
 	public void setNumConfsEvaluated(long val) {
@@ -583,6 +597,19 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	
 	public BigDecimal getLowerBound() {
 		return values.qstar;
+	}
+	
+	public void setScoreObj(int state, KStarScore score) {
+		this.score = score;
+		this.state = state;
+	}
+	
+	public boolean checkConstraints() {
+		boolean constrSatisfied = score.checkConstraints(state, true);
+		if(constrSatisfied) {
+			constrSatisfied = score.checkConstraints(state, false);
+		}
+		return constrSatisfied;
 	}
 	
 	public String toString() {

@@ -12,7 +12,8 @@ public interface PartitionFunction {
 		Estimating(true),
 		Estimated(false),
 		NotEnoughConformations(false),
-		NotEnoughFiniteEnergies(false);
+		NotEnoughFiniteEnergies(false),
+		ViolatedConstraints(false);
 
 		private boolean canContinue;
 

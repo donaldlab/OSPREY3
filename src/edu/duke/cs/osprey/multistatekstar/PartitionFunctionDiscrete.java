@@ -115,9 +115,16 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 				if(Double.isNaN(effectiveEpsilon)) {
 					status = Status.NotEnoughFiniteEnergies;
 				}
+				
 				else if (effectiveEpsilon <= targetEpsilon) {
 					status = Status.Estimated;
 					if (isReportingProgress) confOutput(conf);//just to let the user know we reached epsilon
+				}
+				
+				if(numConfsEvaluated % 1024 == 0) {
+					if(checkConstraints() == false) {
+						status = Status.ViolatedConstraints;
+					}
 				}
 			}
 		}
