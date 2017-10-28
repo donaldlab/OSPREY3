@@ -96,6 +96,17 @@ public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
 		}
 	}
 
+	public double sum() {
+    	double sum = 0.0;
+		for (int i=0; i<oneBody.length; i++) {
+			sum += oneBody[i];
+		}
+		for (int i=0; i<pairwise.length; i++) {
+			sum += pairwise[i];
+		}
+		return sum;
+	}
+
 	@Override
 	public String toString() {
     	return toString(6, (energy) -> {
@@ -113,6 +124,18 @@ public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
 				return String.format("%6s", "<-1k");
 			} else {
 				return String.format("%6.2f", energy);
+			}
+		});
+	}
+
+	public String toString(int cellWidth, int precision) {
+    	return toString(cellWidth, (energy) -> {
+			if (energy == Double.POSITIVE_INFINITY) {
+				return String.format("%" + cellWidth + "s", "inf");
+			} else if (energy == Double.NEGATIVE_INFINITY) {
+				return String.format("%" + cellWidth + "s", "-inf");
+			} else {
+				return String.format("%" + cellWidth + "." + precision + "f", energy);
 			}
 		});
 	}

@@ -16,6 +16,8 @@ import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
+import java.util.Arrays;
+
 /**
  * Searches a conformation space for the single conformation that minimizes the
  * desired energy function, ie the Global Minimum Energy Conformation, or GMEC.
@@ -354,9 +356,13 @@ public class SimpleGMECFinder {
 		
 		// make sure the score was actually a lower bound
 		if (econf.getScore() > econf.getEnergy() + 0.1) {
-			throw new Error(String.format("Conformation score (%f) is not a lower bound on the energy (%f)! This is a serious bug.",
+			System.out.println(String.format("WARNING: Conformation score (%f) is not a lower bound on the energy (%f)."
+				+ "\n\tThis is evidence that OSPREY is unable to guarantee finding exactly the GMEC for this design,"
+				+ " but we'll probably get it anyway, or at least get really close."
+				+ "\n\tAssignments: %s",
 				econf.getScore(),
-				econf.getEnergy()
+				econf.getEnergy(),
+				Arrays.toString(econf.getAssignments())
 			));
 		}
 

@@ -78,7 +78,7 @@ public class TestForcefieldEnergy extends TestBase {
 		}
 	}
 	
-	private static enum IntersType {
+	public static enum IntersType {
 		
 		AllPairs {
 			@Override
@@ -108,7 +108,7 @@ public class TestForcefieldEnergy extends TestBase {
 		public abstract ResidueInteractions makeInters(Residues residues);
 	}
 	
-	private static enum FFType {
+	public static enum FFType {
 		
 		NoSolv {
 			@Override

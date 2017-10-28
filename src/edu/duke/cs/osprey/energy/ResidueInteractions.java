@@ -72,6 +72,13 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 		resNums = new LinkedHashSet<>();
 		pairs = new LinkedHashSet<>();
 	}
+
+	public ResidueInteractions(Pair ... pairs) {
+		this();
+		for (Pair pair : pairs) {
+			addPair(pair.resNum1, pair.resNum2, pair.weight, pair.offset);
+		}
+	}
 	
 	public void addSingle(String resNum) {
 		addSingle(resNum, Pair.IdentityWeight, Pair.IdentityOffset);

@@ -1,0 +1,172 @@
+package edu.duke.cs.osprey.energy;
+
+import edu.duke.cs.osprey.confspace.ParametricMolecule;
+import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.energy.forcefield.ResidueForcefieldEnergy;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class ResidueForcefieldBreakdown {
+
+	public static enum Type {
+
+		Electrostatics(true) {
+			@Override
+			public double getEnergy(ResidueForcefieldEnergy efunc) {
+				return efunc.getElectrostaticsEnergy();
+			}
+		},
+		VanDerWaals(true) {
+			@Override
+			public double getEnergy(ResidueForcefieldEnergy efunc) {
+				return efunc.getVanDerWaalsEnergy();
+			}
+		},
+		Solvation(true) {
+			@Override
+			public double getEnergy(ResidueForcefieldEnergy efunc) {
+				return efunc.getSolvationEnergy();
+			}
+		},
+		Offsets(true) {
+			@Override
+			public double getEnergy(ResidueForcefieldEnergy efunc) {
+				return efunc.getOffsetsEnergy();
+			}
+		},
+		All(false) {
+			@Override
+			public double getEnergy(ResidueForcefieldEnergy efunc) {
+				return efunc.getElectrostaticsEnergy()
+					+ efunc.getVanDerWaalsEnergy()
+					+ efunc.getSolvationEnergy()
+					+ efunc.getOffsetsEnergy();
+			}
+		};
+
+		public final boolean isAtomic;
+
+		private Type(boolean isAtomic) {
+			this.isAtomic = isAtomic;
+		}
+
+		public abstract double getEnergy(ResidueForcefieldEnergy efunc);
+
+		public static List<Type> atomics() {
+			return Arrays.stream(values())
+				.filter((val) -> val.isAtomic)
+				.collect(Collectors.toList());
+		}
+	}
+
+	public static class ByResidue {
+
+		public final ResidueForcefieldEnergy efunc;
+
+		public ByResidue(ResidueForcefieldEnergy efunc) {
+			this.efunc = efunc;
+		}
+
+		public ByResidue(ConfEnergyCalculator confEcalc, int[] assignments) {
+			this.efunc = new ByPosition(confEcalc, assignments).efunc;
+		}
+
+		public EnergyMatrix makeEmat() {
+			int[] numRCsAtPos = new int[efunc.residues.size()];
+			Arrays.fill(numRCsAtPos, 1);
+			return new EnergyMatrix(efunc.residues.size(), numRCsAtPos, 0.0);
+		}
+
+		public EnergyMatrix breakdownForcefield(Type type) {
+			EnergyMatrix breakdown = makeEmat();
+			for (ResidueInteractions.Pair pair : efunc.inters) {
+				int i1 = efunc.residues.findIndexOrThrow(pair.resNum1);
+				int i2 = efunc.residues.findIndexOrThrow(pair.resNum2);
+				double energy = type.getEnergy(efunc.makeSubset(pair));
+				if (i1 == i2) {
+					breakdown.setOneBody(i1, 0, energy);
+				} else {
+					breakdown.setPairwise(i1, 0, i2, 0, energy);
+				}
+			}
+			return breakdown;
+		}
+	}
+
+	public static class ByPosition {
+
+		public final ConfEnergyCalculator confEcalc;
+		public final int[] assignments;
+		public final ResidueForcefieldEnergy efunc;
+
+		public ByPosition(ConfEnergyCalculator confEcalc, int[] assignments) {
+
+			this.confEcalc = confEcalc;
+			this.assignments = assignments;
+
+			// get the forcefield for this conf
+			RCTuple frag = new RCTuple(assignments);
+			ParametricMolecule pmol = confEcalc.confSpace.makeMolecule(frag);
+			ResidueInteractions inters = confEcalc.makeFragInters(frag);
+			efunc = (ResidueForcefieldEnergy)confEcalc.ecalc.makeEnergyFunction(pmol, inters);
+
+			// minimize the molecule instance
+			confEcalc.ecalc.calcEnergy(pmol, inters);
+		}
+
+		public EnergyMatrix makeEmat() {
+			int[] numRCsAtPos = new int[confEcalc.confSpace.positions.size()];
+			Arrays.fill(numRCsAtPos, 1);
+			return new EnergyMatrix(confEcalc.confSpace.positions.size(), numRCsAtPos, 0.0);
+		}
+
+		public EnergyMatrix breakdownForcefield(Type type) {
+			EnergyMatrix breakdown = makeEmat();
+			for (SimpleConfSpace.Position pos1 : confEcalc.confSpace.positions) {
+				int rc1 = assignments[pos1.index];
+
+				{
+					ResidueInteractions inters = confEcalc.makeSingleInters(pos1.index, rc1);
+					double energy = type.getEnergy(efunc.makeSubset(inters));
+					breakdown.setOneBody(pos1.index, 0, energy);
+				}
+
+				for (SimpleConfSpace.Position pos2 : confEcalc.confSpace.positions) {
+					if (pos2.index < pos1.index) {
+						int rc2 = assignments[pos2.index];
+
+						ResidueInteractions inters = confEcalc.makePairInters(pos1.index, rc1, pos2.index, rc2);
+						double energy = type.getEnergy(efunc.makeSubset(inters));
+						breakdown.setPairwise(pos1.index, 0, pos2.index, 0, energy);
+					}
+				}
+			}
+			return breakdown;
+		}
+
+		public EnergyMatrix breakdownBound(EnergyMatrix emat) {
+			EnergyMatrix breakdown = makeEmat();
+			for (SimpleConfSpace.Position pos1 : confEcalc.confSpace.positions) {
+				int rc1 = assignments[pos1.index];
+
+				{
+					double energy = emat.getOneBody(pos1.index, rc1);
+					breakdown.setOneBody(pos1.index, 0, energy);
+				}
+
+				for (SimpleConfSpace.Position pos2 : confEcalc.confSpace.positions) {
+					if (pos2.index < pos1.index) {
+						int rc2 = assignments[pos2.index];
+
+						double energy = emat.getPairwise(pos1.index, rc1, pos2.index, rc2);
+						breakdown.setPairwise(pos1.index, 0, pos2.index, 0, energy);
+					}
+				}
+			}
+			return breakdown;
+		}
+	}
+}

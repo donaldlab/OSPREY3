@@ -242,6 +242,9 @@ public class SimpleConfSpace implements Serializable {
 
 	/** The design positions */
 	public final List<Position> positions;
+
+	/** The design positions, indexed by residue number */
+	public final Map<String,Position> positionsByResNum;
 	
 	/** The residue numbers of the shell residues */
 	public final Set<String> shellResNumbers;
@@ -293,6 +296,12 @@ public class SimpleConfSpace implements Serializable {
 		// make sure we have some design positions
 		if (positions.isEmpty()) {
 			throw new IllegalArgumentException("ConfSpace has no design positions, try adding some strand flexibility");
+		}
+
+		// index the positions
+		positionsByResNum = new HashMap<>();
+		for (Position pos : positions) {
+			positionsByResNum.put(pos.resNum, pos);
 		}
 
 		// collect all the static,flexible residues
@@ -378,6 +387,11 @@ public class SimpleConfSpace implements Serializable {
 				}
 			}
 		}
+	}
+
+	/** Gets a design position by residue number */
+	public Position getPosition(String resNum) {
+		return positionsByResNum.get(resNum);
 	}
 	
 	/** Gets the number of residue confs per position */

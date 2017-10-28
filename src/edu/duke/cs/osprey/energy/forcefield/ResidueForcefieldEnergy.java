@@ -36,19 +36,19 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		
 		this.resPairCache = resPairCache;
 		this.inters = inters;
-		this.residues = residues;
+		this.residues = inters.filter(residues);
 		
 		// compute solvation info if needed
 		SolvationForcefield.ResiduesInfo solvInfo = null;
 		if (resPairCache.ffparams.solvationForcefield != null) {
-			solvInfo = resPairCache.ffparams.solvationForcefield.makeInfo(resPairCache.ffparams, residues);
+			solvInfo = resPairCache.ffparams.solvationForcefield.makeInfo(resPairCache.ffparams, this.residues);
 		}
 		
 		// map the residue numbers to residues
 		resPairs = new ResPair[inters.size()];
 		int index = 0;
 		for (ResidueInteractions.Pair pair : inters) {
-			resPairs[index++] = resPairCache.get(residues, pair, solvInfo);
+			resPairs[index++] = resPairCache.get(this.residues, pair, solvInfo);
 		}
 		
 		// is this a broken conformation?
@@ -66,6 +66,14 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		coulombFactor = ForcefieldParams.coulombConstant/resPairCache.ffparams.dielectric;
 		scaledCoulombFactor = coulombFactor*resPairCache.ffparams.forcefld.coulombScaling;
 	}
+
+	public ResidueForcefieldEnergy makeSubset(ResidueInteractions.Pair pair) {
+		return makeSubset(new ResidueInteractions(pair));
+	}
+
+	public ResidueForcefieldEnergy makeSubset(ResidueInteractions inters) {
+		return new ResidueForcefieldEnergy(resPairCache, inters, residues);
+	}
 	
 	@Override
 	public double getEnergy() {
@@ -73,6 +81,10 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	}
 	
 	private double getEnergy(ResPair[] resPairs) {
+
+		// NOTE: this function gets hammered a lot! Performance is super important here,
+		// and even pedantic optimizations can make a big difference.
+		// don't make changes here unless you're carefully profiling too
 		
 		// check broken-ness first. easy peasy
 		if (isBroken) {
@@ -204,6 +216,246 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		}
 		
 		return energy;
+	}
+
+	public double getElectrostaticsEnergy() {
+
+		// NOTE: this function isn't hammered like getEnergy() is, so performance isn't important here
+
+		// check broken-ness first. easy peasy
+		if (isBroken) {
+			return Double.POSITIVE_INFINITY;
+		}
+
+		double energy = 0.0;
+
+		for (ResPair pair : resPairs) {
+
+			double resPairEnergy = 0;
+
+			// for each atom pair...
+			int pos = 0;
+			for (int j=0; j<pair.info.numAtomPairs; j++) {
+
+				// read the flags
+				long atomPairFlags = pair.info.flags[j];
+				int atomOffset2 = (int)(atomPairFlags & 0xffff);
+				atomPairFlags >>= 16;
+				int atomOffset1 = (int)(atomPairFlags & 0xffff);
+				atomPairFlags >>= 46;
+				boolean isHeavyPair = (atomPairFlags & 0x1) == 0x1;
+				atomPairFlags >>= 1;
+				boolean is14Bonded = (atomPairFlags & 0x1) == 0x1;
+
+				// get the radius
+				double r2 = getR2(pair, atomOffset1, atomOffset2);
+				double r = Math.sqrt(r2);
+
+				// compute the electrostatics
+				if (isHeavyPair || resPairCache.ffparams.hElect) {
+					double charge = pair.info.precomputed[pos++];
+					if (is14Bonded) {
+						if (resPairCache.ffparams.distDepDielect) {
+							resPairEnergy += scaledCoulombFactor*charge/r2;
+						} else {
+							resPairEnergy += scaledCoulombFactor*charge/r;
+						}
+					} else {
+						if (resPairCache.ffparams.distDepDielect) {
+							resPairEnergy += coulombFactor*charge/r2;
+						} else {
+							resPairEnergy += coulombFactor*charge/r;
+						}
+					}
+				} else {
+					pos++;
+				}
+
+				// skip the van der Waals
+				pos += 2;
+
+				// skip the solvation precomputed values
+				if (resPairCache.ffparams.solvationForcefield == SolvationForcefield.EEF1) {
+					pos += 6;
+				}
+			}
+
+			// apply weight, but not offset
+			energy += resPairEnergy*pair.weight;
+		}
+
+		return energy;
+	}
+
+	public double getVanDerWaalsEnergy() {
+
+		// NOTE: this function isn't hammered like getEnergy() is, so performance isn't important here
+
+		// check broken-ness first. easy peasy
+		if (isBroken) {
+			return Double.POSITIVE_INFINITY;
+		}
+
+		double energy = 0.0;
+
+		for (ResPair pair : resPairs) {
+
+			double resPairEnergy = 0;
+
+			// for each atom pair...
+			int pos = 0;
+			for (int j=0; j<pair.info.numAtomPairs; j++) {
+
+				// read the flags
+				long atomPairFlags = pair.info.flags[j];
+				int atomOffset2 = (int)(atomPairFlags & 0xffff);
+				atomPairFlags >>= 16;
+				int atomOffset1 = (int)(atomPairFlags & 0xffff);
+				atomPairFlags >>= 46;
+				boolean isHeavyPair = (atomPairFlags & 0x1) == 0x1;
+
+				// skip the electrostatics precomputed values
+				pos += 1;
+
+				if (isHeavyPair || resPairCache.ffparams.hVDW) {
+
+					// get the radius
+					double r2 = getR2(pair, atomOffset1, atomOffset2);
+
+					double Aij = pair.info.precomputed[pos++];
+					double Bij = pair.info.precomputed[pos++];
+
+					// compute vdw
+					double r6 = r2*r2*r2;
+					double r12 = r6*r6;
+					resPairEnergy += Aij/r12 - Bij/r6;
+
+				} else {
+					pos += 2;
+				}
+
+				// skip the solvation precomputed values
+				if (resPairCache.ffparams.solvationForcefield == SolvationForcefield.EEF1) {
+					pos += 6;
+				}
+			}
+
+			// apply weight, but not offset
+			energy += resPairEnergy*pair.weight;
+		}
+
+		return energy;
+	}
+
+	public double getSolvationEnergy() {
+
+		// NOTE: this function isn't hammered like getEnergy() is, so performance isn't important here
+
+		// check broken-ness first. easy peasy
+		if (isBroken) {
+			return Double.POSITIVE_INFINITY;
+		}
+
+		double energy = 0.0;
+
+		for (ResPair pair : resPairs) {
+
+			double resPairEnergy = 0;
+
+			// for each atom pair...
+			int pos = 0;
+			for (int j=0; j<pair.info.numAtomPairs; j++) {
+
+				// read the flags
+				// NOTE: this is efficient, but destructive to the val
+				long atomPairFlags = pair.info.flags[j];
+				int atomOffset2 = (int)(atomPairFlags & 0xffff);
+				atomPairFlags >>= 16;
+				int atomOffset1 = (int)(atomPairFlags & 0xffff);
+				atomPairFlags >>= 46;
+				boolean isHeavyPair = (atomPairFlags & 0x1) == 0x1;
+				atomPairFlags >>= 1;
+				boolean is14Bonded = (atomPairFlags & 0x1) == 0x1;
+
+				// get the radius
+				double r2 = getR2(pair, atomOffset1, atomOffset2);
+				double r = Math.sqrt(r2);
+
+				// skip the vdW and electrostatics precomputed values
+				pos += 3;
+
+				// solvation
+				if (resPairCache.ffparams.solvationForcefield == SolvationForcefield.EEF1) {
+					if (isHeavyPair && r2 < ForcefieldParams.solvCutoff2) {
+
+						double radius1 = pair.info.precomputed[pos++];
+						double lambda1 = pair.info.precomputed[pos++];
+						double alpha1 = pair.info.precomputed[pos++];
+						double radius2 = pair.info.precomputed[pos++];
+						double lambda2 = pair.info.precomputed[pos++];
+						double alpha2 = pair.info.precomputed[pos++];
+
+						// compute solvation energy
+						double Xij = (r - radius1)/lambda1;
+						double Xji = (r - radius2)/lambda2;
+						resPairEnergy -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
+
+					} else {
+						pos += 6;
+					}
+				}
+			}
+
+			// apply weight, but not offset
+			energy += resPairEnergy*pair.weight;
+		}
+
+		return energy;
+	}
+
+	public double getOffsetsEnergy() {
+
+		// NOTE: this function isn't hammered like getEnergy() is, so performance isn't important here
+
+		// check broken-ness first. easy peasy
+		if (isBroken) {
+			return Double.POSITIVE_INFINITY;
+		}
+
+		double energy = 0.0;
+
+		for (ResPair pair : resPairs) {
+			energy += pair.offset*pair.weight;
+		}
+
+		return energy;
+	}
+
+	private ResPair findResPair(ResidueInteractions.Pair interPair) {
+		for (ResPair resPair : resPairs) {
+			if (interPair.resNum1.equalsIgnoreCase(resPair.res1.getPDBResNumber())
+				&& interPair.resNum2.equalsIgnoreCase(resPair.res2.getPDBResNumber())) {
+				return resPair;
+			}
+		}
+		return null;
+	}
+
+	private double getR2(ResPair pair, int atomOffset1, int atomOffset2) {
+
+		// read atom coords
+		double x1 = pair.res1.coords[atomOffset1];
+		double y1 = pair.res1.coords[atomOffset1 + 1];
+		double z1 = pair.res1.coords[atomOffset1 + 2];
+		double x2 = pair.res2.coords[atomOffset2];
+		double y2 = pair.res2.coords[atomOffset2 + 1];
+		double z2 = pair.res2.coords[atomOffset2 + 2];
+
+		// compute r2
+		double dx = x1 - x2;
+		double dy = y1 - y2;
+		double dz = z1 - z2;
+		return dx*dx + dy*dy + dz*dz;
 	}
 	
 	public ResPair[] makeResPairsSubset(Residue res) {
