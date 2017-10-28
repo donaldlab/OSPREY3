@@ -401,7 +401,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		outbuf.rewind();
 		DoubleMatrix1D x = DoubleFactory1D.dense.make(mof.getNumDOFs());
 		for (Dihedral dihedral : dihedrals) {
-			x.set(dihedral.d, outbuf.get());
+			x.set(dihedral.d, Math.toDegrees(outbuf.get()));
 		}
 		Minimizer.Result result = new Minimizer.Result(x, outbuf.get());
 		

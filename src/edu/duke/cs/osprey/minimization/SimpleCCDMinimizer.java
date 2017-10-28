@@ -115,7 +115,10 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reu
 				break;
 			}
 		}
-		
+
+		// update the protein conf, one last time
+		f.setDOFs(herex);
+
 		return new Minimizer.Result(herex, herefx);
 	}
 	

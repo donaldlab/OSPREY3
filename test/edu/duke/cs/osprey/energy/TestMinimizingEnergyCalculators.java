@@ -79,89 +79,89 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	}
 	
 	@Test
-	public void defaults() {
+	public void energyDefaults() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams));
 	}
 	
 	@Test
-	public void cpuOneThread() {
+	public void energyCpuOneThread() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.Cpu)
 			.setParallelism(Parallelism.makeCpu(1)));
 	}
 	
 	@Test
-	public void cpuTwoThreads() {
+	public void energyCpuTwoThreads() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.Cpu)
 			.setParallelism(Parallelism.makeCpu(2)));
 	}
 	
 	@Test
-	public void openclOneStream() {
+	public void energyOpenclOneStream() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.OpenCL)
 			.setParallelism(Parallelism.make(4, 1, 1)));
 	}
 	
 	@Test
-	public void openclTwoStreams() {
+	public void energyOpenclTwoStreams() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.OpenCL)
 			.setParallelism(Parallelism.make(4, 1, 2)));
 	}
 	
 	@Test
-	public void cudaOneStream() {
+	public void energyCudaOneStream() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.Cuda)
 			.setParallelism(Parallelism.make(4, 1, 1)));
 	}
 	
 	@Test
-	public void cudaTwoStreams() {
+	public void energyCudaTwoStreams() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.Cuda)
 			.setParallelism(Parallelism.make(5, 1, 2)));
 	}
 	
 	@Test
-	public void cudaCcdOneStream() {
+	public void energyCudaCcdOneStream() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.CudaCCD)
 			.setParallelism(Parallelism.make(4, 1, 1)));
 	}
 	
 	@Test
-	public void cudaCcdTwoStreams() {
+	public void energyCudaCcdTwoStreams() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.CudaCCD)
 			.setParallelism(Parallelism.make(4, 1, 2)));
 	}
 	
 	@Test
-	public void residueCudaOneStream() {
+	public void energyResidueCudaOneStream() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.ResidueCuda)
 			.setParallelism(Parallelism.make(4, 1, 1)));
 	}
 	
 	@Test
-	public void residueCudaTwoStreams() {
+	public void energyResidueCudaTwoStreams() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.ResidueCuda)
 			.setParallelism(Parallelism.make(4, 1, 2)));
 	}
 	
 	@Test
-	public void residueCudaCcdOneStream() {
+	public void energyResidueCudaCcdOneStream() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.ResidueCudaCCD)
 			.setParallelism(Parallelism.make(4, 1, 1)));
 	}
 	
 	@Test
-	public void residueCudaCcdTwoStreams() {
+	public void energyResidueCudaCcdTwoStreams() {
 		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.ResidueCudaCCD)
 			.setParallelism(Parallelism.make(4, 1, 2)));
@@ -382,5 +382,79 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 		} catch (Exception ex) {
 			throw new Error(ex);
 		}
+	}
+
+	public static void checkFinalPose(EnergyCalculator.Builder builder) {
+		builder.use((ecalc) -> {
+
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+				.build();
+
+			// calc the minimized energy the usual way
+			ScoredConf conf = confs.get(0);
+			EnergiedConf econf = confEcalc.calcEnergy(conf);
+
+			// get the minimized conf
+			RCTuple frag = new RCTuple(conf.getAssignments());
+			ParametricMolecule pmol = confSpace.makeMolecule(frag);
+			ResidueInteractions inters = confEcalc.makeFragInters(frag);
+			double minimizedEnergy = ecalc.calcEnergy(pmol, inters);
+
+			// make sure the minimized energies match
+			assertThat(minimizedEnergy, isAbsolutely(econf.getEnergy()));
+
+			// to actually check the protein pose, calculate the energy of the final pose
+			EnergyFunction efunc = ecalc.makeEnergyFunction(pmol, inters);
+			double poseEnergy = efunc.getEnergy();
+			EnergyFunction.Tools.cleanIfNeeded(efunc);
+			assertThat(poseEnergy, isAbsolutely(econf.getEnergy(), 1e-12));
+		});
+	}
+
+	@Test
+	public void poseDefaults() {
+		checkFinalPose(new EnergyCalculator.Builder(confSpace, ffparams));
+	}
+
+	@Test
+	public void poseCpu() {
+		checkFinalPose(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.Cpu)
+			.setParallelism(Parallelism.makeCpu(1)));
+	}
+
+	@Test
+	public void poseOpencl() {
+		checkFinalPose(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.OpenCL)
+			.setParallelism(Parallelism.make(4, 1, 1)));
+	}
+
+	@Test
+	public void poseCuda() {
+		checkFinalPose(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.Cuda)
+			.setParallelism(Parallelism.make(4, 1, 1)));
+	}
+
+	@Test
+	public void poseCudaCcd() {
+		checkFinalPose(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.CudaCCD)
+			.setParallelism(Parallelism.make(4, 1, 1)));
+	}
+
+	@Test
+	public void poseResidueCuda() {
+		checkFinalPose(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.ResidueCuda)
+			.setParallelism(Parallelism.make(4, 1, 1)));
+	}
+
+	@Test
+	public void poseResidueCudaCcd() {
+		checkFinalPose(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.ResidueCudaCCD)
+			.setParallelism(Parallelism.make(4, 1, 1)));
 	}
 }
