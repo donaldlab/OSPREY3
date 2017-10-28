@@ -575,7 +575,7 @@ public class KStarScoreMinimized implements KStarScore {
 		else if(pf.getStatus() == Status.ViolatedConstraints) {
 			constrSatisfied = false;
 			pf.getValues().qstar = BigDecimal.ZERO;
-			if(settings.isReportingProgress) System.out.println("WARNING: constraint not satisfied ... pruning sequence.");
+			if(settings.isReportingProgress) System.out.println("WARNING: constraint not satisfied... pruning sequence");
 			pf.setStatus(Status.Estimated);
 		}
 
