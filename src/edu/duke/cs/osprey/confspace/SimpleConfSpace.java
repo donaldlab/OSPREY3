@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import java.io.Serializable;
+import java.util.stream.Collectors;
 
 /**
  * Maintains the design positions and residue conformations for a list of strands.
@@ -665,5 +666,48 @@ public class SimpleConfSpace implements Serializable {
 		}
 
 		return matching;
+	}
+
+	public List<ResidueConf> getResidueConfs(ConfSearch.ScoredConf conf) {
+		return getResidueConfs(conf.getAssignments());
+	}
+
+	public List<ResidueConf> getResidueConfs(int[] conf) {
+		return positions.stream()
+			.map((pos) -> pos.resConfs.get(conf[pos.index]))
+			.collect(Collectors.toList());
+	}
+
+	public String formatConfRCs(ConfSearch.ScoredConf conf) {
+		return formatConfRCs(conf.getAssignments());
+	}
+
+	public String formatConfRCs(int[] conf) {
+		return String.join(" ", Arrays.stream(conf)
+			.mapToObj((int rc) -> String.format("%3d", rc))
+			.collect(Collectors.toList())
+		);
+	}
+
+	public String formatConfSequence(ConfSearch.ScoredConf conf) {
+		return formatConfSequence(conf.getAssignments());
+	}
+
+	public String formatConfSequence(int[] conf) {
+		return String.join(" ", getResidueConfs(conf).stream()
+			.map((resConf) -> String.format("%3s", resConf.template.name))
+			.collect(Collectors.toList())
+		);
+	}
+
+	public String formatConfRotamers(ConfSearch.ScoredConf conf) {
+		return formatConfRotamers(conf.getAssignments());
+	}
+
+	public String formatConfRotamers(int[] conf) {
+		return String.join(" ", getResidueConfs(conf).stream()
+			.map((resConf) -> String.format("%3s", resConf.getRotamerCode()))
+			.collect(Collectors.toList())
+		);
 	}
 }

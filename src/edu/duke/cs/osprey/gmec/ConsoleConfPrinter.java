@@ -32,17 +32,13 @@ public class ConsoleConfPrinter implements ConfPrinter {
 		if (confSpace != null) {
 
 			buf.append(String.format(LabelFormat, "Residue types"));
-			for (Position pos : confSpace.positions) {
-				ResidueConf resConf = pos.resConfs.get(conf.getAssignments()[pos.index]);
-				buf.append(String.format(" %3s", resConf.template.name));
-			}
+			buf.append(" ");
+			buf.append(confSpace.formatConfSequence(conf));
 			buf.append("\n");
 
 			buf.append(String.format(LabelFormat, "Rotamer numbers"));
-			for (Position pos : confSpace.positions) {
-				ResidueConf resConf = pos.resConfs.get(conf.getAssignments()[pos.index]);
-				buf.append(String.format(" %3s", resConf.getRotamerCode()));
-			}
+			buf.append(" ");
+			buf.append(confSpace.formatConfRotamers(conf));
 			buf.append("\n");
 		}
 		
