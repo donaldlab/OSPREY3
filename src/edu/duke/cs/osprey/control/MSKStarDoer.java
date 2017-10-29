@@ -393,7 +393,7 @@ public class MSKStarDoer {
 	}
 
 	protected ArrayList<ArrayList<ArrayList<String>>> printAllSeqs(boolean countOnly) {
-		ArrayList<ArrayList<ArrayList<String>>> stateSeqLists = listAllSeqs(countOnly);
+		ArrayList<ArrayList<ArrayList<String>>> stateSeqLists = listAllSeqs(countOnly, msParams.getBool("NumMaxMutOnly", false));
 
 		if(msParams.getBool("PrintAllSeqsOnly", false)) {
 			System.out.println();
@@ -431,7 +431,7 @@ public class MSKStarDoer {
 	 * from the wilt type sequence.
 	 * @return
 	 */
-	private ArrayList<ArrayList<ArrayList<String>>> listAllSeqs(boolean countOnly) {
+	private ArrayList<ArrayList<ArrayList<String>>> listAllSeqs(boolean countOnly, boolean numMaxMutOnly) {
 
 		System.out.println();
 		System.out.print("Counting number of possible sequences...");
@@ -449,7 +449,7 @@ public class MSKStarDoer {
 			ArrayList<ArrayList<String>> stateOutput = new ArrayList<>();
 
 			//get allowed sequences for this state's bound complex
-			listAllSeqsHelper(subStateAATypeOptions, stateOutput, wtSeqs.get(state), buf, 0, 0, countOnly);
+			listAllSeqsHelper(subStateAATypeOptions, stateOutput, wtSeqs.get(state), buf, 0, 0, countOnly, numMaxMutOnly);
 			stateOutput.trimToSize();
 			ans.add(stateOutput);
 		}
@@ -463,10 +463,15 @@ public class MSKStarDoer {
 	}
 
 	private void listAllSeqsHelper(ArrayList<ArrayList<String>> subStateAATypeOptions, 
-			ArrayList<ArrayList<String>> stateOutput, String[] wt, String[] buf, int depth, int dist, boolean countOnly){
+			ArrayList<ArrayList<String>> stateOutput, String[] wt, String[] buf, int depth, int dist, boolean countOnly, boolean numMaxMutOnly){
 		//List all sequences for the subset of mutable positions with max distance
 		//from wt starting at depth=0 and going to the last mutable position
 		if(depth==numMutRes){
+			//only compute numMaxMut mutations
+			if(numMaxMutOnly && dist != numMaxMut) {
+				return;
+			}
+			
 			totalNumSeqs++;
 
 			if(countOnly) {
@@ -485,7 +490,7 @@ public class MSKStarDoer {
 			buf[depth]=subStateAATypeOptions.get(depth).get(aaIndex);
 			int nDist=buf[depth].equalsIgnoreCase(wt[depth]) ? dist : dist+1;
 			if(nDist>numMaxMut) continue;
-			listAllSeqsHelper(subStateAATypeOptions, stateOutput, wt, buf, depth+1, nDist, countOnly);
+			listAllSeqsHelper(subStateAATypeOptions, stateOutput, wt, buf, depth+1, nDist, countOnly, numMaxMutOnly);
 		}
 	}
 
@@ -563,7 +568,7 @@ public class MSKStarDoer {
 		System.out.println();
 
 		//this prints out the total number of sequences
-		listAllSeqs(true);
+		listAllSeqs(true, false);
 	}
 
 	/**
