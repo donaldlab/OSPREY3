@@ -17,10 +17,13 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.gmec.PrecomputedMatrices;
 import edu.duke.cs.osprey.pruning.NewPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.structure.PDBIO;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.PriorityQueue;
@@ -370,7 +373,7 @@ public class NewCOMETSTree extends AStarTree<COMETSNode> {
                 
                 if(outputGMECStructs){
                     //let's output the structure, PDB file named by sequence and state
-                    confECalc[state].writeMinimizedStruct( new RCTuple(conf), "GMEC.state"+state+"."+seq+".pdb" );
+					PDBIO.writeFile(confECalc[state].calcEnergy(new RCTuple(conf)), "GMEC.state"+state+"."+seq+".pdb");
                 }
             }
         }

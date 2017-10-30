@@ -47,6 +47,28 @@ public class PairwiseGScorer implements AStarScorer {
 		return gscore;
 	}
 
+	public double calc(int[] assignments) {
+
+		// constant term
+		double gscore = emat.getConstTerm();
+
+		for (int pos1=0; pos1<assignments.length; pos1++) {
+			int rc1 = assignments[pos1];
+
+			// one body energy
+			gscore += emat.getOneBody(pos1, rc1);
+
+			// pairwise energies
+			for (int pos2=0; pos2<pos1; pos2++) {
+				int rc2 = assignments[pos2];
+
+				gscore += emat.getPairwise(pos1, rc1, pos2, rc2);
+			}
+		}
+
+		return gscore;
+	}
+
 	@Override
 	public double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc) {
 		

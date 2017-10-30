@@ -2,13 +2,13 @@ package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 
 import java.io.File;
@@ -21,13 +21,13 @@ public class SequenceAnalyzer {
 		public final KStar.ConfSpaceType type;
 		public final KStar.Sequence complexSequence;
 		public final KStar.Sequence filteredSequence;
-		public final List<ConfSearch.EnergiedConf> econfs;
+		public final ConfAnalyzer.EnsembleAnalysis ensemble;
 
-		public Analysis(KStar.ConfSpaceType type, KStar.Sequence complexSequence, KStar.Sequence filteredSequence) {
+		public Analysis(KStar.ConfSpaceType type, KStar.Sequence complexSequence, KStar.Sequence filteredSequence, ConfAnalyzer.EnsembleAnalysis ensemble) {
 			this.type = type;
 			this.complexSequence = complexSequence;
 			this.filteredSequence = filteredSequence;
-			this.econfs = new ArrayList<>();
+			this.ensemble = ensemble;
 		}
 
 		public SimpleConfSpace getConfSpace() {
@@ -35,46 +35,14 @@ public class SequenceAnalyzer {
 		}
 
 		public void writePdbs(String filePattern) {
-
-			if (econfs.isEmpty()) {
-				return;
-			}
-
-			// the pattern has a * right?
-			if (filePattern.indexOf('*') < 0) {
-				throw new IllegalArgumentException("filePattern (which is '" + filePattern + "') has no wildcard character (which is *)");
-			}
-
-			// mkdirs
-			new File(filePattern).getParentFile().mkdirs();
-
-			ConfSpaceInfo info = infosByType.get(type);
-
-			String indexFormat = getIndexFormat();
-			for (int i=0; i<econfs.size(); i++) {
-
-				String filename = filePattern.replace("*", String.format(indexFormat, i + 1));
-				RCTuple frag = new RCTuple(econfs.get(i).getAssignments());
-
-				info.confEcalc.tasks.submit(() -> {
-					info.confEcalc.writeMinimizedStruct(frag, filename);
-					return null;
-				}, (ignore) -> {});
-			}
-
-			info.confEcalc.tasks.waitForFinish();
-		}
-
-		private String getIndexFormat() {
-			int indexSize = 1 + (int)Math.log10(econfs.size());
-			return "%0" + indexSize + "d";
+			ensemble.writePdbs(filePattern);
 		}
 
 		@Override
 		public String toString() {
 
 			SimpleConfSpace confSpace = getConfSpace();
-			String indexFormat = getIndexFormat();
+			int indexSize = 1 + (int)Math.log10(ensemble.analyses.size());
 
 			StringBuilder buf = new StringBuilder();
 			buf.append(complexSequence.toString(KStar.Sequence.makeWildType(complex.confSpace)));
@@ -85,20 +53,15 @@ public class SequenceAnalyzer {
 				buf.append(filteredSequence.toString(KStar.Sequence.makeWildType(confSpace)));
 			}
 			buf.append("\n");
-			for (int i=0; i<econfs.size(); i++) {
-				ConfSearch.EnergiedConf econf = econfs.get(i);
+			for (int i=0; i<ensemble.analyses.size(); i++) {
+				ConfAnalyzer.ConfAnalysis analysis = ensemble.analyses.get(i);
 				buf.append("\t");
-				buf.append(String.format(indexFormat + "/" + indexFormat, i + 1, econfs.size()));
-				buf.append(String.format("     Energy: %12.6f     Score: %12.6f", econf.getEnergy(), econf.getScore()));
+				buf.append(String.format("%" + indexSize + "d/%" + indexSize + "d", i + 1, ensemble.analyses.size()));
+				buf.append(String.format("     Energy: %-12.6f     Score: %-12.6f", analysis.epmol.energy, analysis.score));
 				buf.append("     Rotamers: ");
-				for (SimpleConfSpace.Position pos : confSpace.positions) {
-					SimpleConfSpace.ResidueConf resConf = pos.resConfs.get(econf.getAssignments()[pos.index]);
-					buf.append(String.format(" %3s", resConf.getRotamerCode()));
-				}
+				buf.append(confSpace.formatConfRotamers(analysis.assignments));
 				buf.append("     Residue Conf IDs: ");
-				for (int rc : econf.getAssignments()) {
-					buf.append(String.format(" %3d", rc));
-				}
+				buf.append(confSpace.formatConfRCs(analysis.assignments));
 				buf.append("\n");
 			}
 			return buf.toString();
@@ -215,10 +178,8 @@ public class SequenceAnalyzer {
 		Queue.FIFO<ConfSearch.EnergiedConf> econfs = gmecFinder.find(energyWindowSize);
 
 		// return the analysis
-		Analysis analysis = new Analysis(type, complexSequence, filteredSequence);
-		while (!econfs.isEmpty()) {
-			analysis.econfs.add(econfs.poll());
-		}
-		return analysis;
+		ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc, info.emat);
+		ConfAnalyzer.EnsembleAnalysis ensemble = analyzer.analyzeEnsemble(econfs, Integer.MAX_VALUE);
+		return new Analysis(type, complexSequence, filteredSequence, ensemble);
 	}
 }

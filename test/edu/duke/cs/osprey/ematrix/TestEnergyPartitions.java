@@ -49,7 +49,7 @@ public class TestEnergyPartitions {
 				
 				double confEnergy = new ConfEnergyCalculator.Builder(confSpace, ecalc)
 					.build()
-					.calcEnergy(conf, EnergyPartition.makeFragment(confSpace, null, false, conf));
+					.calcEnergy(conf, EnergyPartition.makeFragment(confSpace, null, false, conf)).energy;
 				assertThat(confEnergy, isAbsolutely(ExpectedEnergy, EnergyEpsilon));
 				
 				for (EnergyPartition epart : EnergyPartition.values()) {
@@ -63,12 +63,12 @@ public class TestEnergyPartitions {
 						partsEnergy += confEcalc.calcEnergy(
 							new RCTuple(pos1, 0),
 							epart.makeSingle(confSpace, null, false, pos1, 0)
-						);
+						).energy;
 						for (int pos2=0; pos2<pos1; pos2++) {
 							partsEnergy += confEcalc.calcEnergy(
 								new RCTuple(pos1, 0, pos2, 0),
 								epart.makePair(confSpace, null, false, pos1, 0, pos2, 0)
-							);
+							).energy;
 						}
 					}
 					assertThat(partsEnergy, isAbsolutely(ExpectedEnergy, EnergyEpsilon));

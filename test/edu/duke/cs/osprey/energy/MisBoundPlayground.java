@@ -130,7 +130,7 @@ public class MisBoundPlayground {
 					double score = astar.gscorer.calc(index, astar.rcs);
 
 					// minimize the conf and get the energy
-					double energy = confEcalc.calcEnergy(new RCTuple(conf));
+					double energy = confEcalc.calcEnergy(new RCTuple(conf)).energy;
 
 					// get the sequence and rotamers
 					StringBuilder sequence = new StringBuilder();
@@ -163,7 +163,7 @@ public class MisBoundPlayground {
 					System.out.println("forcefield: " + breakdownByPos.breakdownForcefield(ResidueForcefieldBreakdown.Type.All));
 
 					// breakdown the bound
-					System.out.println("bound: " + breakdownByPos.breakdownBound(emat));
+					System.out.println("bound: " + breakdownByPos.breakdownScore(emat));
 				}
 			});
 	}

@@ -165,9 +165,8 @@ public class TestResidueForcefieldBreakdown {
 		double allEnergy = breakdown.breakdownForcefield(ResidueForcefieldBreakdown.Type.All).sum();
 		assertThat(sum, isAbsolutely(allEnergy, 1e-12));
 
-		// should match the total energy
-		double totalEnergy = confEcalc.calcEnergy(new RCTuple(conf.getAssignments()));
-		assertThat(sum, isAbsolutely(totalEnergy, 1e-12));
+		// should match the minimized energy
+		assertThat(sum, isAbsolutely(breakdown.epmol.energy, 1e-12));
 	}
 
 	@Test

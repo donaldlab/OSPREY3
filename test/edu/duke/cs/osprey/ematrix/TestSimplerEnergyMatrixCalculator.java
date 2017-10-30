@@ -822,9 +822,9 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 	private void assertSingles(SimpleConfSpace confSpace, double[] exp) {
 		for (int i=0; i<confSpace.positions.get(0).resConfs.size(); i++) {
 			assertEnergy(
-                                confSpace.isContinuouslyFlexible(new RCTuple(0, i)),
+				confSpace.isContinuouslyFlexible(new RCTuple(0, i)),
 				exp[i],
-				makeEmatCalc(confSpace).confEcalc.calcSingleEnergy(0, i),
+				makeEmatCalc(confSpace).confEcalc.calcSingleEnergy(0, i).energy,
 				describe(confSpace, 0, i)
 			); 
 		}

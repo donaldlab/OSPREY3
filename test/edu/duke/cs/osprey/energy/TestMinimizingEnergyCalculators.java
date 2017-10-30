@@ -392,22 +392,14 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 
 			// calc the minimized energy the usual way
 			ScoredConf conf = confs.get(0);
-			EnergiedConf econf = confEcalc.calcEnergy(conf);
-
-			// get the minimized conf
 			RCTuple frag = new RCTuple(conf.getAssignments());
-			ParametricMolecule pmol = confSpace.makeMolecule(frag);
-			ResidueInteractions inters = confEcalc.makeFragInters(frag);
-			double minimizedEnergy = ecalc.calcEnergy(pmol, inters);
-
-			// make sure the minimized energies match
-			assertThat(minimizedEnergy, isAbsolutely(econf.getEnergy()));
+			EnergyCalculator.EnergiedParametricMolecule epmol = confEcalc.calcEnergy(frag);
 
 			// to actually check the protein pose, calculate the energy of the final pose
-			EnergyFunction efunc = ecalc.makeEnergyFunction(pmol, inters);
+			EnergyFunction efunc = ecalc.makeEnergyFunction(epmol);
 			double poseEnergy = efunc.getEnergy();
 			EnergyFunction.Tools.cleanIfNeeded(efunc);
-			assertThat(poseEnergy, isAbsolutely(econf.getEnergy(), 1e-12));
+			assertThat(poseEnergy, isAbsolutely(epmol.energy, 1e-12));
 		});
 	}
 
