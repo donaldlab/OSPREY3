@@ -36,7 +36,9 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		
 		this.resPairCache = resPairCache;
 		this.inters = inters;
-		this.residues = inters.filter(residues);
+		// NOTE: don't filter residues using the interactions here... for some reason this is breaking EPIC
+		//this.residues = inters.filter(residues);
+		this.residues = residues;
 		
 		// compute solvation info if needed
 		SolvationForcefield.ResiduesInfo solvInfo = null;
