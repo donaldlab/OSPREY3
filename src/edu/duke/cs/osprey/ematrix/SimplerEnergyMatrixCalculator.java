@@ -120,9 +120,9 @@ public class SimplerEnergyMatrixCalculator {
 						List<Double> energies = new ArrayList<>();
 						for (RCTuple frag : fragments) {
 							if (frag.size() == 1) {
-								energies.add(confEcalc.calcSingleEnergy(frag));
+								energies.add(confEcalc.calcSingleEnergy(frag).energy);
 							} else {
-								energies.add(confEcalc.calcPairEnergy(frag));
+								energies.add(confEcalc.calcPairEnergy(frag).energy);
 							}
 						}
 						
@@ -220,12 +220,12 @@ public class SimplerEnergyMatrixCalculator {
 				confEcalc.calcEnergyAsync(
 					frag,
 					ResInterGen.of(confEcalc.confSpace).addIntra(pos.index).make(),
-					(Double energy) -> {
+					(EnergyCalculator.EnergiedParametricMolecule epmol) -> {
 						
 						// keep the min energy for each pos,resType
 						Double e = eref.get(frag.pos.get(0), resType);
-						if (e == null || energy < e) {
-							e = energy;
+						if (e == null || epmol.energy < e) {
+							e = epmol.energy;
 						}
 						eref.set(frag.pos.get(0), resType, e);
 						progress.incrementProgress();

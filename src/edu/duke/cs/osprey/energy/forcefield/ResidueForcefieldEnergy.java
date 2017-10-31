@@ -36,7 +36,9 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		
 		this.resPairCache = resPairCache;
 		this.inters = inters;
-		this.residues = inters.filter(residues);
+		// NOTE: don't filter residues using the interactions here... for some reason this is breaking EPIC
+		//this.residues = inters.filter(residues);
+		this.residues = residues;
 		
 		// compute solvation info if needed
 		SolvationForcefield.ResiduesInfo solvInfo = null;
@@ -408,6 +410,11 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 
 			// apply weight, but not offset
 			energy += resPairEnergy*pair.weight;
+
+			// add per-pair solv energy
+			if (pair.solvEnergy != null) {
+				energy += pair.solvEnergy*pair.weight;
+			}
 		}
 
 		return energy;
@@ -425,7 +432,14 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		double energy = 0.0;
 
 		for (ResPair pair : resPairs) {
+
+			// add the regular offsets
 			energy += pair.offset*pair.weight;
+
+			// remove per-pair solv energy
+			if (pair.solvEnergy != null) {
+				energy -= pair.solvEnergy*pair.weight;
+			}
 		}
 
 		return energy;

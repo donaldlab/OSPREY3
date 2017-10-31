@@ -28,6 +28,7 @@ public class TestPythonScripts {
 		run("examples/python.GMEC", script);
 	}
 
+	@Test public void analyzeConf() { runGMEC("analyzeConf.py"); }
 	@Test public void findGMECAdvanced() { runGMEC("findGMEC.advanced.py"); }
 	@Test public void findGMECDEE() { runGMEC("findGMEC.DEE.py"); }
 	@Test public void findGMECDEEPer() { runGMEC("findGMEC.DEEPer.py"); }

@@ -37,7 +37,7 @@ public class NewConfETupleExpander extends TupleExpander {
     @Override
     double scoreAssignmentList(int[] assignmentList) {
         RCTuple tup = new RCTuple(assignmentList);
-        double E = confECalc.calcEnergy(tup);
+        double E = confECalc.calcEnergy(tup).energy;
         
         if(E==Double.POSITIVE_INFINITY){//this is going to be a problem if used as a true value
             if(isPruned(tup))

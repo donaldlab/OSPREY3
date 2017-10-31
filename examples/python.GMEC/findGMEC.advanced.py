@@ -63,10 +63,3 @@ confs = osprey.GMECFinder(
 	printIntermediateConfs=True,
 	confLog='confs.txt'
 ).find(energyWindow)
-
-# get some info about the confs
-print('\nyup, we found %d confs in the energy window' % confs.size())
-gmec = confs.peek()
-gmecMol = confSpace.makeMolecule(gmec)
-osprey.writePdb(gmecMol, 'gmec.pdb')
-

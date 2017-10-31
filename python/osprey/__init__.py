@@ -27,6 +27,7 @@ EnergyPartition = None
 ExternalMemory = None
 Sequence = None
 ConfSpaceType = None
+BreakdownType = None
 
 
 def _get_builder(jclass, builder_name='Builder'):
@@ -114,6 +115,8 @@ def start(heapSizeMB=1024, enableAssertions=False, stackSizeMB=8):
 	Sequence = jvm.getInnerClass(c.kstar.KStar, 'Sequence')
 	global ConfSpaceType
 	ConfSpaceType = jvm.getInnerClass(c.kstar.KStar, 'ConfSpaceType')
+	global BreakdownType
+	BreakdownType = jvm.getInnerClass(c.energy.ResidueForcefieldBreakdown, 'Type')
 
 	# expose static builder methods too
 	Parallelism.makeCpu = c.parallelism.Parallelism.makeCpu
@@ -157,21 +160,23 @@ def readPdb(path):
 	return mol
 
 
-def writePdb(mol, path):
+def writePdb(mol, path, comment=None):
 	'''
 	save a molecule to a PDB file
 
 	:param mol: the molecule to save
 	:type mol: :java:ref:`.structure.Molecule`
-
 	:param str path: path of the PDB file
+	:param str comment: Optional comment to add to the PDB file headers
 	'''
 
-	# unbox the mol if we need to
-	if isinstance(mol, c.confspace.ParametricMolecule):
-		mol = mol.mol
-
-	c.structure.PDBIO.writeFile(mol, path)
+	# deal with different molecule types
+	if isinstance(mol, jvm.getInnerClass(c.energy.EnergyCalculator, 'EnergiedParametricMolecule')):
+		c.structure.PDBIO.writeFile(mol, comment, path)
+	elif isinstance(mol, c.confspace.ParametricMolecule):
+		c.structure.PDBIO.writeFile(mol.mol, comment, None, path)
+	else:
+		c.structure.PDBIO.writeFile(mol, path)
 
 	print('write PDB file to file: %s' % path)
 
@@ -808,11 +813,28 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, min
 	return c.kstar.BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, kstarSettings, bbkstarSettings)
 
 
+def ConfAnalyzer(confEcalc, emat):
+	'''
+	:java:classdoc:`.gmec.ConfAnalyzer`
+
+	For examples using the conf analyzer, see examples/python.GMEC/analyzeConf.py in your Osprey distribution.
+
+	:param confEcalc: :java:fielddoc:`.gmec.SimpleGmecFinder#confEcalc`
+	:type confEcalc: :java:ref:`.energy.ConfEnergyCalculator`
+	:param emat: The energy matrix that defines conformation scores
+	:type emat: :java:ref:`.ematrix.EnergyMatrix`
+
+	:rtype: :java:ref:`.gmec.ConfAnalyzer`
+	'''
+
+	return c.gmec.ConfAnalyzer(confEcalc, emat)
+
+
 def SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, energyMatrixCachePattern=None):
 	'''
-	:java:classdoc:`.kstar.KStar`
+	:java:classdoc:`.kstar.SequenceAnalyzer`
 
-	For examples using K*, see the examples/python.KStar directory in your Osprey distribution.
+	For examples using the sequence analyzer, see examples/python.KStar/analyzeSequence.py in your Osprey distribution.
 
 	:param proteinConfSpace: :java:fielddoc:`.kstar.KStar#protein`
 	:type proteinConfSpace: :java:ref:`.confspace.SimpleConfSpace`

@@ -28,18 +28,16 @@ public class MisBoundPlayground {
 	public static void main(String[] args)
 	throws Exception {
 
-		String dir = "__redacted__";
-
 		ForcefieldParams ffparams = new ForcefieldParams();
 
 		// load non-natural AA stuff
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld)
-			.addTemplates(FileTools.readFile(dir + "/all_nuc94_and_gr.in"))
-			.addTemplateCoords(FileTools.readFile(dir + "/all_amino_coords.in"))
-			.addRotamers(FileTools.readFile(dir + "/GenericRotamers.dat"))
+			.addTemplates(FileTools.readFile("all_nuc94_and_gr.in"))
+			.addTemplateCoords(FileTools.readFile("all_amino_coords.in"))
+			.addRotamers(FileTools.readFile("GenericRotamers.dat"))
 			.build();
 
-		Strand strand = new Strand.Builder(PDBIO.readFile(dir + "/model0_antibody.pdb"))
+		Strand strand = new Strand.Builder(PDBIO.readFile("model0_antibody.pdb"))
 			.setTemplateLibrary(templateLib)
 			.build();
 
@@ -55,7 +53,7 @@ public class MisBoundPlayground {
 
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
 			.addStrand(strand)
-			//.setShellDistance(6)
+			.setShellDistance(6)
 			.build();
 
 		// which bound to use?
@@ -78,7 +76,7 @@ public class MisBoundPlayground {
 					.build();
 
 				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-					.setCacheFile(new File("emat.misbound." + epart.name().toLowerCase() + ".dat"))
+					.setCacheFile(new File("emat.misbound.shell." + epart.name().toLowerCase() + ".dat"))
 					.build()
 					.calcEnergyMatrix();
 
@@ -122,7 +120,7 @@ public class MisBoundPlayground {
 		// break down the forcefield and bound
 		ResidueForcefieldBreakdown.ByPosition breakdown = new ResidueForcefieldBreakdown.ByPosition(confEcalc, conf);
 		EnergyMatrix forcefieldBreakdown = breakdown.breakdownForcefield(ResidueForcefieldBreakdown.Type.All);
-		EnergyMatrix boundBreakdown = breakdown.breakdownBound(emat);
+		EnergyMatrix scoreBreakdown = breakdown.breakdownScore(emat);
 
 		System.out.println(String.format("Mis-bounded conf:"
 				+ "\n\tRCs:       %s"
@@ -133,11 +131,11 @@ public class MisBoundPlayground {
 			confSpace.formatConfRCs(conf),
 			confSpace.formatConfSequence(conf),
 			confSpace.formatConfRotamers(conf),
-			boundBreakdown.sum(),
+			scoreBreakdown.sum(),
 			forcefieldBreakdown.sum()
 		));
 		System.out.println("forcefield: " + forcefieldBreakdown);
-		System.out.println("bound: " + boundBreakdown);
+		System.out.println("score: " + scoreBreakdown);
 	}
 
 	public static void findMisbounds(SimpleConfSpace confSpace, ConfAStarTree astar, ConfEnergyCalculator confEcalc, EnergyMatrix emat)
@@ -146,8 +144,8 @@ public class MisBoundPlayground {
 		// get a bunch of confs to check
 		List<ConfSearch.ScoredConf> confs = new ArrayList<>();
 		//int numConfs = 100; // for testing
-		//int numConfs = 18000; // for Traditional
-		int numConfs = 12800; // for AllOnPairs
+		int numConfs = 18000; // for Traditional
+		//int numConfs = 12800; // for AllOnPairs
 		for (int i=0; i<numConfs; i++) {
 			ConfSearch.ScoredConf conf = astar.nextConf();
 			if (conf == null) {
@@ -177,18 +175,25 @@ public class MisBoundPlayground {
 				// break down the forcefield and bound
 				ResidueForcefieldBreakdown.ByPosition breakdown = new ResidueForcefieldBreakdown.ByPosition(confEcalc, conf.getAssignments());
 				EnergyMatrix forcefieldBreakdown = breakdown.breakdownForcefield(ResidueForcefieldBreakdown.Type.All);
-				EnergyMatrix boundBreakdown = breakdown.breakdownBound(emat);
+				EnergyMatrix scoreBreakdown = breakdown.breakdownScore(emat);
 
 				// are any entries mis-bounded?
 				List<String> reports = new ArrayList<>();
 				for (SimpleConfSpace.Position pos1 : confSpace.positions) {
 
 					{
-						double boundEnergy = boundBreakdown.getOneBody(pos1.index, 0);
+						double boundEnergy = scoreBreakdown.getOneBody(pos1.index, 0);
 						double forcefieldEnergy = forcefieldBreakdown.getOneBody(pos1.index, 0);
 						if (boundEnergy > forcefieldEnergy + errorThreshold) {
-							reports.add(String.format("\t\tSingle:    %3d    bound %12.6f    energy %12.6f    gap: %12.6f",
-								pos1.index, boundEnergy, forcefieldEnergy, boundEnergy - forcefieldEnergy
+							reports.add(String.format("%-30s    cell-score %12.6f    Sequence: %s    cell-energy %12.6f    gap: %12.6f    conf-score: %12.6f    conf-energy: %12.6f    gap: %12.6f",
+								"Single: " + pos1.formatConfPos(conf),
+								boundEnergy,
+								confSpace.formatConf(conf),
+								forcefieldEnergy,
+								boundEnergy - forcefieldEnergy,
+								conf.getScore(),
+								breakdown.epmol.energy,
+								conf.getScore() - breakdown.epmol.energy
 							));
 						}
 					}
@@ -199,11 +204,18 @@ public class MisBoundPlayground {
 							break;
 						}
 
-						double boundEnergy = boundBreakdown.getPairwise(pos1.index, 0, pos2.index, 0);
+						double boundEnergy = scoreBreakdown.getPairwise(pos1.index, 0, pos2.index, 0);
 						double forcefieldEnergy = forcefieldBreakdown.getPairwise(pos1.index, 0, pos2.index, 0);
 						if (boundEnergy > forcefieldEnergy + errorThreshold) {
-							reports.add(String.format("\t\tPair:      %3d:%3d    bound %12.6f    energy %12.6f    gap: %12.6f",
-								pos1.index, pos2.index, boundEnergy, forcefieldEnergy, boundEnergy - forcefieldEnergy
+							reports.add(String.format("%-30s    cell-score %12.6f    Sequence: %s    cell-energy %12.6f    gap: %12.6f    conf-score: %12.6f    conf-energy: %12.6f    gap: %12.6f",
+								"Pair: " + pos1.formatConfPos(conf) + ":" + pos2.formatConfPos(conf),
+								boundEnergy,
+								confSpace.formatConf(conf),
+								forcefieldEnergy,
+								boundEnergy - forcefieldEnergy,
+								conf.getScore(),
+								breakdown.epmol.energy,
+								conf.getScore() - breakdown.epmol.energy
 							));
 						}
 					}
@@ -215,14 +227,6 @@ public class MisBoundPlayground {
 
 				if (!reports.isEmpty()) {
 					try (FileWriter out = new FileWriter(outFile, true)) {
-						out.write(String.format("Mis-bounded Conf:"
-								+ "\n\tRCs:       %s"
-								+ "\n\tSequence:  %s"
-								+ "\n\tRotamers:  %s\n",
-							confSpace.formatConfRCs(conf),
-							confSpace.formatConfSequence(conf),
-							confSpace.formatConfRotamers(conf)
-						));
 						for (String report : reports) {
 							out.write(report);
 							out.write("\n");

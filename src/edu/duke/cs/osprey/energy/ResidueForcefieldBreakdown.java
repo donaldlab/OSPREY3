@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.energy;
 
-import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -71,7 +70,11 @@ public class ResidueForcefieldBreakdown {
 		}
 
 		public ByResidue(ConfEnergyCalculator confEcalc, int[] assignments) {
-			this.efunc = new ByPosition(confEcalc, assignments).efunc;
+			this(confEcalc, confEcalc.calcEnergy(new RCTuple(assignments)));
+		}
+
+		public ByResidue(ConfEnergyCalculator confEcalc, EnergyCalculator.EnergiedParametricMolecule epmol) {
+			this.efunc = (ResidueForcefieldEnergy)confEcalc.ecalc.makeEnergyFunction(epmol);
 		}
 
 		public EnergyMatrix makeEmat() {
@@ -100,21 +103,21 @@ public class ResidueForcefieldBreakdown {
 
 		public final ConfEnergyCalculator confEcalc;
 		public final int[] assignments;
+		public final EnergyCalculator.EnergiedParametricMolecule epmol;
 		public final ResidueForcefieldEnergy efunc;
 
 		public ByPosition(ConfEnergyCalculator confEcalc, int[] assignments) {
+			this(confEcalc, assignments, confEcalc.calcEnergy(new RCTuple(assignments)));
+		}
+
+		public ByPosition(ConfEnergyCalculator confEcalc, int[] assignments, EnergyCalculator.EnergiedParametricMolecule epmol) {
 
 			this.confEcalc = confEcalc;
 			this.assignments = assignments;
+			this.epmol = epmol;
 
-			// get the forcefield for this conf
-			RCTuple frag = new RCTuple(assignments);
-			ParametricMolecule pmol = confEcalc.confSpace.makeMolecule(frag);
-			ResidueInteractions inters = confEcalc.makeFragInters(frag);
-			efunc = (ResidueForcefieldEnergy)confEcalc.ecalc.makeEnergyFunction(pmol, inters);
-
-			// minimize the molecule instance
-			confEcalc.ecalc.calcEnergy(pmol, inters);
+			// get the forcefield
+			this.efunc = (ResidueForcefieldEnergy)confEcalc.ecalc.makeEnergyFunction(epmol);
 		}
 
 		public EnergyMatrix makeEmat() {
@@ -147,7 +150,7 @@ public class ResidueForcefieldBreakdown {
 			return breakdown;
 		}
 
-		public EnergyMatrix breakdownBound(EnergyMatrix emat) {
+		public EnergyMatrix breakdownScore(EnergyMatrix emat) {
 			EnergyMatrix breakdown = makeEmat();
 			for (SimpleConfSpace.Position pos1 : confEcalc.confSpace.positions) {
 				int rc1 = assignments[pos1.index];

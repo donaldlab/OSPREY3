@@ -1,7 +1,9 @@
 package edu.duke.cs.osprey.energy;
 
+import java.io.File;
 import java.util.function.Consumer;
 
+import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.DofTypes;
@@ -424,6 +426,25 @@ public class EnergyCalculator implements AutoCleanable {
 			return Cpu;
 		}
 	}
+
+	public static class EnergiedParametricMolecule {
+
+		public final ParametricMolecule pmol;
+		public final ResidueInteractions inters;
+		public final DoubleMatrix1D params;
+		public final double energy;
+
+		public EnergiedParametricMolecule(ParametricMolecule pmol, ResidueInteractions inters, double energy) {
+			this(pmol, inters, null, energy);
+		}
+
+		public EnergiedParametricMolecule(ParametricMolecule pmol, ResidueInteractions inters, DoubleMatrix1D params, double energy) {
+			this.pmol = pmol;
+			this.inters = inters;
+			this.params = params;
+			this.energy = energy;
+		}
+	}
 	
 	public final Parallelism parallelism;
 	public final TaskExecutor tasks;
@@ -463,42 +484,43 @@ public class EnergyCalculator implements AutoCleanable {
 	 * 
 	 * @param pmol The molecule
 	 * @param inters Residue interactions for the energy function
-	 * @return The calculated energy
+	 * @return The calculated energy and the associated molecule pose
 	 */
-	public double calcEnergy(ParametricMolecule pmol, ResidueInteractions inters) {
+	public EnergiedParametricMolecule calcEnergy(ParametricMolecule pmol, ResidueInteractions inters) {
 		
 		// short circuit: no inters, no energy!
 		if (inters.size() <= 0) {
-			return 0;
+			return new EnergiedParametricMolecule(pmol, null, 0);
 		}
 		
 		// get the energy function
 		EnergyFunction efunc = context.efuncs.make(inters, pmol.mol);
 		try {
 			
-			// get the energy
-			double energy;
+			// do we need to minimize over dofs?
 			if (isMinimizing && pmol.dofBounds.size() > 0) {
 				
-				// minimize it
 				Minimizer minimizer = context.minimizers.make(new MoleculeObjectiveFunction(pmol, efunc));
 				try {
-					energy = minimizer.minimize().energy;
+					Minimizer.Result result = minimizer.minimize();
+					return new EnergiedParametricMolecule(pmol, inters, result.dofValues, result.energy);
 				} finally {
 					Minimizer.Tools.cleanIfNeeded(minimizer);
 				}
 				
 			} else {
-				
-				// otherwise, just use the score
-				energy = efunc.getEnergy();
+
+				// otherwise, just use the energy of the given pose
+				return new EnergiedParametricMolecule(pmol, inters, null, efunc.getEnergy());
 			}
-			
-			return energy;
-			
+
 		} finally {
 			EnergyFunction.Tools.cleanIfNeeded(efunc);
 		}
+	}
+
+	public EnergyFunction makeEnergyFunction(EnergiedParametricMolecule epmol) {
+		return makeEnergyFunction(epmol.pmol, epmol.inters);
 	}
 
 	public EnergyFunction makeEnergyFunction(ParametricMolecule pmol, ResidueInteractions inters) {
@@ -512,20 +534,15 @@ public class EnergyCalculator implements AutoCleanable {
 		return new MoleculeObjectiveFunction(pmol, makeEnergyFunction(pmol, inters));
 	}
 
-	public void writeMinimizedStruct(ParametricMolecule pmol, ResidueInteractions inters, String fileName) {
-		double energy = calcEnergy(pmol, inters);
-		PDBIO.writeFile(pmol.mol, null, energy, fileName);
-	}
-
 	/**
 	 * Asynchronous version of {@link #calcEnergy(ParametricMolecule,ResidueInteractions)}.
 	 * 
 	 * @param pmol The molecule
 	 * @param inters Residue interactions for the energy function
-	 * @param listener Callback function that will receive the energy. The callback is called on a
-	 *                 listener thread which is separate from the calling thread.
+	 * @param listener Callback function that will receive the energy and the associated molecule pose.
+	 *                 The callback is called on a listener thread which is separate from the calling thread.
 	 */
-	public void calcEnergyAsync(ParametricMolecule pmol, ResidueInteractions inters, TaskListener<Double> listener) {
+	public void calcEnergyAsync(ParametricMolecule pmol, ResidueInteractions inters, TaskListener<EnergiedParametricMolecule> listener) {
 		tasks.submit(() -> calcEnergy(pmol, inters), listener);
 	}
 }

@@ -65,11 +65,11 @@ public class TestSequenceAnalyzer {
 				assertThat(analysis.type, is(KStar.ConfSpaceType.Complex));
 				assertThat(analysis.complexSequence, is(new KStar.Sequence("phe asp glu thr phe lys ile thr")));
 				assertThat(analysis.filteredSequence, is(new KStar.Sequence("phe asp glu thr phe lys ile thr")));
-				assertThat(analysis.econfs.size(), is(4));
-				assertThat(analysis.econfs.get(0).getEnergy(), isAbsolutely(-68.416267, EnergyEpsilon));
-				assertThat(analysis.econfs.get(1).getEnergy(), isAbsolutely(-68.244583, EnergyEpsilon));
-				assertThat(analysis.econfs.get(2).getEnergy(), isAbsolutely(-68.114214, EnergyEpsilon));
-				assertThat(analysis.econfs.get(3).getEnergy(), isAbsolutely(-67.945550, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.size(), is(4));
+				assertThat(analysis.ensemble.analyses.get(0).epmol.energy, isAbsolutely(-68.416267, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(1).epmol.energy, isAbsolutely(-68.244583, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(2).epmol.energy, isAbsolutely(-68.114214, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(3).epmol.energy, isAbsolutely(-67.945550, EnergyEpsilon));
 
 				analysis = analyzer.analyze(
 					new KStar.Sequence("ILE asp glu thr phe lys ile thr"),
@@ -80,19 +80,19 @@ public class TestSequenceAnalyzer {
 				assertThat(analysis.type, is(KStar.ConfSpaceType.Complex));
 				assertThat(analysis.complexSequence, is(new KStar.Sequence("ILE asp glu thr phe lys ile thr")));
 				assertThat(analysis.filteredSequence, is(new KStar.Sequence("ILE asp glu thr phe lys ile thr")));
-				assertThat(analysis.econfs.size(), is(12));
-				assertThat(analysis.econfs.get(0).getEnergy(), isAbsolutely(-61.938135, EnergyEpsilon));
-				assertThat(analysis.econfs.get(1).getEnergy(), isAbsolutely(-61.905580, EnergyEpsilon));
-				assertThat(analysis.econfs.get(2).getEnergy(), isAbsolutely(-61.890854, EnergyEpsilon));
-				assertThat(analysis.econfs.get(3).getEnergy(), isAbsolutely(-61.639204, EnergyEpsilon));
-				assertThat(analysis.econfs.get(4).getEnergy(), isAbsolutely(-61.637555, EnergyEpsilon));
-				assertThat(analysis.econfs.get(5).getEnergy(), isAbsolutely(-61.608625, EnergyEpsilon));
-				assertThat(analysis.econfs.get(6).getEnergy(), isAbsolutely(-61.593341, EnergyEpsilon));
-				assertThat(analysis.econfs.get(7).getEnergy(), isAbsolutely(-61.591667, EnergyEpsilon));
-				assertThat(analysis.econfs.get(8).getEnergy(), isAbsolutely(-61.586393, EnergyEpsilon));
-				assertThat(analysis.econfs.get(9).getEnergy(), isAbsolutely(-61.335184, EnergyEpsilon));
-				assertThat(analysis.econfs.get(10).getEnergy(), isAbsolutely(-61.311892, EnergyEpsilon));
-				assertThat(analysis.econfs.get(11).getEnergy(), isAbsolutely(-61.247090, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.size(), is(12));
+				assertThat(analysis.ensemble.analyses.get(0).epmol.energy, isAbsolutely(-61.938135, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(1).epmol.energy, isAbsolutely(-61.905580, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(2).epmol.energy, isAbsolutely(-61.890854, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(3).epmol.energy, isAbsolutely(-61.639204, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(4).epmol.energy, isAbsolutely(-61.637555, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(5).epmol.energy, isAbsolutely(-61.608625, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(6).epmol.energy, isAbsolutely(-61.593341, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(7).epmol.energy, isAbsolutely(-61.591667, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(8).epmol.energy, isAbsolutely(-61.586393, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(9).epmol.energy, isAbsolutely(-61.335184, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(10).epmol.energy, isAbsolutely(-61.311892, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(11).epmol.energy, isAbsolutely(-61.247090, EnergyEpsilon));
 
 				analysis = analyzer.analyze(
 					new KStar.Sequence("ILE asp glu thr phe lys ile thr"),
@@ -103,13 +103,13 @@ public class TestSequenceAnalyzer {
 				assertThat(analysis.type, is(KStar.ConfSpaceType.Protein));
 				assertThat(analysis.complexSequence, is(new KStar.Sequence("ILE asp glu thr phe lys ile thr")));
 				assertThat(analysis.filteredSequence, is(new KStar.Sequence("ILE asp glu thr")));
-				assertThat(analysis.econfs.size(), is(6));
-				assertThat(analysis.econfs.get(0).getEnergy(), isAbsolutely(-3.000911, EnergyEpsilon));
-				assertThat(analysis.econfs.get(1).getEnergy(), isAbsolutely(-2.903385, EnergyEpsilon));
-				assertThat(analysis.econfs.get(2).getEnergy(), isAbsolutely(-2.508572, EnergyEpsilon));
-				assertThat(analysis.econfs.get(3).getEnergy(), isAbsolutely(-2.418352, EnergyEpsilon));
-				assertThat(analysis.econfs.get(4).getEnergy(), isAbsolutely(-2.401930, EnergyEpsilon));
-				assertThat(analysis.econfs.get(5).getEnergy(), isAbsolutely(-2.309892, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.size(), is(6));
+				assertThat(analysis.ensemble.analyses.get(0).epmol.energy, isAbsolutely(-3.000911, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(1).epmol.energy, isAbsolutely(-2.903385, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(2).epmol.energy, isAbsolutely(-2.508572, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(3).epmol.energy, isAbsolutely(-2.418352, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(4).epmol.energy, isAbsolutely(-2.401930, EnergyEpsilon));
+				assertThat(analysis.ensemble.analyses.get(5).epmol.energy, isAbsolutely(-2.309892, EnergyEpsilon));
 			});
 	}
 }

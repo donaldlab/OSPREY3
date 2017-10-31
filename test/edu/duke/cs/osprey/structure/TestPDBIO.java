@@ -175,8 +175,17 @@ public class TestPDBIO {
 		Iterator<String> lines2 = FileTools.parseLines(pdbText2).iterator();
 		while (lines.hasNext()) {
 			assertThat(lines2.hasNext(), is(true));
-			assertThat(lines2.next(), is(lines.next()));
+			assertThat(nextImportantLine(lines2), is(nextImportantLine(lines)));
 		}
-		assertThat(pdbText2, is(pdbText));
+	}
+
+	private String nextImportantLine(Iterator<String> lines) {
+		while (true) {
+			String line = lines.next();
+			if (line.startsWith("REMARK") || line.startsWith("AUTHOR")) {
+				continue;
+			}
+			return line;
+		}
 	}
 }
