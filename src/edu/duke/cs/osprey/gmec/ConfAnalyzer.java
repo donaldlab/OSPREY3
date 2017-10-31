@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.gmec;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -43,16 +44,19 @@ public class ConfAnalyzer {
 		@Override
 		public String toString() {
 			return String.format(
-				  "Sequence:          %s\n"
-				+ "Rotamers:          %s\n"
-				+ "Residue Conf IDs:  %s\n"
-				+ "Score:             %-12.6f\n"
-				+ "Energy:            %-12.6f\n",
+				  "Residues           %s\n"
+				+ "Sequence           %s\n"
+				+ "Rotamers           %s\n"
+				+ "Residue Conf IDs   %s\n"
+				+ "Energy             %-12.6f\n"
+				+ "Score              %-12.6f (gap: %.6f)\n",
+				confEcalc.confSpace.formatResidueNumbers(),
 				confEcalc.confSpace.formatConfSequence(assignments),
 				confEcalc.confSpace.formatConfRotamers(assignments),
-				confEcalc.confSpace.formatConfRCs(assignments),
+				SimpleConfSpace.formatConfRCs(assignments),
+				epmol.energy,
 				score,
-				epmol.energy
+				epmol.energy - score
 			);
 		}
 	}
@@ -75,6 +79,9 @@ public class ConfAnalyzer {
 
 			StringBuilder buf = new StringBuilder();
 			buf.append(String.format("Ensemble of %d conformations:\n", analyses.size()));
+			buf.append("\tResidues: ");
+			buf.append(confEcalc.confSpace.formatResidueNumbers());
+			buf.append("\n");
 			for (int i=0; i<analyses.size(); i++) {
 				ConfAnalyzer.ConfAnalysis analysis = analyses.get(i);
 				buf.append("\t");
@@ -85,7 +92,7 @@ public class ConfAnalyzer {
 				buf.append("     Rotamers: ");
 				buf.append(confEcalc.confSpace.formatConfRotamers(analysis.assignments));
 				buf.append("     Residue Conf IDs: ");
-				buf.append(confEcalc.confSpace.formatConfRCs(analysis.assignments));
+				buf.append(SimpleConfSpace.formatConfRCs(analysis.assignments));
 				buf.append("\n");
 			}
 			return buf.toString();

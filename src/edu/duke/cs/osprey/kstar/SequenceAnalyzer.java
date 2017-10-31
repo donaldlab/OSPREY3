@@ -45,14 +45,9 @@ public class SequenceAnalyzer {
 			int indexSize = 1 + (int)Math.log10(ensemble.analyses.size());
 
 			StringBuilder buf = new StringBuilder();
-			buf.append(complexSequence.toString(KStar.Sequence.makeWildType(complex.confSpace)));
-			buf.append("     ");
-			buf.append(type.name());
-			if (!filteredSequence.equals(complexSequence)) {
-				buf.append("     ");
-				buf.append(filteredSequence.toString(KStar.Sequence.makeWildType(confSpace)));
-			}
-			buf.append("\n");
+			buf.append(String.format("Residues           %s\n", confSpace.formatResidueNumbers()));
+			buf.append(String.format("%-16s   %s\n", type.name() + " Sequence", filteredSequence.toString(KStar.Sequence.makeWildType(confSpace), 5)));
+			buf.append(String.format("Ensemble of %d conformations:\n", ensemble.analyses.size()));
 			for (int i=0; i<ensemble.analyses.size(); i++) {
 				ConfAnalyzer.ConfAnalysis analysis = ensemble.analyses.get(i);
 				buf.append("\t");
@@ -61,7 +56,7 @@ public class SequenceAnalyzer {
 				buf.append("     Rotamers: ");
 				buf.append(confSpace.formatConfRotamers(analysis.assignments));
 				buf.append("     Residue Conf IDs: ");
-				buf.append(confSpace.formatConfRCs(analysis.assignments));
+				buf.append(SimpleConfSpace.formatConfRCs(analysis.assignments));
 				buf.append("\n");
 			}
 			return buf.toString();
