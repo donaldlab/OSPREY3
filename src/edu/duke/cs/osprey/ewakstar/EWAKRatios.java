@@ -197,7 +197,7 @@ public class EWAKRatios {
 		unboundAllowedSeqsByStrand = getUnboundAllowedSeqsByStrand();
 		//make unbound state partition function dictionaries
 		strandPfd = createUnboundPartitionFuncDicts();
-		//computed sequences not enumeated by ival+ew
+		//computed sequences not enumerated by ival+ew
 		missedSeqsByStrand = getMissedSeqsByStrand();
 
 		//printMetaData();
