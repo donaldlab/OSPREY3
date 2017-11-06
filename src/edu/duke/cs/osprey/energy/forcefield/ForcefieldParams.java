@@ -8,7 +8,7 @@ import java.io.Serializable;
 import java.util.Iterator;
 import java.util.StringTokenizer;
 
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace.Builder;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.Residue;
@@ -85,7 +85,7 @@ public class ForcefieldParams implements Serializable {
     public boolean distDepDielect = true;
     public boolean hElect = true;
     public boolean hVDW = true;
-    /** for new code, use {@link SimpleConfSpace.Builder#shellDist} instead **/
+    /** for new code, use {@link Builder#shellDist} instead **/
     @Deprecated
     public double shellDistCutoff = Double.POSITIVE_INFINITY; //distance cutoff for interactions (angstroms)
     public SolvationForcefield solvationForcefield = SolvationForcefield.EEF1;

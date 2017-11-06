@@ -960,7 +960,7 @@ class JavaClassDirective(ParsingDirective):
 		try:
 			ref = JavaRef(expand_classname(self.content[0], self.config))
 			ast = get_class_ast(ref, self.config)
-		except (KeyError, ValueError, FileNotFoundError) as e:
+		except (KeyError, ValueError, IOError) as e:
 			return self.warn("can't find class: %s" % ref, cause=e)
 		except javalang.parser.JavaSyntaxError as e:
 			return self.warn("can't parse java source: %s" % ref, cause=e)
@@ -1086,7 +1086,8 @@ class JavaClassDirective(ParsingDirective):
 			try:
 				javadoc = Javadoc(field.documentation, ast, self.config)
 			except ValueError as e:
-				self.warn("Can't parse javadoc for field %s#%s" % (ref, field.name), cause=e)
+				for decl in field.declarators:
+					self.warn("Can't parse javadoc for field %s#%s" % (ref, decl.name), cause=e)
 
 		# show the field name and javadoc
 		for decl in field.declarators:
@@ -1228,7 +1229,7 @@ class ClassdocRole(JavaRole):
 		try:
 			ref = JavaRef(expand_classname(text, self.config))
 			ast = get_class_ast(ref, self.config)
-		except (KeyError, ValueError, FileNotFoundError) as e:
+		except (KeyError, ValueError, IOError) as e:
 			return self.warn("can't find java class: %s" % text, cause=e)
 		except javalang.parser.JavaSyntaxError as e:
 			return self.warn("can't parse java source: %s" % ref, cause=e)
@@ -1253,7 +1254,7 @@ class FielddocRole(JavaRole):
 			ref = JavaRef(expand_classname(text, self.config))
 			ast = get_class_ast(ref, self.config)
 			field = ast.find_field(ref.membername)
-		except (KeyError, ValueError, FileNotFoundError) as e:
+		except (KeyError, ValueError, IOError) as e:
 			return self.warn("can't find field: %s" % text, cause=e)
 		except javalang.parser.JavaSyntaxError as e:
 			return self.warn("can't parse java source: %s" % ref, cause=e)
@@ -1278,7 +1279,7 @@ class MethoddocRole(JavaRole):
 			ref = JavaRef(expand_classname(text, self.config))
 			ast = get_class_ast(ref, self.config)
 			method = ast.find_method(ref.membername, require_javadoc=True)
-		except (KeyError, ValueError, FileNotFoundError) as e:
+		except (KeyError, ValueError, IOError) as e:
 			return self.warn("can't find method: %s" % text, cause=e)
 		except javalang.parser.JavaSyntaxError as e:
 			return self.warn("can't parse java source: %s" % ref, cause=e)

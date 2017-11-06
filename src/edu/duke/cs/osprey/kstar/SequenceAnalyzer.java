@@ -14,6 +14,9 @@ import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import java.io.File;
 import java.util.*;
 
+/**
+ * Shows information about a single sequence.
+ */
 public class SequenceAnalyzer {
 
 	public class Analysis {

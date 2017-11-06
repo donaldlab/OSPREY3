@@ -14,6 +14,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Shows information about a single conformation.
+ */
 public class ConfAnalyzer {
 
 	public class ConfAnalysis {

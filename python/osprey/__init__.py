@@ -819,7 +819,7 @@ def ConfAnalyzer(confEcalc, emat):
 
 	For examples using the conf analyzer, see examples/python.GMEC/analyzeConf.py in your Osprey distribution.
 
-	:param confEcalc: :java:fielddoc:`.gmec.SimpleGmecFinder#confEcalc`
+	:param confEcalc: :java:fielddoc:`.gmec.SimpleGMECFinder$Builder#confEcalc`
 	:type confEcalc: :java:ref:`.energy.ConfEnergyCalculator`
 	:param emat: The energy matrix that defines conformation scores
 	:type emat: :java:ref:`.ematrix.EnergyMatrix`
