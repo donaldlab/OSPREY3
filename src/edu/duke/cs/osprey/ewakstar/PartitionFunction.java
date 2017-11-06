@@ -56,7 +56,7 @@ public class PartitionFunction {
 	}
 	
 	public String toString() {
-		return "seq: " + getSequence() + ", " + String.format("z*: %12e", z);
+		return "seq: " + getSequence() + ", " + String.format("z*: %12e", z) + ", " + String.format("confs: %d", numConfs);
 	}
 	
     

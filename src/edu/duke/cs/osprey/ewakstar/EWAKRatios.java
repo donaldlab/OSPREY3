@@ -197,7 +197,7 @@ public class EWAKRatios {
 		unboundAllowedSeqsByStrand = getUnboundAllowedSeqsByStrand();
 		//make unbound state partition function dictionaries
 		strandPfd = createUnboundPartitionFuncDicts();
-		//computed sequences not enumeated by ival+ew
+		//computed sequences not enumerated by ival+ew
 		missedSeqsByStrand = getMissedSeqsByStrand();
 
 		//printMetaData();
@@ -226,8 +226,16 @@ public class EWAKRatios {
 	
 		EWAKScores ews = new EWAKScores(complexPfd, strandPfd);
 		ews.sort();
+		
+		String pfFileName = cfp.getParams().getValue("RunName") + ".pfs.txt";
+		EWAKOutput output = new EWAKOutput(pfFileName);
+		String ewsOutput = ews.toString();
+		
+		output.write(ewsOutput);
+		output.close();
+		
 		System.out.println();
-		System.out.println(ews.toString());
+		System.out.println(ewsOutput);
 		System.out.println();
 	}
 

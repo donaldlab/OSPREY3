@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.ewakstar;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 
@@ -94,11 +95,13 @@ public class EWAKScore {
 		for(int strand=0;strand<pfs.size();++strand) {
 			BigDecimal z = pfs.get(strand)==null ? BigDecimal.ZERO : 
 				pfs.get(strand).getZ();
-			sb.append(String.format("pf: %2d, z: %12e, ", strand, z));
+			BigInteger numConfs = pfs.get(strand)==null ? BigInteger.ZERO :
+				pfs.get(strand).getNumConfs();
+			sb.append(String.format("pf: %2d, z: %12e, confs: %d ", strand, z, numConfs));
 		}
 		
 		String ans = sb.toString().trim();
-		return ans.substring(0,ans.length()-1);
+		return ans;//.substring(0,ans.length()-1);
 	}
 	
 }
