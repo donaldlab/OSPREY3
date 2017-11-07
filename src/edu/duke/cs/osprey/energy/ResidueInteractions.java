@@ -4,6 +4,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.HashCalculator;
 
@@ -97,6 +98,21 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 		resNums.add(resNum1);
 		resNums.add(resNum2);
 		pairs.add(new Pair(resNum1, resNum2, weight, offset));
+	}
+
+	public void addComplete(Residues residues) {
+		addComplete(residues, Pair.IdentityWeight, Pair.IdentityOffset);
+	}
+
+	public void addComplete(Residues residues, double weight, double offset) {
+		for (int i=0; i<residues.size(); i++) {
+			Residue res1 = residues.get(i);
+			addSingle(res1.getPDBResNumber(), weight, offset);
+			for (int j=0; j<i; j++) {
+				Residue res2 = residues.get(j);
+				addPair(res1.getPDBResNumber(), res2.getPDBResNumber(), weight, offset);
+			}
+		}
 	}
 	
 	public Set<String> getResidueNumbers() {

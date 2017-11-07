@@ -214,13 +214,17 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 			}
 			
 			// apply weights and offsets
-			energy += (resPairEnergy + pair.offset)*pair.weight;
+			energy += (resPairEnergy + pair.offset + pair.solvEnergy)*pair.weight;
 		}
 		
 		return energy;
 	}
 
 	public double getElectrostaticsEnergy() {
+		return getElectrostaticsEnergy(resPairs);
+	}
+
+	public double getElectrostaticsEnergy(ResPair[] resPairs) {
 
 		// NOTE: this function isn't hammered like getEnergy() is, so performance isn't important here
 
@@ -290,6 +294,10 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	}
 
 	public double getVanDerWaalsEnergy() {
+		return getVanDerWaalsEnergy(resPairs);
+	}
+
+	public double getVanDerWaalsEnergy(ResPair[] resPairs) {
 
 		// NOTE: this function isn't hammered like getEnergy() is, so performance isn't important here
 
@@ -350,6 +358,10 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	}
 
 	public double getSolvationEnergy() {
+		return getSolvationEnergy(resPairs);
+	}
+
+	public double getSolvationEnergy(ResPair[] resPairs) {
 
 		// NOTE: this function isn't hammered like getEnergy() is, so performance isn't important here
 
@@ -409,18 +421,17 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 			}
 
 			// apply weight, but not offset
-			energy += resPairEnergy*pair.weight;
-
-			// add per-pair solv energy
-			if (pair.solvEnergy != null) {
-				energy += pair.solvEnergy*pair.weight;
-			}
+			energy += (resPairEnergy + pair.solvEnergy)*pair.weight;
 		}
 
 		return energy;
 	}
 
 	public double getOffsetsEnergy() {
+		return getOffsetsEnergy(resPairs);
+	}
+
+	public double getOffsetsEnergy(ResPair[] resPairs) {
 
 		// NOTE: this function isn't hammered like getEnergy() is, so performance isn't important here
 
@@ -435,11 +446,6 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 
 			// add the regular offsets
 			energy += pair.offset*pair.weight;
-
-			// remove per-pair solv energy
-			if (pair.solvEnergy != null) {
-				energy -= pair.solvEnergy*pair.weight;
-			}
 		}
 
 		return energy;
@@ -554,5 +560,67 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		}
 		
 		return efuncs;
+	}
+
+	public static class Vdw extends ResidueForcefieldEnergy {
+
+		public Vdw(ResPairCache resPairCache, ResidueInteractions inters, Molecule mol) {
+			super(resPairCache, inters, mol);
+		}
+
+		public Vdw(ResPairCache resPairCache, ResidueInteractions inters, Residues residues) {
+			super(resPairCache, inters, residues);
+		}
+
+		public Vdw(ResidueForcefieldEnergy efunc) {
+			this(efunc.resPairCache, efunc.inters, efunc.residues);
+		}
+
+		@Override
+		public double getEnergy() {
+			return super.getVanDerWaalsEnergy();
+		}
+
+		@Override
+		public List<EnergyFunction> decomposeByDof(Molecule mol, List<DegreeOfFreedom> dofs) {
+
+			class Subset implements EnergyFunction {
+
+				private static final long serialVersionUID = 4664215035458391734L;
+
+				private ResPair[] resPairs;
+
+				@Override
+				public double getEnergy() {
+					return Vdw.this.getVanDerWaalsEnergy(resPairs);
+				}
+			}
+
+			Map<Residue,Subset> cache = new HashMap<>();
+
+			List<EnergyFunction> efuncs = new ArrayList<>();
+			for (DegreeOfFreedom dof : dofs) {
+				Residue res = dof.getResidue();
+
+				if (res == null) {
+
+					// no res, just use the whole efunc
+					efuncs.add(this);
+
+				} else {
+
+					// make a subset energy function
+					Subset subset = cache.get(res);
+					if (subset == null) {
+						subset = new Subset();
+						subset.resPairs = makeResPairsSubset(res);
+						cache.put(res, subset);
+					}
+					efuncs.add(subset);
+				}
+			}
+
+			return efuncs;
+		}
 	}
 }

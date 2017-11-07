@@ -40,12 +40,13 @@ public class TestForcefieldEnergy extends TestBase {
 	}
 	
 	public static class TestResidues {
-		
+
+		public final Molecule mol;
 		public final Residue gly06, gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34,
 			val36, leu39, trp47, leu48, ile53, arg55, val56, leu57, ile59, val62, leu64, val65, met66;
 		
 		public TestResidues() {
-			Molecule mol = new Molecule(strand.mol);
+			mol = new Molecule(strand.mol);
 			gly06 = mol.getResByPDBResNumber("6");
 			gly15 = mol.getResByPDBResNumber("15");
 			ser17 = mol.getResByPDBResNumber("17");

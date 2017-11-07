@@ -188,7 +188,7 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 			databuf.putLong(atomOffsetsByResIndex[resPair.resIndex1]);
 			databuf.putLong(atomOffsetsByResIndex[resPair.resIndex2]);
 			databuf.putDouble(resPair.weight);
-			databuf.putDouble(resPair.offset);
+			databuf.putDouble(resPair.offset + resPair.solvEnergy);
 			
 			// put the atom pairs
 			// NOTE: use struct-of-arrays here, not array-of-structs

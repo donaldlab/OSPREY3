@@ -330,7 +330,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 			databuf.putLong(atomOffsetsByResIndex[efunc.residues.findIndexOrThrow(resPair.res1)]);
 			databuf.putLong(atomOffsetsByResIndex[efunc.residues.findIndexOrThrow(resPair.res2)]);
 			databuf.putDouble(resPair.weight);
-			databuf.putDouble(resPair.offset);
+			databuf.putDouble(resPair.offset + resPair.solvEnergy);
 			
 			// put the atom pairs
 			// NOTE: use struct-of-arrays here, not array-of-structs

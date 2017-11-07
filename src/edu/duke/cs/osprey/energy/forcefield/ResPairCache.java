@@ -23,7 +23,7 @@ public class ResPairCache {
 		public final Residue res1;
 		public final Residue res2;
 		public final AtomPairInfo info;
-		public final Double solvEnergy;
+		public final double solvEnergy;
 		public final double weight;
 		public final double offset;
 		
@@ -38,9 +38,8 @@ public class ResPairCache {
 			// update the res pair offset with solvation energy if needed
 			if (solvInfo != null) {
 				solvEnergy = solvInfo.getResPairEnergy(res1, res2)*solvScale;
-				offset += solvEnergy;
 			} else {
-				solvEnergy = null;
+				solvEnergy = 0.0;
 			}
 			
 			this.weight = weight;
