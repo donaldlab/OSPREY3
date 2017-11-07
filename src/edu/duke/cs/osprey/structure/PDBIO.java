@@ -293,11 +293,11 @@ public class PDBIO {
 		FileTools.writeFile(write(mol), file);
 	}
 	
-	public static void writeFile(Molecule mol, String comment, double energy, String path) {
+	public static void writeFile(Molecule mol, String comment, Double energy, String path) {
 		FileTools.writeFile(write(mol, comment, energy), path);
 	}
 	
-	public static void writeFile(Molecule mol, String comment, double energy, File file) {
+	public static void writeFile(Molecule mol, String comment, Double energy, File file) {
 		FileTools.writeFile(write(mol, comment, energy), file);
 	}
 
