@@ -48,7 +48,6 @@ typedef struct __align__(8) {
 	unsigned short angleAtomOffsets[4];
 	unsigned int numRotatedAtoms;
 	unsigned int numResPairs;
-	double xd;
 	double xdmin;
 	double xdmax;
 } Dihedral;
@@ -765,6 +764,7 @@ __device__ LinesearchOut linesearch(double * const coords, const Data & data, co
 extern "C" __global__ void ccd(
 	const byte * const rawdata,
 	double * const coords,
+	double * const xin,
 	double * const out
 ) {
 
@@ -792,9 +792,9 @@ extern "C" __global__ void ccd(
 	// get the initial energy
 	herefx = calcEnergy(coords, data, NULL, threadEnergies);
 	
-	// init starting x	
+	// init starting x
 	for (int d = threadIdx.x; d < data.header.numDihedrals; d += blockDim.x) {
-		herex[d] = data.getDihedral(d).xd;
+		herex[d] = xin[d];
 	}
 	__syncthreads();
 	

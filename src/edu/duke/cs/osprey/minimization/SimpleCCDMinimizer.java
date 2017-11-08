@@ -3,7 +3,6 @@ package edu.duke.cs.osprey.minimization;
 import java.util.ArrayList;
 import java.util.List;
 
-import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.tools.Factory;
 
@@ -18,12 +17,7 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reu
 	private List<LineSearcher> lineSearchers;
 
 	public SimpleCCDMinimizer() {
-		this(new Factory<LineSearcher,Void>() {
-			@Override
-			public LineSearcher make(Void ignore) {
-				return new SurfingLineSearcher();
-			}
-		});
+		this((context) -> new SurfingLineSearcher());
 	}
 	
 	public SimpleCCDMinimizer(ObjectiveFunction f) {
@@ -63,18 +57,17 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reu
 	}
 	
 	@Override
-	public Minimizer.Result minimize() {
-		
-		// init x to the center of the bounds
+	public Minimizer.Result minimizeFromCenter() {
+		return minimizeFrom(f.getDOFsCenter());
+	}
+
+	@Override
+	public Minimizer.Result minimizeFrom(DoubleMatrix1D startx) {
+
 		int n = f.getNumDOFs();
-		DoubleMatrix1D herex = DoubleFactory1D.dense.make(n);
-		for (int d=0; d<n; d++) {
-			ObjectiveFunction.OneDof dof = dofs.get(d);
-			herex.set(d, (dof.getXMin() + dof.getXMax())/2);
-		}
-		
-		DoubleMatrix1D nextx = herex.copy();
-		
+		DoubleMatrix1D herex = startx.copy();
+		DoubleMatrix1D nextx = startx.copy();
+
 		// ccd is pretty simple actually
 		// just do a line search along each dimension until we stop improving
 		// we deal with cycles by just capping the number of iterations

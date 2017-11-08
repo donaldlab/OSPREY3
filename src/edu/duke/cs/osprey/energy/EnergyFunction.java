@@ -16,7 +16,7 @@ import edu.duke.cs.osprey.tools.AutoCleanable;
  *
  * @author mhall44
  */
-public interface EnergyFunction extends Serializable {
+public interface EnergyFunction extends Serializable, AutoCleanable {
     
     public abstract double getEnergy();
     
@@ -45,4 +45,9 @@ public interface EnergyFunction extends Serializable {
     		}
     	}
     }
+
+    @Override
+    default void clean() {
+    	Tools.cleanIfNeeded(this);
+	}
 }

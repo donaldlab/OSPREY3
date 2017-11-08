@@ -15,7 +15,6 @@ public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusa
 	private GpuStream stream;
 	private CCDKernelCuda kernel;
 	private ObjectiveFunction.DofBounds dofBounds;
-	private DoubleMatrix1D x;
 
 	public CudaCCDMinimizer(GpuStreamPool streams) {
 		this.streams = streams;
@@ -51,16 +50,21 @@ public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusa
 		} else {
 			throw new Error("objective function should be a " + MoleculeModifierAndScorer.class.getSimpleName() + ", not a " + f.getClass().getSimpleName() + ". this is a bug");
 		}
-		
-		
-		// init x to the center of the bounds
+
 		dofBounds = new ObjectiveFunction.DofBounds(f.getConstraints());
-		x = DoubleFactory1D.dense.make(dofBounds.size());
-		dofBounds.getCenter(x);
 	}
-	
+
 	@Override
-	public Minimizer.Result minimize() {
+	public Minimizer.Result minimizeFromCenter() {
+
+		DoubleMatrix1D x = DoubleFactory1D.dense.make(dofBounds.size());
+		dofBounds.getCenter(x);
+
+		return minimizeFrom(x);
+	}
+
+	@Override
+	public Minimizer.Result minimizeFrom(DoubleMatrix1D x) {
 		
 		// do the minimization
 		f.setDOFs(x);

@@ -122,6 +122,11 @@ public class TestMinimization extends TestBase {
 				confs.add(tree.nextConf());
 			}
 		}
+
+		@Override
+		public String toString() {
+			return String.format("solvation: %s", ffparams.solvationForcefield);
+		}
 	}
 	
 	@BeforeClass
@@ -331,19 +336,19 @@ public class TestMinimization extends TestBase {
 	
 	private void checkConfs(Info info, List<EnergiedConf> econfs) {
 		
-		assertThat(econfs.size(), is(info.confs.size()));
+		assertThat(info.toString(), econfs.size(), is(info.confs.size()));
 		
 		for (int i=0; i<info.confs.size(); i++) {
 			
 			ScoredConf conf = info.confs.get(i);
 			EnergiedConf econf = econfs.get(i);
 			
-			assertThat(econf.getAssignments(), is(conf.getAssignments()));
-			assertThat(econf.getScore(), is(conf.getScore()));
+			assertThat(info.toString(), econf.getAssignments(), is(conf.getAssignments()));
+			assertThat(info.toString(), econf.getScore(), is(conf.getScore()));
 			
 			// penalize large errors, but not lower energies
 			double absErr = econf.getEnergy() - info.expectedEnergies[i];
-			assertThat(absErr, lessThanOrEqualTo(Epsilon));
+			assertThat(info.toString(), absErr, lessThanOrEqualTo(Epsilon));
 		}
 	}
 }

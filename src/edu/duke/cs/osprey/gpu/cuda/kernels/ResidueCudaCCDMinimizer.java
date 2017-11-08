@@ -39,7 +39,6 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		
 		public int resIndex;
 		public int[] resPairIndices;
-		public double xd;
 		public double xdmin;
 		public double xdmax;
 		
@@ -92,7 +91,6 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 	 *    short[4] angleAtomOffsets // in index space of residue
 	 *    int numRotatedAtoms
 	 *    int numResPairs
-	 *    double xd
 	 *    double xdmin
 	 *    double xdmax
 	 *    
@@ -133,10 +131,11 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 	 */
 	private CUBuffer<ByteBuffer> data;
 	private CUBuffer<DoubleBuffer> coords;
+	private CUBuffer<DoubleBuffer> xin;
 	private CUBuffer<DoubleBuffer> out;
 	
 	private static final int HeaderBytes = Integer.BYTES*4 + Double.BYTES*2;
-	private static final int DihedralBytes = Long.BYTES + Integer.BYTES*4 + Short.BYTES*4 + Double.BYTES*3;
+	private static final int DihedralBytes = Long.BYTES + Integer.BYTES*4 + Short.BYTES*4 + Double.BYTES*2;
 	private static final int ResPairBytes = Long.BYTES*3 + Double.BYTES*2;
 	private static final int AtomPairBytes = Short.BYTES*2 + Integer.BYTES + Double.BYTES*9;
 	
@@ -214,7 +213,6 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 				cache.put(dihedral.res, dihedral.resPairIndices);
 			}
 			
-			dihedral.xd = dofBounds.getCenter(d);
 			dihedral.xdmin = dofBounds.getMin(d);
 			dihedral.xdmax = dofBounds.getMax(d);
 			
@@ -293,7 +291,6 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 			}
 			databuf.putInt(dihedral.rotatedIndices.length);
 			databuf.putInt(dihedral.resPairIndices.length);
-			databuf.putDouble(Math.toRadians(dihedral.xd));
 			databuf.putDouble(Math.toRadians(dihedral.xdmin));
 			databuf.putDouble(Math.toRadians(dihedral.xdmax));
 			
@@ -347,6 +344,9 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		
 		databuf.flip();
 		data.uploadAsync();
+
+		// allocate the x input
+		xin = stream.doubleBuffers.checkout(dihedrals.size());
 		
 		// allocate the output
 		out = stream.doubleBuffers.checkout(dihedrals.size() + 1);
@@ -362,6 +362,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		func.setArgs(Pointer.to(
 			data.getDevicePointer(),
 			coords.getDevicePointer(),
+			xin.getDevicePointer(),
 			out.getDevicePointer()
 		));
 		
@@ -370,7 +371,18 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 	}
 	
 	@Override
-	public Minimizer.Result minimize() {
+	public Minimizer.Result minimizeFromCenter() {
+
+		DoubleMatrix1D x = DoubleFactory1D.dense.make(dihedrals.size());
+		for (Dihedral dihedral : dihedrals) {
+			x.set(dihedral.d, (dihedral.xdmax + dihedral.xdmin)/2);
+		}
+
+		return minimizeFrom(x);
+	}
+
+	@Override
+	public Minimizer.Result minimizeFrom(DoubleMatrix1D x) {
 
 		// no need to waste time on broken conformations
 		if (efunc.isBroken) {
@@ -380,8 +392,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		// put the molecule in the staring state
 		// TODO: do initial pose on the GPU?
 		for (Dihedral dihedral : dihedrals) {
-			double xd = (dihedral.xdmin + dihedral.xdmax)/2;
-			mof.setDOF(dihedral.d, xd);
+			mof.setDOF(dihedral.d, x.get(dihedral.d));
 		}
 		
 		// pack and upload the coords
@@ -392,6 +403,15 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		}
 		coordsbuf.clear();
 		coords.uploadAsync();
+
+		// upload x
+		DoubleBuffer xinbuf = xin.getHostBuffer();
+		xinbuf.clear();
+		for (Dihedral dihedral : dihedrals) {
+			xinbuf.put(Math.toRadians(x.get(dihedral.d)));
+		}
+		xinbuf.clear();
+		xin.uploadAsync();
 		
 		// launch the kernel and wait
 		func.runAsync();
@@ -399,7 +419,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		
 		// read the result
 		outbuf.rewind();
-		DoubleMatrix1D x = DoubleFactory1D.dense.make(mof.getNumDOFs());
+		x = DoubleFactory1D.dense.make(mof.getNumDOFs());
 		for (Dihedral dihedral : dihedrals) {
 			x.set(dihedral.d, Math.toDegrees(outbuf.get()));
 		}
@@ -422,6 +442,10 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		if (coords != null) {
 			stream.doubleBuffers.release(coords);
 			coords = null;
+		}
+		if (xin != null) {
+			stream.doubleBuffers.release(xin);
+			xin = null;
 		}
 		if (out != null) {
 			stream.doubleBuffers.release(out);

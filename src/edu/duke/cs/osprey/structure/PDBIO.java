@@ -102,6 +102,10 @@ public class PDBIO {
 	public static Molecule readFile(File file) {
 		return read(FileTools.readFile(file));
 	}
+
+	public static Molecule readResource(String path) {
+		return read(FileTools.readResource(path));
+	}
 	
 	public static Molecule read(String pdbText) {
 		return readAll(pdbText).get(0);

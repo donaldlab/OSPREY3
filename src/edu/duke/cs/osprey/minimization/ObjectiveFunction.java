@@ -25,6 +25,17 @@ public interface ObjectiveFunction extends Serializable {
     //Get constraints on the degrees of freedom
     public DoubleMatrix1D[] getConstraints();
 
+	default DoubleMatrix1D getDOFsCenter() {
+		int n = getNumDOFs();
+		DoubleMatrix1D x = DoubleFactory1D.dense.make(n);
+		for (int d=0; d<n; d++) {
+			double xdmin = getConstraints()[0].get(d);
+			double xdmax = getConstraints()[0].get(d);
+			x.set(d, (xdmin + xdmax)/2);
+		}
+		return x;
+	}
+
     //Set all DOFs to values in x (e.g. in the molecule)
     public void setDOFs(DoubleMatrix1D x);
 
