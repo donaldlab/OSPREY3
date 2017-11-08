@@ -410,7 +410,7 @@ def ForcefieldParams(forcefield=None):
 	return c.energy.forcefield.ForcefieldParams()
 
 
-def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimizing=None):
+def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimizing=None, infiniteWellEnergy=None):
 	'''
 	:java:classdoc:`.energy.EnergyCalculator`
 
@@ -420,6 +420,8 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimiz
 	:builder_option parallelism .energy.EnergyCalculator$Builder#parallelism:
 	:builder_option type .energy.EnergyCalculator$Builder#type:
 	:builder_option isMinimizing .energy.EnergyCalculator$Builder#isMinimizing:
+	:builder_option infiniteWellEnergy .energy.EnergyCalculator$Builder#infiniteWellEnergy
+
 	:builder_return .energy.EnergyCalculator$Builder:
 	'''
 	builder = _get_builder(c.energy.EnergyCalculator)(confSpace, ffparams)
@@ -432,6 +434,9 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimiz
 
 	if isMinimizing is not None:
 		builder.setIsMinimizing(isMinimizing)
+
+	if infiniteWellEnergy is not None:
+		builder.setInfiniteWellEnergy(infiniteWellEnergy)
 
 	return builder.build()
 

@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.energy;
 import java.io.File;
 import java.util.function.Consumer;
 
+import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -78,6 +79,26 @@ public class EnergyCalculator implements AutoCleanable {
 		/** True to minimize continuous degrees of freedom in conformations. False to use only rigid structures. */
 		private boolean isMinimizing = true;
 
+		/**
+		 * When set, if a minimized energy is below this threshold, assume the conformation
+		 * fell into an infinite well due to a severe clash (this is a known flaw of the AMBER
+		 * forcefield, all parameterizations). Then attempt the minimization again,
+		 * but try to resolve the clash first with a purely vdW forcefield. If the clash cannot
+		 * be resolved, and the conformation falls into the well again, return positive infinity
+		 * energy instead of effectively negative infinity.
+		 *
+		 * If you wish to use the inifinite well detection and resolution, -10,000 kcal/mol is
+		 * probably a good threshold to choose.
+		 */
+		private Double infiniteWellEnergy = null;
+
+		/**
+		 * If set, the minimizer will always use a simpler vdW forcefield to attempt to resolve clashes
+		 * before applying the full forcefield. If the energy does not minimize to below the threshold,
+		 * the full forcefield will not be used, and a positive infinity energy will be returned instead.
+		 */
+		private Double alwaysResolveClashesEnergy = null;
+
 		public Builder(ResidueTemplateLibrary templateLib, ForcefieldParams ffparams) {
 			this.ffparams = ffparams;
 			this.atomConnectivityBuilder.addTemplates(templateLib);
@@ -124,6 +145,16 @@ public class EnergyCalculator implements AutoCleanable {
 			return this;
 		}
 
+		public Builder setInfiniteWellEnergy(Double val) {
+			infiniteWellEnergy = val;
+			return this;
+		}
+
+		public Builder setAlwaysResolveClashesEnergy(Double val) {
+			alwaysResolveClashesEnergy = val;
+			return this;
+		}
+
 		public EnergyCalculator build() {
 			
 			// if no explicit type was picked, pick the best one now
@@ -143,7 +174,7 @@ public class EnergyCalculator implements AutoCleanable {
 				resPairCache = new ResPairCache(ffparams, connectivity);
 			}
 			
-			return new EnergyCalculator(parallelism, type, resPairCache, isMinimizing);
+			return new EnergyCalculator(parallelism, type, resPairCache, isMinimizing, infiniteWellEnergy, alwaysResolveClashesEnergy);
 		}
 	}
 
@@ -452,14 +483,29 @@ public class EnergyCalculator implements AutoCleanable {
 	public final Type.Context context;
 	public final ResPairCache resPairCache;
 	public final boolean isMinimizing;
+	public final Double infiniteWellEnergy;
+	public final Double alwaysResolveClashesEnergy;
+
+	private final Type.Context cpuContext; // for vdW forcefields
 	
-	private EnergyCalculator(Parallelism parallelism, Type type, ResPairCache resPairCache, boolean isMinimizing) {
+	private EnergyCalculator(Parallelism parallelism, Type type, ResPairCache resPairCache, boolean isMinimizing, Double infiniteWellEnergy, Double alwaysResolveClashesEnergy) {
+
 		this.parallelism = parallelism;
 		this.tasks = parallelism.makeTaskExecutor();
 		this.type = type;
 		this.context = type.makeContext(parallelism, resPairCache);
 		this.resPairCache = resPairCache;
 		this.isMinimizing = isMinimizing;
+		this.infiniteWellEnergy = infiniteWellEnergy;
+		this.alwaysResolveClashesEnergy = alwaysResolveClashesEnergy;
+
+		// make a CPU context if we need to do vdW forcefields
+		// TODO: implement vdW forcefield on the GPU too?
+		if (infiniteWellEnergy != null || alwaysResolveClashesEnergy != null) {
+			this.cpuContext = Type.Cpu.makeContext(parallelism, resPairCache);
+		} else {
+			this.cpuContext = null;
+		}
 	}
 
 	private EnergyCalculator(EnergyCalculator parent, boolean isMinimizing) {
@@ -470,6 +516,10 @@ public class EnergyCalculator implements AutoCleanable {
 		this.context = parent.context;
 		this.resPairCache = parent.resPairCache;
 		this.isMinimizing = isMinimizing;
+		this.infiniteWellEnergy = parent.infiniteWellEnergy;
+		this.alwaysResolveClashesEnergy = parent.alwaysResolveClashesEnergy;
+
+		this.cpuContext = parent.cpuContext;
 	}
 	
 	@Override
@@ -492,31 +542,70 @@ public class EnergyCalculator implements AutoCleanable {
 		if (inters.size() <= 0) {
 			return new EnergiedParametricMolecule(pmol, null, 0);
 		}
-		
-		// get the energy function
-		EnergyFunction efunc = context.efuncs.make(inters, pmol.mol);
-		try {
-			
-			// do we need to minimize over dofs?
-			if (isMinimizing && pmol.dofBounds.size() > 0) {
-				
-				Minimizer minimizer = context.minimizers.make(new MoleculeObjectiveFunction(pmol, efunc));
-				try {
-					Minimizer.Result result = minimizer.minimize();
-					return new EnergiedParametricMolecule(pmol, inters, result.dofValues, result.energy);
-				} finally {
-					Minimizer.Tools.cleanIfNeeded(minimizer);
-				}
-				
-			} else {
 
-				// otherwise, just use the energy of the given pose
+		// if we don't need to minimize, just return the energy of the current pose
+		if (!isMinimizing || pmol.dofBounds.size() <= 0) {
+			try (EnergyFunction efunc = context.efuncs.make(inters, pmol.mol)) {
 				return new EnergiedParametricMolecule(pmol, inters, null, efunc.getEnergy());
 			}
-
-		} finally {
-			EnergyFunction.Tools.cleanIfNeeded(efunc);
 		}
+
+		// start at the center of the voxel
+		DoubleMatrix1D x = DoubleFactory1D.dense.make(pmol.dofs.size());
+		pmol.dofBounds.getCenter(x);
+
+		if (alwaysResolveClashesEnergy != null) {
+
+			Minimizer.Result vdwResult = minimizeWithVdw(pmol, inters, x);
+
+			// if we didn't resolve the clash, return +inf energy
+			if (vdwResult.energy >= alwaysResolveClashesEnergy) {
+				return new EnergiedParametricMolecule(pmol, inters, vdwResult.dofValues, Double.POSITIVE_INFINITY);
+			}
+
+			x = vdwResult.dofValues;
+		}
+
+		// minimize using the full forcefield
+		try (EnergyFunction efunc = context.efuncs.make(inters, pmol.mol)) {
+			MoleculeObjectiveFunction mof = new MoleculeObjectiveFunction(pmol, efunc);
+			try (Minimizer minimizer = context.minimizers.make(mof)) {
+
+				Minimizer.Result result = minimizer.minimizeFrom(x);
+
+				// did we fall into an infinite energy well?
+				if (isInfiniteWell(result.energy)) {
+
+					// try to resolve the clash and try the minimization again
+					Minimizer.Result vdwResult = minimizeWithVdw(pmol, inters, x);
+					result = minimizer.minimizeFrom(vdwResult.dofValues);
+
+					// are we still in the well?
+					if (isInfiniteWell(result.energy)) {
+
+						// return positive infinity energy
+						return new EnergiedParametricMolecule(pmol, inters, result.dofValues, Double.POSITIVE_INFINITY);
+					}
+
+					// we got out of the well, yay!
+				}
+
+				return new EnergiedParametricMolecule(pmol, inters, result.dofValues, result.energy);
+			}
+		}
+	}
+
+	private Minimizer.Result minimizeWithVdw(ParametricMolecule pmol, ResidueInteractions inters, DoubleMatrix1D x) {
+		try (EnergyFunction efunc = cpuContext.efuncs.make(inters, pmol.mol)) {
+			ResidueForcefieldEnergy.Vdw vdwEfunc = new ResidueForcefieldEnergy.Vdw((ResidueForcefieldEnergy)efunc);
+			try (Minimizer minimizer = cpuContext.minimizers.make(new MoleculeObjectiveFunction(pmol, vdwEfunc))) {
+				return minimizer.minimizeFrom(x);
+			}
+		}
+	}
+
+	private boolean isInfiniteWell(double energy) {
+		return infiniteWellEnergy != null && energy <= infiniteWellEnergy;
 	}
 
 	public EnergyFunction makeEnergyFunction(EnergiedParametricMolecule epmol) {
