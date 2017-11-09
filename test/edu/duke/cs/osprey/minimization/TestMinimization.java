@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -58,7 +60,7 @@ public class TestMinimization extends TestBase {
 		public List<ScoredConf> confs;
 		public double[] expectedEnergies;
 		
-		public Info(boolean doSolv, double[] expectedEnergies) {
+		public Info(boolean doSolv, double[] expectedEnergies, int[][] expectedConfs) {
 			
 			ffparams = makeDefaultFFParams();
 			ffparams.solvationForcefield = doSolv ? SolvationForcefield.EEF1 : null;
@@ -108,6 +110,22 @@ public class TestMinimization extends TestBase {
 			strand.flexibility.get("A45").setLibraryRotamers(Strand.WildType).setContinuous();
 			simpleConfSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 			assertConfSpacesMatch(search.confSpace, simpleConfSpace);
+
+			// TEMP: compare emats
+			// TODO: why are these different!?
+			System.out.println(search.emat);
+			new EnergyCalculator.Builder(simpleConfSpace, ffparams)
+				.setType(EnergyCalculator.Type.Cpu)
+				.use((ecalc) -> {
+					EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(simpleConfSpace, ecalc)
+						.build()
+						.calcEnergyMatrix();
+					System.out.println(emat);
+
+					// TEMP: this fixes all the EnergyCalculator-based stuff
+					// but not the older minimizers... something must have broken the older conf minimizers?
+					search.emat = emat;
+				});
 		
 			// build A* tree
 			ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
@@ -120,6 +138,11 @@ public class TestMinimization extends TestBase {
 			confs = new ArrayList<>();
 			for (int i=0; i<numConfs; i++) {
 				confs.add(tree.nextConf());
+			}
+
+			// check the confs
+			for (int i=0; i<numConfs; i++) {
+				assertThat(confs.get(i).getAssignments(), is(expectedConfs[i]));
 			}
 		}
 
@@ -142,12 +165,46 @@ public class TestMinimization extends TestBase {
 			-89.12813398454430,     -89.50404412354364,     -88.39619842044286,     -88.88944810225273,
 			-88.91539256575295,     -88.37401748235216,     -88.72521745744406,     -88.95852827535202,
 			-88.56492542985737,     -89.13542390896987,     -88.39342805735203,     -88.61512935924370
+		}, new int[][] {
+			new int[] { 0, 3, 0, 22, 0, 4, 1 },
+			new int[] { 0, 4, 0, 22, 0, 4, 1 },
+			new int[] { 0, 3, 0, 18, 0, 4, 1 },
+			new int[] { 0, 3, 5, 22, 0, 4, 1 },
+			new int[] { 0, 3, 5, 21, 0, 4, 1 },
+			new int[] { 0, 4, 0, 18, 0, 4, 1 },
+			new int[] { 0, 4, 5, 22, 0, 4, 1 },
+			new int[] { 0, 4, 5, 21, 0, 4, 1 },
+			new int[] { 0, 3, 0, 21, 0, 4, 1 },
+			new int[] { 0, 2, 0, 22, 0, 4, 1 },
+			new int[] { 0, 3, 5, 18, 0, 4, 1 },
+			new int[] { 0, 3, 5, 19, 0, 4, 1 },
+			new int[] { 0, 3, 5, 17, 0, 4, 1 },
+			new int[] { 0, 3, 0, 15, 0, 4, 1 },
+			new int[] { 0, 3, 0, 25, 0, 4, 1 },
+			new int[] { 0, 4, 0, 21, 0, 4, 1 }
 		}));
 		Infos.put(false, new Info(false, new double[] {
 			-70.47295175891054,     -70.18816916335444,     -70.29217193373283,     -70.48982613389194,
 			-69.42023183578743,     -69.91475960627933,     -70.35460308647797,     -69.19541718369999,
 			-69.11087623590001,     -69.43654754385510,     -69.48055945486242,     -70.12045267097507,
 			-69.42165499907402,     -68.97467845375986,     -69.34083168223796,     -69.74355354866111
+		}, new int[][] {
+			new int[] { 0, 3, 5, 22, 0, 4, 1 },
+			new int[] { 0, 4, 5, 22, 0, 4, 1 },
+			new int[] { 0, 3, 0, 22, 0, 4, 1 },
+			new int[] { 0, 3, 5, 21, 0, 4, 1 },
+			new int[] { 0, 2, 5, 22, 0, 4, 1 },
+			new int[] { 0, 4, 0, 22, 0, 4, 1 },
+			new int[] { 0, 4, 5, 21, 0, 4, 1 },
+			new int[] { 0, 2, 0, 22, 0, 4, 1 },
+			new int[] { 0, 3, 5, 25, 0, 4, 1 },
+			new int[] { 0, 2, 5, 21, 0, 4, 1 },
+			new int[] { 0, 3, 5, 18, 0, 4, 1 },
+			new int[] { 0, 3, 0, 18, 0, 4, 1 },
+			new int[] { 0, 3, 5, 17, 0, 4, 1 },
+			new int[] { 0, 4, 5, 25, 0, 4, 1 },
+			new int[] { 0, 4, 5, 18, 0, 4, 1 },
+			new int[] { 0, 4, 0, 18, 0, 4, 1 }
 		}));
 	}
 	
