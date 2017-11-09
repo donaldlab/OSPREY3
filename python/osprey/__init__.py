@@ -436,7 +436,7 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimiz
 		builder.setIsMinimizing(isMinimizing)
 
 	if infiniteWellEnergy is not None:
-		builder.setInfiniteWellEnergy(infiniteWellEnergy)
+		builder.setInfiniteWellEnergy(jvm.boxDouble(infiniteWellEnergy))
 
 	return builder.build()
 

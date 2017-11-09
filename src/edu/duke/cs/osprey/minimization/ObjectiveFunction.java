@@ -30,7 +30,7 @@ public interface ObjectiveFunction extends Serializable {
 		DoubleMatrix1D x = DoubleFactory1D.dense.make(n);
 		for (int d=0; d<n; d++) {
 			double xdmin = getConstraints()[0].get(d);
-			double xdmax = getConstraints()[0].get(d);
+			double xdmax = getConstraints()[1].get(d);
 			x.set(d, (xdmin + xdmax)/2);
 		}
 		return x;

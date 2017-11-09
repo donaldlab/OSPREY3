@@ -106,3 +106,8 @@ def getInnerClass(jclass, inner_class_name):
 	# get the inner class
 	return getJavaClass('%s$%s' % (classname, inner_class_name))
 
+
+def boxDouble(val):
+	if val is None:
+		return None
+	return c.java.lang.Double(val)

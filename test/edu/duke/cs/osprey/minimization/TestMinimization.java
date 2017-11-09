@@ -9,8 +9,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -111,22 +109,6 @@ public class TestMinimization extends TestBase {
 			simpleConfSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 			assertConfSpacesMatch(search.confSpace, simpleConfSpace);
 
-			// TEMP: compare emats
-			// TODO: why are these different!?
-			System.out.println(search.emat);
-			new EnergyCalculator.Builder(simpleConfSpace, ffparams)
-				.setType(EnergyCalculator.Type.Cpu)
-				.use((ecalc) -> {
-					EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(simpleConfSpace, ecalc)
-						.build()
-						.calcEnergyMatrix();
-					System.out.println(emat);
-
-					// TEMP: this fixes all the EnergyCalculator-based stuff
-					// but not the older minimizers... something must have broken the older conf minimizers?
-					search.emat = emat;
-				});
-		
 			// build A* tree
 			ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
 				.setMPLP(new ConfAStarTree.MPLPBuilder()
