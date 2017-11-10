@@ -118,7 +118,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 		// step the upper bound calculator at least once,
 		// so we try to get a non-inf upper bound before working on the lower bound
 		upperBound.scoreNextConf();
-		values.qprime = upperBound.totalBound;
+		values.qprime = upperBound.totalBound.subtract(lowerBound.energiedScores);
 
 		while (true) {
 
