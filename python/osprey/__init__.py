@@ -420,7 +420,7 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimiz
 	:builder_option parallelism .energy.EnergyCalculator$Builder#parallelism:
 	:builder_option type .energy.EnergyCalculator$Builder#type:
 	:builder_option isMinimizing .energy.EnergyCalculator$Builder#isMinimizing:
-	:builder_option infiniteWellEnergy .energy.EnergyCalculator$Builder#infiniteWellEnergy
+	:builder_option infiniteWellEnergy .energy.EnergyCalculator$Builder#infiniteWellEnergy:
 
 	:builder_return .energy.EnergyCalculator$Builder:
 	'''
