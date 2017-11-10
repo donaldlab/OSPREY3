@@ -120,7 +120,6 @@ public class SimplePartitionFunction implements PartitionFunction {
 		upperBound.scoreNextConf();
 		values.qprime = upperBound.totalBound;
 
-		int numConfsScored = 0;
 		while (true) {
 
 			// don't race the calculators while we're checking stopping criteria
@@ -139,7 +138,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 				}
 
 				// should we stop anyway?
-				if (!status.canContinue() || numConfsScored >= maxNumConfs) {
+				if (!status.canContinue() || lowerBound.numConfsScored >= maxNumConfs) {
 					break;
 				}
 			}
@@ -188,7 +187,6 @@ public class SimplePartitionFunction implements PartitionFunction {
 					confListener.onConf(econf);
 				}
 			});
-			numConfsScored++;
 
 			// see if the lower bound calculator stalled and wait if it did
 			switch (lbStatus) {
@@ -204,8 +202,19 @@ public class SimplePartitionFunction implements PartitionFunction {
 
 			// make sure the lower bound calc doesn't get ahead of the upper bound calc
 			// otherwise, the bounds will be wrong
-			while (numConfsScored > upperBound.numScoredConfs) {
+			while (lowerBound.numConfsScored > upperBound.numScoredConfs) {
+				int oldNum = upperBound.numScoredConfs;
 				upperBound.scoreNextConf();
+
+				// make sure it's even possible for the upper bound calculator to score more confs
+				if (upperBound.numScoredConfs <= oldNum) {
+					throw new Error(String.format(
+						"The lower bound calculator apparently scored more conformations (%d) than is possible"
+						+ " for the upper bound calculator (%s). This is definitely a bug",
+						lowerBound.numConfsScored,
+						confSearch.getNumConformations().toString()
+					));
+				}
 			}
 		}
 
