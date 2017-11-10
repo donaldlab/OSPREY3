@@ -85,6 +85,19 @@ public class SimpleConfSpace implements Serializable {
 		public String toString() {
 			return resNum;
 		}
+
+		public String formatConfPos(ConfSearch.ScoredConf conf) {
+			return formatConfPos(conf.getAssignments());
+		}
+
+		public String formatConfPos(int[] conf) {
+			SimpleConfSpace.ResidueConf rc = resConfs.get(conf[index]);
+			return String.format("%s-%s-%d",
+				rc.template.name.toUpperCase(),
+				rc.getRotamerCode(),
+				conf[index]
+			);
+		}
 	}
 	
 	public static class ResidueConf implements Serializable {
@@ -678,13 +691,24 @@ public class SimpleConfSpace implements Serializable {
 			.collect(Collectors.toList());
 	}
 
-	public String formatConfRCs(ConfSearch.ScoredConf conf) {
+	public String formatConf(ConfSearch.ScoredConf conf) {
+		return formatConf(conf.getAssignments());
+	}
+
+	public String formatConf(int[] conf) {
+		return String.join(" ", positions.stream()
+			.map((pos) -> String.format("%-12s", pos.formatConfPos(conf)))
+			.collect(Collectors.toList())
+		);
+	}
+
+	public static String formatConfRCs(ConfSearch.ScoredConf conf) {
 		return formatConfRCs(conf.getAssignments());
 	}
 
-	public String formatConfRCs(int[] conf) {
+	public static String formatConfRCs(int[] conf) {
 		return String.join(" ", Arrays.stream(conf)
-			.mapToObj((int rc) -> String.format("%3d", rc))
+			.mapToObj((int rc) -> String.format("%-5d", rc))
 			.collect(Collectors.toList())
 		);
 	}
@@ -695,7 +719,7 @@ public class SimpleConfSpace implements Serializable {
 
 	public String formatConfSequence(int[] conf) {
 		return String.join(" ", getResidueConfs(conf).stream()
-			.map((resConf) -> String.format("%3s", resConf.template.name))
+			.map((resConf) -> String.format("%-5s", resConf.template.name))
 			.collect(Collectors.toList())
 		);
 	}
@@ -706,7 +730,14 @@ public class SimpleConfSpace implements Serializable {
 
 	public String formatConfRotamers(int[] conf) {
 		return String.join(" ", getResidueConfs(conf).stream()
-			.map((resConf) -> String.format("%3s", resConf.getRotamerCode()))
+			.map((resConf) -> String.format("%-5s", resConf.getRotamerCode()))
+			.collect(Collectors.toList())
+		);
+	}
+
+	public String formatResidueNumbers() {
+		return String.join(" ", positions.stream()
+			.map((pos) -> String.format("%-5s", pos.resNum))
 			.collect(Collectors.toList())
 		);
 	}

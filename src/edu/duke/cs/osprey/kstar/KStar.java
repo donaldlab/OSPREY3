@@ -266,6 +266,10 @@ public class KStar {
 
 		/** highlight mutations in upper case, show wild type residues in lower case */
 		public String toString(KStar.Sequence wildtype) {
+			return toString(wildtype, 3);
+		}
+
+		public String toString(KStar.Sequence wildtype, int cellSize) {
 			List<String> resTypes = new ArrayList<>();
 			for (int i=0; i<size(); i++) {
 				String resType = get(i);
@@ -278,7 +282,10 @@ public class KStar {
 					resTypes.add(resType.toUpperCase());
 				}
 			}
-			return String.join(" ", resTypes);
+			return String.join(" ", resTypes.stream()
+				.map((s) -> String.format("%-" + cellSize + "s", s))
+				.collect(Collectors.toList())
+			);
 		}
 
 		public String toString(List<SimpleConfSpace.Position> positions) {

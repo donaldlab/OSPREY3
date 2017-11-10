@@ -23,13 +23,12 @@ public class ConsoleConfPrinter implements ConfPrinter {
 		
 		StringBuilder buf = new StringBuilder();
 		
-		buf.append(String.format(LabelFormat, "Residue Conf Ids"));
-		for (int rc : conf.getAssignments()) {
-			buf.append(String.format(" %3d", rc));
-		}
-		buf.append("\n");
-		
 		if (confSpace != null) {
+
+			buf.append(String.format(LabelFormat, "Residue numbers"));
+			buf.append(" ");
+			buf.append(confSpace.formatResidueNumbers());
+			buf.append("\n");
 
 			buf.append(String.format(LabelFormat, "Residue types"));
 			buf.append(" ");
@@ -41,7 +40,12 @@ public class ConsoleConfPrinter implements ConfPrinter {
 			buf.append(confSpace.formatConfRotamers(conf));
 			buf.append("\n");
 		}
-		
+
+		buf.append(String.format(LabelFormat, "Residue Conf Ids"));
+		buf.append(" ");
+		buf.append(SimpleConfSpace.formatConfRCs(conf));
+		buf.append("\n");
+
 		buf.append(String.format(LabelFormat + " %.6f", "Energy", conf.getEnergy()));
 		if (range != null) {
 			buf.append(String.format(" (best so far: %.6f)", range.getMin()));
