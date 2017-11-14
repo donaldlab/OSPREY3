@@ -30,10 +30,13 @@ public class PartitionFunction {
 	}
 	
 	public void addEnergy(double energy) {
-		BigDecimal boltzmannWeight = bc.calc(energy);
-		z = z.add(boltzmannWeight);
-		//increment numConfs with each conformation
-		numConfs = numConfs.add(BigInteger.ONE);
+		//only include good, negative energies in calculations
+		if (energy < 0) {
+			BigDecimal boltzmannWeight = bc.calc(energy);
+			z = z.add(boltzmannWeight);
+			//increment numConfs with each conformation
+			numConfs = numConfs.add(BigInteger.ONE);
+		}
 	}
 	
 	public void setSequence(String sequence) {
@@ -53,7 +56,7 @@ public class PartitionFunction {
 	}
 	
 	public String toString() {
-		return "seq: " + getSequence() + ", " + String.format("z*: %12e", z);
+		return "seq: " + getSequence() + ", " + String.format("z*: %12e", z) + ", " + String.format("confs: %d", numConfs);
 	}
 	
     

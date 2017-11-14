@@ -1,0 +1,7 @@
+Seq: PHE-649 GLU-651 | PHE-156 LYS-172 ILE-192, log10(score): 1.595450e+01, pf:  0, z: 3.534526e+03, confs: 10 pf:  1, z: 1.433662e+23, confs: 37 pf:  2, z: 4.563332e+42, confs: 26
+Seq: PHE-649 GLU-651 | TYR-156 LYS-172 ILE-192, log10(score): 1.580702e+01, pf:  0, z: 3.534526e+03, confs: 10 pf:  1, z: 7.563377e+22, confs: 31 pf:  2, z: 1.714208e+42, confs: 20
+Seq: PHE-649 GLU-651 | PHE-156 LYS-172 VAL-192, log10(score): 1.512842e+01, pf:  0, z: 3.534526e+03, confs: 10 pf:  1, z: 2.832824e+21, confs: 19 pf:  2, z: 1.345783e+40, confs: 5
+Seq: PHE-649 GLU-651 | TYR-156 LYS-172 VAL-192, log10(score): 1.496836e+01, pf:  0, z: 3.534526e+03, confs: 10 pf:  1, z: 1.476306e+21, confs: 14 pf:  2, z: 4.851368e+39, confs: 4
+Seq: PHE-649 GLU-651 | ILE-156 LYS-172 ILE-192, log10(score): 1.493474e+01, pf:  0, z: 3.534526e+03, confs: 10 pf:  1, z: 8.370582e+22, confs: 30 pf:  2, z: 2.545805e+41, confs: 8
+Seq: PHE-649 GLU-651 | VAL-156 LYS-172 ILE-192, log10(score): 1.433618e+01, pf:  0, z: 3.534526e+03, confs: 10 pf:  1, z: 3.355528e+22, confs: 15 pf:  2, z: 2.572029e+40, confs: 5
+Seq: PHE-649 GLU-651 | ILE-156 LYS-172 VAL-192, log10(score): 1.386160e+01, pf:  0, z: 3.534526e+03, confs: 10 pf:  1, z: 1.643435e+21, confs: 13 pf:  2, z: 4.223569e+38, confs: 1
