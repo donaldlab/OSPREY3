@@ -57,7 +57,7 @@ public class TestBBKStar {
 				// run BBK*
 				KStar.Settings kstarSettings = new KStar.Settings.Builder()
 					.setEpsilon(epsilon)
-					.setStabilityThreshold(Double.POSITIVE_INFINITY)
+					.setStabilityThreshold(null)
 					.setMaxSimultaneousMutations(1)
 					.addScoreConsoleWriter()
 					.build();

@@ -63,8 +63,10 @@ public class KStar {
 			 *   - L(W_s) is the lower bound on the partition function for strand s in the wild type
 			 *   - t is the stability threshold
 			 *   - B() is the Boltzmann weighting function
+			 *
+			 * Set to null to disable the filter entirely.
 			 */
-			private double stabilityThreshold = 5.0;
+			private Double stabilityThreshold = 5.0;
 
 			/** The maximum number of simultaneous residue mutations to consider for each sequence mutant */
 			private int maxSimultaneousMutations = 1;
@@ -96,7 +98,10 @@ public class KStar {
 				return this;
 			}
 
-			public Builder setStabilityThreshold(double val) {
+			public Builder setStabilityThreshold(Double val) {
+				if (val != null && val.isInfinite()) {
+					throw new IllegalArgumentException("only finite values allowed. To turn off the filter, pass null");
+				}
 				stabilityThreshold = val;
 				return this;
 			}
@@ -143,13 +148,13 @@ public class KStar {
 		}
 
 		public final double epsilon;
-		public final double stabilityThreshold;
+		public final Double stabilityThreshold;
 		public final int maxSimultaneousMutations;
 		public final KStarScoreWriter.Writers scoreWriters;
 		public final boolean showPfuncProgress;
 		public final String energyMatrixCachePattern;
 
-		public Settings(double epsilon, double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern) {
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
@@ -515,9 +520,13 @@ public class KStar {
 			ligand.calcPfunc(0, BigDecimal.ZERO),
 			complex.calcPfunc(0, BigDecimal.ZERO)
 		);
-		BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(settings.stabilityThreshold);
-		BigDecimal proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
-		BigDecimal ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+		BigDecimal proteinStabilityThreshold = null;
+		BigDecimal ligandStabilityThreshold = null;
+		if (settings.stabilityThreshold != null) {
+			BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(settings.stabilityThreshold);
+			proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
+			ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+		}
 
 		// compute all the partition functions and K* scores for the rest of the sequences
 		for (int i=1; i<n; i++) {

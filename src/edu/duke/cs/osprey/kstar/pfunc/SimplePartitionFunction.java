@@ -126,7 +126,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 			synchronized (this) {
 
 				// did we drop below the stability threshold?
-				if (lowerBound.numConfsEnergied > 0 && MathTools.isLessThan(values.calcUpperBound(), upperBoundThreshold)) {
+				if (lowerBound.numConfsEnergied > 0 && upperBoundThreshold != null && MathTools.isLessThan(values.calcUpperBound(), upperBoundThreshold)) {
 					status = Status.Unstable;
 					break;
 				}
@@ -232,7 +232,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 		// sometimes extra energies can arrive asynchronously
 		// and push us into unstable territory,
 		// so check for that after waiting on the ecalc to finish
-		if (status != Status.Unstable && MathTools.isLessThan(values.calcUpperBound(), upperBoundThreshold)) {
+		if (status != Status.Unstable && upperBoundThreshold != null && MathTools.isLessThan(values.calcUpperBound(), upperBoundThreshold)) {
 			status = Status.Unstable;
 		}
 	}
