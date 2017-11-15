@@ -869,3 +869,38 @@ def SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc,
 	settings = settingsBuilder.build()
 
 	return c.kstar.SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
+
+def SequenceEnsembleAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, energyMatrixCachePattern=None):
+	'''
+	:java:classdoc:`.kstar.SequenceEnsembleAnalyzer`
+
+	For examples using the sequence analyzer, see examples/python.KStar/analyzeSequence.py in your Osprey distribution.
+
+	:param proteinConfSpace: :java:fielddoc:`.kstar.KStar#protein`
+	:type proteinConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param ligandConfSpace: :java:fielddoc:`.kstar.KStar#ligand`
+	:type ligandConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param complexConfSpace: :java:fielddoc:`.kstar.KStar#complex`
+	:type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param ecalc: :java:fielddoc:`.kstar.KStar#ecalc`
+	:type ecalc: :java:ref:`.energy.EnergyCalculator`
+	:param confEcalcFactory: :java:fielddoc:`.kstar.KStar#confEcalcFactory`
+	:type confEcalcFactory: :java:ref:`.kstar.KStar$ConfEnergyCalculatorFactory`
+	:param astarFactory: :java:fielddoc:`.kstar.KStar#confSearchFactory`
+	:type astarFactory: :java:ref:`.kstar.KStar$ConfSearchFactory`
+	:builder_option energyMatrixCachePattern .kstar.KStar$Settings$Builder#energyMatrixCachePattern:
+
+	:rtype: :java:ref:`.kstar.SequenceEnsembleAnalyzer`
+	'''
+
+	# convert functions from python to java
+	confEcalcFactory = jpype.JProxy(jvm.getInnerClass(c.kstar.KStar, 'ConfEnergyCalculatorFactory'), dict={ 'make': confEcalcFactory })
+	astarFactory = jpype.JProxy(jvm.getInnerClass(c.kstar.KStar, 'ConfSearchFactory'), dict={ 'make': astarFactory })
+
+	# build settings
+	settingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.KStar, 'Settings'))()
+	if energyMatrixCachePattern is not None:
+		settingsBuilder.setEnergyMatrixCachePattern(energyMatrixCachePattern)
+	settings = settingsBuilder.build()
+
+	return c.kstar.SequenceEnsembleAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)

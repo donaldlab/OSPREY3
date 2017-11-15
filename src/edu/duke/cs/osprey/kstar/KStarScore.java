@@ -112,6 +112,28 @@ public class KStarScore {
 		);
 	}
 
+    public String printEnsembleScoreAndBounds() {
+        BigDecimal x = MathTools.bigDivideDivide(
+            complex.values.qstar,
+            protein.values.qstar,
+            ligand.values.qstar,
+            PartitionFunction.decimalPrecision
+        );
+
+		Function<String,String> trim = (s) -> {
+			if (s.length() > 9) {
+				return s.substring(0, 9);
+			} else {
+				return s;
+			}
+		};
+		return String.format("%-9s in [%-9s,%9s] (log10)",
+			trim.apply(scoreToLog10String(x)),
+			trim.apply(lowerBoundLog10String()),
+			trim.apply(upperBoundLog10String())
+		);
+    }
+
 	@Override
 	public boolean equals(Object other) {
 		return other instanceof KStarScore && equals((KStarScore)other);
