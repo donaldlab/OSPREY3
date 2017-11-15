@@ -88,7 +88,7 @@ public class TestKStar {
 				Result result = new Result();
 				KStar.Settings settings = new KStar.Settings.Builder()
 					.setEpsilon(epsilon)
-					.setStabilityThreshold(Double.POSITIVE_INFINITY)
+					.setStabilityThreshold(null)
 					.addScoreConsoleWriter(testFormatter)
 					.build();
 				result.kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);

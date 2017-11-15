@@ -29,6 +29,12 @@ Sequence = None
 ConfSpaceType = None
 BreakdownType = None
 
+# make a special type to use in function signatures to explicitly
+# signal that values should rely on defaults in the java code
+class UseJavaDefault:
+	pass
+useJavaDefault = UseJavaDefault()
+
 
 def _get_builder(jclass, builder_name='Builder'):
 	return jvm.getInnerClass(jclass, builder_name)
@@ -705,7 +711,7 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	return bbflex
 
 
-def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=None, stabilityThreshold=None, maxSimultaneousMutations=None, energyMatrixCachePattern=None, writeSequencesToConsole=False, writeSequencesToFile=None):
+def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
 	'''
 	:java:classdoc:`.kstar.KStar`
 
@@ -728,7 +734,7 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcF
 	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
 	:builder_option energyMatrixCachePattern .kstar.KStar$Settings$Builder#energyMatrixCachePattern:
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
-	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format)
+	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
 
 	:rtype: :java:ref:`.kstar.KStar`
 	'''
@@ -739,24 +745,24 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcF
 
 	# build settings
 	settingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.KStar, 'Settings'))()
-	if epsilon is not None:
+	if epsilon is not useJavaDefault:
 		settingsBuilder.setEpsilon(epsilon)
-	if stabilityThreshold is not None:
-		settingsBuilder.setStabilityThreshold(stabilityThreshold)
-	if maxSimultaneousMutations is not None:
+	if stabilityThreshold is not useJavaDefault:
+		settingsBuilder.setStabilityThreshold(jvm.boxDouble(stabilityThreshold))
+	if maxSimultaneousMutations is not useJavaDefault:
 		settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
 	if writeSequencesToConsole:
 		settingsBuilder.addScoreConsoleWriter()
 	if writeSequencesToFile is not None:
 		settingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
-	if energyMatrixCachePattern is not None:
+	if energyMatrixCachePattern is not useJavaDefault:
 		settingsBuilder.setEnergyMatrixCachePattern(energyMatrixCachePattern)
 	settings = settingsBuilder.build()
 
 	return c.kstar.KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
 
 
-def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=None, stabilityThreshold=None, maxSimultaneousMutations=None, energyMatrixCachePattern=None, numBestSequences=None, numConfsPerBatch=None, writeSequencesToConsole=False, writeSequencesToFile=None):
+def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
 	'''
 	:java:classdoc:`.kstar.BBKStar`
 
@@ -783,7 +789,7 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, min
 	:builder_option numBestSequences .kstar.BBKStar$Settings$Builder#numBestSequences:
 	:builder_option numConfsPerBatch .kstar.BBKStar$Settings$Builder#numConfsPerBatch:
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
-	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format)
+	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
 
 	:rtype: :java:ref:`.kstar.BBKStar`
 	'''
@@ -794,24 +800,24 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, min
 
 	# build settings
 	kstarSettingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.KStar, 'Settings'))()
-	if epsilon is not None:
+	if epsilon is not useJavaDefault:
 		kstarSettingsBuilder.setEpsilon(epsilon)
-	if stabilityThreshold is not None:
-		kstarSettingsBuilder.setStabilityThreshold(stabilityThreshold)
-	if maxSimultaneousMutations is not None:
+	if stabilityThreshold is not useJavaDefault:
+		kstarSettingsBuilder.setStabilityThreshold(jvm.boxDouble(stabilityThreshold))
+	if maxSimultaneousMutations is not useJavaDefault:
 		kstarSettingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
 	if writeSequencesToConsole:
 		kstarSettingsBuilder.addScoreConsoleWriter()
 	if writeSequencesToFile is not None:
 		kstarSettingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
-	if energyMatrixCachePattern is not None:
+	if energyMatrixCachePattern is not useJavaDefault:
 		kstarSettingsBuilder.setEnergyMatrixCachePattern(energyMatrixCachePattern)
 	kstarSettings = kstarSettingsBuilder.build()
 
 	bbkstarSettingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.BBKStar, 'Settings'))()
-	if numBestSequences is not None:
+	if numBestSequences is not useJavaDefault:
 		bbkstarSettingsBuilder.setNumBestSequences(numBestSequences)
-	if numConfsPerBatch is not None:
+	if numConfsPerBatch is not useJavaDefault:
 		bbkstarSettingsBuilder.setNumConfsPerBatch(numConfsPerBatch)
 	bbkstarSettings = bbkstarSettingsBuilder.build()
 

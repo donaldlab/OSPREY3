@@ -145,7 +145,9 @@ distributions {
 				}
 			}
 			into("doc") {
-				from(docBuildDir)
+				from(docBuildDir) {
+					exclude(".doctrees")
+				}
 			}
 			listOf("python.GMEC", "python.KStar", "gpu").forEach {
 				into("examples/$it") {
@@ -242,7 +244,7 @@ tasks {
 
 			// delete old cruft
 			delete {
-				delete(pythonWheelDir)
+				delete(pythonWheelDir) // TODO: this apparently does not delete the folder at all??!
 				delete(fileTree(pythonBuildDir) {
 					include("*.whl")
 				})
