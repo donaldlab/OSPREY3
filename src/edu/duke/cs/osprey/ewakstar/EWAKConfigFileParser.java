@@ -123,11 +123,8 @@ public class EWAKConfigFileParser {
 		EPICSettings epicSettings = cont ? new EPICSettings(params) : new EPICSettings();
 		LUTESettings luteSettings = cont ? new LUTESettings(params) : new LUTESettings();
 
-		String dir = params.getValue("RunName") + File.separator + params.getValue("EmatDir");
-		ObjectIO.makeDir(dir, false);
-
 		SearchProblem ans = new SearchProblem(
-				dir + File.separator + "Strand." + strand + "." + flexibility,
+				"Strand." + strand + "." + flexibility,
 				params.getValue("PDBNAME"),
 				mutRes, getAllowedAAs(mutRes),
 				params.getBool("AddWT"),

@@ -31,6 +31,7 @@ public class EWAKRatios {
 	private HashMap<Integer, HashSet<String>> unboundAllowedSeqsByStrand;
 	private HashMap<Integer, HashSet<String>> missedSeqsByStrand;
 	private int numStrands;
+	private String runName;
 
 	public EWAKRatios(ConfigFileParser cfp) {
 		//we need type dependent DEE to be true
@@ -40,6 +41,7 @@ public class EWAKRatios {
 		this.strandPfd = null;
 		this.unboundAllowedSeqsByStrand = null;
 		this.missedSeqsByStrand = null;
+		this.runName = cfp.getParams().getValue("RUNNAME");
 
 		this.numStrands = cfp.getParams().searchParams("STRANDMUT").size() 
 				- cfp.getParams().searchParams("STRANDMUTNUMS").size();
@@ -77,7 +79,8 @@ public class EWAKRatios {
 	private PartitionFuncDict createUnboundPartitionFuncDict(int strand, 
 			ArrayList<ArrayList<String>> allowedAAs,
 			HashSet<String> allowedSeqs) {
-
+		
+		cfp.getParams().setValue("RUNNAME", runName+".Strand"+strand);
 		EWAKConfigFileParser ecfp = new EWAKConfigFileParser(cfp);
 		SearchProblem search = ecfp.makeSearchProblem(strand);
 		search.loadEnergyMatrix();
@@ -184,7 +187,8 @@ public class EWAKRatios {
 		 * 		catch stragglers: sequences that are not enumerated by ival+ew
 		 * 4) print output to file
 		 */
-
+		
+		String pfFileName = cfp.getParams().getValue("RunName") + ".pfs.txt";
 		GMECFinder complexes = new GMECFinder();
 		complexes.init(cfp);
 		List<EnergiedConf> complexConfs = complexes.calcGMEC();
@@ -227,7 +231,6 @@ public class EWAKRatios {
 		EWAKScores ews = new EWAKScores(complexPfd, strandPfd);
 		ews.sort();
 		
-		String pfFileName = cfp.getParams().getValue("RunName") + ".pfs.txt";
 		EWAKOutput output = new EWAKOutput(pfFileName);
 		String ewsOutput = ews.toString();
 		
