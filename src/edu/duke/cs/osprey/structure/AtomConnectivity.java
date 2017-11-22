@@ -397,6 +397,10 @@ public class AtomConnectivity {
 	}
 	
 	private AtomPairs makeSwappedPairs(AtomPairs pairs) {
+
+		if (pairs == null) {
+			return null;
+		}
 		
 		AtomPairs swapped = new AtomPairs(pairs.res2, pairs.res1);
 		
