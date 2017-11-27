@@ -7,6 +7,7 @@ import java.util.TreeMap;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.RC;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
@@ -205,25 +206,15 @@ public class PartCR {
 		// split the RC at the position with the highest score
 		System.out.println("splitting residue conformation...");
 		int splitPos = positionsByScore.lastEntry().getValue();
-		RC rcObj = splitWorld.getRC(splitPos, analyzeConf.getAssignments()[splitPos]);
-		List<RC> splitRCs = splitter.split(splitPos, rcObj);
-		splitWorld.replaceRc(splitPos, rcObj, splitRCs);
-		
-		// NOTE: since SplitWorld uses lazy evaluation for computing the energy matrix,
-		// the actual energy calculation that gets split across later DEE/A* calls.
-		// so it's actually counter-productive to separate resizeMatrices() (which calculates energies)
-		// and improveBound() (which calls A*) in the log, or for timing purposes
-		System.out.println("calculating energies and pruning conformations...");
-		
-		splitWorld.resizeMatrices();
-		
+		splitRC(splitPos, analyzeConf.getAssignments()[splitPos]);
+
 		// prune nodes based on the new bounds
 		Iterator<ScoredConf> iter = confs.iterator();
 		while (iter.hasNext()) {
 			ScoredConf conf = iter.next();
 			
 			// use the split world to get a tighter bound
-			double improvedBoundEnergy = splitWorld.translateConf(conf).getScore();
+			double improvedBoundEnergy = getImprovedEnergy(conf);
 			
 			if (improvedBoundEnergy > bestMinimizedEnergy + Ew) {
 				
@@ -240,6 +231,46 @@ public class PartCR {
 		System.out.println(String.format("conformations remaining: %d, estimated time to enumerate: %s",
 			confs.size(), TimeFormatter.format(getAvgMinimizationTimeNs()*confs.size(), 1)
 		));
+	}
+
+	public void splitRC(int pos, int rc) {
+
+		// split the RC
+		RC rcObj = splitWorld.getRC(pos, rc);
+		List<RC> splitRCs = splitter.split(pos, rcObj);
+		splitWorld.replaceRc(pos, rcObj, splitRCs);
+
+		resizeMatrices();
+	}
+
+	public void splitRCs(RCTuple rcs) {
+
+		for (int i=0; i<rcs.size(); i++) {
+			int pos = rcs.pos.get(i);
+			int rc = rcs.RCs.get(i);
+
+			// split the rc
+			RC rcObj = splitWorld.getRC(pos, rc);
+			List<RC> splitRCs = splitter.split(pos, rcObj);
+			splitWorld.replaceRc(pos, rcObj, splitRCs);
+		}
+
+		resizeMatrices();
+	}
+	
+	public double getImprovedEnergy(ScoredConf conf) {
+		return splitWorld.translateConf(conf).getScore();
+	}
+
+	private void resizeMatrices() {
+
+		// NOTE: since SplitWorld uses lazy evaluation for computing the energy matrix,
+		// the actual energy calculation that gets split across later DEE/A* calls.
+		// so it's actually counter-productive to separate resizeMatrices() (which calculates energies)
+		// and improveBound() (which calls A*) in the log, or for timing purposes
+		System.out.println("calculating energies and pruning conformations...");
+
+		splitWorld.resizeMatrices();
 	}
 	
 	private void checkEnergy(double observed, double expected) {
