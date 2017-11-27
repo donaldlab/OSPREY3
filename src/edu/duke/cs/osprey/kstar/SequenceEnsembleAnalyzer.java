@@ -220,11 +220,14 @@ public class SequenceEnsembleAnalyzer {
 
         // compute the energy matrix
         EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+        	.setCacheFile(new File(complexSequence.toString()+"."+info.type+"."+"emat.dat"))
             .build()
             .calcEnergyMatrix();
 
         // make the A* search
         ConfSearch astar = confSearchFactory.make(info.emat, rcs);
+        
+        
 
 
         // make the partition function
