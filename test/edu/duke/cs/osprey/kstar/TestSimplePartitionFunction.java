@@ -22,6 +22,7 @@ import org.junit.Test;
 
 import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 public class TestSimplePartitionFunction {
 
@@ -33,7 +34,7 @@ public class TestSimplePartitionFunction {
 		public Strand ligand;
 	}
 
-	public static SimplePartitionFunction calcPfunc(ForcefieldParams ffparams, SimpleConfSpace confSpace, Parallelism parallelism, double targetEpsilon) {
+	public static SimplePartitionFunction calcPfunc(ForcefieldParams ffparams, SimpleConfSpace confSpace, Parallelism parallelism, double targetEpsilon, Consumer<SimplePartitionFunction> pfuncComputer) {
 
 		AtomicReference<SimplePartitionFunction> pfuncRef = new AtomicReference<>(null);
 
@@ -65,7 +66,7 @@ public class TestSimplePartitionFunction {
 
 				// compute pfunc for protein
 				pfunc.init(targetEpsilon);
-				pfunc.compute();
+				pfuncComputer.accept(pfunc);
 				pfuncRef.set(pfunc);
 			});
 
@@ -73,7 +74,21 @@ public class TestSimplePartitionFunction {
 	}
 
 	public static void testStrand(ForcefieldParams ffparams, SimpleConfSpace confSpace, Parallelism parallelism, double targetEpsilon, String approxQStar) {
-		PartitionFunction pfunc = calcPfunc(ffparams, confSpace, parallelism, targetEpsilon);
+
+		PartitionFunction pfunc;
+
+		// calculate the pfunc all at once, like for K*
+		pfunc = calcPfunc(ffparams, confSpace, parallelism, targetEpsilon, (p) -> {
+			p.compute();
+		});
+		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
+
+		// calculate the pfunc in waves, like for BBK*
+		pfunc = calcPfunc(ffparams, confSpace, parallelism, targetEpsilon, (p) -> {
+			while (p.getStatus().canContinue()) {
+				p.compute(4);
+			}
+		});
 		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
 	}
 

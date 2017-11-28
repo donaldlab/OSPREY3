@@ -4,7 +4,6 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -120,6 +119,8 @@ public class SimplePartitionFunction implements PartitionFunction {
 		upperBound.scoreNextConf();
 		values.qprime = upperBound.totalBound.subtract(lowerBound.energiedScores);
 
+		int initialNumConfsScored = lowerBound.numConfsScored;
+
 		while (true) {
 
 			// don't race the calculators while we're checking stopping criteria
@@ -138,7 +139,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 				}
 
 				// should we stop anyway?
-				if (!status.canContinue() || lowerBound.numConfsScored >= maxNumConfs) {
+				if (!status.canContinue() || lowerBound.numConfsScored - initialNumConfsScored >= maxNumConfs) {
 					break;
 				}
 			}
