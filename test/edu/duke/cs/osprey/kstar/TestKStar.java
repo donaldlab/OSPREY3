@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -76,7 +77,7 @@ public class TestKStar {
 
 					return String.format("assertSequence(result, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon); // K* = %s",
 						info.sequenceNumber,
-						info.sequence,
+						info.sequence.toString(Sequence.Renderer.ResType),
 						formatPfunc.apply(info.kstarScore.protein),
 						formatPfunc.apply(info.kstarScore.ligand),
 						formatPfunc.apply(info.kstarScore.complex),
@@ -253,7 +254,7 @@ public class TestKStar {
 		KStar.ScoredSequence scoredSequence = result.scores.get(sequenceIndex);
 
 		// check the sequence
-		assertThat(scoredSequence.sequence, is(new KStar.Sequence(sequence)));
+		assertThat(scoredSequence.sequence.toString(Sequence.Renderer.ResType), is(sequence));
 
 		// check q* values and epsilon
 		assertResult(scoredSequence.score.protein, proteinQStar, epsilon);

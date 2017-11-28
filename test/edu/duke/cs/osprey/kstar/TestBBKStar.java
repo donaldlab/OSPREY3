@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -140,7 +141,7 @@ public class TestBBKStar {
 		// find the sequence
 		for (KStar.ScoredSequence scoredSequence : results.sequences) {
 
-			if (scoredSequence.sequence.toString().equals(sequence)) {
+			if (scoredSequence.sequence.toString(Sequence.Renderer.ResType).equals(sequence)) {
 
 				// found it
 

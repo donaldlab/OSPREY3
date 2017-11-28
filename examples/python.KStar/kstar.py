@@ -66,6 +66,7 @@ kstar = osprey.KStar(
 scoredSequences = kstar.run()
 
 # use results
-wildtype = osprey.Sequence.makeWildType(complexConfSpace)
-for sequence in scoredSequences:
-	print(sequence.toString(wildtype))
+for scoredSequence in scoredSequences:
+	print("result:")
+	print("\tsequence: %s" % scoredSequence.sequence)
+	print("\tscore: %s" % scoredSequence.score)

@@ -403,11 +403,24 @@ public class SimpleConfSpace implements Serializable {
 		}
 	}
 
-	/** Gets a design position by residue number */
-	public Position getPosition(String resNum) {
+	/** Gets a design position by residue number, or returns null */
+	public Position getPositionOrNull(String resNum) {
 		return positionsByResNum.get(resNum);
 	}
-	
+
+	/** Gets a design position by residue number, or throws an exception */
+	public Position getPositionOrThrow(String resNum) {
+		SimpleConfSpace.Position pos = getPositionOrNull(resNum);
+		if (pos != null) {
+			return pos;
+		}
+		throw new NoSuchElementException(
+			"no residue found with number " + resNum + " among " + positions.stream()
+				.map((p) -> p.resNum)
+				.collect(Collectors.toList())
+		);
+	}
+
 	/** Gets the number of residue confs per position */
 	public int[] getNumResConfsByPos() {
 		return numResConfsByPos;
@@ -659,13 +672,7 @@ public class SimpleConfSpace implements Serializable {
 		for (Position pos : positions) {
 
 			// try to match to the other pos by res num
-			Position matchedPos = null;
-			for (Position otherPos : other.positions) {
-				if (pos.resNum.equals(otherPos.resNum)) {
-					matchedPos = otherPos;
-					break;
-				}
-			}
+			Position matchedPos = other.getPositionOrNull(pos.resNum);
 
 			// just in case...
 			if (matchedPos != null) {
@@ -740,5 +747,13 @@ public class SimpleConfSpace implements Serializable {
 			.map((pos) -> String.format("%-5s", pos.resNum))
 			.collect(Collectors.toList())
 		);
+	}
+
+	public Sequence makeUnassignedSequence() {
+		return Sequence.makeUnassigned(this);
+	}
+
+	public Sequence makeWildTypeSequence() {
+		return Sequence.makeWildType(this);
 	}
 }

@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.kstar;
 
-import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -79,7 +79,7 @@ public class BBKStar {
 
 		public EnergyMatrix rigidNegatedEmat = null;
 		public EnergyMatrix minimizedEmat = null;
-		public BigDecimal stabilityThreshold = BigDecimal.ZERO;
+		public BigDecimal stabilityThreshold = null;
 
 		public ConfSpaceInfo(KStar.ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator rigidConfEcalc, ConfEnergyCalculator minimizingConfEcalc) {
 			this.type = type;
@@ -119,9 +119,9 @@ public class BBKStar {
 
 	private abstract class Node implements Comparable<Node> {
 
-		public final KStar.Sequence sequence;
-		public final KStar.Sequence proteinSequence;
-		public final KStar.Sequence ligandSequence;
+		public final Sequence sequence;
+		public final Sequence proteinSequence;
+		public final Sequence ligandSequence;
 
 		/** for comparing in the tree, higher is first */
 		public double score;
@@ -129,25 +129,13 @@ public class BBKStar {
 		/** signals whether or not partition function values are allowed the stability threshold */
 		public boolean isUnboundUnstable;
 
-		protected Node(KStar.Sequence sequence) {
+		protected Node(Sequence sequence) {
 
 			this.sequence = sequence;
 
 			// split complex sequence into protein/ligand sequences
-			proteinSequence = KStar.Sequence.makeWildType(BBKStar.this.protein.confSpace);
-			ligandSequence = KStar.Sequence.makeWildType(BBKStar.this.ligand.confSpace);
-			for (SimpleConfSpace.Position pos : BBKStar.this.complex.confSpace.positions) {
-
-				SimpleConfSpace.Position proteinPos = complexToProteinMap.get(pos);
-				if (proteinPos != null) {
-					proteinSequence.set(proteinPos.index, sequence.get(pos.index));
-				}
-
-				SimpleConfSpace.Position ligandPos = complexToLigandMap.get(pos);
-				if (ligandPos != null) {
-					ligandSequence.set(ligandPos.index, sequence.get(pos.index));
-				}
-			}
+			proteinSequence = sequence.filter(BBKStar.this.protein.confSpace);
+			ligandSequence = sequence.filter(BBKStar.this.ligand.confSpace);
 
 			this.score = 0;
 		}
@@ -163,7 +151,7 @@ public class BBKStar {
 
 	public class MultiSequenceNode extends Node {
 
-		public MultiSequenceNode(KStar.Sequence sequence) {
+		public MultiSequenceNode(Sequence sequence) {
 			super(sequence);
 		}
 
@@ -171,20 +159,13 @@ public class BBKStar {
 
 			List<Node> children = new ArrayList<>();
 
-			List<SimpleConfSpace.Position> positions = complex.confSpace.positions;
-
 			// pick the next design position
 			// TODO: dynamic A*?
-			int posIndex;
-			for (posIndex = 0; posIndex< sequence.size(); posIndex++) {
-				if (sequence.get(posIndex) == null) {
-					break;
-				}
-			}
-			if (posIndex >= sequence.size()) {
-				throw new IllegalStateException("no design positions left to choose");
-			}
-			SimpleConfSpace.Position assignPos = positions.get(posIndex);
+			List<SimpleConfSpace.Position> positions = complex.confSpace.positions;
+			SimpleConfSpace.Position assignPos = positions.stream()
+				.filter((pos) -> !sequence.isAssigned(pos))
+				.findFirst()
+				.orElseThrow(() -> new IllegalStateException("no design positions left to choose"));
 
 			// get the possible assignments
 			Set<String> resTypes = new HashSet<>(assignPos.resFlex.resTypes);
@@ -198,17 +179,17 @@ public class BBKStar {
 			for (String resType : resTypes) {
 
 				// update the sequence with this assignment
-				KStar.Sequence s = sequence.makeWithAssignment(assignPos.index, resType);
+				Sequence s = sequence.makeMutatedSequence(assignPos, resType);
 
 				if (s.isFullyAssigned()) {
 
 					// fully assigned, make single sequence node
 					children.add(new SingleSequenceNode(s));
 
-				} else if (s.countMutations(complex.confSpace) == kstarSettings.maxSimultaneousMutations) {
+				} else if (s.countMutations() == kstarSettings.maxSimultaneousMutations) {
 
 					// mutation limit reached, fill unassigned positions with wild-type
-					s.fillWildType(complex.confSpace);
+					s.fillWildType();
 					children.add(new SingleSequenceNode(s));
 
 				} else {
@@ -229,7 +210,7 @@ public class BBKStar {
 			// meaning, it might not be sound to do epsilon-based iterative approximations here
 			final int numConfs = 1000;
 
-			if (MathTools.isFinite(protein.stabilityThreshold)) {
+			if (protein.stabilityThreshold != null) {
 
 				// tank the sequence if the protein is unstable
 				BigDecimal proteinUpperBound = calcUpperBound(protein, proteinSequence, numConfs);
@@ -250,7 +231,7 @@ public class BBKStar {
 				return;
 			}
 
-			if (MathTools.isFinite(ligand.stabilityThreshold)) {
+			if (ligand.stabilityThreshold != null) {
 
 				// tank the sequence if the ligand is unstable
 				BigDecimal ligandUpperBound = calcUpperBound(ligand, ligandSequence, numConfs);
@@ -283,7 +264,7 @@ public class BBKStar {
 			isUnboundUnstable = false;
 		}
 
-		private BigDecimal calcLowerBound(ConfSpaceInfo info, KStar.Sequence sequence, int numConfs) {
+		private BigDecimal calcLowerBound(ConfSpaceInfo info, Sequence sequence, int numConfs) {
 
 			// to compute lower bounds on pfuncs, we'll use the upper bound calculator,
 			// but feed it upper-bound scores in order of greatest upper bound
@@ -310,19 +291,19 @@ public class BBKStar {
 			};
 
 			SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
-				astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, sequence.makeRCs(info.confSpace)))
+				astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, sequence.makeRCs()))
 			);
 			calc.run(numConfs);
 			return calc.totalBound;
 		}
 
-		private BigDecimal calcUpperBound(ConfSpaceInfo info, KStar.Sequence sequence, int numConfs) {
+		private BigDecimal calcUpperBound(ConfSpaceInfo info, Sequence sequence, int numConfs) {
 
 			// to compute upper bounds on pfuncs,
 			// we'll use the upper bound calculator in the usual way
 
 			SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
-				confSearchFactory.make(info.minimizedEmat, sequence.makeRCs(info.confSpace))
+				confSearchFactory.make(info.minimizedEmat, sequence.makeRCs())
 			);
 			calc.run(numConfs);
 			return calc.totalBound;
@@ -343,7 +324,7 @@ public class BBKStar {
 		public final PartitionFunction ligand;
 		public final PartitionFunction complex;
 
-		public SingleSequenceNode(KStar.Sequence sequence) {
+		public SingleSequenceNode(Sequence sequence) {
 			super(sequence);
 
 			// make the partition functions
@@ -352,7 +333,7 @@ public class BBKStar {
 			this.complex = makePfunc(complexPfuncs, BBKStar.this.complex, sequence);
 		}
 
-		private PartitionFunction makePfunc(Map<KStar.Sequence,PartitionFunction> pfuncCache, ConfSpaceInfo info, KStar.Sequence sequence) {
+		private PartitionFunction makePfunc(Map<Sequence,PartitionFunction> pfuncCache, ConfSpaceInfo info, Sequence sequence) {
 
 			// first check the cache
 			PartitionFunction pfunc = pfuncCache.get(sequence);
@@ -363,8 +344,7 @@ public class BBKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			RCs rcs = sequence.makeRCs(info.confSpace);
-			pfunc = new SimplePartitionFunction(confSearchFactory.make(info.minimizedEmat, rcs), info.minimizingConfEcalc);
+			pfunc = new SimplePartitionFunction(confSearchFactory.make(info.minimizedEmat, sequence.makeRCs()), info.minimizingConfEcalc);
 			pfunc.setReportProgress(kstarSettings.showPfuncProgress);
 			pfunc.init(kstarSettings.epsilon, info.stabilityThreshold);
 			pfuncCache.put(sequence, pfunc);
@@ -492,13 +472,10 @@ public class BBKStar {
 	/** Optional and overridable settings for BBK* */
 	public final Settings bbkstarSettings;
 
-	private final Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToProteinMap;
-	private final Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToLigandMap;
-
 	// TODO: caching these will keep lots of A* trees in memory. is that a problem?
-	private final Map<KStar.Sequence,PartitionFunction> proteinPfuncs;
-	private final Map<KStar.Sequence,PartitionFunction> ligandPfuncs;
-	private final Map<KStar.Sequence,PartitionFunction> complexPfuncs;
+	private final Map<Sequence,PartitionFunction> proteinPfuncs;
+	private final Map<Sequence,PartitionFunction> ligandPfuncs;
+	private final Map<Sequence,PartitionFunction> complexPfuncs;
 
 	public BBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator rigidEcalc, EnergyCalculator minimizingEcalc, KStar.ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, KStar.Settings kstarSettings, Settings bbkstarSettings) {
 
@@ -527,9 +504,6 @@ public class BBKStar {
 		this.kstarSettings = kstarSettings;
 		this.bbkstarSettings = bbkstarSettings;
 
-		complexToProteinMap = this.complex.confSpace.mapPositionsTo(this.protein.confSpace);
-		complexToLigandMap = this.complex.confSpace.mapPositionsTo(this.ligand.confSpace);
-
 		proteinPfuncs = new HashMap<>();
 		ligandPfuncs = new HashMap<>();
 		complexPfuncs = new HashMap<>();
@@ -545,7 +519,7 @@ public class BBKStar {
 
 		// calculate wild-type first
 		System.out.println("computing K* score for the wild-type sequence...");
-		SingleSequenceNode wildTypeNode = new SingleSequenceNode(KStar.Sequence.makeWildType(complex.confSpace));
+		SingleSequenceNode wildTypeNode = new SingleSequenceNode(Sequence.makeWildType(complex.confSpace));
 		KStarScore wildTypeScore = wildTypeNode.computeScore();
 		kstarSettings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
 			-1,
@@ -554,13 +528,15 @@ public class BBKStar {
 			complex.confSpace,
 			wildTypeScore
 		));
-		BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(kstarSettings.stabilityThreshold);
-		protein.stabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
-		ligand.stabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+		if (kstarSettings.stabilityThreshold != null) {
+			BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(kstarSettings.stabilityThreshold);
+			protein.stabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
+			ligand.stabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+		}
 
 		// start the BBK* tree with the root node
 		PriorityQueue<Node> tree = new PriorityQueue<>();
-		tree.add(new MultiSequenceNode(new KStar.Sequence(complex.confSpace.positions.size())));
+		tree.add(new MultiSequenceNode(complex.confSpace.makeUnassignedSequence()));
 
 		// start searching the tree
 		System.out.println("computing K* scores for the " + bbkstarSettings.numBestSequences + " best sequences to epsilon = " + kstarSettings.epsilon + " ...");

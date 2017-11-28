@@ -1,14 +1,13 @@
 package edu.duke.cs.osprey.kstar;
 
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.TimeFormatter;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.function.Function;
 
 public interface KStarScoreWriter {
 
@@ -16,12 +15,12 @@ public interface KStarScoreWriter {
 
 		public final int sequenceNumber;
 		public final int numSequences;
-		public final KStar.Sequence sequence;
+		public final Sequence sequence;
 		public final SimpleConfSpace complexConfSpace;
 		public final KStarScore kstarScore;
 		public final long timeNs;
 
-		public ScoreInfo(int sequenceNumber, int numSequences, KStar.Sequence sequence, SimpleConfSpace complexConfSpace, KStarScore kstarScore) {
+		public ScoreInfo(int sequenceNumber, int numSequences, Sequence sequence, SimpleConfSpace complexConfSpace, KStarScore kstarScore) {
 			this.sequenceNumber = sequenceNumber;
 			this.numSequences = numSequences;
 			this.sequence = sequence;
@@ -35,6 +34,8 @@ public interface KStarScoreWriter {
 	public void writeScore(ScoreInfo info);
 
 	public static class Writers extends ArrayList<KStarScoreWriter> {
+
+		private static final long serialVersionUID = 1239885431627352405L;
 
 		public void writeHeader() {
 			for (KStarScoreWriter writer : this) {
@@ -146,7 +147,7 @@ public interface KStarScoreWriter {
 				return String.format("sequence %4d/%4d   %s   K*(log10): %-34s   protein: %-18s   ligand: %-18s   complex: %-18s",
 					info.sequenceNumber + 1,
 					info.numSequences,
-					info.sequence.toString(KStar.Sequence.makeWildType(info.complexConfSpace)),
+					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.getMaxResNumLength() + 1, info.complexConfSpace.positions),
 					info.kstarScore.toString(),
 					info.kstarScore.protein.toString(),
 					info.kstarScore.ligand.toString(),
@@ -185,7 +186,7 @@ public interface KStarScoreWriter {
 			public String format(ScoreInfo info) {
 				return String.join("\t",
 					Integer.toString(info.sequenceNumber),
-					info.sequence.toString(info.complexConfSpace.positions),
+					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.getMaxResNumLength() + 1, info.complexConfSpace.positions),
 					info.kstarScore.scoreLog10String(),
 					info.kstarScore.lowerBoundLog10String(),
 					info.kstarScore.upperBoundLog10String(),

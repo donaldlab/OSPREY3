@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -174,139 +175,12 @@ public class KStar {
 		}
 	}
 
-	public static class Sequence extends ArrayList<String> {
-
-		public static Sequence makeWildType(SimpleConfSpace confSpace) {
-			return new KStar.Sequence(confSpace.positions.size()).fillWildType(confSpace);
-		}
-
-		public Sequence(int size) {
-			super(size);
-			for (int i=0; i<size; i++) {
-				add(null);
-			}
-		}
-
-		public Sequence(String resTypes) {
-			this(Arrays.asList(resTypes.split(" ")));
-		}
-
-		public Sequence(List<String> resTypes) {
-			super(resTypes);
-		}
-
-		public Sequence makeWithAssignment(int posIndex, String resType) {
-			Sequence assigned = new Sequence(this);
-			assigned.set(posIndex, resType);
-			return assigned;
-		}
-
-		public Sequence fillWildType(SimpleConfSpace confSpace) {
-			for (SimpleConfSpace.Position pos : confSpace.positions) {
-				if (get(pos.index) == null) {
-					set(pos.index, pos.strand.mol.getResByPDBResNumber(pos.resNum).template.name);
-				}
-			}
-			return this;
-		}
-
-		public int countAssignments() {
-			int count = 0;
-			for (String resType : this) {
-				if (resType != null) {
-					count++;
-				}
-			}
-			return count;
-		}
-
-		public boolean isFullyAssigned() {
-			for (String resType : this) {
-				if (resType == null) {
-					return false;
-				}
-			}
-			return true;
-		}
-
-		public int countMutations(SimpleConfSpace confSpace) {
-			int count = 0;
-			for (SimpleConfSpace.Position pos : confSpace.positions) {
-				String resType = get(pos.index);
-				if (resType != null && !resType.equals(pos.resFlex.wildType)) {
-					count++;
-				}
-			}
-			return count;
-		}
-
-		public boolean isWildType(SimpleConfSpace confSpace) {
-			for (SimpleConfSpace.Position pos : confSpace.positions) {
-				String resType = get(pos.index);
-				if (resType != null && !resType.equals(pos.resFlex.wildType)) {
-					return false;
-				}
-			}
-			return true;
-		}
-
-		public RCs makeRCs(SimpleConfSpace confSpace) {
-			return new RCs(confSpace, (pos, resConf) -> {
-
-				// if there's an assignment here, only keep matching RCs
-				String resType = get(pos.index);
-				if (resType != null) {
-					return resConf.template.name.equalsIgnoreCase(resType);
-				}
-
-				// otherwise, keep everything
-				return true;
-			});
-		}
-
-		@Override
-		public String toString() {
-			return String.join(" ", this);
-		}
-
-		/** highlight mutations in upper case, show wild type residues in lower case */
-		public String toString(KStar.Sequence wildtype) {
-			return toString(wildtype, 3);
-		}
-
-		public String toString(KStar.Sequence wildtype, int cellSize) {
-			List<String> resTypes = new ArrayList<>();
-			for (int i=0; i<size(); i++) {
-				String resType = get(i);
-				String resWildType = wildtype.get(i);
-				if (resType == null) {
-					resTypes.add(null);
-				} else if (resType.equalsIgnoreCase(resWildType)) {
-					resTypes.add(resType.toLowerCase());
-				} else {
-					resTypes.add(resType.toUpperCase());
-				}
-			}
-			return String.join(" ", resTypes.stream()
-				.map((s) -> String.format("%-" + cellSize + "s", s))
-				.collect(Collectors.toList())
-			);
-		}
-
-		public String toString(List<SimpleConfSpace.Position> positions) {
-			return String.join(" ", positions.stream()
-				.map((pos) -> this.get(pos.index) + "-" + pos.resNum)
-				.collect(Collectors.toList())
-			);
-		}
-	}
-
 	public static class ScoredSequence {
 
-		public final KStar.Sequence sequence;
+		public final Sequence sequence;
 		public final KStarScore score;
 
-		public ScoredSequence(KStar.Sequence sequence, KStarScore score) {
+		public ScoredSequence(Sequence sequence, KStarScore score) {
 			this.sequence = sequence;
 			this.score = score;
 		}
@@ -316,8 +190,8 @@ public class KStar {
 			return "sequence: " + sequence + "   K*(log10): " + score;
 		}
 
-		public String toString(KStar.Sequence wildtype) {
-			return "sequence: " + sequence.toString(wildtype) + "   K*(log10): " + score;
+		public String toString(Sequence wildtype) {
+			return "sequence: " + sequence.toString(Sequence.Renderer.AssignmentMutations) + "   K*(log10): " + score;
 		}
 	}
 
@@ -351,14 +225,6 @@ public class KStar {
 			emat = builder.build().calcEnergyMatrix();
 		}
 
-		public Sequence makeWildTypeSequence() {
-			Sequence sequence = new Sequence(confSpace.positions.size());
-			for (SimpleConfSpace.Position pos : confSpace.positions) {
-				sequence.set(pos.index, pos.strand.mol.getResByPDBResNumber(pos.resNum).template.name);
-			}
-			return sequence;
-		}
-
 		public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold) {
 
 			Sequence sequence = sequences.get(sequenceIndex);
@@ -372,8 +238,7 @@ public class KStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			RCs rcs = sequence.makeRCs(confSpace);
-			ConfSearch astar = confSearchFactory.make(emat, rcs);
+			ConfSearch astar = confSearchFactory.make(emat, sequence.makeRCs());
 			PartitionFunction pfunc = new SimplePartitionFunction(astar, confEcalc);
 			pfunc.setReportProgress(settings.showPfuncProgress);
 
@@ -432,13 +297,10 @@ public class KStar {
 		ligand.calcEmat();
 		complex.calcEmat();
 
-		Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToProteinMap = complex.confSpace.mapPositionsTo(protein.confSpace);
-		Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToLigandMap = complex.confSpace.mapPositionsTo(ligand.confSpace);
-
 		// collect the wild type sequences
-		protein.sequences.add(protein.makeWildTypeSequence());
-		ligand.sequences.add(ligand.makeWildTypeSequence());
-		complex.sequences.add(complex.makeWildTypeSequence());
+		protein.sequences.add(protein.confSpace.makeWildTypeSequence());
+		ligand.sequences.add(ligand.confSpace.makeWildTypeSequence());
+		complex.sequences.add(complex.confSpace.makeWildTypeSequence());
 
 		// collect all the sequences explicitly
 		List<List<SimpleConfSpace.Position>> powersetOfPositions = MathTools.powersetUpTo(complex.confSpace.positions, settings.maxSimultaneousMutations);
@@ -458,29 +320,15 @@ public class KStar {
 			for (List<String> mutations : MathTools.cartesianProduct(resTypes)) {
 
 				// build the complex sequence
-				Sequence complexSequence = complex.makeWildTypeSequence();
+				Sequence complexSequence = complex.confSpace.makeWildTypeSequence();
 				for (int i=0; i<mutablePositions.size(); i++) {
-					complexSequence.set(mutablePositions.get(i).index, mutations.get(i));
+					complexSequence.set(mutablePositions.get(i), mutations.get(i));
 				}
 				complex.sequences.add(complexSequence);
 
 				// split complex sequence into protein/ligand sequences
-				Sequence proteinSequence = protein.makeWildTypeSequence();
-				Sequence ligandSequence = ligand.makeWildTypeSequence();
-				for (SimpleConfSpace.Position pos : complex.confSpace.positions) {
-
-					SimpleConfSpace.Position proteinPos = complexToProteinMap.get(pos);
-					if (proteinPos != null) {
-						proteinSequence.set(proteinPos.index, complexSequence.get(pos.index));
-					}
-
-					SimpleConfSpace.Position ligandPos = complexToLigandMap.get(pos);
-					if (ligandPos != null) {
-						ligandSequence.set(ligandPos.index, complexSequence.get(pos.index));
-					}
-				}
-				protein.sequences.add(proteinSequence);
-				ligand.sequences.add(ligandSequence);
+				protein.sequences.add(complexSequence.filter(protein.confSpace));
+				ligand.sequences.add(complexSequence.filter(ligand.confSpace));
 			}
 		}
 

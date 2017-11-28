@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 import static edu.duke.cs.osprey.TestBase.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -57,14 +58,12 @@ public class TestSequenceAnalyzer {
 				);
 
 				SequenceAnalyzer.Analysis analysis = analyzer.analyze(
-					new KStar.Sequence("phe asp glu thr phe lys ile thr"),
-					KStar.ConfSpaceType.Complex,
+					confSpaces.complex.makeWildTypeSequence(),
 					1
 				);
 
-				assertThat(analysis.type, is(KStar.ConfSpaceType.Complex));
-				assertThat(analysis.complexSequence, is(new KStar.Sequence("phe asp glu thr phe lys ile thr")));
-				assertThat(analysis.filteredSequence, is(new KStar.Sequence("phe asp glu thr phe lys ile thr")));
+				assertThat(analysis.info.type, is(KStar.ConfSpaceType.Complex));
+				assertThat(analysis.sequence.toString(Sequence.Renderer.ResTypeMutations), is("phe asp glu thr phe lys ile thr"));
 				assertThat(analysis.ensemble.analyses.size(), is(4));
 				assertThat(analysis.ensemble.analyses.get(0).epmol.energy, isAbsolutely(-68.416267, EnergyEpsilon));
 				assertThat(analysis.ensemble.analyses.get(1).epmol.energy, isAbsolutely(-68.244583, EnergyEpsilon));
@@ -72,14 +71,12 @@ public class TestSequenceAnalyzer {
 				assertThat(analysis.ensemble.analyses.get(3).epmol.energy, isAbsolutely(-67.945550, EnergyEpsilon));
 
 				analysis = analyzer.analyze(
-					new KStar.Sequence("ILE asp glu thr phe lys ile thr"),
-					KStar.ConfSpaceType.Complex,
+					confSpaces.complex.makeWildTypeSequence().set("G649", "ILE"),
 					1
 				);
 
-				assertThat(analysis.type, is(KStar.ConfSpaceType.Complex));
-				assertThat(analysis.complexSequence, is(new KStar.Sequence("ILE asp glu thr phe lys ile thr")));
-				assertThat(analysis.filteredSequence, is(new KStar.Sequence("ILE asp glu thr phe lys ile thr")));
+				assertThat(analysis.info.type, is(KStar.ConfSpaceType.Complex));
+				assertThat(analysis.sequence.toString(Sequence.Renderer.ResTypeMutations), is("ILE asp glu thr phe lys ile thr"));
 				assertThat(analysis.ensemble.analyses.size(), is(12));
 				assertThat(analysis.ensemble.analyses.get(0).epmol.energy, isAbsolutely(-61.938135, EnergyEpsilon));
 				assertThat(analysis.ensemble.analyses.get(1).epmol.energy, isAbsolutely(-61.905580, EnergyEpsilon));
@@ -95,14 +92,12 @@ public class TestSequenceAnalyzer {
 				assertThat(analysis.ensemble.analyses.get(11).epmol.energy, isAbsolutely(-61.247090, EnergyEpsilon));
 
 				analysis = analyzer.analyze(
-					new KStar.Sequence("ILE asp glu thr phe lys ile thr"),
-					KStar.ConfSpaceType.Protein,
+					confSpaces.protein.makeWildTypeSequence().set("G649", "ILE"),
 					1
 				);
 
-				assertThat(analysis.type, is(KStar.ConfSpaceType.Protein));
-				assertThat(analysis.complexSequence, is(new KStar.Sequence("ILE asp glu thr phe lys ile thr")));
-				assertThat(analysis.filteredSequence, is(new KStar.Sequence("ILE asp glu thr")));
+				assertThat(analysis.info.type, is(KStar.ConfSpaceType.Protein));
+				assertThat(analysis.sequence.toString(Sequence.Renderer.ResTypeMutations), is("ILE asp glu thr"));
 				assertThat(analysis.ensemble.analyses.size(), is(6));
 				assertThat(analysis.ensemble.analyses.get(0).epmol.energy, isAbsolutely(-3.000911, EnergyEpsilon));
 				assertThat(analysis.ensemble.analyses.get(1).epmol.energy, isAbsolutely(-2.903385, EnergyEpsilon));

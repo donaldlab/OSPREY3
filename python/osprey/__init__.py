@@ -25,7 +25,6 @@ Forcefield = None
 SolvationForcefield = None
 EnergyPartition = None
 ExternalMemory = None
-Sequence = None
 ConfSpaceType = None
 BreakdownType = None
 
@@ -117,8 +116,6 @@ def start(heapSizeMB=1024, enableAssertions=False, stackSizeMB=8):
 	EnergyPartition = c.energy.EnergyPartition
 	global ExternalMemory
 	ExternalMemory = c.externalMemory.ExternalMemory
-	global Sequence
-	Sequence = jvm.getInnerClass(c.kstar.KStar, 'Sequence')
 	global ConfSpaceType
 	ConfSpaceType = jvm.getInnerClass(c.kstar.KStar, 'ConfSpaceType')
 	global BreakdownType

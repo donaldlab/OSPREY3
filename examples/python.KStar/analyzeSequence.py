@@ -64,8 +64,7 @@ energyWindowSize = 1.0
 
 # analyze the wild-type complex
 analysis = analyzer.analyze(
-	osprey.Sequence("phe asp glu thr phe lys ile thr"),
-	osprey.ConfSpaceType.Complex,
+	complexConfSpace.makeWildTypeSequence(),
 	energyWindowSize
 )
 print('\n')
@@ -74,8 +73,7 @@ analysis.writePdbs('ensemble-wt-complex/conf.*.pdb')
 
 # analyze the wild-type unbound protein
 analysis = analyzer.analyze(
-	osprey.Sequence("phe asp glu thr phe lys ile thr"),
-	osprey.ConfSpaceType.Protein,
+	proteinConfSpace.makeWildTypeSequence(),
 	energyWindowSize
 )
 print('\n')
@@ -84,8 +82,7 @@ analysis.writePdbs('ensemble-wt-protein/conf.*.pdb')
 
 # analyze a mutant complex
 analysis = analyzer.analyze(
-	osprey.Sequence("ILE asp glu thr phe lys ile thr"),
-	osprey.ConfSpaceType.Complex,
+	complexConfSpace.makeWildTypeSequence().set("G649", "ILE"),
 	energyWindowSize
 )
 print('\n')
