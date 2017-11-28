@@ -42,7 +42,6 @@ public class DynamicHMeanAStarOrder implements AStarOrder {
 	}
 
 	double scorePos(ConfIndex confIndex, RCs rcs, int pos) {
-		
 		// check all the RCs at this pos and aggregate the energies
 		double parentScore = confIndex.node.getScore();
 		double reciprocalSum = 0;

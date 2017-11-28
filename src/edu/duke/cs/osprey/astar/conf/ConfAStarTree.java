@@ -116,6 +116,7 @@ public class ConfAStarTree implements ConfSearch {
 		public Builder useExternalMemory() {
 			ExternalMemory.checkInternalLimitSet();
 			factory = new EMConfAStarFactory();
+            System.out.println("Using External memory.");
 			return this;
 		}
 		

@@ -110,6 +110,13 @@ public abstract class AssignmentsSerializer {
 	
 	protected void readAssignments(ByteBuffer buf, int[] assignments) {
 		encoding.read(buf, assignments);
+        for(int i = 0; i < assignments.length; i++)
+        {
+            if (assignments[i] < -1)
+            {
+                throw new Error("Read it impossible conf at position i"+assignments[i]);
+            }
+        }
 	}
 	
 	protected int[] readAssignments(ByteBuffer buf) {

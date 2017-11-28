@@ -21,6 +21,7 @@ public class EMConfAStarNode implements ConfAStarNode {
 	public EMConfAStarNode(int numPos) {
 		assignments = new int[numPos];
 		Arrays.fill(assignments, NotAssigned);
+        printAssignments();
 		level = 0;
 		gscore = 0.0;
 		hscore = 0.0;
@@ -28,16 +29,66 @@ public class EMConfAStarNode implements ConfAStarNode {
 	
 	public EMConfAStarNode(EMConfAStarNode other) {
 		assignments = Arrays.copyOf(other.assignments, other.assignments.length);
+        checkAssignments();
+        printAssignments();
 		level = other.level;
 		gscore = other.gscore;
 		hscore = other.hscore;
 	}
 
+    public void checkNode()
+    {
+        System.out.println("Verifying node:");
+        printAssignments();
+        checkAssignments();
+    }
+
+    public String toReadableString()
+    {
+        String out = this+":\n";
+        out+= "level "+level+"\n";
+        out+="Assignment:(";
+        for(int i = 0; i < assignments.length; i++)
+        {
+            out+=i+":"+assignments[i];
+            if(i < assignments.length-1)
+                out+=" ";
+        }
+        out+=")";
+        return out;
+    }
+
+    private void printAssignments()
+    {
+        System.out.println(toReadableString());
+    }
+
+    private void checkAssignments()
+    {
+        for(int i : assignments)
+        {
+            if(i < -1)
+            {
+                System.out.println("Error! Offending node:");
+                printAssignments();
+                throw new Error("negative assignment...");
+            }
+        }
+    }
+
 	@Override
 	public EMConfAStarNode assign(int pos, int rc) {
+        System.out.println("Assigning "+rc+" to  pos "+pos+"!");
+        checkAssignments();
 		EMConfAStarNode other = new EMConfAStarNode(this);
+        other.checkAssignments();
 		other.assignments[pos] = rc;
+        if(rc < -1)
+            throw new Error("negative assignment...");
 		other.level++;
+        printAssignments();
+        System.out.println("Other: ");
+        other.printAssignments();
 		return other;
 	}
 
@@ -67,6 +118,9 @@ public class EMConfAStarNode implements ConfAStarNode {
 	}
 	
 	public void setLevel(int val) {
+        checkAssignments();
+        System.out.println("Setting level to "+val);
+
 		level = val;
 	}
 
@@ -82,10 +136,7 @@ public class EMConfAStarNode implements ConfAStarNode {
 	@Override
 	public void index(ConfIndex index) {
 		
-		// is this node already indexed?
-		if (index.node == this) {
-			return;
-		}
+        checkAssignments();
 		index.node = this;
 		
 		// copy values and references to the stack for speed
@@ -107,6 +158,9 @@ public class EMConfAStarNode implements ConfAStarNode {
 				numUndefined++;
 			} else {
 				dpos[numDefined] = pos;
+                if(rc < 0)
+                    throw new Error("Negative RC assignment to ConfIndex position "
+                        +pos+":"+rc);
 				rcs[numDefined] = rc;
 				numDefined++;
 			}

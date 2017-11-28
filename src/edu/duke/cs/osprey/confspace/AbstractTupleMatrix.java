@@ -163,8 +163,14 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     	} else if (res1 == res2) {
     		throw new Error("Can't pair residue " + res1 + " with itself");
     	}
-    	
-    	return pairwiseOffsets[getPairwiseIndexNoCheck(res1, res2)] + numConfAtPos[res2]*conf1 + conf2;
+
+        if(conf1 < 0 || conf2 < 0) {
+            System.err.println("Can't process a negative conf!!"+"("+res1+":"+conf1+","+res2+":"+conf2+")");
+            throw new Error("Invalid conf for energy matrix: "+"("+res1+":"+conf1+","+res2+":"+conf2+")");
+        }
+        int index = pairwiseOffsets[getPairwiseIndexNoCheck(res1, res2)] + numConfAtPos[res2]*conf1 + conf2;	
+        assert(index >=0);
+    	return index;
     }
     
     @Override

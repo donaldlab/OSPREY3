@@ -40,6 +40,9 @@ public class ConfIndex {
 	}
 	
 	public ConfIndex assign(int nextPos, int nextRc) {
+        System.out.println("Assigning "+nextRc+" to "+nextPos);
+        if(nextRc < 0)
+            throw new Error("Negative RC assignment to ConfIndex.");
 		
 		ConfIndex other = new ConfIndex(numPos);
 		
@@ -90,4 +93,10 @@ public class ConfIndex {
 		
 		return other;
 	}
+    public String toString() {
+        String output = "(";
+        for(int i = 0; i < definedPos.length; i++)
+            output+=" "+definedPos[i]+":"+definedRCs[i];
+        return output+")";
+    }
 }

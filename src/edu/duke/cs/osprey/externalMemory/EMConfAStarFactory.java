@@ -12,6 +12,7 @@ public class EMConfAStarFactory implements ConfAStarFactory {
 	@Override
 	public Queue<ConfAStarNode> makeQueue(RCs rcs) {
 		
+        System.out.println("Making queue with external memory...");
 		Queue<EMConfAStarNode> pq = Queue.ExternalPriorityFactory.of(new NodeSerializer(rcs));
 		
 		// java's type system is dumb sometimes...
@@ -34,6 +35,8 @@ public class EMConfAStarFactory implements ConfAStarFactory {
 		
 		@Override
 		public double serialize(EMConfAStarNode node, ByteBuffer buf) {
+            System.out.println("Writing out node:"+node.toReadableString());
+            node.checkNode();
 			writeAssignments(node.getConf(), buf);
 			buf.putDouble(node.getGScore());
 			buf.putDouble(node.getHScore());
@@ -44,10 +47,12 @@ public class EMConfAStarFactory implements ConfAStarFactory {
 		@Override
 		public EMConfAStarNode deserialize(double score, ByteBuffer buf) {
 			EMConfAStarNode node = new EMConfAStarNode(rcs.getNumPos());
+            System.out.println("Read in node:"+node.toReadableString());
 			readAssignments(buf, node.getConf());
 			node.setGScore(buf.getDouble());
 			node.setHScore(buf.getDouble());
 			node.setLevel(buf.getInt());
+            node.checkNode();
 			return node;
 		}
 	}
