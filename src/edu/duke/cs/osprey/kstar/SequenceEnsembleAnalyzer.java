@@ -23,8 +23,12 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.JvmMem;
 
 import java.io.File;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
 import java.util.*;
 
 /**
@@ -178,19 +182,23 @@ public class SequenceEnsembleAnalyzer {
 		this.complex.calcEmat();
 	}
 
-	public void analyze(KStar.Sequence complexSequence, double targetEpsilon, int numConfs) {
+	public void analyze(KStar.Sequence complexSequence, int numConfs) {
         System.out.println("Analyzing "+complexSequence+"!");
         
 	    Map<KStar.ConfSpaceType, PartitionFunction.Result> resultsByType = new EnumMap<>(KStar.ConfSpaceType.class);
 		
         for(KStar.ConfSpaceType type: infosByType.keySet()) {
-            resultsByType.put(type, computePFuncFor(infosByType.get(type), complexSequence, targetEpsilon, numConfs));
+            resultsByType.put(type, computePFuncFor(infosByType.get(type), complexSequence, numConfs));
         }
 
-        KStarScore score = new KStarScore(resultsByType.get(KStar.ConfSpaceType.Protein),
+        /* TEMP
+        KStarScore score = new KStarScore(
+        	resultsByType.get(KStar.ConfSpaceType.Protein),
             resultsByType.get(KStar.ConfSpaceType.Ligand),
-            resultsByType.get(KStar.ConfSpaceType.Complex));
+            resultsByType.get(KStar.ConfSpaceType.Complex)
+		);
         System.out.println(score.printEnsembleScoreAndBounds());
+        */
         /* TODO: Write to a file, as well.
         KStar.KStarScoreWriter writer = new KStarScoreWriter.ToFile(file, new KStarScoreWriter.Formatter.Log());
         settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
@@ -204,35 +212,55 @@ public class SequenceEnsembleAnalyzer {
         
 	}
 
-    private PartitionFunction.Result computePFuncFor(ConfSpaceInfo info, KStar.Sequence complexSequence, double targetEpsilon, int numConfs) {
+    private PartitionFunction.Result computePFuncFor(ConfSpaceInfo info, KStar.Sequence complexSequence, int numConfs) {
 
 		// filter the sequence and get the RCs
 		KStar.Sequence filteredSequence = info.filterSequence(complexSequence);
 		RCs rcs = filteredSequence.makeRCs(info.confSpace);
 
-        // define conf energies
-        SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(info.confSpace, ecalc)
-            .build()
-            .calcReferenceEnergies();
-        ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, ecalc)
-            .setReferenceEnergies(eref)
-            .build();
+		// TEMP
+		System.out.println(String.format("%s\n\t%s\n\t%s\n\tconfs: %e",
+			info.type,
+			complexSequence,
+			filteredSequence,
+			rcs.getNumConformations().doubleValue()
+		));
+		for (SimpleConfSpace.Position pos : info.confSpace.positions) {
+			System.out.println(String.format("\t%s %s %d", pos.resNum, pos.resFlex.wildType, pos.resConfs.size()));
+		}
 
         // make the A* search
         ConfSearch astar = confSearchFactory.make(info.emat, rcs);
-        
-        
 
-
+		/* TEMP
         // make the partition function
-        SimplePartitionFunction pfunc = new SimplePartitionFunction(astar, confEcalc);
-        pfunc.setReportProgress(true);
+        SimplePartitionFunction pfunc = new SimplePartitionFunction(astar, info.confEcalc);
+        pfunc.setReportProgress(settings.showPfuncProgress);
 
         // compute pfunc for protein
-        pfunc.init(targetEpsilon);
+        pfunc.init(settings.epsilon);
         pfunc.compute(numConfs);
         PartitionFunction.Result proteinResult = pfunc.makeResult();
         System.out.println(proteinResult);
         return proteinResult;
+        */
+
+		// TEMP: just compute the upper bounds
+		System.out.println("computing upper bound...");
+		final double upperBoundEpsilon = 0.00001;
+		SimplePartitionFunction.UpperBoundCalculator upperBound = new SimplePartitionFunction.UpperBoundCalculator(astar);
+		while (upperBound.delta > upperBoundEpsilon) {
+			upperBound.run(10000, upperBoundEpsilon);
+			System.out.println(String.format("\tconfs: %.2f M  upper bound: %e    delta: %f > %f   mem: %s",
+				upperBound.numScoredConfs/1000000.0,
+				upperBound.totalBound.doubleValue(),
+				upperBound.delta,
+				upperBoundEpsilon,
+				JvmMem.getOldPool()
+			));
+		}
+		System.out.println("uppper bound complete");
+
+		return null;
     }
 }

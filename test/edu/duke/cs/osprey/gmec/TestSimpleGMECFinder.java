@@ -42,12 +42,24 @@ public class TestSimpleGMECFinder {
 				.build()
 				.calcEnergyMatrix();
 		}
-		
-		public SimpleGMECFinder.Builder makeBuilder() {
+
+		public SimpleGMECFinder makeFinder() {
 			return new SimpleGMECFinder.Builder(
 				new ConfAStarTree.Builder(emat, confSpace).build(),
 				confEcalc
-			);
+			)
+			.build();
+		}
+
+		public SimpleGMECFinder makeExternalFinder() {
+			return new SimpleGMECFinder.Builder(
+				new ConfAStarTree.Builder(emat, confSpace)
+					.useExternalMemory()
+					.build(),
+				confEcalc
+			)
+			.useExternalMemory()
+			.build();
 		}
 	}
 	
@@ -85,7 +97,7 @@ public class TestSimpleGMECFinder {
 
 	@Test
 	public void findDiscrete() {
-		EnergiedConf conf = problemDiscrete.makeBuilder().build().find();
+		EnergiedConf conf = problemDiscrete.makeFinder().find();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 4 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-30.705504, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-30.705504, EnergyEpsilon));
@@ -93,7 +105,7 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findDiscreteWindowZero() {
-		Queue<EnergiedConf> confs = problemDiscrete.makeBuilder().build().find(0);
+		Queue<EnergiedConf> confs = problemDiscrete.makeFinder().find(0);
 		assertThat(confs.size(), is(1L));
 		
 		EnergiedConf conf = confs.poll();
@@ -104,7 +116,7 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findDiscreteWindowOne() {
-		Queue<EnergiedConf> confs = problemDiscrete.makeBuilder().build().find(1);
+		Queue<EnergiedConf> confs = problemDiscrete.makeFinder().find(1);
 		assertThat(confs.size(), is(4L));
 		
 		EnergiedConf conf = confs.poll();
@@ -130,7 +142,7 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findContinuous() {
-		EnergiedConf conf = problemContinuous.makeBuilder().build().find();
+		EnergiedConf conf = problemContinuous.makeFinder().find();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 26, 0 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-38.465807, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-38.566297, EnergyEpsilon));
@@ -138,7 +150,7 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findContinuousWindow() {
-		Queue<EnergiedConf> confs = problemContinuous.makeBuilder().build().find(0.3);
+		Queue<EnergiedConf> confs = problemContinuous.makeFinder().find(0.3);
 		assertThat(confs.size(), is(3L));
 		
 		EnergiedConf conf = confs.poll();
@@ -160,9 +172,7 @@ public class TestSimpleGMECFinder {
 	@Test
 	public void findContinuousWindowExternal() {
 		ExternalMemory.use(64, () -> {
-			Queue<EnergiedConf> confs = problemContinuous.makeBuilder()
-				.useExternalMemory()
-				.build().find(0.3);
+			Queue<EnergiedConf> confs = problemContinuous.makeExternalFinder().find(0.3);
 			assertThat(confs.size(), is(3L));
 			
 			EnergiedConf conf = confs.poll();
@@ -184,7 +194,7 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findMultipleStrands() {
-		EnergiedConf conf = problemMultipleStrands.makeBuilder().build().find();
+		EnergiedConf conf = problemMultipleStrands.makeFinder().find();
 		assertThat(conf.getAssignments(), is(new int[] { 0, 0, 0, 0, 0, 0 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-84.555275, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-84.555275, EnergyEpsilon));

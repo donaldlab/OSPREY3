@@ -118,6 +118,7 @@ public class TestSequenceEnsembleAnalyzer {
 				};
 
 				KStar.Settings settings = new KStar.Settings.Builder()
+						.setEpsilon(0.68)
 						.setEnergyMatrixCachePattern("*.emat")
 						.build();
 
@@ -133,7 +134,6 @@ public class TestSequenceEnsembleAnalyzer {
 
 				analyzer.analyze(
 					new KStar.Sequence("THR ARG ASP LYS LYS ARG ASP ASP TYR GLY LYS GLN"),
-					0.68,
 					10000
 				);
 
