@@ -22,8 +22,8 @@ MinimizationThreads 4
 MinimizationGpus 0
 MinimizationStreamsPerGpu 32
 
-resAllowed649 PHE TYR ALA VAL ILE LEU
+resAllowed649 PHE TYR 
 resAllowed651 GLU ASP
-resAllowed156 PHE TYR ALA VAL ILE LEU
-resAllowed172 LYS ASP GLU
-resAllowed192 ILE ALA VAL LEU PHE TYR
+resAllowed156 PHE LEU
+resAllowed172 LYS ASP
+resAllowed192 ILE ALA
