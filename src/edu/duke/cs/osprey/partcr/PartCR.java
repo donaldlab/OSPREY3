@@ -40,7 +40,7 @@ public class PartCR {
 		this.Ew = Ew;
 		this.ecalc = new SimpleEnergyCalculator.Cpu(ffparams, search.confSpace, search.shellResidues);
 		this.confs = confs;
-		
+
 		// make a separate conf space for splitting RCs
 		splitWorld = new SplitWorld(search, ffparams);
 		
@@ -72,7 +72,7 @@ public class PartCR {
 	public List<ScoredConf> getConfs() {
 		return confs;
 	}
-	
+
 	public long getAvgMinimizationTimeNs() {
 		return minimizationNs/numIterations;
 	}
@@ -161,7 +161,7 @@ public class PartCR {
 		
 		// pick a conformation to analyze, and translate it into the split world
 		ScoredConf pickedConf = picker.pick(confs);
-		ScoredConf translatedPickedConf = splitWorld.translateConf(pickedConf);
+		ScoredConf translatedPickedConf = splitWorld.findMinScoreConf(pickedConf);
 		
 		// analyze the conf and put our protein in the minimized conformation
 		// NOTE: it's very important that the protein be in the minimized conformation to calculate bound errors correctly
@@ -205,25 +205,23 @@ public class PartCR {
 		// split the RC at the position with the highest score
 		System.out.println("splitting residue conformation...");
 		int splitPos = positionsByScore.lastEntry().getValue();
-		RC rcObj = splitWorld.getRC(splitPos, analyzeConf.getAssignments()[splitPos]);
-		List<RC> splitRCs = splitter.split(splitPos, rcObj);
-		splitWorld.replaceRc(splitPos, rcObj, splitRCs);
-		
+		splitWorld.splitRC(splitPos, analyzeConf.getAssignments()[splitPos], splitter);
+
 		// NOTE: since SplitWorld uses lazy evaluation for computing the energy matrix,
 		// the actual energy calculation that gets split across later DEE/A* calls.
 		// so it's actually counter-productive to separate resizeMatrices() (which calculates energies)
 		// and improveBound() (which calls A*) in the log, or for timing purposes
 		System.out.println("calculating energies and pruning conformations...");
-		
+
 		splitWorld.resizeMatrices();
-		
+
 		// prune nodes based on the new bounds
 		Iterator<ScoredConf> iter = confs.iterator();
 		while (iter.hasNext()) {
 			ScoredConf conf = iter.next();
 			
 			// use the split world to get a tighter bound
-			double improvedBoundEnergy = splitWorld.translateConf(conf).getScore();
+			double improvedBoundEnergy = splitWorld.calcMinScore(conf);
 			
 			if (improvedBoundEnergy > bestMinimizedEnergy + Ew) {
 				
@@ -241,7 +239,7 @@ public class PartCR {
 			confs.size(), TimeFormatter.format(getAvgMinimizationTimeNs()*confs.size(), 1)
 		));
 	}
-	
+
 	private void checkEnergy(double observed, double expected) {
 		double absErr = Math.abs(observed - expected);
 		double relErr = absErr/Math.abs(expected);

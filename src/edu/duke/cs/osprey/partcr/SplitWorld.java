@@ -11,15 +11,12 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
-import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.confspace.PositionConfSpace;
-import edu.duke.cs.osprey.confspace.RC;
-import edu.duke.cs.osprey.confspace.RCIndexMap;
-import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.LazyEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.partcr.splitters.RCSplitter;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class SplitWorld {
@@ -72,7 +69,32 @@ public class SplitWorld {
 		RCIndexMap map = search.confSpace.posFlex.get(pos).replaceRC(rc, splitRCs);
 		rcMaps.set(pos, map);
 	}
-	
+
+	public void splitRC(int pos, int rc, RCSplitter splitter) {
+
+		// split the RC
+		RC rcObj = getRC(pos, rc);
+		List<RC> splitRCs = splitter.split(pos, rcObj);
+		replaceRc(pos, rcObj, splitRCs);
+
+		resizeMatrices();
+	}
+
+	public void splitRCs(RCTuple rcs, RCSplitter splitter) {
+
+		for (int i=0; i<rcs.size(); i++) {
+			int pos = rcs.pos.get(i);
+			int rc = rcs.RCs.get(i);
+
+			// split the rc
+			RC rcObj = getRC(pos, rc);
+			List<RC> splitRCs = splitter.split(pos, rcObj);
+			replaceRc(pos, rcObj, splitRCs);
+		}
+
+		resizeMatrices();
+	}
+
 	public RCIndexMap getRcMap(int pos) {
 		return rcMaps.get(pos);
 	}
@@ -157,7 +179,7 @@ public class SplitWorld {
 		}
 	}
 	
-	public ScoredConf translateConf(ScoredConf conf) {
+	public ScoredConf findMinScoreConf(ScoredConf conf) {
 		
 		// do A* search to find the improved bound
 		RCs subRcs = splits.makeRCs(conf.getAssignments());
@@ -165,5 +187,9 @@ public class SplitWorld {
 		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
 		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, subRcs);
 		return tree.nextConf();
+	}
+
+	public double calcMinScore(ScoredConf conf) {
+		return findMinScoreConf(conf).getScore();
 	}
 }
