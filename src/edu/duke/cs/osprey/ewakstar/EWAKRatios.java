@@ -51,9 +51,11 @@ public class EWAKRatios {
 		this.numStrands = cfp.getParams().searchParams("STRANDMUT").size() 
 				- cfp.getParams().searchParams("STRANDMUTNUMS").size();
 		this.mutFname = cfp.getParams().getValue("MUTFILE", "");
+		//verify mutfile
+		readMutFile(mutFname);
 	}
 
-	private ArrayList<ArrayList<String>> readMutFile(String fname, SearchProblem search) {
+	private ArrayList<ArrayList<String>> readMutFile(String fname) {
 		ArrayList<ArrayList<String>> ans = new ArrayList<>();
 
 		if(!(new File(fname)).exists()) return ans;
@@ -70,7 +72,7 @@ public class EWAKRatios {
 				while(st.hasMoreTokens()) seq.add(st.nextToken());
 				seq.trimToSize();
 
-				verifyMutations(seq, search);
+				verifyMutations(seq);
 				ans.add(seq);
 			}
 		} catch (IOException e) { e.printStackTrace(); }
@@ -79,19 +81,21 @@ public class EWAKRatios {
 		return ans;
 	}
 
-	private void verifyMutations(ArrayList<String> mutation, SearchProblem search) {
-		int numPos = search.allowedAAs.size();
+	private void verifyMutations(ArrayList<String> mutation) {
+		int numPos = cfp.getFlexRes().size();
 
 		StringBuilder sb = new StringBuilder();
 		for(String aa : mutation) sb.append(aa+" ");
-		String errorMsg = "ERROR: mutation " + sb.toString().trim() + " is not allowed";
+		String errorMsg = "ERROR: mutation " + sb.toString().trim() + " is not allowed. Check RESALLOWED.";
 
 		if(mutation.size() != numPos) {
 			throw new RuntimeException(errorMsg);
 		}
 
+		ArrayList<ArrayList<String>> allowedAAs = cfp.getAllowedAAs();
+		
 		for(int pos = 0; pos < numPos; ++pos) {
-			if(!search.allowedAAs.get(pos).contains(mutation.get(pos))) {
+			if(!allowedAAs.get(pos).contains(mutation.get(pos))) {
 				throw new RuntimeException(errorMsg);
 			}
 		}
@@ -233,7 +237,7 @@ public class EWAKRatios {
 		}
 		ans = new ArrayList<>();
 
-		ArrayList<ArrayList<String>> mutations = readMutFile(mutFname, search);
+		ArrayList<ArrayList<String>> mutations = readMutFile(mutFname);
 		ArrayList<Integer> pos = new ArrayList<>();
 		for(int i = 0; i < cfp.getAllowedAAs().size(); ++i) {
 			pos.add(i);
