@@ -36,7 +36,7 @@ public class TestEWAKStar {
         return cfp;
     }
 
-    /*@Test
+    @Test
     public void test3Strands() {
         ConfigFileParser cfp = make2RL0Config();
         // override file-based config
@@ -45,7 +45,7 @@ public class TestEWAKStar {
         cfp.getParams().setValue("IVAL", "5.0");
         cfp.getParams().setValue("EW", "5.0");
         testEWAKStar(cfp);
-    }*/
+    }
     
     @Test
     public void test3StrandsAndMutFile() {
