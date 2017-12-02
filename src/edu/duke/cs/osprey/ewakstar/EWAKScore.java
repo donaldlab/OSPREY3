@@ -97,11 +97,11 @@ public class EWAKScore {
 				pfs.get(strand).getZ();
 			BigInteger numConfs = pfs.get(strand)==null ? BigInteger.ZERO :
 				pfs.get(strand).getNumConfs();
-			sb.append(String.format("pf: %2d, z: %12e, confs: %d ", strand, z, numConfs));
+			sb.append(String.format("pf: %2d z: %12e confs: %d, ", strand, z, numConfs));
 		}
 		
 		String ans = sb.toString().trim();
-		return ans;//.substring(0,ans.length()-1);
+		return ans.substring(0,ans.length()-1);
 	}
 	
 }

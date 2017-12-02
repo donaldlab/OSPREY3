@@ -54,6 +54,9 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	protected boolean scoredGMECQPrimeEnumerated;
 
 	protected boolean computeMaxNumConfs;
+	
+	protected KStarScore score;
+	protected int state;
 
 	public PartitionFunctionMinimized(
 			EnergyMatrix emat, 
@@ -74,6 +77,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		this.computeMaxNumConfs = false;
 		this.boltzmann = new MSBoltzmannCalculator();
 		this.maxNumTopConfs = 0;
+		this.score = null;
+		this.state = -1;
 	}
 
 	protected void writeTopConfs(int state, MSSearchProblem search, String baseDir) {
@@ -129,7 +134,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		scoredGMECQPrimeEnumerated = false;
 
 		// compute p*: boltzmann-weight the scores for all pruned conformations
-		if(!(computeMaxNumConfs || computeGMECRatio)) {
+		if(!computeGMECRatio) {
 			ConfSearch ptree = confSearchFactory.make(emat, invmat);
 			if(ptree instanceof ConfAStarTree) ((ConfAStarTree)ptree).stopProgress();
 			values.pstar = calcWeightSumUpperBound(ptree);
@@ -356,9 +361,16 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			if(Double.isNaN(effectiveEpsilon)) {
 				status = Status.NotEnoughFiniteEnergies;
 			}
+			
 			else if (effectiveEpsilon <= targetEpsilon) {
 				status = Status.Estimated;
 				if (isReportingProgress) confOutput(econf);//just to let the user know we reached epsilon
+			}
+			
+			if(numConfsEvaluated % (ecalc.getParallelism()) == 0) {
+				if(checkConstraints() == false) {
+					status = Status.ViolatedConstraints;
+				}
 			}
 		}
 	}
@@ -468,8 +480,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	void confOutput(ScoredConf conf) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
 		double confVal = conf instanceof EnergiedConf ? ((EnergiedConf)conf).getEnergy() : conf.getScore();
-		System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*: %12e, range[%12e, %12e], epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-				numConfsEvaluated, confVal, values.qstar, values.qprime, values.pstar, values.qstar, values.qstar.add(values.qprime).add(values.pstar), 
+		System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*: %12e, range: [%12e, %12e], epsilon: %.6f, time: %10s, heapMem: %.0f%%",
+				numConfsEvaluated, confVal, values.qstar, values.qprime, values.pstar, values.qstar, getUpperBound(), 
 				values.getEffectiveEpsilon(),
 				stopwatch.getTime(2),
 				100f*heapMem.getUsed()/heapMem.getMax()
@@ -499,6 +511,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		
 		minGMECConfs = null;
 		minGMECAssignments = null;
+		
+		score = null;
 	}
 
 	public void setNumConfsEvaluated(long val) {
@@ -577,9 +591,30 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		return this.computeMaxNumConfs;
 	}
 	
+	public BigDecimal getUpperBound() {
+		return values.qstar.add(values.qprime).add(values.pstar);
+	}
+	
+	public BigDecimal getLowerBound() {
+		return values.qstar;
+	}
+	
+	public void setScoreObj(int state, KStarScore score) {
+		this.score = score;
+		this.state = state;
+	}
+	
+	public boolean checkConstraints() {
+		boolean constrSatisfied = score.checkConstraints(state, true);
+		if(constrSatisfied) {
+			constrSatisfied = score.checkConstraints(state, false);
+		}
+		return constrSatisfied;
+	}
+	
 	public String toString() {
 		return String.format("q*: %12e, q': %12e, p*: %12e, range[%12e, %12e]", 
 				values.qstar, values.qprime, values.pstar, values.qstar, 
-				values.qstar.add(values.qprime).add(values.pstar));
+				getUpperBound());
 	}
 }

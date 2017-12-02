@@ -32,21 +32,30 @@ public class TestEWAKStar {
             "test/2RL0.ewakstar/cfgMutSearch.txt",
             "test/2RL0.ewakstar/cfgSystem.txt"
         });
-        cfp.loadData();
-
-        // override file-based config
-        // I'm guessing most people have at least two cores, so compute the energy matrix a bit faster
-        cfp.getParams().setValue("EmatThreads", "2");
-        cfp.getParams().setValue("IVAL", "5.0");
-        cfp.getParams().setValue("EW", "5.0");
-
+        cfp.loadData();    
         return cfp;
     }
 
     @Test
     public void test3Strands() {
         ConfigFileParser cfp = make2RL0Config();
+        // override file-based config
         cfp.getParams().setValue("MinimizationThreads", "2");
+        cfp.getParams().setValue("EmatThreads", "2");
+        cfp.getParams().setValue("IVAL", "5.0");
+        cfp.getParams().setValue("EW", "5.0");
+        testEWAKStar(cfp);
+    }
+    
+    @Test
+    public void test3StrandsAndMutFile() {
+        ConfigFileParser cfp = make2RL0Config();
+        // override file-based config
+        cfp.getParams().setValue("MinimizationThreads", "2");
+        cfp.getParams().setValue("EmatThreads", "2");
+        cfp.getParams().setValue("IVAL", "0.0");
+        cfp.getParams().setValue("EW", "0.0");
+        cfp.getParams().setValue("MUTFILE", "test/2RL0.ewakstar/mutFile.txt");
         testEWAKStar(cfp);
     }
 

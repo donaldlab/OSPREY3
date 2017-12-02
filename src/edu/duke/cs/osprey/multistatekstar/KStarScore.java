@@ -46,6 +46,8 @@ public interface KStarScore {
 	public void computeUnboundStates(long maxNumConfs);
 	public void computeBoundState(long maxNumConfs);
 	public boolean constrSatisfied();
+	public boolean checkConstraints(int state);
+	public boolean checkConstraints(int state, Boolean negCoeff);
 	public boolean isFullyAssigned();
 	public boolean isFinal();
 	public boolean isComputed();

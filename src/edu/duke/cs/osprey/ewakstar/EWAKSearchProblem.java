@@ -19,7 +19,7 @@ public class EWAKSearchProblem extends SearchProblem implements UpdatePruningMat
 			ArrayList<Integer> splitPosNums, 
 			ArrayList<ArrayList<String>> splitAAs) {
 		super(other);
-		this.origPruneMat = pruneMat;
+		this.origPruneMat = other.pruneMat;
 		this.splitAAs = splitAAs;
 		this.splitPosNums = splitPosNums;
 	}
