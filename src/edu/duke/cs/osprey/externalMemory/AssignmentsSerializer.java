@@ -1,11 +1,37 @@
 package edu.duke.cs.osprey.externalMemory;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.tpie.EntrySize;
 
 public abstract class AssignmentsSerializer {
+
+	public static class WrongEncodingException extends RuntimeException {
+
+		private static final long serialVersionUID = -7973280483158957646L;
+
+		public WrongEncodingException(Encoding encoding, int val) {
+			super(String.format("%s encoding is wrong for value %d. This is definitely a bug",
+				encoding.name(),
+				val
+			));
+		}
+	}
+
+	public static class WrongNumberOfAssignmentsException extends RuntimeException {
+
+		private static final long serialVersionUID = -2877773001328314147L;
+
+		public WrongNumberOfAssignmentsException(RCs rcs, int[] assignments) {
+			super(String.format("Serializer expected %d design positions, but got %d instead. (%s)",
+				rcs.getNumPos(),
+				assignments.length,
+				Arrays.toString(assignments)
+			));
+		}
+	}
 	
 	public static enum Encoding {
 		
@@ -16,6 +42,12 @@ public abstract class AssignmentsSerializer {
 			@Override
 			public void write(int[] vals, ByteBuffer buf) {
 				for (int i=0; i<vals.length; i++) {
+
+					// just in case...
+					if (vals[i] > java.lang.Byte.MAX_VALUE) {
+						throw new WrongEncodingException(this, vals[i]);
+					}
+
 					buf.put((byte)vals[i]);
 				}
 			}
@@ -32,6 +64,12 @@ public abstract class AssignmentsSerializer {
 			@Override
 			public void write(int[] vals, ByteBuffer buf) {
 				for (int i=0; i<vals.length; i++) {
+
+					// just in case...
+					if (vals[i] > java.lang.Short.MAX_VALUE) {
+						throw new WrongEncodingException(this, vals[i]);
+					}
+
 					buf.putShort((short)vals[i]);
 				}
 			}
@@ -86,17 +124,18 @@ public abstract class AssignmentsSerializer {
 	public final RCs rcs;
 	public final Encoding encoding;
 	public final EntrySize entrySize;
-	
-	
+
 	protected AssignmentsSerializer(RCs rcs, int numBytes) {
 		this.rcs = rcs;
 		
-		// get the most efficient encoding, based on the max number of RCs at any position
-		int numRCs = 0;
+		// get the most efficient encoding, based on the biggest RC number at any position
+		int maxVal = 0;
 		for (int pos=0; pos<rcs.getNumPos(); pos++) {
-			numRCs = Math.max(numRCs, rcs.getNum(pos));
+			for (int val : rcs.get(pos)) {
+				maxVal = Math.max(maxVal, val);
+			}
 		}
-		encoding = Encoding.pickBest(numRCs);
+		encoding = Encoding.pickBest(maxVal);
 		entrySize = EntrySize.findBigEnoughSizeFor(rcs.getNumPos()*encoding.numBytes + numBytes);
 	}
 	
@@ -105,10 +144,22 @@ public abstract class AssignmentsSerializer {
 	}
 	
 	protected void writeAssignments(int[] assignments, ByteBuffer buf) {
+
+		// just in case...
+		if (assignments.length != rcs.getNumPos()) {
+			throw new WrongNumberOfAssignmentsException(rcs, assignments);
+		}
+
 		encoding.write(assignments, buf);
 	}
 	
 	protected void readAssignments(ByteBuffer buf, int[] assignments) {
+
+		// just in case...
+		if (assignments.length != rcs.getNumPos()) {
+			throw new WrongNumberOfAssignmentsException(rcs, assignments);
+		}
+
 		encoding.read(buf, assignments);
 	}
 	

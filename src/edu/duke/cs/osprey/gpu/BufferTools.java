@@ -7,6 +7,13 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 
 public class BufferTools {
+
+	public static class OutOfDirectMemoryError extends VirtualMachineError {
+
+		public OutOfDirectMemoryError(int bytes, OutOfMemoryError err) {
+			super("can't allocate " + bytes + " bytes of direct memory", err);
+		}
+	}
 	
 	public static enum Type {
 		
@@ -36,7 +43,11 @@ public class BufferTools {
 			
 			@Override
 			public ByteBuffer makeByte(int size) {
-				return ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder());
+				try {
+					return ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder());
+				} catch (OutOfMemoryError ex) {
+					throw new OutOfDirectMemoryError(size, ex);
+				}
 			}
 			
 			@Override

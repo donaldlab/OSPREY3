@@ -4,8 +4,10 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
+import edu.duke.cs.osprey.tools.JvmMem;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -175,11 +177,11 @@ public class SimplePartitionFunction implements PartitionFunction {
 
 				// report progress if needed
 				if (isReportingProgress) {
-					MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-					System.out.println(String.format("conf: %4d, score: %12.6f, energy: %12.6f, q*: %12e, q': %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
+					System.out.println(String.format("conf: %4d, score: %12.6f, energy: %12.6f, q*: %12e, q': %12e, epsilon: %.6f, time: %10s, heapMem: %s, eMem: %d MiB",
 						lowerBound.numConfsEnergied, econf.getScore(), econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
 						stopwatch.getTime(2),
-						100f*heapMem.getUsed()/heapMem.getMax()
+						JvmMem.getOldPool(),
+						ExternalMemory.getExternalBytes()/1024/1024
 					));
 				}
 
