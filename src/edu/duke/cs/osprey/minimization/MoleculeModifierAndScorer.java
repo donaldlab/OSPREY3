@@ -148,6 +148,7 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
             Residue res = cSpace.posFlex.get(posNum).res;
             if(HardCodedResidueInfo.hasAminoAcidBB(res) 
             		&& !res.fullName.startsWith("FOL")
+            		&& !res.fullName.startsWith("MTX")
             		&& !res.fullName.startsWith("DYF")) {
                 
                 ResidueTypeDOF mutDOF = cSpace.mutDOFs.get(posNum);

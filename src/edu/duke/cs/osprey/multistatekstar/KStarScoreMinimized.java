@@ -73,6 +73,19 @@ public class KStarScoreMinimized implements KStarScore {
 		}
 		return ans;
 	}
+	
+	public BigDecimal getDenominatorUB() {
+		PartitionFunctionMinimized pf;
+		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
+		for(int state=0;state<numStates-1;++state) {
+			pf = partitionFunctions[state];
+			if(pf==null || pf.getUpperBound().compareTo(BigDecimal.ZERO)==0) {
+				return BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+			}
+			ans = ans.multiply(pf.getUpperBound());
+		}
+		return ans;
+	}
 
 	@Override
 	public BigDecimal getNumerator() {
@@ -101,13 +114,22 @@ public class KStarScoreMinimized implements KStarScore {
 		return getScore();
 	}
 	
-	private BigDecimal forceUpperBoundScore() {
+	private BigDecimal computeMaxScore() {
 		BigDecimal den = getDenominator();
 		if(den.compareTo(BigDecimal.ZERO) == 0) return toLog10(den);
-		PartitionFunction pf = partitionFunctions[numStates-1];
+		PartitionFunctionMinimized pf = (PartitionFunctionMinimized)partitionFunctions[numStates-1];
+		if(pf==null) return toLog10(BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP));
+		BigDecimal num = pf.getUpperBound().setScale(64, RoundingMode.HALF_UP);
+		BigDecimal ans = num.divide(den, RoundingMode.HALF_UP);
+		return toLog10(ans);
+	}
+	
+	private BigDecimal computeMinScore() {
+		BigDecimal den = getDenominatorUB();
+		if(den.compareTo(BigDecimal.ZERO) == 0) return toLog10(den);
+		PartitionFunctionMinimized pf = (PartitionFunctionMinimized)partitionFunctions[numStates-1];
 		if(pf==null) return toLog10(BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP));
 		BigDecimal num = pf.getValues().qstar.setScale(64, RoundingMode.HALF_UP);
-		num = (num.add(pf.getValues().qprime)).add(pf.getValues().pstar);
 		BigDecimal ans = num.divide(den, RoundingMode.HALF_UP);
 		return toLog10(ans);
 	}
@@ -116,7 +138,7 @@ public class KStarScoreMinimized implements KStarScore {
 	public BigDecimal getUpperBoundScore() {
 		if(isComputed()) return getScore();
 
-		return forceUpperBoundScore();
+		return computeMaxScore();
 	}
 
 	public String toString() {
@@ -133,7 +155,7 @@ public class KStarScoreMinimized implements KStarScore {
 		
 		sb.append(String.format("log10(score): %12e, ", getScore()));
 		
-		sb.append(String.format("range: [%12e, %12e], ", getLowerBoundScore(), forceUpperBoundScore()));
+		sb.append(String.format("range: [%12e, %12e], ", computeMinScore(), computeMaxScore()));
 		
 		for(int state=0;state<numStates;++state) {
 			BigDecimal qstar = partitionFunctions[state]==null ? BigDecimal.ZERO : 
@@ -239,18 +261,22 @@ public class KStarScoreMinimized implements KStarScore {
 		if(minGMECConfs != null) pf.setMinGMECConfs(minGMECConfs);
 		
 		//create priority queue for top confs if requested
-		if(settings.isFinal && settings.numTopConfsToSave > 0) {
+		if(settings.isFinal) {
 
-			pf.topConfs = new PriorityQueue<ScoredConf>(
-					settings.numTopConfsToSave, 
-					new ConfComparator()
-					);
+			pf.setScoreObj(state, this);
+			
+			if(settings.numTopConfsToSave > 0) {
+				pf.topConfs = new PriorityQueue<ScoredConf>(
+						settings.numTopConfsToSave, 
+						new ConfComparator()
+						);
 
-			pf.maxNumTopConfs = settings.numTopConfsToSave;
+				pf.maxNumTopConfs = settings.numTopConfsToSave;
 
-			pf.setConfListener((ScoredConf conf) -> {
-				pf.saveConf(conf);
-			});
+				pf.setConfListener((ScoredConf conf) -> {
+					pf.saveConf(conf);
+				});
+			}
 
 		}
 
@@ -476,6 +502,7 @@ public class KStarScoreMinimized implements KStarScore {
 			p2pf.setReportProgress(settings.isReportingProgress);
 			p2pf.setMinGMECConfs(pf.getMinGMECConfs());
 			p2pf.setComputeMaxNumConfs(pf.getComputeMaxNumConfs());
+			p2pf.setScoreObj(state, pf.score);
 			p2pf.init(settings.targetEpsilon);
 
 			pstar = p2pf.getValues().pstar;
@@ -544,12 +571,19 @@ public class KStarScoreMinimized implements KStarScore {
 		if(pf.getStatus() == Status.Estimated) {
 			//yay!
 		}
+		
+		else if(pf.getStatus() == Status.ViolatedConstraints) {
+			constrSatisfied = false;
+			pf.getValues().qstar = BigDecimal.ZERO;
+			if(settings.isReportingProgress) System.out.println("WARNING: constraint not satisfied... pruning sequence");
+			pf.setStatus(Status.Estimated);
+		}
 
 		else if(pf.getStatus() == Status.NotEnoughFiniteEnergies) {
 			pf.setStatus(Status.Estimated);
 		}
 
-		else if(computeMaxNumConfs && pf.getNumConfsEvaluated()>=maxNumConfs) {
+		else if(computeMaxNumConfs && pf.getNumConfsEvaluated() >= maxNumConfs) {
 			pf.setStatus(Status.Estimated);
 		}
 
@@ -612,15 +646,31 @@ public class KStarScoreMinimized implements KStarScore {
 		ans.trimToSize();
 		return ans;
 	}
-
-	private boolean checkConstraints(ArrayList<LMB> constraints) {
-		for(LMB constr : constraints) {
-			BigDecimal[] stateVals = new BigDecimal[numStates];
-			for(int s=0;s<numStates;++s){
-				PartitionFunctionMinimized pf = partitionFunctions[s];
-				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
-				stateVals[s] = toLog10(stateVals[s]);
+	
+	private BigDecimal[] getStateVals(Boolean negCoeffs) {
+		BigDecimal[] stateVals = new BigDecimal[numStates];
+		for(int s=0;s<numStates;++s) {
+			PartitionFunctionMinimized pf = partitionFunctions[s];
+			if(pf == null) {
+				stateVals[s] = BigDecimal.ZERO;
 			}
+			else {
+				if(negCoeffs == null) {
+					stateVals[s] = pf.getValues().qstar;
+				}
+				else {
+					stateVals[s] = negCoeffs == true ? pf.getUpperBound() : pf.getLowerBound();
+				}
+			}
+		}
+		
+		for(int s=0;s<numStates;++s) stateVals[s] = toLog10(stateVals[s]);
+		return stateVals;
+	}
+
+	private boolean checkConstraints(ArrayList<LMB> constraints, Boolean negCoeff) {
+		for(LMB constr : constraints) {
+			BigDecimal[] stateVals = getStateVals(negCoeff);
 
 			//can short circuit computation of k* score if any of the unbound
 			//states does not satisfy constraints
@@ -637,8 +687,9 @@ public class KStarScoreMinimized implements KStarScore {
 	 * @param lbConstr: true=lb, false=ub
 	 * @return
 	 */
-	protected boolean checkConstraints(int state, boolean negCoeff) {
-		return checkConstraints(getLMBsForState(state, negCoeff));
+	@Override
+	public boolean checkConstraints(int state, Boolean negCoeff) {
+		return checkConstraints(getLMBsForState(state, negCoeff), negCoeff);
 	}
 
 	/**
@@ -646,8 +697,9 @@ public class KStarScoreMinimized implements KStarScore {
 	 * @param state
 	 * @return
 	 */
-	protected boolean checkConstraints(int state) {
-		return checkConstraints(getLMBsForState(state));
+	@Override
+	public boolean checkConstraints(int state) {
+		return checkConstraints(getLMBsForState(state), null);
 	}
 
 	private boolean checkConstraints() {
