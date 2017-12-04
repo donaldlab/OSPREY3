@@ -46,8 +46,8 @@ def checkDeprecatedResNumbers(resNums, fnnames):
 
 	if hasIntResNum:
 
-		print('WARNING: Number-valued residue numbers (e.g., 4, 123) are deprecated and will be not be supported in a future version.'
-			+ ' Instead, use String-valued residue numbers prefixed with the chain ID (e.g., \'A4\', \'G123\').')
+		print('WARNING: Number-valued residue numbers (e.g., 4, 123, 42) are deprecated and will be not be supported in a future version.'
+			+ ' Instead, use String-valued residue numbers prefixed with the chain ID if available (e.g., \'A4\', \'G123\', \'42\').')
 
 		# get the stack trace, and remove the specified osprey frames
 		stacktrace = traceback.extract_stack()
