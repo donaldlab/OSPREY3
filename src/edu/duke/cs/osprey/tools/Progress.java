@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.tools;
 
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
+
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.util.ArrayDeque;
@@ -228,9 +230,9 @@ public class Progress {
 			if (reportMemory) {
 				MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
 				Runtime runtime = Runtime.getRuntime();
-				System.out.print(String.format("   heap mem: %d MiB / %d MiB   total mem: %d MiB / %d MiB",
-					heapMem.getUsed()/1024/1024, heapMem.getMax()/1024/1024,
-					runtime.totalMemory()/1024/1024, runtime.maxMemory()/1024/1024
+				System.out.print(String.format("   heapMem:%s, extMem:%s",
+					JvmMem.getOldPool(),
+					ExternalMemory.getUsageReport()
 				));
 			}
 			System.out.println();

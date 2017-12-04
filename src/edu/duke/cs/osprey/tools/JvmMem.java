@@ -47,7 +47,7 @@ public class JvmMem {
 
 		@Override
 		public String toString() {
-			return String.format("%.1f%% of %d MiB", usedPercent, maxBytes/1024/1024);
+			return String.format("%.1f%% of %s", usedPercent, MathTools.formatBytes(maxBytes));
 		}
 	}
 

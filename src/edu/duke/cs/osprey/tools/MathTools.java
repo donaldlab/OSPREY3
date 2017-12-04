@@ -299,7 +299,6 @@ public class MathTools {
 		if (a == BigNaN || b == BigNaN) {
 			return BigNaN;
 		}
-		// TODO
 		if (a == BigPositiveInfinity) {
 			if (b == BigNegativeInfinity) {
 				return BigNaN;
@@ -360,5 +359,41 @@ public class MathTools {
 	/** return a/b/c, correctly handling -Inf, +Inf, and NaN */
 	public static BigDecimal bigDivideDivide(BigDecimal a, BigDecimal b, BigDecimal c, MathContext context) {
 		return bigDivide(bigDivide(a, b, context), c, context);
+	}
+
+	public static String formatBytes(long bytes) {
+		if (bytes < 1024) {
+			return String.format("%d B", bytes);
+		}
+		double kibibytes = (double)bytes/1024;
+		if (kibibytes < 128) {
+			return String.format("%.1f KiB", kibibytes);
+		} else if (kibibytes < 1024) {
+			return String.format("%.0f KiB", kibibytes);
+		}
+		double mebibytes = kibibytes/1024;
+		if (mebibytes < 128) {
+			return String.format("%.1f MiB", mebibytes);
+		} else if (mebibytes < 1024) {
+			return String.format("%.0f MiB", mebibytes);
+		}
+		double gibibytes = mebibytes/1024;
+		if (gibibytes < 128) {
+			return String.format("%.1f GiB", gibibytes);
+		} else if (gibibytes < 1024) {
+			return String.format("%.0f GiB", gibibytes);
+		}
+		double tebibytes = gibibytes/1024;
+		if (tebibytes < 128) {
+			return String.format("%.1f TiB", tebibytes);
+		} else if (tebibytes < 1024) {
+			return String.format("%.0f TiB", tebibytes);
+		}
+		double pebibytes = tebibytes/1024;
+		if (pebibytes < 128) {
+			return String.format("%.1f PiB", pebibytes);
+		} else {
+			return String.format("%.0f PiB", pebibytes);
+		}
 	}
 }

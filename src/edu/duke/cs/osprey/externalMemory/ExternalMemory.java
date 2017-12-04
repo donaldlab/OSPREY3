@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.externalMemory;
 
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.tpie.TPIE;
 
 import java.io.File;
@@ -7,7 +8,8 @@ import java.io.File;
 public class ExternalMemory {
 	
 	private static boolean limitSet = false;
-	
+	private static File tempDir = null;
+
 	/**
 	 * Set the maximum amount of internal memory (eg, RAM) to use for
 	 * large data structures. External memory-aware data structures will
@@ -23,6 +25,7 @@ public class ExternalMemory {
 		}
 		TPIE.start(mib);
 		limitSet = true;
+		setDefaultTempDir();
 	}
 	
 	/**
@@ -46,6 +49,13 @@ public class ExternalMemory {
 			);
 		}
 	}
+
+	/**
+	 * Set the temporary directory for external memory to the JVM default.
+	 */
+	public static void setDefaultTempDir() {
+		setTempDir(System.getProperty("java.io.tmpdir"));
+	}
 	
 	/**
 	 * Set temporary directory to host external memory.
@@ -60,6 +70,7 @@ public class ExternalMemory {
 			dirFile.mkdirs();
 		}
 
+		tempDir = new File(dir);
 		TPIE.setTempDir(dir);
 	}
 	
@@ -77,6 +88,7 @@ public class ExternalMemory {
 			dirFile.mkdirs();
 		}
 
+		tempDir = new File(dir);
 		TPIE.setTempDir(dir, subdir);
 	}
 	
@@ -97,6 +109,20 @@ public class ExternalMemory {
 		}
 		return TPIE.getExternalBytes();
 	}
+
+	public static String getUsageReport() {
+		long usedBytes = getExternalBytes();
+		if (tempDir != null) {
+			long freeBytes = tempDir.getUsableSpace();
+			return String.format("%s (%.1f%% of %s)",
+				MathTools.formatBytes(usedBytes),
+				100.0*usedBytes/freeBytes,
+				MathTools.formatBytes(freeBytes)
+			);
+		} else {
+			return MathTools.formatBytes(usedBytes);
+		}
+	}
 	
 	/**
 	 * Clean up resources used by the external memory system.
@@ -107,6 +133,7 @@ public class ExternalMemory {
 	public static void cleanup() {
 		TPIE.stop();
 		limitSet = false;
+		tempDir = null;
 	}
 	
 	/**
@@ -119,9 +146,13 @@ public class ExternalMemory {
 	public static void use(int internalMiB, TPIE.Block block) {
 		limitSet = true;
 		try {
-			TPIE.use(internalMiB, block);
+			TPIE.use(internalMiB, () -> {
+				setDefaultTempDir();
+				block.run();
+			});
 		} finally {
 			limitSet = false;
+			tempDir = null;
 		}
 	}
 }

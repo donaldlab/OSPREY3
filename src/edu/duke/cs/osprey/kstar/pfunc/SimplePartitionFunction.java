@@ -177,11 +177,11 @@ public class SimplePartitionFunction implements PartitionFunction {
 
 				// report progress if needed
 				if (isReportingProgress) {
-					System.out.println(String.format("conf: %4d, score: %12.6f, energy: %12.6f, q*: %12e, q': %12e, epsilon: %.6f, time: %10s, heapMem: %s, eMem: %d MiB",
+					System.out.println(String.format("conf:%4d, score:%12.6f, energy:%12.6f, q*:%12e, q':%12e, epsilon:%.6f, time:%10s, heapMem:%s, extMem:%s",
 						lowerBound.numConfsEnergied, econf.getScore(), econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
 						stopwatch.getTime(2),
 						JvmMem.getOldPool(),
-						ExternalMemory.getExternalBytes()/1024/1024
+						ExternalMemory.getUsageReport()
 					));
 				}
 
