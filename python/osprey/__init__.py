@@ -52,20 +52,24 @@ def _java_aware_excepthook(exctype, value, traceback):
 		pass
 
 
-def start(heapSizeMB=1024, enableAssertions=False, stackSizeMB=8):
+def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSizeMiB=128):
 	'''
 	Starts the Java Virtual Machine (JVM) that runs Osprey's computation libraries.
 
 	Call :meth:`start` before using any of Osprey's other functions.
 
-	:param int heapSizeMB: Size of the JVM heap in megabytes. This is essentially the amount of memory
-		Osprey will have to do computations. 1024 MB is 1 GB, but for larger designs,
-		you may want to use 2048 MB (2 GB), 4096 MB (4 GB), or even more memory.
+	:param int heapSizeMiB: Size of the JVM heap in megabytes. This is essentially the amount of memory
+		Osprey will have to do computations. 1024 MiB is 1 GiB, but for larger designs,
+		you may want to use 2048 MiB (2 GiB), 4096 MiB (4 GiB), or even more memory.
 	
 	:param bool enableAssertions: pass ``True`` to enable JVM assertions. Only useful for debugging.
 
-	:param int stackSizeMB: Size of the JVM stack in megabytes. Generally leave this at the default value,
-		unless Osprey crashes because it's too small. Then try increasing it.
+	:param int stackSizeMiB: Size of the JVM stack portion of the heap in megabytes.
+		Generally leave this at the default value, unless Osprey crashes because it's too small. Then try increasing it.
+
+	:param int garbageSizeMiB: Size of the garbage portion of the JVM heap that is reserved for temporary objects.
+		This default value is appropriate for the default heap size, but if using larger heap sizes, then increasing
+		the garbage size to 256, 512, or even 1024 MiB can give a modest improvement in performance.
 	'''
 
 	# disable buffered output on stdout, so python log messages line up with java log messages
@@ -97,7 +101,7 @@ def start(heapSizeMB=1024, enableAssertions=False, stackSizeMB=8):
 			jvm.addClasspath(path.strip())
 
 	# start the jvm
-	jvm.start(heapSizeMB, enableAssertions, stackSizeMB)
+	jvm.start(heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB)
 
 	# set up class factories
 	global c

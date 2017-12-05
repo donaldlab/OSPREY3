@@ -37,18 +37,20 @@ def setNativesDir(path):
 	_nativesDir = path
 
 
-def start(heapSizeMB=1024, enableAssertions=False, stackSizeMB=None):
+def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, garbageSizeMiB=None):
 
 	# build JVM launch args
 	args = [
 		jpype.getDefaultJVMPath(),
-		'-xmx%dM' % heapSizeMB,
+		'-xmx%dM' % heapSizeMiB,
 		'-Djava.class.path=%s' % makeClasspath()
 	]
 	if enableAssertions:
 		args.append("-ea")
-	if stackSizeMB is not None:
-		args.append('-Xss%sM' % stackSizeMB)
+	if stackSizeMiB is not None:
+		args.append('-Xss%sM' % stackSizeMiB)
+	if garbageSizeMiB is not None:
+		args.append('-XX:MaxNewSize=%dM' % garbageSizeMiB)
 	if _nativesDir is not None:
 		args.append('-Djava.library.path=%s' % _nativesDir)
 
