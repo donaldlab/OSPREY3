@@ -23,10 +23,24 @@ http://www.cs.duke.edu/donaldlab/osprey.php
 License
 ~~~~~~~
 
-Osprey is released under a permissive GPL-style license. See the
-`full Osprey license`_ for more information. 
+`GPLv2`_
 
-.. _full Osprey license: LICENSE.txt
+Copyright (C) 2017 Duke University
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the `GNU General Public License version 2`_
+as published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+The full text of the GPLv2 is included in the accompanying `LICENSE.txt`_
+
+.. _GPLv2: https://www.gnu.org/licenses/gpl-2.0.html
+.. _GNU General Public License version 2: https://www.gnu.org/licenses/gpl-2.0.html
+.. _LICENSE.txt: LICENSE.txt
 
 
 Installation
