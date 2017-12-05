@@ -476,7 +476,10 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 	private String[] getResNums() {
 		return confSpace.positions.stream()
 			.map((pos) -> pos.resNum)
-			.toArray(String[]::new);
+			// apparently python doc tool 'javalang' can't parse this
+			//.toArray(String[]::new);
+			// so use old-fashioned way
+			.toArray((arraySize) -> new String[arraySize]);
 	}
 
 	@Override
