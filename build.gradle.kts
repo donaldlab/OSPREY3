@@ -1,9 +1,12 @@
 
+import java.io.BufferedWriter
+import java.io.OutputStreamWriter
 import java.net.URL
+import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.StandardCopyOption
 import java.nio.file.Files
-
+import java.nio.file.Path
 
 plugins {
 	application
@@ -142,6 +145,8 @@ distributions {
 				from(pythonBuildDir) {
 					include("install.sh")
 					include("install.bat")
+					include("uninstall.sh")
+					include("uninstall.bat")
 				}
 			}
 			into("doc") {
@@ -170,14 +175,15 @@ val pipCmd = "pip2"
 tasks {
 
 	// get vals for tasks we care about that were defined by plugins
-	val pythonDistZip = tasks.getByName("pythonDistZip")
-	val distTar = tasks.getByName("distTar")
-	val pythonDistTar = tasks.getByName("pythonDistTar")
 	val jar = tasks.getByName("jar")
 
 	// turn off tar distributions
-	distTar.enabled = false
-	pythonDistTar.enabled = false
+	"distTar" {
+		enabled = false
+	}
+	"pythonDistTar" {
+		enabled = false
+	}
 
 	val compileCuda_residueForcefield by creating(Exec::class) {
 		nvcc(this, "residueForcefield")
@@ -299,34 +305,34 @@ tasks {
 
 	val pythonInstallScripts by creating {
 		group = "build"
-		description = "Make install.sh and install.bat for python distribution"
+		description = "Make install scripts for python distribution"
 		doLast {
-
-			val cmd = "pip2 install --user osprey --no-index --use-wheel --find-link=wheelhouse"
-
-			val installSh = pythonBuildDir.resolve("install.sh")
-			Files.write(installSh, """
-				|#! /bin/sh
-				|$cmd
-				""".trimMargin().split("\n")
+			writeScripts(
+				"install",
+				"""
+				|$pipCmd uninstall -y osprey JPype-py2
+				|$pipCmd install --user numpy
+				|$pipCmd install --user osprey --no-index --use-wheel --find-link=wheelhouse
+				""".trimMargin()
 			)
+		}
+	}
 
-			// set the shell script executable
-			Files.setPosixFilePermissions(installSh, Files.getPosixFilePermissions(installSh).apply {
-				add(PosixFilePermission.OWNER_EXECUTE)
-			})
-
-			val installBat = pythonBuildDir.resolve("install.bat")
-			Files.write(installBat, """
-				|@echo off
-				|$cmd
-				""".trimMargin().split("\n")
+	val pythonUninstallScripts by creating {
+		group = "build"
+		description = "Make uninstall scripts for python distribution"
+		doLast {
+			writeScripts(
+				"uninstall",
+				"$pipCmd uninstall -y osprey JPype-py2"
 			)
 		}
 	}
 
 	// insert some build steps before we build the python dist
-	pythonDistZip.dependsOn(pythonWheel, makeDoc, pythonInstallScripts)
+	"pythonDistZip" {
+		dependsOn(pythonWheel, makeDoc, pythonInstallScripts, pythonUninstallScripts)
+	}
 }
 
 fun nvcc(exec: Exec, kernelName: String, maxRegisters: Int? = null, profile: Boolean = false) {
@@ -362,4 +368,47 @@ fun nvcc(exec: Exec, kernelName: String, maxRegisters: Int? = null, profile: Boo
 
 	exec.workingDir = file("resources/gpuKernels/cuda")
 	exec.commandLine(args)
+}
+
+fun List<String>.writeToFile(path: Path, newline: String) {
+	BufferedWriter(OutputStreamWriter(Files.newOutputStream(path), StandardCharsets.UTF_8.newEncoder())).use { out ->
+		for (line in this) {
+			out.append(line)
+			out.append(newline)
+		}
+	}
+}
+
+fun writeShellScript(filename: String, cmd: String) {
+
+	val file = pythonBuildDir.resolve("$filename.sh")
+
+	"""
+		|#! /bin/sh
+		|$cmd
+	""".trimMargin()
+		.split("\n")
+		.writeToFile(file, "\n")
+
+	// set the shell script executable
+	Files.setPosixFilePermissions(file, Files.getPosixFilePermissions(file).apply {
+		add(PosixFilePermission.OWNER_EXECUTE)
+	})
+}
+
+fun writeBatchScript(filename: String, cmd: String) {
+
+	val file = pythonBuildDir.resolve("$filename.bat")
+
+	"""
+		|@echo off
+		|$cmd
+	""".trimMargin()
+		.split("\n")
+		.writeToFile(file, "\r\n")
+}
+
+fun writeScripts(filename: String, cmd: String) {
+	writeShellScript(filename, cmd)
+	writeBatchScript(filename, cmd)
 }

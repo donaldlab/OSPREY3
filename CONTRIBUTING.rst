@@ -16,7 +16,7 @@ To devleop Osprey, you'll need to have the following software packages installed
 
 
 Clone project from Github
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The Osprey code repository is hosted at `Github`_.
 To develop Osprey, first clone the git repository to a folder of your choosing::
@@ -54,13 +54,17 @@ to setup Osprey for compilation and testing.
 .. _IntelliJ IDEA: https://www.jetbrains.com/idea/
 .. _Netbeans: https://netbeans.org/
 
+Osprey's build scripts use a bunch of Python build tools, so you'll need to install those::
 
-Once your IDE is configured to your liking, setup the Python development environment with
-the Gradle task ``pythonDevelop``::
+    $ pip install setuptools wheel sphinx guzzle_sphinx_theme javalang
+
+
+Once your build environment is set up, setup the Osprey Python development environment with the
+Gradle task ``pythonDevelop``::
 
 	$ ./gradlew pythonDevelop
 
-This task 'installs' the Osprey python package in editable mode, so your changes will
+This task 'installs' the Osprey Python package in editable mode, so your changes to the Python source files will
 be immediately visible to Python scripts. This task will also install the `JPype`_ dependency
 needed by Osprey.
 
@@ -79,10 +83,10 @@ Build Osprey distribution
 To build the Osprey distribution files, simply run the Gradle task ``assemble`` from your
 IDE's Gradle UI.
 
-Or, if you're not using an IDE, you can run Gradle from the command line:
+Or, if you're not using an IDE, you can run Gradle from the command line::
 
 	$ ./gradlew assemble
-	
+
 **WARNING:** Using the usual ``build`` task in Gradle will indeed build the distribution,
 but it will also run the entire suite of Osprey unit tests. The testing suite is rather
 extensive and can take up to an hour to run depending on available hardware. To build Osprey
@@ -115,29 +119,6 @@ documentation much like the `autodoc extension to Sphinx`_.
 .. _ReStructured Text (RST): https://en.wikipedia.org/wiki/ReStructuredText
 .. _autodoc extension to Sphinx: http://www.sphinx-doc.org/en/stable/ext/autodoc.html
 
-Prerequisites
--------------
-
-Before we can build the documentation for Osprey, we'll have to satisfy some prerequisites.
-
-1. Install `Sphinx`_, the python documentation tool::
-
-    $ pip install sphinx
-    
-2. Install the `Guzzle`_ theme for Sphinx::
-
-    $ pip install guzzle_sphinx_theme
-    
-3. Install the `javalang`_ Python package::
-
-    $ pip install javalang
-
-.. _Guzzle: https://github.com/guzzle/guzzle_sphinx_theme
-.. _javalang: https://github.com/c2nes/javalang
-
-Building
---------
-
 To build the documentation for Osprey, run the Sphinx tool using the Gradle task ``makeDoc``::
 
 	$ ./gradlew makeDoc
@@ -150,9 +131,8 @@ commands automatically::
 
     $ ./gradlew remakeDoc
 
-**NOTE   :** Sphinx can detect problems with the documentation during building.
-When this happens,
-these problems will be reported to the console, usually in red text.
+**NOTE:** Sphinx can detect problems with the documentation during building.
+When this happens, these problems will be reported to the console, usually in red text.
 These warning messages usually indicate something is missing or incorrect
 in the documentation, and that the underlying problems should be fixed before
 the documentation is released.
