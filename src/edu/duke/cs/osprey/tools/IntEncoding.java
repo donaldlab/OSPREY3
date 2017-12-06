@@ -1,0 +1,73 @@
+package edu.duke.cs.osprey.tools;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+
+public enum IntEncoding {
+
+	// NOTE: this order is important for get()
+	Byte(255) {
+
+		@Override
+		public void write(DataOutputStream out, int val)
+			throws IOException {
+			out.writeByte(val);
+		}
+
+		@Override
+		public int read(DataInputStream in)
+			throws IOException {
+			return in.readUnsignedByte();
+		}
+	},
+	Short(32767) {
+
+		@Override
+		public void write(DataOutputStream out, int val)
+			throws IOException {
+			out.writeShort(val);
+		}
+
+		@Override
+		public int read(DataInputStream in)
+			throws IOException {
+			return in.readUnsignedShort();
+		}
+	},
+	Int(Integer.MAX_VALUE) {
+
+		@Override
+		public void write(DataOutputStream out, int val)
+			throws IOException {
+			out.writeInt(val);
+		}
+
+		@Override
+		public int read(DataInputStream in)
+			throws IOException {
+			return in.readInt();
+		}
+	};
+
+	public final int maxValue;
+
+	IntEncoding(int maxValue) {
+		this.maxValue = maxValue;
+	}
+
+	public static IntEncoding get(int maxVal) {
+
+		for (IntEncoding encoding : values()) {
+			if (maxVal <= encoding.maxValue) {
+				return encoding;
+			}
+		}
+
+		// silly compiler... this can't happen, right?
+		throw new Error("unpossible, unless I'm an idiot");
+	}
+
+	public abstract void write(DataOutputStream out, int val) throws IOException;
+	public abstract int read(DataInputStream in) throws IOException;
+}
