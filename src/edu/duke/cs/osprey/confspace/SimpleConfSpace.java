@@ -484,7 +484,7 @@ public class SimpleConfSpace implements Serializable {
 				mol.residues.add(res);
 			}
 		}
-		HardCodedResidueInfo.markInterResBonds(mol);
+		mol.markInterResBonds();
 		
 		// mutate to the conf templates, and figure out what conformational DOFs are specified by the conf
 		HashSet<String> confDOFNames = new HashSet<>();//names of DOFs specified by the conf

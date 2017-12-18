@@ -359,4 +359,11 @@ public class ResidueTemplateLibrary implements Serializable {
         }
         return false;
     }
+
+	public HashSet<String> templateNameSet(){
+		HashSet<String> ans = new HashSet<>();
+		for(ResidueTemplate templ : templates)
+			ans.add(templ.name);
+		return ans;
+	}
 }

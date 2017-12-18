@@ -143,7 +143,7 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
         
         //reconnect all bonds
         res.markIntraResBondsByTemplate();
-        HardCodedResidueInfo.reconnectInterResBonds(res);
+        res.reconnectInterResBonds();
         
         //special case if sidechain loops back in additional place to backbone...
         if(oldTemplate.name.equalsIgnoreCase("PRO") || newTemplate.name.equalsIgnoreCase("PRO")){

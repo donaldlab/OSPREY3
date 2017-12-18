@@ -6,9 +6,7 @@ import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.StringParsing;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 public class TemplateParser {
 
@@ -55,6 +53,12 @@ public class TemplateParser {
 				return null;//finished reading file!
 			}
 		}
+
+		//see if there is explicit inter-residue bonding information
+		InterResBondingTemplate interResBonding = null;
+		if(curLine.startsWith("INTER-RES BONDING:"))
+			interResBonding = parseInterResBonding(curLine);
+
 		// Skip blank line
 		curLine = lines.next();
 		// The next line contains the 3 letter amino acid name
@@ -146,7 +150,52 @@ public class TemplateParser {
 				atDone = curLine.substring(0,4).equalsIgnoreCase("done");
 		}
 
+		if(interResBonding==null)//not explicitly specified, so infer
+			interResBonding = HardCodedResidueInfo.inferInterResBonding(templateRes);
+		else
+			checkInterResBonding(templateRes, interResBonding);
 
-		return new ResidueTemplate(templateRes, templateName);
+		return new ResidueTemplate(templateRes, templateName, interResBonding);
 	}
+
+	private static InterResBondingTemplate parseInterResBonding(String line){
+		//Parse an InterResBondingTemplate from a line in a template file that starts with INTER-RES BONDING:
+		StringTokenizer st = new StringTokenizer(line," ");
+		st.nextToken();//INTER-RES
+		st.nextToken();//BONDING:
+		HashSet<String> bondingAtoms = new HashSet<>();
+		while(st.hasMoreTokens()){
+			String tok = st.nextToken();
+			if(tok.equalsIgnoreCase("NONE"))
+				return new InterResBondingTemplate.NoBondingTemplate();
+			else if(tok.equalsIgnoreCase("PEPTIDE"))
+				return new InterResBondingTemplate.PeptideBondingTemplate();
+			else if(tok.equalsIgnoreCase("CYS"))
+				return new InterResBondingTemplate.CysteineBondingTemplate();
+			else
+				bondingAtoms.add(tok);
+		}
+
+		//if we get here it's a SpecifiedBondingAtomsTemplate
+		return new InterResBondingTemplate.SpecifiedBondingAtomsTemplate(bondingAtoms);
+	}
+
+	private static void checkInterResBonding(Residue res, InterResBondingTemplate interResBonding){
+		//look for obvious incompatibility between residue and template
+		if(interResBonding instanceof InterResBondingTemplate.PeptideBondingTemplate) {
+			if (!HardCodedResidueInfo.hasAminoAcidBB(res)){
+				throw new RuntimeException("ERROR: Residue template " + res.fullName + " has no amino-acid backbone "
+						+ " but trying to assign a PeptideBondingTemplate to it");
+			}
+		}
+		if(interResBonding instanceof InterResBondingTemplate.SpecifiedBondingAtomsTemplate) {
+			for(String atName : ((InterResBondingTemplate.SpecifiedBondingAtomsTemplate)interResBonding).getBondingAtomNames()){
+				if(res.getAtomByName(atName)==null){
+					throw new RuntimeException("ERROR: Residue template " + res.fullName + " has no atom named "
+							+atName+" but its inter-residue bonding template thinks it does");
+				}
+			}
+		}
+	}
+
 }

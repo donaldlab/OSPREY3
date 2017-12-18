@@ -298,11 +298,11 @@ public class PDBIO {
 	}
 	
 	public static void writeFile(Molecule mol, String comment, Double energy, String path) {
-		FileTools.writeFile(write(mol, comment, energy), path);
+		FileTools.writeFile(write(mol, comment, energy, false), path);
 	}
 	
 	public static void writeFile(Molecule mol, String comment, Double energy, File file) {
-		FileTools.writeFile(write(mol, comment, energy), file);
+		FileTools.writeFile(write(mol, comment, energy,false), file);
 	}
 
 	public static String write(EnergyCalculator.EnergiedParametricMolecule epmol) {
@@ -310,14 +310,14 @@ public class PDBIO {
 	}
 
 	public static String write(EnergyCalculator.EnergiedParametricMolecule epmol, String comment) {
-		return write(epmol.pmol.mol, comment, epmol.energy);
+		return write(epmol.pmol.mol, comment, epmol.energy, false);
 	}
 	
 	public static String write(Molecule mol) {
-		return write(mol, null, null);
+		return write(mol, null, null, false);
 	}
 	
-	public static String write(Molecule mol, String comment, Double energy) {
+	public static String write(Molecule mol, String comment, Double energy, boolean includeTer) {
 	
 		StringBuilder buf = new StringBuilder();
 		
@@ -389,6 +389,13 @@ public class PDBIO {
 
 				buf.append(line);
 				buf.append("\n");
+			}
+
+			if(includeTer){//write TER to indicate subsequent residues not bonded.  Used by Sander
+				if(res.indexInMolecule<mol.residues.size()-1){
+					if(!res.isBondedTo(mol.residues.get(res.indexInMolecule+1)))
+						buf.append("TER\n");
+				}
 			}
 		}
 		

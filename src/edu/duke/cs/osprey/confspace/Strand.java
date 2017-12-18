@@ -272,7 +272,7 @@ public class Strand implements Serializable {
 			if (errorOnNonTemplateResidues) {
 				throw new Error("ERROR: " + nonTemplateResNames.size() + " Strand residue(s) could not be matched to templates:\n" + resNames);
 			}
-			
+
 			this.mol.deleteResidues(nonTemplateResNames);
 			
 			// warn user about deleted residues
@@ -281,7 +281,7 @@ public class Strand implements Serializable {
 		}
 		
 		// assigning templates marks intra-res bonds; we can now mark inter-res too
-		HardCodedResidueInfo.markInterResBonds(this.mol);
+		this.mol.markInterResBonds();
 		
 		// init flexibility
 		flexibility = new Flexibility(this.mol.residues);

@@ -178,116 +178,55 @@ public class HardCodedResidueInfo {
             return new int[] {CA,N,H};
         }
     }
-    
-    
-    //The following functions are intended to mark inter-residue bonds between amino acids
-    //We're assuming for now that non-amino acid residues aren't bonded to anything,
-    //but could change that by changing just these functions
-    //we might want a template file to tell this stuff eventually
 
-    static double maxBondDist = 3;//liberal upper-bound on inter-residue bond length.  Given in angstroms
 
-    
-    //this version marks all the inter-residue bonds in a molecule
-    public static void markInterResBonds(Molecule molec){
-        
-        
-        //first, peptide bonds.  Must be between consecutive residues
-        for(int resNum=0; resNum<molec.residues.size()-1; resNum++){
-            Residue res1 = molec.residues.get(resNum);
-            Residue res2 = molec.residues.get(resNum+1);
-            tryToMakePeptideBond(res1,res2);
+
+
+    public static double bondLengthUpperBound(int elementNum1, int elementNum2){
+        //These are used to infer inter-res bonds, which cannot be specified directly by the template
+        //because we don't know what other residues a given residue type will be bonded to
+        //OSPREY 2 did this for all bonds; here we only use it for a few atoms
+        //OSPREY 2 put in bonds if distance < 1.5 for S-H, 1.2 for other -H,
+        //2.4 for S-S and any -Br, 2 for other -S, -Cl, -P,
+        //otherwise 1.7
+
+        //Moving 2 up to 2.2 in response to 2.01 A P-S bond in 1AK0 res 295
+
+        if(Math.min(elementNum1, elementNum2)==1){
+            //bond involving hydrogen.
+            return Math.max(elementNum1,elementNum2)==16 ? 1.5 : 1.2;
         }
-        
-        //there could also be disulfide bonds.  Look for any cysteins that are close enough
-        for(Residue res1 : molec.residues){
-            if(res1.fullName.startsWith("CYX")){//unprotonated cysteine...could be in a disulfide bond
-                
-                for(Residue res2 : molec.residues){
-                    if(res2.indexInMolecule<res1.indexInMolecule){//don't double-count
-                        if(res2.fullName.startsWith("CYX")){
-                            tryToMakeDisulfideBond(res1,res2);
-                        }
-                    }
+
+        switch(elementNum1){
+            case 35:
+                return 2.4;
+            case 16:
+                return (elementNum2==16 || elementNum2==35) ? 2.4 : 2.2;
+            case 15: case 17:
+                return (elementNum2==35) ? 2.4 : 2.2;
+            default:
+                switch(elementNum2){
+                    case 35:
+                        return 2.4;
+                    case 15: case 16: case 17:
+                        return 2.2;
+                    default:
+                        return 1.7;
                 }
-            }
-        }
-        
-        //now all inter-res bonds are assumed to be made
-        for(Residue res : molec.residues)
-            res.interResBondsMarked = true;
-    }
-    
-    //this version just tries to make inter-res bonds involving the specified residue
-    //it's intended for use right after res is mutated, to reconnect it to the rest of the molecule
-    public static void reconnectInterResBonds(Residue res){
-        
-        //first try to make peptide bonds
-        if(res.indexInMolecule>0){//res is not the first residue
-            Residue prevRes = res.molec.residues.get(res.indexInMolecule-1);
-            tryToMakePeptideBond(prevRes,res);
-        }
-        if(res.indexInMolecule<res.molec.residues.size()-1){//res is not the last residue
-            Residue nextRes = res.molec.residues.get(res.indexInMolecule+1);
-            tryToMakePeptideBond(res,nextRes);
-        }
-        
-        
-        //try to make any disulfide bonds, if res is an unprotonated cysteine
-        if(res.fullName.startsWith("CYX")){
-                
-            for(Residue res2 : res.molec.residues){
-                if(res2!=res){
-                    if(res2.fullName.startsWith("CYX")){
-                        tryToMakeDisulfideBond(res,res2);
-                    }
-                }
-            }
-        }
-        
-        //OK that should be all for now
-        res.interResBondsMarked = true;
-    }
-    
-    public static void tryToMakePeptideBond(Residue res1, Residue res2){
-        //Given consecutive residues res1 and res2, make a peptide bond between them if appropriate
-        if(res1.template==null || res2.template==null) {
-            throw new RuntimeException("ERROR: Trying to peptide-bond residue without template");
-        }
-        if( (hasAminoAcidBB(res1) && hasAminoAcidBB(res2)) ){//can only peptide-bond amino acids
-            
-            int CIndex = res1.getAtomIndexByName("C");
-            int NIndex = res2.getAtomIndexByName("N");
-            
-            //Get distance between these atoms
-            double CNDist = VectorAlgebra.distance(res1.coords, CIndex, res2.coords, NIndex);
-            if(CNDist<maxBondDist){
-                Atom C = res1.atoms.get(CIndex);
-                Atom N = res2.atoms.get(NIndex);
-                C.addBond(N);
-            }
         }
     }
     
-    
-    public static void tryToMakeDisulfideBond(Residue res1, Residue res2){
-        //Given CYX residues res1 and res2, make a disulfide bond between them if appropriate
-        if(res1.template==null || res2.template==null)
-            throw new RuntimeException("ERROR: Trying to disulfide-bond residue without template");
-        
-        int SIndex1 = res1.getAtomIndexByName("SG");
-        int SIndex2 = res2.getAtomIndexByName("SG");
-        
-        if(SIndex1==-1 || SIndex2==-1)
-            throw new RuntimeException("ERROR: Trying to disulfide-bond residue without SG");
 
-        //Get distance between these atoms
-        double SSDist = VectorAlgebra.distance(res1.coords, SIndex1, res2.coords, SIndex2);
-        if(SSDist<maxBondDist){
-            Atom S1 = res1.atoms.get(SIndex1);
-            Atom S2 = res2.atoms.get(SIndex2);
-            S1.addBond(S2);
+    public static InterResBondingTemplate inferInterResBonding(Residue res){
+        //DEBUG!!  If no amino-acid backbone assuming no inter-res bonds
+        if(HardCodedResidueInfo.hasAminoAcidBB(res)){
+            if(res.fullName.startsWith("CYX"))
+                return new InterResBondingTemplate.CysteineBondingTemplate();
+            else
+                return new InterResBondingTemplate.PeptideBondingTemplate();
         }
+        else
+            return new InterResBondingTemplate.NoBondingTemplate();
     }
     
     

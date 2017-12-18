@@ -65,7 +65,7 @@ public class Molecule implements Serializable {
         
         // re-do all the inter-res bonds
         if(redoInterResBonds)
-        		HardCodedResidueInfo.markInterResBonds(this);
+            markInterResBonds();
     }
     
     public Residue getResByPDBResNumber(String resNum) {
@@ -219,5 +219,12 @@ public class Molecule implements Serializable {
                 return res;
         }
         throw new RuntimeException("ERROR: Can't find residue with full name "+fullName);
+    }
+
+    public void markInterResBonds(){
+        for(Residue res : residues)
+            res.template.interResBonding.connectInterResBonds(res, true);
+        for(Residue res : residues)
+            res.interResBondsMarked = true;
     }
 }

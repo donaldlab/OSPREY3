@@ -229,6 +229,11 @@ public class Residue implements Serializable {
         copyIntraBondsFrom(template.templateRes);
         intraResBondsMarked = true;
     }
+
+    public void reconnectInterResBonds(){
+        template.interResBonding.connectInterResBonds(this, false);
+        interResBondsMarked = true;
+    }
     
     
     public boolean[][] getIntraResBondMatrix(){
@@ -380,8 +385,16 @@ public class Residue implements Serializable {
         
         return minDist;
     }
-    
-    
+
+    public boolean isBondedTo(Residue res2){
+        for(Atom at : atoms){
+            for(Atom at2 : res2.atoms){
+                if(at.bonds.contains(at2))
+                    return true;
+            }
+        }
+        return false;
+    }
     
     
     public double[][] atomDistanceMatrix(){
@@ -502,5 +515,15 @@ public class Residue implements Serializable {
         
         atoms = newAtoms;
         coords = newCoords;
+    }
+
+    public void addAtom(Atom atom, double newAtomCoords[]){
+        atoms.add(atom);
+        double[] newCoords = new double[coords.length+3];
+        System.arraycopy(coords, 0, newCoords, 0, coords.length);
+        System.arraycopy(newAtomCoords, 0, newCoords, coords.length, 3);
+        coords = newCoords;
+        atom.res = this;
+        atom.indexInRes = atoms.size()-1;
     }
 }

@@ -37,6 +37,8 @@ public class ResidueTemplate implements Serializable {
     //(charges, standardized atom names, bonds, etc.)
     public Residue templateRes;
 
+    public InterResBondingTemplate interResBonding;
+
     //dihedral information
     public int numDihedrals = 0;
     public int dihedral4Atoms[][];//for each dihedral, list of 4 atoms defining it
@@ -68,7 +70,7 @@ public class ResidueTemplate implements Serializable {
     	ResidueTemplate oldTemplate = firstRes.template;
     	Residue templateRes = new Residue(firstRes);
     	templateRes.copyIntraBondsFrom(firstRes);
-		ResidueTemplate newTemplate = new ResidueTemplate(templateRes, oldTemplate.name);
+        ResidueTemplate newTemplate = new ResidueTemplate(templateRes, oldTemplate.name, oldTemplate.interResBonding);
     	
     	// copy template info
 		newTemplate.setNumberOfPhiPsiBins(oldTemplate.numberOfPhiPsiBins);
@@ -98,10 +100,12 @@ public class ResidueTemplate implements Serializable {
 		return newTemplate;
     }
 
-    public ResidueTemplate(Residue res, String name){
-        //initializes only with info from a template file.  res won't even have coordinates yet
+    public ResidueTemplate(Residue res, String name, InterResBondingTemplate templ){
+        //initializes only with info from a template file, +interResBonding.
+        //res won't even have coordinates yet
         templateRes = res;
         this.name = name;
+        interResBonding = templ;
     }
 
     //information on dihedrals
