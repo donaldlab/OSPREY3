@@ -5,6 +5,7 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.EnergiedConfFIFOSerializer;
 import edu.duke.cs.osprey.externalMemory.EnergiedConfPrioritySerializer;
@@ -313,13 +314,6 @@ public class SimpleGMECFinder {
 
 			// NOTE: this is called on a listener thread, which is separate from the main thread
 
-			// update the resume log if needed
-			if (resumeLog.isLogging()) {
-				synchronized (resumeLog) {
-					resumeLog.save(econf);
-				}
-			}
-
 			handleEnergiedConf(econf, econfs, erange);
 
 			// refine the estimate of the top of the energy window
@@ -351,22 +345,20 @@ public class SimpleGMECFinder {
 		// do we have a resume log?
 		if (resumeLog.hasLog()) {
 
-			System.out.println("Restoring state from resume log...");
+			System.out.println("Restoring state from resume log: " + resumeLog.logFile);
 
 			// yup, read in the already-computed energies
-			while (!lowEnergyConfs.isEmpty()) {
+			resumeLog.readAll(lowEnergyConfs, (econf) -> {
+				ecalcListener.onFinished(econf);
+			});
 
-				resumeLog.readAll(lowEnergyConfs, (econf) -> {
-
-					// handle the logged energy
-					ecalcListener.onFinished(econf);
-					progress.incrementProgress();
-				});
-			}
-
-			System.out.println("Restoration complete. Resuming design...");
+			System.out.println(String.format("Restored %d conformations. Resuming design...", econfs.size()));
 
 			// TODO: reset progress history, so we get an accurate ETA on the remaining work
+
+		} else if (resumeLog.isLogging()) {
+
+			System.out.println("Starting resume log: " + resumeLog.logFile);
 		}
 
 		// calc the conf energy asynchronously
@@ -377,7 +369,7 @@ public class SimpleGMECFinder {
 			// but don't race the listener thread, which can sometimes filter the queue
 			ScoredConf conf;
 			synchronized (lowEnergyConfs) {
-				
+
 				if (lowEnergyConfs.isEmpty()) {
 					break;
 				}
@@ -393,13 +385,26 @@ public class SimpleGMECFinder {
 			}
 
 			// send the conf to the energy calculator
-			confEcalc.calcEnergyAsync(conf, ecalcListener);
+			confEcalc.calcEnergyAsync(conf, (econf) -> {
+
+				// NOTE: this is called on a listener thread, which is separate from the main thread
+
+				// update the resume log if needed
+				if (resumeLog.isLogging()) {
+					synchronized (resumeLog) {
+						resumeLog.save(econf);
+					}
+				}
+
+				ecalcListener.onFinished(econf);
+			});
 		}
-		
+
 		confEcalc.tasks.waitForFinish();
 
 		// finished! cleanup the log
 		if (resumeLog.isLogging()) {
+			System.out.println("GMEC search complete, cleaning up resume log: " + resumeLog.logFile);
 			resumeLog.delete();
 		}
 	}
@@ -558,22 +563,55 @@ public class SimpleGMECFinder {
 				}
 
 			} catch (IOException ex) {
-				throw new RuntimeException("Can't write to resume log", ex);
+				throw new RuntimeException("Can't write to resume log: " + logFile, ex);
 			}
 		}
 
 		public void readAll(Queue<ScoredConf> confs, Consumer<EnergiedConf> onEconf) {
 
-			// TODO: open the file
+			List<SimpleConfSpace.Position> positions = confEcalc.confSpace.positions;
 
-			while (!confs.isEmpty()) {
+			try (FileInputStream fin = new FileInputStream(logFile)) {
+				DataInputStream in = new DataInputStream(fin);
 
-				ScoredConf conf = confs.poll();
+				while (true) {
 
-				// TODO: match the conf
-				// TODO: read the econf
+					// are we at the end of the file?
+					if (fin.getChannel().position()  == fin.getChannel().size()) {
 
-				onEconf.accept(econf);
+						// end of the log, we're done reading
+						break;
+					}
+
+					// read the next log conf
+					int[] assignments = new int[positions.size()];
+					for (SimpleConfSpace.Position pos : positions) {
+						assignments[pos.index] = encoding.read(in);
+					}
+					double score = in.readDouble();
+					double energy = in.readDouble();
+					EnergiedConf econf = new EnergiedConf(assignments, score, energy);
+
+					// compare to the next expected conf
+					if (confs.isEmpty()) {
+						throw new IllegalStateException(String.format("resume log expected conformation %f %s, but didn't find any.",
+							econf.getScore(), Arrays.toString(econf.getAssignments())
+						));
+					}
+					ScoredConf conf = confs.poll();
+
+					if (econf.getScore() != conf.getScore() || !Arrays.equals(econf.getAssignments(), conf.getAssignments())) {
+						throw new IllegalStateException(String.format("resume log expected conformation %f %s, but but found %f %s instead.",
+							econf.getScore(), Arrays.toString(econf.getAssignments()),
+							conf.getScore(), Arrays.toString(conf.getAssignments())
+						));
+					}
+
+					// all is well, pass up the logged conf
+					onEconf.accept(econf);
+				}
+			} catch (IOException ex) {
+				throw new RuntimeException("Can't read from resume log: " + logFile, ex);
 			}
 		}
 

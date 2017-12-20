@@ -75,6 +75,10 @@ public class ConfEnergyCalculator {
 		this.addResEntropy = addResEntropy;
 		this.tasks = ecalc.tasks;
 	}
+
+	protected ConfEnergyCalculator(ConfEnergyCalculator other) {
+		this(other.confSpace, other.ecalc, other.epart, other.eref, other.addResEntropy);
+	}
 	
 	public ResidueInteractions makeFragInters(RCTuple frag) {
 		return EnergyPartition.makeFragment(confSpace, eref, addResEntropy, frag);
