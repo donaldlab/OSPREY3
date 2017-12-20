@@ -16,11 +16,11 @@ import edu.duke.cs.osprey.gmec.GMECFinder.ConfPruner;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.tools.IntEncoding;
 import edu.duke.cs.osprey.tools.Progress;
+import edu.duke.cs.osprey.tools.ResumeLog;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.io.*;
 import java.util.*;
-import java.util.function.Consumer;
 
 /**
  * Searches a conformation space for the single conformation that minimizes the
@@ -129,7 +129,7 @@ public class SimpleGMECFinder {
 	private final Queue.Factory.FIFO<ScoredConf> scoredFifoFactory;
 	private final Queue.Factory.FIFO<EnergiedConf> energiedFifoFactory;
 	private final Queue.Factory<EnergiedConf> energiedPriorityFactory;
-	private final ResumeLog resumeLog;
+	private final GMECResumeLog resumeLog;
 	
 	protected SimpleGMECFinder(ConfSearch search, ConfEnergyCalculator confEcalc, ConfPruner pruner, ConfPrinter logPrinter, ConfPrinter consolePrinter, boolean printIntermediateConfsToConsole, boolean useExternalMemory, File resumeLogFile) {
 		this.search = search;
@@ -150,7 +150,7 @@ public class SimpleGMECFinder {
 			energiedPriorityFactory = new Queue.PriorityFactory<>((a, b) -> Double.compare(a.getEnergy(), b.getEnergy()));
 		}
 
-		this.resumeLog = new ResumeLog(resumeLogFile);
+		this.resumeLog = new GMECResumeLog(resumeLogFile);
 	}
         
 	public EnergiedConf find() {
@@ -380,7 +380,7 @@ public class SimpleGMECFinder {
 			// update the resume log if needed
 			if (resumeLog.isLogging()) {
 				synchronized (resumeLog) {
-					resumeLog.expect(conf);
+					resumeLog.appendInThing(conf);
 				}
 			}
 
@@ -392,7 +392,7 @@ public class SimpleGMECFinder {
 				// update the resume log if needed
 				if (resumeLog.isLogging()) {
 					synchronized (resumeLog) {
-						resumeLog.save(econf);
+						resumeLog.matchOutThing(conf, econf);
 					}
 				}
 
@@ -449,174 +449,44 @@ public class SimpleGMECFinder {
 		}
 	}
 
-	private class ResumeLog {
+	private class GMECResumeLog extends ResumeLog<ScoredConf,EnergiedConf> {
 
-		private static final int FlushEveryNConfs = 8;
+		public GMECResumeLog(File logFile) {
+			super(
+				logFile,
+				8,
+				(confA, confB) -> Arrays.equals(confA.getAssignments(), confB.getAssignments()),
+				(conf, econf) -> Arrays.equals(conf.getAssignments(), conf.getAssignments()),
+				new ResumeLog.OutThingSerializer<EnergiedConf>() {
 
-		public final File logFile;
+					// pick the most efficient encoding for conformations in this this conf space
+					private final IntEncoding encoding = IntEncoding.get(confEcalc.confSpace.positions.stream()
+						.map((pos) -> pos.resConfs.size())
+						.max(Integer::compare)
+						.orElseThrow(() -> new IllegalStateException("conf space has no positions")));
 
-		private Deque<ScoredConf> expectedConfs = new ArrayDeque<>();
-		private List<Double> energies = new ArrayList<>();
-		private IntEncoding encoding = null;
+					@Override
+					public void write(EnergiedConf econf, DataOutputStream stream) throws IOException {
+						for (int rc : econf.getAssignments()) {
+							encoding.write(stream, rc);
+						}
+						stream.writeDouble(econf.getScore());
+						stream.writeDouble(econf.getEnergy());
+					}
 
-		public ResumeLog(File logFile) {
-
-			this.logFile = logFile;
-
-			if (isLogging()) {
-
-				// determine the best encoding scheme for RCs
-				encoding = IntEncoding.get(confEcalc.confSpace.positions.stream()
-					.map((pos) -> pos.resConfs.size())
-					.max(Integer::compare)
-					.orElseThrow(() -> new IllegalStateException("conf space has no positions"))
-				);
-			}
-		}
-
-		public boolean isLogging() {
-			return logFile != null;
-		}
-
-		public boolean hasLog() {
-			return isLogging() && logFile.exists();
-		}
-
-		public void expect(ScoredConf conf) {
-			expectedConfs.add(conf);
-		}
-
-		private int findExpectedIndex(ScoredConf conf) {
-
-			// linear search should be plenty fast enough here
-			// the expected list should always be pretty small
-			int i = 0;
-			for (ScoredConf expectedConf : expectedConfs) {
-				if (Arrays.equals(conf.getAssignments(), expectedConf.getAssignments())) {
-					return i;
+					@Override
+					public EnergiedConf read(DataInputStream stream) throws IOException {
+						// read the next log conf
+						int[] assignments = new int[confEcalc.confSpace.positions.size()];
+						for (SimpleConfSpace.Position pos : confEcalc.confSpace.positions) {
+							assignments[pos.index] = encoding.read(stream);
+						}
+						double score = stream.readDouble();
+						double energy = stream.readDouble();
+						return new EnergiedConf(assignments, score, energy);
+					}
 				}
-				i++;
-			}
-
-			throw new NoSuchElementException("expected conf " + Arrays.toString(conf.getAssignments()) + " not found");
-		}
-
-		public void save(EnergiedConf econf) {
-
-			int i = findExpectedIndex(econf);
-
-			// expand the energy buffer to make space
-			while (energies.size() <= i) {
-				energies.add(null);
-			}
-
-			// save the energy in the buffer
-			energies.set(i, econf.getEnergy());
-
-			// save energies to file as needed
-			if (isEnergyBufferFull()) {
-				flushEnergies();
-			}
-		}
-
-		private boolean isEnergyBufferFull() {
-
-			// do we have enough expected confs?
-			if (expectedConfs.size() < FlushEveryNConfs) {
-				return false;
-			}
-
-			// do we have enough consecutive energies?
-			if (energies.size() < FlushEveryNConfs) {
-				return false;
-			}
-			for (int i=0; i<FlushEveryNConfs; i++) {
-				if (energies.get(i) == null) {
-					return false;
-				}
-			}
-
-			return true;
-		}
-
-		private void flushEnergies() {
-
-			try (DataOutputStream out = new DataOutputStream(new FileOutputStream(logFile, true))) {
-
-				for (int i=0; i<energies.size(); i++) {
-
-					// get the next energy to save
-					Double energy = energies.get(i);
-					if (energy == null) {
-						break;
-					}
-
-					// get the corresponding conf
-					ScoredConf conf = expectedConfs.pop();
-
-					// save it to the file
-					for (int rc : conf.getAssignments()) {
-						encoding.write(out, rc);
-					}
-					out.writeDouble(conf.getScore());
-					out.writeDouble(energy);
-				}
-
-			} catch (IOException ex) {
-				throw new RuntimeException("Can't write to resume log: " + logFile, ex);
-			}
-		}
-
-		public void readAll(Queue<ScoredConf> confs, Consumer<EnergiedConf> onEconf) {
-
-			List<SimpleConfSpace.Position> positions = confEcalc.confSpace.positions;
-
-			try (FileInputStream fin = new FileInputStream(logFile)) {
-				DataInputStream in = new DataInputStream(fin);
-
-				while (true) {
-
-					// are we at the end of the file?
-					if (fin.getChannel().position()  == fin.getChannel().size()) {
-
-						// end of the log, we're done reading
-						break;
-					}
-
-					// read the next log conf
-					int[] assignments = new int[positions.size()];
-					for (SimpleConfSpace.Position pos : positions) {
-						assignments[pos.index] = encoding.read(in);
-					}
-					double score = in.readDouble();
-					double energy = in.readDouble();
-					EnergiedConf econf = new EnergiedConf(assignments, score, energy);
-
-					// compare to the next expected conf
-					if (confs.isEmpty()) {
-						throw new IllegalStateException(String.format("resume log expected conformation %f %s, but didn't find any.",
-							econf.getScore(), Arrays.toString(econf.getAssignments())
-						));
-					}
-					ScoredConf conf = confs.poll();
-
-					if (econf.getScore() != conf.getScore() || !Arrays.equals(econf.getAssignments(), conf.getAssignments())) {
-						throw new IllegalStateException(String.format("resume log expected conformation %f %s, but but found %f %s instead.",
-							econf.getScore(), Arrays.toString(econf.getAssignments()),
-							conf.getScore(), Arrays.toString(conf.getAssignments())
-						));
-					}
-
-					// all is well, pass up the logged conf
-					onEconf.accept(econf);
-				}
-			} catch (IOException ex) {
-				throw new RuntimeException("Can't read from resume log: " + logFile, ex);
-			}
-		}
-
-		public void delete() {
-			logFile.delete();
+			);
 		}
 	}
 }
