@@ -630,7 +630,7 @@ def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergen
 	return builder.build()
 
 
-def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=None, useExternalMemory=None):
+def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=None, useExternalMemory=None, resumeLog=None):
 	'''
 	:java:classdoc:`.gmec.SimpleGMECFinder`
 
@@ -645,6 +645,7 @@ def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=None, useE
 	:param str confLog: Path to file where conformations found during conformation space search should be logged.
 	:builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
 	:builder_option useExternalMemory .gmec.SimpleGMECFinder$Builder#useExternalMemory:
+	:param str resumeLog: Path to log file where resume info will be written or read, so designs can be resumed.
 	:builder_return .gmec.SimpleGMECFinder$Builder:
 	'''
 
@@ -659,6 +660,9 @@ def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=None, useE
 
 	if useExternalMemory == True:
 		builder.useExternalMemory()
+
+	if resumeLog is not None:
+		builder.setResumeLog(jvm.toFile(resumeLog))
 
 	return builder.build()
 
