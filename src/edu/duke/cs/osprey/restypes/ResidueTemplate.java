@@ -58,6 +58,9 @@ public class ResidueTemplate implements Serializable {
     public int numberOfPhiPsiBins = -1;
     // Resolution of phi and psi backbone dihedrals in the backbone dependent rotamer library. For example, in the Dunbrack rotamer library the resolution is 10. 
     public double phiPsiResolution = -1;
+
+    public String CAEquivalent = null;//The name of the atom that the sidechain branches off of (e.g. CA in an amino acid)
+    //if null we can't mutate
     
     public static ResidueTemplate makeFromResidueConfs(Residue ... residues) {
     	return makeFromResidueConfs(Arrays.asList(residues));
@@ -70,7 +73,7 @@ public class ResidueTemplate implements Serializable {
     	ResidueTemplate oldTemplate = firstRes.template;
     	Residue templateRes = new Residue(firstRes);
     	templateRes.copyIntraBondsFrom(firstRes);
-        ResidueTemplate newTemplate = new ResidueTemplate(templateRes, oldTemplate.name, oldTemplate.interResBonding);
+        ResidueTemplate newTemplate = new ResidueTemplate(templateRes, oldTemplate.name, oldTemplate.interResBonding, oldTemplate.CAEquivalent);
     	
     	// copy template info
 		newTemplate.setNumberOfPhiPsiBins(oldTemplate.numberOfPhiPsiBins);
@@ -100,11 +103,12 @@ public class ResidueTemplate implements Serializable {
 		return newTemplate;
     }
 
-    public ResidueTemplate(Residue res, String name, InterResBondingTemplate templ){
-        //initializes only with info from a template file, +interResBonding.
+    public ResidueTemplate(Residue res, String name, InterResBondingTemplate templ, String CAEquivalent){
+        //initializes only with info from a template file, +interResBonding (and CAEquivalent if want to mutate)
         //res won't even have coordinates yet
         templateRes = res;
         this.name = name;
+        this.CAEquivalent = CAEquivalent;
         interResBonding = templ;
     }
 

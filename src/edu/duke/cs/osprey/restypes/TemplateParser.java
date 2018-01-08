@@ -59,8 +59,12 @@ public class TemplateParser {
 		if(curLine.startsWith("INTER-RES BONDING:"))
 			interResBonding = parseInterResBonding(curLine);
 
-		// Skip blank line
+		// the next line can optionally contain the CAEquivalentAtom
 		curLine = lines.next();
+		String CAEquivalent = null;
+		if(curLine.startsWith("CAEQUIVALENT: "))
+			CAEquivalent = StringParsing.getToken(curLine,2);
+
 		// The next line contains the 3 letter amino acid name
 		curLine = lines.next();
 		String templateName = StringParsing.getToken(curLine,1);
@@ -154,8 +158,11 @@ public class TemplateParser {
 			interResBonding = HardCodedResidueInfo.inferInterResBonding(templateRes);
 		else
 			checkInterResBonding(templateRes, interResBonding);
+		//and infer CAEquivalent for amino acids if not specified (otherwise may not be clear here so leave null)
+		if(CAEquivalent==null && (interResBonding instanceof InterResBondingTemplate.PeptideBondingTemplate))
+			CAEquivalent = "CA";
 
-		return new ResidueTemplate(templateRes, templateName, interResBonding);
+		return new ResidueTemplate(templateRes, templateName, interResBonding, CAEquivalent);
 	}
 
 	private static InterResBondingTemplate parseInterResBonding(String line){

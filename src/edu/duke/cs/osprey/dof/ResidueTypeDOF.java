@@ -7,6 +7,7 @@ package edu.duke.cs.osprey.dof;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.ArrayList;
+import java.util.TreeSet;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
@@ -98,10 +99,10 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
         res.fullName = newTemplate.name + res.fullName.substring(3);
         //res type name is first three characters of full name
         
-        
+        MutAlignment mutAlignment = new MutAlignment(oldTemplate, newTemplate);
         //coordinates will come from the template,
         //but we'll move them as a rigid body to match the backbone atoms
-        int[][] mutAlignAtoms = HardCodedResidueInfo.findMutAlignmentAtoms(oldTemplate,newTemplate);
+        int[][] mutAlignAtoms = mutAlignment.getMutAlignmentAtoms();
         //2x4 array of which atoms are used in the old and new residues to align
         //to do the mutation
         
@@ -121,13 +122,14 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
         //the backbone atoms will be kept exactly as before the mutation
         //if the sidechain attaches only to the first mutAlignAtom, this method keeps bond lengths
         //exactly as in the template for sidechain, and as in the old backbone otherwise
-        ArrayList<String> BBAtomNames =  HardCodedResidueInfo.listBBAtomsForMut(newTemplate,oldTemplate);
+        TreeSet<String> BBAtomNames =  mutAlignment.getNonmovingAtomNames();
         for(String BBAtomName : BBAtomNames){
             int BBAtomIndexOld = oldTemplate.templateRes.getAtomIndexByName(BBAtomName);
             int BBAtomIndexNew = newTemplate.templateRes.getAtomIndexByName(BBAtomName);
             
             //copy coordinates of the BB atom from old to new coordinates
-            System.arraycopy(res.coords, 3*BBAtomIndexOld, newCoords, 3*BBAtomIndexNew, 3);
+            if(BBAtomIndexOld!=-1 && BBAtomIndexNew!=-1)
+                System.arraycopy(res.coords, 3*BBAtomIndexOld, newCoords, 3*BBAtomIndexNew, 3);
         }
         
         res.coords = newCoords;
@@ -159,7 +161,8 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
                 }
             }
         }
-        else if(idealizeSidechainAfterMutation){
+        else if(idealizeSidechainAfterMutation && HardCodedResidueInfo.hasAminoAcidBB(res)
+                && (res.template.name.equalsIgnoreCase("GLY")||res.getAtomByName("CB")!=null)){//trying to make sure it's really an amino acid
             SidechainIdealizer.idealizeSidechain(templateLib, res);
         }
     }
@@ -167,16 +170,18 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     public void restoreCoordsFromTemplate() {
     
         // get the alignment of backbone atoms
-        int[][] mutAlignAtoms = HardCodedResidueInfo.findMutAlignmentAtoms(res.template, res.template);
+        MutAlignment mutAlignment = new MutAlignment(res.template, res.template);
+        int[][] mutAlignAtoms = mutAlignment.getMutAlignmentAtoms();
         double resBBCoords[][] = extractCoords(mutAlignAtoms[0], res.coords);
         double templateBBCoords[][] = extractCoords(mutAlignAtoms[1], res.template.templateRes.coords);
         
         // rotation from template to res
         RigidBodyMotion xform = new RigidBodyMotion(templateBBCoords, resBBCoords);
+        TreeSet<String> nonmovingAtomNames = mutAlignment.getNonmovingAtomNames();
         for (Atom atom : res.atoms) {
             
             // skip backbone atoms
-            if (HardCodedResidueInfo.possibleBBAtomsLookup.contains(atom.name)) {
+            if (nonmovingAtomNames.contains(atom.name)) {
                 continue;
             }
             
