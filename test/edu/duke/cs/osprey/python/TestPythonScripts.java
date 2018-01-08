@@ -40,6 +40,7 @@ public class TestPythonScripts {
 	@Test public void findGMECReferenceEnergies() { runGMEC("findGMEC.referenceEnergies.py"); }
 	@Test public void findGMECResEntropy() { runGMEC("findGMEC.resEntropy.py"); }
 	@Test public void templateLibrary() { runGMEC("templateLibrary.py"); }
+	@Test public void findGMECResume() { runGMEC("findGMEC.resume.py"); }
 
 	private void runKStar(String script) {
 		run("examples/python.KStar", script);
