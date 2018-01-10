@@ -756,4 +756,12 @@ public class SimpleConfSpace implements Serializable {
 	public Sequence makeWildTypeSequence() {
 		return Sequence.makeWildType(this);
 	}
+
+	public Sequence makeSequenceFromAssignments(int[] assignments) {
+		return Sequence.makeFromAssignments(this, assignments);
+	}
+
+	public Sequence makeSequenceFromConf(ConfSearch.ScoredConf conf) {
+		return Sequence.makeFromConf(this, conf);
+	}
 }

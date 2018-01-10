@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.tools;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 
 public enum IntEncoding {
@@ -10,13 +10,13 @@ public enum IntEncoding {
 	Byte(255) {
 
 		@Override
-		public void write(DataOutputStream out, int val)
+		public void write(DataOutput out, int val)
 			throws IOException {
 			out.writeByte(val);
 		}
 
 		@Override
-		public int read(DataInputStream in)
+		public int read(DataInput in)
 			throws IOException {
 			return in.readUnsignedByte();
 		}
@@ -24,13 +24,13 @@ public enum IntEncoding {
 	Short(32767) {
 
 		@Override
-		public void write(DataOutputStream out, int val)
+		public void write(DataOutput out, int val)
 			throws IOException {
 			out.writeShort(val);
 		}
 
 		@Override
-		public int read(DataInputStream in)
+		public int read(DataInput in)
 			throws IOException {
 			return in.readUnsignedShort();
 		}
@@ -38,13 +38,13 @@ public enum IntEncoding {
 	Int(Integer.MAX_VALUE) {
 
 		@Override
-		public void write(DataOutputStream out, int val)
+		public void write(DataOutput out, int val)
 			throws IOException {
 			out.writeInt(val);
 		}
 
 		@Override
-		public int read(DataInputStream in)
+		public int read(DataInput in)
 			throws IOException {
 			return in.readInt();
 		}
@@ -68,6 +68,6 @@ public enum IntEncoding {
 		throw new Error("unpossible, unless I'm an idiot");
 	}
 
-	public abstract void write(DataOutputStream out, int val) throws IOException;
-	public abstract int read(DataInputStream in) throws IOException;
+	public abstract void write(DataOutput out, int val) throws IOException;
+	public abstract int read(DataInput in) throws IOException;
 }

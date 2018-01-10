@@ -109,6 +109,24 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 		return makeUnassigned(confSpace).fillWildType();
 	}
 
+	/**
+	 * Make a sequence from assignments to design positions
+	 */
+	public static Sequence makeFromAssignments(SimpleConfSpace confSpace, int[] assignments) {
+		Sequence sequence = makeUnassigned(confSpace);
+		for (SimpleConfSpace.Position pos : confSpace.positions) {
+			sequence.set(pos, pos.resConfs.get(assignments[pos.index]).template.name);
+		}
+		return sequence;
+	}
+
+	/**
+	 * Make a sequence from a conformation
+	 */
+	public static Sequence makeFromConf(SimpleConfSpace confSpace, ConfSearch.ScoredConf conf) {
+		return makeFromAssignments(confSpace, conf.getAssignments());
+	}
+
 	private Sequence(SimpleConfSpace confSpace) {
 		this.confSpace = confSpace;
 		this.resTypes = new String[confSpace.positions.size()];
