@@ -38,7 +38,7 @@ public class ConfDB {
 			this.upper = upper;
 		}
 
-		public Conf(Sequence sequence, int[] assignments, ConfInfo info) {
+		private Conf(Sequence sequence, int[] assignments, ConfInfo info) {
 			this.sequence = sequence;
 			this.assignments = assignments;
 			this.lower = info.makeLowerBound();
@@ -110,7 +110,20 @@ public class ConfDB {
 			// nope
 			throw new UnsupportedOperationException();
 		}
+	}
 
+	private static class SequenceInfo {
+
+		public double lowerEnergyOfUnsampledConfs;
+		// TODO: other sequence-level properties?
+
+		public SequenceInfo() {
+			this.lowerEnergyOfUnsampledConfs = Double.NaN;
+		}
+
+		public SequenceInfo(double lowerEnergyOfUnsampledConfs) {
+			this.lowerEnergyOfUnsampledConfs = lowerEnergyOfUnsampledConfs;
+		}
 	}
 
 	public class SequenceDB implements Iterable<Conf> {
@@ -274,13 +287,39 @@ public class ConfDB {
 				}
 			};
 		}
+
+		private SequenceInfo getInfo() {
+			return sequences.get(sequence);
+		}
+
+		private void setInfo(SequenceInfo info) {
+			sequences.put(sequence, info);
+		}
+
+		public double getLowerEnergyOfUnsampledConfs() {
+			return getInfo().lowerEnergyOfUnsampledConfs;
+		}
+
+		public void setLowerEnergyOfUnsampledConfs(double val) {
+			SequenceInfo info = getInfo();
+			info.lowerEnergyOfUnsampledConfs = val;
+			setInfo(info);
+		}
+
+		public void updateLowerEnergyOfUnsampledConfs(double val) {
+			SequenceInfo info = getInfo();
+			if (Double.isNaN(info.lowerEnergyOfUnsampledConfs) || val < info.lowerEnergyOfUnsampledConfs) {
+				info.lowerEnergyOfUnsampledConfs = val;
+			}
+			setInfo(info);
+		}
 	}
 
 	public final SimpleConfSpace confSpace;
 	public final File file;
 
 	private final DB db;
-	private final HTreeMap.KeySet<Sequence> sequences;
+	private final HTreeMap<Sequence,SequenceInfo> sequences;
 	private final Map<Sequence,SequenceDB> sequenceDBs;
 
 	public ConfDB(SimpleConfSpace confSpace, File file) {
@@ -302,6 +341,54 @@ public class ConfDB {
 			throws IOException {
 				return makeSequenceFromId(in.readUTF());
 			}
+
+			@Override
+			public int compare(Sequence a, Sequence b) {
+
+				// short circuit
+				if (a == b) {
+					return 0;
+				}
+
+				// lexicographical comparison
+				for (SimpleConfSpace.Position pos : confSpace.positions) {
+					String aResType = a.get(pos);
+					String bResType = b.get(pos);
+					if (aResType != null && bResType != null) {
+						// both not null, safe to compare
+						int val = aResType.compareTo(bResType);
+						if (val != 0) {
+							return val;
+						}
+					} else if (aResType == null && bResType != null) {
+						// a null, but not b, assume a < b
+						return -1;
+					} else if (aResType != null) {
+						// b null, but not a, assume a > b
+						return 1;
+					}
+					// both null, continue to next pos
+				}
+
+				return 0;
+			}
+		};
+
+		// MapDB serialzier for SequenceInfo
+		final int infoSize = Double.BYTES;
+		SimpleSerializer<SequenceInfo> infoSerializer = new SimpleSerializer<SequenceInfo>(infoSize) {
+
+			@Override
+			public void serialize(@NotNull DataOutput2 out, @NotNull SequenceInfo info)
+			throws IOException {
+				out.writeDouble(info.lowerEnergyOfUnsampledConfs);
+			}
+
+			@Override
+			public SequenceInfo deserialize(@NotNull DataInput2 in, int available)
+			throws IOException {
+				return new SequenceInfo(in.readDouble());
+			}
 		};
 
 		// open the DB
@@ -310,8 +397,9 @@ public class ConfDB {
 			.fileMmapEnableIfSupported() // use memory-mapped files if possible (can be much faster)
 			.closeOnJvmShutdown()
 			.make();
-		sequences = db.hashSet("sequences")
-			.serializer(sequenceSerializer)
+		sequences = db.hashMap("sequences")
+			.keySerializer(sequenceSerializer)
+			.valueSerializer(infoSerializer)
 			.createOrOpen();
 		sequenceDBs = new HashMap<>();
 	}
@@ -336,11 +424,11 @@ public class ConfDB {
 		// Java API means we're stuck with int-sized values here
 		//return sequences.getSize();
 		// but we could have lots of sequences, so we want a long
-		return sequences.getMap().sizeLong();
+		return sequences.sizeLong();
 	}
 
 	public Iterable<Sequence> getSequences() {
-		return sequences;
+		return (Set<Sequence>)sequences.keySet();
 	}
 
 	public SequenceDB getSequence(Sequence sequence) {
@@ -354,7 +442,9 @@ public class ConfDB {
 		if (sdb == null) {
 			sdb = new SequenceDB(sequence);
 			sequenceDBs.put(sequence, sdb);
-			sequences.add(sequence);
+			if (!sequences.containsKey(sequence)) {
+				sequences.put(sequence, new SequenceInfo());
+			}
 		}
 		return sdb;
 	}

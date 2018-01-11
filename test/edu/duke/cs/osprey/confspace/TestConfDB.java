@@ -115,6 +115,7 @@ public class TestConfDB {
 		withDB((db) -> {
 			Sequence sequence = confSpace.makeWildTypeSequence();
 			ConfDB.SequenceDB sdb = db.getSequence(sequence);
+			assertThat(sdb.sequence, sameInstance(sequence));
 		});
 	}
 
@@ -347,7 +348,28 @@ public class TestConfDB {
 	}
 
 	@Test
-	public void writeAStarSearch() {
+	public void writeCloseReadSequenceInfo() {
+
+		Sequence sequence = confSpace.makeWildTypeSequence();
+
+		withDBTwice((db) -> {
+
+			ConfDB.SequenceDB sdb = db.getSequence(sequence);
+			assertThat(sdb.getLowerEnergyOfUnsampledConfs(), is(Double.NaN));
+
+			sdb.setLowerEnergyOfUnsampledConfs(4.2);
+
+			assertThat(sdb.getLowerEnergyOfUnsampledConfs(), is(4.2));
+
+		}, (db) -> {
+
+			ConfDB.SequenceDB sdb = db.getSequence(sequence);
+			assertThat(sdb.getLowerEnergyOfUnsampledConfs(), is(4.2));
+		});
+	}
+
+	@Test
+	public void astarSearch() {
 		withDBTwice((db) -> {
 
 			new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
@@ -372,11 +394,14 @@ public class TestConfDB {
 					// write all the conformations in the A* tree
 					ConfSearch.ScoredConf conf;
 					while ((conf = astar.nextConf()) != null) {
-						db.getSequence(confSpace.makeSequenceFromConf(conf)).setLowerBound(
+						ConfDB.SequenceDB sdb = db.getSequence(confSpace.makeSequenceFromConf(conf));
+						sdb.setLowerBound(
 							conf.getAssignments(),
 							conf.getScore(),
 							TimeTools.getTimestampNs()
 						);
+						sdb.updateLowerEnergyOfUnsampledConfs(conf.getScore());
+
 					}
 				});
 
@@ -392,6 +417,18 @@ public class TestConfDB {
 				}
 			}
 			assertThat(numConfs, is(1740L));
+
+			// check the lower bounds
+			for (Sequence sequence : db.getSequences()) {
+				ConfDB.SequenceDB sdb = db.getSequence(sequence);
+				double lowerEnergy = Double.POSITIVE_INFINITY;
+				for (ConfDB.Conf conf : sdb) {
+					lowerEnergy = Math.min(lowerEnergy, conf.lower.energy);
+				}
+				assertThat(lowerEnergy, is(sdb.getLowerEnergyOfUnsampledConfs()));
+			}
 		});
 	}
+
+	// TODO: test interrupted write
 }
