@@ -113,6 +113,10 @@ public class MathTools {
 		};
 	}
 
+	public static boolean isZero(BigInteger i) {
+		return i.compareTo(BigInteger.ZERO) == 0;
+	}
+
 	// HACKHACK: need a way to represent infinity for big decimals
 	// our "infinity" value still needs an actual value though,
 	// so use the biggest number we can and hope it never happens in a real design

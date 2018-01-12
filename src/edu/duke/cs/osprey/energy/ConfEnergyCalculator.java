@@ -141,7 +141,18 @@ public class ConfEnergyCalculator {
 	public void calcEnergyAsync(RCTuple frag, ResidueInteractions inters, TaskListener<EnergyCalculator.EnergiedParametricMolecule> listener) {
 		ecalc.tasks.submit(() -> calcEnergy(frag, inters), listener);
 	}
-	
+
+	/**
+	 * Asynchronous version of {@link #calcEnergy(RCTuple)}.
+	 *
+	 * @param frag The assignments of the conformation space
+	 * @param listener Callback function that will receive the energy and associated molecule pose.
+	 *                 Called on a listener thread which is separate from the calling thread.
+	 */
+	public void calcEnergyAsync(RCTuple frag, TaskListener<EnergyCalculator.EnergiedParametricMolecule> listener) {
+		ecalc.tasks.submit(() -> calcEnergy(frag), listener);
+	}
+
 	/**
 	 * Calculate energy of a scored conformation. Residue interactions are generated from the energy partition.
 	 * 
