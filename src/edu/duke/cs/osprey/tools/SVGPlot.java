@@ -83,12 +83,12 @@ public abstract class SVGPlot {
 
 	public static class Intervals {
 
-		public double barWidth = 8.0;
-		public double barSpacing = 2.0;
+		public double intervalWidth = 8.0;
+		public double intervalSpacing = 2.0;
 		public double axisTicksOn = 10.0;
 		public double minRectHeight = 0.2;
 
-		public SVG.StyleClass barStyle = new SVG.StyleClass("plot-intervals-bar");
+		public SVG.StyleClass intervalStyle = new SVG.StyleClass("plot-intervals-bar");
 
 		public double xmin = 0.0;
 		public double xmax = 0.0;
@@ -104,9 +104,9 @@ public abstract class SVGPlot {
 		public Intervals() {
 
 			// config styles
-			barStyle.setStrokeWidth(0.2);
-			barStyle.setStrokeColor(0x666666);
-			barStyle.setFillColor(0x999999);
+			intervalStyle.setStrokeWidth(0.2);
+			intervalStyle.setStrokeColor(0x666666);
+			intervalStyle.setFillColor(0x999999);
 		}
 
 		public void addInterval(double min, double max) {
@@ -121,7 +121,7 @@ public abstract class SVGPlot {
 			ids.add(id);
 
 			// update bounds
-			xmax = mins.size()*(barSpacing + barWidth);
+			xmax = mins.size()*(intervalSpacing + intervalWidth);
 			ymax = Math.max(ymax, max);
 		}
 
@@ -135,29 +135,33 @@ public abstract class SVGPlot {
 
 		public void draw(SVG svg) {
 
-			svg.putStyleClasses(barStyle);
+			svg.putStyleClasses(intervalStyle);
 
 			int n = mins.size();
 			for (int i=0; i<n; i++) {
 
-				double x = (i+1)*barSpacing + i*barWidth;
+				double x = (i+1)* intervalSpacing + i* intervalWidth;
 				double y1 = mins.get(i);
 				double y2 = maxs.get(i);
+
+				if (Double.isInfinite(y1) || Double.isInfinite(y2)) {
+					System.err.println(String.format("WARNING: interval [%f,%f] is infinite and will not be drawn", y1, y2));
+					continue;
+				}
 
 				// if the interval is big enough, draw a rect
 				SVG.Drawable d;
 				if (y2 - y1 >= minRectHeight) {
-					d = svg.makeRect(x, x + barWidth, y1, y2);
+					d = svg.makeRect(x, x + intervalWidth, y1, y2);
 				} else {
 					d = svg.makeLine(
 						x, y1,
-						x + barWidth, y1
+						x + intervalWidth, y1
 					);
 				}
-				d.setStyleClass(barStyle)
+				d.setStyleClass(intervalStyle)
 					.setId(ids.get(i))
 					.draw();
-
 			}
 
 			// make an axis if needed

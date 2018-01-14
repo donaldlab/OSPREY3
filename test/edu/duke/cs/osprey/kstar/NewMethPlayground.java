@@ -59,14 +59,14 @@ public class NewMethPlayground {
 				.calcEnergyMatrix();
 		}
 
-		final long maxNumConfsLowerBounded = 10000L;
-		final int maxNumBestSequences = 5;
-		final int maxNumConfsUpperBounded = 1000;
+		final int maxNumBestSequences = 40;
+		final int maxNumConfsUpperBounded = 4;
 
 		clearDB(confDBFile);
 		calculateUpperBounds(confSpace, emat, confDBFile, maxNumBestSequences);
-		//calculateFixed(confSpace, emat, confDBFile, maxNumConfsLowerBounded, maxNumBestSequences, maxNumConfsUpperBounded);
-		//analyze(confSpace, confDBFile, maxNumBestSequences);
+
+		calculateLowerBounds(confSpace, emat, confDBFile, maxNumBestSequences, maxNumConfsUpperBounded);
+		analyze(confSpace, confDBFile, maxNumBestSequences);
 	}
 
 	private static void clearDB(File confDBFile) {
@@ -125,6 +125,7 @@ public class NewMethPlayground {
 
 			// compute the top K sequences by pfUBs
 			List<SequenceInfo> bestInfos = new ArrayList<>();
+			BigDecimal minOtherSequencesPfuncUB = MathTools.BigPositiveInfinity;
 			long numConfsLowerBounded = 0L;
 			while (true) {
 
@@ -157,7 +158,7 @@ public class NewMethPlayground {
 					info = new SequenceInfo(sdb.sequence);
 					infosBySequence.put(sdb.sequence, info);
 
-					log("found %d/%d sequences", infosBySequence.size(), numSequences);
+					log("discovered %d/%d unique sequences", infosBySequence.size(), numSequences);
 				}
 
 				// update pfunc upper bound for this sequence
@@ -171,8 +172,9 @@ public class NewMethPlayground {
 
 				// compute an upper bound on the pfunc for all unsampled sequences
 				BigDecimal otherSequencesPfuncUB = weightedLowerEnergy.multiply(new BigDecimal(maxNumConfsForSequence), decimalPrecision);
+				minOtherSequencesPfuncUB = otherSequencesPfuncUB;
 
-				// TEMP
+				/* TEMP
 				log("%4d/%d   sequence: %s   ceLB: %.3f   wceLB: %s   pfUB: [%s,%s]   pfUB for unsampled sequences: %s",
 					++numConfsLowerBounded, numConfs,
 					sdb.sequence.toString(),
@@ -180,6 +182,7 @@ public class NewMethPlayground {
 					formatBig(info.pfuncUpperBoundSampled), formatBig(info.pfuncUpperBound),
 					formatBig(otherSequencesPfuncUB)
 				);
+				*/
 
 				// grab the best K sequences by pfLBoUB
 				bestInfos.clear();
@@ -231,10 +234,12 @@ public class NewMethPlayground {
 			// plot the bounds on pfunc upper bounds
 			SVG svg = new SVG();
 			SVGPlot.Intervals intervals = new SVGPlot.Intervals();
+			intervals.intervalWidth = 2.0;
 			for (SequenceInfo info : bestInfos) {
 				intervals.addInterval(
 					Math.log10(info.pfuncUpperBoundSampled.doubleValue()),
-					Math.log10(info.pfuncUpperBound.doubleValue())
+					Math.log10(info.pfuncUpperBound.doubleValue()),
+					info.sequence.toString()
 				);
 			}
 			intervals.draw(svg);
@@ -244,9 +249,17 @@ public class NewMethPlayground {
 		}); // db
 	}
 
-	private static void calculateFixed(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, long maxNumConfsLowerBounded, int maxNumBestSequences, int maxNumConfsUpperBounded) {
+	private static void calculateLowerBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, int maxNumBestSequences, int maxNumConfsUpperBounded) {
 
 		new ConfDB(confSpace, confDBFile).use((db) -> {
+
+			// get all our sequence info, sorted by descending pfUB
+			TreeSet<SequenceInfo> infosByPfuncUB = new TreeSet<>(Comparator.comparing((SequenceInfo info) -> info.pfuncUpperBound).reversed());
+			for (Sequence sequence : db.getSequences()) {
+				SequenceInfo info = new SequenceInfo(sequence);
+				info.readPfuncUpperBoundFromDB(db.getSequence(sequence));
+				infosByPfuncUB.add(info);
+			}
 
 			new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
 				.setParallelism(Parallelism.makeCpu(4))
@@ -254,61 +267,18 @@ public class NewMethPlayground {
 
 					ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
 
-					ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
-						.setTraditional()
-						.setShowProgress(true)
-						.build();
+					// estimate pfLB for the top K sequences by pfUB
+					int numSequencesLowerBounded = 0;
+					for (SequenceInfo info : infosByPfuncUB) {
 
-					BigInteger numSequences = confSpace.calcNumSequences();
-					log("total A* sequences: %s", formatBig(numSequences));
-					log("total A* confs: %s", formatBig(astar.getNumConformations()));
+						log("estimating pfunc lower bound for sequence %s", info.sequence);
 
-					// compute lower bounds for the first K conformations in the A* tree
-					long numConfsLowerBounded = 0L;
-					while (true) {
+						ConfDB.SequenceDB sdb = db.getSequence(info.sequence);
+						info.calcPfuncLowerBound(confEcalc, sdb, maxNumConfsUpperBounded);
 
-						ConfSearch.ScoredConf conf = astar.nextConf();
-						if (conf == null) {
+						if (++numSequencesLowerBounded >= maxNumBestSequences) {
 							break;
 						}
-
-						ConfDB.SequenceDB sdb = db.getSequence(confSpace.makeSequenceFromConf(conf));
-
-						sdb.setLowerBound(
-							conf.getAssignments(),
-							conf.getScore(),
-							TimeTools.getTimestampNs()
-						);
-						sdb.updateLowerEnergyOfUnsampledConfs(conf.getScore());
-
-						if (++numConfsLowerBounded >= maxNumConfsLowerBounded) {
-							break;
-						}
-					}
-
-					log("Finished lower bounding conf energies");
-
-					// sort sequences by pfunc descending upper bounds
-					List<SequenceInfo> sequencesByPfuncUpperBound = new ArrayList<>();
-					for (Sequence sequence : db.getSequences()) {
-						SequenceInfo info = new SequenceInfo(sequence);
-						info.readPfuncUpperBoundFromDB(db.getSequence(sequence));
-						sequencesByPfuncUpperBound.add(info);
-					}
-					sequencesByPfuncUpperBound.sort((a, b) -> b.pfuncUpperBound.compareTo(a.pfuncUpperBound));
-
-					// pick the best K sequences by pfunc upper bounds
-					int numBestSequences = Math.min(maxNumBestSequences, sequencesByPfuncUpperBound.size());
-					List<SequenceInfo> bestSequences = sequencesByPfuncUpperBound.subList(0, numBestSequences);
-					log("%d/%s best sequences by PFunc upper bounds:", maxNumBestSequences, formatBig(numSequences));
-					for (SequenceInfo info : bestSequences) {
-						log("Best Sequences: %s -> %e", info.sequence, info.pfuncUpperBound);
-					}
-
-					// estimate lower bounds for the best sequences using at most K confs
-					for (SequenceInfo info : bestSequences) {
-						log("Estimating PFunc lower bound for %s ...", info.sequence);
-						info.calcPfuncLowerBound(confEcalc, db.getSequence(info.sequence), maxNumConfsUpperBounded);
 					}
 
 				}); // ecalc
@@ -319,33 +289,94 @@ public class NewMethPlayground {
 
 		new ConfDB(confSpace, confDBFile).use((db) -> {
 
-			// sort sequences by pfunc descending upper bounds
-			List<SequenceInfo> sequencesByPfuncUpperBound = new ArrayList<>();
+			// get all our sequence info, sorted by descending pfUB
+			TreeSet<SequenceInfo> infosByPfuncUB = new TreeSet<>(Comparator.comparing((SequenceInfo info) -> info.pfuncUpperBound).reversed());
 			for (Sequence sequence : db.getSequences()) {
 				SequenceInfo info = new SequenceInfo(sequence);
-				info.readPfuncUpperBoundFromDB(db.getSequence(sequence));
-				sequencesByPfuncUpperBound.add(info);
-			}
-			sequencesByPfuncUpperBound.sort((a, b) -> b.pfuncUpperBound.compareTo(a.pfuncUpperBound));
-			int numBestSequences = Math.min(maxNumBestSequences, sequencesByPfuncUpperBound.size());
-			List<SequenceInfo> bestSequences = sequencesByPfuncUpperBound.subList(0, numBestSequences);
-
-			// calc the pfunc lower bounds too
-			for (SequenceInfo info : bestSequences) {
-				info.readPfuncLowerBoundFromDB(db.getSequence(info.sequence));
+				ConfDB.SequenceDB sdb = db.getSequence(sequence);
+				info.readPfuncUpperBoundFromDB(sdb);
+				info.readPfuncLowerBoundFromDB(sdb);
+				infosByPfuncUB.add(info);
 			}
 
-			// plot the pfunc bounds
+			// calculate the ranking indices, RL and RU
+			// meaning, a sequence is in the top K sequences for K = RL(pfLB)
+			// and a sequence is NOT in the top K sequences for K = RU(pfUB)
+			TreeMap<BigDecimal,Integer> rankIndexLower = new TreeMap<>();
+			TreeMap<BigDecimal,Integer> rankIndexUpper = new TreeMap<>();
+			for (SequenceInfo info : infosByPfuncUB) {
+				rankIndexLower.put(info.pfuncLowerBound, rankIndexLower.size() + 2);
+				rankIndexUpper.put(info.pfuncUpperBound, rankIndexUpper.size());
+			}
+			log("indexed sequences to top %d", infosByPfuncUB.size());
+
+			Function<BigDecimal,Integer> getRankUpper = (pfuncLB) -> {
+				Map.Entry<BigDecimal,Integer> entry = rankIndexUpper.floorEntry(pfuncLB);
+				if (entry != null) {
+					return entry.getValue();
+				}
+				return null;
+			};
+
+			Function<BigDecimal,Integer> getRankLower = (pfuncUB) -> {
+				Map.Entry<BigDecimal,Integer> entry = rankIndexLower.ceilingEntry(pfuncUB);
+				if (entry != null) {
+					return entry.getValue();
+				}
+				return 1;
+			};
+
+			// show the ranked sequences
+			for (SequenceInfo info : infosByPfuncUB) {
+				int rankLower = getRankLower.apply(info.pfuncUpperBound);
+				Integer rankUpper = getRankUpper.apply(info.pfuncLowerBound);
+				if (rankUpper != null) {
+					log("%s is ranked in [%d,%d]", info.sequence, rankLower, rankUpper);
+				}
+			}
+
+			log("pfunc cutoff for top %d sequences is %s", infosByPfuncUB.size() - 1, formatBig(infosByPfuncUB.last().pfuncUpperBound));
+
+			// plot the pfunc bounds for the best K sequences
 			SVG svg = new SVG();
 			SVGPlot.Intervals intervals = new SVGPlot.Intervals();
-			for (SequenceInfo info : bestSequences) {
+			intervals.intervalWidth = 2.0;
+			int numSequences = 0;
+			for (SequenceInfo info : infosByPfuncUB) {
 				intervals.addInterval(
-					Math.log10(info.pfuncLowerBound.doubleValue()),
-					Math.log10(info.pfuncUpperBound.doubleValue())
+					Math.max(0, Math.log10(info.pfuncLowerBound.doubleValue())),
+					Math.log10(info.pfuncUpperBound.doubleValue()),
+					String.format("%s: [%s,%s]",
+						info.sequence.toString(),
+						formatBig(info.pfuncLowerBound),
+						formatBig(info.pfuncUpperBoundSampled)
+					)
 				);
+				if (++numSequences >= maxNumBestSequences) {
+					break;
+				}
 			}
 			intervals.draw(svg);
-			intervals.setBounds(svg, 10, 10);
+			intervals.setBounds(svg, 10, 16);
+
+			// show the lowest pfUB of any sequence we know
+			{
+				SequenceInfo info = infosByPfuncUB.last();
+				double y = Math.log10(info.pfuncUpperBound.doubleValue());
+
+				SVG.StyleClass dottedLineStyle = svg.makeStyleClass("dottedLineStyle");
+				dottedLineStyle.setStrokeColor(0xcccccc);
+				dottedLineStyle.setStrokeWidth(0.2);
+				dottedLineStyle.setStrokeDashArray(1, 1);
+				svg.makeLine(
+						intervals.xmin + intervals.intervalSpacing, y,
+						intervals.xmax, y
+					)
+					.setStyleClass(dottedLineStyle)
+					.setId(String.format("cutoff for top %d sequences", infosByPfuncUB.size() - 1))
+					.draw();
+			}
+
 			svg.finish().write(new File("pfuncs.svg"));
 		});
 	}
@@ -458,8 +489,10 @@ public class NewMethPlayground {
 			}
 			confs.sort(Comparator.comparingDouble((conf) -> conf.lower.energy));
 
-			// TODO: use time-based limits instead of conf-based limits?
+			// TODO: allow time-based limits instead of conf-based limits?
 			// TODO: use smart early exit of some kind?
+
+			// TODO: skip energies we've already calculated
 
 			// estimate the pfunc lower bound
 			pfuncLowerBound = BigDecimal.ZERO;

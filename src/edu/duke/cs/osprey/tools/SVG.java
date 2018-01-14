@@ -16,6 +16,7 @@ import java.awt.geom.Rectangle2D;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class SVG {
 
@@ -73,6 +74,15 @@ public class SVG {
 
 		public void setStrokeOpacity(double opacity) {
 			set(CSSConstants.CSS_STROKE_OPACITY_PROPERTY, Double.toString(opacity));
+		}
+
+		public void setStrokeDashArray(int ... array) {
+			String arrayString = String.join(",",
+				Arrays.stream(array)
+					.mapToObj((i) -> Integer.toString(i))
+					.collect(Collectors.toList())
+			);
+			set(CSSConstants.CSS_STROKE_DASHARRAY_PROPERTY, arrayString);
 		}
 
 		public void setNoFill() {
@@ -139,6 +149,7 @@ public class SVG {
 			return this;
 		}
 
+		// TODO: "id" attribute doesn't seem to display for all SVG elements in inkscape?
 		public Drawable setId(String val) {
 			this.id = val;
 			return this;
