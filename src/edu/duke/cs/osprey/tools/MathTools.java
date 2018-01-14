@@ -274,6 +274,11 @@ public class MathTools {
 		}
 	}
 
+	/** return a <= b, correctly handling -Inf, +Inf, and NaN */
+	public static boolean isLessThanOrEqual(BigDecimal a, BigDecimal b) {
+		return isLessThan(a, b) || isSameValue(a, b);
+	}
+
 	/** return a > b, correctly handling -Inf, +Inf, and NaN */
 	public static boolean isGreaterThan(BigDecimal a, BigDecimal b) {
 		if (a == BigNaN || b == BigNaN) {
@@ -296,6 +301,11 @@ public class MathTools {
 				return a.compareTo(b) > 0;
 			}
 		}
+	}
+
+	/** return a >= b, correctly handling -Inf, +Inf, and NaN */
+	public static boolean isGreaterThanOrEqual(BigDecimal a, BigDecimal b) {
+		return isGreaterThan(a, b) || isSameValue(a, b);
 	}
 
 	/** return a + b, correctly handling -Inf, +Inf, and NaN */

@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.confspace;
 
+import java.math.BigInteger;
 import java.util.*;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -13,6 +14,8 @@ import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.MathTools;
+
 import java.io.Serializable;
 import java.util.stream.Collectors;
 
@@ -763,5 +766,18 @@ public class SimpleConfSpace implements Serializable {
 
 	public Sequence makeSequenceFromConf(ConfSearch.ScoredConf conf) {
 		return Sequence.makeFromConf(this, conf);
+	}
+
+	public BigInteger calcNumSequences() {
+		BigInteger numSequences = BigInteger.ZERO;
+		for (SimpleConfSpace.Position pos : positions) {
+			BigInteger numResTypes = BigInteger.valueOf(pos.resFlex.resTypes.size());
+			if (MathTools.isZero(numSequences)) {
+				numSequences = numResTypes;
+			} else {
+				numSequences = numSequences.multiply(numResTypes);
+			}
+		}
+		return numSequences;
 	}
 }

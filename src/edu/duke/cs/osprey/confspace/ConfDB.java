@@ -9,6 +9,7 @@ import org.mapdb.serializer.GroupSerializerObjectArray;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.function.Consumer;
 
 
 public class ConfDB {
@@ -460,5 +461,13 @@ public class ConfDB {
 		}
 		sequenceDBs.clear();
 		db.close();
+	}
+
+	public void use(Consumer<ConfDB> block) {
+		try {
+			block.accept(this);
+		} finally {
+			close();
+		}
 	}
 }
