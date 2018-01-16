@@ -51,7 +51,7 @@ public abstract class SVGPlot {
 					x, y + min,
 					x, y + max
 				)
-				.setStyleClass(lineStyle)
+				.setStyleClasses(lineStyle)
 				.draw();
 
 			// draw the ticks
@@ -69,19 +69,34 @@ public abstract class SVGPlot {
 				x, y,
 				x - tickLength, y
 			)
-				.setStyleClass(lineStyle)
+				.setStyleClasses(lineStyle)
 				.draw();
 
 			// add the text
 			svg.makeText(String.format(tickFormat, y))
 				.setPos(x - tickLength - tickTextMargin, y)
 				.setDY(tickTextDy, SVG.LengthUnit.px)
-				.setStyleClass(tickTextStyle)
+				.setStyleClasses(tickTextStyle)
 				.draw();
 		}
 	}
 
 	public static class Intervals {
+
+		public static class Interval {
+
+			public double min;
+			public double max;
+			public String id;
+			public SVG.StyleClass extraStyle;
+
+			public Interval(double min, double max) {
+				this.min = min;
+				this.max = max;
+				this.id = null;
+				this.extraStyle = null;
+			}
+		}
 
 		public double intervalWidth = 8.0;
 		public double intervalSpacing = 2.0;
@@ -97,32 +112,27 @@ public abstract class SVGPlot {
 
 		public LeftVerticalAxis axis = null;
 
-		private List<Double> mins = new ArrayList<>();
-		private List<Double> maxs = new ArrayList<>();
-		private List<String> ids = new ArrayList<>();
+		private List<Interval> intervals = new ArrayList<>();
 
 		public Intervals() {
 
 			// config styles
 			intervalStyle.setStrokeWidth(0.2);
 			intervalStyle.setStrokeColor(0x666666);
-			intervalStyle.setFillColor(0x999999);
+			intervalStyle.setFillColor(0xcccccc);
 		}
 
-		public void addInterval(double min, double max) {
-			addInterval(min, max, null);
-		}
+		public Interval addInterval(double min, double max) {
 
-		public void addInterval(double min, double max, String id) {
-
-			// save the interval
-			mins.add(min);
-			maxs.add(max);
-			ids.add(id);
+			// make the interval
+			Interval interval = new Interval(min, max);
+			intervals.add(interval);
 
 			// update bounds
-			xmax = mins.size()*(intervalSpacing + intervalWidth);
+			xmax = intervals.size()*(intervalSpacing + intervalWidth);
 			ymax = Math.max(ymax, max);
+
+			return interval;
 		}
 
 		public LeftVerticalAxis makeAxis() {
@@ -137,12 +147,13 @@ public abstract class SVGPlot {
 
 			svg.putStyleClasses(intervalStyle);
 
-			int n = mins.size();
+			int n = intervals.size();
 			for (int i=0; i<n; i++) {
+				Interval interval = intervals.get(i);
 
 				double x = (i+1)* intervalSpacing + i* intervalWidth;
-				double y1 = mins.get(i);
-				double y2 = maxs.get(i);
+				double y1 = interval.min;
+				double y2 = interval.max;
 
 				if (Double.isInfinite(y1) || Double.isInfinite(y2)) {
 					System.err.println(String.format("WARNING: interval [%f,%f] is infinite and will not be drawn", y1, y2));
@@ -159,8 +170,8 @@ public abstract class SVGPlot {
 						x + intervalWidth, y1
 					);
 				}
-				d.setStyleClass(intervalStyle)
-					.setId(ids.get(i))
+				d.setStyleClasses(intervalStyle, interval.extraStyle)
+					.setId(interval.id)
 					.draw();
 			}
 

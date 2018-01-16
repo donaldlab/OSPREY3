@@ -16,6 +16,7 @@ import java.awt.geom.Rectangle2D;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.util.*;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class SVG {
@@ -133,6 +134,21 @@ public class SVG {
 		public void setDominantBaseline(DominantBaseline val) {
 			set(CSSConstants.CSS_DOMINANT_BASELINE_PROPERTY, val.token);
 		}
+
+		public static String renderNames(List<StyleClass> currentStyleClasses) {
+			if (currentStyleClasses == null || currentStyleClasses.isEmpty()) {
+				return "";
+			} if (currentStyleClasses.size() == 1) {
+				// handle the simple case efficiently
+				return currentStyleClasses.get(0).name;
+			} else {
+				return String.join(" ", currentStyleClasses.stream()
+					.filter((style) -> style != null)
+					.map((style) -> style.name)
+					.collect(Collectors.toList())
+				);
+			}
+		}
 	}
 
 	private static interface Drawer {
@@ -141,11 +157,15 @@ public class SVG {
 
 	public abstract class Drawable {
 
-		private StyleClass styleClass = null;
+		private List<StyleClass> styleClasses = null;
 		private String id = null;
 
-		public Drawable setStyleClass(StyleClass val) {
-			this.styleClass = val;
+		public Drawable setStyleClasses(StyleClass ... vals) {
+			if (styleClasses == null) {
+				styleClasses = new ArrayList<>();
+			}
+			styleClasses.clear();
+			Collections.addAll(styleClasses, vals);
 			return this;
 		}
 
@@ -156,7 +176,7 @@ public class SVG {
 		}
 
 		public void draw() {
-			currentStyleClass = styleClass;
+			currentStyleClasses = styleClasses;
 			currentId = id;
 			reallyDraw();
 		}
@@ -218,8 +238,8 @@ public class SVG {
 			elem.setAttributeNS(SVGConstants.XML_NAMESPACE_URI, SVGConstants.XML_SPACE_QNAME, SVGConstants.XML_PRESERVE_VALUE);
 
 			// set optional attributes
-			if (currentStyleClass != null) {
-				elem.setAttribute(SVGConstants.SVG_CLASS_ATTRIBUTE, currentStyleClass.name);
+			if (currentStyleClasses != null && !currentStyleClasses.isEmpty()) {
+				elem.setAttribute(SVGConstants.SVG_CLASS_ATTRIBUTE, StyleClass.renderNames(currentStyleClasses));
 			}
 			if (currentId != null) {
 				elem.setAttribute(SVGConstants.SVG_ID_ATTRIBUTE, currentId);
@@ -238,7 +258,7 @@ public class SVG {
 	private final DOMGroupManager groups;
 	private final Map<String,StyleClass> styleClasses = new HashMap<>();
 
-	private StyleClass currentStyleClass = null;
+	private List<StyleClass> currentStyleClasses = null;
 	private String currentId = null;
 
 	private Rectangle2D.Double bounds;
@@ -263,9 +283,9 @@ public class SVG {
 				return;
 			}
 
-			// set the current style class, if any
-			if (currentStyleClass != null) {
-				elem.setAttribute(SVGConstants.SVG_CLASS_ATTRIBUTE, currentStyleClass.name);
+			// set the current style classes, if any
+			if (currentStyleClasses != null && !currentStyleClasses.isEmpty()) {
+				elem.setAttribute(SVGConstants.SVG_CLASS_ATTRIBUTE, StyleClass.renderNames(currentStyleClasses));
 			}
 
 			// set the current id, if any

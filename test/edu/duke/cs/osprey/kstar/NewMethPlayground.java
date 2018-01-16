@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.SVG;
@@ -35,15 +36,27 @@ public class NewMethPlayground {
 		File ematFile = new File("emat.dat");
 		File confDBFile = new File("newMeth.conf.db");
 
+		Molecule mol = PDBIO.readResource("/1CC8.ss.pdb");
+
 		// TODO: more sequences!
 		// make a simple conf space with two sequences
-		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
-		strand.flexibility.get("A5").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "THR", "PHE", "ARG").addWildTypeRotamers().setContinuous();
-		strand.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "THR", "PHE", "ARG").addWildTypeRotamers().setContinuous();
-		strand.flexibility.get("A7").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "THR", "PHE", "ARG").addWildTypeRotamers().setContinuous();
+		Strand ligand = new Strand.Builder(mol)
+			.setResidues("A2", "A10")
+			.build();
+		ligand.flexibility.get("A5").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "THR", "PHE", "ARG").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "THR", "PHE", "ARG").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A7").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "THR", "PHE", "ARG").addWildTypeRotamers().setContinuous();
+
+		Strand target = new Strand.Builder(mol)
+			.setResidues("A11", "A72")
+			.build();
+		target.flexibility.get("A11").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		target.flexibility.get("A12").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		target.flexibility.get("A13").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
-			.addStrand(strand)
+			.addStrand(ligand)
+			.addStrand(target)
 			.build();
 
 		// calc the emat
@@ -60,7 +73,7 @@ public class NewMethPlayground {
 		}
 
 		final int maxNumBestSequences = 40;
-		final int maxNumConfsUpperBounded = 4;
+		final int maxNumConfsUpperBounded = 1;
 
 		clearDB(confDBFile);
 		calculateUpperBounds(confSpace, emat, confDBFile, maxNumBestSequences);
@@ -125,8 +138,6 @@ public class NewMethPlayground {
 
 			// compute the top K sequences by pfUBs
 			List<SequenceInfo> bestInfos = new ArrayList<>();
-			BigDecimal minOtherSequencesPfuncUB = MathTools.BigPositiveInfinity;
-			long numConfsLowerBounded = 0L;
 			while (true) {
 
 				// get the next conf and energy lower bound
@@ -172,7 +183,6 @@ public class NewMethPlayground {
 
 				// compute an upper bound on the pfunc for all unsampled sequences
 				BigDecimal otherSequencesPfuncUB = weightedLowerEnergy.multiply(new BigDecimal(maxNumConfsForSequence), decimalPrecision);
-				minOtherSequencesPfuncUB = otherSequencesPfuncUB;
 
 				/* TEMP
 				log("%4d/%d   sequence: %s   ceLB: %.3f   wceLB: %s   pfUB: [%s,%s]   pfUB for unsampled sequences: %s",
@@ -233,14 +243,22 @@ public class NewMethPlayground {
 
 			// plot the bounds on pfunc upper bounds
 			SVG svg = new SVG();
+
+			SVG.StyleClass wildtypeIntervalStyle = svg.makeStyleClass("wildtype-interval-style");
+			wildtypeIntervalStyle.setStrokeColor(0x66cc55);
+			wildtypeIntervalStyle.setStrokeWidth(0.5);
+
 			SVGPlot.Intervals intervals = new SVGPlot.Intervals();
 			intervals.intervalWidth = 2.0;
 			for (SequenceInfo info : bestInfos) {
-				intervals.addInterval(
+				SVGPlot.Intervals.Interval interval = intervals.addInterval(
 					Math.log10(info.pfuncUpperBoundSampled.doubleValue()),
-					Math.log10(info.pfuncUpperBound.doubleValue()),
-					info.sequence.toString()
+					Math.log10(info.pfuncUpperBound.doubleValue())
 				);
+				interval.id = info.sequence.toString();
+				if (info.sequence.isWildType()) {
+					interval.extraStyle = wildtypeIntervalStyle;
+				}
 			}
 			intervals.draw(svg);
 			intervals.setBounds(svg, 10, 16);
@@ -339,19 +357,27 @@ public class NewMethPlayground {
 
 			// plot the pfunc bounds for the best K sequences
 			SVG svg = new SVG();
+
+			SVG.StyleClass wildtypeIntervalStyle = svg.makeStyleClass("wildtype-interval-style");
+			wildtypeIntervalStyle.setStrokeColor(0x66cc55);
+			wildtypeIntervalStyle.setStrokeWidth(0.5);
+
 			SVGPlot.Intervals intervals = new SVGPlot.Intervals();
 			intervals.intervalWidth = 2.0;
 			int numSequences = 0;
 			for (SequenceInfo info : infosByPfuncUB) {
-				intervals.addInterval(
+				SVGPlot.Intervals.Interval interval = intervals.addInterval(
 					Math.max(0, Math.log10(info.pfuncLowerBound.doubleValue())),
-					Math.log10(info.pfuncUpperBound.doubleValue()),
-					String.format("%s: [%s,%s]",
-						info.sequence.toString(),
-						formatBig(info.pfuncLowerBound),
-						formatBig(info.pfuncUpperBoundSampled)
-					)
+					Math.log10(info.pfuncUpperBound.doubleValue())
 				);
+				interval.id = String.format("%s: [%s,%s]",
+					info.sequence.toString(),
+					formatBig(info.pfuncLowerBound),
+					formatBig(info.pfuncUpperBoundSampled)
+				);
+				if (info.sequence.isWildType()) {
+					interval.extraStyle = wildtypeIntervalStyle;
+				}
 				if (++numSequences >= maxNumBestSequences) {
 					break;
 				}
@@ -372,7 +398,7 @@ public class NewMethPlayground {
 						intervals.xmin + intervals.intervalSpacing, y,
 						intervals.xmax, y
 					)
-					.setStyleClass(dottedLineStyle)
+					.setStyleClasses(dottedLineStyle)
 					.setId(String.format("cutoff for top %d sequences", infosByPfuncUB.size() - 1))
 					.draw();
 			}
