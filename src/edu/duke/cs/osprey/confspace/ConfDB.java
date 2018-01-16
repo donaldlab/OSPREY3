@@ -309,7 +309,7 @@ public class ConfDB {
 
 		public void updateLowerEnergyOfUnsampledConfs(double val) {
 			SequenceInfo info = getInfo();
-			if (Double.isNaN(info.lowerEnergyOfUnsampledConfs) || val < info.lowerEnergyOfUnsampledConfs) {
+			if (Double.isNaN(info.lowerEnergyOfUnsampledConfs) || val > info.lowerEnergyOfUnsampledConfs) {
 				info.lowerEnergyOfUnsampledConfs = val;
 			}
 			setInfo(info);

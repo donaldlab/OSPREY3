@@ -165,7 +165,11 @@ public class SVG {
 				styleClasses = new ArrayList<>();
 			}
 			styleClasses.clear();
-			Collections.addAll(styleClasses, vals);
+			for (StyleClass val : vals) {
+				if (val != null) {
+					styleClasses.add(val);
+				}
+			}
 			return this;
 		}
 

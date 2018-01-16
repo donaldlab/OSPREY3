@@ -33,8 +33,10 @@ public class NewMethPlayground {
 
 	public static void main(String[] args) {
 
-		File ematFile = new File("emat.dat");
-		File confDBFile = new File("newMeth.conf.db");
+		File complexEmatFile = new File("emat.complex.dat");
+		File ligandEmatFile = new File("emat.ligand.dat");
+		File complexConfDBFile = new File("conf.complex.db");
+		File ligandConfDBFile = new File("conf.ligand.db");
 
 		Molecule mol = PDBIO.readResource("/1CC8.ss.pdb");
 
@@ -54,32 +56,58 @@ public class NewMethPlayground {
 		target.flexibility.get("A12").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		target.flexibility.get("A13").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
-		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+		SimpleConfSpace complexConfSpace = new SimpleConfSpace.Builder()
 			.addStrand(ligand)
 			.addStrand(target)
 			.build();
 
-		// calc the emat
-		EnergyMatrix emat;
-		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+		SimpleConfSpace ligandConfSpace = new SimpleConfSpace.Builder()
+			.addStrand(ligand)
+			.build();
+
+		// calc the emats
+		EnergyMatrix complexEmat;
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(complexConfSpace, new ForcefieldParams())
 			.setParallelism(Parallelism.makeCpu(4))
 			.build()
 		) {
-			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
-			emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-				.setCacheFile(ematFile)
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(complexConfSpace, ecalc).build();
+			complexEmat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+				.setCacheFile(complexEmatFile)
 				.build()
 				.calcEnergyMatrix();
 		}
 
-		final int maxNumBestSequences = 40;
+		// calc the emats
+		EnergyMatrix ligandEmat;
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(ligandConfSpace, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(4))
+			.build()
+		) {
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(ligandConfSpace, ecalc).build();
+			ligandEmat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+				.setCacheFile(ligandEmatFile)
+				.build()
+				.calcEnergyMatrix();
+		}
+
+		final int maxNumBestSequences = 100;
 		final int maxNumConfsUpperBounded = 1;
+		final double pfuncUBFractionSampled = 0.99;
 
-		clearDB(confDBFile);
-		calculateUpperBounds(confSpace, emat, confDBFile, maxNumBestSequences);
+		// analyze complex
+		clearDB(complexConfDBFile);
+		calculateComplexUpperBounds(complexConfSpace, complexEmat, complexConfDBFile, maxNumBestSequences);
+		calculateComplexLowerBounds(complexConfSpace, complexEmat, complexConfDBFile, maxNumBestSequences, maxNumConfsUpperBounded);
+		List<SequenceInfo> bestComplexes = analyzeComplexes(complexConfSpace, complexConfDBFile, maxNumBestSequences);
 
-		calculateLowerBounds(confSpace, emat, confDBFile, maxNumBestSequences, maxNumConfsUpperBounded);
-		analyze(confSpace, confDBFile, maxNumBestSequences);
+		// analyze ligand for the best complex sequences
+		clearDB(ligandConfDBFile);
+		calculateLigandBounds(ligandConfSpace, ligandEmat, ligandConfDBFile, bestComplexes, pfuncUBFractionSampled, maxNumConfsUpperBounded);
+		analyze(complexConfSpace, complexConfDBFile, maxNumBestSequences, ligandConfSpace, ligandConfDBFile);
+
+		// TODO: bound the pfunc for the target
+		// TODO: draw K* bounds
 	}
 
 	private static void clearDB(File confDBFile) {
@@ -88,7 +116,7 @@ public class NewMethPlayground {
 		}
 	}
 
-	private static void calculateUpperBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, int maxNumBestSequences) {
+	private static void calculateComplexUpperBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, int maxNumBestSequences) {
 
 		new ConfDB(confSpace, confDBFile).use((db) -> {
 
@@ -252,8 +280,8 @@ public class NewMethPlayground {
 			intervals.intervalWidth = 2.0;
 			for (SequenceInfo info : bestInfos) {
 				SVGPlot.Intervals.Interval interval = intervals.addInterval(
-					Math.log10(info.pfuncUpperBoundSampled.doubleValue()),
-					Math.log10(info.pfuncUpperBound.doubleValue())
+					MathTools.log10p1(info.pfuncUpperBoundSampled),
+					MathTools.log10p1(info.pfuncUpperBound)
 				);
 				interval.id = info.sequence.toString();
 				if (info.sequence.isWildType()) {
@@ -262,12 +290,12 @@ public class NewMethPlayground {
 			}
 			intervals.draw(svg);
 			intervals.setBounds(svg, 10, 16);
-			svg.finish().write(new File("pfuncUpperBounds.svg"));
+			svg.finish().write(new File("pfunc.complex.upperBounds.svg"));
 
 		}); // db
 	}
 
-	private static void calculateLowerBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, int maxNumBestSequences, int maxNumConfsUpperBounded) {
+	private static void calculateComplexLowerBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, int maxNumBestSequences, int maxNumConfsUpperBounded) {
 
 		new ConfDB(confSpace, confDBFile).use((db) -> {
 
@@ -303,7 +331,9 @@ public class NewMethPlayground {
 		});
 	}
 
-	private static void analyze(SimpleConfSpace confSpace, File confDBFile, int maxNumBestSequences) {
+	private static List<SequenceInfo> analyzeComplexes(SimpleConfSpace confSpace, File confDBFile, int maxNumBestSequences) {
+
+		List<SequenceInfo> bestSequences = new ArrayList<>();
 
 		new ConfDB(confSpace, confDBFile).use((db) -> {
 
@@ -355,6 +385,15 @@ public class NewMethPlayground {
 
 			log("pfunc cutoff for top %d sequences is %s", infosByPfuncUB.size() - 1, formatBig(infosByPfuncUB.last().pfuncUpperBound));
 
+			// get the best K sequences
+			int numSequences = 0;
+			for (SequenceInfo info : infosByPfuncUB) {
+				bestSequences.add(info);
+				if (++numSequences >= maxNumBestSequences) {
+					break;
+				}
+			}
+
 			// plot the pfunc bounds for the best K sequences
 			SVG svg = new SVG();
 
@@ -364,11 +403,10 @@ public class NewMethPlayground {
 
 			SVGPlot.Intervals intervals = new SVGPlot.Intervals();
 			intervals.intervalWidth = 2.0;
-			int numSequences = 0;
-			for (SequenceInfo info : infosByPfuncUB) {
+			for (SequenceInfo info : bestSequences) {
 				SVGPlot.Intervals.Interval interval = intervals.addInterval(
-					Math.max(0, Math.log10(info.pfuncLowerBound.doubleValue())),
-					Math.log10(info.pfuncUpperBound.doubleValue())
+					MathTools.log10p1(info.pfuncLowerBound),
+					MathTools.log10p1(info.pfuncUpperBound)
 				);
 				interval.id = String.format("%s: [%s,%s]",
 					info.sequence.toString(),
@@ -377,9 +415,7 @@ public class NewMethPlayground {
 				);
 				if (info.sequence.isWildType()) {
 					interval.extraStyle = wildtypeIntervalStyle;
-				}
-				if (++numSequences >= maxNumBestSequences) {
-					break;
+					// TODO: this isn't showing up in the SVG due to style class ordering issues
 				}
 			}
 			intervals.draw(svg);
@@ -388,7 +424,7 @@ public class NewMethPlayground {
 			// show the lowest pfUB of any sequence we know
 			{
 				SequenceInfo info = infosByPfuncUB.last();
-				double y = Math.log10(info.pfuncUpperBound.doubleValue());
+				double y = MathTools.log10p1(info.pfuncUpperBound);
 
 				SVG.StyleClass dottedLineStyle = svg.makeStyleClass("dottedLineStyle");
 				dottedLineStyle.setStrokeColor(0xcccccc);
@@ -403,8 +439,172 @@ public class NewMethPlayground {
 					.draw();
 			}
 
-			svg.finish().write(new File("pfuncs.svg"));
+			svg.finish().write(new File("pfuncs.complex.svg"));
 		});
+
+		return bestSequences;
+	}
+
+	private static Sequence complexToLigandSequence(SimpleConfSpace ligandConfSpace, Sequence complexSequence) {
+		Sequence ligandSequence = ligandConfSpace.makeUnassignedSequence();
+		for (SimpleConfSpace.Position complexPos : complexSequence.confSpace.positions) {
+			SimpleConfSpace.Position ligandPos = ligandConfSpace.getPositionOrNull(complexPos.resNum);
+			if (ligandPos != null) {
+				ligandSequence.set(ligandPos, complexSequence.get(complexPos));
+			}
+		}
+		assert (ligandSequence.isFullyAssigned());
+		return ligandSequence;
+	}
+
+	private static void calculateLigandBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, List<SequenceInfo> bestComplexes, double pfuncUBFactionSampled, int maxNumConfsUpperBounded) {
+
+		new ConfDB(confSpace, confDBFile).use((db) -> {
+
+			new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+				.setParallelism(Parallelism.makeCpu(4))
+				.use((ecalc) -> {
+
+					ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
+
+					for (SequenceInfo complex : bestComplexes) {
+
+						// convert complex sequence to ligand sequence
+						SequenceInfo ligand = new SequenceInfo(complexToLigandSequence(confSpace, complex.sequence));
+
+						ConfDB.SequenceDB sdb = db.getSequence(ligand.sequence);
+
+						log("calculating ligand pfunc for %s ...", complex.sequence);
+
+						ConfSearch.ScoredConf minBoundConf = null;
+
+						// calculate pfunc upper bound
+						ConfAStarTree astar = new ConfAStarTree.Builder(emat, ligand.sequence.makeRCs())
+							.setTraditional()
+							.build();
+						while (true) {
+
+							ConfSearch.ScoredConf conf = astar.nextConf();
+							if (conf == null) {
+								break;
+							}
+
+							if (minBoundConf == null) {
+								minBoundConf = conf;
+							}
+
+							ligand.updatePfuncUpperBound(conf.getScore());
+
+							// update the conf db
+							sdb.setLowerBound(
+								conf.getAssignments(),
+								conf.getScore(),
+								TimeTools.getTimestampNs()
+							);
+							sdb.updateLowerEnergyOfUnsampledConfs(conf.getScore());
+
+							// are we done yet?
+							if (ligand.getPfuncUpperBoundFractionSampled() > pfuncUBFactionSampled) {
+								break;
+							}
+						}
+
+						// compute a crude pfunc lower bound
+						ligand.calcPfuncLowerBound(confEcalc, sdb, maxNumConfsUpperBounded);
+
+						log("ligand: %s", ligand);
+					}
+				}); // ecalc
+		}); // db
+	}
+
+	static class SequenceInfoPair {
+
+		public final SequenceInfo complex;
+		public final SequenceInfo ligand;
+
+		public SequenceInfoPair(SequenceInfo complex, SequenceInfo ligand) {
+			this.complex = complex;
+			this.ligand = ligand;
+		}
+	}
+
+	private static void analyze(SimpleConfSpace complexConfSpace, File complexConfDBFile, int maxNumBestSequences, SimpleConfSpace ligandConfSpace, File ligandConfDBFile) {
+
+		List<SequenceInfoPair> pairs = new ArrayList<>();
+
+		new ConfDB(complexConfSpace, complexConfDBFile).use((complexDB) -> {
+
+			// get all our sequence info, sorted by descending pfUB
+			TreeSet<SequenceInfo> infosByPfuncUB = new TreeSet<>(Comparator.comparing((SequenceInfo info) -> info.pfuncUpperBound).reversed());
+			for (Sequence sequence : complexDB.getSequences()) {
+				SequenceInfo info = new SequenceInfo(sequence);
+				ConfDB.SequenceDB sdb = complexDB.getSequence(sequence);
+				info.readPfuncUpperBoundFromDB(sdb);
+				info.readPfuncLowerBoundFromDB(sdb);
+				infosByPfuncUB.add(info);
+			}
+
+			// get the best K complexes by pfUB
+			List<SequenceInfo> bestComplexes = new ArrayList<>();
+			int numSequences = 0;
+			for (SequenceInfo info : infosByPfuncUB) {
+				bestComplexes.add(info);
+				if (++numSequences >= maxNumBestSequences) {
+					break;
+				}
+			}
+
+			new ConfDB(ligandConfSpace, ligandConfDBFile).use((ligandDB) -> {
+
+				// get the ligand info for those best K sequences
+				for (SequenceInfo complex : bestComplexes) {
+
+					SequenceInfo ligand = new SequenceInfo(complexToLigandSequence(ligandConfSpace, complex.sequence));
+					ConfDB.SequenceDB sdb = ligandDB.getSequence(ligand.sequence);
+					ligand.readPfuncLowerBoundFromDB(sdb);
+					ligand.readPfuncUpperBoundFromDB(sdb);
+
+					pairs.add(new SequenceInfoPair(complex, ligand));
+				}
+
+			}); // ligand db
+
+		}); // complex db
+
+		// plot the pfunc bounds
+		SVG svg = new SVG();
+
+		SVG.StyleClass wildtypeBoxStyle = svg.makeStyleClass("wildtype-box-style");
+		wildtypeBoxStyle.setStrokeColor(0x66cc55);
+		wildtypeBoxStyle.setStrokeWidth(0.5);
+
+		SVGPlot.Boxes boxes = new SVGPlot.Boxes();
+		boxes.boxStyle.setNoFill();
+		for (SequenceInfoPair pair : pairs) {
+			SVGPlot.Boxes.Box box = boxes.addBox(
+				MathTools.log10p1(pair.ligand.pfuncLowerBound),
+				MathTools.log10p1(pair.ligand.pfuncUpperBound),
+				MathTools.log10p1(pair.complex.pfuncLowerBound),
+				MathTools.log10p1(pair.complex.pfuncUpperBound)
+			);
+			box.id = String.format("%s: complex:[%s,%s] ligand:[%s,%s]",
+				pair.ligand.sequence.toString(),
+				formatBig(pair.complex.pfuncLowerBound),
+				formatBig(pair.complex.pfuncUpperBoundSampled),
+				formatBig(pair.ligand.pfuncLowerBound),
+				formatBig(pair.ligand.pfuncUpperBoundSampled)
+			);
+			if (pair.ligand.sequence.isWildType()) {
+				box.extraStyle = wildtypeBoxStyle;
+			}
+
+			log("%s\n%s", pair.complex, pair.ligand);
+		}
+		boxes.draw(svg);
+		boxes.setBounds(svg, 10, 16);
+
+		svg.finish().write(new File("pfuncs.svg"));
 	}
 
 	public static class SequenceInfo {
@@ -552,6 +752,10 @@ public class NewMethPlayground {
 			return numConfs.subtract(BigInteger.valueOf(numConfsLowerBounded));
 		}
 
+		private double getPfuncUpperBoundFractionSampled() {
+			return MathTools.bigDivide(pfuncUpperBoundSampled, pfuncUpperBound, decimalPrecision).doubleValue();
+		}
+
 		@Override
 		public String toString() {
 			StringBuilder buf = new StringBuilder();
@@ -563,11 +767,11 @@ public class NewMethPlayground {
 				log(buf, "\tpfunc upper bound:             %s", formatBig(pfuncUpperBound));
 				log(buf, "\t\tfrom sampled:                    %s", formatBig(pfuncUpperBoundSampled));
 				log(buf, "\t\tfrom unsampled:                  %s", formatBig(pfuncUpperBoundUnsampled));
-				log(buf, "\t\tpercent sampled:                 %.4f", MathTools.bigDivide(pfuncUpperBoundSampled, pfuncUpperBound, decimalPrecision).doubleValue()*100.0f);
+				log(buf, "\t\tpercent sampled:                 %.4f", getPfuncUpperBoundFractionSampled()*100.0);
 			}
 			if (pfuncLowerBound != null) {
 				log(buf, "\tpfunc lower bound:             %s", formatBig(pfuncLowerBound));
-				double logUncertainty = Math.log10(pfuncUpperBound.doubleValue()) - Math.log10(pfuncLowerBound.doubleValue());
+				double logUncertainty = MathTools.log10p1(pfuncUpperBound) - MathTools.log10p1(pfuncLowerBound);
 				log(buf, "\tpfunc log uncertainty:         %.2f", logUncertainty);
 			}
 			return buf.toString();
@@ -591,6 +795,6 @@ public class NewMethPlayground {
 	}
 
 	private static String formatBig(BigDecimal f) {
-		return String.format("%e (%.2f)", f.doubleValue(), Math.log10(f.doubleValue()));
+		return String.format("%e (%.2f)", f.doubleValue(), MathTools.log10p1(f));
 	}
 }

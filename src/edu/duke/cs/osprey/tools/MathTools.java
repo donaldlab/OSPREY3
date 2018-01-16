@@ -375,6 +375,20 @@ public class MathTools {
 		return bigDivide(bigDivide(a, b, context), c, context);
 	}
 
+	/**
+	 * returns log10(x+1)
+	 *
+	 * chosen because it maps [0,inf] to [0,inf]
+	 * whereas just log10 maps [0,inf] to [-inf,inf]
+	 **/
+	public static double log10p1(BigDecimal x) {
+		return Math.log10(x.add(BigDecimal.ONE).doubleValue());
+	}
+
+	public static double log10p1(double x) {
+		return Math.log10(x + 1);
+	}
+
 	public static String formatBytes(long bytes) {
 		if (bytes < 1024) {
 			return String.format("%d B", bytes);

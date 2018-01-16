@@ -189,4 +189,146 @@ public abstract class SVGPlot {
 			);
 		}
 	}
+
+	public static class Boxes {
+
+		public static class Box {
+
+			public double xmin;
+			public double xmax;
+			public double ymin;
+			public double ymax;
+			public String id;
+			public SVG.StyleClass extraStyle;
+
+			public Box(double xmin, double xmax, double ymin, double ymax) {
+				this.xmin = xmin;
+				this.xmax = xmax;
+				this.ymin = ymin;
+				this.ymax = ymax;
+				this.id = null;
+				this.extraStyle = null;
+			}
+
+			public double getDX() {
+				return xmax - xmin;
+			}
+
+			public double getDY() {
+				return ymax - ymin;
+			}
+		}
+
+		public double axisTicksOn = 10.0;
+		public double minBoxSize = 0.2;
+
+		public SVG.StyleClass boxStyle = new SVG.StyleClass("plot-boxes-box");
+
+		public double xmin = 0.0;
+		public double xmax = 0.0;
+		public double ymin = 0.0;
+		public double ymax = 0.0;
+
+		public LeftVerticalAxis yaxis = null;
+		// TODO
+		// public BottomHorizontalAxis xaxis = null;
+
+		private List<Box> boxes = new ArrayList<>();
+
+		public Boxes() {
+
+			// config styles
+			boxStyle.setStrokeWidth(0.2);
+			boxStyle.setStrokeColor(0x666666);
+			boxStyle.setFillColor(0xcccccc);
+		}
+
+		public Box addBox(double xmin, double xmax, double ymin, double ymax) {
+
+			// make the interval
+			Box box = new Box(xmin, xmax, ymin, ymax);
+			boxes.add(box);
+
+			// update bounds
+			this.xmax = Math.max(this.xmax, xmax);
+			this.ymax = Math.max(this.ymax, ymax);
+
+			return box;
+		}
+
+		public LeftVerticalAxis makeYAxis() {
+			SVGPlot.LeftVerticalAxis axis = new SVGPlot.LeftVerticalAxis();
+			axis.min = 0.0;
+			axis.max = Math.ceil(ymax/axisTicksOn)*axisTicksOn;
+			axis.addTicksOn(axisTicksOn);
+			return axis;
+		}
+
+		/* TODO
+		public LeftVerticalAxis makeXAxis() {
+			SVGPlot.LeftVerticalAxis axis = new SVGPlot.LeftVerticalAxis();
+			axis.min = 0.0;
+			axis.max = Math.ceil(ymax/axisTicksOn)*axisTicksOn;
+			axis.addTicksOn(axisTicksOn);
+			return axis;
+		}
+		*/
+
+		public void draw(SVG svg) {
+
+			svg.putStyleClasses(boxStyle);
+
+			for (Box box : boxes) {
+
+				// just in case...
+				if (Double.isInfinite(box.xmin) || Double.isInfinite(box.xmax) || Double.isInfinite(box.ymin) || Double.isInfinite(box.ymax)) {
+					System.err.println(String.format("WARNING: box [%f,%f]x[%f,%f] is infinite and will not be drawn",
+						box.xmin, box.xmax, box.ymin, box.ymax
+					));
+					continue;
+				}
+
+				// if the interval is big enough, draw a rect
+				SVG.Drawable d;
+				if (box.getDX() >= minBoxSize && box.getDY() >= minBoxSize) {
+					// draw a real rect
+					d = svg.makeRect(
+						box.xmin, box.xmax,
+						box.ymin, box.ymax
+					);
+				} else if (box.getDX() < minBoxSize && box.getDY() < minBoxSize) {
+					// TODO: draw a point?
+					throw new UnsupportedOperationException("draw a point?");
+				} else if (box.getDX() < minBoxSize) {
+					// draw a vertical line
+					d = svg.makeLine(
+						box.xmin, box.ymin,
+						box.xmin, box.ymax
+					);
+				} else { // if (box.getDY() < minBoxSize) {
+					// draw a horizontal line
+					d = svg.makeLine(
+						box.xmin, box.ymin,
+						box.xmax, box.ymin
+					);
+				}
+				d.setStyleClasses(boxStyle, box.extraStyle)
+					.setId(box.id)
+					.draw();
+			}
+
+			// make an axis if needed
+			if (yaxis == null) {
+				yaxis = makeYAxis();
+			}
+			yaxis.draw(svg);
+		}
+
+		public void setBounds(SVG svg, double margin, double tickMargin) {
+			svg.setBounds(
+				xmin - margin - tickMargin, xmax + margin,
+				ymin - margin - tickMargin, ymax + margin
+			);
+		}
+	}
 }
