@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.pruning.AStarSequencePruner;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -9,12 +11,10 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.MathTools;
-import edu.duke.cs.osprey.tools.SVG;
-import edu.duke.cs.osprey.tools.SVGPlot;
-import edu.duke.cs.osprey.tools.TimeTools;
+import edu.duke.cs.osprey.tools.*;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -38,23 +38,37 @@ public class NewMethPlayground {
 		File complexConfDBFile = new File("conf.complex.db");
 		File ligandConfDBFile = new File("conf.ligand.db");
 
-		Molecule mol = PDBIO.readResource("/1CC8.ss.pdb");
+		// try JJ's design
+		Molecule mol = PDBIO.readFile("/home/jeff/dlab/osprey test cases/jj-serialization/gp120SRVRC26.09SR.pdb");
 
-		// TODO: more sequences!
-		// make a simple conf space with two sequences
-		Strand ligand = new Strand.Builder(mol)
-			.setResidues("A2", "A10")
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder()
+			.addMoleculeForWildTypeRotamers(mol)
+			.addTemplates(FileTools.readFile("/home/jeff/dlab/osprey test cases/jj-serialization/all_nuc94_and_gr.in"))
+			.addTemplateCoords(FileTools.readFile("/home/jeff/dlab/osprey test cases/jj-serialization/all_amino_coords.in"))
+			.addRotamers(FileTools.readFile("/home/jeff/dlab/osprey test cases/jj-serialization/GenericRotamers.dat"))
 			.build();
-		ligand.flexibility.get("A5").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "THR", "PHE", "ARG").addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "THR", "PHE", "ARG").addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("A7").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "THR", "PHE", "ARG").addWildTypeRotamers().setContinuous();
+
+		Strand ligand = new Strand.Builder(mol)
+			.setResidues("H1792", "L2250")
+			.setTemplateLibrary(templateLib)
+			.build();
+		ligand.flexibility.get("H1901").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("H1904").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "ILE", "PHE", "TYR", "TRP", "CYS", "MET", "SER", "THR", "LYS", "ARG", "HIS", "ASP", "GLU", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("H1905").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "ILE", "PHE", "TYR", "TRP", "CYS", "MET", "SER", "THR", "LYS", "ARG", "HIS", "ASP", "GLU", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("H1906").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("H1907").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("H1908").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		Strand target = new Strand.Builder(mol)
-			.setResidues("A11", "A72")
+			.setResidues("F379", "J1791")
+			.setTemplateLibrary(templateLib)
 			.build();
-		target.flexibility.get("A11").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		target.flexibility.get("A12").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		target.flexibility.get("A13").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		target.flexibility.get("G973").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		target.flexibility.get("G977").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		target.flexibility.get("G978").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		target.flexibility.get("G979").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		target.flexibility.get("G980").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		target.flexibility.get("J1448").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		SimpleConfSpace complexConfSpace = new SimpleConfSpace.Builder()
 			.addStrand(ligand)
@@ -63,6 +77,10 @@ public class NewMethPlayground {
 
 		SimpleConfSpace ligandConfSpace = new SimpleConfSpace.Builder()
 			.addStrand(ligand)
+			.build();
+
+		SimpleConfSpace targetConfSpace = new SimpleConfSpace.Builder()
+			.addStrand(target)
 			.build();
 
 		// calc the emats
@@ -92,22 +110,20 @@ public class NewMethPlayground {
 		}
 
 		final int maxNumBestSequences = 100;
+		final int maxNumConfsPerSequence = 100;
 		final int maxNumConfsUpperBounded = 1;
 		final double pfuncUBFractionSampled = 0.99;
 
 		// analyze complex
-		clearDB(complexConfDBFile);
-		calculateComplexUpperBounds(complexConfSpace, complexEmat, complexConfDBFile, maxNumBestSequences);
-		calculateComplexLowerBounds(complexConfSpace, complexEmat, complexConfDBFile, maxNumBestSequences, maxNumConfsUpperBounded);
+		//clearDB(complexConfDBFile);
+		//calculateComplexUpperBounds(complexConfSpace, complexEmat, complexConfDBFile, maxNumBestSequences, maxNumConfsPerSequence);
+		//calculateComplexLowerBounds(complexConfSpace, complexEmat, complexConfDBFile, maxNumBestSequences, maxNumConfsUpperBounded);
 		List<SequenceInfo> bestComplexes = analyzeComplexes(complexConfSpace, complexConfDBFile, maxNumBestSequences);
 
 		// analyze ligand for the best complex sequences
-		clearDB(ligandConfDBFile);
-		calculateLigandBounds(ligandConfSpace, ligandEmat, ligandConfDBFile, bestComplexes, pfuncUBFractionSampled, maxNumConfsUpperBounded);
-		analyze(complexConfSpace, complexConfDBFile, maxNumBestSequences, ligandConfSpace, ligandConfDBFile);
-
-		// TODO: bound the pfunc for the target
-		// TODO: draw K* bounds
+		//clearDB(ligandConfDBFile);
+		//calculateLigandBounds(ligandConfSpace, ligandEmat, ligandConfDBFile, bestComplexes, pfuncUBFractionSampled, maxNumConfsUpperBounded);
+		//analyze(complexConfSpace, complexConfDBFile, maxNumBestSequences, ligandConfSpace, ligandConfDBFile);
 	}
 
 	private static void clearDB(File confDBFile) {
@@ -116,14 +132,27 @@ public class NewMethPlayground {
 		}
 	}
 
-	private static void calculateComplexUpperBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, int maxNumBestSequences) {
+	private static void calculateComplexUpperBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, int maxNumBestSequences, double maxNumConfsPerSequence) {
 
 		new ConfDB(confSpace, confDBFile).use((db) -> {
 
-			ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
-				.setTraditional()
-				.setShowProgress(true)
-				.build();
+			AStarSequencePruner pruner = new AStarSequencePruner(confSpace);
+
+			Supplier<ConfAStarTree> astarFactory = () -> {
+				ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+					//.setTraditional()
+					.setMPLP(new ConfAStarTree.MPLPBuilder()
+						.setUpdater(new EdgeUpdater())
+						.setNumIterations(40)
+					)
+					.setPruner(pruner)
+					.setShowProgress(true)
+					.build();
+				astar.setParallelism(Parallelism.makeCpu(6));
+				return astar;
+			};
+
+			ConfAStarTree astar = astarFactory.get();
 
 			BigInteger numSequences = confSpace.calcNumSequences();
 			BigInteger numConfs = astar.getNumConformations();
@@ -203,6 +232,16 @@ public class NewMethPlayground {
 				// update pfunc upper bound for this sequence
 				info.updatePfuncUpperBound(conf.getScore());
 
+				// if this sequence's pfUB is sufficiently estimated, prune all confs for that sequence from the tree
+				if (info.numConfsLowerBounded >= maxNumConfsPerSequence) {
+					// TEMP
+					log("estimated pfUB to %.12f for %s", info.getPfuncUpperBoundFractionSampled(), info.sequence);
+					pruner.add(info.sequence);
+
+					// recycle the A* tree
+					astar = astarFactory.get();
+				}
+
 				// re-sort sequences
 				for (TreeSet<SequenceInfo> infos : Arrays.asList(infosByPfuncLBoUB, infosByPfuncUB)) {
 					infos.remove(info);
@@ -213,11 +252,11 @@ public class NewMethPlayground {
 				BigDecimal otherSequencesPfuncUB = weightedLowerEnergy.multiply(new BigDecimal(maxNumConfsForSequence), decimalPrecision);
 
 				/* TEMP
-				log("%4d/%d   sequence: %s   ceLB: %.3f   wceLB: %s   pfUB: [%s,%s]   pfUB for unsampled sequences: %s",
-					++numConfsLowerBounded, numConfs,
-					sdb.sequence.toString(),
+				log("sequence: %s   ceLB: %.3f   wceLB: %s   pfUB: [%s,%s] %.6f   pfUB for unsampled sequences: %s",
+					info.sequence,
 					conf.getScore(), formatBig(weightedLowerEnergy),
 					formatBig(info.pfuncUpperBoundSampled), formatBig(info.pfuncUpperBound),
+					info.getPfuncUpperBoundFractionSampled(),
 					formatBig(otherSequencesPfuncUB)
 				);
 				*/
@@ -273,6 +312,7 @@ public class NewMethPlayground {
 			SVG svg = new SVG();
 
 			SVG.StyleClass wildtypeIntervalStyle = svg.makeStyleClass("wildtype-interval-style");
+			wildtypeIntervalStyle.priority = 10;
 			wildtypeIntervalStyle.setStrokeColor(0x66cc55);
 			wildtypeIntervalStyle.setStrokeWidth(0.5);
 
@@ -288,6 +328,8 @@ public class NewMethPlayground {
 					interval.extraStyle = wildtypeIntervalStyle;
 				}
 			}
+			intervals.axis = intervals.makeAxis();
+			intervals.axis.tickFormat = "%.0f";
 			intervals.draw(svg);
 			intervals.setBounds(svg, 10, 16);
 			svg.finish().write(new File("pfunc.complex.upperBounds.svg"));
@@ -398,6 +440,7 @@ public class NewMethPlayground {
 			SVG svg = new SVG();
 
 			SVG.StyleClass wildtypeIntervalStyle = svg.makeStyleClass("wildtype-interval-style");
+			wildtypeIntervalStyle.priority = 10;
 			wildtypeIntervalStyle.setStrokeColor(0x66cc55);
 			wildtypeIntervalStyle.setStrokeWidth(0.5);
 
@@ -415,9 +458,10 @@ public class NewMethPlayground {
 				);
 				if (info.sequence.isWildType()) {
 					interval.extraStyle = wildtypeIntervalStyle;
-					// TODO: this isn't showing up in the SVG due to style class ordering issues
 				}
 			}
+			intervals.axis = intervals.makeAxis();
+			intervals.axis.tickFormat = "%.0f";
 			intervals.draw(svg);
 			intervals.setBounds(svg, 10, 16);
 
@@ -573,38 +617,89 @@ public class NewMethPlayground {
 		}); // complex db
 
 		// plot the pfunc bounds
-		SVG svg = new SVG();
+		{
+			SVG svg = new SVG();
 
-		SVG.StyleClass wildtypeBoxStyle = svg.makeStyleClass("wildtype-box-style");
-		wildtypeBoxStyle.setStrokeColor(0x66cc55);
-		wildtypeBoxStyle.setStrokeWidth(0.5);
+			SVG.StyleClass wildtypeBoxStyle = svg.makeStyleClass("wildtype-box-style");
+			wildtypeBoxStyle.priority = 10;
+			wildtypeBoxStyle.setStrokeColor(0x66cc55);
+			wildtypeBoxStyle.setStrokeWidth(0.5);
 
-		SVGPlot.Boxes boxes = new SVGPlot.Boxes();
-		boxes.boxStyle.setNoFill();
-		for (SequenceInfoPair pair : pairs) {
-			SVGPlot.Boxes.Box box = boxes.addBox(
-				MathTools.log10p1(pair.ligand.pfuncLowerBound),
-				MathTools.log10p1(pair.ligand.pfuncUpperBound),
-				MathTools.log10p1(pair.complex.pfuncLowerBound),
-				MathTools.log10p1(pair.complex.pfuncUpperBound)
-			);
-			box.id = String.format("%s: complex:[%s,%s] ligand:[%s,%s]",
-				pair.ligand.sequence.toString(),
-				formatBig(pair.complex.pfuncLowerBound),
-				formatBig(pair.complex.pfuncUpperBoundSampled),
-				formatBig(pair.ligand.pfuncLowerBound),
-				formatBig(pair.ligand.pfuncUpperBoundSampled)
-			);
-			if (pair.ligand.sequence.isWildType()) {
-				box.extraStyle = wildtypeBoxStyle;
+			SVGPlot.Boxes boxes = new SVGPlot.Boxes();
+			boxes.boxStyle.setNoFill();
+			for (SequenceInfoPair pair : pairs) {
+				SVGPlot.Boxes.Box box = boxes.addBox(
+					MathTools.log10p1(pair.ligand.pfuncLowerBound),
+					MathTools.log10p1(pair.ligand.pfuncUpperBound),
+					MathTools.log10p1(pair.complex.pfuncLowerBound),
+					MathTools.log10p1(pair.complex.pfuncUpperBound)
+				);
+				box.id = String.format("%s: complex:[%s,%s] ligand:[%s,%s]",
+					pair.ligand.sequence.toString(),
+					formatBig(pair.complex.pfuncLowerBound),
+					formatBig(pair.complex.pfuncUpperBoundSampled),
+					formatBig(pair.ligand.pfuncLowerBound),
+					formatBig(pair.ligand.pfuncUpperBoundSampled)
+				);
+				if (pair.ligand.sequence.isWildType()) {
+					box.extraStyle = wildtypeBoxStyle;
+				}
+
+				log("%s\n%s", pair.complex, pair.ligand);
 			}
+			boxes.xaxis = boxes.makeXAxis();
+			boxes.xaxis.tickFormat = "%.0f";
+			boxes.yaxis = boxes.makeYAxis();
+			boxes.yaxis.tickFormat = "%.0f";
+			boxes.draw(svg);
+			boxes.setBounds(svg, 10, 16);
 
-			log("%s\n%s", pair.complex, pair.ligand);
+			svg.finish().write(new File("pfuncs.svg"));
 		}
-		boxes.draw(svg);
-		boxes.setBounds(svg, 10, 16);
 
-		svg.finish().write(new File("pfuncs.svg"));
+		// sort sequences by decreasing binding score upper bounds
+		pairs.sort(Comparator.comparing((SequenceInfoPair pair) ->
+			MathTools.bigDivide(pair.complex.pfuncUpperBound, pair.ligand.pfuncLowerBound, decimalPrecision)
+		).reversed());
+
+		// plot bounds on binding score
+		{
+			SVG svg = new SVG();
+
+			SVG.StyleClass wildtypeIntervalStyle = svg.makeStyleClass("wildtype-interval-style");
+			wildtypeIntervalStyle.priority = 10;
+			wildtypeIntervalStyle.setStrokeColor(0x66cc55);
+			wildtypeIntervalStyle.setStrokeWidth(0.5);
+
+			SVGPlot.Intervals intervals = new SVGPlot.Intervals();
+			intervals.intervalWidth = 2.0;
+			for (SequenceInfoPair pair : pairs) {
+
+				// compute the binding score
+				BigDecimal lowerBinding = MathTools.bigDivide(pair.complex.pfuncLowerBound, pair.ligand.pfuncUpperBound, decimalPrecision);
+				BigDecimal upperBinding = MathTools.bigDivide(pair.complex.pfuncUpperBound, pair.ligand.pfuncLowerBound, decimalPrecision);
+
+				SVGPlot.Intervals.Interval interval = intervals.addInterval(
+					MathTools.log10p1(lowerBinding),
+					MathTools.log10p1(upperBinding)
+				);
+				interval.id = String.format("%s: [%s,%s]",
+					pair.ligand.sequence.toString(),
+					formatBig(lowerBinding),
+					formatBig(upperBinding)
+				);
+				if (pair.ligand.sequence.isWildType()) {
+					interval.extraStyle = wildtypeIntervalStyle;
+				}
+			}
+			intervals.axis = intervals.makeAxis();
+			intervals.axis.tickFormat = "%.0f";
+			intervals.draw(svg);
+			intervals.setBounds(svg, 10, 16);
+
+			svg.finish().write(new File("binding.svg"));
+		}
+
 	}
 
 	public static class SequenceInfo {
