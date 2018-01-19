@@ -11,7 +11,9 @@ import org.apache.batik.util.SVGConstants;
 import org.w3c.dom.*;
 
 import java.awt.*;
+import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.io.*;
 import java.lang.reflect.Field;
@@ -48,6 +50,8 @@ public class SVG {
 
 		public final String name;
 		public final Map<String,String> values = new HashMap<>();
+
+		public int priority = 0;
 
 		public StyleClass(String name) {
 			this.name = name;
@@ -267,8 +271,6 @@ public class SVG {
 
 	private Rectangle2D.Double bounds;
 
-	// TODO: SVG uses y-down convention! Need to flip to y-up!!
-
 	public SVG() {
 
 		// make the SVG DOM
@@ -354,6 +356,11 @@ public class SVG {
 		));
 	}
 
+	public ShapeDrawable makePoint(double x, double y, double radius) {
+		double size = radius*2;
+		return new ShapeDrawable(new Ellipse2D.Double(x - radius, y - radius, size, size));
+	}
+
 	public TextDrawable makeText(String text) {
 		return new TextDrawable(text);
 	}
@@ -378,14 +385,22 @@ public class SVG {
 
 			// flip all the text elements back
 			for (Element textElem : elements(svgElem.getElementsByTagName("text"))) {
-				String y = textElem.getAttribute(SVGConstants.SVG_Y_ATTRIBUTE);
-				textElem.setAttribute(SVGConstants.SVG_TRANSFORM_ATTRIBUTE, String.format("scale(1,-1) translate(0, -%s) translate(0, -%s)", y, y));
+				try {
+					double y = Double.parseDouble(textElem.getAttribute(SVGConstants.SVG_Y_ATTRIBUTE));
+					textElem.setAttribute(SVGConstants.SVG_TRANSFORM_ATTRIBUTE, String.format("scale(1,-1) translate(0, %f) translate(0, %f)", -y, -y));
+				} catch (NumberFormatException ex) {
+					// something went wrong, don't flip the text
+				}
 			}
 
 			// build the stylesheet from the classes
 			CDATASection stylesheet = doc.createCDATASection("");
 
-			for (StyleClass styleClass : styleClasses.values()) {
+			// sort the style classes by priority
+			List<StyleClass> sortedStyleClasses = new ArrayList<>(styleClasses.values());
+			sortedStyleClasses.sort(Comparator.comparingInt(a -> a.priority));
+
+			for (StyleClass styleClass : sortedStyleClasses) {
 				stylesheet.appendData(".");
 				stylesheet.appendData(styleClass.name);
 				stylesheet.appendData(" { ");

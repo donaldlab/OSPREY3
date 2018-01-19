@@ -5,25 +5,24 @@ import java.util.List;
 
 public abstract class SVGPlot {
 
-	public static class LeftVerticalAxis {
-
-		public double min = 0.0;
-		public double max = 100.0;
+	public static abstract class Axis {
 
 		public double x = 0.0;
 		public double y = 0.0;
+
+		public double min = 0.0;
+		public double max = 100.0;
 
 		public List<Double> ticks = new ArrayList<>();
 
 		public double tickLength = 4.0;
 		public String tickFormat = "%.1f";
-		public double tickTextMargin = 4.0;
-		public double tickTextDy = -2;
+		public double tickTextMargin = 2.0;
 
 		public SVG.StyleClass lineStyle = new SVG.StyleClass("plot-axis-line");
 		public SVG.StyleClass tickTextStyle = new SVG.StyleClass("plot-axis-text");
 
-		public LeftVerticalAxis() {
+		public Axis() {
 
 			// config default styles
 
@@ -33,18 +32,31 @@ public abstract class SVGPlot {
 			tickTextStyle.setFillColor(0x000000);
 			tickTextStyle.setFontSize(5.0, SVG.LengthUnit.px);
 			tickTextStyle.setNoStroke();
-			tickTextStyle.setTextAnchor(SVG.StyleClass.TextAnchor.End);
 		}
 
 		public void addTicksOn(double multiple) {
-			for (double val = Math.floor(min/multiple); val < max; val += multiple) {
+			for (double val = Math.floor(min/multiple)*multiple + multiple; val < max; val += multiple) {
 				ticks.add(val);
 			}
 		}
 
-		public void draw(SVG svg) {
-
+		protected void preDraw(SVG svg) {
 			svg.putStyleClasses(lineStyle, tickTextStyle);
+		}
+	}
+
+	public static class LeftAxis extends Axis {
+
+		public double tickTextDy = -2;
+
+		public LeftAxis() {
+
+			// set text alignment
+			tickTextStyle.setTextAnchor(SVG.StyleClass.TextAnchor.End);
+		}
+
+		public void draw(SVG svg) {
+			preDraw(svg);
 
 			// axis line
 			svg.makeLine(
@@ -66,9 +78,9 @@ public abstract class SVGPlot {
 
 			// draw the line
 			svg.makeLine(
-				x, y,
-				x - tickLength, y
-			)
+					x, y,
+					x - tickLength, y
+				)
 				.setStyleClasses(lineStyle)
 				.draw();
 
@@ -80,6 +92,54 @@ public abstract class SVGPlot {
 				.draw();
 		}
 	}
+
+	public static class BottomAxis extends Axis {
+
+		public int tickTextHeight = 5;
+
+		public BottomAxis() {
+
+			// set text alignment
+			tickTextStyle.setTextAnchor(SVG.StyleClass.TextAnchor.Middle);
+		}
+
+		public void draw(SVG svg) {
+			super.preDraw(svg);
+
+			// axis line
+			svg.makeLine(
+					x + min, y,
+					x + max, y
+				)
+				.setStyleClasses(lineStyle)
+				.draw();
+
+			// draw the ticks
+			drawTick(svg, min);
+			for (double x : ticks) {
+				drawTick(svg, x);
+			}
+			drawTick(svg, max);
+		}
+
+		private void drawTick(SVG svg, double x) {
+
+			// draw the line
+			svg.makeLine(
+					x, y,
+					x, y - tickLength
+				)
+				.setStyleClasses(lineStyle)
+				.draw();
+
+			// add the text
+			svg.makeText(String.format(tickFormat, x))
+				.setPos(x, y - tickLength - tickTextMargin - tickTextHeight)
+				.setStyleClasses(tickTextStyle)
+				.draw();
+		}
+	}
+
 
 	public static class Intervals {
 
@@ -110,7 +170,7 @@ public abstract class SVGPlot {
 		public double ymin = 0.0;
 		public double ymax = 0.0;
 
-		public LeftVerticalAxis axis = null;
+		public LeftAxis axis = null;
 
 		private List<Interval> intervals = new ArrayList<>();
 
@@ -135,8 +195,8 @@ public abstract class SVGPlot {
 			return interval;
 		}
 
-		public LeftVerticalAxis makeAxis() {
-			SVGPlot.LeftVerticalAxis axis = new SVGPlot.LeftVerticalAxis();
+		public LeftAxis makeAxis() {
+			SVGPlot.LeftAxis axis = new SVGPlot.LeftAxis();
 			axis.min = 0.0;
 			axis.max = Math.ceil(ymax/axisTicksOn)*axisTicksOn;
 			axis.addTicksOn(axisTicksOn);
@@ -160,17 +220,8 @@ public abstract class SVGPlot {
 					continue;
 				}
 
-				// if the interval is big enough, draw a rect
-				SVG.Drawable d;
-				if (y2 - y1 >= minRectHeight) {
-					d = svg.makeRect(x, x + intervalWidth, y1, y2);
-				} else {
-					d = svg.makeLine(
-						x, y1,
-						x + intervalWidth, y1
-					);
-				}
-				d.setStyleClasses(intervalStyle, interval.extraStyle)
+				svg.makeRect(x, x + intervalWidth, y1, y2)
+					.setStyleClasses(intervalStyle, interval.extraStyle)
 					.setId(interval.id)
 					.draw();
 			}
@@ -220,7 +271,6 @@ public abstract class SVGPlot {
 		}
 
 		public double axisTicksOn = 10.0;
-		public double minBoxSize = 0.2;
 
 		public SVG.StyleClass boxStyle = new SVG.StyleClass("plot-boxes-box");
 
@@ -229,9 +279,8 @@ public abstract class SVGPlot {
 		public double ymin = 0.0;
 		public double ymax = 0.0;
 
-		public LeftVerticalAxis yaxis = null;
-		// TODO
-		// public BottomHorizontalAxis xaxis = null;
+		public BottomAxis xaxis = null;
+		public LeftAxis yaxis = null;
 
 		private List<Box> boxes = new ArrayList<>();
 
@@ -256,23 +305,21 @@ public abstract class SVGPlot {
 			return box;
 		}
 
-		public LeftVerticalAxis makeYAxis() {
-			SVGPlot.LeftVerticalAxis axis = new SVGPlot.LeftVerticalAxis();
+		public BottomAxis makeXAxis() {
+			SVGPlot.BottomAxis axis = new SVGPlot.BottomAxis();
 			axis.min = 0.0;
-			axis.max = Math.ceil(ymax/axisTicksOn)*axisTicksOn;
+			axis.max = Math.ceil(xmax/axisTicksOn)*axisTicksOn;
 			axis.addTicksOn(axisTicksOn);
 			return axis;
 		}
 
-		/* TODO
-		public LeftVerticalAxis makeXAxis() {
-			SVGPlot.LeftVerticalAxis axis = new SVGPlot.LeftVerticalAxis();
+		public LeftAxis makeYAxis() {
+			SVGPlot.LeftAxis axis = new SVGPlot.LeftAxis();
 			axis.min = 0.0;
 			axis.max = Math.ceil(ymax/axisTicksOn)*axisTicksOn;
 			axis.addTicksOn(axisTicksOn);
 			return axis;
 		}
-		*/
 
 		public void draw(SVG svg) {
 
@@ -290,26 +337,17 @@ public abstract class SVGPlot {
 
 				// if the interval is big enough, draw a rect
 				SVG.Drawable d;
-				if (box.getDX() >= minBoxSize && box.getDY() >= minBoxSize) {
+				if (box.getDX() == 0 && box.getDY() == 0) {
+					// draw a point
+					d = svg.makePoint(
+						box.xmin, box.ymin,
+						0.01
+					);
+				} else {
 					// draw a real rect
 					d = svg.makeRect(
 						box.xmin, box.xmax,
 						box.ymin, box.ymax
-					);
-				} else if (box.getDX() < minBoxSize && box.getDY() < minBoxSize) {
-					// TODO: draw a point?
-					throw new UnsupportedOperationException("draw a point?");
-				} else if (box.getDX() < minBoxSize) {
-					// draw a vertical line
-					d = svg.makeLine(
-						box.xmin, box.ymin,
-						box.xmin, box.ymax
-					);
-				} else { // if (box.getDY() < minBoxSize) {
-					// draw a horizontal line
-					d = svg.makeLine(
-						box.xmin, box.ymin,
-						box.xmax, box.ymin
 					);
 				}
 				d.setStyleClasses(boxStyle, box.extraStyle)
@@ -317,7 +355,11 @@ public abstract class SVGPlot {
 					.draw();
 			}
 
-			// make an axis if needed
+			// make the axes if needed
+			if (xaxis == null) {
+				xaxis = makeXAxis();
+			}
+			xaxis.draw(svg);
 			if (yaxis == null) {
 				yaxis = makeYAxis();
 			}
