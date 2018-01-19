@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.astar.conf.linked.LinkedConfAStarFactory;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
@@ -41,6 +42,7 @@ public class ConfAStarTree implements ConfSearch {
 		private AStarScorer hscorer = null;
 		private boolean showProgress = false;
 		private ConfAStarFactory factory = new LinkedConfAStarFactory();
+		private AStarPruner pruner = null;
 		
 		public Builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
 			this(emat, new RCs(confSpace));
@@ -123,6 +125,11 @@ public class ConfAStarTree implements ConfSearch {
 			showProgress = val;
 			return this;
 		}
+
+		public Builder setPruner(AStarPruner val) {
+			pruner = val;
+			return this;
+		}
 		
 		public ConfAStarTree build() {
 			ConfAStarTree tree = new ConfAStarTree(
@@ -130,7 +137,8 @@ public class ConfAStarTree implements ConfSearch {
 				gscorer,
 				hscorer,
 				rcs,
-				factory
+				factory,
+				pruner
 			);
 			if (showProgress) {
 				tree.initProgress();
@@ -214,6 +222,7 @@ public class ConfAStarTree implements ConfSearch {
 	public final AStarScorer hscorer;
 	public final RCs rcs;
 	public final ConfAStarFactory factory;
+	public final AStarPruner pruner;
 	
 	private final Queue<ConfAStarNode> queue;
 	private final ConfIndex confIndex;
@@ -224,12 +233,13 @@ public class ConfAStarTree implements ConfSearch {
 	private TaskExecutor tasks;
 	private ObjectPool<ScoreContext> contexts;
 	
-	private ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, RCs rcs, ConfAStarFactory factory) {
+	private ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, RCs rcs, ConfAStarFactory factory, AStarPruner pruner) {
 		this.order = order;
 		this.gscorer = gscorer;
 		this.hscorer = hscorer;
 		this.rcs = rcs;
 		this.factory = factory;
+		this.pruner = pruner;
 		
 		this.queue = factory.makeQueue(rcs);
 		this.confIndex = new ConfIndex(this.rcs.getNumPos());
@@ -329,6 +339,11 @@ public class ConfAStarTree implements ConfSearch {
 			
 			// get the next node to expand
 			ConfAStarNode node = queue.poll();
+
+			// if this node was pruned dynamically, then ignore it
+			if (pruner != null && pruner.isPruned(node)) {
+				continue;
+			}
 			
 			// leaf node? report it
 			if (node.getLevel() == rcs.getNumPos()) {
@@ -354,7 +369,12 @@ public class ConfAStarTree implements ConfSearch {
 				if (hasPrunedPair(confIndex, nextPos, nextRc)) {
 					continue;
 				}
-				
+
+				// if this child was pruned dynamically, then don't score it
+				if (pruner != null && pruner.isPruned(node, nextPos, nextRc)) {
+					continue;
+				}
+
 				tasks.submit(() -> {
 					
 					try (Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
