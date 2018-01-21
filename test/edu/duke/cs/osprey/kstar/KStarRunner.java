@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import static edu.duke.cs.osprey.TestBase.log;
+
 
 public class KStarRunner {
 
@@ -246,9 +248,5 @@ public class KStarRunner {
 
 			svg.finish().write(new File("binding.kstar.svg"));
 		}
-	}
-
-	private static void log(String format, Object ... args) {
-		System.out.println(String.format(format, args));
 	}
 }

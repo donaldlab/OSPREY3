@@ -25,6 +25,9 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static edu.duke.cs.osprey.TestBase.formatBig;
+import static edu.duke.cs.osprey.TestBase.log;
+
 
 public class NewMethPlayground {
 
@@ -871,25 +874,5 @@ public class NewMethPlayground {
 			}
 			return buf.toString();
 		}
-	}
-
-	private static void log(String format, Object ... args) {
-		System.out.println(String.format(format, args));
-	}
-
-	private static void log(StringBuilder buf, String format, Object ... args) {
-		buf.append(String.format(format + "\n", args));
-	}
-
-	private static String formatBig(BigInteger i) {
-		if (i.compareTo(BigInteger.valueOf(1000000)) < 0) {
-			return String.format("%s", i);
-		} else {
-			return String.format("%e", i.doubleValue());
-		}
-	}
-
-	private static String formatBig(BigDecimal f) {
-		return String.format("%e (%.2f)", f.doubleValue(), MathTools.log10p1(f));
 	}
 }
