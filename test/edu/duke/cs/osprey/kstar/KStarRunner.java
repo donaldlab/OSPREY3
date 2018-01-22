@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-import static edu.duke.cs.osprey.TestBase.log;
+import static edu.duke.cs.osprey.tools.Log.log;
 
 
 public class KStarRunner {

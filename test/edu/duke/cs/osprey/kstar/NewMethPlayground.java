@@ -1,10 +1,16 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.ranking.ConfRanker;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.pruning.AStarSequencePruner;
+import edu.duke.cs.osprey.astar.conf.ranking.DynamicHeuristicPruningOrderer;
+import edu.duke.cs.osprey.astar.conf.ranking.SequentialOrderer;
+import edu.duke.cs.osprey.astar.conf.ranking.StaticOptimalPruningOrderer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -22,11 +28,12 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static edu.duke.cs.osprey.TestBase.formatBig;
-import static edu.duke.cs.osprey.TestBase.log;
+import static edu.duke.cs.osprey.tools.Log.formatBig;
+import static edu.duke.cs.osprey.tools.Log.log;
 
 
 public class NewMethPlayground {
@@ -121,12 +128,15 @@ public class NewMethPlayground {
 		//clearDB(complexConfDBFile);
 		//calculateComplexUpperBounds(complexConfSpace, complexEmat, complexConfDBFile, maxNumBestSequences, maxNumConfsPerSequence);
 		//calculateComplexLowerBounds(complexConfSpace, complexEmat, complexConfDBFile, maxNumBestSequences, maxNumConfsUpperBounded);
-		List<SequenceInfo> bestComplexes = analyzeComplexes(complexConfSpace, complexConfDBFile, maxNumBestSequences);
+		//List<SequenceInfo> bestComplexes = analyzeComplexes(complexConfSpace, complexConfDBFile, maxNumBestSequences);
 
 		// analyze ligand for the best complex sequences
 		//clearDB(ligandConfDBFile);
 		//calculateLigandBounds(ligandConfSpace, ligandEmat, ligandConfDBFile, bestComplexes, pfuncUBFractionSampled, maxNumConfsUpperBounded);
 		//analyze(complexConfSpace, complexConfDBFile, maxNumBestSequences, ligandConfSpace, ligandConfDBFile);
+
+		// try pfunc stuff using the new conf ranker
+		pfuncStuff(complexConfSpace, complexEmat);
 	}
 
 	private static void clearDB(File confDBFile) {
@@ -874,5 +884,96 @@ public class NewMethPlayground {
 			}
 			return buf.toString();
 		}
+	}
+
+	private static void pfuncStuff(SimpleConfSpace confSpace, EnergyMatrix emat) {
+
+		// pick the wild-type sequence
+		Sequence sequence = confSpace.makeWildTypeSequence();
+		RCs rcs = sequence.makeRCs();
+
+		log("confs: %s", formatBig(makeAStar(emat, rcs).getNumConformations()));
+
+		// get the min,max scores
+		double minScore = makeAStar(emat, rcs)
+			.nextConf()
+			.getScore();
+		log("min score: %.4f", minScore);
+		double maxScore = -makeAStar(new NegatedEnergyMatrix(confSpace, emat), rcs)
+			.nextConf()
+			.getScore();
+		log("max score: %.4f", maxScore);
+
+		// how quickly can we just enumerate the confs?
+		/* about 1 M in 20 s, apparently... oi!
+		{
+			ConfAStarTree astar = makeAStar(emat, rcs);
+			long numConfs = 0;
+			Stopwatch stopwatch = new Stopwatch().start();
+			while (numConfs < 1000000) {
+
+				ConfSearch.ScoredConf conf = astar.nextConf();
+				if (conf == null) {
+					break;
+				}
+
+				numConfs++;
+
+				if (numConfs % 10000 == 0) {
+					log("running for %s, got %d confs", stopwatch.getTime(2), numConfs);
+				}
+			}
+		}
+		*/
+
+		// get the rank of various scores
+		//ConfRanker.Orderer orderer = new SequentialOrderer();
+		//ConfRanker.Orderer orderer = new StaticOptimalPruningOrderer();
+		ConfRanker.Orderer orderer = new DynamicHeuristicPruningOrderer();
+		ConfRanker ranker = new ConfRanker(confSpace, rcs, emat, orderer, (b) -> {
+			b.setTraditional();
+			/*
+			b.setMPLP(new ConfAStarTree.MPLPBuilder()
+				.setUpdater(new EdgeUpdater())
+				.setNumIterations(40)
+			);
+			*/
+		});
+		ranker.reportProgress = true;
+
+		Consumer<Double> func = (queryScore) -> {
+			Stopwatch stopwatch = new Stopwatch().start();
+			BigInteger rank = ranker.getNumConfsAtMost(queryScore);
+			stopwatch.stop();
+			log("score %.4f  rank %s     %s", queryScore, formatBig(rank), stopwatch.getTime(2));
+		};
+
+
+		func.accept(minScore - 0.00001);
+		func.accept(maxScore + 0.1);
+		/* TEMP
+		func.accept(minScore + 1.0);
+		func.accept(minScore + 2.0);
+		func.accept(minScore + 3.0);
+		func.accept(minScore + 4.0);
+		func.accept(minScore + 5.0);
+		func.accept(minScore + 6.0);
+		func.accept(minScore + 7.0);
+		func.accept(minScore + 8.0);
+		*/
+		func.accept(0.0);
+	}
+
+	private static ConfAStarTree makeAStar(EnergyMatrix emat, RCs rcs) {
+		ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
+			.setTraditional()
+			/*.setMPLP(new ConfAStarTree.MPLPBuilder()
+				.setUpdater(new EdgeUpdater())
+				.setNumIterations(40)
+			)
+			*/
+			.build();
+		astar.setParallelism(Parallelism.makeCpu(6));
+		return astar;
 	}
 }
