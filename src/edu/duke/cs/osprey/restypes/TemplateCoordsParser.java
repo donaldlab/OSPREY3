@@ -82,4 +82,21 @@ public class TemplateCoordsParser {
 			curLine = lines.next();
 		}
 	}
+
+
+	public static String writeTemplateCoords(Residue res, String templateName){
+		//Write out a residue's coords in template format
+		StringBuilder sb = new StringBuilder();
+		sb.append(templateName+" "+res.atoms.size()+"\n");
+		for(Atom at : res.atoms){
+			double coords[] = at.getCoords();
+			sb.append(at.name);
+			for(double c : coords)
+				sb.append(" "+c);
+			sb.append("\n");
+		}
+		sb.append("ENDRES\n");
+		return sb.toString();
+	}
+
 }

@@ -41,7 +41,7 @@ public class MutAlignment {
         this.oldTemplate = oldTemplate;
         this.newTemplate = newTemplate;
         String curCA = oldTemplate.CAEquivalent;
-        if(newTemplate.CAEquivalent!=curCA) {
+        if(!newTemplate.CAEquivalent.equalsIgnoreCase(curCA)) {
             throw makeError("sidechains are defined differently: CA equivalent is "+
                 curCA+" for old template, "+newTemplate.CAEquivalent+" for new");
         }
@@ -243,7 +243,7 @@ public class MutAlignment {
             return false;
         if(getNewTemplateAtom(atom)==null || getOldTemplateAtom(atom)==null)
             return false;
-        if(atom==N || atom==CA)//already taken
+        if(atom.equalsIgnoreCase(N) || atom.equalsIgnoreCase(CA))//already taken
             return false;
         if(N!=null) {//make sure the atoms are non-collinear
             //and in approximately the same geometry between the two templates
