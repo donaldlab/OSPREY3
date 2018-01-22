@@ -1,16 +1,9 @@
 package edu.duke.cs.osprey.astar.conf.ranking;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
-import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 
-import java.util.List;
-
-import static edu.duke.cs.osprey.tools.Log.formatBig;
-import static edu.duke.cs.osprey.tools.Log.log;
 
 /**
  * chooses the next position that optimizes conf sub-tree pruning,
@@ -63,134 +56,91 @@ public class DynamicHeuristicPruningOrderer implements ConfRanker.Orderer {
 		}
 	}
 
-	private ConfIndex confIndex = null;
 	private GScoreAStarNode lowerNode = new GScoreAStarNode();
 	private GScoreAStarNode upperNode = new GScoreAStarNode();
-	private AStarScorer lowerGScorer = null;
-	private AStarScorer lowerHScorer = null;
-	private AStarScorer upperGScorer = null;
-	private AStarScorer upperHScorer = null;
 	private int[] oneRc = { 0 };
 
 	@Override
-	public SimpleConfSpace.Position getNextPosition(ConfRanker ranker, int[] confMask, List<SimpleConfSpace.Position> unassignedPositions, double queryScore) {
-
-		// first time init, if needed
-		if (confIndex == null) {
-			confIndex = new ConfIndex(ranker.confSpace.positions.size());
-
-			RCs rcs = new RCs(ranker.confSpace);
-
-			ConfAStarTree lowerAStar = ranker.makeAStar(ranker.emat, rcs);
-			lowerGScorer = lowerAStar.gscorer;
-			lowerHScorer = lowerAStar.hscorer;
-
-			ConfAStarTree upperAStar = ranker.makeAStar(ranker.negatedEmat, rcs);
-			upperGScorer = upperAStar.gscorer;
-			upperHScorer = upperAStar.hscorer;
-		}
-
-		// populate the conf index with the mask
-		confIndex.numDefined = 0;
-		confIndex.numUndefined = 0;
-		for (SimpleConfSpace.Position pos : ranker.confSpace.positions) {
-			int rc = confMask[pos.index];
-			if (rc == -1) {
-				confIndex.undefinedPos[confIndex.numUndefined] = pos.index;
-				confIndex.numUndefined++;
-			} else {
-				confIndex.definedPos[confIndex.numDefined] = pos.index;
-				confIndex.definedRCs[confIndex.numDefined] = confMask[pos.index];
-				confIndex.numDefined++;
-			}
-		}
+	public int getNextPosition(ConfRanker ranker, ConfIndex confIndex, RCs rcs, double queryScore) {
 
 		// get g-scores for this sub-tree
-		RCs rcs = ranker.makeSubRCs(confMask);
-		lowerNode.gscore = lowerGScorer.calc(confIndex, rcs);
-		upperNode.gscore = upperGScorer.calc(confIndex, rcs);
+		lowerNode.gscore = ranker.lowerGScorer.calc(confIndex, rcs);
+		upperNode.gscore = ranker.upperGScorer.calc(confIndex, rcs);
 
 		// allocate space for the sub-rcs
 		RCs subRCs = new RCs(rcs);
 
-		SimpleConfSpace.Position nextPos = null;
+		int nextPos = -1;
 		double bestPosScore = Double.NEGATIVE_INFINITY;
-		for (SimpleConfSpace.Position unassignedPos : unassignedPositions) {
+
+		for (int i=0; i<confIndex.numUndefined; i++) {
+			int pos = confIndex.undefinedPos[i];
 
 			double posScore = 0.0;
-			int[] posRCs = rcs.get(unassignedPos.index);
+			int[] posRCs = rcs.get(pos);
 
 			for (int rc : posRCs) {
 
 				// update the sub-RCs with this pos and rc
-				for (int pos=0; pos<rcs.getNumPos(); pos++) {
-					if (pos == unassignedPos.index) {
-						subRCs.set(pos, oneRc);
+				for (int pos2=0; pos2<rcs.getNumPos(); pos2++) {
+					if (pos2 == pos) {
+						subRCs.set(pos2, oneRc);
 					} else {
-						subRCs.set(pos, rcs.get(pos));
+						subRCs.set(pos2, rcs.get(pos2));
 					}
 				}
 				oneRc[0] = rc;
 
 				double fullRCScore = 1.0/posRCs.length;
 
+				// backup the conf index's node
+				ConfAStarNode node = confIndex.node;
+
 				// approximate the optimal sub-tree min,max scores using the A* heuristic
 				// then see if any of the sub-sub-trees could be pruned
 				confIndex.node = lowerNode;
 				double minScore = 0
-					+ lowerGScorer.calcDifferential(confIndex, subRCs, unassignedPos.index, rc)
-					+ lowerHScorer.calcDifferential(confIndex, subRCs, unassignedPos.index, rc);
+					+ ranker.lowerGScorer.calcDifferential(confIndex, subRCs, pos, rc)
+					+ ranker.lowerHScorer.calcDifferential(confIndex, subRCs, pos, rc);
 				if (minScore > queryScore) {
 					posScore += fullRCScore;
-					continue;
+				} else {
+
+					confIndex.node = upperNode;
+					double maxScore = 0
+						- ranker.upperGScorer.calcDifferential(confIndex, subRCs, pos, rc)
+						- ranker.upperHScorer.calcDifferential(confIndex, subRCs, pos, rc);
+					if (maxScore <= queryScore) {
+						posScore += fullRCScore;
+					}
 				}
 
-				confIndex.node = upperNode;
-				double maxScore = 0
-					- upperGScorer.calcDifferential(confIndex, subRCs, unassignedPos.index, rc)
-					- upperHScorer.calcDifferential(confIndex, subRCs, unassignedPos.index, rc);
-				if (maxScore <= queryScore) {
-					posScore += fullRCScore;
-					continue;
-				}
-
-				/* NOPE, this doesn't work well
-				// can't prune anything, try to award a partial score for closeness of the query score to the bounds
-				double centerScore = (minScore + maxScore)/2.0;
-				double halfWidth = (maxScore - minScore)/2.0;
-				double distToCenter = Math.abs(queryScore - centerScore);
-				double distRatio = distToCenter/halfWidth;
-				posScore += distRatio*fullRCScore;
-				*/
-
-				//log("\tconfMask: %s  next %d,%d   bounds [%.4f,%.4f]   query: %.4f   dist: %.4f   ratio: %.12f", Arrays.toString(confMask), unassignedPos.index, rc, minScore, maxScore, queryScore, distToCenter, distRatio);
+				// restore the conf index state
+				confIndex.node = node;
 			}
 
 			// update the best position based on ratio of sub-trees pruned
 			if (posScore > bestPosScore) {
 				bestPosScore = posScore;
-				nextPos = unassignedPos;
+				nextPos = pos;
 			}
-
-			//log("pos %d   sub-trees pruned: %d/%d   pos score: %.4f", unassignedPos.index, numSubTreesPruned, rcs.get(unassignedPos.index).length, posScore);
 		}
-		assert (nextPos != null);
+		assert (nextPos >= 0);
 
 		if (bestPosScore == 0.0) {
 
 			// no pruning possible, order to minimize number of sub-trees instead
-			for (SimpleConfSpace.Position unassignedPos : unassignedPositions) {
+			for (int i=0; i<confIndex.numUndefined; i++) {
+				int pos = confIndex.undefinedPos[i];
 
-				double posScore = -rcs.getNum(unassignedPos.index);
+				double posScore = -rcs.getNum(pos);
 
 				if (posScore > bestPosScore) {
 					bestPosScore = posScore;
-					nextPos = unassignedPos;
+					nextPos = pos;
 				}
 			}
 		}
-
-		//log("best post to try next: %d -> %s",nextPos.index, formatBig(bestNextPosScore));
 
 		return nextPos;
 	}

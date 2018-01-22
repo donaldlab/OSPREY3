@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.astar.conf;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiPredicate;
@@ -69,7 +68,7 @@ public class RCs {
 				.toArray();
 		}
 	}
-	
+
 	public PruningMatrix getPruneMat() {
 		return pruneMat;
 	}

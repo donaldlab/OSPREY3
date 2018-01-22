@@ -960,6 +960,8 @@ public class NewMethPlayground {
 		func.accept(minScore + 6.0);
 		func.accept(minScore + 7.0);
 		func.accept(minScore + 8.0);
+		func.accept(minScore + 9.0);
+		func.accept(minScore + 10.0);
 		*/
 		func.accept(0.0);
 	}

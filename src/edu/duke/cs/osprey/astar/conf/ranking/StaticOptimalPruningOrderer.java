@@ -1,20 +1,19 @@
 package edu.duke.cs.osprey.astar.conf.ranking;
 
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 
 import java.math.BigInteger;
 import java.util.Comparator;
-import java.util.List;
-import java.util.stream.Collectors;
 
 
 public class StaticOptimalPruningOrderer implements ConfRanker.Orderer {
 
-	private List<SimpleConfSpace.Position> order = null;
+	private int[] order = null;
 
 	@Override
-	public SimpleConfSpace.Position getNextPosition(ConfRanker ranker, int[] confMask, List<SimpleConfSpace.Position> unassignedPositions, double queryScore) {
+	public int getNextPosition(ConfRanker ranker, ConfIndex confIndex, RCs rcs, double queryScore) {
 
 		// compute the order the first time if needed
 		if (order == null) {
@@ -22,8 +21,8 @@ public class StaticOptimalPruningOrderer implements ConfRanker.Orderer {
 		}
 
 		// return the first unassigned pos in the order
-		for (SimpleConfSpace.Position pos : order) {
-			if (unassignedPositions.contains(pos)) {
+		for (int pos : order) {
+			if (confIndex.isUndefined(pos)) {
 				return pos;
 			}
 		}
@@ -44,23 +43,19 @@ public class StaticOptimalPruningOrderer implements ConfRanker.Orderer {
 
 					int [] subConfMask = ranker.noAssignmentsMask.clone();
 					subConfMask[pos.index] = rc;
-					RCs subRCs = ranker.makeSubRCs(subConfMask);
+					RCs subRCs = ranker.makeRCs(subConfMask);
 
 					// can the confs in this sub-tree can be pruned?
-					double minScore = ranker.getMinScore(subRCs);
-					if (minScore > queryScore) {
+					if (ranker.getMinScore(subRCs) > queryScore) {
 						numConfsPruned = numConfsPruned.add(subRCs.getNumConformations());
-						continue;
-					}
-
-					double maxScore = ranker.getMaxScore(subRCs);
-					if (maxScore <= queryScore) {
+					} else if (ranker.getMaxScore(subRCs) <= queryScore) {
 						numConfsPruned = numConfsPruned.add(subRCs.getNumConformations());
 					}
 				}
 
 				return numConfsPruned;
 			}).reversed())
-			.collect(Collectors.toList());
+			.mapToInt((pos) -> pos.index)
+			.toArray();
 	}
 }

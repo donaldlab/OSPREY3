@@ -1,10 +1,8 @@
 package edu.duke.cs.osprey.astar.conf.ranking;
 
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 
-import java.math.BigInteger;
-import java.util.List;
 
 /**
  * chooses the next position that optimizes conf sub-tree pruning,
@@ -12,57 +10,67 @@ import java.util.List;
  */
 public class DynamicOptimalPruningOrderer implements ConfRanker.Orderer {
 
+	private int[] oneRc = { 0 };
+
 	@Override
-	public SimpleConfSpace.Position getNextPosition(ConfRanker ranker, int[] confMask, List<SimpleConfSpace.Position> unassignedPositions, double queryScore) {
+	public int getNextPosition(ConfRanker ranker, ConfIndex confIndex, RCs rcs, double queryScore) {
 
-		// TODO: could do in parallel?
-		SimpleConfSpace.Position nextPos = null;
-		BigInteger bestNextPosScore = null;
-		for (SimpleConfSpace.Position unassignedPos : unassignedPositions) {
+		// allocate space for the sub-rcs
+		RCs subRCs = new RCs(rcs);
 
-			int numSubTreesPruned = 0;
+		int nextPos = -1;
+		double bestPosScore = Double.NEGATIVE_INFINITY;
 
-			// NOTE: all assignments at this pos have sub-trees with the same number of confs
-			BigInteger numConfs = null;
+		for (int i=0; i<confIndex.numUndefined; i++) {
+			int pos = confIndex.undefinedPos[i];
 
-			for (int nextRc : ranker.rcs.get(unassignedPos.index)) {
+			double posScore = 0.0;
+			int[] posRCs = rcs.get(pos);
 
-				int [] subConfMask = confMask.clone();
-				subConfMask[unassignedPos.index] = nextRc;
-				RCs subRCs = ranker.makeSubRCs(subConfMask);
+			for (int rc : posRCs) {
 
-				if (numConfs == null) {
-					numConfs = subRCs.getNumConformations();
+				// update the sub-RCs with this pos and rc
+				for (int pos2=0; pos2<rcs.getNumPos(); pos2++) {
+					if (pos2 == pos) {
+						subRCs.set(pos2, oneRc);
+					} else {
+						subRCs.set(pos2, rcs.get(pos2));
+					}
 				}
+				oneRc[0] = rc;
 
-				// can the confs in this sub-tree can be pruned?
-				double minScore = ranker.getMinScore(subRCs);
-				if (minScore > queryScore) {
-					numSubTreesPruned++;
-					//continue;
+				double fullRCScore = 1.0/posRCs.length;
+
+				// can the confs in this sub-tree be pruned?
+				if (ranker.getMinScore(subRCs) > queryScore) {
+					posScore += fullRCScore;
+				} else if (ranker.getMaxScore(subRCs) <= queryScore) {
+					posScore += fullRCScore;
 				}
-
-				double maxScore = ranker.getMaxScore(subRCs);
-				if (maxScore <= queryScore) {
-					numSubTreesPruned++;
-				}
-
-				//log("\tconfMask: %s   bounds [%.4f,%.4f]  %s", Arrays.toString(subConfMask), minScore, maxScore, isPruned ? "PRUNED" : "");
-			}
-			assert (numConfs != null);
-
-			// update the best position based on the number of confs pruned
-			BigInteger numConfsPruned = numConfs.multiply(BigInteger.valueOf(numSubTreesPruned));
-			if (bestNextPosScore == null || numConfsPruned.compareTo(bestNextPosScore) > 0) {
-				bestNextPosScore = numConfsPruned;
-				nextPos = unassignedPos;
 			}
 
-			//log("pos %d   sub-trees pruned: %d   confs pruned: %s", unassignedPos.index, numSubTreesPruned, formatBig(numConfsPruned));
+			// update the best position based on ratio of sub-trees pruned
+			if (posScore > bestPosScore) {
+				bestPosScore = posScore;
+				nextPos = pos;
+			}
 		}
-		assert (nextPos != null);
+		assert (nextPos >= 0);
 
-		//log("best post to try next: %d -> %s",nextPos.index, formatBig(bestNextPosScore));
+		if (bestPosScore == 0.0) {
+
+			// no pruning possible, order to minimize number of sub-trees instead
+			for (int i=0; i<confIndex.numUndefined; i++) {
+				int pos = confIndex.undefinedPos[i];
+
+				double posScore = -rcs.getNum(pos);
+
+				if (posScore > bestPosScore) {
+					bestPosScore = posScore;
+					nextPos = pos;
+				}
+			}
+		}
 
 		return nextPos;
 	}

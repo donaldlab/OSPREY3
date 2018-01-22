@@ -38,7 +38,7 @@ public class TestConfRanker {
 	@Test public void tinyDiscrete1CC8Sequential() { checkEveryConf(makeTinyDiscrete1CC8(), new SequentialOrderer()); }
 	@Test public void tinyDiscrete1CC8DynamicOptimalPruning() { checkEveryConf(makeTinyDiscrete1CC8(), new DynamicOptimalPruningOrderer()); }
 	@Test public void tinyDiscrete1CC8StaticOptimalPruning() { checkEveryConf(makeTinyDiscrete1CC8(), new StaticOptimalPruningOrderer()); }
-	@Test public void tinyDiscrete1CC8CachedOptimalPruning() { checkEveryConf(makeTinyDiscrete1CC8(), new CachedOptimalPruningOrderer()); }
+	@Test public void tinyDiscrete1CC8DynamicHeuristicPruning() { checkEveryConf(makeTinyDiscrete1CC8(), new DynamicHeuristicPruningOrderer()); }
 
 	public Strand makeSmall1CC8() {
 
@@ -52,7 +52,7 @@ public class TestConfRanker {
 	@Test public void small1CC8Sequential() { checkEveryConf(makeSmall1CC8(), new SequentialOrderer()); }
 	@Test public void small1CC8DynamicOptimalPruning() { checkEveryConf(makeSmall1CC8(), new DynamicOptimalPruningOrderer()); }
 	@Test public void small1CC8StaticOptimalPruning() { checkEveryConf(makeSmall1CC8(), new StaticOptimalPruningOrderer()); }
-	@Test public void small1CC8CachedOptimalPruning() { checkEveryConf(makeSmall1CC8(), new CachedOptimalPruningOrderer()); }
+	@Test public void small1CC8DynamicHeuristicPruning() { checkEveryConf(makeSmall1CC8(), new DynamicHeuristicPruningOrderer()); }
 
 	public Strand makeMedium1CC8() {
 
@@ -66,7 +66,7 @@ public class TestConfRanker {
 	@Test public void medium1CC8ZeroRankSequential() { assertThat(getZeroRank(makeMedium1CC8(), new SequentialOrderer()), is(new BigInteger("40306"))); }
 	@Test public void medium1CC8ZeroRankDynamicOptimalPruning() { assertThat(getZeroRank(makeMedium1CC8(), new DynamicOptimalPruningOrderer()), is(new BigInteger("40306"))); }
 	@Test public void medium1CC8ZeroRankStaticOptimalPruning() { assertThat(getZeroRank(makeMedium1CC8(), new StaticOptimalPruningOrderer()), is(new BigInteger("40306"))); }
-	@Test public void medium1CC8ZeroRankCachedOptimalPruning() { assertThat(getZeroRank(makeMedium1CC8(), new CachedOptimalPruningOrderer()), is(new BigInteger("40306"))); }
+	@Test public void medium1CC8ZeroRankDynamicHeuristicPruning() { assertThat(getZeroRank(makeMedium1CC8(), new DynamicHeuristicPruningOrderer()), is(new BigInteger("40306"))); }
 
 	public Strand makeLarge1CC8() {
 
@@ -80,11 +80,7 @@ public class TestConfRanker {
 	@Test public void large1CC8ZeroRankSequential() { assertThat(getZeroRank(makeLarge1CC8(), new SequentialOrderer()), is(new BigInteger("1034629"))); }
 	@Test public void large1CC8ZeroRankDynamicOptimalPruning() { assertThat(getZeroRank(makeLarge1CC8(), new DynamicOptimalPruningOrderer()), is(new BigInteger("1034629"))); }
 	@Test public void large1CC8ZeroRankStaticOptimalPruning() { assertThat(getZeroRank(makeLarge1CC8(), new StaticOptimalPruningOrderer()), is(new BigInteger("1034629"))); }
-	@Test public void large1CC8ZeroRankCachedOptimalPruning() { assertThat(getZeroRank(makeLarge1CC8(), new CachedOptimalPruningOrderer()), is(new BigInteger("1034629"))); }
-	// sequential:                  rank 1034629, finished in 8.35 s
-	// dynamic opt pruning:         rank 1034629, finished in 13.76 s
-	// static opt pruning:          rank 1034629, finished in 4.18 s
-	// cached-1 opt pruning:        rank 1034629, finished in 4.18 s
+	@Test public void large1CC8ZeroRankDynamicHeuristicPruning() { assertThat(getZeroRank(makeLarge1CC8(), new DynamicHeuristicPruningOrderer()), is(new BigInteger("1034629"))); }
 
 	// NOTE: this one is big enough that's it's only useful for benchmarking
 	public Strand makeHuge1CC8() {
@@ -96,18 +92,14 @@ public class TestConfRanker {
 		}
 		return strand;
 	}
-	@Test public void huge1CC8ZeroRankSequential() { assertThat(getZeroRank(makeHuge1CC8(), new SequentialOrderer()), is(new BigInteger("21039231"))); }
-	@Test public void huge1CC8ZeroRankDynamicOptimalPruning() { assertThat(getZeroRank(makeHuge1CC8(), new DynamicOptimalPruningOrderer()), is(new BigInteger("21039231"))); }
-	@Test public void huge1CC8ZeroRankStaticOptimalPruning() { assertThat(getZeroRank(makeHuge1CC8(), new StaticOptimalPruningOrderer()), is(new BigInteger("21039231"))); }
-	@Test public void huge1CC8ZeroRankCachedOptimalPruning() { assertThat(getZeroRank(makeHuge1CC8(), new CachedOptimalPruningOrderer()), is(new BigInteger("21039231"))); }
-	@Test public void huge1CC8ZeroRankDynamicHeuristicPruning() { assertThat(getZeroRank(makeHuge1CC8(), new DynamicHeuristicPruningOrderer()), is(new BigInteger("21039231"))); }
-	// sequential:                  rank 21039231, finished in 1.41 m
-	// dynamic opt pruning:         rank 21039231, finished in 1.69 m
-	// static opt pruning:          rank 21039231, finished in 21.57 s
-	// cached-1 opt pruning:        rank 21039231, finished in 21.56 s
-	// cached-2 opt pruning:        rank 21039231, finished in 24.24 s
-	// cached-3 opt pruning:        rank 21039231, finished in 37.16 s
-	// dynamic heuristic pruning:   rank 21039231, finished in 22.31 s
+	//@Test public void huge1CC8ZeroRankSequential() { assertThat(getZeroRank(makeHuge1CC8(), new SequentialOrderer()), is(new BigInteger("21039231"))); }
+	//@Test public void huge1CC8ZeroRankDynamicOptimalPruning() { assertThat(getZeroRank(makeHuge1CC8(), new DynamicOptimalPruningOrderer()), is(new BigInteger("21039231"))); }
+	//@Test public void huge1CC8ZeroRankStaticOptimalPruning() { assertThat(getZeroRank(makeHuge1CC8(), new StaticOptimalPruningOrderer()), is(new BigInteger("21039231"))); }
+	//@Test public void huge1CC8ZeroRankDynamicHeuristicPruning() { assertThat(getZeroRank(makeHuge1CC8(), new DynamicHeuristicPruningOrderer()), is(new BigInteger("21039231"))); }
+	// sequential:                  rank 21039231, finished in 14.29 s
+	// dynamic opt pruning:         rank 21039231, finished in 1.35 m !!!! slow !!!!
+	// static opt pruning:          rank 21039231, finished in 3.48 s
+	// dynamic heuristic pruning:   rank 21039231, finished in 4.53 s
 
 	private void checkEveryConf(Strand strand, ConfRanker.Orderer orderer) {
 
@@ -176,8 +168,7 @@ public class TestConfRanker {
 		// make the ranker
 		ConfRanker ranker = new ConfRanker(confSpace, new RCs(confSpace), emat, orderer, (b) -> b.setTraditional());
 
-		// TEMP
-		ranker.reportProgress = true;
+		//ranker.reportProgress = true;
 
 		Stopwatch stopwatch = new Stopwatch().start();
 		BigInteger rank = ranker.getNumConfsAtMost(0.0);

@@ -10,14 +10,8 @@ import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.tools.TimeFormatter;
 
 import java.math.BigInteger;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.PriorityQueue;
-import java.util.stream.Collectors;
+import java.util.*;
 
-import static edu.duke.cs.osprey.tools.Log.formatBig;
-import static edu.duke.cs.osprey.tools.Log.log;
 
 public class ConfRanker {
 
@@ -26,7 +20,7 @@ public class ConfRanker {
 	}
 
 	public static interface Orderer {
-		SimpleConfSpace.Position getNextPosition(ConfRanker ranker, int[] confMask, List<SimpleConfSpace.Position> unassignedPositions, double queryScore);
+		int getNextPosition(ConfRanker ranker, ConfIndex confIndex, RCs rcs, double queryScore);
 	}
 
 	private class BigProgress {
@@ -103,14 +97,14 @@ public class ConfRanker {
 			this.numAssignments = count;
 		}
 
-		public Entry(Entry parent, SimpleConfSpace.Position pos, int rc) {
+		public Entry(Entry parent, int pos, int rc) {
 			this(assign(parent.confMask, pos, rc));
 		}
 	}
 
-	private static int[] assign(int[] confMask, SimpleConfSpace.Position pos, int rc) {
+	private static int[] assign(int[] confMask, int pos, int rc) {
 		int[] subConfMask = confMask.clone();
-		subConfMask[pos.index] = rc;
+		subConfMask[pos] = rc;
 		return subConfMask;
 	}
 
@@ -126,8 +120,12 @@ public class ConfRanker {
 
 	public boolean reportProgress = false;
 
-	public final EnergyMatrix negatedEmat;
-	private final AStarScorer scorer;
+	private final EnergyMatrix negatedEmat;
+	public final AStarScorer lowerGScorer;
+	public final AStarScorer lowerHScorer;
+	public final AStarScorer upperGScorer;
+	public final AStarScorer upperHScorer;
+
 	private final ConfIndex confIndex;
 	private final PriorityQueue<Entry> queue;
 
@@ -139,27 +137,26 @@ public class ConfRanker {
 		this.orderer = orderer;
 		this.astarConfigurer = astarConfigurer;
 
-		negatedEmat = new NegatedEnergyMatrix(confSpace, emat);
-
 		// make the all-unassigned conf mask
 		noAssignmentsMask = new int[confSpace.positions.size()];
 		Arrays.fill(noAssignmentsMask, NotAssigned);
 
-		// get the A* scorer
-		scorer = makeAStar(emat, rcs).gscorer;
+		// make the negated energy matrix, for the upper-bound A*
+		negatedEmat = new NegatedEnergyMatrix(confSpace, emat);
 
-		// allocate the conf index for conf scoring, and prep for fully-assigned confs
+		// get the A* scorers
+		ConfAStarTree lowerAStar = makeAStar(emat, rcs);
+		lowerGScorer = lowerAStar.gscorer;
+		lowerHScorer = lowerAStar.hscorer;
+		ConfAStarTree upperAStar = makeAStar(negatedEmat, rcs);
+		upperGScorer = upperAStar.gscorer;
+		upperHScorer = upperAStar.hscorer;
+
 		confIndex = new ConfIndex(confSpace.positions.size());
-		confIndex.numDefined = confSpace.positions.size();
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			 confIndex.definedPos[pos.index] = pos.index;
-		}
-		confIndex.numUndefined = 0;
-
 		queue = new PriorityQueue<>(Comparator.comparing((entry) -> entry.numAssignments));
 	}
 
-	public RCs makeSubRCs(int[] confMask) {
+	public RCs makeRCs(int[] confMask) {
 		return new RCs(rcs, (pos, rc) -> {
 			return confMask[pos] == -1 || confMask[pos] == rc;
 		});
@@ -202,20 +199,27 @@ public class ConfRanker {
 
 			Entry entry = queue.poll();
 
-			// get the unassigned positions, if any
-			List<SimpleConfSpace.Position> unassignedPositions = confSpace.positions.stream()
-				.filter((pos) -> entry.confMask[pos.index] == -1)
-				.collect(Collectors.toList());
+			// update the conf index
+			confIndex.numDefined = 0;
+			confIndex.numUndefined = 0;
+			for (SimpleConfSpace.Position pos : confSpace.positions) {
+				int rc = entry.confMask[pos.index];
+				if (rc == -1) {
+					confIndex.undefinedPos[confIndex.numUndefined] = pos.index;
+					confIndex.numUndefined++;
+				} else {
+					confIndex.definedPos[confIndex.numDefined] = pos.index;
+					confIndex.definedRCs[confIndex.numDefined] = entry.confMask[pos.index];
+					confIndex.numDefined++;
+				}
+			}
 
 			// if all positions are assigned (and confMask is really just a conf),
 			// then just compare conf scores directly
-			if (unassignedPositions.isEmpty()) {
+			if (confIndex.numUndefined == 0) {
 
 				// update the conf index with the conf RCs
-				for (SimpleConfSpace.Position pos : confSpace.positions) {
-					confIndex.definedRCs[pos.index] = entry.confMask[pos.index];
-				}
-				double confScore = scorer.calc(confIndex, rcs);
+				double confScore = lowerGScorer.calc(confIndex, rcs);
 
 				if (confScore <= queryScore) {
 					progress.incrementBelow();
@@ -228,7 +232,7 @@ public class ConfRanker {
 			}
 
 			// get the RCs for this sub-tree using the conf mask
-			RCs rcs = makeSubRCs(entry.confMask);
+			RCs rcs = makeRCs(entry.confMask);
 
 			// no flexibility? no conformations
 			// (this probably shouldn't happen, but I guess it can't hurt if it does)
@@ -236,33 +240,41 @@ public class ConfRanker {
 				continue;
 			}
 
-			// is the whole sub-tree above the query?
-			if (getMinScore(rcs) > queryScore) {
+			// NOTE: running a full A* search to bound the sub-tree scores is more accurate, but slower
+			// computing an A* f score (g + h) is much much faster, and seems to be pretty accurate
+			// go A*!!! =)
 
-				progress.incrementAbove(rcs.getNumConformations());
+			// is the whole sub-tree above the query?
+			double minScore = 0
+				+ lowerGScorer.calc(confIndex, rcs)
+				+ lowerHScorer.calc(confIndex, rcs);
+			if (minScore > queryScore) {
 
 				// sub-tree pruned
+				progress.incrementAbove(rcs.getNumConformations());
 				continue;
 			}
 
 			// is the whole sub-tree below the query?
-			if (getMaxScore(rcs) <= queryScore) {
-
-				progress.incrementBelow(rcs.getNumConformations());
+			double maxScore = 0
+				- upperGScorer.calc(confIndex, rcs)
+				- upperHScorer.calc(confIndex, rcs);
+			if (maxScore <= queryScore) {
 
 				// sub-tree pruned
+				progress.incrementBelow(rcs.getNumConformations());
 				continue;
 			}
 
-			// didn't prune anything yet, but update progress if needed
+			// can't prune anything, but keep reporting "progress" =(
 			progress.writeReportIfNeeded();
 
 			// what's the next position we should assign?
-			SimpleConfSpace.Position nextPos = orderer.getNextPosition(this, entry.confMask, unassignedPositions, queryScore);
+			int pos = orderer.getNextPosition(this, confIndex, rcs, queryScore);
 
 			// the sub-tree is part below and part above, so queue up the sub-sub-trees
-			for (int rc : rcs.get(nextPos.index)) {
-				queue.add(new Entry(entry, nextPos, rc));
+			for (int rc : rcs.get(pos)) {
+				queue.add(new Entry(entry, pos, rc));
 			}
 		}
 
