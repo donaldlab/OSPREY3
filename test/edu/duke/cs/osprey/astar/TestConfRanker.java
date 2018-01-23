@@ -1,13 +1,10 @@
 package edu.duke.cs.osprey.astar;
 
-import static edu.duke.cs.osprey.tools.Log.formatBig;
-import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.ranking.*;
-import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.ConfRanker;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
@@ -17,7 +14,6 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
 import java.math.BigInteger;
@@ -26,7 +22,7 @@ import java.util.Arrays;
 
 public class TestConfRanker {
 
-	public Strand makeTinyDiscrete1CC8() {
+	public static Strand makeTinyDiscrete1CC8() {
 
 		// 8 confs
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
@@ -35,12 +31,9 @@ public class TestConfRanker {
 		strand.flexibility.get("A9").setLibraryRotamers("GLY", "ALA");
 		return strand;
 	}
-	@Test public void tinyDiscrete1CC8Sequential() { checkEveryConf(makeTinyDiscrete1CC8(), new SequentialOrderer()); }
-	@Test public void tinyDiscrete1CC8DynamicOptimalPruning() { checkEveryConf(makeTinyDiscrete1CC8(), new DynamicOptimalPruningOrderer()); }
-	@Test public void tinyDiscrete1CC8StaticOptimalPruning() { checkEveryConf(makeTinyDiscrete1CC8(), new StaticOptimalPruningOrderer()); }
-	@Test public void tinyDiscrete1CC8DynamicHeuristicPruning() { checkEveryConf(makeTinyDiscrete1CC8(), new DynamicHeuristicPruningOrderer()); }
+	@Test public void tinyDiscrete1CC8() { checkEveryConf(makeTinyDiscrete1CC8()); }
 
-	public Strand makeSmall1CC8() {
+	public static Strand makeSmall1CC8() {
 
 		// 2268 confs
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
@@ -49,12 +42,9 @@ public class TestConfRanker {
 		strand.flexibility.get("A7").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		return strand;
 	}
-	@Test public void small1CC8Sequential() { checkEveryConf(makeSmall1CC8(), new SequentialOrderer()); }
-	@Test public void small1CC8DynamicOptimalPruning() { checkEveryConf(makeSmall1CC8(), new DynamicOptimalPruningOrderer()); }
-	@Test public void small1CC8StaticOptimalPruning() { checkEveryConf(makeSmall1CC8(), new StaticOptimalPruningOrderer()); }
-	@Test public void small1CC8DynamicHeuristicPruning() { checkEveryConf(makeSmall1CC8(), new DynamicHeuristicPruningOrderer()); }
+	@Test public void small1CC8() { checkEveryConf(makeSmall1CC8()); }
 
-	public Strand makeMedium1CC8() {
+	public static Strand makeMedium1CC8() {
 
 		// 3.62e6 confs
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
@@ -63,12 +53,9 @@ public class TestConfRanker {
 		}
 		return strand;
 	}
-	@Test public void medium1CC8ZeroRankSequential() { assertThat(getZeroRank(makeMedium1CC8(), new SequentialOrderer()), is(new BigInteger("40306"))); }
-	@Test public void medium1CC8ZeroRankDynamicOptimalPruning() { assertThat(getZeroRank(makeMedium1CC8(), new DynamicOptimalPruningOrderer()), is(new BigInteger("40306"))); }
-	@Test public void medium1CC8ZeroRankStaticOptimalPruning() { assertThat(getZeroRank(makeMedium1CC8(), new StaticOptimalPruningOrderer()), is(new BigInteger("40306"))); }
-	@Test public void medium1CC8ZeroRankDynamicHeuristicPruning() { assertThat(getZeroRank(makeMedium1CC8(), new DynamicHeuristicPruningOrderer()), is(new BigInteger("40306"))); }
+	@Test public void medium1CC8() { assertThat(getZeroRank(makeMedium1CC8()), is(new BigInteger("40306"))); }
 
-	public Strand makeLarge1CC8() {
+	public static Strand makeLarge1CC8() {
 
 		// 3.62e6 confs
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
@@ -77,13 +64,9 @@ public class TestConfRanker {
 		}
 		return strand;
 	}
-	@Test public void large1CC8ZeroRankSequential() { assertThat(getZeroRank(makeLarge1CC8(), new SequentialOrderer()), is(new BigInteger("1034629"))); }
-	@Test public void large1CC8ZeroRankDynamicOptimalPruning() { assertThat(getZeroRank(makeLarge1CC8(), new DynamicOptimalPruningOrderer()), is(new BigInteger("1034629"))); }
-	@Test public void large1CC8ZeroRankStaticOptimalPruning() { assertThat(getZeroRank(makeLarge1CC8(), new StaticOptimalPruningOrderer()), is(new BigInteger("1034629"))); }
-	@Test public void large1CC8ZeroRankDynamicHeuristicPruning() { assertThat(getZeroRank(makeLarge1CC8(), new DynamicHeuristicPruningOrderer()), is(new BigInteger("1034629"))); }
+	@Test public void large1CC8() { assertThat(getZeroRank(makeLarge1CC8()), is(new BigInteger("1034629"))); }
 
-	// NOTE: this one is big enough that's it's only useful for benchmarking
-	public Strand makeHuge1CC8() {
+	public static Strand makeHuge1CC8() {
 
 		// 3.86e9 confs
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
@@ -92,16 +75,16 @@ public class TestConfRanker {
 		}
 		return strand;
 	}
-	//@Test public void huge1CC8ZeroRankSequential() { assertThat(getZeroRank(makeHuge1CC8(), new SequentialOrderer()), is(new BigInteger("21039231"))); }
-	//@Test public void huge1CC8ZeroRankDynamicOptimalPruning() { assertThat(getZeroRank(makeHuge1CC8(), new DynamicOptimalPruningOrderer()), is(new BigInteger("21039231"))); }
-	//@Test public void huge1CC8ZeroRankStaticOptimalPruning() { assertThat(getZeroRank(makeHuge1CC8(), new StaticOptimalPruningOrderer()), is(new BigInteger("21039231"))); }
-	//@Test public void huge1CC8ZeroRankDynamicHeuristicPruning() { assertThat(getZeroRank(makeHuge1CC8(), new DynamicHeuristicPruningOrderer()), is(new BigInteger("21039231"))); }
-	// sequential:                  rank 21039231, finished in 14.29 s
-	// dynamic opt pruning:         rank 21039231, finished in 1.35 m !!!! slow !!!!
-	// static opt pruning:          rank 21039231, finished in 3.48 s
-	// dynamic heuristic pruning:   rank 21039231, finished in 4.53 s
+	@Test public void huge1CC8() { assertThat(getZeroRank(makeHuge1CC8()), is(new BigInteger("21039231"))); }
 
-	private void checkEveryConf(Strand strand, ConfRanker.Orderer orderer) {
+	// benchmark data for various position ordering heuristics attempted in the past:
+	// sequential:                    rank 21039231, finished in 14.29 s
+	// dynamic opt pruning:           rank 21039231, finished in 1.35 m !!!! slow !!!!
+	// static opt pruning:            rank 21039231, finished in 3.48 s
+	// dynamic heuristic:             rank 21039231, finished in 4.53 s
+	// optimized dynamic heuristic:   rank 21039231, finished in 1.16 s
+
+	private void checkEveryConf(Strand strand) {
 
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
 			.addStrand(strand)
@@ -119,7 +102,8 @@ public class TestConfRanker {
 		}
 
 		// make the ranker
-		ConfRanker ranker = new ConfRanker(confSpace, new RCs(confSpace), emat, orderer, (b) -> b.setTraditional());
+		ConfRanker ranker = new ConfRanker.Builder(confSpace, emat)
+			.build();
 
 		// check each conf has the correct rank, exhaustively
 		int expectedNumConfs = 0;
@@ -146,13 +130,13 @@ public class TestConfRanker {
 		}
 	}
 
-	public BigInteger getZeroRank(Strand strand, ConfRanker.Orderer orderer) {
+	public BigInteger getZeroRank(Strand strand) {
 
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
 			.addStrand(strand)
 			.build();
 
-		log("confs: %s", formatBig(new RCs(confSpace).getNumConformations()));
+		//log("confs: %s", formatBig(new RCs(confSpace).getNumConformations()));
 
 		// compute an emat
 		EnergyMatrix emat;
@@ -166,14 +150,17 @@ public class TestConfRanker {
 		}
 
 		// make the ranker
-		ConfRanker ranker = new ConfRanker(confSpace, new RCs(confSpace), emat, orderer, (b) -> b.setTraditional());
+		ConfRanker ranker = new ConfRanker.Builder(confSpace, emat)
+			.build();
 
-		//ranker.reportProgress = true;
-
+		/*
+		ranker.reportProgress = true;
 		Stopwatch stopwatch = new Stopwatch().start();
 		BigInteger rank = ranker.getNumConfsAtMost(0.0);
 		log("rank %s, finished in %s", rank, stopwatch.stop().getTime(2));
-
 		return rank;
+		*/
+
+		return ranker.getNumConfsAtMost(0.0);
 	}
 }
