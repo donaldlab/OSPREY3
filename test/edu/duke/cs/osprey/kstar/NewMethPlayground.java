@@ -951,7 +951,7 @@ public class NewMethPlayground {
 
 		func.accept(minScore - 0.00001);
 		func.accept(maxScore + 0.1);
-		/* TEMP
+
 		func.accept(minScore + 1.0);
 		func.accept(minScore + 2.0);
 		func.accept(minScore + 3.0);
@@ -962,7 +962,7 @@ public class NewMethPlayground {
 		func.accept(minScore + 8.0);
 		func.accept(minScore + 9.0);
 		func.accept(minScore + 10.0);
-		*/
+
 		func.accept(0.0);
 	}
 

@@ -180,7 +180,14 @@ public class ConfRanker {
 			.getScore();
 	}
 
+	// TODO: decide if we want to use BFS or DFS
+
 	public BigInteger getNumConfsAtMost(double queryScore) {
+		//return getNumConfsAtMostBFS(queryScore);
+		return getNumConfsAtMostDFS(queryScore);
+	}
+
+	public BigInteger getNumConfsAtMostBFS(double queryScore) {
 
 		BigProgress progress = new BigProgress(rcs.getNumConformations());
 
@@ -191,6 +198,9 @@ public class ConfRanker {
 
 		// NOTE: use a priority traversal of the tree, so we can stop early and still maybe get useful bounds on the rank
 		// DFS spends a lot of time up front making only minor adjustments to the counts and is not good for early stopping
+
+		// actually... the priority queue can really eat memory!
+		// DFS only uses space proportional to the number of design positions
 
 		// start with all unassigned
 		queue.add(new Entry(noAssignmentsMask));
@@ -279,5 +289,94 @@ public class ConfRanker {
 		}
 
 		return progress.below;
+	}
+
+	public BigInteger getNumConfsAtMostDFS(double queryScore) {
+		BigProgress progress = new BigProgress(rcs.getNumConformations());
+		numConfsAtMostDFS(noAssignmentsMask, queryScore, progress);
+		return progress.below;
+	}
+
+	private void numConfsAtMostDFS(int[] confMask, double queryScore, BigProgress progress) {
+
+		// update the conf index
+		confIndex.numDefined = 0;
+		confIndex.numUndefined = 0;
+		for (SimpleConfSpace.Position pos : confSpace.positions) {
+			int rc = confMask[pos.index];
+			if (rc == -1) {
+				confIndex.undefinedPos[confIndex.numUndefined] = pos.index;
+				confIndex.numUndefined++;
+			} else {
+				confIndex.definedPos[confIndex.numDefined] = pos.index;
+				confIndex.definedRCs[confIndex.numDefined] = confMask[pos.index];
+				confIndex.numDefined++;
+			}
+		}
+
+		// if all positions are assigned (and confMask is really just a conf),
+		// then just compare conf scores directly
+		if (confIndex.numUndefined == 0) {
+
+			// update the conf index with the conf RCs
+			double confScore = lowerGScorer.calc(confIndex, rcs);
+
+			if (confScore <= queryScore) {
+				progress.incrementBelow();
+			} else {
+				progress.incrementAbove();
+			}
+
+			// leaf node, we're done here
+			return;
+		}
+
+		// get the RCs for this sub-tree using the conf mask
+		RCs rcs = makeRCs(confMask);
+
+		// no flexibility? no conformations
+		// (this probably shouldn't happen, but I guess it can't hurt if it does)
+		if (!rcs.hasConfs()) {
+			return;
+		}
+
+		// NOTE: running a full A* search to bound the sub-tree scores is more accurate, but slower
+		// computing an A* f score (g + h) is much much faster, and seems to be pretty accurate
+		// go A*!!! =)
+
+		// is the whole sub-tree above the query?
+		double minScore = 0
+			+ lowerGScorer.calc(confIndex, rcs)
+			+ lowerHScorer.calc(confIndex, rcs);
+		if (minScore > queryScore) {
+
+			// sub-tree pruned
+			progress.incrementAbove(rcs.getNumConformations());
+			return;
+		}
+
+		// is the whole sub-tree below the query?
+		double maxScore = 0
+			- upperGScorer.calc(confIndex, rcs)
+			- upperHScorer.calc(confIndex, rcs);
+		if (maxScore <= queryScore) {
+
+			// sub-tree pruned
+			progress.incrementBelow(rcs.getNumConformations());
+			return;
+		}
+
+		// can't prune anything, but keep reporting "progress" =(
+		progress.writeReportIfNeeded();
+
+		// what's the next position we should assign?
+		int pos = orderer.getNextPosition(this, confIndex, rcs, queryScore);
+
+		// the sub-tree is part below and part above, so recurse on the sub-sub-trees
+		for (int rc : rcs.get(pos)) {
+			int[] subConfMask = confMask.clone();
+			subConfMask[pos] = rc;
+			numConfsAtMostDFS(subConfMask, queryScore, progress);
+		}
 	}
 }
