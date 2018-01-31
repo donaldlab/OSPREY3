@@ -118,7 +118,8 @@ public class PrecomputedMatrices {
         if(competitorPruneMat == null){
             System.out.println("PRECOMPUTING COMPETITOR PRUNING MATRIX");
             initPruning(0, false, false);
-            pruningControl.setOnlyGoldstein(true);
+            //pruningControl.setOnlyGoldstein(true);//steric pruning essentially cuts conf space, so shouldn't
+            //be competing with sterically pruned confs.  (Only an issue for questionable RCs of course)
             pruningControl.prune();
             competitorPruneMat = pruneMat;
             pruneMat = null;

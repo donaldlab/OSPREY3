@@ -35,7 +35,7 @@ public class NewCOMETS {
         SimpleConfSpace[] confSpaces = new SimpleConfSpace[numStates];
         PrecomputedMatrices[] precompMats = new PrecomputedMatrices[numStates];
         LME objFcn = new LME("1 -1 0 0 0",4);
-        LME[] constraints = new LME[] {new LME("1 -1 0 0 20",4),new LME("0 0 -1 1 100",4),new LME("0 1 0 1 20",4)};
+        LME[] constraints = new LME[] {new LME("1 -1 0 0 20",4),new LME("0 0 -1 1 70",4),new LME("0 1 0 1 20",4)};
         int boundMutPos[] = new int[] {3,4,5,6,7};
         int unboundMutPos[] = new int[] {0,1,2,3,4};
         ArrayList<ArrayList<Integer>> mutable2StatePosNums = toDoubleList(boundMutPos,unboundMutPos,boundMutPos,unboundMutPos);
@@ -56,7 +56,7 @@ public class NewCOMETS {
         
         PruningSettings pruningSettings = new PruningSettings();
         pruningSettings.typedep = true;
-        
+
         boolean useERef = true;//this might seem irrelevant to COMETS
         //but if does affect values of many LME's; the shift in LME value due to eref's
         //is only constant wrt sequence if the LME coefficients sum to 1
@@ -100,19 +100,19 @@ public class NewCOMETS {
         switch(state){
             case 0:
                 pdbFile = "examples/3K75.3LQC/3K75.b.shell.pdb";
-                mutResNums = new String[] {"391","409","411","422","424"};
+                mutResNums = new String[] {"0391","0409","0411","0422","0424"};
                 break;
             case 1:
                 pdbFile = "examples/3K75.3LQC/3K75.ub.shell.pdb";
-                mutResNums = new String[] {"291","309","311","322","324"};
+                mutResNums = new String[] {"0291","0309","0311","0322","0324"};
                 break;
             case 2:
                 pdbFile = "examples/3K75.3LQC/3LQC.b.shell.pdb";
-                mutResNums = new String[] {"591","609","611","622","624"};
+                mutResNums = new String[] {"0591","0609","0611","0622","0624"};
                 break;
             case 3:
                 pdbFile = "examples/3K75.3LQC/3LQC.ub.shell.pdb";
-                mutResNums = new String[] {"291","309","311","322","324"};
+                mutResNums = new String[] {"0291","0309","0311","0322","0324"};
                 break;
             default:
                 throw new RuntimeException("Unrecognized state");
@@ -125,9 +125,9 @@ public class NewCOMETS {
             strand.flexibility.get(mutResNums[mutPos]).setLibraryRotamers(AATypeOptions.get(mutPos));
         
         if(state%2==0){//bound state, set flexibility for non-designed chain
-            strand.flexibility.get("67").setLibraryRotamers("Phe");
-            strand.flexibility.get("90").setLibraryRotamers("Thr");
-            strand.flexibility.get("136").setLibraryRotamers("Tyr");
+            strand.flexibility.get("067").setLibraryRotamers("Phe");
+            strand.flexibility.get("090").setLibraryRotamers("Thr");
+            strand.flexibility.get("0136").setLibraryRotamers("Tyr");
         }
         
         SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
