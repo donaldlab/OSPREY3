@@ -298,6 +298,18 @@ public class MutAlignment {
         }
     }
 
+    private static Set<String> getBondingAtomNames(InterResBondingTemplate irb){
+        if(irb instanceof InterResBondingTemplate.SpecifiedBondingAtomsTemplate)
+            return ((InterResBondingTemplate.SpecifiedBondingAtomsTemplate) irb).getBondingAtomNames();
+        else if(irb instanceof InterResBondingTemplate.NoBondingTemplate)
+            return new HashSet<>();
+        else if(irb instanceof InterResBondingTemplate.CysteineBondingTemplate)
+            return new HashSet<>(Arrays.asList("N","C","SG"));
+        else if(irb instanceof InterResBondingTemplate.PeptideBondingTemplate)
+            return new HashSet<>(Arrays.asList("N","C"));
+        else
+            throw new RuntimeException("ERROR: Unknown inter-residue bonding type");
+    }
 
     private void checkInterResBondingMatch(){
         //complain if residue have different inter-res bonding, preventing mutation
@@ -305,14 +317,10 @@ public class MutAlignment {
         InterResBondingTemplate irb2 = newTemplate.interResBonding;
         if(irb1 instanceof InterResBondingTemplate.PeptideBondingTemplate
                 && irb2 instanceof InterResBondingTemplate.PeptideBondingTemplate)
-            return;//OK
-        if(irb1 instanceof InterResBondingTemplate.NoBondingTemplate
-                && irb2 instanceof InterResBondingTemplate.NoBondingTemplate)
-            return;
-        if(irb1 instanceof InterResBondingTemplate.SpecifiedBondingAtomsTemplate &&
-                irb2 instanceof InterResBondingTemplate.SpecifiedBondingAtomsTemplate){
-            Set<String> bondingAtoms1 = ((InterResBondingTemplate.SpecifiedBondingAtomsTemplate) irb1).getBondingAtomNames();
-            Set<String> bondingAtoms2 = ((InterResBondingTemplate.SpecifiedBondingAtomsTemplate) irb2).getBondingAtomNames();
+            return;//OK (even if one is cysteine)
+        else {
+            Set<String> bondingAtoms1 = getBondingAtomNames(irb1);
+            Set<String> bondingAtoms2 = getBondingAtomNames(irb2);
             for(String name : bondingAtoms1){
                 if(!bondingAtoms2.contains(name))
                     throw makeError("Only the old template has inter-residue bonding through atom "+name);
@@ -323,8 +331,6 @@ public class MutAlignment {
             }
             return;
         }
-
-        throw makeError("Old and new templates have different inter-residue bonding");
     }
 
     private ArrayList<Double> interAtomDistances(String[] atomNames, boolean useOldTemplate){

@@ -159,7 +159,8 @@ public class TemplateParser {
 		else
 			checkInterResBonding(templateRes, interResBonding);
 		//and infer CAEquivalent for amino acids if not specified (otherwise may not be clear here so leave null)
-		if(CAEquivalent==null && (interResBonding instanceof InterResBondingTemplate.PeptideBondingTemplate))
+		//CA is default for residues with an AA-like backbone, but can be overridden
+		if(CAEquivalent==null && HardCodedResidueInfo.hasAminoAcidBB(templateRes))
 			CAEquivalent = "CA";
 
 		return new ResidueTemplate(templateRes, templateName, interResBonding, CAEquivalent);
