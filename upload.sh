@@ -16,5 +16,5 @@ echo "Found distribution file: $DIST"
 FILENAME=$(basename $DIST .zip)-b$TRAVIS_BUILD_NUMBER.zip
 echo "Uploading as $FILENAME ..."
 
-./gdrive upload --refresh-token $GDRIVE_REFRESH_TOKEN --parent $GDRIVE_DIR --name $FILENAME "$DIST"
+./gdrive --refresh-token $GDRIVE_REFRESH_TOKEN upload --parent $GDRIVE_DIR --name $FILENAME "$DIST"
 
