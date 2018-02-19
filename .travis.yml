@@ -1,0 +1,26 @@
+language: java
+
+# only build the python branch
+# the master branch doesn't have a build script
+branches:
+    only:
+        - python
+
+# travis docs say we need this to prevent issues with gradle builds
+# https://docs.travis-ci.com/user/languages/java/
+before_cache:
+    - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
+    - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
+cache:
+    directories:
+        - $HOME/.gradle/caches/
+        - $HOME/.gradle/wrapper/
+
+# install python dependencies before building
+before_install:
+    - sudo pip install setuptools wheel sphinx guzzle_sphinx_theme javalang
+
+# disable tests in automatic builds
+# they take too long to run and require specialized hardware
+script: true
+
