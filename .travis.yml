@@ -24,3 +24,12 @@ before_install:
 # they take too long to run and require specialized hardware
 script: true
 
+# secret sauce!
+# https://docs.travis-ci.com/user/encryption-keys/
+env:
+    - secure: "Yu0E9mr0YzhFzwmSSVvhKctLKu4aKgP41H5QU/gym/Fixk8dr9xZCV72Fc0aKv6wZloFadRbmUYmnnfb2dgAtI9I1zXVUDfPgfmP4wTSEw3/B7V4fPx6vIqald0wCTNMa+mFzK1k/kmQUCpBkSKLIoZ69LcsXsIrVlp675f2le5IBTwBEFVf4j7UTvscyRZFmAyu5IyjL4OXkqWtnAYpHxIwTWayMO85HxcjUIIa7GupMmjfMWpqkNk6hydImmXRUP5LGXev8WSE8gfGWmWDQWLzy+/TpeAGI10yT6tQ0BazdBIkxIheon+pV97u+z9yS0h9uz4+TkZoxHFk6K2mTOfWkh9gc/KeEbm9qQKtC6wwDzao4+pckz+OEdj2Y95gfgW+I1NbOkbuLj3xrKsDFKZxNmCAtNtmRwLvSYegcBj5/mlmp/4z5T2H5gR+Wf+RxYjt9Uh8YKwDF7PjmeGyE78qPK8GrP00wZjnhco173zc3sdTcCgLUdlu8DE+YSl6p/YT5UdkssdsmXJbiNlxtTG6ynEnMnmqwvQI2ouGdKxyUfw/RLeDus1AMJQ18O78R6ZNcZ0inQJeA5xEAMV558LFCUiHHzmft8EirXaV9gUyleVh7KWHjkYuBR/3WUiB/VfnbbPn17jxVajTikawTHC7+lNhbt0NZPH6yLvEcSM="
+
+# upload the builds
+after_script:
+    - ./upload.sh
+
