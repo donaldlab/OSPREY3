@@ -135,7 +135,6 @@ public class TestConfDB {
 
 			ConfDB.Conf conf = sdb.get(assignments);
 
-			assertThat(conf.sequence, sameInstance(sequence));
 			assertThat(conf.assignments, is(assignments));
 			assertThat(conf.lower.energy, is(energy));
 			assertThat(conf.lower.timestampNs, is(timestampNs));
@@ -159,7 +158,6 @@ public class TestConfDB {
 
 			ConfDB.Conf conf = sdb.get(assignments);
 
-			assertThat(conf.sequence, sameInstance(sequence));
 			assertThat(conf.assignments, is(assignments));
 			assertThat(conf.lower, is(nullValue()));
 			assertThat(conf.upper.energy, is(energy));
@@ -184,7 +182,6 @@ public class TestConfDB {
 
 			ConfDB.Conf conf = sdb.get(assignments);
 
-			assertThat(conf.sequence, sameInstance(sequence));
 			assertThat(conf.assignments, is(assignments));
 			assertThat(conf.lower.energy, is(lowerEnergy));
 			assertThat(conf.lower.timestampNs, is(timestampNs));
@@ -209,7 +206,6 @@ public class TestConfDB {
 
 			ConfDB.Conf conf = sdb.get(assignments);
 
-			assertThat(conf.sequence, sameInstance(sequence));
 			assertThat(conf.assignments, is(assignments));
 			assertThat(conf.lower.energy, is(lowerEnergy));
 			assertThat(conf.lower.timestampNs, is(lowerTimestampNs));
@@ -222,7 +218,6 @@ public class TestConfDB {
 
 			conf = sdb.get(assignments);
 
-			assertThat(conf.sequence, sameInstance(sequence));
 			assertThat(conf.assignments, is(assignments));
 			assertThat(conf.lower.energy, is(lowerEnergy));
 			assertThat(conf.lower.timestampNs, is(lowerTimestampNs));
@@ -421,9 +416,9 @@ public class TestConfDB {
 			// check the lower bounds
 			for (Sequence sequence : db.getSequences()) {
 				ConfDB.SequenceDB sdb = db.getSequence(sequence);
-				double lowerEnergy = Double.POSITIVE_INFINITY;
+				double lowerEnergy = Double.NEGATIVE_INFINITY;
 				for (ConfDB.Conf conf : sdb) {
-					lowerEnergy = Math.min(lowerEnergy, conf.lower.energy);
+					lowerEnergy = Math.max(lowerEnergy, conf.lower.energy);
 				}
 				assertThat(lowerEnergy, is(sdb.getLowerEnergyOfUnsampledConfs()));
 			}

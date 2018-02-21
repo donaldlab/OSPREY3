@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.gmec;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -14,13 +15,12 @@ import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.externalMemory.ScoredConfFIFOSerializer;
 import edu.duke.cs.osprey.gmec.GMECFinder.ConfPruner;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
-import edu.duke.cs.osprey.tools.IntEncoding;
-import edu.duke.cs.osprey.tools.Progress;
-import edu.duke.cs.osprey.tools.ResumeLog;
-import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tools.*;
 
 import java.io.*;
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Searches a conformation space for the single conformation that minimizes the
@@ -59,10 +59,10 @@ public class SimpleGMECFinder {
 		protected boolean useExternalMemory = false;
 
 		/**
-		 * If a design experiences an unexpected abort, the resume log can allow you to restore the
-		 * design state and resume the calculation close to where it was aborted. Set a file to turn on the log.
+		 * If a design experiences an unexpected abort, the conformation database can allow you to restore the
+		 * design state and resume the calculation close to where it was aborted. Set a file to turn on the conf DB.
 		 */
-		protected File resumeLog = null;
+		protected File confDB = null;
 		
 		public Builder(ConfSearch search, ConfEnergyCalculator confEcalc) {
 			this.search = search;
@@ -100,11 +100,11 @@ public class SimpleGMECFinder {
 			return this;
 		}
 
-		public Builder setResumeLog(File val) {
-			this.resumeLog = val;
+		public Builder setConfDB(File val) {
+			confDB = val;
 			return this;
 		}
-		
+
 		public SimpleGMECFinder build() {
 			return new SimpleGMECFinder(
 				search,
@@ -114,7 +114,7 @@ public class SimpleGMECFinder {
 				consolePrinter,
 				printIntermediateConfsToConsole,
 				useExternalMemory,
-				resumeLog
+				confDB
 			);
 		}
 	}
@@ -129,15 +129,16 @@ public class SimpleGMECFinder {
 	private final Queue.Factory.FIFO<ScoredConf> scoredFifoFactory;
 	private final Queue.Factory.FIFO<EnergiedConf> energiedFifoFactory;
 	private final Queue.Factory<EnergiedConf> energiedPriorityFactory;
-	private final GMECResumeLog resumeLog;
-	
-	protected SimpleGMECFinder(ConfSearch search, ConfEnergyCalculator confEcalc, ConfPruner pruner, ConfPrinter logPrinter, ConfPrinter consolePrinter, boolean printIntermediateConfsToConsole, boolean useExternalMemory, File resumeLogFile) {
+	private final File confDBFile;
+
+	protected SimpleGMECFinder(ConfSearch search, ConfEnergyCalculator confEcalc, ConfPruner pruner, ConfPrinter logPrinter, ConfPrinter consolePrinter, boolean printIntermediateConfsToConsole, boolean useExternalMemory, File confDBFile) {
 		this.search = search;
 		this.confEcalc = confEcalc;
 		this.pruner = pruner;
 		this.logPrinter = logPrinter;
 		this.consolePrinter = consolePrinter;
 		this.printIntermediateConfsToConsole = printIntermediateConfsToConsole;
+		this.confDBFile = confDBFile;
 		
 		if (useExternalMemory) {
 			RCs rcs = new RCs(confEcalc.confSpace);
@@ -149,16 +150,30 @@ public class SimpleGMECFinder {
 			energiedFifoFactory = new Queue.FIFOFactory<>();
 			energiedPriorityFactory = new Queue.PriorityFactory<>((a, b) -> Double.compare(a.getEnergy(), b.getEnergy()));
 		}
-
-		this.resumeLog = new GMECResumeLog(resumeLogFile);
 	}
-        
+
+	private void useDBIfNeeded(Consumer<ConfDB.ConfTable> block) {
+
+		if (confDBFile == null) {
+
+			// no DB? just pass null
+			block.accept(null);
+
+		} else {
+
+			// open the db and make sure it gets cleaned up properly
+			new ConfDB(confEcalc.confSpace, confDBFile).use((confdb) -> {
+				block.accept(confdb.new ConfTable("GMECFinder"));
+			});
+		}
+	}
+
 	public EnergiedConf find() {
 		return find(0).poll();
 	}
 	
 	public Queue.FIFO<EnergiedConf> find(double energyWindowSize) {
-		
+
 		// start searching for the min score conf
 		System.out.println("Searching for min score conformation...");
 		Stopwatch minScoreStopwatch = new Stopwatch().start();
@@ -175,40 +190,40 @@ public class SimpleGMECFinder {
 			return Queue.FIFOFactory.of();
 		}
 		System.out.println("Found min score conformation in " + minScoreStopwatch.getTime(1));
-		
+
 		// evaluate the min score conf
 		System.out.println("Computing energy of min score conf...");
 		EnergiedConf eMinScoreConf = confEcalc.calcEnergy(minScoreConf);
 		logPrinter.print(eMinScoreConf, confEcalc.confSpace);
-		
+
 		// peek ahead to the next conf
 		ConfSearch.Splitter splitter = new ConfSearch.Splitter(search);
 		ConfSearch.Splitter.Stream unpeekedConfs = splitter.makeStream();
 		ConfSearch.Splitter.Stream peekedConfs = splitter.makeStream();
 		ScoredConf peekedConf = peekedConfs.nextConf();
 		peekedConfs.close();
-		
+
 		// do we need to check more confs?
 		if (peekedConf == null) {
-			
+
 			// nope, there's no more confs, so we already have the GMEC
 			System.out.println("Found GMEC! (it's actually the only conformation allowed by the conf space!)");
 			consolePrinter.print(eMinScoreConf, confEcalc.confSpace);
 			return Queue.FIFOFactory.of(eMinScoreConf);
-			
+
 		} else if (peekedConf.getScore() > eMinScoreConf.getEnergy() && energyWindowSize <= 0) {
-			
+
 			// nope, no confs have lower energy and we're not doing an energy window
 			System.out.println("Found GMEC! (it's actually the min score conformation too!)");
 			consolePrinter.print(eMinScoreConf, confEcalc.confSpace);
 			return Queue.FIFOFactory.of(eMinScoreConf);
-		
+
 		} else {
-			
+
 			// yup, need to keep searching for the GMEC, or to enumerate an energy window
 			// but drop the min score conf on the console before moving on
 			consolePrinter.print(eMinScoreConf, confEcalc.confSpace);
-			
+
 			// estimate the top of our energy range
 			/* NOTE:
 				The "Energy Window" is the range of energies [GMEC energy,GMEC energy + window size].
@@ -216,27 +231,27 @@ public class SimpleGMECFinder {
 				We'll refine this estimate as we evaluate more structures.
 			*/
 			final EnergyRange erange = new EnergyRange(eMinScoreConf.getEnergy(), energyWindowSize);
-		
+
 			// start the queue of energied confs
 			Queue<EnergiedConf> econfs = energiedPriorityFactory.make();
 			econfs.push(eMinScoreConf);
-		
+
 			checkMoreConfs(unpeekedConfs, erange, econfs);
 			System.out.println(String.format("checked %d conformations", econfs.size()));
-			
+
 			// econfs are in a priority queue, so the first one is the GMEC
 			EnergiedConf gmec = econfs.peek();
 			System.out.println("\nFound GMEC!");
 			consolePrinter.print(gmec, confEcalc.confSpace);
-			
+
 			// return just the confs in the energy window
 			Queue.FIFO<EnergiedConf> econfsInRange = econfs.filterTo(
 				energiedFifoFactory.make(),
 				(conf) -> erange.contains(conf.getEnergy())
 			);
-			
+
 			System.out.println(String.format("Found %d total conformations in energy window", econfsInRange.size()));
-			
+
 			return econfsInRange;
 		}
 	}
@@ -319,15 +334,15 @@ public class SimpleGMECFinder {
 			// refine the estimate of the top of the energy window
 			boolean changed = erange.updateMin(econf.getEnergy());
 			if (changed) {
-				
+
 				System.out.println(String.format("\nNew lowest energy: %.6f", erange.getMin()));
 
 				// remove confs from the queue whose energies are above the new lower window
 				// but don't race the main thread which is poll()ing the queue
 				synchronized (lowEnergyConfs) {
-					
+
 					long numLowEnergyConfsBefore = lowEnergyConfs.size();
-					
+
 					// prune conformations with the new window
 					// (in-place, since this is a FIFO queue)
 					lowEnergyConfs.filter((conf) -> erange.containsOrBelow(conf.getScore()));
@@ -338,75 +353,60 @@ public class SimpleGMECFinder {
 					progress.setTotalWork(lowEnergyConfs.size());
 				}
 			}
-			
+
 			progress.incrementProgress();
 		};
 
-		// do we have a resume log?
-		if (resumeLog.hasLog()) {
+		useDBIfNeeded((confTable) -> {
 
-			System.out.println("Restoring state from resume log: " + resumeLog.logFile);
+			// calc the conf energy asynchronously
+			System.out.println(String.format("\nComputing energies for %d conformations...", lowEnergyConfs.size()));
+			while (true) {
 
-			// yup, read in the already-computed energies
-			resumeLog.readAll(lowEnergyConfs, (econf) -> {
-				ecalcListener.onFinished(econf);
-			});
+				// get the next conf to calc the energy for
+				// but don't race the listener thread, which can sometimes filter the queue
+				ScoredConf conf;
+				synchronized (lowEnergyConfs) {
 
-			System.out.println(String.format("Restored %d conformations. Resuming design...", econfs.size()));
+					if (lowEnergyConfs.isEmpty()) {
+						break;
+					}
 
-			// TODO: reset progress history, so we get an accurate ETA on the remaining work
-
-		} else if (resumeLog.isLogging()) {
-
-			System.out.println("Starting resume log: " + resumeLog.logFile);
-		}
-
-		// calc the conf energy asynchronously
-		System.out.println(String.format("\nComputing energies for %d conformations...", lowEnergyConfs.size()));
-		while (true) {
-
-			// get the next conf to calc the energy for
-			// but don't race the listener thread, which can sometimes filter the queue
-			ScoredConf conf;
-			synchronized (lowEnergyConfs) {
-
-				if (lowEnergyConfs.isEmpty()) {
-					break;
+					conf = lowEnergyConfs.poll();
 				}
 
-				conf = lowEnergyConfs.poll();
-			}
+				// do we already have an energy for this conf?
+				if (confTable != null) {
+					ConfDB.Conf savedConf = confTable.get(conf.getAssignments());
+					if (savedConf != null) {
 
-			// update the resume log if needed
-			if (resumeLog.isLogging()) {
-				synchronized (resumeLog) {
-					resumeLog.appendInThing(conf);
-				}
-			}
-
-			// send the conf to the energy calculator
-			confEcalc.calcEnergyAsync(conf, (econf) -> {
-
-				// NOTE: this is called on a listener thread, which is separate from the main thread
-
-				// update the resume log if needed
-				if (resumeLog.isLogging()) {
-					synchronized (resumeLog) {
-						resumeLog.matchOutThing(conf, econf);
+						// yup, use the saved energy instead of calculating a new one
+						EnergiedConf econf = new EnergiedConf(conf, savedConf.upper.energy);
+						ecalcListener.onFinished(econf);
+						continue;
 					}
 				}
 
-				ecalcListener.onFinished(econf);
-			});
-		}
+				// send the conf to the energy calculator
+				confEcalc.calcEnergyAsync(conf, (econf) -> {
 
-		confEcalc.tasks.waitForFinish();
+					// NOTE: this is called on a listener thread, which is separate from the main thread
 
-		// finished! cleanup the log
-		if (resumeLog.isLogging()) {
-			System.out.println("GMEC search complete, cleaning up resume log: " + resumeLog.logFile);
-			resumeLog.delete();
-		}
+					// update the conf DB if needed
+					if (confTable != null) {
+						confTable.setBounds(conf.getAssignments(), conf.getScore(), econf.getEnergy(), TimeTools.getTimestampNs());
+
+						// NOTE: flushing the db every write might be noticeably slow at a high write rate
+						// in testing so far, at about 20 writes/s, the performance hit is undetectable
+						confTable.flush();
+					}
+
+					ecalcListener.onFinished(econf);
+				});
+			}
+
+			confEcalc.tasks.waitForFinish();
+		});
 	}
 	
 	private void setErangeProgress(ConfSearch confSearch, EnergyRange erange) {
@@ -446,47 +446,6 @@ public class SimpleGMECFinder {
 		if (printIntermediateConfsToConsole) {
 			System.out.println();
 			consolePrinter.print(econf, confEcalc.confSpace, erange);
-		}
-	}
-
-	private class GMECResumeLog extends ResumeLog<ScoredConf,EnergiedConf> {
-
-		public GMECResumeLog(File logFile) {
-			super(
-				logFile,
-				8,
-				(confA, confB) -> Arrays.equals(confA.getAssignments(), confB.getAssignments()),
-				(conf, econf) -> Arrays.equals(conf.getAssignments(), conf.getAssignments()),
-				new ResumeLog.OutThingSerializer<EnergiedConf>() {
-
-					// pick the most efficient encoding for conformations in this this conf space
-					private final IntEncoding encoding = IntEncoding.get(confEcalc.confSpace.positions.stream()
-						.map((pos) -> pos.resConfs.size())
-						.max(Integer::compare)
-						.orElseThrow(() -> new IllegalStateException("conf space has no positions")));
-
-					@Override
-					public void write(EnergiedConf econf, DataOutputStream stream) throws IOException {
-						for (int rc : econf.getAssignments()) {
-							encoding.write(stream, rc);
-						}
-						stream.writeDouble(econf.getScore());
-						stream.writeDouble(econf.getEnergy());
-					}
-
-					@Override
-					public EnergiedConf read(DataInputStream stream) throws IOException {
-						// read the next log conf
-						int[] assignments = new int[confEcalc.confSpace.positions.size()];
-						for (SimpleConfSpace.Position pos : confEcalc.confSpace.positions) {
-							assignments[pos.index] = encoding.read(stream);
-						}
-						double score = stream.readDouble();
-						double energy = stream.readDouble();
-						return new EnergiedConf(assignments, score, energy);
-					}
-				}
-			);
 		}
 	}
 }

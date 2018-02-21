@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 
 public class ConfDB {
@@ -27,20 +28,17 @@ public class ConfDB {
 			}
 		}
 
-		public final Sequence sequence;
 		public final int[] assignments;
 		public final Bound lower;
 		public final Bound upper;
 
-		public Conf(Sequence sequence, int[] assignments, Bound lower, Bound upper) {
-			this.sequence = sequence;
+		public Conf(int[] assignments, Bound lower, Bound upper) {
 			this.assignments = assignments;
 			this.lower = lower;
 			this.upper = upper;
 		}
 
-		private Conf(Sequence sequence, int[] assignments, ConfInfo info) {
-			this.sequence = sequence;
+		private Conf(int[] assignments, ConfInfo info) {
 			this.assignments = assignments;
 			this.lower = info.makeLowerBound();
 			this.upper = info.makeUpperBound();
@@ -127,24 +125,13 @@ public class ConfDB {
 		}
 	}
 
-	public class SequenceDB implements Iterable<Conf> {
+	public class ConfTable implements Iterable<Conf> {
 
-		public final Sequence sequence;
+		private final BTreeMap<int[],ConfInfo> btree;
 
-		private final BTreeMap<int[],ConfInfo> sequenceDB;
+		public ConfTable(String id) {
 
-		public SequenceDB(Sequence sequence) {
-
-			this.sequence = sequence;
-
-			int numPos = sequence.confSpace.positions.size();
-			int maxAssignment = 0;
-			for (SimpleConfSpace.Position pos : sequence.confSpace.positions) {
-				for (SimpleConfSpace.ResidueConf resConf : pos.resConfs) {
-					maxAssignment = Math.max(maxAssignment, resConf.index);
-				}
-			}
-			IntEncoding assignmentEncoding = IntEncoding.get(maxAssignment);
+			int numPos = confSpace.positions.size();
 
 			// MapDB serializer for assignments
 			SimpleSerializer<int[]> assignmentsSerializer = new SimpleSerializer<int[]>(SimpleSerializer.DynamicSize) {
@@ -222,51 +209,51 @@ public class ConfDB {
 				}
 			};
 
-			this.sequenceDB = db.treeMap(getSequenceId(sequence))
+			this.btree = db.treeMap(id)
 				.keySerializer(assignmentsSerializer)
 				.valueSerializer(confInfoSerializer)
 				.createOrOpen();
 		}
 
 		public void setBounds(int[] assignments, double lowerEnergy, double upperEnergy, long timestampNs) {
-			sequenceDB.put(assignments, new ConfInfo(lowerEnergy, timestampNs, upperEnergy, timestampNs));
+			btree.put(assignments, new ConfInfo(lowerEnergy, timestampNs, upperEnergy, timestampNs));
 		}
 
 		public void setLowerBound(int[] assignments, double energy, long timestampNs) {
-			ConfInfo info = sequenceDB.get(assignments);
+			ConfInfo info = btree.get(assignments);
 			if (info == null) {
 				info = new ConfInfo();
 			}
 			info.lowerEnergy = energy;
 			info.lowerTimestampNs = timestampNs;
-			sequenceDB.put(assignments, info);
+			btree.put(assignments, info);
 		}
 
 		public void setUpperBound(int[] assignments, double energy, long timestampNs) {
-			ConfInfo info = sequenceDB.get(assignments);
+			ConfInfo info = btree.get(assignments);
 			if (info == null) {
 				info = new ConfInfo();
 			}
 			info.upperEnergy = energy;
 			info.upperTimestampNs = timestampNs;
-			sequenceDB.put(assignments, info);
+			btree.put(assignments, info);
 			db.commit();
 		}
 
 		public Conf get(int[] assignments) {
 
-			ConfInfo info = sequenceDB.get(assignments);
+			ConfInfo info = btree.get(assignments);
 			if (info == null) {
 				return null;
 			}
 
-			return new Conf(sequence, assignments, info);
+			return new Conf(assignments, info);
 		}
 
 		@NotNull
 		@Override
 		public Iterator<Conf> iterator() {
-			Iterator<Map.Entry<int[],ConfInfo>> iter = sequenceDB.entryIterator();
+			Iterator<Map.Entry<int[],ConfInfo>> iter = btree.entryIterator();
 
 			return new Iterator<Conf>() {
 
@@ -281,12 +268,29 @@ public class ConfDB {
 					Map.Entry<int[],ConfInfo> entry = iter.next();
 
 					return new Conf(
-						sequence,
 						entry.getKey(),
 						entry.getValue()
 					);
 				}
 			};
+		}
+
+		public long size() {
+			return btree.sizeLong();
+		}
+
+		public void flush() {
+			ConfDB.this.flush();
+		}
+	}
+
+	public class SequenceDB extends ConfTable {
+
+		public final Sequence sequence;
+
+		public SequenceDB(Sequence sequence) {
+			super(getSequenceId(sequence));
+			this.sequence = sequence;
 		}
 
 		private SequenceInfo getInfo() {
@@ -322,11 +326,21 @@ public class ConfDB {
 	private final DB db;
 	private final HTreeMap<Sequence,SequenceInfo> sequences;
 	private final Map<Sequence,SequenceDB> sequenceDBs;
+	private final IntEncoding assignmentEncoding;
 
 	public ConfDB(SimpleConfSpace confSpace, File file) {
 
 		this.confSpace = confSpace;
 		this.file = file;
+
+		// determine conf encoding
+		int maxAssignment = 0;
+		for (SimpleConfSpace.Position pos : confSpace.positions) {
+			for (SimpleConfSpace.ResidueConf resConf : pos.resConfs) {
+				maxAssignment = Math.max(maxAssignment, resConf.index);
+			}
+		}
+		assignmentEncoding = IntEncoding.get(maxAssignment);
 
 		// MapDB serializer for Sequence
 		SimpleSerializer<Sequence> sequenceSerializer = new SimpleSerializer<Sequence>(SimpleSerializer.DynamicSize) {
@@ -450,14 +464,17 @@ public class ConfDB {
 		return sdb;
 	}
 
-	public void commit() {
+	public void flush() {
+		// In write-ahead mode, we don't actually have any transactions,
+		// so there's nothing to commit in the traditional sense.
+		// So in this case, "commit" flushes write caches to disk
 		db.commit();
 	}
 
 	public void close() {
-		db.commit();
-		for (SequenceDB sdb : sequenceDBs.values()) {
-			sdb.sequenceDB.close();
+		flush();
+		for (ConfTable sdb : sequenceDBs.values()) {
+			sdb.btree.close();
 		}
 		sequenceDBs.clear();
 		db.close();
@@ -466,6 +483,14 @@ public class ConfDB {
 	public void use(Consumer<ConfDB> block) {
 		try {
 			block.accept(this);
+		} finally {
+			close();
+		}
+	}
+
+	public <T> T use(Function<ConfDB,T> block) {
+		try {
+			return block.apply(this);
 		} finally {
 			close();
 		}
