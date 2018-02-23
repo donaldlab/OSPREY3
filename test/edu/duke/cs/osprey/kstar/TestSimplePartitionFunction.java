@@ -4,6 +4,8 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.confspace.ConfDB;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -20,6 +22,7 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import org.junit.Test;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -259,5 +262,52 @@ public class TestSimplePartitionFunction {
 		final double targetEpsilon = 0.9;
 		final String approxQStar = "1.1195e+66"; // e = 0.1
 		testStrand(info.ffparams, confSpace, Parallelism.makeCpu(1), targetEpsilon, approxQStar);
+	}
+
+	@Test
+	public void calcWithConfDB() {
+
+		File confdbFile = new File("pfunc.conf.db");
+		confdbFile.delete();
+		try {
+
+			TestInfo info = make2RL0TestInfo();
+			SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+				.addStrand(info.ligand)
+				.build();
+
+			final double targetEpsilon = 0.002;
+			final String approxQStar = "4.467797e+30"; // e=0.001
+			final Parallelism parallelism = Parallelism.makeCpu(4);
+
+			// calc the pfunc with an empty db
+			PartitionFunction pfunc = calcPfunc(new ForcefieldParams(), confSpace, parallelism, targetEpsilon, (p) -> {
+				new ConfDB(confSpace, confdbFile).use((confdb) -> {
+					p.setConfDB(confdb);
+					p.compute();
+				});
+			});
+			assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
+
+			// the db should have stuff in it
+			assertThat(confdbFile.exists(), is(true));
+			new ConfDB(confSpace, confdbFile).use((confdb) -> {
+				assertThat(confdb.getNumSequences(), greaterThan(0L));
+				Sequence sequence = confdb.getSequences().iterator().next();
+				assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
+			});
+
+			// calc the pfunc with a full db
+			pfunc = calcPfunc(new ForcefieldParams(), confSpace, parallelism, targetEpsilon, (p) -> {
+				new ConfDB(confSpace, confdbFile).use((confdb) -> {
+					p.setConfDB(confdb);
+					p.compute();
+				});
+			});
+			assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
+
+		} finally {
+			confdbFile.delete();
+		}
 	}
 }

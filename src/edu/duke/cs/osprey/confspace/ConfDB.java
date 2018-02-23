@@ -15,6 +15,27 @@ import java.util.function.Function;
 
 public class ConfDB {
 
+	public static <T> T useIfNeeded(SimpleConfSpace confSpace, File file, Function<ConfDB,T> block) {
+
+		if (confSpace == null || file == null) {
+
+			// no DB? just pass null
+			return block.apply(null);
+
+		} else {
+
+			// open the db and make sure it gets cleaned up properly
+			return new ConfDB(confSpace, file).use(block);
+		}
+	}
+
+	public static void useIfNeeded(SimpleConfSpace confSpace, File file, Consumer<ConfDB> block) {
+		useIfNeeded(confSpace, file, (confdb) -> {
+			block.accept(confdb);
+			return null;
+		});
+	}
+
 	public static class Conf {
 
 		public static class Bound {
@@ -480,19 +501,18 @@ public class ConfDB {
 		db.close();
 	}
 
-	public void use(Consumer<ConfDB> block) {
-		try {
-			block.accept(this);
-		} finally {
-			close();
-		}
-	}
-
 	public <T> T use(Function<ConfDB,T> block) {
 		try {
 			return block.apply(this);
 		} finally {
 			close();
 		}
+	}
+
+	public void use(Consumer<ConfDB> block) {
+		use((confdb) -> {
+			block.accept(confdb);
+			return null;
+		});
 	}
 }

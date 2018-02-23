@@ -1,8 +1,10 @@
 package edu.duke.cs.osprey.kstar.pfunc;
 
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
@@ -10,9 +12,8 @@ import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.JvmMem;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tools.TimeTools;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
@@ -42,6 +43,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 	private ConfListener confListener = null;
 	private boolean isReportingProgress = false;
 	private Stopwatch stopwatch = new Stopwatch().start();
+	private ConfDB confDB = null;
 
 
 	public SimplePartitionFunction(ConfSearch confSearch, ConfEnergyCalculator ecalc) {
@@ -79,6 +81,16 @@ public class SimplePartitionFunction implements PartitionFunction {
 		return ecalc.tasks.getParallelism();
 	}
 
+	public void setConfDB(ConfDB val) {
+
+		this.confDB = val;
+
+		// update the lower bound calculator if needed
+		if (lowerBound != null) {
+			lowerBound.confDB = confDB;
+		}
+	}
+
 	@Override
 	public void init(double targetEpsilon) {
 		init(targetEpsilon, BigDecimal.ZERO);
@@ -103,6 +115,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 		// split the confs between the bound calculators
 		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch);
 		lowerBound = new LowerBoundCalculator(confsSplitter.makeStream(), ecalc);
+		lowerBound.confDB = confDB;
 		upperBound = new UpperBoundCalculator(confsSplitter.makeStream());
 	}
 
@@ -255,6 +268,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 		public BigDecimal weightedEnergySum = BigDecimal.ZERO;
 		public int numConfsScored = 0;
 		public int numConfsEnergied = 0;
+		public ConfDB confDB = null;
 
 		private BoltzmannCalculator boltzmann = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
@@ -291,8 +305,8 @@ public class SimplePartitionFunction implements PartitionFunction {
 				return Status.OutOfLowEnergies;
 			}
 
-			// do the energy calculation asynchronously
-			ecalc.calcEnergyAsync(conf, (EnergiedConf econf) -> {
+			// what to do when we get a conf energy?
+			TaskExecutor.TaskListener<EnergiedConf> onEconf = (EnergiedConf econf) -> {
 
 				// we might be on the listener thread, so sync to keep from racing the main thread
 				synchronized (LowerBoundCalculator.this) {
@@ -308,6 +322,42 @@ public class SimplePartitionFunction implements PartitionFunction {
 				if (confListener != null) {
 					confListener.onFinished(econf);
 				}
+			};
+
+			// is this conf in the db?
+			if (confDB != null) {
+				Sequence sequence = confDB.confSpace.makeSequenceFromAssignments(conf.getAssignments());
+				ConfDB.Conf dbconf = confDB.getSequence(sequence).get(conf.getAssignments());
+				if (dbconf != null) {
+
+					// yup, don't calculate the energy again
+					// (but make sure the energy gets reported on the listener thread
+					// so we behave exactly the same as if we did the energy calculation)
+					ecalc.tasks.submit(
+						() -> new EnergiedConf(conf, dbconf.upper.energy),
+						(econf) -> onEconf.onFinished(econf)
+					);
+
+					return Status.HasLowEnergies;
+				}
+			}
+
+			// nope, do the energy calculation asynchronously
+			ecalc.calcEnergyAsync(conf, (econf) -> {
+
+				// save the conf in the db if needed
+				if (confDB != null) {
+					Sequence sequence = confDB.confSpace.makeSequenceFromAssignments(conf.getAssignments());
+					confDB.getSequence(sequence).setBounds(
+						conf.getAssignments(),
+						conf.getScore(),
+						econf.getEnergy(),
+						TimeTools.getTimestampNs()
+					);
+					confDB.flush();
+				}
+
+				onEconf.onFinished(econf);
 			});
 
 			return Status.HasLowEnergies;

@@ -153,19 +153,13 @@ public class SimpleGMECFinder {
 	}
 
 	private void useDBIfNeeded(Consumer<ConfDB.ConfTable> block) {
-
-		if (confDBFile == null) {
-
-			// no DB? just pass null
-			block.accept(null);
-
-		} else {
-
-			// open the db and make sure it gets cleaned up properly
-			new ConfDB(confEcalc.confSpace, confDBFile).use((confdb) -> {
+		ConfDB.useIfNeeded(confEcalc.confSpace, confDBFile, (confdb) -> {
+			if (confdb == null) {
+				block.accept(null);
+			} else {
 				block.accept(confdb.new ConfTable("GMECFinder"));
-			});
-		}
+			}
+		});
 	}
 
 	public EnergiedConf find() {

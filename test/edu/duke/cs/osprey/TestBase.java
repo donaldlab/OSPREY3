@@ -3,6 +3,7 @@ package edu.duke.cs.osprey;
 import static org.junit.Assert.*;
 import static org.hamcrest.Matchers.*;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -10,6 +11,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -425,5 +427,15 @@ public class TestBase {
 		search.pruneMat = new PruningMatrix(search.confSpace, search.emat.getPruningInterval());
 		
 		return search;
+	}
+
+	public static void fileForWriting(String filename, Consumer<File> block) {
+		File file = new File(filename);
+		file.delete();
+		try {
+			block.accept(file);
+		} finally {
+			file.delete();
+		}
 	}
 }

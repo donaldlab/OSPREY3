@@ -233,11 +233,7 @@ public class TestSimpleGMECFinder {
 	@Test
 	public void findWithResumeNotInterrupted() {
 
-		File confDBFile = new File("conf.db");
-		try {
-
-			confDBFile.delete();
-			assertThat(confDBFile.exists(), is(false));
+		fileForWriting("findgmec.conf.db", (confDBFile) -> {
 
 			Queue<EnergiedConf> confs = problemBigContinuous.makeConfDBFinder(confDBFile, null).find(0.3);
 			assertThat(confs.size(), is(2L));
@@ -257,23 +253,13 @@ public class TestSimpleGMECFinder {
 			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
 				assertThat(confdb.new ConfTable("GMECFinder").size(), is(26L));
 			});
-
-		} finally {
-
-			// cleanup
-			confDBFile.delete();
-		}
+		});
 	}
 
 	@Test
 	public void findWithResumeInterrupted() {
 
-		// delete any previous resume log, if any, just in case
-		File confDBFile = new File("conf.db");
-		try {
-
-			confDBFile.delete();
-			assertThat(confDBFile.exists(), is(false));
+		fileForWriting("findgmec.conf.db", (confDBFile) -> {
 
 			try {
 				// throw an error before the 10th calculated (not cached) energy
@@ -311,23 +297,13 @@ public class TestSimpleGMECFinder {
 			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
 				assertThat(confdb.new ConfTable("GMECFinder").size(), is(26L));
 			});
-
-		} finally {
-
-			// cleanup
-			confDBFile.delete();
-		}
+		});
 	}
 
 	@Test
 	public void findWithResumeInterruptedTwice() {
 
-		// delete any previous resume log, if any, just in case
-		File confDBFile = new File("conf.db");
-		try {
-
-			confDBFile.delete();
-			assertThat(confDBFile.exists(), is(false));
+		fileForWriting("findgmec.conf.db", (confDBFile) -> {
 
 			try {
 				// throw an error before the 10th calculated (not cached) energy
@@ -383,12 +359,7 @@ public class TestSimpleGMECFinder {
 			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
 				assertThat(confdb.new ConfTable("GMECFinder").size(), is(26L));
 			});
-
-		} finally {
-
-			// cleanup
-			confDBFile.delete();
-		}
+		});
 	}
 
 	@Test
