@@ -158,19 +158,27 @@ public class TESampleSet implements Serializable {
             
             for(int a=0; a<te.numAllowed[nextPos]; a++){
                 distr[a] = 1;
-                
-                if(te.isPruned(new RCTuple(nextPos, a)))
-                    distr[a] = 0;
-                
-                //look for pruned pairs between a and assignments already in sample
-                for(int pos=0; pos<te.numPos; pos++){
-                    if(sample[pos]!=-1){
-                        
-                        if(isPairPrunedInSample(pos, sample[pos], nextPos, a, sample)){
-                            distr[a] = 0;
-                            break;
+
+                if(te.canCheckPartialPruning) {
+                    if (te.isPruned(new RCTuple(nextPos, a)))
+                        distr[a] = 0;
+
+                    //look for pruned pairs between a and assignments already in sample
+                    for (int pos = 0; pos < te.numPos; pos++) {
+                        if (sample[pos] != -1) {
+
+                            if (isPairPrunedInSample(pos, sample[pos], nextPos, a, sample)) {
+                                distr[a] = 0;
+                                break;
+                            }
                         }
                     }
+                }
+                else {
+                    int augSamp[] = sample.clone();
+                    augSamp[nextPos] = a;
+                    if(te.isPruned(new RCTuple(augSamp)))
+                        distr[a] = 0;
                 }
                 
                 
@@ -464,7 +472,17 @@ public class TESampleSet implements Serializable {
                         
                         for(int q=allowedRCs.get(pos).size()-1; q>=0; q--){//reverse iteration to allow deletion
                             int[] uaOpt = allowedRCs.get(pos).get(q);
-                            if(isPairPrunedInSample(nextPos,opt,uaOpt[0],uaOpt[1],sample)){
+
+                            boolean pruned;
+                            if(te.canCheckPartialPruning)
+                                pruned = isPairPrunedInSample(nextPos,opt,uaOpt[0],uaOpt[1],sample);
+                            else {
+                                int augSamp[] = sample.clone();
+                                augSamp[uaOpt[0]] = uaOpt[1];
+                                pruned = te.isPruned(new RCTuple(augSamp));
+                            }
+
+                            if(pruned){
                                 elimHere.add(uaOpt);
                                 allowedRCs.get(pos).remove(q);
                                 numElim.set( pos, numElim.get(pos)+1 );
@@ -513,14 +531,22 @@ public class TESampleSet implements Serializable {
                     if(!te.isPruned(new RCTuple(pos,rc))){
 
                         boolean incompatible = false;
-                        for(int pos2=0; pos2<te.numPos; pos2++){
-                            if(sample[pos2]!=-1){//pos2 assigned
-                                if(isPairPrunedInSample(pos2,sample[pos2],pos,rc,sample)){
-                                    incompatible = true;
-                                    break;
+                        if(te.canCheckPartialPruning){
+                            for(int pos2=0; pos2<te.numPos; pos2++) {
+                                if (sample[pos2] != -1) {//pos2 assigned
+                                    if (isPairPrunedInSample(pos2, sample[pos2], pos, rc, sample)) {
+                                        incompatible = true;
+                                        break;
+                                    }
                                 }
                             }
                         }
+                        else {
+                            int[] augSamp = sample.clone();
+                            augSamp[pos] = rc;
+                            incompatible = te.isPruned(new RCTuple(augSamp));
+                        }
+
 
                         if(incompatible)
                             numElimAtPos++;

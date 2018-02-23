@@ -44,22 +44,20 @@ public class VoxelGCalculator {
     public double calcG(int[] assignmentList) {
         
         MoleculeModifierAndScorer mms1 = new MoleculeModifierAndScorer(
-                epicMat1.internalEnergyFunction(new RCTuple(assignmentList)), 
+                epicMat1.internalEnergyFunction(new RCTuple(assignmentList), true),
                 epicMat1.getConfSpace(), new RCTuple(assignmentList) );
         
         CCDMinimizer ccdMin = new CCDMinimizer(mms1,false);
         DoubleMatrix1D center = ccdMin.minimize().dofValues;
         MoleculeModifierAndScorer mms2 = new IdealSeparableReference(
-                epicMat2.internalEnergyFunction(new RCTuple(assignmentList)), 
+                epicMat2.internalEnergyFunction(new RCTuple(assignmentList), true),
                 epicMat2.getConfSpace(), new RCTuple(assignmentList), center );
         
         
         VoxelsDeltaG vdg = new VoxelsDeltaG(mms2,mms1,false);
         double E = vdg.estDeltaG(0.05);
         E += ((IdealSeparableReference)mms2).calcG();
-        
-        E += emat.confE(assignmentList);//discrete part of energy
-        
+
         //NOW SUBTRACT OFF ENERGY FOR CONSTANT ZERO VOXEL
         double voxelVolume = computeVoxelVolume(mms1.getConstraints());
         E += IntraVoxelSampler.RT * Math.log(voxelVolume);

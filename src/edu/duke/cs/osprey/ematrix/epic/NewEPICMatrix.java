@@ -152,8 +152,7 @@ public class NewEPICMatrix extends TupleMatrixGeneric<EPoly> {
             }
         }
         
-        EPICEnergyFunction efunc = new EPICEnergyFunction(terms);
-        efunc.includeMinE = includeMinE;
+        EPICEnergyFunction efunc = new EPICEnergyFunction(terms, includeMinE);
         return efunc;
     }
 
