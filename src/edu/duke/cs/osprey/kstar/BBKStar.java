@@ -529,7 +529,7 @@ public class BBKStar {
 			wildTypeScore
 		));
 		if (kstarSettings.stabilityThreshold != null) {
-			BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(kstarSettings.stabilityThreshold);
+			BigDecimal stabilityThresholdFactor = new BoltzmannCalculator(PartitionFunction.decimalPrecision).calc(kstarSettings.stabilityThreshold);
 			protein.stabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
 			ligand.stabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
 		}

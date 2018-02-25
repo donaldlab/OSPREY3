@@ -413,7 +413,7 @@ public class KStar {
 					BigDecimal proteinStabilityThreshold = null;
 					BigDecimal ligandStabilityThreshold = null;
 					if (settings.stabilityThreshold != null) {
-						BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(settings.stabilityThreshold);
+						BigDecimal stabilityThresholdFactor = new BoltzmannCalculator(PartitionFunction.decimalPrecision).calc(settings.stabilityThreshold);
 						proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
 						ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
 					}
