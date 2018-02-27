@@ -1,21 +1,21 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
+import edu.duke.cs.osprey.kstar.pfunc.PfuncSurface;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.tools.Stopwatch;
+
+import java.io.File;
 
 
-public class BenchmarkPartitionFunction {
+public class PfuncPlayground {
 
 	public static void main(String[] args) {
 
@@ -38,30 +38,36 @@ public class BenchmarkPartitionFunction {
 				.build()
 				.calcEnergyMatrix();
 
-			benchmarkPfunc(confSpace, emat, (astar) -> new SimplePartitionFunction(astar, confEcalc));
-			benchmarkPfunc(confSpace, emat, (astar) -> new GradientDescentPfunc(astar, confEcalc));
+			final int scoreBatch = 200;
+			final int numEnergies = 1000;
+			final int numScoreBatches = 1000;
+
+			PfuncSurface surf = new PfuncSurface(scoreBatch, numScoreBatches, numEnergies);
+			//surf.sample(confEcalc, emat);
+			//surf.write(new File("pfunctest.vtk"));
+
+			final File confdbFile = new File("pfunctext.conf.db");
+			new ConfDB(confEcalc.confSpace, confdbFile).use((confdb) -> {
+				ConfDB.ConfTable table = confdb.new ConfTable("pfunctest");
+
+				estimate(confEcalc, emat, surf, table);
+			});
+
+			surf.writeTraces(new File("pfunctest.trace.vtk"));
 		}
 	}
 
-	private static interface PfuncFactory {
-		PartitionFunction make(ConfSearch astar);
-	}
+	public static void estimate(ConfEnergyCalculator confEcalc, EnergyMatrix emat, PfuncSurface surf, ConfDB.ConfTable table) {
 
-	private static void benchmarkPfunc(SimpleConfSpace confSpace, EnergyMatrix emat, PfuncFactory pfuncs) {
+		final double epsilon = 0.01;
 
-		// make the A* search
-		ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+		ConfAStarTree astar = new ConfAStarTree.Builder(emat, confEcalc.confSpace)
 			.setTraditional()
 			.build();
 
-		// make the partition function
-		PartitionFunction pfunc = pfuncs.make(astar);
-
-		// compute pfunc
-		final double targetEpsilon = 0.05;
-		pfunc.init(targetEpsilon);
-		Stopwatch sw = new Stopwatch().start();
-		pfunc.compute();
-		System.out.println(String.format("%-30s %s", pfunc.getClass().getSimpleName(), sw.stop().getTime(2)));
+		GradientDescentPfunc pfunc = new GradientDescentPfunc(astar, confEcalc);
+		pfunc.init(epsilon);
+		pfunc.traceTo(surf);
+		pfunc.compute(surf.numEnergies);
 	}
 }

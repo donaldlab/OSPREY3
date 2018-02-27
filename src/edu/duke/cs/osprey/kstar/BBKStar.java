@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
+import edu.duke.cs.osprey.kstar.pfunc.UpperBoundCalculator;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -290,7 +291,7 @@ public class BBKStar {
 				}
 			};
 
-			SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
+			UpperBoundCalculator calc = new UpperBoundCalculator(
 				astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, sequence.makeRCs()))
 			);
 			calc.run(numConfs);
@@ -302,7 +303,7 @@ public class BBKStar {
 			// to compute upper bounds on pfuncs,
 			// we'll use the upper bound calculator in the usual way
 
-			SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
+			UpperBoundCalculator calc = new UpperBoundCalculator(
 				confSearchFactory.make(info.minimizedEmat, sequence.makeRCs())
 			);
 			calc.run(numConfs);

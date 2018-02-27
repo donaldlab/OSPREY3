@@ -98,6 +98,7 @@ public class TestKStar {
 					.setStabilityThreshold(null)
 					.addScoreConsoleWriter(testFormatter)
 					.setConfDB(confDBPattern)
+					//.setShowPfuncProgress(true)
 					.build();
 				result.kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
 				result.scores = result.kstar.run();
@@ -296,7 +297,7 @@ public class TestKStar {
 
 					new ConfDB(confSpaces.complex, complexDBFile).use((confdb) -> {
 						List<Sequence> sequences = result.kstar.complex.sequences;
-						assertThat(confdb.getNumSequences(), is((long)sequences.size() - 2)); // less 2 for the aborted complex pfuncs
+						assertThat(confdb.getNumSequences(), is((long)sequences.size()));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}

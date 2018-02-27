@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.IntEncoding;
 import edu.duke.cs.osprey.tools.Streams;
 import org.jetbrains.annotations.NotNull;
@@ -15,25 +16,58 @@ import java.util.function.Function;
 
 public class ConfDB {
 
-	public static <T> T useIfNeeded(SimpleConfSpace confSpace, File file, Function<ConfDB,T> block) {
+	public static interface UserWithReturn<T> {
+
+		T use(ConfDB confdb) throws Exception;
+
+		default T usePassExceptions(ConfDB confdb) {
+			try {
+				return use(confdb);
+			} catch (Exception ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+	}
+
+	public static interface User {
+
+		void use(ConfDB confdb) throws Exception;
+
+		default void usePassExceptions(ConfDB confdb) {
+			try {
+				use(confdb);
+			} catch (Exception ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+	}
+
+	public static <T> T useIfNeeded(SimpleConfSpace confSpace, File file, UserWithReturn<T> user) {
 
 		if (confSpace == null || file == null) {
 
 			// no DB? just pass null
-			return block.apply(null);
+			return user.usePassExceptions(null);
 
 		} else {
 
 			// open the db and make sure it gets cleaned up properly
-			return new ConfDB(confSpace, file).use(block);
+			return new ConfDB(confSpace, file).use(user);
 		}
 	}
 
-	public static void useIfNeeded(SimpleConfSpace confSpace, File file, Consumer<ConfDB> block) {
-		useIfNeeded(confSpace, file, (confdb) -> {
-			block.accept(confdb);
-			return null;
-		});
+	public static void useIfNeeded(SimpleConfSpace confSpace, File file, User user) {
+
+		if (confSpace == null || file == null) {
+
+			// no DB? just pass null
+			user.usePassExceptions(null);
+
+		} else {
+
+			// open the db and make sure it gets cleaned up properly
+			new ConfDB(confSpace, file).use(user);
+		}
 	}
 
 	public static class Conf {
@@ -501,18 +535,19 @@ public class ConfDB {
 		db.close();
 	}
 
-	public <T> T use(Function<ConfDB,T> block) {
+	public <T> T use(UserWithReturn<T> user) {
 		try {
-			return block.apply(this);
+			return user.usePassExceptions(this);
 		} finally {
 			close();
 		}
 	}
 
-	public void use(Consumer<ConfDB> block) {
-		use((confdb) -> {
-			block.accept(confdb);
-			return null;
-		});
+	public void use(User user) {
+		try {
+			user.usePassExceptions(this);
+		} finally {
+			close();
+		}
 	}
 }

@@ -10,14 +10,13 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -270,9 +269,11 @@ public class KStar {
 
 			// make the partition function
 			ConfSearch astar = confSearchFactory.make(emat, sequence.makeRCs());
-			SimplePartitionFunction pfunc = new SimplePartitionFunction(astar, confEcalc);
+			GradientDescentPfunc pfunc = new GradientDescentPfunc(astar, confEcalc);
 			pfunc.setReportProgress(settings.showPfuncProgress);
-			pfunc.setConfDB(confDB);
+			if (confDB != null) {
+				pfunc.setConfTable(confDB.getSequence(sequence));
+			}
 
 			// compute it
 			pfunc.init(settings.epsilon, stabilityThreshold);
@@ -284,9 +285,9 @@ public class KStar {
 			return result;
 		}
 
-		public void useConfDBIfNeeded(Consumer<ConfDB> block) {
+		public void useConfDBIfNeeded(ConfDB.User user) {
 			File file = settings.confDBPattern == null ? null : new File(settings.applyConfDBPattern(type.name().toLowerCase()));
-			ConfDB.useIfNeeded(confSpace, file, block);
+			ConfDB.useIfNeeded(confSpace, file, user);
 		}
 	}
 
