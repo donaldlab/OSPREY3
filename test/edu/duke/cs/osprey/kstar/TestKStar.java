@@ -23,8 +23,6 @@ import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
-import java.io.File;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;

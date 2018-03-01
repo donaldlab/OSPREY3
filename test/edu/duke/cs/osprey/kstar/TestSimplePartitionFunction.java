@@ -236,28 +236,6 @@ public class TestSimplePartitionFunction {
 	@Test public void test2RL0ComplexGD1GpuStream() { calc2RL0Complex(gdPfuncs, Parallelism.make(1, 1, 1)); }
 	@Test public void test2RL0ComplexGD4GpuStreams() { calc2RL0Complex(gdPfuncs, Parallelism.make(2, 1, 4)); }
 
-	// TEMP
-	public void calc2RL0ComplexFOOTEMP(PfuncFactory pfuncs, Parallelism parallelism) { // TODO
-
-		// NOTE: to match the old code precisely, we need to match the old conf space exactly too
-		// which means we need to keep the same design position order (CCD is of course sensitive to this)
-		// and also add the extra residues in the PDB file that aren't in the strands
-		TestInfo info = make2RL0TestInfo();
-		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
-			.addStrand(new Strand.Builder(info.mol).setTemplateLibrary(info.templateLib).setResidues("A153", "A154").build())
-			.addStrand(info.ligand)
-			.addStrand(new Strand.Builder(info.mol).setTemplateLibrary(info.templateLib).setResidues("A195", "A241").build())
-			.addStrand(new Strand.Builder(info.mol).setTemplateLibrary(info.templateLib).setResidues("G638", "G647").build())
-			.addStrand(info.protein)
-			.build();
-		if (calc2RL0ComplexEmat == null) {
-			calc2RL0ComplexEmat = calcEmat(info.ffparams, confSpace, parallelism);
-		}
-		final double targetEpsilon = 0.8;
-		final String approxQStar = "3.5213742379e+54"; // e=0.05
-		testStrand(info.ffparams, confSpace, parallelism, targetEpsilon, approxQStar, calc2RL0ComplexEmat, pfuncs);
-	}
-
 
 	public static TestInfo make1GUA11TestInfo() {
 

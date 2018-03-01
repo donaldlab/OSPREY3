@@ -11,8 +11,6 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
-import static edu.duke.cs.osprey.tools.Log.log;
-
 
 /**
  * This partition function calculator estimates the partition function value
