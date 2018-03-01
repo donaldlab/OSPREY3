@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar;
 
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -8,10 +9,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
-import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.UpperBoundCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.*;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -112,6 +110,37 @@ public class BBKStar {
 		}
 	}
 
+	private class ConfDBs {
+		public ConfDB protein = null;
+		public ConfDB ligand = null;
+		public ConfDB complex = null;
+	}
+
+	private static interface DBsUser {
+		void use(ConfDBs confdbs);
+	}
+
+	private void useDBsIfNeeded(ConfSpaceInfo protein, ConfSpaceInfo ligand, ConfSpaceInfo complex, DBsUser user) {
+		if (kstarSettings.confDBPattern == null) {
+			user.use(new ConfDBs());
+		} else {
+			File proteinFile = new File(kstarSettings.applyConfDBPattern(KStar.ConfSpaceType.Protein.name().toLowerCase()));
+			File ligandFile = new File(kstarSettings.applyConfDBPattern(KStar.ConfSpaceType.Ligand.name().toLowerCase()));
+			File complexFile = new File(kstarSettings.applyConfDBPattern(KStar.ConfSpaceType.Complex.name().toLowerCase()));
+			ConfDB.useIfNeeded(protein.confSpace, proteinFile, (proteinConfdb) -> {
+				ConfDB.useIfNeeded(ligand.confSpace, ligandFile, (ligandConfdb) -> {
+					ConfDB.useIfNeeded(complex.confSpace, complexFile, (complexConfdb) -> {
+						ConfDBs confdbs = new ConfDBs();
+						confdbs.protein = proteinConfdb;
+						confdbs.ligand = ligandConfdb;
+						confdbs.complex = complexConfdb;
+						user.use(confdbs);
+					});
+				});
+			});
+		}
+	}
+
 	public static enum PfuncsStatus {
 		Estimating,
 		Estimated,
@@ -123,6 +152,7 @@ public class BBKStar {
 		public final Sequence sequence;
 		public final Sequence proteinSequence;
 		public final Sequence ligandSequence;
+		public final ConfDBs confdbs;
 
 		/** for comparing in the tree, higher is first */
 		public double score;
@@ -130,9 +160,10 @@ public class BBKStar {
 		/** signals whether or not partition function values are allowed the stability threshold */
 		public boolean isUnboundUnstable;
 
-		protected Node(Sequence sequence) {
+		protected Node(Sequence sequence, ConfDBs confdbs) {
 
 			this.sequence = sequence;
+			this.confdbs = confdbs;
 
 			// split complex sequence into protein/ligand sequences
 			proteinSequence = sequence.filter(BBKStar.this.protein.confSpace);
@@ -152,8 +183,8 @@ public class BBKStar {
 
 	public class MultiSequenceNode extends Node {
 
-		public MultiSequenceNode(Sequence sequence) {
-			super(sequence);
+		public MultiSequenceNode(Sequence sequence, ConfDBs confdbs) {
+			super(sequence, confdbs);
 		}
 
 		public List<Node> makeChildren() {
@@ -185,18 +216,18 @@ public class BBKStar {
 				if (s.isFullyAssigned()) {
 
 					// fully assigned, make single sequence node
-					children.add(new SingleSequenceNode(s));
+					children.add(new SingleSequenceNode(s, confdbs));
 
 				} else if (s.countMutations() == kstarSettings.maxSimultaneousMutations) {
 
 					// mutation limit reached, fill unassigned positions with wild-type
 					s.fillWildType();
-					children.add(new SingleSequenceNode(s));
+					children.add(new SingleSequenceNode(s, confdbs));
 
 				} else {
 
 					// still partial sequence, make multi-sequence node
-					children.add(new MultiSequenceNode(s));
+					children.add(new MultiSequenceNode(s, confdbs));
 				}
 			}
 
@@ -325,16 +356,16 @@ public class BBKStar {
 		public final PartitionFunction ligand;
 		public final PartitionFunction complex;
 
-		public SingleSequenceNode(Sequence sequence) {
-			super(sequence);
+		public SingleSequenceNode(Sequence sequence, ConfDBs confdbs) {
+			super(sequence, confdbs);
 
 			// make the partition functions
-			this.protein = makePfunc(proteinPfuncs, BBKStar.this.protein, proteinSequence);
-			this.ligand = makePfunc(ligandPfuncs, BBKStar.this.ligand, ligandSequence);
-			this.complex = makePfunc(complexPfuncs, BBKStar.this.complex, sequence);
+			this.protein = makePfunc(proteinPfuncs, BBKStar.this.protein, proteinSequence, confdbs.protein);
+			this.ligand = makePfunc(ligandPfuncs, BBKStar.this.ligand, ligandSequence, confdbs.ligand);
+			this.complex = makePfunc(complexPfuncs, BBKStar.this.complex, sequence, confdbs.complex);
 		}
 
-		private PartitionFunction makePfunc(Map<Sequence,PartitionFunction> pfuncCache, ConfSpaceInfo info, Sequence sequence) {
+		private PartitionFunction makePfunc(Map<Sequence,PartitionFunction> pfuncCache, ConfSpaceInfo info, Sequence sequence, ConfDB confdb) {
 
 			// first check the cache
 			PartitionFunction pfunc = pfuncCache.get(sequence);
@@ -345,11 +376,14 @@ public class BBKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			pfunc = new SimplePartitionFunction(confSearchFactory.make(info.minimizedEmat, sequence.makeRCs()), info.minimizingConfEcalc);
-			pfunc.setReportProgress(kstarSettings.showPfuncProgress);
-			pfunc.init(kstarSettings.epsilon, info.stabilityThreshold);
-			pfuncCache.put(sequence, pfunc);
-			return pfunc;
+			GradientDescentPfunc gdpfunc = new GradientDescentPfunc(confSearchFactory.make(info.minimizedEmat, sequence.makeRCs()), info.minimizingConfEcalc);
+			gdpfunc.setReportProgress(kstarSettings.showPfuncProgress);
+			if (confdb != null) {
+				gdpfunc.setConfTable(confdb.getSequence(sequence));
+			}
+			gdpfunc.init(kstarSettings.epsilon, info.stabilityThreshold);
+			pfuncCache.put(sequence, gdpfunc);
+			return gdpfunc;
 		}
 
 		@Override
@@ -518,85 +552,89 @@ public class BBKStar {
 
 		List<KStar.ScoredSequence> scoredSequences = new ArrayList<>();
 
-		// calculate wild-type first
-		System.out.println("computing K* score for the wild-type sequence...");
-		SingleSequenceNode wildTypeNode = new SingleSequenceNode(Sequence.makeWildType(complex.confSpace));
-		KStarScore wildTypeScore = wildTypeNode.computeScore();
-		kstarSettings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
-			-1,
-			0,
-			wildTypeNode.sequence,
-			complex.confSpace,
-			wildTypeScore
-		));
-		if (kstarSettings.stabilityThreshold != null) {
-			BigDecimal stabilityThresholdFactor = new BoltzmannCalculator(PartitionFunction.decimalPrecision).calc(kstarSettings.stabilityThreshold);
-			protein.stabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
-			ligand.stabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
-		}
+		// open the conf databases if needed
+		useDBsIfNeeded(protein, ligand, complex, (confdbs) -> {
 
-		// start the BBK* tree with the root node
-		PriorityQueue<Node> tree = new PriorityQueue<>();
-		tree.add(new MultiSequenceNode(complex.confSpace.makeUnassignedSequence()));
+			// calculate wild-type first
+			System.out.println("computing K* score for the wild-type sequence...");
+			SingleSequenceNode wildTypeNode = new SingleSequenceNode(Sequence.makeWildType(complex.confSpace), confdbs);
+			KStarScore wildTypeScore = wildTypeNode.computeScore();
+			kstarSettings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
+				-1,
+				0,
+				wildTypeNode.sequence,
+				complex.confSpace,
+				wildTypeScore
+			));
+			if (kstarSettings.stabilityThreshold != null) {
+				BigDecimal stabilityThresholdFactor = new BoltzmannCalculator(PartitionFunction.decimalPrecision).calc(kstarSettings.stabilityThreshold);
+				protein.stabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
+				ligand.stabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+			}
 
-		// start searching the tree
-		System.out.println("computing K* scores for the " + bbkstarSettings.numBestSequences + " best sequences to epsilon = " + kstarSettings.epsilon + " ...");
-		kstarSettings.scoreWriters.writeHeader();
-		while (!tree.isEmpty() && scoredSequences.size() < bbkstarSettings.numBestSequences) {
+			// start the BBK* tree with the root node
+			PriorityQueue<Node> tree = new PriorityQueue<>();
+			tree.add(new MultiSequenceNode(complex.confSpace.makeUnassignedSequence(), confdbs));
 
-			// get the next node
-			Node node = tree.poll();
+			// start searching the tree
+			System.out.println("computing K* scores for the " + bbkstarSettings.numBestSequences + " best sequences to epsilon = " + kstarSettings.epsilon + " ...");
+			kstarSettings.scoreWriters.writeHeader();
+			while (!tree.isEmpty() && scoredSequences.size() < bbkstarSettings.numBestSequences) {
 
-			if (node instanceof SingleSequenceNode) {
-				SingleSequenceNode ssnode = (SingleSequenceNode)node;
+				// get the next node
+				Node node = tree.poll();
 
-				// single-sequence node
-				switch (ssnode.getStatus()) {
-					case Estimated:
+				if (node instanceof SingleSequenceNode) {
+					SingleSequenceNode ssnode = (SingleSequenceNode)node;
 
-						// sequence is finished, return it!
-						reportSequence(ssnode, scoredSequences);
+					// single-sequence node
+					switch (ssnode.getStatus()) {
+						case Estimated:
 
-					break;
-					case Estimating:
+							// sequence is finished, return it!
+							reportSequence(ssnode, scoredSequences);
 
-						// needs more estimation, catch-and-release
-						ssnode.estimateScore();
-						if (!ssnode.isUnboundUnstable) {
-							tree.add(ssnode);
+						break;
+						case Estimating:
+
+							// needs more estimation, catch-and-release
+							ssnode.estimateScore();
+							if (!ssnode.isUnboundUnstable) {
+								tree.add(ssnode);
+							}
+
+						break;
+						case Blocked:
+
+							// from here on out, it's all blocked sequences
+							// so it's ok to put them in the sorted order now
+							reportSequence(ssnode, scoredSequences);
+					}
+
+				} else if (node instanceof MultiSequenceNode) {
+					MultiSequenceNode msnode = (MultiSequenceNode)node;
+
+					// partial sequence, expand children
+					// TODO: parallelize the multi-sequence node scoring here?
+					for (Node child : msnode.makeChildren()) {
+						child.estimateScore();
+						if (!child.isUnboundUnstable) {
+							tree.add(child);
 						}
-
-					break;
-					case Blocked:
-
-						// from here on out, it's all blocked sequences
-						// so it's ok to put them in the sorted order now
-						reportSequence(ssnode, scoredSequences);
-				}
-
-			} else if (node instanceof MultiSequenceNode) {
-				MultiSequenceNode msnode = (MultiSequenceNode)node;
-
-				// partial sequence, expand children
-				// TODO: parallelize the multi-sequence node scoring here?
-				for (Node child : msnode.makeChildren()) {
-					child.estimateScore();
-					if (!child.isUnboundUnstable) {
-						tree.add(child);
 					}
 				}
 			}
-		}
 
-		if (scoredSequences.size() < bbkstarSettings.numBestSequences) {
-			if (tree.isEmpty()) {
-				// all is well, we just don't have that many sequences in the design
-				System.out.println("Tried to find " + bbkstarSettings.numBestSequences + " sequences,"
-					+ " but design flexibility and sequence filters only allowed " + scoredSequences.size() + " sequences.");
-			} else {
-				throw new Error("BBK* ended, but the tree isn't empty and we didn't return enough sequences. This is a bug.");
+			if (scoredSequences.size() < bbkstarSettings.numBestSequences) {
+				if (tree.isEmpty()) {
+					// all is well, we just don't have that many sequences in the design
+					System.out.println("Tried to find " + bbkstarSettings.numBestSequences + " sequences,"
+						+ " but design flexibility and sequence filters only allowed " + scoredSequences.size() + " sequences.");
+				} else {
+					throw new Error("BBK* ended, but the tree isn't empty and we didn't return enough sequences. This is a bug.");
+				}
 			}
-		}
+		});
 
 		return scoredSequences;
 	}
