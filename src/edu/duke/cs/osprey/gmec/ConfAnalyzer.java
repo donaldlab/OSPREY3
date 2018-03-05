@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.gmec;
 
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -11,6 +12,7 @@ import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.structure.PDBIO;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -130,6 +132,28 @@ public class ConfAnalyzer {
 			gscorer.calc(assignments),
 			confEcalc.calcEnergy(new RCTuple(assignments))
 		);
+	}
+
+	public EnsembleAnalysis analyzeGMECEnsembleFromConfDB(String confDBPath, int maxNumConfs) {
+		return analyzeGMECEnsembleFromConfDB(new File(confDBPath), maxNumConfs);
+	}
+
+	public EnsembleAnalysis analyzeGMECEnsembleFromConfDB(File confDBFile, int maxNumConfs) {
+		return analyzeEnsembleFromConfDB(confDBFile, SimpleGMECFinder.ConfDBTableName, maxNumConfs);
+	}
+
+	public EnsembleAnalysis analyzeEnsembleFromConfDB(File confDBFile, String tableName, int maxNumConfs) {
+
+		return new ConfDB(confEcalc.confSpace, confDBFile).use((confdb) -> {
+			ConfDB.ConfTable table = confdb.new ConfTable(tableName);
+
+			// adapt the table to a conf queue
+			Queue.FIFO<ConfSearch.EnergiedConf> confs = Queue.FIFOFactory.of(table.energiedConfs(ConfDB.SortOrder.Energy), table.sizeEnergied());
+
+			// NOTE: yeah the confDB has the minimized energies already, but it doesn't have the structures
+			// so we need to minimize again
+			return analyzeEnsemble(confs, maxNumConfs);
+		});
 	}
 
 	public EnsembleAnalysis analyzeEnsemble(Queue.FIFO<? extends ConfSearch.ScoredConf> confs, int maxNumConfs) {

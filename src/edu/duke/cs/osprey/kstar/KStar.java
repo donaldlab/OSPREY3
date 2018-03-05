@@ -156,7 +156,7 @@ public class KStar {
 				return this;
 			}
 
-			public Builder setConfDB(String val) {
+			public Builder setConfDBPattern(String val) {
 				confDBPattern = val;
 				return this;
 			}

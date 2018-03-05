@@ -425,5 +425,252 @@ public class TestConfDB {
 		});
 	}
 
-	// TODO: test interrupted write
+	@Test
+	public void energyIndices() {
+
+		int[][] assignments = {
+			{ 0, 0, 0 },
+			{ 1, 2, 3 },
+			{ 3, 2, 1 },
+		};
+
+		String tableId = "foo";
+		withDBTwice((db) -> {
+
+			ConfDB.ConfTable table = db.new ConfTable(tableId);
+
+			table.setBounds(assignments[0], 7.0, 27.0, 5L);
+			table.setBounds(assignments[1], 6.0, 25.0, 6L);
+			table.setBounds(assignments[2], 5.0, 26.0, 7L);
+
+			assertThat(table.size(), is(3L));
+			assertThat(table.sizeScored(), is(3L));
+			assertThat(table.sizeEnergied(), is(3L));
+
+			assertThat(table.energiedConfs(ConfDB.SortOrder.Assignment), contains(
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
+				new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
+				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0)
+			));
+
+			assertThat(table.energiedConfs(ConfDB.SortOrder.Score), contains(
+				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
+				new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
+			));
+
+			assertThat(table.energiedConfs(ConfDB.SortOrder.Energy), contains(
+				new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
+				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
+			));
+
+		}, (db) -> {
+
+			ConfDB.ConfTable table = db.new ConfTable(tableId);
+
+			assertThat(table.size(), is(3L));
+			assertThat(table.sizeScored(), is(3L));
+			assertThat(table.sizeEnergied(), is(3L));
+
+			assertThat(table.energiedConfs(ConfDB.SortOrder.Assignment), contains(
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
+				new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
+				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0)
+			));
+
+			assertThat(table.energiedConfs(ConfDB.SortOrder.Score), contains(
+				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
+				new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
+			));
+
+			assertThat(table.energiedConfs(ConfDB.SortOrder.Energy), contains(
+				new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
+				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
+			));
+		});
+	}
+
+	@Test
+	public void energyIndicesChange() {
+
+		int[][] assignments = {
+			{ 0, 0, 0 },
+			{ 1, 2, 3 },
+			{ 3, 2, 1 },
+		};
+
+		withDB((db) -> {
+
+			ConfDB.ConfTable table = db.new ConfTable("foo");
+
+			table.setBounds(assignments[0], 7.0, 27.0, 5L);
+			table.setBounds(assignments[1], 6.0, 25.0, 6L);
+			table.setBounds(assignments[2], 5.0, 26.0, 7L);
+
+			table.setBounds(assignments[1], 10.0, 50.0, 10L);
+
+			assertThat(table.size(), is(3L));
+			assertThat(table.sizeScored(), is(3L));
+			assertThat(table.sizeEnergied(), is(3L));
+
+			assertThat(table.energiedConfs(ConfDB.SortOrder.Assignment), contains(
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
+				new ConfSearch.EnergiedConf(assignments[1], 10.0, 50.0),
+				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0)
+			));
+
+			assertThat(table.energiedConfs(ConfDB.SortOrder.Score), contains(
+				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
+				new ConfSearch.EnergiedConf(assignments[1], 10.0, 50.0)
+			));
+
+			assertThat(table.energiedConfs(ConfDB.SortOrder.Energy), contains(
+				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
+				new ConfSearch.EnergiedConf(assignments[1], 10.0, 50.0)
+			));
+		});
+	}
+
+	@Test
+	public void energyIndexChangeLowerBound() {
+
+		int[][] assignments = {
+			{ 0, 0, 0 },
+			{ 1, 2, 3 },
+			{ 3, 2, 1 },
+		};
+
+		withDB((db) -> {
+
+			ConfDB.ConfTable table = db.new ConfTable("foo");
+
+			table.setLowerBound(assignments[0], 7.0, 5L);
+			table.setLowerBound(assignments[1], 6.0, 6L);
+			table.setLowerBound(assignments[2], 5.0, 7L);
+
+			table.setLowerBound(assignments[1], 10.0, 10L);
+
+			assertThat(table.sizeScored(), is(3L));
+
+			assertThat(table.scoredConfs(ConfDB.SortOrder.Assignment), contains(
+				new ConfSearch.ScoredConf(assignments[0], 7.0),
+				new ConfSearch.ScoredConf(assignments[1], 10.0),
+				new ConfSearch.ScoredConf(assignments[2], 5.0)
+			));
+
+			assertThat(table.scoredConfs(ConfDB.SortOrder.Score), contains(
+				new ConfSearch.ScoredConf(assignments[2], 5.0),
+				new ConfSearch.ScoredConf(assignments[0], 7.0),
+				new ConfSearch.ScoredConf(assignments[1], 10.0)
+			));
+		});
+	}
+
+	@Test
+	public void energyIndexChangeUpperBound() {
+
+		int[][] assignments = {
+			{ 0, 0, 0 },
+			{ 1, 2, 3 },
+			{ 3, 2, 1 },
+		};
+
+		withDB((db) -> {
+
+			ConfDB.ConfTable table = db.new ConfTable("foo");
+
+			table.setUpperBound(assignments[0], 27.0, 5L);
+			table.setUpperBound(assignments[1], 25.0, 6L);
+			table.setUpperBound(assignments[2], 26.0, 7L);
+
+			table.setUpperBound(assignments[1], 50.0, 10L);
+
+			assertThat(table.sizeEnergied(), is(3L));
+
+			assertThat(table.energiedConfs(ConfDB.SortOrder.Assignment), contains(
+				new ConfSearch.EnergiedConf(assignments[0], Double.NaN, 27.0),
+				new ConfSearch.EnergiedConf(assignments[1], Double.NaN, 50.0),
+				new ConfSearch.EnergiedConf(assignments[2], Double.NaN, 26.0)
+			));
+
+			assertThat(table.energiedConfs(ConfDB.SortOrder.Energy), contains(
+				new ConfSearch.EnergiedConf(assignments[2], Double.NaN, 26.0),
+				new ConfSearch.EnergiedConf(assignments[0], Double.NaN, 27.0),
+				new ConfSearch.EnergiedConf(assignments[1], Double.NaN, 50.0)
+			));
+		});
+	}
+
+	@Test
+	public void energyIndicesSameEnergies() {
+
+		int[][] assignments = {
+			{ 0, 0, 0 },
+			{ 1, 2, 3 },
+			{ 3, 2, 1 },
+		};
+
+		String tableId = "foo";
+		withDBTwice((db) -> {
+
+			ConfDB.ConfTable table = db.new ConfTable(tableId);
+
+			table.setBounds(assignments[0], 7.0, 20.0, 5L);
+			table.setBounds(assignments[1], 7.0, 20.0, 6L);
+			table.setBounds(assignments[2], 7.0, 20.0, 7L);
+
+			assertThat(table.size(), is(3L));
+			assertThat(table.sizeScored(), is(3L));
+			assertThat(table.sizeEnergied(), is(3L));
+
+			assertThat(table.scoredConfs(ConfDB.SortOrder.Assignment), containsInAnyOrder(
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
+				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
+				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
+			));
+
+			assertThat(table.scoredConfs(ConfDB.SortOrder.Score), containsInAnyOrder(
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
+				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
+				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
+			));
+
+			assertThat(table.scoredConfs(ConfDB.SortOrder.Energy), containsInAnyOrder(
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
+				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
+				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
+			));
+
+		}, (db) -> {
+
+			ConfDB.ConfTable table = db.new ConfTable(tableId);
+
+			assertThat(table.size(), is(3L));
+			assertThat(table.sizeScored(), is(3L));
+			assertThat(table.sizeEnergied(), is(3L));
+
+			assertThat(table.scoredConfs(ConfDB.SortOrder.Assignment), containsInAnyOrder(
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
+				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
+				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
+			));
+
+			assertThat(table.scoredConfs(ConfDB.SortOrder.Score), containsInAnyOrder(
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
+				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
+				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
+			));
+
+			assertThat(table.scoredConfs(ConfDB.SortOrder.Energy), containsInAnyOrder(
+				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
+				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
+				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
+			));
+		});
+	}
 }

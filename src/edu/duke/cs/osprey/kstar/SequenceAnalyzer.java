@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar;
 
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -86,6 +87,14 @@ public class SequenceAnalyzer {
 			}
 			emat = builder.build().calcEnergyMatrix();
 		}
+
+		public File getConfDBFile() {
+			if (settings.confDBPattern == null) {
+				return null;
+			} else {
+				return new File(settings.applyConfDBPattern(type.name().toLowerCase()));
+			}
+		}
 	}
 
 	/** A configuration space containing just the protein strand */
@@ -135,7 +144,9 @@ public class SequenceAnalyzer {
 
 		// find the GMEC for this sequence
 		ConfSearch astar = confSearchFactory.make(info.emat, sequence.makeRCs());
-		SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, info.confEcalc).build();
+		SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, info.confEcalc)
+			.setConfDB(info.getConfDBFile())
+			.build();
 		Queue.FIFO<ConfSearch.EnergiedConf> econfs = gmecFinder.find(energyWindowSize);
 
 		// return the analysis

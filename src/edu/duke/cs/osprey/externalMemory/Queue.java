@@ -1,9 +1,6 @@
 package edu.duke.cs.osprey.externalMemory;
 
-import java.util.ArrayDeque;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.PriorityQueue;
+import java.util.*;
 import java.util.function.Predicate;
 
 import edu.duke.cs.tpie.serialization.SerializingDoublePriorityQueue;
@@ -116,7 +113,56 @@ public interface Queue<T> {
 				}
 			};
 		}
-		
+
+		public static <T> Queue.FIFO<T> of(Iterable<T> iterable, long size) {
+			return of(iterable.iterator(), size);
+		}
+
+		public static <T> Queue.FIFO<T> of(Iterator<T> iter, long size) {
+			return new Queue.FIFO<T>() {
+
+				private T next = null;
+
+				{
+					// get the initial element, if any
+					advance();
+				}
+
+				private void advance() {
+					if (iter.hasNext()) {
+						next = iter.next();
+					} else {
+						next = null;
+					}
+				}
+
+				@Override
+				public void push(T val) {
+					throw new UnsupportedOperationException("this FIFO queue is read only");
+				}
+
+				@Override
+				public T peek() {
+					return next;
+				}
+
+				@Override
+				public void pop() {
+					advance();
+				}
+
+				@Override
+				public long size() {
+					return size;
+				}
+
+				@Override
+				public boolean isEmpty() {
+					return next != null;
+				}
+			};
+		}
+
 		@Override
 		public Queue.FIFO<T> make() {
 			return of();

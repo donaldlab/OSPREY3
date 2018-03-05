@@ -1,8 +1,9 @@
 package edu.duke.cs.osprey.confspace;
 
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.IntEncoding;
 import edu.duke.cs.osprey.tools.Streams;
+
+import edu.duke.cs.osprey.tools.UnpossibleError;
 import org.jetbrains.annotations.NotNull;
 import org.mapdb.*;
 import org.mapdb.serializer.GroupSerializerObjectArray;
@@ -10,8 +11,6 @@ import org.mapdb.serializer.GroupSerializerObjectArray;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 
 public class ConfDB {
@@ -70,6 +69,12 @@ public class ConfDB {
 		}
 	}
 
+	public static enum SortOrder {
+		Assignment,
+		Score,
+		Energy
+	}
+
 	public static class Conf {
 
 		public static class Bound {
@@ -97,6 +102,21 @@ public class ConfDB {
 			this.assignments = assignments;
 			this.lower = info.makeLowerBound();
 			this.upper = info.makeUpperBound();
+		}
+
+		public ConfSearch.ScoredConf toScoredConf() {
+			return new ConfSearch.ScoredConf(
+				assignments,
+				lower == null ? Double.NaN : lower.energy
+			);
+		}
+
+		public ConfSearch.EnergiedConf toEnergiedConf() {
+			return new ConfSearch.EnergiedConf(
+				assignments,
+				lower == null ? Double.NaN : lower.energy,
+				upper == null ? Double.NaN : upper.energy
+			);
 		}
 	}
 
@@ -166,6 +186,92 @@ public class ConfDB {
 		}
 	}
 
+	private class AssignmentsSerializer extends SimpleSerializer<int[]> {
+
+		private final int numPos;
+
+		public AssignmentsSerializer() {
+			super(assignmentEncoding.numBytes*confSpace.positions.size());
+			this.numPos = confSpace.positions.size();
+		}
+
+		@Override
+		public void serialize(@NotNull DataOutput2 out, @NotNull int[] assignments)
+		throws IOException {
+			for (int i=0; i<numPos; i++) {
+				assignmentEncoding.write(out, assignments[i]);
+			}
+		}
+
+		@Override
+		public int[] deserialize(@NotNull DataInput2 in, int available)
+		throws IOException {
+			int[] assignments = new int[numPos];
+			for (int i=0; i<numPos; i++) {
+				assignments[i] = assignmentEncoding.read(in);
+			}
+			return assignments;
+		}
+
+		@Override
+		public int compare(int[] a, int[] b) {
+
+			// short circuit
+			if (a == b) {
+				return 0;
+			}
+
+			// lexicographical comparison
+			final int len = Math.min(a.length, b.length);
+			for (int i=0; i<len; i++) {
+				int val = Integer.compare(a[i], b[i]);
+				if (val != 0) {
+					return val;
+				}
+			}
+			return Integer.compare(a.length, b.length);
+		}
+
+		@Override
+		public boolean equals(int[] a, int[] b) {
+			return Arrays.equals(a, b);
+		}
+
+		@Override
+		public int hashCode(@NotNull int[] assignments, int seed) {
+			return DataIO.intHash(Arrays.hashCode(assignments) + seed);
+		}
+	}
+
+	private class MultiAssignmentsSerializer extends SimpleSerializer<List<int[]>> {
+
+		private final AssignmentsSerializer serializer = new AssignmentsSerializer();
+
+		public MultiAssignmentsSerializer() {
+			super(SimpleSerializer.DynamicSize);
+		}
+
+		@Override
+		public void serialize(@NotNull DataOutput2 out, @NotNull List<int[]> multiAssignments)
+		throws IOException {
+			out.writeInt(multiAssignments.size());
+			for (int[] assignments : multiAssignments) {
+				serializer.serialize(out, assignments);
+			}
+		}
+
+		@Override
+		public List<int[]> deserialize(@NotNull DataInput2 in, int available)
+		throws IOException {
+			List<int[]> multiAssignments = new ArrayList<>();
+			int num = in.readInt();
+			for (int i=0; i<num; i++) {
+				multiAssignments.add(serializer.deserialize(in, available));
+			}
+			return multiAssignments;
+		}
+	}
+
 	private static class SequenceInfo {
 
 		public double lowerEnergyOfUnsampledConfs;
@@ -183,61 +289,10 @@ public class ConfDB {
 	public class ConfTable implements Iterable<Conf> {
 
 		private final BTreeMap<int[],ConfInfo> btree;
+		private final EnergyIndex lowerIndex;
+		private final EnergyIndex upperIndex;
 
 		public ConfTable(String id) {
-
-			int numPos = confSpace.positions.size();
-
-			// MapDB serializer for assignments
-			SimpleSerializer<int[]> assignmentsSerializer = new SimpleSerializer<int[]>(SimpleSerializer.DynamicSize) {
-
-				@Override
-				public void serialize(@NotNull DataOutput2 out, @NotNull int[] assignments)
-				throws IOException {
-					for (int i=0; i<numPos; i++) {
-						assignmentEncoding.write(out, assignments[i]);
-					}
-				}
-
-				@Override
-				public int[] deserialize(@NotNull DataInput2 in, int available)
-				throws IOException {
-					int[] assignments = new int[numPos];
-					for (int i=0; i<numPos; i++) {
-						assignments[i] = assignmentEncoding.read(in);
-					}
-					return assignments;
-				}
-
-				@Override
-				public int compare(int[] a, int[] b) {
-
-					// short circuit
-					if (a == b) {
-						return 0;
-					}
-
-					// lexicographical comparison
-					final int len = Math.min(a.length, b.length);
-					for (int i=0; i<len; i++) {
-						int val = Integer.compare(a[i], b[i]);
-						if (val != 0) {
-							return val;
-						}
-					}
-					return Integer.compare(a.length, b.length);
-				}
-
-				@Override
-				public boolean equals(int[] a, int[] b) {
-					return Arrays.equals(a, b);
-				}
-
-				@Override
-				public int hashCode(@NotNull int[] assignments, int seed) {
-					return DataIO.intHash(Arrays.hashCode(assignments) + seed);
-				}
-			};
 
 			// MapDB serializer for ConfInfo
 			final int ConfInfoBytes = Double.BYTES*2 + Long.BYTES*2;
@@ -265,34 +320,66 @@ public class ConfDB {
 			};
 
 			this.btree = db.treeMap(id)
-				.keySerializer(assignmentsSerializer)
+				.keySerializer(new AssignmentsSerializer())
 				.valueSerializer(confInfoSerializer)
 				.createOrOpen();
+
+			this.lowerIndex = new EnergyIndex(id + "-lowerEnergy");
+			this.upperIndex = new EnergyIndex(id + "-upperEnergy");
 		}
 
 		public void setBounds(int[] assignments, double lowerEnergy, double upperEnergy, long timestampNs) {
-			btree.put(assignments, new ConfInfo(lowerEnergy, timestampNs, upperEnergy, timestampNs));
+			ConfInfo info = btree.get(assignments);
+			if (info == null) {
+				info = new ConfInfo();
+			} else {
+				// remove old energy index entries if needed
+				if (info.lowerTimestampNs != 0L) {
+					lowerIndex.remove(info.lowerEnergy, assignments);
+				}
+				if (info.upperTimestampNs != 0L) {
+					upperIndex.remove(info.upperEnergy, assignments);
+				}
+			}
+			info.lowerEnergy = lowerEnergy;
+			info.lowerTimestampNs = timestampNs;
+			info.upperEnergy = upperEnergy;
+			info.upperTimestampNs = timestampNs;
+			btree.put(assignments, info);
+			lowerIndex.add(lowerEnergy, assignments);
+			upperIndex.add(upperEnergy, assignments);
 		}
 
 		public void setLowerBound(int[] assignments, double energy, long timestampNs) {
 			ConfInfo info = btree.get(assignments);
 			if (info == null) {
 				info = new ConfInfo();
+			} else {
+				// remove old energy index entries if needed
+				if (info.lowerTimestampNs != 0L) {
+					lowerIndex.remove(info.lowerEnergy, assignments);
+				}
 			}
 			info.lowerEnergy = energy;
 			info.lowerTimestampNs = timestampNs;
 			btree.put(assignments, info);
+			lowerIndex.add(energy, assignments);
 		}
 
 		public void setUpperBound(int[] assignments, double energy, long timestampNs) {
 			ConfInfo info = btree.get(assignments);
 			if (info == null) {
 				info = new ConfInfo();
+			} else {
+				// remove old energy index entries if needed
+				if (info.upperTimestampNs != 0L) {
+					upperIndex.remove(info.upperEnergy, assignments);
+				}
 			}
 			info.upperEnergy = energy;
 			info.upperTimestampNs = timestampNs;
 			btree.put(assignments, info);
-			db.commit();
+			upperIndex.add(energy, assignments);
 		}
 
 		public Conf get(int[] assignments) {
@@ -305,35 +392,117 @@ public class ConfDB {
 			return new Conf(assignments, info);
 		}
 
-		@NotNull
+		public ConfSearch.ScoredConf getScored(int[] assignments) {
+
+			ConfInfo info = btree.get(assignments);
+			if (info == null) {
+				return null;
+			}
+
+			return new ConfSearch.ScoredConf(
+				assignments,
+				info.lowerTimestampNs == 0L ? Double.NaN : info.lowerEnergy
+			);
+		}
+
+		public ConfSearch.EnergiedConf getEnergied(int[] assignments) {
+
+			ConfInfo info = btree.get(assignments);
+			if (info == null) {
+				return null;
+			}
+
+			return new ConfSearch.EnergiedConf(
+				assignments,
+				info.lowerTimestampNs == 0L ? Double.NaN : info.lowerEnergy,
+				info.upperTimestampNs == 0L ? Double.NaN : info.upperEnergy
+			);
+		}
+
+		public void remove(int[] assignments) {
+			ConfInfo info = btree.get(assignments);
+			if (info != null) {
+				if (info.lowerTimestampNs != 0L) {
+					lowerIndex.remove(info.lowerEnergy, assignments);
+				}
+				if (info.upperTimestampNs != 0L) {
+					upperIndex.remove(info.upperEnergy, assignments);
+				}
+				btree.remove(assignments);
+			}
+		}
+
 		@Override
 		public Iterator<Conf> iterator() {
-			Iterator<Map.Entry<int[],ConfInfo>> iter = btree.entryIterator();
-
-			return new Iterator<Conf>() {
-
-				@Override
-				public boolean hasNext() {
-					return iter.hasNext();
-				}
-
-				@Override
-				public Conf next() {
-
-					Map.Entry<int[],ConfInfo> entry = iter.next();
-
-					return new Conf(
+			return Streams.of(btree.entryIterator())
+				.map((entry) -> new Conf(
 						entry.getKey(),
 						entry.getValue()
-					);
-				}
-			};
+					)
+				)
+				.iterator();
+		}
+
+		public Iterable<ConfSearch.ScoredConf> scoredConfs(SortOrder sort) {
+			switch (sort) {
+
+				case Assignment:
+					return () -> Streams.of(iterator())
+						.map((conf) -> conf.toScoredConf())
+						.iterator();
+
+				case Score:
+					return () -> Streams.of(lowerIndex.iterator())
+						.map((entry) -> new ConfSearch.ScoredConf(entry.getValue(), entry.getKey()))
+						.iterator();
+
+				case Energy:
+					return () -> Streams.of(upperIndex.iterator())
+						.map((entry) -> getScored(entry.getValue()))
+						.filter((conf) -> conf != null)
+						.iterator();
+
+				default:
+					throw new UnpossibleError();
+			}
+		}
+
+		public Iterable<ConfSearch.EnergiedConf> energiedConfs(SortOrder sort) {
+			switch (sort) {
+
+				case Assignment:
+					return () -> Streams.of(iterator())
+						.map((conf) -> conf.toEnergiedConf())
+						.iterator();
+
+				case Score:
+					return () -> Streams.of(lowerIndex.iterator())
+						.map((entry) -> getEnergied(entry.getValue()))
+						.filter((conf) -> conf != null)
+						.iterator();
+
+				case Energy:
+					return () -> Streams.of(upperIndex.iterator())
+						.map((entry) -> getEnergied(entry.getValue()))
+						.filter((conf) -> conf != null)
+						.iterator();
+
+				default:
+					throw new UnpossibleError();
+			}
 		}
 
 		public long size() {
 			return btree.sizeLong();
 		}
 
+		public long sizeScored() {
+			return lowerIndex.size();
+		}
+
+		public long sizeEnergied() {
+			return upperIndex.size();
+		}
 		public void flush() {
 			ConfDB.this.flush();
 		}
@@ -372,6 +541,108 @@ public class ConfDB {
 				info.lowerEnergyOfUnsampledConfs = val;
 			}
 			setInfo(info);
+		}
+	}
+
+	private class EnergyIndex implements Iterable<Map.Entry<Double,int[]>> {
+
+		public final BTreeMap<Double,List<int[]>> btree;
+
+		public EnergyIndex(String id) {
+			this.btree = db.treeMap(id)
+				.keySerializer(Serializer.DOUBLE)
+				.valueSerializer(new MultiAssignmentsSerializer())
+				.createOrOpen();
+		}
+
+		public long size() {
+			return btree.sizeLong();
+		}
+
+		public List<int[]> get(double energy) {
+			return btree.get(energy);
+		}
+
+		public void add(double energy, int[] assignments) {
+			List<int[]> multiAssignments = get(energy);
+			if (multiAssignments == null) {
+				multiAssignments = Arrays.asList(assignments);
+			} else {
+
+				// if the assignments are already there, don't update anything
+				if (hasAssignments(multiAssignments, assignments)) {
+					return;
+				}
+
+				multiAssignments.add(assignments);
+			}
+			btree.put(energy, multiAssignments);
+		}
+
+		public void remove(double energy, int[] assignments) {
+			List<int[]> multiAssignments = get(energy);
+			if (multiAssignments != null && removeAssignments(multiAssignments, assignments)) {
+				btree.put(energy, multiAssignments);
+			}
+		}
+
+		private class EnergiedAssignments implements Map.Entry<Double,int[]> {
+
+			public final double energy;
+			public final int[] assignments;
+
+			public EnergiedAssignments(double energy, int[] assignments) {
+				this.energy = energy;
+				this.assignments = assignments;
+			}
+
+			@Override
+			public Double getKey() {
+				return energy;
+			}
+
+			@Override
+			public int[] getValue() {
+				return assignments;
+			}
+
+			@Override
+			public int[] setValue(int[] value) {
+				throw new UnsupportedOperationException();
+			}
+		}
+
+		@Override
+		public Iterator<Map.Entry<Double,int[]>> iterator() {
+			return Streams.of(btree.entryIterator())
+				.flatMap((entry) ->
+					entry.getValue().stream()
+						.map((assignments) ->
+							(Map.Entry<Double,int[]>)new EnergiedAssignments(entry.getKey(), assignments)
+						)
+				)
+				.iterator();
+		}
+
+		// sigh... java arrays don't implement equals() etc
+		private boolean hasAssignments(List<int[]> multiAssignments, int[] assignments) {
+			for (int[] a : multiAssignments) {
+				if (Arrays.equals(a, assignments)) {
+					return true;
+				}
+			}
+			return false;
+		}
+		private boolean removeAssignments(List<int[]> multiAssignments, int[] assignments) {
+			Iterator<int[]> iter = multiAssignments.iterator();
+			while (iter.hasNext()) {
+				int[] a = iter.next();
+				if (Arrays.equals(a, assignments)) {
+					iter.remove();
+					return true;
+				}
+			}
+			return false;
 		}
 	}
 
@@ -475,10 +746,11 @@ public class ConfDB {
 	}
 
 	private String getSequenceId(Sequence sequence) {
-		return String.join(":", Streams.toIterable(
+		return String.join(":", () ->
 			sequence.confSpace.positions.stream()
-				.map((pos) -> sequence.get(pos))
-		));
+				.map((pos) -> (CharSequence)sequence.get(pos))
+				.iterator()
+		);
 	}
 
 	private Sequence makeSequenceFromId(String id) {

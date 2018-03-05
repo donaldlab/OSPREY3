@@ -34,6 +34,8 @@ import java.util.function.Function;
  * space must have higher energy.
  */
 public class SimpleGMECFinder {
+
+	public static final String ConfDBTableName = "GMEC";
 	
 	public static class Builder {
 		
@@ -157,7 +159,7 @@ public class SimpleGMECFinder {
 			if (confdb == null) {
 				block.accept(null);
 			} else {
-				block.accept(confdb.new ConfTable("GMECFinder"));
+				block.accept(confdb.new ConfTable(ConfDBTableName));
 			}
 		});
 	}

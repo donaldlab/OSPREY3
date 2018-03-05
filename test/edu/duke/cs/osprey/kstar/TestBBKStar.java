@@ -15,7 +15,6 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -69,7 +68,7 @@ public class TestBBKStar {
 					.setStabilityThreshold(null)
 					.setMaxSimultaneousMutations(1)
 					.addScoreConsoleWriter()
-					.setConfDB(confdbPattern)
+					.setConfDBPattern(confdbPattern)
 					.build();
 				BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
 					.setNumBestSequences(numSequences)

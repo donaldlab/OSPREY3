@@ -7,7 +7,7 @@ import java.io.IOException;
 public enum IntEncoding {
 
 	// NOTE: this order is important for get()
-	Byte(255) {
+	Byte(1, 255) {
 
 		@Override
 		public void write(DataOutput out, int val)
@@ -21,7 +21,7 @@ public enum IntEncoding {
 			return in.readUnsignedByte();
 		}
 	},
-	Short(32767) {
+	Short(2, 32767) {
 
 		@Override
 		public void write(DataOutput out, int val)
@@ -35,7 +35,7 @@ public enum IntEncoding {
 			return in.readUnsignedShort();
 		}
 	},
-	Int(Integer.MAX_VALUE) {
+	Int(4, Integer.MAX_VALUE) {
 
 		@Override
 		public void write(DataOutput out, int val)
@@ -50,9 +50,11 @@ public enum IntEncoding {
 		}
 	};
 
+	public final int numBytes;
 	public final int maxValue;
 
-	IntEncoding(int maxValue) {
+	IntEncoding(int numBytes, int maxValue) {
+		this.numBytes = numBytes;
 		this.maxValue = maxValue;
 	}
 

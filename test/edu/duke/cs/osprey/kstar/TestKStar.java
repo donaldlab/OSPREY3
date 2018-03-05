@@ -95,7 +95,7 @@ public class TestKStar {
 					.setEpsilon(epsilon)
 					.setStabilityThreshold(null)
 					.addScoreConsoleWriter(testFormatter)
-					.setConfDB(confDBPattern)
+					.setConfDBPattern(confDBPattern)
 					//.setShowPfuncProgress(true)
 					.build();
 				result.kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
