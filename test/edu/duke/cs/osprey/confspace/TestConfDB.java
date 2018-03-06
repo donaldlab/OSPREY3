@@ -17,6 +17,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.File;
+import java.lang.reflect.Array;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.function.Consumer;
 
@@ -99,6 +101,28 @@ public class TestConfDB {
 		}
 	}
 
+	private void assertConf(ConfDB.Conf conf, int[] assignments, double lower, long lowerNs, double upper, long upperNs) {
+		assertThat(conf.assignments, is(assignments));
+		assertThat(conf.lower.energy, is(lower));
+		assertThat(conf.lower.timestampNs, is(lowerNs));
+		assertThat(conf.upper.energy, is(upper));
+		assertThat(conf.upper.timestampNs, is(upperNs));
+	}
+
+	private void assertConfLower(ConfDB.Conf conf, int[] assignments, double lower, long timestampNs) {
+		assertThat(conf.assignments, is(assignments));
+		assertThat(conf.lower.energy, is(lower));
+		assertThat(conf.lower.timestampNs, is(timestampNs));
+		assertThat(conf.upper, is(nullValue()));
+	}
+
+	private void assertConfUpper(ConfDB.Conf conf, int[] assignments, double upper, long timestampNs) {
+		assertThat(conf.assignments, is(assignments));
+		assertThat(conf.lower, is(nullValue()));
+		assertThat(conf.upper.energy, is(upper));
+		assertThat(conf.upper.timestampNs, is(timestampNs));
+	}
+
 	@Test
 	public void create() {
 
@@ -133,12 +157,7 @@ public class TestConfDB {
 
 			sdb.setLowerBound(assignments, energy, timestampNs);
 
-			ConfDB.Conf conf = sdb.get(assignments);
-
-			assertThat(conf.assignments, is(assignments));
-			assertThat(conf.lower.energy, is(energy));
-			assertThat(conf.lower.timestampNs, is(timestampNs));
-			assertThat(conf.upper, is(nullValue()));
+			assertConfLower(sdb.get(assignments), assignments, energy, timestampNs);
 		});
 	}
 
@@ -156,12 +175,7 @@ public class TestConfDB {
 
 			sdb.setUpperBound(assignments, energy, timestampNs);
 
-			ConfDB.Conf conf = sdb.get(assignments);
-
-			assertThat(conf.assignments, is(assignments));
-			assertThat(conf.lower, is(nullValue()));
-			assertThat(conf.upper.energy, is(energy));
-			assertThat(conf.upper.timestampNs, is(timestampNs));
+			assertConfUpper(sdb.get(assignments), assignments, energy, timestampNs);
 		});
 	}
 
@@ -180,13 +194,7 @@ public class TestConfDB {
 
 			sdb.setBounds(assignments, lowerEnergy, upperEnergy, timestampNs);
 
-			ConfDB.Conf conf = sdb.get(assignments);
-
-			assertThat(conf.assignments, is(assignments));
-			assertThat(conf.lower.energy, is(lowerEnergy));
-			assertThat(conf.lower.timestampNs, is(timestampNs));
-			assertThat(conf.upper.energy, is(upperEnergy));
-			assertThat(conf.upper.timestampNs, is(timestampNs));
+			assertConf(sdb.get(assignments), assignments, lowerEnergy, timestampNs, upperEnergy, timestampNs);
 		});
 	}
 
@@ -204,25 +212,14 @@ public class TestConfDB {
 
 			sdb.setLowerBound(assignments, lowerEnergy, lowerTimestampNs);
 
-			ConfDB.Conf conf = sdb.get(assignments);
-
-			assertThat(conf.assignments, is(assignments));
-			assertThat(conf.lower.energy, is(lowerEnergy));
-			assertThat(conf.lower.timestampNs, is(lowerTimestampNs));
-			assertThat(conf.upper, is(nullValue()));
+			assertConfLower(sdb.get(assignments), assignments, lowerEnergy, lowerTimestampNs);
 
 			double upperEnergy = 9.9;
 			long upperTimestampNs = TimeTools.getTimestampNs();
 
 			sdb.setUpperBound(assignments, upperEnergy, upperTimestampNs);
 
-			conf = sdb.get(assignments);
-
-			assertThat(conf.assignments, is(assignments));
-			assertThat(conf.lower.energy, is(lowerEnergy));
-			assertThat(conf.lower.timestampNs, is(lowerTimestampNs));
-			assertThat(conf.upper.energy, is(upperEnergy));
-			assertThat(conf.upper.timestampNs, is(upperTimestampNs));
+			assertConf(sdb.get(assignments), assignments, lowerEnergy, lowerTimestampNs, upperEnergy, upperTimestampNs);
 		});
 	}
 
@@ -237,24 +234,11 @@ public class TestConfDB {
 			sdb.setUpperBound(new int[] { 4, 0, 5 }, 2.3, 69L);
 
 			Iterator<ConfDB.Conf> confs = sdb.iterator();
-			ConfDB.Conf conf;
 
 			// confs should come out in lexicographic order of the assignments
-			conf = confs.next();
-			assertThat(conf.assignments, is(new int[] { 1, 2, 3 }));
-			assertThat(conf.upper.energy, is(7.9));
-			assertThat(conf.upper.timestampNs, is(42L));
-
-			conf = confs.next();
-			assertThat(conf.assignments, is(new int[] { 4, 0, 5 }));
-			assertThat(conf.upper.energy, is(2.3));
-			assertThat(conf.upper.timestampNs, is(69L));
-
-			conf = confs.next();
-			assertThat(conf.assignments, is(new int[] { 7, 9, 8 }));
-			assertThat(conf.upper.energy, is(3.2));
-			assertThat(conf.upper.timestampNs, is(54L));
-
+			assertConfUpper(confs.next(), new int[] { 1, 2, 3 }, 7.9, 42L);
+			assertConfUpper(confs.next(), new int[] { 4, 0, 5 }, 2.3, 69L);
+			assertConfUpper(confs.next(), new int[] { 7, 9, 8 }, 3.2, 54L);
 			assertThat(confs.hasNext(), is(false));
 		});
 	}
@@ -272,24 +256,11 @@ public class TestConfDB {
 		}, (db) -> {
 
 			Iterator<ConfDB.Conf> confs = db.getSequence(sequence).iterator();
-			ConfDB.Conf conf;
 
 			// confs should come out in lexicographic order of the assignments
-			conf = confs.next();
-			assertThat(conf.assignments, is(new int[] { 1, 2, 3 }));
-			assertThat(conf.upper.energy, is(7.9));
-			assertThat(conf.upper.timestampNs, is(42L));
-
-			conf = confs.next();
-			assertThat(conf.assignments, is(new int[] { 4, 0, 5 }));
-			assertThat(conf.upper.energy, is(2.3));
-			assertThat(conf.upper.timestampNs, is(69L));
-
-			conf = confs.next();
-			assertThat(conf.assignments, is(new int[] { 7, 9, 8 }));
-			assertThat(conf.upper.energy, is(3.2));
-			assertThat(conf.upper.timestampNs, is(54L));
-
+			assertConfUpper(confs.next(), new int[] { 1, 2, 3 }, 7.9, 42L);
+			assertConfUpper(confs.next(), new int[] { 4, 0, 5 }, 2.3, 69L);
+			assertConfUpper(confs.next(), new int[] { 7, 9, 8 }, 3.2, 54L);
 			assertThat(confs.hasNext(), is(false));
 		});
 	}
@@ -444,8 +415,6 @@ public class TestConfDB {
 			table.setBounds(assignments[2], 5.0, 26.0, 7L);
 
 			assertThat(table.size(), is(3L));
-			assertThat(table.sizeScored(), is(3L));
-			assertThat(table.sizeEnergied(), is(3L));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Assignment), contains(
 				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
@@ -464,14 +433,47 @@ public class TestConfDB {
 				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
 				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
 			));
+
+			assertThat(table.lowerBounds(), contains(5.0, 6.0, 7.0));
+			assertThat(table.upperBounds(), contains(25.0, 26.0, 27.0));
+
+			Iterator<ConfDB.Conf> iter;
+
+			iter = table.getConfsByLowerBound(5.0).iterator();
+			assertConf(iter.next(), assignments[2], 5.0, 7L, 26.0, 7L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByLowerBound(6.0).iterator();
+			assertConf(iter.next(), assignments[1], 6.0, 6L, 25.0, 6L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByLowerBound(7.0).iterator();
+			assertConf(iter.next(), assignments[0], 7.0, 5L, 27.0, 5L);
+			assertThat(iter.hasNext(), is(false));
+
+			assertThat(table.getConfsByLowerBound(4.0), is(nullValue()));
+			assertThat(table.getConfsByLowerBound(8.0), is(nullValue()));
+
+			iter = table.getConfsByUpperBound(25.0).iterator();
+			assertConf(iter.next(), assignments[1], 6.0, 6L, 25.0, 6L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByUpperBound(26.0).iterator();
+			assertConf(iter.next(), assignments[0], 7.0, 5L, 27.0, 5L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByUpperBound(27.0).iterator();
+			assertConf(iter.next(), assignments[2], 5.0, 7L, 26.0, 7L);
+			assertThat(iter.hasNext(), is(false));
+
+			assertThat(table.getConfsByUpperBound(24.0), is(nullValue()));
+			assertThat(table.getConfsByUpperBound(28.0), is(nullValue()));
 
 		}, (db) -> {
 
 			ConfDB.ConfTable table = db.new ConfTable(tableId);
 
 			assertThat(table.size(), is(3L));
-			assertThat(table.sizeScored(), is(3L));
-			assertThat(table.sizeEnergied(), is(3L));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Assignment), contains(
 				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
@@ -490,6 +492,41 @@ public class TestConfDB {
 				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
 				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
 			));
+
+			assertThat(table.lowerBounds(), contains(5.0, 6.0, 7.0));
+			assertThat(table.upperBounds(), contains(25.0, 26.0, 27.0));
+
+			Iterator<ConfDB.Conf> iter;
+
+			iter = table.getConfsByLowerBound(5.0).iterator();
+			assertConf(iter.next(), assignments[2], 5.0, 7L, 26.0, 7L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByLowerBound(6.0).iterator();
+			assertConf(iter.next(), assignments[1], 6.0, 6L, 25.0, 6L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByLowerBound(7.0).iterator();
+			assertConf(iter.next(), assignments[0], 7.0, 5L, 27.0, 5L);
+			assertThat(iter.hasNext(), is(false));
+
+			assertThat(table.getConfsByLowerBound(4.0), is(nullValue()));
+			assertThat(table.getConfsByLowerBound(8.0), is(nullValue()));
+
+			iter = table.getConfsByUpperBound(25.0).iterator();
+			assertConf(iter.next(), assignments[1], 6.0, 6L, 25.0, 6L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByUpperBound(26.0).iterator();
+			assertConf(iter.next(), assignments[0], 7.0, 5L, 27.0, 5L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByUpperBound(27.0).iterator();
+			assertConf(iter.next(), assignments[2], 5.0, 7L, 26.0, 7L);
+			assertThat(iter.hasNext(), is(false));
+
+			assertThat(table.getConfsByUpperBound(24.0), is(nullValue()));
+			assertThat(table.getConfsByUpperBound(28.0), is(nullValue()));
 		});
 	}
 
@@ -513,8 +550,6 @@ public class TestConfDB {
 			table.setBounds(assignments[1], 10.0, 50.0, 10L);
 
 			assertThat(table.size(), is(3L));
-			assertThat(table.sizeScored(), is(3L));
-			assertThat(table.sizeEnergied(), is(3L));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Assignment), contains(
 				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
@@ -533,6 +568,39 @@ public class TestConfDB {
 				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
 				new ConfSearch.EnergiedConf(assignments[1], 10.0, 50.0)
 			));
+
+			assertThat(table.lowerBounds(), contains(5.0, 7.0, 10.0));
+			assertThat(table.upperBounds(), contains(26.0, 27.0, 50.0));
+
+			Iterator<ConfDB.Conf> iter;
+
+			iter = table.getConfsByLowerBound(5.0).iterator();
+			assertConf(iter.next(), assignments[2], 5.0, 7L, 26.0, 7L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByLowerBound(7.0).iterator();
+			assertConf(iter.next(), assignments[0], 7.0, 5L, 27.0, 5L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByLowerBound(10.0).iterator();
+			assertConf(iter.next(), assignments[1], 10.0, 10L, 50.0, 10L);
+			assertThat(iter.hasNext(), is(false));
+
+			assertThat(table.getConfsByLowerBound(6.0), is(nullValue()));
+
+			iter = table.getConfsByUpperBound(26.0).iterator();
+			assertConf(iter.next(), assignments[2], 5.0, 7L, 26.0, 7L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByUpperBound(27.0).iterator();
+			assertConf(iter.next(), assignments[0], 7.0, 5L, 27.0, 5L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByUpperBound(50.0).iterator();
+			assertConf(iter.next(), assignments[1], 10.0, 10L, 50.0, 10L);
+			assertThat(iter.hasNext(), is(false));
+
+			assertThat(table.getConfsByUpperBound(25.0), is(nullValue()));
 		});
 	}
 
@@ -555,8 +623,6 @@ public class TestConfDB {
 
 			table.setLowerBound(assignments[1], 10.0, 10L);
 
-			assertThat(table.sizeScored(), is(3L));
-
 			assertThat(table.scoredConfs(ConfDB.SortOrder.Assignment), contains(
 				new ConfSearch.ScoredConf(assignments[0], 7.0),
 				new ConfSearch.ScoredConf(assignments[1], 10.0),
@@ -568,6 +634,24 @@ public class TestConfDB {
 				new ConfSearch.ScoredConf(assignments[0], 7.0),
 				new ConfSearch.ScoredConf(assignments[1], 10.0)
 			));
+
+			assertThat(table.lowerBounds(), contains(5.0, 7.0, 10.0));
+
+			Iterator<ConfDB.Conf> iter;
+
+			iter = table.getConfsByLowerBound(5.0).iterator();
+			assertConfLower(iter.next(), assignments[2], 5.0, 7L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByLowerBound(7.0).iterator();
+			assertConfLower(iter.next(), assignments[0], 7.0, 5L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByLowerBound(10.0).iterator();
+			assertConfLower(iter.next(), assignments[1], 10.0, 10L);
+			assertThat(iter.hasNext(), is(false));
+
+			assertThat(table.getConfsByLowerBound(6.0), is(nullValue()));
 		});
 	}
 
@@ -590,8 +674,6 @@ public class TestConfDB {
 
 			table.setUpperBound(assignments[1], 50.0, 10L);
 
-			assertThat(table.sizeEnergied(), is(3L));
-
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Assignment), contains(
 				new ConfSearch.EnergiedConf(assignments[0], Double.NaN, 27.0),
 				new ConfSearch.EnergiedConf(assignments[1], Double.NaN, 50.0),
@@ -603,6 +685,24 @@ public class TestConfDB {
 				new ConfSearch.EnergiedConf(assignments[0], Double.NaN, 27.0),
 				new ConfSearch.EnergiedConf(assignments[1], Double.NaN, 50.0)
 			));
+
+			assertThat(table.upperBounds(), contains(26.0, 27.0, 50.0));
+
+			Iterator<ConfDB.Conf> iter;
+
+			iter = table.getConfsByUpperBound(26.0).iterator();
+			assertConfUpper(iter.next(), assignments[2], 26.0, 7L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByUpperBound(27.0).iterator();
+			assertConfUpper(iter.next(), assignments[0], 27.0, 5L);
+			assertThat(iter.hasNext(), is(false));
+
+			iter = table.getConfsByUpperBound(50.0).iterator();
+			assertConfUpper(iter.next(), assignments[1], 50.0, 10L);
+			assertThat(iter.hasNext(), is(false));
+
+			assertThat(table.getConfsByUpperBound(25.0), is(nullValue()));
 		});
 	}
 
@@ -625,8 +725,6 @@ public class TestConfDB {
 			table.setBounds(assignments[2], 7.0, 20.0, 7L);
 
 			assertThat(table.size(), is(3L));
-			assertThat(table.sizeScored(), is(3L));
-			assertThat(table.sizeEnergied(), is(3L));
 
 			assertThat(table.scoredConfs(ConfDB.SortOrder.Assignment), containsInAnyOrder(
 				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
@@ -645,14 +743,25 @@ public class TestConfDB {
 				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
 				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
 			));
+
+			assertThat(table.lowerBounds(), contains(7.0));
+			assertThat(table.lowerBounds(), contains(20.0));
+
+			// order should be add order
+			Iterator<ConfDB.Conf> iter = table.getConfsByLowerBound(7.0).iterator();
+			assertConf(iter.next(), assignments[0], 7.0, 5L, 20.0, 5L);
+			assertConf(iter.next(), assignments[1], 7.0, 6L, 20.0, 6L);
+			assertConf(iter.next(), assignments[2], 7.0, 7L, 20.0, 7L);
+			assertThat(iter.hasNext(), is(false));
+
+			assertThat(table.getConfsByLowerBound(5.0).iterator().hasNext(), is(false));
+			assertThat(table.getConfsByLowerBound(6.0).iterator().hasNext(), is(false));
 
 		}, (db) -> {
 
 			ConfDB.ConfTable table = db.new ConfTable(tableId);
 
 			assertThat(table.size(), is(3L));
-			assertThat(table.sizeScored(), is(3L));
-			assertThat(table.sizeEnergied(), is(3L));
 
 			assertThat(table.scoredConfs(ConfDB.SortOrder.Assignment), containsInAnyOrder(
 				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
@@ -671,6 +780,16 @@ public class TestConfDB {
 				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
 				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
 			));
+
+			// order should be add order
+			Iterator<ConfDB.Conf> iter = table.getConfsByLowerBound(7.0).iterator();
+			assertConf(iter.next(), assignments[0], 7.0, 5L, 20.0, 5L);
+			assertConf(iter.next(), assignments[1], 7.0, 6L, 20.0, 6L);
+			assertConf(iter.next(), assignments[2], 7.0, 7L, 20.0, 7L);
+			assertThat(iter.hasNext(), is(false));
+
+			assertThat(table.getConfsByLowerBound(5.0).iterator().hasNext(), is(false));
+			assertThat(table.getConfsByLowerBound(6.0).iterator().hasNext(), is(false));
 		});
 	}
 }

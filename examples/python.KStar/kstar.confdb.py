@@ -37,7 +37,7 @@ complexConfSpace = osprey.ConfSpace([protein, ligand])
 # how should we compute energies of molecules?
 # (give the complex conf space to the ecalc since it knows about all the templates and degrees of freedom)
 parallelism = osprey.Parallelism(cpuCores=4)
-ecalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallelism, isMinimizing=True)
+ecalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallelism)
 
 # how should we define energies of conformations?
 def confEcalcFactory(confSpace, ecalc):
@@ -47,67 +47,46 @@ def confEcalcFactory(confSpace, ecalc):
 # how should confs be ordered and searched?
 def astarFactory(emat, rcs):
 	return osprey.AStarTraditional(emat, rcs, showProgress=False)
+	# or
+	# return osprey.AStarMPLP(emat, rcs, numIterations=5)
 
-# get the sequence analyzer
-analyzer = osprey.SequenceAnalyzer(
+# run K* using a confDB
+kstar = osprey.KStar(
 	proteinConfSpace,
 	ligandConfSpace,
 	complexConfSpace,
 	ecalc,
 	confEcalcFactory,
 	astarFactory,
-	energyMatrixCachePattern='emat.*.dat'
-)
-
-# how big should the ensembles be? (in terms of energy from the min)
-energyWindowSize = 1.0
-
-# analyze the wild-type complex
-analysis = analyzer.analyze(
-	complexConfSpace.makeWildTypeSequence(),
-	energyWindowSize
-)
-print('\n')
-print(analysis)
-analysis.writePdbs('ensemble-wt-complex/conf.*.pdb')
-
-# analyze the wild-type unbound protein
-analysis = analyzer.analyze(
-	proteinConfSpace.makeWildTypeSequence(),
-	energyWindowSize
-)
-print('\n')
-print(analysis)
-analysis.writePdbs('ensemble-wt-protein/conf.*.pdb')
-
-# analyze a mutant complex
-analysis = analyzer.analyze(
-	complexConfSpace.makeWildTypeSequence().set("G649", "ILE"),
-	energyWindowSize
-)
-print('\n')
-print(analysis)
-analysis.writePdbs('ensemble-ile/conf.*.pdb')
-
-
-# if you've run the kstar.confdb.py or bbkstar.confdb.py examples, then we can analyze
-# sequences using the pre-computed conf DB
-# otherwise, nothing will happen here
-analyzer = osprey.SequenceAnalyzer(
-	proteinConfSpace,
-	ligandConfSpace,
-	complexConfSpace,
-	ecalc,
-	confEcalcFactory,
-	astarFactory,
+	epsilon=0.5, # let's use a smaller epsilon so the design takes a noticeable amount of time
 	energyMatrixCachePattern='emat.*.dat',
-	confDBPattern='conf.*.db'
+	confDBPattern='conf.*.db', # actually several confDBs will be written, so give a name pattern
+	writeSequencesToConsole=True,
+	writeSequencesToFile='kstar.results.tsv'
 )
+scoredSequences = kstar.run()
 
-print('\nreading from previous conf DB...')
-analysis = analyzer.analyzeFromConfDB(
-	complexConfSpace.makeWildTypeSequence(),
-	energyWindowSize
-)
-print('\n')
-print(analysis)
+# use results
+for scoredSequence in scoredSequences:
+	print("result:")
+	print("\tsequence: %s" % scoredSequence.sequence)
+	print("\tscore: %s" % scoredSequence.score)
+
+
+# If OSPREY exits unexpectedly, the 'conf.*.db' files will still remain.
+# running K* again using an existing confDB should be MUCH faster!
+# meaning, your design should catch up to where it left off very quickly.
+print('\nRunning K* again...\n')
+osprey.KStar(
+	proteinConfSpace,
+	ligandConfSpace,
+	complexConfSpace,
+	ecalc,
+	confEcalcFactory,
+	astarFactory,
+	epsilon=0.5,
+	energyMatrixCachePattern='emat.*.dat',
+	confDBPattern='conf.*.db',
+	writeSequencesToConsole=True
+).run()
+print('\nSecond K* run finished!\n')

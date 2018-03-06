@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.gmec;
 
 import static edu.duke.cs.osprey.TestBase.*;
+import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -248,10 +249,10 @@ public class TestSimpleGMECFinder {
 			assertThat(conf.getEnergy(), isAbsolutely(-68.958418, EnergyEpsilon));
 			assertThat(conf.getScore(), isAbsolutely(-69.861970, EnergyEpsilon));
 
-			// the conf db should have all 26 confs
+			// the conf db should have all 27 confs
 			assertThat(confDBFile.exists(), is(true));
 			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
-				assertThat(confdb.new ConfTable("GMECFinder").size(), is(26L));
+				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(27L));
 			});
 		});
 	}
@@ -275,7 +276,7 @@ public class TestSimpleGMECFinder {
 			// there should be a confdb with confs in it
 			assertThat(confDBFile.exists(), is(true));
 			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
-				assertThat(confdb.new ConfTable("GMECFinder").size(), is(9L));
+				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(10L));
 			});
 
 			// resume the computation using the db
@@ -292,10 +293,10 @@ public class TestSimpleGMECFinder {
 			assertThat(conf.getEnergy(), isAbsolutely(-68.958418, EnergyEpsilon));
 			assertThat(conf.getScore(), isAbsolutely(-69.861970, EnergyEpsilon));
 
-			// the conf db should have all 26 confs
+			// the conf db should have all 27 confs
 			assertThat(confDBFile.exists(), is(true));
 			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
-				assertThat(confdb.new ConfTable("GMECFinder").size(), is(26L));
+				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(27L));
 			});
 		});
 	}
@@ -319,7 +320,7 @@ public class TestSimpleGMECFinder {
 			// there should be a confdb with confs in it
 			assertThat(confDBFile.exists(), is(true));
 			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
-				assertThat(confdb.new ConfTable("GMECFinder").size(), is(9L));
+				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(10L));
 			});
 
 			// do another batch
@@ -337,10 +338,10 @@ public class TestSimpleGMECFinder {
 			// there should be a confdb with confs in it
 			assertThat(confDBFile.exists(), is(true));
 			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
-				assertThat(confdb.new ConfTable("GMECFinder").size(), is(18L));
+				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(20L));
 			});
 
-			// resume the computation using the log
+			// resume the computation using the db
 			Queue<EnergiedConf> confs = problemBigContinuous.makeConfDBFinder(confDBFile, null).find(0.3);
 			assertThat(confs.size(), is(2L));
 
@@ -354,10 +355,10 @@ public class TestSimpleGMECFinder {
 			assertThat(conf.getEnergy(), isAbsolutely(-68.958418, EnergyEpsilon));
 			assertThat(conf.getScore(), isAbsolutely(-69.861970, EnergyEpsilon));
 
-			// the conf db should have all 26 confs
+			// the conf db should have all 27 confs
 			assertThat(confDBFile.exists(), is(true));
 			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
-				assertThat(confdb.new ConfTable("GMECFinder").size(), is(26L));
+				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(27L));
 			});
 		});
 	}

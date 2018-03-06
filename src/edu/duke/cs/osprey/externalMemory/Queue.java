@@ -46,6 +46,24 @@ public interface Queue<T> {
 		}
 		return other;
 	}
+
+	default Iterator<T> iterator() {
+		return new Iterator<T>() {
+
+			@Override
+			public boolean hasNext() {
+				return peek() != null;
+			}
+
+			@Override
+			public T next() {
+				if (!hasNext()) {
+					throw new NoSuchElementException();
+				}
+				return poll();
+			}
+		};
+	}
 	
 	public static interface Factory<T> {
 		

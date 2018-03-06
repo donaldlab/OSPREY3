@@ -11,6 +11,7 @@ import org.mapdb.serializer.GroupSerializerObjectArray;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 public class ConfDB {
@@ -328,6 +329,10 @@ public class ConfDB {
 			this.upperIndex = new EnergyIndex(id + "-upperEnergy");
 		}
 
+		public void setBounds(ConfSearch.EnergiedConf econf, long timestampNs) {
+			setBounds(econf.getAssignments(), econf.getScore(), econf.getEnergy(), timestampNs);
+		}
+
 		public void setBounds(int[] assignments, double lowerEnergy, double upperEnergy, long timestampNs) {
 			ConfInfo info = btree.get(assignments);
 			if (info == null) {
@@ -403,6 +408,16 @@ public class ConfDB {
 				assignments,
 				info.lowerTimestampNs == 0L ? Double.NaN : info.lowerEnergy
 			);
+		}
+
+		public ConfSearch.EnergiedConf getEnergied(ConfSearch.ScoredConf conf) {
+
+			ConfInfo info = btree.get(conf.getAssignments());
+			if (info == null || info.upperTimestampNs == 0L) {
+				return null;
+			}
+
+			return new ConfSearch.EnergiedConf(conf, info.upperEnergy);
 		}
 
 		public ConfSearch.EnergiedConf getEnergied(int[] assignments) {
@@ -492,17 +507,38 @@ public class ConfDB {
 			}
 		}
 
+		public Iterable<Double> lowerBounds() {
+			return () -> lowerIndex.btree.keyIterator();
+		}
+
+		public Iterable<Double> upperBounds() {
+			return () -> upperIndex.btree.keyIterator();
+		}
+
+		public List<Conf> getConfsByLowerBound(double energy) {
+			List<int[]> multiAssignments = lowerIndex.get(energy);
+			if (multiAssignments == null) {
+				return null;
+			}
+			return Streams.of(multiAssignments)
+				.map((assignments) -> get(assignments))
+				.collect(Collectors.toList());
+		}
+
+		public List<Conf> getConfsByUpperBound(double energy) {
+			List<int[]> multiAssignments = upperIndex.get(energy);
+			if (multiAssignments == null) {
+				return null;
+			}
+			return Streams.of(multiAssignments)
+				.map((assignments) -> get(assignments))
+				.collect(Collectors.toList());
+		}
+
 		public long size() {
 			return btree.sizeLong();
 		}
 
-		public long sizeScored() {
-			return lowerIndex.size();
-		}
-
-		public long sizeEnergied() {
-			return upperIndex.size();
-		}
 		public void flush() {
 			ConfDB.this.flush();
 		}
@@ -555,10 +591,6 @@ public class ConfDB {
 				.createOrOpen();
 		}
 
-		public long size() {
-			return btree.sizeLong();
-		}
-
 		public List<int[]> get(double energy) {
 			return btree.get(energy);
 		}
@@ -582,7 +614,11 @@ public class ConfDB {
 		public void remove(double energy, int[] assignments) {
 			List<int[]> multiAssignments = get(energy);
 			if (multiAssignments != null && removeAssignments(multiAssignments, assignments)) {
-				btree.put(energy, multiAssignments);
+				if (multiAssignments.size() == 0) {
+					btree.remove(energy);
+				} else {
+					btree.put(energy, multiAssignments);
+				}
 			}
 		}
 

@@ -304,7 +304,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 							// compute one energy and weights (and time it)
 							EnergyResult result = new EnergyResult();
 							result.stopwatch.start();
-							result.econf = calcOrLookupEnergy(conf);
+							result.econf = ecalc.calcEnergy(conf, confTable);
 							result.scoreWeight = bcalc.calc(result.econf.getScore());
 							result.energyWeight = bcalc.calc(result.econf.getEnergy());
 							result.stopwatch.stop();
@@ -398,31 +398,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 		if (!state.isStable(stabilityThreshold)) {
 			status = Status.Unstable;
 		}
-	}
-
-	private ConfSearch.EnergiedConf calcOrLookupEnergy(ConfSearch.ScoredConf conf) {
-
-		// do we have a conf table?
-		if (confTable != null) {
-
-			// do we have the energy already?
-			ConfDB.Conf dbconf = confTable.get(conf.getAssignments());
-			if (dbconf != null && dbconf.upper != null) {
-
-				// yup
-				return new ConfSearch.EnergiedConf(conf, dbconf.upper.energy);
-
-			} else {
-
-				// nope, update the table
-				ConfSearch.EnergiedConf econf = ecalc.calcEnergy(conf);
-				confTable.setUpperBound(conf.getAssignments(), econf.getEnergy(), TimeTools.getTimestampNs());
-				return econf;
-			}
-		}
-
-		// no conf table, just compute it
-		return ecalc.calcEnergy(conf);
 	}
 
 	private void onEnergy(ConfSearch.EnergiedConf econf, BigDecimal scoreWeight, BigDecimal energyWeight, double seconds) {
