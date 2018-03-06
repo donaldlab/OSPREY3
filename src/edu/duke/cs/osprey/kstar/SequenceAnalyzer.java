@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar;
 
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -86,6 +87,14 @@ public class SequenceAnalyzer {
 			}
 			emat = builder.build().calcEnergyMatrix();
 		}
+
+		public File getConfDBFile() {
+			if (settings.confDBPattern == null) {
+				return null;
+			} else {
+				return new File(settings.applyConfDBPattern(type.name().toLowerCase()));
+			}
+		}
 	}
 
 	/** A configuration space containing just the protein strand */
@@ -127,20 +136,56 @@ public class SequenceAnalyzer {
 
 	public Analysis analyze(Sequence sequence, double energyWindowSize) {
 
-		// get the confspace info from the sequence
-		ConfSpaceInfo info = Stream.of(complex, protein, ligand)
-			.filter((i) -> i.confSpace == sequence.confSpace)
-			.findFirst()
-			.orElseThrow(() -> new NoSuchElementException("no conformation space matching sequence " + sequence));
+		ConfSpaceInfo info = getConfSpaceFromSequence(sequence);
 
 		// find the GMEC for this sequence
 		ConfSearch astar = confSearchFactory.make(info.emat, sequence.makeRCs());
-		SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, info.confEcalc).build();
+		SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, info.confEcalc)
+			.setConfDB(info.getConfDBFile())
+			.build();
 		Queue.FIFO<ConfSearch.EnergiedConf> econfs = gmecFinder.find(energyWindowSize);
 
 		// return the analysis
 		ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc, info.emat);
 		ConfAnalyzer.EnsembleAnalysis ensemble = analyzer.analyzeEnsemble(econfs, Integer.MAX_VALUE);
 		return new Analysis(info, sequence, ensemble);
+	}
+
+	public Analysis analyzeFromConfDB(Sequence sequence, double energyWindowSize) {
+
+		ConfSpaceInfo info = getConfSpaceFromSequence(sequence);
+
+		return new ConfDB(info.confSpace, info.getConfDBFile()).use((confdb) -> {
+
+			// get the econfs from the table
+			ConfDB.SequenceDB sdb = confdb.getSequence(sequence);
+			if (sdb == null) {
+				return null;
+			}
+
+			// collect the confs in the energy window
+			Double minEnergy = null;
+			Queue.FIFO<ConfSearch.EnergiedConf> queue = Queue.FIFOFactory.of();
+			for (ConfSearch.EnergiedConf econf : sdb.energiedConfs(ConfDB.SortOrder.Energy)) {
+				if (minEnergy == null) {
+					minEnergy = econf.getEnergy();
+				}
+				if (econf.getEnergy() <= minEnergy + energyWindowSize) {
+					queue.push(econf);
+				}
+			}
+
+			// return the analysis
+			ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc, info.emat);
+			ConfAnalyzer.EnsembleAnalysis ensemble = analyzer.analyzeEnsemble(queue, Integer.MAX_VALUE);
+			return new Analysis(info, sequence, ensemble);
+		});
+	}
+
+	private ConfSpaceInfo getConfSpaceFromSequence(Sequence sequence) {
+		return Stream.of(complex, protein, ligand)
+			.filter((i) -> i.confSpace == sequence.confSpace)
+			.findFirst()
+			.orElseThrow(() -> new NoSuchElementException("no conformation space matching sequence " + sequence));
 	}
 }

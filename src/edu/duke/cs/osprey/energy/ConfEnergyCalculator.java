@@ -2,7 +2,9 @@ package edu.duke.cs.osprey.energy;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
@@ -13,6 +15,8 @@ import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.tools.Progress;
+import edu.duke.cs.osprey.tools.TimeTools;
+
 
 /**
  * Calculate energy for molecules created from conformation spaces.
@@ -141,7 +145,18 @@ public class ConfEnergyCalculator {
 	public void calcEnergyAsync(RCTuple frag, ResidueInteractions inters, TaskListener<EnergyCalculator.EnergiedParametricMolecule> listener) {
 		ecalc.tasks.submit(() -> calcEnergy(frag, inters), listener);
 	}
-	
+
+	/**
+	 * Asynchronous version of {@link #calcEnergy(RCTuple)}.
+	 *
+	 * @param frag The assignments of the conformation space
+	 * @param listener Callback function that will receive the energy and associated molecule pose.
+	 *                 Called on a listener thread which is separate from the calling thread.
+	 */
+	public void calcEnergyAsync(RCTuple frag, TaskListener<EnergyCalculator.EnergiedParametricMolecule> listener) {
+		ecalc.tasks.submit(() -> calcEnergy(frag), listener);
+	}
+
 	/**
 	 * Calculate energy of a scored conformation. Residue interactions are generated from the energy partition.
 	 * 
@@ -153,6 +168,18 @@ public class ConfEnergyCalculator {
 	}
 
 	/**
+	 * Calculate energy of a scored conformation, using the specified ConfDB table as a cache.
+	 * Residue interactions are generated from the energy partition.
+	 *
+	 * @param conf The conformation to analyze
+	 * @param table the confDB table
+	 * @return The conformation with attached energy
+	 */
+	public EnergiedConf calcEnergy(ScoredConf conf, ConfDB.ConfTable table) {
+		return calcEnergy(conf, table, () -> calcEnergy(conf));
+	}
+
+	/**
 	 * Asynchronous version of {@link #calcEnergy(ScoredConf)}.
 	 * 
 	 * @param conf The conformation to analyze
@@ -160,6 +187,18 @@ public class ConfEnergyCalculator {
 	 */
 	public void calcEnergyAsync(ScoredConf conf, TaskListener<EnergiedConf> listener) {
 		ecalc.tasks.submit(() -> calcEnergy(conf), listener);
+	}
+
+	/**
+	 * Asynchronous version of {@link #calcEnergy(ScoredConf)},
+	 * using the specified ConfDB table as a cache.
+	 *
+	 * @param conf The conformation to analyze
+	 * @param table the confDB table
+	 * @param listener Callback function that will receive the energy. Called on a listener thread which is separate from the calling thread.
+	 */
+	public void calcEnergyAsync(ScoredConf conf, ConfDB.ConfTable table, TaskListener<EnergiedConf> listener) {
+		calcEnergyAsync(conf, table, () -> calcEnergy(conf), listener);
 	}
 
 	/**
@@ -174,6 +213,19 @@ public class ConfEnergyCalculator {
 	}
 
 	/**
+	 * Calculate energy of a scored conformation with specified residue interactions,
+	 * using the specified ConfDB table as a cache.
+	 *
+	 * @param conf The conformation to analyze
+	 * @param inters The residue interactions
+	 * @param table the confDB table
+	 * @return The conformation with attached energy
+	 */
+	public EnergiedConf calcEnergy(ScoredConf conf, ResidueInteractions inters, ConfDB.ConfTable table) {
+		return calcEnergy(conf, table, () -> calcEnergy(conf, inters));
+	}
+
+	/**
 	 * Asynchronous version of {@link #calcEnergy(ScoredConf)}.
 	 *
 	 * @param conf The conformation to analyze
@@ -184,12 +236,59 @@ public class ConfEnergyCalculator {
 		ecalc.tasks.submit(() -> calcEnergy(conf), listener);
 	}
 
+	/**
+	 * Asynchronous version of {@link #calcEnergy(ScoredConf)},
+	 * using the specified ConfDB table as a cache.
+	 *
+	 * @param conf The conformation to analyze
+	 * @param inters The residue interactions
+	 * @param table the confDB table
+	 * @param listener Callback function that will receive the energy. Called on a listener thread which is separate from the calling thread.
+	 */
+	public void calcEnergyAsync(ScoredConf conf, ResidueInteractions inters, ConfDB.ConfTable table, TaskListener<EnergiedConf> listener) {
+		calcEnergyAsync(conf, table, () -> calcEnergy(conf, inters), listener);
+	}
+
+
+	private EnergiedConf calcEnergy(ScoredConf conf, ConfDB.ConfTable table, Supplier<EnergiedConf> supplier) {
+
+		// no confDB? just compute the energy
+		if (table == null) {
+			return supplier.get();
+		}
+
+		// check the confDB for the energy
+		EnergiedConf econf = table.getEnergied(conf);
+		if (econf != null) {
+			return econf;
+		}
+
+		// cache miss, compute the energy
+		econf = supplier.get();
+
+		// update the ConfDB
+		// NOTE: flushing the db every write might be noticeably slow at a high write rate
+		// in testing so far, at about 20 writes/s, the performance hit is undetectable
+		table.setBounds(econf, TimeTools.getTimestampNs());
+		table.flush();
+
+		return econf;
+	}
+
+	private void calcEnergyAsync(ScoredConf conf, ConfDB.ConfTable table, Supplier<EnergiedConf> supplier, TaskListener<EnergiedConf> listener) {
+		tasks.submit(() -> calcEnergy(conf, table, supplier), listener);
+	}
+
 
 	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs) {
 		return calcAllEnergies(confs, false);
 	}
 	
 	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs, boolean reportProgress) {
+		return calcAllEnergies(confs, reportProgress, null);
+	}
+
+	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs, boolean reportProgress, ConfDB.ConfTable table) {
 		
 		// allocate space to hold the minimized values
 		List<EnergiedConf> econfs = new ArrayList<>(confs.size());

@@ -88,3 +88,26 @@ analysis = analyzer.analyze(
 print('\n')
 print(analysis)
 analysis.writePdbs('ensemble-ile/conf.*.pdb')
+
+
+# if you've run the kstar.confdb.py or bbkstar.confdb.py examples, then we can analyze
+# sequences using the pre-computed conf DB
+# otherwise, nothing will happen here
+analyzer = osprey.SequenceAnalyzer(
+	proteinConfSpace,
+	ligandConfSpace,
+	complexConfSpace,
+	ecalc,
+	confEcalcFactory,
+	astarFactory,
+	energyMatrixCachePattern='emat.*.dat',
+	confDBPattern='conf.*.db'
+)
+
+print('\nreading from previous conf DB...')
+analysis = analyzer.analyzeFromConfDB(
+	complexConfSpace.makeWildTypeSequence(),
+	energyWindowSize
+)
+print('\n')
+print(analysis)

@@ -1,15 +1,18 @@
 package edu.duke.cs.osprey.kstar;
 
+import static edu.duke.cs.osprey.TestBase.fileForWriting;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
 import java.util.List;
@@ -23,6 +26,10 @@ public class TestBBKStar {
 	}
 
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon) {
+		return runBBKStar(confSpaces, numSequences, epsilon, null);
+	}
+
+	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern) {
 
 		AtomicReference<Results> resultsRef = new AtomicReference<>(null);
 
@@ -61,6 +68,7 @@ public class TestBBKStar {
 					.setStabilityThreshold(null)
 					.setMaxSimultaneousMutations(1)
 					.addScoreConsoleWriter()
+					.setConfDBPattern(confdbPattern)
 					.build();
 				BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
 					.setNumBestSequences(numSequences)
@@ -84,6 +92,11 @@ public class TestBBKStar {
 		final double epsilon = 0.99;
 		final int numSequences = 25;
 		Results results = runBBKStar(confSpaces, numSequences, epsilon);
+
+		assert2RL0(results, numSequences);
+	}
+
+	private void assert2RL0(Results results, int numSequences) {
 
 		// K* bounds collected with e = 0.1 from original K* algo
 		assertSequence(results, "PHE ASP GLU GLN PHE LYS ILE THR", 16.424659, 16.528464);
@@ -134,6 +147,61 @@ public class TestBBKStar {
 
 		assertThat(results.sequences.size(), is(numSequences));
 		assertDecreasingUpperBounds(results.sequences);
+	}
+
+	@Test
+	public void test2RL0WithConfDB() {
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
+		final double epsilon = 0.99;
+		final int numSequences = 25;
+		final String confdbPattern = "bbkstar.*.conf.db";
+
+		fileForWriting("bbkstar.protein.conf.db", (proteinDBFile) -> {
+			fileForWriting("bbkstar.ligand.conf.db", (ligandDBFile) -> {
+				fileForWriting("bbkstar.complex.conf.db", (complexDBFile) -> {
+
+					// run with empty dbs
+					Stopwatch sw = new Stopwatch().start();
+					Results results = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern);
+					assert2RL0(results, numSequences);
+					System.out.println(sw.getTime(2));
+
+					// the dbs should have stuff in them
+
+					new ConfDB(confSpaces.protein, proteinDBFile).use((confdb) -> {
+						assertThat(confdb.getNumSequences(), greaterThan(0L));
+						for (Sequence sequence : confdb.getSequences()) {
+							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
+						}
+					});
+
+					new ConfDB(confSpaces.ligand, ligandDBFile).use((confdb) -> {
+						assertThat(confdb.getNumSequences(), greaterThan(0L));
+						for (Sequence sequence : confdb.getSequences()) {
+							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
+						}
+					});
+
+					new ConfDB(confSpaces.complex, complexDBFile).use((confdb) -> {
+						assertThat(confdb.getNumSequences(), is((long)results.sequences.size()));
+						for (Sequence sequence : confdb.getSequences()) {
+							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
+						}
+					});
+
+					assertThat(proteinDBFile.exists(), is(true));
+					assertThat(ligandDBFile.exists(), is(true));
+					assertThat(complexDBFile.exists(), is(true));
+
+					// run again with full dbs
+					sw = new Stopwatch().start();
+					Results results2 = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern);
+					assert2RL0(results2, numSequences);
+					System.out.println(sw.getTime(2));
+				});
+			});
+		});
 	}
 
 	private void assertSequence(Results results, String sequence, Double estKStarLowerLog10, Double estKStarUpperLog10) {

@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.gmec;
 
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -11,9 +12,12 @@ import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.structure.PDBIO;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
+
 
 /**
  * Shows information about a single conformation.
@@ -132,33 +136,57 @@ public class ConfAnalyzer {
 		);
 	}
 
+	public EnsembleAnalysis analyzeGMECEnsembleFromConfDB(String confDBPath, int maxNumConfs) {
+		return analyzeGMECEnsembleFromConfDB(new File(confDBPath), maxNumConfs);
+	}
+
+	public EnsembleAnalysis analyzeGMECEnsembleFromConfDB(File confDBFile, int maxNumConfs) {
+		return analyzeEnsembleFromConfDB(confDBFile, SimpleGMECFinder.ConfDBTableName, maxNumConfs);
+	}
+
+	public EnsembleAnalysis analyzeEnsembleFromConfDB(File confDBFile, String tableName, int maxNumConfs) {
+
+		return new ConfDB(confEcalc.confSpace, confDBFile).use((confdb) -> {
+			ConfDB.ConfTable table = confdb.new ConfTable(tableName);
+
+			// NOTE: yeah the confDB has the minimized energies already,
+			// but it doesn't have the structures so we need to minimize again
+			return analyzeEnsemble(table.energiedConfs(ConfDB.SortOrder.Energy).iterator(), maxNumConfs);
+		});
+	}
+
 	public EnsembleAnalysis analyzeEnsemble(Queue.FIFO<? extends ConfSearch.ScoredConf> confs, int maxNumConfs) {
+		return analyzeEnsemble(confs.iterator(), maxNumConfs);
+	}
+
+	public EnsembleAnalysis analyzeEnsemble(Iterator<? extends ConfSearch.ScoredConf> confs, int maxNumConfs) {
 
 		EnsembleAnalysis analysis = new EnsembleAnalysis();
 
-		// make space for the confs
-		int n = (int)Math.min(confs.size(), maxNumConfs);
-		for (int i=0; i<n; i++) {
-			analysis.analyses.add(null);
-		}
-
 		// read the top confs
-		for (int i=0; i<n; i++) {
+		for (int i=0; i<maxNumConfs; i++) {
 			final int fi = i;
 
 			// get the next conf
-			ConfSearch.ScoredConf conf = confs.poll();
+			if (!confs.hasNext()) {
+				break;
+			}
+			ConfSearch.ScoredConf conf = confs.next();
 
 			// minimize the conf (asynchronously if possible)
-			confEcalc.tasks.submit(() -> {
-				return confEcalc.calcEnergy(new RCTuple(conf.getAssignments()));
-			}, (epmol) -> {
-				analysis.analyses.set(fi, new ConfAnalysis(
-					conf.getAssignments(),
-					conf.getScore(),
-					epmol
-				));
-			});
+			confEcalc.tasks.submit(
+				() -> confEcalc.calcEnergy(new RCTuple(conf.getAssignments())),
+				(epmol) -> {
+					while (analysis.analyses.size() <= fi) {
+						analysis.analyses.add(null);
+					}
+					analysis.analyses.set(fi, new ConfAnalysis(
+						conf.getAssignments(),
+						conf.getScore(),
+						epmol
+					));
+				}
+			);
 		}
 
 		confEcalc.tasks.waitForFinish();

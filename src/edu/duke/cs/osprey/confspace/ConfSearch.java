@@ -6,6 +6,7 @@ package edu.duke.cs.osprey.confspace;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.collections4.queue.CircularFifoQueue;
@@ -110,6 +111,16 @@ public interface ConfSearch {
         public void offsetScore(double val) {
         	score += val;
         }
+
+        @Override
+		public boolean equals(Object other) {
+        	return other instanceof ScoredConf && equals((ScoredConf)other);
+		}
+
+		public boolean equals(ScoredConf other) {
+        	return Arrays.equals(this.assignments, other.assignments)
+				&& Double.compare(this.score, other.score) == 0;
+		}
     }
     
     /**
@@ -171,7 +182,17 @@ public interface ConfSearch {
         public HashMap<String,List<String>> getProperties(SimpleConfSpace confSpace){
             return ConsoleConfPrinter.makeReportMap(this, confSpace, null);
         }
-    }
+
+		@Override
+		public boolean equals(Object other) {
+			return other instanceof EnergiedConf && equals((EnergiedConf)other);
+		}
+
+		public boolean equals(EnergiedConf other) {
+			return super.equals(other)
+				&& Double.compare(this.energy, other.energy) == 0;
+		}
+	}
     
 	/**
 	 * Lets multiple consumers read confs from the stream regardless of order of reads.
