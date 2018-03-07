@@ -283,6 +283,10 @@ public class ConfEnergyCalculator {
 	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs) {
 		return calcAllEnergies(confs, false);
 	}
+
+	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs, ConfDB.ConfTable table) {
+		return calcAllEnergies(confs, false, table);
+	}
 	
 	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs, boolean reportProgress) {
 		return calcAllEnergies(confs, reportProgress, null);
@@ -310,7 +314,7 @@ public class ConfEnergyCalculator {
 			// capture i for the closure below
 			final int fi = i;
 			
-			calcEnergyAsync(confs.get(i), (econf) -> {
+			calcEnergyAsync(confs.get(i), table, (econf) -> {
 				
 				// save the minimized energy
 				econfs.set(fi, econf);
