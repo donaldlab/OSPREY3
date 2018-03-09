@@ -1,11 +1,26 @@
 package edu.duke.cs.osprey.confspace;
 
-import java.io.Serializable;
+import edu.duke.cs.osprey.tools.HashCalculator;
+
 import java.util.*;
 
 public class Conf {
 
 	public static final int Unassigned = -1;
+
+	public static int[] make(SimpleConfSpace confSpace, RCTuple frag) {
+
+		// start with an unassigned conf
+		int[] conf = new int[confSpace.positions.size()];
+		Arrays.fill(conf, Unassigned);
+
+		// assign the fragment to the conf
+		for (int i=0; i<frag.size(); i++) {
+			conf[frag.pos.get(i)] = frag.RCs.get(i);
+		}
+
+		return conf;
+	}
 
 	public static int hashCode(int[] conf) {
 		return Arrays.hashCode(conf);
@@ -54,6 +69,17 @@ public class Conf {
 		return pairs;
 	}
 
+	public static boolean containsTuple(int[] conf, RCTuple tuple) {
+		for (int i=0; i<tuple.size(); i++) {
+			int pos = tuple.pos.get(i);
+			int rc = tuple.RCs.get(i);
+			if (conf[pos] != rc) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	public static boolean contains(Collection<int[]> confs, int [] conf) {
 		for (int[] c : confs) {
 			if (equals(c, conf)) {
@@ -62,7 +88,6 @@ public class Conf {
 		}
 		return false;
 	}
-
 
 
 	// sigh, this is the only way I know to attach custom hashers and equality checkers to a hash set
@@ -109,11 +134,23 @@ public class Conf {
 		private java.util.Set<Wrapper> set;
 
 		public Set() {
-			this(new HashSet<>());
+			this(new HashSet<Wrapper>());
 		}
 
 		public Set(java.util.Set<Wrapper> set) {
 			this.set = set;
+		}
+
+		public Set(Collection<int[]> source) {
+			this();
+			addAll(source);
+		}
+
+		public Set(int[] ... confs) {
+			this();
+			for (int[] conf : confs) {
+				add(conf);
+			}
 		}
 
 		@Override
@@ -151,7 +188,7 @@ public class Conf {
 
 		@Override
 		public boolean contains(Object o) {
-			return contains(checkKey(0));
+			return contains(checkKey(o));
 		}
 
 		public boolean contains(int[] conf) {
@@ -263,8 +300,104 @@ public class Conf {
 			return map.values();
 		}
 
+		private static class EntryWrapper<V> implements Entry<Wrapper,V> {
+
+			private Entry<int[],V> entry;
+			private Wrapper wrapper;
+
+			public EntryWrapper(Entry<int[],V> entry) {
+				this.entry = entry;
+				this.wrapper = new Wrapper(entry.getKey());
+			}
+
+			@Override
+			public Wrapper getKey() {
+				return wrapper;
+			}
+
+			@Override
+			public V getValue() {
+				return entry.getValue();
+			}
+
+			@Override
+			public V setValue(V value) {
+				return entry.setValue(value);
+			}
+
+			@Override
+			public int hashCode() {
+				return HashCalculator.combineHashes(
+					wrapper.hashCode(),
+					Objects.hashCode(entry.getValue())
+				);
+			}
+
+			@Override
+			@SuppressWarnings("unchecked")
+			public boolean equals(Object o) {
+				return o instanceof Entry && equals((Entry)o);
+			}
+
+			public boolean equals(Entry<int[],V> other) {
+				return Conf.equals(this.wrapper.assignments, other.getKey())
+					&& Objects.equals(this.getValue(), other.getValue());
+			}
+
+			@Override
+			public String toString() {
+				return String.format("%s=%s", getKey(), getValue());
+			}
+		}
+
+		private static class EntryUnwrapper<V> implements Entry<int[],V> {
+
+			private Entry<Wrapper,V> entry;
+
+			public EntryUnwrapper(Entry<Wrapper,V> entry) {
+				this.entry = entry;
+			}
+
+			@Override
+			public int[] getKey() {
+				return entry.getKey().assignments;
+			}
+
+			@Override
+			public V getValue() {
+				return entry.getValue();
+			}
+
+			@Override
+			public V setValue(V value) {
+				return entry.setValue(value);
+			}
+
+			@Override
+			public int hashCode() {
+				return entry.hashCode();
+			}
+
+			@Override
+			@SuppressWarnings("unchecked")
+			public boolean equals(Object o) {
+				return o instanceof Entry && equals((Entry)o);
+			}
+
+			public boolean equals(Entry<int[],V> other) {
+				return Conf.equals(this.getKey(), other.getKey())
+					&& Objects.equals(this.getValue(), other.getValue());
+			}
+
+			@Override
+			public String toString() {
+				return String.format("%s=%s", entry.getKey(), getValue());
+			}
+		}
+
 		@Override
 		public java.util.Set<Entry<int[],V>> entrySet() {
+
 			return new AbstractSet<Entry<int[],V>>() {
 
 				private final java.util.Set<Entry<Wrapper,V>> set = map.entrySet();
@@ -282,25 +415,7 @@ public class Conf {
 
 						@Override
 						public Entry<int[],V> next() {
-							Entry<Wrapper,V> entry = iter.next();
-							Wrapper wrapper = entry.getKey();
-							return new Entry<int[],V>() {
-
-								@Override
-								public int[] getKey() {
-									return wrapper.assignments;
-								}
-
-								@Override
-								public V getValue() {
-									return entry.getValue();
-								}
-
-								@Override
-								public V setValue(V value) {
-									return entry.setValue(value);
-								}
-							};
+							return new EntryUnwrapper<>(iter.next());
 						}
 
 						@Override
@@ -320,21 +435,29 @@ public class Conf {
 					return set.isEmpty();
 				}
 
-				// TODO: NEXTTIME: finish implementing this interface
-
 				@Override
+				@SuppressWarnings("unchecked")
 				public boolean contains(Object o) {
-					return o instanceof int[] && set.contains(new Wrapper((int[])o));
+					return o instanceof Entry && contains((Entry)o);
+				}
+
+				public boolean contains(Entry<int[],V> entry) {
+					return set.contains(new EntryWrapper<>(entry));
 				}
 
 				@Override
-				public boolean add(int[] conf) {
-					return set.add(new Wrapper(conf));
+				public boolean add(Entry<int[],V> entry) {
+					return set.add(new EntryWrapper<>(entry));
 				}
 
 				@Override
+				@SuppressWarnings("unchecked")
 				public boolean remove(Object o) {
-					return o instanceof int[] && set.remove(new Wrapper((int[])o));
+					return o instanceof Entry && remove((Entry)o);
+				}
+
+				public boolean remove(Entry<int[],V> entry) {
+					return set.remove(new EntryWrapper<>(entry));
 				}
 
 				@Override
@@ -360,8 +483,6 @@ public class Conf {
 				public String toString() {
 					return set.toString();
 				}
-
-				// TODO: until here
 			};
 		}
 
@@ -377,6 +498,11 @@ public class Conf {
 		@Override
 		public int hashCode() {
 			return map.hashCode();
+		}
+
+		@Override
+		public String toString() {
+			return map.toString();
 		}
 	}
 }

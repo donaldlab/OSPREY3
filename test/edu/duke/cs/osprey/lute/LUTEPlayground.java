@@ -21,11 +21,12 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 public class LUTEPlayground {
 
-	// TEMP
 	public static void main(String[] args) {
 
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
-		for (String resNum : Arrays.asList("A38", "A39", "A40", "A41")) { // [38,44]
+		//List<String> resNums = Arrays.asList("A38", "A39", "A40"); // this works great on pairs
+		List<String> resNums = Arrays.asList("A38", "A39", "A40", "A41"); // NOTE: need triples to get a good LUTE fit here
+		for (String resNum : resNums) { // [38,44]
 			strand.flexibility.get(resNum)
 				.setLibraryRotamers(Strand.WildType, "VAL", "LEU")
 				.addWildTypeRotamers()
@@ -48,7 +49,7 @@ public class LUTEPlayground {
 				.build()
 				.calcEnergyMatrix();
 
-			// do DEE
+			// prune clashes
 			PruningMatrix pmat = new SimpleDEE.Runner()
 				.setSinglesThreshold(100.0)
 				.setPairsThreshold(100.0)
@@ -56,10 +57,11 @@ public class LUTEPlayground {
 				.run(confSpace, emat);
 
 			// get a bunch of conformations and energies
-			final int numConfs = 1000;
+			final int numConfs = 10;
 			final File confDBFile = new File("lute-test.conf.db");
 			log("computing energies for %d confs...", numConfs);
-			List<ConfSearch.EnergiedConf> econfs = new ConfDB(confSpace, confDBFile).use((confdb) -> {
+			new ConfDB(confSpace, confDBFile).use((confdb) -> {
+				ConfDB.ConfTable confTable = confdb.new ConfTable("lute-test");
 
 				ConfSearch astar = new ConfAStarTree.Builder(emat, pmat)
 					.setTraditional()
@@ -76,38 +78,30 @@ public class LUTEPlayground {
 				}
 
 				// compute the energies
-				return confEcalc.calcAllEnergies(
-					confs,
-					true,
-					confdb.new ConfTable("lute-test")
-				);
+				List<ConfSearch.EnergiedConf> econfs = confEcalc.calcAllEnergies(confs, true, confTable);
+
+				log("\nLUTE:\n");
+
+				final int minSamplesPerTuple = 10;
+
+				// compute LUTE matrix for pair tuples
+				LUTE lute = new LUTE(confSpace);
+				lute.addUnprunedPairTuples(pmat);
+				LUTE.Errors errors = lute.fit(confEcalc, confTable, minSamplesPerTuple);
+
+				// compare conf energies
+				for (ConfSearch.EnergiedConf econf : econfs) {
+					double luteEnergy = lute.emat.confE(econf.getAssignments());
+					log("conf %20s   score %9.4f      energy %9.4f   gap %7.4f      LUTE energy %9.4f   diff %7.4f",
+						Arrays.toString(econf.getAssignments()),
+						econf.getScore(),
+						econf.getEnergy(),
+						econf.getEnergy() - econf.getScore(),
+						luteEnergy,
+						luteEnergy - econf.getEnergy()
+					);
+				}
 			});
-
-			log("\nLUTE:\n");
-
-			final double maxAllowedResidual = 0.01;
-
-			// compute LUTE matrix for pair tuples
-			LUTE lute = new LUTE(confSpace);
-			lute.addUnprunedPairTuples(pmat);
-			double residual = lute.fit(confEcalc);
-			if (residual > maxAllowedResidual) {
-				throw new Error(String.format("LUTE residual (%.4f) greater than max allowed (%.4f)", residual, maxAllowedResidual));
-			}
-			EnergyMatrix lutemat = lute.makeEnergyMatrix();
-
-			// compare conf energies
-			for (ConfSearch.EnergiedConf econf : econfs) {
-				double luteEnergy = lutemat.confE(econf.getAssignments());
-				log("conf %20s   score %9.4f      energy %9.4f   gap %7.4f      LUTE energy %9.4f   diff %7.4f",
-					Arrays.toString(econf.getAssignments()),
-					econf.getScore(),
-					econf.getEnergy(),
-					econf.getEnergy() - econf.getScore(),
-					luteEnergy,
-					luteEnergy - econf.getEnergy()
-				);
-			}
 		}
 	}
 }

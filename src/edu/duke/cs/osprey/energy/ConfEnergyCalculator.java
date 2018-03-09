@@ -4,12 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-import edu.duke.cs.osprey.confspace.ConfDB;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
-import edu.duke.cs.osprey.confspace.ParametricMolecule;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
@@ -155,6 +152,76 @@ public class ConfEnergyCalculator {
 	 */
 	public void calcEnergyAsync(RCTuple frag, TaskListener<EnergyCalculator.EnergiedParametricMolecule> listener) {
 		ecalc.tasks.submit(() -> calcEnergy(frag), listener);
+	}
+
+	/**
+	 * Version of {@link #calcEnergy(RCTuple)}
+	 * using the specified ConfDB table as a cache.
+	 *
+	 * @param frag The assignments of the conformation space
+	 * @param table the confDB table
+	 * @return The energy of the resulting molecule fragment
+	 */
+	public double calcEnergy(RCTuple frag, ConfDB.ConfTable table) {
+		return calcEnergy(frag, makeFragInters(frag), table);
+	}
+
+	/**
+	 * Version of {@link #calcEnergy(RCTuple,ResidueInteractions)}
+	 * using the specified ConfDB table as a cache.
+	 *
+	 * @param frag The assignments of the conformation space
+	 * @param inters The residue interactions
+	 * @param table the confDB table
+	 * @return The energy of the resulting molecule fragment
+	 */
+	public double calcEnergy(RCTuple frag, ResidueInteractions inters, ConfDB.ConfTable table) {
+
+		// no confDB? just compute the energy
+		if (table == null) {
+			return calcEnergy(frag, inters).energy;
+		}
+
+		// check the confDB for the energy
+		int[] conf = Conf.make(confSpace, frag);
+		ConfDB.Conf dbconf = table.get(conf);
+		if (dbconf != null && dbconf.upper != null) {
+			return dbconf.upper.energy;
+		}
+
+		// cache miss, compute the energy
+		double energy = calcEnergy(frag, inters).energy;
+
+		// update the ConfDB
+		table.setUpperBound(conf, energy, TimeTools.getTimestampNs());
+		table.flush();
+
+		return energy;
+	}
+
+	/**
+	 * Asynchronous version of {@link #calcEnergy(RCTuple,ConfDB.ConfTable)}.
+	 *
+	 * @param frag The assignments of the conformation space
+	 * @param table the confDB table
+	 * @param listener Callback function that will receive the energy.
+	 *                 Called on a listener thread which is separate from the calling thread.
+	 */
+	public void calcEnergyAsync(RCTuple frag, ConfDB.ConfTable table, TaskListener<Double> listener) {
+		tasks.submit(() -> calcEnergy(frag, table), listener);
+	}
+
+	/**
+	 * Asynchronous version of {@link #calcEnergy(RCTuple,ResidueInteractions,ConfDB.ConfTable)}.
+	 *
+	 * @param frag The assignments of the conformation space
+	 * @param inters The residue interactions
+	 * @param table the confDB table
+	 * @param listener Callback function that will receive the energy.
+	 *                 Called on a listener thread which is separate from the calling thread.
+	 */
+	public void calcEnergyAsync(RCTuple frag, ResidueInteractions inters, ConfDB.ConfTable table, TaskListener<Double> listener) {
+		tasks.submit(() -> calcEnergy(frag, inters, table), listener);
 	}
 
 	/**

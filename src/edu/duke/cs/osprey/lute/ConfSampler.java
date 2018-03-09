@@ -15,25 +15,11 @@ public class ConfSampler {
 	public final SimpleConfSpace confSpace;
 	public final Set<RCTuple> tuples;
 
-	private final Random rand = new Random();
+	private final Random rand = new Random(12345); // deterministic random, rather than stochastic
 
 	public ConfSampler(SimpleConfSpace confSpace, Set<RCTuple> tuples) {
 		this.confSpace = confSpace;
 		this.tuples = tuples;
-	}
-
-	public int[] makePartialConf(RCTuple tuple) {
-
-		// start with an unassigned conf
-		int[] conf = new int[confSpace.positions.size()];
-		Arrays.fill(conf, Conf.Unassigned);
-
-		// assign the tuple to the conf
-		for (int i=0; i<tuple.size(); i++) {
-			conf[tuple.pos.get(i)] = tuple.RCs.get(i);
-		}
-
-		return conf;
 	}
 
 	/**
@@ -44,7 +30,7 @@ public class ConfSampler {
 	public BigInteger getNumConfsUpperBound(RCTuple tuple) {
 
 		// make a conf with the tuple assignment
-		int[] conf = makePartialConf(tuple);
+		int[] conf = Conf.make(confSpace, tuple);
 
 		BigInteger numConfs = BigInteger.ZERO;
 
@@ -76,15 +62,6 @@ public class ConfSampler {
 
 	public Set<int[]> sample(RCTuple tuple, int numSamples, int numAttempts) {
 
-		// can we even sample that many confs?
-		BigInteger maxNumConfs = getNumConfsUpperBound(tuple);
-		if (BigInteger.valueOf(numSamples).compareTo(maxNumConfs) > 0) {
-			throw new IllegalArgumentException(String.format(
-				"can't sample %d confs, conf space only has %s confs for tuple %s",
-				numSamples, maxNumConfs, tuple
-			));
-		}
-
 		// don't know how to prune possible assignments based on a list of confs
 		// so I don't think we can do better than sample-and-reject here =(
 		Set<int[]> confs = new Conf.Set();
@@ -97,10 +74,24 @@ public class ConfSampler {
 		return confs;
 	}
 
+	public int[] sample(RCTuple tuple, Set<int[]> except, int numAttempts) {
+
+		// don't know how to prune possible assignments based on a list of confs
+		// so I don't think we can do better than sample-and-reject here =(
+		for (int i=0; i<numAttempts; i++) {
+			int[] conf = sample(tuple);
+			if (except == null || !except.contains(conf)) {
+				return conf;
+			}
+		}
+
+		return null;
+	}
+
 	public int[] sample(RCTuple tuple) {
 
 		// start with a conf with just the tuple assignment
-		int[] conf = makePartialConf(tuple);
+		int[] conf = Conf.make(confSpace, tuple);
 
 		// collect the possible RCs for all unassigned positions
 		Set<RCTuple> possibleAssignments = new HashSet<>();
