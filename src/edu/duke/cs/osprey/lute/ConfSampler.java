@@ -9,17 +9,20 @@ import edu.duke.cs.osprey.tools.UnpossibleError;
 import java.math.BigInteger;
 import java.util.*;
 
+import static edu.duke.cs.osprey.tools.Log.log;
+
 
 public class ConfSampler {
 
 	public final SimpleConfSpace confSpace;
 	public final Set<RCTuple> tuples;
 
-	private final Random rand = new Random(12345); // deterministic random, rather than stochastic
+	private final Random rand;
 
-	public ConfSampler(SimpleConfSpace confSpace, Set<RCTuple> tuples) {
+	public ConfSampler(SimpleConfSpace confSpace, Set<RCTuple> tuples, int randomSeed) {
 		this.confSpace = confSpace;
 		this.tuples = tuples;
+		this.rand = new Random(randomSeed);
 	}
 
 	/**
@@ -60,6 +63,73 @@ public class ConfSampler {
 		return numConfs;
 	}
 
+	public Map<RCTuple,Set<int[]>> sampleConfsForTuples(int minSamplesPerTuple) {
+
+		// track all samples by tuple
+		Map<RCTuple,Set<int[]>> samplesByTuple = new HashMap<>();
+		for (RCTuple tuple : tuples) {
+			samplesByTuple.put(tuple, new Conf.Set());
+		}
+
+		// keep track of tuples we can't sample anymore
+		Set<RCTuple> unsampleableTuples = new HashSet<>();
+
+		while (true) {
+
+			// find the least sampled tuple
+			// TODO: use a priority queue here?
+			int minNumSamples = 0;
+			RCTuple leastSampledTuple = null;
+			for (Map.Entry<RCTuple,Set<int[]>> entry : samplesByTuple.entrySet()) {
+
+				RCTuple tuple = entry.getKey();
+				int numSamples = entry.getValue().size();
+
+				// skip tuples we can't sample
+				if (unsampleableTuples.contains(tuple)) {
+					continue;
+				}
+
+				if (leastSampledTuple == null || numSamples < minNumSamples) {
+					minNumSamples = numSamples;
+					leastSampledTuple = tuple;
+				}
+			}
+
+			// are we done yet?
+			if (minNumSamples >= minSamplesPerTuple) {
+				break;
+			}
+
+			// can we even get another sample?
+			BigInteger maxNumConfs = getNumConfsUpperBound(leastSampledTuple);
+			if (BigInteger.valueOf(minNumSamples).compareTo(maxNumConfs) >= 0) {
+				// nope, out of confs to sample, that will have to be good enough for this tuple
+				unsampleableTuples.add(leastSampledTuple);
+				continue;
+			}
+
+			// sample another conf for this tuple (and other tuples too)
+			int[] conf = sample(leastSampledTuple, samplesByTuple.get(leastSampledTuple), minSamplesPerTuple*100);
+			if (conf == null) {
+				// too hard to sample another conf, what we have so far will have to be good enough for this tuple
+				// TODO: could maybe do DFS here to sample a conf? not sure how much it will improve fit quality tho
+				// since hard sampling means we're probably close to exhausting the conf space
+				unsampleableTuples.add(leastSampledTuple);
+				continue;
+			}
+
+			// update the tuple->samples map with the new sample
+			for (RCTuple tuple : tuples) {
+				if (Conf.containsTuple(conf, tuple)) {
+					samplesByTuple.get(tuple).add(conf);
+				}
+			}
+		}
+
+		return samplesByTuple;
+	}
+
 	public Set<int[]> sample(RCTuple tuple, int numSamples, int numAttempts) {
 
 		// don't know how to prune possible assignments based on a list of confs
@@ -80,6 +150,10 @@ public class ConfSampler {
 		// so I don't think we can do better than sample-and-reject here =(
 		for (int i=0; i<numAttempts; i++) {
 			int[] conf = sample(tuple);
+			if (conf == null) {
+				// must have sampled a dead-end
+				continue;
+			}
 			if (except == null || !except.contains(conf)) {
 				return conf;
 			}

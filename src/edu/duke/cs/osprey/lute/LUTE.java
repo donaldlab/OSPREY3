@@ -11,7 +11,6 @@ import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.apache.commons.math3.linear.*;
 
-import java.math.BigInteger;
 import java.util.*;
 
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -51,22 +50,9 @@ public class LUTE {
 				}
 				b.setEntry(row, energies.get(conf));
 			}
-
-			// TEMP
-			log("confs: %d   tuples: %d", confs.size(), this.tuples.size());
-			double minVal = Double.POSITIVE_INFINITY;
-			double maxVal = Double.NEGATIVE_INFINITY;
-			for (int row=0; row<confs.size(); row++) {
-				double energy = b.getEntry(row);
-				minVal = Math.min(minVal, energy);
-				maxVal = Math.max(maxVal, energy);
-			}
-			log("energy range: [%.4f,%.4f]", minVal, maxVal);
 		}
 
 		public RealVector fit() {
-
-			log("solving linear model...");
 
 			// any linear least squares solver should work here
 			// I generally like to use QR factorization, but it's a bit slow here
@@ -124,13 +110,15 @@ public class LUTE {
 			this.rms = Math.sqrt(sumsq/n);
 		}
 
+		public int getNumSamples() {
+			return residual.getDimension();
+		}
+
 		@Override
 		public String toString() {
-			return String.format("bounds [%8.4f,%8.4f]   avg %8.4f   rms %8.4f", min, max, avg, rms);
+			return String.format("range [%8.4f,%8.4f]   avg %8.4f   rms %8.4f", min, max, avg, rms);
 		}
 	}
-
-	// TODO: implement triples
 
 	public final SimpleConfSpace confSpace;
 	public final EnergyMatrix emat;
@@ -165,10 +153,61 @@ public class LUTE {
 							continue;
 						}
 
-						// we found it! It's an unpruned tuple!
+						// we found it! It's an unpruned pair!
 						// NOTE: make the tuple in pos2, pos1 order so the positions are already sorted
 						// (because pos2 < pos1 by definition)
 						addTuple(new RCTuple(pos2, rc2, pos1, rc1));
+					}
+				}
+			}
+		}
+	}
+
+	public void addUnprunedTripleTuples(PruningMatrix pmat) {
+
+		for (int pos1=0; pos1<pmat.getNumPos(); pos1++) {
+			for (int rc1=0; rc1<pmat.getNumConfAtPos(pos1); rc1++) {
+
+				// skip pruned singles
+				if (pmat.isSinglePruned(pos1, rc1)) {
+					continue;
+				}
+
+				for (int pos2=0; pos2<pos1; pos2++) {
+					for (int rc2=0; rc2<pmat.getNumConfAtPos(pos2); rc2++) {
+
+						// skip pruned singles
+						if (pmat.isSinglePruned(pos2, rc2)) {
+							continue;
+						}
+
+						// skip pruned pairs
+						if (pmat.isPairPruned(pos1, rc1, pos2, rc2)) {
+							continue;
+						}
+
+						for (int pos3=0; pos3<pos2; pos3++) {
+							for (int rc3=0; rc3<pmat.getNumConfAtPos(pos3); rc3++) {
+
+								// skip pruned singles
+								if (pmat.isSinglePruned(pos3, rc3)) {
+									continue;
+								}
+
+								// skip pruned pairs
+								if (pmat.isPairPruned(pos1, rc1, pos3, rc3)) {
+									continue;
+								}
+								if (pmat.isPairPruned(pos2, rc2, pos3, rc3)) {
+									continue;
+								}
+
+								// we found it! It's an unpruned triple!
+								// NOTE: make the tuple in pos3, pos2, pos1 order so the positions are already sorted
+								// (because pos3 < pos2 < pos1 by definition)
+								addTuple(new RCTuple(pos3, rc3, pos2, rc2, pos1, rc1));
+							}
+						}
 					}
 				}
 			}
@@ -180,22 +219,25 @@ public class LUTE {
 		tuples.add(tuple);
 	}
 
-	// TODO: make List return
-	public ArrayList<RCTuple> getTuples() {
-		return new ArrayList<>(tuples);
-	}
-
-	public Errors fit(ConfEnergyCalculator confEcalc, ConfDB.ConfTable confTable, int minSamplesPerTuple) {
+	public Errors fit(ConfEnergyCalculator confEcalc, ConfDB.ConfTable confTable, int minSamplesPerTuple, int randomSeed) {
 
 		// sample the training and test sets
-		ConfSampler sampler = new ConfSampler(confSpace, tuples);
 		log("sampling confs for %d tuples...", tuples.size());
 		Stopwatch samplingSw = new Stopwatch().start();
-		Map<RCTuple,Set<int[]>> trainingSet = sampleConfsForTuples(sampler, minSamplesPerTuple);
-		Map<RCTuple,Set<int[]>> testSet = sampleConfsForTuples(sampler, minSamplesPerTuple);
+		ConfSampler sampler = new ConfSampler(confSpace, tuples, randomSeed);
+		Map<RCTuple,Set<int[]>> trainingSet = sampler.sampleConfsForTuples(minSamplesPerTuple);
+		Map<RCTuple,Set<int[]>> testSet = sampler.sampleConfsForTuples(minSamplesPerTuple);
 		log("done in %s", samplingSw.stop().getTime(2));
 
-		// calculate energies for all the samples
+		// count all the samples
+		Set<int[]> trainingSamples = new Conf.Set();
+		for (Set<int[]> samples : trainingSet.values()) {
+			trainingSamples.addAll(samples);
+		}
+		Set<int[]> testSamples = new Conf.Set();
+		for (Set<int[]> samples : testSet.values()) {
+			testSamples.addAll(samples);
+		}
 		Map<int[],Double> energies = new Conf.Map<>();
 		for (Map<RCTuple,Set<int[]>> set : Arrays.asList(trainingSet, testSet)) {
 			for (Set<int[]> samples : set.values()) {
@@ -204,6 +246,9 @@ public class LUTE {
 				}
 			}
 		}
+		log("sampled %d training confs, %d test confs, %d confs total", trainingSamples.size(), testSamples.size(), energies.size());
+
+		// calculate energies for all the samples
 		Progress progress = new Progress(energies.size());
 		log("calculating energies for %d samples...", progress.getTotalWork());
 		for (Map.Entry<int[],Double> entry : energies.entrySet()) {
@@ -214,10 +259,15 @@ public class LUTE {
 			});
 		}
 		confEcalc.tasks.waitForFinish();
+		log("samples energy range: [%.4f,%.4f]",
+			energies.values().stream().min(Comparator.comparingDouble(d -> d)).get(),
+			energies.values().stream().max(Comparator.comparingDouble(d -> d)).get()
+		);
 
 		// fit the linear system to the training set
 		Stopwatch trainingSw = new Stopwatch().start();
 		LinearSystem trainingSystem = new LinearSystem(tuples, trainingSet, energies);
+		log("fitting %d confs to %d tuples ...", energies.size(), this.tuples.size());
 		RealVector x = trainingSystem.fit();
 		log("done in %s", trainingSw.stop().getTime(2));
 
@@ -227,9 +277,9 @@ public class LUTE {
 		// analyze the test set errors
 		LinearSystem testSystem = new LinearSystem(tuples, testSet, energies);
 		Errors errors = testSystem.calcErrors(x);
-		log("test errors:     %s", errors);
+		log("    test errors: %s", errors);
 
-		// populate the energy matrix with x
+		// populate the energy matrix with x pairs
 		emat.setConstTerm(0.0);
 		for (SimpleConfSpace.Position pos : confSpace.positions) {
 			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
@@ -238,65 +288,24 @@ public class LUTE {
 		}
 		for (int i=0; i<trainingSystem.tuples.size(); i++) {
 			RCTuple tuple = trainingSystem.tuples.get(i);
-			emat.setPairwise(
-				tuple.pos.get(0),
-				tuple.RCs.get(0),
-				tuple.pos.get(1),
-				tuple.RCs.get(1),
-				x.getEntry(i)
-			);
+			if (tuple.size() == 2) {
+				emat.setPairwise(
+					tuple.pos.get(0),
+					tuple.RCs.get(0),
+					tuple.pos.get(1),
+					tuple.RCs.get(1),
+					x.getEntry(i)
+				);
+			}
+		}
+
+		// TODO: make sparse triples lookup table
+		for (RCTuple tuple : tuples) {
+			if (tuple.size() == 3) {
+				// TODO
+			}
 		}
 
 		return errors;
-	}
-
-	private Map<RCTuple,Set<int[]>> sampleConfsForTuples(ConfSampler sampler, int minSamplesPerTuple) {
-
-		// track all samples by tuple
-		Map<RCTuple,Set<int[]>> samplesByTuple = new HashMap<>();
-		for (RCTuple tuple : tuples) {
-			samplesByTuple.put(tuple, new Conf.Set());
-		}
-
-		while (true) {
-
-			// find the least sampled tuple
-			int minNumSamples = 0;
-			RCTuple leastSampledTuple = null;
-			for (Map.Entry<RCTuple,Set<int[]>> entry : samplesByTuple.entrySet()) {
-
-				RCTuple tuple = entry.getKey();
-				int numSamples = entry.getValue().size();
-
-				if (leastSampledTuple == null || numSamples < minNumSamples) {
-					minNumSamples = numSamples;
-					leastSampledTuple = tuple;
-				}
-			}
-
-			// are we done yet?
-			int numSamplesNeeded = minSamplesPerTuple - minNumSamples;
-			if (numSamplesNeeded <= 0) {
-				break;
-			}
-
-			// can we get another sample?
-			BigInteger maxNumConfs = sampler.getNumConfsUpperBound(leastSampledTuple);
-			if (BigInteger.valueOf(minNumSamples).compareTo(maxNumConfs) >= 0) {
-				// nope, out of confs to sample, this will have to be good enough
-				break;
-			}
-
-			// sample another for this tuple (and other tuples too)
-			int[] conf = sampler.sample(leastSampledTuple, samplesByTuple.get(leastSampledTuple), 10000);
-			assert (conf != null);
-
-			// update the tuple->samples map with the new sample
-			for (RCTuple pair : Conf.getPairs(conf)) {
-				samplesByTuple.get(pair).add(conf);
-			}
-		}
-
-		return samplesByTuple;
 	}
 }

@@ -68,7 +68,7 @@ public class ConfEnergyCalculator {
 	public final boolean addResEntropy;
 	public final TaskExecutor tasks;
 	
-	private ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy) {
+	protected ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy) {
 		this.confSpace = confSpace;
 		this.ecalc = ecalc;
 		this.epart = epart;

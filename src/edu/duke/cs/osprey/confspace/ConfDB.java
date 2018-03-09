@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.tools.AutoCleanable;
 import edu.duke.cs.osprey.tools.IntEncoding;
 import edu.duke.cs.osprey.tools.Streams;
 
@@ -14,7 +15,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 
-public class ConfDB {
+public class ConfDB implements AutoCleanable {
 
 	public static interface UserWithReturn<T> {
 
@@ -841,6 +842,11 @@ public class ConfDB {
 		}
 		sequenceDBs.clear();
 		db.close();
+	}
+
+	@Override
+	public void clean() {
+		close();
 	}
 
 	public <T> T use(UserWithReturn<T> user) {

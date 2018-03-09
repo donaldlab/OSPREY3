@@ -47,6 +47,12 @@ public class RCTuple implements Serializable {
     	this();
     	set(pos1, RC1, pos2, RC2);
     }
+
+    // a triple
+	public RCTuple(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
+    	this();
+    	set(pos1, rc1, pos2, rc2, pos3, rc3);
+	}
     
     //Sometimes we'll want to generate an RC tuple from a conformation, specified as RCs for all positions
     //in order.  
@@ -75,8 +81,22 @@ public class RCTuple implements Serializable {
         this.pos.add(pos2);
         this.RCs.add(rc2);
     }
-    
-    public void set(int[] conf) {
+
+	public void set(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
+		this.pos.clear();
+		this.RCs.clear();
+
+		this.pos.add(pos1);
+		this.RCs.add(rc1);
+
+		this.pos.add(pos2);
+		this.RCs.add(rc2);
+
+		this.pos.add(pos3);
+		this.RCs.add(rc3);
+	}
+
+	public void set(int[] conf) {
     	pos.clear();
     	RCs.clear();
         for(int posNum=0; posNum<conf.length; posNum++){
