@@ -1,28 +1,32 @@
 package edu.duke.cs.osprey.lute;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.Log;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
+
 
 public class LUTEPlayground {
 
@@ -109,14 +113,25 @@ public class LUTEPlayground {
 				lute = new LUTE(confSpace);
 				lute.addUnprunedPairTuples(pmat);
 				//lute.addUnprunedTripleTuples(pmat);
-				LUTE.Errors errors = lute.fit(confEcalc, confTable, minSamplesPerTuple, randomSeed);
+				ConfSampler sampler = new UniformConfSampler(confSpace, randomSeed);
+				/*
+				ConfSampler sampler = new LowEnergyConfSampler(confSpace, randomSeed, pmat, (rcs) ->
+					new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional()
+						.build()
+				);
+				*/
+				confEcalc.resetCounters();
+				lute.fit(confEcalc, confTable, minSamplesPerTuple, sampler);
+				log("LUTE calculated %d full conf energies", confEcalc.getNumRequests());
 
 				// attempt to count the conf space by enumeration
 				int confSpaceSize = 0;
 				boolean isExhausted = false;
 				{
 					ConfSearch astar = astarFactory.get();
-					for (confSpaceSize=0; confSpaceSize<errors.getNumSamples()*2; confSpaceSize++) {
+					int maxSize = lute.getTestSystem().confs.size()*4;
+					for (; confSpaceSize<maxSize; confSpaceSize++) {
 						if (astar.nextConf() == null) {
 							isExhausted = true;
 							break;
@@ -125,16 +140,19 @@ public class LUTEPlayground {
 				}
 				if (isExhausted) {
 					log("conf space (after all pruning) has EXACTLY %d confs", confSpaceSize);
-					if (confSpaceSize == errors.getNumSamples()) {
-						log("LUTE sampling has entirely exhausted the conf space, can't sample any more confs for training or testing");
+					if (confSpaceSize == lute.getTestSystem().confs.size()) {
+						log("LUTE test set has entirely exhausted the conf space, can't sample any more confs");
+					} else {
+						log("LUTE test set used %.2f%% of the pruned conf space", 100.0*lute.getTestSystem().confs.size()/confSpaceSize);
 					}
 				} else {
-					log("conf space (after all pruning) has at least %d confs", confSpaceSize);
+					log("conf space (after all pruning) has at least %d confs, which is many more than LUTE sampled", confSpaceSize);
 				}
 
 				// compare conf energies
+				EnergyMatrix lutemat = lute.makeEnergyMatrix();
 				for (ConfSearch.EnergiedConf econf : econfs) {
-					double luteEnergy = lute.emat.confE(econf.getAssignments());
+					double luteEnergy = lutemat.confE(econf.getAssignments());
 					log("conf %30s   score %9.4f      energy %9.4f   gap %7.4f      LUTE energy %9.4f   diff %7.4f",
 						Arrays.toString(econf.getAssignments()),
 						econf.getScore(),
@@ -144,31 +162,76 @@ public class LUTEPlayground {
 						luteEnergy - econf.getEnergy()
 					);
 				}
+
+				final double pfuncEpsilon = 0.1;
+
+				List<Sequence> sequences = getAllSequences(confSpace);
+				log("sequences: %d", sequences.size());
+
+				BiFunction<Sequence,PartitionFunction,PartitionFunction.Result> calcPfunc = (sequence, pfunc) -> {
+					RCs rcs = sequence.makeRCs();
+					ConfSearch astar = new ConfAStarTree.Builder(emat, new RCs(rcs, pmat))
+						.setTraditional()
+						.build();
+					pfunc.init(astar, rcs.getNumConformations(), pfuncEpsilon);
+					//pfunc.setReportProgress(true);
+					pfunc.compute();
+					return pfunc.makeResult();
+				};
+
+				// run traditional K*
+				log("\nplain old K*:\n");
+				confEcalc.resetCounters();
+				Stopwatch oldSw = new Stopwatch().start();
+				GradientDescentPfunc oldPfunc = new GradientDescentPfunc(confEcalc);
+				oldPfunc.setConfTable(confTable);
+				for (Sequence sequence : sequences) {
+				//{ Sequence sequence = sequences.get(1);
+					log("\t%s   %s   (%d energies)", sequence, calcPfunc.apply(sequence, oldPfunc), confEcalc.getNumRequests());
+				}
+				log("done in %s, %d energy calculations", oldSw.stop().getTime(2), confEcalc.getNumRequests());
+
+				// use LUTE to do the same thing
+				log("\nLUTE-powered K*:\n");
+				Stopwatch luteSw = new Stopwatch().start();
+				LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(lute, ecalc);
+				GradientDescentPfunc lutePfunc = new GradientDescentPfunc(luteEcalc);
+				for (Sequence sequence : sequences) {
+				//{ Sequence sequence = sequences.get(1);
+					log("\t%s   %s   (%d energies)", sequence, calcPfunc.apply(sequence, lutePfunc), luteEcalc.getNumRequests());
+				}
+				log("done in %s, %d energy calculations", luteSw.stop().getTime(2), luteEcalc.getNumRequests());
+			}
+		}
+	}
+
+	private static List<Sequence> getAllSequences(SimpleConfSpace confSpace) {
+
+		List<Sequence> sequences = new ArrayList<>();
+
+		for (List<SimpleConfSpace.Position> mutablePositions : MathTools.powerset(confSpace.positions)) {
+
+			// collect the mutations (res types except for wild type) for these positions into a simple list list
+			List<List<String>> resTypes = new ArrayList<>();
+			for (SimpleConfSpace.Position pos : mutablePositions) {
+				resTypes.add(pos.resFlex.resTypes.stream()
+					.filter((resType) -> !resType.equals(pos.resFlex.wildType))
+					.collect(Collectors.toList())
+				);
 			}
 
-			final double pfuncEpsilon = 0.1;
+			// enumerate all the combinations of res types
+			for (List<String> mutations : MathTools.cartesianProduct(resTypes)) {
 
-			/* NOPE
-
-			// compute a partition function the old-fashioned way
-			log("\nplain old pfunc:\n");
-			Stopwatch oldSw = new Stopwatch().start();
-			PartitionFunction oldPfunc = new SimplePartitionFunction(astarFactory.get(), confEcalc);
-			oldPfunc.init(pfuncEpsilon);
-			//oldPfunc.setReportProgress(true);
-			oldPfunc.compute();
-			log("done in %s   %s", oldSw.stop().getTime(2), oldPfunc.makeResult());
-
-			// use LUTE to do the same thing
-			log("\nLUTE-powered pfunc:\n");
-			Stopwatch luteSw = new Stopwatch().start();
-			LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, ecalc, lute.emat);
-			PartitionFunction lutePfunc = new SimplePartitionFunction(astarFactory.get(), luteEcalc);
-			lutePfunc.init(pfuncEpsilon);
-			//oldPfunc.setReportProgress(true);
-			lutePfunc.compute();
-			log("done in %s   %s", luteSw.stop().getTime(2), lutePfunc.makeResult());
-			*/
+				// build the complex sequence
+				Sequence complexSequence = confSpace.makeWildTypeSequence();
+				for (int i=0; i<mutablePositions.size(); i++) {
+					complexSequence.set(mutablePositions.get(i), mutations.get(i));
+				}
+				sequences.add(complexSequence);
+			}
 		}
+
+		return sequences;
 	}
 }

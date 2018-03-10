@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -239,6 +240,7 @@ public class KStar {
 
 		public final List<Sequence> sequences = new ArrayList<>();
 		public EnergyMatrix emat = null;
+		public PruningMatrix pmat = null; // TODO: get this from caller
 		public final Map<Sequence,PartitionFunction.Result> pfuncResults = new HashMap<>();
 
 		public ConfSpaceInfo(ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc) {
@@ -268,15 +270,17 @@ public class KStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			ConfSearch astar = confSearchFactory.make(emat, sequence.makeRCs());
-			GradientDescentPfunc pfunc = new GradientDescentPfunc(astar, confEcalc);
+			RCs rcs = sequence.makeRCs();
+			ConfSearch astar = confSearchFactory.make(emat, new RCs(rcs, pmat));
+			GradientDescentPfunc pfunc = new GradientDescentPfunc(confEcalc);
 			pfunc.setReportProgress(settings.showPfuncProgress);
 			if (confDB != null) {
 				pfunc.setConfTable(confDB.getSequence(sequence));
 			}
 
 			// compute it
-			pfunc.init(settings.epsilon, stabilityThreshold);
+			pfunc.init(astar, rcs.getNumConformations(), settings.epsilon);
+			pfunc.setStabilityThreshold(stabilityThreshold);
 			pfunc.compute();
 
 			// save the result

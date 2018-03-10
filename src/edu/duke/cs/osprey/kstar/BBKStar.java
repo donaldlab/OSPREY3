@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -10,6 +11,7 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -78,6 +80,7 @@ public class BBKStar {
 
 		public EnergyMatrix rigidNegatedEmat = null;
 		public EnergyMatrix minimizedEmat = null;
+		public PruningMatrix pmat = null; // TODO: get this from caller
 		public BigDecimal stabilityThreshold = null;
 
 		public ConfSpaceInfo(KStar.ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator rigidConfEcalc, ConfEnergyCalculator minimizingConfEcalc) {
@@ -322,8 +325,10 @@ public class BBKStar {
 				}
 			};
 
+			RCs rcs = sequence.makeRCs();
 			UpperBoundCalculator calc = new UpperBoundCalculator(
-				astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, sequence.makeRCs()))
+				astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, rcs)),
+				rcs.getNumConformations()
 			);
 			calc.run(numConfs);
 			return calc.totalBound;
@@ -334,8 +339,10 @@ public class BBKStar {
 			// to compute upper bounds on pfuncs,
 			// we'll use the upper bound calculator in the usual way
 
+			RCs rcs = sequence.makeRCs();
 			UpperBoundCalculator calc = new UpperBoundCalculator(
-				confSearchFactory.make(info.minimizedEmat, sequence.makeRCs())
+				confSearchFactory.make(info.minimizedEmat, new RCs(rcs, info.pmat)),
+				rcs.getNumConformations()
 			);
 			calc.run(numConfs);
 			return calc.totalBound;
@@ -376,12 +383,18 @@ public class BBKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			GradientDescentPfunc gdpfunc = new GradientDescentPfunc(confSearchFactory.make(info.minimizedEmat, sequence.makeRCs()), info.minimizingConfEcalc);
+			GradientDescentPfunc gdpfunc = new GradientDescentPfunc(info.minimizingConfEcalc);
 			gdpfunc.setReportProgress(kstarSettings.showPfuncProgress);
 			if (confdb != null) {
 				gdpfunc.setConfTable(confdb.getSequence(sequence));
 			}
-			gdpfunc.init(kstarSettings.epsilon, info.stabilityThreshold);
+			RCs rcs = sequence.makeRCs();
+			gdpfunc.init(
+				confSearchFactory.make(info.minimizedEmat, new RCs(rcs, info.pmat)),
+				rcs.getNumConformations(),
+				kstarSettings.epsilon
+			);
+			gdpfunc.setStabilityThreshold(info.stabilityThreshold);
 			pfuncCache.put(sequence, gdpfunc);
 			return gdpfunc;
 		}

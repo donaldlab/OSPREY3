@@ -19,9 +19,9 @@ public class UpperBoundCalculator {
 
 	private BoltzmannCalculator boltzmann = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
-	public UpperBoundCalculator(ConfSearch tree) {
+	public UpperBoundCalculator(ConfSearch tree, BigInteger numConfsBeforePruning) {
 		this.tree = tree;
-		this.numUnscoredConfs = tree.getNumConformations();
+		this.numUnscoredConfs = numConfsBeforePruning;
 	}
 
 	public UpperBoundCalculator run(int numConfs) {

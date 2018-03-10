@@ -65,8 +65,8 @@ public class PfuncPlayground {
 			.setTraditional()
 			.build();
 
-		GradientDescentPfunc pfunc = new GradientDescentPfunc(astar, confEcalc);
-		pfunc.init(epsilon);
+		GradientDescentPfunc pfunc = new GradientDescentPfunc(confEcalc);
+		pfunc.init(astar, astar.getNumConformations(), epsilon);
 		pfunc.traceTo(surf);
 		pfunc.compute(surf.numEnergies);
 	}

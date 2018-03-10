@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -18,12 +19,16 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 public class LUTE {
 
-	private static class LinearSystem {
+	public static class LinearSystem {
 
-		final List<RCTuple> tuples;
-		final List<int[]> confs;
-		final RealMatrix A;
-		final RealVector b;
+		public final List<RCTuple> tuples;
+		public final List<int[]> confs;
+		public final RealMatrix A;
+		public final RealVector b;
+
+		public RealVector x = null;
+		public RealVector residual = null;
+		public Errors errors = null;
 
 		public LinearSystem(Set<RCTuple> tuples, Map<RCTuple,Set<int[]>> samplesByTuple, Map<int[],Double> energies) {
 
@@ -52,7 +57,7 @@ public class LUTE {
 			}
 		}
 
-		public RealVector fit() {
+		public void fit() {
 
 			// any linear least squares solver should work here
 			// I generally like to use QR factorization, but it's a bit slow here
@@ -60,19 +65,20 @@ public class LUTE {
 
 			//return new QRDecomposition(A).getSolver().solve(b);
 
+			// TODO: CG is a bit slow too... need to optimize!
+			// (Mark's code is really fast here, so we should be able to go fast too)
+
 			// need square A though, so transform Ax=b to A^tAx = A^tb
 			RealMatrix At = A.transpose();
 			RealMatrix AtA = At.multiply(A);
 			RealVector Atb = At.operate(b);
-			return new ConjugateGradient(100000, 1e-6, false).solve((RealLinearOperator)AtA, Atb);
+			setX(new ConjugateGradient(100000, 1e-6, false).solve((RealLinearOperator)AtA, Atb));
 		}
 
-		public RealVector calcResidual(RealVector x) {
-			return A.operate(x).subtract(b);
-		}
-
-		public Errors calcErrors(RealVector x) {
-			return new Errors(calcResidual(x));
+		public void setX(RealVector x) {
+			this.x = x;
+			residual = A.operate(x).subtract(b);
+			errors = new Errors(residual);
 		}
 	}
 
@@ -110,10 +116,6 @@ public class LUTE {
 			this.rms = Math.sqrt(sumsq/n);
 		}
 
-		public int getNumSamples() {
-			return residual.getDimension();
-		}
-
 		@Override
 		public String toString() {
 			return String.format("range [%8.4f,%8.4f]   avg %8.4f   rms %8.4f", min, max, avg, rms);
@@ -121,13 +123,14 @@ public class LUTE {
 	}
 
 	public final SimpleConfSpace confSpace;
-	public final EnergyMatrix emat;
 
 	private final Set<RCTuple> tuples = new LinkedHashSet<>();
 
+	private LinearSystem trainingSystem = null;
+	private LinearSystem testSystem = null;
+
 	public LUTE(SimpleConfSpace confSpace) {
 		this.confSpace = confSpace;
-		this.emat = new EnergyMatrix(confSpace);
 	}
 
 	public void addUnprunedPairTuples(PruningMatrix pmat) {
@@ -219,14 +222,19 @@ public class LUTE {
 		tuples.add(tuple);
 	}
 
-	public Errors fit(ConfEnergyCalculator confEcalc, ConfDB.ConfTable confTable, int minSamplesPerTuple, int randomSeed) {
+	public Set<RCTuple> getTuples() {
+		// don't allow callers to directly modify the tuple set
+		// we need to maintain the ordering of tuple positions
+		return Collections.unmodifiableSet(tuples);
+	}
+
+	public void fit(ConfEnergyCalculator confEcalc, ConfDB.ConfTable confTable, int minSamplesPerTuple, ConfSampler sampler) {
 
 		// sample the training and test sets
 		log("sampling confs for %d tuples...", tuples.size());
 		Stopwatch samplingSw = new Stopwatch().start();
-		ConfSampler sampler = new ConfSampler(confSpace, tuples, randomSeed);
-		Map<RCTuple,Set<int[]>> trainingSet = sampler.sampleConfsForTuples(minSamplesPerTuple);
-		Map<RCTuple,Set<int[]>> testSet = sampler.sampleConfsForTuples(minSamplesPerTuple);
+		Map<RCTuple,Set<int[]>> trainingSet = sampler.sampleConfsForTuples(tuples, minSamplesPerTuple);
+		Map<RCTuple,Set<int[]>> testSet = sampler.sampleConfsForTuples(tuples, minSamplesPerTuple);
 		log("done in %s", samplingSw.stop().getTime(2));
 
 		// count all the samples
@@ -246,7 +254,10 @@ public class LUTE {
 				}
 			}
 		}
-		log("sampled %d training confs, %d test confs, %d confs total", trainingSamples.size(), testSamples.size(), energies.size());
+		log("sampled %d training confs, %d test confs, %d confs total (%.2f%% overlap)",
+			trainingSamples.size(), testSamples.size(), energies.size(),
+			100.0*(trainingSamples.size() + testSamples.size() - energies.size())/energies.size()
+		);
 
 		// calculate energies for all the samples
 		Progress progress = new Progress(energies.size());
@@ -266,26 +277,43 @@ public class LUTE {
 
 		// fit the linear system to the training set
 		Stopwatch trainingSw = new Stopwatch().start();
-		LinearSystem trainingSystem = new LinearSystem(tuples, trainingSet, energies);
+		trainingSystem = new LinearSystem(tuples, trainingSet, energies);
 		log("fitting %d confs to %d tuples ...", energies.size(), this.tuples.size());
-		RealVector x = trainingSystem.fit();
+		trainingSystem.fit();
 		log("done in %s", trainingSw.stop().getTime(2));
-
-		// analyze the training set errors
-		log("training errors: %s", trainingSystem.calcErrors(x));
+		log("training errors: %s", trainingSystem.errors);
 
 		// analyze the test set errors
-		LinearSystem testSystem = new LinearSystem(tuples, testSet, energies);
-		Errors errors = testSystem.calcErrors(x);
-		log("    test errors: %s", errors);
+		testSystem = new LinearSystem(tuples, testSet, energies);
+		testSystem.setX(trainingSystem.x);
+		log("    test errors: %s", testSystem.errors);
+	}
 
-		// populate the energy matrix with x pairs
+	public LinearSystem getTrainingSystem() {
+		return trainingSystem;
+	}
+
+	public LinearSystem getTestSystem() {
+		return testSystem;
+	}
+
+	public LUTEConfEnergyCalculator makeConfEnergyCalculator(EnergyCalculator ecalc) {
+		return new LUTEConfEnergyCalculator(this, ecalc);
+	}
+
+	public EnergyMatrix makeEnergyMatrix() {
+
+		EnergyMatrix emat = new EnergyMatrix(confSpace);
+
+		// set constant and singles to 0
 		emat.setConstTerm(0.0);
 		for (SimpleConfSpace.Position pos : confSpace.positions) {
 			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
 				emat.setOneBody(pos.index, rc.index, 0.0);
 			}
 		}
+
+		// set pairs
 		for (int i=0; i<trainingSystem.tuples.size(); i++) {
 			RCTuple tuple = trainingSystem.tuples.get(i);
 			if (tuple.size() == 2) {
@@ -294,18 +322,11 @@ public class LUTE {
 					tuple.RCs.get(0),
 					tuple.pos.get(1),
 					tuple.RCs.get(1),
-					x.getEntry(i)
+					trainingSystem.x.getEntry(i)
 				);
 			}
 		}
 
-		// TODO: make sparse triples lookup table
-		for (RCTuple tuple : tuples) {
-			if (tuple.size() == 3) {
-				// TODO
-			}
-		}
-
-		return errors;
+		return emat;
 	}
 }

@@ -1,11 +1,13 @@
 package edu.duke.cs.osprey.kstar.pfunc;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
 
 import edu.duke.cs.osprey.confspace.ConfDB;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -150,16 +152,22 @@ public interface PartitionFunction {
 	
 	void setReportProgress(boolean val);
 	void setConfListener(ConfListener val);
-	
-	void init(double targetEpsilon);
 
 	/**
 	 * Initializes the partition function for calculation.
+	 * @param confSearch The A* tree of conformations to enumerate (which may have been pruned)
+	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
+	 *                               including any conformations removed by pruned tuples.
 	 * @param targetEpsilon The accuracy with which to estimate the partition function.
+	 */
+	void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon);
+
+	/**
+	 * Sets the stability threshold for this PartitionFunction, if supported
 	 * @param stabilityThreshold If the partition function upper bound value falls below
 	 *                           this threshold, the sequence is considered unstable.
 	 */
-	default void init(double targetEpsilon, BigDecimal stabilityThreshold) {
+	default void setStabilityThreshold(BigDecimal stabilityThreshold) {
 		throw new UnsupportedOperationException(getClass().getName() + " does not yet support stability thresholds");
 	}
 

@@ -68,7 +68,7 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	private void testStrand(Parallelism parallelism, KSSearchProblem search, double targetEpsilon, String approxQStar) {
 		Pfunc pfunc = makePfunc(search, parallelism);
 		try {
-			pfunc.pfunc.init(targetEpsilon);
+			pfunc.pfunc.init(null, null, targetEpsilon);
 			pfunc.pfunc.compute();
 			assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
 		} finally {

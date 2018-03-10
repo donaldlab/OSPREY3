@@ -107,7 +107,7 @@ public class KStarScoreMinimized implements KStarScore {
 		partitionFunctions[state].setReportProgress(settings.isReportingProgress);
 
 		//init partition function
-		partitionFunctions[state].init(settings.targetEpsilon);
+		partitionFunctions[state].init(null, null, settings.targetEpsilon);
 
 		//create priority queue for top confs if requested
 		if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0) {
@@ -206,7 +206,7 @@ public class KStarScoreMinimized implements KStarScore {
 				settings.ecalcs[state]
 				);
 
-		p2pf.init(targetEpsilon);//enumerating over pstar, energies can be high
+		p2pf.init(null, null, targetEpsilon);//enumerating over pstar, energies can be high
 		p2pf.getValues().qstar = qstar;//keep old qstar
 		p2pf.compute(targetScoreWeights);
 		return p2pf;

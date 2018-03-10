@@ -1,10 +1,7 @@
 package edu.duke.cs.osprey.kstar.pfunc;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
@@ -92,7 +89,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	}
 
 	@Override
-	public void init(double targetEpsilon) {
+	public void init(ConfSearch confSearchIgnored, BigInteger numConfsBeforePruningIgnored, double targetEpsilon) {
 		
 		this.targetEpsilon = targetEpsilon;
 		

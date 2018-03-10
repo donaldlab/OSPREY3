@@ -124,11 +124,10 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 	}
 
 
-	public final ConfSearch confSearch;
     public final ConfEnergyCalculator ecalc;
 
 	private double targetEpsilon = Double.NaN;
-	private BigDecimal stabilityThreshold = null;
+	private BigDecimal stabilityThreshold = BigDecimal.ZERO;
 	private ConfListener confListener = null;
 	private boolean isReportingProgress = false;
 	private Stopwatch stopwatch = new Stopwatch().start();
@@ -148,8 +147,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 	private PfuncSurface surf = null;
 	private PfuncSurface.Trace trace = null;
 
-	public GradientDescentPfunc(ConfSearch confSearch, ConfEnergyCalculator ecalc) {
-		this.confSearch = confSearch;
+	public GradientDescentPfunc(ConfEnergyCalculator ecalc) {
 		this.ecalc = ecalc;
 	}
 	
@@ -193,29 +191,19 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 	}
 
 	@Override
-	public void init(double targetEpsilon) {
-		init(targetEpsilon, BigDecimal.ZERO);
-	}
-
-	@Override
-	public void init(double targetEpsilon, BigDecimal stabilityThreshold) {
+	public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
 
 		if (targetEpsilon <= 0.0) {
 			throw new IllegalArgumentException("target epsilon must be greater than zero");
 		}
 
 		this.targetEpsilon = targetEpsilon;
-		this.stabilityThreshold = stabilityThreshold;
 
 		// init state
 		status = Status.Estimating;
-		state = new State(confSearch.getNumConformations());
+		state = new State(numConfsBeforePruning);
 		values = Values.makeFullRange();
-		// NOTE: don't use DEE with this pfunc calculator
-		// DEE actually makes the problem harder to solve, not easier
-		// because then we have to deal with p*
-		// if we just don't prune with DEE, the usual q' calculator will handle those confs that would have been pruned
-		// not using DEE won't really slow us down either, since our A* is fast enough without it
+		// don't explicitly check the pruned confs, just lump them together with the un-enumerated confs
 		values.pstar = BigDecimal.ZERO;
 
 		hasEnergyConfs = true;
@@ -225,6 +213,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch);
 		scoreConfs = confsSplitter.makeStream();
 		energyConfs = confsSplitter.makeStream();
+	}
+
+	@Override
+	public void setStabilityThreshold(BigDecimal val) {
+		this.stabilityThreshold = val;
 	}
 
 	@Override
@@ -426,7 +419,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 				System.out.println(String.format("conf:%4d, score:%12.6f, energy:%12.6f, bounds:[%12e,%12e], delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
 					state.numEnergiedConfs,
 					econf.getScore(), econf.getEnergy(),
-					state.getLowerBound(), state.getUpperBound(),
+					state.getLowerBound().doubleValue(), state.getUpperBound().doubleValue(),
 					state.calcDelta(),
 					stopwatch.getTime(2),
 					JvmMem.getOldPool(),

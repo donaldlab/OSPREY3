@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.energy;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import edu.duke.cs.osprey.confspace.*;
@@ -67,6 +68,9 @@ public class ConfEnergyCalculator {
 	public final SimpleReferenceEnergies eref;
 	public final boolean addResEntropy;
 	public final TaskExecutor tasks;
+
+	protected final AtomicLong numCalculations = new AtomicLong(0L);
+	protected final AtomicLong numConfDBReads = new AtomicLong(0L);
 	
 	protected ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy) {
 		this.confSpace = confSpace;
@@ -79,6 +83,34 @@ public class ConfEnergyCalculator {
 
 	protected ConfEnergyCalculator(ConfEnergyCalculator other) {
 		this(other.confSpace, other.ecalc, other.epart, other.eref, other.addResEntropy);
+	}
+
+	/**
+	 * returns the number of requested energy calculations,
+	 * including ones cached in a conf DB
+	 */
+	public long getNumRequests() {
+		return numCalculations.get() + numConfDBReads.get();
+	}
+
+	/**
+	 * returns the number of energy calculations performed,
+	 * excluding values cached in a conf DB
+	 */
+	public long getNumCalculations() {
+		return numCalculations.get();
+	}
+
+	/**
+	 * returns the number of energies served from a conf DB
+	 */
+	public long getNumConfDBReads() {
+		return numConfDBReads.get();
+	}
+
+	public void resetCounters() {
+		numCalculations.set(0);
+		numConfDBReads.set(0);
 	}
 	
 	public ResidueInteractions makeFragInters(RCTuple frag) {
@@ -127,6 +159,7 @@ public class ConfEnergyCalculator {
 	 * @return The energy of the resulting molecule fragment and its pose
 	 */
 	public EnergyCalculator.EnergiedParametricMolecule calcEnergy(RCTuple frag, ResidueInteractions inters) {
+		numCalculations.incrementAndGet();
 		ParametricMolecule bpmol = confSpace.makeMolecule(frag);
 		return ecalc.calcEnergy(bpmol, inters);
 	}
@@ -186,6 +219,7 @@ public class ConfEnergyCalculator {
 		int[] conf = Conf.make(confSpace, frag);
 		ConfDB.Conf dbconf = table.get(conf);
 		if (dbconf != null && dbconf.upper != null) {
+			numConfDBReads.incrementAndGet();
 			return dbconf.upper.energy;
 		}
 
@@ -327,6 +361,7 @@ public class ConfEnergyCalculator {
 		// check the confDB for the energy
 		EnergiedConf econf = table.getEnergied(conf);
 		if (econf != null) {
+			numConfDBReads.incrementAndGet();
 			return econf;
 		}
 
