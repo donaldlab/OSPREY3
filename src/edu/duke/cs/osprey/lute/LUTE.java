@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import org.apache.commons.math3.exception.DimensionMismatchException;
 import org.apache.commons.math3.linear.*;
 
 import java.util.*;
@@ -21,19 +22,16 @@ public class LUTE {
 
 	public static class LinearSystem {
 
-		public final List<RCTuple> tuples;
+		public final TuplesIndex tuples;
 		public final List<int[]> confs;
-		public final RealMatrix A;
 		public final RealVector b;
 
 		public RealVector x = null;
-		public RealVector residual = null;
 		public Errors errors = null;
 
-		public LinearSystem(Set<RCTuple> tuples, Map<RCTuple,Set<int[]>> samplesByTuple, Map<int[],Double> energies) {
+		public LinearSystem(TuplesIndex tuples, Map<RCTuple,Set<int[]>> samplesByTuple, Map<int[],Double> energies) {
 
-			// linearize the tuples
-			this.tuples = new ArrayList<>(tuples);
+			this.tuples = tuples;
 
 			// linearize the conformations
 			Set<int[]> confsSet = new Conf.Set();
@@ -42,43 +40,72 @@ public class LUTE {
 			}
 			confs = new ArrayList<>(confsSet);
 
-			// build the linear model: Ax=b
-			A = new OpenMapRealMatrix(confs.size(), this.tuples.size());
+			// gather the energies
 			b = new ArrayRealVector(confs.size());
-			for (int row=0; row<confs.size(); row++) {
-				int[] conf = confs.get(row);
-				for (int col=0; col<this.tuples.size(); col++) {
-					RCTuple tuple = this.tuples.get(col);
-					if (Conf.containsTuple(conf, tuple)) {
-						A.setEntry(row, col, 1);
-					}
-				}
-				b.setEntry(row, energies.get(conf));
+			for (int c=0; c<confs.size(); c++) {
+				b.setEntry(c, energies.get(confs.get(c)));
 			}
 		}
 
 		public void fit() {
 
-			// any linear least squares solver should work here
-			// I generally like to use QR factorization, but it's a bit slow here
-			// so let's use conjugate gradient iterative optimization instead
+			// build the linear model: Ax=b
+			// except conjugate gradient needs square A, so transform to A^tAx = A^tb
+			RealLinearOperator AtA = new RealLinearOperator() {
 
-			//return new QRDecomposition(A).getSolver().solve(b);
+				@Override
+				public int getRowDimension() {
+					return tuples.size();
+				}
 
-			// TODO: CG is a bit slow too... need to optimize!
-			// (Mark's code is really fast here, so we should be able to go fast too)
+				@Override
+				public int getColumnDimension() {
+					return tuples.size();
+				}
 
-			// need square A though, so transform Ax=b to A^tAx = A^tb
-			RealMatrix At = A.transpose();
-			RealMatrix AtA = At.multiply(A);
-			RealVector Atb = At.operate(b);
-			setX(new ConjugateGradient(100000, 1e-6, false).solve((RealLinearOperator)AtA, Atb));
+				@Override
+				public RealVector operate(RealVector x)
+				throws DimensionMismatchException {
+					return calcAtx(calcAx(x));
+				}
+			};
+
+			RealVector Atb = new ArrayRealVector(tuples.size());
+			for (int c=0; c<confs.size(); c++) {
+				double energy = b.getEntry(c);
+				tuples.forEach(confs.get(c), (t) -> {
+					Atb.addToEntry(t, energy);
+				});
+			}
+
+			setX(new ConjugateGradient(100000, 1e-6, false).solve(AtA, Atb));
 		}
 
 		public void setX(RealVector x) {
 			this.x = x;
-			residual = A.operate(x).subtract(b);
-			errors = new Errors(residual);
+			this.errors = new Errors(calcAx(x).subtract(b));
+		}
+
+		private RealVector calcAx(RealVector x) {
+			RealVector out = new ArrayRealVector(confs.size());
+			for (int c=0; c<confs.size(); c++) {
+				final int fc = c;
+				tuples.forEach(confs.get(c), (t) -> {
+					out.addToEntry(fc, x.getEntry(t));
+				});
+			}
+			return out;
+		}
+
+		private RealVector calcAtx(RealVector x) {
+			RealVector out = new ArrayRealVector(tuples.size());
+			for (int c=0; c<confs.size(); c++) {
+				double energy = x.getEntry(c);
+				tuples.forEach(confs.get(c), (t) -> {
+					out.addToEntry(t, energy);
+				});
+			}
+			return out;
 		}
 	}
 
@@ -275,18 +302,24 @@ public class LUTE {
 			energies.values().stream().max(Comparator.comparingDouble(d -> d)).get()
 		);
 
+		// index the tuples
+		TuplesIndex tuplesIndex = new TuplesIndex(confSpace, tuples);
+
 		// fit the linear system to the training set
-		Stopwatch trainingSw = new Stopwatch().start();
-		trainingSystem = new LinearSystem(tuples, trainingSet, energies);
 		log("fitting %d confs to %d tuples ...", energies.size(), this.tuples.size());
+		Stopwatch trainingSw = new Stopwatch().start();
+		trainingSystem = new LinearSystem(tuplesIndex, trainingSet, energies);
 		trainingSystem.fit();
 		log("done in %s", trainingSw.stop().getTime(2));
 		log("training errors: %s", trainingSystem.errors);
 
 		// analyze the test set errors
-		testSystem = new LinearSystem(tuples, testSet, energies);
+		testSystem = new LinearSystem(tuplesIndex, testSet, energies);
 		testSystem.setX(trainingSystem.x);
 		log("    test errors: %s", testSystem.errors);
+
+		// TODO: measure overfitting by comparing ratio of rms errors
+		// TODO: if overfit, go back and sample more
 	}
 
 	public LinearSystem getTrainingSystem() {

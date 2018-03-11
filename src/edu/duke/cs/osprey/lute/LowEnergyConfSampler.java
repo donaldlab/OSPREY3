@@ -89,7 +89,7 @@ public class LowEnergyConfSampler extends ConfSampler {
 			}
 
 			// get a pool of low-energy confs
-			final int maxPoolSize = 100;
+			final int maxPoolSize = numSamplesNeeded*10;
 			ConfSearch astar = astarFactory.apply(rcs);
 			List<int[]> confPool = new ArrayList<>();
 			for (int i=0; i<maxPoolSize; i++) {

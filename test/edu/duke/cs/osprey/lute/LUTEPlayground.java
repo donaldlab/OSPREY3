@@ -73,7 +73,7 @@ public class LUTEPlayground {
 			PruningMatrix pmat = new SimpleDEE.Runner()
 				.setSinglesThreshold(100.0)
 				.setPairsThreshold(100.0)
-				.setGoldsteinDiffThreshold(20.0)
+				.setGoldsteinDiffThreshold(6.0)
 				.setShowProgress(true)
 				.run(confSpace, emat);
 			//PruningMatrix pmat = new PruningMatrix(confSpace);
@@ -112,15 +112,14 @@ public class LUTEPlayground {
 				// compute LUTE matrix for pair tuples
 				lute = new LUTE(confSpace);
 				lute.addUnprunedPairTuples(pmat);
-				//lute.addUnprunedTripleTuples(pmat);
+				lute.addUnprunedTripleTuples(pmat);
+				// TODO: add sparse triples
 				ConfSampler sampler = new UniformConfSampler(confSpace, randomSeed);
-				/*
-				ConfSampler sampler = new LowEnergyConfSampler(confSpace, randomSeed, pmat, (rcs) ->
+				/*ConfSampler sampler = new LowEnergyConfSampler(confSpace, randomSeed, pmat, (rcs) ->
 					new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
 						.build()
-				);
-				*/
+				);*/
 				confEcalc.resetCounters();
 				lute.fit(confEcalc, confTable, minSamplesPerTuple, sampler);
 				log("LUTE calculated %d full conf energies", confEcalc.getNumRequests());
@@ -150,9 +149,9 @@ public class LUTEPlayground {
 				}
 
 				// compare conf energies
-				EnergyMatrix lutemat = lute.makeEnergyMatrix();
+				LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(lute, ecalc);
 				for (ConfSearch.EnergiedConf econf : econfs) {
-					double luteEnergy = lutemat.confE(econf.getAssignments());
+					double luteEnergy = luteEcalc.calcEnergy(econf.getAssignments());
 					log("conf %30s   score %9.4f      energy %9.4f   gap %7.4f      LUTE energy %9.4f   diff %7.4f",
 						Arrays.toString(econf.getAssignments()),
 						econf.getScore(),
@@ -194,7 +193,6 @@ public class LUTEPlayground {
 				// use LUTE to do the same thing
 				log("\nLUTE-powered K*:\n");
 				Stopwatch luteSw = new Stopwatch().start();
-				LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(lute, ecalc);
 				GradientDescentPfunc lutePfunc = new GradientDescentPfunc(luteEcalc);
 				for (Sequence sequence : sequences) {
 				//{ Sequence sequence = sequences.get(1);
