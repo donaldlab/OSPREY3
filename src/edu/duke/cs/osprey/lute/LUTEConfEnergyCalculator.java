@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.lute;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.TuplesIndex;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
@@ -47,10 +48,13 @@ public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
 
 		numCalculations.incrementAndGet();
 
+		final boolean throwIfMissingSingle = false; // we're not fitting singles
+		final boolean throwIfMissingPair = true; // we always fit to dense pairs, confs shouldn't be using pruned pairs
+
 		// silly Java... If this were Kotlin, we wouldn't have to use an array to make the energy modifiable
 		// hopefully JVM escape analysis will stack-allocate this?
 		final double[] energy = new double[] { 0.0 };
-		tuples.forEach(conf, (t) -> {
+		tuples.forEachIn(conf, throwIfMissingSingle, throwIfMissingPair, (t) -> {
 			energy[0] += energies.getEntry(t);
 		});
 		return energy[0];

@@ -16,6 +16,10 @@ public class TupleMatrixGeneric<T> extends AbstractTupleMatrix<T> {
 		// only the pruning matrix uses this functionality
 	}
     
+	public TupleMatrixGeneric(SimpleConfSpace confSpace) {
+		this(confSpace.getNumPos(), confSpace.getNumResConfsByPos(), 0.0, null);
+	}
+    
     public TupleMatrixGeneric(ConfSpace cSpace, double pruningInterval, T defaultHigherInteraction) {
     	super(cSpace, pruningInterval, defaultHigherInteraction);
     }

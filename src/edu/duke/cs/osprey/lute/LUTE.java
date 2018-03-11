@@ -1,9 +1,6 @@
 package edu.duke.cs.osprey.lute;
 
-import edu.duke.cs.osprey.confspace.Conf;
-import edu.duke.cs.osprey.confspace.ConfDB;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -14,6 +11,7 @@ import org.apache.commons.math3.exception.DimensionMismatchException;
 import org.apache.commons.math3.linear.*;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -47,6 +45,12 @@ public class LUTE {
 			}
 		}
 
+		private void forEachTupleIn(int c, Consumer<Integer> callback) {
+			final boolean throwIfMissingSingle = false; // we're not fitting singles
+			final boolean throwIfMissingPair = true; // we always fit to dense pairs, confs shouldn't be using pruned pairs
+			tuples.forEachIn(confs.get(c), throwIfMissingSingle, throwIfMissingPair, callback);
+		}
+
 		public void fit() {
 
 			// build the linear model: Ax=b
@@ -73,7 +77,7 @@ public class LUTE {
 			RealVector Atb = new ArrayRealVector(tuples.size());
 			for (int c=0; c<confs.size(); c++) {
 				double energy = b.getEntry(c);
-				tuples.forEach(confs.get(c), (t) -> {
+				forEachTupleIn(c, (t) -> {
 					Atb.addToEntry(t, energy);
 				});
 			}
@@ -90,7 +94,7 @@ public class LUTE {
 			RealVector out = new ArrayRealVector(confs.size());
 			for (int c=0; c<confs.size(); c++) {
 				final int fc = c;
-				tuples.forEach(confs.get(c), (t) -> {
+				forEachTupleIn(c, (t) -> {
 					out.addToEntry(fc, x.getEntry(t));
 				});
 			}
@@ -101,7 +105,7 @@ public class LUTE {
 			RealVector out = new ArrayRealVector(tuples.size());
 			for (int c=0; c<confs.size(); c++) {
 				double energy = x.getEntry(c);
-				tuples.forEach(confs.get(c), (t) -> {
+				forEachTupleIn(c, (t) -> {
 					out.addToEntry(t, energy);
 				});
 			}

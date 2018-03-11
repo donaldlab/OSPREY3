@@ -32,11 +32,16 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     //that cannot be pruned with the specified pruning interval (Ew + Ival)
     //i.e. the matrix must describe all conformations within pruningInterval 
     //of the lowest pairwise lower bound
-    
+
+	/** use tuple trees instead, they're much faster */
+	@Deprecated
 	private ArrayList<HigherTupleFinder<T>> higherTerms; // indices: same as pairwise, can be null if no interactions
     private T defaultHigherInteraction;//We only mark sparse higher interactions;
     //if unmarked we assume this value (e.g., 0 for energy, false for pruning)
-    
+
+	// TupleTrees are several times faster than HigherTupleFinder for both dense and sparse cases
+	private TupleTree<T>[] tupleTrees = null;
+
     
     protected AbstractTupleMatrix() {
     	// do nothing
@@ -276,6 +281,39 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     		higherTerms.set(getPairwiseIndex(res1, conf1, res2, conf2), val);
     	}
     }
+
+    @Override
+	public boolean hasHigherOrderTuples() {
+		return tupleTrees != null;
+	}
+
+	@Override
+	public TupleTree<T> getHigherOrderTuples(int pos1, int rc1, int pos2, int rc2) {
+    	if (tupleTrees == null) {
+    		return null;
+		}
+		return tupleTrees[getPairwiseIndex(pos1, rc1, pos2, rc2)];
+	}
+
+	@Override
+	@SuppressWarnings("unchecked")
+	public TupleTree<T> getOrMakeHigherOrderTuples(int pos1, int rc1, int pos2, int rc2) {
+
+    	// lazy allocation
+		if (tupleTrees == null) {
+			tupleTrees = (TupleTree<T>[])new TupleTree[numPairwiseTerms];
+		}
+
+		int index = getPairwiseIndex(pos1, rc1, pos2, rc2);
+
+		TupleTree<T> tree = tupleTrees[index];
+		if (tree == null) {
+			tree = new TupleTree<>(new RCTuple(pos1, rc1, pos2, rc2).sorted());
+			tupleTrees[index] = tree;
+		}
+
+		return tree;
+	}
 
 	public String toString(int cellWidth, Function<T,String> formatter) {
 
