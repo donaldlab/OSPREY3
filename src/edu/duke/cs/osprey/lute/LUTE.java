@@ -22,9 +22,9 @@ public class LUTE {
 
 		public final TuplesIndex tuples;
 		public final List<int[]> confs;
-		public final RealVector b;
+		public final double[] b;
 
-		public RealVector x = null;
+		public double[] x = null;
 		public Errors errors = null;
 
 		public LinearSystem(TuplesIndex tuples, Map<RCTuple,Set<int[]>> samplesByTuple, Map<int[],Double> energies) {
@@ -39,9 +39,9 @@ public class LUTE {
 			confs = new ArrayList<>(confsSet);
 
 			// gather the energies
-			b = new ArrayRealVector(confs.size());
+			b = new double[confs.size()];
 			for (int c=0; c<confs.size(); c++) {
-				b.setEntry(c, energies.get(confs.get(c)));
+				b[c] = energies.get(confs.get(c));
 			}
 		}
 
@@ -52,6 +52,10 @@ public class LUTE {
 		}
 
 		public void fit() {
+			fitConjugateGradient();
+		}
+
+		public void fitConjugateGradient() {
 
 			// build the linear model: Ax=b
 			// except conjugate gradient needs square A, so transform to A^tAx = A^tb
@@ -68,45 +72,55 @@ public class LUTE {
 				}
 
 				@Override
-				public RealVector operate(RealVector x)
+				public RealVector operate(RealVector vx)
 				throws DimensionMismatchException {
-					return calcAtx(calcAx(x));
+					double[] x = ((ArrayRealVector)vx).getDataRef();
+					double[] AtAx = calcAtx(calcAx(x));
+					return new ArrayRealVector(AtAx, false);
 				}
 			};
 
 			RealVector Atb = new ArrayRealVector(tuples.size());
 			for (int c=0; c<confs.size(); c++) {
-				double energy = b.getEntry(c);
+				double energy = b[c];
 				forEachTupleIn(c, (t) -> {
 					Atb.addToEntry(t, energy);
 				});
 			}
 
-			setX(new ConjugateGradient(100000, 1e-6, false).solve(AtA, Atb));
+			setX(new ConjugateGradient(100000, 1e-6, false).solve(AtA, Atb).toArray());
 		}
 
-		public void setX(RealVector x) {
+		public void setX(double[] x) {
+
 			this.x = x;
-			this.errors = new Errors(calcAx(x).subtract(b));
+
+			// calculate the residual
+			double[] residual = calcAx(x);
+			for (int c=0; c<confs.size(); c++) {
+				residual[c] -= b[c];
+			}
+
+			this.errors = new Errors(residual);
 		}
 
-		private RealVector calcAx(RealVector x) {
-			RealVector out = new ArrayRealVector(confs.size());
+		private double[] calcAx(double[] x) {
+			double[] out = new double[confs.size()];
 			for (int c=0; c<confs.size(); c++) {
 				final int fc = c;
 				forEachTupleIn(c, (t) -> {
-					out.addToEntry(fc, x.getEntry(t));
+					out[fc] += x[t];
 				});
 			}
 			return out;
 		}
 
-		private RealVector calcAtx(RealVector x) {
-			RealVector out = new ArrayRealVector(tuples.size());
+		private double[] calcAtx(double[] x) {
+			double[] out = new double[tuples.size()];
 			for (int c=0; c<confs.size(); c++) {
-				double energy = x.getEntry(c);
+				double energy = x[c];
 				forEachTupleIn(c, (t) -> {
-					out.addToEntry(t, energy);
+					out[t] += energy;
 				});
 			}
 			return out;
@@ -115,13 +129,13 @@ public class LUTE {
 
 	public static class Errors {
 
-		public final RealVector residual;
+		public final double[] residual;
 		public final double min;
 		public final double max;
 		public final double avg;
 		public final double rms;
 
-		public Errors(RealVector residual) {
+		public Errors(double[] residual) {
 
 			this.residual = residual;
 
@@ -130,10 +144,10 @@ public class LUTE {
 			double min = Double.POSITIVE_INFINITY;
 			double max = Double.NEGATIVE_INFINITY;
 
-			int n = residual.getDimension();
+			int n = residual.length;
 			for (int row=0; row<n; row++) {
 
-				double val = Math.abs(residual.getEntry(row));
+				double val = Math.abs(residual[row]);
 
 				sum += val;
 				sumsq += val*val;
@@ -359,7 +373,7 @@ public class LUTE {
 					tuple.RCs.get(0),
 					tuple.pos.get(1),
 					tuple.RCs.get(1),
-					trainingSystem.x.getEntry(i)
+					trainingSystem.x[i]
 				);
 			}
 		}

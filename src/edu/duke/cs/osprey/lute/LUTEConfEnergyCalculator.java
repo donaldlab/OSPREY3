@@ -5,14 +5,13 @@ import edu.duke.cs.osprey.confspace.TuplesIndex;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
-import org.apache.commons.math3.linear.RealVector;
 
 
 public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
 
 	public final LUTE lute;
 
-	private RealVector energies;
+	private double[] energies;
 	private TuplesIndex tuples;
 
 	public LUTEConfEnergyCalculator(LUTE lute, EnergyCalculator ecalc) {
@@ -55,7 +54,7 @@ public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
 		// hopefully JVM escape analysis will stack-allocate this?
 		final double[] energy = new double[] { 0.0 };
 		tuples.forEachIn(conf, throwIfMissingSingle, throwIfMissingPair, (t) -> {
-			energy[0] += energies.getEntry(t);
+			energy[0] += energies[t];
 		});
 		return energy[0];
 	}
