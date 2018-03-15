@@ -1,10 +1,11 @@
 package edu.duke.cs.osprey.confspace;
 
+
 import java.util.*;
 import java.util.function.Consumer;
 
 
-public class TuplesIndex {
+public class TuplesIndex implements Iterable<RCTuple> {
 
 	public static class NoSuchTupleException extends RuntimeException {
 
@@ -31,12 +32,65 @@ public class TuplesIndex {
 		}
 	}
 
+	@Override
+	public Iterator<RCTuple> iterator() {
+		// don't let callers modify the tuples list after indexing
+		// so make new Iterator subclass so that remove() throws an exception
+		return new Iterator<RCTuple>() {
+
+			Iterator<RCTuple> iter = tuples.iterator();
+
+			@Override
+			public boolean hasNext() {
+				return iter.hasNext();
+			}
+
+			@Override
+			public RCTuple next() {
+				return iter.next();
+			}
+		};
+	}
+
 	public RCTuple get(int index) {
 		return tuples.get(index);
 	}
 
 	public int size() {
 		return tuples.size();
+	}
+
+	public boolean contains(int pos1, int rc1, int pos2, int rc2) {
+		return index.getPairwise(pos1, rc1, pos2, rc2) != null;
+	}
+
+	public boolean contains(RCTuple tuple) {
+		return index.getTuple(tuple) != null;
+	}
+
+	public boolean isAssignmentCoveredByPairs(int[] conf, int nextPos, int nextRC) {
+
+		// all pairs between this possible assignment and the conf assignments must be present in the tuple set
+		for (int pos=0; pos<conf.length; pos++) {
+
+			// skip unassigned positions
+			int rc = conf[pos];
+			if (rc == Conf.Unassigned) {
+				continue;
+			}
+
+			// don't assign the same position twice
+			if (pos == nextPos) {
+				throw new IllegalArgumentException(String.format("pos %d already assigned in conf %s", nextPos, Conf.toString(conf)));
+			}
+
+			// is this pair present in the set?
+			if (!contains(pos, rc, nextPos, nextRC)) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	public void forEachIn(int[] conf, boolean throwIfMissingSingle, boolean throwIfMissingPair, Consumer<Integer> callback) {

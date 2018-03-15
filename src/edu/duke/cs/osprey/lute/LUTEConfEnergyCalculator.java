@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.lute;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.TuplesIndex;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
@@ -11,16 +10,14 @@ public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
 
 	public final LUTE lute;
 
-	private double[] energies;
-	private TuplesIndex tuples;
+	private LUTE.LinearSystem system;
 
 	public LUTEConfEnergyCalculator(LUTE lute, EnergyCalculator ecalc) {
 		super(lute.confSpace, ecalc, null, null, false);
 
 		this.lute = lute;
 
-		this.energies = lute.getTrainingSystem().x;
-		this.tuples = lute.getTrainingSystem().tuples;
+		this.system = lute.getTrainingSystem();
 	}
 
 	@Override
@@ -53,9 +50,9 @@ public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
 		// silly Java... If this were Kotlin, we wouldn't have to use an array to make the energy modifiable
 		// hopefully JVM escape analysis will stack-allocate this?
 		final double[] energy = new double[] { 0.0 };
-		tuples.forEachIn(conf, throwIfMissingSingle, throwIfMissingPair, (t) -> {
-			energy[0] += energies[t];
+		system.tuples.forEachIn(conf, throwIfMissingSingle, throwIfMissingPair, (t) -> {
+			energy[0] += system.tupleEnergies[t];
 		});
-		return energy[0];
+		return energy[0] + system.tupleEnergyOffset;
 	}
 }

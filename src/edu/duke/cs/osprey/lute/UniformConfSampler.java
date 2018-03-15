@@ -3,11 +3,14 @@ package edu.duke.cs.osprey.lute;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.TuplesIndex;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.UnpossibleError;
 
 import java.math.BigInteger;
 import java.util.*;
+
+import static edu.duke.cs.osprey.tools.Log.log;
 
 
 public class UniformConfSampler extends ConfSampler {
@@ -21,7 +24,7 @@ public class UniformConfSampler extends ConfSampler {
 	 * makes getting an exact count hard, but we can at least get an upper
 	 * bound somewhat efficiently
 	 */
-	public BigInteger getNumConfsUpperBound(RCTuple tuple, Set<RCTuple> tuples) {
+	public BigInteger getNumConfsUpperBound(RCTuple tuple, TuplesIndex tuples) {
 
 		// make a conf with the tuple assignment
 		int[] conf = Conf.make(confSpace, tuple);
@@ -39,7 +42,7 @@ public class UniformConfSampler extends ConfSampler {
 			int numAssignments = 0;
 			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
 
-				if (isCompatiblePairs(conf, new RCTuple(pos.index, rc.index), tuples)) {
+				if (tuples.isAssignmentCoveredByPairs(conf, pos.index, rc.index)) {
 					numAssignments++;
 				}
 			}
@@ -55,93 +58,49 @@ public class UniformConfSampler extends ConfSampler {
 	}
 
 	@Override
-	public Map<RCTuple,Set<int[]>> sampleConfsForTuples(Set<RCTuple> tuples, int minSamplesPerTuple) {
-
-		// track all samples by tuple
-		Map<RCTuple,Set<int[]>> samplesByTuple = new HashMap<>();
-		for (RCTuple tuple : tuples) {
-			samplesByTuple.put(tuple, new Conf.Set());
-		}
+	public void sampleConfsForTuples(Samples samples, int minSamplesPerTuple) {
 
 		// keep track of tuples we can't sample anymore
 		Set<RCTuple> unsampleableTuples = new HashSet<>();
 
 		while (true) {
 
-			// find the least sampled tuple
-			// TODO: use a priority queue here?
-			int minNumSamples = 0;
-			RCTuple leastSampledTuple = null;
-			for (Map.Entry<RCTuple,Set<int[]>> entry : samplesByTuple.entrySet()) {
-
-				RCTuple tuple = entry.getKey();
-				int numSamples = entry.getValue().size();
-
-				// skip tuples we can't sample
-				if (unsampleableTuples.contains(tuple)) {
-					continue;
-				}
-
-				if (leastSampledTuple == null || numSamples < minNumSamples) {
-					minNumSamples = numSamples;
-					leastSampledTuple = tuple;
-				}
-			}
+			RCTuple tuple = samples.getLeastSampledTuple(unsampleableTuples);
+			int numSamples = samples.getConfs(tuple).size();
 
 			// are we done yet?
-			if (minNumSamples >= minSamplesPerTuple) {
+			if (numSamples >= minSamplesPerTuple) {
 				break;
 			}
 
 			// can we even get another sample?
-			BigInteger maxNumConfs = getNumConfsUpperBound(leastSampledTuple, tuples);
-			if (BigInteger.valueOf(minNumSamples).compareTo(maxNumConfs) >= 0) {
+			BigInteger maxNumConfs = getNumConfsUpperBound(tuple, samples.tuples);
+			if (BigInteger.valueOf(numSamples).compareTo(maxNumConfs) >= 0) {
 				// nope, out of confs to sample, that will have to be good enough for this tuple
-				unsampleableTuples.add(leastSampledTuple);
+				unsampleableTuples.add(tuple);
 				continue;
 			}
 
 			// sample another conf for this tuple (and other tuples too)
 			int[] conf = sample(
-				leastSampledTuple,
-				samplesByTuple.get(leastSampledTuple),
-				minSamplesPerTuple*100,
-				tuples
+				tuple,
+				samples.getConfs(tuple),
+				100,
+				samples.tuples
 			);
 			if (conf == null) {
 				// too hard to sample another conf, what we have so far will have to be good enough for this tuple
 				// TODO: could maybe do DFS here to sample a conf? not sure how much it will improve fit quality tho
 				// since hard sampling means we're probably close to exhausting the conf space
-				unsampleableTuples.add(leastSampledTuple);
+				unsampleableTuples.add(tuple);
 				continue;
 			}
 
-			// update the tuple->samples map with the new sample
-			for (RCTuple tuple : tuples) {
-				if (Conf.containsTuple(conf, tuple)) {
-					samplesByTuple.get(tuple).add(conf);
-				}
-			}
+			samples.addConf(conf);
 		}
-
-		return samplesByTuple;
 	}
 
-	public Set<int[]> sample(RCTuple tuple, int numSamples, int numAttempts, Set<RCTuple> tuples) {
-
-		// don't know how to prune possible assignments based on a list of confs
-		// so I don't think we can do better than sample-and-reject here =(
-		Set<int[]> confs = new Conf.Set();
-		for (int i=0; i<numAttempts; i++) {
-			confs.add(sample(tuple, tuples));
-			if (confs.size() >= numSamples) {
-				break;
-			}
-		}
-		return confs;
-	}
-
-	public int[] sample(RCTuple tuple, Set<int[]> except, int numAttempts, Set<RCTuple> tuples) {
+	public int[] sample(RCTuple tuple, Set<int[]> except, int numAttempts, TuplesIndex tuples) {
 
 		// don't know how to prune possible assignments based on a list of confs
 		// so I don't think we can do better than sample-and-reject here =(
@@ -159,13 +118,13 @@ public class UniformConfSampler extends ConfSampler {
 		return null;
 	}
 
-	public int[] sample(RCTuple tuple, Set<RCTuple> tuples) {
+	public int[] sample(RCTuple tuple, TuplesIndex tuples) {
 
 		// start with a conf with just the tuple assignment
 		int[] conf = Conf.make(confSpace, tuple);
 
 		// collect the possible RCs for all unassigned positions
-		Set<RCTuple> possibleAssignments = new HashSet<>();
+		Set<RCTuple> assignments = new HashSet<>();
 		for (SimpleConfSpace.Position pos : confSpace.positions) {
 
 			// skip assigned positions
@@ -174,17 +133,23 @@ public class UniformConfSampler extends ConfSampler {
 			}
 
 			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
-				possibleAssignments.add(new RCTuple(pos.index, rc.index));
+				assignments.add(new RCTuple(pos.index, rc.index));
 			}
 		}
 
 		while (true) {
 
-			// keep only RCs compatible with the conf
-			possibleAssignments.removeIf(possibleAssignment -> !isCompatiblePairs(conf, possibleAssignment, tuples));
+			// remove assignments that have been pruned
+			assignments.removeIf(assignment ->
+				!tuples.isAssignmentCoveredByPairs(
+					conf,
+					assignment.pos.get(0),
+					assignment.RCs.get(0)
+				)
+			);
 
 			// did we run out of possibilities?
-			if (possibleAssignments.isEmpty()) {
+			if (assignments.isEmpty()) {
 				if (Conf.isCompletelyAssigned(conf)) {
 					return conf;
 				} else {
@@ -193,7 +158,7 @@ public class UniformConfSampler extends ConfSampler {
 			}
 
 			// pick a random possibility and assign it to the conf
-			RCTuple assignment = removeRandom(possibleAssignments);
+			RCTuple assignment = removeRandom(assignments);
 			assert (conf[assignment.pos.get(0)] == Conf.Unassigned);
 			conf[assignment.pos.get(0)] = assignment.RCs.get(0);
 
@@ -201,27 +166,12 @@ public class UniformConfSampler extends ConfSampler {
 			if (Conf.isCompletelyAssigned(conf)) {
 				return conf;
 			}
+
+			// otherwise, remove all other assignments for this position and keep going
+			assignments.removeIf(a ->
+				a.pos.get(0) == assignment.pos.get(0)
+			);
 		}
-	}
-
-	private boolean isCompatiblePairs(int[] conf, RCTuple possibleAssignment, Set<RCTuple> tuples) {
-
-		// all pairs between this possible assignment and the conf assignments must be present in the tuple set
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-
-			// skip unassigned positions
-			if (conf[pos.index] == Conf.Unassigned) {
-				continue;
-			}
-
-			// is this tuple present in the set?
-			RCTuple tuple = possibleAssignment.addRC(pos.index, conf[pos.index]).sorted();
-			if (!tuples.contains(tuple)) {
-				return false;
-			}
-		}
-
-		return true;
 	}
 
 	private <T> T removeRandom(Set<T> set) {

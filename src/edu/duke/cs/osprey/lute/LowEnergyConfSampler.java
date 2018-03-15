@@ -27,40 +27,15 @@ public class LowEnergyConfSampler extends ConfSampler {
 	}
 
 	@Override
-	public Map<RCTuple,Set<int[]>> sampleConfsForTuples(Set<RCTuple> tuples, int minSamplesPerTuple) {
-
-		// track all samples by tuple
-		Map<RCTuple,Set<int[]>> samplesByTuple = new HashMap<>();
-		for (RCTuple tuple : tuples) {
-			samplesByTuple.put(tuple, new Conf.Set());
-		}
+	public void sampleConfsForTuples(Samples samples, int minSamplesPerTuple) {
 
 		// keep track of tuples we can't sample anymore
 		Set<RCTuple> unsampleableTuples = new HashSet<>();
 
 		while (true) {
 
-			// find the least sampled tuple
-			// TODO: use a priority queue here?
-			Set<int[]> alreadySampled = null;
-			RCTuple leastSampledTuple = null;
-			for (Map.Entry<RCTuple,Set<int[]>> entry : samplesByTuple.entrySet()) {
-
-				RCTuple tuple = entry.getKey();
-				Set<int[]> tupleSamples = entry.getValue();
-
-				// skip tuples we can't sample
-				if (unsampleableTuples.contains(tuple)) {
-					continue;
-				}
-
-				if (leastSampledTuple == null || tupleSamples.size() < alreadySampled.size()) {
-					alreadySampled = tupleSamples;
-					leastSampledTuple = tuple;
-				}
-			}
-			assert (leastSampledTuple != null);
-			assert (alreadySampled != null);
+			RCTuple tuple = samples.getLeastSampledTuple(unsampleableTuples);
+			Set<int[]> alreadySampled = samples.getConfs(tuple);
 
 			// are we done sampling yet?
 			int numSamplesNeeded = minSamplesPerTuple - alreadySampled.size();
@@ -69,23 +44,23 @@ public class LowEnergyConfSampler extends ConfSampler {
 			}
 
 			// sample more confs for this tuple (and other tuples too)
-			int[] leastSampledTupleConf = Conf.make(confSpace, leastSampledTuple);
+			int[] sampleConf = Conf.make(confSpace, tuple);
 			RCs rcs = new RCs(pmat);
 			rcs = new RCs(rcs, (pos, rc) -> {
 
 				// allow all rcs at unassigned positions
-				if (leastSampledTupleConf[pos] == Conf.Unassigned) {
+				if (sampleConf[pos] == Conf.Unassigned) {
 					return true;
 				}
 
 				// allow only the assigned RC at assigned positions
-				return rc == leastSampledTupleConf[pos];
+				return rc == sampleConf[pos];
 			});
 
 			if (MathTools.isZero(rcs.getNumConformations())) {
 				// no confs in the sub-space induced by this tuple
 				// that seems really bad
-				throw new Error("tuple " + leastSampledTuple + " has no compatible conformations");
+				throw new Error("tuple " + tuple + " has no compatible conformations");
 			}
 
 			// get a pool of low-energy confs
@@ -100,40 +75,25 @@ public class LowEnergyConfSampler extends ConfSampler {
 				confPool.add(conf.getAssignments());
 			}
 
-			// sample the desired number of samples
-			List<int[]> samples = new ArrayList<>();
-			for (int i=0; i<confPool.size(); i++) {
+			// try to sample the desired number of samples
+			int numAttempts = numSamplesNeeded*10;
+			for (int i=0; i<numAttempts; i++) {
 				int[] conf = confPool.get(rand.nextInt(confPool.size()));
-				boolean isUnique = alreadySampled.add(conf);
-				if (isUnique) {
-					samples.add(conf);
-					if (samples.size() >= numSamplesNeeded) {
-						break;
-					}
+				samples.addConf(conf);
+				if (alreadySampled.size() >= numSamplesNeeded) {
+					break;
 				}
 			}
 
-			if (samples.isEmpty()) {
+			if (alreadySampled.size() < numSamplesNeeded) {
 				// ran out of confs to sample
 				// TODO: make the pool bigger?
 				// TEMP: pretend we can't sample confs for this tuple anymore
 				log("tuple %s ran out of samples, have %d, need %d, pool size %d",
-					leastSampledTuple, alreadySampled.size(), minSamplesPerTuple, confPool.size()
+					tuple, alreadySampled.size(), minSamplesPerTuple, confPool.size()
 				);
-				unsampleableTuples.add(leastSampledTuple);
-				continue;
-			}
-
-			// update the tuple->samples map with the new sample
-			for (RCTuple tuple : tuples) {
-				for (int[] conf : samples) {
-					if (Conf.containsTuple(conf, tuple)) {
-						samplesByTuple.get(tuple).add(conf);
-					}
-				}
+				unsampleableTuples.add(tuple);
 			}
 		}
-
-		return samplesByTuple;
 	}
 }

@@ -125,14 +125,14 @@ public interface TupleMatrix<T> {
 		if (hasHigherOrderTuples()) {
 
 			int numPos = getNumPos();
-			for (int pos1=2; pos1<numPos; pos1++) {
+			for (int pos1=1; pos1<numPos; pos1++) {
 
 				int rc1 = conf[pos1];
 				if (rc1 == Conf.Unassigned) {
 					continue;
 				}
 
-				for (int pos2=1; pos2<pos1; pos2++) {
+				for (int pos2=0; pos2<pos1; pos2++) {
 
 					int rc2 = conf[pos2];
 					if (rc2 == Conf.Unassigned) {

@@ -5,6 +5,12 @@ import java.math.BigInteger;
 
 public class Log {
 
+	/** write a fragment to the log (no newline is appended) */
+	public static void logf(String format, Object ... args) {
+		System.out.print(String.format(format, args));
+	}
+
+	/** write a line to the log (a new line is appended) */
 	public static void log(String format, Object ... args) {
 		System.out.println(String.format(format, args));
 	}

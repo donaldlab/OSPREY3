@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 import static edu.duke.cs.osprey.tools.Log.log;
 
 
-public class LUTEPlayground {
+public class LUTELab {
 
 	public static void main(String[] args) {
 
@@ -121,32 +121,8 @@ public class LUTEPlayground {
 						.build()
 				);*/
 				confEcalc.resetCounters();
-				lute.fit(confEcalc, confTable, minSamplesPerTuple, sampler);
-				log("LUTE calculated %d full conf energies", confEcalc.getNumRequests());
-
-				// attempt to count the conf space by enumeration
-				int confSpaceSize = 0;
-				boolean isExhausted = false;
-				{
-					ConfSearch astar = astarFactory.get();
-					int maxSize = lute.getTestSystem().confs.size()*4;
-					for (; confSpaceSize<maxSize; confSpaceSize++) {
-						if (astar.nextConf() == null) {
-							isExhausted = true;
-							break;
-						}
-					}
-				}
-				if (isExhausted) {
-					log("conf space (after all pruning) has EXACTLY %d confs", confSpaceSize);
-					if (confSpaceSize == lute.getTestSystem().confs.size()) {
-						log("LUTE test set has entirely exhausted the conf space, can't sample any more confs");
-					} else {
-						log("LUTE test set used %.2f%% of the pruned conf space", 100.0*lute.getTestSystem().confs.size()/confSpaceSize);
-					}
-				} else {
-					log("conf space (after all pruning) has at least %d confs, which is many more than LUTE sampled", confSpaceSize);
-				}
+				lute.fit(confEcalc, confTable, sampler, 1.5);
+				lute.reportConfSpaceSize(astarFactory.get());
 
 				// compare conf energies
 				LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(lute, ecalc);
