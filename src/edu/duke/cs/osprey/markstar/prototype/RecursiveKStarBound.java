@@ -10,7 +10,7 @@ public class RecursiveKStarBound {
 	private PriorityQueue<EpsilonNode> epsilonSortedHeap;
 	private double targetEpsilon = 0;
 	
-	public RecursiveKStarBound(SimpleAStarSearch confAStar)
+	public RecursiveKStarBound(SimpleAStarSearch confAStar, double epsilon)
 	{
 		baseSearchTree = confAStar;
 	}

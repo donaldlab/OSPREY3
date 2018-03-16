@@ -7,15 +7,16 @@ public class SimpleAStarSearch {
 	public PriorityQueue<SimpleAStarNode> heap;
 	
 	public SimpleConf nextBestConformation;
+	private SimpleAStarNode root;
 	
-	private class ConfNode
+	public SimpleAStarSearch()
 	{
-		
+		root = new SimpleAStarNode(0);
 	}
-
+	
 	public SimpleAStarNode getRoot() {
 		// TODO Auto-generated method stub
-		return null;
+		return root;
 	}
 
 }
