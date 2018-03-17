@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.lute;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -13,9 +14,11 @@ import smile.data.SparseDataset;
 import smile.math.matrix.Matrix;
 import smile.regression.LASSO;
 
+import java.math.BigInteger;
 import java.util.*;
 import java.util.function.Consumer;
 
+import static edu.duke.cs.osprey.tools.Log.formatBig;
 import static edu.duke.cs.osprey.tools.Log.log;
 import static edu.duke.cs.osprey.tools.Log.logf;
 
@@ -273,6 +276,7 @@ public class LUTE {
 
 	private LinearSystem trainingSystem = null;
 	private LinearSystem testSystem = null;
+	private Map<int[],Double> energies = null;
 
 	public LUTE(SimpleConfSpace confSpace) {
 		this.confSpace = confSpace;
@@ -379,7 +383,7 @@ public class LUTE {
 
 		ConfSampler.Samples trainingSet = new ConfSampler.Samples(tuplesIndex);
 		ConfSampler.Samples testSet = new ConfSampler.Samples(tuplesIndex);
-		Map<int[],Double> energies = new Conf.Map<>();
+		energies = new Conf.Map<>();
 		double overfittingScore = Double.POSITIVE_INFINITY;
 
 		Stopwatch sw = new Stopwatch().start();
@@ -465,31 +469,36 @@ public class LUTE {
 		log("");
 	}
 
-	public void reportConfSpaceSize(ConfSearch search) {
+	public void reportConfSpaceSize() {
 
-		// TODO: modify to compute the conf space size after pruning without enumeration
+		BigInteger size = new RCs(confSpace).getNumConformations();
 
-		// attempt to count the conf space by enumeration
-		int confSpaceSize = 0;
-		boolean isExhausted = false;
-		int maxSize = testSystem.confs.size()*4;
-		for (; confSpaceSize<maxSize; confSpaceSize++) {
-			if (search.nextConf() == null) {
-				isExhausted = true;
-				break;
-			}
+		double percent = 100.0*energies.size()/size.doubleValue();
+
+		log("conf space (no pruning was reported) has exactly %s conformations", formatBig(size));
+		log("LUTE sampled %.1f percent of those confs", percent);
+	}
+
+	public void reportConfSpaceSize(PruningMatrix pmat) {
+
+		BigInteger sizeLower = pmat.calcUnprunedConfsLowerBound();
+		BigInteger sizeUpper = pmat.calcUnprunedConfsUpperBound();
+
+		// the bounds are loose, but remember we sampled some confs
+		// so improve the lower bound with the samples if possible
+		try {
+			sizeLower = BigInteger.valueOf(Math.max(sizeLower.longValueExact(), energies.size()));
+
+		} catch (ArithmeticException ex) {
+			// lower bound is bigger than we could have possibly sampled
+			// so don't change anything
 		}
 
-		if (isExhausted) {
-			log("conf space (after all pruning) has EXACTLY %d confs", confSpaceSize);
-			if (confSpaceSize == testSystem.confs.size()) {
-				log("LUTE test set has entirely exhausted the conf space, can't sample any more confs");
-			} else {
-				log("LUTE test set used %.2f%% of the pruned conf space", 100.0*testSystem.confs.size()/confSpaceSize);
-			}
-		} else {
-			log("conf space (after all pruning) has at least %d confs, which is many more than LUTE sampled", confSpaceSize);
-		}
+		double percentLower = 100.0*energies.size()/sizeUpper.doubleValue();
+		double percentUpper = 100.0*energies.size()/sizeLower.doubleValue();
+
+		log("conf space (after all pruning) has somewhere between %s and %s conformations", formatBig(sizeLower), formatBig(sizeUpper));
+		log("LUTE sampled somewhere between %.1f%% and %.1f%% of those conformations", percentLower, percentUpper);
 	}
 
 	public LinearSystem getTrainingSystem() {

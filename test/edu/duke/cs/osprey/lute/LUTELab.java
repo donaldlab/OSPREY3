@@ -122,7 +122,7 @@ public class LUTELab {
 				);*/
 				confEcalc.resetCounters();
 				lute.fit(confEcalc, confTable, sampler, 1.5);
-				lute.reportConfSpaceSize(astarFactory.get());
+				lute.reportConfSpaceSize(pmat);
 
 				// compare conf energies
 				LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(lute, ecalc);

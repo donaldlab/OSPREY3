@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.pruning;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.confspace.*;
@@ -323,4 +324,140 @@ public class PruningMatrix extends TupleMatrixBoolean {
         //look up 1-body
         return getOneBody(pos,rcNum);
     }*/
+
+	/**
+	 * Calculates an upper bound on the number of conformations remaining in
+	 * the conformation space after all singles and pairs pruning.
+	 *
+	 * Uses a dynamic programming algorithm that runs in O(nm^2) time and O(nm) space
+	 * where n is the number of design positions, and m is the max number of RCs at a position.
+	 *
+	 * This algorithm essentially under-estimates pruning by ignoring pruned pairs
+	 * that are not between consecutive positions. The then the leftover pruned pairs
+	 * have a nice structure that can be analyzed in polynomial time using dynamic programming.
+	 */
+	public BigInteger calcUnprunedConfsUpperBound() {
+
+		// TODO: choose a position ordering (and hence which pairs are on the "diagonal") that minimizes the upper bound
+		// (can probably use a greedy heuristic here)
+
+		return countConfsAfterOnlyDiagonalPairsPruning(this);
+	}
+
+	private static BigInteger countConfsAfterOnlyDiagonalPairsPruning(PruningMatrix pmat) {
+
+		// TODO: allow re-ordering the positions so we can optimize the upper bound calculation
+
+		// allocate space for the intermediate counts
+		// (columns are design positions, rows are RCs at that positions)
+		int n = pmat.getNumPos();
+		BigInteger[][] counts = new BigInteger[n][];
+		for (int pos=0; pos<n; pos++) {
+			counts[pos] = new BigInteger[pmat.getNumConfAtPos(pos)];
+		}
+
+		// initialize all counts to zero, except for RCs at the last position, which are one
+		for (int pos=0; pos<n; pos++) {
+			for (int rc=0; rc<pmat.getNumConfAtPos(pos); rc++) {
+				if (pos < n - 1) {
+					counts[pos][rc] = BigInteger.ZERO;
+				} else {
+					counts[pos][rc] = BigInteger.ONE;
+				}
+			}
+		}
+
+		// staring at the second-to-last position and moving backwards...
+		for (int pos1 = n - 2; pos1 >= 0; pos1--) {
+			int pos2 = pos1 + 1;
+
+			// for each RC at this position...
+			for (int rc1=0; rc1<pmat.getNumConfAtPos(pos1); rc1++) {
+
+				// skip pruned singles
+				if (pmat.isSinglePruned(pos1, rc1)) {
+					continue;
+				}
+
+				// sum the counts of the unpruned RCs at the next position
+				// and store the sum at this pos,rc
+
+				// for each RC at the next position...
+				for (int rc2=0; rc2<pmat.getNumConfAtPos(pos2); rc2++) {
+
+					// skip pruned singles and pairs
+					if (pmat.isSinglePruned(pos2, rc2) || pmat.isPairPruned(pos1, rc1, pos2, rc2)) {
+						continue;
+					}
+
+					// update the intermediate counts at this pos
+					counts[pos1][rc1] = counts[pos1][rc1].add(counts[pos2][rc2]);
+				}
+			}
+		}
+
+		// add counts from all RCs at the first position to get the total count
+		BigInteger sum = BigInteger.ZERO;
+		for (int rc=0; rc<pmat.getNumConfAtPos(0); rc++) {
+			sum = sum.add(counts[0][rc]);
+		}
+
+		return sum;
+	}
+
+	/**
+	 * calculates an lower bound on the number of conformations remaining in
+	 * the conformation space after all singles and pairs pruning.
+	 *
+	 * Uses the same dynamic programming algorithm as the upper bound, but we
+	 * perform a preprocessing step on the pruning matrix first.
+	 *
+	 * This algorithm essentially over-estimates pruning, by "upgrading" pruned pairs
+	 * not between consecutive positions to pruned singles. The then the leftover pruned pairs
+	 * have a nice structure that can be analyzed in polynomial time.
+	 */
+	public BigInteger calcUnprunedConfsLowerBound() {
+
+		// first, transform the pruning matrix
+		PruningMatrix expandedPmat = new PruningMatrix(this);
+
+		// TODO: sort positions by pruning power of singles at that position?
+
+		// for each "off-diagonal" position pair (e.g. "diagonal" pairs are 01, 12, 23, etc),
+		// create a pruned single for each pruned pair that "covers" the tuples pruned by the pair
+		// (inevitably some extra tuples get pruned this way, but that's why we're over-estimating pruning)
+		int n = getNumPos();
+		for (int pos1=2; pos1<n; pos1++) {
+
+			for (int pos2=0; pos2<pos1 - 1; pos2++) {
+
+				for (int rc1=0; rc1<getNumConfAtPos(pos1); rc1++) {
+					for (int rc2=0; rc2<getNumConfAtPos(pos2); rc2++) {
+
+						if (expandedPmat.isPairPruned(pos1, rc1, pos2, rc2)) {
+
+							// replace this pruned pair with the pruned single that
+							// minimizes the number of extra pruned tuples
+
+							// but which is better, pos1, or pos2?
+
+							// always prefer a single that has already been pruned
+							if (expandedPmat.isSinglePruned(pos1, rc1)) {
+								// already pruned, nothing to do
+							} else if (expandedPmat.isSinglePruned(pos2, rc2)) {
+								// already pruned, nothing to do
+							} else {
+
+								// TODO: do something smart here
+								// TEMP: just pick pos2 because I said so
+								expandedPmat.pruneSingle(pos2, rc2);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return countConfsAfterOnlyDiagonalPairsPruning(expandedPmat);
+	}
 }

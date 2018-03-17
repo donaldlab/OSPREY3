@@ -1,11 +1,15 @@
 package edu.duke.cs.osprey.pruning;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 
 import java.math.BigInteger;
 import java.util.function.Consumer;
+
+import static edu.duke.cs.osprey.tools.Log.formatBig;
+import static edu.duke.cs.osprey.tools.Log.log;
 
 /**
  * Simple, fast implementation of DEE.
@@ -189,11 +193,16 @@ public class SimpleDEE {
 			// show total pruning results
 			if (showProgress) {
 				BigInteger allConfs = new RCs(confSpace).getNumConformations();
-				BigInteger remainingConfs = new RCs(dee.pmat).getNumConformations();
-				BigInteger prunedConfs = allConfs.subtract(remainingConfs);
-				System.out.println("Conformations defined by conformation space:    " + String.format("%e", allConfs.floatValue()));
-				System.out.println("Conformations remaining after pruning singles:  " + String.format("%e", remainingConfs.floatValue()));
-				System.out.println("Percent conformations pruned by singles:        " + 100.0*prunedConfs.doubleValue()/allConfs.doubleValue());
+				BigInteger unprunedLower = dee.pmat.calcUnprunedConfsLowerBound();
+				BigInteger unprunedUpper = dee.pmat.calcUnprunedConfsUpperBound();
+				BigInteger prunedLower = allConfs.subtract(unprunedUpper);
+				BigInteger prunedUpper = allConfs.subtract(unprunedLower);
+				double percentPrunedLower = 100.0*prunedLower.doubleValue()/allConfs.doubleValue();
+				double percentPrunedUpper = 100.0*prunedUpper.doubleValue()/allConfs.doubleValue();
+				log("Conformations defined by conformation space:     %s", formatBig(allConfs));
+				log("Conformations pruned (bounds):                   [%s,%s]", formatBig(prunedLower), formatBig(prunedUpper));
+				log("Conformations remaining after pruning (bounds):  [%s,%s]", formatBig(unprunedLower), formatBig(unprunedUpper));
+				log("Percent conformations pruned (bounds):           [%.6f,%.6f]", percentPrunedLower, percentPrunedUpper);
 			}
 
 			return dee.pmat;
