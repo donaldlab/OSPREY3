@@ -335,6 +335,9 @@ public class PruningMatrix extends TupleMatrixBoolean {
 	 * This algorithm essentially under-estimates pruning by ignoring pruned pairs
 	 * that are not between consecutive positions. The then the leftover pruned pairs
 	 * have a nice structure that can be analyzed in polynomial time using dynamic programming.
+	 *
+	 * NOTE: Counting the exact size of the conformation space after pairs pruning is
+	 * apparently #P-complete, and hence very hard to do. =P
 	 */
 	public BigInteger calcUnprunedConfsUpperBound() {
 
@@ -415,6 +418,9 @@ public class PruningMatrix extends TupleMatrixBoolean {
 	 * This algorithm essentially over-estimates pruning, by "upgrading" pruned pairs
 	 * not between consecutive positions to pruned singles. The then the leftover pruned pairs
 	 * have a nice structure that can be analyzed in polynomial time.
+	 *
+	 * NOTE: Counting the exact size of the conformation space after pairs pruning is
+	 * apparently #P-complete, and hence very hard to do. =P
 	 */
 	public BigInteger calcUnprunedConfsLowerBound() {
 
