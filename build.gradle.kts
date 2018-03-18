@@ -55,7 +55,7 @@ idea {
 }
 
 application {
-	mainClassName = "edu.duke.cs.osprey.control.Main"
+	mainClassName = "edu.duke.cs.osprey.PaperBenchmark"
 }
 
 dependencies {
