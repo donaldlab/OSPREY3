@@ -240,7 +240,7 @@ public class EEF1 implements Serializable {
 				return findSolvGroup("CR"); // (CG or CD2 or CE2) of TRP
 			
 			else if ( atomName.equalsIgnoreCase("CZ") && AAname.equalsIgnoreCase("ARG") )
-				return findSolvGroup("CR"); //CZ of PHE
+				return findSolvGroup("CR"); //CZ of ARG
 			
 			else if ( (aromatic) && (numBoundH==1) ) // extended aromatic C with 1 H, so CR1E group
 				return findSolvGroup("CR1E");
