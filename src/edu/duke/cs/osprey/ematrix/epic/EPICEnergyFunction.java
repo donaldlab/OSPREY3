@@ -36,10 +36,11 @@ public class EPICEnergyFunction implements EnergyFunction.NeedsInit, EnergyFunct
     ArrayList<ArrayList<Integer>> termDOFs;//for each term, which degrees of freedom (in curDOFVals) it operates on
 
     
-    public EPICEnergyFunction(ArrayList<EPoly> terms) {
+    public EPICEnergyFunction(ArrayList<EPoly> terms, boolean includeMinE) {
         //create an energy function from some terms, will assign curDOFVals, termDOFs, and (if needed) sharedMolec
         //later
         this.terms = terms;
+        this.includeMinE = includeMinE;
     }
     
     
@@ -180,7 +181,7 @@ public class EPICEnergyFunction implements EnergyFunction.NeedsInit, EnergyFunct
                 }
             }
             
-            EPICEnergyFunction partial = new EPICEnergyFunction(dofTerms);
+            EPICEnergyFunction partial = new EPICEnergyFunction(dofTerms, includeMinE);
             partial.init(molec, DOFs, curDOFVals);
             
             ans.add(partial);

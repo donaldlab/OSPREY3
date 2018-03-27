@@ -26,7 +26,9 @@ emat = osprey.EnergyMatrix(confEcalc)
 astar = osprey.AStarMPLP(emat, confSpace)
 
 # find the best sequence and rotamers
-gmec = osprey.GMECFinder(astar, confEcalc).find()
+# and save all the conformations in the confdb for easier analysis later
+confDBFile = 'conf.db'
+gmec = osprey.GMECFinder(astar, confEcalc, confDBFile=confDBFile).find()
 
 # get the conformation analyzer
 analyzer = osprey.ConfAnalyzer(confEcalc, emat)
@@ -65,10 +67,16 @@ print('\n')
 print(analysis)
 
 # analyze the low-energy ensemble from the energy window
+# and put any extra conformations we find in the confDB
 astar = osprey.AStarMPLP(emat, confSpace)
-confs = osprey.GMECFinder(astar, confEcalc).find(1)
+confs = osprey.GMECFinder(astar, confEcalc, confDBFile=confDBFile).find(1)
 maxNumConfs = 10
 ensembleAnalysis = analyzer.analyzeEnsemble(confs, maxNumConfs)
 print('\n')
 print(ensembleAnalysis)
 ensembleAnalysis.writePdbs('ensemble/conf.*.pdb')
+
+# we can also just analyze the contents of the confDB without doing additional energy calculations
+ensembleAnalysis = analyzer.analyzeGMECEnsembleFromConfDB(confDBFile, maxNumConfs)
+print('\n')
+print(ensembleAnalysis)

@@ -39,20 +39,19 @@ public class GpuStreamPool {
 		// crude load-balancing strategy. otherwise, gpus are always hit in
 		// numerical device order for multiple osprey instances, leading to 
 		// unnecessary resource contention.
-		Collections.sort(gpus, new Comparator<Gpu>() {
-			@Override
-			public int compare(Gpu o1, Gpu o2) {
-				return o1.getFreeMemory() > o2.getFreeMemory() ? -1 : 1;
-			}
-		});
+		gpus.sort(Comparator.comparing((Gpu gpu) -> gpu.getFreeMemory()).reversed());
 
 		numGpus = Math.min(numGpus, gpus.size());
 		
 		// make contexts for all the gpus
 		contexts = new ArrayList<>();
 		for (Gpu gpu : gpus) {
-			Context context = new Context(gpu);
-			contexts.add(context);
+			try {
+				Context context = new Context(gpu);
+				contexts.add(context);
+			} catch (Throwable t) {
+				// can't make a context, assume we can't use this GPU
+			}
 		}
 		
 		// make n stream for each gpu

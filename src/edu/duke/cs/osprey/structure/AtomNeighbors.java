@@ -21,8 +21,10 @@ public class AtomNeighbors {
     
     
     public static enum Type {
-            SELF, BONDED12, BONDED13, BONDED14, NONBONDED
+            SELF, BONDED12, BONDED13, BONDED14, NONBONDED, BONDED15H
     }//nonbonded here means not bonded 1,4 or closer
+    //exception: if doing ProbeAtomNeighbors and there's an H
+    //that is bonded 1,5 to something, they are BONDED15H instead
     
     
     

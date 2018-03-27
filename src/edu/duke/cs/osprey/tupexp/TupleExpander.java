@@ -47,7 +47,11 @@ public abstract class TupleExpander implements Serializable {
        
     
     static int printedUpdateNumTuples = 5;//100 w/o PB.  We print updates as we add tuples...this is how often
-    
+
+    boolean canCheckPartialPruning = true;//can evaluate new tuples
+    //by using isPairPrunedInSample rather than checking isPruned on whole conf
+    //PLUG can break this
+
     public TupleExpander (int numPos, int[] numAllowed/*, double constTerm*/, double pruningInterval, LUTESettings luteSettings) {
         this.numPos = numPos;
         this.numAllowed = numAllowed;
@@ -95,6 +99,8 @@ public abstract class TupleExpander implements Serializable {
             double score = scoreAssignmentList(sample);
             ans = Math.min(ans,score);
         }
+
+        System.out.println("Initial GMEC estimate: "+ans);
         
         return ans;
     }
@@ -418,10 +424,25 @@ public abstract class TupleExpander implements Serializable {
         //for a tuple (index in tuples), how many samples are needed?
         return numSampsPerTuple;//one param per tuple, so 10 samples should securely avoid overfitting
     }
-    
-    void tryAddingTuple(RCTuple tup){
-        
-        if(trainingSamples.tupleFeasible(tup)){
+
+    public void tryAddingTuple(RCTuple tup){
+        boolean tupFeas = trainingSamples.tupleFeasible(tup);
+        if(!tupFeas){
+            //make sure we didn't miss a tuple we already know from previous samples
+            //to be feasible.  This could result in pruning other tuples and general mess
+            for(TESampleSet tss : new TESampleSet[]{trainingSamples,CVSamples}){
+                if(tss!=null){
+                    for(int[] sample : tss.samples){
+                        if(sampleMatchesTuple(sample,tup)){
+                            tupFeas = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if(tupFeas){
             tuples.add(tup);
             int newTupleIndex = tuples.size()-1;//tup index in tuples
 

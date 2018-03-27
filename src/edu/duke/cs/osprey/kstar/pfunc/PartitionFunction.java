@@ -5,6 +5,7 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
 
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -175,5 +176,10 @@ public interface PartitionFunction {
 
 	public default Result makeResult() {
 		return new Result(getStatus(), getValues(), getNumConfsEvaluated());
+	}
+
+
+	public static interface WithConfTable extends PartitionFunction {
+		void setConfTable(ConfDB.ConfTable table);
 	}
 }

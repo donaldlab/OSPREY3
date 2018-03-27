@@ -73,6 +73,9 @@ dependencies {
 	compile("org.ojalgo:ojalgo:41.0.0")
 	compile("org.jogamp.gluegen:gluegen-rt:2.3.2")
 	compile("org.jogamp.jocl:jocl:2.3.2")
+	compile("org.mapdb:mapdb:3.0.5")
+	compile("org.apache.xmlgraphics:batik-svggen:1.9.1")
+	compile("org.apache.xmlgraphics:batik-svg-dom:1.9.1")
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
 	// so turn off transitive dependencies. we'll deal with natives manually
