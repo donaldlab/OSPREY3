@@ -15,6 +15,8 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.Arrays;
+
 
 public class TestUnprunedConfBounding {
 
@@ -43,8 +45,6 @@ public class TestUnprunedConfBounding {
 				.calcEnergyMatrix();
 		}
 	}
-
-	// TODO: test larger designs too?
 
 	@Test
 	public void fullConfSpace() {
@@ -133,10 +133,9 @@ public class TestUnprunedConfBounding {
 		pmat.prunePair(1, 5, 2, 6);
 		pmat.prunePair(1, 4, 2, 0);
 
-		// with only "diagonal" pairs (e.g. 01, 12), the bounds should be tight
 		long size = enumerate(pmat);
-		assertThat(upper(pmat), is(size));
-		assertThat(lower(pmat), is(size));
+		assertThat(upper(pmat), greaterThanOrEqualTo(size));
+		assertThat(lower(pmat), lessThanOrEqualTo(size));
 	}
 
 	@Test
@@ -151,6 +150,72 @@ public class TestUnprunedConfBounding {
 		long size = enumerate(pmat);
 		assertThat(upper(pmat), greaterThanOrEqualTo(size));
 		assertThat(lower(pmat), lessThanOrEqualTo(size));
+	}
+
+	@Test
+	public void biggerConfSpace() {
+
+		// get a conf space small enough we can exhaustively enumerate
+		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
+		for (String resNum : Arrays.asList("A3", "A4", "A5", "A6")) {
+			strand.flexibility.get(resNum).setLibraryRotamers(Strand.WildType, "ARG", "LYS");
+		}
+		confSpace = new SimpleConfSpace.Builder()
+			.addStrand(strand)
+			.build();
+
+		// calc the energy matrix
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(4))
+			.build())
+		{
+			emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+				.build()
+				.calcEnergyMatrix();
+
+			// use only interval pruning
+			PruningMatrix pmat = new SimpleDEE.Runner()
+				.setThreshold(null)
+				.setGoldsteinDiffThreshold(10.0)
+				.run(confSpace, emat);
+
+			long size = enumerate(pmat);
+			assertThat(upper(pmat), greaterThanOrEqualTo(size));
+			assertThat(lower(pmat), lessThanOrEqualTo(size));
+		}
+	}
+
+	@Test
+	public void biggerConfSpace2() {
+
+		// get a conf space small enough we can exhaustively enumerate
+		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
+		for (String resNum : Arrays.asList("A3", "A4", "A5", "A6")) {
+			strand.flexibility.get(resNum).setLibraryRotamers(Strand.WildType, "VAL", "LEU");
+		}
+		confSpace = new SimpleConfSpace.Builder()
+			.addStrand(strand)
+			.build();
+
+		// calc the energy matrix
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(4))
+			.build())
+		{
+			emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+				.build()
+				.calcEnergyMatrix();
+
+			// use only interval pruning
+			PruningMatrix pmat = new SimpleDEE.Runner()
+				.setThreshold(null)
+				.setGoldsteinDiffThreshold(10.0)
+				.run(confSpace, emat);
+
+			long size = enumerate(pmat);
+			assertThat(upper(pmat), greaterThanOrEqualTo(size));
+			assertThat(lower(pmat), lessThanOrEqualTo(size));
+		}
 	}
 
 	private static long enumerate(PruningMatrix pmat) {

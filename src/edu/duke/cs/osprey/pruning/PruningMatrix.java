@@ -5,7 +5,7 @@
 package edu.duke.cs.osprey.pruning;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
+import java.util.*;
 
 import edu.duke.cs.osprey.confspace.*;
 
@@ -325,6 +325,16 @@ public class PruningMatrix extends TupleMatrixBoolean {
         return getOneBody(pos,rcNum);
     }*/
 
+    public int countUnprunedSingles(int pos) {
+    	int count = 0;
+    	for (int rc=0; rc<getNumConfAtPos(pos); rc++) {
+    		if (!isSinglePruned(pos, rc)) {
+    			count++;
+			}
+		}
+    	return count;
+	}
+
 	/**
 	 * Calculates an upper bound on the number of conformations remaining in
 	 * the conformation space after all singles and pairs pruning.
@@ -341,38 +351,58 @@ public class PruningMatrix extends TupleMatrixBoolean {
 	 */
 	public BigInteger calcUnprunedConfsUpperBound() {
 
-		// TODO: choose a position ordering (and hence which pairs are on the "diagonal") that minimizes the upper bound
-		// (can probably use a greedy heuristic here)
+		// start with the canonical permutation
+		int n = getNumPos();
+		List<Integer> posPermutation = new ArrayList<>(n);
+		for (int i=0; i<n; i++) {
+			posPermutation.add(i);
+		}
 
-		return countConfsAfterOnlyDiagonalPairsPruning(this);
+		// since we're ignoring some pruned pairs to get a bound,
+		// we have some freedom to choose which pairs to ignore
+
+		// by enforcing an order for positions,
+		// we're choosing to ignore pairs between non-consecutive positions
+		// the consecutive positions then form the "diagonal" of a position pair matrix
+
+		// ideally, we want to choose the position ordering that minimizes the upper bound
+		// but I don't know how to solve that problem optimally yet
+		// for now, let's just try a new greedy heuristic:
+
+		// let's sort positions by number of RCs
+		posPermutation.sort(Comparator.comparing(pos -> getNumConfAtPos(pos)));
+
+		return countConfsAfterOnlyDiagonalPairsPruning(this, posPermutation);
 	}
 
-	private static BigInteger countConfsAfterOnlyDiagonalPairsPruning(PruningMatrix pmat) {
-
-		// TODO: allow re-ordering the positions so we can optimize the upper bound calculation
+	private static BigInteger countConfsAfterOnlyDiagonalPairsPruning(PruningMatrix pmat, List<Integer> posPermutation) {
 
 		// allocate space for the intermediate counts
 		// (columns are design positions, rows are RCs at that positions)
 		int n = pmat.getNumPos();
 		BigInteger[][] counts = new BigInteger[n][];
-		for (int pos=0; pos<n; pos++) {
-			counts[pos] = new BigInteger[pmat.getNumConfAtPos(pos)];
+		for (int i=0; i<n; i++) {
+			int pos = posPermutation.get(i);
+			counts[i] = new BigInteger[pmat.getNumConfAtPos(pos)];
 		}
 
 		// initialize all counts to zero, except for RCs at the last position, which are one
-		for (int pos=0; pos<n; pos++) {
+		for (int i=0; i<n; i++) {
+			int pos = posPermutation.get(i);
 			for (int rc=0; rc<pmat.getNumConfAtPos(pos); rc++) {
-				if (pos < n - 1) {
-					counts[pos][rc] = BigInteger.ZERO;
+				if (i < n - 1) {
+					counts[i][rc] = BigInteger.ZERO;
 				} else {
-					counts[pos][rc] = BigInteger.ONE;
+					counts[i][rc] = BigInteger.ONE;
 				}
 			}
 		}
 
 		// staring at the second-to-last position and moving backwards...
-		for (int pos1 = n - 2; pos1 >= 0; pos1--) {
-			int pos2 = pos1 + 1;
+		for (int i1 = n - 2; i1 >= 0; i1--) {
+			int i2 = i1 + 1;
+			int pos1 = posPermutation.get(i1);
+			int pos2 = posPermutation.get(i2);
 
 			// for each RC at this position...
 			for (int rc1=0; rc1<pmat.getNumConfAtPos(pos1); rc1++) {
@@ -394,14 +424,14 @@ public class PruningMatrix extends TupleMatrixBoolean {
 					}
 
 					// update the intermediate counts at this pos
-					counts[pos1][rc1] = counts[pos1][rc1].add(counts[pos2][rc2]);
+					counts[i1][rc1] = counts[i1][rc1].add(counts[i2][rc2]);
 				}
 			}
 		}
 
 		// add counts from all RCs at the first position to get the total count
 		BigInteger sum = BigInteger.ZERO;
-		for (int rc=0; rc<pmat.getNumConfAtPos(0); rc++) {
+		for (int rc=0; rc<pmat.getNumConfAtPos(posPermutation.get(0)); rc++) {
 			sum = sum.add(counts[0][rc]);
 		}
 
@@ -426,8 +456,6 @@ public class PruningMatrix extends TupleMatrixBoolean {
 
 		// first, transform the pruning matrix
 		PruningMatrix expandedPmat = new PruningMatrix(this);
-
-		// TODO: sort positions by pruning power of singles at that position?
 
 		// for each "off-diagonal" position pair (e.g. "diagonal" pairs are 01, 12, 23, etc),
 		// create a pruned single for each pruned pair that "covers" the tuples pruned by the pair
@@ -454,9 +482,12 @@ public class PruningMatrix extends TupleMatrixBoolean {
 								// already pruned, nothing to do
 							} else {
 
-								// TODO: do something smart here
-								// TEMP: just pick pos2 because I said so
-								expandedPmat.pruneSingle(pos2, rc2);
+								// otherwise, pick the pos with larger number of unpruned RCs
+								if (expandedPmat.countUnprunedSingles(pos1) > expandedPmat.countUnprunedSingles(pos2)) {
+									expandedPmat.pruneSingle(pos1, rc1);
+								} else {
+									expandedPmat.pruneSingle(pos2, rc2);
+								}
 							}
 						}
 					}
@@ -464,6 +495,12 @@ public class PruningMatrix extends TupleMatrixBoolean {
 			}
 		}
 
-		return countConfsAfterOnlyDiagonalPairsPruning(expandedPmat);
+		// use the default permutation
+		List<Integer> posPermutation = new ArrayList<>(n);
+		for (int i=0; i<n; i++) {
+			posPermutation.add(i);
+		}
+
+		return countConfsAfterOnlyDiagonalPairsPruning(expandedPmat, posPermutation);
 	}
 }
