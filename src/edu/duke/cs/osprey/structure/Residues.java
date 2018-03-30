@@ -53,7 +53,7 @@ public class Residues extends ArrayList<Residue> {
 	
 	@Override
 	public Residue set(int index, Residue res) {
-		String num = res.getPDBResNumber();
+		String num = normalizeResNum(res.getPDBResNumber());
 		if (indicesByNum.containsKey(num)) {
 			throw new IllegalArgumentException("residue number " + num + " is already present in this collection");
 		}
@@ -96,7 +96,7 @@ public class Residues extends ArrayList<Residue> {
 	private void reindex() {
 		indicesByNum.clear();
 		for (int i=0; i<size(); i++) {
-			indicesByNum.put(get(i).getPDBResNumber(), i);
+			indicesByNum.put(normalizeResNum(get(i).getPDBResNumber()), i);
 		}
 	}
 	
@@ -138,6 +138,7 @@ public class Residues extends ArrayList<Residue> {
 	}
 	
 	public Integer findIndex(String num) {
+		num = normalizeResNum(num);
 		Integer index = indicesByNum.get(num);
 		if(index==null) {
 			//for backwards compatibility, support num without chains if unambiguous
@@ -236,5 +237,9 @@ public class Residues extends ArrayList<Residue> {
 			reindex();
 		}
 		return changed;
+	}
+
+	public static String normalizeResNum(String resNum) {
+		return resNum.toUpperCase();
 	}
 }

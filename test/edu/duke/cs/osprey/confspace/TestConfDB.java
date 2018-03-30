@@ -44,9 +44,9 @@ public class TestConfDB {
 			.addStrand(strand)
 			.build();
 
-		lys5 = confSpace.positionsByResNum.get("A5");
-		tyr7 = confSpace.positionsByResNum.get("A7");
-		phe9 = confSpace.positionsByResNum.get("A9");
+		lys5 = confSpace.getPositionOrThrow("A5");
+		tyr7 = confSpace.getPositionOrThrow("A7");
+		phe9 = confSpace.getPositionOrThrow("A9");
 
 		assertThat(lys5.resFlex.wildType, is("LYS"));
 		assertThat(tyr7.resFlex.wildType, is("TYR"));
