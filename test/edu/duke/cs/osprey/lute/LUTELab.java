@@ -73,7 +73,7 @@ public class LUTELab {
 			PruningMatrix pmat = new SimpleDEE.Runner()
 				.setSinglesThreshold(100.0)
 				.setPairsThreshold(100.0)
-				.setGoldsteinDiffThreshold(6.0)
+				.setGoldsteinDiffThreshold(20.0)
 				.setShowProgress(true)
 				.run(confSpace, emat);
 			//PruningMatrix pmat = new PruningMatrix(confSpace);
@@ -107,23 +107,25 @@ public class LUTELab {
 				log("\nLUTE:\n");
 
 				final int randomSeed = 12345;
-				final int minSamplesPerTuple = 10;
+				//final LUTE.Fitter fitter = LUTE.Fitter.LASSO;
+				final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
+				final double maxOverfittingScore = 1.5;
+				final double maxRMSE = 0.03;
 
-				// compute LUTE matrix for pair tuples
+				confEcalc.resetCounters();
+
+				// do LUTE stuff
 				lute = new LUTE(confSpace);
-				lute.addUnprunedPairTuples(pmat);
-				lute.addUnprunedTripleTuples(pmat);
-				// TODO: add sparse triples
 				ConfSampler sampler = new UniformConfSampler(confSpace, randomSeed);
 				/*ConfSampler sampler = new LowEnergyConfSampler(confSpace, randomSeed, pmat, (rcs) ->
 					new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
 						.build()
 				);*/
-				confEcalc.resetCounters();
-				lute.fit(confEcalc, confTable, sampler, 1.5);
+				lute.sampleTuplesAndFit(confEcalc, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
 				lute.reportConfSpaceSize(pmat);
 
+				/* TEMP
 				// compare conf energies
 				LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(lute, ecalc);
 				for (ConfSearch.EnergiedConf econf : econfs) {
@@ -175,6 +177,8 @@ public class LUTELab {
 					log("\t%s   %s   (%d energies)", sequence, calcPfunc.apply(sequence, lutePfunc), luteEcalc.getNumRequests());
 				}
 				log("done in %s, %d energy calculations", luteSw.stop().getTime(2), luteEcalc.getNumRequests());
+
+				*/
 			}
 		}
 	}

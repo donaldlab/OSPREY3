@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.lute;
 
+import com.google.common.collect.Lists;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -17,6 +18,7 @@ import smile.regression.LASSO;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static edu.duke.cs.osprey.tools.Log.formatBig;
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -282,7 +284,9 @@ public class LUTE {
 		this.confSpace = confSpace;
 	}
 
-	public void addUnprunedPairTuples(PruningMatrix pmat) {
+	public Set<RCTuple> getUnprunedPairTuples(PruningMatrix pmat) {
+
+		Set<RCTuple> pairs = new LinkedHashSet<>();
 
 		for (int pos1=0; pos1<pmat.getNumPos(); pos1++) {
 			for (int rc1=0; rc1<pmat.getNumConfAtPos(pos1); rc1++) {
@@ -308,14 +312,18 @@ public class LUTE {
 						// we found it! It's an unpruned pair!
 						// NOTE: make the tuple in pos2, pos1 order so the positions are already sorted
 						// (because pos2 < pos1 by definition)
-						addTuple(new RCTuple(pos2, rc2, pos1, rc1));
+						pairs.add(new RCTuple(pos2, rc2, pos1, rc1));
 					}
 				}
 			}
 		}
+
+		return pairs;
 	}
 
-	public void addUnprunedTripleTuples(PruningMatrix pmat) {
+	public Set<RCTuple> getUnprunedTripleTuples(PruningMatrix pmat) {
+
+		Set<RCTuple> triples = new LinkedHashSet<>();
 
 		for (int pos1=0; pos1<pmat.getNumPos(); pos1++) {
 			for (int rc1=0; rc1<pmat.getNumConfAtPos(pos1); rc1++) {
@@ -357,12 +365,20 @@ public class LUTE {
 								// we found it! It's an unpruned triple!
 								// NOTE: make the tuple in pos3, pos2, pos1 order so the positions are already sorted
 								// (because pos3 < pos2 < pos1 by definition)
-								addTuple(new RCTuple(pos3, rc3, pos2, rc2, pos1, rc1));
+								triples.add(new RCTuple(pos3, rc3, pos2, rc2, pos1, rc1));
 							}
 						}
 					}
 				}
 			}
+		}
+
+		return triples;
+	}
+
+	public void addTuples(Iterable<RCTuple> tuples) {
+		for (RCTuple tuple : tuples) {
+			addTuple(tuple);
 		}
 	}
 
@@ -377,18 +393,126 @@ public class LUTE {
 		return Collections.unmodifiableSet(tuples);
 	}
 
-	public void fit(ConfEnergyCalculator confEcalc, ConfDB.ConfTable confTable, ConfSampler sampler, double maxOverfittingScore) {
+	public void sampleTuplesAndFit(ConfEnergyCalculator confEcalc, PruningMatrix pmat, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore, double maxRMSE) {
+
+		// start with all pairs first
+		log("Sampling all pair tuples");
+		addTuples(getUnprunedPairTuples(pmat));
+		fit(confEcalc, confTable, sampler, fitter, maxOverfittingScore);
+
+		// was that good enough?
+		if (trainingSystem.errors.rms <= maxRMSE) {
+			return;
+		}
+
+		// nope, try to pick some triples to get a better fit
+
+		// TODO: refactor this into a function
+
+		LUTEConfEnergyCalculator luteConfEcalc = this.makeConfEnergyCalculator(confEcalc.ecalc);
+
+		// go through the conf table and try to find confs with big errors
+		List<ConfSearch.EnergiedConf> confs = new ArrayList<>();
+		for (int i=0; i<trainingSystem.confs.size(); i++) {
+			int[] conf = trainingSystem.confs.get(i);
+			double calcEnergy = confTable.get(conf).upper.energy;
+			double fitEnergy = luteConfEcalc.calcEnergy(conf);
+			confs.add(new ConfSearch.EnergiedConf(conf, fitEnergy, calcEnergy));
+		}
+		confs.sort(Comparator.comparing((ConfSearch.EnergiedConf conf) ->
+			Math.abs(conf.getEnergy() - conf.getScore())
+		).reversed());
+
+		log("%d training confs with energy gaps", confs.size());
+		for (int i=0; i<10; i++) {
+
+			ConfSearch.EnergiedConf conf = confs.get(i);
+			double gap = conf.getEnergy() - conf.getScore();
+
+			log("%30s:   score %9.4f   energy %9.4f   gap %9.4f",
+				Conf.toString(conf.getAssignments()),
+				conf.getScore(),
+				conf.getEnergy(),
+				gap
+			);
+		}
+
+		List<RCTuple> triples = new ArrayList<>(getUnprunedTripleTuples(pmat));
+		log("%d triples available", triples.size());
+
+		// calculate an error score for each triple
+		TupleTree<Double> triplesSqError = new TupleTree<>();
+		for (RCTuple triple : triples) {
+			for (ConfSearch.EnergiedConf conf : confs) {
+				if (Conf.containsTuple(conf.getAssignments(), triple)) {
+
+					double error = Math.abs(conf.getEnergy() - conf.getScore());
+
+					Double errorSqSum = triplesSqError.get(triple);
+					if (errorSqSum == null) {
+						errorSqSum = 0.0;
+					}
+					errorSqSum += error*error;
+					triplesSqError.put(triple, errorSqSum);
+				}
+			}
+		}
+
+		Function<RCTuple,Double> getSqError = (triple) -> {
+			Double sqError = triplesSqError.get(triple);
+			if (sqError == null) {
+				sqError = 0.0;
+			}
+			return sqError;
+		};
+
+		// find the triples with the most squared error
+		triples.sort(Comparator.comparing(getSqError).reversed());
+		for (int i=0; i<10; i++) {
+			RCTuple triple = triples.get(i);
+			log("%9.4f   %s", triplesSqError.get(triple), triple);
+		}
+
+		// sum the total error
+		double totalSqError = 0.0;
+		for (RCTuple triple : triples) {
+			totalSqError += getSqError.apply(triple);
+		}
+
+		// take the tuples that represent the top X fraction of the squared error
+		final double fractionSqErrorCovered = 0.90; // TODO: make argument
+		List<RCTuple> chosenTriples = new ArrayList<>();
+		double sqError = 0.0;
+		for (RCTuple triple : triples) {
+
+			chosenTriples.add(triple);
+
+			sqError += getSqError.apply(triple);
+			if (sqError/totalSqError >= fractionSqErrorCovered) {
+				break;
+			}
+		}
+		log("%d triples chosen", chosenTriples.size());
+		addTuples(chosenTriples);
+
+		// fit again
+		fit(confEcalc, confTable, sampler, fitter, maxOverfittingScore);
+
+		// TODO: as a last resort, use all triples?
+		//addUnprunedTripleTuples(pmat);
+	}
+
+	public void fit(ConfEnergyCalculator confEcalc, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore) {
 
 		TuplesIndex tuplesIndex = new TuplesIndex(confSpace, tuples);
 
 		ConfSampler.Samples trainingSet = new ConfSampler.Samples(tuplesIndex);
 		ConfSampler.Samples testSet = new ConfSampler.Samples(tuplesIndex);
 		energies = new Conf.Map<>();
-		double overfittingScore = Double.POSITIVE_INFINITY;
+		double overfittingScore;
 
 		Stopwatch sw = new Stopwatch().start();
 
-		// TODO: time-based stopping criterion?
 		int samplesPerTuple = 1;
 		while (true) {
 
@@ -423,8 +547,7 @@ public class LUTE {
 			logf("fitting %d confs to %d tuples ...", energies.size(), this.tuples.size());
 			Stopwatch trainingSw = new Stopwatch().start();
 			trainingSystem = new LinearSystem(tuplesIndex, trainingSet, energies);
-			//trainingSystem.fit(Fitter.LASSO);
-			trainingSystem.fit(Fitter.OLSCG);
+			trainingSystem.fit(fitter);
 			logf(" done in %s", trainingSw.stop().getTime(2));
 
 			// analyze the test set errors

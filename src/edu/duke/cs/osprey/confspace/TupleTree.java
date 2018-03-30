@@ -3,8 +3,7 @@ package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.tools.UnpossibleError;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.function.BiConsumer;
 
 
@@ -229,6 +228,38 @@ public class TupleTree<T> {
 			// recurse if possible
 			if (node.children != null) {
 				forEachIn(conf, node, pos, callback);
+			}
+		}
+	}
+
+	// TODO: make an iterator instead of writing to a list?
+
+	public List<RCTuple> makeTuplesList() {
+		List<RCTuple> tuples = new ArrayList<>();
+		addTuplesToList(tuples, root);
+		return tuples;
+	}
+
+	private void addTuplesToList(List<RCTuple> tuples, Node node) {
+
+		// any tuples here?
+		if (node.tuple != null) {
+			tuples.add(node.tuple);
+		}
+
+		// recurse
+		if (node.children == null) {
+			return;
+		}
+		for (List<Node> nodes : node.children) {
+			if (nodes == null) {
+				continue;
+			}
+			for (Node child : nodes) {
+				if (child == null) {
+					continue;
+				}
+				addTuplesToList(tuples, child);
 			}
 		}
 	}
