@@ -1,41 +1,41 @@
 package edu.duke.cs.osprey.markstar.framework;
 
-import edu.duke.cs.osprey.markstar.MARKStar;
+import edu.duke.cs.osprey.confspace.SearchProblem;
 
 import java.util.PriorityQueue;
+import java.util.Set;
 
 public class MARKStarBound {
-    private MARKStarNode curMNode;
+    // We keep track of the root node for computing our K* bounds
+    private MARKStarNode rootNode;
+    // Heap of nodes for recursive expansion
     private PriorityQueue<MARKStarNode> queue;
+    private double epsilonBound = Double.POSITIVE_INFINITY;
+    private boolean boundChanged = false;
 
-    public MARKStarBound(){
-        this.curMNode = new MARKStarNode();
+    public MARKStarBound(SearchProblem problem){
         this.queue = new PriorityQueue<MARKStarNode>();
-    }
-
-    public MARKStarBound(MARKStarNode root){
-        this.curMNode = root;
-        this.queue = new PriorityQueue<MARKStarNode>();
+        rootNode = new MARKStarNode(problem);
+        queue.add(rootNode);
     }
 
     public double getBound(){
-        //TODO: implement method
-        /*
-        Pseudocode:
-        computeUpperBound()
-        computeLowerBound()
-        return uBound -lBound
-         */
-        return Double.NaN;
+        if(boundChanged)
+            recomputeBound(rootNode);
+        return epsilonBound;
+    }
+
+    private void recomputeBound(MARKStarNode rootNode) {
     }
 
     public void tightenBound(){
-        //TODO: implement method
-        /*
-        Pseudocode:
-        curMNode = queue.pop();
-        expand(curMNode)
-        curMNode.updateBounds();
-         */
+        MARKStarNode nextNode = queue.poll();
+        nextNode.expand();
+        Set<MARKStarNode> children = nextNode.getChildren();
+        for(MARKStarNode child: children)
+            child.computeBounds();
+        boundChanged = true;
+
     }
+
 }

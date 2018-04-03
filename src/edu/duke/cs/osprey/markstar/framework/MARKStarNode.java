@@ -122,7 +122,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return this.upperBound;
     }
 
-    public PriorityQueue<MARKStarNode> getChildren(){
+    public Set<MARKStarNode> getChildren(){
         return this.children;
     }
 
@@ -149,6 +149,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }else {
             return 0;
         }
+    }
+
+    public void expand() {
     }
 
 
