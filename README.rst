@@ -64,7 +64,7 @@ Make sure you're running 64-bit Windows. Osprey is not supported on 32-bit Windo
 .. _pip: https://pip.pypa.io/en/stable/
 .. _Java 8 64-bit: https://www.java.com/en/download/manual.jsp
 .. _See how to set the PATH Environment Variable: https://www.java.com/EN/DOWNLOAD/HELP/PATH.XML
-.. _newest Osprey Python release: /donaldlab/OSPREY_refactor/releases
+.. _newest Osprey Python release: https://github.com/donaldlab/OSPREY_refactor/releases
 
 on Debian-like Linux:
 ---------------------
