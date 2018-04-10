@@ -57,13 +57,14 @@ Make sure you're running 64-bit Windows. Osprey is not supported on 32-bit Windo
  4. After installing Java, add the ``C:\Program Files\Java\jre1.8.0_151\bin`` folder to your ``PATH`` environment variable.
     (`See how to set the PATH Environment Variable`_) Be sure to replace the ``jre1.8.0_151`` part with the actual Java
     installation folder on your computer. Tragically, the Java installer does not do this for you.
- 5. Download the Osprey Python distribution zip, extract it to your favorite folder.
+ 5. Download the `newest Osprey Python release`_ (not the source files) and extract it to your favorite folder.
  6. Run the ``install`` batch script to install Osprey.
 
 .. _Python 2.7 x86-64: https://www.python.org/downloads/release/python-2714/
 .. _pip: https://pip.pypa.io/en/stable/
 .. _Java 8 64-bit: https://www.java.com/en/download/manual.jsp
 .. _See how to set the PATH Environment Variable: https://www.java.com/EN/DOWNLOAD/HELP/PATH.XML
+.. _newest Osprey Python release: releases
 
 on Debian-like Linux:
 ---------------------
@@ -76,7 +77,7 @@ Make sure you're running 64-bit Linux. Osprey is not supported on 32-bit Linux.
 
 	$ sudo apt-get install python2.7 python-pip openjdk-8-jre
 
- 2. Download the Osprey Python distribution zip, extract it to your favorite folder.
+ 2. Download the `newest Osprey Python release`_ (not the source files) and extract it to your favorite folder.
  3. Run the install shell script to install Osprey::
 
  	$ ./install.sh
@@ -86,7 +87,8 @@ manually using ``pip``:
 -----------------------
 
 The install scripts use ``pip`` internally to install the Python package. If you want to customize
-the installation of the python package, you can ingore the install scripts and call ``pip`` directly::
+the installation of the python package, you can ingore the install scripts and call ``pip`` directly.
+First download the `newest Osprey Python release`_ and extract it to your favorite folder. Then call ``pip``::
 
 	$ pip2 install osprey --no-index --use-wheel --find-link=wheelhouse
 
