@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.markstar.framework;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 
+import java.util.Collection;
 import java.util.PriorityQueue;
 import java.util.Set;
 
@@ -15,7 +16,7 @@ public class MARKStarBound {
 
     public MARKStarBound(SearchProblem problem){
         this.queue = new PriorityQueue<MARKStarNode>();
-        rootNode = new MARKStarNode(problem);
+        rootNode = MARKStarNode.makeRoot(problem);
         queue.add(rootNode);
     }
 
@@ -31,7 +32,7 @@ public class MARKStarBound {
     public void tightenBound(){
         MARKStarNode nextNode = queue.poll();
         nextNode.expand();
-        Set<MARKStarNode> children = nextNode.getChildren();
+        Collection<MARKStarNode> children = nextNode.getChildren();
         for(MARKStarNode child: children)
             child.computeBounds();
         boundChanged = true;

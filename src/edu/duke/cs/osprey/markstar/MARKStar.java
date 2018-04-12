@@ -373,9 +373,9 @@ public class MARKStar {
 		BigDecimal proteinStabilityThreshold = null;
 		BigDecimal ligandStabilityThreshold = null;
 		if (settings.stabilityThreshold != null) {
-			BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(settings.stabilityThreshold);
-			proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
-			ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+			//BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(settings.stabilityThreshold);
+			//proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
+			//ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
 		}
 
 		// compute all the partition functions and K* scores for the rest of the sequences

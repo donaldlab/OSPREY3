@@ -3,12 +3,30 @@ package edu.duke.cs.osprey.markstar.framework;
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.linked.LinkedConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 
 import java.math.BigInteger;
 import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
+
+    public MARKStarNode(Node rootNode) {
+    }
+
+    public MARKStarNode(LinkedConfAStarNode childNode) {
+    }
+
+    public static interface ScorerFactory {
+        AStarScorer make(EnergyMatrix emat);
+    }
+
     private double upperBound;
     private double lowerBound;
     private final AStarScorer gscorer = null;
@@ -17,6 +35,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     private PriorityQueue<MARKStarNode> children; // TODO: Pick appropriate data structure
     /* Missing: A variable to track our state in the conformation tree */
     private ConfTreeState confTreeSearch = null;
+    private LinkedConfAStarNode confSearchNode = null;
+    private ConfIndex confSearchIndex = null;
+    private RCs confSearchRCs = null;
 
     public MARKStarNode(){
         this.upperBound = Double.NaN;
@@ -24,13 +45,75 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         this.children = new PriorityQueue<MARKStarNode>();
     }
 
-    public MARKStarNode(ConfTreeState confSearchState) {
-        this.upperBound = computeUpperBound(confSearchState);
-        this.lowerBound = computeLowerBound(confSearchState);
 
+    //Function to initialize a root MARKStarNode.
+    public static MARKStarNode makeRoot(SearchProblem problem) {
+        return null;
     }
 
-    private double computeUpperBound(ConfTreeState confSearchState) {
+    public static MARKStarNode makeRoot(SimpleConfSpace confSpace, EnergyMatrix energyMatrix, RCs rcs,
+                                        boolean reportProgress) {
+
+        ScorerFactory gscorerFactory = (emat) -> new PairwiseGScorer(emat);
+
+        ScorerFactory hscorerFactory = (emat) -> new TraditionalPairwiseHScorer(emat, rcs);
+
+
+		// make the A* scorers
+		AStarScorer gscorer = gscorerFactory.make(energyMatrix);
+		AStarScorer hscorer = hscorerFactory.make(energyMatrix);
+		AStarScorer negatedHScorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, energyMatrix));
+
+		ConfIndex confIndex = new ConfIndex(confSpace.positions.size());
+
+		// make the root node
+		Node rootNode = new Node(confSpace.positions.size());
+		rootNode.index(confIndex);
+		rootNode.gscore = gscorer.calc(confIndex, rcs);
+		rootNode.minHScore = hscorer.calc(confIndex, rcs);
+		rootNode.maxHScore = -negatedHScorer.calc(confIndex, rcs);
+		return new MARKStarNode(rootNode, gscorer, hscoe);
+	}
+
+
+    private double computeUpperBound() {
+		// find the possible assignment that maximizes the number of pruned confs
+		List<MARKStarNode> childNodes = new ArrayList<>();
+		double bestPosScore = Double.NEGATIVE_INFINITY;
+		int bestPos = -1;
+		ConfIndex confIndex = confSearchIndex;
+		RCs rcs = confSearchRCs;
+		for (int i=0; i<confIndex.numUndefined; i++) {
+			int pos = confIndex.undefinedPos[i];
+
+			int[] posRCs = rcs.get(pos);
+			int numSubTreesPruned = 0;
+
+			for (int rc : posRCs) {
+
+				LinkedConfAStarNode childNode = confSearchNode.assign(pos, rc); // TODO: use object pool to re-use memory?
+
+				// approximate the optimal sub-tree min,max scores using g+h scores
+				double localEnergy = gscorer.calcDifferential(confIndex, rcs, pos, rc);
+				double localLowerbound = -negatedHScorer.calcDifferential(confIndex, rcs, pos, rc);
+				double localUpperBound = hscorer.calcDifferential(confIndex, rcs, pos, rc);
+
+
+
+				childNodes.add(new MARKStarNode(childNode));
+			}
+
+			// update the best pos so far
+			double posScore = (double)numSubTreesPruned/posRCs.length;
+			if (posScore > bestPosScore) {
+				bestPosScore = posScore;
+				bestPos = pos;
+			}
+		}
+		assert (bestPos >= 0);
+
+
+
         return 0;
     }
 
@@ -108,7 +191,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 	}
 
 
-    public MARKStarNode(double upperBound, double lowerBound, PriorityQueue<MARKStarNode> children){
+    private MARKStarNode(double upperBound, double lowerBound, PriorityQueue<MARKStarNode> children){
         this.upperBound = upperBound;
         this.lowerBound = lowerBound;
         this.children = children;
@@ -122,7 +205,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return this.upperBound;
     }
 
-    public Set<MARKStarNode> getChildren(){
+    public Collection<MARKStarNode> getChildren(){
         return this.children;
     }
 
@@ -152,6 +235,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
     public void expand() {
+    }
+
+    public void computeBounds() {
     }
 
 
