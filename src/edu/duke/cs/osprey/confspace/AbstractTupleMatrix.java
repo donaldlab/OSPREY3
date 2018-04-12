@@ -127,6 +127,10 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     public int getNumConfAtPos(int pos) {
     	return numConfAtPos[pos];
     }
+
+	public int[] getNumConfAtPos() {//get em all
+		return numConfAtPos;
+	}
     
     protected int getOneBodyIndex(int res, int conf) {
     	return oneBodyOffsets[res] + conf;

@@ -301,7 +301,7 @@ public class NewEPICMatrixCalculator {
         
         ArrayList<EPoly> termList = new ArrayList<>();
         termList.add(term);
-        EPICEnergyFunction epicEF = new EPICEnergyFunction(termList);
+        EPICEnergyFunction epicEF = new EPICEnergyFunction(termList, false);
         
         ObjectiveFunction ofEPIC = new MoleculeModifierAndScorer( epicEF, mof.getConstraints(),
                 mof.getMolec(), mof.getDOFs() );

@@ -128,7 +128,7 @@ public class Pruner {
             for (RCTuple cand : candidates) {
             	double contELB = 0;
                 if(useEPIC && cand.pos.size()>1)//EPIC gives us nothing for 1-pos pruning
-                    contELB = epicMat.minContE(cand);
+                    contELB = epicMat.minimizeEnergy(cand, false);
                 
                 // skip candidates we've already pruned
                 if (pruneMat.isPruned(cand)) {

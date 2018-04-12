@@ -545,7 +545,7 @@ public class TermECalculator implements MPISlaveTask {
         
         ArrayList<EPoly> termList = new ArrayList<>();
         termList.add(term);
-        EPICEnergyFunction epicEF = new EPICEnergyFunction(termList);
+        EPICEnergyFunction epicEF = new EPICEnergyFunction(termList, false);
         
         MoleculeModifierAndScorer ofEPIC = new MoleculeModifierAndScorer( epicEF, mof.getConstraints(),
                 mof.getMolec(), mof.getDOFs() );

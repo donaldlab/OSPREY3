@@ -40,7 +40,7 @@ public class TestPythonScripts {
 	@Test public void findGMECReferenceEnergies() { runGMEC("findGMEC.referenceEnergies.py"); }
 	@Test public void findGMECResEntropy() { runGMEC("findGMEC.resEntropy.py"); }
 	@Test public void templateLibrary() { runGMEC("templateLibrary.py"); }
-	@Test public void findGMECResume() { runGMEC("findGMEC.resume.py"); }
+	@Test public void findGMECConfDB() { runGMEC("findGMEC.confDB.py"); }
 
 	private void runKStar(String script) {
 		run("examples/python.KStar", script);
@@ -49,4 +49,6 @@ public class TestPythonScripts {
 	@Test public void analyzeSequence() { runKStar("analyzeSequence.py"); }
 	@Test public void bbkstar() { runKStar("bbkstar.py"); }
 	@Test public void kstar() { runKStar("kstar.py"); }
+	@Test public void kstarConfDB() { runKStar("kstar.confdb.py"); }
+	@Test public void bbkstarConfDB() { runKStar("bbkstar.confdb.py"); }
 }

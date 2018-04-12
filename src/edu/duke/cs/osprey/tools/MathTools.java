@@ -113,6 +113,10 @@ public class MathTools {
 		};
 	}
 
+	public static boolean isZero(BigInteger i) {
+		return i.compareTo(BigInteger.ZERO) == 0;
+	}
+
 	// HACKHACK: need a way to represent infinity for big decimals
 	// our "infinity" value still needs an actual value though,
 	// so use the biggest number we can and hope it never happens in a real design
@@ -198,6 +202,10 @@ public class MathTools {
 		}
 	}
 
+	public static BigDecimal biggen(long val) {
+		return new BigDecimal(val);
+	}
+
 	/**
 	 * Tests for sameness of values,
 	 * rather than BigDecimal.equals(), which tests sameness of representation
@@ -232,6 +240,30 @@ public class MathTools {
 
 	public static boolean isZero(BigDecimal d) {
 		return !isInf(d) && d.compareTo(BigDecimal.ZERO) == 0;
+	}
+
+	public static boolean isPositive(BigDecimal d) {
+		if (d == BigPositiveInfinity) {
+			return true;
+		} else if (d == BigNegativeInfinity) {
+			return false;
+		} else if (d == BigNaN) {
+			return false;
+		} else {
+			return isGreaterThan(d, BigDecimal.ZERO);
+		}
+	}
+
+	public static boolean isNegative(BigDecimal d) {
+		if (d == BigPositiveInfinity) {
+			return false;
+		} else if (d == BigNegativeInfinity) {
+			return true;
+		} else if (d == BigNaN) {
+			return false;
+		} else {
+			return isLessThan(d, BigDecimal.ZERO);
+		}
 	}
 
 	public static boolean isInf(BigDecimal d) {
@@ -270,6 +302,11 @@ public class MathTools {
 		}
 	}
 
+	/** return a <= b, correctly handling -Inf, +Inf, and NaN */
+	public static boolean isLessThanOrEqual(BigDecimal a, BigDecimal b) {
+		return isLessThan(a, b) || isSameValue(a, b);
+	}
+
 	/** return a > b, correctly handling -Inf, +Inf, and NaN */
 	public static boolean isGreaterThan(BigDecimal a, BigDecimal b) {
 		if (a == BigNaN || b == BigNaN) {
@@ -292,6 +329,11 @@ public class MathTools {
 				return a.compareTo(b) > 0;
 			}
 		}
+	}
+
+	/** return a >= b, correctly handling -Inf, +Inf, and NaN */
+	public static boolean isGreaterThanOrEqual(BigDecimal a, BigDecimal b) {
+		return isGreaterThan(a, b) || isSameValue(a, b);
 	}
 
 	/** return a + b, correctly handling -Inf, +Inf, and NaN */
@@ -321,6 +363,78 @@ public class MathTools {
 			}
 		}
 	}
+
+	/** return a - b, correctly handling -Inf, +Inf, and NaN */
+	public static BigDecimal bigSubtract(BigDecimal a, BigDecimal b, MathContext context) {
+		if (a == BigNaN || b == BigNaN) {
+			return BigNaN;
+		}
+		if (a == BigPositiveInfinity) {
+			if (b == BigPositiveInfinity) {
+				return BigNaN;
+			} else {
+				return BigPositiveInfinity;
+			}
+		} else if (a == BigNegativeInfinity) {
+			if (b == BigNegativeInfinity) {
+				return BigNaN;
+			} else {
+				return BigNegativeInfinity;
+			}
+		} else {
+			if (b == BigPositiveInfinity) {
+				return BigNegativeInfinity;
+			} else if (b == BigNegativeInfinity) {
+				return BigPositiveInfinity;
+			} else {
+				return a.subtract(b, context);
+			}
+		}
+	}
+
+	/** return a*b, correctly handling -Inf, +Inf, and NaN */
+	public static BigDecimal bigMultiply(BigDecimal a, BigDecimal b, MathContext context) {
+		if (a == BigNaN || b == BigNaN) {
+			return BigNaN;
+		}
+		if (isZero(a) || isZero(b)) {
+			return BigDecimal.ZERO;
+		}
+		if (a == BigPositiveInfinity) {
+			if (b == BigNegativeInfinity) {
+				return BigNaN;
+			} else if (isPositive(b)) {
+				return BigPositiveInfinity;
+			} else {
+				return BigNegativeInfinity;
+			}
+		} else if (a == BigNegativeInfinity) {
+			if (b == BigPositiveInfinity) {
+				return BigNaN;
+			} else if (isPositive(b)) {
+				return BigNegativeInfinity;
+			} else {
+				return BigPositiveInfinity;
+			}
+		} else if (isPositive(a)) {
+			if (b == BigPositiveInfinity) {
+				return BigPositiveInfinity;
+			} else if (b == BigNegativeInfinity) {
+				return BigNegativeInfinity;
+			} else {
+				return a.multiply(b, context);
+			}
+		} else {
+			if (b == BigPositiveInfinity) {
+				return BigNegativeInfinity;
+			} else if (b == BigNegativeInfinity) {
+				return BigPositiveInfinity;
+			} else {
+				return a.multiply(b, context);
+			}
+		}
+	}
+	// TODO: test me!!!
 
 	/** return a/b, correctly handling -Inf, +Inf, and NaN */
 	public static BigDecimal bigDivide(BigDecimal a, BigDecimal b, MathContext context) {
@@ -359,6 +473,20 @@ public class MathTools {
 	/** return a/b/c, correctly handling -Inf, +Inf, and NaN */
 	public static BigDecimal bigDivideDivide(BigDecimal a, BigDecimal b, BigDecimal c, MathContext context) {
 		return bigDivide(bigDivide(a, b, context), c, context);
+	}
+
+	/**
+	 * returns log10(x+1)
+	 *
+	 * chosen because it maps [0,inf] to [0,inf]
+	 * whereas just log10 maps [0,inf] to [-inf,inf]
+	 **/
+	public static double log10p1(BigDecimal x) {
+		return Math.log10(x.add(BigDecimal.ONE).doubleValue());
+	}
+
+	public static double log10p1(double x) {
+		return Math.log10(x + 1);
 	}
 
 	public static String formatBytes(long bytes) {

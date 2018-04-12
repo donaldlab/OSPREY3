@@ -18,6 +18,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
+import edu.duke.cs.osprey.plug.PolytopeMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -80,7 +81,9 @@ public class SearchProblem implements Serializable {
     public boolean addResEntropy = false;
     
     public int numEmatThreads = 1;
-    
+
+    public PolytopeMatrix plugMat;
+
     
     public SearchProblem(SearchProblem other){//shallow copy
     	confSpace = other.confSpace;
@@ -227,11 +230,7 @@ public class SearchProblem implements Serializable {
         if(useVoxelG)
             return voxelFreeEnergy(conf);
         
-        double bound = emat.confE(conf);//emat contains the pairwise lower bounds
-        double contPart = epicMat.minContE(conf);
-        //EPIC handles the continuous part (energy - pairwise lower bounds)
-
-        return bound+contPart;
+        return epicMat.minimizeEnergy(new RCTuple(conf), true);
     }
     
     
@@ -266,10 +265,14 @@ public class SearchProblem implements Serializable {
         if(useVoxelG)
             gCalc = new VoxelGCalculator(this);
     }
+
+    public void loadPLUGMatrix(){//just loads the matrix--pruning can be handled by multi-term pruner
+        loadMatrix(MatrixType.PLUGMAT);
+    }
     
     
     public enum MatrixType {
-        EMAT, TUPEXPEMAT, EPICMAT;
+        EMAT, TUPEXPEMAT, EPICMAT, PLUGMAT;
     }
     
     
@@ -348,6 +351,9 @@ public class SearchProblem implements Serializable {
             emCalc.calcPEM();
             return emCalc.getEPICMatrix();
         }
+        else if(type == MatrixType.PLUGMAT){//Let's not prune for now
+            return new PolytopeMatrix(this, false);
+        }
         else {
             //need to calculate a tuple-expansion matrix
             
@@ -389,6 +395,8 @@ public class SearchProblem implements Serializable {
             emat = (EnergyMatrix) matrixFromFile;
         else if(type == MatrixType.EPICMAT)
             epicMat = (EPICMatrix) matrixFromFile;
+        else if(type == MatrixType.PLUGMAT)
+            plugMat = (PolytopeMatrix) matrixFromFile;
         else //tup-exp
             tupExpEMat = (EnergyMatrix) matrixFromFile;
         

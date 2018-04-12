@@ -1,8 +1,11 @@
 package edu.duke.cs.osprey.astar.conf;
 
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiPredicate;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -52,13 +55,20 @@ public class RCs {
 	}
 
 	public RCs(RCs other) {
+		this(other, (pos, resConf) -> true);
+	}
+
+	public RCs(RCs other, BiPredicate<Integer,Integer> filter) {
 		this.pruneMat = other.pruneMat;
-		this.unprunedRCsAtPos = other.unprunedRCsAtPos.clone();
+		this.unprunedRCsAtPos = new int[other.unprunedRCsAtPos.length][];
 		for (int i=0; i<this.unprunedRCsAtPos.length; i++) {
-			this.unprunedRCsAtPos[i] = this.unprunedRCsAtPos[i].clone();
+			final int fi = i;
+			this.unprunedRCsAtPos[i] = IntStream.of(other.unprunedRCsAtPos[i])
+				.filter((rc) -> filter.test(fi, rc))
+				.toArray();
 		}
 	}
-	
+
 	public PruningMatrix getPruneMat() {
 		return pruneMat;
 	}
@@ -123,5 +133,13 @@ public class RCs {
 	
 	public int get(int pos, int rci) {
 		return unprunedRCsAtPos[pos][rci];
+	}
+
+	@Override
+	public String toString() {
+		return "[" + String.join(",", Arrays.stream(unprunedRCsAtPos)
+			.map((int[] rcs) -> Integer.toString(rcs.length))
+			.collect(Collectors.toList())
+		) + "]";
 	}
 }
