@@ -7,6 +7,11 @@ import java.util.PriorityQueue;
 import java.util.Set;
 
 public class MARKStarBound {
+
+    /**
+     * TODO: 1. Make MARKStarBounds use and update a queue.
+     * TODO: 2. Make MARKStarNodes compute and update bounds correctly
+     */
     // We keep track of the root node for computing our K* bounds
     private MARKStarNode rootNode;
     // Heap of nodes for recursive expansion

@@ -17,39 +17,47 @@ import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
-    public MARKStarNode(Node rootNode) {
+    private static AStarScorer gscorer;
+    private static AStarScorer hscorer;
+    private static AStarScorer negatedHScorer;
+    /**
+     * TODO: 1. Make MARKStarNodes spawn their own Node and MARKStarNode children.
+     * TODO: 2. Make MARKStarNodes compute and update bounds correctly
+     */
+
+    private double errorUpperBound;
+    private double errorLowerBound;
+    private double errorBound;
+    private PriorityQueue<MARKStarNode> children; // TODO: Pick appropriate data structure
+    private Node confSearchNode = null;
+    private ConfIndex confSearchIndex = null;
+    private RCs confSearchRCs = null;
+
+
+    private MARKStarNode(Node rootNode) {
+        confSearchNode = rootNode;
+        computeErrorBounds();
     }
 
-    public MARKStarNode(LinkedConfAStarNode childNode) {
+    private double computeErrorBounds() {
+        errorBound = 0;
+        if(getChildren().size() < 1)
+            errorBound = errorUpperBound-errorLowerBound;
+        else {
+            for(MARKStarNode child: getChildren())
+            {
+                errorBound+= child.computeErrorBounds();
+            }
+        }
+        return errorBound;
     }
+
 
     public static interface ScorerFactory {
         AStarScorer make(EnergyMatrix emat);
     }
 
-    private double upperBound;
-    private double lowerBound;
-    private final AStarScorer gscorer = null;
-    private final AStarScorer hscorer= null;
-    private final AStarScorer negatedHScorer= null;
-    private PriorityQueue<MARKStarNode> children; // TODO: Pick appropriate data structure
-    /* Missing: A variable to track our state in the conformation tree */
-    private ConfTreeState confTreeSearch = null;
-    private LinkedConfAStarNode confSearchNode = null;
-    private ConfIndex confSearchIndex = null;
-    private RCs confSearchRCs = null;
 
-    public MARKStarNode(){
-        this.upperBound = Double.NaN;
-        this.lowerBound = Double.NaN;
-        this.children = new PriorityQueue<MARKStarNode>();
-    }
-
-
-    //Function to initialize a root MARKStarNode.
-    public static MARKStarNode makeRoot(SearchProblem problem) {
-        return null;
-    }
 
     public static MARKStarNode makeRoot(SimpleConfSpace confSpace, EnergyMatrix energyMatrix, RCs rcs,
                                         boolean reportProgress) {
@@ -60,9 +68,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
 
 		// make the A* scorers
-		AStarScorer gscorer = gscorerFactory.make(energyMatrix);
-		AStarScorer hscorer = hscorerFactory.make(energyMatrix);
-		AStarScorer negatedHScorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, energyMatrix));
+		gscorer = gscorerFactory.make(energyMatrix);
+		hscorer = hscorerFactory.make(energyMatrix);
+		negatedHScorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, energyMatrix));
 
 		ConfIndex confIndex = new ConfIndex(confSpace.positions.size());
 
@@ -72,54 +80,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 		rootNode.gscore = gscorer.calc(confIndex, rcs);
 		rootNode.minHScore = hscorer.calc(confIndex, rcs);
 		rootNode.maxHScore = -negatedHScorer.calc(confIndex, rcs);
-		return new MARKStarNode(rootNode, gscorer, hscoe);
+		return new MARKStarNode(rootNode);
 	}
 
-
-    private double computeUpperBound() {
-		// find the possible assignment that maximizes the number of pruned confs
-		List<MARKStarNode> childNodes = new ArrayList<>();
-		double bestPosScore = Double.NEGATIVE_INFINITY;
-		int bestPos = -1;
-		ConfIndex confIndex = confSearchIndex;
-		RCs rcs = confSearchRCs;
-		for (int i=0; i<confIndex.numUndefined; i++) {
-			int pos = confIndex.undefinedPos[i];
-
-			int[] posRCs = rcs.get(pos);
-			int numSubTreesPruned = 0;
-
-			for (int rc : posRCs) {
-
-				LinkedConfAStarNode childNode = confSearchNode.assign(pos, rc); // TODO: use object pool to re-use memory?
-
-				// approximate the optimal sub-tree min,max scores using g+h scores
-				double localEnergy = gscorer.calcDifferential(confIndex, rcs, pos, rc);
-				double localLowerbound = -negatedHScorer.calcDifferential(confIndex, rcs, pos, rc);
-				double localUpperBound = hscorer.calcDifferential(confIndex, rcs, pos, rc);
-
-
-
-				childNodes.add(new MARKStarNode(childNode));
-			}
-
-			// update the best pos so far
-			double posScore = (double)numSubTreesPruned/posRCs.length;
-			if (posScore > bestPosScore) {
-				bestPosScore = posScore;
-				bestPos = pos;
-			}
-		}
-		assert (bestPos >= 0);
-
-
-
-        return 0;
-    }
-
-    private double computeLowerBound(ConfTreeState confSearchState) {
-        return 0;
-    }
 
     private void dummyBoundComputationCode(Node node, double queryScore, RCs rcs) {
 
@@ -190,28 +153,21 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
 	}
 
-
-    private MARKStarNode(double upperBound, double lowerBound, PriorityQueue<MARKStarNode> children){
-        this.upperBound = upperBound;
-        this.lowerBound = lowerBound;
-        this.children = children;
+    public double getErrorLowerBound(){
+        return errorLowerBound;
     }
 
-    public double getLowerBound(){
-        return this.lowerBound;
-    }
-
-    public double getUpperBound(){
-        return this.upperBound;
+    public double getErrorUpperBound(){
+        return errorUpperBound;
     }
 
     public Collection<MARKStarNode> getChildren(){
+        if(children == null)
+            generateChildren();
         return this.children;
     }
 
-    public void updateBounds(double upperBound, double lowerBound){
-        this.upperBound = upperBound;
-        this.lowerBound = lowerBound;
+    private void generateChildren() {
     }
 
 
@@ -225,9 +181,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
          * @return  1 if the other difference is smaller, -1 if the other difference
          *          is larger, and 0 otherwise.
          */
-        if ((this.upperBound - this.lowerBound) < (other.upperBound - other.lowerBound)){
+        if ((this.errorUpperBound - this.errorLowerBound) < (other.errorUpperBound - other.errorLowerBound)){
             return 1;
-        }else if ((this.upperBound - this.lowerBound) > (other.upperBound - other.lowerBound)){
+        }else if ((this.errorUpperBound - this.errorLowerBound) > (other.errorUpperBound - other.errorLowerBound)){
             return -1;
         }else {
             return 0;
@@ -241,11 +197,6 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
 
-    /* Placeholder class */
-    private class ConfTreeState
-    {
-
-    }
 
     private static class Node implements ConfAStarNode {
 
