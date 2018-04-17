@@ -5,9 +5,6 @@
  */
 package edu.duke.cs.osprey.tests;
 
-import edu.duke.cs.osprey.astar.comets.LME;
-import edu.duke.cs.osprey.astar.comets.NewCOMETSDoer;
-import edu.duke.cs.osprey.astar.ewakstar.EWAKLME;
 import edu.duke.cs.osprey.astar.ewakstar.NewEWAKStarDoer;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
@@ -24,6 +21,7 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -34,13 +32,8 @@ import java.util.Arrays;
 public class EWAKStar {
     
     public static void main(String[] args){
-        int numStates = 4;
-        SimpleConfSpace[] confSpaces = new SimpleConfSpace[numStates];
-        PrecomputedMatrices[] precompMats = new PrecomputedMatrices[numStates];
-        EWAKLME objFcn = new EWAKLME("1",0);
-        int boundMutPos[] = new int[] {3,4,5,6,7};
-        int unboundMutPos[] = new int[] {0,1,2,3,4};
-        ArrayList<ArrayList<Integer>> mutable2StatePosNums = toDoubleList(boundMutPos,unboundMutPos,boundMutPos,unboundMutPos);
+        Integer[] pos = new Integer[]{3,4,5,6,7};
+        ArrayList<Integer> boundMutPos = new ArrayList<> (Arrays.asList(pos));
         
         ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
                 new String[] {"ILE","LEU","MET","PHE","TRP","TYR","VAL"},
@@ -50,90 +43,80 @@ public class EWAKStar {
                 new String[] {"ASN","GLN","SER","THR"}
         );
 
-        int numMaxMut = -1;
         String wtSeq[] = null;
-        int numSeqsWanted = 5;
-        ConfEnergyCalculator[] confECalc = new ConfEnergyCalculator[numStates];        
-        String stateNames[] = new String[] {"3K75.b"};
+        int numSeqsWanted = 6;
+        String stateName = "3K75.b";
         
         PruningSettings pruningSettings = new PruningSettings();
         pruningSettings.typedep = true;
-        
-        boolean useERef = true;//this might seem irrelevant to COMETS
-        //but if does affect values of many LME's; the shift in LME value due to eref's
-        //is only constant wrt sequence if the LME coefficients sum to 1
 
-        
-        for(int state=0; state<numStates; state++){
-            confSpaces[state] = prepareConfSpace(state,AATypeOptions);
+        SimpleConfSpace confSpace = prepareConfSpace(AATypeOptions);
 	    ForcefieldParams ffparams = new ForcefieldParams();
-            ffparams.solvScale = 0.;
-	    EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces[state], ffparams).build();
+            ffparams.solvScale = 0.95;
+	    EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams).build();
             
-            ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(confSpaces[state], ecalc);
-            if(useERef){
-                SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(confSpaces[state],ecalc).build();
-                confEcalcBuilder.setReferenceEnergies(eref);
-            }
-            confECalc[state] = confEcalcBuilder.build();
+	    ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(confSpace, ecalc);
+
+	    SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(confSpace,ecalc).build();
+	    confEcalcBuilder.setReferenceEnergies(eref);
+
+	    ConfEnergyCalculator confECalc = confEcalcBuilder.build();
             
-            EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc[state])
-				.build()
+	    EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
+                .setCacheFile(new File("ewak_test.emat"))
+                .build()
 				.calcEnergyMatrix();
             
-            double Ival = 0;
-            double Ew = 0;
-            precompMats[state] = new PrecomputedMatrices(Ival, Ew, stateNames[state], emat, 
-                    confSpaces[state], ecalc, confECalc[state], new EPICSettings(), new LUTESettings(),
-                    pruningSettings);//rigid design
-        }
+	    double Ival = 0;
+	    double Ew = 0;
+	    PrecomputedMatrices precompMats = new PrecomputedMatrices(Ival, Ew, stateName, emat,
+                    confSpace, ecalc, confECalc, new EPICSettings(), new LUTESettings(),
+                    pruningSettings);
             
-        NewEWAKStarDoer cd = new NewEWAKStarDoer(confSpaces,precompMats,objFcn,
-            mutable2StatePosNums,AATypeOptions,numMaxMut,wtSeq,numSeqsWanted, confECalc);
-        ArrayList<String> bestSequences = cd.calcBestSequences();
+        NewEWAKStarDoer ed = new NewEWAKStarDoer(confSpace,precompMats,
+            boundMutPos,AATypeOptions,wtSeq,numSeqsWanted, confECalc);
+
+        ArrayList<String> bestSequences = ed.calcBestSequences();
+
+        System.out.println(printSeqs(bestSequences));
+
+    }
+
+    private static String printSeqs(ArrayList<String> seqs){
+        StringBuffer buf = new StringBuffer();
+
+        for (int i=0; i<seqs.size();i++){
+            buf.append(seqs.get(i));
+            buf.append('\n');
+        }
+
+        return buf.toString();
+
     }
     
-    
-    private static SimpleConfSpace prepareConfSpace(int state, ArrayList<ArrayList<String>> AATypeOptions){
+    private static SimpleConfSpace prepareConfSpace(ArrayList<ArrayList<String>> AATypeOptions){
 
         String pdbFile;
         String[] mutResNums;
-        
-        switch(state){
-            case 0:
-                pdbFile = "examples/3K75.3LQC/3K75.b.shell.pdb";
-                mutResNums = new String[] {"391","409","411","422","424"};
-                break;
-            case 1:
-                pdbFile = "examples/3K75.3LQC/3K75.ub.shell.pdb";
-                mutResNums = new String[] {"291","309","311","322","324"};
-                break;
-            case 2:
-                pdbFile = "examples/3K75.3LQC/3LQC.b.shell.pdb";
-                mutResNums = new String[] {"591","609","611","622","624"};
-                break;
-            case 3:
-                pdbFile = "examples/3K75.3LQC/3LQC.ub.shell.pdb";
-                mutResNums = new String[] {"291","309","311","322","324"};
-                break;
-            default:
-                throw new RuntimeException("Unrecognized state");
-        }
-        
+
+        pdbFile = "examples/3K75.3LQC/3K75.b.shell.pdb";
+        mutResNums = new String[] {"0391","0409","0411","0422","0424"};
+
         Molecule mol = PDBIO.readFile(pdbFile);
 
         Strand strand = new Strand.Builder(mol).build();
         for(int mutPos=0; mutPos<AATypeOptions.size(); mutPos++)
-            strand.flexibility.get(mutResNums[mutPos]).setLibraryRotamers(AATypeOptions.get(mutPos));
+            strand.flexibility.get(mutResNums[mutPos]).setLibraryRotamers(AATypeOptions.get(mutPos)).setContinuous();
         
-        if(state%2==0){//bound state, set flexibility for non-designed chain
-            strand.flexibility.get("67").setLibraryRotamers("Phe");
-            strand.flexibility.get("90").setLibraryRotamers("Thr");
-            strand.flexibility.get("136").setLibraryRotamers("Tyr");
-        }
+        //bound state, set flexibility for non-designed chain
+        strand.flexibility.get("067").setLibraryRotamers("Phe").setContinuous();
+        strand.flexibility.get("090").setLibraryRotamers("Thr").setContinuous();
+        strand.flexibility.get("0136").setLibraryRotamers("Tyr").setContinuous();
+
         
         SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
         return confSpace;
+
     }
     
     private static ArrayList<ArrayList<Integer>> toDoubleList(int[]... arr){

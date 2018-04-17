@@ -4,13 +4,10 @@ import edu.duke.cs.osprey.astar.AStarNode;
 import edu.duke.cs.osprey.astar.AStarTree;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.FullAStarNode;
+import edu.duke.cs.osprey.astar.comets.COMETSNode;
 import edu.duke.cs.osprey.astar.ewakstar.EWAKStarNode;
-import edu.duke.cs.osprey.astar.ewakstar.EWAKLME;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.HigherTupleFinder;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -18,6 +15,7 @@ import edu.duke.cs.osprey.gmec.PrecomputedMatrices;
 import edu.duke.cs.osprey.pruning.NewPruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.structure.PDBIO;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,8 +25,6 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
     int numTreeLevels;//number of residues with sequence changes
 
-    EWAKLME objFcn;//we are minimizing objFcn...
-
     ArrayList<ArrayList<String>> AATypeOptions;
     //COMETreeNode.assignments assigns each level an index in AATypeOptions.get(level), and thus an AA type
     //If -1, then no assignment yet
@@ -37,62 +33,51 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
     //information on states
 
-    int numStates;//how many states there are
-    //they have to have the same mutable residues & AA options,
-    //though the residues involved may be otherwise different
-
     //description of each state
-    SimpleConfSpace confSpaces[];//their conformational spaces
-    PrecomputedMatrices precompMats[];//precomputed matrix sets describing them
+    SimpleConfSpace confSpace;//their conformational spaces
+    PrecomputedMatrices precompMats;//precomputed matrix sets describing them
 
 
-    ArrayList<ArrayList<Integer>> mutable2StatePosNums;
+    ArrayList<Integer> mutablePosNums;
     //mutable2StatePosNum.get(state) maps levels in this tree to flexible positions for state
     //(not necessarily an onto mapping)
 
-    int stateNumPos[];
+    int stateNumPos;
 
 
     int numSeqsReturned = 0;
     int stateGMECsForPruning = 0;//how many state GMECs have been calculated for nodes that are pruned
 
 
-    boolean outputGMECStructs;//Output GMEC structure for each (state, sequence)
+    ConfEnergyCalculator confECalc = null;//only needed if we want minimized structs.  one per state like the other arrays
 
 
-    ConfEnergyCalculator confECalc[] = null;//only needed if we want minimized structs.  one per state like the other arrays
-
-
-    public NewEWAKStarTree(int numTreeLevels, EWAKLME objFcn, ArrayList<ArrayList<String>> AATypeOptions,
-                           String[] wtSeq, SimpleConfSpace confSpaces[],
-                           PrecomputedMatrices precompMats[], ArrayList<ArrayList<Integer>> mutable2StatePosNums,
-                         ConfEnergyCalculator[] confECalc) {
+    public NewEWAKStarTree(int numTreeLevels, ArrayList<ArrayList<String>> AATypeOptions,
+                           String[] wtSeq, SimpleConfSpace confSpace,
+                           PrecomputedMatrices precompMats, ArrayList<Integer> mutablePosNums,
+                         ConfEnergyCalculator confECalc) {
 
         this.numTreeLevels = numTreeLevels;
-        this.objFcn = objFcn;
         this.AATypeOptions = AATypeOptions;
         this.wtSeq = wtSeq;
-        this.numStates = numStates;
-        this.confSpaces = confSpaces;
+        this.confSpace = confSpace;
         this.precompMats = precompMats;
-        this.mutable2StatePosNums = mutable2StatePosNums;
+        this.mutablePosNums = mutablePosNums;
         this.confECalc = confECalc;
 
-        stateNumPos = new int[numStates];
-        for(int state=0; state<numStates; state++)
-            stateNumPos[state] = confSpaces[state].getNumPos();
+        stateNumPos = confSpace.getNumPos();
     }
 
     @Override
     public ArrayList<FullAStarNode> getChildren(FullAStarNode curNode) {
         EWAKStarNode seqNode = (EWAKStarNode)curNode;
-        ArrayList<FullAStarNode> ans = new ArrayList<>();
+        ArrayList<FullAStarNode> seqNodeChildren = new ArrayList<>();
 
         if(seqNode.isFullyDefined()){
             seqNode.expandConfTree();
-            seqNode.setScore( boundLME(seqNode,objFcn) );
-            ans.add(seqNode);
-            return ans;
+            seqNode.setScore( boundLME(seqNode) );
+            seqNodeChildren.add(seqNode);
+            return seqNodeChildren;
         }
         else{
             //expand next position...
@@ -106,9 +91,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
                         int childAssignments[] = curAssignments.clone();
                         childAssignments[splitPos] = aa;
 
-                        UpdatedPruningMatrix childPruneMat[] = new UpdatedPruningMatrix[numStates];
-                        for(int state=0; state<numStates; state++)
-                            childPruneMat[state] = doChildPruning(state, seqNode.pruneMat[state], splitPos, aa);
+                        UpdatedPruningMatrix childPruneMat = doChildPruning(seqNode.pruneMat, splitPos, aa);
 
                         EWAKStarNode childNode = new EWAKStarNode(childAssignments, childPruneMat);
 
@@ -116,12 +99,11 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
                             makeSeqConfTrees(childNode);
                         }
 
-                        childNode.setScore( boundLME(childNode,objFcn) );
-
-                        ans.add(childNode);
+                        childNode.setScore( boundLME(childNode) );
+                        seqNodeChildren.add(childNode);
                     }
 
-                    return ans;
+                    return seqNodeChildren;
                 }
             }
 
@@ -131,18 +113,18 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
     }
 
 
-    private UpdatedPruningMatrix doChildPruning(int state, PruningMatrix parentMat, int splitPos, int aa){
+    private UpdatedPruningMatrix doChildPruning(PruningMatrix parentMat, int splitPos, int aa){
         //Create an update to parentMat (without changing parentMat)
         //to reflect that splitPos has been assigned an amino-acid type
 
         String assignedAAType = AATypeOptions.get(splitPos).get(aa);
 
         UpdatedPruningMatrix ans = new UpdatedPruningMatrix(parentMat);
-        int posAtState = mutable2StatePosNums.get(state).get(splitPos);
+        int posAtState = mutablePosNums.get(splitPos);
 
         //first, prune all other AA types at splitPos
         for(int rc : parentMat.unprunedRCsAtPos(posAtState)){
-            String rcAAType = confSpaces[state].positions.get(posAtState).resConfs.get(rc).template.name;
+            String rcAAType = confSpace.positions.get(posAtState).resConfs.get(rc).template.name;
 
             if( ! rcAAType.equalsIgnoreCase(assignedAAType)){
                 ans.markAsPruned(new RCTuple(posAtState,rc));
@@ -155,8 +137,8 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
 
 
-        NewPruner dee = new NewPruner(precompMats[state], ans, true, Double.POSITIVE_INFINITY, 0,
-                false, precompMats[state].shouldWeUseLUTE());
+        NewPruner dee = new NewPruner(precompMats, ans, true, Double.POSITIVE_INFINITY, 0,
+                false, precompMats.shouldWeUseLUTE());
         dee.setVerbose(false);
         //this is rigid, type-dependent pruning aiming for sequence GMECs
         //So Ew = Ival = 0
@@ -175,57 +157,43 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
     private void makeSeqConfTrees(EWAKStarNode node){
         //Given a node with a fully defined sequence, build its conformational search trees
-        //for each state
         //If a state has no viable conformations, leave it null, with stateUB[state] = inf
 
-        node.stateTrees = new ConfTree[numStates];
-        node.stateUB = new double[numStates];
-
-        for(int state=0; state<numStates; state++){
-
-            //first make sure there are RCs available at each position
-            boolean RCsAvailable = true;
-            for(int pos=0; pos<stateNumPos[state]; pos++){
-                if(node.pruneMat[state].unprunedRCsAtPos(pos).isEmpty()){
-                    RCsAvailable = false;
-                    break;
-                }
+        //first make sure there are RCs available at each position
+        boolean RCsAvailable = true;
+        for(int pos=0; pos<stateNumPos; pos++){
+            if(node.pruneMat.unprunedRCsAtPos(pos).isEmpty()){
+                RCsAvailable = false;
+                break;
             }
+        }
 
+        if(RCsAvailable) {
+            node.stateTree = new ConfTree<>(
+                    new FullAStarNode.Factory(stateNumPos),
+                    precompMats.shouldWeUseLUTE(),
+                    precompMats.getEmat(),
+                    null,
+                    null,
+                    precompMats.getLuteMat(),
+                    node.pruneMat,
+                    false,
+                    new EPICSettings(),
+                    null
+            );
 
+            FullAStarNode rootNode = node.stateTree.rootNode();
 
-            if(RCsAvailable) {
-                if(precompMats[state].getLuteMat()==null && precompMats[state].getEpicMat()!=null){
-                    throw new RuntimeException("ERROR: Continuous flexibility in COMETS must use LUTE");
-                }
-
-                node.stateTrees[state] = new ConfTree<>(
-                        new FullAStarNode.Factory(stateNumPos[state]),
-                        precompMats[state].shouldWeUseLUTE(),
-                        precompMats[state].getEmat(),
-                        null,
-                        null,
-                        precompMats[state].getLuteMat(),
-                        node.pruneMat[state],
-                        false,
-                        new EPICSettings(),
-                        null
-                );
-
-                FullAStarNode rootNode = node.stateTrees[state].rootNode();
-
-                int blankConf[] = new int[stateNumPos[state]];//set up root node UB
-                Arrays.fill(blankConf,-1);
-                rootNode.UBConf = blankConf;
-                updateUB( state, rootNode, node );
-                node.stateUB[state] = rootNode.UB;
-
-                node.stateTrees[state].initQueue(rootNode);//allocate queue and add root node
-            }
-            else {//no confs available for this state!
-                node.stateTrees[state] = null;
-                node.stateUB[state] = Double.POSITIVE_INFINITY;
-            }
+            int blankConf[] = new int[stateNumPos];//set up root node UB
+            Arrays.fill(blankConf,-1);
+            rootNode.UBConf = blankConf;
+            updateUB(rootNode, node );
+            node.stateUB = rootNode.UB;
+            node.stateTree.initQueue(rootNode);//allocate queue and add root node
+        }
+        else {//no confs available for this state!
+            node.stateTree = null;
+            node.stateUB = Double.POSITIVE_INFINITY;
         }
     }
 
@@ -236,13 +204,10 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
         int[] conf = new int[numTreeLevels];
         Arrays.fill(conf,-1);//indicates sequence not assigned
 
-        PruningMatrix[] pruneMats = new PruningMatrix[numStates];
-        for(int state=0; state<numStates; state++){
-            pruneMats[state] = precompMats[state].getPruneMat();
-        }
+        PruningMatrix pruneMats = precompMats.getPruneMat();
 
         EWAKStarNode root = new EWAKStarNode(conf, pruneMats);
-        root.setScore( boundLME(root,objFcn) );
+        root.setScore( boundLME(root) );
         return root;
     }
 
@@ -270,14 +235,14 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
         EWAKStarNode seqNode = (EWAKStarNode)node;
 
-        for(int state=0; state<numStates; state++){
-            if(seqNode.stateTrees[state]!=null){
-                FullAStarNode bestNodeForState = seqNode.stateTrees[state].getQueue().peek();
 
-                if( ! bestNodeForState.isFullyDefined() )//State GMEC calculation not done
-                    return false;
-            }
+        if(seqNode.stateTree!=null){
+            FullAStarNode bestNodeForState = seqNode.stateTree.getQueue().peek();
+
+            if( ! bestNodeForState.isFullyDefined() )//State GMEC calculation not done
+                return false;
         }
+
 
         //if we get here, all state GMECs are calculated.  Node is fully processed
         return true;
@@ -307,57 +272,51 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
         //provide information
         System.out.println("SeqTree: A* returning conformation; lower bound = "+seqNode.getScore()+" nodes expanded: "+numExpanded);
 
-        numSeqsReturned++;
-
         System.out.print("Sequence: ");
 
         String seq = seqAsString(seqNode.getNodeAssignments());
         System.out.println(seq);
 
-
         //provide state GMECs, specified as rotamers (AA types all the same of course)
-        for(int state=0; state<numStates; state++){
-            System.out.print("State "+state);
 
-            if(seqNode.stateTrees[state]==null) {
-                System.out.println(" has an unavoidable clash.");
-            }
-            else {
-                System.out.print(" RCs: ");
-                int conf[] = seqNode.stateTrees[state].getQueue().peek().getNodeAssignments();
-                for(int pos=0; pos<stateNumPos[state]; pos++)
-                    System.out.print( conf[pos] + " " );
 
-                System.out.println( "Energy: "+
-                        getEnergyMatrix(state).confE(conf) );
+        if(seqNode.stateTree==null) {
+            System.out.println(" has an unavoidable clash.");
+        }
+        else {
+            System.out.print(" RCs: ");
+            int conf[] = seqNode.stateTree.getQueue().peek().getNodeAssignments();
+            for(int pos=0; pos<stateNumPos; pos++)
+                System.out.print( conf[pos] + " " );
 
-                if(outputGMECStructs){
-                    //let's output the structure, PDB file named by sequence and state
-                    confECalc[state].writeMinimizedStruct( new RCTuple(conf), "GMEC.state"+state+"."+seq+".pdb" );
-                }
-            }
+            RCTuple rct = new RCTuple(conf);
+
+            System.out.println( "Minimized energy: "+
+                    //get the minimized energy for the conformation
+                    confECalc.calcEnergy(rct).energy);
         }
 
+        System.out.println();
+//        printNodeExpansionData();
+    }
+
+    public void printNodeExpansionData(){
         int numSeqDefNodes = 0;
         for(FullAStarNode node : getQueue()){
             if(node.isFullyDefined())
                 numSeqDefNodes++;
         }
 
-
-        System.out.println();
         System.out.println(numExpanded+" expanded; "+getQueue().size()+" nodes in tree, of which "
                 +numSeqDefNodes+" are fully defined; "+
                 numPruned+" pruned.");
 
-
-        int stateGMECsRet = numSeqsReturned*numStates;
+        int stateGMECsRet = numSeqsReturned;
         int stateGMECsInTree = countGMECsInTree();
         int totGMECsCalcd = stateGMECsRet + stateGMECsInTree + stateGMECsForPruning;
         System.out.println(totGMECsCalcd+" state GMECs calculated: "+stateGMECsRet+" returned, "+stateGMECsInTree
                 +" in tree, "+stateGMECsForPruning+" for pruned sequences.");
     }
-
 
 
 
@@ -381,27 +340,22 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
         //how many states for this node have GMECs calculated?
         int count = 0;
 
-        if(seqNode.stateTrees != null){//fully defined sequence, so there are state trees
-            for(ConfTree<FullAStarNode> ct : seqNode.stateTrees){
-                if(ct!=null){
-                    FullAStarNode bestNode = ct.getQueue().peek();
-                    if(bestNode.isFullyDefined())
-                        count++;
-                }
-            }
+        if(seqNode.stateTree != null){//fully defined sequence, so there are state trees
+            FullAStarNode bestNode = seqNode.stateTree.getQueue().peek();
+            if(bestNode.isFullyDefined())
+                count++;
         }
 
         return count;
     }
 
 
-
-    private double boundLME(EWAKStarNode seqNode, EWAKLME func){
+    private double boundLME(EWAKStarNode seqNode){
         //Lower-bound func over the sequence space defined by this node
         if(seqNode.isFullyDefined())//fully-defined sequence
-            return calcLBConfTrees(seqNode,func);
+            return calcLBConfTrees(seqNode);
         else
-            return calcLBPartialSeq(seqNode,func);
+            return calcLBPartialSeq(seqNode);
     }
 
 
@@ -422,11 +376,11 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
     }
 
 
-    private double calcLBPartialSeq(EWAKStarNode seqNode, EWAKLME func){
+    private double calcLBPartialSeq(EWAKStarNode seqNode){
 
         int partialSeq[] = seqNode.getNodeAssignments();
 
-        double ans = func.constTerm;
+        double lowerBound = 0;
         //first terms for mutable residues
         for(int i=0; i<numTreeLevels; i++){
             double resE = Double.POSITIVE_INFINITY;
@@ -434,134 +388,99 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
             for( int curAA : AAOptions(i, partialSeq[i]) ){
                 double AAE = 0;
 
-                //get contributions to residue energy for this AA type from all states
-                for(int state=0; state<numStates; state++){
-                    if(func.coeffs[state]!=0){
+                //residue number i converted to this state's flexible position numbering
+                int statePosNum = mutablePosNums.get(i);
 
-                        int statePosNum = mutable2StatePosNums.get(state).get(i);//residue number i converted to this state's flexible position numbering
-                        boolean minForState = (func.coeffs[state]>0);//minimizing (instead of maximizing) energy for this state
+                double stateAAE = Double.POSITIVE_INFINITY;
 
-                        double stateAAE = Double.POSITIVE_INFINITY;
+                PruningMatrix pruneMat = seqNode.pruneMat;
+                EnergyMatrix eMatrix = precompMats.getEmat();
 
-                        PruningMatrix pruneMat = seqNode.pruneMat[state];
-                        EnergyMatrix eMatrix = getEnergyMatrix(state);
+                ArrayList<Integer> rotList = unprunedRCsAtAA(pruneMat, i, statePosNum, curAA);
 
-                        ArrayList<Integer> rotList = unprunedRCsAtAA(state, pruneMat,
-                                i, statePosNum, curAA);
+                for(int rot : rotList){
 
+                    double rotE = eMatrix.getOneBody(statePosNum, rot);
 
-                        if(!minForState){
-                            stateAAE = Double.NEGATIVE_INFINITY;
-                        }
+                    for(int pos2=0; pos2<stateNumPos; pos2++){//all non-mut; seq only if < this one
+                        if( (!mutablePosNums.contains(pos2)) || pos2<statePosNum){
 
-                        for(int rot : rotList){
+                            double bestInteraction = Double.POSITIVE_INFINITY;
+                            ArrayList<Integer> rotList2 = pruneMat.unprunedRCsAtPos(pos2);
 
-                            double rotE = eMatrix.getOneBody(statePosNum, rot);
+                            for(int rot2 : rotList2){
+                                //rot2 known to be unpruned
+                                if(!pruneMat.getPairwise(statePosNum, rot, pos2, rot2)){
 
-                            for(int pos2=0; pos2<stateNumPos[state]; pos2++){//all non-mut; seq only if < this one
-                                if( (!mutable2StatePosNums.get(state).contains(pos2)) || pos2<statePosNum){
+                                    double pairwiseE = eMatrix.getPairwise(statePosNum, rot, pos2, rot2);
+                                    pairwiseE += higherOrderContrib(pruneMat, statePosNum, rot, pos2, rot2);
 
-                                    double bestInteraction = Double.POSITIVE_INFINITY;
-                                    ArrayList<Integer> rotList2 = pruneMat.unprunedRCsAtPos(pos2);
+                                    bestInteraction = Math.min(bestInteraction,pairwiseE);
 
-                                    if(!minForState)
-                                        bestInteraction = Double.NEGATIVE_INFINITY;
-
-                                    for(int rot2 : rotList2){
-                                        //rot2 known to be unpruned
-                                        if(!pruneMat.getPairwise(statePosNum, rot, pos2, rot2)){
-
-                                            double pairwiseE = eMatrix.getPairwise(statePosNum, rot, pos2, rot2);
-                                            pairwiseE += higherOrderContrib(state, pruneMat, statePosNum, rot, pos2, rot2, minForState);
-
-                                            if(minForState)
-                                                bestInteraction = Math.min(bestInteraction,pairwiseE);
-                                            else
-                                                bestInteraction = Math.max(bestInteraction,pairwiseE);
-                                        }
-                                    }
-
-                                    rotE += bestInteraction;
                                 }
                             }
 
-                            if(minForState)
-                                stateAAE = Math.min(stateAAE,rotE);
-                            else
-                                stateAAE = Math.max(stateAAE,rotE);
-                        }
+                            rotE += bestInteraction;
 
-                        if(Double.isInfinite(stateAAE)){
-                            //this will occur if the state is impossible (all confs pruned)
-                            if(func.coeffs[state]>0)
-                                AAE = Double.POSITIVE_INFINITY;
-                            else if(func.coeffs[state]<0 && AAE!=Double.POSITIVE_INFINITY)
-                                //if a "positive-design" (coeff>0) state is impossible, return +inf overall
-                                AAE = Double.NEGATIVE_INFINITY;
-                            //else AAE unchanged, since func doesn't involve this state
                         }
-                        else
-                            AAE += func.coeffs[state]*stateAAE;
                     }
+
+                    stateAAE = Math.min(stateAAE,rotE);
+
                 }
+
+                if(Double.isInfinite(stateAAE))
+                    //this will occur if the state is impossible (all confs pruned)
+                    AAE = Double.POSITIVE_INFINITY;
+
+                else
+                    AAE += stateAAE;
+
 
                 resE = Math.min(resE,AAE);
             }
 
-            ans += resE;
+            lowerBound += resE;
         }
 
         //now we bound the energy for the other residues for each of the states
         //(internal energy for that set of residues)
-        for(int state=0; state<numStates; state++){
+        lowerBound += precompMats.getEmat().getConstTerm();
 
-            if(func.coeffs[state]!=0){
-                ans += func.coeffs[state]*getEnergyMatrix(state).getConstTerm();
-
-                double nonMutBound = boundStateNonMutE(state,seqNode,func.coeffs[state]>0);
-                //handle this like AAE above
-                if(Double.isInfinite(nonMutBound)){
-                    //this will occur if the state is impossible (all confs pruned)
-                    if(func.coeffs[state]>0)
-                        return Double.POSITIVE_INFINITY;
-                    else if(func.coeffs[state]<0)
-                        ans = Double.NEGATIVE_INFINITY;
-                    //if a "positive-design" (coeff>0) state is impossible, return +inf overall still
-                    //else ans unchanged, since func doesn't involve this state
-                }
-                else
-                    ans += func.coeffs[state]*nonMutBound;
-            }
+        double nonMutBound = boundStateNonMutE(seqNode);
+        //handle this like AAE above
+        if(Double.isInfinite(nonMutBound)){
+            //this will occur if the state is impossible (all confs pruned)
+            return Double.POSITIVE_INFINITY;
         }
+        else
+            lowerBound += nonMutBound;
 
-        return ans;
+        return lowerBound;
     }
 
 
-
-
-
-    double higherOrderContrib(int state, PruningMatrix pruneMat,
-                              int pos1, int rc1, int pos2, int rc2, boolean minForState){
+    double higherOrderContrib(PruningMatrix pruneMat,
+                              int pos1, int rc1, int pos2, int rc2){
         //higher-order contribution for a given RC pair in a given state,
         //when scoring a partial conf
 
-        EnergyMatrix emat = getEnergyMatrix(state);
+        EnergyMatrix emat = precompMats.getEmat();
         HigherTupleFinder<Double> htf = emat.getHigherOrderTerms(pos1,rc1,pos2,rc2);
 
         if(htf==null)
             return 0;//no higher-order interactions
         else{
             RCTuple curPair = new RCTuple(pos1,rc1,pos2,rc2);
-            return higherOrderContrib(state, pruneMat, htf, curPair, minForState);
+            return higherOrderContrib(pruneMat, htf, curPair);
         }
     }
 
-    private boolean posComesBefore(int pos1, int pos2, int state){
+    private boolean posComesBefore(int pos1, int pos2){
         //Does pos1 come "before" pos2?  (Ordering: non-mut pos, then mut pos, in ascending order)
         //These are flexible positions for the given state
-        boolean isMut1 = mutable2StatePosNums.get(state).contains(pos1);
-        boolean isMut2 = mutable2StatePosNums.get(state).contains(pos2);
+        boolean isMut1 = mutablePosNums.contains(pos1);
+        boolean isMut2 = mutablePosNums.contains(pos2);
 
         if(isMut1 && !isMut2)
             return false;
@@ -573,8 +492,8 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
     }
 
 
-    double higherOrderContrib(int state, PruningMatrix pruneMat, HigherTupleFinder<Double> htf,
-                              RCTuple startingTuple, boolean minForState){
+    double higherOrderContrib(PruningMatrix pruneMat, HigherTupleFinder<Double> htf,
+                              RCTuple startingTuple){
         //recursive function to get bound on higher-than-pairwise terms
         //this is the contribution to the bound due to higher-order interactions
         //of the RC tuple startingTuple (corresponding to htf)
@@ -587,14 +506,11 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
         int startingLevel = startingTuple.pos.get( startingTuple.pos.size()-1 );
 
         for(int iPos : htf.getInteractingPos() ){//position has higher-order interaction with tup
-            if(posComesBefore(iPos,startingLevel,state)) {//interaction in right order
+            if(posComesBefore(iPos,startingLevel)) {//interaction in right order
                 //(want to avoid double-counting)
 
                 double levelBestE = Double.POSITIVE_INFINITY;//best value of contribution
                 //from tup-iPos interaction
-
-                if(!minForState)
-                    levelBestE = Double.NEGATIVE_INFINITY;
 
                 ArrayList<Integer> allowedRCs = pruneMat.unprunedRCsAtPos(iPos);
 
@@ -609,14 +525,12 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
                         //see if need to go up to highers order again...
                         HigherTupleFinder<Double> htf2 = htf.getHigherInteractions(iPos, rc);
                         if(htf2!=null){
-                            interactionE += higherOrderContrib(state,pruneMat,htf2,augTuple,minForState);
+                            interactionE += higherOrderContrib(pruneMat,htf2,augTuple);
                         }
 
                         //besides that only residues in definedTuple or levels below level2
-                        if(minForState)
-                            levelBestE = Math.min(levelBestE,interactionE);
-                        else
-                            levelBestE = Math.max(levelBestE,interactionE);
+                        levelBestE = Math.min(levelBestE,interactionE);
+
                     }
                 }
 
@@ -630,7 +544,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
 
 
-    private ArrayList<Integer> unprunedRCsAtAA(int state, PruningMatrix pruneMat,
+    private ArrayList<Integer> unprunedRCsAtAA(PruningMatrix pruneMat,
                                                int mutablePos, int statePosNum, int curAA){
         //List the RCs of the given position in the given state
         //that come with the indicated AA type (indexed in AATypeOptions)
@@ -641,7 +555,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
         String curAAType = AATypeOptions.get(mutablePos).get(curAA);
 
         for(int rc : unprunedRCs){
-            String rcAAType = confSpaces[state].positions.get(statePosNum).resConfs.get(rc).template.name;
+            String rcAAType = confSpace.positions.get(statePosNum).resConfs.get(rc).template.name;
 
             if(rcAAType.equalsIgnoreCase(curAAType))//right type
                 ans.add(rc);
@@ -653,95 +567,44 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
 
 
-    private double calcLBConfTrees(EWAKStarNode seqNode, EWAKLME func){
+    private double calcLBConfTrees(EWAKStarNode seqNode){
         //here the sequence is fully defined
         //so we can bound func solely based on lower and upper bounds (depending on func coefficient sign)
         //of the GMECs for each state, which can be derived from the front node of each state's ConfTree
-        double ans = func.constTerm;
-        for(int state=0; state<numStates; state++){
-            if(func.coeffs[state]>0){//need lower bound
+        double ans = 0;
 
-                if(seqNode.stateTrees[state]==null)//state and sequence impossible
-                    return Double.POSITIVE_INFINITY;
 
-                ans += func.coeffs[state] * seqNode.stateTrees[state].getQueue().peek().getScore();
-            }
-            else if(func.coeffs[state]<0){//need upper bound
+        if(seqNode.stateTree==null)//state and sequence impossible
+            return Double.POSITIVE_INFINITY;
 
-                ConfTree<FullAStarNode> curTree = seqNode.stateTrees[state];
+        ans += seqNode.stateTree.getQueue().peek().getScore();
 
-                if(curTree==null){//state and sequence impossible
-                    //bound would be +infinity
-                    ans = Double.NEGATIVE_INFINITY;
-                    continue;
-                }
 
-                //make sure stateUB is updated, at least based on the current best node in this state's tree
-                PriorityQueue<FullAStarNode> curExpansion = curTree.getQueue();
+        //shell-shell energies may differ between states!
+        //THIS DOUBLE-COUNTS BC SCORES ALREADY INCLUDE CONST TERM
+        //ans += func.coeffs[state]*getEnergyMatrix(state).getConstTerm();
 
-                FullAStarNode curNode = curExpansion.peek();
-
-                if(Double.isNaN(curNode.UB)){//haven't calculated UB, so calculate and update stateUB
-                    while(!updateUB(state,curNode,seqNode)){
-                        //if UB not calc'd yet, curNode.UBConf is from curNode's parent
-                        //if updateUB fails then the node has an inevitable clash...remove it from the tree
-                        curExpansion.poll();
-                        if(curExpansion.isEmpty()){//no more nodes, so no available states!
-                            //bound would be +infinity
-                            seqNode.stateUB[state] = Double.POSITIVE_INFINITY;
-                            ans = Double.NEGATIVE_INFINITY;
-                            curNode=null;
-                            break;
-                        }
-
-                        curNode = curExpansion.peek();
-                        if(!Double.isNaN(curNode.UB))
-                            break;
-                    }
-                }
-
-                if(curNode==null){//no nodes left for this state
-                    ans = Double.NEGATIVE_INFINITY;
-                    continue;
-                }
-
-                seqNode.stateUB[state] = Math.min(seqNode.stateUB[state],curNode.UB);
-
-                ans += func.coeffs[state] * seqNode.stateUB[state];
-            }
-
-            //shell-shell energies may differ between states!
-            //THIS DOUBLE-COUNTS BC SCORES ALREADY INCLUDE CONST TERM
-            //ans += func.coeffs[state]*getEnergyMatrix(state).getConstTerm();
-        }
 
         return ans;
     }
 
 
-    private EnergyMatrix getEnergyMatrix(int state){
-         return precompMats[state].getEmat();
-    }
-
-
-    private double boundStateNonMutE(int state, EWAKStarNode seqNode, boolean minForState){
+    private double boundStateNonMutE(EWAKStarNode seqNode){
         //get a quick lower or upper bound (as indicated) for the energy of the given state's
         //non-mutable residues (their intra+shell energies + pairwise between them)
         //use pruning information from seqNode
         double ans = 0;
 
-        PruningMatrix pruneMat = seqNode.pruneMat[state];
-        EnergyMatrix eMatrix = getEnergyMatrix(state);
+        PruningMatrix pruneMat = seqNode.pruneMat;
+        EnergyMatrix eMatrix = precompMats.getEmat();
 
-        for(int pos=0; pos<stateNumPos[state]; pos++){
-            if((!mutable2StatePosNums.get(state).contains(pos))){
+        for(int pos=0; pos<stateNumPos; pos++){
+            if((!mutablePosNums.contains(pos))){
 
                 double resE = Double.POSITIVE_INFINITY;
 
                 ArrayList<Integer> rotList = pruneMat.unprunedRCsAtPos(pos);
 
-                if(!minForState)
-                    resE = Double.NEGATIVE_INFINITY;
 
                 for(int rot : rotList){
                     //make sure rot isn't pruned
@@ -749,24 +612,20 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
                         double rotE = eMatrix.getOneBody(pos, rot);
 
-                        for(int pos2=0; pos2<stateNumPos[state]; pos2++){//all non-mut; seq only if < this one
-                            if( (!mutable2StatePosNums.get(state).contains(pos2)) && pos2<pos){
+                        for(int pos2=0; pos2<stateNumPos; pos2++){//all non-mut; seq only if < this one
+                            if( (!mutablePosNums.contains(pos2)) && pos2<pos){
 
                                 double bestInteraction = Double.POSITIVE_INFINITY;
                                 ArrayList<Integer> rotList2 = pruneMat.unprunedRCsAtPos(pos2);
-                                if(!minForState)
-                                    bestInteraction = Double.NEGATIVE_INFINITY;
 
                                 for(int rot2 : rotList2){
                                     if(!pruneMat.getPairwise(pos, rot, pos2, rot2)){
                                         double pairwiseE = eMatrix.getPairwise(pos,rot,pos2,rot2);
 
-                                        pairwiseE += higherOrderContrib(state, pruneMat, pos, rot, pos2, rot2, minForState);
+                                        pairwiseE += higherOrderContrib(pruneMat, pos, rot, pos2, rot2);
 
-                                        if(minForState)
-                                            bestInteraction = Math.min(bestInteraction,pairwiseE);
-                                        else
-                                            bestInteraction = Math.max(bestInteraction,pairwiseE);
+                                        bestInteraction = Math.min(bestInteraction,pairwiseE);
+
                                     }
                                 }
 
@@ -774,10 +633,8 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
                             }
                         }
 
-                        if(minForState)
-                            resE = Math.min(resE,rotE);
-                        else
-                            resE = Math.max(resE,rotE);
+                        resE = Math.min(resE,rotE);
+
                     }
                 }
 
@@ -792,7 +649,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
 
 
-    boolean updateUB(int state, FullAStarNode expNode, EWAKStarNode seqNode){
+    boolean updateUB(FullAStarNode expNode, EWAKStarNode seqNode){
         //Get an upper-bound on the node by a little FASTER run, generating UBConf
         //store UBConf and UB in expNode
         //expNode is in seqNode.stateTrees[state]
@@ -803,12 +660,12 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
         int assignments[] = expNode.getNodeAssignments();
         ArrayList<ArrayList<Integer>> allowedRCs = new ArrayList<>();
 
-        for(int pos=0; pos<stateNumPos[state]; pos++){
+        for(int pos=0; pos<stateNumPos; pos++){
 
             ArrayList<Integer> posOptions = new ArrayList<>();
 
             if(assignments[pos]==-1){
-                posOptions = seqNode.pruneMat[state].unprunedRCsAtPos(pos);
+                posOptions = seqNode.pruneMat.unprunedRCsAtPos(pos);
                 if(posOptions.isEmpty())//no options at this position
                     return false;
             }
@@ -823,7 +680,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
         int[] UBConf = startingConf.clone();
         //ok first get rid of anything in startingConf not in expNode's conf space,
         //replace with the lowest-intra+shell-E conf
-        for(int level=0; level<stateNumPos[state]; level++){
+        for(int level=0; level<stateNumPos; level++){
 
             if( ! allowedRCs.get(level).contains(startingConf[level]) ){
                 //if( ! levelOptions.get(level).get(expNode.conf[level]).contains( startingConf[level] ) ){
@@ -831,7 +688,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
                 double bestISE = Double.POSITIVE_INFINITY;
                 int bestRC = allowedRCs.get(level).get(0);
                 for(int rc : allowedRCs.get(level) ){
-                    double ise = getEnergyMatrix(state).getOneBody(level, rc);
+                    double ise = precompMats.getEmat().getOneBody(level, rc);
                     if( ise < bestISE){
                         bestISE = ise;
                         bestRC = rc;
@@ -843,14 +700,14 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
         }
 
 
-        double curE = getEnergyMatrix(state).confE(UBConf);
+        double curE = precompMats.getEmat().confE(UBConf);
         boolean done = false;
 
         while(!done){
 
             done = true;
 
-            for(int level=0; level<stateNumPos[state]; level++){
+            for(int level=0; level<stateNumPos; level++){
 
                 int testConf[] = UBConf.clone();
 
@@ -860,7 +717,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
                     //if(!canPrune(testConf)){//pruned conf unlikely to be good UB
                     //would only prune if using pruned pair flags in A*
 
-                    double testE = getEnergyMatrix(state).confE(testConf);
+                    double testE = precompMats.getEmat().confE(testConf);
                     if( testE < curE){
                         curE = testE;
                         UBConf[level] = rc;
@@ -873,7 +730,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
 
         expNode.UBConf = UBConf;
-        expNode.UB = getEnergyMatrix(state).confE(UBConf);
+        expNode.UB = precompMats.getEmat().confE(UBConf);
 
         return true;
     }

@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.astar.ewakstar;
 
-import edu.duke.cs.osprey.astar.comets.LME;
-import edu.duke.cs.osprey.astar.comets.NewCOMETSTree;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.PrecomputedMatrices;
@@ -15,21 +14,19 @@ public class NewEWAKStarDoer {
     NewEWAKStarTree tree;//The tree used for the EWAKStar search - based on NewCOMETSTree
     int numSeqsWanted;//How many sequences to enumerate for bound complex
 
-    EWAKLME objFcn;//objective function for the COMETS search
     int numTreeLevels;//number of mutable positions
     ArrayList<ArrayList<String>> AATypeOptions = null; //AA types allowed at each mutable position
 
-    ArrayList<ArrayList<Integer>> mutable2StatePosNums = new ArrayList<>();
+    ArrayList<Integer> mutablePosNums;
 
-    public NewEWAKStarDoer (SimpleConfSpace[] confSpaces, PrecomputedMatrices[] precompMats, EWAKLME objFcn,
-                          ArrayList<ArrayList<Integer>> mutable2StatePosNums, ArrayList<ArrayList<String>> AATypeOptions,
-                          int numMaxMut, String wtSeq[], int numSeqsWanted, ConfEnergyCalculator[] confECalc) {
+    public NewEWAKStarDoer (SimpleConfSpace confSpace, PrecomputedMatrices precompMats,
+                          ArrayList<Integer> mutablePosNums, ArrayList<ArrayList<String>> AATypeOptions,
+                           String wtSeq[], int numSeqsWanted, ConfEnergyCalculator confECalc) {
 
         //fill in all the settings
         //each state will have its own config file parser
 
-        this.objFcn = objFcn;
-        this.mutable2StatePosNums = mutable2StatePosNums;
+        this.mutablePosNums = mutablePosNums;
         this.AATypeOptions = AATypeOptions;
         numTreeLevels = AATypeOptions.size();
         this.numSeqsWanted = numSeqsWanted;
@@ -37,15 +34,15 @@ public class NewEWAKStarDoer {
         //we can have a parameter numMaxMut to cap the number of deviations from the specified
         //wt seq (specified explicitly in case there is variation in wt between states...)
 
-        tree = new NewEWAKStarTree(numTreeLevels, objFcn, AATypeOptions, wtSeq, confSpaces, precompMats,
-                mutable2StatePosNums, confECalc);
+        tree = new NewEWAKStarTree(numTreeLevels, AATypeOptions, wtSeq, confSpace, precompMats,
+                mutablePosNums, confECalc);
     }
 
 
 
     public ArrayList<String> calcBestSequences(){
 
-        System.out.println("Performing multistate A*");
+        System.out.println("Performing EWAK*");
 
 
         //how many sequences to enumerate
@@ -56,6 +53,7 @@ public class NewEWAKStarDoer {
 
         for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
             //this will find the best sequence and print it
+            System.out.println("Sequence "+seqNum);
             ScoredConf conf = tree.nextConf();
             if (conf == null) {
                 //empty sequence...indicates no more sequence possibilities

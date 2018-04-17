@@ -8,54 +8,34 @@ import java.util.ArrayList;
 import java.util.PriorityQueue;
 
 public class EWAKStarNode extends FullAStarNode{
-    //score will be the lower bound on the objective function LME, for the node's sequence space
 
-    PruningMatrix pruneMat[];//pruning matrix for each state
+    PruningMatrix pruneMat;//pruning matrix for the PL state
 
     //These things are only needed (and defined) for fully defined sequences
-    ConfTree<FullAStarNode>[] stateTrees = null;//trees searching conf space for each state
-    double stateUB[] = null;//upper bounds on GMEC for each state
-
-
-
-    public EWAKStarNode(int[] nodeAssignments, PruningMatrix[] pruneMat) {
+    ConfTree<FullAStarNode> stateTree = null;//tree searching conf space for state PL
+    double stateUB;//upper bounds on GMEC for PL state
+    
+    public EWAKStarNode(int[] nodeAssignments, PruningMatrix pruneMat) {
         super(nodeAssignments);//score not assigned yet, and doesn't need refinement
         this.pruneMat = pruneMat;
     }
 
-
+    public EWAKStarNode(EWAKStarNode en){
+        //copy constructor.  COMETS-specific things are big so let's not copy them unnecessarily
+        super(en);
+        pruneMat = en.pruneMat;
+        stateTree = en.stateTree;
+        stateUB = en.stateUB;
+    }
 
     void expandConfTree(){
-        //Pick one of the conformational search trees and expand it
-        int firstSplittableLevel = Integer.MAX_VALUE;
-        int stateToSplit = -1;
 
+        //given a stateTree, look at the current queue and then get all of the children from the best node and
+        //expand that node - add those children to the "expansion" - your tree is now expanded a level.
+        PriorityQueue<FullAStarNode> expansion = stateTree.getQueue();
 
-        for(int state=0; state<stateTrees.length; state++){
-            ConfTree<FullAStarNode> stateTree = stateTrees[state];
-
-            if(stateTree!=null){
-                FullAStarNode curBestNode = stateTree.getQueue().peek();
-                if( ! curBestNode.isFullyDefined() ){
-                    int stateFirstSplittableLevel = stateTree.nextLevelToExpand( curBestNode );
-                    if( stateFirstSplittableLevel < firstSplittableLevel ){
-                        //tree has a splittable level, and it's the lowest so far
-                        stateToSplit = state;
-                        firstSplittableLevel = stateFirstSplittableLevel;
-                    }
-                }
-            }
-        }
-
-        //if(stateToSplit==-1)//all trees fully defined!
-        //    return;
-
-        ConfTree<FullAStarNode> treeToSplit = stateTrees[stateToSplit];
-
-        PriorityQueue<FullAStarNode> expansion = treeToSplit.getQueue();
-
-        FullAStarNode bestNode = (FullAStarNode)expansion.poll();
-        ArrayList<FullAStarNode> children = treeToSplit.getChildren(bestNode);
+        FullAStarNode bestNode = expansion.poll();
+        ArrayList<FullAStarNode> children = stateTree.getChildren(bestNode);
 
         for(FullAStarNode child : children){
             child.UB = Double.NaN;//update UB later if needed
@@ -63,4 +43,6 @@ public class EWAKStarNode extends FullAStarNode{
             expansion.add(child);
         }
     }
+
 }
+

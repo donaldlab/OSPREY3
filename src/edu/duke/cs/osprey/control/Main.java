@@ -88,16 +88,6 @@ public class Main {
 			}
 		},
 
-		DoEWAKStar {
-			@Override
-			public void run(CommandArgs args) {
-				ConfigFileParser cfp = args.loadConfig();
-				EWAKStarDoer ed = new EWAKStarDoer(cfp);
-				ed.calcBestSequences();
-				args.cleanupConfig(cfp);
-			}
-		},
-
 		MultiStateKStar {
 			@Override
 			public void run(CommandArgs args) {
