@@ -21,7 +21,7 @@ public class MARKStarBound {
 
     public MARKStarBound(SearchProblem problem){
         this.queue = new PriorityQueue<MARKStarNode>();
-        rootNode = MARKStarNode.makeRoot(problem);
+        rootNode =  null; //MARKStarNode.makeRoot(problem);
         queue.add(rootNode);
     }
 
