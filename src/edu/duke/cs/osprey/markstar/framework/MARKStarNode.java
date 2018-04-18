@@ -39,6 +39,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         computeErrorBounds();
     }
 
+
     private double computeErrorBounds() {
         errorBound = 0;
         if(getChildren().size() < 1)
@@ -52,8 +53,20 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return errorBound;
     }
 
+    public void index(ConfIndex confIndex) {
+        confSearchNode.index(confIndex);
+    }
 
-    public static interface ScorerFactory {
+    public ConfAStarNode getConfSearchNode() {
+        return confSearchNode;
+    }
+
+    public MARKStarNode makeChild(ConfAStarNode child) {
+        return null;
+    }
+
+
+    public interface ScorerFactory {
         AStarScorer make(EnergyMatrix emat);
     }
 
