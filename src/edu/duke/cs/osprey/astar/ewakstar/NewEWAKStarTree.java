@@ -279,7 +279,6 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
         //provide state GMECs, specified as rotamers (AA types all the same of course)
 
-
         if(seqNode.stateTree==null) {
             System.out.println(" has an unavoidable clash.");
         }
@@ -291,9 +290,9 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
             RCTuple rct = new RCTuple(conf);
 
-            System.out.println( "Minimized energy: "+
+            //System.out.println( "Minimized energy: "+
                     //get the minimized energy for the conformation
-                    confECalc.calcEnergy(rct).energy);
+            //     confECalc.calcEnergy(rct).energy);
         }
 
         System.out.println();
