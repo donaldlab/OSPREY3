@@ -89,7 +89,16 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     
     public static void switchToTemplate(ResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate, boolean idealizeSidechainAfterMutation) {
         ResidueTemplate oldTemplate = res.template;
-        
+
+        if (oldTemplate.CAEquivalent == null || newTemplate.CAEquivalent == null) {//non-mutatable templates
+            if (oldTemplate == newTemplate)//let it be so we can make non-mutatable residue types flexible
+                return;
+            else {
+                throw new RuntimeException("ERROR: Trying to mutate " + oldTemplate.name + " to " + newTemplate.name +
+                        " but CAEQUIVALENT not specified in template and cannot be inferred");
+            }
+        }
+
         //the residue's going to change some, so break its inter-residue bonds
         res.removeInterResBonds();
         res.intraResBondsMarked = false;//we'll need to redo these too
@@ -168,6 +177,9 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     }
     
     public void restoreCoordsFromTemplate() {
+
+        if(res.template.CAEquivalent==null)//can't do this for non-mutable residues
+            return;
     
         // get the alignment of backbone atoms
         MutAlignment mutAlignment = new MutAlignment(res.template, res.template);
