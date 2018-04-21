@@ -91,7 +91,7 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
         ResidueTemplate oldTemplate = res.template;
 
         if (oldTemplate.CAEquivalent == null || newTemplate.CAEquivalent == null) {//non-mutatable templates
-            if (oldTemplate == newTemplate)//let it be so we can make non-mutatable residue types flexible
+            if (oldTemplate.name.equalsIgnoreCase(newTemplate.name))//let it be so we can make non-mutatable residue types flexible
                 return;
             else {
                 throw new RuntimeException("ERROR: Trying to mutate " + oldTemplate.name + " to " + newTemplate.name +
