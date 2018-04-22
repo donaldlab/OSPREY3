@@ -73,7 +73,7 @@ public class LUTELab {
 			PruningMatrix pmat = new SimpleDEE.Runner()
 				.setSinglesThreshold(100.0)
 				.setPairsThreshold(100.0)
-				.setGoldsteinDiffThreshold(20.0)
+				.setGoldsteinDiffThreshold(6.0)
 				.setShowProgress(true)
 				.run(confSpace, emat);
 			//PruningMatrix pmat = new PruningMatrix(confSpace);
@@ -81,8 +81,6 @@ public class LUTELab {
 			Supplier<ConfSearch> astarFactory = () -> new ConfAStarTree.Builder(emat, pmat)
 				.setTraditional()
 				.build();
-
-			LUTE lute;
 
 			final File confDBFile = new File("lute-test.conf.db");
 			try (ConfDB confdb = new ConfDB(confSpace, confDBFile)) {
@@ -115,7 +113,7 @@ public class LUTELab {
 				confEcalc.resetCounters();
 
 				// do LUTE stuff
-				lute = new LUTE(confSpace);
+				LUTE lute = new LUTE(confSpace);
 				ConfSampler sampler = new UniformConfSampler(confSpace, randomSeed);
 				/*ConfSampler sampler = new LowEnergyConfSampler(confSpace, randomSeed, pmat, (rcs) ->
 					new ConfAStarTree.Builder(emat, rcs)
@@ -125,9 +123,8 @@ public class LUTELab {
 				lute.sampleTuplesAndFit(confEcalc, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
 				lute.reportConfSpaceSize(pmat);
 
-				/* TEMP
 				// compare conf energies
-				LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(lute, ecalc);
+				LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, ecalc, new LUTEState(lute.getTrainingSystem()));
 				for (ConfSearch.EnergiedConf econf : econfs) {
 					double luteEnergy = luteEcalc.calcEnergy(econf.getAssignments());
 					log("conf %30s   score %9.4f      energy %9.4f   gap %7.4f      LUTE energy %9.4f   diff %7.4f",
@@ -140,6 +137,7 @@ public class LUTELab {
 					);
 				}
 
+				/* TEMP
 				final double pfuncEpsilon = 0.1;
 
 				List<Sequence> sequences = getAllSequences(confSpace);

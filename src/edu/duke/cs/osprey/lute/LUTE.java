@@ -1,9 +1,7 @@
 package edu.duke.cs.osprey.lute;
 
-import com.google.common.collect.Lists;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -15,6 +13,7 @@ import smile.data.SparseDataset;
 import smile.math.matrix.Matrix;
 import smile.regression.LASSO;
 
+import java.io.File;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.function.Consumer;
@@ -376,40 +375,9 @@ public class LUTE {
 		return triples;
 	}
 
-	public void addTuples(Iterable<RCTuple> tuples) {
-		for (RCTuple tuple : tuples) {
-			addTuple(tuple);
-		}
-	}
+	public Set<RCTuple> sampleTripleTuplesByFitError(ConfEnergyCalculator confEcalc, PruningMatrix pmat, ConfDB.ConfTable confTable, double fractionSqErrorCovered) {
 
-	public void addTuple(RCTuple tuple) {
-		tuple.checkSortedPositions();
-		tuples.add(tuple);
-	}
-
-	public Set<RCTuple> getTuples() {
-		// don't allow callers to directly modify the tuple set
-		// we need to maintain the ordering of tuple positions
-		return Collections.unmodifiableSet(tuples);
-	}
-
-	public void sampleTuplesAndFit(ConfEnergyCalculator confEcalc, PruningMatrix pmat, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore, double maxRMSE) {
-
-		// start with all pairs first
-		log("Sampling all pair tuples");
-		addTuples(getUnprunedPairTuples(pmat));
-		fit(confEcalc, confTable, sampler, fitter, maxOverfittingScore);
-
-		// was that good enough?
-		if (trainingSystem.errors.rms <= maxRMSE) {
-			return;
-		}
-
-		// nope, try to pick some triples to get a better fit
-
-		// TODO: refactor this into a function
-
-		LUTEConfEnergyCalculator luteConfEcalc = this.makeConfEnergyCalculator(confEcalc.ecalc);
+		LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(confSpace, confEcalc.ecalc, new LUTEState(trainingSystem));
 
 		// go through the conf table and try to find confs with big errors
 		List<ConfSearch.EnergiedConf> confs = new ArrayList<>();
@@ -423,6 +391,7 @@ public class LUTE {
 			Math.abs(conf.getEnergy() - conf.getScore())
 		).reversed());
 
+		/* DEBUG
 		log("%d training confs with energy gaps", confs.size());
 		for (int i=0; i<10; i++) {
 
@@ -436,9 +405,12 @@ public class LUTE {
 				gap
 			);
 		}
+		*/
 
 		List<RCTuple> triples = new ArrayList<>(getUnprunedTripleTuples(pmat));
-		log("%d triples available", triples.size());
+
+		// DEBUG
+		//log("%d triples available", triples.size());
 
 		// calculate an error score for each triple
 		TupleTree<Double> triplesSqError = new TupleTree<>();
@@ -470,7 +442,9 @@ public class LUTE {
 		triples.sort(Comparator.comparing(getSqError).reversed());
 		for (int i=0; i<10; i++) {
 			RCTuple triple = triples.get(i);
-			log("%9.4f   %s", triplesSqError.get(triple), triple);
+
+			// DEBUG
+			//log("%9.4f   %s", triplesSqError.get(triple), triple);
 		}
 
 		// sum the total error
@@ -480,8 +454,7 @@ public class LUTE {
 		}
 
 		// take the tuples that represent the top X fraction of the squared error
-		final double fractionSqErrorCovered = 0.90; // TODO: make argument
-		List<RCTuple> chosenTriples = new ArrayList<>();
+		Set<RCTuple> chosenTriples = new HashSet<>();
 		double sqError = 0.0;
 		for (RCTuple triple : triples) {
 
@@ -492,11 +465,61 @@ public class LUTE {
 				break;
 			}
 		}
-		log("%d triples chosen", chosenTriples.size());
-		addTuples(chosenTriples);
+
+		// DEBUG
+		//log("%d triples chosen", chosenTriples.size());
+
+		return chosenTriples;
+	}
+
+	public void addTuples(Iterable<RCTuple> tuples) {
+		for (RCTuple tuple : tuples) {
+			addTuple(tuple);
+		}
+	}
+
+	public void addTuple(RCTuple tuple) {
+		tuple.checkSortedPositions();
+		tuples.add(tuple);
+	}
+
+	public Set<RCTuple> getTuples() {
+		// don't allow callers to directly modify the tuple set
+		// we need to maintain the ordering of tuple positions
+		return Collections.unmodifiableSet(tuples);
+	}
+
+	public void sampleTuplesAndFit(ConfEnergyCalculator confEcalc, PruningMatrix pmat, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore, double maxRMSE) {
+
+		// start with all pairs first
+		logf("Sampling all pair tuples...");
+		Stopwatch pairsStopwatch = new Stopwatch().start();
+		addTuples(getUnprunedPairTuples(pmat));
+		log(" done in " + pairsStopwatch.stop().getTime(2));
+		fit(confEcalc, confTable, sampler, fitter, maxOverfittingScore);
+
+		// was that good enough?
+		if (trainingSystem.errors.rms <= maxRMSE) {
+			log("training set RMS error %f meets goal of %f", trainingSystem.errors.rms, maxRMSE);
+			return;
+		}
+		log("training set RMS error %f does not meet goal of %f", trainingSystem.errors.rms, maxRMSE);
+
+		// nope, try to pick some triples to get a better fit
+		logf("Sampling triple tuples to try to reduce error...");
+		Stopwatch triplesStopwatch = new Stopwatch().start();
+		addTuples(sampleTripleTuplesByFitError(confEcalc, pmat, confTable, 0.9));
+		log(" done in " + triplesStopwatch.stop().getTime(2));
 
 		// fit again
 		fit(confEcalc, confTable, sampler, fitter, maxOverfittingScore);
+
+		// was that good enough?
+		if (trainingSystem.errors.rms <= maxRMSE) {
+			log("training set RMS error %f meets goal of %f", trainingSystem.errors.rms, maxRMSE);
+			return;
+		}
+		log("training set RMS error %f does not meet goal of %f", trainingSystem.errors.rms, maxRMSE);
 
 		// TODO: as a last resort, use all triples?
 		//addUnprunedTripleTuples(pmat);
@@ -587,8 +610,23 @@ public class LUTE {
 		);
 		log("training errors: %s", trainingSystem.errors);
 		log("    test errors: %s", testSystem.errors);
+
+		// compute a histogram of test set errors
+		double[] bucketTops = { 0.001, 0.01, 0.1, 0.2, 0.4, 1.0, 2.0, 4.0, 10.0 };
+		int[] counts = new int[bucketTops.length];
+		Arrays.fill(counts, 0);
+		for (double error : testSystem.errors.residual) {
+			for (int i=0; i<counts.length; i++) {
+				if (Math.abs(error) <= bucketTops[i]) {
+					counts[i]++;
+				}
+			}
+		}
+		for (int i=0; i<counts.length; i++) {
+			log("               : %5.1f%% <= %s", 100.0*counts[i]/testSystem.confs.size(), Double.toString(bucketTops[i]));
+		}
+
 		log("total energy calculations: %d    overfitting score: %.4f <= %.4f", energies.size(), overfittingScore, maxOverfittingScore);
-		// TODO: histogram of test set errors?
 		log("");
 	}
 
@@ -632,38 +670,7 @@ public class LUTE {
 		return testSystem;
 	}
 
-	public LUTEConfEnergyCalculator makeConfEnergyCalculator(EnergyCalculator ecalc) {
-		return new LUTEConfEnergyCalculator(this, ecalc);
-	}
-
-	public EnergyMatrix makeEnergyMatrix() {
-
-		EnergyMatrix emat = new EnergyMatrix(confSpace);
-
-		// the constant term is the energy offset
-		emat.setConstTerm(trainingSystem.tupleEnergyOffset);
-
-		// set singles to 0
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
-				emat.setOneBody(pos.index, rc.index, 0.0);
-			}
-		}
-
-		// set pairs
-		for (int i=0; i<trainingSystem.tuples.size(); i++) {
-			RCTuple tuple = trainingSystem.tuples.get(i);
-			if (tuple.size() == 2) {
-				emat.setPairwise(
-					tuple.pos.get(0),
-					tuple.RCs.get(0),
-					tuple.pos.get(1),
-					tuple.RCs.get(1),
-					trainingSystem.tupleEnergies[i]
-				);
-			}
-		}
-
-		return emat;
+	public void save(File file) {
+		LUTEIO.write(new LUTEState(trainingSystem), file);
 	}
 }

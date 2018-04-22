@@ -40,6 +40,14 @@ public class FileTools {
 				throw new RuntimeException("can't read " + type + ": " + path, ex);
 			}
 		}
+
+		public byte[] readBytes(String path) {
+			try {
+				return readStreamBytes(open(path));
+			} catch (IOException ex) {
+				throw new RuntimeException("can't read " + type + ": " + path, ex);
+			}
+		}
 	}
 	
 	public static class FilePathRoot extends PathRoot {
@@ -114,11 +122,15 @@ public class FileTools {
 		public String read(File file) {
 			return read(file.getPath());
 		}
+
+		public byte[] readBytes(File file) {
+			return readBytes(file.getPath());
+		}
 		
 		public void write(String text, File file) {
 			write(text, file.getPath());
 		}
-		
+
 		public void write(String text, String path) {
 			try (FileOutputStream out = new FileOutputStream(resolve(path))) {
 				writeStream(text, out);
@@ -126,7 +138,19 @@ public class FileTools {
 				throw new RuntimeException(ex);
 			}
 		}
-		
+
+		public void writeBytes(byte[] bytes, File file) {
+			writeBytes(bytes, file.getPath());
+		}
+
+		public void writeBytes(byte[] bytes, String path) {
+			try (FileOutputStream out = new FileOutputStream(resolve(path))) {
+				writeStreamBytes(bytes, out);
+			} catch (IOException ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+
 		@Override
 		public String toString() {
 			return "FileRoot:" + rootFile;
@@ -307,7 +331,12 @@ public class FileTools {
 	throws IOException {
 		return IOUtils.toString(in, (Charset)null);
 	}
-	
+
+	private static byte[] readStreamBytes(InputStream in)
+		throws IOException {
+		return IOUtils.toByteArray(in);
+	}
+
 	public static void writeFile(String text, String path) {
 		new FilePathRoot().write(text, path);
 	}
@@ -320,7 +349,28 @@ public class FileTools {
 	throws IOException {
 		IOUtils.write(text, out, (Charset)null);
 	}
-	
+
+	public static byte[] readFileBytes(String path) {
+		return readFileBytes(new File(path));
+	}
+
+	public static byte[] readFileBytes(File file) {
+		return new FilePathRoot().readBytes(file);
+	}
+
+	public static void writeFileBytes(byte[] bytes, String path) {
+		new FilePathRoot().writeBytes(bytes, path);
+	}
+
+	public static void writeFileBytes(byte[] bytes, File file) {
+		new FilePathRoot().writeBytes(bytes, file);
+	}
+
+	private static void writeStreamBytes(byte[] bytes, OutputStream out)
+	throws IOException {
+		IOUtils.write(bytes, out);
+	}
+
 	public static Iterable<String> parseLines(String text) {
 		
 		BufferedReader reader = new BufferedReader(new StringReader(text));

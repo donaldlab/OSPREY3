@@ -19,6 +19,10 @@ public class TuplesIndex implements Iterable<RCTuple> {
 	private final List<RCTuple> tuples;
 	private final TupleMatrixGeneric<Integer> index;
 
+	public TuplesIndex(SimpleConfSpace confSpace, RCTuple[] tuplesArray) {
+		this(confSpace, Arrays.asList(tuplesArray));
+	}
+
 	public TuplesIndex(SimpleConfSpace confSpace, Collection<RCTuple> tuplesCollection) {
 
 		this.confSpace = confSpace;

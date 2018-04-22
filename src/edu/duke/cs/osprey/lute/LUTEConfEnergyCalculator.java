@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey.lute;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.TuplesIndex;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
@@ -8,16 +10,14 @@ import edu.duke.cs.osprey.energy.ResidueInteractions;
 
 public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
 
-	public final LUTE lute;
+	public final LUTEState state;
+	public final TuplesIndex tuples;
 
-	private LUTE.LinearSystem system;
+	public LUTEConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, LUTEState state) {
+		super(confSpace, ecalc, null, null, false);
 
-	public LUTEConfEnergyCalculator(LUTE lute, EnergyCalculator ecalc) {
-		super(lute.confSpace, ecalc, null, null, false);
-
-		this.lute = lute;
-
-		this.system = lute.getTrainingSystem();
+		this.state = state;
+		this.tuples = new TuplesIndex(confSpace, state.tuples);
 	}
 
 	@Override
@@ -50,9 +50,9 @@ public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
 		// silly Java... If this were Kotlin, we wouldn't have to use an array to make the energy modifiable
 		// hopefully JVM escape analysis will stack-allocate this?
 		final double[] energy = new double[] { 0.0 };
-		system.tuples.forEachIn(conf, throwIfMissingSingle, throwIfMissingPair, (t) -> {
-			energy[0] += system.tupleEnergies[t];
+		tuples.forEachIn(conf, throwIfMissingSingle, throwIfMissingPair, (t) -> {
+			energy[0] += state.tupleEnergies[t];
 		});
-		return energy[0] + system.tupleEnergyOffset;
+		return energy[0] + state.tupleEnergyOffset;
 	}
 }
