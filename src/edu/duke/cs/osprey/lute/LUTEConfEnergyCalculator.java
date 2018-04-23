@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.lute;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TuplesIndex;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -54,5 +55,36 @@ public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
 			energy[0] += state.tupleEnergies[t];
 		});
 		return energy[0] + state.tupleEnergyOffset;
+	}
+
+	public boolean hasTuple(int pos, int rc) {
+		return tuples.getIndex(pos, rc) != null;
+	}
+
+	public boolean hasTuple(int pos1, int rc1, int pos2, int rc2) {
+		return tuples.getIndex(pos1, rc1, pos2, rc2) != null;
+	}
+
+	public boolean hasTuple(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
+		return tuples.getIndex(pos1, rc1, pos2, rc2, pos3, rc3) != null;
+	}
+
+	public double getEnergy(int pos, int rc) {
+		return getEnergy(tuples.getIndex(pos, rc));
+	}
+
+	public double getEnergy(int pos1, int rc1, int pos2, int rc2) {
+		return getEnergy(tuples.getIndex(pos1, rc1, pos2, rc2));
+	}
+
+	public double getEnergy(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
+		return getEnergy(tuples.getIndex(pos1, rc1, pos2, rc2, pos3, rc3));
+	}
+
+	private double getEnergy(Integer index) {
+		if (index == null) {
+			return 0.0;
+		}
+		return state.tupleEnergies[index];
 	}
 }

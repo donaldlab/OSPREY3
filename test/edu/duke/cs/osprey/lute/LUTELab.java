@@ -2,12 +2,15 @@ package edu.duke.cs.osprey.lute;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -76,109 +79,168 @@ public class LUTELab {
 				.setGoldsteinDiffThreshold(6.0)
 				.setShowProgress(true)
 				.run(confSpace, emat);
-			//PruningMatrix pmat = new PruningMatrix(confSpace);
+				//PruningMatrix pmat = new PruningMatrix(confSpace);
 
-			Supplier<ConfSearch> astarFactory = () -> new ConfAStarTree.Builder(emat, pmat)
+			File file = new File("LUTE.dat");
+
+			//train(confSpace, ecalc, confEcalc, emat, pmat, file);
+			//astar(confSpace, ecalc, confEcalc, emat, pmat, file);
+			gmec(confSpace, ecalc, confEcalc, emat, pmat, file);
+			//pfunc(confSpace);
+		}
+	}
+
+	private static void train(SimpleConfSpace confSpace, EnergyCalculator ecalc, ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, File luteFile) {
+
+		Supplier<ConfSearch> astarFactory = () -> new ConfAStarTree.Builder(emat, pmat)
+			.setTraditional()
+			.build();
+
+		final File confDBFile = new File("lute-test.conf.db");
+		try (ConfDB confdb = new ConfDB(confSpace, confDBFile)) {
+			ConfDB.ConfTable confTable = confdb.new ConfTable("lute-test");
+
+			// compute energies for some low-energy confs
+			final int numConfs = 10;
+			log("computing energies for %d confs...", numConfs);
+			List<ConfSearch.ScoredConf> confs = new ArrayList<>();
+			{
+				ConfSearch astar = astarFactory.get();
+				for (int i=0; i<numConfs; i++) {
+					ConfSearch.ScoredConf conf = astar.nextConf();
+					if (conf == null) {
+						break;
+					}
+					confs.add(conf);
+				}
+			}
+			List<ConfSearch.EnergiedConf> econfs = confEcalc.calcAllEnergies(confs, true, confTable);
+
+			log("\nLUTE:\n");
+
+			final int randomSeed = 12345;
+			//final LUTE.Fitter fitter = LUTE.Fitter.LASSO;
+			final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
+			final double maxOverfittingScore = 1.5;
+			final double maxRMSE = 0.03;
+
+			confEcalc.resetCounters();
+
+			// do LUTE stuff
+			LUTE lute = new LUTE(confSpace);
+			ConfSampler sampler = new UniformConfSampler(confSpace, randomSeed);
+			/*ConfSampler sampler = new LowEnergyConfSampler(confSpace, randomSeed, pmat, (rcs) ->
+				new ConfAStarTree.Builder(emat, rcs)
+					.setTraditional()
+					.build()
+			);*/
+			lute.sampleTuplesAndFit(confEcalc, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
+			lute.reportConfSpaceSize(pmat);
+
+			// compare conf energies
+			LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, ecalc, new LUTEState(lute.getTrainingSystem()));
+			for (ConfSearch.EnergiedConf econf : econfs) {
+				double luteEnergy = luteEcalc.calcEnergy(econf.getAssignments());
+				log("conf %30s   score %9.4f      energy %9.4f   gap %7.4f      LUTE energy %9.4f   diff %7.4f",
+					Arrays.toString(econf.getAssignments()),
+					econf.getScore(),
+					econf.getEnergy(),
+					econf.getEnergy() - econf.getScore(),
+					luteEnergy,
+					luteEnergy - econf.getEnergy()
+				);
+			}
+
+			// save the LUTE reults
+			lute.save(luteFile);
+		}
+	}
+
+	private static void astar(SimpleConfSpace confSpace, EnergyCalculator ecalc, ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, File luteFile) {
+
+		// make a lute ecalc
+		LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, ecalc, LUTEIO.read(luteFile));
+
+		ConfAStarTree astar = new ConfAStarTree.Builder(null, pmat)
+			.setCustom(
+				new DynamicHMeanAStarOrder(),
+				new LUTEGScorer(luteEcalc),
+				new LUTEHScorer(luteEcalc)
+			)
+			.build();
+
+		log("A* confs:");
+		for (int i=0; i<100; i++) {
+
+			ConfSearch.ScoredConf conf = astar.nextConf();
+			if (conf == null) {
+				log("no more confs");
+				break;
+			}
+
+			log("%9.4f    conf: %s", conf.getScore(), confSpace.formatConf(conf));
+		}
+	}
+
+	private static void gmec(SimpleConfSpace confSpace, EnergyCalculator ecalc, ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, File luteFile) {
+
+		// make a lute ecalc
+		LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, ecalc, LUTEIO.read(luteFile));
+
+		// do a GMEC search
+		Queue.FIFO<ConfSearch.ScoredConf> windowConfs = new LUTEGMECFinder.Builder(pmat, luteEcalc)
+			.build()
+			.find(1.0);
+
+		log("window confs:");
+		while (!windowConfs.isEmpty()) {
+			ConfSearch.ScoredConf conf = windowConfs.poll();
+			log("%9.4f    conf: %s", conf.getScore(), confSpace.formatConf(conf));
+		}
+	}
+
+	private static void pfunc() {
+
+		/* TEMP
+		final double pfuncEpsilon = 0.1;
+
+		List<Sequence> sequences = getAllSequences(confSpace);
+		log("sequences: %d", sequences.size());
+
+		BiFunction<Sequence,PartitionFunction,PartitionFunction.Result> calcPfunc = (sequence, pfunc) -> {
+			RCs rcs = sequence.makeRCs();
+			ConfSearch astar = new ConfAStarTree.Builder(emat, new RCs(rcs, pmat))
 				.setTraditional()
 				.build();
+			pfunc.init(astar, rcs.getNumConformations(), pfuncEpsilon);
+			//pfunc.setReportProgress(true);
+			pfunc.compute();
+			return pfunc.makeResult();
+		};
 
-			final File confDBFile = new File("lute-test.conf.db");
-			try (ConfDB confdb = new ConfDB(confSpace, confDBFile)) {
-				ConfDB.ConfTable confTable = confdb.new ConfTable("lute-test");
-
-				// compute energies for some low-energy confs
-				final int numConfs = 10;
-				log("computing energies for %d confs...", numConfs);
-				List<ConfSearch.ScoredConf> confs = new ArrayList<>();
-				{
-					ConfSearch astar = astarFactory.get();
-					for (int i=0; i<numConfs; i++) {
-						ConfSearch.ScoredConf conf = astar.nextConf();
-						if (conf == null) {
-							break;
-						}
-						confs.add(conf);
-					}
-				}
-				List<ConfSearch.EnergiedConf> econfs = confEcalc.calcAllEnergies(confs, true, confTable);
-
-				log("\nLUTE:\n");
-
-				final int randomSeed = 12345;
-				//final LUTE.Fitter fitter = LUTE.Fitter.LASSO;
-				final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
-				final double maxOverfittingScore = 1.5;
-				final double maxRMSE = 0.03;
-
-				confEcalc.resetCounters();
-
-				// do LUTE stuff
-				LUTE lute = new LUTE(confSpace);
-				ConfSampler sampler = new UniformConfSampler(confSpace, randomSeed);
-				/*ConfSampler sampler = new LowEnergyConfSampler(confSpace, randomSeed, pmat, (rcs) ->
-					new ConfAStarTree.Builder(emat, rcs)
-						.setTraditional()
-						.build()
-				);*/
-				lute.sampleTuplesAndFit(confEcalc, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
-				lute.reportConfSpaceSize(pmat);
-
-				// compare conf energies
-				LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, ecalc, new LUTEState(lute.getTrainingSystem()));
-				for (ConfSearch.EnergiedConf econf : econfs) {
-					double luteEnergy = luteEcalc.calcEnergy(econf.getAssignments());
-					log("conf %30s   score %9.4f      energy %9.4f   gap %7.4f      LUTE energy %9.4f   diff %7.4f",
-						Arrays.toString(econf.getAssignments()),
-						econf.getScore(),
-						econf.getEnergy(),
-						econf.getEnergy() - econf.getScore(),
-						luteEnergy,
-						luteEnergy - econf.getEnergy()
-					);
-				}
-
-				/* TEMP
-				final double pfuncEpsilon = 0.1;
-
-				List<Sequence> sequences = getAllSequences(confSpace);
-				log("sequences: %d", sequences.size());
-
-				BiFunction<Sequence,PartitionFunction,PartitionFunction.Result> calcPfunc = (sequence, pfunc) -> {
-					RCs rcs = sequence.makeRCs();
-					ConfSearch astar = new ConfAStarTree.Builder(emat, new RCs(rcs, pmat))
-						.setTraditional()
-						.build();
-					pfunc.init(astar, rcs.getNumConformations(), pfuncEpsilon);
-					//pfunc.setReportProgress(true);
-					pfunc.compute();
-					return pfunc.makeResult();
-				};
-
-				// run traditional K*
-				log("\nplain old K*:\n");
-				confEcalc.resetCounters();
-				Stopwatch oldSw = new Stopwatch().start();
-				GradientDescentPfunc oldPfunc = new GradientDescentPfunc(confEcalc);
-				oldPfunc.setConfTable(confTable);
-				for (Sequence sequence : sequences) {
-				//{ Sequence sequence = sequences.get(1);
-					log("\t%s   %s   (%d energies)", sequence, calcPfunc.apply(sequence, oldPfunc), confEcalc.getNumRequests());
-				}
-				log("done in %s, %d energy calculations", oldSw.stop().getTime(2), confEcalc.getNumRequests());
-
-				// use LUTE to do the same thing
-				log("\nLUTE-powered K*:\n");
-				Stopwatch luteSw = new Stopwatch().start();
-				GradientDescentPfunc lutePfunc = new GradientDescentPfunc(luteEcalc);
-				for (Sequence sequence : sequences) {
-				//{ Sequence sequence = sequences.get(1);
-					log("\t%s   %s   (%d energies)", sequence, calcPfunc.apply(sequence, lutePfunc), luteEcalc.getNumRequests());
-				}
-				log("done in %s, %d energy calculations", luteSw.stop().getTime(2), luteEcalc.getNumRequests());
-
-				*/
-			}
+		// run traditional K*
+		log("\nplain old K*:\n");
+		confEcalc.resetCounters();
+		Stopwatch oldSw = new Stopwatch().start();
+		GradientDescentPfunc oldPfunc = new GradientDescentPfunc(confEcalc);
+		oldPfunc.setConfTable(confTable);
+		for (Sequence sequence : sequences) {
+		//{ Sequence sequence = sequences.get(1);
+			log("\t%s   %s   (%d energies)", sequence, calcPfunc.apply(sequence, oldPfunc), confEcalc.getNumRequests());
 		}
+		log("done in %s, %d energy calculations", oldSw.stop().getTime(2), confEcalc.getNumRequests());
+
+		// use LUTE to do the same thing
+		log("\nLUTE-powered K*:\n");
+		Stopwatch luteSw = new Stopwatch().start();
+		GradientDescentPfunc lutePfunc = new GradientDescentPfunc(luteEcalc);
+		for (Sequence sequence : sequences) {
+		//{ Sequence sequence = sequences.get(1);
+			log("\t%s   %s   (%d energies)", sequence, calcPfunc.apply(sequence, lutePfunc), luteEcalc.getNumRequests());
+		}
+		log("done in %s, %d energy calculations", luteSw.stop().getTime(2), luteEcalc.getNumRequests());
+
+		*/
 	}
 
 	private static List<Sequence> getAllSequences(SimpleConfSpace confSpace) {

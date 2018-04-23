@@ -64,12 +64,38 @@ public class TuplesIndex implements Iterable<RCTuple> {
 		return tuples.size();
 	}
 
+	public Integer getIndex(int pos1, int rc1) {
+		return index.getOneBody(pos1, rc1);
+	}
+
+	public Integer getIndex(int pos1, int rc1, int pos2, int rc2) {
+		return index.getPairwise(pos1, rc1, pos2, rc2);
+	}
+
+	public Integer getIndex(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
+		// TODO: is there a more efficient way to do this?
+		return getIndex(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted());
+	}
+
+	public Integer getIndex(RCTuple tuple) {
+		return index.getTuple(tuple);
+	}
+
+	public boolean contains(int pos1, int rc1) {
+		return getIndex(pos1, rc1) != null;
+	}
+
 	public boolean contains(int pos1, int rc1, int pos2, int rc2) {
-		return index.getPairwise(pos1, rc1, pos2, rc2) != null;
+		return getIndex(pos1, rc1, pos2, rc2) != null;
+	}
+
+	public boolean contains(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
+		// TODO: is there a more efficient way to do this?
+		return getIndex(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted()) != null;
 	}
 
 	public boolean contains(RCTuple tuple) {
-		return index.getTuple(tuple) != null;
+		return getIndex(tuple) != null;
 	}
 
 	public boolean isAssignmentCoveredByPairs(int[] conf, int nextPos, int nextRC) {

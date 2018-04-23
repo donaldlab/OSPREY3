@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.tools.HashCalculator;
 
 import java.util.*;
@@ -20,6 +21,19 @@ public class Conf {
 		}
 
 		return conf;
+	}
+
+	public static int[] make(ConfIndex index) {
+		int[] conf = new int[index.numPos];
+		Conf.clear(conf);
+		for (int i=0; i<index.numDefined; i++) {
+			conf[index.definedPos[i]] = index.definedRCs[i];
+		}
+		return conf;
+	}
+
+	public static void clear(int[] conf) {
+		Arrays.fill(conf, Unassigned);
 	}
 
 	public static int hashCode(int[] conf) {
