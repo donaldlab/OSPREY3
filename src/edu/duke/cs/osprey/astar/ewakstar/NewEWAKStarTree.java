@@ -29,7 +29,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
     //COMETreeNode.assignments assigns each level an index in AATypeOptions.get(level), and thus an AA type
     //If -1, then no assignment yet
 
-    String wtSeq[];
+    Sequence wtSeq;
 
     //information on states
 
@@ -51,9 +51,8 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
     ConfEnergyCalculator confECalc = null;//only needed if we want minimized structs.  one per state like the other arrays
 
-
     public NewEWAKStarTree(int numTreeLevels, ArrayList<ArrayList<String>> AATypeOptions,
-                           String[] wtSeq, SimpleConfSpace confSpace,
+                           Sequence wtSeq, SimpleConfSpace confSpace,
                            PrecomputedMatrices precompMats, ArrayList<Integer> mutablePosNums,
                          ConfEnergyCalculator confECalc) {
 
@@ -252,8 +251,18 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
     @Override
     public ConfSearch.ScoredConf outputNode(FullAStarNode node){
         //Let's print more info when outputting a node
-        printBestSeqInfo((EWAKStarNode)node);
-        return new ConfSearch.ScoredConf(node.getNodeAssignments(), node.getScore());
+        EWAKStarNode myNode = (EWAKStarNode)node;
+        String childSeq = seqAsString(myNode.getNodeAssignments());
+        System.out.println("This node's sequence: "+childSeq);
+        if (childSeq.equals(Sequence.makeWildTypeEWAKStar(wtSeq))){
+            System.out.println("Setting WT score as minimized energy...");
+            int conf[] = myNode.stateTree.getQueue().peek().getNodeAssignments();
+            RCTuple rct = new RCTuple(conf);
+            Double wtEnergy = confECalc.calcEnergy(rct).energy;
+            myNode.setScore(wtEnergy);
+        }
+        printBestSeqInfo(myNode);
+        return new ConfSearch.ScoredConf(myNode.getNodeAssignments(), myNode.getScore());
     }
 
 
@@ -288,16 +297,18 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
             for(int pos=0; pos<stateNumPos; pos++)
                 System.out.print( conf[pos] + " " );
 
-            RCTuple rct = new RCTuple(conf);
 
-            //System.out.println( "Minimized energy: "+
-                    //get the minimized energy for the conformation
-            //     confECalc.calcEnergy(rct).energy);
+//            RCTuple rct = new RCTuple(conf);
+//
+//            System.out.println( "Minimized energy: "+
+//                    //get the minimized energy for the conformation
+//                 confECalc.calcEnergy(rct).energy);
         }
 
         System.out.println();
 //        printNodeExpansionData();
     }
+
 
     public void printNodeExpansionData(){
         int numSeqDefNodes = 0;

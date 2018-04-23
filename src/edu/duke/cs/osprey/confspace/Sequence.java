@@ -127,6 +127,33 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 		return makeFromAssignments(confSpace, conf.getAssignments());
 	}
 
+	/**
+	 * Make a Sequence from a COMETs/EWAKStar sequence string (lowegard)
+	 */
+	public static Sequence makeFromEWAKStar(String seq, Sequence WT, SimpleConfSpace confSpace){
+		Sequence newSeq = new Sequence(WT);
+		System.out.println(newSeq);
+		List<SimpleConfSpace.Position> pos = confSpace.positions;
+		String[] fixedSeq = seq.split("_");
+		int i = 0;
+		for (SimpleConfSpace.Position p : pos ){
+			newSeq.set(p,fixedSeq[i]);
+			i++;
+		}
+
+		return newSeq;
+	}
+
+	public static String makeWildTypeEWAKStar(Sequence WT){
+		String seq = WT.toString();
+		String[] splitSeq = seq.split(" ");
+		String newSeq = "";
+		for (int i = 0; i<splitSeq.length; i++){
+			newSeq += splitSeq[i].split("=")[1]+"_";
+		}
+		return newSeq;
+	}
+
 	private Sequence(SimpleConfSpace confSpace) {
 		this.confSpace = confSpace;
 		this.resTypes = new String[confSpace.positions.size()];

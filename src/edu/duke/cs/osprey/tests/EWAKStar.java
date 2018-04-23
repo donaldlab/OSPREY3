@@ -49,8 +49,7 @@ public class EWAKStar {
                 new String[] {"ASN","GLN","SER","THR"}
         );
 
-        String wtSeq[] = null;
-        int numSeqsWanted = 1;
+        int numSeqsWanted = 1000;
         ConfEnergyCalculator[] confECalc = new ConfEnergyCalculator[numStates];
         String[] stateNames = new String[] {"3K75.pl","3K75.l","3K75.p"};
         
@@ -58,7 +57,9 @@ public class EWAKStar {
         pruningSettings.typedep = true;
         boolean useERef = true;
 
-        double unboundEw = 1;
+        Double unboundEw = 0.0;
+        Double boundEw = 5.0;
+        Double Ival = 0.0;
 
         for(int state=0; state<numStates; state++){
             confSpaces[state] = prepareConfSpace(state,AATypeOptions);
@@ -77,19 +78,20 @@ public class EWAKStar {
                     .build()
                     .calcEnergyMatrix();
 
-            double Ival = 0;
-            double Ew = 0;
             if (state==1) {
-                Ew = unboundEw;
+                precompMats[state] = new PrecomputedMatrices(Ival, unboundEw, stateNames[state], emat,
+                        confSpaces[state], ecalc, confECalc[state], new EPICSettings(), new LUTESettings(),
+                        pruningSettings);//rigid design
             }
-            precompMats[state] = new PrecomputedMatrices(Ival, Ew, stateNames[state], emat,
+
+            precompMats[state] = new PrecomputedMatrices(Ival, boundEw, stateNames[state], emat,
                     confSpaces[state], ecalc, confECalc[state], new EPICSettings(), new LUTESettings(),
                     pruningSettings);//rigid design
         }
 
 
         NewEWAKStarDoer ed = new NewEWAKStarDoer(confSpaces,precompMats,
-            boundMutPos,AATypeOptions,wtSeq,numSeqsWanted, confECalc, unboundEw);
+            boundMutPos, AATypeOptions,numSeqsWanted, confECalc, unboundEw, boundEw);
 
         ArrayList<String> bestSequences = ed.calcBestSequences();
 

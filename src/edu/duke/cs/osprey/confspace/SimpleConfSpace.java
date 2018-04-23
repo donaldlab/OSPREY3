@@ -71,7 +71,7 @@ public class SimpleConfSpace implements Serializable {
 	
 	public static class Position implements Serializable {
 		
-		public final int index;
+		public int index;
 		public final Strand strand;
 		public final String resNum;
 		public final Strand.ResidueFlex resFlex;
@@ -83,6 +83,10 @@ public class SimpleConfSpace implements Serializable {
 			this.resNum = res.getPDBResNumber();
 			this.resFlex = strand.flexibility.get(resNum);
 			this.resConfs = new ArrayList<>();
+		}
+
+		public void setIndex(int index){
+			this.index = index;
 		}
 
 		@Override
@@ -102,6 +106,7 @@ public class SimpleConfSpace implements Serializable {
 				conf[index]
 			);
 		}
+
 	}
 	
 	public static class ResidueConf implements Serializable {
