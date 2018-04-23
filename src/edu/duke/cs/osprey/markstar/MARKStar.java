@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -30,12 +31,12 @@ import java.util.stream.Collectors;
  */
 public class MARKStar {
 
-	public static interface ConfEnergyCalculatorFactory {
+	public interface ConfEnergyCalculatorFactory {
 		ConfEnergyCalculator make(SimpleConfSpace confSpace, EnergyCalculator ecalc);
 	}
 
-	public static interface ConfSearchFactory {
-		public ConfSearch make(EnergyMatrix emat, RCs rcs);
+	public interface ConfSearchFactory {
+		ConfSearch make(EnergyMatrix emat, RCs rcs);
 	}
 
 	// *sigh* Java makes this stuff so verbose to do...
@@ -197,7 +198,7 @@ public class MARKStar {
 		}
 	}
 
-	public static enum ConfSpaceType {
+	public enum ConfSpaceType {
 		Protein,
 		Ligand,
 		Complex
@@ -241,6 +242,7 @@ public class MARKStar {
 
 			// make the partition function
 			RecursiveAStarTree astar = (RecursiveAStarTree) confSearchFactory.make(emat, sequence.makeRCs());
+			MARKStarBound MARKBound = new MARKStarBound(confSpace, emat, sequence.makeRCs());
 			PartitionFunction pfunc = new RecursivePartitionFunction(astar, confEcalc);
 			pfunc.setReportProgress(settings.showPfuncProgress);
 
@@ -255,7 +257,7 @@ public class MARKStar {
 		}
 	}
 
-	private static interface Scorer {
+	private interface Scorer {
 		KStarScore score(int sequenceNumber, PartitionFunction.Result proteinResult, PartitionFunction.Result ligandResult, PartitionFunction.Result complexResult);
 	}
 

@@ -1,12 +1,14 @@
 package edu.duke.cs.osprey.markstar.framework;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.linked.LinkedConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -79,7 +81,13 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
         ScorerFactory hscorerFactory = (emat) -> new TraditionalPairwiseHScorer(emat, rcs);
 
+        AStarSearchFactory aStarSearchFactory = (emat, astarrcs) -> {
+            return new ConfAStarTree.Builder(emat, astarrcs)
+                    .setMPLP()
+                    .build();
+        };
 
+        ConfSearch AStarTree = aStarSearchFactory.make(energyMatrix, rcs);
 		// make the A* scorers
 		gscorer = gscorerFactory.make(energyMatrix);
 		hscorer = hscorerFactory.make(energyMatrix);
@@ -186,21 +194,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     @Override
     public int compareTo(MARKStarNode other){
-        /**
-         * Compares to another MARKStarNode.
-         * The node with a larger difference between upper and lower bound is less.
-         *
-         * @param   other the {@code MARKStarNode} to compare
-         * @return  1 if the other difference is smaller, -1 if the other difference
-         *          is larger, and 0 otherwise.
-         */
-        if ((this.errorUpperBound - this.errorLowerBound) < (other.errorUpperBound - other.errorLowerBound)){
-            return 1;
-        }else if ((this.errorUpperBound - this.errorLowerBound) > (other.errorUpperBound - other.errorLowerBound)){
-            return -1;
-        }else {
-            return 0;
-        }
+        return Double.compare(this.errorBound,other.errorBound);
+
     }
 
     public void expand() {
@@ -303,4 +298,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
     }
 
+    public interface AStarSearchFactory {
+        ConfSearch make(EnergyMatrix energyMatrix, RCs rcs);
+    }
 }

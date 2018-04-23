@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -15,6 +16,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.MARKStar.ConfSearchFactory;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -38,6 +40,30 @@ public class TestMARKStar {
 	public static class Result {
 		public MARKStar kstar;
 		public List<MARKStar.ScoredSequence> scores;
+	}
+
+	public static void testMARKStar(){
+		ConfSpaces confSpaces = make1GUA11();
+		Parallelism parallelism = Parallelism.makeCpu(4);
+		EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams).setParallelism(parallelism).build();
+		// how should we define energies of conformations?
+		MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
+			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
+							.build()
+							.calcReferenceEnergies()
+					).build();
+		};
+
+		// how should confs be ordered and searched?
+		ConfSearchFactory confSearchFactory = (emat, pmat) -> {
+			return new RecursiveAStarTree.Builder(emat, pmat)
+					.setTraditional()
+					.build();
+		};
+		MARKStar.Settings settings = new MARKStar.Settings.Builder().build();
+		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
+		run.complex.calcEmat();
 	}
 
 	public static Result runKStar(ConfSpaces confSpaces, double epsilon) {
