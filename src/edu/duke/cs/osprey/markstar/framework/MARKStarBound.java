@@ -10,6 +10,8 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -19,16 +21,72 @@ import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.MARKStar;
+import edu.duke.cs.osprey.markstar.framework.MARKStarNode.Node;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.astar.conf.RCs;
 
+import java.math.BigDecimal;
 import java.util.*;
 
-public class MARKStarBound {
+public class MARKStarBound implements PartitionFunction {
+
+    private double targetEpsilon;
+
+    public void setReportProgress(boolean showPfuncProgress) {
+    }
+
+    @Override
+    public void setConfListener(ConfListener val) {
+
+    }
+
+    @Override
+    public void init(double targetEpsilon) {
+
+    }
+
+    public void init(double epsilon, BigDecimal stabilityThreshold) {
+        targetEpsilon = epsilon;
+    }
+
+    @Override
+    public Status getStatus() {
+        return null;
+    }
+
+    @Override
+    public Values getValues() {
+        return null;
+    }
+
+    @Override
+    public int getParallelism() {
+        return 0;
+    }
+
+    @Override
+    public int getNumConfsEvaluated() {
+        return 0;
+    }
+
+    @Override
+    public void compute(int maxNumConfs) {
+
+    }
+
+    public void compute() {
+        while (epsilonBound > targetEpsilon)
+            tightenBound();
+    }
+
+    public PartitionFunction.Result makeResult() {
+        return null;
+    }
 
     public static class Builder {
 
@@ -149,21 +207,39 @@ public class MARKStarBound {
     private boolean boundChanged = false;
     private ConfIndex confIndex;
     public final AStarOrder order;
+    // TODO: Implement new AStarPruner for MARK*?
     public final AStarPruner pruner;
     private RCs RCs;
     private Parallelism parallelism;
     private TaskExecutor tasks;
     private ObjectPool<ScoreContext> contexts;
+    MARKStarNode.ScorerFactory gscorerFactory;
+    MARKStarNode.ScorerFactory hscorerFactory;
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix emat, RCs rcs) {
         this.queue = Queue.PriorityFactory.of(null);
+        gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
-        rootNode = MARKStarNode.makeRoot(confSpace, emat, rcs, true);
+        MPLPUpdater updater = new EdgeUpdater();
+        hscorerFactory = (emats) -> new MPLPPairwiseHScorer(updater, emats, 5, 0.03);
+
+        rootNode = MARKStarNode.makeRoot(confSpace, emat, rcs, gscorerFactory, hscorerFactory, true);
         queue.push(rootNode);
         confIndex = new ConfIndex(rcs.getNumPos());
         this.RCs = rcs;
-        this.order = null;
+        this.order = new DynamicHMeanAStarOrder();
+        order.setScorers(gscorerFactory.make(emat),hscorerFactory.make(emat));
         this.pruner = null;
+
+        this.contexts = new ObjectPool<>((ingored) -> {
+            ScoreContext context = new ScoreContext();
+            context.index = new ConfIndex(rcs.getNumPos());
+            context.gscorer = gscorerFactory.make(emat);
+            context.hscorer = hscorerFactory.make(emat);
+            return context;
+        });
+
+        setParallelism(null);
     }
 
     private static class ScoreContext {
@@ -172,17 +248,6 @@ public class MARKStarBound {
         public AStarScorer hscorer;
     }
 
-    public MARKStarBound(SimpleConfSpace confSpace, AStarOrder order,
-                         AStarPruner pruner, EnergyMatrix emat, RCs rcs, boolean reportProgress){
-        this.queue = Queue.PriorityFactory.of(null);
-
-        rootNode = MARKStarNode.makeRoot(confSpace, emat, rcs, reportProgress);
-        queue.push(rootNode);
-        confIndex = new ConfIndex(rcs.getNumPos());
-        this.order = order;
-        this.RCs = rcs;
-        this.pruner = pruner;
-    }
 
     public double getBound(){
         if(boundChanged)
@@ -204,9 +269,8 @@ public class MARKStarBound {
         contexts.allocate(parallelism.getParallelism());
     }
     public void tightenBound(){
-        MARKStarNode MARKStarNode = queue.poll();
-        ConfAStarNode node = MARKStarNode.getConfSearchNode();
-        RCs rcs = RCs;
+        MARKStarNode curNode = queue.poll();
+        Node node = curNode.getConfSearchNode();
 
         // which pos to expand next?
         int numChildren = 0;
@@ -217,7 +281,7 @@ public class MARKStarBound {
 
         // score child nodes with tasks (possibly in parallel)
         List<MARKStarNode> children = new ArrayList<>();
-        for (int nextRc : rcs.get(nextPos)) {
+        for (int nextRc : RCs.get(nextPos)) {
 
             if (hasPrunedPair(confIndex, nextPos, nextRc)) {
                 continue;
@@ -236,8 +300,8 @@ public class MARKStarBound {
                     // score the child node differentially against the parent node
                     node.index(context.index);
                     ConfAStarNode child = node.assign(nextPos, nextRc);
-                    child.setGScore(context.gscorer.calcDifferential(context.index, rcs, nextPos, nextRc));
-                    child.setHScore(context.hscorer.calcDifferential(context.index, rcs, nextPos, nextRc));
+                    child.setGScore(context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc));
+                    child.setHScore(context.hscorer.calcDifferential(context.index, RCs, nextPos, nextRc));
                     return child;
                 }
 
@@ -245,14 +309,19 @@ public class MARKStarBound {
 
                 // collect the possible children
                 if (child.getScore() < Double.POSITIVE_INFINITY) {
-                    MARKStarNode MARKStarNodeChild = MARKStarNode.makeChild(child);
+                    MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
                     children.add(MARKStarNodeChild);
                 }
             });
         }
         tasks.waitForFinish();
+        curNode.computeBounds();
+        updateBound();
         numChildren += children.size();
         queue.pushAll(children);
+    }
+
+    private void updateBound() {
     }
 
     private boolean hasPrunedPair(ConfIndex confIndex, int nextPos, int nextRc) {

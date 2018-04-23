@@ -24,6 +24,7 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
 import org.junit.Test;
 
+import java.io.File;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -42,17 +43,22 @@ public class TestMARKStar {
 		public List<MARKStar.ScoredSequence> scores;
 	}
 
-	public static void testMARKStar(){
+	@Test
+	public void testMARKStar(){
 		ConfSpaces confSpaces = make1GUA11();
 		Parallelism parallelism = Parallelism.makeCpu(4);
-		EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams).setParallelism(parallelism).build();
+		EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+				.setParallelism(parallelism)
+				.build();
 		// how should we define energies of conformations?
 		MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
 			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
 					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
+                            .setCacheFile(new File("test.eref.emat"))
 							.build()
 							.calcReferenceEnergies()
-					).build();
+					)
+					.build();
 		};
 
 		// how should confs be ordered and searched?
@@ -61,9 +67,10 @@ public class TestMARKStar {
 					.setTraditional()
 					.build();
 		};
-		MARKStar.Settings settings = new MARKStar.Settings.Builder().build();
+		MARKStar.Settings settings = new MARKStar.Settings.Builder().setEnergyMatrixCachePattern("*testmat.emat").build();
 		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
 		run.complex.calcEmat();
+		run.run();
 	}
 
 	public static Result runKStar(ConfSpaces confSpaces, double epsilon) {

@@ -6,8 +6,11 @@ import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.linked.LinkedConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -44,7 +47,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     private double computeErrorBounds() {
         errorBound = 0;
-        if(getChildren().size() < 1)
+        if(children == null || children.size() < 1)
             errorBound = errorUpperBound-errorLowerBound;
         else {
             for(MARKStarNode child: getChildren())
@@ -59,7 +62,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         confSearchNode.index(confIndex);
     }
 
-    public ConfAStarNode getConfSearchNode() {
+    public Node getConfSearchNode() {
         return confSearchNode;
     }
 
@@ -75,11 +78,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
 
     public static MARKStarNode makeRoot(SimpleConfSpace confSpace, EnergyMatrix energyMatrix, RCs rcs,
+                                        ScorerFactory gscorerFactory, ScorerFactory hscorerFactory,
                                         boolean reportProgress) {
 
-        ScorerFactory gscorerFactory = (emat) -> new PairwiseGScorer(emat);
-
-        ScorerFactory hscorerFactory = (emat) -> new TraditionalPairwiseHScorer(emat, rcs);
 
         AStarSearchFactory aStarSearchFactory = (emat, astarrcs) -> {
             return new ConfAStarTree.Builder(emat, astarrcs)
@@ -202,11 +203,14 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
     public void computeBounds() {
+        for(MARKStarNode childNode: children) {
+
+        }
     }
 
 
 
-    private static class Node implements ConfAStarNode {
+    public static class Node implements ConfAStarNode {
 
         private static int Unassigned = -1;
         public double gscore = Double.NaN;
@@ -251,7 +255,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
         @Override
         public double getHScore() {
-            throw new UnsupportedOperationException();
+            // We want it to be as small as possible since our A* implementation finds the min
+            return getMinScore()-getMaxScore();
         }
 
         @Override

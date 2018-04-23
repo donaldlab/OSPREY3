@@ -241,9 +241,7 @@ public class MARKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			RecursiveAStarTree astar = (RecursiveAStarTree) confSearchFactory.make(emat, sequence.makeRCs());
-			MARKStarBound MARKBound = new MARKStarBound(confSpace, emat, sequence.makeRCs());
-			PartitionFunction pfunc = new RecursivePartitionFunction(astar, confEcalc);
+			MARKStarBound pfunc = new MARKStarBound(confSpace, emat, sequence.makeRCs());
 			pfunc.setReportProgress(settings.showPfuncProgress);
 
 			// compute it
@@ -282,7 +280,9 @@ public class MARKStar {
 	/** Optional and overridable settings for K* */
 	public final Settings settings;
 
-	public MARKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator ecalc, ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, Settings settings) {
+	public MARKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex,
+					EnergyCalculator ecalc, ConfEnergyCalculatorFactory confEcalcFactory,
+					ConfSearchFactory confSearchFactory, Settings settings) {
 		this.protein = new ConfSpaceInfo(ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, ecalc));
 		this.ligand = new ConfSpaceInfo(ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, ecalc));
 		this.complex = new ConfSpaceInfo(ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, ecalc));
