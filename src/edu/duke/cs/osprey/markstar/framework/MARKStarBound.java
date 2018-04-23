@@ -225,6 +225,7 @@ public class MARKStarBound implements PartitionFunction {
 
         rootNode = MARKStarNode.makeRoot(confSpace, emat, rcs, gscorerFactory, hscorerFactory, true);
         queue.push(rootNode);
+        updateBound();
         confIndex = new ConfIndex(rcs.getNumPos());
         this.RCs = rcs;
         this.order = new DynamicHMeanAStarOrder();
@@ -269,6 +270,7 @@ public class MARKStarBound implements PartitionFunction {
         contexts.allocate(parallelism.getParallelism());
     }
     public void tightenBound(){
+        System.out.println("Current overall error bound: "+epsilonBound);
         MARKStarNode curNode = queue.poll();
         Node node = curNode.getConfSearchNode();
 
@@ -299,17 +301,18 @@ public class MARKStarBound implements PartitionFunction {
 
                     // score the child node differentially against the parent node
                     node.index(context.index);
-                    ConfAStarNode child = node.assign(nextPos, nextRc);
-                    child.setGScore(context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc));
-                    child.setHScore(context.hscorer.calcDifferential(context.index, RCs, nextPos, nextRc));
+                    Node child = node.assign(nextPos, nextRc);
+                    //TODO: Change this code to do the right thing.
+                    child.setGScore(0);
+                    curNode.scoreNode(child, context.index, RCs);
                     return child;
                 }
 
-            }, (ConfAStarNode child) -> {
+            }, (Node child) -> {
 
+                MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
                 // collect the possible children
                 if (child.getScore() < Double.POSITIVE_INFINITY) {
-                    MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
                     children.add(MARKStarNodeChild);
                 }
             });
@@ -322,6 +325,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void updateBound() {
+        epsilonBound = rootNode.getErrorBound();
     }
 
     private boolean hasPrunedPair(ConfIndex confIndex, int nextPos, int nextRc) {

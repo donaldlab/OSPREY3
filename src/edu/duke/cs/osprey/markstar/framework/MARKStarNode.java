@@ -33,15 +33,25 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     private double errorUpperBound;
     private double errorLowerBound;
     private double errorBound;
-    private PriorityQueue<MARKStarNode> children; // TODO: Pick appropriate data structure
+    private List<MARKStarNode> children; // TODO: Pick appropriate data structure
     private Node confSearchNode = null;
     private ConfIndex confSearchIndex = null;
     private RCs confSearchRCs = null;
 
 
-    private MARKStarNode(Node rootNode) {
-        confSearchNode = rootNode;
+    private MARKStarNode(Node confNode) {
+        System.out.println("New shiny node!");
+        confSearchNode = confNode;
+        errorUpperBound = confSearchNode.maxHScore;
+        errorLowerBound = confSearchNode.minHScore;
         computeErrorBounds();
+    }
+
+    public void scoreNode(Node confNode, ConfIndex confIndex, RCs rcs) {
+        confNode.gscore = gscorer.calc(confIndex, rcs);
+        confNode.minHScore = hscorer.calc(confIndex, rcs);
+        confNode.maxHScore = -negatedHScorer.calc(confIndex, rcs);
+
     }
 
 
@@ -55,6 +65,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
                 errorBound+= child.computeErrorBounds();
             }
         }
+        System.out.println("Node error bound: "+errorBound);
         return errorBound;
     }
 
@@ -66,8 +77,12 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return confSearchNode;
     }
 
-    public MARKStarNode makeChild(ConfAStarNode child) {
-        return null;
+    public MARKStarNode makeChild(Node child) {
+        MARKStarNode newChild = new MARKStarNode(child);
+        if(children == null)
+            children = new ArrayList<>();
+        children.add(newChild);
+        return newChild;
     }
 
 
@@ -203,11 +218,30 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
     public void computeBounds() {
-        for(MARKStarNode childNode: children) {
-
+        if(children == null || children.size() < 1) {
+            errorBound = confSearchNode.getHScore();
+            return;
         }
+        double errorSum = 0;
+        for(MARKStarNode childNode: children) {
+            errorSum += childNode.getErrorBound();
+        }
+        System.out.println("Error bound computed: "+errorSum);
+        errorBound = errorSum;
     }
 
+    public double getErrorBound() {
+        if(children == null || children.size() < 1) {
+            errorBound = confSearchNode.getHScore();
+            return errorBound;
+        }
+        double errorSum = 0;
+        for(MARKStarNode childNode: children) {
+            errorSum += childNode.getErrorBound();
+        }
+        errorBound = errorSum;
+        return errorBound;
+    }
 
 
     public static class Node implements ConfAStarNode {
