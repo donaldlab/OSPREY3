@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.tools.UnpossibleError;
 import java.math.BigInteger;
 import java.util.*;
 
+import static edu.duke.cs.osprey.tools.Log.formatBig;
 import static edu.duke.cs.osprey.tools.Log.log;
 
 
@@ -25,6 +26,11 @@ public class UniformConfSampler extends ConfSampler {
 	 * bound somewhat efficiently
 	 */
 	public BigInteger getNumConfsUpperBound(RCTuple tuple, TuplesIndex tuples) {
+
+		// small conf space? the best we can do is one conf (the tuple is an entire conf)
+		if (tuple.size() == confSpace.positions.size()) {
+			return BigInteger.ONE;
+		}
 
 		// make a conf with the tuple assignment
 		int[] conf = Conf.make(confSpace, tuple);
@@ -66,6 +72,9 @@ public class UniformConfSampler extends ConfSampler {
 		while (true) {
 
 			RCTuple tuple = samples.getLeastSampledTuple(unsampleableTuples);
+			if (tuple == null) {
+				throw new Error("can't find another tuple to sample. This is probably a bug?");
+			}
 			int numSamples = samples.getConfs(tuple).size();
 
 			// are we done yet?

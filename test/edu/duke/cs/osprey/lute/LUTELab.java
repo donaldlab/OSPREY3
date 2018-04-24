@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -27,6 +28,61 @@ import static edu.duke.cs.osprey.tools.Log.log;
 public class LUTELab {
 
 	public static void main(String[] args) {
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
+
+		train("protein", confSpaces.protein);
+		train("ligand", confSpaces.ligand);
+		train("complex", confSpaces.complex);
+	}
+
+	private static void train(String name, SimpleConfSpace confSpace) {
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(8))
+			.build()) {
+
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
+
+			// compute energy matrix
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+				.setCacheFile(new File(String.format("LUTE.%s.emat.dat", name)))
+				.build()
+				.calcEnergyMatrix();
+
+			// run DEE (super important for good LUTE fits!!)
+			PruningMatrix pmat = new SimpleDEE.Runner()
+				.setSinglesThreshold(100.0)
+				.setPairsThreshold(100.0)
+				.setGoldsteinDiffThreshold(10.0)
+				.setShowProgress(true)
+				.run(confSpace, emat);
+
+			final File confDBFile = new File(String.format("LUTE.%s.conf.db", name));
+			try (ConfDB confdb = new ConfDB(confSpace, confDBFile)) {
+				ConfDB.ConfTable confTable = confdb.new ConfTable("lute");
+
+				log("\nLUTE:\n");
+
+				final int randomSeed = 12345;
+				//final LUTE.Fitter fitter = LUTE.Fitter.LASSO;
+				final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
+				final double maxOverfittingScore = 1.5;
+				final double maxRMSE = 0.1;
+
+				confEcalc.resetCounters();
+
+				// compute LUTE fit
+				LUTE lute = new LUTE(confSpace);
+				ConfSampler sampler = new UniformConfSampler(confSpace, randomSeed);
+				lute.sampleTuplesAndFit(confEcalc, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
+				lute.reportConfSpaceSize(pmat);
+				lute.save(new File(String.format("LUTE.%s.dat", name)));
+			}
+		}
+	}
+
+	public static void oldMain() {
 
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
 		List<String> mutableResNums = Arrays.asList("A38", "A39");

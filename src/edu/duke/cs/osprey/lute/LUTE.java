@@ -3,7 +3,6 @@ package edu.duke.cs.osprey.lute;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -578,7 +577,7 @@ public class LUTE {
 			testSystem.setTupleEnergies(trainingSystem.tupleEnergies, trainingSystem.tupleEnergyOffset);
 
 			// measure overfitting by comparing ratio of rms errors
-			overfittingScore = testSystem.errors.rms/trainingSystem.errors.rms;
+			overfittingScore = calcOverfittingScore();
 			if (overfittingScore <= maxOverfittingScore) {
 				log("");
 				break;
@@ -628,6 +627,19 @@ public class LUTE {
 
 		log("total energy calculations: %d    overfitting score: %.4f <= %.4f", energies.size(), overfittingScore, maxOverfittingScore);
 		log("");
+	}
+
+	public double calcOverfittingScore() {
+
+		double num = testSystem.errors.rms;
+		double denom = trainingSystem.errors.rms;
+
+		if (num == 0.0 && denom == 0.0) {
+			// technically undefined, but let's assume we're not overfitting at all in this case
+			return 1.0;
+		} else {
+			return num/denom;
+		}
 	}
 
 	public void reportConfSpaceSize() {

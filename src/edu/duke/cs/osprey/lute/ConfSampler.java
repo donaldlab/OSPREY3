@@ -44,7 +44,7 @@ public abstract class ConfSampler {
 			// a simple linear search will have to be fast enough for now
 			int bestt = -1;
 			int bestSize = -1;
-			for (int t=1; t<tuples.size(); t++) {
+			for (int t=0; t<tuples.size(); t++) {
 
 				int size = numConfsByTuple[t];
 				if (bestt == -1 || size < bestSize) {
