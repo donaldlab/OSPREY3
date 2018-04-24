@@ -1,18 +1,9 @@
 package edu.duke.cs.osprey.markstar.framework;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
-import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.linked.LinkedConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
@@ -20,12 +11,13 @@ import edu.duke.cs.osprey.tools.ExpFunction;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
-    private static AStarScorer gscorer;
-    private static AStarScorer hscorer;
+    private static AStarScorer gScorer;
+    private static AStarScorer hScorer;
     private static AStarScorer negatedHScorer;
     /**
      * TODO: 1. Make MARKStarNodes spawn their own Node and MARKStarNode children.
@@ -36,13 +28,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     private double errorLowerBound;
     private double errorBound;
     private List<MARKStarNode> children; // TODO: Pick appropriate data structure
-    private Node confSearchNode = null;
-    private ConfIndex confSearchIndex = null;
-    private RCs confSearchRCs = null;
+    private Node confSearchNode;
 
 
     private MARKStarNode(Node confNode) {
-        System.out.println("New shiny node! " + this);
         confSearchNode = confNode;
         errorUpperBound = confSearchNode.maxHScore;
         errorLowerBound = confSearchNode.minHScore;
@@ -50,8 +39,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
     public void scoreNode(Node confNode, ConfIndex confIndex, RCs rcs) {
-        confNode.gscore = gscorer.calc(confIndex, rcs);
-        confNode.minHScore = hscorer.calc(confIndex, rcs);
+        confNode.gscore = gScorer.calc(confIndex, rcs);
+        confNode.minHScore = hScorer.calc(confIndex, rcs);
         confNode.maxHScore = -negatedHScorer.calc(confIndex, rcs);
 
     }
@@ -63,12 +52,12 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         if(children == null || children.size() < 1)
             errorBound = errorUpperBound-errorLowerBound;
         else {
-            for(MARKStarNode child: getChildren())
+            for(MARKStarNode child: children)
             {
                 errorBound+= child.computeErrorBounds();
             }
+            errorBound /= children.size();
         }
-        System.out.println("Node error bound: "+errorBound);
         return errorBound;
     }
 
@@ -100,16 +89,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
                                         boolean reportProgress) {
 
 
-        AStarSearchFactory aStarSearchFactory = (emat, astarrcs) -> {
-            return new ConfAStarTree.Builder(emat, astarrcs)
-                    .setMPLP()
-                    .build();
-        };
-
-        ConfSearch AStarTree = aStarSearchFactory.make(energyMatrix, rcs);
 		// make the A* scorers
-		gscorer = gscorerFactory.make(energyMatrix);
-		hscorer = hscorerFactory.make(energyMatrix);
+		gScorer = gscorerFactory.make(energyMatrix);
+		hScorer = hscorerFactory.make(energyMatrix);
 		negatedHScorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, energyMatrix));
 
 		ConfIndex confIndex = new ConfIndex(confSpace.positions.size());
@@ -117,98 +99,13 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 		// make the root node
 		Node rootNode = new Node(confSpace.positions.size());
 		rootNode.index(confIndex);
-		rootNode.gscore = gscorer.calc(confIndex, rcs);
-		rootNode.minHScore = hscorer.calc(confIndex, rcs);
+		rootNode.gscore = gScorer.calc(confIndex, rcs);
+		rootNode.minHScore = hScorer.calc(confIndex, rcs);
 		rootNode.maxHScore = -negatedHScorer.calc(confIndex, rcs);
 		return new MARKStarNode(rootNode);
 	}
 
 
-    private void dummyBoundComputationCode(Node node, double queryScore, RCs rcs) {
-
-		// find the possible assignment that maximizes the number of pruned confs
-		List<Node> childNodes = new ArrayList<>();
-		double bestPosScore = Double.NEGATIVE_INFINITY;
-		int bestPos = -1;
-        ConfIndex confIndex = null;
-        for (int i = 0; i<confIndex.numUndefined; i++) {
-			int pos = confIndex.undefinedPos[i];
-
-			int[] posRCs = rcs.get(pos);
-			int numSubTreesPruned = 0;
-
-			for (int rc : posRCs) {
-
-				Node childNode = node.assign(pos, rc); // TODO: use object pool to re-use memory?
-
-				// approximate the optimal sub-tree min,max scores using g+h scores
-				childNode.gscore = gscorer.calcDifferential(confIndex, rcs, pos, rc);
-				childNode.minHScore = hscorer.calcDifferential(confIndex, rcs, pos, rc);
-
-				if (childNode.getMinScore() > queryScore) {
-					numSubTreesPruned++;
-				} else {
-
-					childNode.maxHScore = -negatedHScorer.calcDifferential(confIndex, rcs, pos, rc);
-					if (childNode.getMaxScore() <= queryScore) {
-						numSubTreesPruned++;
-					}
-				}
-
-				childNodes.add(childNode);
-			}
-
-			// update the best pos so far
-			double posScore = (double)numSubTreesPruned/posRCs.length;
-			if (posScore > bestPosScore) {
-				bestPosScore = posScore;
-				bestPos = pos;
-			}
-		}
-		assert (bestPos >= 0);
-
-		// try to prune child nodes under the best pos
-		Iterator<Node> iter = childNodes.iterator();
-		while (iter.hasNext()) {
-			Node childNode = iter.next();
-
-			// ignore child nodes from the non-best positions
-			if (childNode.pos != bestPos) {
-				iter.remove();
-				continue;
-			}
-
-			if (childNode.getMinScore() > queryScore) {
-				iter.remove();
-				continue;
-			}
-
-			if (childNode.getMaxScore() <= queryScore) {
-				iter.remove();
-				continue;
-			}
-
-			// can't prune, keep this child node in the list
-		}
-
-	}
-
-    public double getErrorLowerBound(){
-        return errorLowerBound;
-    }
-
-    public double getErrorUpperBound(){
-        return errorUpperBound;
-    }
-
-    public Collection<MARKStarNode> getChildren(){
-        if(children == null)
-            generateChildren();
-        return this.children;
-    }
-
-    private void generateChildren() {
-    }
 
 
     @Override
@@ -217,21 +114,6 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     }
 
-    public void expand() {
-    }
-
-    public void computeBounds() {
-        if(children == null || children.size() < 1) {
-            errorBound = confSearchNode.getHScore();
-            return;
-        }
-        double errorSum = 0;
-        for(MARKStarNode childNode: children) {
-            errorSum += childNode.getErrorBound();
-        }
-        System.out.println("Error bound computed: "+errorSum);
-        errorBound = errorSum;
-    }
 
     public double getErrorBound() {
         if(children == null || children.size() < 1) {
@@ -295,7 +177,11 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             // We want it to be as small as possible since our A* implementation finds the min
             ExpFunction ef = new ExpFunction();
             BigDecimal upperBound = ef.exp(-getMinScore());
-            double ErrorBound = upperBound.subtract(ef.exp(-getMaxScore())).divide(upperBound).doubleValue();
+            System.out.println("g:"+gscore+", max: "+maxHScore+", min: "+minHScore);
+            System.out.println("Upper bound: "+upperBound.setScale(4,RoundingMode.FLOOR).toEngineeringString());
+            double ErrorBound = 0;
+            if(upperBound.doubleValue() > 0)
+                ErrorBound = upperBound.subtract(ef.exp(-getMaxScore())).divide(upperBound).doubleValue();
 
             return -ErrorBound;
         }
@@ -342,9 +228,5 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             }
             return numConfs;
         }
-    }
-
-    public interface AStarSearchFactory {
-        ConfSearch make(EnergyMatrix energyMatrix, RCs rcs);
     }
 }
