@@ -179,11 +179,11 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             BigDecimal upperBound = ef.exp(-getMinScore());
             System.out.println("g:"+gscore+", max: "+maxHScore+", min: "+minHScore);
             System.out.println("Upper bound: "+upperBound.setScale(4,RoundingMode.FLOOR).toEngineeringString());
-            double ErrorBound = 0;
+            double errorBound = 0;
             if(upperBound.doubleValue() > 0)
-                ErrorBound = upperBound.subtract(ef.exp(-getMaxScore())).divide(upperBound).doubleValue();
+                errorBound = upperBound.subtract(ef.exp(-getMaxScore())).divide(upperBound).doubleValue();
 
-            return -ErrorBound;
+            return -errorBound;
         }
 
         @Override
