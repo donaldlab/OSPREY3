@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.kstar.KStarScore;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
 public interface PartitionFunction {
@@ -101,9 +102,11 @@ public interface PartitionFunction {
 		}
 
 		public BigDecimal calcUpperBound() {
-			BigDecimal x = MathTools.bigAdd(qstar, qprime, decimalPrecision);
-			x = MathTools.bigAdd(x, pstar, decimalPrecision);
-			return x;
+			return new BigMath(decimalPrecision)
+				.set(qstar)
+				.add(qprime)
+				.add(pstar)
+				.get();
 		}
 	}
 

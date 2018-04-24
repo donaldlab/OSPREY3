@@ -23,6 +23,9 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
+import edu.duke.cs.osprey.lute.LUTEGScorer;
+import edu.duke.cs.osprey.lute.LUTEHScorer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -105,6 +108,16 @@ public class ConfAStarTree implements ConfSearch {
 				builder.numIterations,
 				builder.convergenceThreshold
 			);
+			return this;
+		}
+
+		/**
+		 * Uses estimation functions that are compatible with LUTE conformation energies
+		 */
+		public Builder setLUTE(LUTEConfEnergyCalculator luteEcalc) {
+			order = new DynamicHMeanAStarOrder();
+			gscorer = new LUTEGScorer(luteEcalc);
+			hscorer = new LUTEHScorer(luteEcalc);
 			return this;
 		}
 		

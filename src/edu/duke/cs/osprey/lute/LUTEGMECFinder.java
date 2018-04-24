@@ -2,7 +2,6 @@ package edu.duke.cs.osprey.lute;
 
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.externalMemory.*;
 import edu.duke.cs.osprey.gmec.ConfPrinter;
@@ -88,11 +87,7 @@ public class LUTEGMECFinder {
 		Queue.FIFO<ConfSearch.ScoredConf> confs = Queue.FIFOFactory.of();
 
 		ConfAStarTree search = new ConfAStarTree.Builder(null, pmat)
-			.setCustom(
-				new StaticScoreHMeanAStarOrder(),
-				new LUTEGScorer(confEcalc),
-				new LUTEHScorer(confEcalc)
-			)
+			.setLUTE(confEcalc)
 			.build();
 
 		// start searching for the min score conf
