@@ -12,7 +12,7 @@ public class EWAKStarNode extends FullAStarNode{
     PruningMatrix pruneMat;//pruning matrix for the PL state
 
     //These things are only needed (and defined) for fully defined sequences
-    ConfTree<FullAStarNode> stateTree = null;//tree searching conf space for state PL
+    ConfTree<FullAStarNode> stateTree = null;//tree searching conf space for state
     double stateUB;//upper bounds on GMEC for PL state
     
     public EWAKStarNode(int[] nodeAssignments, PruningMatrix pruneMat) {

@@ -43,6 +43,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
     //(not necessarily an onto mapping)
 
     int stateNumPos;
+    double wtMinimizedEnergy = Double.POSITIVE_INFINITY;
 
 
     int numSeqsReturned = 0;
@@ -65,6 +66,10 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
         this.confECalc = confECalc;
 
         stateNumPos = confSpace.getNumPos();
+    }
+
+    public void setAATypeOptions(ArrayList<ArrayList<String>> newAATypeOptions){
+        this.AATypeOptions = newAATypeOptions;
     }
 
     @Override
@@ -253,15 +258,13 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
         //Let's print more info when outputting a node
         EWAKStarNode myNode = (EWAKStarNode)node;
         String childSeq = seqAsString(myNode.getNodeAssignments());
-        System.out.println("This node's sequence: "+childSeq);
         if (childSeq.equals(Sequence.makeWildTypeEWAKStar(wtSeq))){
             System.out.println("Setting WT score as minimized energy...");
             int conf[] = myNode.stateTree.getQueue().peek().getNodeAssignments();
             RCTuple rct = new RCTuple(conf);
-            Double wtEnergy = confECalc.calcEnergy(rct).energy;
-            myNode.setScore(wtEnergy);
+            wtMinimizedEnergy = confECalc.calcEnergy(rct).energy;
         }
-        printBestSeqInfo(myNode);
+        //printBestSeqInfo(myNode);
         return new ConfSearch.ScoredConf(myNode.getNodeAssignments(), myNode.getScore());
     }
 
@@ -327,7 +330,6 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
         System.out.println(totGMECsCalcd+" state GMECs calculated: "+stateGMECsRet+" returned, "+stateGMECsInTree
                 +" in tree, "+stateGMECsForPruning+" for pruned sequences.");
     }
-
 
 
     int countGMECsInTree(){

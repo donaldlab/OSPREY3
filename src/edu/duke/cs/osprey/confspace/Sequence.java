@@ -132,7 +132,6 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 	 */
 	public static Sequence makeFromEWAKStar(String seq, Sequence WT, SimpleConfSpace confSpace){
 		Sequence newSeq = new Sequence(WT);
-		System.out.println(newSeq);
 		List<SimpleConfSpace.Position> pos = confSpace.positions;
 		String[] fixedSeq = seq.split("_");
 		int i = 0;

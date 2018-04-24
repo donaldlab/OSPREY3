@@ -35,11 +35,11 @@ import java.util.Arrays;
 public class EWAKStar {
     
     public static void main(String[] args){
-        int numStates = 3;
+        int numStates = 2;
         Integer[] pos = new Integer[]{3,4,5,6,7};
-        SimpleConfSpace[] confSpaces = new SimpleConfSpace[numStates];
-        PrecomputedMatrices[] precompMats = new PrecomputedMatrices[numStates];
+        Integer[] posL = new Integer[]{0,1,2,3,4};
         ArrayList<Integer> boundMutPos = new ArrayList<> (Arrays.asList(pos));
+        ArrayList<Integer> unboundMutPos = new ArrayList<> (Arrays.asList(posL));
         
         ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
                 new String[] {"ILE","LEU","MET","PHE","TRP","TYR","VAL"},
@@ -49,49 +49,62 @@ public class EWAKStar {
                 new String[] {"ASN","GLN","SER","THR"}
         );
 
-        int numSeqsWanted = 1000;
-        ConfEnergyCalculator[] confECalc = new ConfEnergyCalculator[numStates];
-        String[] stateNames = new String[] {"3K75.pl","3K75.l","3K75.p"};
+        int numSeqsWanted = 10000;
         
         PruningSettings pruningSettings = new PruningSettings();
         pruningSettings.typedep = true;
-        boolean useERef = true;
 
-        Double unboundEw = 0.0;
-        Double boundEw = 5.0;
-        Double Ival = 0.0;
+        double unboundEw = 15.0;
+        double boundEw = 15.0;
+        double Ival = 0.0;
+        String startResPL = "040";
+        String endResPL = "0428";
+        String startResL = "0363";
+        String endResL = "0428";
+        String pdbFile = "examples/3K75.3LQC/3K75.b.shell.pdb";
+        String[] mutResNums = new String[] {"0391","0409","0411","0422","0424"};
 
-        for(int state=0; state<numStates; state++){
-            confSpaces[state] = prepareConfSpace(state,AATypeOptions);
-            ForcefieldParams ffparams = new ForcefieldParams();
-            EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces[state], ffparams).build();
+        Molecule mol = PDBIO.readFile(pdbFile);
+        Strand strandPL = new Strand.Builder(mol).setResidues(startResPL, endResPL).build();
+        Strand strandL = new Strand.Builder(mol).setResidues(startResL, endResL).build();
 
-            ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(confSpaces[state], ecalc);
-            if(useERef){
-                SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(confSpaces[state],ecalc).build();
-                confEcalcBuilder.setReferenceEnergies(eref);
-            }
-            confECalc[state] = confEcalcBuilder.build();
-
-            EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc[state])
-                    .setCacheFile(new File("ewak."+Integer.toString(state)+".emat"))
-                    .build()
-                    .calcEnergyMatrix();
-
-            if (state==1) {
-                precompMats[state] = new PrecomputedMatrices(Ival, unboundEw, stateNames[state], emat,
-                        confSpaces[state], ecalc, confECalc[state], new EPICSettings(), new LUTESettings(),
-                        pruningSettings);//rigid design
-            }
-
-            precompMats[state] = new PrecomputedMatrices(Ival, boundEw, stateNames[state], emat,
-                    confSpaces[state], ecalc, confECalc[state], new EPICSettings(), new LUTESettings(),
-                    pruningSettings);//rigid design
+        for(int mutPos=0; mutPos<AATypeOptions.size(); mutPos++) {
+            strandPL.flexibility.get(mutResNums[mutPos]).setLibraryRotamers(AATypeOptions.get(mutPos)).setContinuous();
+            strandL.flexibility.get(mutResNums[mutPos]).setLibraryRotamers(AATypeOptions.get(mutPos)).setContinuous();
         }
 
+        strandPL.flexibility.get("067").setLibraryRotamers("Phe").setContinuous();
+        strandPL.flexibility.get("090").setLibraryRotamers("Thr").setContinuous();
+        strandPL.flexibility.get("0136").setLibraryRotamers("Tyr").setContinuous();
 
-        NewEWAKStarDoer ed = new NewEWAKStarDoer(confSpaces,precompMats,
-            boundMutPos, AATypeOptions,numSeqsWanted, confECalc, unboundEw, boundEw);
+        SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strandPL).build();
+        SimpleConfSpace confSpaceL = new SimpleConfSpace.Builder().addStrand(strandL).build();
+
+        ForcefieldParams ffparams = new ForcefieldParams();
+        EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams).build();
+
+        ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(confSpace, ecalc);
+
+        //use reference energies
+        SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(confSpace,ecalc).build();
+        confEcalcBuilder.setReferenceEnergies(eref);
+
+        ConfEnergyCalculator confECalc = confEcalcBuilder.build();
+
+        EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
+                .setCacheFile(new File("ewak.PL.emat"))
+                .build()
+                .calcEnergyMatrix();
+
+        PrecomputedMatrices precompMat = new PrecomputedMatrices(Ival, boundEw, "PL", emat,
+                confSpace, ecalc, confECalc, new EPICSettings(), new LUTESettings(),
+                pruningSettings);
+
+        String LmatrixName = "ewak.L.emat";
+
+        NewEWAKStarDoer ed = new NewEWAKStarDoer(confSpace, confSpaceL, precompMat,
+            boundMutPos, unboundMutPos, AATypeOptions, numSeqsWanted, confECalc, unboundEw, boundEw,
+                startResL, endResL, mol, mutResNums, Ival, pruningSettings, LmatrixName);
 
         ArrayList<String> bestSequences = ed.calcBestSequences();
 
@@ -113,63 +126,7 @@ public class EWAKStar {
         return buf.toString();
 
     }
-    
-    private static SimpleConfSpace prepareConfSpace(int state, ArrayList<ArrayList<String>> AATypeOptions){
 
-        String pdbFile = "examples/3K75.3LQC/3K75.b.shell.pdb";
-        String[] mutResNums;
-        String startRes;
-        String endRes;
-
-        switch(state){
-            case 0:
-                startRes = "040";
-                endRes = "0428";
-                mutResNums = new String[] {"0391","0409","0411","0422","0424"};
-                break;
-            case 1:
-                startRes = "0363";
-                endRes = "0428";
-                mutResNums = new String[] {"0391","0409","0411","0422","0424"};
-                break;
-            case 2:
-                startRes = "040";
-                endRes = "0144";
-                mutResNums = new String[] {"067","090","0136"};
-                break;
-            default:
-                throw new RuntimeException("Unrecognized state");
-        }
-
-        Molecule mol = PDBIO.readFile(pdbFile);
-        Strand strand = new Strand.Builder(mol).setResidues(startRes, endRes).build();
-
-        if(state==0 || state==1){
-            for(int mutPos=0; mutPos<AATypeOptions.size(); mutPos++)
-                strand.flexibility.get(mutResNums[mutPos]).setLibraryRotamers(AATypeOptions.get(mutPos)).setContinuous();
-        }
-
-        if(state==0 || state==2){//bound state, set flexibility for non-designed chain, unbound state, set flexibility
-            strand.flexibility.get("067").setLibraryRotamers("Phe").setContinuous();
-            strand.flexibility.get("090").setLibraryRotamers("Thr").setContinuous();
-            strand.flexibility.get("0136").setLibraryRotamers("Tyr").setContinuous();
-        }
-
-        SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
-        return confSpace;
-
-    }
-    
-    private static ArrayList<ArrayList<Integer>> toDoubleList(int[]... arr){
-        ArrayList<ArrayList<Integer>> ans = new ArrayList<>();
-        for(int[] a : arr){
-            ArrayList<Integer> subAns = new ArrayList<>();
-            for(int b : a)
-                subAns.add(b);
-            ans.add(subAns);
-        }
-        return ans;
-    }
     
     private static ArrayList<ArrayList<String>> toDoubleList(String[]... arr){
         ArrayList<ArrayList<String>> ans = new ArrayList<>();
