@@ -20,6 +20,11 @@ This is the development version of Osprey. For stable versions, please visit:
 http://www.cs.duke.edu/donaldlab/osprey.php
 
 
+Citation requirements
+~~~~~~~
+We ask everyone who publishes or presents results from OSPREY to please mention the name "OSPREY," and to cite our papers as described in CITATION_REQUIREMENTS.txt (especially our new paper introducing OSPREY 3.0). 
+
+
 License
 ~~~~~~~
 
