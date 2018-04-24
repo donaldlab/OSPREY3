@@ -69,7 +69,6 @@ public class TestMARKStar {
 		};
 		MARKStar.Settings settings = new MARKStar.Settings.Builder().setEnergyMatrixCachePattern("*testmat.emat").build();
 		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
-		run.complex.calcEmat();
 		run.run();
 	}
 

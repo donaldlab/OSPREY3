@@ -35,7 +35,7 @@ import java.util.*;
 
 public class MARKStarBound implements PartitionFunction {
 
-    private double targetEpsilon;
+    private double targetEpsilon = 1;
 
     public void setReportProgress(boolean showPfuncProgress) {
     }
@@ -47,7 +47,7 @@ public class MARKStarBound implements PartitionFunction {
 
     @Override
     public void init(double targetEpsilon) {
-
+        this.targetEpsilon = targetEpsilon;
     }
 
     public void init(double epsilon, BigDecimal stabilityThreshold) {
@@ -80,8 +80,10 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     public void compute() {
-        while (epsilonBound > targetEpsilon)
+        while (epsilonBound > targetEpsilon) {
+            System.out.println("Tightening from epsilon of "+epsilonBound);
             tightenBound();
+        }
     }
 
     public PartitionFunction.Result makeResult() {

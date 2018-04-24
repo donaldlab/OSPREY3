@@ -16,7 +16,9 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
+import edu.duke.cs.osprey.tools.ExpFunction;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
 
@@ -40,7 +42,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
 
     private MARKStarNode(Node confNode) {
-        System.out.println("New shiny node!");
+        System.out.println("New shiny node! " + this);
         confSearchNode = confNode;
         errorUpperBound = confSearchNode.maxHScore;
         errorLowerBound = confSearchNode.minHScore;
@@ -57,6 +59,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     private double computeErrorBounds() {
         errorBound = 0;
+        System.out.println("Upper and Lower bounds : "+errorUpperBound+", "+errorLowerBound);
         if(children == null || children.size() < 1)
             errorBound = errorUpperBound-errorLowerBound;
         else {
@@ -232,7 +235,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     public double getErrorBound() {
         if(children == null || children.size() < 1) {
-            errorBound = confSearchNode.getHScore();
+            errorBound = -confSearchNode.getHScore();
             return errorBound;
         }
         double errorSum = 0;
@@ -290,7 +293,11 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         @Override
         public double getHScore() {
             // We want it to be as small as possible since our A* implementation finds the min
-            return getMinScore()-getMaxScore();
+            ExpFunction ef = new ExpFunction();
+            BigDecimal upperBound = ef.exp(-getMinScore());
+            double ErrorBound = upperBound.subtract(ef.exp(-getMaxScore())).divide(upperBound).doubleValue();
+
+            return -ErrorBound;
         }
 
         @Override
