@@ -30,6 +30,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 public class NewEWAKStarDoer {
 
@@ -39,6 +40,7 @@ public class NewEWAKStarDoer {
     int numSeqsWanted;//How many sequences to enumerate for bound complex - defaulted to 10000
 
     Sequence wtSeq;
+    Sequence wtSeqL;
 
     int numTreeLevels;//number of mutable positions
     ArrayList<ArrayList<String>> AATypeOptions = null; //AA types allowed at each mutable position
@@ -56,6 +58,7 @@ public class NewEWAKStarDoer {
 
     double unboundEw;
     double boundEw;
+    double orderOfMag;
     String wtSeqEWAKStar;
     String startResL;
     String endResL;
@@ -69,7 +72,7 @@ public class NewEWAKStarDoer {
 
     public NewEWAKStarDoer (SimpleConfSpace confSpace, SimpleConfSpace confSpaceL, PrecomputedMatrices precompMat,
                             ArrayList<Integer> mutablePosNums, ArrayList<Integer> mutablePosNumsL, ArrayList<ArrayList<String>> AATypeOptions,
-                            int numSeqsWanted, ConfEnergyCalculator confECalc, double unboundEw, double boundEw,
+                            int numSeqsWanted, ConfEnergyCalculator confECalc, double orderOfMag, double unboundEw, double boundEw,
                             String startResL, String endResL, Molecule mol, String[] mutResNums, double Ival,
                             PruningSettings pruningSettings, String LmatrixName) {
 
@@ -85,6 +88,7 @@ public class NewEWAKStarDoer {
         this.confSpaceL = confSpaceL;
         this.precompMat = precompMat;
         this.confECalc = confECalc;
+        this.orderOfMag = orderOfMag;
         this.unboundEw = unboundEw;
         this.boundEw = boundEw;
         this.startResL = startResL;
@@ -166,11 +170,13 @@ public class NewEWAKStarDoer {
                 newConfSpace, ecalc, newConfECalc, new EPICSettings(), new LUTESettings(),
                 pruningSettings);
 
-        treeL = new NewEWAKStarTree(numTreeLevels, newAAOptions, wtSeq, newConfSpace, newPrecompMat,
+        this.wtSeqL = Sequence.makeWildType(newConfSpace);
+
+        treeL = new NewEWAKStarTree(numTreeLevels, newAAOptions, wtSeqL, newConfSpace, newPrecompMat,
                 mutablePosNumsL, newConfECalc);
 
 
-        ArrayList<Sequence> bestLseqs = extractLSeqsByLB(bestSeqs);
+        ArrayList<Sequence> bestLseqs = extractLSeqsByLB(bestSeqs, newConfSpace);
         System.out.println(bestLseqs);
 
 //        ArrayList<EWAKStarSequenceAnalyzer.Analysis> unboundEnsembles = calcUnboundEnsembles();
@@ -189,6 +195,11 @@ public class NewEWAKStarDoer {
 
         long startAStarTime = System.currentTimeMillis();
 
+        BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
+        double wtPfUB = Double.POSITIVE_INFINITY;
+        double pfUB;
+
         Boolean wtFound = false;
         double wtEnergy = 0.0;
         Boolean didEW = false;
@@ -202,32 +213,34 @@ public class NewEWAKStarDoer {
             } else {
                 String curSeq = treePL.seqAsString(conf.getAssignments());
                 Sequence newSequence = Sequence.makeFromEWAKStar(treePL.seqAsString(conf.getAssignments()), wtSeq, confSpaceL);
+                pfUB = Math.log10(bc.calc(conf.getScore()).multiply(new BigDecimal (getNumConfsForSeq(newSequence))).doubleValue());
                 if(!wtFound) {
                     if (curSeq.equals(wtSeqEWAKStar)) {
                         wtFound = true;
-                        //the WT score is the minimized energy (not the lower-bound)
                         wtEnergy = treePL.wtMinimizedEnergy;
+                        wtPfUB = pfUB;
                         System.out.println("Found wild-type sequence in complex after " + seqNum + " sequences.");
                         System.out.println("Finding all sequences within " + boundEw + " kcal of WT minimized energy: "
                                 + wtEnergy+" or until "+numSeqsWanted+" sequences are enumerated.");
 
                     }
-
-                    ewakstarPLConfs.put(curSeq, conf.getScore());
+                    ewakstarPLConfs.put(curSeq, pfUB);
                     bestSequences.add(newSequence);
                 }
-                else {
-                    double curScore = conf.getScore();
-                    if(curScore > wtEnergy+boundEw){
+                //only keep sequences that will provably have a partition function within orderOfMag of wild-type
+                //also keeps any sequence where pfUB is infinity
+                else{
+                    if(conf.getScore() > wtEnergy+boundEw){
                         didEW = true;
-                        ewakstarPLConfs.put(curSeq, conf.getScore());
-                        bestSequences.add(newSequence);
+                        if (pfUB > wtPfUB-orderOfMag) {
+                            ewakstarPLConfs.put(curSeq, pfUB);
+                            bestSequences.add(newSequence);
+                        }
                         break;
                     }
-                    else{
-                        ewakstarPLConfs.put(curSeq, conf.getScore());
+                    else if (pfUB > wtPfUB-orderOfMag){
+                        ewakstarPLConfs.put(curSeq, pfUB);
                         bestSequences.add(newSequence);
-
                     }
                 }
             }
@@ -237,12 +250,12 @@ public class NewEWAKStarDoer {
         System.out.println("Sequence enumeration time: "+((stopTime-startAStarTime)/(60.0*1000.0)));
 
         if (didEW)
-            System.out.println("\nFound all within the energy window of "+boundEw+" kcal. Number of sequences enumerated: "+Integer.toString(bestSequences.size()));
+            System.out.println("\nFound all within the energy window of "+boundEw+" kcal. \n"+Integer.toString(bestSequences.size())+" sequences enumerated with partition function upper bounds within "+orderOfMag+ " orders of magnitude of wild-type.");
 
         else
             System.out.println("\nEnergy window not completed - hit sequence enumeration limit of "+numSeqsWanted+" sequences.");
 
-        System.out.println("\nLower bounds on energies range from "+ewakstarPLConfs.get(ewakstarPLConfs.firstKey())+" to "+ewakstarPLConfs.get(ewakstarPLConfs.lastKey())+"\n");
+        System.out.println("\nUpper bounds on partition functions range from "+ewakstarPLConfs.get(ewakstarPLConfs.firstKey())+" to "+ewakstarPLConfs.get(ewakstarPLConfs.lastKey())+"\nThe upper bound on the partition function for the wild-type is "+wtPfUB);
 
         if (!wtFound){
             System.out.println("\nWARNING: The wild type sequence was not found in your search!\n");
@@ -253,16 +266,21 @@ public class NewEWAKStarDoer {
 
     }
 
-    public ArrayList<Sequence> extractLSeqsByLB(ArrayList<Sequence> plSeqs){
+    public ArrayList<Sequence> extractLSeqsByLB(ArrayList<Sequence> plSeqs, SimpleConfSpace newConfSpace){
 
         ArrayList<Sequence> bestSequences = new ArrayList<>();
 
         long startAStarTime = System.currentTimeMillis();
 
+        BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
         Boolean wtFound = false;
         Boolean didEW = false;
         double wtEnergy = 0.0;
+        double wtPfUB = Double.POSITIVE_INFINITY;
         int numSeqs = 0;
+        double pfUB;
+
         while(ewakstarLConfs.size()<plSeqs.size()){
             //this will find the best sequence and print it
             ScoredConf conf = treeL.nextConf();
@@ -272,16 +290,18 @@ public class NewEWAKStarDoer {
 
             } else {
                 String curSeq = treeL.seqAsString(conf.getAssignments());
-                Sequence newSequence = Sequence.makeFromEWAKStar(treeL.seqAsString(conf.getAssignments()), wtSeq, confSpaceL);
+                Sequence newSequence = Sequence.makeFromEWAKStar(treeL.seqAsString(conf.getAssignments()), wtSeqL, newConfSpace);
+                pfUB = Math.log10(bc.calc(conf.getScore()).multiply(new BigDecimal (getNumConfsForSeq(newSequence))).doubleValue());
                 if(!wtFound) {
                     if (curSeq.equals(wtSeqEWAKStar)) {
                         wtFound = true;
-                        //the WT score is the minimized energy (not the lower-bound)
                         wtEnergy = treeL.wtMinimizedEnergy;
+                        wtPfUB = pfUB;
                         System.out.println("Found wild-type sequence in unbound after " + numSeqs + " sequences.");
                         System.out.println("Finding all sequences within " + unboundEw + " kcal of WT minimized energy: "
                                 + wtEnergy +" or until all PL complex sequences are enumerated.");
-                        ewakstarLConfs.put(curSeq, conf.getScore());
+
+                        ewakstarLConfs.put(curSeq, pfUB);
                         bestSequences.add(newSequence);
                         numSeqs++;
 
@@ -289,46 +309,37 @@ public class NewEWAKStarDoer {
 
                     else if (plSeqs.contains(newSequence)) {
                         numSeqs++;
-                        ewakstarLConfs.put(curSeq, conf.getScore());
+                        ewakstarLConfs.put(curSeq, pfUB);
                         bestSequences.add(newSequence);
                     }
                 }
 
                 else {
-                    double curScore = conf.getScore();
-                    //we don't want to stop unless we've found all of the PL sequences.
-                    if(numSeqs == plSeqs.size() && curScore > wtEnergy+unboundEw){
+                    //we want to stop once we're outside of the eW
+                    if(conf.getScore() > wtEnergy+unboundEw){
                         didEW = true;
-                        if(plSeqs.contains(newSequence)){
-                            ewakstarLConfs.put(curSeq, conf.getScore());
+                        if(plSeqs.contains(newSequence) && pfUB > wtPfUB-orderOfMag){
+                            ewakstarLConfs.put(curSeq, pfUB);
                             bestSequences.add(newSequence);
                             numSeqs++;
                         }
                         break;
                     }
 
+                    //we also want to stop if we've found all of the PL sequences even if we're not outside the window yet.
                     else if(numSeqs == plSeqs.size()){
-                        if(plSeqs.contains(newSequence)){
-                            ewakstarLConfs.put(curSeq, conf.getScore());
+                        if(plSeqs.contains(newSequence) && pfUB > wtPfUB-orderOfMag){
+                            ewakstarLConfs.put(curSeq, pfUB);
                             bestSequences.add(newSequence);
                             numSeqs++;
                         }
                         break;
-                    }
-
-                    else if(curScore > wtEnergy+unboundEw){
-                        didEW = true;
-                        if(plSeqs.contains(newSequence)){
-                            ewakstarLConfs.put(curSeq, conf.getScore());
-                            bestSequences.add(newSequence);
-                            numSeqs++;
-                        }
                     }
 
                     else{
-                        if (plSeqs.contains(newSequence)) {
+                        if (plSeqs.contains(newSequence) && pfUB > wtPfUB-orderOfMag) {
                             numSeqs++;
-                            ewakstarLConfs.put(curSeq, conf.getScore());
+                            ewakstarLConfs.put(curSeq, pfUB);
                             bestSequences.add(newSequence);
                         }
                     }
@@ -336,19 +347,20 @@ public class NewEWAKStarDoer {
             }
         }
 
+
         long stopTime = System.currentTimeMillis();
         System.out.println("Sequence enumeration time: "+((stopTime-startAStarTime)/(60.0*1000.0)));
 
-        double ewDiff = Math.abs(wtEnergy - ewakstarLConfs.get(ewakstarLConfs.lastKey()));
+        //double ewDiff = Math.abs(wtEnergy - (ewakstarLConfs.get(ewakstarLConfs.lastKey()).doubleValue());
 
         if (didEW)
-            System.out.println("\nEnumerated the energy window of "+unboundEw+" kcal. Continued up to "+ewDiff+" kcal difference. Number of sequences enumerated: "+Integer.toString(bestSequences.size()));
+            System.out.println("\nEnumerated the energy window of "+unboundEw+" kcal. \nNumber of sequences enumerated: "+Integer.toString(bestSequences.size()));
 
         else
             System.out.println("\nEnergy window not completed - found all "+numSeqs+" sequences.");
 
 
-        System.out.println("\nLower bounds on energies range from "+ewakstarLConfs.get(ewakstarLConfs.firstKey())+" to "+ewakstarLConfs.get(ewakstarLConfs.lastKey())+"\n");
+        System.out.println("\nUpper bounds on partition functions range from "+ewakstarLConfs.get(ewakstarLConfs.firstKey())+" to "+ewakstarLConfs.get(ewakstarLConfs.lastKey())+"\nThe upper bound on the partition function for the wild-type sequence is "+wtPfUB);
 
         if (!wtFound){
             System.out.println("WARNING: The wild type sequence was not found in your search!");
@@ -359,7 +371,22 @@ public class NewEWAKStarDoer {
 
     }
 
+    public int getNumConfsForSeq(Sequence seq){
+        List<SimpleConfSpace.Position> posConfs = seq.confSpace.positions;
+        int numConfs = 1;
 
+        for (SimpleConfSpace.Position p : posConfs){
+            String curRes = seq.get(p);
+            int count = 0;
+            for (SimpleConfSpace.ResidueConf rc : p.resConfs){
+                if (rc.template.name.equals(curRes)){
+                    count += 1;
+                }
+            }
+            numConfs = numConfs*count;
+        }
+        return numConfs;
+    }
 
     public EWAKStarSequenceAnalyzer.Analysis calcEnsemble(Sequence seq, SimpleConfSpace myConfSpace, ConfEnergyCalculator
             myConfECalc, PrecomputedMatrices myPrecompMat){

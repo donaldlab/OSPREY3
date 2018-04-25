@@ -54,8 +54,9 @@ public class EWAKStar {
         PruningSettings pruningSettings = new PruningSettings();
         pruningSettings.typedep = true;
 
-        double unboundEw = 15.0;
-        double boundEw = 15.0;
+        double orderOfMag = 5.0;
+        double unboundPFw = 15.0;
+        double boundPFw = 15.0;
         double Ival = 0.0;
         String startResPL = "040";
         String endResPL = "0428";
@@ -96,14 +97,14 @@ public class EWAKStar {
                 .build()
                 .calcEnergyMatrix();
 
-        PrecomputedMatrices precompMat = new PrecomputedMatrices(Ival, boundEw, "PL", emat,
+        PrecomputedMatrices precompMat = new PrecomputedMatrices(Ival, boundPFw, "PL", emat,
                 confSpace, ecalc, confECalc, new EPICSettings(), new LUTESettings(),
                 pruningSettings);
 
         String LmatrixName = "ewak.L.emat";
 
         NewEWAKStarDoer ed = new NewEWAKStarDoer(confSpace, confSpaceL, precompMat,
-            boundMutPos, unboundMutPos, AATypeOptions, numSeqsWanted, confECalc, unboundEw, boundEw,
+            boundMutPos, unboundMutPos, AATypeOptions, numSeqsWanted, confECalc, orderOfMag, unboundPFw, boundPFw,
                 startResL, endResL, mol, mutResNums, Ival, pruningSettings, LmatrixName);
 
         ArrayList<String> bestSequences = ed.calcBestSequences();
