@@ -12,12 +12,8 @@ at `Duke University`_.
 .. _Department of Computer Science: http://www.cs.duke.edu
 .. _Duke University: https://www.duke.edu/
 
-
-Development Version
-~~~~~~~~~~~~~~~~~~~
-
-This is the development version of Osprey. For stable versions, please visit:
-http://www.cs.duke.edu/donaldlab/osprey.php
+For an introduction to OSPREY 3.0 and its new features please read this paper: 
+https://www.biorxiv.org/content/early/2018/04/23/306324
 
 
 Citation requirements
