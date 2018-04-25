@@ -252,14 +252,6 @@ public class MARKStarBound implements PartitionFunction {
     }
 
 
-    public double getBound(){
-        if(boundChanged)
-            recomputeBound(rootNode);
-        return epsilonBound;
-    }
-
-    private void recomputeBound(MARKStarNode rootNode) {
-    }
 
     public void setParallelism(Parallelism val) {
 
@@ -320,10 +312,13 @@ public class MARKStarBound implements PartitionFunction {
             });
         }
         tasks.waitForFinish();
-        curNode.computeBounds();
         updateBound();
         numChildren += children.size();
-        queue.pushAll(children);
+        for(MARKStarNode child: children) {
+            //Only add partial conformations to the queue.
+            if(child.level < RCs.getNumPos())
+                queue.push(child);
+        }
     }
 
     private void updateBound() {

@@ -29,12 +29,14 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     private double errorBound;
     private List<MARKStarNode> children; // TODO: Pick appropriate data structure
     private Node confSearchNode;
+    public final int level;
 
 
     private MARKStarNode(Node confNode) {
         confSearchNode = confNode;
         errorUpperBound = confSearchNode.maxHScore;
         errorLowerBound = confSearchNode.minHScore;
+        level = confSearchNode.getLevel();
         computeErrorBounds();
     }
 
@@ -138,15 +140,21 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public int[] assignments;
         public int pos = Unassigned;
         public int rc = Unassigned;
+        public final int level;
 
         public Node(int size) {
+            this(size,0);
+        }
+
+        public Node(int size, int level) {
             assignments = new int[size];
             Arrays.fill(assignments, Unassigned);
+            this.level = level;
         }
 
         @Override
         public Node assign(int pos, int rc) {
-            Node node = new Node(assignments.length);
+            Node node = new Node(assignments.length, level+1);
             node.pos = pos;
             node.rc = rc;
             System.arraycopy(assignments, 0, node.assignments, 0, assignments.length);
@@ -193,7 +201,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
         @Override
         public int getLevel() {
-            throw new UnsupportedOperationException();
+            return  level;
         }
 
         @Override
