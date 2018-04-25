@@ -3,7 +3,7 @@ We ask that users of OSPREY please cite the following papers, and also mention t
 For all work using the version of OSPREY in this repository (OSPREY 3.0), we ask users to mention the name OSPREY and cite the following paper.  This is a submitted manuscript whose preprint is currently available on BioRxiv, and we will update the citation as it moves through the review process:
 
 
-Mark A. Hallen, Jeffrey W. Martin, Adegoke Ojewole, Jonathan D. Jou, Anna U. Lowegard, Marcel S. Frenkel, Pablo Gainza, Hunter M. Nisonoff, Aditya Mukund, Siyu Wang, Graham T. Holt, David Zhou, Elizabeth Dowd, Bruce R. Donald.  OSPREY 3.0: Open-Source Protein Redesign for You, with Powerful New Features.  bioRxiv 306324; doi: https://doi.org/10.1101/306324.  URL: https://www.biorxiv.org/content/early/2018/04/23/306324.  
+Mark A. Hallen, Jeffrey W. Martin, Adegoke Ojewole, Jonathan D. Jou, Anna U. Lowegard, Marcel S. Frenkel, Pablo Gainza, Hunter M. Nisonoff, Aditya Mukund, Siyu Wang, Graham T. Holt, David Zhou, Elizabeth Dowd, Bruce R. Donald.  OSPREY 3.0: Open-Source Protein Redesign for You, with Powerful New Features.  bioRxiv 306324 (Cold Spring Harbor); doi: https://doi.org/10.1101/306324.  URL: https://www.biorxiv.org/content/early/2018/04/23/306324.  
 
 
 
