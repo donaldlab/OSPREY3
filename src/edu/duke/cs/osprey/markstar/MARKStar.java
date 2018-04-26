@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
+import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -300,6 +301,7 @@ public class MARKStar {
 		protein.calcEmat();
 		ligand.calcEmat();
 		complex.calcEmat();
+
 
 		// collect the wild type sequences
 		protein.sequences.add(protein.confSpace.makeWildTypeSequence());

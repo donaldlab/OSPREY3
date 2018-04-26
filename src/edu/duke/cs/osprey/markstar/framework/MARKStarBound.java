@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
@@ -83,6 +84,7 @@ public class MARKStarBound implements PartitionFunction {
         while (epsilonBound > targetEpsilon) {
             System.out.println("Tightening from epsilon of "+epsilonBound);
             tightenBound();
+            System.out.println("Errorbound is now "+epsilonBound);
         }
     }
 
@@ -215,15 +217,15 @@ public class MARKStarBound implements PartitionFunction {
     private Parallelism parallelism;
     private TaskExecutor tasks;
     private ObjectPool<ScoreContext> contexts;
-    MARKStarNode.ScorerFactory gscorerFactory;
-    MARKStarNode.ScorerFactory hscorerFactory;
+    private MARKStarNode.ScorerFactory gscorerFactory;
+    private MARKStarNode.ScorerFactory hscorerFactory;
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix emat, RCs rcs) {
         this.queue = Queue.PriorityFactory.of(null);
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
         MPLPUpdater updater = new EdgeUpdater();
-        hscorerFactory = (emats) -> new MPLPPairwiseHScorer(updater, emats, 5, 0.03);
+        hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs); //MPLPPairwiseHScorer(updater, emats, 50, 0.03);
 
         rootNode = MARKStarNode.makeRoot(confSpace, emat, rcs, gscorerFactory, hscorerFactory, true);
         queue.push(rootNode);
@@ -234,11 +236,12 @@ public class MARKStarBound implements PartitionFunction {
         order.setScorers(gscorerFactory.make(emat),hscorerFactory.make(emat));
         this.pruner = null;
 
-        this.contexts = new ObjectPool<>((ingored) -> {
+        this.contexts = new ObjectPool<>((lingored) -> {
             ScoreContext context = new ScoreContext();
             context.index = new ConfIndex(rcs.getNumPos());
             context.gscorer = gscorerFactory.make(emat);
             context.hscorer = hscorerFactory.make(emat);
+            context.negatedhscorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, emat));
             return context;
         });
 
@@ -249,6 +252,7 @@ public class MARKStarBound implements PartitionFunction {
         public ConfIndex index;
         public AStarScorer gscorer;
         public AStarScorer hscorer;
+        public AStarScorer negatedhscorer;
     }
 
 
@@ -265,8 +269,12 @@ public class MARKStarBound implements PartitionFunction {
     }
     public void tightenBound(){
         System.out.println("Current overall error bound: "+epsilonBound);
+        if(queue.isEmpty()) {
+            System.out.println("Out of conformations.");
+        }
         MARKStarNode curNode = queue.poll();
         Node node = curNode.getConfSearchNode();
+        System.out.println("Processing Node: "+node.toString()) ;
 
         // which pos to expand next?
         int numChildren = 0;
@@ -297,8 +305,14 @@ public class MARKStarBound implements PartitionFunction {
                     node.index(context.index);
                     Node child = node.assign(nextPos, nextRc);
                     //TODO: Change this code to do the right thing.
-                    child.setGScore(0);
-                    curNode.scoreNode(child, context.index, RCs);
+                    System.out.println("Expanded node:"+child.confToString());
+                    double diff = context.gscorer.calcDifferential(context.index,RCs,nextPos, nextRc);
+                    double hdiff = context.hscorer.calcDifferential(context.index,RCs,nextPos,nextRc);
+                    double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                    child.gscore = node.gscore + diff;
+                    child.minHScore = child.gscore + hdiff;
+                    child.maxHScore = child.gscore + maxhdiff;
+                    System.out.println("g score:"+child.gscore+", min:"+child.minHScore+", max:"+child.maxHScore);
                     return child;
                 }
 

@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.tools.ExpFunction;
 
 import java.math.BigDecimal;
@@ -40,17 +41,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         computeErrorBounds();
     }
 
-    public void scoreNode(Node confNode, ConfIndex confIndex, RCs rcs) {
-        confNode.gscore = gScorer.calc(confIndex, rcs);
-        confNode.minHScore = hScorer.calc(confIndex, rcs);
-        confNode.maxHScore = -negatedHScorer.calc(confIndex, rcs);
-
-    }
-
 
     private double computeErrorBounds() {
         errorBound = 0;
-        System.out.println("Upper and Lower bounds : "+errorUpperBound+", "+errorLowerBound);
         if(children == null || children.size() < 1)
             errorBound = errorUpperBound-errorLowerBound;
         else {
@@ -185,11 +178,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             // We want it to be as small as possible since our A* implementation finds the min
             ExpFunction ef = new ExpFunction();
             BigDecimal upperBound = ef.exp(-getMinScore());
-            System.out.println("g:"+gscore+", max: "+maxHScore+", min: "+minHScore);
-            System.out.println("Upper bound: "+upperBound.setScale(4,RoundingMode.FLOOR).toEngineeringString());
             double errorBound = 0;
             if(upperBound.doubleValue() > 0)
-                errorBound = upperBound.subtract(ef.exp(-getMaxScore())).divide(upperBound).doubleValue();
+                errorBound = upperBound.subtract(ef.exp(-getMaxScore())).divide(upperBound, RoundingMode.FLOOR).doubleValue();
 
             return -errorBound;
         }
@@ -225,6 +216,27 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
                 }
             }
             confIndex.node = this;
+        }
+
+        public String confToString()
+        {
+            String out = "(";
+            for(int i =0; i < assignments.length; i++)
+            {
+                out+=assignments[i]+", ";
+            }
+            out+=")";
+            return out;
+        }
+        public String toString()
+        {
+            String out = confToString();
+            ExpFunction ef = new ExpFunction();
+            BigDecimal upperBound = ef.exp(-getMinScore());
+            out+="g:"+gscore+", max: "+maxHScore+", min: "+minHScore+",\n ";
+            out+="Upper bound: "+upperBound.setScale(4,RoundingMode.FLOOR).toEngineeringString()+"\n\n";
+
+            return out;
         }
 
         public BigInteger getNumConformations(RCs rcs) {
