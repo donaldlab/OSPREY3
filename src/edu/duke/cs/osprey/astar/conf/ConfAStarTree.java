@@ -148,37 +148,37 @@ public class ConfAStarTree implements ConfSearch {
 	}
 
 	public static class MPLPBuilder {
-		
+
 		/**
 		 * The type of MPLP update step to use for each iteration.
-		 * 
+		 *
 		 * There are two options: {@link EdgeUpdater} and {@link NodeUpdater}.
 		 * In practice, the EdgeUpdater seems to work best when reference energies
 		 * are used. When reference energies are not used, the NodeUpdater seems
 		 * to work best.
 		 */
 		private MPLPUpdater updater = new NodeUpdater();
-		
+
 		/**
 		 * The number of MPLP iterations to execute on each A* node.
-		 * 
+		 *
 		 * This value doesn't affect the accuracy of the conformation search, only the speed.
-		 * 
+		 *
 		 * The more iterations, the more accurate the A* estimation function will be,
 		 * and fewer nodes will need to be explored to reach a leaf node. The tradeoff though is
 		 * increased compute time per node explored.
-		 * 
+		 *
 		 * Generally, it's safe to start with one iteration, then experimentally try more
 		 * iterations to see if it reduces the total A* search time.
 		 */
 		private int numIterations = 1;
-		
+
 		/**
 		 * If the change in energy after an iteration of the estimation function is below this
 		 * threshold, MPLP will stop iterating.
-		 * 
+		 *
 		 * This value doesn't affect the accuracy of the conformation search, only the speed.
-		 * 
+		 *
 		 * It also has no effect if the number of iterations is 1.
 		 * 
 		 * For a larger number of iterations, increasing this value may reduce the time spent
@@ -200,7 +200,7 @@ public class ConfAStarTree implements ConfSearch {
 			numIterations = val;
 			return this;
 		}
-		
+
 		public MPLPBuilder setConvergenceThreshold(double val) {
 			convergenceThreshold = val;
 			return this;
@@ -282,7 +282,11 @@ public class ConfAStarTree implements ConfSearch {
 		tasks = parallelism.makeTaskExecutor(1000);
 		contexts.allocate(parallelism.getParallelism());
 	}
-	
+
+	public ConfAStarNode getRoot(){
+		return rootNode;
+	}
+
 	@Override
 	public BigInteger getNumConformations() {
 		return rcs.getNumConformations();

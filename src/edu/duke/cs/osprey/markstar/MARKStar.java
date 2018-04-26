@@ -13,6 +13,8 @@ import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
+import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -30,12 +32,12 @@ import java.util.stream.Collectors;
  */
 public class MARKStar {
 
-	public static interface ConfEnergyCalculatorFactory {
+	public interface ConfEnergyCalculatorFactory {
 		ConfEnergyCalculator make(SimpleConfSpace confSpace, EnergyCalculator ecalc);
 	}
 
-	public static interface ConfSearchFactory {
-		public ConfSearch make(EnergyMatrix emat, RCs rcs);
+	public interface ConfSearchFactory {
+		ConfSearch make(EnergyMatrix emat, RCs rcs);
 	}
 
 	// *sigh* Java makes this stuff so verbose to do...
@@ -197,7 +199,7 @@ public class MARKStar {
 		}
 	}
 
-	public static enum ConfSpaceType {
+	public enum ConfSpaceType {
 		Protein,
 		Ligand,
 		Complex
@@ -240,8 +242,7 @@ public class MARKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			RecursiveAStarTree astar = (RecursiveAStarTree) confSearchFactory.make(emat, sequence.makeRCs());
-			PartitionFunction pfunc = new RecursivePartitionFunction(astar, confEcalc);
+			MARKStarBound pfunc = new MARKStarBound(confSpace, emat, sequence.makeRCs());
 			pfunc.setReportProgress(settings.showPfuncProgress);
 
 			// compute it
@@ -255,7 +256,7 @@ public class MARKStar {
 		}
 	}
 
-	private static interface Scorer {
+	private interface Scorer {
 		KStarScore score(int sequenceNumber, PartitionFunction.Result proteinResult, PartitionFunction.Result ligandResult, PartitionFunction.Result complexResult);
 	}
 
@@ -280,7 +281,9 @@ public class MARKStar {
 	/** Optional and overridable settings for K* */
 	public final Settings settings;
 
-	public MARKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator ecalc, ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, Settings settings) {
+	public MARKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex,
+					EnergyCalculator ecalc, ConfEnergyCalculatorFactory confEcalcFactory,
+					ConfSearchFactory confSearchFactory, Settings settings) {
 		this.protein = new ConfSpaceInfo(ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, ecalc));
 		this.ligand = new ConfSpaceInfo(ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, ecalc));
 		this.complex = new ConfSpaceInfo(ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, ecalc));
@@ -298,6 +301,7 @@ public class MARKStar {
 		protein.calcEmat();
 		ligand.calcEmat();
 		complex.calcEmat();
+
 
 		// collect the wild type sequences
 		protein.sequences.add(protein.confSpace.makeWildTypeSequence());
@@ -373,9 +377,9 @@ public class MARKStar {
 		BigDecimal proteinStabilityThreshold = null;
 		BigDecimal ligandStabilityThreshold = null;
 		if (settings.stabilityThreshold != null) {
-			BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(settings.stabilityThreshold);
-			proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
-			ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+			//BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(settings.stabilityThreshold);
+			//proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
+			//ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
 		}
 
 		// compute all the partition functions and K* scores for the rest of the sequences
