@@ -257,7 +257,11 @@ public class TestMARKStar {
 			.setResidues("1", "180")
 			.build();
 		protein.flexibility.get("21").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
-		protein.flexibility.get("25").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		protein.flexibility.get("22").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		protein.flexibility.get("23").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		protein.flexibility.get("24").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		//protein.flexibility.get("25").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		//protein.flexibility.get("26").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)

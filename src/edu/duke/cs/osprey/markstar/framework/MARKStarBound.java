@@ -28,6 +28,7 @@ import edu.duke.cs.osprey.markstar.framework.MARKStarNode.Node;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.astar.conf.RCs;
 
@@ -206,7 +207,7 @@ public class MARKStarBound implements PartitionFunction {
     // We keep track of the root node for computing our K* bounds
     private MARKStarNode rootNode;
     // Heap of nodes for recursive expansion
-    private final Queue<MARKStarNode> queue;
+    private final PriorityQueue<MARKStarNode> queue;
     private double epsilonBound = Double.POSITIVE_INFINITY;
     private boolean boundChanged = false;
     private ConfIndex confIndex;
@@ -221,14 +222,14 @@ public class MARKStarBound implements PartitionFunction {
     private MARKStarNode.ScorerFactory hscorerFactory;
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix emat, RCs rcs) {
-        this.queue = Queue.PriorityFactory.of(null);
+        this.queue = new PriorityQueue<>();
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
         MPLPUpdater updater = new EdgeUpdater();
         hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs); //MPLPPairwiseHScorer(updater, emats, 50, 0.03);
 
         rootNode = MARKStarNode.makeRoot(confSpace, emat, rcs, gscorerFactory, hscorerFactory, true);
-        queue.push(rootNode);
+        queue.add(rootNode);
         updateBound();
         confIndex = new ConfIndex(rcs.getNumPos());
         this.RCs = rcs;
@@ -309,9 +310,14 @@ public class MARKStarBound implements PartitionFunction {
                     double diff = context.gscorer.calcDifferential(context.index,RCs,nextPos, nextRc);
                     double hdiff = context.hscorer.calcDifferential(context.index,RCs,nextPos,nextRc);
                     double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                    ExpFunction ef = new ExpFunction();
                     child.gscore = node.gscore + diff;
-                    child.minHScore = child.gscore + hdiff;
-                    child.maxHScore = child.gscore + maxhdiff;
+                    double logMax = ef.log(ef.exp(-(child.gscore + hdiff))).doubleValue();
+                    double logMin = ef.log(ef.exp(-(child.gscore + maxhdiff))).doubleValue();
+                    child.minHScore = logMin;
+                    child.maxHScore = logMax;
+                    child.computeNumConformations(RCs);
+
                     System.out.println("g score:"+child.gscore+", min:"+child.minHScore+", max:"+child.maxHScore);
                     return child;
                 }
@@ -331,7 +337,7 @@ public class MARKStarBound implements PartitionFunction {
         for(MARKStarNode child: children) {
             //Only add partial conformations to the queue.
             if(child.level < RCs.getNumPos())
-                queue.push(child);
+                queue.add(child);
         }
     }
 
