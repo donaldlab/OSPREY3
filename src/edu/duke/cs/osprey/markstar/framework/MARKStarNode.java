@@ -7,12 +7,12 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.tools.ExpFunction;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.text.DecimalFormat;
 import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
@@ -25,35 +25,70 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
      * TODO: 2. Make MARKStarNodes compute and update bounds correctly
      */
 
-    private double errorUpperBound;
-    private double errorLowerBound;
-    private double errorBound;
+    private BigDecimal errorUpperBound;
+    private BigDecimal errorLowerBound;
+    private double errorBound = 1;
     private List<MARKStarNode> children; // TODO: Pick appropriate data structure
     private Node confSearchNode;
     public final int level;
+    private static ExpFunction ef = new ExpFunction();
 
 
     private MARKStarNode(Node confNode) {
         confSearchNode = confNode;
-        errorUpperBound = confSearchNode.maxHScore;
-        errorLowerBound = confSearchNode.minHScore;
+        errorUpperBound = ef.exp(confSearchNode.maxHScore);
+        errorLowerBound = ef.exp(confSearchNode.minHScore);
         level = confSearchNode.getLevel();
-        computeErrorBounds();
+        errorBound = getErrorBound();
+    }
+
+    private BigInteger getNumConfs()
+    {
+        return confSearchNode.numConfs;
     }
 
 
-    private double computeErrorBounds() {
-        errorBound = 0;
-        if(children == null || children.size() < 1)
-            errorBound = errorUpperBound-errorLowerBound;
-        else {
-            for(MARKStarNode child: children)
-            {
-                errorBound+= child.computeErrorBounds();
+    public double computeEpsilonErrorBounds() {
+        double epsilonBound = 0;
+        if(children != null && children.size() > 0) {
+            errorUpperBound = BigDecimal.ZERO;
+            errorLowerBound = BigDecimal.ZERO;
+            for(MARKStarNode child: children) {
+                child.computeEpsilonErrorBounds();
+                errorUpperBound = errorUpperBound.add(child.errorUpperBound);
+                errorLowerBound = errorLowerBound.add(child.errorLowerBound);
             }
-            errorBound /= children.size();
         }
-        return errorBound;
+        if(errorUpperBound.subtract(errorLowerBound).compareTo(BigDecimal.ONE)<1)
+        {
+            return 0;
+        }
+        epsilonBound = errorUpperBound.subtract(errorLowerBound).divide(errorUpperBound,RoundingMode.HALF_UP).doubleValue();
+        return epsilonBound;
+    }
+
+    public BigDecimal setSigFigs(BigDecimal decimal, int numSigFigs)
+    {
+       return decimal.setScale(4-decimal.precision()+decimal.scale(),RoundingMode.HALF_UP);
+    }
+
+    public BigDecimal setSigFigs(BigDecimal decimal){
+        return setSigFigs(decimal, 4);
+    }
+
+    public void printTree(String prefix)
+    {
+        System.out.println(prefix+confSearchNode.confToString()+": ["+setSigFigs(errorUpperBound)+","+setSigFigs(errorLowerBound)+"]");
+        if(children != null && !children.isEmpty())
+           for(MARKStarNode child: children)
+               child.printTree(prefix+"~+");
+
+
+    }
+
+    public void printTree()
+    {
+        printTree("");
     }
 
     public void index(ConfIndex confIndex) {
@@ -80,12 +115,12 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
 
     public static MARKStarNode makeRoot(SimpleConfSpace confSpace, EnergyMatrix energyMatrix, RCs rcs,
-                                        ScorerFactory gscorerFactory, ScorerFactory hscorerFactory,
+                                        ScorerFactory gScorerFactory, ScorerFactory hscorerFactory,
                                         boolean reportProgress) {
 
 
 		// make the A* scorers
-		gScorer = gscorerFactory.make(energyMatrix);
+		gScorer = gScorerFactory.make(energyMatrix);
 		hScorer = hscorerFactory.make(energyMatrix);
 		negatedHScorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, energyMatrix));
 
@@ -97,6 +132,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 		rootNode.gscore = gScorer.calc(confIndex, rcs);
 		rootNode.minHScore = hScorer.calc(confIndex, rcs);
 		rootNode.maxHScore = -negatedHScorer.calc(confIndex, rcs);
+        double logMax = -(rootNode.gscore+rootNode.minHScore);
+        double logMin = -(rootNode.gscore+rootNode.maxHScore);
+        rootNode.minHScore = logMin;
+        rootNode.maxHScore = logMax;
 		return new MARKStarNode(rootNode);
 	}
 
@@ -105,14 +144,19 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     @Override
     public int compareTo(MARKStarNode other){
-        return Double.compare(this.errorBound,other.errorBound);
+        return -Double.compare(this.errorBound,other.errorBound);
 
     }
 
-
     public double getErrorBound() {
         if(children == null || children.size() < 1) {
-            errorBound = -confSearchNode.getHScore();
+
+            ExpFunction ef = new ExpFunction();
+            Node child = confSearchNode;
+            if(child.getMaxScore() > 0) {
+                double diff = ef.log(ef.exp(child.maxHScore).subtract(ef.exp(child.minHScore))).doubleValue();
+                errorBound = diff;
+            }
             return errorBound;
         }
         double errorSum = 0;
@@ -134,6 +178,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public int pos = Unassigned;
         public int rc = Unassigned;
         public final int level;
+        public BigInteger numConfs = BigInteger.ZERO;
 
         public Node(int size) {
             this(size,0);
@@ -166,23 +211,25 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
 
         public double getMinScore() {
-            return gscore + minHScore;
+            return minHScore;
         }
 
         public double getMaxScore() {
-            return gscore + maxHScore;
+            return maxHScore;
         }
 
         @Override
         public double getHScore() {
-            // We want it to be as small as possible since our A* implementation finds the min
+            //TODO: Scale by number of conformations
+            BigDecimal d = new BigDecimal(numConfs);
             ExpFunction ef = new ExpFunction();
-            BigDecimal upperBound = ef.exp(-getMinScore());
-            double errorBound = 0;
-            if(upperBound.doubleValue() > 0)
-                errorBound = upperBound.subtract(ef.exp(-getMaxScore())).divide(upperBound, RoundingMode.FLOOR).doubleValue();
+            BigDecimal upper = ef.exp(maxHScore);
+            BigDecimal lower = ef.exp(minHScore);
+            BigDecimal difference = upper.subtract(lower);
+            BigDecimal scaled = difference.multiply(d);
+            BigDecimal log = ef.log(scaled);
 
-            return -errorBound;
+            return -ef.log(ef.exp(maxHScore).subtract(ef.exp(minHScore)).multiply(d)).doubleValue();
         }
 
         @Override
@@ -231,22 +278,22 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public String toString()
         {
             String out = confToString();
-            ExpFunction ef = new ExpFunction();
-            BigDecimal upperBound = ef.exp(-getMinScore());
-            out+="g:"+gscore+", max: "+maxHScore+", min: "+minHScore+",\n ";
-            out+="Upper bound: "+upperBound.setScale(4,RoundingMode.FLOOR).toEngineeringString()+"\n\n";
-
+            out+="Conf energy:"+gscore+", max: "+maxHScore+", min: "+minHScore;
             return out;
         }
 
-        public BigInteger getNumConformations(RCs rcs) {
+        public BigInteger getNumConformations() {
+            return numConfs;
+        }
+
+        public void computeNumConformations(RCs rcs) {
             BigInteger numConfs = BigInteger.ONE;
             for (int pos=0; pos<assignments.length; pos++) {
                 if (assignments[pos] == Unassigned) {
                     numConfs = numConfs.multiply(BigInteger.valueOf(rcs.getNum(pos)));
                 }
             }
-            return numConfs;
+            this.numConfs = numConfs;
         }
     }
 }

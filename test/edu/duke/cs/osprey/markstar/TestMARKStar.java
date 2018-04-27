@@ -84,7 +84,7 @@ public class TestMARKStar {
 		SimpleGMECFinder finder = new SimpleGMECFinder.Builder(search, confEnergyCalculator)
 				.build();
 		finder.find(0.3);
-		MARKStar.Settings settings = new MARKStar.Settings.Builder().setEnergyMatrixCachePattern("*testmat.emat").build();
+		MARKStar.Settings settings = new MARKStar.Settings.Builder().setEpsilon(0.68).setEnergyMatrixCachePattern("*testmat.emat").build();
 		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
 		run.run();
 	}
@@ -256,8 +256,11 @@ public class TestMARKStar {
 			.setTemplateLibrary(templateLib)
 			.setResidues("1", "180")
 			.build();
-		protein.flexibility.get("21").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
-		protein.flexibility.get("25").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		int start = 21;
+		int numFlex = 15;
+		for(int i = start; i < start+numFlex; i++) {
+			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		}
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
