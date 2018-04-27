@@ -257,9 +257,9 @@ public class TestMARKStar {
 			.setResidues("1", "180")
 			.build();
 		int start = 21;
-		int numFlex = 15;
+		int numFlex = 6;
 		for(int i = start; i < start+numFlex; i++) {
-			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		}
 
 		// define the ligand strand
