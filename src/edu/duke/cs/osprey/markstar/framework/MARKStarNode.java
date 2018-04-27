@@ -9,6 +9,9 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -76,19 +79,29 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return setSigFigs(decimal, 4);
     }
 
-    public void printTree(String prefix)
+    public void printTree(String prefix, FileWriter writer)
     {
-        System.out.println(prefix+confSearchNode.confToString()+": ["+setSigFigs(errorUpperBound)+","+setSigFigs(errorLowerBound)+"]");
+        String out = prefix+confSearchNode.confToString()+": ["+setSigFigs(errorUpperBound)+","+setSigFigs(errorLowerBound)+"]\n";
+        //System.out.println(out);
+        try {
+            writer.write(out);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         if(children != null && !children.isEmpty())
            for(MARKStarNode child: children)
-               child.printTree(prefix+"~+");
+               child.printTree(prefix+"~+",writer);
 
 
     }
 
     public void printTree()
     {
-        printTree("");
+        try {
+            printTree("",  new FileWriter(new File("ConfTreeBounds.txt")));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void index(ConfIndex confIndex) {

@@ -84,7 +84,7 @@ public class TestMARKStar {
 		SimpleGMECFinder finder = new SimpleGMECFinder.Builder(search, confEnergyCalculator)
 				.build();
 		finder.find(0.3);
-		MARKStar.Settings settings = new MARKStar.Settings.Builder().setEpsilon(0.68).setEnergyMatrixCachePattern("*testmat.emat").build();
+		MARKStar.Settings settings = new MARKStar.Settings.Builder().setEpsilon(0.01).setEnergyMatrixCachePattern("*testmat.emat").build();
 		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
 		run.run();
 	}
