@@ -16,13 +16,11 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 public class LowEnergyConfSampler extends ConfSampler {
 
-	public final PruningMatrix pmat;
 	public final Function<RCs,ConfSearch> astarFactory;
 
-	public LowEnergyConfSampler(SimpleConfSpace confSpace, int randomSeed, PruningMatrix pmat, Function<RCs,ConfSearch> astarFactory) {
-		super(confSpace, randomSeed);
+	public LowEnergyConfSampler(SimpleConfSpace confSpace, PruningMatrix pmat, int randomSeed, Function<RCs,ConfSearch> astarFactory) {
+		super(confSpace, pmat, randomSeed);
 
-		this.pmat = pmat;
 		this.astarFactory = astarFactory;
 	}
 

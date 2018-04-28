@@ -18,6 +18,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
@@ -378,8 +379,9 @@ public class ConfAStarTree implements ConfSearch {
 			// score child nodes with tasks (possibly in parallel)
 			List<ConfAStarNode> children = new ArrayList<>();
 			for (int nextRc : rcs.get(nextPos)) {
-				
-				if (hasPrunedPair(confIndex, nextPos, nextRc)) {
+
+				// if this child was pruned by the pruning matrix, then skip it
+				if (isPruned(confIndex, nextPos, nextRc)) {
 					continue;
 				}
 
@@ -454,7 +456,7 @@ public class ConfAStarTree implements ConfSearch {
 		return confs;
 	}
 	
-	private boolean hasPrunedPair(ConfIndex confIndex, int nextPos, int nextRc) {
+	private boolean isPruned(ConfIndex confIndex, int nextPos, int nextRc) {
 		
 		// do we even have pruned pairs?
 		PruningMatrix pmat = rcs.getPruneMat();
@@ -470,6 +472,32 @@ public class ConfAStarTree implements ConfSearch {
 				return true;
 			}
 		}
+
+		// check triples
+		if (pmat.hasHigherOrderTuples()) {
+
+			RCTuple tuple = new RCTuple(0, 0, 0, 0, 0, 0);
+
+			for (int i1=0; i1<confIndex.numDefined; i1++) {
+				int pos1 = confIndex.definedPos[i1];
+				int rc1 = confIndex.definedRCs[i1];
+				assert (pos1 != nextPos || rc1 != nextRc);
+
+				for (int i2=0; i2<i1; i2++) {
+					int pos2 = confIndex.definedPos[i2];
+					int rc2 = confIndex.definedRCs[i2];
+					assert (pos2 != nextPos || rc2 != nextRc);
+
+					tuple.set(pos1, rc1, pos2, rc2, nextPos, nextRc);
+					tuple.sortPositions();
+
+					if (pmat.getTuple(tuple)) {
+						return true;
+					}
+				}
+			}
+		}
+
 		return false;
 	}
 }

@@ -446,10 +446,21 @@ public class SimpleConfSpace implements Serializable {
 	/** Gets the total number of residue conf pairs for all positions */
 	public int getNumResConfPairs() {
 		int count = 0;
-		for (int pos1=0; pos1<positions.size(); pos1++) {
+		for (int pos1=1; pos1<positions.size(); pos1++) {
 			for (int pos2=0; pos2<pos1; pos2++) {
-				for (int rc1=0; rc1<numResConfsByPos[pos2]; rc1++) {
-					count += numResConfsByPos[pos1];
+				count += numResConfsByPos[pos1]*numResConfsByPos[pos2];
+			}
+		}
+		return count;
+	}
+
+	/** Gets the total number of residue conf triples for all positions */
+	public int getNumResConfTriples() {
+		int count = 0;
+		for (int pos1=2; pos1<positions.size(); pos1++) {
+			for (int pos2=1; pos2<pos1; pos2++) {
+				for (int pos3=0; pos3<pos2; pos3++) {
+					count += numResConfsByPos[pos1]*numResConfsByPos[pos2]*numResConfsByPos[pos3];
 				}
 			}
 		}

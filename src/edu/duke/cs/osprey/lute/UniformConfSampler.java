@@ -4,6 +4,7 @@ import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TuplesIndex;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.UnpossibleError;
 
@@ -16,8 +17,8 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 public class UniformConfSampler extends ConfSampler {
 
-	public UniformConfSampler(SimpleConfSpace confSpace, int randomSeed) {
-		super(confSpace, randomSeed);
+	public UniformConfSampler(SimpleConfSpace confSpace, PruningMatrix pmat, int randomSeed) {
+		super(confSpace, pmat, randomSeed);
 	}
 
 	/**
@@ -155,6 +156,7 @@ public class UniformConfSampler extends ConfSampler {
 					assignment.pos.get(0),
 					assignment.RCs.get(0)
 				)
+				|| isPruned(conf, assignment.pos.get(0), assignment.RCs.get(0))
 			);
 
 			// did we run out of possibilities?
@@ -204,5 +206,31 @@ public class UniformConfSampler extends ConfSampler {
 		}
 
 		throw new UnpossibleError();
+	}
+
+	private boolean isPruned(int[] conf, int nextPos, int nextRC) {
+
+		// singles and pairs pruning is already accounted for,
+		// since we will always use all the pair tuples
+
+		// we just need to check pruning by triple tuples
+		for (int pos1=1; pos1<pmat.getNumPos(); pos1++) {
+
+			if (nextPos == pos1 || conf[pos1] == Conf.Unassigned) {
+				continue;
+			}
+
+			for (int pos2=0; pos2<pos1; pos2++) {
+
+				if (nextPos == pos2 || conf[pos2] == Conf.Unassigned) {
+					continue;
+				}
+
+				if (pmat.isTriplePruned(pos1, conf[pos1], pos2, conf[pos2], nextPos, nextRC)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 }

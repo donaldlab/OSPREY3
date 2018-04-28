@@ -4,6 +4,7 @@ import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TuplesIndex;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 import java.util.*;
 
@@ -92,13 +93,15 @@ public abstract class ConfSampler {
 	}
 
 	public final SimpleConfSpace confSpace;
+	public final PruningMatrix pmat; // just used to avoid sampling pruned sequences when using a sparse tuple basis (e.g. triples)
 	public final int randomSeed;
 
 	protected final Random rand;
 
-	public ConfSampler(SimpleConfSpace confSpace, int randomSeed) {
+	public ConfSampler(SimpleConfSpace confSpace, PruningMatrix pmat, int randomSeed) {
 
 		this.confSpace = confSpace;
+		this.pmat = pmat;
 		this.randomSeed = randomSeed;
 
 		this.rand = new Random(randomSeed);

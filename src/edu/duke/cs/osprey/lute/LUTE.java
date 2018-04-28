@@ -670,7 +670,7 @@ public class LUTE {
 		double percentLower = 100.0*energies.size()/sizeUpper.doubleValue();
 		double percentUpper = 100.0*energies.size()/sizeLower.doubleValue();
 
-		log("conf space (after all pruning) has somewhere between %s and %s conformations", formatBig(sizeLower), formatBig(sizeUpper));
+		log("conf space (after singles and pairs pruning) has somewhere between %s and %s conformations", formatBig(sizeLower), formatBig(sizeUpper));
 		log("LUTE sampled somewhere between %.1f%% and %.1f%% of those conformations", percentLower, percentUpper);
 	}
 

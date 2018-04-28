@@ -51,8 +51,17 @@ public class PruningMatrix extends TupleMatrixBoolean {
     public PruningMatrix(int numPos, int[] numAllowedAtPos, double pruningInterval) {
     	super(numPos, numAllowedAtPos, pruningInterval, false);
     }
-    
-    public void unprunedRCsAtPos(ArrayList<Integer> out, int pos) {
+
+    @Override
+	public Boolean getTuple(RCTuple tuple) {
+		Boolean val = super.getTuple(tuple);
+		if (val != null) {
+			return val;
+		}
+		return false;
+	}
+
+	public void unprunedRCsAtPos(ArrayList<Integer> out, int pos) {
     	out.clear();
     	int numRCs = getNumConfAtPos(pos);
 		for (int index=0; index<numRCs; index++) {
@@ -186,6 +195,42 @@ public class PruningMatrix extends TupleMatrixBoolean {
                 }
             }
         }
+
+        // check triples if needed using tuple trees
+		if (hasHigherOrderTuples()) {
+
+        	// allocate just one tuple, but update it inside the loops
+        	RCTuple tuple = new RCTuple(0, 0, 0, 0, 0, 0);
+
+			for (int i1=2; i1<numTupPos; i1++) {
+				int pos1 = tuppos.get(i1);
+				int rc1 = tupRCs.get(i1);
+
+				// update tuple in reverse order, so positions are sorted
+				tuple.pos.set(2, pos1);
+				tuple.RCs.set(2, rc1);
+
+				for (int i2=1; i2<i1; i2++) {
+					int pos2 = tuppos.get(i2);
+					int rc2 = tupRCs.get(i2);
+
+					tuple.pos.set(1, pos2);
+					tuple.RCs.set(1, rc2);
+
+					for (int i3=0; i3<i2; i3++) {
+						int pos3 = tuppos.get(i3);
+						int rc3 = tupRCs.get(i3);
+
+						tuple.pos.set(0, pos3);
+						tuple.RCs.set(0, rc3);
+
+						if (getTuple(tuple)) {
+							return true;
+						}
+					}
+				}
+			}
+		}
         
         return false;
     }
@@ -234,6 +279,10 @@ public class PruningMatrix extends TupleMatrixBoolean {
     	setPairwise(pos1, rc1, pos2, rc2, true);
 	}
 
+	public void pruneTriple(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
+		this.setTuple(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted(), true);
+	}
+
 	public void prunePairsFromSingles() {
 		int n = getNumPos();
 		for (int pos1=0; pos1<n; pos1++) {
@@ -269,6 +318,16 @@ public class PruningMatrix extends TupleMatrixBoolean {
     	return getPairwise(pos1, rc1, pos2, rc2)
 			|| isSinglePruned(pos1, rc1)
 			|| isSinglePruned(pos2, rc2);
+	}
+
+	public boolean isTriplePruned(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
+		return isSinglePruned(pos1, rc1)
+			|| isSinglePruned(pos2, rc2)
+			|| isSinglePruned(pos3, rc3)
+			|| getPairwise(pos1, rc1, pos2, rc2)
+			|| getPairwise(pos1, rc1, pos3, rc3)
+			|| getPairwise(pos2, rc2, pos3, rc3)
+			|| getTuple(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted());
 	}
 
     public void markAsPruned(RCTuple tup){
@@ -319,7 +378,39 @@ public class PruningMatrix extends TupleMatrixBoolean {
         }
         return count;
     }
-    
+
+	public int countPrunedTriples() {
+		/* TODO: if this is ever a bottleneck, it could be optimized
+			since tuple trees are partitioned (in this iteration order) by pos3,rc3,pos2,rc2,
+			but those are in the inner loops since pos2<pos1 is a simple loop condition.
+			We could move pos3,pos2 to the outer loops for probably a significant speedup
+		*/
+		int count = 0;
+		RCTuple tuple = new RCTuple(0, 0, 0, 0, 0, 0);
+		for (int pos1=0; pos1<getNumPos(); pos1++) {
+			tuple.pos.set(2, pos1);
+			for (int rc1=0; rc1<getNumConfAtPos(pos1); rc1++) {
+				tuple.RCs.set(2, rc1);
+				for (int pos2=0; pos2<pos1; pos2++) {
+					tuple.pos.set(1, pos2);
+					for (int rc2=0; rc2<getNumConfAtPos(pos2); rc2++) {
+						tuple.RCs.set(1, rc2);
+						for (int pos3=0; pos3<pos2; pos3++) {
+							tuple.pos.set(0, pos3);
+							for (int rc3=0; rc3<getNumConfAtPos(pos3); rc3++) {
+								tuple.RCs.set(0, rc3);
+								if (getTuple(tuple) == true) {
+									count++;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		return count;
+	}
+
     /*boolean isPruned(RC rc){
         //look up 1-body
         return getOneBody(pos,rcNum);
@@ -502,5 +593,159 @@ public class PruningMatrix extends TupleMatrixBoolean {
 		}
 
 		return countConfsAfterOnlyDiagonalPairsPruning(expandedPmat, posPermutation);
+	}
+
+
+	/*
+	 * Iteration that is simple to express in a for-loop, is often devilishly difficult to express as a
+	 * java.util.Iterator subclass, since Java doesn't have continuations or suspendable functions like other languages.
+	 * These functions try to keep the simple for-loop expressions for iteration over tuples, but still allow convenient
+	 * iteration using functional-style programming (ie, passing in functions to the iterator).
+	 *
+	 * sure, we could just use a for-loop to buffer tuples into a list which has easy access to an Iterator,
+	 * but that's horribly inefficient. let's do better! =)
+	 *
+	 * The argument function must return a command to the iterator at each application: Either Stop to terminate
+	 * the iterator, or Continue to ask to be called again with the next tuple.
+	 */
+
+	public static enum IteratorCommand {
+		Break,
+		Continue
+	}
+
+
+	// FOR SINGLES
+
+	public static interface SingleConsumer {
+		public IteratorCommand apply(int pos, int rc);
+	}
+
+	public IteratorCommand forEachUnprunedSingle(SingleConsumer consumer) {
+		int n = getNumPos();
+		for (int pos1=0; pos1<n; pos1++) {
+			switch (forEachUnprunedSingleAt(pos1, consumer)) {
+				case Break: return IteratorCommand.Break;
+			}
+		}
+		return IteratorCommand.Continue;
+	}
+
+	public IteratorCommand forEachUnprunedSingleAt(int pos1, SingleConsumer consumer) {
+		for (int rc1=0; rc1<getNumConfAtPos(pos1); rc1++) {
+
+			// skip pruned stuff
+			if (isSinglePruned(pos1, rc1)) {
+				continue;
+			}
+
+			switch (consumer.apply(pos1, rc1)) {
+				case Break: return IteratorCommand.Break;
+			}
+		}
+		return IteratorCommand.Continue;
+	}
+
+
+	// FOR PAIRS
+
+	public static interface PairConsumer {
+		public IteratorCommand apply(int pos1, int rc1, int pos2, int rc2);
+	}
+
+	public IteratorCommand forEachUnprunedPair(PairConsumer consumer) {
+		for (int pos1=1; pos1<getNumPos(); pos1++) {
+			for (int pos2=0; pos2<pos1; pos2++) {
+				switch (forEachUnprunedPairAt(pos1, pos2, consumer)) {
+					case Break: return IteratorCommand.Break;
+				}
+			}
+		}
+		return IteratorCommand.Continue;
+	}
+
+	public IteratorCommand forEachUnprunedPairAt(int pos1, int pos2, PairConsumer consumer) {
+		for (int rc1=0; rc1<getNumConfAtPos(pos1); rc1++) {
+
+			// skip pruned stuff
+			if (getOneBody(pos1, rc1)) {
+				continue;
+			}
+
+			for (int rc2=0; rc2<getNumConfAtPos(pos2); rc2++) {
+
+				// skip pruned stuff
+				if (getPairwise(pos1, rc1, pos2, rc2)) {
+					continue;
+				}
+
+				switch (consumer.apply(pos1, rc1, pos2, rc2)) {
+					case Break: return IteratorCommand.Break;
+				}
+			}
+		}
+		return IteratorCommand.Continue;
+	}
+
+	public static interface TripleConsumer {
+		public IteratorCommand apply(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3);
+	}
+
+	public IteratorCommand forEachUnprunedTriple(TripleConsumer consumer) {
+		for (int pos1=2; pos1<getNumPos(); pos1++) {
+			for (int pos2=1; pos2<pos1; pos2++) {
+				for (int pos3=0; pos3<pos2; pos3++) {
+					switch (forEachUnprunedTripleAt(pos1, pos2, pos3, consumer)) {
+						case Break: return IteratorCommand.Break;
+					}
+				}
+			}
+		}
+		return IteratorCommand.Continue;
+	}
+
+	public IteratorCommand forEachUnprunedTripleAt(int pos1, int pos2, int pos3, TripleConsumer consumer) {
+
+		// allocate one tuple for the whole function, but update it at each iteration
+		RCTuple tuple = new RCTuple(0, 0, 0, 0, 0, 0);
+
+		for (int rc1=0; rc1<getNumConfAtPos(pos1); rc1++) {
+
+			// skip pruned stuff
+			if (getOneBody(pos1, rc1)) {
+				continue;
+			}
+
+			// update the tuple in reverse order, so tuple positions are sorted
+			tuple.pos.set(2, pos1);
+			tuple.RCs.set(2, rc1);
+
+			for (int rc2=0; rc2<getNumConfAtPos(pos2); rc2++) {
+
+				// skip pruned stuff
+				if (getPairwise(pos1, rc1, pos2, rc2)) {
+					continue;
+				}
+
+				tuple.pos.set(1, pos2);
+				tuple.RCs.set(1, rc2);
+
+				for (int rc3=0; rc3<getNumConfAtPos(pos3); rc3++) {
+
+					tuple.pos.set(0, pos3);
+					tuple.RCs.set(0, rc3);
+
+					// skip pruned stuff
+					if (getTuple(tuple)) {
+						continue;
+					}
+
+					switch (consumer.apply(pos1, rc1, pos2, rc2, pos3, rc3)) {
+						case Break: return IteratorCommand.Break;
+					}
+				}
+			}
+		}
+		return IteratorCommand.Continue;
 	}
 }
