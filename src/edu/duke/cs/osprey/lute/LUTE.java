@@ -2,7 +2,10 @@ package edu.duke.cs.osprey.lute;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -32,12 +35,15 @@ public class LUTE {
 		 *
 		 * ie, plain old linear regression
 		 *
-		 * fastest to compute, tends to overfit a bit more than LASSO though
+		 * TL;DR - OLSCG is faster than LASSO here, use OLSCG by default
+		 *
+		 * fastest to compute, tends to overfit a bit more than LASSO though, so requires more samples
+		 * (even with the extra sample energies, CG is still generally faster overall than LASSO though)
 		 */
 		OLSCG(true) {
 
 			@Override
-			public double[] fit(LinearSystem system, LinearSystem.BInfo binfo) {
+			public double[] fit(LinearSystem system, LinearSystem.BInfo binfo, TaskExecutor tasks) {
 
 				// build the linear model: Ax=b
 				// except conjugate gradient needs square A, so transform to A^tAx = A^tb
@@ -57,7 +63,7 @@ public class LUTE {
 					public RealVector operate(RealVector vx)
 						throws DimensionMismatchException {
 						double[] x = ((ArrayRealVector)vx).getDataRef();
-						double[] AtAx = system.multAt(system.multA(x));
+						double[] AtAx = system.parallelMultAt(system.parallelMultA(x, tasks), tasks);
 						return new ArrayRealVector(AtAx, false);
 					}
 				};
@@ -75,13 +81,13 @@ public class LUTE {
 		 * ie, L1 regularized linear regression
 		 *
 		 * not as fast as conjugate gradient, but tends to overfit less,
-		 * and hence require fewer training samples, so could be faster
-		 * overall when considering energy calculation time too
+		 * so usually requires fewer training samples. However, conjugate gradient
+		 * is soooo much faster at fitting that it tends to be faster overall anyway.
 		 */
 		LASSO(false /* LASSO implementation does its own normalization */) {
 
 			@Override
-			public double[] fit(LinearSystem system, LinearSystem.BInfo binfo) {
+			public double[] fit(LinearSystem system, LinearSystem.BInfo binfo, TaskExecutor tasks) {
 
 				// explicitly instantiate A (at least it's a sparse and not a dense matrix though)
 				// the LASSO implementation is actually really fast!
@@ -100,6 +106,7 @@ public class LUTE {
 				int maxIterations = 200;
 
 				// regress!
+				// NOTE: can't do parallelism here apparently, so `tasks` is ingored =(
 				LASSO lasso = new LASSO(A, binfo.b, lambda, tolerance, maxIterations);
 				binfo.offset += lasso.intercept();
 				return lasso.coefficients();
@@ -112,7 +119,7 @@ public class LUTE {
 			this.normalize = normalize;
 		}
 
-		public abstract double[] fit(LinearSystem system, LinearSystem.BInfo binfo);
+		public abstract double[] fit(LinearSystem system, LinearSystem.BInfo binfo, TaskExecutor tasks);
 	}
 
 	public static class LinearSystem {
@@ -153,7 +160,7 @@ public class LUTE {
 			tuples.forEachIn(confs.get(c), throwIfMissingSingle, throwIfMissingPair, callback);
 		}
 
-		public void fit(Fitter fitter) {
+		public void fit(Fitter fitter, TaskExecutor tasks) {
 
 			// calculate b, and normalize if needed
 			BInfo binfo = new BInfo();
@@ -176,7 +183,7 @@ public class LUTE {
 				}
 			}
 
-			double[] x = fitter.fit(this, binfo);
+			double[] x = fitter.fit(this, binfo, tasks);
 
 			calcTupleEnergies(x, binfo);
 		}
@@ -200,6 +207,83 @@ public class LUTE {
 					out[t] += xc;
 				});
 			}
+			return out;
+		}
+
+		private double[] parallelMultA(double[] x, TaskExecutor tasks) {
+
+			int numConfs = confs.size();
+			int numThreads = tasks.getParallelism();
+			int partitionSize = numConfs/numThreads;
+
+			double[] out = new double[numConfs];
+
+			// partition the confs equally among the threads
+			for (int i=0; i<numThreads; i++) {
+				int startC = i*partitionSize;
+				int stopC;
+				if (i == numThreads - 1) {
+					stopC = numConfs;
+				} else {
+					stopC = (i+1)*partitionSize;
+				}
+				tasks.submit(
+					() -> {
+						for (int c=startC; c<stopC; c++) {
+							final int fc = c;
+							forEachTupleIn(fc, (t) -> {
+								out[fc] += x[t];
+							});
+						}
+						return null;
+					},
+					(ignored) -> {}
+				);
+			}
+			tasks.waitForFinish();
+
+			return out;
+		}
+
+		private double[] parallelMultAt(double[] x, TaskExecutor tasks) {
+
+			int numConfs = confs.size();
+			int numThreads = tasks.getParallelism();
+			int partitionSize = numConfs/numThreads;
+
+			int numTuples = tuples.size();
+			double[] out = new double[numTuples];
+
+			// partition the confs equally among the threads
+			for (int i=0; i<numThreads; i++) {
+				int startC = i*partitionSize;
+				int stopC;
+				if (i == numThreads - 1) {
+					stopC = numConfs;
+				} else {
+					stopC = (i+1)*partitionSize;
+				}
+				tasks.submit(
+					() -> {
+						double[] threadOut = new double[numTuples];
+						for (int c=startC; c<stopC; c++) {
+							double xc = x[c];
+							forEachTupleIn(c, (t) -> {
+								threadOut[t] += xc;
+							});
+						}
+						return threadOut;
+					},
+					(threadOut) -> {
+						// aggregate thread results to the real out array
+						for (int t=0; t<numTuples; t++) {
+							out[t] += threadOut[t];
+						}
+					}
+				);
+			}
+			tasks.waitForFinish();
+
 			return out;
 		}
 
@@ -319,111 +403,75 @@ public class LUTE {
 		return pairs;
 	}
 
-	public Set<RCTuple> getUnprunedTripleTuples(PruningMatrix pmat) {
-
-		Set<RCTuple> triples = new LinkedHashSet<>();
-
-		for (int pos1=0; pos1<pmat.getNumPos(); pos1++) {
-			for (int rc1=0; rc1<pmat.getNumConfAtPos(pos1); rc1++) {
-
-				// skip pruned singles
-				if (pmat.isSinglePruned(pos1, rc1)) {
-					continue;
-				}
-
-				for (int pos2=0; pos2<pos1; pos2++) {
-					for (int rc2=0; rc2<pmat.getNumConfAtPos(pos2); rc2++) {
-
-						// skip pruned singles
-						if (pmat.isSinglePruned(pos2, rc2)) {
-							continue;
-						}
-
-						// skip pruned pairs
-						if (pmat.isPairPruned(pos1, rc1, pos2, rc2)) {
-							continue;
-						}
-
-						for (int pos3=0; pos3<pos2; pos3++) {
-							for (int rc3=0; rc3<pmat.getNumConfAtPos(pos3); rc3++) {
-
-								// skip pruned singles
-								if (pmat.isSinglePruned(pos3, rc3)) {
-									continue;
-								}
-
-								// skip pruned pairs
-								if (pmat.isPairPruned(pos1, rc1, pos3, rc3)) {
-									continue;
-								}
-								if (pmat.isPairPruned(pos2, rc2, pos3, rc3)) {
-									continue;
-								}
-
-								// we found it! It's an unpruned triple!
-								// NOTE: make the tuple in pos3, pos2, pos1 order so the positions are already sorted
-								// (because pos3 < pos2 < pos1 by definition)
-								triples.add(new RCTuple(pos3, rc3, pos2, rc2, pos1, rc1));
-							}
-						}
-					}
-				}
-			}
-		}
-
-		return triples;
-	}
-
+	/**
+	 * Turns out, this approach doesn't work terribly well unless you return lots of tuples
+	 *
+	 * I think it tends to overfit to the pairs training set, but doesn't fit well on later sampled confs for triples
+	 */
 	public Set<RCTuple> sampleTripleTuplesByFitError(ConfEnergyCalculator confEcalc, PruningMatrix pmat, ConfDB.ConfTable confTable, double fractionSqErrorCovered) {
 
 		LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(confSpace, confEcalc.ecalc, new LUTEState(trainingSystem));
 
-		// go through the conf table and try to find confs with big errors
-		List<ConfSearch.EnergiedConf> confs = new ArrayList<>();
-		for (int i=0; i<trainingSystem.confs.size(); i++) {
-			int[] conf = trainingSystem.confs.get(i);
-			double calcEnergy = confTable.get(conf).upper.energy;
-			double fitEnergy = luteConfEcalc.calcEnergy(conf);
-			confs.add(new ConfSearch.EnergiedConf(conf, fitEnergy, calcEnergy));
+		class ConfInfo {
+
+			public final int[] conf;
+			public final double ffEnergy;
+			public final double luteEnergy;
+			public final double err;
+
+			public ConfInfo(int[] conf) {
+				this.conf = conf;
+				ffEnergy = confTable.get(conf).upper.energy;
+				luteEnergy = luteConfEcalc.calcEnergy(conf);
+				err = Math.abs(ffEnergy - luteEnergy);
+			}
 		}
-		confs.sort(Comparator.comparing((ConfSearch.EnergiedConf conf) ->
-			Math.abs(conf.getEnergy() - conf.getScore())
-		).reversed());
+
+		// go through the conf table and try to find confs with big errors
+		List<ConfInfo> confInfos = new ArrayList<>();
+		for (int[] conf : trainingSystem.confs) {
+			confInfos.add(new ConfInfo(conf));
+		}
+		confInfos.sort(Comparator.comparing((ConfInfo info) -> info.err).reversed());
 
 		/* DEBUG
-		log("%d training confs with energy gaps", confs.size());
-		for (int i=0; i<10; i++) {
+		log("%d training confs with energy gaps", confInfos.size());
+		for (int i=0; i<100; i++) {
 
-			ConfSearch.EnergiedConf conf = confs.get(i);
-			double gap = conf.getEnergy() - conf.getScore();
+			ConfInfo info = confInfos.get(i);
 
-			log("%30s:   score %9.4f   energy %9.4f   gap %9.4f",
-				Conf.toString(conf.getAssignments()),
-				conf.getScore(),
-				conf.getEnergy(),
-				gap
+			log("%30s:   ff %9.4f   lute %9.4f   err %9.4f",
+				Conf.toString(info.conf),
+				info.ffEnergy,
+				info.luteEnergy,
+				info.err
 			);
 		}
 		*/
 
-		List<RCTuple> triples = new ArrayList<>(getUnprunedTripleTuples(pmat));
+		// get all the triples we could possibly sample
+		List<RCTuple> triples = new ArrayList<>();
+		pmat.forEachUnprunedTriple((pos1, rc1, pos2, rc2, pos3, rc3) -> {
+			triples.add(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted());
+			return PruningMatrix.IteratorCommand.Continue;
+		});
+
 
 		// DEBUG
 		//log("%d triples available", triples.size());
 
 		// calculate an error score for each triple
 		TupleTree<Double> triplesSqError = new TupleTree<>();
-		for (RCTuple triple : triples) {
-			for (ConfSearch.EnergiedConf conf : confs) {
-				if (Conf.containsTuple(conf.getAssignments(), triple)) {
+		for (ConfInfo info : confInfos) {
 
-					double error = Math.abs(conf.getEnergy() - conf.getScore());
+			for (RCTuple triple : triples) {
+				if (Conf.containsTuple(info.conf, triple)) {
 
 					Double errorSqSum = triplesSqError.get(triple);
 					if (errorSqSum == null) {
 						errorSqSum = 0.0;
 					}
-					errorSqSum += error*error;
+					errorSqSum += info.err*info.err;
 					triplesSqError.put(triple, errorSqSum);
 				}
 			}
@@ -437,14 +485,13 @@ public class LUTE {
 			return sqError;
 		};
 
-		// find the triples with the most squared error
+		/* DEBUG: find the triples with the most squared error
 		triples.sort(Comparator.comparing(getSqError).reversed());
 		for (int i=0; i<10; i++) {
 			RCTuple triple = triples.get(i);
-
-			// DEBUG
-			//log("%9.4f   %s", triplesSqError.get(triple), triple);
+			log("%9.4f   %s", triplesSqError.get(triple), triple);
 		}
+		*/
 
 		// sum the total error
 		double totalSqError = 0.0;
@@ -471,6 +518,72 @@ public class LUTE {
 		return chosenTriples;
 	}
 
+	public Set<RCTuple> sampleTripleTuplesByStrongInteractions(EnergyMatrix emat, PruningMatrix pmat, int maxNumPairsPerPosition) {
+
+		int n = emat.getNumPos();
+		int numPairsPerPosition = Math.min(n - 1, maxNumPairsPerPosition);
+
+		// find strongest pairwise energies for each pair of positions
+		PosMatrixGeneric<Double> strongestInteractions = new PosMatrixGeneric<>(confSpace);
+		strongestInteractions.fill(0.0);
+		for (int pos1=1; pos1<n; pos1++) {
+			for (int pos2=0; pos2<pos1; pos2++) {
+
+				// get the strongest (ie, in magnitude only) energy over all RCs for this pair
+				for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
+					for (int rc2=0; rc2<emat.getNumConfAtPos(pos2); rc2++) {
+
+						double interaction = Math.abs(emat.getPairwise(pos1, rc1, pos2, rc2));
+
+						if (interaction > strongestInteractions.get(pos1, pos2)) {
+							strongestInteractions.set(pos1, pos2, interaction);
+						}
+					}
+				}
+			}
+		}
+
+		// pick the top k strongly-interacting positions for each position
+		PosMatrixGeneric<Boolean> topPositionInteractions = new PosMatrixGeneric<>(confSpace);
+		topPositionInteractions.fill(false);
+		for (int pos1=0; pos1<n; pos1++) {
+
+			// collect all positions that aren't pos1
+			List<Integer> positions = new ArrayList<>(n);
+			for (int pos2=0; pos2<n; pos2++) {
+				if (pos2 != pos1) {
+					positions.add(pos2);
+				}
+			}
+
+			// sort them by strongest interactions with pos1
+			final int fpos1 = pos1;
+			positions.sort(Comparator.comparing((Integer pos2) -> topPositionInteractions.get(fpos1, pos2)).reversed());
+
+			// pick the top k
+			for (int i=0; i<numPairsPerPosition; i++) {
+				int pos2 = positions.get(i);
+				topPositionInteractions.set(pos1, pos2, true);
+			}
+		}
+
+		// pick triples involving at least 2/3 strongly interacting pairs
+		Set<RCTuple> triples = new HashSet<>();
+		pmat.forEachUnprunedTriple((pos1, rc1, pos2, rc2, pos3, rc3) -> {
+
+			int numStrongInteractions =
+				  (topPositionInteractions.get(pos1, pos2) ? 1 : 0)
+				+ (topPositionInteractions.get(pos1, pos3) ? 1 : 0)
+				+ (topPositionInteractions.get(pos2, pos3) ? 1 : 0);
+			if (numStrongInteractions >= 2) {
+				triples.add(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted());
+			}
+
+			return PruningMatrix.IteratorCommand.Continue;
+		});
+		return triples;
+	}
+
 	public void addTuples(Iterable<RCTuple> tuples) {
 		for (RCTuple tuple : tuples) {
 			addTuple(tuple);
@@ -488,7 +601,7 @@ public class LUTE {
 		return Collections.unmodifiableSet(tuples);
 	}
 
-	public void sampleTuplesAndFit(ConfEnergyCalculator confEcalc, PruningMatrix pmat, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore, double maxRMSE) {
+	public void sampleTuplesAndFit(ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore, double maxRMSE) {
 
 		// start with all pairs first
 		logf("Sampling all pair tuples...");
@@ -504,24 +617,27 @@ public class LUTE {
 		}
 		log("training set RMS error %f does not meet goal of %f", trainingSystem.errors.rms, maxRMSE);
 
-		// nope, try to pick some triples to get a better fit
-		logf("Sampling triple tuples to try to reduce error...");
-		Stopwatch triplesStopwatch = new Stopwatch().start();
-		addTuples(sampleTripleTuplesByFitError(confEcalc, pmat, confTable, 0.9));
-		log(" done in " + triplesStopwatch.stop().getTime(2));
+		int maxNumPairsPerPosition = confSpace.positions.size() - 1;
+		for (int numPairsPerPosition=1; numPairsPerPosition<maxNumPairsPerPosition; numPairsPerPosition++) {
 
-		// fit again
-		fit(confEcalc, confTable, sampler, fitter, maxOverfittingScore);
+			// nope, try to pick some triples to get a better fit
+			logf("Sampling triple tuples (top %d strongly-interacting pairs at each position) to try to reduce error...", numPairsPerPosition);
+			Stopwatch triplesStopwatch = new Stopwatch().start();
+			addTuples(sampleTripleTuplesByStrongInteractions(emat, pmat, numPairsPerPosition));
+			log(" done in " + triplesStopwatch.stop().getTime(2));
 
-		// was that good enough?
-		if (trainingSystem.errors.rms <= maxRMSE) {
-			log("training set RMS error %f meets goal of %f", trainingSystem.errors.rms, maxRMSE);
-			return;
+			// fit again
+			fit(confEcalc, confTable, sampler, fitter, maxOverfittingScore);
+
+			// was that good enough?
+			if (trainingSystem.errors.rms <= maxRMSE) {
+				log("training set RMS error %f meets goal of %f", trainingSystem.errors.rms, maxRMSE);
+				return;
+			}
+			log("training set RMS error %f does not meet goal of %f", trainingSystem.errors.rms, maxRMSE);
 		}
-		log("training set RMS error %f does not meet goal of %f", trainingSystem.errors.rms, maxRMSE);
 
-		// TODO: as a last resort, use all triples?
-		//addUnprunedTripleTuples(pmat);
+		log("all triples exhausted. Nothing more to try to improve the fit.");
 	}
 
 	public void fit(ConfEnergyCalculator confEcalc, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore) {
@@ -535,6 +651,7 @@ public class LUTE {
 
 		Stopwatch sw = new Stopwatch().start();
 
+		int numSamples = 0;
 		int samplesPerTuple = 1;
 		while (true) {
 
@@ -553,9 +670,12 @@ public class LUTE {
 				energies.put(conf, null);
 			}
 
+			int numAdditionalSamples = energies.size() - numSamples;
+			numSamples = energies.size();
+
 			// calculate energies for all the samples
-			Progress progress = new Progress(energies.size());
-			log("calculating energies for %d samples...", progress.getTotalWork());
+			Progress progress = new Progress(numSamples);
+			log("calculating energies for %d more samples...", numAdditionalSamples);
 			for (Map.Entry<int[],Double> entry : energies.entrySet()) {
 				int[] conf = entry.getKey();
 				confEcalc.calcEnergyAsync(new RCTuple(conf), confTable, (energy) -> {
@@ -565,12 +685,17 @@ public class LUTE {
 			}
 			confEcalc.tasks.waitForFinish();
 
-			// fit the linear system to the training set
-			logf("fitting %d confs to %d tuples ...", energies.size(), this.tuples.size());
-			Stopwatch trainingSw = new Stopwatch().start();
-			trainingSystem = new LinearSystem(tuplesIndex, trainingSet, energies);
-			trainingSystem.fit(fitter);
-			logf(" done in %s", trainingSw.stop().getTime(2));
+			// make sure we get a thread pool intended for the CPU rather than the GPU
+			try (ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor()) {
+				tasks.start(confEcalc.ecalc.parallelism.numThreads);
+
+				// fit the linear system to the training set
+				logf("fitting %d confs to %d tuples ...", numSamples, this.tuples.size());
+				Stopwatch trainingSw = new Stopwatch().start();
+				trainingSystem = new LinearSystem(tuplesIndex, trainingSet, energies);
+				trainingSystem.fit(fitter, tasks);
+				logf(" done in %s", trainingSw.stop().getTime(2));
+			}
 
 			// analyze the test set errors
 			testSystem = new LinearSystem(tuplesIndex, testSet, energies);
@@ -590,15 +715,6 @@ public class LUTE {
 			);
 
 			samplesPerTuple++;
-
-			// don't keep attempting to fit forever
-			// (hopefully we'll never actually get to 100 samples per tuple in the real world)
-			if (samplesPerTuple == 100) {
-				log("100 samples per tuples reached without meeting overfitting goals."
-					+ " That's a lot of samples, probaly we'll never reach the goal?"
-					+ " Aborting LUTE fitting");
-				break;
-			}
 		}
 
 		log("\nLUTE fitting finished in %s:\n", sw.stop().getTime(2));

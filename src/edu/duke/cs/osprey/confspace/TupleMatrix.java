@@ -46,6 +46,8 @@ public interface TupleMatrix<T> {
 	 * returns the TupleTree containing the higher order tuples, or null if none
 	 *
 	 * use this for reading tuples from the matrix
+	 *
+	 * pos1 < pos2 must be the lowest-order positions in the tuple
 	 */
 	default TupleTree<T> getHigherOrderTuples(int pos1, int rc1, int pos2, int rc2) {
 		throw new UnsupportedOperationException();
@@ -56,63 +58,76 @@ public interface TupleMatrix<T> {
 	 *
 	 * if a tuple tree doesn't exist for this pair yet, a new one is created
 	 *
-	 * the tree can be used to put/get individual tuples
-	 *
-	 * use this for writing tuples to the matrix
+	 * pos1 < pos2 must be the lowest-order positions in the tuple
 	 */
 	default TupleTree<T> getOrMakeHigherOrderTuples(int pos1, int rc1, int pos2, int rc2) {
 		throw new UnsupportedOperationException();
 	}
 
 	default T getTuple(RCTuple tuple) {
+		tuple.checkSortedPositions();
 		switch (tuple.size()) {
 
-			case 1:
-				return getOneBody(
-					tuple.pos.get(0), tuple.RCs.get(0)
-				);
+			case 0: throw new IllegalArgumentException("zero-length tuple");
 
-			case 2:
-				return getPairwise(
-					tuple.pos.get(0), tuple.RCs.get(0),
-					tuple.pos.get(1), tuple.RCs.get(1)
-				);
+			case 1: {
+				int pos1 = tuple.pos.get(0);
+				int rc1 = tuple.RCs.get(0);
+				return getOneBody(pos1, rc1);
+			}
 
-			default:
-				TupleTree<T> tree = getHigherOrderTuples(
-					tuple.pos.get(0), tuple.RCs.get(0),
-					tuple.pos.get(1), tuple.RCs.get(1)
-				);
+			case 2: {
+				// choose pos1,pos2 such that pos1 < pos2
+				int pos1 = tuple.pos.get(1);
+				int rc1 = tuple.RCs.get(1);
+				int pos2 = tuple.pos.get(0);
+				int rc2 = tuple.RCs.get(0);
+				return getPairwise(pos1, rc1, pos2, rc2);
+			}
+
+			default: {
+				// choose pos1,pos2 such that pos1 < pos2 < pos3 ...
+				int pos1 = tuple.pos.get(0);
+				int rc1 = tuple.RCs.get(0);
+				int pos2 = tuple.pos.get(1);
+				int rc2 = tuple.RCs.get(1);
+				TupleTree<T> tree = getHigherOrderTuples(pos1, rc1, pos2, rc2);
 				if (tree != null) {
 					return tree.get(tuple);
 				}
 				return null;
+			}
 		}
 	}
 
 	default void setTuple(RCTuple tuple, T val) {
+		tuple.checkSortedPositions();
 		switch (tuple.size()) {
 
-			case 1:
-				setOneBody(
-					tuple.pos.get(0), tuple.RCs.get(0),
-					val
-				);
-			break;
+			case 0: throw new IllegalArgumentException("zero-length tuple");
 
-			case 2:
-				setPairwise(
-					tuple.pos.get(0), tuple.RCs.get(0),
-					tuple.pos.get(1), tuple.RCs.get(1),
-					val
-				);
-			break;
+			case 1: {
+				int pos1 = tuple.pos.get(0);
+				int rc1 = tuple.RCs.get(0);
+				setOneBody(pos1, rc1, val);
+			} break;
+
+			case 2: {
+				// choose pos1,pos2 such that pos1 < pos2
+				int pos1 = tuple.pos.get(1);
+				int rc1 = tuple.RCs.get(1);
+				int pos2 = tuple.pos.get(0);
+				int rc2 = tuple.RCs.get(0);
+				setPairwise(pos1, rc1, pos2, rc2, val);
+			} break;
 
 			default:
-				getOrMakeHigherOrderTuples(
-					tuple.pos.get(0), tuple.RCs.get(0),
-					tuple.pos.get(1), tuple.RCs.get(1)
-				).put(tuple, val);
+				// choose pos1,pos2 such that pos1 < pos2 < pos3 ...
+				int pos1 = tuple.pos.get(0);
+				int rc1 = tuple.RCs.get(0);
+				int pos2 = tuple.pos.get(1);
+				int rc2 = tuple.RCs.get(1);
+				getOrMakeHigherOrderTuples(pos1, rc1, pos2, rc2).put(tuple, val);
 			break;
 		}
 	}

@@ -13,7 +13,6 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 /**
  * Simple, fast implementation of DEE.
- * Doesn't support triples yet
  */
 public class SimpleDEE {
 
