@@ -15,12 +15,14 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -28,8 +30,135 @@ import static edu.duke.cs.osprey.tools.Log.log;
 public class LUTELab {
 
 	public static void main(String[] args) {
-		gmecMain();
-		//kstarMain();
+		//gmecMain();
+		kstarMain();
+	}
+
+	public static void kstarMain() {
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
+
+		//train("protein", confSpaces.protein);
+		//train("ligand", confSpaces.ligand);
+		//train("complex", confSpaces.complex);
+		kstar(confSpaces);
+	}
+
+	private static void train(String name, SimpleConfSpace confSpace) {
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(8))
+			.build()) {
+
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+				.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+					.build()
+					.calcReferenceEnergies()
+				).build();
+
+			// compute energy matrix
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+				.setCacheFile(new File(String.format("LUTE.%s.emat.dat", name)))
+				.build()
+				.calcEnergyMatrix();
+
+			// run DEE (super important for good LUTE fits!!)
+			PruningMatrix pmat = new SimpleDEE.Runner()
+				.setSinglesThreshold(100.0)
+				.setPairsThreshold(100.0)
+				.setGoldsteinDiffThreshold(10.0)
+				.setShowProgress(true)
+				.run(confSpace, emat);
+
+			final File confDBFile = new File(String.format("LUTE.%s.conf.db", name));
+			try (ConfDB confdb = new ConfDB(confSpace, confDBFile)) {
+				ConfDB.ConfTable confTable = confdb.new ConfTable("lute");
+
+				log("\nLUTE:\n");
+
+				final int randomSeed = 12345;
+				final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
+				final double maxOverfittingScore = 1.5;
+				final double maxRMSE = 0.1;
+
+				confEcalc.resetCounters();
+
+				// compute LUTE fit
+				LUTE lute = new LUTE(confSpace);
+				ConfSampler sampler = new UniformConfSampler(confSpace, pmat, randomSeed);
+				lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
+				lute.reportConfSpaceSize(pmat);
+				lute.save(new File(String.format("LUTE.%s.dat", name)));
+			}
+		}
+	}
+
+	private static void kstar(TestKStar.ConfSpaces confSpaces) {
+
+		SimpleConfSpace confSpace = confSpaces.complex;
+		String name = "complex";
+
+		// TEMP: calculate the pfunc of the complex wild-type sequence
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(8))
+			.build()) {
+
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
+
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+				.setCacheFile(new File(String.format("LUTE.%s.emat.dat", name)))
+				.build()
+				.calcEnergyMatrix();
+
+			PruningMatrix pmat = new SimpleDEE.Runner()
+				.setSinglesThreshold(100.0)
+				.setPairsThreshold(100.0)
+				.setGoldsteinDiffThreshold(10.0)
+				.setShowProgress(true)
+				.run(confSpace, emat);
+
+			LUTEState luteState = LUTEIO.read(new File(String.format("LUTE.%s.dat", name)));
+			LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpaces.complex, ecalc, luteState);
+
+			// enumerate all the sequences
+			List<Sequence> sequences = new ArrayList<>();
+			for (List<SimpleConfSpace.Position> mutablePositions : MathTools.powerset(confSpace.positions)) {
+
+				// collect the mutations (res types except for wild type) for these positions into a simple list list
+				List<List<String>> resTypes = new ArrayList<>();
+				for (SimpleConfSpace.Position pos : mutablePositions) {
+					resTypes.add(pos.resFlex.resTypes.stream()
+						.filter((resType) -> !resType.equals(pos.resFlex.wildType))
+						.collect(Collectors.toList())
+					);
+				}
+
+				// enumerate all the combinations of res types
+				for (List<String> mutations : MathTools.cartesianProduct(resTypes)) {
+					Sequence sequence = confSpace.makeWildTypeSequence();
+					for (int i=0; i<mutablePositions.size(); i++) {
+						sequence.set(mutablePositions.get(i), mutations.get(i));
+					}
+					sequences.add(sequence);
+				}
+			}
+
+			for (Sequence sequence : sequences) {
+
+				RCs unprunedRCs = sequence.makeRCs();
+				RCs prunedRCs = new RCs(unprunedRCs, pmat);
+
+				ConfAStarTree astar = new ConfAStarTree.Builder(null, prunedRCs)
+					.setLUTE(luteEcalc)
+					.build();
+
+				LUTEPfunc pfunc = new LUTEPfunc(luteEcalc);
+				pfunc.setReportProgress(false);
+				pfunc.init(astar, unprunedRCs.getNumConformations(), 0.01);
+				pfunc.compute();
+				log("LUTE pfunc bounds for %s: %s", sequence.toString(Sequence.Renderer.ResTypeMutations), pfunc.makeResult());
+			}
+		}
 	}
 
 	private static SimpleConfSpace make1CC8ConfSpace() {
@@ -55,61 +184,6 @@ public class LUTELab {
 		return new SimpleConfSpace.Builder()
 			.addStrand(strand)
 			.build();
-	}
-
-	public static void kstarMain() {
-
-		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
-
-		train("protein", confSpaces.protein);
-		train("ligand", confSpaces.ligand);
-		train("complex", confSpaces.complex);
-	}
-
-	private static void train(String name, SimpleConfSpace confSpace) {
-
-		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
-			.setParallelism(Parallelism.makeCpu(8))
-			.build()) {
-
-			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
-
-			// compute energy matrix
-			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-				.setCacheFile(new File(String.format("LUTE.%s.emat.dat", name)))
-				.build()
-				.calcEnergyMatrix();
-
-			// run DEE (super important for good LUTE fits!!)
-			PruningMatrix pmat = new SimpleDEE.Runner()
-				.setSinglesThreshold(100.0)
-				.setPairsThreshold(100.0)
-				.setGoldsteinDiffThreshold(5.0)
-				.setShowProgress(true)
-				.run(confSpace, emat);
-
-			final File confDBFile = new File(String.format("LUTE.%s.conf.db", name));
-			try (ConfDB confdb = new ConfDB(confSpace, confDBFile)) {
-				ConfDB.ConfTable confTable = confdb.new ConfTable("lute");
-
-				log("\nLUTE:\n");
-
-				final int randomSeed = 12345;
-				//final LUTE.Fitter fitter = LUTE.Fitter.LASSO;
-				final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
-				final double maxOverfittingScore = 1.5;
-				final double maxRMSE = 0.1;
-
-				confEcalc.resetCounters();
-
-				// compute LUTE fit
-				LUTE lute = new LUTE(confSpace);
-				ConfSampler sampler = new UniformConfSampler(confSpace, pmat, randomSeed);
-				lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
-				lute.reportConfSpaceSize(pmat);
-				lute.save(new File(String.format("LUTE.%s.dat", name)));
-			}
-		}
 	}
 
 	public static void gmecMain() {
