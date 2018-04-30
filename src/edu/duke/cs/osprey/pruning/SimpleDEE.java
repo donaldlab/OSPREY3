@@ -4,7 +4,9 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
+import edu.duke.cs.osprey.tools.ObjectIO;
 
+import java.io.File;
 import java.math.BigInteger;
 import java.util.function.Consumer;
 
@@ -96,6 +98,7 @@ public class SimpleDEE {
 		private boolean typeDependent = false;
 		private int numIterations = Integer.MAX_VALUE;
 		private boolean showProgress = false;
+		private File cacheFile = null;
 
 		public Runner setSinglesThreshold(Double val) {
 			singlesThreshold = val;
@@ -150,7 +153,28 @@ public class SimpleDEE {
 			return this;
 		}
 
+		public Runner setCacheFile(File val) {
+			cacheFile = val;
+			return this;
+		}
+
 		public PruningMatrix run(SimpleConfSpace confSpace, EnergyMatrix emat) {
+
+			// check the cache file first
+			if (cacheFile != null) {
+				return ObjectIO.readOrMake(
+					cacheFile,
+					PruningMatrix.class,
+					"pruning matrix",
+					(pmat) -> pmat.matches(confSpace),
+					(context) -> reallyRun(confSpace, emat)
+				);
+			} else {
+				return reallyRun(confSpace, emat);
+			}
+		}
+
+		private PruningMatrix reallyRun(SimpleConfSpace confSpace, EnergyMatrix emat) {
 
 			if (showProgress) {
 				System.out.println("Running DEE...");

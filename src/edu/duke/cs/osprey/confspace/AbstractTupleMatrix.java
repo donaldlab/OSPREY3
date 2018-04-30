@@ -207,8 +207,25 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
 			}
 		}
     }
-    
-    @Override
+
+	public boolean matches(SimpleConfSpace confSpace) {
+
+		// check number of design positions
+		if (getNumPos() != confSpace.positions.size()) {
+			return false;
+		}
+
+		// check number of residue confs at each position
+		for (SimpleConfSpace.Position pos : confSpace.positions) {
+			if (pos.resConfs.size() != getNumConfAtPos(pos.index)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	@Override
     public boolean hasHigherOrderTerms() {
     	return higherTerms != null;
     }

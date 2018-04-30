@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.tools.UnpossibleError;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.function.BiConsumer;
 
@@ -11,11 +12,14 @@ import java.util.function.BiConsumer;
  * efficient storage for high-dimensional RC tuples based on a prefix tree (aka "trie")
  * @param <T> data type to store at the tuple
  */
-public class TupleTree<T> {
+public class TupleTree<T> implements Serializable {
 
+	private static final long serialVersionUID = -8048566743262701431L;
 	private static final int NotATuple = -1;
 
-	private class Node {
+	private class Node implements Serializable {
+
+		private static final long serialVersionUID = -47314393953695943L;
 
 		final int pos;
 		final int rc;
@@ -112,7 +116,11 @@ public class TupleTree<T> {
 
 			// make sure it matches the base
 			for (int i=0; i<baseTuple.size(); i++) {
-				if (baseTuple.pos.get(i) != tuple.pos.get(i) || baseTuple.RCs.get(i) != tuple.RCs.get(i)) {
+				int bpos = baseTuple.pos.get(i);
+				int brc = baseTuple.RCs.get(i);
+				int tpos = tuple.pos.get(i);
+				int trc = tuple.RCs.get(i);
+				if (bpos != tpos || brc != trc) {
 					throw new IllegalArgumentException("Tuple " + tuple + " doesn't match base tuple " + baseTuple + " for this tree");
 				}
 			}
