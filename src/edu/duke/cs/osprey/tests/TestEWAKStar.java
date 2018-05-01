@@ -32,16 +32,21 @@ import java.util.Arrays;
  *
  * @author lowegard, based on NewCOMETS
  */
-public class EWAKStar {
+public class TestEWAKStar {
     
     public static void main(String[] args){
-        int numStates = 2;
-        Integer[] pos = new Integer[]{3,4,5,6,7};
+        Integer[] pos = new Integer[]{0,1,2,3,4,5,6,7};
         Integer[] posL = new Integer[]{0,1,2,3,4};
+        Integer[] posP = new Integer[]{0,1,2};
+
         ArrayList<Integer> boundMutPos = new ArrayList<> (Arrays.asList(pos));
-        ArrayList<Integer> unboundMutPos = new ArrayList<> (Arrays.asList(posL));
-        
+        ArrayList<Integer> LMutPos = new ArrayList<> (Arrays.asList(posL));
+        ArrayList<Integer> PMutPos = new ArrayList<> (Arrays.asList(posP));
+
         ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
+                new String[] {"PHE"},
+                new String[] {"THR"},
+                new String[] {"TYR"},
                 new String[] {"ILE","LEU","MET","PHE","TRP","TYR","VAL"},
                 new String[] {"ASP","GLU"},
                 new String[] {"ILE","LEU","MET","PHE","TRP","TYR","VAL"},
@@ -55,30 +60,38 @@ public class EWAKStar {
         pruningSettings.typedep = true;
 
         double orderOfMag = 5.0;
-        double unboundPFw = 15.0;
-        double boundPFw = 15.0;
+        double unboundEw = 15.0;
+        double boundEw = 15.0;
+        double ewakstarEw = 1.0;
         double Ival = 0.0;
         String startResPL = "040";
         String endResPL = "0428";
         String startResL = "0363";
         String endResL = "0428";
+        String startResP = "040" ;
+        String endResP = "0363";
         String pdbFile = "examples/3K75.3LQC/3K75.b.shell.pdb";
-        String[] mutResNums = new String[] {"0391","0409","0411","0422","0424"};
+        String[] resNumsPL = new String[] {"067","090","0136","0391","0409","0411","0422","0424"};
+        String[] resNumsL = new String[]{"0391","0409","0411","0422","0424"};
+        String[] resNumsP = new String[]{"067","090","0136"};
 
         Molecule mol = PDBIO.readFile(pdbFile);
         Strand strandPL = new Strand.Builder(mol).setResidues(startResPL, endResPL).build();
         Strand strandL = new Strand.Builder(mol).setResidues(startResL, endResL).build();
+        Strand strandP = new Strand.Builder(mol).setResidues(startResP, endResP).build();
 
-        for(int mutPos=0; mutPos<AATypeOptions.size(); mutPos++) {
-            strandPL.flexibility.get(mutResNums[mutPos]).setLibraryRotamers(AATypeOptions.get(mutPos)).setContinuous();
-            strandL.flexibility.get(mutResNums[mutPos]).setLibraryRotamers(AATypeOptions.get(mutPos)).setContinuous();
+        for(Integer p: pos) {
+            strandPL.flexibility.get(resNumsPL[p]).setLibraryRotamers(AATypeOptions.get(p)).setContinuous();
+        }
+        for(Integer p: posL) {
+            strandL.flexibility.get(resNumsL[p]).setLibraryRotamers(AATypeOptions.get(p)).setContinuous();
+        }
+        for(Integer p: posP) {
+            strandP.flexibility.get(resNumsP[p]).setLibraryRotamers(AATypeOptions.get(p)).setContinuous();
         }
 
-        strandPL.flexibility.get("067").setLibraryRotamers("Phe").setContinuous();
-        strandPL.flexibility.get("090").setLibraryRotamers("Thr").setContinuous();
-        strandPL.flexibility.get("0136").setLibraryRotamers("Tyr").setContinuous();
-
         SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strandPL).build();
+        SimpleConfSpace confSpaceP = new SimpleConfSpace.Builder().addStrand(strandP).build();
         SimpleConfSpace confSpaceL = new SimpleConfSpace.Builder().addStrand(strandL).build();
 
         ForcefieldParams ffparams = new ForcefieldParams();
@@ -97,15 +110,19 @@ public class EWAKStar {
                 .build()
                 .calcEnergyMatrix();
 
-        PrecomputedMatrices precompMat = new PrecomputedMatrices(Ival, boundPFw, "PL", emat,
+        PrecomputedMatrices precompMat = new PrecomputedMatrices(Ival, boundEw, "PL", emat,
                 confSpace, ecalc, confECalc, new EPICSettings(), new LUTESettings(),
                 pruningSettings);
 
         String LmatrixName = "ewak.L.emat";
 
-        NewEWAKStarDoer ed = new NewEWAKStarDoer(confSpace, confSpaceL, precompMat,
-            boundMutPos, unboundMutPos, AATypeOptions, numSeqsWanted, confECalc, orderOfMag, unboundPFw, boundPFw,
-                startResL, endResL, mol, mutResNums, Ival, pruningSettings, LmatrixName);
+        String PmatrixName = "ewak.P.emat";
+
+        NewEWAKStarDoer ed = new NewEWAKStarDoer(confSpace, confSpaceL, confSpaceP, precompMat,
+            boundMutPos, LMutPos, PMutPos, AATypeOptions, numSeqsWanted, confECalc, orderOfMag, unboundEw, boundEw,
+                ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, pruningSettings,
+                LmatrixName, PmatrixName, ffparams);
+
 
         ArrayList<String> bestSequences = ed.calcBestSequences();
 

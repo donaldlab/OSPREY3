@@ -128,7 +128,7 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 	}
 
 	/**
-	 * Make a Sequence from a COMETs/EWAKStar sequence string (lowegard)
+	 * Make a Sequence from a COMETs/TestEWAKStar sequence string (lowegard)
 	 */
 	public static Sequence makeFromEWAKStar(String seq, Sequence WT, SimpleConfSpace confSpace){
 		Sequence newSeq = new Sequence(WT);
@@ -164,6 +164,15 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 	 */
 	public Sequence(Sequence other) {
 		this.confSpace = other.confSpace;
+		this.resTypes = other.resTypes.clone();
+	}
+
+	/**
+	 * Create a new Sequence, changing only it's conformation space (lowegard)
+	 */
+
+	public Sequence(Sequence other, SimpleConfSpace scs) {
+		this.confSpace = scs;
 		this.resTypes = other.resTypes.clone();
 	}
 
