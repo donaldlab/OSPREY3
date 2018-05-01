@@ -36,18 +36,19 @@ public class LUTELab {
 
 	public static void kstarMain() {
 
-		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
+		//TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 
-		//train("protein", confSpaces.protein);
-		//train("ligand", confSpaces.ligand);
-		//train("complex", confSpaces.complex);
-		kstar(confSpaces);
+		train("protein", confSpaces.protein);
+		train("ligand", confSpaces.ligand);
+		train("complex", confSpaces.complex);
+		//kstar(confSpaces);
 	}
 
 	private static void train(String name, SimpleConfSpace confSpace) {
 
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
-			.setParallelism(Parallelism.makeCpu(8))
+			.setParallelism(Parallelism.makeCpu(4))
 			.build()) {
 
 			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
@@ -68,6 +69,8 @@ public class LUTELab {
 				.setPairsThreshold(100.0)
 				.setGoldsteinDiffThreshold(10.0)
 				.setShowProgress(true)
+				.setCacheFile(new File(String.format("LUTE.%s.pmat.dat", name)))
+				.setParallelism(Parallelism.makeCpu(4))
 				.run(confSpace, emat);
 
 			final File confDBFile = new File(String.format("LUTE.%s.conf.db", name));

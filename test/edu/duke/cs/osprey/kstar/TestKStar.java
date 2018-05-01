@@ -115,7 +115,7 @@ public class TestKStar {
 		// configure the forcefield
 		confSpaces.ffparams = new ForcefieldParams();
 
-		Molecule mol = PDBIO.readFile("examples/python.KStar/2RL0.min.reduce.pdb");
+		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)

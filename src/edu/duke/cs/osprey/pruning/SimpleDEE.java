@@ -3,11 +3,16 @@ package edu.duke.cs.osprey.pruning;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.tools.ObjectIO;
+import edu.duke.cs.osprey.tools.Progress;
 
 import java.io.File;
 import java.math.BigInteger;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static edu.duke.cs.osprey.tools.Log.formatBig;
@@ -17,8 +22,6 @@ import static edu.duke.cs.osprey.tools.Log.log;
  * Simple, fast implementation of DEE.
  */
 public class SimpleDEE {
-
-	// TODO: implement parallelism?
 
 	private static class Reporter {
 
@@ -99,6 +102,7 @@ public class SimpleDEE {
 		private int numIterations = Integer.MAX_VALUE;
 		private boolean showProgress = false;
 		private File cacheFile = null;
+		private Parallelism parallelism = Parallelism.makeCpu(1);
 
 		public Runner setSinglesThreshold(Double val) {
 			singlesThreshold = val;
@@ -155,6 +159,11 @@ public class SimpleDEE {
 
 		public Runner setCacheFile(File val) {
 			cacheFile = val;
+			return this;
+		}
+
+		public Runner setParallelism(Parallelism val) {
+			parallelism = val;
 			return this;
 		}
 
@@ -218,11 +227,11 @@ public class SimpleDEE {
 						maybeReport.accept("Goldstein Singles");
 					}
 					if (pairsGoldsteinDiffThreshold != null) {
-						dee.prunePairsGoldstein(pairsGoldsteinDiffThreshold, typeDependent);
+						dee.prunePairsGoldstein(pairsGoldsteinDiffThreshold, typeDependent, parallelism);
 						maybeReport.accept("Goldstein Pairs");
 					}
 					if (triplesGoldsteinDiffThreshold != null) {
-						dee.pruneTriplesGoldstein(triplesGoldsteinDiffThreshold, typeDependent);
+						dee.pruneTriplesGoldstein(triplesGoldsteinDiffThreshold, typeDependent, parallelism);
 						maybeReport.accept("Goldstein Triples");
 					}
 
@@ -288,7 +297,12 @@ public class SimpleDEE {
 		});
 	}
 
+	// TODO: these implementations are rather naive, could we do better by precomputing re-used values?
+
 	public void pruneSinglesGoldstein(double energyDiffThreshold, boolean typeDependent) {
+
+		// singles are so fast, we don't need to bother with parallelism and progress (right?)
+
 		pmat.forEachUnprunedSingle((candidatePos, candidateRc) -> {
 
 			// is there a competitor rc that has much lower energy?
@@ -321,7 +335,8 @@ public class SimpleDEE {
 
 					// min over witness rcs
 					double minEnergyDiff = Double.POSITIVE_INFINITY;
-					for (int witnessRc=0; witnessRc<confSpace.positions.get(witnessPos).resConfs.size(); witnessRc++) {
+					int numWitnessRCs = confSpace.positions.get(witnessPos).resConfs.size();
+					for (int witnessRc=0; witnessRc<numWitnessRCs; witnessRc++) {
 
 						// skip pruned witnesses
 						if (pmat.isPairPruned(candidatePos, candidateRc, witnessPos, witnessRc)) {
@@ -360,160 +375,210 @@ public class SimpleDEE {
 	}
 
 	public void prunePairsGoldstein(double energyDiffThreshold, boolean typeDependent) {
-		pmat.forEachUnprunedPair((candidatePos1, candidateRc1, candidatePos2, candidateRc2) -> {
+		prunePairsGoldstein(energyDiffThreshold, typeDependent, Parallelism.makeCpu(1));
+	}
 
-			// prune the candidate rc if we can find a competitor rc that has much lower energy
-			PruningMatrix.IteratorCommand result = pmat.forEachUnprunedPairAt(candidatePos1, candidatePos2, (competitorPos1, competitorRc1, competitorPos2, competitorRc2) -> {
+	public void prunePairsGoldstein(double energyDiffThreshold, boolean typeDependent, Parallelism parallelism) {
 
-				// don't compete against self
-				if (competitorRc1 == candidateRc1 && competitorRc2 == candidateRc2) {
-					return PruningMatrix.IteratorCommand.Continue;
-				}
-
-				// skip unmatched types if needed
-				if (typeDependent) {
-					if (!getTemplate(candidatePos1, candidateRc1).name.equals(getTemplate(competitorPos1, competitorRc1).name)
-						|| !getTemplate(candidatePos2, candidateRc2).name.equals(getTemplate(competitorPos2, competitorRc2).name)) {
-						return PruningMatrix.IteratorCommand.Continue;
-					}
-				}
-
-				// start with fragment energy diff
-				double energyDiffSum = 0
-					+ emat.getOneBody(candidatePos1, candidateRc1)
-					+ emat.getOneBody(candidatePos2, candidateRc2)
-					+ emat.getPairwise(candidatePos1, candidateRc1, candidatePos2, candidateRc2)
-					- emat.getOneBody(competitorPos1, competitorRc1)
-					- emat.getOneBody(competitorPos2, competitorRc2)
-					- emat.getPairwise(competitorPos1, competitorRc1, competitorPos2, competitorRc2);
-
-				// sum over witness positions
-				for (int witnessPos=0; witnessPos<confSpace.positions.size(); witnessPos++) {
-
-					// witness pos can't be candidate pos
-					if (witnessPos == candidatePos1 || witnessPos == candidatePos2) {
-						continue;
-					}
-
-					// min over witness rcs
-					double minEnergyDiff = Double.POSITIVE_INFINITY;
-					for (int witnessRc=0; witnessRc<confSpace.positions.get(witnessPos).resConfs.size(); witnessRc++) {
-
-						// skip pruned witnesses
-						if (pmat.isPairPruned(candidatePos1, candidateRc1, witnessPos, witnessRc)
-							|| pmat.isPairPruned(candidatePos2, candidateRc2, witnessPos, witnessRc)) {
-							continue;
-						}
-
-						// compute the energy diff between the candidate and competitor, from the point of view of the witness
-						double energyDiff = 0
-							+ emat.getPairwise(candidatePos1, candidateRc1, witnessPos, witnessRc)
-							+ emat.getPairwise(candidatePos2, candidateRc2, witnessPos, witnessRc)
-							- emat.getPairwise(competitorPos1, competitorRc1, witnessPos, witnessRc)
-							- emat.getPairwise(competitorPos2, competitorRc2, witnessPos, witnessRc);
-						minEnergyDiff = Math.min(minEnergyDiff, energyDiff);
-					}
-					energyDiffSum += minEnergyDiff;
-				}
-
-				if (energyDiffSum > energyDiffThreshold) {
-					return PruningMatrix.IteratorCommand.Break;
-				} else {
-					return PruningMatrix.IteratorCommand.Continue;
-				}
-			});
-
-			// if the iteration terminated early (ie, we found a suitable competitor), then prune the candidate
-			if (result == PruningMatrix.IteratorCommand.Break) {
-				pmat.prunePair(candidatePos1, candidateRc1, candidatePos2, candidateRc2);
-			}
-
-			// always go onto to check the next candidate
+		// this one can take quite a while, so track progress
+		AtomicLong numPairs = new AtomicLong(0);
+		pmat.forEachUnprunedPair((pos1, rc1, pos2, rc2) -> {
+			numPairs.incrementAndGet();
 			return PruningMatrix.IteratorCommand.Continue;
 		});
+		Progress progress = new Progress(numPairs.get());
+
+		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
+
+			pmat.forEachUnprunedPair((candidatePos1, candidateRc1, candidatePos2, candidateRc2) -> {
+
+				tasks.submit(
+					() -> {
+						// can we find a competitor rc that has much lower energy?
+						return pmat.forEachUnprunedPairAt(candidatePos1, candidatePos2, (competitorPos1, competitorRc1, competitorPos2, competitorRc2) -> {
+
+							// don't compete against self
+							if (competitorRc1 == candidateRc1 && competitorRc2 == candidateRc2) {
+								return PruningMatrix.IteratorCommand.Continue;
+							}
+
+							// skip unmatched types if needed
+							if (typeDependent) {
+								if (!getTemplate(candidatePos1, candidateRc1).name.equals(getTemplate(competitorPos1, competitorRc1).name)
+									|| !getTemplate(candidatePos2, candidateRc2).name.equals(getTemplate(competitorPos2, competitorRc2).name)) {
+									return PruningMatrix.IteratorCommand.Continue;
+								}
+							}
+
+							// start with fragment energy diff
+							double energyDiffSum = 0
+								+ emat.getOneBody(candidatePos1, candidateRc1)
+								+ emat.getOneBody(candidatePos2, candidateRc2)
+								+ emat.getPairwise(candidatePos1, candidateRc1, candidatePos2, candidateRc2)
+								- emat.getOneBody(competitorPos1, competitorRc1)
+								- emat.getOneBody(competitorPos2, competitorRc2)
+								- emat.getPairwise(competitorPos1, competitorRc1, competitorPos2, competitorRc2);
+
+							// sum over witness positions
+							for (int witnessPos=0; witnessPos<confSpace.positions.size(); witnessPos++) {
+
+								// witness pos can't be candidate pos
+								if (witnessPos == candidatePos1 || witnessPos == candidatePos2) {
+									continue;
+								}
+
+								// min over witness rcs
+								double minEnergyDiff = Double.POSITIVE_INFINITY;
+								int numWitnessRCs = confSpace.positions.get(witnessPos).resConfs.size();
+								for (int witnessRc=0; witnessRc<numWitnessRCs; witnessRc++) {
+
+									// skip pruned witnesses
+									if (pmat.isPairPruned(candidatePos1, candidateRc1, witnessPos, witnessRc)
+										|| pmat.isPairPruned(candidatePos2, candidateRc2, witnessPos, witnessRc)) {
+										continue;
+									}
+
+									// compute the energy diff between the candidate and competitor, from the point of view of the witness
+									double energyDiff = 0
+										+ emat.getPairwise(candidatePos1, candidateRc1, witnessPos, witnessRc)
+										+ emat.getPairwise(candidatePos2, candidateRc2, witnessPos, witnessRc)
+										- emat.getPairwise(competitorPos1, competitorRc1, witnessPos, witnessRc)
+										- emat.getPairwise(competitorPos2, competitorRc2, witnessPos, witnessRc);
+									minEnergyDiff = Math.min(minEnergyDiff, energyDiff);
+								}
+								energyDiffSum += minEnergyDiff;
+							}
+
+							if (energyDiffSum > energyDiffThreshold) {
+								return PruningMatrix.IteratorCommand.Break;
+							} else {
+								return PruningMatrix.IteratorCommand.Continue;
+							}
+						});
+					},
+					(result) -> {
+
+						// if the iteration terminated early (ie, we found a suitable competitor), then prune the candidate
+						if (result == PruningMatrix.IteratorCommand.Break) {
+							pmat.prunePair(candidatePos1, candidateRc1, candidatePos2, candidateRc2);
+						}
+
+						progress.incrementProgress();
+					}
+				);
+
+				// always go onto to check the next candidate
+				return PruningMatrix.IteratorCommand.Continue;
+			});
+		}
 	}
 
 	public void pruneTriplesGoldstein(double energyDiffThreshold, boolean typeDependent) {
-		pmat.forEachUnprunedTriple((candidatePos1, candidateRc1, candidatePos2, candidateRc2, candidatePos3, candidateRc3) -> {
+		pruneTriplesGoldstein(energyDiffThreshold, typeDependent, Parallelism.makeCpu(1));
+	}
 
-			// prune the candidate rc if we can find a competitor rc that has much lower energy
-			PruningMatrix.IteratorCommand result = pmat.forEachUnprunedTripleAt(candidatePos1, candidatePos2, candidatePos3, (competitorPos1, competitorRc1, competitorPos2, competitorRc2, competitorPos3, competitorRc3) -> {
+	public void pruneTriplesGoldstein(double energyDiffThreshold, boolean typeDependent, Parallelism parallelism) {
 
-				// don't compete against self
-				if (competitorRc1 == candidateRc1 && competitorRc2 == candidateRc2 && competitorRc3 == candidateRc3) {
-					return PruningMatrix.IteratorCommand.Continue;
-				}
-
-				// skip unmatched types if needed
-				if (typeDependent) {
-					if (!getTemplate(candidatePos1, candidateRc1).name.equals(getTemplate(competitorPos1, competitorRc1).name)
-						|| !getTemplate(candidatePos2, candidateRc2).name.equals(getTemplate(competitorPos2, competitorRc2).name)
-						|| !getTemplate(candidatePos3, candidateRc3).name.equals(getTemplate(competitorPos3, competitorRc3).name)) {
-						return PruningMatrix.IteratorCommand.Continue;
-					}
-				}
-
-				// start with fragment energy diff
-				double energyDiffSum = 0
-					+ emat.getOneBody(candidatePos1, candidateRc1)
-					+ emat.getOneBody(candidatePos2, candidateRc2)
-					+ emat.getOneBody(candidatePos3, candidateRc3)
-					+ emat.getPairwise(candidatePos1, candidateRc1, candidatePos2, candidateRc2)
-					+ emat.getPairwise(candidatePos1, candidateRc1, candidatePos3, candidateRc3)
-					+ emat.getPairwise(candidatePos2, candidateRc2, candidatePos3, candidateRc3)
-					- emat.getOneBody(competitorPos1, competitorRc1)
-					- emat.getOneBody(competitorPos2, competitorRc2)
-					- emat.getOneBody(competitorPos3, competitorRc3)
-					- emat.getPairwise(competitorPos1, competitorRc1, competitorPos2, competitorRc2)
-					- emat.getPairwise(competitorPos1, competitorRc1, competitorPos3, competitorRc3)
-					- emat.getPairwise(competitorPos2, competitorRc2, competitorPos3, competitorRc3);
-
-				// sum over witness positions
-				for (int witnessPos=0; witnessPos<confSpace.positions.size(); witnessPos++) {
-
-					// witness pos can't be candidate pos
-					if (witnessPos == candidatePos1 || witnessPos == candidatePos2 || witnessPos == candidatePos3) {
-						continue;
-					}
-
-					// min over witness rcs
-					double minEnergyDiff = Double.POSITIVE_INFINITY;
-					for (int witnessRc=0; witnessRc<confSpace.positions.get(witnessPos).resConfs.size(); witnessRc++) {
-
-						// skip pruned witnesses
-						if (pmat.isPairPruned(candidatePos1, candidateRc1, witnessPos, witnessRc)
-							|| pmat.isPairPruned(candidatePos2, candidateRc2, witnessPos, witnessRc)
-							|| pmat.isPairPruned(candidatePos3, candidateRc3, witnessPos, witnessRc)) {
-							continue;
-						}
-
-						// compute the energy diff between the candidate and competitor, from the point of view of the witness
-						double energyDiff = 0
-							+ emat.getPairwise(candidatePos1, candidateRc1, witnessPos, witnessRc)
-							+ emat.getPairwise(candidatePos2, candidateRc2, witnessPos, witnessRc)
-							+ emat.getPairwise(candidatePos3, candidateRc3, witnessPos, witnessRc)
-							- emat.getPairwise(competitorPos1, competitorRc1, witnessPos, witnessRc)
-							- emat.getPairwise(competitorPos2, competitorRc2, witnessPos, witnessRc)
-							- emat.getPairwise(competitorPos3, competitorRc3, witnessPos, witnessRc);
-						minEnergyDiff = Math.min(minEnergyDiff, energyDiff);
-					}
-					energyDiffSum += minEnergyDiff;
-				}
-
-				if (energyDiffSum > energyDiffThreshold) {
-					return PruningMatrix.IteratorCommand.Break;
-				} else {
-					return PruningMatrix.IteratorCommand.Continue;
-				}
-			});
-
-			// if the iteration terminated early (ie, we found a suitable competitor), then prune the candidate
-			if (result == PruningMatrix.IteratorCommand.Break) {
-				pmat.pruneTriple(candidatePos1, candidateRc1, candidatePos2, candidateRc2, candidatePos3, candidateRc3);
-			}
-
-			// always go onto to check the next candidate
+		// this one can take quite a while, so track progress
+		AtomicLong numTriples = new AtomicLong(0);
+		pmat.forEachUnprunedTriple((pos1, rc1, pos2, rc2, pos3, rc3) -> {
+			numTriples.incrementAndGet();
 			return PruningMatrix.IteratorCommand.Continue;
 		});
+		Progress progress = new Progress(numTriples.get());
+
+		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
+
+			pmat.forEachUnprunedTriple((candidatePos1, candidateRc1, candidatePos2, candidateRc2, candidatePos3, candidateRc3) -> {
+
+				tasks.submit(
+					() -> {
+						// can we find a competitor rc that has much lower energy?
+						return pmat.forEachUnprunedTripleAt(candidatePos1, candidatePos2, candidatePos3, (competitorPos1, competitorRc1, competitorPos2, competitorRc2, competitorPos3, competitorRc3) -> {
+
+							// don't compete against self
+							if (competitorRc1 == candidateRc1 && competitorRc2 == candidateRc2 && competitorRc3 == candidateRc3) {
+								return PruningMatrix.IteratorCommand.Continue;
+							}
+
+							// skip unmatched types if needed
+							if (typeDependent) {
+								if (!getTemplate(candidatePos1, candidateRc1).name.equals(getTemplate(competitorPos1, competitorRc1).name)
+									|| !getTemplate(candidatePos2, candidateRc2).name.equals(getTemplate(competitorPos2, competitorRc2).name)
+									|| !getTemplate(candidatePos3, candidateRc3).name.equals(getTemplate(competitorPos3, competitorRc3).name)) {
+									return PruningMatrix.IteratorCommand.Continue;
+								}
+							}
+
+							// start with fragment energy diff
+							double energyDiffSum = 0
+								+ emat.getOneBody(candidatePos1, candidateRc1)
+								+ emat.getOneBody(candidatePos2, candidateRc2)
+								+ emat.getOneBody(candidatePos3, candidateRc3)
+								+ emat.getPairwise(candidatePos1, candidateRc1, candidatePos2, candidateRc2)
+								+ emat.getPairwise(candidatePos1, candidateRc1, candidatePos3, candidateRc3)
+								+ emat.getPairwise(candidatePos2, candidateRc2, candidatePos3, candidateRc3)
+								- emat.getOneBody(competitorPos1, competitorRc1)
+								- emat.getOneBody(competitorPos2, competitorRc2)
+								- emat.getOneBody(competitorPos3, competitorRc3)
+								- emat.getPairwise(competitorPos1, competitorRc1, competitorPos2, competitorRc2)
+								- emat.getPairwise(competitorPos1, competitorRc1, competitorPos3, competitorRc3)
+								- emat.getPairwise(competitorPos2, competitorRc2, competitorPos3, competitorRc3);
+
+							// sum over witness positions
+							for (int witnessPos=0; witnessPos<confSpace.positions.size(); witnessPos++) {
+
+								// witness pos can't be candidate pos
+								if (witnessPos == candidatePos1 || witnessPos == candidatePos2 || witnessPos == candidatePos3) {
+									continue;
+								}
+
+								// min over witness rcs
+								double minEnergyDiff = Double.POSITIVE_INFINITY;
+								int numWitnessRCs = confSpace.positions.get(witnessPos).resConfs.size();
+								for (int witnessRc=0; witnessRc<numWitnessRCs; witnessRc++) {
+
+									// skip pruned witnesses
+									if (pmat.isPairPruned(candidatePos1, candidateRc1, witnessPos, witnessRc)
+										|| pmat.isPairPruned(candidatePos2, candidateRc2, witnessPos, witnessRc)
+										|| pmat.isPairPruned(candidatePos3, candidateRc3, witnessPos, witnessRc)) {
+										continue;
+									}
+
+									// compute the energy diff between the candidate and competitor, from the point of view of the witness
+									double energyDiff = 0
+										+ emat.getPairwise(candidatePos1, candidateRc1, witnessPos, witnessRc)
+										+ emat.getPairwise(candidatePos2, candidateRc2, witnessPos, witnessRc)
+										+ emat.getPairwise(candidatePos3, candidateRc3, witnessPos, witnessRc)
+										- emat.getPairwise(competitorPos1, competitorRc1, witnessPos, witnessRc)
+										- emat.getPairwise(competitorPos2, competitorRc2, witnessPos, witnessRc)
+										- emat.getPairwise(competitorPos3, competitorRc3, witnessPos, witnessRc);
+									minEnergyDiff = Math.min(minEnergyDiff, energyDiff);
+								}
+								energyDiffSum += minEnergyDiff;
+							}
+
+							if (energyDiffSum > energyDiffThreshold) {
+								return PruningMatrix.IteratorCommand.Break;
+							} else {
+								return PruningMatrix.IteratorCommand.Continue;
+							}
+						});
+					},
+					(result) -> {
+
+						// if the iteration terminated early (ie, we found a suitable competitor), then prune the candidate
+						if (result == PruningMatrix.IteratorCommand.Break) {
+							pmat.pruneTriple(candidatePos1, candidateRc1, candidatePos2, candidateRc2, candidatePos3, candidateRc3);
+						}
+
+						progress.incrementProgress();
+					}
+				);
+
+				// always go onto to check the next candidate
+				return PruningMatrix.IteratorCommand.Continue;
+			});
+		}
 	}
 }
