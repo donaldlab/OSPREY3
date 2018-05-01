@@ -28,7 +28,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
      * TODO: 2. Make MARKStarNodes compute and update bounds correctly
      */
 
-    private BigDecimal errorUpperBound;
+    private BigDecimal errorUpperBound; // Note that this is actually an upper bound on pfunc of subtree
     private BigDecimal errorLowerBound;
     private double errorBound = 1;
     private List<MARKStarNode> children; // TODO: Pick appropriate data structure
@@ -68,6 +68,14 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
         epsilonBound = errorUpperBound.subtract(errorLowerBound).divide(errorUpperBound,RoundingMode.HALF_UP).doubleValue();
         return epsilonBound;
+    }
+
+    public BigDecimal getUpperBound(){
+        return errorUpperBound;
+    }
+
+    public BigDecimal getLowerBound(){
+        return errorLowerBound;
     }
 
     public BigDecimal setSigFigs(BigDecimal decimal, int numSigFigs)

@@ -29,6 +29,7 @@ import edu.duke.cs.osprey.tools.FileTools;
 import org.junit.Test;
 
 import java.io.File;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -337,6 +338,9 @@ public class TestMARKStar {
 		double epsilon = 0.999999;
 		Result result = runKStar(make1GUA11(), epsilon);
 
+		for (int index = 0; index <6; index++){
+		    printSequence(result, index);
+		}
 		// check the results (values collected with e = 0.1 and 64 digits precision)
 		assertSequence(result,   0, "ILE ILE GLN HIE VAL TYR LYS VAL", 1.186071e+42, 2.840001e+07, 1.119884e+66, epsilon); // K* = 16.521744 in [16.463680,16.563832] (log10)
 		assertSequence(result,   1, "ILE ILE GLN HIE VAL TYR LYS HID", 1.186071e+42, 5.575412e+07, 3.345731e+66, epsilon); // K* = 16.704103 in [16.647717,16.747742] (log10)
@@ -344,6 +348,18 @@ public class TestMARKStar {
 		assertSequence(result,   3, "ILE ILE GLN HIE VAL TYR LYS LYS", 1.186071e+42, 6.402058e+04, 3.315165e+63, epsilon); // K* = 16.640075 in [16.563032,16.685734] (log10)
 		assertSequence(result,   4, "ILE ILE GLN HIE VAL TYR LYS ARG", 1.186071e+42, 1.157637e+05, 5.375731e+64, epsilon); // K* = 17.592754 in [17.514598,17.638466] (log10)
 		assertSequence(result,   5, "ILE ILE GLN HID VAL TYR LYS VAL", 9.749716e+41, 2.840001e+07, 2.677894e+66, epsilon); // K* = 16.985483 in [16.927677,17.026890] (log10)
+	}
+	public static void printSequence(Result result, int sequenceIndex){
+		MARKStar.ScoredSequence scoredSequence =result.scores.get(sequenceIndex);
+		String out = "Printing sequence "+sequenceIndex+": "+scoredSequence.sequence.toString(Sequence.Renderer.ResType)+"\n"+
+				"Protein LB: "+String.format("%6.3e",scoredSequence.score.protein.values.qstar)+
+				" Protein UB: "+String.format("%6.3e",scoredSequence.score.protein.values.pstar)+"\n"+
+				"Ligand LB: "+String.format("%6.3e",scoredSequence.score.ligand.values.qstar)+
+				" Ligand UB: "+String.format("%6.3e",scoredSequence.score.ligand.values.pstar)+"\n"+
+				"Complex LB: "+String.format("%6.3e",scoredSequence.score.complex.values.qstar)+
+				" Complex UB: "+String.format("%6.3e",scoredSequence.score.complex.values.pstar)+"\n"+
+				"KStar Score: "+String.format("%6.3e",scoredSequence.score.complex.values.pstar.divide(scoredSequence.score.ligand.values.qstar.multiply(scoredSequence.score.protein.values.qstar), RoundingMode.HALF_UP));
+		System.out.println(out);
 	}
 
 	public static void assertSequence(Result result, int sequenceIndex, String sequence, Double proteinQStar, Double ligandQStar, Double complexQStar, double epsilon) {

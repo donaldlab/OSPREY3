@@ -30,6 +30,8 @@ import java.util.*;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
+    private Status status = null;
+    private Values values = null;
 
     public void setReportProgress(boolean showPfuncProgress) {
     }
@@ -42,20 +44,24 @@ public class MARKStarBound implements PartitionFunction {
     @Override
     public void init(double targetEpsilon) {
         this.targetEpsilon = targetEpsilon;
+        status = Status.Estimating;
+        values = Values.makeFullRange();
     }
 
     public void init(double epsilon, BigDecimal stabilityThreshold) {
         targetEpsilon = epsilon;
+        status = Status.Estimating;
+        values = Values.makeFullRange();
     }
 
     @Override
     public Status getStatus() {
-        return null;
+        return status;
     }
 
     @Override
     public Values getValues() {
-        return null;
+        return values;
     }
 
     @Override
@@ -82,11 +88,12 @@ public class MARKStarBound implements PartitionFunction {
             tightenBound();
             System.out.println("Errorbound is now "+epsilonBound);
         }
+        status = Status.Estimated;
         rootNode.printTree();
     }
 
     public PartitionFunction.Result makeResult() {
-        return null;
+        return new Result(getStatus(), getValues(), getNumConfsEvaluated());
     }
 
     public static class Builder {
@@ -329,6 +336,8 @@ public class MARKStarBound implements PartitionFunction {
         }
         tasks.waitForFinish();
         updateBound();
+        values.qstar = rootNode.getLowerBound();
+        values.pstar = rootNode.getUpperBound();
     }
 
     private void updateBound() {
