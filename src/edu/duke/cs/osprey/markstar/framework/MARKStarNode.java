@@ -106,7 +106,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     public void printTree()
     {
         try {
-            printTree("",  new FileWriter(new File("ConfTreeBounds.txt")));
+            FileWriter writer = new FileWriter(new File("ConfTreeBounds.txt"));
+            printTree("",  writer);
+            writer.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }

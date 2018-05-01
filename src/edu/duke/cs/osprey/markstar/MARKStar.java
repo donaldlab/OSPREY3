@@ -367,6 +367,9 @@ public class MARKStar {
 		settings.scoreWriters.writeHeader();
 		// TODO: progress bar?
 
+        protein.calcPfunc(0, BigDecimal.ZERO);
+        if(true)
+            return null;
 		// compute wild type partition functions first (always at pos 0)
 		KStarScore wildTypeScore = scorer.score(
 			0,
