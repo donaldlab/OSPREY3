@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar.pfunc;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -126,6 +127,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 
 	public final ConfSearch confSearch;
     public final ConfEnergyCalculator ecalc;
+    public final boolean useExternalMemory;
+    public final RCs rcs;
 
 	private double targetEpsilon = Double.NaN;
 	private BigDecimal stabilityThreshold = null;
@@ -149,8 +152,14 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 	private PfuncSurface.Trace trace = null;
 
 	public GradientDescentPfunc(ConfSearch confSearch, ConfEnergyCalculator ecalc) {
+		this(confSearch, ecalc, false, null);
+	}
+
+	public GradientDescentPfunc(ConfSearch confSearch, ConfEnergyCalculator ecalc, boolean useExternalMemory, RCs rcs) {
 		this.confSearch = confSearch;
 		this.ecalc = ecalc;
+		this.useExternalMemory = useExternalMemory;
+		this.rcs = rcs;
 	}
 	
 	@Override
@@ -222,9 +231,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 		hasScoreConfs = true;
 
 		// split the confs between the upper and lower bounds
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch);
-		scoreConfs = confsSplitter.makeStream();
-		energyConfs = confsSplitter.makeStream();
+		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch, useExternalMemory, rcs);
+		scoreConfs = confsSplitter.first;
+		energyConfs = confsSplitter.second;
 	}
 
 	@Override

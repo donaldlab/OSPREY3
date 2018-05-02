@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -376,7 +377,13 @@ public class BBKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			GradientDescentPfunc gdpfunc = new GradientDescentPfunc(confSearchFactory.make(info.minimizedEmat, sequence.makeRCs()), info.minimizingConfEcalc);
+			RCs rcs = sequence.makeRCs();
+			GradientDescentPfunc gdpfunc = new GradientDescentPfunc(
+				confSearchFactory.make(info.minimizedEmat, rcs),
+				info.minimizingConfEcalc,
+				kstarSettings.useExternalMemory,
+				rcs
+			);
 			gdpfunc.setReportProgress(kstarSettings.showPfuncProgress);
 			if (confdb != null) {
 				gdpfunc.setConfTable(confdb.getSequence(sequence));

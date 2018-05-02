@@ -104,7 +104,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		// make the search tree for computing q*
 		ConfSearch tree = confSearchFactory.make(emat, pmat);
 		((ConfAStarTree)tree).stopProgress();
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(tree);
+		ConfSearch.MultiSplitter confsSplitter = new ConfSearch.MultiSplitter(tree);
 		scoreConfs = confsSplitter.makeStream();
 		energyConfs = confsSplitter.makeStream();
 		numConfsEvaluated = 0;

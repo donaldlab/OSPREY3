@@ -107,6 +107,12 @@ public class KStar {
 			 */
 			private String confDBPattern = null;
 
+			/**
+			 * True to use external memory when buffering conformations between the
+			 * partition function lower and upper bound calculators.
+			 */
+			private boolean useExternalMemory = false;
+
 			public Builder setEpsilon(double val) {
 				epsilon = val;
 				return this;
@@ -161,8 +167,13 @@ public class KStar {
 				return this;
 			}
 
+			public Builder setExternalMemory(boolean val) {
+				useExternalMemory = val;
+				return this;
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, energyMatrixCachePattern, confDBPattern);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, energyMatrixCachePattern, confDBPattern, useExternalMemory);
 			}
 		}
 
@@ -173,8 +184,9 @@ public class KStar {
 		public final boolean showPfuncProgress;
 		public final String energyMatrixCachePattern;
 		public final String confDBPattern;
+		public final boolean useExternalMemory;
 
-		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern, String confDBPattern) {
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern, String confDBPattern, boolean useExternalMemory) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
@@ -182,6 +194,7 @@ public class KStar {
 			this.showPfuncProgress = dumpPfuncConfs;
 			this.energyMatrixCachePattern = energyMatrixCachePattern;
 			this.confDBPattern = confDBPattern;
+			this.useExternalMemory = useExternalMemory;
 		}
 
 		public String applyEnergyMatrixCachePattern(String type) {
@@ -268,8 +281,9 @@ public class KStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			ConfSearch astar = confSearchFactory.make(emat, sequence.makeRCs());
-			GradientDescentPfunc pfunc = new GradientDescentPfunc(astar, confEcalc);
+			RCs rcs = sequence.makeRCs();
+			ConfSearch astar = confSearchFactory.make(emat, rcs);
+			GradientDescentPfunc pfunc = new GradientDescentPfunc(astar, confEcalc, settings.useExternalMemory, rcs);
 			pfunc.setReportProgress(settings.showPfuncProgress);
 			if (confDB != null) {
 				pfunc.setConfTable(confDB.getSequence(sequence));
