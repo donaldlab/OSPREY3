@@ -380,26 +380,33 @@ public class PruningMatrix extends TupleMatrixBoolean {
     }
 
 	public int countPrunedTriples() {
-		/* TODO: if this is ever a bottleneck, it could be optimized
-			since tuple trees are partitioned (in this iteration order) by pos3,rc3,pos2,rc2,
-			but those are in the inner loops since pos2<pos1 is a simple loop condition.
-			We could move pos3,pos2 to the outer loops for probably a significant speedup
-		*/
+
+		int numPos = getNumPos();
 		int count = 0;
 		RCTuple tuple = new RCTuple(0, 0, 0, 0, 0, 0);
+
 		for (int pos1=0; pos1<getNumPos(); pos1++) {
-			tuple.pos.set(2, pos1);
+			tuple.pos.set(0, pos1);
 			for (int rc1=0; rc1<getNumConfAtPos(pos1); rc1++) {
-				tuple.RCs.set(2, rc1);
-				for (int pos2=0; pos2<pos1; pos2++) {
+				tuple.RCs.set(0, rc1);
+
+				for (int pos2=pos1+1; pos2<numPos; pos2++) {
 					tuple.pos.set(1, pos2);
 					for (int rc2=0; rc2<getNumConfAtPos(pos2); rc2++) {
 						tuple.RCs.set(1, rc2);
-						for (int pos3=0; pos3<pos2; pos3++) {
-							tuple.pos.set(0, pos3);
+
+						TupleTree<Boolean> tree = getHigherOrderTuples(pos1, rc1, pos2, rc2);
+						if (tree == null) {
+							continue;
+						}
+
+						for (int pos3=pos2+1; pos3<numPos; pos3++) {
+							tuple.pos.set(2, pos3);
 							for (int rc3=0; rc3<getNumConfAtPos(pos3); rc3++) {
-								tuple.RCs.set(0, rc3);
-								if (getTuple(tuple) == true) {
+								tuple.RCs.set(2, rc3);
+
+								Boolean val = tree.get(tuple);
+								if (val != null && val == true) {
 									count++;
 								}
 							}
@@ -408,6 +415,7 @@ public class PruningMatrix extends TupleMatrixBoolean {
 				}
 			}
 		}
+
 		return count;
 	}
 

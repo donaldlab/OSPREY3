@@ -271,7 +271,9 @@ public class KStar {
 
 			// make the partition function
 			RCs rcs = sequence.makeRCs();
-			ConfSearch astar = confSearchFactory.make(emat, new RCs(rcs, pmat));
+			// TODO: get pmat
+			//ConfSearch astar = confSearchFactory.make(emat, new RCs(rcs, pmat));
+			ConfSearch astar = confSearchFactory.make(emat, new RCs(rcs));
 			GradientDescentPfunc pfunc = new GradientDescentPfunc(confEcalc);
 			pfunc.setReportProgress(settings.showPfuncProgress);
 			if (confDB != null) {

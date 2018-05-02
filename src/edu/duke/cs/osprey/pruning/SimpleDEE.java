@@ -11,12 +11,12 @@ import edu.duke.cs.osprey.tools.Progress;
 
 import java.io.File;
 import java.math.BigInteger;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static edu.duke.cs.osprey.tools.Log.formatBig;
 import static edu.duke.cs.osprey.tools.Log.log;
+
 
 /**
  * Simple, fast implementation of DEE.
@@ -25,9 +25,9 @@ public class SimpleDEE {
 
 	private static class Reporter {
 
-		int numSingles = 0;
-		int numPairs = 0;
-		int numTriples = 0;
+		int numSingles;
+		int numPairs;
+		int numTriples;
 		int numSinglesPruned = 0;
 		int numPairsPruned = 0;
 		int numTriplesPruned = 0;
@@ -190,17 +190,18 @@ public class SimpleDEE {
 			}
 
 			Reporter reporter = new Reporter(confSpace);
-			SimpleDEE dee = new SimpleDEE(confSpace, emat);
+			PruningMatrix pmat = new PruningMatrix(confSpace);
 
 			Consumer<String> maybeReport = (prefix) -> {
 				if (showProgress) {
-					reporter.updateCounts(dee.pmat);
+					reporter.updateCounts(pmat);
 					reporter.report(prefix);
 				}
 			};
 
 			// 1. threshold pruning
 			if (singlesThreshold != null || pairsThreshold != null) {
+				SimpleDEE dee = new SimpleDEE(confSpace, emat, pmat);
 				if (singlesThreshold != null) {
 					dee.pruneSinglesByThreshold(singlesThreshold);
 					maybeReport.accept("Threshold Singles");
@@ -211,9 +212,31 @@ public class SimpleDEE {
 				}
 			}
 
-			// 2. iterative DEE pruning
-			if (singlesGoldsteinDiffThreshold != null || pairsGoldsteinDiffThreshold != null) {
-				for (int i = 0; i<numIterations; i++) {
+			// 2. choose the competitor RCs (prune with an interval of 0)
+			if (showProgress) {
+				System.out.println("Choosing competitor residue conformations...");
+			}
+			PruningMatrix competitors = new PruningMatrix(pmat);
+			{
+				SimpleDEE dee = new SimpleDEE(confSpace, emat, competitors);
+				if (singlesGoldsteinDiffThreshold != null) {
+					dee.pruneSinglesGoldstein(0, typeDependent);
+				}
+				if (pairsGoldsteinDiffThreshold != null) {
+					dee.prunePairsGoldstein(0, typeDependent, parallelism);
+				}
+				if (triplesGoldsteinDiffThreshold != null) {
+					dee.pruneTriplesGoldstein(0, typeDependent, parallelism);
+					maybeReport.accept("Goldstein Triples");
+				}
+			}
+
+			// 3. iterative DEE pruning
+			if (singlesGoldsteinDiffThreshold != null || pairsGoldsteinDiffThreshold != null || triplesGoldsteinDiffThreshold != null) {
+
+				SimpleDEE dee = new SimpleDEE(confSpace, emat, pmat, competitors);
+
+				for (int i=0; i<numIterations; i++) {
 
 					if (showProgress) {
 						System.out.println("DEE iteration " + (i+1) + "...");
@@ -221,7 +244,7 @@ public class SimpleDEE {
 
 					int numPruned = reporter.numSinglesPruned + reporter.numPairsPruned + reporter.numTriplesPruned;
 
-					// 2.1 Goldstein criterion
+					// 3.1 Goldstein criterion
 					if (singlesGoldsteinDiffThreshold != null) {
 						dee.pruneSinglesGoldstein(singlesGoldsteinDiffThreshold, typeDependent);
 						maybeReport.accept("Goldstein Singles");
@@ -248,8 +271,8 @@ public class SimpleDEE {
 			// show total pruning results
 			if (showProgress) {
 				BigInteger allConfs = new RCs(confSpace).getNumConformations();
-				BigInteger unprunedLower = dee.pmat.calcUnprunedConfsLowerBound();
-				BigInteger unprunedUpper = dee.pmat.calcUnprunedConfsUpperBound();
+				BigInteger unprunedLower = pmat.calcUnprunedConfsLowerBound();
+				BigInteger unprunedUpper = pmat.calcUnprunedConfsUpperBound();
 				BigInteger prunedLower = allConfs.subtract(unprunedUpper);
 				BigInteger prunedUpper = allConfs.subtract(unprunedLower);
 				double percentPrunedLower = 100.0*prunedLower.doubleValue()/allConfs.doubleValue();
@@ -260,19 +283,24 @@ public class SimpleDEE {
 				log("Percent conformations pruned (by singles and pairs, bounds):           [%.6f,%.6f]", percentPrunedLower, percentPrunedUpper);
 			}
 
-			return dee.pmat;
+			return pmat;
 		}
 	}
 
 	public final SimpleConfSpace confSpace;
 	public final EnergyMatrix emat;
 	public final PruningMatrix pmat;
+	public final PruningMatrix competitors;
 
-	public SimpleDEE(SimpleConfSpace confSpace, EnergyMatrix emat) {
+	public SimpleDEE(SimpleConfSpace confSpace, EnergyMatrix emat, PruningMatrix pmat) {
+		this(confSpace, emat, pmat, pmat);
+	}
 
+	public SimpleDEE(SimpleConfSpace confSpace, EnergyMatrix emat, PruningMatrix pmat, PruningMatrix competitors) {
 		this.confSpace = confSpace;
 		this.emat = emat;
-		this.pmat = new PruningMatrix(confSpace);
+		this.pmat = pmat;
+		this.competitors = competitors;
 	}
 
 	private ResidueTemplate getTemplate(int pos, int rc) {
@@ -297,8 +325,6 @@ public class SimpleDEE {
 		});
 	}
 
-	// TODO: these implementations are rather naive, could we do better by precomputing re-used values?
-
 	public void pruneSinglesGoldstein(double energyDiffThreshold, boolean typeDependent) {
 
 		// singles are so fast, we don't need to bother with parallelism and progress (right?)
@@ -306,7 +332,7 @@ public class SimpleDEE {
 		pmat.forEachUnprunedSingle((candidatePos, candidateRc) -> {
 
 			// is there a competitor rc that has much lower energy?
-			PruningMatrix.IteratorCommand result = pmat.forEachUnprunedSingleAt(candidatePos, (competitorPos, competitorRc) -> {
+			PruningMatrix.IteratorCommand result = competitors.forEachUnprunedSingleAt(candidatePos, (competitorPos, competitorRc) -> {
 
 				// don't compete against self
 				if (competitorRc == candidateRc) {
@@ -395,7 +421,7 @@ public class SimpleDEE {
 				tasks.submit(
 					() -> {
 						// can we find a competitor rc that has much lower energy?
-						return pmat.forEachUnprunedPairAt(candidatePos1, candidatePos2, (competitorPos1, competitorRc1, competitorPos2, competitorRc2) -> {
+						return competitors.forEachUnprunedPairAt(candidatePos1, candidatePos2, (competitorPos1, competitorRc1, competitorPos2, competitorRc2) -> {
 
 							// don't compete against self
 							if (competitorRc1 == candidateRc1 && competitorRc2 == candidateRc2) {
@@ -447,6 +473,9 @@ public class SimpleDEE {
 									minEnergyDiff = Math.min(minEnergyDiff, energyDiff);
 								}
 								energyDiffSum += minEnergyDiff;
+								if (energyDiffSum == Double.POSITIVE_INFINITY) {
+									break;
+								}
 							}
 
 							if (energyDiffSum > energyDiffThreshold) {
@@ -494,7 +523,7 @@ public class SimpleDEE {
 				tasks.submit(
 					() -> {
 						// can we find a competitor rc that has much lower energy?
-						return pmat.forEachUnprunedTripleAt(candidatePos1, candidatePos2, candidatePos3, (competitorPos1, competitorRc1, competitorPos2, competitorRc2, competitorPos3, competitorRc3) -> {
+						return competitors.forEachUnprunedTripleAt(candidatePos1, candidatePos2, candidatePos3, (competitorPos1, competitorRc1, competitorPos2, competitorRc2, competitorPos3, competitorRc3) -> {
 
 							// don't compete against self
 							if (competitorRc1 == candidateRc1 && competitorRc2 == candidateRc2 && competitorRc3 == candidateRc3) {
@@ -556,6 +585,9 @@ public class SimpleDEE {
 									minEnergyDiff = Math.min(minEnergyDiff, energyDiff);
 								}
 								energyDiffSum += minEnergyDiff;
+								if (energyDiffSum == Double.POSITIVE_INFINITY) {
+									break;
+								}
 							}
 
 							if (energyDiffSum > energyDiffThreshold) {
