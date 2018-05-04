@@ -121,6 +121,11 @@ public interface ConfSearch {
         	return Arrays.equals(this.assignments, other.assignments)
 				&& Double.compare(this.score, other.score) == 0;
 		}
+
+		@Override
+		public String toString() {
+        	return String.format("%s %.4f", Conf.toString(assignments), score);
+		}
     }
     
     /**

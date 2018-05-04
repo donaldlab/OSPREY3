@@ -4,19 +4,26 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.tools.MathTools;
 
 public class TraditionalPairwiseHScorer implements AStarScorer {
 	
-	private EnergyMatrix emat;
-	private RCs rcs;
+	public final EnergyMatrix emat;
+	public final RCs rcs;
+	public final MathTools.Optimizer optimizer;
 	
 	private double[][][] undefinedEnergies; // indexed by (pos1,pos2), rc at pos1
 	private ConfAStarNode cachedNode;
 	private double[][] cachedEnergies;
 	
 	public TraditionalPairwiseHScorer(EnergyMatrix emat, RCs rcs) {
+		this(emat, rcs, MathTools.Optimizer.Minimize);
+	}
+
+	public TraditionalPairwiseHScorer(EnergyMatrix emat, RCs rcs, MathTools.Optimizer optimizer) {
 		this.emat = emat;
 		this.rcs = rcs;
+		this.optimizer = optimizer;
 		
 		int numPos = emat.getNumPos();
 		
@@ -34,13 +41,13 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
 			
 				for (int pos2=0; pos2<pos1; pos2++) {
 					
-					// compute the min over rc2
-					double minEnergy = Double.POSITIVE_INFINITY;
+					// optimize over rc2
+					double optEnergy = optimizer.initDouble();
 					for (int rc2 : rcs.get(pos2)) {
-						minEnergy = Math.min(minEnergy, emat.getPairwise(pos1, rc1, pos2, rc2));
+						optEnergy = optimizer.opt(optEnergy, emat.getPairwise(pos1, rc1, pos2, rc2));
 					}
 					
-					undefinedEnergies[pos1][i][pos2] = minEnergy;
+					undefinedEnergies[pos1][i][pos2] = optEnergy;
 				}
 			}
 		}
@@ -54,7 +61,7 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
 	}
 	
 	public TraditionalPairwiseHScorer make() {
-		return new TraditionalPairwiseHScorer(emat, rcs);
+		return new TraditionalPairwiseHScorer(emat, rcs, optimizer);
 	}
 
 	@Override
@@ -69,13 +76,13 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
 		for (int i=0; i<confIndex.numUndefined; i++) {
 			int pos = confIndex.undefinedPos[i];
 			
-			// find the lowest-energy rc at this pos
-			double minRCEnergy = Double.POSITIVE_INFINITY;
+			// optimize over rcs at this pos
+			double optRCEnergy = optimizer.initDouble();
 			for (int j=0; j<rcs.get(pos).length; j++) {
-				minRCEnergy = Math.min(minRCEnergy, cachedEnergies[pos][j]);
+				optRCEnergy = optimizer.opt(optRCEnergy, cachedEnergies[pos][j]);
 			}
 			
-			hscore += minRCEnergy;
+			hscore += optRCEnergy;
 		}
 		
 		return hscore;
@@ -103,8 +110,8 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
     			continue;
     		}
     		
-    		// compute the new min energy over all rcs
-    		double minRCEnergy = Double.POSITIVE_INFINITY;
+    		// optimize energy over all rcs
+    		double optRCEnergy = optimizer.initDouble();
     		
     		double[] cachedEnergiesAtPos = cachedEnergies[pos];
     		double[][] undefinedEnergiesAtPos = undefinedEnergies[pos];
@@ -125,10 +132,10 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
 				// add defined contribution
 				rcEnergy += emat.getPairwise(pos, rc, nextPos, nextRc);
 				
-				minRCEnergy = Math.min(minRCEnergy, rcEnergy);
+				optRCEnergy = optimizer.opt(optRCEnergy, rcEnergy);
 			}
 			
-			hscore += minRCEnergy;
+			hscore += optRCEnergy;
     	}
     	
     	return hscore;

@@ -30,6 +30,7 @@ import edu.duke.cs.osprey.lute.LUTEHScorer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.ObjectPool.Checkout;
 
@@ -44,10 +45,11 @@ public class ConfAStarTree implements ConfSearch {
 		private AStarOrder order = null;
 		private AStarScorer gscorer = null;
 		private AStarScorer hscorer = null;
+		private MathTools.Optimizer optimizer = MathTools.Optimizer.Minimize;
 		private boolean showProgress = false;
 		private ConfAStarFactory factory = new LinkedConfAStarFactory();
 		private AStarPruner pruner = null;
-		
+
 		public Builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
 			this(emat, new RCs(confSpace));
 		}
@@ -80,9 +82,17 @@ public class ConfAStarTree implements ConfSearch {
 		 * Proteins Structure Function and Genetics, 33(2), pp.227-239.}
 		 */
 		public Builder setTraditional() {
-			this.order = new DynamicHMeanAStarOrder();
-			this.gscorer = new PairwiseGScorer(emat);
-			this.hscorer = new TraditionalPairwiseHScorer(emat, rcs);
+			return setTraditional(MathTools.Optimizer.Minimize);
+		}
+
+		/**
+		 * Just like setTraditional, but allow maximization or minimization
+		 */
+		public Builder setTraditional(MathTools.Optimizer optimizer) {
+			this.order = new DynamicHMeanAStarOrder(optimizer);
+			this.gscorer = new PairwiseGScorer(emat, optimizer);
+			this.hscorer = new TraditionalPairwiseHScorer(emat, rcs, optimizer);
+			this.optimizer = optimizer;
 			return this;
 		}
 		
@@ -99,6 +109,8 @@ public class ConfAStarTree implements ConfSearch {
 			setMPLP(new MPLPBuilder());
 			return this;
 		}
+
+		// TODO: modify MPLP A* scorers to allow maximization?
 		
 		public Builder setMPLP(MPLPBuilder builder) {
 			order = new StaticScoreHMeanAStarOrder();
@@ -150,6 +162,7 @@ public class ConfAStarTree implements ConfSearch {
 				order,
 				gscorer,
 				hscorer,
+				optimizer,
 				rcs,
 				factory,
 				pruner
@@ -234,6 +247,7 @@ public class ConfAStarTree implements ConfSearch {
 	public final AStarOrder order;
 	public final AStarScorer gscorer;
 	public final AStarScorer hscorer;
+	public final MathTools.Optimizer optimizer;
 	public final RCs rcs;
 	public final ConfAStarFactory factory;
 	public final AStarPruner pruner;
@@ -247,10 +261,11 @@ public class ConfAStarTree implements ConfSearch {
 	private TaskExecutor tasks;
 	private ObjectPool<ScoreContext> contexts;
 	
-	private ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, RCs rcs, ConfAStarFactory factory, AStarPruner pruner) {
+	private ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, MathTools.Optimizer optimizer, RCs rcs, ConfAStarFactory factory, AStarPruner pruner) {
 		this.order = order;
 		this.gscorer = gscorer;
 		this.hscorer = hscorer;
+		this.optimizer = optimizer;
 		this.rcs = rcs;
 		this.factory = factory;
 		this.pruner = pruner;
@@ -310,7 +325,7 @@ public class ConfAStarTree implements ConfSearch {
 		}
 		return new ScoredConf(
 			leafNode.makeConf(rcs.getNumPos()),
-			leafNode.getGScore()
+			leafNode.getGScore(optimizer)
 		);
 	}
 	
@@ -339,8 +354,8 @@ public class ConfAStarTree implements ConfSearch {
 			
 			// score and add the tail node of the chain we just created
 			node.index(confIndex);
-			node.setGScore(gscorer.calc(confIndex, rcs));
-			node.setHScore(hscorer.calc(confIndex, rcs));
+			node.setGScore(gscorer.calc(confIndex, rcs), optimizer);
+			node.setHScore(hscorer.calc(confIndex, rcs), optimizer);
 			queue.push(node);
 		}
 		
@@ -363,7 +378,7 @@ public class ConfAStarTree implements ConfSearch {
 			if (node.getLevel() == rcs.getNumPos()) {
 				
 				if (progress != null) {
-					progress.reportLeafNode(node.getGScore(), queue.size());
+					progress.reportLeafNode(node.getGScore(optimizer), queue.size());
 				}
 			
 				return node;
@@ -398,15 +413,15 @@ public class ConfAStarTree implements ConfSearch {
 						// score the child node differentially against the parent node
 						node.index(context.index);
 						ConfAStarNode child = node.assign(nextPos, nextRc);
-						child.setGScore(context.gscorer.calcDifferential(context.index, rcs, nextPos, nextRc));
-						child.setHScore(context.hscorer.calcDifferential(context.index, rcs, nextPos, nextRc));
+						child.setGScore(context.gscorer.calcDifferential(context.index, rcs, nextPos, nextRc), optimizer);
+						child.setHScore(context.hscorer.calcDifferential(context.index, rcs, nextPos, nextRc), optimizer);
 						return child;
 					}
 					
 				}, (ConfAStarNode child) -> {
 					
 					// collect the possible children
-					if (child.getScore() < Double.POSITIVE_INFINITY) {
+					if (Double.isFinite(child.getScore())) {
 						children.add(child);
 					}
 				});
@@ -416,15 +431,15 @@ public class ConfAStarTree implements ConfSearch {
 			queue.pushAll(children);
 			
             if (progress != null) {
-            	progress.reportInternalNode(node.getLevel(), node.getGScore(), node.getHScore(), queue.size(), numChildren);
+            	progress.reportInternalNode(node.getLevel(), node.getGScore(optimizer), node.getHScore(optimizer), queue.size(), numChildren);
             }
 		}
 	}
 	
-	public List<ConfAStarNode> nextLeafNodes(double maxEnergy) {
+	public List<ConfAStarNode> nextLeafNodes(double thresholdEnergy) {
 		
 		if (progress != null) {
-			progress.setGoalScore(maxEnergy);
+			progress.setGoalScore(thresholdEnergy);
 		}
 		
 		List<ConfAStarNode> nodes = new ArrayList<>();
@@ -436,8 +451,8 @@ public class ConfAStarTree implements ConfSearch {
 			}
 			
 			nodes.add(node);
-			
-			if (node.getGScore() >= maxEnergy) {
+
+			if (!optimizer.isBetter(node.getGScore(optimizer), thresholdEnergy)) {
 				break;
 			}
 		}
@@ -450,7 +465,7 @@ public class ConfAStarTree implements ConfSearch {
 		for (ConfAStarNode node : nextLeafNodes(maxEnergy)) {
 			confs.add(new ScoredConf(
 				node.makeConf(rcs.getNumPos()),
-				node.getGScore()
+				node.getGScore(optimizer)
 			));
 		}
 		return confs;

@@ -32,6 +32,29 @@ public class Conf {
 		return conf;
 	}
 
+	public static void index(int[] conf, ConfIndex index) {
+		index.numDefined = 0;
+		index.numUndefined = 0;
+		for (int pos=0; pos<conf.length; pos++) {
+			int rc = conf[pos];
+			if (rc == Unassigned) {
+				index.undefinedPos[index.numUndefined] = pos;
+				index.numUndefined++;
+			} else {
+				index.definedPos[index.numDefined] = pos;
+				index.definedRCs[index.numDefined] = conf[pos];
+				index.numDefined++;
+			}
+		}
+		index.node = null;
+	}
+
+	public static ConfIndex index(int[] conf) {
+		ConfIndex index = new ConfIndex(conf.length);
+		index(conf, index);
+		return index;
+	}
+
 	public static void clear(int[] conf) {
 		Arrays.fill(conf, Unassigned);
 	}
