@@ -52,9 +52,16 @@ public class TestMARKStar {
 	public void testMARKStar(){
 		ConfSpaces confSpaces = make1GUASmall();
 		Parallelism parallelism = Parallelism.makeCpu(4);
-		EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+
+		// Define the minimizing energy calculator
+		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
 				.setParallelism(parallelism)
 				.build();
+		// Define the rigid energy calculator
+        EnergyCalculator rigidEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+                .setParallelism(parallelism)
+                .setIsMinimizing(false)
+                .build();
 		// how should we define energies of conformations?
 		MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
 			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
@@ -72,7 +79,7 @@ public class TestMARKStar {
 					.setTraditional()
 					.build();
 		};
-		EnergyCalculator energyCalculator = new  EnergyCalculator.Builder(confSpaces.protein, confSpaces.ffparams).setParallelism(parallelism).build();
+		/*EnergyCalculator energyCalculator = new  EnergyCalculator.Builder(confSpaces.protein, confSpaces.ffparams).setParallelism(parallelism).build();
 		ConfEnergyCalculator confEnergyCalculator = new ConfEnergyCalculator.Builder(confSpaces.protein, ecalc).build();
 		SimplerEnergyMatrixCalculator.Builder builder = new SimplerEnergyMatrixCalculator.Builder(confEnergyCalculator);
 		builder.setCacheFile(new File("GMECMat.emat"));
@@ -85,8 +92,9 @@ public class TestMARKStar {
 		SimpleGMECFinder finder = new SimpleGMECFinder.Builder(search, confEnergyCalculator)
 				.build();
 		finder.find(0.3);
+		*/
 		MARKStar.Settings settings = new MARKStar.Settings.Builder().setEpsilon(0.01).setEnergyMatrixCachePattern("*testmat.emat").build();
-		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
+		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
 		run.run();
 	}
 
@@ -100,7 +108,7 @@ public class TestMARKStar {
 		// how should we compute energies of molecules?
 		new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
 			.setParallelism(parallelism)
-			.use((ecalc) -> {
+			.use((minimizingEcalc) -> {
 
 				// how should we define energies of conformations?
 				MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
@@ -113,10 +121,15 @@ public class TestMARKStar {
 
 				// how should confs be ordered and searched?
 				ConfSearchFactory confSearchFactory = (emat, pmat) -> {
-					return new RecursiveAStarTree.Builder(emat, pmat)
+					return new ConfAStarTree.Builder(emat, pmat)    // IMPT: was previously RecursiveAStarTree. It doesnt seem to make a difference tho.
 						.setTraditional()
 						.build();
 				};
+
+                // make a rigid energy calculator too
+                EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
+                        .setIsMinimizing(false)
+                        .build();
 
 				KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) -> {
 
@@ -144,7 +157,7 @@ public class TestMARKStar {
 					.setStabilityThreshold(null)
 					.addScoreConsoleWriter(testFormatter)
 					.build();
-				result.kstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
+				result.kstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
 				result.scores = result.kstar.run();
 
 				// pass back the ref
@@ -258,9 +271,9 @@ public class TestMARKStar {
 			.setResidues("1", "180")
 			.build();
 		int start = 21;
-		int numFlex = 15;
+		int numFlex = 3;
 		for(int i = start; i < start+numFlex; i++) {
-			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		}
 
 		// define the ligand strand
@@ -342,7 +355,7 @@ public class TestMARKStar {
 		    printSequence(result, index);
 		}
 		// check the results (values collected with e = 0.1 and 64 digits precision)
-		assertSequence(result,   0, "ILE ILE GLN HIE VAL TYR LYS VAL", 1.186071e+42, 2.840001e+07, 1.119884e+66, epsilon); // K* = 16.521744 in [16.463680,16.563832] (log10)
+		assertSequence(result,   0,"ILE ILE GLN HIE VAL TYR LYS VAL", 1.186071e+42, 2.840001e+07, 1.119884e+66, epsilon); // K* = 16.521744 in [16.463680,16.563832] (log10)
 		assertSequence(result,   1, "ILE ILE GLN HIE VAL TYR LYS HID", 1.186071e+42, 5.575412e+07, 3.345731e+66, epsilon); // K* = 16.704103 in [16.647717,16.747742] (log10)
 		assertSequence(result,   2, "ILE ILE GLN HIE VAL TYR LYS HIE", 1.186071e+42, 5.938851e+06, 5.542993e+65, epsilon); // K* = 16.895931 in [16.826906,16.938784] (log10)
 		assertSequence(result,   3, "ILE ILE GLN HIE VAL TYR LYS LYS", 1.186071e+42, 6.402058e+04, 3.315165e+63, epsilon); // K* = 16.640075 in [16.563032,16.685734] (log10)

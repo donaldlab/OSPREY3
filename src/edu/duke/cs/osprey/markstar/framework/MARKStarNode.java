@@ -135,15 +135,16 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
 
 
-    public static MARKStarNode makeRoot(SimpleConfSpace confSpace, EnergyMatrix energyMatrix, RCs rcs,
+    public static MARKStarNode makeRoot(SimpleConfSpace confSpace, EnergyMatrix rigidEnergyMatrix,
+                                        EnergyMatrix minimizingEnergyMatrix, RCs rcs,
                                         ScorerFactory gScorerFactory, ScorerFactory hscorerFactory,
                                         boolean reportProgress) {
 
 
 		// make the A* scorers
-		gScorer = gScorerFactory.make(energyMatrix);
-		hScorer = hscorerFactory.make(energyMatrix);
-		negatedHScorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, energyMatrix));
+		gScorer = gScorerFactory.make(minimizingEnergyMatrix);                                            // TODO: I think I want this to be minimizing
+		hScorer = hscorerFactory.make(minimizingEnergyMatrix);                                            // TODO: I think I want this to be minimizing
+		negatedHScorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, rigidEnergyMatrix)); // TODO: I think I want this to be rigid
 
 		ConfIndex confIndex = new ConfIndex(confSpace.positions.size());
 
@@ -193,8 +194,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
         private static int Unassigned = -1;
         public double gscore = Double.NaN;
-        public double minHScore = Double.NaN;
-        public double maxHScore = Double.NaN;
+        public double minHScore = Double.NaN; //\hat h^ominus(f) - the lower bound on subtree contrib to partition function
+        public double maxHScore = Double.NaN; //\hat h^oplus(f) - the lower bound on subtree contrib to partition function
         public int[] assignments;
         public int pos = Unassigned;
         public int rc = Unassigned;

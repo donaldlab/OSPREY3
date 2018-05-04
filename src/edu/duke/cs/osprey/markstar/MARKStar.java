@@ -209,24 +209,32 @@ public class MARKStar {
 
 		public final ConfSpaceType type;
 		public final SimpleConfSpace confSpace;
-		public final ConfEnergyCalculator confEcalc;
+		public final ConfEnergyCalculator rigidConfEcalc;
+		public final ConfEnergyCalculator minimizingConfEcalc;
 
 		public final List<Sequence> sequences = new ArrayList<>();
-		public EnergyMatrix emat = null;
+		public EnergyMatrix rigidEmat = null;
+		public EnergyMatrix minimizingEmat = null;
 		public final Map<Sequence,PartitionFunction.Result> pfuncResults = new HashMap<>();
 
-		public ConfSpaceInfo(ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc) {
+		public ConfSpaceInfo(ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator rigidConfEcalc, ConfEnergyCalculator minimizingConfEcalc) {
 			this.type = type;
 			this.confSpace = confSpace;
-			this.confEcalc = confEcalc;
+			this.rigidConfEcalc = rigidConfEcalc;
+			this.minimizingConfEcalc = minimizingConfEcalc;
 		}
 
-		public void calcEmat() {
-			SimplerEnergyMatrixCalculator.Builder builder = new SimplerEnergyMatrixCalculator.Builder(confEcalc);
+		public void calcEmats() {
+			SimplerEnergyMatrixCalculator.Builder rigidBuilder = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc);
 			if (settings.energyMatrixCachePattern != null) {
-				builder.setCacheFile(new File(settings.applyEnergyMatrixCachePattern(type.name().toLowerCase())));
+				rigidBuilder.setCacheFile(new File(settings.applyEnergyMatrixCachePattern(type.name().toLowerCase()+".rigid")));
 			}
-			emat = builder.build().calcEnergyMatrix();
+			SimplerEnergyMatrixCalculator.Builder minimizingBuilder = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc);
+			if (settings.energyMatrixCachePattern != null) {
+				minimizingBuilder.setCacheFile(new File(settings.applyEnergyMatrixCachePattern(type.name().toLowerCase()+".minimizing")));
+			}
+			rigidEmat = rigidBuilder.build().calcEnergyMatrix();
+			minimizingEmat = minimizingBuilder.build().calcEnergyMatrix();
 		}
 
 		public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold) {
@@ -242,7 +250,7 @@ public class MARKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			MARKStarBound pfunc = new MARKStarBound(confSpace, emat, sequence.makeRCs());
+			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc ,sequence.makeRCs());
 			pfunc.setReportProgress(settings.showPfuncProgress);
 
 			// compute it
@@ -269,8 +277,11 @@ public class MARKStar {
 	/** A configuration space containing both the protein and ligand strands */
 	public final ConfSpaceInfo complex;
 
-	/** Calculates the energy for a molecule */
-	public final EnergyCalculator ecalc;
+	/** Calculates the rigid energy for a molecule */
+	public final EnergyCalculator rigidEcalc;
+
+	/** Calculates the minimized energy for a molecule */
+	public final EnergyCalculator minimizingEcalc;
 
 	/** A function that makes a ConfEnergyCalculator with the desired options */
 	public final ConfEnergyCalculatorFactory confEcalcFactory;
@@ -282,12 +293,14 @@ public class MARKStar {
 	public final Settings settings;
 
 	public MARKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex,
-					EnergyCalculator ecalc, ConfEnergyCalculatorFactory confEcalcFactory,
+					EnergyCalculator rigidEcalc, EnergyCalculator minimizingEcalc,
+					ConfEnergyCalculatorFactory confEcalcFactory,
 					ConfSearchFactory confSearchFactory, Settings settings) {
-		this.protein = new ConfSpaceInfo(ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, ecalc));
-		this.ligand = new ConfSpaceInfo(ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, ecalc));
-		this.complex = new ConfSpaceInfo(ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, ecalc));
-		this.ecalc = ecalc;
+		this.protein = new ConfSpaceInfo(ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, rigidEcalc), confEcalcFactory.make(protein, minimizingEcalc));
+		this.ligand = new ConfSpaceInfo(ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, rigidEcalc), confEcalcFactory.make(ligand, minimizingEcalc));
+		this.complex = new ConfSpaceInfo(ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, rigidEcalc), confEcalcFactory.make(complex, minimizingEcalc));
+		this.rigidEcalc = rigidEcalc;
+		this.minimizingEcalc = minimizingEcalc;
 		this.confEcalcFactory = confEcalcFactory;
 		this.confSearchFactory = confSearchFactory;
 		this.settings = settings;
@@ -298,9 +311,9 @@ public class MARKStar {
 		List<ScoredSequence> scores = new ArrayList<>();
 
 		// compute energy matrices
-		protein.calcEmat();
-		ligand.calcEmat();
-		complex.calcEmat();
+		protein.calcEmats();
+		ligand.calcEmats();
+		complex.calcEmats();
 
 
 		// collect the wild type sequences

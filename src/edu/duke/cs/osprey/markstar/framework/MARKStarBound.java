@@ -10,7 +10,9 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -23,6 +25,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -98,8 +101,12 @@ public class MARKStarBound implements PartitionFunction {
 
     public static class Builder {
 
-        /** The energy matrix to use for pairwise residue conformation energies. */
-        private EnergyMatrix emat;
+        /** The energy matrix to use for upper bound scoring. */
+        private EnergyMatrix rigidEmat;
+        /** The energy matrix to use for calculating minimized energies. */
+        private EnergyMatrix minimizingEmat;
+        /** The ConfEnergyCalculator to use for n-body minimizied energies */
+        private ConfEnergyCalculator minimizingConfEcalc;
 
         private RCs rcs;
         private AStarOrder order = null;
@@ -112,16 +119,18 @@ public class MARKStarBound implements PartitionFunction {
         private ConfAStarTree.Builder aStarBuilder;
         private boolean reportProgress = false;
 
-        public Builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
-            this(emat, new RCs(confSpace));
+        public Builder(EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat, ConfEnergyCalculator minimizingConfEcalc, SimpleConfSpace confSpace) {
+            this(rigidEmat, minimizingEmat, minimizingConfEcalc, new RCs(confSpace));
         }
 
-        public Builder(EnergyMatrix emat, PruningMatrix pmat) {
-            this(emat, new RCs(pmat));
+        public Builder(EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat, ConfEnergyCalculator minimizingConfEcalc, PruningMatrix pmat) {
+            this(rigidEmat, minimizingEmat, minimizingConfEcalc, new RCs(pmat));
         }
 
-        public Builder(EnergyMatrix emat, RCs rcs) {
-            this.emat = emat;
+        public Builder(EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat, ConfEnergyCalculator minimizingConfEcalc, RCs rcs) {
+            this.rigidEmat = rigidEmat;
+            this.minimizingEmat = minimizingEmat;
+            this.minimizingConfEcalc = minimizingConfEcalc;
             this.rcs = rcs;
 
             // Jeff: MPLP is dramatically faster for large A* searches
@@ -147,8 +156,8 @@ public class MARKStarBound implements PartitionFunction {
         public Builder setTraditional() {
             aStarBuilder.setTraditional();
             this.order = new DynamicHMeanAStarOrder();
-            this.gscorer = new PairwiseGScorer(emat);
-            this.hscorer = new TraditionalPairwiseHScorer(emat, rcs);
+            this.gscorer = new PairwiseGScorer(minimizingEmat);
+            this.hscorer = new TraditionalPairwiseHScorer(minimizingEmat, rcs);
             return this;
         }
 
@@ -195,11 +204,11 @@ public class MARKStarBound implements PartitionFunction {
         }
 
         public MARKStarBound build() {
-            ConfAStarTree tree = new ConfAStarTree.Builder(emat, rcs).build();
+            ConfAStarTree tree = new ConfAStarTree.Builder(minimizingEmat, rcs).build();
             if (showProgress) {
                 tree.initProgress();
             }
-            return new MARKStarBound(confSpace, emat, rcs);
+            return new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc ,rcs);
         }
     }
 
@@ -224,28 +233,31 @@ public class MARKStarBound implements PartitionFunction {
     private MARKStarNode.ScorerFactory gscorerFactory;
     private MARKStarNode.ScorerFactory hscorerFactory;
 
-    public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix emat, RCs rcs) {
+    public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat, ConfEnergyCalculator minimizingConfEcalc, RCs rcs) {
         this.queue = new PriorityQueue<>();
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
         MPLPUpdater updater = new EdgeUpdater();
         hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs); //MPLPPairwiseHScorer(updater, emats, 50, 0.03);
 
-        rootNode = MARKStarNode.makeRoot(confSpace, emat, rcs, gscorerFactory, hscorerFactory, true);
+        rootNode = MARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs, gscorerFactory, hscorerFactory, true);
         queue.add(rootNode);
         updateBound();
         confIndex = new ConfIndex(rcs.getNumPos());
         this.RCs = rcs;
         this.order = new DynamicHMeanAStarOrder();
-        order.setScorers(gscorerFactory.make(emat),hscorerFactory.make(emat));
+        order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
         this.pruner = null;
 
         this.contexts = new ObjectPool<>((lingored) -> {
             ScoreContext context = new ScoreContext();
             context.index = new ConfIndex(rcs.getNumPos());
-            context.gscorer = gscorerFactory.make(emat);
-            context.hscorer = hscorerFactory.make(emat);
-            context.negatedhscorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, emat));
+            context.gscorer = gscorerFactory.make(minimizingEmat);
+            context.hscorer = hscorerFactory.make(minimizingEmat);
+            /** These scoreres should match the scorers in the MARKStarNode root - they perform the same calculations**/
+            context.negatedhscorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, rigidEmat)); //this is used for upper bounds, so we want it rigid
+            //context.negatedhscorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, minimizingEmat));
+            context.ecalc = minimizingConfEcalc;
             return context;
         });
 
@@ -257,6 +269,7 @@ public class MARKStarBound implements PartitionFunction {
         public AStarScorer gscorer;
         public AStarScorer hscorer;
         public AStarScorer negatedhscorer;
+        public ConfEnergyCalculator ecalc;
     }
 
 
@@ -300,15 +313,17 @@ public class MARKStarBound implements PartitionFunction {
                 continue;
             }
 
+            // TODO: ecalc.calcEnergy for nodes that are leaves. This will give the n-body minimized energy
             tasks.submit(() -> {
 
                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                     ScoreContext context = checkout.get();
 
-                    // score the child node differentially against the parent node
                     node.index(context.index);
                     Node child = node.assign(nextPos, nextRc);
                     //TODO: Change this code to do the right thing.
+
+                    // score the child node differentially against the parent node
                     double diff = context.gscorer.calcDifferential(context.index,RCs,nextPos, nextRc);
                     double hdiff = context.hscorer.calcDifferential(context.index,RCs,nextPos,nextRc);
                     double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
@@ -319,6 +334,18 @@ public class MARKStarBound implements PartitionFunction {
                     child.minHScore = logMin;
                     child.maxHScore = logMax;
                     child.computeNumConformations(RCs);
+
+                    //If the child is a leaf, calculate n-body minimized energies
+                    if (child.getLevel() == RCs.getNumPos()){
+                        ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(child.assignments, child.minHScore);
+                        ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
+                        //Assign true energies to the minHScore and maxHScore
+                        child.minHScore = econf.getEnergy();
+                        child.maxHScore = child.minHScore;
+                        String out = "Energy = " + String.format("%6.3e", child.minHScore);
+                        System.out.println(out);
+                    }
+
 
                     return child;
                 }
