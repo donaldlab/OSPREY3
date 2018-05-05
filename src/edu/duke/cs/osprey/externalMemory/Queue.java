@@ -262,6 +262,9 @@ public interface Queue<T> {
 
 				@Override
 				public T peek() {
+					if (q.empty()) {
+						return null;
+					}
 					return q.front();
 				}
 

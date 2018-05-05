@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -42,7 +43,7 @@ public class TestKStar {
 		public List<KStar.ScoredSequence> scores;
 	}
 
-	public static Result runKStar(ConfSpaces confSpaces, double epsilon, String confDBPattern) {
+	public static Result runKStar(ConfSpaces confSpaces, double epsilon, String confDBPattern, boolean useExternalMemory) {
 
 		AtomicReference<Result> resultRef = new AtomicReference<>(null);
 
@@ -65,9 +66,12 @@ public class TestKStar {
 
 				// how should confs be ordered and searched?
 				ConfSearchFactory confSearchFactory = (emat, pmat) -> {
-					return new ConfAStarTree.Builder(emat, pmat)
-						.setTraditional()
-						.build();
+					ConfAStarTree.Builder builder = new ConfAStarTree.Builder(emat, pmat)
+						.setTraditional();
+					if (useExternalMemory) {
+						builder.useExternalMemory();
+					}
+					return builder.build();
 				};
 
 				KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) -> {
@@ -96,6 +100,7 @@ public class TestKStar {
 					.setStabilityThreshold(null)
 					.addScoreConsoleWriter(testFormatter)
 					.setConfDBPattern(confDBPattern)
+					.setExternalMemory(useExternalMemory)
 					//.setShowPfuncProgress(true)
 					.build();
 				result.kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
@@ -160,8 +165,18 @@ public class TestKStar {
 	public void test2RL0() {
 
 		double epsilon = 0.95;
-		Result result = runKStar(make2RL0(), epsilon, null);
+		Result result = runKStar(make2RL0(), epsilon, null, false);
 		assert2RL0(result, epsilon);
+	}
+
+	@Test
+	public void test2RL0WithExternalMemory() {
+
+		ExternalMemory.use(128, () -> {
+			double epsilon = 0.95;
+			Result result = runKStar(make2RL0(), epsilon, null, true);
+			assert2RL0(result, epsilon);
+		});
 	}
 
 	private static void assert2RL0(Result result, double epsilon) {
@@ -247,7 +262,7 @@ public class TestKStar {
 	public void test1GUA11() {
 
 		double epsilon = 0.999999;
-		Result result = runKStar(make1GUA11(), epsilon, null);
+		Result result = runKStar(make1GUA11(), epsilon, null, false);
 
 		// check the results (values collected with e = 0.1 and 64 digits precision)
 		assertSequence(result,   0, "ILE ILE GLN HIE VAL TYR LYS VAL", 1.186071e+42, 2.840001e+07, 1.119884e+66, epsilon); // K* = 16.521744 in [16.463680,16.563832] (log10)
@@ -271,7 +286,7 @@ public class TestKStar {
 
 					// run with empty dbs
 					Stopwatch sw = new Stopwatch().start();
-					Result result = runKStar(confSpaces, epsilon, confdbPattern);
+					Result result = runKStar(confSpaces, epsilon, confdbPattern, false);
 					assert2RL0(result, epsilon);
 					System.out.println(sw.getTime(2));
 
@@ -307,7 +322,7 @@ public class TestKStar {
 
 					// run again with full dbs
 					sw = new Stopwatch().start();
-					Result result2 = runKStar(confSpaces, epsilon, confdbPattern);
+					Result result2 = runKStar(confSpaces, epsilon, confdbPattern, false);
 					assert2RL0(result2, epsilon);
 					System.out.println(sw.getTime(2));
 				});

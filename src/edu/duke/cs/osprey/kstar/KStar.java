@@ -296,6 +296,17 @@ public class KStar {
 			// save the result
 			result = pfunc.makeResult();
 			pfuncResults.put(sequence, result);
+
+			/* HACKHACK: we're done using the A* tree, pfunc, etc
+				and normally the garbage collector will clean them up,
+				along with their off-heap resources (e.g. TPIE data structures).
+				Except the garbage collector might not do it right away.
+				If we try to allocate more off-heap resources before these get cleaned up,
+				we might run out. So poke the garbage collector now and try to get
+				it to clean up the off-heap resources right away.
+			*/
+			Runtime.getRuntime().gc();
+
 			return result;
 		}
 

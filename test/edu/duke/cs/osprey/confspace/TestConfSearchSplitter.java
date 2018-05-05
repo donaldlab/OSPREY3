@@ -153,4 +153,25 @@ public class TestConfSearchSplitter {
 			second.assertConfs(10);
 		});
 	}
+
+	@Test
+	public void externalMemoryExhaust() {
+		ExternalMemory.use(16, () -> {
+
+			ConfSearch.Splitter splitter = new ConfSearch.Splitter(
+				makeSearch(),
+				true,
+				new RCs(confSpace)
+			);
+
+			Checker first = new Checker(splitter.first);
+			first.assertConfs(27);
+
+			Checker second = new Checker(splitter.second);
+			second.assertConfs(27);
+
+			assertThat(splitter.first.nextConf(), is(nullValue()));
+			assertThat(splitter.second.nextConf(), is(nullValue()));
+		});
+	}
 }
