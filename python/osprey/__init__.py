@@ -719,7 +719,7 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	return bbflex
 
 
-def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault):
+def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault):
 	'''
 	:java:classdoc:`.kstar.KStar`
 
@@ -743,6 +743,7 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcF
 	:builder_option energyMatrixCachePattern .kstar.KStar$Settings$Builder#energyMatrixCachePattern:
 	:builder_option confDBPattern .kstar.KStar$Settings$Builder#confDBPattern:
 	:builder_option useExternalMemory .kstar.KStar$Settings$Builder#useExternalMemory:
+	:builder_option showPfuncProgress .kstar.KStar$Settings$Builder#showPfuncProgress:
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
 	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
 
@@ -771,12 +772,14 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcF
 		settingsBuilder.setConfDBPattern(confDBPattern)
 	if useExternalMemory is not useJavaDefault:
 		settingsBuilder.setExternalMemory(useExternalMemory)
+	if showPfuncProgress is not useJavaDefault:
+		settingsBuilder.setShowPfuncProgress(showPfuncProgress)
 	settings = settingsBuilder.build()
 
 	return c.kstar.KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
 
 
-def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, useExternalMemory=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
+def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
 	'''
 	:java:classdoc:`.kstar.BBKStar`
 
@@ -802,6 +805,7 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, min
 	:builder_option energyMatrixCachePattern .kstar.KStar$Settings$Builder#energyMatrixCachePattern:
 	:builder_option confDBPattern .kstar.KStar$Settings$Builder#confDBPattern:
 	:builder_option useExternalMemory .kstar.KStar$Settings$Builder#useExternalMemory:
+	:builder_option showPfuncProgress .kstar.KStar$Settings$Builder#showPfuncProgress:
 	:builder_option numBestSequences .kstar.BBKStar$Settings$Builder#numBestSequences:
 	:builder_option numConfsPerBatch .kstar.BBKStar$Settings$Builder#numConfsPerBatch:
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
@@ -832,6 +836,8 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, min
 		kstarSettingsBuilder.setConfDBPattern(confDBPattern)
 	if useExternalMemory is not useJavaDefault:
 		kstarSettingsBuilder.setExternalMemory(useExternalMemory)
+	if showPfuncProgress is not useJavaDefault:
+		kstarSettingsBuilder.setShowPfuncProgress(showPfuncProgress)
 	kstarSettings = kstarSettingsBuilder.build()
 
 	bbkstarSettingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.BBKStar, 'Settings'))()
