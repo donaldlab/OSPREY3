@@ -4,17 +4,14 @@ import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 
 import java.io.File;
 import java.util.*;
-import java.util.stream.Stream;
+import java.util.function.Function;
 
 /**
  * Shows information about a single sequence.
@@ -49,7 +46,7 @@ public class SequenceAnalyzer {
 
 			StringBuilder buf = new StringBuilder();
 			buf.append(String.format("Residues           %s\n", confSpace.formatResidueNumbers()));
-			buf.append(String.format("%-16s   %s\n", info.type.name() + " Sequence", sequence.toString(Sequence.Renderer.ResTypeMutations, 5)));
+			buf.append(String.format("%-16s   %s\n", info.id + " Sequence", sequence.toString(Sequence.Renderer.ResTypeMutations, 5)));
 			buf.append(String.format("Ensemble of %d conformations:\n", ensemble.analyses.size()));
 			for (int i=0; i<ensemble.analyses.size(); i++) {
 				ConfAnalyzer.ConfAnalysis analysis = ensemble.analyses.get(i);
@@ -66,96 +63,96 @@ public class SequenceAnalyzer {
 		}
 	}
 
-	public class ConfSpaceInfo {
+	public static class ConfSpaceInfo {
+		public SimpleConfSpace confSpace;
+		public String id;
+		public ConfEnergyCalculator confEcalc;
+		public KStar.ConfSearchFactory confSearchFactory;
+		public File confDBFile;
+	}
 
-		public final KStar.ConfSpaceType type;
-		public final SimpleConfSpace confSpace;
-		public final ConfEnergyCalculator confEcalc;
+	public static class NoSuchConfSpaceException extends NoSuchElementException {
 
-		public EnergyMatrix emat = null;
-
-		public ConfSpaceInfo(KStar.ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc) {
-			this.type = type;
-			this.confSpace = confSpace;
-			this.confEcalc = confEcalc;
-		}
-
-		public void calcEmat() {
-			SimplerEnergyMatrixCalculator.Builder builder = new SimplerEnergyMatrixCalculator.Builder(confEcalc);
-			if (settings.energyMatrixCachePattern != null) {
-				builder.setCacheFile(new File(settings.applyEnergyMatrixCachePattern(type.name().toLowerCase())));
-			}
-			emat = builder.build().calcEnergyMatrix();
-		}
-
-		public File getConfDBFile() {
-			if (settings.confDBPattern == null) {
-				return null;
-			} else {
-				return new File(settings.applyConfDBPattern(type.name().toLowerCase()));
-			}
+		public NoSuchConfSpaceException(Sequence sequence) {
+			super("no conformation space matching sequence " + sequence);
 		}
 	}
 
-	/** A configuration space containing just the protein strand */
-	public final ConfSpaceInfo protein;
 
-	/** A configuration space containing just the ligand strand */
-	public final ConfSpaceInfo ligand;
+	private final Function<Sequence,ConfSpaceInfo> finder;
 
-	/** A configuration space containing both the protein and ligand strands */
-	public final ConfSpaceInfo complex;
+	/**
+	 * make a SequenceAnalyzer from a KStar instance
+	 */
+	public SequenceAnalyzer(KStar kstar) {
 
-	/** Calculates the energy for a molecule */
-	public final EnergyCalculator ecalc;
+		finder = (sequence) -> {
 
-	/** A function that makes a ConfEnergyCalculator with the desired options */
-	public final KStar.ConfEnergyCalculatorFactory confEcalcFactory;
+			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
-	/** A function that makes a ConfSearchFactory (e.g, A* search) with the desired options */
-	public final KStar.ConfSearchFactory confSearchFactory;
+				if (info.confSpace != sequence.confSpace) {
+					continue;
+				}
 
-	/** K* settings */
-	public final KStar.Settings settings;
+				ConfSpaceInfo adapter = new ConfSpaceInfo();
+				adapter.confSpace = info.confSpace;
+				adapter.id = info.id;
+				adapter.confEcalc = info.confEcalc;
+				adapter.confSearchFactory = info.confSearchFactory;
+				return adapter;
+			}
 
-	public SequenceAnalyzer(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator ecalc, KStar.ConfEnergyCalculatorFactory confEcalcFactory, KStar.ConfSearchFactory confSearchFactory, KStar.Settings settings) {
+			throw new NoSuchConfSpaceException(sequence);
+		};
+	}
 
-		this.protein = new ConfSpaceInfo(KStar.ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, ecalc));
-		this.ligand = new ConfSpaceInfo(KStar.ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, ecalc));
-		this.complex = new ConfSpaceInfo(KStar.ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, ecalc));
-		this.ecalc = ecalc;
-		this.confEcalcFactory = confEcalcFactory;
-		this.confSearchFactory = confSearchFactory;
-		this.settings = settings;
+	/**
+	 * make a SequenceAnalyzer from a BBKStar instance
+	 */
+	public SequenceAnalyzer(BBKStar bbkstar) {
 
-		// calc emats if needed, or read them from the cache
-		this.protein.calcEmat();
-		this.ligand.calcEmat();
-		this.complex.calcEmat();
+		finder = (sequence) -> {
+
+			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
+
+				if (info.confSpace != sequence.confSpace) {
+					continue;
+				}
+
+				ConfSpaceInfo adapter = new ConfSpaceInfo();
+				adapter.confSpace = info.confSpace;
+				adapter.id = info.id;
+				adapter.confEcalc = info.confEcalcMinimized;
+				adapter.confSearchFactory = info.confSearchFactoryMinimized;
+				return adapter;
+			}
+
+			throw new NoSuchConfSpaceException(sequence);
+		};
 	}
 
 	public Analysis analyze(Sequence sequence, double energyWindowSize) {
 
-		ConfSpaceInfo info = getConfSpaceFromSequence(sequence);
+		ConfSpaceInfo info = finder.apply(sequence);
 
 		// find the GMEC for this sequence
-		ConfSearch astar = confSearchFactory.make(info.emat, sequence.makeRCs());
+		ConfSearch astar = info.confSearchFactory.make(sequence.makeRCs());
 		SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, info.confEcalc)
-			.setConfDB(info.getConfDBFile())
+			.setConfDB(info.confDBFile)
 			.build();
 		Queue.FIFO<ConfSearch.EnergiedConf> econfs = gmecFinder.find(energyWindowSize);
 
 		// return the analysis
-		ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc, info.emat);
+		ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc);
 		ConfAnalyzer.EnsembleAnalysis ensemble = analyzer.analyzeEnsemble(econfs, Integer.MAX_VALUE);
 		return new Analysis(info, sequence, ensemble);
 	}
 
 	public Analysis analyzeFromConfDB(Sequence sequence, double energyWindowSize) {
 
-		ConfSpaceInfo info = getConfSpaceFromSequence(sequence);
+		ConfSpaceInfo info = finder.apply(sequence);
 
-		return new ConfDB(info.confSpace, info.getConfDBFile()).use((confdb) -> {
+		return new ConfDB(info.confSpace, info.confDBFile).use((confdb) -> {
 
 			// get the econfs from the table
 			ConfDB.SequenceDB sdb = confdb.getSequence(sequence);
@@ -176,16 +173,9 @@ public class SequenceAnalyzer {
 			}
 
 			// return the analysis
-			ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc, info.emat);
+			ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc);
 			ConfAnalyzer.EnsembleAnalysis ensemble = analyzer.analyzeEnsemble(queue, Integer.MAX_VALUE);
 			return new Analysis(info, sequence, ensemble);
 		});
-	}
-
-	private ConfSpaceInfo getConfSpaceFromSequence(Sequence sequence) {
-		return Stream.of(complex, protein, ligand)
-			.filter((i) -> i.confSpace == sequence.confSpace)
-			.findFirst()
-			.orElseThrow(() -> new NoSuchElementException("no conformation space matching sequence " + sequence));
 	}
 }

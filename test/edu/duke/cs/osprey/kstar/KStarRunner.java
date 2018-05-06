@@ -4,6 +4,8 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -86,23 +88,30 @@ public class KStarRunner {
 			.setEpsilon(0.9999)
 			.setStabilityThreshold(null)
 			.setMaxSimultaneousMutations(3)
-			.setEnergyMatrixCachePattern("kstar.emat.*.dat")
 			.addScoreConsoleWriter()
 			.addScoreFileWriter(new File("kstar.txt"))
 			.setShowPfuncProgress(true)
 			.build();
 
-		KStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpace, ecalc) -> new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
-		KStar.ConfSearchFactory astarFactory = (confSpace, rcs) -> new ConfAStarTree.Builder(confSpace, rcs)
-			.setTraditional()
-			.build();
-
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(complexConfSpace, new ForcefieldParams())
-			//.setParallelism(Parallelism.makeCpu(8))
-			.setParallelism(Parallelism.make(4, 1, 1))
+			.setParallelism(Parallelism.makeCpu(8))
+			//.setParallelism(Parallelism.make(4, 1, 1))
 			.build()
 		) {
-			KStar kstar = new KStar(targetConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings);
+			KStar kstar = new KStar(targetConfSpace, ligandConfSpace, complexConfSpace, settings);
+			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+
+				info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, ecalc).build();
+
+				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
+					.setCacheFile(new File(String.format("kstar.emat.%s.dat", info.id)))
+					.build()
+					.calcEnergyMatrix();
+
+				info.confSearchFactory = (rcs) -> new ConfAStarTree.Builder(emat, rcs)
+					.setTraditional()
+					.build();
+			}
 			kstar.run();
 		}
 	}

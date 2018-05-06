@@ -1,0 +1,520 @@
+package edu.duke.cs.osprey.lute;
+
+import static edu.duke.cs.osprey.TestBase.isAbsolutely;
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
+
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
+import edu.duke.cs.osprey.kstar.*;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.pruning.SimpleDEE;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.PDBIO;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static edu.duke.cs.osprey.tools.Log.log;
+
+
+public class TestLute {
+	
+	private static SimpleConfSpace protein;
+	private static SimpleConfSpace ligand;
+	private static SimpleConfSpace complex;
+	private static ForcefieldParams ffparams;
+	
+	@BeforeClass
+	public static void beforeClass() {
+
+		// configure the forcefield
+		ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld)
+			.addMoleculeForWildTypeRotamers(mol)
+			.build();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("G648", "G654")
+			.build();
+		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType, "GLU").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType, "ASP").addWildTypeRotamers().setContinuous();
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("A155", "A194")
+			.build();
+		ligand.flexibility.get("A172").setLibraryRotamers(Strand.WildType, "ASP", "GLU").addWildTypeRotamers().setContinuous();
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		TestLute.protein = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+			.build();
+		TestLute.ligand = new SimpleConfSpace.Builder()
+			.addStrand(ligand)
+			.build();
+		TestLute.complex = new SimpleConfSpace.Builder()
+			.addStrands(protein, ligand)
+			.build();
+	}
+
+	private static ConfEnergyCalculator makeConfEcalc(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
+		return new ConfEnergyCalculator.Builder(confSpace, ecalc)
+			.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+				.build()
+				.calcReferenceEnergies()
+			).build();
+	}
+
+	private static EnergyMatrix calcEmat(ConfEnergyCalculator confEcalc) {
+		return new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+			.build()
+			.calcEnergyMatrix();
+	}
+
+	private static PruningMatrix calcPmat(SimpleConfSpace confSpace, EnergyMatrix emat) {
+		return new SimpleDEE.Runner()
+			.setSinglesThreshold(100.0)
+			.setPairsThreshold(100.0)
+			.setGoldsteinDiffThreshold(100.0)
+			.setShowProgress(true)
+			.run(confSpace, emat);
+	}
+	
+	public static void main(String[] args) {
+
+		// do all the designs with regular machinery, to compute the "correct" answers
+
+		beforeClass();
+
+		// do an A* enumeration
+		{
+			SimpleConfSpace confSpace = complex;
+
+			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
+				.setParallelism(Parallelism.makeCpu(4))
+				.build()) {
+
+				ConfEnergyCalculator confEcalc = makeConfEcalc(confSpace, ecalc);
+				EnergyMatrix emat = calcEmat(confEcalc);
+
+				// do a GMEC search
+				ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+					.setTraditional()
+					.build();
+
+				List<ConfSearch.ScoredConf> confs = astar.nextConfs(-20.0);
+				List<ConfSearch.EnergiedConf> econfs = confEcalc.calcAllEnergies(confs);
+				econfs.sort(Comparator.comparing((conf) -> conf.getEnergy()));
+
+				for (ConfSearch.EnergiedConf conf : econfs) {
+					log("assertConf(astar.nextConf(), new int[] { %s }, %.6f, epsilon);",
+						String.join(",", IntStream.of(conf.getAssignments())
+							.mapToObj(i -> Integer.toString(i))
+							.collect(Collectors.toList())
+						),
+						conf.getEnergy()
+					);
+				}
+			}
+		}
+
+		// do a GMEC design on just the protein strand
+		{
+			SimpleConfSpace confSpace = protein;
+
+			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams).build()) {
+
+				ConfEnergyCalculator confEcalc = makeConfEcalc(confSpace, ecalc);
+				EnergyMatrix emat = calcEmat(confEcalc);
+
+				// do a GMEC search
+				ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+					.setTraditional()
+					.build();
+				Queue.FIFO<ConfSearch.EnergiedConf> confs = new SimpleGMECFinder.Builder(astar, confEcalc)
+					.build()
+					.find(1.0);
+
+				log("GMEC confs:");
+				log("assertThat(confs.size(), is(%dL));", confs.size());
+				while (!confs.isEmpty()) {
+					ConfSearch.EnergiedConf conf = confs.poll();
+					log("assertConf(confs.poll(), new int[] { %s }, %.6f, epsilon);",
+						String.join(",", IntStream.of(conf.getAssignments())
+							.mapToObj(i -> Integer.toString(i))
+							.collect(Collectors.toList())
+						),
+						conf.getEnergy()
+					);
+				}
+			}
+		}
+
+		final double epsilon = 0.01;
+
+		// compute the pfuncs of the wild-type sequence
+		{
+			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(complex, ffparams).build()) {
+
+				Function<SimpleConfSpace,PartitionFunction.Result> pfuncCalculator = (confSpace) -> {
+
+					ConfEnergyCalculator confEcalc = makeConfEcalc(confSpace, ecalc);
+					EnergyMatrix emat = calcEmat(confEcalc);
+
+					// pick the wild-type sequence
+					Sequence sequence = confSpace.makeWildTypeSequence();
+					RCs rcs = sequence.makeRCs();
+					ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional()
+						.build();
+
+					// estimate the pfunc
+					GradientDescentPfunc pfunc = new GradientDescentPfunc(confEcalc);
+					pfunc.init(astar, rcs.getNumConformations(), epsilon);
+					pfunc.setStabilityThreshold(null);
+					pfunc.compute();
+
+					return pfunc.makeResult();
+				};
+
+				PartitionFunction.Result resultProtein = pfuncCalculator.apply(protein);
+				log("protein wild-type pfunc: %s %.4f", resultProtein.toString(), resultProtein.values.getEffectiveEpsilon());
+				PartitionFunction.Result resultLigand = pfuncCalculator.apply(ligand);
+				log("ligand  wild-type pfunc: %s %.4f", resultLigand.toString(), resultLigand.values.getEffectiveEpsilon());
+				PartitionFunction.Result resultComplex = pfuncCalculator.apply(complex);
+				log("complex wild-type pfunc: %s %.4f", resultComplex.toString(), resultComplex.values.getEffectiveEpsilon());
+			}
+		}
+
+		KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) ->
+			String.format("assertKstar(scoredSequences.get(%d), \"%s\", %.6f, %.6f, fudge); // protein %s ligand %s complex %s",
+				info.sequenceNumber,
+				info.sequence.toString(Sequence.Renderer.ResTypeMutations),
+				info.kstarScore.lowerBoundLog10(),
+				info.kstarScore.upperBoundLog10(),
+				info.kstarScore.protein.toString(),
+				info.kstarScore.ligand.toString(),
+				info.kstarScore.complex.toString()
+			);
+
+		// do a K* design
+		{
+			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(complex, ffparams).build()) {
+
+				KStar.Settings settings = new KStar.Settings.Builder()
+					.setEpsilon(epsilon)
+					.setStabilityThreshold(null)
+					.addScoreConsoleWriter(testFormatter)
+					.build();
+				KStar kstar = new KStar(protein, ligand, complex, settings);
+				for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+
+					info.confEcalc = makeConfEcalc(info.confSpace, ecalc);
+					EnergyMatrix emat = calcEmat(info.confEcalc);
+					info.confSearchFactory = (rcs) ->
+						new ConfAStarTree.Builder(emat, rcs)
+							.setTraditional()
+							.build();
+				}
+				kstar.run();
+			}
+		}
+
+		// do a BBK* design
+		{
+			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(complex, ffparams).build()) {
+
+				// configure BBK*
+				KStar.Settings kstarSettings = new KStar.Settings.Builder()
+					.setEpsilon(epsilon)
+					.setStabilityThreshold(null)
+					.addScoreConsoleWriter(testFormatter)
+					.build();
+				BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
+					.setNumBestSequences(5)
+					.build();
+				BBKStar bbkstar = new BBKStar(protein, ligand, complex, kstarSettings, bbkstarSettings);
+				for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
+
+					// minimized energies
+					info.confEcalcMinimized = makeConfEcalc(info.confSpace, ecalc);
+					EnergyMatrix emat = calcEmat(info.confEcalcMinimized);
+					info.confSearchFactoryMinimized = (rcs) ->
+						new ConfAStarTree.Builder(emat, rcs)
+							.setTraditional()
+							.build();
+
+					// rigid energies
+					EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalc)
+						.setIsMinimizing(false)
+						.build();
+					ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
+					EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
+						.build()
+						.calcEnergyMatrix();
+					info.confSearchFactoryRigid = (rcs) ->
+						new ConfAStarTree.Builder(ematRigid, rcs)
+							.setTraditional()
+							.build();
+				}
+				bbkstar.run();
+			}
+		}
+	}
+
+	private static void assertConf(ConfSearch.ScoredConf conf, int[] assignments, double score, double epsilon) {
+		assertThat(conf.getAssignments(), is(assignments));
+		assertThat(conf.getScore(), isAbsolutely(score, epsilon));
+	}
+
+	private static LUTEConfEnergyCalculator train(SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat) {
+
+		try (ConfDB confdb = new ConfDB(confSpace)) {
+			ConfDB.ConfTable confTable = confdb.new ConfTable("lute");
+
+			final int randomSeed = 12345;
+			final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
+			final double maxOverfittingScore = 1.5;
+			final double maxRMSE = 0.1;
+
+			// compute LUTE fit
+			LUTE lute = new LUTE(confSpace);
+			ConfSampler sampler = new UniformConfSampler(confSpace, pmat, randomSeed);
+			lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
+			lute.reportConfSpaceSize(pmat);
+
+			return new LUTEConfEnergyCalculator(confSpace, confEcalc.ecalc, new LUTEState(lute.getTrainingSystem()));
+		}
+	}
+
+	@Test
+	public void astar() {
+
+		SimpleConfSpace confSpace = complex;
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
+			.setParallelism(Parallelism.makeCpu(4))
+			.build()) {
+
+			ConfEnergyCalculator confEcalc = makeConfEcalc(confSpace, ecalc);
+			EnergyMatrix emat = calcEmat(confEcalc);
+			PruningMatrix pmat = calcPmat(confSpace, emat);
+
+			// train LUTE
+			LUTEConfEnergyCalculator luteEcalc = train(confSpace, confEcalc, emat, pmat);
+
+			ConfAStarTree astar = new ConfAStarTree.Builder(null, pmat)
+				.setLUTE(luteEcalc)
+				.build();
+
+			final double epsilon = 1e-1;
+			assertConf(astar.nextConf(), new int[] { 13,13,11 }, -29.037828, epsilon);
+			assertConf(astar.nextConf(), new int[] { 13,13,40 }, -28.836836, epsilon);
+			assertConf(astar.nextConf(), new int[] { 11,13,11 }, -28.321740, epsilon);
+			assertConf(astar.nextConf(), new int[] { 11,13,40 }, -28.152335, epsilon);
+			assertConf(astar.nextConf(), new int[] { 13,13,9 }, -27.791179, epsilon);
+			assertConf(astar.nextConf(), new int[] { 13,13,10 }, -27.072290, epsilon);
+		}
+	}
+
+	@Test
+	public void gmec() {
+
+		// do a GMEC design on just one strand
+		SimpleConfSpace confSpace = protein;
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
+			.setParallelism(Parallelism.makeCpu(4))
+			.build()) {
+
+			ConfEnergyCalculator confEcalc = makeConfEcalc(confSpace, ecalc);
+			EnergyMatrix emat = calcEmat(confEcalc);
+			PruningMatrix pmat = calcPmat(confSpace, emat);
+
+			// train LUTE
+			LUTEConfEnergyCalculator luteEcalc = train(confSpace, confEcalc, emat, pmat);
+
+			// do a GMEC search
+			Queue.FIFO<ConfSearch.ScoredConf> confs = new LUTEGMECFinder.Builder(pmat, luteEcalc)
+				.build()
+				.find(1.0);
+
+			// LUTE should match two-position designs exactly
+			assertThat(confs.size(), is(5L));
+			final double epsilon = 1e-6;
+			assertConf(confs.poll(), new int[] { 11,13 }, -3.713187, epsilon);
+			assertConf(confs.poll(), new int[] { 12,13 }, -3.393738, epsilon);
+			assertConf(confs.poll(), new int[] { 8,13 }, -3.170271, epsilon);
+			assertConf(confs.poll(), new int[] { 13,13 }, -2.857468, epsilon);
+			assertConf(confs.poll(), new int[] { 3,13 }, -2.737019, epsilon);
+		}
+	}
+
+	@Test
+	public void pfunc() {
+
+		final double epsilon = 0.01;
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(complex, ffparams)
+			.setParallelism(Parallelism.makeCpu(4))
+			.build()) {
+
+			Function<SimpleConfSpace,PartitionFunction.Result> pfuncCalculator = (confSpace) -> {
+
+				ConfEnergyCalculator confEcalc = makeConfEcalc(confSpace, ecalc);
+				EnergyMatrix emat = calcEmat(confEcalc);
+				PruningMatrix pmat = calcPmat(confSpace, emat);
+
+				// train LUTE
+				LUTEConfEnergyCalculator luteEcalc = train(confSpace, confEcalc, emat, pmat);
+
+				// pick the wild-type sequence
+				Sequence sequence = confSpace.makeWildTypeSequence();
+				RCs rcs = new RCs(sequence.makeRCs(), pmat);
+				ConfAStarTree astar = new ConfAStarTree.Builder(null, rcs)
+					.setLUTE(luteEcalc)
+					.build();
+
+				// estimate the pfunc
+				LUTEPfunc pfunc = new LUTEPfunc(luteEcalc);
+				pfunc.init(astar, rcs.getNumConformations(), epsilon);
+				pfunc.setStabilityThreshold(null);
+				pfunc.setReportProgress(true);
+				pfunc.compute();
+
+				return pfunc.makeResult();
+			};
+
+			// LUTE energies should be exact here
+			assertPfunc(pfuncCalculator.apply(protein), epsilon, 2.403883, 2.404058, 0.0);
+			assertPfunc(pfuncCalculator.apply(ligand), epsilon, 11.209861, 11.209861, 0.0);
+			// LUTE approximates energies here, so it doesn't compute quite the same pfunc values
+			final double fudge = 0.01;
+			assertPfunc(pfuncCalculator.apply(complex), epsilon, 21.553341, 21.554117, fudge);
+		}
+	}
+
+	private static void assertPfunc(PartitionFunction.Result result, double epsilon, double lower, double upper, double fudge) {
+		assertThat(result.values.getEffectiveEpsilon(), lessThanOrEqualTo(epsilon));
+		assertThat(KStarScore.scoreToLog10(result.values.calcLowerBound()), lessThanOrEqualTo(lower*(1+fudge)));
+		assertThat(KStarScore.scoreToLog10(result.values.calcUpperBound()), greaterThanOrEqualTo(upper*(1-fudge)));
+	}
+
+	@Test
+	public void kstar() {
+
+		final double epsilon = 0.01;
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(complex, ffparams)
+			.setParallelism(Parallelism.makeCpu(4))
+			.build()) {
+
+			KStar.Settings settings = new KStar.Settings.Builder()
+				.setEpsilon(epsilon)
+				.setStabilityThreshold(null)
+				.build();
+			KStar kstar = new KStar(protein, ligand, complex, settings);
+			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+
+				info.confEcalc = makeConfEcalc(info.confSpace, ecalc);
+				EnergyMatrix emat = calcEmat(info.confEcalc);
+				PruningMatrix pmat = calcPmat(info.confSpace, emat);
+
+				// train LUTE
+				LUTEConfEnergyCalculator luteEcalc = train(info.confSpace, info.confEcalc, emat, pmat);
+
+				info.confSearchFactory = (rcs) ->
+					new ConfAStarTree.Builder(null, rcs)
+						.setLUTE(luteEcalc)
+						.build();
+			}
+
+			List<KStar.ScoredSequence> scoredSequences = kstar.run();
+
+			// LUTE approximates energies, so it doesn't compute quite the same K* scores
+			final double fudge = 0.01;
+			assertKstar(scoredSequences.get(0), "asp glu lys", 7.937791, 7.947125, fudge); // protein [2.402387 , 2.404539] (log10)                    ligand [11.206188,11.209861] (log10)                    complex [21.552191,21.555700] (log10)
+			assertKstar(scoredSequences.get(1), "asp glu ASP", 3.438280, 3.444701, fudge); // protein [2.402387 , 2.404539] (log10)                    ligand [1.189648 , 1.190554] (log10)                    complex [7.033372 , 7.036735] (log10)
+			assertKstar(scoredSequences.get(2), "asp glu GLU", 2.601122, 2.605583, fudge); // protein [2.402387 , 2.404539] (log10)                    ligand [1.247908 , 1.247908] (log10)                    complex [6.253568 , 6.255878] (log10)
+			assertKstar(scoredSequences.get(3), "asp ASP lys", 6.068227, 6.077714, fudge); // protein [-1.111587,-1.108619] (log10)                    ligand [11.206188,11.209861] (log10)                    complex [16.169469,16.172315] (log10)
+			assertKstar(scoredSequences.get(4), "GLU glu lys", 6.762618, 6.774455, fudge); // protein [3.069510 , 3.073791] (log10)                    ligand [11.206188,11.209861] (log10)                    complex [21.046269,21.050153] (log10)
+		}
+	}
+
+	private static void assertKstar(KStar.ScoredSequence scoredSequence, String expectedSequence, double kstarLower, double kstarUpper, double fudge) {
+		assertThat(scoredSequence.sequence.toString(Sequence.Renderer.ResTypeMutations), is(expectedSequence));
+		assertThat(scoredSequence.score.lowerBoundLog10(), lessThanOrEqualTo(kstarLower*(1+fudge)));
+		assertThat(scoredSequence.score.upperBoundLog10(), greaterThanOrEqualTo(kstarUpper*(1-fudge)));
+	}
+
+	@Test
+	public void bbkstar() {
+
+		final double epsilon = 0.01;
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(complex, ffparams)
+			.setParallelism(Parallelism.makeCpu(4))
+			.build()) {
+
+			KStar.Settings kstarSettings = new KStar.Settings.Builder()
+				.setEpsilon(epsilon)
+				.setStabilityThreshold(null)
+				.addScoreConsoleWriter()
+				.build();
+			BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
+				.setNumBestSequences(5)
+				.build();
+			BBKStar bbkstar = new BBKStar(protein, ligand, complex, kstarSettings, bbkstarSettings);
+			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
+
+				info.confEcalcMinimized = makeConfEcalc(info.confSpace, ecalc);
+				EnergyMatrix emat = calcEmat(info.confEcalcMinimized);
+				PruningMatrix pmat = calcPmat(info.confSpace, emat);
+
+				// train LUTE
+				LUTEConfEnergyCalculator luteEcalc = train(info.confSpace, info.confEcalcMinimized, emat, pmat);
+
+				info.confSearchFactoryMinimized = (rcs) ->
+					new ConfAStarTree.Builder(null, rcs)
+						.setLUTE(luteEcalc)
+						.build();
+				info.confSearchFactoryRigid = info.confSearchFactoryMinimized;
+			}
+
+			List<KStar.ScoredSequence> scoredSequences = bbkstar.run();
+
+			// LUTE approximates energies, so it doesn't compute quite the same K* scores
+			final double fudge = 0.01;
+			assertKstar(scoredSequences.get(0), "asp glu lys", 7.937791, 7.947125, fudge); // protein [2.402387 , 2.404539] (log10)                    ligand [11.206188,11.209861] (log10)                    complex [21.552191,21.555700] (log10)
+			assertKstar(scoredSequences.get(1), "GLU glu lys", 6.762618, 6.774455, fudge); // protein [3.069510 , 3.073791] (log10)                    ligand [11.206188,11.209861] (log10)                    complex [21.046269,21.050153] (log10)
+			assertKstar(scoredSequences.get(2), "asp ASP lys", 6.068227, 6.077714, fudge); // protein [-1.111587,-1.108619] (log10)                    ligand [11.206188,11.209861] (log10)                    complex [16.169469,16.172315] (log10)
+			assertKstar(scoredSequences.get(3), "asp glu ASP", 3.438280, 3.444701, fudge); // protein [2.402387 , 2.404539] (log10)                    ligand [1.189648 , 1.190554] (log10)                    complex [7.033372 , 7.036735] (log10)
+			assertKstar(scoredSequences.get(4), "asp glu GLU", 2.601122, 2.605583, fudge); // protein [2.402387 , 2.404539] (log10)                    ligand [1.247908 , 1.247908] (log10)                    complex [6.253568 , 6.255878] (log10)
+		}
+	}
+}

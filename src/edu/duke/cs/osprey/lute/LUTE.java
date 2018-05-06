@@ -366,6 +366,25 @@ public class LUTE {
 		this.confSpace = confSpace;
 	}
 
+	public Set<RCTuple> getUnprunedSingleTuples(PruningMatrix pmat) {
+
+		Set<RCTuple> singles = new LinkedHashSet<>();
+
+		for (int pos1=0; pos1<pmat.getNumPos(); pos1++) {
+			for (int rc1=0; rc1<pmat.getNumConfAtPos(pos1); rc1++) {
+
+				// skip pruned singles
+				if (pmat.isSinglePruned(pos1, rc1)) {
+					continue;
+				}
+
+				singles.add(new RCTuple(pos1, rc1));
+			}
+		}
+
+		return singles;
+	}
+
 	public Set<RCTuple> getUnprunedPairTuples(PruningMatrix pmat) {
 
 		Set<RCTuple> pairs = new LinkedHashSet<>();
@@ -602,6 +621,25 @@ public class LUTE {
 	}
 
 	public void sampleTuplesAndFit(ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore, double maxRMSE) {
+
+		// does the conf space only have one position?
+		if (confSpace.positions.size() == 1) {
+
+			// can only do singles with such a small conf space
+			logf("Sampling all pair tuples...");
+			Stopwatch singlesStopwatch = new Stopwatch().start();
+			addTuples(getUnprunedSingleTuples(pmat));
+			log(" done in " + singlesStopwatch.stop().getTime(2));
+			fit(confEcalc, confTable, sampler, fitter, maxOverfittingScore);
+
+			// was that good enough?
+			if (trainingSystem.errors.rms <= maxRMSE) {
+				log("training set RMS error %f meets goal of %f", trainingSystem.errors.rms, maxRMSE);
+			} else {
+				log("training set RMS error %f does not meet goal of %f", trainingSystem.errors.rms, maxRMSE);
+			}
+			return;
+		}
 
 		// start with all pairs first
 		logf("Sampling all pair tuples...");

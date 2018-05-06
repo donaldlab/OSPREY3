@@ -9,6 +9,8 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.kstar.BBKStar;
+import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -39,16 +41,19 @@ public class LUTELab {
 		//TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 
-		train("protein", confSpaces.protein);
-		train("ligand", confSpaces.ligand);
-		train("complex", confSpaces.complex);
+		//train("protein", confSpaces.protein);
+		//train("ligand", confSpaces.ligand);
+		//train("complex", confSpaces.complex);
+		//kstarPfunc(confSpaces);
 		//kstar(confSpaces);
+		bbkstar(confSpaces);
 	}
 
 	private static void train(String name, SimpleConfSpace confSpace) {
 
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
-			.setParallelism(Parallelism.makeCpu(4))
+			//.setParallelism(Parallelism.makeCpu(8))
+			.setParallelism(Parallelism.make(8, 3, 32))
 			.build()) {
 
 			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
@@ -70,7 +75,7 @@ public class LUTELab {
 				.setGoldsteinDiffThreshold(10.0)
 				.setShowProgress(true)
 				.setCacheFile(new File(String.format("LUTE.%s.pmat.dat", name)))
-				.setParallelism(Parallelism.makeCpu(4))
+				.setParallelism(Parallelism.makeCpu(8))
 				.run(confSpace, emat);
 
 			final File confDBFile = new File(String.format("LUTE.%s.conf.db", name));
@@ -96,12 +101,12 @@ public class LUTELab {
 		}
 	}
 
-	private static void kstar(TestKStar.ConfSpaces confSpaces) {
+	private static void kstarPfunc(TestKStar.ConfSpaces confSpaces) {
 
+		// calculate the pfunc of the complex sequences
 		SimpleConfSpace confSpace = confSpaces.complex;
 		String name = "complex";
 
-		// TEMP: calculate the pfunc of the complex wild-type sequence
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, new ForcefieldParams())
 			.setParallelism(Parallelism.makeCpu(8))
 			.build()) {
@@ -118,6 +123,8 @@ public class LUTELab {
 				.setPairsThreshold(100.0)
 				.setGoldsteinDiffThreshold(10.0)
 				.setShowProgress(true)
+				.setCacheFile(new File(String.format("LUTE.%s.pmat.dat", name)))
+				.setParallelism(Parallelism.makeCpu(8))
 				.run(confSpace, emat);
 
 			LUTEState luteState = LUTEIO.read(new File(String.format("LUTE.%s.dat", name)));
@@ -125,7 +132,7 @@ public class LUTELab {
 
 			// enumerate all the sequences
 			List<Sequence> sequences = new ArrayList<>();
-			for (List<SimpleConfSpace.Position> mutablePositions : MathTools.powerset(confSpace.positions)) {
+			for (List<SimpleConfSpace.Position> mutablePositions : MathTools.powersetUpTo(confSpace.positions, 1)) {
 
 				// collect the mutations (res types except for wild type) for these positions into a simple list list
 				List<List<String>> resTypes = new ArrayList<>();
@@ -161,6 +168,82 @@ public class LUTELab {
 				pfunc.compute();
 				log("LUTE pfunc bounds for %s: %s", sequence.toString(Sequence.Renderer.ResTypeMutations), pfunc.makeResult());
 			}
+		}
+	}
+
+	private static void kstar(TestKStar.ConfSpaces confSpaces) {
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(8))
+			.build()) {
+
+			KStar.Settings settings = new KStar.Settings.Builder()
+				.setEpsilon(0.01)
+				.setStabilityThreshold(null)
+				.setMaxSimultaneousMutations(1)
+				.addScoreConsoleWriter()
+				.build();
+			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
+			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+
+				// how should we define energies of conformations?
+				LUTEState luteState = LUTEIO.read(new File(String.format("LUTE.%s.dat", info.id)));
+				LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(info.confSpace, ecalc, luteState);
+				info.confEcalc = luteConfEcalc;
+
+				// load the pruning matrix
+				PruningMatrix pmat = SimpleDEE.read(info.confSpace, new File(String.format("LUTE.%s.pmat.dat", info.id)));
+
+				// how should confs be ordered and searched?
+				info.confSearchFactory = (rcs) -> {
+					rcs = new RCs(rcs, pmat);
+					return new ConfAStarTree.Builder(null, rcs)
+						.setLUTE(luteConfEcalc)
+						.build();
+				};
+			}
+			kstar.run();
+		}
+	}
+
+	private static void bbkstar(TestKStar.ConfSpaces confSpaces) {
+
+		try (EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpaces.complex, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(8))
+			.build()) {
+
+			KStar.Settings kstarSettings = new KStar.Settings.Builder()
+				.setEpsilon(0.01)
+				.setStabilityThreshold(null)
+				.setMaxSimultaneousMutations(1)
+				.addScoreConsoleWriter()
+				.build();
+			BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
+				.setNumBestSequences(25)
+				.build();
+			BBKStar bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, kstarSettings, bbkstarSettings);
+			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
+
+				// how should we define energies of conformations?
+				LUTEState luteState = LUTEIO.read(new File(String.format("LUTE.%s.dat", info.id)));
+				LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(info.confSpace, ecalcMinimized, luteState);
+				info.confEcalcMinimized = luteConfEcalc;
+
+				// load the pruning matrix
+				PruningMatrix pmat = SimpleDEE.read(info.confSpace, new File(String.format("LUTE.%s.pmat.dat", info.id)));
+
+				// how should confs be ordered and searched?
+				info.confSearchFactoryMinimized = (rcs) -> {
+					rcs = new RCs(rcs, pmat);
+					return new ConfAStarTree.Builder(null, rcs)
+						.setLUTE(luteConfEcalc)
+						.build();
+				};
+
+				// for rigid energies, just use the minimized energies, since they're all the same for LUTE
+				info.confSearchFactoryRigid = info.confSearchFactoryMinimized;
+			}
+			bbkstar.run();
 		}
 	}
 

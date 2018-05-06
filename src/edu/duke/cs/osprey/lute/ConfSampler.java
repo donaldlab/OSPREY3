@@ -8,8 +8,6 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 import java.util.*;
 
-import static edu.duke.cs.osprey.tools.Log.log;
-
 
 public abstract class ConfSampler {
 
@@ -82,7 +80,9 @@ public abstract class ConfSampler {
 		}
 
 		public void addConf(int[] conf) {
-			tuples.forEachIn(conf, false, true, (index) -> {
+			boolean throwIfMissingSingle = conf.length == 1;
+			boolean throwIfMissingPair = conf.length > 1;
+			tuples.forEachIn(conf, throwIfMissingSingle, throwIfMissingPair, (index) -> {
 				RCTuple tuple = tuples.get(index);
 				Set<int[]> confsForTuple = confsByTuple.get(tuple);
 				confsForTuple.add(conf);

@@ -227,8 +227,29 @@ public class ObjectIO {
         
         return thing;
     }
-    
-    
+
+    public static <T> T readOrThrow(File file, Class<T> type, String name, Validator<T> validator) {
+		try {
+
+			T thing = read(file, type);
+			if (thing == null) {
+				throw new RuntimeException("file not found: " + file.getAbsolutePath());
+			}
+
+			System.out.println("read " + name + " from file: " + file.getAbsolutePath());
+
+			// make sure it's valid
+			if (!validator.isValid(thing)) {
+				throw new RuntimeException("" + name + " from file is invalid");
+			}
+
+			return thing;
+
+		} catch (BadFileException ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+
     
     	//Function adapted from: http://www.javaworld.com/javaworld/javatips/jw-javatip76.html?page=2
 	//Java Tip 76: An alternative to the deep copy technique

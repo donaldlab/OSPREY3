@@ -9,7 +9,10 @@ import java.util.function.Function;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStarScore;
+import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
+import edu.duke.cs.osprey.lute.LUTEPfunc;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -192,5 +195,18 @@ public interface PartitionFunction {
 
 	public static interface WithConfTable extends PartitionFunction {
 		void setConfTable(ConfDB.ConfTable table);
+	}
+
+	/**
+	 * Factory method to make the best pfunc calculator based on the conf ecalc
+	 */
+	public static PartitionFunction makeBestFor(ConfEnergyCalculator confEcalc) {
+		if (confEcalc instanceof LUTEConfEnergyCalculator) {
+			// LUTE needs it's own calculator, since it doesn't use energy bounds
+			return new LUTEPfunc((LUTEConfEnergyCalculator)confEcalc);
+		} else {
+			// algorithms based on energy bounds can use the GD calculator, it's the most recent pfunc calculator
+			return new GradientDescentPfunc(confEcalc);
+		}
 	}
 }

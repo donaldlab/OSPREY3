@@ -7,16 +7,16 @@ import static org.junit.Assert.*;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
+
 
 public class TestBBKStar {
 
@@ -31,58 +31,76 @@ public class TestBBKStar {
 
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern) {
 
-		AtomicReference<Results> resultsRef = new AtomicReference<>(null);
-
 		Parallelism parallelism = Parallelism.makeCpu(4);
-		//Parallelism parallelism = Parallelism.make(4, 1, 8);
 
 		// how should we compute energies of molecules?
-		new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+		try (EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
 			.setParallelism(parallelism)
-			.use((minimizingEcalc) -> {
+			.build()) {
+
+			KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) ->
+				String.format("TestBBKStar.assertSequence(results, \"%s\", %f, %f); // protein %s   ligand %s   complex %s",
+					info.sequence.toString(Sequence.Renderer.ResType),
+					info.kstarScore.lowerBoundLog10(),
+					info.kstarScore.upperBoundLog10(),
+					info.kstarScore.protein.toString(),
+					info.kstarScore.ligand.toString(),
+					info.kstarScore.complex.toString()
+				);
+
+			// configure BBK*
+			KStar.Settings kstarSettings = new KStar.Settings.Builder()
+				.setEpsilon(epsilon)
+				.setStabilityThreshold(null)
+				.setMaxSimultaneousMutations(1)
+				.addScoreConsoleWriter(testFormatter)
+				.setConfDBPattern(confdbPattern)
+				.build();
+			BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
+				.setNumBestSequences(numSequences)
+				.setNumConfsPerBatch(8)
+				.build();
+			BBKStar bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, kstarSettings, bbkstarSettings);
+			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
 				// how should we define energies of conformations?
-				KStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
-					return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
-						.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
-							.build()
-							.calcReferenceEnergies()
-						).build();
-				};
+				info.confEcalcMinimized = new ConfEnergyCalculator.Builder(info.confSpace, ecalcMinimized)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(info.confSpace, ecalcMinimized)
+						.build()
+						.calcReferenceEnergies()
+					).build();
+
+				// compute emats
+				EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
+					.build()
+					.calcEnergyMatrix();
 
 				// how should confs be ordered and searched?
-				ConfSearchFactory confSearchFactory = (emat, rcs) -> {
-					return new ConfAStarTree.Builder(emat, rcs)
+				info.confSearchFactoryMinimized = (rcs) ->
+					new ConfAStarTree.Builder(ematMinimized, rcs)
 						.setTraditional()
 						.build();
-				};
 
-				// make a rigid energy calculator too
-				EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
+				// BBK* needs rigid energies too
+				EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
 					.setIsMinimizing(false)
 					.build();
+				ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
+				EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
+					.build()
+					.calcEnergyMatrix();
+				info.confSearchFactoryRigid = (rcs) ->
+					new ConfAStarTree.Builder(ematRigid, rcs)
+						.setTraditional()
+						.build();
+			}
 
-				// run BBK*
-				KStar.Settings kstarSettings = new KStar.Settings.Builder()
-					.setEpsilon(epsilon)
-					.setStabilityThreshold(null)
-					.setMaxSimultaneousMutations(1)
-					.addScoreConsoleWriter()
-					.setConfDBPattern(confdbPattern)
-					.build();
-				BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
-					.setNumBestSequences(numSequences)
-					.setNumConfsPerBatch(8)
-					.build();
-				Results results = new Results();
-				results.bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, kstarSettings, bbkstarSettings);
-				results.sequences = results.bbkstar.run();
-
-				// pass back the ref
-				resultsRef.set(results);
-			});
-
-		return resultsRef.get();
+			// run BBK*
+			Results results = new Results();
+			results.bbkstar = bbkstar;
+			results.sequences = bbkstar.run();
+			return results;
+		}
 	}
 
 	@Test

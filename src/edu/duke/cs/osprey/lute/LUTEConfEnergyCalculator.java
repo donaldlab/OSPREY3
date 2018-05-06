@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.lute;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TuplesIndex;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;

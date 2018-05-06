@@ -129,7 +129,7 @@ public class TuplesIndex implements Iterable<RCTuple> {
 		// complain loudly if the conf has pair tuples that aren't in our list
 		// pair tuples are supposed to be completely covered
 		int numPos = confSpace.positions.size();
-		for (int pos1=1; pos1<numPos; pos1++) {
+		for (int pos1=0; pos1<numPos; pos1++) {
 
 			int rc1 = conf[pos1];
 			if (rc1 == Conf.Unassigned) {

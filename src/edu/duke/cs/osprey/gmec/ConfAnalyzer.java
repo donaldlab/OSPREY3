@@ -1,10 +1,8 @@
 package edu.duke.cs.osprey.gmec;
 
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.confspace.ConfDB;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -44,7 +42,7 @@ public class ConfAnalyzer {
 			return new ResidueForcefieldBreakdown.ByPosition(confEcalc, assignments, epmol).breakdownForcefield(type);
 		}
 
-		public EnergyMatrix breakdownScoreByPosition() {
+		public EnergyMatrix breakdownScoreByPosition(EnergyMatrix emat) {
 			return new ResidueForcefieldBreakdown.ByPosition(confEcalc, assignments, epmol).breakdownScore(emat);
 		}
 
@@ -108,16 +106,9 @@ public class ConfAnalyzer {
 
 
 	public final ConfEnergyCalculator confEcalc;
-	public final EnergyMatrix emat;
 
-	private final PairwiseGScorer gscorer;
-
-	public ConfAnalyzer(ConfEnergyCalculator confEcalc, EnergyMatrix emat) {
-
+	public ConfAnalyzer(ConfEnergyCalculator confEcalc) {
 		this.confEcalc = confEcalc;
-		this.emat = emat;
-
-		this.gscorer = new PairwiseGScorer(emat);
 	}
 
 	public ConfAnalysis analyze(ConfSearch.ScoredConf conf) {
@@ -128,10 +119,10 @@ public class ConfAnalyzer {
 		);
 	}
 
-	public ConfAnalysis analyze(int[] assignments) {
+	public ConfAnalysis analyze(int[] assignments, AStarScorer scorer) {
 		return new ConfAnalysis(
 			assignments,
-			gscorer.calc(assignments),
+			scorer.calc(Conf.index(assignments), new RCs(confEcalc.confSpace)),
 			confEcalc.calcEnergy(new RCTuple(assignments))
 		);
 	}

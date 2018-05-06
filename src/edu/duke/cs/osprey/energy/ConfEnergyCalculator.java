@@ -82,7 +82,11 @@ public class ConfEnergyCalculator {
 	}
 
 	protected ConfEnergyCalculator(ConfEnergyCalculator other) {
-		this(other.confSpace, other.ecalc, other.epart, other.eref, other.addResEntropy);
+		this(other, other.ecalc);
+	}
+
+	public ConfEnergyCalculator(ConfEnergyCalculator other, EnergyCalculator ecalc) {
+		this(other.confSpace, ecalc, other.epart, other.eref, other.addResEntropy);
 	}
 
 	/**

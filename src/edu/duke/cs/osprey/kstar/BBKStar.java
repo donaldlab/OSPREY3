@@ -5,20 +5,15 @@ import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.*;
-import java.util.function.Function;
 
 /**
  * Implementation of the BBK* algorithm to predict protein sequence mutations that improve
@@ -73,42 +68,36 @@ public class BBKStar {
 
 	public class ConfSpaceInfo {
 
-		public final KStar.ConfSpaceType type;
 		public final SimpleConfSpace confSpace;
-		public final ConfEnergyCalculator rigidConfEcalc;
-		public final ConfEnergyCalculator minimizingConfEcalc;
+		public final KStar.ConfSpaceType type;
+		public final String id;
 
-		public EnergyMatrix rigidNegatedEmat = null;
-		public EnergyMatrix minimizedEmat = null;
-		public PruningMatrix pmat = null; // TODO: get this from caller
-		public BigDecimal stabilityThreshold = null;
+		/** A ConfEnergyCalculator that computes minimized energies */
+		public ConfEnergyCalculator confEcalcMinimized = null;
 
-		public ConfSpaceInfo(KStar.ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator rigidConfEcalc, ConfEnergyCalculator minimizingConfEcalc) {
-			this.type = type;
+		/** A ConfSearch that minimizes over conformation scores from minimized tuples */
+		public ConfSearchFactory confSearchFactoryMinimized = null;
+
+		/** A ConfSearch that maximizes over conformation scores from rigid tuples */
+		public ConfSearchFactory confSearchFactoryRigid = null;
+
+		private BigDecimal stabilityThreshold = null;
+
+		public ConfSpaceInfo(SimpleConfSpace confSpace, KStar.ConfSpaceType type) {
 			this.confSpace = confSpace;
-			this.rigidConfEcalc = rigidConfEcalc;
-			this.minimizingConfEcalc = minimizingConfEcalc;
+			this.type = type;
+			this.id = type.name().toLowerCase();
 		}
 
-		public void calcEmatsIfNeeded() {
-			if (rigidNegatedEmat == null) {
-				SimplerEnergyMatrixCalculator.Builder builder = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc);
-				if (kstarSettings.energyMatrixCachePattern != null) {
-					builder.setCacheFile(new File(kstarSettings.applyEnergyMatrixCachePattern(type.name().toLowerCase() + ".rigidNegated")));
-				}
-				rigidNegatedEmat = builder.build().calcEnergyMatrix();
-
-				// negate the rigid energy matrix, so we can convince A* to return scores
-				// in descending order instead of ascending order
-				// (of course, we'll have to negate the scores returned by A* too)
-				rigidNegatedEmat.negate();
+		private void check() {
+			if (confEcalcMinimized == null) {
+				throw new KStar.InitException(type, "confEcalcMinimized");
 			}
-			if (minimizedEmat == null) {
-				SimplerEnergyMatrixCalculator.Builder builder = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc);
-				if (kstarSettings.energyMatrixCachePattern != null) {
-					builder.setCacheFile(new File(kstarSettings.applyEnergyMatrixCachePattern(type.name().toLowerCase())));
-				}
-				minimizedEmat = builder.build().calcEnergyMatrix();
+			if (confSearchFactoryMinimized == null) {
+				throw new KStar.InitException(type, "confSearchFactoryMinimized");
+			}
+			if (confSearchFactoryRigid == null) {
+				throw new KStar.InitException(type, "confSearchFactoryRigid");
 			}
 		}
 	}
@@ -301,37 +290,24 @@ public class BBKStar {
 
 		private BigDecimal calcLowerBound(ConfSpaceInfo info, Sequence sequence, int numConfs) {
 
-			// to compute lower bounds on pfuncs, we'll use the upper bound calculator,
-			// but feed it upper-bound scores in order of greatest upper bound
-			// instead of the usual lower-bound scores in order of smallest lower bound
-			// which means we need to feed A* with a rigid, negated energy matrix
-			// and then negate all the scores returned by A*
-			Function<ConfSearch,ConfSearch> astarNegater = (confSearch) -> new ConfSearch() {
-				@Override
-				public ScoredConf nextConf() {
-					ScoredConf conf = confSearch.nextConf();
-					conf.setScore(-conf.getScore());
-					return conf;
-				}
-
-				@Override
-				public BigInteger getNumConformations() {
-					return confSearch.getNumConformations();
-				}
-
-				@Override
-				public List<ScoredConf> nextConfs(double maxEnergy) {
-					throw new UnsupportedOperationException("some lazy programmer didn't implement this =P");
-				}
-			};
+			// to compute lower bounds on pfuncs, we'll do the usual lower bound calculation,
+			// but use rigid energies instead of minimized energies
 
 			RCs rcs = sequence.makeRCs();
-			UpperBoundCalculator calc = new UpperBoundCalculator(
-				astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, rcs)),
-				rcs.getNumConformations()
-			);
-			calc.run(numConfs);
-			return calc.totalBound;
+			ConfSearch astar = info.confSearchFactoryRigid.make(rcs);
+			BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
+			BigMath m = new BigMath(PartitionFunction.decimalPrecision)
+				.set(0.0);
+			for (int i=0; i<numConfs; i++) {
+				ConfSearch.ScoredConf conf = astar.nextConf();
+				if (conf == null) {
+					break;
+				}
+
+				m.add(bcalc.calc(conf.getScore()));
+			}
+			return m.get();
 		}
 
 		private BigDecimal calcUpperBound(ConfSpaceInfo info, Sequence sequence, int numConfs) {
@@ -341,7 +317,7 @@ public class BBKStar {
 
 			RCs rcs = sequence.makeRCs();
 			UpperBoundCalculator calc = new UpperBoundCalculator(
-				confSearchFactory.make(info.minimizedEmat, new RCs(rcs, info.pmat)),
+				info.confSearchFactoryMinimized.make(rcs),
 				rcs.getNumConformations()
 			);
 			calc.run(numConfs);
@@ -383,20 +359,20 @@ public class BBKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			GradientDescentPfunc gdpfunc = new GradientDescentPfunc(info.minimizingConfEcalc);
-			gdpfunc.setReportProgress(kstarSettings.showPfuncProgress);
-			if (confdb != null) {
-				gdpfunc.setConfTable(confdb.getSequence(sequence));
+			pfunc = PartitionFunction.makeBestFor(info.confEcalcMinimized);
+			pfunc.setReportProgress(kstarSettings.showPfuncProgress);
+			if (confdb != null && pfunc instanceof PartitionFunction.WithConfTable) {
+				((PartitionFunction.WithConfTable)pfunc).setConfTable(confdb.getSequence(sequence));
 			}
+
 			RCs rcs = sequence.makeRCs();
-			gdpfunc.init(
-				confSearchFactory.make(info.minimizedEmat, new RCs(rcs, info.pmat)),
-				rcs.getNumConformations(),
-				kstarSettings.epsilon
-			);
-			gdpfunc.setStabilityThreshold(info.stabilityThreshold);
-			pfuncCache.put(sequence, gdpfunc);
-			return gdpfunc;
+			ConfSearch astar = info.confSearchFactoryMinimized.make(rcs);
+			pfunc.init(astar, rcs.getNumConformations(), kstarSettings.epsilon);
+			pfunc.setStabilityThreshold(info.stabilityThreshold);
+
+			// update the cache
+			pfuncCache.put(sequence, pfunc);
+			return pfunc;
 		}
 
 		@Override
@@ -502,53 +478,22 @@ public class BBKStar {
 	/** A configuration space containing both the protein and ligand strands */
 	public final ConfSpaceInfo complex;
 
-	/** Calculates the rigid-rotamer energy for a molecule */
-	public final EnergyCalculator rigidEcalc;
-
-	/** Calculates the continuous-rotamer (minimized) energy for a molecule */
-	public final EnergyCalculator minimizingEcalc;
-
-	/** A function that makes a ConfEnergyCalculator with the desired options */
-	public final KStar.ConfEnergyCalculatorFactory confEcalcFactory;
-
-	/** A function that makes a ConfSearchFactory (e.g, A* search) with the desired options */
-	public final ConfSearchFactory confSearchFactory;
-
 	/** Optional and overridable settings for BBK*, shared with K* */
 	public final KStar.Settings kstarSettings;
 
 	/** Optional and overridable settings for BBK* */
 	public final Settings bbkstarSettings;
 
-	// TODO: caching these will keep lots of A* trees in memory. is that a problem?
+	// TODO: caching these will keep lots of A* trees in memory. is that a problem? (oh yes, it definitely is)
 	private final Map<Sequence,PartitionFunction> proteinPfuncs;
 	private final Map<Sequence,PartitionFunction> ligandPfuncs;
 	private final Map<Sequence,PartitionFunction> complexPfuncs;
 
-	public BBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator rigidEcalc, EnergyCalculator minimizingEcalc, KStar.ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, KStar.Settings kstarSettings, Settings bbkstarSettings) {
+	public BBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, KStar.Settings kstarSettings, Settings bbkstarSettings) {
 
-		this.protein = new ConfSpaceInfo(
-			KStar.ConfSpaceType.Protein,
-			protein,
-			confEcalcFactory.make(protein, rigidEcalc),
-			confEcalcFactory.make(protein, minimizingEcalc)
-		);
-		this.ligand = new ConfSpaceInfo(
-			KStar.ConfSpaceType.Ligand,
-			ligand,
-			confEcalcFactory.make(ligand, rigidEcalc),
-			confEcalcFactory.make(ligand, minimizingEcalc)
-		);
-		this.complex = new ConfSpaceInfo(
-			KStar.ConfSpaceType.Complex,
-			complex,
-			confEcalcFactory.make(complex, rigidEcalc),
-			confEcalcFactory.make(complex, minimizingEcalc)
-		);
-		this.rigidEcalc = rigidEcalc;
-		this.minimizingEcalc = minimizingEcalc;
-		this.confEcalcFactory = confEcalcFactory;
-		this.confSearchFactory = confSearchFactory;
+		this.protein = new ConfSpaceInfo(protein, KStar.ConfSpaceType.Protein);
+		this.ligand = new ConfSpaceInfo(ligand, KStar.ConfSpaceType.Ligand);
+		this.complex = new ConfSpaceInfo(complex, KStar.ConfSpaceType.Complex);
 		this.kstarSettings = kstarSettings;
 		this.bbkstarSettings = bbkstarSettings;
 
@@ -557,11 +502,15 @@ public class BBKStar {
 		complexPfuncs = new HashMap<>();
 	}
 
+	public Iterable<ConfSpaceInfo> confSpaceInfos() {
+		return () -> Arrays.asList(protein, ligand, complex).iterator();
+	}
+
 	public List<KStar.ScoredSequence> run() {
 
-		protein.calcEmatsIfNeeded();
-		ligand.calcEmatsIfNeeded();
-		complex.calcEmatsIfNeeded();
+		protein.check();
+		ligand.check();
+		complex.check();
 
 		List<KStar.ScoredSequence> scoredSequences = new ArrayList<>();
 

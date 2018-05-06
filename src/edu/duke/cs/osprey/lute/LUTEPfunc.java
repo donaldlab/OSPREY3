@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.JvmMem;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.math.BigDecimal;
@@ -29,6 +30,7 @@ public class LUTEPfunc implements PartitionFunction {
 	private ConfAStarTree astar = null;
 	private BigInteger numConfsBeforePruning = null;
 	private double epsilon;
+	private BigDecimal stabilityThreshold = null;
 
 	private PartitionFunction.Status status;
 	private PartitionFunction.Values values;
@@ -68,6 +70,11 @@ public class LUTEPfunc implements PartitionFunction {
 		values = Values.makeFullRange();
 		numConfsEvaluated = 0;
 		stopwatch.start();
+	}
+
+	@Override
+	public void setStabilityThreshold(BigDecimal val) {
+		this.stabilityThreshold = val;
 	}
 
 	@Override
@@ -146,6 +153,12 @@ public class LUTEPfunc implements PartitionFunction {
 			// did we reach epsilon yet?
 			if (values.getEffectiveEpsilon() <= epsilon) {
 				status = Status.Estimated;
+				break;
+			}
+
+			// are we unstable?
+			if (stabilityThreshold != null && MathTools.isLessThan(values.calcUpperBound(), stabilityThreshold)) {
+				status = Status.Unstable;
 				break;
 			}
 		}

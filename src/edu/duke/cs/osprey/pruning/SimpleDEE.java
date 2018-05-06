@@ -88,6 +88,19 @@ public class SimpleDEE {
 		}
 	}
 
+
+	/**
+	 * Reads a saved pruning matrix from disk, or throws an exception
+	 */
+	public static PruningMatrix read(SimpleConfSpace confSpace, File cacheFile) {
+		return ObjectIO.readOrThrow(
+			cacheFile,
+			PruningMatrix.class,
+			"pruning matrix",
+			(pmat) -> pmat.matches(confSpace)
+		);
+	}
+
 	/**
 	 * Runs Dead-End Elimination (DEE) to remove tuples of RCs that will not appear in low-energy conformations.
 	 */
