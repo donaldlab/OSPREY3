@@ -45,9 +45,16 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarZeroEpsilon() {
-        List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(2, 0.001);
-        List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(2, 0.001);
-        System.out.println("Donezo!");
+        List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(2, 0.0001);
+        List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(2, 0.0001);
+        for(MARKStar.ScoredSequence seq: markStarSeqs)
+        {
+            System.out.println(seq.score);
+        }
+        for(KStar.ScoredSequence seq: kStarSeqs)
+        {
+            System.out.println(seq.score);
+        }
 
     }
 
@@ -69,10 +76,10 @@ public class TestMARKStar {
 		// Define the minimizing energy calculator
 		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
 				.setParallelism(parallelism)
+                .setIsMinimizing(true)
 				.build();
 		// Define the rigid energy calculator
-        EnergyCalculator rigidEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
-                .setParallelism(parallelism)
+        EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
                 .setIsMinimizing(false)
                 .build();
 		// how should we define energies of conformations?

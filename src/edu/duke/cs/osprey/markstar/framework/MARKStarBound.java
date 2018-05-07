@@ -369,7 +369,7 @@ public class MARKStarBound implements PartitionFunction {
                         //Assign true energies to the minHScore and maxHScore
                         double energy = econf.getEnergy();
                         child.minHScore = -econf.getEnergy();
-                        child.maxHScore = -child.minHScore;
+                        child.maxHScore = child.minHScore;
                         child.gscore = econf.getEnergy();
                         if(false &&
                                 (energy < diff + hdiff || energy > diff + maxhdiff)) {
