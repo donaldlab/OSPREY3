@@ -112,11 +112,6 @@ public class TestMARKStar {
 		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
 				.setParallelism(parallelism)
 				.build();
-		// Define the rigid energy calculator
-        EnergyCalculator rigidEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
-                .setParallelism(parallelism)
-                .setIsMinimizing(false)
-                .build();
 		// how should we define energies of conformations?
 		KStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
 			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
@@ -134,7 +129,8 @@ public class TestMARKStar {
 					.setTraditional()
 					.build();
 		};
-		KStar.Settings settings = new KStar.Settings.Builder().setEpsilon(epsilon).setEnergyMatrixCachePattern("*testmat.emat").build();
+		KStar.Settings settings = new KStar.Settings.Builder().setEpsilon(epsilon).setEnergyMatrixCachePattern("*testmat.emat")
+                .setShowPfuncProgress(true).build();
         KStar run = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
 		return run.run();
 	}
