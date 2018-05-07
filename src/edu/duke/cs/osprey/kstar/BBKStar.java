@@ -15,6 +15,8 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.util.*;
 
+import static edu.duke.cs.osprey.tools.Log.log;
+
 /**
  * Implementation of the BBK* algorithm to predict protein sequence mutations that improve
  * binding affinity by computing provably accurate Boltzmann-weighted ensembles
@@ -418,6 +420,11 @@ public class BBKStar {
 			// update the score
 			score = Math.log10(makeKStarScore().upperBound.doubleValue());
 			isUnboundUnstable = false;
+
+			// tank sequences that have no useful K* bounds, and are blocked
+			if (getStatus() == PfuncsStatus.Blocked && score == Double.POSITIVE_INFINITY) {
+				score = Double.NEGATIVE_INFINITY;
+			}
 		}
 
 		public KStarScore computeScore() {
