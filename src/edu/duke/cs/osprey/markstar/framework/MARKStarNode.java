@@ -214,6 +214,11 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             this.level = level;
         }
 
+
+        public boolean isMinimized() {
+            return minHScore != Double.NaN && minHScore == maxHScore;
+        }
+
         @Override
         public Node assign(int pos, int rc) {
             Node node = new Node(assignments.length, level+1);
