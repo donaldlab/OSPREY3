@@ -48,6 +48,7 @@ public class TestMARKStar {
         List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(2, 0.001);
         List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(2, 0.001);
         System.out.println("Donezo!");
+
     }
 
     @Test
