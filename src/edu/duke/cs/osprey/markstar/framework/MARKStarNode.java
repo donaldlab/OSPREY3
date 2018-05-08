@@ -28,8 +28,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
      * TODO: 2. Make MARKStarNodes compute and update bounds correctly
      */
 
-    private BigDecimal errorUpperBound; // Note that this is actually an upper bound on pfunc of subtree
-    private BigDecimal errorLowerBound;
+    private BigDecimal errorUpperBound = BigDecimal.ZERO; // Note that this is actually an upper bound on pfunc of subtree
+    private BigDecimal errorLowerBound = BigDecimal.ZERO;
     private double errorBound = 1;
     private List<MARKStarNode> children; // TODO: Pick appropriate data structure
     private Node confSearchNode;
@@ -212,6 +212,11 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             assignments = new int[size];
             Arrays.fill(assignments, Unassigned);
             this.level = level;
+        }
+
+
+        public boolean isMinimized() {
+            return minHScore != Double.NaN && minHScore == maxHScore;
         }
 
         @Override

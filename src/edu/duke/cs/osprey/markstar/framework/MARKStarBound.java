@@ -23,9 +23,11 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import org.ojalgo.matrix.transformation.Rotation;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -34,7 +36,26 @@ public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
     private Status status = null;
-    private Values values = null;
+    private PartitionFunction.Values values = null;
+
+    // Overwrite the computeUpperBound and computeLowerBound methods
+    public static class Values extends PartitionFunction.Values {
+
+        @Override
+        public BigDecimal calcUpperBound() {
+            return pstar;
+        }
+
+        @Override
+        public BigDecimal calcLowerBound() {
+            return qstar;
+        }
+
+        @Override
+        public double getEffectiveEpsilon() {
+            return MathTools.bigDivide(qstar, pstar, decimalPrecision).doubleValue();
+        }
+    }
 
     public void setReportProgress(boolean showPfuncProgress) {
     }
@@ -57,13 +78,14 @@ public class MARKStarBound implements PartitionFunction {
         values = Values.makeFullRange();
     }
 
+
     @Override
     public Status getStatus() {
         return status;
     }
 
     @Override
-    public Values getValues() {
+    public PartitionFunction.Values getValues() {
         return values;
     }
 
@@ -92,6 +114,9 @@ public class MARKStarBound implements PartitionFunction {
             System.out.println("Errorbound is now "+epsilonBound);
         }
         status = Status.Estimated;
+        values.qstar = rootNode.getLowerBound();
+        values.pstar = rootNode.getUpperBound();
+        values.qprime= rootNode.getUpperBound();
         rootNode.printTree();
     }
 
@@ -293,6 +318,34 @@ public class MARKStarBound implements PartitionFunction {
         Node node = curNode.getConfSearchNode();
         System.out.println("Processing Node: "+node.toString()) ;
 
+        //If the child is a leaf, calculate n-body minimized energies
+        if(node.getLevel() == RCs.getNumPos() && !node.isMinimized()){
+            tasks.submit(() -> {
+                try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                    ScoreContext context = checkout.get();
+                    ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, -node.maxHScore);
+                    ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
+                    //Assign true energies to the minHScore and maxHScore
+                    double energy = econf.getEnergy();
+                    node.minHScore = -econf.getEnergy();
+                    node.maxHScore = node.minHScore;
+                    node.gscore = econf.getEnergy();
+                    if(false &&
+                            (energy < -node.getMinScore() || energy > -node.getMaxScore())) {
+                        System.err.println("Bounds are incorrect:" + (-node.getMinScore()) + "!< " + energy + " or " + energy
+                                + " !<" + (-node.getMaxScore()) + " Aborting.");
+                        System.exit(-1);
+                    }
+                    String out = "Energy = " + String.format("%6.3e", energy)+", ["+(-node.getMinScore())+","+(-node.getMaxScore())+"]";
+                    System.out.println(out);
+                }
+                return null;
+            },
+            // Dummy function. We're not doing anything here.
+            (Node child)->{});
+            return;
+        }
+
         // which pos to expand next?
         int numChildren = 0;
         node.index(confIndex);
@@ -328,23 +381,15 @@ public class MARKStarBound implements PartitionFunction {
                     double hdiff = context.hscorer.calcDifferential(context.index,RCs,nextPos,nextRc);
                     double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     ExpFunction ef = new ExpFunction();
-                    child.gscore = diff;
-                    double logMax = -(child.gscore + hdiff);
-                    double logMin = -(child.gscore + maxhdiff);
-                    child.minHScore = logMin;
-                    child.maxHScore = logMax;
-                    child.computeNumConformations(RCs);
-
-                    //If the child is a leaf, calculate n-body minimized energies
-                    if (child.getLevel() == RCs.getNumPos()){
-                        ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(child.assignments, child.minHScore);
-                        ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
-                        //Assign true energies to the minHScore and maxHScore
-                        child.minHScore = econf.getEnergy();
-                        child.maxHScore = child.minHScore;
-                        String out = "Energy = " + String.format("%6.3e", child.minHScore);
-                        System.out.println(out);
+                    if(child.getLevel() < RCs.getNumPos()) {
+                        child.gscore = diff;
+                        double logMax = -(child.gscore + hdiff);
+                        double logMin = -(child.gscore + maxhdiff);
+                        child.minHScore = logMin;
+                        child.maxHScore = logMax;
+                        child.computeNumConformations(RCs);
                     }
+
 
 
                     return child;
@@ -357,14 +402,14 @@ public class MARKStarBound implements PartitionFunction {
                 if (child.getScore() < Double.POSITIVE_INFINITY) {
                     children.add(MARKStarNodeChild);
                 }
-                if(MARKStarNodeChild.level < RCs.getNumPos())
+                if(!child.isMinimized())
                     queue.add(MARKStarNodeChild);
+                else
+                    MARKStarNodeChild.computeEpsilonErrorBounds();
             });
         }
         tasks.waitForFinish();
         updateBound();
-        values.qstar = rootNode.getLowerBound();
-        values.pstar = rootNode.getUpperBound();
     }
 
     private void updateBound() {
