@@ -191,7 +191,7 @@ public class KStar {
 	public static class InitException extends RuntimeException {
 
 		public InitException(ConfSpaceType type, String name) {
-			super(String.format("set %s for the %s conf space info before running", type.name(), name));
+			super(String.format("set %s for the %s conf space info before running", name, type.name()));
 		}
 	}
 
@@ -224,6 +224,11 @@ public class KStar {
 			if (confSearchFactory == null) {
 				throw new InitException(type, "confSearchFactory");
 			}
+		}
+
+		public void clear() {
+			sequences.clear();
+			pfuncResults.clear();
 		}
 
 		public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, ConfDB confDB) {
@@ -295,7 +300,7 @@ public class KStar {
 	}
 
 	public Iterable<ConfSpaceInfo> confSpaceInfos() {
-		return () -> Arrays.asList(protein, ligand, complex).iterator();
+		return Arrays.asList(protein, ligand, complex);
 	}
 
 	public List<ScoredSequence> run() {
@@ -304,6 +309,11 @@ public class KStar {
 		protein.check();
 		ligand.check();
 		complex.check();
+
+		// reset any previous state
+		protein.clear();
+		ligand.clear();
+		complex.clear();
 
 		List<ScoredSequence> scores = new ArrayList<>();
 

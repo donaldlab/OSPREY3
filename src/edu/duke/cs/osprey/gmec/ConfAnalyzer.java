@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.gmec;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -117,6 +118,18 @@ public class ConfAnalyzer {
 			conf.getScore(),
 			confEcalc.calcEnergy(new RCTuple(conf.getAssignments()))
 		);
+	}
+
+	public ConfAnalysis analyze(int[] assignments) {
+		return new ConfAnalysis(
+			assignments,
+			Double.NaN,
+			confEcalc.calcEnergy(new RCTuple(assignments))
+		);
+	}
+
+	public ConfAnalysis analyze(int[] assignments, EnergyMatrix emat) {
+		return analyze(assignments, new PairwiseGScorer(emat));
 	}
 
 	public ConfAnalysis analyze(int[] assignments, AStarScorer scorer) {

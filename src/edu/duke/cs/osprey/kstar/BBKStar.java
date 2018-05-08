@@ -15,7 +15,6 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.util.*;
 
-import static edu.duke.cs.osprey.tools.Log.log;
 
 /**
  * Implementation of the BBK* algorithm to predict protein sequence mutations that improve
@@ -102,6 +101,14 @@ public class BBKStar {
 				throw new KStar.InitException(type, "confSearchFactoryRigid");
 			}
 		}
+
+		public File getConfDBFile() {
+			if (kstarSettings.confDBPattern == null) {
+				return null;
+			} else {
+				return new File(kstarSettings.applyConfDBPattern(type.name().toLowerCase()));
+			}
+		}
 	}
 
 	private class ConfDBs {
@@ -118,12 +125,9 @@ public class BBKStar {
 		if (kstarSettings.confDBPattern == null) {
 			user.use(new ConfDBs());
 		} else {
-			File proteinFile = new File(kstarSettings.applyConfDBPattern(KStar.ConfSpaceType.Protein.name().toLowerCase()));
-			File ligandFile = new File(kstarSettings.applyConfDBPattern(KStar.ConfSpaceType.Ligand.name().toLowerCase()));
-			File complexFile = new File(kstarSettings.applyConfDBPattern(KStar.ConfSpaceType.Complex.name().toLowerCase()));
-			ConfDB.useIfNeeded(protein.confSpace, proteinFile, (proteinConfdb) -> {
-				ConfDB.useIfNeeded(ligand.confSpace, ligandFile, (ligandConfdb) -> {
-					ConfDB.useIfNeeded(complex.confSpace, complexFile, (complexConfdb) -> {
+			ConfDB.useIfNeeded(protein.confSpace, protein.getConfDBFile(), (proteinConfdb) -> {
+				ConfDB.useIfNeeded(ligand.confSpace, ligand.getConfDBFile(), (ligandConfdb) -> {
+					ConfDB.useIfNeeded(complex.confSpace, complex.getConfDBFile(), (complexConfdb) -> {
 						ConfDBs confdbs = new ConfDBs();
 						confdbs.protein = proteinConfdb;
 						confdbs.ligand = ligandConfdb;
@@ -510,7 +514,7 @@ public class BBKStar {
 	}
 
 	public Iterable<ConfSpaceInfo> confSpaceInfos() {
-		return () -> Arrays.asList(protein, ligand, complex).iterator();
+		return Arrays.asList(protein, ligand, complex);
 	}
 
 	public List<KStar.ScoredSequence> run() {
@@ -518,6 +522,11 @@ public class BBKStar {
 		protein.check();
 		ligand.check();
 		complex.check();
+
+		// clear any previous state
+		proteinPfuncs.clear();
+		ligandPfuncs.clear();
+		complexPfuncs.clear();
 
 		List<KStar.ScoredSequence> scoredSequences = new ArrayList<>();
 

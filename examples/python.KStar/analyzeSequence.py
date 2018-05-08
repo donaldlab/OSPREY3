@@ -39,25 +39,36 @@ complexConfSpace = osprey.ConfSpace([protein, ligand])
 parallelism = osprey.Parallelism(cpuCores=4)
 ecalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallelism, isMinimizing=True)
 
-# how should we define energies of conformations?
-def confEcalcFactory(confSpace, ecalc):
-	eref = osprey.ReferenceEnergies(confSpace, ecalc)
-	return osprey.ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=eref)
-
-# how should confs be ordered and searched?
-def astarFactory(emat, rcs):
-	return osprey.AStarTraditional(emat, rcs, showProgress=False)
-
-# get the sequence analyzer
-analyzer = osprey.SequenceAnalyzer(
+# configure K*
+kstar = osprey.KStar(
 	proteinConfSpace,
 	ligandConfSpace,
 	complexConfSpace,
-	ecalc,
-	confEcalcFactory,
-	astarFactory,
-	energyMatrixCachePattern='emat.*.dat'
+
+	# if you've run the kstar.confdb.py example, then we can analyze
+    # sequences using the pre-computed conf DB files
+    # this will make the analyses go much faster
+	confDBPattern='kstar.*.db'
 )
+
+# configure K* inputs for each conf space
+for info in kstar.confSpaceInfos():
+
+	# how should we define energies of conformations?
+	eref = osprey.ReferenceEnergies(info.confSpace, ecalc)
+	info.confEcalc = osprey.ConfEnergyCalculator(info.confSpace, ecalc, referenceEnergies=eref)
+
+	# compute the energy matrix
+	emat = osprey.EnergyMatrix(info.confEcalc, cacheFile='emat.%s.dat' % info.id)
+
+	# how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
+	def makeAStar(rcs, emat=emat):
+		return osprey.AStarTraditional(emat, rcs, showProgress=False)
+	info.confSearchFactory = osprey.KStar.ConfSearchFactory(makeAStar)
+
+# make a sequence analyzer from the configured KStar instance
+# (you could also give it a configured BBKStar instance if you have that instead)
+analyzer = osprey.SequenceAnalyzer(kstar)
 
 # how big should the ensembles be? (in terms of energy from the min)
 energyWindowSize = 1.0
@@ -88,26 +99,3 @@ analysis = analyzer.analyze(
 print('\n')
 print(analysis)
 analysis.writePdbs('ensemble-ile/conf.*.pdb')
-
-
-# if you've run the kstar.confdb.py or bbkstar.confdb.py examples, then we can analyze
-# sequences using the pre-computed conf DB
-# otherwise, nothing will happen here
-analyzer = osprey.SequenceAnalyzer(
-	proteinConfSpace,
-	ligandConfSpace,
-	complexConfSpace,
-	ecalc,
-	confEcalcFactory,
-	astarFactory,
-	energyMatrixCachePattern='emat.*.dat',
-	confDBPattern='conf.*.db'
-)
-
-print('\nreading from previous conf DB...')
-analysis = analyzer.analyzeFromConfDB(
-	complexConfSpace.makeWildTypeSequence(),
-	energyWindowSize
-)
-print('\n')
-print(analysis)

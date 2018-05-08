@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.kstar;
 
-import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -99,6 +98,7 @@ public class SequenceAnalyzer {
 				adapter.id = info.id;
 				adapter.confEcalc = info.confEcalc;
 				adapter.confSearchFactory = info.confSearchFactory;
+				adapter.confDBFile = info.getConfDBFile();
 				return adapter;
 			}
 
@@ -124,6 +124,7 @@ public class SequenceAnalyzer {
 				adapter.id = info.id;
 				adapter.confEcalc = info.confEcalcMinimized;
 				adapter.confSearchFactory = info.confSearchFactoryMinimized;
+				adapter.confDBFile = info.getConfDBFile();
 				return adapter;
 			}
 
@@ -146,36 +147,5 @@ public class SequenceAnalyzer {
 		ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc);
 		ConfAnalyzer.EnsembleAnalysis ensemble = analyzer.analyzeEnsemble(econfs, Integer.MAX_VALUE);
 		return new Analysis(info, sequence, ensemble);
-	}
-
-	public Analysis analyzeFromConfDB(Sequence sequence, double energyWindowSize) {
-
-		ConfSpaceInfo info = finder.apply(sequence);
-
-		return new ConfDB(info.confSpace, info.confDBFile).use((confdb) -> {
-
-			// get the econfs from the table
-			ConfDB.SequenceDB sdb = confdb.getSequence(sequence);
-			if (sdb == null) {
-				return null;
-			}
-
-			// collect the confs in the energy window
-			Double minEnergy = null;
-			Queue.FIFO<ConfSearch.EnergiedConf> queue = Queue.FIFOFactory.of();
-			for (ConfSearch.EnergiedConf econf : sdb.energiedConfs(ConfDB.SortOrder.Energy)) {
-				if (minEnergy == null) {
-					minEnergy = econf.getEnergy();
-				}
-				if (econf.getEnergy() <= minEnergy + energyWindowSize) {
-					queue.push(econf);
-				}
-			}
-
-			// return the analysis
-			ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc);
-			ConfAnalyzer.EnsembleAnalysis ensemble = analyzer.analyzeEnsemble(queue, Integer.MAX_VALUE);
-			return new Analysis(info, sequence, ensemble);
-		});
 	}
 }
