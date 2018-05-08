@@ -22,12 +22,9 @@ import edu.duke.cs.osprey.markstar.framework.MARKStarNode.Node;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.tools.Stopwatch;
-import org.ojalgo.matrix.transformation.Rotation;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -279,6 +276,7 @@ public class MARKStarBound implements PartitionFunction {
             context.index = new ConfIndex(rcs.getNumPos());
             context.gscorer = gscorerFactory.make(minimizingEmat);
             context.hscorer = hscorerFactory.make(minimizingEmat);
+            context.rigidscorer = gscorerFactory.make(rigidEmat);
             /** These scoreres should match the scorers in the MARKStarNode root - they perform the same calculations**/
             context.negatedhscorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, rigidEmat)); //this is used for upper bounds, so we want it rigid
             //context.negatedhscorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, minimizingEmat));
@@ -294,6 +292,7 @@ public class MARKStarBound implements PartitionFunction {
         public AStarScorer gscorer;
         public AStarScorer hscorer;
         public AStarScorer negatedhscorer;
+        public AStarScorer rigidscorer;
         public ConfEnergyCalculator ecalc;
     }
 
@@ -323,14 +322,13 @@ public class MARKStarBound implements PartitionFunction {
             tasks.submit(() -> {
                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                     ScoreContext context = checkout.get();
-                    ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, -node.maxHScore);
+                    ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, -node.confLowerBound);
                     ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
-                    //Assign true energies to the minHScore and maxHScore
+                    //Assign true energies to the subtreeLowerBound and subtreeUpperBound
                     double energy = econf.getEnergy();
-                    node.minHScore = -econf.getEnergy();
-                    node.maxHScore = node.minHScore;
+                    node.setBoundsFromConfLowerAndUpper(econf.getEnergy(), econf.getEnergy());
                     node.gscore = econf.getEnergy();
-                    if(false &&
+                    if(true &&
                             (energy < -node.getMinScore() || energy > -node.getMaxScore())) {
                         System.err.println("Bounds are incorrect:" + (-node.getMinScore()) + "!< " + energy + " or " + energy
                                 + " !<" + (-node.getMaxScore()) + " Aborting.");
@@ -377,16 +375,24 @@ public class MARKStarBound implements PartitionFunction {
                     //TODO: Change this code to do the right thing.
 
                     // score the child node differentially against the parent node
-                    double diff = context.gscorer.calcDifferential(context.index,RCs,nextPos, nextRc);
-                    double hdiff = context.hscorer.calcDifferential(context.index,RCs,nextPos,nextRc);
-                    double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                    ExpFunction ef = new ExpFunction();
-                    child.gscore = diff;
-                    double logMax = -(child.gscore + hdiff);
-                    double logMin = -(child.gscore + maxhdiff);
-                    child.minHScore = logMin;
-                    child.maxHScore = logMax;
-                    child.computeNumConformations(RCs);
+                    if(child.getLevel() < RCs.getNumPos()) {
+                        double diff = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        double rigiddiff = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        double hdiff = context.hscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        child.gscore = diff;
+                        double confLowerBound = child.gscore + hdiff;
+                        double confUpperbound = rigiddiff + maxhdiff;
+                        child.setBoundsFromConfLowerAndUpper(confLowerBound,confUpperbound);
+                        child.computeNumConformations(RCs);
+                    }
+                    if(child.getLevel() == RCs.getNumPos()) {
+                        double confPairwiseLower = context.gscorer.calc(context.index.assign(nextPos, nextRc), RCs);
+                        double confRigid = context.rigidscorer.calc(context.index.assign(nextPos, nextRc), RCs);
+                        System.out.println("Conf" + child.confToString() + ":[" + confPairwiseLower + "," + confRigid + "]");
+                        child.setBoundsFromConfLowerAndUpper(confPairwiseLower,confRigid);
+                        child.gscore = -child.confLowerBound;
+                    }
 
 
 
