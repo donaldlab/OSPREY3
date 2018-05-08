@@ -66,7 +66,7 @@ public class TestMARKStar {
 
 	@Test
 	public void testMARKStar() {
-	    runMARKStar(12, 0.68);
+	    runMARKStar(8, 0.000001);
 	}
 
 	private static List<MARKStar.ScoredSequence> runMARKStar(int numFlex, double epsilon) {

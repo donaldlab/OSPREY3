@@ -202,6 +202,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public int pos = Unassigned;
         public int rc = Unassigned;
         public final int level;
+        public boolean minimized = false;
         public BigInteger numConfs = BigInteger.ZERO;
 
         public Node(int size) {
@@ -216,7 +217,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
 
         public boolean isMinimized() {
-            return minHScore != Double.NaN && minHScore == maxHScore;
+            return minimized;
         }
 
         @Override

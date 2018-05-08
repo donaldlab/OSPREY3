@@ -330,6 +330,7 @@ public class MARKStarBound implements PartitionFunction {
                     node.minHScore = -econf.getEnergy();
                     node.maxHScore = node.minHScore;
                     node.gscore = econf.getEnergy();
+                    node.minimized = true;
                     if(false &&
                             (energy < -node.getMinScore() || energy > -node.getMaxScore())) {
                         System.err.println("Bounds are incorrect:" + (-node.getMinScore()) + "!< " + energy + " or " + energy
@@ -353,6 +354,8 @@ public class MARKStarBound implements PartitionFunction {
         assert (!confIndex.isDefined(nextPos));
         assert (confIndex.isUndefined(nextPos));
 
+        if(node.getLevel() == RCs.getNumPos() -1)
+            System.out.println("Debug!");
         // score child nodes with tasks (possibly in parallel)
         List<MARKStarNode> children = new ArrayList<>();
         for (int nextRc : RCs.get(nextPos)) {
@@ -387,9 +390,10 @@ public class MARKStarBound implements PartitionFunction {
                     child.minHScore = logMin;
                     child.maxHScore = logMax;
                     child.computeNumConformations(RCs);
-
-
-
+                    if(child.getLevel() == RCs.getNumPos())
+                    {
+                        System.out.println("Full Conf bounds: ["+child.minHScore+","+child.maxHScore+"]");
+                    }
                     return child;
                 }
 
