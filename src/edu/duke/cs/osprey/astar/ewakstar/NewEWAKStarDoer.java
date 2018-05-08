@@ -2,10 +2,7 @@ package edu.duke.cs.osprey.astar.ewakstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -80,13 +77,17 @@ public class NewEWAKStarDoer {
 
     double unboundEw;
     double boundEw;
+    double epsilon;
     double ewakstarEw;
+    int maxPFConfs;
     double orderOfMag;
     String wtSeqEWAKStar;
     String startResL;
     String endResL;
     String startResP;
     String endResP;
+    String startResPL;
+    String endResPL;
     Molecule mol;
     String[] resNumsPL;
     String[] resNumsL;
@@ -95,24 +96,48 @@ public class NewEWAKStarDoer {
     PruningSettings pruningSettings;
     String LmatrixName;
     String PmatrixName;
+    String PLmatrixName;
+    EnergyCalculator minimizingEcalc;
+    EnergyMatrix ematPL;
+    EnergyMatrix ematL;
+    EnergyMatrix ematP;
+    int maxNumSeqs;
+
+    ConfEnergyCalculator confEnergyCalcL;
+    ConfEnergyCalculator confEnergyCalcP;
+    ConfEnergyCalculator confEnergyCalcPL;
+    ConfEnergyCalculator confRigidEnergyCalcL;
+    ConfEnergyCalculator confRigidEnergyCalcP;
+    ConfEnergyCalculator confRigidEnergyCalcPL;
 
     HashMap<Sequence,javafx.util.Pair<BigDecimal,Double>> ligandPFs = new HashMap<>();
 
-    public NewEWAKStarDoer (SimpleConfSpace confSpace, SimpleConfSpace confSpaceL, SimpleConfSpace confSpaceP, PrecomputedMatrices precompMat,
-                            ArrayList<Integer> mutablePosNums, ArrayList<Integer> mutablePosNumsL, ArrayList<Integer> mutablePosNumsP,
+    public NewEWAKStarDoer (int maxNumSeqs, int maxPFConfs, double epsilon, ConfEnergyCalculator confRigidEnergyCalcPL,
+                            ConfEnergyCalculator confEnergyCalcPL, EnergyMatrix ematPL, EnergyCalculator minimizingEcalc,
+                            SimpleConfSpace confSpace, SimpleConfSpace confSpaceL, SimpleConfSpace confSpaceP,
+                            PrecomputedMatrices precompMat, ArrayList<Integer> mutablePosNums,
+                            ArrayList<Integer> mutablePosNumsL, ArrayList<Integer> mutablePosNumsP,
                             ArrayList<ArrayList<String>> AATypeOptions, int numSeqsWanted, ConfEnergyCalculator confECalc,
-                            double orderOfMag, double unboundEw, double boundEw, double ewakstarEw, String startResL, String endResL, String startResP,
-                            String endResP, Molecule mol, String[] resNumsPL, String[] resNumsL, String[] resNumsP, double Ival, PruningSettings pruningSettings, String LmatrixName, String PmatrixName,
+                            double orderOfMag, double unboundEw, double boundEw, double ewakstarEw, String startResL,
+                            String endResL, String startResP, String endResP, String startResPL, String endResPL,
+                            Molecule mol, String[] resNumsPL, String[] resNumsL, String[] resNumsP, double Ival,
+                            PruningSettings pruningSettings, String LmatrixName, String PmatrixName, String PLmatrixName,
                             ForcefieldParams ffparams) {
 
         //fill in all the settings
         //each state will have its own config file parser
-
+        this.maxNumSeqs = maxNumSeqs;
+        this.maxPFConfs = maxPFConfs;
+        this.epsilon = epsilon;
+        this.ematPL = ematPL;
+        this.confEnergyCalcPL = confEnergyCalcPL;
+        this.confRigidEnergyCalcPL = confRigidEnergyCalcPL;
+        this.minimizingEcalc = minimizingEcalc;
         this.mutablePosNums = mutablePosNums;
         this.mutablePosNumsL = mutablePosNumsL;
         this.mutablePosNumsP = mutablePosNumsP;
         this.AATypeOptions = AATypeOptions;
-        numTreeLevels = AATypeOptions.size();
+        this.numTreeLevels = AATypeOptions.size();
         this.numSeqsWanted = numSeqsWanted;
         this.confSpaces.complex = confSpace;
         this.confSpaces.protein = confSpaceP;
@@ -128,6 +153,8 @@ public class NewEWAKStarDoer {
         this.endResL = endResL;
         this.startResP = startResP;
         this.endResP = endResP;
+        this.startResPL = startResPL;
+        this.endResPL = endResPL;
         this.mol = mol;
         this.resNumsPL = resNumsPL;
         this.resNumsL = resNumsL;
@@ -136,6 +163,7 @@ public class NewEWAKStarDoer {
         this.pruningSettings = pruningSettings;
         this.LmatrixName = LmatrixName;
         this.PmatrixName = PmatrixName;
+        this.PLmatrixName = PLmatrixName;
 
         this.fullWtSeq = Sequence.makeWildType(confSpace);
         this.wtSeqL = Sequence.makeWildType(confSpaceL);
@@ -186,10 +214,17 @@ public class NewEWAKStarDoer {
         ArrayList<Sequence> newPseqs = extractSeqsByLB(bestPseqs, "P");
 
         ArrayList<Sequence> fullSeqs = makeFullSeqs(newPseqs, newLseqs, bestPLseqs);
+        ArrayList<ArrayList<String>> newAAOptionsPL = updateAminoAcids(fullSeqs);
+        updatePLSettings(newAAOptionsPL);
 
-        System.out.println(fullSeqs.size());
+        ArrayList<Sequence> bestFullseqs = new ArrayList<>();
+        for(Sequence s:fullSeqs){
+            newSeq = new Sequence(s, confSpaces.complex);
+            bestFullseqs.add(newSeq);
+        }
+        this.fullWtSeq = new Sequence(fullWtSeq, confSpaces.complex);
 
-        Results ewakstarResults = runEWAKStarBBKStar(fullSeqs);
+        Results ewakstarResults = runEWAKStarBBKStar(bestFullseqs);
 
         System.out.println(ewakstarResults.toString());
 
@@ -198,8 +233,7 @@ public class NewEWAKStarDoer {
 
     private ArrayList<Sequence> filterSequences (ArrayList<Sequence> bestPLseqs, String type){
 
-        boolean foundStart = false;
-        boolean foundEnd = false;
+        boolean foundStart;
         ArrayList<Sequence> filteredSeqs = new ArrayList<>();
         ArrayList<String> resNumbers;
         Sequence wildtype;
@@ -216,7 +250,6 @@ public class NewEWAKStarDoer {
         }
 
         for (Sequence s: bestPLseqs) {
-            foundEnd = false;
             foundStart = false;
             String newSeq = "";
             String[] seq = s.toString().split(" ");
@@ -224,75 +257,52 @@ public class NewEWAKStarDoer {
                 String[] aaS = str.split("=");
                 if (aaS[0].equals(resNumbers.get(0))) {
                     foundStart = true;
+                }
+                if(foundStart){
                     newSeq += aaS[1] + "_";
-                } else if (foundStart && !foundEnd) {
-                    if (aaS[0].equals(resNumbers.get(resNumbers.size()-1))) {
-                        foundEnd = true;
-                        newSeq += aaS[1] + "_";
-                    } else {
-                        newSeq += aaS[1] + "_";
+                    if(aaS[0].equals(resNumbers.get(resNumbers.size()-1))) {
+                        Sequence curSeq = Sequence.makeFromEWAKStar(newSeq, wildtype, thisConfSpace);
+                        if(!filteredSeqs.contains(curSeq)) {
+                            filteredSeqs.add(curSeq);
+                        }
+                        break;
                     }
-                    if(foundEnd && aaS[0].equals(resNumbers.get(resNumbers.size()-1))){
-                        filteredSeqs.add(Sequence.makeFromEWAKStar(newSeq, wildtype, thisConfSpace));
-                    }
-                } else if (foundEnd && !filteredSeqs.contains(Sequence.makeFromEWAKStar(newSeq, wildtype, thisConfSpace))){
-                    filteredSeqs.add(Sequence.makeFromEWAKStar(newSeq, wildtype, thisConfSpace));
                 }
             }
         }
         return filteredSeqs;
     }
 
-    private Results runEWAKStarBBKStar(ArrayList<Sequence> inputSeqs){
+    private Results runEWAKStarBBKStar(ArrayList<Sequence> bestFullSeqs){
 
         AtomicReference<Results> resultsRef = new AtomicReference<>(null);
 
-        Parallelism parallelism = Parallelism.makeCpu(4);
-        //Parallelism parallelism = Parallelism.make(4, 1, 8);
+        // how should confs be ordered and searched?
+        EWAKStar.ConfSearchFactory confSearchFactory = (emat, rcs) -> {
+            return new ConfAStarTree.Builder(emat, rcs)
+                    .setTraditional()
+                    .build();
+        };
 
-        // how should we compute energies of molecules?
-        new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
-                .setParallelism(parallelism)
-                .use((minimizingEcalc) -> {
+        // run BBK*
+        EWAKStar.Settings ewakstarSettings = new EWAKStar.Settings.Builder()
+                .setEw(ewakstarEw)
+                .setEpsilon(epsilon)
+                .setMaxNumConfs(maxPFConfs)
+                .setStabilityThreshold(null)
+                .addScoreConsoleWriter()
+                .setEnergyMatrixCachePattern(PLmatrixName)
+                .build();
 
-                    // how should we define energies of conformations?
-                    EWAKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
-                        return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
-                                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
-                                        .build()
-                                        .calcReferenceEnergies()
-                                ).build();
-                    };
+        EWAKStarBBKStar.Settings bbkstarSettings = new EWAKStarBBKStar.Settings.Builder()
+                .setAllowedSeqs(bestFullSeqs).build();
 
-                    // how should confs be ordered and searched?
-                    EWAKStar.ConfSearchFactory confSearchFactory = (emat, rcs) -> {
-                        return new ConfAStarTree.Builder(emat, rcs)
-                                .setTraditional()
-                                .build();
-                    };
+        Results results = new Results();
+        results.bbkstar = new EWAKStarBBKStar(maxNumSeqs, confSpaces.protein, confSpaces.ligand, confSpaces.complex, minimizingEcalc, confEnergyCalcPL, confEnergyCalcP, confEnergyCalcL, confRigidEnergyCalcPL, confRigidEnergyCalcP, confRigidEnergyCalcL, confSearchFactory, bbkstarSettings, ewakstarSettings, ematPL, ematP, ematL, PmatrixName, LmatrixName, PLmatrixName);
+        results.sequences = results.bbkstar.run();
 
-                    // make a rigid energy calculator too
-                    EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
-                            .setIsMinimizing(false)
-                            .build();
-
-                    // run BBK*
-                    EWAKStar.Settings kstarSettings = new EWAKStar.Settings.Builder()
-                            .setEw(ewakstarEw)
-                            .setStabilityThreshold(null)
-                            .addScoreConsoleWriter()
-                            .build();
-                    EWAKStarBBKStar.Settings bbkstarSettings = new EWAKStarBBKStar.Settings.Builder()
-                            .setNumConfsPerBatch(8)
-                            .build();
-                    Results results = new Results();
-                    results.bbkstar = new EWAKStarBBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, kstarSettings, bbkstarSettings);
-                    results.sequences = results.bbkstar.run(inputSeqs);
-
-                    // pass back the ref
-                    resultsRef.set(results);
-                });
-
+        // pass back the ref
+        resultsRef.set(results);
         return resultsRef.get();
     }
 
@@ -327,7 +337,49 @@ public class NewEWAKStarDoer {
         return newAAOptions;
     }
 
-    private NewEWAKStarTree buildUnboundTree(ArrayList<ArrayList<String>> newAAOptions, String type){
+
+    private void updatePLSettings(ArrayList<ArrayList<String>> newAAOptions){
+
+        Strand strandUnbound = new Strand.Builder(mol).setResidues(startResPL, endResPL).build();
+
+
+        for (Integer p : mutablePosNums)
+            strandUnbound.flexibility.get(resNumsPL[p]).setLibraryRotamers(newAAOptions.get(p)).setContinuous();
+
+        this.confSpaces.complex = new SimpleConfSpace.Builder().addStrand(strandUnbound).build();
+
+        ForcefieldParams ffparams = new ForcefieldParams();
+        EnergyCalculator ecalc = new EnergyCalculator.Builder(this.confSpaces.complex, ffparams).build();
+        EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc).setIsMinimizing(false).build();
+
+        ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(this.confSpaces.complex, ecalc);
+        ConfEnergyCalculator.Builder confRigidEcalcBuilder = new ConfEnergyCalculator.Builder(this.confSpaces.complex, rigidEcalc);
+
+        //use reference energies
+        SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(this.confSpaces.complex, ecalc).build();
+        confEcalcBuilder.setReferenceEnergies(eref);
+        confRigidEcalcBuilder.setReferenceEnergies(eref);
+
+        this.confEnergyCalcPL = confEcalcBuilder.build();
+        this.confRigidEnergyCalcPL = confRigidEcalcBuilder.build();
+
+        // the pattern has a * right?
+        if (PLmatrixName.indexOf('*') < 0) {
+            throw new IllegalArgumentException("energyMatrixCachePattern (which is '" + PLmatrixName + "') has no wildcard character (which is *)");
+        }
+
+        String ematName = PLmatrixName.replace("*", "PL.emat");
+        this.ematPL = new SimplerEnergyMatrixCalculator.Builder(this.confEnergyCalcPL)
+                .setCacheFile(new File(ematName+".updated"))
+                .build()
+                .calcEnergyMatrix();
+
+        PrecomputedMatrices newPrecompMat = new PrecomputedMatrices(Ival, unboundEw, PLmatrixName, this.ematPL,
+                this.confSpaces.complex, ecalc, this.confEnergyCalcPL, new EPICSettings(), new LUTESettings(),
+                pruningSettings);
+    }
+
+    private NewEWAKStarTree buildUnboundTree(ArrayList<ArrayList<String>> newAAOptions, String type) {
 
         Strand strandUnbound;
         ArrayList<Integer> mutablePos;
@@ -335,7 +387,7 @@ public class NewEWAKStarDoer {
         String matrixName;
         Sequence wildType;
 
-        switch(type){
+        switch (type) {
             case "P":
                 strandUnbound = new Strand.Builder(mol).setResidues(startResP, endResP).build();
                 mutablePos = mutablePosNumsP;
@@ -355,33 +407,55 @@ public class NewEWAKStarDoer {
         }
 
 
-        for(Integer p: mutablePos)
+        for (Integer p : mutablePos)
             strandUnbound.flexibility.get(residueNums[p]).setLibraryRotamers(newAAOptions.get(p)).setContinuous();
 
         SimpleConfSpace newConfSpace = new SimpleConfSpace.Builder().addStrand(strandUnbound).build();
 
         if (type.equals("L"))
             this.confSpaces.ligand = newConfSpace;
-        else
+        else if (type.equals("P"))
             this.confSpaces.protein = newConfSpace;
 
         ForcefieldParams ffparams = new ForcefieldParams();
         EnergyCalculator ecalc = new EnergyCalculator.Builder(newConfSpace, ffparams).build();
+        EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc).setIsMinimizing(false).build();
 
         ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(newConfSpace, ecalc);
+        ConfEnergyCalculator.Builder confRigidEcalcBuilder = new ConfEnergyCalculator.Builder(newConfSpace, rigidEcalc);
 
         //use reference energies
-        SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(newConfSpace,ecalc).build();
+        SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(newConfSpace, ecalc).build();
         confEcalcBuilder.setReferenceEnergies(eref);
+        confRigidEcalcBuilder.setReferenceEnergies(eref);
 
         ConfEnergyCalculator newConfECalc = confEcalcBuilder.build();
+        ConfEnergyCalculator newRigidConfECalc = confRigidEcalcBuilder.build();
 
+        if (type.equals("L")) {
+            this.confEnergyCalcL = newConfECalc;
+            this.confRigidEnergyCalcL = newRigidConfECalc;
+        } else if (type.equals("P")) {
+            this.confEnergyCalcP = newConfECalc;
+            this.confRigidEnergyCalcP = newRigidConfECalc;
+        }
+        // the pattern has a * right?
+        if (matrixName.indexOf('*') < 0) {
+            throw new IllegalArgumentException("energyMatrixCachePattern (which is '" + matrixName + "') has no wildcard character (which is *)");
+        }
+
+        String ematName = matrixName.replace("*", ".emat");
         EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(newConfECalc)
-                .setCacheFile(new File(matrixName))
+                .setCacheFile(new File(ematName))
                 .build()
                 .calcEnergyMatrix();
 
-        PrecomputedMatrices newPrecompMat = new PrecomputedMatrices(Ival, unboundEw, "L", emat,
+        if (type.equals("L"))
+            this.ematL = emat;
+        else if (type.equals("P"))
+            this.ematP = emat;
+
+        PrecomputedMatrices newPrecompMat = new PrecomputedMatrices(Ival, unboundEw, matrixName, emat,
                 newConfSpace, ecalc, newConfECalc, new EPICSettings(), new LUTESettings(),
                 pruningSettings);
 
@@ -507,6 +581,7 @@ public class NewEWAKStarDoer {
             ScoredConf conf = curTree.nextConf();
             if (conf == null) {
                 //empty sequence...indicates no more sequence possibilities
+                System.out.println("Ran out of conformations!");
                 break;
 
             } else {
@@ -523,9 +598,11 @@ public class NewEWAKStarDoer {
                         System.out.println("Finding all sequences within " + unboundEw + " kcal of WT minimized energy: "
                                 + wtEnergy +" or until all PL complex sequences are enumerated.");
 
-                        ewakstarConfs.put(curSeq, pfUB);
-                        bestSequences.add(newSequence);
-                        numSeqs++;
+                        if(seqsToUse.contains(newSequence) || newSequence.equals(curWT)) {
+                            ewakstarConfs.put(curSeq, pfUB);
+                            bestSequences.add(newSequence);
+                            numSeqs++;
+                        }
 
                     }
 
@@ -655,36 +732,25 @@ public class NewEWAKStarDoer {
                 ArrayList<String> newFullSeq = new ArrayList<>(Arrays.asList(p.toString().split(" ")));
                 for (Sequence l : mutSeqsL) {
                     newFullSeq.addAll(Arrays.asList(l.toString().split(" ")));
-                    int j = 0;
                     Sequence newSeq = Sequence.makeUnassigned(confSpaces.complex);
                     for (int i = 0; i < fullSeq.size(); i++) {
-                        String[] wtA = fullSeq.get(i).split("=");
-                        String[] newA = newFullSeq.get(j).split("=");
-                        if (wtA[0].equals(newA[0])) {
-                            newSeq.set(newA[0], newA[1]);
-                        } else {
-                            newSeq.set(wtA[0], wtA[1]);
-                        }
+                        String[] newA = newFullSeq.get(i).split("=");
+                        newSeq.set(newA[0], newA[1]);
                     }
                     if(mutSeqsPL.contains(newSeq))
                         newFullSeqs.add(newSeq);
+                    newFullSeq = new ArrayList<>(Arrays.asList(p.toString().split(" ")));
                 }
             }
         } else {
             for (Sequence l : mutSeqsL) {
-                List<String> newFullSeq = Arrays.asList(l.toString().split(" "));
+                ArrayList<String> newFullSeq = new ArrayList<>(Arrays.asList(l.toString().split(" ")));
                 for (Sequence p : mutSeqsP) {
                     newFullSeq.addAll(Arrays.asList(p.toString().split(" ")));
-                    int j = 0;
                     Sequence newSeq = Sequence.makeUnassigned(confSpaces.complex);
                     for (int i = 0; i < fullSeq.size(); i++) {
-                        String[] wtA = fullSeq.get(i).split("=");
-                        String[] newA = newFullSeq.get(j).split("=");
-                        if (wtA[0].equals(newA[0])) {
-                            newSeq.set(newA[0], newA[1]);
-                        } else {
-                            newSeq.set(wtA[0], wtA[1]);
-                        }
+                        String[] newA = newFullSeq.get(i).split("=");
+                        newSeq.set(newA[0], newA[1]);
                     }
                     if(mutSeqsPL.contains(newSeq))
                         newFullSeqs.add(newSeq);

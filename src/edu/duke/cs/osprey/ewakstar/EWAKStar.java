@@ -1,31 +1,21 @@
 package edu.duke.cs.osprey.ewakstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.kstar.KStar;
-import edu.duke.cs.osprey.kstar.KStarScore;
-import edu.duke.cs.osprey.kstar.KStarScoreWriter;
-import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
-import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
-import java.math.BigDecimal;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class EWAKStar {
 
     public static interface ConfEnergyCalculatorFactory {
-        ConfEnergyCalculator make(SimpleConfSpace confSpace, EnergyCalculator ecalc);
+        ConfEnergyCalculator make(SimpleConfSpace confSpace, EnergyCalculator ecalc, String matrix);
     }
 
     public static interface ConfSearchFactory {
@@ -51,6 +41,8 @@ public class EWAKStar {
              */
             private double eW = 2.0;
 
+            private int maxPFConfs = 1000000;
+
             /**
              * Pruning criteria to remove sequences with unstable unbound states relative to the wild type sequence.
              * Defined in units of kcal/mol.
@@ -70,7 +62,7 @@ public class EWAKStar {
              */
             private Double stabilityThreshold = 5.0;
 
-            private KStarScoreWriter.Writers scoreWriters = new KStarScoreWriter.Writers();
+            private EWAKStarScoreWriter.Writers scoreWriters = new EWAKStarScoreWriter.Writers();
 
             /**
              * If true, prints out information to the console for each minimized conformation during
@@ -92,6 +84,16 @@ public class EWAKStar {
              */
             private String energyMatrixCachePattern = null;
 
+            public EWAKStar.Settings.Builder setMaxNumConfs(int val){
+                maxPFConfs = val;
+                return this;
+            }
+
+            public EWAKStar.Settings.Builder setEpsilon(double val){
+                epsilon = val;
+                return this;
+            }
+
             public EWAKStar.Settings.Builder setEw(double val){
                 eW = val;
                 return this;
@@ -105,25 +107,25 @@ public class EWAKStar {
                 return this;
             }
 
-            public EWAKStar.Settings.Builder addScoreWriter(KStarScoreWriter val) {
+            public EWAKStar.Settings.Builder addScoreWriter(EWAKStarScoreWriter val) {
                 scoreWriters.add(val);
                 return this;
             }
 
-            public EWAKStar.Settings.Builder addScoreConsoleWriter(KStarScoreWriter.Formatter val) {
-                return addScoreWriter(new KStarScoreWriter.ToConsole(val));
+            public EWAKStar.Settings.Builder addScoreConsoleWriter(EWAKStarScoreWriter.Formatter val) {
+                return addScoreWriter(new EWAKStarScoreWriter.ToConsole(val));
             }
 
             public EWAKStar.Settings.Builder addScoreConsoleWriter() {
-                return addScoreConsoleWriter(new KStarScoreWriter.Formatter.SequenceKStarPfuncs());
+                return addScoreConsoleWriter(new EWAKStarScoreWriter.Formatter.SequenceKStarPfuncs());
             }
 
-            public EWAKStar.Settings.Builder addScoreFileWriter(File file, KStarScoreWriter.Formatter val) {
-                return addScoreWriter(new KStarScoreWriter.ToFile(file, val));
+            public EWAKStar.Settings.Builder addScoreFileWriter(File file, EWAKStarScoreWriter.Formatter val) {
+                return addScoreWriter(new EWAKStarScoreWriter.ToFile(file, val));
             }
 
             public EWAKStar.Settings.Builder addScoreFileWriter(File file) {
-                return addScoreFileWriter(file, new KStarScoreWriter.Formatter.Log());
+                return addScoreFileWriter(file, new EWAKStarScoreWriter.Formatter.Log());
             }
 
             public EWAKStar.Settings.Builder setShowPfuncProgress(boolean val) {
@@ -137,18 +139,20 @@ public class EWAKStar {
             }
 
             public EWAKStar.Settings build() {
-                return new EWAKStar.Settings(epsilon, eW, stabilityThreshold, scoreWriters, showPfuncProgress, energyMatrixCachePattern);
+                return new EWAKStar.Settings(epsilon, eW, maxPFConfs, stabilityThreshold, scoreWriters, showPfuncProgress, energyMatrixCachePattern);
             }
         }
 
+        public final int maxPFConfs;
         public final double epsilon;
         public final double eW;
         public final Double stabilityThreshold;
-        public final KStarScoreWriter.Writers scoreWriters;
+        public final EWAKStarScoreWriter.Writers scoreWriters;
         public final boolean showPfuncProgress;
         public final String energyMatrixCachePattern;
 
-        public Settings(double epsilon, double eW, Double stabilityThreshold, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern) {
+        public Settings(double epsilon, double eW, int maxPFConfs, Double stabilityThreshold, EWAKStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern) {
+            this.maxPFConfs = maxPFConfs;
             this.epsilon = epsilon;
             this.eW = eW;
             this.stabilityThreshold = stabilityThreshold;
@@ -171,9 +175,9 @@ public class EWAKStar {
     public static class ScoredSequence {
 
         public final Sequence sequence;
-        public final KStarScore score;
+        public final EWAKStarScore score;
 
-        public ScoredSequence(Sequence sequence, KStarScore score) {
+        public ScoredSequence(Sequence sequence, EWAKStarScore score) {
             this.sequence = sequence;
             this.score = score;
         }
@@ -210,48 +214,6 @@ public class EWAKStar {
             this.confEcalc = confEcalc;
         }
 
-        public void calcEmat() {
-            SimplerEnergyMatrixCalculator.Builder builder = new SimplerEnergyMatrixCalculator.Builder(confEcalc);
-            if (settings.energyMatrixCachePattern != null) {
-                builder.setCacheFile(new File(settings.applyEnergyMatrixCachePattern(type.name().toLowerCase())));
-            }
-            emat = builder.build().calcEnergyMatrix();
-        }
-
-        public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, ConfDB confDB) {
-
-            Sequence sequence = sequences.get(sequenceIndex);
-
-            // check the cache first
-            PartitionFunction.Result result = pfuncResults.get(sequence);
-            if (result != null) {
-                return result;
-            }
-
-            // cache miss, need to compute the partition function
-
-            // make the partition function
-            ConfSearch astar = confSearchFactory.make(emat, sequence.makeRCs());
-            GradientDescentPfunc pfunc = new GradientDescentPfunc(astar, confEcalc);
-            pfunc.setReportProgress(settings.showPfuncProgress);
-            if (confDB != null) {
-                pfunc.setConfTable(confDB.getSequence(sequence));
-            }
-
-            // compute it
-            pfunc.init(settings.epsilon, stabilityThreshold);
-            pfunc.compute();
-
-            // save the result
-            result = pfunc.makeResult();
-            pfuncResults.put(sequence, result);
-            return result;
-        }
-
-    }
-
-    private static interface Scorer {
-        KStarScore score(int sequenceNumber, PartitionFunction.Result proteinResult, PartitionFunction.Result ligandResult, PartitionFunction.Result complexResult);
     }
 
     /** A configuration space containing just the protein strand */
@@ -275,10 +237,10 @@ public class EWAKStar {
     /** Optional and overridable settings for K* */
     public final EWAKStar.Settings settings;
 
-	public EWAKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator ecalc, EWAKStar.ConfEnergyCalculatorFactory confEcalcFactory, EWAKStar.ConfSearchFactory confSearchFactory, EWAKStar.Settings settings) {
-        this.protein = new EWAKStar.ConfSpaceInfo(EWAKStar.ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, ecalc));
-        this.ligand = new EWAKStar.ConfSpaceInfo(EWAKStar.ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, ecalc));
-        this.complex = new EWAKStar.ConfSpaceInfo(EWAKStar.ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, ecalc));
+	public EWAKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator ecalc, EWAKStar.ConfEnergyCalculatorFactory confEcalcFactory, EWAKStar.ConfSearchFactory confSearchFactory, EWAKStar.Settings settings, String matrixP, String matrixL, String matrixPL) {
+        this.protein = new EWAKStar.ConfSpaceInfo(EWAKStar.ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, ecalc, matrixP));
+        this.ligand = new EWAKStar.ConfSpaceInfo(EWAKStar.ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, ecalc, matrixL));
+        this.complex = new EWAKStar.ConfSpaceInfo(EWAKStar.ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, ecalc, matrixPL));
         this.ecalc = ecalc;
         this.confEcalcFactory = confEcalcFactory;
         this.confSearchFactory = confSearchFactory;

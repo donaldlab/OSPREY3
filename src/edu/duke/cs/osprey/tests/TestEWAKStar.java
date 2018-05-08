@@ -36,8 +36,8 @@ public class TestEWAKStar {
     
     public static void main(String[] args){
         Integer[] pos = new Integer[]{0,1,2,3,4,5,6,7};
-        Integer[] posL = new Integer[]{0,1,2,3,4};
-        Integer[] posP = new Integer[]{0,1,2};
+        Integer[] posL = new Integer[]{0,1,2,3};
+        Integer[] posP = new Integer[]{0,1,2,3};
 
         ArrayList<Integer> boundMutPos = new ArrayList<> (Arrays.asList(pos));
         ArrayList<Integer> LMutPos = new ArrayList<> (Arrays.asList(posL));
@@ -45,13 +45,13 @@ public class TestEWAKStar {
 
         ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
                 new String[] {"PHE"},
+                new String[] {"LYS"},
+                new String[] {"ILE"},
                 new String[] {"THR"},
-                new String[] {"TYR"},
-                new String[] {"ILE","LEU","MET","PHE","TRP","TYR","VAL"},
-                new String[] {"ASP","GLU"},
-                new String[] {"ILE","LEU","MET","PHE","TRP","TYR","VAL"},
-                new String[] {"ILE","LEU","MET","PHE","TRP","TYR","VAL"},
-                new String[] {"ASN","GLN","SER","THR"}
+                new String[] {"TYR", "ALA", "VAL", "ILE", "LEU", "PHE"},
+                new String[] {"ASP"},
+                new String[] {"GLU"},
+                new String[] {"THR"}
         );
 
         int numSeqsWanted = 10000;
@@ -60,20 +60,23 @@ public class TestEWAKStar {
         pruningSettings.typedep = true;
 
         double orderOfMag = 5.0;
-        double unboundEw = 15.0;
-        double boundEw = 15.0;
+        double unboundEw = 20.0;
+        double boundEw = 20.0;
         double ewakstarEw = 1.0;
         double Ival = 0.0;
-        String startResPL = "040";
-        String endResPL = "0428";
-        String startResL = "0363";
-        String endResL = "0428";
-        String startResP = "040" ;
-        String endResP = "0363";
-        String pdbFile = "examples/3K75.3LQC/3K75.b.shell.pdb";
-        String[] resNumsPL = new String[] {"067","090","0136","0391","0409","0411","0422","0424"};
-        String[] resNumsL = new String[]{"0391","0409","0411","0422","0424"};
-        String[] resNumsP = new String[]{"067","090","0136"};
+        double epsilon = 0.5;
+        int maxPFConfs = 500;
+        int maxNumSeqs = 5;
+        String startResPL = "A155";
+        String endResPL = "G654";
+        String startResL = "G648";
+        String endResL = "G654";
+        String startResP = "A155" ;
+        String endResP = "A194";
+        String pdbFile = "examples/python.KStar/2RL0.min.reduce.pdb";
+        String[] resNumsPL = new String[] {"A156", "A172", "A192", "A193","G649", "G650", "G651", "G654"};
+        String[] resNumsL = new String[]{"G649", "G650", "G651", "G654"};
+        String[] resNumsP = new String[]{"A156", "A172", "A192", "A193"};
 
         Molecule mol = PDBIO.readFile(pdbFile);
         Strand strandPL = new Strand.Builder(mol).setResidues(startResPL, endResPL).build();
@@ -96,17 +99,23 @@ public class TestEWAKStar {
 
         ForcefieldParams ffparams = new ForcefieldParams();
         EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams).build();
+        EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc).setIsMinimizing(false).build();
 
         ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(confSpace, ecalc);
+        ConfEnergyCalculator.Builder confRigidECalcBuilder = new ConfEnergyCalculator.Builder(confSpace, rigidEcalc);
 
         //use reference energies
         SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(confSpace,ecalc).build();
         confEcalcBuilder.setReferenceEnergies(eref);
+        confRigidECalcBuilder.setReferenceEnergies(eref);
 
         ConfEnergyCalculator confECalc = confEcalcBuilder.build();
+        ConfEnergyCalculator confRigidECalc = confRigidECalcBuilder.build();
 
+        String PLmatrixName = "ewak.*";
+        String PLematMatrixName = "ewak.PL.emat";
         EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
-                .setCacheFile(new File("ewak.PL.emat"))
+                .setCacheFile(new File(PLematMatrixName))
                 .build()
                 .calcEnergyMatrix();
 
@@ -114,14 +123,14 @@ public class TestEWAKStar {
                 confSpace, ecalc, confECalc, new EPICSettings(), new LUTESettings(),
                 pruningSettings);
 
-        String LmatrixName = "ewak.L.emat";
+        String LmatrixName = "ewak.L*";
 
-        String PmatrixName = "ewak.P.emat";
+        String PmatrixName = "ewak.P*";
 
-        NewEWAKStarDoer ed = new NewEWAKStarDoer(confSpace, confSpaceL, confSpaceP, precompMat,
-            boundMutPos, LMutPos, PMutPos, AATypeOptions, numSeqsWanted, confECalc, orderOfMag, unboundEw, boundEw,
-                ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, pruningSettings,
-                LmatrixName, PmatrixName, ffparams);
+        NewEWAKStarDoer ed = new NewEWAKStarDoer(maxNumSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc, emat, ecalc,
+                confSpace, confSpaceL, confSpaceP, precompMat, boundMutPos, LMutPos, PMutPos, AATypeOptions, numSeqsWanted,
+                confECalc, orderOfMag, unboundEw, boundEw, ewakstarEw, startResL, endResL, startResP, endResP, startResPL,
+                endResPL, mol, resNumsPL, resNumsL, resNumsP, Ival, pruningSettings, LmatrixName, PmatrixName, PLmatrixName, ffparams);
 
 
         ArrayList<String> bestSequences = ed.calcBestSequences();
