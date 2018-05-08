@@ -381,14 +381,12 @@ public class MARKStarBound implements PartitionFunction {
                     double hdiff = context.hscorer.calcDifferential(context.index,RCs,nextPos,nextRc);
                     double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     ExpFunction ef = new ExpFunction();
-                    if(child.getLevel() < RCs.getNumPos()) {
-                        child.gscore = diff;
-                        double logMax = -(child.gscore + hdiff);
-                        double logMin = -(child.gscore + maxhdiff);
-                        child.minHScore = logMin;
-                        child.maxHScore = logMax;
-                        child.computeNumConformations(RCs);
-                    }
+                    child.gscore = diff;
+                    double logMax = -(child.gscore + hdiff);
+                    double logMin = -(child.gscore + maxhdiff);
+                    child.minHScore = logMin;
+                    child.maxHScore = logMax;
+                    child.computeNumConformations(RCs);
 
 
 

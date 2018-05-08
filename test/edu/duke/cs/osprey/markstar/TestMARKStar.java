@@ -45,8 +45,8 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarZeroEpsilon() {
-        List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(2, 0.0001);
-        List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(2, 0.0001);
+        List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(5, 0.0001);
+        List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(5, 0.0001);
         for(MARKStar.ScoredSequence seq: markStarSeqs)
         {
             System.out.println(seq.score);
@@ -66,7 +66,7 @@ public class TestMARKStar {
 
 	@Test
 	public void testMARKStar() {
-	    runMARKStar(5, 0.01);
+	    runMARKStar(12, 0.68);
 	}
 
 	private static List<MARKStar.ScoredSequence> runMARKStar(int numFlex, double epsilon) {
