@@ -15,12 +15,12 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.text.DecimalFormat;
 import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
     private static AStarScorer gScorer;
+    private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;
     private static AStarScorer negatedHScorer;
     /**
@@ -39,8 +39,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     private MARKStarNode(Node confNode) {
         confSearchNode = confNode;
-        errorUpperBound = ef.exp(confSearchNode.maxHScore);
-        errorLowerBound = ef.exp(confSearchNode.minHScore);
+        errorUpperBound = confNode.subtreeUpperBound;
+        errorLowerBound = confNode.subtreeLowerBound;
         level = confSearchNode.getLevel();
         errorBound = getErrorBound();
     }
@@ -145,6 +145,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
 		// make the A* scorers
 		gScorer = gScorerFactory.make(minimizingEnergyMatrix);                                            // TODO: I think I want this to be minimizing
+        rigidgScorer = gScorerFactory.make(rigidEnergyMatrix);
 		hScorer = hscorerFactory.make(minimizingEnergyMatrix);                                            // TODO: I think I want this to be minimizing
 		negatedHScorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, rigidEnergyMatrix)); // TODO: I think I want this to be rigid
 
@@ -154,12 +155,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 		Node rootNode = new Node(confSpace.positions.size());
 		rootNode.index(confIndex);
 		rootNode.gscore = gScorer.calc(confIndex, rcs);
-		rootNode.minHScore = hScorer.calc(confIndex, rcs);
-		rootNode.maxHScore = -negatedHScorer.calc(confIndex, rcs);
-        double logMax = -(rootNode.gscore+rootNode.minHScore);
-        double logMin = -(rootNode.gscore+rootNode.maxHScore);
-        rootNode.minHScore = logMin;
-        rootNode.maxHScore = logMax;
+        double lowerBound = -(rigidgScorer.calc(confIndex,rcs)-negatedHScorer.calc(confIndex, rcs));
+        double upperBound = -(rootNode.gscore+hScorer.calc(confIndex, rcs));
+        rootNode.setBoundsFromConfLowerAndUpper(lowerBound, upperBound);
 		return new MARKStarNode(rootNode);
 	}
 
@@ -178,7 +176,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             ExpFunction ef = new ExpFunction();
             Node child = confSearchNode;
             if(child.getMaxScore() > 0) {
-                double diff = ef.log(ef.exp(child.maxHScore).subtract(ef.exp(child.minHScore))).doubleValue();
+                double diff = ef.log(child.subtreeUpperBound.subtract(child.subtreeLowerBound)).doubleValue();
                 errorBound = diff;
             }
             return errorBound;
@@ -196,13 +194,14 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
         private static int Unassigned = -1;
         public double gscore = Double.NaN;
-        public double minHScore = Double.NaN; //\hat h^ominus(f) - the lower bound on subtree contrib to partition function
-        public double maxHScore = Double.NaN; //\hat h^oplus(f) - the lower bound on subtree contrib to partition function
+        private BigDecimal subtreeLowerBound = null; //\hat h^ominus(f) - the lower bound on subtree contrib to partition function
+        private BigDecimal subtreeUpperBound = null; //\hat h^oplus(f) - the lower bound on subtree contrib to partition function
+        public double confLowerBound = Double.MAX_VALUE;
+        public double confUpperBound = Double.MIN_VALUE;
         public int[] assignments;
         public int pos = Unassigned;
         public int rc = Unassigned;
         public final int level;
-        public boolean minimized = false;
         public BigInteger numConfs = BigInteger.ZERO;
 
         public Node(int size) {
@@ -215,9 +214,17 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             this.level = level;
         }
 
+        public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
+            confLowerBound = lowerBound;
+            confUpperBound = upperBound;
+            ExpFunction ef = new ExpFunction();
+            subtreeLowerBound = ef.exp(-confUpperBound);
+            subtreeUpperBound = ef.exp(-confLowerBound);
+        }
+
 
         public boolean isMinimized() {
-            return minimized;
+            return confLowerBound == confUpperBound;
         }
 
         @Override
@@ -241,11 +248,11 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
 
         public double getMinScore() {
-            return minHScore;
+            return -confLowerBound;
         }
 
         public double getMaxScore() {
-            return maxHScore;
+            return -confUpperBound;
         }
 
         @Override
@@ -253,13 +260,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             //TODO: Scale by number of conformations
             BigDecimal d = new BigDecimal(numConfs);
             ExpFunction ef = new ExpFunction();
-            BigDecimal upper = ef.exp(maxHScore);
-            BigDecimal lower = ef.exp(minHScore);
-            BigDecimal difference = upper.subtract(lower);
-            BigDecimal scaled = difference.multiply(d);
-            BigDecimal log = ef.log(scaled);
 
-            return -ef.log(ef.exp(maxHScore).subtract(ef.exp(minHScore)).multiply(d)).doubleValue();
+            return -ef.log(subtreeUpperBound.subtract(subtreeLowerBound).multiply(d)).doubleValue();
         }
 
         @Override
@@ -308,7 +310,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public String toString()
         {
             String out = confToString();
-            out+="Conf energy:"+gscore+", max: "+maxHScore+", min: "+minHScore;
+            out+="Conf energy:"+gscore+", max: "+ subtreeUpperBound +", min: "+ subtreeLowerBound;
             return out;
         }
 
