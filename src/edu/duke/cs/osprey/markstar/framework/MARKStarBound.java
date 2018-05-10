@@ -328,7 +328,7 @@ public class MARKStarBound implements PartitionFunction {
             tasks.submit(() -> {
                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                     ScoreContext context = checkout.get();
-                    ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, -node.confLowerBound);
+                    ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, -node.getConfLowerBound());
                     ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
                     //Assign true energies to the subtreeLowerBound and subtreeUpperBound
                     double energy = econf.getEnergy();
@@ -340,7 +340,7 @@ public class MARKStarBound implements PartitionFunction {
                                 + " !<" + (-node.getMaxScore()) + " Aborting.");
                         System.exit(-1);
                     }
-                    String out = "Energy = " + String.format("%6.3e", energy)+", ["+(node.confLowerBound)+","+(node.confUpperBound)+"]";
+                    String out = "Energy = " + String.format("%6.3e", energy)+", ["+(node.getConfLowerBound())+","+(node.getConfUpperBound())+"]";
                     System.out.println(out);
                 }
                 return null;
@@ -399,7 +399,7 @@ public class MARKStarBound implements PartitionFunction {
                         double confRigid = context.rigidscorer.calc(context.index.assign(nextPos, nextRc), RCs);
                         System.out.println("Conf" + child.confToString() + ":[" + confPairwiseLower + "," + confRigid + "]");
                         child.setBoundsFromConfLowerAndUpper(confPairwiseLower,confRigid);
-                        child.gscore = child.confLowerBound;
+                        child.gscore = child.getConfLowerBound();
                     }
 
 
