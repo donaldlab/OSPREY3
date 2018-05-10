@@ -105,10 +105,16 @@ public class MARKStarBound implements PartitionFunction {
     public void compute() {
         rootNode.getConfSearchNode().computeNumConformations(RCs);
         System.out.println("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
+        double lastEps = 1;
         while (epsilonBound > targetEpsilon) {
             System.out.println("Tightening from epsilon of "+epsilonBound);
             tightenBound();
             System.out.println("Errorbound is now "+epsilonBound);
+            if(lastEps < epsilonBound && epsilonBound - lastEps > 0.01) {
+                System.err.println("Error. Bounds got looser.");
+                //System.exit(-1);
+            }
+            lastEps = epsilonBound;
         }
         status = Status.Estimated;
         values.qstar = rootNode.getLowerBound();
@@ -326,7 +332,7 @@ public class MARKStarBound implements PartitionFunction {
                     ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
                     //Assign true energies to the subtreeLowerBound and subtreeUpperBound
                     double energy = econf.getEnergy();
-                    node.setBoundsFromConfLowerAndUpper(econf.getEnergy(), econf.getEnergy());
+                    curNode.setBoundsFromConfLowerAndUpper(econf.getEnergy(), econf.getEnergy());
                     node.gscore = econf.getEnergy();
                     if(true &&
                             (energy < -node.getMinScore() || energy > -node.getMaxScore())) {
@@ -334,13 +340,15 @@ public class MARKStarBound implements PartitionFunction {
                                 + " !<" + (-node.getMaxScore()) + " Aborting.");
                         System.exit(-1);
                     }
-                    String out = "Energy = " + String.format("%6.3e", energy)+", ["+(-node.getMinScore())+","+(-node.getMaxScore())+"]";
+                    String out = "Energy = " + String.format("%6.3e", energy)+", ["+(node.confLowerBound)+","+(node.confUpperBound)+"]";
                     System.out.println(out);
                 }
                 return null;
             },
             // Dummy function. We're not doing anything here.
             (Node child)->{});
+            tasks.waitForFinish();
+            updateBound();
             return;
         }
 
@@ -391,7 +399,7 @@ public class MARKStarBound implements PartitionFunction {
                         double confRigid = context.rigidscorer.calc(context.index.assign(nextPos, nextRc), RCs);
                         System.out.println("Conf" + child.confToString() + ":[" + confPairwiseLower + "," + confRigid + "]");
                         child.setBoundsFromConfLowerAndUpper(confPairwiseLower,confRigid);
-                        child.gscore = -child.confLowerBound;
+                        child.gscore = child.confLowerBound;
                     }
 
 
