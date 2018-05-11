@@ -359,6 +359,10 @@ def Strand(pathOrMol, residues=None, templateLib=None):
 	return builder.build()
 
 
+def StrandRotTrans():
+    return jvm.getInnerClass(c.confspace.StrandFlex, 'TranslateRotate')()
+
+
 def ConfSpace(strands, shellDist=None):
 	'''
 	:java:classdoc:`.confspace.SimpleConfSpace`
@@ -391,7 +395,11 @@ def ConfSpace(strands, shellDist=None):
 			strand = strandInfo
 			flex = []
 
-		builder.addStrand(strand, flex)
+		arrayList = jpype.java.util.ArrayList()
+		for f in flex:
+		  arrayList.add(f)
+		#print("Adding "+str(flex)+" to builder")
+		builder.addStrand(strand, arrayList, True)
 
 	# add the shell distance if needed
 	if shellDist is not None:
@@ -719,7 +727,7 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	return bbflex
 
 
-def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
+def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, maxNumConfs=useJavaDefault, showPfuncProgress=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
 	'''
 	:java:classdoc:`.kstar.KStar`
 
@@ -760,6 +768,10 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcF
 		settingsBuilder.setStabilityThreshold(jvm.boxDouble(stabilityThreshold))
 	if maxSimultaneousMutations is not useJavaDefault:
 		settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+	if maxNumConfs is not useJavaDefault:
+		settingsBuilder.setMaxNumConfs(maxNumConfs)
+	if showPfuncProgress is not useJavaDefault:
+		settingsBuilder.setShowPfuncProgress(showPfuncProgress)
 	if writeSequencesToConsole:
 		settingsBuilder.addScoreConsoleWriter()
 	if writeSequencesToFile is not None:
