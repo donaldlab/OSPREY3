@@ -27,6 +27,7 @@ import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.astar.conf.RCs;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 
 public class MARKStarBound implements PartitionFunction {
@@ -103,7 +104,6 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     public void compute() {
-        rootNode.getConfSearchNode().computeNumConformations(RCs);
         System.out.println("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
         double lastEps = 1;
         while (epsilonBound > targetEpsilon) {
@@ -314,6 +314,14 @@ public class MARKStarBound implements PartitionFunction {
         tasks = parallelism.makeTaskExecutor(1000);
         contexts.allocate(parallelism.getParallelism());
     }
+
+    private void debugEpsilon(double curEpsilon) {
+        if(curEpsilon < epsilonBound) {
+            System.err.println("Epsilon just got bigger.");
+        }
+    }
+
+
     public void tightenBound(){
         System.out.println("Current overall error bound: "+epsilonBound);
         if(queue.isEmpty()) {
@@ -391,13 +399,15 @@ public class MARKStarBound implements PartitionFunction {
                         child.gscore = diff;
                         double confLowerBound = child.gscore + hdiff;
                         double confUpperbound = rigiddiff + maxhdiff;
-                        child.setBoundsFromConfLowerAndUpper(confLowerBound,confUpperbound);
                         child.computeNumConformations(RCs);
+                        child.setBoundsFromConfLowerAndUpper(confLowerBound,confUpperbound);
+                        System.out.println(child);
                     }
                     if(child.getLevel() == RCs.getNumPos()) {
                         double confPairwiseLower = context.gscorer.calc(context.index.assign(nextPos, nextRc), RCs);
                         double confRigid = context.rigidscorer.calc(context.index.assign(nextPos, nextRc), RCs);
-                        System.out.println("Conf" + child.confToString() + ":[" + confPairwiseLower + "," + confRigid + "]");
+                        System.out.println(child);
+                        child.computeNumConformations(RCs);
                         child.setBoundsFromConfLowerAndUpper(confPairwiseLower,confRigid);
                         child.gscore = child.getConfLowerBound();
                     }
@@ -425,7 +435,9 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void updateBound() {
+        double curEpsilon = epsilonBound;
         epsilonBound = rootNode.computeEpsilonErrorBounds();
+        debugEpsilon(curEpsilon);
     }
 
     private boolean hasPrunedPair(ConfIndex confIndex, int nextPos, int nextRc) {
