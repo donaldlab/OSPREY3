@@ -33,6 +33,7 @@ import java.util.*;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
+    private boolean debug = false;
     private Status status = null;
     private PartitionFunction.Values values = null;
 
@@ -316,7 +317,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void debugEpsilon(double curEpsilon) {
-        if(curEpsilon < epsilonBound) {
+        if(debug && curEpsilon < epsilonBound) {
             System.err.println("Epsilon just got bigger.");
         }
     }
@@ -401,15 +402,23 @@ public class MARKStarBound implements PartitionFunction {
                         double confUpperbound = rigiddiff + maxhdiff;
                         child.computeNumConformations(RCs);
                         child.setBoundsFromConfLowerAndUpper(confLowerBound,confUpperbound);
-                        System.out.println(child);
+                        if(debug)
+                            System.out.println(child);
                     }
                     if(child.getLevel() == RCs.getNumPos()) {
                         double confPairwiseLower = context.gscorer.calc(context.index.assign(nextPos, nextRc), RCs);
                         double confRigid = context.rigidscorer.calc(context.index.assign(nextPos, nextRc), RCs);
-                        System.out.println(child);
                         child.computeNumConformations(RCs);
+                        if(confPairwiseLower > confRigid) {
+                            System.err.println("Our bounds are not tight. Lower bound is " + (confPairwiseLower - confRigid) + " higher");
+                            double temp = confRigid;
+                            confRigid = confPairwiseLower;
+                            confPairwiseLower = temp;
+                        }
                         child.setBoundsFromConfLowerAndUpper(confPairwiseLower,confRigid);
                         child.gscore = child.getConfLowerBound();
+                        if(debug)
+                            System.out.println(child);
                     }
 
 

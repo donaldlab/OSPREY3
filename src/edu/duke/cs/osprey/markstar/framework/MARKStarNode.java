@@ -19,7 +19,7 @@ import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
-    boolean debug = true;
+    boolean debug = false;
     private static AStarScorer gScorer;
     private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;
@@ -63,10 +63,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
                     System.out.println("Child:" + child.confSearchNode + ":" + childEpsilon);
                     System.out.println("Upper: " + setSigFigs(errorUpperBound) + "+"
                             + setSigFigs(child.confSearchNode.subtreeUpperBound) + "="
-                            + setSigFigs(errorUpperBound.add(errorUpperBound)));
+                            + setSigFigs(errorUpperBound.add(child.confSearchNode.subtreeUpperBound)));
                     System.out.println("Lower: " + setSigFigs(errorLowerBound) + "+"
                             + setSigFigs(child.confSearchNode.subtreeLowerBound) + "="
-                            + setSigFigs(errorLowerBound.add(errorLowerBound)));
+                            + setSigFigs(errorLowerBound.add(child.confSearchNode.subtreeLowerBound)));
                 }
                 errorUpperBound = errorUpperBound.add(child.confSearchNode.subtreeUpperBound);
                 errorLowerBound = errorLowerBound.add(child.confSearchNode.subtreeLowerBound);
@@ -213,14 +213,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     public double getErrorBound() {
         if(children == null || children.size() < 1) {
-
-            ExpFunction ef = new ExpFunction();
-            Node child = confSearchNode;
-            if(child.getMaxScore() > 0) {
-                double diff = ef.log(ef.exp(-child.confLowerBound).subtract(ef.exp(-child.confUpperBound))).doubleValue();
-                errorBound = diff;
-            }
-            return errorBound;
+            return -confSearchNode.getHScore();
         }
         double errorSum = 0;
         for(MARKStarNode childNode: children) {
@@ -256,6 +249,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
+            if(Math.abs(lowerBound+32.014)<0.001)
+                System.out.println("Catch.");
+            if(confLowerBound > confUpperBound)
+                System.err.println("Incorrect conf bounds set.");
             updateConfLowerBound(lowerBound);
             updateConfUpperBound(upperBound);
         }
@@ -333,9 +330,13 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             //TODO: Scale by number of conformations
             BigDecimal d = new BigDecimal(numConfs);
             ExpFunction ef = new ExpFunction();
-
-            return -ef.log(ef.exp(-confLowerBound).subtract(ef.exp(-confUpperBound)).multiply(d)).doubleValue()
-                    -ef.log(new BigDecimal(getNumConformations())).doubleValue();
+            if(confLowerBound > confUpperBound)
+                System.err.println("Incorrect conf bounds set.");
+            BigDecimal subtreeDifference = ef.exp(-confLowerBound).subtract(ef.exp(-confUpperBound));
+            BigDecimal scaled = subtreeDifference.multiply(d);
+            double subtreeBound = -ef.log(scaled).doubleValue();
+            double logScale = -ef.log(new BigDecimal(getNumConformations())).doubleValue();
+            return  subtreeBound - logScale;
         }
 
         @Override
@@ -384,7 +385,11 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public String toString()
         {
             String out = confToString();
-            out+="Energy:"+gscore+" in ["+confLowerBound+","+confUpperBound+"]->["+ setSigFigs(subtreeLowerBound) +","+ setSigFigs(subtreeUpperBound)+"]";
+            out+="Energy:"+gscore;
+            if(!isMinimized())
+                out += " in ["+confLowerBound+","+confUpperBound+"]->["+ setSigFigs(subtreeLowerBound) +","+ setSigFigs(subtreeUpperBound)+"]";
+            else
+                out += " (minimized) -> "+setSigFigs(subtreeLowerBound);
             return out;
         }
 
