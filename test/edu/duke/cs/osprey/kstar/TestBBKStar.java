@@ -25,10 +25,6 @@ public class TestBBKStar {
 		public List<KStar.ScoredSequence> sequences;
 	}
 
-	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon) {
-		return runBBKStar(confSpaces, numSequences, epsilon, null);
-	}
-
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
@@ -109,7 +105,7 @@ public class TestBBKStar {
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 		final double epsilon = 0.99;
 		final int numSequences = 25;
-		Results results = runBBKStar(confSpaces, numSequences, epsilon);
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null);
 
 		assert2RL0(results, numSequences);
 	}
@@ -153,7 +149,7 @@ public class TestBBKStar {
 		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
 		final double epsilon = 0.999999;
 		final int numSequences = 6;
-		Results results = runBBKStar(confSpaces, numSequences, epsilon);
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null);
 
 		// K* bounds collected with e = 0.1 from original K* algo
 		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS ARG", 17.522258,17.636342);

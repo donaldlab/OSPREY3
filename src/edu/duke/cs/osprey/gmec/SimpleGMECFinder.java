@@ -194,9 +194,9 @@ public class SimpleGMECFinder {
 			logPrinter.print(eMinScoreConf, confEcalc.confSpace);
 
 			// peek ahead to the next conf
-			ConfSearch.Splitter splitter = new ConfSearch.Splitter(search);
-			ConfSearch.Splitter.Stream unpeekedConfs = splitter.makeStream();
-			ConfSearch.Splitter.Stream peekedConfs = splitter.makeStream();
+			ConfSearch.MultiSplitter splitter = new ConfSearch.MultiSplitter(search);
+			ConfSearch.MultiSplitter.Stream unpeekedConfs = splitter.makeStream();
+			ConfSearch.MultiSplitter.Stream peekedConfs = splitter.makeStream();
 			ScoredConf peekedConf = peekedConfs.nextConf();
 			peekedConfs.close();
 
@@ -386,8 +386,8 @@ public class SimpleGMECFinder {
 			if (tree.getProgress() != null) {
 				tree.getProgress().setGoalScore(erange.getMax());
 			}
-		} else if (confSearch instanceof ConfSearch.Splitter.Stream) {
-			setErangeProgress(((ConfSearch.Splitter.Stream)confSearch).getSource(), erange);
+		} else if (confSearch instanceof ConfSearch.MultiSplitter.Stream) {
+			setErangeProgress(((ConfSearch.MultiSplitter.Stream)confSearch).getSource(), erange);
 		}
 	}
 	

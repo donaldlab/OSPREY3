@@ -367,11 +367,13 @@ public class BBKStar {
 			// make the partition function
 			pfunc = PartitionFunction.makeBestFor(info.confEcalcMinimized);
 			pfunc.setReportProgress(kstarSettings.showPfuncProgress);
-			if (confdb != null && pfunc instanceof PartitionFunction.WithConfTable) {
-				((PartitionFunction.WithConfTable)pfunc).setConfTable(confdb.getSequence(sequence));
+			if (confdb != null) {
+				PartitionFunction.WithConfTable.setOrThrow(pfunc, confdb.getSequence(sequence));
 			}
-
 			RCs rcs = sequence.makeRCs();
+			if (kstarSettings.useExternalMemory) {
+				PartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
+			}
 			ConfSearch astar = info.confSearchFactoryMinimized.make(rcs);
 			pfunc.init(astar, rcs.getNumConformations(), kstarSettings.epsilon);
 			pfunc.setStabilityThreshold(info.stabilityThreshold);
@@ -501,6 +503,12 @@ public class BBKStar {
 	private final Map<Sequence,PartitionFunction> complexPfuncs;
 
 	public BBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, KStar.Settings kstarSettings, Settings bbkstarSettings) {
+
+		// BBK* doesn't work with external memory (never enough internal memory for all the priority queues)
+		if (kstarSettings.useExternalMemory) {
+			throw new IllegalArgumentException("BBK* is not compatible with external memory."
+				+ " Please switch to regular K* with external memory, or keep using BBK* and disable external memory.");
+		}
 
 		this.protein = new ConfSpaceInfo(protein, KStar.ConfSpaceType.Protein);
 		this.ligand = new ConfSpaceInfo(ligand, KStar.ConfSpaceType.Ligand);

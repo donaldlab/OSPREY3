@@ -81,6 +81,12 @@ public class KStar {
 			 */
 			private String confDBPattern = null;
 
+			/**
+			 * True to use external memory when buffering conformations between the
+			 * partition function lower and upper bound calculators.
+			 */
+			private boolean useExternalMemory = false;
+
 			public Builder setEpsilon(double val) {
 				epsilon = val;
 				return this;
@@ -130,8 +136,13 @@ public class KStar {
 				return this;
 			}
 
+			public Builder setExternalMemory(boolean val) {
+				useExternalMemory = val;
+				return this;
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, confDBPattern);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, confDBPattern, useExternalMemory);
 			}
 		}
 
@@ -141,14 +152,17 @@ public class KStar {
 		public final KStarScoreWriter.Writers scoreWriters;
 		public final boolean showPfuncProgress;
 		public final String confDBPattern;
+		public final boolean useExternalMemory;
 
-		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String confDBPattern) {
+
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String confDBPattern, boolean useExternalMemory) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
 			this.scoreWriters = scoreWriters;
 			this.showPfuncProgress = dumpPfuncConfs;
 			this.confDBPattern = confDBPattern;
+			this.useExternalMemory = useExternalMemory;
 		}
 
 		public String applyConfDBPattern(String type) {
@@ -246,10 +260,13 @@ public class KStar {
 			// make the partition function
 			PartitionFunction pfunc = PartitionFunction.makeBestFor(confEcalc);
 			pfunc.setReportProgress(settings.showPfuncProgress);
-			if (confDB != null && pfunc instanceof PartitionFunction.WithConfTable) {
-				((PartitionFunction.WithConfTable)pfunc).setConfTable(confDB.getSequence(sequence));
+			if (confDB != null) {
+				PartitionFunction.WithConfTable.setOrThrow(pfunc, confDB.getSequence(sequence));
 			}
 			RCs rcs = sequence.makeRCs();
+			if (settings.useExternalMemory) {
+				PartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
+			}
 			ConfSearch astar = confSearchFactory.make(rcs);
 			pfunc.init(astar, rcs.getNumConformations(), settings.epsilon);
 			pfunc.setStabilityThreshold(stabilityThreshold);
@@ -260,6 +277,17 @@ public class KStar {
 			// save the result
 			result = pfunc.makeResult();
 			pfuncResults.put(sequence, result);
+
+			/* HACKHACK: we're done using the A* tree, pfunc, etc
+				and normally the garbage collector will clean them up,
+				along with their off-heap resources (e.g. TPIE data structures).
+				Except the garbage collector might not do it right away.
+				If we try to allocate more off-heap resources before these get cleaned up,
+				we might run out. So poke the garbage collector now and try to get
+				it to clean up the off-heap resources right away.
+			*/
+			Runtime.getRuntime().gc();
+
 			return result;
 		}
 

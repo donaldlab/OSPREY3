@@ -234,8 +234,8 @@ public class PfuncSurface {
 	public class Trace {
 
 		class Point {
-			int scores;
-			int energies;
+			long scores;
+			long energies;
 			double delta;
 		}
 
@@ -245,7 +245,7 @@ public class PfuncSurface {
 			traces.add(this);
 		}
 
-		public void step(int scores, int energies, double delta) {
+		public void step(long scores, long energies, double delta) {
 			Point p = new Point();
 			p.scores = scores;
 			p.energies = energies;

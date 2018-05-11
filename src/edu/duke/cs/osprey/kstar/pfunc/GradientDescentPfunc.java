@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar.pfunc;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -30,19 +31,19 @@ import java.util.List;
  * not orders of magnitude slower than operation 1 (when e.g. we're reading
  * energies out of a cache).
  */
-public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
+public class GradientDescentPfunc implements PartitionFunction.WithConfTable, PartitionFunction.WithExternalMemory {
 
 	private static class State {
 
 		BigDecimal numConfs;
 
 		// upper bound (score axis) vars
-		int numScoredConfs = 0;
+		long numScoredConfs = 0;
 		BigDecimal upperScoreWeightSum = BigDecimal.ZERO;
 		BigDecimal minUpperScoreWeight = MathTools.BigPositiveInfinity;
 
 		// lower bound (energy axis) vars
-		int numEnergiedConfs = 0;
+		long numEnergiedConfs = 0;
 		BigDecimal lowerScoreWeightSum = BigDecimal.ZERO;
 		BigDecimal energyWeightSum = BigDecimal.ZERO;
 		BigDecimal minLowerScoreWeight = MathTools.BigPositiveInfinity;
@@ -63,7 +64,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 
 		double calcDelta() {
 			BigDecimal upperBound = getUpperBound();
-			if (MathTools.isZero(upperBound)) {
+			if (MathTools.isZero(upperBound) || MathTools.isInf(upperBound)) {
 				return 1.0;
 			}
 			return new BigMath(PartitionFunction.decimalPrecision)
@@ -141,8 +142,13 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 
 	private boolean hasEnergyConfs = true;
 	private boolean hasScoreConfs = true;
+	private long numEnergyConfsEnumerated = 0;
+	private long numScoreConfsEnumerated = 0;
 
 	private ConfDB.ConfTable confTable = null;
+
+	private boolean useExternalMemory = false;
+	private RCs rcs = null;
 
 	private PfuncSurface surf = null;
 	private PfuncSurface.Trace trace = null;
@@ -173,7 +179,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 	
 	@Override
 	public int getNumConfsEvaluated() {
-		return state.numEnergiedConfs;
+		// TODO: this might overflow for big pfunc calculations, upgrade the interface type?
+		return (int)state.numEnergiedConfs;
 	}
 	
 	@Override
@@ -184,6 +191,12 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 	@Override
 	public void setConfTable(ConfDB.ConfTable val) {
 		confTable = val;
+	}
+
+	@Override
+	public void setUseExternalMemory(boolean val, RCs rcs) {
+		this.useExternalMemory = val;
+		this.rcs = rcs;
 	}
 
 	public void traceTo(PfuncSurface val) {
@@ -208,11 +221,13 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 
 		hasEnergyConfs = true;
 		hasScoreConfs = true;
+		numEnergyConfsEnumerated = 0;
+		numScoreConfsEnumerated = 0;
 
 		// split the confs between the upper and lower bounds
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch);
-		scoreConfs = confsSplitter.makeStream();
-		energyConfs = confsSplitter.makeStream();
+		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch, useExternalMemory, rcs);
+		scoreConfs = confsSplitter.first;
+		energyConfs = confsSplitter.second;
 	}
 
 	@Override
@@ -252,7 +267,12 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 					break;
 				}
 
-				boolean scoreAheadOfEnergy = state.numEnergiedConfs < state.numScoredConfs;
+				// just in case...
+				if (Double.isNaN(state.dEnergy) || Double.isNaN(state.dScore)) {
+					throw new Error("Can't determine gradient of delta surface. This is a bug.");
+				}
+
+				boolean scoreAheadOfEnergy = numEnergyConfsEnumerated < numScoreConfsEnumerated;
 				boolean energySteeperThanScore = state.dEnergy <= state.dScore;
 
 				if (hasEnergyConfs && ((scoreAheadOfEnergy && energySteeperThanScore) || !hasScoreConfs)) {
@@ -277,6 +297,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 
 					// get the next energy conf, if any
 					ConfSearch.ScoredConf conf = energyConfs.nextConf();
+					if (conf != null) {
+						numEnergyConfsEnumerated++;
+					}
 					if (conf == null || conf.getScore() == Double.POSITIVE_INFINITY) {
 						hasEnergyConfs = false;
 						keepStepping = false;
@@ -319,6 +342,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 
 						// get the next score conf, if any
 						ConfSearch.ScoredConf conf = scoreConfs.nextConf();
+						if (conf != null) {
+							numScoreConfsEnumerated++;
+						}
 						if (conf == null || conf.getScore() == Double.POSITIVE_INFINITY) {
 							hasScoreConfs = false;
 							break;

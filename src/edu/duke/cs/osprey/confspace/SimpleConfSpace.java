@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.Serializable;
@@ -261,7 +262,7 @@ public class SimpleConfSpace implements Serializable {
 	public final List<Position> positions;
 
 	/** The design positions, indexed by residue number */
-	public final Map<String,Position> positionsByResNum;
+	private final Map<String,Position> positionsByResNum;
 	
 	/** The residue numbers of the shell residues */
 	public final Set<String> shellResNumbers;
@@ -318,7 +319,7 @@ public class SimpleConfSpace implements Serializable {
 		// index the positions
 		positionsByResNum = new HashMap<>();
 		for (Position pos : positions) {
-			positionsByResNum.put(pos.resNum, pos);
+			positionsByResNum.put(Residues.normalizeResNum(pos.resNum), pos);
 		}
 
 		// collect all the static,flexible residues
@@ -342,7 +343,7 @@ public class SimpleConfSpace implements Serializable {
 			// see if a flexible residue is nearby
 			for (Residue flexibleRes : flexibleResidues) {
 				if (staticRes.distanceTo(flexibleRes) <= shellDist) {
-					shellResNumbers.add(staticRes.getPDBResNumber());
+					shellResNumbers.add(Residues.normalizeResNum(staticRes.getPDBResNumber()));
 					break;
 				}
 			}
@@ -408,7 +409,7 @@ public class SimpleConfSpace implements Serializable {
 
 	/** Gets a design position by residue number, or returns null */
 	public Position getPositionOrNull(String resNum) {
-		return positionsByResNum.get(resNum);
+		return positionsByResNum.get(Residues.normalizeResNum(resNum));
 	}
 
 	/** Gets a design position by residue number, or throws an exception */

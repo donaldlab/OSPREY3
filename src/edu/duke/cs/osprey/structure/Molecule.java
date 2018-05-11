@@ -114,8 +114,11 @@ public class Molecule implements Serializable {
     }
     
     public List<Residue> getResiduesByPDBResNumbers(Set<String> resNums) {
+    	Set<String> normalizedResNums = resNums.stream()
+			.map((resNum) -> Residues.normalizeResNum(resNum))
+			.collect(Collectors.toSet());
     	return residues.stream()
-    		.filter((res) -> resNums.contains(res.getPDBResNumber()))
+    		.filter((res) -> normalizedResNums.contains(Residues.normalizeResNum(res.getPDBResNumber())))
     		.collect(Collectors.toList());
     }
     

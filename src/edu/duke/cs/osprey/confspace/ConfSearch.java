@@ -9,10 +9,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.externalMemory.ScoredConfFIFOSerializer;
 import org.apache.commons.collections4.queue.CircularFifoQueue;
 
 import edu.duke.cs.osprey.gmec.ConsoleConfPrinter;
 import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 //This is a general interface for things that search conformational space
@@ -45,8 +49,6 @@ public interface ConfSearch {
     
     /**
      * Get the next conformations in the conformation space with scores up to maxEnergy.
-     * @param foo cows are tasty
-     * @param bar cheese is too
      */
     default List<ScoredConf> nextConfs(double maxEnergy) {
 		List<ScoredConf> nodes = new ArrayList<>();
@@ -202,7 +204,7 @@ public interface ConfSearch {
 	/**
 	 * Lets multiple consumers read confs from the stream regardless of order of reads.
 	 */
-	public static class Splitter {
+	public static class MultiSplitter {
 		
 		public class Stream implements ConfSearch {
 			
@@ -315,7 +317,7 @@ public interface ConfSearch {
 		/**
 		 * Create a splitter for a conformation search
 		 */
-		public Splitter(ConfSearch confs) {
+		public MultiSplitter(ConfSearch confs) {
 			
 			this.confs = confs;
 			
@@ -342,6 +344,93 @@ public interface ConfSearch {
 		
 		public int getBufferSize() {
 			return buf.size();
+		}
+	}
+
+
+	/**
+	 * Lets exactly two consumers read confs from the stream, where one consumer
+	 * always reads before the other.
+	 *
+	 * Supports external memory for the conformation buffer
+	 */
+	public static class Splitter {
+
+		public static class OutOfOrderException extends RuntimeException {
+			public OutOfOrderException() {
+				super("second reader tried to read confs before first reader");
+			}
+		}
+
+		public final ConfSearch confs;
+		public final ConfSearch first;
+		public final ConfSearch second;
+
+		private Queue.FIFO<ScoredConf> buf;
+
+		public Splitter(ConfSearch confs) {
+			this(confs, false, null);
+		}
+
+		public Splitter(ConfSearch confs, boolean useExternalMemory, RCs rcs) {
+
+			this.confs = confs;
+
+			if (useExternalMemory) {
+				buf = Queue.ExternalFIFOFactory.of(new ScoredConfFIFOSerializer(rcs));
+			} else {
+				buf = Queue.FIFOFactory.of();
+			}
+
+			AtomicBoolean exhausted = new AtomicBoolean(false);
+
+			first = new ConfSearch() {
+
+				@Override
+				public ScoredConf nextConf() {
+
+					// read from the ConfSearch
+					ScoredConf conf = confs.nextConf();
+					if (conf == null) {
+
+						// I am le tired
+						exhausted.set(true);
+
+						return null;
+					}
+
+					// add to the buffer
+					buf.push(conf);
+
+					return conf;
+				}
+
+				@Override
+				public BigInteger getNumConformations() {
+					return confs.getNumConformations();
+				}
+			};
+
+			second = new ConfSearch() {
+
+				@Override
+				public ScoredConf nextConf() {
+
+					// read from the buffer
+					ScoredConf conf = buf.poll();
+
+					if (conf == null && !exhausted.get()) {
+						throw new OutOfOrderException();
+					}
+
+					return conf;
+				}
+
+				@Override
+				public BigInteger getNumConformations() {
+					return confs.getNumConformations();
+				}
+			};
 		}
 	}
 }

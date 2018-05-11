@@ -41,6 +41,12 @@ public class MutAlignment {
         this.oldTemplate = oldTemplate;
         this.newTemplate = newTemplate;
         String curCA = oldTemplate.CAEquivalent;
+
+        if(curCA==null || newTemplate.CAEquivalent==null){
+            throw new RuntimeException("ERROR: Trying to align templates " + oldTemplate.name + " and " + newTemplate.name +
+                    " for mutation but CAEQUIVALENT not specified in template and cannot be inferred");
+        }
+
         if(!newTemplate.CAEquivalent.equalsIgnoreCase(curCA)) {
             throw makeError("sidechains are defined differently: CA equivalent is "+
                 curCA+" for old template, "+newTemplate.CAEquivalent+" for new");

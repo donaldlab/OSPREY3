@@ -15,6 +15,8 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.structure.Residues;
+
 import java.io.Serializable;
 
 /**
@@ -185,7 +187,10 @@ public class Strand implements Serializable {
 		public Flexibility(List<Residue> residues) {
 			this.residues = new LinkedHashMap<>();
 			for (Residue res : residues) {
-				this.residues.put(res.getPDBResNumber(), new ResidueFlex(res.template.name));
+				this.residues.put(
+					Residues.normalizeResNum(res.getPDBResNumber()),
+					new ResidueFlex(res.template.name)
+				);
 			}
 		}
 
@@ -195,6 +200,7 @@ public class Strand implements Serializable {
 		}
 		
 		public ResidueFlex get(String resNum) {
+			resNum = Residues.normalizeResNum(resNum);
 			return residues.get(resNum);
 		}
 		

@@ -28,3 +28,7 @@ astar = osprey.AStarMPLP(emat, confSpace)
 # find the best sequence and rotamers
 gmec = osprey.GMECFinder(astar, confEcalc).find()
 
+# write the rigid GMEC to a pdb
+gmecStructure = confSpace.makeMolecule(gmec.getAssignments())
+osprey.writePdb(gmecStructure,  "GMEC.pdb")
+

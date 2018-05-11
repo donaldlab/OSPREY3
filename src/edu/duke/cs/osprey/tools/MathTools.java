@@ -482,7 +482,13 @@ public class MathTools {
 	 * whereas just log10 maps [0,inf] to [-inf,inf]
 	 **/
 	public static double log10p1(BigDecimal x) {
-		return Math.log10(x.add(BigDecimal.ONE).doubleValue());
+		if (x == BigPositiveInfinity) {
+			return Double.POSITIVE_INFINITY;
+		} else if (x == BigNegativeInfinity || x == BigNaN) {
+			return Double.NaN;
+		} else {
+			return Math.log10(x.add(BigDecimal.ONE).doubleValue());
+		}
 	}
 
 	public static double log10p1(double x) {

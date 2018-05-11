@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
@@ -12,6 +13,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
@@ -360,4 +362,52 @@ public class TestSimplePartitionFunction {
 		});
 	}
 	@Test public void calcWithConfDBGD() { calcWithConfDB(gdPfuncs); }
+
+	@Test
+	public void withExternalMemory() {
+
+		ExternalMemory.use(16, () -> {
+
+			TestInfo info = make2RL0TestInfo();
+			SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+				.addStrand(info.protein)
+				.build();
+
+			final double targetEpsilon = 0.05;
+			final String approxQStar = "4.370068e+04"; // e=0.001
+
+			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+				.setParallelism(Parallelism.makeCpu(4))
+				.build()) {
+
+				// define conf energies
+				SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+					.build()
+					.calcReferenceEnergies();
+				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+					.setReferenceEnergies(eref)
+					.build();
+
+				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+					.build()
+					.calcEnergyMatrix();
+
+				// make the A* search
+				RCs rcs = new RCs(confSpace);
+				ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
+					.setTraditional()
+					.build();
+
+				// make the partition function
+				PartitionFunction pfunc = new GradientDescentPfunc(confEcalc);
+				pfunc.setReportProgress(true);
+
+				// compute pfunc for protein
+				pfunc.init(astar, rcs.getNumConformations(), targetEpsilon);
+				pfunc.compute();
+
+				assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
+			}
+		});
+	}
 }

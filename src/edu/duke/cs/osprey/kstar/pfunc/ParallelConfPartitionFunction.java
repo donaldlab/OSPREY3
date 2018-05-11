@@ -26,8 +26,8 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	protected Status status;
 	protected Values values;
 	protected BoltzmannCalculator boltzmann;
-	protected ConfSearch.Splitter.Stream scoreConfs;
-	protected ConfSearch.Splitter.Stream energyConfs;
+	protected ConfSearch.MultiSplitter.Stream scoreConfs;
+	protected ConfSearch.MultiSplitter.Stream energyConfs;
 	protected int numConfsEvaluated;
 	protected BigInteger numConfsToScore;
 	protected BigDecimal qprimeUnevaluated;
@@ -101,7 +101,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 		
 		// make the search tree for computing q*
 		ConfSearch tree = confSearchFactory.make(emat, pmat);
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(tree);
+		ConfSearch.MultiSplitter confsSplitter = new ConfSearch.MultiSplitter(tree);
 		scoreConfs = confsSplitter.makeStream();
 		energyConfs = confsSplitter.makeStream();
 		numConfsEvaluated = 0;

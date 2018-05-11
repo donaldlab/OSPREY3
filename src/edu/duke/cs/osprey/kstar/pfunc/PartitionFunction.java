@@ -6,6 +6,7 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -194,7 +195,22 @@ public interface PartitionFunction {
 
 
 	public static interface WithConfTable extends PartitionFunction {
+
 		void setConfTable(ConfDB.ConfTable table);
+
+		public static void setOrThrow(PartitionFunction pfunc, ConfDB.ConfTable table) {
+			if (pfunc instanceof PartitionFunction.WithConfTable) {
+				((PartitionFunction.WithConfTable)pfunc).setConfTable(table);
+			} else {
+				throw new PartitionFunction.WithConfTable.UnsupportedException(pfunc);
+			}
+		}
+
+		public static class UnsupportedException extends RuntimeException {
+			public UnsupportedException(PartitionFunction pfunc) {
+				super("This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support conformation database tables");
+			}
+		}
 	}
 
 	/**
@@ -207,6 +223,26 @@ public interface PartitionFunction {
 		} else {
 			// algorithms based on energy bounds can use the GD calculator, it's the most recent pfunc calculator
 			return new GradientDescentPfunc(confEcalc);
+		}
+	}
+
+
+	public static interface WithExternalMemory extends PartitionFunction {
+
+		void setUseExternalMemory(boolean val, RCs rcs);
+
+		public static void setOrThrow(PartitionFunction pfunc, boolean val, RCs rcs) {
+			if (pfunc instanceof PartitionFunction.WithExternalMemory) {
+				((PartitionFunction.WithExternalMemory)pfunc).setUseExternalMemory(val, rcs);
+			} else {
+				throw new PartitionFunction.WithExternalMemory.UnsupportedException(pfunc);
+			}
+		}
+
+		public static class UnsupportedException extends RuntimeException {
+			public UnsupportedException(PartitionFunction pfunc) {
+				super("This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support external memory");
+			}
 		}
 	}
 }

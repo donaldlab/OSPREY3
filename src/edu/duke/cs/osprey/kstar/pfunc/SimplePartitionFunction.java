@@ -105,7 +105,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 		values.pstar = BigDecimal.ZERO;
 
 		// split the confs between the bound calculators
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch);
+		ConfSearch.MultiSplitter confsSplitter = new ConfSearch.MultiSplitter(confSearch);
 		lowerBound = new LowerBoundCalculator(confsSplitter.makeStream(), ecalc);
 		lowerBound.confDB = confDB;
 		upperBound = new UpperBoundCalculator(confsSplitter.makeStream(), numConfsBeforePruning);

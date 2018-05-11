@@ -42,7 +42,7 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, garbageSi
 	# build JVM launch args
 	args = [
 		jpype.getDefaultJVMPath(),
-		'-xmx%dM' % heapSizeMiB,
+		'-Xmx%dM' % heapSizeMiB,
 		'-Djava.class.path=%s' % makeClasspath()
 	]
 	if enableAssertions:
