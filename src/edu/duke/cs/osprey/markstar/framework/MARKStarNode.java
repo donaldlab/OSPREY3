@@ -269,16 +269,21 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
 
         public void updateSubtreeLowerBound(BigDecimal tighterLower) {
-            if(subtreeLowerBound != null && subtreeLowerBound.compareTo(tighterLower)<0)
+            if(subtreeLowerBound != null && subtreeLowerBound.compareTo(tighterLower)>0)
                 System.err.println("Updating subtree lower bound "+setSigFigs(subtreeLowerBound)
                     + " with "+tighterLower+", which is lower!?");
             subtreeLowerBound = tighterLower;
         }
 
         public void updateSubtreeUpperBound(BigDecimal tighterUpper) {
-            if(subtreeUpperBound != null && subtreeUpperBound.compareTo(tighterUpper)>0)
+            double logOriginal = 0;
+            if(subtreeUpperBound != null)
+                logOriginal = ef.log10(subtreeUpperBound);
+            double logTighter = ef.log10(tighterUpper);
+            if(subtreeUpperBound != null && subtreeUpperBound.compareTo(tighterUpper)<0)
                 System.err.println("Updating subtree lower bound "+setSigFigs(subtreeUpperBound)
-                        + " with "+tighterUpper+", which is lower!?");
+                        + " with "+setSigFigs(tighterUpper)+", which is lower!?");
+            ExpFunction ef = new ExpFunction();
             subtreeUpperBound = tighterUpper;
         }
 
