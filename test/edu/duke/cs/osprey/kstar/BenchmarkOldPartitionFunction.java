@@ -58,7 +58,7 @@ public class BenchmarkOldPartitionFunction extends TestBase {
 		
 		// test parallel conf implementation
 		Pfunc pcpfunc = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.makeCpu(NumThreads));
-		pcpfunc.pfunc.init(targetEpsilon);
+		pcpfunc.pfunc.init(null, null, targetEpsilon);
 		pcpfunc.pfunc.setReportProgress(reportProgress);
 		
 		System.out.println("computing pfunc " + pcpfunc.getClass().getSimpleName() + " ...");
@@ -69,7 +69,7 @@ public class BenchmarkOldPartitionFunction extends TestBase {
 		
 		// test parallel conf implementation on gpu
 		Pfunc pcpfuncgpu = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.make(4, 1, 1));
-		pcpfuncgpu.pfunc.init(targetEpsilon);
+		pcpfuncgpu.pfunc.init(null, null, targetEpsilon);
 		pcpfuncgpu.pfunc.setReportProgress(reportProgress);
 		
 		System.out.println("computing pfunc " + pcpfuncgpu.getClass().getSimpleName() + " on GPU with 1 stream ...");
@@ -80,7 +80,7 @@ public class BenchmarkOldPartitionFunction extends TestBase {
 		
 		// test parallel conf implementation on gpu
 		Pfunc pcpfuncgpuMulti = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.make(4, 1, 16));
-		pcpfuncgpuMulti.pfunc.init(targetEpsilon);
+		pcpfuncgpuMulti.pfunc.init(null, null, targetEpsilon);
 		pcpfuncgpuMulti.pfunc.setReportProgress(reportProgress);
 		
 		System.out.println("computing pfunc " + pcpfuncgpuMulti.getClass().getSimpleName() + " on GPU with 16 streams ...");

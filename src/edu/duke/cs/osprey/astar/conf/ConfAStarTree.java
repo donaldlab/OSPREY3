@@ -18,14 +18,19 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
+import edu.duke.cs.osprey.lute.LUTEGScorer;
+import edu.duke.cs.osprey.lute.LUTEHScorer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.ObjectPool.Checkout;
 
@@ -35,15 +40,18 @@ public class ConfAStarTree implements ConfSearch {
 		
 		/** The energy matrix to use for pairwise residue conformation energies. */
 		private EnergyMatrix emat;
-		
+
+		/** the RCs over which to search */
 		private RCs rcs;
+
 		private AStarOrder order = null;
 		private AStarScorer gscorer = null;
 		private AStarScorer hscorer = null;
+		private MathTools.Optimizer optimizer = MathTools.Optimizer.Minimize;
 		private boolean showProgress = false;
 		private ConfAStarFactory factory = new LinkedConfAStarFactory();
 		private AStarPruner pruner = null;
-		
+
 		public Builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
 			this(emat, new RCs(confSpace));
 		}
@@ -76,9 +84,17 @@ public class ConfAStarTree implements ConfSearch {
 		 * Proteins Structure Function and Genetics, 33(2), pp.227-239.}
 		 */
 		public Builder setTraditional() {
-			this.order = new DynamicHMeanAStarOrder();
-			this.gscorer = new PairwiseGScorer(emat);
-			this.hscorer = new TraditionalPairwiseHScorer(emat, rcs);
+			return setTraditionalOpt(MathTools.Optimizer.Minimize);
+		}
+
+		/**
+		 * Just like setTraditional, but allow maximization or minimization
+		 */
+		public Builder setTraditionalOpt(MathTools.Optimizer optimizer) {
+			this.order = new DynamicHMeanAStarOrder(optimizer);
+			this.gscorer = new PairwiseGScorer(emat, optimizer);
+			this.hscorer = new TraditionalPairwiseHScorer(emat, rcs, optimizer);
+			this.optimizer = optimizer;
 			return this;
 		}
 		
@@ -95,6 +111,8 @@ public class ConfAStarTree implements ConfSearch {
 			setMPLP(new MPLPBuilder());
 			return this;
 		}
+
+		// TODO: modify MPLP A* scorers to allow maximization?
 		
 		public Builder setMPLP(MPLPBuilder builder) {
 			order = new StaticScoreHMeanAStarOrder();
@@ -105,6 +123,16 @@ public class ConfAStarTree implements ConfSearch {
 				builder.numIterations,
 				builder.convergenceThreshold
 			);
+			return this;
+		}
+
+		/**
+		 * Uses estimation functions that are compatible with LUTE conformation energies
+		 */
+		public Builder setLUTE(LUTEConfEnergyCalculator luteEcalc) {
+			order = new DynamicHMeanAStarOrder();
+			gscorer = new LUTEGScorer(luteEcalc);
+			hscorer = new LUTEHScorer(luteEcalc);
 			return this;
 		}
 		
@@ -136,6 +164,7 @@ public class ConfAStarTree implements ConfSearch {
 				order,
 				gscorer,
 				hscorer,
+				optimizer,
 				rcs,
 				factory,
 				pruner
@@ -220,6 +249,7 @@ public class ConfAStarTree implements ConfSearch {
 	public final AStarOrder order;
 	public final AStarScorer gscorer;
 	public final AStarScorer hscorer;
+	public final MathTools.Optimizer optimizer;
 	public final RCs rcs;
 	public final ConfAStarFactory factory;
 	public final AStarPruner pruner;
@@ -233,10 +263,11 @@ public class ConfAStarTree implements ConfSearch {
 	private TaskExecutor tasks;
 	private ObjectPool<ScoreContext> contexts;
 	
-	private ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, RCs rcs, ConfAStarFactory factory, AStarPruner pruner) {
+	private ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, MathTools.Optimizer optimizer, RCs rcs, ConfAStarFactory factory, AStarPruner pruner) {
 		this.order = order;
 		this.gscorer = gscorer;
 		this.hscorer = hscorer;
+		this.optimizer = optimizer;
 		this.rcs = rcs;
 		this.factory = factory;
 		this.pruner = pruner;
@@ -296,7 +327,7 @@ public class ConfAStarTree implements ConfSearch {
 		}
 		return new ScoredConf(
 			leafNode.makeConf(rcs.getNumPos()),
-			leafNode.getGScore()
+			leafNode.getGScore(optimizer)
 		);
 	}
 	
@@ -325,8 +356,8 @@ public class ConfAStarTree implements ConfSearch {
 			
 			// score and add the tail node of the chain we just created
 			node.index(confIndex);
-			node.setGScore(gscorer.calc(confIndex, rcs));
-			node.setHScore(hscorer.calc(confIndex, rcs));
+			node.setGScore(gscorer.calc(confIndex, rcs), optimizer);
+			node.setHScore(hscorer.calc(confIndex, rcs), optimizer);
 			queue.push(node);
 		}
 		
@@ -349,7 +380,7 @@ public class ConfAStarTree implements ConfSearch {
 			if (node.getLevel() == rcs.getNumPos()) {
 				
 				if (progress != null) {
-					progress.reportLeafNode(node.getGScore(), queue.size());
+					progress.reportLeafNode(node.getGScore(optimizer), queue.size());
 				}
 			
 				return node;
@@ -365,8 +396,9 @@ public class ConfAStarTree implements ConfSearch {
 			// score child nodes with tasks (possibly in parallel)
 			List<ConfAStarNode> children = new ArrayList<>();
 			for (int nextRc : rcs.get(nextPos)) {
-				
-				if (hasPrunedPair(confIndex, nextPos, nextRc)) {
+
+				// if this child was pruned by the pruning matrix, then skip it
+				if (isPruned(confIndex, nextPos, nextRc)) {
 					continue;
 				}
 
@@ -383,15 +415,15 @@ public class ConfAStarTree implements ConfSearch {
 						// score the child node differentially against the parent node
 						node.index(context.index);
 						ConfAStarNode child = node.assign(nextPos, nextRc);
-						child.setGScore(context.gscorer.calcDifferential(context.index, rcs, nextPos, nextRc));
-						child.setHScore(context.hscorer.calcDifferential(context.index, rcs, nextPos, nextRc));
+						child.setGScore(context.gscorer.calcDifferential(context.index, rcs, nextPos, nextRc), optimizer);
+						child.setHScore(context.hscorer.calcDifferential(context.index, rcs, nextPos, nextRc), optimizer);
 						return child;
 					}
 					
 				}, (ConfAStarNode child) -> {
 					
 					// collect the possible children
-					if (child.getScore() < Double.POSITIVE_INFINITY) {
+					if (Double.isFinite(child.getScore())) {
 						children.add(child);
 					}
 				});
@@ -401,15 +433,15 @@ public class ConfAStarTree implements ConfSearch {
 			queue.pushAll(children);
 			
             if (progress != null) {
-            	progress.reportInternalNode(node.getLevel(), node.getGScore(), node.getHScore(), queue.size(), numChildren);
+            	progress.reportInternalNode(node.getLevel(), node.getGScore(optimizer), node.getHScore(optimizer), queue.size(), numChildren);
             }
 		}
 	}
 	
-	public List<ConfAStarNode> nextLeafNodes(double maxEnergy) {
+	public List<ConfAStarNode> nextLeafNodes(double thresholdEnergy) {
 		
 		if (progress != null) {
-			progress.setGoalScore(maxEnergy);
+			progress.setGoalScore(thresholdEnergy);
 		}
 		
 		List<ConfAStarNode> nodes = new ArrayList<>();
@@ -421,8 +453,8 @@ public class ConfAStarTree implements ConfSearch {
 			}
 			
 			nodes.add(node);
-			
-			if (node.getGScore() >= maxEnergy) {
+
+			if (!optimizer.isBetter(node.getGScore(optimizer), thresholdEnergy)) {
 				break;
 			}
 		}
@@ -435,13 +467,13 @@ public class ConfAStarTree implements ConfSearch {
 		for (ConfAStarNode node : nextLeafNodes(maxEnergy)) {
 			confs.add(new ScoredConf(
 				node.makeConf(rcs.getNumPos()),
-				node.getGScore()
+				node.getGScore(optimizer)
 			));
 		}
 		return confs;
 	}
 	
-	private boolean hasPrunedPair(ConfIndex confIndex, int nextPos, int nextRc) {
+	private boolean isPruned(ConfIndex confIndex, int nextPos, int nextRc) {
 		
 		// do we even have pruned pairs?
 		PruningMatrix pmat = rcs.getPruneMat();
@@ -457,6 +489,32 @@ public class ConfAStarTree implements ConfSearch {
 				return true;
 			}
 		}
+
+		// check triples
+		if (pmat.hasHigherOrderTuples()) {
+
+			RCTuple tuple = new RCTuple(0, 0, 0, 0, 0, 0);
+
+			for (int i1=0; i1<confIndex.numDefined; i1++) {
+				int pos1 = confIndex.definedPos[i1];
+				int rc1 = confIndex.definedRCs[i1];
+				assert (pos1 != nextPos || rc1 != nextRc);
+
+				for (int i2=0; i2<i1; i2++) {
+					int pos2 = confIndex.definedPos[i2];
+					int rc2 = confIndex.definedRCs[i2];
+					assert (pos2 != nextPos || rc2 != nextRc);
+
+					tuple.set(pos1, rc1, pos2, rc2, nextPos, nextRc);
+					tuple.sortPositions();
+
+					if (pmat.getTuple(tuple)) {
+						return true;
+					}
+				}
+			}
+		}
+
 		return false;
 	}
 }

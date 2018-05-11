@@ -47,27 +47,40 @@ def confEcalcFactory(confSpace, ecalc):
 	eref = osprey.ReferenceEnergies(confSpace, ecalc)
 	return osprey.ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=eref)
 
-# how should confs be ordered and searched?
-def astarFactory(emat, rcs):
-	return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	# or
-	# return osprey.AStarMPLP(emat, rcs, numIterations=5)
-
-# run K*
+# configure BBK*
 bbkstar = osprey.BBKStar(
 	proteinConfSpace,
 	ligandConfSpace,
 	complexConfSpace,
-	rigidEcalc,
-	minimizingEcalc,
-	confEcalcFactory,
-	astarFactory,
 	numBestSequences=2,
 	epsilon=0.99, # you proabably want something more precise in your real designs
-	energyMatrixCachePattern='emat.*.dat',
 	writeSequencesToConsole=True,
 	writeSequencesToFile='bbkstar.results.tsv'
 )
+
+# configure BBK* inputs for each conf space
+for info in bbkstar.confSpaceInfos():
+
+	# how should we define energies of conformations?
+	eref = osprey.ReferenceEnergies(info.confSpace, minimizingEcalc)
+	info.confEcalcMinimized = osprey.ConfEnergyCalculator(info.confSpace, minimizingEcalc, referenceEnergies=eref)
+
+	# compute the energy matrix
+	emat = osprey.EnergyMatrix(info.confEcalcMinimized, cacheFile='emat.%s.dat' % info.id)
+
+	# how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
+	def makeAStar(rcs, emat=emat):
+		return osprey.AStarTraditional(emat, rcs, showProgress=False)
+	info.confSearchFactoryMinimized = osprey.KStar.ConfSearchFactory(makeAStar)
+
+	# BBK* needs rigid energies too
+	rigidConfEcalc = osprey.ConfEnergyCalculatorCopy(info.confEcalcMinimized, rigidEcalc)
+	rigidEmat = osprey.EnergyMatrix(rigidConfEcalc, cacheFile='emat.%s.rigid.dat' % info.id)
+	def makeRigidAStar(rcs, emat=rigidEmat):
+		return osprey.AStarTraditional(emat, rcs, showProgress=False)
+	info.confSearchFactoryRigid = osprey.KStar.ConfSearchFactory(makeRigidAStar)
+
+# run BBK*
 scoredSequences = bbkstar.run()
 
 # use results

@@ -1,12 +1,12 @@
 package edu.duke.cs.osprey.pruning;
 
+import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.TestBase;
-import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
@@ -20,6 +20,7 @@ import edu.duke.cs.osprey.tupexp.LUTESettings;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -206,5 +207,61 @@ public class TestSimpleDEE extends TestBase {
 			runner.setPairsGoldsteinDiffThreshold(100.0);
 		});
 		assertThat(pmat, is(readPmat(confSpace, "---------++++++++--+--+-----+--+-----+--+--------+--------+--------+----+++++++++++++++-+++++++++++++++-----+---+-------+++++++++++++++-+++++++++++++++-+++++++++++++++-+++++++++++++++-+++++++++++++++")));
+	}
+
+	@Test
+	public void prunedConfsOutsideInterval() {
+
+		// check that pruned confs are actually greater than the min-bound conf plus the interval
+		final double interval = 4.0;
+
+		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
+		for (String resNum : Arrays.asList("A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10")) { // keep small enough we can exhuastively enumerate conf space
+			strand.flexibility.get(resNum).setLibraryRotamers("ALA", "VAL", "LEU", "ILE");
+		}
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+			.addStrand(strand)
+			.build();
+
+		EnergyMatrix emat;
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(8))
+			.build()) {
+
+			emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+				.build()
+				.calcEnergyMatrix();
+		}
+
+		PruningMatrix pmat = new SimpleDEE.Runner()
+			.setThreshold(null)
+			.setSinglesGoldsteinDiffThreshold(interval)
+			//.setPairsGoldsteinDiffThreshold(interval)
+			//.setTriplesGoldsteinDiffThreshold(interval)
+			.setShowProgress(true)
+			.run(confSpace, emat);
+
+		ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+			.setTraditional()
+			.build();
+
+		ConfSearch.ScoredConf minScoreConf = astar.nextConf();
+
+		// TEMP
+		log("min score conf: %.4f", minScoreConf.getScore());
+
+		while (true) {
+			ConfSearch.ScoredConf conf = astar.nextConf();
+			if (conf == null) {
+				break;
+			}
+
+			if (pmat.isPruned(new RCTuple(conf.getAssignments()))) {
+				double diff = conf.getScore() - minScoreConf.getScore();
+				log("min score pruned conf: %.4f   (diff: %.4f)", conf.getScore(), diff);
+				assertThat(diff, greaterThan(interval));
+				break;
+			}
+		}
 	}
 }

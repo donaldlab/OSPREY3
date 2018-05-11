@@ -5,12 +5,8 @@ import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
-import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -28,14 +24,6 @@ import java.util.stream.Collectors;
  * In Journal of Computational Biology (vol 12. num. 6 pp. 740–761).}.
  */
 public class KStar {
-
-	public static interface ConfEnergyCalculatorFactory {
-		ConfEnergyCalculator make(SimpleConfSpace confSpace, EnergyCalculator ecalc);
-	}
-
-	public static interface ConfSearchFactory {
-		public ConfSearch make(EnergyMatrix emat, RCs rcs);
-	}
 
 	// *sigh* Java makes this stuff so verbose to do...
 	// Kotlin would make this so much easier
@@ -80,20 +68,6 @@ public class KStar {
 			 * partition function approximation
 			 */
 			private boolean showPfuncProgress = false;
-
-			/**
-			 * Pattern of the filename to cache energy matrices.
-			 *
-			 * K*-type algorithms must calculate multiple energy matrices.
-			 * By default, these energy matrices are not cached between runs.
-			 * To cache energy matrices between runs, supply a pattern such as:
-			 *
-			 * "theFolder/emat.*.dat"
-			 *
-			 * The * in the pattern is a wildcard character that will be replaced with
-			 * each type of energy matrix used by the K*-type algorithm.
-			 */
-			private String energyMatrixCachePattern = null;
 
 			/**
 			 * If a design experiences an unexpected abort, the conformation database can allow you to restore the
@@ -157,11 +131,6 @@ public class KStar {
 				return this;
 			}
 
-			public Builder setEnergyMatrixCachePattern(String val) {
-				energyMatrixCachePattern = val;
-				return this;
-			}
-
 			public Builder setConfDBPattern(String val) {
 				confDBPattern = val;
 				return this;
@@ -173,7 +142,7 @@ public class KStar {
 			}
 
 			public Settings build() {
-				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, energyMatrixCachePattern, confDBPattern, useExternalMemory);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, confDBPattern, useExternalMemory);
 			}
 		}
 
@@ -182,29 +151,18 @@ public class KStar {
 		public final int maxSimultaneousMutations;
 		public final KStarScoreWriter.Writers scoreWriters;
 		public final boolean showPfuncProgress;
-		public final String energyMatrixCachePattern;
 		public final String confDBPattern;
 		public final boolean useExternalMemory;
 
-		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern, String confDBPattern, boolean useExternalMemory) {
+
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String confDBPattern, boolean useExternalMemory) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
 			this.scoreWriters = scoreWriters;
 			this.showPfuncProgress = dumpPfuncConfs;
-			this.energyMatrixCachePattern = energyMatrixCachePattern;
 			this.confDBPattern = confDBPattern;
 			this.useExternalMemory = useExternalMemory;
-		}
-
-		public String applyEnergyMatrixCachePattern(String type) {
-
-			// the pattern has a * right?
-			if (energyMatrixCachePattern.indexOf('*') < 0) {
-				throw new IllegalArgumentException("energyMatrixCachePattern (which is '" + energyMatrixCachePattern + "') has no wildcard character (which is *)");
-			}
-
-			return energyMatrixCachePattern.replace("*", type);
 		}
 
 		public String applyConfDBPattern(String type) {
@@ -244,28 +202,47 @@ public class KStar {
 		Complex
 	}
 
+	public static class InitException extends RuntimeException {
+
+		public InitException(ConfSpaceType type, String name) {
+			super(String.format("set %s for the %s conf space info before running", name, type.name()));
+		}
+	}
+
+	public static interface ConfSearchFactory {
+		public ConfSearch make(RCs rcs);
+	}
+
 	public class ConfSpaceInfo {
 
-		public final ConfSpaceType type;
 		public final SimpleConfSpace confSpace;
-		public final ConfEnergyCalculator confEcalc;
+		public final ConfSpaceType type;
+		public final String id;
 
 		public final List<Sequence> sequences = new ArrayList<>();
-		public EnergyMatrix emat = null;
 		public final Map<Sequence,PartitionFunction.Result> pfuncResults = new HashMap<>();
 
-		public ConfSpaceInfo(ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc) {
-			this.type = type;
+		public ConfEnergyCalculator confEcalc = null;
+		public ConfSearchFactory confSearchFactory = null;
+
+		public ConfSpaceInfo(SimpleConfSpace confSpace, ConfSpaceType type) {
 			this.confSpace = confSpace;
-			this.confEcalc = confEcalc;
+			this.type = type;
+			this.id = type.name().toLowerCase();
 		}
 
-		public void calcEmat() {
-			SimplerEnergyMatrixCalculator.Builder builder = new SimplerEnergyMatrixCalculator.Builder(confEcalc);
-			if (settings.energyMatrixCachePattern != null) {
-				builder.setCacheFile(new File(settings.applyEnergyMatrixCachePattern(type.name().toLowerCase())));
+		private void check() {
+			if (confEcalc == null) {
+				throw new InitException(type, "confEcalc");
 			}
-			emat = builder.build().calcEnergyMatrix();
+			if (confSearchFactory == null) {
+				throw new InitException(type, "confSearchFactory");
+			}
+		}
+
+		public void clear() {
+			sequences.clear();
+			pfuncResults.clear();
 		}
 
 		public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, ConfDB confDB) {
@@ -281,16 +258,20 @@ public class KStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			RCs rcs = sequence.makeRCs();
-			ConfSearch astar = confSearchFactory.make(emat, rcs);
-			GradientDescentPfunc pfunc = new GradientDescentPfunc(astar, confEcalc, settings.useExternalMemory, rcs);
+			PartitionFunction pfunc = PartitionFunction.makeBestFor(confEcalc);
 			pfunc.setReportProgress(settings.showPfuncProgress);
 			if (confDB != null) {
-				pfunc.setConfTable(confDB.getSequence(sequence));
+				PartitionFunction.WithConfTable.setOrThrow(pfunc, confDB.getSequence(sequence));
 			}
+			RCs rcs = sequence.makeRCs();
+			if (settings.useExternalMemory) {
+				PartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
+			}
+			ConfSearch astar = confSearchFactory.make(rcs);
+			pfunc.init(astar, rcs.getNumConformations(), settings.epsilon);
+			pfunc.setStabilityThreshold(stabilityThreshold);
 
 			// compute it
-			pfunc.init(settings.epsilon, stabilityThreshold);
 			pfunc.compute();
 
 			// save the result
@@ -310,9 +291,16 @@ public class KStar {
 			return result;
 		}
 
+		public File getConfDBFile() {
+			if (settings.confDBPattern == null) {
+				return null;
+			} else {
+				return new File(settings.applyConfDBPattern(type.name().toLowerCase()));
+			}
+		}
+
 		public void useConfDBIfNeeded(ConfDB.User user) {
-			File file = settings.confDBPattern == null ? null : new File(settings.applyConfDBPattern(type.name().toLowerCase()));
-			ConfDB.useIfNeeded(confSpace, file, user);
+			ConfDB.useIfNeeded(confSpace, getConfDBFile(), user);
 		}
 	}
 
@@ -329,36 +317,45 @@ public class KStar {
 	/** A configuration space containing both the protein and ligand strands */
 	public final ConfSpaceInfo complex;
 
-	/** Calculates the energy for a molecule */
-	public final EnergyCalculator ecalc;
-
-	/** A function that makes a ConfEnergyCalculator with the desired options */
-	public final ConfEnergyCalculatorFactory confEcalcFactory;
-
-	/** A function that makes a ConfSearchFactory (e.g, A* search) with the desired options */
-	public final ConfSearchFactory confSearchFactory;
-
 	/** Optional and overridable settings for K* */
 	public final Settings settings;
 
-	public KStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator ecalc, ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, Settings settings) {
-		this.protein = new ConfSpaceInfo(ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, ecalc));
-		this.ligand = new ConfSpaceInfo(ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, ecalc));
-		this.complex = new ConfSpaceInfo(ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, ecalc));
-		this.ecalc = ecalc;
-		this.confEcalcFactory = confEcalcFactory;
-		this.confSearchFactory = confSearchFactory;
+	public KStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, Settings settings) {
 		this.settings = settings;
+		this.protein = new ConfSpaceInfo(protein, ConfSpaceType.Protein);
+		this.ligand = new ConfSpaceInfo(ligand, ConfSpaceType.Ligand);
+		this.complex = new ConfSpaceInfo(complex, ConfSpaceType.Complex);
+	}
+
+	public Iterable<ConfSpaceInfo> confSpaceInfos() {
+		return Arrays.asList(protein, ligand, complex);
+	}
+
+	public ConfSpaceInfo getConfSpaceInfo(SimpleConfSpace confSpace) {
+		if (confSpace == protein.confSpace) {
+			return protein;
+		} else if (confSpace == ligand.confSpace) {
+			return ligand;
+		} else if (confSpace == complex.confSpace) {
+			return complex;
+		} else {
+			throw new IllegalArgumentException("conf space does not match any known by this K* instance");
+		}
 	}
 
 	public List<ScoredSequence> run() {
 
-		List<ScoredSequence> scores = new ArrayList<>();
+		// check the conf space infos to make sure we have all the inputs
+		protein.check();
+		ligand.check();
+		complex.check();
 
-		// compute energy matrices
-		protein.calcEmat();
-		ligand.calcEmat();
-		complex.calcEmat();
+		// reset any previous state
+		protein.clear();
+		ligand.clear();
+		complex.clear();
+
+		List<ScoredSequence> scores = new ArrayList<>();
 
 		// collect the wild type sequences
 		protein.sequences.add(protein.confSpace.makeWildTypeSequence());

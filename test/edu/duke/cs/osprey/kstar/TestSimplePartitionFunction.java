@@ -38,7 +38,7 @@ public class TestSimplePartitionFunction {
 	}
 
 	private static interface PfuncFactory {
-		PartitionFunction make(ConfSearch astar, ConfEnergyCalculator confEcalc);
+		PartitionFunction make(ConfEnergyCalculator confEcalc);
 	}
 
 	public static EnergyMatrix calcEmat(ForcefieldParams ffparams, SimpleConfSpace confSpace, Parallelism parallelism) {
@@ -84,11 +84,11 @@ public class TestSimplePartitionFunction {
 					.build();
 
 				// make the partition function
-				PartitionFunction pfunc = pfuncs.make(astar, confEcalc);
+				PartitionFunction pfunc = pfuncs.make(confEcalc);
 				pfunc.setReportProgress(true);
 
 				// compute pfunc for protein
-				pfunc.init(targetEpsilon);
+				pfunc.init(astar, astar.getNumConformations(), targetEpsilon);
 				pfuncComputer.accept(pfunc);
 				pfuncRef.set(pfunc);
 			});
@@ -96,8 +96,8 @@ public class TestSimplePartitionFunction {
 		return pfuncRef.get();
 	}
 
-	private static PfuncFactory simplePfuncs = (emat, confEcalc) -> new SimplePartitionFunction(emat, confEcalc);
-	private static PfuncFactory gdPfuncs = (emat, confEcalc) -> new GradientDescentPfunc(emat, confEcalc);
+	private static PfuncFactory simplePfuncs = (confEcalc) -> new SimplePartitionFunction(confEcalc);
+	private static PfuncFactory gdPfuncs = (confEcalc) -> new GradientDescentPfunc(confEcalc);
 
 	public static void testStrand(ForcefieldParams ffparams, SimpleConfSpace confSpace, Parallelism parallelism, double targetEpsilon, String approxQStar, EnergyMatrix emat, PfuncFactory pfuncs) {
 
@@ -399,11 +399,11 @@ public class TestSimplePartitionFunction {
 					.build();
 
 				// make the partition function
-				PartitionFunction pfunc = new GradientDescentPfunc(astar, confEcalc, true, rcs);
+				PartitionFunction pfunc = new GradientDescentPfunc(confEcalc);
 				pfunc.setReportProgress(true);
 
 				// compute pfunc for protein
-				pfunc.init(targetEpsilon);
+				pfunc.init(astar, rcs.getNumConformations(), targetEpsilon);
 				pfunc.compute();
 
 				assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);

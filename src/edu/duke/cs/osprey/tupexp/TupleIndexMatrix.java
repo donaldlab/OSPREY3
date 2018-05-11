@@ -27,7 +27,7 @@ public class TupleIndexMatrix extends TupleMatrixGeneric<Integer> {
     }
     
     
-    ArrayList<Integer> calcSampleTuples(int[] sample){
+    public ArrayList<Integer> calcSampleTuples(int[] sample){
         //Convert list of samples (RC indices at each position) to list of its tuples in this matrix
         ArrayList<Integer> ans = new ArrayList<>();
         int numPos = sample.length;

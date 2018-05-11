@@ -39,31 +39,33 @@ complexConfSpace = osprey.ConfSpace([protein, ligand])
 parallelism = osprey.Parallelism(cpuCores=4)
 ecalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallelism)
 
-# how should we define energies of conformations?
-def confEcalcFactory(confSpace, ecalc):
-	eref = osprey.ReferenceEnergies(confSpace, ecalc)
-	return osprey.ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=eref)
-
-# how should confs be ordered and searched?
-def astarFactory(emat, rcs):
-	return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	# or
-	# return osprey.AStarMPLP(emat, rcs, numIterations=5)
-
-# run K* using a confDB
+# configure K* using a confDB
 kstar = osprey.KStar(
 	proteinConfSpace,
 	ligandConfSpace,
 	complexConfSpace,
-	ecalc,
-	confEcalcFactory,
-	astarFactory,
-	epsilon=0.5, # let's use a smaller epsilon so the design takes a noticeable amount of time
-	energyMatrixCachePattern='emat.*.dat',
-	confDBPattern='conf.*.db', # actually several confDBs will be written, so give a name pattern
+	epsilon=0.5, # you proabably want something more precise in your real designs
 	writeSequencesToConsole=True,
-	writeSequencesToFile='kstar.results.tsv'
+	writeSequencesToFile='kstar.results.tsv',
+	confDBPattern='kstar.*.db', # actually several confDBs will be written, so give a name pattern
 )
+
+# configure K* inputs for each conf space
+for info in kstar.confSpaceInfos():
+
+	# how should we define energies of conformations?
+	eref = osprey.ReferenceEnergies(info.confSpace, ecalc)
+	info.confEcalc = osprey.ConfEnergyCalculator(info.confSpace, ecalc, referenceEnergies=eref)
+
+	# compute the energy matrix
+	emat = osprey.EnergyMatrix(info.confEcalc, cacheFile='emat.%s.dat' % info.id)
+
+	# how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
+	def makeAStar(rcs, emat=emat):
+		return osprey.AStarTraditional(emat, rcs, showProgress=False)
+	info.confSearchFactory = osprey.KStar.ConfSearchFactory(makeAStar)
+
+# run K*
 scoredSequences = kstar.run()
 
 # use results
@@ -77,16 +79,5 @@ for scoredSequence in scoredSequences:
 # running K* again using an existing confDB should be MUCH faster!
 # meaning, your design should catch up to where it left off very quickly.
 print('\nRunning K* again...\n')
-osprey.KStar(
-	proteinConfSpace,
-	ligandConfSpace,
-	complexConfSpace,
-	ecalc,
-	confEcalcFactory,
-	astarFactory,
-	epsilon=0.5,
-	energyMatrixCachePattern='emat.*.dat',
-	confDBPattern='conf.*.db',
-	writeSequencesToConsole=True
-).run()
+kstar.run()
 print('\nSecond K* run finished!\n')

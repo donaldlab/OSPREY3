@@ -3,18 +3,25 @@ package edu.duke.cs.osprey.astar.conf.scoring;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.tools.MathTools;
 
 public class PairwiseGScorer implements AStarScorer {
 	
-	private EnergyMatrix emat;
-	
+	public final EnergyMatrix emat;
+	public final MathTools.Optimizer optimizer;
+
 	public PairwiseGScorer(EnergyMatrix emat) {
+		this(emat, MathTools.Optimizer.Minimize);
+	}
+
+	public PairwiseGScorer(EnergyMatrix emat, MathTools.Optimizer optimizer) {
 		this.emat = emat;
+		this.optimizer = optimizer;
 	}
 	
 	@Override
 	public PairwiseGScorer make() {
-		return new PairwiseGScorer(emat);
+		return new PairwiseGScorer(emat, optimizer);
 	}
 
 	@Override
@@ -47,33 +54,11 @@ public class PairwiseGScorer implements AStarScorer {
 		return gscore;
 	}
 
-	public double calc(int[] assignments) {
-
-		// constant term
-		double gscore = emat.getConstTerm();
-
-		for (int pos1=0; pos1<assignments.length; pos1++) {
-			int rc1 = assignments[pos1];
-
-			// one body energy
-			gscore += emat.getOneBody(pos1, rc1);
-
-			// pairwise energies
-			for (int pos2=0; pos2<pos1; pos2++) {
-				int rc2 = assignments[pos2];
-
-				gscore += emat.getPairwise(pos1, rc1, pos2, rc2);
-			}
-		}
-
-		return gscore;
-	}
-
 	@Override
 	public double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc) {
 		
     	// modify the parent node's g-score
-    	double gscore = confIndex.node.getGScore();
+    	double gscore = confIndex.node.getGScore(optimizer);
     	
     	// add the new one-body energy
     	gscore += emat.getOneBody(nextPos, nextRc);

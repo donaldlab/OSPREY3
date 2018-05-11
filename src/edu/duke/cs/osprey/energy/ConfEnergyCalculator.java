@@ -2,14 +2,12 @@ package edu.duke.cs.osprey.energy;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-import edu.duke.cs.osprey.confspace.ConfDB;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
-import edu.duke.cs.osprey.confspace.ParametricMolecule;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
@@ -70,18 +68,61 @@ public class ConfEnergyCalculator {
 	public final SimpleReferenceEnergies eref;
 	public final boolean addResEntropy;
 	public final TaskExecutor tasks;
-	
-	private ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy) {
+
+	protected final AtomicLong numCalculations = new AtomicLong(0L);
+	protected final AtomicLong numConfDBReads = new AtomicLong(0L);
+
+	protected ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy) {
+		this(confSpace, ecalc, ecalc.tasks, epart, eref, addResEntropy);
+	}
+
+	protected ConfEnergyCalculator(SimpleConfSpace confSpace, TaskExecutor tasks) {
+		this(confSpace, null, tasks, null, null, false);
+	}
+
+	protected ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, TaskExecutor tasks, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy) {
 		this.confSpace = confSpace;
 		this.ecalc = ecalc;
 		this.epart = epart;
 		this.eref = eref;
 		this.addResEntropy = addResEntropy;
-		this.tasks = ecalc.tasks;
+		this.tasks = tasks;
 	}
 
 	protected ConfEnergyCalculator(ConfEnergyCalculator other) {
-		this(other.confSpace, other.ecalc, other.epart, other.eref, other.addResEntropy);
+		this(other, other.ecalc);
+	}
+
+	public ConfEnergyCalculator(ConfEnergyCalculator other, EnergyCalculator ecalc) {
+		this(other.confSpace, ecalc, other.epart, other.eref, other.addResEntropy);
+	}
+
+	/**
+	 * returns the number of requested energy calculations,
+	 * including ones cached in a conf DB
+	 */
+	public long getNumRequests() {
+		return numCalculations.get() + numConfDBReads.get();
+	}
+
+	/**
+	 * returns the number of energy calculations performed,
+	 * excluding values cached in a conf DB
+	 */
+	public long getNumCalculations() {
+		return numCalculations.get();
+	}
+
+	/**
+	 * returns the number of energies served from a conf DB
+	 */
+	public long getNumConfDBReads() {
+		return numConfDBReads.get();
+	}
+
+	public void resetCounters() {
+		numCalculations.set(0);
+		numConfDBReads.set(0);
 	}
 	
 	public ResidueInteractions makeFragInters(RCTuple frag) {
@@ -130,6 +171,7 @@ public class ConfEnergyCalculator {
 	 * @return The energy of the resulting molecule fragment and its pose
 	 */
 	public EnergyCalculator.EnergiedParametricMolecule calcEnergy(RCTuple frag, ResidueInteractions inters) {
+		numCalculations.incrementAndGet();
 		ParametricMolecule bpmol = confSpace.makeMolecule(frag);
 		return ecalc.calcEnergy(bpmol, inters);
 	}
@@ -143,7 +185,7 @@ public class ConfEnergyCalculator {
 	 *                 Called on a listener thread which is separate from the calling thread.
 	 */
 	public void calcEnergyAsync(RCTuple frag, ResidueInteractions inters, TaskListener<EnergyCalculator.EnergiedParametricMolecule> listener) {
-		ecalc.tasks.submit(() -> calcEnergy(frag, inters), listener);
+		tasks.submit(() -> calcEnergy(frag, inters), listener);
 	}
 
 	/**
@@ -154,7 +196,78 @@ public class ConfEnergyCalculator {
 	 *                 Called on a listener thread which is separate from the calling thread.
 	 */
 	public void calcEnergyAsync(RCTuple frag, TaskListener<EnergyCalculator.EnergiedParametricMolecule> listener) {
-		ecalc.tasks.submit(() -> calcEnergy(frag), listener);
+		tasks.submit(() -> calcEnergy(frag), listener);
+	}
+
+	/**
+	 * Version of {@link #calcEnergy(RCTuple)}
+	 * using the specified ConfDB table as a cache.
+	 *
+	 * @param frag The assignments of the conformation space
+	 * @param table the confDB table
+	 * @return The energy of the resulting molecule fragment
+	 */
+	public double calcEnergy(RCTuple frag, ConfDB.ConfTable table) {
+		return calcEnergy(frag, makeFragInters(frag), table);
+	}
+
+	/**
+	 * Version of {@link #calcEnergy(RCTuple,ResidueInteractions)}
+	 * using the specified ConfDB table as a cache.
+	 *
+	 * @param frag The assignments of the conformation space
+	 * @param inters The residue interactions
+	 * @param table the confDB table
+	 * @return The energy of the resulting molecule fragment
+	 */
+	public double calcEnergy(RCTuple frag, ResidueInteractions inters, ConfDB.ConfTable table) {
+
+		// no confDB? just compute the energy
+		if (table == null) {
+			return calcEnergy(frag, inters).energy;
+		}
+
+		// check the confDB for the energy
+		int[] conf = Conf.make(confSpace, frag);
+		ConfDB.Conf dbconf = table.get(conf);
+		if (dbconf != null && dbconf.upper != null) {
+			numConfDBReads.incrementAndGet();
+			return dbconf.upper.energy;
+		}
+
+		// cache miss, compute the energy
+		double energy = calcEnergy(frag, inters).energy;
+
+		// update the ConfDB
+		table.setUpperBound(conf, energy, TimeTools.getTimestampNs());
+		table.flush();
+
+		return energy;
+	}
+
+	/**
+	 * Asynchronous version of {@link #calcEnergy(RCTuple,ConfDB.ConfTable)}.
+	 *
+	 * @param frag The assignments of the conformation space
+	 * @param table the confDB table
+	 * @param listener Callback function that will receive the energy.
+	 *                 Called on a listener thread which is separate from the calling thread.
+	 */
+	public void calcEnergyAsync(RCTuple frag, ConfDB.ConfTable table, TaskListener<Double> listener) {
+		tasks.submit(() -> calcEnergy(frag, table), listener);
+	}
+
+	/**
+	 * Asynchronous version of {@link #calcEnergy(RCTuple,ResidueInteractions,ConfDB.ConfTable)}.
+	 *
+	 * @param frag The assignments of the conformation space
+	 * @param inters The residue interactions
+	 * @param table the confDB table
+	 * @param listener Callback function that will receive the energy.
+	 *                 Called on a listener thread which is separate from the calling thread.
+	 */
+	public void calcEnergyAsync(RCTuple frag, ResidueInteractions inters, ConfDB.ConfTable table, TaskListener<Double> listener) {
+		tasks.submit(() -> calcEnergy(frag, inters, table), listener);
 	}
 
 	/**
@@ -186,7 +299,7 @@ public class ConfEnergyCalculator {
 	 * @param listener Callback function that will receive the energy. Called on a listener thread which is separate from the calling thread.
 	 */
 	public void calcEnergyAsync(ScoredConf conf, TaskListener<EnergiedConf> listener) {
-		ecalc.tasks.submit(() -> calcEnergy(conf), listener);
+		tasks.submit(() -> calcEnergy(conf), listener);
 	}
 
 	/**
@@ -233,7 +346,7 @@ public class ConfEnergyCalculator {
 	 * @param listener Callback function that will receive the energy. Called on a listener thread which is separate from the calling thread.
 	 */
 	public void calcEnergyAsync(ScoredConf conf, ResidueInteractions inters, TaskListener<EnergiedConf> listener) {
-		ecalc.tasks.submit(() -> calcEnergy(conf), listener);
+		tasks.submit(() -> calcEnergy(conf), listener);
 	}
 
 	/**
@@ -260,6 +373,7 @@ public class ConfEnergyCalculator {
 		// check the confDB for the energy
 		EnergiedConf econf = table.getEnergied(conf);
 		if (econf != null) {
+			numConfDBReads.incrementAndGet();
 			return econf;
 		}
 
@@ -282,6 +396,10 @@ public class ConfEnergyCalculator {
 
 	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs) {
 		return calcAllEnergies(confs, false);
+	}
+
+	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs, ConfDB.ConfTable table) {
+		return calcAllEnergies(confs, false, table);
 	}
 	
 	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs, boolean reportProgress) {
@@ -310,7 +428,7 @@ public class ConfEnergyCalculator {
 			// capture i for the closure below
 			final int fi = i;
 			
-			calcEnergyAsync(confs.get(i), (econf) -> {
+			calcEnergyAsync(confs.get(i), table, (econf) -> {
 				
 				// save the minimized energy
 				econfs.set(fi, econf);
@@ -321,7 +439,7 @@ public class ConfEnergyCalculator {
 				}
 			});
 		}
-		ecalc.tasks.waitForFinish();
+		tasks.waitForFinish();
 		
 		return econfs;
 	}

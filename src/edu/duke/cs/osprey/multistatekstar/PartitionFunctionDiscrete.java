@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.multistatekstar;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.gmec.ConfSearchFactory;
@@ -27,8 +28,8 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 	}
 
 	@Override
-	public void init(double targetEpsilon) {
-		super.init(targetEpsilon);
+	public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
+		super.init(confSearch, numConfsBeforePruning, targetEpsilon);
 		energyConfs = null;
 	}
 

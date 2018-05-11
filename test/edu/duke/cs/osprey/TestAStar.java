@@ -1,8 +1,17 @@
 package edu.duke.cs.osprey;
 
+import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
+import com.google.common.collect.Lists;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.MathTools;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -20,6 +29,9 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
+
+import java.util.Arrays;
+import java.util.List;
 
 public class TestAStar extends TestBase {
 	
@@ -494,5 +506,62 @@ public class TestAStar extends TestBase {
 			
 			checkDagkContinuous(tree, search);
 		});
+	}
+
+	@Test
+	public void optimization() {
+
+		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
+		for (String resNum : Arrays.asList("A5", "A6", "A7")) {
+			strand.flexibility.get(resNum)
+				.setLibraryRotamers("ALA")
+				.addWildTypeRotamers();
+		}
+
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+			.addStrand(strand)
+			.build();
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams()).build()) {
+
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+				.build()
+				.calcEnergyMatrix();
+
+			// get all the confs in ascending order
+			List<ConfSearch.ScoredConf> ascendingConfs = new ConfAStarTree.Builder(emat, confSpace)
+				.setTraditionalOpt(MathTools.Optimizer.Minimize)
+				.build()
+				.nextConfs(Double.POSITIVE_INFINITY);
+
+			// TEMP
+			for (int i=0; i<ascendingConfs.size(); i++) {
+				log("min %s", ascendingConfs.get(i));
+			}
+
+			// check the order
+			for (int i=1; i<ascendingConfs.size(); i++) {
+				assertThat(ascendingConfs.get(i-1).getScore(), lessThanOrEqualTo(ascendingConfs.get(i).getScore()));
+			}
+
+			// try maximization instead of minimization
+			List<ConfSearch.ScoredConf> descendingConfs = new ConfAStarTree.Builder(emat, confSpace)
+				.setTraditionalOpt(MathTools.Optimizer.Maximize)
+				.build()
+				.nextConfs(Double.NEGATIVE_INFINITY);
+
+			// TEMP
+			for (int i=0; i<descendingConfs.size(); i++) {
+				log("max %s", descendingConfs.get(i));
+			}
+
+			// check the order
+			for (int i=1; i<descendingConfs.size(); i++) {
+				assertThat(descendingConfs.get(i-1).getScore(), greaterThanOrEqualTo(descendingConfs.get(i).getScore()));
+			}
+
+			// they should match if we reverse the ascending confs
+			assertThat(descendingConfs, is(Lists.reverse(ascendingConfs)));
+		}
 	}
 }

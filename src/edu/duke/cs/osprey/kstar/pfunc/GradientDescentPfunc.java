@@ -31,7 +31,7 @@ import java.util.List;
  * not orders of magnitude slower than operation 1 (when e.g. we're reading
  * energies out of a cache).
  */
-public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
+public class GradientDescentPfunc implements PartitionFunction.WithConfTable, PartitionFunction.WithExternalMemory {
 
 	private static class State {
 
@@ -64,7 +64,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 
 		double calcDelta() {
 			BigDecimal upperBound = getUpperBound();
-			if (MathTools.isZero(upperBound)) {
+			if (MathTools.isZero(upperBound) || MathTools.isInf(upperBound)) {
 				return 1.0;
 			}
 			return new BigMath(PartitionFunction.decimalPrecision)
@@ -125,13 +125,10 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 	}
 
 
-	public final ConfSearch confSearch;
     public final ConfEnergyCalculator ecalc;
-    public final boolean useExternalMemory;
-    public final RCs rcs;
 
 	private double targetEpsilon = Double.NaN;
-	private BigDecimal stabilityThreshold = null;
+	private BigDecimal stabilityThreshold = BigDecimal.ZERO;
 	private ConfListener confListener = null;
 	private boolean isReportingProgress = false;
 	private Stopwatch stopwatch = new Stopwatch().start();
@@ -150,18 +147,14 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 
 	private ConfDB.ConfTable confTable = null;
 
+	private boolean useExternalMemory = false;
+	private RCs rcs = null;
+
 	private PfuncSurface surf = null;
 	private PfuncSurface.Trace trace = null;
 
-	public GradientDescentPfunc(ConfSearch confSearch, ConfEnergyCalculator ecalc) {
-		this(confSearch, ecalc, false, null);
-	}
-
-	public GradientDescentPfunc(ConfSearch confSearch, ConfEnergyCalculator ecalc, boolean useExternalMemory, RCs rcs) {
-		this.confSearch = confSearch;
+	public GradientDescentPfunc(ConfEnergyCalculator ecalc) {
 		this.ecalc = ecalc;
-		this.useExternalMemory = useExternalMemory;
-		this.rcs = rcs;
 	}
 	
 	@Override
@@ -200,34 +193,30 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 		confTable = val;
 	}
 
+	@Override
+	public void setUseExternalMemory(boolean val, RCs rcs) {
+		this.useExternalMemory = val;
+		this.rcs = rcs;
+	}
+
 	public void traceTo(PfuncSurface val) {
 		surf = val;
 	}
 
 	@Override
-	public void init(double targetEpsilon) {
-		init(targetEpsilon, BigDecimal.ZERO);
-	}
-
-	@Override
-	public void init(double targetEpsilon, BigDecimal stabilityThreshold) {
+	public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
 
 		if (targetEpsilon <= 0.0) {
 			throw new IllegalArgumentException("target epsilon must be greater than zero");
 		}
 
 		this.targetEpsilon = targetEpsilon;
-		this.stabilityThreshold = stabilityThreshold;
 
 		// init state
 		status = Status.Estimating;
-		state = new State(confSearch.getNumConformations());
+		state = new State(numConfsBeforePruning);
 		values = Values.makeFullRange();
-		// NOTE: don't use DEE with this pfunc calculator
-		// DEE actually makes the problem harder to solve, not easier
-		// because then we have to deal with p*
-		// if we just don't prune with DEE, the usual q' calculator will handle those confs that would have been pruned
-		// not using DEE won't really slow us down either, since our A* is fast enough without it
+		// don't explicitly check the pruned confs, just lump them together with the un-enumerated confs
 		values.pstar = BigDecimal.ZERO;
 
 		hasEnergyConfs = true;
@@ -239,6 +228,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch, useExternalMemory, rcs);
 		scoreConfs = confsSplitter.first;
 		energyConfs = confsSplitter.second;
+	}
+
+	@Override
+	public void setStabilityThreshold(BigDecimal val) {
+		this.stabilityThreshold = val;
 	}
 
 	@Override
@@ -271,6 +265,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 					&& state.hasLowEnergies();
 				if (!keepStepping) {
 					break;
+				}
+
+				// just in case...
+				if (Double.isNaN(state.dEnergy) || Double.isNaN(state.dScore)) {
+					throw new Error("Can't determine gradient of delta surface. This is a bug.");
 				}
 
 				boolean scoreAheadOfEnergy = numEnergyConfsEnumerated < numScoreConfsEnumerated;
@@ -446,7 +445,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 				System.out.println(String.format("conf:%4d, score:%12.6f, energy:%12.6f, bounds:[%12e,%12e], delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
 					state.numEnergiedConfs,
 					econf.getScore(), econf.getEnergy(),
-					state.getLowerBound(), state.getUpperBound(),
+					state.getLowerBound().doubleValue(), state.getUpperBound().doubleValue(),
 					state.calcDelta(),
 					stopwatch.getTime(2),
 					JvmMem.getOldPool(),

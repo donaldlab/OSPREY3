@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.tools.AutoCleanable;
 import edu.duke.cs.osprey.tools.IntEncoding;
 import edu.duke.cs.osprey.tools.Streams;
 
@@ -14,7 +15,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 
-public class ConfDB {
+public class ConfDB implements AutoCleanable {
 
 	public static interface UserWithReturn<T> {
 
@@ -690,6 +691,10 @@ public class ConfDB {
 	private final Map<Sequence,SequenceDB> sequenceDBs;
 	private final IntEncoding assignmentEncoding;
 
+	public ConfDB(SimpleConfSpace confSpace) {
+		this(confSpace, null);
+	}
+
 	public ConfDB(SimpleConfSpace confSpace, File file) {
 
 		this.confSpace = confSpace;
@@ -769,11 +774,16 @@ public class ConfDB {
 		};
 
 		// open the DB
-		db = DBMaker.fileDB(file)
-			.transactionEnable() // turn on wite-ahead log, so the db survives JVM crashes
-			.fileMmapEnableIfSupported() // use memory-mapped files if possible (can be much faster)
-			.closeOnJvmShutdown()
-			.make();
+		if (file != null) {
+			db = DBMaker.fileDB(file)
+				.transactionEnable() // turn on wite-ahead log, so the db survives JVM crashes
+				.fileMmapEnableIfSupported() // use memory-mapped files if possible (can be much faster)
+				.closeOnJvmShutdown()
+				.make();
+		} else {
+			db = DBMaker.memoryDB()
+				.make();
+		}
 		sequences = db.hashMap("sequences")
 			.keySerializer(sequenceSerializer)
 			.valueSerializer(infoSerializer)
@@ -841,6 +851,11 @@ public class ConfDB {
 		}
 		sequenceDBs.clear();
 		db.close();
+	}
+
+	@Override
+	public void clean() {
+		close();
 	}
 
 	public <T> T use(UserWithReturn<T> user) {

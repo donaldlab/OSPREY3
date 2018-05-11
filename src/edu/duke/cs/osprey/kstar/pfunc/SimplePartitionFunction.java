@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 
 
 /**
@@ -32,7 +33,6 @@ import java.math.BigDecimal;
  */
 public class SimplePartitionFunction implements PartitionFunction {
 
-	public final ConfSearch confSearch;
     public final ConfEnergyCalculator ecalc;
 
     /**
@@ -48,7 +48,7 @@ public class SimplePartitionFunction implements PartitionFunction {
     public int scoreConfsBatchSize = 1000;
 
 	private double targetEpsilon = Double.NaN;
-	private BigDecimal upperBoundThreshold = null;
+	private BigDecimal stabilityThreshold = BigDecimal.ZERO;
 	private Status status = null;
 	private Values values = null;
 	private LowerBoundCalculator lowerBound;
@@ -59,8 +59,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 	private ConfDB confDB = null;
 
 
-	public SimplePartitionFunction(ConfSearch confSearch, ConfEnergyCalculator ecalc) {
-		this.confSearch = confSearch;
+	public SimplePartitionFunction(ConfEnergyCalculator ecalc) {
 		this.ecalc = ecalc;
 	}
 	
@@ -95,31 +94,26 @@ public class SimplePartitionFunction implements PartitionFunction {
 	}
 
 	@Override
-	public void init(double targetEpsilon) {
-		init(targetEpsilon, BigDecimal.ZERO);
-	}
-
-	@Override
-	public void init(double targetEpsilon, BigDecimal stabilityThreshold) {
+	public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
 
 		this.targetEpsilon = targetEpsilon;
-		this.upperBoundThreshold = stabilityThreshold;
-		
+
 		status = Status.Estimating;
 		values = Values.makeFullRange();
 
-		// NOTE: don't use DEE with this pfunc calculator
-		// DEE actually makes the problem harder to solve, not easier
-		// because then we have to deal with p*
-		// if we just don't prune with DEE, the usual q' calculator will handle those confs that would have been pruned
-		// not using DEE won't really slow us down either, since our A* is fast enough without it
+		// don't explicitly check the pruned confs, just lump them together with the un-enumerated confs
 		values.pstar = BigDecimal.ZERO;
 
 		// split the confs between the bound calculators
 		ConfSearch.MultiSplitter confsSplitter = new ConfSearch.MultiSplitter(confSearch);
 		lowerBound = new LowerBoundCalculator(confsSplitter.makeStream(), ecalc);
 		lowerBound.confDB = confDB;
-		upperBound = new UpperBoundCalculator(confsSplitter.makeStream());
+		upperBound = new UpperBoundCalculator(confsSplitter.makeStream(), numConfsBeforePruning);
+	}
+
+	@Override
+	public void setStabilityThreshold(BigDecimal val) {
+		this.stabilityThreshold = val;
 	}
 
 	@Override
@@ -145,7 +139,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 			synchronized (this) {
 
 				// did we drop below the stability threshold?
-				if (lowerBound.numConfsEnergied > 0 && upperBoundThreshold != null && MathTools.isLessThan(values.calcUpperBound(), upperBoundThreshold)) {
+				if (lowerBound.numConfsEnergied > 0 && stabilityThreshold != null && MathTools.isLessThan(values.calcUpperBound(), stabilityThreshold)) {
 					status = Status.Unstable;
 					break;
 				}
@@ -231,7 +225,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 						"The lower bound calculator apparently scored more conformations (%d) than is possible"
 						+ " for the upper bound calculator (%s). This is definitely a bug",
 						lowerBound.numConfsScored,
-						confSearch.getNumConformations().toString()
+						upperBound.tree.getNumConformations().toString()
 					));
 				}
 			}
@@ -251,7 +245,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 		// sometimes extra energies can arrive asynchronously
 		// and push us into unstable territory,
 		// so check for that after waiting on the ecalc to finish
-		if (status != Status.Unstable && upperBoundThreshold != null && MathTools.isLessThan(values.calcUpperBound(), upperBoundThreshold)) {
+		if (status != Status.Unstable && stabilityThreshold != null && MathTools.isLessThan(values.calcUpperBound(), stabilityThreshold)) {
 			status = Status.Unstable;
 		}
 	}

@@ -89,7 +89,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	}
 
 	@Override
-	public void init(double targetEpsilon) {
+	public void init(ConfSearch confSearchIgnored, BigInteger numConfsBeforePruningIgnored, double targetEpsilon) {
 		
 		this.targetEpsilon = targetEpsilon;
 		

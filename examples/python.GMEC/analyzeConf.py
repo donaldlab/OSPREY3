@@ -31,7 +31,7 @@ confDBFile = 'conf.db'
 gmec = osprey.GMECFinder(astar, confEcalc, confDBFile=confDBFile).find()
 
 # get the conformation analyzer
-analyzer = osprey.ConfAnalyzer(confEcalc, emat)
+analyzer = osprey.ConfAnalyzer(confEcalc)
 
 # analyze the gmec
 analysis = analyzer.analyze(gmec)
@@ -57,10 +57,10 @@ print(analysis.breakdownEnergyByPosition(osprey.BreakdownType.Offsets))
 
 # breakdown the A* score by position
 print('Score breakdown:')
-print(analysis.breakdownScoreByPosition())
+print(analysis.breakdownScoreByPosition(emat))
 
 # analyze an arbitrary conformation from this design
-analysis = analyzer.analyze([0, 0, 0])
+analysis = analyzer.analyze([0, 0, 0], emat)
 # get the numbers from the "Residue Conf IDs" from the console output
 # or the "CONF" section of the conformations log
 print('\n')

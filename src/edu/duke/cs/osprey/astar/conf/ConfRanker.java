@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.astar.conf;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
@@ -193,19 +194,7 @@ public class ConfRanker {
 
 		@Override
 		public void index(ConfIndex confIndex) {
-			confIndex.numDefined = 0;
-			confIndex.numUndefined = 0;
-			for (int pos=0; pos<assignments.length; pos++) {
-				int rc = assignments[pos];
-				if (rc == -1) {
-					confIndex.undefinedPos[confIndex.numUndefined] = pos;
-					confIndex.numUndefined++;
-				} else {
-					confIndex.definedPos[confIndex.numDefined] = pos;
-					confIndex.definedRCs[confIndex.numDefined] = assignments[pos];
-					confIndex.numDefined++;
-				}
-			}
+			Conf.index(assignments, confIndex);
 			confIndex.node = this;
 		}
 

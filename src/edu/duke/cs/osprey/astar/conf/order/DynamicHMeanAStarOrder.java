@@ -3,9 +3,20 @@ package edu.duke.cs.osprey.astar.conf.order;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.tools.MathTools;
 
 public class DynamicHMeanAStarOrder implements AStarOrder {
-	
+
+	public final MathTools.Optimizer optimizer;
+
+	public DynamicHMeanAStarOrder() {
+		this(MathTools.Optimizer.Minimize);
+	}
+
+	public DynamicHMeanAStarOrder(MathTools.Optimizer optimizer) {
+		this.optimizer = optimizer;
+	}
+
 	private AStarScorer gscorer;
 	private AStarScorer hscorer;
 	
@@ -19,14 +30,14 @@ public class DynamicHMeanAStarOrder implements AStarOrder {
 	public int getNextPos(ConfIndex confIndex, RCs rcs) {
 		
 		int bestPos = -1;
-		double bestScore = Double.NEGATIVE_INFINITY;
+		double bestScore = optimizer.initDouble();
 
 		for (int i=0; i<confIndex.numUndefined; i++) {
 			
 			int pos = confIndex.undefinedPos[i];
 			double score = scorePos(confIndex, rcs, pos);
 
-			if (score > bestScore) {
+			if (optimizer.isBetter(score, bestScore)) {
 				bestScore = score;
 				bestPos = pos;
 			}
@@ -51,6 +62,8 @@ public class DynamicHMeanAStarOrder implements AStarOrder {
 				+ hscorer.calcDifferential(confIndex, rcs, pos, rc);
 			reciprocalSum += 1.0/(childScore - parentScore);
 		}
-		return 1.0/reciprocalSum;
+
+		// negate scores so better scores are lower, like energies
+		return -1.0/reciprocalSum;
 	}
 }

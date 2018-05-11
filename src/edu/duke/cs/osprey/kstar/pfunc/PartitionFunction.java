@@ -1,13 +1,20 @@
 package edu.duke.cs.osprey.kstar.pfunc;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStarScore;
+import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
+import edu.duke.cs.osprey.lute.LUTEPfunc;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
 public interface PartitionFunction {
@@ -99,9 +106,11 @@ public interface PartitionFunction {
 		}
 
 		public BigDecimal calcUpperBound() {
-			BigDecimal x = MathTools.bigAdd(qstar, qprime, decimalPrecision);
-			x = MathTools.bigAdd(x, pstar, decimalPrecision);
-			return x;
+			return new BigMath(decimalPrecision)
+				.set(qstar)
+				.add(qprime)
+				.add(pstar)
+				.get();
 		}
 	}
 
@@ -150,16 +159,22 @@ public interface PartitionFunction {
 	
 	void setReportProgress(boolean val);
 	void setConfListener(ConfListener val);
-	
-	void init(double targetEpsilon);
 
 	/**
 	 * Initializes the partition function for calculation.
+	 * @param confSearch The A* tree of conformations to enumerate (which may have been pruned)
+	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
+	 *                               including any conformations removed by pruned tuples.
 	 * @param targetEpsilon The accuracy with which to estimate the partition function.
+	 */
+	void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon);
+
+	/**
+	 * Sets the stability threshold for this PartitionFunction, if supported
 	 * @param stabilityThreshold If the partition function upper bound value falls below
 	 *                           this threshold, the sequence is considered unstable.
 	 */
-	default void init(double targetEpsilon, BigDecimal stabilityThreshold) {
+	default void setStabilityThreshold(BigDecimal stabilityThreshold) {
 		throw new UnsupportedOperationException(getClass().getName() + " does not yet support stability thresholds");
 	}
 
@@ -180,6 +195,54 @@ public interface PartitionFunction {
 
 
 	public static interface WithConfTable extends PartitionFunction {
+
 		void setConfTable(ConfDB.ConfTable table);
+
+		public static void setOrThrow(PartitionFunction pfunc, ConfDB.ConfTable table) {
+			if (pfunc instanceof PartitionFunction.WithConfTable) {
+				((PartitionFunction.WithConfTable)pfunc).setConfTable(table);
+			} else {
+				throw new PartitionFunction.WithConfTable.UnsupportedException(pfunc);
+			}
+		}
+
+		public static class UnsupportedException extends RuntimeException {
+			public UnsupportedException(PartitionFunction pfunc) {
+				super("This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support conformation database tables");
+			}
+		}
+	}
+
+	/**
+	 * Factory method to make the best pfunc calculator based on the conf ecalc
+	 */
+	public static PartitionFunction makeBestFor(ConfEnergyCalculator confEcalc) {
+		if (confEcalc instanceof LUTEConfEnergyCalculator) {
+			// LUTE needs it's own calculator, since it doesn't use energy bounds
+			return new LUTEPfunc((LUTEConfEnergyCalculator)confEcalc);
+		} else {
+			// algorithms based on energy bounds can use the GD calculator, it's the most recent pfunc calculator
+			return new GradientDescentPfunc(confEcalc);
+		}
+	}
+
+
+	public static interface WithExternalMemory extends PartitionFunction {
+
+		void setUseExternalMemory(boolean val, RCs rcs);
+
+		public static void setOrThrow(PartitionFunction pfunc, boolean val, RCs rcs) {
+			if (pfunc instanceof PartitionFunction.WithExternalMemory) {
+				((PartitionFunction.WithExternalMemory)pfunc).setUseExternalMemory(val, rcs);
+			} else {
+				throw new PartitionFunction.WithExternalMemory.UnsupportedException(pfunc);
+			}
+		}
+
+		public static class UnsupportedException extends RuntimeException {
+			public UnsupportedException(PartitionFunction pfunc) {
+				super("This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support external memory");
+			}
+		}
 	}
 }

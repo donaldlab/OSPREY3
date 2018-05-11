@@ -54,6 +54,11 @@ public class RCs {
 		}
 	}
 
+	public RCs(RCs other, PruningMatrix pmat) {
+		this(other, (pos, rc) -> !pmat.isSinglePruned(pos, rc));
+		this.pruneMat = pmat;
+	}
+
 	public RCs(RCs other) {
 		this(other, (pos, resConf) -> true);
 	}

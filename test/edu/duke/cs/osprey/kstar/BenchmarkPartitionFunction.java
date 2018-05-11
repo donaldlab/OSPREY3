@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -38,28 +37,21 @@ public class BenchmarkPartitionFunction {
 				.build()
 				.calcEnergyMatrix();
 
-			benchmarkPfunc(confSpace, emat, (astar) -> new SimplePartitionFunction(astar, confEcalc));
-			benchmarkPfunc(confSpace, emat, (astar) -> new GradientDescentPfunc(astar, confEcalc));
+			benchmarkPfunc(confSpace, emat, new SimplePartitionFunction(confEcalc));
+			benchmarkPfunc(confSpace, emat, new GradientDescentPfunc(confEcalc));
 		}
 	}
 
-	private static interface PfuncFactory {
-		PartitionFunction make(ConfSearch astar);
-	}
-
-	private static void benchmarkPfunc(SimpleConfSpace confSpace, EnergyMatrix emat, PfuncFactory pfuncs) {
+	private static void benchmarkPfunc(SimpleConfSpace confSpace, EnergyMatrix emat, PartitionFunction pfunc) {
 
 		// make the A* search
 		ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
 			.setTraditional()
 			.build();
 
-		// make the partition function
-		PartitionFunction pfunc = pfuncs.make(astar);
-
 		// compute pfunc
 		final double targetEpsilon = 0.05;
-		pfunc.init(targetEpsilon);
+		pfunc.init(astar, astar.getNumConformations(), targetEpsilon);
 		Stopwatch sw = new Stopwatch().start();
 		pfunc.compute();
 		System.out.println(String.format("%-30s %s", pfunc.getClass().getSimpleName(), sw.stop().getTime(2)));

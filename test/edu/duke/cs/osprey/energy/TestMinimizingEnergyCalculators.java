@@ -311,7 +311,7 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 						
 						// calculate energies for a few fragments
 						for (int i=0; i<10; i++) {
-							confEcalc.calcEnergyAsync((RCTuple)null, null, (econf) -> {
+							confEcalc.calcEnergyAsync((RCTuple)null, (ResidueInteractions)null, (econf) -> {
 								fail("we shouldn't make it to the listener");
 							});
 						}
