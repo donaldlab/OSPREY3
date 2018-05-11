@@ -40,8 +40,10 @@ public class ConfAStarTree implements ConfSearch {
 		
 		/** The energy matrix to use for pairwise residue conformation energies. */
 		private EnergyMatrix emat;
-		
+
+		/** the RCs over which to search */
 		private RCs rcs;
+
 		private AStarOrder order = null;
 		private AStarScorer gscorer = null;
 		private AStarScorer hscorer = null;
@@ -82,13 +84,13 @@ public class ConfAStarTree implements ConfSearch {
 		 * Proteins Structure Function and Genetics, 33(2), pp.227-239.}
 		 */
 		public Builder setTraditional() {
-			return setTraditional(MathTools.Optimizer.Minimize);
+			return setTraditionalOpt(MathTools.Optimizer.Minimize);
 		}
 
 		/**
 		 * Just like setTraditional, but allow maximization or minimization
 		 */
-		public Builder setTraditional(MathTools.Optimizer optimizer) {
+		public Builder setTraditionalOpt(MathTools.Optimizer optimizer) {
 			this.order = new DynamicHMeanAStarOrder(optimizer);
 			this.gscorer = new PairwiseGScorer(emat, optimizer);
 			this.hscorer = new TraditionalPairwiseHScorer(emat, rcs, optimizer);

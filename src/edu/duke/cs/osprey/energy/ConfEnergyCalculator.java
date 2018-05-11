@@ -71,14 +71,22 @@ public class ConfEnergyCalculator {
 
 	protected final AtomicLong numCalculations = new AtomicLong(0L);
 	protected final AtomicLong numConfDBReads = new AtomicLong(0L);
-	
+
 	protected ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy) {
+		this(confSpace, ecalc, ecalc.tasks, epart, eref, addResEntropy);
+	}
+
+	protected ConfEnergyCalculator(SimpleConfSpace confSpace, TaskExecutor tasks) {
+		this(confSpace, null, tasks, null, null, false);
+	}
+
+	protected ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, TaskExecutor tasks, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy) {
 		this.confSpace = confSpace;
 		this.ecalc = ecalc;
 		this.epart = epart;
 		this.eref = eref;
 		this.addResEntropy = addResEntropy;
-		this.tasks = ecalc.tasks;
+		this.tasks = tasks;
 	}
 
 	protected ConfEnergyCalculator(ConfEnergyCalculator other) {
@@ -177,7 +185,7 @@ public class ConfEnergyCalculator {
 	 *                 Called on a listener thread which is separate from the calling thread.
 	 */
 	public void calcEnergyAsync(RCTuple frag, ResidueInteractions inters, TaskListener<EnergyCalculator.EnergiedParametricMolecule> listener) {
-		ecalc.tasks.submit(() -> calcEnergy(frag, inters), listener);
+		tasks.submit(() -> calcEnergy(frag, inters), listener);
 	}
 
 	/**
@@ -188,7 +196,7 @@ public class ConfEnergyCalculator {
 	 *                 Called on a listener thread which is separate from the calling thread.
 	 */
 	public void calcEnergyAsync(RCTuple frag, TaskListener<EnergyCalculator.EnergiedParametricMolecule> listener) {
-		ecalc.tasks.submit(() -> calcEnergy(frag), listener);
+		tasks.submit(() -> calcEnergy(frag), listener);
 	}
 
 	/**
@@ -291,7 +299,7 @@ public class ConfEnergyCalculator {
 	 * @param listener Callback function that will receive the energy. Called on a listener thread which is separate from the calling thread.
 	 */
 	public void calcEnergyAsync(ScoredConf conf, TaskListener<EnergiedConf> listener) {
-		ecalc.tasks.submit(() -> calcEnergy(conf), listener);
+		tasks.submit(() -> calcEnergy(conf), listener);
 	}
 
 	/**
@@ -338,7 +346,7 @@ public class ConfEnergyCalculator {
 	 * @param listener Callback function that will receive the energy. Called on a listener thread which is separate from the calling thread.
 	 */
 	public void calcEnergyAsync(ScoredConf conf, ResidueInteractions inters, TaskListener<EnergiedConf> listener) {
-		ecalc.tasks.submit(() -> calcEnergy(conf), listener);
+		tasks.submit(() -> calcEnergy(conf), listener);
 	}
 
 	/**
@@ -431,7 +439,7 @@ public class ConfEnergyCalculator {
 				}
 			});
 		}
-		ecalc.tasks.waitForFinish();
+		tasks.waitForFinish();
 		
 		return econfs;
 	}

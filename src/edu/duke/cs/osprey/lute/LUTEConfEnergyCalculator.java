@@ -1,11 +1,14 @@
 package edu.duke.cs.osprey.lute;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TuplesIndex;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
+import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 
 
 public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
@@ -13,21 +16,27 @@ public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
 	public final LUTEState state;
 	public final TuplesIndex tuples;
 
-	public LUTEConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, LUTEState state) {
-		super(confSpace, ecalc, null, null, false);
+	public LUTEConfEnergyCalculator(SimpleConfSpace confSpace, LUTEState state) {
+		super(confSpace, new TaskExecutor()); // TODO: parallelism?
 
 		this.state = state;
 		this.tuples = new TuplesIndex(confSpace, state.tuples);
 	}
 
+	private static class NotSupportedByLUTEException extends RuntimeException {
+		public NotSupportedByLUTEException() {
+			super("LUTE can only be used to compute full-conformation energies");
+		}
+	}
+
 	@Override
 	public ResidueInteractions makeSingleInters(int pos, int rc) {
-		throw new UnsupportedOperationException("LUTE can only be used to compute full-conformation energies");
+		throw new NotSupportedByLUTEException();
 	}
 
 	@Override
 	public ResidueInteractions makePairInters(int pos1, int rc1, int pos2, int rc2) {
-		throw new UnsupportedOperationException("LUTE can only be used to compute full-conformation energies");
+		throw new NotSupportedByLUTEException();
 	}
 
 	@Override
@@ -38,6 +47,21 @@ public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
 	@Override
 	public ConfSearch.EnergiedConf calcEnergy(ConfSearch.ScoredConf conf, ResidueInteractions inters) {
 		throw new UnsupportedOperationException("Not implemented yet... don't think anyone uses this anyway");
+	}
+
+	@Override
+	public EnergyCalculator.EnergiedParametricMolecule calcEnergy(RCTuple frag, ResidueInteractions inters) {
+		throw new NotSupportedByLUTEException();
+	}
+
+	@Override
+	public MoleculeObjectiveFunction makeIntraShellObjFcn(int pos, int rc) {
+		throw new NotSupportedByLUTEException();
+	}
+
+	@Override
+	public MoleculeObjectiveFunction makePairwiseObjFcn(int pos1, int rc1, int pos2, int rc2) {
+		throw new NotSupportedByLUTEException();
 	}
 
 	public double calcEnergy(int[] conf) {

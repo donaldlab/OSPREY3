@@ -1,5 +1,5 @@
 
-import sys, os, jpype
+import sys, os, jpype, traceback
 import jvm, wraps
 
 
@@ -533,7 +533,7 @@ def ReferenceEnergies(confSpace, ecalc, addResEntropy=None):
 	return builder.build()
 
 
-def DEE(confSpace, emat, singlesThreshold=None, pairsThreshold=None, singlesGoldsteinDiffThreshold=None, pairsGoldsteinDiffThreshold=None, typeDependent=None, numIterations=None, showProgress=None):
+def DEE(confSpace, emat, singlesThreshold=useJavaDefault, pairsThreshold=useJavaDefault, singlesGoldsteinDiffThreshold=useJavaDefault, pairsGoldsteinDiffThreshold=useJavaDefault, triplesGoldsteinDiffThreshold=useJavaDefault, typeDependent=useJavaDefault, numIterations=useJavaDefault, showProgress=useJavaDefault, parallelism=useJavaDefault, cacheFile=useJavaDefault):
 	'''
 	:java:classdoc:`.pruning.SimpleDEE$Runner`
 
@@ -546,6 +546,7 @@ def DEE(confSpace, emat, singlesThreshold=None, pairsThreshold=None, singlesGold
 	:builder_option pairsThreshold .pruning.SimpleDEE$Runner#pairsThreshold:
 	:builder_option singlesGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#singlesGoldsteinDiffThreshold:
 	:builder_option pairsGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#pairsGoldsteinDiffThreshold:
+	:builder_option triplesGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#triplesGoldsteinDiffThreshold:
 	:builder_option typeDependent .pruning.SimpleDEE$Runner#typeDependent:
 	:builder_option numIterations .pruning.SimpleDEE$Runner#numIterations:
 	:builder_option showProgress .pruning.SimpleDEE$Runner#showProgress:
@@ -553,25 +554,40 @@ def DEE(confSpace, emat, singlesThreshold=None, pairsThreshold=None, singlesGold
 
 	runner = _get_builder(c.pruning.SimpleDEE, 'Runner')()
 
-	def boxDouble(val):
-		return jvm.c.java.lang.Double(val)
-
-	if singlesThreshold is not None:
-		runner.setSinglesThreshold(boxDouble(singlesThreshold))
-	if pairsThreshold is not None:
-		runner.setPairsThreshold(boxDouble(pairsThreshold))
-	if singlesGoldsteinDiffThreshold is not None:
-		runner.setSinglesGoldsteinDiffThreshold(boxDouble(singlesGoldsteinDiffThreshold))
-	if pairsGoldsteinDiffThreshold is not None:
-		runner.setPairsGoldsteinDiffThreshold(boxDouble(pairsGoldsteinDiffThreshold))
-	if typeDependent is not None:
+	if singlesThreshold is not useJavaDefault:
+		runner.setSinglesThreshold(jvm.boxDouble(singlesThreshold))
+	if pairsThreshold is not useJavaDefault:
+		runner.setPairsThreshold(jvm.boxDouble(pairsThreshold))
+	if singlesGoldsteinDiffThreshold is not useJavaDefault:
+		runner.setSinglesGoldsteinDiffThreshold(jvm.boxDouble(singlesGoldsteinDiffThreshold))
+	if pairsGoldsteinDiffThreshold is not useJavaDefault:
+		runner.setPairsGoldsteinDiffThreshold(jvm.boxDouble(pairsGoldsteinDiffThreshold))
+	if triplesGoldsteinDiffThreshold is not useJavaDefault:
+		runner.setTriplesGoldsteinDiffThreshold(jvm.boxDouble(triplesGoldsteinDiffThreshold))
+	if typeDependent is not useJavaDefault:
 		runner.setTypeDependent(typeDependent)
-	if numIterations is not None:
+	if numIterations is not useJavaDefault:
 		runner.setNumIterations(numIterations)
-	if showProgress is not None:
+	if showProgress is not useJavaDefault:
 		runner.setShowProgress(showProgress)
+	if parallelism is not useJavaDefault:
+		runner.setParallelism(parallelism)
+	if cacheFile is not useJavaDefault:
+		runner.setCacheFile(jvm.toFile(cacheFile))
 
 	return runner.run(confSpace, emat)
+
+
+def DEE_read(confSpace, path):
+	'''
+	Reads a pruning matrix from a file
+
+	:param confSpace: The design conformation space
+	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param str path: Path to the file
+	'''
+
+	return c.pruning.SimpleDEE.read(confSpace, jvm.toFile(path))
 
 
 def AStarTraditional(emat, confSpaceOrPmat, showProgress=True, useExternalMemory=False):
@@ -746,7 +762,6 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDe
 	:builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
 	:builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
 	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
-	:builder_option energyMatrixCachePattern .kstar.KStar$Settings$Builder#energyMatrixCachePattern:
 	:builder_option confDBPattern .kstar.KStar$Settings$Builder#confDBPattern:
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
 	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
@@ -801,7 +816,6 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJava
 	:builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
 	:builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
 	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
-	:builder_option energyMatrixCachePattern .kstar.KStar$Settings$Builder#energyMatrixCachePattern:
 	:builder_option confDBPattern .kstar.KStar$Settings$Builder#confDBPattern:
 	:builder_option numBestSequences .kstar.BBKStar$Settings$Builder#numBestSequences:
 	:builder_option numConfsPerBatch .kstar.BBKStar$Settings$Builder#numConfsPerBatch:
@@ -867,3 +881,160 @@ def SequenceAnalyzer(kstar):
 	'''
 
 	return c.kstar.SequenceAnalyzer(kstar)
+
+
+def LUTE_train(confEcalc, emat, pmat, maxRMSE=0.1, maxOverfittingScore=1.5, randomSeed=12345, confDBPath=None):
+	'''
+	Trains a LUTE model
+
+	For examples using LUTE, see examples/python.GMEC/LUTE.*.py and examples/python.KStar/LUTE.*.py in your Osprey distribution.
+
+	:param confEcalc: The conformation energy calculator
+	:type confEcalc: :java:ref:`.energy.ConfEnergyCalculator`
+	:param emat: An energy matrix
+	:type emat: :java:ref:`.ematrix.EnergyMatrix`
+	:param pmat: A pruning matrix, resulting from DEE
+	:type pmat: :java:ref:`.pruning.PruningMatrix`
+
+	:param float maxRMSE: The maximum tolerable fit RMS error
+	:param float maxOverfittingScore: The maximum tolerable amount of overfitting (score = training set RMSE / test set RMSE)
+	:param int randomSeed: Random seed to use for conformation sampling
+	:param str confDBPath: Path to write/read confDB file, or None to omit saving the confDB to disk
+
+	:returns: The LUTE model
+	:rtype: :java:ref:`.lute.LUTEState`
+	'''
+
+	confSpace = confEcalc.confSpace
+
+	# make a conf DB, saved to a file if needed
+	if confDBPath is None:
+		confDB = c.confspace.ConfDB(confSpace)
+	else:
+		confDB = c.confspace.ConfDB(confSpace, jvm.toFile(confDBPath))
+
+	# what to do with the confDB when we get it
+	def withDB(confDB):
+		try:
+
+			# make a conf table for LUTE
+			confTable = jvm.getInnerClass(c.confspace.ConfDB, 'ConfTable')(confDB, 'LUTE')
+
+			# use the OLSCG fitter for LUTE (it's a little faster than LASSO in practice)
+			fitter = jvm.getInnerClass(c.lute.LUTE, 'Fitter').OLSCG
+
+			# train LUTE
+			lute = c.lute.LUTE(confSpace)
+			sampler = c.lute.UniformConfSampler(confSpace, pmat, randomSeed)
+			lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE)
+			lute.reportConfSpaceSize(pmat)
+
+			# return the LUTE fit
+			return c.lute.LUTEState(lute.getTrainingSystem())
+
+		except:
+			# JProxy hides some of the python exception info, so report exceptions here before letting Java crash
+			print(traceback.format_exc())
+			raise
+
+	# use the conf DB, with auto-cleanup
+	return confDB.use(jpype.JProxy(
+		jvm.getInnerClass(c.confspace.ConfDB, 'UserWithReturn'),
+		dict={ 'usePassExceptions': withDB }
+	))
+
+
+def LUTE_write(model, path):
+	'''
+	Writes a LUTE model to a file
+
+	:param model: The LUTE model
+	:type model: :java:ref:`.lute.LUTEState`
+	:param str path: Path to the file
+	'''
+
+	file = jvm.toFile(path)
+	c.lute.LUTEIO.write(model, file)
+	print('LUTE model saved to %s' % file.getAbsolutePath())
+
+
+def LUTE_read(path):
+	'''
+	Reads a LUTE model from a file
+
+	:param str path: Path to the file
+
+	:returns: The LUTE model
+	:rtype: :java:ref:`.lute.LUTEState`
+	'''
+
+	file = jvm.toFile(path)
+	model = c.lute.LUTEIO.read(file)
+	print('LUTE model read from %s' % file.getAbsolutePath())
+	return model
+
+
+def LUTE_ConfEnergyCalculator(confSpace, model):
+	'''
+	Creates a LUTE conformation energy calculator
+
+	:param confSpace: The conformation space
+	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param model: The LUTE model
+	:type model: :java:ref:`.lute.LUTEState`
+
+	:rtype: :java:ref:`.lute.LUTEConfEnergyCalculator`
+	'''
+
+	return c.lute.LUTEConfEnergyCalculator(confSpace, model)
+
+
+def LUTE_AStar(rcs, pmat, luteEcalc, showProgress=True):
+	'''
+	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setLUTE`
+
+	:builder_option rcs .astar.conf.ConfAStarTree$Builder#rcs:
+	:param pmat: The pruning matrix from the LUTE training calculation.
+	:type pmat: :java:ref:`.pruning.PruningMatrix`
+	:param luteEcalc: The LUTE conformation energy calculator
+	:type luteEcalc: :java:ref:`.lute.LUTEConfEnergyCalculator`
+
+	:builder_return .astar.conf.ConfAStarTree$Builder:
+	'''
+
+	# filter the rcs by the pmat
+	rcs = c.astar.conf.RCs(rcs, pmat)
+
+	builder = _get_builder(c.astar.conf.ConfAStarTree)(None, rcs)
+	builder.setShowProgress(showProgress)
+	builder.setLUTE(luteEcalc)
+
+	return builder.build()
+
+
+def LUTE_GMECFinder(confSpace, model, pmat, confLog=useJavaDefault, printIntermediateConfs=useJavaDefault):
+	'''
+	:java:classdoc:`.lute.LUTEGMECFinder`
+
+	:param confSpace: The conformation space
+	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param model: The LUTE model
+	:type model: :java:ref:`.lute.LUTEState`
+	:param pmat: The pruning matrix from the LUTE training calculation.
+	:type pmat: :java:ref:`.pruning.PruningMatrix`
+	:param str confLog: Path to file where conformations found during conformation space search should be logged.
+	:builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
+
+	:rtype: :java:ref:`.lute.LUTEGMECFinder`
+	'''
+
+	builder = _get_builder(c.lute.LUTEGMECFinder)(pmat, LUTE_ConfEnergyCalculator(confSpace, model))
+
+	if confLog is not useJavaDefault:
+		logFile = jvm.toFile(confLog)
+		builder.setLogPrinter(c.gmec.LoggingConfPrinter(logFile))
+
+	if printIntermediateConfs is not useJavaDefault:
+		builder.setPrintIntermediateConfsToConsole(printIntermediateConfs)
+
+	return builder.build()

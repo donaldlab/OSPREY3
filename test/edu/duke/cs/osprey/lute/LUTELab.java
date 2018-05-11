@@ -128,7 +128,7 @@ public class LUTELab {
 				.run(confSpace, emat);
 
 			LUTEState luteState = LUTEIO.read(new File(String.format("LUTE.%s.dat", name)));
-			LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpaces.complex, ecalc, luteState);
+			LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpaces.complex, luteState);
 
 			// enumerate all the sequences
 			List<Sequence> sequences = new ArrayList<>();
@@ -188,7 +188,7 @@ public class LUTELab {
 
 				// how should we define energies of conformations?
 				LUTEState luteState = LUTEIO.read(new File(String.format("LUTE.%s.dat", info.id)));
-				LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(info.confSpace, ecalc, luteState);
+				LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(info.confSpace, luteState);
 				info.confEcalc = luteConfEcalc;
 
 				// load the pruning matrix
@@ -226,7 +226,7 @@ public class LUTELab {
 
 				// how should we define energies of conformations?
 				LUTEState luteState = LUTEIO.read(new File(String.format("LUTE.%s.dat", info.id)));
-				LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(info.confSpace, ecalcMinimized, luteState);
+				LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(info.confSpace, luteState);
 				info.confEcalcMinimized = luteConfEcalc;
 
 				// load the pruning matrix
@@ -356,7 +356,7 @@ public class LUTELab {
 
 			// compare conf energies
 			double err = 0.0;
-			LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, ecalc, new LUTEState(lute.getTrainingSystem()));
+			LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, new LUTEState(lute.getTrainingSystem()));
 			for (ConfSearch.EnergiedConf econf : econfs) {
 				double luteEnergy = luteEcalc.calcEnergy(econf.getAssignments());
 				log("conf %30s   score %9.4f      energy %9.4f   gap %7.4f      LUTE energy %9.4f   diff %7.4f",
@@ -380,7 +380,7 @@ public class LUTELab {
 	private static void astar(SimpleConfSpace confSpace, EnergyCalculator ecalc, ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, File luteFile) {
 
 		// make a lute ecalc
-		LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, ecalc, LUTEIO.read(luteFile));
+		LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, LUTEIO.read(luteFile));
 
 		ConfAStarTree astar = new ConfAStarTree.Builder(null, pmat)
 			.setLUTE(luteEcalc)
@@ -402,7 +402,7 @@ public class LUTELab {
 	private static void gmec(SimpleConfSpace confSpace, EnergyCalculator ecalc, ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, File luteFile) {
 
 		// make a lute ecalc
-		LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, ecalc, LUTEIO.read(luteFile));
+		LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, LUTEIO.read(luteFile));
 
 		// do a GMEC search
 		Queue.FIFO<ConfSearch.ScoredConf> windowConfs = new LUTEGMECFinder.Builder(pmat, luteEcalc)
@@ -419,7 +419,7 @@ public class LUTELab {
 	private static void pfunc(SimpleConfSpace confSpace, EnergyCalculator ecalc, ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, File luteFile) {
 
 		// make a lute ecalc
-		LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, ecalc, LUTEIO.read(luteFile));
+		LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, LUTEIO.read(luteFile));
 
 		final double epsilon = 0.1;
 

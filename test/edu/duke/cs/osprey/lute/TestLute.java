@@ -308,7 +308,7 @@ public class TestLute {
 			lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
 			lute.reportConfSpaceSize(pmat);
 
-			return new LUTEConfEnergyCalculator(confSpace, confEcalc.ecalc, new LUTEState(lute.getTrainingSystem()));
+			return new LUTEConfEnergyCalculator(confSpace, new LUTEState(lute.getTrainingSystem()));
 		}
 	}
 
@@ -449,7 +449,7 @@ public class TestLute {
 				LUTEConfEnergyCalculator luteEcalc = train(info.confSpace, info.confEcalc, emat, pmat);
 
 				info.confSearchFactory = (rcs) ->
-					new ConfAStarTree.Builder(null, rcs)
+					new ConfAStarTree.Builder(null, new RCs(rcs, pmat))
 						.setLUTE(luteEcalc)
 						.build();
 			}
@@ -500,7 +500,7 @@ public class TestLute {
 				LUTEConfEnergyCalculator luteEcalc = train(info.confSpace, info.confEcalcMinimized, emat, pmat);
 
 				info.confSearchFactoryMinimized = (rcs) ->
-					new ConfAStarTree.Builder(null, rcs)
+					new ConfAStarTree.Builder(null, new RCs(rcs, pmat))
 						.setLUTE(luteEcalc)
 						.build();
 				info.confSearchFactoryRigid = info.confSearchFactoryMinimized;

@@ -427,9 +427,9 @@ public class LUTE {
 	 *
 	 * I think it tends to overfit to the pairs training set, but doesn't fit well on later sampled confs for triples
 	 */
-	public Set<RCTuple> sampleTripleTuplesByFitError(ConfEnergyCalculator confEcalc, PruningMatrix pmat, ConfDB.ConfTable confTable, double fractionSqErrorCovered) {
+	public Set<RCTuple> sampleTripleTuplesByFitError(PruningMatrix pmat, ConfDB.ConfTable confTable, double fractionSqErrorCovered) {
 
-		LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(confSpace, confEcalc.ecalc, new LUTEState(trainingSystem));
+		LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(confSpace, new LUTEState(trainingSystem));
 
 		class ConfInfo {
 

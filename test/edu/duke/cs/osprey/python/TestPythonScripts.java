@@ -34,7 +34,7 @@ public class TestPythonScripts {
 	@Test public void findGMECDEEPer() { runGMEC("findGMEC.DEEPer.py"); }
 	@Test public void findGMECExternalMemory() { runGMEC("findGMEC.externalMemory.py"); }
 	@Test public void findGMECEnergyPartitions() { runGMEC("findGMEC.energyPartitions.py"); }
-	@Test public void findGMECLUTE() { runGMEC("findGMEC.LUTE.py"); }
+	@Test public void findGMECLUTE() { runGMEC("findGMEC.LUTE.train.py"); runGMEC("findGMEC.LUTE.design.py"); }
 	@Test public void findGMECMultipleStrands() { runGMEC("findGMEC.multipleStrands.py"); }
 	@Test public void findGMEC() { runGMEC("findGMEC.py"); }
 	@Test public void findGMECReferenceEnergies() { runGMEC("findGMEC.referenceEnergies.py"); }
@@ -51,4 +51,5 @@ public class TestPythonScripts {
 	@Test public void kstar() { runKStar("kstar.py"); }
 	@Test public void kstarConfDB() { runKStar("kstar.confdb.py"); }
 	@Test public void bbkstarConfDB() { runKStar("bbkstar.confdb.py"); }
+	@Test public void LUTE() { runKStar("LUTE.train.py"); runKStar("LUTE.kstar.py"); runKStar("LUTE.bbkstar.py"); }
 }

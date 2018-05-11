@@ -517,6 +517,18 @@ public class BBKStar {
 		return Arrays.asList(protein, ligand, complex);
 	}
 
+	public BBKStar.ConfSpaceInfo getConfSpaceInfo(SimpleConfSpace confSpace) {
+		if (confSpace == protein.confSpace) {
+			return protein;
+		} else if (confSpace == ligand.confSpace) {
+			return ligand;
+		} else if (confSpace == complex.confSpace) {
+			return complex;
+		} else {
+			throw new IllegalArgumentException("conf space does not match any known by this K* instance");
+		}
+	}
+
 	public List<KStar.ScoredSequence> run() {
 
 		protein.check();

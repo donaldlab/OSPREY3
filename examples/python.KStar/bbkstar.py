@@ -58,7 +58,7 @@ bbkstar = osprey.BBKStar(
 	writeSequencesToFile='bbkstar.results.tsv'
 )
 
-# configure K* inputs for each conf space
+# configure BBK* inputs for each conf space
 for info in bbkstar.confSpaceInfos():
 
 	# how should we define energies of conformations?

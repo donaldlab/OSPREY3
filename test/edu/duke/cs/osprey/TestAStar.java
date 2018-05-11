@@ -8,7 +8,6 @@ import com.google.common.collect.Lists;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -531,7 +530,7 @@ public class TestAStar extends TestBase {
 
 			// get all the confs in ascending order
 			List<ConfSearch.ScoredConf> ascendingConfs = new ConfAStarTree.Builder(emat, confSpace)
-				.setTraditional(MathTools.Optimizer.Minimize)
+				.setTraditionalOpt(MathTools.Optimizer.Minimize)
 				.build()
 				.nextConfs(Double.POSITIVE_INFINITY);
 
@@ -547,7 +546,7 @@ public class TestAStar extends TestBase {
 
 			// try maximization instead of minimization
 			List<ConfSearch.ScoredConf> descendingConfs = new ConfAStarTree.Builder(emat, confSpace)
-				.setTraditional(MathTools.Optimizer.Maximize)
+				.setTraditionalOpt(MathTools.Optimizer.Maximize)
 				.build()
 				.nextConfs(Double.NEGATIVE_INFINITY);
 
