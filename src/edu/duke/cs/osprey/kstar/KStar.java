@@ -73,6 +73,8 @@ public class KStar {
 			/** The maximum number of simultaneous residue mutations to consider for each sequence mutant */
 			private int maxSimultaneousMutations = 1;
 
+			private int maxNumConfs = Integer.MAX_VALUE;
+
 			private KStarScoreWriter.Writers scoreWriters = new KStarScoreWriter.Writers();
 
 			/**
@@ -161,8 +163,13 @@ public class KStar {
 				return this;
 			}
 
+			public Builder setMaxNumConfs(int val) {
+				maxNumConfs = val;
+				return this;
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, energyMatrixCachePattern, confDBPattern);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, energyMatrixCachePattern, confDBPattern, maxNumConfs);
 			}
 		}
 
@@ -173,8 +180,9 @@ public class KStar {
 		public final boolean showPfuncProgress;
 		public final String energyMatrixCachePattern;
 		public final String confDBPattern;
+		public final int maxNumConfs;
 
-		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern, String confDBPattern) {
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern, String confDBPattern, int maxNumConfs) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
@@ -182,6 +190,7 @@ public class KStar {
 			this.showPfuncProgress = dumpPfuncConfs;
 			this.energyMatrixCachePattern = energyMatrixCachePattern;
 			this.confDBPattern = confDBPattern;
+			this.maxNumConfs = maxNumConfs;
 		}
 
 		public String applyEnergyMatrixCachePattern(String type) {
@@ -255,7 +264,7 @@ public class KStar {
 			emat = builder.build().calcEnergyMatrix();
 		}
 
-		public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, ConfDB confDB) {
+		public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, ConfDB confDB, int maxNumConfs) {
 
 			Sequence sequence = sequences.get(sequenceIndex);
 
@@ -277,7 +286,7 @@ public class KStar {
 
 			// compute it
 			pfunc.init(settings.epsilon, stabilityThreshold);
-			pfunc.compute();
+			pfunc.compute(maxNumConfs);
 
 			// save the result
 			result = pfunc.makeResult();
@@ -407,9 +416,9 @@ public class KStar {
 					// compute wild type partition functions first (always at pos 0)
 					KStarScore wildTypeScore = scorer.score(
 						0,
-						protein.calcPfunc(0, BigDecimal.ZERO, proteinConfDB),
-						ligand.calcPfunc(0, BigDecimal.ZERO, ligandConfDB),
-						complex.calcPfunc(0, BigDecimal.ZERO, complexConfDB)
+						protein.calcPfunc(0, BigDecimal.ZERO, proteinConfDB, settings.maxNumConfs),
+						ligand.calcPfunc(0, BigDecimal.ZERO, ligandConfDB, settings.maxNumConfs),
+						complex.calcPfunc(0, BigDecimal.ZERO, complexConfDB, settings.maxNumConfs)
 					);
 					BigDecimal proteinStabilityThreshold = null;
 					BigDecimal ligandStabilityThreshold = null;
@@ -423,18 +432,18 @@ public class KStar {
 					for (int i=1; i<n; i++) {
 
 						// get the pfuncs, with short circuits as needed
-						final PartitionFunction.Result proteinResult = protein.calcPfunc(i, proteinStabilityThreshold, proteinConfDB);
+						final PartitionFunction.Result proteinResult = protein.calcPfunc(i, proteinStabilityThreshold, proteinConfDB, settings.maxNumConfs);
 						final PartitionFunction.Result ligandResult;
 						final PartitionFunction.Result complexResult;
 						if (!KStarScore.isLigandComplexUseful(proteinResult)) {
 							ligandResult = PartitionFunction.Result.makeAborted();
 							complexResult = PartitionFunction.Result.makeAborted();
 						} else {
-							ligandResult = ligand.calcPfunc(i, ligandStabilityThreshold, ligandConfDB);
+							ligandResult = ligand.calcPfunc(i, ligandStabilityThreshold, ligandConfDB, settings.maxNumConfs);
 							if (!KStarScore.isComplexUseful(proteinResult, ligandResult)) {
 								complexResult = PartitionFunction.Result.makeAborted();
 							} else {
-								complexResult = complex.calcPfunc(i, BigDecimal.ZERO, complexConfDB);
+								complexResult = complex.calcPfunc(i, BigDecimal.ZERO, complexConfDB, settings.maxNumConfs);
 							}
 						}
 
