@@ -1,3 +1,19 @@
+/*
+** This file is part of OSPREY.
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License as published by
+** the Free Software Foundation, either version 2 of the License, or
+** (at your option) any later version.
+** 
+** OSPREY is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** GNU General Public License for more details.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 import java.io.BufferedWriter
 import java.io.OutputStreamWriter
@@ -7,6 +23,8 @@ import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.StandardCopyOption
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.ArrayList
+
 
 plugins {
 	application
@@ -339,6 +357,14 @@ tasks {
 	"pythonDistZip" {
 		dependsOn(pythonWheel, makeDoc, pythonInstallScripts, pythonUninstallScripts)
 	}
+
+	val updateLicenseHeaders by creating {
+		group = "build"
+		description = "updates license headers in all source files"
+		doLast {
+			updateLicenseHeaders()
+		}
+	}
 }
 
 fun nvcc(exec: Exec, kernelName: String, maxRegisters: Int? = null, profile: Boolean = false) {
@@ -417,4 +443,202 @@ fun writeBatchScript(filename: String, cmd: String) {
 fun writeScripts(filename: String, cmd: String) {
 	writeShellScript(filename, cmd)
 	writeBatchScript(filename, cmd)
+}
+
+
+enum class HeaderResult {
+	Updated,
+	Ignored
+}
+
+fun updateLicenseHeaders() {
+
+	val header = """
+		|This file is part of OSPREY.
+		|
+		|OSPREY is free software: you can redistribute it and/or modify
+		|it under the terms of the GNU General Public License as published by
+		|the Free Software Foundation, either version 2 of the License, or
+		|(at your option) any later version.
+		|
+		|OSPREY is distributed in the hope that it will be useful,
+		|but WITHOUT ANY WARRANTY; without even the implied warranty of
+		|MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+		|GNU General Public License for more details.
+		|
+		|You should have received a copy of the GNU General Public License
+		|along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+		""".trimMargin()
+		.lines()
+
+	val deleteTheseAutoHeaders = listOf(
+		""" |/*
+			| * To change this template, choose Tools | Templates
+			| * and open the template in the editor.
+			| */
+		""".trimMargin(),
+		""" |/*
+			| * To change this license header, choose License Headers in Project Properties.
+			| * To change this template file, choose Tools | Templates
+			| * and open the template in the editor.
+			| */
+		""".trimMargin()
+	)
+
+	fun applyCHeader(lines: MutableList<String>): HeaderResult {
+
+		// extract the existing license header, if any
+		var readMode = 0
+		var existingHeader = lines
+			.takeWhile {
+				val line = it.trim()
+				when (readMode) {
+					0 -> {
+						if (line.startsWith("/*")) {
+							readMode = 1
+							return@takeWhile true
+						}
+					}
+					1 -> {
+						if (line.startsWith("**")) {
+							return@takeWhile true
+						} else if (line.startsWith("*/")) {
+							readMode = 2
+							return@takeWhile true
+						}
+					}
+				}
+				return@takeWhile false
+			}
+			.map { it.substring(2).trim() }
+		if (existingHeader.size >= 3) {
+			for (i in 0 until existingHeader.size) {
+				lines.removeAt(0)
+			}
+			existingHeader = existingHeader.subList(1, existingHeader.size - 1)
+		}
+
+		// if it matches the desired header, then we're done
+		if (existingHeader == header) {
+			return HeaderResult.Ignored
+		}
+
+		// trim blank lines
+		while (lines.firstOrNull()?.isBlank() == true) {
+			lines.removeAt(0)
+		}
+
+		// add the new header
+		lines.add(0, "")
+		lines.add(0, "*/")
+		for (i in 0 until header.size) {
+			lines.add(0, "** " + header[header.size - i - 1])
+		}
+		lines.add(0, "/*")
+
+		return HeaderResult.Updated
+	}
+
+	fun applyPythonHeader(lines: MutableList<String>): HeaderResult {
+
+		// extract the existing license header, if any
+		val existingHeader = lines
+			.takeWhile { it.startsWith("##") }
+			.map { it.substring(2).trim() }
+		for (i in 0 until existingHeader.size) {
+			lines.removeAt(0)
+		}
+
+		// if it matches the desired header, then we're done
+		if (existingHeader == header) {
+			return HeaderResult.Ignored
+		}
+
+		// trim blank lines
+		while (lines.firstOrNull()?.isBlank() == true) {
+			lines.removeAt(0)
+		}
+
+		// add the new header
+		lines.add(0, "")
+		for (i in 0 until header.size) {
+			lines.add(0, "## " + header[header.size - i - 1])
+		}
+
+		return HeaderResult.Updated
+	}
+
+	fun applyHeader(path: Path, applier: (MutableList<String>) -> HeaderResult) {
+
+		var text = Files.readAllBytes(path).toString(StandardCharsets.UTF_8)
+
+		// remove any headers automatically added by IDEs or other tools
+		var removedAutoHeaders = false
+		for (autoHeader in deleteTheseAutoHeaders) {
+			val newtext = text.replace(autoHeader, "")
+			if (newtext != text) {
+				removedAutoHeaders = true
+				text = newtext
+			}
+		}
+
+		val lines = text.lines().toMutableList()
+
+		// trim blank lines from the top
+		while (lines.firstOrNull()?.trim() == "") {
+			lines.removeAt(0)
+		}
+
+		// anything left?
+		if (lines.isEmpty()) {
+			return
+		}
+
+		if (removedAutoHeaders || applier(lines) == HeaderResult.Updated) {
+			Files.write(path, lines)
+			println("updated: $path")
+		}
+	}
+
+	fun applyHeaders(dirname: String, filter: (String) -> Boolean, applier: (MutableList<String>) -> HeaderResult) {
+
+		// for each matched file in the folder (and subfolders)
+		val dir = projectDir.resolve(dirname)
+		Files.walk(dir)
+			.filter { filter(it.fileName.toString()) }
+			.forEach { applyHeader(it, applier) }
+	}
+
+	// apply header to java files
+	for (dirname in listOf("src", "test")) {
+		applyHeaders(
+			dirname,
+			filter = { it.endsWith(".java") },
+			applier = ::applyCHeader
+		)
+	}
+
+	// apply header to this file
+	applyHeader(projectDir.resolve("build.gradle.kts"), ::applyCHeader)
+
+	// apply header to kernel files
+	for (dirname in listOf("resources/gpuKernels")) {
+		applyHeaders(
+			dirname,
+			filter = { it.endsWith(".cu") || it.endsWith(".cl") },
+			applier = ::applyCHeader
+		)
+	}
+
+	// apply header to python files
+	for (dirname in listOf("python")) {
+		applyHeaders(
+			dirname,
+			filter = { it.endsWith(".py") },
+			applier = ::applyPythonHeader
+		)
+	}
+
+	// NOTE: don't apply the header to the python example scripts.
+	// there's no need to scare osprey users with legalese in the tutorials
 }
