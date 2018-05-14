@@ -145,14 +145,19 @@ public interface EWAKStarScoreWriter {
 
 			@Override
 			public String format(ScoreInfo info) {
-				return String.format("sequence %4d/%4d   %s   K*(log10): %-34s   protein: %-18s   ligand: %-18s   complex: %-18s",
-					info.sequenceNumber + 1,
-					info.numSequences,
-					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.getMaxResNumLength() + 1, info.complexConfSpace.positions),
-					info.kstarScore.toString(),
-					info.kstarScore.protein.toString(),
-					info.kstarScore.ligand.toString(),
-					info.kstarScore.complex.toString()
+				return String.format("sequence %4d   %s   K*(log10): %-34s   protein: %-18s, numConfs: %d, epsilon: %01.3f,   ligand: %-18s, numConfs: %d, epsilon: %01.3f,   complex: %-18s, numConfs: %d, epsilon: %01.3f,",
+						info.sequenceNumber + 1,
+						info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.getMaxResNumLength() + 1, info.complexConfSpace.positions),
+						info.kstarScore.toString(),
+						info.kstarScore.protein.toString(),
+						info.kstarScore.protein.numConfs,
+						info.kstarScore.protein.values.getEffectiveEpsilon(),
+						info.kstarScore.ligand.toString(),
+						info.kstarScore.ligand.numConfs,
+						info.kstarScore.ligand.values.getEffectiveEpsilon(),
+						info.kstarScore.complex.toString(),
+						info.kstarScore.complex.numConfs,
+						info.kstarScore.complex.values.getEffectiveEpsilon()
 				);
 			}
 		}

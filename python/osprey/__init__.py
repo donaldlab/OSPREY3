@@ -502,7 +502,6 @@ def EnergyMatrix(confEcalc, cacheFile=None):
 
 	return builder.build().calcEnergyMatrix()
 
-
 def ReferenceEnergies(confSpace, ecalc, addResEntropy=None):
 	'''
 	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcReferenceEnergies`
@@ -717,6 +716,10 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	deeper_settings = c.dof.deeper.DEEPerSettings(True, pert_file_name, True, 'None', False, 2.5, 2.5, False, jvm.toArrayList(flex_res_list), pdb_file, False, strand.templateLib)
 	bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
 	return bbflex
+
+def EWAKStar(seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL,  confSpaceP, pos, posL, posP, AATypeOptions, numFilteredSeqs, orderOfMag, unboundEw, boundEw,  ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName, ffparams):
+
+	return c.astar.ewakstar.NewEWAKStarDoer(seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL, posP, AATypeOptions, numFilteredSeqs, orderOfMag, unboundEw, boundEw, ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName, ffparams)
 
 
 def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):

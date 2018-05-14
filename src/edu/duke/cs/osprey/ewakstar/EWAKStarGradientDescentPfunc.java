@@ -41,8 +41,9 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 	private static class State {
 
-		double curGMEC = Double.NEGATIVE_INFINITY;
+		double curGMEC = Double.POSITIVE_INFINITY;
 		boolean energyWindowMet = false;
+		double energyDiff = Double.NEGATIVE_INFINITY;
 		BigDecimal numConfs;
 
 		// upper bound (score axis) vars
@@ -74,8 +75,9 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 			this.curGMEC = newEnergy;
 		}
 
-		public void setEnergyWindowMet(double newEnergy, double targetEnergy){
-			this.energyWindowMet = (newEnergy - curGMEC > targetEnergy);
+		public void setEnergyWindowMet(double lowBound, double targetEnergy){
+			this.energyDiff = lowBound - curGMEC;
+			this.energyWindowMet = (energyDiff > targetEnergy);
 		}
 
 		double calcDelta() {
@@ -431,9 +433,9 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 			if (state.curGMEC >= econf.getEnergy()){
 				state.setGMECEnergy(econf.getEnergy());
-				state.setEnergyWindowMet(econf.getEnergy(), targetEnergy);
+				state.setEnergyWindowMet(econf.getScore(), targetEnergy);
 			} else {
-				state.setEnergyWindowMet(econf.getEnergy(), targetEnergy);
+				state.setEnergyWindowMet(econf.getScore(), targetEnergy);
 			}
 
 			state.lowerScoreWeightSum = state.lowerScoreWeightSum.add(scoreWeight);

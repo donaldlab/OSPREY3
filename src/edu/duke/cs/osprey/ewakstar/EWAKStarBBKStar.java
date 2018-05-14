@@ -454,10 +454,6 @@ public class EWAKStarBBKStar {
     /** Calculates the continuous-rotamer (minimized) energy for a molecule */
     public final EnergyMatrix ematL;
 
-    public final String matrixP;
-    public final String matrixL;
-    public final String matrixPL;
-
     /** A function that makes a ConfSearchFactory (e.g, A* search) with the desired options */
     public final EWAKStar.ConfSearchFactory confSearchFactory;
 
@@ -472,7 +468,7 @@ public class EWAKStarBBKStar {
     private final Map<Sequence,EWAKStarPartitionFunction> ligandPfuncs;
     private final Map<Sequence,EWAKStarPartitionFunction> complexPfuncs;
 
-	public EWAKStarBBKStar(int maxNumSeqs, SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator minimizingEcalc, ConfEnergyCalculator confECalcPL, ConfEnergyCalculator confECalcP, ConfEnergyCalculator confECalcL, ConfEnergyCalculator confRigidECalcPL, ConfEnergyCalculator confRigidECalcP, ConfEnergyCalculator confRigidECalcL,  EWAKStar.ConfSearchFactory confSearchFactory, EWAKStarBBKStar.Settings bbkstarSettings, EWAKStar.Settings kstarSettings, EnergyMatrix ematPL, EnergyMatrix ematP, EnergyMatrix ematL, String matrixP, String matrixL, String matrixPL) {
+	public EWAKStarBBKStar(int maxNumSeqs, SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator minimizingEcalc, ConfEnergyCalculator confECalcPL, ConfEnergyCalculator confECalcP, ConfEnergyCalculator confECalcL, ConfEnergyCalculator confRigidECalcPL, ConfEnergyCalculator confRigidECalcP, ConfEnergyCalculator confRigidECalcL,  EWAKStar.ConfSearchFactory confSearchFactory, EWAKStarBBKStar.Settings bbkstarSettings, EWAKStar.Settings kstarSettings, EnergyMatrix ematPL, EnergyMatrix ematP, EnergyMatrix ematL) {
 
         this.protein = new EWAKStarBBKStar.ConfSpaceInfo(
                 KStar.ConfSpaceType.Protein,
@@ -504,9 +500,6 @@ public class EWAKStarBBKStar {
         this.ematPL = ematPL;
         this.ematL = ematL;
         this.ematP = ematP;
-        this.matrixP = matrixP;
-        this.matrixL = matrixL;
-        this.matrixPL = matrixPL;
 
         proteinPfuncs = new HashMap<>();
         ligandPfuncs = new HashMap<>();

@@ -52,7 +52,7 @@ def astarFactory(emat, rcs):
 
 # run K*
 kstar = osprey.KStar(
-	proteinConfSpace,
+    proteinConfSpace,
 	ligandConfSpace,
 	complexConfSpace,
 	ecalc,
