@@ -417,12 +417,7 @@ public class LUTE {
 				for (int pos2=0; pos2<pos1; pos2++) {
 					for (int rc2=0; rc2<pmat.getNumConfAtPos(pos2); rc2++) {
 
-						// skip pruned singles
-						if (pmat.isSinglePruned(pos2, rc2)) {
-							continue;
-						}
-
-						// skip pruned tuples
+						// skip pruned pairs
 						if (pmat.isPairPruned(pos1, rc1, pos2, rc2)) {
 							continue;
 						}
@@ -437,6 +432,45 @@ public class LUTE {
 		}
 
 		return pairs;
+	}
+
+	public Set<RCTuple> getUnprunedTripleTuples(PruningMatrix pmat) {
+
+		Set<RCTuple> triples = new LinkedHashSet<>();
+
+		for (int pos1=0; pos1<pmat.getNumPos(); pos1++) {
+			for (int rc1=0; rc1<pmat.getNumConfAtPos(pos1); rc1++) {
+
+				// skip pruned singles
+				if (pmat.isSinglePruned(pos1, rc1)) {
+					continue;
+				}
+
+				for (int pos2=0; pos2<pos1; pos2++) {
+					for (int rc2=0; rc2<pmat.getNumConfAtPos(pos2); rc2++) {
+
+						// skip pruned pairs
+						if (pmat.isPairPruned(pos1, rc1, pos2, rc2)) {
+							continue;
+						}
+
+						for (int pos3=0; pos3<pos2; pos3++) {
+							for (int rc3=0; rc3<pmat.getNumConfAtPos(pos3); rc3++) {
+
+								// skip pruned triples
+								if (pmat.isTriplePruned(pos1, rc1, pos2, rc2, pos3, rc3)) {
+									continue;
+								}
+
+								triples.add(new RCTuple(pos3, rc3, pos2, rc2, pos1, rc1));
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return triples;
 	}
 
 	/**

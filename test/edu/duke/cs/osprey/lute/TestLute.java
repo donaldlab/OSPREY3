@@ -43,6 +43,7 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
@@ -532,6 +533,70 @@ public class TestLute {
 			assertKstar(scoredSequences.get(2), "asp ASP lys", 6.068227, 6.077714, fudge); // protein [-1.111587,-1.108619] (log10)                    ligand [11.206188,11.209861] (log10)                    complex [16.169469,16.172315] (log10)
 			assertKstar(scoredSequences.get(3), "asp glu ASP", 3.438280, 3.444701, fudge); // protein [2.402387 , 2.404539] (log10)                    ligand [1.189648 , 1.190554] (log10)                    complex [7.033372 , 7.036735] (log10)
 			assertKstar(scoredSequences.get(4), "asp glu GLU", 2.601122, 2.605583, fudge); // protein [2.402387 , 2.404539] (log10)                    ligand [1.247908 , 1.247908] (log10)                    complex [6.253568 , 6.255878] (log10)
+		}
+	}
+
+	private static LUTEConfEnergyCalculator trainAllTriples(SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc, PruningMatrix pmat) {
+
+		try (ConfDB confdb = new ConfDB(confSpace)) {
+			ConfDB.ConfTable confTable = confdb.new ConfTable("lute");
+
+			final int randomSeed = 12345;
+			final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
+			final double maxOverfittingScore = 1.5;
+
+			// compute LUTE fit
+			LUTE lute = new LUTE(confSpace);
+			ConfSampler sampler = new UniformConfSampler(confSpace, pmat, randomSeed);
+			lute.addTuples(lute.getUnprunedPairTuples(pmat));
+			lute.addTuples(lute.getUnprunedTripleTuples(pmat));
+			lute.fit(confEcalc, confTable, sampler, fitter, maxOverfittingScore);
+			lute.reportConfSpaceSize(pmat);
+
+			return new LUTEConfEnergyCalculator(confSpace, new LUTEState(lute.getTrainingSystem()));
+		}
+	}
+
+	@Test
+	public void astarAllTriples() {
+
+		// define the the conf space
+		Strand protein = new Strand.Builder(PDBIO.readResource("/2RL0.min.reduce.pdb"))
+			.setResidues("G648", "G654")
+			.build();
+		for (String resNum : Arrays.asList("G648", "G649", "G650", "G651", "G652")) {
+			protein.flexibility.get(resNum).setLibraryRotamers(Strand.WildType).setContinuous();
+		}
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+			.build();
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
+			.setParallelism(Parallelism.makeCpu(4))
+			.build()) {
+
+			ConfEnergyCalculator confEcalc = makeConfEcalc(confSpace, ecalc);
+			EnergyMatrix emat = calcEmat(confEcalc);
+			PruningMatrix pmat = calcPmat(confSpace, emat);
+
+			// train LUTE
+			LUTEConfEnergyCalculator luteEcalc = trainAllTriples(confSpace, confEcalc, pmat);
+
+			ConfAStarTree astar = new ConfAStarTree.Builder(null, pmat)
+				.setLUTE(luteEcalc)
+				.build();
+
+			// make sure confs arrive in order of weakly increasing score
+			double score = Double.NEGATIVE_INFINITY;
+			for (int i=0; i<100; i++) {
+				ConfSearch.ScoredConf conf = astar.nextConf();
+				if (conf == null) {
+					break;
+				}
+				log("score: %.4f", conf.getScore());
+				assertThat(conf.getScore(), greaterThanOrEqualTo(score));
+				score = conf.getScore();
+			}
 		}
 	}
 }
