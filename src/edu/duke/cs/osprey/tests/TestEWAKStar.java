@@ -104,7 +104,7 @@ public class TestEWAKStar {
         NewEWAKStarDoer ewakstar = new NewEWAKStarDoer(seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc,
                 emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL, posP, AATypeOptions,
                 numFilteredSeqs, orderOfMag, unboundEw, boundEw, ewakstarEw, startResL, endResL, startResP, endResP,
-                mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName, ffparams);
+                mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName);
 
 
         ArrayList<Sequence> bestSequences = ewakstar.run();

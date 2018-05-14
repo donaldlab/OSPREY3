@@ -228,7 +228,7 @@ tasks {
 		commandLine(pipCmd, "install",
 			"--user", "--editable",
 			".", // path to package to install, ie osprey
-			"--no-index", "--use-wheel", "--find-links=$pythonWheelhouseDir" // only use wheelhouse to resolve dependencies
+			"--no-index", "--find-links=$pythonWheelhouseDir" // only use wheelhouse to resolve dependencies
 		)
 		doLast {
 			Files.createDirectories(pythonBuildDir)

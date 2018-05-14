@@ -103,7 +103,7 @@ public class NewEWAKStarDoer {
                             Integer[] posP, ArrayList<ArrayList<String>> AATypeOptions, int numSeqsWanted,
                             double orderOfMag, double unboundEw, double boundEw, double ewakstarEw, String startResL,
                             String endResL, String startResP, String endResP, Molecule mol, String[] resNumsPL,
-                            String[] resNumsL, String[] resNumsP, double Ival, String PLmatrixName, ForcefieldParams ffparams) {
+                            String[] resNumsL, String[] resNumsP, double Ival, String PLmatrixName) {
 
         //fill in all the settings
         //each state will have its own config file parser
@@ -121,7 +121,6 @@ public class NewEWAKStarDoer {
         this.confSpaces.complex = confSpace;
         this.confSpaces.protein = confSpaceP;
         this.confSpaces.ligand = confSpaceL;
-        this.confSpaces.ffparams = ffparams;
         this.orderOfMag = orderOfMag;
         this.unboundEw = unboundEw;
         this.boundEw = boundEw;
