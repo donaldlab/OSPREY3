@@ -44,7 +44,7 @@ public class TestMARKStar {
 	}
 
 	public static class Result {
-		public MARKStar kstar;
+		public MARKStar markstar;
 		public List<MARKStar.ScoredSequence> scores;
 	}
 
@@ -157,8 +157,8 @@ public class TestMARKStar {
 					.setStabilityThreshold(null)
 					.addScoreConsoleWriter(testFormatter)
 					.build();
-				result.kstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
-				result.scores = result.kstar.run();
+				result.markstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
+				result.scores = result.markstar.run();
 
 				// pass back the ref
 				resultRef.set(result);
@@ -166,6 +166,45 @@ public class TestMARKStar {
 
 		return resultRef.get();
 	}
+	public static Result runMARKStar(ConfSpaces confSpaces, double epsilon){
+
+        Parallelism parallelism = Parallelism.makeCpu(4);
+
+        // Define the minimizing energy calculator
+        EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+                .setParallelism(parallelism)
+                .build();
+        // Define the rigid energy calculator
+        EnergyCalculator rigidEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+                .setParallelism(parallelism)
+                .setIsMinimizing(false)
+                .build();
+        // how should we define energies of conformations?
+        MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
+            return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
+                    .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
+                            .setCacheFile(new File("test.eref.emat"))
+                            .build()
+                            .calcReferenceEnergies()
+                    )
+                    .build();
+        };
+
+        // how should confs be ordered and searched?
+        ConfSearchFactory confSearchFactory = (emat, pmat) -> {
+            return new RecursiveAStarTree.Builder(emat, pmat)
+                    .setTraditional()
+                    .build();
+        };
+
+        Result result = new Result();
+
+        MARKStar.Settings settings = new MARKStar.Settings.Builder().setEpsilon(epsilon).setEnergyMatrixCachePattern("*testmat.emat").build();
+
+        result.markstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
+        result.scores = result.markstar.run();
+        return result;
+    }
 
 	public static ConfSpaces make2RL0() {
 
@@ -271,7 +310,7 @@ public class TestMARKStar {
 			.setResidues("1", "180")
 			.build();
 		int start = 21;
-		int numFlex = 3;
+		int numFlex = 7;
 		for(int i = start; i < start+numFlex; i++) {
 			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		}
@@ -348,8 +387,8 @@ public class TestMARKStar {
 	@Test
 	public void test1GUA11() {
 
-		double epsilon = 0.999999;
-		Result result = runKStar(make1GUA11(), epsilon);
+		double epsilon = 0.1;
+		Result result = runMARKStar(make1GUA11(), epsilon);
 
 		for (int index = 0; index <6; index++){
 		    printSequence(result, index);
@@ -361,6 +400,7 @@ public class TestMARKStar {
 		assertSequence(result,   3, "ILE ILE GLN HIE VAL TYR LYS LYS", 1.186071e+42, 6.402058e+04, 3.315165e+63, epsilon); // K* = 16.640075 in [16.563032,16.685734] (log10)
 		assertSequence(result,   4, "ILE ILE GLN HIE VAL TYR LYS ARG", 1.186071e+42, 1.157637e+05, 5.375731e+64, epsilon); // K* = 17.592754 in [17.514598,17.638466] (log10)
 		assertSequence(result,   5, "ILE ILE GLN HID VAL TYR LYS VAL", 9.749716e+41, 2.840001e+07, 2.677894e+66, epsilon); // K* = 16.985483 in [16.927677,17.026890] (log10)
+
 	}
 	public static void printSequence(Result result, int sequenceIndex){
 		MARKStar.ScoredSequence scoredSequence =result.scores.get(sequenceIndex);
