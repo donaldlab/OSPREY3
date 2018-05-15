@@ -531,7 +531,7 @@ public class EWAKStarBBKStar {
         tree.add(new EWAKStarBBKStar.MultiSequenceNode(complex.confSpace.makeUnassignedSequence(), confdbs));
 
         // start searching the tree
-        System.out.println("computing K* scores for the best sequences to within an energy window of " + kstarSettings.eW + " kcal, max of "+kstarSettings.maxPFConfs+ "and an epsilon of "+kstarSettings.epsilon+"...");
+        System.out.println("computing K* scores for the best sequences to within an energy window of " + kstarSettings.eW + " kcal, with a max of "+kstarSettings.maxPFConfs+ " conformations, and an epsilon of "+kstarSettings.epsilon+"...");
         kstarSettings.scoreWriters.writeHeader();
         Boolean wtSeqFound = false;
         if(kstarSettings.wtBenchmark) {
