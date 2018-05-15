@@ -250,7 +250,7 @@ public class MARKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc ,sequence.makeRCs());
+			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs());
 			pfunc.setReportProgress(settings.showPfuncProgress);
 
 			// compute it
@@ -380,7 +380,6 @@ public class MARKStar {
 		settings.scoreWriters.writeHeader();
 		// TODO: progress bar?
 
-        protein.calcPfunc(0, BigDecimal.ZERO);
 		// compute wild type partition functions first (always at pos 0)
 		KStarScore wildTypeScore = scorer.score(
 			0,
@@ -391,9 +390,9 @@ public class MARKStar {
 		BigDecimal proteinStabilityThreshold = null;
 		BigDecimal ligandStabilityThreshold = null;
 		if (settings.stabilityThreshold != null) {
-			//BigDecimal stabilityThresholdFactor = new BoltzmannCalculator().calc(settings.stabilityThreshold);
-			//proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
-			//ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+			BigDecimal stabilityThresholdFactor = new BoltzmannCalculator(PartitionFunction.decimalPrecision).calc(settings.stabilityThreshold);
+			proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
+			ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
 		}
 
 		// compute all the partition functions and K* scores for the rest of the sequences
