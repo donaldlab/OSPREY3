@@ -92,32 +92,36 @@ public class NewEWAKStarDoer {
     private ConfEnergyCalculator confRigidEnergyCalcP;
     private ConfEnergyCalculator confRigidEnergyCalcPL;
 
+    private ArrayList<ArrayList<String>> AATypeOptions;
+
+    private boolean wtBenchmark;
     private boolean seqFilterOnly;
 
     private PruningSettings pruningSettings = new PruningSettings();
 
-    public NewEWAKStarDoer (boolean seqFilterOnly, int maxNumSeqs, int maxPFConfs, double epsilon,
-                            ConfEnergyCalculator confRigidEnergyCalcPL, ConfEnergyCalculator confEnergyCalcPL,
-                            EnergyMatrix ematPL, EnergyCalculator minimizingEcalc, SimpleConfSpace confSpace,
+    public NewEWAKStarDoer (boolean wtBenchmark, boolean seqFilterOnly, int numTopSeqs, int maxPFConfs, double epsilon,
+                            ConfEnergyCalculator confRigidECalc, ConfEnergyCalculator confECalc,
+                            EnergyMatrix emat, EnergyCalculator ecalc, SimpleConfSpace confSpace,
                             SimpleConfSpace confSpaceL, SimpleConfSpace confSpaceP, Integer[] pos, Integer[] posL,
-                            Integer[] posP, ArrayList<ArrayList<String>> AATypeOptions, int numSeqsWanted,
-                            double orderOfMag, double unboundEw, double boundEw, double ewakstarEw, String startResL,
+                            Integer[] posP, int numFilteredSeqs, double orderOfMag, double unboundEw,
+                            double boundEw, double ewakstarEw, String startResL,
                             String endResL, String startResP, String endResP, Molecule mol, String[] resNumsPL,
                             String[] resNumsL, String[] resNumsP, double Ival, String PLmatrixName) {
 
         //fill in all the settings
         //each state will have its own config file parser
+        this.wtBenchmark = wtBenchmark;
         this.seqFilterOnly = seqFilterOnly;
-        this.maxNumSeqs = maxNumSeqs;
+        this.maxNumSeqs = numTopSeqs;
         this.maxPFConfs = maxPFConfs;
         this.epsilon = epsilon;
-        this.ematPL = ematPL;
-        this.confEnergyCalcPL = confEnergyCalcPL;
-        this.confRigidEnergyCalcPL = confRigidEnergyCalcPL;
-        this.minimizingEcalc = minimizingEcalc;
+        this.ematPL = emat;
+        this.confEnergyCalcPL = confECalc;
+        this.confRigidEnergyCalcPL = confRigidECalc;
+        this.minimizingEcalc = ecalc;
         this.mutablePosNumsL = new ArrayList<>(Arrays.asList(posL));
         this.mutablePosNumsP = new ArrayList<>(Arrays.asList(posP));
-        this.numSeqsWanted = numSeqsWanted;
+        this.numSeqsWanted = numFilteredSeqs;
         this.confSpaces.complex = confSpace;
         this.confSpaces.protein = confSpaceP;
         this.confSpaces.ligand = confSpaceL;
@@ -141,6 +145,8 @@ public class NewEWAKStarDoer {
         this.wtSeqP = Sequence.makeWildType(confSpaceP);
         //get wild-type sequence for the unbound complex, L
         this.wtSeqEWAKStar = Sequence.makeWildTypeEWAKStar(fullWtSeq);
+
+        this.AATypeOptions = makeAATypeOptions(confSpace);
 
         this.pruningSettings.typedep = true;
 
@@ -295,6 +301,7 @@ public class NewEWAKStarDoer {
                 .setStabilityThreshold(null)
                 .addScoreConsoleWriter()
                 .setEnergyMatrixCachePattern(PLmatrixName)
+                .setWTBenchmark(wtBenchmark)
                 .addScoreFileWriter(new File("ewakStar.results.txt"))
                 .build();
 
@@ -341,6 +348,20 @@ public class NewEWAKStarDoer {
         return newAAOptions;
     }
 
+    private ArrayList<ArrayList<String>> makeAATypeOptions(SimpleConfSpace confSpace){
+
+        ArrayList<ArrayList<String>> aaTypeOptions = new ArrayList<>();
+        for (SimpleConfSpace.Position p: confSpace.positions){
+            ArrayList<String> subArray = new ArrayList<>();
+            for (String s:p.resFlex.resTypes){
+                subArray.add(s);
+            }
+            aaTypeOptions.add(subArray);
+        }
+
+        System.out.println(aaTypeOptions);
+        return aaTypeOptions;
+    }
 
     private void updatePLSettings(){
 

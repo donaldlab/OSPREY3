@@ -60,8 +60,9 @@ confRigidECalc = osprey.ConfEnergyCalculator(confSpace, rigidEcalc, referenceEne
 epsilon = 0.68
 numTopSeqs = 5
 maxPFConfs = 500
-seqFilterOnly = True
-numFilteredSeqs=10000
+seqFilterOnly = False
+wtBenchmark = True
+numFilteredSeqs = 10000
 orderOfMag = 5.0
 unboundEw = 20.0
 boundEw = 20.0
@@ -74,10 +75,10 @@ PLematMatrixName = "ewak.PL.emat"
 emat = osprey.EnergyMatrix(confECalc, cacheFile=PLematMatrixName)
 
 # run EWAK*
-ewakstar = osprey.EWAKStar(seqFilterOnly)
-
-'''
-    numTopSeqs,
+ewakstar = osprey.EWAKStar(
+        wtBenchmark,
+        seqFilterOnly,
+        numTopSeqs,
         maxPFConfs,
         epsilon,
         confRigidECalc,
@@ -90,7 +91,6 @@ ewakstar = osprey.EWAKStar(seqFilterOnly)
         pos,
         posL,
         posP,
-        AATypeOptions,
         numFilteredSeqs,
         orderOfMag,
         unboundEw,
@@ -105,14 +105,7 @@ ewakstar = osprey.EWAKStar(seqFilterOnly)
         resNumsL,
         resNumsP,
         Ival,
-        PLmatrixName,
-        ffparams
-'''
+        PLmatrixName
+)
 
 scoredSequences = ewakstar.run();
-
-# use results
-for scoredSequence in scoredSequences:
-	print("result:")
-	print("\tsequence: %s" % scoredSequence.sequence)
-	print("\tscore: %s" % scoredSequence.score)

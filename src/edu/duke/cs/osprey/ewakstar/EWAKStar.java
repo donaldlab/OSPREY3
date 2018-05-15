@@ -70,6 +70,8 @@ public class EWAKStar {
              */
             private boolean showPfuncProgress = false;
 
+            private boolean wtBenchmark = true;
+
             /**
              * Pattern of the filename to cache energy matrices.
              *
@@ -89,6 +91,10 @@ public class EWAKStar {
                 return this;
             }
 
+            public EWAKStar.Settings.Builder setWTBenchmark(boolean ans){
+                wtBenchmark = ans;
+                return this;
+            }
             public EWAKStar.Settings.Builder setEpsilon(double val){
                 epsilon = val;
                 return this;
@@ -139,10 +145,11 @@ public class EWAKStar {
             }
 
             public EWAKStar.Settings build() {
-                return new EWAKStar.Settings(epsilon, eW, maxPFConfs, stabilityThreshold, scoreWriters, showPfuncProgress, energyMatrixCachePattern);
+                return new EWAKStar.Settings(epsilon, eW, maxPFConfs, stabilityThreshold, scoreWriters, showPfuncProgress, energyMatrixCachePattern, wtBenchmark);
             }
         }
 
+        public final boolean wtBenchmark;
         public final int maxPFConfs;
         public final double epsilon;
         public final double eW;
@@ -151,7 +158,8 @@ public class EWAKStar {
         public final boolean showPfuncProgress;
         public final String energyMatrixCachePattern;
 
-        public Settings(double epsilon, double eW, int maxPFConfs, Double stabilityThreshold, EWAKStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern) {
+        public Settings(double epsilon, double eW, int maxPFConfs, Double stabilityThreshold, EWAKStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern, boolean wtBenchmark) {
+            this.wtBenchmark = wtBenchmark;
             this.maxPFConfs = maxPFConfs;
             this.epsilon = epsilon;
             this.eW = eW;

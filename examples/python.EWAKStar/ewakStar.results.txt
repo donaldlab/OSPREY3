@@ -1,0 +1,3 @@
+-1	A156=phe A172=lys A192=ile A193=thr G649=phe G650=asp G651=glu G654=thr	15.756086	15.025047	16.247912	36	4.102806e+50	0.6777640300567863	32	2.859151e+30	0.4516330147939001	2	2.516276e+04	0.6612417395824709	2	14
+Seq ID	Sequence	K* Score (Log10)	K* Lower Bound	K* Upper Bound	Total # Confs.	Complex Partition Function	Complex Epsilon	Complex # Confs.	Protein Partition Function	Protein Epsilon	Protein # Confs.	Ligand Partition Function	Ligand Epsilon	Ligand # Confs.	Time (sec)
+0	A156=phe A172=lys A192=ile A193=thr G649=phe G650=asp G651=glu G654=thr	15.756086	15.025047	16.247912	36	4.102806e+50	0.6777640300567863	32	2.859151e+30	0.4516330147939001	2	2.516276e+04	0.6612417395824709	2	51

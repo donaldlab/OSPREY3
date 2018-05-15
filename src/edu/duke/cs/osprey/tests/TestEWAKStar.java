@@ -55,6 +55,7 @@ public class TestEWAKStar {
         int maxPFConfs = 500;
         int numTopSeqs = 5;
         boolean seqFilterOnly = false;
+        boolean wtBenchmark = true;
         String startResL = "G648";
         String endResL = "G654";
         String startResP = "A155";
@@ -101,10 +102,9 @@ public class TestEWAKStar {
                 .build()
                 .calcEnergyMatrix();
 
-        NewEWAKStarDoer ewakstar = new NewEWAKStarDoer(seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc,
-                emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL, posP, AATypeOptions,
-                numFilteredSeqs, orderOfMag, unboundEw, boundEw, ewakstarEw, startResL, endResL, startResP, endResP,
-                mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName);
+        NewEWAKStarDoer ewakstar = new NewEWAKStarDoer(wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc,
+                emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL, posP, numFilteredSeqs, orderOfMag, unboundEw,
+                boundEw, ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName);
 
 
         ArrayList<Sequence> bestSequences = ewakstar.run();

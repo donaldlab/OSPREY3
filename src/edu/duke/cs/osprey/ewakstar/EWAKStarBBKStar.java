@@ -531,54 +531,102 @@ public class EWAKStarBBKStar {
         tree.add(new EWAKStarBBKStar.MultiSequenceNode(complex.confSpace.makeUnassignedSequence(), confdbs));
 
         // start searching the tree
-        System.out.println("computing K* scores for the best sequences to within an energy window of " + kstarSettings.eW + " kcal...");
+        System.out.println("computing K* scores for the best sequences to within an energy window of " + kstarSettings.eW + " kcal, max of "+kstarSettings.maxPFConfs+ "and an epsilon of "+kstarSettings.epsilon+"...");
         kstarSettings.scoreWriters.writeHeader();
         Boolean wtSeqFound = false;
-        while (!tree.isEmpty() && scoredSequences.size() < maxNumSeqs) {
+        if(kstarSettings.wtBenchmark) {
+            while (!tree.isEmpty() && !wtSeqFound) {
 
-            // get the next node
-            EWAKStarBBKStar.Node node = tree.poll();
+                // get the next node
+                EWAKStarBBKStar.Node node = tree.poll();
 
-//            if (node.isWTSeq) {
-//                wtSeqFound = true;
-//            }
-
-            if (node instanceof EWAKStarBBKStar.SingleSequenceNode) {
-                EWAKStarBBKStar.SingleSequenceNode ssnode = (EWAKStarBBKStar.SingleSequenceNode) node;
-
-                // single-sequence node
-                switch (ssnode.getStatus()) {
-                    case Estimated:
-
-                        // sequence is finished, return it!
-                        reportSequence(ssnode, scoredSequences);
-                        break;
-
-                    case Estimating:
-
-                        // needs more estimation, catch-and-release
-                        ssnode.estimateScore();
-                        if (!ssnode.isUnboundUnstable) {
-                            tree.add(ssnode);
-                        }
-
-                        break;
-                    case Blocked:
-
-                        // from here on out, it's all blocked sequences
-                        // so it's ok to put them in the sorted order now
-                        reportSequence(ssnode, scoredSequences);
+                if (node.isWTSeq) {
+                    wtSeqFound = true;
                 }
 
-            } else if (node instanceof EWAKStarBBKStar.MultiSequenceNode) {
-                EWAKStarBBKStar.MultiSequenceNode msnode = (EWAKStarBBKStar.MultiSequenceNode) node;
+                if (node instanceof EWAKStarBBKStar.SingleSequenceNode) {
+                    EWAKStarBBKStar.SingleSequenceNode ssnode = (EWAKStarBBKStar.SingleSequenceNode) node;
 
-                // partial sequence, expand children
-                // TODO: parallelize the multi-sequence node scoring here?
-                for (EWAKStarBBKStar.Node child : msnode.makeChildren()) {
-                    child.estimateScore();
-                    if (!child.isUnboundUnstable) {
-                        tree.add(child);
+                    // single-sequence node
+                    switch (ssnode.getStatus()) {
+                        case Estimated:
+
+                            // sequence is finished, return it!
+                            reportSequence(ssnode, scoredSequences);
+                            break;
+
+                        case Estimating:
+
+                            // needs more estimation, catch-and-release
+                            ssnode.estimateScore();
+                            if (!ssnode.isUnboundUnstable) {
+                                tree.add(ssnode);
+                            }
+
+                            break;
+                        case Blocked:
+
+                            // from here on out, it's all blocked sequences
+                            // so it's ok to put them in the sorted order now
+                            reportSequence(ssnode, scoredSequences);
+                    }
+
+                } else if (node instanceof EWAKStarBBKStar.MultiSequenceNode) {
+                    EWAKStarBBKStar.MultiSequenceNode msnode = (EWAKStarBBKStar.MultiSequenceNode) node;
+
+                    // partial sequence, expand children
+                    // TODO: parallelize the multi-sequence node scoring here?
+                    for (EWAKStarBBKStar.Node child : msnode.makeChildren()) {
+                        child.estimateScore();
+                        if (!child.isUnboundUnstable) {
+                            tree.add(child);
+                        }
+                    }
+                }
+            }
+        } else {
+            while (!tree.isEmpty() && scoredSequences.size() < maxNumSeqs) {
+
+                // get the next node
+                EWAKStarBBKStar.Node node = tree.poll();
+
+                if (node instanceof EWAKStarBBKStar.SingleSequenceNode) {
+                    EWAKStarBBKStar.SingleSequenceNode ssnode = (EWAKStarBBKStar.SingleSequenceNode) node;
+
+                    // single-sequence node
+                    switch (ssnode.getStatus()) {
+                        case Estimated:
+
+                            // sequence is finished, return it!
+                            reportSequence(ssnode, scoredSequences);
+                            break;
+
+                        case Estimating:
+
+                            // needs more estimation, catch-and-release
+                            ssnode.estimateScore();
+                            if (!ssnode.isUnboundUnstable) {
+                                tree.add(ssnode);
+                            }
+
+                            break;
+                        case Blocked:
+
+                            // from here on out, it's all blocked sequences
+                            // so it's ok to put them in the sorted order now
+                            reportSequence(ssnode, scoredSequences);
+                    }
+
+                } else if (node instanceof EWAKStarBBKStar.MultiSequenceNode) {
+                    EWAKStarBBKStar.MultiSequenceNode msnode = (EWAKStarBBKStar.MultiSequenceNode) node;
+
+                    // partial sequence, expand children
+                    // TODO: parallelize the multi-sequence node scoring here?
+                    for (EWAKStarBBKStar.Node child : msnode.makeChildren()) {
+                        child.estimateScore();
+                        if (!child.isUnboundUnstable) {
+                            tree.add(child);
+                        }
                     }
                 }
             }
@@ -588,8 +636,10 @@ public class EWAKStarBBKStar {
         if (tree.isEmpty()) {
             // all is well, we just don't have that many sequences in the design
             System.out.println("All " + scoredSequences.size() + " sequences calculated. EWAK* complete.");
+        } else if (wtSeqFound && scoredSequences.size()==1) {
+            System.out.println("No K* scores found that are better than the wild-type sequence.");
         } else if (wtSeqFound) {
-            System.out.println("Found K* score estimates for all " + scoredSequences.size() + " sequences with scores greater than that of the wild-type sequence.");
+                System.out.println("Found K* score estimates for all " + scoredSequences.size() + " sequences with scores greater than that of the wild-type sequence.");
         } else if (scoredSequences.size() >= maxNumSeqs) {
             System.out.println("Found K* score estimates for top "+ maxNumSeqs +" sequences.");
         } else
