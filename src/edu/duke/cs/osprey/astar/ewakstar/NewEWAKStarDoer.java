@@ -559,6 +559,9 @@ public class NewEWAKStarDoer {
 
         for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
             //this will find the best sequence and print it
+            if(seqNum%10==0) {
+                System.out.println("Number of seqs looked at in PL: " + seqNum);
+            }
             ScoredConf conf = treePL.nextConf();
             if (conf == null) {
                 //empty sequence...indicates no more sequence possibilities
