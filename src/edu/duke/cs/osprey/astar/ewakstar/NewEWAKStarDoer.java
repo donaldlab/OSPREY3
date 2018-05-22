@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 import static edu.duke.cs.osprey.confspace.Sequence.makeEWAKStar;
 
@@ -174,6 +175,8 @@ public class NewEWAKStarDoer {
 
     public ArrayList<Sequence> run(){
 
+        long startEWAKStarTime = System.currentTimeMillis();
+
         System.out.println("Performing EWAK*");
 
         ArrayList<Sequence> bestPLseqs = extractPLSeqsByLB();
@@ -195,14 +198,24 @@ public class NewEWAKStarDoer {
 
         Collections.sort(filteredSeqsStrings);
 
+        long stopEWAKStarTime;
         if (!seqFilterOnly) {
             runEWAKStarBBKStar(filteredSeqsStrings);
         }
-
         if(seqFilterOnly) {
             writeSeqsToFile(fullSeqs);
+            stopEWAKStarTime = System.currentTimeMillis()-startEWAKStarTime;
+            System.out.println("Total OSPREY/EWAK* time: "+(String.format("%d min, %d sec",
+                    TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime),
+                    TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime) -
+                            TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime)))));
             return fullSeqs;
         } else
+            stopEWAKStarTime = System.currentTimeMillis()-startEWAKStarTime;
+            System.out.println("Total OSPREY/EWAK* time: "+(String.format("%d min, %d sec",
+                    TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime),
+                    TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime) -
+                            TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime)))));
             return null;
     }
 
