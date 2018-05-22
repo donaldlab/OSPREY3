@@ -174,7 +174,7 @@ public class NewEWAKStarDoer {
                 confSpace, minimizingEcalc, confEnergyCalcPL, new EPICSettings(), new LUTESettings(),
                 pruningSettings);
 
-        treePL = new NewEWAKStarTree(maxMutable, AATypeOptions.size(), AATypeOptions, fullWtSeq, confSpace, newPrecompMat,
+        treePL = new NewEWAKStarTree(this.maxMutable, AATypeOptions.size(), AATypeOptions, fullWtSeq, confSpace, newPrecompMat,
                 new ArrayList<>(Arrays.asList(pos)), confEnergyCalcPL);
 
     }
