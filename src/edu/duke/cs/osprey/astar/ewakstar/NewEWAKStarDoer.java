@@ -293,7 +293,6 @@ public class NewEWAKStarDoer {
                 .setEw(ewakstarEw)
                 .setEpsilon(epsilon)
                 .setMaxNumConfs(maxPFConfs)
-                .setStabilityThreshold(null)
                 .addScoreConsoleWriter()
                 .setEnergyMatrixCachePattern(PLmatrixName)
                 .setWTBenchmark(wtBenchmark)

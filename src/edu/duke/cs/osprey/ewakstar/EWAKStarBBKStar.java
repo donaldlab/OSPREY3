@@ -539,30 +539,12 @@ public class EWAKStarBBKStar {
 
         ConfDBs confdbs = new EWAKStarBBKStar.ConfDBs();
 
-        // calculate wild-type first
-        System.out.println("computing K* score for the wild-type sequence...");
-        EWAKStarBBKStar.SingleSequenceNode wildTypeNode = new EWAKStarBBKStar.SingleSequenceNode(Sequence.makeWildType(complex.confSpace), confdbs);
-        EWAKStarScore wildTypeScore = wildTypeNode.computeScore();
-        kstarSettings.scoreWriters.writeScore(new EWAKStarScoreWriter.ScoreInfo(
-                -1,
-                0,
-                wildTypeNode.sequence,
-                complex.confSpace,
-                wildTypeScore
-        ));
-
-        if (kstarSettings.stabilityThreshold != null) {
-            BigDecimal stabilityThresholdFactor = new BoltzmannCalculator(EWAKStarPartitionFunction.decimalPrecision).calc(kstarSettings.stabilityThreshold);
-            protein.stabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
-            ligand.stabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
-        }
-
         // start the BBK* tree with the root node
         PriorityQueue<EWAKStarBBKStar.Node> tree = new PriorityQueue<>();
         tree.add(new EWAKStarBBKStar.MultiSequenceNode(complex.confSpace.makeUnassignedSequence(), confdbs));
 
         // start searching the tree
-        System.out.println("computing K* scores for the best sequences to within an energy window of " + kstarSettings.eW + " kcal, with a max of "+kstarSettings.maxPFConfs+ " conformations, and an epsilon of "+kstarSettings.epsilon+"...");
+        System.out.println("Computing K* scores for the best sequences to within an energy window of " + kstarSettings.eW + " kcal, with a max of "+kstarSettings.maxPFConfs+ " conformations, and an epsilon of "+kstarSettings.epsilon+"...");
         kstarSettings.scoreWriters.writeHeader();
         Boolean wtSeqFound = false;
         if(kstarSettings.wtBenchmark) {

@@ -43,25 +43,6 @@ public class EWAKStar {
 
             private int maxPFConfs = 1000000;
 
-            /**
-             * Pruning criteria to remove sequences with unstable unbound states relative to the wild type sequence.
-             * Defined in units of kcal/mol.
-             *
-             * More precisely, a sequence is pruned when the following expression is true:
-             *
-             * U(Z_s) < L(W_s) * B(t)
-             *
-             * where:
-             *   - s represents the unbound protein strand, or unbound ligand strand
-             *   - U(Z_s) is the upper bound on the partition function for strand s
-             *   - L(W_s) is the lower bound on the partition function for strand s in the wild type
-             *   - t is the stability threshold
-             *   - B() is the Boltzmann weighting function
-             *
-             * Set to null to disable the filter entirely.
-             */
-            private Double stabilityThreshold = 5.0;
-
             private EWAKStarScoreWriter.Writers scoreWriters = new EWAKStarScoreWriter.Writers();
 
             /**
@@ -105,14 +86,6 @@ public class EWAKStar {
                 return this;
             }
 
-            public EWAKStar.Settings.Builder setStabilityThreshold(Double val) {
-                if (val != null && val.isInfinite()) {
-                    throw new IllegalArgumentException("only finite values allowed. To turn off the filter, pass null");
-                }
-                stabilityThreshold = val;
-                return this;
-            }
-
             public EWAKStar.Settings.Builder addScoreWriter(EWAKStarScoreWriter val) {
                 scoreWriters.add(val);
                 return this;
@@ -145,7 +118,7 @@ public class EWAKStar {
             }
 
             public EWAKStar.Settings build() {
-                return new EWAKStar.Settings(epsilon, eW, maxPFConfs, stabilityThreshold, scoreWriters, showPfuncProgress, energyMatrixCachePattern, wtBenchmark);
+                return new EWAKStar.Settings(epsilon, eW, maxPFConfs, scoreWriters, showPfuncProgress, energyMatrixCachePattern, wtBenchmark);
             }
         }
 
@@ -153,17 +126,15 @@ public class EWAKStar {
         public final int maxPFConfs;
         public final double epsilon;
         public final double eW;
-        public final Double stabilityThreshold;
         public final EWAKStarScoreWriter.Writers scoreWriters;
         public final boolean showPfuncProgress;
         public final String energyMatrixCachePattern;
 
-        public Settings(double epsilon, double eW, int maxPFConfs, Double stabilityThreshold, EWAKStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern, boolean wtBenchmark) {
+        public Settings(double epsilon, double eW, int maxPFConfs, EWAKStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern, boolean wtBenchmark) {
             this.wtBenchmark = wtBenchmark;
             this.maxPFConfs = maxPFConfs;
             this.epsilon = epsilon;
             this.eW = eW;
-            this.stabilityThreshold = stabilityThreshold;
             this.scoreWriters = scoreWriters;
             this.showPfuncProgress = dumpPfuncConfs;
             this.energyMatrixCachePattern = energyMatrixCachePattern;
