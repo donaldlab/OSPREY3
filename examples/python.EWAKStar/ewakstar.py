@@ -46,7 +46,8 @@ confSpace = osprey.ConfSpace([protein, ligand])
 
 # how should we compute energies of molecules?
 # (give the complex conf space to the ecalc since it knows about all the templates and degrees of freedom)
-parallelism = osprey.Parallelism(cpuCores=4)
+numCPUs = 4;
+parallelism = osprey.Parallelism(cpuCores=numCPUs)
 ecalc = osprey.EnergyCalculator(confSpace, ffparams, parallelism=parallelism)
 rigidEcalc = osprey.EnergyCalculator(confSpace, ffparams, parallelism=parallelism, isMinimizing=False);
 
@@ -61,7 +62,7 @@ epsilon = 0.68
 numTopSeqs = 5
 maxPFConfs = 500
 seqFilterOnly = False
-wtBenchmark = True
+wtBenchmark = False
 numFilteredSeqs = 10000
 orderOfMag = 5.0
 unboundEw = 20.0
@@ -76,6 +77,7 @@ emat = osprey.EnergyMatrix(confECalc, cacheFile=PLematMatrixName)
 
 # run EWAK*
 ewakstar = osprey.EWAKStar(
+        numCPUs,
         wtBenchmark,
         seqFilterOnly,
         numTopSeqs,

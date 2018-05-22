@@ -72,7 +72,7 @@ public class TestKStarNew {
 		confSpaces.complex = new SimpleConfSpace.Builder()
 				.addStrands(protein, ligand)
 				.build();
-		double epsilon = 0.68;
+		double epsilon = 0.01;
 
 		Result result = runKStar(confSpaces, epsilon, null);
 
@@ -142,7 +142,7 @@ public class TestKStarNew {
 				KStar.Settings settings = new KStar.Settings.Builder()
 					.setEpsilon(epsilon)
 					.setStabilityThreshold(null)
-					.addScoreConsoleWriter(testFormatter)
+					.addScoreConsoleWriter()
 					.setConfDBPattern(confDBPattern)
 					//.setShowPfuncProgress(true)
 					.build();

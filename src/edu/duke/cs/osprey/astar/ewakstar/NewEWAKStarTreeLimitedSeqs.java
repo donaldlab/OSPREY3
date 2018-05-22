@@ -4,7 +4,10 @@ import edu.duke.cs.osprey.astar.AStarTree;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.FullAStarNode;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
-import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.confspace.HigherTupleFinder;
+import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -12,10 +15,11 @@ import edu.duke.cs.osprey.gmec.PrecomputedMatrices;
 import edu.duke.cs.osprey.pruning.NewPruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 
-public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
+/** same as NewEWAKStarTree but the sequence space is limited to a specific set **/
+
+public class NewEWAKStarTreeLimitedSeqs extends AStarTree<FullAStarNode> {
 
     int numTreeLevels;//number of residues with sequence changes
 
@@ -39,14 +43,17 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
     int stateNumPos;
     double wtMinimizedEnergy = Double.POSITIVE_INFINITY;
 
+    ArrayList<String> allowedSeqs;
+
 
     ConfEnergyCalculator confECalc = null;//only needed if we want minimized structs.  one per state like the other arrays
 
-    public NewEWAKStarTree(int numTreeLevels, ArrayList<ArrayList<String>> AATypeOptions,
-                           Sequence wtSeq, SimpleConfSpace confSpace,
-                           PrecomputedMatrices precompMats, ArrayList<Integer> mutablePosNums,
-                         ConfEnergyCalculator confECalc) {
+    public NewEWAKStarTreeLimitedSeqs(ArrayList<String> allowedSeqs, int numTreeLevels, ArrayList<ArrayList<String>> AATypeOptions,
+                                      Sequence wtSeq, SimpleConfSpace confSpace,
+                                      PrecomputedMatrices precompMats, ArrayList<Integer> mutablePosNums,
+                                      ConfEnergyCalculator confECalc) {
 
+        this.allowedSeqs = allowedSeqs;
         this.numTreeLevels = numTreeLevels;
         this.AATypeOptions = AATypeOptions;
         this.wtSeq = wtSeq;
@@ -80,21 +87,40 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
             for(int splitPos=0; splitPos<numTreeLevels; splitPos++){
                 if(curAssignments[splitPos] < 0){//can split this level
 
-                    for(int aa=0; aa<AATypeOptions.get(splitPos).size(); aa++){
+                    if(splitPos != 0 && AATypeOptions.get(splitPos).size() != 1) {
+                        ArrayList<Integer> aa = filterOnPreviousSeqs(splitPos, seqNode);
+                        for(int a: aa){
+                            int childAssignments[] = curAssignments.clone();
+                            childAssignments[splitPos] = a;
 
-                        int childAssignments[] = curAssignments.clone();
-                        childAssignments[splitPos] = aa;
+                            UpdatedPruningMatrix childPruneMat = doChildPruning(seqNode.pruneMat, splitPos, a);
 
-                        UpdatedPruningMatrix childPruneMat = doChildPruning(seqNode.pruneMat, splitPos, aa);
+                            EWAKStarNode childNode = new EWAKStarNode(childAssignments, childPruneMat);
 
-                        EWAKStarNode childNode = new EWAKStarNode(childAssignments, childPruneMat);
+                            if(splitPos==numTreeLevels-1){//sequence now fully defined...make conf trees
+                                makeSeqConfTrees(childNode);
+                            }
 
-                        if(splitPos==numTreeLevels-1){//sequence now fully defined...make conf trees
-                            makeSeqConfTrees(childNode);
+                            childNode.setScore( boundLME(childNode) );
+                            seqNodeChildren.add(childNode);
                         }
+                    } else {
+                        for (int aa = 0; aa < AATypeOptions.get(splitPos).size(); aa++) {
 
-                        childNode.setScore( boundLME(childNode) );
-                        seqNodeChildren.add(childNode);
+                            int childAssignments[] = curAssignments.clone();
+                            childAssignments[splitPos] = aa;
+
+                            UpdatedPruningMatrix childPruneMat = doChildPruning(seqNode.pruneMat, splitPos, aa);
+
+                            EWAKStarNode childNode = new EWAKStarNode(childAssignments, childPruneMat);
+
+                            if (splitPos == numTreeLevels - 1) {//sequence now fully defined...make conf trees
+                                makeSeqConfTrees(childNode);
+                            }
+
+                            childNode.setScore(boundLME(childNode));
+                            seqNodeChildren.add(childNode);
+                        }
                     }
 
                     return seqNodeChildren;
@@ -106,6 +132,36 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
     }
 
+    private ArrayList<Integer> filterOnPreviousSeqs(int curPos, EWAKStarNode seqNode){
+
+        int[] subSeq = seqNode.getNodeAssignments();
+        ArrayList<Integer> allowedAA = new ArrayList<>();
+        String subString = "";
+
+        for (int i=0; i<curPos; i++){
+            subString += AATypeOptions.get(i).get(subSeq[i])+ " ";
+        }
+
+        boolean foundSubSeq = false;
+        int count = 0;
+        while(!foundSubSeq){
+            if (allowedSeqs.get(count).startsWith(subString))
+                foundSubSeq = true;
+            else
+                count++;
+        }
+        while(foundSubSeq){
+            allowedAA.add(AATypeOptions.get(curPos).indexOf(allowedSeqs.get(count).split(" ")[curPos]));
+            count++;
+            if(count == allowedSeqs.size())
+                foundSubSeq = false;
+            else if (!allowedSeqs.get(count).startsWith(subString))
+                foundSubSeq = false;
+        }
+
+        Collections.sort(allowedAA);
+        return allowedAA;
+    }
 
     private UpdatedPruningMatrix doChildPruning(PruningMatrix parentMat, int splitPos, int aa){
         //Create an update to parentMat (without changing parentMat)
@@ -244,7 +300,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
 
     @Override
-    public ConfSearch.ScoredConf outputNode(FullAStarNode node){
+    public ScoredConf outputNode(FullAStarNode node){
         //Let's print more info when outputting a node
         EWAKStarNode myNode = (EWAKStarNode)node;
         String childSeq = seqAsString(myNode.getNodeAssignments());
@@ -255,7 +311,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
             wtMinimizedEnergy = confECalc.calcEnergy(rct).energy;
         }
         //printBestSeqInfo(myNode);
-        return new ConfSearch.ScoredConf(myNode.getNodeAssignments(), myNode.getScore());
+        return new ScoredConf(myNode.getNodeAssignments(), myNode.getScore());
     }
 
 

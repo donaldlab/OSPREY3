@@ -32,9 +32,9 @@ public class EWAKStarBBKStar {
             /**
              * The number of best (by K* score) sequences to evaluate before finishing
              */
-            private ArrayList<Sequence> allowedSeqs;
+            private ArrayList<String> allowedSeqs;
 
-            public Builder setAllowedSeqs(ArrayList<Sequence> seqs) {
+            public Builder setAllowedSeqs(ArrayList<String> seqs) {
                 allowedSeqs = seqs;
                 return this;
             }
@@ -44,9 +44,9 @@ public class EWAKStarBBKStar {
             }
         }
 
-        public final ArrayList<Sequence> allowedSeqs;
+        public final ArrayList<String> allowedSeqs;
 
-        public Settings(ArrayList<Sequence> seqs) {
+        public Settings(ArrayList<String> seqs) {
             this.allowedSeqs = seqs;
         }
     }
@@ -157,8 +157,15 @@ public class EWAKStarBBKStar {
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException("no design positions left to choose"));
 
-            // get the possible assignments
-            Set<String> resTypes = new HashSet<>(assignPos.resFlex.resTypes);
+            // get the possible assignments// get the possible assignments
+            //only allow sub-sequences that exist in our limited sequence space
+            Set<String> resTypes;
+            if(assignPos.index == 0 || assignPos.resFlex.resTypes.size() == 1) {
+                resTypes = new HashSet<>(assignPos.resFlex.resTypes);
+            } else{
+                resTypes = filterOnPreviousSeqs(assignPos.index);
+                this.sequence.confSpace.positions.get(assignPos.index).resFlex.resTypes = resTypes;
+            }
 
             // for each assignment...
             for (String resType : resTypes) {
@@ -166,7 +173,7 @@ public class EWAKStarBBKStar {
                 // update the sequence with this assignment
                 Sequence s = sequence.makeMutatedSequence(assignPos, resType);
 
-                if (s.isFullyAssigned() && bbkstarSettings.allowedSeqs.contains(s)) {
+                if (s.isFullyAssigned()) {
                     // fully assigned, make single sequence node
                     children.add(new SingleSequenceNode(s, confdbs));
 
@@ -179,6 +186,30 @@ public class EWAKStarBBKStar {
             }
 
             return children;
+        }
+
+        private Set<String> filterOnPreviousSeqs(int curPos){
+
+            String subSeq = sequence.getAssignedResTypes();
+            Set<String> resTypes = new HashSet<>();
+            boolean foundSubSeq = false;
+            int count = 0;
+            while(!foundSubSeq){
+                if (bbkstarSettings.allowedSeqs.get(count).startsWith(subSeq))
+                    foundSubSeq = true;
+                else
+                    count++;
+            }
+            while(foundSubSeq){
+                resTypes.add(bbkstarSettings.allowedSeqs.get(count).split(" ")[curPos]);
+                count++;
+                if(count == bbkstarSettings.allowedSeqs.size())
+                    foundSubSeq = false;
+                else if (!bbkstarSettings.allowedSeqs.get(count).startsWith(subSeq))
+                    foundSubSeq = false;
+            }
+
+            return resTypes;
         }
 
         @Override

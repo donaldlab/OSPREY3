@@ -40,6 +40,7 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 			return resTypes[pos.index];
 		}
 
+
 		/**
 		 * Set the residue type of this assignment.
 		 */
@@ -86,6 +87,7 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 		public String toString() {
 			return String.format("%s=%s", getResNum(), getResType());
 		}
+
 	}
 
 	/**
@@ -93,7 +95,13 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 	 */
 	public final SimpleConfSpace confSpace;
 
-	private final String[] resTypes;
+	public final String[] resTypes;
+
+	public String getAssignedResTypes(){
+		Stream<String> resTypeStream = Arrays.stream(resTypes).filter((aminoAcid) -> aminoAcid!=null);
+		String[] newArray = resTypeStream.toArray(String[]::new);
+		return String.join(" ", newArray);
+	}
 
 	/**
 	 * Make a sequence with no assignments.
@@ -128,6 +136,28 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 	}
 
 	/**
+	 * Make a COMETs-style sequence String from a Sequence - either wildtype or some specific sequence (lowegard)
+	 */
+
+	public static String makeWildTypeEWAKStar(Sequence WT){
+		String seq = WT.toString();
+		String[] splitSeq = seq.split(" ");
+		String newSeq = "";
+		for (int i = 0; i<splitSeq.length; i++){
+			newSeq += splitSeq[i].split("=")[1]+"_";
+		}
+		return newSeq;
+	}
+
+	public static String makeEWAKStar(Sequence seq){
+		String ewakstar = "";
+		for(String res: seq.resTypes){
+			ewakstar += res+"_";
+		}
+		return ewakstar;
+	}
+
+	/**
 	 * Make a Sequence from a COMETs/TestEWAKStar sequence string (lowegard)
 	 */
 	public static Sequence makeFromEWAKStar(String seq, Sequence WT, SimpleConfSpace confSpace){
@@ -143,15 +173,6 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 		return newSeq;
 	}
 
-	public static String makeWildTypeEWAKStar(Sequence WT){
-		String seq = WT.toString();
-		String[] splitSeq = seq.split(" ");
-		String newSeq = "";
-		for (int i = 0; i<splitSeq.length; i++){
-			newSeq += splitSeq[i].split("=")[1]+"_";
-		}
-		return newSeq;
-	}
 
 	private Sequence(SimpleConfSpace confSpace) {
 		this.confSpace = confSpace;

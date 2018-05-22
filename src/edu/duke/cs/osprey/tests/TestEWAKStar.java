@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 
@@ -46,16 +47,16 @@ public class TestEWAKStar {
         );
 
         int numFilteredSeqs = 10000;
-        double orderOfMag = 5.0;
-        double unboundEw = 20.0;
-        double boundEw = 20.0;
+        double orderOfMag = 10.0;
+        double unboundEw = 30.0;
+        double boundEw = 30.0;
         double ewakstarEw = 1.0;
         double Ival = 0.0;
-        double epsilon = 0.68;
-        int maxPFConfs = 500;
-        int numTopSeqs = 5;
+        double epsilon = 0.01;
+        int maxPFConfs = 5000;
+        int numTopSeqs = 6;
         boolean seqFilterOnly = false;
-        boolean wtBenchmark = true;
+        boolean wtBenchmark = false;
         String startResL = "G648";
         String endResL = "G654";
         String startResP = "A155";
@@ -76,12 +77,15 @@ public class TestEWAKStar {
             strandP.flexibility.get(resNumsPL[p]).setLibraryRotamers(AATypeOptions.get(p)).addWildTypeRotamers().setContinuous();
         }
 
+        int numCPUs = 4;
+        Parallelism parallelism = Parallelism.makeCpu(numCPUs);
+
         SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrands(strandP, strandL).build();
         SimpleConfSpace confSpaceP = new SimpleConfSpace.Builder().addStrand(strandP).build();
         SimpleConfSpace confSpaceL = new SimpleConfSpace.Builder().addStrand(strandL).build();
 
         ForcefieldParams ffparams = new ForcefieldParams();
-        EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams).build();
+        EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams).setParallelism(parallelism).build();
         EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc).setIsMinimizing(false).build();
 
         ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(confSpace, ecalc);
@@ -102,9 +106,10 @@ public class TestEWAKStar {
                 .build()
                 .calcEnergyMatrix();
 
-        NewEWAKStarDoer ewakstar = new NewEWAKStarDoer(wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc,
-                emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL, posP, numFilteredSeqs, orderOfMag, unboundEw,
-                boundEw, ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName);
+        NewEWAKStarDoer ewakstar = new NewEWAKStarDoer(numCPUs, wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs,
+                epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL,
+                posP, numFilteredSeqs, orderOfMag, unboundEw, boundEw, ewakstarEw, startResL, endResL, startResP,
+                endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName);
 
 
         ArrayList<Sequence> bestSequences = ewakstar.run();

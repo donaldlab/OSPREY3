@@ -717,7 +717,7 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
 	return bbflex
 
-def EWAKStar(wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL,  confSpaceP, pos, posL, posP, numFilteredSeqs, orderOfMag, unboundEw, boundEw,  ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName):
+def EWAKStar(numCPUS, wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL,  confSpaceP, pos, posL, posP, numFilteredSeqs, orderOfMag, unboundEw, boundEw,  ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName):
 
     pos = jvm.makeIntArray(pos)
     posL = jvm.makeIntArray(posL)
@@ -726,7 +726,7 @@ def EWAKStar(wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRi
     resNumsL = jvm.makeStringArray(resNumsL)
     resNumsP = jvm.makeStringArray(resNumsP)
 
-    return c.astar.ewakstar.NewEWAKStarDoer(wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL, posP, numFilteredSeqs, orderOfMag, unboundEw, boundEw, ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName)
+    return c.astar.ewakstar.NewEWAKStarDoer(numCPUS, wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL, posP, numFilteredSeqs, orderOfMag, unboundEw, boundEw, ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName)
 
 def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
 	'''
