@@ -63,6 +63,8 @@ numTopSeqs = 5
 maxPFConfs = 500
 seqFilterOnly = False
 wtBenchmark = False
+useMaxMutable = True
+maxMutable = 1
 numFilteredSeqs = 10000
 orderOfMag = 5.0
 unboundEw = 20.0
@@ -80,6 +82,8 @@ ewakstar = osprey.EWAKStar(
         numCPUs,
         wtBenchmark,
         seqFilterOnly,
+        useMaxMutable,
+        maxMutable,
         numTopSeqs,
         maxPFConfs,
         epsilon,

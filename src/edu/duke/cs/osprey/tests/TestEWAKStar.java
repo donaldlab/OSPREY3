@@ -46,6 +46,8 @@ public class TestEWAKStar {
                 new String[]{"THR"}
         );
 
+        boolean useMaxMutable = false;
+        int maxMutable = 2;
         int numFilteredSeqs = 10000;
         double orderOfMag = 10.0;
         double unboundEw = 30.0;
@@ -106,7 +108,7 @@ public class TestEWAKStar {
                 .build()
                 .calcEnergyMatrix();
 
-        NewEWAKStarDoer ewakstar = new NewEWAKStarDoer(numCPUs, wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs,
+        NewEWAKStarDoer ewakstar = new NewEWAKStarDoer(useMaxMutable, maxMutable, numCPUs, wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs,
                 epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL,
                 posP, numFilteredSeqs, orderOfMag, unboundEw, boundEw, ewakstarEw, startResL, endResL, startResP,
                 endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName);

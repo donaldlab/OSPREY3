@@ -111,7 +111,9 @@ public class NewEWAKStarDoer {
     ArrayList<ArrayList<String>> newAAOptionsP = new ArrayList<>();
     ArrayList<ArrayList<String>> newAAOptionsL = new ArrayList<>();
 
-    public NewEWAKStarDoer (int numCPUs, boolean wtBenchmark, boolean seqFilterOnly, int numTopSeqs, int maxPFConfs,
+    int maxMutable;
+
+    public NewEWAKStarDoer (boolean useMaxMutable, int maxMutable, int numCPUs, boolean wtBenchmark, boolean seqFilterOnly, int numTopSeqs, int maxPFConfs,
                             double epsilon, ConfEnergyCalculator confRigidECalc, ConfEnergyCalculator confECalc,
                             EnergyMatrix emat, EnergyCalculator ecalc, SimpleConfSpace confSpace,
                             SimpleConfSpace confSpaceL, SimpleConfSpace confSpaceP, Integer[] pos, Integer[] posL,
@@ -122,6 +124,11 @@ public class NewEWAKStarDoer {
 
         //fill in all the settings
         //each state will have its own config file parser
+        if(useMaxMutable){
+            this.maxMutable = maxMutable;
+        } else{
+            this.maxMutable = resNumsPL.length;
+        }
         this.numCPUs = numCPUs;
         this.wtBenchmark = wtBenchmark;
         this.seqFilterOnly = seqFilterOnly;
@@ -167,7 +174,7 @@ public class NewEWAKStarDoer {
                 confSpace, minimizingEcalc, confEnergyCalcPL, new EPICSettings(), new LUTESettings(),
                 pruningSettings);
 
-        treePL = new NewEWAKStarTree(AATypeOptions.size(), AATypeOptions, fullWtSeq, confSpace, newPrecompMat,
+        treePL = new NewEWAKStarTree(maxMutable, AATypeOptions.size(), AATypeOptions, fullWtSeq, confSpace, newPrecompMat,
                 new ArrayList<>(Arrays.asList(pos)), confEnergyCalcPL);
 
     }
@@ -183,18 +190,20 @@ public class NewEWAKStarDoer {
 
         updateAminoAcids(bestPLseqs);
 
-        treeL = buildUnboundTree("L");
-        treeP = buildUnboundTree("P");
+        updateConfSpaces("L");
+        updateConfSpaces("P");
 
         ArrayList<Sequence> filteredSeqsL = filterSequences(bestPLseqs, "L");
         ArrayList<Sequence> filteredSeqsP = filterSequences(bestPLseqs, "P");
+
+        treeL = buildUnboundTree("L");
+        treeP = buildUnboundTree("P");
 
         ArrayList<Sequence> newLseqs = extractSeqsByLB(filteredSeqsL, "L");
         ArrayList<Sequence> newPseqs = extractSeqsByLB(filteredSeqsP, "P");
 
         updatePLSettings();
         ArrayList<Sequence> fullSeqs = makeFullSeqs(newPseqs, newLseqs, bestPLseqs);
-
 
         Collections.sort(filteredSeqsStrings);
 
@@ -412,33 +421,18 @@ public class NewEWAKStarDoer {
 
     }
 
-    private NewEWAKStarTreeLimitedSeqs buildUnboundTree(String type) {
-
+    private void updateConfSpaces(String type){
         Strand strandUnbound;
         ArrayList<Integer> mutablePos;
-        String matrixName;
-        ArrayList<String> filteredSeqs;
-        ArrayList<ArrayList<String>> aaOpts;
-        Sequence wt;
 
         switch (type) {
             case "P":
                 strandUnbound = new Strand.Builder(mol).setResidues(startResP, endResP).build();
                 mutablePos = mutablePosNumsP;
-                matrixName = "ewakstar.P*";
-                Collections.sort(filteredSeqsStringsP);
-                filteredSeqs = filteredSeqsStringsP;
-                aaOpts = newAAOptionsP;
-                wt = wtSeqP;
                 break;
             case "L":
                 strandUnbound = new Strand.Builder(mol).setResidues(startResL, endResL).build();
                 mutablePos = mutablePosNumsL;
-                matrixName = "ewakstar.L*";
-                Collections.sort(filteredSeqsStringsL);
-                filteredSeqs = filteredSeqsStringsL;
-                aaOpts = newAAOptionsL;
-                wt = wtSeqL;
                 break;
             default:
                 throw new RuntimeException("Unrecognized state, cannot update amino acid types.");
@@ -458,18 +452,51 @@ public class NewEWAKStarDoer {
         else if (type.equals("P"))
             this.confSpaces.protein = newConfSpace;
 
+    }
+
+    private NewEWAKStarTreeLimitedSeqs buildUnboundTree(String type) {
+
+        String matrixName;
+        ArrayList<String> filteredSeqs;
+        ArrayList<ArrayList<String>> aaOpts;
+        Sequence wt;
+        SimpleConfSpace confSpace;
+        ArrayList<Integer> mutablePos;
+
+        switch (type) {
+            case "P":
+                confSpace = confSpaces.protein;
+                mutablePos = mutablePosNumsP;
+                matrixName = "ewakstar.P*";
+                Collections.sort(filteredSeqsStringsP);
+                filteredSeqs = filteredSeqsStringsP;
+                aaOpts = newAAOptionsP;
+                wt = wtSeqP;
+                break;
+            case "L":
+                confSpace = confSpaces.ligand;
+                mutablePos = mutablePosNumsL;
+                matrixName = "ewakstar.L*";
+                Collections.sort(filteredSeqsStringsL);
+                filteredSeqs = filteredSeqsStringsL;
+                aaOpts = newAAOptionsL;
+                wt = wtSeqL;
+                break;
+            default:
+                throw new RuntimeException("Unrecognized state, cannot update amino acid types.");
+        }
 
         Parallelism parallelism = Parallelism.makeCpu(numCPUs);
         ForcefieldParams ffparams = new ForcefieldParams();
-        EnergyCalculator ecalc = new EnergyCalculator.Builder(newConfSpace, ffparams)
+        EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
                 .setParallelism(parallelism).build();
         EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc).setIsMinimizing(false).build();
 
-        ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(newConfSpace, ecalc);
-        ConfEnergyCalculator.Builder confRigidEcalcBuilder = new ConfEnergyCalculator.Builder(newConfSpace, rigidEcalc);
+        ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(confSpace, ecalc);
+        ConfEnergyCalculator.Builder confRigidEcalcBuilder = new ConfEnergyCalculator.Builder(confSpace, rigidEcalc);
 
         //use reference energies
-        SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(newConfSpace, ecalc).build();
+        SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(confSpace, ecalc).build();
         confEcalcBuilder.setReferenceEnergies(eref);
         confRigidEcalcBuilder.setReferenceEnergies(eref);
 
@@ -495,10 +522,10 @@ public class NewEWAKStarDoer {
                 .calcEnergyMatrix();
 
         PrecomputedMatrices newPrecompMat = new PrecomputedMatrices(Ival, unboundEw, matrixName, emat,
-                newConfSpace, ecalc, newConfECalc, new EPICSettings(), new LUTESettings(),
+                confSpace, ecalc, newConfECalc, new EPICSettings(), new LUTESettings(),
                 pruningSettings);
 
-        Sequence wildType = new Sequence(wt, newConfSpace);
+        Sequence wildType = new Sequence(wt, confSpace);
 
         if (type.equals("L")){
             this.ematL = emat;
@@ -508,7 +535,7 @@ public class NewEWAKStarDoer {
             this.wtSeqP = wildType;
         }
 
-        return new NewEWAKStarTreeLimitedSeqs(filteredSeqs, newConfSpace.positions.size(), aaOpts, wildType, newConfSpace,
+        return new NewEWAKStarTreeLimitedSeqs(filteredSeqs, confSpace.positions.size(), aaOpts, wildType, confSpace,
                 newPrecompMat, mutablePos, newConfECalc);
 
     }
@@ -591,7 +618,7 @@ public class NewEWAKStarDoer {
             System.out.println("\nFound all within the energy window of "+boundEw+" kcal. \n"+Integer.toString(bestSequences.size())+" sequences enumerated with partition function upper bounds within "+orderOfMag+ " orders of magnitude of wild-type.");
 
         else if(didSeqMax)
-            System.out.println("\nEnergy window not completed - hit sequence enumeration limit of "+numSeqsWanted+" sequences. Keeping sequences within "+orderOfMag+" orders of magnitude of the wild-type partition function, we have "+Integer.toString(bestSequences.size())+" sequences.");
+            System.out.println("\nEnergy window not completed - hit sequence enumeration limit of "+numSeqsWanted+" sequences. \nKeeping sequences within "+orderOfMag+" orders of magnitude of the wild-type partition function, we have "+Integer.toString(bestSequences.size())+" sequences.");
 
         else
             System.out.println("\nFound "+Integer.toString(bestSequences.size())+" sequences within "+orderOfMag+" orders of magnitude of wild-type partition function.");
@@ -651,6 +678,7 @@ public class NewEWAKStarDoer {
         double wtPfLB = Double.POSITIVE_INFINITY;
         int numSeqs = 0;
         double pfUB;
+        int wtSpot=0;
 
         while(ewakstarConfs.size()<seqsToUse.size()){
             //this will find the best sequence and print it
@@ -668,6 +696,7 @@ public class NewEWAKStarDoer {
                 if(!wtFound) {
                     if (newSequence.toString().equals(curWT.toString())) {
                         wtFound = true;
+                        wtSpot = ewakstarConfs.size();
                         wtEnergy = curTree.wtMinimizedEnergy;
                         wtPfLB = Math.log10(bc.calc(wtEnergy).doubleValue());
                         System.out.println("Found wild-type sequence in unbound after " + numSeqs + " sequences.");
@@ -733,6 +762,11 @@ public class NewEWAKStarDoer {
             }
         }
 
+        for(int i=0; i<wtSpot; i++)
+            if (ewakstarConfs.get(makeEWAKStar(bestSequences.get(i))) < wtPfLB - orderOfMag) {
+                bestSequences.remove(i);
+            }
+
         Double max = ewakstarConfs.get(ewakstarConfs.firstKey());
         Double min = ewakstarConfs.get(ewakstarConfs.firstKey());
         for (String k: ewakstarConfs.keySet()){
@@ -743,6 +777,7 @@ public class NewEWAKStarDoer {
                 max = ewakstarConfs.get(k);
             }
         }
+
         long stopTime = System.currentTimeMillis();
         System.out.println("Sequence enumeration time: "+((stopTime-startAStarTime)/(60.0*1000.0)));
 
@@ -752,7 +787,7 @@ public class NewEWAKStarDoer {
             System.out.println("\nEnumerated the energy window of "+unboundEw+" kcal. \nEnumerated: "+Integer.toString(bestSequences.size())+" sequences within "+orderOfMag+" orders of magnitude of the wild-type unbound partition function.");
 
         else if(didSeqMax)
-            System.out.println("\nEnergy window not completed - hit sequence enumeration limit of "+ seqsToUse.size()+" sequences. Keeping sequences within "+orderOfMag+" orders of magnitude of the wild-type partition function, we have "+Integer.toString(bestSequences.size())+" sequences.");
+            System.out.println("\nEnergy window not completed - hit sequence enumeration limit of "+ seqsToUse.size()+" sequences. \nKeeping sequences within "+orderOfMag+" orders of magnitude of the wild-type partition function, we have "+Integer.toString(bestSequences.size())+" sequences.");
 
         else
             System.out.println("\nFound "+Integer.toString(bestSequences.size())+" sequences within "+orderOfMag+" orders of magnitude of wild-type partition function.");

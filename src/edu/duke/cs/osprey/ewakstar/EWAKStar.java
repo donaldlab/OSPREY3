@@ -14,12 +14,12 @@ import java.util.*;
 
 public class EWAKStar {
 
-    public static interface ConfEnergyCalculatorFactory {
+    public interface ConfEnergyCalculatorFactory {
         ConfEnergyCalculator make(SimpleConfSpace confSpace, EnergyCalculator ecalc, String matrix);
     }
 
-    public static interface ConfSearchFactory {
-        public ConfSearch make(EnergyMatrix emat, RCs rcs);
+    public interface ConfSearchFactory {
+        ConfSearch make(EnergyMatrix emat, RCs rcs);
     }
 
     // *sigh* Java makes this stuff so verbose to do...

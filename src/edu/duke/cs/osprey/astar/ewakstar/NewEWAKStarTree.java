@@ -15,16 +15,17 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
+public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
 
     int numTreeLevels;//number of residues with sequence changes
 
+    int maxMutable;
     ArrayList<ArrayList<String>> AATypeOptions;
     //COMETreeNode.assignments assigns each level an index in AATypeOptions.get(level), and thus an AA type
     //If -1, then no assignment yet
 
     Sequence wtSeq;
-
+    String[] wtSeqList;
     //information on states
 
     //description of each state
@@ -42,14 +43,16 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
     ConfEnergyCalculator confECalc = null;//only needed if we want minimized structs.  one per state like the other arrays
 
-    public NewEWAKStarTree(int numTreeLevels, ArrayList<ArrayList<String>> AATypeOptions,
+    public NewEWAKStarTree(int maxMutable, int numTreeLevels, ArrayList<ArrayList<String>> AATypeOptions,
                            Sequence wtSeq, SimpleConfSpace confSpace,
                            PrecomputedMatrices precompMats, ArrayList<Integer> mutablePosNums,
                          ConfEnergyCalculator confECalc) {
 
+        this.maxMutable = maxMutable;
         this.numTreeLevels = numTreeLevels;
         this.AATypeOptions = AATypeOptions;
         this.wtSeq = wtSeq;
+        this.wtSeqList = Sequence.makeEWAKStar(wtSeq).split("_");
         this.confSpace = confSpace;
         this.precompMats = precompMats;
         this.mutablePosNums = mutablePosNums;
@@ -63,9 +66,9 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
     }
 
     @Override
-    public ArrayList<FullAStarNode> getChildren(FullAStarNode curNode) {
-        EWAKStarNode seqNode = (EWAKStarNode)curNode;
-        ArrayList<FullAStarNode> seqNodeChildren = new ArrayList<>();
+    public ArrayList<EWAKStarNode> getChildren(EWAKStarNode seqNode) {
+
+        ArrayList<EWAKStarNode> seqNodeChildren = new ArrayList<>();
 
         if(seqNode.isFullyDefined()){
             seqNode.expandConfTree();
@@ -194,7 +197,7 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
 
     @Override
-    public FullAStarNode rootNode() {
+    public EWAKStarNode rootNode() {
         int[] conf = new int[numTreeLevels];
         Arrays.fill(conf,-1);//indicates sequence not assigned
 
@@ -207,12 +210,28 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
 
     @Override
-    public boolean canPruneNode(FullAStarNode node){
+    public boolean canPruneNode(EWAKStarNode seqNode){
         //check if the node can be pruned based on the constraints
         //each constraint function must be <=0, so if any constraint function's lower bound
         //over sequences in seqNode is > 0,
         //we can prune seqNode
-        EWAKStarNode seqNode = (EWAKStarNode)node;
+        if(maxMutable<numTreeLevels){
+            //we have a cap on the number of mutations...prune if exceeded
+            int mutCount = 0;
+            int assignments[] = seqNode.getNodeAssignments();
+
+            for(int level=0; level<numTreeLevels; level++){
+                if( assignments[level] >=0 ){//AA type at level is assigned
+                    if( ! AATypeOptions.get(level).get(assignments[level]).equalsIgnoreCase(wtSeqList[level]) )//and is different from wtSeq
+                        mutCount++;
+                } else{
+                    break;
+                }
+            }
+
+            if(mutCount>maxMutable)//No state GMECs calcd for this...pruning based only on sequence
+                return true;
+        }
 
         return false;
     }
@@ -220,15 +239,12 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
 
     @Override
-    public boolean isFullyAssigned(FullAStarNode node) {
+    public boolean isFullyAssigned(EWAKStarNode seqNode) {
         //This checks if the node is returnable
         //So it must be fully processed (state GMECs found, not just fully defined sequence)
 
-        if( ! node.isFullyDefined() )//sequence not fully defined
+        if( ! seqNode.isFullyDefined() )//sequence not fully defined
             return false;
-
-        EWAKStarNode seqNode = (EWAKStarNode)node;
-
 
         if(seqNode.stateTree!=null){
             FullAStarNode bestNodeForState = seqNode.stateTree.getQueue().peek();
@@ -244,9 +260,8 @@ public class NewEWAKStarTree extends AStarTree<FullAStarNode> {
 
 
     @Override
-    public ConfSearch.ScoredConf outputNode(FullAStarNode node){
+    public ConfSearch.ScoredConf outputNode(EWAKStarNode myNode){
         //Let's print more info when outputting a node
-        EWAKStarNode myNode = (EWAKStarNode)node;
         String childSeq = seqAsString(myNode.getNodeAssignments());
         if (childSeq.equals(Sequence.makeWildTypeEWAKStar(wtSeq))){
             System.out.println("Setting WT score as minimized energy...");
