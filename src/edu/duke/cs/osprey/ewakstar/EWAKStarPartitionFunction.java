@@ -136,7 +136,7 @@ public interface EWAKStarPartitionFunction {
 				trim.apply(KStarScore.scoreToLog10String(values.calcUpperBound()))
 			));
 			if (status == Status.Estimated) {
-				buf.append(String.format(" %-26s", "(log10)"));
+				buf.append(" (log10)");
 			} else {
 				buf.append(String.format(" %-26s", "(log10," + status.name() + ")"));
 			}

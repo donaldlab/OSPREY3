@@ -77,9 +77,9 @@ public class NewEWAKStarDoer {
     private String startResP;
     private String endResP;
     private Molecule mol;
-    private String[] resNumsPL;
-    private String[] resNumsL;
-    private String[] resNumsP;
+    private ArrayList<String> resNumsPL;
+    private ArrayList<String> resNumsL;
+    private ArrayList<String> resNumsP;
     private double Ival;
     private String PLmatrixName;
     private EnergyCalculator minimizingEcalc;
@@ -106,6 +106,9 @@ public class NewEWAKStarDoer {
     private ArrayList<String> filteredSeqsStringsL = new ArrayList<>();
 
     private PruningSettings pruningSettings = new PruningSettings();
+    ArrayList<ArrayList<String>> newAAOptionsPL = new ArrayList<>();
+    ArrayList<ArrayList<String>> newAAOptionsP = new ArrayList<>();
+    ArrayList<ArrayList<String>> newAAOptionsL = new ArrayList<>();
 
     public NewEWAKStarDoer (int numCPUs, boolean wtBenchmark, boolean seqFilterOnly, int numTopSeqs, int maxPFConfs,
                             double epsilon, ConfEnergyCalculator confRigidECalc, ConfEnergyCalculator confECalc,
@@ -143,9 +146,9 @@ public class NewEWAKStarDoer {
         this.startResP = startResP;
         this.endResP = endResP;
         this.mol = mol;
-        this.resNumsPL = resNumsPL;
-        this.resNumsL = resNumsL;
-        this.resNumsP = resNumsP;
+        this.resNumsPL = new ArrayList<>(Arrays.asList(resNumsPL));
+        this.resNumsL = new ArrayList<>(Arrays.asList(resNumsL));
+        this.resNumsP = new ArrayList<>(Arrays.asList(resNumsP));
         this.Ival = Ival;
         this.PLmatrixName = PLmatrixName;
 
@@ -175,43 +178,21 @@ public class NewEWAKStarDoer {
 
         ArrayList<Sequence> bestPLseqs = extractPLSeqsByLB();
 
+        updateAminoAcids(bestPLseqs);
+
+        treeL = buildUnboundTree("L");
+        treeP = buildUnboundTree("P");
+
         ArrayList<Sequence> filteredSeqsL = filterSequences(bestPLseqs, "L");
         ArrayList<Sequence> filteredSeqsP = filterSequences(bestPLseqs, "P");
 
-        ArrayList<ArrayList<String>> newAAOptionsP = updateAminoAcids(filteredSeqsP);
-        ArrayList<ArrayList<String>> newAAOptionsL = updateAminoAcids(filteredSeqsL);
-        ArrayList<ArrayList<String>> newAAOptions = updateAminoAcids(bestPLseqs);
+        ArrayList<Sequence> newLseqs = extractSeqsByLB(filteredSeqsL, "L");
+        ArrayList<Sequence> newPseqs = extractSeqsByLB(filteredSeqsP, "P");
 
-        treeL = buildUnboundTree(newAAOptions, newAAOptionsL,"L");
-        treeP = buildUnboundTree(newAAOptions, newAAOptionsP, "P");
-
-        Sequence newSeq;
-        ArrayList<Sequence> bestLseqs = new ArrayList<>();
-        for(Sequence s:filteredSeqsL){
-            newSeq = new Sequence(s, confSpaces.ligand);
-            bestLseqs.add(newSeq);
-        }
-        this.wtSeqL = new Sequence(wtSeqL, confSpaces.ligand);
-
-        ArrayList<Sequence> bestPseqs = new ArrayList<>();
-        for(Sequence s:filteredSeqsP){
-            newSeq = new Sequence(s, confSpaces.protein);
-            bestPseqs.add(newSeq);
-        }
-        this.wtSeqP = new Sequence(wtSeqP, confSpaces.protein);
-
-        ArrayList<Sequence> newLseqs = extractSeqsByLB(bestLseqs, "L");
-        ArrayList<Sequence> newPseqs = extractSeqsByLB(bestPseqs, "P");
-
-        ArrayList<Sequence> fullSeqs = makeFullSeqs(newPseqs, newLseqs, bestPLseqs);
         updatePLSettings();
+        ArrayList<Sequence> fullSeqs = makeFullSeqs(newPseqs, newLseqs, bestPLseqs);
 
-        ArrayList<Sequence> bestFullseqs = new ArrayList<>();
-        for(Sequence s:fullSeqs){
-            newSeq = new Sequence(s, confSpaces.complex);
-            bestFullseqs.add(newSeq);
-        }
-        this.fullWtSeq = new Sequence(fullWtSeq, confSpaces.complex);
+
         Collections.sort(filteredSeqsStrings);
 
         if (!seqFilterOnly) {
@@ -219,8 +200,8 @@ public class NewEWAKStarDoer {
         }
 
         if(seqFilterOnly) {
-            writeSeqsToFile(bestFullseqs);
-            return bestFullseqs;
+            writeSeqsToFile(fullSeqs);
+            return fullSeqs;
         } else
             return null;
     }
@@ -261,11 +242,11 @@ public class NewEWAKStarDoer {
         SimpleConfSpace thisConfSpace;
 
         if (type.equals("L")){
-            resNumbers = new ArrayList<>(Arrays.asList(resNumsL));
+            resNumbers = resNumsL;
             wildtype = wtSeqL;
             thisConfSpace = confSpaces.ligand;
         } else{
-            resNumbers = new ArrayList<>(Arrays.asList(resNumsP));
+            resNumbers = resNumsP;
             wildtype = wtSeqP;
             thisConfSpace = confSpaces.protein;
         }
@@ -331,7 +312,7 @@ public class NewEWAKStarDoer {
 
     }
 
-    private ArrayList<ArrayList<String>> updateAminoAcids(ArrayList<Sequence> bestSeqs){
+    private void updateAminoAcids(ArrayList<Sequence> bestSeqs){
 
         ArrayList<String> keyArray = new ArrayList<>();
         HashMap<String, ArrayList<String>> newAAOptionsDict = new HashMap<>();
@@ -354,14 +335,17 @@ public class NewEWAKStarDoer {
             }
         }
 
-        ArrayList<ArrayList<String>> newAAOptions = new ArrayList<>();
         for(String myKey: keyArray){
             ArrayList<String> curList = newAAOptionsDict.get(myKey);
             Collections.sort(curList);
-            newAAOptions.add(curList);
+            newAAOptionsPL.add(curList);
+            if(resNumsP.contains(myKey)){
+                newAAOptionsP.add(curList);
+            } else {
+                newAAOptionsL.add(curList);
+            }
         }
 
-        return newAAOptions;
     }
 
     private ArrayList<ArrayList<String>> makeAATypeOptions(SimpleConfSpace confSpace){
@@ -384,6 +368,7 @@ public class NewEWAKStarDoer {
         Strand strandL = confSpaces.ligand.strands.get(0);
 
         this.confSpaces.complex = new SimpleConfSpace.Builder().addStrands(strandP, strandL).build();
+        this.fullWtSeq = new Sequence(fullWtSeq, confSpaces.complex);
 
         ForcefieldParams ffparams = new ForcefieldParams();
         Parallelism parallelism = Parallelism.makeCpu(numCPUs);
@@ -415,40 +400,43 @@ public class NewEWAKStarDoer {
 
     }
 
-    private NewEWAKStarTreeLimitedSeqs buildUnboundTree(ArrayList<ArrayList<String>> newAAOptions, ArrayList<ArrayList<String>> newAAOptionsUB, String type) {
+    private NewEWAKStarTreeLimitedSeqs buildUnboundTree(String type) {
 
         Strand strandUnbound;
         ArrayList<Integer> mutablePos;
         String matrixName;
-        Sequence wildType;
         ArrayList<String> filteredSeqs;
+        ArrayList<ArrayList<String>> aaOpts;
+        Sequence wt;
 
         switch (type) {
             case "P":
                 strandUnbound = new Strand.Builder(mol).setResidues(startResP, endResP).build();
                 mutablePos = mutablePosNumsP;
                 matrixName = "ewakstar.P*";
-                wildType = wtSeqP;
                 Collections.sort(filteredSeqsStringsP);
                 filteredSeqs = filteredSeqsStringsP;
+                aaOpts = newAAOptionsP;
+                wt = wtSeqP;
                 break;
             case "L":
                 strandUnbound = new Strand.Builder(mol).setResidues(startResL, endResL).build();
                 mutablePos = mutablePosNumsL;
                 matrixName = "ewakstar.L*";
-                wildType = wtSeqL;
                 Collections.sort(filteredSeqsStringsL);
                 filteredSeqs = filteredSeqsStringsL;
+                aaOpts = newAAOptionsL;
+                wt = wtSeqL;
                 break;
             default:
                 throw new RuntimeException("Unrecognized state, cannot update amino acid types.");
         }
 
         for (Integer p : mutablePos)
-            strandUnbound.flexibility.get(resNumsPL[p]).setLibraryRotamers(newAAOptions.get(p)).addWildTypeRotamers().setContinuous();
+            strandUnbound.flexibility.get(resNumsPL.get(p)).setLibraryRotamers(newAAOptionsPL.get(p)).addWildTypeRotamers().setContinuous();
 
-        for(int i=0; i<mutablePos.size();i++){
-            mutablePos.set(i,i);
+        for (int i = 0; i < mutablePos.size(); i++) {
+            mutablePos.set(i, i);
         }
 
         SimpleConfSpace newConfSpace = new SimpleConfSpace.Builder().addStrand(strandUnbound).build();
@@ -494,24 +482,21 @@ public class NewEWAKStarDoer {
                 .build()
                 .calcEnergyMatrix();
 
-        if (type.equals("L"))
-            this.ematL = emat;
-        else if (type.equals("P"))
-            this.ematP = emat;
-
         PrecomputedMatrices newPrecompMat = new PrecomputedMatrices(Ival, unboundEw, matrixName, emat,
                 newConfSpace, ecalc, newConfECalc, new EPICSettings(), new LUTESettings(),
                 pruningSettings);
 
-        int seqSize = 0;
-        for (ArrayList<String> i: newAAOptionsUB){
-            if (seqSize == 0)
-                seqSize = i.size();
-            else
-                seqSize = seqSize*i.size();
+        Sequence wildType = new Sequence(wt, newConfSpace);
+
+        if (type.equals("L")){
+            this.ematL = emat;
+            this.wtSeqL = wildType;
+        } else if (type.equals("P")) {
+            this.ematP = emat;
+            this.wtSeqP = wildType;
         }
 
-        return new NewEWAKStarTreeLimitedSeqs(filteredSeqs, newConfSpace.positions.size(), newAAOptionsUB, wildType, newConfSpace,
+        return new NewEWAKStarTreeLimitedSeqs(filteredSeqs, newConfSpace.positions.size(), aaOpts, wildType, newConfSpace,
                 newPrecompMat, mutablePos, newConfECalc);
 
     }
@@ -797,7 +782,7 @@ public class NewEWAKStarDoer {
 
         ArrayList<String> fullSeq = new ArrayList<>(Arrays.asList(fullWtSeq.toString().split(" ")));
         ArrayList<Sequence> newFullSeqs = new ArrayList<>();
-        if (resNumsPL[0].equals(resNumsP[0])) {
+        if (resNumsPL.get(0).equals(resNumsP.get(0))) {
             for (Sequence p : mutSeqsP) {
                 ArrayList<String> newFullSeq = new ArrayList<>(Arrays.asList(p.toString().split(" ")));
                 for (Sequence l : mutSeqsL) {
