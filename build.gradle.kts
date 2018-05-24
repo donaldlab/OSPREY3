@@ -8,13 +8,13 @@
 ** it under the terms of the GNU General Public License version 2
 ** as published by the Free Software Foundation.
 ** 
-** OSPREY is distributed in the hope that it will be useful,
-** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-** GNU General Public License for more details.
-** 
 ** You should have received a copy of the GNU General Public License
 ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
 ** 
 ** Contact Info:
 **    Bruce Donald
@@ -478,13 +478,13 @@ fun updateLicenseHeaders() {
 		|it under the terms of the GNU General Public License version 2
 		|as published by the Free Software Foundation.
 		|
-		|OSPREY is distributed in the hope that it will be useful,
-		|but WITHOUT ANY WARRANTY; without even the implied warranty of
-		|MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-		|GNU General Public License for more details.
-		|
 		|You should have received a copy of the GNU General Public License
 		|along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+		|
+		|OSPREY relies on grants for its development, and since visibility
+		|in the scientific literature is essential for our success, we
+		|ask that users of OSPREY cite our papers. See the CITING_OSPREY
+		|document in this distribution for more information.
 		|
 		|Contact Info:
 		|   Bruce Donald
@@ -615,8 +615,15 @@ fun updateLicenseHeaders() {
 		val lines = text.lines().toMutableList()
 
 		// trim blank lines from the top
-		while (lines.firstOrNull()?.trim() == "") {
+		while (lines.firstOrNull()?.isBlank() == true) {
 			lines.removeAt(0)
+		}
+
+		// keep one blank line on the bottom
+		// NOTE: a trailing newline creates a blank line at the end of the file,
+		// so it's sufficient to remove all blank entries in the lines list
+		while (lines.lastOrNull()?.isBlank() == true) {
+			lines.removeAt(lines.size - 1)
 		}
 
 		// anything left?
@@ -672,7 +679,3 @@ fun updateLicenseHeaders() {
 	// NOTE: don't apply the header to the python example scripts.
 	// there's no need to scare osprey users with legalese in the tutorials
 }
-
-
-
-
