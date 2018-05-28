@@ -7,6 +7,8 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.ExpFunction;
 
 import java.io.File;
@@ -34,6 +36,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     private Node confSearchNode;
     public final int level;
     private static ExpFunction ef = new ExpFunction();
+    private static BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
     private RCs RCs;
 
 
@@ -80,6 +83,14 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
         epsilonBound = confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound)
                 .divide(confSearchNode.subtreeUpperBound,RoundingMode.HALF_UP).doubleValue();
+        debugChecks(lastUpper, lastLower, epsilonBound);
+        errorBound = epsilonBound;
+        return epsilonBound;
+    }
+
+    private void debugChecks(BigDecimal lastUpper, BigDecimal lastLower, double epsilonBound) {
+        if (!debug)
+            return;
         BigDecimal tolerance = new BigDecimal(0.00001);
         if(lastUpper != null
                 && confSearchNode.subtreeUpperBound.subtract(lastUpper).compareTo(BigDecimal.ZERO) > 0
@@ -100,9 +111,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             System.err.println("LowerBound change: "+confSearchNode.subtreeLowerBound.subtract(lastLower));
         }
 
-        errorBound = epsilonBound;
-        return epsilonBound;
     }
+
 
     public BigDecimal getUpperBound(){
         return confSearchNode.subtreeUpperBound;
@@ -263,7 +273,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
                 System.err.println("Updating conf lower bound of  "+confLowerBound
                         + " with "+tighterLower+", which is lower!?");
             confLowerBound = tighterLower;
-            updateSubtreeUpperBound(ef.exp(-confLowerBound).multiply(new BigDecimal(getNumConformations())));
+            updateSubtreeUpperBound(computeBoundsFromEnergy(confLowerBound));
         }
 
         public void updateConfUpperBound(double tighterUpper) {
@@ -271,7 +281,11 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
                 System.err.println("Updating conf greater bound of  "+confUpperBound
                         + " with "+tighterUpper+", which is greater!?");
             confUpperBound = tighterUpper;
-            updateSubtreeLowerBound(ef.exp(-confUpperBound).multiply(new BigDecimal(getNumConformations())));
+            updateSubtreeLowerBound(computeBoundsFromEnergy(confUpperBound));
+        }
+
+        private BigDecimal computeBoundsFromEnergy(double energy){
+           return bc.calc(energy).multiply(new BigDecimal(getNumConformations()));
         }
 
         public void updateSubtreeLowerBound(BigDecimal tighterLower) {
@@ -327,16 +341,13 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
         @Override
         public double getHScore() {
-            //TODO: Scale by number of conformations
             BigDecimal d = new BigDecimal(numConfs);
             ExpFunction ef = new ExpFunction();
             if(confLowerBound > confUpperBound)
                 System.err.println("Incorrect conf bounds set.");
             BigDecimal subtreeDifference = ef.exp(-confLowerBound).subtract(ef.exp(-confUpperBound));
-            BigDecimal scaled = subtreeDifference.multiply(d);
-            double subtreeBound = -ef.log(scaled).doubleValue();
             double logScale = -ef.log(new BigDecimal(getNumConformations())).doubleValue();
-            return  subtreeBound - logScale;
+            return  -subtreeDifference.doubleValue() - logScale;
         }
 
         @Override
