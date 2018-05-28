@@ -67,9 +67,10 @@ public class DAminoAcidHandler {
                 };
                 
                 for(int c=0; c<4; c++){
-                    if(coords[c] == null)
-                        throw new RuntimeException("ERROR: Can't check if " + res.fullName +
-                                " is L or D (one or more of N, CA, CB, HA is missing)");
+                    if(coords[c] == null){
+                        return;//the amino acid may be altered somehow (e.g. post-translationally)
+                        //so don't use the standard D-template automatically
+                    }
                 }
                 
                 double ang = Protractor.measureDihedral(coords);

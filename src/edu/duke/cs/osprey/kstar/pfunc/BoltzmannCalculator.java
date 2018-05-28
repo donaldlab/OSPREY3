@@ -12,10 +12,6 @@ public class BoltzmannCalculator {
 
 	public final ExpFunction e;
 
-	public BoltzmannCalculator() {
-		e = new ExpFunction();
-	}
-
 	public BoltzmannCalculator(MathContext mathContext) {
 		e = new ExpFunction(mathContext);
 	}

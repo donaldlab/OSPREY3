@@ -18,10 +18,16 @@ import java.util.ArrayList;
 public class ConfETupleExpander extends TupleExpander {
     
     SearchProblem sp;
-    
+
+    boolean fullPLUGPruning;//only allow sampled conformations that PLUG considers feasible
+
+
     public ConfETupleExpander(SearchProblem sp){
         super(sp.confSpace.numPos, sp.confSpace.getNumRCsAtPos(), sp.pruneMat.getPruningInterval(), sp.luteSettings);
         this.sp = sp;
+        fullPLUGPruning = sp.plugMat!=null;//DEBUG!!!
+        if(fullPLUGPruning)
+            canCheckPartialPruning = false;
     }
 
     double worstELBDiff = 0;
@@ -31,13 +37,19 @@ public class ConfETupleExpander extends TupleExpander {
         if(sp.useEPIC){//Faster if we can score by EPIC
             
             double E = sp.EPICMinimizedEnergy(assignmentList);
-           
+
+            RCTuple tup = new RCTuple(assignmentList);
             if(E==Double.POSITIVE_INFINITY){//this is going to be a problem if used as a true value
-                RCTuple tup = new RCTuple(assignmentList);
                 if(isPruned(tup))
                     throw new RuntimeException("ERROR: Scoring pruned conformation: "+tup.stringListing());
                 else
                     throw new RuntimeException("ERROR: Infinite E for unpruned conf: "+tup.stringListing());
+            }
+
+            if(fullPLUGPruning){
+                if( ! sp.plugMat.isTupleFeasible(tup) ){
+                    throw new RuntimeException("ERROR: Scoring PLUG-infeasible conformation: "+tup.stringListing());
+                }
             }
             
             
@@ -79,8 +91,14 @@ public class ConfETupleExpander extends TupleExpander {
 
     
     @Override
-    boolean isPruned(RCTuple tup) {
-        return sp.pruneMat.isPruned(tup);
+    public boolean isPruned(RCTuple tup) {
+        if (sp.pruneMat.isPruned(tup))
+            return true;
+        if(fullPLUGPruning){//pruning without marking--we only need expansion to be right on PLUG-feasible voxels
+            if(!sp.plugMat.isTupleFeasible(tup))
+                return true;
+        }
+        return false;
     }
 
     

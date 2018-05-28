@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.astar.conf.linked.LinkedConfAStarFactory;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
@@ -41,6 +42,7 @@ public class ConfAStarTree implements ConfSearch {
 		private AStarScorer hscorer = null;
 		private boolean showProgress = false;
 		private ConfAStarFactory factory = new LinkedConfAStarFactory();
+		private AStarPruner pruner = null;
 		
 		public Builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
 			this(emat, new RCs(confSpace));
@@ -123,6 +125,11 @@ public class ConfAStarTree implements ConfSearch {
 			showProgress = val;
 			return this;
 		}
+
+		public Builder setPruner(AStarPruner val) {
+			pruner = val;
+			return this;
+		}
 		
 		public ConfAStarTree build() {
 			ConfAStarTree tree = new ConfAStarTree(
@@ -130,7 +137,8 @@ public class ConfAStarTree implements ConfSearch {
 				gscorer,
 				hscorer,
 				rcs,
-				factory
+				factory,
+				pruner
 			);
 			if (showProgress) {
 				tree.initProgress();
@@ -140,37 +148,37 @@ public class ConfAStarTree implements ConfSearch {
 	}
 
 	public static class MPLPBuilder {
-		
+
 		/**
 		 * The type of MPLP update step to use for each iteration.
-		 * 
+		 *
 		 * There are two options: {@link EdgeUpdater} and {@link NodeUpdater}.
 		 * In practice, the EdgeUpdater seems to work best when reference energies
 		 * are used. When reference energies are not used, the NodeUpdater seems
 		 * to work best.
 		 */
 		private MPLPUpdater updater = new NodeUpdater();
-		
+
 		/**
 		 * The number of MPLP iterations to execute on each A* node.
-		 * 
+		 *
 		 * This value doesn't affect the accuracy of the conformation search, only the speed.
-		 * 
+		 *
 		 * The more iterations, the more accurate the A* estimation function will be,
 		 * and fewer nodes will need to be explored to reach a leaf node. The tradeoff though is
 		 * increased compute time per node explored.
-		 * 
+		 *
 		 * Generally, it's safe to start with one iteration, then experimentally try more
 		 * iterations to see if it reduces the total A* search time.
 		 */
 		private int numIterations = 1;
-		
+
 		/**
 		 * If the change in energy after an iteration of the estimation function is below this
 		 * threshold, MPLP will stop iterating.
-		 * 
+		 *
 		 * This value doesn't affect the accuracy of the conformation search, only the speed.
-		 * 
+		 *
 		 * It also has no effect if the number of iterations is 1.
 		 * 
 		 * For a larger number of iterations, increasing this value may reduce the time spent
@@ -192,7 +200,7 @@ public class ConfAStarTree implements ConfSearch {
 			numIterations = val;
 			return this;
 		}
-		
+
 		public MPLPBuilder setConvergenceThreshold(double val) {
 			convergenceThreshold = val;
 			return this;
@@ -214,6 +222,7 @@ public class ConfAStarTree implements ConfSearch {
 	public final AStarScorer hscorer;
 	public final RCs rcs;
 	public final ConfAStarFactory factory;
+	public final AStarPruner pruner;
 	
 	private final Queue<ConfAStarNode> queue;
 	private final ConfIndex confIndex;
@@ -224,12 +233,13 @@ public class ConfAStarTree implements ConfSearch {
 	private TaskExecutor tasks;
 	private ObjectPool<ScoreContext> contexts;
 	
-	private ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, RCs rcs, ConfAStarFactory factory) {
+	private ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, RCs rcs, ConfAStarFactory factory, AStarPruner pruner) {
 		this.order = order;
 		this.gscorer = gscorer;
 		this.hscorer = hscorer;
 		this.rcs = rcs;
 		this.factory = factory;
+		this.pruner = pruner;
 		
 		this.queue = factory.makeQueue(rcs);
 		this.confIndex = new ConfIndex(this.rcs.getNumPos());
@@ -272,7 +282,11 @@ public class ConfAStarTree implements ConfSearch {
 		tasks = parallelism.makeTaskExecutor(1000);
 		contexts.allocate(parallelism.getParallelism());
 	}
-	
+
+	public ConfAStarNode getRoot(){
+		return rootNode;
+	}
+
 	@Override
 	public BigInteger getNumConformations() {
 		return rcs.getNumConformations();
@@ -329,6 +343,11 @@ public class ConfAStarTree implements ConfSearch {
 			
 			// get the next node to expand
 			ConfAStarNode node = queue.poll();
+
+			// if this node was pruned dynamically, then ignore it
+			if (pruner != null && pruner.isPruned(node)) {
+				continue;
+			}
 			
 			// leaf node? report it
 			if (node.getLevel() == rcs.getNumPos()) {
@@ -354,7 +373,12 @@ public class ConfAStarTree implements ConfSearch {
 				if (hasPrunedPair(confIndex, nextPos, nextRc)) {
 					continue;
 				}
-				
+
+				// if this child was pruned dynamically, then don't score it
+				if (pruner != null && pruner.isPruned(node, nextPos, nextRc)) {
+					continue;
+				}
+
 				tasks.submit(() -> {
 					
 					try (Checkout<ScoreContext> checkout = contexts.autoCheckout()) {

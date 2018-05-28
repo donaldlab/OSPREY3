@@ -48,7 +48,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 		targetEpsilon = Double.NaN;
 		status = null;
 		values = null;
-		boltzmann = new BoltzmannCalculator();
+		boltzmann = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 		scoreConfs = null;
 		energyConfs = null;
 		numConfsEvaluated = 0;

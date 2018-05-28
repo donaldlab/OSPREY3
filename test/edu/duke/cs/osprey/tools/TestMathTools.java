@@ -384,6 +384,90 @@ public class TestMathTools {
 		assertThat(bigAdd(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY), is(MathTools.BigNegativeInfinity));
 	}
 
+	public static BigDecimal bigSubtract(double a, double b) {
+		return MathTools.bigSubtract(
+			MathTools.biggen(a),
+			MathTools.biggen(b),
+			new MathContext(64, RoundingMode.HALF_UP)
+		);
+	}
+
+	@Test
+	public void bigSubtract() {
+
+		assertThat(bigSubtract(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY), is(MathTools.BigNaN));
+		assertThat(bigSubtract(Double.POSITIVE_INFINITY, 5.0), is(MathTools.BigPositiveInfinity));
+		assertThat(bigSubtract(Double.POSITIVE_INFINITY, 0.0), is(MathTools.BigPositiveInfinity));
+		assertThat(bigSubtract(Double.POSITIVE_INFINITY, -5.0), is(MathTools.BigPositiveInfinity));
+		assertThat(bigSubtract(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY), is(MathTools.BigPositiveInfinity));
+
+		assertThat(bigSubtract(5.0, Double.POSITIVE_INFINITY), is(MathTools.BigNegativeInfinity));
+		assertThat(bigSubtract(5.0, 5.0).doubleValue(), is(0.0));
+		assertThat(bigSubtract(5.0, 0.0).doubleValue(), is(5.0));
+		assertThat(bigSubtract(5.0, -5.0).doubleValue(), is(10.0));
+		assertThat(bigSubtract(5.0, Double.NEGATIVE_INFINITY), is(MathTools.BigPositiveInfinity));
+
+		assertThat(bigSubtract(0.0, Double.POSITIVE_INFINITY), is(MathTools.BigNegativeInfinity));
+		assertThat(bigSubtract(0.0, 5.0).doubleValue(), is(-5.0));
+		assertThat(bigSubtract(0.0, 0.0).doubleValue(), is(0.0));
+		assertThat(bigSubtract(0.0, -5.0).doubleValue(), is(5.0));
+		assertThat(bigSubtract(0.0, Double.NEGATIVE_INFINITY), is(MathTools.BigPositiveInfinity));
+
+		assertThat(bigSubtract(-5.0, Double.POSITIVE_INFINITY), is(MathTools.BigNegativeInfinity));
+		assertThat(bigSubtract(-5.0, 5.0).doubleValue(), is(-10.0));
+		assertThat(bigSubtract(-5.0, 0.0).doubleValue(), is(-5.0));
+		assertThat(bigSubtract(-5.0, -5.0).doubleValue(), is(0.0));
+		assertThat(bigSubtract(-5.0, Double.NEGATIVE_INFINITY), is(MathTools.BigPositiveInfinity));
+
+		assertThat(bigSubtract(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), is(MathTools.BigNegativeInfinity));
+		assertThat(bigSubtract(Double.NEGATIVE_INFINITY, 5.0), is(MathTools.BigNegativeInfinity));
+		assertThat(bigSubtract(Double.NEGATIVE_INFINITY, 0.0), is(MathTools.BigNegativeInfinity));
+		assertThat(bigSubtract(Double.NEGATIVE_INFINITY, -5.0), is(MathTools.BigNegativeInfinity));
+		assertThat(bigSubtract(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY), is(MathTools.BigNaN));
+	}
+
+	public static BigDecimal bigMultiply(double a, double b) {
+		return MathTools.bigMultiply(
+			MathTools.biggen(a),
+			MathTools.biggen(b),
+			new MathContext(64, RoundingMode.HALF_UP)
+		);
+	}
+
+	@Test
+	public void bigMultiply() {
+
+		assertThat(bigMultiply(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY), is(MathTools.BigPositiveInfinity));
+		assertThat(bigMultiply(Double.POSITIVE_INFINITY, 5.0), is(MathTools.BigPositiveInfinity));
+		assertThat(bigMultiply(Double.POSITIVE_INFINITY, 0.0).doubleValue(), is(0.0));
+		assertThat(bigMultiply(Double.POSITIVE_INFINITY, -5.0), is(MathTools.BigNegativeInfinity));
+		assertThat(bigMultiply(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY), is(MathTools.BigNaN));
+
+		assertThat(bigMultiply(5.0, Double.POSITIVE_INFINITY), is(MathTools.BigPositiveInfinity));
+		assertThat(bigMultiply(5.0, 5.0).doubleValue(), is(25.0));
+		assertThat(bigMultiply(5.0, 0.0).doubleValue(), is(0.0));
+		assertThat(bigMultiply(5.0, -5.0).doubleValue(), is(-25.0));
+		assertThat(bigMultiply(5.0, Double.NEGATIVE_INFINITY), is(MathTools.BigNegativeInfinity));
+
+		assertThat(bigMultiply(0.0, Double.POSITIVE_INFINITY).doubleValue(), is(0.0));
+		assertThat(bigMultiply(0.0, 5.0).doubleValue(), is(0.0));
+		assertThat(bigMultiply(0.0, 0.0).doubleValue(), is(0.0));
+		assertThat(bigMultiply(0.0, -5.0).doubleValue(), is(0.0));
+		assertThat(bigMultiply(0.0, Double.NEGATIVE_INFINITY).doubleValue(), is(0.0));
+
+		assertThat(bigMultiply(-5.0, Double.POSITIVE_INFINITY), is(MathTools.BigNegativeInfinity));
+		assertThat(bigMultiply(-5.0, 5.0).doubleValue(), is(-25.0));
+		assertThat(bigMultiply(-5.0, 0.0).doubleValue(), is(0.0));
+		assertThat(bigMultiply(-5.0, -5.0).doubleValue(), is(25.0));
+		assertThat(bigMultiply(-5.0, Double.NEGATIVE_INFINITY), is(MathTools.BigPositiveInfinity));
+
+		assertThat(bigMultiply(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), is(MathTools.BigNaN));
+		assertThat(bigMultiply(Double.NEGATIVE_INFINITY, 5.0), is(MathTools.BigNegativeInfinity));
+		assertThat(bigMultiply(Double.NEGATIVE_INFINITY, 0.0).doubleValue(), is(0.0));
+		assertThat(bigMultiply(Double.NEGATIVE_INFINITY, -5.0), is(MathTools.BigPositiveInfinity));
+		assertThat(bigMultiply(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY), is(MathTools.BigPositiveInfinity));
+	}
+
 	public static BigDecimal bigDivide(double a, double b) {
 		return MathTools.bigDivide(
 			MathTools.biggen(a),

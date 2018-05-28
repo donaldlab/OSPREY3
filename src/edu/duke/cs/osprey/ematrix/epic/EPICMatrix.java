@@ -33,7 +33,7 @@ public class EPICMatrix extends TupleMatrixGeneric<EPoly> {
     }
     
     
-   public double minContE(RCTuple RCTup){
+   public double minimizeEnergy(RCTuple RCTup, boolean includeMinE){
         //compute the minimized continuous component of the energy for the specified tuple
         //(i.e., conformationally minimized sum of EPIC term values, without minE)
         //return infinity if the tuple is pruned
@@ -44,7 +44,7 @@ public class EPICMatrix extends TupleMatrixGeneric<EPoly> {
        
        
        
-        EPICEnergyFunction efunc = internalEnergyFunction(RCTup);
+        EPICEnergyFunction efunc = internalEnergyFunction(RCTup,includeMinE);
         
         //137DEBUG!!
         long gotEFcnTime = System.currentTimeMillis()-startTime;
@@ -94,16 +94,16 @@ public class EPICMatrix extends TupleMatrixGeneric<EPoly> {
         return E;
     }
    
-    public double minContE(int[] conf){
+    /*public double minContE(int[] conf){
         ////Given a list of RCs for each position, compute the minimized cont component of the energy
         //negative RC numbers indicate undefined positions 
         //(exclude these positions: EPIC terms always positive, so this gives
         //a valid lower bound).  again, return infinity if conf pruned
         return minContE(new RCTuple(conf));
-    }
+    }*/
     
     
-    public EPICEnergyFunction internalEnergyFunction(RCTuple tup){
+    public EPICEnergyFunction internalEnergyFunction(RCTuple tup, boolean includeMinE){
         //Make an energy function representing the internal energy of the tuple
         //kind of an EPIC analog of EnergyMatrix.getInternalEnergy
         //return null if the tuple is pruned
@@ -141,7 +141,7 @@ public class EPICMatrix extends TupleMatrixGeneric<EPoly> {
             }
         }
         
-        EPICEnergyFunction efunc = new EPICEnergyFunction(terms);
+        EPICEnergyFunction efunc = new EPICEnergyFunction(terms, includeMinE);
         return efunc;
     }
 

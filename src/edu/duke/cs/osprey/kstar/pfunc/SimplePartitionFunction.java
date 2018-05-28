@@ -1,21 +1,35 @@
 package edu.duke.cs.osprey.kstar.pfunc;
 
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
-import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
-import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.JvmMem;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 
+
+/**
+ * This partition function calculator estimates the partition function value
+ * by alternating between two operations:
+ * 	1. compute lower energy bounds on conformations to refine the upper pfunc bound
+ * and:
+ * 	2. compute upper energy bounds on conformations to refine the lower pfunc bound
+ *
+ * This pfunc implementation prefers to do operation 1 only when the thread pool is busy
+ * with operation 2. This approach works really well when operation 1 is orders of
+ * magnitude less expensive than operation 2 (the typical case), but doesn't perform
+ * well when operation 2 becomes much faster (say if we e.g. were reading energies out
+ * of a cache). An attempt to solve this problem is implemented in the
+ * SimplerPartitionFunction class.
+ *
+ * Operation 2 is performed while the thread pool is busy, but will eventually
+ * cease even while the thread pool is busy if we determine that the upper bound is
+ * already tight enough.
+ */
 public class SimplePartitionFunction implements PartitionFunction {
 
 	public final ConfSearch confSearch;
@@ -42,6 +56,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 	private ConfListener confListener = null;
 	private boolean isReportingProgress = false;
 	private Stopwatch stopwatch = new Stopwatch().start();
+	private ConfDB confDB = null;
 
 
 	public SimplePartitionFunction(ConfSearch confSearch, ConfEnergyCalculator ecalc) {
@@ -103,6 +118,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 		// split the confs between the bound calculators
 		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch);
 		lowerBound = new LowerBoundCalculator(confsSplitter.makeStream(), ecalc);
+		lowerBound.confDB = confDB;
 		upperBound = new UpperBoundCalculator(confsSplitter.makeStream());
 	}
 
@@ -119,7 +135,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 		// step the upper bound calculator at least once,
 		// so we try to get a non-inf upper bound before working on the lower bound
 		upperBound.scoreNextConf();
-		values.qprime = upperBound.totalBound.subtract(lowerBound.energiedScores);
+		values.qprime = upperBound.totalBound.subtract(lowerBound.weightedScoreSum);
 
 		int initialNumConfsScored = lowerBound.numConfsScored;
 
@@ -172,7 +188,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 
 					// update pfunc values
 					values.qstar = lowerBound.weightedEnergySum;
-					values.qprime = upperBound.totalBound.subtract(lowerBound.energiedScores);
+					values.qprime = upperBound.totalBound.subtract(lowerBound.weightedScoreSum);
 				}
 
 				// report progress if needed
@@ -237,169 +253,6 @@ public class SimplePartitionFunction implements PartitionFunction {
 		// so check for that after waiting on the ecalc to finish
 		if (status != Status.Unstable && upperBoundThreshold != null && MathTools.isLessThan(values.calcUpperBound(), upperBoundThreshold)) {
 			status = Status.Unstable;
-		}
-	}
-
-	public static class LowerBoundCalculator {
-
-		public static enum Status {
-			HasLowEnergies,
-			OutOfConfs,
-			OutOfLowEnergies
-		}
-
-		public final ConfSearch tree;
-		public final ConfEnergyCalculator ecalc;
-
-		public BigDecimal energiedScores = BigDecimal.ZERO;
-		public BigDecimal weightedEnergySum = BigDecimal.ZERO;
-		public int numConfsScored = 0;
-		public int numConfsEnergied = 0;
-
-		private BoltzmannCalculator boltzmann = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
-
-		public LowerBoundCalculator(ConfSearch tree, ConfEnergyCalculator ecalc) {
-			this.tree = tree;
-			this.ecalc = ecalc;
-		}
-
-		public Status run(int numConfs) {
-			return run(numConfs, null);
-		}
-
-		public Status run(int numConfs, TaskExecutor.TaskListener<EnergiedConf> confListener) {
-			Status status = Status.HasLowEnergies;
-			for (int i=0; i<numConfs && status == Status.HasLowEnergies; i++) {
-				status = energyNextConfAsync(confListener);
-			}
-			waitForFinish();
-			return status;
-		}
-
-		public Status energyNextConfAsync() {
-			return energyNextConfAsync(null);
-		}
-
-		public Status energyNextConfAsync(TaskExecutor.TaskListener<EnergiedConf> confListener) {
-
-			ScoredConf conf = tree.nextConf();
-			if (conf == null) {
-				return Status.OutOfConfs;
-			}
-			numConfsScored++;
-			if (Double.isInfinite(conf.getScore()) || MathTools.isZero(boltzmann.calc(conf.getScore()))) {
-				return Status.OutOfLowEnergies;
-			}
-
-			// do the energy calculation asynchronously
-			ecalc.calcEnergyAsync(conf, (EnergiedConf econf) -> {
-
-				// we might be on the listener thread, so sync to keep from racing the main thread
-				synchronized (LowerBoundCalculator.this) {
-
-					// energy calculation done, update pfunc values
-					if (!Double.isInfinite(econf.getEnergy())) {
-						weightedEnergySum = weightedEnergySum.add(boltzmann.calc(econf.getEnergy()));
-					}
-					energiedScores = energiedScores.add(boltzmann.calc(econf.getScore()));
-					numConfsEnergied++;
-				}
-
-				if (confListener != null) {
-					confListener.onFinished(econf);
-				}
-			});
-
-			return Status.HasLowEnergies;
-		}
-
-		public void waitForFinish() {
-			ecalc.tasks.waitForFinish();
-		}
-
-		@Override
-		public String toString() {
-			return String.format("LowerBoundCalculator   scored: %6d   energied: %6d   energies: %e   scores: %e",
-				numConfsScored,
-				numConfsEnergied,
-				weightedEnergySum.doubleValue(),
-				energiedScores.doubleValue()
-			);
-		}
-	}
-
-	public static class UpperBoundCalculator {
-
-		public final ConfSearch tree;
-		public BigInteger numUnscoredConfs;
-
-		public int numScoredConfs = 0;
-		public BigDecimal weightedScoreSum = BigDecimal.ZERO;
-		public BigDecimal unscoredBound = BigDecimal.ZERO;
-		public BigDecimal totalBound = BigDecimal.ZERO;
-		public double delta = 1.0;
-
-		private BoltzmannCalculator boltzmann = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
-
-		public UpperBoundCalculator(ConfSearch tree) {
-			this.tree = tree;
-			this.numUnscoredConfs = tree.getNumConformations();
-		}
-
-		public UpperBoundCalculator run(int numConfs) {
-			boolean canContinue = true;
-			while (canContinue && numConfs > 0) {
-				canContinue = scoreNextConf();
-				numConfs--;
-			}
-			return this;
-		}
-
-		public UpperBoundCalculator run(int numConfs, double epsilon) {
-			boolean canContinue = delta > epsilon;
-			while (canContinue && numConfs > 0) {
-				canContinue = scoreNextConf() && delta > epsilon;
-				numConfs--;
-			}
-			return this;
-		}
-
-		private boolean scoreNextConf() {
-
-			// get the next conf
-			ScoredConf conf = tree.nextConf();
-			if (conf == null) {
-				return false;
-			}
-
-			numScoredConfs++;
-
-			// compute the boltzmann weight for this conf
-			BigDecimal weightedScore = boltzmann.calc(conf.getScore());
-
-			// update counters/sums/bounds
-			weightedScoreSum = weightedScoreSum.add(weightedScore);
-			numUnscoredConfs = numUnscoredConfs.subtract(BigInteger.ONE);
-			unscoredBound = weightedScore.multiply(new BigDecimal(numUnscoredConfs));
-			totalBound = weightedScoreSum.add(unscoredBound);
-
-			// update delta
-			delta = MathTools.bigDivide(unscoredBound, totalBound, PartitionFunction.decimalPrecision).doubleValue();
-
-			// keep going if the boltzmann weight is greater than zero
-			return MathTools.isGreaterThan(weightedScore, BigDecimal.ZERO);
-		}
-
-		@Override
-		public String toString() {
-			return String.format("UpperBoundCalculator  scored: %8d  sum: %e   unscored: %e  %e   bound: %e   delta: %f",
-				numScoredConfs,
-				weightedScoreSum.doubleValue(),
-				numUnscoredConfs.doubleValue(),
-				unscoredBound.doubleValue(),
-				totalBound.doubleValue(),
-				delta
-			);
 		}
 	}
 }

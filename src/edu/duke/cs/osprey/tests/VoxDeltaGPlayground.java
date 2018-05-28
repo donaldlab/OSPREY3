@@ -55,7 +55,7 @@ public class VoxDeltaGPlayground {
 
         
         MoleculeModifierAndScorer mms1 = new MoleculeModifierAndScorer(
-                epicMat1.internalEnergyFunction(new RCTuple(conf1)), 
+                epicMat1.internalEnergyFunction(new RCTuple(conf1), true),
                 epicMat1.getConfSpace(), new RCTuple(conf1) );
         
         //for doing difference by BAR between two confs
@@ -68,7 +68,7 @@ public class VoxDeltaGPlayground {
         CCDMinimizer ccdMin = new CCDMinimizer(mms1,false);
         DoubleMatrix1D center = ccdMin.minimize().dofValues;
         MoleculeModifierAndScorer mms2 = new IdealSeparableReference(
-                epicMat2.internalEnergyFunction(new RCTuple(conf1)), 
+                epicMat2.internalEnergyFunction(new RCTuple(conf1), true),
                 epicMat2.getConfSpace(), new RCTuple(conf1), center );
         
         System.out.println("SEP REF G: "+((IdealSeparableReference)mms2).calcG());

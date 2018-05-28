@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.jogamp.opencl.CLContext;
 import com.jogamp.opencl.CLDevice;
+import com.jogamp.opencl.CLException;
 import com.jogamp.opencl.CLPlatform;
 
 public class Gpus {
@@ -39,21 +40,25 @@ public class Gpus {
 				if (device.getType() == CLDevice.Type.CPU) {
 					continue;
 				}
-					
-				// make an independent context for each gpu
-				CLContext gpuContext = CLContext.create(device);
-				CLDevice isolatedDevice = gpuContext.getDevices()[0];
-				
-				Gpu gpu = new Gpu(isolatedDevice);
-				if (gpu.supportsDoubles()) {
-					
-					// we can use this gpu! save it and its context
-					gpus.add(gpu);
-					
-				} else {
-					
-					// can't use this gpu, clean it up
-					gpuContext.release();
+
+				try {
+					// make an independent context for each gpu
+					CLContext gpuContext = CLContext.create(device);
+					CLDevice isolatedDevice = gpuContext.getDevices()[0];
+
+					Gpu gpu = new Gpu(isolatedDevice);
+					if (gpu.supportsDoubles()) {
+
+						// we can use this gpu! save it and its context
+						gpus.add(gpu);
+
+					} else {
+
+						// can't use this gpu, clean it up
+						gpuContext.release();
+					}
+				} catch (CLException.CLInvalidDeviceException ex) {
+					// OpenCL doesn't work on this device, skip it
 				}
 			}
 		}

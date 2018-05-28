@@ -1,9 +1,11 @@
 package edu.duke.cs.osprey.kstar;
 
+import static edu.duke.cs.osprey.TestBase.fileForWriting;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
@@ -18,8 +20,10 @@ import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -38,7 +42,7 @@ public class TestKStar {
 		public List<KStar.ScoredSequence> scores;
 	}
 
-	public static Result runKStar(ConfSpaces confSpaces, double epsilon) {
+	public static Result runKStar(ConfSpaces confSpaces, double epsilon, String confDBPattern) {
 
 		AtomicReference<Result> resultRef = new AtomicReference<>(null);
 
@@ -91,6 +95,8 @@ public class TestKStar {
 					.setEpsilon(epsilon)
 					.setStabilityThreshold(null)
 					.addScoreConsoleWriter(testFormatter)
+					.setConfDBPattern(confDBPattern)
+					//.setShowPfuncProgress(true)
 					.build();
 				result.kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
 				result.scores = result.kstar.run();
@@ -154,8 +160,11 @@ public class TestKStar {
 	public void test2RL0() {
 
 		double epsilon = 0.95;
-		Result result = runKStar(make2RL0(), epsilon);
+		Result result = runKStar(make2RL0(), epsilon, null);
+		assert2RL0(result, epsilon);
+	}
 
+	private static void assert2RL0(Result result, double epsilon) {
 		// check the results (values collected with e = 0.1 and 64 digits precision)
 		// NOTE: these values don't match the ones in the TestKSImplLinear test because the conf spaces are slightly different
 		// also, the new K* code has been updated to be more precise
@@ -238,7 +247,7 @@ public class TestKStar {
 	public void test1GUA11() {
 
 		double epsilon = 0.999999;
-		Result result = runKStar(make1GUA11(), epsilon);
+		Result result = runKStar(make1GUA11(), epsilon, null);
 
 		// check the results (values collected with e = 0.1 and 64 digits precision)
 		assertSequence(result,   0, "ILE ILE GLN HIE VAL TYR LYS VAL", 1.186071e+42, 2.840001e+07, 1.119884e+66, epsilon); // K* = 16.521744 in [16.463680,16.563832] (log10)
@@ -247,6 +256,63 @@ public class TestKStar {
 		assertSequence(result,   3, "ILE ILE GLN HIE VAL TYR LYS LYS", 1.186071e+42, 6.402058e+04, 3.315165e+63, epsilon); // K* = 16.640075 in [16.563032,16.685734] (log10)
 		assertSequence(result,   4, "ILE ILE GLN HIE VAL TYR LYS ARG", 1.186071e+42, 1.157637e+05, 5.375731e+64, epsilon); // K* = 17.592754 in [17.514598,17.638466] (log10)
 		assertSequence(result,   5, "ILE ILE GLN HID VAL TYR LYS VAL", 9.749716e+41, 2.840001e+07, 2.677894e+66, epsilon); // K* = 16.985483 in [16.927677,17.026890] (log10)
+	}
+
+	@Test
+	public void test2RL0WithConfDB() {
+
+		final double epsilon = 0.95;
+		final String confdbPattern = "kstar.*.conf.db";
+		final ConfSpaces confSpaces = make2RL0();
+
+		fileForWriting("kstar.protein.conf.db", (proteinDBFile) -> {
+			fileForWriting("kstar.ligand.conf.db", (ligandDBFile) -> {
+				fileForWriting("kstar.complex.conf.db", (complexDBFile) -> {
+
+					// run with empty dbs
+					Stopwatch sw = new Stopwatch().start();
+					Result result = runKStar(confSpaces, epsilon, confdbPattern);
+					assert2RL0(result, epsilon);
+					System.out.println(sw.getTime(2));
+
+					// the dbs should have stuff in them
+
+					new ConfDB(confSpaces.protein, proteinDBFile).use((confdb) -> {
+						HashSet<Sequence> sequences = new HashSet<>(result.kstar.protein.sequences);
+						assertThat(confdb.getNumSequences(), is((long)sequences.size()));
+						for (Sequence sequence : confdb.getSequences()) {
+							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
+						}
+					});
+
+					new ConfDB(confSpaces.ligand, ligandDBFile).use((confdb) -> {
+						HashSet<Sequence> sequences = new HashSet<>(result.kstar.ligand.sequences);
+						assertThat(confdb.getNumSequences(), is((long)sequences.size()));
+						for (Sequence sequence : confdb.getSequences()) {
+							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
+						}
+					});
+
+					new ConfDB(confSpaces.complex, complexDBFile).use((confdb) -> {
+						List<Sequence> sequences = result.kstar.complex.sequences;
+						assertThat(confdb.getNumSequences(), is((long)sequences.size()));
+						for (Sequence sequence : confdb.getSequences()) {
+							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
+						}
+					});
+
+					assertThat(proteinDBFile.exists(), is(true));
+					assertThat(ligandDBFile.exists(), is(true));
+					assertThat(complexDBFile.exists(), is(true));
+
+					// run again with full dbs
+					sw = new Stopwatch().start();
+					Result result2 = runKStar(confSpaces, epsilon, confdbPattern);
+					assert2RL0(result2, epsilon);
+					System.out.println(sw.getTime(2));
+				});
+			});
+		});
 	}
 
 	public static void assertSequence(Result result, int sequenceIndex, String sequence, Double proteinQStar, Double ligandQStar, Double complexQStar, double epsilon) {

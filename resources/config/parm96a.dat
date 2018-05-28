@@ -47,6 +47,7 @@ O2 16.00                             carboxyl and phosphate group oxygen
 P  30.97                             phosphate
 S  32.06                             sulphur in disulfide linkage
 SH 32.06                             sulphur in cystine
+SO 32.06                             sulphur in sulphate
 CU 63.55                             copper
 FE 55.00                             iron
 Li  6.94                             lithium
@@ -140,6 +141,8 @@ H -N3  434.0    1.010       JCC,7,(1986),230; LYS
 HS-SH  274.0    1.336       JCC,7,(1986),230; CYS
 S -S   166.0    2.038       JCC,7,(1986),230; CYX   (SCHERAGA)
 CT-F   367.0    1.380       JCC,13,(1992),963;CF4; R0=1.332 FOR CHF3
+SO-OS  230.0    1.62        JCC,16,(1995);56
+SO-NT  230      1.685       JCC,16,(1995);56
 
 HW-OW-HW    100.      104.52    TIP3P water
 HW-HW-OW      0.      127.74    (found in crystallographic water with 3 bonds)

@@ -1,9 +1,11 @@
 package edu.duke.cs.osprey.gmec;
 
 import static edu.duke.cs.osprey.TestBase.*;
+import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import org.junit.BeforeClass;
@@ -67,7 +69,7 @@ public class TestSimpleGMECFinder {
 			.build();
 		}
 
-		public SimpleGMECFinder makeResumeFinder(File logFile, Integer interruptAtConfNum) {
+		public SimpleGMECFinder makeConfDBFinder(File confdbFile, Integer interruptAtConfNum) {
 			return new SimpleGMECFinder.Builder(
 				new ConfAStarTree.Builder(emat, confSpace).build(),
 				new ConfEnergyCalculator(confEcalc) {
@@ -86,7 +88,7 @@ public class TestSimpleGMECFinder {
 					}
 				}
 			)
-			.setResumeLog(logFile)
+			.setConfDB(confdbFile)
 			.build();
 		}
 	}
@@ -232,116 +234,133 @@ public class TestSimpleGMECFinder {
 	@Test
 	public void findWithResumeNotInterrupted() {
 
-		File logFile = new File("resume.log");
-		logFile.delete();
-		assertThat(logFile.exists(), is(false));
+		fileForWriting("findgmec.conf.db", (confDBFile) -> {
 
-		Queue<EnergiedConf> confs = problemBigContinuous.makeResumeFinder(logFile, null).find(0.3);
-		assertThat(confs.size(), is(2L));
+			Queue<EnergiedConf> confs = problemBigContinuous.makeConfDBFinder(confDBFile, null).find(0.3);
+			assertThat(confs.size(), is(2L));
 
-		EnergiedConf conf = confs.poll();
-		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 8, 20, 4, 4 }));
-		assertThat(conf.getEnergy(), isAbsolutely(-69.152448, EnergyEpsilon));
-		assertThat(conf.getScore(), isAbsolutely(-69.995731, EnergyEpsilon));
+			EnergiedConf conf = confs.poll();
+			assertThat(conf.getAssignments(), is(new int[] { 1, 3, 8, 20, 4, 4 }));
+			assertThat(conf.getEnergy(), isAbsolutely(-69.152448, EnergyEpsilon));
+			assertThat(conf.getScore(), isAbsolutely(-69.995731, EnergyEpsilon));
 
-		conf = confs.poll();
-		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 8, 20, 4, 5 }));
-		assertThat(conf.getEnergy(), isAbsolutely(-68.958418, EnergyEpsilon));
-		assertThat(conf.getScore(), isAbsolutely(-69.861970, EnergyEpsilon));
+			conf = confs.poll();
+			assertThat(conf.getAssignments(), is(new int[] { 1, 3, 8, 20, 4, 5 }));
+			assertThat(conf.getEnergy(), isAbsolutely(-68.958418, EnergyEpsilon));
+			assertThat(conf.getScore(), isAbsolutely(-69.861970, EnergyEpsilon));
 
-		// there should be no resume log
-		assertThat(logFile.exists(), is(false));
+			// the conf db should have all 27 confs
+			assertThat(confDBFile.exists(), is(true));
+			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
+				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(27L));
+			});
+		});
 	}
 
 	@Test
 	public void findWithResumeInterrupted() {
 
-		// delete any previous resume log, if any, just in case
-		File logFile = new File("resume.log");
-		logFile.delete();
-		assertThat(logFile.exists(), is(false));
+		fileForWriting("findgmec.conf.db", (confDBFile) -> {
 
-		try {
-			// NOTE: the resume logger batches writes, so calc at least 8 conformations
-			problemBigContinuous.makeResumeFinder(logFile, 10).find(0.3);
+			try {
+				// throw an error before the 10th calculated (not cached) energy
+				problemBigContinuous.makeConfDBFinder(confDBFile, 10).find(0.3);
 
-			// should throw an error, fail if not
-			fail("Expected error, but didn't find one");
+				// should throw an error, fail if not
+				fail("Expected error, but didn't find one");
 
-		} catch (Error err) {
-			// error expected here, keep going
-		}
+			} catch (Error err) {
+				// error expected here, keep going
+			}
 
-		// there should be a resume log
-		assertThat(logFile.exists(), is(true));
+			// there should be a confdb with confs in it
+			assertThat(confDBFile.exists(), is(true));
+			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
+				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(10L));
+			});
 
-		// resume the computation using the log
-		Queue<EnergiedConf> confs = problemBigContinuous.makeResumeFinder(logFile, null).find(0.3);
-		assertThat(confs.size(), is(2L));
+			// resume the computation using the db
+			Queue<EnergiedConf> confs = problemBigContinuous.makeConfDBFinder(confDBFile, null).find(0.3);
+			assertThat(confs.size(), is(2L));
 
-		EnergiedConf conf = confs.poll();
-		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 8, 20, 4, 4 }));
-		assertThat(conf.getEnergy(), isAbsolutely(-69.152448, EnergyEpsilon));
-		assertThat(conf.getScore(), isAbsolutely(-69.995731, EnergyEpsilon));
+			EnergiedConf conf = confs.poll();
+			assertThat(conf.getAssignments(), is(new int[] { 1, 3, 8, 20, 4, 4 }));
+			assertThat(conf.getEnergy(), isAbsolutely(-69.152448, EnergyEpsilon));
+			assertThat(conf.getScore(), isAbsolutely(-69.995731, EnergyEpsilon));
 
-		conf = confs.poll();
-		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 8, 20, 4, 5 }));
-		assertThat(conf.getEnergy(), isAbsolutely(-68.958418, EnergyEpsilon));
-		assertThat(conf.getScore(), isAbsolutely(-69.861970, EnergyEpsilon));
+			conf = confs.poll();
+			assertThat(conf.getAssignments(), is(new int[] { 1, 3, 8, 20, 4, 5 }));
+			assertThat(conf.getEnergy(), isAbsolutely(-68.958418, EnergyEpsilon));
+			assertThat(conf.getScore(), isAbsolutely(-69.861970, EnergyEpsilon));
 
-		// the resume log should have been cleaned up
-		assertThat(logFile.exists(), is(false));
+			// the conf db should have all 27 confs
+			assertThat(confDBFile.exists(), is(true));
+			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
+				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(27L));
+			});
+		});
 	}
 
 	@Test
 	public void findWithResumeInterruptedTwice() {
 
-		// delete any previous resume log, if any, just in case
-		File logFile = new File("resume.log");
-		logFile.delete();
-		assertThat(logFile.exists(), is(false));
+		fileForWriting("findgmec.conf.db", (confDBFile) -> {
 
-		try {
-			// NOTE: the resume logger batches writes, so calc at least 8 conformations
-			problemBigContinuous.makeResumeFinder(logFile, 10).find(0.3);
+			try {
+				// throw an error before the 10th calculated (not cached) energy
+				problemBigContinuous.makeConfDBFinder(confDBFile, 10).find(0.3);
 
-			// should throw an error, fail if not
-			fail("Expected error, but didn't find one");
+				// should throw an error, fail if not
+				fail("Expected error, but didn't find one");
 
-		} catch (Error err) {
-			// error expected here, keep going
-		}
+			} catch (Error err) {
+				// error expected here, keep going
+			}
 
-		// there should be a resume log
-		assertThat(logFile.exists(), is(true));
+			// there should be a confdb with confs in it
+			assertThat(confDBFile.exists(), is(true));
+			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
+				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(10L));
+			});
 
-		// do another batch
-		try {
-			problemBigContinuous.makeResumeFinder(logFile, 10).find(0.3);
+			// do another batch
+			try {
+				// throw an error before the 10th calculated (not cached) energy
+				problemBigContinuous.makeConfDBFinder(confDBFile, 10).find(0.3);
 
-			// should throw an error, fail if not
-			fail("Expected error, but didn't find one");
+				// should throw an error, fail if not
+				fail("Expected error, but didn't find one");
 
-		} catch (Error err) {
-			// error expected here, keep going
-		}
+			} catch (Error err) {
+				// error expected here, keep going
+			}
 
-		// resume the computation using the log
-		Queue<EnergiedConf> confs = problemBigContinuous.makeResumeFinder(logFile, null).find(0.3);
-		assertThat(confs.size(), is(2L));
+			// there should be a confdb with confs in it
+			assertThat(confDBFile.exists(), is(true));
+			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
+				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(20L));
+			});
 
-		EnergiedConf conf = confs.poll();
-		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 8, 20, 4, 4 }));
-		assertThat(conf.getEnergy(), isAbsolutely(-69.152448, EnergyEpsilon));
-		assertThat(conf.getScore(), isAbsolutely(-69.995731, EnergyEpsilon));
+			// resume the computation using the db
+			Queue<EnergiedConf> confs = problemBigContinuous.makeConfDBFinder(confDBFile, null).find(0.3);
+			assertThat(confs.size(), is(2L));
 
-		conf = confs.poll();
-		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 8, 20, 4, 5 }));
-		assertThat(conf.getEnergy(), isAbsolutely(-68.958418, EnergyEpsilon));
-		assertThat(conf.getScore(), isAbsolutely(-69.861970, EnergyEpsilon));
+			EnergiedConf conf = confs.poll();
+			assertThat(conf.getAssignments(), is(new int[] { 1, 3, 8, 20, 4, 4 }));
+			assertThat(conf.getEnergy(), isAbsolutely(-69.152448, EnergyEpsilon));
+			assertThat(conf.getScore(), isAbsolutely(-69.995731, EnergyEpsilon));
 
-		// the resume log should have been cleaned up
-		assertThat(logFile.exists(), is(false));
+			conf = confs.poll();
+			assertThat(conf.getAssignments(), is(new int[] { 1, 3, 8, 20, 4, 5 }));
+			assertThat(conf.getEnergy(), isAbsolutely(-68.958418, EnergyEpsilon));
+			assertThat(conf.getScore(), isAbsolutely(-69.861970, EnergyEpsilon));
+
+			// the conf db should have all 27 confs
+			assertThat(confDBFile.exists(), is(true));
+			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
+				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(27L));
+			});
+		});
 	}
 
 	@Test

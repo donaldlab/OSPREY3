@@ -1,0 +1,35 @@
+language: java
+
+# only build the python branch
+# the master branch doesn't have a build script
+branches:
+    only:
+        - python
+
+# travis docs say we need this to prevent issues with gradle builds
+# https://docs.travis-ci.com/user/languages/java/
+before_cache:
+    - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
+    - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
+cache:
+    directories:
+        - $HOME/.gradle/caches/
+        - $HOME/.gradle/wrapper/
+
+# install python dependencies before building
+before_install:
+    - sudo pip install setuptools wheel sphinx guzzle_sphinx_theme javalang
+
+# disable tests in automatic builds
+# they take too long to run and require specialized hardware
+script: true
+
+# secret sauce!
+# https://docs.travis-ci.com/user/encryption-keys/
+env:
+    - secure: "HuRaW8Cfz91oDY0n/yEQgnodPeqeXtS4jAWHaZPFcrOUsC7lQbF4LOTnNWrSLKABFNCmLjaT4HTCwoBLiNBg8BkPZaUqXOJTtYOsFvNg7hnYA1VZnW8YtKZnF9p+kDMzEr6mnBCN+y+AnufFvdjnk8ZoojsySVqdnTq5DQBbdyg6SMlRjKzihJLwPX8c1HHJjISVUWJOvsm7Fe07WAtU+bGg2IMJuvWUo6sHbkFx8s2lmT0AK7F33kgsNdQiPbgo1xxbEjDm4v/S81mOUhtphZwOdL3zjebjX9hArYem4jZxlD01b1pOeJEzxkU7M68QJYYjkPGi8Rn3fZsrfjUpiPVuGrwsl23wZ/Lenzi0vTrzd9nsrOOtdqvwMHG3xvy7ARCUMRJ1YjAcdiGPAgmG7uCRBxBjUGxVrBpXF1Hz34Bmtco/a3yZm5dH8HZKUXBxcWX+FiuFt+WhTjTQQurlnYx7Y7HEaB+pDoW5WeSMRlKRvBS49AG02DoDLt8ye4GGjQ4Wdoh9zLllCaM3J8dqKowcRM83/SXsBBisHirnCNnMQsSRLfatZqmqrdiXk0mamKGkRRUVJ1gT9V/4JSlakqKc/MlHv5LwYx/JzRfx7dHNysgc3ZPtPJ1jmj6ui3F/mkOqlJuvHdos/ovVdVB0LC2U8bPSvN6GB0aWu/WhrYY="
+
+# upload the builds
+after_script:
+    - ./upload.sh
+

@@ -630,7 +630,7 @@ def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergen
 	return builder.build()
 
 
-def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=None, useExternalMemory=None, resumeLog=None):
+def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=None, useExternalMemory=None, resumeLog=None, confDBFile=None):
 	'''
 	:java:classdoc:`.gmec.SimpleGMECFinder`
 
@@ -663,6 +663,9 @@ def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=None, useE
 
 	if resumeLog is not None:
 		builder.setResumeLog(jvm.toFile(resumeLog))
+
+	if confDBFile is not None:
+		builder.setConfDB(jvm.toFile(confDBFile))
 
 	return builder.build()
 
@@ -716,7 +719,7 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	return bbflex
 
 
-def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
+def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
 	'''
 	:java:classdoc:`.kstar.KStar`
 
@@ -738,6 +741,7 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcF
 	:builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
 	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
 	:builder_option energyMatrixCachePattern .kstar.KStar$Settings$Builder#energyMatrixCachePattern:
+	:builder_option confDBPattern .kstar.KStar$Settings$Builder#confDBPattern:
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
 	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
 
@@ -762,12 +766,14 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcF
 		settingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
 	if energyMatrixCachePattern is not useJavaDefault:
 		settingsBuilder.setEnergyMatrixCachePattern(energyMatrixCachePattern)
+	if confDBPattern is not useJavaDefault:
+		settingsBuilder.setConfDBPattern(confDBPattern)
 	settings = settingsBuilder.build()
 
 	return c.kstar.KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
 
 
-def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
+def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
 	'''
 	:java:classdoc:`.kstar.BBKStar`
 
@@ -791,6 +797,7 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, min
 	:builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
 	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
 	:builder_option energyMatrixCachePattern .kstar.KStar$Settings$Builder#energyMatrixCachePattern:
+	:builder_option confDBPattern .kstar.KStar$Settings$Builder#confDBPattern:
 	:builder_option numBestSequences .kstar.BBKStar$Settings$Builder#numBestSequences:
 	:builder_option numConfsPerBatch .kstar.BBKStar$Settings$Builder#numConfsPerBatch:
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
@@ -817,6 +824,8 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, min
 		kstarSettingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
 	if energyMatrixCachePattern is not useJavaDefault:
 		kstarSettingsBuilder.setEnergyMatrixCachePattern(energyMatrixCachePattern)
+	if confDBPattern is not useJavaDefault:
+		kstarSettingsBuilder.setConfDBPattern(confDBPattern)
 	kstarSettings = kstarSettingsBuilder.build()
 
 	bbkstarSettingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.BBKStar, 'Settings'))()
@@ -846,7 +855,7 @@ def ConfAnalyzer(confEcalc, emat):
 	return c.gmec.ConfAnalyzer(confEcalc, emat)
 
 
-def SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, energyMatrixCachePattern=None):
+def SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault):
 	'''
 	:java:classdoc:`.kstar.SequenceAnalyzer`
 
@@ -875,8 +884,10 @@ def SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc,
 
 	# build settings
 	settingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.KStar, 'Settings'))()
-	if energyMatrixCachePattern is not None:
+	if energyMatrixCachePattern is not useJavaDefault:
 		settingsBuilder.setEnergyMatrixCachePattern(energyMatrixCachePattern)
+	if confDBPattern is not useJavaDefault:
+		settingsBuilder.setConfDBPattern(confDBPattern)
 	settings = settingsBuilder.build()
 
 	return c.kstar.SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
