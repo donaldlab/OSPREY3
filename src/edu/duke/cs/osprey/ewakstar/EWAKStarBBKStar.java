@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.ewakstar;
 
+import edu.duke.cs.osprey.astar.ewakstar.EWAKStarLimitedSequenceTrie;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -32,9 +33,9 @@ public class EWAKStarBBKStar {
             /**
              * The number of best (by K* score) sequences to evaluate before finishing
              */
-            private ArrayList<String> allowedSeqs;
+            private EWAKStarLimitedSequenceTrie allowedSeqs;
 
-            public Builder setAllowedSeqs(ArrayList<String> seqs) {
+            public Builder setAllowedSeqs(EWAKStarLimitedSequenceTrie seqs) {
                 allowedSeqs = seqs;
                 return this;
             }
@@ -44,9 +45,9 @@ public class EWAKStarBBKStar {
             }
         }
 
-        public final ArrayList<String> allowedSeqs;
+        public final EWAKStarLimitedSequenceTrie allowedSeqs;
 
-        public Settings(ArrayList<String> seqs) {
+        public Settings(EWAKStarLimitedSequenceTrie seqs) {
             this.allowedSeqs = seqs;
         }
     }
@@ -191,24 +192,7 @@ public class EWAKStarBBKStar {
         private Set<String> filterOnPreviousSeqs(int curPos){
 
             String subSeq = sequence.getAssignedResTypes();
-            Set<String> resTypes = new HashSet<>();
-            boolean foundSubSeq = false;
-            int count = 0;
-            while(!foundSubSeq){
-                if (bbkstarSettings.allowedSeqs.get(count).startsWith(subSeq))
-                    foundSubSeq = true;
-                else
-                    count++;
-            }
-            while(foundSubSeq){
-                resTypes.add(bbkstarSettings.allowedSeqs.get(count).split(" ")[curPos]);
-                count++;
-                if(count == bbkstarSettings.allowedSeqs.size())
-                    foundSubSeq = false;
-                else if (!bbkstarSettings.allowedSeqs.get(count).startsWith(subSeq))
-                    foundSubSeq = false;
-            }
-
+            Set<String> resTypes = bbkstarSettings.allowedSeqs.getSeq(subSeq);
             return resTypes;
         }
 

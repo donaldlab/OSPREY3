@@ -18,6 +18,7 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 import org.apache.commons.collections4.map.LinkedMap;
 
@@ -28,6 +29,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.confspace.Sequence.makeEWAKStar;
 
@@ -107,28 +109,34 @@ public class NewEWAKStarDoer {
     private ArrayList<String> filteredSeqsStringsL = new ArrayList<>();
 
     private PruningSettings pruningSettings = new PruningSettings();
-    ArrayList<ArrayList<String>> newAAOptionsPL = new ArrayList<>();
-    ArrayList<ArrayList<String>> newAAOptionsP = new ArrayList<>();
-    ArrayList<ArrayList<String>> newAAOptionsL = new ArrayList<>();
+    private ArrayList<ArrayList<String>> newAAOptionsPL = new ArrayList<>();
+    private ArrayList<ArrayList<String>> newAAOptionsP = new ArrayList<>();
+    private ArrayList<ArrayList<String>> newAAOptionsL = new ArrayList<>();
 
-    int maxMutable;
+    private int numMutable;
+    private boolean useExact = true;
 
-    public NewEWAKStarDoer (boolean useMaxMutable, int maxMutable, int numCPUs, boolean wtBenchmark, boolean seqFilterOnly, int numTopSeqs, int maxPFConfs,
-                            double epsilon, ConfEnergyCalculator confRigidECalc, ConfEnergyCalculator confECalc,
-                            EnergyMatrix emat, EnergyCalculator ecalc, SimpleConfSpace confSpace,
-                            SimpleConfSpace confSpaceL, SimpleConfSpace confSpaceP, Integer[] pos, Integer[] posL,
-                            Integer[] posP, int numFilteredSeqs, double orderOfMag, double unboundEw,
-                            double boundEw, double ewakstarEw, String startResL,
-                            String endResL, String startResP, String endResP, Molecule mol, String[] resNumsPL,
-                            String[] resNumsL, String[] resNumsP, double Ival, String PLmatrixName) {
+    public NewEWAKStarDoer (String mutableType, int numMutable, int numCPUs, boolean wtBenchmark, boolean seqFilterOnly,
+                            int numTopSeqs, int maxPFConfs, double epsilon, ConfEnergyCalculator confRigidECalc,
+                            ConfEnergyCalculator confECalc, EnergyMatrix emat, EnergyCalculator ecalc,
+                            SimpleConfSpace confSpace, SimpleConfSpace confSpaceL, SimpleConfSpace confSpaceP,
+                            Integer[] pos, Integer[] posL, Integer[] posP, int numFilteredSeqs, double orderOfMag,
+                            double unboundEw, double boundEw, double ewakstarEw, String startResL, String endResL,
+                            String startResP, String endResP, Molecule mol, String[] resNumsPL, String[] resNumsL,
+                            String[] resNumsP, double Ival, String PLmatrixName) {
 
         //fill in all the settings
         //each state will have its own config file parser
-        if(useMaxMutable){
-            this.maxMutable = maxMutable;
-        } else{
-            this.maxMutable = resNumsPL.length;
+        if(mutableType.equals("exact") || mutableType.equals("max")){
+            this.numMutable = numMutable;
+        } else if(mutableType.equals("all")){
+            this.numMutable = resNumsPL.length;
         }
+
+        if(mutableType.equals("max")){
+            this.useExact = false;
+        }
+
         this.numCPUs = numCPUs;
         this.wtBenchmark = wtBenchmark;
         this.seqFilterOnly = seqFilterOnly;
@@ -174,8 +182,8 @@ public class NewEWAKStarDoer {
                 confSpace, minimizingEcalc, confEnergyCalcPL, new EPICSettings(), new LUTESettings(),
                 pruningSettings);
 
-        treePL = new NewEWAKStarTree(this.maxMutable, AATypeOptions.size(), AATypeOptions, fullWtSeq, confSpace, newPrecompMat,
-                new ArrayList<>(Arrays.asList(pos)), confEnergyCalcPL);
+        treePL = new NewEWAKStarTree(this.useExact, this.numMutable, AATypeOptions.size(), AATypeOptions, fullWtSeq,
+                confSpace, newPrecompMat, new ArrayList<>(Arrays.asList(pos)), confEnergyCalcPL);
 
     }
 
@@ -185,6 +193,23 @@ public class NewEWAKStarDoer {
         long startEWAKStarTime = System.currentTimeMillis();
 
         System.out.println("Performing EWAK*");
+
+        int combinatorialSize = 0;
+        List<List<SimpleConfSpace.Position>> powersetOfPositions = MathTools.powersetUpTo(confSpaces.complex.positions, numMutable);
+        for (List<SimpleConfSpace.Position> mutablePositions : powersetOfPositions) {
+            // collect the mutations (res types except for wild type) for these positions into a simple list list
+            if(!(useExact && mutablePositions.size()!=numMutable)) {
+                List<Integer> numResTypes = new ArrayList<>();
+                for (SimpleConfSpace.Position pos : mutablePositions) {
+                    numResTypes.add(pos.resFlex.resTypes.size() - 1);
+                }
+                int tempSize = 1;
+                for (Integer n : numResTypes) {
+                    tempSize = tempSize * n;
+                }
+                combinatorialSize += tempSize;
+            }
+        }
 
         ArrayList<Sequence> bestPLseqs = extractPLSeqsByLB();
 
@@ -196,8 +221,11 @@ public class NewEWAKStarDoer {
         ArrayList<Sequence> filteredSeqsL = filterSequences(bestPLseqs, "L");
         ArrayList<Sequence> filteredSeqsP = filterSequences(bestPLseqs, "P");
 
-        treeL = buildUnboundTree("L");
-        treeP = buildUnboundTree("P");
+        EWAKStarLimitedSequenceTrie pTrie = makeEWAKStarLimitedSequenceTree(filteredSeqsStringsP);
+        EWAKStarLimitedSequenceTrie lTrie = makeEWAKStarLimitedSequenceTree(filteredSeqsStringsL);
+
+        treeL = buildUnboundTree("L", lTrie);
+        treeP = buildUnboundTree("P", pTrie);
 
         ArrayList<Sequence> newLseqs = extractSeqsByLB(filteredSeqsL, "L");
         ArrayList<Sequence> newPseqs = extractSeqsByLB(filteredSeqsP, "P");
@@ -205,14 +233,15 @@ public class NewEWAKStarDoer {
         updatePLSettings();
         ArrayList<Sequence> fullSeqs = makeFullSeqs(newPseqs, newLseqs, bestPLseqs);
 
-        Collections.sort(filteredSeqsStrings);
+        EWAKStarLimitedSequenceTrie plTrie = makeEWAKStarLimitedSequenceTree(filteredSeqsStrings);
 
         long stopEWAKStarTime;
         if (!seqFilterOnly) {
-            runEWAKStarBBKStar(filteredSeqsStrings);
+            runEWAKStarBBKStar(plTrie);
         }
         if(seqFilterOnly) {
             writeSeqsToFile(fullSeqs);
+            System.out.println("Number of sequences filtered down to "+ filteredSeqsStrings.size()+" from "+combinatorialSize);
             stopEWAKStarTime = System.currentTimeMillis()-startEWAKStarTime;
             System.out.println("Total OSPREY/EWAK* time: "+(String.format("%d min, %d sec",
                     TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime),
@@ -220,12 +249,22 @@ public class NewEWAKStarDoer {
                             TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime)))));
             return fullSeqs;
         } else
+            System.out.println("Number of sequences filtered down to "+ filteredSeqsStrings.size()+" from "+combinatorialSize);
             stopEWAKStarTime = System.currentTimeMillis()-startEWAKStarTime;
             System.out.println("Total OSPREY/EWAK* time: "+(String.format("%d min, %d sec",
                     TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime),
                     TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime) -
                             TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime)))));
             return null;
+    }
+
+    private EWAKStarLimitedSequenceTrie makeEWAKStarLimitedSequenceTree(ArrayList<String> filteredSeqs){
+
+        EWAKStarLimitedSequenceTrie eslsT = new EWAKStarLimitedSequenceTrie();
+        for(String s: filteredSeqs){
+                eslsT.addSeq(s);
+        }
+        return eslsT;
     }
 
     private void writeSeqsToFile(ArrayList<Sequence> seqs){
@@ -301,7 +340,7 @@ public class NewEWAKStarDoer {
         return filteredSeqs;
     }
 
-    private void runEWAKStarBBKStar(ArrayList<String> bestFullSeqs){
+    private void runEWAKStarBBKStar(EWAKStarLimitedSequenceTrie plTrie){
 
         // how should confs be ordered and searched?
         EWAKStar.ConfSearchFactory confSearchFactory = (emat, rcs) -> {
@@ -322,7 +361,7 @@ public class NewEWAKStarDoer {
                 .build();
 
         EWAKStarBBKStar.Settings bbkstarSettings = new EWAKStarBBKStar.Settings.Builder()
-                .setAllowedSeqs(bestFullSeqs).build();
+                .setAllowedSeqs(plTrie).build();
 
         Results results = new Results();
         results.bbkstar = new EWAKStarBBKStar(maxNumSeqs, confSpaces.protein, confSpaces.ligand, confSpaces.complex,
@@ -454,7 +493,7 @@ public class NewEWAKStarDoer {
 
     }
 
-    private NewEWAKStarTreeLimitedSeqs buildUnboundTree(String type) {
+    private NewEWAKStarTreeLimitedSeqs buildUnboundTree(String type, EWAKStarLimitedSequenceTrie curTrie) {
 
         String matrixName;
         ArrayList<String> filteredSeqs;
@@ -469,7 +508,6 @@ public class NewEWAKStarDoer {
                 mutablePos = mutablePosNumsP;
                 matrixName = "ewakstar.P*";
                 Collections.sort(filteredSeqsStringsP);
-                filteredSeqs = filteredSeqsStringsP;
                 aaOpts = newAAOptionsP;
                 wt = wtSeqP;
                 break;
@@ -478,7 +516,6 @@ public class NewEWAKStarDoer {
                 mutablePos = mutablePosNumsL;
                 matrixName = "ewakstar.L*";
                 Collections.sort(filteredSeqsStringsL);
-                filteredSeqs = filteredSeqsStringsL;
                 aaOpts = newAAOptionsL;
                 wt = wtSeqL;
                 break;
@@ -535,7 +572,7 @@ public class NewEWAKStarDoer {
             this.wtSeqP = wildType;
         }
 
-        return new NewEWAKStarTreeLimitedSeqs(filteredSeqs, confSpace.positions.size(), aaOpts, wildType, confSpace,
+        return new NewEWAKStarTreeLimitedSeqs(curTrie, confSpace.positions.size(), aaOpts, wildType, confSpace,
                 newPrecompMat, mutablePos, newConfECalc);
 
     }
@@ -560,7 +597,7 @@ public class NewEWAKStarDoer {
         for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
             //this will find the best sequence and print it
             if(seqNum%10==0) {
-                System.out.println("Number of seqs looked at in PL: " + seqNum);
+                System.out.println("Number of seqs looked at in bound state: " + seqNum);
             }
             ScoredConf conf = treePL.nextConf();
             if (conf == null) {
@@ -686,6 +723,9 @@ public class NewEWAKStarDoer {
         while(ewakstarConfs.size()<seqsToUse.size()){
             //this will find the best sequence and print it
             ScoredConf conf = curTree.nextConf();
+            if(ewakstarConfs.size()%10==0) {
+                System.out.println("Number of seqs looked at in unbound state: " + ewakstarConfs.size());
+            }
             if (conf == null) {
                 //empty sequence...indicates no more sequence possibilities
                 System.out.println("Ran out of sequences to enumerate.");

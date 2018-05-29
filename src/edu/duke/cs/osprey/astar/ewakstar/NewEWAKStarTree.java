@@ -9,7 +9,6 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.PrecomputedMatrices;
-import edu.duke.cs.osprey.pruning.NewPruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 import java.util.ArrayList;
@@ -19,7 +18,8 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
 
     int numTreeLevels;//number of residues with sequence changes
 
-    int maxMutable;
+    int numMutable;
+    boolean useExact;
     ArrayList<ArrayList<String>> AATypeOptions;
     //COMETreeNode.assignments assigns each level an index in AATypeOptions.get(level), and thus an AA type
     //If -1, then no assignment yet
@@ -43,12 +43,13 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
 
     ConfEnergyCalculator confECalc = null;//only needed if we want minimized structs.  one per state like the other arrays
 
-    public NewEWAKStarTree(int maxMutable, int numTreeLevels, ArrayList<ArrayList<String>> AATypeOptions,
+    public NewEWAKStarTree(boolean useExact, int numMutable, int numTreeLevels, ArrayList<ArrayList<String>> AATypeOptions,
                            Sequence wtSeq, SimpleConfSpace confSpace,
                            PrecomputedMatrices precompMats, ArrayList<Integer> mutablePosNums,
                          ConfEnergyCalculator confECalc) {
 
-        this.maxMutable = maxMutable;
+        this.useExact = useExact;
+        this.numMutable = numMutable;
         this.numTreeLevels = numTreeLevels;
         this.AATypeOptions = AATypeOptions;
         this.wtSeq = wtSeq;
@@ -128,24 +129,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
             }
         }
 
-        //now do any consequent singles & pairs pruning
-        int numUpdates = ans.countUpdates();
-        int oldNumUpdates;
-
-
-
-        NewPruner dee = new NewPruner(precompMats, ans, true, Double.POSITIVE_INFINITY, 0,
-                false, precompMats.shouldWeUseLUTE());
-        dee.setVerbose(false);
-        //this is rigid, type-dependent pruning aiming for sequence GMECs
-        //So Ew = Ival = 0
-
-        do {//repeat as long as we're pruning things
-            oldNumUpdates = numUpdates;
-            dee.prune("GOLDSTEIN");
-            dee.prune("GOLDSTEIN PAIRS FULL");
-            numUpdates = ans.countUpdates();
-        } while (numUpdates > oldNumUpdates);
+//        removed pruning done in COMETs - not necessary and just takes time here.
 
         return ans;
     }
@@ -211,31 +195,29 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
 
     @Override
     public boolean canPruneNode(EWAKStarNode seqNode){
-        //check if the node can be pruned based on the constraints
-        //each constraint function must be <=0, so if any constraint function's lower bound
-        //over sequences in seqNode is > 0,
-        //we can prune seqNode
-        if(maxMutable<numTreeLevels){
-            //we have a cap on the number of mutations...prune if exceeded
+        //we have a cap on the number of mutations...prune if exceeded or not matched.
+
+        if(numMutable<numTreeLevels) {
             int mutCount = 0;
             int assignments[] = seqNode.getNodeAssignments();
 
-            for(int level=0; level<numTreeLevels; level++){
-                if( assignments[level] >=0 ){//AA type at level is assigned
-                    if( ! AATypeOptions.get(level).get(assignments[level]).equalsIgnoreCase(wtSeqList[level]) )//and is different from wtSeq
+            for (int level = 0; level < numTreeLevels; level++) {
+                if (assignments[level] >= 0) {//AA type at level is assigned
+                    if (!AATypeOptions.get(level).get(assignments[level]).equalsIgnoreCase(wtSeqList[level]))//and is different from wtSeq
                         mutCount++;
-                } else{
+                } else {
                     break;
                 }
             }
 
-            if(mutCount>maxMutable)//No state GMECs calcd for this...pruning based only on sequence
+            if (mutCount > numMutable)
+                return true;
+            else if (useExact && seqNode.isFullyDefined() && mutCount != 0 && mutCount != numMutable)
                 return true;
         }
-
         return false;
-    }
 
+    }
 
 
     @Override

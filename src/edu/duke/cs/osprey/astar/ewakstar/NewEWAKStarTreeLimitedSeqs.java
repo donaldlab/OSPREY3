@@ -28,6 +28,7 @@ public class NewEWAKStarTreeLimitedSeqs extends AStarTree<FullAStarNode> {
     //If -1, then no assignment yet
 
     Sequence wtSeq;
+    String[] wtSeqList;
 
     //information on states
 
@@ -43,12 +44,12 @@ public class NewEWAKStarTreeLimitedSeqs extends AStarTree<FullAStarNode> {
     int stateNumPos;
     double wtMinimizedEnergy = Double.POSITIVE_INFINITY;
 
-    ArrayList<String> allowedSeqs;
+    EWAKStarLimitedSequenceTrie allowedSeqs;
 
 
     ConfEnergyCalculator confECalc = null;//only needed if we want minimized structs.  one per state like the other arrays
 
-    public NewEWAKStarTreeLimitedSeqs(ArrayList<String> allowedSeqs, int numTreeLevels, ArrayList<ArrayList<String>> AATypeOptions,
+    public NewEWAKStarTreeLimitedSeqs(EWAKStarLimitedSequenceTrie allowedSeqs, int numTreeLevels, ArrayList<ArrayList<String>> AATypeOptions,
                                       Sequence wtSeq, SimpleConfSpace confSpace,
                                       PrecomputedMatrices precompMats, ArrayList<Integer> mutablePosNums,
                                       ConfEnergyCalculator confECalc) {
@@ -57,6 +58,7 @@ public class NewEWAKStarTreeLimitedSeqs extends AStarTree<FullAStarNode> {
         this.numTreeLevels = numTreeLevels;
         this.AATypeOptions = AATypeOptions;
         this.wtSeq = wtSeq;
+        this.wtSeqList = Sequence.makeEWAKStar(wtSeq).split("_");
         this.confSpace = confSpace;
         this.precompMats = precompMats;
         this.mutablePosNums = mutablePosNums;
@@ -88,21 +90,28 @@ public class NewEWAKStarTreeLimitedSeqs extends AStarTree<FullAStarNode> {
                 if(curAssignments[splitPos] < 0){//can split this level
 
                     if(splitPos != 0 && AATypeOptions.get(splitPos).size() != 1) {
-                        ArrayList<Integer> aa = filterOnPreviousSeqs(splitPos, seqNode);
-                        for(int a: aa){
+                        for(int aa = 0; aa < AATypeOptions.get(splitPos).size(); aa++){
                             int childAssignments[] = curAssignments.clone();
-                            childAssignments[splitPos] = a;
+                            childAssignments[splitPos] = aa;
 
-                            UpdatedPruningMatrix childPruneMat = doChildPruning(seqNode.pruneMat, splitPos, a);
-
-                            EWAKStarNode childNode = new EWAKStarNode(childAssignments, childPruneMat);
-
-                            if(splitPos==numTreeLevels-1){//sequence now fully defined...make conf trees
-                                makeSeqConfTrees(childNode);
+                            String subString = "";
+                            for (int i = 0; i <= splitPos; i++) {
+                                subString += AATypeOptions.get(i).get(childAssignments[i]) + " ";
                             }
 
-                            childNode.setScore( boundLME(childNode) );
-                            seqNodeChildren.add(childNode);
+                            if (allowedSeqs.containsSeq(subString)) {
+
+                                UpdatedPruningMatrix childPruneMat = doChildPruning(seqNode.pruneMat, splitPos, aa);
+
+                                EWAKStarNode childNode = new EWAKStarNode(childAssignments, childPruneMat);
+
+                                if (splitPos == numTreeLevels - 1) {//sequence now fully defined...make conf trees
+                                    makeSeqConfTrees(childNode);
+                                }
+
+                                childNode.setScore(boundLME(childNode));
+                                seqNodeChildren.add(childNode);
+                            }
                         }
                     } else {
                         for (int aa = 0; aa < AATypeOptions.get(splitPos).size(); aa++) {
@@ -132,36 +141,41 @@ public class NewEWAKStarTreeLimitedSeqs extends AStarTree<FullAStarNode> {
 
     }
 
-    private ArrayList<Integer> filterOnPreviousSeqs(int curPos, EWAKStarNode seqNode){
+    private ArrayList<Integer> filterOnPreviousSeqs(int curPos, EWAKStarNode seqNode) {
 
         int[] subSeq = seqNode.getNodeAssignments();
-        ArrayList<Integer> allowedAA = new ArrayList<>();
+        Set<Integer> allowedAA = new HashSet<>();
         String subString = "";
 
-        for (int i=0; i<curPos; i++){
-            subString += AATypeOptions.get(i).get(subSeq[i])+ " ";
+        for (int i = 0; i < curPos; i++) {
+            subString += AATypeOptions.get(i).get(subSeq[i]) + " ";
         }
 
-        boolean foundSubSeq = false;
-        int count = 0;
-        while(!foundSubSeq){
-            if (allowedSeqs.get(count).startsWith(subString))
-                foundSubSeq = true;
-            else
-                count++;
-        }
-        while(foundSubSeq){
-            allowedAA.add(AATypeOptions.get(curPos).indexOf(allowedSeqs.get(count).split(" ")[curPos]));
-            count++;
-            if(count == allowedSeqs.size())
-                foundSubSeq = false;
-            else if (!allowedSeqs.get(count).startsWith(subString))
-                foundSubSeq = false;
-        }
-
-        Collections.sort(allowedAA);
-        return allowedAA;
+        ArrayList<Integer> aminoAcidArray = new ArrayList<>(allowedAA);
+        return aminoAcidArray;
     }
+
+//        boolean foundSubSeq = false;
+//        int count = 0;
+//        while(!foundSubSeq){
+//            if (allowedSeqs.get(count).startsWith(subString))
+//                foundSubSeq = true;
+//            else
+//                count++;
+//        }
+//        while(foundSubSeq){
+//            allowedAA.add(AATypeOptions.get(curPos).indexOf(allowedSeqs.get(count).split(" ")[curPos]));
+//            count++;
+//            if(count == allowedSeqs.size())
+//                foundSubSeq = false;
+//            else if (!allowedSeqs.get(count).startsWith(subString))
+//                foundSubSeq = false;
+//        }
+//
+//        ArrayList<Integer> aminoAcidArray = new ArrayList<>(allowedAA);
+//        Collections.sort(aminoAcidArray);
+//        return aminoAcidArray;
+//    }
 
     private UpdatedPruningMatrix doChildPruning(PruningMatrix parentMat, int splitPos, int aa){
         //Create an update to parentMat (without changing parentMat)
@@ -181,24 +195,8 @@ public class NewEWAKStarTreeLimitedSeqs extends AStarTree<FullAStarNode> {
             }
         }
 
-        //now do any consequent singles & pairs pruning
-        int numUpdates = ans.countUpdates();
-        int oldNumUpdates;
 
-
-
-        NewPruner dee = new NewPruner(precompMats, ans, true, Double.POSITIVE_INFINITY, 0,
-                false, precompMats.shouldWeUseLUTE());
-        dee.setVerbose(false);
-        //this is rigid, type-dependent pruning aiming for sequence GMECs
-        //So Ew = Ival = 0
-
-        do {//repeat as long as we're pruning things
-            oldNumUpdates = numUpdates;
-            dee.prune("GOLDSTEIN");
-            dee.prune("GOLDSTEIN PAIRS FULL");
-            numUpdates = ans.countUpdates();
-        } while (numUpdates > oldNumUpdates);
+//        removed pruning done in COMETs - not necessary and just takes time here.
 
         return ans;
     }
