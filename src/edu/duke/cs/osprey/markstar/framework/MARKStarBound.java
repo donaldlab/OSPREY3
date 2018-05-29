@@ -37,8 +37,11 @@ public class MARKStarBound implements PartitionFunction {
     private Status status = null;
     private PartitionFunction.Values values = null;
 
-    // the number of conformations minimized
+    // the number of full conformations minimized
     private int numConfsEnergied = 0;
+
+    // the number of full conformations scored OR energied
+    private int numConfsScored = 0;
 
     private boolean printMinimizedConfs;
 
@@ -136,8 +139,11 @@ public class MARKStarBound implements PartitionFunction {
         rootNode.printTree();
     }
 
+    @Override
     public PartitionFunction.Result makeResult() {
-        return new Result(getStatus(), getValues(), getNumConfsEvaluated());
+        PartitionFunction.Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated());
+        result.setNumConfsLooked(numConfsScored);
+        return result;
     }
 
     public static class Builder {
@@ -366,7 +372,7 @@ public class MARKStarBound implements PartitionFunction {
                     debugPrint(out);
 
                     if (printMinimizedConfs) {
-                        System.out.println(String.format("conf:%4d, score:%12.6f, energy:%12.6f",
+                        System.out.println("["+SimpleConfSpace.formatConfRCs(node.assignments)+"]" +String.format("conf:%4d, score:%12.6f, energy:%12.6f",
                                 numConfsEnergied, econf.getScore(), econf.getEnergy()
                         ));
                     }
@@ -427,7 +433,7 @@ public class MARKStarBound implements PartitionFunction {
                     if(child.getLevel() == RCs.getNumPos()) {
                         double confPairwiseLower = context.gscorer.calc(context.index.assign(nextPos, nextRc), RCs);
                         double confRigid = context.rigidscorer.calc(context.index.assign(nextPos, nextRc), RCs);
-                        child.computeNumConformations(RCs);
+                        child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                         if(confPairwiseLower > confRigid) {
                             System.err.println("Our bounds are not tight. Lower bound is " + (confPairwiseLower - confRigid) + " higher");
                             double temp = confRigid;
@@ -436,6 +442,8 @@ public class MARKStarBound implements PartitionFunction {
                         }
                         child.setBoundsFromConfLowerAndUpper(confPairwiseLower,confRigid);
                         child.gscore = child.getConfLowerBound();
+
+                        numConfsScored++;
                         if(debug)
                             System.out.println(child);
                     }

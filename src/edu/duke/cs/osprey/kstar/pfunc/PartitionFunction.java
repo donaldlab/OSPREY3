@@ -111,10 +111,21 @@ public interface PartitionFunction {
 		public final Values values;
 		public final int numConfs;
 
+		public int numConfsLooked=0;
+
 		public Result(Status status, Values values, int numConfs) {
 			this.status = status;
 			this.values = values;
 			this.numConfs = numConfs;
+			this.numConfsLooked=0;
+		}
+
+		public void setNumConfsLooked(int numConfsLooked){
+			this.numConfsLooked = numConfsLooked;
+		}
+
+		public int getNumConfsLooked(){
+			return this.numConfsLooked;
 		}
 
 		@Override

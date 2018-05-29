@@ -63,8 +63,9 @@ public class TestMARKStar {
 		List<KStar.ScoredSequence> results = runKStarComparison(5,0.68);
         for (int index = 0; index < results.size(); index++) {
         	int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
-            System.out.println(String.format("score:%12e in [%12e,%12e], minimized:%4d",results.get(index).score.score, results.get(index).score.lowerBound,
-					results.get(index).score.upperBound,totalConfsEnergied));
+			int totalConfsLooked = results.get(index).score.complex.getNumConfsLooked()+ results.get(index).score.protein.getNumConfsLooked()+ results.get(index).score.ligand.getNumConfsLooked();
+			System.out.println(String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",results.get(index).score.score, results.get(index).score.lowerBound,
+					results.get(index).score.upperBound,totalConfsLooked,totalConfsEnergied));
         }
 	}
 
@@ -79,8 +80,9 @@ public class TestMARKStar {
         List<MARKStar.ScoredSequence> results = runMARKStar(5, 0.68);
         for (int index = 0; index < results.size(); index++) {
 			int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
-			System.out.println(String.format("score:%12e in [%12e,%12e], minimized:%4d",results.get(index).score.score, results.get(index).score.lowerBound,
-					results.get(index).score.upperBound,totalConfsEnergied));
+			int totalConfsLooked = results.get(index).score.complex.getNumConfsLooked()+ results.get(index).score.protein.getNumConfsLooked()+ results.get(index).score.ligand.getNumConfsLooked();
+			System.out.println(String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",results.get(index).score.score, results.get(index).score.lowerBound,
+					results.get(index).score.upperBound,totalConfsLooked,totalConfsEnergied));
         }
     }
 
