@@ -104,13 +104,19 @@ public class MARKStarBound implements PartitionFunction {
 
     }
 
+    private void debugPrint(String s) {
+        if(debug)
+            System.out.println(s);
+    }
+
     public void compute() {
-        System.out.println("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
+
+        debugPrint("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
         double lastEps = 1;
         while (epsilonBound > targetEpsilon) {
-            System.out.println("Tightening from epsilon of "+epsilonBound);
+            debugPrint("Tightening from epsilon of "+epsilonBound);
             tightenBound();
-            System.out.println("Errorbound is now "+epsilonBound);
+            debugPrint("Errorbound is now "+epsilonBound);
             if(lastEps < epsilonBound && epsilonBound - lastEps > 0.01) {
                 System.err.println("Error. Bounds got looser.");
                 //System.exit(-1);
@@ -324,13 +330,13 @@ public class MARKStarBound implements PartitionFunction {
 
 
     public void tightenBound(){
-        System.out.println("Current overall error bound: "+epsilonBound);
+        debugPrint("Current overall error bound: "+epsilonBound);
         if(queue.isEmpty()) {
-            System.out.println("Out of conformations.");
+            debugPrint("Out of conformations.");
         }
         MARKStarNode curNode = queue.poll();
         Node node = curNode.getConfSearchNode();
-        System.out.println("Processing Node: "+node.toString()) ;
+        debugPrint("Processing Node: "+node.toString()) ;
 
         //If the child is a leaf, calculate n-body minimized energies
         if(node.getLevel() == RCs.getNumPos() && !node.isMinimized()){
@@ -350,7 +356,7 @@ public class MARKStarBound implements PartitionFunction {
                         System.exit(-1);
                     }
                     String out = "Energy = " + String.format("%6.3e", energy)+", ["+(node.getConfLowerBound())+","+(node.getConfUpperBound())+"]";
-                    System.out.println(out);
+                    debugPrint(out);
                 }
                 return null;
             },
