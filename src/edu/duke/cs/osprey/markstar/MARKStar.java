@@ -253,6 +253,10 @@ public class MARKStar {
 			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs());
 			pfunc.setReportProgress(settings.showPfuncProgress);
 
+			if (settings.showPfuncProgress == true){
+				System.out.println("Computing "+type+":");
+			}
+
 			// compute it
 			pfunc.init(settings.epsilon, stabilityThreshold);
 			pfunc.compute();

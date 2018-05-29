@@ -60,7 +60,12 @@ public class TestMARKStar {
 
     @Test
 	public void KStarComparison() {
-		runKStarComparison(5,0.68);
+		List<KStar.ScoredSequence> results = runKStarComparison(5,0.68);
+        for (int index = 0; index < results.size(); index++) {
+        	int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
+            System.out.println(String.format("score:%12e in [%12e,%12e], minimized:%4d",results.get(index).score.score, results.get(index).score.lowerBound,
+					results.get(index).score.upperBound,totalConfsEnergied));
+        }
 	}
 
     @Test
@@ -71,8 +76,13 @@ public class TestMARKStar {
 
 	@Test
 	public void testMARKStar() {
-	    runMARKStar(5, 0.01);
-	}
+        List<MARKStar.ScoredSequence> results = runMARKStar(5, 0.68);
+        for (int index = 0; index < results.size(); index++) {
+			int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
+			System.out.println(String.format("score:%12e in [%12e,%12e], minimized:%4d",results.get(index).score.score, results.get(index).score.lowerBound,
+					results.get(index).score.upperBound,totalConfsEnergied));
+        }
+    }
 
 	private static List<MARKStar.ScoredSequence> runMARKStar(int numFlex, double epsilon) {
 		ConfSpaces confSpaces = make1GUASmall(numFlex);
@@ -104,7 +114,7 @@ public class TestMARKStar {
 					.setTraditional()
 					.build();
 		};
-		MARKStar.Settings settings = new MARKStar.Settings.Builder().setEpsilon(epsilon).setEnergyMatrixCachePattern("*testmat.emat").build();
+		MARKStar.Settings settings = new MARKStar.Settings.Builder().setEpsilon(epsilon).setEnergyMatrixCachePattern("*testmat.emat").setShowPfuncProgress(true).build();
 		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
 		return run.run();
 	}

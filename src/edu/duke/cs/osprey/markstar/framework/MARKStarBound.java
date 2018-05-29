@@ -37,6 +37,11 @@ public class MARKStarBound implements PartitionFunction {
     private Status status = null;
     private PartitionFunction.Values values = null;
 
+    // the number of conformations minimized
+    private int numConfsEnergied = 0;
+
+    private boolean printMinimizedConfs;
+
     // Overwrite the computeUpperBound and computeLowerBound methods
     public static class Values extends PartitionFunction.Values {
 
@@ -57,6 +62,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     public void setReportProgress(boolean showPfuncProgress) {
+        this.printMinimizedConfs = true;
     }
 
     @Override
@@ -95,7 +101,7 @@ public class MARKStarBound implements PartitionFunction {
 
     @Override
     public int getNumConfsEvaluated() {
-        return 0;
+        return numConfsEnergied;
     }
 
     @Override
@@ -228,8 +234,8 @@ public class MARKStarBound implements PartitionFunction {
             return this;
         }
 
-        public Builder setShowProgress(boolean val) {
-            showProgress = val;
+        public Builder setReportProgress(boolean val) {
+            reportProgress = val;
             return this;
         }
 
@@ -240,7 +246,7 @@ public class MARKStarBound implements PartitionFunction {
 
         public MARKStarBound build() {
             ConfAStarTree tree = new ConfAStarTree.Builder(minimizingEmat, rcs).build();
-            if (showProgress) {
+            if (reportProgress) {
                 tree.initProgress();
             }
             return new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc ,rcs);
@@ -345,6 +351,7 @@ public class MARKStarBound implements PartitionFunction {
                     ScoreContext context = checkout.get();
                     ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, -node.getConfLowerBound());
                     ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
+                    numConfsEnergied++;
                     //Assign true energies to the subtreeLowerBound and subtreeUpperBound
                     double energy = econf.getEnergy();
                     curNode.setBoundsFromConfLowerAndUpper(econf.getEnergy(), econf.getEnergy());
@@ -357,6 +364,12 @@ public class MARKStarBound implements PartitionFunction {
                     }
                     String out = "Energy = " + String.format("%6.3e", energy)+", ["+(node.getConfLowerBound())+","+(node.getConfUpperBound())+"]";
                     debugPrint(out);
+
+                    if (printMinimizedConfs) {
+                        System.out.println(String.format("conf:%4d, score:%12.6f, energy:%12.6f",
+                                numConfsEnergied, econf.getScore(), econf.getEnergy()
+                        ));
+                    }
                 }
                 return null;
             },
