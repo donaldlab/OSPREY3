@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.UpperBoundCalculator;
@@ -162,7 +163,7 @@ public class EWAKStarBBKStar {
             //only allow sub-sequences that exist in our limited sequence space
             Set<String> resTypes;
 
-            if(assignPos.index == 0)
+            if(assignPos.index == 0 )
                 resTypes = new HashSet<>(assignPos.resFlex.resTypes);
             else {
                 resTypes = filterOnPreviousSeqs();
@@ -174,16 +175,15 @@ public class EWAKStarBBKStar {
                 // update the sequence with this assignment
                 Sequence s = sequence.makeMutatedSequence(assignPos, resType);
 
-                if (s.toString().contains("0311=GLN 0313=ASN 0332=TRP 0601=MET 0605=LEU")){
-                    System.out.println("CHECKSEQ");
-                }
-
                 if (s.isFullyAssigned()) {
                     // fully assigned, make single sequence node
                     children.add(new SingleSequenceNode(s, confdbs));
 
-                } else if (s.isFullyAssigned()) {
-                    break;
+                } else if (kstarSettings.useExact && s.countMutations() == kstarSettings.maxSimultaneousMutations) {
+
+                    // mutation limit reached, fill unassigned positions with wild-type
+                    s.fillWildType();
+                    children.add(new EWAKStarBBKStar.SingleSequenceNode(s, confdbs));
                 } else {
                     // still partial sequence, make multi-sequence node
                     children.add(new EWAKStarBBKStar.MultiSequenceNode(s, confdbs));

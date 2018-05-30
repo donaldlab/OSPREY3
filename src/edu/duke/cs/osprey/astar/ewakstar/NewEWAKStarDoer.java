@@ -350,6 +350,8 @@ public class NewEWAKStarDoer {
         // run BBK*
         EWAKStar.Settings ewakstarSettings = new EWAKStar.Settings.Builder()
                 .setEw(ewakstarEw)
+                .setUseExact(useExact)
+                .setMaxMutations(numMutable)
                 .setEpsilon(epsilon)
                 .setMaxNumConfs(maxPFConfs)
                 .addScoreConsoleWriter()

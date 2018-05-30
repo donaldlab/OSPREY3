@@ -31,58 +31,58 @@ public class TestEWAKStar {
     
     public static void main(String[] args) {
 
-//        Integer[] pos = new Integer[]{0, 1, 2, 3, 4, 5, 6, 7};
-//        Integer[] posL = new Integer[]{4, 5, 6, 7};
-//        Integer[] posP = new Integer[]{0, 1, 2, 3};
-//
-//        ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
-//                new String[]{"PHE"},
-//                new String[]{"LYS"},
-//                new String[]{"ILE"},
-//                new String[]{"THR"},
-//                new String[]{"TYR", "ALA", "VAL", "ILE", "LEU", "PHE"},
-//                new String[]{"ASP"},
-//                new String[]{"GLU"},
-//                new String[]{"THR"}
-//        );
-//
-//        String mutableType = "exact"; //can be "exact", "max", or "all"
-//        int numMutable = 1;
-//        int numFilteredSeqs = 10000;
-//        double orderOfMag = 10.0;
-//        double unboundEw = 30.0;
-//        double boundEw = 30.0;
-//        double ewakstarEw = 1.0;
-//        double Ival = 0.0;
-//        double epsilon = 0.01;
-//        int maxPFConfs = 5000;
-//        int numTopSeqs = 6;
-//        boolean seqFilterOnly = false;
-//        boolean wtBenchmark = false;
-//        String startResL = "G648";
-//        String endResL = "G654";
-//        String startResP = "A155";
-//        String endResP = "A194";
-//        String pdbFile = "examples/python.KStar/2RL0.min.reduce.pdb";
-//        String[] resNumsPL = new String[]{"A156", "A172", "A192", "A193", "G649", "G650", "G651", "G654"};
-//        String[] resNumsL = new String[]{"G649", "G650", "G651", "G654"};
-//        String[] resNumsP = new String[]{"A156", "A172", "A192", "A193"};
-
-        Integer[] pos = new Integer[]{0, 1, 2, 3, 4, 5, 6, 7, 8};
-        Integer[] posL = new Integer[]{3, 4, 5, 6, 7, 8};
-        Integer[] posP = new Integer[]{0, 1, 2};
+        Integer[] pos = new Integer[]{0, 1, 2, 3, 4, 5, 6, 7};
+        Integer[] posL = new Integer[]{4, 5, 6, 7};
+        Integer[] posP = new Integer[]{0, 1, 2, 3};
 
         ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
-                new String[]{"HID", "HIE", "ASP", "GLU", "SER", "THR", "ASN", "GLN", "ALA", "VAL", "ILE", "LEU", "GLY"},
-                new String[]{"ASN", "SER", "THR", "GLN", "HID", "VAL", "ILE", "LEU", "GLY", "ALA"},
-                new String[]{"TRP", "ALA", "VAL", "ILE", "LEU", "PHE", "TYR", "MET", "SER", "THR", "ASN", "GLN", "GLY"},
-                new String[]{"MET", "ILE", "ALA", "VAL", "LEU", "PHE", "TYR", "GLU", "ASP", "HID", "ASN", "GLN", "GLY"},
-                new String[]{"LEU", "ILE", "ALA", "VAL", "PHE", "TYR", "MET", "GLU", "ASP", "HID", "ASN", "GLN", "GLY"},
-                new String[]{"GLU", "ASP", "PHE", "TYR", "ALA", "VAL", "ILE", "LEU", "HIE", "HID", "ASN", "GLN", "GLY"},
-                new String[]{"LEU", "ILE", "ALA", "VAL", "PHE", "TYR", "MET", "GLU", "ASP", "HID", "ASN", "GLN", "GLY"},
-                new String[]{"LEU", "ILE", "ALA", "VAL", "PHE", "TYR", "MET", "GLU", "ASP", "HID", "ASN", "GLN", "GLY"},
-                new String[]{"GLU", "ASP", "PHE", "TYR", "ALA", "VAL", "ILE", "LEU", "HIE", "HID", "ASN", "GLN", "GLY"}
+                new String[]{"PHE"},
+                new String[]{"LYS"},
+                new String[]{"ILE"},
+                new String[]{"THR"},
+                new String[]{"TYR", "ALA", "VAL", "ILE", "LEU", "PHE"},
+                new String[]{"ASP"},
+                new String[]{"GLU"},
+                new String[]{"THR"}
         );
+
+        String mutableType = "exact"; //can be "exact", "max", or "all"
+        int numMutable = 1;
+        int numFilteredSeqs = 10000;
+        double orderOfMag = 10.0;
+        double unboundEw = 30.0;
+        double boundEw = 30.0;
+        double ewakstarEw = 1.0;
+        double Ival = 0.0;
+        double epsilon = 0.01;
+        int maxPFConfs = 5000;
+        int numTopSeqs = 6;
+        boolean seqFilterOnly = false;
+        boolean wtBenchmark = false;
+        String startResL = "G648";
+        String endResL = "G654";
+        String startResP = "A155";
+        String endResP = "A194";
+        String pdbFile = "examples/python.KStar/2RL0.min.reduce.pdb";
+        String[] resNumsPL = new String[]{"A156", "A172", "A192", "A193", "G649", "G650", "G651", "G654"};
+        String[] resNumsL = new String[]{"G649", "G650", "G651", "G654"};
+        String[] resNumsP = new String[]{"A156", "A172", "A192", "A193"};
+
+//        Integer[] pos = new Integer[]{0, 1, 2, 3, 4, 5, 6, 7, 8};
+//        Integer[] posL = new Integer[]{3, 4, 5, 6, 7, 8};
+//        Integer[] posP = new Integer[]{0, 1, 2};
+
+//        ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
+//                new String[]{"HID", "HIE", "ASP", "GLU", "SER", "THR", "ASN", "GLN", "ALA", "VAL", "ILE", "LEU", "GLY"},
+//                new String[]{"ASN", "SER", "THR", "GLN", "HID", "VAL", "ILE", "LEU", "GLY", "ALA"},
+//                new String[]{"TRP", "ALA", "VAL", "ILE", "LEU", "PHE", "TYR", "MET", "SER", "THR", "ASN", "GLN", "GLY"},
+//                new String[]{"MET", "ILE", "ALA", "VAL", "LEU", "PHE", "TYR", "GLU", "ASP", "HID", "ASN", "GLN", "GLY"},
+//                new String[]{"LEU", "ILE", "ALA", "VAL", "PHE", "TYR", "MET", "GLU", "ASP", "HID", "ASN", "GLN", "GLY"},
+//                new String[]{"GLU", "ASP", "PHE", "TYR", "ALA", "VAL", "ILE", "LEU", "HIE", "HID", "ASN", "GLN", "GLY"},
+//                new String[]{"LEU", "ILE", "ALA", "VAL", "PHE", "TYR", "MET", "GLU", "ASP", "HID", "ASN", "GLN", "GLY"},
+//                new String[]{"LEU", "ILE", "ALA", "VAL", "PHE", "TYR", "MET", "GLU", "ASP", "HID", "ASN", "GLN", "GLY"},
+//                new String[]{"GLU", "ASP", "PHE", "TYR", "ALA", "VAL", "ILE", "LEU", "HIE", "HID", "ASN", "GLN", "GLY"}
+//        );
 
 //        ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
 //                new String[]{"HID", "HIE"},
@@ -96,27 +96,27 @@ public class TestEWAKStar {
 //                new String[]{"GLU", "ASP"}
 //        );
 
-        String mutableType = "exact"; //can be "exact", "max", or "all"
-        int numMutable = 2;
-        int numFilteredSeqs = 10000;
-        double orderOfMag = 5.0;
-        double unboundEw = 8.0;
-        double boundEw = 8.0;
-        double ewakstarEw = 1.0;
-        double Ival = 0.0;
-        double epsilon = 0.68;
-        int maxPFConfs = 500;
-        int numTopSeqs = 5;
-        boolean seqFilterOnly = false;
-        boolean wtBenchmark = false;
-        String startResL = "0520";
-        String endResL = "0729";
-        String startResP = "039";
-        String endResP = "0339";
-        String pdbFile = "examples/python.EWAKStar/1A0R/1A0R.b.shell.pdb";
-        String[] resNumsPL = new String[]{"0311", "0313", "0332", "0601", "0605", "0696", "0697", "0698", "0729"};
-        String[] resNumsL = new String[]{"0601", "0605", "0696", "0697", "0698", "0729"};
-        String[] resNumsP = new String[]{"0311", "0313", "0332"};
+//        String mutableType = "exact"; //can be "exact", "max", or "all"
+//        int numMutable = 2;
+//        int numFilteredSeqs = 10000;
+//        double orderOfMag = 5.0;
+//        double unboundEw = 8.0;
+//        double boundEw = 8.0;
+//        double ewakstarEw = 1.0;
+//        double Ival = 0.0;
+//        double epsilon = 0.68;
+//        int maxPFConfs = 500;
+//        int numTopSeqs = 5;
+//        boolean seqFilterOnly = false;
+//        boolean wtBenchmark = false;
+//        String startResL = "0520";
+//        String endResL = "0729";
+//        String startResP = "039";
+//        String endResP = "0339";
+//        String pdbFile = "examples/python.EWAKStar/1A0R/1A0R.b.shell.pdb";
+//        String[] resNumsPL = new String[]{"0311", "0313", "0332", "0601", "0605", "0696", "0697", "0698", "0729"};
+//        String[] resNumsL = new String[]{"0601", "0605", "0696", "0697", "0698", "0729"};
+//        String[] resNumsP = new String[]{"0311", "0313", "0332"};
 
         Molecule mol = PDBIO.readFile(pdbFile);
         Strand strandL = new Strand.Builder(mol).setResidues(startResL, endResL).build();

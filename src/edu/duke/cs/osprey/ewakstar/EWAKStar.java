@@ -36,6 +36,10 @@ public class EWAKStar {
              */
             private double epsilon = 0.683;
 
+            private int maxSimultaneousMutations;
+
+            private boolean useExact;
+
             /** For EWAKStar we want to calculate each score for a certain energy window
              * and not to an epsilon approximation
              */
@@ -86,6 +90,16 @@ public class EWAKStar {
                 return this;
             }
 
+            public EWAKStar.Settings.Builder setUseExact(boolean val){
+                useExact = val;
+                return this;
+            }
+
+            public EWAKStar.Settings.Builder setMaxMutations(int val){
+                maxSimultaneousMutations = val;
+                return this;
+            }
+
             public EWAKStar.Settings.Builder addScoreWriter(EWAKStarScoreWriter val) {
                 scoreWriters.add(val);
                 return this;
@@ -118,10 +132,12 @@ public class EWAKStar {
             }
 
             public EWAKStar.Settings build() {
-                return new EWAKStar.Settings(epsilon, eW, maxPFConfs, scoreWriters, showPfuncProgress, energyMatrixCachePattern, wtBenchmark);
+                return new EWAKStar.Settings(useExact, maxSimultaneousMutations, epsilon, eW, maxPFConfs, scoreWriters, showPfuncProgress, energyMatrixCachePattern, wtBenchmark);
             }
         }
 
+        public final int maxSimultaneousMutations;
+        public final boolean useExact;
         public final boolean wtBenchmark;
         public final int maxPFConfs;
         public final double epsilon;
@@ -130,7 +146,10 @@ public class EWAKStar {
         public final boolean showPfuncProgress;
         public final String energyMatrixCachePattern;
 
-        public Settings(double epsilon, double eW, int maxPFConfs, EWAKStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern, boolean wtBenchmark) {
+        public Settings(boolean useExact, int maxSimultaneousMutations, double epsilon, double eW, int maxPFConfs, EWAKStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern, boolean wtBenchmark) {
+
+            this.useExact = useExact;
+            this.maxSimultaneousMutations = maxSimultaneousMutations;
             this.wtBenchmark = wtBenchmark;
             this.maxPFConfs = maxPFConfs;
             this.epsilon = epsilon;
