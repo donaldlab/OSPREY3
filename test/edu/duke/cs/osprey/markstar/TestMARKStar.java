@@ -45,7 +45,7 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarZeroEpsilon() {
-	    int numFlex = 10;
+	    int numFlex = 8;
         List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, 0.68);
         List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, 0.68);
         for(MARKStar.ScoredSequence seq: markStarSeqs)

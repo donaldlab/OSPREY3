@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -270,6 +271,7 @@ public class KStar {
 			// make the partition function
 			ConfSearch astar = confSearchFactory.make(emat, sequence.makeRCs());
 			GradientDescentPfunc pfunc = new GradientDescentPfunc(astar, confEcalc);
+			//SimplePartitionFunction pfunc = new SimplePartitionFunction(astar, confEcalc);
 			pfunc.setReportProgress(settings.showPfuncProgress);
 			if (confDB != null) {
 				pfunc.setConfTable(confDB.getSequence(sequence));
