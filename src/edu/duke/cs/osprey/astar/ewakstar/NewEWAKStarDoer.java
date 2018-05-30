@@ -29,7 +29,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.confspace.Sequence.makeEWAKStar;
 
@@ -197,7 +196,6 @@ public class NewEWAKStarDoer {
         int combinatorialSize = 0;
         List<List<SimpleConfSpace.Position>> powersetOfPositions = MathTools.powersetUpTo(confSpaces.complex.positions, numMutable);
         for (List<SimpleConfSpace.Position> mutablePositions : powersetOfPositions) {
-            // collect the mutations (res types except for wild type) for these positions into a simple list list
             if(!(useExact && mutablePositions.size()!=numMutable)) {
                 List<Integer> numResTypes = new ArrayList<>();
                 for (SimpleConfSpace.Position pos : mutablePositions) {

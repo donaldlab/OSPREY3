@@ -46,8 +46,8 @@ public class TestEWAKStar {
 //                new String[]{"THR"}
 //        );
 //
-//        boolean useMaxMutable = false;
-//        int maxMutable = 2;
+//        String mutableType = "exact"; //can be "exact", "max", or "all"
+//        int numMutable = 1;
 //        int numFilteredSeqs = 10000;
 //        double orderOfMag = 10.0;
 //        double unboundEw = 30.0;
@@ -85,7 +85,7 @@ public class TestEWAKStar {
         );
 
         String mutableType = "exact"; //can be "exact", "max", or "all"
-        int numMutable = 2;
+        int numMutable = 1;
         int numFilteredSeqs = 10000;
         double orderOfMag = 5.0;
         double unboundEw = 8.0;
