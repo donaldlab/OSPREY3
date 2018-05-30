@@ -33,7 +33,7 @@ import java.util.*;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    private boolean debug = false;
+    private boolean debug = true;
     private Status status = null;
     private PartitionFunction.Values values = null;
 
@@ -406,7 +406,6 @@ public class MARKStarBound implements PartitionFunction {
                 continue;
             }
 
-            // TODO: ecalc.calcEnergy for nodes that are leaves. This will give the n-body minimized energy
             tasks.submit(() -> {
 
                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
@@ -414,7 +413,6 @@ public class MARKStarBound implements PartitionFunction {
 
                     node.index(context.index);
                     Node child = node.assign(nextPos, nextRc);
-                    //TODO: Change this code to do the right thing.
 
                     // score the child node differentially against the parent node
                     if(child.getLevel() < RCs.getNumPos()) {

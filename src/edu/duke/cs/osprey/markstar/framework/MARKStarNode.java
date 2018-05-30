@@ -21,11 +21,12 @@ import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
-    boolean debug = false;
+    boolean debug = true;
     private static AStarScorer gScorer;
     private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;
     private static AStarScorer negatedHScorer;
+    private static final double minimizationRatio = 1;//0.000001;
     /**
      * TODO: 1. Make MARKStarNodes spawn their own Node and MARKStarNode children.
      * TODO: 2. Make MARKStarNodes compute and update bounds correctly
@@ -310,6 +311,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public boolean isMinimized() {
             return confLowerBound == confUpperBound;
         }
+        public boolean isLeaf() { return level == assignments.length; }
 
         @Override
         public Node assign(int pos, int rc) {
@@ -347,6 +349,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
                 System.err.println("Incorrect conf bounds set.");
             BigDecimal subtreeDifference = ef.exp(-confLowerBound).subtract(ef.exp(-confUpperBound));
             double logScale = -ef.log(new BigDecimal(getNumConformations())).doubleValue();
+            if(isLeaf())
+                return (-subtreeDifference.doubleValue() - logScale)*minimizationRatio;
             return  -subtreeDifference.doubleValue() - logScale;
         }
 

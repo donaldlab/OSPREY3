@@ -45,18 +45,33 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarZeroEpsilon() {
-        List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(5, 0.01);
-        List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(5, 0.01);
+	    int numFlex = 1;
+        List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, 0.0001);
+        List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, 0.0001);
         for(MARKStar.ScoredSequence seq: markStarSeqs)
         {
-            System.out.println(seq.score);
+            printMARKStarComputationStats(seq);
         }
         for(KStar.ScoredSequence seq: kStarSeqs)
         {
-            System.out.println(seq.score);
+            printKStarComputationStats(seq);
         }
 
     }
+
+	private void printMARKStarComputationStats(MARKStar.ScoredSequence result) {
+		int totalConfsEnergied = result.score.complex.numConfs + result.score.protein.numConfs + result.score.ligand.numConfs;
+		int totalConfsLooked = result.score.complex.getNumConfsLooked()+ result.score.protein.getNumConfsLooked()+ result.score.ligand.getNumConfsLooked();
+		System.out.println(String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",result.score.score, result.score.lowerBound,
+				result.score.upperBound,totalConfsLooked,totalConfsEnergied));
+	}
+
+	private void printKStarComputationStats(KStar.ScoredSequence result) {
+		int totalConfsEnergied = result.score.complex.numConfs + result.score.protein.numConfs + result.score.ligand.numConfs;
+		int totalConfsLooked = result.score.complex.getNumConfsLooked()+ result.score.protein.getNumConfsLooked()+ result.score.ligand.getNumConfsLooked();
+		System.out.println(String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",result.score.score, result.score.lowerBound,
+				result.score.upperBound,totalConfsLooked,totalConfsEnergied));
+	}
 
     @Test
 	public void KStarComparison() {
@@ -77,7 +92,7 @@ public class TestMARKStar {
 
 	@Test
 	public void testMARKStar() {
-        List<MARKStar.ScoredSequence> results = runMARKStar(5, 0.68);
+        List<MARKStar.ScoredSequence> results = runMARKStar(1, 0.01);
         for (int index = 0; index < results.size(); index++) {
 			int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
 			int totalConfsLooked = results.get(index).score.complex.getNumConfsLooked()+ results.get(index).score.protein.getNumConfsLooked()+ results.get(index).score.ligand.getNumConfsLooked();
