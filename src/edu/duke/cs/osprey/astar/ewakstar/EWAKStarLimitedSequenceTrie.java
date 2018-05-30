@@ -26,6 +26,7 @@ public class EWAKStarLimitedSequenceTrie {
                 kid = new TrieNode(aa);
                 children.put(aa, kid);
             }
+
             return kid;
         }
 

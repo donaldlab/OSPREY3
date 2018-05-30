@@ -163,11 +163,13 @@ public class EWAKStarBBKStar {
             //only allow sub-sequences that exist in our limited sequence space
             Set<String> resTypes;
 
-            if(assignPos.index == 0 )
+
+            String subSeq = sequence.getAssignedResTypes();
+
+            if(assignPos.index == 0 || assignPos.resFlex.resTypes.size() == 1)
                 resTypes = new HashSet<>(assignPos.resFlex.resTypes);
             else {
                 resTypes = filterOnPreviousSeqs();
-                this.sequence.confSpace.positions.get(assignPos.index).resFlex.resTypes = resTypes;
             }
             // for each assignment...
             for (String resType : resTypes) {
@@ -177,10 +179,10 @@ public class EWAKStarBBKStar {
 
                 if (s.isFullyAssigned()) {
                     // fully assigned, make single sequence node
+
                     children.add(new SingleSequenceNode(s, confdbs));
 
                 } else if (kstarSettings.useExact && s.countMutations() == kstarSettings.maxSimultaneousMutations) {
-
                     // mutation limit reached, fill unassigned positions with wild-type
                     s.fillWildType();
                     children.add(new EWAKStarBBKStar.SingleSequenceNode(s, confdbs));
@@ -196,6 +198,8 @@ public class EWAKStarBBKStar {
         private Set<String> filterOnPreviousSeqs(){
 
             String subSeq = sequence.getAssignedResTypes();
+            //"PHE PHE ILE THR PHE ASP GLU THR"
+            //WT: "PHE LYS ILE THR PHE ASP GLU THR"
             Set<String> resTypes = bbkstarSettings.allowedSeqs.getSeq(subSeq);
             return resTypes;
         }

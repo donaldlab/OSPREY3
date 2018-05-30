@@ -37,17 +37,18 @@ public class TestEWAKStar {
 
         ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
                 new String[]{"PHE"},
-                new String[]{"LYS"},
+                new String[]{"LYS", "ALA", "VAL", "ILE", "LEU", "PHE"},
                 new String[]{"ILE"},
                 new String[]{"THR"},
-                new String[]{"TYR", "ALA", "VAL", "ILE", "LEU", "PHE"},
-                new String[]{"ASP"},
+                new String[]{"PHE", "ALA", "VAL", "ILE", "LEU", "TYR"},
+                new String[]{"ASP", "ALA", "VAL", "ILE", "LEU", "PHE"},
                 new String[]{"GLU"},
                 new String[]{"THR"}
         );
 
+
         String mutableType = "exact"; //can be "exact", "max", or "all"
-        int numMutable = 1;
+        int numMutable = 2;
         int numFilteredSeqs = 10000;
         double orderOfMag = 10.0;
         double unboundEw = 30.0;

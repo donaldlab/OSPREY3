@@ -260,7 +260,7 @@ public class NewEWAKStarDoer {
 
         EWAKStarLimitedSequenceTrie eslsT = new EWAKStarLimitedSequenceTrie();
         for(String s: filteredSeqs){
-                eslsT.addSeq(s);
+            eslsT.addSeq(s);
         }
         return eslsT;
     }
@@ -269,7 +269,7 @@ public class NewEWAKStarDoer {
 
         File newFile = new File("ewakStar.filteredSeqs.txt");
 
-        boolean append = true;
+        boolean append;
         boolean started = false;
 
         for (Sequence s: seqs){
@@ -507,7 +507,6 @@ public class NewEWAKStarDoer {
                 confSpace = confSpaces.protein;
                 mutablePos = mutablePosNumsP;
                 matrixName = "ewakstar.P*";
-                Collections.sort(filteredSeqsStringsP);
                 aaOpts = newAAOptionsP;
                 wt = wtSeqP;
                 break;
@@ -515,7 +514,6 @@ public class NewEWAKStarDoer {
                 confSpace = confSpaces.ligand;
                 mutablePos = mutablePosNumsL;
                 matrixName = "ewakstar.L*";
-                Collections.sort(filteredSeqsStringsL);
                 aaOpts = newAAOptionsL;
                 wt = wtSeqL;
                 break;
