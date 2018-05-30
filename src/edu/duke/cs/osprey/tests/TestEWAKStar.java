@@ -84,8 +84,20 @@ public class TestEWAKStar {
                 new String[]{"GLU", "ASP", "PHE", "TYR", "ALA", "VAL", "ILE", "LEU", "HIE", "HID", "ASN", "GLN", "GLY"}
         );
 
+//        ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
+//                new String[]{"HID", "HIE"},
+//                new String[]{"ASN", "SER"},
+//                new String[]{"TRP", "ALA"},
+//                new String[]{"MET", "ILE"},
+//                new String[]{"LEU", "ILE"},
+//                new String[]{"GLU", "ASP"},
+//                new String[]{"LEU", "ILE"},
+//                new String[]{"LEU", "ILE"},
+//                new String[]{"GLU", "ASP"}
+//        );
+
         String mutableType = "exact"; //can be "exact", "max", or "all"
-        int numMutable = 1;
+        int numMutable = 2;
         int numFilteredSeqs = 10000;
         double orderOfMag = 5.0;
         double unboundEw = 8.0;

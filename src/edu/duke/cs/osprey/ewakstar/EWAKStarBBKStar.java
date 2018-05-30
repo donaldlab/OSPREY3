@@ -161,18 +161,22 @@ public class EWAKStarBBKStar {
             // get the possible assignments// get the possible assignments
             //only allow sub-sequences that exist in our limited sequence space
             Set<String> resTypes;
-            if(assignPos.index == 0 || assignPos.resFlex.resTypes.size() == 1) {
+
+            if(assignPos.index == 0)
                 resTypes = new HashSet<>(assignPos.resFlex.resTypes);
-            } else{
-                resTypes = filterOnPreviousSeqs(assignPos.index);
+            else {
+                resTypes = filterOnPreviousSeqs();
                 this.sequence.confSpace.positions.get(assignPos.index).resFlex.resTypes = resTypes;
             }
-
             // for each assignment...
             for (String resType : resTypes) {
 
                 // update the sequence with this assignment
                 Sequence s = sequence.makeMutatedSequence(assignPos, resType);
+
+                if (s.toString().contains("0311=GLN 0313=ASN 0332=TRP 0601=MET 0605=LEU")){
+                    System.out.println("CHECKSEQ");
+                }
 
                 if (s.isFullyAssigned()) {
                     // fully assigned, make single sequence node
@@ -189,7 +193,7 @@ public class EWAKStarBBKStar {
             return children;
         }
 
-        private Set<String> filterOnPreviousSeqs(int curPos){
+        private Set<String> filterOnPreviousSeqs(){
 
             String subSeq = sequence.getAssignedResTypes();
             Set<String> resTypes = bbkstarSettings.allowedSeqs.getSeq(subSeq);
