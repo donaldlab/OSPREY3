@@ -21,18 +21,20 @@ import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
-    boolean debug = true;
+    boolean debug = false;
     private static AStarScorer gScorer;
     private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;
     private static AStarScorer negatedHScorer;
-    private static final double minimizationRatio = 1;//0.000001;
+    private static final double minimizationRatio = 0.0001;
+    private boolean updated = true;
     /**
      * TODO: 1. Make MARKStarNodes spawn their own Node and MARKStarNode children.
      * TODO: 2. Make MARKStarNodes compute and update bounds correctly
      */
 
     private double errorBound = 1;
+    private BigDecimal bigEpsilon = BigDecimal.ONE;
     private List<MARKStarNode> children; // TODO: Pick appropriate data structure
     private Node confSearchNode;
     public final int level;
@@ -53,8 +55,15 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return confSearchNode.numConfs;
     }
 
+    public void markUpdated()
+    {
+        updated = true;
+    }
 
     public double computeEpsilonErrorBounds() {
+        if(!updated && (children == null || children.size() <1))
+            return errorBound;
+        updated = false;
         double epsilonBound = 0;
         BigDecimal lastUpper = confSearchNode.subtreeUpperBound;
         BigDecimal lastLower = confSearchNode.subtreeLowerBound;
@@ -82,10 +91,12 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         {
             return 0;
         }
-        epsilonBound = confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound)
-                .divide(confSearchNode.subtreeUpperBound,RoundingMode.HALF_UP).doubleValue();
-        debugChecks(lastUpper, lastLower, epsilonBound);
-        errorBound = epsilonBound;
+        if(level == 0) {
+            epsilonBound = confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound)
+                    .divide(confSearchNode.subtreeUpperBound, RoundingMode.HALF_UP).doubleValue();
+            debugChecks(lastUpper, lastLower, epsilonBound);
+            errorBound = epsilonBound;
+        }
         return epsilonBound;
     }
 

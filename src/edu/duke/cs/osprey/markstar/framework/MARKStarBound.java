@@ -33,7 +33,7 @@ import java.util.*;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    private boolean debug = true;
+    private boolean debug = false;
     private Status status = null;
     private PartitionFunction.Values values = null;
 
@@ -374,7 +374,8 @@ public class MARKStarBound implements PartitionFunction {
                     if (printMinimizedConfs) {
                         System.out.println("["+SimpleConfSpace.formatConfRCs(node.assignments)+"]" +String.format("conf:%4d, score:%12.6f, energy:%12.6f",
                                 numConfsEnergied, econf.getScore(), econf.getEnergy()
-                        ));
+                        )
+                        +", bounds: "+epsilonBound);
                     }
                 }
                 return null;
@@ -465,6 +466,7 @@ public class MARKStarBound implements PartitionFunction {
             });
         }
         tasks.waitForFinish();
+        curNode.markUpdated();
         updateBound();
     }
 

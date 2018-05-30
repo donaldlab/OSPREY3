@@ -45,9 +45,9 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarZeroEpsilon() {
-	    int numFlex = 1;
-        List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, 0.0001);
-        List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, 0.0001);
+	    int numFlex = 10;
+        List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, 0.68);
+        List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, 0.68);
         for(MARKStar.ScoredSequence seq: markStarSeqs)
         {
             printMARKStarComputationStats(seq);
@@ -86,7 +86,7 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        runMARKStar(15, 0.68);
+        runMARKStar(10, 0.68);
 
     }
 
