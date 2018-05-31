@@ -891,3 +891,49 @@ def SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc,
 	settings = settingsBuilder.build()
 
 	return c.kstar.SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
+
+def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, energyMatrixCachePattern=useJavaDefault, showPfuncProgress=useJavaDefault):
+	'''
+	:java:classdoc:`.markstar.MARKStar`
+
+	For examples using MARK*, see the examples/python.KStar directory in your Osprey distribution.
+
+	:param proteinConfSpace: :java:fielddoc:`.markstar.MARKStar#protein`
+	:type proteinConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param ligandConfSpace: :java:fielddoc:`.markstar.MARKStar#ligand`
+	:type ligandConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param complexConfSpace: :java:fielddoc:`.markstar.MARKStar#complex`
+	:type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param rigidEcalc: :java:fielddoc:`.markstar.MARKStar#rigidEcalc`
+	:type rigidEcalc: :java:ref:`.energy.EnergyCalculator`
+	:param minimizingEcalc: :java:fielddoc:`.markstar.MARKStar#minimizingEcalc`
+	:type minimizingEcalc: :java:ref:`.energy.EnergyCalculator`
+	:param confEcalcFactory: :java:fielddoc:`.markstar.MARKStar#confEcalcFactory`
+	:type confEcalcFactory: :java:ref:`.markstar.MARKStar$ConfEnergyCalculatorFactory`
+	:param astarFactory: :java:fielddoc:`.markstar.MARKStar#confSearchFactory`
+	:type astarFactory: :java:ref:`.markstar.MARKStar$ConfSearchFactory`
+	:builder_option epsilon .markstar.MARKStar$Settings$Builder#epsilon:
+	:builder_option stabilityThreshold .markstar.MARKStar$Settings$Builder#stabilityThreshold:
+	:builder_option showPfuncProgress .markstar.MARKStar$Settings$Builder#showPfuncProgress:
+	:builder_option energyMatrixCachePattern .markstar.MARKStar$Settings$Builder#energyMatrixCachePattern:
+
+	:rtype: :java:ref:`.markstar.MARKStar`
+	'''
+
+	# convert functions from python to java
+	confEcalcFactory = jpype.JProxy(jvm.getInnerClass(c.markstar.MARKStar, 'ConfEnergyCalculatorFactory'), dict={ 'make': confEcalcFactory })
+	astarFactory = jpype.JProxy(jvm.getInnerClass(c.markstar.MARKStar, 'ConfSearchFactory'), dict={ 'make': astarFactory })
+
+	# build settings
+	markstarSettingsBuilder = _get_builder(jvm.getInnerClass(c.markstar.MARKStar, 'Settings'))()
+	if epsilon is not useJavaDefault:
+		markstarSettingsBuilder.setEpsilon(epsilon)
+	if stabilityThreshold is not useJavaDefault:
+		markstarSettingsBuilder.setStabilityThreshold(jvm.boxDouble(stabilityThreshold))
+	if energyMatrixCachePattern is not useJavaDefault:
+		markstarSettingsBuilder.setEnergyMatrixCachePattern(energyMatrixCachePattern)
+	if showPfuncProgress is not useJavaDefault:
+	    markstarSettingsBuilder.setShowPfuncProgress(showPfuncProgress)
+	markstarSettings = markstarSettingsBuilder.build()
+
+    return c.markstar.MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, markstarSettings)
