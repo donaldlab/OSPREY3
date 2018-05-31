@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.io.File;
@@ -22,7 +54,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
  * @author Adegoke Ojewole (ao68@duke.edu)
- * 
+ *
  */
 
 public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
@@ -37,12 +69,12 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	protected PruningMatrix invmat;
 
 	public PartitionFunctionMinimized(
-			EnergyMatrix emat, 
-			PruningMatrix pmat, 
-			PruningMatrix invmat, 
+			EnergyMatrix emat,
+			PruningMatrix pmat,
+			PruningMatrix invmat,
 			ConfSearchFactory confSearchFactory,
 			Async ecalc
-			) {
+	) {
 		super(emat, pmat, confSearchFactory, ecalc);
 		this.invmat = invmat;
 		qstarScoreWeights = null;
@@ -84,12 +116,12 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 	protected void saveEConfs(PriorityQueue<ScoredConf> other) {
 		if(topConfs==null || other==null) return;
-		while(other.size()>0) 
+		while(other.size()>0)
 			saveConf(other.poll());
 	}
 
 	@Override
-	public void init(double targetEpsilon) {
+	public void init(ConfSearch confSearchIgnored, BigInteger numConfsBeforePruningIgnored, double targetEpsilon) {
 
 		this.targetEpsilon = targetEpsilon;
 
@@ -104,7 +136,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		// make the search tree for computing q*
 		ConfSearch tree = confSearchFactory.make(emat, pmat);
 		((ConfAStarTree)tree).stopProgress();
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(tree);
+		ConfSearch.MultiSplitter confsSplitter = new ConfSearch.MultiSplitter(tree);
 		scoreConfs = confsSplitter.makeStream();
 		energyConfs = confsSplitter.makeStream();
 		numConfsEvaluated = 0;
@@ -248,7 +280,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				numConfsEvaluated, confVal, values.qstar, values.qprime, values.pstar, values.getEffectiveEpsilon(),
 				stopwatch.getTime(2),
 				100f*heapMem.getUsed()/heapMem.getMax()
-				));
+		));
 	}
 
 	public void compute(BigDecimal targetScoreWeights) {
@@ -302,7 +334,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 						// get the boltzmann weight
 						BigDecimal scoreWeight = boltzmann.calc(econf.getScore());
-						qstarScoreWeights = qstarScoreWeights.add(scoreWeight);	
+						qstarScoreWeights = qstarScoreWeights.add(scoreWeight);
 						BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
 
 						// update pfunc state
@@ -345,7 +377,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				numConfsEvaluated, confVal, values.qstar, values.qprime, pdiff, values.getEffectiveEpsilon(),
 				stopwatch.getTime(2),
 				100f*heapMem.getUsed()/heapMem.getMax()
-				));
+		));
 	}
 
 	public void setStatus(Status val) {

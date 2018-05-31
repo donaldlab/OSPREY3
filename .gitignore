@@ -23,3 +23,16 @@ bin
 # Gradle things
 .gradle
 
+
+.DS_Store
+/build/
+/OSPREY_refactor_master/nbproject/private/
+/OSPREY_refactor_master/build/
+/OSPREY_refactor_master/dist/
+*.dat
+
+sequences-exhaustive.1-seq.txt
+
+sequences-sublinear.1-seq.txt
+
+2RL0-ewakstar-output.confs.txt

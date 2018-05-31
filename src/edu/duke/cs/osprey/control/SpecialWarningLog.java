@@ -51,6 +51,17 @@ public class SpecialWarningLog {
             throw new RuntimeException("ERROR closing special warning log.  File name: "+fileName);
         }
     }
+    
+    
+    public void flush(){
+        try{
+            fileHandle.flush();
+        }
+        catch(IOException e){
+            e.printStackTrace();
+            throw new RuntimeException(e.getMessage());
+        }
+    }
             
     
 }

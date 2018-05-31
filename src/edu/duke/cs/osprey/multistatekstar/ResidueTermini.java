@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+
 import edu.duke.cs.osprey.structure.Residue;
 
 /**
@@ -28,6 +30,22 @@ public class ResidueTermini implements Serializable {
 		this.state = state;
 		this.lBound = lBound;
 		this.uBound = uBound;
+	}
+	
+	public static boolean contains(ArrayList<ResidueTermini> termini, Residue res) {
+		for(ResidueTermini rt : termini) {
+			if(rt == null) continue;
+			if(rt.contains(res)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public boolean contains(ResidueTermini other) {
+		if(this.lBound <= other.lBound && this.uBound >= other.uBound)
+			return true;
+		return false;
 	}
 	
 	public boolean contains(Residue res) {

@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
 
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
@@ -15,6 +16,10 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 		super(settings);
 	}
 
+	public KStarScoreDiscrete(MSKStarSettings settings, PartitionFunction[] pfs) {
+		super(settings, pfs);
+	}
+
 	@Override
 	public BigDecimal getLowerBoundScore() {
 		return getScore();
@@ -22,50 +27,59 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 
 	@Override
 	public BigDecimal getUpperBoundScore() {
-		return getScore();
+		return super.getUpperBoundScore();
 	}
-	
+
 	@Override
-	protected void compute(int state, int maxNumConfs) {
+	public void compute(long maxNumConfs) {
+		super.compute(maxNumConfs);
+	}
+
+	@Override
+	protected void compute(int state, long maxNumConfs) {
 		super.compute(state, maxNumConfs);
+	
+		PartitionFunctionDiscrete pf = (PartitionFunctionDiscrete) partitionFunctions[state];
 		
-		//multiply q* by number of undefined confs
-		if(!settings.search[state].isFullyAssigned()) {
-			PartitionFunctionDiscrete pf = (PartitionFunctionDiscrete) partitionFunctions[state];
-			pf.getValues().qstar = pf.getValues().qstar.multiply(numUndefinedConfs(state));
+		//multiply by assigned*unassigned confs
+		if(settings.pfTypes[state] == PartitionFunctionType.UpperBound) {
+			BigDecimal unassignedConfs = numConfs(state, false);
+			BigDecimal assignedConfs = numConfs(state, true);
+			pf.getValues().qstar = pf.getValues().qstar.multiply(assignedConfs.multiply(unassignedConfs));
 		}
 	}
-	
+
 	/**
 	 * Compute either the minimum or maximum number of conformations of any
 	 * possible undefined sub-sequence 
 	 */
-	private BigDecimal numUndefinedConfs(int state) {
+	private BigDecimal numConfs(int state, boolean assigned) {
 		BigDecimal ans = BigDecimal.ONE;
-		
+
 		MSSearchProblem search = settings.search[state];
 		boolean minConfs = search.settings.energyLBs ? false : true;
 		PruningMatrix pmat = search.pruneMat;
-		
-		for(int pos : search.getPosNums(false)) {
-			
+
+		for(int pos : search.getPosNums(assigned)) {
+
 			long unPrunedConfs = minConfs ? Long.MAX_VALUE : Long.MIN_VALUE;
 			long prunedConfs = minConfs ? Long.MAX_VALUE : Long.MIN_VALUE;
-			
+
 			for(String AAType : search.settings.AATypeOptions.get(pos)) {
-				long numAARCs = search.unprunedAtPos(pmat, pos, AAType).size();
+				long numAARCs = search.rcsAtPosForAA(pmat, pos, AAType, false).size();
 				unPrunedConfs = minConfs ? Math.min(unPrunedConfs, numAARCs) : Math.max(unPrunedConfs, numAARCs);
 				if(!minConfs) {
-					numAARCs = search.unprunedAtPos(partitionFunctions[state].invmat, pos, AAType).size();
+					numAARCs = search.rcsAtPosForAA(partitionFunctions[state].invmat, pos, AAType, false).size();
 					prunedConfs = Math.max(prunedConfs, numAARCs);
 				}
 			}
-			
+
 			if(minConfs) prunedConfs = 0;
+			//corner case where all confs are pruned due to mutation's intrinsic steric clash
+			if(!minConfs && (unPrunedConfs+prunedConfs)==0) continue;
 			ans = ans.multiply(BigDecimal.valueOf(unPrunedConfs+prunedConfs));
-			
 		}
-		
+
 		return ans;
 	}
 

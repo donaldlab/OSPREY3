@@ -12,17 +12,23 @@ import java.util.ArrayList;
 @SuppressWarnings("serial")
 public class MSSearchSettings implements Serializable {
 	
+	public static double PRUNING_TIMEOUT_HRS = Double.MAX_VALUE;
+	
 	public ArrayList<String> mutRes;//reduced flex res
 	public ArrayList<ArrayList<String>> AATypeOptions;//reduced allowed AAs
 	public double pruningWindow;
 	public double stericThreshold;
 	public boolean energyLBs;//use to compute either lower or upper bounds
+	public boolean overrideMultiSequence;
 	
-	public MSSearchSettings() {}
+	public MSSearchSettings() {
+		overrideMultiSequence = false;
+	}
 	
 	public String getFormattedSequence() {
-		if(AATypeOptions.size()!=mutRes.size())
+		if(AATypeOptions.size()!=mutRes.size()) {
 			throw new RuntimeException("ERROR: sequence length != number of mutable residues");
+		}
 		
 		StringBuilder sb = new StringBuilder();
 		for(int i=0;i<mutRes.size();++i) {
@@ -33,6 +39,7 @@ public class MSSearchSettings implements Serializable {
 			aas = aas.substring(0, aas.length()-1);
 			sb.append(aas+"-"+mutRes.get(i)+" ");
 		}
+		
 		return sb.toString().trim();
 	}
 }

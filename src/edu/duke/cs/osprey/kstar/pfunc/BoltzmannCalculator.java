@@ -1,12 +1,14 @@
 package edu.duke.cs.osprey.kstar.pfunc;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.MathContext;
 
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.tools.ExpFunction;
 
-public class BoltzmannCalculator {
+@SuppressWarnings("serial")
+public class BoltzmannCalculator implements Serializable {
 	
 	public static double constRT = PoissonBoltzmannEnergy.constRT;
 

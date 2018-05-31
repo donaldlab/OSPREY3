@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
@@ -12,234 +44,234 @@ import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
- * 
+ *
  * @author Adegoke Ojewole (ao68@duke.edu)
  * multi state k* tree
  *
  */
 public class MSKStarTree {
 
-	int numTreeLevels;//number of residues with sequence
-	//changes+1 level if we are doing continuous minimization
+    int numTreeLevels;//number of residues with sequence
+    //changes+1 level if we are doing continuous minimization
 
-	LMB objFcn;//we are minimizing objFcn
-	LMB[] msConstr;
-	LMB[][] sConstr;
+    LMB objFcn;//we are minimizing objFcn
+    LMB[] msConstr;
+    LMB[][] sConstr;
 
-	ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums;
-	//mutable2StateResNum.get(state) maps levels in this tree to flexible positions for state
+    ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums;
+    //mutable2StateResNum.get(state) maps levels in this tree to flexible positions for state
 
-	ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions;
-	// MultiStateKStarTreeNode.assignments Assigns each level an index in 
-	// AATypeOptions.get(level), and thus an AA type
-	//If -1, then no assignment yet
+    ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions;
+    // MultiStateKStarTreeNode.assignments Assigns each level an index in
+    // AATypeOptions.get(level), and thus an AA type
+    //If -1, then no assignment yet
 
-	int numMaxMut;//number of mutations allowed away from wtSeq (-1 means no cap)
-	ArrayList<String[]> wtSeqs;//bound state wild type sequences for each state
+    int numMaxMut;//number of mutations allowed away from wtSeq (-1 means no cap)
+    ArrayList<String[]> wtSeqs;//bound state wild type sequences for each state
 
-	int numStates;//how many states there are
-	//states have the same mutable residues & options for AA residues,
-	//but not necessarily for non AA residues
+    int numStates;//how many states there are
+    //states have the same mutable residues & options for AA residues,
+    //but not necessarily for non AA residues
 
-	SearchProblem searchCont[][];//SearchProblems describing them; each state has >= 3 SearchProblems
-	SearchProblem searchDisc[][];
+    SearchProblem searchCont[][];//SearchProblems describing them; each state has >= 3 SearchProblems
+    SearchProblem searchDisc[][];
 
-	GMECConfEnergyCalculator.Async[][] ecalcsCont;//energy calculators for continuous emats
-	GMECConfEnergyCalculator.Async[][] ecalcsDisc;//energy calculators for discrete emats
+    GMECConfEnergyCalculator.Async[][] ecalcsCont;//energy calculators for continuous emats
+    GMECConfEnergyCalculator.Async[][] ecalcsDisc;//energy calculators for discrete emats
 
-	ParamSet msParams;//multistate spec params
-	MSConfigFileParser[] cfps;//config file parsers for each state
+    ParamSet msParams;//multistate spec params
+    MSConfigFileParser[] cfps;//config file parsers for each state
 
-	PriorityQueue<MSKStarNode> pq;
+    PriorityQueue<MSKStarNode> pq;
 
-	int numSeqsWanted;
-	int numSeqsReturned;
+    int numSeqsWanted;
+    int numSeqsReturned;
 
-	int numExpanded;
-	int numPruned;
+    int numExpanded;
+    int numPruned;
 
-	public MSKStarTree(
-			int numTreeLevels,
-			int numStates,
-			int numMaxMut,
-			int numSeqsWanted,
-			LMB objFcn,
-			LMB[] msConstr,
-			LMB[][] sConstr,
-			ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums,
-			ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions,  
-			ArrayList<String[]> wtSeqs, 
-			SearchProblem[][] searchCont,
-			SearchProblem[][] searchDisc,
-			GMECConfEnergyCalculator.Async[][] ecalcsCont,
-			GMECConfEnergyCalculator.Async[][] ecalcsDisc,
-			ParamSet msParams,
-			MSConfigFileParser[] cfps
-			) {
+    public MSKStarTree(
+            int numTreeLevels,
+            int numStates,
+            int numMaxMut,
+            int numSeqsWanted,
+            LMB objFcn,
+            LMB[] msConstr,
+            LMB[][] sConstr,
+            ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums,
+            ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions,
+            ArrayList<String[]> wtSeqs,
+            SearchProblem[][] searchCont,
+            SearchProblem[][] searchDisc,
+            GMECConfEnergyCalculator.Async[][] ecalcsCont,
+            GMECConfEnergyCalculator.Async[][] ecalcsDisc,
+            ParamSet msParams,
+            MSConfigFileParser[] cfps
+    ) {
 
-		this.numTreeLevels = numTreeLevels;
-		this.objFcn = objFcn;
-		this.msConstr = msConstr;
-		this.sConstr = sConstr;
-		this.AATypeOptions = AATypeOptions;
-		this.numMaxMut = numMaxMut;
-		this.numSeqsWanted = numSeqsWanted;
-		this.wtSeqs = wtSeqs;
-		this.numStates = numStates;
-		this.searchCont = searchCont;
-		this.searchDisc = searchDisc;
-		this.ecalcsCont = ecalcsCont;
-		this.ecalcsDisc = ecalcsDisc;
-		this.mutable2StateResNums = mutable2StateResNums;
+        this.numTreeLevels = numTreeLevels;
+        this.objFcn = objFcn;
+        this.msConstr = msConstr;
+        this.sConstr = sConstr;
+        this.AATypeOptions = AATypeOptions;
+        this.numMaxMut = numMaxMut;
+        this.numSeqsWanted = numSeqsWanted;
+        this.wtSeqs = wtSeqs;
+        this.numStates = numStates;
+        this.searchCont = searchCont;
+        this.searchDisc = searchDisc;
+        this.ecalcsCont = ecalcsCont;
+        this.ecalcsDisc = ecalcsDisc;
+        this.mutable2StateResNums = mutable2StateResNums;
 
-		this.cfps = cfps;
-		this.msParams = msParams;
+        this.cfps = cfps;
+        this.msParams = msParams;
 
-		numExpanded = 0;
-		numPruned = 0;
-		numSeqsReturned = 0;
-		pq = null;
-	}
+        numExpanded = 0;
+        numPruned = 0;
+        numSeqsReturned = 0;
+        pq = null;
+    }
 
-	private void initQueue(MSKStarNode node) {
-		pq = new PriorityQueue<MSKStarNode>(1024, new Comparator<MSKStarNode>() {
-			@Override
-			public int compare(MSKStarNode m1, MSKStarNode m2) {
-				return m1.getScore().compareTo(m2.getScore()) < 0 ? -1 : 1;
-			}
-		});
+    private void initQueue(MSKStarNode node) {
+        pq = new PriorityQueue<MSKStarNode>(1024, new Comparator<MSKStarNode>() {
+            @Override
+            public int compare(MSKStarNode m1, MSKStarNode m2) {
+                return m1.getScore().compareTo(m2.getScore()) < 0 ? -1 : 1;
+            }
+        });
 
-		pq.add(node);
-	}
+        pq.add(node);
+    }
 
-	private boolean canPrune(MSKStarNode curNode) {
-		//first check whether state specific constraints are satisfied
-		if(!curNode.constrSatisfied()) return true;
-		//now check global constraints
-		for(LMB lmb : msConstr) {
-			if(lmb.eval(curNode.getStateKStarScores(lmb)).compareTo(BigDecimal.ZERO) > 0)
-				return true;
-		}
-		return false;
-	}
+    private boolean canPrune(MSKStarNode curNode) {
+        //first check whether state specific constraints are satisfied
+        if(!curNode.constrSatisfied()) return true;
+        //now check global constraints
+        for(LMB lmb : msConstr) {
+            if(lmb.eval(curNode.getStateKStarScores(lmb)).compareTo(BigDecimal.ZERO) > 0)
+                return true;
+        }
+        return false;
+    }
 
-	private ArrayList<MSKStarNode> getChildren(MSKStarNode curNode) {
-		ArrayList<MSKStarNode> ans = new ArrayList<>();
-		
-		//pick next position to expand
-		if(!curNode.isFullyAssigned())
-			ans.addAll(curNode.split(msParams));
-		
-		else {
-			
-		}
-		
-		//create search problems and score children
-		//sequential...short circuit if one state fails
-		//parallel...might do more work than necessary
-		ans.trimToSize();
-		return ans;
-	}
+    private ArrayList<MSKStarNode> getChildren(MSKStarNode curNode) {
+        ArrayList<MSKStarNode> ans = new ArrayList<>();
 
-	private MSKStarNode getRootNode() {
-		
-		//initialize MSKStarNode
-		MSKStarNode.OBJ_FUNC = this.objFcn;
-		MSKStarNode.WT_SEQS = this.wtSeqs;
-		MSKStarNode.NUM_MAX_MUT = this.numMaxMut;
-		
-		KStarScore[] kssLB = new KStarScore[numStates];
-		KStarScore[] kssUB = new KStarScore[numStates];
-		KStarScoreType[] types = null;
+        //pick next position to expand
+        if(!curNode.isFullyAssigned())
+            ans.addAll(curNode.split(msParams));
 
-		for(int state=0;state<numStates;++state) {
-			boolean doMinimize = cfps[state].params.getBool("DOMINIMIZE");
-			if(doMinimize)
-				types = new KStarScoreType[]{KStarScoreType.MinimizedLowerBound, KStarScoreType.MinimizedUpperBound};
-			else
-				types = new KStarScoreType[]{KStarScoreType.DiscreteLowerBound, KStarScoreType.DiscreteUpperBound};
+        else {
 
-			KStarScore[] scores = getRootKStarScores(state, types);
-			kssLB[state] = scores[0];
-			kssUB[state] = scores[1];
-		}
+        }
 
-		MSKStarNode ans = new MSKStarNode(kssLB, kssUB);
-		ans.setScore(objFcn);//set score per the objective function
-		return ans;
-	}
+        //create search problems and score children
+        //sequential...short circuit if one state fails
+        //parallel...might do more work than necessary
+        ans.trimToSize();
+        return ans;
+    }
 
-	private KStarScore[] getRootKStarScores(int state, KStarScoreType[] types) {
-		boolean doMinimize = cfps[state].params.getBool("DOMINIMIZE");
-		//[0] is lb, [1] is ub
-		KStarScore[] ans = new KStarScore[types.length];
+    private MSKStarNode getRootNode() {
 
-		ParamSet sParams = cfps[state].params;
-		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
+        //initialize MSKStarNode
+        MSKStarNode.OBJ_FUNC = this.objFcn;
+        MSKStarNode.WT_SEQS = this.wtSeqs;
+        MSKStarNode.NUM_MAX_MUT = this.numMaxMut;
 
-		for(int i=0;i<types.length;++i) {
+        KStarScore[] kssLB = new KStarScore[numStates];
+        KStarScore[] kssUB = new KStarScore[numStates];
+        KStarScoreType[] types = null;
 
-			KStarScoreType type = types[i];
-			if(type == null) continue;
+        for(int state=0;state<numStates;++state) {
+            boolean doMinimize = cfps[state].params.getBool("DOMINIMIZE");
+            if(doMinimize)
+                types = new KStarScoreType[]{KStarScoreType.MinimizedLowerBound, KStarScoreType.MinimizedUpperBound};
+            else
+                types = new KStarScoreType[]{KStarScoreType.DiscreteLowerBound, KStarScoreType.DiscreteUpperBound};
 
-			MSSearchProblem[] seqSearchCont = doMinimize ? new MSSearchProblem[numPartFuncs] : null;
-			MSSearchProblem[] seqSearchDisc = new MSSearchProblem[numPartFuncs];
+            KStarScore[] scores = getRootKStarScores(state, types);
+            kssLB[state] = scores[0];
+            kssUB[state] = scores[1];
+        }
 
-			for(int subState=0;subState<numPartFuncs;++subState) {
+        MSKStarNode ans = new MSKStarNode(kssLB, kssUB);
+        ans.setScore(objFcn);//set score per the objective function
+        return ans;
+    }
 
-				MSSearchSettings spSet = new MSSearchSettings();
-				spSet.AATypeOptions = AATypeOptions.get(state).get(subState);
-				ArrayList<String> mutRes = new ArrayList<>();
-				for(int j=0;j<mutable2StateResNums.get(state).get(subState).size();++j) mutRes.add("-1");
-				mutRes.trimToSize();
-				spSet.mutRes = mutRes;
-				spSet.stericThreshold = sParams.getDouble("STERICTHRESH");
-				spSet.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
+    private KStarScore[] getRootKStarScores(int state, KStarScoreType[] types) {
+        boolean doMinimize = cfps[state].params.getBool("DOMINIMIZE");
+        //[0] is lb, [1] is ub
+        KStarScore[] ans = new KStarScore[types.length];
 
-				if(doMinimize) seqSearchCont[subState] = new MSSearchProblem(searchCont[state][subState], spSet);
-				seqSearchDisc[subState] = new MSSearchProblem(searchDisc[state][subState], (MSSearchSettings) ObjectIO.deepCopy(spSet));
-			}
+        ParamSet sParams = cfps[state].params;
+        int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
 
-			ans[i] = MSKStarFactory.makeKStarScore(
-					msParams, state, cfps[state], sConstr[state],
-					seqSearchCont, seqSearchDisc,
-					ecalcsCont[state], ecalcsDisc[state], type
-					);
-		}
+        for(int i=0;i<types.length;++i) {
 
-		return ans;
-	}
+            KStarScoreType type = types[i];
+            if(type == null) continue;
 
-	public String nextSeq() {
+            MSSearchProblem[] seqSearchCont = doMinimize ? new MSSearchProblem[numPartFuncs] : null;
+            MSSearchProblem[] seqSearchDisc = new MSSearchProblem[numPartFuncs];
 
-		if(pq==null) {
-			initQueue(getRootNode());
-		}
+            for(int subState=0;subState<numPartFuncs;++subState) {
 
-		MSKStarNode curNode;
-		while(true) {
-			curNode = pq.poll();
+                MSSearchSettings spSet = new MSSearchSettings();
+                spSet.AATypeOptions = AATypeOptions.get(state).get(subState);
+                ArrayList<String> mutRes = new ArrayList<>();
+                for(int j=0;j<mutable2StateResNums.get(state).get(subState).size();++j) mutRes.add("-1");
+                mutRes.trimToSize();
+                spSet.mutRes = mutRes;
+                spSet.stericThreshold = sParams.getDouble("STERICTHRESH");
+                spSet.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
 
-			if(curNode==null) {
-				System.out.println("Multi-State K* tree empty...returning empty signal");
-				return null;
-			}
+                if(doMinimize) seqSearchCont[subState] = new MSSearchProblem(searchCont[state][subState], spSet);
+                seqSearchDisc[subState] = new MSSearchProblem(searchDisc[state][subState], (MSSearchSettings) ObjectIO.deepCopy(spSet));
+            }
 
-			else if(canPrune(curNode)) {
-				numPruned++;
-				continue;
-			}
+            ans[i] = MSKStarFactory.makeKStarScore(
+                    msParams, state, cfps[state], sConstr[state],
+                    seqSearchCont, seqSearchDisc,
+                    ecalcsCont[state], ecalcsDisc[state], type
+            );
+        }
 
-			else {
-				if(curNode.isLeafNode()) return curNode.toString();
+        return ans;
+    }
 
-				//expand
-				ArrayList<MSKStarNode> children = getChildren(curNode);
-				numExpanded++;
+    public String nextSeq() {
 
-				pq.addAll(children);
-			}
-		}
-	}
+        if(pq==null) {
+            initQueue(getRootNode());
+        }
+
+        MSKStarNode curNode;
+        while(true) {
+            curNode = pq.poll();
+
+            if(curNode==null) {
+                System.out.println("Multi-State K* tree empty...returning empty signal");
+                return null;
+            }
+
+            else if(canPrune(curNode)) {
+                numPruned++;
+                continue;
+            }
+
+            else {
+                if(curNode.isLeafNode()) return curNode.toString();
+
+                //expand
+                ArrayList<MSKStarNode> children = getChildren(curNode);
+                numExpanded++;
+
+                pq.addAll(children);
+            }
+        }
+    }
 
 }

@@ -48,6 +48,8 @@ public class KSSearchProblem extends SearchProblem {
 		this.allowedAAs = allowedAAs;
 		this.reducedAllowedAAs = allowedAAs;
 		this.posNums = getMaxPosNums();
+		
+		this.numEmatThreads = params.getInt("EMATTHREADS");
 	}
 
 
@@ -80,6 +82,7 @@ public class KSSearchProblem extends SearchProblem {
 		this.pruneMat = other.pruneMat;
 		this.competitorPruneMat = other.competitorPruneMat;
 		this.confSpace = other.confSpace;
+		this.numEmatThreads = other.numEmatThreads;
 	}
 
 	public enum MatrixType {
@@ -307,10 +310,10 @@ public class KSSearchProblem extends SearchProblem {
 	}
 
 
-	public MultiTermEnergyFunction decompMinimizedEnergy(int[] conf){
+	public MultiTermEnergyFunction decomposedEnergy(int[] conf, boolean doMinimize){
 		//Minimized energy of the conformation
 		//whose RCs are listed for all flexible positions in conf
-		MultiTermEnergyFunction mef = confSpace.getDecomposedMinimizedEnergy(conf, fullConfE, null);
+		MultiTermEnergyFunction mef = confSpace.getDecomposedEnergy(conf, doMinimize, fullConfE, null);
 
 		double E = mef.getPreCompE();
 

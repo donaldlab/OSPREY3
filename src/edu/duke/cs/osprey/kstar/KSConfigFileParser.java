@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar;
 
 import java.io.File;
@@ -29,8 +61,8 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 	public KSConfigFileParser(ConfigFileParser cfp) {
 		super(cfp);
 	}
-	
-	
+
+
 	public KSConfigFileParser() {
 		super();
 	}
@@ -42,17 +74,17 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 		switch(strand) {
 
-		case 2:
-			return ans;
+			case 2:
+				return ans;
 
-		case 1:
-			return filterHOTListByStrand(getStrandLimits(1), ans);
+			case 1:
+				return filterHOTListByStrand(getStrandLimits(1), ans);
 
-		case 0:
-			return filterHOTListByStrand(getStrandLimits(0), ans);
+			case 0:
+				return filterHOTListByStrand(getStrandLimits(0), ans);
 
-		default:
-			throw new RuntimeException("ERROR: invalid strand");
+			default:
+				throw new RuntimeException("ERROR: invalid strand");
 		}
 	}
 
@@ -124,7 +156,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 		//String runName = params.getValue("runName");
 
 		ArrayList<String> flexRes = strand == 2 ? getFlexRes() : getFlexResByStrand(strand);
-		
+
 		DEEPerSettings dset = new DEEPerSettings(
 				params.getBool("doPerturbations"),
 				"STR"+strand+"."+params.getRunSpecificFileName("perturbationFile", ".pert"),
@@ -138,7 +170,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				params.getValue("PDBNAME"),
 				params.getBool("DORAMACHECK"),
 				EnvironmentVars.resTemplates
-				);
+		);
 
 		// remove residues not in this strand
 		ResidueTermini limits = getStrandLimits(strand);
@@ -156,9 +188,9 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 			//lexical ordering for blocks is OK
 			String strandLimitsString = params.getValue(rt);
 
-			String[] termini = 
-				{ StringParsing.getToken(strandLimitsString, 1),
-						StringParsing.getToken(strandLimitsString, 2) };
+			String[] termini =
+					{ StringParsing.getToken(strandLimitsString, 1),
+							StringParsing.getToken(strandLimitsString, 2) };
 
 			if(limits == null || (limits.contains(termini[0]) && limits.contains(termini[1])))
 				ans.add(termini);
@@ -180,9 +212,9 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				String strandNum = rt.substring(14);
 				String strandLimitsString = params.getValue("STRAND"+strandNum);
 
-				String[] termini = 
-					{ StringParsing.getToken(strandLimitsString, 1),
-							StringParsing.getToken(strandLimitsString, 2) };
+				String[] termini =
+						{ StringParsing.getToken(strandLimitsString, 1),
+								StringParsing.getToken(strandLimitsString, 2) };
 
 				if(limits == null || (limits.contains(termini[0]) && limits.contains(termini[1])))
 					ans.add(termini);
@@ -199,9 +231,9 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 		String strandLimits = params.getValue( "STRAND"+strand );
 
-		StringTokenizer tokenizer = 
+		StringTokenizer tokenizer =
 				new StringTokenizer(params.getValue( "STRANDMUTNUMS" ));
-		for( int it = 0; it < strand; ++it ) tokenizer.nextToken(); 
+		for( int it = 0; it < strand; ++it ) tokenizer.nextToken();
 
 		tokenizer = new StringTokenizer( strandLimits );
 
@@ -250,11 +282,11 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 		System.out.println("CREATING SEARCH PROBLEM.  NAME: "+name);
 
-		return new SearchProblem( name+"."+suffix, params.getValue("PDBNAME"), 
-				strandSeqs.getFlexRes(), 
+		return new SearchProblem( name+"."+suffix, params.getValue("PDBNAME"),
+				strandSeqs.getFlexRes(),
 				strandSeqs.getAllowedAAs(),
-				params.getBool("AddWT"), 
-				params.getBool("doMinimize", false), 
+				params.getBool("AddWT"),
+				params.getBool("doMinimize", false),
 				params.getBool("useEpic"),
 				new EPICSettings(params),
 				params.getBool("UseTupExp", false),
@@ -266,8 +298,8 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				params.getBool("addWTRots", false),
 				getStrandLimits(strand),
 				params.getBool("useVoxelG", false),
-                                new ArrayList<>()
-				);
+				new ArrayList<>()
+		);
 	}
 
 
@@ -319,15 +351,15 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 			}
 
 			int numMutations = params.getInt("NUMMUTATIONS", 1);
-                        boolean allowLessMut = params.getBool("ALLOWLESSMUTATIONS",false);
+			boolean allowLessMut = params.getBool("ALLOWLESSMUTATIONS",false);
 
-			complexSeqs = new KSAllowedSeqs(strand, limits, setupDEEPer(strand), 
-					freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes, 
-					allowedAAs, getWTSequence(), params.getBool("addWT"), 
-                                        numMutations, allowLessMut);
+			complexSeqs = new KSAllowedSeqs(strand, limits, setupDEEPer(strand),
+					freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes,
+					allowedAAs, getWTSequence(), params.getBool("addWT"),
+					numMutations, allowLessMut);
 
 			if( !complexSeqs.containsWTSeq() ) {
-				System.out.println("WARNING: allowed sequences does not contain the wild-type sequence: " + 
+				System.out.println("WARNING: allowed sequences does not contain the wild-type sequence: " +
 						KSAbstract.list1D2String(complexSeqs.getWTSeq(), " ") + "\n");
 			}
 
@@ -354,7 +386,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 		// filter allowedSeqs for protein and ligand strands
 		filterResiduesByStrand( strand, flexRes, allowedAAs );
 
-		KSAllowedSeqs strandSeqs = new KSAllowedSeqs(strand, getStrandLimits(strand), setupDEEPer(strand), 
+		KSAllowedSeqs strandSeqs = new KSAllowedSeqs(strand, getStrandLimits(strand), setupDEEPer(strand),
 				freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes, complexSeqs, allowedAAs, lb, ub);
 
 		return strandSeqs;
@@ -375,7 +407,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				String removed = flexRes2.remove(it);
 
 				if( strandResNums.contains( removed ) )
-					throw new RuntimeException("ERROR: in strand" + strand + 
+					throw new RuntimeException("ERROR: in strand" + strand +
 							", flexible residue " + removed + " exceeds strand limits");
 			}
 			else ++it;
@@ -390,8 +422,8 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 	}
 
 
-	void filterResiduesByStrand( int strand, ArrayList<String> flexRes, 
-			ArrayList<ArrayList<String>> allowedAAs ) {
+	void filterResiduesByStrand( int strand, ArrayList<String> flexRes,
+								 ArrayList<ArrayList<String>> allowedAAs ) {
 
 		ResidueTermini strandLimits = getStrandLimits(strand);
 		ArrayList<String> strandResNums = getFlexResByStrand(strand);
@@ -402,7 +434,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				String removed = flexRes.remove(it);
 
 				if( strandResNums.contains( removed ) )
-					throw new RuntimeException("ERROR: in strand" + strand + 
+					throw new RuntimeException("ERROR: in strand" + strand +
 							", flexible residue " + removed + " exceeds strand limits");
 
 				allowedAAs.remove(it);

@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
@@ -16,19 +48,19 @@ import edu.duke.cs.osprey.tools.StringParsing;
 
 /**
  * @author Adegoke Ojewole (ao68@duke.edu)
- * 
+ *
  */
 public class InputValidation {
 
 	ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions;
 	ArrayList<ArrayList<ArrayList<Integer>>> state2MutableResNums;
-	
+
 	public InputValidation(ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions,
-			ArrayList<ArrayList<ArrayList<Integer>>> state2MutableResNums) {
+						   ArrayList<ArrayList<ArrayList<Integer>>> state2MutableResNums) {
 		this.AATypeOptions = AATypeOptions;
 		this.state2MutableResNums = state2MutableResNums;
 	}
-	
+
 	public void handleObjFcn(ParamSet msParams, LMB objFcn) {
 		if(objFcn.getCoeffs().length != msParams.getInt("NUMSTATES"))
 			throw new RuntimeException("ERROR: the number of OBJFCN coefficients must equal NUMSTATES");
@@ -36,14 +68,14 @@ public class InputValidation {
 			if(coeff.compareTo(BigDecimal.ZERO)==0)
 				throw new RuntimeException("ERROR: objective function coefficient cannot be 0");
 	}
-	
+
 	public void handleConstraints(ParamSet msParams, LMB[] constraints) {
 		for(LMB constr : constraints) {
 			if(constr.getCoeffs().length != msParams.getInt("NUMSTATES"))
 				throw new RuntimeException("ERROR: the number of constraint coefficients must equal NUMSTATES");
 		}
 	}
-	
+
 	public void handleAATypeOptions(int state, int subState, MSConfigFileParser stateCfp) {
 		//Given the config file parser for a state, make sure AATypeOptions
 		//matches the allowed AA types for this state
@@ -53,7 +85,7 @@ public class InputValidation {
 		ArrayList<Integer> mutRes = state2MutableResNums.get(state).get(subState);
 		ArrayList<ArrayList<String>> subStateAAOptions = stateCfp.getAllowedAAs(mutRes);
 
-		if(AATypeOptions==null) 
+		if(AATypeOptions==null)
 			AATypeOptions = new ArrayList<>();
 
 		for(int mutPos=0; mutPos<mutRes.size(); mutPos++) {
@@ -89,7 +121,7 @@ public class InputValidation {
 				String aa2 = subStateResOptions.get(a);
 
 				//only amino acids must correspond between states
-				if(!DAminoAcidHandler.isStandardLAminoAcid(aa1) || 
+				if(!DAminoAcidHandler.isStandardLAminoAcid(aa1) ||
 						!DAminoAcidHandler.isStandardLAminoAcid(aa2)) continue;
 
 				if(!aa1.equalsIgnoreCase(aa2))
@@ -98,18 +130,18 @@ public class InputValidation {
 			}
 		}
 	}
-	
+
 	public void handleStateParams(int state, ParamSet sParams, ParamSet msParams) {
 		//parameter sanity check
 		boolean imindee = sParams.getBool("IMINDEE");
 		boolean doMinimize = sParams.getBool("DOMINIMIZE");
 		if(imindee != doMinimize)
 			throw new RuntimeException("ERROR: IMINDEE must have the same value as DOMINIMIZE");
-		
+
 		double epsilon = sParams.getDouble("EPSILON");
-		if(epsilon >= 1 || epsilon < 0) 
-			throw new RuntimeException("ERROR: EPSILON must be >= 0 and < 1"); 
-		
+		if(epsilon >= 1 || epsilon < 0)
+			throw new RuntimeException("ERROR: EPSILON must be >= 0 and < 1");
+
 		//check number of constraints
 		int numUbConstr = sParams.getInt("NUMUBCONSTR");
 		ArrayList<String> ubConstr = sParams.searchParams("UBCONSTR");
@@ -187,9 +219,9 @@ public class InputValidation {
 			Collections.sort(tmp);
 			ubStateLimits.add(tmp);
 		}
-		if(ubStateLimits.get(0).get(0) <= ubStateLimits.get(1).get(1) && 
+		if(ubStateLimits.get(0).get(0) <= ubStateLimits.get(1).get(1) &&
 				ubStateLimits.get(1).get(0) <= ubStateLimits.get(0).get(1))
 			throw new RuntimeException("ERROR: UBSTATELIMITS are not disjoint");
 	}
-	
+
 }

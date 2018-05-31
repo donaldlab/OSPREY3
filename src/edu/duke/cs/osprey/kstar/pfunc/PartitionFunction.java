@@ -1,45 +1,84 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar.pfunc;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStarScore;
+import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
+import edu.duke.cs.osprey.lute.LUTEPfunc;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
 public interface PartitionFunction {
-	
+
 	public static enum Status {
-		
+
 		Estimating(true),
 		Estimated(false),
 		OutOfConformations(false),
 		OutOfLowEnergies(false),
 		Unstable(false),
 		Aborted(false);
-		
+
 		private boolean canContinue;
-		
+
 		private Status(boolean canContinue) {
 			this.canContinue = canContinue;
 		}
-		
+
 		public boolean canContinue() {
 			return canContinue;
 		}
 	}
 
 	public final MathContext decimalPrecision = new MathContext(64, RoundingMode.HALF_UP);
-	
+
 	public static class Values {
-		
+
 		public BigDecimal qstar; // pfunc value of all evaluated confs
 		public BigDecimal qprime; // pfunc value of all unpruned, but unevaluated confs
 		public BigDecimal pstar; // pfunc value of all pruned confs
-		
+
 		public Values() {
 			qstar = BigDecimal.ZERO;
 			qprime = BigDecimal.ZERO;
@@ -57,14 +96,14 @@ public interface PartitionFunction {
 			values.qprime = MathTools.BigPositiveInfinity;
 			return values;
 		}
-		
+
 		public double getEffectiveEpsilon() {
 
 			// converting a single-sequence bound into an effective epsilon:
-			
+
 			// start with eqn 3 in K* paper:
 			// q* = (1 - e)q
-			
+
 			// solve for e:
 			// q* = q - qe
 			// qe = q - q*
@@ -99,9 +138,11 @@ public interface PartitionFunction {
 		}
 
 		public BigDecimal calcUpperBound() {
-			BigDecimal x = MathTools.bigAdd(qstar, qprime, decimalPrecision);
-			x = MathTools.bigAdd(x, pstar, decimalPrecision);
-			return x;
+			return new BigMath(decimalPrecision)
+					.set(qstar)
+					.add(qprime)
+					.add(pstar)
+					.get();
 		}
 	}
 
@@ -128,8 +169,8 @@ public interface PartitionFunction {
 			};
 			StringBuilder buf = new StringBuilder();
 			buf.append(String.format("[%-9s,%9s]",
-				trim.apply(KStarScore.scoreToLog10String(values.calcLowerBound())),
-				trim.apply(KStarScore.scoreToLog10String(values.calcUpperBound()))
+					trim.apply(KStarScore.scoreToLog10String(values.calcLowerBound())),
+					trim.apply(KStarScore.scoreToLog10String(values.calcUpperBound()))
 			));
 			if (status == Status.Estimated) {
 				buf.append(String.format(" %-26s", "(log10)"));
@@ -143,23 +184,29 @@ public interface PartitionFunction {
 			return new Result(Status.Aborted, Values.makeFullRange(), 0);
 		}
 	}
-	
+
 	public static interface ConfListener {
 		void onConf(ScoredConf conf);
 	}
-	
+
 	void setReportProgress(boolean val);
 	void setConfListener(ConfListener val);
-	
-	void init(double targetEpsilon);
 
 	/**
 	 * Initializes the partition function for calculation.
+	 * @param confSearch The A* tree of conformations to enumerate (which may have been pruned)
+	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
+	 *                               including any conformations removed by pruned tuples.
 	 * @param targetEpsilon The accuracy with which to estimate the partition function.
+	 */
+	void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon);
+
+	/**
+	 * Sets the stability threshold for this PartitionFunction, if supported
 	 * @param stabilityThreshold If the partition function upper bound value falls below
 	 *                           this threshold, the sequence is considered unstable.
 	 */
-	default void init(double targetEpsilon, BigDecimal stabilityThreshold) {
+	default void setStabilityThreshold(BigDecimal stabilityThreshold) {
 		throw new UnsupportedOperationException(getClass().getName() + " does not yet support stability thresholds");
 	}
 
@@ -180,6 +227,54 @@ public interface PartitionFunction {
 
 
 	public static interface WithConfTable extends PartitionFunction {
+
 		void setConfTable(ConfDB.ConfTable table);
+
+		public static void setOrThrow(PartitionFunction pfunc, ConfDB.ConfTable table) {
+			if (pfunc instanceof PartitionFunction.WithConfTable) {
+				((PartitionFunction.WithConfTable)pfunc).setConfTable(table);
+			} else {
+				throw new PartitionFunction.WithConfTable.UnsupportedException(pfunc);
+			}
+		}
+
+		public static class UnsupportedException extends RuntimeException {
+			public UnsupportedException(PartitionFunction pfunc) {
+				super("This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support conformation database tables");
+			}
+		}
+	}
+
+	/**
+	 * Factory method to make the best pfunc calculator based on the conf ecalc
+	 */
+	public static PartitionFunction makeBestFor(ConfEnergyCalculator confEcalc) {
+		if (confEcalc instanceof LUTEConfEnergyCalculator) {
+			// LUTE needs it's own calculator, since it doesn't use energy bounds
+			return new LUTEPfunc((LUTEConfEnergyCalculator)confEcalc);
+		} else {
+			// algorithms based on energy bounds can use the GD calculator, it's the most recent pfunc calculator
+			return new GradientDescentPfunc(confEcalc);
+		}
+	}
+
+
+	public static interface WithExternalMemory extends PartitionFunction {
+
+		void setUseExternalMemory(boolean val, RCs rcs);
+
+		public static void setOrThrow(PartitionFunction pfunc, boolean val, RCs rcs) {
+			if (pfunc instanceof PartitionFunction.WithExternalMemory) {
+				((PartitionFunction.WithExternalMemory)pfunc).setUseExternalMemory(val, rcs);
+			} else {
+				throw new PartitionFunction.WithExternalMemory.UnsupportedException(pfunc);
+			}
+		}
+
+		public static class UnsupportedException extends RuntimeException {
+			public UnsupportedException(PartitionFunction pfunc) {
+				super("This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support external memory");
+			}
+		}
 	}
 }

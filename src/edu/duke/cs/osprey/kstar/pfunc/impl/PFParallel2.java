@@ -227,7 +227,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 				KSConf conf = partialQConfs.get(i);
 
 				if( isContinuous() && isFullyDefined() ) {
-					MultiTermEnergyFunction mef = sps.get(i).decompMinimizedEnergy(conf.getConfArray());
+					MultiTermEnergyFunction mef = sps.get(i).decomposedEnergy(conf.getConfArray(), reducedSP.contSCFlex);
 					mefs.set(i, mef);
 					energy = mef.getPreCompE();
 				}

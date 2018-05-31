@@ -182,7 +182,7 @@ public class Residue implements Serializable {
         //but there are a few exceptions
         
         for(ResidueTemplate templ : templateLib.templates){
-            if(templ.name.equalsIgnoreCase(templateName))
+        	if(templ.name.equalsIgnoreCase(templateName))
                 templCandidates.add(templ);
         }
         
@@ -433,6 +433,8 @@ public class Residue implements Serializable {
                 
                 if(Double.isNaN(ans[atNum1][atNum2])){//No EBL for these atom types
                     //so estimate based on element types
+                	if(atomType1==-1) throw new RuntimeException("ERROR: no known atom type for "+atom1.name);
+                	if(atomType2==-1) throw new RuntimeException("ERROR: no known atom type for "+atom2.name);
                     ans[atNum1][atNum2] = ffParams.estBondEBL(atomType1, atomType2);
                 }
             }
@@ -492,6 +494,10 @@ public class Residue implements Serializable {
             ans.add(res.equivalentInMolec(mol));
         return ans;
     }
+
+	public Integer getPDBIndex () {
+		return Integer.valueOf(getPDBResNumber());
+	}
     
     public void deleteHydrogens(){
         //remove any hydrogens

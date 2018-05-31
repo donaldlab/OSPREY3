@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.dof;
 
 import static org.hamcrest.Matchers.*;
@@ -14,44 +46,44 @@ import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
 
 public class TestFreeDihedral extends TestBase {
-	
+
 	// NOTE: these are determined from TestDihedrals
 	// they're the best we can hope to do without improving Protractor and RotationMatrix
 	private static final double EpsilonDegrees = 1e-8;
-	
+
 	private static Molecule mol;
-	
+
 	@BeforeClass
 	public static void beforeClass() {
 		initDefaultEnvironment();
-		
+
 		mol = new Strand.Builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build().mol;
 	}
-	
+
 	private Residue makePhe() {
-		
+
 		// get a phenylalanine
 		Residue phe = mol.getResByPDBResNumber("9");
 		assertThat(phe.template.name, is("PHE"));
 		assertThat(phe.getNumDihedrals(), is(2));
-		
+
 		return new Residue(phe);
 	}
-	
+
 	public FreeDihedral makePheChi1() {
 		return new FreeDihedral(makePhe(), 0);
 	}
-	
+
 	public FreeDihedral makePheChi2() {
 		return new FreeDihedral(makePhe(), 1);
 	}
-	
+
 	@Test
 	public void pheChi1InitialVal() {
 		FreeDihedral chi1 = makePheChi1();
 		assertThat(chi1.getCurVal(), is(chi1.measureDihedralDegrees()));
 	}
-	
+
 	@Test
 	public void pheChi1CoarseCircle() {
 		checkAngle(makePheChi1(), -360);
@@ -78,7 +110,7 @@ public class TestFreeDihedral extends TestBase {
 		checkAngle(chi1, 270);
 		checkAngle(chi1, 360);
 	}
-	
+
 	@Test
 	public void pheChi1FineCircleChained() {
 		FreeDihedral chi1 = makePheChi1();
@@ -88,7 +120,7 @@ public class TestFreeDihedral extends TestBase {
 			checkAngle(chi1, angleDegrees);
 		}
 	}
-	
+
 	@Test
 	public void pheChi2CoarseCircle() {
 		checkAngle(makePheChi2(), -360);
@@ -115,7 +147,7 @@ public class TestFreeDihedral extends TestBase {
 		checkAngle(chi2, 270);
 		checkAngle(chi2, 360);
 	}
-	
+
 	@Test
 	public void pheChi2FineCircleChained() {
 		FreeDihedral chi2 = makePheChi2();
@@ -125,7 +157,7 @@ public class TestFreeDihedral extends TestBase {
 			checkAngle(chi2, angleDegrees);
 		}
 	}
-	
+
 	@Test
 	public void phiChi1Chi2CoarseCircleChained() {
 		FreeDihedral chi1 = makePheChi1();
@@ -140,13 +172,13 @@ public class TestFreeDihedral extends TestBase {
 		checkAngles(chi1,  270, chi2, -270);
 		checkAngles(chi1,  360, chi2, -360);
 	}
-	
+
 	private void checkAngle(FreeDihedral dof, double angleDegrees) {
 		dof.apply(angleDegrees);
 		assertThat(dof.getCurVal(), is(angleDegrees));
 		assertThat(dof.measureDihedralDegrees(), isDegrees(Protractor.normalizeDegrees(angleDegrees), EpsilonDegrees));
 	}
-	
+
 	private void checkAngles(FreeDihedral dof1, double angleDegrees1, FreeDihedral dof2, double angleDegrees2) {
 		dof1.apply(angleDegrees1);
 		dof2.apply(angleDegrees2);

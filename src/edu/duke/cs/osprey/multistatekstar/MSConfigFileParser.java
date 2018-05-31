@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.io.File;
@@ -44,7 +76,7 @@ public class MSConfigFileParser extends ConfigFileParser {
 		String flexibility = cont ? "cont" : "disc";
 		ArrayList<String> mutResS = new ArrayList<>();
 		for(int res : mutRes) mutResS.add(String.valueOf(res));
-		
+
 		DEEPerSettings deeperSettings = setupDEEPer(state, subState, mutRes, cont);
 		ArrayList<String[]> moveableUbStates = moveableUbStateTermini(subState);
 		ArrayList<String[]> freeBBZones = freeBBZoneTermini(subState);
@@ -63,12 +95,12 @@ public class MSConfigFileParser extends ConfigFileParser {
 
 		String dir = params.getValue("RunName")+File.separator+params.getValue("EmatDir");
 		ObjectIO.makeDir(dir, false);
-		
+
 		SearchProblem ans = new SearchProblem(
-				dir+File.separator+"State."+state+"."+subState+"."+flexibility, 
-				params.getValue("PDBNAME"), 
+				dir+File.separator+"State."+state+"."+subState+"."+flexibility,
+				params.getValue("PDBNAME"),
 				mutResS, getAllowedAAs(mutRes),
-				params.getBool("AddWT"), 
+				params.getBool("AddWT"),
 				cont,
 				params.getBool("UseEPIC"),
 				epicSettings,
@@ -82,7 +114,7 @@ public class MSConfigFileParser extends ConfigFileParser {
 				subState2Termini(subState),
 				params.getBool("useVoxelG"),
 				getWtRotOnlyRes()
-				);
+		);
 
 		ans.numEmatThreads = params.getInt("EmatThreads");
 
@@ -151,7 +183,7 @@ public class MSConfigFileParser extends ConfigFileParser {
 				params.getValue("PDBNAME"),
 				params.getBool("DORAMACHECK"),
 				EnvironmentVars.resTemplates
-				);
+		);
 
 		dset.loadPertFile(subState2Termini(subState));
 		return dset;
@@ -166,8 +198,8 @@ public class MSConfigFileParser extends ConfigFileParser {
 			//lexical ordering for blocks is OK
 			String val = params.getValue(rt);
 
-			String[] bbfTmni = { 
-					StringParsing.getToken(val, 1), 
+			String[] bbfTmni = {
+					StringParsing.getToken(val, 1),
 					StringParsing.getToken(val, 2) };
 
 			ResidueTermini tmni = subState2Termini(subState);

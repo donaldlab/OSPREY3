@@ -9,13 +9,12 @@ import java.util.StringTokenizer;
  * generates a linear combination of partition function values over all states
  * constTerm + sum_s ( coeff_s * partition_function_value_for_state_s)
  * coeffs: >0 is upper bound, <0 is lower bound
- * interpretation: constraint LMBs are accepted iff eval() is <=0
+ * interpretation: constraint LMBs are accepted iff eval() is <0
  */
 public class LMB {
 
 	BigDecimal[] coeffs;
 	BigDecimal constTerm;
-	boolean correctConstTerm;
 
 	public LMB(String s, int numStates) {
 		StringTokenizer st = new StringTokenizer(s);
@@ -29,22 +28,11 @@ public class LMB {
 			coeffs[state] = new BigDecimal( st.nextToken() );
 
 		String s1 = st.nextToken().replaceAll("\\s+","").toLowerCase();   		
-		if(s1.endsWith("xwt")) {
-			constTerm = new BigDecimal(s1.split("x")[0]);
-			correctConstTerm = true;
-		}
-		else {
-			constTerm = new BigDecimal(s1);
-			correctConstTerm = false;
-		}
+		constTerm = new BigDecimal(s1);
 	}
 
 	BigDecimal[] getCoeffs() {
 		return coeffs;
-	}
-
-	boolean correctConstTerm() {
-		return correctConstTerm;
 	}
 
 	void correctConstTerm(BigDecimal correction) {
@@ -69,5 +57,4 @@ public class LMB {
 		ans = ans.add(constTerm);
 		return ans;
 	}
-
 }

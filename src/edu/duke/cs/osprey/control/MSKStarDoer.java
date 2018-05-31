@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.control;
 
 import java.io.BufferedReader;
@@ -94,14 +126,14 @@ public class MSKStarDoer {
 		msConstr = new LMB[numConstr];
 		for(int constr=0; constr<numConstr; constr++)
 			msConstr[constr] = new LMB(msParams.getValue("STATECONSTR"+constr), numStates);
-		
+
 		sConstr = new LMB[numStates][];
 
 		cfps = new MSConfigFileParser[numStates];
 
 		searchCont = new SearchProblem[numStates][];
 		searchDisc = new SearchProblem[numStates][];
-		
+
 		ecalcsCont = new MinimizingConfEnergyCalculator[numStates][];
 		ecalcsDisc = new MinimizingConfEnergyCalculator[numStates][];
 
@@ -112,11 +144,11 @@ public class MSKStarDoer {
 		state2MutableResNums = new ArrayList<>();
 		AATypeOptions = new ArrayList<>();
 		wtSeqs = new ArrayList<>();
-		
+
 		InputValidation inputValidation = new InputValidation(AATypeOptions, state2MutableResNums);
 		inputValidation.handleObjFcn(msParams, objFcn);
 		inputValidation.handleConstraints(msParams, msConstr);
-		
+
 		for(int state=0; state<numStates; state++) {
 
 			System.out.println();
@@ -134,7 +166,7 @@ public class MSKStarDoer {
 				if(subState==state2MutableResNums.get(state).size()-1)
 					wtSeqs.add(cfps[state].getWtSeq(state2MutableResNums.get(state).get(subState)));
 			}
-			
+
 			//populate state-specific constraints
 			int numUbConstr = sParams.getInt("NUMUBCONSTR");
 			int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
@@ -256,7 +288,7 @@ public class MSKStarDoer {
 				msParams, state, cfps[state], sConstr[state],
 				singleSeqSearchCont, singleSeqSearchDisc,
 				ecalcsCont[state], ecalcsDisc[state], scoreType
-				);
+		);
 		score.compute(Integer.MAX_VALUE);
 		return score.toString();
 	}
@@ -268,8 +300,8 @@ public class MSKStarDoer {
 	 * @param stateCfp
 	 * @return
 	 */
-	private SearchProblem[] makeStateSearchProblems(int state, boolean cont, 
-			MSConfigFileParser stateCfp) {
+	private SearchProblem[] makeStateSearchProblems(int state, boolean cont,
+													MSConfigFileParser stateCfp) {
 
 		ParamSet sParams = stateCfp.params;
 		int numUbStates = sParams.getInt("NUMUBSTATES");
@@ -278,7 +310,7 @@ public class MSKStarDoer {
 		SearchProblem[] subStateSps = new SearchProblem[numUbStates+1];
 
 		for(int subState=0;subState<subStateSps.length;++subState) {
-			subStateSps[subState] = stateCfp.getSearchProblem(state, subState, 
+			subStateSps[subState] = stateCfp.getSearchProblem(state, subState,
 					state2MutableResNums.get(state).get(subState), cont);
 
 			//make emats
@@ -286,9 +318,9 @@ public class MSKStarDoer {
 
 			//prune
 			if(!sParams.getBool("UsePoissonBoltzmann")) {
-				PruningControl pc = stateCfp.setupPruning(subStateSps[subState], 
-						sParams.getDouble("Ival")+sParams.getDouble("Ew"), 
-						sParams.getBool("UseEpic"), 
+				PruningControl pc = stateCfp.setupPruning(subStateSps[subState],
+						sParams.getDouble("Ival")+sParams.getDouble("Ew"),
+						sParams.getBool("UseEpic"),
 						sParams.getBool("UseTupExp"));
 				//silence output
 				pc.setReportMode(null);
@@ -364,7 +396,7 @@ public class MSKStarDoer {
 			System.out.println("State"+state+": "+numSeqs+" sequences with <= "+numMaxMut+" mutation(s) from wild-type");
 			System.out.println();
 
-			for(ArrayList<String> seq : stateSeqLists.get(state)){ 
+			for(ArrayList<String> seq : stateSeqLists.get(state)){
 				for(String aa : seq) System.out.print(aa+" ");
 				System.out.println();
 			}
@@ -399,8 +431,8 @@ public class MSKStarDoer {
 		return ans;
 	}
 
-	private void listAllSeqsHelper(ArrayList<ArrayList<String>> subStateAATypeOptions, 
-			ArrayList<ArrayList<String>> stateOutput, String[] wt, String[] buf, int depth, int dist){
+	private void listAllSeqsHelper(ArrayList<ArrayList<String>> subStateAATypeOptions,
+								   ArrayList<ArrayList<String>> stateOutput, String[] wt, String[] buf, int depth, int dist){
 		//List all sequences for the subset of mutable positions with max distance
 		//from wt starting at depth=0 and going to the last mutable position
 		if(depth==numMutRes){
@@ -423,14 +455,14 @@ public class MSKStarDoer {
 	public void calcBestSequences() {
 		final String algOption = msParams.getValue("MultStateAlgOption");
 		switch(algOption.toLowerCase()) {
-		case "exhaustive":
-			exhaustiveMultistateSearch();
-			return;
-		case "sublinear":
-			subLinearMultiStateSearch();
-			return;
-		default:
-			throw new UnsupportedOperationException("ERROR: "+algOption+" is not supported for MULTISTATEALGOPTION");
+			case "exhaustive":
+				exhaustiveMultistateSearch();
+				return;
+			case "sublinear":
+				subLinearMultiStateSearch();
+				return;
+			default:
+				throw new UnsupportedOperationException("ERROR: "+algOption+" is not supported for MULTISTATEALGOPTION");
 		}
 	}
 
@@ -446,11 +478,11 @@ public class MSKStarDoer {
 			if(doMinimize) ecalcsCont[state] = makeEnergyCalculators(state, true);
 			ecalcsDisc[state] = makeEnergyCalculators(state, false);
 		}
-		
-		tree = new MSKStarTree(numMutRes, numStates, numMaxMut, numSeqsWanted, objFcn, 
-				msConstr, sConstr, state2MutableResNums, AATypeOptions, wtSeqs, 
+
+		tree = new MSKStarTree(numMutRes, numStates, numMaxMut, numSeqsWanted, objFcn,
+				msConstr, sConstr, state2MutableResNums, AATypeOptions, wtSeqs,
 				searchCont, searchDisc, ecalcsCont, ecalcsDisc, msParams, cfps);
-		
+
 		Stopwatch stopwatch = new Stopwatch().start();
 		ArrayList<String> bestSequences = new ArrayList<>();
 
@@ -461,7 +493,7 @@ public class MSKStarDoer {
 			else
 				bestSequences.add(seq);
 		}
-		
+
 		cleanup();//free energy calculators
 
 		System.out.println();
@@ -497,14 +529,14 @@ public class MSKStarDoer {
 		for(int state=0;state<numStates;++state) stateKSS[state] = new String[seqList.get(state).size()];
 
 		try {
-			if(!resume) 
+			if(!resume)
 				ObjectIO.delete(fname);
 
 			PrintStream fout = new PrintStream(new FileOutputStream(new File(fname), true));
 
 			for(int state=0; state<numStates; state++){
 				boolean doMinimize = cfps[state].params.getBool("DOMINIMIZE");
-				
+
 				if(stateKSS[state].length>0) {
 					fout.println();
 					fout.println("State"+state+": ");
@@ -573,7 +605,7 @@ public class MSKStarDoer {
 
 				if(line.length()==0) continue;
 
-				//first find state
+					//first find state
 				else if(line.startsWith("State")) {
 					line = line.toLowerCase();
 					line = line.replace("state", "");

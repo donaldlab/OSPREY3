@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
@@ -13,7 +45,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
  * @author Adegoke Ojewole (ao68@duke.edu)
- * 
+ *
  */
 
 public class KStarScoreMinimized implements KStarScore {
@@ -38,7 +70,7 @@ public class KStarScoreMinimized implements KStarScore {
 	public MSKStarSettings getSettings() {
 		return settings;
 	}
-	
+
 	protected BigDecimal getDenom() {
 		PartitionFunction pf;
 		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
@@ -79,8 +111,8 @@ public class KStarScoreMinimized implements KStarScore {
 		sb.append("Seq: "+settings.search[numStates-1].settings.getFormattedSequence()+", ");
 		sb.append(String.format("score: %12e, ", getScore()));
 		for(int state=0;state<numStates;++state) {
-			BigDecimal qstar = partitionFunctions[state]==null ? BigDecimal.ZERO : 
-				partitionFunctions[state].getValues().qstar;
+			BigDecimal qstar = partitionFunctions[state]==null ? BigDecimal.ZERO :
+					partitionFunctions[state].getValues().qstar;
 			sb.append(String.format("pf: %2d, q*: %12e, ", state, qstar));
 		}
 		String ans = sb.toString().trim();
@@ -95,27 +127,27 @@ public class KStarScoreMinimized implements KStarScore {
 		ConfSearchFactory confSearchFactory = MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
 
 		//create partition function
-		partitionFunctions[state] = (PartitionFunctionMinimized) MSKStarFactory.makePartitionFunction( 
+		partitionFunctions[state] = (PartitionFunctionMinimized) MSKStarFactory.makePartitionFunction(
 				settings.pfTypes[state],
-				settings.search[state].emat, 
+				settings.search[state].emat,
 				settings.search[state].pruneMat,
 				new PruningMatrixInverted(settings.search[state], settings.search[state].pruneMat),
 				confSearchFactory,
 				settings.ecalcs[state]
-				);
+		);
 
 		partitionFunctions[state].setReportProgress(settings.isReportingProgress);
 
 		//init partition function
-		partitionFunctions[state].init(settings.targetEpsilon);
+		partitionFunctions[state].init(null, null, settings.targetEpsilon);
 
 		//create priority queue for top confs if requested
 		if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0) {
 
 			partitionFunctions[state].topConfs = new PriorityQueue<ScoredConf>(
-					settings.numTopConfsToSave, 
+					settings.numTopConfsToSave,
 					new ConfComparator()
-					);
+			);
 
 			partitionFunctions[state].maxNumTopConfs = settings.numTopConfsToSave;
 
@@ -148,7 +180,7 @@ public class KStarScoreMinimized implements KStarScore {
 
 		//check all constraints now. technically, we should only check constraints
 		//that don't pertain to only one state, which we have already checked in compute(state)
-		if(settings.isFinal && constrSatisfied) 
+		if(settings.isFinal && constrSatisfied)
 			constrSatisfied = checkConstraints();
 
 		cleanup();
@@ -197,26 +229,26 @@ public class KStarScoreMinimized implements KStarScore {
 
 		PruningMatrix invmat = ((PartitionFunctionMinimized)pf).invmat;
 
-		PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) MSKStarFactory.makePartitionFunction( 
+		PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) MSKStarFactory.makePartitionFunction(
 				settings.pfTypes[state],
-				settings.search[state].emat, 
+				settings.search[state].emat,
 				invmat,
-				new PruningMatrixNull(invmat), 
+				new PruningMatrixNull(invmat),
 				confSearchFactory,
 				settings.ecalcs[state]
-				);
+		);
 
-		p2pf.init(targetEpsilon);//enumerating over pstar, energies can be high
+		p2pf.init(null, null, targetEpsilon);//enumerating over pstar, energies can be high
 		p2pf.getValues().qstar = qstar;//keep old qstar
 		p2pf.compute(targetScoreWeights);
 		return p2pf;
 	}
 
 	protected void compute(int state, int maxNumConfs) {
-		if(settings.isReportingProgress) 
+		if(settings.isReportingProgress)
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence());
 		PartitionFunctionMinimized pf = partitionFunctions[state];
-		pf.compute(maxNumConfs);	
+		pf.compute(maxNumConfs);
 
 		//no more q conformations, and we have not reached epsilon
 		double effectiveEpsilon = pf.getValues().getEffectiveEpsilon();
@@ -314,7 +346,7 @@ public class KStarScoreMinimized implements KStarScore {
 		BigDecimal[] stateVals = new BigDecimal[numStates];
 
 		for(int c=0;c<settings.constraints.length;++c){
-			LMB constr = settings.constraints[c];	
+			LMB constr = settings.constraints[c];
 			for(int s=0;s<numStates;++s){
 				PartitionFunctionMinimized pf = partitionFunctions[s];
 				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
