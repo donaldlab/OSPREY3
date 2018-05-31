@@ -12,13 +12,10 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.TimeTools;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.File;
-import java.lang.reflect.Array;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.function.Consumer;
 

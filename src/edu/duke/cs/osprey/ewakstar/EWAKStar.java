@@ -12,6 +12,9 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import java.io.File;
 import java.util.*;
 
+/**
+ * @author Anna Lowegard(anna.lowegard@duke.edu)
+ */
 public class EWAKStar {
 
     public interface ConfEnergyCalculatorFactory {

@@ -20,7 +20,6 @@ import edu.duke.cs.osprey.kstar.pfunc.PFFactory;
 import edu.duke.cs.osprey.kstar.pruning.APrioriPruningProver;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 

@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
+
 import java.util.ArrayList;
 
 /**

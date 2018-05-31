@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
 import edu.duke.cs.osprey.tools.RotationMatrix;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -125,8 +126,8 @@ public class LoopClosureAdjustment extends Perturbation {
         for(int s=0; s<numSoln; s++){
 
             //First rotation: Based on midCA and midN
-            RotationMatrix rm1 = RotationMatrix.getSuperposingRotMatrix( 
-                    VectorAlgebra.subtract( midCA, firstCA ), 
+            RotationMatrix rm1 = RotationMatrix.getSuperposingRotMatrix(
+                    VectorAlgebra.subtract( midCA, firstCA ),
                     VectorAlgebra.subtract( r_soln_a[s][1], firstCA),
                     VectorAlgebra.subtract( midN, firstCA ), 
                     VectorAlgebra.subtract( r_soln_n[s][1], firstCA) );

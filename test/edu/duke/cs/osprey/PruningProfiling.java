@@ -13,8 +13,6 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.ObjectIO;
-import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class PruningProfiling {

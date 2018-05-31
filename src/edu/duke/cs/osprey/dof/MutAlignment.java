@@ -23,7 +23,6 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.InterResBondingTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Atom;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
 
 import java.util.*;
 import java.util.function.Function;

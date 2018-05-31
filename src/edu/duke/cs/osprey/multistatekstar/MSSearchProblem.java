@@ -12,7 +12,6 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
  * 

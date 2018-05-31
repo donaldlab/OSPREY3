@@ -20,10 +20,8 @@ Volume 25, Issue 4, Pages 510 - 528 (2004)
  */
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
-import edu.duke.cs.osprey.tools.RotationMatrix;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
+
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 
 

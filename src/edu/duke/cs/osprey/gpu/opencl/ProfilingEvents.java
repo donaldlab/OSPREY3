@@ -10,8 +10,6 @@ import com.jogamp.opencl.CLEvent.ProfilingCommand;
 import com.jogamp.opencl.CLEventList;
 import com.jogamp.opencl.CLException;
 
-import edu.duke.cs.osprey.tools.TimeFormatter;
-
 public class ProfilingEvents {
 	
 	private static Field idsField;

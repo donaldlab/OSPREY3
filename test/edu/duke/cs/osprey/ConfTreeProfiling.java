@@ -8,7 +8,6 @@ import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
@@ -18,8 +17,6 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.ObjectIO;
-import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class ConfTreeProfiling {

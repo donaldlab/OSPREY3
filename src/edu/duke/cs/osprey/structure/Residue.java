@@ -14,9 +14,7 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResTemplateMatching;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
-import edu.duke.cs.osprey.tools.Protractor;
-import edu.duke.cs.osprey.tools.StringParsing;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
+
 import java.util.BitSet;
 import java.util.List;
 

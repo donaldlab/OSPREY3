@@ -14,7 +14,7 @@ import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.dof.deeper.perts.PerturbationBlock;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.StringParsing;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileNotFoundException;

@@ -35,8 +35,6 @@ import edu.duke.cs.osprey.gmec.EnergyRange;
 import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.ObjectIO;
-import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class BenchmarkAStar extends TestBase {

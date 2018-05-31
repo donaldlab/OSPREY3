@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar;
 
 import java.math.BigInteger;
@@ -34,22 +66,20 @@ public class KSSearchProblem extends SearchProblem {
 
 
 	public KSSearchProblem(ParamSet params, String name, String PDBFile, ArrayList<String> flexibleRes,
-			ArrayList<ArrayList<String>> allowedAAs, boolean addWT, boolean contSCFlex, boolean useEPIC,
-			EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings,
-			DEEPerSettings dset, ArrayList<String[]> moveableStrands,
-			ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef, boolean addResEntropy,
-			boolean addWTRots, ResidueTermini termini, boolean useVoxelG) {
+						   ArrayList<ArrayList<String>> allowedAAs, boolean addWT, boolean contSCFlex, boolean useEPIC,
+						   EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings,
+						   DEEPerSettings dset, ArrayList<String[]> moveableStrands,
+						   ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef, boolean addResEntropy,
+						   boolean addWTRots, ResidueTermini termini, boolean useVoxelG) {
 
 		super(name, PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, useEPIC, epicSettings, useTupExp, luteSettings,
 				dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG, new ArrayList<>());
 
 		this.params = params;
-		
+
 		this.allowedAAs = allowedAAs;
 		this.reducedAllowedAAs = allowedAAs;
 		this.posNums = getMaxPosNums();
-		
-		this.numEmatThreads = params.getInt("EMATTHREADS");
 	}
 
 
@@ -58,17 +88,17 @@ public class KSSearchProblem extends SearchProblem {
 	}
 
 
-	public KSSearchProblem(KSSearchProblem other, 
-			String newSPName, 
-			ArrayList<ArrayList<String>> reducedAllowedAAs, 
-			ArrayList<String> newFlexibleRes,
-			ArrayList<Integer> newPosNums) {
+	public KSSearchProblem(KSSearchProblem other,
+						   String newSPName,
+						   ArrayList<ArrayList<String>> reducedAllowedAAs,
+						   ArrayList<String> newFlexibleRes,
+						   ArrayList<Integer> newPosNums) {
 
 		super(other);
 
 		name = newSPName;
 		this.allowedAAs = other.allowedAAs;
-		this.reducedAllowedAAs = reducedAllowedAAs;		
+		this.reducedAllowedAAs = reducedAllowedAAs;
 		this.flexibleRes = newFlexibleRes;
 		this.posNums = newPosNums;
 		this.contSCFlex = other.contSCFlex;
@@ -82,7 +112,6 @@ public class KSSearchProblem extends SearchProblem {
 		this.pruneMat = other.pruneMat;
 		this.competitorPruneMat = other.competitorPruneMat;
 		this.confSpace = other.confSpace;
-		this.numEmatThreads = other.numEmatThreads;
 	}
 
 	public enum MatrixType {
@@ -171,7 +200,7 @@ public class KSSearchProblem extends SearchProblem {
 		for( int pos : posNums ) {
 			for( int rc : sp.pruneMat.unprunedRCsAtPos(pos) ) {
 				String rcAAType = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
-				if( !reducedAllowedAAs.get(posNums.indexOf(pos)).contains(rcAAType) ) 
+				if( !reducedAllowedAAs.get(posNums.indexOf(pos)).contains(rcAAType) )
 					ans.getUpdatedPruningMatrix().markAsPruned(new RCTuple(pos,rc));
 			}
 		}
@@ -180,7 +209,7 @@ public class KSSearchProblem extends SearchProblem {
 		// prune all at positions not corresponding to this sequence
 		for( int pos = 0; pos < sp.pruneMat.getNumPos(); ++pos ) {
 			if(posNums.contains(pos)) continue;
-			for( int rc : sp.pruneMat.unprunedRCsAtPos(pos) ) 
+			for( int rc : sp.pruneMat.unprunedRCsAtPos(pos) )
 				ans.getUpdatedPruningMatrix().markAsPruned(new RCTuple(pos,rc));
 		}
 
@@ -210,10 +239,10 @@ public class KSSearchProblem extends SearchProblem {
 	}
 
 
-	public KSSearchProblem getReducedSearchProblem( String name, 
-			ArrayList<ArrayList<String>> allowedAAs, 
-			ArrayList<String> flexRes, 
-			ArrayList<Integer> posNums ) {
+	public KSSearchProblem getReducedSearchProblem( String name,
+													ArrayList<ArrayList<String>> allowedAAs,
+													ArrayList<String> flexRes,
+													ArrayList<Integer> posNums ) {
 
 		// Create a version of the search problem restricted to the specified sequence (list of amino acid names)
 		// the constructor creates a new confspace object
@@ -271,7 +300,7 @@ public class KSSearchProblem extends SearchProblem {
 
 		ArrayList<ArrayList<String>> pruneMatAAs = getAAsAtPos(pruneMat);
 
-		if(pruneMatAAs.size() != reducedAllowedAAs.size()) 
+		if(pruneMatAAs.size() != reducedAllowedAAs.size())
 			return false;
 
 		for(int pos = 0; pos < reducedAllowedAAs.size(); ++pos) {
@@ -310,10 +339,10 @@ public class KSSearchProblem extends SearchProblem {
 	}
 
 
-	public MultiTermEnergyFunction decomposedEnergy(int[] conf, boolean doMinimize){
+	public MultiTermEnergyFunction decompMinimizedEnergy(int[] conf){
 		//Minimized energy of the conformation
 		//whose RCs are listed for all flexible positions in conf
-		MultiTermEnergyFunction mef = confSpace.getDecomposedEnergy(conf, doMinimize, fullConfE, null);
+		MultiTermEnergyFunction mef = confSpace.getDecomposedMinimizedEnergy(conf, fullConfE, null);
 
 		double E = mef.getPreCompE();
 
@@ -323,7 +352,7 @@ public class KSSearchProblem extends SearchProblem {
 			E -= emat.geteRefMat().confERef(conf);
 
 		if(addResEntropy)
-			E += confSpace.getConfResEntropy(conf);            
+			E += confSpace.getConfResEntropy(conf);
 
 		mef.setPreCompE(E);
 
@@ -333,7 +362,7 @@ public class KSSearchProblem extends SearchProblem {
 
 	public void mergeResiduePositions(int... posToCombine) {
 
-		EnergyMatrixCalculator emc = new EnergyMatrixCalculator(confSpace, 
+		EnergyMatrixCalculator emc = new EnergyMatrixCalculator(confSpace,
 				shellResidues, useEPIC, reducedMat, epicSettings, false, emat);
 
 		emc.addEnergyTerms(false, posToCombine);
@@ -341,7 +370,7 @@ public class KSSearchProblem extends SearchProblem {
 
 
 	public double lowerBoundContribByRC(int pos, int[] conf, int numResInHot) {
-		double bound = emat.rcContribAtPos(pos, conf, numResInHot);	
+		double bound = emat.rcContribAtPos(pos, conf, numResInHot);
 		return bound;
 	}
 }

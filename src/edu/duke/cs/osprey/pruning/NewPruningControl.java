@@ -5,9 +5,7 @@
  */
 package edu.duke.cs.osprey.pruning;
 
-import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.gmec.PrecomputedMatrices;
-import edu.duke.cs.osprey.tools.TimeFormatter;
 
 /**
  *

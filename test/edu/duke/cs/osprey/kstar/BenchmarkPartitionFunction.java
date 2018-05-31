@@ -12,7 +12,6 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.tools.Stopwatch;
 
 
 public class BenchmarkPartitionFunction {

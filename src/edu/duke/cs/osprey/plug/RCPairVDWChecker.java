@@ -14,13 +14,10 @@ import static edu.duke.cs.osprey.plug.VoxelVDWDistExplorer.getVDWRadius;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import static edu.duke.cs.osprey.plug.VoxelVDWListChecker.DOFInterval;
-import edu.duke.cs.osprey.structure.AtomNeighbors;
-import edu.duke.cs.osprey.structure.ProbeAtomNeighbors;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
+
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
+
 import org.apache.commons.math3.optim.linear.LinearConstraint;
 
 /**

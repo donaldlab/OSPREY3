@@ -5,8 +5,6 @@
 package edu.duke.cs.osprey.restypes;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.tools.FileTools;
-import edu.duke.cs.osprey.tools.StringParsing;
 
 import java.io.*;
 import java.util.*;

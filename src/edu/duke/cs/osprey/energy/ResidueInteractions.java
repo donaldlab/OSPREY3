@@ -6,7 +6,6 @@ import java.util.Set;
 
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residues;
-import edu.duke.cs.osprey.tools.HashCalculator;
 
 /**
  * Represents interactions between residues (or within single residues) based on residue

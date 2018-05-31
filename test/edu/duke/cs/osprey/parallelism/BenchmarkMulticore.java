@@ -1,7 +1,5 @@
 package edu.duke.cs.osprey.parallelism;
 
-import edu.duke.cs.osprey.tools.Stopwatch;
-
 public class BenchmarkMulticore {
 	
 	public static void main(String[] args)

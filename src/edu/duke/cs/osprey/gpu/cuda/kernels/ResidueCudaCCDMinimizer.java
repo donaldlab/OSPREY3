@@ -25,7 +25,6 @@ import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.MathTools;
 import jcuda.Pointer;
 
 public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCleanup {

@@ -24,7 +24,6 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residues;
-import edu.duke.cs.osprey.tools.HashCalculator;
 
 public class TestForcefieldEnergy extends TestBase {
 	

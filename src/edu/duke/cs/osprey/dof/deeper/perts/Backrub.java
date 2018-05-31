@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
 import edu.duke.cs.osprey.tools.RotationMatrix;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
+
 import java.util.ArrayList;
 
 /**

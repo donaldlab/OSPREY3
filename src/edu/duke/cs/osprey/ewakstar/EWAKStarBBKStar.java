@@ -9,11 +9,8 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.KStar;
-import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.UpperBoundCalculator;
-import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -21,7 +18,9 @@ import java.math.BigInteger;
 import java.util.*;
 import java.util.function.Function;
 
-/** Adapted from BBKStar.java by lowegard **/
+/** Adapted from BBKStar.java
+ * @author Anna Lowegard(anna.lowegard@duke.edu)
+ */
 
 public class EWAKStarBBKStar {
 

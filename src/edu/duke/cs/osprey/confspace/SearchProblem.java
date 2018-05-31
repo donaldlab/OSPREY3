@@ -21,7 +21,6 @@ import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.plug.PolytopeMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;

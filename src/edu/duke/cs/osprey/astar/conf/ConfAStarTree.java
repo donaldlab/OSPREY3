@@ -27,7 +27,6 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectPool;
-import edu.duke.cs.osprey.tools.ObjectPool.Checkout;
 
 public class ConfAStarTree implements ConfSearch {
 
@@ -377,7 +376,7 @@ public class ConfAStarTree implements ConfSearch {
 
 				tasks.submit(() -> {
 					
-					try (Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+					try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
 						ScoreContext context = checkout.get();
 						
 						// score the child node differentially against the parent node

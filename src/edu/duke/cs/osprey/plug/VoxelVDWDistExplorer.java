@@ -6,8 +6,6 @@
 package edu.duke.cs.osprey.plug;
 
 import edu.duke.cs.osprey.bbfree.BBFreeBlock;
-import edu.duke.cs.osprey.bbfree.BBFreeDOF;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
@@ -16,7 +14,7 @@ import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
+
 import java.util.ArrayList;
 import org.apache.commons.math3.optim.linear.LinearConstraint;
 

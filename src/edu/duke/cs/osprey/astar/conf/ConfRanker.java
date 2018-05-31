@@ -6,7 +6,6 @@ import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
-import edu.duke.cs.osprey.tools.TimeFormatter;
 
 import java.math.BigInteger;
 import java.util.*;

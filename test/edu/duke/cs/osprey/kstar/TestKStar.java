@@ -19,8 +19,6 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.FileTools;
-import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
 import java.util.HashSet;

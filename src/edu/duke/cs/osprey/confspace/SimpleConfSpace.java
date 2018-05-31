@@ -9,7 +9,6 @@ import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
-import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;

@@ -2,14 +2,10 @@
 package edu.duke.cs.osprey.dof;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import cern.colt.matrix.DoubleFactory1D;
-import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleMatrix2D;
-import cern.colt.matrix.linalg.EigenvalueDecomposition;
-import cern.colt.matrix.linalg.Algebra;
 import edu.duke.cs.osprey.tools.EllipseTransform;
 
 /**

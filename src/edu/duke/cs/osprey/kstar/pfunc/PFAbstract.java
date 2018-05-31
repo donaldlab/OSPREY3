@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar.pfunc;
 
 import java.io.File;
@@ -27,7 +59,7 @@ import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
- * 
+ *
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
@@ -35,9 +67,9 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 public abstract class PFAbstract implements Serializable {
 
 	protected long startTime;
-	
+
 	protected DecimalFormat numberFormat = new DecimalFormat("0.0000");
-	
+
 	public static enum EApproxReached { TRUE, FALSE, NOT_POSSIBLE, NOT_STABLE }
 	protected EApproxReached eAppx = EApproxReached.FALSE;
 
@@ -63,7 +95,7 @@ public abstract class PFAbstract implements Serializable {
 	public static boolean useMaxKSConfs = false;
 	protected static long maxKSConfs = 100000;
 
-	protected static String hotMethod = "none"; 
+	protected static String hotMethod = "none";
 	protected static double hotBoundPct = 0.2;
 	protected static int hotNumRes = 3;
 	protected static double hotTopRotsPct = 0.2;
@@ -107,10 +139,10 @@ public abstract class PFAbstract implements Serializable {
 
 	protected PFAbstract() {}
 
-	protected PFAbstract( int strand, ArrayList<String> sequence, 
-			ArrayList<Integer> absolutePos, 
-			String checkPointPath, String reducedSPName, 
-			KSConfigFileParser cfp, KSSearchProblem panSP ) {
+	protected PFAbstract( int strand, ArrayList<String> sequence,
+						  ArrayList<Integer> absolutePos,
+						  String checkPointPath, String reducedSPName,
+						  KSConfigFileParser cfp, KSSearchProblem panSP ) {
 
 		this.sequence = sequence; this.sequence.trimToSize();
 		this.absolutePos = absolutePos; this.absolutePos.trimToSize();
@@ -144,22 +176,22 @@ public abstract class PFAbstract implements Serializable {
 		return phase2Method;
 	}
 
-	
+
 	public PruningMatrix getReducedPruningMatrix() {
 		return reducedSP.reducedMat;
 	}
-	
-	
+
+
 	public PruningMatrix getPanPruningMatrix() {
 		return panSP.pruneMat;
 	}
-	
+
 
 	public PruningMatrix getReducedInversePruningMatrix() {
 		return reducedSP.inverseMat;
 	}
-	
-	
+
+
 	public PruningMatrix getPanInversePruningMatrix() {
 		return panSP.inverseMat;
 	}
@@ -283,23 +315,23 @@ public abstract class PFAbstract implements Serializable {
 		undefinedPos.removeAll(absolutePos);
 
 		boolean minimizeProduct = isContinuous() ? false : true;
-		
+
 		for( int pos : undefinedPos ) {
-			
+
 			long unprunedSize = minimizeProduct ? Integer.MAX_VALUE : Integer.MIN_VALUE;
 			long prunedSize = minimizeProduct ? Integer.MAX_VALUE : Integer.MIN_VALUE;
-			
+
 			ArrayList<String> aasAtPos = panSP.getAAsAtPos(panSP.pruneMat, pos);
 			for(String aa : aasAtPos) {
 				ArrayList<Integer> aaUnprunedRCNums = panSP.rcsAtPos(panSP.pruneMat, pos, aa, false);
 				unprunedSize = minimizeProduct ? Math.min(unprunedSize, aaUnprunedRCNums.size()) : Math.max(unprunedSize, aaUnprunedRCNums.size());
-				
+
 				if(!minimizeProduct) {
 					ArrayList<Integer> aaPrunedRCNums = panSP.rcsAtPos(panSP.pruneMat, pos, aa, true);
 					prunedSize = Math.max(prunedSize, aaPrunedRCNums.size());
 				}
 			}
-			
+
 			if(minimizeProduct) prunedSize = 0;
 			ans = ans.multiply(BigDecimal.valueOf(unprunedSize + prunedSize));
 		}
@@ -326,23 +358,23 @@ public abstract class PFAbstract implements Serializable {
 	public ConfSearch getConfTree( boolean invertPruneMat ) {
 
 		PruningMatrix reducedPmat = invertPruneMat ? reducedSP.inverseMat : reducedSP.reducedMat;
-		
+
 		if( isFullyDefined() ) {
 			if(reducedPmat != null)
 				return new ConfTree<FullAStarNode>(new FullAStarNode.Factory(reducedSP.posNums.size()), reducedSP, reducedPmat);
 
-			else 
+			else
 				return null;
 		}
 
 		else {
-			
+
 			PruningMatrix panPmat = invertPruneMat ? panSP.inverseMat : panSP.pruneMat;
-			
+
 			if(reducedPmat != null && panPmat != null)
 				return new KAStarConfTree(reducedSP, reducedPmat, panPmat);
 
-			else 
+			else
 				return null;
 		}
 	}
@@ -424,7 +456,7 @@ public abstract class PFAbstract implements Serializable {
 
 		if( getNumTopSavedConfs() == 0 ) return;
 
-		System.out.println("\nWriting top " + getNumTopSavedConfs() + 
+		System.out.println("\nWriting top " + getNumTopSavedConfs() +
 				" conformation(s) for sequence: " + KSAbstract.list1D2String(sequence, " "));
 		System.out.println();
 
@@ -519,10 +551,10 @@ public abstract class PFAbstract implements Serializable {
 
 
 	protected double computeEffectiveEpsilon() {
-		
+
 		BigDecimal dividend = qPrime.add(pStar);
 		BigDecimal divisor = qStar.add(dividend);
-		
+
 		// energies are too high so epsilon can never be reached
 		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) return EPSILON_NEVER_POSSIBLE;
 
@@ -534,7 +566,7 @@ public abstract class PFAbstract implements Serializable {
 			return EPSILON_PHASE_2;
 		}
 		*/
-		
+
 		else return dividend.divide(divisor, 4).doubleValue();
 	}
 
@@ -558,7 +590,7 @@ public abstract class PFAbstract implements Serializable {
 			setPStar( getConfBound(confSearch, conf.getAssignments()) );
 		}
 
-		else 
+		else
 			setPStar( Double.POSITIVE_INFINITY );
 	}
 
@@ -576,16 +608,16 @@ public abstract class PFAbstract implements Serializable {
 
 	protected void updateQStar( KSConf conf ) {
 
-		if( processedConfsSet.contains(conf.getConf()) ) 
+		if( processedConfsSet.contains(conf.getConf()) )
 			return;
-		
+
 		processedConfsSet.add(conf.getConf());
-		
+
 		qStar = qStar.add( getBoltzmannWeight( conf.getEnergy() ) );
 
 		if( getImpl().toLowerCase().contains("parallel") )
 			partialQLB = partialQLB.add( getBoltzmannWeight( conf.getEnergyBound() ) );
-		
+
 		if(isFullyDefined() && saveTopConfsAsPDB)
 			saveTopConf(conf);
 
@@ -602,7 +634,7 @@ public abstract class PFAbstract implements Serializable {
 		if( KSAbstract.runTimeout != 0 && System.currentTimeMillis()-startTime > KSAbstract.runTimeout * 86400000 )
 			throw new RuntimeException("ERROR: running time exceeds " + KSAbstract.runTimeout + " days!");
 	}
-	
+
 	public abstract void start();
 
 	public void runSlice(long target) {
@@ -616,14 +648,14 @@ public abstract class PFAbstract implements Serializable {
 				//if( eAppx == EApproxReached.FALSE )
 				//	computeSlice();
 			}
-			
+
 			else if( doingPhase2 && eAppx == EApproxReached.NOT_POSSIBLE )
 				System.out.println("\nCan never reach target epsilon approximation of " + targetEpsilon + " for sequence: " + KSAbstract.list1D2String(sequence, " ") + " " + getFlexibility());
 		}
 
 		if( isFullyDefined() && saveTopConfsAsPDB && eAppx == EApproxReached.TRUE ) writeTopConfs();
 
-		if( eAppx != EApproxReached.FALSE ) 
+		if( eAppx != EApproxReached.FALSE )
 			cleanup();
 
 		resetProcessedDuringInterval();
@@ -638,7 +670,7 @@ public abstract class PFAbstract implements Serializable {
 
 			if( eAppx == EApproxReached.FALSE ) {
 				compute();
-				
+
 				if( eAppx != EApproxReached.TRUE )
 					System.out.println("\nCan never reach target epsilon approximation of " + targetEpsilon + " for sequence: " + KSAbstract.list1D2String(sequence, " ") + " " + getFlexibility());
 			}
@@ -669,9 +701,9 @@ public abstract class PFAbstract implements Serializable {
 	protected void phase2() {
 
 		System.out.println("\nCould not reach target epsilon approximation of " + targetEpsilon + " for sequence: " + KSAbstract.list1D2String(sequence, " ") + " " + getFlexibility());
-                
+
 		doingPhase2 = true;
-		
+
 		if( getEffectiveEpsilon() == EPSILON_NEVER_POSSIBLE ) {
 			// we can never reach epsilon because q* + q' + p* = 0
 			System.out.println("\nCan never reach target epsilon approximation of " + targetEpsilon + " for sequence: " + KSAbstract.list1D2String(sequence, " ") + " " + getFlexibility());
@@ -688,7 +720,7 @@ public abstract class PFAbstract implements Serializable {
 		// completely relax pruning
 		double maxPruningInterval = cfp.params.getDouble("StericThresh");
 		rePruneReducedSP(maxPruningInterval);
-		
+
 		setNumUnPruned();
 		setNumPruned(); // needed for p*
 
@@ -709,7 +741,7 @@ public abstract class PFAbstract implements Serializable {
 
 			double effectiveEpsilon = computeEffectiveEpsilon();
 
-			if( getQStar().compareTo(BigDecimal.ZERO) > 0 
+			if( getQStar().compareTo(BigDecimal.ZERO) > 0
 					&& effectiveEpsilon != EPSILON_NEVER_POSSIBLE && effectiveEpsilon <= targetEpsilon ) {
 
 				setEpsilonStatus(EApproxReached.TRUE);
@@ -772,18 +804,18 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	private static int setNumPEs( int requested ) { 
+	private static int setNumPEs( int requested ) {
 
 		if(requested < 1) requested = 1;
 
-		else if(requested > Runtime.getRuntime().availableProcessors()) 
+		else if(requested > Runtime.getRuntime().availableProcessors())
 			requested = Runtime.getRuntime().availableProcessors();
 
 		return requested;
 	}
 
 
-	public static void setNumThreads( int threads ) { 
+	public static void setNumThreads( int threads ) {
 		numThreads = setNumPEs(threads);
 	}
 
@@ -856,7 +888,7 @@ public abstract class PFAbstract implements Serializable {
 
 
 	public static void setHotNumRes( String param, int value ) {
-		if( value < 3 || value > 4 ) 
+		if( value < 3 || value > 4 )
 			throw new RuntimeException("ERROR: allowed values of " + param + " are [3, 4]");
 
 		hotNumRes = value;
@@ -872,14 +904,14 @@ public abstract class PFAbstract implements Serializable {
 
 		switch( value ) {
 
-		case "none":
-		case "error":
-		case "manual":
-			hotMethod = value;
-			break;
+			case "none":
+			case "error":
+			case "manual":
+				hotMethod = value;
+				break;
 
-		default:
-			throw new RuntimeException("ERROR: allowed values of " + param + " are {none|error|manual}");
+			default:
+				throw new RuntimeException("ERROR: allowed values of " + param + " are {none|error|manual}");
 		}
 	}
 
@@ -922,34 +954,34 @@ public abstract class PFAbstract implements Serializable {
 
 		switch( implementation.toLowerCase() ) {
 
-		case "traditional":
-		case "ub":
-		case "parallel0":
-		case "parallel1":
-		case "parallel2":
-		case "parallelconf":
-			pFuncCFGImpl = implementation;
-			break;
+			case "traditional":
+			case "ub":
+			case "parallel0":
+			case "parallel1":
+			case "parallel2":
+			case "parallelconf":
+				pFuncCFGImpl = implementation;
+				break;
 
-		default:
-			throw new RuntimeException("ERROR: specified value of implementation " + implementation.toLowerCase() + " is invalid");
+			default:
+				throw new RuntimeException("ERROR: specified value of implementation " + implementation.toLowerCase() + " is invalid");
 		}
 	}
 
 
-	protected KSSearchProblem createReducedSP( boolean contSCFlex, int strand, 
-			ArrayList<String> seq, ArrayList<Integer> absolutePos ) {
+	protected KSSearchProblem createReducedSP( boolean contSCFlex, int strand,
+											   ArrayList<String> seq, ArrayList<Integer> absolutePos ) {
 
-		KSSearchProblem reducedSP = panSP.getReducedSearchProblem(reducedSPName, 
-				KSAbstract.list1D2ListOfLists(KSAllowedSeqs.getAAsFromSeq(seq)), 
-				KSAllowedSeqs.getFlexResFromSeq(seq), 
+		KSSearchProblem reducedSP = panSP.getReducedSearchProblem(reducedSPName,
+				KSAbstract.list1D2ListOfLists(KSAllowedSeqs.getAAsFromSeq(seq)),
+				KSAllowedSeqs.getFlexResFromSeq(seq),
 				absolutePos);
 
 		return reducedSP;
 	}
-	
-	
-	public void rePruneReducedSP(double pruningInterval) {	
+
+
+	public void rePruneReducedSP(double pruningInterval) {
 		panSP = (KSSearchProblem) ObjectIO.deepCopy(panSP);
 		if(panSP.emat == null) panSP.emat = (EnergyMatrix) ObjectIO.readObject(panSP.getMatrixFileName(panSP.getMatrixType()), false);
 		cfp.setupPruning(panSP, pruningInterval, panSP.useEPIC, panSP.useTupExpForSearch).prune();

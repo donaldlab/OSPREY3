@@ -25,7 +25,7 @@ import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.Protractor;
+
 import java.util.HashMap;
 
 

@@ -14,7 +14,6 @@ import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.Protractor;
 
 /**
  *

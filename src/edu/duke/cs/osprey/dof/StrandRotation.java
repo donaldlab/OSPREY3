@@ -6,9 +6,6 @@
 package edu.duke.cs.osprey.dof;
 
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.RigidBodyMotion;
-import edu.duke.cs.osprey.tools.RotationMatrix;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
 
 /**
  *

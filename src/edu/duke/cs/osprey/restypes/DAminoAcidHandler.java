@@ -6,8 +6,6 @@
 package edu.duke.cs.osprey.restypes;
 
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.ObjectIO;
-import edu.duke.cs.osprey.tools.Protractor;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

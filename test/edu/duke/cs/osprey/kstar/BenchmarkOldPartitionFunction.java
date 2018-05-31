@@ -13,7 +13,6 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
-import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class BenchmarkOldPartitionFunction extends TestBase {
 	

@@ -1,8 +1,6 @@
 package edu.duke.cs.osprey.astar;
 
 import java.io.Serializable;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
 
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.tools.JvmMem;

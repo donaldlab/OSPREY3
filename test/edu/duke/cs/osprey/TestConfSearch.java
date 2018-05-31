@@ -16,7 +16,6 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.InfiniteIterator;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 import java.util.ArrayList;
 import java.util.Random;

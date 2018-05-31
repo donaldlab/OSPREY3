@@ -33,9 +33,6 @@ import edu.duke.cs.osprey.parallelism.TimingThread;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.Factory;
-import edu.duke.cs.osprey.tools.Stopwatch;
-import edu.duke.cs.osprey.tools.TimeFormatter;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 @SuppressWarnings("unused")

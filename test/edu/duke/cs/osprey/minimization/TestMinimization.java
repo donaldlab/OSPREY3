@@ -39,7 +39,6 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class TestMinimization extends TestBase {

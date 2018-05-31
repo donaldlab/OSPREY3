@@ -13,7 +13,6 @@ import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.IdealSeparableReference;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
-import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
  *

@@ -1,13 +1,20 @@
 package edu.duke.cs.osprey.ewakstar;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStarScore;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
+import edu.duke.cs.osprey.lute.LUTEPfunc;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
@@ -154,16 +161,17 @@ public interface EWAKStarPartitionFunction {
 	
 	void setReportProgress(boolean val);
 	void setConfListener(ConfListener val);
-	
-	void init(double energyWindow, double epsilonTarget, int maxPFConfs);
 
 	/**
 	 * Initializes the partition function for calculation.
 	 * @param targetEpsilon The accuracy with which to estimate the partition function.
+	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
+	 * 	 							including any conformations removed by pruned tuples.
 	 * @param stabilityThreshold If the partition function upper bound value falls below
 	 *                           this threshold, the sequence is considered unstable.
+	 * @param targetEnergy The energy window with which to estimate the partition function.
 	 */
-	default void init(double targetEnergy, double targetEpsilon, int maxPFConfs, BigDecimal stabilityThreshold) {
+	default void init(double targetEnergy, double targetEpsilon, BigDecimal stabilityThreshold, BigInteger numConfsBeforePruning) {
 		throw new UnsupportedOperationException(getClass().getName() + " does not yet support stability thresholds");
 	}
 
@@ -172,7 +180,11 @@ public interface EWAKStarPartitionFunction {
 	int getParallelism();
 	int getNumConfsEvaluated();
 
-	void compute(int maxNumConfs, Sequence seq);
+	void compute(int maxNumConfs);
+
+	default void compute() {
+		compute(Integer.MAX_VALUE);
+	}
 
 	public default Result makeResult() {
 		return new Result(getStatus(), getValues(), getNumConfsEvaluated());
@@ -180,6 +192,49 @@ public interface EWAKStarPartitionFunction {
 
 
 	public static interface WithConfTable extends EWAKStarPartitionFunction {
+
 		void setConfTable(ConfDB.ConfTable table);
+
+		public static void setOrThrow(EWAKStarPartitionFunction pfunc, ConfDB.ConfTable table) {
+			if (pfunc instanceof EWAKStarPartitionFunction.WithConfTable) {
+				((EWAKStarPartitionFunction.WithConfTable)pfunc).setConfTable(table);
+			} else {
+				throw new EWAKStarPartitionFunction.WithConfTable.UnsupportedException(pfunc);
+			}
+		}
+
+		public static class UnsupportedException extends RuntimeException {
+			public UnsupportedException(EWAKStarPartitionFunction pfunc) {
+				super("This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support conformation database tables");
+			}
+		}
+	}
+
+	/**
+	 * Factory method to make the best pfunc calculator based on the conf ecalc
+	 */
+	public static EWAKStarPartitionFunction makeBestFor(ConfSearch confSearch, ConfEnergyCalculator confEcalc) {
+
+		// algorithms based on energy bounds can use the GD calculator, it's the most recent pfunc calculator
+		return new EWAKStarGradientDescentPfunc(confSearch, confEcalc);
+	}
+
+	public static interface WithExternalMemory extends EWAKStarPartitionFunction {
+
+		void setUseExternalMemory(boolean val, RCs rcs);
+
+		public static void setOrThrow(EWAKStarPartitionFunction pfunc, boolean val, RCs rcs) {
+			if (pfunc instanceof EWAKStarPartitionFunction.WithExternalMemory) {
+				((EWAKStarPartitionFunction.WithExternalMemory)pfunc).setUseExternalMemory(val, rcs);
+			} else {
+				throw new EWAKStarPartitionFunction.WithExternalMemory.UnsupportedException(pfunc);
+			}
+		}
+
+		public static class UnsupportedException extends RuntimeException {
+			public UnsupportedException(EWAKStarPartitionFunction pfunc) {
+				super("This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support external memory");
+			}
+		}
 	}
 }

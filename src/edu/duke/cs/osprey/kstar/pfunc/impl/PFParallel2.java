@@ -14,7 +14,6 @@ import edu.duke.cs.osprey.kstar.KSSearchProblem;
 import edu.duke.cs.osprey.kstar.KSPStarCalculator;
 import edu.duke.cs.osprey.kstar.KSQPrimeCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
-import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
  * 

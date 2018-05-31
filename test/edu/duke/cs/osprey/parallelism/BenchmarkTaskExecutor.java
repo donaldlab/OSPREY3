@@ -1,8 +1,6 @@
 package edu.duke.cs.osprey.parallelism;
 
 import edu.duke.cs.osprey.parallelism.TaskExecutor.Task;
-import edu.duke.cs.osprey.tools.Stopwatch;
-import edu.duke.cs.osprey.tools.TimeFormatter;
 
 @SuppressWarnings("unused")
 public class BenchmarkTaskExecutor {

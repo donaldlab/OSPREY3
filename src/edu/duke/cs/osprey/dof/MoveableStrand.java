@@ -8,6 +8,7 @@ package edu.duke.cs.osprey.dof;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.RotationMatrix;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;

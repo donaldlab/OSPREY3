@@ -7,8 +7,6 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
-import edu.duke.cs.osprey.tools.MathTools;
-import edu.duke.cs.osprey.tools.TimeTools;
 
 import java.math.BigDecimal;
 

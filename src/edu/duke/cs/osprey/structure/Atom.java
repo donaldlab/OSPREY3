@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.structure;
 
 import edu.duke.cs.osprey.tools.PeriodicTable;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 

@@ -1,3 +1,35 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.tools;
 
 import java.math.BigDecimal;
@@ -482,7 +514,13 @@ public class MathTools {
 	 * whereas just log10 maps [0,inf] to [-inf,inf]
 	 **/
 	public static double log10p1(BigDecimal x) {
-		return Math.log10(x.add(BigDecimal.ONE).doubleValue());
+		if (x == BigPositiveInfinity) {
+			return Double.POSITIVE_INFINITY;
+		} else if (x == BigNegativeInfinity || x == BigNaN) {
+			return Double.NaN;
+		} else {
+			return Math.log10(x.add(BigDecimal.ONE).doubleValue());
+		}
 	}
 
 	public static double log10p1(double x) {
@@ -523,5 +561,149 @@ public class MathTools {
 		} else {
 			return String.format("%.0f PiB", pebibytes);
 		}
+	}
+
+	public static enum Optimizer {
+
+		Minimize {
+
+			@Override
+			public float initFloat() {
+				return Float.POSITIVE_INFINITY;
+			}
+
+			@Override
+			public double initDouble() {
+				return Double.POSITIVE_INFINITY;
+			}
+
+			@Override
+			public int initInt() {
+				return Integer.MAX_VALUE;
+			}
+
+			@Override
+			public long initLong() {
+				return Long.MAX_VALUE;
+			}
+
+			@Override
+			public float opt(float a, float b) {
+				return Math.min(a, b);
+			}
+
+			@Override
+			public double opt(double a, double b) {
+				return Math.min(a, b);
+			}
+
+			@Override
+			public int opt(int a, int b) {
+				return Math.min(a, b);
+			}
+
+			@Override
+			public long opt(long a, long b) {
+				return Math.min(a, b);
+			}
+
+			@Override
+			public boolean isBetter(float newval, float oldval) {
+				return newval < oldval;
+			}
+
+			@Override
+			public boolean isBetter(double newval, double oldval) {
+				return newval < oldval;
+			}
+
+			@Override
+			public boolean isBetter(int newval, int oldval) {
+				return newval < oldval;
+			}
+
+			@Override
+			public boolean isBetter(long newval, long oldval) {
+				return newval < oldval;
+			}
+		},
+
+		Maximize {
+
+			@Override
+			public float initFloat() {
+				return Float.NEGATIVE_INFINITY;
+			}
+
+			@Override
+			public double initDouble() {
+				return Double.NEGATIVE_INFINITY;
+			}
+
+			@Override
+			public int initInt() {
+				return Integer.MIN_VALUE;
+			}
+
+			@Override
+			public long initLong() {
+				return Long.MIN_VALUE;
+			}
+
+			@Override
+			public float opt(float a, float b) {
+				return Math.max(a, b);
+			}
+
+			@Override
+			public double opt(double a, double b) {
+				return Math.max(a, b);
+			}
+
+			@Override
+			public int opt(int a, int b) {
+				return Math.max(a, b);
+			}
+
+			@Override
+			public long opt(long a, long b) {
+				return Math.max(a, b);
+			}
+
+			@Override
+			public boolean isBetter(float newval, float oldval) {
+				return newval > oldval;
+			}
+
+			@Override
+			public boolean isBetter(double newval, double oldval) {
+				return newval > oldval;
+			}
+
+			@Override
+			public boolean isBetter(int newval, int oldval) {
+				return newval > oldval;
+			}
+
+			@Override
+			public boolean isBetter(long newval, long oldval) {
+				return newval > oldval;
+			}
+		};
+
+		public abstract float initFloat();
+		public abstract double initDouble();
+		public abstract int initInt();
+		public abstract long initLong();
+
+		public abstract float opt(float a, float b);
+		public abstract double opt(double a, double b);
+		public abstract int opt(int a, int b);
+		public abstract long opt(long a, long b);
+
+		public abstract boolean isBetter(float newval, float oldval);
+		public abstract boolean isBetter(double newval, double oldval);
+		public abstract boolean isBetter(int newval, int oldval);
+		public abstract boolean isBetter(long newval, long oldval);
 	}
 }

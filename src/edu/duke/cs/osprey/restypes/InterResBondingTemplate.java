@@ -7,7 +7,7 @@ package edu.duke.cs.osprey.restypes;
 
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
+
 import java.io.Serializable;
 import java.util.Set;
 

@@ -9,8 +9,6 @@ import java.util.Set;
 import com.jogamp.opencl.CLDevice;
 import com.jogamp.opencl.CLProgram;
 
-import edu.duke.cs.osprey.tools.FileTools;
-
 public class Gpu {
 	
 	// NOTE: the opencl driver caches compiled kernels

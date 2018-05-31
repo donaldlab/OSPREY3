@@ -8,7 +8,6 @@ import java.util.Iterator;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
-import edu.duke.cs.osprey.tools.FileTools;
 
 public class TestPDBIO {
 	

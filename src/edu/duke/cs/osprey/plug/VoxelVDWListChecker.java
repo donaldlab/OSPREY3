@@ -10,7 +10,6 @@ import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleMatrix2D;
 import cern.colt.matrix.linalg.Algebra;
-import edu.duke.cs.osprey.bbfree.BBFreeBlock;
 import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import static edu.duke.cs.osprey.plug.LPChecks.canAddConstr;
@@ -18,7 +17,7 @@ import static edu.duke.cs.osprey.plug.VoxelVDWDistExplorer.getVDWRadius;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;

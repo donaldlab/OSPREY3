@@ -12,7 +12,6 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
 import java.math.BigDecimal;

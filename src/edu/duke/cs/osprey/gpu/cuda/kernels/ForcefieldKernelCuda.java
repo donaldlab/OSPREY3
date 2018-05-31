@@ -10,7 +10,6 @@ import edu.duke.cs.osprey.gpu.ForcefieldKernel;
 import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
 import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
-import edu.duke.cs.osprey.tools.MathTools;
 import jcuda.Pointer;
 
 public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {

@@ -10,7 +10,6 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class EnergyMatrixProfiling {

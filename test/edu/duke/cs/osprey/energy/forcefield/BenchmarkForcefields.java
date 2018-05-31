@@ -19,8 +19,6 @@ import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.Stopwatch;
-import edu.duke.cs.osprey.tools.TimeFormatter;
 
 public class BenchmarkForcefields extends TestBase {
 	

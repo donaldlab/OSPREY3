@@ -2,8 +2,6 @@ package edu.duke.cs.osprey.ewakstar;
 
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.kstar.KStarScore;
-import edu.duke.cs.osprey.tools.TimeFormatter;
 
 import java.io.File;
 import java.io.FileWriter;

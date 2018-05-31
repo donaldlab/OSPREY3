@@ -17,8 +17,7 @@ import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.ObjectIO;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 

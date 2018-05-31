@@ -1,8 +1,5 @@
 package edu.duke.cs.osprey.restypes;
 
-import edu.duke.cs.osprey.tools.FileTools;
-import edu.duke.cs.osprey.tools.StringParsing;
-
 public class ResidueEntropyParser {
 
 	private ResidueEntropies resent;

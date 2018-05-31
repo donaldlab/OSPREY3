@@ -16,7 +16,6 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
-import edu.duke.cs.osprey.tools.HashCalculator;
 
 /**
  * High-performance lookups of atom pairs by bond distance

@@ -6,8 +6,6 @@ package edu.duke.cs.osprey.dof;
 
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.Protractor;
-import edu.duke.cs.osprey.tools.RigidBodyMotion;
 
 /**
  *

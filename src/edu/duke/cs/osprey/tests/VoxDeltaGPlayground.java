@@ -9,11 +9,9 @@ import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
-import edu.duke.cs.osprey.gmec.GMECFinder;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.IdealSeparableReference;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.voxq.VoxelsDeltaG;
 
 /**

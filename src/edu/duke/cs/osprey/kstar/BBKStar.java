@@ -10,7 +10,6 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
-import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
 import java.math.BigDecimal;

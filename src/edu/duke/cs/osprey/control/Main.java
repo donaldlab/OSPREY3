@@ -46,8 +46,6 @@ import edu.duke.cs.osprey.gmec.SeqGMECFinder;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
-import edu.duke.cs.osprey.tools.FileTools;
-import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
  *

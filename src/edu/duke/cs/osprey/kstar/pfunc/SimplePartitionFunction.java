@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar.pfunc;
 
 import edu.duke.cs.osprey.confspace.ConfDB;
@@ -10,6 +42,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 
 
 /**
@@ -32,10 +65,9 @@ import java.math.BigDecimal;
  */
 public class SimplePartitionFunction implements PartitionFunction {
 
-	public final ConfSearch confSearch;
-    public final ConfEnergyCalculator ecalc;
+	public final ConfEnergyCalculator ecalc;
 
-    /**
+	/**
 	 * number of conformations to score per batch when refining the partition function upper bound
 	 *
 	 * for single-threaded parallelism, this setting determines how many conformations we should score
@@ -45,10 +77,10 @@ public class SimplePartitionFunction implements PartitionFunction {
 	 * upper bound calculator will automatically run on the main thread during the time the main
 	 * thread would have normally waited for the energy minimizer thread(s).
 	 **/
-    public int scoreConfsBatchSize = 1000;
+	public int scoreConfsBatchSize = 1000;
 
 	private double targetEpsilon = Double.NaN;
-	private BigDecimal upperBoundThreshold = null;
+	private BigDecimal stabilityThreshold = BigDecimal.ZERO;
 	private Status status = null;
 	private Values values = null;
 	private LowerBoundCalculator lowerBound;
@@ -59,67 +91,61 @@ public class SimplePartitionFunction implements PartitionFunction {
 	private ConfDB confDB = null;
 
 
-	public SimplePartitionFunction(ConfSearch confSearch, ConfEnergyCalculator ecalc) {
-		this.confSearch = confSearch;
+	public SimplePartitionFunction(ConfEnergyCalculator ecalc) {
 		this.ecalc = ecalc;
 	}
-	
+
 	@Override
 	public void setReportProgress(boolean val) {
 		isReportingProgress = val;
 	}
-	
+
 	@Override
 	public void setConfListener(ConfListener val) {
 		confListener = val;
 	}
-	
+
 	@Override
 	public Status getStatus() {
 		return status;
 	}
-	
+
 	@Override
 	public Values getValues() {
 		return values;
 	}
-	
+
 	@Override
 	public int getNumConfsEvaluated() {
 		return lowerBound.numConfsEnergied;
 	}
-	
+
 	@Override
 	public int getParallelism() {
 		return ecalc.tasks.getParallelism();
 	}
 
 	@Override
-	public void init(double targetEpsilon) {
-		init(targetEpsilon, BigDecimal.ZERO);
-	}
-
-	@Override
-	public void init(double targetEpsilon, BigDecimal stabilityThreshold) {
+	public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
 
 		this.targetEpsilon = targetEpsilon;
-		this.upperBoundThreshold = stabilityThreshold;
-		
+
 		status = Status.Estimating;
 		values = Values.makeFullRange();
 
-		// NOTE: don't use DEE with this pfunc calculator
-		// DEE actually makes the problem harder to solve, not easier
-		// because then we have to deal with p*
-		// if we just don't prune with DEE, the usual q' calculator will handle those confs that would have been pruned
-		// not using DEE won't really slow us down either, since our A* is fast enough without it
+		// don't explicitly check the pruned confs, just lump them together with the un-enumerated confs
 		values.pstar = BigDecimal.ZERO;
 
 		// split the confs between the bound calculators
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch);
+		ConfSearch.MultiSplitter confsSplitter = new ConfSearch.MultiSplitter(confSearch);
 		lowerBound = new LowerBoundCalculator(confsSplitter.makeStream(), ecalc);
 		lowerBound.confDB = confDB;
-		upperBound = new UpperBoundCalculator(confsSplitter.makeStream());
+		upperBound = new UpperBoundCalculator(confsSplitter.makeStream(), numConfsBeforePruning);
+	}
+
+	@Override
+	public void setStabilityThreshold(BigDecimal val) {
+		this.stabilityThreshold = val;
 	}
 
 	@Override
@@ -145,7 +171,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 			synchronized (this) {
 
 				// did we drop below the stability threshold?
-				if (lowerBound.numConfsEnergied > 0 && upperBoundThreshold != null && MathTools.isLessThan(values.calcUpperBound(), upperBoundThreshold)) {
+				if (lowerBound.numConfsEnergied > 0 && stabilityThreshold != null && MathTools.isLessThan(values.calcUpperBound(), stabilityThreshold)) {
 					status = Status.Unstable;
 					break;
 				}
@@ -194,10 +220,10 @@ public class SimplePartitionFunction implements PartitionFunction {
 				// report progress if needed
 				if (isReportingProgress) {
 					System.out.println(String.format("conf:%4d, score:%12.6f, energy:%12.6f, q*:%12e, q':%12e, epsilon:%.6f, time:%10s, heapMem:%s, extMem:%s",
-						lowerBound.numConfsEnergied, econf.getScore(), econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
-						stopwatch.getTime(2),
-						JvmMem.getOldPool(),
-						ExternalMemory.getUsageReport()
+							lowerBound.numConfsEnergied, econf.getScore(), econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
+							stopwatch.getTime(2),
+							JvmMem.getOldPool(),
+							ExternalMemory.getUsageReport()
 					));
 				}
 
@@ -212,11 +238,11 @@ public class SimplePartitionFunction implements PartitionFunction {
 				case OutOfConfs:
 					status = Status.OutOfConformations;
 					lowerBound.waitForFinish();
-				break;
+					break;
 				case OutOfLowEnergies:
 					status = Status.OutOfLowEnergies;
 					lowerBound.waitForFinish();
-				break;
+					break;
 			}
 
 			// make sure the lower bound calc doesn't get ahead of the upper bound calc
@@ -228,10 +254,10 @@ public class SimplePartitionFunction implements PartitionFunction {
 				// make sure it's even possible for the upper bound calculator to score more confs
 				if (upperBound.numScoredConfs <= oldNum) {
 					throw new Error(String.format(
-						"The lower bound calculator apparently scored more conformations (%d) than is possible"
-						+ " for the upper bound calculator (%s). This is definitely a bug",
-						lowerBound.numConfsScored,
-						confSearch.getNumConformations().toString()
+							"The lower bound calculator apparently scored more conformations (%d) than is possible"
+									+ " for the upper bound calculator (%s). This is definitely a bug",
+							lowerBound.numConfsScored,
+							upperBound.tree.getNumConformations().toString()
 					));
 				}
 			}
@@ -251,7 +277,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 		// sometimes extra energies can arrive asynchronously
 		// and push us into unstable territory,
 		// so check for that after waiting on the ecalc to finish
-		if (status != Status.Unstable && upperBoundThreshold != null && MathTools.isLessThan(values.calcUpperBound(), upperBoundThreshold)) {
+		if (status != Status.Unstable && stabilityThreshold != null && MathTools.isLessThan(values.calcUpperBound(), stabilityThreshold)) {
 			status = Status.Unstable;
 		}
 	}

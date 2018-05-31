@@ -5,13 +5,12 @@
  */
 package edu.duke.cs.osprey.bbfree;
 
-import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleMatrix2D;
 import cern.colt.matrix.linalg.Algebra;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
+
 import java.io.Serializable;
 
 /**

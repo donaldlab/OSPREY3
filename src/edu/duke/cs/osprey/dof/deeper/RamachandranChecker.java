@@ -17,9 +17,6 @@ import java.util.StringTokenizer;
  */
 
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.FileTools;
-import edu.duke.cs.osprey.tools.Protractor;
-
 
 
 public class RamachandranChecker {

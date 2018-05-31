@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import edu.duke.cs.osprey.tools.FileTools.ResourcePathRoot;
 import jcuda.Pointer;
 import jcuda.driver.CUcontext;
 import jcuda.driver.CUctx_flags;

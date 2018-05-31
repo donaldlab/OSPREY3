@@ -15,7 +15,6 @@ import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class BenchmarkEmat extends TestBase {

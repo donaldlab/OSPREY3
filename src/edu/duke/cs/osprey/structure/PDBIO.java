@@ -6,14 +6,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
 
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.control.Main;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.kstar.SequenceAnalyzer;
 import org.apache.commons.lang3.text.WordUtils;
 
 import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
-import edu.duke.cs.osprey.tools.FileTools;
 
 /**
  * this is a clean PDB reader that doesn't know anything about templates or bonds

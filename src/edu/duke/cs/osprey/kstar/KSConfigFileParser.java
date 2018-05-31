@@ -49,8 +49,6 @@ import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.ObjectIO;
-import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class KSConfigFileParser extends ConfigFileParser implements Serializable {

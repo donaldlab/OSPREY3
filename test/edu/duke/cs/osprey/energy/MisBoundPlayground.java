@@ -12,8 +12,6 @@ import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.FileTools;
-import edu.duke.cs.osprey.tools.Progress;
 
 import java.io.File;
 import java.io.FileWriter;

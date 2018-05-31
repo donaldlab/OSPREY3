@@ -11,8 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.RunState;
-import edu.duke.cs.osprey.tools.ExpFunction;
-import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
  * 

@@ -18,7 +18,6 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 import org.apache.commons.collections4.map.LinkedMap;
 

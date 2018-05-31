@@ -5,14 +5,6 @@
  */
 package edu.duke.cs.osprey.bbfree;
 
-import cern.colt.matrix.DoubleFactory2D;
-import cern.colt.matrix.DoubleMatrix2D;
-import edu.duke.cs.osprey.dof.deeper.perts.TripeptideClosure;
-import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  *
  * Sample conformations of a loop within a voxel, CA to CA flexible)

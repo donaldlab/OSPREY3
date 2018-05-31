@@ -22,7 +22,6 @@ import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class TestMinimizationStability extends TestBase {

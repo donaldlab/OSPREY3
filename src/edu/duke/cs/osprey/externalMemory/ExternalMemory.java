@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.externalMemory;
 
-import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.tpie.TPIE;
 
 import java.io.File;

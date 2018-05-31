@@ -1,16 +1,18 @@
 package edu.duke.cs.osprey.ewakstar;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PfuncSurface;
-import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.JvmMem;
 import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.math.BigDecimal;
@@ -37,7 +39,7 @@ import java.util.List;
  * not orders of magnitude slower than operation 1 (when e.g. we're reading
  * energies out of a cache).
  */
-public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.WithConfTable {
+public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.WithConfTable, EWAKStarPartitionFunction.WithExternalMemory {
 
 	private static class State {
 
@@ -119,22 +121,22 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 			return calcDelta() <= targetEpsilon;
 		}
 
-		boolean isStable(BigDecimal stabilityThreshold) {
-			return numEnergiedConfs <= 0 || stabilityThreshold == null || MathTools.isGreaterThanOrEqual(getUpperBound(), stabilityThreshold);
-		}
+        boolean isStable(BigDecimal stabilityThreshold) {
+            return numEnergiedConfs <= 0 || stabilityThreshold == null || MathTools.isGreaterThanOrEqual(getUpperBound(), stabilityThreshold);
+        }
 
-		boolean hasLowEnergies() {
-			return MathTools.isGreaterThan(minLowerScoreWeight,  BigDecimal.ZERO);
-		}
+        boolean hasLowEnergies() {
+            return MathTools.isGreaterThan(minLowerScoreWeight,  BigDecimal.ZERO);
+        }
 
-		@Override
-		public String toString() {
-			return String.format("upper: count %d  sum %e  min %e     lower: count %d  score sum %e  energy sum %e",
-				numScoredConfs, upperScoreWeightSum, minUpperScoreWeight,
-				numEnergiedConfs, lowerScoreWeightSum, energyWeightSum
-			);
-		}
-	}
+        @Override
+        public String toString() {
+            return String.format("upper: count %d  sum %e  min %e     lower: count %d  score sum %e  energy sum %e",
+                    numScoredConfs, upperScoreWeightSum, minUpperScoreWeight,
+                    numEnergiedConfs, lowerScoreWeightSum, energyWeightSum
+            );
+        }
+    }
 
 	private static enum Step {
 		None,
@@ -149,7 +151,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 	private double targetEpsilon = Double.NaN;
 	private double targetEnergy = 0.0;
 	private BigDecimal stabilityThreshold = null;
-	private ConfListener confListener = null;
+	private EWAKStarPartitionFunction.ConfListener confListener = null;
 	private boolean isReportingProgress = false;
 	private Stopwatch stopwatch = new Stopwatch().start();
 	private ConfSearch scoreConfs = null;
@@ -162,8 +164,13 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 	private boolean hasEnergyConfs = true;
 	private boolean hasScoreConfs = true;
+    private long numEnergyConfsEnumerated = 0;
+    private long numScoreConfsEnumerated = 0;
 
 	private ConfDB.ConfTable confTable = null;
+
+    private boolean useExternalMemory = false;
+    private RCs rcs = null;
 
 	private PfuncSurface surf = null;
 	private PfuncSurface.Trace trace = null;
@@ -172,53 +179,55 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 		this.confSearch = confSearch;
 		this.ecalc = ecalc;
 	}
-	
-	@Override
-	public void setReportProgress(boolean val) {
-		isReportingProgress = val;
-	}
-	
-	@Override
-	public void setConfListener(ConfListener val) {
-		confListener = val;
-	}
-	
-	@Override
-	public Status getStatus() {
-		return status;
-	}
-	
-	@Override
-	public Values getValues() {
-		return values;
-	}
-	
-	@Override
-	public int getNumConfsEvaluated() {
-		return state.numEnergiedConfs;
-	}
-	
-	@Override
-	public int getParallelism() {
-		return ecalc.tasks.getParallelism();
-	}
+
+    @Override
+    public void setReportProgress(boolean val) {
+        isReportingProgress = val;
+    }
+
+    @Override
+    public void setConfListener(EWAKStarPartitionFunction.ConfListener val) {
+        confListener = val;
+    }
+
+    @Override
+    public Status getStatus() {
+        return status;
+    }
+
+    @Override
+    public Values getValues() {
+        return values;
+    }
+
+    @Override
+    public int getNumConfsEvaluated() {
+        // TODO: this might overflow for big pfunc calculations, upgrade the interface type?
+        return (int)state.numEnergiedConfs;
+    }
+
+    @Override
+    public int getParallelism() {
+        return ecalc.tasks.getParallelism();
+    }
+
+    @Override
+    public void setConfTable(ConfDB.ConfTable val) {
+        confTable = val;
+    }
+
+    @Override
+    public void setUseExternalMemory(boolean val, RCs rcs) {
+        this.useExternalMemory = val;
+        this.rcs = rcs;
+    }
+
+    public void traceTo(PfuncSurface val) {
+        surf = val;
+    }
 
 	@Override
-	public void setConfTable(ConfDB.ConfTable val) {
-		confTable = val;
-	}
-
-	public void traceTo(PfuncSurface val) {
-		surf = val;
-	}
-
-	@Override
-	public void init(double targetEnergy, double targetEpsilon, int maxPFConfs) {
-		init(targetEpsilon, targetEpsilon, maxPFConfs, BigDecimal.ZERO);
-	}
-
-	@Override
-	public void init(double targetEnergy, double targetEpsilon, int maxPFConfs, BigDecimal stabilityThreshold) {
+	public void init(double targetEnergy, double targetEpsilon, BigDecimal stabilityThreshold, BigInteger numConfsBeforePruning) {
 
 		if (targetEpsilon <= 0.0 || targetEnergy < 0) {
 			throw new IllegalArgumentException("target epsilon and target energy must be greater than zero");
@@ -229,9 +238,9 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 		this.stabilityThreshold = stabilityThreshold;
 
 		// init state
-		status = Status.Estimating;
-		state = new State(confSearch.getNumConformations());
-		values = Values.makeFullRange();
+		status = EWAKStarPartitionFunction.Status.Estimating;
+        state = new EWAKStarGradientDescentPfunc.State(numConfsBeforePruning);
+		values = EWAKStarPartitionFunction.Values.makeFullRange();
 		// NOTE: don't use DEE with this pfunc calculator
 		// DEE actually makes the problem harder to solve, not easier
 		// because then we have to deal with p*
@@ -241,15 +250,17 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 		hasEnergyConfs = true;
 		hasScoreConfs = true;
+        numEnergyConfsEnumerated = 0;
+        numScoreConfsEnumerated = 0;
 
 		// split the confs between the upper and lower bounds
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch);
-		scoreConfs = confsSplitter.makeStream();
-		energyConfs = confsSplitter.makeStream();
+		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch, useExternalMemory, rcs);
+		scoreConfs = confsSplitter.first;
+		energyConfs = confsSplitter.second;
 	}
 
 	@Override
-	public void compute(int maxNumConfs, Sequence curSeq) {
+	public void compute(int maxNumConfs) {
 
 		if (status == null) {
 			throw new IllegalStateException("pfunc was not initialized. Call init() before compute()");
@@ -283,7 +294,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 					break;
 				}
 
-				boolean scoreAheadOfEnergy = state.numEnergiedConfs < state.numScoredConfs;
+				boolean scoreAheadOfEnergy = numEnergyConfsEnumerated < numScoreConfsEnumerated;
 				boolean energySteeperThanScore = state.dEnergy <= state.dScore;
 
 				if (hasEnergyConfs && ((scoreAheadOfEnergy && energySteeperThanScore) || !hasScoreConfs)) {
@@ -308,6 +319,9 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 					// get the next energy conf, if any
 					ConfSearch.ScoredConf conf = energyConfs.nextConf();
+                    if (conf != null) {
+                        numEnergyConfsEnumerated++;
+                    }
 					if (conf == null || conf.getScore() == Double.POSITIVE_INFINITY) {
 						hasEnergyConfs = false;
 						keepStepping = false;
@@ -323,21 +337,21 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 						Stopwatch stopwatch = new Stopwatch();
 					}
 
-					ecalc.tasks.submit(
-						() -> {
-							// compute one energy and weights (and time it)
-							EnergyResult result = new EnergyResult();
-							result.stopwatch.start();
-							result.econf = ecalc.calcEnergy(conf, confTable);
-							result.scoreWeight = bcalc.calc(result.econf.getScore());
-							result.energyWeight = bcalc.calc(result.econf.getEnergy());
-							result.stopwatch.stop();
-							return result;
-						},
-						(result) -> {
-							onEnergy(result.econf, result.scoreWeight, result.energyWeight, result.stopwatch.getTimeS());
-						}
-					);
+                    ecalc.tasks.submit(
+                            () -> {
+                                // compute one energy and weights (and time it)
+                                EnergyResult result = new EnergyResult();
+                                result.stopwatch.start();
+                                result.econf = ecalc.calcEnergy(conf, confTable);
+                                result.scoreWeight = bcalc.calc(result.econf.getScore());
+                                result.energyWeight = bcalc.calc(result.econf.getEnergy());
+                                result.stopwatch.stop();
+                                return result;
+                            },
+                            (result) -> {
+                                onEnergy(result.econf, result.scoreWeight, result.energyWeight, result.stopwatch.getTimeS());
+                            }
+                    );
 
 					break;
 				}
@@ -350,6 +364,9 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 						// get the next score conf, if any
 						ConfSearch.ScoredConf conf = scoreConfs.nextConf();
+                        if (conf != null) {
+                            numScoreConfsEnumerated++;
+                        }
 						if (conf == null || conf.getScore() == Double.POSITIVE_INFINITY) {
 							hasScoreConfs = false;
 							break;
@@ -363,21 +380,21 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 						Stopwatch stopwatch = new Stopwatch();
 					}
 
-					ecalc.tasks.submit(
-						() -> {
-							// compute the weights (and time it)
-							ScoreResult result = new ScoreResult();
-							result.stopwatch.start();
-							for (ConfSearch.ScoredConf conf : confs) {
-								result.scoreWeights.add(bcalc.calc(conf.getScore()));
-							}
-							result.stopwatch.stop();
-							return result;
-						},
-						(result) -> {
-							onScores(result.scoreWeights, result.stopwatch.getTimeS());
-						}
-					);
+                    ecalc.tasks.submit(
+                            () -> {
+                                // compute the weights (and time it)
+                                ScoreResult result = new ScoreResult();
+                                result.stopwatch.start();
+                                for (ConfSearch.ScoredConf conf : confs) {
+                                    result.scoreWeights.add(bcalc.calc(conf.getScore()));
+                                }
+                                result.stopwatch.stop();
+                                return result;
+                            },
+                            (result) -> {
+                                onScores(result.scoreWeights, result.stopwatch.getTimeS());
+                            }
+                    );
 
 					break;
 				}
@@ -393,11 +410,11 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 		ecalc.tasks.waitForFinish();
 
 		// update the pfunc values from the state
-		values.qstar = state.getLowerBound();
-		values.qprime = new BigMath(PartitionFunction.decimalPrecision)
-			.set(state.getUpperBound())
-			.sub(state.getLowerBound())
-			.get();
+        values.qstar = state.getLowerBound();
+        values.qprime = new BigMath(PartitionFunction.decimalPrecision)
+                .set(state.getUpperBound())
+                .sub(state.getLowerBound())
+                .get();
 
 		// we stopped stepping, all the score and energies are accounted for,
 		// so update the pfunc status now
@@ -405,22 +422,22 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 		// did we run out of low energies?
 		if (!state.hasLowEnergies()) {
-			status = Status.OutOfLowEnergies;
+			status = EWAKStarPartitionFunction.Status.OutOfLowEnergies;
 		}
 
 		// did we run out of conformations?
 		if (!hasEnergyConfs) {
-			status = Status.OutOfConformations;
+			status = EWAKStarPartitionFunction.Status.OutOfConformations;
 		}
 
 		// did we hit the epsilon target?
 		if (state.epsilonReached(targetEpsilon) || state.energyWindowMet || state.numEnergiedConfs == maxNumConfs) {
-			status = Status.Estimated;
+			status = EWAKStarPartitionFunction.Status.Estimated;
 		}
 
 		// did we drop below the stability threshold?
 		if (!state.isStable(stabilityThreshold)) {
-			status = Status.Unstable;
+			status = EWAKStarPartitionFunction.Status.Unstable;
 		}
 	}
 
@@ -454,16 +471,16 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 			state.dScore *= 2.0;
 
 			// report progress if needed
-			if (isReportingProgress) {
-				System.out.println(String.format("conf:%4d, score:%12.6f, energy:%12.6f, bounds:[%12e,%12e], delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
-					state.numEnergiedConfs,
-					econf.getScore(), econf.getEnergy(),
-					state.getLowerBound(), state.getUpperBound(),
-					state.calcDelta(),
-					stopwatch.getTime(2),
-					JvmMem.getOldPool(),
-					ExternalMemory.getUsageReport()
-				));
+            if (isReportingProgress) {
+                System.out.println(String.format("conf:%4d, score:%12.6f, energy:%12.6f, bounds:[%12e,%12e], delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
+                        state.numEnergiedConfs,
+                        econf.getScore(), econf.getEnergy(),
+                        state.getLowerBound().doubleValue(), state.getUpperBound().doubleValue(),
+                        state.calcDelta(),
+                        stopwatch.getTime(2),
+                        JvmMem.getOldPool(),
+                        ExternalMemory.getUsageReport()
+                ));
 			}
 
 			// update the trace if needed

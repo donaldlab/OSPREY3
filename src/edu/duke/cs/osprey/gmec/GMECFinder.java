@@ -55,8 +55,6 @@ import edu.duke.cs.osprey.partcr.PartCRConfPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.Progress;
-import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
  *

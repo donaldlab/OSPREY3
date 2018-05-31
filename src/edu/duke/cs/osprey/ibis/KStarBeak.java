@@ -13,13 +13,10 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.TupleEnumerator;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.plug.PolytopeMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Random;
 

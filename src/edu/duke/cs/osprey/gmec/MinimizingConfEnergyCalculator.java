@@ -17,7 +17,6 @@ import edu.duke.cs.osprey.minimization.GpuConfMinimizer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.tools.Factory;
 
 /** Use the new MinimizingEnergyCalculator instead. Of course, that means you need to switch to the new SimpleConfSpace too. */
 @Deprecated

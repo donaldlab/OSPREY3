@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.minimization;
 
 import cern.colt.matrix.DoubleFactory1D;
@@ -9,14 +41,14 @@ import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 
 public class MoleculeObjectiveFunction implements ObjectiveFunction {
-	
+
 	private static final long serialVersionUID = -5301575611582359731L;
-	
+
 	public final ParametricMolecule pmol;
 	public final EnergyFunction efunc;
 	public final List<EnergyFunction> efuncsByDof;
 	public final DoubleMatrix1D curDOFVals;
-	
+
 	public MoleculeObjectiveFunction(ParametricMolecule pmol, EnergyFunction efunc) {
 		this.pmol = pmol;
 		this.efunc = efunc;
@@ -33,7 +65,7 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 			efuncsByDof = null;
 		}
 	}
-	
+
 	/**
 	 * transition adapter, only here temporarily
 	 */
@@ -45,8 +77,8 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 		for (int d=0; d<pmol.dofs.size(); d++) {
 			efuncsByDof.add(mof.getEfunc(d));
 		}
-                curDOFVals = mof.curDOFVals;//since the molecules are not deep-copied,
-                //the DOF values shouldn't be either
+		curDOFVals = mof.curDOFVals;//since the molecules are not deep-copied,
+		//the DOF values shouldn't be either
 	}
 
 	public EnergyFunction getEfunc(int d) {
@@ -68,7 +100,7 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 
 	@Override
 	public void setDOF(int d, double val) {
-                curDOFVals.set(d, val);
+		curDOFVals.set(d, val);
 		pmol.dofs.get(d).apply(val);
 	}
 
@@ -77,13 +109,13 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 		setDOF(d, val);
 		return getEfunc(d).getEnergy();
 	}
-	
+
 	@Override
 	public void setDOFs(DoubleMatrix1D x) {
-                curDOFVals.assign(x);
+		curDOFVals.assign(x);
 		for (int d=0; d<x.size(); d++) {
 			pmol.dofs.get(d).apply(x.get(d));
-                        //handleBlocksTogetherMaybe();//DEBUG!!!
+			//handleBlocksTogetherMaybe();//DEBUG!!!
 		}
 	}
 

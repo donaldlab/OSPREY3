@@ -12,7 +12,7 @@ import cern.colt.matrix.linalg.Algebra;
 import cern.jet.math.Functions;
 import edu.duke.cs.osprey.ematrix.epic.SeriesFitter;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
+
 import java.util.ArrayList;
 import java.util.List;
 

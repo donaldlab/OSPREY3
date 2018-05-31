@@ -8,7 +8,6 @@ import java.util.LinkedHashSet;
 
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
-import edu.duke.cs.osprey.tools.ObjectIO;
 
 public class KSAllowedSeqs {
 

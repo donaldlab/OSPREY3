@@ -12,7 +12,6 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
 import java.util.List;

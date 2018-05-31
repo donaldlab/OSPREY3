@@ -11,7 +11,6 @@ import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
-import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
  * 

@@ -14,8 +14,6 @@ import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
-import edu.duke.cs.osprey.tools.ObjectPool.Checkout;
-import edu.duke.cs.osprey.tools.Progress;
 
 @Deprecated
 public abstract class SimpleEnergyMatrixCalculator {

@@ -17,7 +17,6 @@ import edu.duke.cs.osprey.partcr.scorers.RCScorer;
 import edu.duke.cs.osprey.partcr.scorers.VolumeRCScorer;
 import edu.duke.cs.osprey.partcr.splitters.NAryRCSplitter;
 import edu.duke.cs.osprey.partcr.splitters.RCSplitter;
-import edu.duke.cs.osprey.tools.TimeFormatter;
 
 public class PartCR {
 	

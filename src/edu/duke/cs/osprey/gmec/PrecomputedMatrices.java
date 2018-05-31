@@ -8,12 +8,8 @@ package edu.duke.cs.osprey.gmec;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TupleEnumerator;
 import edu.duke.cs.osprey.confspace.TupleMatrix;
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.NewEPICMatrixCalculator;
-import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.ematrix.epic.NewEPICMatrix;
@@ -21,17 +17,12 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.pruning.NewPruner;
 import edu.duke.cs.osprey.pruning.NewPruningControl;
-import edu.duke.cs.osprey.pruning.Pruner;
-import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tupexp.BasicEPICTupleExpander;
-import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 import edu.duke.cs.osprey.tupexp.NewConfETupleExpander;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;
 import edu.duke.cs.osprey.tupexp.TupleExpander;
-import edu.duke.cs.osprey.voxq.VoxelGCalculator;
 
 /**
  *

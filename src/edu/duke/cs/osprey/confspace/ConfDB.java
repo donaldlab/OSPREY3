@@ -2,7 +2,6 @@ package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.tools.IntEncoding;
 import edu.duke.cs.osprey.tools.Streams;
-
 import edu.duke.cs.osprey.tools.UnpossibleError;
 import org.jetbrains.annotations.NotNull;
 import org.mapdb.*;

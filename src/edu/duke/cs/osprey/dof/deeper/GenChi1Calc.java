@@ -8,7 +8,6 @@ package edu.duke.cs.osprey.dof.deeper;
 import edu.duke.cs.osprey.dof.DihedralRotation;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.Protractor;
 
 /**
  *

@@ -49,8 +49,6 @@ import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.gmec.GMECConfEnergyCalculator.Async;
 import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.ObjectIO;
-import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
  * @author Adegoke Ojewole (ao68@duke.edu)

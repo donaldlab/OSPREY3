@@ -5,8 +5,6 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
-import edu.duke.cs.osprey.tools.MathTools;
-import edu.duke.cs.osprey.tools.TimeTools;
 
 import java.math.BigDecimal;
 

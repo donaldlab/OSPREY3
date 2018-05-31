@@ -5,7 +5,6 @@ import static org.hamcrest.Matchers.*;
 
 import java.io.File;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -14,7 +13,6 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
-import edu.duke.cs.osprey.tools.MathTools;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -34,8 +32,6 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.HashCalculator;
-import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class TestBase {

@@ -30,10 +30,6 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.Factory;
-import edu.duke.cs.osprey.tools.ObjectIO;
-import edu.duke.cs.osprey.tools.Stopwatch;
-import edu.duke.cs.osprey.tools.TimeFormatter;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 @SuppressWarnings("unused")

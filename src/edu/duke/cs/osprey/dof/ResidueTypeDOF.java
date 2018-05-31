@@ -17,7 +17,6 @@ import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.RigidBodyMotion;
 
 /**
  *

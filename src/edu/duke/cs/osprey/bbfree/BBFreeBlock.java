@@ -11,7 +11,6 @@ import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleMatrix2D;
 import cern.colt.matrix.linalg.Algebra;
 import cern.colt.matrix.linalg.SingularValueDecomposition;
-import cern.jet.math.Functions;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DOFBlock;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
@@ -20,8 +19,7 @@ import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
 import edu.duke.cs.osprey.ematrix.epic.SeriesFitter;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.RigidBodyMotion;
-import edu.duke.cs.osprey.tools.RotationMatrix;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;

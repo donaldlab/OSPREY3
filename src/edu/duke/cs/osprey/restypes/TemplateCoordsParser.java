@@ -2,8 +2,6 @@ package edu.duke.cs.osprey.restypes;
 
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.FileTools;
-import edu.duke.cs.osprey.tools.StringParsing;
 
 import java.util.ArrayList;
 import java.util.Iterator;

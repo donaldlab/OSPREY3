@@ -6,11 +6,7 @@
 package edu.duke.cs.osprey;
 
 
-import org.junit.BeforeClass;
 import org.junit.Test;
-
-import edu.duke.cs.osprey.tools.RigidBodyMotion;
-import edu.duke.cs.osprey.tools.RotationMatrix;
 
 /**
  *
