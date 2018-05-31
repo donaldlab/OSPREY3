@@ -47,7 +47,7 @@ public class TestMARKStar {
     public void testMARKStarZeroEpsilon() {
 	    int numFlex = 8;
         List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, 0.68);
-        List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, 0.68);
+		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, 0.68);
         for(MARKStar.ScoredSequence seq: markStarSeqs)
         {
             printMARKStarComputationStats(seq);
@@ -86,7 +86,7 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        runMARKStar(10, 0.68);
+        runMARKStar(15, 0.68);
 
     }
 
@@ -131,8 +131,14 @@ public class TestMARKStar {
 					.setTraditional()
 					.build();
 		};
-		MARKStar.Settings settings = new MARKStar.Settings.Builder().setEpsilon(epsilon).setEnergyMatrixCachePattern("*testmat.emat").setShowPfuncProgress(true).build();
-		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
+		MARKStar.Settings settings = new MARKStar.Settings.Builder()
+				.setEpsilon(epsilon)
+				.setEnergyMatrixCachePattern("*testmat.emat")
+				.setShowPfuncProgress(true)
+                .setParallelism(parallelism)
+				.build();
+		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand,
+				confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
 		return run.run();
 	}
 

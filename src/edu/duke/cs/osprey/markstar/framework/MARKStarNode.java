@@ -26,7 +26,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;
     private static AStarScorer negatedHScorer;
-    private static final double minimizationRatio = 0.0001;//0.0000001;
+    private static final double minimizationRatio = 0.000001;//0.0000001;
     private boolean updated = true;
     /**
      * TODO: 1. Make MARKStarNodes spawn their own Node and MARKStarNode children.
