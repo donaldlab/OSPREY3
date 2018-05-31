@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.markstar.framework;
 
+import edu.duke.cs.osprey.astar.AStarProgress;
 import edu.duke.cs.osprey.astar.conf.*;
 import edu.duke.cs.osprey.astar.conf.linked.LinkedConfAStarFactory;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
@@ -48,6 +49,7 @@ public class MARKStarBound implements PartitionFunction {
     private int numConfsScored = 0;
 
     private boolean printMinimizedConfs;
+    private AStarProgress progress;
 
     // Overwrite the computeUpperBound and computeLowerBound methods
     public static class Values extends PartitionFunction.Values {
@@ -322,6 +324,7 @@ public class MARKStarBound implements PartitionFunction {
             return context;
         });
 
+        progress = new AStarProgress(RCs.getNumPos());
         setParallelism(parallelism);
     }
 
@@ -489,6 +492,7 @@ public class MARKStarBound implements PartitionFunction {
                                 MARKStarNodeChild.computeEpsilonErrorBounds();
 
                         }
+                        progress.reportInternalNode(child.level,child.gscore, child.getHScore(), queue.size(), children.size());
                         curNode.markUpdated();
                     });
                 }
@@ -504,6 +508,7 @@ public class MARKStarBound implements PartitionFunction {
         double curEpsilon = epsilonBound;
         epsilonBound = rootNode.computeEpsilonErrorBounds();
         debugEpsilon(curEpsilon);
+        System.out.println("Current epsilon:"+epsilonBound);
     }
 
     private boolean hasPrunedPair(ConfIndex confIndex, int nextPos, int nextRc) {
