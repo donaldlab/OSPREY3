@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -98,6 +99,9 @@ public class MARKStar {
 			 */
 			private String energyMatrixCachePattern = null;
 
+			private Parallelism parallelism = null;
+			private int maxNumConfs = -1;
+
 			public Builder setEpsilon(double val) {
 				epsilon = val;
 				return this;
@@ -147,8 +151,18 @@ public class MARKStar {
 				return this;
 			}
 
+			public Builder setParallelism(Parallelism p) {
+				parallelism = p;
+				return this;
+			}
+
+			public void setMaxNumConfs(int maxNumConfs) {
+				this.maxNumConfs = maxNumConfs;
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, energyMatrixCachePattern);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters,
+						showPfuncProgress, energyMatrixCachePattern, parallelism, maxNumConfs);
 			}
 		}
 
@@ -158,14 +172,20 @@ public class MARKStar {
 		public final KStarScoreWriter.Writers scoreWriters;
 		public final boolean showPfuncProgress;
 		public final String energyMatrixCachePattern;
+		public final Parallelism parallelism;
+		public final int maxNumConfs;
 
-		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern) {
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations,
+						KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern,
+						Parallelism parallelism, int maxNumConfs) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
 			this.scoreWriters = scoreWriters;
 			this.showPfuncProgress = dumpPfuncConfs;
 			this.energyMatrixCachePattern = energyMatrixCachePattern;
+			this.parallelism = parallelism;
+			this.maxNumConfs = maxNumConfs;
 		}
 
 		public String applyEnergyMatrixCachePattern(String type) {
@@ -250,7 +270,10 @@ public class MARKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs());
+			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(),
+					settings.parallelism);
+			if(settings.maxNumConfs > 0)
+				pfunc.setMaxNumConfs(settings.maxNumConfs);
 			pfunc.setReportProgress(settings.showPfuncProgress);
 
 			if (settings.showPfuncProgress == true){
