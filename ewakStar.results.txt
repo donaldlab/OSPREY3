@@ -1,1 +1,0 @@
-Seq ID	Sequence	K* Score (Log10)	K* Lower Bound	K* Upper Bound	Total # Confs.	Complex Partition Function	Complex Epsilon	Complex # Confs.	Protein Partition Function	Protein Epsilon	Protein # Confs.	Ligand Partition Function	Ligand Epsilon	Ligand # Confs.	Time (sec)
