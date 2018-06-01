@@ -1,8 +1,35 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
  */
+
 package edu.duke.cs.osprey.dof.deeper;
 
 import java.util.Arrays;
@@ -10,13 +37,16 @@ import java.util.Iterator;
 import java.util.StringTokenizer;
 
 /**
- * 
+ *
  * This class checks backbone dihedrals against experimental Ramachandran-plot contours.
- * 
+ *
  * @author mhall44
  */
 
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.Protractor;
+
 
 
 public class RamachandranChecker {
@@ -37,7 +67,7 @@ public class RamachandranChecker {
     static double denCutoff = 0.02f;//Cutoff density for being allowed
 
     private RamachandranChecker() {
-        
+
     }
 
     public static RamachandranChecker getInstance() {
@@ -52,18 +82,18 @@ public class RamachandranChecker {
     public void readInputFiles(String glyText, String proText, String generalText, String preproText) {
 
         tables = new double[4][180][180];
-        
+
         String[] texts = { glyText, proText, generalText, preproText };
 
         for(int a=0;a<4;a++){
-        
+
             Iterator<String> lines = FileTools.parseLines(texts[a]).iterator();
 
             for(int phiBin=0; phiBin<180; phiBin++){
                 for(int psiBin=0; psiBin<180; psiBin++){
-                
+
                     String line = lines.next();
-                    
+
                     // skip comments
                     if (line.startsWith("#")) {
                         continue;
@@ -78,15 +108,15 @@ public class RamachandranChecker {
             }
         }
     }
-    
-    
+
+
     public boolean[] checkByAAType(Residue res){
         //Return the acceptability at {gly, pro, other AA types} of a given residue's BB dihedrals
-        
+
         boolean ans[] = new boolean[3];
 
         double phiPsi[] = getPhiPsi(res);
-        
+
         if(phiPsi==null){//undefined
             Arrays.fill(ans, true);//can't rule conformation out!
             return ans;
@@ -106,12 +136,12 @@ public class RamachandranChecker {
 
         if(phiPsi==null)//undefined
             return true;
-                    
+
         return checkAngles(phiPsi[0], phiPsi[1], 3);
     }
 
-    
-    //Returns {phi,psi} for the residue. 
+
+    //Returns {phi,psi} for the residue.
     public static double[] getPhiPsi(Residue res){
 
         double ans[] = new double[2];
@@ -120,20 +150,20 @@ public class RamachandranChecker {
         //return null (undefined) if can't find one or more atoms
         if(res.indexInMolecule==0 || res.indexInMolecule==res.molec.residues.size()-1)//first or last res
             return null;
-        
+
         Residue prevRes = res.molec.residues.get(res.indexInMolecule-1);
         Residue nextRes = res.molec.residues.get(res.indexInMolecule+1);
-        
-        
+
+
         double[] CLast = prevRes.getCoordsByAtomName("C");
         double[] NCur = res.getCoordsByAtomName("N");
         double[] CACur = res.getCoordsByAtomName("CA");
         double[] CCur = res.getCoordsByAtomName("C");
         double[] NNext = nextRes.getCoordsByAtomName("N");
-        
+
         if ( CLast==null || NCur==null || CACur==null || CCur==null || NNext==null )
             return null;//atom not found
-        
+
         ans[0] = Protractor.measureDihedral( new double[][] {CLast,NCur,CACur,CCur} );//phi
         ans[1] = Protractor.measureDihedral( new double[][] {NCur,CACur,CCur,NNext} );//psi
 
@@ -143,10 +173,10 @@ public class RamachandranChecker {
 
 
     public boolean checkAngles(double phi, double psi, int plotNum){
-        
+
         phi = getInRange(phi);
         psi = getInRange(psi);
-        
+
         int phiBin = (int)((phi+180)/2);
         int psiBin = (int)((psi+180)/2);
         double den = tables[plotNum][phiBin][psiBin];
@@ -156,7 +186,7 @@ public class RamachandranChecker {
             return false;
     }
 
-    
+
     double getInRange(double angle){
         //get angle in the range [-180,180), which is required for both phi and psi
         while(angle>=180)
@@ -167,5 +197,4 @@ public class RamachandranChecker {
     }
 
 
- }
-
+}

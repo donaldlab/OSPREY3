@@ -3,11 +3,9 @@ package edu.duke.cs.osprey.ewakstar;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
-import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PfuncSurface;
 import edu.duke.cs.osprey.tools.JvmMem;
@@ -226,8 +224,9 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
         surf = val;
     }
 
+
 	@Override
-	public void init(double targetEnergy, double targetEpsilon, BigDecimal stabilityThreshold, BigInteger numConfsBeforePruning) {
+	public void init(double targetEnergy, double targetEpsilon, BigInteger numConfsBeforePruning) {
 
 		if (targetEpsilon <= 0.0 || targetEnergy < 0) {
 			throw new IllegalArgumentException("target epsilon and target energy must be greater than zero");
@@ -235,7 +234,6 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 		this.targetEpsilon = targetEpsilon;
 		this.targetEnergy = targetEnergy;
-		this.stabilityThreshold = stabilityThreshold;
 
 		// init state
 		status = EWAKStarPartitionFunction.Status.Estimating;

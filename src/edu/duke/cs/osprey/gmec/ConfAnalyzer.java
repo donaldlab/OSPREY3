@@ -1,10 +1,41 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.gmec;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.confspace.ConfDB;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -44,26 +75,26 @@ public class ConfAnalyzer {
 			return new ResidueForcefieldBreakdown.ByPosition(confEcalc, assignments, epmol).breakdownForcefield(type);
 		}
 
-		public EnergyMatrix breakdownScoreByPosition() {
+		public EnergyMatrix breakdownScoreByPosition(EnergyMatrix emat) {
 			return new ResidueForcefieldBreakdown.ByPosition(confEcalc, assignments, epmol).breakdownScore(emat);
 		}
 
 		@Override
 		public String toString() {
 			return String.format(
-				  "Residues           %s\n"
-				+ "Sequence           %s\n"
-				+ "Rotamers           %s\n"
-				+ "Residue Conf IDs   %s\n"
-				+ "Energy             %-12.6f\n"
-				+ "Score              %-12.6f (gap: %.6f)\n",
-				confEcalc.confSpace.formatResidueNumbers(),
-				confEcalc.confSpace.formatConfSequence(assignments),
-				confEcalc.confSpace.formatConfRotamers(assignments),
-				SimpleConfSpace.formatConfRCs(assignments),
-				epmol.energy,
-				score,
-				epmol.energy - score
+					"Residues           %s\n"
+							+ "Sequence           %s\n"
+							+ "Rotamers           %s\n"
+							+ "Residue Conf IDs   %s\n"
+							+ "Energy             %-12.6f\n"
+							+ "Score              %-12.6f (gap: %.6f)\n",
+					confEcalc.confSpace.formatResidueNumbers(),
+					confEcalc.confSpace.formatConfSequence(assignments),
+					confEcalc.confSpace.formatConfRotamers(assignments),
+					SimpleConfSpace.formatConfRCs(assignments),
+					epmol.energy,
+					score,
+					epmol.energy - score
 			);
 		}
 	}
@@ -74,8 +105,8 @@ public class ConfAnalyzer {
 
 		public void writePdbs(String filePattern) {
 			List<EnergyCalculator.EnergiedParametricMolecule> epmols = analyses.stream()
-				.map((analysis) -> analysis.epmol)
-				.collect(Collectors.toList());
+					.map((analysis) -> analysis.epmol)
+					.collect(Collectors.toList());
 			PDBIO.writeEnsemble(epmols, filePattern);
 		}
 
@@ -108,31 +139,36 @@ public class ConfAnalyzer {
 
 
 	public final ConfEnergyCalculator confEcalc;
-	public final EnergyMatrix emat;
 
-	private final PairwiseGScorer gscorer;
-
-	public ConfAnalyzer(ConfEnergyCalculator confEcalc, EnergyMatrix emat) {
-
+	public ConfAnalyzer(ConfEnergyCalculator confEcalc) {
 		this.confEcalc = confEcalc;
-		this.emat = emat;
-
-		this.gscorer = new PairwiseGScorer(emat);
 	}
 
 	public ConfAnalysis analyze(ConfSearch.ScoredConf conf) {
 		return new ConfAnalysis(
-			conf.getAssignments(),
-			conf.getScore(),
-			confEcalc.calcEnergy(new RCTuple(conf.getAssignments()))
+				conf.getAssignments(),
+				conf.getScore(),
+				confEcalc.calcEnergy(new RCTuple(conf.getAssignments()))
 		);
 	}
 
 	public ConfAnalysis analyze(int[] assignments) {
 		return new ConfAnalysis(
-			assignments,
-			gscorer.calc(assignments),
-			confEcalc.calcEnergy(new RCTuple(assignments))
+				assignments,
+				Double.NaN,
+				confEcalc.calcEnergy(new RCTuple(assignments))
+		);
+	}
+
+	public ConfAnalysis analyze(int[] assignments, EnergyMatrix emat) {
+		return analyze(assignments, new PairwiseGScorer(emat));
+	}
+
+	public ConfAnalysis analyze(int[] assignments, AStarScorer scorer) {
+		return new ConfAnalysis(
+				assignments,
+				scorer.calc(Conf.index(assignments), new RCs(confEcalc.confSpace)),
+				confEcalc.calcEnergy(new RCTuple(assignments))
 		);
 	}
 
@@ -175,17 +211,17 @@ public class ConfAnalyzer {
 
 			// minimize the conf (asynchronously if possible)
 			confEcalc.tasks.submit(
-				() -> confEcalc.calcEnergy(new RCTuple(conf.getAssignments())),
-				(epmol) -> {
-					while (analysis.analyses.size() <= fi) {
-						analysis.analyses.add(null);
+					() -> confEcalc.calcEnergy(new RCTuple(conf.getAssignments())),
+					(epmol) -> {
+						while (analysis.analyses.size() <= fi) {
+							analysis.analyses.add(null);
+						}
+						analysis.analyses.set(fi, new ConfAnalysis(
+								conf.getAssignments(),
+								conf.getScore(),
+								epmol
+						));
 					}
-					analysis.analyses.set(fi, new ConfAnalysis(
-						conf.getAssignments(),
-						conf.getScore(),
-						epmol
-					));
-				}
 			);
 		}
 

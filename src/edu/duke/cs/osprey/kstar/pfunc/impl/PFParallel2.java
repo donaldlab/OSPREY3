@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.io.Serializable;
@@ -14,9 +46,10 @@ import edu.duke.cs.osprey.kstar.KSSearchProblem;
 import edu.duke.cs.osprey.kstar.KSPStarCalculator;
 import edu.duke.cs.osprey.kstar.KSQPrimeCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
+import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
- * 
+ *
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
@@ -32,10 +65,10 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 		super();
 	}
 
-	public PFParallel2( int strand, ArrayList<String> sequence, 
-			ArrayList<Integer> absolutePos, 
-			String checkPointPath, String reducedSPName, 
-			KSConfigFileParser cfp, KSSearchProblem panSP ) {
+	public PFParallel2( int strand, ArrayList<String> sequence,
+						ArrayList<Integer> absolutePos,
+						String checkPointPath, String reducedSPName,
+						KSConfigFileParser cfp, KSSearchProblem panSP ) {
 
 		super( strand, sequence, absolutePos, checkPointPath, reducedSPName, cfp, panSP );
 	}
@@ -64,10 +97,10 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 
 		return ans;
 	}
-	
-	
+
+
 	protected void appendSPs( ArrayList<KSSearchProblem> sps, KSSearchProblem sp, int target ) {
-		
+
 		while(sps.size() < target) {
 			KSSearchProblem newSP = (KSSearchProblem) ObjectIO.deepCopy(sp);
 			newSP.emat = sp.emat;
@@ -75,18 +108,18 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 			newSP.inverseMat = sp.inverseMat;
 			sps.add(newSP);
 		}
-		
+
 		sps.trimToSize();
 	}
 
 
 	protected void getSPs() {
-		
+
 		if(!strand2SPs.containsKey(strand))
 			strand2SPs.put(strand, parallelCreateSPs(panSP, PFAbstract.getNumThreads()));
-		
+
 		sps = strand2SPs.get(strand);
-		
+
 		// make sure sps are of the right size
 		if(sps.size() < PFAbstract.getNumThreads()) {
 			appendSPs(sps, panSP, PFAbstract.getNumThreads());
@@ -106,7 +139,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 
 			setRunState(RunState.STARTED);
 
-			if(canUseHotByManualSelection()) 
+			if(canUseHotByManualSelection())
 				createHotsFromCFG();
 
 			// set pstar
@@ -136,7 +169,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 			if(pStarCalculator != null) pStarCalculator.start();
 			qPrimeCalculator.start();
 			confsQ.start();
-			
+
 			if(!isContinuous() && isFullyDefined()) Thread.sleep(initSleepTime);
 
 		} catch(Exception ex) {
@@ -178,7 +211,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 			}
 
 			// minimization hapens here
-			accumulate(partialQConfs, false); 
+			accumulate(partialQConfs, false);
 
 			if( eAppx != EApproxReached.FALSE ) {
 				// we leave this function
@@ -188,9 +221,9 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 			}
 
 			resetSPs();
-			
+
 			exitIfTimeOut();
-			
+
 		} catch (InterruptedException ex) {
 			// something interrupted us because it wants us to stop,
 			// so throw an exception that no one's supposed to catch
@@ -210,7 +243,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 			if(canUseHotByConfError(peb)) tryHotForConf(partialQConfs.get(index), mefs.get(index));
 		}
 	}
-	
+
 
 	protected void accumulate( ArrayList<KSConf> partialQConfs, boolean energiesEvaluated ) {
 
@@ -226,7 +259,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 				KSConf conf = partialQConfs.get(i);
 
 				if( isContinuous() && isFullyDefined() ) {
-					MultiTermEnergyFunction mef = sps.get(i).decomposedEnergy(conf.getConfArray(), reducedSP.contSCFlex);
+					MultiTermEnergyFunction mef = sps.get(i).decompMinimizedEnergy(conf.getConfArray());
 					mefs.set(i, mef);
 					energy = mef.getPreCompE();
 				}
@@ -266,8 +299,8 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 
 			if( !PFAbstract.suppressOutput ) {
 				if( !printedHeader ) printHeader();
-				System.out.println(numberFormat.format(boundError) + "\t" + numberFormat.format(energy) + "\t" 
-						+ numberFormat.format(effectiveEpsilon) + "\t" + getNumProcessed() + "\t" 
+				System.out.println(numberFormat.format(boundError) + "\t" + numberFormat.format(energy) + "\t"
+						+ numberFormat.format(effectiveEpsilon) + "\t" + getNumProcessed() + "\t"
 						+ getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
 			}
 		}
@@ -275,7 +308,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 
 		// hot
-		if(canUseHotByConfError()) 
+		if(canUseHotByConfError())
 			tryHotForConfs(mefs);
 
 		// for partial sequences when doing KAstar

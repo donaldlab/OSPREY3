@@ -44,6 +44,7 @@ import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.StringParsing;
 
 /**
  * @author Adegoke Ojewole (ao68@duke.edu)
@@ -209,7 +210,7 @@ public class InputValidation {
 			}
 		}
 
-		//check that ubState limits are mutually exclusive 
+		//check that ubState limits are mutually exclusive
 		ArrayList<ArrayList<Integer>> ubStateLimits = new ArrayList<>();
 		for(int ubState=0;ubState<numUbStates;++ubState) {
 			st = new StringTokenizer(sParams.getValue("UBSTATELIMITS"+ubState));

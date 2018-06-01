@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.ewakstar;
 
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
 import java.util.function.Function;

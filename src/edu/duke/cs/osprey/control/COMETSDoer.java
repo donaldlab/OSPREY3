@@ -44,6 +44,8 @@ import edu.duke.cs.osprey.gmec.GMECFinder;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.FileTools.PathRoot;
+import edu.duke.cs.osprey.tools.StringParsing;
 
 /**
  *

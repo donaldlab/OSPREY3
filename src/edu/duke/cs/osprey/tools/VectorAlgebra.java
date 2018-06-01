@@ -1,34 +1,34 @@
 /*
-** This file is part of OSPREY 3.0
-** 
-** OSPREY Protein Redesign Software Version 3.0
-** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
-** 
-** OSPREY is free software: you can redistribute it and/or modify
-** it under the terms of the GNU General Public License version 2
-** as published by the Free Software Foundation.
-** 
-** You should have received a copy of the GNU General Public License
-** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
-** 
-** OSPREY relies on grants for its development, and since visibility
-** in the scientific literature is essential for our success, we
-** ask that users of OSPREY cite our papers. See the CITING_OSPREY
-** document in this distribution for more information.
-** 
-** Contact Info:
-**    Bruce Donald
-**    Duke University
-**    Department of Computer Science
-**    Levine Science Research Center (LSRC)
-**    Durham
-**    NC 27708-0129
-**    USA
-**    e-mail: www.cs.duke.edu/brd/
-** 
-** <signature of Bruce Donald>, Mar 1, 2018
-** Bruce Donald, Professor of Computer Science
-*/
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
 
 package edu.duke.cs.osprey.tools;
 
@@ -47,51 +47,51 @@ public class VectorAlgebra {
     public static double[] make() {
         return new double[3];
     }
-    
+
     public static double[] make(double[] src) {
         double[] out = make();
         copy(src, out);
         return out;
     }
-    
+
     public static void set(double[] out, double x, double y, double z) {
         out[0] = x;
         out[1] = y;
         out[2] = z;
     }
-    
+
     public static void copy(double[] src, double[] dest) {
         System.arraycopy(src, 0, dest, 0, 3);
     }
-   
+
     public static void copy(double[] src, int srcOffset, double[] dest) {
         System.arraycopy(src, srcOffset, dest, 0, 3);
     }
-    
+
     public static void copy(double[] src, double[] dest, int destOffset) {
         System.arraycopy(src, 0, dest, destOffset, 3);
     }
-    
+
     public static void copy(double[] src, DoubleBuffer dest, int destOffset) {
-    	copy(src, 0, dest, destOffset);
+        copy(src, 0, dest, destOffset);
     }
-    
+
     public static void copy(double[] src, int srcOffset, DoubleBuffer dest, int destOffset) {
-    	dest.position(destOffset);
-    	dest.put(src, srcOffset, 3);
+        dest.position(destOffset);
+        dest.put(src, srcOffset, 3);
     }
-    
+
     public static void copy(DoubleBuffer src, int srcOffset, double[] dest) {
-    	copy(src, srcOffset, dest, 0);
+        copy(src, srcOffset, dest, 0);
     }
-    
+
     public static void copy(DoubleBuffer src, int srcOffset, double[] dest, int destOffset) {
-    	src.position(srcOffset);
-    	dest[destOffset + 0] = src.get();
-    	dest[destOffset + 1] = src.get();
-    	dest[destOffset + 2] = src.get();
+        src.position(srcOffset);
+        dest[destOffset + 0] = src.get();
+        dest[destOffset + 1] = src.get();
+        dest[destOffset + 2] = src.get();
     }
-    
+
     public static double distance(double[] coords1, int atNum1, double[] coords2, int atNum2){
         //we're given two arrays of coordinates (concatenated 3-D coordinates of atoms)
         //get the distance between the atoms numbered atNum1 in coords1 and atNum2 in coords2
@@ -99,16 +99,16 @@ public class VectorAlgebra {
         double dy = coords1[3*atNum1+1] - coords2[3*atNum2+1];
         double dz = coords1[3*atNum1+2] - coords2[3*atNum2+2];
         double dist = Math.sqrt( dx*dx + dy*dy + dz*dz );
-        
+
         return dist;
     }
-    
-    
-    
-    
-    
+
+
+
+
+
     //A bunch of 3-D vector operations
-    
+
     //special case of distance for two 3-D vectors
     public static double distance(double[] vec1, double[] vec2){
         return distance(vec1,0,vec2,0);
@@ -133,7 +133,7 @@ public class VectorAlgebra {
         }
         return ans;
     }
-    
+
     public static void addInPlace(double[] a, double[] b) {
         a[0] += b[0];
         a[1] += b[1];
@@ -147,11 +147,11 @@ public class VectorAlgebra {
 
         return ans;
     }
-    
+
     public static void subtractInPlace(double[] a, double[] b) {
-       a[0] -= b[0];
-       a[1] -= b[1];
-       a[2] -= b[2];
+        a[0] -= b[0];
+        a[1] -= b[1];
+        a[2] -= b[2];
     }
 
 
@@ -192,15 +192,15 @@ public class VectorAlgebra {
         }
     }
 
-     public static double[] average(double v1[], double v2[]){//Average two vectors
-         return scale( add(v1,v2), 0.5f );
-     }
+    public static double[] average(double v1[], double v2[]){//Average two vectors
+        return scale( add(v1,v2), 0.5f );
+    }
 
 
     public static double[] normalize(double vec[]){
         return scale( vec, 1.0/norm(vec) );
     }
-    
+
     public static void normalizeInPlace(double v[]) {
         double length = norm(v);
         v[0] /= length;
@@ -209,16 +209,16 @@ public class VectorAlgebra {
     }
 
 
-        /**
-         * From KiNG's driftwood.r3.Builder:
-    * Given three points A, B, and C,
-    * construct a line segment from C to D
-    * of length len
-    * at angle ang to BC (in degrees, 0 to 180)
-    * and with a dihedral angle dihe to ABC (in degrees)
-    * return D
-    * Used in sidechain idealization
-    */
+    /**
+     * From KiNG's driftwood.r3.Builder:
+     * Given three points A, B, and C,
+     * construct a line segment from C to D
+     * of length len
+     * at angle ang to BC (in degrees, 0 to 180)
+     * and with a dihedral angle dihe to ABC (in degrees)
+     * return D
+     * Used in sidechain idealization
+     */
 
     public static double[] get4thPoint(double[] a, double[] b, double[] c, double len, double ang, double dihe)
     {
@@ -240,7 +240,7 @@ public class VectorAlgebra {
         return add(d,c);
     }
 
-    
+
 
     //Given three points of the form (x,y,z),
     //return the coefficients for z in terms of x and y
@@ -257,15 +257,15 @@ public class VectorAlgebra {
         coeffs[2] = ( (coord[0][2]-coord[1][2])*(coord[1][0]-coord[2][0])
                 - (coord[1][2]-coord[2][2])*(coord[0][0]-coord[1][0]) ) / det;
 
-        coeffs[1] = ( (coord[1][2]-coord[2][2])*(coord[0][1]-coord[1][1]) 
+        coeffs[1] = ( (coord[1][2]-coord[2][2])*(coord[0][1]-coord[1][1])
                 - (coord[0][2]-coord[1][2])*(coord[1][1]-coord[2][1]) ) / det;
-        
+
         coeffs[0] = coord[0][2] - coeffs[1]*coord[0][0] - coeffs[2]*coord[0][1];
 
 
         return coeffs;
     }
-    
+
     public static void rotate(double[] inout, double[] x, double[] y, double[] z) {
         double out0 = inout[0]*x[0] + inout[1]*y[0] + inout[2]*z[0];
         double out1 = inout[0]*x[1] + inout[1]*y[1] + inout[2]*z[1];
@@ -274,7 +274,7 @@ public class VectorAlgebra {
         inout[1] = out1;
         inout[2] = out2;
     }
-    
+
     public static void rotateInverse(double[] inout, double[] x, double[] y, double[] z) {
         double out0 = dot(inout, x);
         double out1 = dot(inout, y);

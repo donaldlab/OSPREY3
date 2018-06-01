@@ -1,9 +1,42 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.restypes;
 
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.FileTools;
 
 import java.io.Serializable;
 import java.util.*;
@@ -242,8 +275,8 @@ public class ResidueTemplateLibrary implements Serializable {
 		// make wild type rotamers
 		for (Molecule mol : molsForRotamers) {
 			Strand strand = new Strand.Builder(mol)
-				.setTemplateLibrary(this)
-				.build();
+					.setTemplateLibrary(this)
+					.build();
 			for (Residue res : strand.mol.residues) {
 				getOrMakeWildTypeTemplate(res);
 			}
@@ -300,7 +333,7 @@ public class ResidueTemplateLibrary implements Serializable {
 	/**
 	 * PGC 2015: 
 	 * Returns the number of rotamers for the specified residue type, for backbone dependent or backbone independent rotamers.
-	 * @param pos 
+	 * @param pos
 	 * @param resType in three letter amino acid type
 	 * @param phi The backbone phi angle for backbone dependent rotamers; will be ignored if backbone dependent rotamer libraries are not used.
 	 * @param psi The backbone psi angle for backbone dependent rotamers; will be ignored if backbone dependent rotamer libraries are not used.
@@ -313,7 +346,7 @@ public class ResidueTemplateLibrary implements Serializable {
 	/**
 	 * PGC 2015:
 	 * get ideal dihedral value for a particular rotamer of a particular residue type, for backbone dependent or backbone independent rotamers.
-	 * 
+	 *
 	 * @param resType in three letter amino acid type
 	 * @param phi The backbone phi angle for backbone dependent rotamers; will be ignored if backbone dependent rotamer libraries are not used.
 	 * @param psi The backbone psi angle for backbone dependent rotamers; will be ignored if backbone dependent rotamer libraries are not used.
@@ -349,15 +382,15 @@ public class ResidueTemplateLibrary implements Serializable {
 		wildTypeTemplates.put(resNum, template);
 		return template;
 	}
-	
-    public boolean containsName(String name){
-        //Is there a template with the specified name?
-        for(ResidueTemplate templ : templates){
-            if(templ.name.equalsIgnoreCase(name))
-                return true;
-        }
-        return false;
-    }
+
+	public boolean containsName(String name){
+		//Is there a template with the specified name?
+		for(ResidueTemplate templ : templates){
+			if(templ.name.equalsIgnoreCase(name))
+				return true;
+		}
+		return false;
+	}
 
 	public HashSet<String> templateNameSet(){
 		HashSet<String> ans = new HashSet<>();

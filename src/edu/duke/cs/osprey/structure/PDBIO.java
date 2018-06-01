@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.structure;
 
 import java.io.File;
@@ -6,53 +38,56 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
 
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.control.Main;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.kstar.SequenceAnalyzer;
 import org.apache.commons.lang3.text.WordUtils;
 
 import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
+import edu.duke.cs.osprey.tools.FileTools;
 
 /**
  * this is a clean PDB reader that doesn't know anything about templates or bonds
  * its only job is to turn PDB text into a molecule representing a polymer with residues and atoms
  */
 public class PDBIO {
-	
+
 	private static class ResInfo {
-		
+
 		public String name = null;
-		
+
 		private ArrayList<Atom> atoms = new ArrayList<>();
 		private ArrayList<double[]> coords = new ArrayList<>();
 		private ArrayList<Character> alts = new ArrayList<>();
-		
+
 		public void clear() {
 			name = null;
 			atoms.clear();
 			coords.clear();
 			alts.clear();
 		}
-		
+
 		public void addAtom(Atom atom, double x, double y, double z, char alt) {
 			atoms.add(atom);
 			coords.add(new double[] { x, y, z });
 			alts.add(alt);
 		}
-		
+
 		public void flush(Molecule mol) {
-			
+
 			assert (atoms.size() == coords.size());
 			assert (atoms.size() == alts.size());
-			
+
 			if (atoms.isEmpty()) {
 				clear();
 				return;
 			}
-			
+
 			// collect the unique alt names
 			TreeSet<Character> altNames = new TreeSet<>(alts);
 			altNames.remove(' ');
-			
+
 			// pick the main alt
 			char mainAlt;
 			if (altNames.isEmpty()) {
@@ -61,24 +96,24 @@ public class PDBIO {
 				mainAlt = altNames.first();
 				altNames.remove(mainAlt);
 			}
-			
+
 			// make the main residue
 			Residue mainRes = makeResidue(mainAlt, mol);
 			mol.appendResidue(mainRes);
-			
+
 			// add the alt residues, if any
 			for (Character alt : altNames) {
 				mol.addAlternate(mainRes.indexInMolecule, makeResidue(alt, mol));
 			}
-			
+
 			clear();
 		}
 
 		private Residue makeResidue(char alt, Molecule mol) {
-			
+
 			ArrayList<Atom> resAtoms = new ArrayList<>();
 			ArrayList<double[]> resCoords = new ArrayList<>();
-			
+
 			// pick the atoms,coords that match the main or this alt
 			for (int i=0; i<atoms.size(); i++) {
 				char atomAlt = alts.get(i);
@@ -87,15 +122,15 @@ public class PDBIO {
 					resCoords.add(coords.get(i));
 				}
 			}
-			
+
 			return new Residue(resAtoms, resCoords, name, mol);
 		}
 	}
-	
+
 	public static Molecule readFile(String path) {
 		return read(FileTools.readFile(path));
 	}
-	
+
 	public static Molecule readFile(File file) {
 		return read(FileTools.readFile(file));
 	}
@@ -103,29 +138,29 @@ public class PDBIO {
 	public static Molecule readResource(String path) {
 		return read(FileTools.readResource(path));
 	}
-	
+
 	public static Molecule read(String pdbText) {
 		return readAll(pdbText).get(0);
 	}
-	
+
 	public static List<Molecule> readAll(String pdbText) {
 		List<Molecule> mols = readMols(pdbText);
 		readSecondaryStructure(mols, pdbText);
 		return mols;
 	}
-	
+
 	private static List<Molecule> readMols(String pdbText) {
-		
+
 		List<Molecule> mols = new ArrayList<>();
 		Molecule mol = new Molecule();
 		mols.add(mol);
 		ResInfo resInfo = new ResInfo();
-		
+
 		for (String line : FileTools.parseLines(pdbText)) {
 			line = padLine(line);
-			
+
 			if (isLine(line, "MODEL")) {
-				
+
 				// is this the first model?
 				if (mol.residues.isEmpty()) {
 					// ignore
@@ -135,14 +170,14 @@ public class PDBIO {
 					mol = new Molecule();
 					mols.add(mol);
 				}
-				
+
 			} else if (isLine(line, "ATOM") || isLine(line, "HETATM")) {
-				
+
 				// eg
 				//           1         2         3         4         5         6         7         8
 				// 012345678901234567890123456789012345678901234567890123456789012345678901234567890
 				// ATOM   1146  CB APRO A  38       5.781  17.860   0.637  0.45 12.10           C
-				
+
 				// parse the line
 				int atomNum = Integer.parseInt(line.substring(6, 11).trim());
 				String atomName = line.substring(12,16).trim();
@@ -152,16 +187,16 @@ public class PDBIO {
 				double y = Double.parseDouble(line.substring(38, 46).trim());
 				double z = Double.parseDouble(line.substring(46, 54).trim());
 				double bFactor = Double.parseDouble(defaultVal("0", line.substring(60, 66).trim()));
-				
+
 				// read the element, but enforce proper capitalization so we can match to the names in PeriodicTable
 				String elem = WordUtils.capitalize(line.substring(76, 78).trim().toLowerCase());
-				
+
 				// should we start a new residue (with alts)?
 				if (!resName.equals(resInfo.name)) {
 					resInfo.flush(mol);
 					resInfo.name = resName;
 				}
-				
+
 				// make the atom and check the element
 				Atom atom;
 				if (elem.isEmpty()) {
@@ -171,32 +206,32 @@ public class PDBIO {
 				}
 				if (atom.elementType.equalsIgnoreCase("du")) {
 					System.out.println(String.format("WARNING: Can't detect atom element: residue=%s, name=%s, element=%s\n"
-						+ "\nPlease include element types in the PDB file to avoid this problem.",
-						resInfo.name, atomName, elem
+									+ "\nPlease include element types in the PDB file to avoid this problem.",
+							resInfo.name, atomName, elem
 					));
 				}
-				
+
 				// save the rest of the atom properties
 				atom.BFactor = bFactor;
 				atom.modelAtomNumber = atomNum;
-				
+
 				// update the res info with the atom
 				resInfo.addAtom(atom, x, y, z, alt);
 			}
 		}
-		
+
 		resInfo.flush(mol);
-		
+
 		return mols;
 	}
-	
+
 	private static String padLine(String line) {
-		
+
 		final int Len = 80;
 		if (line.length() >= Len) {
 			return line;
 		}
-		
+
 		StringBuilder buf = new StringBuilder(Len);
 		buf.append(line);
 		while (buf.length() < Len) {
@@ -208,24 +243,24 @@ public class PDBIO {
 	private static boolean isLine(String line, String type) {
 		return line.regionMatches(true, 0, type, 0, type.length());
 	}
-	
+
 	private static String defaultVal(String defaultVal, String inVal) {
 		if (inVal == null || inVal.isEmpty()) {
 			return defaultVal;
 		}
 		return inVal;
 	}
-	
+
 	private static void readSecondaryStructure(List<Molecule> mols, String pdbText) {
-		
+
 		// NOTE: by default, residues are assigned LOOP secondary structure
-		
+
 		// parse pass 2: read the helices and sheets
 		for (String line : FileTools.parseLines(pdbText)) {
 			line = padLine(line);
-			
+
 			if (isLine(line, "HELIX")) {
-				
+
 				// eg
 				//           1         2         3         4         5         6         7         8
 				// 012345678901234567890123456789012345678901234567890123456789012345678901234567890
@@ -236,7 +271,7 @@ public class PDBIO {
 				char chain = line.charAt(19);
 				String startResNum = chain + line.substring(21, 25).trim();
 				String stopResNum = chain + line.substring(33, 37).trim();
-				
+
 				for (Molecule mol : mols) {
 					for (Residue res : mol.getResRangeByPDBResNumber(startResNum, stopResNum)) {
 						if (res.getChainId() == chain) {
@@ -244,9 +279,9 @@ public class PDBIO {
 						}
 					}
 				}
-				
+
 			} else if (isLine(line, "SHEET")) {
-				
+
 				// eg
 				//           1         2         3         4         5         6         7         8
 				// 012345678901234567890123456789012345678901234567890123456789012345678901234567890
@@ -258,7 +293,7 @@ public class PDBIO {
 				char chain = line.charAt(21);
 				String startResNum = chain + line.substring(22, 26).trim();
 				String stopResNum = chain + line.substring(33, 37).trim();
-				
+
 				for (Molecule mol : mols) {
 					for (Residue res : mol.getResRangeByPDBResNumber(startResNum, stopResNum)) {
 						if (res.getChainId() == chain) {
@@ -266,7 +301,7 @@ public class PDBIO {
 						}
 					}
 				}
-			}	
+			}
 		}
 	}
 
@@ -285,19 +320,19 @@ public class PDBIO {
 	public static void writeFile(EnergyCalculator.EnergiedParametricMolecule epmol, String comment, File file) {
 		FileTools.writeFile(write(epmol, comment), file);
 	}
-	
+
 	public static void writeFile(Molecule mol, String path) {
 		FileTools.writeFile(write(mol), path);
 	}
-	
+
 	public static void writeFile(Molecule mol, File file) {
 		FileTools.writeFile(write(mol), file);
 	}
-	
+
 	public static void writeFile(Molecule mol, String comment, Double energy, String path) {
 		FileTools.writeFile(write(mol, comment, energy, false), path);
 	}
-	
+
 	public static void writeFile(Molecule mol, String comment, Double energy, File file) {
 		FileTools.writeFile(write(mol, comment, energy,false), file);
 	}
@@ -309,15 +344,15 @@ public class PDBIO {
 	public static String write(EnergyCalculator.EnergiedParametricMolecule epmol, String comment) {
 		return write(epmol.pmol.mol, comment, epmol.energy, false);
 	}
-	
+
 	public static String write(Molecule mol) {
 		return write(mol, null, null, false);
 	}
-	
+
 	public static String write(Molecule mol, String comment, Double energy, boolean includeTer) {
-	
+
 		StringBuilder buf = new StringBuilder();
-		
+
 		int atomCounter = 1;
 
 		// write PDB headers (use REMARK 3 for refinement information)
@@ -341,26 +376,26 @@ public class PDBIO {
 
 		// we'll use a char array to represent each line
 		char[] line = new char[80];
-		
+
 		for (Residue res : mol.residues) {
 			for (Atom atom : res.atoms) {
-				
+
 				Arrays.fill(line, ' ');
-				
+
 				setField(line, "ATOM", 0, 5, Justify.Left);
-				
+
 				// write the residue name
 				setField(line, res.fullName, 17, 26, Justify.Left);
-			
+
 				// always use full occupancy
 				setField(line, "1.00", 56, 59, Justify.Left);
-				
+
 				// always use 0 for temp factor (b-factor)
 				setField(line, "0.00", 62, 65, Justify.Left);
 
 				// write the atom number
 				setField(line, atomCounter++, 6, 10, Justify.Right);
-				
+
 				// writing the atom name is a little fuzzy, although the
 				//  atom name is allocated columns 12-15(zero based), rasmol
 				//  likes and other people essentially start with column 13
@@ -375,12 +410,12 @@ public class PDBIO {
 				} else {
 					setField(line, atom.name, 13, 15, Justify.Left);
 				}
-				
+
 				// write the coords
 				setField(line, atom.getCoords()[0], 3, 30, 37, Justify.Right);
 				setField(line, atom.getCoords()[1], 3, 38, 45, Justify.Right);
 				setField(line, atom.getCoords()[2], 3, 46, 53, Justify.Right);
-				
+
 				// write the element
 				setField(line, atom.elementType.toUpperCase(), 76, 77, Justify.Right);
 
@@ -395,14 +430,14 @@ public class PDBIO {
 				}
 			}
 		}
-		
+
 		buf.append("END\n");
-		
+
 		return buf.toString();
 	}
-	
+
 	private static enum Justify {
-		
+
 		Left {
 			@Override
 			public String apply(String in, int size) {
@@ -427,18 +462,18 @@ public class PDBIO {
 				return buf.toString();
 			}
 		};
-		
+
 		public abstract String apply(String in, int size);
 	}
-	
+
 	private static void setField(char[] line, int field, int start, int stop, Justify justify) {
 		setField(line, Integer.toString(field), start, stop, justify);
 	}
-	
+
 	private static void setField(char[] line, double field, int precision, int start, int stop, Justify justify) {
 		setField(line, String.format("%." + precision + "f", field), start, stop, justify);
 	}
-	
+
 	private static void setField(char[] line, String field, int start, int stop, Justify justify) {
 		int size = stop - start + 1;
 		if (field.length() > size) {
@@ -448,14 +483,14 @@ public class PDBIO {
 		}
 		field.getChars(0, size, line, start);
 	}
-	
-    private static String trimRight(String str){
-        //modification of trim that only trims the right side
-        int len = str.length();
-        while( (len>0) && (str.charAt(len-1) <= ' ') )
-            len--;
-        return (len<str.length()) ? str.substring(0,len) : str;
-    }
+
+	private static String trimRight(String str){
+		//modification of trim that only trims the right side
+		int len = str.length();
+		while( (len>0) && (str.charAt(len-1) <= ' ') )
+			len--;
+		return (len<str.length()) ? str.substring(0,len) : str;
+	}
 
 	public static void writeEnsemble(List<EnergyCalculator.EnergiedParametricMolecule> epmols, String filePattern) {
 

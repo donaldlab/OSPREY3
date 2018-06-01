@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEPfunc;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
@@ -109,11 +110,13 @@ public interface EWAKStarPartitionFunction {
 			return qstar;
 		}
 
-		public BigDecimal calcUpperBound() {
-			BigDecimal x = MathTools.bigAdd(qstar, qprime, decimalPrecision);
-			x = MathTools.bigAdd(x, pstar, decimalPrecision);
-			return x;
-		}
+        public BigDecimal calcUpperBound() {
+            return new BigMath(decimalPrecision)
+                    .set(qstar)
+                    .add(qprime)
+                    .add(pstar)
+                    .get();
+        }
 	}
 
 	public static class Result {
@@ -162,16 +165,16 @@ public interface EWAKStarPartitionFunction {
 	void setReportProgress(boolean val);
 	void setConfListener(ConfListener val);
 
+	void init(double targetEnergy, double targetEpsilon, BigInteger numConfsBeforePruning);
 	/**
 	 * Initializes the partition function for calculation.
 	 * @param targetEpsilon The accuracy with which to estimate the partition function.
-	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
-	 * 	 							including any conformations removed by pruned tuples.
+	 *
 	 * @param stabilityThreshold If the partition function upper bound value falls below
 	 *                           this threshold, the sequence is considered unstable.
 	 * @param targetEnergy The energy window with which to estimate the partition function.
 	 */
-	default void init(double targetEnergy, double targetEpsilon, BigDecimal stabilityThreshold, BigInteger numConfsBeforePruning) {
+	default void init(double targetEnergy, double targetEpsilon, BigDecimal stabilityThreshold) {
 		throw new UnsupportedOperationException(getClass().getName() + " does not yet support stability thresholds");
 	}
 

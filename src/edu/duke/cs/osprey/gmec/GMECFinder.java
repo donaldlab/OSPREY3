@@ -55,6 +55,8 @@ import edu.duke.cs.osprey.partcr.PartCRConfPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.Progress;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
  *
@@ -668,10 +670,11 @@ public class GMECFinder {
         long startTime = System.currentTimeMillis();
         int conf[] = new int[] { 0, 24, 1, 6, 4, 0, 9, 11, 4, 4, 4, 9, 3, 2, 22, 6,
             4, 1, 4, 1, 4, 6, 13, 0, 3, 4, 1, 3, 1, 3, 2, 6, 21, 8, 5, 0, 26, 3, 1, 19 };
-        //int conf[] = new int[] {0, 26, 1, 6, 2, 0, 7, 8, 6, 4, 4, 14, 4, 3, 26, 6, 3, 1, 2, 1, 
+
+        //int conf[] = new int[] {0, 26, 1, 6, 2, 0, 7, 8, 6, 4, 4, 14, 4, 3, 26, 6, 3, 1, 2, 1,
         //    5, 9, 13, 1, 2, 4, 1, 3, 2, 7, 2, 6, 17, 21, 4, 0, 15, 6, 1, 32 };
-        
-        
+
+
         System.out.println("EPIC MIN: "+searchSpace.EPICMinimizedEnergy(conf));
         long minDoneTime = System.currentTimeMillis();
         System.out.println("MIN TIME: "+(minDoneTime-startTime));
@@ -709,7 +712,7 @@ public class GMECFinder {
 
 
         //precomputing EPIC or tuple-expander matrices is much faster
-        //if only done for unpruned RCs.  Less RCs to handle, and the fits are far simpler.  
+        //if only done for unpruned RCs.  Less RCs to handle, and the fits are far simpler.
         if(useEPIC){
             searchSpace.loadEPICMatrix();
 
@@ -757,7 +760,7 @@ public class GMECFinder {
             throw new RuntimeException("ERROR: Need tuple expansion to handle full-conf-only E-function");
         if(useEPIC)//later consider using differencing scheme to do EPIC for these
             throw new RuntimeException("ERROR: EPIC for full-conf-only E-function not yet supported");
-        if(doIMinDEE)//don't have concept of pairwise lower bound, so not doing iMinDEE 
+        if(doIMinDEE)//don't have concept of pairwise lower bound, so not doing iMinDEE
             //(can just do rigid pruning on tup-exp matrix, even if using cont flex)
             throw new RuntimeException("ERROR: iMinDEE + full-conf-only E-function not supported");
 
@@ -839,7 +842,7 @@ public class GMECFinder {
 
 
     private void checkEPICThresh2(double curInterval){
-        if(curInterval+Ew>searchSpace.epicSettings.EPICThresh2){//need to raise EPICThresh2 
+        if(curInterval+Ew>searchSpace.epicSettings.EPICThresh2){//need to raise EPICThresh2
             //to the point that we can guarantee no continuous component of the GMEC
             //or desired ensemble will need to reach it
             System.out.println("Raising EPICThresh2 to "+(curInterval+Ew)+" based on "

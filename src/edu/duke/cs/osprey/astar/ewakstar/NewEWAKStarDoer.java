@@ -18,6 +18,7 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 import org.apache.commons.collections4.map.LinkedMap;
 
@@ -431,6 +432,7 @@ public class NewEWAKStarDoer {
 
         ForcefieldParams ffparams = new ForcefieldParams();
         Parallelism parallelism = Parallelism.makeCpu(numCPUs);
+        
         EnergyCalculator ecalc = new EnergyCalculator.Builder(this.confSpaces.complex, ffparams)
                 .setParallelism(parallelism).build();
         EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc).setIsMinimizing(false).build();
@@ -495,7 +497,6 @@ public class NewEWAKStarDoer {
     private NewEWAKStarTreeLimitedSeqs buildUnboundTree(String type, EWAKStarLimitedSequenceTrie curTrie) {
 
         String matrixName;
-        ArrayList<String> filteredSeqs;
         ArrayList<ArrayList<String>> aaOpts;
         Sequence wt;
         SimpleConfSpace confSpace;
@@ -524,25 +525,21 @@ public class NewEWAKStarDoer {
         ForcefieldParams ffparams = new ForcefieldParams();
         EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
                 .setParallelism(parallelism).build();
-        EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc).setIsMinimizing(false).build();
+        EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc)
+                .setIsMinimizing(false)
+                .build();
 
-        ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(confSpace, ecalc);
-        ConfEnergyCalculator.Builder confRigidEcalcBuilder = new ConfEnergyCalculator.Builder(confSpace, rigidEcalc);
+        ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc).build().calcReferenceEnergies()).build();
+        ConfEnergyCalculator confRigidEcalc = new ConfEnergyCalculator(confEcalc, rigidEcalc);
 
-        //use reference energies
-        SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(confSpace, ecalc).build();
-        confEcalcBuilder.setReferenceEnergies(eref);
-        confRigidEcalcBuilder.setReferenceEnergies(eref);
-
-        ConfEnergyCalculator newConfECalc = confEcalcBuilder.build();
-        ConfEnergyCalculator newRigidConfECalc = confRigidEcalcBuilder.build();
 
         if (type.equals("L")) {
-            this.confEnergyCalcL = newConfECalc;
-            this.confRigidEnergyCalcL = newRigidConfECalc;
+            this.confEnergyCalcL = confEcalc;
+            this.confRigidEnergyCalcL = confRigidEcalc;
         } else if (type.equals("P")) {
-            this.confEnergyCalcP = newConfECalc;
-            this.confRigidEnergyCalcP = newRigidConfECalc;
+            this.confEnergyCalcP = confEcalc;
+            this.confRigidEnergyCalcP = confRigidEcalc;
         }
         // the pattern has a * right?
         if (matrixName.indexOf('*') < 0) {
@@ -550,13 +547,13 @@ public class NewEWAKStarDoer {
         }
 
         String ematName = matrixName.replace("*", ".emat");
-        EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(newConfECalc)
+        EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
                 .setCacheFile(new File(ematName))
                 .build()
                 .calcEnergyMatrix();
 
         PrecomputedMatrices newPrecompMat = new PrecomputedMatrices(Ival, unboundEw, matrixName, emat,
-                confSpace, ecalc, newConfECalc, new EPICSettings(), new LUTESettings(),
+                confSpace, ecalc, confEcalc, new EPICSettings(), new LUTESettings(),
                 pruningSettings);
 
         Sequence wildType = new Sequence(wt, confSpace);
@@ -570,7 +567,7 @@ public class NewEWAKStarDoer {
         }
 
         return new NewEWAKStarTreeLimitedSeqs(curTrie, confSpace.positions.size(), aaOpts, wildType, confSpace,
-                newPrecompMat, mutablePos, newConfECalc);
+                newPrecompMat, mutablePos, confEcalc);
 
     }
 

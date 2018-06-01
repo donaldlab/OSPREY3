@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.astar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -17,6 +49,9 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tools.TimeFormatter;
 
 import java.io.File;
 import java.math.BigInteger;
@@ -34,16 +69,16 @@ public class BenchmarkConfRanker {
 		Molecule mol = PDBIO.readResource("/gp120/gp120SRVRC26.09SR.pdb");
 
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder()
-			.addMoleculeForWildTypeRotamers(mol)
-			.addTemplates(FileTools.readResource("/gp120/all_nuc94_and_gr.in"))
-			.addTemplateCoords(FileTools.readResource("/gp120/all_amino_coords.in"))
-			.addRotamers(FileTools.readResource("/gp120/GenericRotamers.dat"))
-			.build();
+				.addMoleculeForWildTypeRotamers(mol)
+				.addTemplates(FileTools.readResource("/gp120/all_nuc94_and_gr.in"))
+				.addTemplateCoords(FileTools.readResource("/gp120/all_amino_coords.in"))
+				.addRotamers(FileTools.readResource("/gp120/GenericRotamers.dat"))
+				.build();
 
 		Strand ligand = new Strand.Builder(mol)
-			.setResidues("H1792", "L2250")
-			.setTemplateLibrary(templateLib)
-			.build();
+				.setResidues("H1792", "L2250")
+				.setTemplateLibrary(templateLib)
+				.build();
 		ligand.flexibility.get("H1901").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("H1904").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "ILE", "PHE", "TYR", "TRP", "CYS", "MET", "SER", "THR", "LYS", "ARG", "HIS", "ASP", "GLU", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("H1905").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "ILE", "PHE", "TYR", "TRP", "CYS", "MET", "SER", "THR", "LYS", "ARG", "HIS", "ASP", "GLU", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
@@ -52,9 +87,9 @@ public class BenchmarkConfRanker {
 		ligand.flexibility.get("H1908").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		Strand target = new Strand.Builder(mol)
-			.setResidues("F379", "J1791")
-			.setTemplateLibrary(templateLib)
-			.build();
+				.setResidues("F379", "J1791")
+				.setTemplateLibrary(templateLib)
+				.build();
 		target.flexibility.get("G973").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		target.flexibility.get("G977").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		target.flexibility.get("G978").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
@@ -63,21 +98,21 @@ public class BenchmarkConfRanker {
 		target.flexibility.get("J1448").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
-			.addStrand(ligand)
-			.addStrand(target)
-			.build();
+				.addStrand(ligand)
+				.addStrand(target)
+				.build();
 
 		// calc the emat
 		EnergyMatrix emat;
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
-			.setParallelism(Parallelism.makeCpu(4))
-			.build()
+				.setParallelism(Parallelism.makeCpu(4))
+				.build()
 		) {
 			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
 			emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-				.setCacheFile(new File("emat.gp120.complex.dat"))
-				.build()
-				.calcEnergyMatrix();
+					.setCacheFile(new File("emat.gp120.complex.dat"))
+					.build()
+					.calcEnergyMatrix();
 		}
 		// pick the wild-type sequence
 		Sequence sequence = confSpace.makeWildTypeSequence();
@@ -87,12 +122,12 @@ public class BenchmarkConfRanker {
 
 		// get the min,max scores
 		double minScore = makeAStar(emat, rcs)
-			.nextConf()
-			.getScore();
+				.nextConf()
+				.getScore();
 		log("min score: %.4f", minScore);
 		double maxScore = -makeAStar(new NegatedEnergyMatrix(confSpace, emat), rcs)
-			.nextConf()
-			.getScore();
+				.nextConf()
+				.getScore();
 		log("max score: %.4f", maxScore);
 
 		// pick a few energy thresholds to rank, relative to the min score
@@ -119,8 +154,8 @@ public class BenchmarkConfRanker {
 				if (conf.getScore() >= minScore + energyOffsets[offsetIndex]) {
 					times[offsetIndex] = stopwatch.getTimeNs();
 					log("energy %.4f has %12d confs in %10s  (%10s more than last)",
-						conf.getScore(), numConfs, TimeFormatter.format(times[offsetIndex], 2),
-						offsetIndex > 0 ? TimeFormatter.format(times[offsetIndex] - times[offsetIndex - 1], 2) : "no"
+							conf.getScore(), numConfs, TimeFormatter.format(times[offsetIndex], 2),
+							offsetIndex > 0 ? TimeFormatter.format(times[offsetIndex] - times[offsetIndex - 1], 2) : "no"
 					);
 					offsetIndex++;
 				}
@@ -129,9 +164,9 @@ public class BenchmarkConfRanker {
 
 		// how quickly can we rank the confs?
 		ConfRanker ranker = new ConfRanker.Builder(confSpace, emat)
-			.setRCs(rcs)
-			//.setReportProgress(true)
-			.build();
+				.setRCs(rcs)
+				//.setReportProgress(true)
+				.build();
 
 		Consumer<Double> func = (queryScore) -> {
 			Stopwatch stopwatch = new Stopwatch().start();
@@ -139,9 +174,9 @@ public class BenchmarkConfRanker {
 			stopwatch.stop();
 			long timeNs = stopwatch.getTimeNs();
 			log("energy %.4f has %12s confs in %10s  (%10s more than last)",
-				queryScore, formatBig(rank),
-				TimeFormatter.format(timeNs, 2),
-				TimeFormatter.format(timeNs, 2)
+					queryScore, formatBig(rank),
+					TimeFormatter.format(timeNs, 2),
+					TimeFormatter.format(timeNs, 2)
 			);
 		};
 
@@ -164,8 +199,8 @@ public class BenchmarkConfRanker {
 
 	private static ConfAStarTree makeAStar(EnergyMatrix emat, RCs rcs) {
 		ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
-			.setTraditional()
-			.build();
+				.setTraditional()
+				.build();
 		astar.setParallelism(Parallelism.makeCpu(6));
 		return astar;
 	}

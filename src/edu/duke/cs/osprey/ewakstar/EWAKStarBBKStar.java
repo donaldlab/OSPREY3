@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.ewakstar;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.ewakstar.EWAKStarLimitedSequenceTrie;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
@@ -9,8 +11,13 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.UpperBoundCalculator;
+import edu.duke.cs.osprey.tools.BigMath;
+import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -59,7 +66,7 @@ public class EWAKStarBBKStar {
         public final ConfEnergyCalculator minimizingConfEcalc;
         public final ConfEnergyCalculator rigidConfEcalc;
 
-        public EnergyMatrix rigidNegatedEmat = null;
+        public EnergyMatrix rigidEmat = null;
         public final EnergyMatrix emat;
 
         public BigDecimal stabilityThreshold = null;
@@ -73,17 +80,19 @@ public class EWAKStarBBKStar {
         }
 
         public void calcEmatsIfNeeded() {
-            if (rigidNegatedEmat == null) {
+            if (rigidEmat == null) {
                 SimplerEnergyMatrixCalculator.Builder builder = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc);
                 if (kstarSettings.energyMatrixCachePattern != null) {
                     builder.setCacheFile(new File(kstarSettings.applyEnergyMatrixCachePattern(type.name().toLowerCase() + ".rigidNegated")));
                 }
-                rigidNegatedEmat = builder.build().calcEnergyMatrix();
+                rigidEmat = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc)
+                        .build()
+                        .calcEnergyMatrix();
 
                 // negate the rigid energy matrix, so we can convince A* to return scores
                 // in descending order instead of ascending order
                 // (of course, we'll have to negate the scores returned by A* too)
-                rigidNegatedEmat.negate();
+                //rigidEmat.negate();
             }
         }
     }
@@ -267,35 +276,26 @@ public class EWAKStarBBKStar {
 
         private BigDecimal calcLowerBound(EWAKStarBBKStar.ConfSpaceInfo info, Sequence sequence, int numConfs) {
 
-            // to compute lower bounds on pfuncs, we'll use the upper bound calculator,
-            // but feed it upper-bound scores in order of greatest upper bound
-            // instead of the usual lower-bound scores in order of smallest lower bound
-            // which means we need to feed A* with a rigid, negated energy matrix
-            // and then negate all the scores returned by A*
-            Function<ConfSearch,ConfSearch> astarNegater = (confSearch) -> new ConfSearch() {
-                @Override
-                public ScoredConf nextConf() {
-                    ScoredConf conf = confSearch.nextConf();
-                    conf.setScore(-conf.getScore());
-                    return conf;
+            // to compute lower bounds on pfuncs, we'll do the usual lower bound calculation,
+            // but use rigid energies instead of minimized energies
+
+            RCs rcs = sequence.makeRCs();
+            ConfSearch astar = new ConfAStarTree.Builder(info.rigidEmat, rcs)
+                    .setTraditional()
+                    .build();
+            BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
+            BigMath m = new BigMath(PartitionFunction.decimalPrecision)
+                    .set(0.0);
+            for (int i=0; i<numConfs; i++) {
+                ConfSearch.ScoredConf conf = astar.nextConf();
+                if (conf == null) {
+                    break;
                 }
 
-                @Override
-                public BigInteger getNumConformations() {
-                    return confSearch.getNumConformations();
-                }
-
-                @Override
-                public List<ScoredConf> nextConfs(double maxEnergy) {
-                    throw new UnsupportedOperationException("some lazy programmer didn't implement this =P");
-                }
-            };
-
-            UpperBoundCalculator calc = new UpperBoundCalculator(
-                    astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, sequence.makeRCs()))
-            );
-            calc.run(numConfs);
-            return calc.totalBound;
+                m.add(bcalc.calc(conf.getScore()));
+            }
+            return m.get();
         }
 
         private BigDecimal calcUpperBound(EWAKStarBBKStar.ConfSpaceInfo info, Sequence sequence, int numConfs) {
@@ -303,8 +303,13 @@ public class EWAKStarBBKStar {
             // to compute upper bounds on pfuncs,
             // we'll use the upper bound calculator in the usual way
 
+            RCs rcs = sequence.makeRCs();
+            ConfSearch astar = new ConfAStarTree.Builder(info.emat, rcs)
+                    .setTraditional()
+                    .build();
             UpperBoundCalculator calc = new UpperBoundCalculator(
-                    confSearchFactory.make(info.emat, sequence.makeRCs())
+                    astar,
+                    rcs.getNumConformations()
             );
             calc.run(numConfs);
             return calc.totalBound;
@@ -345,10 +350,11 @@ public class EWAKStarBBKStar {
             // cache miss, need to compute the partition function
 
             // make the partition function
-            EWAKStarGradientDescentPfunc newPfunc = new EWAKStarGradientDescentPfunc(confSearchFactory.make(curEmat, sequence.makeRCs()), info.minimizingConfEcalc);
+            ConfSearch astar = confSearchFactory.make(curEmat, sequence.makeRCs());
+            EWAKStarGradientDescentPfunc newPfunc = new EWAKStarGradientDescentPfunc(astar, info.minimizingConfEcalc);
 
             newPfunc.setReportProgress(kstarSettings.showPfuncProgress);
-            newPfunc.init(kstarSettings.eW, kstarSettings.epsilon, kstarSettings.maxPFConfs, info.stabilityThreshold);
+            newPfunc.init(kstarSettings.eW, kstarSettings.epsilon, astar.getNumConformations());
             pfuncCache.put(sequence, newPfunc);
             return newPfunc;
         }
@@ -368,7 +374,7 @@ public class EWAKStarBBKStar {
 
             // refine the pfuncs if needed
             if (protein.getStatus().canContinue()) {
-                protein.compute(kstarSettings.maxPFConfs, proteinSequence);
+                protein.compute(kstarSettings.maxPFConfs);
 
                 // tank the sequence if the unbound protein is unstable
                 if (protein.getStatus() == EWAKStarPartitionFunction.Status.Unstable) {
@@ -379,7 +385,7 @@ public class EWAKStarBBKStar {
             }
 
             if (ligand.getStatus().canContinue()) {
-                ligand.compute(kstarSettings.maxPFConfs, ligandSequence);
+                ligand.compute(kstarSettings.maxPFConfs);
 
                 // tank the sequence if the unbound ligand is unstable
                 if (ligand.getStatus() == EWAKStarPartitionFunction.Status.Unstable) {
@@ -390,7 +396,7 @@ public class EWAKStarBBKStar {
             }
 
             if (complex.getStatus().canContinue()) {
-                complex.compute(kstarSettings.maxPFConfs, sequence);
+                complex.compute(kstarSettings.maxPFConfs);
             }
 
             // update the score
@@ -402,13 +408,13 @@ public class EWAKStarBBKStar {
 
             // refine the pfuncs until done
             while (protein.getStatus().canContinue()) {
-                protein.compute(kstarSettings.maxPFConfs, proteinSequence);
+                protein.compute(kstarSettings.maxPFConfs);
             }
             while (ligand.getStatus().canContinue()) {
-                ligand.compute(kstarSettings.maxPFConfs, ligandSequence);
+                ligand.compute(kstarSettings.maxPFConfs);
             }
             while (complex.getStatus().canContinue()) {
-                complex.compute(kstarSettings.maxPFConfs, sequence);
+                complex.compute(kstarSettings.maxPFConfs);
             }
 
             // update the score

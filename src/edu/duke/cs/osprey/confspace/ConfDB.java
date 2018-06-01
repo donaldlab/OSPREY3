@@ -1,7 +1,41 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.tools.AutoCleanable;
 import edu.duke.cs.osprey.tools.IntEncoding;
 import edu.duke.cs.osprey.tools.Streams;
+
 import edu.duke.cs.osprey.tools.UnpossibleError;
 import org.jetbrains.annotations.NotNull;
 import org.mapdb.*;
@@ -13,7 +47,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 
-public class ConfDB {
+public class ConfDB implements AutoCleanable {
 
 	public static interface UserWithReturn<T> {
 
@@ -106,16 +140,16 @@ public class ConfDB {
 
 		public ConfSearch.ScoredConf toScoredConf() {
 			return new ConfSearch.ScoredConf(
-				assignments,
-				lower == null ? Double.NaN : lower.energy
+					assignments,
+					lower == null ? Double.NaN : lower.energy
 			);
 		}
 
 		public ConfSearch.EnergiedConf toEnergiedConf() {
 			return new ConfSearch.EnergiedConf(
-				assignments,
-				lower == null ? Double.NaN : lower.energy,
-				upper == null ? Double.NaN : upper.energy
+					assignments,
+					lower == null ? Double.NaN : lower.energy,
+					upper == null ? Double.NaN : upper.energy
 			);
 		}
 	}
@@ -197,7 +231,7 @@ public class ConfDB {
 
 		@Override
 		public void serialize(@NotNull DataOutput2 out, @NotNull int[] assignments)
-		throws IOException {
+				throws IOException {
 			for (int i=0; i<numPos; i++) {
 				assignmentEncoding.write(out, assignments[i]);
 			}
@@ -205,7 +239,7 @@ public class ConfDB {
 
 		@Override
 		public int[] deserialize(@NotNull DataInput2 in, int available)
-		throws IOException {
+				throws IOException {
 			int[] assignments = new int[numPos];
 			for (int i=0; i<numPos; i++) {
 				assignments[i] = assignmentEncoding.read(in);
@@ -253,7 +287,7 @@ public class ConfDB {
 
 		@Override
 		public void serialize(@NotNull DataOutput2 out, @NotNull List<int[]> multiAssignments)
-		throws IOException {
+				throws IOException {
 			out.writeInt(multiAssignments.size());
 			for (int[] assignments : multiAssignments) {
 				serializer.serialize(out, assignments);
@@ -262,7 +296,7 @@ public class ConfDB {
 
 		@Override
 		public List<int[]> deserialize(@NotNull DataInput2 in, int available)
-		throws IOException {
+				throws IOException {
 			List<int[]> multiAssignments = new ArrayList<>();
 			int num = in.readInt();
 			for (int i=0; i<num; i++) {
@@ -300,7 +334,7 @@ public class ConfDB {
 
 				@Override
 				public void serialize(@NotNull DataOutput2 out, @NotNull ConfInfo info)
-				throws IOException {
+						throws IOException {
 					out.writeDouble(info.lowerEnergy);
 					out.writeLong(info.lowerTimestampNs);
 					out.writeDouble(info.upperEnergy);
@@ -309,20 +343,20 @@ public class ConfDB {
 
 				@Override
 				public ConfInfo deserialize(@NotNull DataInput2 in, int available)
-				throws IOException {
+						throws IOException {
 					return new ConfInfo(
-						in.readDouble(),
-						in.readLong(),
-						in.readDouble(),
-						in.readLong()
+							in.readDouble(),
+							in.readLong(),
+							in.readDouble(),
+							in.readLong()
 					);
 				}
 			};
 
 			this.btree = db.treeMap(id)
-				.keySerializer(new AssignmentsSerializer())
-				.valueSerializer(confInfoSerializer)
-				.createOrOpen();
+					.keySerializer(new AssignmentsSerializer())
+					.valueSerializer(confInfoSerializer)
+					.createOrOpen();
 
 			this.lowerIndex = new EnergyIndex(id + "-lowerEnergy");
 			this.upperIndex = new EnergyIndex(id + "-upperEnergy");
@@ -404,8 +438,8 @@ public class ConfDB {
 			}
 
 			return new ConfSearch.ScoredConf(
-				assignments,
-				info.lowerTimestampNs == 0L ? Double.NaN : info.lowerEnergy
+					assignments,
+					info.lowerTimestampNs == 0L ? Double.NaN : info.lowerEnergy
 			);
 		}
 
@@ -427,9 +461,9 @@ public class ConfDB {
 			}
 
 			return new ConfSearch.EnergiedConf(
-				assignments,
-				info.lowerTimestampNs == 0L ? Double.NaN : info.lowerEnergy,
-				info.upperTimestampNs == 0L ? Double.NaN : info.upperEnergy
+					assignments,
+					info.lowerTimestampNs == 0L ? Double.NaN : info.lowerEnergy,
+					info.upperTimestampNs == 0L ? Double.NaN : info.upperEnergy
 			);
 		}
 
@@ -449,12 +483,12 @@ public class ConfDB {
 		@Override
 		public Iterator<Conf> iterator() {
 			return Streams.of(btree.entryIterator())
-				.map((entry) -> new Conf(
-						entry.getKey(),
-						entry.getValue()
+					.map((entry) -> new Conf(
+									entry.getKey(),
+									entry.getValue()
+							)
 					)
-				)
-				.iterator();
+					.iterator();
 		}
 
 		public Iterable<ConfSearch.ScoredConf> scoredConfs(SortOrder sort) {
@@ -462,19 +496,19 @@ public class ConfDB {
 
 				case Assignment:
 					return () -> Streams.of(iterator())
-						.map((conf) -> conf.toScoredConf())
-						.iterator();
+							.map((conf) -> conf.toScoredConf())
+							.iterator();
 
 				case Score:
 					return () -> Streams.of(lowerIndex.iterator())
-						.map((entry) -> new ConfSearch.ScoredConf(entry.getValue(), entry.getKey()))
-						.iterator();
+							.map((entry) -> new ConfSearch.ScoredConf(entry.getValue(), entry.getKey()))
+							.iterator();
 
 				case Energy:
 					return () -> Streams.of(upperIndex.iterator())
-						.map((entry) -> getScored(entry.getValue()))
-						.filter((conf) -> conf != null)
-						.iterator();
+							.map((entry) -> getScored(entry.getValue()))
+							.filter((conf) -> conf != null)
+							.iterator();
 
 				default:
 					throw new UnpossibleError();
@@ -486,20 +520,20 @@ public class ConfDB {
 
 				case Assignment:
 					return () -> Streams.of(iterator())
-						.map((conf) -> conf.toEnergiedConf())
-						.iterator();
+							.map((conf) -> conf.toEnergiedConf())
+							.iterator();
 
 				case Score:
 					return () -> Streams.of(lowerIndex.iterator())
-						.map((entry) -> getEnergied(entry.getValue()))
-						.filter((conf) -> conf != null)
-						.iterator();
+							.map((entry) -> getEnergied(entry.getValue()))
+							.filter((conf) -> conf != null)
+							.iterator();
 
 				case Energy:
 					return () -> Streams.of(upperIndex.iterator())
-						.map((entry) -> getEnergied(entry.getValue()))
-						.filter((conf) -> conf != null)
-						.iterator();
+							.map((entry) -> getEnergied(entry.getValue()))
+							.filter((conf) -> conf != null)
+							.iterator();
 
 				default:
 					throw new UnpossibleError();
@@ -520,8 +554,8 @@ public class ConfDB {
 				return null;
 			}
 			return Streams.of(multiAssignments)
-				.map((assignments) -> get(assignments))
-				.collect(Collectors.toList());
+					.map((assignments) -> get(assignments))
+					.collect(Collectors.toList());
 		}
 
 		public List<Conf> getConfsByUpperBound(double energy) {
@@ -530,8 +564,8 @@ public class ConfDB {
 				return null;
 			}
 			return Streams.of(multiAssignments)
-				.map((assignments) -> get(assignments))
-				.collect(Collectors.toList());
+					.map((assignments) -> get(assignments))
+					.collect(Collectors.toList());
 		}
 
 		public long size() {
@@ -585,9 +619,9 @@ public class ConfDB {
 
 		public EnergyIndex(String id) {
 			this.btree = db.treeMap(id)
-				.keySerializer(Serializer.DOUBLE)
-				.valueSerializer(new MultiAssignmentsSerializer())
-				.createOrOpen();
+					.keySerializer(Serializer.DOUBLE)
+					.valueSerializer(new MultiAssignmentsSerializer())
+					.createOrOpen();
 		}
 
 		public List<int[]> get(double energy) {
@@ -650,13 +684,13 @@ public class ConfDB {
 		@Override
 		public Iterator<Map.Entry<Double,int[]>> iterator() {
 			return Streams.of(btree.entryIterator())
-				.flatMap((entry) ->
-					entry.getValue().stream()
-						.map((assignments) ->
-							(Map.Entry<Double,int[]>)new EnergiedAssignments(entry.getKey(), assignments)
-						)
-				)
-				.iterator();
+					.flatMap((entry) ->
+							entry.getValue().stream()
+									.map((assignments) ->
+											(Map.Entry<Double,int[]>)new EnergiedAssignments(entry.getKey(), assignments)
+									)
+					)
+					.iterator();
 		}
 
 		// sigh... java arrays don't implement equals() etc
@@ -689,6 +723,10 @@ public class ConfDB {
 	private final Map<Sequence,SequenceDB> sequenceDBs;
 	private final IntEncoding assignmentEncoding;
 
+	public ConfDB(SimpleConfSpace confSpace) {
+		this(confSpace, null);
+	}
+
 	public ConfDB(SimpleConfSpace confSpace, File file) {
 
 		this.confSpace = confSpace;
@@ -708,13 +746,13 @@ public class ConfDB {
 
 			@Override
 			public void serialize(@NotNull DataOutput2 out, @NotNull Sequence sequence)
-			throws IOException {
+					throws IOException {
 				out.writeUTF(getSequenceId(sequence));
 			}
 
 			@Override
 			public Sequence deserialize(@NotNull DataInput2 in, int available)
-			throws IOException {
+					throws IOException {
 				return makeSequenceFromId(in.readUTF());
 			}
 
@@ -756,35 +794,40 @@ public class ConfDB {
 
 			@Override
 			public void serialize(@NotNull DataOutput2 out, @NotNull SequenceInfo info)
-			throws IOException {
+					throws IOException {
 				out.writeDouble(info.lowerEnergyOfUnsampledConfs);
 			}
 
 			@Override
 			public SequenceInfo deserialize(@NotNull DataInput2 in, int available)
-			throws IOException {
+					throws IOException {
 				return new SequenceInfo(in.readDouble());
 			}
 		};
 
 		// open the DB
-		db = DBMaker.fileDB(file)
-			.transactionEnable() // turn on wite-ahead log, so the db survives JVM crashes
-			.fileMmapEnableIfSupported() // use memory-mapped files if possible (can be much faster)
-			.closeOnJvmShutdown()
-			.make();
+		if (file != null) {
+			db = DBMaker.fileDB(file)
+					.transactionEnable() // turn on wite-ahead log, so the db survives JVM crashes
+					.fileMmapEnableIfSupported() // use memory-mapped files if possible (can be much faster)
+					.closeOnJvmShutdown()
+					.make();
+		} else {
+			db = DBMaker.memoryDB()
+					.make();
+		}
 		sequences = db.hashMap("sequences")
-			.keySerializer(sequenceSerializer)
-			.valueSerializer(infoSerializer)
-			.createOrOpen();
+				.keySerializer(sequenceSerializer)
+				.valueSerializer(infoSerializer)
+				.createOrOpen();
 		sequenceDBs = new HashMap<>();
 	}
 
 	private String getSequenceId(Sequence sequence) {
 		return String.join(":", () ->
-			sequence.confSpace.positions.stream()
-				.map((pos) -> (CharSequence)sequence.get(pos))
-				.iterator()
+				sequence.confSpace.positions.stream()
+						.map((pos) -> (CharSequence)sequence.get(pos))
+						.iterator()
 		);
 	}
 
@@ -840,6 +883,11 @@ public class ConfDB {
 		}
 		sequenceDBs.clear();
 		db.close();
+	}
+
+	@Override
+	public void clean() {
+		close();
 	}
 
 	public <T> T use(UserWithReturn<T> user) {

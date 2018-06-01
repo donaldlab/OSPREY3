@@ -185,7 +185,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	private PfuncSurface surf = null;
 	private PfuncSurface.Trace trace = null;
 
-	public GradientDescentPfunc(ConfEnergyCalculator ecalc) { this.ecalc = ecalc; }
+	public GradientDescentPfunc(ConfEnergyCalculator ecalc) {
+		this.ecalc = ecalc;
+	}
 
 	@Override
 	public void setReportProgress(boolean val) {

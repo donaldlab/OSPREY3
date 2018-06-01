@@ -1,8 +1,35 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
  */
+
 package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.deeper.perts.PartialStructureSwitch;
@@ -14,7 +41,7 @@ import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.dof.deeper.perts.PerturbationBlock;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
-
+import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
@@ -26,34 +53,34 @@ import java.util.ArrayList;
 import java.util.StringTokenizer;
 
 /**
- * 
+ *
  * Description of the perturbations in our system,
  * not set up in a molecule (describes the content of a .pert file)
- * 
+ *
  * @author mhall44
  */
 public class PertSet implements Serializable {
-    
+
     ArrayList<String> pertTypes = new ArrayList<>();//List of types ("BACKRUB", etc.) for the perturbations
     ArrayList<ArrayList<String>> resNums = new ArrayList<>();//corresponding perturbations'
     //lists of directly-affected residue numbers (PDB numbering)
-    
+
     ArrayList<ArrayList<double[]>> pertIntervals = new ArrayList<>();
     //for each of the perturbations, a list of intervals for its parameter to be in
     //these will be used to define RCs
-    
+
     ArrayList<ArrayList<ArrayList<int[]>>> pertStates = new ArrayList<>();
     //for each flexible residue position, for each "perturbation state" of the residue,
     //a list of pairs (pert#, interval#) defining what perturbations (indexed in pertNames)
     //have what intervals (defined in pertIntervals)
-    
-    
+
+
     //Some perturbations (now, just partial structure switches) 
     //need additional info to define them
     //For each perturbation, the lines of additional info are listed here (null if none)
     ArrayList<ArrayList<String>> additionalInfo = new ArrayList<>();
-    
-    
+
+
     public boolean loadPertFile(String pertFileName, boolean loadStates, ResidueTermini termini){
         //load perturbations from the pert file
         //Return whether we found the file or not
@@ -64,16 +91,16 @@ public class PertSet implements Serializable {
             StringTokenizer st;
             br.readLine();//Title
             readPerts(br, termini);
-            
+
             if(loadStates){
-            
+
                 pertStates = new ArrayList<>();
 
 
                 while(br.readLine() != null){//Read residue perturbation states.  Skipping the "RES" line
 
                     //Removing residue number line (from OSPREY 2.x)
-                    
+
                     int numStates = Integer.valueOf( StringParsing.getToken(br.readLine(), 1) );
 
                     ArrayList<Integer> resPerts = new ArrayList<>();
@@ -105,7 +132,7 @@ public class PertSet implements Serializable {
                     //The RCs section in OSPREY 2.x is now omitted
                 }
             }
-            
+
 
             br.close();
         }
@@ -116,11 +143,11 @@ public class PertSet implements Serializable {
             e.printStackTrace();
             throw new RuntimeException("ERROR READING PERTURBATION FILE: "+e.getMessage());
         }
-        
+
         return true;
     }
-    
-    
+
+
     public void readPerts(BufferedReader br) throws Exception {
         //read the actual perturbations, including the residues they affect
         //and the parameter intervals we're using for them
@@ -128,17 +155,17 @@ public class PertSet implements Serializable {
         int numPerts = Integer.valueOf(br.readLine().trim());
 
         StringTokenizer st;
-        
+
         pertTypes = new ArrayList<>();
         resNums = new ArrayList<>();
         pertIntervals = new ArrayList<>();
         additionalInfo = new ArrayList<>();
-        
+
 
         for(int a=0;a<numPerts;a++){//Read perturbations
             String pertType = br.readLine();
             pertTypes.add(pertType);
-            
+
             st = new StringTokenizer(br.readLine()," ");
             int numAffectedRes = st.countTokens();
             ArrayList<String> pertResNums = new ArrayList<>();
@@ -147,11 +174,11 @@ public class PertSet implements Serializable {
                 String inputNumber = st.nextToken();
                 pertResNums.add(inputNumber);
             }
-            
+
             resNums.add(pertResNums);
 
             recordAdditionalInfo(br, pertType);
-            
+
             st = new StringTokenizer(br.readLine()," ");
             int numStates = Integer.valueOf(st.nextToken());
             ArrayList<double[]> curPertIntervals = new ArrayList<>();
@@ -165,12 +192,12 @@ public class PertSet implements Serializable {
                 double hi = Double.valueOf(st.nextToken());
                 curPertIntervals.add( new double[] {lo,hi} );
             }
-            
+
             pertIntervals.add(curPertIntervals);
         }
     }
-    
-    
+
+
     public void readPerts(BufferedReader br, ResidueTermini termini) throws Exception {
         //read the actual perturbations, including the residues they affect
         //and the parameter intervals we're using for them
@@ -178,17 +205,17 @@ public class PertSet implements Serializable {
         int numPerts = Integer.valueOf(br.readLine().trim());
 
         StringTokenizer st;
-        
+
         pertTypes = new ArrayList<>();
         resNums = new ArrayList<>();
         pertIntervals = new ArrayList<>();
         additionalInfo = new ArrayList<>();
-        
+
 
         for(int a=0;a<numPerts;a++){//Read perturbations
             String pertType = br.readLine();
             pertTypes.add(pertType);
-            
+
             st = new StringTokenizer(br.readLine()," ");
             int numAffectedRes = st.countTokens();
             ArrayList<String> pertResNums = new ArrayList<>();
@@ -196,19 +223,19 @@ public class PertSet implements Serializable {
             for(int b=0;b<numAffectedRes;b++){
                 String inputNumber = st.nextToken();
                 if(termini == null || termini.contains(inputNumber)) {
-                	pertResNums.add(inputNumber);
+                    pertResNums.add(inputNumber);
                 }
             }
-            
+
             if(pertResNums.isEmpty()) {
-            	pertTypes.remove(pertTypes.size()-1);
-            	continue;
+                pertTypes.remove(pertTypes.size()-1);
+                continue;
             }
-            
+
             resNums.add(pertResNums);
 
             recordAdditionalInfo(br, pertType);
-            
+
             st = new StringTokenizer(br.readLine()," ");
             int numStates = Integer.valueOf(st.nextToken());
             ArrayList<double[]> curPertIntervals = new ArrayList<>();
@@ -222,17 +249,17 @@ public class PertSet implements Serializable {
                 double hi = Double.valueOf(st.nextToken());
                 curPertIntervals.add( new double[] {lo,hi} );
             }
-            
+
             pertIntervals.add(curPertIntervals);
         }
-        
+
         // pertfile does not apply to this strand. advance the pertfile to end
         if(pertTypes.isEmpty()) while(br.readLine() != null);
     }
-    
-    
+
+
     void recordAdditionalInfo(BufferedReader br, String pertType) throws IOException {
-        
+
         if(pertType.equalsIgnoreCase("PARTIAL STRUCTURE SWITCH")){
             //record the PDB file names
             //Additional info should be like this:
@@ -240,25 +267,25 @@ public class PertSet implements Serializable {
             //1ABC.pdb
             //(JUST ONE PDB LISTED, BECAUSE THE FIRST STRUCTURE IS ALWAYS THE ORIGINAL ONE)
             int numStructs = Integer.valueOf( StringParsing.getToken( br.readLine(), 1) );
-            
+
             ArrayList<String> altPDBs = new ArrayList<>();
-            
+
             for(int structNum=1; structNum<numStructs; structNum++)
                 altPDBs.add(br.readLine().trim());
-            
+
             additionalInfo.add(altPDBs);
         }
         else//no additional info needed
             additionalInfo.add(null);
     }
-    
-    
+
+
     public void writePertFile(String pertFileName){
         try{
             BufferedWriter bw=new BufferedWriter(new FileWriter(pertFileName));
             bw.append("PERTURBATIONS");
             bw.newLine();
-            
+
             int numPerts = pertTypes.size();
             bw.append(String.valueOf(numPerts));
             bw.newLine();
@@ -271,12 +298,12 @@ public class PertSet implements Serializable {
                 bw.newLine();
                 for(String resNum : resNums.get(pertNum))
                     bw.append(resNum+" ");
-                
+
 
                 bw.newLine();
 
                 writeAdditionalInfo(bw, additionalInfo.get(pertNum));
-                
+
                 int numIntervals = pertIntervals.get(pertNum).size();
                 bw.append(numIntervals+" states");
                 bw.newLine();
@@ -286,40 +313,40 @@ public class PertSet implements Serializable {
                     bw.newLine();
                 }
             }
-            
-            
+
+
             //OK now go through the residues to write their perturbation states
             for(int pos=0;pos<pertStates.size(); pos++){//Residue perturbation state, RC info
                 //Residue res=m.residue[pos];
                 //int posInStrand = res.strandResidueNumber;
-                
+
                 ArrayList<ArrayList<int[]>> resPertStates = pertStates.get(pos);
                 //if( res.perts.length > 0 ){
                 //UNLIKE OSPREY 2.X WILL HAVE RES PERT STATES RECORD FOR EVERY RESIDUE
-                    //curStrandRCs = (StrandRCs)strandRot[res.strandNumber];
+                //curStrandRCs = (StrandRCs)strandRot[res.strandNumber];
 
-                    bw.append("RES");
+                bw.append("RES");
+                bw.newLine();
+
+                bw.append(resPertStates.size() + " states ");
+                bw.newLine();
+
+                bw.append("PERTURBATIONS ");
+                if(resPertStates.size()>0){
+                    ArrayList<int[]> firstState = resPertStates.get(0);
+                    for(int a=0;a<firstState.size();a++)
+                        bw.append(firstState.get(a)[0] + " ");//firstState consists of pairs (pert #, interval #)
+                }
+                bw.newLine();
+
+                for(int state=0; state<resPertStates.size(); state++){
+                    ArrayList<int[]> pertState = resPertStates.get(state);
+
+                    for(int pertInd=0; pertInd<pertState.size(); pertInd++)
+                        bw.append(pertState.get(pertInd)[1] + " ");
+
                     bw.newLine();
-
-                    bw.append(resPertStates.size() + " states ");
-                    bw.newLine();
-
-                    bw.append("PERTURBATIONS ");
-                    if(resPertStates.size()>0){
-                        ArrayList<int[]> firstState = resPertStates.get(0);
-                        for(int a=0;a<firstState.size();a++)
-                            bw.append(firstState.get(a)[0] + " ");//firstState consists of pairs (pert #, interval #)
-                    }
-                    bw.newLine();
-
-                    for(int state=0; state<resPertStates.size(); state++){
-                        ArrayList<int[]> pertState = resPertStates.get(state);
-                        
-                        for(int pertInd=0; pertInd<pertState.size(); pertInd++)
-                            bw.append(pertState.get(pertInd)[1] + " ");
-
-                        bw.newLine();
-                    }
+                }
 
                 //}
             }
@@ -332,38 +359,38 @@ public class PertSet implements Serializable {
             throw new RuntimeException("ERROR WRITING PERTURBATION FILE: "+e.getMessage());
         }
     }
-    
-    
+
+
     private void writeAdditionalInfo(BufferedWriter bw, ArrayList<String> altPDBs) throws IOException {
         //write additional info needed to reconstruct a perturbation
         if(altPDBs!=null){//there is some info needed (only for partial structure switch currently)
             int numStructs = altPDBs.size()+1;//include original structure
             bw.append(numStructs+" structures");
             bw.newLine();
-            
+
             for(String fileName : altPDBs){
                 bw.append(fileName);
                 bw.newLine();
             }
         }
     }
-    
-    
+
+
     ArrayList<Perturbation> makePerturbations(Molecule m){
         //Generate these perturbations in the molecule of interest
         //and build a block out of them
-        
+
         ArrayList<Perturbation> ans = new ArrayList<>();
-        
+
         for(int pertNum=0; pertNum<pertTypes.size(); pertNum++){
-            
+
             String type = pertTypes.get(pertNum);
             ArrayList<Residue> directlyAffectedResidues = new ArrayList<>();
             for(String resNum : resNums.get(pertNum))
                 directlyAffectedResidues.add( m.getResByPDBResNumber(resNum) );
-            
+
             Perturbation pert;
-            
+
             if(type.equalsIgnoreCase("BACKRUB"))
                 pert = new Backrub(directlyAffectedResidues);
             else if(type.equalsIgnoreCase("SHEAR"))
@@ -374,19 +401,19 @@ public class PertSet implements Serializable {
                 pert = new PartialStructureSwitch(directlyAffectedResidues, additionalInfo.get(pertNum));
             else
                 throw new RuntimeException("ERROR: Unrecognized perturbation type: "+type);
-            
+
             ans.add(pert);
         }
-        
+
         PerturbationBlock pblock = new PerturbationBlock(ans);
         //pblock will automatically be stored in each of the perturbations
-        
+
         return ans;
     }
-    
-    
-    
-    
+
+
+
+
     PertSet makeDiscreteVersion(){
         //Make a discrete version of this PertSet.  Shallow copying when no change
         PertSet discrSet = new PertSet();
@@ -394,7 +421,7 @@ public class PertSet implements Serializable {
         discrSet.resNums = resNums;
         discrSet.pertStates = pertStates;
         discrSet.additionalInfo = additionalInfo;
-        
+
         for(ArrayList<double[]> curPertIntervals : pertIntervals){
             ArrayList<double[]> curDiscr = new ArrayList<>();
             for(double[] bounds : curPertIntervals){
@@ -407,9 +434,9 @@ public class PertSet implements Serializable {
             }
             discrSet.pertIntervals.add(curDiscr);
         }
-        
+
         return discrSet;
     }
-    
-    
+
+
 }

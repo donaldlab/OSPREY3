@@ -1,34 +1,34 @@
 /*
-** This file is part of OSPREY 3.0
-** 
-** OSPREY Protein Redesign Software Version 3.0
-** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
-** 
-** OSPREY is free software: you can redistribute it and/or modify
-** it under the terms of the GNU General Public License version 2
-** as published by the Free Software Foundation.
-** 
-** You should have received a copy of the GNU General Public License
-** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
-** 
-** OSPREY relies on grants for its development, and since visibility
-** in the scientific literature is essential for our success, we
-** ask that users of OSPREY cite our papers. See the CITING_OSPREY
-** document in this distribution for more information.
-** 
-** Contact Info:
-**    Bruce Donald
-**    Duke University
-**    Department of Computer Science
-**    Levine Science Research Center (LSRC)
-**    Durham
-**    NC 27708-0129
-**    USA
-**    e-mail: www.cs.duke.edu/brd/
-** 
-** <signature of Bruce Donald>, Mar 1, 2018
-** Bruce Donald, Professor of Computer Science
-*/
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
 
 package edu.duke.cs.osprey.tools;
 
@@ -40,18 +40,14 @@ import org.apache.batik.svggen.SVGGraphics2D;
 import org.apache.batik.svggen.SVGSyntax;
 import org.apache.batik.util.CSSConstants;
 import org.apache.batik.util.SVGConstants;
-import org.w3c.dom.CDATASection;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
+import org.w3c.dom.*;
 
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Writer;
+import java.io.*;
 import java.lang.reflect.Field;
 import java.util.*;
 import java.util.List;
@@ -119,9 +115,9 @@ public class SVG {
 
 		public void setStrokeDashArray(int ... array) {
 			String arrayString = String.join(",",
-				Arrays.stream(array)
-					.mapToObj((i) -> Integer.toString(i))
-					.collect(Collectors.toList())
+					Arrays.stream(array)
+							.mapToObj((i) -> Integer.toString(i))
+							.collect(Collectors.toList())
 			);
 			set(CSSConstants.CSS_STROKE_DASHARRAY_PROPERTY, arrayString);
 		}
@@ -183,9 +179,9 @@ public class SVG {
 				return currentStyleClasses.get(0).name;
 			} else {
 				return String.join(" ", currentStyleClasses.stream()
-					.filter((style) -> style != null)
-					.map((style) -> style.name)
-					.collect(Collectors.toList())
+						.filter((style) -> style != null)
+						.map((style) -> style.name)
+						.collect(Collectors.toList())
 				);
 			}
 		}
@@ -311,9 +307,9 @@ public class SVG {
 
 		// make the SVG DOM
 		doc = (GenericDocument)GenericDOMImplementation.getDOMImplementation().createDocument(
-			"http://www.w3.org/2000/svg",
-			"svg",
-			null
+				"http://www.w3.org/2000/svg",
+				"svg",
+				null
 		);
 
 		// get the graphics object that makes SVG DOM elements
@@ -352,9 +348,9 @@ public class SVG {
 
 	public void setBounds(double x1, double x2, double y1, double y2) {
 		bounds = new Rectangle2D.Double(
-			x1, y1,
-			x2 - x1,
-			y2 - y1
+				x1, y1,
+				x2 - x1,
+				y2 - y1
 		);
 	}
 
@@ -372,23 +368,23 @@ public class SVG {
 
 	public ShapeDrawable makeLine(double x1, double y1, double x2, double y2) {
 		return new ShapeDrawable(new Line2D.Double(
-			x1, y1,
-			x2, y2
+				x1, y1,
+				x2, y2
 		));
 	}
 
 	public ShapeDrawable makeRect(double x1, double x2, double y1, double y2) {
 		return new ShapeDrawable(new Rectangle2D.Double(
-			x1, y1,
-			x2 - x1,
-			y2 - y1
+				x1, y1,
+				x2 - x1,
+				y2 - y1
 		));
 	}
 
 	public ShapeDrawable makeRectWH(double x, double y, double w, double h) {
 		return new ShapeDrawable(new Rectangle2D.Double(
-			x, y,
-			w, h
+				x, y,
+				w, h
 		));
 	}
 

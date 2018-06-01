@@ -1,14 +1,44 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-
 import edu.duke.cs.osprey.structure.Residue;
 
 /**
- * 
+ *
  * @author Adegoke Ojewole (ao68@duke.edu)
- * 
+ *
  */
 
 @SuppressWarnings("serial")
@@ -23,40 +53,24 @@ public class ResidueTermini implements Serializable {
 	//and comparison will be made based on number or chain ID comparisons,
 	//not on sequence in an input molecule
 
-	
+
 	public ResidueTermini(int state, String lBound, String uBound) {
-		if(lBound.compareTo(uBound)>0) 
+		if(lBound.compareTo(uBound)>0)
 			throw new RuntimeException("ERROR: lBound: "+lBound+" must be <= uBound: "+uBound);
 		this.state = state;
 		this.lBound = lBound;
 		this.uBound = uBound;
 	}
-	
-	public static boolean contains(ArrayList<ResidueTermini> termini, Residue res) {
-		for(ResidueTermini rt : termini) {
-			if(rt == null) continue;
-			if(rt.contains(res)) {
-				return true;
-			}
-		}
-		return false;
-	}
-	
-	public boolean contains(ResidueTermini other) {
-		if(this.lBound <= other.lBound && this.uBound >= other.uBound)
-			return true;
-		return false;
-	}
-	
+
 	public boolean contains(Residue res) {
 		return contains(res.getPDBResNumber());
 	}
-	
+
 	public boolean contains(String pdbResNum) {
 		return compareResNums(pdbResNum,lBound)>-1 && compareResNums(pdbResNum,uBound)<1;
 	}
-		
-		
+
+
 	public static int compareResNums(String resNum1, String resNum2) {
 		if(hasChainID(resNum1) && hasChainID(resNum2)) {
 			Character chainID1 = resNum1.charAt(0);
@@ -80,11 +94,11 @@ public class ResidueTermini implements Serializable {
 			return Character.isAlphabetic(lastChar2) ? -1 : 0;
 		}
 	}
-	
+
 	private static boolean hasChainID(String resNum) {
 		return Character.isAlphabetic(resNum.charAt(0));
 	}
-	
+
 	private static Integer extractPureNumber(String resNum) {
 		String fullResNum = resNum;
 		if(hasChainID(resNum))
@@ -98,13 +112,13 @@ public class ResidueTermini implements Serializable {
 			throw new RuntimeException("ERROR invalid residue number: "+fullResNum);
 		}
 	}
-	
-	
+
+
 	public String[] toStringArray() {
 		String[] ans = new String[2];
 		ans[0] = lBound;
 		ans[1] = uBound;
 		return ans;
 	}
-	
+
 }

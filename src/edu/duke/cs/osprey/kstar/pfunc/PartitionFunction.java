@@ -138,9 +138,11 @@ public interface PartitionFunction {
 		}
 
 		public BigDecimal calcUpperBound() {
-			BigDecimal x = MathTools.bigAdd(qstar, qprime, decimalPrecision);
-			x = MathTools.bigAdd(x, pstar, decimalPrecision);
-			return x;
+			return new BigMath(decimalPrecision)
+					.set(qstar)
+					.add(qprime)
+					.add(pstar)
+					.get();
 		}
 	}
 

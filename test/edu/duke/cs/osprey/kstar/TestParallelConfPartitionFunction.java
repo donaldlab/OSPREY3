@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar;
 
 import static org.hamcrest.Matchers.*;
@@ -21,54 +53,54 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class TestParallelConfPartitionFunction extends TestBase {
-	
+
 	public static class Pfunc {
-		
+
 		public MinimizingConfEnergyCalculator ecalc;
 		public ParallelConfPartitionFunction pfunc;
-		
+
 		public Pfunc(MinimizingConfEnergyCalculator ecalc, SearchProblem search, ConfSearchFactory confSearchFactory) {
 			this.ecalc = ecalc;
 			this.pfunc = new ParallelConfPartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
 		}
-		
+
 		public void cleanup() {
 			this.ecalc.clean();
 		}
 	}
-	
+
 	@BeforeClass
 	public static void before() {
 		initDefaultEnvironment();
 	}
-	
+
 	public static Pfunc makePfunc(SearchProblem search) {
 		return makePfunc(search, Parallelism.makeCpu(1));
 	}
-	
+
 	public static Pfunc makePfunc(SearchProblem search, Parallelism parallelism) {
-		
+
 		// make the A* tree factory
 		ConfSearchFactory confSearchFactory = new ConfSearchFactory() {
 			@Override
 			public ConfSearch make(EnergyMatrix emat, PruningMatrix pmat) {
 				return new ConfAStarTree.Builder(emat, pmat)
-					.setMPLP(new ConfAStarTree.MPLPBuilder()
-						.setNumIterations(1)
-					).build();
+						.setMPLP(new ConfAStarTree.MPLPBuilder()
+								.setNumIterations(1)
+						).build();
 			}
 		};
-		
+
 		// make the conf energy calculator
 		MinimizingConfEnergyCalculator ecalc = MinimizingConfEnergyCalculator.make(makeDefaultFFParams(), search, parallelism);
-		
+
 		return new Pfunc(ecalc, search, confSearchFactory);
 	}
 
 	private void testStrand(Parallelism parallelism, KSSearchProblem search, double targetEpsilon, String approxQStar) {
 		Pfunc pfunc = makePfunc(search, parallelism);
 		try {
-			pfunc.pfunc.init(targetEpsilon);
+			pfunc.pfunc.init(null, null, targetEpsilon);
 			pfunc.pfunc.compute();
 			assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
 		} finally {
@@ -96,7 +128,7 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	@Test public void test2RL0ProteinCpu2() { test2RL0Protein(Parallelism.makeCpu(2)); }
 	@Test public void test2RL0ProteinGpu1() { test2RL0Protein(Parallelism.make(4, 1, 1)); }
 	@Test public void test2RL0ProteinGpu2() { test2RL0Protein(Parallelism.make(4, 1, 2)); }
-	
+
 	public void test2RL0Ligand(Parallelism parallelism) {
 		KSSearchProblem search = TestPartitionFunction.makeSearch(PdbPath2RL0, 1, "155", "194", "156 172 192 193");
 		final double targetEpsilon = 0.05;
@@ -107,7 +139,7 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	@Test public void test2RL0LigandCpu2() { test2RL0Ligand(Parallelism.makeCpu(2)); }
 	@Test public void test2RL0LigandGpu1() { test2RL0Ligand(Parallelism.make(4, 1, 1)); }
 	@Test public void test2RL0LigandGpu2() { test2RL0Ligand(Parallelism.make(4, 1, 2)); }
-	
+
 	public void test2RL0Complex(Parallelism parallelism) {
 		KSSearchProblem search = TestPartitionFunction.makeSearch(PdbPath2RL0, 2, null, null, "649 650 651 654 156 172 192 193");
 		final double targetEpsilon = 0.8;

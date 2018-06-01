@@ -16,6 +16,7 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 
@@ -36,14 +37,14 @@ public class TestEWAKStar {
         Integer[] posP = new Integer[]{0, 1, 2, 3};
 
         ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
-                new String[]{"PHE"},
-                new String[]{"LYS", "ALA", "VAL", "ILE", "LEU", "PHE"},
-                new String[]{"ILE"},
-                new String[]{"THR"},
-                new String[]{"PHE", "ALA", "VAL", "ILE", "LEU", "TYR"},
-                new String[]{"ASP", "ALA", "VAL", "ILE", "LEU", "PHE"},
-                new String[]{"GLU"},
-                new String[]{"THR"}
+                new String[]{"PHE", "TYR", "ALA", "VAL", "ILE", "LEU"},
+                new String[]{"LYS", "ASP", "GLU"},
+                new String[]{"ILE", "ALA", "VAL", "LEU", "PHE", "TYR"},
+                new String[]{"THR", "SER", "ASN"},
+                new String[]{"PHE", "TYR", "ALA", "VAL", "ILE", "LEU"},
+                new String[]{"ASP", "GLU"},
+                new String[]{"GLU", "ASP"},
+                new String[]{"THR", "SER", "ASN", "GLN"}
         );
 
 

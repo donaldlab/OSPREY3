@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.tools.HashCalculator;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;

@@ -42,17 +42,17 @@ import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
  */
 public class MSKStarSettings {
 
-	public boolean isReportingProgress;
-	public double targetEpsilon;
-	public int state;
-	public int numTopConfsToSave;
-	public MSConfigFileParser cfp;
-	public KStarScoreType scoreType;
-	public MSSearchProblem[] search;
-	public boolean isFinal;
-	public LMB[] constraints;
-	public PartitionFunctionType[] pfTypes;
-	public GMECConfEnergyCalculator.Async[] ecalcs;
+    public boolean isReportingProgress;
+    public double targetEpsilon;
+    public int state;
+    public int numTopConfsToSave;
+    public MSConfigFileParser cfp;
+    public KStarScoreType scoreType;
+    public MSSearchProblem[] search;
+    public boolean isFinal;
+    public LMB[] constraints;
+    public PartitionFunctionType[] pfTypes;
+    public GMECConfEnergyCalculator.Async[] ecalcs;
 
-	public MSKStarSettings() {}
+    public MSKStarSettings() {}
 }

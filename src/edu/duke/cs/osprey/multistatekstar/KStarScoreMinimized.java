@@ -201,8 +201,8 @@ public class KStarScoreMinimized implements KStarScore {
 		// we have p* / q* = epsilon1 > target epsilon
 		// we want p1* / q* <= target epsilon
 		// therefore, p1* <= q* x target epsilon
-		// we take p1* as our new value of p* and shift 
-		// the pairwise lower bound probability mass 
+		// we take p1* as our new value of p* and shift
+		// the pairwise lower bound probability mass
 		// of p* - p1* to q*.
 		// this is accomplished by enumerating confs in p*
 		// until BoltzmannE(sum_scoreWeights) >= p* - p1*
@@ -320,7 +320,7 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 
 	/**
-	 * see if partition function satisfies either lower or upper bound 
+	 * see if partition function satisfies either lower or upper bound
 	 * constraints involving this state only
 	 * @param state
 	 * @param lbConstr: true=lb, false=ub

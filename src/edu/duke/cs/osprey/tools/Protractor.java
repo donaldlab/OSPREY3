@@ -1,40 +1,44 @@
 /*
-** This file is part of OSPREY 3.0
-** 
-** OSPREY Protein Redesign Software Version 3.0
-** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
-** 
-** OSPREY is free software: you can redistribute it and/or modify
-** it under the terms of the GNU General Public License version 2
-** as published by the Free Software Foundation.
-** 
-** You should have received a copy of the GNU General Public License
-** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
-** 
-** OSPREY relies on grants for its development, and since visibility
-** in the scientific literature is essential for our success, we
-** ask that users of OSPREY cite our papers. See the CITING_OSPREY
-** document in this distribution for more information.
-** 
-** Contact Info:
-**    Bruce Donald
-**    Duke University
-**    Department of Computer Science
-**    Levine Science Research Center (LSRC)
-**    Durham
-**    NC 27708-0129
-**    USA
-**    e-mail: www.cs.duke.edu/brd/
-** 
-** <signature of Bruce Donald>, Mar 1, 2018
-** Bruce Donald, Professor of Computer Science
-*/
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
 
 package edu.duke.cs.osprey.tools;
 
+import static edu.duke.cs.osprey.tools.VectorAlgebra.cross;
+import static edu.duke.cs.osprey.tools.VectorAlgebra.dot;
+import static edu.duke.cs.osprey.tools.VectorAlgebra.norm;
+import static edu.duke.cs.osprey.tools.VectorAlgebra.normsq;
+import static edu.duke.cs.osprey.tools.VectorAlgebra.perpendicularComponent;
+import static edu.duke.cs.osprey.tools.VectorAlgebra.subtract;
 import edu.duke.cs.osprey.structure.Residue;
-
-import static edu.duke.cs.osprey.tools.VectorAlgebra.*;
 
 /**
  *
@@ -42,8 +46,8 @@ import static edu.duke.cs.osprey.tools.VectorAlgebra.*;
  */
 public class Protractor {
     //Measure angles
-    
-    
+
+
 
     public static double getAngleRadians(double vec1[], double vec2[]){//Get the angle, in radians, between two vectors
 
@@ -56,11 +60,11 @@ public class Protractor {
         return (double) Math.acos( costh );
     }
 
-    
+
     public static double getAngleDegrees(double A[], double B[], double C[]){
         return 180. * getAngleRadians(A,B,C) / Math.PI;
     }
-    
+
     public static double getAngleRadians(double A[], double B[], double C[]){//Get the angle ABC
         double BA[] = subtract(A,B);
         double BC[] = subtract(C,B);
@@ -84,36 +88,36 @@ public class Protractor {
         else
             return ans;
     }
-    
+
     public static double measureDihedral(double[] coords, int[] indices) {
-    	return measureDihedral(coords, indices[0], indices[1], indices[2], indices[3]);
+        return measureDihedral(coords, indices[0], indices[1], indices[2], indices[3]);
     }
-    
+
     public static double measureDihedral(double[] coords, int a, int b, int c, int d) {
-    	return measureDihedral(coords, a, coords, b, coords, c, coords, d);
+        return measureDihedral(coords, a, coords, b, coords, c, coords, d);
     }
-    
+
     public static double measureDihedral(double[][] coords) {
-    	return measureDihedral(coords[0], 0, coords[1], 0, coords[2], 0, coords[3], 0);
+        return measureDihedral(coords[0], 0, coords[1], 0, coords[2], 0, coords[3], 0);
     }
-    
+
     public static double[] measureDihedralSinCos(double[][] coords) {
-    	return measureDihedralSinCos(coords[0], 0, coords[1], 0, coords[2], 0, coords[3], 0);
+        return measureDihedralSinCos(coords[0], 0, coords[1], 0, coords[2], 0, coords[3], 0);
     }
-    
+
     //given 3D coords for four atoms, return their dihedral (standard sign convention; in degrees)
     public static double measureDihedral(double[] acoords, int aindex, double[] bcoords, int bindex, double[] ccoords, int cindex, double[] dcoords, int dindex) {
-    
+
         double[] sincos = measureDihedralSinCos(acoords, aindex, bcoords, bindex, ccoords, cindex, dcoords, dindex);
-        
+
         // compute theta from sin and cos
         double angleRadians = Math.atan2(sincos[0], sincos[1]);
         return Protractor.normalizeDegrees(Math.toDegrees(angleRadians));
     }
-    
+
     public static double[] measureDihedralSinCos(double[] acoords, int aindex, double[] bcoords, int bindex, double[] ccoords, int cindex, double[] dcoords, int dindex) {
         //This version returns the {sine,cosine} of the dihedral
-        
+
         // This was not written by me, but I have checked it
         // If all 4 atoms lie in a plane and the first and fourth
         //  atoms are trans then 180 is returned, if they are cis
@@ -122,24 +126,24 @@ public class Protractor {
         //  handed rotation where the axis is the vector from
         //  atom2 to atom3 (ie thumb points to atom3) is returned.
         // The returned angle is between -180-epsilon .. +180
-        
+
         // Jeff: I rewrote this, and fixed the numerical stability issues
-        
+
         int a3 = aindex*3;
         int b3 = bindex*3;
         int c3 = cindex*3;
         int d3 = dindex*3;
-        
+
         // let ba = a-b
         double bax = acoords[a3    ] - bcoords[b3    ];
         double bay = acoords[a3 + 1] - bcoords[b3 + 1];
         double baz = acoords[a3 + 2] - bcoords[b3 + 2];
-        
+
         // let bc = c-b
         double bcx = ccoords[c3    ] - bcoords[b3    ];
         double bcy = ccoords[c3 + 1] - bcoords[b3 + 1];
         double bcz = ccoords[c3 + 2] - bcoords[b3 + 2];
-        
+
         // let dc = c-d
         double dcx = ccoords[c3    ] - dcoords[d3    ];
         double dcy = ccoords[c3 + 1] - dcoords[d3 + 1];
@@ -149,12 +153,12 @@ public class Protractor {
         double dx = bay*bcz - baz*bcy;
         double dy = baz*bcx - bax*bcz;
         double dz = bax*bcy - bay*bcx;
-        
+
         // let g = bc cross dc
         double gx = bcz*dcy - bcy*dcz;
         double gy = bcx*dcz - bcz*dcx;
         double gz = bcy*dcx - bcx*dcy;
-        
+
         // cos(theta) = (d dot g)/(|d|*|g|)
         double bi = dx*dx + dy*dy + dz*dz;
         double bk = gx*gx + gy*gy + gz*gz;
@@ -168,28 +172,28 @@ public class Protractor {
             sin = Math.sqrt(1 - cos*cos);
         }
         */
-        
+
         // let v = g cross d
         double vx = gy*dz - gz*dy;
         double vy = gz*dx - gx*dz;
         double vz = gx*dy - gy*dx;
-        
+
         // sin(theta) = |v|/(|d|*|g|)
         double sin = Math.sqrt(vx*vx + vy*vy + vz*vz)/norm;
-        
+
         // bc dot v
         double bcdotv  = bcx*vx + bcy*vy + bcz*vz;
-        
+
         // adjust the signs to move sin,cos out of the fist quadrant
         // and to match dihedral angle conventions
         cos = -cos;
         if (bcdotv < 0.0) {
             sin = -sin;
         }
-        
+
         return new double[] { sin, cos };
     }
-    
+
     //return (sin(theta/2),cos(theta/2))
     //meant to be quick, without inverse trig
     /**
@@ -201,13 +205,13 @@ public class Protractor {
         //first get the right absolute values
         double s2 = (1-cosTheta)/2;
         double c2 = (1+cosTheta)/2;
-        
+
         //assuming negative values of these (cos outside [-1,1]) are just slight numerical errors
         if(s2<0)
             s2=0;
         if(c2<0)
             c2=0;
-        
+
         double ans[] = new double[] {Math.sqrt(s2),Math.sqrt(c2)};
         //now flip signs as needed
         //we are assuming theta is between 0 and 360
@@ -217,9 +221,9 @@ public class Protractor {
             ans[1] *= -1;
         return ans;
     }
-    
+
     /** Returns {phi,psi} for the residue.
-     * 
+     *
      * @param res: the residue to compute phi and psi
      * @return an array where the first field is phi and the second field is psi
      */
@@ -250,7 +254,7 @@ public class Protractor {
 
         return ans;
     }
-    
+
     public static double normalizeDegrees(double angleDegrees) {
         while (angleDegrees <= -180) {
             angleDegrees += 360;

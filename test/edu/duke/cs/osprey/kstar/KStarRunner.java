@@ -1,9 +1,43 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -11,6 +45,10 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.SVG;
+import edu.duke.cs.osprey.tools.SVGPlot;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -25,22 +63,22 @@ import static edu.duke.cs.osprey.tools.Log.log;
 public class KStarRunner {
 
 	public static void main(String[] args)
-	throws Exception {
+			throws Exception {
 
 		// try JJ's design
 		Molecule mol = PDBIO.readFile("/home/jeff/dlab/osprey test cases/jj-serialization/gp120SRVRC26.09SR.pdb");
 
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder()
-			.addMoleculeForWildTypeRotamers(mol)
-			.addTemplates(FileTools.readFile("/home/jeff/dlab/osprey test cases/jj-serialization/all_nuc94_and_gr.in"))
-			.addTemplateCoords(FileTools.readFile("/home/jeff/dlab/osprey test cases/jj-serialization/all_amino_coords.in"))
-			.addRotamers(FileTools.readFile("/home/jeff/dlab/osprey test cases/jj-serialization/GenericRotamers.dat"))
-			.build();
+				.addMoleculeForWildTypeRotamers(mol)
+				.addTemplates(FileTools.readFile("/home/jeff/dlab/osprey test cases/jj-serialization/all_nuc94_and_gr.in"))
+				.addTemplateCoords(FileTools.readFile("/home/jeff/dlab/osprey test cases/jj-serialization/all_amino_coords.in"))
+				.addRotamers(FileTools.readFile("/home/jeff/dlab/osprey test cases/jj-serialization/GenericRotamers.dat"))
+				.build();
 
 		Strand ligand = new Strand.Builder(mol)
-			.setResidues("H1792", "L2250")
-			.setTemplateLibrary(templateLib)
-			.build();
+				.setResidues("H1792", "L2250")
+				.setTemplateLibrary(templateLib)
+				.build();
 		ligand.flexibility.get("H1901").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("H1904").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "ILE", "PHE", "TYR", "TRP", "CYS", "MET", "SER", "THR", "LYS", "ARG", "HIS", "ASP", "GLU", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("H1905").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "ILE", "PHE", "TYR", "TRP", "CYS", "MET", "SER", "THR", "LYS", "ARG", "HIS", "ASP", "GLU", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
@@ -49,9 +87,9 @@ public class KStarRunner {
 		ligand.flexibility.get("H1908").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		Strand target = new Strand.Builder(mol)
-			.setResidues("F379", "J1791")
-			.setTemplateLibrary(templateLib)
-			.build();
+				.setResidues("F379", "J1791")
+				.setTemplateLibrary(templateLib)
+				.build();
 		target.flexibility.get("G973").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		target.flexibility.get("G977").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		target.flexibility.get("G978").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
@@ -60,17 +98,17 @@ public class KStarRunner {
 		target.flexibility.get("J1448").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		SimpleConfSpace complexConfSpace = new SimpleConfSpace.Builder()
-			.addStrand(ligand)
-			.addStrand(target)
-			.build();
+				.addStrand(ligand)
+				.addStrand(target)
+				.build();
 
 		SimpleConfSpace ligandConfSpace = new SimpleConfSpace.Builder()
-			.addStrand(ligand)
-			.build();
+				.addStrand(ligand)
+				.build();
 
 		SimpleConfSpace targetConfSpace = new SimpleConfSpace.Builder()
-			.addStrand(target)
-			.build();
+				.addStrand(target)
+				.build();
 
 		//runKStar(targetConfSpace, ligandConfSpace, complexConfSpace);
 		analyze(targetConfSpace, ligandConfSpace, complexConfSpace);
@@ -79,32 +117,39 @@ public class KStarRunner {
 	private static void runKStar(SimpleConfSpace targetConfSpace, SimpleConfSpace ligandConfSpace, SimpleConfSpace complexConfSpace) {
 
 		KStar.Settings settings = new KStar.Settings.Builder()
-			.setEpsilon(0.9999)
-			.setStabilityThreshold(null)
-			.setMaxSimultaneousMutations(3)
-			.setEnergyMatrixCachePattern("kstar.emat.*.dat")
-			.addScoreConsoleWriter()
-			.addScoreFileWriter(new File("kstar.txt"))
-			.setShowPfuncProgress(true)
-			.build();
-
-		KStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpace, ecalc) -> new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
-		KStar.ConfSearchFactory astarFactory = (confSpace, rcs) -> new ConfAStarTree.Builder(confSpace, rcs)
-			.setTraditional()
-			.build();
+				.setEpsilon(0.9999)
+				.setStabilityThreshold(null)
+				.setMaxSimultaneousMutations(3)
+				.addScoreConsoleWriter()
+				.addScoreFileWriter(new File("kstar.txt"))
+				.setShowPfuncProgress(true)
+				.build();
 
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(complexConfSpace, new ForcefieldParams())
-			//.setParallelism(Parallelism.makeCpu(8))
-			.setParallelism(Parallelism.make(4, 1, 1))
-			.build()
+				.setParallelism(Parallelism.makeCpu(8))
+				//.setParallelism(Parallelism.make(4, 1, 1))
+				.build()
 		) {
-			KStar kstar = new KStar(targetConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings);
+			KStar kstar = new KStar(targetConfSpace, ligandConfSpace, complexConfSpace, settings);
+			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+
+				info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, ecalc).build();
+
+				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
+						.setCacheFile(new File(String.format("kstar.emat.%s.dat", info.id)))
+						.build()
+						.calcEnergyMatrix();
+
+				info.confSearchFactory = (rcs) -> new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional()
+						.build();
+			}
 			kstar.run();
 		}
 	}
 
 	private static void analyze(SimpleConfSpace targetConfSpace, SimpleConfSpace ligandConfSpace, SimpleConfSpace complexConfSpace)
-	throws Exception {
+			throws Exception {
 
 		class Entry {
 			public Sequence sequence;
@@ -176,17 +221,17 @@ public class KStarRunner {
 			for (Entry entry : entries) {
 
 				SVGPlot.Boxes.Box box = boxes.addBox(
-					MathTools.log10p1(entry.ligandPfuncLB),
-					MathTools.log10p1(entry.ligandPfuncUB),
-					MathTools.log10p1(entry.complexPfuncLB),
-					MathTools.log10p1(entry.complexPfuncUB)
+						MathTools.log10p1(entry.ligandPfuncLB),
+						MathTools.log10p1(entry.ligandPfuncUB),
+						MathTools.log10p1(entry.complexPfuncLB),
+						MathTools.log10p1(entry.complexPfuncUB)
 				);
 				box.id = String.format("%s: ligand:[%.2f,%.2f] complex:[%.2f,%.2f]",
-					entry.sequence.toString(),
-					MathTools.log10p1(entry.ligandPfuncLB),
-					MathTools.log10p1(entry.ligandPfuncUB),
-					MathTools.log10p1(entry.complexPfuncLB),
-					MathTools.log10p1(entry.complexPfuncUB)
+						entry.sequence.toString(),
+						MathTools.log10p1(entry.ligandPfuncLB),
+						MathTools.log10p1(entry.ligandPfuncUB),
+						MathTools.log10p1(entry.complexPfuncLB),
+						MathTools.log10p1(entry.complexPfuncUB)
 				);
 				if (entry.sequence.isWildType()) {
 					box.extraStyle = wildtypeBoxStyle;
@@ -219,19 +264,19 @@ public class KStarRunner {
 				// skip entries that have no binding score
 				if (Double.isNaN(entry.lowerBinding) || Double.isNaN(entry.upperBinding)) {
 					log("sequence %s has no binding score, ligand:[%.1f,%.1f] complex:[%.1f,%.1f]",
-						entry.sequence, entry.ligandPfuncLB, entry.ligandPfuncUB, entry.complexPfuncLB, entry.complexPfuncUB
+							entry.sequence, entry.ligandPfuncLB, entry.ligandPfuncUB, entry.complexPfuncLB, entry.complexPfuncUB
 					);
 					continue;
 				}
 
 				SVGPlot.Intervals.Interval interval = intervals.addInterval(
-					MathTools.log10p1(entry.lowerBinding),
-					MathTools.log10p1(entry.upperBinding)
+						MathTools.log10p1(entry.lowerBinding),
+						MathTools.log10p1(entry.upperBinding)
 				);
 				interval.id = String.format("%s: [%.2f,%.2f]",
-					entry.sequence.toString(),
-					MathTools.log10p1(entry.lowerBinding),
-					MathTools.log10p1(entry.upperBinding)
+						entry.sequence.toString(),
+						MathTools.log10p1(entry.lowerBinding),
+						MathTools.log10p1(entry.upperBinding)
 				);
 				if (entry.sequence.isWildType()) {
 					interval.extraStyle = wildtypeIntervalStyle;

@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.confspace;
 
 import static org.hamcrest.Matchers.*;
@@ -12,10 +44,13 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.TimeTools;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.File;
+import java.lang.reflect.Array;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.function.Consumer;
 
@@ -38,8 +73,8 @@ public class TestConfDB {
 		strand.flexibility.get("A9").setLibraryRotamers(Strand.WildType, "ALA").addWildTypeRotamers();
 
 		confSpace = new SimpleConfSpace.Builder()
-			.addStrand(strand)
-			.build();
+				.addStrand(strand)
+				.build();
 
 		lys5 = confSpace.getPositionOrThrow("A5");
 		tyr7 = confSpace.getPositionOrThrow("A7");
@@ -266,24 +301,24 @@ public class TestConfDB {
 	public void writeReadCloseReadAFewSequences() {
 
 		Sequence sequence1 = confSpace.makeUnassignedSequence()
-			.set(lys5, "LYS")
-			.set(tyr7, "TYR")
-			.set(phe9, "PHE");
+				.set(lys5, "LYS")
+				.set(tyr7, "TYR")
+				.set(phe9, "PHE");
 
 		Sequence sequence2 = confSpace.makeUnassignedSequence()
-			.set(lys5, "ALA")
-			.set(tyr7, "TYR")
-			.set(phe9, "PHE");
+				.set(lys5, "ALA")
+				.set(tyr7, "TYR")
+				.set(phe9, "PHE");
 
 		Sequence sequence3 = confSpace.makeUnassignedSequence()
-			.set(lys5, "LYS")
-			.set(tyr7, "ALA")
-			.set(phe9, "PHE");
+				.set(lys5, "LYS")
+				.set(tyr7, "ALA")
+				.set(phe9, "PHE");
 
 		Sequence sequence4 = confSpace.makeUnassignedSequence()
-			.set(lys5, "LYS")
-			.set(tyr7, "TYR")
-			.set(phe9, "ALA");
+				.set(lys5, "LYS")
+				.set(tyr7, "TYR")
+				.set(phe9, "ALA");
 
 		withDBTwice((db) -> {
 
@@ -299,13 +334,13 @@ public class TestConfDB {
 
 			// sequences get hased in the db, so they can come out in any order
 			assertThat(Lists.newArrayList(db.getSequences()), containsInAnyOrder(
-				sequence1, sequence2, sequence3, sequence4
+					sequence1, sequence2, sequence3, sequence4
 			));
 
 		}, (db) -> {
 
 			assertThat(Lists.newArrayList(db.getSequences()), containsInAnyOrder(
-				sequence1, sequence2, sequence3, sequence4
+					sequence1, sequence2, sequence3, sequence4
 			));
 		});
 	}
@@ -336,37 +371,37 @@ public class TestConfDB {
 		withDBTwice((db) -> {
 
 			new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
-				.setParallelism(Parallelism.makeCpu(4))
-				.use((ecalc) -> {
+					.setParallelism(Parallelism.makeCpu(4))
+					.use((ecalc) -> {
 
-					ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
+						ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
 
-					EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-						.build()
-						.calcEnergyMatrix();
+						EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+								.build()
+								.calcEnergyMatrix();
 
-					ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
-						.setTraditional()
-						.setShowProgress(true)
-						.build();
+						ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+								.setTraditional()
+								.setShowProgress(true)
+								.build();
 
 
-					long numConfs = astar.getNumConformations().longValueExact();
-					assertThat(numConfs, is(1740L));
+						long numConfs = astar.getNumConformations().longValueExact();
+						assertThat(numConfs, is(1740L));
 
-					// write all the conformations in the A* tree
-					ConfSearch.ScoredConf conf;
-					while ((conf = astar.nextConf()) != null) {
-						ConfDB.SequenceDB sdb = db.getSequence(confSpace.makeSequenceFromConf(conf));
-						sdb.setLowerBound(
-							conf.getAssignments(),
-							conf.getScore(),
-							TimeTools.getTimestampNs()
-						);
-						sdb.updateLowerEnergyOfUnsampledConfs(conf.getScore());
+						// write all the conformations in the A* tree
+						ConfSearch.ScoredConf conf;
+						while ((conf = astar.nextConf()) != null) {
+							ConfDB.SequenceDB sdb = db.getSequence(confSpace.makeSequenceFromConf(conf));
+							sdb.setLowerBound(
+									conf.getAssignments(),
+									conf.getScore(),
+									TimeTools.getTimestampNs()
+							);
+							sdb.updateLowerEnergyOfUnsampledConfs(conf.getScore());
 
-					}
-				});
+						}
+					});
 
 		}, (db) -> {
 
@@ -397,9 +432,9 @@ public class TestConfDB {
 	public void energyIndices() {
 
 		int[][] assignments = {
-			{ 0, 0, 0 },
-			{ 1, 2, 3 },
-			{ 3, 2, 1 },
+				{ 0, 0, 0 },
+				{ 1, 2, 3 },
+				{ 3, 2, 1 },
 		};
 
 		String tableId = "foo";
@@ -414,21 +449,21 @@ public class TestConfDB {
 			assertThat(table.size(), is(3L));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Assignment), contains(
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
-				new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
-				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0)
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
+					new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
+					new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0)
 			));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Score), contains(
-				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
-				new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
+					new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
+					new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
 			));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Energy), contains(
-				new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
-				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
+					new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
+					new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
 			));
 
 			assertThat(table.lowerBounds(), contains(5.0, 6.0, 7.0));
@@ -473,21 +508,21 @@ public class TestConfDB {
 			assertThat(table.size(), is(3L));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Assignment), contains(
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
-				new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
-				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0)
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
+					new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
+					new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0)
 			));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Score), contains(
-				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
-				new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
+					new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
+					new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
 			));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Energy), contains(
-				new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
-				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
+					new ConfSearch.EnergiedConf(assignments[1], 6.0, 25.0),
+					new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0)
 			));
 
 			assertThat(table.lowerBounds(), contains(5.0, 6.0, 7.0));
@@ -531,9 +566,9 @@ public class TestConfDB {
 	public void energyIndicesChange() {
 
 		int[][] assignments = {
-			{ 0, 0, 0 },
-			{ 1, 2, 3 },
-			{ 3, 2, 1 },
+				{ 0, 0, 0 },
+				{ 1, 2, 3 },
+				{ 3, 2, 1 },
 		};
 
 		withDB((db) -> {
@@ -549,21 +584,21 @@ public class TestConfDB {
 			assertThat(table.size(), is(3L));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Assignment), contains(
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
-				new ConfSearch.EnergiedConf(assignments[1], 10.0, 50.0),
-				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0)
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
+					new ConfSearch.EnergiedConf(assignments[1], 10.0, 50.0),
+					new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0)
 			));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Score), contains(
-				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
-				new ConfSearch.EnergiedConf(assignments[1], 10.0, 50.0)
+					new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
+					new ConfSearch.EnergiedConf(assignments[1], 10.0, 50.0)
 			));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Energy), contains(
-				new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
-				new ConfSearch.EnergiedConf(assignments[1], 10.0, 50.0)
+					new ConfSearch.EnergiedConf(assignments[2], 5.0, 26.0),
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 27.0),
+					new ConfSearch.EnergiedConf(assignments[1], 10.0, 50.0)
 			));
 
 			assertThat(table.lowerBounds(), contains(5.0, 7.0, 10.0));
@@ -605,9 +640,9 @@ public class TestConfDB {
 	public void energyIndexChangeLowerBound() {
 
 		int[][] assignments = {
-			{ 0, 0, 0 },
-			{ 1, 2, 3 },
-			{ 3, 2, 1 },
+				{ 0, 0, 0 },
+				{ 1, 2, 3 },
+				{ 3, 2, 1 },
 		};
 
 		withDB((db) -> {
@@ -621,15 +656,15 @@ public class TestConfDB {
 			table.setLowerBound(assignments[1], 10.0, 10L);
 
 			assertThat(table.scoredConfs(ConfDB.SortOrder.Assignment), contains(
-				new ConfSearch.ScoredConf(assignments[0], 7.0),
-				new ConfSearch.ScoredConf(assignments[1], 10.0),
-				new ConfSearch.ScoredConf(assignments[2], 5.0)
+					new ConfSearch.ScoredConf(assignments[0], 7.0),
+					new ConfSearch.ScoredConf(assignments[1], 10.0),
+					new ConfSearch.ScoredConf(assignments[2], 5.0)
 			));
 
 			assertThat(table.scoredConfs(ConfDB.SortOrder.Score), contains(
-				new ConfSearch.ScoredConf(assignments[2], 5.0),
-				new ConfSearch.ScoredConf(assignments[0], 7.0),
-				new ConfSearch.ScoredConf(assignments[1], 10.0)
+					new ConfSearch.ScoredConf(assignments[2], 5.0),
+					new ConfSearch.ScoredConf(assignments[0], 7.0),
+					new ConfSearch.ScoredConf(assignments[1], 10.0)
 			));
 
 			assertThat(table.lowerBounds(), contains(5.0, 7.0, 10.0));
@@ -656,9 +691,9 @@ public class TestConfDB {
 	public void energyIndexChangeUpperBound() {
 
 		int[][] assignments = {
-			{ 0, 0, 0 },
-			{ 1, 2, 3 },
-			{ 3, 2, 1 },
+				{ 0, 0, 0 },
+				{ 1, 2, 3 },
+				{ 3, 2, 1 },
 		};
 
 		withDB((db) -> {
@@ -672,15 +707,15 @@ public class TestConfDB {
 			table.setUpperBound(assignments[1], 50.0, 10L);
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Assignment), contains(
-				new ConfSearch.EnergiedConf(assignments[0], Double.NaN, 27.0),
-				new ConfSearch.EnergiedConf(assignments[1], Double.NaN, 50.0),
-				new ConfSearch.EnergiedConf(assignments[2], Double.NaN, 26.0)
+					new ConfSearch.EnergiedConf(assignments[0], Double.NaN, 27.0),
+					new ConfSearch.EnergiedConf(assignments[1], Double.NaN, 50.0),
+					new ConfSearch.EnergiedConf(assignments[2], Double.NaN, 26.0)
 			));
 
 			assertThat(table.energiedConfs(ConfDB.SortOrder.Energy), contains(
-				new ConfSearch.EnergiedConf(assignments[2], Double.NaN, 26.0),
-				new ConfSearch.EnergiedConf(assignments[0], Double.NaN, 27.0),
-				new ConfSearch.EnergiedConf(assignments[1], Double.NaN, 50.0)
+					new ConfSearch.EnergiedConf(assignments[2], Double.NaN, 26.0),
+					new ConfSearch.EnergiedConf(assignments[0], Double.NaN, 27.0),
+					new ConfSearch.EnergiedConf(assignments[1], Double.NaN, 50.0)
 			));
 
 			assertThat(table.upperBounds(), contains(26.0, 27.0, 50.0));
@@ -707,9 +742,9 @@ public class TestConfDB {
 	public void energyIndicesSameEnergies() {
 
 		int[][] assignments = {
-			{ 0, 0, 0 },
-			{ 1, 2, 3 },
-			{ 3, 2, 1 },
+				{ 0, 0, 0 },
+				{ 1, 2, 3 },
+				{ 3, 2, 1 },
 		};
 
 		String tableId = "foo";
@@ -724,21 +759,21 @@ public class TestConfDB {
 			assertThat(table.size(), is(3L));
 
 			assertThat(table.scoredConfs(ConfDB.SortOrder.Assignment), containsInAnyOrder(
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
-				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
-				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
+					new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
+					new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
 			));
 
 			assertThat(table.scoredConfs(ConfDB.SortOrder.Score), containsInAnyOrder(
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
-				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
-				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
+					new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
+					new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
 			));
 
 			assertThat(table.scoredConfs(ConfDB.SortOrder.Energy), containsInAnyOrder(
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
-				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
-				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
+					new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
+					new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
 			));
 
 			assertThat(table.lowerBounds(), contains(7.0));
@@ -761,21 +796,21 @@ public class TestConfDB {
 			assertThat(table.size(), is(3L));
 
 			assertThat(table.scoredConfs(ConfDB.SortOrder.Assignment), containsInAnyOrder(
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
-				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
-				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
+					new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
+					new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
 			));
 
 			assertThat(table.scoredConfs(ConfDB.SortOrder.Score), containsInAnyOrder(
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
-				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
-				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
+					new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
+					new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
 			));
 
 			assertThat(table.scoredConfs(ConfDB.SortOrder.Energy), containsInAnyOrder(
-				new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
-				new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
-				new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
+					new ConfSearch.EnergiedConf(assignments[0], 7.0, 20.0),
+					new ConfSearch.EnergiedConf(assignments[1], 7.0, 20.0),
+					new ConfSearch.EnergiedConf(assignments[2], 7.0, 20.0)
 			));
 
 			// order should be add order

@@ -1,9 +1,42 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.tools.MathTools;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -26,9 +59,9 @@ public class TestKStarScore {
 
 	public static KStarScore makeScore(Double score, double min, double max) {
 		return new KStarScore(
-			score != null ? MathTools.biggen(score) : null,
-			MathTools.biggen(min),
-			MathTools.biggen(max)
+				score != null ? MathTools.biggen(score) : null,
+				MathTools.biggen(min),
+				MathTools.biggen(max)
 		);
 	}
 
@@ -68,72 +101,72 @@ public class TestKStarScore {
 	@Test // PLC
 	public void allStable() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(4.0/3/2, 4.0/7/6, 8.0/3/2)));
 	}
 
 	@Test // pLC
 	public void onlyProteinUnstable() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // PlC
 	public void onlyLigandUnstable() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // PLc
 	public void onlyComplexUnstable() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0)
 		), isRelatively(makeScore(0.0, 0.0, 0.0)));
 	}
 
 	@Test // plC
 	public void proteinAndLigandUnstable() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // pLc
 	public void proteinAndComplexUnstable() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0)
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0)
 		), isRelatively(makeScore(null, Double.NaN, Double.NaN)));
 	}
 
 	@Test // Plc
 	public void ligandAndComplexUnstable() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0)
 		), isRelatively(makeScore(null, Double.NaN, Double.NaN)));
 	}
 
 	@Test // plc
 	public void allUnstable() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0)
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 0.0)
 		), isRelatively(makeScore(null, Double.NaN, Double.NaN)));
 	}
 
@@ -143,63 +176,63 @@ public class TestKStarScore {
 	@Test // pLC
 	public void proteinZeroLower() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(Double.POSITIVE_INFINITY, 4.0/7/6, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // PlC
 	public void ligandZeroLower() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(Double.POSITIVE_INFINITY, 4.0/7/6, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // PLc
 	public void complexZeroLower() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 8.0)
 		), isRelatively(makeScore(0.0, 0.0, 8.0/3/2)));
 	}
 
 	@Test // plC
 	public void proteinAndLigandZeroLower() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(Double.POSITIVE_INFINITY, 4.0/7/6, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // pLc
 	public void proteinAndComplexZeroLower() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 8.0)
 		), isRelatively(makeScore(null, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // Plc
 	public void ligandAndComplexZeroLower() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 8.0)
 		), isRelatively(makeScore(null, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // plc
 	public void allZeroLower() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, 8.0)
 		), isRelatively(makeScore(null, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
@@ -209,63 +242,63 @@ public class TestKStarScore {
 	@Test // pLC
 	public void proteinInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(4.0/3/2, 0.0, 8.0/3/2)));
 	}
 
 	@Test // PlC
 	public void ligandInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(4.0/3/2, 0.0, 8.0/3/2)));
 	}
 
 	@Test // PLc
 	public void complexInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, Double.POSITIVE_INFINITY)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, Double.POSITIVE_INFINITY)
 		), isRelatively(makeScore(4.0/3/2, 4.0/7/6, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // plC
 	public void proteinAndLigandInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(4.0/3/2, 0.0, 8.0/3/2)));
 	}
 
 	@Test // pLc
 	public void proteinAndComplexInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, Double.POSITIVE_INFINITY)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, Double.POSITIVE_INFINITY)
 		), isRelatively(makeScore(4.0/3/2, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // Plc
 	public void ligandAndComplexInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, Double.POSITIVE_INFINITY)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, Double.POSITIVE_INFINITY)
 		), isRelatively(makeScore(4.0/3/2, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // plc
 	public void allInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, Double.POSITIVE_INFINITY)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, Double.POSITIVE_INFINITY)
 		), isRelatively(makeScore(4.0/3/2, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
@@ -275,63 +308,63 @@ public class TestKStarScore {
 	@Test // pLC
 	public void proteinZeroLowerInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(Double.POSITIVE_INFINITY, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // PlC
 	public void ligandZeroLowerInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(Double.POSITIVE_INFINITY, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // PLc
 	public void complexZeroLowerInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY)
 		), isRelatively(makeScore(0.0, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // plC
 	public void proteinAndLigandZeroLowerInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(Double.POSITIVE_INFINITY, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // pLc
 	public void proteinAndComplexZeroLowerInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY)
+				makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY)
 		), isRelatively(makeScore(null, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // Plc
 	public void ligandAndComplexZeroLowerInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY)
 		), isRelatively(makeScore(null, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
 	@Test // plc
 	public void allZeroLowerInfUpper() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
-			makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY)
+				makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY),
+				makeResult(PartitionFunction.Status.Estimated, 0.0, Double.POSITIVE_INFINITY)
 		), isRelatively(makeScore(null, 0.0, Double.POSITIVE_INFINITY)));
 	}
 
@@ -341,27 +374,27 @@ public class TestKStarScore {
 	@Test
 	public void proteinNotEstimated() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimating, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimating, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(null, 4.0/7/6, 8.0/3/2)));
 	}
 
 	@Test
 	public void ligandNotEstimated() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimating, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimating, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimated, 4.0, 8.0)
 		), isRelatively(makeScore(null, 4.0/7/6, 8.0/3/2)));
 	}
 
 	@Test
 	public void complexNotEstimated() {
 		assertThat(new KStarScore(
-			makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
-			makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
-			makeResult(PartitionFunction.Status.Estimating, 4.0, 8.0)
+				makeResult(PartitionFunction.Status.Estimated, 2.0, 6.0),
+				makeResult(PartitionFunction.Status.Estimated, 3.0, 7.0),
+				makeResult(PartitionFunction.Status.Estimating, 4.0, 8.0)
 		), isRelatively(makeScore(null, 4.0/7/6, 8.0/3/2)));
 	}
 }

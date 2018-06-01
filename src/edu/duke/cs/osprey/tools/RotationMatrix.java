@@ -1,34 +1,34 @@
 /*
-** This file is part of OSPREY 3.0
-** 
-** OSPREY Protein Redesign Software Version 3.0
-** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
-** 
-** OSPREY is free software: you can redistribute it and/or modify
-** it under the terms of the GNU General Public License version 2
-** as published by the Free Software Foundation.
-** 
-** You should have received a copy of the GNU General Public License
-** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
-** 
-** OSPREY relies on grants for its development, and since visibility
-** in the scientific literature is essential for our success, we
-** ask that users of OSPREY cite our papers. See the CITING_OSPREY
-** document in this distribution for more information.
-** 
-** Contact Info:
-**    Bruce Donald
-**    Duke University
-**    Department of Computer Science
-**    Levine Science Research Center (LSRC)
-**    Durham
-**    NC 27708-0129
-**    USA
-**    e-mail: www.cs.duke.edu/brd/
-** 
-** <signature of Bruce Donald>, Mar 1, 2018
-** Bruce Donald, Professor of Computer Science
-*/
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
 
 package edu.duke.cs.osprey.tools;
 
@@ -39,26 +39,26 @@ import java.io.Serializable;
  * @author mhall44
  */
 public class RotationMatrix implements Serializable {
-    
-	private static final long serialVersionUID = 2915420374293280379L;
-	double[][] matrix;
-    
-    
+
+    private static final long serialVersionUID = 2915420374293280379L;
+    double[][] matrix;
+
+
     public RotationMatrix(double[][] mtx){
         matrix = mtx;
     }
-    
+
     // This function constructs a rotation matrix from a rotation in
-	//  axis-angle notation.  (fx,fy,fz) is the axis (not necessarily normalized)
+    //  axis-angle notation.  (fx,fy,fz) is the axis (not necessarily normalized)
     public RotationMatrix (double fx, double fy, double fz, double angle, boolean angleInRadians) {//if not radians, then degrees
         this(
-            fx, fy, fz,
-            angleInRadians ? Math.sin(angle) : Math.sin(Math.toRadians(angle)),
-            angleInRadians ? Math.cos(angle) : Math.cos(Math.toRadians(angle))
+                fx, fy, fz,
+                angleInRadians ? Math.sin(angle) : Math.sin(Math.toRadians(angle)),
+                angleInRadians ? Math.cos(angle) : Math.cos(Math.toRadians(angle))
         );
     }
-        
-        
+
+
     // rotation matrix from axis (fx,fy,fz) angle (sin,cos) representation
     public RotationMatrix (double fx, double fy, double fz, double sin, double cos) {
 
@@ -106,13 +106,13 @@ public class RotationMatrix implements Serializable {
         matrix[2][1] = 2 * (yz + xw);
         matrix[2][2] = 1 - 2 * (xx + yy);
         */
-        
+
         // normalize f
         double len = Math.sqrt(fx*fx + fy*fy + fz*fz);
         double ux = fx/len;
         double uy = fy/len;
         double uz = fz/len;
-        
+
         double omcos = 1 - cos;
         double uxyomcos = ux*uy*omcos;
         double uxzomcos = ux*uz*omcos;
@@ -120,17 +120,17 @@ public class RotationMatrix implements Serializable {
         double uxsin = ux*sin;
         double uysin = uy*sin;
         double uzsin = uz*sin;
-        
+
         matrix = new double[3][3];
-        
+
         matrix[0][0] = cos + ux*ux*omcos;
         matrix[0][1] = uxyomcos - uzsin;
         matrix[0][2] = uxzomcos + uysin;
-        
+
         matrix[1][0] = uxyomcos + uzsin;
         matrix[1][1] = cos + uy*uy*omcos;
         matrix[1][2] = uyzomcos - uxsin;
-        
+
         matrix[2][0] = uxzomcos - uysin;
         matrix[2][1] = uyzomcos + uxsin;
         matrix[2][2] = cos + uz*uz*omcos;
@@ -163,11 +163,11 @@ public class RotationMatrix implements Serializable {
         }
         return new RotationMatrix(ans);
     }
-    
-    
-    
-    
-    
+
+
+
+
+
     public void applyRotation(double[] x, int index){
         //Given the concatenated 3-D coordinates of a bunch of atoms,
         //apply rotation to the atom with the given index
@@ -182,11 +182,11 @@ public class RotationMatrix implements Serializable {
             }
             ans[a]=val;
         }
-        
+
         System.arraycopy(ans,0,x,3*index,3);
     }
-    
-    
+
+
     public double[] rotateVector(double[] vec){//Apply rotation matrix to vector vec, i.e. compute matrix*vec
         //return ans, keeping vec as before
         double ans[]=new double[3];
@@ -200,7 +200,7 @@ public class RotationMatrix implements Serializable {
         }
         return ans;
     }
-    
+
     public double[] unrotateVector(double[] vec){//Reverse rotation on vector vec,
         //i.e. compute inv(matrix)*vec=transpose(rm)*vec
         //return ans, keeping vec as before
@@ -215,8 +215,8 @@ public class RotationMatrix implements Serializable {
         }
         return ans;
     }
-    
-    
+
+
     public static RotationMatrix identity(){
         //identity matrix
         double M[][] = new double[3][3];
@@ -229,11 +229,11 @@ public class RotationMatrix implements Serializable {
                     M[a][b] = 0;
             }
         }
-        
+
         return new RotationMatrix(M);
     }
-    
-    
+
+
     public static RotationMatrix getSuperposingRotMatrix(double uold[], double unew[], double vold[], double vnew[]){
         //Returns a rotation matrix that rotates vector uold to point in the direction of unew, and vold to point in the direction of vnew
         //Relies on uold-vold and unew-vnew angles being basically the same (no rotation exactly satisfies the requirements if they are different)
@@ -278,5 +278,5 @@ public class RotationMatrix implements Serializable {
         for(int a=0; a<matrix.length; a++)
             mtx[a] = matrix[a].clone();
         return new RotationMatrix(mtx);
-    }    
+    }
 }

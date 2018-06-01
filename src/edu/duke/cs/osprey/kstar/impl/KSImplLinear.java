@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar.impl;
 
 import java.util.ArrayList;
@@ -11,14 +43,15 @@ import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
- * 
+ *
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
 public class KSImplLinear extends KSAbstract {
-	
+
 	private boolean contSCFlex;
 	private String pfImpl;
 
@@ -29,12 +62,12 @@ public class KSImplLinear extends KSAbstract {
 	public void init( HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs ) {
 
 		this.strand2AllowedSeqs = strand2AllowedSeqs;
-                checkAPPP();
+		checkAPPP();
 
 		printSequences();
 
 		createOutputDir();
-		
+
 		createEmatDir();
 
 		if(doCheckPoint) createCheckPointDir();
@@ -79,7 +112,7 @@ public class KSImplLinear extends KSAbstract {
 
 		// each value corresponds to the desired flexibility of the 
 		// pl, p, and l conformation spaces, respectively
-		ArrayList<ArrayList<String>> strandSeqs = null;	
+		ArrayList<ArrayList<String>> strandSeqs = null;
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
 		ArrayList<String> pfImplVals = new ArrayList<>(Arrays.asList(pfImpl, pfImpl, pfImpl));
 
@@ -89,13 +122,13 @@ public class KSImplLinear extends KSAbstract {
 			computeWTCalc();
 			startSeq = 1;
 		}
-			
+
 		int numSeqs = strand2AllowedSeqs.get(2).getNumSeqs();
 		for( int i = startSeq; i < numSeqs; ++i ) {
 
 			// wt is seq 0, mutants are others
-			System.out.println("\nComputing K* for sequence " + i + "/" + 
-					(numSeqs-1) + ": " + 
+			System.out.println("\nComputing K* for sequence " + i + "/" +
+					(numSeqs-1) + ": " +
 					list1D2String(strand2AllowedSeqs.get(2).getStrandSeqAtPos(i), " ") + "\n");
 
 			// get sequences
@@ -123,18 +156,18 @@ public class KSImplLinear extends KSAbstract {
 
 		// each value corresponds to the desired flexibility of the 
 		// pl, p, and l conformation spaces, respectively
-		ArrayList<ArrayList<String>> strandSeqs = null;	
+		ArrayList<ArrayList<String>> strandSeqs = null;
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
 		ArrayList<String> pfImplVals = new ArrayList<>(Arrays.asList(pfImpl, pfImpl, pfImpl));
 
 		// get all sequences		
 		@SuppressWarnings("unchecked")
-		HashSet<ArrayList<String>> seqSet = new HashSet<>((ArrayList<ArrayList<String>>) 
+		HashSet<ArrayList<String>> seqSet = new HashSet<>((ArrayList<ArrayList<String>>)
 				ObjectIO.deepCopy(strand2AllowedSeqs.get(2).getStrandSeqList()));
 
 		// run wt
 		if( doWTCalc ) computeWTCalc();
-		
+
 		// remove completed seqs from the set of calculations we must compute
 		seqSet.removeAll(getSeqsFromFile(getOputputFilePath()));
 

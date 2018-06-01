@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey;
 
 import java.io.File;
@@ -10,13 +42,14 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class EnergyMatrixProfiling {
 
 	public static void main(String[] args)
-	throws Exception {
-		
+			throws Exception {
+
 		// check the cwd
 		String path = new File("").getAbsolutePath();
 		if (!path.endsWith("examples/DAGK")) {
@@ -26,7 +59,7 @@ public class EnergyMatrixProfiling {
 		// load configuration
 		ConfigFileParser cfp = new ConfigFileParser();
 		cfp.loadData();
-		
+
 		// init a conf space with lots of flexible residues, but no mutations
 		final int NumFlexible = 20;
 		ArrayList<String> flexRes = new ArrayList<>();
@@ -46,13 +79,13 @@ public class EnergyMatrixProfiling {
 		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
-			"energyMatrixProfiling",
-			"2KDC.P.forOsprey.pdb", 
-			flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, 
-                        false, new ArrayList<>()
+				"energyMatrixProfiling",
+				"2KDC.P.forOsprey.pdb",
+				flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
+				new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
+				false, new ArrayList<>()
 		);
-		
+
 		// compute the energy matrix
 		System.out.println("\nComputing energy matrix...");
 		Stopwatch stopwatch = new Stopwatch();
@@ -87,28 +120,28 @@ public class EnergyMatrixProfiling {
 			tempFile.delete();
 		}
 		*/
-		
+
 		// notation below (trialN values are operations per second):
 		// numResidues,numIters: [trial1, trial2, trial2]
-		
+
 		// 2016-04-27
 		// BEFORE OPTIMIZATIONS
 		// 20,1e6: [27445.92, 28491.04, 27500.22]
-		
+
 		// THEORETICAL MAX (getXXX methods just return null)
 		// 20,1e6: [211083.19, 222771.69, 223615.84] => about a 7.88x speedup
-		
+
 		// 2016-05-04
 		// BEFORE OPTIMIZATIONS (re-benchmarking for today)
 		// 20,1e6: [26702.41, 28462.70, 27122.50]
-		
+
 		// flatten tuple matrix to 1d
 		// 20,1e6: [44531.32, 44333.52, 44617.89] => about a 1.62x speedup over benchmark
-		
+
 		// make double-specialized subclass
 		// honestly, I didn't expect this to make much difference, but apparently it does
 		// 20,1e6: [56037.08, 56238.11, 56288.57] => about a 2.05x speedup over benchmark
-		
+
 		// do lots of lookups in every spot
 		System.out.println("\nProfiling reads...");
 		stopwatch = new Stopwatch();

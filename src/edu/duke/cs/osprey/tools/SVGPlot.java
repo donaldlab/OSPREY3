@@ -1,34 +1,34 @@
 /*
-** This file is part of OSPREY 3.0
-** 
-** OSPREY Protein Redesign Software Version 3.0
-** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
-** 
-** OSPREY is free software: you can redistribute it and/or modify
-** it under the terms of the GNU General Public License version 2
-** as published by the Free Software Foundation.
-** 
-** You should have received a copy of the GNU General Public License
-** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
-** 
-** OSPREY relies on grants for its development, and since visibility
-** in the scientific literature is essential for our success, we
-** ask that users of OSPREY cite our papers. See the CITING_OSPREY
-** document in this distribution for more information.
-** 
-** Contact Info:
-**    Bruce Donald
-**    Duke University
-**    Department of Computer Science
-**    Levine Science Research Center (LSRC)
-**    Durham
-**    NC 27708-0129
-**    USA
-**    e-mail: www.cs.duke.edu/brd/
-** 
-** <signature of Bruce Donald>, Mar 1, 2018
-** Bruce Donald, Professor of Computer Science
-*/
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
 
 package edu.duke.cs.osprey.tools;
 
@@ -94,9 +94,9 @@ public abstract class SVGPlot {
 			svg.makeLine(
 					x, y + min,
 					x, y + max
-				)
-				.setStyleClasses(lineStyle)
-				.draw();
+			)
+					.setStyleClasses(lineStyle)
+					.draw();
 
 			// draw the ticks
 			drawTick(svg, min);
@@ -112,16 +112,16 @@ public abstract class SVGPlot {
 			svg.makeLine(
 					x, y,
 					x - tickLength, y
-				)
-				.setStyleClasses(lineStyle)
-				.draw();
+			)
+					.setStyleClasses(lineStyle)
+					.draw();
 
 			// add the text
 			svg.makeText(String.format(tickFormat, y))
-				.setPos(x - tickLength - tickTextMargin, y)
-				.setDY(tickTextDy, SVG.LengthUnit.px)
-				.setStyleClasses(tickTextStyle)
-				.draw();
+					.setPos(x - tickLength - tickTextMargin, y)
+					.setDY(tickTextDy, SVG.LengthUnit.px)
+					.setStyleClasses(tickTextStyle)
+					.draw();
 		}
 	}
 
@@ -142,9 +142,9 @@ public abstract class SVGPlot {
 			svg.makeLine(
 					x + min, y,
 					x + max, y
-				)
-				.setStyleClasses(lineStyle)
-				.draw();
+			)
+					.setStyleClasses(lineStyle)
+					.draw();
 
 			// draw the ticks
 			drawTick(svg, min);
@@ -160,15 +160,15 @@ public abstract class SVGPlot {
 			svg.makeLine(
 					x, y,
 					x, y - tickLength
-				)
-				.setStyleClasses(lineStyle)
-				.draw();
+			)
+					.setStyleClasses(lineStyle)
+					.draw();
 
 			// add the text
 			svg.makeText(String.format(tickFormat, x))
-				.setPos(x, y - tickLength - tickTextMargin - tickTextHeight)
-				.setStyleClasses(tickTextStyle)
-				.draw();
+					.setPos(x, y - tickLength - tickTextMargin - tickTextHeight)
+					.setStyleClasses(tickTextStyle)
+					.draw();
 		}
 	}
 
@@ -253,9 +253,9 @@ public abstract class SVGPlot {
 				}
 
 				svg.makeRect(x, x + intervalWidth, y1, y2)
-					.setStyleClasses(intervalStyle, interval.extraStyle)
-					.setId(interval.id)
-					.draw();
+						.setStyleClasses(intervalStyle, interval.extraStyle)
+						.setId(interval.id)
+						.draw();
 			}
 
 			// make an axis if needed
@@ -267,8 +267,8 @@ public abstract class SVGPlot {
 
 		public void setBounds(SVG svg, double margin, double tickMargin) {
 			svg.setBounds(
-				xmin - margin - tickMargin, xmax + margin,
-				ymin - margin, ymax + margin
+					xmin - margin - tickMargin, xmax + margin,
+					ymin - margin, ymax + margin
 			);
 		}
 	}
@@ -362,7 +362,7 @@ public abstract class SVGPlot {
 				// just in case...
 				if (Double.isInfinite(box.xmin) || Double.isInfinite(box.xmax) || Double.isInfinite(box.ymin) || Double.isInfinite(box.ymax)) {
 					System.err.println(String.format("WARNING: box [%f,%f]x[%f,%f] is infinite and will not be drawn",
-						box.xmin, box.xmax, box.ymin, box.ymax
+							box.xmin, box.xmax, box.ymin, box.ymax
 					));
 					continue;
 				}
@@ -372,19 +372,19 @@ public abstract class SVGPlot {
 				if (box.getDX() == 0 && box.getDY() == 0) {
 					// draw a point
 					d = svg.makePoint(
-						box.xmin, box.ymin,
-						0.01
+							box.xmin, box.ymin,
+							0.01
 					);
 				} else {
 					// draw a real rect
 					d = svg.makeRect(
-						box.xmin, box.xmax,
-						box.ymin, box.ymax
+							box.xmin, box.xmax,
+							box.ymin, box.ymax
 					);
 				}
 				d.setStyleClasses(boxStyle, box.extraStyle)
-					.setId(box.id)
-					.draw();
+						.setId(box.id)
+						.draw();
 			}
 
 			// make the axes if needed
@@ -400,8 +400,8 @@ public abstract class SVGPlot {
 
 		public void setBounds(SVG svg, double margin, double tickMargin) {
 			svg.setBounds(
-				xmin - margin - tickMargin, xmax + margin,
-				ymin - margin - tickMargin, ymax + margin
+					xmin - margin - tickMargin, xmax + margin,
+					ymin - margin - tickMargin, ymax + margin
 			);
 		}
 	}

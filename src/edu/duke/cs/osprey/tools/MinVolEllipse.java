@@ -1,34 +1,34 @@
 /*
-** This file is part of OSPREY 3.0
-** 
-** OSPREY Protein Redesign Software Version 3.0
-** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
-** 
-** OSPREY is free software: you can redistribute it and/or modify
-** it under the terms of the GNU General Public License version 2
-** as published by the Free Software Foundation.
-** 
-** You should have received a copy of the GNU General Public License
-** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
-** 
-** OSPREY relies on grants for its development, and since visibility
-** in the scientific literature is essential for our success, we
-** ask that users of OSPREY cite our papers. See the CITING_OSPREY
-** document in this distribution for more information.
-** 
-** Contact Info:
-**    Bruce Donald
-**    Duke University
-**    Department of Computer Science
-**    Levine Science Research Center (LSRC)
-**    Durham
-**    NC 27708-0129
-**    USA
-**    e-mail: www.cs.duke.edu/brd/
-** 
-** <signature of Bruce Donald>, Mar 1, 2018
-** Bruce Donald, Professor of Computer Science
-*/
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
 
 package edu.duke.cs.osprey.tools;
 
@@ -41,23 +41,30 @@ import cern.colt.matrix.linalg.Algebra;
 import cern.colt.matrix.linalg.CholeskyDecomposition;
 import cern.colt.matrix.linalg.EigenvalueDecomposition;
 import cern.jet.math.Functions;
+import com.joptimizer.functions.BarrierFunction;
+import com.joptimizer.functions.ConvexMultivariateRealFunction;
+import com.joptimizer.functions.LinearMultivariateRealFunction;
+import com.joptimizer.functions.LogarithmicBarrier;
+import com.joptimizer.optimizers.BarrierMethod;
+import com.joptimizer.optimizers.JOptimizer;
+import com.joptimizer.optimizers.OptimizationRequest;
 import edu.duke.cs.osprey.ematrix.epic.SeriesFitter;
-
 import java.io.Serializable;
+import java.util.ArrayList;
 
 
 //@author mhall44
 //This is largely a Java translation of MinVolEllipse.m by Nima Mostagh
 public class MinVolEllipse implements Serializable {
-    	
+
     DoubleMatrix2D A;
     DoubleMatrix1D c;//center of ellipse
     DoubleMatrix1D nc;//-c
-            
+
     public MinVolEllipse(DoubleMatrix2D P, double tol, boolean speedup){
         //get an ellipse around the points P
         //MAY WANT TO CHANGE TOLERANCE TO BE BASED ON FURTHEST YOU CAN GO OUTSIDE
-        
+
 
         //long startTime = System.currentTimeMillis();
 
@@ -71,11 +78,11 @@ public class MinVolEllipse implements Serializable {
 
 
         DoubleMatrix2D Q = DoubleFactory2D.dense.make(d+1,N);
-        
+
         for(int j=0; j<N; j++){
             for(int i=0; i<d; i++)
                 Q.set(i,j,P.get(i,j));
-            
+
             Q.set(d,j,1);
         }
 
@@ -110,7 +117,7 @@ public class MinVolEllipse implements Serializable {
                 catch(Exception e){
                     System.err.println("ERROR: Singular matrix in MinVolEllipse calculation");
                 }
-                
+
                 M = diagMult( Q.zMult(invX,null,1,0,true,false), Q );
             }
             else{
@@ -124,7 +131,7 @@ public class MinVolEllipse implements Serializable {
                 M = DoubleFactory2D.dense.diagonal(Mfull);
             }
             //M = diag(Q' * inv(X) * Q);  % M the diagonal vector of an NxN matrix
-            
+
             int j = -1;
             double maximum = Double.NEGATIVE_INFINITY;
             for(int k=0; k<N; k++){
@@ -137,7 +144,7 @@ public class MinVolEllipse implements Serializable {
 
             double step_size = (maximum - d -1)/((d+1)*(maximum-1));
             //step_size = (maximum - d -1)/((d+1)*(maximum-1));
-            
+
             DoubleMatrix1D new_u = u.copy().assign(Functions.mult(1-step_size));
             //new_u = (1 - step_size)*u ;
             new_u.set( j, new_u.get(j)+step_size );
@@ -146,7 +153,7 @@ public class MinVolEllipse implements Serializable {
 
             u.assign(Functions.mult(-1));
             u.assign(new_u,Functions.plus);
-            err = Math.sqrt( u.zDotProduct(u) ); 
+            err = Math.sqrt( u.zDotProduct(u) );
             //err = norm(new_u - u);
 
             u = new_u;
@@ -168,13 +175,13 @@ public class MinVolEllipse implements Serializable {
         //U = diag(u);
 
         DoubleMatrix2D Pt = Algebra.DEFAULT.transpose(P);
-        c = Algebra.DEFAULT.mult(P,u);     
+        c = Algebra.DEFAULT.mult(P,u);
         A = Algebra.DEFAULT.multOuter(c,c,null);
         A.assign(Functions.mult(-1));
-        
+
         //A.assign( Algebra.DEFAULT.mult(P,Algebra.DEFAULT.mult(U,Pt)), Functions.plus );
         A.assign( QuQt(P,u), Functions.plus );
-         
+
         A = Algebra.DEFAULT.inverse(A);
         A.assign(Functions.mult(1./d));    
         
@@ -186,7 +193,7 @@ public class MinVolEllipse implements Serializable {
         % center of the ellipse 
         % --------------------------------------------
         c = P * u;*/
-        
+
         nc = c.copy();
         nc.assign(Functions.mult(-1));
 
@@ -194,20 +201,20 @@ public class MinVolEllipse implements Serializable {
         //long doneTime = System.currentTimeMillis();
         //System.out.println("Ellipse built at "+(doneTime-iterTime));
     }
-    
-    
-    
+
+
+
     public MinVolEllipse(DoubleMatrix2D P, double tol, MinVolEllipse[] littleEllipses, MinVolEllipse initEllipse){
         //This version supports enclosing other ellipses as well as points
         //can also consider enclosing voxel level-sets likewise...
         //we take initEllipse (if not null) as an initial value and refine from there
-        
-        
+
+
 
         //prepare Q as usual
         int d = P.rows();//must also be the dimension of the little ellipses
         int N = P.columns();
-        
+
         if(d==1){//analytically solvable case
             double maxPt = Double.NEGATIVE_INFINITY;
             double minPt = Double.POSITIVE_INFINITY;
@@ -220,20 +227,20 @@ public class MinVolEllipse implements Serializable {
             //(x-c)' * A * (x-c) = 1
             c = DoubleFactory1D.dense.make(1,(maxPt+minPt)/2);
             nc = DoubleFactory1D.dense.make(1,-(maxPt+minPt)/2);
-                        
+
             return;
         }
 
 
         DoubleMatrix2D Q = DoubleFactory2D.dense.make(d+1,N);
-        
+
         for(int j=0; j<N; j++){
             for(int i=0; i<d; i++)
                 Q.set(i,j,P.get(i,j));
-            
+
             Q.set(d,j,1);
         }
-        
+
         double err = 1;
         DoubleMatrix2D X = null;
         //if(littleEllipses.length==1){
@@ -253,12 +260,12 @@ public class MinVolEllipse implements Serializable {
             //double lastBlock = Algebra.DEFAULT.mult( blocks[0][0], littleEllipses[0].c ).zDotProduct(littleEllipses[0].c) + 1;
             double lastBlock = Algebra.DEFAULT.mult( blocks[0][0], initEllipse.c ).zDotProduct(initEllipse.c) + 1;
             blocks[1][1] = DoubleFactory2D.dense.make(1,1,lastBlock);
-            
+
             DoubleMatrix2D invX = DoubleFactory2D.dense.compose(blocks);
             X = invertX(invX);
-            
-            
-            
+
+
+
             //DEBUG!!!
             /*DoubleMatrix2D checkA = invX.viewPart(0,0,d,d).copy();
             checkA.assign(Functions.mult(1./d));
@@ -277,8 +284,8 @@ public class MinVolEllipse implements Serializable {
             DoubleMatrix1D u = DoubleFactory1D.dense.make(N, 1.0/N);
             X = QuQt(Q,u);
         }
-        
-        
+
+
         while(err > tol){
             //using speedup by default
             //first compute M (matrix of how much points stick out)
@@ -286,8 +293,8 @@ public class MinVolEllipse implements Serializable {
             DoubleMatrix2D invX = invertX(X);
 
             DoubleMatrix1D M = diagMult( Q.zMult(invX,null,1,0,true,false), Q );
-            
-            
+
+
             DoubleMatrix1D q = null;//direction of maximum sticking out
             double maximum = Double.NEGATIVE_INFINITY;
             for(int k=0; k<N; k++){
@@ -296,7 +303,7 @@ public class MinVolEllipse implements Serializable {
                     q = Q.viewColumn(k);
                 }
             }
-            
+
             //now see if any littleEllipses stick out more than the points in P do
             for( MinVolEllipse ell : littleEllipses ){
                 DoubleMatrix1D amax = DoubleFactory1D.dense.make(d+1);
@@ -307,11 +314,11 @@ public class MinVolEllipse implements Serializable {
                     q = amax;
                 }
             }
-            
+
             //Looks like the point sticking out the most is q
             double step_size = (maximum - d -1)/((d+1)*(maximum-1));
             //step_size = (maximum - d -1)/((d+1)*(maximum-1));
-            
+
             DoubleMatrix2D newX = X.copy().assign(Functions.mult(1-step_size));
             DoubleMatrix2D dirTerm = Algebra.DEFAULT.multOuter(q, q, null);
             dirTerm.assign(Functions.mult(step_size));
@@ -336,11 +343,11 @@ public class MinVolEllipse implements Serializable {
         % It computes a dxd matrix 'A' and a d dimensional vector 'c' as the center
         % of the ellipse. */
 
-        
-        
+
+
         DoubleMatrix2D invX = invertX(X);
-        
-        
+
+
         //DEBUG!!!!
         /*DoubleMatrix2D B = invX.viewPart(0,0,d,d);
         DoubleMatrix1D bvec = invX.viewPart(0,d,d,1).viewColumn(0);
@@ -362,11 +369,11 @@ public class MinVolEllipse implements Serializable {
         //direct conversion from homogeneous to centered form
         A = invX.viewPart(0,0,d,d);
         DoubleMatrix2D invA = invertX(A);
-        DoubleMatrix1D lc = invX.viewPart(0,d,d,1).viewColumn(0); 
+        DoubleMatrix1D lc = invX.viewPart(0,d,d,1).viewColumn(0);
         nc = Algebra.DEFAULT.mult(invA, lc);
         double fac = d+1+lc.zDotProduct(nc)-invX.get(d,d);
         A.assign(Functions.mult(1./fac));
-        
+
         c = nc.copy();
         c.assign(Functions.mult(-1));
 
@@ -374,22 +381,22 @@ public class MinVolEllipse implements Serializable {
         //long doneTime = System.currentTimeMillis();
         //System.out.println("Ellipse built at "+(doneTime-iterTime));
     }
-    
-    
-    
- 
-    
+
+
+
+
+
     static DoubleMatrix2D invertX(DoubleMatrix2D X){
-            
-            if(X.rows()!=X.columns())
-                throw new RuntimeException("ERROR: Can't invert square matrix");
-            
-            if(X.rows()==1){//easy case of 1-D
-                if(Math.abs(X.get(0,0))<1e-8)
-                    return DoubleFactory2D.dense.make(1,1,0);
-                else
-                    return DoubleFactory2D.dense.make(1,1,1./X.get(0,0));
-            }
+
+        if(X.rows()!=X.columns())
+            throw new RuntimeException("ERROR: Can't invert square matrix");
+
+        if(X.rows()==1){//easy case of 1-D
+            if(Math.abs(X.get(0,0))<1e-8)
+                return DoubleFactory2D.dense.make(1,1,0);
+            else
+                return DoubleFactory2D.dense.make(1,1,1./X.get(0,0));
+        }
         
             /*DoubleMatrix2D invX = null;
         
@@ -399,58 +406,58 @@ public class MinVolEllipse implements Serializable {
             catch(Exception e){
                 System.err.println("ERROR: Singular matrix in MinVolEllipse calculation");
             }*/
-            
-            //Invert X, but if singular, this probably indicates a lack of points
-            //but we can still make a meaningful lower-dimensional ellipsoid for the dimensions we have data
-            //so we construct a pseudoinverse by setting those eigencomponents to 0
-            //X is assumed to be symmetric (if not would need SVD instead...)
-        
-            EigenvalueDecomposition edec = new EigenvalueDecomposition(X);
-            
-            DoubleMatrix2D newD = edec.getD().copy();
-            for(int m=0; m<X.rows(); m++){
-                if( Math.abs(newD.get(m,m)) < 1e-8 ){
-                    //System.out.println("Warning: singular X in MinVolEllipse calculation");
-                    //this may come up somewhat routinely, especially with discrete DOFs in place
-                    newD.set(m,m,0);
-                }
-                else
-                    newD.set(m,m,1./newD.get(m,m));
-            }
 
-            DoubleMatrix2D invX = Algebra.DEFAULT.mult(edec.getV(),newD).zMult(edec.getV(), null, 1, 0, false, true);
-            
-            return invX;
+        //Invert X, but if singular, this probably indicates a lack of points
+        //but we can still make a meaningful lower-dimensional ellipsoid for the dimensions we have data
+        //so we construct a pseudoinverse by setting those eigencomponents to 0
+        //X is assumed to be symmetric (if not would need SVD instead...)
+
+        EigenvalueDecomposition edec = new EigenvalueDecomposition(X);
+
+        DoubleMatrix2D newD = edec.getD().copy();
+        for(int m=0; m<X.rows(); m++){
+            if( Math.abs(newD.get(m,m)) < 1e-8 ){
+                //System.out.println("Warning: singular X in MinVolEllipse calculation");
+                //this may come up somewhat routinely, especially with discrete DOFs in place
+                newD.set(m,m,0);
+            }
+            else
+                newD.set(m,m,1./newD.get(m,m));
+        }
+
+        DoubleMatrix2D invX = Algebra.DEFAULT.mult(edec.getV(),newD).zMult(edec.getV(), null, 1, 0, false, true);
+
+        return invX;
     }
-    
-    
-    
-    
+
+
+
+
     double getScaledDistFromCenter(DoubleMatrix1D x){
         //How far are we from the center of the ellipse, relative to the boundary?
-        
+
         if(x==null)
             System.out.println("woah...");
-        
+
         DoubleMatrix1D xrel = x.copy().assign(nc,Functions.plus);
         return xrel.zDotProduct( Algebra.DEFAULT.mult(A, xrel) );
     }
-    
-    
+
+
     double getScaling(DoubleMatrix1D x){
         //give the scaling factor needed to get x on the ellipse
         //(we are scaling x)
         double co1 = x.zDotProduct( Algebra.DEFAULT.mult(A, x) );
         double co2 = -2*x.zDotProduct( Algebra.DEFAULT.mult(A, c) );
         double co3 = c.zDotProduct( Algebra.DEFAULT.mult(A, c) ) - 1;
-        
+
         if(co1==0 && co2==0 ){
             //this means basically scaling x has no effect on whether we're in the ellipse
-            
-            
+
+
             //because we use getScaling as a measure of how "far out" we are relative to the ellipse,
             //if we're outside (or basically on) the ellipse, we'll consider this to be a scaling of 0.  Otherwise infinity.
-            
+
             if(co3>=-1e-10)//outside
                 return 0;
             else
@@ -466,10 +473,10 @@ public class MinVolEllipse implements Serializable {
             System.out.print("c: ");
             System.out.println(c);*/
         }
-        
+
         double soln1 = quadraticFormula(co1,co2,co3,true,false);
         double soln2 = quadraticFormula(co1,co2,co3,false,false);
-        
+
         //DEBUG!!
         if(Double.isNaN(co1)||Double.isNaN(co2)||Double.isNaN(co3)){
             System.out.print("NaN in getScaling! co's: "+co1+" "+co2+" "+co3+" A:");
@@ -479,30 +486,30 @@ public class MinVolEllipse implements Serializable {
             System.out.print("c: ");
             System.out.println(c);
         }
-        
-        
+
+
         if(soln1>0 && soln2>0){
             //System.err.println("ERROR: Ellipse doesn't contain origin!");//This may be fairly routine if origin is at edge...
             return Math.max(soln1,soln2);//when we finally get out of ellipse
         }
-            
+
         if( (!(soln1>0)) && (!(soln2>0)) ){
             //System.err.println("ERROR: Ellipse doesn't contain origin!");//and our ray misses it!//May be a small error for small ellipses...
             return 0;
         }
-        
+
         if(soln1>0)
             return soln1;
         else//(soln2>0)
             return soln2;
     }
-    
-    
+
+
     boolean isPointInside(DoubleMatrix1D x){
         //is x inside the ellipse?
         if(getScaledDistFromCenter(x)<1)
             return true;
-        
+
         return false;
     }
 
@@ -825,8 +832,8 @@ public class MinVolEllipse implements Serializable {
         return augMatrix.zMult(p, null).zDotProduct(p) / (alpha*alpha);
     }
     */
-    
-    
+
+
     DoubleMatrix2D homMatrix(){
         //Return M, where this ellipse is represented as [x^T 1]M[x;1]=0
         int n = c.size();
@@ -835,18 +842,18 @@ public class MinVolEllipse implements Serializable {
         for(int a=0; a<n; a++){
             for(int b=0; b<n; b++)
                 ans.setQuick( a, b, A.get(a,b) );
-            
+
             ans.setQuick(a, n, Qnc.get(a));
             ans.setQuick(n, a, Qnc.get(a));
         }
-        
+
         ans.setQuick(n, n, Qnc.zDotProduct(nc)-1 );
-        
+
         return ans;
     }
-    
-    
-    
+
+
+
     static double[] flattenMatrix(DoubleMatrix2D M, boolean removeLast, boolean coeffForm){
         //Given a symmetric matrix M
         //represent it in series form as in SeriesFitter, ConvexityConstraint, etc.
@@ -870,7 +877,7 @@ public class MinVolEllipse implements Serializable {
                     ans[count] = M.get(a,a);
                 }
                 else if(!coeffForm)//M_ab and M_ba collapsed into one series coefficient (using symmetry)
-                    ans[count] = M.get(a,b)+M.get(b,a);           
+                    ans[count] = M.get(a,b)+M.get(b,a);
                 else
                     ans[count] = M.get(a,b);
 
@@ -882,13 +889,13 @@ public class MinVolEllipse implements Serializable {
 
         return ans;
     }
-    
-    
-    
+
+
+
     //Reverse conversion (very similar to ConvexityConstraint.makeSeriesHessian)
     static DoubleMatrix2D unflattenMatrix(double serCoeffs[], int nd, boolean removeLast, boolean coeffForm){
         //nd = number of dimensions
-        
+
         int count=0;
 
         DoubleMatrix2D hess = DoubleFactory2D.dense.make(nd,nd);
@@ -915,12 +922,12 @@ public class MinVolEllipse implements Serializable {
 
         return hess;
     }
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
     double maximizeQuadratic2(DoubleMatrix2D augMatrix,DoubleMatrix1D amax){
         //We are maximizing maximize [x^T 1]augMatrix[x;1] for x in this ellipse
         // max xT M x + gx w/ (x-c)T A (x-c) <= 1
@@ -952,7 +959,7 @@ public class MinVolEllipse implements Serializable {
         DoubleMatrix2D checkA = Algebra.DEFAULT.mult(C, Algebra.DEFAULT.transpose(C));
         DoubleMatrix2D checkAinv = Algebra.DEFAULT.mult( Algebra.DEFAULT.transpose(invC), invC );
         DoubleMatrix2D checkiden = Algebra.DEFAULT.mult(C, invC);*/
-        
+
         //Make an A=C C^T decomposition
         //if A is nonsingular just use Cholesky
         CholeskyDecomposition chol = new CholeskyDecomposition(A);
@@ -963,7 +970,7 @@ public class MinVolEllipse implements Serializable {
         }
         else {//singular...use an eigenvalue-based decomposition
             EigenvalueDecomposition edec = new EigenvalueDecomposition(A);
-        
+
             DoubleMatrix2D sqrtD = edec.getD().copy();
             DoubleMatrix2D sqrtDinv = sqrtD.copy();
             for(int m=0; m<A.rows(); m++){
@@ -985,24 +992,24 @@ public class MinVolEllipse implements Serializable {
             C = Algebra.DEFAULT.mult(V,sqrtD);
             invC = Algebra.DEFAULT.mult(sqrtDinv,Algebra.DEFAULT.transpose(V));
         }
-        
-        
+
+
         int n = c.size();
         DoubleMatrix2D M = augMatrix.viewPart(0, 0, n, n);
-        
+
         DoubleMatrix1D g = augMatrix.viewPart(0, n, n, 1).viewColumn(0).copy();
         g.assign(Functions.mult(2));
-        
-        
+
+
         //Set up problem on unit ball
         //note negation from the maximization form above (and doubling of Hessian)
         DoubleMatrix2D Qball = Algebra.DEFAULT.mult( invC, M.zMult(invC,null,1,0,false,true) );
         Qball.assign(Functions.mult(-2));
-        
+
         DoubleMatrix1D cball =  Algebra.DEFAULT.mult( Algebra.DEFAULT.mult(invC,M), c );
         cball.assign(Functions.mult(-2));
         cball.assign( Algebra.DEFAULT.mult(invC,g), Functions.minus );
-        
+
         double lambda = 0;//lowest eigenvalue of Qball
         EigenvalueDecomposition edec = new EigenvalueDecomposition(Qball);
         DoubleMatrix1D eigVals = edec.getRealEigenvalues();
@@ -1013,27 +1020,27 @@ public class MinVolEllipse implements Serializable {
                 lvec = edec.getV().viewColumn(m);
             }
         }
-        
+
         if(lambda >= 0){
             //this is a convex problem, not what this class is intended for
             System.err.println("ERROR: maximizeQuadratic2 used with convex obj function...");
         }
-        
-        
+
+
         DoubleMatrix1D y = null;
-        
-        
+
+
         DoubleMatrix2D ncball = DoubleFactory2D.dense.make( cball.toArray(), n );//nc as column vector
         ncball.assign(Functions.mult(-1));
 
         boolean useBisection = true;
-        
+
         DoubleMatrix2D qi = null;
         DoubleMatrix1D x0 = null;//FOR DEBUGGING: WANT TO SEE THESE
         double discr = -42;//special value to show lack of tampering
 
-        
-        
+
+
         if( Algebra.DEFAULT.norm2(cball) < 1e-8 ){
             //singularity: in this case to satisfy the conditions
             //we must have y in the nullspace of Q+uI where u=-lambda
@@ -1048,7 +1055,7 @@ public class MinVolEllipse implements Serializable {
             y = lvec.copy();
             if(cball.zDotProduct(lvec)>0)
                 lvec.assign(Functions.mult(-1));
-        }*/        
+        }*/
         else if ( Math.abs(cball.zDotProduct(lvec)) < 1e-8 ){
             //(Qball-lambda*I)*x0 = -cball
             //Get inverse of Qball-lambda*I with lvec component removed
@@ -1061,7 +1068,7 @@ public class MinVolEllipse implements Serializable {
             }
             qi = Algebra.DEFAULT.mult(edec.getV(),newD).zMult(edec.getV(), null, 1, 0, false, true);
             x0 = Algebra.DEFAULT.mult(qi,ncball).viewColumn(0);
-            
+
             //now we can add a multiple of lvec to x0 to get y
             //we'll still have (Qball-lambda*I)*y = -cball
             //but now we'll get y on the ball.  So our necessary and sufficient conditions will be satisfied.  
@@ -1073,7 +1080,7 @@ public class MinVolEllipse implements Serializable {
             double qb = 2*lvec.zDotProduct(x0);
             double qc = x0.zDotProduct(x0) - 1;
             double a1 = quadraticFormula( 1, qb, qc, true, false);
-            
+
             if(!Double.isNaN(a1)){
                 double a2 = quadraticFormula( 1, qb, qc, false, true);
                 double a = a1;
@@ -1100,7 +1107,7 @@ public class MinVolEllipse implements Serializable {
                 
                 
                 double gggg = 0;*/
-                
+
             }
 
             //DEBUG!!
@@ -1110,9 +1117,9 @@ public class MinVolEllipse implements Serializable {
             double normcheck = y.zDotProduct(y);
             double qqq = 0;*/
         }
-        
+
         if(useBisection) {
-        
+
             //bisect
 
             //wait probably don't need to bisect if we have the eigendecomposition...
@@ -1135,17 +1142,17 @@ public class MinVolEllipse implements Serializable {
             top *= 1+1e-10;//some tolerance...
             for(double mid : new double[] {top,bottom*(1+1e-10)} ){//shift bottom up to avoid singularity
                 //make sure top gives y inside sphere and bottom outside!
-                DoubleMatrix2D Qshifted = Qball.copy().assign( 
+                DoubleMatrix2D Qshifted = Qball.copy().assign(
                         DoubleFactory2D.dense.diagonal(DoubleFactory1D.dense.make(n,mid)), Functions.plus );
                 y = Algebra.DEFAULT.solve( Qshifted, ncball ).viewColumn(0);//FIX!!!
                 double check = y.zDotProduct(y);
                 if( (check>1) == (mid==top) ){
                     System.err.println("ERROR IN maximizeQuadratic2 bisection: root not bracketed!");
-                    
+
                     DoubleMatrix1D checkncball = Algebra.DEFAULT.mult(Qshifted, y);
                     DoubleMatrix1D checkncball0 = Algebra.DEFAULT.mult(Qshifted, x0);
                     double ggg = 0;
-                    
+
                 }
             }
 
@@ -1154,7 +1161,7 @@ public class MinVolEllipse implements Serializable {
             while( top-bottom > bisecPrecision*Math.max(Math.abs(top),Math.abs(bottom)) ){
                 mid = (top+bottom)/2;
 
-                DoubleMatrix2D Qshifted = Qball.copy().assign( 
+                DoubleMatrix2D Qshifted = Qball.copy().assign(
                         DoubleFactory2D.dense.diagonal(DoubleFactory1D.dense.make(n,mid)), Functions.plus );
                 y = Algebra.DEFAULT.solve( Qshifted, ncball ).viewColumn(0);
 
@@ -1165,23 +1172,23 @@ public class MinVolEllipse implements Serializable {
             }
         }
 
-        
+
         DoubleMatrix1D x = c.copy();
         x = invC.zMult(y, x, 1, 1, true);
-        
+
         for(int a=0; a<n; a++)
             amax.set(a, x.get(a));
-        
+
         amax.set(n, 1);
         return augMatrix.zMult(amax, null).zDotProduct(amax);
         //return highest value, attained at amax (which is in [x;1] form)
     }
-    
-    
-    
-    
-    static double quadraticFormula (double a, double b, double c, boolean firstRoot, 
-            boolean errorOnComplex) {
+
+
+
+
+    static double quadraticFormula (double a, double b, double c, boolean firstRoot,
+                                    boolean errorOnComplex) {
         //firstRoot indicates which root to use
         //for negative discriminants, we call an error if errorOnComplex; otherwise we flag
         //the complex value by returning nan
@@ -1216,9 +1223,9 @@ public class MinVolEllipse implements Serializable {
                 return 2*c/(-b+Math.sqrt(discr));
         }
     }
-    
+
     public DoubleMatrix2D getA() { return A.copy(); }
     public DoubleMatrix1D getC() { return c.copy(); }
     public DoubleMatrix1D getNC() { return nc.copy(); }
-    
+
 }

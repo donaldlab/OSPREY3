@@ -1,8 +1,35 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
  */
+
 package edu.duke.cs.osprey.plug;
 
 import cern.colt.matrix.linalg.SingularValueDecomposition;
@@ -10,6 +37,7 @@ import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleMatrix2D;
 import cern.colt.matrix.linalg.Algebra;
+import edu.duke.cs.osprey.bbfree.BBFreeBlock;
 import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import static edu.duke.cs.osprey.plug.LPChecks.canAddConstr;
@@ -17,7 +45,7 @@ import static edu.duke.cs.osprey.plug.VoxelVDWDistExplorer.getVDWRadius;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
-
+import edu.duke.cs.osprey.tools.VectorAlgebra;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,31 +59,31 @@ import org.apache.commons.math3.optim.linear.Relationship;
  * check if VDW interactions between the specified atoms
  * can be made to fall in range
  * FOR NOW use linear programming, (relaxing clashes??  or linearize if need, thus cutting vox)
- * 
+ *
  * @author mhall44
  */
 public class VoxelVDWListChecker {
-    
+
     protected static class DOFInterval {
         DegreeOfFreedom dof;
         double lb;
         double range;
-        
+
         protected DOFInterval(DegreeOfFreedom dof, double lb, double range) {
             this.dof = dof;
             this.lb = lb;
             this.range = range;
         }
     }
-    
+
     ArrayList<DOFInterval> dofIntervals = new ArrayList<>();
     ArrayList<Atom[]> interactingAtoms = new ArrayList<>();
     ArrayList<Residue> knownConfRes = null;//residues of known conf, for use in picking uc
     HashSet<Residue> shellResidues = null;
-    
+
     ArrayList<LinearConstraint> voxLinConstr = new ArrayList<>();//non-box constr in RC definition
-    
-    
+
+
     static boolean onlyLC = true;
     //In 1CC8, Phe 9 HD2 has no contacts. 
     //This is a very well packed structure.  CD2 has contacts
@@ -66,58 +94,58 @@ public class VoxelVDWListChecker {
     //specific uc w/i vox less important than lc bc prob doesn't change much ruggedness-wise
     //contact lists for voxels admits more flexible rules (1 exception, etc.) while still efficient
 
-    public VoxelVDWListChecker(ArrayList<DOFInterval> dofIntervals, ArrayList<Atom[]> interactingAtoms, 
-            ArrayList<Residue> knownConfRes, ArrayList<Residue> shellRes, 
-            ArrayList<LinearConstraint> voxLinConstr) {
+    public VoxelVDWListChecker(ArrayList<DOFInterval> dofIntervals, ArrayList<Atom[]> interactingAtoms,
+                               ArrayList<Residue> knownConfRes, ArrayList<Residue> shellRes,
+                               ArrayList<LinearConstraint> voxLinConstr) {
         this.dofIntervals = dofIntervals;
         this.interactingAtoms = interactingAtoms;
         this.knownConfRes = knownConfRes;
         this.voxLinConstr = voxLinConstr;
-        
+
         if(shellRes==null){
             int quack =5;
         }
-        
+
         shellResidues = new HashSet(shellRes);
     }
-    
-    
+
+
     public VoxelVDWListChecker(){}
-    
+
     //for piece-by-piece construction
     public final void addDOFInterval(DegreeOfFreedom dof, double lb, double range){
         dofIntervals.add(new DOFInterval(dof,lb,range));
     }
-    
+
     public final void addAtomPair(Atom atom1, Atom atom2){
         interactingAtoms.add(new Atom[] {atom1,atom2});
     }
-    
+
     public final void addVoxLinConstr(ArrayList<LinearConstraint> linConstr){
         voxLinConstr.addAll(linConstr);
     }
 
     //ALSO CONSTRUCTOR FROM RCs???  (but need to specify atoms somehow)
     //(will need calc of what atoms are w/i the VDW range+0.25 somewhere in the voxtopher)
-    
+
     int numDOFs(){
         return dofIntervals.size();
     }
-    
+
     boolean checkFeasibility(){
         return calcFeasiblePolytope(null)!=null;
     }
-    
-    
+
+
     double atomPairOverlap(Atom at1, Atom at2){
         double dist = VectorAlgebra.distance(at1.getCoords(), at2.getCoords());
         return getVDWRadius(at1) + getVDWRadius(at2) - dist;
     }
-    
-    
+
+
     ArrayList<LinearConstraint> calcFeasiblePolytope(ArrayList<String> atomPairNames){
         //If atomPairNames isn't null then record names of interacting atoms that generate inequalities there
-        
+
         //first add lc
         ArrayList<LinearConstraint> curPolygon = voxelPolygon();
 
@@ -125,12 +153,12 @@ public class VoxelVDWListChecker {
             for (int n = 0; n < curPolygon.size(); n++)//non-steric constraints
                 atomPairNames.add("VOXEL CONSTRAINT");
         }
-                
+
         int numVDWPairs = interactingAtoms.size();
-        for(int p=0; p<numVDWPairs; p++){            
+        for(int p=0; p<numVDWPairs; p++){
             LinearConstraint lc = tooCloseConstr(interactingAtoms.get(p));
-            
-            
+
+
             boolean validLC = ! (lc.getCoefficients().getNorm()<1e-10);
             //DEBUG!!!!!  it's sil to penalize unchangeable bb clashes etc
             //and if they're always true constraints no point either
@@ -138,7 +166,7 @@ public class VoxelVDWListChecker {
             //FOR NOW LET'S KILL CONF IF LC ALWAYS BAD (BELOW)
             //ONLY TOLERATING CLASHES INVOLVING ONLY UNMOVED ATOMS
             //(DOES NOT APPLY IN CATS RES)
-            
+
             if(validLC){
                 if(!canAddConstr(lc,curPolygon)){
                     return null;
@@ -153,27 +181,27 @@ public class VoxelVDWListChecker {
                     return null;//KILL
             }
         }
-        
+
         if(onlyLC)
             return curPolygon;
-        
+
         //now pick the closest atoms to add uc
         //assuming right residue types already in place
         for(DOFInterval di : dofIntervals){
             di.dof.apply(di.lb+di.range/2);
         }
-        
+
         HashMap<Atom,Atom> closestContactingAtom = new HashMap<>();
         HashMap<Atom,Double> biggestOverlap = new HashMap<>();
         HashMap<Atom,ArrayList<Atom>> partners = new HashMap<>();
-        
+
         for(Atom[] atomPair : interactingAtoms){
             //possibly check if lc ok here before putting in
-            
+
             if(!partners.containsKey(atomPair[0]))
                 partners.put(atomPair[0], new ArrayList<>());
             partners.get(atomPair[0]).add(atomPair[1]);
-            
+
             double overlap = atomPairOverlap(atomPair[0], atomPair[1]);
             if(biggestOverlap.containsKey(atomPair[0])){
                 if(overlap<=biggestOverlap.get(atomPair[0]))
@@ -182,7 +210,7 @@ public class VoxelVDWListChecker {
             biggestOverlap.put(atomPair[0], overlap);
             closestContactingAtom.put(atomPair[0], atomPair[1]);
         }
-        
+
         //ok now for each atom in cur res that has contacts, see if it needs to have a good-vdw constraint
         for(Atom at1 : partners.keySet()){
             if(at1.bonds.size()>3)//Won't require VDW...4 bonds already "hem in" this atom
@@ -211,11 +239,11 @@ public class VoxelVDWListChecker {
                     if(!keepUC)
                         break;
                 }
-            
+
                 if(!hasCloseAtoms)//no atoms close enough to at 1 to be a meaningful constr
                     keepUC = false;
             }
-                
+
             if(keepUC){
                 LinearConstraint uc = tooFarConstr(new Atom[] {at1,closestContactingAtom.get(at1)});
                 boolean validUC = ! (uc.getCoefficients().getNorm()<1e-10);
@@ -227,24 +255,24 @@ public class VoxelVDWListChecker {
                 }
             }
         }
-        
+
         //NOTE AT END OF ASSIGNMENTS, AND IDEALLY EVEN BEFORE THEN, WE CAN CHECK THAT EACH ATOM THAT SHOULD HAVE AN ATOM DOES HAVE ONE
-        
+
         //if we got here we have a feasible pt and its containing polygon!!!
         return curPolygon;
     }
-    
-    
+
+
     String makeAtomPairNames(Atom[] atoms){
         //record names for atom pair
         return makeAtomName(atoms[0])+" ; "+makeAtomName(atoms[1]);
     }
-    
+
     String makeAtomName(Atom atom){
         return atom.res.fullName+" , "+atom.name;
     }
-    
-    
+
+
     boolean atomsFixed(Atom[] pair){
         //DEBUG!!!!  Hacky way to deal with atoms that can't move out of a clash
         //so we don't penalize the clash
@@ -263,7 +291,7 @@ public class VoxelVDWListChecker {
         }
         return true;//didn't find a way for the atom to move
     }
-    
+
     boolean coordWithinSomeAtomVDWRad(double coord[], double buffer){
         //DEBUG!!!!  SLO SLO SLO
         for(Residue res : knownConfRes){
@@ -275,9 +303,9 @@ public class VoxelVDWListChecker {
         }
         return false;
     }
-    
-    
-    
+
+
+
     static ArrayList<double[]> sampleSphereIntersection(Atom at1,double rad1,Atom at2,double rad2){
         //sample point on the intersection of the spheres with specified radii
         //centered at the specified atoms
@@ -285,19 +313,19 @@ public class VoxelVDWListChecker {
         double[] aaVec = VectorAlgebra.subtract(at2.getCoords(), at1.getCoords());
         double dist = VectorAlgebra.norm(aaVec);
         double cosAng1 = (rad1*rad1+dist*dist-rad2*rad2) / (2*rad1*dist);
-        
+
         if(cosAng1>1 || cosAng1<-1)//spheres don't intersect
             return ans;
-        
+
         double z = cosAng1*rad1;
         double r = rad1*Math.sqrt(1.-cosAng1*cosAng1);//radius of intersection circle
         double cen[] = VectorAlgebra.add(at1.getCoords(), VectorAlgebra.scale(aaVec,z/dist));//its center
-        
+
         double x[] = VectorAlgebra.getPerpendicular(aaVec);
         VectorAlgebra.normalizeInPlace(x);
         double y[] = VectorAlgebra.cross(aaVec, x);
         VectorAlgebra.normalizeInPlace(y);
-        
+
         double numSamps = 8;//DEBUG!!
         for(int s=0; s<numSamps; s++){
             double ang = s*2*Math.PI/numSamps;
@@ -305,26 +333,26 @@ public class VoxelVDWListChecker {
             VectorAlgebra.addInPlace(samp, VectorAlgebra.scale(y, r*Math.sin(ang)) );
             VectorAlgebra.addInPlace(samp, cen);
             ans.add(samp);
-            
+
             //double checkr1 = VectorAlgebra.distance(samp, at1.getCoords());
             //double checkr2 = VectorAlgebra.distance(samp, at2.getCoords());
         }
-        
+
         return ans;
     }
-    
-    
+
+
     //OK attempting to do UC by selecting with LC
     ArrayList<LinearConstraint> calcFeasiblePolytope3(){
-        
+
         //first get lc polygon, to prune bad uc
         ArrayList<LinearConstraint> lcPolygon = voxelPolygon();
-                
+
         int numVDWPairs = interactingAtoms.size();
-        for(int p=0; p<numVDWPairs; p++){            
+        for(int p=0; p<numVDWPairs; p++){
             LinearConstraint lc = tooCloseConstr(interactingAtoms.get(p));
             boolean validLC = ! (lc.getCoefficients().getNorm()<1e-10);
-            
+
             if(validLC){
                 if(!canAddConstr(lc,lcPolygon)){
                     return null;
@@ -332,15 +360,15 @@ public class VoxelVDWListChecker {
                 lcPolygon.add(lc);
             }
         }
-            
-        
+
+
         //ok now get the real polygon
         ArrayList<LinearConstraint> curPolygon = (ArrayList<LinearConstraint>)lcPolygon.clone();
-        for(int p=0; p<numVDWPairs; p++){            
+        for(int p=0; p<numVDWPairs; p++){
             LinearConstraint uc = tooFarConstr(interactingAtoms.get(p));
-            
+
             boolean validUC = ! (uc.getCoefficients().getNorm()<1e-10);
-            
+
             if(validUC){
                 if(canAddConstr(uc,lcPolygon)){
                     if(!canAddConstr(uc,curPolygon)){
@@ -350,42 +378,42 @@ public class VoxelVDWListChecker {
                 curPolygon.add(uc);
             }
         }
-        
+
         //if we got here we have a feasible pt and its containing polygon!!!
         return curPolygon;
     }
-    
-    
+
+
     ArrayList<LinearConstraint> calcFeasiblePolytope2(){
         //for geom search will want to return a polygon, and valid solns will be those
         //that are in the intersection of polygons.  
-        
+
         //LET'S SEARCH THE VOXEL DEFINED AS THE WELL W/O CONVEX BLOCKAGES,
         //AS VIEWED FROM CENTER.  THUS LP SUFFICES, LINEARIZATION ALL FROM CENTER
-        
+
         //ALTERNATIVE: DO THIS WITH CONVEX OPT
         //KEEP FEAS PT THE SAME IF POSSIBLE, ELSE MINIMIZE DIST TO VOX CENTER WI "POLYGON"
         //START W LINEAR CONSTR BUT SHOULDNT BE HARD TO ADD CONVEX QUADR IF NEEDED
         //ALBEIT NOT CLEAR IF WORTH IT SINCE CANT DO CONCAVE QUADR
         //AND THUS ARE BASICALLY REDEFINING VOXELS TO BE UNION OF CONVEX "SHADOW" OF FEASIBLE REGIONS
         //AS VIEWED FROM DIRECTION OF VOX CENTER
-        
+
         //DoubleMatrix1D curFeasiblePt = voxelCenter();
         //DONT NEED TO MAINTAIN THIS IN LP/CENTER-BASED SHADOW FRAMEWORK
-        
-        
+
+
         ArrayList<LinearConstraint> curPolygon = voxelPolygon();
-                
+
         int numVDWPairs = interactingAtoms.size();
-        for(int p=0; p<numVDWPairs; p++){            
+        for(int p=0; p<numVDWPairs; p++){
             LinearConstraint lc = tooCloseConstr(interactingAtoms.get(p));
-            
-            
+
+
             boolean validLC = ! (lc.getCoefficients().getNorm()<1e-10);
             //DEBUG!!!!!  it's sil to penalize unchangeable bb clashes etc
             //and if they're always true constraints no point either
 
-            
+
             if(validLC){
                 if(!canAddConstr(lc,curPolygon)){
                     return null;
@@ -423,63 +451,63 @@ public class VoxelVDWListChecker {
             //in Leu 40 cd methyl, and these end up being contradictory, but 
             //going by distance (ADJUSTED FOR VDWRAD) the cd vdw clearly dominates
         }
-        
+
         //if we got here we have a feasible pt and its containing polygon!!!
         return curPolygon;
     }
-        
-    
 
-    
+
+
+
     double[] DOFsAtAtomPairDist(Atom[] atomPair, double targetDist, double[] initGuess){
         //Starting at initGuess, find values for the DOFs that put the specified atoms
         //the given target distance apart
         double[] x = initGuess.clone();
         double initDist = calcAtomPairDist(x,atomPair);
         double curDist = initDist;
-        
+
         double w[] = new double[numDOFs()];
         for(int dof=0; dof<numDOFs(); dof++)
             w[dof] = dofIntervals.get(dof).range;
-        
+
         while( Math.abs(targetDist-curDist)  > 0.01 ){
             double grad[] = calcAtomPairDistGrad(x,atomPair);
-            
+
             double derivsq = 0;
             for(int dof=0; dof<numDOFs(); dof++)
                 //derivsq += grad[dof]*grad[dof];
                 derivsq += w[dof]*w[dof]*grad[dof]*grad[dof];
-            
+
             if(derivsq==0)//DOFs don't move dist, so can't reach target by moving DOFs
                 return null;
-            
+
             for(int dof=0; dof<numDOFs(); dof++){
                 //x[dof] -= (curDist-targetDist) * grad[dof] / derivsq;
                 x[dof] -= (curDist-targetDist) * grad[dof]*w[dof]*w[dof] / derivsq;
-                
+
                 DOFInterval di = dofIntervals.get(dof);
                 if(x[dof]<di.lb || x[dof]>di.lb+di.range){
                     //DEBUG!!!  if we get outside the voxel probably we can't reach this boundary
                     return null;
                 }
             }
-            
+
             curDist = calcAtomPairDist(x,atomPair);
         }
         return x;
     }
-    
+
     double[] DOFsAtAtomPairDist(Atom[] atomPair, double targetDist){
         //Start at voxel center by default
         return DOFsAtAtomPairDist(atomPair, targetDist, voxelCenter());
     }
-    
+
     LinearConstraint linearizedAtomDistConstr(Atom[] atomPair, double targetDist, boolean lbConstr){
         //Linearized constraint on atom-atom distance
-        
+
         double cen[] = voxelCenter();
         double x[] = DOFsAtAtomPairDist(atomPair, targetDist, cen);
-        
+
         if(x==null){
             //couldn't get to boundary, so let's return an always-true or always-false
             double initDist = calcAtomPairDist(cen, atomPair);
@@ -488,28 +516,28 @@ public class VoxelVDWListChecker {
             else
                 return new LinearConstraint(new double[numDOFs()], Relationship.GEQ, 1.);//always false
         }
-        
+
         double curDist = calcAtomPairDist(x, atomPair);
         double grad[] = calcAtomPairDistGrad(x,atomPair);//NUM FOR NOW
         double targ = targetDist-curDist;
         for(int dof=0; dof<numDOFs(); dof++)
             targ += grad[dof]*x[dof];
-        
+
         //OK we should now be close enough to get a good approximate constr
         if(lbConstr)
             return new LinearConstraint(grad, Relationship.GEQ, targ);
         else//we are upper-bounding the distance
             return new LinearConstraint(grad, Relationship.LEQ, targ);
     }
-    
-    
+
+
     double calcAtomPairDist(double[] DOFVals, Atom[] atomPair){
         for(int dofNum=0; dofNum<numDOFs(); dofNum++)
             dofIntervals.get(dofNum).dof.apply( DOFVals[dofNum] );
-        
+
         return VectorAlgebra.distance(atomPair[0].getCoords(), atomPair[1].getCoords());
     }
-    
+
     double[] calcAtomPairDistGrad(double[] DOFVals, Atom[] atomPair){
         double step = 1e-6;
         int numDOFs = numDOFs();
@@ -524,20 +552,20 @@ public class VoxelVDWListChecker {
         }
         return ans;
     }
-    
-    
-    
+
+
+
     LinearConstraint tooCloseConstr(Atom[] atomPair){
         double idealDist = getVDWRadius(atomPair[0]) + getVDWRadius(atomPair[1]);
         double buffer = getClashBuffer(atomPair[0], atomPair[1]);
         return linearizedAtomDistConstr(atomPair, idealDist-buffer, true);
     }
-    
+
     public static double getTargetDist(Atom atom1, Atom atom2){
         //how close can atom1, atom2 be without clashing
         return getVDWRadius(atom1)+getVDWRadius(atom2)-getClashBuffer(atom1,atom2);
     }
-    
+
     static double getClashBuffer(Atom atom1, Atom atom2){
         //figure out the amount of VDW overlap allowed for the two atoms without 
         //begin considered a clash
@@ -550,11 +578,11 @@ public class VoxelVDWListChecker {
             atom1=atom2;
             atom2=tmp;
         }
-        
+
         if(atom2.elementNumber==1){
             int HBondedElem = atom2.bonds.get(0).elementNumber;
             if(HBondedElem==7 || HBondedElem==8){
-                if(atom1.elementNumber==8||atom1.elementNumber==16){                    
+                if(atom1.elementNumber==8||atom1.elementNumber==16){
                     //OK we now have a hydrogen bond
                     //DEBUG!!! should probably count aromatic C or HIS N too
                     //and cover all salt bridges--here just ammonium or arginine to carboxylate
@@ -567,11 +595,11 @@ public class VoxelVDWListChecker {
                 }
             }
         }
-        
+
         return 0.4;
     }
-    
-    
+
+
     private static boolean isCarboxylateO(Atom atom){
         if(atom.elementNumber!=8)
             return false;
@@ -589,8 +617,8 @@ public class VoxelVDWListChecker {
         }
         return countO==2;
     }
-    
-    
+
+
     private static boolean isAmmoniumH(Atom atom){
         if(atom.elementNumber!=1)
             return false;
@@ -599,7 +627,7 @@ public class VoxelVDWListChecker {
             return false;
         return N.bonds.size()==4;
     }
-    
+
     private static boolean isArgChargedH(Atom atom){
         if(!atom.res.template.name.equalsIgnoreCase("ARG"))
             return false;
@@ -607,16 +635,16 @@ public class VoxelVDWListChecker {
             return false;
         return atom.name.equalsIgnoreCase("HE") || atom.name.startsWith("HH");
     }
-    
-    
+
+
     LinearConstraint tooFarConstr(Atom[] atomPair){
         double idealDist = getVDWRadius(atomPair[0]) + getVDWRadius(atomPair[1]);
         return linearizedAtomDistConstr(atomPair, idealDist+0.25, false);
     }
-    
 
-   
-    
+
+
+
     ArrayList<LinearConstraint> voxelPolygon(){
         ArrayList<LinearConstraint> ans = new ArrayList<>();
         for(int dof=0; dof<numDOFs(); dof++){
@@ -629,7 +657,7 @@ public class VoxelVDWListChecker {
         ans.addAll(voxLinConstr);
         return ans;
     }
-    
+
     double[] voxelCenter(){
         double ans[] = new double[numDOFs()];
         HashMap<DegreeOfFreedom,Double> specialCenter = calcSpecialCenter();
@@ -640,11 +668,11 @@ public class VoxelVDWListChecker {
             else
                 ans[dof] = di.lb + di.range/2;
         }
-        
+
         return ans;
     }
-    
-    
+
+
     public HashMap<DegreeOfFreedom,Double> calcSpecialCenter(){
         //center for some degrees of freedom may, due to non-box constr, 
         //differ from center of box constr
@@ -652,28 +680,28 @@ public class VoxelVDWListChecker {
         //(not just middle of lb,ub)
         //DEBUG!!! This assumes the particular form of lin constr (pairs of parallel constr,
         //DOFs not in constrained space assumed to center at 0) used in basis big CATS stuff
-        
+
         HashMap<DegreeOfFreedom,Double> ans = new HashMap<>();
         int numSpecialDOFConstr = voxLinConstr.size()/2;
         if(numSpecialDOFConstr==0)
             return ans;
-        
+
         HashSet<Integer> specialDOFSet = new HashSet<>();
         for(int spesh=0; spesh<numSpecialDOFConstr; spesh++){
             RealVector coeff = voxLinConstr.get(2*spesh).getCoefficients();
             if(coeff.getDistance(voxLinConstr.get(2*spesh+1).getCoefficients()) > 0)
                 throw new RuntimeException("ERROR: voxLinConstr not paired like expected");
-            
+
             for(int d=0; d<dofIntervals.size(); d++){
                 if(coeff.getEntry(d)!=0)
                     specialDOFSet.add(d);
             }
         }
-        
+
         int numSpecialDOFs = specialDOFSet.size();
         ArrayList<Integer> specialDOFList = new ArrayList<>();
         specialDOFList.addAll(specialDOFSet);
-        
+
         DoubleMatrix2D specialConstr = DoubleFactory2D.dense.make(numSpecialDOFConstr, numSpecialDOFs);
         //we will constrain values first of the lin combs of DOFs given in voxLinConstr,
         //then of lin combs orth to those
@@ -684,22 +712,22 @@ public class VoxelVDWListChecker {
                 specialConstr.set(spesh, d, coeffs.getEntry(specialDOFList.get(d)));
             target.set( spesh, 0, 0.5*(voxLinConstr.get(2*spesh).getValue()+voxLinConstr.get(2*spesh+1).getValue()) );
         }
-        
+
         //remaining targets (orth components to voxLinConstr) are 0
         DoubleMatrix2D orthComponents = getOrthogVectors(specialConstr);
         DoubleMatrix2D M = DoubleFactory2D.dense.compose(
                 new DoubleMatrix2D[][] {
-                    new DoubleMatrix2D[] {specialConstr},
-                    new DoubleMatrix2D[] {Algebra.DEFAULT.transpose(orthComponents)}
+                        new DoubleMatrix2D[] {specialConstr},
+                        new DoubleMatrix2D[] {Algebra.DEFAULT.transpose(orthComponents)}
                 }
-            );
-        
+        );
+
         DoubleMatrix1D specialDOFVals = Algebra.DEFAULT.solve(M, target).viewColumn(0);
-        
+
         for(int d=0; d<numSpecialDOFs; d++){
             ans.put(dofIntervals.get(specialDOFList.get(d)).dof, specialDOFVals.get(d));
         }
-        
+
         return ans;
     }
 
@@ -727,5 +755,5 @@ public class VoxelVDWListChecker {
 
         return orthVecs;
     }
-    
+
 }

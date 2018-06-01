@@ -1,7 +1,35 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
  */
+
 package edu.duke.cs.osprey.energy;
 
 import java.util.ArrayList;
@@ -27,7 +55,6 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 	private static final long serialVersionUID = -3516267414126293331L;
 
 	private static int NUM_THREADS = 1;
-	private static boolean IS_VERBOSE = true;
 
 	ArrayList<EnergyFunction> terms = new ArrayList<>();
 	ArrayList<Double> coeffs = new ArrayList<>();
@@ -55,26 +82,19 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 		indexes.add(indexes.size());
 	}
 
-	
-	public static void setVerbose(boolean val) {
-		IS_VERBOSE = val;
-	}
-	
 
-	public static void setNumThreads( int threads ) { 
+	public static void setNumThreads( int threads ) {
 		NUM_THREADS = threads;
 
 		if(NUM_THREADS < 1) NUM_THREADS = 1;
 
-		else if(NUM_THREADS > Runtime.getRuntime().availableProcessors()) 
+		else if(NUM_THREADS > Runtime.getRuntime().availableProcessors())
 			NUM_THREADS = Runtime.getRuntime().availableProcessors();
-		
+
 		if (NUM_THREADS > 1) {
 			// TODO: make user-friendly error message
-			if(IS_VERBOSE) {
-				System.out.println("\n\nWARNING (for Osprey programmers): energy function-level parallelism probably isn't the fastest tool anymore."
-						+ " Try the new parallel SimpleEnergyMatrixCalculator and parallel/gpu-friendly ConfMinimizer classes instead.\n");
-			}
+			System.out.println("\n\nWARNING (for Osprey programmers): energy function-level parallelism probably isn't the fastest tool anymore."
+					+ " Try the new parallel SimpleEnergyMatrixCalculator and parallel/gpu-friendly ConfMinimizer classes instead.\n");
 		}
 	}
 
@@ -91,7 +111,7 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 
 		if(terms.size()!=coeffs.size()){
 			throw new RuntimeException("ERROR: MultiTermEnergyFunction has "+terms.size()
-			+" terms but "+coeffs.size()+" coefficients");
+					+" terms but "+coeffs.size()+" coefficients");
 		}
 
 		if(NUM_THREADS == 1) {
@@ -172,4 +192,3 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 		preCompE = in;
 	}
 }
-

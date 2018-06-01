@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar;
 
 import java.util.ArrayList;
@@ -8,6 +40,7 @@ import java.util.LinkedHashSet;
 
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
+import edu.duke.cs.osprey.tools.ObjectIO;
 
 public class KSAllowedSeqs {
 
@@ -19,7 +52,7 @@ public class KSAllowedSeqs {
 	private ArrayList<String> wt;
 	public boolean addWT;
 	private int dist;
-        private boolean allowLessMut;
+	private boolean allowLessMut;
 	private int strand;
 	private ResidueTermini limits;
 	private int maxSequences = (int)Math.pow(2, 28);
@@ -27,12 +60,12 @@ public class KSAllowedSeqs {
 	private LinkedHashMap<ArrayList<String>, Integer> allowedSeq2Index = null;
 	ArrayList<HashSet<ArrayList<String>>> allowedSubSeqs = null;
 
-	public KSAllowedSeqs( int strand, ResidueTermini limits, DEEPerSettings dset, 
-			ArrayList<String[]> freeBBZoneTermini,
-			ArrayList<String[]> moveableStrandTermini,
-			ArrayList<String> flexRes, 
-			ArrayList<ArrayList<String>> allowedAAs, 
-			ArrayList<String> wt, boolean addWT, int dist, boolean allowLessMut ) {
+	public KSAllowedSeqs( int strand, ResidueTermini limits, DEEPerSettings dset,
+						  ArrayList<String[]> freeBBZoneTermini,
+						  ArrayList<String[]> moveableStrandTermini,
+						  ArrayList<String> flexRes,
+						  ArrayList<ArrayList<String>> allowedAAs,
+						  ArrayList<String> wt, boolean addWT, int dist, boolean allowLessMut ) {
 
 		this.strand = strand;
 		this.limits = limits;
@@ -40,20 +73,20 @@ public class KSAllowedSeqs {
 		this.freeBBZoneTermini = freeBBZoneTermini;
 		this.moveableStrandTermini = moveableStrandTermini;
 		this.flexRes = flexRes;
-		this.allowedAAs = addPosToAllowedAAs(allowedAAs, flexRes);		
+		this.allowedAAs = addPosToAllowedAAs(allowedAAs, flexRes);
 		this.wt = addPosToSeq(wt, flexRes);
 		this.addWT = addWT;
 		this.dist = dist;
-                this.allowLessMut = allowLessMut;
+		this.allowLessMut = allowLessMut;
 		this.allowedSeqs = generateSequences();
 	}
 
 
-	public KSAllowedSeqs( int strand, ResidueTermini limits, DEEPerSettings dset, 
-			ArrayList<String[]> freeBBZoneTermini,
-			ArrayList<String[]> moveableStrandTermini,
-			ArrayList<String> flexRes, KSAllowedSeqs in, 
-			ArrayList<ArrayList<String>> allowedAAs, int lb, int ub ) {
+	public KSAllowedSeqs( int strand, ResidueTermini limits, DEEPerSettings dset,
+						  ArrayList<String[]> freeBBZoneTermini,
+						  ArrayList<String[]> moveableStrandTermini,
+						  ArrayList<String> flexRes, KSAllowedSeqs in,
+						  ArrayList<ArrayList<String>> allowedAAs, int lb, int ub ) {
 
 		this.strand = strand;
 		this.limits = limits;
@@ -72,12 +105,12 @@ public class KSAllowedSeqs {
 			this.allowedSeqs.add( new ArrayList<String>( seq.subList(lb, ub) ) );
 		}
 	}
-	
-	
+
+
 	public ResidueTermini getStrandLimits() {
 		return limits;
 	}
-	
+
 
 	public static ArrayList<ArrayList<String>> removePosFromAllowedAAs(ArrayList<ArrayList<String>> in) {
 		@SuppressWarnings("unchecked")
@@ -111,7 +144,7 @@ public class KSAllowedSeqs {
 
 	private static ArrayList<String> addSinglePosToSeq(ArrayList<String> in, String pos) {
 
-		ArrayList<String> ans = new ArrayList<>(); 
+		ArrayList<String> ans = new ArrayList<>();
 		for(int i = 0; i < in.size(); ++i) ans.add(in.get(i) + "-" + pos);
 
 		ans.trimToSize();
@@ -124,7 +157,7 @@ public class KSAllowedSeqs {
 		if(in.size() > flexRes.size())
 			throw new RuntimeException("ERROR: cannot assign positions to all AAs in list.");
 
-		ArrayList<String> ans = new ArrayList<>(); 
+		ArrayList<String> ans = new ArrayList<>();
 		for(int i = 0; i < in.size(); ++i) ans.add(in.get(i) + "-" + flexRes.get(i));
 
 		return ans;
@@ -159,7 +192,7 @@ public class KSAllowedSeqs {
 		ArrayList<Integer> ans = new ArrayList<>();
 
 		for(String pos : seqFlexRes) {
-			
+
 			for(int j = 0; j < flexRes.size(); ++j) {
 				if(pos.equalsIgnoreCase(flexRes.get(j))) {
 					ans.add(j);
@@ -172,33 +205,33 @@ public class KSAllowedSeqs {
 		return ans;
 	}
 
-	
+
 	public int getFlexPosIndex( String res ) {
-		
+
 		String flexPos = res.split("-")[1];
-		
-		for(int index = 0; index < flexRes.size(); ++index) {		
+
+		for(int index = 0; index < flexRes.size(); ++index) {
 			if(flexPos.equalsIgnoreCase(flexRes.get(index))) return index;
 		}
 		return Integer.MIN_VALUE;
 	}
-	
-	
+
+
 	public boolean isAllowed( String res ) {
 		int pos;
 		if((pos = getFlexPosIndex(res)) == Integer.MIN_VALUE) return false;
-		
+
 		return allowedAAs.get(pos).contains(res);
 	}
-	
-	
+
+
 	public boolean isAllowed( ArrayList<String> seq ) {
 		for(String res : seq) {
 			if(!isAllowed(res)) return false;
 		}
 		return true;
 	}
-	
+
 
 	public int getStrand() {
 		return strand;
@@ -282,9 +315,9 @@ public class KSAllowedSeqs {
 
 		return allowedSubSeqs;
 	}
-	
-	
-	public ArrayList<HashSet<ArrayList<String>>> getStrandSubSeqList2( 
+
+
+	public ArrayList<HashSet<ArrayList<String>>> getStrandSubSeqList2(
 			KSAllowedSeqs p, KSAllowedSeqs l ) {
 
 		if( strand != 2 )
@@ -306,11 +339,11 @@ public class KSAllowedSeqs {
 				// adjust indices to prevent out of bounds error
 				int depthP = Math.min(depth, p.getStrandSubSeqsMaxDepth());
 				int depthL = Math.min(depth, l.getStrandSubSeqsMaxDepth());
-				
+
 				for( ArrayList<String> subSeqP : p.getStrandSubSeqsAtDepth(depthP) ) {
-					
+
 					for( ArrayList<String> subSeqL : l.getStrandSubSeqsAtDepth(depthL) ) {
-						
+
 						if( p.getDistFromWT(subSeqP) + l.getDistFromWT(subSeqL) <= dist ) {
 
 							ArrayList<String> tmpSubSeq = new ArrayList<>();
@@ -319,18 +352,18 @@ public class KSAllowedSeqs {
 							tmpSubSeq.addAll(subSeqL);
 
 							if( tmpSubSeq.size() == getSequenceLength() && getDistFromWT(tmpSubSeq) != dist ) continue;
-							
+
 							tmpSubSeq.trimToSize();
-							
+
 							// add complex subsequence
-							if( !allowedSubSeqs.get(tmpSubSeq.size()).contains(tmpSubSeq) ) 
+							if( !allowedSubSeqs.get(tmpSubSeq.size()).contains(tmpSubSeq) )
 								allowedSubSeqs.get(tmpSubSeq.size()).add(tmpSubSeq);
 						}
 					}
 				}
 			}
 		}
-		
+
 		return allowedSubSeqs;
 	}
 
@@ -345,7 +378,7 @@ public class KSAllowedSeqs {
 			getStrandSubSeqList2(p, l);
 
 		if( depth < 0 || depth > allowedSubSeqs.size()-1 )
-			throw new RuntimeException("ERROR: the requested depth " + depth + 
+			throw new RuntimeException("ERROR: the requested depth " + depth +
 					" is not within the valid range [0," + (allowedSubSeqs.size()-1) + "]");
 
 		return allowedSubSeqs.get( depth );
@@ -353,44 +386,44 @@ public class KSAllowedSeqs {
 
 
 	public HashSet<ArrayList<String>> getStrandSubSeqsAtDepth( int depth ) {
-		
+
 		if( allowedSubSeqs == null ) {
-			
-			if(strand == 2) 
+
+			if(strand == 2)
 				throw new RuntimeException("ERROR: sub-sequences of the COMPLEX "
 						+ "strand cannot be initialized using this method");
-			
+
 			getStrandSubSeqList();
 		}
 
 		if( depth < 0 || depth > allowedSubSeqs.size()-1 )
-			throw new RuntimeException("ERROR: the requested depth " + depth + 
+			throw new RuntimeException("ERROR: the requested depth " + depth +
 					" is not within the valid range [0," + (allowedSubSeqs.size()-1) + "]");
 
 		return allowedSubSeqs.get( depth );
 	}
-	
-	
+
+
 	public static void deleteFromSet( ArrayList<String> item, HashSet<ArrayList<String>> set ) {
 		// delete item from any matching element of set
 		for( Iterator<ArrayList<String>> iterator = set.iterator(); iterator.hasNext(); ) {
-			
+
 			ArrayList<String> element = iterator.next();
-			
+
 			if(element.containsAll(item))
 				iterator.remove();
 		}
 	}
 
-	
+
 	public int getNumSubSeqs() {
 		int ans = 0;
 		for(int depth = 0; depth <= getStrandSubSeqsMaxDepth(); ++depth)
 			ans += getStrandSubSeqsAtDepth(depth).size();
-		
+
 		return ans;
 	}
-	
+
 
 	public int getStrandSubSeqsMaxDepth() {
 		return getFlexRes().size();
@@ -428,23 +461,23 @@ public class KSAllowedSeqs {
 	public ArrayList<ArrayList<String>> getStrandSeqList() {
 		return allowedSeqs;
 	}
-	
-	
+
+
 	public int getPosOfSeq( ArrayList<String> seq ) {
-		
+
 		if( allowedSeq2Index == null ) {
 			allowedSeq2Index = new LinkedHashMap<>();
-			
+
 			for( int index = 0; index < allowedSeqs.size(); ++index )
 				allowedSeq2Index.put(allowedSeqs.get(index), index);
 		}
-			
+
 		return allowedSeq2Index.get(seq);
 	}
 
 
 	public ArrayList<String> getStrandSeqAtPos( int index ) {
-		if(index > -1 && index < allowedSeqs.size()) 
+		if(index > -1 && index < allowedSeqs.size())
 			return allowedSeqs.get(index);
 		return null;
 	}
@@ -469,7 +502,7 @@ public class KSAllowedSeqs {
 
 
 	public ArrayList<String> removeStrandSeq(int index) {
-		if(index > -1 && index < allowedSeqs.size()) 
+		if(index > -1 && index < allowedSeqs.size())
 			return allowedSeqs.remove(index);
 		else
 			throw new RuntimeException("ERROR: index "+ index + " is invalid. "
@@ -482,7 +515,7 @@ public class KSAllowedSeqs {
 	}
 
 
-	private ArrayList<ArrayList<String>> generateAllSequencesWithDist ( 
+	private ArrayList<ArrayList<String>> generateAllSequencesWithDist (
 			ArrayList<ArrayList<String>> input ) {
 
 		// pre-allocate buffer and wt
@@ -499,9 +532,9 @@ public class KSAllowedSeqs {
 		// remove wt, if present
 		boolean wtIsPresent = output.remove(wt);
 
-		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(output); 
+		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(output);
 		if( addWT || wtIsPresent ) ans.add(0, wt);
-		
+
 		int size = dist == 0 ? ans.size() : ans.size()-1;
 		System.out.println("\nNumber of sequences with " + dist + " mutation(s) from wild type: " + size + "\n");
 
@@ -510,9 +543,9 @@ public class KSAllowedSeqs {
 	}
 
 
-	private void generatePermutations( ArrayList<ArrayList<String>> input, 
-			LinkedHashSet<ArrayList<String>> output, ArrayList<String> current, 
-			int depth, int diff ) {
+	private void generatePermutations( ArrayList<ArrayList<String>> input,
+									   LinkedHashSet<ArrayList<String>> output, ArrayList<String> current,
+									   int depth, int diff ) {
 
 		if( output.size() >= maxSequences )
 			throw new RuntimeException("ERROR: the number of requested sequence "
@@ -568,7 +601,7 @@ public class KSAllowedSeqs {
 	protected boolean isSpecifiedDist( ArrayList<String> s1, ArrayList<String> s2 ) {
 
 		if( s1.size() != s2.size() )
-			throw new RuntimeException("Error: input strings " + s1 + " and " 
+			throw new RuntimeException("Error: input strings " + s1 + " and "
 					+ s2 + " are not the same length.");
 
 		int dist = 0;
@@ -584,12 +617,12 @@ public class KSAllowedSeqs {
 	public ArrayList<String> getWTSeq() {
 		return wt;
 	}
-	
-	
+
+
 	public boolean containsWTSeq() {
-		if( allowedSeqs == null || allowedSeqs.size() < 1 ) 
+		if( allowedSeqs == null || allowedSeqs.size() < 1 )
 			return false;
-		
+
 		return allowedSeqs.get(0).equals(getWTSeq());
 	}
 }

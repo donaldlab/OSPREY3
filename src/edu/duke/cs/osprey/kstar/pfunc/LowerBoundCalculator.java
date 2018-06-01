@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.kstar.pfunc;
 
 import edu.duke.cs.osprey.confspace.ConfDB;
@@ -5,6 +37,8 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.TimeTools;
 
 import java.math.BigDecimal;
 
@@ -101,8 +135,8 @@ public class LowerBoundCalculator {
 				// (but make sure the energy gets reported on the listener thread
 				// so we behave exactly the same as if we did the energy calculation)
 				ecalc.tasks.submit(
-					() -> new ConfSearch.EnergiedConf(conf, dbconf.upper.energy),
-					(econf) -> onEconf.onFinished(econf)
+						() -> new ConfSearch.EnergiedConf(conf, dbconf.upper.energy),
+						(econf) -> onEconf.onFinished(econf)
 				);
 
 				return Status.HasLowEnergies;
@@ -115,10 +149,10 @@ public class LowerBoundCalculator {
 			// save the conf in the db if needed
 			if (confTable != null) {
 				confTable.setBounds(
-					conf.getAssignments(),
-					conf.getScore(),
-					econf.getEnergy(),
-					TimeTools.getTimestampNs()
+						conf.getAssignments(),
+						conf.getScore(),
+						econf.getEnergy(),
+						TimeTools.getTimestampNs()
 				);
 				confTable.flush();
 			}
@@ -136,10 +170,10 @@ public class LowerBoundCalculator {
 	@Override
 	public String toString() {
 		return String.format("LowerBoundCalculator   scored: %6d   energied: %6d   energies: %e   scores: %e",
-			numConfsScored,
-			numConfsEnergied,
-			weightedEnergySum.doubleValue(),
-			weightedScoreSum.doubleValue()
+				numConfsScored,
+				numConfsEnergied,
+				weightedEnergySum.doubleValue(),
+				weightedScoreSum.doubleValue()
 		);
 	}
 }

@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.energy;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -12,6 +44,8 @@ import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.Progress;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -24,25 +58,25 @@ import java.util.List;
 public class MisBoundPlayground {
 
 	public static void main(String[] args)
-	throws Exception {
+			throws Exception {
 
 		ForcefieldParams ffparams = new ForcefieldParams();
 
 		// load non-natural AA stuff
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld)
-			.addTemplates(FileTools.readFile("all_nuc94_and_gr.in"))
-			.addTemplateCoords(FileTools.readFile("all_amino_coords.in"))
-			.addRotamers(FileTools.readFile("GenericRotamers.dat"))
-			.build();
+				.addTemplates(FileTools.readFile("all_nuc94_and_gr.in"))
+				.addTemplateCoords(FileTools.readFile("all_amino_coords.in"))
+				.addRotamers(FileTools.readFile("GenericRotamers.dat"))
+				.build();
 
 		Strand strand = new Strand.Builder(PDBIO.readFile("model0_antibody.pdb"))
-			.setTemplateLibrary(templateLib)
-			.build();
+				.setTemplateLibrary(templateLib)
+				.build();
 
 		List<String> mutations = Arrays.asList(
-			Strand.WildType,
-			"ALA", "VAL", "LEU", "ILE", "PHE", "TYR", "TRP", "CYS", "CYX", "MET", "SER",
-			"THR", "LYS", "ARG", "HIP", "HIE", "ASP", "GLU", "ASN", "GLN", "GLY"
+				Strand.WildType,
+				"ALA", "VAL", "LEU", "ILE", "PHE", "TYR", "TRP", "CYS", "CYX", "MET", "SER",
+				"THR", "LYS", "ARG", "HIP", "HIE", "ASP", "GLU", "ASN", "GLN", "GLY"
 		);
 
 		for (String resNum : Arrays.asList("H1901", "H1904", "H1905")) {
@@ -50,66 +84,66 @@ public class MisBoundPlayground {
 		}
 
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
-			.addStrand(strand)
-			.setShellDistance(6)
-			.build();
+				.addStrand(strand)
+				.setShellDistance(6)
+				.build();
 
 		// which bound to use?
 		//EnergyPartition epart = EnergyPartition.Traditional;
 		EnergyPartition epart = EnergyPartition.AllOnPairs;
 
 		new EnergyCalculator.Builder(confSpace, ffparams)
-			.setParallelism(Parallelism.make(4, 1, 8))
-			//.setType(EnergyCalculator.Type.Cpu)
-			.setType(EnergyCalculator.Type.ResidueCudaCCD)
-			.use((ecalc) -> {
+				.setParallelism(Parallelism.make(4, 1, 8))
+				//.setType(EnergyCalculator.Type.Cpu)
+				.setType(EnergyCalculator.Type.ResidueCudaCCD)
+				.use((ecalc) -> {
 
-				SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
-					.build()
-					.calcReferenceEnergies();
+					SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+							.build()
+							.calcReferenceEnergies();
 
-				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
-					.setReferenceEnergies(eref)
-					.setEnergyPartition(epart)
-					.build();
+					ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+							.setReferenceEnergies(eref)
+							.setEnergyPartition(epart)
+							.build();
 
-				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-					.setCacheFile(new File("emat.misbound.shell." + epart.name().toLowerCase() + ".dat"))
-					.build()
-					.calcEnergyMatrix();
+					EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+							.setCacheFile(new File("emat.misbound.shell." + epart.name().toLowerCase() + ".dat"))
+							.build()
+							.calcEnergyMatrix();
 
-				ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
-					.setTraditional()
-					.setShowProgress(true)
-					.build();
+					ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+							.setTraditional()
+							.setShowProgress(true)
+							.build();
 
-				// ok, all the pre-reqs are setup, what to do now?
-				//doSearch(astar, confEcalc);
-				//analyzeMisbounds(confSpace, confEcalc, emat);
-				findMisbounds(confSpace, astar, confEcalc, emat);
-			});
+					// ok, all the pre-reqs are setup, what to do now?
+					//doSearch(astar, confEcalc);
+					//analyzeMisbounds(confSpace, confEcalc, emat);
+					findMisbounds(confSpace, astar, confEcalc, emat);
+				});
 	}
 
 	public static void doSearch(ConfAStarTree astar, ConfEnergyCalculator confEcalc) {
 		new SimpleGMECFinder.Builder(astar, confEcalc)
-			.build()
-			.find(5.0);
+				.build()
+				.find(5.0);
 	}
 
 	public static void analyzeMisbounds(SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc, EnergyMatrix emat) {
 
 		List<int[]> misboundedConfsTraditional = Arrays.asList(
-			new int[] { 22, 131, 159 }, // Conformation score (-14.511145) is not a lower bound on the energy (-14.869177).
-			new int[] { 27, 131, 159 } // Conformation score (-13.803699) is not a lower bound on the energy (-14.221509).
+				new int[] { 22, 131, 159 }, // Conformation score (-14.511145) is not a lower bound on the energy (-14.869177).
+				new int[] { 27, 131, 159 } // Conformation score (-13.803699) is not a lower bound on the energy (-14.221509).
 		);
 
 		List<int[]> misboundedConfsAllOnPairs = Arrays.asList(
-			new int[] { 22, 140, 149 }, // Conformation score (-14.033345) is not a lower bound on the energy (-14.211877).
-			new int[] { 22, 68, 149 }, // Conformation score (-13.812986) is not a lower bound on the energy (-13.971702).
-			new int[] { 22, 129, 149 }, // Conformation score (-13.759669) is not a lower bound on the energy (-13.866282).
-			new int[] { 22, 70, 149 }, // Conformation score (-13.691940) is not a lower bound on the energy (-13.805368).
-			new int[] { 22, 131, 177 }, // Conformation score (-13.665316) is not a lower bound on the energy (-13.847284).
-			new int[] { 22, 74, 149 } // Conformation score (-13.643942) is not a lower bound on the energy (-13.784523).
+				new int[] { 22, 140, 149 }, // Conformation score (-14.033345) is not a lower bound on the energy (-14.211877).
+				new int[] { 22, 68, 149 }, // Conformation score (-13.812986) is not a lower bound on the energy (-13.971702).
+				new int[] { 22, 129, 149 }, // Conformation score (-13.759669) is not a lower bound on the energy (-13.866282).
+				new int[] { 22, 70, 149 }, // Conformation score (-13.691940) is not a lower bound on the energy (-13.805368).
+				new int[] { 22, 131, 177 }, // Conformation score (-13.665316) is not a lower bound on the energy (-13.847284).
+				new int[] { 22, 74, 149 } // Conformation score (-13.643942) is not a lower bound on the energy (-13.784523).
 		);
 
 		// check this conf
@@ -121,23 +155,23 @@ public class MisBoundPlayground {
 		EnergyMatrix scoreBreakdown = breakdown.breakdownScore(emat);
 
 		System.out.println(String.format("Mis-bounded conf:"
-				+ "\n\tRCs:       %s"
-				+ "\n\tSequence:  %s"
-				+ "\n\tRotamers:  %s"
-				+ "\n\tScore:     %12.6f"
-				+ "\n\tEnergy:    %12.6f",
-			confSpace.formatConfRCs(conf),
-			confSpace.formatConfSequence(conf),
-			confSpace.formatConfRotamers(conf),
-			scoreBreakdown.sum(),
-			forcefieldBreakdown.sum()
+						+ "\n\tRCs:       %s"
+						+ "\n\tSequence:  %s"
+						+ "\n\tRotamers:  %s"
+						+ "\n\tScore:     %12.6f"
+						+ "\n\tEnergy:    %12.6f",
+				confSpace.formatConfRCs(conf),
+				confSpace.formatConfSequence(conf),
+				confSpace.formatConfRotamers(conf),
+				scoreBreakdown.sum(),
+				forcefieldBreakdown.sum()
 		));
 		System.out.println("forcefield: " + forcefieldBreakdown);
 		System.out.println("score: " + scoreBreakdown);
 	}
 
 	public static void findMisbounds(SimpleConfSpace confSpace, ConfAStarTree astar, ConfEnergyCalculator confEcalc, EnergyMatrix emat)
-	throws Exception {
+			throws Exception {
 
 		// get a bunch of confs to check
 		List<ConfSearch.ScoredConf> confs = new ArrayList<>();
@@ -184,14 +218,14 @@ public class MisBoundPlayground {
 						double forcefieldEnergy = forcefieldBreakdown.getOneBody(pos1.index, 0);
 						if (boundEnergy > forcefieldEnergy + errorThreshold) {
 							reports.add(String.format("%-30s    cell-score %12.6f    Sequence: %s    cell-energy %12.6f    gap: %12.6f    conf-score: %12.6f    conf-energy: %12.6f    gap: %12.6f",
-								"Single: " + pos1.formatConfPos(conf),
-								boundEnergy,
-								confSpace.formatConf(conf),
-								forcefieldEnergy,
-								boundEnergy - forcefieldEnergy,
-								conf.getScore(),
-								breakdown.epmol.energy,
-								conf.getScore() - breakdown.epmol.energy
+									"Single: " + pos1.formatConfPos(conf),
+									boundEnergy,
+									confSpace.formatConf(conf),
+									forcefieldEnergy,
+									boundEnergy - forcefieldEnergy,
+									conf.getScore(),
+									breakdown.epmol.energy,
+									conf.getScore() - breakdown.epmol.energy
 							));
 						}
 					}
@@ -206,14 +240,14 @@ public class MisBoundPlayground {
 						double forcefieldEnergy = forcefieldBreakdown.getPairwise(pos1.index, 0, pos2.index, 0);
 						if (boundEnergy > forcefieldEnergy + errorThreshold) {
 							reports.add(String.format("%-30s    cell-score %12.6f    Sequence: %s    cell-energy %12.6f    gap: %12.6f    conf-score: %12.6f    conf-energy: %12.6f    gap: %12.6f",
-								"Pair: " + pos1.formatConfPos(conf) + ":" + pos2.formatConfPos(conf),
-								boundEnergy,
-								confSpace.formatConf(conf),
-								forcefieldEnergy,
-								boundEnergy - forcefieldEnergy,
-								conf.getScore(),
-								breakdown.epmol.energy,
-								conf.getScore() - breakdown.epmol.energy
+									"Pair: " + pos1.formatConfPos(conf) + ":" + pos2.formatConfPos(conf),
+									boundEnergy,
+									confSpace.formatConf(conf),
+									forcefieldEnergy,
+									boundEnergy - forcefieldEnergy,
+									conf.getScore(),
+									breakdown.epmol.energy,
+									conf.getScore() - breakdown.epmol.energy
 							));
 						}
 					}
