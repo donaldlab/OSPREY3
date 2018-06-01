@@ -432,7 +432,7 @@ public class NewEWAKStarDoer {
 
         ForcefieldParams ffparams = new ForcefieldParams();
         Parallelism parallelism = Parallelism.makeCpu(numCPUs);
-        
+
         EnergyCalculator ecalc = new EnergyCalculator.Builder(this.confSpaces.complex, ffparams)
                 .setParallelism(parallelism).build();
         EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc).setIsMinimizing(false).build();
