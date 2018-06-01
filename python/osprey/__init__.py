@@ -892,7 +892,7 @@ def SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc,
 
     return c.kstar.SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
 
-def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, energyMatrixCachePattern=useJavaDefault, showPfuncProgress=useJavaDefault):
+def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, energyMatrixCachePattern=useJavaDefault, showPfuncProgress=useJavaDefault, maxSimultaneousMutations=useJavaDefault):
     '''
     :java:classdoc:`.markstar.MARKStar`
 
@@ -916,6 +916,7 @@ def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, mi
     :builder_option stabilityThreshold .markstar.MARKStar$Settings$Builder#stabilityThreshold:
     :builder_option showPfuncProgress .markstar.MARKStar$Settings$Builder#showPfuncProgress:
     :builder_option energyMatrixCachePattern .markstar.MARKStar$Settings$Builder#energyMatrixCachePattern:
+    :builder_option maxSimultaneousMutations .markstar.MARKStar$Settings$Builder#maxSimultaneousMutations:
 
     :rtype: :java:ref:`.markstar.MARKStar`
     '''
@@ -934,6 +935,8 @@ def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, mi
         markstarSettingsBuilder.setEnergyMatrixCachePattern(energyMatrixCachePattern)
     if showPfuncProgress is not useJavaDefault:
         markstarSettingsBuilder.setShowPfuncProgress(showPfuncProgress)
+    if maxSimultaneousMutations is not useJavaDefault:
+        markstarSettingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
     markstarSettings = markstarSettingsBuilder.build()
 
     return c.markstar.MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, markstarSettings)
