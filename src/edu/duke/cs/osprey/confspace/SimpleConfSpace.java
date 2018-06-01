@@ -41,7 +41,6 @@ import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
-import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -108,6 +107,7 @@ public class SimpleConfSpace implements Serializable {
 		public final String resNum;
 		public final Strand.ResidueFlex resFlex;
 		public final List<ResidueConf> resConfs;
+		public final List<String> resTypes;
 		
 		public Position(int index, Strand strand, Residue res) {
 			this.index = index;
@@ -115,6 +115,7 @@ public class SimpleConfSpace implements Serializable {
 			this.resNum = res.getPDBResNumber();
 			this.resFlex = strand.flexibility.get(resNum);
 			this.resConfs = new ArrayList<>();
+			this.resTypes = new ArrayList<>();
 		}
 
 		@Override
@@ -132,6 +133,19 @@ public class SimpleConfSpace implements Serializable {
 				rc.template.name.toUpperCase(),
 				rc.getRotamerCode(),
 				conf[index]
+			);
+		}
+
+		/**
+		 * defines a residue type order based on the residue conformations
+		 *
+		 * you should re-calculate the res type order after residue conformations are changed
+		 */
+		private void orderResTypes() {
+			resTypes.clear();
+			resTypes.addAll(resConfs.stream()
+				.map(rc -> rc.template.name)
+				.collect(Collectors.toSet())
 			);
 		}
 	}
@@ -340,6 +354,8 @@ public class SimpleConfSpace implements Serializable {
 				if (resFlex.addWildTypeRotamers) {
 					makeResidueConfsFromTemplate(pos, strand.templateLib.getOrMakeWildTypeTemplate(res), ResidueConf.Type.WildType);
 				}
+
+				pos.orderResTypes();
 			}
 		}
 
