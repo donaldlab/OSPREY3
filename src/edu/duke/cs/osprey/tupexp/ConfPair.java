@@ -48,7 +48,7 @@ package edu.duke.cs.osprey.tupexp;
 //     KER        Kyle E. Roberts       Duke University         ker17@duke.edu
 
 
-// This class is used to store conformations.  It is used in OSPREY to store the top conformations.  
+// This class is used to store conformations.  It is used in OSPREY to store the top conformations.
 public class ConfPair implements Comparable{
 	int[] conf;
 	//minE: 0 unMinE: 1

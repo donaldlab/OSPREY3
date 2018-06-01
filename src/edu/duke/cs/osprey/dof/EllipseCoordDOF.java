@@ -52,7 +52,7 @@ public class EllipseCoordDOF extends DegreeOfFreedom {
 	// For a d-dimensional ellipse (i.e. d dihedral angles), the ellipse is
 	// parametrized by a radius variable and d-1 dihedral angles. the radius
 	// ranges from 0 to 1, the first d-2 dihedral angles range from 0 to pi,
-	// and the d-1th dihedral angle ranges from 0 to 2pi. 
+	// and the d-1th dihedral angle ranges from 0 to 2pi.
 
 	boolean isRadius;
 	int index; // every angle is indexed

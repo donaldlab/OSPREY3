@@ -1,12 +1,44 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.pruning;
 
+import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.TestBase;
-import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
@@ -20,6 +52,7 @@ import edu.duke.cs.osprey.tupexp.LUTESettings;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -206,5 +239,61 @@ public class TestSimpleDEE extends TestBase {
 			runner.setPairsGoldsteinDiffThreshold(100.0);
 		});
 		assertThat(pmat, is(readPmat(confSpace, "---------++++++++--+--+-----+--+-----+--+--------+--------+--------+----+++++++++++++++-+++++++++++++++-----+---+-------+++++++++++++++-+++++++++++++++-+++++++++++++++-+++++++++++++++-+++++++++++++++")));
+	}
+
+	@Test
+	public void prunedConfsOutsideInterval() {
+
+		// check that pruned confs are actually greater than the min-bound conf plus the interval
+		final double interval = 4.0;
+
+		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
+		for (String resNum : Arrays.asList("A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10")) { // keep small enough we can exhuastively enumerate conf space
+			strand.flexibility.get(resNum).setLibraryRotamers("ALA", "VAL", "LEU", "ILE");
+		}
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+			.addStrand(strand)
+			.build();
+
+		EnergyMatrix emat;
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(8))
+			.build()) {
+
+			emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+				.build()
+				.calcEnergyMatrix();
+		}
+
+		PruningMatrix pmat = new SimpleDEE.Runner()
+			.setThreshold(null)
+			.setSinglesGoldsteinDiffThreshold(interval)
+			//.setPairsGoldsteinDiffThreshold(interval)
+			//.setTriplesGoldsteinDiffThreshold(interval)
+			.setShowProgress(true)
+			.run(confSpace, emat);
+
+		ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+			.setTraditional()
+			.build();
+
+		ConfSearch.ScoredConf minScoreConf = astar.nextConf();
+
+		// TEMP
+		log("min score conf: %.4f", minScoreConf.getScore());
+
+		while (true) {
+			ConfSearch.ScoredConf conf = astar.nextConf();
+			if (conf == null) {
+				break;
+			}
+
+			if (pmat.isPruned(new RCTuple(conf.getAssignments()))) {
+				double diff = conf.getScore() - minScoreConf.getScore();
+				log("min score pruned conf: %.4f   (diff: %.4f)", conf.getScore(), diff);
+				assertThat(diff, greaterThan(interval));
+				break;
+			}
+		}
 	}
 }

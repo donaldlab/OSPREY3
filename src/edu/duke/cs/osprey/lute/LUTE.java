@@ -488,9 +488,7 @@ public class LUTE {
 		/* DEBUG
 		log("%d training confs with energy gaps", confInfos.size());
 		for (int i=0; i<100; i++) {
-
 			ConfInfo info = confInfos.get(i);
-
 			log("%30s:   ff %9.4f   lute %9.4f   err %9.4f",
 				Conf.toString(info.conf),
 				info.ffEnergy,

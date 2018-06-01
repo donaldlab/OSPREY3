@@ -85,7 +85,7 @@ public class VoxelVDWListChecker {
 
 
     static boolean onlyLC = true;
-    //In 1CC8, Phe 9 HD2 has no contacts. 
+    //In 1CC8, Phe 9 HD2 has no contacts.
     //This is a very well packed structure.  CD2 has contacts
     //So "realistic" contact enforcement should probs go to unified-atom level if that
     //w/ so many options it's hard to pick a uc specifically,
@@ -221,7 +221,7 @@ public class VoxelVDWListChecker {
             if(closestOverlap<0){//there's some room...see if something else could get closer
                 boolean hasCloseAtoms = false;
                 double dist1 = getVDWRadius(at1) + 1 - closestOverlap;//1 is minimum VDW rad of an atom
-                //if can get in another atom this close then we won't enforce the uc because it 
+                //if can get in another atom this close then we won't enforce the uc because it
                 //might not really be the closest
                 for(Atom at2 : partners.get(at1)){//partners are close enough to block this other atom
                     double dist2 = getVDWRadius(at2) + 1;//can't put the other atom too close to a partners
@@ -287,7 +287,7 @@ public class VoxelVDWListChecker {
                 continue;//not technically backbone but can't move either
             if(shellResidues.contains(at.res))
                 continue;
-            return false;//atom can move 
+            return false;//atom can move
         }
         return true;//didn't find a way for the atom to move
     }
@@ -386,7 +386,7 @@ public class VoxelVDWListChecker {
 
     ArrayList<LinearConstraint> calcFeasiblePolytope2(){
         //for geom search will want to return a polygon, and valid solns will be those
-        //that are in the intersection of polygons.  
+        //that are in the intersection of polygons.
 
         //LET'S SEARCH THE VOXEL DEFINED AS THE WELL W/O CONVEX BLOCKAGES,
         //AS VIEWED FROM CENTER.  THUS LP SUFFICES, LINEARIZATION ALL FROM CENTER
@@ -430,8 +430,8 @@ public class VoxelVDWListChecker {
             /*LinearConstraint uc = tooFarConstr(interactingAtoms.get(p));
             if(!canAddConstr(uc,curPolygon))
                 return null;
-            
-            
+
+
             curPolygon.add(uc);
                     */
             //OK empirically each res is always hemmed in by a wall of atoms
@@ -448,7 +448,7 @@ public class VoxelVDWListChecker {
             //this analysis can be done at central conf (really shouldn't qualitatively change much across conf)
             //or at a couple samples
             //EG in Met 13 theres trouble just from chi1 bc wants to enforce constr w/ multiple atoms
-            //in Leu 40 cd methyl, and these end up being contradictory, but 
+            //in Leu 40 cd methyl, and these end up being contradictory, but
             //going by distance (ADJUSTED FOR VDWRAD) the cd vdw clearly dominates
         }
 
@@ -567,7 +567,7 @@ public class VoxelVDWListChecker {
     }
 
     static double getClashBuffer(Atom atom1, Atom atom2){
-        //figure out the amount of VDW overlap allowed for the two atoms without 
+        //figure out the amount of VDW overlap allowed for the two atoms without
         //begin considered a clash
         //follows Richardsons' "Contact-dot Surfaces with Explicit H Atoms" paper
         //normally 0.4 A, but lower for hydrogen bonds (specified as O, His N, S, or aromatic ring
@@ -674,7 +674,7 @@ public class VoxelVDWListChecker {
 
 
     public HashMap<DegreeOfFreedom,Double> calcSpecialCenter(){
-        //center for some degrees of freedom may, due to non-box constr, 
+        //center for some degrees of freedom may, due to non-box constr,
         //differ from center of box constr
         //NOTE: the map only contains those degrees of freedom where center is special
         //(not just middle of lb,ub)

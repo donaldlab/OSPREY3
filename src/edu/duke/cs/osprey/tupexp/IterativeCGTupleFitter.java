@@ -66,7 +66,7 @@ public class IterativeCGTupleFitter extends CGTupleFitter {
     //indeed any fit is that way  hahahaha
 
     double damperLambda = 1e-4;//Some tuples will have no equality, only inequality
-    //restraints, and thus may revert to 0 when moved to the 
+    //restraints, and thus may revert to 0 when moved to the
     //inactive restraint set, preventing convergence.  A slight penalty on coeff changes
     //will prevent this
 

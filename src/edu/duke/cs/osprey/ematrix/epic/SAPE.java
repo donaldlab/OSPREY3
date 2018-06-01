@@ -61,13 +61,13 @@ import java.util.ArrayList;
 public class SAPE implements Serializable {
 
     //We want to be able to evaluate these SAPE in two cases:
-    //as a stand-alone energy term, or 
+    //as a stand-alone energy term, or
     //as a term in an MolecEObjFunction where the molecule DOFs are set once
     //and then used for all SAPE and other terms directly calculated from conformation
 
     //stuff for standalone evaluation
     //Molecule mStandalone;//PROBABLY JUST HANDLE W/I OBJ FCN
-    MoleculeModifierAndScorer mofStandalone;//objective function that sets the molecule DOFs and 
+    MoleculeModifierAndScorer mofStandalone;//objective function that sets the molecule DOFs and
     //returns the energy
 
     //stuff for shared-molecule evaluation
@@ -109,21 +109,21 @@ public class SAPE implements Serializable {
         EnergyFunction standaloneEFcn = makeSparseEFcn( standaloneMolec );
         mofStandalone.setEfunc(standaloneEFcn);
     }
-    
-    
 
-    
+
+
+
     /*
     static ContSCObjFunction compressSVE(ContSCObjFunction of, SparseVDWEnergy sve){
         //store of and m as copies in their current state!
         //we temporarily remove the biggest things to avoid running out of memory during deepCopy
         //return copied objective function
-            
+
         EnergyFunction storeEF = of.efunc;
         of.efunc = null;
-        
+
         ContSCObjFunction retObjFcn = null;
-        
+
         try{retObjFcn = (ContSCObjFunction)KSParser.deepCopy(of);}
         catch(Exception e){
             System.err.println("woah sveOF deepCopy failed");
@@ -133,15 +133,12 @@ public class SAPE implements Serializable {
         of.m.bondedMatrix = storeBondedMatrix;
         of.m.nonBonded = storeNonBonded;
         of.efunc = storeEF;
-
         //won't need these big objects that aren't needed to setDOFs...
         retObjFcn.de = null;
         retObjFcn.strandRot = null;//won't need this
-
         sve.m = retObjFcn.m;
-
         //now clear out the atoms we won't need for more compact storage...
-        //we need atoms in residues that are either (1) flexible, or (2) 
+        //we need atoms in residues that are either (1) flexible, or (2)
         //involved in perturbations that affect flexible residues
         HashSet<Residue> resNeeded = new HashSet<>();
         for(Residue res : sve.m.residue){
@@ -156,11 +153,8 @@ public class SAPE implements Serializable {
                 }
             }
         }
-
         for(Residue res : sve.m.residue){
-
             if(!resNeeded.contains(res)){
-
                 for(int atNum=0; atNum<res.numberOfAtoms; atNum++){
                     int molAtNum = res.atom[atNum].moleculeAtomNumber;
                     res.atom[atNum] = null;
@@ -168,7 +162,6 @@ public class SAPE implements Serializable {
                 }
             }
         }
-
         //since we are only using sve.m for sveOF.setDOFs and sve.getEnergy()
         //we can delete unnecessary bulky parts of the molecule
         //sve.m.bondedMatrix = null;//this is now removed before deepCopy
@@ -178,10 +171,8 @@ public class SAPE implements Serializable {
         sve.m.connected12 = null;
         sve.m.connected13 = null;
         sve.m.connected14 = null;
-
-
         sve.DOFVals = retObjFcn.curDOFVals;
-        
+
         return retObjFcn;
     }
     */
@@ -296,7 +287,7 @@ public class SAPE implements Serializable {
             }
         }
 
-        //other types of energies not approximated in SAPE.  
+        //other types of energies not approximated in SAPE.
     }
 
 

@@ -100,7 +100,7 @@ public class EnergyMatrix extends TupleMatrixDouble {
 
 
     // used to get the contribution of an individual rotamer to conf E. excludes reference
-    // energy and the template self-energy 
+    // energy and the template self-energy
     public double getInternalEnergyAtPos(int pos, RCTuple tup, int numResInHot) {
 
         int numPosInTuple = tup.pos.size();

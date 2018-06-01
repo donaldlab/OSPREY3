@@ -75,7 +75,7 @@ public class PertSet implements Serializable {
     //have what intervals (defined in pertIntervals)
 
 
-    //Some perturbations (now, just partial structure switches) 
+    //Some perturbations (now, just partial structure switches)
     //need additional info to define them
     //For each perturbation, the lines of additional info are listed here (null if none)
     ArrayList<ArrayList<String>> additionalInfo = new ArrayList<>();

@@ -63,7 +63,7 @@ public class HardCodedResidueInfo {
     public static Set<String> possibleBBAtomsLookup;
 
     //BB atoms, which should stay still in mutations and should be moved in perturbations.
-    //We'll move HA with the sidechain, so it's not included here.  
+    //We'll move HA with the sidechain, so it's not included here.
 
     public static LinkedHashMap<String,String> three2one = null;
     public static LinkedHashMap<String,String> one2three = null;//reverse lookup
@@ -123,7 +123,7 @@ public class HardCodedResidueInfo {
         if(!hasAminoAcidBB(templ.templateRes))
             return false;
 
-        return true;//can currently mutate to any amino acid (D or L, naturally occurring sidechain or not) 
+        return true;//can currently mutate to any amino acid (D or L, naturally occurring sidechain or not)
         //whose sidechain attaches only to CA and for which we have template coords
     }
 

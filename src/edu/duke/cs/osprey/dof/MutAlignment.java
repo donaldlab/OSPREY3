@@ -43,10 +43,8 @@ We'll assume here for convenience that these corresponding atoms have the same n
 Then the mutation consists of replacing the sidechain atoms with those of the new template,
 aligned based on the frame of reference of the three backbone atoms, while the backbone atoms
 do not move.
-
 Note mutating to/from proline does not strictly fit this pattern due to the ring;
 it's supported as a special case
-
 Also note: if all atoms are equivalent and not standard AAs, this MutAlignment will call everything backbone
 and hence mutations will do nothing. (We can't even tell what the sidechain's supposed to be in that case)
 */

@@ -75,7 +75,7 @@ public class SearchProblem implements Serializable {
     public EnergyMatrix emat;//energy matrix.  Meanings:
     //-Defines full energy in the rigid case
     //-Defines lower bound in the continuous case
-    //-emat + epicm = full energy if using EPIC for search 
+    //-emat + epicm = full energy if using EPIC for search
 
     public EPICMatrix epicMat = null;//EPIC matrix, to be used if appropriate
     public EPICSettings epicSettings = null;
@@ -268,7 +268,7 @@ public class SearchProblem implements Serializable {
         //return lower bound on energy for the conformational space defined by these assignments
         //based on precomputed energy matrix (including EPIC if indicated)
 
-        double bound = emat.confE(conf);//the energy recorded by the matrix is 
+        double bound = emat.confE(conf);//the energy recorded by the matrix is
         //the pairwise lower bounds
 
         return bound;

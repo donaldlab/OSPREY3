@@ -1,4 +1,5 @@
 /*
+<<<<<<< HEAD
  ** This file is part of OSPREY 3.0
  **
  ** OSPREY Protein Redesign Software Version 3.0
@@ -29,6 +30,38 @@
  ** <signature of Bruce Donald>, Mar 1, 2018
  ** Bruce Donald, Professor of Computer Science
  */
+=======
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+>>>>>>> master
 
 package edu.duke.cs.osprey.confspace;
 
@@ -68,6 +101,7 @@ public class TestConfSearchSplitter {
 		}
 
 		confSpace = new SimpleConfSpace.Builder()
+<<<<<<< HEAD
 				.addStrand(strand)
 				.build();
 
@@ -78,6 +112,18 @@ public class TestConfSearchSplitter {
 			emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
 					.build()
 					.calcEnergyMatrix();
+=======
+			.addStrand(strand)
+			.build();
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(4))
+			.build()) {
+
+			emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+				.build()
+				.calcEnergyMatrix();
+>>>>>>> master
 		}
 
 		// get all of the expected conformations (there are 27)
@@ -173,9 +219,15 @@ public class TestConfSearchSplitter {
 		ExternalMemory.use(16, () -> {
 
 			ConfSearch.Splitter splitter = new ConfSearch.Splitter(
+<<<<<<< HEAD
 					makeSearch(),
 					true,
 					new RCs(confSpace)
+=======
+				makeSearch(),
+				true,
+				new RCs(confSpace)
+>>>>>>> master
 			);
 
 			Checker first = new Checker(splitter.first);
@@ -191,9 +243,15 @@ public class TestConfSearchSplitter {
 		ExternalMemory.use(16, () -> {
 
 			ConfSearch.Splitter splitter = new ConfSearch.Splitter(
+<<<<<<< HEAD
 					makeSearch(),
 					true,
 					new RCs(confSpace)
+=======
+				makeSearch(),
+				true,
+				new RCs(confSpace)
+>>>>>>> master
 			);
 
 			Checker first = new Checker(splitter.first);

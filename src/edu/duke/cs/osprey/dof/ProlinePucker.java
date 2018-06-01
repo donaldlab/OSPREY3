@@ -132,7 +132,7 @@ public class ProlinePucker extends DegreeOfFreedom {
     public void apply(Direction val) {
         curPucker = val;
 
-        //let's generate the correct geometry for the current pucker.  
+        //let's generate the correct geometry for the current pucker.
         SidechainIdealizer.idealizeSidechain(templateLib, res);
     }
 

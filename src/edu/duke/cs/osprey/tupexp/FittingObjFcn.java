@@ -75,7 +75,7 @@ class FittingObjFcn {
 
 
     double computeResid(double fitVal, double trueVal){
-        //compute the residual given the true value of a sample and the value of 
+        //compute the residual given the true value of a sample and the value of
         //the fit at that sample
         double penalizedError;
         //if(trueVal<=thresh)//DEBUG!!!!  TURNING OFF MOD LSQ
@@ -93,7 +93,7 @@ class FittingObjFcn {
 
         return penalizedError*penalizedError;
     }
-    
+
     /*double[] goodRegionBoundsForSample(double trueVal){
         //given the true value for a sample, return the bounds on the "good region"
         //for the fit value for that sample
@@ -106,7 +106,7 @@ class FittingObjFcn {
             bounds[0] = thresh + (1-k)*(trueVal-thresh);
             bounds[1] = thresh + (1+k)*(trueVal-thresh);
         }
-        
+
         return bounds;
     }*/
 
@@ -127,7 +127,7 @@ class FittingObjFcn {
         int numSamp = samp.size();
         for(int s=0; s<numSamp; s++)
             goodRegionBounds.add(goodRegionBoundsForSample(trueVals[s]));
-        
+
         return new IterativeCGTupleFitter(tim, samp, numTuples, goodRegionBounds);*/
     }
 

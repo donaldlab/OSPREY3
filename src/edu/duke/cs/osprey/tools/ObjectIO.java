@@ -92,7 +92,7 @@ public class ObjectIO {
 
     public static Object readObject( String fileName, boolean allowNull ){
         //Read the object from the file
-        //If cannot (e.g., because object doesn't exist), then return null if allowNull, else 
+        //If cannot (e.g., because object doesn't exist), then return null if allowNull, else
         //raise an error
         Object inObj = null;
 
@@ -173,7 +173,7 @@ public class ObjectIO {
             out.close();
 
         } catch (StackOverflowError ex) {
-            //For objects with lots of links, might need to raise stack size, 
+            //For objects with lots of links, might need to raise stack size,
             //since writing is recursive
             throw new Error("Stack overflow in deepCopy.  Consider increasing -Xss");
         } catch (Exception ex) {

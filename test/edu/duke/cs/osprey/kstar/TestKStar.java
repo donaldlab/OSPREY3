@@ -1,4 +1,5 @@
 /*
+<<<<<<< HEAD
  ** This file is part of OSPREY 3.0
  **
  ** OSPREY Protein Redesign Software Version 3.0
@@ -29,6 +30,38 @@
  ** <signature of Bruce Donald>, Mar 1, 2018
  ** Bruce Donald, Professor of Computer Science
  */
+=======
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+>>>>>>> master
 
 package edu.duke.cs.osprey.kstar;
 
@@ -82,8 +115,13 @@ public class TestKStar {
 
 		// how should we compute energies of molecules?
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+<<<<<<< HEAD
 				.setParallelism(parallelism)
 				.build()) {
+=======
+			.setParallelism(parallelism)
+			.build()) {
+>>>>>>> master
 
 			KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) -> {
 
@@ -95,6 +133,7 @@ public class TestKStar {
 				};
 
 				return String.format("assertSequence(result, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon); // protein %s ligand %s complex %s K* = %s",
+<<<<<<< HEAD
 						info.sequenceNumber,
 						info.sequence.toString(Sequence.Renderer.ResType),
 						formatPfunc.apply(info.kstarScore.protein),
@@ -104,11 +143,23 @@ public class TestKStar {
 						info.kstarScore.ligand.toString(),
 						info.kstarScore.complex.toString(),
 						info.kstarScore.toString()
+=======
+					info.sequenceNumber,
+					info.sequence.toString(Sequence.Renderer.ResType),
+					formatPfunc.apply(info.kstarScore.protein),
+					formatPfunc.apply(info.kstarScore.ligand),
+					formatPfunc.apply(info.kstarScore.complex),
+					info.kstarScore.protein.toString(),
+					info.kstarScore.ligand.toString(),
+					info.kstarScore.complex.toString(),
+					info.kstarScore.toString()
+>>>>>>> master
 				);
 			};
 
 			// configure K*
 			KStar.Settings settings = new KStar.Settings.Builder()
+<<<<<<< HEAD
 					.setEpsilon(epsilon)
 					.setStabilityThreshold(null)
 					.addScoreConsoleWriter(testFormatter)
@@ -143,6 +194,42 @@ public class TestKStar {
 				};
 			}
 
+=======
+				.setEpsilon(epsilon)
+				.setStabilityThreshold(null)
+				.addScoreConsoleWriter(testFormatter)
+				.setConfDBPattern(confDBPattern)
+				.setExternalMemory(useExternalMemory)
+				//.setShowPfuncProgress(true)
+				.build();
+			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
+			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+
+				// how should we define energies of conformations?
+				info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, ecalc)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(info.confSpace, ecalc)
+						.build()
+						.calcReferenceEnergies()
+					)
+					.build();
+
+				// calc energy matrix
+				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
+					.build()
+					.calcEnergyMatrix();
+
+				// how should confs be ordered and searched?
+				info.confSearchFactory = (rcs) -> {
+					ConfAStarTree.Builder builder = new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional();
+					if (useExternalMemory) {
+						builder.useExternalMemory();
+					}
+					return builder.build();
+				};
+			}
+
+>>>>>>> master
 			// run K*
 			Result result = new Result();
 			result.kstar = kstar;

@@ -41,7 +41,7 @@ import java.util.ArrayList;
  * Chooses what tuple expansion to make for a particular problem (what tuples to include),
  * uses a TupleExpander to calculate it
  *
- * Can use a pairwise expansion, or can look at how changes at certain positions affect 
+ * Can use a pairwise expansion, or can look at how changes at certain positions affect
  * other local energies, to get a comprehensive higher-order expansion
  *
  * @author mhall44
@@ -72,10 +72,10 @@ public class TupExpChooser {
 
 
     public void calcExpansionCliqueTriples(double numTupFactor){
-        //Augment the current pairwise expansion in expander using triples.  
+        //Augment the current pairwise expansion in expander using triples.
         //We add at most numTupFactor * the current number of tuples
         //We look at triples with either two or three of their constituent pairs being unusually strong
-        //in the pairwise expansion.  
+        //in the pairwise expansion.
 
         int numTriplesPerType = (int) (numTupFactor * expander.tuples.size() / 2);//max num triples to consider of each type
 

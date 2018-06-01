@@ -85,7 +85,7 @@ public class Backrub extends Perturbation {
 
         double rotax[]=VectorAlgebra.subtract(x[2],x[0]);//vector from 1st to second Calpha: primary rotation axis
 
-        //Create the primary rotation matrix.  This can be used to rotate about either anchor CA.  
+        //Create the primary rotation matrix.  This can be used to rotate about either anchor CA.
         RotationMatrix rmPrimary = new RotationMatrix(rotax[0],rotax[1],rotax[2],param,false);
         RigidBodyMotion primaryRot = new RigidBodyMotion(x[0], rmPrimary, x[0]);
 

@@ -1,3 +1,35 @@
+/*
+ ** This file is part of OSPREY 3.0
+ **
+ ** OSPREY Protein Redesign Software Version 3.0
+ ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+ **
+ ** OSPREY is free software: you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License version 2
+ ** as published by the Free Software Foundation.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+ **
+ ** OSPREY relies on grants for its development, and since visibility
+ ** in the scientific literature is essential for our success, we
+ ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+ ** document in this distribution for more information.
+ **
+ ** Contact Info:
+ **    Bruce Donald
+ **    Duke University
+ **    Department of Computer Science
+ **    Levine Science Research Center (LSRC)
+ **    Durham
+ **    NC 27708-0129
+ **    USA
+ **    e-mail: www.cs.duke.edu/brd/
+ **
+ ** <signature of Bruce Donald>, Mar 1, 2018
+ ** Bruce Donald, Professor of Computer Science
+ */
+
 package edu.duke.cs.osprey.ewakstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -85,7 +117,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 			if (MathTools.isZero(upperBound)) {
 				return 1.0;
 			}
-			return new BigMath(PartitionFunction.decimalPrecision)
+			return new BigMath(EWAKStarPartitionFunction.decimalPrecision)
 				.set(upperBound)
 				.sub(getLowerBound())
 				.div(upperBound)
@@ -98,7 +130,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 		}
 
 		public BigDecimal getUpperBound() {
-			return new BigMath(PartitionFunction.decimalPrecision)
+			return new BigMath(EWAKStarPartitionFunction.decimalPrecision)
 
 				// unscored bound
 				.set(numConfs)
@@ -154,7 +186,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 	private Stopwatch stopwatch = new Stopwatch().start();
 	private ConfSearch scoreConfs = null;
 	private ConfSearch energyConfs = null;
-	private BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+	private BoltzmannCalculator bcalc = new BoltzmannCalculator(EWAKStarPartitionFunction.decimalPrecision);
 
 	private Status status = null;
 	private Values values = null;
@@ -409,7 +441,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 		// update the pfunc values from the state
         values.qstar = state.getLowerBound();
-        values.qprime = new BigMath(PartitionFunction.decimalPrecision)
+        values.qprime = new BigMath(EWAKStarPartitionFunction.decimalPrecision)
                 .set(state.getUpperBound())
                 .sub(state.getLowerBound())
                 .get();

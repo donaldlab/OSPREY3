@@ -399,7 +399,7 @@ public class TESampleSet implements Serializable {
                 return sample;
         }
 
-        //ok let's try something more systematic.  Depth-first search.  
+        //ok let's try something more systematic.  Depth-first search.
         Arrays.fill(sample,-1);
         te.assignTupleInSample(sample, tup);
 
@@ -435,7 +435,7 @@ public class TESampleSet implements Serializable {
 
     int[] finishSampleDFS(int[] sample){
         //Complete the sample by DFS
-        //For this we set up the list of RCs available at each position.  
+        //For this we set up the list of RCs available at each position.
         //Each time we'll search the position with the most eliminated RCs (by pairs+ pruning)
         //this way hopefully can clear out tuples that need pruning relatively quickly
         //random ordering of assignments at each position

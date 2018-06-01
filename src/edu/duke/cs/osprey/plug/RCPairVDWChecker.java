@@ -57,7 +57,7 @@ import org.apache.commons.math3.optim.linear.LinearConstraint;
  * It makes a polytope representing the geometrically favorable region, or determines there is none
  * For now, assuming a polytope suffices and that pushing any of the good contacts that are possible
  * anywhere in the voxel out of the favorable distance range will create a hole or clash
- * Then higher-order checks on the voxels (up to full confs) can limit themselves to the 
+ * Then higher-order checks on the voxels (up to full confs) can limit themselves to the
  * intersection of pairwise polytopes, and can check the contacts in each pair to make sure
  * each atom that should have a contact does have one
  *

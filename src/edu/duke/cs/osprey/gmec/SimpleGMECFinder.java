@@ -104,7 +104,7 @@ public class SimpleGMECFinder {
 			this.logPrinter = new ConfPrinter.Nop();
 			this.consolePrinter = new ConsoleConfPrinter();
 		}
-		
+
 		/* TODO: integrate PartCR
 		public Builder setConfPruner(ConfPruner val) {
 			pruner = val;
@@ -337,7 +337,7 @@ public class SimpleGMECFinder {
 		System.out.println(String.format("\tFound %d more in %s", otherLowEnergyConfs.size(), timingStopwatch.getTime(1)));
 
 		if (!otherLowEnergyConfs.isEmpty()) {
-			
+
 			/* TODO: integrate PartCR
 			if (pruner != null) {
 				pruner.prune(otherLowEnergyConfs, ecalc);

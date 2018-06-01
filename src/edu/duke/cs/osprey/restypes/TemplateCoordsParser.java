@@ -102,7 +102,6 @@ public class TemplateCoordsParser {
 
 				/*
 					r.coords = new double[3*numAtoms];//allocate coordinates
-
 					foundRes = true;
 					for(int i=0;i<numAtoms;i++){
 						curLine = lines.next();

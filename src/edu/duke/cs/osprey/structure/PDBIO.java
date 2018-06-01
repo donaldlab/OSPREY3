@@ -264,9 +264,9 @@ public class PDBIO {
 				// eg
 				//           1         2         3         4         5         6         7         8
 				// 012345678901234567890123456789012345678901234567890123456789012345678901234567890
-				// HELIX    1   1 ASN A    6  LEU A   19  1                                  14    
-				// HELIX    2   2 THR A   23  ASP A   37  1                                  15    
-				// HELIX    3   3 VAL A   40  GLN A   55  1                                  16    
+				// HELIX    1   1 ASN A    6  LEU A   19  1                                  14
+				// HELIX    2   2 THR A   23  ASP A   37  1                                  15
+				// HELIX    3   3 VAL A   40  GLN A   55  1                                  16
 
 				char chain = line.charAt(19);
 				String startResNum = chain + line.substring(21, 25).trim();

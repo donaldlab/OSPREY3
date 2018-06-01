@@ -331,13 +331,13 @@ public class ResidueTemplateLibrary implements Serializable {
 	}
 
 	/**
-	 * PGC 2015: 
+	 * PGC 2015:
 	 * Returns the number of rotamers for the specified residue type, for backbone dependent or backbone independent rotamers.
 	 * @param pos
 	 * @param resType in three letter amino acid type
 	 * @param phi The backbone phi angle for backbone dependent rotamers; will be ignored if backbone dependent rotamer libraries are not used.
 	 * @param psi The backbone psi angle for backbone dependent rotamers; will be ignored if backbone dependent rotamer libraries are not used.
-	 * @return The number of rotamers.  
+	 * @return The number of rotamers.
 	 */
 	public int numRotForResType(int pos, String resType, double phi, double psi) {
 		return getTemplateOrThrow(resType).getNumRotamers(phi, psi);

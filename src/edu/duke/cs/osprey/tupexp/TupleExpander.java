@@ -136,7 +136,7 @@ public abstract class TupleExpander implements Serializable {
 
     public double calcExpansion(ArrayList<RCTuple> tuplesToFit){
         //calculate the tuple coefficients
-        //return cross-validation total residual        
+        //return cross-validation total residual
 
         if(Double.isNaN(constTerm))//constTerm not computed yet
             constTerm = computeInitGMECEst();
@@ -189,7 +189,7 @@ public abstract class TupleExpander implements Serializable {
         Arrays.fill(tupleBestE, Double.POSITIVE_INFINITY);
 
         //also lowest LB and lowest contTerm.  Since pruning can be based on either of these
-        //in different combinations.  
+        //in different combinations.
         //these here go with the bestE
         double tupleBestELB[] = new double[tuples.size()];
         double tupleBestEContE[] = new double[tuples.size()];
@@ -304,7 +304,7 @@ public abstract class TupleExpander implements Serializable {
     }
 
     private void redoFittingWithoutTuples(ArrayList<RCTuple> badTuples){
-        //OK now redo the fitting 
+        //OK now redo the fitting
         trainingSamples = null;
         CVSamples = null;
 
@@ -632,7 +632,7 @@ public abstract class TupleExpander implements Serializable {
         //the tuple-expansion energy is the sum of values for all tuples in a conf
         //but an energy matrix expects values for all one-body and pairwise energies
         //so we'll specify these to be 0 for RCs and pairs not in the expansion.
-        //HOWEVER, pruned tuples must be marked as impossible, i.e. infinite.  
+        //HOWEVER, pruned tuples must be marked as impossible, i.e. infinite.
         for(int pos=0; pos<numPos; pos++){
             for(int rc=0; rc<numAllowed[pos]; rc++){
 

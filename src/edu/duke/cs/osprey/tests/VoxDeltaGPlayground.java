@@ -51,7 +51,7 @@ public class VoxDeltaGPlayground {
 
 
     public static void main(String args[]){
-        //Trying to compute delta G's with continuous entropy between voxels.     
+        //Trying to compute delta G's with continuous entropy between voxels.
         //args like for findGMEC (currently set up for default 1CC8 system)
 
         ConfigFileParser cfp = ConfigFileParser.makeFromFilePaths(args);//args are configuration files
@@ -74,7 +74,7 @@ public class VoxDeltaGPlayground {
 
         EPICMatrix epicMat1 = (EPICMatrix) ObjectIO.readObject(epicMatrixName, true);
         EPICMatrix epicMat2 = (EPICMatrix) ObjectIO.readObject(epicMatrixName, true);
-                
+
         /*MoleculeModifierAndScorer mms1 = new MoleculeModifierAndScorer(sp1.fullConfE,
             sp1.confSpace, new RCTuple(conf1) );*/
 
@@ -87,7 +87,7 @@ public class VoxDeltaGPlayground {
 
         //for doing difference by BAR between two confs
         /*MoleculeModifierAndScorer mms2 = new MoleculeModifierAndScorer(
-                epicMat2.internalEnergyFunction(new RCTuple(conf2)), 
+                epicMat2.internalEnergyFunction(new RCTuple(conf2)),
                 epicMat2.getConfSpace(), new RCTuple(conf2) );*/
 
 
@@ -99,8 +99,8 @@ public class VoxDeltaGPlayground {
                 epicMat2.getConfSpace(), new RCTuple(conf1), center );
 
         System.out.println("SEP REF G: "+((IdealSeparableReference)mms2).calcG());
-        
-        
+
+
         /*for(int rep=0; rep<3; rep++){
             System.out.println("TESTING SEPARABLE REFERENCE...");
             double centerE = mms1.getValue(center);

@@ -234,7 +234,7 @@ public class AtomConnectivity {
 		}
 
 		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
-		
+
 			/* DEBUG: show template info
 			for (ResidueTemplate template : templates) {
 				if (template.name.equals("ALA") || template.name.equals("GLU")) {

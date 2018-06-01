@@ -1,4 +1,5 @@
 /*
+<<<<<<< HEAD
  ** This file is part of OSPREY 3.0
  **
  ** OSPREY Protein Redesign Software Version 3.0
@@ -29,6 +30,38 @@
  ** <signature of Bruce Donald>, Mar 1, 2018
  ** Bruce Donald, Professor of Computer Science
  */
+=======
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+>>>>>>> master
 
 package edu.duke.cs.osprey.kstar;
 
@@ -117,6 +150,7 @@ public class KStarRunner {
 	private static void runKStar(SimpleConfSpace targetConfSpace, SimpleConfSpace ligandConfSpace, SimpleConfSpace complexConfSpace) {
 
 		KStar.Settings settings = new KStar.Settings.Builder()
+<<<<<<< HEAD
 				.setEpsilon(0.9999)
 				.setStabilityThreshold(null)
 				.setMaxSimultaneousMutations(3)
@@ -129,6 +163,20 @@ public class KStarRunner {
 				.setParallelism(Parallelism.makeCpu(8))
 				//.setParallelism(Parallelism.make(4, 1, 1))
 				.build()
+=======
+			.setEpsilon(0.9999)
+			.setStabilityThreshold(null)
+			.setMaxSimultaneousMutations(3)
+			.addScoreConsoleWriter()
+			.addScoreFileWriter(new File("kstar.txt"))
+			.setShowPfuncProgress(true)
+			.build();
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(complexConfSpace, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(8))
+			//.setParallelism(Parallelism.make(4, 1, 1))
+			.build()
+>>>>>>> master
 		) {
 			KStar kstar = new KStar(targetConfSpace, ligandConfSpace, complexConfSpace, settings);
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
@@ -136,6 +184,7 @@ public class KStarRunner {
 				info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, ecalc).build();
 
 				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
+<<<<<<< HEAD
 						.setCacheFile(new File(String.format("kstar.emat.%s.dat", info.id)))
 						.build()
 						.calcEnergyMatrix();
@@ -143,6 +192,15 @@ public class KStarRunner {
 				info.confSearchFactory = (rcs) -> new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
 						.build();
+=======
+					.setCacheFile(new File(String.format("kstar.emat.%s.dat", info.id)))
+					.build()
+					.calcEnergyMatrix();
+
+				info.confSearchFactory = (rcs) -> new ConfAStarTree.Builder(emat, rcs)
+					.setTraditional()
+					.build();
+>>>>>>> master
 			}
 			kstar.run();
 		}

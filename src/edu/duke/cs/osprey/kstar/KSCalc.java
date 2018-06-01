@@ -126,14 +126,14 @@ public class KSCalc {
 
 		return true;
 	}
-	
+
 	/*
 	public boolean canContinue() {
-		
-		if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE 
+
+		if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE
 				|| getEpsilonStatus() == EApproxReached.NOT_STABLE )
 			return false;
-		
+
 		return true;
 	}
 	*/

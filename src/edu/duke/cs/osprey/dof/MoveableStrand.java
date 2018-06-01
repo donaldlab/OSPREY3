@@ -60,7 +60,7 @@ public class MoveableStrand implements Serializable, DOFBlock {
     //which is the initCenter plus any translations that have been performed
     double initCenter[];
 
-    //the current state of the strand is that is has been translated by curTrans, then 
+    //the current state of the strand is that is has been translated by curTrans, then
     //rotated by curRotMatrix about (initCenter+curTrans)
     double curTrans[];//current value of the three translations
     RotationMatrix curRotMatrix;
@@ -79,7 +79,7 @@ public class MoveableStrand implements Serializable, DOFBlock {
 
 
     public MoveableStrand(ArrayList<Residue> res){
-        //Set up a moveable strand consisting of these res.  
+        //Set up a moveable strand consisting of these res.
         //Set it up to be untranslated and unrotated in the current conformation
         this.res = res;
 
@@ -104,7 +104,7 @@ public class MoveableStrand implements Serializable, DOFBlock {
         //this form of the rotation matrix is designed to allow any rotation,
         //while using a 3-D parameterization (quaternions would introduce a messy equality constraint)
         //and to rotate in roughly orthogonal directions (roll, pitch, and yaw) for small rotations
-        //for larger ones, there could be gimbal lock, 
+        //for larger ones, there could be gimbal lock,
         //but this is OK because we can still reach any rotation we want
 
 

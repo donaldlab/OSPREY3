@@ -51,7 +51,7 @@ import java.io.Serializable;
  */
 public class PepPlaneLinModel implements Serializable {
 
-    //OK each of C', H, and O will be expressed as CA1 + 
+    //OK each of C', H, and O will be expressed as CA1 +
     //a linear combination of (N-CA1), (CA2-CA1), and (N-CA1) X (CA2-CA1).  Coeffs here
     private DoubleMatrix1D CCoeffs;
     private DoubleMatrix1D HCoeffs;

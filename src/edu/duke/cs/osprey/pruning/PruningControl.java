@@ -172,7 +172,7 @@ public class PruningControl {
         //now go through the various types of pruning that we support
         //see KSParser
 
-        //possibly start with steric pruning?  
+        //possibly start with steric pruning?
         if(Double.isFinite(stericThresh) && !onlyGoldstein)
             dee.pruneSteric(stericThresh);
 
@@ -187,28 +187,26 @@ public class PruningControl {
 
 
         int numRuns;
-        for (numRuns=0; !done; numRuns++){ //repeat the pruning cycle until no more rotamers are pruned	
+        for (numRuns=0; !done; numRuns++){ //repeat the pruning cycle until no more rotamers are pruned
 
             reportMode.preRun(numRuns);
 
             //		if (doMinimize && !localUseMinDEEPruningEw) //precompute the interval terms in the MinDEE criterion
             //			rs.doCompMinDEEIntervals(mp.numberMutable, mp.strandMut, prunedRotAtRes, scaleInt, maxIntScale);
 
-            //Depending on the chosen algorithm option, apply the corresponding pruning criteria;			
+            //Depending on the chosen algorithm option, apply the corresponding pruning criteria;
             dee.prune("GOLDSTEIN");
-            
+
             /*
             if ((algOption>=3)) //simple Goldstein pairs
                     dee.prune("GOLDSTEIN PAIRS MB");
-
             if ((useFlags)||(algOption>=3))
                     dee.prune("BOUNDING FLAGS");
-
             dee.prune("CONFSPLIT1");
             //note: conf splitting is equivalent to pruning pairs (say (i_r,j_s)) with overlapping
             //competitors (say (i_t,j_s)), and then seeing what singles are pruned as a result
             //we already do this
-            
+
             dee.prune("BOUNDS");
             */
 
@@ -228,13 +226,11 @@ public class PruningControl {
                     if( useTriples )
                         dee.prune("GOLDSTEIN TRIPLES");
                 }
-                    
+
                     /*
                     if ((algOption>=2)){ //2-sp conf splitting
                         dee.prune("CONFSPLIT2");
                     }
-
-                    
 
                     if(algOption >= 4){
                         dee.prune("INDIRECT PAIRS");

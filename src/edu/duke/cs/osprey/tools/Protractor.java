@@ -164,7 +164,7 @@ public class Protractor {
         double bk = gx*gx + gy*gy + gz*gz;
         double norm = Math.sqrt(bi*bk);
         double cos = (dx*gx + dy*gy + dz*gz)/norm;
-        
+
         /* NOTE: don't do this, this is numerically unstable around 180
         // sin(theta) follows the unit circle
         double sin = 0;
@@ -217,7 +217,7 @@ public class Protractor {
         //we are assuming theta is between 0 and 360
         //though this is intended for use in making rotation matrices via quaternions,
         //so actually (sin,cos) and (-sin,-cos) are equivalent
-        if(sinTheta<0)//theta/2 in second quadrant.  Else it's in the first.  
+        if(sinTheta<0)//theta/2 in second quadrant.  Else it's in the first.
             ans[1] *= -1;
         return ans;
     }

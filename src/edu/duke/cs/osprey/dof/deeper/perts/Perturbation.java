@@ -56,7 +56,7 @@ import java.util.ArrayList;
  */
 public abstract class Perturbation extends DegreeOfFreedom {
 
-    PerturbationBlock block = null;//block to which this perturbation belongs.  
+    PerturbationBlock block = null;//block to which this perturbation belongs.
     //Keeps track of non-commutativity issues & sidechain idealization
     //Perturbation needs to be assigned to a block before being used.
 
@@ -136,7 +136,7 @@ public abstract class Perturbation extends DegreeOfFreedom {
 
 
     void movePeptidePlane(RigidBodyMotion motion, int startingRes, boolean includeFinalSCH){
-        //Apply motion to the peptide plane between 
+        //Apply motion to the peptide plane between
         //resDirectlyAffected[startingRes] and resDirectlyAffected[startingRes+1]
         //Transform the sidechain, CA, and HA of the latter if indicated
         //Used in several perturbations

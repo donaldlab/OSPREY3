@@ -81,7 +81,7 @@ public class GenChi1Calc {
         if( (!HardCodedResidueInfo.hasAminoAcidBB(res))
                 || res.template.name.equalsIgnoreCase("GLY")
                 || res.template.name.equalsIgnoreCase("PRO") ){
-            //Glycine doesn't have a generalized chi1, 
+            //Glycine doesn't have a generalized chi1,
             //and we cannot freely change proline's (sidechain idealization sets
             //a chi1 for proline that should remain in place)
             return;

@@ -110,7 +110,7 @@ public class KSImplLinear extends KSAbstract {
 
 	protected void runFCFS() {
 
-		// each value corresponds to the desired flexibility of the 
+		// each value corresponds to the desired flexibility of the
 		// pl, p, and l conformation spaces, respectively
 		ArrayList<ArrayList<String>> strandSeqs = null;
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
@@ -143,7 +143,7 @@ public class KSImplLinear extends KSAbstract {
 			// compute partition functions
 			calc.run(wtKSCalc, false, true);
 
-			// compute K* scores and print output if all 
+			// compute K* scores and print output if all
 			// partition functions are computed to epsilon accuracy
 			if( calc.getEpsilonStatus() == EApproxReached.TRUE || calc.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) {
 				calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(1), getNumSeqsCompleted(1) );
@@ -154,13 +154,13 @@ public class KSImplLinear extends KSAbstract {
 
 	protected void runRR() {
 
-		// each value corresponds to the desired flexibility of the 
+		// each value corresponds to the desired flexibility of the
 		// pl, p, and l conformation spaces, respectively
 		ArrayList<ArrayList<String>> strandSeqs = null;
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
 		ArrayList<String> pfImplVals = new ArrayList<>(Arrays.asList(pfImpl, pfImpl, pfImpl));
 
-		// get all sequences		
+		// get all sequences
 		@SuppressWarnings("unchecked")
 		HashSet<ArrayList<String>> seqSet = new HashSet<>((ArrayList<ArrayList<String>>)
 				ObjectIO.deepCopy(strand2AllowedSeqs.get(2).getStrandSeqList()));

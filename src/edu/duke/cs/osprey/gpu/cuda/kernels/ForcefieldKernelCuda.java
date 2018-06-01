@@ -91,7 +91,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		ByteBuffer argsBuf = args.getHostBuffer();
 		argsBuf.rewind();
 		argsBuf.putInt(0); // set by setSubsetInternal()
-		argsBuf.putInt(0); // 
+		argsBuf.putInt(0); //
 		argsBuf.putDouble(ffenergy.getParams().coulombFactor);
 		argsBuf.putDouble(ffenergy.getParams().scaledCoulombFactor);
 		argsBuf.putDouble(ffenergy.getParams().solvationCutoff2);

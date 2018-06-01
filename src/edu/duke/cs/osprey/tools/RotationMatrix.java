@@ -64,7 +64,7 @@ public class RotationMatrix implements Serializable {
 
         /* this implementation is numerically unstable
             let's try something simpler
-        
+
         // First convert the axisangle to a quaternion
         //use half-angle formulae
         double[] halfAngSC = Protractor.getHalfAngleSinCos(sinTheta,cosTheta);
@@ -84,24 +84,19 @@ public class RotationMatrix implements Serializable {
         double xy = qx * qy;
         double xz = qx * qz;
         double xw = qx * qw;
-
         double yy = qy * qy;
         double yz = qy * qz;
         double yw = qy * qw;
-
         double zz = qz * qz;
         double zw = qz * qw;
-
         matrix = new double[3][3];
-        
+
         matrix[0][0] = 1 - 2 * (yy + zz);
         matrix[0][1] = 2 * (xy - zw);
         matrix[0][2] = 2 * (xz + yw);
-
         matrix[1][0] = 2 * (xy + zw);
         matrix[1][1] = 1 - 2 * (xx + zz);
         matrix[1][2] = 2 * (yz - xw);
-
         matrix[2][0] = 2 * (xz - yw);
         matrix[2][1] = 2 * (yz + xw);
         matrix[2][2] = 1 - 2 * (xx + yy);

@@ -104,7 +104,7 @@ public class ExpFunction implements Serializable {
 		return expX;
 	}
 
-	//Returns the BigDecimal number num to the power a	
+	//Returns the BigDecimal number num to the power a
 	BigDecimal pow(BigDecimal num, int a) {
 		return num.pow(a);
 	}

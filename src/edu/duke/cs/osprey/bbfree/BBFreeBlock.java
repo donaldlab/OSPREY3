@@ -65,13 +65,13 @@ import java.util.List;
  */
 public class BBFreeBlock implements Serializable, DOFBlock {
 
-    List<Residue> residues;//the residues moving freely, in order 
+    List<Residue> residues;//the residues moving freely, in order
     //including the two end ones (only carboxyl or amine moving freely)
 
     ArrayList<BBFreeDOF> freeDOFs = new ArrayList<>();
 
     double[][] freeDOFVoxel;//voxel of allowed values for free DOFs.  We'll minimize over this.
-    //Indices: 0/1 (for min/max), DOF # 
+    //Indices: 0/1 (for min/max), DOF #
 
     double[] curFreeDOFVals;//current values, so we can update one at a time
 
@@ -109,7 +109,7 @@ public class BBFreeBlock implements Serializable, DOFBlock {
         for(int planeNum=0; planeNum<numRes-1; planeNum++)
             pepPlanes[planeNum] = new PepPlaneLinModel(residues.get(planeNum),residues.get(planeNum+1));
 
-        //generating free DOFs based on current geometry 
+        //generating free DOFs based on current geometry
         DoubleMatrix2D constrJac = getConstrJac();//Evaluate at current CA, N coords
         DoubleMatrix2D freeDOFCoeffs = getOrthogVectors(constrJac);
 
@@ -566,7 +566,7 @@ public class BBFreeBlock implements Serializable, DOFBlock {
         //constraint the dot product (C'-CA) dot (N-CA)
         //Uses N, CA coord variables for this residue and the next
         //(since C' coords are a linear function of this CA and next N, CA coords)
-        //(For this purpose we constrain not the actual C' but its projection into the 
+        //(For this purpose we constrain not the actual C' but its projection into the
         //CA-N-C plane)
 
         //we'll need expansion coefficients for C'...

@@ -338,7 +338,7 @@ public class RotamerLibraryReader implements Serializable {
         /*
 	//reads in the rotamer volume data from volFilename
 	public void loadVolFile (String volFilename){
-		
+
 		try {
 			readRotVol(volFilename);
 		}
@@ -353,70 +353,65 @@ public class RotamerLibraryReader implements Serializable {
 			}
 		}
 	}
-	
+
 	//Read in all of the rotamer volumes for all amino acids from the volFilename file
 	private void readRotVol(String volFilename) throws Exception {
-		
+
 		FileInputStream is = new FileInputStream( volFilename );
 		BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
 		String curLine = null;
-		
+
 		rotamerVolumes = new double[numAAallowed][];
-		
+
 		is = new FileInputStream( volFilename );
 		bufread = new BufferedReader(new InputStreamReader(is));
-		
+
 		// Skip over comments (lines starting with !)
 		curLine = bufread.readLine();
 		while( curLine.charAt(0) == '!' )
 			curLine = bufread.readLine();
-  		
+
 		int curResult = 0;
 		while( curLine != null ) {
-							
+
 			int aaIndex = getAARotamerIndex(StringParsing.getToken(curLine,1));
-			
+
 			int numRotVol = numRotamers[aaIndex];
 			if (numRotamers[aaIndex]==0)
 				numRotVol++;
-			
+
 			rotamerVolumes[aaIndex] = new double[numRotVol];
 			for (int j=0; j<numRotVol; j++)
 				rotamerVolumes[aaIndex][j] = new Double(StringParsing.getToken(curLine,j+2)).doubleValue();
-		
+
 			curLine = bufread.readLine();
 			curResult++;
 		}
-		
+
 		bufread.close();
-		
+
 		if (curResult!=numAAallowed){
 			throw new Error("not all amino acid types read from rotamer volumes file");
 		}
-	}	
-	
+	}
+
 	// Uses the VolModule class to calculate the volume of each rotamer of each amino acid
 	public void computeAAVolumes(String volFileName) {
-
 		Molecule m = new Molecule();
-
 		Amber96PolyPeptideResidue ppr = new Amber96PolyPeptideResidue();
 		StrandRotamers LR = null;
-
 		Residue res = ppr.getResidue("ala");
-		//res.fullName = "ALA  "; 
+		//res.fullName = "ALA  ";
 		m.addResidue(0,res);
-		
+
 		VolModule sm = new VolModule(m);
 		sm.setResidueTreatment(0,1);
-		
-		LR = new StrandRotamers(rotFile,m.strand[0]);		
 
+		LR = new StrandRotamers(rotFile,m.strand[0]);
 		PrintStream printStream = setupOutputFile(volFileName);
-
 		String aanames[] = getAAtypesAllowed();
 		int numAAs = getNumAAallowed();
-		
+
 		for(int i=0;i<numAAs;i++){
 			if(canMutate)
 				LR.changeResidueType(m,0,aanames[i],true);
@@ -426,7 +421,7 @@ public class RotamerLibraryReader implements Serializable {
 				double vol = sm.getMoleculeVolume(0.25f,0.0f);
 				printStream.print(vol + " ");
 				System.out.println(vol + " ");
-			}			
+			}
 			for(int j=0;j<getNumRotamers(aanames[i]);j++){
 				LR.applyRotamer(m,0,j);
 				double vol = sm.getMoleculeVolume(0.25f,0.0f);
@@ -435,7 +430,7 @@ public class RotamerLibraryReader implements Serializable {
 			}
 			printStream.println();
 		}
-		printStream.close();		
+		printStream.close();
 	}
         */
 

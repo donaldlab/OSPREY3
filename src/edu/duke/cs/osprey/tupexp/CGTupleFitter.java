@@ -61,7 +61,7 @@ public class CGTupleFitter {
     RealVector Atb;
 
     //fit A * params = b
-    //So solve A^T A params = A^T b 
+    //So solve A^T A params = A^T b
     //(A is matrix defined by samp, b is true energies)
 
     int numSamp, numTup;

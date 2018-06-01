@@ -82,7 +82,6 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
 	/*
 	DOFDEPENDENCIES;
 	(see perturbations);
-
 	maybe keep an unmoved molecule;
 	*/
 

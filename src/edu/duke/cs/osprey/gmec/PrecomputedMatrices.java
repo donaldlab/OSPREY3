@@ -63,7 +63,7 @@ import edu.duke.cs.osprey.voxq.VoxelGCalculator;
 /**
  *
  * Information about RC tuples in a single-state design system (possibly part of a multistate design)
- * Stored in matrices.  Energy, pruning, etc. 
+ * Stored in matrices.  Energy, pruning, etc.
  *
  *
  * @author mhall44
@@ -156,11 +156,11 @@ public class PrecomputedMatrices {
 
         //Next, do DEE, which will fill in the pruning matrix
         initPruning(pruningInterval, false, false);
-        pruningControl.prune();//pass in DEE options, and run the specified types of DEE            
+        pruningControl.prune();//pass in DEE options, and run the specified types of DEE
 
 
         //precomputing EPIC or tuple-expander matrices is much faster
-        //if only done for unpruned RCs.  Less RCs to handle, and the fits are far simpler.  
+        //if only done for unpruned RCs.  Less RCs to handle, and the fits are far simpler.
         if(epicSettings.shouldWeUseEPIC()){
             loadEPICMatrix();
 

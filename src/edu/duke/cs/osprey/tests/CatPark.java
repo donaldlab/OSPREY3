@@ -78,8 +78,8 @@ public class CatPark {
         //EnvironmentVars.assignTemplatesToStruct = false;
         //double rmsds[] = segmentRMSD("/Users/mhall44/Mark/bbfree/recomb/figs/w54/W554.1block.GMEC.pdb",
         //        "/Users/mhall44/Mark/bbfree/recomb/figs/w54/W554.rigidBB.GMEC.pdb");
-        // OR 
-        //calcRMSDs(args);        
+        // OR
+        //calcRMSDs(args);
         //System.exit(0);
 
         ConfigFileParser cfp = ConfigFileParser.makeFromFilePaths(args[1], args[3], args[4]);
@@ -152,7 +152,7 @@ public class CatPark {
 
 
     public static double[] segmentRMSD(String struct1, String struct2){
-        //Compares two structures with backbones differing in a segment, e.g. CATS and rigid bb 
+        //Compares two structures with backbones differing in a segment, e.g. CATS and rigid bb
         //Returns {backbone RMSD, max residue backbone RMSD} for the flexible backbone segment
         Molecule m1 = new Strand.Builder(PDBIO.readFile(struct1)).setTemplateLibrary(EnvironmentVars.resTemplates).build().mol;
         Molecule m2 = new Strand.Builder(PDBIO.readFile(struct2)).setTemplateLibrary(EnvironmentVars.resTemplates).build().mol;
