@@ -12,18 +12,18 @@ public class LinkedSeqAStarNode implements SeqAStarNode {
 		// NOTE: try to keep storage here as small as possible
 		// we expect to have millions of nodes in memory
 		public final Link parent;
-		public final short pos;
+		public final short mpos;
 		public final short rt;
 
 		public Link() {
 			this(null, -1, -1);
 		}
 
-		public Link(Link parent, int pos, int rt) {
-			assert (pos <= Short.MAX_VALUE);
+		public Link(Link parent, int mpos, int rt) {
+			assert (mpos <= Short.MAX_VALUE);
 			assert (rt <= Short.MAX_VALUE);
 			this.parent = parent;
-			this.pos = (short)pos;
+			this.mpos = (short) mpos;
 			this.rt = (short)rt;
 		}
 
@@ -33,7 +33,7 @@ public class LinkedSeqAStarNode implements SeqAStarNode {
 
 		@Override
 		public int compareTo(Link other) {
-			return this.pos - other.pos;
+			return this.mpos - other.mpos;
 		}
 	}
 
@@ -63,12 +63,27 @@ public class LinkedSeqAStarNode implements SeqAStarNode {
 	}
 
 	@Override
+	public void getAssignments(Assignments assignments) {
+		Link link = this.link;
+		int i=0;
+		while (!link.isRoot()) {
+			assignments.assignedMPos[i] = link.mpos;
+			assignments.assignedRTs[i] = link.rt;
+			i++;
+			link = link.parent;
+		}
+		assignments.numAssigned = i;
+		assignments.numUnassigned = assignments.numMutablePos - i;
+		assignments.sort();
+	}
+
+	@Override
 	public void getSequence(Sequence seq) {
 		Link link = this.link;
 		while (!link.isRoot()) {
-			SimpleConfSpace.Position pos = seq.confSpace.positions.get(link.pos);
-			String rt = pos.resConfs.get(link.rt).template.name;
-			seq.set(pos, rt);
+			SimpleConfSpace.Position mpos = seq.confSpace.mutablePositions.get(link.mpos);
+			String rt = mpos.resTypes.get(link.rt);
+			seq.set(mpos, rt);
 			link = link.parent;
 		}
 	}
@@ -110,5 +125,23 @@ public class LinkedSeqAStarNode implements SeqAStarNode {
 	@Override
 	public int getLevel() {
 		return level;
+	}
+
+	@Override
+	public String toString() {
+		StringBuilder buf = new StringBuilder();
+		buf.append("[");
+		Link link = this.link;
+		while (!link.isRoot()) {
+			if (buf.length() > 1) {
+				buf.append(", ");
+			}
+			buf.append(link.mpos);
+			buf.append(":");
+			buf.append(link.rt);
+			link = link.parent;
+		}
+		buf.append("]");
+		return buf.toString();
 	}
 }

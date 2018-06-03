@@ -3,7 +3,7 @@ package edu.duke.cs.osprey.astar.seq.order;
 import edu.duke.cs.osprey.astar.seq.RTs;
 import edu.duke.cs.osprey.astar.seq.SeqAStarNode;
 
-public class SequentialAStarOrder implements SeqAStarOrder {
+public class SequentialSeqAStarOrder implements SeqAStarOrder {
 	
 	@Override
 	public int getNextPos(SeqAStarNode node, RTs rts) {

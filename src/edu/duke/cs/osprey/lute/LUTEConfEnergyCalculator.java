@@ -32,10 +32,7 @@
 
 package edu.duke.cs.osprey.lute;
 
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.TuplesIndex;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
@@ -43,7 +40,7 @@ import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 
 
-public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
+public class LUTEConfEnergyCalculator extends ConfEnergyCalculator implements FragmentEnergies {
 
 	public final LUTEState state;
 	public final TuplesIndex tuples;
@@ -124,10 +121,12 @@ public class LUTEConfEnergyCalculator extends ConfEnergyCalculator {
 		return tuples.getIndex(pos1, rc1, pos2, rc2, pos3, rc3) != null;
 	}
 
+	@Override
 	public double getEnergy(int pos, int rc) {
 		return getEnergy(tuples.getIndex(pos, rc));
 	}
 
+	@Override
 	public double getEnergy(int pos1, int rc1, int pos2, int rc2) {
 		return getEnergy(tuples.getIndex(pos1, rc1, pos2, rc2));
 	}

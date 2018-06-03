@@ -90,6 +90,15 @@ public class SeqAStarTree {
 		return rts.getNumSequences();
 	}
 
+	/**
+	 * adds an already-enumerated node back to the tree
+	 *
+	 * useful for continual refinement of scores on leaf nodes
+	 */
+	public void add(SeqAStarNode node) {
+		queue.push(node);
+	}
+
 	public SeqAStarNode nextLeafNode() {
 
 		// do we have a trivial root node yet?
@@ -103,9 +112,9 @@ public class SeqAStarTree {
 			// if we do them first, we basically get them for free
 			// so we don't have to worry about them later in the search at all
 			SeqAStarNode node = trivialRootNode;
-			for (int pos=0; pos<rts.numPos; pos++) {
+			for (int pos = 0; pos<rts.numMutablePos; pos++) {
 				if (rts.numTypesAt(pos) == 1) {
-					node = node.assign(pos, rts.typesAt(pos)[0]);
+					node = node.assign(pos, rts.indicesAt(pos)[0]);
 				}
 			}
 			assert (node.getLevel() == rts.getNumTrivialPos());
@@ -129,13 +138,13 @@ public class SeqAStarTree {
 			SeqAStarNode node = queue.poll();
 
 			// leaf node? report it
-			if (node.getLevel() == rts.numPos) {
+			if (node.getLevel() == rts.numMutablePos) {
 				return node;
 			}
 
 			// which pos to expand next?
 			int nextPos = order.getNextPos(node, rts);
-			for (int nextRt : rts.typesAt(nextPos)) {
+			for (int nextRt : rts.indicesAt(nextPos)) {
 
 				// score the child node differentially against the parent node
 				double gscore = gscorer.calcDifferential(node, nextPos, nextRt);

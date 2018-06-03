@@ -99,23 +99,33 @@ public class SimpleConfSpace implements Serializable {
 			return new SimpleConfSpace(strands, strandFlex, shellDist);
 		}
 	}
-	
+
+	public static class NonMutablePositionException extends IllegalStateException {
+		public NonMutablePositionException(SimpleConfSpace.Position pos) {
+			super(String.format("Position %s was not mutable", pos));
+		}
+	}
+
 	public static class Position implements Serializable {
-		
+
+		/** index in the positions list */
 		public final int index;
+		/** index in the mutable positions list, or -1 if not there */
+		public final int mindex;
 		public final Strand strand;
 		public final String resNum;
 		public final Strand.ResidueFlex resFlex;
 		public final List<ResidueConf> resConfs;
 		public final List<String> resTypes;
-		
-		public Position(int index, Strand strand, Residue res) {
+
+		public Position(int index, int mindex, Strand strand, Residue res, List<String> resTypes) {
 			this.index = index;
+			this.mindex = mindex;
 			this.strand = strand;
 			this.resNum = res.getPDBResNumber();
 			this.resFlex = strand.flexibility.get(resNum);
 			this.resConfs = new ArrayList<>();
-			this.resTypes = new ArrayList<>();
+			this.resTypes = resTypes;
 		}
 
 		@Override
@@ -136,17 +146,15 @@ public class SimpleConfSpace implements Serializable {
 			);
 		}
 
-		/**
-		 * defines a residue type order based on the residue conformations
-		 *
-		 * you should re-calculate the res type order after residue conformations are changed
-		 */
-		private void orderResTypes() {
-			resTypes.clear();
-			resTypes.addAll(resConfs.stream()
-				.map(rc -> rc.template.name)
-				.collect(Collectors.toSet())
-			);
+		public boolean hasMutations() {
+			return mindex >= 0;
+		}
+
+		public int mutableIndexOrThrow() {
+			if (mindex < 0) {
+				throw new NonMutablePositionException(this);
+			}
+			return mindex;
 		}
 	}
 	
@@ -292,6 +300,18 @@ public class SimpleConfSpace implements Serializable {
 				}
 			}
 		}
+
+		public static DofTypes combine(Iterable<DofTypes> types) {
+			Iterator<DofTypes> iter = types.iterator();
+			if (!iter.hasNext()) {
+				return null;
+			}
+			DofTypes out = iter.next();
+			if (iter.hasNext()) {
+				out = DofTypes.combine(out, iter.next());
+			}
+			return out;
+		}
 	}
 	
 	
@@ -306,6 +326,12 @@ public class SimpleConfSpace implements Serializable {
 
 	/** The design positions */
 	public final List<Position> positions;
+
+	/** The subset of design positions with allowed mutations */
+	public final List<Position> mutablePositions;
+
+	/** The subset of design positions with no mutations */
+	public final List<Position> immutablePositions;
 
 	/** The design positions, indexed by residue number */
 	private final Map<String,Position> positionsByResNum;
@@ -335,6 +361,8 @@ public class SimpleConfSpace implements Serializable {
 
 		// build the design positions
 		positions = new ArrayList<>();
+		mutablePositions = new ArrayList<>();
+		immutablePositions = new ArrayList<>();
 		for (Strand strand : strands) {
 
 			for (String resNum : strand.flexibility.getFlexibleResidueNumbers()) {
@@ -342,8 +370,16 @@ public class SimpleConfSpace implements Serializable {
 				Strand.ResidueFlex resFlex = strand.flexibility.get(resNum);
 
 				// make the pos
-				Position pos = new Position(positions.size(), strand, res);
+				int index = positions.size();
+				int mindex = resFlex.isMutable() ? mutablePositions.size() : -1;
+				List<String> resTypes = new ArrayList<>(resFlex.getAllResTypes());
+				Position pos = new Position(index, mindex, strand, res, resTypes);
 				positions.add(pos);
+				if (mindex >= 0) {
+					mutablePositions.add(pos);
+				} else {
+					immutablePositions.add(pos);
+				}
 
 				// make residue confs from library rotamers
 				for (String resType : resFlex.resTypes) {
@@ -354,8 +390,6 @@ public class SimpleConfSpace implements Serializable {
 				if (resFlex.addWildTypeRotamers) {
 					makeResidueConfsFromTemplate(pos, strand.templateLib.getOrMakeWildTypeTemplate(res), ResidueConf.Type.WildType);
 				}
-
-				pos.orderResTypes();
 			}
 		}
 
