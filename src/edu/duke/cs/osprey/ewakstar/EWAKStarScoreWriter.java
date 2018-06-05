@@ -1,39 +1,8 @@
-/*
-** This file is part of OSPREY 3.0
-** 
-** OSPREY Protein Redesign Software Version 3.0
-** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
-** 
-** OSPREY is free software: you can redistribute it and/or modify
-** it under the terms of the GNU General Public License version 2
-** as published by the Free Software Foundation.
-** 
-** You should have received a copy of the GNU General Public License
-** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
-** 
-** OSPREY relies on grants for its development, and since visibility
-** in the scientific literature is essential for our success, we
-** ask that users of OSPREY cite our papers. See the CITING_OSPREY
-** document in this distribution for more information.
-** 
-** Contact Info:
-**    Bruce Donald
-**    Duke University
-**    Department of Computer Science
-**    Levine Science Research Center (LSRC)
-**    Durham
-**    NC 27708-0129
-**    USA
-**    e-mail: www.cs.duke.edu/brd/
-** 
-** <signature of Bruce Donald>, Mar 1, 2018
-** Bruce Donald, Professor of Computer Science
-*/
-
-package edu.duke.cs.osprey.kstar;
+package edu.duke.cs.osprey.ewakstar;
 
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.tools.TimeFormatter;
 
 import java.io.File;
@@ -41,7 +10,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 
-public interface KStarScoreWriter {
+public interface EWAKStarScoreWriter {
 
 	public static class ScoreInfo {
 
@@ -49,10 +18,10 @@ public interface KStarScoreWriter {
 		public final int numSequences;
 		public final Sequence sequence;
 		public final SimpleConfSpace complexConfSpace;
-		public final KStarScore kstarScore;
+		public final EWAKStarScore kstarScore;
 		public final long timeNs;
 
-		public ScoreInfo(int sequenceNumber, int numSequences, Sequence sequence, SimpleConfSpace complexConfSpace, KStarScore kstarScore) {
+		public ScoreInfo(int sequenceNumber, int numSequences, Sequence sequence, SimpleConfSpace complexConfSpace, EWAKStarScore kstarScore) {
 			this.sequenceNumber = sequenceNumber;
 			this.numSequences = numSequences;
 			this.sequence = sequence;
@@ -65,24 +34,24 @@ public interface KStarScoreWriter {
 	public void writeHeader();
 	public void writeScore(ScoreInfo info);
 
-	public static class Writers extends ArrayList<KStarScoreWriter> {
+	public static class Writers extends ArrayList<EWAKStarScoreWriter> {
 
 		private static final long serialVersionUID = 1239885431627352405L;
 
 		public void writeHeader() {
-			for (KStarScoreWriter writer : this) {
+			for (EWAKStarScoreWriter writer : this) {
 				writer.writeHeader();
 			}
 		}
 
 		public void writeScore(ScoreInfo info) {
-			for (KStarScoreWriter writer : this) {
+			for (EWAKStarScoreWriter writer : this) {
 				writer.writeScore(info);
 			}
 		}
 	}
 
-	public static class Nop implements KStarScoreWriter {
+	public static class Nop implements EWAKStarScoreWriter {
 
 		@Override
 		public void writeHeader() {
@@ -95,7 +64,7 @@ public interface KStarScoreWriter {
 		}
 	}
 
-	public static abstract class Formatted implements KStarScoreWriter {
+	public static abstract class Formatted implements EWAKStarScoreWriter {
 
 		public final Formatter formatter;
 

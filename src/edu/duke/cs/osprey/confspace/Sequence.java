@@ -125,7 +125,13 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 	 */
 	public final SimpleConfSpace confSpace;
 
-	private final String[] resTypes;
+	public final String[] resTypes;
+
+	public String getAssignedResTypes(){
+		Stream<String> resTypeStream = Arrays.stream(resTypes).filter((aminoAcid) -> aminoAcid!=null);
+		String[] newArray = resTypeStream.toArray(String[]::new);
+		return String.join(" ", newArray);
+	}
 
 	/**
 	 * Make a sequence with no assignments.
@@ -159,6 +165,45 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 		return makeFromAssignments(confSpace, conf.getAssignments());
 	}
 
+	/**
+	 * Make a COMETs-style sequence String from a Sequence - either wildtype or some specific sequence (lowegard)
+	 */
+
+	public static String makeWildTypeEWAKStar(Sequence WT){
+		String seq = WT.toString();
+		String[] splitSeq = seq.split(" ");
+		String newSeq = "";
+		for (int i = 0; i<splitSeq.length; i++){
+			newSeq += splitSeq[i].split("=")[1]+"_";
+		}
+		return newSeq;
+	}
+
+	public static String makeEWAKStar(Sequence seq){
+		String ewakstar = "";
+		for(String res: seq.resTypes){
+			ewakstar += res+"_";
+		}
+		return ewakstar;
+	}
+
+	/**
+	 * Make a Sequence from a COMETs/TestEWAKStar sequence string (lowegard)
+	 */
+	public static Sequence makeFromEWAKStar(String seq, Sequence WT, SimpleConfSpace confSpace){
+		Sequence newSeq = new Sequence(WT);
+		List<SimpleConfSpace.Position> pos = confSpace.positions;
+		String[] fixedSeq = seq.split("_");
+		int i = 0;
+		for (SimpleConfSpace.Position p : pos ){
+			newSeq.set(p,fixedSeq[i]);
+			i++;
+		}
+
+		return newSeq;
+	}
+
+
 	private Sequence(SimpleConfSpace confSpace) {
 		this.confSpace = confSpace;
 		this.resTypes = new String[confSpace.positions.size()];
@@ -170,6 +215,15 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 	 */
 	public Sequence(Sequence other) {
 		this.confSpace = other.confSpace;
+		this.resTypes = other.resTypes.clone();
+	}
+
+	/**
+	 * Create a new Sequence, changing only it's conformation space (lowegard)
+	 */
+
+	public Sequence(Sequence other, SimpleConfSpace scs) {
+		this.confSpace = scs;
 		this.resTypes = other.resTypes.clone();
 	}
 

@@ -117,6 +117,10 @@ public class SimpleConfSpace implements Serializable {
 			this.resConfs = new ArrayList<>();
 		}
 
+		public void setIndex(int index){
+			this.index = index;
+		}
+
 		@Override
 		public String toString() {
 			return resNum;
