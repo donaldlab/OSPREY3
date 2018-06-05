@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.astar.seq.scoring;
 
 
-import edu.duke.cs.osprey.astar.seq.SeqAStarNode;
+import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 
 public interface SeqAStarScorer {
 

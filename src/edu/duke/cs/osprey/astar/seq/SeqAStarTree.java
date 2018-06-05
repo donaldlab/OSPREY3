@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.astar.seq;
 
 import edu.duke.cs.osprey.astar.seq.nodes.LinkedSeqAStarNode;
+import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 import edu.duke.cs.osprey.astar.seq.order.SeqAStarOrder;
 import edu.duke.cs.osprey.astar.seq.scoring.SeqAStarScorer;
 import edu.duke.cs.osprey.externalMemory.Queue;
@@ -112,7 +113,7 @@ public class SeqAStarTree {
 			// if we do them first, we basically get them for free
 			// so we don't have to worry about them later in the search at all
 			SeqAStarNode node = trivialRootNode;
-			for (int pos = 0; pos<rts.numMutablePos; pos++) {
+			for (int pos = 0; pos<rts.numPos; pos++) {
 				if (rts.numTypesAt(pos) == 1) {
 					node = node.assign(pos, rts.indicesAt(pos)[0]);
 				}
@@ -138,7 +139,7 @@ public class SeqAStarTree {
 			SeqAStarNode node = queue.poll();
 
 			// leaf node? report it
-			if (node.getLevel() == rts.numMutablePos) {
+			if (node.getLevel() == rts.numPos) {
 				return node;
 			}
 

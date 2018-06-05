@@ -33,19 +33,15 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.ConfDB;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.stream.Collectors;
+
 
 /**
  * Implementation of the K* algorithm to predict protein sequence mutations that improve
@@ -251,7 +247,6 @@ public class KStar {
 		public final ConfSpaceType type;
 		public final String id;
 
-		public final List<Sequence> sequences = new ArrayList<>();
 		public final Map<Sequence,PartitionFunction.Result> pfuncResults = new HashMap<>();
 
 		public ConfEnergyCalculator confEcalc = null;
@@ -273,13 +268,12 @@ public class KStar {
 		}
 
 		public void clear() {
-			sequences.clear();
 			pfuncResults.clear();
 		}
 
 		public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, ConfDB confDB) {
 
-			Sequence sequence = sequences.get(sequenceIndex);
+			Sequence sequence = sequences.get(sequenceIndex).filter(confSpace.seqSpace);
 
 			// check the cache first
 			PartitionFunction.Result result = pfuncResults.get(sequence);
@@ -295,7 +289,7 @@ public class KStar {
 			if (confDB != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confDB.getSequence(sequence));
 			}
-			RCs rcs = sequence.makeRCs();
+			RCs rcs = sequence.makeRCs(confSpace);
 			if (settings.useExternalMemory) {
 				PartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
 			}
@@ -352,11 +346,14 @@ public class KStar {
 	/** Optional and overridable settings for K* */
 	public final Settings settings;
 
+	private List<Sequence> sequences;
+
 	public KStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, Settings settings) {
 		this.settings = settings;
 		this.protein = new ConfSpaceInfo(protein, ConfSpaceType.Protein);
 		this.ligand = new ConfSpaceInfo(ligand, ConfSpaceType.Ligand);
 		this.complex = new ConfSpaceInfo(complex, ConfSpaceType.Complex);
+		this.sequences = new ArrayList<>();
 	}
 
 	public Iterable<ConfSpaceInfo> confSpaceInfos() {
@@ -383,73 +380,42 @@ public class KStar {
 		complex.check();
 
 		// reset any previous state
+		sequences.clear();
 		protein.clear();
 		ligand.clear();
 		complex.clear();
 
 		List<ScoredSequence> scores = new ArrayList<>();
 
-		// collect the wild type sequences
-		protein.sequences.add(protein.confSpace.makeWildTypeSequence());
-		ligand.sequences.add(ligand.confSpace.makeWildTypeSequence());
-		complex.sequences.add(complex.confSpace.makeWildTypeSequence());
-
 		// collect all the sequences explicitly
-		List<List<SimpleConfSpace.Position>> powersetOfPositions = MathTools.powersetUpTo(complex.confSpace.positions, settings.maxSimultaneousMutations);
-		Collections.reverse(powersetOfPositions); // NOTE: reverse to match order of old code
-		for (List<SimpleConfSpace.Position> mutablePositions : powersetOfPositions) {
-
-			// collect the mutations (res types except for wild type) for these positions into a simple list list
-			List<List<String>> resTypes = new ArrayList<>();
-			for (SimpleConfSpace.Position pos : mutablePositions) {
-				resTypes.add(pos.resFlex.resTypes.stream()
-					.filter((resType) -> !resType.equals(pos.resFlex.wildType))
-					.collect(Collectors.toList())
-				);
-			}
-
-			// enumerate all the combinations of res types
-			for (List<String> mutations : MathTools.cartesianProduct(resTypes)) {
-
-				// build the complex sequence
-				Sequence complexSequence = complex.confSpace.makeWildTypeSequence();
-				for (int i=0; i<mutablePositions.size(); i++) {
-					complexSequence.set(mutablePositions.get(i), mutations.get(i));
-				}
-				complex.sequences.add(complexSequence);
-
-				// split complex sequence into protein/ligand sequences
-				protein.sequences.add(complexSequence.filter(protein.confSpace));
-				ligand.sequences.add(complexSequence.filter(ligand.confSpace));
-			}
-		}
+		sequences.add(complex.confSpace.seqSpace.makeWildTypeSequence());
+		sequences.addAll(complex.confSpace.seqSpace.getMutants(settings.maxSimultaneousMutations, true));
 
 		// TODO: sequence filtering? do we need to reject some mutation combinations for some reason?
 
 		// now we know how many sequences there are in total
-		int n = complex.sequences.size();
+		int n = sequences.size();
 
 		// make the sequence scorer and reporter
 		Scorer scorer = (sequenceNumber, proteinResult, ligandResult, complexResult) -> {
 
 			// compute the K* score
 			KStarScore kstarScore = new KStarScore(proteinResult, ligandResult, complexResult);
-			Sequence complexSequence = complex.sequences.get(sequenceNumber);
-			scores.add(new ScoredSequence(complexSequence, kstarScore));
+			Sequence sequence = sequences.get(sequenceNumber);
+			scores.add(new ScoredSequence(sequence, kstarScore));
 
 			// report scores
 			settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
 				sequenceNumber,
 				n,
-				complexSequence,
-				complex.confSpace,
+				sequence,
 				kstarScore
 			));
 
 			return kstarScore;
 		};
 
-		System.out.println("computing K* scores for " + complex.sequences.size() + " sequences to epsilon = " + settings.epsilon + " ...");
+		System.out.println("computing K* scores for " + sequences.size() + " sequences to epsilon = " + settings.epsilon + " ...");
 		settings.scoreWriters.writeHeader();
 		// TODO: progress bar?
 

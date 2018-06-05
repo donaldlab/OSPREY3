@@ -184,12 +184,12 @@ public class TestBBKStar {
 		Results results = runBBKStar(confSpaces, numSequences, epsilon, null);
 
 		// K* bounds collected with e = 0.1 from original K* algo
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS ARG", 17.522258,17.636342);
-		assertSequence(results, "ILE ILE GLN HID VAL TYR LYS VAL", 16.939674,17.014507);
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS HIE", 16.833695,16.930972);
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS HID", 16.659839,16.738627);
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS LYS", 16.571112,16.683562);
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS VAL", 16.474293,16.552681);
+		assertSequence(results, "HIE ARG", 17.522258,17.636342);
+		assertSequence(results, "HID VAL", 16.939674,17.014507);
+		assertSequence(results, "HIE HIE", 16.833695,16.930972);
+		assertSequence(results, "HIE HID", 16.659839,16.738627);
+		assertSequence(results, "HIE LYS", 16.571112,16.683562);
+		assertSequence(results, "HIE VAL", 16.474293,16.552681);
 
 		assertThat(results.sequences.size(), is(numSequences));
 		assertDecreasingUpperBounds(results.sequences);

@@ -145,7 +145,7 @@ public class Strand implements Serializable {
 
 		/** for both library and wild-type rotamers */
 		public Set<String> getAllResTypes() {
-			Set<String> out = new HashSet<>(resTypes);
+			Set<String> out = new LinkedHashSet<>(resTypes);
 			if (addWildTypeRotamers) {
 				out.add(wildType);
 			}

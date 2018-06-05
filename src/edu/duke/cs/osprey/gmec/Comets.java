@@ -3,18 +3,14 @@ package edu.duke.cs.osprey.gmec;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.seq.RTs;
-import edu.duke.cs.osprey.astar.seq.SeqAStarNode;
+import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 import edu.duke.cs.osprey.astar.seq.SeqAStarTree;
 import edu.duke.cs.osprey.astar.seq.order.SequentialSeqAStarOrder;
 import edu.duke.cs.osprey.astar.seq.scoring.NOPSeqAStarScorer;
 import edu.duke.cs.osprey.astar.seq.scoring.SeqAStarScorer;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.FragmentEnergies;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.tools.MathTools;
-import edu.duke.cs.osprey.tools.UnpossibleError;
 
 import java.util.*;
 import java.util.function.Function;
@@ -28,6 +24,13 @@ import static edu.duke.cs.osprey.tools.Log.log;
 // TODO: sequence logging
 // TODO: enforce constraints
 
+/**
+ * Implementation of the COMETS multi-state algorithm to predict protein sequence mutations that improve binding affinity.
+ * {@cite Hallen2016 Mark A. Hallen, Bruce R. Donald, 2016.
+ * Comets (Constrained Optimization of Multistate Energies by Tree Search): A provable and efficient protein design
+ * algorithm to optimize binding affinity and specificity with respect to sequence.
+ * Journal of Computational Biology, 23(5), 311-321.}.
+ */
 public class Comets {
 
 	/**
@@ -151,26 +154,21 @@ public class Comets {
 	 */
 	private class SeqHScorer implements SeqAStarScorer {
 
-		SeqAStarNode.Assignments assignments = new SeqAStarNode.Assignments(rts.numMutablePos);
+		SeqAStarNode.Assignments assignments = new SeqAStarNode.Assignments(seqSpace.positions.size());
 		MathTools.Optimizer opt = MathTools.Optimizer.Minimize;
 
-		// collect positions from all states
-		// ie, the union of positions where corresponding mutable positions across states are identified
+		// collect conf space positions from all states
 		List<SimpleConfSpace.Position> allPositions = new ArrayList<>();
 
 		// the states associated with each position
-		// ie, mutable positions associate with all states
-		// immutable positions associate only with their originating state
-		List<List<WeightedState>> statesByAllPosition = new ArrayList<>();
+		List<WeightedState> statesByAllPosition = new ArrayList<>();
 
 		SeqHScorer() {
-			allPositions.addAll(minimalState.confSpace.positions);
-			for (int apos=0; apos<allPositions.size(); apos++) {
-				statesByAllPosition.add(objective.states);
-			}
 			for (WeightedState wstate : objective.states) {
-				allPositions.addAll(wstate.state.confSpace.immutablePositions);
-				statesByAllPosition.add(Arrays.asList(wstate));
+				for (SimpleConfSpace.Position pos : wstate.state.confSpace.positions) {
+					allPositions.add(pos);
+					statesByAllPosition.add(wstate);
+				}
 			}
 		}
 
@@ -179,60 +177,56 @@ public class Comets {
 
 			node.getAssignments(assignments);
 
-			// TODO: in inner loops are independent of assignments, pre-compute them somehow?
+			// TODO: if inner loops are independent of assignments, pre-compute them somehow?
 
-			// sum over unassigned positions
+			// sum over all positions
 			double score = objective.offset;
 			for (int i1=0; i1<allPositions.size(); i1++) {
 				SimpleConfSpace.Position pos1 = allPositions.get(i1);
 
 				// optimize over res types at pos1
 				double bestPos1Energy = opt.initDouble();
-				for (String rt1 : getRTs(pos1, assignments)) {
+				for (SeqSpace.ResType rt1 : getRTs(pos1, assignments)) {
 
-					// sum over states
-					double pos1Energy = 0.0;
-					for (WeightedState wstate : statesByAllPosition.get(i1)) {
+					// sum over states (always just 1, due to how we build allPositions)
+					WeightedState wstate = statesByAllPosition.get(i1);
 
-						// min over RCs at (pos1,rt1,state)
-						double bestRC1Energy = opt.initDouble();
-						for (SimpleConfSpace.ResidueConf rc1 : getRCs(pos1, rt1, wstate.state)) {
+					// min over RCs at (pos1,rt1,state)
+					double bestRC1Energy = opt.initDouble();
+					for (SimpleConfSpace.ResidueConf rc1 : getRCs(pos1, rt1, wstate.state)) {
 
-							double rc1Energy = 0.0;
+						double rc1Energy = 0.0;
 
-							// singles
-							rc1Energy += wstate.getSingleEnergy(pos1.index, rc1.index);
+						// singles
+						rc1Energy += wstate.getSingleEnergy(pos1.index, rc1.index);
 
-							// pairs
-							for (int i2=0; i2<pos1.index; i2++) {
-								SimpleConfSpace.Position pos2 = wstate.state.confSpace.positions.get(i2);
+						// pairs
+						for (int i2=0; i2<pos1.index; i2++) {
+							SimpleConfSpace.Position pos2 = wstate.state.confSpace.positions.get(i2);
 
-								// min over RTs at pos2
-								double bestRT2Energy = opt.initDouble();
-								for (String rt2 : getRTs(pos2, assignments)) {
+							// min over RTs at pos2
+							double bestRT2Energy = opt.initDouble();
+							for (SeqSpace.ResType rt2 : getRTs(pos2, assignments)) {
 
-									// min over RCs at (pos2,rt2,state)
-									double bestRC2Energy = opt.initDouble();
-									for (SimpleConfSpace.ResidueConf rc2 : getRCs(pos2, rt2, wstate.state)) {
+								// min over RCs at (pos2,rt2,state)
+								double bestRC2Energy = opt.initDouble();
+								for (SimpleConfSpace.ResidueConf rc2 : getRCs(pos2, rt2, wstate.state)) {
 
-										double rc2Energy = wstate.getPairEnergy(pos1.index, rc1.index, pos2.index, rc2.index);
+									double rc2Energy = wstate.getPairEnergy(pos1.index, rc1.index, pos2.index, rc2.index);
 
-										bestRC2Energy = opt.opt(bestRC2Energy, rc2Energy);
-									}
-
-									bestRT2Energy = opt.opt(bestRT2Energy, bestRC2Energy);
+									bestRC2Energy = opt.opt(bestRC2Energy, rc2Energy);
 								}
 
-								rc1Energy += bestRT2Energy;
+								bestRT2Energy = opt.opt(bestRT2Energy, bestRC2Energy);
 							}
 
-							bestRC1Energy = opt.opt(bestRC1Energy, rc1Energy);
+							rc1Energy += bestRT2Energy;
 						}
 
-						pos1Energy += bestRC1Energy;
+						bestRC1Energy = opt.opt(bestRC1Energy, rc1Energy);
 					}
 
-					bestPos1Energy = opt.opt(bestPos1Energy, pos1Energy);
+					bestPos1Energy = opt.opt(bestPos1Energy, bestRC1Energy);
 				}
 
 				score += bestPos1Energy;
@@ -244,31 +238,44 @@ public class Comets {
 			return score;
 		}
 
-		List<String> getRTs(SimpleConfSpace.Position pos, SeqAStarNode.Assignments assignments) {
+		List<SeqSpace.ResType> getRTs(SimpleConfSpace.Position confPos, SeqAStarNode.Assignments assignments) {
+
 			// TODO: pre-compute this somehow?
-			if (pos.hasMutations()) {
-				Integer assignedRT = assignments.getAssignment(pos.mindex);
+
+			// map the conf pos to a sequence pos
+			SeqSpace.Position seqPos = seqSpace.getPosition(confPos.resNum);
+			if (seqPos != null) {
+
+				Integer assignedRT = assignments.getAssignment(seqPos.index);
 				if (assignedRT != null) {
 					// use just the assigned res type
-					return Arrays.asList(rts.getName(pos.mindex, assignedRT));
+					return Arrays.asList(seqPos.resTypes.get(assignedRT));
 				} else {
-					// use all the res types from the RTs collection
-					return Arrays.stream(rts.indicesAt(pos.mindex))
-						.mapToObj(rt -> rts.getName(pos.mindex, rt))
-						.collect(Collectors.toList());
+					// use all the res types at the pos
+					return seqPos.resTypes;
 				}
+
 			} else {
+
 				// immutable position, use all the res types (should just be one)
-				assert (pos.resTypes.size() == 1);
-				return pos.resTypes;
+				assert (confPos.resTypes.size() == 1);
+
+				// use the null value to signal there's no res type here
+				return Arrays.asList((SeqSpace.ResType)null);
 			}
 		}
 
-		List<SimpleConfSpace.ResidueConf> getRCs(SimpleConfSpace.Position pos, String rt, State state) {
+		List<SimpleConfSpace.ResidueConf> getRCs(SimpleConfSpace.Position pos, SeqSpace.ResType rt, State state) {
 			// TODO: pre-compute this somehow?
-			return pos.resConfs.stream()
-				.filter(rc -> rc.template.name.equals(rt))
-				.collect(Collectors.toList());
+			if (rt != null) {
+				// mutable pos, grab the RCs that match the RT
+				return pos.resConfs.stream()
+					.filter(rc -> rc.template.name.equals(rt.name))
+					.collect(Collectors.toList());
+			} else {
+				// immutable pos, use all the RCs
+				return pos.resConfs;
+			}
 		}
 	}
 
@@ -293,7 +300,7 @@ public class Comets {
 				this.state = state;
 
 				// make the conf tree
-				RCs rcs = seqNode.makeSequence(state.confSpace).makeRCs();
+				RCs rcs = seqNode.makeSequence(seqSpace).makeRCs(state.confSpace);
 				confTree = state.confTreeFactory.apply(rcs);
 			}
 
@@ -454,9 +461,7 @@ public class Comets {
 	public final double objectiveWindowMax;
 
 	public final List<State> states;
-
-	private final State minimalState;
-	private final RTs rts;
+	public final SeqSpace seqSpace;
 
 	private Comets(LME objective, List<LME> constraints, double objectiveWindowSize, double objectiveWindowMax) {
 
@@ -480,30 +485,18 @@ public class Comets {
 			throw new IllegalArgumentException("COMETS found no states");
 		}
 
-		// pick the state whos conf space has the fewest non-mutable positions as our canonical state
-		minimalState = states.stream()
-			.min(Comparator.comparing(state -> state.confSpace.positions.size()))
-			.orElseThrow(() -> new UnpossibleError());
+		// get the sequence space from the conf spaces
+		seqSpace = SeqSpace.reduce(
+			states.stream()
+				.map(state -> state.confSpace)
+				.collect(Collectors.toList())
+		);
 
-		// get the sequence space from the conf space
-		rts = new RTs(minimalState.confSpace);
-		log("sequence space has %s sequences\n%s", formatBig(rts.getNumSequences()), rts);
-
-		// make sure all the other states match
-		for (State state : states) {
-			RTs stateRTs = new RTs(state.confSpace);
-			if (!stateRTs.equals(rts)) {
-				throw new IllegalArgumentException(String.format(
-					"states have different sequence spaces:\n%s %s\n%s %s",
-					minimalState, rts,
-					state.name, stateRTs
-				));
-			}
-		}
+		log("sequence space has %s sequences\n%s", formatBig(new RTs(seqSpace).getNumSequences()), seqSpace);
 	}
 
 	private Sequence makeSequence(SeqAStarNode node) {
-		return node.makeSequence(minimalState.confSpace);
+		return node.makeSequence(seqSpace);
 	}
 
 	/**
@@ -519,7 +512,7 @@ public class Comets {
 		}
 
 		// start the A* search over sequences
-		SeqAStarTree seqTree = new SeqAStarTree.Builder(rts)
+		SeqAStarTree seqTree = new SeqAStarTree.Builder(new RTs(seqSpace))
 			.setHeuristics(
 				new SequentialSeqAStarOrder(),
 				new NOPSeqAStarScorer(),

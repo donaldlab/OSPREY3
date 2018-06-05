@@ -765,9 +765,9 @@ public class ConfDB implements AutoCleanable {
 				}
 
 				// lexicographical comparison
-				for (SimpleConfSpace.Position pos : confSpace.positions) {
-					String aResType = a.get(pos);
-					String bResType = b.get(pos);
+				for (SeqSpace.Position pos : confSpace.seqSpace.positions) {
+					SeqSpace.ResType aResType = a.get(pos);
+					SeqSpace.ResType bResType = b.get(pos);
 					if (aResType != null && bResType != null) {
 						// both not null, safe to compare
 						int val = aResType.compareTo(bResType);
@@ -825,17 +825,17 @@ public class ConfDB implements AutoCleanable {
 
 	private String getSequenceId(Sequence sequence) {
 		return String.join(":", () ->
-			sequence.confSpace.positions.stream()
-				.map((pos) -> (CharSequence)sequence.get(pos))
+			sequence.seqSpace.positions.stream()
+				.map((pos) -> (CharSequence)sequence.get(pos).name)
 				.iterator()
 		);
 	}
 
 	private Sequence makeSequenceFromId(String id) {
-		Sequence sequence = Sequence.makeUnassigned(confSpace);
+		Sequence sequence = confSpace.makeUnassignedSequence();
 		String[] resTypes = id.split(":");
 		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			sequence.set(pos, resTypes[pos.index]);
+			sequence.set(pos.resNum, resTypes[pos.index]);
 		}
 		return sequence;
 	}
@@ -853,9 +853,9 @@ public class ConfDB implements AutoCleanable {
 
 	public SequenceDB getSequence(Sequence sequence) {
 
-		// make sure the conf spaces match
-		if (sequence.confSpace != confSpace) {
-			throw new IllegalArgumentException("this sequence is from a different conf space than the conf space used by this db");
+		// make sure the sequence spaces match
+		if (sequence.seqSpace != confSpace.seqSpace) {
+			throw new IllegalArgumentException("this sequence is from a different sequence space than the sequence space used by this db");
 		}
 
 		SequenceDB sdb = sequenceDBs.get(sequence);

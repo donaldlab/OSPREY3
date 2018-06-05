@@ -1,8 +1,8 @@
-package edu.duke.cs.osprey.astar.seq;
+package edu.duke.cs.osprey.astar.seq.nodes;
 
 import edu.duke.cs.osprey.astar.OptimizableAStarNode;
+import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 
 import java.util.Arrays;
 
@@ -21,8 +21,8 @@ public interface SeqAStarNode extends OptimizableAStarNode, Comparable<SeqAStarN
 		return Double.compare(this.getScore(), other.getScore());
 	}
 
-	default Sequence makeSequence(SimpleConfSpace confSpace) {
-		Sequence seq = confSpace.makeUnassignedSequence();
+	default Sequence makeSequence(SeqSpace seqSpace) {
+		Sequence seq = seqSpace.makeUnassignedSequence();
 		getSequence(seq);
 		return seq;
 	}
@@ -35,24 +35,24 @@ public interface SeqAStarNode extends OptimizableAStarNode, Comparable<SeqAStarN
 	 */
 	public static class Assignments {
 
-		public final int numMutablePos;
+		public final int numPos;
 
-		public final int[] assignedMPos;
+		public final int[] assignedPos;
 		public final int[] assignedRTs;
 		public int numAssigned;
-		public final int[] unassignedMPos;
+		public final int[] unassignedPos;
 		public int numUnassigned;
 
-		public Assignments(int numMutablePos) {
-			this.numMutablePos = numMutablePos;
-			assignedMPos = new int[numMutablePos];
-			assignedRTs = new int[numMutablePos];
+		public Assignments(int numPos) {
+			this.numPos = numPos;
+			assignedPos = new int[numPos];
+			assignedRTs = new int[numPos];
 			numAssigned = 0;
-			unassignedMPos = new int[numMutablePos];
-			for (int i=0; i<numMutablePos; i++) {
-				unassignedMPos[i] = i;
+			unassignedPos = new int[numPos];
+			for (int i = 0; i< numPos; i++) {
+				unassignedPos[i] = i;
 			}
-			numUnassigned = numMutablePos;
+			numUnassigned = numPos;
 		}
 
 		/**
@@ -67,41 +67,41 @@ public interface SeqAStarNode extends OptimizableAStarNode, Comparable<SeqAStarN
 			// sort the asssigned side
 			for (int i=1; i<numAssigned; i++) {
 
-				int tempPos = assignedMPos[i];
+				int tempPos = assignedPos[i];
 				int tempRT = assignedRTs[i];
 
 				int j;
-				for (j=i; j>=1 && tempPos < assignedMPos[j-1]; j--) {
-					assignedMPos[j] = assignedMPos[j-1];
+				for (j=i; j>=1 && tempPos < assignedPos[j-1]; j--) {
+					assignedPos[j] = assignedPos[j-1];
 					assignedRTs[j] = assignedRTs[j-1];
 				}
-				assignedMPos[j] = tempPos;
+				assignedPos[j] = tempPos;
 				assignedRTs[j] = tempRT;
 			}
 
 			// sort the unassigned side
 			for (int i=1; i<numUnassigned; i++) {
 
-				int tempPos = unassignedMPos[i];
+				int tempPos = unassignedPos[i];
 
 				int j;
-				for (j=i; j>=1 && tempPos < unassignedMPos[j-1]; j--) {
-					unassignedMPos[j] = unassignedMPos[j-1];
+				for (j=i; j>=1 && tempPos < unassignedPos[j-1]; j--) {
+					unassignedPos[j] = unassignedPos[j-1];
 				}
-				unassignedMPos[j] = tempPos;
+				unassignedPos[j] = tempPos;
 			}
 		}
 
-		public Integer getAssignment(int mpos) {
-			int i = Arrays.binarySearch(assignedMPos, 0, numAssigned, mpos);
+		public Integer getAssignment(int pos) {
+			int i = Arrays.binarySearch(assignedPos, 0, numAssigned, pos);
 			if (i >= 0) {
 				return assignedRTs[i];
 			}
 			return null;
 		}
 
-		public boolean isAssigned(int mpos) {
-			return getAssignment(mpos) != null;
+		public boolean isAssigned(int pos) {
+			return getAssignment(pos) != null;
 		}
 	}
 }

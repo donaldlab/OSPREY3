@@ -33,10 +33,7 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.ConfDB;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
@@ -57,6 +54,8 @@ import java.util.*;
  * In Research in Computational Molecular Biology (accepted, in press).}.
  */
 public class BBKStar {
+
+	// TODO: update BBK* implementation to use new SeqAStarTree?
 
 	// *sigh* Java makes this stuff so verbose to do...
 	// Kotlin would make this so much easier
@@ -180,8 +179,6 @@ public class BBKStar {
 	private abstract class Node implements Comparable<Node> {
 
 		public final Sequence sequence;
-		public final Sequence proteinSequence;
-		public final Sequence ligandSequence;
 		public final ConfDBs confdbs;
 
 		/** for comparing in the tree, higher is first */
@@ -191,14 +188,8 @@ public class BBKStar {
 		public boolean isUnboundUnstable;
 
 		protected Node(Sequence sequence, ConfDBs confdbs) {
-
 			this.sequence = sequence;
 			this.confdbs = confdbs;
-
-			// split complex sequence into protein/ligand sequences
-			proteinSequence = sequence.filter(BBKStar.this.protein.confSpace);
-			ligandSequence = sequence.filter(BBKStar.this.ligand.confSpace);
-
 			this.score = 0;
 		}
 
@@ -223,25 +214,25 @@ public class BBKStar {
 
 			// pick the next design position
 			// TODO: dynamic A*?
-			List<SimpleConfSpace.Position> positions = complex.confSpace.positions;
-			SimpleConfSpace.Position assignPos = positions.stream()
-				.filter((pos) -> !sequence.isAssigned(pos))
+			List<SeqSpace.Position> positions = complex.confSpace.seqSpace.positions;
+			SeqSpace.Position assignPos = positions.stream()
+				.filter((pos) -> !sequence.isAssigned(pos.resNum))
 				.findFirst()
 				.orElseThrow(() -> new IllegalStateException("no design positions left to choose"));
 
 			// get the possible assignments
-			Set<String> resTypes = new HashSet<>(assignPos.resFlex.resTypes);
+			Set<SeqSpace.ResType> resTypes = new HashSet<>(assignPos.resTypes);
 
 			// add wild-type option if mutations are limited
 			if (kstarSettings.maxSimultaneousMutations < positions.size()) {
-				resTypes.add(assignPos.resFlex.wildType);
+				resTypes.add(assignPos.wildType);
 			}
 
 			// for each assignment...
-			for (String resType : resTypes) {
+			for (SeqSpace.ResType resType : resTypes) {
 
 				// update the sequence with this assignment
-				Sequence s = sequence.makeMutatedSequence(assignPos, resType);
+				Sequence s = sequence.copy().set(assignPos, resType);
 
 				if (s.isFullyAssigned()) {
 
@@ -275,7 +266,7 @@ public class BBKStar {
 			if (protein.stabilityThreshold != null) {
 
 				// tank the sequence if the protein is unstable
-				BigDecimal proteinUpperBound = calcUpperBound(protein, proteinSequence, numConfs);
+				BigDecimal proteinUpperBound = calcUpperBound(protein, sequence, numConfs);
 				if (MathTools.isLessThan(proteinUpperBound, protein.stabilityThreshold)) {
 					score = Double.NEGATIVE_INFINITY;
 					isUnboundUnstable = true;
@@ -283,7 +274,7 @@ public class BBKStar {
 				}
 			}
 
-			BigDecimal proteinLowerBound = calcLowerBound(protein, proteinSequence, numConfs);
+			BigDecimal proteinLowerBound = calcLowerBound(protein, sequence, numConfs);
 
 			// if the first few conf upper bound scores (for the pfunc lower bound) are too high,
 			// then the K* upper bound is also too high
@@ -296,7 +287,7 @@ public class BBKStar {
 			if (ligand.stabilityThreshold != null) {
 
 				// tank the sequence if the ligand is unstable
-				BigDecimal ligandUpperBound = calcUpperBound(ligand, ligandSequence, numConfs);
+				BigDecimal ligandUpperBound = calcUpperBound(ligand, sequence, numConfs);
 				if (MathTools.isLessThan(ligandUpperBound, ligand.stabilityThreshold)) {
 					score = Double.NEGATIVE_INFINITY;
 					isUnboundUnstable = true;
@@ -304,7 +295,7 @@ public class BBKStar {
 				}
 			}
 
-			BigDecimal ligandLowerBound = calcLowerBound(ligand, ligandSequence, numConfs);
+			BigDecimal ligandLowerBound = calcLowerBound(ligand, sequence, numConfs);
 
 			// if the first few conf upper bound scores (for the pfunc lower bound) are too high,
 			// then the K* upper bound is also too high
@@ -331,7 +322,7 @@ public class BBKStar {
 			// to compute lower bounds on pfuncs, we'll do the usual lower bound calculation,
 			// but use rigid energies instead of minimized energies
 
-			RCs rcs = sequence.makeRCs();
+			RCs rcs = sequence.makeRCs(info.confSpace);
 			ConfSearch astar = info.confSearchFactoryRigid.make(rcs);
 			BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
@@ -353,7 +344,7 @@ public class BBKStar {
 			// to compute upper bounds on pfuncs,
 			// we'll use the upper bound calculator in the usual way
 
-			RCs rcs = sequence.makeRCs();
+			RCs rcs = sequence.makeRCs(info.confSpace);
 			UpperBoundCalculator calc = new UpperBoundCalculator(
 				info.confSearchFactoryMinimized.make(rcs),
 				rcs.getNumConformations()
@@ -381,12 +372,15 @@ public class BBKStar {
 			super(sequence, confdbs);
 
 			// make the partition functions
-			this.protein = makePfunc(proteinPfuncs, BBKStar.this.protein, proteinSequence, confdbs.protein);
-			this.ligand = makePfunc(ligandPfuncs, BBKStar.this.ligand, ligandSequence, confdbs.ligand);
-			this.complex = makePfunc(complexPfuncs, BBKStar.this.complex, sequence, confdbs.complex);
+			this.protein = makePfunc(proteinPfuncs, BBKStar.this.protein, confdbs.protein);
+			this.ligand = makePfunc(ligandPfuncs, BBKStar.this.ligand, confdbs.ligand);
+			this.complex = makePfunc(complexPfuncs, BBKStar.this.complex, confdbs.complex);
 		}
 
-		private PartitionFunction makePfunc(Map<Sequence,PartitionFunction> pfuncCache, ConfSpaceInfo info, Sequence sequence, ConfDB confdb) {
+		private PartitionFunction makePfunc(Map<Sequence,PartitionFunction> pfuncCache, ConfSpaceInfo info, ConfDB confdb) {
+
+			// filter the global sequence to this conf space
+			Sequence sequence = this.sequence.filter(info.confSpace.seqSpace);
 
 			// first check the cache
 			PartitionFunction pfunc = pfuncCache.get(sequence);
@@ -402,7 +396,7 @@ public class BBKStar {
 			if (confdb != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confdb.getSequence(sequence));
 			}
-			RCs rcs = sequence.makeRCs();
+			RCs rcs = sequence.makeRCs(info.confSpace);
 			if (kstarSettings.useExternalMemory) {
 				PartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
 			}
@@ -587,13 +581,12 @@ public class BBKStar {
 
 			// calculate wild-type first
 			System.out.println("computing K* score for the wild-type sequence...");
-			SingleSequenceNode wildTypeNode = new SingleSequenceNode(Sequence.makeWildType(complex.confSpace), confdbs);
+			SingleSequenceNode wildTypeNode = new SingleSequenceNode(complex.confSpace.makeWildTypeSequence(), confdbs);
 			KStarScore wildTypeScore = wildTypeNode.computeScore();
 			kstarSettings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
 				-1,
 				0,
 				wildTypeNode.sequence,
-				complex.confSpace,
 				wildTypeScore
 			));
 			if (kstarSettings.stabilityThreshold != null) {
@@ -678,7 +671,6 @@ public class BBKStar {
 			scoredSequences.size() - 1,
 			bbkstarSettings.numBestSequences,
 			ssnode.sequence,
-			complex.confSpace,
 			kstarScore
 		));
 	}

@@ -179,7 +179,7 @@ public class LUTELab {
 				for (List<String> mutations : MathTools.cartesianProduct(resTypes)) {
 					Sequence sequence = confSpace.makeWildTypeSequence();
 					for (int i=0; i<mutablePositions.size(); i++) {
-						sequence.set(mutablePositions.get(i), mutations.get(i));
+						sequence.set(mutablePositions.get(i).resNum, mutations.get(i));
 					}
 					sequences.add(sequence);
 				}
@@ -187,7 +187,7 @@ public class LUTELab {
 
 			for (Sequence sequence : sequences) {
 
-				RCs unprunedRCs = sequence.makeRCs();
+				RCs unprunedRCs = sequence.makeRCs(confSpace);
 				RCs prunedRCs = new RCs(unprunedRCs, pmat);
 
 				ConfAStarTree astar = new ConfAStarTree.Builder(null, prunedRCs)

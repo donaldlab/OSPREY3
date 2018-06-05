@@ -47,7 +47,6 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
-import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
@@ -57,7 +56,6 @@ import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.function.Function;
 
@@ -161,9 +159,7 @@ public class TestKStar {
 		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
 
 		// make sure all strands share the same template library
-		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
 
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
@@ -258,9 +254,7 @@ public class TestKStar {
 		Molecule mol = PDBIO.read(FileTools.readResource("/1gua_adj.min.pdb"));
 
 		// make sure all strands share the same template library
-		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
 
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
@@ -303,12 +297,12 @@ public class TestKStar {
 		Result result = runKStar(make1GUA11(), epsilon, null, false);
 
 		// check the results (values collected with e = 0.1 and 64 digits precision)
-		assertSequence(result,   0, "ILE ILE GLN HIE VAL TYR LYS VAL", 1.194026e+42, 2.932628e+07, 1.121625e+66, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [7.467257 , 7.467257] (log10)                    complex [66.049848,66.051195] (log10)                    K* = 16.505577 in [16.505576,16.506925] (log10)
-		assertSequence(result,   1, "ILE ILE GLN HIE VAL TYR LYS HID", 1.194026e+42, 5.738568e+07, 3.346334e+66, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [7.758803 , 7.758803] (log10)                    complex [66.524569,66.543073] (log10)                    K* = 16.688752 in [16.688752,16.707256] (log10)
-		assertSequence(result,   2, "ILE ILE GLN HIE VAL TYR LYS HIE", 1.194026e+42, 6.339230e+06, 5.544100e+65, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [6.802036 , 6.802036] (log10)                    complex [65.743831,65.769366] (log10)                    K* = 16.864781 in [16.864780,16.890316] (log10)
-		assertSequence(result,   3, "ILE ILE GLN HIE VAL TYR LYS LYS", 1.194026e+42, 6.624443e+04, 3.315130e+63, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [4.821149 , 4.826752] (log10)                    complex [63.520501,63.563549] (log10)                    K* = 16.622337 in [16.616735,16.665386] (log10)
-		assertSequence(result,   4, "ILE ILE GLN HIE VAL TYR LYS ARG", 1.194026e+42, 1.196619e+05, 5.375633e+64, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [5.077956 , 5.087238] (log10)                    complex [64.730430,64.774106] (log10)                    K* = 17.575460 in [17.566178,17.619136] (log10)
-		assertSequence(result,   5, "ILE ILE GLN HID VAL TYR LYS VAL", 9.813429e+41, 2.932628e+07, 2.680104e+66, epsilon); // protein [41.991821,41.992159] (log10)                    ligand [7.467257 , 7.467257] (log10)                    complex [66.428152,66.446408] (log10)                    K* = 16.969074 in [16.968735,16.987330] (log10)
+		assertSequence(result,   0, "HIE VAL", 1.194026e+42, 2.932628e+07, 1.121625e+66, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [7.467257 , 7.467257] (log10)                    complex [66.049848,66.051195] (log10)                    K* = 16.505577 in [16.505576,16.506925] (log10)
+		assertSequence(result,   1, "HIE HID", 1.194026e+42, 5.738568e+07, 3.346334e+66, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [7.758803 , 7.758803] (log10)                    complex [66.524569,66.543073] (log10)                    K* = 16.688752 in [16.688752,16.707256] (log10)
+		assertSequence(result,   2, "HIE HIE", 1.194026e+42, 6.339230e+06, 5.544100e+65, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [6.802036 , 6.802036] (log10)                    complex [65.743831,65.769366] (log10)                    K* = 16.864781 in [16.864780,16.890316] (log10)
+		assertSequence(result,   3, "HIE LYS", 1.194026e+42, 6.624443e+04, 3.315130e+63, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [4.821149 , 4.826752] (log10)                    complex [63.520501,63.563549] (log10)                    K* = 16.622337 in [16.616735,16.665386] (log10)
+		assertSequence(result,   4, "HIE ARG", 1.194026e+42, 1.196619e+05, 5.375633e+64, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [5.077956 , 5.087238] (log10)                    complex [64.730430,64.774106] (log10)                    K* = 17.575460 in [17.566178,17.619136] (log10)
+		assertSequence(result,   5, "HID VAL", 9.813429e+41, 2.932628e+07, 2.680104e+66, epsilon); // protein [41.991821,41.992159] (log10)                    ligand [7.467257 , 7.467257] (log10)                    complex [66.428152,66.446408] (log10)                    K* = 16.969074 in [16.968735,16.987330] (log10)
 	}
 
 	@Test
@@ -331,24 +325,21 @@ public class TestKStar {
 					// the dbs should have stuff in them
 
 					new ConfDB(confSpaces.protein, proteinDBFile).use((confdb) -> {
-						HashSet<Sequence> sequences = new HashSet<>(result.kstar.protein.sequences);
-						assertThat(confdb.getNumSequences(), is((long)sequences.size()));
+						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
 					});
 
 					new ConfDB(confSpaces.ligand, ligandDBFile).use((confdb) -> {
-						HashSet<Sequence> sequences = new HashSet<>(result.kstar.ligand.sequences);
-						assertThat(confdb.getNumSequences(), is((long)sequences.size()));
+						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
 					});
 
 					new ConfDB(confSpaces.complex, complexDBFile).use((confdb) -> {
-						List<Sequence> sequences = result.kstar.complex.sequences;
-						assertThat(confdb.getNumSequences(), is((long)sequences.size()));
+						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}

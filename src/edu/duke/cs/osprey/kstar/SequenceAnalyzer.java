@@ -121,7 +121,7 @@ public class SequenceAnalyzer {
 
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
-				if (info.confSpace != sequence.confSpace) {
+				if (info.confSpace.seqSpace != sequence.seqSpace) {
 					continue;
 				}
 
@@ -147,7 +147,7 @@ public class SequenceAnalyzer {
 
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
-				if (info.confSpace != sequence.confSpace) {
+				if (info.confSpace.seqSpace != sequence.seqSpace) {
 					continue;
 				}
 
@@ -169,7 +169,7 @@ public class SequenceAnalyzer {
 		ConfSpaceInfo info = finder.apply(sequence);
 
 		// find the GMEC for this sequence
-		ConfSearch astar = info.confSearchFactory.make(sequence.makeRCs());
+		ConfSearch astar = info.confSearchFactory.make(sequence.makeRCs(info.confSpace));
 		SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, info.confEcalc)
 			.setConfDB(info.confDBFile)
 			.build();

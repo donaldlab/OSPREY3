@@ -1,8 +1,7 @@
 package edu.duke.cs.osprey.astar.seq.nodes;
 
-import edu.duke.cs.osprey.astar.seq.SeqAStarNode;
+import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 
 
 public class LinkedSeqAStarNode implements SeqAStarNode {
@@ -12,18 +11,18 @@ public class LinkedSeqAStarNode implements SeqAStarNode {
 		// NOTE: try to keep storage here as small as possible
 		// we expect to have millions of nodes in memory
 		public final Link parent;
-		public final short mpos;
+		public final short pos;
 		public final short rt;
 
 		public Link() {
 			this(null, -1, -1);
 		}
 
-		public Link(Link parent, int mpos, int rt) {
-			assert (mpos <= Short.MAX_VALUE);
+		public Link(Link parent, int pos, int rt) {
+			assert (pos <= Short.MAX_VALUE);
 			assert (rt <= Short.MAX_VALUE);
 			this.parent = parent;
-			this.mpos = (short) mpos;
+			this.pos = (short) pos;
 			this.rt = (short)rt;
 		}
 
@@ -33,7 +32,7 @@ public class LinkedSeqAStarNode implements SeqAStarNode {
 
 		@Override
 		public int compareTo(Link other) {
-			return this.mpos - other.mpos;
+			return this.pos - other.pos;
 		}
 	}
 
@@ -67,13 +66,13 @@ public class LinkedSeqAStarNode implements SeqAStarNode {
 		Link link = this.link;
 		int i=0;
 		while (!link.isRoot()) {
-			assignments.assignedMPos[i] = link.mpos;
+			assignments.assignedPos[i] = link.pos;
 			assignments.assignedRTs[i] = link.rt;
 			i++;
 			link = link.parent;
 		}
 		assignments.numAssigned = i;
-		assignments.numUnassigned = assignments.numMutablePos - i;
+		assignments.numUnassigned = assignments.numPos - i;
 		assignments.sort();
 	}
 
@@ -81,9 +80,9 @@ public class LinkedSeqAStarNode implements SeqAStarNode {
 	public void getSequence(Sequence seq) {
 		Link link = this.link;
 		while (!link.isRoot()) {
-			SimpleConfSpace.Position mpos = seq.confSpace.mutablePositions.get(link.mpos);
-			String rt = mpos.resTypes.get(link.rt);
-			seq.set(mpos, rt);
+			SeqSpace.Position pos = seq.seqSpace.positions.get(link.pos);
+			SeqSpace.ResType rt = pos.resTypes.get(link.rt);
+			seq.set(pos, rt);
 			link = link.parent;
 		}
 	}
@@ -136,7 +135,7 @@ public class LinkedSeqAStarNode implements SeqAStarNode {
 			if (buf.length() > 1) {
 				buf.append(", ");
 			}
-			buf.append(link.mpos);
+			buf.append(link.pos);
 			buf.append(":");
 			buf.append(link.rt);
 			link = link.parent;
