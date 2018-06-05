@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PfuncSurface;
 import edu.duke.cs.osprey.tools.BigMath;
@@ -162,6 +163,8 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 	private boolean hasEnergyConfs = true;
 	private boolean hasScoreConfs = true;
+	private long numEnergyConfsEnumerated = 0;
+	private long numScoreConfsEnumerated = 0;
 
 	private ConfDB.ConfTable confTable = null;
 
@@ -212,13 +215,9 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 		surf = val;
 	}
 
-	@Override
-	public void init(double targetEnergy, double targetEpsilon, int maxPFConfs) {
-		init(targetEpsilon, targetEpsilon, maxPFConfs, BigDecimal.ZERO);
-	}
 
 	@Override
-	public void init(double targetEnergy, double targetEpsilon, int maxPFConfs, BigDecimal stabilityThreshold) {
+	public void init(double targetEnergy, double targetEpsilon, BigInteger numConfsBeforePruning) {
 
 		if (targetEpsilon <= 0.0 || targetEnergy < 0) {
 			throw new IllegalArgumentException("target epsilon and target energy must be greater than zero");
@@ -226,21 +225,18 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 		this.targetEpsilon = targetEpsilon;
 		this.targetEnergy = targetEnergy;
-		this.stabilityThreshold = stabilityThreshold;
 
 		// init state
-		status = Status.Estimating;
-		state = new State(confSearch.getNumConformations());
-		values = Values.makeFullRange();
-		// NOTE: don't use DEE with this pfunc calculator
-		// DEE actually makes the problem harder to solve, not easier
-		// because then we have to deal with p*
-		// if we just don't prune with DEE, the usual q' calculator will handle those confs that would have been pruned
-		// not using DEE won't really slow us down either, since our A* is fast enough without it
+		status = EWAKStarPartitionFunction.Status.Estimating;
+		state = new EWAKStarGradientDescentPfunc.State(numConfsBeforePruning);
+		values = EWAKStarPartitionFunction.Values.makeFullRange();
+		// don't explicitly check the pruned confs, just lump them together with the un-enumerated confs
 		values.pstar = BigDecimal.ZERO;
 
 		hasEnergyConfs = true;
 		hasScoreConfs = true;
+		numEnergyConfsEnumerated = 0;
+		numScoreConfsEnumerated = 0;
 
 		// split the confs between the upper and lower bounds
 		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch);
@@ -283,7 +279,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 					break;
 				}
 
-				boolean scoreAheadOfEnergy = state.numEnergiedConfs < state.numScoredConfs;
+				boolean scoreAheadOfEnergy = numEnergyConfsEnumerated < numScoreConfsEnumerated;
 				boolean energySteeperThanScore = state.dEnergy <= state.dScore;
 
 				if (hasEnergyConfs && ((scoreAheadOfEnergy && energySteeperThanScore) || !hasScoreConfs)) {
@@ -308,6 +304,9 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 					// get the next energy conf, if any
 					ConfSearch.ScoredConf conf = energyConfs.nextConf();
+					if (conf != null) {
+						numEnergyConfsEnumerated++;
+					}
 					if (conf == null || conf.getScore() == Double.POSITIVE_INFINITY) {
 						hasEnergyConfs = false;
 						keepStepping = false;
@@ -350,6 +349,9 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 						// get the next score conf, if any
 						ConfSearch.ScoredConf conf = scoreConfs.nextConf();
+						if (conf != null) {
+							numScoreConfsEnumerated++;
+						}
 						if (conf == null || conf.getScore() == Double.POSITIVE_INFINITY) {
 							hasScoreConfs = false;
 							break;
@@ -458,7 +460,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 				System.out.println(String.format("conf:%4d, score:%12.6f, energy:%12.6f, bounds:[%12e,%12e], delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
 					state.numEnergiedConfs,
 					econf.getScore(), econf.getEnergy(),
-					state.getLowerBound(), state.getUpperBound(),
+					state.getLowerBound().doubleValue(), state.getUpperBound().doubleValue(),
 					state.calcDelta(),
 					stopwatch.getTime(2),
 					JvmMem.getOldPool(),

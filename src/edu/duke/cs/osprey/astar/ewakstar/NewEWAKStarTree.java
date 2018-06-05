@@ -16,28 +16,28 @@ import java.util.Arrays;
 
 public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
 
-    int numTreeLevels;//number of residues with sequence changes
+    private int numTreeLevels;//number of residues with sequence changes
 
-    int numMutable;
-    boolean useExact;
-    ArrayList<ArrayList<String>> AATypeOptions;
+    private int numMutable;
+    private boolean useExact;
+    private ArrayList<ArrayList<String>> AATypeOptions;
     //COMETreeNode.assignments assigns each level an index in AATypeOptions.get(level), and thus an AA type
     //If -1, then no assignment yet
 
-    Sequence wtSeq;
-    String[] wtSeqList;
+    private Sequence wtSeq;
+    private String[] wtSeqList;
     //information on states
 
     //description of each state
-    SimpleConfSpace confSpace;//their conformational spaces
-    PrecomputedMatrices precompMats;//precomputed matrix sets describing them
+    private SimpleConfSpace confSpace;//their conformational spaces
+    private PrecomputedMatrices precompMats;//precomputed matrix sets describing them
 
 
-    ArrayList<Integer> mutablePosNums;
+    private ArrayList<Integer> mutablePosNums;
     //mutable2StatePosNum.get(state) maps levels in this tree to flexible positions for state
     //(not necessarily an onto mapping)
 
-    int stateNumPos;
+    private int stateNumPos;
     double wtMinimizedEnergy = Double.POSITIVE_INFINITY;
 
 
@@ -266,32 +266,6 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
         return seq;
     }
 
-    void printBestSeqInfo(EWAKStarNode seqNode){
-        //About to return the given fully assigned sequence from A*
-        //provide information
-        System.out.println("SeqTree: A* returning conformation; lower bound = "+seqNode.getScore()+" nodes expanded: "+numExpanded);
-
-        System.out.print("Sequence: ");
-
-        String seq = seqAsString(seqNode.getNodeAssignments());
-        System.out.println(seq);
-
-        //provide state GMECs, specified as rotamers (AA types all the same of course)
-
-        if(seqNode.stateTree==null) {
-            System.out.println(" has an unavoidable clash.");
-        }
-        else {
-            System.out.print(" RCs: ");
-            int conf[] = seqNode.stateTree.getQueue().peek().getNodeAssignments();
-            for(int pos=0; pos<stateNumPos; pos++)
-                System.out.print( conf[pos] + " " );
-
-        }
-
-        System.out.println();
-    }
-
 
     private double boundLME(EWAKStarNode seqNode){
         //Lower-bound func over the sequence space defined by this node
@@ -403,7 +377,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
     }
 
 
-    double higherOrderContrib(PruningMatrix pruneMat,
+    private double higherOrderContrib(PruningMatrix pruneMat,
                               int pos1, int rc1, int pos2, int rc2){
         //higher-order contribution for a given RC pair in a given state,
         //when scoring a partial conf
@@ -435,7 +409,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
     }
 
 
-    double higherOrderContrib(PruningMatrix pruneMat, HigherTupleFinder<Double> htf,
+    private double higherOrderContrib(PruningMatrix pruneMat, HigherTupleFinder<Double> htf,
                               RCTuple startingTuple){
         //recursive function to get bound on higher-than-pairwise terms
         //this is the contribution to the bound due to higher-order interactions
@@ -589,10 +563,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
     }
 
 
-
-
-
-    boolean updateUB(FullAStarNode expNode, EWAKStarNode seqNode){
+    private boolean updateUB(FullAStarNode expNode, EWAKStarNode seqNode){
         //Get an upper-bound on the node by a little FASTER run, generating UBConf
         //store UBConf and UB in expNode
         //expNode is in seqNode.stateTrees[state]

@@ -37,18 +37,18 @@ public class TestEWAKStar {
 
         ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
                 new String[]{"PHE"},
-                new String[]{"LYS", "ALA", "VAL", "ILE", "LEU", "PHE"},
+                new String[]{"LYS"},
                 new String[]{"ILE"},
                 new String[]{"THR"},
                 new String[]{"PHE", "ALA", "VAL", "ILE", "LEU", "TYR"},
-                new String[]{"ASP", "ALA", "VAL", "ILE", "LEU", "PHE"},
+                new String[]{"ASP"},
                 new String[]{"GLU"},
                 new String[]{"THR"}
         );
 
 
         String mutableType = "exact"; //can be "exact", "max", or "all"
-        int numMutable = 2;
+        int numMutable = 1;
         int numFilteredSeqs = 10000;
         double orderOfMag = 10.0;
         double unboundEw = 30.0;
@@ -68,7 +68,7 @@ public class TestEWAKStar {
         String[] resNumsPL = new String[]{"A156", "A172", "A192", "A193", "G649", "G650", "G651", "G654"};
         String[] resNumsL = new String[]{"G649", "G650", "G651", "G654"};
         String[] resNumsP = new String[]{"A156", "A172", "A192", "A193"};
-
+//
 //        Integer[] pos = new Integer[]{0, 1, 2, 3, 4, 5, 6, 7, 8};
 //        Integer[] posL = new Integer[]{3, 4, 5, 6, 7, 8};
 //        Integer[] posP = new Integer[]{0, 1, 2};
@@ -96,9 +96,9 @@ public class TestEWAKStar {
 //                new String[]{"LEU", "ILE"},
 //                new String[]{"GLU", "ASP"}
 //        );
-
+//
 //        String mutableType = "exact"; //can be "exact", "max", or "all"
-//        int numMutable = 2;
+//        int numMutable = 1;
 //        int numFilteredSeqs = 10000;
 //        double orderOfMag = 5.0;
 //        double unboundEw = 8.0;
