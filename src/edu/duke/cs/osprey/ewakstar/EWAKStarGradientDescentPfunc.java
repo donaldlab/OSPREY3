@@ -244,8 +244,8 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 		// split the confs between the upper and lower bounds
 		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch);
-		scoreConfs = confsSplitter.makeStream();
-		energyConfs = confsSplitter.makeStream();
+		scoreConfs = confsSplitter.first;
+		energyConfs = confsSplitter.second;
 	}
 
 	@Override
