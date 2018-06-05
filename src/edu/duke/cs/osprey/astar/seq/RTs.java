@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.astar.seq;
 
 
+import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 
 import java.math.BigInteger;
@@ -15,6 +16,7 @@ public class RTs {
 
 	public final int numPos;
 
+	private final int[] wildTypesByPos;
 	private final int[][] indicesByPos;
 
 	/**
@@ -22,8 +24,10 @@ public class RTs {
 	 */
 	public RTs(SeqSpace seqSpace) {
 		numPos = seqSpace.positions.size();
+		wildTypesByPos = new int[numPos];
 		indicesByPos = new int[numPos][];
 		for (SeqSpace.Position pos : seqSpace.positions) {
+			wildTypesByPos[pos.index] = pos.wildType.index;
 			int[] indices = new int[pos.resTypes.size()];
 			for (int i=0; i<pos.resTypes.size(); i++) {
 				indices[i] = i;
@@ -41,6 +45,7 @@ public class RTs {
 	 */
 	public RTs(RTs other, Filter filter) {
 		numPos = other.numPos;
+		wildTypesByPos = other.wildTypesByPos.clone();
 		indicesByPos = new int[numPos][];
 		for (int mpos = 0; mpos< numPos; mpos++) {
 			final int fmpos = mpos;
@@ -62,6 +67,9 @@ public class RTs {
 		return indicesByPos[pos];
 	}
 
+	public int wildTypeAt(int pos) {
+		return wildTypesByPos[pos];
+	}
 
 	/**
 	 * returns the number of full (not partial) sequences selected by this instance
@@ -92,5 +100,17 @@ public class RTs {
 		return (int)Arrays.stream(indicesByPos)
 			.filter(indices -> indices.length == 1)
 			.count();
+	}
+
+	public int getNumMutations(SeqAStarNode.Assignments assignments) {
+		int count = 0;
+		for (int i=0; i<assignments.numAssigned; i++) {
+			int pos = assignments.assignedPos[i];
+			int rt = assignments.assignedRTs[i];
+			if (rt != wildTypesByPos[pos]) {
+				count++;
+			}
+		}
+		return count;
 	}
 }

@@ -20,6 +20,7 @@ public class SeqAStarTree {
 		private SeqAStarOrder order;
 		private SeqAStarScorer gscorer;
 		private SeqAStarScorer hscorer;
+		private int maxSimultaneousMutations;
 
 		public Builder(RTs rts) {
 			this.rts = rts;
@@ -34,6 +35,11 @@ public class SeqAStarTree {
 			this.order = order;
 			this.gscorer = gscorer;
 			this.hscorer = hscorer;
+			return this;
+		}
+
+		public Builder setMaxSimultaneousMutations(int val) {
+			this.maxSimultaneousMutations = val;
 			return this;
 		}
 
@@ -62,7 +68,8 @@ public class SeqAStarTree {
 				rootNode,
 				order,
 				gscorer,
-				hscorer
+				hscorer,
+				maxSimultaneousMutations
 			);
 		}
 	}
@@ -74,10 +81,12 @@ public class SeqAStarTree {
 	public final SeqAStarOrder order;
 	public final SeqAStarScorer gscorer;
 	public final SeqAStarScorer hscorer;
+	public final int maxSimultaneousMutations;
 
 	private SeqAStarNode trivialRootNode = null;
+	private SeqAStarNode.Assignments assignments;
 
-	private SeqAStarTree(RTs rts, MathTools.Optimizer optimizer, Queue<SeqAStarNode> queue, SeqAStarNode rootNode, SeqAStarOrder order, SeqAStarScorer gscorer, SeqAStarScorer hscorer) {
+	private SeqAStarTree(RTs rts, MathTools.Optimizer optimizer, Queue<SeqAStarNode> queue, SeqAStarNode rootNode, SeqAStarOrder order, SeqAStarScorer gscorer, SeqAStarScorer hscorer, int maxSimultaneousMutations) {
 		this.rts = rts;
 		this.optimizer = optimizer;
 		this.queue = queue;
@@ -85,6 +94,9 @@ public class SeqAStarTree {
 		this.order = order;
 		this.gscorer = gscorer;
 		this.hscorer = hscorer;
+		this.maxSimultaneousMutations = maxSimultaneousMutations;
+
+		assignments = new SeqAStarNode.Assignments(rts.numPos);
 	}
 
 	public BigInteger getNumSequences() {
@@ -121,8 +133,9 @@ public class SeqAStarTree {
 			assert (node.getLevel() == rts.getNumTrivialPos());
 
 			// score the tail node of the chain we just created
-			node.setGScore(gscorer.calc(node), optimizer);
-			node.setHScore(hscorer.calc(node), optimizer);
+			node.getAssignments(assignments);
+			node.setGScore(gscorer.calc(assignments), optimizer);
+			node.setHScore(hscorer.calc(assignments), optimizer);
 
 			// and add it to the A* queue
 			queue.push(node);
@@ -145,23 +158,44 @@ public class SeqAStarTree {
 
 			// which pos to expand next?
 			int nextPos = order.getNextPos(node, rts);
-			for (int nextRt : rts.indicesAt(nextPos)) {
 
-				// score the child node differentially against the parent node
-				double gscore = gscorer.calcDifferential(node, nextPos, nextRt);
-				double hscore = hscorer.calcDifferential(node, nextPos, nextRt);
+			// are more mutations allowed here?
+			node.getAssignments(assignments);
+			boolean moreMutationsAllowed = rts.getNumMutations(assignments) < maxSimultaneousMutations;
 
-				// immediately prune children with infinite scores
-				if (Double.isInfinite(gscore) || Double.isInfinite(hscore)) {
-					continue;
+			if (moreMutationsAllowed) {
+
+				// add all possible mutations
+				for (int nextRt : rts.indicesAt(nextPos)) {
+					addChild(node, nextPos, nextRt);
 				}
 
-				// make the child node and add it to the queue
-				SeqAStarNode child = node.assign(nextPos, nextRt);
-				child.setGScore(gscore, optimizer);
-				child.setHScore(hscore, optimizer);
-				queue.push(child);
+			} else {
+
+				// just add the wild-type at the next pos
+				addChild(node, nextPos, rts.wildTypeAt(nextPos));
 			}
 		}
+	}
+
+	private SeqAStarNode addChild(SeqAStarNode node, int nextPos, int nextRt) {
+
+		// score the child node differentially against the parent node
+		node.getAssignments(assignments);
+		double gscore = gscorer.calcDifferential(assignments, nextPos, nextRt);
+		double hscore = hscorer.calcDifferential(assignments, nextPos, nextRt);
+
+		// immediately prune children with infinite scores
+		if (Double.isInfinite(gscore) || Double.isInfinite(hscore)) {
+			return null;
+		}
+
+		// make the child node and add it to the queue
+		SeqAStarNode child = node.assign(nextPos, nextRt);
+		child.setGScore(gscore, optimizer);
+		child.setHScore(hscore, optimizer);
+		queue.push(child);
+
+		return child;
 	}
 }

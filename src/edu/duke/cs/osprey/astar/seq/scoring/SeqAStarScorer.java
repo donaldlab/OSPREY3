@@ -8,13 +8,17 @@ public interface SeqAStarScorer {
 	/**
 	 * calculate a score for the given node
 	 */
-	double calc(SeqAStarNode node);
+	double calc(SeqAStarNode.Assignments assignments);
 
 	/**
 	 * calculate a score for a given assignment, using the parent node to optimize, if possible
 	 */
-	default double calcDifferential(SeqAStarNode node, int nextPos, int nextRt) {
-		// by default, make a new node and use the regular scoring
-		return calc(node.assign(nextPos, nextRt));
+	default double calcDifferential(SeqAStarNode.Assignments assignments, int nextPos, int nextRt) {
+
+		// by default update the assignments and punt to calc()
+		assignments.assign(nextPos, nextRt);
+		double score = calc(assignments);
+		assignments.unassign(nextPos);
+		return score;
 	}
 }

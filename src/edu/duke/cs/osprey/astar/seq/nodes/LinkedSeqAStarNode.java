@@ -72,8 +72,8 @@ public class LinkedSeqAStarNode implements SeqAStarNode {
 			link = link.parent;
 		}
 		assignments.numAssigned = i;
-		assignments.numUnassigned = assignments.numPos - i;
-		assignments.sort();
+		assignments.sortAssigned();
+		assignments.updateUnassigned();
 	}
 
 	@Override

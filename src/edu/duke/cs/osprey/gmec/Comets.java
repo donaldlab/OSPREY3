@@ -22,7 +22,7 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 // TODO: confDB
 // TODO: sequence logging
-// TODO: enforce constraints
+// TODO: progress info?
 
 /**
  * Implementation of the COMETS multi-state algorithm to predict protein sequence mutations that improve binding affinity.
@@ -146,6 +146,17 @@ public class Comets {
 			}
 			return val;
 		}
+
+		/**
+		 * calculate the exact value of the LME
+		 */
+		public double calc(Map<State,Double> stateEnergies) {
+			double val = offset;
+			for (WeightedState wstate : states) {
+				val += wstate.weight*stateEnergies.get(wstate.state);
+			}
+			return val;
+		}
 	}
 
 	/**
@@ -173,9 +184,7 @@ public class Comets {
 		}
 
 		@Override
-		public double calc(SeqAStarNode node) {
-
-			node.getAssignments(assignments);
+		public double calc(SeqAStarNode.Assignments assignments) {
 
 			// TODO: if inner loops are independent of assignments, pre-compute them somehow?
 
@@ -232,9 +241,6 @@ public class Comets {
 				score += bestPos1Energy;
 			}
 
-			// TEMP
-			log("objective lower bound for seq %s = %.3f", makeSequence(node), score);
-
 			return score;
 		}
 
@@ -249,7 +255,7 @@ public class Comets {
 				Integer assignedRT = assignments.getAssignment(seqPos.index);
 				if (assignedRT != null) {
 					// use just the assigned res type
-					return Arrays.asList(seqPos.resTypes.get(assignedRT));
+					return Collections.singletonList(seqPos.resTypes.get(assignedRT));
 				} else {
 					// use all the res types at the pos
 					return seqPos.resTypes;
@@ -261,7 +267,7 @@ public class Comets {
 				assert (confPos.resTypes.size() == 1);
 
 				// use the null value to signal there's no res type here
-				return Arrays.asList((SeqSpace.ResType)null);
+				return Collections.singletonList(null);
 			}
 		}
 
@@ -292,8 +298,9 @@ public class Comets {
 
 			ConfSearch.ScoredConf minScoreConf = null;
 			ConfSearch.EnergiedConf minEnergyConf = null;
-
 			ConfSearch.EnergiedConf gmec = null;
+
+			List<ConfSearch.ScoredConf> confs = new ArrayList<>();
 
 			StateConfs(SeqAStarNode seqNode, State state) {
 
@@ -311,28 +318,51 @@ public class Comets {
 					return;
 				}
 
-				// get the next conf
-				ConfSearch.ScoredConf conf = confTree.nextConf();
-				if (conf == null) {
+				// get the next batch of confs
+				confs.clear();
+				for (int i=0; i<state.confEcalc.tasks.getParallelism(); i++) {
+
+					// get the next conf
+					ConfSearch.ScoredConf conf = confTree.nextConf();
+					if (conf == null) {
+						break;
+					}
+
+					// "refine" the lower bound
+					if (minScoreConf == null) {
+						minScoreConf = conf;
+					}
+
+					confs.add(conf);
+				}
+
+				// no more confs? nothing to do
+				if (confs.isEmpty()) {
 					return;
 				}
 
-				// "refine" the lower bound
-				if (minScoreConf == null) {
-					minScoreConf = conf;
+				for (ConfSearch.ScoredConf conf : confs) {
+
+					// refine the upper bound
+					state.confEcalc.calcEnergyAsync(conf, econf -> {
+
+						// NOTE: don't need to lock here, since the main thread is waiting
+
+						if (minEnergyConf == null || econf.getEnergy() < minEnergyConf.getEnergy()) {
+							minEnergyConf = econf;
+						}
+					});
 				}
 
-				// refine the upper bound
-				// TODO: parallelize: maybe do one batch in parallel each iteration?
-				ConfSearch.EnergiedConf econf = state.confEcalc.calcEnergy(conf);
-				if (minEnergyConf == null || econf.getEnergy() < minEnergyConf.getEnergy()) {
-					minEnergyConf = econf;
-				}
+				state.confEcalc.tasks.waitForFinish();
 
 				// do we know the GMEC yet?
-				if (conf.getScore() >= minEnergyConf.getEnergy()) {
+				ConfSearch.ScoredConf maxScoreConf = confs.get(confs.size() - 1);
+				if (maxScoreConf.getScore() >= minEnergyConf.getEnergy()) {
 					gmec = minEnergyConf;
 				}
+
+				confs.clear();
 			}
 
 			double getObjectiveLowerBound() {
@@ -423,6 +453,9 @@ public class Comets {
 		private double objectiveWindowSize = 10.0;
 		private double objectiveWindowMax = 0.0;
 
+		/** The maximum number of simultaneous residue mutations to consider for each sequence mutant */
+		private int maxSimultaneousMutations = 1;
+
 		public Builder(LME objective) {
 			this.objective = objective;
 		}
@@ -449,8 +482,13 @@ public class Comets {
 			return this;
 		}
 
+		public Builder setMaxSimultaneousMutations(int val) {
+			maxSimultaneousMutations = val;
+			return this;
+		}
+
 		public Comets build() {
-			return new Comets(objective, constraints, objectiveWindowSize, objectiveWindowMax);
+			return new Comets(objective, constraints, objectiveWindowSize, objectiveWindowMax, maxSimultaneousMutations);
 		}
 	}
 
@@ -459,16 +497,18 @@ public class Comets {
 	public final List<LME> constraints;
 	public final double objectiveWindowSize;
 	public final double objectiveWindowMax;
+	public final int maxSimultaneousMutations;
 
 	public final List<State> states;
 	public final SeqSpace seqSpace;
 
-	private Comets(LME objective, List<LME> constraints, double objectiveWindowSize, double objectiveWindowMax) {
+	private Comets(LME objective, List<LME> constraints, double objectiveWindowSize, double objectiveWindowMax, int maxSimultaneousMutations) {
 
 		this.objective = objective;
 		this.constraints = constraints;
 		this.objectiveWindowSize = objectiveWindowSize;
 		this.objectiveWindowMax = objectiveWindowMax;
+		this.maxSimultaneousMutations = maxSimultaneousMutations;
 
 		// collect all the states from the objective,constraints
 		Set<State> statesSet = new LinkedHashSet<>();
@@ -518,6 +558,7 @@ public class Comets {
 				new NOPSeqAStarScorer(),
 				new SeqHScorer()
 			)
+			.setMaxSimultaneousMutations(maxSimultaneousMutations)
 			.build();
 
 		List<SequenceInfo> infos = new ArrayList<>();
@@ -545,18 +586,11 @@ public class Comets {
 				node.setData(confs);
 			}
 
-			// TEMP
-			log("next sequence to check: %s   score: %.3f", makeSequence(node), node.getScore());
-
 			// is this sequence finished already?
 			if (confs.hasAllGMECs()) {
 
 				// calc all the LMEs and output the sequence
 				infos.add(new SequenceInfo(makeSequence(node), confs));
-
-				// TEMP
-				log("completed!");
-				dump(node);
 
 				// stop COMETS if we hit the desired number of sequences
 				if (infos.size() >= numSequences) {
@@ -568,14 +602,12 @@ public class Comets {
 				// sequence needs more work, catch-and-release
 				node.setHScore(confs.refineBounds());
 
-				// TEMP
-				log("refined!");
-				dump(node);
-
 				if (node.getScore() == Double.POSITIVE_INFINITY) {
 					// constraint violated, prune this conf
 					continue;
 				}
+
+				// add the sequence back to the tree
 				seqTree.add(node);
 			}
 		}
@@ -589,6 +621,8 @@ public class Comets {
 		return infos;
 	}
 
+	// for debugging
+	@SuppressWarnings("unused")
 	private void dump(SeqAStarNode node) {
 		SeqConfs confs = (SeqConfs)node.getData();
 		log("sequence %s", makeSequence(node));

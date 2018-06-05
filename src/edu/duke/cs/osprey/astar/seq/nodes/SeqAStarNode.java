@@ -58,7 +58,7 @@ public interface SeqAStarNode extends OptimizableAStarNode, Comparable<SeqAStarN
 		/**
 		 * ensures assigned and unassigned positions are sorted in increasing order
 		 */
-		public void sort() {
+		public void sortAssigned() {
 
 			// these arrays are typically tiny (<20), so insertion sort is very efficient here
 			// also, we have to sort the assigned positions and res types together,
@@ -78,18 +78,6 @@ public interface SeqAStarNode extends OptimizableAStarNode, Comparable<SeqAStarN
 				assignedPos[j] = tempPos;
 				assignedRTs[j] = tempRT;
 			}
-
-			// sort the unassigned side
-			for (int i=1; i<numUnassigned; i++) {
-
-				int tempPos = unassignedPos[i];
-
-				int j;
-				for (j=i; j>=1 && tempPos < unassignedPos[j-1]; j--) {
-					unassignedPos[j] = unassignedPos[j-1];
-				}
-				unassignedPos[j] = tempPos;
-			}
 		}
 
 		public Integer getAssignment(int pos) {
@@ -102,6 +90,80 @@ public interface SeqAStarNode extends OptimizableAStarNode, Comparable<SeqAStarN
 
 		public boolean isAssigned(int pos) {
 			return getAssignment(pos) != null;
+		}
+
+		/**
+		 * Populates the unassigned positions, based on what's not assigned
+		 * @return this, for method chaining
+		 */
+		public Assignments updateUnassigned() {
+			numUnassigned = 0;
+			for (int pos=0; pos<numPos; pos++) {
+				if (!isAssigned(pos)) {
+					unassignedPos[numUnassigned++] = pos;
+				}
+			}
+			return this;
+		}
+
+		/**
+		 * Assigns the residue type to the position
+		 * @return this, for method chaining
+		 */
+		public Assignments assign(int pos, int rt) {
+
+			// find the pos in the unassigned section
+			int i = Arrays.binarySearch(unassignedPos, 0, numUnassigned, pos);
+			if (i < 0) {
+				throw new IllegalArgumentException("position " + pos + " is already assigned");
+			}
+
+			// remove the unassigned pos
+			numUnassigned--;
+			System.arraycopy(unassignedPos, i + 1, unassignedPos, i, numUnassigned - i);
+
+			// make room for the new assignment
+			i = Arrays.binarySearch(assignedPos, 0, numAssigned, pos);
+			assert (i < 0); // the pos shouldn't not be assigned
+			i = -i - 1; // transform into insertion pos
+			System.arraycopy(assignedPos, i, assignedPos, i + 1, numAssigned - i);
+			System.arraycopy(assignedRTs, i, assignedRTs, i + 1, numAssigned - i);
+			numAssigned++;
+
+			// finally, make the assignment
+			assignedPos[i] = pos;
+			assignedRTs[i] = rt;
+
+			return this;
+		}
+
+		/**
+		 * Removes the assignment from the position
+		 * @return this, for method chaining
+		 */
+		public Assignments unassign(int pos) {
+
+			// find the pos in the assigned section
+			int i = Arrays.binarySearch(assignedPos, 0, numAssigned, pos);
+			if (i < 0) {
+				throw new IllegalArgumentException("position " + pos + " is not assigned");
+			}
+
+			// remove the assigned pos
+			numAssigned--;
+			System.arraycopy(assignedPos, i + 1, assignedPos, i, numAssigned - i);
+			System.arraycopy(assignedRTs, i + 1, assignedRTs, i, numAssigned - i);
+
+			// make room for the new unassignment
+			i = Arrays.binarySearch(unassignedPos, 0, numUnassigned, pos);
+			assert (i < 0); // the pos shouldn't not be assigned
+			i = -i - 1; // transform into insertion pos
+			System.arraycopy(unassignedPos, i, unassignedPos, i + 1, numUnassigned - i);
+			numUnassigned++;
+
+			unassignedPos[i] = pos;
+
+			return this;
 		}
 	}
 }

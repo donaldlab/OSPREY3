@@ -202,6 +202,34 @@ public class SeqSpace {
 		return seq;
 	}
 
+	/**
+	 * Make a sequence with the given residue type names
+	 *
+	 * residue type names must be given in the same order as the positions in the sequence space
+	 */
+	public Sequence makeSequence(List<String> resTypes) {
+
+		// just in case...
+		if (resTypes.size() != positions.size()) {
+			throw new IllegalArgumentException(String.format("expected %d residue types, but only got %d: %s",
+				positions.size(),
+				resTypes.size(),
+				resTypes
+			));
+		}
+
+		Sequence seq = makeUnassignedSequence();
+		for (int i=0; i<positions.size(); i++) {
+			Position pos = positions.get(i);
+			seq.set(pos, resTypes.get(i));
+		}
+		return seq;
+	}
+
+	public List<Sequence> getMutants() {
+		return getMutants(positions.size());
+	}
+
 	public List<Sequence> getMutants(int maxSimultaneousMutations) {
 		return getMutants(maxSimultaneousMutations, false);
 	}
@@ -254,7 +282,11 @@ public class SeqSpace {
 				buf.append(" ");
 				buf.append(rt.index);
 				buf.append(":");
-				buf.append(rt.name);
+				if (pos.wildType == rt) {
+					buf.append(rt.name.toLowerCase());
+				} else {
+					buf.append(rt.name);
+				}
 			}
 			buf.append(" ]");
 		}
