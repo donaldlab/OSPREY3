@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.ewakstar;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.ewakstar.EWAKStarLimitedSequenceTrie;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
@@ -292,8 +293,10 @@ public class EWAKStarBBKStar {
                 }
             };
 
+            RCs rcs = sequence.makeRCs();
             UpperBoundCalculator calc = new UpperBoundCalculator(
-                    astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, sequence.makeRCs()))
+				astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, rcs)),
+				rcs.getNumConformations()
             );
             calc.run(numConfs);
             return calc.totalBound;
@@ -304,8 +307,10 @@ public class EWAKStarBBKStar {
             // to compute upper bounds on pfuncs,
             // we'll use the upper bound calculator in the usual way
 
+			RCs rcs = sequence.makeRCs();
             UpperBoundCalculator calc = new UpperBoundCalculator(
-                    confSearchFactory.make(info.emat, sequence.makeRCs())
+				confSearchFactory.make(info.emat, rcs),
+				rcs.getNumConformations()
             );
             calc.run(numConfs);
             return calc.totalBound;
