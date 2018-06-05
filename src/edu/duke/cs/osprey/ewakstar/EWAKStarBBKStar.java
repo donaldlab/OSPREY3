@@ -64,8 +64,6 @@ public class EWAKStarBBKStar {
         public EnergyMatrix rigidNegatedEmat = null;
         public final EnergyMatrix emat;
 
-        public BigDecimal stabilityThreshold = null;
-
         public ConfSpaceInfo(KStar.ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator minimizingConfEcalc, ConfEnergyCalculator rigidConfECalc, EnergyMatrix emat) {
             this.type = type;
             this.confSpace = confSpace;
@@ -164,9 +162,6 @@ public class EWAKStarBBKStar {
             //only allow sub-sequences that exist in our limited sequence space
             Set<String> resTypes;
 
-
-            String subSeq = sequence.getAssignedResTypes();
-
             if(assignPos.index == 0 || assignPos.resFlex.resTypes.size() == 1)
                 resTypes = new HashSet<>(assignPos.resFlex.resTypes);
             else {
@@ -199,8 +194,6 @@ public class EWAKStarBBKStar {
         private Set<String> filterOnPreviousSeqs(){
 
             String subSeq = sequence.getAssignedResTypes();
-            //"PHE PHE ILE THR PHE ASP GLU THR"
-            //WT: "PHE LYS ILE THR PHE ASP GLU THR"
             Set<String> resTypes = bbkstarSettings.allowedSeqs.getSeq(subSeq);
             return resTypes;
         }
@@ -213,16 +206,6 @@ public class EWAKStarBBKStar {
             // meaning, it might not be sound to do epsilon-based iterative approximations here
             final int numConfs = 1000;
 
-            if (protein.stabilityThreshold != null) {
-
-                // tank the sequence if the protein is unstable
-                BigDecimal proteinUpperBound = calcUpperBound(protein, proteinSequence, numConfs);
-                if (MathTools.isLessThan(proteinUpperBound, protein.stabilityThreshold)) {
-                    score = Double.NEGATIVE_INFINITY;
-                    isUnboundUnstable = true;
-                    return;
-                }
-            }
 
             BigDecimal proteinLowerBound = calcLowerBound(protein, proteinSequence, numConfs);
 
@@ -232,17 +215,6 @@ public class EWAKStarBBKStar {
                 score = Double.POSITIVE_INFINITY;
                 isUnboundUnstable = false;
                 return;
-            }
-
-            if (ligand.stabilityThreshold != null) {
-
-                // tank the sequence if the ligand is unstable
-                BigDecimal ligandUpperBound = calcUpperBound(ligand, ligandSequence, numConfs);
-                if (MathTools.isLessThan(ligandUpperBound, ligand.stabilityThreshold)) {
-                    score = Double.NEGATIVE_INFINITY;
-                    isUnboundUnstable = true;
-                    return;
-                }
             }
 
             BigDecimal ligandLowerBound = calcLowerBound(ligand, ligandSequence, numConfs);
@@ -353,8 +325,9 @@ public class EWAKStarBBKStar {
             // make the partition function
             EWAKStarGradientDescentPfunc newPfunc = new EWAKStarGradientDescentPfunc(confSearchFactory.make(curEmat, sequence.makeRCs()), info.minimizingConfEcalc);
 
+            RCs rcs = sequence.makeRCs();
             newPfunc.setReportProgress(kstarSettings.showPfuncProgress);
-            newPfunc.init(kstarSettings.eW, kstarSettings.epsilon, kstarSettings.maxPFConfs, info.stabilityThreshold);
+            newPfunc.init(kstarSettings.eW, kstarSettings.epsilon, rcs.getNumConformations());
             pfuncCache.put(sequence, newPfunc);
             return newPfunc;
         }

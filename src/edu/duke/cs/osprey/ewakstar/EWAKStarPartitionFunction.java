@@ -1,13 +1,17 @@
 package edu.duke.cs.osprey.ewakstar;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.kstar.KStarScore;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
@@ -103,9 +107,11 @@ public interface EWAKStarPartitionFunction {
 		}
 
 		public BigDecimal calcUpperBound() {
-			BigDecimal x = MathTools.bigAdd(qstar, qprime, decimalPrecision);
-			x = MathTools.bigAdd(x, pstar, decimalPrecision);
-			return x;
+			return new BigMath(decimalPrecision)
+					.set(qstar)
+					.add(qprime)
+					.add(pstar)
+					.get();
 		}
 	}
 
@@ -154,16 +160,22 @@ public interface EWAKStarPartitionFunction {
 	
 	void setReportProgress(boolean val);
 	void setConfListener(ConfListener val);
-	
-	void init(double energyWindow, double epsilonTarget, int maxPFConfs);
 
 	/**
 	 * Initializes the partition function for calculation.
+	 * @param targetEnergy The accuracy with which to estimate the partition function.
 	 * @param targetEpsilon The accuracy with which to estimate the partition function.
+	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
+	 *                               including any conformations removed by pruned tuples.
+	 */
+	void init(double targetEnergy, double targetEpsilon, BigInteger numConfsBeforePruning);
+
+	/**
+	 * Sets the stability threshold for this PartitionFunction, if supported
 	 * @param stabilityThreshold If the partition function upper bound value falls below
 	 *                           this threshold, the sequence is considered unstable.
 	 */
-	default void init(double targetEnergy, double targetEpsilon, int maxPFConfs, BigDecimal stabilityThreshold) {
+	default void setStabilityThreshold(BigDecimal stabilityThreshold) {
 		throw new UnsupportedOperationException(getClass().getName() + " does not yet support stability thresholds");
 	}
 
@@ -182,4 +194,24 @@ public interface EWAKStarPartitionFunction {
 	public static interface WithConfTable extends EWAKStarPartitionFunction {
 		void setConfTable(ConfDB.ConfTable table);
 	}
+
+	public static interface WithExternalMemory extends EWAKStarPartitionFunction {
+
+		void setUseExternalMemory(boolean val, RCs rcs);
+
+		public static void setOrThrow(EWAKStarPartitionFunction pfunc, boolean val, RCs rcs) {
+			if (pfunc instanceof EWAKStarPartitionFunction.WithExternalMemory) {
+				((EWAKStarPartitionFunction.WithExternalMemory)pfunc).setUseExternalMemory(val, rcs);
+			} else {
+				throw new EWAKStarPartitionFunction.WithExternalMemory.UnsupportedException(pfunc);
+			}
+		}
+
+		public static class UnsupportedException extends RuntimeException {
+			public UnsupportedException(EWAKStarPartitionFunction pfunc) {
+				super("This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support external memory");
+			}
+		}
+	}
 }
+
