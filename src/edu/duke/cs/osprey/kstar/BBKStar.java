@@ -113,6 +113,8 @@ public class BBKStar {
 		/** A ConfSearch that maximizes over conformation scores from rigid tuples */
 		public ConfSearchFactory confSearchFactoryRigid = null;
 
+		public File confDBFile = null;
+
 		private BigDecimal stabilityThreshold = null;
 
 		public ConfSpaceInfo(SimpleConfSpace confSpace, KStar.ConfSpaceType type) {
@@ -133,12 +135,8 @@ public class BBKStar {
 			}
 		}
 
-		public File getConfDBFile() {
-			if (kstarSettings.confDBPattern == null) {
-				return null;
-			} else {
-				return new File(kstarSettings.applyConfDBPattern(type.name().toLowerCase()));
-			}
+		public void setConfDBFile(String path) {
+			confDBFile = new File(path);
 		}
 	}
 
@@ -152,24 +150,6 @@ public class BBKStar {
 		void use(ConfDBs confdbs);
 	}
 
-	private void useDBsIfNeeded(ConfSpaceInfo protein, ConfSpaceInfo ligand, ConfSpaceInfo complex, DBsUser user) {
-		if (kstarSettings.confDBPattern == null) {
-			user.use(new ConfDBs());
-		} else {
-			ConfDB.useIfNeeded(protein.confSpace, protein.getConfDBFile(), (proteinConfdb) -> {
-				ConfDB.useIfNeeded(ligand.confSpace, ligand.getConfDBFile(), (ligandConfdb) -> {
-					ConfDB.useIfNeeded(complex.confSpace, complex.getConfDBFile(), (complexConfdb) -> {
-						ConfDBs confdbs = new ConfDBs();
-						confdbs.protein = proteinConfdb;
-						confdbs.ligand = ligandConfdb;
-						confdbs.complex = complexConfdb;
-						user.use(confdbs);
-					});
-				});
-			});
-		}
-	}
-
 	public static enum PfuncsStatus {
 		Estimating,
 		Estimated,
@@ -179,7 +159,7 @@ public class BBKStar {
 	private abstract class Node implements Comparable<Node> {
 
 		public final Sequence sequence;
-		public final ConfDBs confdbs;
+		public final ConfDB.DBs confDBs;
 
 		/** for comparing in the tree, higher is first */
 		public double score;
@@ -187,9 +167,9 @@ public class BBKStar {
 		/** signals whether or not partition function values are allowed the stability threshold */
 		public boolean isUnboundUnstable;
 
-		protected Node(Sequence sequence, ConfDBs confdbs) {
+		protected Node(Sequence sequence, ConfDB.DBs confDBs) {
 			this.sequence = sequence;
-			this.confdbs = confdbs;
+			this.confDBs = confDBs;
 			this.score = 0;
 		}
 
@@ -204,8 +184,8 @@ public class BBKStar {
 
 	public class MultiSequenceNode extends Node {
 
-		public MultiSequenceNode(Sequence sequence, ConfDBs confdbs) {
-			super(sequence, confdbs);
+		public MultiSequenceNode(Sequence sequence, ConfDB.DBs confDBs) {
+			super(sequence, confDBs);
 		}
 
 		public List<Node> makeChildren() {
@@ -237,18 +217,18 @@ public class BBKStar {
 				if (s.isFullyAssigned()) {
 
 					// fully assigned, make single sequence node
-					children.add(new SingleSequenceNode(s, confdbs));
+					children.add(new SingleSequenceNode(s, confDBs));
 
 				} else if (s.countMutations() == kstarSettings.maxSimultaneousMutations) {
 
 					// mutation limit reached, fill unassigned positions with wild-type
 					s.fillWildType();
-					children.add(new SingleSequenceNode(s, confdbs));
+					children.add(new SingleSequenceNode(s, confDBs));
 
 				} else {
 
 					// still partial sequence, make multi-sequence node
-					children.add(new MultiSequenceNode(s, confdbs));
+					children.add(new MultiSequenceNode(s, confDBs));
 				}
 			}
 
@@ -368,13 +348,13 @@ public class BBKStar {
 		public final PartitionFunction ligand;
 		public final PartitionFunction complex;
 
-		public SingleSequenceNode(Sequence sequence, ConfDBs confdbs) {
-			super(sequence, confdbs);
+		public SingleSequenceNode(Sequence sequence, ConfDB.DBs confDBs) {
+			super(sequence, confDBs);
 
 			// make the partition functions
-			this.protein = makePfunc(proteinPfuncs, BBKStar.this.protein, confdbs.protein);
-			this.ligand = makePfunc(ligandPfuncs, BBKStar.this.ligand, confdbs.ligand);
-			this.complex = makePfunc(complexPfuncs, BBKStar.this.complex, confdbs.complex);
+			this.protein = makePfunc(proteinPfuncs, BBKStar.this.protein, confDBs.get(BBKStar.this.protein.confSpace));
+			this.ligand = makePfunc(ligandPfuncs, BBKStar.this.ligand, confDBs.get(BBKStar.this.ligand.confSpace));
+			this.complex = makePfunc(complexPfuncs, BBKStar.this.complex, confDBs.get(BBKStar.this.complex.confSpace));
 		}
 
 		private PartitionFunction makePfunc(Map<Sequence,PartitionFunction> pfuncCache, ConfSpaceInfo info, ConfDB confdb) {
@@ -577,11 +557,15 @@ public class BBKStar {
 		List<KStar.ScoredSequence> scoredSequences = new ArrayList<>();
 
 		// open the conf databases if needed
-		useDBsIfNeeded(protein, ligand, complex, (confdbs) -> {
+		try (ConfDB.DBs confDBs = new ConfDB.DBs()
+			 .add(protein.confSpace, protein.confDBFile)
+			.add(ligand.confSpace, ligand.confDBFile)
+			.add(complex.confSpace, complex.confDBFile)
+		) {
 
 			// calculate wild-type first
 			System.out.println("computing K* score for the wild-type sequence...");
-			SingleSequenceNode wildTypeNode = new SingleSequenceNode(complex.confSpace.makeWildTypeSequence(), confdbs);
+			SingleSequenceNode wildTypeNode = new SingleSequenceNode(complex.confSpace.makeWildTypeSequence(), confDBs);
 			KStarScore wildTypeScore = wildTypeNode.computeScore();
 			kstarSettings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
 				-1,
@@ -597,7 +581,7 @@ public class BBKStar {
 
 			// start the BBK* tree with the root node
 			PriorityQueue<Node> tree = new PriorityQueue<>();
-			tree.add(new MultiSequenceNode(complex.confSpace.makeUnassignedSequence(), confdbs));
+			tree.add(new MultiSequenceNode(complex.confSpace.makeUnassignedSequence(), confDBs));
 
 			// start searching the tree
 			System.out.println("computing K* scores for the " + bbkstarSettings.numBestSequences + " best sequences to epsilon = " + kstarSettings.epsilon + " ...");
@@ -657,7 +641,7 @@ public class BBKStar {
 					throw new Error("BBK* ended, but the tree isn't empty and we didn't return enough sequences. This is a bug.");
 				}
 			}
-		});
+		}
 
 		return scoredSequences;
 	}

@@ -170,7 +170,7 @@ public class NewMethPlayground {
 
 	private static void calculateComplexUpperBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, int maxNumBestSequences, double maxNumConfsPerSequence) {
 
-		new ConfDB(confSpace, confDBFile).use((db) -> {
+		try (ConfDB db = new ConfDB(confSpace, confDBFile)) {
 
 			AStarSequencePruner pruner = new AStarSequencePruner(confSpace);
 
@@ -370,12 +370,12 @@ public class NewMethPlayground {
 			intervals.setBounds(svg, 10, 16);
 			svg.finish().write(new File("pfunc.complex.upperBounds.svg"));
 
-		}); // db
+		} // db
 	}
 
 	private static void calculateComplexLowerBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, int maxNumBestSequences, int maxNumConfsUpperBounded) {
 
-		new ConfDB(confSpace, confDBFile).use((db) -> {
+		try (ConfDB db = new ConfDB(confSpace, confDBFile)) {
 
 			// get all our sequence info, sorted by descending pfUB
 			TreeSet<SequenceInfo> infosByPfuncUB = new TreeSet<>(Comparator.comparing((SequenceInfo info) -> info.pfuncUpperBound).reversed());
@@ -406,14 +406,14 @@ public class NewMethPlayground {
 					}
 
 				}); // ecalc
-		});
+		}
 	}
 
 	private static List<SequenceInfo> analyzeComplexes(SimpleConfSpace confSpace, File confDBFile, int maxNumBestSequences) {
 
 		List<SequenceInfo> bestSequences = new ArrayList<>();
 
-		new ConfDB(confSpace, confDBFile).use((db) -> {
+		try (ConfDB db = new ConfDB(confSpace, confDBFile)) {
 
 			// get all our sequence info, sorted by descending pfUB
 			TreeSet<SequenceInfo> infosByPfuncUB = new TreeSet<>(Comparator.comparing((SequenceInfo info) -> info.pfuncUpperBound).reversed());
@@ -520,14 +520,14 @@ public class NewMethPlayground {
 			}
 
 			svg.finish().write(new File("pfuncs.complex.svg"));
-		});
+		}
 
 		return bestSequences;
 	}
 
 	private static void calculateLigandBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, List<SequenceInfo> bestComplexes, double pfuncUBFactionSampled, int maxNumConfsUpperBounded) {
 
-		new ConfDB(confSpace, confDBFile).use((db) -> {
+		try (ConfDB db = new ConfDB(confSpace, confDBFile)) {
 
 			new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
 				.setParallelism(Parallelism.makeCpu(4))
@@ -583,7 +583,7 @@ public class NewMethPlayground {
 						log("ligand: %s", ligand);
 					}
 				}); // ecalc
-		}); // db
+		} // db
 	}
 
 	static class SequenceInfoPair {
@@ -601,7 +601,7 @@ public class NewMethPlayground {
 
 		List<SequenceInfoPair> pairs = new ArrayList<>();
 
-		new ConfDB(complexConfSpace, complexConfDBFile).use((complexDB) -> {
+		try (ConfDB complexDB = new ConfDB(complexConfSpace, complexConfDBFile)) {
 
 			// get all our sequence info, sorted by descending pfUB
 			TreeSet<SequenceInfo> infosByPfuncUB = new TreeSet<>(Comparator.comparing((SequenceInfo info) -> info.pfuncUpperBound).reversed());
@@ -623,7 +623,7 @@ public class NewMethPlayground {
 				}
 			}
 
-			new ConfDB(ligandConfSpace, ligandConfDBFile).use((ligandDB) -> {
+			try (ConfDB ligandDB = new ConfDB(ligandConfSpace, ligandConfDBFile)) {
 
 				// get the ligand info for those best K sequences
 				for (SequenceInfo complex : bestComplexes) {
@@ -636,9 +636,9 @@ public class NewMethPlayground {
 					pairs.add(new SequenceInfoPair(complex, ligand));
 				}
 
-			}); // ligand db
+			} // ligand db
 
-		}); // complex db
+		} // complex db
 
 		// plot the pfunc bounds
 		{

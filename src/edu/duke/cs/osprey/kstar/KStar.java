@@ -98,18 +98,6 @@ public class KStar {
 			private boolean showPfuncProgress = false;
 
 			/**
-			 * If a design experiences an unexpected abort, the conformation database can allow you to restore the
-			 * design state and resume the calculation close to where it was aborted.
-			 * Set a pattern to turn on the conf DB such as:
-			 *
-			 * "theFolder/conf.*.db"
-			 *
-			 * The * in the pattern is a wildcard character that will be replaced with
-			 * each type of energy matrix used by the K*-type algorithm.
-			 */
-			private String confDBPattern = null;
-
-			/**
 			 * True to use external memory when buffering conformations between the
 			 * partition function lower and upper bound calculators.
 			 */
@@ -159,18 +147,13 @@ public class KStar {
 				return this;
 			}
 
-			public Builder setConfDBPattern(String val) {
-				confDBPattern = val;
-				return this;
-			}
-
 			public Builder setExternalMemory(boolean val) {
 				useExternalMemory = val;
 				return this;
 			}
 
 			public Settings build() {
-				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, confDBPattern, useExternalMemory);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory);
 			}
 		}
 
@@ -179,28 +162,16 @@ public class KStar {
 		public final int maxSimultaneousMutations;
 		public final KStarScoreWriter.Writers scoreWriters;
 		public final boolean showPfuncProgress;
-		public final String confDBPattern;
 		public final boolean useExternalMemory;
 
 
-		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String confDBPattern, boolean useExternalMemory) {
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
 			this.scoreWriters = scoreWriters;
 			this.showPfuncProgress = dumpPfuncConfs;
-			this.confDBPattern = confDBPattern;
 			this.useExternalMemory = useExternalMemory;
-		}
-
-		public String applyConfDBPattern(String type) {
-
-			// the pattern has a * right?
-			if (confDBPattern.indexOf('*') < 0) {
-				throw new IllegalArgumentException("confDBPattern (which is '" + confDBPattern + "') has no wildcard character (which is *)");
-			}
-
-			return confDBPattern.replace("*", type);
 		}
 	}
 
@@ -251,6 +222,7 @@ public class KStar {
 
 		public ConfEnergyCalculator confEcalc = null;
 		public ConfSearchFactory confSearchFactory = null;
+		public File confDBFile = null;
 
 		public ConfSpaceInfo(SimpleConfSpace confSpace, ConfSpaceType type) {
 			this.confSpace = confSpace;
@@ -317,16 +289,8 @@ public class KStar {
 			return result;
 		}
 
-		public File getConfDBFile() {
-			if (settings.confDBPattern == null) {
-				return null;
-			} else {
-				return new File(settings.applyConfDBPattern(type.name().toLowerCase()));
-			}
-		}
-
-		public void useConfDBIfNeeded(ConfDB.User user) {
-			ConfDB.useIfNeeded(confSpace, getConfDBFile(), user);
+		public void setConfDBFile(String path) {
+			confDBFile = new File(path);
 		}
 	}
 
@@ -420,50 +384,52 @@ public class KStar {
 		// TODO: progress bar?
 
 		// open the conf databases if needed
-		protein.useConfDBIfNeeded((proteinConfDB) -> {
-			ligand.useConfDBIfNeeded((ligandConfDB) -> {
-				complex.useConfDBIfNeeded((complexConfDB) -> {
+		try (ConfDB.DBs confDBs = new ConfDB.DBs()
+			.add(protein.confSpace, protein.confDBFile)
+			.add(ligand.confSpace, ligand.confDBFile)
+			.add(complex.confSpace, complex.confDBFile)
+		) {
+			ConfDB proteinConfDB = confDBs.get(protein.confSpace);
+			ConfDB ligandConfDB = confDBs.get(ligand.confSpace);
+			ConfDB complexConfDB = confDBs.get(complex.confSpace);
 
-					// compute wild type partition functions first (always at pos 0)
-					KStarScore wildTypeScore = scorer.score(
-						0,
-						protein.calcPfunc(0, BigDecimal.ZERO, proteinConfDB),
-						ligand.calcPfunc(0, BigDecimal.ZERO, ligandConfDB),
-						complex.calcPfunc(0, BigDecimal.ZERO, complexConfDB)
-					);
-					BigDecimal proteinStabilityThreshold = null;
-					BigDecimal ligandStabilityThreshold = null;
-					if (settings.stabilityThreshold != null) {
-						BigDecimal stabilityThresholdFactor = new BoltzmannCalculator(PartitionFunction.decimalPrecision).calc(settings.stabilityThreshold);
-						proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
-						ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+			// compute wild type partition functions first (always at pos 0)
+			KStarScore wildTypeScore = scorer.score(
+				0,
+				protein.calcPfunc(0, BigDecimal.ZERO, proteinConfDB),
+				ligand.calcPfunc(0, BigDecimal.ZERO, ligandConfDB),
+				complex.calcPfunc(0, BigDecimal.ZERO, complexConfDB)
+			);
+			BigDecimal proteinStabilityThreshold = null;
+			BigDecimal ligandStabilityThreshold = null;
+			if (settings.stabilityThreshold != null) {
+				BigDecimal stabilityThresholdFactor = new BoltzmannCalculator(PartitionFunction.decimalPrecision).calc(settings.stabilityThreshold);
+				proteinStabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
+				ligandStabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+			}
+
+			// compute all the partition functions and K* scores for the rest of the sequences
+			for (int i=1; i<n; i++) {
+
+				// get the pfuncs, with short circuits as needed
+				final PartitionFunction.Result proteinResult = protein.calcPfunc(i, proteinStabilityThreshold, proteinConfDB);
+				final PartitionFunction.Result ligandResult;
+				final PartitionFunction.Result complexResult;
+				if (!KStarScore.isLigandComplexUseful(proteinResult)) {
+					ligandResult = PartitionFunction.Result.makeAborted();
+					complexResult = PartitionFunction.Result.makeAborted();
+				} else {
+					ligandResult = ligand.calcPfunc(i, ligandStabilityThreshold, ligandConfDB);
+					if (!KStarScore.isComplexUseful(proteinResult, ligandResult)) {
+						complexResult = PartitionFunction.Result.makeAborted();
+					} else {
+						complexResult = complex.calcPfunc(i, BigDecimal.ZERO, complexConfDB);
 					}
+				}
 
-					// compute all the partition functions and K* scores for the rest of the sequences
-					for (int i=1; i<n; i++) {
-
-						// get the pfuncs, with short circuits as needed
-						final PartitionFunction.Result proteinResult = protein.calcPfunc(i, proteinStabilityThreshold, proteinConfDB);
-						final PartitionFunction.Result ligandResult;
-						final PartitionFunction.Result complexResult;
-						if (!KStarScore.isLigandComplexUseful(proteinResult)) {
-							ligandResult = PartitionFunction.Result.makeAborted();
-							complexResult = PartitionFunction.Result.makeAborted();
-						} else {
-							ligandResult = ligand.calcPfunc(i, ligandStabilityThreshold, ligandConfDB);
-							if (!KStarScore.isComplexUseful(proteinResult, ligandResult)) {
-								complexResult = PartitionFunction.Result.makeAborted();
-							} else {
-								complexResult = complex.calcPfunc(i, BigDecimal.ZERO, complexConfDB);
-							}
-						}
-
-						scorer.score(i, proteinResult, ligandResult, complexResult);
-					}
-
-				});
-			});
-		});
+				scorer.score(i, proteinResult, ligandResult, complexResult);
+			}
+		}
 
 		return scores;
 	}

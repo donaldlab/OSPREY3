@@ -44,62 +44,57 @@ import org.mapdb.serializer.GroupSerializerObjectArray;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 
 public class ConfDB implements AutoCleanable {
 
-	public static interface UserWithReturn<T> {
+	public static ConfDB makeIfNeeded(SimpleConfSpace confSpace, File file) {
 
-		T use(ConfDB confdb) throws Exception;
+		// no file? confdb not needed
+		if (file == null) {
+			return null;
+		}
 
-		default T usePassExceptions(ConfDB confdb) {
-			try {
-				return use(confdb);
-			} catch (Exception ex) {
-				throw new RuntimeException(ex);
+		return new ConfDB(confSpace, file);
+	}
+
+	public static class DBs implements AutoCleanable {
+
+		public class Adder {
+
+			public void add(SimpleConfSpace confSpace, File file) {
+				if (file != null) {
+					dbs.put(confSpace, new ConfDB(confSpace, file));
+				}
 			}
 		}
-	}
 
-	public static interface User {
+		private final Map<SimpleConfSpace,ConfDB> dbs = new HashMap<>();
+		private final Adder adder = new Adder();
 
-		void use(ConfDB confdb) throws Exception;
+		public DBs add(SimpleConfSpace confSpace, File file) {
+			adder.add(confSpace, file);
+			return this;
+		}
 
-		default void usePassExceptions(ConfDB confdb) {
-			try {
-				use(confdb);
-			} catch (Exception ex) {
-				throw new RuntimeException(ex);
+		public <T> DBs addAll(Iterable<T> things, BiConsumer<T,Adder> block) {
+			for (T thing : things) {
+				block.accept(thing, adder);
 			}
+			return this;
 		}
-	}
 
-	public static <T> T useIfNeeded(SimpleConfSpace confSpace, File file, UserWithReturn<T> user) {
-
-		if (confSpace == null || file == null) {
-
-			// no DB? just pass null
-			return user.usePassExceptions(null);
-
-		} else {
-
-			// open the db and make sure it gets cleaned up properly
-			return new ConfDB(confSpace, file).use(user);
+		public ConfDB get(SimpleConfSpace confSpace) {
+			return dbs.get(confSpace);
 		}
-	}
 
-	public static void useIfNeeded(SimpleConfSpace confSpace, File file, User user) {
-
-		if (confSpace == null || file == null) {
-
-			// no DB? just pass null
-			user.usePassExceptions(null);
-
-		} else {
-
-			// open the db and make sure it gets cleaned up properly
-			new ConfDB(confSpace, file).use(user);
+		@Override
+		public void clean() {
+			for (ConfDB db : dbs.values()) {
+				db.clean();
+			}
 		}
 	}
 
@@ -834,7 +829,7 @@ public class ConfDB implements AutoCleanable {
 	private Sequence makeSequenceFromId(String id) {
 		Sequence sequence = confSpace.makeUnassignedSequence();
 		String[] resTypes = id.split(":");
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
+		for (SeqSpace.Position pos : confSpace.seqSpace.positions) {
 			sequence.set(pos.resNum, resTypes[pos.index]);
 		}
 		return sequence;
@@ -888,21 +883,5 @@ public class ConfDB implements AutoCleanable {
 	@Override
 	public void clean() {
 		close();
-	}
-
-	public <T> T use(UserWithReturn<T> user) {
-		try {
-			return user.usePassExceptions(this);
-		} finally {
-			close();
-		}
-	}
-
-	public void use(User user) {
-		try {
-			user.usePassExceptions(this);
-		} finally {
-			close();
-		}
 	}
 }

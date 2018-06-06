@@ -32,7 +32,7 @@
 
 package edu.duke.cs.osprey.kstar;
 
-import static edu.duke.cs.osprey.TestBase.fileForWriting;
+import static edu.duke.cs.osprey.TestBase.TempFile;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -56,6 +56,7 @@ import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
+import java.io.File;
 import java.util.List;
 import java.util.function.Function;
 
@@ -110,7 +111,6 @@ public class TestKStar {
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
 				.addScoreConsoleWriter(testFormatter)
-				.setConfDBPattern(confDBPattern)
 				.setExternalMemory(useExternalMemory)
 				//.setShowPfuncProgress(true)
 				.build();
@@ -139,6 +139,11 @@ public class TestKStar {
 					}
 					return builder.build();
 				};
+
+				// set ConfDB if needed
+				if (confDBPattern != null) {
+					info.confDBFile = new File(confDBPattern.replace("*", info.type.name().toLowerCase()));
+				}
 			}
 
 			// run K*
@@ -312,9 +317,9 @@ public class TestKStar {
 		final String confdbPattern = "kstar.*.conf.db";
 		final ConfSpaces confSpaces = make2RL0();
 
-		fileForWriting("kstar.protein.conf.db", (proteinDBFile) -> {
-			fileForWriting("kstar.ligand.conf.db", (ligandDBFile) -> {
-				fileForWriting("kstar.complex.conf.db", (complexDBFile) -> {
+		try (TempFile proteinDBFile = new TempFile("kstar.protein.conf.db")) {
+			try (TempFile ligandDBFile = new TempFile("kstar.ligand.conf.db")) {
+				try (TempFile complexDBFile = new TempFile("kstar.complex.conf.db")) {
 
 					// run with empty dbs
 					Stopwatch sw = new Stopwatch().start();
@@ -324,26 +329,26 @@ public class TestKStar {
 
 					// the dbs should have stuff in them
 
-					new ConfDB(confSpaces.protein, proteinDBFile).use((confdb) -> {
+					try (ConfDB confdb = new ConfDB(confSpaces.protein, proteinDBFile)) {
 						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
-					new ConfDB(confSpaces.ligand, ligandDBFile).use((confdb) -> {
+					try (ConfDB confdb = new ConfDB(confSpaces.ligand, ligandDBFile)) {
 						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
-					new ConfDB(confSpaces.complex, complexDBFile).use((confdb) -> {
+					try (ConfDB confdb = new ConfDB(confSpaces.complex, complexDBFile)) {
 						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
 					assertThat(proteinDBFile.exists(), is(true));
 					assertThat(ligandDBFile.exists(), is(true));
@@ -354,9 +359,9 @@ public class TestKStar {
 					Result result2 = runKStar(confSpaces, epsilon, confdbPattern, false);
 					assert2RL0(result2, epsilon);
 					System.out.println(sw.getTime(2));
-				});
-			});
-		});
+				}
+			}
+		}
 	}
 
 	public static void assertSequence(Result result, int sequenceIndex, String sequence, Double proteinQStar, Double ligandQStar, Double complexQStar, double epsilon) {

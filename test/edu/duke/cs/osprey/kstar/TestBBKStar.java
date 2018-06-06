@@ -32,7 +32,7 @@
 
 package edu.duke.cs.osprey.kstar;
 
-import static edu.duke.cs.osprey.TestBase.fileForWriting;
+import static edu.duke.cs.osprey.TestBase.TempFile;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -47,6 +47,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
+import java.io.File;
 import java.util.List;
 
 
@@ -82,7 +83,6 @@ public class TestBBKStar {
 				.setStabilityThreshold(null)
 				.setMaxSimultaneousMutations(1)
 				.addScoreConsoleWriter(testFormatter)
-				.setConfDBPattern(confdbPattern)
 				.build();
 			BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
 				.setNumBestSequences(numSequences)
@@ -121,6 +121,11 @@ public class TestBBKStar {
 					new ConfAStarTree.Builder(ematRigid, rcs)
 						.setTraditional()
 						.build();
+
+				// add the ConfDB file if needed
+				if (confdbPattern != null) {
+					info.confDBFile = new File(confdbPattern.replace("*", info.type.name().toLowerCase()));
+				}
 			}
 
 			// run BBK*
@@ -203,9 +208,9 @@ public class TestBBKStar {
 		final int numSequences = 25;
 		final String confdbPattern = "bbkstar.*.conf.db";
 
-		fileForWriting("bbkstar.protein.conf.db", (proteinDBFile) -> {
-			fileForWriting("bbkstar.ligand.conf.db", (ligandDBFile) -> {
-				fileForWriting("bbkstar.complex.conf.db", (complexDBFile) -> {
+		try (TempFile proteinDBFile = new TempFile("bbkstar.protein.conf.db")) {
+			try (TempFile ligandDBFile = new TempFile("bbkstar.ligand.conf.db")) {
+				try (TempFile complexDBFile = new TempFile("bbkstar.complex.conf.db")) {
 
 					// run with empty dbs
 					Stopwatch sw = new Stopwatch().start();
@@ -215,26 +220,26 @@ public class TestBBKStar {
 
 					// the dbs should have stuff in them
 
-					new ConfDB(confSpaces.protein, proteinDBFile).use((confdb) -> {
+					try (ConfDB confdb = new ConfDB(confSpaces.protein, proteinDBFile)) {
 						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
-					new ConfDB(confSpaces.ligand, ligandDBFile).use((confdb) -> {
+					try (ConfDB confdb = new ConfDB(confSpaces.ligand, ligandDBFile)) {
 						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
-					new ConfDB(confSpaces.complex, complexDBFile).use((confdb) -> {
+					try (ConfDB confdb = new ConfDB(confSpaces.complex, complexDBFile)) {
 						assertThat(confdb.getNumSequences(), is((long)results.sequences.size()));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
 					assertThat(proteinDBFile.exists(), is(true));
 					assertThat(ligandDBFile.exists(), is(true));
@@ -245,9 +250,9 @@ public class TestBBKStar {
 					Results results2 = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern);
 					assert2RL0(results2, numSequences);
 					System.out.println(sw.getTime(2));
-				});
-			});
-		});
+				}
+			}
+		}
 	}
 
 	private void assertSequence(Results results, String sequence, Double estKStarLowerLog10, Double estKStarUpperLog10) {

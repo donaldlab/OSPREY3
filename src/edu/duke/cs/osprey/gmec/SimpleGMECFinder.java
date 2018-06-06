@@ -50,7 +50,6 @@ import edu.duke.cs.osprey.tools.*;
 
 import java.io.*;
 import java.util.*;
-import java.util.function.Function;
 
 import static edu.duke.cs.osprey.tools.Log.formatBig;
 
@@ -204,16 +203,6 @@ public class SimpleGMECFinder {
 		}
 	}
 
-	private <T> T useDBIfNeeded(Function<ConfDB.ConfTable,T> block) {
-		return ConfDB.useIfNeeded(confEcalc.confSpace, confDBFile, (confdb) -> {
-			if (confdb == null) {
-				return block.apply(null);
-			} else {
-				return block.apply(confdb.new ConfTable(ConfDBTableName));
-			}
-		});
-	}
-
 	public EnergiedConf find() {
 		return find(0).poll();
 	}
@@ -237,7 +226,12 @@ public class SimpleGMECFinder {
 		}
 		log("Found min score conformation in %s", minScoreStopwatch.getTime(1));
 
-		return useDBIfNeeded((confTable) -> {
+		// open the ConfDB if needed
+		try (ConfDB confdb = ConfDB.makeIfNeeded(confEcalc.confSpace, confDBFile)) {
+			ConfDB.ConfTable confTable = null;
+			if (confdb != null) {
+				confTable = confdb.new ConfTable(ConfDBTableName);
+			}
 
 			// evaluate the min score conf
 			log("Computing energy of min score conf...");
@@ -310,7 +304,7 @@ public class SimpleGMECFinder {
 
 				return econfsInRange;
 			}
-		});
+		}
 	}
 	
 	private void checkMoreConfs(ConfSearch search, EnergyRange erange, Queue<EnergiedConf> econfs, ConfDB.ConfTable confTable) {

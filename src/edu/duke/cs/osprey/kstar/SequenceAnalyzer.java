@@ -130,7 +130,7 @@ public class SequenceAnalyzer {
 				adapter.id = info.id;
 				adapter.confEcalc = info.confEcalc;
 				adapter.confSearchFactory = info.confSearchFactory;
-				adapter.confDBFile = info.getConfDBFile();
+				adapter.confDBFile = info.confDBFile;
 				return adapter;
 			}
 
@@ -156,7 +156,7 @@ public class SequenceAnalyzer {
 				adapter.id = info.id;
 				adapter.confEcalc = info.confEcalcMinimized;
 				adapter.confSearchFactory = info.confSearchFactoryMinimized;
-				adapter.confDBFile = info.getConfDBFile();
+				adapter.confDBFile = info.confDBFile;
 				return adapter;
 			}
 

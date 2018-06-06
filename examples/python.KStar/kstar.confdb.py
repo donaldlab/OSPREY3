@@ -8,8 +8,8 @@ ffparams = osprey.ForcefieldParams()
 # read a PDB file for molecular info
 mol = osprey.readPdb('2RL0.min.reduce.pdb')
 
-# make sure all strands share the same template library (including wild-type rotamers)
-templateLib = osprey.TemplateLibrary(ffparams.forcefld, moleculesForWildTypeRotamers=[mol])
+# make sure all strands share the same template library
+templateLib = osprey.TemplateLibrary(ffparams.forcefld)
 
 # define the protein strand
 protein = osprey.Strand(mol, templateLib=templateLib, residues=['G648', 'G654'])
@@ -46,8 +46,7 @@ kstar = osprey.KStar(
 	complexConfSpace,
 	epsilon=0.5, # you proabably want something more precise in your real designs
 	writeSequencesToConsole=True,
-	writeSequencesToFile='kstar.results.tsv',
-	confDBPattern='kstar.*.db', # actually several confDBs will be written, so give a name pattern
+	writeSequencesToFile='kstar.results.tsv'
 )
 
 # configure K* inputs for each conf space
@@ -64,6 +63,9 @@ for info in kstar.confSpaceInfos():
 	def makeAStar(rcs, emat=emat):
 		return osprey.AStarTraditional(emat, rcs, showProgress=False)
 	info.confSearchFactory = osprey.KStar.ConfSearchFactory(makeAStar)
+
+	# set the ConfDB file for this conf space
+	info.setConfDBFile('kstar.%s.db' % info.type.name().lower())
 
 # run K*
 scoredSequences = kstar.run()
