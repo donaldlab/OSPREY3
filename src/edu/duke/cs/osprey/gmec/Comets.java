@@ -22,8 +22,6 @@ import java.util.stream.Collectors;
 import static edu.duke.cs.osprey.tools.Log.formatBig;
 
 
-// TODO: confDB
-
 /**
  * Implementation of the COMETS multi-state algorithm to predict protein sequence mutations that improve binding affinity.
  * {@cite Hallen2016 Mark A. Hallen, Bruce R. Donald, 2016.
@@ -52,6 +50,11 @@ public class Comets {
 		public FragmentEnergies fragmentEnergies;
 		public ConfEnergyCalculator confEcalc;
 		public Function<RCs,ConfAStarTree> confTreeFactory;
+
+		/**
+		 * set this to a File if you want to use ConfDB with COMETS
+		 */
+		public File confDBFile = null;
 
 		public State(String name, SimpleConfSpace confSpace) {
 			this.name = name;
@@ -285,6 +288,27 @@ public class Comets {
 		}
 	}
 
+	private class ConfDBs extends ConfDB.DBs {
+
+		public Map<State,ConfDB.ConfTable> tables = new HashMap<>();
+
+		public ConfDBs() {
+
+			// open the DBs
+			for (State state : states) {
+				add(state.confSpace, state.confDBFile);
+			}
+
+			// make the tables
+			for (State state : states) {
+				ConfDB confdb = get(state.confSpace);
+				if (confdb != null) {
+					tables.put(state, confdb.new ConfTable("COMETS"));
+				}
+			}
+		}
+	}
+
 	/**
 	 * storage for conf trees at each sequence node
 	 * also tracks GMECs for each state
@@ -311,7 +335,7 @@ public class Comets {
 				confTree = state.confTreeFactory.apply(rcs);
 			}
 
-			void refineBounds() {
+			void refineBounds(ConfDB.ConfTable confTable) {
 
 				// already complete? no need to do more work
 				if (gmec != null) {
@@ -344,7 +368,7 @@ public class Comets {
 				for (ConfSearch.ScoredConf conf : confs) {
 
 					// refine the upper bound
-					state.confEcalc.calcEnergyAsync(conf, econf -> {
+					state.confEcalc.calcEnergyAsync(conf, confTable, econf -> {
 
 						// NOTE: don't need to lock here, since the main thread is waiting
 
@@ -405,11 +429,11 @@ public class Comets {
 		 *
 		 * also flags that GMECs are found, when applicable
 		 */
-		public double refineBounds() {
+		public double refineBounds(ConfDBs confDBs) {
 
 			// refine the GMEC bounds for each state
 			for (State state : states) {
-				statesConfs.get(state).refineBounds();
+				statesConfs.get(state).refineBounds(confDBs.tables.get(state));
 			}
 
 			// if any constraints are violated, score the node +inf,
@@ -601,59 +625,63 @@ public class Comets {
 		);
 		log("");
 
-		while (true) {
+		// open the ConfDBs if needed
+		try (ConfDBs confDBs = new ConfDBs()) {
 
-			// get the next sequence from the tree
-			SeqAStarNode node = seqTree.nextLeafNode();
-			if (node == null) {
-				break;
-			}
+			while (true) {
 
-			// did we exhaust the sequences in the window?
-			if (node.getScore() > objectiveWindowMax || (!infos.isEmpty() && node.getScore() > infos.get(0).objective + objectiveWindowSize)) {
-				log("\nCOMETS exiting early: exhausted all conformations in energy window");
-				break;
-			}
-
-			// how are the conf trees here looking?
-			SeqConfs confs = (SeqConfs)node.getData();
-			if (confs == null) {
-
-				log("Estimated sequence: %s   objective lower bound: %12.6f",
-					makeSequence(node),
-					node.getScore()
-				);
-
-				// don't have them yet, make them
-				confs = new SeqConfs(node);
-				node.setData(confs);
-			}
-
-			// is this sequence finished already?
-			if (confs.hasAllGMECs()) {
-
-				// calc all the LMEs and output the sequence
-				SequenceInfo info = new SequenceInfo(makeSequence(node), confs);
-				infos.add(info);
-				reportSequence(infos.size() == 1, info);
-
-				// stop COMETS if we hit the desired number of sequences
-				if (infos.size() >= numSequences) {
+				// get the next sequence from the tree
+				SeqAStarNode node = seqTree.nextLeafNode();
+				if (node == null) {
 					break;
 				}
 
-			} else {
-
-				// sequence needs more work, catch-and-release
-				node.setHScore(confs.refineBounds());
-
-				if (node.getScore() == Double.POSITIVE_INFINITY) {
-					// constraint violated, prune this conf
-					continue;
+				// did we exhaust the sequences in the window?
+				if (node.getScore() > objectiveWindowMax || (!infos.isEmpty() && node.getScore() > infos.get(0).objective + objectiveWindowSize)) {
+					log("\nCOMETS exiting early: exhausted all conformations in energy window");
+					break;
 				}
 
-				// add the sequence back to the tree
-				seqTree.add(node);
+				// how are the conf trees here looking?
+				SeqConfs confs = (SeqConfs)node.getData();
+				if (confs == null) {
+
+					log("Estimated sequence: %s   objective lower bound: %12.6f",
+						makeSequence(node),
+						node.getScore()
+					);
+
+					// don't have them yet, make them
+					confs = new SeqConfs(node);
+					node.setData(confs);
+				}
+
+				// is this sequence finished already?
+				if (confs.hasAllGMECs()) {
+
+					// calc all the LMEs and output the sequence
+					SequenceInfo info = new SequenceInfo(makeSequence(node), confs);
+					infos.add(info);
+					reportSequence(infos.size() == 1, info);
+
+					// stop COMETS if we hit the desired number of sequences
+					if (infos.size() >= numSequences) {
+						break;
+					}
+
+				} else {
+
+					// sequence needs more work, catch-and-release
+					node.setHScore(confs.refineBounds(confDBs));
+
+					if (node.getScore() == Double.POSITIVE_INFINITY) {
+						// constraint violated, prune this conf
+						continue;
+					}
+
+					// add the sequence back to the tree
+					seqTree.add(node);
+				}
 			}
 		}
 

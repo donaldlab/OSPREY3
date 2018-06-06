@@ -112,6 +112,9 @@ public class CometsLab {
 				state.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(emat, rcs)
 					.setTraditional()
 					.build();
+
+				// use ConfDBs
+				state.confDBFile = new File("conf." + state.name.toLowerCase() + ".db");
 			}
 
 			// run COMETS
