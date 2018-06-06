@@ -249,7 +249,7 @@ tasks {
 		group = "documentation"
 		description = "Build python documentation"
 		workingDir = docSrcDir.toFile()
-		commandLine("sphinx-build", "-b", "html", "-j", "2", ".", "$docBuildDir")
+		commandLine("sphinx-build", "-b", "html", ".", "$docBuildDir")
 	}
 	val remakeDoc by creating {
 		group = "documentation"

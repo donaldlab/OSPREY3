@@ -460,6 +460,14 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimiz
 
 	:builder_return .energy.EnergyCalculator$Builder:
 	'''
+
+	# convert confSpace to a jvm list if possible
+	try:
+		confSpace = jvm.toArrayList(confSpace)
+	except TypeError:
+		# not a list, okie dokie, nothing to convert
+		pass
+
 	builder = _get_builder(c.energy.EnergyCalculator)(confSpace, ffparams)
 
 	if parallelism is not None:
@@ -1067,5 +1075,90 @@ def LUTE_GMECFinder(confSpace, model, pmat, confLog=useJavaDefault, printInterme
 
 	if printIntermediateConfs is not useJavaDefault:
 		builder.setPrintIntermediateConfsToConsole(printIntermediateConfs)
+
+	return builder.build()
+
+
+def COMETS_State(name, confSpace):
+	'''
+	:java:classdoc:`.gmec.Comets$State`
+
+	:param str name: :java:fielddoc:`.gmec.Comets$State#name`
+	:param confSpace: :java:fielddoc:`.gmec.Comets$State#confSpace`
+	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+
+	:rtype: :java:ref:`.gmec.Comets$State`
+	'''
+
+	return jvm.getInnerClass(c.gmec.Comets, 'State')(name, confSpace)
+
+
+def COMETS_ConfSearchFactory(func):
+
+	# convert the python lambda to a JVM interface implementation
+	return jpype.JProxy(
+		jvm.c.java.util.function.Function,
+		dict={ 'apply': func }
+	)
+
+
+def COMETS_LME(weightsByState, offset=useJavaDefault, constrainLessThan=None):
+	'''
+	:java:classdoc:`.gmec.Comets$LME`
+
+	:param weightsByState: map from states to weights
+	:type weightsByState: map from :java:ref:`.gmec.Comets$State` to float
+
+	:builder_option offset .gmec.Comets$LME$Builder#offset:
+	:param float constrainLessThan: :java:methoddoc:`.gmec.Comets$LME$Builder#constrainLessThan`
+	:builder_return .gmec.Comets$LME$Builder:
+	'''
+
+	builder = _get_builder(jvm.getInnerClass(c.gmec.Comets, 'LME'))()
+
+	if offset is not useJavaDefault:
+		builder.setOffset(offset)
+
+	for (state, weight) in weightsByState.items():
+		builder.addState(state, weight)
+
+	if constrainLessThan is not None:
+		builder.constrainLessThan(constrainLessThan)
+
+	return builder.build()
+
+
+def COMETS(objective, constraints=[], objectiveWindowSize=useJavaDefault, objectiveWindowMax=useJavaDefault, maxSimultaneousMutations=useJavaDefault, logFile=None):
+	'''
+	:java:classdoc:`.gmec.Comets`
+
+	:builder_option objective .gmec.Comets$Builder#objective:
+
+	:param constraints: List of LMEs to use as constraints
+	:type constraints: list of :java:ref:`.gmec.Comets$LME`
+
+	:builder_option objectiveWindowSize .gmec.Comets$Builder#objectiveWindowSize:
+	:builder_option objectiveWindowMax .gmec.Comets$Builder#objectiveWindowMax:
+	:builder_option maxSimultaneousMutations .gmec.Comets$Builder#maxSimultaneousMutations:
+
+	:param str logFile: :java:fielddoc:`.gmec.Comets$Builder#logFile`
+
+	:builder_return .gmec.Comets$Builder:
+	'''
+
+	builder = _get_builder(c.gmec.Comets)(objective)
+
+	for constraint in constraints:
+		builder.addConstraint(constraint)
+
+	if objectiveWindowSize is not useJavaDefault:
+		builder.setObjectiveWindowSize(objectiveWindowSize)
+	if objectiveWindowMax is not useJavaDefault:
+		builder.setObjectiveWindowMax(objectiveWindowMax)
+	if maxSimultaneousMutations is not useJavaDefault:
+		builder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+
+	if logFile is not None:
+		builder.setLogFile(jvm.toFile(logFile))
 
 	return builder.build()

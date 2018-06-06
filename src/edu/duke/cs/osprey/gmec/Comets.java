@@ -32,7 +32,10 @@ import static edu.duke.cs.osprey.tools.Log.formatBig;
 public class Comets {
 
 	/**
-	 * e.g., an unbound state, or a complex state
+	 * A state for a multi-state design
+	 * (e.g., an unbound state, or a complex state)
+	 *
+	 * For COMETS, all states must share the same sequence space.
 	 */
 	public static class State {
 
@@ -44,7 +47,10 @@ public class Comets {
 		}
 
 
+		/** A name for the state */
 		public final String name;
+
+		/** The conformation space for the state that describes the flexibility */
 		public final SimpleConfSpace confSpace;
 
 		public FragmentEnergies fragmentEnergies;
@@ -96,7 +102,10 @@ public class Comets {
 		}
 	}
 
-	/** linear multi-state energy */
+	/**
+	 * A Linear Multi-state Energy
+	 * (i.e., a weighted combination of state energies)
+	 */
 	public static class LME {
 
 		public static class Builder {
@@ -109,6 +118,10 @@ public class Comets {
 				return this;
 			}
 
+			/**
+			 * Specify an upper bound constraint for this LME
+			 * (i.e. set the offset to -val, since the constraint is satisfied iff the LME is < 0)
+			 */
 			public Builder constrainLessThan(double val) {
 				return setOffset(-val);
 			}
@@ -479,8 +492,8 @@ public class Comets {
 		 * amount of time in some edge cases. If the constraints restrict the sequence
 		 * space to fewer than the desired number of best sequences, without an energy window,
 		 * COMETS would enumerate every sequence while trying to find the desired number of
-		 * sequences. This would effectively make COMETS linear in the number of possible
-		 * sequences, which could be very slow.
+		 * sequences. This would effectively make COMETS run in time that is linear in the
+		 * number of possible sequences, which could be very slow.
 		 *
 		 * The window size effectively adds an additional constraint that the difference between
 		 * the objective function value and the objective function value of the best sequence
@@ -499,6 +512,7 @@ public class Comets {
 
 		private boolean printToConsole = true;
 
+		/** File to which to log sequences as they are found */
 		private File logFile = null;
 
 		public Builder(LME objective) {
