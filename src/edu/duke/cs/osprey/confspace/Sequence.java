@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.seq.RTs;
+import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.Streams;
 import org.apache.commons.lang3.StringUtils;
 
@@ -389,7 +390,10 @@ public class Sequence {
 
 	@Override
 	public int hashCode() {
-		return Arrays.hashCode(rtIndices);
+		return HashCalculator.combineHashes(
+			seqSpace.hashCode(),
+			Arrays.hashCode(rtIndices)
+		);
 	}
 
 	@Override
@@ -398,7 +402,8 @@ public class Sequence {
 	}
 
 	public boolean equals(Sequence other) {
-		return Arrays.equals(this.rtIndices, other.rtIndices);
+		return this.seqSpace == other.seqSpace
+			&& Arrays.equals(this.rtIndices, other.rtIndices);
 	}
 
 	public static enum Renderer {
@@ -429,11 +434,7 @@ public class Sequence {
 		ResTypeMutations {
 			@Override
 			public String render(Sequence.Assignment assignment) {
-				if (assignment.isMutated()) {
-					return assignment.getResType().name.toUpperCase();
-				} else {
-					return assignment.getResType().name.toLowerCase();
-				}
+				return assignment.getResType().mutationName();
 			}
 		},
 
@@ -495,9 +496,14 @@ public class Sequence {
 		);
 	}
 
-	public int getMaxResNumLength() {
-		return resNums().stream()
-			.map(resNum -> resNum.length())
+	public int calcCellSize() {
+		return seqSpace.positions.stream()
+			.map(pos ->
+				Math.max(
+					pos.resNum.length(),
+					pos.resTypes.get(rtIndices[pos.index]).name.length()
+				)
+			)
 			.max(Integer::compare)
 			.orElse(1);
 	}

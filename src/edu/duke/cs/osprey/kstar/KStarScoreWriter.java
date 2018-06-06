@@ -176,7 +176,7 @@ public interface KStarScoreWriter {
 				return String.format("sequence %4d/%4d   %s   K*(log10): %-34s   protein: %-18s   ligand: %-18s   complex: %-18s",
 					info.sequenceNumber + 1,
 					info.numSequences,
-					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.getMaxResNumLength() + 1),
+					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.calcCellSize() + 1),
 					info.kstarScore.toString(),
 					info.kstarScore.protein,
 					info.kstarScore.ligand,
@@ -215,7 +215,7 @@ public interface KStarScoreWriter {
 			public String format(ScoreInfo info) {
 				return String.join("\t",
 					Integer.toString(info.sequenceNumber),
-					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.getMaxResNumLength() + 1),
+					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.calcCellSize() + 1),
 					info.kstarScore.scoreLog10String(),
 					info.kstarScore.lowerBoundLog10String(),
 					info.kstarScore.upperBoundLog10String(),

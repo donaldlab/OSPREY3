@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.gmec;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -11,8 +10,6 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -44,8 +41,8 @@ public class CometsLab {
 			.build();
 		protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType, "GLU").addWildTypeRotamers().setContinuous();
-		//protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType, "ASP").addWildTypeRotamers().setContinuous();
-		//protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType, "SER", "ASN", "GLN").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType, "ASP").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType, "SER", "ASN", "GLN").addWildTypeRotamers().setContinuous();
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
@@ -84,6 +81,7 @@ public class CometsLab {
 			.build();
 		Comets comets = new Comets.Builder(objective)
 			//.addConstraint(constraint)
+			.setLogFile(new File("comets.sequences.tsv"))
 			.build();
 
 		// make the ecalc from all the conf spaces
@@ -105,18 +103,13 @@ public class CometsLab {
 
 				// calc the energy matrix
 				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(state.confEcalc)
-					.setCacheFile(new File(String.format("emat.%s.dat", state.name)))
+					//.setCacheFile(new File(String.format("emat.%s.dat", state.name)))
 					.build()
 					.calcEnergyMatrix();
 				state.fragmentEnergies = emat;
 
-				// do DEE
-				PruningMatrix pmat = new SimpleDEE.Runner()
-					.setCacheFile(new File(String.format("pmat.%s.dat", state.name)))
-					.run(state.confSpace, emat);
-
 				// make the conf tree factory
-				state.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(emat, new RCs(rcs, pmat))
+				state.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(emat, rcs)
 					.setTraditional()
 					.build();
 			}

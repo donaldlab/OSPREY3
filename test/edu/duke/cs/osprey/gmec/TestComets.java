@@ -262,6 +262,7 @@ public class TestComets {
 			assertSequence(comets, sequences, "ASP", -15.11711536, new double [] {  });
 			assertSequence(comets, sequences, "GLU", -13.56001913, new double [] {  });
 			assertThat(sequences.size(), is(2));
+			checkSequencesOrder(sequences);
 		});
 	}
 
@@ -284,6 +285,7 @@ public class TestComets {
 			assertSequence(comets, sequences, "ALA ASP GLU THR", -57.74755836, new double [] {  });
 			assertSequence(comets, sequences, "TYR ASP GLU THR", -57.35573519, new double [] {  });
 			assertThat(sequences.size(), is(11));
+			checkSequencesOrder(sequences);
 		});
 	}
 
@@ -305,6 +307,14 @@ public class TestComets {
 		for (int i=0; i<comets.constraints.size(); i++) {
 			Comets.LME constraint = comets.constraints.get(i);
 			assertThat(info.constraints.get(constraint), isAbsolutely(constraints[i], epsilon));
+		}
+	}
+
+	public static void checkSequencesOrder(List<Comets.SequenceInfo> sequences) {
+
+		// they should be weakly increasing by objective value
+		for (int i=1; i<sequences.size(); i++) {
+			assertThat(sequences.get(i - 1).objective, lessThanOrEqualTo(sequences.get(i).objective));
 		}
 	}
 }

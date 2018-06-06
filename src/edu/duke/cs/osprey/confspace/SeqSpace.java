@@ -148,6 +148,25 @@ public class SeqSpace {
 		public int compareTo(ResType other) {
 			return this.index - other.index;
 		}
+
+		public boolean isWildType() {
+			return pos.wildType == this;
+		}
+
+		public boolean isMutation() {
+			return pos.wildType != this;
+		}
+
+		/**
+		 * Returns the residue type name in lower case if wild-type, upper case if mutation.
+		 */
+		public String mutationName() {
+			if (isWildType()) {
+				return name.toLowerCase();
+			} else {
+				return name.toUpperCase();
+			}
+		}
 	}
 
 	public final List<Position> positions;

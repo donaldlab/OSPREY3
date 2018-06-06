@@ -12,17 +12,17 @@ import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.tools.MathTools;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.formatBig;
-import static edu.duke.cs.osprey.tools.Log.log;
 
 
 // TODO: confDB
-// TODO: sequence logging
-// TODO: progress info?
 
 /**
  * Implementation of the COMETS multi-state algorithm to predict protein sequence mutations that improve binding affinity.
@@ -450,11 +450,32 @@ public class Comets {
 		private final LME objective;
 		private final List<LME> constraints = new ArrayList<>();
 
+		/**
+		 * The energy window is actually necessary for COMETS to finish in a reasonable
+		 * amount of time in some edge cases. If the constraints restrict the sequence
+		 * space to fewer than the desired number of best sequences, without an energy window,
+		 * COMETS would enumerate every sequence while trying to find the desired number of
+		 * sequences. This would effectively make COMETS linear in the number of possible
+		 * sequences, which could be very slow.
+		 *
+		 * The window size effectively adds an additional constraint that the difference between
+		 * the objective function value and the objective function value of the best sequence
+		 * must be below this value.
+		 */
 		private double objectiveWindowSize = 10.0;
+
+		/**
+		 * The window max effectively adds an additional constraint that the objective function value
+		 * must be below this value.
+		 */
 		private double objectiveWindowMax = 0.0;
 
 		/** The maximum number of simultaneous residue mutations to consider for each sequence mutant */
 		private int maxSimultaneousMutations = 1;
+
+		private boolean printToConsole = true;
+
+		private File logFile = null;
 
 		public Builder(LME objective) {
 			this.objective = objective;
@@ -465,20 +486,13 @@ public class Comets {
 			return this;
 		}
 
-		/**
-		 * The energy window is actually necessary for COMETS to finish in a reasonable
-		 * amount of time in some edge cases. If the constraints restrict the sequence
-		 * space to fewer than the desired number of best sequences, without an energy window,
-		 * COMETS would enumerate every sequence while trying to find the desired number of
-		 * sequences. This would effectively make COMETS linear in the number of possible
-		 * sequences, which could be very slow.
-		 *
-		 * @param size limits the window relative to the objective value of the best sequence
-		 * @param max absolute limit on the value of the objective function
-		 */
-		public Builder setObjectiveWindow(double size, double max) {
-			objectiveWindowSize = size;
-			objectiveWindowMax = max;
+		public Builder setObjectiveWindowSize(double val) {
+			objectiveWindowSize = val;
+			return this;
+		}
+
+		public Builder setObjectiveWindowMax(double val) {
+			objectiveWindowMax = val;
 			return this;
 		}
 
@@ -487,8 +501,18 @@ public class Comets {
 			return this;
 		}
 
+		public Builder setPrintToConsole(boolean val) {
+			printToConsole = val;
+			return this;
+		}
+
+		public Builder setLogFile(File val) {
+			logFile = val;
+			return this;
+		}
+
 		public Comets build() {
-			return new Comets(objective, constraints, objectiveWindowSize, objectiveWindowMax, maxSimultaneousMutations);
+			return new Comets(objective, constraints, objectiveWindowSize, objectiveWindowMax, maxSimultaneousMutations, printToConsole, logFile);
 		}
 	}
 
@@ -498,17 +522,21 @@ public class Comets {
 	public final double objectiveWindowSize;
 	public final double objectiveWindowMax;
 	public final int maxSimultaneousMutations;
+	public final boolean printToConsole;
+	public final File logFile;
 
 	public final List<State> states;
 	public final SeqSpace seqSpace;
 
-	private Comets(LME objective, List<LME> constraints, double objectiveWindowSize, double objectiveWindowMax, int maxSimultaneousMutations) {
+	private Comets(LME objective, List<LME> constraints, double objectiveWindowSize, double objectiveWindowMax, int maxSimultaneousMutations, boolean printToConsole, File logFile) {
 
 		this.objective = objective;
 		this.constraints = constraints;
 		this.objectiveWindowSize = objectiveWindowSize;
 		this.objectiveWindowMax = objectiveWindowMax;
 		this.maxSimultaneousMutations = maxSimultaneousMutations;
+		this.printToConsole = printToConsole;
+		this.logFile = logFile;
 
 		// collect all the states from the objective,constraints
 		Set<State> statesSet = new LinkedHashSet<>();
@@ -563,6 +591,16 @@ public class Comets {
 
 		List<SequenceInfo> infos = new ArrayList<>();
 
+		log("\nCOMETS searching for the %d best sequences among %s ...",
+			numSequences,
+			formatBig(new RTs(seqSpace).getNumSequences())
+		);
+		log("(up to objective function value %.6f kcal/mol, or +%.6f kcal/mol relative to the best sequence)",
+			objectiveWindowMax,
+			objectiveWindowSize
+		);
+		log("");
+
 		while (true) {
 
 			// get the next sequence from the tree
@@ -573,13 +611,18 @@ public class Comets {
 
 			// did we exhaust the sequences in the window?
 			if (node.getScore() > objectiveWindowMax || (!infos.isEmpty() && node.getScore() > infos.get(0).objective + objectiveWindowSize)) {
-				log("COMETS exiting early: exhausted all conformations in energy window");
+				log("\nCOMETS exiting early: exhausted all conformations in energy window");
 				break;
 			}
 
 			// how are the conf trees here looking?
 			SeqConfs confs = (SeqConfs)node.getData();
 			if (confs == null) {
+
+				log("Estimated sequence: %s   objective lower bound: %12.6f",
+					makeSequence(node),
+					node.getScore()
+				);
 
 				// don't have them yet, make them
 				confs = new SeqConfs(node);
@@ -590,7 +633,9 @@ public class Comets {
 			if (confs.hasAllGMECs()) {
 
 				// calc all the LMEs and output the sequence
-				infos.add(new SequenceInfo(makeSequence(node), confs));
+				SequenceInfo info = new SequenceInfo(makeSequence(node), confs);
+				infos.add(info);
+				reportSequence(infos.size() == 1, info);
 
 				// stop COMETS if we hit the desired number of sequences
 				if (infos.size() >= numSequences) {
@@ -612,6 +657,7 @@ public class Comets {
 			}
 		}
 
+		log("");
 		if (infos.isEmpty()) {
 			log("COMETS didn't find any sequences within the window that satisfy all the constraints.");
 		} else {
@@ -619,6 +665,103 @@ public class Comets {
 		}
 
 		return infos;
+	}
+
+	private void log(String msg, Object ... args) {
+		if (printToConsole) {
+			edu.duke.cs.osprey.tools.Log.log(msg, args);
+		}
+	}
+
+	private void reportSequence(boolean isFirstSequence, SequenceInfo info) {
+
+		if (printToConsole) {
+			int cellSize = info.sequence.calcCellSize();
+			log("\nFully calculated sequence: %s    objective: %12.6f   %s\n                           %s",
+				info.sequence.toString(Sequence.Renderer.ResNum, cellSize),
+				info.objective,
+				info.sequence.isWildType() ? "Wild-type" : "",
+				info.sequence.toString(Sequence.Renderer.ResTypeMutations, cellSize)
+			);
+			for (State state : states) {
+				log("\tState: %-20s    GMEC Energy: %12.6f",
+					state.name,
+					info.GMECs.get(state).getEnergy()
+				);
+			}
+		}
+
+		if (logFile != null) {
+
+			// build the log record in TSV format
+
+			// make the header if needed
+			StringBuilder header = null;
+			if (isFirstSequence) {
+				header = new StringBuilder();
+				for (SeqSpace.Position pos : seqSpace.positions) {
+					if (pos.index > 0) {
+						header.append("\t");
+					}
+					header.append(pos.resNum);
+				}
+				header.append("\tObjective");
+				for (int i=0; i<constraints.size(); i++) {
+					header.append("\tConstraint ");
+					header.append(i);
+				}
+				for (State state : states) {
+					header.append("\t");
+					header.append(state.name);
+					header.append(" GMEC Energy\t");
+					header.append(state.name);
+					header.append(" GMEC Conf");
+				}
+			}
+
+			// make the sequence entry
+			StringBuilder buf = new StringBuilder();
+			for (SeqSpace.Position pos : seqSpace.positions) {
+				if (pos.index > 0) {
+					buf.append("\t");
+				}
+				buf.append(info.sequence.get(pos).mutationName());
+			}
+			buf.append("\t");
+			buf.append(String.format("%.6f", info.objective));
+			for (int i=0; i<constraints.size(); i++) {
+				buf.append("\t");
+				buf.append(String.format("%.6f", info.constraints.get(constraints.get(i))));
+			}
+			for (State state : states) {
+				ConfSearch.EnergiedConf gmec = info.GMECs.get(state);
+				buf.append("\t");
+				buf.append(String.format("%.6f", gmec.getEnergy()));
+				buf.append("\t");
+				buf.append(Conf.toString(gmec.getAssignments()));
+			}
+
+			// write to the log file, but don't keep the file open
+			try (FileWriter out = new FileWriter(logFile, !isFirstSequence)) {
+
+				if (header != null) {
+					out.write(header.toString());
+					out.write("\n");
+				}
+				out.write(buf.toString());
+				out.write("\n");
+
+			} catch (IOException ex) {
+
+				// don't take down the whole job if we can't log the sequence for some reason
+				// just report the error, and dump info to the console
+				ex.printStackTrace(System.err);
+				if (header != null) {
+					System.err.println(header);
+				}
+				System.err.println(buf);
+			}
+		}
 	}
 
 	// for debugging

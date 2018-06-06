@@ -216,6 +216,6 @@ public class TestSequence {
 		assertThat(s.toString(Sequence.Renderer.ResNum), is("A7 A42"));
 		assertThat(s.toString(Sequence.Renderer.ResNum, 5), is("A7    A42  "));
 
-		assertThat(s.getMaxResNumLength(), is(3));
+		assertThat(s.calcCellSize(), is(3));
 	}
 }
