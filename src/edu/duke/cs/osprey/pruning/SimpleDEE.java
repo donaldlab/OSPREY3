@@ -189,6 +189,11 @@ public class SimpleDEE {
 
 		public Runner setTypeDependent(boolean val) {
 			typeDependent = val;
+
+			// turn off threshold pruning since it's incompatible with type dependence
+			singlesThreshold = null;
+			pairsThreshold = null;
+
 			return this;
 		}
 
@@ -246,6 +251,12 @@ public class SimpleDEE {
 
 			// 1. threshold pruning
 			if (singlesThreshold != null || pairsThreshold != null) {
+
+				// can't use with type-dependent pruning
+				if (typeDependent) {
+					throw new IllegalArgumentException("threshold pruning can't be used with type dependence");
+				}
+
 				SimpleDEE dee = new SimpleDEE(confSpace, emat, pmat);
 				if (singlesThreshold != null) {
 					dee.pruneSinglesByThreshold(singlesThreshold);

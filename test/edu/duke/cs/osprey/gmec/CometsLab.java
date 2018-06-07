@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.gmec;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -9,7 +10,10 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.lute.*;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -39,10 +43,10 @@ public class CometsLab {
 			.setTemplateLibrary(templateLib)
 			.setResidues("G648", "G654")
 			.build();
-		protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+		//protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType, "GLU").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType, "ASP").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType, "SER", "ASN", "GLN").addWildTypeRotamers().setContinuous();
+		//protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType, "ASP").addWildTypeRotamers().setContinuous();
+		//protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType, "SER", "ASN", "GLN").addWildTypeRotamers().setContinuous();
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
@@ -108,9 +112,45 @@ public class CometsLab {
 					.calcEnergyMatrix();
 				state.fragmentEnergies = emat;
 
+				// run DEE (super important for good LUTE fits!!)
+				PruningMatrix pmat = new SimpleDEE.Runner()
+					.setGoldsteinDiffThreshold(10.0)
+					.setTypeDependent(true)
+					.setShowProgress(true)
+					//.setCacheFile(new File(String.format("comets.%s.pmat.dat", state.name)))
+					.setParallelism(Parallelism.makeCpu(8))
+					.run(state.confSpace, emat);
+
+				final File luteFile = new File(String.format("comets.LUTE.%s.dat", state.name));
+				if (!luteFile.exists()) {
+
+					final File confDBFile = new File(String.format("comets.%s.conf.db", state.name));
+					try (ConfDB confdb = new ConfDB(state.confSpace, confDBFile)) {
+						ConfDB.ConfTable confTable = confdb.new ConfTable("COMETS");
+
+						log("\nLUTE for state %s:\n", state.name);
+
+						final int randomSeed = 12345;
+						final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
+						final double maxOverfittingScore = 1.5;
+						final double maxRMSE = 0.1;
+
+						// compute LUTE fit
+						LUTE lute = new LUTE(state.confSpace);
+						ConfSampler sampler = new UniformConfSampler(state.confSpace, pmat, randomSeed);
+						lute.sampleTuplesAndFit(state.confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
+						lute.reportConfSpaceSize(pmat);
+						lute.save(luteFile);
+					}
+				}
+				LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(state.confSpace, LUTEIO.read(luteFile));
+				state.fragmentEnergies = luteEcalc;
+				state.confEcalc = luteEcalc;
+
 				// make the conf tree factory
 				state.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(emat, rcs)
-					.setTraditional()
+					.setLUTE(luteEcalc)
+					//.setTraditional()
 					.build();
 
 				// use ConfDBs

@@ -36,12 +36,14 @@ public class TestComets {
 	private static ForcefieldParams ffparams;
 	private static Comets cometsTiny2RL0;
 	private static Comets cometsSmall2RL0;
+	private static Comets cometsPPI2RL0;
 
 	@BeforeClass
 	public static void beforeClass() {
 		ffparams = new ForcefieldParams();
 		cometsTiny2RL0 = make2RL0Tiny();
 		cometsSmall2RL0 = make2RL0Small();
+		cometsPPI2RL0 = make2RL0PPI();
 	}
 
 	private static Comets make2RL0Tiny() {
@@ -146,6 +148,63 @@ public class TestComets {
 		return comets;
 	}
 
+	private static Comets make2RL0PPI() {
+
+		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld).build();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("G648", "G654")
+			.build();
+		protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType, "GLU").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType, "ASP").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType, "SER", "ASN", "GLN").addWildTypeRotamers().setContinuous();
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("A155", "A194")
+			.build();
+		ligand.flexibility.get("A156").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A172").setLibraryRotamers(Strand.WildType, "ASP", "GLU").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "TYR").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A193").setLibraryRotamers(Strand.WildType, "SER", "ASN").addWildTypeRotamers().setContinuous();
+
+		// make the COMETS states
+		Comets.State unbound = new Comets.State(
+			"Unbound",
+			new SimpleConfSpace.Builder()
+				.addStrand(protein)
+				.build()
+		);
+
+		Comets.State bound = new Comets.State(
+			"Bound",
+			new SimpleConfSpace.Builder()
+				.addStrand(protein)
+				.addStrand(ligand)
+				.build()
+		);
+
+		// configure COMETS
+		Comets.LME objective = new Comets.LME.Builder()
+			.addState(bound, 1.0)
+			.addState(unbound, -1.0)
+			.build();
+		Comets comets = new Comets.Builder(objective)
+			.setMaxSimultaneousMutations(1)
+			.setObjectiveWindowMax(2000) // need a big window to get all the sequences
+			.setObjectiveWindowSize(10000)
+			.build();
+
+		initStates(comets.states);
+
+		return comets;
+	}
+
 	private static void initStates(List<Comets.State> states) {
 
 		// make the ecalc from all the conf spaces
@@ -172,8 +231,9 @@ public class TestComets {
 					.calcEnergyMatrix();
 				state.fragmentEnergies = emat;
 
-				// do DEE
 				PruningMatrix pmat = new SimpleDEE.Runner()
+					.setTypeDependent(true)
+					.setGoldsteinDiffThreshold(10.0)
 					.run(state.confSpace, emat);
 
 				// make the conf tree factory
@@ -207,8 +267,9 @@ public class TestComets {
 
 		beforeClass();
 
-		bruteForce("2RL0 Tiny", cometsTiny2RL0);
-		bruteForce("2RL0 Small", cometsSmall2RL0);
+		//bruteForce("2RL0 Tiny", cometsTiny2RL0);
+		//bruteForce("2RL0 Small", cometsSmall2RL0);
+		bruteForce("2RL0 PPI", cometsPPI2RL0);
 	}
 
 	public static void bruteForce(String name, Comets comets) {
@@ -229,7 +290,10 @@ public class TestComets {
 				for (Comets.State state : comets.states) {
 
 					// do a GMEC search
-					ConfAStarTree astar = state.confTreeFactory.apply(sequence.makeRCs(state.confSpace));
+					RCs rcs = sequence
+						.filter(state.confSpace.seqSpace)
+						.makeRCs(state.confSpace);
+					ConfAStarTree astar = state.confTreeFactory.apply(rcs);
 					ConfSearch.EnergiedConf gmec = new SimpleGMECFinder.Builder(astar, state.confEcalc)
 						.setPrintToConsole(false)
 						.build()
@@ -285,6 +349,42 @@ public class TestComets {
 			assertSequence(comets, sequences, "ALA ASP GLU THR", -57.74755836, new double [] {  });
 			assertSequence(comets, sequences, "TYR ASP GLU THR", -57.35573519, new double [] {  });
 			assertThat(sequences.size(), is(11));
+			checkSequencesOrder(sequences);
+		});
+	}
+
+	@Test
+	public void ppi2RL0() {
+
+		Comets comets = cometsPPI2RL0;
+
+		prepStates(comets, () -> {
+			List<Comets.SequenceInfo> sequences = comets.findBestSequences(24);
+			assertSequence(comets, sequences, "PHE ASP GLU THR PHE LYS ILE THR", -62.76135586, new double [] {  });
+			assertSequence(comets, sequences, "TYR ASP GLU THR PHE LYS ILE THR", -57.35573519, new double [] {  });
+			assertSequence(comets, sequences, "ALA ASP GLU THR PHE LYS ILE THR", -57.74755836, new double [] {  });
+			assertSequence(comets, sequences, "VAL ASP GLU THR PHE LYS ILE THR", -58.87767034, new double [] {  });
+			assertSequence(comets, sequences, "ILE ASP GLU THR PHE LYS ILE THR", -58.93722356, new double [] {  });
+			assertSequence(comets, sequences, "LEU ASP GLU THR PHE LYS ILE THR", -58.53375350, new double [] {  });
+			assertSequence(comets, sequences, "PHE GLU GLU THR PHE LYS ILE THR", -61.11651357, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP ASP THR PHE LYS ILE THR", -60.41594521, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU SER PHE LYS ILE THR", -63.70306141, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU ASN PHE LYS ILE THR", -63.91337074, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU GLN PHE LYS ILE THR", -64.51492231, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR TYR LYS ILE THR", -62.35990315, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR ALA LYS ILE THR", -58.55409116, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR VAL LYS ILE THR", -61.18841895, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR ILE LYS ILE THR", -62.45662407, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR LEU LYS ILE THR", -58.06841434, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR PHE ASP ILE THR", -43.31822569, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR PHE GLU ILE THR", -42.28743004, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR PHE LYS ALA THR", -56.26178013, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR PHE LYS VAL THR", -59.16576214, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR PHE LYS LEU THR", -5.30989568, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR PHE LYS TYR THR", 1733.69997029, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR PHE LYS ILE SER", -62.28347340, new double [] {  });
+			assertSequence(comets, sequences, "PHE ASP GLU THR PHE LYS ILE ASN", -60.68742687, new double [] {  });
+			assertThat(sequences.size(), is(24));
 			checkSequencesOrder(sequences);
 		});
 	}

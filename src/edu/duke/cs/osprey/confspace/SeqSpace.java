@@ -15,32 +15,80 @@ public class SeqSpace implements Serializable {
 	private static final long serialVersionUID = -7309869148482636562L;
 
 	/**
-	 * Return the unique sequence space common to all conformation spaces,
-	 * or throw an exception.
+	 * Combine multiple sequence spaces into a single sequence space
+	 *
+	 * If any position appears in multiple spaces, it must have the same residue types in all spaces
 	 */
-	public static SeqSpace reduce(List<SimpleConfSpace> confSpaces) {
-		return confSpaces.stream()
-			.map(confSpace -> confSpace.seqSpace)
-			.reduce((a, b) -> {
-				if (!a.equals(b)) {
-					throw new IllegalArgumentException(String.format(
-						"conf spaces have different sequence spaces:\n%s\n%s",
-						a, b
-					));
-				}
-				return a;
-			})
+	public static SeqSpace union(List<SeqSpace> seqSpaces) {
+		return seqSpaces.stream()
+			.reduce((a, b) -> union(a, b))
 			.orElseThrow(() -> new IllegalArgumentException("conf spaces list is empty"));
 	}
 
 	/**
-	 * Return the sequence space from the conformation space with the greatest number of mutable positions
+	 * Combine multiple sequence spaces into a single sequence space
+	 *
+	 * If any residue appears in multiple spaces, it must have the same wild type and residue types in all spaces
 	 */
-	public static SeqSpace max(List<SimpleConfSpace> confSpaces) {
-		return confSpaces.stream()
-			.map(confSpace -> confSpace.seqSpace)
-			.max(Comparator.comparing(seqSpace -> seqSpace.positions.size()))
-			.orElseThrow(() -> new IllegalArgumentException("conf spaces list is empty"));
+	public static SeqSpace union(SeqSpace a, SeqSpace b) {
+
+		SeqSpace u = new SeqSpace();
+
+		// add all positions from a
+		for (Position apos : a.positions) {
+			u.makePos(
+				apos.resNum,
+				apos.wildType.name,
+				apos.resTypes.stream()
+					.map(resType -> resType.name)
+					.collect(Collectors.toList())
+			);
+		}
+
+		// add unique positions from b
+		for (Position bpos : b.positions) {
+
+			// if a position already exists at this residue, make sure it's the same sequence space
+			Position upos = u.getPosition(bpos.resNum);
+			if (upos != null) {
+
+				// check the wild type
+				if (!bpos.wildType.name.equals(upos.wildType.name)) {
+					throw new IllegalArgumentException(String.format(
+						"the two positions at residue %s have different wild types: %s != %s",
+						upos.resNum, upos.wildType.name, bpos.wildType.name
+					));
+				}
+
+				// check the res types
+				Set<String> utypes = bpos.resTypes.stream()
+					.map(resType -> resType.name)
+					.collect(Collectors.toSet());
+				Set<String> btypes = bpos.resTypes.stream()
+					.map(resType -> resType.name)
+					.collect(Collectors.toSet());
+				if (!utypes.equals(btypes)) {
+					throw new IllegalArgumentException(String.format(
+						"the two positions at residue %s have different residue types: %s != %s",
+						upos.resNum, utypes, btypes
+					));
+				}
+
+				// the positions match, no need to add a new pos to u
+				continue;
+			}
+
+			// all is well, add the pos
+			u.makePos(
+				bpos.resNum,
+				bpos.wildType.name,
+				bpos.resTypes.stream()
+					.map(resType -> resType.name)
+					.collect(Collectors.toList())
+			);
+		}
+
+		return u;
 	}
 
 	public class Position implements Comparable<Position>, Serializable {
@@ -176,28 +224,24 @@ public class SeqSpace implements Serializable {
 		}
 	}
 
-	public final List<Position> positions;
+	public final List<Position> positions = new ArrayList<>();
 
-	private final Map<String,Position> positionsByResNum;
+	private final Map<String,Position> positionsByResNum = new HashMap<>();
 
 	public SeqSpace(SimpleConfSpace confSpace) {
-
-		// make the positions
-		positions = new ArrayList<>(confSpace.mutablePositions.size());
 		for (SimpleConfSpace.Position pos : confSpace.mutablePositions) {
-			positions.add(new Position(
-				positions.size(),
-				pos.resNum,
-				pos.resFlex.wildType,
-				pos.resTypes
-			));
+			makePos(pos.resNum, pos.resFlex.wildType, pos.resTypes);
 		}
+	}
 
-		// index by res num
-		positionsByResNum = new HashMap<>();
-		for (Position pos : positions) {
-			positionsByResNum.put(pos.resNum, pos);
-		}
+	private SeqSpace() {
+		// used by union()
+	}
+
+	private void makePos(String resNum, String wildType, List<String> resTypes) {
+		Position pos = new Position(positions.size(), resNum, wildType, resTypes);
+		positions.add(pos);
+		positionsByResNum.put(resNum, pos);
 	}
 
 	public List<String> getResNums() {

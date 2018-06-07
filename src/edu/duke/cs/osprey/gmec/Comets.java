@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.astar.seq.scoring.NOPSeqAStarScorer;
 import edu.duke.cs.osprey.astar.seq.scoring.SeqAStarScorer;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -153,7 +154,7 @@ public class Comets {
 		private double calc(SeqConfs confs) {
 			double val = offset;
 			for (WeightedState wstate : states) {
-				SeqConfs.StateConfs stateConfs = confs.statesConfs.get(wstate.state);
+				StateConfs stateConfs = confs.statesConfs.get(wstate.state);
 				if (wstate.weight > 0) {
 					val += wstate.weight*stateConfs.getObjectiveLowerBound();
 				} else {
@@ -323,105 +324,156 @@ public class Comets {
 	}
 
 	/**
+	 * essentially, an iterative mini-GMEC-finder for a sequence and a state
+	 */
+	private static class StateConfs {
+
+		private static class Key {
+
+			final Sequence sequence;
+			final State state;
+
+			Key(Sequence sequence, State state) {
+				this.sequence = sequence;
+				this.state = state;
+			}
+
+			@Override
+			public int hashCode() {
+				return HashCalculator.combineHashes(
+					sequence.hashCode(),
+					state.hashCode()
+				);
+			}
+
+			@Override
+			public boolean equals(Object other) {
+				return other instanceof Key && equals((Key)other);
+			}
+
+			public boolean equals(Key other) {
+				return this.sequence.equals(other.sequence)
+					&& this.state == other.state;
+			}
+		}
+
+		final State state;
+		final Sequence sequence; // filtered to the state
+
+		ConfAStarTree confTree = null;
+		ConfSearch.ScoredConf minScoreConf = null;
+		ConfSearch.EnergiedConf minEnergyConf = null;
+		ConfSearch.EnergiedConf gmec = null;
+
+		List<ConfSearch.ScoredConf> confs = new ArrayList<>();
+
+		StateConfs(Sequence sequence, State state) {
+
+			this.state = state;
+			this.sequence = sequence;
+
+			// make the conf tree
+			RCs rcs = sequence.makeRCs(state.confSpace);
+			confTree = state.confTreeFactory.apply(rcs);
+		}
+
+		void refineBounds(ConfDB.ConfTable confTable) {
+
+			// already complete? no need to do more work
+			if (gmec != null) {
+				return;
+			}
+
+			// get the next batch of confs
+			confs.clear();
+			for (int i=0; i<state.confEcalc.tasks.getParallelism(); i++) {
+
+				// get the next conf
+				ConfSearch.ScoredConf conf = confTree.nextConf();
+				if (conf == null) {
+					break;
+				}
+
+				// "refine" the lower bound
+				if (minScoreConf == null) {
+					minScoreConf = conf;
+				}
+
+				confs.add(conf);
+			}
+
+			// no more confs? nothing to do
+			if (confs.isEmpty()) {
+				return;
+			}
+
+			for (ConfSearch.ScoredConf conf : confs) {
+
+				// refine the upper bound
+				state.confEcalc.calcEnergyAsync(conf, confTable, econf -> {
+
+					// NOTE: don't need to lock here, since the main thread is waiting
+
+					if (minEnergyConf == null || econf.getEnergy() < minEnergyConf.getEnergy()) {
+						minEnergyConf = econf;
+					}
+				});
+			}
+
+			state.confEcalc.tasks.waitForFinish();
+
+			// do we know the GMEC yet?
+			ConfSearch.ScoredConf maxScoreConf = confs.get(confs.size() - 1);
+			if (maxScoreConf.getScore() >= minEnergyConf.getEnergy()) {
+				gmec = minEnergyConf;
+
+				// release the resources used by the conf tree (could be a lot of memory)
+				confTree = null;
+			}
+
+			confs.clear();
+		}
+
+		double getObjectiveLowerBound() {
+			if (gmec != null) {
+				return gmec.getEnergy();
+			}
+			return minScoreConf.getScore();
+		}
+
+		double getObjectiveUpperBound() {
+			if (gmec != null) {
+				return gmec.getEnergy();
+			}
+			return minEnergyConf.getEnergy();
+		}
+	}
+
+
+	/**
 	 * storage for conf trees at each sequence node
 	 * also tracks GMECs for each state
 	 */
 	private class SeqConfs {
 
-		private class StateConfs {
-
-			final State state;
-			final ConfAStarTree confTree;
-
-			ConfSearch.ScoredConf minScoreConf = null;
-			ConfSearch.EnergiedConf minEnergyConf = null;
-			ConfSearch.EnergiedConf gmec = null;
-
-			List<ConfSearch.ScoredConf> confs = new ArrayList<>();
-
-			StateConfs(SeqAStarNode seqNode, State state) {
-
-				this.state = state;
-
-				// make the conf tree
-				RCs rcs = seqNode.makeSequence(seqSpace).makeRCs(state.confSpace);
-				confTree = state.confTreeFactory.apply(rcs);
-			}
-
-			void refineBounds(ConfDB.ConfTable confTable) {
-
-				// already complete? no need to do more work
-				if (gmec != null) {
-					return;
-				}
-
-				// get the next batch of confs
-				confs.clear();
-				for (int i=0; i<state.confEcalc.tasks.getParallelism(); i++) {
-
-					// get the next conf
-					ConfSearch.ScoredConf conf = confTree.nextConf();
-					if (conf == null) {
-						break;
-					}
-
-					// "refine" the lower bound
-					if (minScoreConf == null) {
-						minScoreConf = conf;
-					}
-
-					confs.add(conf);
-				}
-
-				// no more confs? nothing to do
-				if (confs.isEmpty()) {
-					return;
-				}
-
-				for (ConfSearch.ScoredConf conf : confs) {
-
-					// refine the upper bound
-					state.confEcalc.calcEnergyAsync(conf, confTable, econf -> {
-
-						// NOTE: don't need to lock here, since the main thread is waiting
-
-						if (minEnergyConf == null || econf.getEnergy() < minEnergyConf.getEnergy()) {
-							minEnergyConf = econf;
-						}
-					});
-				}
-
-				state.confEcalc.tasks.waitForFinish();
-
-				// do we know the GMEC yet?
-				ConfSearch.ScoredConf maxScoreConf = confs.get(confs.size() - 1);
-				if (maxScoreConf.getScore() >= minEnergyConf.getEnergy()) {
-					gmec = minEnergyConf;
-				}
-
-				confs.clear();
-			}
-
-			double getObjectiveLowerBound() {
-				if (gmec != null) {
-					return gmec.getEnergy();
-				}
-				return minScoreConf.getScore();
-			}
-
-			double getObjectiveUpperBound() {
-				if (gmec != null) {
-					return gmec.getEnergy();
-				}
-				return minEnergyConf.getEnergy();
-			}
-		}
-
 		final Map<State,StateConfs> statesConfs = new HashMap<>();
 
 		SeqConfs(SeqAStarNode seqNode) {
+
 			for (State state : states) {
-				statesConfs.put(state, new StateConfs(seqNode, state));
+
+				Sequence sequence = seqNode.makeSequence(seqSpace)
+					.filter(state.confSpace.seqSpace);
+
+				// get state confs from the global cache if possible, otherwise make a new one
+				StateConfs.Key key = new StateConfs.Key(sequence, state);
+				StateConfs stateConfs = stateConfsCache.get(key);
+				if (stateConfs == null) {
+					stateConfs = new StateConfs(sequence, state);
+					stateConfsCache.put(key, stateConfs);
+				}
+
+				statesConfs.put(state, stateConfs);
 			}
 		}
 
@@ -469,8 +521,8 @@ public class Comets {
 		public final double objective;
 		public final Map<LME,Double> constraints = new HashMap<>();
 
-		public SequenceInfo(Sequence sequence, SeqConfs confs) {
-			this.sequence = sequence;
+		public SequenceInfo(SeqAStarNode node, SeqConfs confs) {
+			this.sequence = node.makeSequence(seqSpace);
 			for (State state : states) {
 				GMECs.put(state, confs.statesConfs.get(state).gmec);
 			}
@@ -566,6 +618,8 @@ public class Comets {
 	public final List<State> states;
 	public final SeqSpace seqSpace;
 
+	private final Map<StateConfs.Key,StateConfs> stateConfsCache = new HashMap<>();
+
 	private Comets(LME objective, List<LME> constraints, double objectiveWindowSize, double objectiveWindowMax, int maxSimultaneousMutations, boolean printToConsole, File logFile) {
 
 		this.objective = objective;
@@ -592,17 +646,13 @@ public class Comets {
 		}
 
 		// get the sequence space from the conf spaces
-		seqSpace = SeqSpace.reduce(
+		seqSpace = SeqSpace.union(
 			states.stream()
-				.map(state -> state.confSpace)
+				.map(state -> state.confSpace.seqSpace)
 				.collect(Collectors.toList())
 		);
 
 		log("sequence space has %s sequences\n%s", formatBig(new RTs(seqSpace).getNumSequences()), seqSpace);
-	}
-
-	private Sequence makeSequence(SeqAStarNode node) {
-		return node.makeSequence(seqSpace);
 	}
 
 	/**
@@ -611,6 +661,9 @@ public class Comets {
 	 * searches all sequences within the objective window
 	 */
 	public List<SequenceInfo> findBestSequences(int numSequences) {
+
+		// reset any previous state
+		stateConfsCache.clear();
 
 		// make sure all the states are fully configured
 		for (State state : states) {
@@ -661,7 +714,7 @@ public class Comets {
 				if (confs == null) {
 
 					log("Estimated sequence: %s   objective lower bound: %12.6f",
-						makeSequence(node),
+						node.makeSequence(seqSpace),
 						node.getScore()
 					);
 
@@ -674,7 +727,7 @@ public class Comets {
 				if (confs.hasAllGMECs()) {
 
 					// calc all the LMEs and output the sequence
-					SequenceInfo info = new SequenceInfo(makeSequence(node), confs);
+					SequenceInfo info = new SequenceInfo(node, confs);
 					infos.add(info);
 					reportSequence(infos.size() == 1, info);
 
@@ -810,13 +863,13 @@ public class Comets {
 	@SuppressWarnings("unused")
 	private void dump(SeqAStarNode node) {
 		SeqConfs confs = (SeqConfs)node.getData();
-		log("sequence %s", makeSequence(node));
+		log("sequence %s", node.makeSequence(seqSpace));
 		log("\tscore: %.6f   completed? %b", node.getScore(), confs.hasAllGMECs());
 		log("\tobjective: %.6f", objective.calc(confs));
 		for (LME constraint : constraints) {
 			log("\tconstraint: %.3f", constraint.calc(confs));
 		}
-		for (SeqConfs.StateConfs stateConfs : confs.statesConfs.values()) {
+		for (StateConfs stateConfs : confs.statesConfs.values()) {
 			log("\tstate %-20s GMEC bounds [%8.3f,%8.3f]    found gmec? %b",
 				stateConfs.state.name, stateConfs.minScoreConf.getScore(), stateConfs.minEnergyConf.getEnergy(), stateConfs.gmec != null
 			);
