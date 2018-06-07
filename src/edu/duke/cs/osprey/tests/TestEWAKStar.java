@@ -47,6 +47,8 @@ public class TestEWAKStar {
         );
 
 
+        int numCPUs = 4;
+        String PLmatrixName = "ewak.*";
         String mutableType = "exact"; //can be "exact", "max", or "all"
         int numMutable = 1;
         int numFilteredSeqs = 10000;
@@ -130,7 +132,6 @@ public class TestEWAKStar {
             strandP.flexibility.get(resNumsPL[p]).setLibraryRotamers(AATypeOptions.get(p)).addWildTypeRotamers().setContinuous();
         }
 
-        int numCPUs = 4;
         Parallelism parallelism = Parallelism.makeCpu(numCPUs);
 
         SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrands(strandP, strandL).build();
@@ -141,21 +142,18 @@ public class TestEWAKStar {
         EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams).setParallelism(parallelism).build();
         EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc).setIsMinimizing(false).build();
 
-        ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(confSpace, ecalc);
-        ConfEnergyCalculator.Builder confRigidECalcBuilder = new ConfEnergyCalculator.Builder(confSpace, rigidEcalc);
-
-        //use reference energies
         SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(confSpace, ecalc).build();
-        confEcalcBuilder.setReferenceEnergies(eref);
-        confRigidECalcBuilder.setReferenceEnergies(eref);
+        SimpleReferenceEnergies rigidEref = new SimpleReferenceEnergies.Builder(confSpace, rigidEcalc).build();
 
-        ConfEnergyCalculator confECalc = confEcalcBuilder.build();
-        ConfEnergyCalculator confRigidECalc = confRigidECalcBuilder.build();
+        ConfEnergyCalculator confECalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+                .setReferenceEnergies(eref)
+                .build();
+        ConfEnergyCalculator confRigidECalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+                .setReferenceEnergies(rigidEref)
+                .build();
 
-        String PLmatrixName = "ewak.*";
-        String PLematMatrixName = "ewak.PL.emat";
         EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
-                .setCacheFile(new File(PLematMatrixName))
+                .setCacheFile(new File("ewak.PL.emat"))
                 .build()
                 .calcEnergyMatrix();
 

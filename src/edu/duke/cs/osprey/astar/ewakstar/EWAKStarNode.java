@@ -23,7 +23,6 @@ public class EWAKStarNode extends FullAStarNode{
     public EWAKStarNode(EWAKStarNode en){
         //copy constructor.  COMETS-specific things are big so let's not copy them unnecessarily
         super(en);
-        pruneMat = en.pruneMat;
         stateTree = en.stateTree;
         stateUB = en.stateUB;
     }

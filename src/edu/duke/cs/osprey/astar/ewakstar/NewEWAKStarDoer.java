@@ -17,6 +17,8 @@ import edu.duke.cs.osprey.gmec.PruningSettings;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -86,8 +88,11 @@ public class NewEWAKStarDoer {
     private String PLmatrixName;
     private EnergyCalculator minimizingEcalc;
     private EnergyMatrix ematPL;
+    private PruningMatrix pmatPL;
     private EnergyMatrix ematL;
+    private PruningMatrix pmatL;
     private EnergyMatrix ematP;
+    private PruningMatrix pmatP;
     private int maxNumSeqs;
 
     private ConfEnergyCalculator confEnergyCalcL;
@@ -175,14 +180,17 @@ public class NewEWAKStarDoer {
 
         this.AATypeOptions = makeAATypeOptions(confSpace);
 
-        this.pruningSettings.typedep = true;
-
-        PrecomputedMatrices newPrecompMat = new PrecomputedMatrices(Ival, boundEw, "PL", ematPL,
-                confSpace, minimizingEcalc, confEnergyCalcPL, new EPICSettings(), new LUTESettings(),
-                pruningSettings);
+        if (PLmatrixName.indexOf('*') < 0) {
+            throw new IllegalArgumentException("energyMatrixCachePattern (which is '" + PLmatrixName + "') has no wildcard character (which is *)");
+        }
+        String pmatName = PLmatrixName.replace("*", "PL.pmat");
+        this.pmatPL = new SimpleDEE.Runner()
+                .setCacheFile(new File(pmatName))
+                .setTypeDependent(true)
+                .run(confSpace, emat);
 
         treePL = new NewEWAKStarTree(this.useExact, this.numMutable, AATypeOptions.size(), AATypeOptions, fullWtSeq,
-                confSpace, newPrecompMat, new ArrayList<>(Arrays.asList(pos)), confEnergyCalcPL);
+                confSpace, emat, pmatPL, new ArrayList<>(Arrays.asList(pos)), confEnergyCalcPL);
 
     }
 
@@ -239,7 +247,7 @@ public class NewEWAKStarDoer {
         }
         if(seqFilterOnly) {
             writeSeqsToFile(fullSeqs);
-            System.out.println("Number of sequences filtered down to "+ filteredSeqsStrings.size()+" from "+combinatorialSize);
+            System.out.println("Number of sequences filtered down to "+ filteredSeqsStrings.size()+" from "+combinatorialSize+1);
             stopEWAKStarTime = System.currentTimeMillis()-startEWAKStarTime;
             System.out.println("Total OSPREY/EWAK* time: "+(String.format("%d min, %d sec",
                     TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime),
@@ -247,7 +255,7 @@ public class NewEWAKStarDoer {
                             TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime)))));
             return fullSeqs;
         } else
-            System.out.println("Number of sequences filtered down to "+ filteredSeqsStrings.size()+" from "+combinatorialSize);
+            System.out.println("Number of sequences filtered down to "+ filteredSeqsStrings.size()+" from "+combinatorialSize+1);
             stopEWAKStarTime = System.currentTimeMillis()-startEWAKStarTime;
             System.out.println("Total OSPREY/EWAK* time: "+(String.format("%d min, %d sec",
                     TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime),
@@ -433,19 +441,21 @@ public class NewEWAKStarDoer {
         ForcefieldParams ffparams = new ForcefieldParams();
         Parallelism parallelism = Parallelism.makeCpu(numCPUs);
         EnergyCalculator ecalc = new EnergyCalculator.Builder(this.confSpaces.complex, ffparams)
-                .setParallelism(parallelism).build();
-        EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc).setIsMinimizing(false).build();
+                .setParallelism(parallelism)
+                .build();
+        EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc)
+                .setIsMinimizing(false)
+                .build();
 
-        ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(this.confSpaces.complex, ecalc);
-        ConfEnergyCalculator.Builder confRigidEcalcBuilder = new ConfEnergyCalculator.Builder(this.confSpaces.complex, rigidEcalc);
-
-        //use reference energies
         SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(this.confSpaces.complex, ecalc).build();
-        confEcalcBuilder.setReferenceEnergies(eref);
-        confRigidEcalcBuilder.setReferenceEnergies(eref);
+        SimpleReferenceEnergies rigidEref = new SimpleReferenceEnergies.Builder(this.confSpaces.complex, rigidEcalc).build();
 
-        this.confEnergyCalcPL = confEcalcBuilder.build();
-        this.confRigidEnergyCalcPL = confRigidEcalcBuilder.build();
+        this.confEnergyCalcPL = new ConfEnergyCalculator.Builder(this.confSpaces.complex, ecalc)
+                .setReferenceEnergies(eref)
+                .build();
+        this.confRigidEnergyCalcPL = new ConfEnergyCalculator.Builder(this.confSpaces.complex, rigidEcalc)
+                .setReferenceEnergies(rigidEref)
+                .build();
 
         // the pattern has a * right?
         if (PLmatrixName.indexOf('*') < 0) {
@@ -453,10 +463,16 @@ public class NewEWAKStarDoer {
         }
 
         String ematName = PLmatrixName.replace("*", "PL.emat");
+        String pmatName = PLmatrixName.replace("*", "PL.pmat");
         this.ematPL = new SimplerEnergyMatrixCalculator.Builder(this.confEnergyCalcPL)
                 .setCacheFile(new File(ematName+".updated"))
                 .build()
                 .calcEnergyMatrix();
+
+        this.pmatPL = new SimpleDEE.Runner()
+                .setCacheFile(new File(pmatName+".updated"))
+                .setTypeDependent(true)
+                .run(confSpaces.complex, ematPL);
 
     }
 
@@ -488,7 +504,7 @@ public class NewEWAKStarDoer {
 
         if (type.equals("L"))
             this.confSpaces.ligand = newConfSpace;
-        else if (type.equals("P"))
+        else
             this.confSpaces.protein = newConfSpace;
 
     }
@@ -496,7 +512,6 @@ public class NewEWAKStarDoer {
     private NewEWAKStarTreeLimitedSeqs buildUnboundTree(String type, EWAKStarLimitedSequenceTrie curTrie) {
 
         String matrixName;
-        ArrayList<String> filteredSeqs;
         ArrayList<ArrayList<String>> aaOpts;
         Sequence wt;
         SimpleConfSpace confSpace;
@@ -523,55 +538,63 @@ public class NewEWAKStarDoer {
 
         Parallelism parallelism = Parallelism.makeCpu(numCPUs);
         ForcefieldParams ffparams = new ForcefieldParams();
-        EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
-                .setParallelism(parallelism).build();
-        EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc).setIsMinimizing(false).build();
 
-        ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(confSpace, ecalc);
-        ConfEnergyCalculator.Builder confRigidEcalcBuilder = new ConfEnergyCalculator.Builder(confSpace, rigidEcalc);
+        EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
+                .setParallelism(parallelism)
+                .build();
+        EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc)
+                .setIsMinimizing(false)
+                .build();
 
         //use reference energies
         SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(confSpace, ecalc).build();
-        confEcalcBuilder.setReferenceEnergies(eref);
-        confRigidEcalcBuilder.setReferenceEnergies(eref);
+        SimpleReferenceEnergies rigidEref = new SimpleReferenceEnergies.Builder(confSpace, rigidEcalc).build();
 
-        ConfEnergyCalculator newConfECalc = confEcalcBuilder.build();
-        ConfEnergyCalculator newRigidConfECalc = confRigidEcalcBuilder.build();
-
-        if (type.equals("L")) {
-            this.confEnergyCalcL = newConfECalc;
-            this.confRigidEnergyCalcL = newRigidConfECalc;
-        } else if (type.equals("P")) {
-            this.confEnergyCalcP = newConfECalc;
-            this.confRigidEnergyCalcP = newRigidConfECalc;
-        }
         // the pattern has a * right?
         if (matrixName.indexOf('*') < 0) {
             throw new IllegalArgumentException("energyMatrixCachePattern (which is '" + matrixName + "') has no wildcard character (which is *)");
         }
 
-        String ematName = matrixName.replace("*", ".emat");
-        EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(newConfECalc)
-                .setCacheFile(new File(ematName))
-                .build()
-                .calcEnergyMatrix();
-
-        PrecomputedMatrices newPrecompMat = new PrecomputedMatrices(Ival, unboundEw, matrixName, emat,
-                confSpace, ecalc, newConfECalc, new EPICSettings(), new LUTESettings(),
-                pruningSettings);
-
         Sequence wildType = new Sequence(wt, confSpace);
-
-        if (type.equals("L")){
-            this.ematL = emat;
+        String ematName = matrixName.replace("*", ".emat");
+        String pmatName = matrixName.replace("*", ".pmat");
+        if (type.equals("L")) {
+            this.confEnergyCalcL = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+                    .setReferenceEnergies(eref)
+                    .build();
+            this.confRigidEnergyCalcL = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+                    .setReferenceEnergies(rigidEref)
+                    .build();
+            this.ematL = new SimplerEnergyMatrixCalculator.Builder(confEnergyCalcL)
+                    .setCacheFile(new File(ematName))
+                    .build()
+                    .calcEnergyMatrix();
+            this.pmatL = new SimpleDEE.Runner()
+                    .setCacheFile(new File(pmatName))
+                    .setTypeDependent(true)
+                    .run(confSpace, ematL);
             this.wtSeqL = wildType;
-        } else if (type.equals("P")) {
-            this.ematP = emat;
+            return new NewEWAKStarTreeLimitedSeqs(curTrie, confSpace.positions.size(), aaOpts, wildType, confSpace,
+                    ematL, pmatL, mutablePos, confEnergyCalcL);
+        } else {
+            this.confEnergyCalcP = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+                    .setReferenceEnergies(eref)
+                    .build();;
+            this.confRigidEnergyCalcP = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+                    .setReferenceEnergies(rigidEref)
+                    .build();
+            this.ematP = new SimplerEnergyMatrixCalculator.Builder(confEnergyCalcP)
+                    .setCacheFile(new File(ematName))
+                    .build()
+                    .calcEnergyMatrix();
+            this.pmatP = new SimpleDEE.Runner()
+                    .setCacheFile(new File(pmatName))
+                    .setTypeDependent(true)
+                    .run(confSpace, ematP);
             this.wtSeqP = wildType;
+            return new NewEWAKStarTreeLimitedSeqs(curTrie, confSpace.positions.size(), aaOpts, wildType, confSpace,
+                    ematP, pmatP, mutablePos, confEnergyCalcP);
         }
-
-        return new NewEWAKStarTreeLimitedSeqs(curTrie, confSpace.positions.size(), aaOpts, wildType, confSpace,
-                newPrecompMat, mutablePos, newConfECalc);
 
     }
 
