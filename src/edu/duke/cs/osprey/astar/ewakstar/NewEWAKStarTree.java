@@ -30,7 +30,8 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
 
     //description of each state
     private SimpleConfSpace confSpace;//their conformational spaces
-    private PrecomputedMatrices precompMats;//precomputed matrix sets describing them
+    private EnergyMatrix emat;
+    private PruningMatrix pmat;
 
 
     private ArrayList<Integer> mutablePosNums;
@@ -45,7 +46,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
 
     public NewEWAKStarTree(boolean useExact, int numMutable, int numTreeLevels, ArrayList<ArrayList<String>> AATypeOptions,
                            Sequence wtSeq, SimpleConfSpace confSpace,
-                           PrecomputedMatrices precompMats, ArrayList<Integer> mutablePosNums,
+                           EnergyMatrix emat, PruningMatrix pmat, ArrayList<Integer> mutablePosNums,
                          ConfEnergyCalculator confECalc) {
 
         this.useExact = useExact;
@@ -55,7 +56,8 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
         this.wtSeq = wtSeq;
         this.wtSeqList = Sequence.makeEWAKStar(wtSeq).split("_");
         this.confSpace = confSpace;
-        this.precompMats = precompMats;
+        this.emat = emat;
+        this.pmat = pmat;
         this.mutablePosNums = mutablePosNums;
         this.confECalc = confECalc;
 
@@ -152,11 +154,11 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
         if(RCsAvailable) {
             node.stateTree = new ConfTree<>(
                     new FullAStarNode.Factory(stateNumPos),
-                    precompMats.shouldWeUseLUTE(),
-                    precompMats.getEmat(),
+                    false,
+                    emat,
                     null,
                     null,
-                    precompMats.getLuteMat(),
+                    null,
                     node.pruneMat,
                     false,
                     new EPICSettings(),
@@ -185,9 +187,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
         int[] conf = new int[numTreeLevels];
         Arrays.fill(conf,-1);//indicates sequence not assigned
 
-        PruningMatrix pruneMats = precompMats.getPruneMat();
-
-        EWAKStarNode root = new EWAKStarNode(conf, pruneMats);
+        EWAKStarNode root = new EWAKStarNode(conf, pmat);
         root.setScore( boundLME(root) );
         return root;
     }
@@ -311,13 +311,12 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
                 double stateAAE = Double.POSITIVE_INFINITY;
 
                 PruningMatrix pruneMat = seqNode.pruneMat;
-                EnergyMatrix eMatrix = precompMats.getEmat();
 
                 ArrayList<Integer> rotList = unprunedRCsAtAA(pruneMat, i, statePosNum, curAA);
 
                 for(int rot : rotList){
 
-                    double rotE = eMatrix.getOneBody(statePosNum, rot);
+                    double rotE = emat.getOneBody(statePosNum, rot);
 
                     for(int pos2=0; pos2<stateNumPos; pos2++){//all non-mut; seq only if < this one
                         if( (!mutablePosNums.contains(pos2)) || pos2<statePosNum){
@@ -329,7 +328,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
                                 //rot2 known to be unpruned
                                 if(!pruneMat.getPairwise(statePosNum, rot, pos2, rot2)){
 
-                                    double pairwiseE = eMatrix.getPairwise(statePosNum, rot, pos2, rot2);
+                                    double pairwiseE = emat.getPairwise(statePosNum, rot, pos2, rot2);
                                     pairwiseE += higherOrderContrib(pruneMat, statePosNum, rot, pos2, rot2);
 
                                     bestInteraction = Math.min(bestInteraction,pairwiseE);
@@ -362,7 +361,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
 
         //now we bound the energy for the other residues for each of the states
         //(internal energy for that set of residues)
-        lowerBound += precompMats.getEmat().getConstTerm();
+        lowerBound += emat.getConstTerm();
 
         double nonMutBound = boundStateNonMutE(seqNode);
         //handle this like AAE above
@@ -382,7 +381,6 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
         //higher-order contribution for a given RC pair in a given state,
         //when scoring a partial conf
 
-        EnergyMatrix emat = precompMats.getEmat();
         HigherTupleFinder<Double> htf = emat.getHigherOrderTerms(pos1,rc1,pos2,rc2);
 
         if(htf==null)
@@ -513,7 +511,6 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
         double ans = 0;
 
         PruningMatrix pruneMat = seqNode.pruneMat;
-        EnergyMatrix eMatrix = precompMats.getEmat();
 
         for(int pos=0; pos<stateNumPos; pos++){
             if((!mutablePosNums.contains(pos))){
@@ -527,7 +524,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
                     //make sure rot isn't pruned
                     if(!pruneMat.getOneBody(pos, rot)){
 
-                        double rotE = eMatrix.getOneBody(pos, rot);
+                        double rotE = emat.getOneBody(pos, rot);
 
                         for(int pos2=0; pos2<stateNumPos; pos2++){//all non-mut; seq only if < this one
                             if( (!mutablePosNums.contains(pos2)) && pos2<pos){
@@ -537,7 +534,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
 
                                 for(int rot2 : rotList2){
                                     if(!pruneMat.getPairwise(pos, rot, pos2, rot2)){
-                                        double pairwiseE = eMatrix.getPairwise(pos,rot,pos2,rot2);
+                                        double pairwiseE = emat.getPairwise(pos,rot,pos2,rot2);
 
                                         pairwiseE += higherOrderContrib(pruneMat, pos, rot, pos2, rot2);
 
@@ -602,7 +599,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
                 double bestISE = Double.POSITIVE_INFINITY;
                 int bestRC = allowedRCs.get(level).get(0);
                 for(int rc : allowedRCs.get(level) ){
-                    double ise = precompMats.getEmat().getOneBody(level, rc);
+                    double ise = emat.getOneBody(level, rc);
                     if( ise < bestISE){
                         bestISE = ise;
                         bestRC = rc;
@@ -614,7 +611,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
         }
 
 
-        double curE = precompMats.getEmat().confE(UBConf);
+        double curE = emat.confE(UBConf);
         boolean done = false;
 
         while(!done){
@@ -631,7 +628,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
                     //if(!canPrune(testConf)){//pruned conf unlikely to be good UB
                     //would only prune if using pruned pair flags in A*
 
-                    double testE = precompMats.getEmat().confE(testConf);
+                    double testE = emat.confE(testConf);
                     if( testE < curE){
                         curE = testE;
                         UBConf[level] = rc;
@@ -644,7 +641,7 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
 
 
         expNode.UBConf = UBConf;
-        expNode.UB = precompMats.getEmat().confE(UBConf);
+        expNode.UB = emat.confE(UBConf);
 
         return true;
     }
