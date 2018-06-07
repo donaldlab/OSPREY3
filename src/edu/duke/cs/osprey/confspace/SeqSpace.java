@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.tools.MathTools;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -9,7 +10,9 @@ import java.util.stream.Collectors;
 /**
  * analogous to the conf space, but just for sequences
  */
-public class SeqSpace {
+public class SeqSpace implements Serializable {
+
+	private static final long serialVersionUID = -7309869148482636562L;
 
 	/**
 	 * Return the unique sequence space common to all conformation spaces,
@@ -40,7 +43,9 @@ public class SeqSpace {
 			.orElseThrow(() -> new IllegalArgumentException("conf spaces list is empty"));
 	}
 
-	public class Position implements Comparable<Position> {
+	public class Position implements Comparable<Position>, Serializable {
+
+		private static final long serialVersionUID = -8317027786742083135L;
 
 		public final SeqSpace seqSpace = SeqSpace.this;
 
@@ -117,7 +122,9 @@ public class SeqSpace {
 		}
 	}
 
-	public class ResType implements Comparable<ResType> {
+	public class ResType implements Comparable<ResType>, Serializable {
+
+		private static final long serialVersionUID = 1628630395970846143L;
 
 		public final Position pos;
 		public final int index;

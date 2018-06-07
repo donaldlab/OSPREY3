@@ -56,7 +56,14 @@ import edu.duke.cs.osprey.parallelism.ThreadParallelism;
  * 
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
+ * Deprecated, use the new KStar class instead
+ *
+ * Also, we're not maintaining or testing this code anymore,
+ * and there's some evidence from failed tests (tests that have since been
+ * removed) that it may no longer work correctly. Continue using this code
+ * only with extreme skepticism.
  */
+@Deprecated
 public class KStarCalculator {
 
 	KSConfigFileParser cfp;

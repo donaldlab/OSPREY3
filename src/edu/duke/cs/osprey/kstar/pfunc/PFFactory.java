@@ -59,7 +59,13 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
  * 
  * Chooses the type of partition function implementation, depending upon user
  * supplied value
+ *
+ * Deprecated, use GradientDescentPfunc instead
+ *
+ * These implementations are no longer tested or regularly used, so they
+ * may no longer work correctly. Use only with extreme skepticism.
  */
+@Deprecated
 public class PFFactory {
 
 	public static PFAbstract getPartitionFunction( String implementation, int strand, 

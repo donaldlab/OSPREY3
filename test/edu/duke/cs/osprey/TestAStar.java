@@ -566,12 +566,7 @@ public class TestAStar extends TestBase {
 				.build()
 				.nextConfs(Double.POSITIVE_INFINITY);
 
-			// TEMP
-			for (int i=0; i<ascendingConfs.size(); i++) {
-				log("min %s", ascendingConfs.get(i));
-			}
-
-			// check the order
+			// make sure the sequences are in weakly ascending order
 			for (int i=1; i<ascendingConfs.size(); i++) {
 				assertThat(ascendingConfs.get(i-1).getScore(), lessThanOrEqualTo(ascendingConfs.get(i).getScore()));
 			}
@@ -582,18 +577,16 @@ public class TestAStar extends TestBase {
 				.build()
 				.nextConfs(Double.NEGATIVE_INFINITY);
 
-			// TEMP
-			for (int i=0; i<descendingConfs.size(); i++) {
-				log("max %s", descendingConfs.get(i));
-			}
-
-			// check the order
+			// make sure the sequences are in weakly descending order
 			for (int i=1; i<descendingConfs.size(); i++) {
 				assertThat(descendingConfs.get(i-1).getScore(), greaterThanOrEqualTo(descendingConfs.get(i).getScore()));
 			}
 
-			// they should match if we reverse the ascending confs
-			assertThat(descendingConfs, is(Lists.reverse(ascendingConfs)));
+			// the two lists should match if we reverse the ascending confs
+			assertThat(descendingConfs.size(), is(ascendingConfs.size()));
+			for (int i=0; i<descendingConfs.size(); i++) {
+				assertThat(descendingConfs.get(i).getScore(), isAbsolutely(ascendingConfs.get(ascendingConfs.size() - 1 - i).getScore()));
+			}
 		}
 	}
 }

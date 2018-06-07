@@ -73,6 +73,7 @@ public class TestPythonScripts {
 	@Test public void findGMECResEntropy() { runGMEC("findGMEC.resEntropy.py"); }
 	@Test public void templateLibrary() { runGMEC("templateLibrary.py"); }
 	@Test public void findGMECConfDB() { runGMEC("findGMEC.confDB.py"); }
+	@Test public void comets() { runGMEC("comets.py"); }
 
 	private void runKStar(String script) {
 		run("examples/python.KStar", script);

@@ -952,35 +952,25 @@ def LUTE_train(confEcalc, emat, pmat, maxRMSE=0.1, maxOverfittingScore=1.5, rand
 	else:
 		confDB = c.confspace.ConfDB(confSpace, jvm.toFile(confDBPath))
 
-	# what to do with the confDB when we get it
-	def withDB(confDB):
-		try:
+	try:
 
-			# make a conf table for LUTE
-			confTable = jvm.getInnerClass(c.confspace.ConfDB, 'ConfTable')(confDB, 'LUTE')
+		# make a conf table for LUTE
+		confTable = jvm.getInnerClass(c.confspace.ConfDB, 'ConfTable')(confDB, 'LUTE')
 
-			# use the OLSCG fitter for LUTE (it's a little faster than LASSO in practice)
-			fitter = jvm.getInnerClass(c.lute.LUTE, 'Fitter').OLSCG
+		# use the OLSCG fitter for LUTE (it's a little faster than LASSO in practice)
+		fitter = jvm.getInnerClass(c.lute.LUTE, 'Fitter').OLSCG
 
-			# train LUTE
-			lute = c.lute.LUTE(confSpace)
-			sampler = c.lute.UniformConfSampler(confSpace, pmat, randomSeed)
-			lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE)
-			lute.reportConfSpaceSize(pmat)
+		# train LUTE
+		lute = c.lute.LUTE(confSpace)
+		sampler = c.lute.UniformConfSampler(confSpace, pmat, randomSeed)
+		lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE)
+		lute.reportConfSpaceSize(pmat)
 
-			# return the LUTE fit
-			return c.lute.LUTEState(lute.getTrainingSystem())
+		# return the LUTE fit
+		return c.lute.LUTEState(lute.getTrainingSystem())
 
-		except:
-			# JProxy hides some of the python exception info, so report exceptions here before letting Java crash
-			print(traceback.format_exc())
-			raise
-
-	# use the conf DB, with auto-cleanup
-	return confDB.use(jpype.JProxy(
-		jvm.getInnerClass(c.confspace.ConfDB, 'UserWithReturn'),
-		dict={ 'usePassExceptions': withDB }
-	))
+	finally:
+		confDB.close()
 
 
 def LUTE_write(model, path):

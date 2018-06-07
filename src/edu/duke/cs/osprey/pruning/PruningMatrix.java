@@ -595,7 +595,7 @@ public class PruningMatrix extends TupleMatrixBoolean {
 				for (int rc1=0; rc1<getNumConfAtPos(pos1); rc1++) {
 					for (int rc2=0; rc2<getNumConfAtPos(pos2); rc2++) {
 
-						if (expandedPmat.isPairPruned(pos1, rc1, pos2, rc2)) {
+						if (getPairwise(pos1, rc1, pos2, rc2)) {
 
 							// replace this pruned pair with the pruned single that
 							// minimizes the number of extra pruned tuples
@@ -609,8 +609,8 @@ public class PruningMatrix extends TupleMatrixBoolean {
 								// already pruned, nothing to do
 							} else {
 
-								// otherwise, pick the pos with larger number of unpruned RCs
-								if (expandedPmat.countUnprunedSingles(pos1) > expandedPmat.countUnprunedSingles(pos2)) {
+								// otherwise, pick the pos with smaller number of unpruned RCs
+								if (expandedPmat.countUnprunedSingles(pos1) < expandedPmat.countUnprunedSingles(pos2)) {
 									expandedPmat.pruneSingle(pos1, rc1);
 								} else {
 									expandedPmat.pruneSingle(pos2, rc2);
@@ -622,7 +622,7 @@ public class PruningMatrix extends TupleMatrixBoolean {
 			}
 		}
 
-		// use the default permutation
+		// use the canonical permutation
 		List<Integer> posPermutation = new ArrayList<>(n);
 		for (int i=0; i<n; i++) {
 			posPermutation.add(i);
