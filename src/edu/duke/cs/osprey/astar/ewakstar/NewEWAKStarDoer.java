@@ -641,6 +641,7 @@ public class NewEWAKStarDoer {
                                 + wtEnergy+" or until "+numSeqsWanted+" sequences are enumerated.");
 
                     }
+                    System.out.println(conf.getScore()); //print score test
                     ewakstarPLConfs.put(curSeq, pfUB);
                     bestSequences.add(newSequence);
                 }
@@ -650,6 +651,7 @@ public class NewEWAKStarDoer {
                     if(conf.getScore() > wtEnergy+boundEw){
                         didEW = true;
                         if (pfUB > wtPfLB-orderOfMag) {
+                            System.out.println(conf.getScore()); //print score test
                             ewakstarPLConfs.put(curSeq, pfUB);
                             bestSequences.add(newSequence);
                         }
@@ -658,6 +660,7 @@ public class NewEWAKStarDoer {
                         break;
                     }
                     else if (pfUB > wtPfLB-orderOfMag){
+                        System.out.println(conf.getScore()); //print score test
                         ewakstarPLConfs.put(curSeq, pfUB);
                         bestSequences.add(newSequence);
                     }

@@ -31,45 +31,95 @@ public class TestEWAKStar {
     
     public static void main(String[] args) {
 
-        Integer[] pos = new Integer[]{0, 1, 2, 3, 4, 5, 6, 7};
-        Integer[] posL = new Integer[]{4, 5, 6, 7};
-        Integer[] posP = new Integer[]{0, 1, 2, 3};
+        Integer[] pos = new Integer[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+        Integer[] posL = new Integer[]{8, 9, 10, 11, 12, 13, 14, 15, 16};
+        Integer[] posP = new Integer[]{0, 1, 2, 3, 4, 5, 6, 7};
 
         ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
-                new String[]{"PHE"},
-                new String[]{"LYS"},
                 new String[]{"ILE"},
-                new String[]{"THR"},
-                new String[]{"PHE", "ALA", "VAL", "ILE", "LEU", "TYR"},
-                new String[]{"ASP"},
+                new String[]{"ILE"},
+                new String[]{"HIE"},
+                new String[]{"VAL"},
+                new String[]{"ILE"},
                 new String[]{"GLU"},
-                new String[]{"THR"}
+                new String[]{"ASP"},
+                new String[]{"TYR"},
+                new String[]{"THR","TRP","HIE","LYS","GLN","MET","ARG"},
+                new String[]{"ARG"},
+                new String[]{"THR"},
+                new String[]{"LYS", "ARG", "VAL"},
+                new String[]{"ASN","VAL","TRP","HIE","TYR","LEU","PHE","MET","GLN","LYS","ARG"},
+                new String[]{"MET"},
+                new String[]{"ALA","SER","MET","THR","HID","LYS","ARG"},
+                new String[]{"LYS","ARG","PHE","TYR"},
+                new String[]{"HIE","ARG","PHE","LYS","TYR","TRP"}
+
         );
 
 
         int numCPUs = 4;
         String PLmatrixName = "ewak.*";
-        String mutableType = "exact"; //can be "exact", "max", or "all"
-        int numMutable = 1;
-        int numFilteredSeqs = 10000;
-        double orderOfMag = 10.0;
-        double unboundEw = 30.0;
-        double boundEw = 30.0;
+        String mutableType = "all"; //can be "exact", "max", or "all"
+        int numMutable = 17;
+        int numFilteredSeqs = 100000;
+        double orderOfMag = 8.0;
+        double unboundEw = 20.0;
+        double boundEw = 20.0;
         double ewakstarEw = 1.0;
         double Ival = 0.0;
         double epsilon = 0.01;
-        int maxPFConfs = 5000;
-        int numTopSeqs = 6;
+        int maxPFConfs = 500;
+        int numTopSeqs = 1000;
         boolean seqFilterOnly = false;
-        boolean wtBenchmark = false;
-        String startResL = "G648";
-        String endResL = "G654";
-        String startResP = "A155";
-        String endResP = "A194";
-        String pdbFile = "examples/python.KStar/2RL0.min.reduce.pdb";
-        String[] resNumsPL = new String[]{"A156", "A172", "A192", "A193", "G649", "G650", "G651", "G654"};
-        String[] resNumsL = new String[]{"G649", "G650", "G651", "G654"};
-        String[] resNumsP = new String[]{"A156", "A172", "A192", "A193"};
+        boolean wtBenchmark = true;
+        String startResL = "181";
+        String endResL = "215";
+        String startResP = "1";
+        String endResP = "180";
+        String pdbFile = "examples/1GUA/1gua_adj.min.pdb";
+        String[] resNumsPL = new String[]{"21", "24", "27", "29", "36", "37", "38", "40", "182", "184", "193", "194", "196", "208", "210", "212", "213"};
+        String[] resNumsL = new String[]{"182", "184", "193", "194", "196", "208", "210", "212", "213"};
+        String[] resNumsP = new String[]{"21", "24", "27", "29", "36", "37", "38", "40"};
+
+//        Integer[] pos = new Integer[]{0, 1, 2, 3, 4, 5, 6, 7};
+//        Integer[] posL = new Integer[]{4, 5, 6, 7};
+//        Integer[] posP = new Integer[]{0, 1, 2, 3};
+//
+//        ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
+//                new String[]{"PHE"},
+//                new String[]{"LYS"},
+//                new String[]{"ILE"},
+//                new String[]{"THR"},
+//                new String[]{"PHE", "ALA", "VAL", "ILE", "LEU", "TYR"},
+//                new String[]{"ASP"},
+//                new String[]{"GLU"},
+//                new String[]{"THR"}
+//        );
+//
+//
+//        int numCPUs = 4;
+//        String PLmatrixName = "ewak.*";
+//        String mutableType = "exact"; //can be "exact", "max", or "all"
+//        int numMutable = 1;
+//        int numFilteredSeqs = 10000;
+//        double orderOfMag = 10.0;
+//        double unboundEw = 30.0;
+//        double boundEw = 30.0;
+//        double ewakstarEw = 1.0;
+//        double Ival = 0.0;
+//        double epsilon = 0.01;
+//        int maxPFConfs = 5000;
+//        int numTopSeqs = 6;
+//        boolean seqFilterOnly = false;
+//        boolean wtBenchmark = false;
+//        String startResL = "G648";
+//        String endResL = "G654";
+//        String startResP = "A155";
+//        String endResP = "A194";
+//        String pdbFile = "examples/python.KStar/2RL0.min.reduce.pdb";
+//        String[] resNumsPL = new String[]{"A156", "A172", "A192", "A193", "G649", "G650", "G651", "G654"};
+//        String[] resNumsL = new String[]{"G649", "G650", "G651", "G654"};
+//        String[] resNumsP = new String[]{"A156", "A172", "A192", "A193"};
 //
 //        Integer[] pos = new Integer[]{0, 1, 2, 3, 4, 5, 6, 7, 8};
 //        Integer[] posL = new Integer[]{3, 4, 5, 6, 7, 8};
