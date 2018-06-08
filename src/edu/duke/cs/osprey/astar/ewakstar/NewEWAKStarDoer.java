@@ -247,7 +247,7 @@ public class NewEWAKStarDoer {
         }
         if(seqFilterOnly) {
             writeSeqsToFile(fullSeqs);
-            System.out.println("Number of sequences filtered down to "+ filteredSeqsStrings.size()+" from "+combinatorialSize+1);
+            System.out.println("Number of sequences filtered down to "+ filteredSeqsStrings.size()+" from "+(combinatorialSize+1));
             stopEWAKStarTime = System.currentTimeMillis()-startEWAKStarTime;
             System.out.println("Total OSPREY/EWAK* time: "+(String.format("%d min, %d sec",
                     TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime),
@@ -255,7 +255,7 @@ public class NewEWAKStarDoer {
                             TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime)))));
             return fullSeqs;
         } else
-            System.out.println("Number of sequences filtered down to "+ filteredSeqsStrings.size()+" from "+combinatorialSize+1);
+            System.out.println("Number of sequences filtered down to "+ filteredSeqsStrings.size()+" from "+(combinatorialSize+1));
             stopEWAKStarTime = System.currentTimeMillis()-startEWAKStarTime;
             System.out.println("Total OSPREY/EWAK* time: "+(String.format("%d min, %d sec",
                     TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime),
