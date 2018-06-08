@@ -144,6 +144,27 @@ public interface PartitionFunction {
 				.add(pstar)
 				.get();
 		}
+
+		public double calcFreeEnergyLowerBound() {
+			return new BoltzmannCalculator(PartitionFunction.decimalPrecision).freeEnergy(calcUpperBound());
+		}
+
+		public double calcFreeEnergyUpperBound() {
+			return new BoltzmannCalculator(PartitionFunction.decimalPrecision).freeEnergy(calcLowerBound());
+		}
+
+		public MathTools.DoubleBounds calcFreeEnergyBounds(MathTools.DoubleBounds dest) {
+			dest.lower = calcFreeEnergyLowerBound();
+			dest.upper = calcFreeEnergyUpperBound();
+			return dest;
+		}
+
+		public MathTools.DoubleBounds calcFreeEnergyBounds() {
+			return new MathTools.DoubleBounds(
+				calcFreeEnergyLowerBound(),
+				calcFreeEnergyUpperBound()
+			);
+		}
 	}
 
 	public static class Result {
@@ -250,7 +271,7 @@ public interface PartitionFunction {
 	 */
 	public static PartitionFunction makeBestFor(ConfEnergyCalculator confEcalc) {
 		if (confEcalc instanceof LUTEConfEnergyCalculator) {
-			// LUTE needs it's own calculator, since it doesn't use energy bounds
+			// LUTE needs its own calculator, since it doesn't use energy bounds
 			return new LUTEPfunc((LUTEConfEnergyCalculator)confEcalc);
 		} else {
 			// algorithms based on energy bounds can use the GD calculator, it's the most recent pfunc calculator

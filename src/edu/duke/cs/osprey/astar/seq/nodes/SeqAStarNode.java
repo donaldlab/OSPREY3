@@ -1,8 +1,10 @@
 package edu.duke.cs.osprey.astar.seq.nodes;
 
 import edu.duke.cs.osprey.astar.OptimizableAStarNode;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 
 import java.util.Arrays;
 
@@ -164,6 +166,44 @@ public interface SeqAStarNode extends OptimizableAStarNode, Comparable<SeqAStarN
 			unassignedPos[i] = pos;
 
 			return this;
+		}
+
+		public RCs makeRCs(SeqSpace seqSpace, SimpleConfSpace confSpace) {
+			return new RCs(confSpace, (confPos, resConf) -> {
+
+				// immutable pos? keep everything
+				if (!confPos.hasMutations()) {
+					return true;
+				}
+
+				// map the conf space pos to the seq space pos
+				SeqSpace.Position seqPos = seqSpace.getPosition(confPos.resNum);
+
+				// is this seq pos unassigned? keep everything
+				Integer assignment = getAssignment(seqPos.index);
+				if (assignment == null) {
+					return true;
+				}
+
+				// otherwise, only keep matching RCs
+				SeqSpace.ResType resType = seqPos.resTypes.get(assignment);
+				return resType.name.equals(resConf.template.name);
+			});
+		}
+
+		public String toString(SeqSpace seqSpace) {
+			StringBuilder buf = new StringBuilder();
+			for (int i=0; i<numAssigned; i++) {
+				SeqSpace.Position pos = seqSpace.positions.get(assignedPos[i]);
+				SeqSpace.ResType rt = pos.resTypes.get(assignedRTs[i]);
+				if (buf.length() > 0) {
+					buf.append(" ");
+				}
+				buf.append(pos.toString());
+				buf.append("=");
+				buf.append(rt.toString());
+			}
+			return buf.toString();
 		}
 	}
 }
