@@ -45,9 +45,9 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarZeroEpsilon() {
-	    int numFlex = 8;
-        List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, 0.68);
+	    int numFlex = 5;
 		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, 0.68);
+		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, 0.68);
         for(MARKStar.ScoredSequence seq: markStarSeqs)
         {
             printMARKStarComputationStats(seq);
@@ -62,20 +62,20 @@ public class TestMARKStar {
 	private void printMARKStarComputationStats(MARKStar.ScoredSequence result) {
 		int totalConfsEnergied = result.score.complex.numConfs + result.score.protein.numConfs + result.score.ligand.numConfs;
 		int totalConfsLooked = result.score.complex.getNumConfsLooked()+ result.score.protein.getNumConfsLooked()+ result.score.ligand.getNumConfsLooked();
-		System.out.println(String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",result.score.score, result.score.lowerBound,
+		System.out.println("MARK* Stats: "+String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",result.score.score, result.score.lowerBound,
 				result.score.upperBound,totalConfsLooked,totalConfsEnergied));
 	}
 
 	private void printKStarComputationStats(KStar.ScoredSequence result) {
 		int totalConfsEnergied = result.score.complex.numConfs + result.score.protein.numConfs + result.score.ligand.numConfs;
 		int totalConfsLooked = result.score.complex.getNumConfsLooked()+ result.score.protein.getNumConfsLooked()+ result.score.ligand.getNumConfsLooked();
-		System.out.println(String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",result.score.score, result.score.lowerBound,
+		System.out.println("K* Stats: "+String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",result.score.score, result.score.lowerBound,
 				result.score.upperBound,totalConfsLooked,totalConfsEnergied));
 	}
 
     @Test
 	public void KStarComparison() {
-		List<KStar.ScoredSequence> results = runKStarComparison(5,0.68);
+		List<KStar.ScoredSequence> results = runKStarComparison(4,0.68);
         for (int index = 0; index < results.size(); index++) {
         	int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
 			int totalConfsLooked = results.get(index).score.complex.getNumConfsLooked()+ results.get(index).score.protein.getNumConfsLooked()+ results.get(index).score.ligand.getNumConfsLooked();
@@ -86,7 +86,7 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        runMARKStar(15, 0.68);
+        runMARKStar(5, 0.68);
 
     }
 
@@ -144,7 +144,7 @@ public class TestMARKStar {
 
 	public static List<KStar.ScoredSequence> runKStarComparison(int numFlex, double epsilon) {
 		ConfSpaces confSpaces = make1GUASmall(numFlex);
-		Parallelism parallelism = Parallelism.makeCpu(4);
+		Parallelism parallelism = Parallelism.makeCpu(1);
 
 		// Define the minimizing energy calculator
 		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)

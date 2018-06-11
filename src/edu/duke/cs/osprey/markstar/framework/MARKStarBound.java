@@ -36,7 +36,7 @@ import java.util.concurrent.PriorityBlockingQueue;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    private boolean debug = false;
+    private boolean debug = true;
     private Status status = null;
     private PartitionFunction.Values values = null;
 
@@ -50,6 +50,7 @@ public class MARKStarBound implements PartitionFunction {
 
     private boolean printMinimizedConfs;
     private AStarProgress progress;
+    public String stateName = String.format("%4f",Math.random());
 
     // Overwrite the computeUpperBound and computeLowerBound methods
     public static class Values extends PartitionFunction.Values {
@@ -118,6 +119,11 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     @Override
+    public int getNumConfsScored() {
+        return numConfsScored;
+    }
+
+    @Override
     public void compute(int maxNumConfs) {
         debugPrint("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
         double lastEps = 1;
@@ -136,7 +142,7 @@ public class MARKStarBound implements PartitionFunction {
         values.qstar = rootNode.getLowerBound();
         values.pstar = rootNode.getUpperBound();
         values.qprime= rootNode.getUpperBound();
-        rootNode.printTree();
+        rootNode.printTree(stateName);
     }
 
     private void debugPrint(String s) {
@@ -362,7 +368,7 @@ public class MARKStarBound implements PartitionFunction {
         if(queue.isEmpty()) {
             debugPrint("Out of conformations.");
         }
-        int stepSize = 1000;
+        int stepSize = 1;
         int numStepsThisLoop = 0;
         while(!queue.isEmpty()) {
             try {
@@ -457,8 +463,8 @@ public class MARKStarBound implements PartitionFunction {
                                     System.out.println(child);
                             }
                             if (child.getLevel() == RCs.getNumPos()) {
-                                double confPairwiseLower = context.gscorer.calc(context.index.assign(nextPos, nextRc), RCs);
-                                double confRigid = context.rigidscorer.calc(context.index.assign(nextPos, nextRc), RCs);
+                                double confPairwiseLower = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                                double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                                 child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                                 if (confPairwiseLower > confRigid) {
                                     System.err.println("Our bounds are not tight. Lower bound is " + (confPairwiseLower - confRigid) + " higher");

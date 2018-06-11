@@ -72,7 +72,12 @@ public class RecursivePartitionFunction implements PartitionFunction {
 	public int getNumConfsEvaluated() {
 		return lowerBound.numConfsEnergied;
 	}
-	
+
+	@Override
+	public int getNumConfsScored() {
+		return lowerBound.numConfsScored;
+	}
+
 	@Override
 	public int getParallelism() {
 		return ecalc.tasks.getParallelism();

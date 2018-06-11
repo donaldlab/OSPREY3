@@ -79,7 +79,21 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 			return energyWeightSum;
 		}
 
+		public void printBoundStats() {
+            System.out.println("Num confs: " + String.format("%12e",numConfs));
+            System.out.println("Num Scored confs: " + String.format("%4d",numScoredConfs));
+            String upperScoreString = minUpperScoreWeight.toString();
+            String upperSumString = upperScoreWeightSum.toString();
+            if(!MathTools.isInf(minUpperScoreWeight))
+                upperScoreString = String.format("%12e",minUpperScoreWeight);
+            if(!MathTools.isInf(upperScoreWeightSum))
+                upperSumString = String.format("%12e",upperScoreWeightSum);
+            System.out.println("Conf bound: " + upperScoreString);
+            System.out.println("Scored weight bound:"+ upperSumString);
+		}
+
 		public BigDecimal getUpperBound() {
+
 			return new BigMath(PartitionFunction.decimalPrecision)
 
 				// unscored bound
@@ -178,7 +192,12 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 	public int getNumConfsEvaluated() {
 		return state.numEnergiedConfs;
 	}
-	
+
+	@Override
+	public int getNumConfsScored() {
+		return state.numScoredConfs;
+	}
+
 	@Override
 	public int getParallelism() {
 		return ecalc.tasks.getParallelism();
@@ -323,6 +342,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 
 					// gather the scores
 					List<ConfSearch.ScoredConf> confs = new ArrayList<>();
+					//Debug line. If you pulled from the repo and see this you can delete it.
+					if(true)
+                        System.out.println("Processing "+numScores+" additional conformations for upper bound");
 					for (int i=0; i<numScores; i++) {
 
 						// get the next score conf, if any
@@ -346,6 +368,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 							ScoreResult result = new ScoreResult();
 							result.stopwatch.start();
 							for (ConfSearch.ScoredConf conf : confs) {
+								System.out.println(SimpleConfSpace.formatConfRCs(conf)+":"+conf.getScore());
 								result.scoreWeights.add(bcalc.calc(conf.getScore()));
 							}
 							result.stopwatch.stop();
@@ -355,6 +378,14 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 							onScores(result.scoreWeights, result.stopwatch.getTimeS());
 						}
 					);
+					//Debug lines. If you pulled from the repo and see this you can delete it.
+					if(true) {
+						String bounds = state.getLowerBound()+","+state.getUpperBound();
+						if(!MathTools.isInf(state.getUpperBound()))
+							bounds = String.format("%12e+%12e", state.getLowerBound(), state.getUpperBound().subtract(state.getLowerBound()));
+						System.out.println("Score weights are now: [" + bounds + "]");
+						state.printBoundStats();
+					}
 
 					break;
 				}

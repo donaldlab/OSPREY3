@@ -88,7 +88,12 @@ public class SimplePartitionFunction implements PartitionFunction {
 	public int getNumConfsEvaluated() {
 		return lowerBound.numConfsEnergied;
 	}
-	
+
+	@Override
+	public int getNumConfsScored() {
+		return upperBound.numScoredConfs;
+	}
+
 	@Override
 	public int getParallelism() {
 		return ecalc.tasks.getParallelism();

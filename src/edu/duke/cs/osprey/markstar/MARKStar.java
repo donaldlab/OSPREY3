@@ -272,6 +272,7 @@ public class MARKStar {
 			// make the partition function
 			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(),
 					settings.parallelism);
+			pfunc.stateName = type.name();
 			if(settings.maxNumConfs > 0)
 				pfunc.setMaxNumConfs(settings.maxNumConfs);
 			pfunc.setReportProgress(settings.showPfuncProgress);

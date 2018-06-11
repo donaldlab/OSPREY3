@@ -21,12 +21,12 @@ import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
-    boolean debug = false;
+    boolean debug = true;
     private static AStarScorer gScorer;
     private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;
     private static AStarScorer negatedHScorer;
-    private static final double minimizationRatio = 0.000001;//0.0000001;
+    private static final double minimizationRatio = 1;//0.0000001;
     private boolean updated = true;
     /**
      * TODO: 1. Make MARKStarNodes spawn their own Node and MARKStarNode children.
@@ -61,6 +61,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
     public double computeEpsilonErrorBounds() {
+        if(debug)
+            System.out.println(confSearchNode+": ["+setSigFigs(confSearchNode.subtreeLowerBound)
+                    +","+setSigFigs(confSearchNode.subtreeUpperBound)+"], epsilon="+errorBound);
         if(!updated && (children == null || children.size() <1))
             return errorBound;
         updated = false;
@@ -70,10 +73,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         if(children != null && children.size() > 0) {
             BigDecimal errorUpperBound = BigDecimal.ZERO;
             BigDecimal errorLowerBound = BigDecimal.ZERO;
+            Collections.sort(children);
             for(MARKStarNode child: children) {
                 double childEpsilon = child.computeEpsilonErrorBounds();
-                if (debug){
-                    System.out.println("Child:" + child.confSearchNode + ":" + childEpsilon);
+                if (false){
                     System.out.println("Upper: " + setSigFigs(errorUpperBound) + "+"
                             + setSigFigs(child.confSearchNode.subtreeUpperBound) + "="
                             + setSigFigs(errorUpperBound.add(child.confSearchNode.subtreeUpperBound)));
@@ -158,10 +161,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     }
 
-    public void printTree()
+    public void printTree(String name)
     {
         try {
-            FileWriter writer = new FileWriter(new File("ConfTreeBounds.txt"));
+            FileWriter writer = new FileWriter(new File(name+"ConfTreeBounds.txt"));
             printTree("",  writer);
             writer.flush();
         } catch (IOException e) {
@@ -234,6 +237,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
     public double getErrorBound() {
+        if(confSearchNode.isMinimized())
+            return 0;
         if(children == null || children.size() < 1) {
             return -confSearchNode.getHScore();
         }
@@ -271,8 +276,6 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
-            if(Math.abs(lowerBound+32.014)<0.001)
-                System.out.println("Catch.");
             if(confLowerBound > confUpperBound)
                 System.err.println("Incorrect conf bounds set.");
             updateConfLowerBound(lowerBound);
