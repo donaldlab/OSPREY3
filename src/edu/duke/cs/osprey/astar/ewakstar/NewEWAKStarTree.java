@@ -197,14 +197,20 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
     public boolean canPruneNode(EWAKStarNode seqNode){
         //we have a cap on the number of mutations...prune if exceeded or not matched.
 
+        seqNode.getNodeAssignments();
         if(numMutable<numTreeLevels) {
             int mutCount = 0;
             int assignments[] = seqNode.getNodeAssignments();
 
+            int seqListIndex = 0;
             for (int level = 0; level < numTreeLevels; level++) {
                 if (assignments[level] >= 0) {//AA type at level is assigned
-                    if (!AATypeOptions.get(level).get(assignments[level]).equalsIgnoreCase(wtSeqList[level]))//and is different from wtSeq
-                        mutCount++;
+                    if(confSpace.positions.get(level).resTypes.size()>1) { //assume that position is wild-type if there is only one residue allowed
+                        if (!AATypeOptions.get(level).get(assignments[level]).equalsIgnoreCase(wtSeqList[seqListIndex])){//and is different from wtSeq
+                            mutCount++;
+                            seqListIndex++;
+                        }
+                    }
                 } else {
                     break;
                 }
@@ -261,7 +267,9 @@ public class NewEWAKStarTree extends AStarTree<EWAKStarNode> {
         //create a string representation of the sequence
         String seq = "";
         for(int level=0; level<numTreeLevels; level++)
-            seq = seq + AATypeOptions.get(level).get( seqNodeAssignments[level] )+"_";
+            if(AATypeOptions.get(level).size()>1) {
+                seq = seq + AATypeOptions.get(level).get(seqNodeAssignments[level]) + "_";
+            }
 
         return seq;
     }

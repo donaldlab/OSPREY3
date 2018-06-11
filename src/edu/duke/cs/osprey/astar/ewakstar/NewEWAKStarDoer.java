@@ -217,6 +217,7 @@ public class NewEWAKStarDoer {
 			when you need to do ConfSpace-specific things
 			(see K* and COMETS code for examples)
 		*/
+
 		this.fullWtSeq = confSpace.makeWildTypeSequence();
         this.wtSeqL = confSpaceL.makeWildTypeSequence();
         this.wtSeqP = confSpaceP.makeWildTypeSequence();
@@ -478,7 +479,6 @@ public class NewEWAKStarDoer {
         Strand strandL = confSpaces.ligand.strands.get(0);
 
         this.confSpaces.complex = new SimpleConfSpace.Builder().addStrands(strandP, strandL).build();
-        this.fullWtSeq = fullWtSeq; // TODO: not sure what kind of conversion this was supposed to be
 
         ForcefieldParams ffparams = new ForcefieldParams();
         Parallelism parallelism = Parallelism.makeCpu(numCPUs);
@@ -555,9 +555,9 @@ public class NewEWAKStarDoer {
 
         String matrixName;
         ArrayList<ArrayList<String>> aaOpts;
-        Sequence wt;
         SimpleConfSpace confSpace;
         ArrayList<Integer> mutablePos;
+        Sequence wt;
 
         switch (type) {
             case "P":
@@ -597,7 +597,6 @@ public class NewEWAKStarDoer {
             throw new IllegalArgumentException("energyMatrixCachePattern (which is '" + matrixName + "') has no wildcard character (which is *)");
         }
 
-        Sequence wildType = wt; // TODO: not sure what kind of conversion this was supposed to be
         String ematName = matrixName.replace("*", ".emat");
         String pmatName = matrixName.replace("*", ".pmat");
         if (type.equals("L")) {
@@ -615,8 +614,8 @@ public class NewEWAKStarDoer {
                     .setCacheFile(new File(pmatName))
                     .setTypeDependent(true)
                     .run(confSpace, ematL);
-            this.wtSeqL = wildType;
-            return new NewEWAKStarTreeLimitedSeqs(curTrie, confSpace.positions.size(), aaOpts, wildType, confSpace,
+            this.wtSeqL = wt;
+            return new NewEWAKStarTreeLimitedSeqs(curTrie, confSpace.positions.size(), aaOpts, wt, confSpace,
                     ematL, pmatL, mutablePos, confEnergyCalcL);
         } else {
             this.confEnergyCalcP = new ConfEnergyCalculator.Builder(confSpace, ecalc)
@@ -633,8 +632,8 @@ public class NewEWAKStarDoer {
                     .setCacheFile(new File(pmatName))
                     .setTypeDependent(true)
                     .run(confSpace, ematP);
-            this.wtSeqP = wildType;
-            return new NewEWAKStarTreeLimitedSeqs(curTrie, confSpace.positions.size(), aaOpts, wildType, confSpace,
+            this.wtSeqP = wt;
+            return new NewEWAKStarTreeLimitedSeqs(curTrie, confSpace.positions.size(), aaOpts, wt, confSpace,
                     ematP, pmatP, mutablePos, confEnergyCalcP);
         }
 
@@ -669,11 +668,11 @@ public class NewEWAKStarDoer {
                 break;
 
             } else {
-                String curSeq = treePL.seqAsString(conf.getAssignments());
                 Sequence newSequence = makeFromEWAKStarString(treePL.seqAsString(conf.getAssignments()), fullWtSeq);
+                System.out.println(newSequence);
                 pfUB = Math.log10(bc.calc(conf.getScore()).multiply(new BigDecimal(getNumConfsForSeq(newSequence, confSpaces.complex))).doubleValue());
                 if(!wtFound) {
-                    if (curSeq.equals(wtSeqEWAKStar)) {
+                    if (newSequence.toString().equals(fullWtSeq.toString())) {
                         wtSpot = seqNum;
                         wtFound = true;
                         wtEnergy = treePL.wtMinimizedEnergy;
@@ -683,7 +682,7 @@ public class NewEWAKStarDoer {
                                 + wtEnergy+" or until "+numSeqsWanted+" sequences are enumerated.");
 
                     }
-                    ewakstarPLConfs.put(curSeq, pfUB);
+                    ewakstarPLConfs.put(newSequence.toString(), pfUB);
                     bestSequences.add(newSequence);
                 }
                 //only keep sequences that will provably have a partition function within orderOfMag of wild-type
@@ -692,7 +691,7 @@ public class NewEWAKStarDoer {
                     if(conf.getScore() > wtEnergy+boundEw){
                         didEW = true;
                         if (pfUB > wtPfLB-orderOfMag) {
-                            ewakstarPLConfs.put(curSeq, pfUB);
+                            ewakstarPLConfs.put(newSequence.toString(), pfUB);
                             bestSequences.add(newSequence);
                         }
                         if(seqNum == numSeqsWanted)
@@ -700,7 +699,7 @@ public class NewEWAKStarDoer {
                         break;
                     }
                     else if (pfUB > wtPfLB-orderOfMag){
-                        ewakstarPLConfs.put(curSeq, pfUB);
+                        ewakstarPLConfs.put(newSequence.toString(), pfUB);
                         bestSequences.add(newSequence);
                     }
                 }
