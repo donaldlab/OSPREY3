@@ -49,6 +49,8 @@ import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
+import edu.duke.cs.osprey.astar.conf.smastar.ConfSMAStarNode;
+import edu.duke.cs.osprey.astar.conf.smastar.ConfSMAStarQueue;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -65,6 +67,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.ObjectPool.Checkout;
+
 
 public class ConfAStarTree implements ConfSearch {
 
@@ -83,6 +86,7 @@ public class ConfAStarTree implements ConfSearch {
 		private boolean showProgress = false;
 		private ConfAStarFactory factory = new LinkedConfAStarFactory();
 		private AStarPruner pruner = null;
+		private Long maxNumNodes = null;
 
 		public Builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
 			this(emat, new RCs(confSpace));
@@ -176,6 +180,12 @@ public class ConfAStarTree implements ConfSearch {
 		 * and {@link ExternalMemory#setTempDir} to set the file path for external memory.
 		 */
 		public Builder useExternalMemory() {
+
+			// just in case...
+			if (maxNumNodes != null) {
+				throw new IllegalArgumentException("external memory is incompatible with bounded memory");
+			}
+
 			ExternalMemory.checkInternalLimitSet();
 			factory = new EMConfAStarFactory();
 			return this;
@@ -190,6 +200,21 @@ public class ConfAStarTree implements ConfSearch {
 			pruner = val;
 			return this;
 		}
+
+		public Builder setMaxNumNodes(Long val) {
+
+			// just in case...
+			if (val != null && factory instanceof EMConfAStarFactory) {
+				throw new IllegalArgumentException("bounded memory is incompatible with external memory");
+			}
+
+			maxNumNodes = val;
+			return this;
+		}
+
+		public Builder setMaxNumNodes(int val) {
+			return setMaxNumNodes(Long.valueOf(val));
+		}
 		
 		public ConfAStarTree build() {
 			ConfAStarTree tree = new ConfAStarTree(
@@ -199,7 +224,8 @@ public class ConfAStarTree implements ConfSearch {
 				optimizer,
 				rcs,
 				factory,
-				pruner
+				pruner,
+				maxNumNodes
 			);
 			if (showProgress) {
 				tree.initProgress();
@@ -285,17 +311,15 @@ public class ConfAStarTree implements ConfSearch {
 	public final RCs rcs;
 	public final ConfAStarFactory factory;
 	public final AStarPruner pruner;
-	
-	private final Queue<ConfAStarNode> queue;
+
+	private final AStarImpl impl;
 	private final ConfIndex confIndex;
-	
-	private ConfAStarNode rootNode;
+
 	private AStarProgress progress;
-	private Parallelism parallelism;
 	private TaskExecutor tasks;
 	private ObjectPool<ScoreContext> contexts;
 	
-	private ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, MathTools.Optimizer optimizer, RCs rcs, ConfAStarFactory factory, AStarPruner pruner) {
+	private ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, MathTools.Optimizer optimizer, RCs rcs, ConfAStarFactory factory, AStarPruner pruner, Long maxNumNodes) {
 		this.order = order;
 		this.gscorer = gscorer;
 		this.hscorer = hscorer;
@@ -303,11 +327,14 @@ public class ConfAStarTree implements ConfSearch {
 		this.rcs = rcs;
 		this.factory = factory;
 		this.pruner = pruner;
-		
-		this.queue = factory.makeQueue(rcs);
+
+		if (maxNumNodes != null) {
+			this.impl = new SimplifiedBoundedImpl(maxNumNodes);
+		} else {
+			this.impl = new UnboundedImpl();
+		}
 		this.confIndex = new ConfIndex(this.rcs.getNumPos());
 		
-		this.rootNode = null;
 		this.progress = null;
 		
 		this.order.setScorers(this.gscorer, this.hscorer);
@@ -341,9 +368,8 @@ public class ConfAStarTree implements ConfSearch {
 			val = Parallelism.makeCpu(1);
 		}
 		
-		parallelism = val;
-		tasks = parallelism.makeTaskExecutor(1000);
-		contexts.allocate(parallelism.getParallelism());
+		tasks = val.makeTaskExecutor(1000);
+		contexts.allocate(val.getParallelism());
 	}
 	
 	@Override
@@ -353,154 +379,30 @@ public class ConfAStarTree implements ConfSearch {
 
 	@Override
 	public ScoredConf nextConf() {
-		ConfAStarNode leafNode = nextLeafNode();
-		if (leafNode == null) {
-			return null;
-		}
-		return new ScoredConf(
-			leafNode.makeConf(rcs.getNumPos()),
-			leafNode.getGScore(optimizer)
-		);
-	}
-	
-	public ConfAStarNode nextLeafNode() {
-		
-		// do we have a root node yet?
-		if (rootNode == null) {
-			
-			// should we have one?
-			if (!rcs.hasConfs()) {
-				return null;
-			}
-			
-			rootNode = factory.makeRootNode(rcs.getNumPos());
-			
-			// pick all the single-rotamer positions now, regardless of order chosen
-			// if we do them first, we basically get them for free
-			// so we don't have to worry about them later in the search at all
-			ConfAStarNode node = rootNode;
-			for (int pos=0; pos<rcs.getNumPos(); pos++) {
-				if (rcs.getNum(pos) == 1) {
-					node = node.assign(pos, rcs.get(pos)[0]);
-				}
-			}
-			assert (node.getLevel() == rcs.getNumTrivialPos());
-			
-			// score and add the tail node of the chain we just created
-			node.index(confIndex);
-			node.setGScore(gscorer.calc(confIndex, rcs), optimizer);
-			node.setHScore(hscorer.calc(confIndex, rcs), optimizer);
-			queue.push(node);
-		}
-		
-		while (true) {
-			
-			// no nodes left? we're done
-			if (queue.isEmpty()) {
-				return null;
-			}
-			
-			// get the next node to expand
-			ConfAStarNode node = queue.poll();
-
-			// if this node was pruned dynamically, then ignore it
-			if (pruner != null && pruner.isPruned(node)) {
-				continue;
-			}
-			
-			// leaf node? report it
-			if (node.getLevel() == rcs.getNumPos()) {
-				
-				if (progress != null) {
-					progress.reportLeafNode(node.getGScore(optimizer), queue.size());
-				}
-			
-				return node;
-			}
-			
-			// which pos to expand next?
-			int numChildren = 0;
-			node.index(confIndex);
-			int nextPos = order.getNextPos(confIndex, rcs);
-			assert (!confIndex.isDefined(nextPos));
-			assert (confIndex.isUndefined(nextPos));
-			
-			// score child nodes with tasks (possibly in parallel)
-			List<ConfAStarNode> children = new ArrayList<>();
-			for (int nextRc : rcs.get(nextPos)) {
-
-				// if this child was pruned by the pruning matrix, then skip it
-				if (isPruned(confIndex, nextPos, nextRc)) {
-					continue;
-				}
-
-				// if this child was pruned dynamically, then don't score it
-				if (pruner != null && pruner.isPruned(node, nextPos, nextRc)) {
-					continue;
-				}
-
-				tasks.submit(() -> {
-					
-					try (Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
-						ScoreContext context = checkout.get();
-						
-						// score the child node differentially against the parent node
-						node.index(context.index);
-						ConfAStarNode child = node.assign(nextPos, nextRc);
-						child.setGScore(context.gscorer.calcDifferential(context.index, rcs, nextPos, nextRc), optimizer);
-						child.setHScore(context.hscorer.calcDifferential(context.index, rcs, nextPos, nextRc), optimizer);
-						return child;
-					}
-					
-				}, (ConfAStarNode child) -> {
-					
-					// collect the possible children
-					if (Double.isFinite(child.getScore())) {
-						children.add(child);
-					}
-				});
-			}
-			tasks.waitForFinish();
-			numChildren += children.size();
-			queue.pushAll(children);
-			
-            if (progress != null) {
-            	progress.reportInternalNode(node.getLevel(), node.getGScore(optimizer), node.getHScore(optimizer), queue.size(), numChildren);
-            }
-		}
-	}
-	
-	public List<ConfAStarNode> nextLeafNodes(double thresholdEnergy) {
-		
-		if (progress != null) {
-			progress.setGoalScore(thresholdEnergy);
-		}
-		
-		List<ConfAStarNode> nodes = new ArrayList<>();
-		while (true) {
-			
-			ConfAStarNode node = nextLeafNode();
-			if (node == null) {
-				break;
-			}
-			
-			nodes.add(node);
-
-			if (!optimizer.isBetter(node.getGScore(optimizer), thresholdEnergy)) {
-				break;
-			}
-		}
-		return nodes;
+		return impl.nextConf();
 	}
 	
 	@Override
-	public List<ScoredConf> nextConfs(double maxEnergy) {
+	public List<ScoredConf> nextConfs(double thresholdEnergy) {
+
 		List<ScoredConf> confs = new ArrayList<>();
-		for (ConfAStarNode node : nextLeafNodes(maxEnergy)) {
-			confs.add(new ScoredConf(
-				node.makeConf(rcs.getNumPos()),
-				node.getGScore(optimizer)
-			));
+
+		if (progress != null) {
+			progress.setGoalScore(thresholdEnergy);
+		}
+
+		while (true) {
+
+			ScoredConf conf = nextConf();
+			if (conf == null) {
+				break;
+			}
+
+			confs.add(conf);
+
+			if (!optimizer.isBetter(conf.getScore(), thresholdEnergy)) {
+				break;
+			}
 		}
 		return confs;
 	}
@@ -548,5 +450,302 @@ public class ConfAStarTree implements ConfSearch {
 		}
 
 		return false;
+	}
+
+	private interface AStarImpl {
+
+		ScoredConf nextConf();
+	}
+
+	private class UnboundedImpl implements AStarImpl {
+
+		private final Queue<ConfAStarNode> queue;
+
+		private ConfAStarNode rootNode = null;
+
+		UnboundedImpl() {
+			this.queue = factory.makeQueue(rcs);
+		}
+
+		@Override
+		public ScoredConf nextConf() {
+
+			// do we have a root node yet?
+			if (rootNode == null) {
+
+				// should we have one?
+				if (!rcs.hasConfs()) {
+					return null;
+				}
+
+				rootNode = factory.makeRootNode(rcs.getNumPos());
+
+				// pick all the single-rotamer positions now, regardless of order chosen
+				// if we do them first, we basically get them for free
+				// so we don't have to worry about them later in the search at all
+				ConfAStarNode node = rootNode;
+				for (int pos=0; pos<rcs.getNumPos(); pos++) {
+					if (rcs.getNum(pos) == 1) {
+						node = node.assign(pos, rcs.get(pos)[0]);
+					}
+				}
+				assert (node.getLevel() == rcs.getNumTrivialPos());
+
+				// score and add the tail node of the chain we just created
+				node.index(confIndex);
+				node.setGScore(gscorer.calc(confIndex, rcs), optimizer);
+				node.setHScore(hscorer.calc(confIndex, rcs), optimizer);
+				queue.push(node);
+			}
+
+			while (true) {
+
+				// no nodes left? we're done
+				if (queue.isEmpty()) {
+					return null;
+				}
+
+				// get the next node to expand
+				ConfAStarNode node = queue.poll();
+
+				// if this node was pruned dynamically, then ignore it
+				if (pruner != null && pruner.isPruned(node)) {
+					continue;
+				}
+
+				// leaf node? report it
+				if (node.getLevel() == rcs.getNumPos()) {
+
+					if (progress != null) {
+						progress.reportLeafNode(node.getGScore(optimizer), queue.size());
+					}
+
+					return new ScoredConf(
+						node.makeConf(rcs.getNumPos()),
+						node.getGScore(optimizer)
+					);
+				}
+
+				// which pos to expand next?
+				int numChildren = 0;
+				node.index(confIndex);
+				int nextPos = order.getNextPos(confIndex, rcs);
+				assert (!confIndex.isDefined(nextPos));
+				assert (confIndex.isUndefined(nextPos));
+
+				// score child nodes with tasks (possibly in parallel)
+				List<ConfAStarNode> children = new ArrayList<>();
+				for (int nextRc : rcs.get(nextPos)) {
+
+					// if this child was pruned by the pruning matrix, then skip it
+					if (isPruned(confIndex, nextPos, nextRc)) {
+						continue;
+					}
+
+					// if this child was pruned dynamically, then don't score it
+					if (pruner != null && pruner.isPruned(node, nextPos, nextRc)) {
+						continue;
+					}
+
+					tasks.submit(() -> {
+
+						try (Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+							ScoreContext context = checkout.get();
+
+							// score the child node differentially against the parent node
+							node.index(context.index);
+							ConfAStarNode child = node.assign(nextPos, nextRc);
+							child.setGScore(context.gscorer.calcDifferential(context.index, rcs, nextPos, nextRc), optimizer);
+							child.setHScore(context.hscorer.calcDifferential(context.index, rcs, nextPos, nextRc), optimizer);
+							return child;
+						}
+
+					}, (ConfAStarNode child) -> {
+
+						// collect the possible children
+						if (Double.isFinite(child.getScore())) {
+							children.add(child);
+						}
+					});
+				}
+				tasks.waitForFinish();
+				numChildren += children.size();
+				queue.pushAll(children);
+
+				if (progress != null) {
+					progress.reportInternalNode(node.getLevel(), node.getGScore(optimizer), node.getHScore(optimizer), queue.size(), numChildren);
+				}
+			}
+		}
+	}
+
+	/**
+	 * The Simplified Memory-Bounded A* algorihm
+	 * {@cite Russell1992 Stuart S. Russell, 1992.
+	 * Effcient memory-bounded search methods.
+	 * ECAI-1992, Vienna, Austria.}.
+	 */
+	private class SimplifiedBoundedImpl implements AStarImpl {
+
+		private final long maxNumNodes;
+		private final ConfSMAStarQueue q;
+
+		private ConfSMAStarNode rootNode = null;
+		private long used = 0;
+
+		SimplifiedBoundedImpl(long maxNumNodes) {
+
+			if (maxNumNodes <= rcs.getNumPos()) {
+				throw new IllegalArgumentException(String.format("SMA* needs space for at least %d nodes for this problem (i.e., numPos + 1)", rcs.getNumPos() + 1));
+			}
+
+			this.maxNumNodes = maxNumNodes;
+
+			// start the queue with the root node
+			q = new ConfSMAStarQueue();
+
+			used++;
+		}
+
+		// TODO: progress reporting?
+		// TODO: parallelism?
+
+		@Override
+		public ScoredConf nextConf() {
+
+			int numPos = rcs.getNumPos();
+
+			// do we have a root node yet?
+			if (rootNode == null) {
+				rootNode = new ConfSMAStarNode();
+				rootNode.index(confIndex);
+				rootNode.gscore = gscorer.calc(confIndex, rcs);
+				rootNode.hscore = hscorer.calc(confIndex, rcs);
+				rootNode.fscore = rootNode.gscore + rootNode.hscore;
+				q.add(rootNode);
+			}
+
+			while (true) {
+
+				// no more nodes? we're done here
+				if (q.isEmpty()) {
+					return null;
+				}
+
+				ConfSMAStarNode node = q.getLowestDeepest();
+
+				// is it a leaf node?
+				if (node.depth == numPos) {
+
+					assert (node.hscore == 0.0);
+
+					// is this the first time we've seen this leaf node? (SMA* sees the same leaf nodes multiple times)
+					// NOTE: due to backing up of scores and roundoff error, the f and g scores might differ ever so slightly
+					// (hopefully the score difference between two different confs is never this small!)
+					final double scoreEquivalance = 1e-12;
+					int[] conf = null;
+					if (Math.abs(node.gscore - node.fscore) < scoreEquivalance) {
+
+						// yup, make a conf for the leaf node
+						conf = node.makeConf(numPos);
+					}
+
+					// remove the node from the queue
+					q.remove(node);
+
+					// flag this node as finished
+					node.fscore = Double.POSITIVE_INFINITY;
+					node.parent.childStates[node.index] = ConfSMAStarNode.State.Finished;
+					node.parent.forgottenScores[node.index] = Double.POSITIVE_INFINITY;
+					node.parent.backup(q, numPos);
+
+					ConfSMAStarNode n = node.parent;
+
+					// remove the node from the tree
+					node.removeFromParent();
+					used--;
+
+					// remove finished nodes recursively
+					while (n != null && n.allChildrenFinished()) {
+
+						// remove the node from the queue
+						if (q.contains(n)) {
+							q.remove(n);
+						}
+
+						// remove the node from the tree
+						ConfSMAStarNode parent = n.parent;
+						if (parent != null) {
+
+							parent.childStates[n.index] = ConfSMAStarNode.State.Finished;
+							parent.forgottenScores[n.index] = Double.POSITIVE_INFINITY;
+
+							n.removeFromParent();
+						}
+						used--;
+
+						n = parent;
+					}
+
+					if (conf != null) {
+						return new ScoredConf(conf, node.gscore);
+					} else {
+						continue;
+					}
+				}
+
+				// choose next pos
+				int pos = node.depth;
+
+				// choose the next RC
+				int index = node.getNextIndex(rcs.getNum(pos));
+				int rc = rcs.get(pos)[index];
+
+				// score the child
+				node.index(confIndex);
+				double gscore = gscorer.calcDifferential(confIndex, rcs, pos, rc);
+				double hscore = hscorer.calcDifferential(confIndex, rcs, pos, rc);
+				ConfSMAStarNode child = node.spawnChild(pos, rc, index, gscore, hscore);
+
+				// but really, don't have a lower score than the parent
+				child.fscore = Math.max(child.fscore, node.fscore);
+
+				if (!node.hasUnspawnedChildren()) {
+					node.backup(q, numPos);
+				}
+
+				if (node.allChildrenSpawned()) {
+
+					// remove it from the queue
+					q.remove(node);
+				}
+
+				used++;
+				if (used > maxNumNodes) {
+
+					// find the worst node in the queue
+					ConfSMAStarNode highest = q.removeHighestShallowestLeaf();
+
+					// only forget leaves!!!
+					assert (!highest.hasSpawnedChildren()) : "tried to forget non-leaf";
+
+					// tell the parent to forget us
+					highest.parent.childStates[highest.index] = ConfSMAStarNode.State.Forgotten;
+					highest.parent.forgottenScores[highest.index] = highest.fscore;
+
+					// add the parent back to the queue if needed
+					if (!q.contains(highest.parent)) {
+						q.add(highest.parent);
+					}
+
+					highest.removeFromParent();
+
+					used--;
+				}
+
+				// add the child to the queue
+				q.add(child);
+			}
+		}
 	}
 }

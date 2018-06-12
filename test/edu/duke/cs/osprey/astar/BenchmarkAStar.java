@@ -148,9 +148,7 @@ public class BenchmarkAStar extends TestBase {
 		tree.setParallelism(Parallelism.makeCpu(astarThreads));
 		
 		System.out.println(String.format("searching A* tree (" + tree.getNumConformations().floatValue() + " confs)..."));
-		ConfAStarNode node = tree.nextLeafNode();
-		
-		ScoredConf conf = new ScoredConf(node.makeConf(tree.rcs.getNumPos()), node.getScore());
+		ScoredConf conf = tree.nextConf();
 		EnergiedConf econf = ecalc.calcEnergy(conf);
 		
 		System.out.println("\nMIN SCORE CONFORMATION");
