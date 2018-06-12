@@ -27,7 +27,7 @@ public class RTs {
 		wildTypesByPos = new int[numPos];
 		indicesByPos = new int[numPos][];
 		for (SeqSpace.Position pos : seqSpace.positions) {
-			wildTypesByPos[pos.index] = pos.wildType.index;
+			wildTypesByPos[pos.index] = pos.wildType != null ? pos.wildType.index : -1;
 			int[] indices = new int[pos.resTypes.size()];
 			for (int i=0; i<pos.resTypes.size(); i++) {
 				indices[i] = i;

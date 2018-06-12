@@ -352,7 +352,9 @@ public class KStar {
 		List<ScoredSequence> scores = new ArrayList<>();
 
 		// collect all the sequences explicitly
-		sequences.add(complex.confSpace.seqSpace.makeWildTypeSequence());
+		if (complex.confSpace.seqSpace.containsWildTypeSequence()) {
+			sequences.add(complex.confSpace.seqSpace.makeWildTypeSequence());
+		}
 		sequences.addAll(complex.confSpace.seqSpace.getMutants(settings.maxSimultaneousMutations, true));
 
 		// TODO: sequence filtering? do we need to reject some mutation combinations for some reason?

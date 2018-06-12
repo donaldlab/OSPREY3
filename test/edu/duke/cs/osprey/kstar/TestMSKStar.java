@@ -26,6 +26,10 @@ public class TestMSKStar {
 
 	private static TestKStar.ConfSpaces confSpaces2RL0PPI;
 	private static MSKStar mskstar2RL0PPI;
+	private static TestKStar.ConfSpaces confSpaces2RL0OnlyOneMutant;
+	private static MSKStar mskstar2RL0OnlyOneMutant;
+	private static TestKStar.ConfSpaces confSpaces2RL0SpaceWithoutWildType;
+	private static MSKStar mskstar2RL0SpaceWithoutWildType;
 
 	@BeforeClass
 	public static void beforeClass() {
@@ -52,6 +56,54 @@ public class TestMSKStar {
 				.build();
 
 			initStates(mskstar2RL0PPI.states, confSpaces2RL0PPI.ffparams);
+		}
+
+		// 2RL0 only one mutant
+		{
+			confSpaces2RL0OnlyOneMutant = TestKStar.make2RL0OnlyOneMutant();
+			final double epsilon = 0.95;
+
+			MSKStar.State protein = new MSKStar.State("Protein", confSpaces2RL0OnlyOneMutant.protein);
+			MSKStar.State ligand = new MSKStar.State("Ligand", confSpaces2RL0OnlyOneMutant.ligand);
+			MSKStar.State complex = new MSKStar.State("Complex", confSpaces2RL0OnlyOneMutant.complex);
+
+			MSKStar.LMFE objective = new MSKStar.LMFE.Builder()
+				.addState(complex, 1.0)
+				.addState(protein, -1.0)
+				.addState(ligand, -1.0)
+				.build();
+			mskstar2RL0OnlyOneMutant = new MSKStar.Builder(objective)
+				.setEpsilon(epsilon)
+				.setMaxSimultaneousMutations(1)
+				.setObjectiveWindowSize(100.0) // need a big window to get all the sequences
+				.setObjectiveWindowMax(100.0)
+				.build();
+
+			initStates(mskstar2RL0OnlyOneMutant.states, confSpaces2RL0OnlyOneMutant.ffparams);
+		}
+
+		// 2RL0 space without wild type
+		{
+			confSpaces2RL0SpaceWithoutWildType = TestKStar.make2RL0SpaceWithoutWildType();
+			final double epsilon = 0.95;
+
+			MSKStar.State protein = new MSKStar.State("Protein", confSpaces2RL0SpaceWithoutWildType.protein);
+			MSKStar.State ligand = new MSKStar.State("Ligand", confSpaces2RL0SpaceWithoutWildType.ligand);
+			MSKStar.State complex = new MSKStar.State("Complex", confSpaces2RL0SpaceWithoutWildType.complex);
+
+			MSKStar.LMFE objective = new MSKStar.LMFE.Builder()
+				.addState(complex, 1.0)
+				.addState(protein, -1.0)
+				.addState(ligand, -1.0)
+				.build();
+			mskstar2RL0SpaceWithoutWildType = new MSKStar.Builder(objective)
+				.setEpsilon(epsilon)
+				.setMaxSimultaneousMutations(2)
+				.setObjectiveWindowSize(100.0) // need a big window to get all the sequences
+				.setObjectiveWindowMax(100.0)
+				.build();
+
+			initStates(mskstar2RL0SpaceWithoutWildType.states, confSpaces2RL0SpaceWithoutWildType.ffparams);
 		}
 	}
 
@@ -112,6 +164,8 @@ public class TestMSKStar {
 	public static void main(String[] args) {
 		beforeClass();
 		bruteForce("2RL0 PPI", mskstar2RL0PPI, confSpaces2RL0PPI.ffparams, 0.01);
+		bruteForce("2RL0 only one mutant", mskstar2RL0OnlyOneMutant, confSpaces2RL0OnlyOneMutant.ffparams, 0.01);
+		bruteForce("2RL0 space without wild type", mskstar2RL0SpaceWithoutWildType, confSpaces2RL0SpaceWithoutWildType.ffparams, 0.01);
 	}
 
 	private static void bruteForce(String name, MSKStar mskstar, ForcefieldParams ffparams, double epsilon) {
@@ -122,8 +176,10 @@ public class TestMSKStar {
 
 			// explicitly enumerate all the sequences
 			List<Sequence> sequences = new ArrayList<>();
-			sequences.add(mskstar.seqSpace.makeWildTypeSequence());
-			sequences.addAll(mskstar.seqSpace.getMutants(1));
+			if (mskstar.seqSpace.containsWildTypeSequence()) {
+				sequences.add(mskstar.seqSpace.makeWildTypeSequence());
+			}
+			sequences.addAll(mskstar.seqSpace.getMutants(mskstar.maxSimultaneousMutations));
 
 			for (Sequence sequence : sequences) {
 
@@ -189,6 +245,33 @@ public class TestMSKStar {
 		});
 	}
 
+	@Test
+	public void test2RL0OnlyOneMutant() {
+		prepStates(mskstar2RL0OnlyOneMutant, confSpaces2RL0OnlyOneMutant.ffparams, () -> {
+
+			List<MSKStar.SequenceInfo> sequences = mskstar2RL0OnlyOneMutant.findBestSequences(1);
+
+			// check the sequences (values collected with e = 0.01 and 64 digits precision)
+			assertSequence(sequences, "VAL",    -4.541643,    -4.541643);
+			assertThat(sequences.size(), is(1));
+			assertSequenceOrder(sequences);
+		});
+	}
+
+	@Test
+	public void test2RL0SpaceWithoutWildType() {
+		prepStates(mskstar2RL0SpaceWithoutWildType, confSpaces2RL0SpaceWithoutWildType.ffparams, () -> {
+
+			List<MSKStar.SequenceInfo> sequences = mskstar2RL0SpaceWithoutWildType.findBestSequences(2);
+
+			// check the sequences (values collected with e = 0.01 and 64 digits precision)
+			assertSequence(sequences, "thr VAL",    -4.541643,    -4.541643);
+			assertSequence(sequences, "VAL VAL",    -4.674453,    -4.674453);
+			assertThat(sequences.size(), is(2));
+			assertSequenceOrder(sequences);
+		});
+	}
+
 	private static void assertSequence(List<MSKStar.SequenceInfo> sequences, String seqStr, double objectiveLower, double objectiveUpper) {
 
 		// find the sequence
@@ -198,19 +281,9 @@ public class TestMSKStar {
 			.orElseThrow(() -> new NoSuchElementException("sequence " + seqStr + " was not found"));
 
 		// make sure the objective bounds contain the expected bounds
-		assertThat(info.objective.lower, lessThanOrEqualTo(objectiveLower));
-		assertThat(info.objective.upper, greaterThanOrEqualTo(objectiveUpper));
-	}
-
-	private static void assertNotSequence(List<MSKStar.SequenceInfo> sequences, String seqStr) {
-
-		// don't find the sequence
-		MSKStar.SequenceInfo info = sequences.stream()
-			.filter(seq -> seq.sequence.toString(Sequence.Renderer.ResTypeMutations).equals(seqStr))
-			.findAny()
-			.orElse(null);
-
-		assertThat(info, is(nullValue()));
+		final double boundsEpsilon = 1e-6; // expected bounds only specified to 6 decimals
+		assertThat(info.objective.lower, lessThanOrEqualTo(objectiveLower + boundsEpsilon));
+		assertThat(info.objective.upper, greaterThanOrEqualTo(objectiveUpper - boundsEpsilon));
 	}
 
 	private static void assertSequenceOrder(List<MSKStar.SequenceInfo> sequences) {

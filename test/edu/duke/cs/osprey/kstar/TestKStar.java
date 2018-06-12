@@ -75,7 +75,7 @@ public class TestKStar {
 		public List<KStar.ScoredSequence> scores;
 	}
 
-	public static Result runKStar(ConfSpaces confSpaces, double epsilon, String confDBPattern, boolean useExternalMemory) {
+	public static Result runKStar(ConfSpaces confSpaces, double epsilon, String confDBPattern, boolean useExternalMemory, int maxSimultaneousMutations) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
 
@@ -112,6 +112,7 @@ public class TestKStar {
 				.setStabilityThreshold(null)
 				.addScoreConsoleWriter(testFormatter)
 				.setExternalMemory(useExternalMemory)
+				.setMaxSimultaneousMutations(maxSimultaneousMutations)
 				//.setShowPfuncProgress(true)
 				.build();
 			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
@@ -204,7 +205,7 @@ public class TestKStar {
 	public void test2RL0() {
 
 		double epsilon = 0.95;
-		Result result = runKStar(make2RL0(), epsilon, null, false);
+		Result result = runKStar(make2RL0(), epsilon, null, false, 1);
 		assert2RL0(result, epsilon);
 	}
 
@@ -213,7 +214,7 @@ public class TestKStar {
 
 		ExternalMemory.use(128, () -> {
 			double epsilon = 0.95;
-			Result result = runKStar(make2RL0(), epsilon, null, true);
+			Result result = runKStar(make2RL0(), epsilon, null, true, 1);
 			assert2RL0(result, epsilon);
 		});
 	}
@@ -299,7 +300,7 @@ public class TestKStar {
 	public void test1GUA11() {
 
 		double epsilon = 0.999999;
-		Result result = runKStar(make1GUA11(), epsilon, null, false);
+		Result result = runKStar(make1GUA11(), epsilon, null, false, 1);
 
 		// check the results (values collected with e = 0.1 and 64 digits precision)
 		assertSequence(result,   0, "HIE VAL", 1.194026e+42, 2.932628e+07, 1.121625e+66, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [7.467257 , 7.467257] (log10)                    complex [66.049848,66.051195] (log10)                    K* = 16.505577 in [16.505576,16.506925] (log10)
@@ -323,7 +324,7 @@ public class TestKStar {
 
 					// run with empty dbs
 					Stopwatch sw = new Stopwatch().start();
-					Result result = runKStar(confSpaces, epsilon, confdbPattern, false);
+					Result result = runKStar(confSpaces, epsilon, confdbPattern, false, 1);
 					assert2RL0(result, epsilon);
 					System.out.println(sw.getTime(2));
 
@@ -356,12 +357,113 @@ public class TestKStar {
 
 					// run again with full dbs
 					sw = new Stopwatch().start();
-					Result result2 = runKStar(confSpaces, epsilon, confdbPattern, false);
+					Result result2 = runKStar(confSpaces, epsilon, confdbPattern, false, 1);
 					assert2RL0(result2, epsilon);
 					System.out.println(sw.getTime(2));
 				}
 			}
 		}
+	}
+
+	public static ConfSpaces make2RL0OnlyOneMutant() {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
+
+		// define the protein strand with just wild-type
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("G648", "G654")
+			.build();
+		protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType).setContinuous();
+
+		// define the ligand strand with one mutant, and no wild-type
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("A155", "A194")
+			.build();
+		ligand.flexibility.get("A193").setLibraryRotamers("VAL").setContinuous();
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+			.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+			.addStrand(ligand)
+			.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+			.addStrands(protein, ligand)
+			.build();
+
+		return confSpaces;
+	}
+
+	@Test
+	public void test2RL0OnlyOneMutant() {
+
+		double epsilon = 0.99;
+		Result result = runKStar(make2RL0OnlyOneMutant(), epsilon, null, false, 1);
+
+		assertThat(result.scores.size(), is(1));
+		assertThat(result.scores.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("A193=VAL"));
+	}
+
+	public static ConfSpaces make2RL0SpaceWithoutWildType() {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
+
+		// define the protein strand with just wild-type
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("G648", "G654")
+			.build();
+		protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType, "VAL").setContinuous();
+
+		// define the ligand strand with one mutant, and no wild-type
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("A155", "A194")
+			.build();
+		ligand.flexibility.get("A193").setLibraryRotamers("VAL").setContinuous();
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+			.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+			.addStrand(ligand)
+			.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+			.addStrands(protein, ligand)
+			.build();
+
+		return confSpaces;
+	}
+
+	@Test
+	public void test2RL0SpaceWithoutWildType() {
+
+		double epsilon = 0.99;
+		Result result = runKStar(make2RL0SpaceWithoutWildType(), epsilon, null, false, 2);
+
+		assertThat(result.scores.size(), is(2));
+		assertThat(result.scores.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=VAL A193=VAL"));
+		assertThat(result.scores.get(1).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=thr A193=VAL"));
 	}
 
 	public static void assertSequence(Result result, int sequenceIndex, String sequence, Double proteinQStar, Double ligandQStar, Double complexQStar, double epsilon) {

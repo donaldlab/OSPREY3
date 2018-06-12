@@ -223,7 +223,12 @@ public class BBKStar {
 
 					// mutation limit reached, fill unassigned positions with wild-type
 					s.fillWildType();
-					children.add(new SingleSequenceNode(s, confDBs));
+					if (s.isFullyAssigned()) {
+						children.add(new SingleSequenceNode(s, confDBs));
+					}
+
+					// NOTE: if we didn't fill the assignments, it means there aren't enough wild-types to do it
+					// so don't explore that sequence
 
 				} else {
 
@@ -564,19 +569,23 @@ public class BBKStar {
 		) {
 
 			// calculate wild-type first
-			System.out.println("computing K* score for the wild-type sequence...");
-			SingleSequenceNode wildTypeNode = new SingleSequenceNode(complex.confSpace.makeWildTypeSequence(), confDBs);
-			KStarScore wildTypeScore = wildTypeNode.computeScore();
-			kstarSettings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
-				-1,
-				0,
-				wildTypeNode.sequence,
-				wildTypeScore
-			));
-			if (kstarSettings.stabilityThreshold != null) {
-				BigDecimal stabilityThresholdFactor = new BoltzmannCalculator(PartitionFunction.decimalPrecision).calc(kstarSettings.stabilityThreshold);
-				protein.stabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
-				ligand.stabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+			if (complex.confSpace.seqSpace.containsWildTypeSequence()) {
+				System.out.println("computing K* score for the wild-type sequence...");
+				SingleSequenceNode wildTypeNode = new SingleSequenceNode(complex.confSpace.makeWildTypeSequence(), confDBs);
+				KStarScore wildTypeScore = wildTypeNode.computeScore();
+				kstarSettings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
+					-1,
+					0,
+					wildTypeNode.sequence,
+					wildTypeScore
+				));
+				if (kstarSettings.stabilityThreshold != null) {
+					BigDecimal stabilityThresholdFactor = new BoltzmannCalculator(PartitionFunction.decimalPrecision).calc(kstarSettings.stabilityThreshold);
+					protein.stabilityThreshold = wildTypeScore.protein.values.calcLowerBound().multiply(stabilityThresholdFactor);
+					ligand.stabilityThreshold = wildTypeScore.ligand.values.calcLowerBound().multiply(stabilityThresholdFactor);
+				}
+			} else if (kstarSettings.stabilityThreshold != null) {
+				System.out.println("Sequence space does not contain the wild type sequence, stability threshold is disabled");
 			}
 
 			// start the BBK* tree with the root node

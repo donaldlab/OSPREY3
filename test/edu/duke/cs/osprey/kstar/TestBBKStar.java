@@ -58,7 +58,7 @@ public class TestBBKStar {
 		public List<KStar.ScoredSequence> sequences;
 	}
 
-	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern) {
+	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
 
@@ -81,7 +81,7 @@ public class TestBBKStar {
 			KStar.Settings kstarSettings = new KStar.Settings.Builder()
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
-				.setMaxSimultaneousMutations(1)
+				.setMaxSimultaneousMutations(maxSimultaneousMutations)
 				.addScoreConsoleWriter(testFormatter)
 				.build();
 			BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
@@ -142,7 +142,7 @@ public class TestBBKStar {
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 		final double epsilon = 0.99;
 		final int numSequences = 25;
-		Results results = runBBKStar(confSpaces, numSequences, epsilon, null);
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
 
 		assert2RL0(results, numSequences);
 	}
@@ -186,7 +186,7 @@ public class TestBBKStar {
 		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
 		final double epsilon = 0.999999;
 		final int numSequences = 6;
-		Results results = runBBKStar(confSpaces, numSequences, epsilon, null);
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
 
 		// K* bounds collected with e = 0.1 from original K* algo
 		assertSequence(results, "HIE ARG", 17.522258,17.636342);
@@ -214,7 +214,7 @@ public class TestBBKStar {
 
 					// run with empty dbs
 					Stopwatch sw = new Stopwatch().start();
-					Results results = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern);
+					Results results = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern, 1);
 					assert2RL0(results, numSequences);
 					System.out.println(sw.getTime(2));
 
@@ -247,12 +247,37 @@ public class TestBBKStar {
 
 					// run again with full dbs
 					sw = new Stopwatch().start();
-					Results results2 = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern);
+					Results results2 = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern, 1);
 					assert2RL0(results2, numSequences);
 					System.out.println(sw.getTime(2));
 				}
 			}
 		}
+	}
+
+	@Test
+	public void only2RL0OneMutant() {
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0OnlyOneMutant();
+		final double epsilon = 0.99;
+		final int numSequences = 1;
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
+
+		assertThat(results.sequences.size(), is(1));
+		assertThat(results.sequences.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("A193=VAL"));
+	}
+
+	@Test
+	public void only2RL0SpaceWithoutWildType() {
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0SpaceWithoutWildType();
+		final double epsilon = 0.99;
+		final int numSequences = 2;
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 2);
+
+		assertThat(results.sequences.size(), is(2));
+		assertThat(results.sequences.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=thr A193=VAL"));
+		assertThat(results.sequences.get(1).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=VAL A193=VAL"));
 	}
 
 	private void assertSequence(Results results, String sequence, Double estKStarLowerLog10, Double estKStarUpperLog10) {

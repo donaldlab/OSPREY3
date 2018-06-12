@@ -33,7 +33,6 @@
 package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.seq.RTs;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.Streams;
 import org.apache.commons.lang3.StringUtils;
@@ -207,6 +206,9 @@ public class Sequence {
 	 */
 	public Sequence setWildType(SeqSpace.Position pos) {
 		checkPos(pos);
+		if (pos.wildType == null) {
+			throw new NoSuchElementException("sequence space does not contain the wild type at position " + pos);
+		}
 		rtIndices[pos.index] = pos.wildType.index;
 		return this;
 	}
@@ -222,12 +224,12 @@ public class Sequence {
 	}
 
 	/**
-	 * Set all unassigned residues to the wild-type residue type.
+	 * Set all unassigned residues to the wild-type residue type, when the wild-type is part of the sequence space
 	 * @return this sequence, for method chaining
 	 */
 	public Sequence fillWildType() {
 		for (SeqSpace.Position pos : seqSpace.positions) {
-			if (!isAssigned(pos)) {
+			if (pos.wildType != null && !isAssigned(pos)) {
 				setWildType(pos);
 			}
 		}
@@ -255,20 +257,6 @@ public class Sequence {
 			other.rtIndices[pos.index] = this.rtIndices[pos.index];
 		}
 		return other;
-	}
-
-	// TODO: do we even need this?
-	public RTs filterRTs(RTs rts) {
-		return rts.filter((int mposIndex, int rtIndex) -> {
-
-			// no assignments? keep everything
-			if (rtIndices[mposIndex] == Unassigned) {
-				return true;
-			}
-
-			// otherwise, keep only matching RTs
-			return rtIndex == rtIndices[mposIndex];
-		});
 	}
 
 	@Override
@@ -478,6 +466,11 @@ public class Sequence {
 	 * @return A string representing the sequence.
 	 */
 	public String toString(Renderer renderer, Integer cellSize, List<String> resNums) {
+
+		if (resNums.isEmpty()) {
+			return "(no mutable residues)";
+		}
+
 		return String.join(" ", Streams.of(assignments(resNums))
 			.filter(assignment -> assignment.isAssigned())
 			.map(assignment -> {

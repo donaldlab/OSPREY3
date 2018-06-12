@@ -772,7 +772,7 @@ public class Comets {
 
 		if (printToConsole) {
 			int cellSize = info.sequence.calcCellSize();
-			log("\nSequence calculation complete: %s    objective: %12.6f   %s\n                           %s",
+			log("\nSequence calculation complete: %s    objective: %12.6f   %s\n                               %s",
 				info.sequence.toString(Sequence.Renderer.ResNum, cellSize),
 				info.objective,
 				info.sequence.isWildType() ? "Wild-type" : "",

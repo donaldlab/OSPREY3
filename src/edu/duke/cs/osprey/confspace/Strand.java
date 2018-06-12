@@ -140,7 +140,9 @@ public class Strand implements Serializable {
 		}
 
 		public boolean isMutable() {
-			return getAllResTypes().size() >= 2;
+			Set<String> allResTypes = getAllResTypes();
+			return allResTypes.size() >= 2
+				|| (allResTypes.size() == 1 && !allResTypes.iterator().next().equals(wildType));
 		}
 
 		/** for both library and wild-type rotamers */

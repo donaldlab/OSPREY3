@@ -191,6 +191,20 @@ public interface SeqAStarNode extends OptimizableAStarNode, Comparable<SeqAStarN
 			});
 		}
 
+		@Override
+		public String toString() {
+			StringBuilder buf = new StringBuilder();
+			for (int i=0; i<numAssigned; i++) {
+				if (buf.length() > 0) {
+					buf.append(" ");
+				}
+				buf.append(assignedPos[i]);
+				buf.append("=");
+				buf.append(assignedRTs[i]);
+			}
+			return buf.toString();
+		}
+
 		public String toString(SeqSpace seqSpace) {
 			StringBuilder buf = new StringBuilder();
 			for (int i=0; i<numAssigned; i++) {

@@ -156,11 +156,12 @@ public class SeqAStarTree {
 				return node;
 			}
 
+			node.getAssignments(assignments);
+
 			// which pos to expand next?
-			int nextPos = order.getNextPos(node, rts);
+			int nextPos = order.getNextPos(assignments, rts);
 
 			// are more mutations allowed here?
-			node.getAssignments(assignments);
 			boolean moreMutationsAllowed = rts.getNumMutations(assignments) < maxSimultaneousMutations;
 
 			if (moreMutationsAllowed) {
@@ -173,7 +174,12 @@ public class SeqAStarTree {
 			} else {
 
 				// just add the wild-type at the next pos
-				addChild(node, nextPos, rts.wildTypeAt(nextPos));
+				int wildTypeIndex = rts.wildTypeAt(nextPos);
+				if (wildTypeIndex >= 0) {
+					addChild(node, nextPos, wildTypeIndex);
+				}
+
+				// wild type not allowed at next pos and we already hit the mutation limit, so just drop the sequence
 			}
 		}
 	}

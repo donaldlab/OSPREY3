@@ -38,7 +38,7 @@ public class SeqSpace implements Serializable {
 		for (Position apos : a.positions) {
 			u.makePos(
 				apos.resNum,
-				apos.wildType.name,
+				apos.wildType != null ? apos.wildType.name : null,
 				apos.resTypes.stream()
 					.map(resType -> resType.name)
 					.collect(Collectors.toList())
@@ -53,10 +53,12 @@ public class SeqSpace implements Serializable {
 			if (upos != null) {
 
 				// check the wild type
-				if (!bpos.wildType.name.equals(upos.wildType.name)) {
+				String uWildType = upos.wildType != null ? upos.wildType.name : null;
+				String bWildType = bpos.wildType != null ? bpos.wildType.name : null;
+				if (!Objects.equals(uWildType, bWildType)) {
 					throw new IllegalArgumentException(String.format(
 						"the two positions at residue %s have different wild types: %s != %s",
-						upos.resNum, upos.wildType.name, bpos.wildType.name
+						upos.resNum, uWildType, bWildType
 					));
 				}
 
@@ -126,7 +128,7 @@ public class SeqSpace implements Serializable {
 				resTypesByName.put(rt.name, rt);
 			}
 
-			// get the wild type
+			// get the wild type, if present for this position
 			this.wildType = getResType(wildType);
 
 			// gather the mutants
@@ -262,11 +264,23 @@ public class SeqSpace implements Serializable {
 		throw new NoSuchElementException("no pos found in this sequence space at residue " + resNum + ". try one of " + getResNums());
 	}
 
+	public boolean containsWildTypeSequence() {
+		for (Position pos : positions) {
+			if (pos.wildType == null) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	public Sequence makeUnassignedSequence() {
 		return new Sequence(this);
 	}
 
 	public Sequence makeWildTypeSequence() {
+		if (!containsWildTypeSequence()) {
+			throw new NoSuchElementException("sequence space does not contain the wild-type sequence, so cannot create it");
+		}
 		Sequence seq = new Sequence(this);
 		seq.fillWildType();
 		return seq;
@@ -326,12 +340,20 @@ public class SeqSpace implements Serializable {
 			// enumerate all the combinations of res types
 			for (List<ResType> mutations : MathTools.cartesianProduct(mutationsByPos)) {
 
-				// build the complex sequence
-				Sequence sequence = makeWildTypeSequence();
+				// build the sequence and add the mutations
+				Sequence sequence = makeUnassignedSequence();
+				sequence.fillWildType();
 				for (ResType rt : mutations) {
 					sequence.set(rt.pos, rt);
 				}
-				sequences.add(sequence);
+
+				// if we have a full sequence, output it
+				if (sequence.isFullyAssigned()) {
+					sequences.add(sequence);
+				}
+
+				// NOTE: if sequence is not fully assigned, that means we're missing wild types at some positions,
+				// and we hit our mutation limits, so don't output this sequence
 			}
 		}
 
