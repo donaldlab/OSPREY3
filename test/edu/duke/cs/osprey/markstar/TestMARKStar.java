@@ -45,8 +45,8 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarZeroEpsilon() {
-	    int numFlex = 3;
-	    double epsilon = 0.68;
+	    int numFlex = 10;
+	    double epsilon = 0.5;
 		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
 		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
         for(MARKStar.ScoredSequence seq: markStarSeqs)
@@ -145,7 +145,7 @@ public class TestMARKStar {
 
 	public static List<KStar.ScoredSequence> runKStarComparison(int numFlex, double epsilon) {
 		ConfSpaces confSpaces = make1GUASmall(numFlex);
-		Parallelism parallelism = Parallelism.makeCpu(1);
+		Parallelism parallelism = Parallelism.makeCpu(4);
 
 		// Define the minimizing energy calculator
 		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)

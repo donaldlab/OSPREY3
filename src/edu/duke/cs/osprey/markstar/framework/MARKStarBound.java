@@ -36,9 +36,9 @@ import java.util.concurrent.PriorityBlockingQueue;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    private boolean debug = true;
+    private boolean debug = false;
     private Status status = null;
-    private PartitionFunction.Values values = null;
+    private MARKStarBound.Values values = null;
 
     // the number of full conformations minimized
     private int numConfsEnergied = 0;
@@ -55,6 +55,10 @@ public class MARKStarBound implements PartitionFunction {
     // Overwrite the computeUpperBound and computeLowerBound methods
     public static class Values extends PartitionFunction.Values {
 
+        public Values ()
+        {
+            pstar = MathTools.BigPositiveInfinity;
+        }
         @Override
         public BigDecimal calcUpperBound() {
             return pstar;
@@ -67,7 +71,7 @@ public class MARKStarBound implements PartitionFunction {
 
         @Override
         public double getEffectiveEpsilon() {
-            return MathTools.bigDivide(qstar, pstar, decimalPrecision).doubleValue();
+            return MathTools.bigDivide(pstar.subtract(qstar), pstar, decimalPrecision).doubleValue();
         }
     }
 
@@ -88,13 +92,13 @@ public class MARKStarBound implements PartitionFunction {
     public void init(double targetEpsilon) {
         this.targetEpsilon = targetEpsilon;
         status = Status.Estimating;
-        values = Values.makeFullRange();
+        values = new MARKStarBound.Values();
     }
 
     public void init(double epsilon, BigDecimal stabilityThreshold) {
         targetEpsilon = epsilon;
         status = Status.Estimating;
-        values = Values.makeFullRange();
+        values = new MARKStarBound.Values();
     }
 
 
@@ -368,7 +372,7 @@ public class MARKStarBound implements PartitionFunction {
         if(queue.isEmpty()) {
             debugPrint("Out of conformations.");
         }
-        int stepSize = 1;
+        int stepSize = 100;
         int numStepsThisLoop = 0;
         List<MARKStarNode> newNodes = new ArrayList<>();
         while(!queue.isEmpty()) {
@@ -506,6 +510,10 @@ public class MARKStarBound implements PartitionFunction {
 
         tasks.waitForFinish();
         queue.addAll(newNodes);
+        debugPrint("A* Heap:");
+        if(debug)
+        for(MARKStarNode node : queue)
+            debugPrint(node.getConfSearchNode().toString()+","+String.format("%12.6e",node.getErrorBound()));
         updateBound();
     }
 

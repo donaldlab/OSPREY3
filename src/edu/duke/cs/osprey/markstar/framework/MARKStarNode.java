@@ -23,12 +23,12 @@ import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
-    boolean debug = true;
+    boolean debug = false;
     private static AStarScorer gScorer;
     private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;
     private static AStarScorer negatedHScorer;
-    private static final double minimizationRatio = 1;//0.0000001;
+    private static final double minimizationRatio = 0.0000000001;//0.0000001;
     private boolean updated = true;
     /**
      * TODO: 1. Make MARKStarNodes spawn their own Node and MARKStarNode children.
@@ -275,7 +275,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         if(confSearchNode.isMinimized())
             return BigDecimal.ZERO;
         if(children == null || children.size() < 1) {
-            return confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound);
+            BigDecimal diff = confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound);
+            if(confSearchNode.isLeaf())
+               return  diff.multiply(new BigDecimal(minimizationRatio));
+            return diff;
         }
         BigDecimal errorSum = BigDecimal.ZERO;
         for(MARKStarNode childNode: children) {
