@@ -45,9 +45,10 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarZeroEpsilon() {
-	    int numFlex = 5;
-		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, 0.68);
-		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, 0.68);
+	    int numFlex = 3;
+	    double epsilon = 0.68;
+		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
+		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
         for(MARKStar.ScoredSequence seq: markStarSeqs)
         {
             printMARKStarComputationStats(seq);
@@ -163,7 +164,7 @@ public class TestMARKStar {
 
 		// how should confs be ordered and searched?
 		KStar.ConfSearchFactory confSearchFactory = (emat, pmat) -> {
-			return new RecursiveAStarTree.Builder(emat, pmat)
+			return new ConfAStarTree.Builder(emat, pmat)
 					.setTraditional()
 					.build();
 		};

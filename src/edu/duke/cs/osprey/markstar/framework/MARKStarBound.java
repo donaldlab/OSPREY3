@@ -286,7 +286,7 @@ public class MARKStarBound implements PartitionFunction {
     // We keep track of the root node for computing our K* bounds
     private MARKStarNode rootNode;
     // Heap of nodes for recursive expansion
-    private final BlockingQueue<MARKStarNode> queue;
+    private final Queue<MARKStarNode> queue;
     private double epsilonBound = Double.POSITIVE_INFINITY;
     private boolean boundChanged = false;
     private ConfIndex confIndex;
@@ -302,7 +302,7 @@ public class MARKStarBound implements PartitionFunction {
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                          ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
-        this.queue = new PriorityBlockingQueue<>();
+        this.queue = new PriorityQueue<>();
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
         MPLPUpdater updater = new EdgeUpdater();
@@ -370,8 +370,8 @@ public class MARKStarBound implements PartitionFunction {
         }
         int stepSize = 1;
         int numStepsThisLoop = 0;
+        List<MARKStarNode> newNodes = new ArrayList<>();
         while(!queue.isEmpty()) {
-            try {
                 if(epsilonBound < targetEpsilon)
                     break;
                 if(numStepsThisLoop >= stepSize)
@@ -380,7 +380,7 @@ public class MARKStarBound implements PartitionFunction {
                 {
                     numStepsThisLoop++;
                 }
-                MARKStarNode curNode = queue.take();
+                MARKStarNode curNode = queue.poll();
                 Node node = curNode.getConfSearchNode();
                 debugPrint("Processing Node: " + node.toString());
 
@@ -493,7 +493,7 @@ public class MARKStarBound implements PartitionFunction {
                                 children.add(MARKStarNodeChild);
                             }
                             if (!child.isMinimized())
-                                queue.add(MARKStarNodeChild);
+                                newNodes.add(MARKStarNodeChild);
                             else
                                 MARKStarNodeChild.computeEpsilonErrorBounds();
 
@@ -502,11 +502,10 @@ public class MARKStarBound implements PartitionFunction {
                         curNode.markUpdated();
                     });
                 }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         }
+
         tasks.waitForFinish();
+        queue.addAll(newNodes);
         updateBound();
     }
 

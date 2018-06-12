@@ -10,6 +10,8 @@ import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.ExpFunction;
+import edu.duke.cs.osprey.tools.MathTools;
+import org.ojalgo.matrix.transformation.Rotation;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -33,8 +35,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
      * TODO: 2. Make MARKStarNodes compute and update bounds correctly
      */
 
-    private double errorBound = 1;
-    private BigDecimal bigEpsilon = BigDecimal.ONE;
+    private BigDecimal errorBound = BigDecimal.ONE;
+    private double nodeEpsilon = 1;
     private List<MARKStarNode> children; // TODO: Pick appropriate data structure
     private Node confSearchNode;
     public final int level;
@@ -60,12 +62,48 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         updated = true;
     }
 
+
+    private void printBoundBreakDown()
+    {
+        printBoundBreakDown("");
+    }
+
+    private void printBoundBreakDown(String prefix)
+    {
+        if(level == 0) {
+            System.out.println("=====================BEGIN TREE INFO==================================");
+            System.out.println(prefix + confSearchNode + ": [" + setSigFigs(confSearchNode.subtreeLowerBound)
+                    + "," + setSigFigs(confSearchNode.subtreeUpperBound) + "], errorBound =" + String.format("%3.3e",errorBound));
+        }
+
+        if(children != null && children.size() > 0) {
+            BigDecimal upper = BigDecimal.ZERO;
+            BigDecimal lower = BigDecimal.ZERO;
+            Collections.sort(children);
+            prefix+="+~~";
+            for(MARKStarNode child: children) {
+                System.out.print(prefix+child.confSearchNode+": ["+setSigFigs(child.confSearchNode.subtreeLowerBound)
+                        +","+setSigFigs(child.confSearchNode.subtreeUpperBound)+"], epsilon="+String.format("%3.3e",errorBound));
+                System.out.print("Upper: " + setSigFigs(upper) + " + "
+                        + setSigFigs(child.confSearchNode.subtreeUpperBound) + " = "
+                        + setSigFigs(upper.add(child.confSearchNode.subtreeUpperBound)));
+                System.out.println("Lower: " + setSigFigs(lower) + " + "
+                        + setSigFigs(child.confSearchNode.subtreeLowerBound) + " = "
+                        + setSigFigs(lower.add(child.confSearchNode.subtreeLowerBound)));
+                upper = upper.add(child.confSearchNode.subtreeUpperBound);
+                lower = lower.add(child.confSearchNode.subtreeLowerBound);
+                child.printBoundBreakDown(prefix);
+            }
+        }
+        if(level == 0) {
+            System.out.println("=====================END TREE INFO==================================");
+        }
+    }
+
     public double computeEpsilonErrorBounds() {
-        if(debug)
-            System.out.println(confSearchNode+": ["+setSigFigs(confSearchNode.subtreeLowerBound)
-                    +","+setSigFigs(confSearchNode.subtreeUpperBound)+"], epsilon="+errorBound);
-        if(!updated && (children == null || children.size() <1))
-            return errorBound;
+        if(!updated && (children == null || children.size() <1)) {
+            return nodeEpsilon;
+        }
         updated = false;
         double epsilonBound = 0;
         BigDecimal lastUpper = confSearchNode.subtreeUpperBound;
@@ -73,17 +111,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         if(children != null && children.size() > 0) {
             BigDecimal errorUpperBound = BigDecimal.ZERO;
             BigDecimal errorLowerBound = BigDecimal.ZERO;
-            Collections.sort(children);
             for(MARKStarNode child: children) {
-                double childEpsilon = child.computeEpsilonErrorBounds();
-                if (false){
-                    System.out.println("Upper: " + setSigFigs(errorUpperBound) + "+"
-                            + setSigFigs(child.confSearchNode.subtreeUpperBound) + "="
-                            + setSigFigs(errorUpperBound.add(child.confSearchNode.subtreeUpperBound)));
-                    System.out.println("Lower: " + setSigFigs(errorLowerBound) + "+"
-                            + setSigFigs(child.confSearchNode.subtreeLowerBound) + "="
-                            + setSigFigs(errorLowerBound.add(child.confSearchNode.subtreeLowerBound)));
-                }
+                child.computeEpsilonErrorBounds();
                 errorUpperBound = errorUpperBound.add(child.confSearchNode.subtreeUpperBound);
                 errorLowerBound = errorLowerBound.add(child.confSearchNode.subtreeLowerBound);
             }
@@ -98,9 +127,11 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             epsilonBound = confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound)
                     .divide(confSearchNode.subtreeUpperBound, RoundingMode.HALF_UP).doubleValue();
             debugChecks(lastUpper, lastLower, epsilonBound);
-            errorBound = epsilonBound;
+            nodeEpsilon = epsilonBound;
+            if(debug)
+                printBoundBreakDown();
         }
-        return epsilonBound;
+        return nodeEpsilon;
     }
 
     private void debugChecks(BigDecimal lastUpper, BigDecimal lastLower, double epsilonBound) {
@@ -120,7 +151,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             System.err.println("Lower bound got smaller!?");
             System.err.println("Decreased by "+lastLower.subtract(confSearchNode.subtreeLowerBound));
         }
-        if(errorBound < epsilonBound && epsilonBound - errorBound > 0.0001) {
+        if(nodeEpsilon < epsilonBound && epsilonBound - nodeEpsilon > 0.0001) {
             System.err.println("Epsilon got bigger. Error.");
             System.err.println("UpperBound change: "+confSearchNode.subtreeUpperBound.subtract(lastUpper));
             System.err.println("LowerBound change: "+confSearchNode.subtreeLowerBound.subtract(lastLower));
@@ -232,19 +263,23 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     @Override
     public int compareTo(MARKStarNode other){
-        return -Double.compare(this.getErrorBound(),other.getErrorBound());
+        if(MathTools.isLessThan(getErrorBound(),other.getErrorBound()))
+            return 1;
+        if(MathTools.isGreaterThan(getErrorBound(), other.getErrorBound()))
+            return -1;
+        return 0;
 
     }
 
-    public double getErrorBound() {
+    public BigDecimal getErrorBound() {
         if(confSearchNode.isMinimized())
-            return 0;
+            return BigDecimal.ZERO;
         if(children == null || children.size() < 1) {
-            return -confSearchNode.getHScore();
+            return confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound);
         }
-        double errorSum = 0;
+        BigDecimal errorSum = BigDecimal.ZERO;
         for(MARKStarNode childNode: children) {
-            errorSum += childNode.getErrorBound();
+            errorSum = errorSum.add(childNode.getErrorBound());
         }
         errorBound = errorSum;
         return errorBound;
@@ -362,10 +397,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             if(confLowerBound > confUpperBound)
                 System.err.println("Incorrect conf bounds set.");
             BigDecimal subtreeDifference = ef.exp(-confLowerBound).subtract(ef.exp(-confUpperBound));
-            double logScale = -ef.log(new BigDecimal(getNumConformations())).doubleValue();
             if(isLeaf())
-                return (-subtreeDifference.doubleValue() - logScale)*minimizationRatio;
-            return  -subtreeDifference.doubleValue() - logScale;
+                return (-subtreeDifference.doubleValue())*minimizationRatio;
+            return  -subtreeDifference.doubleValue();
         }
 
         @Override
@@ -414,9 +448,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public String toString()
         {
             String out = confToString();
-            out+="Energy:"+gscore;
+            out+="Energy:"+String.format("%4.2f",gscore)+"*"+numConfs;
             if(!isMinimized())
-                out += " in ["+confLowerBound+","+confUpperBound+"]->["+ setSigFigs(subtreeLowerBound) +","+ setSigFigs(subtreeUpperBound)+"]";
+                out += " in ["+String.format("%4.4e,%4.4e",confLowerBound,confUpperBound)+"]->["+ setSigFigs(subtreeLowerBound) +","+ setSigFigs(subtreeUpperBound)+"]";
             else
                 out += " (minimized) -> "+setSigFigs(subtreeLowerBound);
             return out;
