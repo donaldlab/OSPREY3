@@ -22,6 +22,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -36,8 +37,8 @@ public class SMAStarLab {
 
 		Molecule mol = PDBIO.readResource("/1CC8.ss.pdb");
 		Strand strand = new Strand.Builder(mol).build();
-		List<String> resNums = Arrays.asList("A2", "A3", "A4");
-		//List<String> resNums = Arrays.asList("A2", "A3", "A4", "A5");
+		//List<String> resNums = Arrays.asList("A2", "A3", "A4");
+		List<String> resNums = Arrays.asList("A2", "A3", "A4", "A5", "A6", "A7");
 		for (String resNum : resNums) {
 			strand.flexibility.get(resNum).setLibraryRotamers("VAL");
 		}
@@ -61,13 +62,21 @@ public class SMAStarLab {
 			ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
 				.setTraditional()
 				.build();
+			Stopwatch astarStopwatch = new Stopwatch().start();
 			List<ConfSearch.ScoredConf> astarConfs = astar.nextConfs(Double.POSITIVE_INFINITY);
-			dumpConfs("A*", astarConfs);
+			astarStopwatch.stop();
 
 			// enumerate the confs using SMA*
-			SMAStar smastar = new SMAStar(emat, rcs, 10);
+			SMAStar smastar = new SMAStar(emat, rcs, rcs.getNumPos() + 1);
+			Stopwatch smastarStopwatch = new Stopwatch().start();
 			List<ConfSearch.ScoredConf> smastarConfs = smastar.nextConfs();
+			smastarStopwatch.stop();
+
+			dumpConfs("A*", astarConfs);
 			dumpConfs("SMA*", smastarConfs);
+
+			log("  A* finished in %s", astarStopwatch.getTime(2));
+			log("SMA* finished in %s", smastarStopwatch.getTime(2));
 
 			checkConfs(astarConfs, smastarConfs);
 		}
@@ -542,9 +551,6 @@ public class SMAStarLab {
 
 			long used = 1;
 
-			// TEMP
-			maxNumNodes = 4;
-
 			double maxLeafScore = Double.NEGATIVE_INFINITY;
 			double maxLowestDeepestScore = Double.NEGATIVE_INFINITY;
 
@@ -570,19 +576,23 @@ public class SMAStarLab {
 				if (node.depth == numPos) {
 
 					// is this the first time we've seen this leaf node?
-					double confScore = node.gscore + node.hscore;
-					if (confScore == node.fscore) {
+					// NOTE: due to backing up of scores and roundoff error, the fand the g+h scores might differ ever so slightly
+					// hopefully the score difference between two different confs is never this small
+					double scoreEquivalance = 1e-12;
+					double confScore = node.gscore;
+					if (Math.abs(confScore - node.fscore) < scoreEquivalance) {
 
 						// yup, collect the full conf
 						confs.add(new ConfSearch.ScoredConf(node.makeConf(numPos), confScore));
 					}
 
 					// TEMP
-					log("\n\nLEAF NODE %d   %s   %.4f >= %.4f\n",
+					log("\n\nLEAF NODE %d   %s   %.4f >= %.4f  (%.20f)\n",
 						confs.size(),
 						Conf.toString(node.makeConf(numPos)),
 						node.fscore,
-						confScore
+						confScore,
+						node.fscore - confScore
 					);
 
 					// TEMP
@@ -640,9 +650,6 @@ public class SMAStarLab {
 
 					continue;
 				}
-
-				// TEMP
-				try  { Thread.sleep(20); } catch (Exception ex) {}
 
 				// choose next pos
 				int pos = node.depth;
