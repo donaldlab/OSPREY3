@@ -426,6 +426,12 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 		// did we hit the epsilon target?
 		if (state.epsilonReached(targetEpsilon)) {
 			status = Status.Estimated;
+			//Debug printline. Delete if you see it.
+			if(true) {
+				System.out.println(String.format("Partition function approximation complete: [%12.6e,%12.6e]", state.getLowerBound(), state.getUpperBound()));
+				System.out.println(String.format("Score breakdown: q* = %12.6e, q' = %12.6e, p' = %12.6e", values.qstar, values.qprime, values.pstar));
+			}
+
 		}
 
 		// did we drop below the stability threshold?

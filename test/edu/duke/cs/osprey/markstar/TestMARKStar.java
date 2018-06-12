@@ -17,6 +17,7 @@ import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.MARKStar.ConfSearchFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.partcr.pickers.WalkingConfPicker;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -45,8 +46,8 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarZeroEpsilon() {
-	    int numFlex = 10;
-	    double epsilon = 0.5;
+	    int numFlex = 8;
+	    double epsilon = 0.68;
 		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
 		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
         for(MARKStar.ScoredSequence seq: markStarSeqs)
@@ -87,7 +88,7 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        runMARKStar(5, 0.68);
+        runMARKStar(4, 0.01);
 
     }
 
@@ -104,7 +105,7 @@ public class TestMARKStar {
 
 	private static List<MARKStar.ScoredSequence> runMARKStar(int numFlex, double epsilon) {
 		ConfSpaces confSpaces = make1GUASmall(numFlex);
-		Parallelism parallelism = Parallelism.makeCpu(4);
+		Parallelism parallelism = Parallelism.makeCpu(1);
 
 		// Define the minimizing energy calculator
 		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)

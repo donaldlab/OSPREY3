@@ -372,7 +372,7 @@ public class MARKStarBound implements PartitionFunction {
         if(queue.isEmpty()) {
             debugPrint("Out of conformations.");
         }
-        int stepSize = 100;
+        int stepSize = 1;
         int numStepsThisLoop = 0;
         List<MARKStarNode> newNodes = new ArrayList<>();
         while(!queue.isEmpty()) {
@@ -387,31 +387,47 @@ public class MARKStarBound implements PartitionFunction {
                 MARKStarNode curNode = queue.poll();
                 Node node = curNode.getConfSearchNode();
                 debugPrint("Processing Node: " + node.toString());
+                if(node.confToString().equals("(7, 9, 5, 7, )"))
+                {
+                   System.out.println("Catch");
+                }
+                if(curNode.getConfSearchNode().getSubtreeUpperBound().compareTo(new BigDecimal(100))<1)
+                {
+                    System.err.println("Node error is insignificant. Why is this happening? Aren't we done?");
+                }
 
                 //If the child is a leaf, calculate n-body minimized energies
                 if (node.getLevel() == RCs.getNumPos() && !node.isMinimized()) {
                     tasks.submit(() -> {
                                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                                     ScoreContext context = checkout.get();
-                                    ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, -node.getConfLowerBound());
+                                    ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, node.getConfLowerBound());
                                     ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
                                     numConfsEnergied++;
                                     //Assign true energies to the subtreeLowerBound and subtreeUpperBound
                                     double energy = econf.getEnergy();
-                                    curNode.setBoundsFromConfLowerAndUpper(econf.getEnergy(), econf.getEnergy());
-                                    node.gscore = econf.getEnergy();
-                                    if (true &&
-                                            (energy < -node.getMinScore() || energy > -node.getMaxScore())) {
-                                        System.err.println("Bounds are incorrect:" + (-node.getMinScore()) + "!< " + energy + " or " + energy
-                                                + " !<" + (-node.getMaxScore()) + " Aborting.");
-                                        System.exit(-1);
+                                    double newConfUpper = econf.getEnergy();
+                                    double newConfLower = econf.getEnergy();
+                                    if(energy < node.getConfLowerBound()) {
+                                        System.err.println("Bounds are incorrect:" + (node.getConfLowerBound()) + " > "
+                                                + energy);
+                                        if (energy < 10)
+                                            System.exit(-1);
                                     }
+                                    if (energy > node.getConfUpperBound()) {
+                                        System.err.println("Upper bounds got worse after minimization:" + energy
+                                                + " > " + (node.getConfUpperBound())+". Rejecting minimized energy.");
+                                        newConfUpper = node.getConfUpperBound();
+                                        newConfLower = node.getConfUpperBound();
+                                    }
+                                    curNode.setBoundsFromConfLowerAndUpper(newConfLower,newConfUpper);
+                                    node.gscore = newConfLower;
                                     String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                                     debugPrint(out);
 
                                     if (printMinimizedConfs) {
                                         System.out.println("[" + SimpleConfSpace.formatConfRCs(node.assignments) + "]" + String.format("conf:%4d, score:%12.6f, energy:%12.6f",
-                                                numConfsEnergied, econf.getScore(), econf.getEnergy()
+                                                numConfsEnergied, econf.getScore(), newConfLower
                                         )
                                                 + ", bounds: " + epsilonBound);
                                     }

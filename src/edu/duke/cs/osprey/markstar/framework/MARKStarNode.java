@@ -28,7 +28,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;
     private static AStarScorer negatedHScorer;
-    private static final double minimizationRatio = 0.0000000001;//0.0000001;
+    private static final double minimizationRatio = 1;//0.0000001;
     private boolean updated = true;
     /**
      * TODO: 1. Make MARKStarNodes spawn their own Node and MARKStarNode children.
@@ -263,12 +263,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     @Override
     public int compareTo(MARKStarNode other){
-        if(MathTools.isLessThan(getErrorBound(),other.getErrorBound()))
-            return 1;
-        if(MathTools.isGreaterThan(getErrorBound(), other.getErrorBound()))
-            return -1;
-        return 0;
-
+        return -errorBound.compareTo(other.errorBound);
     }
 
     public BigDecimal getErrorBound() {
@@ -322,7 +317,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
 
         public void updateConfLowerBound(double tighterLower) {
-            if(tighterLower < confLowerBound)
+            if(tighterLower < 10 && tighterLower < confLowerBound)
                 System.err.println("Updating conf lower bound of  "+confLowerBound
                         + " with "+tighterLower+", which is lower!?");
             confLowerBound = tighterLower;
@@ -330,7 +325,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
 
         public void updateConfUpperBound(double tighterUpper) {
-            if(tighterUpper > confUpperBound)
+            if(tighterUpper < 10 && tighterUpper > confUpperBound)
                 System.err.println("Updating conf greater bound of  "+confUpperBound
                         + " with "+tighterUpper+", which is greater!?");
             confUpperBound = tighterUpper;
