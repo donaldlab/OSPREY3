@@ -457,6 +457,9 @@ public class ConfAStarTree implements ConfSearch {
 		ScoredConf nextConf();
 	}
 
+	/**
+	 * An implementation of the classic A* that uses unbounded memory.
+	 */
 	private class UnboundedImpl implements AStarImpl {
 
 		private final Queue<ConfAStarNode> queue;
@@ -591,7 +594,7 @@ public class ConfAStarTree implements ConfSearch {
 		private final ConfSMAStarQueue q;
 
 		private ConfSMAStarNode rootNode = null;
-		private long used = 0;
+		private long numNodes = 0;
 
 		SimplifiedBoundedImpl(long maxNumNodes) {
 
@@ -604,11 +607,12 @@ public class ConfAStarTree implements ConfSearch {
 			// start the queue with the root node
 			q = new ConfSMAStarQueue();
 
-			used++;
+			numNodes++;
 		}
 
 		// TODO: progress reporting?
 		// TODO: parallelism?
+		// TODO: directional optimization?
 
 		@Override
 		public ScoredConf nextConf() {
@@ -634,9 +638,13 @@ public class ConfAStarTree implements ConfSearch {
 
 				ConfSMAStarNode node = q.getLowestDeepest();
 
+				// TEMP
+				//log("lowest deepest: %s", node);
+
 				// is it a leaf node?
 				if (node.depth == numPos) {
 
+					// leaf nodes should be all g, no h
 					assert (node.hscore == 0.0);
 
 					// is this the first time we've seen this leaf node? (SMA* sees the same leaf nodes multiple times)
@@ -650,42 +658,8 @@ public class ConfAStarTree implements ConfSearch {
 						conf = node.makeConf(numPos);
 					}
 
-					// remove the node from the queue
-					q.remove(node);
-
-					// flag this node as finished
-					node.fscore = Double.POSITIVE_INFINITY;
-					node.parent.childStates[node.index] = ConfSMAStarNode.State.Finished;
-					node.parent.forgottenScores[node.index] = Double.POSITIVE_INFINITY;
-					node.parent.backup(q, numPos);
-
-					ConfSMAStarNode n = node.parent;
-
-					// remove the node from the tree
-					node.removeFromParent();
-					used--;
-
-					// remove finished nodes recursively
-					while (n != null && n.allChildrenFinished()) {
-
-						// remove the node from the queue
-						if (q.contains(n)) {
-							q.remove(n);
-						}
-
-						// remove the node from the tree
-						ConfSMAStarNode parent = n.parent;
-						if (parent != null) {
-
-							parent.childStates[n.index] = ConfSMAStarNode.State.Finished;
-							parent.forgottenScores[n.index] = Double.POSITIVE_INFINITY;
-
-							n.removeFromParent();
-						}
-						used--;
-
-						n = parent;
-					}
+					// remove the leaf node from everything (and any finished parents too)
+					numNodes -= node.parent.finishChild(node, q);
 
 					if (conf != null) {
 						return new ScoredConf(conf, node.gscore);
@@ -694,53 +668,46 @@ public class ConfAStarTree implements ConfSearch {
 					}
 				}
 
+				node.index(confIndex);
+
 				// choose next pos
+				// TODO: support pos-ordering heuristics
+				//int pos = order.getNextPos(confIndex, rcs);
 				int pos = node.depth;
 
 				// choose the next RC
-				int index = node.getNextIndex(rcs.getNum(pos));
+				int index = node.getNextChildIndex(rcs.getNum(pos));
 				int rc = rcs.get(pos)[index];
 
 				// score the child
-				node.index(confIndex);
-				double gscore = gscorer.calcDifferential(confIndex, rcs, pos, rc);
-				double hscore = hscorer.calcDifferential(confIndex, rcs, pos, rc);
-				ConfSMAStarNode child = node.spawnChild(pos, rc, index, gscore, hscore);
+				ConfSMAStarNode child = node.spawnChild(pos, rc, index);
+				child.gscore = gscorer.calcDifferential(confIndex, rcs, pos, rc);
+				child.hscore = hscorer.calcDifferential(confIndex, rcs, pos, rc);
 
-				// but really, don't have a lower score than the parent
-				child.fscore = Math.max(child.fscore, node.fscore);
+				// don't let the fscore go lower than the parent though
+				child.fscore = Math.max(node.fscore, child.gscore + child.hscore);
 
-				if (!node.hasUnspawnedChildren()) {
-					node.backup(q, numPos);
+				numNodes++;
+
+				// if we've seen all the node's children, backup the fscore
+				node.backup(q);
+
+				// if the node has nothing left to spawn, remove it from the queue
+				if (!node.canSpawnChildren()) {
+					q.removeOrAssert(node);
 				}
 
-				if (node.allChildrenSpawned()) {
+				// if we're over the limit, forget some nodes
+				if (numNodes > maxNumNodes) {
 
-					// remove it from the queue
-					q.remove(node);
-				}
-
-				used++;
-				if (used > maxNumNodes) {
-
-					// find the worst node in the queue
+					// forget the worst node in the queue
 					ConfSMAStarNode highest = q.removeHighestShallowestLeaf();
-
-					// only forget leaves!!!
-					assert (!highest.hasSpawnedChildren()) : "tried to forget non-leaf";
-
-					// tell the parent to forget us
-					highest.parent.childStates[highest.index] = ConfSMAStarNode.State.Forgotten;
-					highest.parent.forgottenScores[highest.index] = highest.fscore;
+					highest.parent.forgetChild(highest);
 
 					// add the parent back to the queue if needed
-					if (!q.contains(highest.parent)) {
-						q.add(highest.parent);
-					}
+					q.add(highest.parent);
 
-					highest.removeFromParent();
-
-					used--;
+					numNodes--;
 				}
 
 				// add the child to the queue

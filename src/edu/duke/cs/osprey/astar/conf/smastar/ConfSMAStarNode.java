@@ -10,33 +10,95 @@ import java.util.stream.IntStream;
 public class ConfSMAStarNode implements ConfAStarNode {
 
 	public static enum State {
-		Unspawned, // never spawned yet
-		Spawned, // in the child array
-		Finished, // not spawned now, never need to spawn again
-		Forgotten // not spawned now, might need to spawn again
+
+		/** never spawned yet */
+		Unspawned,
+
+		/** in the child array */
+		Spawned,
+
+		/** not spawned now, never need to spawn again */
+		Finished,
+
+		/** not spawned now, might need to spawn again */
+		Forgotten
 	}
 
-	// TODO: encapsulation, finality
+	public final ConfSMAStarNode parent;
+	public final int index;
+	public final int depth;
+	public final int pos;
+	public final int rc;
 
-	public ConfSMAStarNode parent = null;
-	public int index = -1;
-	public ConfSMAStarNode[] spawnedChildren = null;
-	public State[] childStates = null;
-	public double[] forgottenScores = null;
-	public int depth = 0;
 	public double gscore = 0.0;
 	public double hscore = 0.0;
 	public double fscore = Double.NaN;
-	public int pos = -1;
-	public int rc = -1;
 
-	public void allocateChildren(int numChildren) {
+	private ConfSMAStarNode[] spawnedChildren = null;
+	private State[] childStates = null;
+	private double[] forgottenScores = null;
+
+
+	/** make the root node */
+	public ConfSMAStarNode() {
+		this(null, -1, 0, -1, -1);
+	}
+
+	/** make a non-root node */
+	private ConfSMAStarNode(ConfSMAStarNode parent, int index, int depth, int pos, int rc) {
+		this.parent = parent;
+		this.index = index;
+		this.depth = depth;
+		this.pos = pos;
+		this.rc = rc;
+	}
+
+	private void allocateChildren(int numChildren) {
 		spawnedChildren = new ConfSMAStarNode[numChildren];
 		Arrays.fill(spawnedChildren, null);
 		childStates = new State[numChildren];
 		Arrays.fill(childStates, State.Unspawned);
 		forgottenScores = new double[numChildren];
 		Arrays.fill(forgottenScores, Double.NaN);
+	}
+
+	@Override
+	public void getConf(int[] conf) {
+		ConfSMAStarNode node = this;
+		while (node.depth > 0) {
+			conf[node.pos] = node.rc;
+			node = node.parent;
+		}
+	}
+
+	@Override
+	public double getScore() {
+		return fscore;
+	}
+
+	@Override
+	public double getGScore() {
+		return gscore;
+	}
+
+	@Override
+	public void setGScore(double val) {
+		gscore = val;
+	}
+
+	@Override
+	public double getHScore() {
+		return hscore;
+	}
+
+	@Override
+	public void setHScore(double val) {
+		hscore = val;
+	}
+
+	@Override
+	public int getLevel() {
+		return depth;
 	}
 
 	@Override
@@ -54,37 +116,7 @@ public class ConfSMAStarNode implements ConfAStarNode {
 		index.updateUndefined();
 	}
 
-	public ConfSMAStarNode spawnChild(int pos, int rc, int index, double gscore, double hscore) {
-		ConfSMAStarNode child = new ConfSMAStarNode();
-		child.parent = this;
-		child.index = index;
-		child.depth = depth + 1;
-		child.gscore = gscore;
-		child.hscore = hscore;
-		child.fscore = gscore + hscore;
-		child.pos = pos;
-		child.rc = rc;
-		spawnedChildren[index] = child;
-
-		// reset the forgotten score if needed
-		if (childStates[index] == State.Forgotten) {
-			forgottenScores[index] = Double.NaN;
-		}
-
-		childStates[index] = State.Spawned;
-		return child;
-	}
-
-	public boolean hasSpawnableChildren() {
-		for (State state : childStates) {
-			if (state == State.Unspawned || state == State.Forgotten) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	public int getNextIndex(int numChildren) {
+	public int getNextChildIndex(int numChildren) {
 
 		if (spawnedChildren == null) {
 			allocateChildren(numChildren);
@@ -116,12 +148,101 @@ public class ConfSMAStarNode implements ConfAStarNode {
 		throw new Error("No more children to spawn");
 	}
 
-	public void removeFromParent() {
+	@Override
+	public ConfAStarNode assign(int pos, int rc) {
+		throw new UnsupportedOperationException("need the child index, call spawnChild instead");
+	}
 
-		assert (parent.spawnedChildren[index] == this);
+	public ConfSMAStarNode spawnChild(int pos, int rc, int index) {
 
-		parent.spawnedChildren[index] = null;
-		this.parent = null;
+		ConfSMAStarNode child = new ConfSMAStarNode(this, index, depth + 1, pos, rc);
+		spawnedChildren[index] = child;
+		childStates[index] = State.Spawned;
+		forgottenScores[index] = Double.NaN;
+
+		return child;
+	}
+
+	public void forgetChild(ConfSMAStarNode child) {
+		assert (spawnedChildren[child.index] == child);
+		childStates[child.index] = ConfSMAStarNode.State.Forgotten;
+		forgottenScores[child.index] = child.fscore;
+		spawnedChildren[child.index] = null;
+	}
+
+	public int finishChild(ConfSMAStarNode child, ConfSMAStarQueue q) {
+
+		assert (spawnedChildren[child.index] == child);
+
+		// remove the child from the queue, before changing the fscore
+		q.removeOrAssert(child);
+
+		// flag this child as finished and update the fscores
+		child.fscore = Double.POSITIVE_INFINITY;
+		childStates[child.index] = State.Finished;
+		forgottenScores[child.index] = Double.POSITIVE_INFINITY;
+		backup(q);
+
+		// remove the child from the tree
+		spawnedChildren[child.index] = null;
+		int numNodesRemoved = 1;
+
+		// recurse up the tree
+		ConfSMAStarNode node = this;
+		while (node != null && node.allChildrenFinished()) {
+
+			// remove the node from the queue, if needed
+			q.remove(node);
+
+			// remove it from the tree too, if needed
+			if (node.parent != null) {
+				node.parent.childStates[node.index] = State.Finished;
+				node.parent.forgottenScores[node.index] = Double.POSITIVE_INFINITY;
+				node.parent.spawnedChildren[node.index] = null;
+			}
+			numNodesRemoved++;
+
+			node = node.parent;
+		}
+
+		return numNodesRemoved;
+	}
+
+	/** ie, the "backup" operation described by the SMA* paper */
+	public void backup(ConfSMAStarQueue q) {
+
+		ConfSMAStarNode node = this;
+		while (node != null && node.haveAllChildScores()) {
+
+			double oldScore = node.fscore;
+
+			// update the fscore to the min of any known successor score
+			double newScore = Double.POSITIVE_INFINITY;
+			for (ConfSMAStarNode child : node.spawnedChildren) {
+				if (child != null) {
+					newScore = Math.min(newScore, child.fscore);
+				}
+			}
+			for (double score : node.forgottenScores) {
+				if (!Double.isNaN(score)) {
+					newScore = Math.min(newScore, score);
+				}
+			}
+
+			// no change? we're done here
+			if (newScore == oldScore) {
+				break;
+			}
+
+			// update the node score (take the node out of the queue while changing the fscore)
+			boolean wasRemoved = q.remove(node);
+			node.fscore = newScore;
+			if (wasRemoved) {
+				q.addOrAssert(node);
+			}
+
+			node = node.parent;
+		}
 	}
 
 	public String getPath() {
@@ -140,7 +261,7 @@ public class ConfSMAStarNode implements ConfAStarNode {
 			buf.append(node.pos);
 			buf.append(":");
 			buf.append(node.rc);
-			assert (node.depth == 0 || node.parent != null) : buf.toString() + " <- null";
+			assert (node.parent != null) : buf.toString() + " <- null";
 			node = node.parent;
 		}
 		return buf.toString();
@@ -161,117 +282,27 @@ public class ConfSMAStarNode implements ConfAStarNode {
 		);
 	}
 
-	@Override
-	public ConfAStarNode assign(int pos, int rc) {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public void getConf(int[] conf) {
-		ConfSMAStarNode node = this;
-		while (node.depth > 0) {
-			conf[node.pos] = node.rc;
-			node = node.parent;
-		}
-	}
-
-	@Override
-	public double getScore() {
-		return fscore;
-	}
-
-	@Override
-	public double getGScore() {
-		return gscore;
-	}
-
-	@Override
-	public void setGScore(double val) {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public double getHScore() {
-		return hscore;
-	}
-
-	@Override
-	public void setHScore(double val) {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public int getLevel() {
-		throw new UnsupportedOperationException();
-	}
-
-	public boolean hasUnspawnedChildren() {
+	/** ie, were all the children spawned at least once, so we've seen their fscores? */
+	private boolean haveAllChildScores() {
 		for (State state : childStates) {
 			if (state == State.Unspawned) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	public void backup(ConfSMAStarQueue q, int maxDepth) {
-
-		if (hasUnspawnedChildren()) {
-			return;
-		}
-
-		double oldScore = fscore;
-
-		// update the fscore to the min of any known successor score
-		double newScore = Double.POSITIVE_INFINITY;
-		for (ConfSMAStarNode child : spawnedChildren) {
-			if (child != null) {
-				newScore = Math.min(newScore, child.fscore);
-			}
-		}
-		for (double score : forgottenScores) {
-			if (!Double.isNaN(score)) {
-				newScore = Math.min(newScore, score);
-			}
-		}
-
-		if (newScore != oldScore) {
-
-			// TODO: re-index after score change
-			fscore = newScore;
-
-			// recurse if possible
-			if (parent != null) {
-				parent.backup(q, maxDepth);
-			}
-		}
-	}
-
-	public double getMinForgottenScore() {
-		if (forgottenScores == null) {
-			return Double.NaN;
-		}
-		double minScore = Double.NaN;
-		for (double score : forgottenScores) {
-			if (!Double.isNaN(score)) {
-				if (Double.isNaN(minScore) || score < minScore) {
-					minScore = score;
-				}
-			}
-		}
-		return minScore;
-	}
-
-	public boolean allChildrenSpawned() {
-		for (State state : childStates) {
-			if (state == State.Unspawned || state == State.Forgotten) {
 				return false;
 			}
 		}
 		return true;
 	}
 
-	public boolean allChildrenFinished() {
+	/** ie, is it possible to spawn any children in the future? */
+	public boolean canSpawnChildren() {
+		for (State state : childStates) {
+			if (state == State.Unspawned || state == State.Forgotten) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean allChildrenFinished() {
 		for (State state : childStates) {
 			if (state != State.Finished) {
 				return false;

@@ -31,7 +31,8 @@ public class SMAStarLab {
 		Molecule mol = PDBIO.readResource("/1CC8.ss.pdb");
 		Strand strand = new Strand.Builder(mol).build();
 		//List<String> resNums = Arrays.asList("A2", "A3", "A4");
-		List<String> resNums = Arrays.asList("A2", "A3", "A4", "A5", "A6", "A7");
+		//List<String> resNums = Arrays.asList("A2", "A3", "A4", "A5", "A6", "A7");
+		List<String> resNums = Arrays.asList("A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11", "A12");
 		for (String resNum : resNums) {
 			strand.flexibility.get(resNum).setLibraryRotamers("VAL");
 		}
@@ -63,7 +64,8 @@ public class SMAStarLab {
 			//SMAStar smastar = new SMAStar(emat, rcs, rcs.getNumPos() + 1);
 			ConfAStarTree smastar = new ConfAStarTree.Builder(emat, rcs)
 				.setTraditional()
-				.setMaxNumNodes(rcs.getNumPos() + 1)
+				//.setMaxNumNodes(rcs.getNumPos() + 1)
+				.setMaxNumNodes(1000000)
 				.build();
 			Stopwatch smastarStopwatch = new Stopwatch().start();
 			List<ConfSearch.ScoredConf> smastarConfs = smastar.nextConfs(Double.POSITIVE_INFINITY);
