@@ -226,9 +226,9 @@ tasks {
 		description = "Install python package in development mode"
 		workingDir = pythonSrcDir.toFile()
 		commandLine(pipCmd, "install",
-			"--user", "--editable",
+			"--editable",
 			".", // path to package to install, ie osprey
-			"--no-index", "--use-wheel", "--find-links=$pythonWheelhouseDir" // only use wheelhouse to resolve dependencies
+			"--no-index", "--find-links=$pythonWheelhouseDir" // only use wheelhouse to resolve dependencies
 		)
 		doLast {
 			Files.createDirectories(pythonBuildDir)
@@ -334,7 +334,7 @@ tasks {
 
 	// insert some build steps before we build the python dist
 	"pythonDistZip" {
-		dependsOn(pythonWheel, makeDoc, pythonInstallScripts, pythonUninstallScripts)
+		dependsOn(pythonWheel, pythonInstallScripts, pythonUninstallScripts)
 	}
 }
 
