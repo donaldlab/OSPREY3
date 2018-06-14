@@ -5,10 +5,8 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 
 import java.lang.ref.SoftReference;
 import java.math.BigInteger;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.function.Supplier;
 
 
@@ -21,28 +19,30 @@ import java.util.function.Supplier;
  * Collected trees will be re-instantiated and enumerated to their
  * last known position when accessed again.
  */
-public class ConfSearchCache<T> {
+public class ConfSearchCache {
 
-	private static class Entry implements ConfSearch {
+	public class Entry implements ConfSearch {
 
-		final Supplier<ConfSearch> factory;
+		private final Supplier<ConfSearch> factory;
 
-		long numConfs = 0;
-		boolean isExhausted = false;
-		ConfSearch strongRef = null;
-		SoftReference<ConfSearch> softRef = null;
+		private long numConfs = 0;
+		private boolean isExhausted = false;
+		private ConfSearch strongRef = null;
+		private SoftReference<ConfSearch> softRef = null;
 
-		public Entry(Supplier<ConfSearch> factory) {
+		private Entry(Supplier<ConfSearch> factory) {
 			this.factory = factory;
+			getOrMakeTree();
 		}
 
-		ConfSearch getOrMakeTree() {
+		private ConfSearch getOrMakeTree() {
 
 			// check the soft ref to see if we still have a tree
 			// (it could have been collected by the GC)
 			if (softRef != null) {
 				ConfSearch tree = softRef.get();
 				if (tree != null) {
+					markUsed(tree);
 					return tree;
 				}
 			}
@@ -55,23 +55,42 @@ public class ConfSearchCache<T> {
 				tree.nextConf();
 			}
 
-			// keep only a soft reference by default
+			// recently-used entries are always protected from garbage collection
 			softRef = new SoftReference<>(tree);
+			markUsed(tree);
 
 			return tree;
 		}
 
-		void protect() {
-			strongRef = getOrMakeTree();
+		private void markUsed(ConfSearch tree) {
+
+			// protect from garbage collection by holding a strong reference
+			strongRef = tree;
+
+			// if capacity restrictions are turned on, manage recency and GC protections
+			if (minCapacity != null) {
+
+				recentEntries.remove(this);
+				recentEntries.add(this);
+
+				// if we're over capacity, expose the least recently used trees to garbage collection
+				if (recentEntries.size() > minCapacity) {
+					Iterator<Entry> iter = recentEntries.iterator();
+
+					// get rid of the strong reference, so we only have the soft reference
+					iter.next().strongRef = null;
+					iter.remove();
+				}
+			}
 		}
 
-		void expose() {
-			strongRef = null;
-		}
-
-		void clearRefs() {
+		public void clearRefs() {
 			softRef = null;
 			strongRef = null;
+		}
+
+		public boolean isProtected() {
+			return strongRef != null;
 		}
 
 		@Override
@@ -106,47 +125,15 @@ public class ConfSearchCache<T> {
 	}
 
 
-	public final int minCapacity;
+	public final Integer minCapacity;
 
-	private final Map<T,Entry> entries = new HashMap<>();
-	private final Deque<Entry> recentEntries = new ArrayDeque<>();
+	private final LinkedHashSet<Entry> recentEntries = new LinkedHashSet<>();
 
-	public ConfSearchCache(int minCapacity) {
+	public ConfSearchCache(Integer minCapacity) {
 		this.minCapacity = minCapacity;
 	}
 
-	public ConfSearch getOrMake(T key, Supplier<ConfSearch> factory) {
-
-		// get the entry, or make a new one if needed
-		Entry entry = entries.get(key);
-		if (entry == null) {
-			entry = new Entry(factory);
-			entries.put(key, entry);
-		}
-
-		// put this entry in the protected capacity
-		entry.protect();
-		if (!recentEntries.contains(entry)) {
-			recentEntries.offer(entry);
-		}
-
-		// if we're over capacity, expose the extra trees to garbage collection
-		while (recentEntries.size() > minCapacity) {
-			recentEntries.pop().expose();
-		}
-
-		return entry;
-	}
-
-	/**
-	 * Clears all references to ConfSearch instances,
-	 * forcing them to be re-instantiated on next access.
-	 *
-	 * Probably only useful for testing (ie simulating garbage collection under memory pressure).
-	 */
-	public void clearRefs() {
-		for (Entry entry : entries.values()) {
-			entry.clearRefs();
-		}
+	public Entry make(Supplier<ConfSearch> factory) {
+		return new Entry(factory);
 	}
 }

@@ -43,6 +43,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 
 /**
@@ -238,6 +239,25 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	@Override
 	public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
 
+		init(numConfsBeforePruning, targetEpsilon);
+
+		// split the confs between the upper and lower bounds
+		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch, useExternalMemory, rcs);
+		scoreConfs = confsSplitter.first;
+		energyConfs = confsSplitter.second;
+	}
+
+	@Override
+	public void init(ConfSearch upperBoundConfs, ConfSearch lowerBoundConfs, BigInteger numConfsBeforePruning, double targetEpsilon) {
+
+		init(numConfsBeforePruning, targetEpsilon);
+
+		this.scoreConfs = upperBoundConfs;
+		this.energyConfs = lowerBoundConfs;
+	}
+
+	private void init(BigInteger numConfsBeforePruning, double targetEpsilon) {
+
 		if (targetEpsilon <= 0.0) {
 			throw new IllegalArgumentException("target epsilon must be greater than zero");
 		}
@@ -255,11 +275,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		hasScoreConfs = true;
 		numEnergyConfsEnumerated = 0;
 		numScoreConfsEnumerated = 0;
-
-		// split the confs between the upper and lower bounds
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch, useExternalMemory, rcs);
-		scoreConfs = confsSplitter.first;
-		energyConfs = confsSplitter.second;
 	}
 
 	@Override

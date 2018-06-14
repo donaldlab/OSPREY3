@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -23,8 +24,12 @@ import java.util.List;
 
 public class TestConfSearchCache {
 
-	@Test
-	public void treeReinstantiation() {
+	private static RCs rcs;
+	private static EnergyMatrix emat;
+
+
+	@BeforeClass
+	public static void beforeClass() {
 
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
 		for (String resNum : Arrays.asList("A2", "A3", "A4")) {
@@ -35,10 +40,9 @@ public class TestConfSearchCache {
 			.addStrand(strand)
 			.build();
 
-		RCs rcs = new RCs(confSpace);
+		rcs = new RCs(confSpace);
 
 		// calc an emat
-		EnergyMatrix emat;
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
 			.setParallelism(Parallelism.makeCpu(8))
 			.build()
@@ -47,6 +51,10 @@ public class TestConfSearchCache {
 				.build()
 				.calcEnergyMatrix();
 		}
+	}
+
+	@Test
+	public void treeReinstantiation() {
 
 		// get the full list of expected conformations
 		List<ConfSearch.ScoredConf> expectedConfs = new ConfAStarTree.Builder(emat, rcs)
@@ -56,8 +64,8 @@ public class TestConfSearchCache {
 		assertThat(expectedConfs.size(), is(27));
 
 		// make a cache with one tree
-			 ConfSearchCache<SimpleConfSpace> cache = new ConfSearchCache<>(1);
-			 ConfSearch tree = cache.getOrMake(confSpace, () ->
+		ConfSearchCache cache = new ConfSearchCache(1);
+		ConfSearchCache.Entry tree = cache.make(() ->
 			new ConfAStarTree.Builder(emat, rcs)
 				.setTraditional()
 				.build()
@@ -70,14 +78,14 @@ public class TestConfSearchCache {
 		}
 
 		// clear the trees and force re-instantiation
-		cache.clearRefs();
+		tree.clearRefs();
 
 		for (int i=10; i<20; i++) {
 			assertThat(tree.nextConf(), is(expectedConfs.get(i)));
 		}
 
 		// clear the trees and force re-instantiation again, just for fun
-		cache.clearRefs();
+		tree.clearRefs();
 
 		for (int i=20; i<27; i++) {
 			assertThat(tree.nextConf(), is(expectedConfs.get(i)));
@@ -87,5 +95,95 @@ public class TestConfSearchCache {
 		for (int i=27; i<30; i++) {
 			assertThat(tree.nextConf(), is(nullValue()));
 		}
+	}
+
+	@Test
+	public void unrestrictedCapacity() {
+
+		ConfSearchCache cache = new ConfSearchCache(null);
+
+		ConfSearchCache.Entry tree1 = cache.make(() ->
+			new ConfAStarTree.Builder(emat, rcs)
+				.setTraditional()
+				.build()
+		);
+		assertThat(tree1.isProtected(), is(true));
+
+		ConfSearchCache.Entry tree2 = cache.make(() ->
+			new ConfAStarTree.Builder(emat, rcs)
+				.setTraditional()
+				.build()
+		);
+		assertThat(tree1.isProtected(), is(true));
+		assertThat(tree2.isProtected(), is(true));
+
+		ConfSearchCache.Entry tree3 = cache.make(() ->
+			new ConfAStarTree.Builder(emat, rcs)
+				.setTraditional()
+				.build()
+		);
+		assertThat(tree1.isProtected(), is(true));
+		assertThat(tree2.isProtected(), is(true));
+		assertThat(tree3.isProtected(), is(true));
+	}
+
+	@Test
+	public void restrictedCapacity() {
+
+		ConfSearchCache cache = new ConfSearchCache(2);
+
+		ConfSearchCache.Entry tree1 = cache.make(() ->
+			new ConfAStarTree.Builder(emat, rcs)
+				.setTraditional()
+				.build()
+		);
+		assertThat(tree1.isProtected(), is(true));
+
+		ConfSearchCache.Entry tree2 = cache.make(() ->
+			new ConfAStarTree.Builder(emat, rcs)
+				.setTraditional()
+				.build()
+		);
+		assertThat(tree1.isProtected(), is(true));
+		assertThat(tree2.isProtected(), is(true));
+
+		ConfSearchCache.Entry tree3 = cache.make(() ->
+			new ConfAStarTree.Builder(emat, rcs)
+				.setTraditional()
+				.build()
+		);
+		assertThat(tree1.isProtected(), is(false));
+		assertThat(tree2.isProtected(), is(true));
+		assertThat(tree3.isProtected(), is(true));
+
+		tree1.nextConf();
+		assertThat(tree1.isProtected(), is(true));
+		assertThat(tree2.isProtected(), is(false));
+		assertThat(tree3.isProtected(), is(true));
+
+		tree2.nextConf();
+		assertThat(tree1.isProtected(), is(true));
+		assertThat(tree2.isProtected(), is(true));
+		assertThat(tree3.isProtected(), is(false));
+
+		tree1.nextConf();
+		assertThat(tree1.isProtected(), is(true));
+		assertThat(tree2.isProtected(), is(true));
+		assertThat(tree3.isProtected(), is(false));
+
+		tree2.nextConf();
+		assertThat(tree1.isProtected(), is(true));
+		assertThat(tree2.isProtected(), is(true));
+		assertThat(tree3.isProtected(), is(false));
+
+		tree1.nextConf();
+		assertThat(tree1.isProtected(), is(true));
+		assertThat(tree2.isProtected(), is(true));
+		assertThat(tree3.isProtected(), is(false));
+
+		tree3.nextConf();
+		assertThat(tree1.isProtected(), is(true));
+		assertThat(tree2.isProtected(), is(false));
+		assertThat(tree3.isProtected(), is(true));
 	}
 }

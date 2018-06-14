@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.kstar;
 
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.ConfSearchCache;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.seq.RTs;
 import edu.duke.cs.osprey.astar.seq.SeqAStarTree;
@@ -301,7 +302,7 @@ public class MSKStar {
 		PartitionFunction pfunc = null;
 		PartitionFunction.Result pfuncResult = null;
 
-		StateConfs(Sequence sequence, State state, double epsilon, ConfDB.ConfTable confTable) {
+		StateConfs(Sequence sequence, State state, double epsilon, ConfDB.ConfTable confTable, ConfSearchCache confTrees) {
 
 			this.state = state;
 			this.sequence = sequence;
@@ -309,7 +310,12 @@ public class MSKStar {
 			// init pfunc calculation
 			pfunc = PartitionFunction.makeBestFor(state.confEcalc);
 			RCs rcs = sequence.makeRCs(state.confSpace);
-			pfunc.init(state.confTreeFactory.apply(rcs), rcs.getNumConformations(), epsilon);
+			pfunc.init(
+				confTrees.make(() -> state.confTreeFactory.apply(rcs)),
+				confTrees.make(() -> state.confTreeFactory.apply(rcs)),
+				rcs.getNumConformations(),
+				epsilon
+			);
 			if (confTable != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confTable);
 			}
@@ -359,7 +365,7 @@ public class MSKStar {
 				StateConfs.Key key = new StateConfs.Key(sequence, state);
 				StateConfs stateConfs = stateConfsCache.get(key);
 				if (stateConfs == null) {
-					stateConfs = new StateConfs(sequence, state, epsilon, confDBs.tables.get(state));
+					stateConfs = new StateConfs(sequence, state, epsilon, confDBs.tables.get(state), confTrees);
 					stateConfsCache.put(key, stateConfs);
 				}
 
@@ -453,6 +459,24 @@ public class MSKStar {
 		/** The maximum number of simultaneous residue mutations to consider for each sequence mutant */
 		private int maxSimultaneousMutations = 1;
 
+		/**
+		 * The minimum number of conformation trees to keep in memory at once.
+		 *
+		 * Defauls to null, which means keep all trees in memory at once.
+		 *
+		 * Positive values keep at least that number of trees in memory at once
+		 * (where more frequently-used trees are preferred over less frequently-used trees),
+		 * and any trees above that number may be deleted by the JVM's garbage collector.
+		 *
+		 * Any tree that is delete must be re-instantiated and reset to its
+		 * previous state before it can be used again, which incurrs a performance penalty.
+		 *
+		 * Deleting less frequently-used trees and re-instantiating them when needed,
+		 * along with using bounded-memory implementations of A* search, allows design
+		 * algortihms to run within constant memory, while maintaining good performance.
+		 */
+		private Integer minNumConfTrees = null;
+
 		private boolean printToConsole = true;
 
 		/** File to which to log sequences as they are found */
@@ -487,6 +511,11 @@ public class MSKStar {
 			return this;
 		}
 
+		public Builder setMinNumConfTrees(Integer val) {
+			minNumConfTrees = val;
+			return this;
+		}
+
 		public Builder setPrintToConsole(boolean val) {
 			printToConsole = val;
 			return this;
@@ -498,7 +527,7 @@ public class MSKStar {
 		}
 
 		public MSKStar build() {
-			return new MSKStar(objective, constraints, epsilon, objectiveWindowSize, objectiveWindowMax, maxSimultaneousMutations, printToConsole, logFile);
+			return new MSKStar(objective, constraints, epsilon, objectiveWindowSize, objectiveWindowMax, maxSimultaneousMutations, minNumConfTrees, printToConsole, logFile);
 		}
 	}
 
@@ -509,6 +538,7 @@ public class MSKStar {
 	public final double objectiveWindowSize;
 	public final double objectiveWindowMax;
 	public final int maxSimultaneousMutations;
+	public final Integer minNumConfTrees;
 	public final boolean printToConsole;
 	public final File logFile;
 
@@ -516,8 +546,9 @@ public class MSKStar {
 	public final SeqSpace seqSpace;
 
 	private final Map<StateConfs.Key,StateConfs> stateConfsCache = new HashMap<>();
+	private final ConfSearchCache confTrees;
 
-	private MSKStar(LMFE objective, List<LMFE> constraints, double epsilon, double objectiveWindowSize, double objectiveWindowMax, int maxSimultaneousMutations, boolean printToConsole, File logFile) {
+	private MSKStar(LMFE objective, List<LMFE> constraints, double epsilon, double objectiveWindowSize, double objectiveWindowMax, int maxSimultaneousMutations, Integer minNumConfTrees, boolean printToConsole, File logFile) {
 
 		this.objective = objective;
 		this.constraints = constraints;
@@ -525,6 +556,7 @@ public class MSKStar {
 		this.objectiveWindowSize = objectiveWindowSize;
 		this.objectiveWindowMax = objectiveWindowMax;
 		this.maxSimultaneousMutations = maxSimultaneousMutations;
+		this.minNumConfTrees = minNumConfTrees;
 		this.printToConsole = printToConsole;
 		this.logFile = logFile;
 
@@ -549,6 +581,8 @@ public class MSKStar {
 				.map(state -> state.confSpace.seqSpace)
 				.collect(Collectors.toList())
 		);
+
+		confTrees = new ConfSearchCache(minNumConfTrees);
 
 		log("sequence space has %s sequences\n%s", formatBig(new RTs(seqSpace).getNumSequences()), seqSpace);
 	}

@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.gmec;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.ConfSearchCache;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.seq.RTs;
 import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
@@ -359,21 +360,21 @@ public class Comets {
 		final State state;
 		final Sequence sequence; // filtered to the state
 
-		ConfAStarTree confTree = null;
+		ConfSearch confTree = null;
 		ConfSearch.ScoredConf minScoreConf = null;
 		ConfSearch.EnergiedConf minEnergyConf = null;
 		ConfSearch.EnergiedConf gmec = null;
 
 		List<ConfSearch.ScoredConf> confs = new ArrayList<>();
 
-		StateConfs(Sequence sequence, State state) {
+		StateConfs(Sequence sequence, State state, ConfSearchCache confTrees) {
 
 			this.state = state;
 			this.sequence = sequence;
 
 			// make the conf tree
 			RCs rcs = sequence.makeRCs(state.confSpace);
-			confTree = state.confTreeFactory.apply(rcs);
+			confTree = confTrees.make(() -> state.confTreeFactory.apply(rcs));
 		}
 
 		void refineBounds(ConfDB.ConfTable confTable) {
@@ -468,7 +469,7 @@ public class Comets {
 				StateConfs.Key key = new StateConfs.Key(sequence, state);
 				StateConfs stateConfs = stateConfsCache.get(key);
 				if (stateConfs == null) {
-					stateConfs = new StateConfs(sequence, state);
+					stateConfs = new StateConfs(sequence, state, confTrees);
 					stateConfsCache.put(key, stateConfs);
 				}
 
@@ -561,6 +562,24 @@ public class Comets {
 		/** The maximum number of simultaneous residue mutations to consider for each sequence mutant */
 		private int maxSimultaneousMutations = 1;
 
+		/**
+		 * The minimum number of conformation trees to keep in memory at once.
+		 *
+		 * Defauls to null, which means keep all trees in memory at once.
+		 *
+		 * Positive values keep at least that number of trees in memory at once
+		 * (where more frequently-used trees are preferred over less frequently-used trees),
+		 * and any trees above that number may be deleted by the JVM's garbage collector.
+		 *
+		 * Any tree that is delete must be re-instantiated and reset to its
+		 * previous state before it can be used again, which incurrs a performance penalty.
+		 *
+		 * Deleting less frequently-used trees and re-instantiating them when needed,
+		 * along with using bounded-memory implementations of A* search, allows design
+		 * algortihms to run within constant memory, while maintaining good performance.
+		 */
+		private Integer minNumConfTrees = null;
+
 		private boolean printToConsole = true;
 
 		/** File to which to log sequences as they are found */
@@ -590,6 +609,11 @@ public class Comets {
 			return this;
 		}
 
+		public Builder setMinNumConfTrees(Integer val) {
+			minNumConfTrees = val;
+			return this;
+		}
+
 		public Builder setPrintToConsole(boolean val) {
 			printToConsole = val;
 			return this;
@@ -601,7 +625,7 @@ public class Comets {
 		}
 
 		public Comets build() {
-			return new Comets(objective, constraints, objectiveWindowSize, objectiveWindowMax, maxSimultaneousMutations, printToConsole, logFile);
+			return new Comets(objective, constraints, objectiveWindowSize, objectiveWindowMax, maxSimultaneousMutations, minNumConfTrees, printToConsole, logFile);
 		}
 	}
 
@@ -611,6 +635,7 @@ public class Comets {
 	public final double objectiveWindowSize;
 	public final double objectiveWindowMax;
 	public final int maxSimultaneousMutations;
+	public final Integer minNumConfTrees;
 	public final boolean printToConsole;
 	public final File logFile;
 
@@ -618,14 +643,16 @@ public class Comets {
 	public final SeqSpace seqSpace;
 
 	private final Map<StateConfs.Key,StateConfs> stateConfsCache = new HashMap<>();
+	private final ConfSearchCache confTrees;
 
-	private Comets(LME objective, List<LME> constraints, double objectiveWindowSize, double objectiveWindowMax, int maxSimultaneousMutations, boolean printToConsole, File logFile) {
+	private Comets(LME objective, List<LME> constraints, double objectiveWindowSize, double objectiveWindowMax, int maxSimultaneousMutations, Integer minNumConfTrees, boolean printToConsole, File logFile) {
 
 		this.objective = objective;
 		this.constraints = constraints;
 		this.objectiveWindowSize = objectiveWindowSize;
 		this.objectiveWindowMax = objectiveWindowMax;
 		this.maxSimultaneousMutations = maxSimultaneousMutations;
+		this.minNumConfTrees = minNumConfTrees;
 		this.printToConsole = printToConsole;
 		this.logFile = logFile;
 
@@ -650,6 +677,8 @@ public class Comets {
 				.map(state -> state.confSpace.seqSpace)
 				.collect(Collectors.toList())
 		);
+
+		confTrees = new ConfSearchCache(minNumConfTrees);
 
 		log("sequence space has %s sequences\n%s", formatBig(new RTs(seqSpace).getNumSequences()), seqSpace);
 	}

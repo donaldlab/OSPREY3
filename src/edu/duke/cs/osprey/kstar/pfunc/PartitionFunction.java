@@ -37,6 +37,7 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
@@ -215,12 +216,30 @@ public interface PartitionFunction {
 
 	/**
 	 * Initializes the partition function for calculation.
+	 *
+	 * Deprecated in favor of the two ConfSearch version, which allows computing pfuncs in constant memory
+	 *
 	 * @param confSearch The A* tree of conformations to enumerate (which may have been pruned)
 	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
 	 *                               including any conformations removed by pruned tuples.
 	 * @param targetEpsilon The accuracy with which to estimate the partition function.
 	 */
+	@Deprecated
 	void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon);
+
+	/**
+	 * Initializes the partition function for calculation using separate trees for computing upper bounds,
+	 * and for lower bounds. Avoids the need to buffer conformations between the upper and lower bound calculations
+	 * (either in internal or external memory), and allows running partition function calculations in constant memory.
+	 * @param upperBoundConfs The A* tree of conformations to enumerate for computing upper bounds
+	 * @param lowerBoundConfs The A* tree of conformations to enumerate for computing lower bounds
+	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
+	 *                               including any conformations removed by pruned tuples.
+	 * @param targetEpsilon The accuracy with which to estimate the partition function.
+	 */
+	default void init(ConfSearch upperBoundConfs, ConfSearch lowerBoundConfs, BigInteger numConfsBeforePruning, double targetEpsilon) {
+		throw new UnsupportedOperationException("This pfunc calculator (" + getClass().getSimpleName() + ") doesn't support two-tree initialization.");
+	}
 
 	/**
 	 * Sets the stability threshold for this PartitionFunction, if supported
