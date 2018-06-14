@@ -59,6 +59,11 @@ public class DynamicHMeanAStarOrder implements AStarOrder {
 	}
 
 	@Override
+	public boolean isDynamic() {
+		return true;
+	}
+
+	@Override
 	public int getNextPos(ConfIndex confIndex, RCs rcs) {
 		
 		int bestPos = -1;

@@ -107,20 +107,21 @@ public class TestSMAStar {
 
 			// enumerate all the confs using SMA*
 			ConfAStarTree smastar = new ConfAStarTree.Builder(emat, rcs)
-				.setTraditionalOpt(optimizer)
 				.setMaxNumNodes(maxNumNodes)
+				.setTraditionalOpt(optimizer)
 				.build();
 			Stopwatch smastarStopwatch = new Stopwatch().start();
 			List<ConfSearch.ScoredConf> smastarConfs = smastar.nextConfs(optimizer.initDouble());
 			smastarStopwatch.stop();
 
-			checkConfs(astarConfs, smastarConfs);
+			checkConfs(rcs.getNumConformations().intValueExact(), astarConfs, smastarConfs);
 		}
 	}
 
-	private static void checkConfs(List<ConfSearch.ScoredConf> expectedConfs, List<ConfSearch.ScoredConf> observedConfs) {
+	private static void checkConfs(int expectedNumConfs, List<ConfSearch.ScoredConf> expectedConfs, List<ConfSearch.ScoredConf> observedConfs) {
 
-		assertThat(observedConfs.size(), is(expectedConfs.size()));
+		assertThat(expectedConfs.size(), is(expectedNumConfs));
+		assertThat(observedConfs.size(), is(expectedNumConfs));
 
 		for (int i=0; i<expectedConfs.size(); i++) {
 			ConfSearch.ScoredConf exp = expectedConfs.get(i);

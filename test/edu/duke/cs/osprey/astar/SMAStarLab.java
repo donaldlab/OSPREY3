@@ -63,9 +63,9 @@ public class SMAStarLab {
 			// enumerate the confs using SMA*
 			//SMAStar smastar = new SMAStar(emat, rcs, rcs.getNumPos() + 1);
 			ConfAStarTree smastar = new ConfAStarTree.Builder(emat, rcs)
-				.setTraditional()
 				//.setMaxNumNodes(rcs.getNumPos() + 1)
 				.setMaxNumNodes(1000000)
+				.setTraditional()
 				.build();
 			Stopwatch smastarStopwatch = new Stopwatch().start();
 			List<ConfSearch.ScoredConf> smastarConfs = smastar.nextConfs(Double.POSITIVE_INFINITY);

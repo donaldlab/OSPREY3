@@ -38,9 +38,7 @@ import java.util.List;
 
 import edu.duke.cs.osprey.astar.AStarProgress;
 import edu.duke.cs.osprey.astar.conf.linked.LinkedConfAStarFactory;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.*;
 import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
@@ -127,7 +125,13 @@ public class ConfAStarTree implements ConfSearch {
 		 * Just like setTraditional, but allow maximization or minimization
 		 */
 		public Builder setTraditionalOpt(MathTools.Optimizer optimizer) {
-			this.order = new DynamicHMeanAStarOrder(optimizer);
+			if (maxNumNodes == null) {
+				// A* works best with dynamic orders
+				this.order = new DynamicHMeanAStarOrder(optimizer);
+			} else {
+				// SMA* can only use static orders
+				this.order = new StaticScoreHMeanAStarOrder();
+			}
 			this.gscorer = new PairwiseGScorer(emat, optimizer);
 			this.hscorer = new TraditionalPairwiseHScorer(emat, rcs, optimizer);
 			this.optimizer = optimizer;
@@ -598,8 +602,15 @@ public class ConfAStarTree implements ConfSearch {
 
 		SimplifiedBoundedImpl(long maxNumNodes) {
 
+			// check preconditions
 			if (maxNumNodes <= rcs.getNumPos()) {
 				throw new IllegalArgumentException(String.format("SMA* needs space for at least %d nodes for this problem (i.e., numPos + 1)", rcs.getNumPos() + 1));
+			}
+			if (order.isDynamic()) {
+				throw new IllegalArgumentException(
+					"SMA* can only use static position orders, because of the node forgetting mechanism."
+					+ " If using ConfAStarTree.Builder, call setMaxNumNodes() before setTraditional()/setLUTE() so the builder can choose the correct heuristics."
+				);
 			}
 
 			this.maxNumNodes = maxNumNodes;
@@ -667,9 +678,7 @@ public class ConfAStarTree implements ConfSearch {
 				node.index(confIndex);
 
 				// choose next pos
-				// TODO: support pos-ordering heuristics
-				//int pos = order.getNextPos(confIndex, rcs);
-				int pos = node.depth;
+				int pos = order.getNextPos(confIndex, rcs);
 
 				// choose the next RC
 				int index = node.getNextChildIndex(rcs.getNum(pos));

@@ -45,7 +45,12 @@ public class SequentialAStarOrder implements AStarOrder {
 	public void setScorers(AStarScorer gscorer, AStarScorer hscorer) {
 		// don't care...
 	}
-	
+
+	@Override
+	public boolean isDynamic() {
+		return false;
+	}
+
 	@Override
 	public int getNextPos(ConfIndex confIndex, RCs rcs) {
 		
