@@ -4,9 +4,11 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
+import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -16,6 +18,7 @@ import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.MARKStar.ConfSearchFactory;
+import edu.duke.cs.osprey.markstar.framework.MARKStarNode;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.partcr.pickers.WalkingConfPicker;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
@@ -46,7 +49,7 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarZeroEpsilon() {
-	    int numFlex = 8;
+	    int numFlex = 6;
 	    double epsilon = 0.68;
 		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
 		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
@@ -88,9 +91,10 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        runMARKStar(4, 0.01);
+        runMARKStar(6, 0.0001);
 
     }
+
 
 	@Test
 	public void testMARKStar() {
@@ -146,7 +150,7 @@ public class TestMARKStar {
 
 	public static List<KStar.ScoredSequence> runKStarComparison(int numFlex, double epsilon) {
 		ConfSpaces confSpaces = make1GUASmall(numFlex);
-		Parallelism parallelism = Parallelism.makeCpu(4);
+		Parallelism parallelism = Parallelism.makeCpu(1);
 
 		// Define the minimizing energy calculator
 		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)

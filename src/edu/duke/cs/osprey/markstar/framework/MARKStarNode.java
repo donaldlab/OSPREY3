@@ -23,7 +23,7 @@ import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
-    boolean debug = false;
+    boolean debug = true;
     private static AStarScorer gScorer;
     private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;
@@ -251,6 +251,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         Node rootNode = node;
 		rootNode.index(confIndex);
 		rootNode.gscore = gScorer.calc(confIndex, rcs);
+		rootNode.rigidScore = rigidgScorer.calc(confIndex,rcs);
         double confUpperBound = rigidgScorer.calc(confIndex,rcs)-negatedHScorer.calc(confIndex, rcs);
         double confLowerBound = rootNode.gscore+hScorer.calc(confIndex, rcs);
         rootNode.computeNumConformations(rcs);
@@ -263,7 +264,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     @Override
     public int compareTo(MARKStarNode other){
-        return -errorBound.compareTo(other.errorBound);
+        return -getErrorBound().compareTo(other.getErrorBound());
     }
 
     public BigDecimal getErrorBound() {
@@ -288,6 +289,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
         private static int Unassigned = -1;
         public double gscore = Double.NaN;
+        public double rigidScore = Double.NaN;
         private BigDecimal subtreeLowerBound = null; //\hat h^ominus(f) - the lower bound on subtree contrib to partition function
         private BigDecimal subtreeUpperBound = null; //\hat h^oplus(f) - the lower bound on subtree contrib to partition function
         private double confLowerBound = -Double.MAX_VALUE;

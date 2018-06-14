@@ -36,7 +36,7 @@ import java.util.concurrent.PriorityBlockingQueue;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    private boolean debug = false;
+    private boolean debug = true;
     private Status status = null;
     private MARKStarBound.Values values = null;
 
@@ -417,6 +417,8 @@ public class MARKStarBound implements PartitionFunction {
                                     if (energy > node.getConfUpperBound()) {
                                         System.err.println("Upper bounds got worse after minimization:" + energy
                                                 + " > " + (node.getConfUpperBound())+". Rejecting minimized energy.");
+                                        System.err.println("Node info: "+node);
+                                        context.ecalc.calcEnergy(conf);
                                         newConfUpper = node.getConfUpperBound();
                                         newConfLower = node.getConfUpperBound();
                                     }
@@ -464,7 +466,6 @@ public class MARKStarBound implements PartitionFunction {
 
                         try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                             ScoreContext context = checkout.get();
-
                             node.index(context.index);
                             Node child = node.assign(nextPos, nextRc);
 
@@ -472,9 +473,23 @@ public class MARKStarBound implements PartitionFunction {
                             if (child.getLevel() < RCs.getNumPos()) {
                                 double diff = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                                 double rigiddiff = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                                boolean sanityCheck = true;
                                 double hdiff = context.hscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                                 double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                                 child.gscore = diff;
+                                //Correct for incorrect gscore.
+                                rigiddiff=rigiddiff-node.gscore+node.rigidScore;
+                                child.rigidScore = rigiddiff;
+                                if(sanityCheck)
+                                {
+                                    ConfIndex childIndex = new ConfIndex(RCs.getNumPos());
+                                    child.index(childIndex);
+                                    double nonDiff = context.rigidscorer.calc(childIndex, RCs);
+                                    if(Math.abs(nonDiff - rigiddiff) > 0.001)
+                                        System.err.println("Energy discrepancy.");
+                                    context.rigidscorer.calc(childIndex, RCs);
+                                    context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                                }
                                 double confLowerBound = child.gscore + hdiff;
                                 double confUpperbound = rigiddiff + maxhdiff;
                                 child.computeNumConformations(RCs);
@@ -485,6 +500,21 @@ public class MARKStarBound implements PartitionFunction {
                             if (child.getLevel() == RCs.getNumPos()) {
                                 double confPairwiseLower = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                                 double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                                confRigid=confRigid-node.gscore+node.rigidScore;
+                                if(child.confToString().equals("(7, 9, 5, 7, 6, 7, 8, 4, 3, 5, )"))
+                                {
+                                    double confRigid2 = context.rigidscorer.calc(context.index, RCs);
+                                    ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(child.assignments, child.getConfLowerBound());
+                                    ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
+                                    numConfsEnergied++;
+                                    //Assign true energies to the subtreeLowerBound and subtreeUpperBound
+                                    double energy = econf.getEnergy();
+                                    ConfIndex parentIndex = new ConfIndex(RCs.getNumPos());
+                                    node.index(parentIndex);
+                                    double parentRigidEnergy = context.rigidscorer.calc(parentIndex, RCs);
+                                    if(energy > confRigid)
+                                        System.err.println("Whaaaa?");
+                                }
                                 child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                                 if (confPairwiseLower > confRigid) {
                                     System.err.println("Our bounds are not tight. Lower bound is " + (confPairwiseLower - confRigid) + " higher");
@@ -526,11 +556,25 @@ public class MARKStarBound implements PartitionFunction {
 
         tasks.waitForFinish();
         queue.addAll(newNodes);
-        debugPrint("A* Heap:");
-        if(debug)
-        for(MARKStarNode node : queue)
-            debugPrint(node.getConfSearchNode().toString()+","+String.format("%12.6e",node.getErrorBound()));
+        debugHeap();
         updateBound();
+    }
+
+    private void debugHeap() {
+        if(debug) {
+            if(queue.isEmpty())
+                return;
+            debugPrint("A* Heap:");
+            PriorityQueue<MARKStarNode> copy = new PriorityQueue<>();
+            BigDecimal peek = queue.peek().getErrorBound();
+            while(!queue.isEmpty()) {
+                MARKStarNode node = queue.poll();
+                if(node.getConfSearchNode().isLeaf() || node.getErrorBound().multiply(new BigDecimal(1000)).compareTo(peek) >= 0)
+                debugPrint(node.getConfSearchNode().toString() + "," + String.format("%12.6e", node.getErrorBound()));
+                copy.add(node);
+            }
+            queue.addAll(copy);
+        }
     }
 
     private void updateBound() {
