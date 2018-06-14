@@ -20,9 +20,9 @@ public class ConfSMAStarQueue {
 
 	public boolean add(ConfSMAStarNode node) {
 
-		assert (Double.isFinite(node.fscore));
+		assert (Double.isFinite(node.getScore()));
 
-		Nodes nodes = getOrMakeNodes(node.fscore);
+		Nodes nodes = getOrMakeNodes(node.getScore());
 		if (nodes.nodesByDepth.containsKey(node.depth)) {
 			return false;
 		}
@@ -46,7 +46,7 @@ public class ConfSMAStarQueue {
 
 	public boolean remove(ConfSMAStarNode node) {
 
-		Nodes nodes = nodesByScore.get(node.fscore);
+		Nodes nodes = nodesByScore.get(node.getScore());
 		if (nodes == null) {
 			return false;
 		}

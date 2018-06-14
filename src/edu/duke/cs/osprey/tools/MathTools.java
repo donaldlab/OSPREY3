@@ -626,6 +626,11 @@ public class MathTools {
 			public boolean isBetter(long newval, long oldval) {
 				return newval < oldval;
 			}
+
+			@Override
+			public Optimizer reverse() {
+				return Maximize;
+			}
 		},
 
 		Maximize {
@@ -689,6 +694,11 @@ public class MathTools {
 			public boolean isBetter(long newval, long oldval) {
 				return newval > oldval;
 			}
+
+			@Override
+			public Optimizer reverse() {
+				return Minimize;
+			}
 		};
 
 		public abstract float initFloat();
@@ -705,6 +715,8 @@ public class MathTools {
 		public abstract boolean isBetter(double newval, double oldval);
 		public abstract boolean isBetter(int newval, int oldval);
 		public abstract boolean isBetter(long newval, long oldval);
+
+		public abstract Optimizer reverse();
 	}
 
 

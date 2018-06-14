@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.astar.conf.smastar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.tools.MathTools;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
@@ -30,9 +31,9 @@ public class ConfSMAStarNode implements ConfAStarNode {
 	public final int pos;
 	public final int rc;
 
-	public double gscore = 0.0;
-	public double hscore = 0.0;
-	public double fscore = Double.NaN;
+	private double gscore = 0.0;
+	private double hscore = 0.0;
+	private double fscore = Double.NaN;
 
 	private ConfSMAStarNode[] spawnedChildren = null;
 	private State[] childStates = null;
@@ -74,6 +75,18 @@ public class ConfSMAStarNode implements ConfAStarNode {
 	@Override
 	public double getScore() {
 		return fscore;
+	}
+
+	public void setScore(double val) {
+		fscore = val;
+	}
+
+	public double getScore(MathTools.Optimizer optimizer) {
+		return Tools.optimizeScore(getScore(), optimizer);
+	}
+
+	public void setScore(double val, MathTools.Optimizer optimizer) {
+		setScore(Tools.optimizeScore(val, optimizer));
 	}
 
 	@Override

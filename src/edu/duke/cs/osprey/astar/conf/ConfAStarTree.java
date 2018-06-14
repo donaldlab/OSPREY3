@@ -612,7 +612,6 @@ public class ConfAStarTree implements ConfSearch {
 
 		// TODO: progress reporting?
 		// TODO: parallelism?
-		// TODO: directional optimization?
 
 		@Override
 		public ScoredConf nextConf() {
@@ -623,9 +622,9 @@ public class ConfAStarTree implements ConfSearch {
 			if (rootNode == null) {
 				rootNode = new ConfSMAStarNode();
 				rootNode.index(confIndex);
-				rootNode.gscore = gscorer.calc(confIndex, rcs);
-				rootNode.hscore = hscorer.calc(confIndex, rcs);
-				rootNode.fscore = rootNode.gscore + rootNode.hscore;
+				rootNode.setGScore(gscorer.calc(confIndex, rcs), optimizer);
+				rootNode.setHScore(hscorer.calc(confIndex, rcs), optimizer);
+				rootNode.setScore(rootNode.getGScore(optimizer) + rootNode.getHScore(optimizer), optimizer);
 				q.add(rootNode);
 			}
 
@@ -638,21 +637,18 @@ public class ConfAStarTree implements ConfSearch {
 
 				ConfSMAStarNode node = q.getLowestDeepest();
 
-				// TEMP
-				//log("lowest deepest: %s", node);
-
 				// is it a leaf node?
 				if (node.depth == numPos) {
 
 					// leaf nodes should be all g, no h
-					assert (node.hscore == 0.0);
+					assert (node.getHScore(optimizer) == 0.0);
 
 					// is this the first time we've seen this leaf node? (SMA* sees the same leaf nodes multiple times)
 					// NOTE: due to backing up of scores and roundoff error, the f and g scores might differ ever so slightly
 					// (hopefully the score difference between two different confs is never this small!)
 					final double scoreEquivalance = 1e-12;
 					int[] conf = null;
-					if (Math.abs(node.gscore - node.fscore) < scoreEquivalance) {
+					if (Math.abs(node.getGScore(optimizer) - node.getScore(optimizer)) < scoreEquivalance) {
 
 						// yup, make a conf for the leaf node
 						conf = node.makeConf(numPos);
@@ -662,7 +658,7 @@ public class ConfAStarTree implements ConfSearch {
 					numNodes -= node.parent.finishChild(node, q);
 
 					if (conf != null) {
-						return new ScoredConf(conf, node.gscore);
+						return new ScoredConf(conf, node.getGScore(optimizer));
 					} else {
 						continue;
 					}
@@ -681,11 +677,11 @@ public class ConfAStarTree implements ConfSearch {
 
 				// score the child
 				ConfSMAStarNode child = node.spawnChild(pos, rc, index);
-				child.gscore = gscorer.calcDifferential(confIndex, rcs, pos, rc);
-				child.hscore = hscorer.calcDifferential(confIndex, rcs, pos, rc);
+				child.setGScore(gscorer.calcDifferential(confIndex, rcs, pos, rc), optimizer);
+				child.setHScore(hscorer.calcDifferential(confIndex, rcs, pos, rc), optimizer);
 
-				// don't let the fscore go lower than the parent though
-				child.fscore = Math.max(node.fscore, child.gscore + child.hscore);
+				// don't let the fscore go past the parent though
+				child.setScore(optimizer.reverse().opt(node.getScore(optimizer), child.getGScore(optimizer) + child.getHScore(optimizer)), optimizer);
 
 				numNodes++;
 
