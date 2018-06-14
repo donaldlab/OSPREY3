@@ -25,6 +25,16 @@ public class ConfSMAStarNode implements ConfAStarNode {
 		Forgotten
 	}
 
+	/* SMA* memory usage:
+
+		memory usage per node (according to VisualVM) is 160 bytes + 24 bytes per child
+		so 1 GiB of memory could fit ~5.8 M nodes with 1 child each,
+			or ~420 K nodes with 100 children each
+
+		the SMA* queue uses roughly 250 bytes per node also
+		only a portion of the nodes are in the queue at any one time though
+	*/
+
 	public final ConfSMAStarNode parent;
 	public final int index;
 	public final int depth;
