@@ -143,6 +143,16 @@ def boxDouble(val):
 		return None
 	return c.java.lang.Double(val)
 
+def boxInt(val):
+	if val is None:
+		return None
+	return c.java.lang.Integer(val)
+
+def boxLong(val):
+	if val is None:
+		return None
+	return c.java.lang.Long(val)
+
 def makeIntArray(val):
     array = jpype.JArray(c.java.lang.Integer)(len(val) or val)
     for i in range(0, len(val)):
