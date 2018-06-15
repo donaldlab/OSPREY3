@@ -86,4 +86,6 @@ public class TestPythonScripts {
 	@Test public void kstarConfDB() { runKStar("kstar.confdb.py"); }
 	@Test public void bbkstarConfDB() { runKStar("bbkstar.confdb.py"); }
 	@Test public void LUTE() { runKStar("LUTE.train.py"); runKStar("LUTE.kstar.py"); runKStar("LUTE.bbkstar.py"); }
+	@Test public void mskstar() { runKStar("mskstar.py"); }
+	@Test public void mskstarBoudedMemory() { runKStar("mskstar.boundedMemory.py"); }
 }

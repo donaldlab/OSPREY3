@@ -705,7 +705,7 @@ public class MSKStar {
 
 		if (printToConsole) {
 			int cellSize = info.sequence.calcCellSize();
-			log("\nSequence calculation complete: %s    objective: %s   %s\n                           %s",
+			log("\nSequence calculation complete: %s    objective: %s   %s\n                               %s",
 				info.sequence.toString(Sequence.Renderer.ResNum, cellSize),
 				info.objective.toString(4, 9),
 				info.sequence.isWildType() ? "Wild-type" : "",
