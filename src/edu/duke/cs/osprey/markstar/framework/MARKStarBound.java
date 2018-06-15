@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
@@ -28,6 +29,7 @@ import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.astar.conf.RCs;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
@@ -303,6 +305,9 @@ public class MARKStarBound implements PartitionFunction {
     private ObjectPool<ScoreContext> contexts;
     private MARKStarNode.ScorerFactory gscorerFactory;
     private MARKStarNode.ScorerFactory hscorerFactory;
+    private int stepSize;
+    public static final int MAX_STEP_SIZE = 100;
+    public static final int MAX_CONFSPACE_FRACTION = 10000;
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                          ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
@@ -310,7 +315,7 @@ public class MARKStarBound implements PartitionFunction {
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
         MPLPUpdater updater = new EdgeUpdater();
-        hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs); //MPLPPairwiseHScorer(updater, emats, 50, 0.03);
+        hscorerFactory = (emats) -> new MPLPPairwiseHScorer(updater, emats, 50, 0.03);
 
         rootNode = MARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs, gscorerFactory, hscorerFactory, true);
         queue.add(rootNode);
@@ -320,6 +325,8 @@ public class MARKStarBound implements PartitionFunction {
         this.order = new DynamicHMeanAStarOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
         this.pruner = null;
+        stepSize = Math.min(MAX_STEP_SIZE,
+                Math.max(1,RCs.getNumConformations().divide(new BigInteger(""+MAX_CONFSPACE_FRACTION)).intValue()));
 
         this.contexts = new ObjectPool<>((lingored) -> {
             ScoreContext context = new ScoreContext();
@@ -372,7 +379,6 @@ public class MARKStarBound implements PartitionFunction {
         if(queue.isEmpty()) {
             debugPrint("Out of conformations.");
         }
-        int stepSize = 1;
         int numStepsThisLoop = 0;
         List<MARKStarNode> newNodes = new ArrayList<>();
         while(!queue.isEmpty()) {
@@ -387,10 +393,6 @@ public class MARKStarBound implements PartitionFunction {
                 MARKStarNode curNode = queue.poll();
                 Node node = curNode.getConfSearchNode();
                 debugPrint("Processing Node: " + node.toString());
-                if(node.confToString().equals("(7, 9, 5, 7, )"))
-                {
-                   System.out.println("Catch");
-                }
                 if(curNode.getConfSearchNode().getSubtreeUpperBound().compareTo(new BigDecimal(100))<1)
                 {
                     System.err.println("Node error is insignificant. Why is this happening? Aren't we done?");
@@ -506,22 +508,7 @@ public class MARKStarBound implements PartitionFunction {
                                 double confPairwiseLower = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                                 double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                                 confRigid=confRigid-node.gscore+node.rigidScore;
-                                if(child.gscore < -50)
-                                {
-                                    ConfIndex redoIndex = new ConfIndex(RCs.getNumPos());
-                                    child.index(redoIndex);
-                                    double confRigid2 = context.rigidscorer.calc(redoIndex, RCs);
-                                    ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(child.assignments, child.getConfLowerBound());
-                                    ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
-                                    numConfsEnergied++;
-                                    //Assign true energies to the subtreeLowerBound and subtreeUpperBound
-                                    double energy = econf.getEnergy();
-                                    ConfIndex parentIndex = new ConfIndex(RCs.getNumPos());
-                                    node.index(parentIndex);
-                                    double parentRigidEnergy = context.rigidscorer.calc(parentIndex, RCs);
-                                    if(energy > confRigid)
-                                        System.err.println("Whaaaa?");
-                                }
+
                                 child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                                 if (confPairwiseLower > confRigid) {
                                     System.err.println("Our bounds are not tight. Lower bound is " + (confPairwiseLower - confRigid) + " higher");

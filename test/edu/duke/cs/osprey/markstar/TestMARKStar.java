@@ -36,6 +36,8 @@ import java.util.function.Function;
 
 public class TestMARKStar {
 
+	public static final int NUM_CPUs = 4;
+
 	public static class ConfSpaces {
 		public ForcefieldParams ffparams;
 		public SimpleConfSpace protein;
@@ -50,7 +52,7 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarVsKStar() {
-	    int numFlex = 6;
+	    int numFlex = 10;
 	    double epsilon = 0.68;
 		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
 		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
@@ -65,42 +67,6 @@ public class TestMARKStar {
 
     }
 
-    @Test
-    public void sanityTest() {
-		ConfSpaces confSpaces = make1GUASmall(6);
-		int[] conf = new int[]{7, 9, 5, 7, 9, 7, 27};
-		Parallelism parallelism = Parallelism.makeCpu(1);
-		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
-				.setParallelism(parallelism)
-				.setIsMinimizing(true)
-				.build();
-		// Define the rigid energy calculator
-		EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
-				.setIsMinimizing(false)
-				.build();
-		// how should we define energies of conformations?
-		MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
-			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
-					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
-							.setCacheFile(new File("test.eref.emat"))
-							.build()
-							.calcReferenceEnergies()
-					)
-					.build();
-		};
-        SimplerEnergyMatrixCalculator.Builder rigidBuilder = new SimplerEnergyMatrixCalculator.Builder(confEcalcFactory.make(confSpaces.complex, rigidEcalc));
-        ConfEnergyCalculator minConfECalc = confEcalcFactory.make(confSpaces.complex, minimizingEcalc);
-        SimplerEnergyMatrixCalculator.Builder minimizingBuilder = new SimplerEnergyMatrixCalculator.Builder(minConfECalc);
-        EnergyMatrix rigidEmat = rigidBuilder.build().calcEnergyMatrix();
-		EnergyMatrix pairwiseMinEmat = minimizingBuilder.build().calcEnergyMatrix();
-		PairwiseGScorer pairwiseMinScorer = new PairwiseGScorer(pairwiseMinEmat);
-		PairwiseGScorer rigidScorer = new PairwiseGScorer(rigidEmat);
-		double rigidScore = rigidScorer.calc(conf);
-		double minimizingScore = pairwiseMinScorer.calc(conf);
-		ConfSearch.ScoredConf sconf = new ConfSearch.ScoredConf(conf, minimizingScore);
-		ConfSearch.EnergiedConf econf = minConfECalc.calcEnergy(sconf);
-		System.out.println("Rigid: "+rigidScore+", pairwise: "+minimizingScore+", minimized: "+econf.getEnergy());
-	}
 
 	private void printMARKStarComputationStats(MARKStar.ScoredSequence result) {
 		int totalConfsEnergied = result.score.complex.numConfs + result.score.protein.numConfs + result.score.ligand.numConfs;
@@ -147,7 +113,7 @@ public class TestMARKStar {
 
 	private static List<MARKStar.ScoredSequence> runMARKStar(int numFlex, double epsilon) {
 		ConfSpaces confSpaces = make1GUASmall(numFlex);
-		Parallelism parallelism = Parallelism.makeCpu(1);
+		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 
 		// Define the minimizing energy calculator
 		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
@@ -188,7 +154,7 @@ public class TestMARKStar {
 
 	public static List<KStar.ScoredSequence> runKStarComparison(int numFlex, double epsilon) {
 		ConfSpaces confSpaces = make1GUASmall(numFlex);
-		Parallelism parallelism = Parallelism.makeCpu(1);
+		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 
 		// Define the minimizing energy calculator
 		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
@@ -221,7 +187,7 @@ public class TestMARKStar {
 
 		AtomicReference<Result> resultRef = new AtomicReference<>(null);
 
-		Parallelism parallelism = Parallelism.makeCpu(4);
+		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 		//Parallelism parallelism = Parallelism.make(4, 1, 8);
 
 		// how should we compute energies of molecules?
@@ -287,7 +253,7 @@ public class TestMARKStar {
 	}
 	public static Result runMARKStar(ConfSpaces confSpaces, double epsilon){
 
-        Parallelism parallelism = Parallelism.makeCpu(4);
+        Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 
         // Define the minimizing energy calculator
         EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
