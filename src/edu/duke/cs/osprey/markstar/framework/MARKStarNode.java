@@ -28,7 +28,6 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;
     private static AStarScorer negatedHScorer;
-    private double minimizationRatio = 1;
     private boolean updated = true;
     /**
      * TODO: 1. Make MARKStarNodes spawn their own Node and MARKStarNode children.
@@ -259,11 +258,6 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 		return new MARKStarNode(rootNode);
 	}
 
-    public void setMinimizationRatio(double v) {
-        minimizationRatio = v;
-    }
-
-
 
     @Override
     public int compareTo(MARKStarNode other){
@@ -275,9 +269,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             return BigDecimal.ZERO;
         if(children == null || children.size() < 1) {
             BigDecimal diff = confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound);
-            if(confSearchNode.isLeaf())
-               return  diff.multiply(new BigDecimal(minimizationRatio));
-            return diff;
+            return  diff.multiply(new BigDecimal(confSearchNode.minimizationRatio));
         }
         BigDecimal errorSum = BigDecimal.ZERO;
         for(MARKStarNode childNode: children) {
@@ -302,6 +294,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public int rc = Unassigned;
         public final int level;
         public BigInteger numConfs = BigInteger.ZERO;
+        private double minimizationRatio = 1;
 
         public Node(int size) {
             this(size, 0);
@@ -311,6 +304,11 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             assignments = new int[size];
             Arrays.fill(assignments, Unassigned);
             this.level = level;
+        }
+
+        public void setMinimizationRatio(double v)
+        {
+            minimizationRatio = v;
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
@@ -404,7 +402,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
                 System.err.println("Incorrect conf bounds set.");
             BigDecimal subtreeDifference = ef.exp(-confLowerBound).subtract(ef.exp(-confUpperBound));
             if (isLeaf())
-                return (-subtreeDifference.doubleValue());
+                return (-subtreeDifference.doubleValue())*minimizationRatio;
             return -subtreeDifference.doubleValue();
         }
 

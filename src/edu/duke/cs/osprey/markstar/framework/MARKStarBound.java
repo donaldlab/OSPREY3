@@ -306,7 +306,7 @@ public class MARKStarBound implements PartitionFunction {
     private MARKStarNode.ScorerFactory gscorerFactory;
     private MARKStarNode.ScorerFactory hscorerFactory;
     private int stepSize;
-    public static final int MAX_STEP_SIZE = 100;
+    public static final int MAX_STEP_SIZE = 1;
 
     public static final int MAX_CONFSPACE_FRACTION = 1000000;
     public static final double MINIMIZATION_FACTOR = 0.1;
@@ -516,6 +516,8 @@ public class MARKStarBound implements PartitionFunction {
                                 }
                                 child.setBoundsFromConfLowerAndUpper(confPairwiseLower, confRigid);
                                 child.gscore = child.getConfLowerBound();
+                                if(reduceMinimizations)
+                                    child.setMinimizationRatio(MINIMIZATION_FACTOR/(RCs.getNumPos()*RCs.getNumPos()));
 
                                 numConfsScored++;
                                 if (debug)
@@ -529,8 +531,6 @@ public class MARKStarBound implements PartitionFunction {
                     }, (Node child) -> {
 
                         MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
-                        if(MARKStarNodeChild.getConfSearchNode().isLeaf() && reduceMinimizations)
-                            MARKStarNodeChild.setMinimizationRatio(MINIMIZATION_FACTOR/(RCs.getNumPos()*RCs.getNumPos()));
                         synchronized (this) {
                             // collect the possible children
                             if (child.getScore() < Double.POSITIVE_INFINITY) {

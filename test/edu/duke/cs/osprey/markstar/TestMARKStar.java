@@ -37,7 +37,7 @@ import java.util.function.Function;
 public class TestMARKStar {
 
 	public static final int NUM_CPUs = 1;
-	public static boolean REUDCE_MINIMIZATIONS = false;
+	public static boolean REUDCE_MINIMIZATIONS = true;
 
 	public static class ConfSpaces {
 		public ForcefieldParams ffparams;
@@ -53,7 +53,7 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarVsKStar() {
-	    int numFlex = 6;
+	    int numFlex = 8;
 	    double epsilon = 0.68;
 		compareMARKStarAndKStar(numFlex, epsilon);
 
@@ -110,7 +110,7 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        printMARKStarComputationStats(runMARKStar(7, 0.68).get(0));
+        printMARKStarComputationStats(runMARKStar(8, 0.68).get(0));
 
     }
 
@@ -149,12 +149,6 @@ public class TestMARKStar {
 					.build();
 		};
 
-		// how should confs be ordered and searched?
-		ConfSearchFactory confSearchFactory = (emat, pmat) -> {
-			return new RecursiveAStarTree.Builder(emat, pmat)
-					.setTraditional()
-					.build();
-		};
 		MARKStar.Settings settings = new MARKStar.Settings.Builder()
 				.setEpsilon(epsilon)
 				.setEnergyMatrixCachePattern("*testmat.emat")
