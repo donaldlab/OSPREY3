@@ -165,7 +165,7 @@ public class MARKStar {
 
 			public Settings build() {
 				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters,
-						showPfuncProgress, energyMatrixCachePattern, parallelism, maxNumConfs);
+						showPfuncProgress, energyMatrixCachePattern, parallelism, maxNumConfs, reduceMinimizations);
 			}
 
 			public Builder setReduceMinimizations(boolean reudceMinimizations) {
@@ -182,10 +182,11 @@ public class MARKStar {
 		public final String energyMatrixCachePattern;
 		public final Parallelism parallelism;
 		public final int maxNumConfs;
+		public final boolean reduceMinimizations;
 
 		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations,
 						KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, String energyMatrixCachePattern,
-						Parallelism parallelism, int maxNumConfs) {
+						Parallelism parallelism, int maxNumConfs, boolean reduceMinimizations) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
@@ -194,6 +195,7 @@ public class MARKStar {
 			this.energyMatrixCachePattern = energyMatrixCachePattern;
 			this.parallelism = parallelism;
 			this.maxNumConfs = maxNumConfs;
+			this.reduceMinimizations = reduceMinimizations;
 		}
 
 		public String applyEnergyMatrixCachePattern(String type) {
@@ -280,6 +282,7 @@ public class MARKStar {
 			// make the partition function
 			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(),
 					settings.parallelism);
+			pfunc.reduceMinimizations = settings.reduceMinimizations;
 			pfunc.stateName = type.name();
 			if(settings.maxNumConfs > 0)
 				pfunc.setMaxNumConfs(settings.maxNumConfs);

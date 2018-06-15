@@ -5,6 +5,7 @@ import edu.duke.cs.osprey.astar.conf.*;
 import edu.duke.cs.osprey.astar.conf.linked.LinkedConfAStarFactory;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.UpperLowerAStarOrder;
 import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
@@ -305,8 +306,9 @@ public class MARKStarBound implements PartitionFunction {
     private MARKStarNode.ScorerFactory gscorerFactory;
     private MARKStarNode.ScorerFactory hscorerFactory;
     private int stepSize;
-    public static final int MAX_STEP_SIZE = 1;
-    public static final int MAX_CONFSPACE_FRACTION = 10000;
+    public static final int MAX_STEP_SIZE = 100;
+
+    public static final int MAX_CONFSPACE_FRACTION = 1000000;
     public static final double MINIMIZATION_FACTOR = 0.1;
     public boolean reduceMinimizations = true;
 
@@ -323,7 +325,7 @@ public class MARKStarBound implements PartitionFunction {
         updateBound();
         confIndex = new ConfIndex(rcs.getNumPos());
         this.RCs = rcs;
-        this.order = new DynamicHMeanAStarOrder();
+        this.order = new UpperLowerAStarOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
         this.pruner = null;
         stepSize = Math.min(MAX_STEP_SIZE,
@@ -380,11 +382,12 @@ public class MARKStarBound implements PartitionFunction {
             debugPrint("Out of conformations.");
         }
         int numStepsThisLoop = 0;
+        boolean minimizing = false;
         List<MARKStarNode> newNodes = new ArrayList<>();
-        while(!queue.isEmpty()) {
-                if(epsilonBound < targetEpsilon)
+        while(!queue.isEmpty() && epsilonBound > targetEpsilon) {
+                if(epsilonBound <= targetEpsilon)
                     break;
-                if(numStepsThisLoop >= stepSize)
+                if(numStepsThisLoop >= stepSize || (minimizing && reduceMinimizations))
                     break;
                 synchronized (this)
                 {
@@ -393,13 +396,15 @@ public class MARKStarBound implements PartitionFunction {
                 MARKStarNode curNode = queue.poll();
                 Node node = curNode.getConfSearchNode();
                 debugPrint("Processing Node: " + node.toString());
-                if(curNode.getConfSearchNode().getSubtreeUpperBound().compareTo(new BigDecimal(100))<1)
+                if(numStepsThisLoop < 2 &&!reduceMinimizations
+                        && curNode.getConfSearchNode().getSubtreeUpperBound().compareTo(new BigDecimal(100))<1)
                 {
                     System.err.println("Node error is insignificant. Why is this happening? Aren't we done?");
                 }
 
                 //If the child is a leaf, calculate n-body minimized energies
                 if (node.getLevel() == RCs.getNumPos() && !node.isMinimized()) {
+                    minimizing = true;
                     tasks.submit(() -> {
                                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                                     ScoreContext context = checkout.get();
@@ -433,7 +438,7 @@ public class MARKStarBound implements PartitionFunction {
                                     node.gscore = newConfLower;
                                     String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                                     debugPrint(out);
-
+                                    updateBound();
                                     if (printMinimizedConfs) {
                                         System.out.println("[" + SimpleConfSpace.formatConfRCs(node.assignments) + "]" + String.format("conf:%4d, score:%12.6f, energy:%12.6f",
                                                 numConfsEnergied, econf.getScore(), newConfLower
@@ -446,6 +451,8 @@ public class MARKStarBound implements PartitionFunction {
                             // Dummy function. We're not doing anything here.
                             (Node child) -> {
                             });
+                    if(epsilonBound <= targetEpsilon)
+                        return;
                     continue;
                 }
 
@@ -554,11 +561,13 @@ public class MARKStarBound implements PartitionFunction {
             debugPrint("A* Heap:");
             PriorityQueue<MARKStarNode> copy = new PriorityQueue<>();
             BigDecimal peek = queue.peek().getErrorBound();
-            while(!queue.isEmpty()) {
+            int numConfs = 0;
+            while(!queue.isEmpty() && numConfs < 10) {
                 MARKStarNode node = queue.poll();
                 if(node.getConfSearchNode().isLeaf() || node.getErrorBound().multiply(new BigDecimal(1000)).compareTo(peek) >= 0)
                 debugPrint(node.getConfSearchNode().toString() + "," + String.format("%12.6e", node.getErrorBound()));
                 copy.add(node);
+                numConfs++;
             }
             queue.addAll(copy);
         }

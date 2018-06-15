@@ -36,8 +36,8 @@ import java.util.function.Function;
 
 public class TestMARKStar {
 
-	public static final int NUM_CPUs = 4;
-	public static boolean REUDCE_MINIMIZATIONS = true;
+	public static final int NUM_CPUs = 1;
+	public static boolean REUDCE_MINIMIZATIONS = false;
 
 	public static class ConfSpaces {
 		public ForcefieldParams ffparams;
@@ -92,6 +92,11 @@ public class TestMARKStar {
 				result.score.upperBound,totalConfsLooked,totalConfsEnergied));
 	}
 
+	@Test
+	public void testMARKStar2RL0(){
+
+	}
+
     @Test
 	public void KStarComparison() {
 		List<KStar.ScoredSequence> results = runKStarComparison(4,0.68);
@@ -105,7 +110,7 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        runMARKStar(10, 0.68);
+        printMARKStarComputationStats(runMARKStar(7, 0.68).get(0));
 
     }
 
@@ -137,8 +142,7 @@ public class TestMARKStar {
 		// how should we define energies of conformations?
 		MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
 			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
-					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
-                            .setCacheFile(new File("test.eref.emat"))
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, minimizingEcalc)
 							.build()
 							.calcReferenceEnergies()
 					)
@@ -194,74 +198,6 @@ public class TestMARKStar {
 		return run.run();
 	}
 
-	public static Result runKStar(ConfSpaces confSpaces, double epsilon) {
-
-		AtomicReference<Result> resultRef = new AtomicReference<>(null);
-
-		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
-		//Parallelism parallelism = Parallelism.make(4, 1, 8);
-
-		// how should we compute energies of molecules?
-		new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
-			.setParallelism(parallelism)
-			.use((minimizingEcalc) -> {
-
-				// how should we define energies of conformations?
-				MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
-					return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
-						.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
-							.build()
-							.calcReferenceEnergies()
-						).build();
-				};
-
-				// how should confs be ordered and searched?
-				ConfSearchFactory confSearchFactory = (emat, pmat) -> {
-					return new ConfAStarTree.Builder(emat, pmat)    // IMPT: was previously RecursiveAStarTree. It doesnt seem to make a difference tho.
-						.setTraditional()
-						.build();
-				};
-
-                // make a rigid energy calculator too
-                EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
-                        .setIsMinimizing(false)
-                        .build();
-
-				KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) -> {
-
-					Function<PartitionFunction.Result,String> formatPfunc = (result) -> {
-						if (result.status == PartitionFunction.Status.Estimated) {
-							return String.format("%12e", result.values.qstar.doubleValue());
-						}
-						return "null";
-					};
-
-					return String.format("assertSequence(result, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon); // K* = %s",
-						info.sequenceNumber,
-						info.sequence.toString(Sequence.Renderer.ResType),
-						formatPfunc.apply(info.kstarScore.protein),
-						formatPfunc.apply(info.kstarScore.ligand),
-						formatPfunc.apply(info.kstarScore.complex),
-						info.kstarScore.toString()
-					);
-				};
-
-				// run K*
-				Result result = new Result();
-				MARKStar.Settings settings = new MARKStar.Settings.Builder()
-					.setEpsilon(epsilon)
-					.setStabilityThreshold(null)
-					.addScoreConsoleWriter(testFormatter)
-					.build();
-				result.markstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);
-				result.scores = result.markstar.run();
-
-				// pass back the ref
-				resultRef.set(result);
-			});
-
-		return resultRef.get();
-	}
 	public static Result runMARKStar(ConfSpaces confSpaces, double epsilon){
 
         Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
@@ -278,7 +214,7 @@ public class TestMARKStar {
         // how should we define energies of conformations?
         MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
             return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
-                    .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
+                    .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, minimizingEcalc)
                             .setCacheFile(new File("test.eref.emat"))
                             .build()
                             .calcReferenceEnergies()
@@ -354,7 +290,7 @@ public class TestMARKStar {
 	public void test2RL0() {
 
 		double epsilon = 0.95;
-		Result result = runKStar(make2RL0(), epsilon);
+		Result result = runMARKStar(make2RL0(), epsilon);
 
 		// check the results (values collected with e = 0.1 and 64 digits precision)
 		// NOTE: these values don't match the ones in the TestKSImplLinear test because the conf spaces are slightly different
@@ -482,7 +418,7 @@ public class TestMARKStar {
 	@Test
 	public void test1GUA11() {
 
-		double epsilon = 0.1;
+		double epsilon = 0.999999;
 		Result result = runMARKStar(make1GUA11(), epsilon);
 
 		for (int index = 0; index <6; index++){
