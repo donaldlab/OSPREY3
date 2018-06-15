@@ -37,6 +37,7 @@ import java.util.function.Function;
 public class TestMARKStar {
 
 	public static final int NUM_CPUs = 4;
+	public static boolean REUDCE_MINIMIZATIONS = true;
 
 	public static class ConfSpaces {
 		public ForcefieldParams ffparams;
@@ -52,20 +53,29 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarVsKStar() {
-	    int numFlex = 10;
+	    int numFlex = 6;
 	    double epsilon = 0.68;
-		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
-		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
-        for(MARKStar.ScoredSequence seq: markStarSeqs)
-        {
-            printMARKStarComputationStats(seq);
-        }
-        for(KStar.ScoredSequence seq: kStarSeqs)
-        {
-            printKStarComputationStats(seq);
-        }
+		compareMARKStarAndKStar(numFlex, epsilon);
 
     }
+
+    @Test
+    public void test1GUASmallUpTo()
+	{
+		int maxNumFlex = 8;
+		double epsilon = 0.68;
+		for(int i = 1; i < maxNumFlex; i++)
+			compareMARKStarAndKStar(i,0.68);
+	}
+
+	private void compareMARKStarAndKStar(int numFlex, double epsilon) {
+		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
+		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
+		for(MARKStar.ScoredSequence seq: markStarSeqs)
+			printMARKStarComputationStats(seq);
+		for(KStar.ScoredSequence seq: kStarSeqs)
+			printKStarComputationStats(seq);
+	}
 
 
 	private void printMARKStarComputationStats(MARKStar.ScoredSequence result) {
@@ -146,6 +156,7 @@ public class TestMARKStar {
 				.setEnergyMatrixCachePattern("*testmat.emat")
 				.setShowPfuncProgress(true)
                 .setParallelism(parallelism)
+				.setReduceMinimizations(REUDCE_MINIMIZATIONS)
 				.build();
 		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand,
 				confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);

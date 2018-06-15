@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.markstar;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -101,6 +102,7 @@ public class MARKStar {
 
 			private Parallelism parallelism = null;
 			private int maxNumConfs = -1;
+			private boolean reduceMinimizations = true;
 
 			public Builder setEpsilon(double val) {
 				epsilon = val;
@@ -156,13 +158,19 @@ public class MARKStar {
 				return this;
 			}
 
-			public void setMaxNumConfs(int maxNumConfs) {
+			public Builder setMaxNumConfs(int maxNumConfs) {
 				this.maxNumConfs = maxNumConfs;
+				return this;
 			}
 
 			public Settings build() {
 				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters,
 						showPfuncProgress, energyMatrixCachePattern, parallelism, maxNumConfs);
+			}
+
+			public Builder setReduceMinimizations(boolean reudceMinimizations) {
+			    this.reduceMinimizations = reudceMinimizations;
+			    return this;
 			}
 		}
 

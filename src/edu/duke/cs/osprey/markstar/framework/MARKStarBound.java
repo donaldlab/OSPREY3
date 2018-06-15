@@ -294,7 +294,6 @@ public class MARKStarBound implements PartitionFunction {
     // Heap of nodes for recursive expansion
     private final Queue<MARKStarNode> queue;
     private double epsilonBound = Double.POSITIVE_INFINITY;
-    private boolean boundChanged = false;
     private ConfIndex confIndex;
     public final AStarOrder order;
     // TODO: Implement new AStarPruner for MARK*?
@@ -306,8 +305,10 @@ public class MARKStarBound implements PartitionFunction {
     private MARKStarNode.ScorerFactory gscorerFactory;
     private MARKStarNode.ScorerFactory hscorerFactory;
     private int stepSize;
-    public static final int MAX_STEP_SIZE = 100;
+    public static final int MAX_STEP_SIZE = 1;
     public static final int MAX_CONFSPACE_FRACTION = 10000;
+    public static final double MINIMIZATION_FACTOR = 0.1;
+    public boolean reduceMinimizations = true;
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                          ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
@@ -336,7 +337,6 @@ public class MARKStarBound implements PartitionFunction {
             context.rigidscorer = gscorerFactory.make(rigidEmat);
             /** These scoreres should match the scorers in the MARKStarNode root - they perform the same calculations**/
             context.negatedhscorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, rigidEmat)); //this is used for upper bounds, so we want it rigid
-            //context.negatedhscorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, minimizingEmat));
             context.ecalc = minimizingConfEcalc;
             return context;
         });
@@ -487,16 +487,7 @@ public class MARKStarBound implements PartitionFunction {
                                 //Correct for incorrect gscore.
                                 rigiddiff=rigiddiff-node.gscore+node.rigidScore;
                                 child.rigidScore = rigiddiff;
-                                if(sanityCheck)
-                                {
-                                    ConfIndex childIndex = new ConfIndex(RCs.getNumPos());
-                                    child.index(childIndex);
-                                    double nonDiff = context.rigidscorer.calc(childIndex, RCs);
-                                    if(Math.abs(nonDiff - rigiddiff) > 0.001)
-                                        System.err.println("Energy discrepancy.");
-                                    context.rigidscorer.calc(childIndex, RCs);
-                                    context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                                }
+
                                 double confLowerBound = child.gscore + hdiff;
                                 double confUpperbound = rigiddiff + maxhdiff;
                                 child.computeNumConformations(RCs);
@@ -531,6 +522,8 @@ public class MARKStarBound implements PartitionFunction {
                     }, (Node child) -> {
 
                         MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
+                        if(MARKStarNodeChild.getConfSearchNode().isLeaf() && reduceMinimizations)
+                            MARKStarNodeChild.setMinimizationRatio(MINIMIZATION_FACTOR/(RCs.getNumPos()*RCs.getNumPos()));
                         synchronized (this) {
                             // collect the possible children
                             if (child.getScore() < Double.POSITIVE_INFINITY) {
