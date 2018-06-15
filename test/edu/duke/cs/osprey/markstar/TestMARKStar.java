@@ -6,6 +6,7 @@ import static org.junit.Assert.*;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -51,8 +52,8 @@ public class TestMARKStar {
     public void testMARKStarVsKStar() {
 	    int numFlex = 6;
 	    double epsilon = 0.68;
-		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
 		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
+		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
         for(MARKStar.ScoredSequence seq: markStarSeqs)
         {
             printMARKStarComputationStats(seq);
@@ -63,6 +64,43 @@ public class TestMARKStar {
         }
 
     }
+
+    @Test
+    public void sanityTest() {
+		ConfSpaces confSpaces = make1GUASmall(6);
+		int[] conf = new int[]{7, 9, 5, 7, 9, 7, 27};
+		Parallelism parallelism = Parallelism.makeCpu(1);
+		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+				.setParallelism(parallelism)
+				.setIsMinimizing(true)
+				.build();
+		// Define the rigid energy calculator
+		EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
+				.setIsMinimizing(false)
+				.build();
+		// how should we define energies of conformations?
+		MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
+			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
+							.setCacheFile(new File("test.eref.emat"))
+							.build()
+							.calcReferenceEnergies()
+					)
+					.build();
+		};
+        SimplerEnergyMatrixCalculator.Builder rigidBuilder = new SimplerEnergyMatrixCalculator.Builder(confEcalcFactory.make(confSpaces.complex, rigidEcalc));
+        ConfEnergyCalculator minConfECalc = confEcalcFactory.make(confSpaces.complex, minimizingEcalc);
+        SimplerEnergyMatrixCalculator.Builder minimizingBuilder = new SimplerEnergyMatrixCalculator.Builder(minConfECalc);
+        EnergyMatrix rigidEmat = rigidBuilder.build().calcEnergyMatrix();
+		EnergyMatrix pairwiseMinEmat = minimizingBuilder.build().calcEnergyMatrix();
+		PairwiseGScorer pairwiseMinScorer = new PairwiseGScorer(pairwiseMinEmat);
+		PairwiseGScorer rigidScorer = new PairwiseGScorer(rigidEmat);
+		double rigidScore = rigidScorer.calc(conf);
+		double minimizingScore = pairwiseMinScorer.calc(conf);
+		ConfSearch.ScoredConf sconf = new ConfSearch.ScoredConf(conf, minimizingScore);
+		ConfSearch.EnergiedConf econf = minConfECalc.calcEnergy(sconf);
+		System.out.println("Rigid: "+rigidScore+", pairwise: "+minimizingScore+", minimized: "+econf.getEnergy());
+	}
 
 	private void printMARKStarComputationStats(MARKStar.ScoredSequence result) {
 		int totalConfsEnergied = result.score.complex.numConfs + result.score.protein.numConfs + result.score.ligand.numConfs;
@@ -91,7 +129,7 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        runMARKStar(6, 0.0001);
+        runMARKStar(10, 0.68);
 
     }
 
@@ -144,7 +182,7 @@ public class TestMARKStar {
                 .setParallelism(parallelism)
 				.build();
 		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand,
-				confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
+				confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);
 		return run.run();
 	}
 
@@ -238,7 +276,7 @@ public class TestMARKStar {
 					.setStabilityThreshold(null)
 					.addScoreConsoleWriter(testFormatter)
 					.build();
-				result.markstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
+				result.markstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);
 				result.scores = result.markstar.run();
 
 				// pass back the ref
@@ -282,7 +320,7 @@ public class TestMARKStar {
 
         MARKStar.Settings settings = new MARKStar.Settings.Builder().setEpsilon(epsilon).setEnergyMatrixCachePattern("*testmat.emat").build();
 
-        result.markstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
+        result.markstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);
         result.scores = result.markstar.run();
         return result;
     }

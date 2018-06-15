@@ -314,23 +314,18 @@ public class MARKStar {
 	/** A function that makes a ConfEnergyCalculator with the desired options */
 	public final ConfEnergyCalculatorFactory confEcalcFactory;
 
-	/** A function that makes a ConfSearchFactory (e.g, A* search) with the desired options */
-	public final ConfSearchFactory confSearchFactory;
-
 	/** Optional and overridable settings for K* */
 	public final Settings settings;
 
 	public MARKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex,
 					EnergyCalculator rigidEcalc, EnergyCalculator minimizingEcalc,
-					ConfEnergyCalculatorFactory confEcalcFactory,
-					ConfSearchFactory confSearchFactory, Settings settings) {
+					ConfEnergyCalculatorFactory confEcalcFactory, Settings settings) {
 		this.protein = new ConfSpaceInfo(ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, rigidEcalc), confEcalcFactory.make(protein, minimizingEcalc));
 		this.ligand = new ConfSpaceInfo(ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, rigidEcalc), confEcalcFactory.make(ligand, minimizingEcalc));
 		this.complex = new ConfSpaceInfo(ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, rigidEcalc), confEcalcFactory.make(complex, minimizingEcalc));
 		this.rigidEcalc = rigidEcalc;
 		this.minimizingEcalc = minimizingEcalc;
 		this.confEcalcFactory = confEcalcFactory;
-		this.confSearchFactory = confSearchFactory;
 		this.settings = settings;
 	}
 

@@ -36,7 +36,7 @@ import java.util.concurrent.PriorityBlockingQueue;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    private boolean debug = true;
+    private boolean debug = false;
     private Status status = null;
     private MARKStarBound.Values values = null;
 
@@ -418,7 +418,12 @@ public class MARKStarBound implements PartitionFunction {
                                         System.err.println("Upper bounds got worse after minimization:" + energy
                                                 + " > " + (node.getConfUpperBound())+". Rejecting minimized energy.");
                                         System.err.println("Node info: "+node);
-                                        context.ecalc.calcEnergy(conf);
+                                        double minimized = context.ecalc.calcEnergy(conf).getEnergy();
+                                        ConfIndex nodeIndex = new ConfIndex(node.assignments.length);
+                                        node.index(nodeIndex);
+                                        double rigid = context.rigidscorer.calc(nodeIndex, RCs);
+                                        double pairiwseMin = context.gscorer.calc(nodeIndex, RCs);
+
                                         newConfUpper = node.getConfUpperBound();
                                         newConfLower = node.getConfUpperBound();
                                     }
@@ -501,9 +506,11 @@ public class MARKStarBound implements PartitionFunction {
                                 double confPairwiseLower = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                                 double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                                 confRigid=confRigid-node.gscore+node.rigidScore;
-                                if(child.confToString().equals("(7, 9, 5, 7, 6, 7, 8, 4, 3, 5, )"))
+                                if(child.gscore < -50)
                                 {
-                                    double confRigid2 = context.rigidscorer.calc(context.index, RCs);
+                                    ConfIndex redoIndex = new ConfIndex(RCs.getNumPos());
+                                    child.index(redoIndex);
+                                    double confRigid2 = context.rigidscorer.calc(redoIndex, RCs);
                                     ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(child.assignments, child.getConfLowerBound());
                                     ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
                                     numConfsEnergied++;
@@ -581,7 +588,7 @@ public class MARKStarBound implements PartitionFunction {
         double curEpsilon = epsilonBound;
         epsilonBound = rootNode.computeEpsilonErrorBounds();
         debugEpsilon(curEpsilon);
-        System.out.println("Current epsilon:"+epsilonBound);
+        //System.out.println("Current epsilon:"+epsilonBound);
     }
 
     private boolean hasPrunedPair(ConfIndex confIndex, int nextPos, int nextRc) {

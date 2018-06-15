@@ -343,7 +343,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 					// gather the scores
 					List<ConfSearch.ScoredConf> confs = new ArrayList<>();
 					//Debug line. If you pulled from the repo and see this you can delete it.
-					if(true)
+					if(false)
                         System.out.println("Processing "+numScores+" additional conformations for upper bound");
 					for (int i=0; i<numScores; i++) {
 
@@ -369,7 +369,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 							result.stopwatch.start();
 							for (ConfSearch.ScoredConf conf : confs) {
 								//Debug lines. If you pulled from the repo and see this you can delete it.
-								if(true)
+								if(false)
                                     System.out.println(SimpleConfSpace.formatConfRCs(conf)+":"+conf.getScore());
 								result.scoreWeights.add(bcalc.calc(conf.getScore()));
 							}
@@ -381,7 +381,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 						}
 					);
 					//Debug lines. If you pulled from the repo and see this you can delete it.
-					if(true) {
+					if(false) {
 						String bounds = state.getLowerBound()+","+state.getUpperBound();
 						if(!MathTools.isInf(state.getUpperBound()))
 							bounds = String.format("%12e+%12e", state.getLowerBound(), state.getUpperBound().subtract(state.getLowerBound()));
@@ -427,7 +427,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 		if (state.epsilonReached(targetEpsilon)) {
 			status = Status.Estimated;
 			//Debug printline. Delete if you see it.
-			if(true) {
+			if(false) {
 				System.out.println(String.format("Partition function approximation complete: [%12.6e,%12.6e]", state.getLowerBound(), state.getUpperBound()));
 				System.out.println(String.format("Score breakdown: q* = %12.6e, q' = %12.6e, p' = %12.6e", values.qstar, values.qprime, values.pstar));
 			}
