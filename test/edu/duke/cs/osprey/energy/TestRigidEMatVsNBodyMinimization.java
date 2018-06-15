@@ -1,28 +1,15 @@
 package edu.duke.cs.osprey.energy;
 
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-
-import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.ConfIndex;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-//import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.KStar;
-import edu.duke.cs.osprey.kstar.KStarScoreWriter;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.markstar.MARKStar.ConfSearchFactory;
-import edu.duke.cs.osprey.markstar.framework.MARKStarNode;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.partcr.pickers.WalkingConfPicker;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -30,10 +17,6 @@ import edu.duke.cs.osprey.tools.FileTools;
 import org.junit.Test;
 
 import java.io.File;
-import java.math.RoundingMode;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 public class TestRigidEMatVsNBodyMinimization {
 
@@ -59,15 +42,13 @@ public class TestRigidEMatVsNBodyMinimization {
                 .setIsMinimizing(false)
                 .build();
         // how should we define energies of conformations?
-        KStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
-            return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
-                    .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
-                            .setCacheFile(new File("test.eref.emat"))
-                            .build()
-                            .calcReferenceEnergies()
-                    )
-                    .build();
-        };
+        KStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
+                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
+                        .setCacheFile(new File("test.eref.emat"))
+                        .build()
+                        .calcReferenceEnergies()
+                )
+                .build();
         SimplerEnergyMatrixCalculator.Builder rigidBuilder = new SimplerEnergyMatrixCalculator.Builder(confEcalcFactory.make(confSpaces.complex, rigidEcalc));
         ConfEnergyCalculator minConfECalc = confEcalcFactory.make(confSpaces.complex, minimizingEcalc);
         SimplerEnergyMatrixCalculator.Builder minimizingBuilder = new SimplerEnergyMatrixCalculator.Builder(minConfECalc);
