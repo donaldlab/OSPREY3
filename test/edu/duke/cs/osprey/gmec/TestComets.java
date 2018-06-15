@@ -22,7 +22,6 @@ import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.util.*;
@@ -33,26 +32,9 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 public class TestComets {
 
-	private static ForcefieldParams ffparams;
-	private static Comets cometsTiny2RL0;
-	private static Comets cometsSmall2RL0;
-	private static Comets cometsPPI2RL0;
-	private static Comets cometsOnlyOneMutant2RL0;
-	private static Comets cometsSpaceWithoutWildType2RL0;
+	private static ForcefieldParams ffparams = new ForcefieldParams();
 
-	@BeforeClass
-	public static void beforeClass() {
-
-		ffparams = new ForcefieldParams();
-
-		cometsTiny2RL0 = make2RL0Tiny();
-		cometsSmall2RL0 = make2RL0Small();
-		cometsPPI2RL0 = make2RL0PPI();
-		cometsOnlyOneMutant2RL0 = make2RL0OnlyOneMutant();
-		cometsSpaceWithoutWildType2RL0 = make2RL0SpaceWithoutWildType();
-	}
-
-	private static Comets make2RL0Tiny() {
+	private static Comets make2RL0Tiny(boolean boundedMemory) {
 
 		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld).build();
@@ -93,14 +75,23 @@ public class TestComets {
 			.addState(unbound, -1.0)
 			.build();
 		Comets comets = new Comets.Builder(objective)
+			.setMinNumConfTrees(boundedMemory ? 5 : null)
 			.build();
 
-		initStates(comets.states);
+		initStates(comets.states, boundedMemory);
 
 		return comets;
 	}
 
-	private static Comets make2RL0Small() {
+	private static void check2RL0Tiny(Comets comets) {
+		List<Comets.SequenceInfo> sequences = comets.findBestSequences(2);
+		assertSequence(comets, sequences, "asp", -15.11711536, new double [] {  });
+		assertSequence(comets, sequences, "GLU", -13.56001913, new double [] {  });
+		assertThat(sequences.size(), is(2));
+		checkSequencesOrder(sequences);
+	}
+
+	private static Comets make2RL0Small(boolean boundedMemory) {
 
 		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld).build();
@@ -147,14 +138,32 @@ public class TestComets {
 			.addState(unbound, -1.0)
 			.build();
 		Comets comets = new Comets.Builder(objective)
+			.setMinNumConfTrees(boundedMemory ? 5 : null)
 			.build();
 
-		initStates(comets.states);
+		initStates(comets.states, boundedMemory);
 
 		return comets;
 	}
 
-	private static Comets make2RL0PPI() {
+	private static void check2RL0Small(Comets comets) {
+		List<Comets.SequenceInfo> sequences = comets.findBestSequences(11);
+		assertSequence(comets, sequences, "phe asp glu GLN", -64.51492231, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu ASN", -63.91337074, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu SER", -63.70306142, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr", -62.76135586, new double [] {  });
+		assertSequence(comets, sequences, "phe GLU glu thr", -61.11651357, new double [] {  });
+		assertSequence(comets, sequences, "phe asp ASP thr", -60.41594521, new double [] {  });
+		assertSequence(comets, sequences, "ILE asp glu thr", -58.93722354, new double [] {  });
+		assertSequence(comets, sequences, "VAL asp glu thr", -58.87767041, new double [] {  });
+		assertSequence(comets, sequences, "LEU asp glu thr", -58.53375330, new double [] {  });
+		assertSequence(comets, sequences, "ALA asp glu thr", -57.74755836, new double [] {  });
+		assertSequence(comets, sequences, "TYR asp glu thr", -57.35573519, new double [] {  });
+		assertThat(sequences.size(), is(11));
+		checkSequencesOrder(sequences);
+	}
+
+	private static Comets make2RL0PPI(boolean boundedMemory) {
 
 		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld).build();
@@ -204,11 +213,42 @@ public class TestComets {
 			.setMaxSimultaneousMutations(1)
 			.setObjectiveWindowMax(2000) // need a big window to get all the sequences
 			.setObjectiveWindowSize(10000)
+			.setMinNumConfTrees(boundedMemory ? 5 : null)
 			.build();
 
-		initStates(comets.states);
+		initStates(comets.states, boundedMemory);
 
 		return comets;
+	}
+
+	private static void check2RL0PPI(Comets comets) {
+		List<Comets.SequenceInfo> sequences = comets.findBestSequences(24);
+		assertSequence(comets, sequences, "phe asp glu thr phe lys ile thr", -62.76135586, new double [] {  });
+		assertSequence(comets, sequences, "TYR asp glu thr phe lys ile thr", -57.35573519, new double [] {  });
+		assertSequence(comets, sequences, "ALA asp glu thr phe lys ile thr", -57.74755836, new double [] {  });
+		assertSequence(comets, sequences, "VAL asp glu thr phe lys ile thr", -58.87767034, new double [] {  });
+		assertSequence(comets, sequences, "ILE asp glu thr phe lys ile thr", -58.93722356, new double [] {  });
+		assertSequence(comets, sequences, "LEU asp glu thr phe lys ile thr", -58.53375350, new double [] {  });
+		assertSequence(comets, sequences, "phe GLU glu thr phe lys ile thr", -61.11651357, new double [] {  });
+		assertSequence(comets, sequences, "phe asp ASP thr phe lys ile thr", -60.41594521, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu SER phe lys ile thr", -63.70306141, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu ASN phe lys ile thr", -63.91337074, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu GLN phe lys ile thr", -64.51492231, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr TYR lys ile thr", -62.35990315, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr ALA lys ile thr", -58.55409116, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr VAL lys ile thr", -61.18841895, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr ILE lys ile thr", -62.45662407, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr LEU lys ile thr", -58.06841434, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr phe ASP ile thr", -43.31822569, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr phe GLU ile thr", -42.28743004, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr phe lys ALA thr", -56.26178013, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr phe lys VAL thr", -59.16576214, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr phe lys LEU thr", -5.30989568, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr phe lys TYR thr", 1733.69997029, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr phe lys ile SER", -62.28347340, new double [] {  });
+		assertSequence(comets, sequences, "phe asp glu thr phe lys ile ASN", -60.68742687, new double [] {  });
+		assertThat(sequences.size(), is(24));
+		checkSequencesOrder(sequences);
 	}
 
 	private static Comets make2RL0OnlyOneMutant() {
@@ -235,9 +275,16 @@ public class TestComets {
 		Comets comets = new Comets.Builder(objective)
 			.build();
 
-		initStates(comets.states);
+		initStates(comets.states, false);
 
 		return comets;
+	}
+
+	private static void check2RL0OnlyOneMutant(Comets comets) {
+		List<Comets.SequenceInfo> sequences = comets.findBestSequences(1);
+		assertSequence(comets, sequences, "VAL", -1.48594808, new double [] {  });
+		assertThat(sequences.size(), is(1));
+		checkSequencesOrder(sequences);
 	}
 
 	private static Comets make2RL0SpaceWithoutWildType() {
@@ -266,12 +313,20 @@ public class TestComets {
 			.setMaxSimultaneousMutations(2)
 			.build();
 
-		initStates(comets.states);
+		initStates(comets.states, false);
 
 		return comets;
 	}
 
-	private static void initStates(List<Comets.State> states) {
+	private static void check2RL0SpaceWithoutWildType(Comets comets) {
+		List<Comets.SequenceInfo> sequences = comets.findBestSequences(2);
+		assertSequence(comets, sequences, "ser VAL", -3.17948724, new double [] {  });
+		assertSequence(comets, sequences, "VAL VAL", -1.79501288, new double [] {  });
+		assertThat(sequences.size(), is(2));
+		checkSequencesOrder(sequences);
+	}
+
+	private static void initStates(List<Comets.State> states, boolean boundedMemory) {
 
 		// make the ecalc from all the conf spaces
 		List<SimpleConfSpace> confSpaces = states.stream()
@@ -304,6 +359,7 @@ public class TestComets {
 
 				// make the conf tree factory
 				state.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(emat, new RCs(rcs, pmat))
+					.setMaxNumNodes(boundedMemory ? 100000L : null)
 					.setTraditional()
 					.build();
 			}
@@ -330,14 +386,11 @@ public class TestComets {
 	}
 
 	public static void main(String[] args) {
-
-		beforeClass();
-
-		//bruteForce("2RL0 Tiny", cometsTiny2RL0);
-		//bruteForce("2RL0 Small", cometsSmall2RL0);
-		//bruteForce("2RL0 PPI", cometsPPI2RL0);
-		bruteForce("2RL0 Only one mutant", cometsOnlyOneMutant2RL0);
-		bruteForce("2RL0 Space without wild type", cometsSpaceWithoutWildType2RL0);
+		bruteForce("2RL0 Tiny", make2RL0Tiny(false));
+		bruteForce("2RL0 Small", make2RL0Small(false));
+		bruteForce("2RL0 PPI", make2RL0PPI(false));
+		bruteForce("2RL0 Only one mutant", make2RL0OnlyOneMutant());
+		bruteForce("2RL0 Space without wild type", make2RL0SpaceWithoutWildType());
 	}
 
 	public static void bruteForce(String name, Comets comets) {
@@ -388,102 +441,38 @@ public class TestComets {
 
 	@Test
 	public void tiny2RL0() {
-
-		Comets comets = cometsTiny2RL0;
-
-		prepStates(comets, () -> {
-			List<Comets.SequenceInfo> sequences = comets.findBestSequences(2);
-			assertSequence(comets, sequences, "asp", -15.11711536, new double [] {  });
-			assertSequence(comets, sequences, "GLU", -13.56001913, new double [] {  });
-			assertThat(sequences.size(), is(2));
-			checkSequencesOrder(sequences);
-		});
+		Comets comets = make2RL0Tiny(false);
+		prepStates(comets, () -> check2RL0Tiny(comets));
 	}
 
 	@Test
 	public void small2RL0() {
-
-		Comets comets = cometsSmall2RL0;
-
-		prepStates(comets, () -> {
-			List<Comets.SequenceInfo> sequences = comets.findBestSequences(11);
-			assertSequence(comets, sequences, "phe asp glu GLN", -64.51492231, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu ASN", -63.91337074, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu SER", -63.70306142, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr", -62.76135586, new double [] {  });
-			assertSequence(comets, sequences, "phe GLU glu thr", -61.11651357, new double [] {  });
-			assertSequence(comets, sequences, "phe asp ASP thr", -60.41594521, new double [] {  });
-			assertSequence(comets, sequences, "ILE asp glu thr", -58.93722354, new double [] {  });
-			assertSequence(comets, sequences, "VAL asp glu thr", -58.87767041, new double [] {  });
-			assertSequence(comets, sequences, "LEU asp glu thr", -58.53375330, new double [] {  });
-			assertSequence(comets, sequences, "ALA asp glu thr", -57.74755836, new double [] {  });
-			assertSequence(comets, sequences, "TYR asp glu thr", -57.35573519, new double [] {  });
-			assertThat(sequences.size(), is(11));
-			checkSequencesOrder(sequences);
-		});
+		Comets comets = make2RL0Small(false);
+		prepStates(comets, () -> check2RL0Small(comets));
 	}
 
 	@Test
 	public void ppi2RL0() {
+		Comets comets = make2RL0PPI(false);
+		prepStates(comets, () -> check2RL0PPI(comets));
+	}
 
-		Comets comets = cometsPPI2RL0;
-
-		prepStates(comets, () -> {
-			List<Comets.SequenceInfo> sequences = comets.findBestSequences(24);
-			assertSequence(comets, sequences, "phe asp glu thr phe lys ile thr", -62.76135586, new double [] {  });
-			assertSequence(comets, sequences, "TYR asp glu thr phe lys ile thr", -57.35573519, new double [] {  });
-			assertSequence(comets, sequences, "ALA asp glu thr phe lys ile thr", -57.74755836, new double [] {  });
-			assertSequence(comets, sequences, "VAL asp glu thr phe lys ile thr", -58.87767034, new double [] {  });
-			assertSequence(comets, sequences, "ILE asp glu thr phe lys ile thr", -58.93722356, new double [] {  });
-			assertSequence(comets, sequences, "LEU asp glu thr phe lys ile thr", -58.53375350, new double [] {  });
-			assertSequence(comets, sequences, "phe GLU glu thr phe lys ile thr", -61.11651357, new double [] {  });
-			assertSequence(comets, sequences, "phe asp ASP thr phe lys ile thr", -60.41594521, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu SER phe lys ile thr", -63.70306141, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu ASN phe lys ile thr", -63.91337074, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu GLN phe lys ile thr", -64.51492231, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr TYR lys ile thr", -62.35990315, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr ALA lys ile thr", -58.55409116, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr VAL lys ile thr", -61.18841895, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr ILE lys ile thr", -62.45662407, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr LEU lys ile thr", -58.06841434, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr phe ASP ile thr", -43.31822569, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr phe GLU ile thr", -42.28743004, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr phe lys ALA thr", -56.26178013, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr phe lys VAL thr", -59.16576214, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr phe lys LEU thr", -5.30989568, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr phe lys TYR thr", 1733.69997029, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr phe lys ile SER", -62.28347340, new double [] {  });
-			assertSequence(comets, sequences, "phe asp glu thr phe lys ile ASN", -60.68742687, new double [] {  });
-			assertThat(sequences.size(), is(24));
-			checkSequencesOrder(sequences);
-		});
+	@Test
+	public void ppi2RL0BoundedMemory() {
+		Comets comets = make2RL0PPI(true);
+		prepStates(comets, () -> check2RL0PPI(comets));
 	}
 
 	@Test
 	public void onlyOneMutant2RL0() {
-
-		Comets comets = cometsOnlyOneMutant2RL0;
-
-		prepStates(comets, () -> {
-			List<Comets.SequenceInfo> sequences = comets.findBestSequences(1);
-			assertSequence(comets, sequences, "VAL", -1.48594808, new double [] {  });
-			assertThat(sequences.size(), is(1));
-			checkSequencesOrder(sequences);
-		});
+		Comets comets = make2RL0OnlyOneMutant();
+		prepStates(comets, () -> check2RL0OnlyOneMutant(comets));
 	}
 
 	@Test
 	public void onlySpaceWithoutWildType2RL0() {
-
-		Comets comets = cometsSpaceWithoutWildType2RL0;
-
-		prepStates(comets, () -> {
-			List<Comets.SequenceInfo> sequences = comets.findBestSequences(2);
-			assertSequence(comets, sequences, "ser VAL", -3.17948724, new double [] {  });
-			assertSequence(comets, sequences, "VAL VAL", -1.79501288, new double [] {  });
-			assertThat(sequences.size(), is(2));
-			checkSequencesOrder(sequences);
-		});
+		Comets comets = make2RL0SpaceWithoutWildType();
+		prepStates(comets, () -> check2RL0SpaceWithoutWildType(comets));
 	}
 
 	public static void assertSequence(Comets comets, List<Comets.SequenceInfo> sequences, String seqStr, double objective, double[] constraints) {

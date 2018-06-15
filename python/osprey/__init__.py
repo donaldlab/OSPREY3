@@ -627,7 +627,7 @@ def DEE_read(confSpace, path):
 	return c.pruning.SimpleDEE.read(confSpace, jvm.toFile(path))
 
 
-def AStarTraditional(emat, confSpaceOrPmat, showProgress=True, useExternalMemory=False):
+def AStarTraditional(emat, confSpaceOrPmat, showProgress=True, useExternalMemory=False, maxNumNodes=useJavaDefault):
 	'''
 	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setTraditional`
 
@@ -639,10 +639,16 @@ def AStarTraditional(emat, confSpaceOrPmat, showProgress=True, useExternalMemory
 		:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#useExternalMemory`
 
 	:type useExternalMemory: boolean
+	:builder_option maxNumNodes .astar.conf.ConfAStarTree$Builder#maxNumNodes:
 	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
 	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
 	builder.setShowProgress(showProgress)
+
+	# set node limits before picking heuristics
+	if maxNumNodes is not useJavaDefault:
+		builder.setMaxNumNodes(jvm.boxLong(maxNumNodes))
+
 	builder.setTraditional()
 
 	if useExternalMemory == True:
@@ -657,7 +663,7 @@ def EdgeUpdater():
 def NodeUpdater():
 	return c.astar.conf.scoring.mplp.NodeUpdater()
 
-def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergenceThreshold=None, useExternalMemory=False):
+def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergenceThreshold=None, useExternalMemory=False, maxNumNodes=useJavaDefault):
 	'''
 	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setMPLP`
 
@@ -672,6 +678,7 @@ def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergen
 		:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#useExternalMemory`
 
 	:type useExternalMemory: boolean
+	:builder_option maxNumNodes .astar.conf.ConfAStarTree$Builder#maxNumNodes:
 	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
 	mplpBuilder = _get_builder(c.astar.conf.ConfAStarTree, 'MPLPBuilder')()
@@ -687,6 +694,11 @@ def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergen
 
 	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
 	builder.setShowProgress(True)
+
+	# set node limits before picking heuristics
+	if maxNumNodes is not useJavaDefault:
+		builder.setMaxNumNodes(jvm.boxLong(maxNumNodes))
+
 	builder.setMPLP(mplpBuilder)
 
 	if useExternalMemory == True:
@@ -1128,7 +1140,7 @@ def COMETS_LME(weightsByState, offset=useJavaDefault, constrainLessThan=None):
 	return builder.build()
 
 
-def COMETS(objective, constraints=[], objectiveWindowSize=useJavaDefault, objectiveWindowMax=useJavaDefault, maxSimultaneousMutations=useJavaDefault, logFile=None):
+def COMETS(objective, constraints=[], objectiveWindowSize=useJavaDefault, objectiveWindowMax=useJavaDefault, maxSimultaneousMutations=useJavaDefault, minNumConfTrees=useJavaDefault, logFile=None):
 	'''
 	:java:classdoc:`.gmec.Comets`
 
@@ -1140,6 +1152,7 @@ def COMETS(objective, constraints=[], objectiveWindowSize=useJavaDefault, object
 	:builder_option objectiveWindowSize .gmec.Comets$Builder#objectiveWindowSize:
 	:builder_option objectiveWindowMax .gmec.Comets$Builder#objectiveWindowMax:
 	:builder_option maxSimultaneousMutations .gmec.Comets$Builder#maxSimultaneousMutations:
+	:builder_option minNumConfTrees .gmec.Comets$Builder#minNumConfsTrees:
 
 	:param str logFile: :java:fielddoc:`.gmec.Comets$Builder#logFile`
 
@@ -1157,6 +1170,8 @@ def COMETS(objective, constraints=[], objectiveWindowSize=useJavaDefault, object
 		builder.setObjectiveWindowMax(objectiveWindowMax)
 	if maxSimultaneousMutations is not useJavaDefault:
 		builder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+	if minNumConfTrees is not useJavaDefault:
+		builder.setMinNumConfTrees(jvm.boxInt(minNumConfTrees))
 
 	if logFile is not None:
 		builder.setLogFile(jvm.toFile(logFile))
