@@ -892,7 +892,7 @@ def SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc,
 
     return c.kstar.SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
 
-def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, energyMatrixCachePattern=useJavaDefault, showPfuncProgress=useJavaDefault, maxSimultaneousMutations=useJavaDefault):
+def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, energyMatrixCachePattern=useJavaDefault, showPfuncProgress=useJavaDefault, maxSimultaneousMutations=useJavaDefault, reduceMinimizations=useJavaDefault):
     '''
     :java:classdoc:`.markstar.MARKStar`
 
@@ -915,6 +915,7 @@ def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, mi
     :builder_option showPfuncProgress .markstar.MARKStar$Settings$Builder#showPfuncProgress:
     :builder_option energyMatrixCachePattern .markstar.MARKStar$Settings$Builder#energyMatrixCachePattern:
     :builder_option maxSimultaneousMutations .markstar.MARKStar$Settings$Builder#maxSimultaneousMutations:
+    :builder_option reduceMinimizations .markstar.MARKStar$Settings$Builder#reduceMinimizations:
 
     :rtype: :java:ref:`.markstar.MARKStar`
     '''
@@ -934,6 +935,8 @@ def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, mi
         markstarSettingsBuilder.setShowPfuncProgress(showPfuncProgress)
     if maxSimultaneousMutations is not useJavaDefault:
         markstarSettingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+    if reduceMinimizations is not useJavaDefault:
+        markstarSettingsBuilder.setReduceMinimizations(reduceMinimizations)
     markstarSettings = markstarSettingsBuilder.build()
 
     return c.markstar.MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, markstarSettings)
