@@ -892,7 +892,7 @@ def SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc,
 
     return c.kstar.SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
 
-def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, energyMatrixCachePattern=useJavaDefault, showPfuncProgress=useJavaDefault, maxSimultaneousMutations=useJavaDefault):
+def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, energyMatrixCachePattern=useJavaDefault, showPfuncProgress=useJavaDefault, maxSimultaneousMutations=useJavaDefault):
     '''
     :java:classdoc:`.markstar.MARKStar`
 
@@ -910,8 +910,6 @@ def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, mi
     :type minimizingEcalc: :java:ref:`.energy.EnergyCalculator`
     :param confEcalcFactory: :java:fielddoc:`.markstar.MARKStar#confEcalcFactory`
     :type confEcalcFactory: :java:ref:`.markstar.MARKStar$ConfEnergyCalculatorFactory`
-    :param astarFactory: :java:fielddoc:`.markstar.MARKStar#confSearchFactory`
-    :type astarFactory: :java:ref:`.markstar.MARKStar$ConfSearchFactory`
     :builder_option epsilon .markstar.MARKStar$Settings$Builder#epsilon:
     :builder_option stabilityThreshold .markstar.MARKStar$Settings$Builder#stabilityThreshold:
     :builder_option showPfuncProgress .markstar.MARKStar$Settings$Builder#showPfuncProgress:
@@ -923,7 +921,6 @@ def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, mi
 
     # convert functions from python to java
     confEcalcFactory = jpype.JProxy(jvm.getInnerClass(c.markstar.MARKStar, 'ConfEnergyCalculatorFactory'), dict={ 'make': confEcalcFactory })
-    astarFactory = jpype.JProxy(jvm.getInnerClass(c.markstar.MARKStar, 'ConfSearchFactory'), dict={ 'make': astarFactory })
 
     # build settings
     markstarSettingsBuilder = _get_builder(jvm.getInnerClass(c.markstar.MARKStar, 'Settings'))()
@@ -939,4 +936,4 @@ def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, mi
         markstarSettingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
     markstarSettings = markstarSettingsBuilder.build()
 
-    return c.markstar.MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, astarFactory, markstarSettings)
+    return c.markstar.MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, markstarSettings)
