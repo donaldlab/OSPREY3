@@ -892,7 +892,7 @@ def SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc,
 
     return c.kstar.SequenceAnalyzer(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
 
-def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, energyMatrixCachePattern=useJavaDefault, showPfuncProgress=useJavaDefault, maxSimultaneousMutations=useJavaDefault, reduceMinimizations=useJavaDefault):
+def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, epsilon=useJavaDefault, parallelism=None, stabilityThreshold=useJavaDefault, energyMatrixCachePattern=useJavaDefault, showPfuncProgress=useJavaDefault, maxSimultaneousMutations=useJavaDefault, reduceMinimizations=useJavaDefault):
     '''
     :java:classdoc:`.markstar.MARKStar`
 
@@ -935,6 +935,8 @@ def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, mi
         markstarSettingsBuilder.setShowPfuncProgress(showPfuncProgress)
     if maxSimultaneousMutations is not useJavaDefault:
         markstarSettingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+    if parallelism is not None:
+        markstarSettingsBuilder.setParallelism(parallelism)
     if reduceMinimizations is not useJavaDefault:
         markstarSettingsBuilder.setReduceMinimizations(reduceMinimizations)
     markstarSettings = markstarSettingsBuilder.build()
