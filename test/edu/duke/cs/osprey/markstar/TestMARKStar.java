@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 //import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.KStar;
@@ -26,6 +27,7 @@ import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.MathTools;
 import org.junit.Test;
 
 import java.io.File;
@@ -56,6 +58,7 @@ public class TestMARKStar {
 	    int numFlex = 8;
 	    double epsilon = 0.68;
 		compareMARKStarAndKStar(numFlex, epsilon);
+		System.out.println(System.getProperty("user.dir"));
 
     }
 
@@ -81,15 +84,18 @@ public class TestMARKStar {
 	private void printMARKStarComputationStats(MARKStar.ScoredSequence result) {
 		int totalConfsEnergied = result.score.complex.numConfs + result.score.protein.numConfs + result.score.ligand.numConfs;
 		int totalConfsLooked = result.score.complex.getNumConfsLooked()+ result.score.protein.getNumConfsLooked()+ result.score.ligand.getNumConfsLooked();
-		System.out.println("MARK* Stats: "+String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",result.score.score, result.score.lowerBound,
-				result.score.upperBound,totalConfsLooked,totalConfsEnergied));
+		System.out.println("MARK* Stats: "+String.format("score:%12e in [%12e,%12e] (log10), confs looked at:%4d, confs minimized:%4d",MathTools.log10p1(result.score.score), MathTools.log10p1(result.score.lowerBound),
+				MathTools.log10p1(result.score.upperBound),totalConfsLooked,totalConfsEnergied));
+		System.out.println("Above stats for sequence: "+result.sequence);
+
 	}
 
 	private void printKStarComputationStats(KStar.ScoredSequence result) {
 		int totalConfsEnergied = result.score.complex.numConfs + result.score.protein.numConfs + result.score.ligand.numConfs;
 		int totalConfsLooked = result.score.complex.getNumConfsLooked()+ result.score.protein.getNumConfsLooked()+ result.score.ligand.getNumConfsLooked();
-		System.out.println("K* Stats: "+String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",result.score.score, result.score.lowerBound,
-				result.score.upperBound,totalConfsLooked,totalConfsEnergied));
+		System.out.println("MARK* Stats: "+String.format("score:%12e in [%12e,%12e] (log10), confs looked at:%4d, confs minimized:%4d",MathTools.log10p1(result.score.score), MathTools.log10p1(result.score.lowerBound),
+				MathTools.log10p1(result.score.upperBound),totalConfsLooked,totalConfsEnergied));
+		System.out.println("Above stats for sequence: "+result.sequence);
 	}
 
 	@Test
@@ -460,6 +466,95 @@ public class TestMARKStar {
 		} else {
 			assertThat(result.status, is(not(PartitionFunction.Status.Estimated)));
 		}
+	}public static ConfSpaces make1A0R() {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.read(FileTools.readResource("/1A0R_1A0R.b.shell.pdb"));
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+			.addMoleculeForWildTypeRotamers(mol)
+			.build();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("039", "0339")
+			.build();
+        protein.flexibility.get("0313").setLibraryRotamers(Strand.WildType, "ASN", "SER", "THR", "GLN", "HID", "ALA", "VAL", "ILE", "LEU", "GLY", "ALA", "VAL", "GLY").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("0311").setLibraryRotamers(Strand.WildType, "HID", "HIE", "ASP", "GLU", "SER", "THR", "ASN", "GLN", "ALA", "VAL", "ILE", "LEU", "GLY").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("0332").setLibraryRotamers(Strand.WildType, "TRP", "ALA", "VAL", "ILE", "LEU", "PHE", "TYR", "MET", "SER", "THR", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("0520", "0729")
+			.build();
+		ligand.flexibility.get("0605").setLibraryRotamers(Strand.WildType, "LEU", "ILE", "ALA", "VAL", "PHE", "TYR", "MET", "GLU", "ASP", "HID", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("0696").setLibraryRotamers(Strand.WildType, "GLU", "ASP", "PHE", "TYR", "ALA", "VAL", "ILE", "LEU", "HIE", "HID", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("0697").setLibraryRotamers(Strand.WildType, "LEU", "ILE", "ALA", "VAL", "PHE", "TYR", "MET", "GLU", "ASP", "HID", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("0698").setLibraryRotamers(Strand.WildType, "LEU", "ILE", "ALA", "VAL", "PHE", "TYR", "MET", "GLU", "ASP", "HID", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("0601").setLibraryRotamers(Strand.WildType, "MET", "ILE", "ALA", "VAL", "LEU", "PHE", "TYR", "GLU", "ASP", "HID", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("0729").setLibraryRotamers(Strand.WildType, "GLU", "ASP", "PHE", "TYR", "ALA", "VAL", "ILE", "LEU", "HIE", "HID", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
+
+		// make the complex conf space ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+			.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+			.addStrand(ligand)
+			.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+			.addStrands(protein, ligand)
+			.build();
+
+		return confSpaces;
+	}
+	private static List<MARKStar.ScoredSequence> debugFatal() {
+		ConfSpaces confSpaces = make1A0R();
+		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
+
+		// Define the minimizing energy calculator
+		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+				.setParallelism(parallelism)
+				.setIsMinimizing(true)
+				.build();
+		// Define the rigid energy calculator
+		EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
+				.setIsMinimizing(false)
+				.build();
+		// how should we define energies of conformations?
+		MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
+			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
+					.setEnergyPartition(EnergyPartition.AllOnPairs)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, minimizingEcalc)
+							.build()
+							.calcReferenceEnergies()
+					)
+					.build();
+		};
+
+		MARKStar.Settings settings = new MARKStar.Settings.Builder()
+				.setEpsilon(0.1)
+				.setEnergyMatrixCachePattern("*testmat.emat")
+				.setShowPfuncProgress(true)
+				.setParallelism(parallelism)
+				.setReduceMinimizations(REUDCE_MINIMIZATIONS)
+				.build();
+		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand,
+				confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);
+		return run.run();
+	}
+
+	@Test
+	public void testFatalError() {
+		List<MARKStar.ScoredSequence> markStarSeqs = debugFatal();
+		for(MARKStar.ScoredSequence seq: markStarSeqs)
+			printMARKStarComputationStats(seq);
 	}
 }
 
