@@ -444,6 +444,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 
 		synchronized (this) { // don't race the main thread
 
+
+			if(energyWeight.compareTo(scoreWeight) == 1) {
+				System.err.println("Bounds are incorrect:" + energyWeight + " > "
+						+ scoreWeight);
+			}
 			// update the state
 			state.energyWeightSum = state.energyWeightSum.add(energyWeight);
 			state.lowerScoreWeightSum = state.lowerScoreWeightSum.add(scoreWeight);
