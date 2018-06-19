@@ -419,7 +419,8 @@ public class MARKStarBound implements PartitionFunction {
                                         System.err.println("Bounds are incorrect:" + (node.getConfLowerBound()) + " > "
                                                 + energy);
                                         if (energy < 10)
-                                            System.exit(-1);
+                                            System.err.println("The bounds are probably wrong.");
+                                            //System.exit(-1);
                                     }
                                     if (energy > node.getConfUpperBound()) {
                                         System.err.println("Upper bounds got worse after minimization:" + energy
