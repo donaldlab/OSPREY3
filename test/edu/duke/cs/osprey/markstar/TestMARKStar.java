@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 //import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.KStar;
@@ -37,7 +38,8 @@ import java.util.function.Function;
 public class TestMARKStar {
 
 	public static final int NUM_CPUs = 1;
-	public static boolean REUDCE_MINIMIZATIONS = true;
+	public static final boolean REUDCE_MINIMIZATIONS = true;
+	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
 
 	public static class ConfSpaces {
 		public ForcefieldParams ffparams;
@@ -146,6 +148,7 @@ public class TestMARKStar {
 							.build()
 							.calcReferenceEnergies()
 					)
+					.setEnergyPartition(ENERGY_PARTITION)
 					.build();
 		};
 
@@ -177,6 +180,7 @@ public class TestMARKStar {
 							.build()
 							.calcReferenceEnergies()
 					)
+					.setEnergyPartition(ENERGY_PARTITION)
 					.build();
 		};
 
