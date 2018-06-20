@@ -568,7 +568,8 @@ public class MARKStarBound implements PartitionFunction {
         EnergyMatrix scoreAnalysis = analysis.breakdownScoreByPosition();
         System.out.println("Energy Analysis: "+energyAnalysis);
         System.out.println("Score Analysis: "+scoreAnalysis);
-        System.out.println("Difference Analysis " + energyAnalysis.diff(scoreAnalysis));
+        //System.out.println("Difference Analysis " + energyAnalysis.diff(scoreAnalysis));
+        System.out.println("Difference Analysis not implemented due to error. See MARKStarBound:571");
 
         /* Starting from the residue contributing the smallest energy difference:
             if the energy difference is below the threshold, remove it.
