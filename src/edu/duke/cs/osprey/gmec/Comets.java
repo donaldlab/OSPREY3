@@ -705,7 +705,7 @@ public class Comets {
 				new NOPSeqAStarScorer(),
 				new SeqHScorer()
 			)
-			.setMaxSimultaneousMutations(maxSimultaneousMutations)
+			.setNumMutable(maxSimultaneousMutations)
 			.build();
 
 		List<SequenceInfo> infos = new ArrayList<>();

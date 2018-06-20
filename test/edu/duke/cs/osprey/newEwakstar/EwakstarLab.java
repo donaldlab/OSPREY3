@@ -1,9 +1,7 @@
 package edu.duke.cs.osprey.newEwakstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.confspace.ConfDB;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -22,6 +20,7 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -40,39 +39,26 @@ public class EwakstarLab {
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld).build();
 
 		// define the protein strand
-		Strand protein = new Strand.Builder(mol)
+		Strand ligand = new Strand.Builder(mol)
 				.setTemplateLibrary(templateLib)
 				.setResidues("G648", "G654")
 				.build();
-		protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "ILE", "VAL", "LEU", "ALA", "TYR").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "ILE", "VAL", "LEU", "ALA", "TYR").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("G650").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("G651").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("G654").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		// define the ligand strand
-		Strand ligand = new Strand.Builder(mol)
+		Strand protein = new Strand.Builder(mol)
 				.setTemplateLibrary(templateLib)
 				.setResidues("A155", "A194")
 				.build();
-		ligand.flexibility.get("A156").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("A172").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("A193").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A156").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A172").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A192").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A193").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		// make the COMETS states
-		Ewakstar.State P = new Ewakstar.State(
-				"P",
-				new SimpleConfSpace.Builder()
-						.addStrand(protein)
-						.build()
-		);
-
-		Ewakstar.State L = new Ewakstar.State(
-				"L",
-				new SimpleConfSpace.Builder()
-						.addStrand(ligand)
-						.build()
-		);
 
 		Ewakstar.State PL = new Ewakstar.State(
 				"PL",
@@ -82,18 +68,37 @@ public class EwakstarLab {
 						.build()
 		);
 
+		int orderMag = 10; //order of magnitude worse in partition function we want to keep sequences relative to the wild-type
+		int numEWAKStarSeqs = 10000; //number of sequences we want to limit ourselves to during the "sequence filter" portion of ewakstar
+		int ewakstarEw = 30; //energy window within the wild-type for finding sequences in the "sequence filter" portion of ewakstar
+		int numPfConfs = 5000; //num of conformations for the partition function calculation
+		double pfEw = 1.0; //partition function energy window calculation
+		int numTopOverallSeqs = 5; //end result number of sequences we want K* estimates for
+		int numCpus = 4;
+		double epsilon = 0.01;
 
 		Ewakstar ewakstar = new Ewakstar.Builder()
+				.setNumEWAKStarSeqs(numEWAKStarSeqs)
+				.setOrderOfMag(orderMag)
+				.setPfEw(pfEw)
+				.setEpsilon(epsilon)
+				.setNumPfConfs(numPfConfs)
+				.setNumTopOverallSeqs(numTopOverallSeqs)
 				.addState(PL)
-				.setBoundEw(30)
-				.setMaxSimultaneousMutations(1)
+				.setEw(ewakstarEw)
+				.setMutableType("exact")
+				.setNumMutable(1)
+				.setSeqFilterOnly(false)
+				.setNumCpus(numCpus)
 				.setLogFile(new File("ewakstar.sequences.tsv"))
 				.build();
 
-		// make the ecalc from all the conf spaces
-		List<SimpleConfSpace> confSpaces = Arrays.asList(P.confSpace, L.confSpace, PL.confSpace);
 
-		EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces, ffparams)
+		EnergyCalculator ecalc = new EnergyCalculator.Builder(PL.confSpace, ffparams)
+				.setParallelism(Parallelism.makeCpu(numCpus))
+				.build();
+		EnergyCalculator rigidEcalc = new EnergyCalculator.Builder(PL.confSpace, ffparams)
+				.setIsMinimizing(false)
 				.setParallelism(Parallelism.makeCpu(4))
 				.build();
 
@@ -101,23 +106,30 @@ public class EwakstarLab {
 		SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(PL.confSpace, ecalc)
 				.build()
 				.calcReferenceEnergies();
+		SimpleReferenceEnergies rigidEref = new SimplerEnergyMatrixCalculator.Builder(PL.confSpace, rigidEcalc)
+				.build()
+				.calcReferenceEnergies();
+
 		PL.confEcalc = new ConfEnergyCalculator.Builder(PL.confSpace, ecalc)
 				.setReferenceEnergies(eref)
+				.build();
+		PL.confRigidEcalc = new ConfEnergyCalculator.Builder(PL.confSpace, rigidEcalc)
+				.setReferenceEnergies(rigidEref)
 				.build();
 
 		// calc the energy matrix
 		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(PL.confEcalc)
-				.setCacheFile(new File(String.format("emat.%s.dat", "PL")))
+				.setCacheFile(new File(String.format("ewakstar.%s.emat", PL.name)))
 				.build()
 				.calcEnergyMatrix();
 		PL.fragmentEnergies = emat;
 
 		// run DEE (super important for good LUTE fits!!)
-		PruningMatrix pmat = new SimpleDEE.Runner()
+		PL.pmat = new SimpleDEE.Runner()
 				.setGoldsteinDiffThreshold(10.0)
 				.setTypeDependent(true)
 				.setShowProgress(true)
-				.setCacheFile(new File(String.format("ewakstar.%s.pmat.dat", PL.name)))
+				.setCacheFile(new File(String.format("ewakstar.%s.pmat", PL.name)))
 				.setParallelism(Parallelism.makeCpu(8))
 				.run(PL.confSpace, emat);
 
@@ -127,16 +139,8 @@ public class EwakstarLab {
 				.setTraditional()
 				.build();
 
-		// use ConfDBs
-		PL.confDBFile = new File("conf." + PL.name.toLowerCase() + ".db");
-
-
 		// run COMETS
-		List<Ewakstar.SequenceInfo> seqs = ewakstar.findBestSequences(6, 10, PL);
-
-		for (Ewakstar.SequenceInfo info : seqs) {
-			log("sequence:   %s", info.sequence);
-		}
+		Set<Sequence> seqs = ewakstar.run(PL);
 	}
 
 }

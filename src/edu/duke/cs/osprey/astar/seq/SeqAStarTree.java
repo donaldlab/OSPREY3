@@ -1,13 +1,17 @@
 package edu.duke.cs.osprey.astar.seq;
 
+import edu.duke.cs.osprey.astar.ewakstar.EWAKStarLimitedSequenceTrie;
 import edu.duke.cs.osprey.astar.seq.nodes.LinkedSeqAStarNode;
 import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 import edu.duke.cs.osprey.astar.seq.order.SeqAStarOrder;
 import edu.duke.cs.osprey.astar.seq.scoring.SeqAStarScorer;
+import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.newEwakstar.EwakstarLimitedSequenceTrie;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigInteger;
+import java.util.List;
 
 
 public class SeqAStarTree {
@@ -20,10 +24,24 @@ public class SeqAStarTree {
 		private SeqAStarOrder order;
 		private SeqAStarScorer gscorer;
 		private SeqAStarScorer hscorer;
-		private int maxSimultaneousMutations;
+		private int numMutable;
+		private String mutableType = "max"; //defaults to max, so how anyone else was using this should be fine.
+		private EwakstarLimitedSequenceTrie elst = null;
 
 		public Builder(RTs rts) {
 			this.rts = rts;
+		}
+
+		//for limiting the sequence space to a specific set of sequences in ewakstar
+		public Builder setSeqTrie(EwakstarLimitedSequenceTrie obj){
+			elst = obj;
+			return this;
+		}
+
+		//allows for using "max", "exact", or "all" setting for how the mutable residue work.
+		public Builder setMutableType(String type){
+			mutableType = type;
+			return this;
 		}
 
 		public Builder setOptimizer(MathTools.Optimizer val) {
@@ -38,8 +56,8 @@ public class SeqAStarTree {
 			return this;
 		}
 
-		public Builder setMaxSimultaneousMutations(int val) {
-			this.maxSimultaneousMutations = val;
+		public Builder setNumMutable(int val) {
+			this.numMutable = val;
 			return this;
 		}
 
@@ -69,7 +87,9 @@ public class SeqAStarTree {
 				order,
 				gscorer,
 				hscorer,
-				maxSimultaneousMutations
+				mutableType,
+				numMutable,
+				elst
 			);
 		}
 	}
@@ -81,12 +101,14 @@ public class SeqAStarTree {
 	public final SeqAStarOrder order;
 	public final SeqAStarScorer gscorer;
 	public final SeqAStarScorer hscorer;
-	public final int maxSimultaneousMutations;
+	public final int numMutable;
+	public final String mutableType; //defaults to "max" in the above Builder
+	public final EwakstarLimitedSequenceTrie elst;
 
 	private SeqAStarNode trivialRootNode = null;
 	private SeqAStarNode.Assignments assignments;
 
-	private SeqAStarTree(RTs rts, MathTools.Optimizer optimizer, Queue<SeqAStarNode> queue, SeqAStarNode rootNode, SeqAStarOrder order, SeqAStarScorer gscorer, SeqAStarScorer hscorer, int maxSimultaneousMutations) {
+	private SeqAStarTree(RTs rts, MathTools.Optimizer optimizer, Queue<SeqAStarNode> queue, SeqAStarNode rootNode, SeqAStarOrder order, SeqAStarScorer gscorer, SeqAStarScorer hscorer, String mutableType, int numMutable, EwakstarLimitedSequenceTrie elst) {
 		this.rts = rts;
 		this.optimizer = optimizer;
 		this.queue = queue;
@@ -94,7 +116,9 @@ public class SeqAStarTree {
 		this.order = order;
 		this.gscorer = gscorer;
 		this.hscorer = hscorer;
-		this.maxSimultaneousMutations = maxSimultaneousMutations;
+		this.mutableType = mutableType;
+		this.numMutable = numMutable;
+		this.elst = elst;
 
 		assignments = new SeqAStarNode.Assignments(rts.numPos);
 	}
@@ -151,35 +175,49 @@ public class SeqAStarTree {
 			// get the next node to expand
 			SeqAStarNode node = queue.poll();
 
-			// leaf node? report it
-			if (node.getLevel() == rts.numPos) {
-				return node;
-			}
-
 			node.getAssignments(assignments);
 
-			// which pos to expand next?
-			int nextPos = order.getNextPos(assignments, rts);
+			//checks if sequence is in the trie if you are using one
+			boolean keepSeq = true;
+			if(elst!=null && node.getLevel()!=0) {
+				String seq = node.makeSequence(elst.seqSpace).toString();
+				System.out.println(seq);
+				if (!elst.containsSeq(seq))
+					keepSeq = false;
+			}
 
-			// are more mutations allowed here?
-			boolean moreMutationsAllowed = rts.getNumMutations(assignments) < maxSimultaneousMutations;
 
-			if (moreMutationsAllowed) {
 
-				// add all possible mutations
-				for (int nextRt : rts.indicesAt(nextPos)) {
-					addChild(node, nextPos, nextRt);
+			if(keepSeq) {
+				// leaf node? if mutableType = "exact", check if we have the desired number of mutations before reporting it.
+				if (mutableType.equals("exact") && node.getLevel() == rts.numPos) {
+					if (rts.getNumMutations(assignments) == numMutable || rts.getNumMutations(assignments) == 0) //keep wild-type sequence in your search
+						return node;
+					else
+						continue;
+
+				} else if (node.getLevel() == rts.numPos) {
+					return node;
 				}
 
-			} else {
+				// which pos to expand next?
+				int nextPos = order.getNextPos(assignments, rts);
 
-				// just add the wild-type at the next pos
-				int wildTypeIndex = rts.wildTypeAt(nextPos);
-				if (wildTypeIndex >= 0) {
-					addChild(node, nextPos, wildTypeIndex);
+				// are more mutations allowed here?
+				boolean moreMutationsAllowed = rts.getNumMutations(assignments) < numMutable;
+
+				if (moreMutationsAllowed) {
+
+					// add all possible mutations
+					for (int nextRt : rts.indicesAt(nextPos)) {
+						addChild(node, nextPos, nextRt);
+					}
+
+				} else {
+
+					// just add the wild-type at the next pos
+					addChild(node, nextPos, rts.wildTypeAt(nextPos));
 				}
-
-				// wild type not allowed at next pos and we already hit the mutation limit, so just drop the sequence
 			}
 		}
 	}

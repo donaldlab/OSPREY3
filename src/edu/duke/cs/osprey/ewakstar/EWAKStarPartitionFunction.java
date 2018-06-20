@@ -5,8 +5,12 @@ import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStarScore;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
+import edu.duke.cs.osprey.lute.LUTEPfunc;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -163,12 +167,13 @@ public interface EWAKStarPartitionFunction {
 
 	/**
 	 * Initializes the partition function for calculation.
+	 * @param confSearch The A* tree of conformations to enumerate (which may have been pruned)
 	 * @param targetEnergy The accuracy with which to estimate the partition function.
 	 * @param targetEpsilon The accuracy with which to estimate the partition function.
 	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
 	 *                               including any conformations removed by pruned tuples.
 	 */
-	void init(double targetEnergy, double targetEpsilon, BigInteger numConfsBeforePruning);
+	void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy);
 
 	/**
 	 * Sets the stability threshold for this PartitionFunction, if supported
@@ -184,7 +189,11 @@ public interface EWAKStarPartitionFunction {
 	int getParallelism();
 	int getNumConfsEvaluated();
 
-	void compute(int maxNumConfs, Sequence seq);
+	void compute(int maxNumConfs);
+
+	default void compute() {
+		compute(Integer.MAX_VALUE);
+	}
 
 	public default Result makeResult() {
 		return new Result(getStatus(), getValues(), getNumConfsEvaluated());
@@ -192,7 +201,22 @@ public interface EWAKStarPartitionFunction {
 
 
 	public static interface WithConfTable extends EWAKStarPartitionFunction {
+
 		void setConfTable(ConfDB.ConfTable table);
+
+		public static void setOrThrow(EWAKStarPartitionFunction pfunc, ConfDB.ConfTable table) {
+			if (pfunc instanceof EWAKStarPartitionFunction.WithConfTable) {
+				((EWAKStarPartitionFunction.WithConfTable)pfunc).setConfTable(table);
+			} else {
+				throw new EWAKStarPartitionFunction.WithConfTable.UnsupportedException(pfunc);
+			}
+		}
+
+		public static class UnsupportedException extends RuntimeException {
+			public UnsupportedException(EWAKStarPartitionFunction pfunc) {
+				super("This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support conformation database tables");
+			}
+		}
 	}
 
 	public static interface WithExternalMemory extends EWAKStarPartitionFunction {

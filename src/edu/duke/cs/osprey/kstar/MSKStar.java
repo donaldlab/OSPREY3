@@ -614,7 +614,7 @@ public class MSKStar {
 					new NOPSeqAStarScorer(),
 					new SeqHScorer(confDBs)
 				)
-				.setMaxSimultaneousMutations(maxSimultaneousMutations)
+				.setNumMutable(maxSimultaneousMutations)
 				.build();
 
 			log("\nMSK* searching for the %d best sequences among %s with up to %d simultaneous mutations ...",

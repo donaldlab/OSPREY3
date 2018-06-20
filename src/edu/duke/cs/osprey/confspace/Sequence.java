@@ -352,6 +352,8 @@ public class Sequence {
 		for (SeqSpace.Position smallerPos : smallerSeqSpace.positions) {
 			SeqSpace.Position biggerPos = seqSpace.getPositionOrThrow(smallerPos.resNum);
 			SeqSpace.ResType biggerRT = get(biggerPos);
+			if (biggerRT == null)
+				System.out.println("PROBLEM");
 			SeqSpace.ResType smallerRT = smallerPos.getResTypeOrThrow(biggerRT.name);
 			seq.set(smallerPos, smallerRT);
 		}

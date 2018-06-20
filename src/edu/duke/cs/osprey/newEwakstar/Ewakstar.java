@@ -9,9 +9,19 @@ import edu.duke.cs.osprey.astar.seq.order.SequentialSeqAStarOrder;
 import edu.duke.cs.osprey.astar.seq.scoring.NOPSeqAStarScorer;
 import edu.duke.cs.osprey.astar.seq.scoring.SeqAStarScorer;
 import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.ewakstar.EWAKStar;
+import edu.duke.cs.osprey.ewakstar.EWAKStarBBKStar;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -21,6 +31,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -35,6 +46,11 @@ import static edu.duke.cs.osprey.tools.Log.formatBig;
  * Journal of Computational Biology, 23(5), 311-321.}.
  */
 public class Ewakstar {
+
+    public static class Results {
+        private EWAKStarBBKStar bbkstar;
+        public List<EWAKStar.ScoredSequence> sequences;
+    }
 
     /**
      * A state for a multi-state design
@@ -60,12 +76,11 @@ public class Ewakstar {
 
         public FragmentEnergies fragmentEnergies;
         public ConfEnergyCalculator confEcalc;
+        public ConfEnergyCalculator confRigidEcalc;
         public Function<RCs,ConfAStarTree> confTreeFactory;
-
-        /**
-         * set this to a File if you want to use ConfDB with COMETS
-         */
-        public File confDBFile = null;
+        public EnergyMatrix ematRigid;
+        public PruningMatrix pmat;
+        public EnergyMatrix emat;
 
         public State(String name, SimpleConfSpace confSpace) {
             this.name = name;
@@ -216,23 +231,6 @@ public class Ewakstar {
         }
     }
 
-    private class ConfDBs extends ConfDB.DBs {
-
-        public ConfDB.ConfTable table;
-
-        public ConfDBs() {
-
-            // open the DBs
-            add(state.confSpace, state.confDBFile);
-
-            // make the table
-            ConfDB confdb = get(state.confSpace);
-            if (confdb != null) {
-                table = confdb.new ConfTable("COMETS");
-            }
-        }
-    }
-
     /**
      * essentially, an iterative mini-GMEC-finder for a sequence and a state
      */
@@ -331,7 +329,7 @@ public class Ewakstar {
 
         SeqConfs(SeqAStarNode seqNode) {
 
-                Sequence sequence = seqNode.makeSequence(seqSpace)
+                Sequence sequence = seqNode.makeSequence(state.confSpace.seqSpace)
                         .filter(state.confSpace.seqSpace);
 
                 // get state confs from the global cache if possible, otherwise make a new one
@@ -356,7 +354,7 @@ public class Ewakstar {
         public double refineBounds() {
 
             // refine the GMEC bounds for the state
-            stateConfs.getLowestScoringConf();
+            this.stateConfs.getLowestScoringConf();
 
             double score = 0;
 
@@ -391,6 +389,13 @@ public class Ewakstar {
 
     public static class Builder {
 
+        public static class InitException extends RuntimeException {
+
+            public InitException(String mutType) {
+                super(String.format("The value entered, %s,  is not a valid mutableType setting. Please set it to max, all, or exact.", mutType));
+            }
+        }
+
         private State state;
 
         /**
@@ -405,28 +410,97 @@ public class Ewakstar {
          * the objective function value and the objective function value of the best sequence
          * must be below this value.
          */
-        private double boundEw = 10.0;
+        private double eW = 10.0;
+
+        int numCpus = 4;
+        /**
+         * this value can be max (mutations are <= the specified value), exact (exactly this many mutations),
+         * or all (all positions set-up to be mutable can mutate).
+         */
+        private String mutableType = "all";
 
         /** The maximum number of simultaneous residue mutations to consider for each sequence mutant */
-        private int maxSimultaneousMutations = 1;
+        private int numMutable = (int) Double.POSITIVE_INFINITY;
 
         private boolean printToConsole = true;
 
+        private boolean seqFilterOnly = false;
+
+        private int numEWAKStarSeqs = (int) Double.POSITIVE_INFINITY;
+        private int orderOfMag = 5;
+        private double pfEw = 1.0;
+        private int numPfConfs = 500;
+        private int numTopOverallSeqs = 10;
+        private boolean useWtBenchmark = false;
+        private double epsilon = 0.68;
+
         /** File to which to log sequences as they are found */
         private File logFile = null;
+
+        public Builder setEpsilon(double val){
+            epsilon = val;
+            return this;
+        }
+
+        public Builder setNumEWAKStarSeqs(int val){
+            numEWAKStarSeqs = val;
+            return this;
+        }
+
+        public Builder setUseWtBenchmark(boolean val){
+            useWtBenchmark = val;
+            return this;
+        }
+
+        public Builder setOrderOfMag(int val){
+            orderOfMag = val;
+            return this;
+        }
+
+        public Builder setPfEw(double val){
+            pfEw = val;
+            return this;
+        }
+
+        public Builder setNumPfConfs(int val){
+            numPfConfs = val;
+            return this;
+        }
+
+        public Builder setNumTopOverallSeqs(int val){
+            numTopOverallSeqs = val;
+            return this;
+        }
+
+        public Builder setSeqFilterOnly(boolean val){
+            seqFilterOnly = val;
+            return this;
+        }
 
         public Builder addState(State s){
             state = s;
             return this;
         }
 
-        public Builder setMaxSimultaneousMutations(int val) {
-            maxSimultaneousMutations = val;
+        public Builder setNumMutable(int val) {
+            numMutable = val;
             return this;
         }
 
-        public Builder setBoundEw(double val){
-            boundEw = val;
+        public Builder setEw(double val){
+            eW = val;
+            return this;
+        }
+
+        public Builder setMutableType(String type){
+            if(!(type.equals("max")||type.equals("all")||type.equals("exact")))
+                throw new Builder.InitException(type);
+            mutableType = type;
+            return this;
+        }
+
+        public Builder setNumCpus(int val){
+            numCpus = val;
             return this;
         }
 
@@ -441,25 +515,74 @@ public class Ewakstar {
         }
 
         public Ewakstar build() {
-            return new Ewakstar(state, boundEw, maxSimultaneousMutations, printToConsole, logFile);
+            return new Ewakstar(state,
+                    eW,
+                    mutableType,
+                    numMutable,
+                    numCpus,
+                    printToConsole,
+                    seqFilterOnly,
+                    logFile,
+                    numEWAKStarSeqs,
+                    useWtBenchmark,
+                    orderOfMag,
+                    pfEw,
+                    numPfConfs,
+                    epsilon,
+                    numTopOverallSeqs
+                    );
         }
     }
 
 
-    public final double boundEw;
-    public final int maxSimultaneousMutations;
+    public final int numEWAKStarSeqs;
+    public final int numCpus;
+    public final double eW;
     public final boolean printToConsole;
+    public final boolean seqFilterOnly;
     public final File logFile;
+    public final int orderOfMag;
+    public final double pfEw;
+    public final int numPfConfs;
+    public final int numTopOverallSeqs;
+    public final boolean useWtBenchmark;
+    public final double epsilon;
 
     public final State state;
     public final SeqSpace seqSpace;
+    public String mutableType;
+    public int numMutable;
+    public boolean useExact;
+    public Ewakstar ewakstarP;
+    public Ewakstar ewakstarL;
+    public Ewakstar ewakstarPL;
 
     private final Map<StateConfs.Key,StateConfs> stateConfsCache = new HashMap<>();
 
-    private Ewakstar(State state, double boundEw, int maxSimultaneousMutations, boolean printToConsole, File logFile) {
+    private Ewakstar(State state, double eW, String mutableType, int numMutable, int numCpus, boolean printToConsole, boolean seqFilterOnly, File logFile, int numEWAKStarSeqs, boolean useWtBenchmark, int orderOfMag, double pfEw, int numPfConfs, double epsilon, int numTopOverallSeqs) {
 
-        this.boundEw = boundEw;
-        this.maxSimultaneousMutations = maxSimultaneousMutations;
+        if(mutableType.equals("exact") || mutableType.equals("max")){
+            this.numMutable = numMutable;
+        } else if(mutableType.equals("all")){
+            this.numMutable = state.confSpace.mutablePositions.size();
+        }
+
+        if(mutableType.equals("max")){
+            this.useExact = false;
+        }
+
+        this.epsilon = epsilon;
+        this.numEWAKStarSeqs = numEWAKStarSeqs;
+        this.orderOfMag = orderOfMag;
+        this.pfEw = pfEw;
+        this.numPfConfs = numPfConfs;
+        this.numTopOverallSeqs = numTopOverallSeqs;
+        this.useWtBenchmark = useWtBenchmark;
+        this.seqFilterOnly = seqFilterOnly;
+        this.numCpus = numCpus;
+        this.mutableType = mutableType;
+        this.eW = eW;
+        this.numMutable = numMutable;
         this.printToConsole = printToConsole;
         this.logFile = logFile;
 
@@ -475,16 +598,617 @@ public class Ewakstar {
      *
      * searches all sequences within the objective window
      */
-    public List<SequenceInfo> findBestSequences(int numSequences, int orderMag, State PL) {
+    public Set<Sequence> run(State PL) {
 
         // reset any previous state
         stateConfsCache.clear();
 
+        //Start timer
+        long startEWAKStarTime = System.currentTimeMillis();
+
+        System.out.println("Performing EWAK*");
+
+        //calculate the size of the system
+        int combinatorialSize = 0;
+        List<List<SimpleConfSpace.Position>> powersetOfPositions = MathTools.powersetUpTo(PL.confSpace.positions, numMutable);
+        for (List<SimpleConfSpace.Position> mutablePositions : powersetOfPositions) {
+            if(!(useExact && mutablePositions.size()!=numMutable)) {
+                List<Integer> numResTypes = new ArrayList<>();
+                for (SimpleConfSpace.Position pos : mutablePositions) {
+                    numResTypes.add(pos.resFlex.resTypes.size() - 1);
+                }
+                int tempSize = 1;
+                for (Integer n : numResTypes) {
+                    tempSize = tempSize * n;
+                }
+                combinatorialSize += tempSize;
+            }
+        }
+
         state.checkConfig();
 
-        List<SequenceInfo> bestPLSeqs = extractPLSeqsByLB(numSequences, orderMag, PL);
+        List<SequenceInfo> bestPLSeqs = extractPLSeqsByLB(numEWAKStarSeqs, orderOfMag, PL);
 
-        return bestPLSeqs;
+        HashMap<SeqSpace.Position, ArrayList<String>> allowedAA = new HashMap<>();
+        for(SequenceInfo si : bestPLSeqs){
+            System.out.println(si.sequence);
+            for(SeqSpace.Position pos : state.confSpace.seqSpace.positions) {
+                if (si.sequence.get(pos).isMutation()) {
+                    if (allowedAA.containsKey(pos))
+                        allowedAA.get(pos).add(si.sequence.get(pos).name);
+                    else {
+                        allowedAA.put(pos, new ArrayList<>());
+                        allowedAA.get(pos).add(si.sequence.get(pos).name);
+                        allowedAA.get(pos).add(si.sequence.getWildType(pos.resNum).name);
+                    }
+                }
+            }
+        }
+
+        //limit sequence spaces for unbound states to those found in the bound complex above
+        setupUnboundStates(allowedAA);
+
+        Set<Sequence> filteredSeqsP = new HashSet<>();
+        Set<Sequence> filteredSeqsL = new HashSet<>();
+        Set<String> filteredSeqsPL = new HashSet<>();
+
+        for(SequenceInfo si : bestPLSeqs){
+            filteredSeqsP.add(si.sequence.filter(ewakstarP.seqSpace));
+            filteredSeqsL.add(si.sequence.filter(ewakstarL.seqSpace));
+            filteredSeqsPL.add(si.sequence.toString());
+        }
+
+        EwakstarLimitedSequenceTrie elstP = new EwakstarLimitedSequenceTrie(ewakstarP.seqSpace);
+        if(filteredSeqsP.size()!=1) {
+            for (Sequence s : filteredSeqsP) {
+                elstP.addSeq(s.toString());
+            }
+        }
+
+        EwakstarLimitedSequenceTrie elstL = new EwakstarLimitedSequenceTrie(ewakstarL.seqSpace);
+        if(filteredSeqsL.size()!=1) {
+            for (Sequence s : filteredSeqsL) {
+                elstL.addSeq(s.toString());
+            }
+        }
+
+
+        List<SequenceInfo> bestPSeqs = null;
+        List<SequenceInfo> bestLSeqs = null;
+        stateConfsCache.clear();
+        if(ewakstarP.state.confSpace.mutablePositions.size()!=0)
+            bestPSeqs = ewakstarP.extractUnboundSeqsByLB(orderOfMag, filteredSeqsP, elstP);
+        stateConfsCache.clear();
+        if(ewakstarL.state.confSpace.mutablePositions.size()!=0)
+            bestLSeqs = ewakstarL.extractUnboundSeqsByLB(orderOfMag, filteredSeqsL, elstL);
+
+        HashMap<SeqSpace.Position, ArrayList<String>> newAllowedAA = new HashMap<>();
+
+        if(bestLSeqs!=null) {
+            for (SequenceInfo si : bestLSeqs) {
+                System.out.println(si.sequence);
+                for (SeqSpace.Position pos : ewakstarL.state.confSpace.seqSpace.positions) {
+                    if (si.sequence.get(pos).isMutation()) {
+                        if (newAllowedAA.containsKey(pos))
+                            newAllowedAA.get(pos).add(si.sequence.get(pos).name);
+                        else {
+                            newAllowedAA.put(pos, new ArrayList<>());
+                            newAllowedAA.get(pos).add(si.sequence.get(pos).name);
+                            newAllowedAA.get(pos).add(si.sequence.getWildType(pos.resNum).name);
+                        }
+                    }
+                }
+            }
+        }
+
+        if(bestPSeqs!=null){
+            for (SequenceInfo si : bestPSeqs) {
+                System.out.println(si.sequence);
+                for (SeqSpace.Position pos : ewakstarP.state.confSpace.seqSpace.positions) {
+                    if (si.sequence.get(pos).isMutation()) {
+                        if (newAllowedAA.containsKey(pos))
+                            newAllowedAA.get(pos).add(si.sequence.get(pos).name);
+                        else {
+                            newAllowedAA.put(pos, new ArrayList<>());
+                            newAllowedAA.get(pos).add(si.sequence.get(pos).name);
+                            newAllowedAA.get(pos).add(si.sequence.getWildType(pos.resNum).name);
+                        }
+                    }
+                }
+            }
+        }
+
+        updateBoundState(newAllowedAA);
+
+        Set<Sequence> fullSeqs = combineSeqs(filteredSeqsP, filteredSeqsL, filteredSeqsPL);
+
+        long stopEWAKStarTime;
+        if (!seqFilterOnly) {
+            EwakstarLimitedSequenceTrie elstPL = new EwakstarLimitedSequenceTrie(ewakstarPL.seqSpace);
+            if(filteredSeqsPL.size()!=1) {
+                for (String s : filteredSeqsPL) {
+                    elstPL.addSeq(s);
+                }
+            }
+            runEWAKStarBBKStar(elstPL, ewakstarPL.state, ewakstarP.state, ewakstarL.state);
+        }
+        if(seqFilterOnly) {
+            writeSeqsToFile(fullSeqs);
+            System.out.println("Number of sequences filtered down to "+ fullSeqs.size()+" from "+combinatorialSize);
+            stopEWAKStarTime = System.currentTimeMillis()-startEWAKStarTime;
+            System.out.println("Total OSPREY/EWAK* time: "+(String.format("%d min, %d sec",
+                    TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime),
+                    TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime) -
+                            TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime)))));
+            return fullSeqs;
+        } else
+            System.out.println("Number of sequences filtered down to "+ fullSeqs.size()+" from "+combinatorialSize);
+        stopEWAKStarTime = System.currentTimeMillis()-startEWAKStarTime;
+        System.out.println("Total OSPREY/EWAK* time: "+(String.format("%d min, %d sec",
+                TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime),
+                TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime) -
+                        TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime)))));
+        return null;
+
+    }
+
+    private void runEWAKStarBBKStar(EwakstarLimitedSequenceTrie plTrie, State PL, State P, State L){
+
+        // run BBK*
+        EWAKStar.Settings ewakstarSettings = new EWAKStar.Settings.Builder()
+                .setEw(pfEw)
+                .setUseExact(useExact)
+                .setNumMutations(numMutable)
+                .setEpsilon(epsilon)
+                .setMaxNumConfs(numPfConfs)
+                .setNumTopOverallSeqs(numTopOverallSeqs)
+                .addScoreConsoleWriter()
+                .setWTBenchmark(useWtBenchmark)
+                .addScoreFileWriter(new File("ewakStar.results.txt"))
+                .build();
+
+        EWAKStarBBKStar.Settings bbkstarSettings = new EWAKStarBBKStar.Settings.Builder()
+                .setNumBestSequences(numTopOverallSeqs)
+                .setAllowedSeqs(plTrie).build();
+
+        Results results = new Results();
+        results.bbkstar = new EWAKStarBBKStar( P.confSpace, L.confSpace, PL.confSpace, ewakstarSettings, bbkstarSettings);
+
+        for (EWAKStarBBKStar.ConfSpaceInfo info : results.bbkstar.confSpaceInfos()) {
+
+            // how should we define energies of conformations?
+            if (info.id.equals("protein")) {
+                info.confEcalcMinimized = P.confEcalc;
+                info.confSearchFactoryMinimized = (rcs) ->
+                    new ConfAStarTree.Builder(P.emat, rcs)
+                            .setTraditional()
+                            .build();
+                info.confSearchFactoryRigid = (rcs) ->
+                        new ConfAStarTree.Builder(P.ematRigid, rcs)
+                                .setTraditional()
+                                .build();
+            } else if (info.id.equals("ligand")) {
+                info.confEcalcMinimized = L.confEcalc;
+                info.confSearchFactoryMinimized = (rcs) ->
+                        new ConfAStarTree.Builder(L.emat, rcs)
+                                .setTraditional()
+                                .build();
+                info.confSearchFactoryRigid = (rcs) ->
+                        new ConfAStarTree.Builder(L.ematRigid, rcs)
+                                .setTraditional()
+                                .build();
+            } else {
+                info.confEcalcMinimized = PL.confEcalc;
+                info.confSearchFactoryMinimized = (rcs) ->
+                        new ConfAStarTree.Builder(PL.emat, rcs)
+                                .setTraditional()
+                                .build();
+                info.confSearchFactoryRigid = (rcs) ->
+                    new ConfAStarTree.Builder(PL.ematRigid, rcs)
+                            .setTraditional()
+                            .build();
+            }
+
+        }
+
+        results.sequences = results.bbkstar.run();
+
+    }
+
+    private void writeSeqsToFile(Set<Sequence> seqs){
+
+        File newFile = new File("ewakStar.filteredSeqs.txt");
+
+        boolean append;
+        boolean started = false;
+
+        for (Sequence s: seqs){
+            String curSeq = s.toString();
+            if (!started) {
+                started = true;
+                append = false;
+            }
+            else{
+                append = true;
+            }
+            try (FileWriter out = new FileWriter(newFile, append)) {
+                out.write(curSeq);
+                out.write("\n");
+            } catch (IOException ex) {
+                System.err.println("writing to file failed: " + newFile);
+                ex.printStackTrace(System.err);
+                System.err.println(curSeq);
+            }
+        }
+    }
+
+    public Set<Sequence> combineSeqs(Set<Sequence> P, Set<Sequence> L, Set<String> PL){
+
+        List<String> resTypes;
+        Set<Sequence> newPL = new HashSet<>();
+        for(Sequence sP : P){
+            for(Sequence sL : L){
+                resTypes = new ArrayList<>();
+                for (String p: ewakstarPL.seqSpace.getResNums()) {
+                    if (ewakstarP.seqSpace.positions.contains(p)) {
+                        resTypes.add(sP.get(p).name);
+                    } else
+                        resTypes.add(sL.get(p).name);
+                }
+                Sequence newSeq = ewakstarPL.seqSpace.makeSequence(resTypes);
+                System.out.println(newSeq);
+                if (PL.contains(newSeq.toString())){
+                    newPL.add(newSeq);
+                }
+            }
+        }
+
+        return newPL;
+    }
+
+    public void updateBoundState(HashMap<SeqSpace.Position, ArrayList<String>> allowedAA){
+
+        Strand protein = state.confSpace.strands.get(0);
+        Strand ligand = state.confSpace.strands.get(1);
+
+        for(SeqSpace.Position pos : allowedAA.keySet()){
+            if (protein.flexibility.getFlexibleResidueNumbers().contains(pos.resNum)){
+                protein.flexibility.get(pos.resNum).setLibraryRotamers(allowedAA.get(pos)).addWildTypeRotamers().setContinuous();
+            }
+            if (ligand.flexibility.getFlexibleResidueNumbers().contains(pos.resNum)){
+                ligand.flexibility.get(pos.resNum).setLibraryRotamers(allowedAA.get(pos)).addWildTypeRotamers().setContinuous();
+            }
+        }
+
+        Ewakstar.State P = new Ewakstar.State(
+                "P",
+                new SimpleConfSpace.Builder()
+                        .addStrand(protein)
+                        .build()
+        );
+
+        Ewakstar.State L = new Ewakstar.State(
+                "L",
+                new SimpleConfSpace.Builder()
+                        .addStrand(ligand)
+                        .build()
+        );
+
+        Ewakstar.State PL = new Ewakstar.State(
+                "PL",
+                new SimpleConfSpace.Builder()
+                        .addStrand(protein)
+                        .addStrand(ligand)
+                        .build()
+        );
+
+        ewakstarP = new Ewakstar.Builder()
+                .addState(P)
+                .setEw(eW)
+                .setNumCpus(numCpus)
+                .setMutableType("all")
+                .build();
+
+        ewakstarL = new Ewakstar.Builder()
+                .addState(L)
+                .setEw(eW)
+                .setNumCpus(numCpus)
+                .setMutableType("all")
+                .build();
+
+        ewakstarPL = new Ewakstar.Builder()
+                .addState(PL)
+                .setEw(eW)
+                .setNumCpus(numCpus)
+                .setMutableType("all")
+                .build();
+
+        ForcefieldParams ffparams = new ForcefieldParams();
+
+        EnergyCalculator ecalcP = new EnergyCalculator.Builder(P.confSpace, ffparams)
+                .setParallelism(Parallelism.makeCpu(ewakstarP.numCpus))
+                .build();
+        EnergyCalculator rigidEcalcP = new EnergyCalculator.Builder(P.confSpace, ffparams)
+                .setIsMinimizing(false)
+                .setParallelism(Parallelism.makeCpu(ewakstarP.numCpus))
+                .build();
+
+        // what are conformation energies?
+        SimpleReferenceEnergies erefP = new SimplerEnergyMatrixCalculator.Builder(P.confSpace, ecalcP)
+                .build()
+                .calcReferenceEnergies();
+        SimpleReferenceEnergies rigidErefP = new SimplerEnergyMatrixCalculator.Builder(P.confSpace, rigidEcalcP)
+                .build()
+                .calcReferenceEnergies();
+
+        P.confEcalc = new ConfEnergyCalculator.Builder(P.confSpace, ecalcP)
+                .setReferenceEnergies(erefP)
+                .build();
+        P.confRigidEcalc = new ConfEnergyCalculator.Builder(P.confSpace, rigidEcalcP)
+                .setReferenceEnergies(rigidErefP)
+                .build();
+
+        // calc the energy matrix
+        P.emat = new SimplerEnergyMatrixCalculator.Builder(P.confEcalc)
+                .setCacheFile(new File(String.format("ewakstar.%s.emat", P.name)))
+                .build()
+                .calcEnergyMatrix();
+        P.ematRigid = new SimplerEnergyMatrixCalculator.Builder(P.confRigidEcalc)
+                .setCacheFile(new File(String.format("ewakstar.%s.ematRigid", P.name)))
+                .build()
+                .calcEnergyMatrix();
+        P.fragmentEnergies = P.emat;
+
+        // run DEE (super important for good LUTE fits!!)
+        P.pmat = new SimpleDEE.Runner()
+                .setGoldsteinDiffThreshold(10.0)
+                .setTypeDependent(true)
+                .setShowProgress(true)
+                .setCacheFile(new File(String.format("ewakstar.%s.pmat", P.name)))
+                .setParallelism(Parallelism.makeCpu(8))
+                .run(P.confSpace, P.emat);
+
+
+        // make the conf tree factory
+        P.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(P.emat, rcs)
+                .setTraditional()
+                .build();
+
+        //do all of this for ligand also
+        EnergyCalculator ecalcL = new EnergyCalculator.Builder(L.confSpace, ffparams)
+                .setParallelism(Parallelism.makeCpu(ewakstarL.numCpus))
+                .build();
+        EnergyCalculator rigidEcalcL = new EnergyCalculator.Builder(L.confSpace, ffparams)
+                .setIsMinimizing(false)
+                .setParallelism(Parallelism.makeCpu(ewakstarL.numCpus))
+                .build();
+
+        // what are conformation energies?
+        SimpleReferenceEnergies erefL = new SimplerEnergyMatrixCalculator.Builder(L.confSpace, ecalcL)
+                .build()
+                .calcReferenceEnergies();
+        SimpleReferenceEnergies rigidErefL = new SimplerEnergyMatrixCalculator.Builder(L.confSpace, rigidEcalcL)
+                .build()
+                .calcReferenceEnergies();
+
+        L.confEcalc = new ConfEnergyCalculator.Builder(L.confSpace, ecalcL)
+                .setReferenceEnergies(erefL)
+                .build();
+        L.confRigidEcalc = new ConfEnergyCalculator.Builder(L.confSpace, rigidEcalcL)
+                .setReferenceEnergies(rigidErefL)
+                .build();
+
+        // calc the energy matrix
+        L.emat = new SimplerEnergyMatrixCalculator.Builder(L.confEcalc)
+                .setCacheFile(new File(String.format("ewakstar.%s.emat", L.name)))
+                .build()
+                .calcEnergyMatrix();
+        L.ematRigid = new SimplerEnergyMatrixCalculator.Builder(L.confRigidEcalc)
+                .setCacheFile(new File(String.format("ewakstar.%s.ematRigid", L.name)))
+                .build()
+                .calcEnergyMatrix();
+        L.fragmentEnergies = L.emat;
+
+        // run DEE (super important for good LUTE fits!!)
+        L.pmat = new SimpleDEE.Runner()
+                .setGoldsteinDiffThreshold(10.0)
+                .setTypeDependent(true)
+                .setShowProgress(true)
+                .setCacheFile(new File(String.format("ewakstar.%s.pmat", L.name)))
+                .setParallelism(Parallelism.makeCpu(8))
+                .run(L.confSpace, L.emat);
+
+
+        // make the conf tree factory
+        L.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(L.emat, rcs)
+                .setTraditional()
+                .build();
+
+        EnergyCalculator ecalcPL = new EnergyCalculator.Builder(PL.confSpace, ffparams)
+                .setParallelism(Parallelism.makeCpu(ewakstarPL.numCpus))
+                .build();
+        EnergyCalculator rigidEcalcPL = new EnergyCalculator.Builder(PL.confSpace, ffparams)
+                .setIsMinimizing(false)
+                .setParallelism(Parallelism.makeCpu(ewakstarPL.numCpus))
+                .build();
+
+        // what are conformation energies?
+        SimpleReferenceEnergies erefPL = new SimplerEnergyMatrixCalculator.Builder(PL.confSpace, ecalcPL)
+                .build()
+                .calcReferenceEnergies();
+        SimpleReferenceEnergies rigidErefPL = new SimplerEnergyMatrixCalculator.Builder(PL.confSpace, rigidEcalcPL)
+                .build()
+                .calcReferenceEnergies();
+
+        PL.confEcalc = new ConfEnergyCalculator.Builder(PL.confSpace, ecalcPL)
+                .setReferenceEnergies(erefPL)
+                .build();
+        PL.confRigidEcalc = new ConfEnergyCalculator.Builder(PL.confSpace, rigidEcalcPL)
+                .setReferenceEnergies(rigidErefPL)
+                .build();
+
+        // calc the energy matrix
+        PL.emat = new SimplerEnergyMatrixCalculator.Builder(PL.confEcalc)
+                .setCacheFile(new File(String.format("ewakstar.%s.emat", PL.name)))
+                .build()
+                .calcEnergyMatrix();
+        PL.ematRigid = new SimplerEnergyMatrixCalculator.Builder(PL.confRigidEcalc)
+                .setCacheFile(new File(String.format("ewakstar.%s.ematRigid", PL.name)))
+                .build()
+                .calcEnergyMatrix();
+        PL.fragmentEnergies = PL.emat;
+
+        // run DEE (super important for good LUTE fits!!)
+        PL.pmat = new SimpleDEE.Runner()
+                .setGoldsteinDiffThreshold(10.0)
+                .setTypeDependent(true)
+                .setShowProgress(true)
+                .setCacheFile(new File(String.format("ewakstar.%s.pmat", PL.name)))
+                .setParallelism(Parallelism.makeCpu(8))
+                .run(PL.confSpace, PL.emat);
+
+
+        // make the conf tree factory
+        PL.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(PL.emat, rcs)
+                .setTraditional()
+                .build();
+
+    }
+
+    public void setupUnboundStates(HashMap<SeqSpace.Position, ArrayList<String>> allowedAA){
+
+        Strand protein = state.confSpace.strands.get(0);
+        Strand ligand = state.confSpace.strands.get(1);
+
+        for(SeqSpace.Position pos : allowedAA.keySet()){
+            if (protein.flexibility.getFlexibleResidueNumbers().contains(pos.resNum)){
+                protein.flexibility.get(pos.resNum).setLibraryRotamers(allowedAA.get(pos)).addWildTypeRotamers().setContinuous();
+            }
+            if (ligand.flexibility.getFlexibleResidueNumbers().contains(pos.resNum)){
+                ligand.flexibility.get(pos.resNum).setLibraryRotamers(allowedAA.get(pos)).addWildTypeRotamers().setContinuous();
+            }
+        }
+
+        Ewakstar.State P = new Ewakstar.State(
+                "P",
+                new SimpleConfSpace.Builder()
+                        .addStrand(protein)
+                        .build()
+        );
+
+        Ewakstar.State L = new Ewakstar.State(
+                "L",
+                new SimpleConfSpace.Builder()
+                        .addStrand(ligand)
+                        .build()
+        );
+
+        ewakstarP = new Ewakstar.Builder()
+                .addState(P)
+                .setEw(eW)
+                .setNumCpus(numCpus)
+                .setMutableType("all")
+                .build();
+
+        ewakstarL = new Ewakstar.Builder()
+                .addState(L)
+                .setEw(eW)
+                .setNumCpus(numCpus)
+                .setMutableType("all")
+                .build();
+
+        ForcefieldParams ffparams = new ForcefieldParams();
+
+        EnergyCalculator ecalcP = new EnergyCalculator.Builder(P.confSpace, ffparams)
+                .setParallelism(Parallelism.makeCpu(ewakstarP.numCpus))
+                .build();
+        EnergyCalculator rigidEcalcP = new EnergyCalculator.Builder(P.confSpace, ffparams)
+                .setIsMinimizing(false)
+                .setParallelism(Parallelism.makeCpu(ewakstarP.numCpus))
+                .build();
+
+        // what are conformation energies?
+        SimpleReferenceEnergies erefP = new SimplerEnergyMatrixCalculator.Builder(P.confSpace, ecalcP)
+                .build()
+                .calcReferenceEnergies();
+        SimpleReferenceEnergies rigidErefP = new SimplerEnergyMatrixCalculator.Builder(P.confSpace, rigidEcalcP)
+                .build()
+                .calcReferenceEnergies();
+
+        P.confEcalc = new ConfEnergyCalculator.Builder(P.confSpace, ecalcP)
+                .setReferenceEnergies(erefP)
+                .build();
+        P.confRigidEcalc = new ConfEnergyCalculator.Builder(P.confSpace, rigidEcalcP)
+                .setReferenceEnergies(rigidErefP)
+                .build();
+
+        // calc the energy matrix
+        EnergyMatrix ematP = new SimplerEnergyMatrixCalculator.Builder(P.confEcalc)
+                .setCacheFile(new File(String.format("ewakstar.%s.emat", P.name)))
+                .build()
+                .calcEnergyMatrix();
+        P.fragmentEnergies = ematP;
+
+        // run DEE (super important for good LUTE fits!!)
+        P.pmat = new SimpleDEE.Runner()
+                .setGoldsteinDiffThreshold(10.0)
+                .setTypeDependent(true)
+                .setShowProgress(true)
+                .setCacheFile(new File(String.format("ewakstar.%s.pmat", P.name)))
+                .setParallelism(Parallelism.makeCpu(8))
+                .run(P.confSpace, ematP);
+
+
+        // make the conf tree factory
+        P.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(ematP, rcs)
+                .setTraditional()
+                .build();
+
+        //do all of this for ligand also
+        EnergyCalculator ecalcL = new EnergyCalculator.Builder(L.confSpace, ffparams)
+                .setParallelism(Parallelism.makeCpu(ewakstarL.numCpus))
+                .build();
+        EnergyCalculator rigidEcalcL = new EnergyCalculator.Builder(L.confSpace, ffparams)
+                .setIsMinimizing(false)
+                .setParallelism(Parallelism.makeCpu(ewakstarL.numCpus))
+                .build();
+
+        // what are conformation energies?
+        SimpleReferenceEnergies erefL = new SimplerEnergyMatrixCalculator.Builder(L.confSpace, ecalcL)
+                .build()
+                .calcReferenceEnergies();
+        SimpleReferenceEnergies rigidErefL = new SimplerEnergyMatrixCalculator.Builder(L.confSpace, rigidEcalcL)
+                .build()
+                .calcReferenceEnergies();
+
+        L.confEcalc = new ConfEnergyCalculator.Builder(L.confSpace, ecalcL)
+                .setReferenceEnergies(erefL)
+                .build();
+        L.confRigidEcalc = new ConfEnergyCalculator.Builder(L.confSpace, rigidEcalcL)
+                .setReferenceEnergies(rigidErefL)
+                .build();
+
+        // calc the energy matrix
+        EnergyMatrix ematL = new SimplerEnergyMatrixCalculator.Builder(L.confEcalc)
+                .setCacheFile(new File(String.format("ewakstar.%s.emat", L.name)))
+                .build()
+                .calcEnergyMatrix();
+        L.fragmentEnergies = ematL;
+
+        // run DEE (super important for good LUTE fits!!)
+        L.pmat = new SimpleDEE.Runner()
+                .setGoldsteinDiffThreshold(10.0)
+                .setTypeDependent(true)
+                .setShowProgress(true)
+                .setCacheFile(new File(String.format("ewakstar.%s.pmat", L.name)))
+                .setParallelism(Parallelism.makeCpu(8))
+                .run(L.confSpace, ematL);
+
+
+        // make the conf tree factory
+        L.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(ematL, rcs)
+                .setTraditional()
+                .build();
 
     }
 
@@ -497,7 +1221,8 @@ public class Ewakstar {
                         new NOPSeqAStarScorer(),
                         new SeqHScorer()
                 )
-                .setMaxSimultaneousMutations(maxSimultaneousMutations)
+                .setMutableType(mutableType)
+                .setNumMutable(numMutable)
                 .build();
 
         List<SequenceInfo> infos = new ArrayList<>();
@@ -505,6 +1230,7 @@ public class Ewakstar {
         double wtPfLB = Double.POSITIVE_INFINITY;
         boolean didSeqMax = false;
 
+        double seqLB = Double.NEGATIVE_INFINITY;
         Boolean wtFound = false;
         double wtEnergy = 0.0;
         Boolean didEW = false;
@@ -512,96 +1238,220 @@ public class Ewakstar {
 
         BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
-        try (ConfDBs confDBs = new ConfDBs()) {
 
-            for(int seqNum=0; seqNum<numSequences; seqNum++) {
+        for(int seqNum=0; seqNum<numSequences; seqNum++) {
 
-                // get the next sequence from the tree
-                SeqAStarNode node = seqTree.nextLeafNode();
-                if (node == null) {
-                    break;
-                }
+            // get the next sequence from the tree
+            SeqAStarNode node = seqTree.nextLeafNode();
+            if (node == null) {
+                break;
+            }
 
-                SeqConfs confs = (SeqConfs) node.getData();
-                if (confs == null) {
+            SeqConfs confs = (SeqConfs) node.getData();
+            if (confs == null) {
 
-                    log("Estimated sequence: %s   objective lower bound: %12.6f",
-                            node.makeSequence(seqSpace),
-                            node.getScore()
-                    );
+                seqLB = node.getScore();
 
-                    // don't have them yet, make them
-                    confs = new SeqConfs(node);
-                    double curScore = confs.refineBounds();
-                    node.setData(confs);
+                log("Estimated Sequence: %s   Sequence minimized lower bound: %12.6f",
+                        node.makeSequence(seqSpace),
+                        seqLB
+                );
 
-                }
+                // don't have them yet, make them
+                confs = new SeqConfs(node);
+                double curScore = confs.refineBounds();
+                node.setData(confs);
 
-                if(confs.stateConfs.isWT){
-                    wtFound = true;
-                    wtSpot = seqNum;
-                    wtEnergy = confs.stateConfs.wtConf.getEnergy();
-                    wtPfLB = Math.log10(bc.calc(wtEnergy).doubleValue());
-                    System.out.println("Found wild-type sequence in complex after " + seqNum + " sequences.");
-                    System.out.println("Finding all sequences within " + boundEw + " kcal of WT minimized energy: "
-                            + wtEnergy + " or until " + numSequences + " sequences are enumerated.");
-                }
+            }
 
-                Sequence newSequence = node.makeSequence(PL.confSpace.seqSpace);
-                pfUB = Math.log10(bc.calc(node.getScore()).multiply(new BigDecimal(getNumConfsForSeq(newSequence, PL.confSpace))).doubleValue());
-                SequenceInfo info = new SequenceInfo(node, confs, pfUB);
-                if (!wtFound) {
-                    infos.add(info);
-                } else {
-                    if(info.lowestConf.getScore() > wtEnergy+boundEw) { //if we have surpassed the energy window we want to quit
-                        if(infos.size() >= numSequences)
-                            didSeqMax = true;
-                        didEW = true;
-                        break;
-                    } else if (infos.size() >= numSequences) { //if we have surpassed the maximum number of sequence we want to find, we want to quit
+            if(confs.stateConfs.isWT){
+                wtFound = true;
+                wtSpot = seqNum;
+                wtEnergy = confs.stateConfs.wtConf.getEnergy();
+                wtPfLB = Math.log10(bc.calc(wtEnergy).doubleValue());
+                System.out.println("Found wild-type sequence in complex after " + seqNum + " sequences.");
+                System.out.println("Finding all sequences within " + eW + " kcal of WT minimized energy: "
+                        + wtEnergy + " or until " + numSequences + " sequences are enumerated.");
+            }
+
+            Sequence newSequence = node.makeSequence(PL.confSpace.seqSpace);
+            pfUB = Math.log10(bc.calc(confs.stateConfs.lowestScoringConf.getScore()).multiply(new BigDecimal(getNumConfsForSeq(newSequence, PL.confSpace))).doubleValue());
+            SequenceInfo info = new SequenceInfo(node, confs, pfUB);
+            if (!wtFound) {
+                infos.add(info);
+                reportSequence(infos.size() == 1, info);
+            } else {
+                if(seqLB > wtEnergy+eW) { //if we have surpassed the energy window we want to quit
+                    if(infos.size() >= numSequences)
                         didSeqMax = true;
-                        break;
-                    } else if(pfUB > wtPfLB - orderMag) { //otherwise, add the sequence if it's partition function upper bound is within orderMag of the wt pf lower bound
-                        infos.add(info);
-                        reportSequence(infos.size() == 1, info);
-                    }
+                    didEW = true;
+                    break;
+                } else if (infos.size() >= numSequences) { //if we have surpassed the maximum number of sequence we want to find, we want to quit
+                    didSeqMax = true;
+                    break;
+                } else if(pfUB > wtPfLB - orderMag) { //otherwise, add the sequence if it's partition function upper bound is within orderMag of the wt pf lower bound
+                    infos.add(info);
+                    reportSequence(infos.size() == 1, info);
                 }
             }
-
-            for(int i=0; i<wtSpot; i++) {
-                if (infos.get(i).lowestConf.getScore() < wtPfLB - orderMag) {
-                    infos.get(i).setCanPrune(true);
-                }
-            }
-
-            for (SequenceInfo si : infos){
-                if (si.canPrune)
-                    infos.remove(si);
-            }
-
-            log("");
-            if (infos.isEmpty()) {
-                log("EWAK* didn't find any sequences within the window that satisfy all the constraints.");
-            } else {
-                log("EWAK* found the best %d sequences within %d orders of magnitude of the wild-type sequence partition function.", infos.size(), orderMag);
-            }
-
-            if(didEW){
-                log("Found all sequences within %1.0f kcal/mol of the wild-type sequence.", boundEw);
-            } else {
-                log("The energy window of %1.0f kcal/mol was not fully enumerated.", boundEw);
-            }
-
-            if(didSeqMax){
-                log("The sequence number max of %d was enumerated.", numSequences);
-            } else if(didEW){
-                log("The energy window was completed before enumerating the requested number of sequences.");
-            } else if(!didSeqMax && !didEW){
-                log("Exhaustively enumerated all sequence possibilities!");
-            }
-
-            return infos;
         }
+
+        for(int i=0; i<wtSpot; i++) {
+            if (infos.get(i).pfUB < wtPfLB - orderMag) {
+                infos.get(i).setCanPrune(true);
+            }
+        }
+
+        for (SequenceInfo si : infos){
+            if (si.canPrune)
+                infos.remove(si);
+        }
+
+        log("");
+        if (infos.isEmpty()) {
+            log("EWAK* didn't find any sequences within the window that satisfy all the constraints.");
+        } else {
+            log("EWAK* found the best %d sequences within %d orders of magnitude of the wild-type sequence partition function.", infos.size(), orderMag);
+        }
+
+        if(didEW){
+            log("Found all sequences within %1.0f kcal/mol of the wild-type sequence.", eW);
+        } else {
+            log("The energy window of %1.0f kcal/mol was not fully enumerated.", eW);
+        }
+
+        if(didSeqMax){
+            log("The sequence number max of %d was enumerated.", numSequences);
+        } else if(didEW){
+            log("The energy window was completed before enumerating the requested number of sequences.");
+        } else if(!didSeqMax && !didEW){
+            log("Exhaustively enumerated all sequence possibilities!");
+        }
+
+        return infos;
+
+    }
+
+    public List<SequenceInfo> extractUnboundSeqsByLB(int orderMag, Set<Sequence> seqsToUse, EwakstarLimitedSequenceTrie elst) {
+
+        // start the A* search over sequences
+        SeqAStarTree seqTree = new SeqAStarTree.Builder(new RTs(state.confSpace.seqSpace))
+                .setSeqTrie(elst)
+                .setHeuristics(
+                        new SequentialSeqAStarOrder(),
+                        new NOPSeqAStarScorer(),
+                        new SeqHScorer()
+                )
+                .setMutableType(mutableType)
+                .setNumMutable(numMutable)
+                .build();
+
+        List<SequenceInfo> infos = new ArrayList<>();
+        double pfUB;
+        double wtPfLB = Double.POSITIVE_INFINITY;
+        boolean didSeqMax = false;
+
+        double seqLB = Double.NEGATIVE_INFINITY;
+        Boolean wtFound = false;
+        double wtEnergy = 0.0;
+        Boolean didEW = false;
+        int wtSpot = 0;
+
+        BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
+        int seqNum = 0;
+        while(infos.size()<seqsToUse.size()) {
+
+            // get the next sequence from the tree
+            SeqAStarNode node = seqTree.nextLeafNode();
+            if (node == null) {
+                break;
+            }
+
+            SeqConfs confs = (SeqConfs) node.getData();
+            if (confs == null) {
+
+                seqLB = node.getScore();
+                log("Estimated Sequence: %s   Sequence minimized lower bound: %12.6f",
+                        node.makeSequence(state.confSpace.seqSpace),
+                        seqLB
+                );
+
+                // don't have them yet, make them
+                confs = new SeqConfs(node);
+                double curScore = confs.refineBounds();
+                node.setData(confs);
+
+            }
+
+            if(confs.stateConfs.isWT){
+                wtFound = true;
+                wtSpot = seqNum;
+                wtEnergy = confs.stateConfs.wtConf.getEnergy();
+                wtPfLB = Math.log10(bc.calc(wtEnergy).doubleValue());
+                System.out.println("Found wild-type sequence in complex after " + seqNum + " sequences.");
+                System.out.println("Finding all sequences within " + eW + " kcal of WT minimized energy: "
+                        + wtEnergy + " or until " + seqsToUse.size() + " sequences are enumerated.");
+            }
+
+            Sequence newSequence = node.makeSequence(state.confSpace.seqSpace);
+            pfUB = Math.log10(bc.calc(confs.stateConfs.lowestScoringConf.getScore()).multiply(new BigDecimal(getNumConfsForSeq(newSequence, state.confSpace))).doubleValue());
+            SequenceInfo info = new SequenceInfo(node, confs, pfUB);
+            if (!wtFound) {
+                infos.add(info);
+                seqNum++;
+                reportSequence(infos.size() == 1, info);
+            } else {
+                if (seqLB > wtEnergy + eW) { //if we have surpassed the energy window we want to quit
+                    if (infos.size() >= seqsToUse.size())
+                        didSeqMax = true;
+                    didEW = true;
+                    break;
+                } else if (infos.size() >= seqsToUse.size()) { //if we have surpassed the maximum number of sequence we want to find, we want to quit
+                    didSeqMax = true;
+                    break;
+                } else if (pfUB > wtPfLB - orderMag) { //otherwise, add the sequence if it's partition function upper bound is within orderMag of the wt pf lower bound
+                    infos.add(info);
+                    seqNum++;
+                    reportSequence(infos.size() == 1, info);
+                }
+            }
+        }
+
+        for(int i=0; i<wtSpot; i++) {
+            if (infos.get(i).pfUB < wtPfLB - orderMag) {
+                infos.get(i).setCanPrune(true);
+            }
+        }
+
+        for (SequenceInfo si : infos){
+            if (si.canPrune)
+                infos.remove(si);
+        }
+
+        log("");
+        if (infos.isEmpty()) {
+            log("EWAK* didn't find any sequences within the window that satisfy all the constraints.");
+        } else {
+            log("EWAK* found the best %d sequences within %d orders of magnitude of the wild-type sequence partition function.", infos.size(), orderMag);
+        }
+
+        if(didEW){
+            log("Found all sequences within %1.0f kcal/mol of the wild-type sequence.", eW);
+        } else {
+            log("The energy window of %1.0f kcal/mol was not fully enumerated.", eW);
+        }
+
+        if(didSeqMax){
+            log("The sequence number max of %d was enumerated.", seqsToUse.size());
+        } else if(didEW){
+            log("The energy window was completed before enumerating the requested number of sequences.");
+        } else if(!didSeqMax && !didEW){
+            log("Exhaustively enumerated all sequence possibilities!");
+        }
+
+        return infos;
+
     }
 
     private void log(String msg, Object ... args) {
@@ -623,7 +1473,7 @@ public class Ewakstar {
                     info.sequence.isWildType() ? "Wild-type" : "",
                     info.sequence.toString(Sequence.Renderer.ResTypeMutations, cellSize)
             );
-            log("\tState: %-3s    Lower Bound on Minimized Energy: %12.6f\n",
+            log("\tState: %-3s    Conformation minimized lower bound: %12.6f\n",
                     state.name,
                     info.lowestConf.getScore()
             );
