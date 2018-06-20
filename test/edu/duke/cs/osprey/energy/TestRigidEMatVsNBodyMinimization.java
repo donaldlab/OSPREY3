@@ -30,8 +30,8 @@ public class TestRigidEMatVsNBodyMinimization {
 
     @Test
     public void sanityTest() {
-        ConfSpaces confSpaces = make1GUASmall(6);
-        int[] conf = new int[]{7, 9, 5, 7, 9, 7, 27};
+        ConfSpaces confSpaces = make1GUASmall(8);
+        int[] conf = new int[]{7, 9, 5, 7, 9, 7, 1,4,11};
         Parallelism parallelism = Parallelism.makeCpu(1);
         EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
                 .setParallelism(parallelism)
@@ -43,7 +43,7 @@ public class TestRigidEMatVsNBodyMinimization {
                 .build();
         // how should we define energies of conformations?
         KStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
-                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
+                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, minimizingEcalc)
                         .setCacheFile(new File("test.eref.emat"))
                         .build()
                         .calcReferenceEnergies()
