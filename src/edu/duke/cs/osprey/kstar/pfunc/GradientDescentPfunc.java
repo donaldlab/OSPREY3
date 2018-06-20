@@ -537,4 +537,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable {
 
 		return slope;
 	}
+	@Override
+	public PartitionFunction.Result makeResult() {
+		return new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated(), getNumConfsScored(), confSearch.getNumConformations());
+	}
 }

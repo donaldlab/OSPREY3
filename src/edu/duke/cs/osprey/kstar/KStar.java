@@ -283,7 +283,6 @@ public class KStar {
 
 			// save the result
 			result = pfunc.makeResult();
-			result.setNumConfsLooked(pfunc.getNumConfsScored());
 			pfuncResults.put(sequence, result);
 			return result;
 		}

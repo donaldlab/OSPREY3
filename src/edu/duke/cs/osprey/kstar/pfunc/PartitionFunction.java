@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.kstar.pfunc;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
@@ -110,6 +111,7 @@ public interface PartitionFunction {
 		public final Status status;
 		public final Values values;
 		public final int numConfs;
+		public final BigInteger totalNumConfs;
 
 		public int numConfsLooked=0;
 
@@ -118,8 +120,16 @@ public interface PartitionFunction {
 			this.values = values;
 			this.numConfs = numConfs;
 			this.numConfsLooked=0;
+			this.totalNumConfs = BigInteger.valueOf(0);
 		}
 
+		public Result(Status status, Values values, int numConfs, int numConfsLooked, BigInteger totalNumConfs) {
+			this.status = status;
+			this.values = values;
+			this.numConfs = numConfs;
+			this.numConfsLooked=numConfsLooked;
+			this.totalNumConfs = totalNumConfs;
+		}
 		public void setNumConfsLooked(int numConfsLooked){
 			this.numConfsLooked = numConfsLooked;
 		}
