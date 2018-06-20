@@ -111,7 +111,7 @@ public interface PartitionFunction {
 		public final Status status;
 		public final Values values;
 		public final int numConfs;
-		public final BigInteger totalNumConfs;
+		public final String totalNumConfs;
 
 		public int numConfsLooked=0;
 
@@ -120,7 +120,7 @@ public interface PartitionFunction {
 			this.values = values;
 			this.numConfs = numConfs;
 			this.numConfsLooked=0;
-			this.totalNumConfs = BigInteger.valueOf(0);
+			this.totalNumConfs = BigInteger.valueOf(0).toString();
 		}
 
 		public Result(Status status, Values values, int numConfs, int numConfsLooked, BigInteger totalNumConfs) {
@@ -128,7 +128,7 @@ public interface PartitionFunction {
 			this.values = values;
 			this.numConfs = numConfs;
 			this.numConfsLooked=numConfsLooked;
-			this.totalNumConfs = totalNumConfs;
+			this.totalNumConfs = totalNumConfs.toString();
 		}
 		public void setNumConfsLooked(int numConfsLooked){
 			this.numConfsLooked = numConfsLooked;
