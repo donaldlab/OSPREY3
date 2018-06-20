@@ -15,11 +15,14 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
+import edu.duke.cs.osprey.ematrix.ProxyEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.framework.MARKStarNode.Node;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -310,6 +313,8 @@ public class MARKStarBound implements PartitionFunction {
     public static final int MAX_CONFSPACE_FRACTION = 1000000;
     public static final double MINIMIZATION_FACTOR = 0.1;
     public boolean reduceMinimizations = true;
+    private ConfAnalyzer confAnalyzer;
+    EnergyMatrix correctionMatrix;
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                          ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
@@ -343,6 +348,7 @@ public class MARKStarBound implements PartitionFunction {
         });
 
         progress = new AStarProgress(RCs.getNumPos());
+        confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
         setParallelism(parallelism);
     }
 
@@ -434,6 +440,7 @@ public class MARKStarBound implements PartitionFunction {
                                         newConfUpper = node.getConfUpperBound();
                                         newConfLower = node.getConfUpperBound();
                                     }
+                                    computeEnergyCorrection(conf);
                                     curNode.setBoundsFromConfLowerAndUpper(newConfLower,newConfUpper);
                                     node.gscore = newConfLower;
                                     String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
@@ -552,6 +559,26 @@ public class MARKStarBound implements PartitionFunction {
         queue.addAll(newNodes);
         debugHeap();
         updateBound();
+    }
+
+    private void computeEnergyCorrection(ConfSearch.ScoredConf conf) {
+        ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
+        System.out.println("Analysis:"+analysis);
+        EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);
+        EnergyMatrix scoreAnalysis = analysis.breakdownScoreByPosition();
+        System.out.println("Energy Analysis: "+energyAnalysis);
+        System.out.println("Score Analysis: "+scoreAnalysis);
+        System.out.println("Difference Analysis " + energyAnalysis.diff(scoreAnalysis));
+
+        /* Starting from the residue contributing the smallest energy difference:
+            if the energy difference is below the threshold, remove it.
+            otherwise, compute a higher-order tuple correcting for the energy difference.
+            repeat, removing the residue contributing the next-lowest energy difference.
+
+            Then, subtract out the energy corrections of the smaller tuples from the larger
+            tuples.
+         */
+
     }
 
     private void debugHeap() {
