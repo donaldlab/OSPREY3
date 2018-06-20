@@ -51,7 +51,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         errorBound = getErrorBound();
     }
 
-    private BigInteger getNumConfs()
+    public BigInteger getNumConfs()
     {
         return confSearchNode.numConfs;
     }
