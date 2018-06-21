@@ -27,7 +27,9 @@ public interface EWAKStarPartitionFunction {
 	public static enum Status {
 		
 		Estimating(true),
-		Estimated(false),
+        EpsilonReached(false),
+        EnergyReached(false),
+        ConfLimitReached(false),
 		OutOfConformations(false),
 		OutOfLowEnergies(false),
 		Unstable(false),
@@ -145,7 +147,7 @@ public interface EWAKStarPartitionFunction {
 				trim.apply(KStarScore.scoreToLog10String(values.calcLowerBound())),
 				trim.apply(KStarScore.scoreToLog10String(values.calcUpperBound()))
 			));
-			if (status == Status.Estimated) {
+			if (status == Status.EpsilonReached) {
 				buf.append(" (log10)");
 			} else {
 				buf.append(String.format(" %-26s", "(log10," + status.name() + ")"));

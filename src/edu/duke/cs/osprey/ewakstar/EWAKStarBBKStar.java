@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.UpperBoundCalculator;
+import edu.duke.cs.osprey.newEwakstar.Ewakstar;
 import edu.duke.cs.osprey.newEwakstar.EwakstarLimitedSequenceTrie;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -430,9 +431,15 @@ public class EWAKStarBBKStar {
         public PfuncsStatus getStatus() {
 
             // aggregate pfunc statuses
-            if (protein.getStatus() == EWAKStarPartitionFunction.Status.Estimated
-                    && ligand.getStatus() == EWAKStarPartitionFunction.Status.Estimated
-                    && complex.getStatus() == EWAKStarPartitionFunction.Status.Estimated) {
+            if (protein.getStatus() == EWAKStarPartitionFunction.Status.ConfLimitReached
+                    && ligand.getStatus() == EWAKStarPartitionFunction.Status.ConfLimitReached
+                    && complex.getStatus() == EWAKStarPartitionFunction.Status.ConfLimitReached ||
+                    protein.getStatus() == EWAKStarPartitionFunction.Status.EpsilonReached
+                            && ligand.getStatus() == EWAKStarPartitionFunction.Status.EpsilonReached
+                            && complex.getStatus() == EWAKStarPartitionFunction.Status.EpsilonReached ||
+                    protein.getStatus() == EWAKStarPartitionFunction.Status.EnergyReached
+                            && ligand.getStatus() == EWAKStarPartitionFunction.Status.EnergyReached
+                            && complex.getStatus() == EWAKStarPartitionFunction.Status.EnergyReached) {
                 return PfuncsStatus.Estimated;
             } else if (protein.getStatus() == EWAKStarPartitionFunction.Status.Estimating
                     || ligand.getStatus() == EWAKStarPartitionFunction.Status.Estimating
@@ -471,7 +478,7 @@ public class EWAKStarBBKStar {
     private final Map<Sequence,EWAKStarPartitionFunction> ligandPfuncs;
     private final Map<Sequence,EWAKStarPartitionFunction> complexPfuncs;
 
-    public EWAKStarBBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EWAKStar.Settings kstarSettings, EWAKStarBBKStar.Settings bbkstarSettings) {
+    public EWAKStarBBKStar(Ewakstar.State P, Ewakstar.State L, Ewakstar.State PL, EWAKStar.Settings kstarSettings, EWAKStarBBKStar.Settings bbkstarSettings) {
 
         // BBK* doesn't work with external memory (never enough internal memory for all the priority queues)
         if (kstarSettings.useExternalMemory) {
@@ -479,9 +486,9 @@ public class EWAKStarBBKStar {
                     + " Please switch to regular K* with external memory, or keep using BBK* and disable external memory.");
         }
 
-        this.protein = new ConfSpaceInfo(protein, EWAKStar.ConfSpaceType.Protein);
-        this.ligand = new ConfSpaceInfo(ligand, EWAKStar.ConfSpaceType.Ligand);
-        this.complex = new ConfSpaceInfo(complex, EWAKStar.ConfSpaceType.Complex);
+        this.protein = new ConfSpaceInfo(P.confSpace, EWAKStar.ConfSpaceType.Protein);
+        this.ligand = new ConfSpaceInfo(L.confSpace, EWAKStar.ConfSpaceType.Ligand);
+        this.complex = new ConfSpaceInfo(PL.confSpace, EWAKStar.ConfSpaceType.Complex);
         this.kstarSettings = kstarSettings;
         this.bbkstarSettings = bbkstarSettings;
 

@@ -118,11 +118,15 @@ public class EwakstarLab {
 				.build();
 
 		// calc the energy matrix
-		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(PL.confEcalc)
+		PL.emat = new SimplerEnergyMatrixCalculator.Builder(PL.confEcalc)
 				.setCacheFile(new File(String.format("ewakstar.%s.emat", PL.name)))
 				.build()
 				.calcEnergyMatrix();
-		PL.fragmentEnergies = emat;
+		PL.fragmentEnergies = PL.emat;
+		PL.ematRigid = new SimplerEnergyMatrixCalculator.Builder(PL.confRigidEcalc)
+				.setCacheFile(new File(String.format("ewakstar.%s.ematRigid", PL.name)))
+				.build()
+				.calcEnergyMatrix();
 
 		// run DEE (super important for good LUTE fits!!)
 		PL.pmat = new SimpleDEE.Runner()
@@ -131,11 +135,11 @@ public class EwakstarLab {
 				.setShowProgress(true)
 				.setCacheFile(new File(String.format("ewakstar.%s.pmat", PL.name)))
 				.setParallelism(Parallelism.makeCpu(8))
-				.run(PL.confSpace, emat);
+				.run(PL.confSpace, PL.emat);
 
 
 		// make the conf tree factory
-		PL.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(emat, rcs)
+		PL.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(PL.emat, rcs)
 				.setTraditional()
 				.build();
 

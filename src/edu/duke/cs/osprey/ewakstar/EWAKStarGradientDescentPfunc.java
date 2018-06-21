@@ -425,9 +425,19 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 			status = Status.OutOfConformations;
 		}
 
-		// did we hit the epsilon target? did we hit the energy window? did we hit the conformation limit?
-		if (state.epsilonReached(targetEpsilon) || state.energyReached(targetEnergy) || state.numEnergiedConfs == maxNumConfs) {
-			status = Status.Estimated;
+		// did we hit the epsilon target?
+		if (state.epsilonReached(targetEpsilon)) {
+			status = Status.EpsilonReached;
+		}
+
+		//did we hit the energy window?
+		if(state.energyReached(targetEnergy)){
+			status = Status.EnergyReached;
+		}
+
+		//did we hit the conformation limit?
+		if(state.numEnergiedConfs == maxNumConfs){
+			status = Status.ConfLimitReached;
 		}
 
 		// did we drop below the stability threshold?

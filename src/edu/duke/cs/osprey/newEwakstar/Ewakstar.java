@@ -600,6 +600,7 @@ public class Ewakstar {
      */
     public Set<Sequence> run(State PL) {
 
+        ewakstarPL = this;
         // reset any previous state
         stateConfsCache.clear();
 
@@ -629,24 +630,8 @@ public class Ewakstar {
 
         List<SequenceInfo> bestPLSeqs = extractPLSeqsByLB(numEWAKStarSeqs, orderOfMag, PL);
 
-        HashMap<SeqSpace.Position, ArrayList<String>> allowedAA = new HashMap<>();
-        for(SequenceInfo si : bestPLSeqs){
-            System.out.println(si.sequence);
-            for(SeqSpace.Position pos : state.confSpace.seqSpace.positions) {
-                if (si.sequence.get(pos).isMutation()) {
-                    if (allowedAA.containsKey(pos))
-                        allowedAA.get(pos).add(si.sequence.get(pos).name);
-                    else {
-                        allowedAA.put(pos, new ArrayList<>());
-                        allowedAA.get(pos).add(si.sequence.get(pos).name);
-                        allowedAA.get(pos).add(si.sequence.getWildType(pos.resNum).name);
-                    }
-                }
-            }
-        }
-
         //limit sequence spaces for unbound states to those found in the bound complex above
-        setupUnboundStates(allowedAA);
+        setupUnboundStates();
 
         Set<Sequence> filteredSeqsP = new HashSet<>();
         Set<Sequence> filteredSeqsL = new HashSet<>();
@@ -672,7 +657,6 @@ public class Ewakstar {
             }
         }
 
-
         List<SequenceInfo> bestPSeqs = null;
         List<SequenceInfo> bestLSeqs = null;
         stateConfsCache.clear();
@@ -682,45 +666,22 @@ public class Ewakstar {
         if(ewakstarL.state.confSpace.mutablePositions.size()!=0)
             bestLSeqs = ewakstarL.extractUnboundSeqsByLB(orderOfMag, filteredSeqsL, elstL);
 
-        HashMap<SeqSpace.Position, ArrayList<String>> newAllowedAA = new HashMap<>();
 
-        if(bestLSeqs!=null) {
-            for (SequenceInfo si : bestLSeqs) {
-                System.out.println(si.sequence);
-                for (SeqSpace.Position pos : ewakstarL.state.confSpace.seqSpace.positions) {
-                    if (si.sequence.get(pos).isMutation()) {
-                        if (newAllowedAA.containsKey(pos))
-                            newAllowedAA.get(pos).add(si.sequence.get(pos).name);
-                        else {
-                            newAllowedAA.put(pos, new ArrayList<>());
-                            newAllowedAA.get(pos).add(si.sequence.get(pos).name);
-                            newAllowedAA.get(pos).add(si.sequence.getWildType(pos.resNum).name);
-                        }
-                    }
-                }
+        Set<Sequence> newPSeqs = new HashSet<>();
+        Set<Sequence> newLSeqs = new HashSet<>();
+
+        if (bestPSeqs != null){
+            for(SequenceInfo si : bestPSeqs){
+                newPSeqs.add(si.sequence);
+            }
+        }
+        if (bestLSeqs != null){
+            for(SequenceInfo si : bestLSeqs) {
+                newLSeqs.add(si.sequence);
             }
         }
 
-        if(bestPSeqs!=null){
-            for (SequenceInfo si : bestPSeqs) {
-                System.out.println(si.sequence);
-                for (SeqSpace.Position pos : ewakstarP.state.confSpace.seqSpace.positions) {
-                    if (si.sequence.get(pos).isMutation()) {
-                        if (newAllowedAA.containsKey(pos))
-                            newAllowedAA.get(pos).add(si.sequence.get(pos).name);
-                        else {
-                            newAllowedAA.put(pos, new ArrayList<>());
-                            newAllowedAA.get(pos).add(si.sequence.get(pos).name);
-                            newAllowedAA.get(pos).add(si.sequence.getWildType(pos.resNum).name);
-                        }
-                    }
-                }
-            }
-        }
-
-        updateBoundState(newAllowedAA);
-
-        Set<Sequence> fullSeqs = combineSeqs(filteredSeqsP, filteredSeqsL, filteredSeqsPL);
+        Set<Sequence> fullSeqs = combineSeqs(newPSeqs, newLSeqs, filteredSeqsPL);
 
         long stopEWAKStarTime;
         if (!seqFilterOnly) {
@@ -772,7 +733,7 @@ public class Ewakstar {
                 .setAllowedSeqs(plTrie).build();
 
         Results results = new Results();
-        results.bbkstar = new EWAKStarBBKStar( P.confSpace, L.confSpace, PL.confSpace, ewakstarSettings, bbkstarSettings);
+        results.bbkstar = new EWAKStarBBKStar( P, L, PL, ewakstarSettings, bbkstarSettings);
 
         for (EWAKStarBBKStar.ConfSpaceInfo info : results.bbkstar.confSpaceInfos()) {
 
@@ -866,19 +827,10 @@ public class Ewakstar {
         return newPL;
     }
 
-    public void updateBoundState(HashMap<SeqSpace.Position, ArrayList<String>> allowedAA){
+    public void setupUnboundStates(){
 
         Strand protein = state.confSpace.strands.get(0);
         Strand ligand = state.confSpace.strands.get(1);
-
-        for(SeqSpace.Position pos : allowedAA.keySet()){
-            if (protein.flexibility.getFlexibleResidueNumbers().contains(pos.resNum)){
-                protein.flexibility.get(pos.resNum).setLibraryRotamers(allowedAA.get(pos)).addWildTypeRotamers().setContinuous();
-            }
-            if (ligand.flexibility.getFlexibleResidueNumbers().contains(pos.resNum)){
-                ligand.flexibility.get(pos.resNum).setLibraryRotamers(allowedAA.get(pos)).addWildTypeRotamers().setContinuous();
-            }
-        }
 
         Ewakstar.State P = new Ewakstar.State(
                 "P",
@@ -894,14 +846,6 @@ public class Ewakstar {
                         .build()
         );
 
-        Ewakstar.State PL = new Ewakstar.State(
-                "PL",
-                new SimpleConfSpace.Builder()
-                        .addStrand(protein)
-                        .addStrand(ligand)
-                        .build()
-        );
-
         ewakstarP = new Ewakstar.Builder()
                 .addState(P)
                 .setEw(eW)
@@ -911,13 +855,6 @@ public class Ewakstar {
 
         ewakstarL = new Ewakstar.Builder()
                 .addState(L)
-                .setEw(eW)
-                .setNumCpus(numCpus)
-                .setMutableType("all")
-                .build();
-
-        ewakstarPL = new Ewakstar.Builder()
-                .addState(PL)
                 .setEw(eW)
                 .setNumCpus(numCpus)
                 .setMutableType("all")
@@ -953,11 +890,12 @@ public class Ewakstar {
                 .setCacheFile(new File(String.format("ewakstar.%s.emat", P.name)))
                 .build()
                 .calcEnergyMatrix();
+        P.fragmentEnergies = P.emat;
         P.ematRigid = new SimplerEnergyMatrixCalculator.Builder(P.confRigidEcalc)
                 .setCacheFile(new File(String.format("ewakstar.%s.ematRigid", P.name)))
                 .build()
                 .calcEnergyMatrix();
-        P.fragmentEnergies = P.emat;
+
 
         // run DEE (super important for good LUTE fits!!)
         P.pmat = new SimpleDEE.Runner()
@@ -1003,11 +941,11 @@ public class Ewakstar {
                 .setCacheFile(new File(String.format("ewakstar.%s.emat", L.name)))
                 .build()
                 .calcEnergyMatrix();
+        L.fragmentEnergies = L.emat;
         L.ematRigid = new SimplerEnergyMatrixCalculator.Builder(L.confRigidEcalc)
                 .setCacheFile(new File(String.format("ewakstar.%s.ematRigid", L.name)))
                 .build()
                 .calcEnergyMatrix();
-        L.fragmentEnergies = L.emat;
 
         // run DEE (super important for good LUTE fits!!)
         L.pmat = new SimpleDEE.Runner()
@@ -1021,192 +959,6 @@ public class Ewakstar {
 
         // make the conf tree factory
         L.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(L.emat, rcs)
-                .setTraditional()
-                .build();
-
-        EnergyCalculator ecalcPL = new EnergyCalculator.Builder(PL.confSpace, ffparams)
-                .setParallelism(Parallelism.makeCpu(ewakstarPL.numCpus))
-                .build();
-        EnergyCalculator rigidEcalcPL = new EnergyCalculator.Builder(PL.confSpace, ffparams)
-                .setIsMinimizing(false)
-                .setParallelism(Parallelism.makeCpu(ewakstarPL.numCpus))
-                .build();
-
-        // what are conformation energies?
-        SimpleReferenceEnergies erefPL = new SimplerEnergyMatrixCalculator.Builder(PL.confSpace, ecalcPL)
-                .build()
-                .calcReferenceEnergies();
-        SimpleReferenceEnergies rigidErefPL = new SimplerEnergyMatrixCalculator.Builder(PL.confSpace, rigidEcalcPL)
-                .build()
-                .calcReferenceEnergies();
-
-        PL.confEcalc = new ConfEnergyCalculator.Builder(PL.confSpace, ecalcPL)
-                .setReferenceEnergies(erefPL)
-                .build();
-        PL.confRigidEcalc = new ConfEnergyCalculator.Builder(PL.confSpace, rigidEcalcPL)
-                .setReferenceEnergies(rigidErefPL)
-                .build();
-
-        // calc the energy matrix
-        PL.emat = new SimplerEnergyMatrixCalculator.Builder(PL.confEcalc)
-                .setCacheFile(new File(String.format("ewakstar.%s.emat", PL.name)))
-                .build()
-                .calcEnergyMatrix();
-        PL.ematRigid = new SimplerEnergyMatrixCalculator.Builder(PL.confRigidEcalc)
-                .setCacheFile(new File(String.format("ewakstar.%s.ematRigid", PL.name)))
-                .build()
-                .calcEnergyMatrix();
-        PL.fragmentEnergies = PL.emat;
-
-        // run DEE (super important for good LUTE fits!!)
-        PL.pmat = new SimpleDEE.Runner()
-                .setGoldsteinDiffThreshold(10.0)
-                .setTypeDependent(true)
-                .setShowProgress(true)
-                .setCacheFile(new File(String.format("ewakstar.%s.pmat", PL.name)))
-                .setParallelism(Parallelism.makeCpu(8))
-                .run(PL.confSpace, PL.emat);
-
-
-        // make the conf tree factory
-        PL.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(PL.emat, rcs)
-                .setTraditional()
-                .build();
-
-    }
-
-    public void setupUnboundStates(HashMap<SeqSpace.Position, ArrayList<String>> allowedAA){
-
-        Strand protein = state.confSpace.strands.get(0);
-        Strand ligand = state.confSpace.strands.get(1);
-
-        for(SeqSpace.Position pos : allowedAA.keySet()){
-            if (protein.flexibility.getFlexibleResidueNumbers().contains(pos.resNum)){
-                protein.flexibility.get(pos.resNum).setLibraryRotamers(allowedAA.get(pos)).addWildTypeRotamers().setContinuous();
-            }
-            if (ligand.flexibility.getFlexibleResidueNumbers().contains(pos.resNum)){
-                ligand.flexibility.get(pos.resNum).setLibraryRotamers(allowedAA.get(pos)).addWildTypeRotamers().setContinuous();
-            }
-        }
-
-        Ewakstar.State P = new Ewakstar.State(
-                "P",
-                new SimpleConfSpace.Builder()
-                        .addStrand(protein)
-                        .build()
-        );
-
-        Ewakstar.State L = new Ewakstar.State(
-                "L",
-                new SimpleConfSpace.Builder()
-                        .addStrand(ligand)
-                        .build()
-        );
-
-        ewakstarP = new Ewakstar.Builder()
-                .addState(P)
-                .setEw(eW)
-                .setNumCpus(numCpus)
-                .setMutableType("all")
-                .build();
-
-        ewakstarL = new Ewakstar.Builder()
-                .addState(L)
-                .setEw(eW)
-                .setNumCpus(numCpus)
-                .setMutableType("all")
-                .build();
-
-        ForcefieldParams ffparams = new ForcefieldParams();
-
-        EnergyCalculator ecalcP = new EnergyCalculator.Builder(P.confSpace, ffparams)
-                .setParallelism(Parallelism.makeCpu(ewakstarP.numCpus))
-                .build();
-        EnergyCalculator rigidEcalcP = new EnergyCalculator.Builder(P.confSpace, ffparams)
-                .setIsMinimizing(false)
-                .setParallelism(Parallelism.makeCpu(ewakstarP.numCpus))
-                .build();
-
-        // what are conformation energies?
-        SimpleReferenceEnergies erefP = new SimplerEnergyMatrixCalculator.Builder(P.confSpace, ecalcP)
-                .build()
-                .calcReferenceEnergies();
-        SimpleReferenceEnergies rigidErefP = new SimplerEnergyMatrixCalculator.Builder(P.confSpace, rigidEcalcP)
-                .build()
-                .calcReferenceEnergies();
-
-        P.confEcalc = new ConfEnergyCalculator.Builder(P.confSpace, ecalcP)
-                .setReferenceEnergies(erefP)
-                .build();
-        P.confRigidEcalc = new ConfEnergyCalculator.Builder(P.confSpace, rigidEcalcP)
-                .setReferenceEnergies(rigidErefP)
-                .build();
-
-        // calc the energy matrix
-        EnergyMatrix ematP = new SimplerEnergyMatrixCalculator.Builder(P.confEcalc)
-                .setCacheFile(new File(String.format("ewakstar.%s.emat", P.name)))
-                .build()
-                .calcEnergyMatrix();
-        P.fragmentEnergies = ematP;
-
-        // run DEE (super important for good LUTE fits!!)
-        P.pmat = new SimpleDEE.Runner()
-                .setGoldsteinDiffThreshold(10.0)
-                .setTypeDependent(true)
-                .setShowProgress(true)
-                .setCacheFile(new File(String.format("ewakstar.%s.pmat", P.name)))
-                .setParallelism(Parallelism.makeCpu(8))
-                .run(P.confSpace, ematP);
-
-
-        // make the conf tree factory
-        P.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(ematP, rcs)
-                .setTraditional()
-                .build();
-
-        //do all of this for ligand also
-        EnergyCalculator ecalcL = new EnergyCalculator.Builder(L.confSpace, ffparams)
-                .setParallelism(Parallelism.makeCpu(ewakstarL.numCpus))
-                .build();
-        EnergyCalculator rigidEcalcL = new EnergyCalculator.Builder(L.confSpace, ffparams)
-                .setIsMinimizing(false)
-                .setParallelism(Parallelism.makeCpu(ewakstarL.numCpus))
-                .build();
-
-        // what are conformation energies?
-        SimpleReferenceEnergies erefL = new SimplerEnergyMatrixCalculator.Builder(L.confSpace, ecalcL)
-                .build()
-                .calcReferenceEnergies();
-        SimpleReferenceEnergies rigidErefL = new SimplerEnergyMatrixCalculator.Builder(L.confSpace, rigidEcalcL)
-                .build()
-                .calcReferenceEnergies();
-
-        L.confEcalc = new ConfEnergyCalculator.Builder(L.confSpace, ecalcL)
-                .setReferenceEnergies(erefL)
-                .build();
-        L.confRigidEcalc = new ConfEnergyCalculator.Builder(L.confSpace, rigidEcalcL)
-                .setReferenceEnergies(rigidErefL)
-                .build();
-
-        // calc the energy matrix
-        EnergyMatrix ematL = new SimplerEnergyMatrixCalculator.Builder(L.confEcalc)
-                .setCacheFile(new File(String.format("ewakstar.%s.emat", L.name)))
-                .build()
-                .calcEnergyMatrix();
-        L.fragmentEnergies = ematL;
-
-        // run DEE (super important for good LUTE fits!!)
-        L.pmat = new SimpleDEE.Runner()
-                .setGoldsteinDiffThreshold(10.0)
-                .setTypeDependent(true)
-                .setShowProgress(true)
-                .setCacheFile(new File(String.format("ewakstar.%s.pmat", L.name)))
-                .setParallelism(Parallelism.makeCpu(8))
-                .run(L.confSpace, ematL);
-
-
-        // make the conf tree factory
-        L.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(ematL, rcs)
                 .setTraditional()
                 .build();
 
