@@ -410,7 +410,7 @@ public class EwakstarDoer {
          */
         private double eW = 10.0;
 
-        int numCpus = 4;
+        int numCPUs = 4;
         /**
          * this value can be max (mutations are <= the specified value), exact (exactly this many mutations),
          * or all (all positions set-up to be mutable can mutate).
@@ -424,7 +424,7 @@ public class EwakstarDoer {
 
         private boolean seqFilterOnly = false;
 
-        private int numEWAKStarSeqs = (int) Double.POSITIVE_INFINITY;
+        private int numEWAKStarSeqs = 20000000;
         private int orderOfMag = 5;
         private double pfEw = 1.0;
         private int numPfConfs = 500;
@@ -440,7 +440,7 @@ public class EwakstarDoer {
             return this;
         }
 
-        public Builder setNumEWAKStarSeqs(int val){
+        public Builder setNumEWAKStarSeqs(Integer val){
             numEWAKStarSeqs = val;
             return this;
         }
@@ -450,7 +450,7 @@ public class EwakstarDoer {
             return this;
         }
 
-        public Builder setOrderOfMag(int val){
+        public Builder setOrderOfMag(Integer val){
             orderOfMag = val;
             return this;
         }
@@ -460,12 +460,12 @@ public class EwakstarDoer {
             return this;
         }
 
-        public Builder setNumPfConfs(int val){
+        public Builder setNumPfConfs(Integer val){
             numPfConfs = val;
             return this;
         }
 
-        public Builder setNumTopOverallSeqs(int val){
+        public Builder setNumTopOverallSeqs(Integer val){
             numTopOverallSeqs = val;
             return this;
         }
@@ -480,7 +480,7 @@ public class EwakstarDoer {
             return this;
         }
 
-        public Builder setNumMutable(int val) {
+        public Builder setNumMutable(Integer val) {
             numMutable = val;
             return this;
         }
@@ -498,7 +498,7 @@ public class EwakstarDoer {
         }
 
         public Builder setNumCpus(int val){
-            numCpus = val;
+            numCPUs = val;
             return this;
         }
 
@@ -517,7 +517,7 @@ public class EwakstarDoer {
                     eW,
                     mutableType,
                     numMutable,
-                    numCpus,
+                    numCPUs,
                     printToConsole,
                     seqFilterOnly,
                     logFile,
@@ -534,7 +534,7 @@ public class EwakstarDoer {
 
 
     public final int numEWAKStarSeqs;
-    public final int numCpus;
+    public final int numCPUs;
     public final double eW;
     public final boolean printToConsole;
     public final boolean seqFilterOnly;
@@ -557,7 +557,7 @@ public class EwakstarDoer {
 
     private final Map<StateConfs.Key,StateConfs> stateConfsCache = new HashMap<>();
 
-    private EwakstarDoer(State state, double eW, String mutableType, int numMutable, int numCpus, boolean printToConsole, boolean seqFilterOnly, File logFile, int numEWAKStarSeqs, boolean useWtBenchmark, int orderOfMag, double pfEw, int numPfConfs, double epsilon, int numTopOverallSeqs) {
+    private EwakstarDoer(State state, double eW, String mutableType, int numMutable, int numCPUs, boolean printToConsole, boolean seqFilterOnly, File logFile, int numEWAKStarSeqs, boolean useWtBenchmark, int orderOfMag, double pfEw, int numPfConfs, double epsilon, int numTopOverallSeqs) {
 
         if(mutableType.equals("exact") || mutableType.equals("max")){
             this.numMutable = numMutable;
@@ -577,7 +577,7 @@ public class EwakstarDoer {
         this.numTopOverallSeqs = numTopOverallSeqs;
         this.useWtBenchmark = useWtBenchmark;
         this.seqFilterOnly = seqFilterOnly;
-        this.numCpus = numCpus;
+        this.numCPUs = numCPUs;
         this.mutableType = mutableType;
         this.eW = eW;
         this.numMutable = numMutable;
@@ -847,25 +847,25 @@ public class EwakstarDoer {
         ewakstarDoerP = new EwakstarDoer.Builder()
                 .addState(P)
                 .setEw(eW)
-                .setNumCpus(numCpus)
+                .setNumCpus(numCPUs)
                 .setMutableType("all")
                 .build();
 
         ewakstarDoerL = new EwakstarDoer.Builder()
                 .addState(L)
                 .setEw(eW)
-                .setNumCpus(numCpus)
+                .setNumCpus(numCPUs)
                 .setMutableType("all")
                 .build();
 
         ForcefieldParams ffparams = new ForcefieldParams();
 
         EnergyCalculator ecalcP = new EnergyCalculator.Builder(P.confSpace, ffparams)
-                .setParallelism(Parallelism.makeCpu(ewakstarDoerP.numCpus))
+                .setParallelism(Parallelism.makeCpu(ewakstarDoerP.numCPUs))
                 .build();
         EnergyCalculator rigidEcalcP = new EnergyCalculator.Builder(P.confSpace, ffparams)
                 .setIsMinimizing(false)
-                .setParallelism(Parallelism.makeCpu(ewakstarDoerP.numCpus))
+                .setParallelism(Parallelism.makeCpu(ewakstarDoerP.numCPUs))
                 .build();
 
         // what are conformation energies?
@@ -912,11 +912,11 @@ public class EwakstarDoer {
 
         //do all of this for ligand also
         EnergyCalculator ecalcL = new EnergyCalculator.Builder(L.confSpace, ffparams)
-                .setParallelism(Parallelism.makeCpu(ewakstarDoerL.numCpus))
+                .setParallelism(Parallelism.makeCpu(ewakstarDoerL.numCPUs))
                 .build();
         EnergyCalculator rigidEcalcL = new EnergyCalculator.Builder(L.confSpace, ffparams)
                 .setIsMinimizing(false)
-                .setParallelism(Parallelism.makeCpu(ewakstarDoerL.numCpus))
+                .setParallelism(Parallelism.makeCpu(ewakstarDoerL.numCPUs))
                 .build();
 
         // what are conformation energies?

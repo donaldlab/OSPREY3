@@ -795,17 +795,6 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
 	return bbflex
 
-def EWAKStar(numCPUS, wtBenchmark, seqFilterOnly, mutableType, numMutable, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL,  confSpaceP, pos, posL, posP, numFilteredSeqs, orderOfMag, unboundEw, boundEw,  ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName):
-
-    pos = jvm.makeIntArray(pos)
-    posL = jvm.makeIntArray(posL)
-    posP = jvm.makeIntArray(posP)
-    resNumsPL = jvm.makeStringArray(resNumsPL)
-    resNumsL = jvm.makeStringArray(resNumsL)
-    resNumsP = jvm.makeStringArray(resNumsP)
-
-    return c.astar.ewakstarDoer.NewEWAKStarDoer(mutableType, numMutable, numCPUS, wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL, posP, numFilteredSeqs, orderOfMag, unboundEw, boundEw, ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName)
-
 def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault):
 	'''
 	:java:classdoc:`.kstar.KStar`
@@ -1266,3 +1255,51 @@ def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSi
 		builder.setLogFile(jvm.toFile(logFile))
 
 	return builder.build()
+
+def EwakstarDoer_ConfSearchFactory(func):
+
+    # convert the python lambda to a JVM interface implementation
+    return jpype.JProxy(
+        jvm.c.java.util.function.Function,
+        dict={ 'apply': func }
+	)
+
+def EwakstarDoer_State(name, confSpace):
+
+	return jvm.getInnerClass(c.ewakstar.EwakstarDoer, 'State')(name, confSpace)
+
+def EwakstarDoer(state, useWtBenchmark=useJavaDefault, numEWAKStarSeqs=useJavaDefault, logFile=None, epsilon=useJavaDefault, pfEw=useJavaDefault, eW=useJavaDefault, orderOfMag=useJavaDefault, numPfConfs=useJavaDefault, numTopSeqs=useJavaDefault, mutableType=useJavaDefault, numMutable=useJavaDefault, seqFilterOnly=useJavaDefault, numCPUs=useJavaDefault):
+
+    builder = _get_builder(c.ewakstar.EwakstarDoer)()
+
+    builder.addState(state)
+
+    if useWtBenchmark is not useJavaDefault:
+        builder.setUseWtBenchmark(useWtBenchmark)
+    if epsilon is not useJavaDefault:
+        builder.setEpsilon(epsilon)
+    if pfEw is not useJavaDefault:
+        builder.setPfEw(pfEw)
+    if eW is not useJavaDefault:
+        builder.setEw(eW)
+    if orderOfMag is not useJavaDefault:
+        builder.setOrderOfMag(orderOfMag)
+    if numPfConfs is not useJavaDefault:
+        builder.setNumPfConfs(numPfConfs)
+    if numTopSeqs is not useJavaDefault:
+        builder.setNumTopOverallSeqs(numTopSeqs)
+    if mutableType is not useJavaDefault:
+        builder.setMutableType(mutableType)
+    if numMutable is not useJavaDefault:
+        builder.setNumMutable(numMutable)
+    if seqFilterOnly is not useJavaDefault:
+        builder.setSeqFilterOnly(seqFilterOnly)
+    if numCPUs is not useJavaDefault:
+        builder.setNumCpus(numCPUs)
+    if numEWAKStarSeqs is not useJavaDefault:
+        builder.setNumEWAKStarSeqs(numEWAKStarSeqs)
+
+    if logFile is not None:
+        builder.setLogFile(jvm.toFile(logFile))
+
+    return builder.build()

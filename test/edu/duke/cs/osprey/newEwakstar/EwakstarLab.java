@@ -85,7 +85,7 @@ public class EwakstarLab {
 				.setNumMutable(1)
 				.setSeqFilterOnly(false)
 				.setNumCpus(numCpus)
-				.setLogFile(new File("ewakstarDoer.sequences.tsv"))
+				.setLogFile(new File("ewakstar.sequences.tsv"))
 				.build();
 
 
@@ -114,12 +114,12 @@ public class EwakstarLab {
 
 		// calc the energy matrix
 		PL.emat = new SimplerEnergyMatrixCalculator.Builder(PL.confEcalc)
-				.setCacheFile(new File(String.format("ewakstarDoer.%s.emat", PL.name)))
+				.setCacheFile(new File(String.format("ewakstar.%s.emat", PL.name)))
 				.build()
 				.calcEnergyMatrix();
 		PL.fragmentEnergies = PL.emat;
 		PL.ematRigid = new SimplerEnergyMatrixCalculator.Builder(PL.confRigidEcalc)
-				.setCacheFile(new File(String.format("ewakstarDoer.%s.ematRigid", PL.name)))
+				.setCacheFile(new File(String.format("ewakstar.%s.ematRigid", PL.name)))
 				.build()
 				.calcEnergyMatrix();
 
@@ -127,9 +127,9 @@ public class EwakstarLab {
 		PL.pmat = new SimpleDEE.Runner()
 				.setGoldsteinDiffThreshold(10.0)
 				.setTypeDependent(true)
-				.setShowProgress(true)
-				.setCacheFile(new File(String.format("ewakstarDoer.%s.pmat", PL.name)))
-				.setParallelism(Parallelism.makeCpu(8))
+				.setShowProgress(false)
+				.setCacheFile(new File(String.format("ewakstar.%s.pmat", PL.name)))
+				.setParallelism(Parallelism.makeCpu(numCpus))
 				.run(PL.confSpace, PL.emat);
 
 
