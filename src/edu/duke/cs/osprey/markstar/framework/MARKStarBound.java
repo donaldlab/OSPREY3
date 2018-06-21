@@ -31,6 +31,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import javafx.util.Pair;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -38,6 +39,7 @@ import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.PriorityBlockingQueue;
+import java.util.stream.Collectors;
 
 public class MARKStarBound implements PartitionFunction {
 
@@ -440,7 +442,7 @@ public class MARKStarBound implements PartitionFunction {
                                         newConfUpper = node.getConfUpperBound();
                                         newConfLower = node.getConfUpperBound();
                                     }
-                                    computeEnergyCorrection(conf);
+                                    computeEnergyCorrection(conf, context.gscorer, context.ecalc);
                                     curNode.setBoundsFromConfLowerAndUpper(newConfLower,newConfUpper);
                                     node.gscore = newConfLower;
                                     String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
@@ -561,15 +563,48 @@ public class MARKStarBound implements PartitionFunction {
         updateBound();
     }
 
-    private void computeEnergyCorrection(ConfSearch.ScoredConf conf) {
+    private void computeEnergyCorrection(ConfSearch.ScoredConf conf, AStarScorer gscorer, ConfEnergyCalculator ecalc) {
         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
         System.out.println("Analysis:"+analysis);
         EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);
         EnergyMatrix scoreAnalysis = analysis.breakdownScoreByPosition();
         System.out.println("Energy Analysis: "+energyAnalysis);
         System.out.println("Score Analysis: "+scoreAnalysis);
-        System.out.println("Difference Analysis " + energyAnalysis.diff(scoreAnalysis));
+        EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
+        System.out.println("Difference Analysis " + diff);
+        List<Pair<Integer, Double>> contributionsByResidue = new ArrayList<>();
+        for (int pos = 0; pos < diff.getNumPos(); pos++)
+        {
+            double sum = 0;
+            for (int rc = 0; rc < diff.getNumConfAtPos(pos); rc++)
+            {
+                sum+=diff.getOneBody(pos, rc);
+                for (int pos2 = 0; pos2 < diff.getNumPos(); pos2++)
+                {
+                    for (int rc2 = 0; rc2 < diff.getNumConfAtPos(pos2); rc2++)
+                    {
+                        if(pos == pos2)
+                            continue;
+                        sum+=diff.getPairwise(pos, rc, pos2, rc2);
+                    }
+                }
+            }
+            contributionsByResidue.add(new Pair(pos, sum));
+        }
+        Collections.sort(contributionsByResidue, (a,b)->-Double.compare(a.getValue(),b.getValue()));
+        for(Pair p: contributionsByResidue)
+            System.out.println(p);
 
+
+        double threshhold = 0.5;
+        Collections.sort(contributionsByResidue, Comparator.comparingDouble(Pair::getValue));
+        for(int i = 0; i < contributionsByResidue.size(); i++)
+        {
+            Pair<Integer, Double> resCont = contributionsByResidue.get(i);
+            if(resCont.getValue() < threshhold)
+                continue;
+            double energyDifference = computeDifference(contributionsByResidue, i, gscorer, ecalc);
+        }
         /* Starting from the residue contributing the smallest energy difference:
             if the energy difference is below the threshold, remove it.
             otherwise, compute a higher-order tuple correcting for the energy difference.
@@ -579,6 +614,10 @@ public class MARKStarBound implements PartitionFunction {
             tuples.
          */
 
+    }
+
+    private double computeDifference(List<Pair<Integer,Double>> contributionsByResidue, int i, AStarScorer gscorer, ConfEnergyCalculator ecalc) {
+        return 0;
     }
 
     private void debugHeap() {
