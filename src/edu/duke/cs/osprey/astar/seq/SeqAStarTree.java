@@ -1,17 +1,14 @@
 package edu.duke.cs.osprey.astar.seq;
 
-import edu.duke.cs.osprey.astar.ewakstar.EWAKStarLimitedSequenceTrie;
 import edu.duke.cs.osprey.astar.seq.nodes.LinkedSeqAStarNode;
 import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 import edu.duke.cs.osprey.astar.seq.order.SeqAStarOrder;
 import edu.duke.cs.osprey.astar.seq.scoring.SeqAStarScorer;
-import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.externalMemory.Queue;
-import edu.duke.cs.osprey.newEwakstar.EwakstarLimitedSequenceTrie;
+import edu.duke.cs.osprey.ewakstar.EwakstarLimitedSequenceTrie;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigInteger;
-import java.util.List;
 
 
 public class SeqAStarTree {

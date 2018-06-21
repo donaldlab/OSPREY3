@@ -804,7 +804,7 @@ def EWAKStar(numCPUS, wtBenchmark, seqFilterOnly, mutableType, numMutable, numTo
     resNumsL = jvm.makeStringArray(resNumsL)
     resNumsP = jvm.makeStringArray(resNumsP)
 
-    return c.astar.ewakstar.NewEWAKStarDoer(mutableType, numMutable, numCPUS, wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL, posP, numFilteredSeqs, orderOfMag, unboundEw, boundEw, ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName)
+    return c.astar.ewakstarDoer.NewEWAKStarDoer(mutableType, numMutable, numCPUS, wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL, posP, numFilteredSeqs, orderOfMag, unboundEw, boundEw, ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName)
 
 def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault):
 	'''

@@ -76,7 +76,7 @@ PLematMatrixName = "ewak.PL.emat"
 emat = osprey.EnergyMatrix(confECalc, cacheFile=PLematMatrixName)
 
 # run EWAK*
-ewakstar = osprey.EWAKStar(
+ewakstarDoer = osprey.EWAKStar(
         numCPUs,
         wtBenchmark,
         seqFilterOnly,
@@ -112,4 +112,4 @@ ewakstar = osprey.EWAKStar(
         PLmatrixName
 )
 
-scoredSequences = ewakstar.run();
+scoredSequences = ewakstarDoer.run();

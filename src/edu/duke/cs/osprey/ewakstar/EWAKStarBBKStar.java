@@ -1,30 +1,18 @@
 package edu.duke.cs.osprey.ewakstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.ewakstar.EWAKStarLimitedSequenceTrie;
 import edu.duke.cs.osprey.confspace.*;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.UpperBoundCalculator;
-import edu.duke.cs.osprey.newEwakstar.Ewakstar;
-import edu.duke.cs.osprey.newEwakstar.EwakstarLimitedSequenceTrie;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
-import edu.duke.cs.osprey.tools.Streams;
-import org.mapdb.DB;
 
 import java.io.File;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /** Adapted from BBKStar.java by lowegard **/
 
@@ -478,7 +466,7 @@ public class EWAKStarBBKStar {
     private final Map<Sequence,EWAKStarPartitionFunction> ligandPfuncs;
     private final Map<Sequence,EWAKStarPartitionFunction> complexPfuncs;
 
-    public EWAKStarBBKStar(Ewakstar.State P, Ewakstar.State L, Ewakstar.State PL, EWAKStar.Settings kstarSettings, EWAKStarBBKStar.Settings bbkstarSettings) {
+    public EWAKStarBBKStar(EwakstarDoer.State P, EwakstarDoer.State L, EwakstarDoer.State PL, EWAKStar.Settings kstarSettings, EWAKStarBBKStar.Settings bbkstarSettings) {
 
         // BBK* doesn't work with external memory (never enough internal memory for all the priority queues)
         if (kstarSettings.useExternalMemory) {

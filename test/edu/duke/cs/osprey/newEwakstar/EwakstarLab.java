@@ -2,24 +2,19 @@ package edu.duke.cs.osprey.newEwakstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.*;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.gmec.Comets;
-import edu.duke.cs.osprey.lute.*;
+import edu.duke.cs.osprey.ewakstar.EwakstarDoer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -60,7 +55,7 @@ public class EwakstarLab {
 
 		// make the COMETS states
 
-		Ewakstar.State PL = new Ewakstar.State(
+		EwakstarDoer.State PL = new EwakstarDoer.State(
 				"PL",
 				new SimpleConfSpace.Builder()
 						.addStrand(protein)
@@ -69,15 +64,15 @@ public class EwakstarLab {
 		);
 
 		int orderMag = 10; //order of magnitude worse in partition function we want to keep sequences relative to the wild-type
-		int numEWAKStarSeqs = 10000; //number of sequences we want to limit ourselves to during the "sequence filter" portion of ewakstar
-		int ewakstarEw = 30; //energy window within the wild-type for finding sequences in the "sequence filter" portion of ewakstar
+		int numEWAKStarSeqs = 10000; //number of sequences we want to limit ourselves to during the "sequence filter" portion of ewakstarDoer
+		int ewakstarEw = 30; //energy window within the wild-type for finding sequences in the "sequence filter" portion of ewakstarDoer
 		int numPfConfs = 5000; //num of conformations for the partition function calculation
 		double pfEw = 1.0; //partition function energy window calculation
 		int numTopOverallSeqs = 5; //end result number of sequences we want K* estimates for
 		int numCpus = 4;
 		double epsilon = 0.01;
 
-		Ewakstar ewakstar = new Ewakstar.Builder()
+		EwakstarDoer ewakstarDoer = new EwakstarDoer.Builder()
 				.setNumEWAKStarSeqs(numEWAKStarSeqs)
 				.setOrderOfMag(orderMag)
 				.setPfEw(pfEw)
@@ -90,7 +85,7 @@ public class EwakstarLab {
 				.setNumMutable(1)
 				.setSeqFilterOnly(false)
 				.setNumCpus(numCpus)
-				.setLogFile(new File("ewakstar.sequences.tsv"))
+				.setLogFile(new File("ewakstarDoer.sequences.tsv"))
 				.build();
 
 
@@ -119,12 +114,12 @@ public class EwakstarLab {
 
 		// calc the energy matrix
 		PL.emat = new SimplerEnergyMatrixCalculator.Builder(PL.confEcalc)
-				.setCacheFile(new File(String.format("ewakstar.%s.emat", PL.name)))
+				.setCacheFile(new File(String.format("ewakstarDoer.%s.emat", PL.name)))
 				.build()
 				.calcEnergyMatrix();
 		PL.fragmentEnergies = PL.emat;
 		PL.ematRigid = new SimplerEnergyMatrixCalculator.Builder(PL.confRigidEcalc)
-				.setCacheFile(new File(String.format("ewakstar.%s.ematRigid", PL.name)))
+				.setCacheFile(new File(String.format("ewakstarDoer.%s.ematRigid", PL.name)))
 				.build()
 				.calcEnergyMatrix();
 
@@ -133,7 +128,7 @@ public class EwakstarLab {
 				.setGoldsteinDiffThreshold(10.0)
 				.setTypeDependent(true)
 				.setShowProgress(true)
-				.setCacheFile(new File(String.format("ewakstar.%s.pmat", PL.name)))
+				.setCacheFile(new File(String.format("ewakstarDoer.%s.pmat", PL.name)))
 				.setParallelism(Parallelism.makeCpu(8))
 				.run(PL.confSpace, PL.emat);
 
@@ -144,7 +139,7 @@ public class EwakstarLab {
 				.build();
 
 		// run COMETS
-		Set<Sequence> seqs = ewakstar.run(PL);
+		Set<Sequence> seqs = ewakstarDoer.run(PL);
 	}
 
 }
