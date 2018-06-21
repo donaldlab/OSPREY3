@@ -8,8 +8,8 @@ ffparams = osprey.ForcefieldParams()
 # read a PDB file for molecular info
 mol = osprey.readPdb('2RL0.min.reduce.pdb')
 
-# make sure all strands share the same template library (including wild-type rotamers)
-templateLib = osprey.TemplateLibrary(ffparams.forcefld, moleculesForWildTypeRotamers=[mol])
+# make sure all strands share the same template library
+templateLib = osprey.TemplateLibrary(ffparams.forcefld)
 
 # define the protein strand
 protein = osprey.Strand(mol, templateLib=templateLib, residues=['G648', 'G654'])
@@ -51,8 +51,7 @@ bbkstar = osprey.BBKStar(
 	numBestSequences=2,
 	epsilon=0.5, # you proabably want something more precise in your real designs
 	writeSequencesToConsole=True,
-	writeSequencesToFile='bbkstar.results.tsv',
-	confDBPattern='bbkstar.*.db', # actually several confDBs will be written, so give a name pattern
+	writeSequencesToFile='bbkstar.results.tsv'
 )
 
 # configure K* inputs for each conf space
@@ -76,6 +75,9 @@ for info in bbkstar.confSpaceInfos():
 	def makeRigidAStar(rcs, emat=rigidEmat):
 		return osprey.AStarTraditional(emat, rcs, showProgress=False)
 	info.confSearchFactoryRigid = osprey.KStar.ConfSearchFactory(makeRigidAStar)
+
+	# set the ConfDB file for this conf space
+	info.setConfDBFile('bbkstar.%s.db' % info.type.name().lower())
 
 # run BBK*
 scoredSequences = bbkstar.run()

@@ -35,11 +35,7 @@ package edu.duke.cs.osprey.ematrix;
 import java.io.File;
 import java.util.ArrayList;
 
-import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.confspace.HigherTupleFinder;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.TupleMatrixDouble;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.ObjectIO.BadFileException;
 import edu.duke.cs.osprey.tools.ObjectIO.CantWriteException;
@@ -48,7 +44,7 @@ import edu.duke.cs.osprey.tools.ObjectIO.CantWriteException;
  * Matrix of energies between pairs of residue conformations.
  * @author mhall44
  */
-public class EnergyMatrix extends TupleMatrixDouble {
+public class EnergyMatrix extends TupleMatrixDouble implements FragmentEnergies {
 
 	private static final long serialVersionUID = 6503270845014990929L;
 	
@@ -180,6 +176,16 @@ public class EnergyMatrix extends TupleMatrixDouble {
         
         return energy;
     }
+
+    @Override
+	public double getEnergy(int pos, int rc) {
+    	return getOneBody(pos, rc);
+	}
+
+	@Override
+	public double getEnergy(int pos1, int rc1, int pos2, int rc2) {
+    	return getPairwise(pos1, rc1, pos2, rc2);
+	}
     
     public double getHigherOrderEnergy(RCTuple tup, int i1, int i2) {
     	int res1 = tup.pos.get(i1);

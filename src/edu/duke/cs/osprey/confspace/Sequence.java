@@ -34,56 +34,49 @@ package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.tools.HashCalculator;
+import edu.duke.cs.osprey.tools.Streams;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
-public class Sequence implements Iterable<Sequence.Assignment> {
+
+public class Sequence {
 
 	public class Assignment {
 
-		private SimpleConfSpace.Position pos;
+		public final SeqSpace.Position pos;
 
-		public Assignment(SimpleConfSpace.Position pos) {
+		private Assignment(SeqSpace.Position pos) {
 			this.pos = pos;
 		}
 
 		/**
-		 * Get the position in the conformation space of this assignment.
-		 */
-		public SimpleConfSpace.Position getPos() {
-			return pos;
-		}
-
-		/**
-		 * Get the residue number of this assignment.
+		 * Get the residue number to which this assignment refers
 		 */
 		public String getResNum() {
 			return pos.resNum;
 		}
 
 		/**
-		 * Get the residue type of this assignment.
+		 * Get the residue type of this assignment, or null if none
 		 */
-		public String getResType() {
-			return resTypes[pos.index];
+		public SeqSpace.ResType getResType() {
+			return Sequence.this.get(pos);
 		}
 
 		/**
 		 * Set the residue type of this assignment.
 		 */
 		public void setResType(String resType) {
-			set(pos, resType);
+			Sequence.this.set(pos, resType);
 		}
 
 		/**
 		 * Get the residue type of the wild-type at the residue of this assignment.
 		 */
-		public String getWildType() {
-			return Sequence.this.getWildType(pos);
+		public SeqSpace.ResType getWildType() {
+			return pos.wildType;
 		}
 
 		/**
@@ -113,207 +106,110 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 		public boolean isMutated() {
 			return Sequence.this.isMutated(pos);
 		}
+	}
 
-		@Override
-		public String toString() {
-			return String.format("%s=%s", getResNum(), getResType());
+	public static final int Unassigned = -1;
+
+	public final SeqSpace seqSpace;
+
+	public final int[] rtIndices;
+
+	public Sequence(SeqSpace seqSpace) {
+		this.seqSpace = seqSpace;
+		rtIndices = new int[seqSpace.positions.size()];
+		Arrays.fill(rtIndices, Unassigned);
+	}
+
+	/**
+	 * Returns the list of residue numbers for this sequence.
+	 */
+	public List<String> resNums() {
+		return seqSpace.positions.stream()
+			.map(pos -> pos.resNum)
+			.collect(Collectors.toList());
+	}
+
+	private void checkPos(SeqSpace.Position pos) {
+		if (pos.seqSpace != seqSpace) {
+			throw new IllegalArgumentException("sequence position " + pos + " is not part of this sequence space");
+		}
+	}
+
+	private void checkRT(SeqSpace.Position pos, SeqSpace.ResType rt) {
+		if (rt.pos != pos) {
+			throw new IllegalArgumentException("res type " + rt + " is not part of sequence position " + pos);
 		}
 	}
 
 	/**
-	 * The conformation space associated with this sequence
+	 * Get the residue type at the specified residue by sequence position
 	 */
-	public final SimpleConfSpace confSpace;
-
-	public final String[] resTypes;
-
-	public String getAssignedResTypes(){
-		Stream<String> resTypeStream = Arrays.stream(resTypes).filter((aminoAcid) -> aminoAcid!=null);
-		String[] newArray = resTypeStream.toArray(String[]::new);
-		return String.join(" ", newArray);
-	}
-
-	/**
-	 * Make a sequence with no assignments.
-	 */
-	public static Sequence makeUnassigned(SimpleConfSpace confSpace) {
-		return new Sequence(confSpace);
-	}
-
-	/**
-	 * Make a sequence set to the wild-type residue types.
-	 */
-	public static Sequence makeWildType(SimpleConfSpace confSpace) {
-		return makeUnassigned(confSpace).fillWildType();
-	}
-
-	/**
-	 * Make a sequence from assignments to design positions
-	 */
-	public static Sequence makeFromAssignments(SimpleConfSpace confSpace, int[] assignments) {
-		Sequence sequence = makeUnassigned(confSpace);
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			sequence.set(pos, pos.resConfs.get(assignments[pos.index]).template.name);
+	public SeqSpace.ResType get(SeqSpace.Position pos) {
+		checkPos(pos);
+		int rt = rtIndices[pos.index];
+		if (rt == Unassigned) {
+			return null;
 		}
-		return sequence;
+		return pos.resTypes.get(rt);
 	}
 
 	/**
-	 * Make a sequence from a conformation
+	 * Get the residue type at the specified residue by residue number
 	 */
-	public static Sequence makeFromConf(SimpleConfSpace confSpace, ConfSearch.ScoredConf conf) {
-		return makeFromAssignments(confSpace, conf.getAssignments());
+	public SeqSpace.ResType get(String resNum) {
+		return get(seqSpace.getPositionOrThrow(resNum));
 	}
 
 	/**
-	 * Make a COMETs-style sequence String from a Sequence - either wildtype or some specific sequence (lowegard)
-	 */
-
-	public static String makeWildTypeEWAKStar(Sequence WT){
-		String seq = WT.toString();
-		String[] splitSeq = seq.split(" ");
-		String newSeq = "";
-		for (int i = 0; i<splitSeq.length; i++){
-			newSeq += splitSeq[i].split("=")[1]+"_";
-		}
-		return newSeq;
-	}
-
-	public static String makeEWAKStar(Sequence seq){
-		String ewakstar = "";
-		for(String res: seq.resTypes){
-			ewakstar += res+"_";
-		}
-		return ewakstar;
-	}
-
-	/**
-	 * Make a Sequence from a COMETs/TestEWAKStar sequence string (lowegard)
-	 */
-	public static Sequence makeFromEWAKStar(String seq, Sequence WT, SimpleConfSpace confSpace){
-		Sequence newSeq = new Sequence(WT);
-		List<SimpleConfSpace.Position> pos = confSpace.positions;
-		String[] fixedSeq = seq.split("_");
-		int i = 0;
-		for (SimpleConfSpace.Position p : pos ){
-			newSeq.set(p,fixedSeq[i]);
-			i++;
-		}
-
-		return newSeq;
-	}
-
-
-	private Sequence(SimpleConfSpace confSpace) {
-		this.confSpace = confSpace;
-		this.resTypes = new String[confSpace.positions.size()];
-		Arrays.fill(resTypes, null);
-	}
-
-	/**
-	 * Copy constructor.
-	 */
-	public Sequence(Sequence other) {
-		this.confSpace = other.confSpace;
-		this.resTypes = other.resTypes.clone();
-	}
-
-	/**
-	 * Create a new Sequence, changing only it's conformation space (lowegard)
-	 */
-
-	public Sequence(Sequence other, SimpleConfSpace scs) {
-		this.confSpace = scs;
-		this.resTypes = other.resTypes.clone();
-	}
-
-	/**
-	 * Get the residue type at the specified position.
-	 */
-	public String get(SimpleConfSpace.Position pos) {
-		return resTypes[pos.index];
-	}
-
-	/**
-	 * Get the residue type at the specified residue.
-	 */
-	public String get(String resNum) {
-		return get(confSpace.getPositionOrThrow(resNum));
-	}
-
-	/**
-	 * Set the residue type at the specified position.
+	 * Set the residue type at the specified sequence position.
 	 * @return this sequence, for method chaining
 	 */
-	public Sequence set(SimpleConfSpace.Position pos, String resType) {
-		resTypes[pos.index] = resType;
+	public Sequence set(SeqSpace.Position pos, SeqSpace.ResType rt) {
+		checkPos(pos);
+		checkRT(pos, rt);
+		rtIndices[pos.index] = rt.index;
 		return this;
 	}
 
 	/**
-	 * Set the residue type at the specified residue.
+	 * Set the residue type name at the specified residue number.
+	 * @return this sequence, for method chaining
+	 */
+	public Sequence set(SeqSpace.Position pos, String resType) {
+		checkPos(pos);
+		SeqSpace.ResType rt = pos.getResTypeOrThrow(resType);
+		rtIndices[pos.index] = rt.index;
+		return this;
+	}
+
+	/**
+	 * Set the residue type name at the specified residue number.
 	 * @return this sequence, for method chaining
 	 */
 	public Sequence set(String resNum, String resType) {
-		set(confSpace.getPositionOrThrow(resNum), resType);
+		SeqSpace.Position pos = seqSpace.getPositionOrThrow(resNum);
+		SeqSpace.ResType rt = pos.getResTypeOrThrow(resType);
+		rtIndices[pos.index] = rt.index;
 		return this;
-	}
-
-	private class AssignmentIterator implements Iterator<Assignment> {
-
-		private Iterator<SimpleConfSpace.Position> posIter;
-
-		public AssignmentIterator(Iterable<SimpleConfSpace.Position> positions) {
-			posIter = positions.iterator();
-		}
-
-		@Override
-		public boolean hasNext() {
-			return posIter.hasNext();
-		}
-
-		@Override
-		public Assignment next() {
-			return new Assignment(posIter.next());
-		}
-	}
-
-	public Iterator<Assignment> iterator() {
-		return iterator(confSpace.positions);
-	}
-
-	public Iterator<Assignment> iterator(Iterable<SimpleConfSpace.Position> positions) {
-		return new AssignmentIterator(positions);
-	}
-
-	public Stream<Assignment> stream() {
-		return stream(confSpace.positions);
-	}
-
-	public Stream<Assignment> stream(Iterable<SimpleConfSpace.Position> positions) {
-		return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iterator(positions), 0), false);
-	}
-
-	/**
-	 * Returns the residue type of the wild-type at the specified position
-	 */
-	public String getWildType(SimpleConfSpace.Position pos) {
-		return pos.resFlex.wildType;
 	}
 
 	/**
 	 * Returns the residue type of the wild-type at the specified residue
 	 */
-	public String getWildType(String resNum) {
-		return getWildType(confSpace.getPositionOrThrow(resNum));
+	public SeqSpace.ResType getWildType(String resNum) {
+		return seqSpace.getPositionOrThrow(resNum).wildType;
 	}
 
 	/**
-	 * Sets the residue type at the specified position to wild-type
+	 * Sets the residue type at the specified sequence position to wild-type
 	 * @return this sequence, for method chaining
 	 */
-	public Sequence setWildType(SimpleConfSpace.Position pos) {
-		set(pos, getWildType(pos));
+	public Sequence setWildType(SeqSpace.Position pos) {
+		checkPos(pos);
+		if (pos.wildType == null) {
+			throw new NoSuchElementException("sequence space does not contain the wild type at position " + pos);
+		}
+		rtIndices[pos.index] = pos.wildType.index;
 		return this;
 	}
 
@@ -322,115 +218,120 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 	 * @return this sequence, for method chaining
 	 */
 	public Sequence setWildType(String resNum) {
-		setWildType(confSpace.getPositionOrThrow(resNum));
+		SeqSpace.Position pos = seqSpace.getPositionOrThrow(resNum);
+		rtIndices[pos.index] = pos.wildType.index;
 		return this;
 	}
 
 	/**
-	 * Set all unassigned residues to the wild-type residue type.
+	 * Set all unassigned residues to the wild-type residue type, when the wild-type is part of the sequence space
 	 * @return this sequence, for method chaining
 	 */
 	public Sequence fillWildType() {
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			if (get(pos) == null) {
-				set(pos, getWildType(pos));
+		for (SeqSpace.Position pos : seqSpace.positions) {
+			if (pos.wildType != null && !isAssigned(pos)) {
+				setWildType(pos);
 			}
 		}
 		return this;
 	}
 
-	/**
-	 * Make a new sequence with the mutation at the specified position.
-	 */
-	public Sequence makeMutatedSequence(SimpleConfSpace.Position pos, String resType) {
-		return new Sequence(this)
-			.set(pos, resType);
+	public Iterable<Assignment> assignments() {
+		return () -> seqSpace.positions.stream()
+			.map(pos -> new Assignment(pos))
+			.iterator();
+	}
+
+	public Iterable<Assignment> assignments(Iterable<String> resNums) {
+		return () -> Streams.of(resNums)
+			.map(resNum -> new Assignment(seqSpace.getPositionOrThrow(resNum)))
+			.iterator();
 	}
 
 	/**
-	 * Make a new sequence with the mutation at the specified residue.
+	 * Makes an identical copy of this sequence.
 	 */
-	public Sequence makeMutatedSequence(String resNum, String resType) {
-		return makeMutatedSequence(confSpace.getPositionOrThrow(resNum), resType);
+	public Sequence copy() {
+		Sequence other = new Sequence(seqSpace);
+		for (SeqSpace.Position pos : seqSpace.positions) {
+			other.rtIndices[pos.index] = this.rtIndices[pos.index];
+		}
+		return other;
+	}
+
+	@Override
+	public String toString() {
+		return toString(Renderer.AssignmentMutations);
 	}
 
 	/**
-	 * Return true if the specified position is assigned.
+	 * Return true if the specified sequence position is assigned.
 	 */
-	public boolean isAssigned(SimpleConfSpace.Position pos) {
+	public boolean isAssigned(SeqSpace.Position pos) {
 		return get(pos) != null;
 	}
 
 	/**
-	 * Return true if the specified position is assigned.
+	 * Return true if the specified residue is assigned.
 	 */
 	public boolean isAssigned(String resNum) {
-		return isAssigned(confSpace.getPositionOrThrow(resNum));
+		return get(resNum) != null;
 	}
 
 	/**
 	 * Count the number of assigned residues.
 	 */
 	public int countAssignments() {
-		int count = 0;
-		for (String resType : resTypes) {
-			if (resType != null) {
-				count++;
-			}
-		}
-		return count;
+		return (int)resNums().stream()
+			.filter(resNum -> isAssigned(resNum))
+			.count();
 	}
 
 	/**
 	 * Return true if all residues are assigned, false if not.
 	 */
 	public boolean isFullyAssigned() {
-		for (String resType : resTypes) {
-			if (resType == null) {
-				return false;
-			}
-		}
-		return true;
+		return resNums().stream()
+			.allMatch(resNum -> isAssigned(resNum));
 	}
 
 	/**
-	 * Return true if the specified position is assigned, and the residue type matches the wild-type.
+	 * Return true if the specified sequence position is assigned, and the residue type matches the wild-type.
 	 */
-	public boolean isWildType(SimpleConfSpace.Position pos) {
-		return isAssigned(pos) && get(pos).equalsIgnoreCase(pos.resFlex.wildType);
+	public boolean isWildType(SeqSpace.Position pos) {
+		checkPos(pos);
+		SeqSpace.ResType resType = get(pos);
+		return resType != null && resType == pos.wildType;
 	}
 
 	/**
 	 * Return true if the specified residue is assigned, and the residue type matches the wild-type.
 	 */
 	public boolean isWildType(String resNum) {
-		return isWildType(confSpace.getPositionOrThrow(resNum));
+		return isWildType(seqSpace.getPositionOrThrow(resNum));
 	}
 
 	/**
 	 * Return true if the residue types of all residues match the wild-type.
 	 */
 	public boolean isWildType() {
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			if (!isWildType(pos)) {
-				return false;
-			}
-		}
-		return true;
+		return resNums().stream()
+			.allMatch(resNum -> isWildType(resNum));
 	}
 
 	/**
-	 * Return true if the specified position is assigned, and the residue type differs from the wild-type.
+	 * Return true if the specified seqeucence position is assigned, and the residue type differs from the wild-type.
 	 */
-	public boolean isMutated(SimpleConfSpace.Position pos) {
-		return isAssigned(pos) && !get(pos).equalsIgnoreCase(pos.resFlex.wildType);
+	public boolean isMutated(SeqSpace.Position pos) {
+		SeqSpace.ResType resType = get(pos);
+		return resType != null && resType != pos.wildType;
 	}
 
 	/**
 	 * Return true if the specified residue is assigned, and the residue type differs from the wild-type.
 	 */
 	public boolean isMutated(String resNum) {
-		return isMutated(confSpace.getPositionOrThrow(resNum));
+		return isMutated(seqSpace.getPositionOrThrow(resNum));
 	}
 
 	/**
@@ -438,43 +339,61 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 	 * Ignores unassigned residues.
 	 */
 	public int countMutations() {
-		int count = 0;
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			if (isMutated(pos)) {
-				count++;
-			}
-		}
-		return count;
+		return (int)resNums().stream()
+			.filter(resNum -> isMutated(resNum))
+			.count();
 	}
 
 	/**
-	 * Make a new sequence that is a subset of this sequence, using the positions in the specified conformation space.
-	 * The positions in the specified conformation space must exist in this sequence's conformation space.
+	 * Returns a new sequence containing the subset of mutable positions belonging to the smaller sequence space.
 	 */
-	public Sequence filter(SimpleConfSpace confSpace) {
-		Sequence subsequence = confSpace.makeUnassignedSequence();
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			subsequence.set(pos.resNum, this.get(pos.resNum));
+	public Sequence filter(SeqSpace smallerSeqSpace) {
+		Sequence seq = smallerSeqSpace.makeUnassignedSequence();
+		for (SeqSpace.Position smallerPos : smallerSeqSpace.positions) {
+			SeqSpace.Position biggerPos = seqSpace.getPositionOrThrow(smallerPos.resNum);
+			SeqSpace.ResType biggerRT = get(biggerPos);
+			if (biggerRT == null)
+				System.out.println("PROBLEM");
+			SeqSpace.ResType smallerRT = smallerPos.getResTypeOrThrow(biggerRT.name);
+			seq.set(smallerPos, smallerRT);
 		}
-		return subsequence;
+		return seq;
 	}
 
-	public RCs makeRCs() {
+	public RCs makeRCs(SimpleConfSpace confSpace) {
 		return new RCs(confSpace, (pos, resConf) -> {
 
+			// immutable pos? keep everything
+			if (!pos.hasMutations()) {
+				return true;
+			}
+
 			// no assignments? keep everything
-			if (!isAssigned(pos)) {
+			if (!isAssigned(pos.resNum)) {
 				return true;
 			}
 
 			// otherwise, only keep matching RCs
-			return get(pos).equals(resConf.template.name);
+			return get(pos.resNum).name.equals(resConf.template.name);
 		});
 	}
 
 	@Override
-	public String toString() {
-		return toString(Renderer.Assignment, null, confSpace.positions);
+	public int hashCode() {
+		return HashCalculator.combineHashes(
+			seqSpace.hashCode(),
+			Arrays.hashCode(rtIndices)
+		);
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		return other instanceof Sequence && equals((Sequence)other);
+	}
+
+	public boolean equals(Sequence other) {
+		return this.seqSpace == other.seqSpace
+			&& Arrays.equals(this.rtIndices, other.rtIndices);
 	}
 
 	public static enum Renderer {
@@ -495,7 +414,7 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 		ResType {
 			@Override
 			public String render(Sequence.Assignment assignment) {
-				return assignment.getResType();
+				return assignment.getResType().name;
 			}
 		},
 
@@ -505,11 +424,7 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 		ResTypeMutations {
 			@Override
 			public String render(Sequence.Assignment assignment) {
-				if (assignment.isMutated()) {
-					return assignment.getResType().toUpperCase();
-				} else {
-					return assignment.getResType().toLowerCase();
-				}
+				return assignment.getResType().mutationName();
 			}
 		},
 
@@ -538,23 +453,29 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 	}
 
 	public String toString(Renderer renderer) {
-		return toString(renderer, null, confSpace.positions);
+		return toString(renderer, null, resNums());
 	}
 
 	public String toString(Renderer renderer, int cellSize) {
-		return toString(renderer, cellSize, confSpace.positions);
+		return toString(renderer, cellSize, resNums());
 	}
 
 	/**
 	 * Render the sequence into a string.
 	 * @param renderer How to render each assignment.
 	 * @param cellSize Right pad each assignment to this amount, or null for no padding. Useful for horizontal alignment.
-	 * @param positions Render assignments in order of these positions.
+	 * @param resNums Render assignments in order of these residues.
 	 * @return A string representing the sequence.
 	 */
-	public String toString(Renderer renderer, Integer cellSize, List<SimpleConfSpace.Position> positions) {
-		return String.join(" ", stream(positions)
-			.map((assignment) -> {
+	public String toString(Renderer renderer, Integer cellSize, List<String> resNums) {
+
+		if (resNums.isEmpty()) {
+			return "(no mutable residues)";
+		}
+
+		return String.join(" ", Streams.of(assignments(resNums))
+			.filter(assignment -> assignment.isAssigned())
+			.map(assignment -> {
 
 				// run the assignment renderer
 				String rendered = renderer.render(assignment);
@@ -570,37 +491,15 @@ public class Sequence implements Iterable<Sequence.Assignment> {
 		);
 	}
 
-	public int getMaxResNumLength() {
-		return confSpace.positions.stream()
-			.map((pos) -> pos.resNum.length())
+	public int calcCellSize() {
+		return seqSpace.positions.stream()
+			.map(pos ->
+				Math.max(
+					pos.resNum.length(),
+					pos.resTypes.get(rtIndices[pos.index]).name.length()
+				)
+			)
 			.max(Integer::compare)
-			.get();
-	}
-
-	private String[] getResNums() {
-		return confSpace.positions.stream()
-			.map((pos) -> pos.resNum)
-			// apparently python doc tool 'javalang' can't parse this
-			//.toArray(String[]::new);
-			// so use old-fashioned way
-			.toArray((arraySize) -> new String[arraySize]);
-	}
-
-	@Override
-	public boolean equals(Object other) {
-		return other instanceof Sequence && equals((Sequence)other);
-	}
-
-	public boolean equals(Sequence other) {
-		return Arrays.equals(this.resTypes, other.resTypes)
-			&& Arrays.equals(this.getResNums(), other.getResNums());
-	}
-
-	@Override
-	public int hashCode() {
-		return HashCalculator.combineHashes(
-			Arrays.hashCode(resTypes),
-			Arrays.hashCode(getResNums())
-		);
+			.orElse(1);
 	}
 }

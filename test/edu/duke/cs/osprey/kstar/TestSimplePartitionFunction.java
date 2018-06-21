@@ -32,7 +32,7 @@
 
 package edu.duke.cs.osprey.kstar;
 
-import static edu.duke.cs.osprey.TestBase.fileForWriting;
+import static edu.duke.cs.osprey.TestBase.TempFile;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -169,9 +169,7 @@ public class TestSimplePartitionFunction {
 		info.mol = PDBIO.readFile("examples/2RL0.kstar/2RL0.min.reduce.pdb");
 
 		// make sure all strands share the same template library
-		info.templateLib = new ResidueTemplateLibrary.Builder(info.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(info.mol)
-			.build();
+		info.templateLib = new ResidueTemplateLibrary.Builder(info.ffparams.forcefld).build();
 
 		info.protein = new Strand.Builder(info.mol)
 			.setTemplateLibrary(info.templateLib)
@@ -282,9 +280,7 @@ public class TestSimplePartitionFunction {
 		info.mol = PDBIO.readFile("test-resources/1gua_adj.min.pdb");
 
 		// make sure all strands share the same template library
-		info.templateLib = new ResidueTemplateLibrary.Builder(info.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(info.mol)
-			.build();
+		info.templateLib = new ResidueTemplateLibrary.Builder(info.ffparams.forcefld).build();
 
 		info.protein = new Strand.Builder(info.mol)
 			.setTemplateLibrary(info.templateLib)
@@ -357,7 +353,7 @@ public class TestSimplePartitionFunction {
 
 	public void calcWithConfDB(PfuncFactory pfuncs) {
 
-		fileForWriting("pfunc.conf.db", (confdbFile) -> {
+		try (TempFile confdbFile = new TempFile("pfunc.conf.db")) {
 
 			TestInfo info = make2RL0TestInfo();
 			SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
@@ -370,28 +366,28 @@ public class TestSimplePartitionFunction {
 
 			// calc the pfunc with an empty db
 			PartitionFunction pfunc = calcPfunc(new ForcefieldParams(), confSpace, parallelism, targetEpsilon, emat, pfuncs, (p) -> {
-				new ConfDB(confSpace, confdbFile).use((confdb) -> {
+				try (ConfDB confdb = new ConfDB(confSpace, confdbFile)) {
 					((PartitionFunction.WithConfTable)p).setConfTable(confdb.new ConfTable("test"));
 					p.compute();
-				});
+				}
 			});
 			assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
 
 			// the db should have stuff in it
 			assertThat(confdbFile.exists(), is(true));
-			new ConfDB(confSpace, confdbFile).use((confdb) -> {
+			try (ConfDB confdb = new ConfDB(confSpace, confdbFile)) {
 				assertThat(confdb.new ConfTable("test").size(), greaterThan(0L));
-			});
+			}
 
 			// calc the pfunc with a full db
 			pfunc = calcPfunc(new ForcefieldParams(), confSpace, parallelism, targetEpsilon, emat, pfuncs, (p) -> {
-				new ConfDB(confSpace, confdbFile).use((confdb) -> {
+				try (ConfDB confdb = new ConfDB(confSpace, confdbFile)) {
 					((PartitionFunction.WithConfTable)p).setConfTable(confdb.new ConfTable("test"));
 					p.compute();
-				});
+				}
 			});
 			assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
-		});
+		}
 	}
 	@Test public void calcWithConfDBGD() { calcWithConfDB(gdPfuncs); }
 

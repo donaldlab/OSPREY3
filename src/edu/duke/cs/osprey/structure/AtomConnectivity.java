@@ -90,6 +90,7 @@ public class AtomConnectivity {
 
 		public Builder addTemplates(ResidueTemplateLibrary val) {
 			addTemplates(val.templates);
+			addTemplates(val.wildTypeTemplates.values());
 			return this;
 		}
 

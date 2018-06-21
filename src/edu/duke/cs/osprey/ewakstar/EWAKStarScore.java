@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.ewakstar;
 
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
@@ -32,7 +31,7 @@ public class EWAKStarScore {
 		this.upperBound = upperBound;
 	}
 
-	public EWAKStarScore(EWAKStarPartitionFunction.Result protein, EWAKStarPartitionFunction.Result ligand, EWAKStarPartitionFunction.Result complex) {
+	public EWAKStarScore(EWAKStarGradientDescentPfunc.Result protein, EWAKStarGradientDescentPfunc.Result ligand, EWAKStarGradientDescentPfunc.Result complex) {
 
 		this.protein = protein;
 		this.ligand = ligand;
@@ -40,15 +39,21 @@ public class EWAKStarScore {
 
 		// calculate the K* score
 		// or don't. I'm not the boss of you
-		if (protein.status == EWAKStarPartitionFunction.Status.Estimated
-				&& ligand.status == EWAKStarPartitionFunction.Status.Estimated
-				&& complex.status == EWAKStarPartitionFunction.Status.Estimated) {
+		if (protein.status == EWAKStarPartitionFunction.Status.ConfLimitReached
+				&& ligand.status == EWAKStarPartitionFunction.Status.ConfLimitReached
+				&& complex.status == EWAKStarPartitionFunction.Status.ConfLimitReached ||
+				protein.status == EWAKStarPartitionFunction.Status.EpsilonReached
+						&& ligand.status == EWAKStarPartitionFunction.Status.EpsilonReached
+						&& complex.status == EWAKStarPartitionFunction.Status.EpsilonReached ||
+				protein.status == EWAKStarPartitionFunction.Status.EnergyReached
+						&& ligand.status == EWAKStarPartitionFunction.Status.EnergyReached
+						&& complex.status == EWAKStarPartitionFunction.Status.EnergyReached) {
 
 			BigDecimal x = MathTools.bigDivideDivide(
 				complex.values.qstar,
 				protein.values.qstar,
 				ligand.values.qstar,
-				PartitionFunction.decimalPrecision
+				EWAKStarGradientDescentPfunc.decimalPrecision
 			);
 			if (MathTools.isNaN(x)) {
 				this.score = null;
@@ -67,7 +72,7 @@ public class EWAKStarScore {
 			complex.values.calcLowerBound(),
 			protein.values.calcUpperBound(),
 			ligand.values.calcUpperBound(),
-			PartitionFunction.decimalPrecision
+			EWAKStarGradientDescentPfunc.decimalPrecision
 		);
 
 		// calc the upper bound
@@ -75,25 +80,25 @@ public class EWAKStarScore {
 			complex.values.calcUpperBound(),
 			protein.values.calcLowerBound(),
 			ligand.values.calcLowerBound(),
-			PartitionFunction.decimalPrecision
+			EWAKStarGradientDescentPfunc.decimalPrecision
 		);
 	}
 
-	public static boolean isLigandComplexUseful(PartitionFunction.Result protein) {
+	public static boolean isLigandComplexUseful(EWAKStarGradientDescentPfunc.Result protein) {
 
 		// assuming we compute pfuncs in order of: protein, ligand, complex:
 		// unbound stability is the only thing that would
 		// make the ligand or complex pfunc results useless at this point
-		return protein.status != PartitionFunction.Status.Unstable;
+		return protein.status != EWAKStarGradientDescentPfunc.Status.Unstable;
 	}
 
-	public static boolean isComplexUseful(PartitionFunction.Result protein, PartitionFunction.Result ligand) {
+	public static boolean isComplexUseful(EWAKStarGradientDescentPfunc.Result protein, EWAKStarGradientDescentPfunc.Result ligand) {
 
 		// assuming we compute pfuncs in order of: protein, ligand, complex:
 		// unbound stability is the only thing that would
 		// make the complex pfunc results useless at this point
-		return protein.status != PartitionFunction.Status.Unstable
-			&& ligand.status != PartitionFunction.Status.Unstable;
+		return protein.status != EWAKStarGradientDescentPfunc.Status.Unstable
+			&& ligand.status != EWAKStarGradientDescentPfunc.Status.Unstable;
 	}
 
 	@Override
@@ -124,9 +129,9 @@ public class EWAKStarScore {
 	}
 
 	public boolean isSimilarTo(EWAKStarScore other, double relativeEpsilon) {
-		return MathTools.isRelativelySame(this.score, other.score, PartitionFunction.decimalPrecision, relativeEpsilon)
-			&& MathTools.isRelativelySame(this.lowerBound, other.lowerBound, PartitionFunction.decimalPrecision, relativeEpsilon)
-			&& MathTools.isRelativelySame(this.upperBound, other.upperBound, PartitionFunction.decimalPrecision, relativeEpsilon);
+		return MathTools.isRelativelySame(this.score, other.score, EWAKStarGradientDescentPfunc.decimalPrecision, relativeEpsilon)
+			&& MathTools.isRelativelySame(this.lowerBound, other.lowerBound, EWAKStarGradientDescentPfunc.decimalPrecision, relativeEpsilon)
+			&& MathTools.isRelativelySame(this.upperBound, other.upperBound, EWAKStarGradientDescentPfunc.decimalPrecision, relativeEpsilon);
 	}
 
 	public Double scoreLog10() { return scoreToLog10(score); }

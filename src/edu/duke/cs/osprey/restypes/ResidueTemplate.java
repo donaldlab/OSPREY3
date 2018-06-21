@@ -135,7 +135,7 @@ public class ResidueTemplate implements Serializable {
         //initializes only with info from a template file, +interResBonding (and CAEquivalent if want to mutate)
         //res won't even have coordinates yet
         templateRes = res;
-        this.name = name;
+        this.name = name; // TODO: should we force this to be upper case?
         this.CAEquivalent = CAEquivalent;
         interResBonding = templ;
     }

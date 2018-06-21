@@ -461,13 +461,18 @@ public class TestBase {
 		return search;
 	}
 
-	public static void fileForWriting(String filename, Consumer<File> block) {
-		File file = new File(filename);
-		file.delete();
-		try {
-			block.accept(file);
-		} finally {
-			file.delete();
+	/**
+	 * a File subclass that automatically deletes itself when finished
+	 */
+	public static class TempFile extends File implements AutoCloseable {
+
+		public TempFile(String filename) {
+			super(filename);
+		}
+
+		@Override
+		public void close() {
+			delete();
 		}
 	}
 }

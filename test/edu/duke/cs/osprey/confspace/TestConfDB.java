@@ -49,8 +49,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.File;
-import java.lang.reflect.Array;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.function.Consumer;
 
@@ -60,9 +58,9 @@ public class TestConfDB {
 
 	private static File file = new File("conf.db");
 
-	private static SimpleConfSpace.Position lys5;
-	private static SimpleConfSpace.Position tyr7;
-	private static SimpleConfSpace.Position phe9;
+	private static SeqSpace.Position lys5;
+	private static SeqSpace.Position tyr7;
+	private static SeqSpace.Position phe9;
 
 	@BeforeClass
 	public static void beforeClass() {
@@ -76,13 +74,13 @@ public class TestConfDB {
 			.addStrand(strand)
 			.build();
 
-		lys5 = confSpace.getPositionOrThrow("A5");
-		tyr7 = confSpace.getPositionOrThrow("A7");
-		phe9 = confSpace.getPositionOrThrow("A9");
+		lys5 = confSpace.seqSpace.getPositionOrThrow("A5");
+		tyr7 = confSpace.seqSpace.getPositionOrThrow("A7");
+		phe9 = confSpace.seqSpace.getPositionOrThrow("A9");
 
-		assertThat(lys5.resFlex.wildType, is("LYS"));
-		assertThat(tyr7.resFlex.wildType, is("TYR"));
-		assertThat(phe9.resFlex.wildType, is("PHE"));
+		assertThat(lys5.wildType.name, is("LYS"));
+		assertThat(tyr7.wildType.name, is("TYR"));
+		assertThat(phe9.wildType.name, is("PHE"));
 	}
 
 	private ConfDB openDB() {

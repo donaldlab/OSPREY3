@@ -626,6 +626,11 @@ public class MathTools {
 			public boolean isBetter(long newval, long oldval) {
 				return newval < oldval;
 			}
+
+			@Override
+			public Optimizer reverse() {
+				return Maximize;
+			}
 		},
 
 		Maximize {
@@ -689,6 +694,11 @@ public class MathTools {
 			public boolean isBetter(long newval, long oldval) {
 				return newval > oldval;
 			}
+
+			@Override
+			public Optimizer reverse() {
+				return Minimize;
+			}
 		};
 
 		public abstract float initFloat();
@@ -705,5 +715,55 @@ public class MathTools {
 		public abstract boolean isBetter(double newval, double oldval);
 		public abstract boolean isBetter(int newval, int oldval);
 		public abstract boolean isBetter(long newval, long oldval);
+
+		public abstract Optimizer reverse();
+	}
+
+
+	public static class DoubleBounds {
+
+		public double lower;
+		public double upper;
+
+		public DoubleBounds() {
+			this(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
+		}
+
+		public DoubleBounds(double lower, double upper) {
+			this.lower = lower;
+			this.upper = upper;
+		}
+
+		@Override
+		public int hashCode() {
+			return HashCalculator.combineHashes(
+				Double.hashCode(lower),
+				Double.hashCode(upper)
+			);
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			return other instanceof DoubleBounds && equals((DoubleBounds)other);
+		}
+
+		public boolean equals(DoubleBounds other) {
+			return this.lower == other.lower
+				&& this.upper == other.upper;
+		}
+
+		@Override
+		public String toString() {
+			return toString(null, null);
+		}
+
+		public String toString(int precision) {
+			return toString(precision, null);
+		}
+
+		public String toString(Integer precision, Integer width) {
+			String spec = "%" + (width != null ? width : "") + (precision != null ? "." + precision : "") + "f";
+			return String.format("[" + spec + "," + spec + "]", lower, upper);
+		}
 	}
 }

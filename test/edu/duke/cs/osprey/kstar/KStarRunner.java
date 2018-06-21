@@ -188,7 +188,7 @@ public class KStarRunner {
 			for (String assignment : line.substring(21, sequenceEnd).split(" ")) {
 				String parts2[] = assignment.split("=");
 				SimpleConfSpace.Position pos = complexConfSpace.getPositionOrThrow(parts2[0]);
-				entry.sequence.set(pos, parts2[1]);
+				entry.sequence.set(pos.resNum, parts2[1]);
 			}
 
 			// read the pfuncs

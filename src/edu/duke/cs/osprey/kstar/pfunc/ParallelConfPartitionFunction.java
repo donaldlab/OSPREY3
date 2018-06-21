@@ -47,6 +47,13 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.JvmMem;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
+/**
+ * Deprecated, use GradientDescentPfunc instead
+ *
+ * This code is longer tested or regularly used, so it may
+ * no longer work correctly. Use only with extreme skepticism.
+ */
+@Deprecated
 public class ParallelConfPartitionFunction implements PartitionFunction {
 	
     protected EnergyMatrix emat;

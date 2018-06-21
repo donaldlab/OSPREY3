@@ -32,7 +32,7 @@
 
 package edu.duke.cs.osprey.kstar;
 
-import static edu.duke.cs.osprey.TestBase.fileForWriting;
+import static edu.duke.cs.osprey.TestBase.TempFile;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -47,6 +47,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
+import java.io.File;
 import java.util.List;
 
 
@@ -57,7 +58,7 @@ public class TestBBKStar {
 		public List<KStar.ScoredSequence> sequences;
 	}
 
-	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern) {
+	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
 
@@ -80,9 +81,8 @@ public class TestBBKStar {
 			KStar.Settings kstarSettings = new KStar.Settings.Builder()
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
-				.setMaxSimultaneousMutations(1)
+				.setMaxSimultaneousMutations(maxSimultaneousMutations)
 				.addScoreConsoleWriter(testFormatter)
-				.setConfDBPattern(confdbPattern)
 				.build();
 			BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
 				.setNumBestSequences(numSequences)
@@ -121,6 +121,11 @@ public class TestBBKStar {
 					new ConfAStarTree.Builder(ematRigid, rcs)
 						.setTraditional()
 						.build();
+
+				// add the ConfDB file if needed
+				if (confdbPattern != null) {
+					info.confDBFile = new File(confdbPattern.replace("*", info.type.name().toLowerCase()));
+				}
 			}
 
 			// run BBK*
@@ -137,7 +142,7 @@ public class TestBBKStar {
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 		final double epsilon = 0.99;
 		final int numSequences = 25;
-		Results results = runBBKStar(confSpaces, numSequences, epsilon, null);
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
 
 		assert2RL0(results, numSequences);
 	}
@@ -181,15 +186,15 @@ public class TestBBKStar {
 		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
 		final double epsilon = 0.999999;
 		final int numSequences = 6;
-		Results results = runBBKStar(confSpaces, numSequences, epsilon, null);
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
 
 		// K* bounds collected with e = 0.1 from original K* algo
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS ARG", 17.522258,17.636342);
-		assertSequence(results, "ILE ILE GLN HID VAL TYR LYS VAL", 16.939674,17.014507);
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS HIE", 16.833695,16.930972);
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS HID", 16.659839,16.738627);
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS LYS", 16.571112,16.683562);
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS VAL", 16.474293,16.552681);
+		assertSequence(results, "HIE ARG", 17.522258,17.636342);
+		assertSequence(results, "HID VAL", 16.939674,17.014507);
+		assertSequence(results, "HIE HIE", 16.833695,16.930972);
+		assertSequence(results, "HIE HID", 16.659839,16.738627);
+		assertSequence(results, "HIE LYS", 16.571112,16.683562);
+		assertSequence(results, "HIE VAL", 16.474293,16.552681);
 
 		assertThat(results.sequences.size(), is(numSequences));
 		assertDecreasingUpperBounds(results.sequences);
@@ -203,38 +208,38 @@ public class TestBBKStar {
 		final int numSequences = 25;
 		final String confdbPattern = "bbkstar.*.conf.db";
 
-		fileForWriting("bbkstar.protein.conf.db", (proteinDBFile) -> {
-			fileForWriting("bbkstar.ligand.conf.db", (ligandDBFile) -> {
-				fileForWriting("bbkstar.complex.conf.db", (complexDBFile) -> {
+		try (TempFile proteinDBFile = new TempFile("bbkstar.protein.conf.db")) {
+			try (TempFile ligandDBFile = new TempFile("bbkstar.ligand.conf.db")) {
+				try (TempFile complexDBFile = new TempFile("bbkstar.complex.conf.db")) {
 
 					// run with empty dbs
 					Stopwatch sw = new Stopwatch().start();
-					Results results = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern);
+					Results results = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern, 1);
 					assert2RL0(results, numSequences);
 					System.out.println(sw.getTime(2));
 
 					// the dbs should have stuff in them
 
-					new ConfDB(confSpaces.protein, proteinDBFile).use((confdb) -> {
+					try (ConfDB confdb = new ConfDB(confSpaces.protein, proteinDBFile)) {
 						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
-					new ConfDB(confSpaces.ligand, ligandDBFile).use((confdb) -> {
+					try (ConfDB confdb = new ConfDB(confSpaces.ligand, ligandDBFile)) {
 						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
-					new ConfDB(confSpaces.complex, complexDBFile).use((confdb) -> {
+					try (ConfDB confdb = new ConfDB(confSpaces.complex, complexDBFile)) {
 						assertThat(confdb.getNumSequences(), is((long)results.sequences.size()));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
 					assertThat(proteinDBFile.exists(), is(true));
 					assertThat(ligandDBFile.exists(), is(true));
@@ -242,12 +247,37 @@ public class TestBBKStar {
 
 					// run again with full dbs
 					sw = new Stopwatch().start();
-					Results results2 = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern);
+					Results results2 = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern, 1);
 					assert2RL0(results2, numSequences);
 					System.out.println(sw.getTime(2));
-				});
-			});
-		});
+				}
+			}
+		}
+	}
+
+	@Test
+	public void only2RL0OneMutant() {
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0OnlyOneMutant();
+		final double epsilon = 0.99;
+		final int numSequences = 1;
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
+
+		assertThat(results.sequences.size(), is(1));
+		assertThat(results.sequences.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("A193=VAL"));
+	}
+
+	@Test
+	public void only2RL0SpaceWithoutWildType() {
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0SpaceWithoutWildType();
+		final double epsilon = 0.99;
+		final int numSequences = 2;
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 2);
+
+		assertThat(results.sequences.size(), is(2));
+		assertThat(results.sequences.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=thr A193=VAL"));
+		assertThat(results.sequences.get(1).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=VAL A193=VAL"));
 	}
 
 	private void assertSequence(Results results, String sequence, Double estKStarLowerLog10, Double estKStarUpperLog10) {

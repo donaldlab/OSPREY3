@@ -1,26 +1,18 @@
 package edu.duke.cs.osprey.ewakstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.ewakstar.EWAKStarLimitedSequenceTrie;
-import edu.duke.cs.osprey.confspace.ConfDB;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.UpperBoundCalculator;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.*;
-import java.util.function.Function;
 
 /** Adapted from BBKStar.java by lowegard **/
 
@@ -32,59 +24,90 @@ public class EWAKStarBBKStar {
 
         public static class Builder {
 
-            /**
-             * The number of best (by K* score) sequences to evaluate before finishing
-             */
-            private EWAKStarLimitedSequenceTrie allowedSeqs;
+            /** The number of best (by K* score) sequences to evaluate before finishing */
+            private int numBestSequences = 1;
+            private EwakstarLimitedSequenceTrie allowedSeqs;
 
-            public Builder setAllowedSeqs(EWAKStarLimitedSequenceTrie seqs) {
+            /**
+             * The number of conformations to evaluate per batch of partition function refinement
+             *
+             * For best results, make this a multiple of the available parallelism. e.g., if using 4 threads,
+             * try a batch size of 4, 8, 12, 16, etc.
+             */
+            private int numConfsPerBatch = 8;
+
+            public Builder setAllowedSeqs(EwakstarLimitedSequenceTrie seqs) {
                 allowedSeqs = seqs;
                 return this;
             }
 
-            public EWAKStarBBKStar.Settings build() {
-                return new EWAKStarBBKStar.Settings(allowedSeqs);
+            public Builder setNumConfsPerBatch(int val) {
+                numConfsPerBatch = val;
+                return this;
+            }
+
+            public Builder setNumBestSequences(int val){
+                numBestSequences = val;
+                return this;
+            }
+
+
+            public Settings build() {
+                return new Settings(allowedSeqs, numBestSequences, numConfsPerBatch);
             }
         }
 
-        public final EWAKStarLimitedSequenceTrie allowedSeqs;
+        public final EwakstarLimitedSequenceTrie allowedSeqs;
+        public final int numBestSequences;
+        public final int numConfsPerBatch;
 
-        public Settings(EWAKStarLimitedSequenceTrie seqs) {
+        public Settings(EwakstarLimitedSequenceTrie seqs, int numBestSequences, int numConfsPerBatch) {
+
+            this.numBestSequences = numBestSequences;
+            this.numConfsPerBatch = numConfsPerBatch;
             this.allowedSeqs = seqs;
         }
     }
 
     public class ConfSpaceInfo {
 
-        public final KStar.ConfSpaceType type;
         public final SimpleConfSpace confSpace;
-        public final ConfEnergyCalculator minimizingConfEcalc;
-        public final ConfEnergyCalculator rigidConfEcalc;
+        public final EWAKStar.ConfSpaceType type;
+        public final String id;
 
-        public EnergyMatrix rigidNegatedEmat = null;
-        public final EnergyMatrix emat;
+        /** A ConfEnergyCalculator that computes minimized energies */
+        public ConfEnergyCalculator confEcalcMinimized = null;
 
-        public ConfSpaceInfo(KStar.ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator minimizingConfEcalc, ConfEnergyCalculator rigidConfECalc, EnergyMatrix emat) {
-            this.type = type;
+        /** A ConfSearch that minimizes over conformation scores from minimized tuples */
+        public KStar.ConfSearchFactory confSearchFactoryMinimized = null;
+
+        /** A ConfSearch that maximizes over conformation scores from rigid tuples */
+        public KStar.ConfSearchFactory confSearchFactoryRigid = null;
+
+        public File confDBFile = null;
+
+        private BigDecimal stabilityThreshold = null;
+
+        public ConfSpaceInfo(SimpleConfSpace confSpace, EWAKStar.ConfSpaceType type) {
             this.confSpace = confSpace;
-            this.minimizingConfEcalc = minimizingConfEcalc;
-            this.emat = emat;
-            this.rigidConfEcalc = rigidConfECalc;
+            this.type = type;
+            this.id = type.name().toLowerCase();
         }
 
-        public void calcEmatsIfNeeded() {
-            if (rigidNegatedEmat == null) {
-                SimplerEnergyMatrixCalculator.Builder builder = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc);
-                if (kstarSettings.energyMatrixCachePattern != null) {
-                    builder.setCacheFile(new File(kstarSettings.applyEnergyMatrixCachePattern(type.name().toLowerCase() + ".rigidNegated")));
-                }
-                rigidNegatedEmat = builder.build().calcEnergyMatrix();
-
-                // negate the rigid energy matrix, so we can convince A* to return scores
-                // in descending order instead of ascending order
-                // (of course, we'll have to negate the scores returned by A* too)
-                rigidNegatedEmat.negate();
+        private void check() {
+            if (confEcalcMinimized == null) {
+                throw new EWAKStar.InitException(type, "confEcalcMinimized");
             }
+            if (confSearchFactoryMinimized == null) {
+                throw new EWAKStar.InitException(type, "confSearchFactoryMinimized");
+            }
+            if (confSearchFactoryRigid == null) {
+                throw new EWAKStar.InitException(type, "confSearchFactoryRigid");
+            }
+        }
+
+        public void setConfDBFile(String path) {
+            confDBFile = new File(path);
         }
     }
 
@@ -94,20 +117,21 @@ public class EWAKStarBBKStar {
         public ConfDB complex = null;
     }
 
+    private static interface DBsUser {
+        void use(ConfDBs confdbs);
+    }
+
     public static enum PfuncsStatus {
         Estimating,
         Estimated,
         Blocked
     }
 
-    private abstract class Node implements Comparable<EWAKStarBBKStar.Node> {
+    private abstract class Node implements Comparable<Node> {
 
         public final Sequence sequence;
-        public final Sequence proteinSequence;
-        public final Sequence ligandSequence;
-        public final EWAKStarBBKStar.ConfDBs confdbs;
-        public final boolean isWTSeq;
-        public int numCurSeqs = 0;
+        public final ConfDB.DBs confDBs;
+        public boolean isWTSeq = false;
 
         /** for comparing in the tree, higher is first */
         public double score;
@@ -115,24 +139,17 @@ public class EWAKStarBBKStar {
         /** signals whether or not partition function values are allowed the stability threshold */
         public boolean isUnboundUnstable;
 
-        protected Node(Sequence sequence, EWAKStarBBKStar.ConfDBs confdbs) {
-
-            if(sequence.isFullyAssigned()){
-                numCurSeqs++;
+        protected Node(Sequence sequence, ConfDB.DBs confDBs) {
+            if (sequence.isWildType()){
+                this.isWTSeq = true;
             }
             this.sequence = sequence;
-            this.isWTSeq = sequence.toString().equals(EWAKStarBBKStar.this.complex.confSpace.makeWildTypeSequence().toString());
-            this.confdbs = confdbs;
-
-            // split complex sequence into protein/ligand sequences
-            proteinSequence = sequence.filter(EWAKStarBBKStar.this.protein.confSpace);
-            ligandSequence = sequence.filter(EWAKStarBBKStar.this.ligand.confSpace);
-
+            this.confDBs = confDBs;
             this.score = 0;
         }
 
         @Override
-        public int compareTo(EWAKStarBBKStar.Node other) {
+        public int compareTo(Node other) {
             // negate for descending sort
             return -Double.compare(this.score, other.score);
         }
@@ -140,61 +157,75 @@ public class EWAKStarBBKStar {
         public abstract void estimateScore();
     }
 
-    public class MultiSequenceNode extends EWAKStarBBKStar.Node {
+    public class MultiSequenceNode extends Node {
 
-        public MultiSequenceNode(Sequence sequence, EWAKStarBBKStar.ConfDBs confdbs) {
+        public MultiSequenceNode(Sequence sequence, ConfDB.DBs confdbs) {
             super(sequence, confdbs);
         }
 
-        public List<EWAKStarBBKStar.Node> makeChildren() {
+        public List<Node> makeChildren() {
 
-            List<EWAKStarBBKStar.Node> children = new ArrayList<>();
+            List<Node> children = new ArrayList<>();
 
             // pick the next design position
             // TODO: dynamic A*?
-            List<SimpleConfSpace.Position> positions = complex.confSpace.positions;
-            SimpleConfSpace.Position assignPos = positions.stream()
-                    .filter((pos) -> !sequence.isAssigned(pos))
+            List<SeqSpace.Position> positions = complex.confSpace.seqSpace.positions;
+            SeqSpace.Position assignPos = positions.stream()
+                    .filter((pos) -> !sequence.isAssigned(pos.resNum))
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException("no design positions left to choose"));
 
-            // get the possible assignments// get the possible assignments
-            //only allow sub-sequences that exist in our limited sequence space
+            // get the possible assignments
+            //Set<SeqSpace.ResType> resTypes;
             Set<String> resTypes;
 
-            if(assignPos.index == 0 || assignPos.resFlex.resTypes.size() == 1)
-                resTypes = new HashSet<>(assignPos.resFlex.resTypes);
+            if(assignPos.index == 0 || assignPos.resTypes.size() == 1)
+                resTypes = new HashSet<>(getResTypeList(assignPos.resTypes));
             else {
                 resTypes = filterOnPreviousSeqs();
             }
+
             // for each assignment...
             for (String resType : resTypes) {
 
                 // update the sequence with this assignment
-                Sequence s = sequence.makeMutatedSequence(assignPos, resType);
+                Sequence s = sequence.copy().set(assignPos, resType);
 
                 if (s.isFullyAssigned()) {
                     // fully assigned, make single sequence node
 
-                    children.add(new SingleSequenceNode(s, confdbs));
+                    children.add(new SingleSequenceNode(s, confDBs));
 
-                } else if (kstarSettings.useExact && s.countMutations() == kstarSettings.maxSimultaneousMutations) {
+                } else if (kstarSettings.useExact && s.countMutations() == kstarSettings.numMutations) {
                     // mutation limit reached, fill unassigned positions with wild-type
                     s.fillWildType();
-                    children.add(new EWAKStarBBKStar.SingleSequenceNode(s, confdbs));
+                    children.add(new SingleSequenceNode(s, confDBs));
+                } else if (s.countMutations() == kstarSettings.numMutations){
+                    s.fillWildType();
+                    children.add(new SingleSequenceNode(s, confDBs));
                 } else {
                     // still partial sequence, make multi-sequence node
-                    children.add(new EWAKStarBBKStar.MultiSequenceNode(s, confdbs));
+                    children.add(new MultiSequenceNode(s,confDBs));
                 }
             }
 
             return children;
         }
 
+        private Set<String> getResTypeList(List<SeqSpace.ResType> resTypes){
+
+            Set<String> resTypeList = new HashSet<>();
+            for(SeqSpace.ResType r: resTypes){
+                resTypeList.add(r.name);
+            }
+
+            return resTypeList;
+        }
+
         private Set<String> filterOnPreviousSeqs(){
 
-            String subSeq = sequence.getAssignedResTypes();
-            Set<String> resTypes = bbkstarSettings.allowedSeqs.getSeq(subSeq);
+            String subSeq = sequence.toString();
+            Set<String> resTypes = new HashSet<>(bbkstarSettings.allowedSeqs.getSeq(subSeq));
             return resTypes;
         }
 
@@ -207,7 +238,7 @@ public class EWAKStarBBKStar {
             final int numConfs = 1000;
 
 
-            BigDecimal proteinLowerBound = calcLowerBound(protein, proteinSequence, numConfs);
+            BigDecimal proteinLowerBound = calcLowerBound(protein, sequence, numConfs);
 
             // if the first few conf upper bound scores (for the pfunc lower bound) are too high,
             // then the K* upper bound is also too high
@@ -217,7 +248,7 @@ public class EWAKStarBBKStar {
                 return;
             }
 
-            BigDecimal ligandLowerBound = calcLowerBound(ligand, ligandSequence, numConfs);
+            BigDecimal ligandLowerBound = calcLowerBound(ligand, sequence, numConfs);
 
             // if the first few conf upper bound scores (for the pfunc lower bound) are too high,
             // then the K* upper bound is also too high
@@ -234,55 +265,42 @@ public class EWAKStarBBKStar {
                     complexUpperBound,
                     proteinLowerBound,
                     ligandLowerBound,
-                    EWAKStarPartitionFunction.decimalPrecision
+                    PartitionFunction.decimalPrecision
             ).doubleValue();
             isUnboundUnstable = false;
         }
 
-        private BigDecimal calcLowerBound(EWAKStarBBKStar.ConfSpaceInfo info, Sequence sequence, int numConfs) {
+        private BigDecimal calcLowerBound(ConfSpaceInfo info, Sequence sequence, int numConfs) {
 
-            // to compute lower bounds on pfuncs, we'll use the upper bound calculator,
-            // but feed it upper-bound scores in order of greatest upper bound
-            // instead of the usual lower-bound scores in order of smallest lower bound
-            // which means we need to feed A* with a rigid, negated energy matrix
-            // and then negate all the scores returned by A*
-            Function<ConfSearch,ConfSearch> astarNegater = (confSearch) -> new ConfSearch() {
-                @Override
-                public ScoredConf nextConf() {
-                    ScoredConf conf = confSearch.nextConf();
-                    conf.setScore(-conf.getScore());
-                    return conf;
+            // to compute lower bounds on pfuncs, we'll do the usual lower bound calculation,
+            // but use rigid energies instead of minimized energies
+
+            RCs rcs = sequence.makeRCs(info.confSpace);
+            ConfSearch astar = info.confSearchFactoryRigid.make(rcs);
+            BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
+            BigMath m = new BigMath(PartitionFunction.decimalPrecision)
+                    .set(0.0);
+            for (int i=0; i<numConfs; i++) {
+                ConfSearch.ScoredConf conf = astar.nextConf();
+                if (conf == null) {
+                    break;
                 }
 
-                @Override
-                public BigInteger getNumConformations() {
-                    return confSearch.getNumConformations();
-                }
-
-                @Override
-                public List<ScoredConf> nextConfs(double maxEnergy) {
-                    throw new UnsupportedOperationException("some lazy programmer didn't implement this =P");
-                }
-            };
-
-            RCs rcs = sequence.makeRCs();
-            UpperBoundCalculator calc = new UpperBoundCalculator(
-				astarNegater.apply(confSearchFactory.make(info.rigidNegatedEmat, rcs)),
-				rcs.getNumConformations()
-            );
-            calc.run(numConfs);
-            return calc.totalBound;
+                m.add(bcalc.calc(conf.getScore()));
+            }
+            return m.get();
         }
 
-        private BigDecimal calcUpperBound(EWAKStarBBKStar.ConfSpaceInfo info, Sequence sequence, int numConfs) {
+        private BigDecimal calcUpperBound(ConfSpaceInfo info, Sequence sequence, int numConfs) {
 
             // to compute upper bounds on pfuncs,
             // we'll use the upper bound calculator in the usual way
 
-			RCs rcs = sequence.makeRCs();
+            RCs rcs = sequence.makeRCs(info.confSpace);
             UpperBoundCalculator calc = new UpperBoundCalculator(
-				confSearchFactory.make(info.emat, rcs),
-				rcs.getNumConformations()
+                    info.confSearchFactoryMinimized.make(rcs),
+                    rcs.getNumConformations()
             );
             calc.run(numConfs);
             return calc.totalBound;
@@ -297,22 +315,25 @@ public class EWAKStarBBKStar {
         }
     }
 
-    public class SingleSequenceNode extends EWAKStarBBKStar.Node {
+    public class SingleSequenceNode extends Node {
 
         public final EWAKStarPartitionFunction protein;
         public final EWAKStarPartitionFunction ligand;
         public final EWAKStarPartitionFunction complex;
 
-        public SingleSequenceNode(Sequence sequence, EWAKStarBBKStar.ConfDBs confdbs) {
-            super(sequence, confdbs);
+        public SingleSequenceNode(Sequence sequence, ConfDB.DBs confDBs) {
+            super(sequence, confDBs);
 
             // make the partition functions
-            this.protein = makePfunc(proteinPfuncs, EWAKStarBBKStar.this.protein, proteinSequence, confdbs.protein, ematP);
-            this.ligand = makePfunc(ligandPfuncs, EWAKStarBBKStar.this.ligand, ligandSequence, confdbs.ligand, ematL);
-            this.complex = makePfunc(complexPfuncs, EWAKStarBBKStar.this.complex, sequence, confdbs.complex, ematPL);
+            this.protein = makePfunc(proteinPfuncs, EWAKStarBBKStar.this.protein, confDBs.get(EWAKStarBBKStar.this.protein.confSpace));
+            this.ligand = makePfunc(ligandPfuncs, EWAKStarBBKStar.this.ligand, confDBs.get(EWAKStarBBKStar.this.ligand.confSpace));
+            this.complex = makePfunc(complexPfuncs, EWAKStarBBKStar.this.complex, confDBs.get(EWAKStarBBKStar.this.complex.confSpace));
         }
 
-        private EWAKStarPartitionFunction makePfunc(Map<Sequence,EWAKStarPartitionFunction> pfuncCache, EWAKStarBBKStar.ConfSpaceInfo info, Sequence sequence, ConfDB confdb, EnergyMatrix curEmat) {
+        private EWAKStarPartitionFunction makePfunc(Map<Sequence,EWAKStarPartitionFunction> pfuncCache, ConfSpaceInfo info, ConfDB confdb) {
+
+            // filter the global sequence to this conf space
+            Sequence sequence = this.sequence.filter(info.confSpace.seqSpace);
 
             // first check the cache
             EWAKStarPartitionFunction pfunc = pfuncCache.get(sequence);
@@ -323,13 +344,22 @@ public class EWAKStarBBKStar {
             // cache miss, need to compute the partition function
 
             // make the partition function
-            EWAKStarGradientDescentPfunc newPfunc = new EWAKStarGradientDescentPfunc(confSearchFactory.make(curEmat, sequence.makeRCs()), info.minimizingConfEcalc);
+            pfunc = new EWAKStarGradientDescentPfunc(info.confEcalcMinimized);
+            pfunc.setReportProgress(kstarSettings.showPfuncProgress);
+            if (confdb != null) {
+                EWAKStarPartitionFunction.WithConfTable.setOrThrow(pfunc, confdb.getSequence(sequence));
+            }
+            RCs rcs = sequence.makeRCs(info.confSpace);
+            if (kstarSettings.useExternalMemory) {
+                EWAKStarPartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
+            }
+            ConfSearch astar = info.confSearchFactoryMinimized.make(rcs);
+            pfunc.init(astar, rcs.getNumConformations(), kstarSettings.epsilon, kstarSettings.eW);
+            pfunc.setStabilityThreshold(info.stabilityThreshold);
 
-            RCs rcs = sequence.makeRCs();
-            newPfunc.setReportProgress(kstarSettings.showPfuncProgress);
-            newPfunc.init(kstarSettings.eW, kstarSettings.epsilon, rcs.getNumConformations());
-            pfuncCache.put(sequence, newPfunc);
-            return newPfunc;
+            // update the cache
+            pfuncCache.put(sequence, pfunc);
+            return pfunc;
         }
 
         @Override
@@ -347,7 +377,7 @@ public class EWAKStarBBKStar {
 
             // refine the pfuncs if needed
             if (protein.getStatus().canContinue()) {
-                protein.compute(kstarSettings.maxPFConfs, proteinSequence);
+                protein.compute(kstarSettings.maxPFConfs);
 
                 // tank the sequence if the unbound protein is unstable
                 if (protein.getStatus() == EWAKStarPartitionFunction.Status.Unstable) {
@@ -358,7 +388,7 @@ public class EWAKStarBBKStar {
             }
 
             if (ligand.getStatus().canContinue()) {
-                ligand.compute(kstarSettings.maxPFConfs, ligandSequence);
+                ligand.compute(kstarSettings.maxPFConfs);
 
                 // tank the sequence if the unbound ligand is unstable
                 if (ligand.getStatus() == EWAKStarPartitionFunction.Status.Unstable) {
@@ -369,50 +399,42 @@ public class EWAKStarBBKStar {
             }
 
             if (complex.getStatus().canContinue()) {
-                complex.compute(kstarSettings.maxPFConfs, sequence);
+                complex.compute(kstarSettings.maxPFConfs);
             }
 
             // update the score
             score = Math.log10(makeKStarScore().upperBound.doubleValue());
             isUnboundUnstable = false;
-        }
 
-        public EWAKStarScore computeScore() {
-
-            // refine the pfuncs until done
-            while (protein.getStatus().canContinue()) {
-                protein.compute(kstarSettings.maxPFConfs, proteinSequence);
+            // tank sequences that have no useful K* bounds, and are blocked
+            if (getStatus() == PfuncsStatus.Blocked && score == Double.POSITIVE_INFINITY) {
+                score = Double.NEGATIVE_INFINITY;
             }
-            while (ligand.getStatus().canContinue()) {
-                ligand.compute(kstarSettings.maxPFConfs, ligandSequence);
-            }
-            while (complex.getStatus().canContinue()) {
-                complex.compute(kstarSettings.maxPFConfs, sequence);
-            }
-
-            // update the score
-            EWAKStarScore kstarScore = makeKStarScore();
-            score = Math.log10(kstarScore.upperBound.doubleValue());
-            return kstarScore;
         }
 
         public EWAKStarScore makeKStarScore() {
             return new EWAKStarScore(protein.makeResult(), ligand.makeResult(), complex.makeResult());
         }
 
-        public EWAKStarBBKStar.PfuncsStatus getStatus() {
+        public PfuncsStatus getStatus() {
 
             // aggregate pfunc statuses
-            if (protein.getStatus() == EWAKStarPartitionFunction.Status.Estimated
-                    && ligand.getStatus() == EWAKStarPartitionFunction.Status.Estimated
-                    && complex.getStatus() == EWAKStarPartitionFunction.Status.Estimated) {
-                return EWAKStarBBKStar.PfuncsStatus.Estimated;
+            if (protein.getStatus() == EWAKStarPartitionFunction.Status.ConfLimitReached
+                    && ligand.getStatus() == EWAKStarPartitionFunction.Status.ConfLimitReached
+                    && complex.getStatus() == EWAKStarPartitionFunction.Status.ConfLimitReached ||
+                    protein.getStatus() == EWAKStarPartitionFunction.Status.EpsilonReached
+                            && ligand.getStatus() == EWAKStarPartitionFunction.Status.EpsilonReached
+                            && complex.getStatus() == EWAKStarPartitionFunction.Status.EpsilonReached ||
+                    protein.getStatus() == EWAKStarPartitionFunction.Status.EnergyReached
+                            && ligand.getStatus() == EWAKStarPartitionFunction.Status.EnergyReached
+                            && complex.getStatus() == EWAKStarPartitionFunction.Status.EnergyReached) {
+                return PfuncsStatus.Estimated;
             } else if (protein.getStatus() == EWAKStarPartitionFunction.Status.Estimating
                     || ligand.getStatus() == EWAKStarPartitionFunction.Status.Estimating
                     || complex.getStatus() == EWAKStarPartitionFunction.Status.Estimating) {
-                return EWAKStarBBKStar.PfuncsStatus.Estimating;
+                return PfuncsStatus.Estimating;
             } else {
-                return EWAKStarBBKStar.PfuncsStatus.Blocked;
+                return PfuncsStatus.Blocked;
             }
         }
 
@@ -427,211 +449,203 @@ public class EWAKStarBBKStar {
     }
 
     /** A configuration space containing just the protein strand */
-    public final EWAKStarBBKStar.ConfSpaceInfo protein;
+    public final ConfSpaceInfo protein;
 
     /** A configuration space containing just the ligand strand */
-    public final EWAKStarBBKStar.ConfSpaceInfo ligand;
+    public final ConfSpaceInfo ligand;
 
     /** A configuration space containing both the protein and ligand strands */
-    public final EWAKStarBBKStar.ConfSpaceInfo complex;
-
-    /** Calculates the continuous-rotamer (minimized) energy for a molecule */
-    public final EnergyCalculator minimizingEcalc;
-
-    /** Calculates the continuous-rotamer (minimized) energy for a molecule */
-    public final EnergyMatrix ematPL;
-
-    /** Calculates the continuous-rotamer (minimized) energy for a molecule */
-    public final EnergyMatrix ematP;
-
-    /** Calculates the continuous-rotamer (minimized) energy for a molecule */
-    public final EnergyMatrix ematL;
-
-    /** A function that makes a ConfSearchFactory (e.g, A* search) with the desired options */
-    public final EWAKStar.ConfSearchFactory confSearchFactory;
+    public final ConfSpaceInfo complex;
 
     /** Optional and overridable settings for BBK*, shared with K* */
     public final EWAKStar.Settings kstarSettings;
-    public final EWAKStarBBKStar.Settings bbkstarSettings;
-
-    public int maxNumSeqs = 0;
+    public final Settings bbkstarSettings;
 
     // TODO: caching these will keep lots of A* trees in memory. is that a problem?
     private final Map<Sequence,EWAKStarPartitionFunction> proteinPfuncs;
     private final Map<Sequence,EWAKStarPartitionFunction> ligandPfuncs;
     private final Map<Sequence,EWAKStarPartitionFunction> complexPfuncs;
 
-	public EWAKStarBBKStar(int maxNumSeqs, SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator minimizingEcalc, ConfEnergyCalculator confECalcPL, ConfEnergyCalculator confECalcP, ConfEnergyCalculator confECalcL, ConfEnergyCalculator confRigidECalcPL, ConfEnergyCalculator confRigidECalcP, ConfEnergyCalculator confRigidECalcL,  EWAKStar.ConfSearchFactory confSearchFactory, EWAKStarBBKStar.Settings bbkstarSettings, EWAKStar.Settings kstarSettings, EnergyMatrix ematPL, EnergyMatrix ematP, EnergyMatrix ematL) {
+    public EWAKStarBBKStar(EwakstarDoer.State P, EwakstarDoer.State L, EwakstarDoer.State PL, EWAKStar.Settings kstarSettings, EWAKStarBBKStar.Settings bbkstarSettings) {
 
-        this.protein = new EWAKStarBBKStar.ConfSpaceInfo(
-                KStar.ConfSpaceType.Protein,
-                protein,
-                confECalcP,
-                confRigidECalcP,
-                ematP
-        );
-        this.ligand = new EWAKStarBBKStar.ConfSpaceInfo(
-                KStar.ConfSpaceType.Ligand,
-                ligand,
-                confECalcL,
-                confRigidECalcL,
-                ematL
-        );
-        this.complex = new EWAKStarBBKStar.ConfSpaceInfo(
-                KStar.ConfSpaceType.Complex,
-                complex,
-                confECalcPL,
-                confRigidECalcPL,
-                ematPL
-        );
+        // BBK* doesn't work with external memory (never enough internal memory for all the priority queues)
+        if (kstarSettings.useExternalMemory) {
+            throw new IllegalArgumentException("BBK* is not compatible with external memory."
+                    + " Please switch to regular K* with external memory, or keep using BBK* and disable external memory.");
+        }
 
-        this.maxNumSeqs = maxNumSeqs;
-        this.bbkstarSettings = bbkstarSettings;
-        this.minimizingEcalc = minimizingEcalc;
-        this.confSearchFactory = confSearchFactory;
+        this.protein = new ConfSpaceInfo(P.confSpace, EWAKStar.ConfSpaceType.Protein);
+        this.ligand = new ConfSpaceInfo(L.confSpace, EWAKStar.ConfSpaceType.Ligand);
+        this.complex = new ConfSpaceInfo(PL.confSpace, EWAKStar.ConfSpaceType.Complex);
         this.kstarSettings = kstarSettings;
-        this.ematPL = ematPL;
-        this.ematL = ematL;
-        this.ematP = ematP;
+        this.bbkstarSettings = bbkstarSettings;
 
         proteinPfuncs = new HashMap<>();
         ligandPfuncs = new HashMap<>();
         complexPfuncs = new HashMap<>();
     }
 
+    public Iterable<ConfSpaceInfo> confSpaceInfos() {
+        return Arrays.asList(protein, ligand, complex);
+    }
+
+    public ConfSpaceInfo getConfSpaceInfo(SimpleConfSpace confSpace) {
+        if (confSpace == protein.confSpace) {
+            return protein;
+        } else if (confSpace == ligand.confSpace) {
+            return ligand;
+        } else if (confSpace == complex.confSpace) {
+            return complex;
+        } else {
+            throw new IllegalArgumentException("conf space does not match any known by this K* instance");
+        }
+    }
+
     public List<EWAKStar.ScoredSequence> run() {
 
-        protein.calcEmatsIfNeeded();
-        ligand.calcEmatsIfNeeded();
-        complex.calcEmatsIfNeeded();
+        protein.check();
+        ligand.check();
+        complex.check();
+
+        // clear any previous state
+        proteinPfuncs.clear();
+        ligandPfuncs.clear();
+        complexPfuncs.clear();
 
         List<EWAKStar.ScoredSequence> scoredSequences = new ArrayList<>();
 
-        ConfDBs confdbs = new EWAKStarBBKStar.ConfDBs();
 
-        // start the BBK* tree with the root node
-        PriorityQueue<EWAKStarBBKStar.Node> tree = new PriorityQueue<>();
-        tree.add(new EWAKStarBBKStar.MultiSequenceNode(complex.confSpace.makeUnassignedSequence(), confdbs));
+        try (ConfDB.DBs confDBs = new ConfDB.DBs()
+                .add(protein.confSpace, protein.confDBFile)
+                .add(ligand.confSpace, ligand.confDBFile)
+                .add(complex.confSpace, complex.confDBFile)
+        ) {
 
-        // start searching the tree
-        System.out.println("Computing K* scores for the best sequences to within an energy window of " + kstarSettings.eW + " kcal, with a max of "+kstarSettings.maxPFConfs+ " conformations, and an epsilon of "+kstarSettings.epsilon+"...");
-        kstarSettings.scoreWriters.writeHeader();
-        Boolean wtSeqFound = false;
-        if(kstarSettings.wtBenchmark) {
-            while (!tree.isEmpty() && !wtSeqFound) {
+            // start the BBK* tree with the root node
+            PriorityQueue<Node> tree = new PriorityQueue<>();
+            tree.add(new MultiSequenceNode(complex.confSpace.makeUnassignedSequence(), confDBs));
 
-                // get the next node
-                EWAKStarBBKStar.Node node = tree.poll();
+            // start searching the tree
+            System.out.println("Computing K* scores for the best sequences to within an energy window of " + kstarSettings.eW + " kcal, with a max of " + kstarSettings.maxPFConfs + " conformations, and an epsilon of " + kstarSettings.epsilon + "...");
+            kstarSettings.scoreWriters.writeHeader();
 
-                if (node.isWTSeq) {
-                    wtSeqFound = true;
-                }
+            Boolean wtSeqFound = false;
+            if (kstarSettings.wtBenchmark) {
+                while (!tree.isEmpty() && !wtSeqFound) {
 
-                if (node instanceof EWAKStarBBKStar.SingleSequenceNode) {
-                    EWAKStarBBKStar.SingleSequenceNode ssnode = (EWAKStarBBKStar.SingleSequenceNode) node;
+                    // get the next node
+                    Node node = tree.poll();
 
-                    // single-sequence node
-                    switch (ssnode.getStatus()) {
-                        case Estimated:
-
-                            // sequence is finished, return it!
-                            reportSequence(ssnode, scoredSequences);
-                            break;
-
-                        case Estimating:
-
-                            // needs more estimation, catch-and-release
-                            ssnode.estimateScore();
-                            if (!ssnode.isUnboundUnstable) {
-                                tree.add(ssnode);
-                            }
-
-                            break;
-                        case Blocked:
-
-                            // from here on out, it's all blocked sequences
-                            // so it's ok to put them in the sorted order now
-                            reportSequence(ssnode, scoredSequences);
+                    if (node.isWTSeq) {
+                        wtSeqFound = true;
                     }
 
-                } else if (node instanceof EWAKStarBBKStar.MultiSequenceNode) {
-                    EWAKStarBBKStar.MultiSequenceNode msnode = (EWAKStarBBKStar.MultiSequenceNode) node;
+                    if (node instanceof SingleSequenceNode) {
+                        SingleSequenceNode ssnode = (SingleSequenceNode) node;
 
-                    // partial sequence, expand children
-                    // TODO: parallelize the multi-sequence node scoring here?
-                    for (EWAKStarBBKStar.Node child : msnode.makeChildren()) {
-                        child.estimateScore();
-                        if (!child.isUnboundUnstable) {
-                            tree.add(child);
+                        // single-sequence node
+                        switch (ssnode.getStatus()) {
+                            case Estimated:
+
+                                // sequence is finished, return it!
+                                reportSequence(ssnode, scoredSequences);
+                                break;
+
+                            case Estimating:
+
+                                // needs more estimation, catch-and-release
+                                ssnode.estimateScore();
+                                if (!ssnode.isUnboundUnstable) {
+                                    tree.add(ssnode);
+                                }
+
+                                break;
+                            case Blocked:
+
+                                // from here on out, it's all blocked sequences
+                                // so it's ok to put them in the sorted order now
+                                reportSequence(ssnode, scoredSequences);
+                        }
+
+                    } else if (node instanceof MultiSequenceNode) {
+                        MultiSequenceNode msnode = (MultiSequenceNode) node;
+
+                        // partial sequence, expand children
+                        // TODO: parallelize the multi-sequence node scoring here?
+                        for (Node child : msnode.makeChildren()) {
+                            child.estimateScore();
+                            if (!child.isUnboundUnstable) {
+                                tree.add(child);
+                            }
+                        }
+                    }
+                }
+            } else {
+                while (!tree.isEmpty() && scoredSequences.size() < kstarSettings.numTopOverallSeqs) {
+
+                    // get the next node
+                    Node node = tree.poll();
+
+                    if (node instanceof SingleSequenceNode) {
+                        SingleSequenceNode ssnode = (SingleSequenceNode) node;
+
+                        // single-sequence node
+                        switch (ssnode.getStatus()) {
+                            case Estimated:
+
+                                // sequence is finished, return it!
+                                reportSequence(ssnode, scoredSequences);
+                                break;
+
+                            case Estimating:
+
+                                // needs more estimation, catch-and-release
+                                ssnode.estimateScore();
+                                if (!ssnode.isUnboundUnstable) {
+                                    tree.add(ssnode);
+                                }
+
+                                break;
+                            case Blocked:
+
+                                // from here on out, it's all blocked sequences
+                                // so it's ok to put them in the sorted order now
+                                reportSequence(ssnode, scoredSequences);
+                        }
+
+                    } else if (node instanceof MultiSequenceNode) {
+                        MultiSequenceNode msnode = (MultiSequenceNode) node;
+
+                        // partial sequence, expand children
+                        // TODO: parallelize the multi-sequence node scoring here?
+                        for (Node child : msnode.makeChildren()) {
+                            child.estimateScore();
+                            if (!child.isUnboundUnstable) {
+                                tree.add(child);
+                            }
                         }
                     }
                 }
             }
-        } else {
-            while (!tree.isEmpty() && scoredSequences.size() < maxNumSeqs) {
-
-                // get the next node
-                EWAKStarBBKStar.Node node = tree.poll();
-
-                if (node instanceof EWAKStarBBKStar.SingleSequenceNode) {
-                    EWAKStarBBKStar.SingleSequenceNode ssnode = (EWAKStarBBKStar.SingleSequenceNode) node;
-
-                    // single-sequence node
-                    switch (ssnode.getStatus()) {
-                        case Estimated:
-
-                            // sequence is finished, return it!
-                            reportSequence(ssnode, scoredSequences);
-                            break;
-
-                        case Estimating:
-
-                            // needs more estimation, catch-and-release
-                            ssnode.estimateScore();
-                            if (!ssnode.isUnboundUnstable) {
-                                tree.add(ssnode);
-                            }
-
-                            break;
-                        case Blocked:
-
-                            // from here on out, it's all blocked sequences
-                            // so it's ok to put them in the sorted order now
-                            reportSequence(ssnode, scoredSequences);
-                    }
-
-                } else if (node instanceof EWAKStarBBKStar.MultiSequenceNode) {
-                    EWAKStarBBKStar.MultiSequenceNode msnode = (EWAKStarBBKStar.MultiSequenceNode) node;
-
-                    // partial sequence, expand children
-                    // TODO: parallelize the multi-sequence node scoring here?
-                    for (EWAKStarBBKStar.Node child : msnode.makeChildren()) {
-                        child.estimateScore();
-                        if (!child.isUnboundUnstable) {
-                            tree.add(child);
-                        }
-                    }
-                }
-            }
-        }
 
 
-        if (tree.isEmpty()) {
-            // all is well, we just don't have that many sequences in the design
-            System.out.println("All " + scoredSequences.size() + " sequences calculated. EWAK* complete.");
-        } else if (wtSeqFound && scoredSequences.size()==1) {
-            System.out.println("No K* scores found that are better than the wild-type sequence.");
-        } else if (wtSeqFound) {
+            if (tree.isEmpty()) {
+                // all is well, we just don't have that many sequences in the design
+                System.out.println("All " + scoredSequences.size() + " sequences calculated. EWAK* complete.");
+            } else if (wtSeqFound && scoredSequences.size() == 1) {
+                System.out.println("No K* scores found that are better than the wild-type sequence.");
+            } else if (wtSeqFound) {
                 System.out.println("Found K* score estimates for all " + scoredSequences.size() + " sequences with scores greater than that of the wild-type sequence.");
-        } else if (scoredSequences.size() >= maxNumSeqs) {
-            System.out.println("Found K* score estimates for top "+ maxNumSeqs +" sequences.");
-        } else
-            throw new Error("EWAK* ended, but the tree isn't empty and we didn't return all of the sequences. This is a bug.");
+            } else if (scoredSequences.size() >= kstarSettings.numTopOverallSeqs) {
+                System.out.println("Found K* score estimates for top " + kstarSettings.numTopOverallSeqs + " sequences.");
+            } else
+                throw new Error("EWAK* ended, but the tree isn't empty and we didn't return all of the sequences. This is a bug.");
 
+        }
         return scoredSequences;
     }
 
-    private void reportSequence(EWAKStarBBKStar.SingleSequenceNode ssnode, List<EWAKStar.ScoredSequence> scoredSequences) {
+    private void reportSequence(SingleSequenceNode ssnode, List<EWAKStar.ScoredSequence> scoredSequences) {
 
         EWAKStarScore kstarScore = ssnode.makeKStarScore();
         scoredSequences.add(new EWAKStar.ScoredSequence(ssnode.sequence, kstarScore));

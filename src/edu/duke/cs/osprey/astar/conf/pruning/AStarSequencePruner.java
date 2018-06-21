@@ -65,12 +65,8 @@ public class AStarSequencePruner implements AStarPruner {
 
 	public void add(Sequence sequence) {
 
-		if (sequence.confSpace != this.confSpace) {
-			throw new IllegalArgumentException("sequence conf space doesn't match pruner conf space");
-		}
-
 		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			this.sequence.set(pos.index, sequence.get(pos));
+			this.sequence.set(pos.index, sequence.get(pos.resNum).name);
 		}
 
 		prunedSequences.add(this.sequence);

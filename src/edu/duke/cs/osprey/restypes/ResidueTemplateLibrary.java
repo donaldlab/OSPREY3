@@ -204,9 +204,13 @@ public class ResidueTemplateLibrary implements Serializable {
 
 		/**
 		 * Add a molecule to include its wild-type rotamers in the library
+		 *
+		 * don't use this anymore, conf spaces will add wild-type rotamers to the library automatically
 		 */
+		@Deprecated
 		public Builder addMoleculeForWildTypeRotamers(Molecule val) {
-			molsForRotamers.add(val);
+			System.err.println("Warning: addMoleculeForWildTypeRotamers() is no longer needed."
+				+ " Conf spaces will add wild-type rotamers the library automatically");
 			return this;
 		}
 
