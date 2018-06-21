@@ -12,13 +12,13 @@ at `Duke University`_.
 .. _Department of Computer Science: http://www.cs.duke.edu
 .. _Duke University: https://www.duke.edu/
 
-For an introduction to OSPREY 3.0 and its new features please read this paper: 
+For an introduction to OSPREY 3.0 and its new features please read this paper (accepted to the Journal of Computational Chemistry, 2018): 
 https://www.biorxiv.org/content/early/2018/04/23/306324
 
 
 Citation requirements
 ~~~~~~~
-We require everyone who publishes or presents results from OSPREY to please mention the name "OSPREY," and to cite our papers as described in CITATION_REQUIREMENTS.txt (especially our new paper introducing OSPREY 3.0). 
+We require everyone who publishes or presents results from OSPREY to please mention the name "OSPREY," and to cite our papers as described in CITING_OSPREY.txt (especially our new paper introducing OSPREY 3.0). 
 
 
 License
