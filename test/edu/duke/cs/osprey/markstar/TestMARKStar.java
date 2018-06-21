@@ -60,8 +60,6 @@ public class TestMARKStar {
 	    int numFlex = 8;
 	    double epsilon = 0.68;
 		compareMARKStarAndKStar(numFlex, epsilon);
-		System.out.println(System.getProperty("user.dir"));
-
     }
 
     @Test
@@ -86,7 +84,8 @@ public class TestMARKStar {
 	private void printMARKStarComputationStats(MARKStar.ScoredSequence result) {
 		int totalConfsEnergied = result.score.complex.numConfs + result.score.protein.numConfs + result.score.ligand.numConfs;
 		int totalConfsLooked = result.score.complex.getNumConfsLooked()+ result.score.protein.getNumConfsLooked()+ result.score.ligand.getNumConfsLooked();
-		BigInteger totalConfSpaceSize = result.score.complex.totalNumConfs.add(result.score.protein.totalNumConfs).add(result.score.ligand.totalNumConfs);
+		BigInteger totalConfSpaceSize = new BigInteger(result.score.complex.totalNumConfs)
+				.add(new BigInteger(result.score.protein.totalNumConfs)).add(new BigInteger(result.score.ligand.totalNumConfs));
 		System.out.println("MARK* Stats: "+String.format("score:%12e in [%12e,%12e] (log10), confs looked at:%4d, confs minimized:%4d\n total confSize:%4s",MathTools.log10p1(result.score.score), MathTools.log10p1(result.score.lowerBound),
 				MathTools.log10p1(result.score.upperBound),totalConfsLooked,totalConfsEnergied, totalConfSpaceSize.toString()));
 		System.out.println("Above stats for sequence: "+result.sequence);
@@ -96,7 +95,8 @@ public class TestMARKStar {
 	private void printKStarComputationStats(KStar.ScoredSequence result) {
 		int totalConfsEnergied = result.score.complex.numConfs + result.score.protein.numConfs + result.score.ligand.numConfs;
 		int totalConfsLooked = result.score.complex.getNumConfsLooked()+ result.score.protein.getNumConfsLooked()+ result.score.ligand.getNumConfsLooked();
-		BigInteger totalConfSpaceSize = result.score.complex.totalNumConfs.add(result.score.protein.totalNumConfs).add(result.score.ligand.totalNumConfs);
+		BigInteger totalConfSpaceSize = new BigInteger(result.score.complex.totalNumConfs)
+				.add(new BigInteger(result.score.protein.totalNumConfs)).add(new BigInteger(result.score.ligand.totalNumConfs));
 		System.out.println("MARK* Stats: "+String.format("score:%12e in [%12e,%12e] (log10), confs looked at:%4d, confs minimized:%4d\ntotal confSize:%4s",MathTools.log10p1(result.score.score), MathTools.log10p1(result.score.lowerBound),
 				MathTools.log10p1(result.score.upperBound),totalConfsLooked,totalConfsEnergied, totalConfSpaceSize.toString()));
 		System.out.println("Above stats for sequence: "+result.sequence);

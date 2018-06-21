@@ -256,6 +256,36 @@ public class EnergyMatrix extends TupleMatrixDouble {
         return strongestPairE;
     }
 
+    public EnergyMatrix diff(EnergyMatrix other)
+    {
+        if(this.getNumPos() != other.getNumPos()) {
+            System.err.println("Cannot compare energy matrices of different size");
+            return null;
+        }
+        EnergyMatrix diff = new EnergyMatrix(this.getNumPos(), this.getNumConfAtPos(), this.getPruningInterval());
+        //return the top absolute values of the pairwise interactions
+        //between all pairs of positions
+        int numPos = getNumPos();
+
+
+        for(int pos=0; pos<numPos; pos++){
+            for(int rc=0; rc<getNumConfAtPos(pos); rc++){
+                double myOneBody = getOneBody(pos, rc);
+                double otherOneBody = other.getOneBody(pos, rc);
+                diff.setOneBody(pos, rc, myOneBody - otherOneBody);
+                for(int pos2=0; pos2<pos; pos2++){
+                    for(int rc2=0; rc2<getNumConfAtPos(pos2); rc2++){
+                        double myPairEnergy = getPairwise(pos, rc, pos2, rc2);
+                        double otherPairEnergy = other.getPairwise(pos, rc, pos2, rc2);
+                        diff.setPairwise(pos, rc, pos2, rc2, myPairEnergy-otherPairEnergy);
+                    }
+                }
+            }
+        }
+
+        return diff;
+    }
+
     public ReferenceEnergies geteRefMat() {
         return eRefMat;
     }
