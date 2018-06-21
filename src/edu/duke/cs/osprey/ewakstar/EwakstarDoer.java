@@ -440,7 +440,7 @@ public class EwakstarDoer {
             return this;
         }
 
-        public Builder setNumEWAKStarSeqs(Integer val){
+        public Builder setNumEWAKStarSeqs(int val){
             numEWAKStarSeqs = val;
             return this;
         }
@@ -450,7 +450,7 @@ public class EwakstarDoer {
             return this;
         }
 
-        public Builder setOrderOfMag(Integer val){
+        public Builder setOrderOfMag(int val){
             orderOfMag = val;
             return this;
         }
@@ -460,12 +460,12 @@ public class EwakstarDoer {
             return this;
         }
 
-        public Builder setNumPfConfs(Integer val){
+        public Builder setNumPfConfs(int val){
             numPfConfs = val;
             return this;
         }
 
-        public Builder setNumTopOverallSeqs(Integer val){
+        public Builder setNumTopOverallSeqs(int val){
             numTopOverallSeqs = val;
             return this;
         }
@@ -480,7 +480,7 @@ public class EwakstarDoer {
             return this;
         }
 
-        public Builder setNumMutable(Integer val) {
+        public Builder setNumMutable(int val) {
             numMutable = val;
             return this;
         }
