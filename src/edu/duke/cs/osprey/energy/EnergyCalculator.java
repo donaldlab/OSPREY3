@@ -32,8 +32,9 @@
 
 package edu.duke.cs.osprey.energy;
 
-import java.io.File;
+import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
@@ -63,7 +64,6 @@ import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.AutoCleanable;
 import edu.duke.cs.osprey.tools.Factory;
@@ -131,6 +131,10 @@ public class EnergyCalculator implements AutoCleanable {
 		 */
 		private Double alwaysResolveClashesEnergy = null;
 
+		/**
+		 * warning: using this constructor can cause AtomConnecivity cache pre-population to go very slowly
+		 * try the conf space list constrcutor instead
+		 */
 		public Builder(ResidueTemplateLibrary templateLib, ForcefieldParams ffparams) {
 			this.ffparams = ffparams;
 			this.atomConnectivityBuilder.addTemplates(templateLib);
@@ -141,7 +145,19 @@ public class EnergyCalculator implements AutoCleanable {
 			this.atomConnectivityBuilder.addTemplates(confSpace);
 			this.dofTypes = confSpace.getDofTypes();
 		}
-		
+
+		public Builder(List<SimpleConfSpace> confSpaces, ForcefieldParams ffparams) {
+			this.ffparams = ffparams;
+			for (SimpleConfSpace confSpace : confSpaces) {
+				this.atomConnectivityBuilder.addTemplates(confSpace);
+			}
+			this.dofTypes = SimpleConfSpace.DofTypes.combine(
+				confSpaces.stream()
+					.map(confSpace -> confSpace.getDofTypes())
+					.collect(Collectors.toList())
+			);
+		}
+
 		public Builder(Residues residues, ForcefieldParams ffparams) {
 			this.ffparams = ffparams;
 			this.atomConnectivityBuilder.addTemplates(residues);

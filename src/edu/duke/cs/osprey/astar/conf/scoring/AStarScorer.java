@@ -41,7 +41,8 @@ public interface AStarScorer {
 	double calc(ConfIndex confIndex, RCs rcs);
 	
 	default double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc) {
-		
+
+		// TODO: is the memory allocation inside ConfIndex.assign() slowing down the heuristics that don't implement calcDifferential?
 		// just punt to calc() by default
 		return calc(confIndex.assign(nextPos, nextRc), rcs);
 	}

@@ -32,6 +32,7 @@
 
 package edu.duke.cs.osprey.astar.conf;
 
+
 public class ConfIndex {
 	
 	public final int numPos;
@@ -121,5 +122,44 @@ public class ConfIndex {
 		other.node = null;
 		
 		return other;
+	}
+
+	/**
+	 * ensures assigned and unassigned positions are sorted in increasing order
+	 */
+	public void sortDefined() {
+
+		// these arrays are typically tiny (<20), so insertion sort is very efficient here
+		// also, we have to sort the assigned positions and res confs together,
+		// so we can't use a library sort =(
+
+		// sort the defined side
+		for (int i=1; i<numDefined; i++) {
+
+			int tempPos = definedPos[i];
+			int tempRT = definedRCs[i];
+
+			int j;
+			for (j=i; j>=1 && tempPos < definedPos[j-1]; j--) {
+				definedPos[j] = definedPos[j-1];
+				definedRCs[j] = definedRCs[j-1];
+			}
+			definedPos[j] = tempPos;
+			definedRCs[j] = tempRT;
+		}
+	}
+
+	/**
+	 * Populates the unassigned positions, based on what's not assigned
+	 * @return this, for method chaining
+	 */
+	public ConfIndex updateUndefined() {
+		numUndefined = 0;
+		for (int pos=0; pos<numPos; pos++) {
+			if (!isDefined(pos)) {
+				undefinedPos[numUndefined++] = pos;
+			}
+		}
+		return this;
 	}
 }

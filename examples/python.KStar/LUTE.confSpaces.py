@@ -5,8 +5,8 @@ ffparams = osprey.ForcefieldParams()
 # read a PDB file for molecular info
 mol = osprey.readPdb('2RL0.min.reduce.pdb')
 
-# make sure all strands share the same template library (including wild-type rotamers)
-templateLib = osprey.TemplateLibrary(ffparams.forcefld, moleculesForWildTypeRotamers=[mol])
+# make sure all strands share the same template library
+templateLib = osprey.TemplateLibrary(ffparams.forcefld)
 
 # define the protein strand
 protein = osprey.Strand(mol, templateLib=templateLib, residues=['G648', 'G654'])

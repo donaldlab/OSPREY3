@@ -83,9 +83,7 @@ public class TestLute {
 		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
 
 		// make sure all strands share the same template library
-		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld).build();
 
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
@@ -220,7 +218,7 @@ public class TestLute {
 
 					// pick the wild-type sequence
 					Sequence sequence = confSpace.makeWildTypeSequence();
-					RCs rcs = sequence.makeRCs();
+					RCs rcs = sequence.makeRCs(confSpace);
 					ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
 						.build();
@@ -427,7 +425,7 @@ public class TestLute {
 
 				// pick the wild-type sequence
 				Sequence sequence = confSpace.makeWildTypeSequence();
-				RCs rcs = new RCs(sequence.makeRCs(), pmat);
+				RCs rcs = new RCs(sequence.makeRCs(confSpace), pmat);
 				ConfAStarTree astar = new ConfAStarTree.Builder(null, rcs)
 					.setLUTE(luteEcalc)
 					.build();

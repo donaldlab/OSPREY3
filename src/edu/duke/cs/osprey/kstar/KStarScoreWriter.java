@@ -33,7 +33,6 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.tools.TimeFormatter;
 
 import java.io.File;
@@ -48,15 +47,13 @@ public interface KStarScoreWriter {
 		public final int sequenceNumber;
 		public final int numSequences;
 		public final Sequence sequence;
-		public final SimpleConfSpace complexConfSpace;
 		public final KStarScore kstarScore;
 		public final long timeNs;
 
-		public ScoreInfo(int sequenceNumber, int numSequences, Sequence sequence, SimpleConfSpace complexConfSpace, KStarScore kstarScore) {
+		public ScoreInfo(int sequenceNumber, int numSequences, Sequence sequence, KStarScore kstarScore) {
 			this.sequenceNumber = sequenceNumber;
 			this.numSequences = numSequences;
 			this.sequence = sequence;
-			this.complexConfSpace = complexConfSpace;
 			this.kstarScore = kstarScore;
 			this.timeNs = System.nanoTime();
 		}
@@ -176,19 +173,20 @@ public interface KStarScoreWriter {
 
 			@Override
 			public String format(ScoreInfo info) {
-				return String.format("sequence %4d   %s   K*(log10): %-34s   protein: %-18s, numConfs: %d, epsilon: %01.3f,   ligand: %-18s, numConfs: %d, epsilon: %01.3f,   complex: %-18s, numConfs: %d, epsilon: %01.3f,",
-						info.sequenceNumber + 1,
-						info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.getMaxResNumLength() + 1, info.complexConfSpace.positions),
-						info.kstarScore.toString(),
-						info.kstarScore.protein.toString(),
-						info.kstarScore.protein.numConfs,
-						info.kstarScore.protein.values.getEffectiveEpsilon(),
-						info.kstarScore.ligand.toString(),
-						info.kstarScore.ligand.numConfs,
-						info.kstarScore.ligand.values.getEffectiveEpsilon(),
-						info.kstarScore.complex.toString(),
-						info.kstarScore.complex.numConfs,
-						info.kstarScore.complex.values.getEffectiveEpsilon()
+				return String.format("sequence %4d/%4d   %s   K*(log10): %-34s   protein: %-18s, numConfs: %d, epsilon: %01.3f   ligand: %-18s, numConfs: %d, epsilon: %01.3f   complex: %-18s, numConfs: %d, epsilon: %01.3f",
+					info.sequenceNumber + 1,
+					info.numSequences,
+					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.calcCellSize() + 1),
+					info.kstarScore.toString(),
+					info.kstarScore.protein.toString(),
+					info.kstarScore.protein.numConfs,
+					info.kstarScore.protein.values.getEffectiveEpsilon(),
+					info.kstarScore.ligand.toString(),
+					info.kstarScore.ligand.numConfs,
+					info.kstarScore.ligand.values.getEffectiveEpsilon(),
+					info.kstarScore.complex.toString(),
+					info.kstarScore.complex.numConfs,
+					info.kstarScore.complex.values.getEffectiveEpsilon()
 				);
 			}
 		}
@@ -223,7 +221,7 @@ public interface KStarScoreWriter {
 			public String format(ScoreInfo info) {
 				return String.join("\t",
 					Integer.toString(info.sequenceNumber),
-					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.getMaxResNumLength() + 1, info.complexConfSpace.positions),
+					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.calcCellSize() + 1),
 					info.kstarScore.scoreLog10String(),
 					info.kstarScore.lowerBoundLog10String(),
 					info.kstarScore.upperBoundLog10String(),

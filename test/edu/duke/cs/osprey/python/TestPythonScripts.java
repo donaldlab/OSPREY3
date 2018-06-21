@@ -73,6 +73,8 @@ public class TestPythonScripts {
 	@Test public void findGMECResEntropy() { runGMEC("findGMEC.resEntropy.py"); }
 	@Test public void templateLibrary() { runGMEC("templateLibrary.py"); }
 	@Test public void findGMECConfDB() { runGMEC("findGMEC.confDB.py"); }
+	@Test public void comets() { runGMEC("comets.py"); }
+	@Test public void cometsBoundedMemory() { runGMEC("comets.boudedMemory.py"); }
 
 	private void runKStar(String script) {
 		run("examples/python.KStar", script);
@@ -84,4 +86,6 @@ public class TestPythonScripts {
 	@Test public void kstarConfDB() { runKStar("kstar.confdb.py"); }
 	@Test public void bbkstarConfDB() { runKStar("bbkstar.confdb.py"); }
 	@Test public void LUTE() { runKStar("LUTE.train.py"); runKStar("LUTE.kstar.py"); runKStar("LUTE.bbkstar.py"); }
+	@Test public void mskstar() { runKStar("mskstar.py"); }
+	@Test public void mskstarBoudedMemory() { runKStar("mskstar.boundedMemory.py"); }
 }

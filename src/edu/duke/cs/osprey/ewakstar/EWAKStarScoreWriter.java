@@ -147,7 +147,7 @@ public interface EWAKStarScoreWriter {
 			public String format(ScoreInfo info) {
 				return String.format("sequence %4d   %s   K*(log10): %-34s   protein: %-18s, numConfs: %d, epsilon: %01.3f,   ligand: %-18s, numConfs: %d, epsilon: %01.3f,   complex: %-18s, numConfs: %d, epsilon: %01.3f,",
 						info.sequenceNumber + 1,
-						info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.getMaxResNumLength() + 1, info.complexConfSpace.positions),
+						info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.calcCellSize()),
 						info.kstarScore.toString(),
 						info.kstarScore.protein.toString(),
 						info.kstarScore.protein.numConfs,
@@ -192,7 +192,7 @@ public interface EWAKStarScoreWriter {
 			public String format(ScoreInfo info) {
 				return String.join("\t",
 					Integer.toString(info.sequenceNumber),
-					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.getMaxResNumLength() + 1, info.complexConfSpace.positions),
+					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.calcCellSize()),
 					info.kstarScore.scoreLog10String(),
 					info.kstarScore.lowerBoundLog10String(),
 					info.kstarScore.upperBoundLog10String(),

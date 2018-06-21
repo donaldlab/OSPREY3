@@ -79,11 +79,11 @@ public class PfuncPlayground {
 			//surf.write(new File("pfunctest.vtk"));
 
 			final File confdbFile = new File("pfunctext.conf.db");
-			new ConfDB(confEcalc.confSpace, confdbFile).use((confdb) -> {
+			try (ConfDB confdb = new ConfDB(confEcalc.confSpace, confdbFile)) {
 				ConfDB.ConfTable table = confdb.new ConfTable("pfunctest");
 
 				estimate(confEcalc, emat, surf, table);
-			});
+			}
 
 			surf.writeTraces(new File("pfunctest.trace.vtk"));
 		}

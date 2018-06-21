@@ -460,6 +460,14 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimiz
 
 	:builder_return .energy.EnergyCalculator$Builder:
 	'''
+
+	# convert confSpace to a jvm list if possible
+	try:
+		confSpace = jvm.toArrayList(confSpace)
+	except TypeError:
+		# not a list, okie dokie, nothing to convert
+		pass
+
 	builder = _get_builder(c.energy.EnergyCalculator)(confSpace, ffparams)
 
 	if parallelism is not None:
@@ -619,7 +627,7 @@ def DEE_read(confSpace, path):
 	return c.pruning.SimpleDEE.read(confSpace, jvm.toFile(path))
 
 
-def AStarTraditional(emat, confSpaceOrPmat, showProgress=True, useExternalMemory=False):
+def AStarTraditional(emat, confSpaceOrPmat, showProgress=True, useExternalMemory=False, maxNumNodes=useJavaDefault):
 	'''
 	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setTraditional`
 
@@ -631,10 +639,16 @@ def AStarTraditional(emat, confSpaceOrPmat, showProgress=True, useExternalMemory
 		:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#useExternalMemory`
 
 	:type useExternalMemory: boolean
+	:builder_option maxNumNodes .astar.conf.ConfAStarTree$Builder#maxNumNodes:
 	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
 	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
 	builder.setShowProgress(showProgress)
+
+	# set node limits before picking heuristics
+	if maxNumNodes is not useJavaDefault:
+		builder.setMaxNumNodes(jvm.boxLong(maxNumNodes))
+
 	builder.setTraditional()
 
 	if useExternalMemory == True:
@@ -649,7 +663,7 @@ def EdgeUpdater():
 def NodeUpdater():
 	return c.astar.conf.scoring.mplp.NodeUpdater()
 
-def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergenceThreshold=None, useExternalMemory=False):
+def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergenceThreshold=None, useExternalMemory=False, maxNumNodes=useJavaDefault):
 	'''
 	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setMPLP`
 
@@ -664,6 +678,7 @@ def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergen
 		:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#useExternalMemory`
 
 	:type useExternalMemory: boolean
+	:builder_option maxNumNodes .astar.conf.ConfAStarTree$Builder#maxNumNodes:
 	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
 	mplpBuilder = _get_builder(c.astar.conf.ConfAStarTree, 'MPLPBuilder')()
@@ -679,6 +694,11 @@ def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergen
 
 	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
 	builder.setShowProgress(True)
+
+	# set node limits before picking heuristics
+	if maxNumNodes is not useJavaDefault:
+		builder.setMaxNumNodes(jvm.boxLong(maxNumNodes))
+
 	builder.setMPLP(mplpBuilder)
 
 	if useExternalMemory == True:
@@ -786,7 +806,7 @@ def EWAKStar(numCPUS, wtBenchmark, seqFilterOnly, mutableType, numMutable, numTo
 
     return c.astar.ewakstar.NewEWAKStarDoer(mutableType, numMutable, numCPUS, wtBenchmark, seqFilterOnly, numTopSeqs, maxPFConfs, epsilon, confRigidECalc, confECalc, emat, ecalc, confSpace, confSpaceL, confSpaceP, pos, posL, posP, numFilteredSeqs, orderOfMag, unboundEw, boundEw, ewakstarEw, startResL, endResL, startResP, endResP, mol, resNumsPL, resNumsL, resNumsP, Ival, PLmatrixName)
 
-def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, confDBPattern=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault):
+def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault):
 	'''
 	:java:classdoc:`.kstar.KStar`
 
@@ -801,7 +821,6 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDe
 	:builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
 	:builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
 	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
-	:builder_option confDBPattern .kstar.KStar$Settings$Builder#confDBPattern:
 	:builder_option useExternalMemory .kstar.KStar$Settings$Builder#useExternalMemory:
 	:builder_option showPfuncProgress .kstar.KStar$Settings$Builder#showPfuncProgress:
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
@@ -822,8 +841,6 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDe
 		settingsBuilder.addScoreConsoleWriter()
 	if writeSequencesToFile is not None:
 		settingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
-	if confDBPattern is not useJavaDefault:
-		settingsBuilder.setConfDBPattern(confDBPattern)
 	if useExternalMemory is not useJavaDefault:
 		settingsBuilder.setExternalMemory(useExternalMemory)
 	if showPfuncProgress is not useJavaDefault:
@@ -844,7 +861,7 @@ def _KStarConfSearchFactory(func):
 KStar.ConfSearchFactory = _KStarConfSearchFactory
 
 
-def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
+def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
 	'''
 	:java:classdoc:`.kstar.BBKStar`
 
@@ -859,7 +876,6 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJava
 	:builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
 	:builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
 	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
-	:builder_option confDBPattern .kstar.KStar$Settings$Builder#confDBPattern:
 	:builder_option useExternalMemory .kstar.KStar$Settings$Builder#useExternalMemory:
 	:builder_option showPfuncProgress .kstar.KStar$Settings$Builder#showPfuncProgress:
 	:builder_option numBestSequences .kstar.BBKStar$Settings$Builder#numBestSequences:
@@ -882,8 +898,6 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJava
 		kstarSettingsBuilder.addScoreConsoleWriter()
 	if writeSequencesToFile is not None:
 		kstarSettingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
-	if confDBPattern is not useJavaDefault:
-		kstarSettingsBuilder.setConfDBPattern(confDBPattern)
 	if useExternalMemory is not useJavaDefault:
 		kstarSettingsBuilder.setExternalMemory(useExternalMemory)
 	if showPfuncProgress is not useJavaDefault:
@@ -960,35 +974,25 @@ def LUTE_train(confEcalc, emat, pmat, maxRMSE=0.1, maxOverfittingScore=1.5, rand
 	else:
 		confDB = c.confspace.ConfDB(confSpace, jvm.toFile(confDBPath))
 
-	# what to do with the confDB when we get it
-	def withDB(confDB):
-		try:
+	try:
 
-			# make a conf table for LUTE
-			confTable = jvm.getInnerClass(c.confspace.ConfDB, 'ConfTable')(confDB, 'LUTE')
+		# make a conf table for LUTE
+		confTable = jvm.getInnerClass(c.confspace.ConfDB, 'ConfTable')(confDB, 'LUTE')
 
-			# use the OLSCG fitter for LUTE (it's a little faster than LASSO in practice)
-			fitter = jvm.getInnerClass(c.lute.LUTE, 'Fitter').OLSCG
+		# use the OLSCG fitter for LUTE (it's a little faster than LASSO in practice)
+		fitter = jvm.getInnerClass(c.lute.LUTE, 'Fitter').OLSCG
 
-			# train LUTE
-			lute = c.lute.LUTE(confSpace)
-			sampler = c.lute.UniformConfSampler(confSpace, pmat, randomSeed)
-			lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE)
-			lute.reportConfSpaceSize(pmat)
+		# train LUTE
+		lute = c.lute.LUTE(confSpace)
+		sampler = c.lute.UniformConfSampler(confSpace, pmat, randomSeed)
+		lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE)
+		lute.reportConfSpaceSize(pmat)
 
-			# return the LUTE fit
-			return c.lute.LUTEState(lute.getTrainingSystem())
+		# return the LUTE fit
+		return c.lute.LUTEState(lute.getTrainingSystem())
 
-		except:
-			# JProxy hides some of the python exception info, so report exceptions here before letting Java crash
-			print(traceback.format_exc())
-			raise
-
-	# use the conf DB, with auto-cleanup
-	return confDB.use(jpype.JProxy(
-		jvm.getInnerClass(c.confspace.ConfDB, 'UserWithReturn'),
-		dict={ 'usePassExceptions': withDB }
-	))
+	finally:
+		confDB.close()
 
 
 def LUTE_write(model, path):
@@ -1083,5 +1087,182 @@ def LUTE_GMECFinder(confSpace, model, pmat, confLog=useJavaDefault, printInterme
 
 	if printIntermediateConfs is not useJavaDefault:
 		builder.setPrintIntermediateConfsToConsole(printIntermediateConfs)
+
+	return builder.build()
+
+
+def COMETS_State(name, confSpace):
+	'''
+	:java:classdoc:`.gmec.Comets$State`
+
+	:param str name: :java:fielddoc:`.gmec.Comets$State#name`
+	:param confSpace: :java:fielddoc:`.gmec.Comets$State#confSpace`
+	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+
+	:rtype: :java:ref:`.gmec.Comets$State`
+	'''
+
+	return jvm.getInnerClass(c.gmec.Comets, 'State')(name, confSpace)
+
+
+def COMETS_ConfSearchFactory(func):
+
+	# convert the python lambda to a JVM interface implementation
+	return jpype.JProxy(
+		jvm.c.java.util.function.Function,
+		dict={ 'apply': func }
+	)
+
+
+def COMETS_LME(weightsByState, offset=useJavaDefault, constrainLessThan=None):
+	'''
+	:java:classdoc:`.gmec.Comets$LME`
+
+	:param weightsByState: map from states to weights
+	:type weightsByState: map from :java:ref:`.gmec.Comets$State` to float
+
+	:builder_option offset .gmec.Comets$LME$Builder#offset:
+	:param float constrainLessThan: :java:methoddoc:`.gmec.Comets$LME$Builder#constrainLessThan`
+	:builder_return .gmec.Comets$LME$Builder:
+	'''
+
+	builder = _get_builder(jvm.getInnerClass(c.gmec.Comets, 'LME'))()
+
+	if offset is not useJavaDefault:
+		builder.setOffset(offset)
+
+	for (state, weight) in weightsByState.items():
+		builder.addState(state, weight)
+
+	if constrainLessThan is not None:
+		builder.constrainLessThan(constrainLessThan)
+
+	return builder.build()
+
+
+def COMETS(objective, constraints=[], objectiveWindowSize=useJavaDefault, objectiveWindowMax=useJavaDefault, maxSimultaneousMutations=useJavaDefault, minNumConfTrees=useJavaDefault, logFile=None):
+	'''
+	:java:classdoc:`.gmec.Comets`
+
+	:builder_option objective .gmec.Comets$Builder#objective:
+
+	:param constraints: List of LMEs to use as constraints
+	:type constraints: list of :java:ref:`.gmec.Comets$LME`
+
+	:builder_option objectiveWindowSize .gmec.Comets$Builder#objectiveWindowSize:
+	:builder_option objectiveWindowMax .gmec.Comets$Builder#objectiveWindowMax:
+	:builder_option maxSimultaneousMutations .gmec.Comets$Builder#maxSimultaneousMutations:
+	:builder_option minNumConfTrees .gmec.Comets$Builder#minNumConfsTrees:
+
+	:param str logFile: :java:fielddoc:`.gmec.Comets$Builder#logFile`
+
+	:builder_return .gmec.Comets$Builder:
+	'''
+
+	builder = _get_builder(c.gmec.Comets)(objective)
+
+	for constraint in constraints:
+		builder.addConstraint(constraint)
+
+	if objectiveWindowSize is not useJavaDefault:
+		builder.setObjectiveWindowSize(objectiveWindowSize)
+	if objectiveWindowMax is not useJavaDefault:
+		builder.setObjectiveWindowMax(objectiveWindowMax)
+	if maxSimultaneousMutations is not useJavaDefault:
+		builder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+	if minNumConfTrees is not useJavaDefault:
+		builder.setMinNumConfTrees(jvm.boxInt(minNumConfTrees))
+
+	if logFile is not None:
+		builder.setLogFile(jvm.toFile(logFile))
+
+	return builder.build()
+
+
+def MSKStar_State(name, confSpace):
+	'''
+	:java:classdoc:`.kstar.MSKStar$State`
+
+	:param str name: :java:fielddoc:`.kstar.MSKStar$State#name`
+	:param confSpace: :java:fielddoc:`.kstar.MSKStar$State#confSpace`
+	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+
+	:rtype: :java:ref:`.kstar.MSKStar$State`
+	'''
+
+	return jvm.getInnerClass(c.kstar.MSKStar, 'State')(name, confSpace)
+
+
+def MSKStar_ConfSearchFactory(func):
+
+	# convert the python lambda to a JVM interface implementation
+	return jpype.JProxy(
+		jvm.c.java.util.function.Function,
+		dict={ 'apply': func }
+	)
+
+
+def MSKStar_LMFE(weightsByState, offset=useJavaDefault, constrainLessThan=None):
+	'''
+	:java:classdoc:`.kstar.MSKStar$LMFE`
+
+	:param weightsByState: map from states to weights
+	:type weightsByState: map from :java:ref:`.kstar.MSKStar$State` to float
+
+	:builder_option offset .kstar.MSKStar$LMFE$Builder#offset:
+	:param float constrainLessThan: :java:methoddoc:`.kstar.MSKStar$LMFE$Builder#constrainLessThan`
+	:builder_return .kstar.MSKStar$LMFE$Builder:
+	'''
+
+	builder = _get_builder(jvm.getInnerClass(c.kstar.MSKStar, 'LMFE'))()
+
+	if offset is not useJavaDefault:
+		builder.setOffset(offset)
+
+	for (state, weight) in weightsByState.items():
+		builder.addState(state, weight)
+
+	if constrainLessThan is not None:
+		builder.constrainLessThan(constrainLessThan)
+
+	return builder.build()
+
+
+def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSize=useJavaDefault, objectiveWindowMax=useJavaDefault, maxSimultaneousMutations=useJavaDefault, minNumConfTrees=useJavaDefault, logFile=None):
+	'''
+	:java:classdoc:`.kstar.MSKStar`
+
+	:builder_option objective .kstar.MSKStar$Builder#objective:
+
+	:param constraints: List of LMFEs to use as constraints
+	:type constraints: list of :java:ref:`.kstar.MSKStar$LMFE`
+
+	:builder_option epsilon .kstar.MSKStar$Builder#epsilon:
+	:builder_option objectiveWindowSize .kstar.MSKStar$Builder#objectiveWindowSize:
+	:builder_option objectiveWindowMax .kstar.MSKStar$Builder#objectiveWindowMax:
+	:builder_option maxSimultaneousMutations .kstar.MSKStar$Builder#maxSimultaneousMutations:
+	:builder_option minNumConfTrees .kstar.MSKStar$Builder#minNumConfsTrees:
+
+	:param str logFile: :java:fielddoc:`.kstar.MSKStar$Builder#logFile`
+
+	:builder_return .kstar.MSKStar$Builder:
+	'''
+
+	builder = _get_builder(c.kstar.MSKStar)(objective)
+
+	for constraint in constraints:
+		builder.addConstraint(constraint)
+
+	if objectiveWindowSize is not useJavaDefault:
+		builder.setObjectiveWindowSize(objectiveWindowSize)
+	if objectiveWindowMax is not useJavaDefault:
+		builder.setObjectiveWindowMax(objectiveWindowMax)
+	if maxSimultaneousMutations is not useJavaDefault:
+		builder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+	if minNumConfTrees is not useJavaDefault:
+		builder.setMinNumConfTrees(jvm.boxInt(minNumConfTrees))
+
+	if logFile is not None:
+		builder.setLogFile(jvm.toFile(logFile))
 
 	return builder.build()

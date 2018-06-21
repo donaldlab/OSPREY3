@@ -64,6 +64,11 @@ public class StaticEnergyHMeanAStarOrder implements AStarOrder {
 	}
 
 	@Override
+	public boolean isDynamic() {
+		return false;
+	}
+
+	@Override
 	public int getNextPos(ConfIndex confIndex, RCs rcs) {
 		if (posOrder == null) {
 			posOrder = calcPosOrder(confIndex, rcs);

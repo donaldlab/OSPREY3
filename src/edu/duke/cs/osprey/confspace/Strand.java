@@ -32,13 +32,7 @@
 
 package edu.duke.cs.osprey.confspace;
 
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
@@ -127,7 +121,7 @@ public class Strand implements Serializable {
 		public final String wildType;
 		
 		public VoxelShape voxelShape;
-		public Set<String> resTypes;
+		public Set<String> resTypes; // for library rotamers only
 		public boolean addWildTypeRotamers;
 		
 		protected ResidueFlex(String wildType) {
@@ -142,9 +136,24 @@ public class Strand implements Serializable {
 		}
 		
 		public boolean isFlexible() {
-			return !resTypes.isEmpty() || addWildTypeRotamers == true;
+			return !resTypes.isEmpty() || addWildTypeRotamers;
 		}
-		
+
+		public boolean isMutable() {
+			Set<String> allResTypes = getAllResTypes();
+			return allResTypes.size() >= 2
+				|| (allResTypes.size() == 1 && !allResTypes.iterator().next().equals(wildType));
+		}
+
+		/** for both library and wild-type rotamers */
+		public Set<String> getAllResTypes() {
+			Set<String> out = new LinkedHashSet<>(resTypes);
+			if (addWildTypeRotamers) {
+				out.add(wildType);
+			}
+			return out;
+		}
+
 		public ResidueFlex setNoRotamers() {
 			resTypes.clear();
 			addWildTypeRotamers = false;

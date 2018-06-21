@@ -39,5 +39,6 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 public interface AStarOrder {
 
 	void setScorers(AStarScorer gscorer, AStarScorer hscorer);
+	boolean isDynamic();
 	int getNextPos(ConfIndex confIndex, RCs rcs);
 }

@@ -116,7 +116,7 @@ public class BenchmarkConfRanker {
 		}
 		// pick the wild-type sequence
 		Sequence sequence = confSpace.makeWildTypeSequence();
-		RCs rcs = sequence.makeRCs();
+		RCs rcs = sequence.makeRCs(confSpace);
 
 		log("confs: %s", formatBig(makeAStar(emat, rcs).getNumConformations()));
 

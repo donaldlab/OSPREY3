@@ -44,62 +44,57 @@ import org.mapdb.serializer.GroupSerializerObjectArray;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 
 public class ConfDB implements AutoCleanable {
 
-	public static interface UserWithReturn<T> {
+	public static ConfDB makeIfNeeded(SimpleConfSpace confSpace, File file) {
 
-		T use(ConfDB confdb) throws Exception;
+		// no file? confdb not needed
+		if (file == null) {
+			return null;
+		}
 
-		default T usePassExceptions(ConfDB confdb) {
-			try {
-				return use(confdb);
-			} catch (Exception ex) {
-				throw new RuntimeException(ex);
+		return new ConfDB(confSpace, file);
+	}
+
+	public static class DBs implements AutoCleanable {
+
+		public class Adder {
+
+			public void add(SimpleConfSpace confSpace, File file) {
+				if (file != null) {
+					dbs.put(confSpace, new ConfDB(confSpace, file));
+				}
 			}
 		}
-	}
 
-	public static interface User {
+		private final Map<SimpleConfSpace,ConfDB> dbs = new HashMap<>();
+		private final Adder adder = new Adder();
 
-		void use(ConfDB confdb) throws Exception;
+		public DBs add(SimpleConfSpace confSpace, File file) {
+			adder.add(confSpace, file);
+			return this;
+		}
 
-		default void usePassExceptions(ConfDB confdb) {
-			try {
-				use(confdb);
-			} catch (Exception ex) {
-				throw new RuntimeException(ex);
+		public <T> DBs addAll(Iterable<T> things, BiConsumer<T,Adder> block) {
+			for (T thing : things) {
+				block.accept(thing, adder);
 			}
+			return this;
 		}
-	}
 
-	public static <T> T useIfNeeded(SimpleConfSpace confSpace, File file, UserWithReturn<T> user) {
-
-		if (confSpace == null || file == null) {
-
-			// no DB? just pass null
-			return user.usePassExceptions(null);
-
-		} else {
-
-			// open the db and make sure it gets cleaned up properly
-			return new ConfDB(confSpace, file).use(user);
+		public ConfDB get(SimpleConfSpace confSpace) {
+			return dbs.get(confSpace);
 		}
-	}
 
-	public static void useIfNeeded(SimpleConfSpace confSpace, File file, User user) {
-
-		if (confSpace == null || file == null) {
-
-			// no DB? just pass null
-			user.usePassExceptions(null);
-
-		} else {
-
-			// open the db and make sure it gets cleaned up properly
-			new ConfDB(confSpace, file).use(user);
+		@Override
+		public void clean() {
+			for (ConfDB db : dbs.values()) {
+				db.clean();
+			}
 		}
 	}
 
@@ -765,9 +760,9 @@ public class ConfDB implements AutoCleanable {
 				}
 
 				// lexicographical comparison
-				for (SimpleConfSpace.Position pos : confSpace.positions) {
-					String aResType = a.get(pos);
-					String bResType = b.get(pos);
+				for (SeqSpace.Position pos : confSpace.seqSpace.positions) {
+					SeqSpace.ResType aResType = a.get(pos);
+					SeqSpace.ResType bResType = b.get(pos);
 					if (aResType != null && bResType != null) {
 						// both not null, safe to compare
 						int val = aResType.compareTo(bResType);
@@ -825,17 +820,17 @@ public class ConfDB implements AutoCleanable {
 
 	private String getSequenceId(Sequence sequence) {
 		return String.join(":", () ->
-			sequence.confSpace.positions.stream()
-				.map((pos) -> (CharSequence)sequence.get(pos))
+			sequence.seqSpace.positions.stream()
+				.map((pos) -> (CharSequence)sequence.get(pos).name)
 				.iterator()
 		);
 	}
 
 	private Sequence makeSequenceFromId(String id) {
-		Sequence sequence = Sequence.makeUnassigned(confSpace);
+		Sequence sequence = confSpace.makeUnassignedSequence();
 		String[] resTypes = id.split(":");
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			sequence.set(pos, resTypes[pos.index]);
+		for (SeqSpace.Position pos : confSpace.seqSpace.positions) {
+			sequence.set(pos.resNum, resTypes[pos.index]);
 		}
 		return sequence;
 	}
@@ -853,9 +848,9 @@ public class ConfDB implements AutoCleanable {
 
 	public SequenceDB getSequence(Sequence sequence) {
 
-		// make sure the conf spaces match
-		if (sequence.confSpace != confSpace) {
-			throw new IllegalArgumentException("this sequence is from a different conf space than the conf space used by this db");
+		// make sure the sequence spaces match
+		if (sequence.seqSpace != confSpace.seqSpace) {
+			throw new IllegalArgumentException("this sequence is from a different sequence space than the sequence space used by this db");
 		}
 
 		SequenceDB sdb = sequenceDBs.get(sequence);
@@ -888,21 +883,5 @@ public class ConfDB implements AutoCleanable {
 	@Override
 	public void clean() {
 		close();
-	}
-
-	public <T> T use(UserWithReturn<T> user) {
-		try {
-			return user.usePassExceptions(this);
-		} finally {
-			close();
-		}
-	}
-
-	public void use(User user) {
-		try {
-			user.usePassExceptions(this);
-		} finally {
-			close();
-		}
 	}
 }

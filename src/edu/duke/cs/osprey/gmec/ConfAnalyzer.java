@@ -182,13 +182,13 @@ public class ConfAnalyzer {
 
 	public EnsembleAnalysis analyzeEnsembleFromConfDB(File confDBFile, String tableName, int maxNumConfs) {
 
-		return new ConfDB(confEcalc.confSpace, confDBFile).use((confdb) -> {
+		try (ConfDB confdb = new ConfDB(confEcalc.confSpace, confDBFile)) {
 			ConfDB.ConfTable table = confdb.new ConfTable(tableName);
 
 			// NOTE: yeah the confDB has the minimized energies already,
 			// but it doesn't have the structures so we need to minimize again
 			return analyzeEnsemble(table.energiedConfs(ConfDB.SortOrder.Energy).iterator(), maxNumConfs);
-		});
+		}
 	}
 
 	public EnsembleAnalysis analyzeEnsemble(Queue.FIFO<? extends ConfSearch.ScoredConf> confs, int maxNumConfs) {

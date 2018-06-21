@@ -8,8 +8,8 @@ ffparams = osprey.ForcefieldParams()
 # read a PDB file for molecular info
 mol = osprey.readPdb('2RL0.min.reduce.pdb')
 
-# make sure all strands share the same template library (including wild-type rotamers)
-templateLib = osprey.TemplateLibrary(ffparams.forcefld, moleculesForWildTypeRotamers=[mol])
+# make sure all strands share the same template library
+templateLib = osprey.TemplateLibrary(ffparams.forcefld)
 
 # define the protein strand
 protein = osprey.Strand(mol, templateLib=templateLib, residues=['G648', 'G654'])
@@ -43,12 +43,7 @@ ecalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallel
 kstar = osprey.KStar(
 	proteinConfSpace,
 	ligandConfSpace,
-	complexConfSpace,
-
-	# if you've run the kstar.confdb.py example, then we can analyze
-    # sequences using the pre-computed conf DB files
-    # this will make the analyses go much faster
-	confDBPattern='kstar.*.db'
+	complexConfSpace
 )
 
 # configure K* inputs for each conf space
@@ -65,6 +60,11 @@ for info in kstar.confSpaceInfos():
 	def makeAStar(rcs, emat=emat):
 		return osprey.AStarTraditional(emat, rcs, showProgress=False)
 	info.confSearchFactory = osprey.KStar.ConfSearchFactory(makeAStar)
+
+	# if you've run the kstar.confdb.py example, then we can analyze
+	# sequences using the pre-computed conf DB files
+	# this will make the analyses go much faster
+	info.setConfDBFile('kstar.%s.db' % info.type.name().lower())
 
 # make a sequence analyzer from the configured KStar instance
 # (you could also give it a configured BBKStar instance if you have that instead)

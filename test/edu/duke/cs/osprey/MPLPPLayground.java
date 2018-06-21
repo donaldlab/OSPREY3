@@ -46,6 +46,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -157,8 +158,8 @@ public class MPLPPLayground {
 				new PairwiseGScorer(search.emat),
 				new TraditionalPairwiseHScorer(search.emat, rcs)
 			).build();
-		ConfAStarNode minBoundNode = tree.nextLeafNode();
-		System.out.println(String.format("min bound e (trad):  %16.12f", minBoundNode.getScore()));
+		ConfSearch.ScoredConf minBoundConf = tree.nextConf();
+		System.out.println(String.format("min bound e (trad):  %16.12f", minBoundConf.getScore()));
 		
 		// get the min bound conf using MPLP
 		tree = new ConfAStarTree.Builder(search.emat, rcs)
@@ -167,12 +168,10 @@ public class MPLPPLayground {
 				new PairwiseGScorer(search.emat),
 				mplpHScorer
 			).build();
-		ConfAStarNode minBoundNodeMplp = tree.nextLeafNode();
-		System.out.println(String.format("min bound e (MPLP):  %16.12f", minBoundNodeMplp.getScore()));
+		ConfSearch.ScoredConf minBoundConfMplp = tree.nextConf();
+		System.out.println(String.format("min bound e (MPLP):  %16.12f", minBoundConfMplp.getScore()));
 		
-		int[] minBoundConf = new int[NumFlexible];
-		minBoundNode.getConf(minBoundConf);
-		double minBoundMinimizedEnergy = search.minimizedEnergy(minBoundConf);
+		double minBoundMinimizedEnergy = search.minimizedEnergy(minBoundConf.getAssignments());
 		System.out.println(String.format("min energy:   %16.12f", minBoundMinimizedEnergy));
 	}
 }
