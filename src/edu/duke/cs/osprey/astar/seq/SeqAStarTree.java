@@ -178,7 +178,6 @@ public class SeqAStarTree {
 			boolean keepSeq = true;
 			if(elst!=null && node.getLevel()!=0) {
 				String seq = node.makeSequence(elst.seqSpace).toString();
-				System.out.println(seq);
 				if (!elst.containsSeq(seq))
 					keepSeq = false;
 			}

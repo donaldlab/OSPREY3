@@ -809,13 +809,12 @@ public class EwakstarDoer {
             for(Sequence sL : L){
                 resTypes = new ArrayList<>();
                 for (String p: ewakstarDoerPL.seqSpace.getResNums()) {
-                    if (ewakstarDoerP.seqSpace.positions.contains(p)) {
+                    if (ewakstarDoerP.seqSpace.getResNums().contains(p)) {
                         resTypes.add(sP.get(p).name);
                     } else
                         resTypes.add(sL.get(p).name);
                 }
                 Sequence newSeq = ewakstarDoerPL.seqSpace.makeSequence(resTypes);
-                System.out.println(newSeq);
                 if (PL.contains(newSeq.toString())){
                     newPL.add(newSeq);
                 }
