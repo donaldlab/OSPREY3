@@ -1045,16 +1045,14 @@ public class EwakstarDoer {
             }
         }
 
+        List<SequenceInfo> badPfs = new ArrayList<>();
         for(int i=0; i<wtSpot; i++) {
             if (infos.get(i).pfUB < wtPfLB - orderMag) {
-                infos.get(i).setCanPrune(true);
+                badPfs.add(infos.get(i));
             }
         }
 
-        for (SequenceInfo si : infos){
-            if (si.canPrune)
-                infos.remove(si);
-        }
+        infos.removeAll(badPfs);
 
         log("");
         if (infos.isEmpty()) {
@@ -1167,16 +1165,14 @@ public class EwakstarDoer {
             }
         }
 
+        List<SequenceInfo> badPfs = new ArrayList<>();
         for(int i=0; i<wtSpot; i++) {
             if (infos.get(i).pfUB < wtPfLB - orderMag) {
-                infos.get(i).setCanPrune(true);
+                badPfs.add(infos.get(i));
             }
         }
 
-        for (SequenceInfo si : infos){
-            if (si.canPrune)
-                infos.remove(si);
-        }
+        infos.removeAll(badPfs);
 
         log("");
         if (infos.isEmpty()) {
