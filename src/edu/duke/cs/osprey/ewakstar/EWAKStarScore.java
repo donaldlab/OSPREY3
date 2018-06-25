@@ -39,15 +39,15 @@ public class EWAKStarScore {
 
 		// calculate the K* score
 		// or don't. I'm not the boss of you
-		if (protein.status == EWAKStarPartitionFunction.Status.ConfLimitReached
-				&& ligand.status == EWAKStarPartitionFunction.Status.ConfLimitReached
-				&& complex.status == EWAKStarPartitionFunction.Status.ConfLimitReached ||
-				protein.status == EWAKStarPartitionFunction.Status.EpsilonReached
-						&& ligand.status == EWAKStarPartitionFunction.Status.EpsilonReached
-						&& complex.status == EWAKStarPartitionFunction.Status.EpsilonReached ||
-				protein.status == EWAKStarPartitionFunction.Status.EnergyReached
-						&& ligand.status == EWAKStarPartitionFunction.Status.EnergyReached
-						&& complex.status == EWAKStarPartitionFunction.Status.EnergyReached) {
+		if ((protein.status == EWAKStarPartitionFunction.Status.ConfLimitReached
+				|| protein.status == EWAKStarPartitionFunction.Status.EpsilonReached
+				|| protein.status == EWAKStarPartitionFunction.Status.EnergyReached) &&
+				(ligand.status == EWAKStarPartitionFunction.Status.ConfLimitReached
+						|| ligand.status == EWAKStarPartitionFunction.Status.EpsilonReached
+						|| ligand.status == EWAKStarPartitionFunction.Status.EnergyReached) &&
+				(complex.status == EWAKStarPartitionFunction.Status.ConfLimitReached
+						|| complex.status == EWAKStarPartitionFunction.Status.EpsilonReached
+						|| complex.status == EWAKStarPartitionFunction.Status.EnergyReached)) {
 
 			BigDecimal x = MathTools.bigDivideDivide(
 				complex.values.qstar,

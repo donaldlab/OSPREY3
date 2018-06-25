@@ -96,6 +96,15 @@ public class EwakstarLimitedSequenceTrie {
         return node != null;
     }
 
+    public Set<String> getFirstPos(){
+        Set<String> resTypes = new HashSet<>();
+        for(TrieNode n: root.getChildNodes()){
+            resTypes.add(n.getAA().split("=")[1].toUpperCase());
+        }
+
+        return resTypes;
+    }
+
     public Set<String> getSeq(String sequence){
         TrieNode node = root;
         for (String aa : sequence.split(" ")) {

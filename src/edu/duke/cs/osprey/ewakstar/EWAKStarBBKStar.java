@@ -179,7 +179,7 @@ public class EWAKStarBBKStar {
             //Set<SeqSpace.ResType> resTypes;
             Set<String> resTypes;
 
-            if(assignPos.index == 0 || assignPos.resTypes.size() == 1)
+            if(assignPos.resTypes.size() == 1)
                 resTypes = new HashSet<>(getResTypeList(assignPos.resTypes));
             else {
                 resTypes = filterOnPreviousSeqs();
@@ -225,7 +225,14 @@ public class EWAKStarBBKStar {
         private Set<String> filterOnPreviousSeqs(){
 
             String subSeq = sequence.toString();
-            Set<String> resTypes = new HashSet<>(bbkstarSettings.allowedSeqs.getSeq(subSeq));
+            Set<String> resTypes;
+            if (subSeq.equals("")){
+                 resTypes = bbkstarSettings.allowedSeqs.getFirstPos();
+            }
+            else {
+                resTypes = bbkstarSettings.allowedSeqs.getSeq(subSeq);
+            }
+
             return resTypes;
         }
 
@@ -235,10 +242,9 @@ public class EWAKStarBBKStar {
             // TODO: expose setting?
             // NOTE: for the correctness of the bounds, the number of confs must be the same for every node
             // meaning, it might not be sound to do epsilon-based iterative approximations here
-            final int numConfs = 1000;
 
 
-            BigDecimal proteinLowerBound = calcLowerBound(protein, sequence, numConfs);
+            BigDecimal proteinLowerBound = calcLowerBound(protein, sequence, kstarSettings.maxPFConfs);
 
             // if the first few conf upper bound scores (for the pfunc lower bound) are too high,
             // then the K* upper bound is also too high
@@ -248,7 +254,7 @@ public class EWAKStarBBKStar {
                 return;
             }
 
-            BigDecimal ligandLowerBound = calcLowerBound(ligand, sequence, numConfs);
+            BigDecimal ligandLowerBound = calcLowerBound(ligand, sequence, kstarSettings.maxPFConfs);
 
             // if the first few conf upper bound scores (for the pfunc lower bound) are too high,
             // then the K* upper bound is also too high
@@ -258,7 +264,7 @@ public class EWAKStarBBKStar {
                 return;
             }
 
-            BigDecimal complexUpperBound = calcUpperBound(complex, sequence, numConfs);
+            BigDecimal complexUpperBound = calcUpperBound(complex, sequence, kstarSettings.maxPFConfs);
 
             // compute the node score
             score = MathTools.bigDivideDivide(
@@ -419,15 +425,15 @@ public class EWAKStarBBKStar {
         public PfuncsStatus getStatus() {
 
             // aggregate pfunc statuses
-            if (protein.getStatus() == EWAKStarPartitionFunction.Status.ConfLimitReached
-                    && ligand.getStatus() == EWAKStarPartitionFunction.Status.ConfLimitReached
-                    && complex.getStatus() == EWAKStarPartitionFunction.Status.ConfLimitReached ||
-                    protein.getStatus() == EWAKStarPartitionFunction.Status.EpsilonReached
-                            && ligand.getStatus() == EWAKStarPartitionFunction.Status.EpsilonReached
-                            && complex.getStatus() == EWAKStarPartitionFunction.Status.EpsilonReached ||
-                    protein.getStatus() == EWAKStarPartitionFunction.Status.EnergyReached
-                            && ligand.getStatus() == EWAKStarPartitionFunction.Status.EnergyReached
-                            && complex.getStatus() == EWAKStarPartitionFunction.Status.EnergyReached) {
+            if ((protein.getStatus() == EWAKStarPartitionFunction.Status.ConfLimitReached
+                    || protein.getStatus() == EWAKStarPartitionFunction.Status.EpsilonReached
+                    || protein.getStatus() == EWAKStarPartitionFunction.Status.EnergyReached) &&
+                    (ligand.getStatus() == EWAKStarPartitionFunction.Status.ConfLimitReached
+                            || ligand.getStatus() == EWAKStarPartitionFunction.Status.EpsilonReached
+                            || ligand.getStatus() == EWAKStarPartitionFunction.Status.EnergyReached) &&
+                    (complex.getStatus() == EWAKStarPartitionFunction.Status.ConfLimitReached
+                            || complex.getStatus() == EWAKStarPartitionFunction.Status.EpsilonReached
+                            || complex.getStatus() == EWAKStarPartitionFunction.Status.EnergyReached)) {
                 return PfuncsStatus.Estimated;
             } else if (protein.getStatus() == EWAKStarPartitionFunction.Status.Estimating
                     || ligand.getStatus() == EWAKStarPartitionFunction.Status.Estimating

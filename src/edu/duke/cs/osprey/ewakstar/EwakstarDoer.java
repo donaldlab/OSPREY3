@@ -683,9 +683,9 @@ public class EwakstarDoer {
         long stopEWAKStarTime;
         if (!seqFilterOnly) {
             EwakstarLimitedSequenceTrie elstPL = new EwakstarLimitedSequenceTrie(ewakstarDoerPL.seqSpace);
-            if(filteredSeqsPL.size()!=1) {
-                for (String s : filteredSeqsPL) {
-                    elstPL.addSeq(s);
+            if(fullSeqs.size()!=0) {
+                for (Sequence s : fullSeqs) {
+                    elstPL.addSeq(s.toString());
                 }
             }
             runEWAKStarBBKStar(elstPL, ewakstarDoerPL.state, ewakstarDoerP.state, ewakstarDoerL.state);
@@ -804,19 +804,50 @@ public class EwakstarDoer {
 
         List<String> resTypes;
         Set<Sequence> newPL = new HashSet<>();
-        for(Sequence sP : P){
-            for(Sequence sL : L){
+
+        if(P.size()!=0 && L.size()!=0) {
+            for (Sequence sP : P) {
+                for (Sequence sL : L) {
+                    resTypes = new ArrayList<>();
+                    for (String p : ewakstarDoerPL.seqSpace.getResNums()) {
+                        if (ewakstarDoerP.seqSpace.getResNums().contains(p)) {
+                            resTypes.add(sP.get(p).name);
+                        } else
+                            resTypes.add(sL.get(p).name);
+                    }
+                    Sequence newSeq = ewakstarDoerPL.seqSpace.makeSequence(resTypes);
+                    if (PL.contains(newSeq.toString())) {
+                        newPL.add(newSeq);
+                    }
+                }
+            }
+        } else if(P.size()!=0) {
+            for (Sequence sP : P) {
                 resTypes = new ArrayList<>();
-                for (String p: ewakstarDoerPL.seqSpace.getResNums()) {
+                for (String p : ewakstarDoerPL.seqSpace.getResNums()) {
                     if (ewakstarDoerP.seqSpace.getResNums().contains(p)) {
                         resTypes.add(sP.get(p).name);
-                    } else
-                        resTypes.add(sL.get(p).name);
+                    }
                 }
                 Sequence newSeq = ewakstarDoerPL.seqSpace.makeSequence(resTypes);
-                if (PL.contains(newSeq.toString())){
+                if (PL.contains(newSeq.toString())) {
                     newPL.add(newSeq);
                 }
+
+            }
+        } else if(L.size()!=0) {
+            for (Sequence sL : L) {
+                resTypes = new ArrayList<>();
+                for (String p : ewakstarDoerPL.seqSpace.getResNums()) {
+                    if (ewakstarDoerL.seqSpace.getResNums().contains(p)) {
+                        resTypes.add(sL.get(p).name);
+                    }
+                }
+                Sequence newSeq = ewakstarDoerPL.seqSpace.makeSequence(resTypes);
+                if (PL.contains(newSeq.toString())) {
+                    newPL.add(newSeq);
+                }
+
             }
         }
 

@@ -166,9 +166,9 @@ public class EwakstarLab {
 				.setTemplateLibrary(templateLib)
 				.setResidues("C7", "C80")
 				.build();
-		protein.flexibility.get("C53").setLibraryRotamers("HIE").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("C53").setLibraryRotamers("HIE", "ILE").addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("C64").setLibraryRotamers("ALA").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("C67").setLibraryRotamers("ASN", "CYS").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("C67").setLibraryRotamers("SER", "CYS").addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("C71").setLibraryRotamers("ILE").addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("C78").setLibraryRotamers("GLU").addWildTypeRotamers().setContinuous();
 
