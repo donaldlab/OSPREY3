@@ -77,7 +77,6 @@ public class EwakstarDoer {
         public ConfEnergyCalculator confRigidEcalc;
         public Function<RCs,ConfAStarTree> confTreeFactory;
         public EnergyMatrix ematRigid;
-        public PruningMatrix pmat;
         public EnergyMatrix emat;
 
         public State(String name, SimpleConfSpace confSpace) {
@@ -894,16 +893,6 @@ public class EwakstarDoer {
                 .calcEnergyMatrix();
 
 
-        // run DEE (super important for good LUTE fits!!)
-        P.pmat = new SimpleDEE.Runner()
-                .setGoldsteinDiffThreshold(10.0)
-                .setTypeDependent(true)
-                .setShowProgress(true)
-                .setCacheFile(new File(String.format("ewakstar.%s.pmat", P.name)))
-                .setParallelism(Parallelism.makeCpu(8))
-                .run(P.confSpace, P.emat);
-
-
         // make the conf tree factory
         P.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(P.emat, rcs)
                 .setTraditional()
@@ -943,16 +932,6 @@ public class EwakstarDoer {
                 .setCacheFile(new File(String.format("ewakstar.%s.ematRigid", L.name)))
                 .build()
                 .calcEnergyMatrix();
-
-        // run DEE (super important for good LUTE fits!!)
-        L.pmat = new SimpleDEE.Runner()
-                .setGoldsteinDiffThreshold(10.0)
-                .setTypeDependent(true)
-                .setShowProgress(true)
-                .setCacheFile(new File(String.format("ewakstar.%s.pmat", L.name)))
-                .setParallelism(Parallelism.makeCpu(8))
-                .run(L.confSpace, L.emat);
-
 
         // make the conf tree factory
         L.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(L.emat, rcs)

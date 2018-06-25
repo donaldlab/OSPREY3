@@ -132,16 +132,6 @@ public class EwakstarLab {
 				.build()
 				.calcEnergyMatrix();
 
-		// run DEE (super important for good LUTE fits!!)
-		PL.pmat =new SimpleDEE.Runner()
-				.setGoldsteinDiffThreshold(10.0)
-				.setTypeDependent(true)
-				.setShowProgress(false)
-				.setCacheFile(new File(String.format("ewakstar.%s.pmat", PL.name)))
-				.setParallelism(Parallelism.makeCpu(numCpus))
-				.run(PL.confSpace, PL.emat);
-
-
 		// make the conf tree factory
 		PL.confTreeFactory =(rcs)->new ConfAStarTree.Builder(PL.emat,rcs)
 				.setTraditional()
@@ -253,15 +243,6 @@ public class EwakstarLab {
 				.setCacheFile(new File(String.format("ewakstar.%s.ematRigid", PL.name)))
 				.build()
 				.calcEnergyMatrix();
-
-		// run DEE (super important for good LUTE fits!!)
-		PL.pmat =new SimpleDEE.Runner()
-				.setGoldsteinDiffThreshold(10.0)
-				.setTypeDependent(true)
-				.setShowProgress(false)
-				.setCacheFile(new File(String.format("ewakstar.%s.pmat", PL.name)))
-				.setParallelism(Parallelism.makeCpu(numCpus))
-				.run(PL.confSpace, PL.emat);
 
 
 		// make the conf tree factory
