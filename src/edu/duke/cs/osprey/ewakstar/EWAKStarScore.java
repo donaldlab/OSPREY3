@@ -31,7 +31,7 @@ public class EWAKStarScore {
 		this.upperBound = upperBound;
 	}
 
-	public EWAKStarScore(EWAKStarGradientDescentPfunc.Result protein, EWAKStarGradientDescentPfunc.Result ligand, EWAKStarGradientDescentPfunc.Result complex) {
+	public EWAKStarScore(EWAKStarPartitionFunction.Result protein, EWAKStarPartitionFunction.Result ligand, EWAKStarPartitionFunction.Result complex) {
 
 		this.protein = protein;
 		this.ligand = ligand;
@@ -53,7 +53,7 @@ public class EWAKStarScore {
 				complex.values.qstar,
 				protein.values.qstar,
 				ligand.values.qstar,
-				EWAKStarGradientDescentPfunc.decimalPrecision
+					EWAKStarPartitionFunction.decimalPrecision
 			);
 			if (MathTools.isNaN(x)) {
 				this.score = null;
@@ -72,7 +72,7 @@ public class EWAKStarScore {
 			complex.values.calcLowerBound(),
 			protein.values.calcUpperBound(),
 			ligand.values.calcUpperBound(),
-			EWAKStarGradientDescentPfunc.decimalPrecision
+				EWAKStarPartitionFunction.decimalPrecision
 		);
 
 		// calc the upper bound
@@ -80,25 +80,25 @@ public class EWAKStarScore {
 			complex.values.calcUpperBound(),
 			protein.values.calcLowerBound(),
 			ligand.values.calcLowerBound(),
-			EWAKStarGradientDescentPfunc.decimalPrecision
+				EWAKStarPartitionFunction.decimalPrecision
 		);
 	}
 
-	public static boolean isLigandComplexUseful(EWAKStarGradientDescentPfunc.Result protein) {
+	public static boolean isLigandComplexUseful(EWAKStarPartitionFunction.Result protein) {
 
 		// assuming we compute pfuncs in order of: protein, ligand, complex:
 		// unbound stability is the only thing that would
 		// make the ligand or complex pfunc results useless at this point
-		return protein.status != EWAKStarGradientDescentPfunc.Status.Unstable;
+		return protein.status != EWAKStarPartitionFunction.Status.Unstable;
 	}
 
-	public static boolean isComplexUseful(EWAKStarGradientDescentPfunc.Result protein, EWAKStarGradientDescentPfunc.Result ligand) {
+	public static boolean isComplexUseful(EWAKStarPartitionFunction.Result protein, EWAKStarPartitionFunction.Result ligand) {
 
 		// assuming we compute pfuncs in order of: protein, ligand, complex:
 		// unbound stability is the only thing that would
 		// make the complex pfunc results useless at this point
-		return protein.status != EWAKStarGradientDescentPfunc.Status.Unstable
-			&& ligand.status != EWAKStarGradientDescentPfunc.Status.Unstable;
+		return protein.status != EWAKStarPartitionFunction.Status.Unstable
+			&& ligand.status != EWAKStarPartitionFunction.Status.Unstable;
 	}
 
 	@Override
@@ -129,9 +129,9 @@ public class EWAKStarScore {
 	}
 
 	public boolean isSimilarTo(EWAKStarScore other, double relativeEpsilon) {
-		return MathTools.isRelativelySame(this.score, other.score, EWAKStarGradientDescentPfunc.decimalPrecision, relativeEpsilon)
-			&& MathTools.isRelativelySame(this.lowerBound, other.lowerBound, EWAKStarGradientDescentPfunc.decimalPrecision, relativeEpsilon)
-			&& MathTools.isRelativelySame(this.upperBound, other.upperBound, EWAKStarGradientDescentPfunc.decimalPrecision, relativeEpsilon);
+		return MathTools.isRelativelySame(this.score, other.score, EWAKStarPartitionFunction.decimalPrecision, relativeEpsilon)
+			&& MathTools.isRelativelySame(this.lowerBound, other.lowerBound, EWAKStarPartitionFunction.decimalPrecision, relativeEpsilon)
+			&& MathTools.isRelativelySame(this.upperBound, other.upperBound, EWAKStarPartitionFunction.decimalPrecision, relativeEpsilon);
 	}
 
 	public Double scoreLog10() { return scoreToLog10(score); }
