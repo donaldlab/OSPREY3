@@ -96,10 +96,13 @@ complex.emat = osprey.EnergyMatrix(complex.confEcalc, cacheFile='ewakstar.%s.ema
 complex.fragmentEnergies = complex.emat
 complex.ematRigid = osprey.EnergyMatrix(complex.confRigidEcalc, cacheFile='ewakstar.%s.ematRigid' % complex.name)
 
-complex.pmat = osprey.DEE(complex.confSpace, complex.emat, singlesGoldsteinDiffThreshold=10.0, pairsGoldsteinDiffThreshold=10.0, triplesGoldsteinDiffThreshold=10.0, typeDependent=True, showProgress=False, parallelism=parallelism, cacheFile='ewakstar.%s.pmat' % complex.name)
 # how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
 def makeAStar(rcs, emat=complex.emat):
-	return osprey.AStarTraditional(complex.emat, rcs, showProgress=False)
-complex.confTreeFactory = osprey.EwakstarDoer_ConfSearchFactory(makeAStar)
+	return osprey.AStarTraditional(complex.emat, rcs, showProgress=False, maxNumNodes=2000000)
+def makeAStarRigid(rcs, emat=complex.ematRigid):
+	return osprey.AStarTraditional(complex.ematRigid, rcs, showProgress=False, maxNumNodes=2000000)
+
+complex.confTreeFactoryMin = osprey.EwakstarDoer_ConfSearchFactory(makeAStar)
+complex.confTreeFactoryRigid = osprey.EwakstarDoer_ConfSearchFactory(makeAStarRigid)
 
 scoredSequences = ewakstarDoer.run(complex);
