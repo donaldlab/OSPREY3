@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.ProxyEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -572,7 +573,7 @@ public class MARKStarBound implements PartitionFunction {
         System.out.println("Score Analysis: "+scoreAnalysis);
         EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
         System.out.println("Difference Analysis " + diff);
-        List<Pair<Integer, Double>> contributionsByResidue = new ArrayList<>();
+        List<Pair<Pair<Integer, Integer>, Double>> sortedPairwiseTerms = new ArrayList<>();
         for (int pos = 0; pos < diff.getNumPos(); pos++)
         {
             double sum = 0;
@@ -589,35 +590,35 @@ public class MARKStarBound implements PartitionFunction {
                     }
                 }
             }
-            contributionsByResidue.add(new Pair(pos, sum));
+            sortedPairwiseTerms.add(new Pair(pos, sum));
         }
-        Collections.sort(contributionsByResidue, (a,b)->-Double.compare(a.getValue(),b.getValue()));
-        for(Pair p: contributionsByResidue)
+        Collections.sort(sortedPairwiseTerms, (a,b)->-Double.compare(a.getValue(),b.getValue()));
+        for(Pair p: sortedPairwiseTerms)
             System.out.println(p);
 
 
         double threshhold = 0.5;
-        Collections.sort(contributionsByResidue, Comparator.comparingDouble(Pair::getValue));
-        for(int i = 0; i < contributionsByResidue.size(); i++)
+        Collections.sort(sortedPairwiseTerms, Comparator.comparingDouble(Pair::getValue));
+        for(int i = 0; i < sortedPairwiseTerms.size(); i++)
         {
-            Pair<Integer, Double> resCont = contributionsByResidue.get(i);
+            Pair<Pair<Integer, Integer>, Double> resCont = sortedPairwiseTerms.get(i);
             if(resCont.getValue() < threshhold)
                 continue;
-            double energyDifference = computeDifference(contributionsByResidue, i, gscorer, ecalc);
         }
-        /* Starting from the residue contributing the smallest energy difference:
-            if the energy difference is below the threshold, remove it.
-            otherwise, compute a higher-order tuple correcting for the energy difference.
-            repeat, removing the residue contributing the next-lowest energy difference.
-
-            Then, subtract out the energy corrections of the smaller tuples from the larger
-            tuples.
+        /* Starting from the largest-difference pairs, create triples and quads to find
+         * tuples which correct the energy of the pair.
          */
 
     }
 
-    private double computeDifference(List<Pair<Integer,Double>> contributionsByResidue, int i, AStarScorer gscorer, ConfEnergyCalculator ecalc) {
+    private double computeDifference(List<Pair<Integer,Double>> contributionsByResidue,
+                                     int i, AStarScorer gscorer, ConfEnergyCalculator ecalc) {
         return 0;
+    }
+
+    private RCTuple makeTuple(List<Pair<Integer,Double>> contributionsByResidue, int i) {
+        return null;
+
     }
 
     private void debugHeap() {
