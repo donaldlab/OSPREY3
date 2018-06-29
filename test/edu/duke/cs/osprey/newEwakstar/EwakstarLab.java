@@ -133,7 +133,13 @@ public class EwakstarLab {
 				.calcEnergyMatrix();
 
 		// make the conf tree factory
-		PL.confTreeFactory =(rcs)->new ConfAStarTree.Builder(PL.emat,rcs)
+		PL.confTreeFactoryMin =(rcs)->new ConfAStarTree.Builder(PL.emat,rcs)
+				.setMaxNumNodes(20000000)
+				.setTraditional()
+				.build();
+
+		PL.confTreeFactoryRigid =(rcs)->new ConfAStarTree.Builder(PL.ematRigid,rcs)
+				.setMaxNumNodes(20000000)
 				.setTraditional()
 				.build();
 
@@ -245,8 +251,15 @@ public class EwakstarLab {
 				.calcEnergyMatrix();
 
 
+
 		// make the conf tree factory
-		PL.confTreeFactory =(rcs)->new ConfAStarTree.Builder(PL.emat,rcs)
+		PL.confTreeFactoryMin =(rcs) -> new ConfAStarTree.Builder(PL.emat, rcs)
+				.setMaxNumNodes(2000000)
+				.setTraditional()
+				.build();
+
+		PL.confTreeFactoryRigid =(rcs) -> new ConfAStarTree.Builder(PL.ematRigid, rcs)
+				.setMaxNumNodes(2000000)
 				.setTraditional()
 				.build();
 

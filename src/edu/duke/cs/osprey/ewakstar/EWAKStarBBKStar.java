@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.ewakstar;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.ConfSearchCache;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -13,6 +15,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 import java.io.File;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.function.Function;
 
 /** Adapted from BBKStar.java by lowegard **/
 
@@ -79,10 +82,10 @@ public class EWAKStarBBKStar {
         public ConfEnergyCalculator confEcalcMinimized = null;
 
         /** A ConfSearch that minimizes over conformation scores from minimized tuples */
-        public KStar.ConfSearchFactory confSearchFactoryMinimized = null;
+        public Function<RCs,ConfAStarTree> confTreeFactoryMinimized = null;
 
         /** A ConfSearch that maximizes over conformation scores from rigid tuples */
-        public KStar.ConfSearchFactory confSearchFactoryRigid = null;
+        public Function<RCs,ConfAStarTree> confTreeFactoryRigid = null;
 
         public File confDBFile = null;
 
@@ -98,11 +101,11 @@ public class EWAKStarBBKStar {
             if (confEcalcMinimized == null) {
                 throw new EWAKStar.InitException(type, "confEcalcMinimized");
             }
-            if (confSearchFactoryMinimized == null) {
-                throw new EWAKStar.InitException(type, "confSearchFactoryMinimized");
+            if (confTreeFactoryMinimized == null) {
+                throw new EWAKStar.InitException(type, "confTreeFactoryMinimized");
             }
-            if (confSearchFactoryRigid == null) {
-                throw new EWAKStar.InitException(type, "confSearchFactoryRigid");
+            if (confTreeFactoryRigid == null) {
+                throw new EWAKStar.InitException(type, "confTreeFactoryRigid");
             }
         }
 
@@ -282,7 +285,7 @@ public class EWAKStarBBKStar {
             // but use rigid energies instead of minimized energies
 
             RCs rcs = sequence.makeRCs(info.confSpace);
-            ConfSearch astar = info.confSearchFactoryRigid.make(rcs);
+            ConfSearch astar = info.confTreeFactoryRigid.apply(rcs);
             BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
             BigMath m = new BigMath(PartitionFunction.decimalPrecision)
@@ -305,7 +308,7 @@ public class EWAKStarBBKStar {
 
             RCs rcs = sequence.makeRCs(info.confSpace);
             UpperBoundCalculator calc = new UpperBoundCalculator(
-                    info.confSearchFactoryMinimized.make(rcs),
+                    info.confTreeFactoryMinimized.apply(rcs),
                     rcs.getNumConformations()
             );
             calc.run(numConfs);
@@ -323,9 +326,9 @@ public class EWAKStarBBKStar {
 
     public class SingleSequenceNode extends Node {
 
-        public final EWAKStarPartitionFunction protein;
-        public final EWAKStarPartitionFunction ligand;
-        public final EWAKStarPartitionFunction complex;
+        public EWAKStarPartitionFunction protein;
+        public EWAKStarPartitionFunction ligand;
+        public EWAKStarPartitionFunction complex;
 
         public SingleSequenceNode(Sequence sequence, ConfDB.DBs confDBs) {
             super(sequence, confDBs);
@@ -359,8 +362,7 @@ public class EWAKStarBBKStar {
             if (kstarSettings.useExternalMemory) {
                 EWAKStarPartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
             }
-            ConfSearch astar = info.confSearchFactoryMinimized.make(rcs);
-            pfunc.init(astar, rcs.getNumConformations(), kstarSettings.epsilon, kstarSettings.eW);
+            pfunc.init(confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), rcs.getNumConformations(), kstarSettings.epsilon, kstarSettings.eW);
             pfunc.setStabilityThreshold(info.stabilityThreshold);
 
             // update the cache
@@ -472,7 +474,9 @@ public class EWAKStarBBKStar {
     private final Map<Sequence,EWAKStarPartitionFunction> ligandPfuncs;
     private final Map<Sequence,EWAKStarPartitionFunction> complexPfuncs;
 
-    public EWAKStarBBKStar(EwakstarDoer.State P, EwakstarDoer.State L, EwakstarDoer.State PL, EWAKStar.Settings kstarSettings, EWAKStarBBKStar.Settings bbkstarSettings) {
+    private final ConfSearchCache confTrees;
+
+    public EWAKStarBBKStar(EwakstarDoer.State P, EwakstarDoer.State L, EwakstarDoer.State PL, EWAKStar.Settings kstarSettings, EWAKStarBBKStar.Settings bbkstarSettings, Integer minNumConfTrees) {
 
         // BBK* doesn't work with external memory (never enough internal memory for all the priority queues)
         if (kstarSettings.useExternalMemory) {
@@ -485,6 +489,8 @@ public class EWAKStarBBKStar {
         this.complex = new ConfSpaceInfo(PL.confSpace, EWAKStar.ConfSpaceType.Complex);
         this.kstarSettings = kstarSettings;
         this.bbkstarSettings = bbkstarSettings;
+
+        confTrees = new ConfSearchCache(minNumConfTrees);
 
         proteinPfuncs = new HashMap<>();
         ligandPfuncs = new HashMap<>();
@@ -555,6 +561,9 @@ public class EWAKStarBBKStar {
 
                                 // sequence is finished, return it!
                                 reportSequence(ssnode, scoredSequences);
+                                ssnode.protein = null;
+                                ssnode.complex = null;
+                                ssnode.ligand = null;
                                 break;
 
                             case Estimating:
@@ -601,6 +610,9 @@ public class EWAKStarBBKStar {
 
                                 // sequence is finished, return it!
                                 reportSequence(ssnode, scoredSequences);
+                                ssnode.protein = null;
+                                ssnode.complex = null;
+                                ssnode.ligand = null;
                                 break;
 
                             case Estimating:

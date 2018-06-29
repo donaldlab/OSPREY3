@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.ewakstar;
 
+import edu.duke.cs.osprey.astar.conf.ConfSearchCache;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
@@ -190,10 +191,6 @@ public class EWAKStar {
         }
     }
 
-    public static interface ConfSearchFactory {
-        public ConfSearch make(RCs rcs);
-    }
-
     public class ConfSpaceInfo {
 
         public final SimpleConfSpace confSpace;
@@ -225,52 +222,6 @@ public class EWAKStar {
             pfuncResults.clear();
         }
 
-        public EWAKStarGradientDescentPfunc.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, ConfDB confDB) {
-
-            Sequence sequence = sequences.get(sequenceIndex).filter(confSpace.seqSpace);
-
-            // check the cache first
-            EWAKStarGradientDescentPfunc.Result result = pfuncResults.get(sequence);
-            if (result != null) {
-                return result;
-            }
-
-            // cache miss, need to compute the partition function
-
-            // make the partition function
-            EWAKStarGradientDescentPfunc pfunc = new EWAKStarGradientDescentPfunc(confEcalc);
-            pfunc.setReportProgress(settings.showPfuncProgress);
-            if (confDB != null) {
-                EWAKStarPartitionFunction.WithConfTable.setOrThrow(pfunc, confDB.getSequence(sequence));
-            }
-            RCs rcs = sequence.makeRCs(confSpace);
-            if (settings.useExternalMemory) {
-                EWAKStarPartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
-            }
-            ConfSearch astar = confSearchFactory.make(rcs);
-            pfunc.init(astar, rcs.getNumConformations(), settings.epsilon, settings.eW);
-            pfunc.setStabilityThreshold(stabilityThreshold);
-
-            // compute it
-            pfunc.compute();
-
-            // save the result
-            result = pfunc.makeResult();
-            pfuncResults.put(sequence, result);
-
-			/* HACKHACK: we're done using the A* tree, pfunc, etc
-				and normally the garbage collector will clean them up,
-				along with their off-heap resources (e.g. TPIE data structures).
-				Except the garbage collector might not do it right away.
-				If we try to allocate more off-heap resources before these get cleaned up,
-				we might run out. So poke the garbage collector now and try to get
-				it to clean up the off-heap resources right away.
-			*/
-            Runtime.getRuntime().gc();
-
-            return result;
-        }
-
         public void setConfDBFile(String path) {
             confDBFile = new File(path);
         }
@@ -294,12 +245,15 @@ public class EWAKStar {
 
     private List<Sequence> sequences;
 
-    public EWAKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, Settings settings) {
+    private final ConfSearchCache confTrees;
+
+    public EWAKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, Settings settings, Integer minNumConfTrees) {
         this.settings = settings;
         this.protein = new ConfSpaceInfo(protein, ConfSpaceType.Protein);
         this.ligand = new ConfSpaceInfo(ligand, ConfSpaceType.Ligand);
         this.complex = new ConfSpaceInfo(complex, ConfSpaceType.Complex);
         this.sequences = new ArrayList<>();
+        confTrees = new ConfSearchCache(minNumConfTrees);
     }
 
     public Iterable<ConfSpaceInfo> confSpaceInfos() {

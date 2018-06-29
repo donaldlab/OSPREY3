@@ -218,7 +218,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 	}
 
 	@Override
-	public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy) {
+	public void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy) {
 
 		if (targetEpsilon <= 0.0 || targetEnergy < 0) {
 			throw new IllegalArgumentException("target epsilon and target energy must be greater than zero");
@@ -239,10 +239,8 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 		numEnergyConfsEnumerated = 0;
 		numScoreConfsEnumerated = 0;
 
-		// split the confs between the upper and lower bounds
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch, useExternalMemory, rcs);
-		scoreConfs = confsSplitter.first;
-		energyConfs = confsSplitter.second;
+		this.scoreConfs = scoreConfs;
+		this.energyConfs = energyConfs;
 	}
 
 	@Override

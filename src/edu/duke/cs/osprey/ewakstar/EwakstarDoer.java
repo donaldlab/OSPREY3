@@ -75,7 +75,8 @@ public class EwakstarDoer {
         public FragmentEnergies fragmentEnergies;
         public ConfEnergyCalculator confEcalc;
         public ConfEnergyCalculator confRigidEcalc;
-        public Function<RCs,ConfAStarTree> confTreeFactory;
+        public Function<RCs,ConfAStarTree> confTreeFactoryMin;
+        public Function<RCs,ConfAStarTree> confTreeFactoryRigid;
         public EnergyMatrix ematRigid;
         public EnergyMatrix emat;
 
@@ -94,8 +95,11 @@ public class EwakstarDoer {
             if (confEcalc == null) {
                 throw new InitException(this, "confEcalc");
             }
-            if (confTreeFactory == null) {
-                throw new InitException(this, "confTreeFactory");
+            if (confTreeFactoryMin == null) {
+                throw new InitException(this, "confTreeFactoryMin");
+            }
+            if (confTreeFactoryRigid == null) {
+                throw new InitException(this, "confTreeFactoryRigid");
             }
         }
 
@@ -278,7 +282,7 @@ public class EwakstarDoer {
             this.sequence = sequence;
             // make the conf tree
             RCs rcs = sequence.makeRCs(state.confSpace);
-            confTree = state.confTreeFactory.apply(rcs);
+            confTree = state.confTreeFactoryMin.apply(rcs);
             setIsWildType(this.sequence.toString().equals(this.state.confSpace.makeWildTypeSequence().toString()));
         }
 
@@ -730,41 +734,23 @@ public class EwakstarDoer {
                 .setAllowedSeqs(plTrie).build();
 
         Results results = new Results();
-        results.bbkstar = new EWAKStarBBKStar( P, L, PL, ewakstarSettings, bbkstarSettings);
+        results.bbkstar = new EWAKStarBBKStar( P, L, PL, ewakstarSettings, bbkstarSettings, 10);
 
         for (EWAKStarBBKStar.ConfSpaceInfo info : results.bbkstar.confSpaceInfos()) {
 
             // how should we define energies of conformations?
             if (info.id.equals("protein")) {
                 info.confEcalcMinimized = P.confEcalc;
-                info.confSearchFactoryMinimized = (rcs) ->
-                    new ConfAStarTree.Builder(P.emat, rcs)
-                            .setTraditional()
-                            .build();
-                info.confSearchFactoryRigid = (rcs) ->
-                        new ConfAStarTree.Builder(P.ematRigid, rcs)
-                                .setTraditional()
-                                .build();
+                info.confTreeFactoryMinimized = P.confTreeFactoryMin;
+                info.confTreeFactoryRigid = P.confTreeFactoryRigid;
             } else if (info.id.equals("ligand")) {
                 info.confEcalcMinimized = L.confEcalc;
-                info.confSearchFactoryMinimized = (rcs) ->
-                        new ConfAStarTree.Builder(L.emat, rcs)
-                                .setTraditional()
-                                .build();
-                info.confSearchFactoryRigid = (rcs) ->
-                        new ConfAStarTree.Builder(L.ematRigid, rcs)
-                                .setTraditional()
-                                .build();
+                info.confTreeFactoryMinimized = L.confTreeFactoryMin;
+                info.confTreeFactoryRigid = L.confTreeFactoryRigid;
             } else {
                 info.confEcalcMinimized = PL.confEcalc;
-                info.confSearchFactoryMinimized = (rcs) ->
-                        new ConfAStarTree.Builder(PL.emat, rcs)
-                                .setTraditional()
-                                .build();
-                info.confSearchFactoryRigid = (rcs) ->
-                    new ConfAStarTree.Builder(PL.ematRigid, rcs)
-                            .setTraditional()
-                            .build();
+                info.confTreeFactoryMinimized = PL.confTreeFactoryMin;
+                info.confTreeFactoryRigid = PL.confTreeFactoryRigid;
             }
 
         }
@@ -925,9 +911,17 @@ public class EwakstarDoer {
 
 
         // make the conf tree factory
-        P.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(P.emat, rcs)
+        P.confTreeFactoryMin = (rcs) -> new ConfAStarTree.Builder(P.emat, rcs)
+                .setMaxNumNodes(2000000)
                 .setTraditional()
                 .build();
+
+        P.confTreeFactoryRigid = (rcs) -> new ConfAStarTree.Builder(P.ematRigid, rcs)
+                .setMaxNumNodes(2000000)
+                .setTraditional()
+                .build();
+
+
 
         //do all of this for ligand also
         EnergyCalculator ecalcL = new EnergyCalculator.Builder(L.confSpace, ffparams)
@@ -965,7 +959,13 @@ public class EwakstarDoer {
                 .calcEnergyMatrix();
 
         // make the conf tree factory
-        L.confTreeFactory = (rcs) -> new ConfAStarTree.Builder(L.emat, rcs)
+        L.confTreeFactoryMin = (rcs) -> new ConfAStarTree.Builder(L.emat, rcs)
+                .setMaxNumNodes(2000000)
+                .setTraditional()
+                .build();
+
+        L.confTreeFactoryRigid = (rcs) -> new ConfAStarTree.Builder(L.ematRigid, rcs)
+                .setMaxNumNodes(2000000)
                 .setTraditional()
                 .build();
 

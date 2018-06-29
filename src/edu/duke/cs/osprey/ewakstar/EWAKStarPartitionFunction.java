@@ -169,13 +169,14 @@ public interface EWAKStarPartitionFunction {
 
 	/**
 	 * Initializes the partition function for calculation.
-	 * @param confSearch The A* tree of conformations to enumerate (which may have been pruned)
+	 * @param scoreConfs The A* tree of conformations to enumerate (which may have been pruned)
+	 * @param energyConfs The A* tree of conformations to enumerate (which may have been pruned)
 	 * @param targetEnergy The accuracy with which to estimate the partition function.
 	 * @param targetEpsilon The accuracy with which to estimate the partition function.
 	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
 	 *                               including any conformations removed by pruned tuples.
 	 */
-	void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy);
+	void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy);
 
 	/**
 	 * Sets the stability threshold for this PartitionFunction, if supported
