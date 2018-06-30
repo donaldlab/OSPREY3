@@ -14,11 +14,11 @@ import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.ProxyEnergyMatrix;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
+import edu.duke.cs.osprey.energy.*;
 import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -311,13 +311,14 @@ public class MARKStarBound implements PartitionFunction {
     private MARKStarNode.ScorerFactory gscorerFactory;
     private MARKStarNode.ScorerFactory hscorerFactory;
     private int stepSize;
-    public static final int MAX_STEP_SIZE = 100;
+    public static final int MAX_STEP_SIZE = 1;
 
     public static final int MAX_CONFSPACE_FRACTION = 1000000;
     public static final double MINIMIZATION_FACTOR = 0.1;
-    public boolean reduceMinimizations = true;
+    public boolean reduceMinimizations = false;
     private ConfAnalyzer confAnalyzer;
     EnergyMatrix correctionMatrix;
+    EnergyMatrix minimizingEmat;
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                          ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
@@ -331,6 +332,8 @@ public class MARKStarBound implements PartitionFunction {
         queue.add(rootNode);
         updateBound();
         confIndex = new ConfIndex(rcs.getNumPos());
+        this.minimizingEmat = minimizingEmat;
+        correctionMatrix = new EnergyMatrix(minimizingEmat);
         this.RCs = rcs;
         this.order = new UpperLowerAStarOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
@@ -416,6 +419,16 @@ public class MARKStarBound implements PartitionFunction {
                     tasks.submit(() -> {
                                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                                     ScoreContext context = checkout.get();
+                                    node.index(context.index);
+                                    double confCorrection = correctionMatrix.confE(node.assignments);
+                                    if(node.getConfLowerBound()!= confCorrection) {
+                                        System.out.println("Correcting "+node.gscore+" down to "+confCorrection);
+                                        node.gscore = confCorrection;
+                                        node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
+                                        curNode.markUpdated();
+                                        updateBound();
+                                        return null;
+                                    }
                                     ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, node.getConfLowerBound());
                                     ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
                                     numConfsEnergied++;
@@ -460,6 +473,9 @@ public class MARKStarBound implements PartitionFunction {
                             },
                             // Dummy function. We're not doing anything here.
                             (Node child) -> {
+                                if(!node.isMinimized())
+                                    newNodes.add(curNode);
+
                             });
                     if(epsilonBound <= targetEpsilon)
                         return;
@@ -497,7 +513,6 @@ public class MARKStarBound implements PartitionFunction {
                             if (child.getLevel() < RCs.getNumPos()) {
                                 double diff = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                                 double rigiddiff = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                                boolean sanityCheck = true;
                                 double hdiff = context.hscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                                 double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                                 child.gscore = diff;
@@ -524,8 +539,10 @@ public class MARKStarBound implements PartitionFunction {
                                     confRigid = confPairwiseLower;
                                     confPairwiseLower = temp;
                                 }
-                                child.setBoundsFromConfLowerAndUpper(confPairwiseLower, confRigid);
+                                double confCorrection = correctionMatrix.confE(child.assignments);
+                                child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
                                 child.gscore = child.getConfLowerBound();
+                                child.rigidScore = confRigid;
                                 if(reduceMinimizations)
                                     child.setMinimizationRatio(MINIMIZATION_FACTOR/(RCs.getNumPos()*RCs.getNumPos()));
 
@@ -539,7 +556,8 @@ public class MARKStarBound implements PartitionFunction {
                         }
 
                     }, (Node child) -> {
-
+                        if(Double.isNaN(child.rigidScore))
+                            System.out.println("Huh!?");
                         MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
                         synchronized (this) {
                             // collect the possible children
@@ -566,44 +584,57 @@ public class MARKStarBound implements PartitionFunction {
 
     private void computeEnergyCorrection(ConfSearch.ScoredConf conf, AStarScorer gscorer, ConfEnergyCalculator ecalc) {
         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
-        System.out.println("Analysis:"+analysis);
+        //System.out.println("Analysis:"+analysis);
         EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);
         EnergyMatrix scoreAnalysis = analysis.breakdownScoreByPosition();
-        System.out.println("Energy Analysis: "+energyAnalysis);
-        System.out.println("Score Analysis: "+scoreAnalysis);
+        //System.out.println("Energy Analysis: "+energyAnalysis);
+        //System.out.println("Score Analysis: "+scoreAnalysis);
         EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
-        System.out.println("Difference Analysis " + diff);
+        //System.out.println("Difference Analysis " + diff);
         List<Pair<Pair<Integer, Integer>, Double>> sortedPairwiseTerms = new ArrayList<>();
         for (int pos = 0; pos < diff.getNumPos(); pos++)
         {
-            double sum = 0;
             for (int rc = 0; rc < diff.getNumConfAtPos(pos); rc++)
             {
-                sum+=diff.getOneBody(pos, rc);
                 for (int pos2 = 0; pos2 < diff.getNumPos(); pos2++)
                 {
                     for (int rc2 = 0; rc2 < diff.getNumConfAtPos(pos2); rc2++)
                     {
-                        if(pos == pos2)
+                        if(pos >= pos2)
                             continue;
+                        double sum = 0;
+                        sum+=diff.getOneBody(pos, rc);
                         sum+=diff.getPairwise(pos, rc, pos2, rc2);
+                        sum+=diff.getOneBody(pos2,rc2);
+                        sortedPairwiseTerms.add(new Pair(new Pair(pos,pos2), sum));
                     }
                 }
             }
-            sortedPairwiseTerms.add(new Pair(pos, sum));
         }
         Collections.sort(sortedPairwiseTerms, (a,b)->-Double.compare(a.getValue(),b.getValue()));
-        for(Pair p: sortedPairwiseTerms)
-            System.out.println(p);
-
 
         double threshhold = 0.5;
         Collections.sort(sortedPairwiseTerms, Comparator.comparingDouble(Pair::getValue));
         for(int i = 0; i < sortedPairwiseTerms.size(); i++)
         {
-            Pair<Pair<Integer, Integer>, Double> resCont = sortedPairwiseTerms.get(i);
-            if(resCont.getValue() < threshhold)
+            Pair<Pair<Integer, Integer>, Double> pairEnergy = sortedPairwiseTerms.get(i);
+            if(pairEnergy.getValue() < threshhold)
                 continue;
+            int pos1 = pairEnergy.getKey().getKey();
+            int pos2 = pairEnergy.getKey().getValue();
+            double maxCorrection = 0;
+            for(int pos3 = 0; pos3 < diff.getNumPos(); pos3++) {
+                if (pos3 == pos2 || pos3 == pos1)
+                    continue;
+                RCTuple tuple = makeTuple(conf, pos1, pos2, pos3);
+                double correction = computeDifference(tuple, energyAnalysis, scoreAnalysis, ecalc);
+                debugPrint("Correction for "+tuple.stringListing()+":"+correction);
+                if(correction > maxCorrection)
+                {
+                    correctionMatrix.setHigherOrder(tuple, correction);
+                    maxCorrection = correction;
+                }
+            }
         }
         /* Starting from the largest-difference pairs, create triples and quads to find
          * tuples which correct the energy of the pair.
@@ -611,14 +642,20 @@ public class MARKStarBound implements PartitionFunction {
 
     }
 
-    private double computeDifference(List<Pair<Integer,Double>> contributionsByResidue,
-                                     int i, AStarScorer gscorer, ConfEnergyCalculator ecalc) {
-        return 0;
+
+
+
+    private double computeDifference(RCTuple tuple, EnergyMatrix derpMatrix, EnergyMatrix scoreMatrix, ConfEnergyCalculator ecalc) {
+        double tripleEnergy = ecalc.calcEnergy(tuple).energy;
+        double lowerbound = minimizingEmat.getInternalEnergy(tuple);
+        return tripleEnergy-lowerbound;
     }
 
-    private RCTuple makeTuple(List<Pair<Integer,Double>> contributionsByResidue, int i) {
-        return null;
-
+    private RCTuple makeTuple(ConfSearch.ScoredConf conf, int... positions) {
+        RCTuple out = new RCTuple();
+        for(int pos: positions)
+            out = out.addRC(pos, conf.getAssignments()[pos]);
+        return out;
     }
 
     private void debugHeap() {

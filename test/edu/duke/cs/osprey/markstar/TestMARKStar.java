@@ -57,8 +57,8 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarVsKStar() {
-	    int numFlex = 8;
-	    double epsilon = 0.68;
+	    int numFlex = 12;
+	    double epsilon = 0.99;
 		compareMARKStarAndKStar(numFlex, epsilon);
     }
 
@@ -97,7 +97,7 @@ public class TestMARKStar {
 		int totalConfsLooked = result.score.complex.getNumConfsLooked()+ result.score.protein.getNumConfsLooked()+ result.score.ligand.getNumConfsLooked();
 		BigInteger totalConfSpaceSize = new BigInteger(result.score.complex.totalNumConfs)
 				.add(new BigInteger(result.score.protein.totalNumConfs)).add(new BigInteger(result.score.ligand.totalNumConfs));
-		System.out.println("MARK* Stats: "+String.format("score:%12e in [%12e,%12e] (log10), confs looked at:%4d, confs minimized:%4d\ntotal confSize:%4s",MathTools.log10p1(result.score.score), MathTools.log10p1(result.score.lowerBound),
+		System.out.println("K* Stats: "+String.format("score:%12e in [%12e,%12e] (log10), confs looked at:%4d, confs minimized:%4d\ntotal confSize:%4s",MathTools.log10p1(result.score.score), MathTools.log10p1(result.score.lowerBound),
 				MathTools.log10p1(result.score.upperBound),totalConfsLooked,totalConfsEnergied, totalConfSpaceSize.toString()));
 		System.out.println("Above stats for sequence: "+result.sequence);
 	}
@@ -109,7 +109,7 @@ public class TestMARKStar {
 
     @Test
 	public void KStarComparison() {
-		List<KStar.ScoredSequence> results = runKStarComparison(4,0.68);
+		List<KStar.ScoredSequence> results = runKStarComparison(5,0.68);
         for (int index = 0; index < results.size(); index++) {
         	int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
 			int totalConfsLooked = results.get(index).score.complex.getNumConfsLooked()+ results.get(index).score.protein.getNumConfsLooked()+ results.get(index).score.ligand.getNumConfsLooked();
@@ -120,7 +120,7 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        printMARKStarComputationStats(runMARKStar(8, 0.68).get(0));
+        printMARKStarComputationStats(runMARKStar(9, 0.68).get(0));
 
     }
 

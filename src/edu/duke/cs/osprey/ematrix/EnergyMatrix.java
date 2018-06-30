@@ -202,6 +202,10 @@ public class EnergyMatrix extends TupleMatrixDouble {
 
             if(iposIndex > -1){//ipos interactions need to be counted
                 int iposRC = tup.RCs.get(iposIndex);
+                if(htf == null)
+                    System.out.println("wha!?");
+                if(htf.getInteraction(ipos, iposRC) == null)
+                    continue;
                 E += htf.getInteraction(ipos, iposRC);
                 
                 //see if need to go up to highers order again...
