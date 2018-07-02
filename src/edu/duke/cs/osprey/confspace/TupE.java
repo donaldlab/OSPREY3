@@ -11,8 +11,8 @@ package edu.duke.cs.osprey.confspace;
  */
 public class TupE implements Comparable {
     
-    RCTuple tup;
-    double E;
+    public RCTuple tup;
+    public double E;
 
     public TupE(RCTuple tup, double E) {
         this.tup = tup;

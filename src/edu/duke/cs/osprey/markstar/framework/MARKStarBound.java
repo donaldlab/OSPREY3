@@ -17,7 +17,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
-import edu.duke.cs.osprey.ematrix.ProxyEnergyMatrix;
+import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.*;
 import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
@@ -36,11 +36,7 @@ import javafx.util.Pair;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.PriorityBlockingQueue;
-import java.util.stream.Collectors;
 
 public class MARKStarBound implements PartitionFunction {
 
@@ -317,8 +313,8 @@ public class MARKStarBound implements PartitionFunction {
     public static final double MINIMIZATION_FACTOR = 0.1;
     public boolean reduceMinimizations = false;
     private ConfAnalyzer confAnalyzer;
-    EnergyMatrix correctionMatrix;
     EnergyMatrix minimizingEmat;
+    EnergyMatrix correctionMatrix;
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                          ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
@@ -327,13 +323,13 @@ public class MARKStarBound implements PartitionFunction {
 
         MPLPUpdater updater = new EdgeUpdater();
         hscorerFactory = (emats) -> new MPLPPairwiseHScorer(updater, emats, 50, 0.03);
+        this.correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
 
         rootNode = MARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs, gscorerFactory, hscorerFactory, true);
         queue.add(rootNode);
         updateBound();
         confIndex = new ConfIndex(rcs.getNumPos());
         this.minimizingEmat = minimizingEmat;
-        correctionMatrix = new EnergyMatrix(minimizingEmat);
         this.RCs = rcs;
         this.order = new UpperLowerAStarOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
@@ -583,6 +579,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void computeEnergyCorrection(ConfSearch.ScoredConf conf, AStarScorer gscorer, ConfEnergyCalculator ecalc) {
+        // TODO: Replace the sortedPairwiseTerms with an ArrayList<TupE>.
         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
         //System.out.println("Analysis:"+analysis);
         EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);
