@@ -15,16 +15,16 @@ import java.util.Set;
 import java.util.TreeSet;
 
 public class TestUpdatingEnergyMatrix {
-
+    public static final int NUM_FLEX = 10;
+    public static final int NUM_TUPS = 100;
 
     @Test
-    public void testTupleTrie()
+    public void testTupleTrieRandom()
     {
-        SimpleConfSpace confSpace = make1GUASmall(4);
+        SimpleConfSpace confSpace = make1GUASmall(NUM_FLEX);
         UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpace.positions);
         runManual(trie);
-        int numTups = 10;
-        for(int i = 0; i < numTups; i++)
+        for(int i = 0; i < NUM_TUPS; i++)
         {
             TupE tupE = makeRandomTupE(confSpace);
             System.out.println("Inserting "+tupE.tup.stringListing()+":"+tupE.E);
@@ -55,6 +55,10 @@ public class TestUpdatingEnergyMatrix {
 
     private List<TupE> makeManualTupE() {
         List<TupE> out = new ArrayList<>();
+        RCTuple tup4 = new RCTuple();
+        tup4 = tup4.addRC(3, 20);
+        double energy4 = Math.random() * -40;
+        out.add(new TupE(tup4, energy4));
         RCTuple tup2 = new RCTuple();
         tup2 = tup2.addRC(2, 15);
         tup2 = tup2.addRC(3, 20);

@@ -10,11 +10,13 @@ import java.util.*;
 
 public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     // Store the seen confs in a trie with wildcards.
-    private static boolean debug = true;
+    private static final boolean debug = false;
     private TupleTrie corrections;
+    private int numPos;
 
     public UpdatingEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix target) {
         super(confSpace, target);
+        this.numPos = confSpace.getNumPos();
         corrections = new TupleTrie(confSpace.positions);
     }
 
@@ -26,43 +28,45 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         //that consists of interactions in htf (corresponds to some sub-tuple of tup)
         //with RCs whose indices in tup are < curIndex
         double E = 0;
+        E += super.internalEHigherOrder(tup, curIndex, htf);
 
-        for(int ipos : htf.getInteractingPos()){
-
-            //see if ipos is in tup with index < curIndex
-            int iposIndex = -1;
-            for(int ind=0; ind<curIndex; ind++){
-                if(tup.pos.get(ind)==ipos){
-                    iposIndex = ind;
-                    break;
-                }
-            }
-
-            if(iposIndex > -1){//ipos interactions need to be counted
-                int iposRC = tup.RCs.get(iposIndex);
-                if(htf == null)
-                    System.out.println("wha!?");
-                if(htf.getInteraction(ipos, iposRC) == null)
-                    continue;
-                E += htf.getInteraction(ipos, iposRC);
-
-                //see if need to go up to highers order again...
-                HigherTupleFinder<Double> htf2 = htf.getHigherInteractions(ipos,iposRC);
-                if(htf2!=null){
-                    E += internalEHigherOrder(tup,iposIndex,htf2);
-                }
-            }
-        }
+        List<TupE> confCorrections = corrections.getCorrections(tup);
+        E += processCorrections(confCorrections);
 
         return E;
     }
 
+    private double processCorrections(List<TupE> confCorrections) {
+        Collections.sort(confCorrections);
+        double sum = 0;
+        // Attempt 1: be greedy and start from the largest correction you
+        // can get instead of trying to solve the NP-Complete problem.
+        Set<Integer> usedPositions = new HashSet<>();
+        for(TupE correction: confCorrections) {
+            if (usedPositions.size() >= numPos) {
+                break;
+            }
+            Collection<Integer> positions = correction.tup.pos;
+            boolean noIntersections = true;
+            for(int position : positions) {
+                if(usedPositions.contains(position)) {
+                    noIntersections = false;
+                    break;
+                }
+            }
+            if(noIntersections) {
+                usedPositions.addAll(correction.tup.pos);
+                sum += correction.E;
+            }
+        }
+        return sum;
+    }
+
     @Override
     public void setHigherOrder(RCTuple tup, Double val) {
-        //TODO: Process higher order tuples
         super.setHigherOrder(tup, val);
-        corrections.insert(new TupE(tup, val));
-
+        RCTuple orderedTup = tup.orderByPos();
+        corrections.insert(new TupE(orderedTup, val));
     }
 
     public void addMinimizedConf(RCTuple tup) {
@@ -72,7 +76,6 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     public static class TupleTrie {
         public final static int WILDCARD_RC = -123;
         TupleTrieNode root;
-        List<TupleTrieNode> children;
         List<SimpleConfSpace.Position> positions;
         public TupleTrie(List<SimpleConfSpace.Position> positions)
         {
@@ -106,7 +109,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
         public List<TupE> getCorrections(RCTuple query) {
             List<TupE> corrections = new ArrayList<>();
-            root.populateCorrections(query, corrections);
+            root.populateCorrections(query.orderByPos(), corrections);
             return corrections;
         }
 
@@ -187,7 +190,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
 
             public void populateCorrections (RCTuple query, List<TupE> output) {
-                System.out.println("Matching corrections for "+query.stringListing());
+                debugPrint("Matching corrections for "+query.stringListing());
                 populateCorrections(query, output, 0);
             }
 
@@ -200,7 +203,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                 if(corrections.size() > 0)
                 {
                     output.addAll(corrections);
-                    System.out.println("Adding corrections from "+this);
+                    debugPrint("Adding corrections from "+this);
                 }
                 if(tupleIndex >= query.size())
                     return;
@@ -212,7 +215,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                     indexedRC = query.RCs.get(tupleIndex-1);
                     indexedPos = query.pos.get(tupleIndex-1);
                 }
-                if(indexedPos > position || (indexedRC!= rc && rc != WILDCARD_RC))
+                if(indexedPos > position || (indexedPos == position && indexedRC!= rc && rc != WILDCARD_RC))
                     System.err.println("Error in trie traversal.");
                 if(tupleIndex + 1 == positions.size())
                     return;
