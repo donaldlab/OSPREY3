@@ -28,7 +28,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         //that consists of interactions in htf (corresponds to some sub-tuple of tup)
         //with RCs whose indices in tup are < curIndex
         double E = 0;
-        E += super.internalEHigherOrder(tup, curIndex, htf);
+        //E += super.internalEHigherOrder(tup, curIndex, htf);
 
         List<TupE> confCorrections = corrections.getCorrections(tup);
         E += processCorrections(confCorrections);
@@ -42,6 +42,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         // Attempt 1: be greedy and start from the largest correction you
         // can get instead of trying to solve the NP-Complete problem.
         Set<Integer> usedPositions = new HashSet<>();
+        List<TupE> usedCorrections = new ArrayList<>();
         for(TupE correction: confCorrections) {
             if (usedPositions.size() >= numPos) {
                 break;
@@ -56,7 +57,18 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             }
             if(noIntersections) {
                 usedPositions.addAll(correction.tup.pos);
+                usedCorrections.add(correction);
                 sum += correction.E;
+            }
+        }
+        if(debug)
+        {
+            Set<Integer> positionCheck = new HashSet<>();
+            for(TupE correction: usedCorrections) {
+                for(int pos: correction.tup.pos) {
+                    if (positionCheck.contains(pos))
+                        System.err.println("REUSING POSITION "+pos);
+                }
             }
         }
         return sum;
@@ -85,8 +97,6 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
         private TupleTrieNode createTrie(List<SimpleConfSpace.Position> positions) {
             root = new TupleTrieNode(positions, -1);
-            TupleTrieNode next = root;
-
             return root;
         }
 
@@ -158,7 +168,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                     corrections.add(correction);
                     for(TupE corr: corrections)
                     {
-                        System.out.println(corr.tup.stringListing()+":"+corr.E);
+                        debugPrint(corr.tup.stringListing()+":"+corr.E);
                     }
                     return;
                 }

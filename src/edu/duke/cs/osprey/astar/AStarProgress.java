@@ -119,12 +119,12 @@ public class AStarProgress implements Serializable {
 		}
 	}
 	
-	private void printLeafProgressReport() {
+	protected void printLeafProgressReport() {
 		// TODO: configurable output? logging framework?
 		System.out.println(makeLeafProgressReport());
 	}
 
-	private String makeLeafProgressReport() {
+	protected String makeLeafProgressReport() {
 		double diffMs = stopwatch.getTimeMs() - this.msRunning;
 		return String.format("A* leaf nodes:%10d, score:%14.8f, remaining:%14.8f, expanded:%10d, queued:%10d, scored/sec:%5d, time:%s, heapMem:%s, extMem:%s",
 			numLeafNodes,
