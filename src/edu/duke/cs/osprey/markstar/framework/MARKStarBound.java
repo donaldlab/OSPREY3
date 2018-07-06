@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.markstar.framework;
 
-import edu.duke.cs.osprey.astar.AStarProgress;
 import edu.duke.cs.osprey.astar.conf.*;
 import edu.duke.cs.osprey.astar.conf.linked.LinkedConfAStarFactory;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
@@ -14,7 +13,6 @@ import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
@@ -30,13 +28,11 @@ import edu.duke.cs.osprey.markstar.framework.MARKStarNode.Node;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.JvmMem;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import javafx.util.Pair;
-import sun.java2d.pipe.SpanShapeRenderer;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
