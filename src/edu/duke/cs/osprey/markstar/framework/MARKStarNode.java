@@ -4,6 +4,7 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
@@ -61,6 +62,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         updated = true;
     }
 
+    public RCTuple toTuple() {
+        return new RCTuple(confSearchNode.assignments);
+    }
 
     private void printBoundBreakDown()
     {
@@ -352,8 +356,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
                 logOriginal = ef.log10(subtreeUpperBound);
             double logTighter = ef.log10(tighterUpper);
             if (subtreeUpperBound != null && subtreeUpperBound.compareTo(tighterUpper) < 0)
-                System.err.println("Updating subtree lower bound " + setSigFigs(subtreeUpperBound)
-                        + " with " + setSigFigs(tighterUpper) + ", which is lower!?");
+                System.err.println("Updating subtree upper bound " + setSigFigs(subtreeUpperBound)
+                        + " with " + setSigFigs(tighterUpper) + ", which is greater!?");
             ExpFunction ef = new ExpFunction();
             subtreeUpperBound = tighterUpper;
         }

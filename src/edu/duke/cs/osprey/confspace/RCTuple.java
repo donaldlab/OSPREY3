@@ -6,6 +6,8 @@ package edu.duke.cs.osprey.confspace;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 
 /**
  *
@@ -152,6 +154,17 @@ public class RCTuple implements Serializable {
         
         return new RCTuple(newPos,newRCs);
     }
+
+    public RCTuple orderByPos() {
+        // This is why I hate parallel arrays! Gross hacky parallel sorting time.
+        ArrayList<Integer> newPos = (ArrayList<Integer>) pos.clone();
+        ArrayList<Integer> newRCs = (ArrayList<Integer>) RCs.clone();
+
+        Collections.sort(newRCs, Comparator.comparingInt(a -> pos.get(RCs.indexOf(a))));
+        Collections.sort(newPos);
+        RCTuple out = new RCTuple(newPos, newRCs);
+        return out;
+    }
     
     @SuppressWarnings("unchecked")
 	public RCTuple addRC(int addedPos, int addedRC){
@@ -163,5 +176,21 @@ public class RCTuple implements Serializable {
         newRCs.add(addedRC);
         
         return new RCTuple(newPos,newRCs);
+    }
+
+    public RCTuple intersect(RCTuple other) {
+        return RCTuple.intersect(this, other);
+    }
+
+    public static RCTuple intersect(RCTuple first, RCTuple second) {
+        RCTuple out = new RCTuple();
+        for(int tupIndex = 0; tupIndex < first.size(); tupIndex++)
+        {
+            int firstPos = first.pos.get(tupIndex);
+            int firstRC  = first.RCs.get(tupIndex);
+            if(second.pos.contains(firstPos) && second.RCs.get(tupIndex) == firstRC)
+                out = out.addRC(firstPos, firstRC);
+        }
+        return out;
     }
 }
