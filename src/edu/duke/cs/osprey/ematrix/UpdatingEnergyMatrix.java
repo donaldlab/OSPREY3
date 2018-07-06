@@ -86,7 +86,6 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         List<TupE> confCorrections = corrections.getCorrections(tup);
         if(confCorrections.size() > 0) {
             double corr = processCorrections(confCorrections);
-            System.out.println("Correction for "+tup.stringListing()+": "+corr);
             E += corr;
         }
 
@@ -128,7 +127,6 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                 }
             }
         }
-        System.out.println("Used "+usedCorrections.size()+"/"+confCorrections.size()+" corrections");
         return sum;
     }
 
