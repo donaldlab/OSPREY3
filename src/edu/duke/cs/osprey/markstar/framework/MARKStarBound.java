@@ -310,7 +310,7 @@ public class MARKStarBound implements PartitionFunction {
     private MARKStarNode.ScorerFactory gscorerFactory;
     private MARKStarNode.ScorerFactory hscorerFactory;
     private int stepSize;
-    public static final int MAX_STEP_SIZE = 1;
+    public static final int MAX_STEP_SIZE = 20;
 
     public static final int MAX_CONFSPACE_FRACTION = 1000000;
     public static final double MINIMIZATION_FACTOR = 0.1;
@@ -397,7 +397,6 @@ public class MARKStarBound implements PartitionFunction {
         if(queue.isEmpty()) {
             debugPrint("Out of conformations.");
         }
-        processPreminimization(minimizingEcalc);
         int numStepsThisLoop = 0;
         boolean minimizing = false;
         List<MARKStarNode> newNodes = new ArrayList<>();
@@ -602,6 +601,7 @@ public class MARKStarBound implements PartitionFunction {
         tasks.waitForFinish();
         queue.addAll(newNodes);
         minimizationQueue.addAll(newNodesToMinimize);
+        processPreminimization(minimizingEcalc);
         debugHeap();
         updateBound();
 
@@ -709,6 +709,7 @@ public class MARKStarBound implements PartitionFunction {
         double pairwiseLower = minimizingEmat.getInternalEnergy(overlap);
         double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
         System.out.println("Computing correction for "+overlap.stringListing()+" penalty of "+(partiallyMinimizedLower-pairwiseLower));
+        progress.reportPartialMinimization(1, epsilonBound);
         correctionMatrix.setHigherOrder(overlap, partiallyMinimizedLower-pairwiseLower);
     }
 
