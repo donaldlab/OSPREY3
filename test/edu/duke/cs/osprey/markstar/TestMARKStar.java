@@ -39,7 +39,7 @@ import java.util.function.Function;
 
 public class TestMARKStar {
 
-	public static final int NUM_CPUs = 4;
+	public static final int NUM_CPUs = 1;
 	public static final boolean REUDCE_MINIMIZATIONS = false;
 	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
 

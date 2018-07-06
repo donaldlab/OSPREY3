@@ -550,4 +550,21 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
 
 		return buf.toString();
 	}
+
+	public boolean hasHigherOrderTermFor(RCTuple query) {
+        int pos1 = query.pos.get(0);
+        int rc1 = query.RCs.get(0);
+		int pos2 = query.pos.get(1);
+		int rc2 = query.RCs.get(1);
+		HigherTupleFinder<T> htf = getHigherOrderTerms(pos1,rc1,pos2,rc2);
+		if(htf == null)
+			return false;
+		for(int tupIndex = 2; tupIndex < query.size(); tupIndex++) {
+			HigherTupleFinder<T> highertf = htf.getHigherInteractions(query.pos.get(tupIndex), query.RCs.get(tupIndex));
+			if(highertf == null)
+			    return false;
+			htf = highertf;
+		}
+		return true;
+	}
 }

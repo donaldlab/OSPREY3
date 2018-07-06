@@ -177,4 +177,20 @@ public class RCTuple implements Serializable {
         
         return new RCTuple(newPos,newRCs);
     }
+
+    public RCTuple intersect(RCTuple other) {
+        return RCTuple.intersect(this, other);
+    }
+
+    public static RCTuple intersect(RCTuple first, RCTuple second) {
+        RCTuple out = new RCTuple();
+        for(int tupIndex = 0; tupIndex < first.size(); tupIndex++)
+        {
+            int firstPos = first.pos.get(tupIndex);
+            int firstRC  = first.RCs.get(tupIndex);
+            if(second.pos.contains(firstPos) && second.RCs.get(tupIndex) == firstRC)
+                out = out.addRC(firstPos, firstRC);
+        }
+        return out;
+    }
 }

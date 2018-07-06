@@ -4,6 +4,7 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
@@ -61,6 +62,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         updated = true;
     }
 
+    public RCTuple toTuple() {
+        return new RCTuple(confSearchNode.assignments);
+    }
 
     private void printBoundBreakDown()
     {

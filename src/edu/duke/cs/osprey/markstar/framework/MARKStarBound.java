@@ -322,6 +322,7 @@ public class MARKStarBound implements PartitionFunction {
     private ConfAnalyzer confAnalyzer;
     EnergyMatrix minimizingEmat;
     EnergyMatrix correctionMatrix;
+    ConfEnergyCalculator minimizingEcalc = null;
     private Stopwatch stopwatch = new Stopwatch().start();
     double msRunning = 0;
     private static final int ReportIntervalMs = 10 * 1000; // TODO: make configurable
@@ -330,6 +331,7 @@ public class MARKStarBound implements PartitionFunction {
                          ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
         this.queue = new PriorityQueue<>();
         this.minimizationQueue = new PriorityQueue<>();
+        this.minimizingEcalc = minimizingConfEcalc;
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
         MPLPUpdater updater = new EdgeUpdater();
@@ -430,7 +432,7 @@ public class MARKStarBound implements PartitionFunction {
                                     node.index(context.index);
                                     double confCorrection = correctionMatrix.confE(node.assignments);
                                     if(node.getConfLowerBound()!= confCorrection) {
-                                        debugPrint("Correcting :["+SimpleConfSpace.formatConfRCs(node.assignments)
+                                        System.out.println("Correcting :["+SimpleConfSpace.formatConfRCs(node.assignments)
                                                 +node.gscore+"] down to "+confCorrection);
                                         node.gscore = confCorrection;
                                         node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
@@ -596,6 +598,7 @@ public class MARKStarBound implements PartitionFunction {
         tasks.waitForFinish();
         queue.addAll(newNodes);
         minimizationQueue.addAll(newNodesToMinimize);
+        processPreminimization(minimizingEcalc);
         debugHeap();
         updateBound();
 
@@ -653,11 +656,10 @@ public class MARKStarBound implements PartitionFunction {
                 double correction = computeDifference(tuple, ecalc);
                 localMinimizations++;
                 debugPrint("Correction for "+tuple.stringListing()+":"+correction);
-                if(correction > maxCorrection)
-                {
+                if(correction > 0 )
                     correctionMatrix.setHigherOrder(tuple, correction);
-                    maxCorrection = correction;
-                }
+                else
+                    System.err.println("Positive correction for "+tuple.stringListing());
             }
             numPartialMinimizations+=localMinimizations;
             progress.reportPartialMinimization(localMinimizations, epsilonBound);
@@ -665,7 +667,6 @@ public class MARKStarBound implements PartitionFunction {
         /* Starting from the largest-difference pairs, create triples and quads to find
          * tuples which correct the energy of the pair.
          */
-
     }
 
 
@@ -682,6 +683,45 @@ public class MARKStarBound implements PartitionFunction {
         for(int pos: positions)
             out = out.addRC(pos, conf.getAssignments()[pos]);
         return out;
+    }
+
+    private void processPreminimization(ConfEnergyCalculator ecalc)
+    {
+        int maxMinimizations = 10;
+        List<MARKStarNode> topConfs = getTopConfs(maxMinimizations);
+        // Need at least two confs to do any partial preminimization
+        if(topConfs.size() < 2)
+            return;
+        RCTuple lowestBoundTuple= topConfs.get(0).toTuple();
+        RCTuple overlap = findLargestOverlap(lowestBoundTuple, topConfs, 4);
+        //Only continue if we have something to minimize
+        if(overlap.size() < 4 || correctionMatrix.hasHigherOrderTermFor(overlap))
+            return;
+        double pairwiseLower = minimizingEmat.getInternalEnergy(overlap);
+        double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
+        System.out.println("Computing correction for "+overlap.stringListing()+" penalty of "+(partiallyMinimizedLower-pairwiseLower));
+        correctionMatrix.setHigherOrder(overlap, partiallyMinimizedLower-pairwiseLower);
+    }
+
+    private List<MARKStarNode> getTopConfs(int numConfs) {
+        List<MARKStarNode> topConfs = new ArrayList<>();
+        while (topConfs.size() < numConfs&& !minimizationQueue.isEmpty()) {
+            MARKStarNode nextLowestConf = minimizationQueue.poll();
+            topConfs.add(nextLowestConf);
+        }
+        return topConfs;
+    }
+
+
+    private RCTuple findLargestOverlap(RCTuple conf, List<MARKStarNode> otherConfs, int minResidues) {
+        RCTuple overlap = conf;
+        for(MARKStarNode other: otherConfs) {
+            overlap = overlap.intersect(other.toTuple());
+            if(overlap.size() < minResidues)
+                break;
+        }
+        return overlap;
+
     }
 
     private void debugHeap() {
