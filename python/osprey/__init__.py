@@ -719,7 +719,7 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
     return bbflex
 
 
-def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
+def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, confDBPattern=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, showPfuncProgress=useJavaDefault):
     '''
     :java:classdoc:`.kstar.KStar`
 
@@ -768,6 +768,8 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcF
         settingsBuilder.setEnergyMatrixCachePattern(energyMatrixCachePattern)
     if confDBPattern is not useJavaDefault:
         settingsBuilder.setConfDBPattern(confDBPattern)
+    if showPfuncProgress is not useJavaDefault:
+        settingsBuilder.setShowPfuncProgress(showPfuncProgress)
     settings = settingsBuilder.build()
 
     return c.kstar.KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
