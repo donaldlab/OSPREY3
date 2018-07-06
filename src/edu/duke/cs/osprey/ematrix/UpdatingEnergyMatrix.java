@@ -76,33 +76,6 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
      */
     //intra+shell similar...
 
-    @Override
-    public Double getPairwise(int pos1, int rc1, int pos2, int rc2) {
-        return super.getPairwise(pos1, rc1, pos2, rc2);
-    }
-
-    public double[][] topPairwiseInteractions(){
-        //return the top absolute values of the pairwise interactions
-        //between all pairs of positions
-        int numPos = getNumPos();
-
-        double strongestPairE[][] = new double[numPos][numPos];
-
-        for(int pos=0; pos<numPos; pos++){
-            for(int pos2=0; pos2<pos; pos2++){
-                for(int rc=0; rc<getNumConfAtPos(pos); rc++){
-                    for(int rc2=0; rc2<getNumConfAtPos(pos2); rc2++){
-                        strongestPairE[pos][pos2] = Math.max( strongestPairE[pos][pos2], Math.abs(getPairwise(pos, rc, pos2, rc2)) );
-                        strongestPairE[pos2][pos] = strongestPairE[pos][pos2];
-                    }
-                }
-            }
-        }
-
-        return strongestPairE;
-    }
-
-
     double internalEHigherOrder(RCTuple tup){
         //Computes the portion of the internal energy for tuple tup
         //that consists of interactions in htf (corresponds to some sub-tuple of tup)
@@ -111,13 +84,17 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         //E += super.internalEHigherOrder(tup, curIndex, htf);
 
         List<TupE> confCorrections = corrections.getCorrections(tup);
-        E += processCorrections(confCorrections);
+        if(confCorrections.size() > 0) {
+            double corr = processCorrections(confCorrections);
+            System.out.println("Correction for "+tup.stringListing()+": "+corr);
+            E += corr;
+        }
 
         return E;
     }
 
     private double processCorrections(List<TupE> confCorrections) {
-        Collections.sort(confCorrections);
+        Collections.sort(confCorrections, (a,b)->-Double.compare(a.E,b.E));
         double sum = 0;
         // Attempt 1: be greedy and start from the largest correction you
         // can get instead of trying to solve the NP-Complete problem.
@@ -151,6 +128,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                 }
             }
         }
+        System.out.println("Used "+usedCorrections.size()+"/"+confCorrections.size()+" corrections");
         return sum;
     }
 

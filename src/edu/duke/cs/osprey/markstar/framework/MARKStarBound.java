@@ -438,7 +438,7 @@ public class MARKStarBound implements PartitionFunction {
                                             System.err.println("Overcorrected: "+confCorrection + " > "+node.rigidScore);
                                         node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
                                         curNode.markUpdated();
-                                        //updateBound();
+                                        updateBound();
                                         return null;
                                     }
                                     ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, node.getConfLowerBound());
@@ -473,7 +473,7 @@ public class MARKStarBound implements PartitionFunction {
                                     node.gscore = newConfLower;
                                     String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                                     debugPrint(out);
-                                    //updateBound();
+                                    updateBound();
                                     if (printMinimizedConfs) {
                                         System.out.println("[" + SimpleConfSpace.formatConfRCs(node.assignments) + "]" + String.format("conf:%4d, score:%12.6f, energy:%12.6f",
                                                 numConfsEnergied, econf.getScore(), newConfLower
@@ -647,12 +647,11 @@ public class MARKStarBound implements PartitionFunction {
         }
         Collections.sort(sortedPairwiseTerms, (a,b)->-Double.compare(a.getValue(),b.getValue()));
 
-        double threshhold = 0.5;
-        Collections.sort(sortedPairwiseTerms, Comparator.comparingDouble(Pair::getValue));
+        //Collections.sort(sortedPairwiseTerms, Comparator.comparingDouble(Pair::getValue));
         for(int i = 0; i < sortedPairwiseTerms.size(); i++)
         {
             Pair<Pair<Integer, Integer>, Double> pairEnergy = sortedPairwiseTerms.get(i);
-            if(pairEnergy.getValue() < threshhold)
+            if(pairEnergy.getValue() < 0.5)
                 continue;
             int pos1 = pairEnergy.getKey().getKey();
             int pos2 = pairEnergy.getKey().getValue();
@@ -711,6 +710,7 @@ public class MARKStarBound implements PartitionFunction {
         System.out.println("Computing correction for "+overlap.stringListing()+" penalty of "+(partiallyMinimizedLower-pairwiseLower));
         progress.reportPartialMinimization(1, epsilonBound);
         correctionMatrix.setHigherOrder(overlap, partiallyMinimizedLower-pairwiseLower);
+        minimizationQueue.addAll(topConfs);
     }
 
     private List<MARKStarNode> getTopConfs(int numConfs) {

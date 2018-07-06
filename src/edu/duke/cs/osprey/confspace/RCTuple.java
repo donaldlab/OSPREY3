@@ -6,8 +6,10 @@ package edu.duke.cs.osprey.confspace;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.stream.IntStream;
 
 /**
  *
@@ -159,8 +161,13 @@ public class RCTuple implements Serializable {
         // This is why I hate parallel arrays! Gross hacky parallel sorting time.
         ArrayList<Integer> newPos = (ArrayList<Integer>) pos.clone();
         ArrayList<Integer> newRCs = (ArrayList<Integer>) RCs.clone();
+        ArrayList<Integer> indices = new ArrayList<>();
+        for(int i = 0; i < pos.size(); i++)
+            indices.add(i);
 
-        Collections.sort(newRCs, Comparator.comparingInt(a -> pos.get(RCs.indexOf(a))));
+        Collections.sort(indices, Comparator.comparingInt(a -> pos.get(a)));
+        for(int i = 0; i < indices.size(); i++)
+            newRCs.set(indices.get(i), RCs.get(i));
         Collections.sort(newPos);
         RCTuple out = new RCTuple(newPos, newRCs);
         return out;
