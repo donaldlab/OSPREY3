@@ -316,14 +316,14 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
-            if (confLowerBound > confUpperBound)
+            if (lowerBound > upperBound)
                 System.err.println("Incorrect conf bounds set.");
             updateConfLowerBound(lowerBound);
             updateConfUpperBound(upperBound);
         }
 
 
-        public void updateConfLowerBound(double tighterLower) {
+        private void updateConfLowerBound(double tighterLower) {
             if (tighterLower < 10 && tighterLower < confLowerBound)
                 System.err.println("Updating conf lower bound of  " + confLowerBound
                         + " with " + tighterLower + ", which is lower!?");
@@ -331,7 +331,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             updateSubtreeUpperBound(computeBoundsFromEnergy(confLowerBound));
         }
 
-        public void updateConfUpperBound(double tighterUpper) {
+        private void updateConfUpperBound(double tighterUpper) {
             if (tighterUpper < 10 && tighterUpper > confUpperBound)
                 System.err.println("Updating conf greater bound of  " + confUpperBound
                         + " with " + tighterUpper + ", which is greater!?");
@@ -343,22 +343,17 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             return bc.calc(energy).multiply(new BigDecimal(getNumConformations()));
         }
 
-        public void updateSubtreeLowerBound(BigDecimal tighterLower) {
+        private void updateSubtreeLowerBound(BigDecimal tighterLower) {
             if (subtreeLowerBound != null && subtreeLowerBound.compareTo(tighterLower) > 0)
                 System.err.println("Updating subtree lower bound " + setSigFigs(subtreeLowerBound)
                         + " with " + tighterLower + ", which is lower!?");
             subtreeLowerBound = tighterLower;
         }
 
-        public void updateSubtreeUpperBound(BigDecimal tighterUpper) {
-            double logOriginal = 0;
-            if (subtreeUpperBound != null)
-                logOriginal = ef.log10(subtreeUpperBound);
-            double logTighter = ef.log10(tighterUpper);
+        private void updateSubtreeUpperBound(BigDecimal tighterUpper) {
             if (subtreeUpperBound != null && subtreeUpperBound.compareTo(tighterUpper) < 0)
                 System.err.println("Updating subtree upper bound " + setSigFigs(subtreeUpperBound)
                         + " with " + setSigFigs(tighterUpper) + ", which is greater!?");
-            ExpFunction ef = new ExpFunction();
             subtreeUpperBound = tighterUpper;
         }
 
