@@ -137,6 +137,22 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return nodeEpsilon;
     }
 
+    public void updateConfBounds(ConfIndex index, RCs rcs, AStarScorer gscorer, AStarScorer hScorer)
+    {
+        if(children == null || children.size() <1) {
+            confSearchNode.index(index);
+            double gscore = gscorer.calc(index, rcs);
+            double hscore = hScorer.calc(index, rcs);
+            confSearchNode.setBoundsFromConfLowerAndUpper(gscore+hscore,confSearchNode.confUpperBound);
+        }
+
+        if(children != null && children.size() > 0) {
+            for(MARKStarNode child: children) {
+                child.updateConfBounds(index, rcs, gscorer, hScorer);
+            }
+        }
+    }
+
     private void debugChecks(BigDecimal lastUpper, BigDecimal lastLower, double epsilonBound) {
         if (!debug)
             return;
@@ -324,19 +340,23 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
 
         private void updateConfLowerBound(double tighterLower) {
-            if (tighterLower < 10 && tighterLower < confLowerBound)
+            if (tighterLower < 10 && tighterLower - confLowerBound < -1e-5)
                 System.err.println("Updating conf lower bound of  " + confLowerBound
                         + " with " + tighterLower + ", which is lower!?");
-            confLowerBound = tighterLower;
-            updateSubtreeUpperBound(computeBoundsFromEnergy(confLowerBound));
+            if(tighterLower > confLowerBound) {
+                confLowerBound = tighterLower;
+                updateSubtreeUpperBound(computeBoundsFromEnergy(confLowerBound));
+            }
         }
 
         private void updateConfUpperBound(double tighterUpper) {
-            if (tighterUpper < 10 && tighterUpper > confUpperBound)
+            if (tighterUpper < 10 && tighterUpper - confUpperBound > 1e-5)
                 System.err.println("Updating conf greater bound of  " + confUpperBound
                         + " with " + tighterUpper + ", which is greater!?");
-            confUpperBound = tighterUpper;
-            updateSubtreeLowerBound(computeBoundsFromEnergy(confUpperBound));
+            if(tighterUpper < confUpperBound) {
+                confUpperBound = tighterUpper;
+                updateSubtreeLowerBound(computeBoundsFromEnergy(confUpperBound));
+            }
         }
 
         private BigDecimal computeBoundsFromEnergy(double energy) {

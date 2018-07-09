@@ -474,10 +474,12 @@ public class MARKStarBound implements PartitionFunction {
                                     }
                                     //Assign true energies to the subtreeLowerBound and subtreeUpperBound
                                     if (printMinimizedConfs) {
-                                        System.out.println("[" + SimpleConfSpace.formatConfRCs(node.assignments) + "]" + String.format("conf:%4d, score:%12.6f, energy:%12.6f",
-                                                numConfsEnergied, econf.getScore(), newConfLower
-                                        )
-                                                + ", bounds: " + epsilonBound);
+                                        System.out.println("[" + SimpleConfSpace.formatConfRCs(node.assignments) + "]"
+                                                + String.format("conf:%4d, score:%12.6f, lower:%12.6f, corrected:%12.6f energy:%12.6f"
+                                                +", bounds:[%12e, %12e]",
+                                                numConfsEnergied, econf.getScore(), minimizingEmat.confE(econf.getAssignments()),
+                                                correctionMatrix.confE(econf.getAssignments()), newConfLower,
+                                                rootNode.getConfSearchNode().getSubtreeLowerBound(),rootNode.getConfSearchNode().getSubtreeUpperBound()));
                                     }
                                 }
                                 return null;
@@ -601,6 +603,9 @@ public class MARKStarBound implements PartitionFunction {
         minimizationQueue.addAll(newNodesToMinimize);
         if(!reduceMinimizations || minimizationQueue.size() > 200)
             processPreminimization(minimizingEcalc);
+        AStarScorer hscorer = hscorerFactory.make(correctionMatrix);
+        AStarScorer gscorer = gscorerFactory.make(correctionMatrix);
+        rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         debugHeap();
         updateBound();
 
@@ -617,13 +622,13 @@ public class MARKStarBound implements PartitionFunction {
     private void computeEnergyCorrection(ConfSearch.ScoredConf conf, AStarScorer gscorer, ConfEnergyCalculator ecalc) {
         // TODO: Replace the sortedPairwiseTerms with an ArrayList<TupE>.
         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
-        //System.out.println("Analysis:"+analysis);
+        System.out.println("Analysis:"+analysis);
         EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);
         EnergyMatrix scoreAnalysis = analysis.breakdownScoreByPosition();
-        //System.out.println("Energy Analysis: "+energyAnalysis);
-        //System.out.println("Score Analysis: "+scoreAnalysis);
+        System.out.println("Energy Analysis: "+energyAnalysis);
+        System.out.println("Score Analysis: "+scoreAnalysis);
         EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
-        //System.out.println("Difference Analysis " + diff);
+        System.out.println("Difference Analysis " + diff);
         List<Pair<Pair<Integer, Integer>, Double>> sortedPairwiseTerms = new ArrayList<>();
         for (int pos = 0; pos < diff.getNumPos(); pos++)
         {
@@ -647,7 +652,7 @@ public class MARKStarBound implements PartitionFunction {
         Collections.sort(sortedPairwiseTerms, (a,b)->-Double.compare(a.getValue(),b.getValue()));
 
         //Collections.sort(sortedPairwiseTerms, Comparator.comparingDouble(Pair::getValue));
-        double threshhold = 1;
+        double threshhold = 0.1;
         for(int i = 0; i < sortedPairwiseTerms.size(); i++)
         {
             Pair<Pair<Integer, Integer>, Double> pairEnergy = sortedPairwiseTerms.get(i);
@@ -667,7 +672,7 @@ public class MARKStarBound implements PartitionFunction {
                 if(correction > 0 )
                     correctionMatrix.setHigherOrder(tuple, correction);
                 else
-                    System.err.println("Positive correction for "+tuple.stringListing());
+                    System.err.println("Negative correction for "+tuple.stringListing());
             }
             numPartialMinimizations+=localMinimizations;
             progress.reportPartialMinimization(localMinimizations, epsilonBound);
