@@ -1,202 +1,209 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.confspace;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
+import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.structure.PDBIO;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import edu.duke.cs.osprey.TestBase;
-import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import java.util.Arrays;
+import java.util.List;
 
-public class TestConfSearchSplitter extends TestBase {
-	
-	private static SearchProblem search;
-	
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.core.IsNull.notNullValue;
+import static org.junit.Assert.assertThat;
+
+public class TestConfSearchSplitter {
+
+	private static SimpleConfSpace confSpace;
+	private static EnergyMatrix emat;
+	private static List<ConfSearch.ScoredConf> expectedConfs;
+
 	@BeforeClass
-	public static void before() {
-		initDefaultEnvironment();
-		
-		// make any search problem, doesn't matter
-		EnergyMatrixConfig emConfig = new EnergyMatrixConfig();
-		emConfig.pdbPath = "examples/DAGK/2KDC.P.forOsprey.pdb";
-		emConfig.numFlexible = 2; // total confs in tree is 16
-		emConfig.addWtRots = true;
-		emConfig.doMinimize = false;
-		search = makeSearchProblem(emConfig);
+	public static void beforeClass() {
+
+		// make a conf space
+		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
+		for (String resNum : Arrays.asList("A5", "A6", "A7")) {
+			strand.flexibility.get(resNum).setLibraryRotamers("VAL");
+		}
+
+		confSpace = new SimpleConfSpace.Builder()
+			.addStrand(strand)
+			.build();
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(4))
+			.build()) {
+
+			emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+				.build()
+				.calcEnergyMatrix();
+		}
+
+		// get all of the expected conformations (there are 27)
+		expectedConfs = makeSearch().nextConfs(Double.POSITIVE_INFINITY);
 	}
-	
-	private ConfSearch makeTree() {
-		
-		// make any search tree, doesn't matter
-		return new ConfAStarTree.Builder(search.emat, search.pruneMat).build();
+
+	private static ConfSearch makeSearch() {
+
+		// make any conf search, doesn't matter
+		return new ConfAStarTree.Builder(emat, confSpace).build();
 	}
-	
-	private void assertConfs(ConfSearch.Splitter.Stream stream, ConfSearch expectedTree, int numConfs) {
-		
-		for (int i=0; i<numConfs; i++) {
-			ScoredConf expectedConf = expectedTree.nextConf();
-			ScoredConf observedConf = stream.nextConf();
-			if (observedConf == null) {
-				assertThat(observedConf, is(nullValue()));
-			} else {
-				assertThat(observedConf.getAssignments(), is(expectedConf.getAssignments()));
+
+	private static class Checker {
+
+		int index = 0;
+		ConfSearch confs;
+
+		Checker(ConfSearch confs) {
+			this.confs = confs;
+		}
+
+		void assertConfs(int n) {
+			for (int i=0; i<n; i++) {
+				ConfSearch.ScoredConf conf = confs.nextConf();
+				assertThat(conf, is(notNullValue()));
+				assertThat(conf, is(expectedConfs.get(index++)));
 			}
 		}
-	}
-	
-	@Test
-	public void testOne() {
-		
-		ConfSearch tree = makeTree();
-		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
-		ConfSearch.Splitter.Stream stream = splitter.makeStream();
-		ConfSearch check1 = makeTree();
 
-		assertThat(splitter.getBufferSize(), is(0));
-		assertConfs(stream, check1, 16);
-		assertThat(splitter.getBufferSize(), is(0));
+		void assertEnd() {
+			assertThat(confs.nextConf(), is(nullValue()));
+		}
 	}
-	
-	@Test
-	public void testTwo() {
-		
-		ConfSearch tree = makeTree();
-		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
-		ConfSearch.Splitter.Stream stream1 = splitter.makeStream();
-		ConfSearch.Splitter.Stream stream2 = splitter.makeStream();
-		ConfSearch check1 = makeTree();
-		ConfSearch check2 = makeTree();
 
-		assertThat(splitter.getBufferSize(), is(0));
-		assertConfs(stream1, check1, 16);
-		assertThat(splitter.getBufferSize(), is(16));
-		assertConfs(stream2, check2, 16);
-		assertThat(splitter.getBufferSize(), is(0));
-	}
-	
 	@Test
-	public void testOneEnd() {
-		
-		ConfSearch tree = makeTree();
-		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
-		ConfSearch.Splitter.Stream stream = splitter.makeStream();
-		ConfSearch check1 = makeTree();
+	public void someFirstSomeSecond() {
 
-		assertThat(splitter.getBufferSize(), is(0));
-		assertConfs(stream, check1, 17);
-		assertThat(splitter.getBufferSize(), is(0));
-	}
-	
-	@Test
-	public void testTwoEnd() {
-		
-		ConfSearch tree = makeTree();
-		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
-		ConfSearch.Splitter.Stream stream1 = splitter.makeStream();
-		ConfSearch.Splitter.Stream stream2 = splitter.makeStream();
-		ConfSearch check1 = makeTree();
-		ConfSearch check2 = makeTree();
+		ConfSearch.Splitter splitter = new ConfSearch.Splitter(makeSearch());
 
-		assertThat(splitter.getBufferSize(), is(0));
-		assertConfs(stream1, check1, 30);
-		assertThat(splitter.getBufferSize(), is(16));
-		assertConfs(stream2, check2, 30);
-		assertThat(splitter.getBufferSize(), is(0));
+		Checker first = new Checker(splitter.first);
+		Checker second = new Checker(splitter.second);
+
+		first.assertConfs(10);
+		second.assertConfs(10);
+
+		first.assertConfs(10);
+		second.assertConfs(10);
+
+		first.assertConfs(7);
+		first.assertEnd();
+		second.assertConfs(7);
+		second.assertEnd();
 	}
-	
+
 	@Test
-	public void testTwoTrade() {
-		
-		ConfSearch tree = makeTree();
-		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
-		ConfSearch.Splitter.Stream stream1 = splitter.makeStream();
-		ConfSearch.Splitter.Stream stream2 = splitter.makeStream();
-		ConfSearch check1 = makeTree();
-		ConfSearch check2 = makeTree();
-		
-		assertThat(splitter.getBufferSize(), is(0));
-		
-		assertConfs(stream1, check1, 4);
-		assertThat(splitter.getBufferSize(), is(4));
-		assertConfs(stream2, check2, 4);
-		assertThat(splitter.getBufferSize(), is(0));
-		
-		assertConfs(stream1, check1, 4);
-		assertThat(splitter.getBufferSize(), is(4));
-		assertConfs(stream2, check2, 4);
-		assertThat(splitter.getBufferSize(), is(0));
-		
-		assertConfs(stream1, check1, 4);
-		assertThat(splitter.getBufferSize(), is(4));
-		assertConfs(stream2, check2, 4);
-		assertThat(splitter.getBufferSize(), is(0));
-		
-		assertConfs(stream1, check1, 4);
-		assertThat(splitter.getBufferSize(), is(4));
-		assertConfs(stream2, check2, 4);
-		assertThat(splitter.getBufferSize(), is(0));
+	public void allFirstAllSecond() {
+
+		ConfSearch.Splitter splitter = new ConfSearch.Splitter(makeSearch());
+
+		Checker first = new Checker(splitter.first);
+		first.assertConfs(27);
+		first.assertEnd();
+
+		Checker second = new Checker(splitter.second);
+		second.assertConfs(27);
+		second.assertEnd();
 	}
-	
-	@Test
-	public void testTwoLeapfrog() {
-		
-		ConfSearch tree = makeTree();
-		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
-		ConfSearch.Splitter.Stream stream1 = splitter.makeStream();
-		ConfSearch.Splitter.Stream stream2 = splitter.makeStream();
-		ConfSearch check1 = makeTree();
-		ConfSearch check2 = makeTree();
-		
-		assertThat(splitter.getBufferSize(), is(0));
-		
-		assertConfs(stream1, check1, 4);
-		assertThat(splitter.getBufferSize(), is(4));
-		assertConfs(stream2, check2, 8);
-		assertThat(splitter.getBufferSize(), is(4));
-		
-		assertConfs(stream1, check1, 8);
-		assertThat(splitter.getBufferSize(), is(4));
-		assertConfs(stream2, check2, 4);
-		assertThat(splitter.getBufferSize(), is(0));
+
+	@Test(expected=ConfSearch.Splitter.OutOfOrderException.class)
+	public void outOfOrderDirect() {
+
+		ConfSearch.Splitter splitter = new ConfSearch.Splitter(makeSearch());
+
+		Checker second = new Checker(splitter.second);
+		second.assertConfs(1);
 	}
-	
-	@Test
-	public void testTwoLeapfrogEnd() {
-		
-		ConfSearch tree = makeTree();
-		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
-		ConfSearch.Splitter.Stream stream1 = splitter.makeStream();
-		ConfSearch.Splitter.Stream stream2 = splitter.makeStream();
-		ConfSearch check1 = makeTree();
-		ConfSearch check2 = makeTree();
-		
-		assertThat(splitter.getBufferSize(), is(0));
-		
-		assertConfs(stream1, check1, 4);
-		assertThat(splitter.getBufferSize(), is(4));
-		assertConfs(stream2, check2, 20);
-		assertThat(splitter.getBufferSize(), is(12));
+
+	@Test(expected=ConfSearch.Splitter.OutOfOrderException.class)
+	public void outOfOrderDelayed() {
+
+		ConfSearch.Splitter splitter = new ConfSearch.Splitter(makeSearch());
+
+		Checker first = new Checker(splitter.first);
+		first.assertConfs(10);
+
+		Checker second = new Checker(splitter.second);
+		second.assertConfs(10);
+		second.assertConfs(1);
 	}
-	
+
 	@Test
-	public void testTwoRemoveOne() {
-		
-		ConfSearch tree = makeTree();
-		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
-		ConfSearch.Splitter.Stream stream1 = splitter.makeStream();
-		ConfSearch.Splitter.Stream stream2 = splitter.makeStream();
-		ConfSearch check1 = makeTree();
-		ConfSearch check2 = makeTree();
-	
-		assertThat(splitter.getBufferSize(), is(0));
-		assertConfs(stream1, check1, 8);
-		assertThat(splitter.getBufferSize(), is(8));
-		assertConfs(stream2, check2, 4);
-		stream2.close();
-		assertThat(splitter.getBufferSize(), is(0));
-		assertConfs(stream1, check1, 8);
-		assertThat(splitter.getBufferSize(), is(0));
+	public void externalMemory() {
+		ExternalMemory.use(16, () -> {
+
+			ConfSearch.Splitter splitter = new ConfSearch.Splitter(
+				makeSearch(),
+				true,
+				new RCs(confSpace)
+			);
+
+			Checker first = new Checker(splitter.first);
+			first.assertConfs(10);
+
+			Checker second = new Checker(splitter.second);
+			second.assertConfs(10);
+		});
+	}
+
+	@Test
+	public void externalMemoryExhaust() {
+		ExternalMemory.use(16, () -> {
+
+			ConfSearch.Splitter splitter = new ConfSearch.Splitter(
+				makeSearch(),
+				true,
+				new RCs(confSpace)
+			);
+
+			Checker first = new Checker(splitter.first);
+			first.assertConfs(27);
+
+			Checker second = new Checker(splitter.second);
+			second.assertConfs(27);
+
+			assertThat(splitter.first.nextConf(), is(nullValue()));
+			assertThat(splitter.second.nextConf(), is(nullValue()));
+		});
 	}
 }

@@ -1,7 +1,35 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.confspace;
 
 import java.math.BigInteger;
@@ -9,10 +37,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.externalMemory.ScoredConfFIFOSerializer;
 import org.apache.commons.collections4.queue.CircularFifoQueue;
 
 import edu.duke.cs.osprey.gmec.ConsoleConfPrinter;
 import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 //This is a general interface for things that search conformational space
@@ -45,8 +77,6 @@ public interface ConfSearch {
     
     /**
      * Get the next conformations in the conformation space with scores up to maxEnergy.
-     * @param foo cows are tasty
-     * @param bar cheese is too
      */
     default List<ScoredConf> nextConfs(double maxEnergy) {
 		List<ScoredConf> nodes = new ArrayList<>();
@@ -120,6 +150,11 @@ public interface ConfSearch {
 		public boolean equals(ScoredConf other) {
         	return Arrays.equals(this.assignments, other.assignments)
 				&& Double.compare(this.score, other.score) == 0;
+		}
+
+		@Override
+		public String toString() {
+        	return String.format("%s %.4f", Conf.toString(assignments), score);
 		}
     }
     
@@ -197,7 +232,7 @@ public interface ConfSearch {
 	/**
 	 * Lets multiple consumers read confs from the stream regardless of order of reads.
 	 */
-	public static class Splitter {
+	public static class MultiSplitter {
 		
 		public class Stream implements ConfSearch {
 			
@@ -310,7 +345,7 @@ public interface ConfSearch {
 		/**
 		 * Create a splitter for a conformation search
 		 */
-		public Splitter(ConfSearch confs) {
+		public MultiSplitter(ConfSearch confs) {
 			
 			this.confs = confs;
 			
@@ -337,6 +372,93 @@ public interface ConfSearch {
 		
 		public int getBufferSize() {
 			return buf.size();
+		}
+	}
+
+
+	/**
+	 * Lets exactly two consumers read confs from the stream, where one consumer
+	 * always reads before the other.
+	 *
+	 * Supports external memory for the conformation buffer
+	 */
+	public static class Splitter {
+
+		public static class OutOfOrderException extends RuntimeException {
+			public OutOfOrderException() {
+				super("second reader tried to read confs before first reader");
+			}
+		}
+
+		public final ConfSearch confs;
+		public final ConfSearch first;
+		public final ConfSearch second;
+
+		private Queue.FIFO<ScoredConf> buf;
+
+		public Splitter(ConfSearch confs) {
+			this(confs, false, null);
+		}
+
+		public Splitter(ConfSearch confs, boolean useExternalMemory, RCs rcs) {
+
+			this.confs = confs;
+
+			if (useExternalMemory) {
+				buf = Queue.ExternalFIFOFactory.of(new ScoredConfFIFOSerializer(rcs));
+			} else {
+				buf = Queue.FIFOFactory.of();
+			}
+
+			AtomicBoolean exhausted = new AtomicBoolean(false);
+
+			first = new ConfSearch() {
+
+				@Override
+				public ScoredConf nextConf() {
+
+					// read from the ConfSearch
+					ScoredConf conf = confs.nextConf();
+					if (conf == null) {
+
+						// I am le tired
+						exhausted.set(true);
+
+						return null;
+					}
+
+					// add to the buffer
+					buf.push(conf);
+
+					return conf;
+				}
+
+				@Override
+				public BigInteger getNumConformations() {
+					return confs.getNumConformations();
+				}
+			};
+
+			second = new ConfSearch() {
+
+				@Override
+				public ScoredConf nextConf() {
+
+					// read from the buffer
+					ScoredConf conf = buf.poll();
+
+					if (conf == null && !exhausted.get()) {
+						throw new OutOfOrderException();
+					}
+
+					return conf;
+				}
+
+				@Override
+				public BigInteger getNumConformations() {
+					return confs.getNumConformations();
+				}
+			};
 		}
 	}
 }

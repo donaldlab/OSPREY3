@@ -1,22 +1,55 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.kstar;
 
-import static edu.duke.cs.osprey.TestBase.fileForWriting;
+import static edu.duke.cs.osprey.TestBase.TempFile;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
+import java.io.File;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
+
 
 public class TestBBKStar {
 
@@ -25,64 +58,82 @@ public class TestBBKStar {
 		public List<KStar.ScoredSequence> sequences;
 	}
 
-	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon) {
-		return runBBKStar(confSpaces, numSequences, epsilon, null);
-	}
-
-	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern) {
-
-		AtomicReference<Results> resultsRef = new AtomicReference<>(null);
+	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
-		//Parallelism parallelism = Parallelism.make(4, 1, 8);
 
 		// how should we compute energies of molecules?
-		new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+		try (EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
 			.setParallelism(parallelism)
-			.use((minimizingEcalc) -> {
+			.build()) {
+
+			KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) ->
+				String.format("TestBBKStar.assertSequence(results, \"%s\", %f, %f); // protein %s   ligand %s   complex %s",
+					info.sequence.toString(Sequence.Renderer.ResType),
+					info.kstarScore.lowerBoundLog10(),
+					info.kstarScore.upperBoundLog10(),
+					info.kstarScore.protein.toString(),
+					info.kstarScore.ligand.toString(),
+					info.kstarScore.complex.toString()
+				);
+
+			// configure BBK*
+			KStar.Settings kstarSettings = new KStar.Settings.Builder()
+				.setEpsilon(epsilon)
+				.setStabilityThreshold(null)
+				.setMaxSimultaneousMutations(maxSimultaneousMutations)
+				.addScoreConsoleWriter(testFormatter)
+				.build();
+			BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
+				.setNumBestSequences(numSequences)
+				.setNumConfsPerBatch(8)
+				.build();
+			BBKStar bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, kstarSettings, bbkstarSettings);
+			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
 				// how should we define energies of conformations?
-				KStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
-					return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
-						.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
-							.build()
-							.calcReferenceEnergies()
-						).build();
-				};
+				info.confEcalcMinimized = new ConfEnergyCalculator.Builder(info.confSpace, ecalcMinimized)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(info.confSpace, ecalcMinimized)
+						.build()
+						.calcReferenceEnergies()
+					).build();
+
+				// compute emats
+				EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
+					.build()
+					.calcEnergyMatrix();
 
 				// how should confs be ordered and searched?
-				ConfSearchFactory confSearchFactory = (emat, rcs) -> {
-					return new ConfAStarTree.Builder(emat, rcs)
+				info.confSearchFactoryMinimized = (rcs) ->
+					new ConfAStarTree.Builder(ematMinimized, rcs)
 						.setTraditional()
 						.build();
-				};
 
-				// make a rigid energy calculator too
-				EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
+				// BBK* needs rigid energies too
+				EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
 					.setIsMinimizing(false)
 					.build();
+				ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
+				EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
+					.build()
+					.calcEnergyMatrix();
+				info.confSearchFactoryRigid = (rcs) ->
+					new ConfAStarTree.Builder(ematRigid, rcs)
+						.setTraditional()
+						.build();
 
-				// run BBK*
-				KStar.Settings kstarSettings = new KStar.Settings.Builder()
-					.setEpsilon(epsilon)
-					.setStabilityThreshold(null)
-					.setMaxSimultaneousMutations(1)
-					.addScoreConsoleWriter()
-					.setConfDBPattern(confdbPattern)
-					.build();
-				BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
-					.setNumBestSequences(numSequences)
-					.setNumConfsPerBatch(8)
-					.build();
-				Results results = new Results();
-				results.bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, kstarSettings, bbkstarSettings);
-				results.sequences = results.bbkstar.run();
+				// add the ConfDB file if needed
+				if (confdbPattern != null) {
+					info.confDBFile = new File(confdbPattern.replace("*", info.type.name().toLowerCase()));
+				}
+			}
 
-				// pass back the ref
-				resultsRef.set(results);
-			});
-
-		return resultsRef.get();
+			// run BBK*
+			Results results = new Results();
+			results.bbkstar = bbkstar;
+			results.sequences = bbkstar.run();
+			return results;
+		}
 	}
 
 	@Test
@@ -91,7 +142,7 @@ public class TestBBKStar {
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 		final double epsilon = 0.99;
 		final int numSequences = 25;
-		Results results = runBBKStar(confSpaces, numSequences, epsilon);
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
 
 		assert2RL0(results, numSequences);
 	}
@@ -135,15 +186,15 @@ public class TestBBKStar {
 		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
 		final double epsilon = 0.999999;
 		final int numSequences = 6;
-		Results results = runBBKStar(confSpaces, numSequences, epsilon);
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
 
 		// K* bounds collected with e = 0.1 from original K* algo
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS ARG", 17.522258,17.636342);
-		assertSequence(results, "ILE ILE GLN HID VAL TYR LYS VAL", 16.939674,17.014507);
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS HIE", 16.833695,16.930972);
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS HID", 16.659839,16.738627);
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS LYS", 16.571112,16.683562);
-		assertSequence(results, "ILE ILE GLN HIE VAL TYR LYS VAL", 16.474293,16.552681);
+		assertSequence(results, "HIE ARG", 17.522258,17.636342);
+		assertSequence(results, "HID VAL", 16.939674,17.014507);
+		assertSequence(results, "HIE HIE", 16.833695,16.930972);
+		assertSequence(results, "HIE HID", 16.659839,16.738627);
+		assertSequence(results, "HIE LYS", 16.571112,16.683562);
+		assertSequence(results, "HIE VAL", 16.474293,16.552681);
 
 		assertThat(results.sequences.size(), is(numSequences));
 		assertDecreasingUpperBounds(results.sequences);
@@ -157,38 +208,38 @@ public class TestBBKStar {
 		final int numSequences = 25;
 		final String confdbPattern = "bbkstar.*.conf.db";
 
-		fileForWriting("bbkstar.protein.conf.db", (proteinDBFile) -> {
-			fileForWriting("bbkstar.ligand.conf.db", (ligandDBFile) -> {
-				fileForWriting("bbkstar.complex.conf.db", (complexDBFile) -> {
+		try (TempFile proteinDBFile = new TempFile("bbkstar.protein.conf.db")) {
+			try (TempFile ligandDBFile = new TempFile("bbkstar.ligand.conf.db")) {
+				try (TempFile complexDBFile = new TempFile("bbkstar.complex.conf.db")) {
 
 					// run with empty dbs
 					Stopwatch sw = new Stopwatch().start();
-					Results results = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern);
+					Results results = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern, 1);
 					assert2RL0(results, numSequences);
 					System.out.println(sw.getTime(2));
 
 					// the dbs should have stuff in them
 
-					new ConfDB(confSpaces.protein, proteinDBFile).use((confdb) -> {
+					try (ConfDB confdb = new ConfDB(confSpaces.protein, proteinDBFile)) {
 						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
-					new ConfDB(confSpaces.ligand, ligandDBFile).use((confdb) -> {
+					try (ConfDB confdb = new ConfDB(confSpaces.ligand, ligandDBFile)) {
 						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
-					new ConfDB(confSpaces.complex, complexDBFile).use((confdb) -> {
+					try (ConfDB confdb = new ConfDB(confSpaces.complex, complexDBFile)) {
 						assertThat(confdb.getNumSequences(), is((long)results.sequences.size()));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
 					assertThat(proteinDBFile.exists(), is(true));
 					assertThat(ligandDBFile.exists(), is(true));
@@ -196,12 +247,37 @@ public class TestBBKStar {
 
 					// run again with full dbs
 					sw = new Stopwatch().start();
-					Results results2 = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern);
+					Results results2 = runBBKStar(confSpaces, numSequences, epsilon, confdbPattern, 1);
 					assert2RL0(results2, numSequences);
 					System.out.println(sw.getTime(2));
-				});
-			});
-		});
+				}
+			}
+		}
+	}
+
+	@Test
+	public void only2RL0OneMutant() {
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0OnlyOneMutant();
+		final double epsilon = 0.99;
+		final int numSequences = 1;
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
+
+		assertThat(results.sequences.size(), is(1));
+		assertThat(results.sequences.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("A193=VAL"));
+	}
+
+	@Test
+	public void only2RL0SpaceWithoutWildType() {
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0SpaceWithoutWildType();
+		final double epsilon = 0.99;
+		final int numSequences = 2;
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 2);
+
+		assertThat(results.sequences.size(), is(2));
+		assertThat(results.sequences.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=thr A193=VAL"));
+		assertThat(results.sequences.get(1).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=VAL A193=VAL"));
 	}
 
 	private void assertSequence(Results results, String sequence, Double estKStarLowerLog10, Double estKStarUpperLog10) {

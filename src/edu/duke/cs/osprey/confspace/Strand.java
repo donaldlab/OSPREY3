@@ -1,12 +1,38 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.confspace;
 
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
@@ -15,6 +41,8 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.structure.Residues;
+
 import java.io.Serializable;
 
 /**
@@ -93,7 +121,7 @@ public class Strand implements Serializable {
 		public final String wildType;
 		
 		public VoxelShape voxelShape;
-		public Set<String> resTypes;
+		public Set<String> resTypes; // for library rotamers only
 		public boolean addWildTypeRotamers;
 		
 		protected ResidueFlex(String wildType) {
@@ -108,9 +136,24 @@ public class Strand implements Serializable {
 		}
 		
 		public boolean isFlexible() {
-			return !resTypes.isEmpty() || addWildTypeRotamers == true;
+			return !resTypes.isEmpty() || addWildTypeRotamers;
 		}
-		
+
+		public boolean isMutable() {
+			Set<String> allResTypes = getAllResTypes();
+			return allResTypes.size() >= 2
+				|| (allResTypes.size() == 1 && !allResTypes.iterator().next().equals(wildType));
+		}
+
+		/** for both library and wild-type rotamers */
+		public Set<String> getAllResTypes() {
+			Set<String> out = new LinkedHashSet<>(resTypes);
+			if (addWildTypeRotamers) {
+				out.add(wildType);
+			}
+			return out;
+		}
+
 		public ResidueFlex setNoRotamers() {
 			resTypes.clear();
 			addWildTypeRotamers = false;
@@ -185,7 +228,10 @@ public class Strand implements Serializable {
 		public Flexibility(List<Residue> residues) {
 			this.residues = new LinkedHashMap<>();
 			for (Residue res : residues) {
-				this.residues.put(res.getPDBResNumber(), new ResidueFlex(res.template.name));
+				this.residues.put(
+					Residues.normalizeResNum(res.getPDBResNumber()),
+					new ResidueFlex(res.template.name)
+				);
 			}
 		}
 
@@ -195,6 +241,7 @@ public class Strand implements Serializable {
 		}
 		
 		public ResidueFlex get(String resNum) {
+			resNum = Residues.normalizeResNum(resNum);
 			return residues.get(resNum);
 		}
 		

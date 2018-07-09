@@ -53,7 +53,7 @@ It's a bit much to take in all at once though, so let's break it down line-by-li
 	import osprey
 
 
-This line imports the ``osprey`` module into the Pyton script. It's pretty standard for python scripts.
+This line imports the ``osprey`` module into the Python script. It's pretty standard for python scripts.
 
 .. code-block:: python
 	:lineno-start: 3
@@ -92,10 +92,10 @@ For residue ``A3``, we're allowing a mutation to Valine, but the sequence can al
 amino acid is present in the PDB file by using the magic constant, :py:const:`osprey.WILD_TYPE`.
 
 For residue ``A4``, we're not allowing any mutations this time, but, by using :py:const:`osprey.WILD_TYPE`
-for the amino acid, we're still allowing flexibilty at this design position. Only the rotamers
+for the amino acid, we're still allowing flexibility at this design position. Only the rotamers
 defined for the wild-type amino acid will be used at this position though.
 
-The rest of the residues have no flexibilty specified, so they will remain completely fixed
+The rest of the residues have no flexibility specified, so they will remain completely fixed
 in the conformation specified by the PDB file throughout all of Osprey's analyses.
 
 .. code-block:: python

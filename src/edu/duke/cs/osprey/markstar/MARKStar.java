@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
@@ -229,6 +230,12 @@ public class MARKStar {
 		}
 	}
 
+	public static class InitException extends RuntimeException {
+
+		public InitException(ConfSpaceType type, String name) {
+			super(String.format("set %s for the %s conf space info before running", name, type.name()));
+		}
+	}
 	public enum ConfSpaceType {
 		Protein,
 		Ligand,
@@ -241,6 +248,8 @@ public class MARKStar {
 		public final SimpleConfSpace confSpace;
 		public final ConfEnergyCalculator rigidConfEcalc;
 		public final ConfEnergyCalculator minimizingConfEcalc;
+		public ConfSearchFactory confSearchFactory = null;
+		public File confDBFile = null;
 
 		public final List<Sequence> sequences = new ArrayList<>();
 		public EnergyMatrix rigidEmat = null;
@@ -252,6 +261,22 @@ public class MARKStar {
 			this.confSpace = confSpace;
 			this.rigidConfEcalc = rigidConfEcalc;
 			this.minimizingConfEcalc = minimizingConfEcalc;
+		}
+
+		private void check() {
+			if (rigidConfEcalc == null) {
+				throw new InitException(type, "rigidConfEcalc");
+			}
+			if (minimizingConfEcalc == null) {
+				throw new InitException(type, "minimizingConfEcalc");
+			}
+			if (confSearchFactory == null) {
+				throw new InitException(type, "confSearchFactory");
+			}
+		}
+
+		public void clear() {
+			pfuncResults.clear();
 		}
 
 		public void calcEmats() {
@@ -280,7 +305,7 @@ public class MARKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(),
+			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(confSpace),
 					settings.parallelism);
 			pfunc.reduceMinimizations = settings.reduceMinimizations;
 			pfunc.stateName = type.name();
@@ -328,6 +353,8 @@ public class MARKStar {
 	/** Optional and overridable settings for K* */
 	public final Settings settings;
 
+	private List<Sequence> sequences;
+
 	public MARKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex,
 					EnergyCalculator rigidEcalc, EnergyCalculator minimizingEcalc,
 					ConfEnergyCalculatorFactory confEcalcFactory, Settings settings) {
@@ -338,6 +365,7 @@ public class MARKStar {
 		this.minimizingEcalc = minimizingEcalc;
 		this.confEcalcFactory = confEcalcFactory;
 		this.settings = settings;
+		this.sequences = new ArrayList();
 	}
 
 	public List<ScoredSequence> run() {
@@ -355,35 +383,11 @@ public class MARKStar {
 		ligand.sequences.add(ligand.confSpace.makeWildTypeSequence());
 		complex.sequences.add(complex.confSpace.makeWildTypeSequence());
 
-		// collect all the sequences explicitly
-		List<List<SimpleConfSpace.Position>> powersetOfPositions = MathTools.powersetUpTo(complex.confSpace.positions, settings.maxSimultaneousMutations);
-		Collections.reverse(powersetOfPositions); // NOTE: reverse to match order of old code
-		for (List<SimpleConfSpace.Position> mutablePositions : powersetOfPositions) {
-
-			// collect the mutations (res types except for wild type) for these positions into a simple list list
-			List<List<String>> resTypes = new ArrayList<>();
-			for (SimpleConfSpace.Position pos : mutablePositions) {
-				resTypes.add(pos.resFlex.resTypes.stream()
-					.filter((resType) -> !resType.equals(pos.resFlex.wildType))
-					.collect(Collectors.toList())
-				);
-			}
-
-			// enumerate all the combinations of res types
-			for (List<String> mutations : MathTools.cartesianProduct(resTypes)) {
-
-				// build the complex sequence
-				Sequence complexSequence = complex.confSpace.makeWildTypeSequence();
-				for (int i=0; i<mutablePositions.size(); i++) {
-					complexSequence.set(mutablePositions.get(i), mutations.get(i));
-				}
-				complex.sequences.add(complexSequence);
-
-				// split complex sequence into protein/ligand sequences
-				protein.sequences.add(complexSequence.filter(protein.confSpace));
-				ligand.sequences.add(complexSequence.filter(ligand.confSpace));
-			}
+		// collect all the seque// collect all the sequences explicitly
+		if (complex.confSpace.seqSpace.containsWildTypeSequence()) {
+			sequences.add(complex.confSpace.seqSpace.makeWildTypeSequence());
 		}
+		sequences.addAll(complex.confSpace.seqSpace.getMutants(settings.maxSimultaneousMutations, true));
 
 		// TODO: sequence filtering? do we need to reject some mutation combinations for some reason?
 
@@ -395,15 +399,14 @@ public class MARKStar {
 
 			// compute the K* score
 			KStarScore kstarScore = new KStarScore(proteinResult, ligandResult, complexResult);
-			Sequence complexSequence = complex.sequences.get(sequenceNumber);
-			scores.add(new ScoredSequence(complexSequence, kstarScore));
+			Sequence sequence = sequences.get(sequenceNumber);
+			scores.add(new ScoredSequence(sequence, kstarScore));
 
 			// report scores
 			settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
 				sequenceNumber,
 				n,
-				complexSequence,
-				complex.confSpace,
+				sequence,
 				kstarScore
 			));
 
@@ -452,5 +455,8 @@ public class MARKStar {
 		}
 
 		return scores;
+	}
+	public Iterable<ConfSpaceInfo> confSpaceInfos() {
+		return Arrays.asList(protein, ligand, complex);
 	}
 }

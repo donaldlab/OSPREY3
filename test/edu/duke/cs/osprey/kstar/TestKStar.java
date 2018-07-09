@@ -1,6 +1,38 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.kstar;
 
-import static edu.duke.cs.osprey.TestBase.fileForWriting;
+import static edu.duke.cs.osprey.TestBase.TempFile;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -9,11 +41,12 @@ import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
@@ -23,10 +56,10 @@ import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
-import java.util.HashSet;
+import java.io.File;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+
 
 public class TestKStar {
 
@@ -42,70 +75,84 @@ public class TestKStar {
 		public List<KStar.ScoredSequence> scores;
 	}
 
-	public static Result runKStar(ConfSpaces confSpaces, double epsilon, String confDBPattern) {
-
-		AtomicReference<Result> resultRef = new AtomicReference<>(null);
+	public static Result runKStar(ConfSpaces confSpaces, double epsilon, String confDBPattern, boolean useExternalMemory, int maxSimultaneousMutations) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
-		//Parallelism parallelism = Parallelism.make(4, 1, 8);
 
 		// how should we compute energies of molecules?
-		new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
 			.setParallelism(parallelism)
-			.use((ecalc) -> {
+			.build()) {
+
+			KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) -> {
+
+				Function<PartitionFunction.Result,String> formatPfunc = (pfuncResult) -> {
+					if (pfuncResult.status == PartitionFunction.Status.Estimated) {
+						return String.format("%12e", pfuncResult.values.qstar.doubleValue());
+					}
+					return "null";
+				};
+
+				return String.format("assertSequence(result, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon); // protein %s ligand %s complex %s K* = %s",
+					info.sequenceNumber,
+					info.sequence.toString(Sequence.Renderer.ResType),
+					formatPfunc.apply(info.kstarScore.protein),
+					formatPfunc.apply(info.kstarScore.ligand),
+					formatPfunc.apply(info.kstarScore.complex),
+					info.kstarScore.protein.toString(),
+					info.kstarScore.ligand.toString(),
+					info.kstarScore.complex.toString(),
+					info.kstarScore.toString()
+				);
+			};
+
+			// configure K*
+			KStar.Settings settings = new KStar.Settings.Builder()
+				.setEpsilon(epsilon)
+				.setStabilityThreshold(null)
+				.addScoreConsoleWriter(testFormatter)
+				.setExternalMemory(useExternalMemory)
+				.setMaxSimultaneousMutations(maxSimultaneousMutations)
+				//.setShowPfuncProgress(true)
+				.build();
+			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
+			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
 				// how should we define energies of conformations?
-				KStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
-					return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
-						.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
-							.build()
-							.calcReferenceEnergies()
-						).build();
-				};
+				info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, ecalc)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(info.confSpace, ecalc)
+						.build()
+						.calcReferenceEnergies()
+					)
+					.build();
+
+				// calc energy matrix
+				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
+					.build()
+					.calcEnergyMatrix();
 
 				// how should confs be ordered and searched?
-				ConfSearchFactory confSearchFactory = (emat, pmat) -> {
-					return new ConfAStarTree.Builder(emat, pmat)
-						.setTraditional()
-						.build();
+				info.confSearchFactory = (rcs) -> {
+					ConfAStarTree.Builder builder = new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional();
+					if (useExternalMemory) {
+						builder.useExternalMemory();
+					}
+					return builder.build();
 				};
 
-				KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) -> {
+				// set ConfDB if needed
+				if (confDBPattern != null) {
+					info.confDBFile = new File(confDBPattern.replace("*", info.type.name().toLowerCase()));
+				}
+			}
 
-					Function<PartitionFunction.Result,String> formatPfunc = (result) -> {
-						if (result.status == PartitionFunction.Status.Estimated) {
-							return String.format("%12e", result.values.qstar.doubleValue());
-						}
-						return "null";
-					};
-
-					return String.format("assertSequence(result, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon); // K* = %s",
-						info.sequenceNumber,
-						info.sequence.toString(Sequence.Renderer.ResType),
-						formatPfunc.apply(info.kstarScore.protein),
-						formatPfunc.apply(info.kstarScore.ligand),
-						formatPfunc.apply(info.kstarScore.complex),
-						info.kstarScore.toString()
-					);
-				};
-
-				// run K*
-				Result result = new Result();
-				KStar.Settings settings = new KStar.Settings.Builder()
-					.setEpsilon(epsilon)
-					.setStabilityThreshold(null)
-					.addScoreConsoleWriter(testFormatter)
-					.setConfDBPattern(confDBPattern)
-					//.setShowPfuncProgress(true)
-					.build();
-				result.kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
-				result.scores = result.kstar.run();
-
-				// pass back the ref
-				resultRef.set(result);
-			});
-
-		return resultRef.get();
+			// run K*
+			Result result = new Result();
+			result.kstar = kstar;
+			result.scores = kstar.run();
+			return result;
+		}
 	}
 
 	public static ConfSpaces make2RL0() {
@@ -115,12 +162,10 @@ public class TestKStar {
 		// configure the forcefield
 		confSpaces.ffparams = new ForcefieldParams();
 
-		Molecule mol = PDBIO.readFile("examples/python.KStar/2RL0.min.reduce.pdb");
+		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
 
 		// make sure all strands share the same template library
-		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
 
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
@@ -160,39 +205,49 @@ public class TestKStar {
 	public void test2RL0() {
 
 		double epsilon = 0.95;
-		Result result = runKStar(make2RL0(), epsilon, null);
+		Result result = runKStar(make2RL0(), epsilon, null, false, 1);
 		assert2RL0(result, epsilon);
 	}
 
+	@Test
+	public void test2RL0WithExternalMemory() {
+
+		ExternalMemory.use(128, () -> {
+			double epsilon = 0.95;
+			Result result = runKStar(make2RL0(), epsilon, null, true, 1);
+			assert2RL0(result, epsilon);
+		});
+	}
+
 	private static void assert2RL0(Result result, double epsilon) {
-		// check the results (values collected with e = 0.1 and 64 digits precision)
+		// check the results (values collected with e = 0.01 and 64 digits precision)
 		// NOTE: these values don't match the ones in the TestKSImplLinear test because the conf spaces are slightly different
 		// also, the new K* code has been updated to be more precise
-		assertSequence(result,   0, "PHE ASP GLU THR PHE LYS ILE THR", 4.300422e+04, 4.347270e+30, 4.201039e+50, epsilon); // K* = 15.351629 in [15.312533,15.396058] (log10)
-		assertSequence(result,   1, "PHE ASP GLU THR PHE LYS ILE SER", 4.300422e+04, 1.076556e+30, 4.045744e+50, epsilon); // K* = 15.941451 in [15.878562,15.986656] (log10)
-		assertSequence(result,   2, "PHE ASP GLU THR PHE LYS ILE ASN", 4.300422e+04, 4.650623e+29, 1.854792e+49, epsilon); // K* = 14.967273 in [14.920727,15.011237] (log10)
-		assertSequence(result,   3, "PHE ASP GLU THR PHE LYS ALA THR", 4.300422e+04, 1.545055e+27, 7.003938e+45, epsilon); // K* = 14.022887 in [13.984844,14.066296] (log10)
-		assertSequence(result,   4, "PHE ASP GLU THR PHE LYS VAL THR", 4.300422e+04, 5.694044e+28, 9.854022e+47, epsilon); // K* = 14.604682 in [14.558265,14.649295] (log10)
-		assertSequence(result,   5, "PHE ASP GLU THR PHE LYS LEU THR", 4.300422e+04, 3.683508e-11, 3.644143e+08, epsilon); // K* = 14.361823 in [14.324171,14.405292] (log10)
-		assertSequence(result,   6, "PHE ASP GLU THR PHE LYS PHE THR", 4.300422e+04, 2.820863e+24, null        , epsilon); // K* = none      in [-Infinity,-Infinity] (log10)
-		assertSequence(result,   7, "PHE ASP GLU THR PHE LYS TYR THR", 4.300422e+04, 1.418587e+26, null        , epsilon); // K* = none      in [-Infinity,-Infinity] (log10)
-		assertSequence(result,   8, "PHE ASP GLU THR PHE ASP ILE THR", 4.300422e+04, 4.294128e+20, 1.252820e+36, epsilon); // K* = 10.831503 in [10.802450,10.873479] (log10)
-		assertSequence(result,   9, "PHE ASP GLU THR PHE GLU ILE THR", 4.300422e+04, 4.831904e+20, 2.273475e+35, epsilon); // K* = 10.039061 in [10.009341,10.081194] (log10)
-		assertSequence(result,  10, "PHE ASP GLU THR TYR LYS ILE THR", 4.300422e+04, 4.583429e+30, 2.294671e+50, epsilon); // K* = 15.066019 in [15.026963,15.110683] (log10)
-		assertSequence(result,  11, "PHE ASP GLU THR ALA LYS ILE THR", 4.300422e+04, 3.310340e+28, 2.171286e+47, epsilon); // K* = 14.183333 in [14.156555,14.226141] (log10)
-		assertSequence(result,  12, "PHE ASP GLU THR VAL LYS ILE THR", 4.300422e+04, 9.004068e+29, 1.866542e+49, epsilon); // K* = 14.683088 in [14.652599,14.725905] (log10)
-		assertSequence(result,  13, "PHE ASP GLU THR ILE LYS ILE THR", 4.300422e+04, 3.398648e+30, 1.598348e+50, epsilon); // K* = 15.038854 in [15.002827,15.082763] (log10)
-		assertSequence(result,  14, "PHE ASP GLU THR LEU LYS ILE THR", 4.300422e+04, 5.296285e+27, 1.045234e+47, epsilon); // K* = 14.661731 in [14.616778,14.705997] (log10)
-		assertSequence(result,  15, "PHE ASP GLU SER PHE LYS ILE THR", 3.153051e+06, 4.347270e+30, 1.477525e+53, epsilon); // K* = 16.032587 in [15.970427,16.078237] (log10)
-		assertSequence(result,  16, "PHE ASP GLU ASN PHE LYS ILE THR", 1.484782e+06, 4.347270e+30, 9.591789e+52, epsilon); // K* = 16.172020 in [16.114119,16.217413] (log10)
-		assertSequence(result,  17, "PHE ASP GLU GLN PHE LYS ILE THR", 2.531411e+06, 4.347270e+30, 3.346589e+53, epsilon); // K* = 16.483023 in [16.424659,16.528464] (log10)
-		assertSequence(result,  18, "PHE ASP ASP THR PHE LYS ILE THR", 1.216972e+01, 4.347270e+30, 1.469949e+45, epsilon); // K* = 13.443805 in [13.413093,13.487750] (log10)
-		assertSequence(result,  19, "PHE GLU GLU THR PHE LYS ILE THR", 1.986991e+05, 4.347270e+30, 1.097189e+50, epsilon); // K* = 14.103869 in [14.056796,14.148018] (log10)
-		assertSequence(result,  20, "TYR ASP GLU THR PHE LYS ILE THR", 1.666243e+04, 4.347270e+30, 2.814673e+46, epsilon); // K* = 11.589473 in [11.550098,11.633104] (log10)
-		assertSequence(result,  21, "ALA ASP GLU THR PHE LYS ILE THR", 6.100779e+02, 4.347270e+30, 1.671418e+45, epsilon); // K* = 11.799483 in [11.777675,11.841368] (log10)
-		assertSequence(result,  22, "VAL ASP GLU THR PHE LYS ILE THR", 1.271497e+02, 4.347270e+30, 2.380877e+45, epsilon); // K* = 12.634205 in [12.613207,12.676919] (log10)
-		assertSequence(result,  23, "ILE ASP GLU THR PHE LYS ILE THR", 5.942890e+02, 4.347270e+30, 2.012605e+46, epsilon); // K* = 12.891544 in [12.844167,12.936569] (log10)
-		assertSequence(result,  24, "LEU ASP GLU THR PHE LYS ILE THR", 4.614233e+00, 4.347270e+30, 4.735376e+43, epsilon); // K* = 12.373038 in [12.339795,12.417250] (log10)
+		assertSequence(result,   0, "PHE ASP GLU THR PHE LYS ILE THR", 4.371921e+04, 4.470250e+30, 4.204899e+50, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [30.650332,30.650410] (log10)                    complex [50.623756,50.627674] (log10)                    K* = 15.332751 in [15.332671,15.336670] (log10)
+		assertSequence(result,   1, "PHE ASP GLU THR PHE LYS ILE SER", 4.371921e+04, 1.147556e+30, 4.049550e+50, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [30.059774,30.062460] (log10)                    complex [50.607407,50.611614] (log10)                    K* = 15.906961 in [15.904272,15.911168] (log10)
+		assertSequence(result,   2, "PHE ASP GLU THR PHE LYS ILE ASN", 4.371921e+04, 4.842333e+29, 1.855842e+49, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [29.685055,29.685101] (log10)                    complex [49.268541,49.272112] (log10)                    K* = 14.942814 in [14.942765,14.946385] (log10)
+		assertSequence(result,   3, "PHE ASP GLU THR PHE LYS ALA THR", 4.371921e+04, 1.600526e+27, 7.020108e+45, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [27.204263,27.204485] (log10)                    complex [45.846344,45.849857] (log10)                    K* = 14.001409 in [14.001185,14.004922] (log10)
+		assertSequence(result,   4, "PHE ASP GLU THR PHE LYS VAL THR", 4.371921e+04, 5.970459e+28, 9.866975e+47, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [28.776008,28.776895] (log10)                    complex [47.994184,47.998118] (log10)                    K* = 14.577504 in [14.576615,14.581438] (log10)
+		assertSequence(result,   5, "PHE ASP GLU THR PHE LYS LEU THR", 4.371921e+04, 3.784115e-11, 3.649388e+08, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [-10.42203,-10.42182] (log10)                    complex [8.562220 , 8.565874] (log10)                    K* = 14.343583 in [14.343374,14.347238] (log10)
+		assertSequence(result,   6, "PHE ASP GLU THR PHE LYS PHE THR", 4.371921e+04, 2.881629e+24, null        , epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [24.459638,24.460021] (log10)                    complex [-Infinity,-Infinity] (log10,OutOfLowEnergies)   K* = none      in [-Infinity,-Infinity] (log10)
+		assertSequence(result,   7, "PHE ASP GLU THR PHE LYS TYR THR", 4.371921e+04, 1.462260e+26, null        , epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [26.165025,26.167197] (log10)                    complex [-Infinity,-Infinity] (log10,OutOfLowEnergies)   K* = none      in [-Infinity,-Infinity] (log10)
+		assertSequence(result,   8, "PHE ASP GLU THR PHE ASP ILE THR", 4.371921e+04, 4.358067e+20, 1.255853e+36, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [20.639294,20.639306] (log10)                    complex [36.098939,36.101958] (log10)                    K* = 10.818973 in [10.818958,10.821992] (log10)
+		assertSequence(result,   9, "PHE ASP GLU THR PHE GLU ILE THR", 4.371921e+04, 4.898049e+20, 2.276285e+35, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [20.690023,20.690025] (log10)                    complex [35.357227,35.360904] (log10)                    K* = 10.026531 in [10.026527,10.030209] (log10)
+		assertSequence(result,  10, "PHE ASP GLU THR TYR LYS ILE THR", 4.371921e+04, 4.703797e+30, 2.296368e+50, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [30.672449,30.673477] (log10)                    complex [50.361042,50.365003] (log10)                    K* = 15.047921 in [15.046890,15.051883] (log10)
+		assertSequence(result,  11, "PHE ASP GLU THR ALA LYS ILE THR", 4.371921e+04, 3.343664e+28, 2.173203e+47, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [28.524223,28.524239] (log10)                    complex [47.337100,47.340468] (log10)                    K* = 14.172205 in [14.172187,14.175573] (log10)
+		assertSequence(result,  12, "PHE ASP GLU THR VAL LYS ILE THR", 4.371921e+04, 9.149013e+29, 1.868156e+49, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [29.961374,29.961452] (log10)                    complex [49.271413,49.274723] (log10)                    K* = 14.669367 in [14.669286,14.672677] (log10)
+		assertSequence(result,  13, "PHE ASP GLU THR ILE LYS ILE THR", 4.371921e+04, 3.475808e+30, 1.599260e+50, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [30.541056,30.541461] (log10)                    complex [50.203919,50.207685] (log10)                    K* = 15.022191 in [15.021784,15.025957] (log10)
+		assertSequence(result,  14, "PHE ASP GLU THR LEU LYS ILE THR", 4.371921e+04, 5.495454e+27, 1.046077e+47, epsilon); // protein [4.640672 , 4.640674] (log10)                    ligand [27.740004,27.740644] (log10)                    complex [47.019564,47.023445] (log10)                    K* = 14.638888 in [14.638245,14.642769] (log10)
+		assertSequence(result,  15, "PHE ASP GLU SER PHE LYS ILE THR", 3.283712e+06, 4.470250e+30, 1.478944e+53, epsilon); // protein [6.516365 , 6.518587] (log10)                    ligand [30.650332,30.650410] (log10)                    complex [53.169952,53.174250] (log10)                    K* = 16.003255 in [16.000954,16.007553] (log10)
+		assertSequence(result,  16, "PHE ASP GLU ASN PHE LYS ILE THR", 1.542601e+06, 4.470250e+30, 9.600623e+52, epsilon); // protein [6.188254 , 6.188610] (log10)                    ligand [30.650332,30.650410] (log10)                    complex [52.982299,52.986487] (log10)                    K* = 16.143714 in [16.143280,16.147902] (log10)
+		assertSequence(result,  17, "PHE ASP GLU GLN PHE LYS ILE THR", 2.630082e+06, 4.470250e+30, 3.349509e+53, epsilon); // protein [6.419969 , 6.420740] (log10)                    ligand [30.650332,30.650410] (log10)                    complex [53.524981,53.529197] (log10)                    K* = 16.454680 in [16.453832,16.458896] (log10)
+		assertSequence(result,  18, "PHE ASP ASP THR PHE LYS ILE THR", 1.227974e+01, 4.470250e+30, 1.473056e+45, epsilon); // protein [1.089189 , 1.089195] (log10)                    ligand [30.650332,30.650410] (log10)                    complex [45.168219,45.171981] (log10)                    K* = 13.428698 in [13.428614,13.432460] (log10)
+		assertSequence(result,  19, "PHE GLU GLU THR PHE LYS ILE THR", 2.026898e+05, 4.470250e+30, 1.098638e+50, epsilon); // protein [5.306832 , 5.306865] (log10)                    ligand [30.650332,30.650410] (log10)                    complex [50.040855,50.044593] (log10)                    K* = 14.083691 in [14.083579,14.087429] (log10)
+		assertSequence(result,  20, "TYR ASP GLU THR PHE LYS ILE THR", 1.699480e+04, 4.470250e+30, 2.827698e+46, epsilon); // protein [4.230316 , 4.230334] (log10)                    ligand [30.650332,30.650410] (log10)                    complex [46.451433,46.455174] (log10)                    K* = 11.570785 in [11.570689,11.574526] (log10)
+		assertSequence(result,  21, "ALA ASP GLU THR PHE LYS ILE THR", 6.128989e+02, 4.470250e+30, 1.679083e+45, epsilon); // protein [2.787389 , 2.787390] (log10)                    ligand [30.650332,30.650410] (log10)                    complex [45.225072,45.228224] (log10)                    K* = 11.787351 in [11.787272,11.790503] (log10)
+		assertSequence(result,  22, "VAL ASP GLU THR PHE LYS ILE THR", 1.273574e+02, 4.470250e+30, 2.389220e+45, epsilon); // protein [2.105024 , 2.105027] (log10)                    ligand [30.650332,30.650410] (log10)                    complex [45.378256,45.381563] (log10)                    K* = 12.622900 in [12.622819,12.626207] (log10)
+		assertSequence(result,  23, "ILE ASP GLU THR PHE LYS ILE THR", 6.030325e+02, 4.470250e+30, 2.015890e+46, epsilon); // protein [2.780341 , 2.780363] (log10)                    ligand [30.650332,30.650410] (log10)                    complex [46.304467,46.308586] (log10)                    K* = 12.873794 in [12.873693,12.877914] (log10)
+		assertSequence(result,  24, "LEU ASP GLU THR PHE LYS ILE THR", 4.638796e+00, 4.470250e+30, 4.750455e+43, epsilon); // protein [0.666405 , 0.666410] (log10)                    ligand [30.650332,30.650410] (log10)                    complex [43.676735,43.680566] (log10)                    K* = 12.359998 in [12.359915,12.363829] (log10)
 	}
 
 	public static ConfSpaces make1GUA11() {
@@ -205,9 +260,7 @@ public class TestKStar {
 		Molecule mol = PDBIO.read(FileTools.readResource("/1gua_adj.min.pdb"));
 
 		// make sure all strands share the same template library
-		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
 
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
@@ -247,15 +300,15 @@ public class TestKStar {
 	public void test1GUA11() {
 
 		double epsilon = 0.999999;
-		Result result = runKStar(make1GUA11(), epsilon, null);
+		Result result = runKStar(make1GUA11(), epsilon, null, false, 1);
 
 		// check the results (values collected with e = 0.1 and 64 digits precision)
-		assertSequence(result,   0, "ILE ILE GLN HIE VAL TYR LYS VAL", 1.186071e+42, 2.840001e+07, 1.119884e+66, epsilon); // K* = 16.521744 in [16.463680,16.563832] (log10)
-		assertSequence(result,   1, "ILE ILE GLN HIE VAL TYR LYS HID", 1.186071e+42, 5.575412e+07, 3.345731e+66, epsilon); // K* = 16.704103 in [16.647717,16.747742] (log10)
-		assertSequence(result,   2, "ILE ILE GLN HIE VAL TYR LYS HIE", 1.186071e+42, 5.938851e+06, 5.542993e+65, epsilon); // K* = 16.895931 in [16.826906,16.938784] (log10)
-		assertSequence(result,   3, "ILE ILE GLN HIE VAL TYR LYS LYS", 1.186071e+42, 6.402058e+04, 3.315165e+63, epsilon); // K* = 16.640075 in [16.563032,16.685734] (log10)
-		assertSequence(result,   4, "ILE ILE GLN HIE VAL TYR LYS ARG", 1.186071e+42, 1.157637e+05, 5.375731e+64, epsilon); // K* = 17.592754 in [17.514598,17.638466] (log10)
-		assertSequence(result,   5, "ILE ILE GLN HID VAL TYR LYS VAL", 9.749716e+41, 2.840001e+07, 2.677894e+66, epsilon); // K* = 16.985483 in [16.927677,17.026890] (log10)
+		assertSequence(result,   0, "HIE VAL", 1.194026e+42, 2.932628e+07, 1.121625e+66, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [7.467257 , 7.467257] (log10)                    complex [66.049848,66.051195] (log10)                    K* = 16.505577 in [16.505576,16.506925] (log10)
+		assertSequence(result,   1, "HIE HID", 1.194026e+42, 5.738568e+07, 3.346334e+66, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [7.758803 , 7.758803] (log10)                    complex [66.524569,66.543073] (log10)                    K* = 16.688752 in [16.688752,16.707256] (log10)
+		assertSequence(result,   2, "HIE HIE", 1.194026e+42, 6.339230e+06, 5.544100e+65, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [6.802036 , 6.802036] (log10)                    complex [65.743831,65.769366] (log10)                    K* = 16.864781 in [16.864780,16.890316] (log10)
+		assertSequence(result,   3, "HIE LYS", 1.194026e+42, 6.624443e+04, 3.315130e+63, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [4.821149 , 4.826752] (log10)                    complex [63.520501,63.563549] (log10)                    K* = 16.622337 in [16.616735,16.665386] (log10)
+		assertSequence(result,   4, "HIE ARG", 1.194026e+42, 1.196619e+05, 5.375633e+64, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [5.077956 , 5.087238] (log10)                    complex [64.730430,64.774106] (log10)                    K* = 17.575460 in [17.566178,17.619136] (log10)
+		assertSequence(result,   5, "HID VAL", 9.813429e+41, 2.932628e+07, 2.680104e+66, epsilon); // protein [41.991821,41.992159] (log10)                    ligand [7.467257 , 7.467257] (log10)                    complex [66.428152,66.446408] (log10)                    K* = 16.969074 in [16.968735,16.987330] (log10)
 	}
 
 	@Test
@@ -265,41 +318,38 @@ public class TestKStar {
 		final String confdbPattern = "kstar.*.conf.db";
 		final ConfSpaces confSpaces = make2RL0();
 
-		fileForWriting("kstar.protein.conf.db", (proteinDBFile) -> {
-			fileForWriting("kstar.ligand.conf.db", (ligandDBFile) -> {
-				fileForWriting("kstar.complex.conf.db", (complexDBFile) -> {
+		try (TempFile proteinDBFile = new TempFile("kstar.protein.conf.db")) {
+			try (TempFile ligandDBFile = new TempFile("kstar.ligand.conf.db")) {
+				try (TempFile complexDBFile = new TempFile("kstar.complex.conf.db")) {
 
 					// run with empty dbs
 					Stopwatch sw = new Stopwatch().start();
-					Result result = runKStar(confSpaces, epsilon, confdbPattern);
+					Result result = runKStar(confSpaces, epsilon, confdbPattern, false, 1);
 					assert2RL0(result, epsilon);
 					System.out.println(sw.getTime(2));
 
 					// the dbs should have stuff in them
 
-					new ConfDB(confSpaces.protein, proteinDBFile).use((confdb) -> {
-						HashSet<Sequence> sequences = new HashSet<>(result.kstar.protein.sequences);
-						assertThat(confdb.getNumSequences(), is((long)sequences.size()));
+					try (ConfDB confdb = new ConfDB(confSpaces.protein, proteinDBFile)) {
+						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
-					new ConfDB(confSpaces.ligand, ligandDBFile).use((confdb) -> {
-						HashSet<Sequence> sequences = new HashSet<>(result.kstar.ligand.sequences);
-						assertThat(confdb.getNumSequences(), is((long)sequences.size()));
+					try (ConfDB confdb = new ConfDB(confSpaces.ligand, ligandDBFile)) {
+						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
-					new ConfDB(confSpaces.complex, complexDBFile).use((confdb) -> {
-						List<Sequence> sequences = result.kstar.complex.sequences;
-						assertThat(confdb.getNumSequences(), is((long)sequences.size()));
+					try (ConfDB confdb = new ConfDB(confSpaces.complex, complexDBFile)) {
+						assertThat(confdb.getNumSequences(), greaterThan(0L));
 						for (Sequence sequence : confdb.getSequences()) {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
-					});
+					}
 
 					assertThat(proteinDBFile.exists(), is(true));
 					assertThat(ligandDBFile.exists(), is(true));
@@ -307,12 +357,113 @@ public class TestKStar {
 
 					// run again with full dbs
 					sw = new Stopwatch().start();
-					Result result2 = runKStar(confSpaces, epsilon, confdbPattern);
+					Result result2 = runKStar(confSpaces, epsilon, confdbPattern, false, 1);
 					assert2RL0(result2, epsilon);
 					System.out.println(sw.getTime(2));
-				});
-			});
-		});
+				}
+			}
+		}
+	}
+
+	public static ConfSpaces make2RL0OnlyOneMutant() {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
+
+		// define the protein strand with just wild-type
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("G648", "G654")
+			.build();
+		protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType).setContinuous();
+
+		// define the ligand strand with one mutant, and no wild-type
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("A155", "A194")
+			.build();
+		ligand.flexibility.get("A193").setLibraryRotamers("VAL").setContinuous();
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+			.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+			.addStrand(ligand)
+			.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+			.addStrands(protein, ligand)
+			.build();
+
+		return confSpaces;
+	}
+
+	@Test
+	public void test2RL0OnlyOneMutant() {
+
+		double epsilon = 0.99;
+		Result result = runKStar(make2RL0OnlyOneMutant(), epsilon, null, false, 1);
+
+		assertThat(result.scores.size(), is(1));
+		assertThat(result.scores.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("A193=VAL"));
+	}
+
+	public static ConfSpaces make2RL0SpaceWithoutWildType() {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
+
+		// define the protein strand with just wild-type
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("G648", "G654")
+			.build();
+		protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType, "VAL").setContinuous();
+
+		// define the ligand strand with one mutant, and no wild-type
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("A155", "A194")
+			.build();
+		ligand.flexibility.get("A193").setLibraryRotamers("VAL").setContinuous();
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+			.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+			.addStrand(ligand)
+			.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+			.addStrands(protein, ligand)
+			.build();
+
+		return confSpaces;
+	}
+
+	@Test
+	public void test2RL0SpaceWithoutWildType() {
+
+		double epsilon = 0.99;
+		Result result = runKStar(make2RL0SpaceWithoutWildType(), epsilon, null, false, 2);
+
+		assertThat(result.scores.size(), is(2));
+		assertThat(result.scores.get(0).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=VAL A193=VAL"));
+		assertThat(result.scores.get(1).sequence.toString(Sequence.Renderer.AssignmentMutations), is("G654=thr A193=VAL"));
 	}
 
 	public static void assertSequence(Result result, int sequenceIndex, String sequence, Double proteinQStar, Double ligandQStar, Double complexQStar, double epsilon) {

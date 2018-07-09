@@ -1,7 +1,40 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.energy;
 
-import java.io.File;
+import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
@@ -31,7 +64,6 @@ import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.AutoCleanable;
 import edu.duke.cs.osprey.tools.Factory;
@@ -99,6 +131,10 @@ public class EnergyCalculator implements AutoCleanable {
 		 */
 		private Double alwaysResolveClashesEnergy = null;
 
+		/**
+		 * warning: using this constructor can cause AtomConnecivity cache pre-population to go very slowly
+		 * try the conf space list constrcutor instead
+		 */
 		public Builder(ResidueTemplateLibrary templateLib, ForcefieldParams ffparams) {
 			this.ffparams = ffparams;
 			this.atomConnectivityBuilder.addTemplates(templateLib);
@@ -109,7 +145,19 @@ public class EnergyCalculator implements AutoCleanable {
 			this.atomConnectivityBuilder.addTemplates(confSpace);
 			this.dofTypes = confSpace.getDofTypes();
 		}
-		
+
+		public Builder(List<SimpleConfSpace> confSpaces, ForcefieldParams ffparams) {
+			this.ffparams = ffparams;
+			for (SimpleConfSpace confSpace : confSpaces) {
+				this.atomConnectivityBuilder.addTemplates(confSpace);
+			}
+			this.dofTypes = SimpleConfSpace.DofTypes.combine(
+				confSpaces.stream()
+					.map(confSpace -> confSpace.getDofTypes())
+					.collect(Collectors.toList())
+			);
+		}
+
 		public Builder(Residues residues, ForcefieldParams ffparams) {
 			this.ffparams = ffparams;
 			this.atomConnectivityBuilder.addTemplates(residues);

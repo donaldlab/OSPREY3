@@ -1,3 +1,35 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.structure;
 
 import java.util.ArrayList;
@@ -53,7 +85,7 @@ public class Residues extends ArrayList<Residue> {
 	
 	@Override
 	public Residue set(int index, Residue res) {
-		String num = res.getPDBResNumber();
+		String num = normalizeResNum(res.getPDBResNumber());
 		if (indicesByNum.containsKey(num)) {
 			throw new IllegalArgumentException("residue number " + num + " is already present in this collection");
 		}
@@ -96,7 +128,7 @@ public class Residues extends ArrayList<Residue> {
 	private void reindex() {
 		indicesByNum.clear();
 		for (int i=0; i<size(); i++) {
-			indicesByNum.put(get(i).getPDBResNumber(), i);
+			indicesByNum.put(normalizeResNum(get(i).getPDBResNumber()), i);
 		}
 	}
 	
@@ -138,6 +170,7 @@ public class Residues extends ArrayList<Residue> {
 	}
 	
 	public Integer findIndex(String num) {
+		num = normalizeResNum(num);
 		Integer index = indicesByNum.get(num);
 		if(index==null) {
 			//for backwards compatibility, support num without chains if unambiguous
@@ -236,5 +269,9 @@ public class Residues extends ArrayList<Residue> {
 			reindex();
 		}
 		return changed;
+	}
+
+	public static String normalizeResNum(String resNum) {
+		return resNum.toUpperCase();
 	}
 }

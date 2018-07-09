@@ -1,3 +1,35 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -138,7 +170,7 @@ public class NewMethPlayground {
 
 	private static void calculateComplexUpperBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, int maxNumBestSequences, double maxNumConfsPerSequence) {
 
-		new ConfDB(confSpace, confDBFile).use((db) -> {
+		try (ConfDB db = new ConfDB(confSpace, confDBFile)) {
 
 			AStarSequencePruner pruner = new AStarSequencePruner(confSpace);
 
@@ -227,7 +259,7 @@ public class NewMethPlayground {
 				// get (or create) the sequence info
 				SequenceInfo info = infosBySequence.get(sdb.sequence);
 				if (info == null) {
-					info = new SequenceInfo(sdb.sequence);
+					info = new SequenceInfo(confSpace, sdb.sequence);
 					infosBySequence.put(sdb.sequence, info);
 
 					log("discovered %d/%d unique sequences", infosBySequence.size(), numSequences);
@@ -338,17 +370,17 @@ public class NewMethPlayground {
 			intervals.setBounds(svg, 10, 16);
 			svg.finish().write(new File("pfunc.complex.upperBounds.svg"));
 
-		}); // db
+		} // db
 	}
 
 	private static void calculateComplexLowerBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, int maxNumBestSequences, int maxNumConfsUpperBounded) {
 
-		new ConfDB(confSpace, confDBFile).use((db) -> {
+		try (ConfDB db = new ConfDB(confSpace, confDBFile)) {
 
 			// get all our sequence info, sorted by descending pfUB
 			TreeSet<SequenceInfo> infosByPfuncUB = new TreeSet<>(Comparator.comparing((SequenceInfo info) -> info.pfuncUpperBound).reversed());
 			for (Sequence sequence : db.getSequences()) {
-				SequenceInfo info = new SequenceInfo(sequence);
+				SequenceInfo info = new SequenceInfo(confSpace, sequence);
 				info.readPfuncUpperBoundFromDB(db.getSequence(sequence));
 				infosByPfuncUB.add(info);
 			}
@@ -374,19 +406,19 @@ public class NewMethPlayground {
 					}
 
 				}); // ecalc
-		});
+		}
 	}
 
 	private static List<SequenceInfo> analyzeComplexes(SimpleConfSpace confSpace, File confDBFile, int maxNumBestSequences) {
 
 		List<SequenceInfo> bestSequences = new ArrayList<>();
 
-		new ConfDB(confSpace, confDBFile).use((db) -> {
+		try (ConfDB db = new ConfDB(confSpace, confDBFile)) {
 
 			// get all our sequence info, sorted by descending pfUB
 			TreeSet<SequenceInfo> infosByPfuncUB = new TreeSet<>(Comparator.comparing((SequenceInfo info) -> info.pfuncUpperBound).reversed());
 			for (Sequence sequence : db.getSequences()) {
-				SequenceInfo info = new SequenceInfo(sequence);
+				SequenceInfo info = new SequenceInfo(confSpace, sequence);
 				ConfDB.SequenceDB sdb = db.getSequence(sequence);
 				info.readPfuncUpperBoundFromDB(sdb);
 				info.readPfuncLowerBoundFromDB(sdb);
@@ -488,26 +520,14 @@ public class NewMethPlayground {
 			}
 
 			svg.finish().write(new File("pfuncs.complex.svg"));
-		});
+		}
 
 		return bestSequences;
 	}
 
-	private static Sequence complexToLigandSequence(SimpleConfSpace ligandConfSpace, Sequence complexSequence) {
-		Sequence ligandSequence = ligandConfSpace.makeUnassignedSequence();
-		for (SimpleConfSpace.Position complexPos : complexSequence.confSpace.positions) {
-			SimpleConfSpace.Position ligandPos = ligandConfSpace.getPositionOrNull(complexPos.resNum);
-			if (ligandPos != null) {
-				ligandSequence.set(ligandPos, complexSequence.get(complexPos));
-			}
-		}
-		assert (ligandSequence.isFullyAssigned());
-		return ligandSequence;
-	}
-
 	private static void calculateLigandBounds(SimpleConfSpace confSpace, EnergyMatrix emat, File confDBFile, List<SequenceInfo> bestComplexes, double pfuncUBFactionSampled, int maxNumConfsUpperBounded) {
 
-		new ConfDB(confSpace, confDBFile).use((db) -> {
+		try (ConfDB db = new ConfDB(confSpace, confDBFile)) {
 
 			new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
 				.setParallelism(Parallelism.makeCpu(4))
@@ -518,7 +538,7 @@ public class NewMethPlayground {
 					for (SequenceInfo complex : bestComplexes) {
 
 						// convert complex sequence to ligand sequence
-						SequenceInfo ligand = new SequenceInfo(complexToLigandSequence(confSpace, complex.sequence));
+						SequenceInfo ligand = new SequenceInfo(confSpace, complex.sequence);
 
 						ConfDB.SequenceDB sdb = db.getSequence(ligand.sequence);
 
@@ -527,7 +547,7 @@ public class NewMethPlayground {
 						ConfSearch.ScoredConf minBoundConf = null;
 
 						// calculate pfunc upper bound
-						ConfAStarTree astar = new ConfAStarTree.Builder(emat, ligand.sequence.makeRCs())
+						ConfAStarTree astar = new ConfAStarTree.Builder(emat, ligand.sequence.makeRCs(confSpace))
 							.setTraditional()
 							.build();
 						while (true) {
@@ -563,7 +583,7 @@ public class NewMethPlayground {
 						log("ligand: %s", ligand);
 					}
 				}); // ecalc
-		}); // db
+		} // db
 	}
 
 	static class SequenceInfoPair {
@@ -581,12 +601,12 @@ public class NewMethPlayground {
 
 		List<SequenceInfoPair> pairs = new ArrayList<>();
 
-		new ConfDB(complexConfSpace, complexConfDBFile).use((complexDB) -> {
+		try (ConfDB complexDB = new ConfDB(complexConfSpace, complexConfDBFile)) {
 
 			// get all our sequence info, sorted by descending pfUB
 			TreeSet<SequenceInfo> infosByPfuncUB = new TreeSet<>(Comparator.comparing((SequenceInfo info) -> info.pfuncUpperBound).reversed());
 			for (Sequence sequence : complexDB.getSequences()) {
-				SequenceInfo info = new SequenceInfo(sequence);
+				SequenceInfo info = new SequenceInfo(complexConfSpace, sequence);
 				ConfDB.SequenceDB sdb = complexDB.getSequence(sequence);
 				info.readPfuncUpperBoundFromDB(sdb);
 				info.readPfuncLowerBoundFromDB(sdb);
@@ -603,12 +623,12 @@ public class NewMethPlayground {
 				}
 			}
 
-			new ConfDB(ligandConfSpace, ligandConfDBFile).use((ligandDB) -> {
+			try (ConfDB ligandDB = new ConfDB(ligandConfSpace, ligandConfDBFile)) {
 
 				// get the ligand info for those best K sequences
 				for (SequenceInfo complex : bestComplexes) {
 
-					SequenceInfo ligand = new SequenceInfo(complexToLigandSequence(ligandConfSpace, complex.sequence));
+					SequenceInfo ligand = new SequenceInfo(ligandConfSpace, complex.sequence);
 					ConfDB.SequenceDB sdb = ligandDB.getSequence(ligand.sequence);
 					ligand.readPfuncLowerBoundFromDB(sdb);
 					ligand.readPfuncUpperBoundFromDB(sdb);
@@ -616,9 +636,9 @@ public class NewMethPlayground {
 					pairs.add(new SequenceInfoPair(complex, ligand));
 				}
 
-			}); // ligand db
+			} // ligand db
 
-		}); // complex db
+		} // complex db
 
 		// plot the pfunc bounds
 		{
@@ -708,6 +728,7 @@ public class NewMethPlayground {
 
 	public static class SequenceInfo {
 
+		public final SimpleConfSpace confSpace;
 		public final Sequence sequence;
 
 		public BigInteger numConfs;
@@ -719,24 +740,13 @@ public class NewMethPlayground {
 		public BigDecimal pfuncUpperBound = null;
 		public BigDecimal pfuncLowerBound = null;
 
-		public SequenceInfo(Sequence sequence) {
+		public SequenceInfo(SimpleConfSpace confSpace, Sequence sequence) {
 
+			this.confSpace = confSpace;
 			this.sequence = sequence;
 
 			// count the number of confs
-			numConfs = BigInteger.ZERO;
-			for (SimpleConfSpace.Position pos : sequence.confSpace.positions) {
-				String resType = sequence.get(pos);
-				BigInteger numResConfs = BigInteger.valueOf(pos.resConfs.stream()
-					.filter((resConf) -> resConf.template.name.equals(resType))
-					.count());
-
-				if (MathTools.isZero(numConfs)) {
-					numConfs = numResConfs;
-				} else {
-					numConfs = numConfs.multiply(numResConfs);
-				}
-			}
+			numConfs = sequence.makeRCs(confSpace).getNumConformations();
 
 			numConfsLowerBounded = 0;
 			numConfsUpperBounded = 0;

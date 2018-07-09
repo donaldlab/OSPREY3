@@ -36,7 +36,6 @@ import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import javafx.util.Pair;
-import sun.java2d.pipe.SpanShapeRenderer;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -85,6 +84,9 @@ public class MARKStarBound implements PartitionFunction {
         }
     }
 
+    @Override
+    public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon){}
+
     public void setReportProgress(boolean showPfuncProgress) {
         this.printMinimizedConfs = true;
     }
@@ -98,7 +100,6 @@ public class MARKStarBound implements PartitionFunction {
         this.maxNumConfs = maxNumConfs;
     }
 
-    @Override
     public void init(double targetEpsilon) {
         this.targetEpsilon = targetEpsilon;
         status = Status.Estimating;
@@ -363,7 +364,8 @@ public class MARKStarBound implements PartitionFunction {
         });
 
         progress = new MARKStarProgress(RCs.getNumPos());
-        confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
+        //confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
+        confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
         setParallelism(parallelism);
     }
 
@@ -611,7 +613,7 @@ public class MARKStarBound implements PartitionFunction {
         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
         //System.out.println("Analysis:"+analysis);
         EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);
-        EnergyMatrix scoreAnalysis = analysis.breakdownScoreByPosition();
+        EnergyMatrix scoreAnalysis = analysis.breakdownScoreByPosition(minimizingEmat);
         //System.out.println("Energy Analysis: "+energyAnalysis);
         //System.out.println("Score Analysis: "+scoreAnalysis);
         EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);

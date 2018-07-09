@@ -72,12 +72,12 @@ public class TestMARKStar {
 	}
 
 	private void compareMARKStarAndKStar(int numFlex, double epsilon) {
-		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
+		//List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
 		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
 		for(MARKStar.ScoredSequence seq: markStarSeqs)
 			printMARKStarComputationStats(seq);
-		for(KStar.ScoredSequence seq: kStarSeqs)
-			printKStarComputationStats(seq);
+		//for(KStar.ScoredSequence seq: kStarSeqs)
+		//	printKStarComputationStats(seq);
 	}
 
 
@@ -230,7 +230,7 @@ public class TestMARKStar {
 
         // how should confs be ordered and searched?
         ConfSearchFactory confSearchFactory = (emat, pmat) -> {
-            return new RecursiveAStarTree.Builder(emat, pmat)
+            return new ConfAStarTree.Builder(emat, pmat)
                     .setTraditional()
                     .build();
         };

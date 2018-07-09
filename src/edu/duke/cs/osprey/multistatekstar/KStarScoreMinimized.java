@@ -1,3 +1,35 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
@@ -107,7 +139,7 @@ public class KStarScoreMinimized implements KStarScore {
 		partitionFunctions[state].setReportProgress(settings.isReportingProgress);
 
 		//init partition function
-		partitionFunctions[state].init(settings.targetEpsilon);
+		partitionFunctions[state].init(null, null, settings.targetEpsilon);
 
 		//create priority queue for top confs if requested
 		if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0) {
@@ -206,7 +238,7 @@ public class KStarScoreMinimized implements KStarScore {
 				settings.ecalcs[state]
 				);
 
-		p2pf.init(targetEpsilon);//enumerating over pstar, energies can be high
+		p2pf.init(null, null, targetEpsilon);//enumerating over pstar, energies can be high
 		p2pf.getValues().qstar = qstar;//keep old qstar
 		p2pf.compute(targetScoreWeights);
 		return p2pf;

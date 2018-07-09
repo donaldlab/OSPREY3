@@ -8,8 +8,8 @@ ffparams = osprey.ForcefieldParams()
 # read a PDB file for molecular info
 mol = osprey.readPdb('2RL0.min.reduce.pdb')
 
-# make sure all strands share the same template library (including wild-type rotamers)
-templateLib = osprey.TemplateLibrary(ffparams.forcefld, moleculesForWildTypeRotamers=[mol])
+# make sure all strands share the same template library
+templateLib = osprey.TemplateLibrary(ffparams.forcefld)
 
 # define the protein strand
 protein = osprey.Strand(mol, templateLib=templateLib, residues=['G648', 'G654'])
@@ -42,52 +42,49 @@ minimizingEcalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelis
 # BBK* needs a rigid energy calculator too, for multi-sequence bounds on K*
 rigidEcalc = osprey.SharedEnergyCalculator(minimizingEcalc, isMinimizing=False)
 
-# how should we define energies of conformations?
-def confEcalcFactory(confSpace, ecalc):
-	eref = osprey.ReferenceEnergies(confSpace, ecalc)
-	return osprey.ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=eref)
 
-# how should confs be ordered and searched?
-def astarFactory(emat, rcs):
-	return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	# or
-	# return osprey.AStarMPLP(emat, rcs, numIterations=5)
-
-# run BBK* using a confDB
+# configure BBK* using a confDB
 bbkstar = osprey.BBKStar(
 	proteinConfSpace,
 	ligandConfSpace,
 	complexConfSpace,
-	rigidEcalc,
-	minimizingEcalc,
-	confEcalcFactory,
-	astarFactory,
 	numBestSequences=2,
-	epsilon=0.5, # let's use a smaller epsilon so the design takes a noticeable amount of time
-	energyMatrixCachePattern='emat.*.dat',
-	confDBPattern='conf.*.db', # actually several confDBs will be written, so give a name pattern
+	epsilon=0.5, # you proabably want something more precise in your real designs
 	writeSequencesToConsole=True,
 	writeSequencesToFile='bbkstar.results.tsv'
 )
+
+# configure K* inputs for each conf space
+for info in bbkstar.confSpaceInfos():
+
+	# how should we define energies of conformations?
+	eref = osprey.ReferenceEnergies(info.confSpace, minimizingEcalc)
+	info.confEcalcMinimized = osprey.ConfEnergyCalculator(info.confSpace, minimizingEcalc, referenceEnergies=eref)
+
+	# compute the energy matrix
+	emat = osprey.EnergyMatrix(info.confEcalcMinimized, cacheFile='emat.%s.dat' % info.id)
+
+	# how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
+	def makeAStar(rcs, emat=emat):
+		return osprey.AStarTraditional(emat, rcs, showProgress=False)
+	info.confSearchFactoryMinimized = osprey.KStar.ConfSearchFactory(makeAStar)
+
+	# BBK* needs rigid energies too
+	rigidConfEcalc = osprey.ConfEnergyCalculatorCopy(info.confEcalcMinimized, rigidEcalc)
+	rigidEmat = osprey.EnergyMatrix(rigidConfEcalc, cacheFile='emat.%s.rigid.dat' % info.id)
+	def makeRigidAStar(rcs, emat=rigidEmat):
+		return osprey.AStarTraditional(emat, rcs, showProgress=False)
+	info.confSearchFactoryRigid = osprey.KStar.ConfSearchFactory(makeRigidAStar)
+
+	# set the ConfDB file for this conf space
+	info.setConfDBFile('bbkstar.%s.db' % info.type.name().lower())
+
+# run BBK*
 scoredSequences = bbkstar.run()
 
 # If OSPREY exits unexpectedly, the 'conf.*.db' files will still remain.
 # running BBK* again using an existing confDB should be MUCH faster!
 # meaning, your design should catch up to where it left off very quickly.
 print('\nRunning BBK* again...\n')
-osprey.BBKStar(
-	proteinConfSpace,
-	ligandConfSpace,
-	complexConfSpace,
-	rigidEcalc,
-	minimizingEcalc,
-	confEcalcFactory,
-	astarFactory,
-	numBestSequences=2,
-	epsilon=0.5, # let's use a smaller epsilon so the design takes a noticeable amount of time
-	energyMatrixCachePattern='emat.*.dat',
-	confDBPattern='conf.*.db', # actually several confDBs will be written, so give a name pattern
-	writeSequencesToConsole=True,
-	writeSequencesToFile='bbkstar.results.tsv'
-).run()
+bbkstar.run()
 print('\nSecond BBK* run finished!\n')

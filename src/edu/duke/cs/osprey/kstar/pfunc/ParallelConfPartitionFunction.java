@@ -1,10 +1,39 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.kstar.pfunc;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
@@ -18,6 +47,13 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.JvmMem;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
+/**
+ * Deprecated, use GradientDescentPfunc instead
+ *
+ * This code is longer tested or regularly used, so it may
+ * no longer work correctly. Use only with extreme skepticism.
+ */
+@Deprecated
 public class ParallelConfPartitionFunction implements PartitionFunction {
 	
     protected EnergyMatrix emat;
@@ -29,8 +65,8 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	protected Status status;
 	protected Values values;
 	protected BoltzmannCalculator boltzmann;
-	protected ConfSearch.Splitter.Stream scoreConfs;
-	protected ConfSearch.Splitter.Stream energyConfs;
+	protected ConfSearch.MultiSplitter.Stream scoreConfs;
+	protected ConfSearch.MultiSplitter.Stream energyConfs;
 	protected int numConfsEvaluated;
 	protected BigInteger numConfsToScore;
 	protected BigDecimal qprimeUnevaluated;
@@ -97,7 +133,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	}
 
 	@Override
-	public void init(double targetEpsilon) {
+	public void init(ConfSearch confSearchIgnored, BigInteger numConfsBeforePruningIgnored, double targetEpsilon) {
 		
 		this.targetEpsilon = targetEpsilon;
 		
@@ -109,7 +145,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 		
 		// make the search tree for computing q*
 		ConfSearch tree = confSearchFactory.make(emat, pmat);
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(tree);
+		ConfSearch.MultiSplitter confsSplitter = new ConfSearch.MultiSplitter(tree);
 		scoreConfs = confsSplitter.makeStream();
 		energyConfs = confsSplitter.makeStream();
 		numConfsEvaluated = 0;
