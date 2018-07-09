@@ -104,7 +104,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
     public double computeEpsilonErrorBounds() {
-        if(!updated && (children == null || children.size() <1)) {
+        if(children == null || children.size() <1) {
             return nodeEpsilon;
         }
         updated = false;
@@ -143,7 +143,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             confSearchNode.index(index);
             double gscore = gscorer.calc(index, rcs);
             double hscore = hScorer.calc(index, rcs);
-            confSearchNode.setBoundsFromConfLowerAndUpper(gscore+hscore,confSearchNode.confUpperBound);
+            if(gscore+hscore > confSearchNode.getConfLowerBound())
+                confSearchNode.setBoundsFromConfLowerAndUpper(gscore+hscore,confSearchNode.confUpperBound);
         }
 
         if(children != null && children.size() > 0) {
@@ -153,6 +154,31 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
     }
 
+    public double updateAndReportConfBoundChange(ConfIndex index, RCs rcs, AStarScorer gscorer, AStarScorer hScorer)
+    {
+        if(children == null || children.size() <1) {
+            confSearchNode.index(index);
+            double gscore = gscorer.calc(index, rcs);
+            double hscore = hScorer.calc(index, rcs);
+            if(gscore+hscore - confSearchNode.getConfLowerBound() > 1e-5) {
+                double previousLower = confSearchNode.getConfLowerBound();
+                confSearchNode.setBoundsFromConfLowerAndUpper(gscore + hscore, confSearchNode.confUpperBound);
+                if(gscore+hscore < -10)
+                    System.out.println("Correcting "+toTuple().stringListing()+" down to "+(gscore+hscore)+" from "+previousLower
+                    +", reducing it by "+(gscore+hscore - previousLower));
+                return gscore+hscore - previousLower;
+            }
+        }
+        double sum = 0;
+        if(children != null && children.size() > 0) {
+            for(MARKStarNode child: children) {
+                sum += child.updateAndReportConfBoundChange(index, rcs, gscorer, hScorer);
+            }
+        }
+        if(sum > 0 && level == 0)
+            System.out.println("Children corrected "+sum);
+        return sum;
+    }
     private void debugChecks(BigDecimal lastUpper, BigDecimal lastLower, double epsilonBound) {
         if (!debug)
             return;
