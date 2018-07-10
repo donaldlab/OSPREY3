@@ -24,7 +24,7 @@ import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
-    boolean debug = false;
+    boolean debug = true;
     private static AStarScorer gScorer;
     private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;

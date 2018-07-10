@@ -41,7 +41,7 @@ import java.util.*;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    private boolean debug = false;
+    private boolean debug = true;
     private Status status = null;
     private MARKStarBound.Values values = null;
 
@@ -479,7 +479,7 @@ public class MARKStarBound implements PartitionFunction {
                                                 +", bounds:[%12e, %12e], delta:%12.6f",
                                                 numConfsEnergied, econf.getScore(), minimizingEmat.confE(econf.getAssignments()),
                                                 correctionMatrix.confE(econf.getAssignments()), newConfLower,
-                                                rootNode.getConfSearchNode().getSubtreeLowerBound(),rootNode.getConfSearchNode().getSubtreeUpperBound(),
+                                                curNode.getConfSearchNode().getSubtreeLowerBound(),curNode.getConfSearchNode().getSubtreeUpperBound(),
                                                 epsilonBound));
 
                                     }
