@@ -342,6 +342,7 @@ tasks {
 		commandLine(pythonCmd, "setup.py", "bdist_wheel", "--dist-dir", pythonBuildDir.toString())
 	}
 
+	/*
 	val pythonInstallScripts by creating {
 		group = "build"
 		description = "Make install scripts for python distribution"
@@ -372,6 +373,7 @@ tasks {
 	"pythonDistZip" {
 		dependsOn(pythonWheel, pythonInstallScripts, pythonUninstallScripts)
 	}
+	*/
 
 	val updateLicenseHeaders by creating {
 		group = "build"

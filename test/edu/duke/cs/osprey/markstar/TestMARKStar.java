@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -33,6 +34,7 @@ import org.junit.Test;
 import java.io.File;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -72,12 +74,12 @@ public class TestMARKStar {
 	}
 
 	private void compareMARKStarAndKStar(int numFlex, double epsilon) {
-		//List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
+		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
 		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
 		for(MARKStar.ScoredSequence seq: markStarSeqs)
 			printMARKStarComputationStats(seq);
-		//for(KStar.ScoredSequence seq: kStarSeqs)
-		//	printKStarComputationStats(seq);
+		for(KStar.ScoredSequence seq: kStarSeqs)
+			printKStarComputationStats(seq);
 	}
 
 
@@ -137,6 +139,8 @@ public class TestMARKStar {
     }
 
 	private static List<MARKStar.ScoredSequence> runMARKStar(int numFlex, double epsilon) {
+		//ConfSpaces confSpaces = make1GUASmallCATS(numFlex);
+		//ConfSpaces confSpaces = make1GUASmallDEEP(numFlex);
 		ConfSpaces confSpaces = make1GUASmall(numFlex);
 		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 
@@ -172,36 +176,55 @@ public class TestMARKStar {
 		return run.run();
 	}
 
+	public static class KstarResult {
+		public KStar kstar;
+		public List<KStar.ScoredSequence> scores;
+	}
+
 	public static List<KStar.ScoredSequence> runKStarComparison(int numFlex, double epsilon) {
-		ConfSpaces confSpaces = make1GUASmall(numFlex);
+		ConfSpaces confSpaces = make1GUASmallDEEP(numFlex);
+		//ConfSpaces confSpaces = make1GUASmall(numFlex);
 		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 
 		// Define the minimizing energy calculator
 		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
 				.setParallelism(parallelism)
 				.build();
-		// how should we define energies of conformations?
-		KStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
-			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
-					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, ecalcArg)
-                            .setCacheFile(new File("test.eref.emat"))
+		// configure K*
+		KStar.Settings settings = new KStar.Settings.Builder()
+				.setEpsilon(epsilon)
+				.setStabilityThreshold(null)
+				//.setShowPfuncProgress(true)
+				.build();
+		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
+		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+
+			// how should we define energies of conformations?
+			info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, minimizingEcalc)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(info.confSpace, minimizingEcalc)
 							.build()
 							.calcReferenceEnergies()
 					)
-					.setEnergyPartition(ENERGY_PARTITION)
 					.build();
-		};
 
-		// how should confs be ordered and searched?
-		KStar.ConfSearchFactory confSearchFactory = (emat, pmat) -> {
-			return new ConfAStarTree.Builder(emat, pmat)
-					.setTraditional()
-					.build();
-		};
-		KStar.Settings settings = new KStar.Settings.Builder().setEpsilon(epsilon).setEnergyMatrixCachePattern("*testmat.emat")
-                .setShowPfuncProgress(true).build();
-        KStar run = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
-		return run.run();
+			// calc energy matrix
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
+					.build()
+					.calcEnergyMatrix();
+
+			// how should confs be ordered and searched?
+			info.confSearchFactory = (rcs) -> {
+				ConfAStarTree.Builder builder = new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional();
+				return builder.build();
+			};
+		}
+
+		// run K*
+		KstarResult result = new KstarResult();
+		result.kstar = kstar;
+		result.scores = kstar.run();
+		return result.scores;
 	}
 
 	public static Result runMARKStar(ConfSpaces confSpaces, double epsilon){
@@ -327,8 +350,7 @@ public class TestMARKStar {
 		assertSequence(result,  23, "ILE ASP GLU THR PHE LYS ILE THR", 5.942890e+02, 4.347270e+30, 2.012605e+46, epsilon); // K* = 12.891544 in [12.844167,12.936569] (log10)
 		assertSequence(result,  24, "LEU ASP GLU THR PHE LYS ILE THR", 4.614233e+00, 4.347270e+30, 4.735376e+43, epsilon); // K* = 12.373038 in [12.339795,12.417250] (log10)
 	}
-
-	public static ConfSpaces make1GUASmall(int numFlex) {
+public static ConfSpaces make1GUASmall(int numFlex) {
 
 		ConfSpaces confSpaces = new ConfSpaces();
 
@@ -352,6 +374,8 @@ public class TestMARKStar {
 			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		}
 
+
+
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
 			.setTemplateLibrary(templateLib)
@@ -368,6 +392,107 @@ public class TestMARKStar {
 			.build();
 		confSpaces.complex = new SimpleConfSpace.Builder()
 			.addStrands(protein, ligand)
+			.build();
+
+		return confSpaces;
+	}
+	public static ConfSpaces make1GUASmallDEEP(int numFlex) {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.read(FileTools.readResource("/1gua_adj.min.pdb"));
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+			.addMoleculeForWildTypeRotamers(mol)
+			.build();
+
+		ArrayList <String> bbflexlist = new ArrayList();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("1", "180")
+			.build();
+		int start = 21;
+		for(int i = start; i < start+numFlex; i++) {
+			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			bbflexlist.add(i+"");
+		}
+
+
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("181", "215")
+			.build();
+		ligand.flexibility.get("209").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		bbflexlist.add("209");
+		DEEPerSettings deepersettings = new DEEPerSettings(true, "test_deeper.pert", true, "None", false, 2.5,2.5, false, bbflexlist, "/1gua_adj.min.pdb", false, templateLib);
+		DEEPerStrandFlex ligand_bbflex = new DEEPerStrandFlex(ligand, deepersettings);
+
+		// make the complex conf space ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+			.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+			.addStrand(ligand, ligand_bbflex)
+			.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+            .addStrand(ligand, ligand_bbflex)
+			.build();
+
+		return confSpaces;
+	}public static ConfSpaces make1GUASmallCATS(int numFlex) {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.read(FileTools.readResource("/1gua_adj.min.pdb"));
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+			.addMoleculeForWildTypeRotamers(mol)
+			.build();
+
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("1", "180")
+			.build();
+		int start = 21;
+		for(int i = start; i < start+numFlex; i++) {
+			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		}
+		CATSStrandFlex bbflex = new CATSStrandFlex(protein, "22", "25");
+
+
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("181", "215")
+			.build();
+		ligand.flexibility.get("209").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+
+		// make the complex conf space ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+			.addStrand(protein, bbflex)
+			.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+			.addStrand(ligand)
+			.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+			.addStrand(protein, bbflex)
+            .addStrand(ligand)
 			.build();
 
 		return confSpaces;
