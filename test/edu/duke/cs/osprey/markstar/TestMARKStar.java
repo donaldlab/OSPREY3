@@ -41,7 +41,7 @@ import java.util.function.Function;
 
 public class TestMARKStar {
 
-	public static final int NUM_CPUs = 1;
+	public static final int NUM_CPUs = 4;
 	public static final boolean REUDCE_MINIMIZATIONS = false;
 	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
 
@@ -59,8 +59,8 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarVsKStar() {
-	    int numFlex = 7;
-	    double epsilon = 0.68;
+	    int numFlex = 6;
+	    double epsilon = 0.02;
 		compareMARKStarAndKStar(numFlex, epsilon);
     }
 
@@ -122,7 +122,7 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        printMARKStarComputationStats(runMARKStar(7, 0.03).get(0));
+        printMARKStarComputationStats(runMARKStar(13, 0.99).get(0));
 
     }
 
