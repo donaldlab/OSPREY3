@@ -21,6 +21,16 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     }
 
     /*Hack 1: Don't share residues*/
+    @Override
+    public boolean hasHigherOrderTerms() {
+        return corrections.size() > 0;
+    }
+
+    @Override
+    public boolean hasHigherOrderTermFor(RCTuple query) {
+        return corrections.getCorrections(query).size() > 0;
+    }
+
 
     public double getInternalEnergy(RCTuple tup){
         //internal energy of a tuple of residues when they're in the specified RCs
@@ -132,19 +142,15 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
     @Override
     public void setHigherOrder(RCTuple tup, Double val) {
-        super.setHigherOrder(tup, val);
         RCTuple orderedTup = tup.orderByPos();
         corrections.insert(new TupE(orderedTup, val));
-    }
-
-    public void addMinimizedConf(RCTuple tup) {
-
     }
 
     public static class TupleTrie {
         public final static int WILDCARD_RC = -123;
         TupleTrieNode root;
         List<SimpleConfSpace.Position> positions;
+        private int numCorrections;
         public TupleTrie(List<SimpleConfSpace.Position> positions)
         {
             this.positions = positions;
@@ -160,6 +166,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             if(debug)
                 checkRCTuple(correction.tup);
             root.insert(correction, 0);
+            numCorrections++;
         }
 
         private void checkRCTuple(RCTuple tup) {
@@ -177,6 +184,10 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             List<TupE> corrections = new ArrayList<>();
             root.populateCorrections(query.orderByPos(), corrections);
             return corrections;
+        }
+
+        public int size() {
+            return numCorrections;
         }
 
 
