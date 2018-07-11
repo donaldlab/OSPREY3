@@ -41,7 +41,7 @@ import java.util.*;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    private boolean debug = true;
+    private boolean debug = false;
     private Status status = null;
     private MARKStarBound.Values values = null;
 
@@ -391,6 +391,9 @@ public class MARKStarBound implements PartitionFunction {
         }
     }
 
+    private boolean shouldMinimize(Node node) {
+        return node.getLevel() == RCs.getNumPos() && !node.isMinimized();
+    }
 
     public void tightenBound() {
         System.out.println("Current overall error bound: "+epsilonBound);
@@ -400,207 +403,41 @@ public class MARKStarBound implements PartitionFunction {
         List<MARKStarNode> newNodes = new ArrayList<>();
         List<MARKStarNode> newNodesToMinimize = new ArrayList<>();
         double bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
-        while(!queue.isEmpty() && queue.peek().getConfSearchNode().getConfLowerBound() - 10 < bestLower) {
-                System.out.println("Current overall error bound: "+epsilonBound);
+        int numMinimizations = 0;
+        int maxMinimizations = 10;
+        int maxNodes = 50;
+        int numNodes = 0;
+        while(numMinimizations < maxMinimizations && numNodes < maxNodes &&
+                !queue.isEmpty() && queue.peek().getConfSearchNode().getConfLowerBound() - 10 < bestLower) {
+            //System.out.println("Current overall error bound: "+epsilonBound);
+            if(epsilonBound <= targetEpsilon)
+                break;
+            MARKStarNode curNode = queue.poll();
+            Node node = curNode.getConfSearchNode();
+            debugPrint("Processing Node: " + node.toString());
+
+            //If the child is a leaf, calculate n-body minimized energies
+            if (shouldMinimize(node)) {
+                synchronized (this) {
+                    numMinimizations++;
+                }
+                processFullConfNode(newNodes, curNode, node);
                 if(epsilonBound <= targetEpsilon)
-                    break;
-                MARKStarNode curNode = queue.poll();
-                Node node = curNode.getConfSearchNode();
-                debugPrint("Processing Node: " + node.toString());
+                    return;
+            }
+            else {
+                processPartialConfNode(newNodes, newNodesToMinimize, curNode, node);
+            }
+            synchronized (this) {
+                if (!queue.isEmpty())
+                    bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
+                numNodes++;
+            }
 
-                //If the child is a leaf, calculate n-body minimized energies
-                if (node.getLevel() == RCs.getNumPos() && !node.isMinimized()) {
-                    tasks.submit(() -> {
-                                try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
-                                    ScoreContext context = checkout.get();
-                                    node.index(context.index);
-                                    double confCorrection = correctionMatrix.confE(node.assignments);
-                                    if(node.getConfLowerBound()!= confCorrection) {
-                                        debugPrint("Correcting :["+SimpleConfSpace.formatConfRCs(node.assignments)
-                                                +":"+node.gscore+"] down to "+confCorrection);
-                                        node.gscore = confCorrection;
-                                        if(confCorrection > node.rigidScore)
-                                            System.err.println("Overcorrected: "+confCorrection + " > "+node.rigidScore);
-                                        node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
-                                        curNode.markUpdated();
-                                        updateBound();
-                                        return null;
-                                    }
-                                    ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, node.getConfLowerBound());
-                                    context.ecalc.calcEnergyAsync(conf,
-                                            (econf)-> {
-                                                double energy = econf.getEnergy();
-                                                double newConfUpper = econf.getEnergy();
-                                                double newConfLower = econf.getEnergy();
-                                                if(energy < node.getConfLowerBound()) {
-                                                    System.err.println("Bounds are incorrect:" + (node.getConfLowerBound()) + " > "
-                                                            + energy);
-                                                    if (energy < 10)
-                                                        System.err.println("The bounds are probably wrong.");
-                                                    //System.exit(-1);
-                                                }
-                                                if (energy > node.getConfUpperBound()) {
-                                                    System.err.println("Upper bounds got worse after minimization:" + energy
-                                                            + " > " + (node.getConfUpperBound())+". Rejecting minimized energy.");
-                                                    System.err.println("Node info: "+node);
-                                                    double minimized = context.ecalc.calcEnergy(conf).getEnergy();
-                                                    ConfIndex nodeIndex = new ConfIndex(node.assignments.length);
-                                                    node.index(nodeIndex);
-                                                    double rigid = context.rigidscorer.calc(nodeIndex, RCs);
-                                                    double pairiwseMin = context.gscorer.calc(nodeIndex, RCs);
-
-                                                    newConfUpper = node.getConfUpperBound();
-                                                    newConfLower = node.getConfUpperBound();
-                                                }
-                                                //computeEnergyCorrection(conf, context.gscorer, context.ecalc);
-                                                curNode.setBoundsFromConfLowerAndUpper(newConfLower,newConfUpper);
-                                                node.gscore = newConfLower;
-                                                String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
-                                                debugPrint(out);
-                                                updateBound();
-                                                rootNode.printTree();
-                                                synchronized(this) {
-                                                    numConfsEnergied++;
-                                                }
-                                                //Assign true energies to the subtreeLowerBound and subtreeUpperBound
-                                                if (printMinimizedConfs) {
-                                                    System.out.println("[" + SimpleConfSpace.formatConfRCs(node.assignments) + "]"
-                                                            + String.format("conf:%4d, score:%12.6f, lower:%12.6f, corrected:%12.6f energy:%12.6f"
-                                                                    +", bounds:[%12e, %12e], delta:%12.6f",
-                                                            numConfsEnergied, econf.getScore(), minimizingEmat.confE(econf.getAssignments()),
-                                                            correctionMatrix.confE(econf.getAssignments()), newConfLower,
-                                                            curNode.getConfSearchNode().getSubtreeLowerBound(),curNode.getConfSearchNode().getSubtreeUpperBound(),
-                                                            epsilonBound));
-
-                                                }
-
-                                            });
-                                    context.ecalc.tasks.waitForFinish();
-                                }
-                                return null;
-                            },
-                            // Dummy function. We're not doing anything here.
-                            (Node child) -> {
-                                progress.reportLeafNode(node.gscore, queue.size(), epsilonBound);
-                                if(!node.isMinimized())
-                                    newNodes.add(curNode);
-
-                            });
-                    if(epsilonBound <= targetEpsilon)
-                        return;
-                    continue;
-                }
-
-                // which pos to expand next?
-                int numChildren = 0;
-                node.index(confIndex);
-                int nextPos = order.getNextPos(confIndex, RCs);
-                assert (!confIndex.isDefined(nextPos));
-                assert (confIndex.isUndefined(nextPos));
-
-                // score child nodes with tasks (possibly in parallel)
-                List<MARKStarNode> children = new ArrayList<>();
-                for (int nextRc : RCs.get(nextPos)) {
-
-                    if (hasPrunedPair(confIndex, nextPos, nextRc)) {
-                        continue;
-                    }
-
-                    // if this child was pruned dynamically, then don't score it
-                    if (pruner != null && pruner.isPruned(node, nextPos, nextRc)) {
-                        continue;
-                    }
-
-                    tasks.submit(() -> {
-
-                        try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
-                            ScoreContext context = checkout.get();
-                            node.index(context.index);
-                            Node child = node.assign(nextPos, nextRc);
-
-                            // score the child node differentially against the parent node
-                            if (child.getLevel() < RCs.getNumPos()) {
-                                double diff = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                                double rigiddiff = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                                double hdiff = context.hscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                                double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                                child.gscore = diff;
-                                //Correct for incorrect gscore.
-                                rigiddiff=rigiddiff-node.gscore+node.rigidScore;
-                                child.rigidScore = rigiddiff;
-
-                                double confLowerBound = child.gscore + hdiff;
-                                double confUpperbound = rigiddiff + maxhdiff;
-                                child.computeNumConformations(RCs);
-                                double confCorrection = correctionMatrix.confE(child.assignments);
-                                double lowerbound = minimizingEmat.confE(child.assignments);
-                                if(lowerbound != confCorrection) {
-                                    debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
-                                            + ":" + lowerbound + "->" + confCorrection);
-                                    confLowerBound = confLowerBound - lowerbound + confCorrection;
-                                }
-                                child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
-                                synchronized (progress) {
-                                    progress.reportInternalNode(child.level, child.gscore, child.getHScore(), queue.size(), children.size(), epsilonBound);
-                                }
-                            }
-                            if (child.getLevel() == RCs.getNumPos()) {
-                                double confPairwiseLower = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                                double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                                confRigid=confRigid-node.gscore+node.rigidScore;
-
-                                child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
-                                if (confPairwiseLower > confRigid) {
-                                    System.err.println("Our bounds are not tight. Lower bound is " + (confPairwiseLower - confRigid) + " higher");
-                                    double temp = confRigid;
-                                    confRigid = confPairwiseLower;
-                                    confPairwiseLower = temp;
-                                }
-                                double confCorrection = correctionMatrix.confE(child.assignments);
-                                double lowerbound = minimizingEmat.confE(child.assignments);
-                                if(lowerbound != confCorrection)
-                                    debugPrint("Correcting node "+SimpleConfSpace.formatConfRCs(child.assignments)
-                                    +":"+lowerbound+"->"+confCorrection);
-                                checkBounds(confCorrection,confRigid);
-                                correctionMatrix.confE(child.assignments);
-                                child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
-                                child.gscore = child.getConfLowerBound();
-                                child.rigidScore = confRigid;
-                                if(reduceMinimizations)
-                                    child.setMinimizationRatio(MINIMIZATION_FACTOR/(RCs.getNumPos()*RCs.getNumPos()));
-                                numConfsScored++;
-                                progress.reportLeafNode(child.gscore, queue.size(), epsilonBound);
-                            }
-
-
-                            return child;
-                        }
-
-                    }, (Node child) -> {
-                        if(Double.isNaN(child.rigidScore))
-                            System.out.println("Huh!?");
-                        MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
-                        synchronized (this) {
-                            // collect the possible children
-                            if (MARKStarNodeChild.getConfSearchNode().getConfLowerBound() < 0) {
-                                children.add(MARKStarNodeChild);
-                            }
-                            if (!child.isMinimized()) {
-                                newNodes.add(MARKStarNodeChild);
-                                newNodesToMinimize.add(MARKStarNodeChild);
-                            }
-                            else
-                                MARKStarNodeChild.computeEpsilonErrorBounds();
-
-                        }
-                        curNode.markUpdated();
-                    });
-                }
         }
 
         tasks.waitForFinish();
         queue.addAll(newNodes);
-        bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
         minimizationQueue.addAll(newNodesToMinimize);
         if(!reduceMinimizations || minimizationQueue.size() > 200)
             processPreminimization(minimizingEcalc);
@@ -609,10 +446,193 @@ public class MARKStarBound implements PartitionFunction {
         double curEpsilon = epsilonBound;
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         updateBound();
-        //double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
+        double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         debugHeap();
 
 
+    }
+
+    private void processPartialConfNode(List<MARKStarNode> newNodes, List<MARKStarNode> newNodesToMinimize, MARKStarNode curNode, Node node) {
+        // which pos to expand next?
+        int numChildren = 0;
+        node.index(confIndex);
+        int nextPos = order.getNextPos(confIndex, RCs);
+        assert (!confIndex.isDefined(nextPos));
+        assert (confIndex.isUndefined(nextPos));
+
+        // score child nodes with tasks (possibly in parallel)
+        List<MARKStarNode> children = new ArrayList<>();
+        for (int nextRc : RCs.get(nextPos)) {
+
+            if (hasPrunedPair(confIndex, nextPos, nextRc)) {
+                continue;
+            }
+
+            // if this child was pruned dynamically, then don't score it
+            if (pruner != null && pruner.isPruned(node, nextPos, nextRc)) {
+                continue;
+            }
+
+            tasks.submit(() -> {
+
+                try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                    ScoreContext context = checkout.get();
+                    node.index(context.index);
+                    Node child = node.assign(nextPos, nextRc);
+
+                    // score the child node differentially against the parent node
+                    if (child.getLevel() < RCs.getNumPos()) {
+                        double diff = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        double rigiddiff = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        double hdiff = context.hscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        child.gscore = diff;
+                        //Correct for incorrect gscore.
+                        rigiddiff=rigiddiff-node.gscore+node.rigidScore;
+                        child.rigidScore = rigiddiff;
+
+                        double confLowerBound = child.gscore + hdiff;
+                        double confUpperbound = rigiddiff + maxhdiff;
+                        child.computeNumConformations(RCs);
+                        double confCorrection = correctionMatrix.confE(child.assignments);
+                        double lowerbound = minimizingEmat.confE(child.assignments);
+                        if(lowerbound != confCorrection) {
+                            debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
+                                    + ":" + lowerbound + "->" + confCorrection);
+                            confLowerBound = confLowerBound - lowerbound + confCorrection;
+                        }
+                        child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
+                        synchronized (progress) {
+                            progress.reportInternalNode(child.level, child.gscore, child.getHScore(), queue.size(), children.size(), epsilonBound);
+                        }
+                    }
+                    if (child.getLevel() == RCs.getNumPos()) {
+                        double confPairwiseLower = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        confRigid=confRigid-node.gscore+node.rigidScore;
+
+                        child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
+                        if (confPairwiseLower > confRigid) {
+                            System.err.println("Our bounds are not tight. Lower bound is " + (confPairwiseLower - confRigid) + " higher");
+                            double temp = confRigid;
+                            confRigid = confPairwiseLower;
+                            confPairwiseLower = temp;
+                        }
+                        double confCorrection = correctionMatrix.confE(child.assignments);
+                        double lowerbound = minimizingEmat.confE(child.assignments);
+                        if(lowerbound != confCorrection)
+                            debugPrint("Correcting node "+SimpleConfSpace.formatConfRCs(child.assignments)
+                            +":"+lowerbound+"->"+confCorrection);
+                        checkBounds(confCorrection,confRigid);
+                        correctionMatrix.confE(child.assignments);
+                        child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
+                        child.gscore = child.getConfLowerBound();
+                        child.rigidScore = confRigid;
+                        if(reduceMinimizations)
+                            child.setMinimizationRatio(MINIMIZATION_FACTOR/(RCs.getNumPos()*RCs.getNumPos()));
+                        numConfsScored++;
+                        progress.reportLeafNode(child.gscore, queue.size(), epsilonBound);
+                    }
+
+
+                    return child;
+                }
+
+            }, (Node child) -> {
+                if(Double.isNaN(child.rigidScore))
+                    System.out.println("Huh!?");
+                MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
+                synchronized (this) {
+                    // collect the possible children
+                    if (MARKStarNodeChild.getConfSearchNode().getConfLowerBound() < 0) {
+                        children.add(MARKStarNodeChild);
+                    }
+                    if (!child.isMinimized()) {
+                        newNodes.add(MARKStarNodeChild);
+                        newNodesToMinimize.add(MARKStarNodeChild);
+                    }
+                    else
+                        MARKStarNodeChild.computeEpsilonErrorBounds();
+
+                }
+                curNode.markUpdated();
+            });
+        }
+    }
+
+    private void processFullConfNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
+        tasks.submit(() -> {
+                    try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                        ScoreContext context = checkout.get();
+                        node.index(context.index);
+                        double confCorrection = correctionMatrix.confE(node.assignments);
+                        if(node.getConfLowerBound()!= confCorrection) {
+                            debugPrint("Correcting :["+SimpleConfSpace.formatConfRCs(node.assignments)
+                                    +":"+node.gscore+"] down to "+confCorrection);
+                            node.gscore = confCorrection;
+                            if(confCorrection > node.rigidScore)
+                                System.err.println("Overcorrected: "+confCorrection + " > "+node.rigidScore);
+                            node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
+                            curNode.markUpdated();
+                            updateBound();
+                            return null;
+                        }
+                        ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, node.getConfLowerBound());
+                        ConfSearch.EnergiedConf econf = context.ecalc.calcEnergy(conf);
+                        double energy = econf.getEnergy();
+                        double newConfUpper = econf.getEnergy();
+                        double newConfLower = econf.getEnergy();
+                        if(energy < node.getConfLowerBound()) {
+                            System.err.println("Bounds are incorrect:" + (node.getConfLowerBound()) + " > "
+                                    + energy);
+                            if (energy < 10)
+                                System.err.println("The bounds are probably wrong.");
+                            //System.exit(-1);
+                        }
+                        if (energy > node.getConfUpperBound()) {
+                            System.err.println("Upper bounds got worse after minimization:" + energy
+                                    + " > " + (node.getConfUpperBound())+". Rejecting minimized energy.");
+                            System.err.println("Node info: "+node);
+                            double minimized = context.ecalc.calcEnergy(conf).getEnergy();
+                            ConfIndex nodeIndex = new ConfIndex(node.assignments.length);
+                            node.index(nodeIndex);
+                            double rigid = context.rigidscorer.calc(nodeIndex, RCs);
+                            double pairiwseMin = context.gscorer.calc(nodeIndex, RCs);
+
+                            newConfUpper = node.getConfUpperBound();
+                            newConfLower = node.getConfUpperBound();
+                        }
+                        //computeEnergyCorrection(conf, context.gscorer, context.ecalc);
+                        curNode.setBoundsFromConfLowerAndUpper(newConfLower,newConfUpper);
+                        node.gscore = newConfLower;
+                        String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
+                        debugPrint(out);
+                        updateBound();
+                        synchronized(this) {
+                            numConfsEnergied++;
+                        }
+                        //Assign true energies to the subtreeLowerBound and subtreeUpperBound
+                        if (printMinimizedConfs) {
+                            System.out.println("[" + SimpleConfSpace.formatConfRCs(node.assignments) + "]"
+                                    + String.format("conf:%4d, score:%12.6f, lower:%12.6f, corrected:%12.6f energy:%12.6f"
+                                            +", bounds:[%12e, %12e], delta:%12.6f",
+                                    numConfsEnergied, econf.getScore(), minimizingEmat.confE(econf.getAssignments()),
+                                    correctionMatrix.confE(econf.getAssignments()), newConfLower,
+                                    curNode.getConfSearchNode().getSubtreeLowerBound(),curNode.getConfSearchNode().getSubtreeUpperBound(),
+                                    epsilonBound));
+
+                        }
+
+                    }
+                    return null;
+                },
+                // Dummy function. We're not doing anything here.
+                (Node child) -> {
+                    progress.reportLeafNode(node.gscore, queue.size(), epsilonBound);
+                    if(!node.isMinimized())
+                        newNodes.add(curNode);
+
+                });
     }
 
 

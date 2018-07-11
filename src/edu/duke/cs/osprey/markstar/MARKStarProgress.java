@@ -78,7 +78,7 @@ public class MARKStarProgress extends AStarProgress {
     public String makeProgressReport() {
         double diffMs = stopwatch.getTimeMs() - this.msRunning;
         return String.format("MARK* expanded:%10d,"
-                +" queued:%10d, scored/sec:%5d, partial minimizations:%5d, time:%s, delta:%12.4f heapMem:%s, extMem:%s",
+                +" queued:%10d, scored/sec:%5d, partial minimizations:%5d, time:%s, delta:%12.11f heapMem:%s, extMem:%s",
                 numNodesExpanded, numNodesInQueue,
                 (int)(numNodesQueuedThisReport*1000/diffMs),
                 numPartialMinimizations,
