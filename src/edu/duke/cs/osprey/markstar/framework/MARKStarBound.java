@@ -439,8 +439,7 @@ public class MARKStarBound implements PartitionFunction {
         tasks.waitForFinish();
         queue.addAll(newNodes);
         minimizationQueue.addAll(newNodesToMinimize);
-        if(!reduceMinimizations || minimizationQueue.size() > 200)
-            processPreminimization(minimizingEcalc);
+        processPreminimization(minimizingEcalc);
         AStarScorer hscorer = hscorerFactory.make(correctionMatrix);
         AStarScorer gscorer = gscorerFactory.make(correctionMatrix);
         double curEpsilon = epsilonBound;
@@ -733,43 +732,45 @@ public class MARKStarBound implements PartitionFunction {
         return out;
     }
 
-    private void processPreminimization(ConfEnergyCalculator ecalc)
-    {
+    private void processPreminimization(ConfEnergyCalculator ecalc) {
         int maxMinimizations = 10;
         List<MARKStarNode> topConfs = getTopConfs(maxMinimizations);
         // Need at least two confs to do any partial preminimization
-        if(topConfs.size() < 2)
+        if (topConfs.size() < 2) {
+            queue.addAll(topConfs);
             return;
+        }
         RCTuple lowestBoundTuple= topConfs.get(0).toTuple();
         RCTuple overlap = findLargestOverlap(lowestBoundTuple, topConfs, 4);
         //Only continue if we have something to minimize
-        if(overlap.size() < 3 || correctionMatrix.hasHigherOrderTermFor(overlap))
-            return;
-        double pairwiseLower = minimizingEmat.getInternalEnergy(overlap);
-        double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
-        System.out.println("Computing correction for "+overlap.stringListing()+" penalty of "+(partiallyMinimizedLower-pairwiseLower));
-        progress.reportPartialMinimization(1, epsilonBound);
-        correctionMatrix.setHigherOrder(overlap, partiallyMinimizedLower-pairwiseLower);
-        for(MARKStarNode conf: topConfs) {
-            Node child = conf.getConfSearchNode();
-            double confCorrection = correctionMatrix.confE(child.assignments);
-            double lowerbound = minimizingEmat.confE(child.assignments);
-            double confLowerBound = child.getConfLowerBound();
-            if (lowerbound != confCorrection) {
-                double tighterLower = confLowerBound - lowerbound + confCorrection;
-                debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
-                        + ":" + confLowerBound+ "->" + tighterLower);
-                child.setBoundsFromConfLowerAndUpper(tighterLower, child.getConfUpperBound());
+        if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)) {
+            double pairwiseLower = minimizingEmat.getInternalEnergy(overlap);
+            double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
+            System.out.println("Computing correction for " + overlap.stringListing() + " penalty of " + (partiallyMinimizedLower - pairwiseLower));
+            progress.reportPartialMinimization(1, epsilonBound);
+            correctionMatrix.setHigherOrder(overlap, partiallyMinimizedLower - pairwiseLower);
+            for (MARKStarNode conf : topConfs) {
+                Node child = conf.getConfSearchNode();
+                double confCorrection = correctionMatrix.confE(child.assignments);
+                double lowerbound = minimizingEmat.confE(child.assignments);
+                double confLowerBound = child.getConfLowerBound();
+                if (lowerbound != confCorrection) {
+                    double tighterLower = confLowerBound - lowerbound + confCorrection;
+                    debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
+                            + ":" + confLowerBound + "->" + tighterLower);
+                    child.setBoundsFromConfLowerAndUpper(tighterLower, child.getConfUpperBound());
+                }
             }
+            progress.reportPartialMinimization(1, epsilonBound);
         }
 
-        minimizationQueue.addAll(topConfs);
+        queue.addAll(topConfs);
     }
 
     private List<MARKStarNode> getTopConfs(int numConfs) {
         List<MARKStarNode> topConfs = new ArrayList<>();
-        while (topConfs.size() < numConfs&& !minimizationQueue.isEmpty()) {
-            MARKStarNode nextLowestConf = minimizationQueue.poll();
+        while (topConfs.size() < numConfs&& !queue.isEmpty()) {
+            MARKStarNode nextLowestConf = queue.poll();
             topConfs.add(nextLowestConf);
         }
         return topConfs;
