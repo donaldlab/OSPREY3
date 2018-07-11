@@ -655,11 +655,7 @@ public class MARKStarBound implements PartitionFunction {
         Collections.sort(sortedPairwiseTerms, (a,b)->-Double.compare(a.getValue(),b.getValue()));
 
         //Collections.sort(sortedPairwiseTerms, Comparator.comparingDouble(Pair::getValue));
-<<<<<<< HEAD
         double threshhold = 0.3;
-=======
-        double threshhold = 0.1;
->>>>>>> 5c47983b69336a5699d3df5e79d27a4f36554711
         for(int i = 0; i < sortedPairwiseTerms.size(); i++)
         {
             Pair<Pair<Integer, Integer>, Double> pairEnergy = sortedPairwiseTerms.get(i);
