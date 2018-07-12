@@ -399,17 +399,20 @@ public class MARKStarBound implements PartitionFunction {
         }
         List<MARKStarNode> newNodes = new ArrayList<>();
         List<MARKStarNode> newNodesToMinimize = new ArrayList<>();
+        Stopwatch loopWatch = new Stopwatch();
+        loopWatch.start();
         double bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
         int numMinimizations = 0;
         int maxMinimizations = 10;
-        int maxNodes = 1000;
+        int maxNodes = 100000;
         int numNodes = 0;
         while(numMinimizations < maxMinimizations && numNodes < maxNodes &&
-                !queue.isEmpty() && queue.peek().getConfSearchNode().getConfLowerBound() - 2 < bestLower) {
+                !queue.isEmpty() && queue.peek().getConfSearchNode().getConfLowerBound() - 15 < bestLower) {
             //System.out.println("Current overall error bound: "+epsilonBound);
             if(epsilonBound <= targetEpsilon)
                 break;
             MARKStarNode curNode = queue.poll();
+            double curLower = curNode.getConfSearchNode().getConfLowerBound();
             Node node = curNode.getConfSearchNode();
             debugPrint("Processing Node: " + node.toString());
 
@@ -426,9 +429,8 @@ public class MARKStarBound implements PartitionFunction {
                 processPartialConfNode(newNodes, newNodesToMinimize, curNode, node);
             }
             synchronized (this) {
-                if (!queue.isEmpty())
-                    bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
                 numNodes++;
+                bestLower = Math.min(bestLower, curLower);
             }
 
         }
@@ -436,6 +438,9 @@ public class MARKStarBound implements PartitionFunction {
         minimizingEcalc.tasks.waitForFinish();
         tasks.waitForFinish();
         queue.addAll(newNodes);
+        loopWatch.stop();
+        double loopTime = loopWatch.getTimeS();
+        System.out.println("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
         processPreminimization(minimizingEcalc);
         AStarScorer hscorer = hscorerFactory.make(correctionMatrix);
         AStarScorer gscorer = gscorerFactory.make(correctionMatrix);
