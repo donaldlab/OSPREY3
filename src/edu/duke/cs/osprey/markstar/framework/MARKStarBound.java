@@ -628,7 +628,7 @@ public class MARKStarBound implements PartitionFunction {
                             numConfsEnergied, oldgscore, minimizingEmat.confE(node.assignments),
                             correctionMatrix.confE(node.assignments), newConfLower,
                             rootNode.getConfSearchNode().getSubtreeLowerBound(),rootNode.getConfSearchNode().getSubtreeUpperBound(),
-                            epsilonBound, stopWatch.getTime(2)));
+                            epsilonBound, stopwatch.getTime(2)));
 
                 }
 
