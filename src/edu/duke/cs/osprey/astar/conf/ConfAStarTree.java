@@ -707,10 +707,15 @@ public class ConfAStarTree implements ConfSearch {
 
 					// forget the worst node in the queue
 					ConfSMAStarNode highest = q.removeHighestShallowestLeaf();
-					highest.parent.forgetChild(highest);
 
-					// add the parent back to the queue if needed
-					q.add(highest.parent);
+					// tell the parent to forget this node if needed
+					if (highest.parent != null) {
+
+						highest.parent.forgetChild(highest);
+
+						// add the parent back to the queue too if not already there
+						q.add(highest.parent);
+					}
 
 					numNodes--;
 				}
