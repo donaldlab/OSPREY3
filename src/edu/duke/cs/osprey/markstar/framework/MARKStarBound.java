@@ -572,6 +572,7 @@ public class MARKStarBound implements PartitionFunction {
             node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
             curNode.markUpdated();
             updateBound();
+            queue.add(curNode);
             return;
         }
         tasks.submit(() -> {
