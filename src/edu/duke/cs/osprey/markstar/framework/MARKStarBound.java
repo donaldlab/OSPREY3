@@ -296,8 +296,6 @@ public class MARKStarBound implements PartitionFunction {
     private MARKStarNode rootNode;
     // Heap of nodes for recursive expansion
     private final Queue<MARKStarNode> queue;
-    // Heap of nodes (pointer copies) of upcoming minimization
-    private final Queue<MARKStarNode> minimizationQueue;
     private double epsilonBound = Double.POSITIVE_INFINITY;
     private ConfIndex confIndex;
     public final AStarOrder order;
@@ -326,7 +324,6 @@ public class MARKStarBound implements PartitionFunction {
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                          ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
         this.queue = new PriorityQueue<>();
-        this.minimizationQueue = new PriorityQueue<>();
         this.minimizingEcalc = minimizingConfEcalc;
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
@@ -439,7 +436,6 @@ public class MARKStarBound implements PartitionFunction {
         minimizingEcalc.tasks.waitForFinish();
         tasks.waitForFinish();
         queue.addAll(newNodes);
-        minimizationQueue.addAll(newNodesToMinimize);
         processPreminimization(minimizingEcalc);
         AStarScorer hscorer = hscorerFactory.make(correctionMatrix);
         AStarScorer gscorer = gscorerFactory.make(correctionMatrix);
@@ -457,6 +453,7 @@ public class MARKStarBound implements PartitionFunction {
         int numChildren = 0;
         node.index(confIndex);
         int nextPos = order.getNextPos(confIndex, RCs);
+        computeTupleCorrection(minimizingEcalc, curNode.toTuple());
         assert (!confIndex.isDefined(nextPos));
         assert (confIndex.isUndefined(nextPos));
 
@@ -693,17 +690,13 @@ public class MARKStarBound implements PartitionFunction {
                 if (pos3 == pos2 || pos3 == pos1)
                     continue;
                 RCTuple tuple = makeTuple(conf, pos1, pos2, pos3);
-                double correction = computeDifference(tuple, ecalc);
+                computeDifference(tuple, ecalc);
                 localMinimizations++;
-                debugPrint("Correction for "+tuple.stringListing()+":"+correction);
-                if(correction > 0 )
-                    correctionMatrix.setHigherOrder(tuple, correction);
-                else
-                    System.err.println("Negative correction for "+tuple.stringListing());
             }
             numPartialMinimizations+=localMinimizations;
             progress.reportPartialMinimization(localMinimizations, epsilonBound);
         }
+        ecalc.tasks.waitForFinish();
         /* Starting from the largest-difference pairs, create triples and quads to find
          * tuples which correct the energy of the pair.
          */
@@ -712,22 +705,21 @@ public class MARKStarBound implements PartitionFunction {
 
 
 
-    private double computeDifference(RCTuple tuple, ConfEnergyCalculator ecalc) {
-        class Result {
-            double tripleEnergy;
-            double pairwiseEnergy;
-
-        }
-        Result result = new Result();
+    private void computeDifference(RCTuple tuple, ConfEnergyCalculator ecalc) {
         ecalc.calcEnergyAsync(tuple, (tripleEnergy)->
         {
             double lowerbound = minimizingEmat.getInternalEnergy(tuple);
-            result.pairwiseEnergy = lowerbound;
-            result.tripleEnergy = tripleEnergy.energy;
+            if (tripleEnergy.energy - lowerbound > 0) {
+                double correction = tripleEnergy.energy - lowerbound;
+                synchronized (correctionMatrix) {
+                    correctionMatrix.setHigherOrder(tuple, correction);
+                }
+                System.out.println("Correction for " + tuple.stringListing() + ":" + correction);
+            }
+            else
+                System.err.println("Negative correction for "+tuple.stringListing());
 
         });
-        ecalc.tasks.waitForFinish();
-        return result.tripleEnergy-result.pairwiseEnergy;
     }
 
     private RCTuple makeTuple(ConfSearch.ScoredConf conf, int... positions) {
@@ -749,11 +741,7 @@ public class MARKStarBound implements PartitionFunction {
         RCTuple overlap = findLargestOverlap(lowestBoundTuple, topConfs, 4);
         //Only continue if we have something to minimize
         if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)) {
-            double pairwiseLower = minimizingEmat.getInternalEnergy(overlap);
-            double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
-            System.out.println("Computing correction for " + overlap.stringListing() + " penalty of " + (partiallyMinimizedLower - pairwiseLower));
-            progress.reportPartialMinimization(1, epsilonBound);
-            correctionMatrix.setHigherOrder(overlap, partiallyMinimizedLower - pairwiseLower);
+            computeTupleCorrection(ecalc, overlap);
             for (MARKStarNode conf : topConfs) {
                 Node child = conf.getConfSearchNode();
                 double confCorrection = correctionMatrix.confE(child.assignments);
@@ -766,10 +754,22 @@ public class MARKStarBound implements PartitionFunction {
                     child.setBoundsFromConfLowerAndUpper(tighterLower, child.getConfUpperBound());
                 }
             }
-            progress.reportPartialMinimization(1, epsilonBound);
         }
 
         queue.addAll(topConfs);
+    }
+
+    private void computeTupleCorrection(ConfEnergyCalculator ecalc, RCTuple overlap) {
+        if(correctionMatrix.hasHigherOrderTermFor(overlap))
+            return;
+        double pairwiseLower = minimizingEmat.getInternalEnergy(overlap);
+        double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
+        System.out.println("Computing correction for " + overlap.stringListing() + " penalty of " + (partiallyMinimizedLower - pairwiseLower));
+        progress.reportPartialMinimization(1, epsilonBound);
+        synchronized (correctionMatrix) {
+            correctionMatrix.setHigherOrder(overlap, partiallyMinimizedLower - pairwiseLower);
+        }
+        progress.reportPartialMinimization(1, epsilonBound);
     }
 
     private List<MARKStarNode> getTopConfs(int numConfs) {
