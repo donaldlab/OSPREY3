@@ -403,11 +403,12 @@ public class MARKStarBound implements PartitionFunction {
         loopWatch.start();
         double bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
         int numMinimizations = 0;
-        int maxMinimizations = 10;
+        int maxMinimizations = 5000;
         int maxNodes = 100000;
         int numNodes = 0;
+        double energyThreshhold = Math.max(15,-bestLower/10);
         while(numMinimizations < maxMinimizations && numNodes < maxNodes &&
-                !queue.isEmpty() && queue.peek().getConfSearchNode().getConfLowerBound() - 15 < bestLower) {
+                !queue.isEmpty() && queue.peek().getConfSearchNode().getConfLowerBound() - energyThreshhold  < bestLower) {
             //System.out.println("Current overall error bound: "+epsilonBound);
             if(epsilonBound <= targetEpsilon)
                 break;
@@ -431,6 +432,7 @@ public class MARKStarBound implements PartitionFunction {
             synchronized (this) {
                 numNodes++;
                 bestLower = Math.min(bestLower, curLower);
+                energyThreshhold = Math.max(15,-bestLower/10);
             }
 
         }
@@ -719,7 +721,7 @@ public class MARKStarBound implements PartitionFunction {
                 synchronized (correctionMatrix) {
                     correctionMatrix.setHigherOrder(tuple, correction);
                 }
-                System.out.println("Correction for " + tuple.stringListing() + ":" + correction);
+                debugPrint("Correction for " + tuple.stringListing() + ":" + correction);
             }
             else
                 System.err.println("Negative correction for "+tuple.stringListing());
