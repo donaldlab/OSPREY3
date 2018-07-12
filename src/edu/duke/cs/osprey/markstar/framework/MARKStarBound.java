@@ -612,6 +612,7 @@ public class MARKStarBound implements PartitionFunction {
                     newConfLower = node.getConfUpperBound();
                 }
                 curNode.setBoundsFromConfLowerAndUpper(newConfLower,newConfUpper);
+                double oldgscore = node.gscore;
                 node.gscore = newConfLower;
                 String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                 debugPrint(out);
@@ -623,11 +624,11 @@ public class MARKStarBound implements PartitionFunction {
                 if (printMinimizedConfs) {
                     System.out.println("[" + SimpleConfSpace.formatConfRCs(node.assignments) + "]"
                             + String.format("conf:%4d, score:%12.6f, lower:%12.6f, corrected:%12.6f energy:%12.6f"
-                                    +", bounds:[%12e, %12e], delta:%12.6f",
-                            numConfsEnergied, node.gscore, minimizingEmat.confE(node.assignments),
+                                    +", bounds:[%12e, %12e], delta:%12.6f, time:%10s",
+                            numConfsEnergied, oldgscore, minimizingEmat.confE(node.assignments),
                             correctionMatrix.confE(node.assignments), newConfLower,
-                            curNode.getConfSearchNode().getSubtreeLowerBound(),curNode.getConfSearchNode().getSubtreeUpperBound(),
-                            epsilonBound));
+                            rootNode.getConfSearchNode().getSubtreeLowerBound(),rootNode.getConfSearchNode().getSubtreeUpperBound(),
+                            epsilonBound, stopWatch.getTime(2));
 
                 }
 
