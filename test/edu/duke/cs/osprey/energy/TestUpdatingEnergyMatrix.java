@@ -29,6 +29,7 @@ public class TestUpdatingEnergyMatrix {
             TupE tupE = makeRandomTupE(confSpace);
             System.out.println("Inserting "+tupE.tup.stringListing()+":"+tupE.E);
             trie.insert(tupE);
+            assert(trie.contains(tupE.tup));
             List<TupE> corrections = trie.getCorrections(tupE.tup);
             for(TupE tupEout: corrections)
                 System.out.println("Retrieved "+tupEout.tup.stringListing()+":"+tupEout.E);

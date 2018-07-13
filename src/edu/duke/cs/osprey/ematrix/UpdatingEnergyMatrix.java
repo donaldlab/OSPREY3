@@ -199,6 +199,8 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         }
 
         public boolean contains(RCTuple query) {
+            return root.contains(query, 0);
+
         }
 
         public int size() {
@@ -224,7 +226,30 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                     children.put(WILDCARD_RC, new TupleTrieNode(positions, positionIndex+1));
             }
 
-            public boolean contains(RCTuple query) {
+            public boolean contains(RCTuple query, int tupleIndex) {
+                /*
+                if(query.size() != positions.size())
+                    System.err.println("Querying corrections for a partial conf. This is likely unintentional.");
+                    */
+                debugPrint("Currently at "+this);
+                if(tupleIndex >= query.size())
+                    return true;
+                int currentRC = query.RCs.get(tupleIndex);
+                int currentPos = query.pos.get(tupleIndex);
+                int indexedPos = -1;
+                int indexedRC = WILDCARD_RC;
+                if(tupleIndex > 0) {
+                    indexedRC = query.RCs.get(tupleIndex-1);
+                    indexedPos = query.pos.get(tupleIndex-1);
+                }
+                if(tupleIndex + 1 == positions.size())
+                    return true;
+                int nextIndex = tupleIndex + 1;
+                if(position + 1 < currentPos)
+                    return children.get(WILDCARD_RC).contains(query, nextIndex);
+                if(!children.containsKey(currentRC))
+                    return false;
+                return children.get(currentRC).contains(query, nextIndex);
             }
 
             public String toString()

@@ -406,10 +406,10 @@ public class MARKStarBound implements PartitionFunction {
         loopWatch.start();
         double bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
         int numMinimizations = 0;
-        int maxMinimizations = 5000;
+        int maxMinimizations = 100;
         int maxNodes = 100000;
         int numNodes = 0;
-        double energyThreshhold = Math.max(15,-bestLower/10);
+        double energyThreshhold = Math.min(15,-bestLower/10);
         while(numMinimizations < maxMinimizations && numNodes < maxNodes &&
                 !queue.isEmpty() && queue.peek().getConfSearchNode().getConfLowerBound() - energyThreshhold  < bestLower) {
             //System.out.println("Current overall error bound: "+epsilonBound);

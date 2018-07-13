@@ -59,8 +59,8 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarVsKStar() {
-	    int numFlex = 6;
-	    double epsilon = 0.001;
+	    int numFlex = 10;
+	    double epsilon = 0.68;
 		compareMARKStarAndKStar(numFlex, epsilon);
     }
 
