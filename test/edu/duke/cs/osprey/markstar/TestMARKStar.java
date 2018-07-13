@@ -182,8 +182,9 @@ public class TestMARKStar {
 	}
 
 	public static List<KStar.ScoredSequence> runKStarComparison(int numFlex, double epsilon) {
-		ConfSpaces confSpaces = make1GUASmallDEEP(numFlex);
-		//ConfSpaces confSpaces = make1GUASmall(numFlex);
+		//ConfSpaces confSpaces = make1GUASmallCATS(numFlex);
+		//ConfSpaces confSpaces = make1GUASmallDEEP(numFlex);
+		ConfSpaces confSpaces = make1GUASmall(numFlex);
 		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 
 		// Define the minimizing energy calculator
