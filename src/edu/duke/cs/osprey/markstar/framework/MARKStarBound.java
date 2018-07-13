@@ -416,8 +416,20 @@ public class MARKStarBound implements PartitionFunction {
             if(epsilonBound <= targetEpsilon)
                 break;
             MARKStarNode curNode = queue.poll();
-            double curLower = curNode.getConfSearchNode().getConfLowerBound();
             Node node = curNode.getConfSearchNode();
+            double curLower = node.getConfLowerBound();
+            double confCorrection = correctionMatrix.confE(node.assignments);
+            if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
+                System.out.println("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
+                        + ":" + node.gscore + "] down to " + confCorrection);
+                node.gscore = confCorrection;
+                if (confCorrection > node.rigidScore)
+                    System.err.println("Overcorrected: " + confCorrection + " > " + node.rigidScore);
+                node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
+                curNode.markUpdated();
+                queue.add(curNode);
+                continue;
+            }
             debugPrint("Processing Node: " + node.toString());
 
             //If the child is a leaf, calculate n-body minimized energies
@@ -759,6 +771,8 @@ public class MARKStarBound implements PartitionFunction {
         RCTuple lowestBoundTuple= topConfs.get(0).toTuple();
         RCTuple overlap = findLargestOverlap(lowestBoundTuple, topConfs, 3);
         //Only continue if we have something to minimize
+        for(MARKStarNode conf : topConfs)
+            computeTupleCorrection(minimizingEcalc, conf.toTuple());
         if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)) {
             computeTupleCorrection(ecalc, overlap);
             for (MARKStarNode conf : topConfs) {
@@ -774,6 +788,7 @@ public class MARKStarBound implements PartitionFunction {
                 }
             }
         }
+
 
         queue.addAll(topConfs);
     }
