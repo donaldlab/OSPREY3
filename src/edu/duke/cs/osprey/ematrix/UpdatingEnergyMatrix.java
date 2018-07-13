@@ -28,7 +28,14 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
     @Override
     public boolean hasHigherOrderTermFor(RCTuple query) {
-        return corrections.getCorrections(query).size() > 0;
+        return corrections.contains(query);
+    }
+
+    public String formatCorrections(List<TupE> corrections) {
+        String out = "";
+        for(TupE correction:corrections)
+            out+=correction.tup.stringListing()+":"+correction.E+"\n";
+            return out;
     }
 
 
@@ -142,6 +149,11 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
     @Override
     public void setHigherOrder(RCTuple tup, Double val) {
+        if(tup.size() < 3)
+        {
+            System.err.println("Should not be trying to submit correction of lower-order term.");
+            return;
+        }
         RCTuple orderedTup = tup.orderByPos();
         corrections.insert(new TupE(orderedTup, val));
     }
@@ -186,6 +198,9 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             return corrections;
         }
 
+        public boolean contains(RCTuple query) {
+        }
+
         public int size() {
             return numCorrections;
         }
@@ -207,6 +222,9 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                     this.position = positions.get(positionIndex).index;
                 if(positionIndex+1 < positions.size())
                     children.put(WILDCARD_RC, new TupleTrieNode(positions, positionIndex+1));
+            }
+
+            public boolean contains(RCTuple query) {
             }
 
             public String toString()

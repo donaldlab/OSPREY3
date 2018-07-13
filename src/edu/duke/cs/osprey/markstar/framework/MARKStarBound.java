@@ -500,7 +500,7 @@ public class MARKStarBound implements PartitionFunction {
                         child.computeNumConformations(RCs);
                         double confCorrection = correctionMatrix.confE(child.assignments);
                         double lowerbound = minimizingEmat.confE(child.assignments);
-                        if(lowerbound != confCorrection) {
+                        if(lowerbound < confCorrection) {
                             debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
                                     + ":" + lowerbound + "->" + confCorrection);
                             confLowerBound = confLowerBound - lowerbound + confCorrection;
@@ -524,7 +524,7 @@ public class MARKStarBound implements PartitionFunction {
                         }
                         double confCorrection = correctionMatrix.confE(child.assignments);
                         double lowerbound = minimizingEmat.confE(child.assignments);
-                        if(lowerbound != confCorrection)
+                        if(lowerbound < confCorrection)
                             debugPrint("Correcting node "+SimpleConfSpace.formatConfRCs(child.assignments)
                             +":"+lowerbound+"->"+confCorrection);
                         checkBounds(confCorrection,confRigid);
@@ -568,7 +568,7 @@ public class MARKStarBound implements PartitionFunction {
 
         double confCorrection = correctionMatrix.confE(node.assignments);
         if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
-            debugPrint("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
+            System.out.println("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
                     + ":" + node.gscore + "] down to " + confCorrection);
             node.gscore = confCorrection;
             if (confCorrection > node.rigidScore)
@@ -754,7 +754,7 @@ public class MARKStarBound implements PartitionFunction {
             return;
         }
         RCTuple lowestBoundTuple= topConfs.get(0).toTuple();
-        RCTuple overlap = findLargestOverlap(lowestBoundTuple, topConfs, 4);
+        RCTuple overlap = findLargestOverlap(lowestBoundTuple, topConfs, 3);
         //Only continue if we have something to minimize
         if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)) {
             computeTupleCorrection(ecalc, overlap);
@@ -763,7 +763,7 @@ public class MARKStarBound implements PartitionFunction {
                 double confCorrection = correctionMatrix.confE(child.assignments);
                 double lowerbound = minimizingEmat.confE(child.assignments);
                 double confLowerBound = child.getConfLowerBound();
-                if (lowerbound != confCorrection) {
+                if (lowerbound < confCorrection) {
                     double tighterLower = confLowerBound - lowerbound + confCorrection;
                     debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
                             + ":" + confLowerBound + "->" + tighterLower);
