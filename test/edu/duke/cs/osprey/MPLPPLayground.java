@@ -1,3 +1,35 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey;
 
 import java.io.File;
@@ -14,6 +46,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -125,8 +158,8 @@ public class MPLPPLayground {
 				new PairwiseGScorer(search.emat),
 				new TraditionalPairwiseHScorer(search.emat, rcs)
 			).build();
-		ConfAStarNode minBoundNode = tree.nextLeafNode();
-		System.out.println(String.format("min bound e (trad):  %16.12f", minBoundNode.getScore()));
+		ConfSearch.ScoredConf minBoundConf = tree.nextConf();
+		System.out.println(String.format("min bound e (trad):  %16.12f", minBoundConf.getScore()));
 		
 		// get the min bound conf using MPLP
 		tree = new ConfAStarTree.Builder(search.emat, rcs)
@@ -135,12 +168,10 @@ public class MPLPPLayground {
 				new PairwiseGScorer(search.emat),
 				mplpHScorer
 			).build();
-		ConfAStarNode minBoundNodeMplp = tree.nextLeafNode();
-		System.out.println(String.format("min bound e (MPLP):  %16.12f", minBoundNodeMplp.getScore()));
+		ConfSearch.ScoredConf minBoundConfMplp = tree.nextConf();
+		System.out.println(String.format("min bound e (MPLP):  %16.12f", minBoundConfMplp.getScore()));
 		
-		int[] minBoundConf = new int[NumFlexible];
-		minBoundNode.getConf(minBoundConf);
-		double minBoundMinimizedEnergy = search.minimizedEnergy(minBoundConf);
+		double minBoundMinimizedEnergy = search.minimizedEnergy(minBoundConf.getAssignments());
 		System.out.println(String.format("min energy:   %16.12f", minBoundMinimizedEnergy));
 	}
 }

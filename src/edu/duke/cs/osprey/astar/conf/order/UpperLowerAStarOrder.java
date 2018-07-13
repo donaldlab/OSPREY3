@@ -62,5 +62,7 @@ public class UpperLowerAStarOrder implements  AStarOrder {
 		}
 		return 1.0/reciprocalSum;
 	}
+	@Override
+	public boolean isDynamic(){return true;}
 }
 

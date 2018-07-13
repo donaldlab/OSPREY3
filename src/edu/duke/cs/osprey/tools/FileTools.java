@@ -1,3 +1,35 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.tools;
 
 import java.io.BufferedReader;
@@ -36,6 +68,14 @@ public class FileTools {
 		public String read(String path) {
 			try {
 				return readStream(open(path));
+			} catch (IOException ex) {
+				throw new RuntimeException("can't read " + type + ": " + path, ex);
+			}
+		}
+
+		public byte[] readBytes(String path) {
+			try {
+				return readStreamBytes(open(path));
 			} catch (IOException ex) {
 				throw new RuntimeException("can't read " + type + ": " + path, ex);
 			}
@@ -114,11 +154,15 @@ public class FileTools {
 		public String read(File file) {
 			return read(file.getPath());
 		}
+
+		public byte[] readBytes(File file) {
+			return readBytes(file.getPath());
+		}
 		
 		public void write(String text, File file) {
 			write(text, file.getPath());
 		}
-		
+
 		public void write(String text, String path) {
 			try (FileOutputStream out = new FileOutputStream(resolve(path))) {
 				writeStream(text, out);
@@ -126,7 +170,19 @@ public class FileTools {
 				throw new RuntimeException(ex);
 			}
 		}
-		
+
+		public void writeBytes(byte[] bytes, File file) {
+			writeBytes(bytes, file.getPath());
+		}
+
+		public void writeBytes(byte[] bytes, String path) {
+			try (FileOutputStream out = new FileOutputStream(resolve(path))) {
+				writeStreamBytes(bytes, out);
+			} catch (IOException ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+
 		@Override
 		public String toString() {
 			return "FileRoot:" + rootFile;
@@ -307,7 +363,12 @@ public class FileTools {
 	throws IOException {
 		return IOUtils.toString(in, (Charset)null);
 	}
-	
+
+	private static byte[] readStreamBytes(InputStream in)
+		throws IOException {
+		return IOUtils.toByteArray(in);
+	}
+
 	public static void writeFile(String text, String path) {
 		new FilePathRoot().write(text, path);
 	}
@@ -320,7 +381,28 @@ public class FileTools {
 	throws IOException {
 		IOUtils.write(text, out, (Charset)null);
 	}
-	
+
+	public static byte[] readFileBytes(String path) {
+		return readFileBytes(new File(path));
+	}
+
+	public static byte[] readFileBytes(File file) {
+		return new FilePathRoot().readBytes(file);
+	}
+
+	public static void writeFileBytes(byte[] bytes, String path) {
+		new FilePathRoot().writeBytes(bytes, path);
+	}
+
+	public static void writeFileBytes(byte[] bytes, File file) {
+		new FilePathRoot().writeBytes(bytes, file);
+	}
+
+	private static void writeStreamBytes(byte[] bytes, OutputStream out)
+	throws IOException {
+		IOUtils.write(bytes, out);
+	}
+
 	public static Iterable<String> parseLines(String text) {
 		
 		BufferedReader reader = new BufferedReader(new StringReader(text));

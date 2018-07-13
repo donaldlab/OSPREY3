@@ -1,10 +1,43 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.kstar;
 
-import static edu.duke.cs.osprey.TestBase.fileForWriting;
+import static edu.duke.cs.osprey.TestBase.TempFile;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
@@ -12,6 +45,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
@@ -36,7 +70,7 @@ public class TestSimplePartitionFunction {
 	}
 
 	private static interface PfuncFactory {
-		PartitionFunction make(ConfSearch astar, ConfEnergyCalculator confEcalc);
+		PartitionFunction make(ConfEnergyCalculator confEcalc);
 	}
 
 	public static EnergyMatrix calcEmat(ForcefieldParams ffparams, SimpleConfSpace confSpace, Parallelism parallelism) {
@@ -82,11 +116,11 @@ public class TestSimplePartitionFunction {
 					.build();
 
 				// make the partition function
-				PartitionFunction pfunc = pfuncs.make(astar, confEcalc);
+				PartitionFunction pfunc = pfuncs.make(confEcalc);
 				pfunc.setReportProgress(true);
 
 				// compute pfunc for protein
-				pfunc.init(targetEpsilon);
+				pfunc.init(astar, astar.getNumConformations(), targetEpsilon);
 				pfuncComputer.accept(pfunc);
 				pfuncRef.set(pfunc);
 			});
@@ -94,8 +128,8 @@ public class TestSimplePartitionFunction {
 		return pfuncRef.get();
 	}
 
-	private static PfuncFactory simplePfuncs = (emat, confEcalc) -> new SimplePartitionFunction(emat, confEcalc);
-	private static PfuncFactory gdPfuncs = (emat, confEcalc) -> new GradientDescentPfunc(emat, confEcalc);
+	private static PfuncFactory simplePfuncs = (confEcalc) -> new SimplePartitionFunction(confEcalc);
+	private static PfuncFactory gdPfuncs = (confEcalc) -> new GradientDescentPfunc(confEcalc);
 
 	public static void testStrand(ForcefieldParams ffparams, SimpleConfSpace confSpace, Parallelism parallelism, double targetEpsilon, String approxQStar, EnergyMatrix emat, PfuncFactory pfuncs) {
 
@@ -135,9 +169,7 @@ public class TestSimplePartitionFunction {
 		info.mol = PDBIO.readFile("examples/2RL0.kstar/2RL0.min.reduce.pdb");
 
 		// make sure all strands share the same template library
-		info.templateLib = new ResidueTemplateLibrary.Builder(info.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(info.mol)
-			.build();
+		info.templateLib = new ResidueTemplateLibrary.Builder(info.ffparams.forcefld).build();
 
 		info.protein = new Strand.Builder(info.mol)
 			.setTemplateLibrary(info.templateLib)
@@ -248,9 +280,7 @@ public class TestSimplePartitionFunction {
 		info.mol = PDBIO.readFile("test-resources/1gua_adj.min.pdb");
 
 		// make sure all strands share the same template library
-		info.templateLib = new ResidueTemplateLibrary.Builder(info.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(info.mol)
-			.build();
+		info.templateLib = new ResidueTemplateLibrary.Builder(info.ffparams.forcefld).build();
 
 		info.protein = new Strand.Builder(info.mol)
 			.setTemplateLibrary(info.templateLib)
@@ -323,7 +353,7 @@ public class TestSimplePartitionFunction {
 
 	public void calcWithConfDB(PfuncFactory pfuncs) {
 
-		fileForWriting("pfunc.conf.db", (confdbFile) -> {
+		try (TempFile confdbFile = new TempFile("pfunc.conf.db")) {
 
 			TestInfo info = make2RL0TestInfo();
 			SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
@@ -336,28 +366,76 @@ public class TestSimplePartitionFunction {
 
 			// calc the pfunc with an empty db
 			PartitionFunction pfunc = calcPfunc(new ForcefieldParams(), confSpace, parallelism, targetEpsilon, emat, pfuncs, (p) -> {
-				new ConfDB(confSpace, confdbFile).use((confdb) -> {
+				try (ConfDB confdb = new ConfDB(confSpace, confdbFile)) {
 					((PartitionFunction.WithConfTable)p).setConfTable(confdb.new ConfTable("test"));
 					p.compute();
-				});
+				}
 			});
 			assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
 
 			// the db should have stuff in it
 			assertThat(confdbFile.exists(), is(true));
-			new ConfDB(confSpace, confdbFile).use((confdb) -> {
+			try (ConfDB confdb = new ConfDB(confSpace, confdbFile)) {
 				assertThat(confdb.new ConfTable("test").size(), greaterThan(0L));
-			});
+			}
 
 			// calc the pfunc with a full db
 			pfunc = calcPfunc(new ForcefieldParams(), confSpace, parallelism, targetEpsilon, emat, pfuncs, (p) -> {
-				new ConfDB(confSpace, confdbFile).use((confdb) -> {
+				try (ConfDB confdb = new ConfDB(confSpace, confdbFile)) {
 					((PartitionFunction.WithConfTable)p).setConfTable(confdb.new ConfTable("test"));
 					p.compute();
-				});
+				}
 			});
 			assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
-		});
+		}
 	}
 	@Test public void calcWithConfDBGD() { calcWithConfDB(gdPfuncs); }
+
+	@Test
+	public void withExternalMemory() {
+
+		ExternalMemory.use(16, () -> {
+
+			TestInfo info = make2RL0TestInfo();
+			SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+				.addStrand(info.protein)
+				.build();
+
+			final double targetEpsilon = 0.05;
+			final String approxQStar = "4.370068e+04"; // e=0.001
+
+			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+				.setParallelism(Parallelism.makeCpu(4))
+				.build()) {
+
+				// define conf energies
+				SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+					.build()
+					.calcReferenceEnergies();
+				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+					.setReferenceEnergies(eref)
+					.build();
+
+				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+					.build()
+					.calcEnergyMatrix();
+
+				// make the A* search
+				RCs rcs = new RCs(confSpace);
+				ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
+					.setTraditional()
+					.build();
+
+				// make the partition function
+				PartitionFunction pfunc = new GradientDescentPfunc(confEcalc);
+				pfunc.setReportProgress(true);
+
+				// compute pfunc for protein
+				pfunc.init(astar, rcs.getNumConformations(), targetEpsilon);
+				pfunc.compute();
+
+				assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
+			}
+		});
+	}
 }

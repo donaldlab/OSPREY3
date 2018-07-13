@@ -1,7 +1,35 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.restypes;
 
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -19,62 +47,68 @@ import java.util.HashSet;
  * @author mhall44
  */
 public class ResTemplateMatching {
-
+    
     //the residue and template we're matching
     ResidueTemplate template;
     Residue res;
     ForcefieldParams ffParams;
-
+    
     int[] matching;//for each atom in the template, index of the corresponding atom in the residue
-
+    
     int[] partialMatching;//We'll use this during our depth-first search for matchings;
     //any good ones will be copied to matching
-
+    
     public double score;//least-square deviations in bond lengths, for atoms pairs bonded in the template
     //if all atoms bonded in the template are bonded, then we expect this is the right template and matching
-
+    
     int numAtoms;//number of atoms in the residue (should be the same as in the template)
-
-
+    
+    
     //some things useful in performing the assignment
     ArrayList<ArrayList<Integer>> templateBonds;//For each template atom, list of indices of other atoms
     //in the template that it's bonded to
     double[][] residueDistanceMatrix;//matrix of distances between all atoms in the non-template residue
     //(ordered as in the residue)
     double[][] templateDistanceMatrix;
-
-
+    
+    
     //for dynamically ordered DFBB
     int[] templateAtomOrdering;//At each level we assign template atom templateAtomOrdering[level]
     int[] templateAtomOrderingRev;//reverse mapping of templateOrdering
     double cumulativeScores[];//Cache of the score contributions from each level of our search
-
+    
     boolean use13Distances = false;//Use (1,3) bond distances for matching as well
-    //as direct bonds.  This had some issues with proline (C and CB seem weirdly close in the template coords?)
+    //as direct bonds.  This had some issues with proline (C and CB seem weirdly close?)
     //So will have to be used with caution
-
+    
+    int curAssignmentCount = 0;//how many atom assignments we've tried so far
+    
+    static double timeoutableScore = 0.01;//if taking a long time, this is the per-
+    //atom score that is considered good enough to stop
+    int timeoutNumAssignments = 100000000;
+    
     public ResTemplateMatching(Residue res, ResidueTemplate template, ForcefieldParams ffParams){
         //compute the best matching
-
+        
         this.res = res;
         this.template = template;
         this.ffParams = ffParams;
-
+        
         score = Double.POSITIVE_INFINITY;//start without any good matching found
-
+        
         ArrayList<Atom> templateAtoms = template.templateRes.atoms;
         numAtoms = templateAtoms.size();
-
+        
         if( res.atoms.size() != numAtoms ){//matching impossible: not even number of atoms matches
             return;
         }
-
+        
         //initialize search
         matching = new int[templateAtoms.size()];
-
+        
         partialMatching = new int[templateAtoms.size()];
         Arrays.fill(partialMatching,-1);//all undefined now
-
+        
         //compute the helper quantities
         templateBonds = new ArrayList<>();
         for(Atom atom1 : template.templateRes.atoms){
@@ -90,7 +124,7 @@ public class ResTemplateMatching {
             }
             templateBonds.add(atom1Bonds);
         }
-
+        
         if(template.templateRes.coords!=null)//we have coordinates for templateRes...can use real coordinates
             templateDistanceMatrix = template.templateRes.atomDistanceMatrix();
         else {//we actually only need estimates of bond lengths in the template...other distances don't matter
@@ -98,12 +132,12 @@ public class ResTemplateMatching {
             templateDistanceMatrix = template.templateRes.estBondDistanceMatrix(ffParams);
             use13Distances = false;
         }
-
+        
         residueDistanceMatrix = res.atomDistanceMatrix();
-
+        
         chooseTemplateAtomOrdering();
         cumulativeScores = new double[numAtoms];//so far no scores yet
-
+        
         //if this default-order depth-first search is too slow, maybe try searching
         //least common atoms first (to reduce number of options) or something?
         //Also can prune much better by using partial scores
@@ -111,17 +145,24 @@ public class ResTemplateMatching {
         //levels only add to score so it's a good lower bound for pruning
         //can test against full score at the end
         //can test with 1AK0.pdb.  bew_bes.bin is there already so comment template making if desired
+        curAssignmentCount = 0;
         searchForMatching(0);
     }
-
-
+    
+    
     private void searchForMatching(int level){
         //DFBB over permutations of atoms, starting at current level
         //next template atom we want to match is templateAtomOrdering[level]
         //any time we find the best matching so far, store it in matching
-
+        
+        if(curAssignmentCount>timeoutNumAssignments){
+            //taking a while...see if a good enough score has been found
+            if(score < timeoutableScore * res.atoms.size())
+                return;
+        }
+        
         double curMatchingScore = scoreCurPartialMatching(level);
-
+        
         if(level==numAtoms){//all atoms defined
             if(curMatchingScore<score){//best so far
                 score = curMatchingScore;
@@ -130,26 +171,39 @@ public class ResTemplateMatching {
         }
         else if(curMatchingScore<score){
             //need to search more levels unless current score is already no better than
-            //our current best score (score can only rise as we add levels)
+            //our current best score (score can only rise as we add levels)  
             //note this criterion will remove any impossible (infinite-scored) matchings
-
+            
+            //If the residue has an atom matching the template atom's name, try it first
+            String templateAtomName = template.templateRes.atoms.
+                    get(templateAtomOrdering[level]).name;
+            int nameMatchAtom = res.getAtomIndexByName(templateAtomName);
+            if(nameMatchAtom>-1)
+                tryNextAtomMatch(level, nameMatchAtom);
+            
             for(int resAtNum=0; resAtNum<numAtoms; resAtNum++){//number of atom in the residue we're trying to match
-                if(!atomAlreadyInPartialMatching(resAtNum,level)){
-
-                    //make sure element types match
-                    String templateEleType = template.templateRes.atoms.
-                            get(templateAtomOrdering[level]).elementType;
-                    String resEleType = res.atoms.get(resAtNum).elementType;
-
-                    if(templateEleType.equalsIgnoreCase(resEleType)){
-                        partialMatching[templateAtomOrdering[level]] = resAtNum;
-                        searchForMatching(level+1);
-                    }
-                }
+                if(resAtNum!=nameMatchAtom)
+                    tryNextAtomMatch(level, resAtNum);
             }
         }
     }
+    
+    private void tryNextAtomMatch(int level, int resAtNum){
+        //see if template atom templateAtomOrdering[level] can match residue atom resAtNum
+        curAssignmentCount++;
+        if(!atomAlreadyInPartialMatching(resAtNum,level)){
+            //make sure element types match
+            int templateEleType = template.templateRes.atoms.
+                    get(templateAtomOrdering[level]).elementNumber;
+            int resEleType = res.atoms.get(resAtNum).elementNumber;
 
+            if(templateEleType == resEleType){
+                partialMatching[templateAtomOrdering[level]] = resAtNum;
+                searchForMatching(level+1);
+            }
+        }
+    }
+    
     boolean atomAlreadyInPartialMatching(int resAtNum, int level){
         //indicates that atom can't be put into partialMatching (currently filling in given level)
         //because it's assigned already at a lower level
@@ -159,7 +213,7 @@ public class ResTemplateMatching {
         }
         return false;//not found
     }
-
+    
     Collection<Integer> getConstrDistAtoms(int atomNum1){
         //Given the index in template of an atom 1, get the indices in template
         //of other atoms that are expected to be at a fixed distance from atom 1
@@ -180,12 +234,12 @@ public class ResTemplateMatching {
         //as bonded or 1,3-bonded, we avoid artificially creating bonds when there are clashes
         //between atoms that the template says are not bonded
     }
-
+    
     double scoreCurPartialMatching(int level){
         //Score the current partial matching: sum over all pairs of bonded
         //and assigned template atoms of the bond distance deviation
         //all deviations not involving the current atom are cached in cumulativeScores
-
+        
         //first score the most recent assignment (level-1).  Cache the score terms
         if(level>0){
             cumulativeScores[level-1] = 0;
@@ -193,7 +247,7 @@ public class ResTemplateMatching {
             int justAssignedResAtom = partialMatching[justAssignedTemplateAtom];
             for( int bondedTemplateAtNum : getConstrDistAtoms(justAssignedTemplateAtom) ){
                 if(templateAtomOrderingRev[bondedTemplateAtNum]<level){//bondedTemplateAtom already assigned in partialMatching
-
+                    
                     int bondedResAtNum = partialMatching[bondedTemplateAtNum];
                     double templateDist = templateDistanceMatrix[justAssignedTemplateAtom][bondedTemplateAtNum];
                     double resDist = residueDistanceMatrix[justAssignedResAtom][bondedResAtNum];
@@ -209,7 +263,7 @@ public class ResTemplateMatching {
                 }
             }
         }
-
+            
         //Every assignedLevel<level can contribute to the score
         double ans = 0;
         for(int assignedLevel=0; assignedLevel<level; assignedLevel++){
@@ -217,17 +271,17 @@ public class ResTemplateMatching {
         }
         return ans;
     }
-
+    
     //This way we don't have to make assumptions about max bond length (Except for liberal 1.5x)
     //unless we need to generate a new template, in which case we can have more user supervision
     //These assumptions sometimes caused trouble in OSPREY 2
-
-
+    
+    
     public void assign(){
         //assign the template
 
         res.template = template;
-
+        
         //copy atoms from template
         ArrayList<Atom> newAtoms = new ArrayList<>();
         for(int atNum=0; atNum<numAtoms; atNum++){
@@ -237,7 +291,7 @@ public class ResTemplateMatching {
         }
         res.atoms = newAtoms;
         res.markIntraResBondsByTemplate();
-
+        
         //reorder coordinates to match the template ordering of atoms
         double[] newCoords = new double[3*numAtoms];
         for(int atNum=0; atNum<numAtoms; atNum++){
@@ -245,29 +299,29 @@ public class ResTemplateMatching {
         }
         res.coords = newCoords;
     }
-
-
+    
+    
     private void chooseTemplateAtomOrdering(){
         //decide what order to search the atoms in
         //It is better to try to match rare atoms first
         //because then they can help with the scoring of the more common atoms,
         //thus reducing the amount of branching
-
+        
         HashMap<Integer,Integer> elementFreqs = new HashMap<>();
         //how many atoms there are of each element type
-
+        
         for(Atom at : template.templateRes.atoms){
             if( elementFreqs.containsKey(at.elementNumber) )
                 elementFreqs.put(at.elementNumber, elementFreqs.get(at.elementNumber)+1 );
             else
                 elementFreqs.put( at.elementNumber, 1 );
         }
-
+        
         //Get all the unique element frequencies, sorted.  HashSet is for uniqueness
-        ArrayList<Integer> elementFreqsSorted =
+        ArrayList<Integer> elementFreqsSorted = 
                 new ArrayList<>(new HashSet<>(elementFreqs.values()));
         Collections.sort(elementFreqsSorted);
-
+        
         //Now put the template's atom numbers in array ordered by their element frequency
         int count = 0;
         templateAtomOrdering = new int[numAtoms];
@@ -286,5 +340,5 @@ public class ResTemplateMatching {
         if(count!=numAtoms)
             throw new RuntimeException("ERROR: Bug in ResTemplateMatching, lost "+(numAtoms-count)+" atoms");
     }
-
+    
 }

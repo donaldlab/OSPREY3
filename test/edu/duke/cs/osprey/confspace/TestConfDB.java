@@ -1,3 +1,35 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.confspace;
 
 import static org.hamcrest.Matchers.*;
@@ -17,8 +49,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.File;
-import java.lang.reflect.Array;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.function.Consumer;
 
@@ -28,9 +58,9 @@ public class TestConfDB {
 
 	private static File file = new File("conf.db");
 
-	private static SimpleConfSpace.Position lys5;
-	private static SimpleConfSpace.Position tyr7;
-	private static SimpleConfSpace.Position phe9;
+	private static SeqSpace.Position lys5;
+	private static SeqSpace.Position tyr7;
+	private static SeqSpace.Position phe9;
 
 	@BeforeClass
 	public static void beforeClass() {
@@ -44,13 +74,13 @@ public class TestConfDB {
 			.addStrand(strand)
 			.build();
 
-		lys5 = confSpace.positionsByResNum.get("A5");
-		tyr7 = confSpace.positionsByResNum.get("A7");
-		phe9 = confSpace.positionsByResNum.get("A9");
+		lys5 = confSpace.seqSpace.getPositionOrThrow("A5");
+		tyr7 = confSpace.seqSpace.getPositionOrThrow("A7");
+		phe9 = confSpace.seqSpace.getPositionOrThrow("A9");
 
-		assertThat(lys5.resFlex.wildType, is("LYS"));
-		assertThat(tyr7.resFlex.wildType, is("TYR"));
-		assertThat(phe9.resFlex.wildType, is("PHE"));
+		assertThat(lys5.wildType.name, is("LYS"));
+		assertThat(tyr7.wildType.name, is("TYR"));
+		assertThat(phe9.wildType.name, is("PHE"));
 	}
 
 	private ConfDB openDB() {

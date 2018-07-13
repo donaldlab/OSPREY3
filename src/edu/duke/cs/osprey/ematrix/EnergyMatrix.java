@@ -1,17 +1,41 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.ematrix;
 
 import java.io.File;
 import java.util.ArrayList;
 
-import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.confspace.HigherTupleFinder;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.TupleMatrixDouble;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.ObjectIO.BadFileException;
 import edu.duke.cs.osprey.tools.ObjectIO.CantWriteException;
@@ -20,7 +44,7 @@ import edu.duke.cs.osprey.tools.ObjectIO.CantWriteException;
  * Matrix of energies between pairs of residue conformations.
  * @author mhall44
  */
-public class EnergyMatrix extends TupleMatrixDouble {
+public class EnergyMatrix extends TupleMatrixDouble implements FragmentEnergies {
 
 	private static final long serialVersionUID = 6503270845014990929L;
 	
@@ -61,24 +85,6 @@ public class EnergyMatrix extends TupleMatrixDouble {
     public EnergyMatrix(EnergyMatrix other) {
     	super(other);
     	this.constTerm = other.constTerm;
-    }
-    
-    
-    public boolean matches(SimpleConfSpace confSpace) {
-        
-        // check number of design positions
-        if (getNumPos() != confSpace.positions.size()) {
-            return false;
-        }
-        
-        // check number of residue confs at each position
-        for (SimpleConfSpace.Position pos : confSpace.positions) {
-            if (pos.resConfs.size() != getNumConfAtPos(pos.index)) {
-                return false;
-            }
-        }
-        
-        return true;
     }
     
     public double rcContribAtPos(int pos, int[] conf, int numResInHot) {
@@ -170,6 +176,16 @@ public class EnergyMatrix extends TupleMatrixDouble {
         
         return energy;
     }
+
+    @Override
+	public double getEnergy(int pos, int rc) {
+    	return getOneBody(pos, rc);
+	}
+
+	@Override
+	public double getEnergy(int pos1, int rc1, int pos2, int rc2) {
+    	return getPairwise(pos1, rc1, pos2, rc2);
+	}
     
     public double getHigherOrderEnergy(RCTuple tup, int i1, int i2) {
     	int res1 = tup.pos.get(i1);

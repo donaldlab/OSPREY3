@@ -1,5 +1,38 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.tools.AutoCleanable;
 import edu.duke.cs.osprey.tools.IntEncoding;
 import edu.duke.cs.osprey.tools.Streams;
 
@@ -11,62 +44,57 @@ import org.mapdb.serializer.GroupSerializerObjectArray;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 
-public class ConfDB {
+public class ConfDB implements AutoCleanable {
 
-	public static interface UserWithReturn<T> {
+	public static ConfDB makeIfNeeded(SimpleConfSpace confSpace, File file) {
 
-		T use(ConfDB confdb) throws Exception;
+		// no file? confdb not needed
+		if (file == null) {
+			return null;
+		}
 
-		default T usePassExceptions(ConfDB confdb) {
-			try {
-				return use(confdb);
-			} catch (Exception ex) {
-				throw new RuntimeException(ex);
+		return new ConfDB(confSpace, file);
+	}
+
+	public static class DBs implements AutoCleanable {
+
+		public class Adder {
+
+			public void add(SimpleConfSpace confSpace, File file) {
+				if (file != null) {
+					dbs.put(confSpace, new ConfDB(confSpace, file));
+				}
 			}
 		}
-	}
 
-	public static interface User {
+		private final Map<SimpleConfSpace,ConfDB> dbs = new HashMap<>();
+		private final Adder adder = new Adder();
 
-		void use(ConfDB confdb) throws Exception;
+		public DBs add(SimpleConfSpace confSpace, File file) {
+			adder.add(confSpace, file);
+			return this;
+		}
 
-		default void usePassExceptions(ConfDB confdb) {
-			try {
-				use(confdb);
-			} catch (Exception ex) {
-				throw new RuntimeException(ex);
+		public <T> DBs addAll(Iterable<T> things, BiConsumer<T,Adder> block) {
+			for (T thing : things) {
+				block.accept(thing, adder);
 			}
+			return this;
 		}
-	}
 
-	public static <T> T useIfNeeded(SimpleConfSpace confSpace, File file, UserWithReturn<T> user) {
-
-		if (confSpace == null || file == null) {
-
-			// no DB? just pass null
-			return user.usePassExceptions(null);
-
-		} else {
-
-			// open the db and make sure it gets cleaned up properly
-			return new ConfDB(confSpace, file).use(user);
+		public ConfDB get(SimpleConfSpace confSpace) {
+			return dbs.get(confSpace);
 		}
-	}
 
-	public static void useIfNeeded(SimpleConfSpace confSpace, File file, User user) {
-
-		if (confSpace == null || file == null) {
-
-			// no DB? just pass null
-			user.usePassExceptions(null);
-
-		} else {
-
-			// open the db and make sure it gets cleaned up properly
-			new ConfDB(confSpace, file).use(user);
+		@Override
+		public void clean() {
+			for (ConfDB db : dbs.values()) {
+				db.clean();
+			}
 		}
 	}
 
@@ -690,6 +718,10 @@ public class ConfDB {
 	private final Map<Sequence,SequenceDB> sequenceDBs;
 	private final IntEncoding assignmentEncoding;
 
+	public ConfDB(SimpleConfSpace confSpace) {
+		this(confSpace, null);
+	}
+
 	public ConfDB(SimpleConfSpace confSpace, File file) {
 
 		this.confSpace = confSpace;
@@ -728,9 +760,9 @@ public class ConfDB {
 				}
 
 				// lexicographical comparison
-				for (SimpleConfSpace.Position pos : confSpace.positions) {
-					String aResType = a.get(pos);
-					String bResType = b.get(pos);
+				for (SeqSpace.Position pos : confSpace.seqSpace.positions) {
+					SeqSpace.ResType aResType = a.get(pos);
+					SeqSpace.ResType bResType = b.get(pos);
 					if (aResType != null && bResType != null) {
 						// both not null, safe to compare
 						int val = aResType.compareTo(bResType);
@@ -769,11 +801,16 @@ public class ConfDB {
 		};
 
 		// open the DB
-		db = DBMaker.fileDB(file)
-			.transactionEnable() // turn on wite-ahead log, so the db survives JVM crashes
-			.fileMmapEnableIfSupported() // use memory-mapped files if possible (can be much faster)
-			.closeOnJvmShutdown()
-			.make();
+		if (file != null) {
+			db = DBMaker.fileDB(file)
+				.transactionEnable() // turn on wite-ahead log, so the db survives JVM crashes
+				.fileMmapEnableIfSupported() // use memory-mapped files if possible (can be much faster)
+				.closeOnJvmShutdown()
+				.make();
+		} else {
+			db = DBMaker.memoryDB()
+				.make();
+		}
 		sequences = db.hashMap("sequences")
 			.keySerializer(sequenceSerializer)
 			.valueSerializer(infoSerializer)
@@ -783,17 +820,17 @@ public class ConfDB {
 
 	private String getSequenceId(Sequence sequence) {
 		return String.join(":", () ->
-			sequence.confSpace.positions.stream()
-				.map((pos) -> (CharSequence)sequence.get(pos))
+			sequence.seqSpace.positions.stream()
+				.map((pos) -> (CharSequence)sequence.get(pos).name)
 				.iterator()
 		);
 	}
 
 	private Sequence makeSequenceFromId(String id) {
-		Sequence sequence = Sequence.makeUnassigned(confSpace);
+		Sequence sequence = confSpace.makeUnassignedSequence();
 		String[] resTypes = id.split(":");
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			sequence.set(pos, resTypes[pos.index]);
+		for (SeqSpace.Position pos : confSpace.seqSpace.positions) {
+			sequence.set(pos.resNum, resTypes[pos.index]);
 		}
 		return sequence;
 	}
@@ -811,9 +848,9 @@ public class ConfDB {
 
 	public SequenceDB getSequence(Sequence sequence) {
 
-		// make sure the conf spaces match
-		if (sequence.confSpace != confSpace) {
-			throw new IllegalArgumentException("this sequence is from a different conf space than the conf space used by this db");
+		// make sure the sequence spaces match
+		if (sequence.seqSpace != confSpace.seqSpace) {
+			throw new IllegalArgumentException("this sequence is from a different sequence space than the sequence space used by this db");
 		}
 
 		SequenceDB sdb = sequenceDBs.get(sequence);
@@ -843,19 +880,8 @@ public class ConfDB {
 		db.close();
 	}
 
-	public <T> T use(UserWithReturn<T> user) {
-		try {
-			return user.usePassExceptions(this);
-		} finally {
-			close();
-		}
-	}
-
-	public void use(User user) {
-		try {
-			user.usePassExceptions(this);
-		} finally {
-			close();
-		}
+	@Override
+	public void clean() {
+		close();
 	}
 }

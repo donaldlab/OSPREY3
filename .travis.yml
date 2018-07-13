@@ -1,10 +1,9 @@
 language: java
 
-# only build the python branch
-# the master branch doesn't have a build script
+# only build the master branch
 branches:
     only:
-        - python
+        - master
 
 # travis docs say we need this to prevent issues with gradle builds
 # https://docs.travis-ci.com/user/languages/java/

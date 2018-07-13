@@ -1,7 +1,38 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.gmec;
 
 import static edu.duke.cs.osprey.TestBase.*;
-import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -234,7 +265,7 @@ public class TestSimpleGMECFinder {
 	@Test
 	public void findWithResumeNotInterrupted() {
 
-		fileForWriting("findgmec.conf.db", (confDBFile) -> {
+		try (TempFile confDBFile = new TempFile("findgmec.conf.db")) {
 
 			Queue<EnergiedConf> confs = problemBigContinuous.makeConfDBFinder(confDBFile, null).find(0.3);
 			assertThat(confs.size(), is(2L));
@@ -251,16 +282,16 @@ public class TestSimpleGMECFinder {
 
 			// the conf db should have all 27 confs
 			assertThat(confDBFile.exists(), is(true));
-			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
+			try (ConfDB confdb = new ConfDB(problemBigContinuous.confSpace, confDBFile)) {
 				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(27L));
-			});
-		});
+			}
+		}
 	}
 
 	@Test
 	public void findWithResumeInterrupted() {
 
-		fileForWriting("findgmec.conf.db", (confDBFile) -> {
+		try (TempFile confDBFile = new TempFile("findgmec.conf.db")) {
 
 			try {
 				// throw an error before the 10th calculated (not cached) energy
@@ -275,9 +306,9 @@ public class TestSimpleGMECFinder {
 
 			// there should be a confdb with confs in it
 			assertThat(confDBFile.exists(), is(true));
-			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
+			try (ConfDB confdb = new ConfDB(problemBigContinuous.confSpace, confDBFile)) {
 				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(10L));
-			});
+			}
 
 			// resume the computation using the db
 			Queue<EnergiedConf> confs = problemBigContinuous.makeConfDBFinder(confDBFile, null).find(0.3);
@@ -295,16 +326,16 @@ public class TestSimpleGMECFinder {
 
 			// the conf db should have all 27 confs
 			assertThat(confDBFile.exists(), is(true));
-			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
+			try (ConfDB confdb = new ConfDB(problemBigContinuous.confSpace, confDBFile)) {
 				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(27L));
-			});
-		});
+			}
+		}
 	}
 
 	@Test
 	public void findWithResumeInterruptedTwice() {
 
-		fileForWriting("findgmec.conf.db", (confDBFile) -> {
+		try (TempFile confDBFile = new TempFile("findgmec.conf.db")) {
 
 			try {
 				// throw an error before the 10th calculated (not cached) energy
@@ -319,9 +350,9 @@ public class TestSimpleGMECFinder {
 
 			// there should be a confdb with confs in it
 			assertThat(confDBFile.exists(), is(true));
-			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
+			try (ConfDB confdb = new ConfDB(problemBigContinuous.confSpace, confDBFile)) {
 				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(10L));
-			});
+			}
 
 			// do another batch
 			try {
@@ -337,9 +368,9 @@ public class TestSimpleGMECFinder {
 
 			// there should be a confdb with confs in it
 			assertThat(confDBFile.exists(), is(true));
-			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
+			try (ConfDB confdb = new ConfDB(problemBigContinuous.confSpace, confDBFile)) {
 				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(20L));
-			});
+			}
 
 			// resume the computation using the db
 			Queue<EnergiedConf> confs = problemBigContinuous.makeConfDBFinder(confDBFile, null).find(0.3);
@@ -357,10 +388,10 @@ public class TestSimpleGMECFinder {
 
 			// the conf db should have all 27 confs
 			assertThat(confDBFile.exists(), is(true));
-			new ConfDB(problemBigContinuous.confSpace, confDBFile).use((confdb) -> {
+			try (ConfDB confdb = new ConfDB(problemBigContinuous.confSpace, confDBFile)) {
 				assertThat(confdb.new ConfTable(SimpleGMECFinder.ConfDBTableName).size(), is(27L));
-			});
-		});
+			}
+		}
 	}
 
 	@Test

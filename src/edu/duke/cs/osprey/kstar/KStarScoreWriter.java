@@ -1,7 +1,38 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.tools.TimeFormatter;
 
 import java.io.File;
@@ -16,15 +47,13 @@ public interface KStarScoreWriter {
 		public final int sequenceNumber;
 		public final int numSequences;
 		public final Sequence sequence;
-		public final SimpleConfSpace complexConfSpace;
 		public final KStarScore kstarScore;
 		public final long timeNs;
 
-		public ScoreInfo(int sequenceNumber, int numSequences, Sequence sequence, SimpleConfSpace complexConfSpace, KStarScore kstarScore) {
+		public ScoreInfo(int sequenceNumber, int numSequences, Sequence sequence, KStarScore kstarScore) {
 			this.sequenceNumber = sequenceNumber;
 			this.numSequences = numSequences;
 			this.sequence = sequence;
-			this.complexConfSpace = complexConfSpace;
 			this.kstarScore = kstarScore;
 			this.timeNs = System.nanoTime();
 		}
@@ -144,14 +173,20 @@ public interface KStarScoreWriter {
 
 			@Override
 			public String format(ScoreInfo info) {
-				return String.format("sequence %4d/%4d   %s   K*(log10): %-34s   protein: %-18s   ligand: %-18s   complex: %-18s",
+				return String.format("sequence %4d/%4d   %s   K*(log10): %-34s   protein: %-18s, numConfs: %d, epsilon: %01.3f   ligand: %-18s, numConfs: %d, epsilon: %01.3f   complex: %-18s, numConfs: %d, epsilon: %01.3f",
 					info.sequenceNumber + 1,
 					info.numSequences,
-					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.getMaxResNumLength() + 1, info.complexConfSpace.positions),
+					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.calcCellSize() + 1),
 					info.kstarScore.toString(),
 					info.kstarScore.protein.toString(),
+					info.kstarScore.protein.numConfs,
+					info.kstarScore.protein.values.getEffectiveEpsilon(),
 					info.kstarScore.ligand.toString(),
-					info.kstarScore.complex.toString()
+					info.kstarScore.ligand.numConfs,
+					info.kstarScore.ligand.values.getEffectiveEpsilon(),
+					info.kstarScore.complex.toString(),
+					info.kstarScore.complex.numConfs,
+					info.kstarScore.complex.values.getEffectiveEpsilon()
 				);
 			}
 		}
@@ -186,7 +221,7 @@ public interface KStarScoreWriter {
 			public String format(ScoreInfo info) {
 				return String.join("\t",
 					Integer.toString(info.sequenceNumber),
-					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.getMaxResNumLength() + 1, info.complexConfSpace.positions),
+					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.calcCellSize() + 1),
 					info.kstarScore.scoreLog10String(),
 					info.kstarScore.lowerBoundLog10String(),
 					info.kstarScore.upperBoundLog10String(),

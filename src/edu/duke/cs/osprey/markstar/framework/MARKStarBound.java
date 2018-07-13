@@ -81,6 +81,9 @@ public class MARKStarBound implements PartitionFunction {
         }
     }
 
+    @Override
+    public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon){}
+
     public void setReportProgress(boolean showPfuncProgress) {
         this.printMinimizedConfs = true;
     }
@@ -94,7 +97,6 @@ public class MARKStarBound implements PartitionFunction {
         this.maxNumConfs = maxNumConfs;
     }
 
-    @Override
     public void init(double targetEpsilon) {
         this.targetEpsilon = targetEpsilon;
         status = Status.Estimating;
@@ -356,7 +358,8 @@ public class MARKStarBound implements PartitionFunction {
         });
 
         progress = new MARKStarProgress(RCs.getNumPos());
-        confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
+        //confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
+        confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
         setParallelism(parallelism);
     }
 
@@ -664,7 +667,7 @@ public class MARKStarBound implements PartitionFunction {
         // TODO: Replace the sortedPairwiseTerms with an ArrayList<TupE>.
         //System.out.println("Analysis:"+analysis);
         EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);
-        EnergyMatrix scoreAnalysis = analysis.breakdownScoreByPosition();
+        EnergyMatrix scoreAnalysis = analysis.breakdownScoreByPosition(minimizingEmat);
         //System.out.println("Energy Analysis: "+energyAnalysis);
         //System.out.println("Score Analysis: "+scoreAnalysis);
         EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);

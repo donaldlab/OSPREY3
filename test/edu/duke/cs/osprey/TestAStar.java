@@ -1,8 +1,49 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey;
 
+import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
+import com.google.common.collect.Lists;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.MathTools;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -20,6 +61,9 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
+
+import java.util.Arrays;
+import java.util.List;
 
 public class TestAStar extends TestBase {
 	
@@ -494,5 +538,55 @@ public class TestAStar extends TestBase {
 			
 			checkDagkContinuous(tree, search);
 		});
+	}
+
+	@Test
+	public void optimization() {
+
+		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
+		for (String resNum : Arrays.asList("A5", "A6", "A7")) {
+			strand.flexibility.get(resNum)
+				.setLibraryRotamers("ALA")
+				.addWildTypeRotamers();
+		}
+
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+			.addStrand(strand)
+			.build();
+
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams()).build()) {
+
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+				.build()
+				.calcEnergyMatrix();
+
+			// get all the confs in ascending order
+			List<ConfSearch.ScoredConf> ascendingConfs = new ConfAStarTree.Builder(emat, confSpace)
+				.setTraditionalOpt(MathTools.Optimizer.Minimize)
+				.build()
+				.nextConfs(Double.POSITIVE_INFINITY);
+
+			// make sure the sequences are in weakly ascending order
+			for (int i=1; i<ascendingConfs.size(); i++) {
+				assertThat(ascendingConfs.get(i-1).getScore(), lessThanOrEqualTo(ascendingConfs.get(i).getScore()));
+			}
+
+			// try maximization instead of minimization
+			List<ConfSearch.ScoredConf> descendingConfs = new ConfAStarTree.Builder(emat, confSpace)
+				.setTraditionalOpt(MathTools.Optimizer.Maximize)
+				.build()
+				.nextConfs(Double.NEGATIVE_INFINITY);
+
+			// make sure the sequences are in weakly descending order
+			for (int i=1; i<descendingConfs.size(); i++) {
+				assertThat(descendingConfs.get(i-1).getScore(), greaterThanOrEqualTo(descendingConfs.get(i).getScore()));
+			}
+
+			// the two lists should match if we reverse the ascending confs
+			assertThat(descendingConfs.size(), is(ascendingConfs.size()));
+			for (int i=0; i<descendingConfs.size(); i++) {
+				assertThat(descendingConfs.get(i).getScore(), isAbsolutely(ascendingConfs.get(ascendingConfs.size() - 1 - i).getScore()));
+			}
+		}
 	}
 }

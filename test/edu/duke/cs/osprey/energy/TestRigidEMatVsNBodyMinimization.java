@@ -28,7 +28,7 @@ public class TestRigidEMatVsNBodyMinimization {
     }
 
 
-    @Test
+    /*@Test
     public void sanityTest() {
         ConfSpaces confSpaces = make1GUASmall(8);
         int[] conf = new int[]{7, 9, 5, 7, 9, 7, 1,4,11};
@@ -62,7 +62,7 @@ public class TestRigidEMatVsNBodyMinimization {
         ConfSearch.EnergiedConf econf = minConfECalc.calcEnergy(sconf);
         System.out.println("Rigid: " + rigidScore + ", pairwise: " + minimizingScore + ", minimized: " + econf.getEnergy());
     }
-
+*/
 
     public static ConfSpaces make1GUASmall(int numFlex) {
 

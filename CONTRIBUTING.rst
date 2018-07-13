@@ -23,7 +23,7 @@ To develop Osprey, first clone the git repository to a folder of your choosing::
 
 	$ mkdir osprey
 	$ cd osprey
-	$ git clone git@github.com:donaldlab/OSPREY_refactor.git .
+	$ git clone git@github.com:donaldlab/OSPREY3.git .
 
 .. _Github: https://github.com/donaldlab/OSPREY_refactor
 
