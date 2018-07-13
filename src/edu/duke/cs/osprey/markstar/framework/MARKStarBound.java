@@ -567,7 +567,7 @@ public class MARKStarBound implements PartitionFunction {
     private void processFullConfNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
 
         double confCorrection = correctionMatrix.confE(node.assignments);
-        if(node.getConfLowerBound()!= confCorrection) {
+        if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
             debugPrint("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
                     + ":" + node.gscore + "] down to " + confCorrection);
             node.gscore = confCorrection;
@@ -575,7 +575,6 @@ public class MARKStarBound implements PartitionFunction {
                 System.err.println("Overcorrected: " + confCorrection + " > " + node.rigidScore);
             node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
             curNode.markUpdated();
-            updateBound();
             queue.add(curNode);
             return;
         }
@@ -583,6 +582,15 @@ public class MARKStarBound implements PartitionFunction {
             try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                 ScoreContext context = checkout.get();
                 node.index(context.index);
+                double corrected = correctionMatrix.confE(node.assignments);
+                if(node.gscore < confCorrection) {
+                    node.gscore = confCorrection;
+                    node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
+                    curNode.markUpdated();
+                    queue.add(curNode);
+                    return null;
+                }
+
                 ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, node.getConfLowerBound());
                 ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
                 computeEnergyCorrection(analysis, conf, context.gscorer, context.ecalc);

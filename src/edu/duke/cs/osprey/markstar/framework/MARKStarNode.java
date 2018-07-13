@@ -386,7 +386,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
         private void updateConfUpperBound(double tighterUpper) {
             if (tighterUpper < 10 && tighterUpper - confUpperBound > 1e-5)
-                System.err.println("Updating conf greater bound of  " + confUpperBound
+                System.err.println("Updating conf upper bound of  " + confUpperBound
                         + " with " + tighterUpper + ", which is greater!?");
             if(tighterUpper < confUpperBound) {
                 confUpperBound = tighterUpper;
