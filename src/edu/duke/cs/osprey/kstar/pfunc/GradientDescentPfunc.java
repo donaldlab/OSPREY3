@@ -405,9 +405,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 					// gather the scores
 					List<ConfSearch.ScoredConf> confs = new ArrayList<>();
-					//Debug line. If you pulled from the repo and see this you can delete it.
-					if(false)
-                        System.out.println("Processing "+numScores+" additional conformations for upper bound");
 					for (int i=0; i<numScores; i++) {
 
 						// get the next score conf, if any
@@ -434,9 +431,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 							ScoreResult result = new ScoreResult();
 							result.stopwatch.start();
 							for (ConfSearch.ScoredConf conf : confs) {
-								//Debug lines. If you pulled from the repo and see this you can delete it.
-								if(false)
-                                    System.out.println(SimpleConfSpace.formatConfRCs(conf)+":"+conf.getScore());
 								result.scoreWeights.add(bcalc.calc(conf.getScore()));
 							}
 							result.stopwatch.stop();

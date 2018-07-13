@@ -24,7 +24,7 @@ import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
-    boolean debug = true;
+    boolean debug = false;
     private static AStarScorer gScorer;
     private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;
@@ -224,15 +224,20 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     public void printTree(String prefix, FileWriter writer)
     {
         String out = prefix+confSearchNode.confToString()+": ["+setSigFigs(confSearchNode.subtreeLowerBound)+","+setSigFigs(confSearchNode.subtreeUpperBound)+"]\n";
-        //System.out.println(out);
-        try {
-            writer.write(out);
-        } catch (IOException e) {
-            e.printStackTrace();
+        if(writer != null) {
+            try {
+                writer.write(out);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
-        if(children != null && !children.isEmpty())
-           for(MARKStarNode child: children)
-               child.printTree(prefix+"~+",writer);
+        else
+            System.out.print(out);
+        if(children != null && !children.isEmpty()) {
+            Collections.sort(children);
+            for (MARKStarNode child : children)
+                child.printTree(prefix + "~+", writer);
+        }
 
 
     }
@@ -246,6 +251,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void printTree() {
+        printTree("", null);
     }
 
     public void index(ConfIndex confIndex) {
@@ -377,7 +386,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
         private void updateConfUpperBound(double tighterUpper) {
             if (tighterUpper < 10 && tighterUpper - confUpperBound > 1e-5)
-                System.err.println("Updating conf greater bound of  " + confUpperBound
+                System.err.println("Updating conf upper bound of  " + confUpperBound
                         + " with " + tighterUpper + ", which is greater!?");
             if(tighterUpper < confUpperBound) {
                 confUpperBound = tighterUpper;

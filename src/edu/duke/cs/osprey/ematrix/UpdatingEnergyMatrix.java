@@ -26,6 +26,11 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         return corrections.size() > 0;
     }
 
+    @Override
+    public boolean hasHigherOrderTermFor(RCTuple query) {
+        return corrections.getCorrections(query).size() > 0;
+    }
+
 
     public double getInternalEnergy(RCTuple tup){
         //internal energy of a tuple of residues when they're in the specified RCs

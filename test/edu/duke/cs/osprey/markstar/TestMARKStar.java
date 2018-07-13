@@ -60,7 +60,7 @@ public class TestMARKStar {
 	@Test
     public void testMARKStarVsKStar() {
 	    int numFlex = 6;
-	    double epsilon = 0.02;
+	    double epsilon = 0.001;
 		compareMARKStarAndKStar(numFlex, epsilon);
     }
 
@@ -122,7 +122,7 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        printMARKStarComputationStats(runMARKStar(13, 0.99).get(0));
+        printMARKStarComputationStats(runMARKStar(13, 0.68).get(0));
 
     }
 
