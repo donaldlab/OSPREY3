@@ -319,6 +319,8 @@ public class MARKStarBound implements PartitionFunction {
     EnergyMatrix minimizingEmat;
     EnergyMatrix correctionMatrix;
     ConfEnergyCalculator minimizingEcalc = null;
+    AStarScorer correctionhscorer;
+    AStarScorer correctiongscorer;
     private Stopwatch stopwatch = new Stopwatch().start();
     double msRunning = 0;
     private static final int ReportIntervalMs = 10 * 1000; // TODO: make configurable
@@ -344,6 +346,9 @@ public class MARKStarBound implements PartitionFunction {
         this.pruner = null;
         stepSize = Math.min(MAX_STEP_SIZE,
                 Math.max(1,RCs.getNumConformations().divide(new BigInteger(""+MAX_CONFSPACE_FRACTION)).intValue()));
+
+        correctionhscorer = hscorerFactory.make(correctionMatrix);
+        correctiongscorer = gscorerFactory.make(correctionMatrix);
 
         this.contexts = new ObjectPool<>((lingored) -> {
             ScoreContext context = new ScoreContext();
@@ -406,7 +411,7 @@ public class MARKStarBound implements PartitionFunction {
         loopWatch.start();
         double bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
         int numMinimizations = 0;
-        int maxMinimizations = 100;
+        int maxMinimizations = 10;
         int maxNodes = 100000;
         int numNodes = 0;
         double energyThreshhold = Math.min(15,-bestLower/10);
@@ -418,15 +423,19 @@ public class MARKStarBound implements PartitionFunction {
             MARKStarNode curNode = queue.poll();
             Node node = curNode.getConfSearchNode();
             double curLower = node.getConfLowerBound();
-            double confCorrection = correctionMatrix.confE(node.assignments);
-            if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
-                System.out.println("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
+            ConfIndex index = new ConfIndex(RCs.getNumPos());
+            node.index(index);
+            double correctgscore = correctiongscorer.calc(index, RCs);
+            double confCorrection = correctgscore + correctionhscorer.calc(index, RCs);
+            if(node.getConfLowerBound() < confCorrection) {
+                debugPrint("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
                         + ":" + node.gscore + "] down to " + confCorrection);
-                node.gscore = confCorrection;
+                node.gscore = correctgscore;
                 if (confCorrection > node.rigidScore)
                     System.err.println("Overcorrected: " + confCorrection + " > " + node.rigidScore);
                 node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
                 curNode.markUpdated();
+                updateBound();
                 queue.add(curNode);
                 continue;
             }
@@ -459,12 +468,10 @@ public class MARKStarBound implements PartitionFunction {
         double loopTime = loopWatch.getTimeS();
         System.out.println("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
         processPreminimization(minimizingEcalc);
-        AStarScorer hscorer = hscorerFactory.make(correctionMatrix);
-        AStarScorer gscorer = gscorerFactory.make(correctionMatrix);
         double curEpsilon = epsilonBound;
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         updateBound();
-        double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
+        double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, correctiongscorer, correctionhscorer);
         debugHeap();
 
 
@@ -475,7 +482,6 @@ public class MARKStarBound implements PartitionFunction {
         int numChildren = 0;
         node.index(confIndex);
         int nextPos = order.getNextPos(confIndex, RCs);
-        computeTupleCorrection(minimizingEcalc, curNode.toTuple());
         assert (!confIndex.isDefined(nextPos));
         assert (confIndex.isUndefined(nextPos));
 
@@ -761,7 +767,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void processPreminimization(ConfEnergyCalculator ecalc) {
-        int maxMinimizations = 10;
+        int maxMinimizations = 3;
         List<MARKStarNode> topConfs = getTopConfs(maxMinimizations);
         // Need at least two confs to do any partial preminimization
         if (topConfs.size() < 2) {
@@ -773,15 +779,16 @@ public class MARKStarBound implements PartitionFunction {
         //Only continue if we have something to minimize
         for(MARKStarNode conf : topConfs)
             computeTupleCorrection(minimizingEcalc, conf.toTuple());
+        ConfIndex index = new ConfIndex(RCs.getNumPos());
         if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)) {
             computeTupleCorrection(ecalc, overlap);
             for (MARKStarNode conf : topConfs) {
                 Node child = conf.getConfSearchNode();
-                double confCorrection = correctionMatrix.confE(child.assignments);
-                double lowerbound = minimizingEmat.confE(child.assignments);
+                child.index(index);
+                double confCorrection = correctiongscorer.calc(index, RCs) + correctionhscorer.calc(index, RCs);
                 double confLowerBound = child.getConfLowerBound();
-                if (lowerbound < confCorrection) {
-                    double tighterLower = confLowerBound - lowerbound + confCorrection;
+                if (confLowerBound < confCorrection) {
+                    double tighterLower = confCorrection;
                     debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
                             + ":" + confLowerBound + "->" + tighterLower);
                     child.setBoundsFromConfLowerAndUpper(tighterLower, child.getConfUpperBound());
@@ -798,7 +805,7 @@ public class MARKStarBound implements PartitionFunction {
             return;
         double pairwiseLower = minimizingEmat.getInternalEnergy(overlap);
         double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
-        System.out.println("Computing correction for " + overlap.stringListing() + " penalty of " + (partiallyMinimizedLower - pairwiseLower));
+        debugPrint("Computing correction for " + overlap.stringListing() + " penalty of " + (partiallyMinimizedLower - pairwiseLower));
         progress.reportPartialMinimization(1, epsilonBound);
         synchronized (correctionMatrix) {
             correctionMatrix.setHigherOrder(overlap, partiallyMinimizedLower - pairwiseLower);
