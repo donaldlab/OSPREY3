@@ -122,7 +122,7 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        printMARKStarComputationStats(runMARKStar(10, 0.68).get(0));
+        printMARKStarComputationStats(runMARKStar(4, 0.68).get(0));
 
     }
 
@@ -195,7 +195,7 @@ public class TestMARKStar {
 		KStar.Settings settings = new KStar.Settings.Builder()
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
-				//.setShowPfuncProgress(true)
+				.setShowPfuncProgress(true)
 				.build();
 		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {

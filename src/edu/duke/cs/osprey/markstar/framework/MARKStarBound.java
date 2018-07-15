@@ -402,16 +402,19 @@ public class MARKStarBound implements PartitionFunction {
 
     public void tightenBound() {
         System.out.println(String.format("Current overall error bound: %12.6f",epsilonBound));
-        if(queue.isEmpty()) {
-            debugPrint("Out of conformations.");
-        }
         List<MARKStarNode> newNodes = new ArrayList<>();
         List<MARKStarNode> newNodesToMinimize = new ArrayList<>();
         Stopwatch loopWatch = new Stopwatch();
         loopWatch.start();
-        double bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
+        double bestLower = Double.POSITIVE_INFINITY;
+        synchronized (queue) {
+            if (!queue.isEmpty()) {
+                bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
+            }
+            else debugPrint("Out of conformations.");
+        }
         int numMinimizations = 0;
-        int maxMinimizations = 10;
+        int maxMinimizations = 50;
         int maxNodes = 100000;
         int numNodes = 0;
         double energyThreshhold = Math.min(15,-bestLower/10);
@@ -435,7 +438,6 @@ public class MARKStarBound implements PartitionFunction {
                     System.err.println("Overcorrected: " + confCorrection + " > " + node.rigidScore);
                 node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
                 curNode.markUpdated();
-                updateBound();
                 queue.add(curNode);
                 continue;
             }
@@ -471,7 +473,7 @@ public class MARKStarBound implements PartitionFunction {
         double curEpsilon = epsilonBound;
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         updateBound();
-        double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, correctiongscorer, correctionhscorer);
+        //double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, correctiongscorer, correctionhscorer);
         debugHeap();
 
 

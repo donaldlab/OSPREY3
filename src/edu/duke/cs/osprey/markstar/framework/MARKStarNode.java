@@ -11,8 +11,6 @@ import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.ExpFunction;
-import edu.duke.cs.osprey.tools.MathTools;
-import org.ojalgo.matrix.transformation.Rotation;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -103,6 +101,26 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
     }
 
+    public void updateSubtreeBounds() {
+        if(children != null && children.size() > 0) {
+            BigDecimal errorUpperBound = BigDecimal.ZERO;
+            BigDecimal errorLowerBound = BigDecimal.ZERO;
+            for(MARKStarNode child: children) {
+                child.updateSubtreeBounds();
+                errorUpperBound = errorUpperBound.add(child.confSearchNode.subtreeUpperBound);
+                errorLowerBound = errorLowerBound.add(child.confSearchNode.subtreeLowerBound);
+            }
+            confSearchNode.subtreeUpperBound = errorUpperBound;
+            confSearchNode.subtreeLowerBound = errorLowerBound;
+        }
+    }
+
+    public double recomputeEpsilon() {
+        nodeEpsilon = confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound)
+                .divide(confSearchNode.subtreeUpperBound, RoundingMode.HALF_UP).doubleValue();
+        return nodeEpsilon;
+    }
+
     public double computeEpsilonErrorBounds() {
         if(children == null || children.size() <1) {
             return nodeEpsilon;
@@ -111,17 +129,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         double epsilonBound = 0;
         BigDecimal lastUpper = confSearchNode.subtreeUpperBound;
         BigDecimal lastLower = confSearchNode.subtreeLowerBound;
-        if(children != null && children.size() > 0) {
-            BigDecimal errorUpperBound = BigDecimal.ZERO;
-            BigDecimal errorLowerBound = BigDecimal.ZERO;
-            for(MARKStarNode child: children) {
-                child.computeEpsilonErrorBounds();
-                errorUpperBound = errorUpperBound.add(child.confSearchNode.subtreeUpperBound);
-                errorLowerBound = errorLowerBound.add(child.confSearchNode.subtreeLowerBound);
-            }
-            confSearchNode.subtreeUpperBound = errorUpperBound;
-            confSearchNode.subtreeLowerBound = errorLowerBound;
-        }
+        updateSubtreeBounds();
         if(confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound).compareTo(BigDecimal.ONE)<1)
         {
             return 0;
@@ -277,6 +285,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         confSearchNode.updateConfLowerBound(lowerBound);
         confSearchNode.updateConfUpperBound(upperBound);
         confSearchNode.setBoundsFromConfLowerAndUpper(lowerBound, upperBound);
+    }
+
+    public List<? extends MARKStarNode> getChildren() {
+        return children;
     }
 
 
