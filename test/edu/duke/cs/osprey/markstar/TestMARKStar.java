@@ -42,7 +42,7 @@ import java.util.function.Function;
 public class TestMARKStar {
 
 	public static final int NUM_CPUs = 4;
-	public static final boolean REUDCE_MINIMIZATIONS = false;
+	public static final boolean REUDCE_MINIMIZATIONS = true;
 	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
 
 	public static class ConfSpaces {
@@ -59,8 +59,8 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarVsKStar() {
-	    int numFlex = 10;
-	    double epsilon = 0.68;
+	    int numFlex = 7;
+	    double epsilon = 0.01;
 		compareMARKStarAndKStar(numFlex, epsilon);
     }
 

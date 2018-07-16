@@ -22,6 +22,7 @@ import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.MARKStarProgress;
 import edu.duke.cs.osprey.markstar.framework.MARKStarNode.Node;
@@ -319,8 +320,8 @@ public class MARKStarBound implements PartitionFunction {
     EnergyMatrix correctionMatrix;
     ConfEnergyCalculator minimizingEcalc = null;
     private Stopwatch stopwatch = new Stopwatch().start();
-    double msRunning = 0;
-    private static final int ReportIntervalMs = 10 * 1000; // TODO: make configurable
+    BigDecimal cumulativeZCorrection = BigDecimal.ZERO;
+    BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                          ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
@@ -392,6 +393,12 @@ public class MARKStarBound implements PartitionFunction {
         return node.getLevel() == RCs.getNumPos() && !node.isMinimized();
     }
 
+    private void recordCorrection(double lowerBound, double correction) {
+        BigDecimal upper = bc.calc(lowerBound);
+        BigDecimal corrected = bc.calc(lowerBound + correction);
+        cumulativeZCorrection = cumulativeZCorrection.add(upper.subtract(corrected));
+    }
+
     public void tightenBound() {
         System.out.println(String.format("Current overall error bound: %12.6f",epsilonBound));
         List<MARKStarNode> newNodes = new ArrayList<>();
@@ -426,6 +433,7 @@ public class MARKStarBound implements PartitionFunction {
             if(node.getConfLowerBound() < confCorrection) {
                 debugPrint("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
                         + ":" + node.gscore + "] down to " + confCorrection);
+                recordCorrection(node.getConfLowerBound(), correctgscore - node.gscore);
                 node.gscore = correctgscore;
                 if (confCorrection > node.rigidScore)
                     System.err.println("Overcorrected: " + confCorrection + " > " + node.rigidScore);
@@ -462,6 +470,7 @@ public class MARKStarBound implements PartitionFunction {
         loopWatch.stop();
         double loopTime = loopWatch.getTimeS();
         System.out.println("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
+        System.out.println(String.format("Z correction so far is %12.6e",cumulativeZCorrection));
         processPreminimization(minimizingEcalc);
         double curEpsilon = epsilonBound;
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
@@ -474,7 +483,6 @@ public class MARKStarBound implements PartitionFunction {
 
     private void processPartialConfNode(List<MARKStarNode> newNodes, List<MARKStarNode> newNodesToMinimize, MARKStarNode curNode, Node node) {
         // which pos to expand next?
-        int numChildren = 0;
         node.index(confIndex);
         int nextPos = order.getNextPos(confIndex, RCs);
         assert (!confIndex.isDefined(nextPos));
@@ -519,6 +527,7 @@ public class MARKStarBound implements PartitionFunction {
                         if(lowerbound < confCorrection) {
                             debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
                                     + ":" + lowerbound + "->" + confCorrection);
+                            recordCorrection(confLowerBound, confCorrection - lowerbound);
                             confLowerBound = confCorrection + hdiff;
                         }
                         child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
@@ -534,9 +543,11 @@ public class MARKStarBound implements PartitionFunction {
                         child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                         double confCorrection = correctionMatrix.confE(child.assignments);
                         double lowerbound = minimizingEmat.confE(child.assignments);
-                        if(lowerbound < confCorrection)
-                            debugPrint("Correcting node "+SimpleConfSpace.formatConfRCs(child.assignments)
-                            +":"+lowerbound+"->"+confCorrection);
+                        if(lowerbound < confCorrection) {
+                            debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
+                                    + ":" + lowerbound + "->" + confCorrection);
+                            recordCorrection(lowerbound, confCorrection - lowerbound);
+                        }
                         checkBounds(confCorrection,confRigid);
                         correctionMatrix.confE(child.assignments);
                         child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
@@ -581,6 +592,7 @@ public class MARKStarBound implements PartitionFunction {
         if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
             double oldg = node.gscore;
             node.gscore = confCorrection;
+            recordCorrection(oldg, confCorrection - oldg);
             debugCorrection(node, confCorrection, oldg);
             node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
             curNode.markUpdated();
@@ -778,6 +790,7 @@ public class MARKStarBound implements PartitionFunction {
                 double confCorrection = correctionMatrix.confE(child.assignments)+hscore;
                 double confLowerBound = child.getConfLowerBound();
                 if (confLowerBound < confCorrection) {
+                    recordCorrection(confLowerBound, confCorrection - child.gscore);
                     double tighterLower = confCorrection;
                     debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
                             + ":" + confLowerBound + "->" + tighterLower);
