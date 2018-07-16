@@ -734,7 +734,7 @@ public class EwakstarDoer {
                 .setAllowedSeqs(plTrie).build();
 
         Results results = new Results();
-        results.bbkstar = new EWAKStarBBKStar( P, L, PL, ewakstarSettings, bbkstarSettings, 10);
+        results.bbkstar = new EWAKStarBBKStar( P, L, PL, ewakstarSettings, bbkstarSettings, null);
 
         for (EWAKStarBBKStar.ConfSpaceInfo info : results.bbkstar.confSpaceInfos()) {
 
@@ -912,12 +912,12 @@ public class EwakstarDoer {
 
         // make the conf tree factory
         P.confTreeFactoryMin = (rcs) -> new ConfAStarTree.Builder(P.emat, rcs)
-                .setMaxNumNodes(2000000)
+                .setMaxNumNodes(20000000)
                 .setTraditional()
                 .build();
 
         P.confTreeFactoryRigid = (rcs) -> new ConfAStarTree.Builder(P.ematRigid, rcs)
-                .setMaxNumNodes(2000000)
+                .setMaxNumNodes(20000000)
                 .setTraditional()
                 .build();
 
@@ -960,12 +960,12 @@ public class EwakstarDoer {
 
         // make the conf tree factory
         L.confTreeFactoryMin = (rcs) -> new ConfAStarTree.Builder(L.emat, rcs)
-                .setMaxNumNodes(2000000)
+                .setMaxNumNodes(20000000)
                 .setTraditional()
                 .build();
 
         L.confTreeFactoryRigid = (rcs) -> new ConfAStarTree.Builder(L.ematRigid, rcs)
-                .setMaxNumNodes(2000000)
+                .setMaxNumNodes(20000000)
                 .setTraditional()
                 .build();
 

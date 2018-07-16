@@ -243,17 +243,12 @@ public class EWAKStar {
     /** Optional and overridable settings for K* */
     public final Settings settings;
 
-    private List<Sequence> sequences;
-
-    private final ConfSearchCache confTrees;
-
-    public EWAKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, Settings settings, Integer minNumConfTrees) {
+    public EWAKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, Settings settings) {
         this.settings = settings;
         this.protein = new ConfSpaceInfo(protein, ConfSpaceType.Protein);
         this.ligand = new ConfSpaceInfo(ligand, ConfSpaceType.Ligand);
         this.complex = new ConfSpaceInfo(complex, ConfSpaceType.Complex);
-        this.sequences = new ArrayList<>();
-        confTrees = new ConfSearchCache(minNumConfTrees);
+
     }
 
     public Iterable<ConfSpaceInfo> confSpaceInfos() {
