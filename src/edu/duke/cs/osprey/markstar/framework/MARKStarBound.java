@@ -310,7 +310,6 @@ public class MARKStarBound implements PartitionFunction {
     private MARKStarNode.ScorerFactory gscorerFactory;
     private MARKStarNode.ScorerFactory hscorerFactory;
     private int stepSize;
-    public static final int MAX_STEP_SIZE = 20;
 
     public static final int MAX_CONFSPACE_FRACTION = 1000000;
     public static final double MINIMIZATION_FACTOR = 0.1;
@@ -342,9 +341,6 @@ public class MARKStarBound implements PartitionFunction {
         this.order = new UpperLowerAStarOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
         this.pruner = null;
-        stepSize = Math.min(MAX_STEP_SIZE,
-                Math.max(1,RCs.getNumConformations().divide(new BigInteger(""+MAX_CONFSPACE_FRACTION)).intValue()));
-
 
         this.contexts = new ObjectPool<>((lingored) -> {
             ScoreContext context = new ScoreContext();
@@ -413,9 +409,9 @@ public class MARKStarBound implements PartitionFunction {
         int maxMinimizations = 1;
         int maxNodes = 100000;
         int numNodes = 0;
-        double energyThreshhold = Math.min(15,-bestLower/10);
+        double energyThreshhold = -Math.log(((1-epsilonBound)/(1-targetEpsilon)));
         while(numMinimizations < maxMinimizations && numNodes < maxNodes &&
-                !queue.isEmpty() && queue.peek().getConfSearchNode().getConfLowerBound() - energyThreshhold  < bestLower) {
+                !queue.isEmpty() && queue.peek().getConfSearchNode().getConfLowerBound() - bestLower < energyThreshhold ) {
             //System.out.println("Current overall error bound: "+epsilonBound);
             if(epsilonBound <= targetEpsilon)
                 break;
