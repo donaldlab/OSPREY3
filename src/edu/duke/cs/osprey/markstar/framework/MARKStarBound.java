@@ -321,8 +321,6 @@ public class MARKStarBound implements PartitionFunction {
     EnergyMatrix minimizingEmat;
     EnergyMatrix correctionMatrix;
     ConfEnergyCalculator minimizingEcalc = null;
-    AStarScorer correctionhscorer;
-    AStarScorer correctiongscorer;
     private Stopwatch stopwatch = new Stopwatch().start();
     double msRunning = 0;
     private static final int ReportIntervalMs = 10 * 1000; // TODO: make configurable
@@ -349,9 +347,6 @@ public class MARKStarBound implements PartitionFunction {
         this.order = new UpperLowerAStarOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
         this.pruner = null;
-
-        correctionhscorer = hscorerFactory.make(correctionMatrix);
-        correctiongscorer = gscorerFactory.make(correctionMatrix);
 
         this.contexts = new ObjectPool<>((lingored) -> {
             ScoreContext context = new ScoreContext();
@@ -431,11 +426,11 @@ public class MARKStarBound implements PartitionFunction {
             double curLower = node.getConfLowerBound();
             ConfIndex index = new ConfIndex(RCs.getNumPos());
             node.index(index);
-            double correctgscore = correctiongscorer.calc(index, RCs);
-            double correcthscore = correctionhscorer.calc(index, RCs);
-            double confCorrection = correctgscore + correcthscore;
+            double correctgscore = correctionMatrix.confE(node.assignments);
+            double hscore = node.getConfLowerBound() - minimizingEmat.confE(node.assignments);
+            double confCorrection = correctgscore + hscore;
             if(node.getConfLowerBound() < confCorrection) {
-                correctNodeScore(curNode, correctgscore, correcthscore);
+                correctNodeScore(curNode, correctgscore, hscore);
                 curNode.markUpdated();
                 queue.add(curNode);
                 continue;
@@ -448,8 +443,6 @@ public class MARKStarBound implements PartitionFunction {
                     numMinimizations++;
                 }
                 processFullConfNode(newNodes, curNode, node);
-                if(epsilonBound <= targetEpsilon)
-                    return;
             }
             else {
                 processPartialConfNode(newNodes, newNodesToMinimize, curNode, node);
@@ -468,7 +461,7 @@ public class MARKStarBound implements PartitionFunction {
         loopWatch.stop();
         double loopTime = loopWatch.getTimeS();
         System.out.println("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
-        processPreminimization(minimizingEcalc);
+        //processPreminimization(minimizingEcalc);
         double curEpsilon = epsilonBound;
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         updateBound();
@@ -520,15 +513,14 @@ public class MARKStarBound implements PartitionFunction {
                         double confLowerBound = child.gscore + hdiff;
                         double confUpperbound = rigiddiff + maxhdiff;
                         child.computeNumConformations(RCs);
-                        double gcorrection = correctiongscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                        double hcorrection = correctionhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                        double confCorrection = gcorrection+hcorrection;
+                        double correctgscore = correctionMatrix.confE(child.assignments);
+                        double confCorrection = correctgscore+hdiff;
                         double lowerbound = minimizingEmat.confE(child.assignments);
-                        if(confLowerBound < confCorrection) {
+                        if(child.gscore < correctgscore) {
                             debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
                                     + ":" + lowerbound + "->" + confCorrection);
+                            recordCorrection(confLowerBound, confCorrection, curNode);
                             confLowerBound = confLowerBound - lowerbound + confCorrection;
-                            recordCorrection(confLowerBound, confCorrection);
                         }
                         child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
                         synchronized (progress) {
@@ -549,11 +541,12 @@ public class MARKStarBound implements PartitionFunction {
                         }
                         double confCorrection = correctionMatrix.confE(child.assignments);
                         double lowerbound = minimizingEmat.confE(child.assignments);
-                        if(lowerbound < confCorrection)
-                            debugPrint("Correcting node "+SimpleConfSpace.formatConfRCs(child.assignments)
-                            +":"+lowerbound+"->"+confCorrection);
-                        checkBounds(confCorrection,confRigid);
-                        correctionMatrix.confE(child.assignments);
+                        if(lowerbound < confCorrection) {
+                            debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
+                                    + ":" + lowerbound + "->" + confCorrection);
+                            checkBounds(confCorrection, confRigid);
+                            recordCorrection(lowerbound, confCorrection, curNode);
+                        }
                         child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
                         child.gscore = child.getConfLowerBound();
                         child.rigidScore = confRigid;
@@ -591,11 +584,10 @@ public class MARKStarBound implements PartitionFunction {
 
     private void correctNodeScore(MARKStarNode curNode, double correctgscore, double correcthscore) {
         Node node = curNode.getConfSearchNode();
-        double curLower = node.getConfLowerBound();
         double confCorrection = correctgscore + correcthscore;
         if(node.getConfLowerBound() < confCorrection) {
-            recordCorrection(node.getConfLowerBound(), confCorrection);
-            System.out.println("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
+            recordCorrection(node.getConfLowerBound(), confCorrection, curNode);
+            debugPrint("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
                     + ":" + node.gscore + "] down to " + confCorrection);
             node.gscore = correctgscore;
             if (confCorrection > node.rigidScore)
@@ -610,11 +602,11 @@ public class MARKStarBound implements PartitionFunction {
             try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                 ScoreContext context = checkout.get();
                 node.index(context.index);
-                double correctgscore = correctiongscorer.calc(context.index, RCs);
-                double correcthscore = correctionhscorer.calc(context.index, RCs);
-                double confCorrection = correctgscore + correcthscore;
+                double correctgscore = correctionMatrix.confE(node.assignments);
+                double hscore = node.getConfLowerBound() - node.gscore;
+                double confCorrection = correctgscore + hscore;
                 if(node.gscore < correctgscore) {
-                    correctNodeScore(curNode, correctgscore, correcthscore);
+                    correctNodeScore(curNode, correctgscore, hscore);
                     curNode.markUpdated();
                     newNodes.add(curNode);
                     return null;
@@ -681,11 +673,11 @@ public class MARKStarBound implements PartitionFunction {
                 });
     }
 
-    private void recordCorrection(double lowerBound, double confCorrection) {
+    private void recordCorrection(double lowerBound, double confCorrection, MARKStarNode curNode) {
         synchronized (this) {
             BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
-            BigDecimal difference = (bc.calc(lowerBound).subtract(bc.calc(confCorrection)));
-            cumulativePfuncCorrection = cumulativePfuncCorrection.add(bc.calc(lowerBound).subtract(bc.calc(confCorrection)));
+            BigDecimal difference = (bc.calc(lowerBound).subtract(bc.calc(confCorrection))).multiply(new BigDecimal(curNode.getNumConfs()));
+            cumulativePfuncCorrection = cumulativePfuncCorrection.add(difference);
         }
     }
 
@@ -801,13 +793,15 @@ public class MARKStarBound implements PartitionFunction {
             for (MARKStarNode conf : topConfs) {
                 Node child = conf.getConfSearchNode();
                 child.index(index);
-                double confCorrection = correctiongscorer.calc(index, RCs) + correctionhscorer.calc(index, RCs);
+                double correctgscore = correctionMatrix.confE(child.assignments);
+                double hscore = child.getConfLowerBound() - child.gscore;
+                double confCorrection = correctgscore + hscore;
                 double confLowerBound = child.getConfLowerBound();
-                if (confLowerBound < confCorrection) {
+                if (child.gscore < correctgscore) {
                     double tighterLower = confCorrection;
                     debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
                             + ":" + confLowerBound + "->" + tighterLower);
-                    recordCorrection(confLowerBound, confCorrection);
+                    recordCorrection(confLowerBound, confCorrection, conf);
                     child.setBoundsFromConfLowerAndUpper(tighterLower, child.getConfUpperBound());
                 }
             }
