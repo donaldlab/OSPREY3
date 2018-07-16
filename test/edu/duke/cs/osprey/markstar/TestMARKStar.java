@@ -122,7 +122,7 @@ public class TestMARKStar {
 
     @Test
     public void testMARKStarTinyEpsilon() {
-        printMARKStarComputationStats(runMARKStar(4, 0.68).get(0));
+        printMARKStarComputationStats(runMARKStar(10, 0.68).get(0));
 
     }
 
