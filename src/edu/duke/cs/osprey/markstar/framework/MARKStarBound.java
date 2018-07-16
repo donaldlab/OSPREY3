@@ -406,7 +406,7 @@ public class MARKStarBound implements PartitionFunction {
             else debugPrint("Out of conformations.");
         }
         int numMinimizations = 0;
-        int maxMinimizations = 1;
+        int maxMinimizations = parallelism.numThreads;
         int maxNodes = 100000;
         int numNodes = 0;
         double energyThreshhold = -Math.log(((1-epsilonBound)/(1-targetEpsilon)));
@@ -519,7 +519,7 @@ public class MARKStarBound implements PartitionFunction {
                         if(lowerbound < confCorrection) {
                             debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
                                     + ":" + lowerbound + "->" + confCorrection);
-                            confLowerBound = confLowerBound - lowerbound + confCorrection;
+                            confLowerBound = confCorrection + hdiff;
                         }
                         child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
                         synchronized (progress) {
@@ -532,12 +532,6 @@ public class MARKStarBound implements PartitionFunction {
                         confRigid=confRigid-node.gscore+node.rigidScore;
 
                         child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
-                        if (confPairwiseLower > confRigid) {
-                            System.err.println("Our bounds are not tight. Lower bound is " + (confPairwiseLower - confRigid) + " higher");
-                            double temp = confRigid;
-                            confRigid = confPairwiseLower;
-                            confPairwiseLower = temp;
-                        }
                         double confCorrection = correctionMatrix.confE(child.assignments);
                         double lowerbound = minimizingEmat.confE(child.assignments);
                         if(lowerbound < confCorrection)
@@ -580,15 +574,14 @@ public class MARKStarBound implements PartitionFunction {
         }
     }
 
+
     private void processFullConfNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
 
         double confCorrection = correctionMatrix.confE(node.assignments);
         if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
-            System.out.println("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
-                    + ":" + node.gscore + "] down to " + confCorrection);
+            double oldg = node.gscore;
             node.gscore = confCorrection;
-            if (confCorrection > node.rigidScore)
-                System.err.println("Overcorrected: " + confCorrection + " > " + node.rigidScore);
+            debugCorrection(node, confCorrection, oldg);
             node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
             curNode.markUpdated();
             queue.add(curNode);
@@ -598,39 +591,19 @@ public class MARKStarBound implements PartitionFunction {
             try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                 ScoreContext context = checkout.get();
                 node.index(context.index);
-                double corrected = correctionMatrix.confE(node.assignments);
-                if(node.gscore < confCorrection) {
-                    node.gscore = confCorrection;
-                    node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
-                    curNode.markUpdated();
-                    queue.add(curNode);
-                    return null;
-                }
 
                 ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, node.getConfLowerBound());
                 ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
-                computeEnergyCorrection(analysis, conf, context.gscorer, context.ecalc);
+                computeEnergyCorrection(analysis, conf, context.ecalc);
 
                 double energy = analysis.epmol.energy;
-                double score = minimizingEmat.confE(node.assignments);
                 double newConfUpper = energy;
                 double newConfLower = energy;
-                if(energy < node.getConfLowerBound()) {
-                    System.err.println("Bounds are incorrect:" + (node.getConfLowerBound()) + " > "
-                            + energy);
-                    if (energy < 10)
-                        System.err.println("The bounds are probably wrong.");
-                    //System.exit(-1);
-                }
+                checkConfLowerBound(node, energy);
                 if (energy > node.getConfUpperBound()) {
                     System.err.println("Upper bounds got worse after minimization:" + energy
                             + " > " + (node.getConfUpperBound())+". Rejecting minimized energy.");
                     System.err.println("Node info: "+node);
-                    double minimized = context.ecalc.calcEnergy(conf).getEnergy();
-                    ConfIndex nodeIndex = new ConfIndex(node.assignments.length);
-                    node.index(nodeIndex);
-                    double rigid = context.rigidscorer.calc(nodeIndex, RCs);
-                    double pairiwseMin = context.gscorer.calc(nodeIndex, RCs);
 
                     newConfUpper = node.getConfUpperBound();
                     newConfLower = node.getConfUpperBound();
@@ -644,17 +617,8 @@ public class MARKStarBound implements PartitionFunction {
                 synchronized(this) {
                     numConfsEnergied++;
                 }
-                //Assign true energies to the subtreeLowerBound and subtreeUpperBound
-                if (printMinimizedConfs) {
-                    System.out.println("[" + SimpleConfSpace.formatConfRCs(node.assignments) + "]"
-                            + String.format("conf:%4d, score:%12.6f, lower:%12.6f, corrected:%12.6f energy:%12.6f"
-                                    +", bounds:[%12e, %12e], delta:%12.6f, time:%10s",
-                            numConfsEnergied, oldgscore, minimizingEmat.confE(node.assignments),
-                            correctionMatrix.confE(node.assignments), newConfLower,
-                            rootNode.getConfSearchNode().getSubtreeLowerBound(),rootNode.getConfSearchNode().getSubtreeUpperBound(),
-                            epsilonBound, stopwatch.getTime(2)));
+                printMinimizationOutput(node, newConfLower, oldgscore);
 
-                }
 
             }
             return null;
@@ -668,6 +632,36 @@ public class MARKStarBound implements PartitionFunction {
                 });
     }
 
+    private void printMinimizationOutput(Node node, double newConfLower, double oldgscore) {
+        if (printMinimizedConfs) {
+            System.out.println("[" + SimpleConfSpace.formatConfRCs(node.assignments) + "]"
+                    + String.format("conf:%4d, score:%12.6f, lower:%12.6f, corrected:%12.6f energy:%12.6f"
+                            +", bounds:[%12e, %12e], delta:%12.6f, time:%10s",
+                    numConfsEnergied, oldgscore, minimizingEmat.confE(node.assignments),
+                    correctionMatrix.confE(node.assignments), newConfLower,
+                    rootNode.getConfSearchNode().getSubtreeLowerBound(),rootNode.getConfSearchNode().getSubtreeUpperBound(),
+                    epsilonBound, stopwatch.getTime(2)));
+
+        }
+    }
+
+    private void debugCorrection(Node node, double confCorrection, double oldg) {
+        System.out.println("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
+                + ":" + oldg + "] down to " + confCorrection);
+        if (confCorrection > node.rigidScore)
+            System.err.println("Overcorrected: " + confCorrection + " > " + node.rigidScore);
+    }
+
+    private void checkConfLowerBound(Node node, double energy) {
+        if(energy < node.getConfLowerBound()) {
+            System.err.println("Bounds are incorrect:" + (node.getConfLowerBound()) + " > "
+                    + energy);
+            if (energy < 10)
+                System.err.println("The bounds are probably wrong.");
+            //System.exit(-1);
+        }
+    }
+
 
     private void checkBounds(double lower, double upper)
     {
@@ -676,7 +670,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void computeEnergyCorrection(ConfAnalyzer.ConfAnalysis analysis, ConfSearch.ScoredConf conf,
-                                                 AStarScorer gscorer, ConfEnergyCalculator ecalc) {
+                                                  ConfEnergyCalculator ecalc) {
         // TODO: Replace the sortedPairwiseTerms with an ArrayList<TupE>.
         //System.out.println("Analysis:"+analysis);
         EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);

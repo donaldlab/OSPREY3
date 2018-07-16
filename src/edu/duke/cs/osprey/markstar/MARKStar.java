@@ -324,7 +324,6 @@ public class MARKStar {
 			// save the result
 			result = pfunc.makeResult();
 			pfuncResults.put(sequence, result);
-			System.out.println(String.format("Z reduction from corrections: %12.6e", pfunc.cumulativePfuncCorrection));
 			return result;
 		}
 	}

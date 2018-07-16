@@ -64,6 +64,12 @@ public class TestMARKStar {
 		compareMARKStarAndKStar(numFlex, epsilon);
     }
 
+	@Test
+	public void testMARKStarTinyEpsilon() {
+		printMARKStarComputationStats(runMARKStar(10, 0.68).get(0));
+
+	}
+
     @Test
     public void test1GUASmallUpTo()
 	{
@@ -120,11 +126,6 @@ public class TestMARKStar {
         }
 	}
 
-    @Test
-    public void testMARKStarTinyEpsilon() {
-        printMARKStarComputationStats(runMARKStar(10, 0.68).get(0));
-
-    }
 
 
 	@Test
