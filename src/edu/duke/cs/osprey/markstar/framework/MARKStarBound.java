@@ -784,18 +784,21 @@ public class MARKStarBound implements PartitionFunction {
         if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)) {
             computeTupleCorrection(ecalc, overlap);
             for (MARKStarNode conf : topConfs) {
-                Node child = conf.getConfSearchNode();
-                child.index(index);
-                double hscore = child.getConfLowerBound() - child.gscore;
-                double confCorrection = correctionMatrix.confE(child.assignments)+hscore;
-                double confLowerBound = child.getConfLowerBound();
-                if (confLowerBound < confCorrection) {
-                    recordCorrection(confLowerBound, confCorrection - child.gscore);
-                    double tighterLower = confCorrection;
-                    debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
-                            + ":" + confLowerBound + "->" + tighterLower);
-                    child.setBoundsFromConfLowerAndUpper(tighterLower, child.getConfUpperBound());
-                }
+                tasks.submit(() -> {
+                    Node child = conf.getConfSearchNode();
+                    child.index(index);
+                    double hscore = child.getConfLowerBound() - child.gscore;
+                    double confCorrection = correctionMatrix.confE(child.assignments)+hscore;
+                    double confLowerBound = child.getConfLowerBound();
+                    if (confLowerBound < confCorrection) {
+                        recordCorrection(confLowerBound, confCorrection - child.gscore);
+                        double tighterLower = confCorrection;
+                        debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
+                                + ":" + confLowerBound + "->" + tighterLower);
+                        child.setBoundsFromConfLowerAndUpper(tighterLower, child.getConfUpperBound());
+                    }
+                    return null;
+                },(ignored)->{});
             }
         }
 
