@@ -29,6 +29,7 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
 import java.io.File;
@@ -59,8 +60,8 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarVsKStar() {
-	    int numFlex = 7;
-	    double epsilon = 0.01;
+	    int numFlex = 10;
+	    double epsilon = 0.68;
 		compareMARKStarAndKStar(numFlex, epsilon);
     }
 
@@ -80,8 +81,13 @@ public class TestMARKStar {
 	}
 
 	private void compareMARKStarAndKStar(int numFlex, double epsilon) {
+		Stopwatch runTime = new Stopwatch().start();
 		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
+		System.out.println("K* time: "+runTime.getTime());
+		runTime.stop();
+		runTime.reset();
 		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
+		System.out.println("MARK* time: "+runTime.getTime());
 		for(MARKStar.ScoredSequence seq: markStarSeqs)
 			printMARKStarComputationStats(seq);
 		for(KStar.ScoredSequence seq: kStarSeqs)
@@ -196,7 +202,7 @@ public class TestMARKStar {
 		KStar.Settings settings = new KStar.Settings.Builder()
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
-				.setShowPfuncProgress(true)
+				.setShowPfuncProgress(false)
 				.build();
 		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {

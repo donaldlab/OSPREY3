@@ -42,6 +42,7 @@ import edu.duke.cs.osprey.tools.*;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -81,6 +82,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		BigDecimal lowerScoreWeightSum = BigDecimal.ZERO;
 		BigDecimal energyWeightSum = BigDecimal.ZERO;
 		BigDecimal minLowerScoreWeight = MathTools.BigPositiveInfinity;
+		BigDecimal cumulativeZReduction = BigDecimal.ZERO;
 
 		// estimate of inital rates
 		// (values here aren't super imporant since they get tuned during execution,
@@ -486,6 +488,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		// did we hit the epsilon target?
 		if (state.epsilonReached(targetEpsilon)) {
 			status = Status.Estimated;
+			System.out.println(String.format("Total Z upper bound reduction through minimizations: %12.6e",state.cumulativeZReduction));
+			System.out.println(String.format("Average Z upper bound reduction per minimizations: %12.6e",state.cumulativeZReduction.divide(new BigDecimal(state.numEnergiedConfs),
+					new MathContext(BigDecimal.ROUND_HALF_UP))));
 			//Debug printline. Delete if you see it.
 			if(false) {
 				System.out.println(String.format("Partition function approximation complete: [%12.6e,%12.6e]", state.getLowerBound(), state.getUpperBound()));
@@ -523,8 +528,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 			state.dEnergy = calcSlope(delta, state.prevDelta, state.dScore);
 			state.prevDelta = delta;
 
+			state.cumulativeZReduction = state.cumulativeZReduction.add(scoreWeight.subtract(energyWeight));
+
 			// the other direction could be different now, let's be more likely to explore it
 			state.dScore *= 2.0;
+
 
 			// report progress if needed
 			if (isReportingProgress) {

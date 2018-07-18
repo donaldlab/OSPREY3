@@ -19,6 +19,7 @@ import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -319,7 +320,10 @@ public class MARKStar {
 
 			// compute it
 			pfunc.init(settings.epsilon, stabilityThreshold);
+			Stopwatch computeTimer = new Stopwatch().start();
 			pfunc.compute();
+			computeTimer.stop();
+			System.out.println("Computation for "+sequence.toString()+":"+computeTimer.getTime(2));
 
 			// save the result
 			result = pfunc.makeResult();

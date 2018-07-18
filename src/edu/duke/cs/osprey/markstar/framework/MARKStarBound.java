@@ -37,6 +37,7 @@ import javafx.util.Pair;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.util.*;
 
 public class MARKStarBound implements PartitionFunction {
@@ -151,6 +152,11 @@ public class MARKStarBound implements PartitionFunction {
             }
             lastEps = epsilonBound;
         }
+        BigDecimal averageReduction = BigDecimal.ZERO;
+        if(numConfsEnergied > 0)
+            averageReduction = cumulativeZCorrection
+                .divide(new BigDecimal(numConfsEnergied), new MathContext(BigDecimal.ROUND_HALF_UP));
+        System.out.println(String.format("Average Z reduction per minimization: %12.6e",averageReduction));
         status = Status.Estimated;
         values.qstar = rootNode.getLowerBound();
         values.pstar = rootNode.getUpperBound();
@@ -623,6 +629,7 @@ public class MARKStarBound implements PartitionFunction {
                 curNode.setBoundsFromConfLowerAndUpper(newConfLower,newConfUpper);
                 double oldgscore = node.gscore;
                 node.gscore = newConfLower;
+                recordCorrection(oldgscore, newConfLower-oldgscore);
                 String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                 debugPrint(out);
                 updateBound();
@@ -768,18 +775,27 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void processPreminimization(ConfEnergyCalculator ecalc) {
-        int maxMinimizations = 3;
+        int maxMinimizations = 10;
         List<MARKStarNode> topConfs = getTopConfs(maxMinimizations);
         // Need at least two confs to do any partial preminimization
         if (topConfs.size() < 2) {
             queue.addAll(topConfs);
             return;
         }
-        RCTuple lowestBoundTuple= topConfs.get(0).toTuple();
+        RCTuple lowestBoundTuple = topConfs.get(0).toTuple();
         RCTuple overlap = findLargestOverlap(lowestBoundTuple, topConfs, 3);
         //Only continue if we have something to minimize
-        for(MARKStarNode conf : topConfs)
-            computeTupleCorrection(minimizingEcalc, conf.toTuple());
+        for (MARKStarNode conf : topConfs) {
+            RCTuple confTuple = conf.toTuple();
+            if (confTuple.size() > 2 && confTuple.size() < RCs.getNumPos ()){
+                minimizingEcalc.tasks.submit(() -> {
+                    computeTupleCorrection(minimizingEcalc, conf.toTuple());
+                    return null;
+                }, (econf) -> {
+                });
+            }
+        }
+        minimizingEcalc.tasks.waitForFinish();
         ConfIndex index = new ConfIndex(RCs.getNumPos());
         if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)) {
             computeTupleCorrection(ecalc, overlap);
