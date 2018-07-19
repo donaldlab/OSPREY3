@@ -153,9 +153,10 @@ public class MARKStarBound implements PartitionFunction {
             lastEps = epsilonBound;
         }
         BigDecimal averageReduction = BigDecimal.ZERO;
-        if(numConfsEnergied > 0)
+        int totalMinimizations = numConfsEnergied + numPartialMinimizations;
+        if(totalMinimizations> 0)
             averageReduction = cumulativeZCorrection
-                .divide(new BigDecimal(numConfsEnergied), new MathContext(BigDecimal.ROUND_HALF_UP));
+                .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));
         System.out.println(String.format("Average Z reduction per minimization: %12.6e",averageReduction));
         status = Status.Estimated;
         values.qstar = rootNode.getLowerBound();
@@ -427,7 +428,7 @@ public class MARKStarBound implements PartitionFunction {
                 !queue.isEmpty() && queue.peek().getConfSearchNode().getConfLowerBound() - bestLower < energyThreshhold ) {
             //System.out.println("Current overall error bound: "+epsilonBound);
             if(epsilonBound <= targetEpsilon)
-                break;
+                return;
             MARKStarNode curNode = queue.poll();
             Node node = curNode.getConfSearchNode();
             double curLower = node.getConfLowerBound();
@@ -472,6 +473,8 @@ public class MARKStarBound implements PartitionFunction {
 
         minimizingEcalc.tasks.waitForFinish();
         tasks.waitForFinish();
+        if(epsilonBound <= targetEpsilon)
+            return;
         queue.addAll(newNodes);
         loopWatch.stop();
         double loopTime = loopWatch.getTimeS();
@@ -786,6 +789,7 @@ public class MARKStarBound implements PartitionFunction {
         RCTuple overlap = findLargestOverlap(lowestBoundTuple, topConfs, 3);
         //Only continue if we have something to minimize
         for (MARKStarNode conf : topConfs) {
+            numPartialMinimizations++;
             RCTuple confTuple = conf.toTuple();
             if (confTuple.size() > 2 && confTuple.size() < RCs.getNumPos ()){
                 minimizingEcalc.tasks.submit(() -> {

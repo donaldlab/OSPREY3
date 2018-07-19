@@ -60,7 +60,7 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarVsKStar() {
-	    int numFlex = 10;
+	    int numFlex = 8;
 	    double epsilon = 0.68;
 		compareMARKStarAndKStar(numFlex, epsilon);
     }
@@ -83,15 +83,18 @@ public class TestMARKStar {
 	private void compareMARKStarAndKStar(int numFlex, double epsilon) {
 		Stopwatch runTime = new Stopwatch().start();
 		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
-		System.out.println("K* time: "+runTime.getTime());
+		String kstartime = runTime.getTime(2);
 		runTime.stop();
 		runTime.reset();
+		runTime.start();
 		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
-		System.out.println("MARK* time: "+runTime.getTime());
+		runTime.stop();
 		for(MARKStar.ScoredSequence seq: markStarSeqs)
 			printMARKStarComputationStats(seq);
 		for(KStar.ScoredSequence seq: kStarSeqs)
 			printKStarComputationStats(seq);
+		System.out.println("K* time: "+kstartime);
+		System.out.println("MARK* time: "+runTime.getTime());
 	}
 
 
