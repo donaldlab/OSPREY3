@@ -1268,12 +1268,14 @@ def EwakstarDoer_State(name, confSpace):
 
 	return jvm.getInnerClass(c.ewakstar.EwakstarDoer, 'State')(name, confSpace)
 
-def EwakstarDoer(state, useWtBenchmark=useJavaDefault, numEWAKStarSeqs=useJavaDefault, logFile=None, epsilon=useJavaDefault, pfEw=useJavaDefault, eW=useJavaDefault, orderOfMag=useJavaDefault, numPfConfs=useJavaDefault, numTopSeqs=useJavaDefault, mutableType=useJavaDefault, numMutable=useJavaDefault, seqFilterOnly=useJavaDefault, numCPUs=useJavaDefault):
+def EwakstarDoer(state, smaNodes, useSMA=useJavaDefault, useWtBenchmark=useJavaDefault, numEWAKStarSeqs=useJavaDefault, logFile=None, epsilon=useJavaDefault, pfEw=useJavaDefault, eW=useJavaDefault, orderOfMag=useJavaDefault, numPfConfs=useJavaDefault, numTopSeqs=useJavaDefault, mutableType=useJavaDefault, numMutable=useJavaDefault, seqFilterOnly=useJavaDefault, numCPUs=useJavaDefault):
 
     builder = _get_builder(c.ewakstar.EwakstarDoer)()
 
     builder.addState(state)
 
+    if useSMA is not useJavaDefault:
+        builder.setupSMA(useSMA, smaNodes)
     if useWtBenchmark is not useJavaDefault:
         builder.setUseWtBenchmark(useWtBenchmark)
     if epsilon is not useJavaDefault:

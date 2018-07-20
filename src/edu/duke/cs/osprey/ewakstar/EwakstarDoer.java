@@ -434,6 +434,8 @@ public class EwakstarDoer {
         private int numTopOverallSeqs = 10;
         private boolean useWtBenchmark = false;
         private double epsilon = 0.68;
+        private int smaNodes;
+        private boolean useSMA = false;
 
         /** File to which to log sequences as they are found */
         private File logFile = null;
@@ -515,8 +517,16 @@ public class EwakstarDoer {
             return this;
         }
 
+        public Builder setupSMA(boolean val, int num){
+            useSMA = val;
+            smaNodes = num;
+            return this;
+        }
+
         public EwakstarDoer build() {
-            return new EwakstarDoer(state,
+            return new EwakstarDoer(useSMA,
+                    smaNodes,
+                    state,
                     eW,
                     mutableType,
                     numMutable,
@@ -557,10 +567,12 @@ public class EwakstarDoer {
     public EwakstarDoer ewakstarDoerP;
     public EwakstarDoer ewakstarDoerL;
     public EwakstarDoer ewakstarDoerPL;
+    public final boolean useSMA;
+    public final int smaNodes;
 
     private final Map<StateConfs.Key,StateConfs> stateConfsCache = new HashMap<>();
 
-    private EwakstarDoer(State state, double eW, String mutableType, int numMutable, int numCPUs, boolean printToConsole, boolean seqFilterOnly, File logFile, int numEWAKStarSeqs, boolean useWtBenchmark, int orderOfMag, double pfEw, int numPfConfs, double epsilon, int numTopOverallSeqs) {
+    private EwakstarDoer(boolean useSMA, int smaNodes, State state, double eW, String mutableType, int numMutable, int numCPUs, boolean printToConsole, boolean seqFilterOnly, File logFile, int numEWAKStarSeqs, boolean useWtBenchmark, int orderOfMag, double pfEw, int numPfConfs, double epsilon, int numTopOverallSeqs) {
 
         if(mutableType.equals("exact") || mutableType.equals("max")){
             this.numMutable = numMutable;
@@ -572,6 +584,8 @@ public class EwakstarDoer {
             this.useExact = false;
         }
 
+        this.useSMA = useSMA;
+        this.smaNodes = smaNodes;
         this.epsilon = epsilon;
         this.numEWAKStarSeqs = numEWAKStarSeqs;
         this.orderOfMag = orderOfMag;
@@ -911,15 +925,26 @@ public class EwakstarDoer {
 
 
         // make the conf tree factory
-        P.confTreeFactoryMin = (rcs) -> new ConfAStarTree.Builder(P.emat, rcs)
-                .setMaxNumNodes(20000000)
-                .setTraditional()
-                .build();
 
-        P.confTreeFactoryRigid = (rcs) -> new ConfAStarTree.Builder(P.ematRigid, rcs)
-                .setMaxNumNodes(20000000)
-                .setTraditional()
-                .build();
+        if (useSMA) {
+            P.confTreeFactoryMin = (rcs) -> new ConfAStarTree.Builder(P.emat, rcs)
+                    .setMaxNumNodes(smaNodes)
+                    .setTraditional()
+                    .build();
+
+            P.confTreeFactoryRigid = (rcs) -> new ConfAStarTree.Builder(P.ematRigid, rcs)
+                    .setMaxNumNodes(smaNodes)
+                    .setTraditional()
+                    .build();
+        } else {
+            P.confTreeFactoryMin = (rcs) -> new ConfAStarTree.Builder(P.emat, rcs)
+                    .setTraditional()
+                    .build();
+
+            P.confTreeFactoryRigid = (rcs) -> new ConfAStarTree.Builder(P.ematRigid, rcs)
+                    .setTraditional()
+                    .build();
+        }
 
 
 
@@ -959,15 +984,26 @@ public class EwakstarDoer {
                 .calcEnergyMatrix();
 
         // make the conf tree factory
-        L.confTreeFactoryMin = (rcs) -> new ConfAStarTree.Builder(L.emat, rcs)
-                .setMaxNumNodes(20000000)
-                .setTraditional()
-                .build();
+        if (useSMA) {
+            L.confTreeFactoryMin = (rcs) -> new ConfAStarTree.Builder(L.emat, rcs)
+                    .setMaxNumNodes(smaNodes)
+                    .setTraditional()
+                    .build();
+            L.confTreeFactoryRigid = (rcs) -> new ConfAStarTree.Builder(L.ematRigid, rcs)
+                    .setMaxNumNodes(smaNodes)
+                    .setTraditional()
+                    .build();
+        } else {
+            L.confTreeFactoryMin = (rcs) -> new ConfAStarTree.Builder(L.emat, rcs)
+                    .setTraditional()
+                    .build();
+            L.confTreeFactoryRigid = (rcs) -> new ConfAStarTree.Builder(L.ematRigid, rcs)
+                    .setTraditional()
+                    .build();
+        }
 
-        L.confTreeFactoryRigid = (rcs) -> new ConfAStarTree.Builder(L.ematRigid, rcs)
-                .setMaxNumNodes(20000000)
-                .setTraditional()
-                .build();
+
+
 
     }
 

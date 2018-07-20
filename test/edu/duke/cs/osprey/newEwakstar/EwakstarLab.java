@@ -197,6 +197,7 @@ public class EwakstarLab {
 						.build()
 		);
 
+		boolean useSMA = false;
 		int orderMag = 3; //order of magnitude worse in partition function we want to keep sequences relative to the wild-type
 		int numEWAKStarSeqs = 10000; //number of sequences we want to limit ourselves to during the "sequence filter" portion of ewakstarDoer
 		double ewakstarEw = 2.0; //energy window within the wild-type for finding sequences in the "sequence filter" portion of ewakstarDoer
@@ -261,15 +262,26 @@ public class EwakstarLab {
 				.calcEnergyMatrix();
 
 		// make the conf tree factory
-		PL.confTreeFactoryMin =(rcs)->new ConfAStarTree.Builder(PL.emat,rcs)
-				.setMaxNumNodes(20000000)
-				.setTraditional()
-				.build();
 
-		PL.confTreeFactoryRigid =(rcs)->new ConfAStarTree.Builder(PL.ematRigid,rcs)
-				.setMaxNumNodes(20000000)
-				.setTraditional()
-				.build();
+		if (useSMA) {
+			PL.confTreeFactoryMin = (rcs) -> new ConfAStarTree.Builder(PL.emat, rcs)
+					.setMaxNumNodes(20000000)
+					.setTraditional()
+					.build();
+
+			PL.confTreeFactoryRigid = (rcs) -> new ConfAStarTree.Builder(PL.ematRigid, rcs)
+					.setMaxNumNodes(20000000)
+					.setTraditional()
+					.build();
+		} else{
+			PL.confTreeFactoryMin = (rcs) -> new ConfAStarTree.Builder(PL.emat, rcs)
+					.setTraditional()
+					.build();
+
+			PL.confTreeFactoryRigid = (rcs) -> new ConfAStarTree.Builder(PL.ematRigid, rcs)
+					.setTraditional()
+					.build();
+		}
 
 		return ewakstarDoer;
 	}
