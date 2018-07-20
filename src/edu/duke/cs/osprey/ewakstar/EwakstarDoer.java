@@ -1048,7 +1048,7 @@ public class EwakstarDoer {
                 } else if (infos.size() >= numSequences) { //if we have surpassed the maximum number of sequence we want to find, we want to quit
                     didSeqMax = true;
                     break;
-                } else if(pfUB > wtPfLB - orderMag) { //otherwise, add the sequence if it's partition function upper bound is within orderMag of the wt pf lower bound
+                } else if(confs.stateConfs.lowestScoringConf.getScore() < wtEnergy+eW && pfUB > wtPfLB - orderMag) { //otherwise, add the sequence if it's conformation minimized lower bound is within the energy window and it's partition function upper bound is within orderMag of the wt pf lower bound
                     infos.add(info);
                     reportSequence(infos.size() == 1, info);
                 }
@@ -1057,7 +1057,7 @@ public class EwakstarDoer {
 
         List<SequenceInfo> badPfs = new ArrayList<>();
         for(int i=0; i<wtSpot; i++) {
-            if (infos.get(i).pfUB < wtPfLB - orderMag) {
+            if (infos.get(i).pfUB < wtPfLB - orderMag || infos.get(i).lowestConf.getScore() > wtEnergy+eW) {
                 badPfs.add(infos.get(i));
             }
         }
@@ -1167,7 +1167,7 @@ public class EwakstarDoer {
                 } else if (infos.size() >= seqsToUse.size()) { //if we have surpassed the maximum number of sequence we want to find, we want to quit
                     didSeqMax = true;
                     break;
-                } else if (pfUB > wtPfLB - orderMag) { //otherwise, add the sequence if it's partition function upper bound is within orderMag of the wt pf lower bound
+                } else if (confs.stateConfs.lowestScoringConf.getScore() < wtEnergy+eW && pfUB > wtPfLB - orderMag) { //otherwise, add the sequence if it's partition function upper bound is within orderMag of the wt pf lower bound
                     infos.add(info);
                     seqNum++;
                     reportSequence(infos.size() == 1, info);
@@ -1177,7 +1177,7 @@ public class EwakstarDoer {
 
         List<SequenceInfo> badPfs = new ArrayList<>();
         for(int i=0; i<wtSpot; i++) {
-            if (infos.get(i).pfUB < wtPfLB - orderMag) {
+            if (infos.get(i).pfUB < wtPfLB - orderMag || infos.get(i).lowestConf.getScore() > wtEnergy+eW) {
                 badPfs.add(infos.get(i));
             }
         }
