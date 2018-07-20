@@ -252,7 +252,6 @@ public class MARKStar {
 		public ConfSearchFactory confSearchFactory = null;
 		public File confDBFile = null;
 
-		public final List<Sequence> sequences = new ArrayList<>();
 		public EnergyMatrix rigidEmat = null;
 		public EnergyMatrix minimizingEmat = null;
 		public final Map<Sequence,PartitionFunction.Result> pfuncResults = new HashMap<>();
@@ -382,11 +381,6 @@ public class MARKStar {
 		complex.calcEmats();
 
 
-		// collect the wild type sequences
-		protein.sequences.add(protein.confSpace.makeWildTypeSequence());
-		ligand.sequences.add(ligand.confSpace.makeWildTypeSequence());
-		complex.sequences.add(complex.confSpace.makeWildTypeSequence());
-
 		// collect all the seque// collect all the sequences explicitly
 		if (complex.confSpace.seqSpace.containsWildTypeSequence()) {
 			sequences.add(complex.confSpace.seqSpace.makeWildTypeSequence());
@@ -396,7 +390,7 @@ public class MARKStar {
 		// TODO: sequence filtering? do we need to reject some mutation combinations for some reason?
 
 		// now we know how many sequences there are in total
-		int n = complex.sequences.size();
+		int n = sequences.size();
 
 		// make the sequence scorer and reporter
 		Scorer scorer = (sequenceNumber, proteinResult, ligandResult, complexResult) -> {
@@ -417,7 +411,7 @@ public class MARKStar {
 			return kstarScore;
 		};
 
-		System.out.println("computing K* scores for " + complex.sequences.size() + " sequences to epsilon = " + settings.epsilon + " ...");
+		System.out.println("computing K* scores for " + sequences.size() + " sequences to epsilon = " + settings.epsilon + " ...");
 		settings.scoreWriters.writeHeader();
 		// TODO: progress bar?
 

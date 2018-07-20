@@ -43,7 +43,7 @@ import java.util.*;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    private boolean debug = false;
+    public boolean debug = false;
     private Status status = null;
     private MARKStarBound.Values values = null;
 
@@ -157,7 +157,7 @@ public class MARKStarBound implements PartitionFunction {
         if(totalMinimizations> 0)
             averageReduction = cumulativeZCorrection
                 .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));
-        System.out.println(String.format("Average Z reduction per minimization: %12.6e",averageReduction));
+        debugPrint(String.format("Average Z reduction per minimization: %12.6e",averageReduction));
         status = Status.Estimated;
         values.qstar = rootNode.getLowerBound();
         values.pstar = rootNode.getUpperBound();
@@ -471,10 +471,12 @@ public class MARKStarBound implements PartitionFunction {
 
         }
 
+        synchronized (this) {
+            if (epsilonBound <= targetEpsilon)
+                return;
+        }
         minimizingEcalc.tasks.waitForFinish();
         tasks.waitForFinish();
-        if(epsilonBound <= targetEpsilon)
-            return;
         queue.addAll(newNodes);
         loopWatch.stop();
         double loopTime = loopWatch.getTimeS();
@@ -868,7 +870,7 @@ public class MARKStarBound implements PartitionFunction {
             PriorityQueue<MARKStarNode> copy = new PriorityQueue<>();
             BigDecimal peek = queue.peek().getErrorBound();
             int numConfs = 0;
-            while(!queue.isEmpty() || numConfs < 10) {
+            while(!queue.isEmpty() && copy.size() < 10) {
                 MARKStarNode node = queue.poll();
                 if(node != null && (numConfs < 10 || node.getConfSearchNode().isLeaf()
                         || node.getErrorBound().multiply(new BigDecimal(1000)).compareTo(peek) >= 0)) {
