@@ -37,19 +37,23 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.kstar.BBKStar;
+import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScore;
+import edu.duke.cs.osprey.kstar.MSKStar;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
 public interface PartitionFunction {
-	
+
+
 	public static enum Status {
 		
 		Estimating(true),
@@ -268,6 +272,10 @@ public interface PartitionFunction {
 		throw new UnsupportedOperationException(getClass().getName() + " does not yet support stability thresholds");
 	}
 
+	default void setRCs(RCs rcs) {
+		throw new UnsupportedOperationException(getClass().getName() + " does not need to know about RCs.");
+	}
+
 	Status getStatus();
 	Values getValues();
 	int getParallelism();
@@ -306,9 +314,15 @@ public interface PartitionFunction {
 
 	/**
 	 * Factory method to make the best pfunc calculator based on the conf ecalc
+	 * @param info
 	 */
+	public static PartitionFunction makeBestFor(BBKStar.ConfSpaceInfo info) {
+	    if(true)
+            return MARKStarBound.makeFromConfSpaceInfo(info);
+		return new GradientDescentPfunc(info.confEcalcMinimized);
+	}
 	public static PartitionFunction makeBestFor(ConfEnergyCalculator confEcalc) {
-			return new GradientDescentPfunc(confEcalc);
+		return new GradientDescentPfunc(confEcalc);
 	}
 
 

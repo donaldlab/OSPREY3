@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.*;
 import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
@@ -22,6 +23,7 @@ import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
+import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.MARKStarProgress;
@@ -35,6 +37,7 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import javafx.util.Pair;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -84,7 +87,14 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     @Override
-    public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon){}
+    public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon){
+        init(targetEpsilon);
+    }
+
+    @Override
+    public void setRCs(RCs rcs) {
+        RCs = rcs;
+    }
 
     public void setReportProgress(boolean showPfuncProgress) {
         this.printMinimizedConfs = true;
@@ -92,6 +102,11 @@ public class MARKStarBound implements PartitionFunction {
 
     @Override
     public void setConfListener(ConfListener val) {
+
+    }
+
+    @Override
+    public void setStabilityThreshold(BigDecimal threshhold) {
 
     }
 
@@ -180,124 +195,6 @@ public class MARKStarBound implements PartitionFunction {
         return result;
     }
 
-    public static class Builder {
-
-        /** The energy matrix to use for upper bound scoring. */
-        private EnergyMatrix rigidEmat;
-        /** The energy matrix to use for calculating minimized energies. */
-        private EnergyMatrix minimizingEmat;
-        /** The ConfEnergyCalculator to use for n-body minimizied energies */
-        private ConfEnergyCalculator minimizingConfEcalc;
-
-        private RCs rcs;
-        private AStarOrder order = null;
-        private AStarScorer gscorer = null;
-        private AStarScorer hscorer = null;
-        private boolean showProgress = false;
-        private ConfAStarFactory factory = new LinkedConfAStarFactory();
-        private SimpleConfSpace confSpace = null;
-        private AStarPruner pruner = null;
-        private ConfAStarTree.Builder aStarBuilder;
-        private Parallelism parallelism;
-        private boolean reportProgress = false;
-
-        public Builder(EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat, ConfEnergyCalculator minimizingConfEcalc, SimpleConfSpace confSpace) {
-            this(rigidEmat, minimizingEmat, minimizingConfEcalc, new RCs(confSpace));
-        }
-
-        public Builder(EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat, ConfEnergyCalculator minimizingConfEcalc, PruningMatrix pmat) {
-            this(rigidEmat, minimizingEmat, minimizingConfEcalc, new RCs(pmat));
-        }
-
-        public Builder(EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat, ConfEnergyCalculator minimizingConfEcalc, RCs rcs) {
-            this.rigidEmat = rigidEmat;
-            this.minimizingEmat = minimizingEmat;
-            this.minimizingConfEcalc = minimizingConfEcalc;
-            this.rcs = rcs;
-
-            // Jeff: MPLP is dramatically faster for large A* searches
-            // and for small searches, who cares how fast A* is,
-            // so I think it makes a good default for all cases
-            setMPLP();
-        }
-
-        public Builder setCustom(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer) {
-            aStarBuilder.setCustom(order, gscorer, hscorer);
-            this.order = order;
-            this.gscorer = gscorer;
-            this.hscorer = hscorer;
-            return this;
-        }
-
-        /**
-         * Uses the traditional estimation function to guide the tree search.
-         * {@cite Leach1998 Leach, A.R. and Lemon, A.P., 1998. Exploring the conformational
-         * space of protein side chains using dead-end elimination and the A* algorithm.
-         * Proteins Structure Function and Genetics, 33(2), pp.227-239.}
-         */
-        public Builder setTraditional() {
-            aStarBuilder.setTraditional();
-            this.order = new DynamicHMeanAStarOrder();
-            this.gscorer = new PairwiseGScorer(minimizingEmat);
-            this.hscorer = new TraditionalPairwiseHScorer(minimizingEmat, rcs);
-            return this;
-        }
-
-        /**
-         * Creates an A* search using a newer estimation function based on Max Product Linear
-         * Programming (MPLP).
-         * {@cite Globerson2008 Globerson, A. and Jaakkola, T.S., 2008. Fixing max-product: Convergent message passing
-         * algorithms for MAP LP-relaxations. In Advances in neural information processing systems (pp. 553-560).}
-         *
-         * For large designs, this A* implementation can be dramatically faster than the traditional
-         * one, and often require much less memory too.
-         */
-        public Builder setMPLP() {
-            aStarBuilder.setMPLP();
-            return this;
-        }
-
-        public Builder setMPLP(ConfAStarTree.MPLPBuilder builder) {
-            aStarBuilder.setMPLP(builder);
-            return this;
-        }
-
-        /**
-         * Use external memory (eg, disk, SSD, NAS) when large A* searches
-         * cannot fit in internal memory (eg, RAM).
-         *
-         * Use {@link ExternalMemory#setInternalLimit} to set the amount of fixed internal memory
-         * and {@link ExternalMemory#setTempDir} to set the file path for external memory.
-         */
-        public Builder useExternalMemory() {
-            ExternalMemory.checkInternalLimitSet();
-            factory = new EMConfAStarFactory();
-            return this;
-        }
-
-        public Builder setReportProgress(boolean val) {
-            reportProgress = val;
-            return this;
-        }
-
-        public Builder setPruner(AStarPruner val) {
-            pruner = val;
-            return this;
-        }
-
-        public Builder setParalllelism(Parallelism val) {
-            parallelism = val;
-            return this;
-        }
-        public MARKStarBound build() {
-            ConfAStarTree tree = new ConfAStarTree.Builder(minimizingEmat, rcs).build();
-            if (reportProgress) {
-                tree.initProgress();
-            }
-            return new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc ,rcs, parallelism);
-        }
-    }
-
     /**
      * TODO: 1. Make MARKStarBounds use and update a queue.
      * TODO: 2. Make MARKStarNodes compute and update bounds correctly
@@ -329,6 +226,26 @@ public class MARKStarBound implements PartitionFunction {
     private Stopwatch stopwatch = new Stopwatch().start();
     BigDecimal cumulativeZCorrection = BigDecimal.ZERO;
     BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
+    public static MARKStarBound makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info) {
+        ConfEnergyCalculator minimizingConfEcalc = info.confEcalcMinimized;
+
+        SimpleConfSpace confSpace = info.confSpace;
+        SimplerEnergyMatrixCalculator.Builder minimizingBuilder = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc);
+            minimizingBuilder.setCacheFile(new File("MARKStar."+info.type.name().toLowerCase()+".minimizing"));
+
+        EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(minimizingConfEcalc.ecalc)
+                .setIsMinimizing(false)
+                .build();
+        ConfEnergyCalculator rigidConfEcalc = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
+        SimplerEnergyMatrixCalculator.Builder rigidBuilder = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc);
+        rigidBuilder.setCacheFile(new File("MARKStar."+info.type.name().toLowerCase()+".rigid"));
+        EnergyMatrix rigidEmat = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc)
+                .build()
+                .calcEnergyMatrix();
+        EnergyMatrix minimizingEmat = minimizingBuilder.build().calcEnergyMatrix();
+        return new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, new RCs(confSpace), minimizingConfEcalc.ecalc.parallelism);
+    }
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                          ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
