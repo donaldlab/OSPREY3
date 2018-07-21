@@ -156,8 +156,9 @@ public class MARKStarBound implements PartitionFunction {
     public void compute(int maxNumConfs) {
         debugPrint("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
         double lastEps = 1;
+        int previousConfCount = numConfsEnergied + numConfsScored;
         while (epsilonBound > targetEpsilon &&
-                (maxNumConfs < 0 || numConfsEnergied < maxNumConfs)) {
+                (maxNumConfs < 0 || numConfsEnergied + numConfsScored - previousConfCount < maxNumConfs)) {
             debugPrint("Tightening from epsilon of "+epsilonBound);
             tightenBound();
             debugPrint("Errorbound is now "+epsilonBound);
@@ -218,7 +219,7 @@ public class MARKStarBound implements PartitionFunction {
 
     public static final int MAX_CONFSPACE_FRACTION = 1000000;
     public static final double MINIMIZATION_FACTOR = 0.1;
-    public boolean reduceMinimizations = false;
+    public boolean reduceMinimizations = true;
     private ConfAnalyzer confAnalyzer;
     EnergyMatrix minimizingEmat;
     EnergyMatrix correctionMatrix;

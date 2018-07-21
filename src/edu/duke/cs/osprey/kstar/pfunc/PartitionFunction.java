@@ -316,8 +316,8 @@ public interface PartitionFunction {
 	 * Factory method to make the best pfunc calculator based on the conf ecalc
 	 * @param info
 	 */
-	public static PartitionFunction makeBestFor(BBKStar.ConfSpaceInfo info) {
-	    if(true)
+	public static PartitionFunction makeBestFor(BBKStar.ConfSpaceInfo info, boolean useMARKStar) {
+	    if(useMARKStar)
             return MARKStarBound.makeFromConfSpaceInfo(info);
 		return new GradientDescentPfunc(info.confEcalcMinimized);
 	}

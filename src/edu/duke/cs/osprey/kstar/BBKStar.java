@@ -61,6 +61,8 @@ public class BBKStar {
 	// Kotlin would make this so much easier
 	public static class Settings {
 
+		public boolean useMARKStar  = false;
+
 		public static class Builder {
 
 			/** The number of best (by K* score) sequences to evaluate before finishing */
@@ -376,7 +378,7 @@ public class BBKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			pfunc = PartitionFunction.makeBestFor(info);
+			pfunc = PartitionFunction.makeBestFor(info, bbkstarSettings.useMARKStar);
 			pfunc.setReportProgress(kstarSettings.showPfuncProgress);
 			if (confdb != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confdb.getSequence(sequence));
@@ -387,7 +389,8 @@ public class BBKStar {
 			}
 			ConfSearch astar = info.confSearchFactoryMinimized.make(rcs);
 			pfunc.init(astar, rcs.getNumConformations(), kstarSettings.epsilon);
-			pfunc.setRCs(rcs);
+			if(bbkstarSettings.useMARKStar)
+                pfunc.setRCs(rcs);
 			pfunc.setStabilityThreshold(info.stabilityThreshold);
 
 			// update the cache

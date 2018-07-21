@@ -88,6 +88,7 @@ public class TestBBKStar {
 				.setNumBestSequences(numSequences)
 				.setNumConfsPerBatch(8)
 				.build();
+			bbkstarSettings.useMARKStar = true;
 			BBKStar bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, kstarSettings, bbkstarSettings);
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
