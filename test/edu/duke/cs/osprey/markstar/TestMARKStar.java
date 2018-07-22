@@ -70,13 +70,11 @@ public class TestMARKStar {
 
 
 		Stopwatch timer = new Stopwatch().start();
-		/*
 		TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
 		timer.stop();
 		String traditionalTime = timer.getTime(2);
 		timer.reset();
 		timer.start();
-		*/
 		runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
 		String MARKStarTime = timer.getTime(2);
 		timer.stop();
