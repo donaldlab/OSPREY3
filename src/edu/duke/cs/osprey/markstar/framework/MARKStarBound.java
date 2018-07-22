@@ -612,7 +612,7 @@ public class MARKStarBound implements PartitionFunction {
         //System.out.println("Energy Analysis: "+energyAnalysis);
         //System.out.println("Score Analysis: "+scoreAnalysis);
         EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
-        //System.out.println("Difference Analysis " + diff);
+        System.out.println("Difference Analysis " + diff);
         List<Pair<Pair<Integer, Integer>, Double>> sortedPairwiseTerms = new ArrayList<>();
         for (int pos = 0; pos < diff.getNumPos(); pos++)
         {
@@ -666,6 +666,8 @@ public class MARKStarBound implements PartitionFunction {
 
 
     private void computeDifference(RCTuple tuple, ConfEnergyCalculator ecalc) {
+        if(correctionMatrix.hasHigherOrderTermFor(tuple))
+            return;
         ecalc.calcEnergyAsync(tuple, (tripleEnergy)->
         {
             double lowerbound = minimizingEmat.getInternalEnergy(tuple);
@@ -690,7 +692,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void processPreminimization(ConfEnergyCalculator ecalc) {
-        int maxMinimizations = 10;
+        int maxMinimizations = parallelism.numThreads;
         List<MARKStarNode> topConfs = getTopConfs(maxMinimizations);
         // Need at least two confs to do any partial preminimization
         if (topConfs.size() < 2) {

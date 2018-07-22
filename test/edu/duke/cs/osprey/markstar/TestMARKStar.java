@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.markstar;
 
+import static edu.duke.cs.osprey.kstar.TestBBKStar.runBBKStar;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -19,6 +20,8 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 //import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
+import edu.duke.cs.osprey.kstar.TestBBKStar;
+import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.MARKStar.ConfSearchFactory;
 import edu.duke.cs.osprey.markstar.framework.MARKStarNode;
@@ -56,6 +59,52 @@ public class TestMARKStar {
 	public static class Result {
 		public MARKStar markstar;
 		public List<MARKStar.ScoredSequence> scores;
+	}
+
+	@Test
+	public void test1GUA11MARKVsTraditional() {
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
+		final double epsilon = 0.9999;
+		final int numSequences = 6;
+
+
+		Stopwatch timer = new Stopwatch().start();
+		/*
+		TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
+		timer.stop();
+		String traditionalTime = timer.getTime(2);
+		timer.reset();
+		timer.start();
+		*/
+		runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
+		String MARKStarTime = timer.getTime(2);
+		timer.stop();
+
+		//assert2RL0(results, numSequences);
+		//System.out.println("Traditional time: "+traditionalTime);
+		System.out.println("MARK* time: "+MARKStarTime);
+	}
+
+	@Test
+	public void timeMARKStarVsTraditional() {
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
+		final double epsilon = 0.1;
+		final int numSequences = 30;
+		Stopwatch timer = new Stopwatch().start();
+		TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
+		timer.stop();
+		String traditionalTime = timer.getTime(2);
+		timer.reset();
+		timer.start();
+		results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
+		String MARKStarTime = timer.getTime(2);
+		timer.stop();
+
+		//assert2RL0(results, numSequences);
+		System.out.println("Traditional time: "+traditionalTime);
+		System.out.println("MARK* time: "+MARKStarTime);
 	}
 
 	@Test

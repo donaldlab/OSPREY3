@@ -142,34 +142,11 @@ public class TestBBKStar {
 	}
 
 	@Test
-	public void timeMARKStarVsTraditional() {
-
-		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
-		final double epsilon = 0.3;
-		final int numSequences = 30;
-		boolean useMARKStar = true;
-		Stopwatch timer = new Stopwatch().start();
-		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
-		timer.stop();
-		String traditionalTime = timer.getTime(2);
-		timer.reset();
-		timer.start();
-		results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, useMARKStar);
-		String MARKStarTime = timer.getTime(2);
-		timer.stop();
-
-		//assert2RL0(results, numSequences);
-		System.out.println("Traditional time: "+traditionalTime);
-		System.out.println("MARK* time: "+MARKStarTime);
-	}
-
-	@Test
 	public void test2RL0() {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 		final double epsilon = 0.99;
 		final int numSequences = 25;
-		boolean useMARKStar = true;
 		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
 
 		assert2RL0(results, numSequences);
