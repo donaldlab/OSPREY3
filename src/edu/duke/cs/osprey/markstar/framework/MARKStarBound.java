@@ -156,9 +156,9 @@ public class MARKStarBound implements PartitionFunction {
     public void compute(int maxNumConfs) {
         debugPrint("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
         double lastEps = 1;
-        int previousConfCount = numConfsEnergied + numConfsScored;
+        int previousConfCount = numConfsEnergied + numConfsScored + numPartialMinimizations;
         while (epsilonBound > targetEpsilon &&
-                (maxNumConfs < 0 || numConfsEnergied + numConfsScored - previousConfCount < maxNumConfs)) {
+                (maxNumConfs < 0 || numConfsEnergied + numConfsScored + numPartialMinimizations - previousConfCount < 10*maxNumConfs)) {
             debugPrint("Tightening from epsilon of "+epsilonBound);
             tightenBound();
             debugPrint("Errorbound is now "+epsilonBound);
@@ -174,7 +174,8 @@ public class MARKStarBound implements PartitionFunction {
             averageReduction = cumulativeZCorrection
                 .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));
         debugPrint(String.format("Average Z reduction per minimization: %12.6e",averageReduction));
-        status = Status.Estimated;
+        if(epsilonBound < targetEpsilon)
+            status = Status.Estimated;
         values.qstar = rootNode.getLowerBound();
         values.pstar = rootNode.getUpperBound();
         values.qprime= rootNode.getUpperBound();
@@ -222,6 +223,7 @@ public class MARKStarBound implements PartitionFunction {
     public boolean reduceMinimizations = true;
     private ConfAnalyzer confAnalyzer;
     EnergyMatrix minimizingEmat;
+    EnergyMatrix rigidEmat;
     EnergyMatrix correctionMatrix;
     ConfEnergyCalculator minimizingEcalc = null;
     private Stopwatch stopwatch = new Stopwatch().start();
@@ -230,22 +232,7 @@ public class MARKStarBound implements PartitionFunction {
 
     public static MARKStarBound makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info) {
         ConfEnergyCalculator minimizingConfEcalc = info.confEcalcMinimized;
-
-        SimpleConfSpace confSpace = info.confSpace;
-        SimplerEnergyMatrixCalculator.Builder minimizingBuilder = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc);
-            minimizingBuilder.setCacheFile(new File("MARKStar."+info.type.name().toLowerCase()+".minimizing"));
-
-        EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(minimizingConfEcalc.ecalc)
-                .setIsMinimizing(false)
-                .build();
-        ConfEnergyCalculator rigidConfEcalc = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
-        SimplerEnergyMatrixCalculator.Builder rigidBuilder = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc);
-        rigidBuilder.setCacheFile(new File("MARKStar."+info.type.name().toLowerCase()+".rigid"));
-        EnergyMatrix rigidEmat = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc)
-                .build()
-                .calcEnergyMatrix();
-        EnergyMatrix minimizingEmat = minimizingBuilder.build().calcEnergyMatrix();
-        return new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, new RCs(confSpace), minimizingConfEcalc.ecalc.parallelism);
+        return new MARKStarBound(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, new RCs(info.confSpace), minimizingConfEcalc.ecalc.parallelism);
     }
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
@@ -263,6 +250,7 @@ public class MARKStarBound implements PartitionFunction {
         updateBound();
         confIndex = new ConfIndex(rcs.getNumPos());
         this.minimizingEmat = minimizingEmat;
+        this.rigidEmat = rigidEmat;
         this.RCs = rcs;
         this.order = new UpperLowerAStarOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
@@ -360,9 +348,13 @@ public class MARKStarBound implements PartitionFunction {
                         + ":" + node.gscore + "] down to " + confCorrection);
                 recordCorrection(node.getConfLowerBound(), correctgscore - node.gscore);
                 node.gscore = correctgscore;
-                if (confCorrection > node.rigidScore)
+                if (confCorrection > node.rigidScore) {
+                    double rigid = rigidEmat.confE(node.assignments);
                     System.err.println("Overcorrected: " + confCorrection + " > " + node.rigidScore);
-                node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
+                    node.gscore = node.rigidScore;
+                    confCorrection = node.rigidScore + hscore;
+                }
+                node.setBoundsFromConfLowerAndUpper(confCorrection, node.getConfUpperBound());
                 curNode.markUpdated();
                 queue.add(curNode);
                 continue;

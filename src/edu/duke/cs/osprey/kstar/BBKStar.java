@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
@@ -116,6 +117,8 @@ public class BBKStar {
 		public ConfSearchFactory confSearchFactoryRigid = null;
 
 		public File confDBFile = null;
+		public EnergyMatrix ematMinimized = null;
+		public EnergyMatrix ematRigid = null;
 
 		private BigDecimal stabilityThreshold = null;
 
