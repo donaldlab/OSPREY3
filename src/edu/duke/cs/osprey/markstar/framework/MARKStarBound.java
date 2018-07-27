@@ -193,7 +193,7 @@ public class MARKStarBound implements PartitionFunction {
 
     @Override
     public PartitionFunction.Result makeResult() {
-        PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated(), numConfsScored, rootNode.getNumConfs());
+        PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs());
         return result;
     }
 

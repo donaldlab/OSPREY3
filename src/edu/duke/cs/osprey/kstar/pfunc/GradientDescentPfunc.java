@@ -607,6 +607,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	}
 	@Override
 	public PartitionFunction.Result makeResult() {
-		return new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated(), getNumConfsScored(), energyConfs.getNumConformations());
+		return new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated(), 0,getNumConfsScored(), energyConfs.getNumConformations());
 	}
 }
