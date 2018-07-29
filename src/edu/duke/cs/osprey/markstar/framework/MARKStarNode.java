@@ -22,7 +22,7 @@ import java.util.*;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
-    boolean debug = false;
+    static boolean debug = false;
     private static AStarScorer gScorer;
     private static AStarScorer rigidgScorer;
     private static AStarScorer hScorer;
@@ -379,8 +379,13 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
-            if (lowerBound > upperBound)
-                System.err.println("Incorrect conf bounds set.");
+            if (lowerBound > upperBound) {
+                if(debug)
+                    System.out.println("Incorrect conf bounds set.");
+                double temp = lowerBound;
+                lowerBound = upperBound;
+                upperBound = temp;
+            }
             updateConfLowerBound(lowerBound);
             updateConfUpperBound(upperBound);
         }

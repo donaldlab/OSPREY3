@@ -344,14 +344,14 @@ public class MARKStarBound implements PartitionFunction {
             double correctgscore = correctionMatrix.confE(node.assignments);
             double hscore = node.getConfLowerBound() - node.gscore;
             double confCorrection = correctgscore + hscore;
-            if(node.getConfLowerBound() < confCorrection) {
+            if(!node.isMinimized() && node.getConfLowerBound() < confCorrection) {
                 debugPrint("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
                         + ":" + node.gscore + "] down to " + confCorrection);
                 recordCorrection(node.getConfLowerBound(), correctgscore - node.gscore);
                 node.gscore = correctgscore;
                 if (confCorrection > node.rigidScore) {
                     double rigid = rigidEmat.confE(node.assignments);
-                    System.err.println("Overcorrected: " + confCorrection + " > " + node.rigidScore);
+                    System.out.println("Overcorrected"+SimpleConfSpace.formatConfRCs(node.assignments)+": " + confCorrection + " > " + node.rigidScore);
                     node.gscore = node.rigidScore;
                     confCorrection = node.rigidScore + hscore;
                 }
@@ -584,7 +584,7 @@ public class MARKStarBound implements PartitionFunction {
         System.out.println("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
                 + ":" + oldg + "] down to " + confCorrection);
         if (confCorrection > node.rigidScore)
-            System.err.println("Overcorrected: " + confCorrection + " > " + node.rigidScore);
+            System.err.println("Overcorrected"+SimpleConfSpace.formatConfRCs(node.assignments)+": " + confCorrection + " > " + node.rigidScore);
     }
 
     private void checkConfLowerBound(Node node, double energy) {
@@ -601,7 +601,7 @@ public class MARKStarBound implements PartitionFunction {
     private void checkBounds(double lower, double upper)
     {
         if (lower > upper)
-            System.err.println("Bounds incorrect.");
+            debugPrint("Bounds incorrect.");
     }
 
     private void computeEnergyCorrection(ConfAnalyzer.ConfAnalysis analysis, ConfSearch.ScoredConf conf,
