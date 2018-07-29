@@ -644,7 +644,7 @@ public class MARKStarBound implements PartitionFunction {
         {
             Pair<Pair<Integer, Integer>, Double> pairEnergy = sortedPairwiseTerms.get(i);
             double pairDiff = pairEnergy.getValue();
-            if(pairDiff > minDifference && maxDiff - pairDiff > threshhold)
+            if(pairDiff < minDifference || maxDiff - pairDiff < threshhold)
                 continue;
             maxDiff = Math.max(maxDiff, pairEnergy.getValue());
             int pos1 = pairEnergy.getKey().getKey();
