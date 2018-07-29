@@ -337,7 +337,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                 }
                 if(indexedPos > position || (indexedPos == position && indexedRC!= rc && rc != WILDCARD_RC))
                     System.err.println("Error in trie traversal.");
-                if(tupleIndex + 1 == positions.size())
+                if(tupleIndex + 1 > positions.size())
                     return;
                 int nextIndex = tupleIndex + 1;
                 if(position + 1 < currentPos)

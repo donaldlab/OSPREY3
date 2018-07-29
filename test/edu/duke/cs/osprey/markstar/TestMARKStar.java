@@ -65,7 +65,7 @@ public class TestMARKStar {
 	public void test1GUA11MARKVsTraditional() {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
-		final double epsilon = 0.9999;
+		final double epsilon = 0.999;
 		final int numSequences = 6;
 
 
@@ -80,9 +80,10 @@ public class TestMARKStar {
 		timer.stop();
 
 		//assert2RL0(results, numSequences);
-		//System.out.println("Traditional time: "+traditionalTime);
+		System.out.println("Traditional time: "+traditionalTime);
 		System.out.println("MARK* time: "+MARKStarTime);
 	}
+
 
 	@Test
 	public void timeMARKStarVsTraditional() {

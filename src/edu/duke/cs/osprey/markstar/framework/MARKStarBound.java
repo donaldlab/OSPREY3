@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -612,7 +613,7 @@ public class MARKStarBound implements PartitionFunction {
         //System.out.println("Energy Analysis: "+energyAnalysis);
         //System.out.println("Score Analysis: "+scoreAnalysis);
         EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
-        System.out.println("Difference Analysis " + diff);
+        //System.out.println("Difference Analysis " + diff);
         List<Pair<Pair<Integer, Integer>, Double>> sortedPairwiseTerms = new ArrayList<>();
         for (int pos = 0; pos < diff.getNumPos(); pos++)
         {
@@ -636,15 +637,18 @@ public class MARKStarBound implements PartitionFunction {
         Collections.sort(sortedPairwiseTerms, (a,b)->-Double.compare(a.getValue(),b.getValue()));
 
         //Collections.sort(sortedPairwiseTerms, Comparator.comparingDouble(Pair::getValue));
-        double threshhold = 0.9;
+        double threshhold = 0.5;
+        double minDifference = 0.9;
+        double maxDiff = 0;
         for(int i = 0; i < sortedPairwiseTerms.size(); i++)
         {
             Pair<Pair<Integer, Integer>, Double> pairEnergy = sortedPairwiseTerms.get(i);
-            if(pairEnergy.getValue() < threshhold)
+            double pairDiff = pairEnergy.getValue();
+            if(pairDiff > minDifference && maxDiff - pairDiff > threshhold)
                 continue;
+            maxDiff = Math.max(maxDiff, pairEnergy.getValue());
             int pos1 = pairEnergy.getKey().getKey();
             int pos2 = pairEnergy.getKey().getValue();
-            double maxCorrection = 0;
             int localMinimizations = 0;
             for(int pos3 = 0; pos3 < diff.getNumPos(); pos3++) {
                 if (pos3 == pos2 || pos3 == pos1)
@@ -657,6 +661,8 @@ public class MARKStarBound implements PartitionFunction {
             progress.reportPartialMinimization(localMinimizations, epsilonBound);
         }
         ecalc.tasks.waitForFinish();
+        double original = minimizingEmat.confE(analysis.assignments);
+        double corrected = correctionMatrix.confE(analysis.assignments);
         /* Starting from the largest-difference pairs, create triples and quads to find
          * tuples which correct the energy of the pair.
          */

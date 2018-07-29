@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.tools.HashCalculator;
+import javafx.util.Pair;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -211,17 +212,20 @@ public class RCTuple implements Serializable {
     }
 
     public RCTuple orderByPos() {
-        // This is why I hate parallel arrays! Gross hacky parallel sorting time.
+        // This is why I hate parallel arrays!
+        ArrayList<Pair<Integer, Integer>> RCPairs = new ArrayList<>();
+        for(int i = 0; i < pos.size(); i++) {
+            RCPairs.add(new Pair(pos.get(i), RCs.get(i)));
+        }
+
+        Collections.sort(RCPairs, Comparator.comparingInt(a -> a.getKey()));
         ArrayList<Integer> newPos = (ArrayList<Integer>) pos.clone();
         ArrayList<Integer> newRCs = (ArrayList<Integer>) RCs.clone();
-        ArrayList<Integer> indices = new ArrayList<>();
-        for(int i = 0; i < pos.size(); i++)
-            indices.add(i);
-
-        Collections.sort(indices, Comparator.comparingInt(a -> pos.get(a)));
-        for(int i = 0; i < indices.size(); i++)
-            newRCs.set(indices.get(i), RCs.get(i));
-        Collections.sort(newPos);
+        for(int i = 0; i < RCPairs.size(); i++)
+        {
+            newPos.set(i, RCPairs.get(i).getKey());
+            newRCs.set(i, RCPairs.get(i).getValue());
+        }
         RCTuple out = new RCTuple(newPos, newRCs);
         return out;
     }
