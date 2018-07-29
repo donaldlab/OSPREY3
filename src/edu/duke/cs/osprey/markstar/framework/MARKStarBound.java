@@ -343,7 +343,7 @@ public class MARKStarBound implements PartitionFunction {
             node.index(index);
             double correctgscore = correctionMatrix.confE(node.assignments);
             double hscore = node.getConfLowerBound() - node.gscore;
-            double confCorrection = correctgscore + hscore;
+            double confCorrection = Math.min(correctgscore, node.rigidScore) + hscore;
             if(!node.isMinimized() && node.getConfLowerBound() < confCorrection) {
                 debugPrint("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
                         + ":" + node.gscore + "] down to " + confCorrection);
@@ -709,8 +709,10 @@ public class MARKStarBound implements PartitionFunction {
         RCTuple overlap = findLargestOverlap(lowestBoundTuple, topConfs, 3);
         //Only continue if we have something to minimize
         for (MARKStarNode conf : topConfs) {
-            numPartialMinimizations++;
             RCTuple confTuple = conf.toTuple();
+            if(minimizingEmat.getInternalEnergy(confTuple) == rigidEmat.getInternalEnergy(confTuple))
+                continue;
+            numPartialMinimizations++;
             if (confTuple.size() > 2 && confTuple.size() < RCs.getNumPos ()){
                 minimizingEcalc.tasks.submit(() -> {
                     computeTupleCorrection(minimizingEcalc, conf.toTuple());
@@ -721,7 +723,8 @@ public class MARKStarBound implements PartitionFunction {
         }
         minimizingEcalc.tasks.waitForFinish();
         ConfIndex index = new ConfIndex(RCs.getNumPos());
-        if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)) {
+        if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)
+            && minimizingEmat.getInternalEnergy(overlap) != rigidEmat.getInternalEnergy(overlap)) {
             computeTupleCorrection(ecalc, overlap);
             for (MARKStarNode conf : topConfs) {
                 tasks.submit(() -> {
