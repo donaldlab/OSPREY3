@@ -49,7 +49,7 @@ public class MARKStarBound implements PartitionFunction {
     private double targetEpsilon = 1;
     public boolean debug = false;
     private Status status = null;
-    private MARKStarBound.Values values = null;
+    private Values values = null;
 
     // the number of full conformations minimized
     private int numConfsEnergied = 0;
@@ -63,6 +63,10 @@ public class MARKStarBound implements PartitionFunction {
     private MARKStarProgress progress;
     public String stateName = String.format("%4f",Math.random());
     private int numPartialMinimizations;
+
+    public void setCorrections(UpdatingEnergyMatrix cachedCorrections) {
+        correctionMatrix = cachedCorrections;
+    }
 
     // Overwrite the computeUpperBound and computeLowerBound methods
     public static class Values extends PartitionFunction.Values {
@@ -118,13 +122,13 @@ public class MARKStarBound implements PartitionFunction {
     public void init(double targetEpsilon) {
         this.targetEpsilon = targetEpsilon;
         status = Status.Estimating;
-        values = new MARKStarBound.Values();
+        values = new Values();
     }
 
     public void init(double epsilon, BigDecimal stabilityThreshold) {
         targetEpsilon = epsilon;
         status = Status.Estimating;
-        values = new MARKStarBound.Values();
+        values = new Values();
     }
 
 
@@ -193,8 +197,8 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     @Override
-    public PartitionFunction.Result makeResult() {
-        PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs());
+    public Result makeResult() {
+        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs());
         return result;
     }
 
@@ -225,7 +229,7 @@ public class MARKStarBound implements PartitionFunction {
     private ConfAnalyzer confAnalyzer;
     EnergyMatrix minimizingEmat;
     EnergyMatrix rigidEmat;
-    EnergyMatrix correctionMatrix;
+    UpdatingEnergyMatrix correctionMatrix;
     ConfEnergyCalculator minimizingEcalc = null;
     private Stopwatch stopwatch = new Stopwatch().start();
     BigDecimal cumulativeZCorrection = BigDecimal.ZERO;
@@ -244,7 +248,8 @@ public class MARKStarBound implements PartitionFunction {
 
         MPLPUpdater updater = new EdgeUpdater();
         hscorerFactory = (emats) -> new MPLPPairwiseHScorer(updater, emats, 50, 0.03);
-        this.correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
+        if(correctionMatrix == null)
+            this.correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
 
         rootNode = MARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs, gscorerFactory, hscorerFactory, true);
         queue.add(rootNode);

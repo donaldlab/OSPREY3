@@ -69,12 +69,15 @@ public class TestMARKStar {
 		final int numSequences = 6;
 
 
+		String traditionalTime = "(Not run)";
 		Stopwatch timer = new Stopwatch().start();
+		/*
 		TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
 		timer.stop();
-		String traditionalTime = timer.getTime(2);
+		traditionalTime = timer.getTime(2);
 		timer.reset();
 		timer.start();
+		*/
 		runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
 		String MARKStarTime = timer.getTime(2);
 		timer.stop();
@@ -89,8 +92,8 @@ public class TestMARKStar {
 	public void timeMARKStarVsTraditional() {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
-		final double epsilon = 0.1;
-		final int numSequences = 30;
+		final double epsilon = 0.68;
+		final int numSequences = 10;
 		Stopwatch timer = new Stopwatch().start();
 		TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
 		timer.stop();
@@ -108,14 +111,14 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarVsKStar() {
-	    int numFlex = 10;
-	    double epsilon = 0.68;
+	    int numFlex = 19;
+	    double epsilon = 0.9999;
 		compareMARKStarAndKStar(numFlex, epsilon);
     }
 
 	@Test
 	public void testMARKStarTinyEpsilon() {
-		printMARKStarComputationStats(runMARKStar(10, 0.1).get(0));
+		printMARKStarComputationStats(runMARKStar(20, 0.68).get(0));
 
 	}
 
@@ -150,15 +153,21 @@ public class TestMARKStar {
 
 	private void compareMARKStarAndKStar(int numFlex, double epsilon) {
 		Stopwatch runTime = new Stopwatch().start();
-		List<KStar.ScoredSequence> kStarSeqs = runKStarComparison(numFlex, epsilon);
-		String kstartime = runTime.getTime(2);
-		runTime.stop();
-		runTime.reset();
-		runTime.start();
+		String kstartime = "(not run)";
+		List<KStar.ScoredSequence> kStarSeqs = null;
+		boolean runkstar = true;
+		if(runkstar) {
+			kStarSeqs = runKStarComparison(numFlex, epsilon);
+			runTime.stop();
+			kstartime = runTime.getTime(2);
+			runTime.reset();
+			runTime.start();
+		}
 		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
 		runTime.stop();
 		for(MARKStar.ScoredSequence seq: markStarSeqs)
 			printMARKStarComputationStats(seq);
+		if(runkstar)
 		for(KStar.ScoredSequence seq: kStarSeqs)
 			printKStarComputationStats(seq);
 		System.out.println("K* time: "+kstartime);
@@ -273,7 +282,7 @@ public class TestMARKStar {
 		KStar.Settings settings = new KStar.Settings.Builder()
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
-				.setShowPfuncProgress(false)
+				.setShowPfuncProgress(true)
 				.build();
 		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
@@ -450,7 +459,7 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 			.build();
 		int start = 21;
 		for(int i = start; i < start+numFlex; i++) {
-			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
 		}
 
 

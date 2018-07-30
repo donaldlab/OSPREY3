@@ -35,9 +35,11 @@ package edu.duke.cs.osprey.kstar;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -119,6 +121,7 @@ public class BBKStar {
 		public File confDBFile = null;
 		public EnergyMatrix ematMinimized = null;
 		public EnergyMatrix ematRigid = null;
+		public UpdatingEnergyMatrix ematCorrected = null;
 
 		private BigDecimal stabilityThreshold = null;
 
@@ -392,8 +395,13 @@ public class BBKStar {
 			}
 			ConfSearch astar = info.confSearchFactoryMinimized.make(rcs);
 			pfunc.init(astar, rcs.getNumConformations(), kstarSettings.epsilon);
-			if(bbkstarSettings.useMARKStar)
-                pfunc.setRCs(rcs);
+			if(bbkstarSettings.useMARKStar) {
+				pfunc.setRCs(rcs);
+				MARKStarBound msb = (MARKStarBound) pfunc;
+				if(info.ematCorrected != null) {
+					msb.setCorrections(info.ematCorrected);
+				}
+			}
 			pfunc.setStabilityThreshold(info.stabilityThreshold);
 
 			// update the cache

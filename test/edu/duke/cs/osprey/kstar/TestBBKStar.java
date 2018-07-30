@@ -41,6 +41,7 @@ import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -122,6 +123,8 @@ public class TestBBKStar {
 				info.ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
 					.build()
 					.calcEnergyMatrix();
+
+				info.ematCorrected = new UpdatingEnergyMatrix(info.confSpace, info.ematMinimized);
 				info.confSearchFactoryRigid = (rcs) ->
 					new ConfAStarTree.Builder(info.ematRigid, rcs)
 						.setTraditional()
