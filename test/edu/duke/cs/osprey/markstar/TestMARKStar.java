@@ -62,6 +62,75 @@ public class TestMARKStar {
 	}
 
 	@Test
+	public void test2XXM() {
+		ConfSpaces confSpaces = make2XXM();
+		final double epsilon = 0.68;
+		String kstartime = "(not run)";
+		boolean runkstar = true;
+		Stopwatch runtime = new Stopwatch().start();
+		if(runkstar) {
+			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
+			runtime.stop();
+			kstartime = runtime.getTime(2);
+			runtime.reset();
+		}
+		runtime.start();
+		Result result = runMARKStar(confSpaces, epsilon);
+		runtime.stop();
+		String markstartime = runtime.getTime(2);
+		System.out.println("MARK* time: "+markstartime+", K* time: "+kstartime);
+	}
+
+	private ConfSpaces make2XXM() {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readFile("examples/python.KStar/2xxm_prepped.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+			.addMoleculeForWildTypeRotamers(mol)
+			.build();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("A146", "A218")
+			.build();
+		protein.flexibility.get("A177").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A178").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A179").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A180").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A181").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("B4", "B113")
+			.build();
+		ligand.flexibility.get("B58").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("B60").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("B61").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("B64").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+			.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+			.addStrand(ligand)
+			.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+			.addStrands(protein, ligand)
+			.build();
+
+		return confSpaces;
+	}
+
+	@Test
 	public void test1GUA11MARKVsTraditional() {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
@@ -315,6 +384,51 @@ public class TestMARKStar {
 		return result.scores;
 	}
 
+	public static List<KStar.ScoredSequence> runKStar(ConfSpaces confSpaces, double epsilon) {
+
+        Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
+
+		// Define the minimizing energy calculator
+		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+				.setParallelism(parallelism)
+				.build();
+		// configure K*
+		KStar.Settings settings = new KStar.Settings.Builder()
+				.setEpsilon(epsilon)
+				.setStabilityThreshold(null)
+				.setShowPfuncProgress(true)
+				.build();
+		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
+		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+
+			// how should we define energies of conformations?
+			info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, minimizingEcalc)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(info.confSpace, minimizingEcalc)
+							.build()
+							.calcReferenceEnergies()
+					)
+					.build();
+
+			// calc energy matrix
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
+					.build()
+					.calcEnergyMatrix();
+
+			// how should confs be ordered and searched?
+			info.confSearchFactory = (rcs) -> {
+				ConfAStarTree.Builder builder = new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional();
+				return builder.build();
+			};
+		}
+
+		// run K*
+		KstarResult result = new KstarResult();
+		result.kstar = kstar;
+		result.scores = kstar.run();
+		return result.scores;
+	}
+
 	public static Result runMARKStar(ConfSpaces confSpaces, double epsilon){
 
         Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
@@ -348,7 +462,13 @@ public class TestMARKStar {
 
         Result result = new Result();
 
-        MARKStar.Settings settings = new MARKStar.Settings.Builder().setEpsilon(epsilon).setEnergyMatrixCachePattern("*testmat.emat").build();
+		MARKStar.Settings settings = new MARKStar.Settings.Builder()
+				.setEpsilon(epsilon)
+				.setEnergyMatrixCachePattern("*testmat.emat")
+				.setShowPfuncProgress(true)
+				.setParallelism(parallelism)
+				.setReduceMinimizations(REUDCE_MINIMIZATIONS)
+				.build();
 
         result.markstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);
         result.scores = result.markstar.run();
