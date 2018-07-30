@@ -645,8 +645,12 @@ public class EwakstarDoer {
 
         List<SequenceInfo> bestPLSeqs = extractPLSeqsByLB(numEWAKStarSeqs, orderOfMag, PL);
 
+        //stop timer for energy matrix calculations
+        long intermediateStopTime = System.currentTimeMillis();
+        long timeTakenSoFar = intermediateStopTime - startEWAKStarTime;
         //limit sequence spaces for unbound states to those found in the bound complex above
         setupUnboundStates();
+        long intermediateStartTime = System.currentTimeMillis();
 
         Set<Sequence> filteredSeqsP = new HashSet<>();
         Set<Sequence> filteredSeqsL = new HashSet<>();
@@ -711,19 +715,15 @@ public class EwakstarDoer {
         if(seqFilterOnly) {
             writeSeqsToFile(fullSeqs);
             System.out.println("Number of sequences filtered down to "+ fullSeqs.size()+" from "+combinatorialSize);
-            stopEWAKStarTime = System.currentTimeMillis()-startEWAKStarTime;
-            System.out.println("Total OSPREY/EWAK* time: "+(String.format("%d min, %d sec",
-                    TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime),
-                    TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime) -
-                            TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime)))));
+            stopEWAKStarTime = System.currentTimeMillis()-intermediateStartTime+timeTakenSoFar;
+            System.out.println("Total OSPREY/EWAK* time (not including energy matrix time): "+(String.format("%d sec",
+                    TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime))));
             return fullSeqs;
         } else
             System.out.println("Number of sequences filtered down to "+ fullSeqs.size()+" from "+combinatorialSize);
-        stopEWAKStarTime = System.currentTimeMillis()-startEWAKStarTime;
-        System.out.println("Total OSPREY/EWAK* time: "+(String.format("%d min, %d sec",
-                TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime),
-                TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime) -
-                        TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(stopEWAKStarTime)))));
+        stopEWAKStarTime = System.currentTimeMillis()-intermediateStartTime+timeTakenSoFar;
+        System.out.println("Total OSPREY/EWAK* time (not including energy matrix time): "+(String.format("%d sec",
+                TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime))));
         return null;
 
     }
