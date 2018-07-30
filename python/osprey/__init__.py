@@ -462,7 +462,7 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimiz
 	'''
 
 	# convert confSpace to a jvm list if possible
-	try:
+    try:
 		confSpace = jvm.toArrayList(confSpace)
 	except TypeError:
 		# not a list, okie dokie, nothing to convert
