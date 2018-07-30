@@ -64,7 +64,6 @@ public class BBKStar {
 	// Kotlin would make this so much easier
 	public static class Settings {
 
-		public boolean useMARKStar  = false;
 
 		public static class Builder {
 
@@ -79,6 +78,9 @@ public class BBKStar {
 			 */
 			private int numConfsPerBatch = 8;
 
+			/** Should we use the MARK* algorithm to calculate partition functions? */
+			private boolean useMARKStar  = false;
+
 			public Builder setNumBestSequences(int val) {
 				numBestSequences = val;
 				return this;
@@ -89,17 +91,24 @@ public class BBKStar {
 				return this;
 			}
 
+			public Builder setUseMARKStar(boolean val) {
+				useMARKStar = val;
+				return this;
+			}
+
 			public Settings build() {
-				return new Settings(numBestSequences, numConfsPerBatch);
+				return new Settings(numBestSequences, numConfsPerBatch, useMARKStar);
 			}
 		}
 
 		public final int numBestSequences;
 		public final int numConfsPerBatch;
+		public final boolean useMARKStar;
 
-		public Settings(int numBestSequences, int numConfsPerBatch) {
+		public Settings(int numBestSequences, int numConfsPerBatch, boolean useMARKStar) {
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
+			this.useMARKStar = useMARKStar;
 		}
 	}
 
