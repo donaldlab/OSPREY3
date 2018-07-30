@@ -92,8 +92,8 @@ public class TestBBKStar {
 			BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
 				.setNumBestSequences(numSequences)
 				.setNumConfsPerBatch(8)
+                .setUseMARKStar(useMARKStar)
 				.build();
-			bbkstarSettings.useMARKStar = useMARKStar;
 			BBKStar bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, kstarSettings, bbkstarSettings);
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
