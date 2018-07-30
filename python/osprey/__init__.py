@@ -850,7 +850,7 @@ def _KStarConfSearchFactory(func):
 KStar.ConfSearchFactory = _KStarConfSearchFactory
 
 
-def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
+def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, useMARKStar=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
 	'''
 	:java:classdoc:`.kstar.BBKStar`
 
@@ -869,6 +869,7 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJava
 	:builder_option showPfuncProgress .kstar.KStar$Settings$Builder#showPfuncProgress:
 	:builder_option numBestSequences .kstar.BBKStar$Settings$Builder#numBestSequences:
 	:builder_option numConfsPerBatch .kstar.BBKStar$Settings$Builder#numConfsPerBatch:
+	:builder_option useMARKStar .kstar.BBKStar$Settings$Builder#useMARKStar:
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
 	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
 
@@ -898,6 +899,8 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJava
         bbkstarSettingsBuilder.setNumBestSequences(numBestSequences)
     if numConfsPerBatch is not useJavaDefault:
         bbkstarSettingsBuilder.setNumConfsPerBatch(numConfsPerBatch)
+    if useMARKStar is not useJavaDefault:
+        bbkstarSettingsBuilder.setUseMARKStar(useMARKStar)
     bbkstarSettings = bbkstarSettingsBuilder.build()
 
 	return c.kstar.BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, kstarSettings, bbkstarSettings)
