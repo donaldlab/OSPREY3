@@ -106,6 +106,7 @@ public class TestBBKStar {
 
 				// compute emats
 				info.ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
+                    .setCacheFile(new File(info.type+".emat"))
 					.build()
 					.calcEnergyMatrix();
 
@@ -121,6 +122,7 @@ public class TestBBKStar {
 					.build();
 				ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
 				info.ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
+                    .setCacheFile(new File(info.type+".emat"))
 					.build()
 					.calcEnergyMatrix();
 

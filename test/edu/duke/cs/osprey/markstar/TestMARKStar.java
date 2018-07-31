@@ -58,7 +58,7 @@ public class TestMARKStar {
 		ConfSpaces confSpaces = make2XXM();
 		final double epsilon = 0.99;
 		String kstartime = "(not run)";
-		boolean runkstar = true;
+		boolean runkstar = false;
 		Stopwatch runtime = new Stopwatch().start();
 		if(runkstar) {
 			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
@@ -118,6 +118,74 @@ public class TestMARKStar {
 		confSpaces.complex = new SimpleConfSpace.Builder()
 			.addStrands(protein, ligand)
 			.build();
+
+		return confSpaces;
+	}
+
+	@Test
+	public void test1A0RBBKStar() {
+		TestKStar.ConfSpaces confSpaces = make1A0RBBKStar();
+		int numSequences = 2;
+		double epsilon = 0.9999;
+		String kstartime = "(Not run)";
+		Stopwatch watch = new Stopwatch();
+		watch.start();
+		runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
+		watch.stop();
+		kstartime = watch.getTime(2);
+		watch.reset();
+		watch.start();
+		runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
+		watch.stop();
+		String bbkstartime = watch.getTime(2);
+		System.out.println("MARK*: "+bbkstartime+", Traditional K*: "+kstartime);
+	}
+
+	private static TestKStar.ConfSpaces make1A0RBBKStar() {
+
+		TestKStar.ConfSpaces confSpaces = new TestKStar.ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readFile("examples/python.KStar/1a0r_prepped.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+				.build();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("P13", "P230")
+				.build();
+		protein.flexibility.get("P219").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("P220").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("P222").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("P223").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "ILE", "PHE", "TYR",
+				"TRP", "CYS", "MET", "SER", "THR", "LYS", "ARG", "HIP", "HIE", "HID", "ASP", "GLU", "ASN", "GLN",
+				"GLY").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("P224").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("B2", "B340")
+				.build();
+		ligand.flexibility.get("B46").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("B47").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+				.addStrand(protein)
+				.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+				.addStrand(ligand)
+				.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+				.addStrands(protein, ligand)
+				.build();
 
 		return confSpaces;
 	}
@@ -811,14 +879,16 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 		} else {
 			assertThat(result.status, is(not(PartitionFunction.Status.Estimated)));
 		}
-	}public static ConfSpaces make1A0R() {
+	}
+
+	public static ConfSpaces make1A0R() {
 
 		ConfSpaces confSpaces = new ConfSpaces();
 
 		// configure the forcefield
 		confSpaces.ffparams = new ForcefieldParams();
 
-		Molecule mol = PDBIO.read(FileTools.readResource("/1A0R_1A0R.b.shell.pdb"));
+		Molecule mol = PDBIO.read(FileTools.readResource("/1A0R_prepped.pdb"));
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
