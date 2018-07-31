@@ -64,17 +64,17 @@ public class TestMARKStar {
 	@Test
 	public void test2XXM() {
 		ConfSpaces confSpaces = make2XXM();
-		final double epsilon = 0.999;
+		final double epsilon = 0.99;
 		String kstartime = "(not run)";
-		boolean runkstar = true;
+		boolean runkstar = false;
 		Stopwatch runtime = new Stopwatch().start();
 		if(runkstar) {
 			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
 			runtime.stop();
 			kstartime = runtime.getTime(2);
 			runtime.reset();
+			runtime.start();
 		}
-		runtime.start();
 		Result result = runMARKStar(confSpaces, epsilon);
 		runtime.stop();
 		String markstartime = runtime.getTime(2);
@@ -140,13 +140,11 @@ public class TestMARKStar {
 
 		String traditionalTime = "(Not run)";
 		Stopwatch timer = new Stopwatch().start();
-		/*
 		TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
 		timer.stop();
 		traditionalTime = timer.getTime(2);
 		timer.reset();
 		timer.start();
-		*/
 		runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
 		String MARKStarTime = timer.getTime(2);
 		timer.stop();
@@ -180,14 +178,14 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarVsKStar() {
-	    int numFlex = 19;
-	    double epsilon = 0.9999;
+	    int numFlex = 10;
+	    double epsilon = 0.68;
 		compareMARKStarAndKStar(numFlex, epsilon);
     }
 
 	@Test
 	public void testMARKStarTinyEpsilon() {
-		printMARKStarComputationStats(runMARKStar(20, 0.68).get(0));
+		printMARKStarComputationStats(runMARKStar(7, 0.001).get(0));
 
 	}
 
@@ -579,7 +577,7 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 			.build();
 		int start = 21;
 		for(int i = start; i < start+numFlex; i++) {
-			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		}
 
 
@@ -589,7 +587,7 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 			.setTemplateLibrary(templateLib)
 			.setResidues("181", "215")
 			.build();
-		ligand.flexibility.get("209").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		ligand.flexibility.get("209").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		// make the complex conf space ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()

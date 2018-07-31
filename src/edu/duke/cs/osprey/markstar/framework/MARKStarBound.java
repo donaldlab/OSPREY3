@@ -247,7 +247,7 @@ public class MARKStarBound implements PartitionFunction {
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
         MPLPUpdater updater = new EdgeUpdater();
-        hscorerFactory = (emats) -> new MPLPPairwiseHScorer(updater, emats, 50, 0.03);
+        hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs);//MPLPPairwiseHScorer(updater, emats, 50, 0.03);
         if(correctionMatrix == null)
             this.correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
 
@@ -313,6 +313,8 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void recordCorrection(double lowerBound, double correction) {
+        if(true)
+            return;
         BigDecimal upper = bc.calc(lowerBound);
         BigDecimal corrected = bc.calc(lowerBound + correction);
         cumulativeZCorrection = cumulativeZCorrection.add(upper.subtract(corrected));
@@ -325,15 +327,13 @@ public class MARKStarBound implements PartitionFunction {
         Stopwatch loopWatch = new Stopwatch();
         loopWatch.start();
         double bestLower = Double.POSITIVE_INFINITY;
-        synchronized (queue) {
-            if (!queue.isEmpty()) {
-                bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
-            }
-            else debugPrint("Out of conformations.");
+        if (!queue.isEmpty()) {
+            bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
         }
+        else debugPrint("Out of conformations.");
         int numMinimizations = 0;
         int maxMinimizations = parallelism.numThreads;
-        int maxNodes = 100000;
+        int maxNodes = 1000;
         int numNodes = 0;
         double energyThreshhold = -Math.log(((1-epsilonBound)/(1-targetEpsilon)));
         while(numMinimizations < maxMinimizations && numNodes < maxNodes &&
@@ -397,8 +397,11 @@ public class MARKStarBound implements PartitionFunction {
         loopWatch.stop();
         double loopTime = loopWatch.getTimeS();
         System.out.println("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
-        System.out.println(String.format("Z correction so far is %12.6e",cumulativeZCorrection));
+        loopWatch.reset();
+        loopWatch.start();
         processPreminimization(minimizingEcalc);
+        loopWatch.stop();
+        System.out.println("Preminimization time : "+loopWatch.getTime(2));
         double curEpsilon = epsilonBound;
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         updateBound();
@@ -553,7 +556,7 @@ public class MARKStarBound implements PartitionFunction {
                 recordCorrection(oldgscore, newConfLower-oldgscore);
                 String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                 debugPrint(out);
-                updateBound();
+                //updateBound();
                 synchronized(this) {
                     numConfsEnergied++;
                 }
@@ -611,6 +614,8 @@ public class MARKStarBound implements PartitionFunction {
 
     private void computeEnergyCorrection(ConfAnalyzer.ConfAnalysis analysis, ConfSearch.ScoredConf conf,
                                                   ConfEnergyCalculator ecalc) {
+        if(conf.getAssignments().length < 3)
+            return;
         // TODO: Replace the sortedPairwiseTerms with an ArrayList<TupE>.
         //System.out.println("Analysis:"+analysis);
         EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);
@@ -643,13 +648,13 @@ public class MARKStarBound implements PartitionFunction {
 
         //Collections.sort(sortedPairwiseTerms, Comparator.comparingDouble(Pair::getValue));
         double threshhold = 0.5;
-        double minDifference = 0.9;
-        double maxDiff = 0;
+        double minDifference = 0.9;//sortedPairwiseTerms.get(0).getValue()*0.7;
+        double maxDiff = sortedPairwiseTerms.get(0).getValue();
         for(int i = 0; i < sortedPairwiseTerms.size(); i++)
         {
             Pair<Pair<Integer, Integer>, Double> pairEnergy = sortedPairwiseTerms.get(i);
             double pairDiff = pairEnergy.getValue();
-            if(pairDiff < minDifference || maxDiff - pairDiff < threshhold)
+            if(pairDiff < minDifference || maxDiff - pairDiff > threshhold)
                 continue;
             maxDiff = Math.max(maxDiff, pairEnergy.getValue());
             int pos1 = pairEnergy.getKey().getKey();
@@ -684,10 +689,7 @@ public class MARKStarBound implements PartitionFunction {
             double lowerbound = minimizingEmat.getInternalEnergy(tuple);
             if (tripleEnergy.energy - lowerbound > 0) {
                 double correction = tripleEnergy.energy - lowerbound;
-                synchronized (correctionMatrix) {
-                    correctionMatrix.setHigherOrder(tuple, correction);
-                }
-                debugPrint("Correction for " + tuple.stringListing() + ":" + correction);
+                correctionMatrix.setHigherOrder(tuple, correction);
             }
             else
                 System.err.println("Negative correction for "+tuple.stringListing());
@@ -713,6 +715,7 @@ public class MARKStarBound implements PartitionFunction {
         RCTuple lowestBoundTuple = topConfs.get(0).toTuple();
         RCTuple overlap = findLargestOverlap(lowestBoundTuple, topConfs, 3);
         //Only continue if we have something to minimize
+        /*
         for (MARKStarNode conf : topConfs) {
             RCTuple confTuple = conf.toTuple();
             if(minimizingEmat.getInternalEnergy(confTuple) == rigidEmat.getInternalEnergy(confTuple))
@@ -726,6 +729,17 @@ public class MARKStarBound implements PartitionFunction {
                 });
             }
         }
+        */
+        ConfIndex index = new ConfIndex(RCs.getNumPos());
+        if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)
+                && minimizingEmat.getInternalEnergy(overlap) != rigidEmat.getInternalEnergy(overlap)) {
+                minimizingEcalc.tasks.submit(() -> {
+                    computeTupleCorrection(ecalc, overlap);
+                    return null;
+                }, (econf) -> {
+                });
+        }
+        /*
         minimizingEcalc.tasks.waitForFinish();
         ConfIndex index = new ConfIndex(RCs.getNumPos());
         if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)
@@ -749,6 +763,7 @@ public class MARKStarBound implements PartitionFunction {
                 },(ignored)->{});
             }
         }
+        */
 
 
         queue.addAll(topConfs);
@@ -811,9 +826,10 @@ public class MARKStarBound implements PartitionFunction {
 
     private void updateBound() {
         double curEpsilon = epsilonBound;
-        synchronized (this) {
-            epsilonBound = rootNode.computeEpsilonErrorBounds();
-        }
+        Stopwatch time = new Stopwatch().start();
+        epsilonBound = rootNode.computeEpsilonErrorBounds();
+        time.stop();
+        System.out.println("Bound update time: "+time.getTime(2));
         debugEpsilon(curEpsilon);
         //System.out.println("Current epsilon:"+epsilonBound);
     }

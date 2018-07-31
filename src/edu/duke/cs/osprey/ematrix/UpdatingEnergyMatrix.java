@@ -149,7 +149,6 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
     @Override
     public void setHigherOrder(RCTuple tup, Double val) {
-        debugCheck(tup);
         if(tup.size() < 3)
         {
             System.err.println("Should not be trying to submit correction of lower-order term.");
@@ -312,10 +311,8 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
             public void populateCorrections (RCTuple query, List<TupE> output) {
                 debugPrint("Matching corrections for "+query.stringListing());
-                debugCheck(query);
                 populateCorrections(query, output, 0);
             }
-
 
             private void populateCorrections(RCTuple query, List<TupE> output, int tupleIndex) {
                 debugPrint("Currently at "+this);
@@ -350,13 +347,4 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
     }
 
-    public static void debugCheck(RCTuple query) {
-        RCTuple orderQuery = query.orderByPos();
-        if(orderQuery.size() > 7)
-            if(orderQuery.pos.get(0) == 0 && orderQuery.RCs.get(0) ==7)
-                if(orderQuery.pos.get(6) == 6 && orderQuery.RCs.get(6) ==13)
-                    if(orderQuery.pos.get(7) == 7 && orderQuery.RCs.get(7) ==70)
-                        return;
-
-    }
 }
