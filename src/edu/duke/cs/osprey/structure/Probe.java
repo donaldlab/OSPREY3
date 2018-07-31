@@ -1,0 +1,443 @@
+package edu.duke.cs.osprey.structure;
+
+import edu.duke.cs.osprey.restypes.ResidueTemplate;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.tools.ConfigFileReader;
+import edu.duke.cs.osprey.tools.FileTools;
+
+import java.util.*;
+
+
+/**
+ * implements probe-style rules for describing non-bonded atomic interactions,
+ * eg close contacts, clashes, hydrogen bonds, salt bridges
+ *
+ * probe is software available at:
+ * http://kinemage.biochem.duke.edu/software/probe.php
+ */
+public class Probe {
+
+	public static enum AtomFlag {
+		Donor,
+		Acceptor,
+		Positive,
+		Negative
+	}
+
+	public static class AtomInfo {
+
+		public final String name;
+		public final double vdwRadius;
+		public final EnumSet<AtomFlag> flags;
+
+		public AtomInfo(String name, double vdwRadius, List<AtomFlag> flags) {
+
+			this.name = name;
+			this.vdwRadius = vdwRadius;
+
+			this.flags = EnumSet.noneOf(AtomFlag.class);
+			this.flags.addAll(flags);
+		}
+	}
+
+	public static class Template {
+
+		public final String id;
+		public final String resType;
+		public final String classifier;
+		public final Map<String,AtomInfo> atoms;
+
+		public Template(String id, String resType, String classifier, List<AtomInfo> atomInfos) {
+
+			this.id = id;
+			this.resType = resType;
+			this.classifier = classifier;
+
+			this.atoms = new HashMap<>();
+			for (AtomInfo info : atomInfos) {
+				this.atoms.put(info.name, info);
+			}
+		}
+	}
+
+
+	public double maxOverlapHBond = Double.NaN;
+	public double maxOverlapSaltBridge = Double.NaN;
+	public double minOverlapWideContact = Double.NaN;
+	public double minOverlapCloseContact = Double.NaN;
+	public double minOverlapBadClash = Double.NaN;
+
+	private Map<String,List<Template>> templatesByResType = new HashMap<>();
+	private Map<ResidueTemplate,Template> templateMap = new IdentityHashMap<>();
+
+	public Probe() {
+		this(true);
+	}
+
+	public Probe(boolean loadDefaults) {
+		if (loadDefaults) {
+			load(FileTools.readResource("/config/probe.cfg"));
+		}
+	}
+
+	/** loads configuration info (eg, params, templates) into this instance */
+	public void load(String configText) {
+
+		// read the sections, eg params, templates
+		ConfigFileReader reader = new ConfigFileReader(configText);
+		reader.advanceToNonEmptyLine();
+		while (reader.getLine() != null) {
+
+			String section = reader.getSectionName();
+			if (section.equalsIgnoreCase("params")) {
+				loadParams(reader);
+			} else if (section.equalsIgnoreCase("templates")) {
+				loadTemplates(reader);
+			} else {
+				throw new IllegalArgumentException("unknown section: " + section);
+			}
+		}
+	}
+
+	private void loadParams(ConfigFileReader reader) {
+		while (true) {
+
+			reader.advanceToNonEmptyLine();
+			if (reader.getLine() == null || reader.getSectionName() != null) {
+				break;
+			}
+
+			try {
+				reader.getAssignment((name, value) -> {
+					if (name.equalsIgnoreCase("MaxOverlapHBond")) {
+						maxOverlapHBond = Double.parseDouble(value);
+					} else if (name.equalsIgnoreCase("MaxOverlapSaltBridge")) {
+						maxOverlapSaltBridge = Double.parseDouble(value);
+					} else if (name.equalsIgnoreCase("MinOverlapWideContact")) {
+						minOverlapWideContact = Double.parseDouble(value);
+					} else if (name.equalsIgnoreCase("MinOverlapCloseContact")) {
+						minOverlapCloseContact = Double.parseDouble(value);
+					} else if (name.equalsIgnoreCase("MinOverlapBadClash")) {
+						minOverlapBadClash = Double.parseDouble(value);
+					}
+				});
+			} catch (NumberFormatException ex) {
+				throw new IllegalArgumentException("can't parse param value: " + reader.getLine());
+			}
+		}
+	}
+
+	private void loadTemplates(ConfigFileReader reader) {
+		while (true) {
+
+			reader.advanceToNonEmptyLine();
+			if (reader.getLine() == null || reader.getSectionName() != null) {
+				break;
+			}
+
+			// read the template, eg
+			// ResType-chainPos
+			//     AtomName vdwRadius flags
+			// (blank line)
+
+			// parse the id into res type and chain pos
+			String id = reader.getLine();
+			String[] parts = id.split("-");
+			String resType = parts[0];
+			String classifier = null;
+			if (parts.length >= 2) {
+				classifier = parts[1];
+			}
+
+			// read the atom infos
+			List<AtomInfo> atomInfos = new ArrayList<>();
+			while (true) {
+
+				reader.advance();
+				if (reader.getLine() == null || reader.getLine().isEmpty()) {
+					break;
+				}
+
+				StringTokenizer tok = new StringTokenizer(reader.getLine(), " \t");
+				try {
+
+					String atomName = tok.nextToken();
+					double vdwRadius = Double.parseDouble(tok.nextToken());
+
+					// flags are optional
+					List<AtomFlag> flags = new ArrayList<>();
+					if (tok.hasMoreTokens()) {
+						String flagsStr = tok.nextToken();
+
+						// parse the flags
+						if (flagsStr.startsWith("-")) {
+							flags.add(AtomFlag.Negative);
+							flagsStr = flagsStr.substring(1);
+						} else if (flagsStr.startsWith("+")) {
+							flags.add(AtomFlag.Positive);
+							flagsStr = flagsStr.substring(1);
+						}
+
+						if (flagsStr.equalsIgnoreCase("donor")) {
+							flags.add(AtomFlag.Donor);
+						} else if (flagsStr.equalsIgnoreCase("acceptor")) {
+							flags.add(AtomFlag.Acceptor);
+						}
+					}
+
+					// make the atom info
+					atomInfos.add(new AtomInfo(atomName, vdwRadius, flags));
+
+				} catch (NoSuchElementException | NumberFormatException ex) {
+					throw new IllegalArgumentException("can't parse atom record: " + reader.getLine());
+				}
+
+				// make the template
+				templatesByResType
+					.computeIfAbsent(resType, (resTypeAgain) -> new ArrayList<>())
+					.add(new Template(id, resType, classifier, atomInfos));
+			}
+		}
+	}
+
+	/**
+	 * finds a probe template for each template in the library and remembers the mapping
+	 */
+	public void matchTemplates(ResidueTemplateLibrary templateLib) {
+
+		for (ResidueTemplate resTempl : templateLib.templates) {
+			matchTemplate(resTempl);
+		}
+
+		for (ResidueTemplate resTempl : templateLib.wildTypeTemplates.values()) {
+			matchTemplate(resTempl);
+		}
+	}
+
+	/**
+	 * finds the templates that match the residue type,
+	 * then tries to match a template to the atom names in a residue
+	 * (should match eg N-terminal or C-terminal amino acids if needed)
+	 * return null if no matching template was found
+	 */
+	private void matchTemplate(ResidueTemplate resTemplate) {
+
+		// look up templates by residue type
+		List<Template> templates = templatesByResType.get(resTemplate.name);
+		if (templates == null) {
+			return;
+		}
+
+		// make a quick set lookup for the residue atom names
+		Set<String> resAtomNames = new HashSet<>();
+		for (Atom atom : resTemplate.templateRes.atoms) {
+			resAtomNames.add(atom.name);
+		}
+
+		// try to match the atom names to one of the templates for this res type
+		for (Template template : templates) {
+			if (resAtomNames.equals(template.atoms.keySet())) {
+
+				// found a match! remember it
+				templateMap.put(resTemplate, template);
+
+				return;
+			}
+		}
+	}
+
+	public Template getTemplate(Residue res) {
+
+		if (res.template == null) {
+			throw new IllegalArgumentException("residue " + res + " does not have a template");
+		}
+
+		Template template = templateMap.get(res.template);
+		if (template == null) {
+			throw new IllegalArgumentException("no probe template for residue template " + res.template);
+		}
+
+		return template;
+	}
+
+	public AtomInfo getAtomInfo(Atom a) {
+
+		if (a.res == null) {
+			throw new IllegalArgumentException("atom " + a.name + " does not have a residue");
+		}
+		Template template = getTemplate(a.res);
+
+		AtomInfo info = template.atoms.get(a.name);
+		if (info == null) {
+			throw new IllegalArgumentException("no probe atom info for " + a.name + " in template " + template.id);
+		}
+
+		return info;
+	}
+
+	public static enum Attraction {
+
+		None(false),
+		Hbond(true),
+		SaltBridge(true);
+
+		public final boolean isBond;
+
+		private Attraction(boolean isBond) {
+			this.isBond = isBond;
+		}
+	}
+
+	public static enum Contact {
+
+		NoContact(false, false),
+		WideContact(true, false),
+		CloseContact(true, false),
+		SmallClash(true, true),
+		BadClash(true, true),
+		Bonded(true, false);
+
+		public final boolean isContact;
+		public final boolean isClash;
+
+		private Contact(boolean isContact, boolean isClash) {
+			this.isContact = isContact;
+			this.isClash = isClash;
+		}
+	}
+
+	public class Interaction {
+
+		public final double dist;
+		public final double overlap;
+		public final Attraction attraction;
+
+		public final double maxOverlap;
+		public final Contact contact;
+
+		public Interaction(double dist, double overlap, Attraction attraction) {
+
+			this.dist = dist;
+			this.overlap = overlap;
+			this.attraction = attraction;
+
+			// get the max overlap from the attraction
+			if (attraction == Attraction.Hbond) {
+				maxOverlap = maxOverlapHBond;
+			} else if (attraction == Attraction.SaltBridge) {
+				maxOverlap = maxOverlapSaltBridge;
+			} else {
+				maxOverlap = 0.0;
+			}
+
+			// determine the contact type
+			if (overlap < minOverlapWideContact) {
+				contact = Contact.NoContact;
+			} else if (overlap < minOverlapCloseContact) {
+				contact = Contact.WideContact;
+			} else if (overlap <= 0) {
+				contact = Contact.CloseContact;
+			} else {
+				if (attraction.isBond && overlap <= maxOverlap) {
+					// bonded and in range, ignore clashes
+					contact = Contact.Bonded;
+				} else {
+					// non-bonded, or bond too close, treat as clash
+					if (overlap < minOverlapBadClash) {
+						contact = Contact.SmallClash;
+					} else {
+						contact = Contact.BadClash;
+					}
+				}
+			}
+		}
+
+		@Override
+		public String toString() {
+			return String.format("%-10s overlap=%8.3f %s%5.3f%s",
+				attraction == Attraction.None ? "" : attraction.name(),
+				overlap,
+				overlap > maxOverlap ? " >" : "<=",
+				maxOverlap,
+				contact == Contact.NoContact ? "" : " " + contact.name()
+			);
+		}
+	}
+
+	/**
+	 * get interaction info for an atom pair at a distance
+	 * assumes atoms are non-bonded
+	 */
+	public Interaction getInteraction(AtomInfo a, AtomInfo b, double dist) {
+
+		// is there any attraction to oppose the vdW forces?
+		Attraction attraction;
+		boolean donorAcceptorMatch =
+			(a.flags.contains(AtomFlag.Donor) && b.flags.contains(AtomFlag.Acceptor))
+			|| (a.flags.contains(AtomFlag.Acceptor) && b.flags.contains(AtomFlag.Donor));
+		if (!donorAcceptorMatch) {
+
+			// no donor,acceptor match, can't be an hbond
+			attraction = Attraction.None;
+
+		} else {
+
+			boolean bothCharged =
+				(a.flags.contains(AtomFlag.Positive) || a.flags.contains(AtomFlag.Negative))
+				&& (b.flags.contains(AtomFlag.Positive) || b.flags.contains(AtomFlag.Negative));
+			if (bothCharged) {
+				boolean chargeComplementarity =
+					(a.flags.contains(AtomFlag.Positive) && b.flags.contains(AtomFlag.Negative))
+						|| (a.flags.contains(AtomFlag.Negative) && b.flags.contains(AtomFlag.Positive));
+				if (chargeComplementarity) {
+					// donor,acceptor match + ionic attraction = salt bridge
+					attraction = Attraction.SaltBridge;
+				} else {
+					// donor,acceptor match + ionic repulsion != hbond
+					attraction = Attraction.None;
+				}
+			} else {
+				// donor,acceptor match but no ionic effects = hbond
+				attraction = Attraction.Hbond;
+			}
+		}
+
+		// calculate the overlap
+		double overlap = a.vdwRadius + b.vdwRadius - dist;
+
+		// build the interaction
+		return new Interaction(dist, overlap, attraction);
+	}
+
+	/**
+	 * get interaction info for an atom pair
+	 * coords taken from atoms' parent residues
+	 * assumes atoms are non-bonded
+	 */
+	public Interaction getInteraction(Atom a, Atom b) {
+
+		AtomInfo infoa = getAtomInfo(a);
+		AtomInfo infob = getAtomInfo(b);
+
+		// get the interatomic distance
+		int i = a.indexInRes*3;
+		double ax = a.res.coords[i];
+		double ay = a.res.coords[i + 1];
+		double az = a.res.coords[i + 2];
+		i = b.indexInRes*3;
+		double bx = b.res.coords[i];
+		double by = b.res.coords[i + 1];
+		double bz = b.res.coords[i + 2];
+
+		double d = ax - bx;
+		double distSq = d*d;
+		d = ay - by;
+		distSq += d*d;
+		d = az - bz;
+		distSq += d*d;
+
+		double dist = Math.sqrt(distSq);
+
+		return getInteraction(infoa, infob, dist);
+	}
+}
