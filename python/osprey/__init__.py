@@ -458,17 +458,17 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None, isMinimiz
     :builder_option isMinimizing .energy.EnergyCalculator$Builder#isMinimizing:
     :builder_option infiniteWellEnergy .energy.EnergyCalculator$Builder#infiniteWellEnergy:
 
-	:builder_return .energy.EnergyCalculator$Builder:
-	'''
+    :builder_return .energy.EnergyCalculator$Builder:
+    '''
 
-	# convert confSpace to a jvm list if possible
-	try:
-		confSpace = jvm.toArrayList(confSpace)
-	except TypeError:
-		# not a list, okie dokie, nothing to convert
-		pass
+    # convert confSpace to a jvm list if possible
+    try:
+        confSpace = jvm.toArrayList(confSpace)
+    except TypeError:
+        # not a list, okie dokie, nothing to convert
+        pass
 
-	builder = _get_builder(c.energy.EnergyCalculator)(confSpace, ffparams)
+    builder = _get_builder(c.energy.EnergyCalculator)(confSpace, ffparams)
 
     if parallelism is not None:
         builder.setParallelism(parallelism)
@@ -525,15 +525,15 @@ def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=None, addResEntropy
 
 
 def ConfEnergyCalculatorCopy(source, ecalc):
-	'''
-	:java:classdoc:`.energy.ConfEnergyCalculator`
+    '''
+    :java:classdoc:`.energy.ConfEnergyCalculator`
 
-	:param source: The conformation energy calculator you wish to copy.
-	:type source: :java:ref:`.energy.ConfEnergyCalculator`
-	:builder_option ecalc .energy.ConfEnergyCalculator$Builder#ecalc:
-	:builder_return .energy.ConfEnergyCalculator$Builder:
-	'''
-	return c.energy.ConfEnergyCalculator(source, ecalc)
+    :param source: The conformation energy calculator you wish to copy.
+    :type source: :java:ref:`.energy.ConfEnergyCalculator`
+    :builder_option ecalc .energy.ConfEnergyCalculator$Builder#ecalc:
+    :builder_return .energy.ConfEnergyCalculator$Builder:
+    '''
+    return c.energy.ConfEnergyCalculator(source, ecalc)
 
 
 def EnergyMatrix(confEcalc, cacheFile=None):
@@ -571,65 +571,65 @@ def ReferenceEnergies(confSpace, ecalc, addResEntropy=None):
 
 
 def DEE(confSpace, emat, singlesThreshold=useJavaDefault, pairsThreshold=useJavaDefault, singlesGoldsteinDiffThreshold=useJavaDefault, pairsGoldsteinDiffThreshold=useJavaDefault, triplesGoldsteinDiffThreshold=useJavaDefault, typeDependent=useJavaDefault, numIterations=useJavaDefault, showProgress=useJavaDefault, parallelism=useJavaDefault, cacheFile=useJavaDefault):
-	'''
-	:java:classdoc:`.pruning.SimpleDEE$Runner`
+    '''
+    :java:classdoc:`.pruning.SimpleDEE$Runner`
 
     :param confSpace: The design conformation space
     :type confSpace: :java:ref:`.confspace.SimpleConfSpace`
     :param emat: An energy matrix computed for the conformation space
     :type emat: :java:ref:`.ematrix.EnergyMatrix`
 
-	:builder_option singlesThreshold .pruning.SimpleDEE$Runner#singlesThreshold:
-	:builder_option pairsThreshold .pruning.SimpleDEE$Runner#pairsThreshold:
-	:builder_option singlesGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#singlesGoldsteinDiffThreshold:
-	:builder_option pairsGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#pairsGoldsteinDiffThreshold:
-	:builder_option triplesGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#triplesGoldsteinDiffThreshold:
-	:builder_option typeDependent .pruning.SimpleDEE$Runner#typeDependent:
-	:builder_option numIterations .pruning.SimpleDEE$Runner#numIterations:
-	:builder_option showProgress .pruning.SimpleDEE$Runner#showProgress:
-	'''
+    :builder_option singlesThreshold .pruning.SimpleDEE$Runner#singlesThreshold:
+    :builder_option pairsThreshold .pruning.SimpleDEE$Runner#pairsThreshold:
+    :builder_option singlesGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#singlesGoldsteinDiffThreshold:
+    :builder_option pairsGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#pairsGoldsteinDiffThreshold:
+    :builder_option triplesGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#triplesGoldsteinDiffThreshold:
+    :builder_option typeDependent .pruning.SimpleDEE$Runner#typeDependent:
+    :builder_option numIterations .pruning.SimpleDEE$Runner#numIterations:
+    :builder_option showProgress .pruning.SimpleDEE$Runner#showProgress:
+    '''
 
     runner = _get_builder(c.pruning.SimpleDEE, 'Runner')()
 
-	if singlesThreshold is not useJavaDefault:
-		runner.setSinglesThreshold(jvm.boxDouble(singlesThreshold))
-	if pairsThreshold is not useJavaDefault:
-		runner.setPairsThreshold(jvm.boxDouble(pairsThreshold))
-	if singlesGoldsteinDiffThreshold is not useJavaDefault:
-		runner.setSinglesGoldsteinDiffThreshold(jvm.boxDouble(singlesGoldsteinDiffThreshold))
-	if pairsGoldsteinDiffThreshold is not useJavaDefault:
-		runner.setPairsGoldsteinDiffThreshold(jvm.boxDouble(pairsGoldsteinDiffThreshold))
-	if triplesGoldsteinDiffThreshold is not useJavaDefault:
-		runner.setTriplesGoldsteinDiffThreshold(jvm.boxDouble(triplesGoldsteinDiffThreshold))
-	if typeDependent is not useJavaDefault:
-		runner.setTypeDependent(typeDependent)
-	if numIterations is not useJavaDefault:
-		runner.setNumIterations(numIterations)
-	if showProgress is not useJavaDefault:
-		runner.setShowProgress(showProgress)
-	if parallelism is not useJavaDefault:
-		runner.setParallelism(parallelism)
-	if cacheFile is not useJavaDefault:
-		runner.setCacheFile(jvm.toFile(cacheFile))
+    if singlesThreshold is not useJavaDefault:
+        runner.setSinglesThreshold(jvm.boxDouble(singlesThreshold))
+    if pairsThreshold is not useJavaDefault:
+        runner.setPairsThreshold(jvm.boxDouble(pairsThreshold))
+    if singlesGoldsteinDiffThreshold is not useJavaDefault:
+        runner.setSinglesGoldsteinDiffThreshold(jvm.boxDouble(singlesGoldsteinDiffThreshold))
+    if pairsGoldsteinDiffThreshold is not useJavaDefault:
+        runner.setPairsGoldsteinDiffThreshold(jvm.boxDouble(pairsGoldsteinDiffThreshold))
+    if triplesGoldsteinDiffThreshold is not useJavaDefault:
+        runner.setTriplesGoldsteinDiffThreshold(jvm.boxDouble(triplesGoldsteinDiffThreshold))
+    if typeDependent is not useJavaDefault:
+        runner.setTypeDependent(typeDependent)
+    if numIterations is not useJavaDefault:
+        runner.setNumIterations(numIterations)
+    if showProgress is not useJavaDefault:
+        runner.setShowProgress(showProgress)
+    if parallelism is not useJavaDefault:
+        runner.setParallelism(parallelism)
+    if cacheFile is not useJavaDefault:
+        runner.setCacheFile(jvm.toFile(cacheFile))
 
     return runner.run(confSpace, emat)
 
 
 def DEE_read(confSpace, path):
-	'''
-	Reads a pruning matrix from a file
+    '''
+    Reads a pruning matrix from a file
 
-	:param confSpace: The design conformation space
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param str path: Path to the file
-	'''
+    :param confSpace: The design conformation space
+    :type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+    :param str path: Path to the file
+    '''
 
-	return c.pruning.SimpleDEE.read(confSpace, jvm.toFile(path))
+    return c.pruning.SimpleDEE.read(confSpace, jvm.toFile(path))
 
 
 def AStarTraditional(emat, confSpaceOrPmat, showProgress=True, useExternalMemory=False, maxNumNodes=useJavaDefault):
-	'''
-	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setTraditional`
+    '''
+    :java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setTraditional`
 
     :builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
     :param confSpaceOrPmat: The conformation space containing the residue conformations to search.
@@ -638,18 +638,18 @@ def AStarTraditional(emat, confSpaceOrPmat, showProgress=True, useExternalMemory
 
         :java:methoddoc:`.astar.conf.ConfAStarTree$Builder#useExternalMemory`
 
-	:type useExternalMemory: boolean
-	:builder_option maxNumNodes .astar.conf.ConfAStarTree$Builder#maxNumNodes:
-	:builder_return .astar.conf.ConfAStarTree$Builder:
-	'''
-	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
-	builder.setShowProgress(showProgress)
+    :type useExternalMemory: boolean
+    :builder_option maxNumNodes .astar.conf.ConfAStarTree$Builder#maxNumNodes:
+    :builder_return .astar.conf.ConfAStarTree$Builder:
+    '''
+    builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
+    builder.setShowProgress(showProgress)
 
-	# set node limits before picking heuristics
-	if maxNumNodes is not useJavaDefault:
-		builder.setMaxNumNodes(jvm.boxLong(maxNumNodes))
+    # set node limits before picking heuristics
+    if maxNumNodes is not useJavaDefault:
+        builder.setMaxNumNodes(jvm.boxLong(maxNumNodes))
 
-	builder.setTraditional()
+    builder.setTraditional()
 
     if useExternalMemory == True:
         builder.useExternalMemory()
@@ -664,8 +664,8 @@ def NodeUpdater():
     return c.astar.conf.scoring.mplp.NodeUpdater()
 
 def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergenceThreshold=None, useExternalMemory=False, maxNumNodes=useJavaDefault):
-	'''
-	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setMPLP`
+    '''
+    :java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setMPLP`
 
     :builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
     :param confSpaceOrPmat: The conformation space containing the residue conformations to search.
@@ -677,11 +677,11 @@ def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergen
 
         :java:methoddoc:`.astar.conf.ConfAStarTree$Builder#useExternalMemory`
 
-	:type useExternalMemory: boolean
-	:builder_option maxNumNodes .astar.conf.ConfAStarTree$Builder#maxNumNodes:
-	:builder_return .astar.conf.ConfAStarTree$Builder:
-	'''
-	mplpBuilder = _get_builder(c.astar.conf.ConfAStarTree, 'MPLPBuilder')()
+    :type useExternalMemory: boolean
+    :builder_option maxNumNodes .astar.conf.ConfAStarTree$Builder#maxNumNodes:
+    :builder_return .astar.conf.ConfAStarTree$Builder:
+    '''
+    mplpBuilder = _get_builder(c.astar.conf.ConfAStarTree, 'MPLPBuilder')()
 
     if updater is not None:
         mplpBuilder.setUpdater(updater)
@@ -692,14 +692,14 @@ def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergen
     if convergenceThreshold is not None:
         mplpBuilder.setConvergenceThreshold(convergenceThreshold)
 
-	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
-	builder.setShowProgress(True)
+    builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
+    builder.setShowProgress(True)
 
-	# set node limits before picking heuristics
-	if maxNumNodes is not useJavaDefault:
-		builder.setMaxNumNodes(jvm.boxLong(maxNumNodes))
+    # set node limits before picking heuristics
+    if maxNumNodes is not useJavaDefault:
+        builder.setMaxNumNodes(jvm.boxLong(maxNumNodes))
 
-	builder.setMPLP(mplpBuilder)
+    builder.setMPLP(mplpBuilder)
 
     if useExternalMemory == True:
         builder.useExternalMemory()
@@ -796,103 +796,103 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
     return bbflex
 
 def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault):
-	'''
-	:java:classdoc:`.kstar.KStar`
+    '''
+    :java:classdoc:`.kstar.KStar`
 
     For examples using K*, see the examples/python.KStar directory in your Osprey distribution.
 
-	:param proteinConfSpace: :java:fielddoc:`.kstar.KStar#protein`
-	:type proteinConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param ligandConfSpace: :java:fielddoc:`.kstar.KStar#ligand`
-	:type ligandConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param complexConfSpace: :java:fielddoc:`.kstar.KStar#complex`
-	:type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
-	:builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
-	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
-	:builder_option useExternalMemory .kstar.KStar$Settings$Builder#useExternalMemory:
-	:builder_option showPfuncProgress .kstar.KStar$Settings$Builder#showPfuncProgress:
-	:param bool writeSequencesToConsole: True to write sequences and scores to the console
-	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
+    :param proteinConfSpace: :java:fielddoc:`.kstar.KStar#protein`
+    :type proteinConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+    :param ligandConfSpace: :java:fielddoc:`.kstar.KStar#ligand`
+    :type ligandConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+    :param complexConfSpace: :java:fielddoc:`.kstar.KStar#complex`
+    :type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+    :builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
+    :builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
+    :builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
+    :builder_option useExternalMemory .kstar.KStar$Settings$Builder#useExternalMemory:
+    :builder_option showPfuncProgress .kstar.KStar$Settings$Builder#showPfuncProgress:
+    :param bool writeSequencesToConsole: True to write sequences and scores to the console
+    :param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
 
     :rtype: :java:ref:`.kstar.KStar`
     '''
 
-	# build settings
-	settingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.KStar, 'Settings'))()
-	if epsilon is not useJavaDefault:
-		settingsBuilder.setEpsilon(epsilon)
-	if stabilityThreshold is not useJavaDefault:
-		settingsBuilder.setStabilityThreshold(jvm.boxDouble(stabilityThreshold))
-	if maxSimultaneousMutations is not useJavaDefault:
-		settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
-	if writeSequencesToConsole:
-		settingsBuilder.addScoreConsoleWriter()
-	if writeSequencesToFile is not None:
-		settingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
-	if useExternalMemory is not useJavaDefault:
-		settingsBuilder.setExternalMemory(useExternalMemory)
-	if showPfuncProgress is not useJavaDefault:
-		settingsBuilder.setShowPfuncProgress(showPfuncProgress)
-	settings = settingsBuilder.build()
+    # build settings
+    settingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.KStar, 'Settings'))()
+    if epsilon is not useJavaDefault:
+        settingsBuilder.setEpsilon(epsilon)
+    if stabilityThreshold is not useJavaDefault:
+        settingsBuilder.setStabilityThreshold(jvm.boxDouble(stabilityThreshold))
+    if maxSimultaneousMutations is not useJavaDefault:
+        settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+    if writeSequencesToConsole:
+        settingsBuilder.addScoreConsoleWriter()
+    if writeSequencesToFile is not None:
+        settingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
+    if useExternalMemory is not useJavaDefault:
+        settingsBuilder.setExternalMemory(useExternalMemory)
+    if showPfuncProgress is not useJavaDefault:
+        settingsBuilder.setShowPfuncProgress(showPfuncProgress)
+    settings = settingsBuilder.build()
 
-	return c.kstar.KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, settings)
+    return c.kstar.KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, settings)
 
 
 def _KStarConfSearchFactory(func):
 
-	# convert the python lambda to a JVM interface implementation
-	return jpype.JProxy(
-		jvm.getInnerClass(c.kstar.KStar, 'ConfSearchFactory'),
-		dict={ 'make': func }
-	)
+    # convert the python lambda to a JVM interface implementation
+    return jpype.JProxy(
+        jvm.getInnerClass(c.kstar.KStar, 'ConfSearchFactory'),
+        dict={ 'make': func }
+    )
 
 KStar.ConfSearchFactory = _KStarConfSearchFactory
 
 
 def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, useMARKStar=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
-	'''
-	:java:classdoc:`.kstar.BBKStar`
+    '''
+    :java:classdoc:`.kstar.BBKStar`
 
     For examples using BBK*, see the examples/python.KStar directory in your Osprey distribution.
 
-	:param proteinConfSpace: :java:fielddoc:`.kstar.BBKStar#protein`
-	:type proteinConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param ligandConfSpace: :java:fielddoc:`.kstar.BBKStar#ligand`
-	:type ligandConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param complexConfSpace: :java:fielddoc:`.kstar.BBKStar#complex`
-	:type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
-	:builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
-	:builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
-	:builder_option useExternalMemory .kstar.KStar$Settings$Builder#useExternalMemory:
-	:builder_option showPfuncProgress .kstar.KStar$Settings$Builder#showPfuncProgress:
-	:builder_option numBestSequences .kstar.BBKStar$Settings$Builder#numBestSequences:
-	:builder_option numConfsPerBatch .kstar.BBKStar$Settings$Builder#numConfsPerBatch:
-	:builder_option useMARKStar .kstar.BBKStar$Settings$Builder#useMARKStar:
-	:param bool writeSequencesToConsole: True to write sequences and scores to the console
-	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
+    :param proteinConfSpace: :java:fielddoc:`.kstar.BBKStar#protein`
+    :type proteinConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+    :param ligandConfSpace: :java:fielddoc:`.kstar.BBKStar#ligand`
+    :type ligandConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+    :param complexConfSpace: :java:fielddoc:`.kstar.BBKStar#complex`
+    :type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+    :builder_option epsilon .kstar.KStar$Settings$Builder#epsilon:
+    :builder_option stabilityThreshold .kstar.KStar$Settings$Builder#stabilityThreshold:
+    :builder_option maxSimultaneousMutations .kstar.KStar$Settings$Builder#maxSimultaneousMutations:
+    :builder_option useExternalMemory .kstar.KStar$Settings$Builder#useExternalMemory:
+    :builder_option showPfuncProgress .kstar.KStar$Settings$Builder#showPfuncProgress:
+    :builder_option numBestSequences .kstar.BBKStar$Settings$Builder#numBestSequences:
+    :builder_option numConfsPerBatch .kstar.BBKStar$Settings$Builder#numConfsPerBatch:
+    :builder_option useMARKStar .kstar.BBKStar$Settings$Builder#useMARKStar:
+    :param bool writeSequencesToConsole: True to write sequences and scores to the console
+    :param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
 
     :rtype: :java:ref:`.kstar.BBKStar`
     '''
 
-	# build settings
-	kstarSettingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.KStar, 'Settings'))()
-	if epsilon is not useJavaDefault:
-		kstarSettingsBuilder.setEpsilon(epsilon)
-	if stabilityThreshold is not useJavaDefault:
-		kstarSettingsBuilder.setStabilityThreshold(jvm.boxDouble(stabilityThreshold))
-	if maxSimultaneousMutations is not useJavaDefault:
-		kstarSettingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
-	if writeSequencesToConsole:
-		kstarSettingsBuilder.addScoreConsoleWriter()
-	if writeSequencesToFile is not None:
-		kstarSettingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
-	if useExternalMemory is not useJavaDefault:
-		kstarSettingsBuilder.setExternalMemory(useExternalMemory)
-	if showPfuncProgress is not useJavaDefault:
-		kstarSettingsBuilder.setShowPfuncProgress(showPfuncProgress)
-	kstarSettings = kstarSettingsBuilder.build()
+    # build settings
+    kstarSettingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.KStar, 'Settings'))()
+    if epsilon is not useJavaDefault:
+        kstarSettingsBuilder.setEpsilon(epsilon)
+    if stabilityThreshold is not useJavaDefault:
+        kstarSettingsBuilder.setStabilityThreshold(jvm.boxDouble(stabilityThreshold))
+    if maxSimultaneousMutations is not useJavaDefault:
+        kstarSettingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+    if writeSequencesToConsole:
+        kstarSettingsBuilder.addScoreConsoleWriter()
+    if writeSequencesToFile is not None:
+        kstarSettingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
+    if useExternalMemory is not useJavaDefault:
+        kstarSettingsBuilder.setExternalMemory(useExternalMemory)
+    if showPfuncProgress is not useJavaDefault:
+        kstarSettingsBuilder.setShowPfuncProgress(showPfuncProgress)
+    kstarSettings = kstarSettingsBuilder.build()
 
     bbkstarSettingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.BBKStar, 'Settings'))()
     if numBestSequences is not useJavaDefault:
@@ -903,362 +903,362 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJava
         bbkstarSettingsBuilder.setUseMARKStar(useMARKStar)
     bbkstarSettings = bbkstarSettingsBuilder.build()
 
-	return c.kstar.BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, kstarSettings, bbkstarSettings)
+    return c.kstar.BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, kstarSettings, bbkstarSettings)
 
 
 def ConfAnalyzer(confEcalc):
-	'''
-	:java:classdoc:`.gmec.ConfAnalyzer`
+    '''
+    :java:classdoc:`.gmec.ConfAnalyzer`
 
     For examples using the conf analyzer, see examples/python.GMEC/analyzeConf.py in your Osprey distribution.
 
-	:param confEcalc: :java:fielddoc:`.gmec.SimpleGMECFinder$Builder#confEcalc`
-	:type confEcalc: :java:ref:`.energy.ConfEnergyCalculator`
+    :param confEcalc: :java:fielddoc:`.gmec.SimpleGMECFinder$Builder#confEcalc`
+    :type confEcalc: :java:ref:`.energy.ConfEnergyCalculator`
 
     :rtype: :java:ref:`.gmec.ConfAnalyzer`
     '''
 
-	return c.gmec.ConfAnalyzer(confEcalc)
+    return c.gmec.ConfAnalyzer(confEcalc)
 
 
 def SequenceAnalyzer(kstar):
-	'''
-	:java:classdoc:`.kstar.SequenceAnalyzer`
+    '''
+    :java:classdoc:`.kstar.SequenceAnalyzer`
 
     For examples using the sequence analyzer, see examples/python.KStar/analyzeSequence.py in your Osprey distribution.
 
-	:param kstar: a configured instance of KStar
-	:type kstar: :java:ref:`.kstar.KStar`
+    :param kstar: a configured instance of KStar
+    :type kstar: :java:ref:`.kstar.KStar`
 
     :rtype: :java:ref:`.kstar.SequenceAnalyzer`
     '''
 
-	return c.kstar.SequenceAnalyzer(kstar)
+    return c.kstar.SequenceAnalyzer(kstar)
 
 
 def LUTE_train(confEcalc, emat, pmat, maxRMSE=0.1, maxOverfittingScore=1.5, randomSeed=12345, confDBPath=None):
-	'''
-	Trains a LUTE model
+    '''
+    Trains a LUTE model
 
-	For examples using LUTE, see examples/python.GMEC/LUTE.*.py and examples/python.KStar/LUTE.*.py in your Osprey distribution.
+    For examples using LUTE, see examples/python.GMEC/LUTE.*.py and examples/python.KStar/LUTE.*.py in your Osprey distribution.
 
-	:param confEcalc: The conformation energy calculator
-	:type confEcalc: :java:ref:`.energy.ConfEnergyCalculator`
-	:param emat: An energy matrix
-	:type emat: :java:ref:`.ematrix.EnergyMatrix`
-	:param pmat: A pruning matrix, resulting from DEE
-	:type pmat: :java:ref:`.pruning.PruningMatrix`
+    :param confEcalc: The conformation energy calculator
+    :type confEcalc: :java:ref:`.energy.ConfEnergyCalculator`
+    :param emat: An energy matrix
+    :type emat: :java:ref:`.ematrix.EnergyMatrix`
+    :param pmat: A pruning matrix, resulting from DEE
+    :type pmat: :java:ref:`.pruning.PruningMatrix`
 
-	:param float maxRMSE: The maximum tolerable fit RMS error
-	:param float maxOverfittingScore: The maximum tolerable amount of overfitting (score = training set RMSE / test set RMSE)
-	:param int randomSeed: Random seed to use for conformation sampling
-	:param str confDBPath: Path to write/read confDB file, or None to omit saving the confDB to disk
+    :param float maxRMSE: The maximum tolerable fit RMS error
+    :param float maxOverfittingScore: The maximum tolerable amount of overfitting (score = training set RMSE / test set RMSE)
+    :param int randomSeed: Random seed to use for conformation sampling
+    :param str confDBPath: Path to write/read confDB file, or None to omit saving the confDB to disk
 
-	:returns: The LUTE model
-	:rtype: :java:ref:`.lute.LUTEState`
-	'''
+    :returns: The LUTE model
+    :rtype: :java:ref:`.lute.LUTEState`
+    '''
 
-	confSpace = confEcalc.confSpace
+    confSpace = confEcalc.confSpace
 
-	# make a conf DB, saved to a file if needed
-	if confDBPath is None:
-		confDB = c.confspace.ConfDB(confSpace)
-	else:
-		confDB = c.confspace.ConfDB(confSpace, jvm.toFile(confDBPath))
+    # make a conf DB, saved to a file if needed
+    if confDBPath is None:
+        confDB = c.confspace.ConfDB(confSpace)
+    else:
+        confDB = c.confspace.ConfDB(confSpace, jvm.toFile(confDBPath))
 
-	try:
+    try:
 
-		# make a conf table for LUTE
-		confTable = jvm.getInnerClass(c.confspace.ConfDB, 'ConfTable')(confDB, 'LUTE')
+        # make a conf table for LUTE
+        confTable = jvm.getInnerClass(c.confspace.ConfDB, 'ConfTable')(confDB, 'LUTE')
 
-		# use the OLSCG fitter for LUTE (it's a little faster than LASSO in practice)
-		fitter = jvm.getInnerClass(c.lute.LUTE, 'Fitter').OLSCG
+        # use the OLSCG fitter for LUTE (it's a little faster than LASSO in practice)
+        fitter = jvm.getInnerClass(c.lute.LUTE, 'Fitter').OLSCG
 
-		# train LUTE
-		lute = c.lute.LUTE(confSpace)
-		sampler = c.lute.UniformConfSampler(confSpace, pmat, randomSeed)
-		lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE)
-		lute.reportConfSpaceSize(pmat)
+        # train LUTE
+        lute = c.lute.LUTE(confSpace)
+        sampler = c.lute.UniformConfSampler(confSpace, pmat, randomSeed)
+        lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE)
+        lute.reportConfSpaceSize(pmat)
 
-		# return the LUTE fit
-		return c.lute.LUTEState(lute.getTrainingSystem())
+        # return the LUTE fit
+        return c.lute.LUTEState(lute.getTrainingSystem())
 
-	finally:
-		confDB.close()
+    finally:
+        confDB.close()
 
 
 def LUTE_write(model, path):
-	'''
-	Writes a LUTE model to a file
+    '''
+    Writes a LUTE model to a file
 
-	:param model: The LUTE model
-	:type model: :java:ref:`.lute.LUTEState`
-	:param str path: Path to the file
-	'''
+    :param model: The LUTE model
+    :type model: :java:ref:`.lute.LUTEState`
+    :param str path: Path to the file
+    '''
 
-	file = jvm.toFile(path)
-	c.lute.LUTEIO.write(model, file)
-	print('LUTE model saved to %s' % file.getAbsolutePath())
+    file = jvm.toFile(path)
+    c.lute.LUTEIO.write(model, file)
+    print('LUTE model saved to %s' % file.getAbsolutePath())
 
 
 def LUTE_read(path):
-	'''
-	Reads a LUTE model from a file
+    '''
+    Reads a LUTE model from a file
 
-	:param str path: Path to the file
+    :param str path: Path to the file
 
-	:returns: The LUTE model
-	:rtype: :java:ref:`.lute.LUTEState`
-	'''
+    :returns: The LUTE model
+    :rtype: :java:ref:`.lute.LUTEState`
+    '''
 
-	file = jvm.toFile(path)
-	model = c.lute.LUTEIO.read(file)
-	print('LUTE model read from %s' % file.getAbsolutePath())
-	return model
+    file = jvm.toFile(path)
+    model = c.lute.LUTEIO.read(file)
+    print('LUTE model read from %s' % file.getAbsolutePath())
+    return model
 
 
 def LUTE_ConfEnergyCalculator(confSpace, model):
-	'''
-	Creates a LUTE conformation energy calculator
+    '''
+    Creates a LUTE conformation energy calculator
 
-	:param confSpace: The conformation space
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param model: The LUTE model
-	:type model: :java:ref:`.lute.LUTEState`
+    :param confSpace: The conformation space
+    :type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+    :param model: The LUTE model
+    :type model: :java:ref:`.lute.LUTEState`
 
-	:rtype: :java:ref:`.lute.LUTEConfEnergyCalculator`
-	'''
+    :rtype: :java:ref:`.lute.LUTEConfEnergyCalculator`
+    '''
 
-	return c.lute.LUTEConfEnergyCalculator(confSpace, model)
+    return c.lute.LUTEConfEnergyCalculator(confSpace, model)
 
 
 def LUTE_AStar(rcs, pmat, luteEcalc, showProgress=True):
-	'''
-	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setLUTE`
+    '''
+    :java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setLUTE`
 
-	:builder_option rcs .astar.conf.ConfAStarTree$Builder#rcs:
-	:param pmat: The pruning matrix from the LUTE training calculation.
-	:type pmat: :java:ref:`.pruning.PruningMatrix`
-	:param luteEcalc: The LUTE conformation energy calculator
-	:type luteEcalc: :java:ref:`.lute.LUTEConfEnergyCalculator`
+    :builder_option rcs .astar.conf.ConfAStarTree$Builder#rcs:
+    :param pmat: The pruning matrix from the LUTE training calculation.
+    :type pmat: :java:ref:`.pruning.PruningMatrix`
+    :param luteEcalc: The LUTE conformation energy calculator
+    :type luteEcalc: :java:ref:`.lute.LUTEConfEnergyCalculator`
 
-	:builder_return .astar.conf.ConfAStarTree$Builder:
-	'''
+    :builder_return .astar.conf.ConfAStarTree$Builder:
+    '''
 
-	# filter the rcs by the pmat
-	rcs = c.astar.conf.RCs(rcs, pmat)
+    # filter the rcs by the pmat
+    rcs = c.astar.conf.RCs(rcs, pmat)
 
-	builder = _get_builder(c.astar.conf.ConfAStarTree)(None, rcs)
-	builder.setShowProgress(showProgress)
-	builder.setLUTE(luteEcalc)
+    builder = _get_builder(c.astar.conf.ConfAStarTree)(None, rcs)
+    builder.setShowProgress(showProgress)
+    builder.setLUTE(luteEcalc)
 
-	return builder.build()
+    return builder.build()
 
 
 def LUTE_GMECFinder(confSpace, model, pmat, confLog=useJavaDefault, printIntermediateConfs=useJavaDefault):
-	'''
-	:java:classdoc:`.lute.LUTEGMECFinder`
+    '''
+    :java:classdoc:`.lute.LUTEGMECFinder`
 
-	:param confSpace: The conformation space
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:param model: The LUTE model
-	:type model: :java:ref:`.lute.LUTEState`
-	:param pmat: The pruning matrix from the LUTE training calculation.
-	:type pmat: :java:ref:`.pruning.PruningMatrix`
-	:param str confLog: Path to file where conformations found during conformation space search should be logged.
-	:builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
+    :param confSpace: The conformation space
+    :type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+    :param model: The LUTE model
+    :type model: :java:ref:`.lute.LUTEState`
+    :param pmat: The pruning matrix from the LUTE training calculation.
+    :type pmat: :java:ref:`.pruning.PruningMatrix`
+    :param str confLog: Path to file where conformations found during conformation space search should be logged.
+    :builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
 
-	:rtype: :java:ref:`.lute.LUTEGMECFinder`
-	'''
+    :rtype: :java:ref:`.lute.LUTEGMECFinder`
+    '''
 
-	builder = _get_builder(c.lute.LUTEGMECFinder)(pmat, LUTE_ConfEnergyCalculator(confSpace, model))
+    builder = _get_builder(c.lute.LUTEGMECFinder)(pmat, LUTE_ConfEnergyCalculator(confSpace, model))
 
-	if confLog is not useJavaDefault:
-		logFile = jvm.toFile(confLog)
-		builder.setLogPrinter(c.gmec.LoggingConfPrinter(logFile))
+    if confLog is not useJavaDefault:
+        logFile = jvm.toFile(confLog)
+        builder.setLogPrinter(c.gmec.LoggingConfPrinter(logFile))
 
-	if printIntermediateConfs is not useJavaDefault:
-		builder.setPrintIntermediateConfsToConsole(printIntermediateConfs)
+    if printIntermediateConfs is not useJavaDefault:
+        builder.setPrintIntermediateConfsToConsole(printIntermediateConfs)
 
-	return builder.build()
+    return builder.build()
 
 
 def COMETS_State(name, confSpace):
-	'''
-	:java:classdoc:`.gmec.Comets$State`
+    '''
+    :java:classdoc:`.gmec.Comets$State`
 
-	:param str name: :java:fielddoc:`.gmec.Comets$State#name`
-	:param confSpace: :java:fielddoc:`.gmec.Comets$State#confSpace`
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+    :param str name: :java:fielddoc:`.gmec.Comets$State#name`
+    :param confSpace: :java:fielddoc:`.gmec.Comets$State#confSpace`
+    :type confSpace: :java:ref:`.confspace.SimpleConfSpace`
 
-	:rtype: :java:ref:`.gmec.Comets$State`
-	'''
+    :rtype: :java:ref:`.gmec.Comets$State`
+    '''
 
-	return jvm.getInnerClass(c.gmec.Comets, 'State')(name, confSpace)
+    return jvm.getInnerClass(c.gmec.Comets, 'State')(name, confSpace)
 
 
 def COMETS_ConfSearchFactory(func):
 
-	# convert the python lambda to a JVM interface implementation
-	return jpype.JProxy(
-		jvm.c.java.util.function.Function,
-		dict={ 'apply': func }
-	)
+    # convert the python lambda to a JVM interface implementation
+    return jpype.JProxy(
+        jvm.c.java.util.function.Function,
+        dict={ 'apply': func }
+    )
 
 
 def COMETS_LME(weightsByState, offset=useJavaDefault, constrainLessThan=None):
-	'''
-	:java:classdoc:`.gmec.Comets$LME`
+    '''
+    :java:classdoc:`.gmec.Comets$LME`
 
-	:param weightsByState: map from states to weights
-	:type weightsByState: map from :java:ref:`.gmec.Comets$State` to float
+    :param weightsByState: map from states to weights
+    :type weightsByState: map from :java:ref:`.gmec.Comets$State` to float
 
-	:builder_option offset .gmec.Comets$LME$Builder#offset:
-	:param float constrainLessThan: :java:methoddoc:`.gmec.Comets$LME$Builder#constrainLessThan`
-	:builder_return .gmec.Comets$LME$Builder:
-	'''
+    :builder_option offset .gmec.Comets$LME$Builder#offset:
+    :param float constrainLessThan: :java:methoddoc:`.gmec.Comets$LME$Builder#constrainLessThan`
+    :builder_return .gmec.Comets$LME$Builder:
+    '''
 
-	builder = _get_builder(jvm.getInnerClass(c.gmec.Comets, 'LME'))()
+    builder = _get_builder(jvm.getInnerClass(c.gmec.Comets, 'LME'))()
 
-	if offset is not useJavaDefault:
-		builder.setOffset(offset)
+    if offset is not useJavaDefault:
+        builder.setOffset(offset)
 
-	for (state, weight) in weightsByState.items():
-		builder.addState(state, weight)
+    for (state, weight) in weightsByState.items():
+        builder.addState(state, weight)
 
-	if constrainLessThan is not None:
-		builder.constrainLessThan(constrainLessThan)
+    if constrainLessThan is not None:
+        builder.constrainLessThan(constrainLessThan)
 
-	return builder.build()
+    return builder.build()
 
 
 def COMETS(objective, constraints=[], objectiveWindowSize=useJavaDefault, objectiveWindowMax=useJavaDefault, maxSimultaneousMutations=useJavaDefault, minNumConfTrees=useJavaDefault, logFile=None):
-	'''
-	:java:classdoc:`.gmec.Comets`
+    '''
+    :java:classdoc:`.gmec.Comets`
 
-	:builder_option objective .gmec.Comets$Builder#objective:
+    :builder_option objective .gmec.Comets$Builder#objective:
 
-	:param constraints: List of LMEs to use as constraints
-	:type constraints: list of :java:ref:`.gmec.Comets$LME`
+    :param constraints: List of LMEs to use as constraints
+    :type constraints: list of :java:ref:`.gmec.Comets$LME`
 
-	:builder_option objectiveWindowSize .gmec.Comets$Builder#objectiveWindowSize:
-	:builder_option objectiveWindowMax .gmec.Comets$Builder#objectiveWindowMax:
-	:builder_option maxSimultaneousMutations .gmec.Comets$Builder#maxSimultaneousMutations:
-	:builder_option minNumConfTrees .gmec.Comets$Builder#minNumConfsTrees:
+    :builder_option objectiveWindowSize .gmec.Comets$Builder#objectiveWindowSize:
+    :builder_option objectiveWindowMax .gmec.Comets$Builder#objectiveWindowMax:
+    :builder_option maxSimultaneousMutations .gmec.Comets$Builder#maxSimultaneousMutations:
+    :builder_option minNumConfTrees .gmec.Comets$Builder#minNumConfsTrees:
 
-	:param str logFile: :java:fielddoc:`.gmec.Comets$Builder#logFile`
+    :param str logFile: :java:fielddoc:`.gmec.Comets$Builder#logFile`
 
-	:builder_return .gmec.Comets$Builder:
-	'''
+    :builder_return .gmec.Comets$Builder:
+    '''
 
-	builder = _get_builder(c.gmec.Comets)(objective)
+    builder = _get_builder(c.gmec.Comets)(objective)
 
-	for constraint in constraints:
-		builder.addConstraint(constraint)
+    for constraint in constraints:
+        builder.addConstraint(constraint)
 
-	if objectiveWindowSize is not useJavaDefault:
-		builder.setObjectiveWindowSize(objectiveWindowSize)
-	if objectiveWindowMax is not useJavaDefault:
-		builder.setObjectiveWindowMax(objectiveWindowMax)
-	if maxSimultaneousMutations is not useJavaDefault:
-		builder.setMaxSimultaneousMutations(maxSimultaneousMutations)
-	if minNumConfTrees is not useJavaDefault:
-		builder.setMinNumConfTrees(jvm.boxInt(minNumConfTrees))
+    if objectiveWindowSize is not useJavaDefault:
+        builder.setObjectiveWindowSize(objectiveWindowSize)
+    if objectiveWindowMax is not useJavaDefault:
+        builder.setObjectiveWindowMax(objectiveWindowMax)
+    if maxSimultaneousMutations is not useJavaDefault:
+        builder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+    if minNumConfTrees is not useJavaDefault:
+        builder.setMinNumConfTrees(jvm.boxInt(minNumConfTrees))
 
-	if logFile is not None:
-		builder.setLogFile(jvm.toFile(logFile))
+    if logFile is not None:
+        builder.setLogFile(jvm.toFile(logFile))
 
-	return builder.build()
+    return builder.build()
 
 
 def MSKStar_State(name, confSpace):
-	'''
-	:java:classdoc:`.kstar.MSKStar$State`
+    '''
+    :java:classdoc:`.kstar.MSKStar$State`
 
-	:param str name: :java:fielddoc:`.kstar.MSKStar$State#name`
-	:param confSpace: :java:fielddoc:`.kstar.MSKStar$State#confSpace`
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+    :param str name: :java:fielddoc:`.kstar.MSKStar$State#name`
+    :param confSpace: :java:fielddoc:`.kstar.MSKStar$State#confSpace`
+    :type confSpace: :java:ref:`.confspace.SimpleConfSpace`
 
-	:rtype: :java:ref:`.kstar.MSKStar$State`
-	'''
+    :rtype: :java:ref:`.kstar.MSKStar$State`
+    '''
 
-	return jvm.getInnerClass(c.kstar.MSKStar, 'State')(name, confSpace)
+    return jvm.getInnerClass(c.kstar.MSKStar, 'State')(name, confSpace)
 
 
 def MSKStar_ConfSearchFactory(func):
 
-	# convert the python lambda to a JVM interface implementation
-	return jpype.JProxy(
-		jvm.c.java.util.function.Function,
-		dict={ 'apply': func }
-	)
+    # convert the python lambda to a JVM interface implementation
+    return jpype.JProxy(
+        jvm.c.java.util.function.Function,
+        dict={ 'apply': func }
+    )
 
 
 def MSKStar_LMFE(weightsByState, offset=useJavaDefault, constrainLessThan=None):
-	'''
-	:java:classdoc:`.kstar.MSKStar$LMFE`
+    '''
+    :java:classdoc:`.kstar.MSKStar$LMFE`
 
-	:param weightsByState: map from states to weights
-	:type weightsByState: map from :java:ref:`.kstar.MSKStar$State` to float
+    :param weightsByState: map from states to weights
+    :type weightsByState: map from :java:ref:`.kstar.MSKStar$State` to float
 
-	:builder_option offset .kstar.MSKStar$LMFE$Builder#offset:
-	:param float constrainLessThan: :java:methoddoc:`.kstar.MSKStar$LMFE$Builder#constrainLessThan`
-	:builder_return .kstar.MSKStar$LMFE$Builder:
-	'''
+    :builder_option offset .kstar.MSKStar$LMFE$Builder#offset:
+    :param float constrainLessThan: :java:methoddoc:`.kstar.MSKStar$LMFE$Builder#constrainLessThan`
+    :builder_return .kstar.MSKStar$LMFE$Builder:
+    '''
 
-	builder = _get_builder(jvm.getInnerClass(c.kstar.MSKStar, 'LMFE'))()
+    builder = _get_builder(jvm.getInnerClass(c.kstar.MSKStar, 'LMFE'))()
 
-	if offset is not useJavaDefault:
-		builder.setOffset(offset)
+    if offset is not useJavaDefault:
+        builder.setOffset(offset)
 
-	for (state, weight) in weightsByState.items():
-		builder.addState(state, weight)
+    for (state, weight) in weightsByState.items():
+        builder.addState(state, weight)
 
-	if constrainLessThan is not None:
-		builder.constrainLessThan(constrainLessThan)
+    if constrainLessThan is not None:
+        builder.constrainLessThan(constrainLessThan)
 
-	return builder.build()
+    return builder.build()
 
 
 def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSize=useJavaDefault, objectiveWindowMax=useJavaDefault, maxSimultaneousMutations=useJavaDefault, minNumConfTrees=useJavaDefault, logFile=None):
-	'''
-	:java:classdoc:`.kstar.MSKStar`
+    '''
+    :java:classdoc:`.kstar.MSKStar`
 
-	:builder_option objective .kstar.MSKStar$Builder#objective:
+    :builder_option objective .kstar.MSKStar$Builder#objective:
 
-	:param constraints: List of LMFEs to use as constraints
-	:type constraints: list of :java:ref:`.kstar.MSKStar$LMFE`
+    :param constraints: List of LMFEs to use as constraints
+    :type constraints: list of :java:ref:`.kstar.MSKStar$LMFE`
 
 
-	:builder_option epsilon .kstar.MSKStar$Builder#epsilon:
-	:builder_option objectiveWindowSize .kstar.MSKStar$Builder#objectiveWindowSize:
-	:builder_option objectiveWindowMax .kstar.MSKStar$Builder#objectiveWindowMax:
-	:builder_option maxSimultaneousMutations .kstar.MSKStar$Builder#maxSimultaneousMutations:
-	:builder_option minNumConfTrees .kstar.MSKStar$Builder#minNumConfsTrees:
+    :builder_option epsilon .kstar.MSKStar$Builder#epsilon:
+    :builder_option objectiveWindowSize .kstar.MSKStar$Builder#objectiveWindowSize:
+    :builder_option objectiveWindowMax .kstar.MSKStar$Builder#objectiveWindowMax:
+    :builder_option maxSimultaneousMutations .kstar.MSKStar$Builder#maxSimultaneousMutations:
+    :builder_option minNumConfTrees .kstar.MSKStar$Builder#minNumConfsTrees:
 
-	:param str logFile: :java:fielddoc:`.kstar.MSKStar$Builder#logFile`
+    :param str logFile: :java:fielddoc:`.kstar.MSKStar$Builder#logFile`
 
-	:builder_return .kstar.MSKStar$Builder:
-	'''
+    :builder_return .kstar.MSKStar$Builder:
+    '''
 
-	builder = _get_builder(c.kstar.MSKStar)(objective)
+    builder = _get_builder(c.kstar.MSKStar)(objective)
 
-	for constraint in constraints:
-		builder.addConstraint(constraint)
+    for constraint in constraints:
+        builder.addConstraint(constraint)
 
-	if objectiveWindowSize is not useJavaDefault:
-		builder.setObjectiveWindowSize(objectiveWindowSize)
-	if objectiveWindowMax is not useJavaDefault:
-		builder.setObjectiveWindowMax(objectiveWindowMax)
-	if maxSimultaneousMutations is not useJavaDefault:
-		builder.setMaxSimultaneousMutations(maxSimultaneousMutations)
-	if minNumConfTrees is not useJavaDefault:
-		builder.setMinNumConfTrees(jvm.boxInt(minNumConfTrees))
+    if objectiveWindowSize is not useJavaDefault:
+        builder.setObjectiveWindowSize(objectiveWindowSize)
+    if objectiveWindowMax is not useJavaDefault:
+        builder.setObjectiveWindowMax(objectiveWindowMax)
+    if maxSimultaneousMutations is not useJavaDefault:
+        builder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+    if minNumConfTrees is not useJavaDefault:
+        builder.setMinNumConfTrees(jvm.boxInt(minNumConfTrees))
 
-	if logFile is not None:
-		builder.setLogFile(jvm.toFile(logFile))
+    if logFile is not None:
+        builder.setLogFile(jvm.toFile(logFile))
 
-	return builder.build()
+    return builder.build()
 def MARKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, rigidEcalc, minimizingEcalc, confEcalcFactory, epsilon=useJavaDefault, parallelism=None, stabilityThreshold=useJavaDefault, energyMatrixCachePattern=useJavaDefault, showPfuncProgress=useJavaDefault, maxSimultaneousMutations=useJavaDefault, reduceMinimizations=useJavaDefault):
     '''
     :java:classdoc:`.markstar.MARKStar`
@@ -1316,11 +1316,11 @@ def EwakstarDoer_ConfSearchFactory(func):
     return jpype.JProxy(
         jvm.c.java.util.function.Function,
         dict={ 'apply': func }
-	)
+    )
 
 def EwakstarDoer_State(name, confSpace):
 
-	return jvm.getInnerClass(c.ewakstar.EwakstarDoer, 'State')(name, confSpace)
+    return jvm.getInnerClass(c.ewakstar.EwakstarDoer, 'State')(name, confSpace)
 
 def EwakstarDoer(state, useWtBenchmark=useJavaDefault, numEWAKStarSeqs=useJavaDefault, logFile=None, epsilon=useJavaDefault, pfEw=useJavaDefault, eW=useJavaDefault, orderOfMag=useJavaDefault, numPfConfs=useJavaDefault, numTopSeqs=useJavaDefault, mutableType=useJavaDefault, numMutable=useJavaDefault, seqFilterOnly=useJavaDefault, numCPUs=useJavaDefault):
 
