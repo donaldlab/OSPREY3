@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar;
@@ -249,6 +250,7 @@ public class MARKStar {
 		public final SimpleConfSpace confSpace;
 		public final ConfEnergyCalculator rigidConfEcalc;
 		public final ConfEnergyCalculator minimizingConfEcalc;
+		public UpdatingEnergyMatrix correctionEmat;
 		public ConfSearchFactory confSearchFactory = null;
 		public File confDBFile = null;
 
@@ -290,6 +292,7 @@ public class MARKStar {
 			}
 			rigidEmat = rigidBuilder.build().calcEnergyMatrix();
 			minimizingEmat = minimizingBuilder.build().calcEnergyMatrix();
+			correctionEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
 		}
 
 		public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold) {
@@ -312,6 +315,8 @@ public class MARKStar {
 			if(settings.maxNumConfs > 0)
 				pfunc.setMaxNumConfs(settings.maxNumConfs);
 			pfunc.setReportProgress(settings.showPfuncProgress);
+
+			pfunc.setCorrections(correctionEmat);
 
 			if (settings.showPfuncProgress == true){
 				System.out.println("Computing "+type+":");

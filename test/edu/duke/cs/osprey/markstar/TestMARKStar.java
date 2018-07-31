@@ -1,14 +1,6 @@
 package edu.duke.cs.osprey.markstar;
 
-import static edu.duke.cs.osprey.kstar.TestBBKStar.runBBKStar;
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.ConfIndex;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -17,16 +9,12 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-//import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.KStar;
-import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.TestBBKStar;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.MARKStar.ConfSearchFactory;
-import edu.duke.cs.osprey.markstar.framework.MARKStarNode;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.partcr.pickers.WalkingConfPicker;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -40,8 +28,12 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
+
+import static edu.duke.cs.osprey.kstar.TestBBKStar.runBBKStar;
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.assertThat;
+
+//import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 
 public class TestMARKStar {
 
@@ -66,7 +58,7 @@ public class TestMARKStar {
 		ConfSpaces confSpaces = make2XXM();
 		final double epsilon = 0.99;
 		String kstartime = "(not run)";
-		boolean runkstar = false;
+		boolean runkstar = true;
 		Stopwatch runtime = new Stopwatch().start();
 		if(runkstar) {
 			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
@@ -139,12 +131,15 @@ public class TestMARKStar {
 
 
 		String traditionalTime = "(Not run)";
+		boolean runkstar = true;
 		Stopwatch timer = new Stopwatch().start();
-		TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
-		timer.stop();
-		traditionalTime = timer.getTime(2);
-		timer.reset();
-		timer.start();
+		if(runkstar) {
+			TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
+			timer.stop();
+			traditionalTime = timer.getTime(2);
+			timer.reset();
+			timer.start();
+		}
 		runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
 		String MARKStarTime = timer.getTime(2);
 		timer.stop();
@@ -178,7 +173,7 @@ public class TestMARKStar {
 
 	@Test
     public void testMARKStarVsKStar() {
-	    int numFlex = 10;
+	    int numFlex = 14;
 	    double epsilon = 0.68;
 		compareMARKStarAndKStar(numFlex, epsilon);
     }
@@ -762,19 +757,22 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 	@Test
 	public void test1GUA11() {
 
-		double epsilon = 0.999999;
+		double epsilon = 0.99;
+		Stopwatch runtime = new Stopwatch().start();
 		Result result = runMARKStar(make1GUA11(), epsilon);
+		runtime.stop();
 
 		for (int index = 0; index <6; index++){
 		    printSequence(result, index);
 		}
 		// check the results (values collected with e = 0.1 and 64 digits precision)
-		assertSequence(result,   0,"ILE ILE GLN HIE VAL TYR LYS VAL", 1.186071e+42, 2.840001e+07, 1.119884e+66, epsilon); // K* = 16.521744 in [16.463680,16.563832] (log10)
-		assertSequence(result,   1, "ILE ILE GLN HIE VAL TYR LYS HID", 1.186071e+42, 5.575412e+07, 3.345731e+66, epsilon); // K* = 16.704103 in [16.647717,16.747742] (log10)
-		assertSequence(result,   2, "ILE ILE GLN HIE VAL TYR LYS HIE", 1.186071e+42, 5.938851e+06, 5.542993e+65, epsilon); // K* = 16.895931 in [16.826906,16.938784] (log10)
-		assertSequence(result,   3, "ILE ILE GLN HIE VAL TYR LYS LYS", 1.186071e+42, 6.402058e+04, 3.315165e+63, epsilon); // K* = 16.640075 in [16.563032,16.685734] (log10)
-		assertSequence(result,   4, "ILE ILE GLN HIE VAL TYR LYS ARG", 1.186071e+42, 1.157637e+05, 5.375731e+64, epsilon); // K* = 17.592754 in [17.514598,17.638466] (log10)
-		assertSequence(result,   5, "ILE ILE GLN HID VAL TYR LYS VAL", 9.749716e+41, 2.840001e+07, 2.677894e+66, epsilon); // K* = 16.985483 in [16.927677,17.026890] (log10)
+		assertSequence(result,   0, "HIE VAL", 1.194026e+42, 2.932628e+07, 1.121625e+66, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [7.467257 , 7.467257] (log10)                    complex [66.049848,66.051195] (log10)                    K* = 16.505577 in [16.505576,16.506925] (log10)
+		assertSequence(result,   1, "HIE HID", 1.194026e+42, 5.738568e+07, 3.346334e+66, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [7.758803 , 7.758803] (log10)                    complex [66.524569,66.543073] (log10)                    K* = 16.688752 in [16.688752,16.707256] (log10)
+		assertSequence(result,   2, "HIE HIE", 1.194026e+42, 6.339230e+06, 5.544100e+65, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [6.802036 , 6.802036] (log10)                    complex [65.743831,65.769366] (log10)                    K* = 16.864781 in [16.864780,16.890316] (log10)
+		assertSequence(result,   3, "HIE LYS", 1.194026e+42, 6.624443e+04, 3.315130e+63, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [4.821149 , 4.826752] (log10)                    complex [63.520501,63.563549] (log10)                    K* = 16.622337 in [16.616735,16.665386] (log10)
+		assertSequence(result,   4, "HIE ARG", 1.194026e+42, 1.196619e+05, 5.375633e+64, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [5.077956 , 5.087238] (log10)                    complex [64.730430,64.774106] (log10)                    K* = 17.575460 in [17.566178,17.619136] (log10)
+		assertSequence(result,   5, "HID VAL", 9.813429e+41, 2.932628e+07, 2.680104e+66, epsilon); // protein [41.991821,41.992159] (log10)                    ligand [7.467257 , 7.467257] (log10)                    complex [66.428152,66.446408] (log10)                    K* = 16.969074 in [16.968735,16.987330] (log10)
+		System.out.println("Total time: "+runtime.getTime(2));
 	}
 	public static void printSequence(Result result, int sequenceIndex){
 		MARKStar.ScoredSequence scoredSequence =result.scores.get(sequenceIndex);
