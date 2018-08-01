@@ -687,7 +687,7 @@ public class MARKStarBound implements PartitionFunction {
         ecalc.calcEnergyAsync(tuple, (tripleEnergy)->
         {
             double lowerbound = minimizingEmat.getInternalEnergy(tuple);
-            minList.set(tuple.size(),minList.get(tuple.size())+1);
+            minList.set(tuple.size()-1,minList.get(tuple.size()-1)+1);
             if (tripleEnergy.energy - lowerbound > 0) {
                 double correction = tripleEnergy.energy - lowerbound;
                 correctionMatrix.setHigherOrder(tuple, correction);
@@ -775,7 +775,7 @@ public class MARKStarBound implements PartitionFunction {
             return;
         double pairwiseLower = minimizingEmat.getInternalEnergy(overlap);
         double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
-        minList.set(overlap.size(),minList.get(overlap.size())+1);
+        minList.set(overlap.size()-1,minList.get(overlap.size()-1)+1);
         debugPrint("Computing correction for " + overlap.stringListing() + " penalty of " + (partiallyMinimizedLower - pairwiseLower));
         progress.reportPartialMinimization(1, epsilonBound);
         synchronized (correctionMatrix) {
