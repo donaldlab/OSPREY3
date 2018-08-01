@@ -234,6 +234,7 @@ public class MARKStarBound implements PartitionFunction {
     private Stopwatch stopwatch = new Stopwatch().start();
     BigDecimal cumulativeZCorrection = BigDecimal.ZERO;
     BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+    private boolean computedCorrections = false;
 
     public static MARKStarBound makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info) {
         ConfEnergyCalculator minimizingConfEcalc = info.confEcalcMinimized;
@@ -248,8 +249,6 @@ public class MARKStarBound implements PartitionFunction {
 
         MPLPUpdater updater = new EdgeUpdater();
         hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs);//MPLPPairwiseHScorer(updater, emats, 50, 0.03);
-        if(correctionMatrix == null)
-            this.correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
 
         rootNode = MARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs, gscorerFactory, hscorerFactory, true);
         queue.add(rootNode);
@@ -349,10 +348,11 @@ public class MARKStarBound implements PartitionFunction {
             double correctgscore = correctionMatrix.confE(node.assignments);
             double hscore = node.getConfLowerBound() - node.gscore;
             double confCorrection = Math.min(correctgscore, node.rigidScore) + hscore;
-            if(!node.isMinimized() && node.getConfLowerBound() < confCorrection) {
+            if(!node.isMinimized() && node.getConfLowerBound() - confCorrection > 1e-5) {
                 debugPrint("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
                         + ":" + node.gscore + "] down to " + confCorrection);
                 recordCorrection(node.getConfLowerBound(), correctgscore - node.gscore);
+
                 node.gscore = correctgscore;
                 if (confCorrection > node.rigidScore) {
                     double rigid = rigidEmat.confE(node.assignments);
@@ -583,7 +583,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void debugCorrection(Node node, double confCorrection, double oldg) {
-        System.out.println("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
+        debugPrint("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
                 + ":" + oldg + "] down to " + confCorrection);
         if (confCorrection > node.rigidScore)
             System.err.println("Overcorrected"+SimpleConfSpace.formatConfRCs(node.assignments)+": " + confCorrection + " > " + node.rigidScore);
@@ -676,6 +676,7 @@ public class MARKStarBound implements PartitionFunction {
 
 
     private void computeDifference(RCTuple tuple, ConfEnergyCalculator ecalc) {
+        computedCorrections = true;
         if(correctionMatrix.hasHigherOrderTermFor(tuple))
             return;
         ecalc.calcEnergyAsync(tuple, (tripleEnergy)->
