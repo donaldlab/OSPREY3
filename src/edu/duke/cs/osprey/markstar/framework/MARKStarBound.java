@@ -36,6 +36,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tools.TimeFormatter;
 import javafx.util.Pair;
 
 import java.io.File;
@@ -235,6 +236,7 @@ public class MARKStarBound implements PartitionFunction {
     BigDecimal cumulativeZCorrection = BigDecimal.ZERO;
     BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
     private boolean computedCorrections = false;
+    private long loopPartialTime = 0;
 
     public static MARKStarBound makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info) {
         ConfEnergyCalculator minimizingConfEcalc = info.confEcalcMinimized;
@@ -312,8 +314,6 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void recordCorrection(double lowerBound, double correction) {
-        if(true)
-            return;
         BigDecimal upper = bc.calc(lowerBound);
         BigDecimal corrected = bc.calc(lowerBound + correction);
         cumulativeZCorrection = cumulativeZCorrection.add(upper.subtract(corrected));
@@ -323,6 +323,7 @@ public class MARKStarBound implements PartitionFunction {
         System.out.println(String.format("Current overall error bound: %12.6f",epsilonBound));
         List<MARKStarNode> newNodes = new ArrayList<>();
         List<MARKStarNode> newNodesToMinimize = new ArrayList<>();
+        loopPartialTime = 0;
         Stopwatch loopWatch = new Stopwatch();
         loopWatch.start();
         double bestLower = Double.POSITIVE_INFINITY;
@@ -390,6 +391,8 @@ public class MARKStarBound implements PartitionFunction {
         tasks.waitForFinish();
         queue.addAll(newNodes);
         loopWatch.stop();
+        System.out.println("Loop partial node time: "+TimeFormatter.format(loopPartialTime)+", average "
+            +TimeFormatter.format((long)(1.0*loopPartialTime/numNodes)));
         double loopTime = loopWatch.getTimeS();
         System.out.println("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
         loopWatch.reset();
@@ -428,13 +431,15 @@ public class MARKStarBound implements PartitionFunction {
             tasks.submit(() -> {
 
                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                    Stopwatch partialTime = new Stopwatch().start();
                     ScoreContext context = checkout.get();
                     node.index(context.index);
                     Node child = node.assign(nextPos, nextRc);
 
                     // score the child node differentially against the parent node
                     if (child.getLevel() < RCs.getNumPos()) {
-                        double diff = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        double confCorrection = correctionMatrix.confE(child.assignments);
+                        double diff = confCorrection;
                         double rigiddiff = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double hdiff = context.hscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
@@ -446,9 +451,8 @@ public class MARKStarBound implements PartitionFunction {
                         double confLowerBound = child.gscore + hdiff;
                         double confUpperbound = rigiddiff + maxhdiff;
                         child.computeNumConformations(RCs);
-                        double confCorrection = correctionMatrix.confE(child.assignments);
                         double lowerbound = minimizingEmat.confE(child.assignments);
-                        if(lowerbound < confCorrection) {
+                        if(diff < confCorrection) {
                             debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
                                     + ":" + lowerbound + "->" + confCorrection);
                             recordCorrection(confLowerBound, confCorrection - lowerbound);
@@ -482,6 +486,8 @@ public class MARKStarBound implements PartitionFunction {
                         numConfsScored++;
                         progress.reportLeafNode(child.gscore, queue.size(), epsilonBound);
                     }
+                    partialTime.stop();
+                    loopPartialTime+=partialTime.getTimeNs();
 
 
                     return child;
@@ -491,7 +497,6 @@ public class MARKStarBound implements PartitionFunction {
                 if(Double.isNaN(child.rigidScore))
                     System.out.println("Huh!?");
                 MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
-                synchronized (this) {
                     // collect the possible children
                     if (MARKStarNodeChild.getConfSearchNode().getConfLowerBound() < 0) {
                         children.add(MARKStarNodeChild);
@@ -503,7 +508,6 @@ public class MARKStarBound implements PartitionFunction {
                     else
                         MARKStarNodeChild.computeEpsilonErrorBounds();
 
-                }
                 curNode.markUpdated();
             });
         }
@@ -614,10 +618,11 @@ public class MARKStarBound implements PartitionFunction {
         //System.out.println("Analysis:"+analysis);
         EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);
         EnergyMatrix scoreAnalysis = analysis.breakdownScoreByPosition(minimizingEmat);
+        Stopwatch correctionTime = new Stopwatch().start();
         //System.out.println("Energy Analysis: "+energyAnalysis);
         //System.out.println("Score Analysis: "+scoreAnalysis);
         EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
-        //System.out.println("Difference Analysis " + diff);
+        System.out.println("Difference Analysis " + diff);
         List<Pair<Pair<Integer, Integer>, Double>> sortedPairwiseTerms = new ArrayList<>();
         for (int pos = 0; pos < diff.getNumPos(); pos++)
         {
@@ -665,11 +670,8 @@ public class MARKStarBound implements PartitionFunction {
             progress.reportPartialMinimization(localMinimizations, epsilonBound);
         }
         ecalc.tasks.waitForFinish();
-        double original = minimizingEmat.confE(analysis.assignments);
-        double corrected = correctionMatrix.confE(analysis.assignments);
-        /* Starting from the largest-difference pairs, create triples and quads to find
-         * tuples which correct the energy of the pair.
-         */
+        correctionTime.stop();
+        System.out.println("Correction time: "+correctionTime.getTime(2));
     }
 
 
