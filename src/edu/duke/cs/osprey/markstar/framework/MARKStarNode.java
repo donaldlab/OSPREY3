@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.ExpFunction;
+import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -535,12 +536,16 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
         public void computeNumConformations(RCs rcs) {
             BigInteger numConfs = BigInteger.ONE;
+            this.numConfs = numConfs;
+            if(rcs.getNumPos() == assignments.length)
+                return;
             for (int pos = 0; pos < assignments.length; pos++) {
                 if (assignments[pos] == Unassigned) {
                     numConfs = numConfs.multiply(BigInteger.valueOf(rcs.getNum(pos)));
                 }
             }
             this.numConfs = numConfs;
+            assert(this.numConfs.compareTo(BigInteger.ZERO) > 0);
         }
 
         public double getConfLowerBound() {

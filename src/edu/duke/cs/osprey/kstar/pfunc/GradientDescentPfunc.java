@@ -255,6 +255,10 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		this.rcs = rcs;
 	}
 
+	public void setRCs(RCs rcs) {
+		this.rcs = rcs;
+	}
+
 	public void traceTo(PfuncSurface val) {
 		surf = val;
 	}
@@ -608,8 +612,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	}
 	@Override
 	public PartitionFunction.Result makeResult() {
-		ArrayList<Integer> minList = new ArrayList(Collections.nCopies(rcs.getNumPos(), 0));
-		minList.set(rcs.getNumPos(), getNumConfsEvaluated());
+		ArrayList<Integer> minList = new ArrayList();//Collections.nCopies(rcs.getNumPos(), 0));
+		//minList.set(rcs.getNumPos(), getNumConfsEvaluated());
 		return new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated(), 0,getNumConfsScored(), energyConfs.getNumConformations(),Long.toString(stopwatch.getTimeNs()), minList);
 	}
 }

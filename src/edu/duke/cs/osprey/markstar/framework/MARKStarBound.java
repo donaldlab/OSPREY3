@@ -176,7 +176,7 @@ public class MARKStarBound implements PartitionFunction {
             lastEps = epsilonBound;
         }
         BigDecimal averageReduction = BigDecimal.ZERO;
-        int totalMinimizations = 0; //numConfsEnergied + numPartialMinimizations;
+        int totalMinimizations = numConfsEnergied + numPartialMinimizations;
         if(totalMinimizations> 0)
             averageReduction = cumulativeZCorrection
                 .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));
@@ -457,17 +457,14 @@ public class MARKStarBound implements PartitionFunction {
                         double lowerbound = minimizingEmat.confE(child.assignments);
                         if(diff < confCorrection) {
                             debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
-                                    + ":" + lowerbound + "->" + confCorrection);
-                            recordCorrection(confLowerBound, confCorrection - lowerbound);
+                                    + ":" + diff + "->" + confCorrection);
+                            recordCorrection(confLowerBound, confCorrection - diff);
                             confLowerBound = confCorrection + hdiff;
                         }
                         child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
-                        synchronized (progress) {
-                            progress.reportInternalNode(child.level, child.gscore, child.getHScore(), queue.size(), children.size(), epsilonBound);
-                        }
+                        //progress.reportInternalNode(child.level, child.gscore, child.getHScore(), queue.size(), children.size(), epsilonBound);
                     }
                     if (child.getLevel() == RCs.getNumPos()) {
-                        double confPairwiseLower = context.gscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         confRigid=confRigid-node.gscore+node.rigidScore;
 
@@ -480,7 +477,6 @@ public class MARKStarBound implements PartitionFunction {
                             recordCorrection(lowerbound, confCorrection - lowerbound);
                         }
                         checkBounds(confCorrection,confRigid);
-                        correctionMatrix.confE(child.assignments);
                         child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
                         child.gscore = child.getConfLowerBound();
                         child.rigidScore = confRigid;
@@ -625,7 +621,7 @@ public class MARKStarBound implements PartitionFunction {
         //System.out.println("Energy Analysis: "+energyAnalysis);
         //System.out.println("Score Analysis: "+scoreAnalysis);
         EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
-        System.out.println("Difference Analysis " + diff);
+        //System.out.println("Difference Analysis " + diff);
         List<Pair<Pair<Integer, Integer>, Double>> sortedPairwiseTerms = new ArrayList<>();
         for (int pos = 0; pos < diff.getNumPos(); pos++)
         {

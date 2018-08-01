@@ -264,6 +264,7 @@ public class KStar {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confDB.getSequence(sequence));
 			}
 			RCs rcs = sequence.makeRCs(confSpace);
+			pfunc.setRCs(rcs);
 			if (settings.useExternalMemory) {
 				PartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
 			}

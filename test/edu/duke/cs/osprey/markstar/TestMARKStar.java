@@ -60,8 +60,9 @@ public class TestMARKStar {
 		String kstartime = "(not run)";
 		boolean runkstar = false;
 		Stopwatch runtime = new Stopwatch().start();
+		List<KStar.ScoredSequence> kStarSeqs = null;
 		if(runkstar) {
-			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
+			kStarSeqs = runKStar(confSpaces, epsilon);
 			runtime.stop();
 			kstartime = runtime.getTime(2);
 			runtime.reset();
@@ -71,6 +72,11 @@ public class TestMARKStar {
 		runtime.stop();
 		String markstartime = runtime.getTime(2);
 		System.out.println("MARK* time: "+markstartime+", K* time: "+kstartime);
+		for(MARKStar.ScoredSequence seq: result.scores)
+			printMARKStarComputationStats(seq);
+		if(runkstar)
+			for(KStar.ScoredSequence seq: kStarSeqs)
+				printKStarComputationStats(seq);
 	}
 
 	private ConfSpaces make2XXM() {
@@ -126,7 +132,7 @@ public class TestMARKStar {
 	public void test1A0RBBKStar() {
 		TestKStar.ConfSpaces confSpaces = make1A0RBBKStar();
 		int numSequences = 2;
-		double epsilon = 0.9999;
+		double epsilon = 0.99;
 		String kstartime = "(Not run)";
 		Stopwatch watch = new Stopwatch();
 		watch.start();
@@ -472,6 +478,7 @@ public class TestMARKStar {
 
 			// calc energy matrix
 			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
+					.setCacheFile(new File(info.type+".kstar.emat"))
 					.build()
 					.calcEnergyMatrix();
 
