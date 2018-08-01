@@ -36,6 +36,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.function.Function;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -180,6 +181,7 @@ public interface PartitionFunction {
 		public int numConfsLooked=0;
 		public int numPartialMin=0;
 		public String timeNs;
+		public ArrayList<Integer> minList;
 
 		public Result(Status status, Values values, int numConfs) {
 			this.status = status;
@@ -189,7 +191,7 @@ public interface PartitionFunction {
 			this.totalNumConfs = BigInteger.valueOf(0).toString();
 		}
 
-		public Result(Status status, Values values, int numConfs, int numPartialMin, int numConfsLooked, BigInteger totalNumConfs, String timeNs) {
+		public Result(Status status, Values values, int numConfs, int numPartialMin, int numConfsLooked, BigInteger totalNumConfs, String timeNs, ArrayList<Integer> minList) {
 			this.status = status;
 			this.values = values;
 			this.numConfs = numConfs;
@@ -197,6 +199,7 @@ public interface PartitionFunction {
 			this.numConfsLooked=numConfsLooked;
 			this.totalNumConfs = totalNumConfs.toString();
 			this.timeNs = timeNs;
+			this.minList = minList;
 		}
 		public void setNumConfsLooked(int numConfsLooked){
 			this.numConfsLooked = numConfsLooked;

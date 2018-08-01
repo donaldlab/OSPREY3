@@ -63,6 +63,7 @@ public class MARKStarBound implements PartitionFunction {
     private MARKStarProgress progress;
     public String stateName = String.format("%4f",Math.random());
     private int numPartialMinimizations;
+    private ArrayList<Integer> minList;
 
     public void setCorrections(UpdatingEnergyMatrix cachedCorrections) {
         correctionMatrix = cachedCorrections;
@@ -198,7 +199,7 @@ public class MARKStarBound implements PartitionFunction {
 
     @Override
     public Result makeResult() {
-        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs(), Long.toString(stopwatch.getTimeNs()));
+        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs(), Long.toString(stopwatch.getTimeNs()), minList);
         return result;
     }
 
@@ -278,6 +279,7 @@ public class MARKStarBound implements PartitionFunction {
         //confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
         confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
         setParallelism(parallelism);
+        this.minList = new ArrayList<Integer>(Collections.nCopies(rcs.getNumPos(),0));
     }
 
     private static class ScoreContext {
@@ -683,6 +685,7 @@ public class MARKStarBound implements PartitionFunction {
         ecalc.calcEnergyAsync(tuple, (tripleEnergy)->
         {
             double lowerbound = minimizingEmat.getInternalEnergy(tuple);
+            minList.set(tuple.size(),minList.get(tuple.size())+1);
             if (tripleEnergy.energy - lowerbound > 0) {
                 double correction = tripleEnergy.energy - lowerbound;
                 correctionMatrix.setHigherOrder(tuple, correction);
@@ -770,6 +773,7 @@ public class MARKStarBound implements PartitionFunction {
             return;
         double pairwiseLower = minimizingEmat.getInternalEnergy(overlap);
         double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
+        minList.set(overlap.size(),minList.get(overlap.size())+1);
         debugPrint("Computing correction for " + overlap.stringListing() + " penalty of " + (partiallyMinimizedLower - pairwiseLower));
         progress.reportPartialMinimization(1, epsilonBound);
         synchronized (correctionMatrix) {
