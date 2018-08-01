@@ -174,7 +174,7 @@ public class MARKStarBound implements PartitionFunction {
             lastEps = epsilonBound;
         }
         BigDecimal averageReduction = BigDecimal.ZERO;
-        int totalMinimizations = numConfsEnergied + numPartialMinimizations;
+        int totalMinimizations = 0; //numConfsEnergied + numPartialMinimizations;
         if(totalMinimizations> 0)
             averageReduction = cumulativeZCorrection
                 .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));
@@ -184,7 +184,7 @@ public class MARKStarBound implements PartitionFunction {
         values.qstar = rootNode.getLowerBound();
         values.pstar = rootNode.getUpperBound();
         values.qprime= rootNode.getUpperBound();
-        rootNode.printTree(stateName);
+        //rootNode.printTree(stateName);
     }
 
     private void debugPrint(String s) {
@@ -332,8 +332,8 @@ public class MARKStarBound implements PartitionFunction {
         }
         else debugPrint("Out of conformations.");
         int numMinimizations = 0;
-        int maxMinimizations = parallelism.numThreads;
-        int maxNodes = 1000;
+        int maxMinimizations = parallelism.numThreads/2;
+        int maxNodes = 10000;
         int numNodes = 0;
         double energyThreshhold = -Math.log(((1-epsilonBound)/(1-targetEpsilon)));
         while(numMinimizations < maxMinimizations && numNodes < maxNodes &&
@@ -382,15 +382,10 @@ public class MARKStarBound implements PartitionFunction {
             synchronized (this) {
                 numNodes++;
                 bestLower = Math.min(bestLower, curLower);
-                energyThreshhold = Math.max(15,-bestLower/10);
             }
 
         }
 
-        synchronized (this) {
-            if (epsilonBound <= targetEpsilon)
-                return;
-        }
         minimizingEcalc.tasks.waitForFinish();
         tasks.waitForFinish();
         queue.addAll(newNodes);
@@ -406,8 +401,7 @@ public class MARKStarBound implements PartitionFunction {
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         updateBound();
         //double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, correctiongscorer, correctionhscorer);
-        debugHeap();
-
+        System.out.println("Loop complete.");
 
     }
 
