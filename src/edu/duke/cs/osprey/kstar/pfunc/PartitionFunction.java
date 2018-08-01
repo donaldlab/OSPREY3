@@ -179,6 +179,7 @@ public interface PartitionFunction {
 
 		public int numConfsLooked=0;
 		public int numPartialMin=0;
+		public String timeNs;
 
 		public Result(Status status, Values values, int numConfs) {
 			this.status = status;
@@ -188,13 +189,14 @@ public interface PartitionFunction {
 			this.totalNumConfs = BigInteger.valueOf(0).toString();
 		}
 
-		public Result(Status status, Values values, int numConfs, int numPartialMin, int numConfsLooked, BigInteger totalNumConfs) {
+		public Result(Status status, Values values, int numConfs, int numPartialMin, int numConfsLooked, BigInteger totalNumConfs, String timeNs) {
 			this.status = status;
 			this.values = values;
 			this.numConfs = numConfs;
 			this.numPartialMin = numPartialMin;
 			this.numConfsLooked=numConfsLooked;
 			this.totalNumConfs = totalNumConfs.toString();
+			this.timeNs = timeNs;
 		}
 		public void setNumConfsLooked(int numConfsLooked){
 			this.numConfsLooked = numConfsLooked;
