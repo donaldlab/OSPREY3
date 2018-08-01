@@ -58,7 +58,7 @@ public class TestMARKStar {
 		ConfSpaces confSpaces = make2XXM();
 		final double epsilon = 0.99;
 		String kstartime = "(not run)";
-		boolean runkstar = false;
+		boolean runkstar = true;
 		Stopwatch runtime = new Stopwatch().start();
 		List<KStar.ScoredSequence> kStarSeqs = null;
 		if(runkstar) {
@@ -90,14 +90,14 @@ public class TestMARKStar {
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+				.addMoleculeForWildTypeRotamers(mol)
+				.build();
 
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("A146", "A218")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("A146", "A218")
+				.build();
 		protein.flexibility.get("A177").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("A178").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("A179").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
@@ -106,9 +106,9 @@ public class TestMARKStar {
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("B4", "B113")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("B4", "B113")
+				.build();
 		ligand.flexibility.get("B58").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("B60").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("B61").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
@@ -116,14 +116,14 @@ public class TestMARKStar {
 
 		// make the conf spaces ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
-			.addStrand(protein)
-			.build();
+				.addStrand(protein)
+				.build();
 		confSpaces.ligand = new SimpleConfSpace.Builder()
-			.addStrand(ligand)
-			.build();
+				.addStrand(ligand)
+				.build();
 		confSpaces.complex = new SimpleConfSpace.Builder()
-			.addStrands(protein, ligand)
-			.build();
+				.addStrands(protein, ligand)
+				.build();
 
 		return confSpaces;
 	}
@@ -246,11 +246,11 @@ public class TestMARKStar {
 	}
 
 	@Test
-    public void testMARKStarVsKStar() {
-	    int numFlex = 14;
-	    double epsilon = 0.68;
+	public void testMARKStarVsKStar() {
+		int numFlex = 14;
+		double epsilon = 0.68;
 		compareMARKStarAndKStar(numFlex, epsilon);
-    }
+	}
 
 	@Test
 	public void testMARKStarTinyEpsilon() {
@@ -278,8 +278,8 @@ public class TestMARKStar {
 		System.out.println("Reduced minimization time: "+runTime.getTime(2));
 	}
 
-    @Test
-    public void test1GUASmallUpTo()
+	@Test
+	public void test1GUASmallUpTo()
 	{
 		int maxNumFlex = 8;
 		double epsilon = 0.68;
@@ -304,8 +304,8 @@ public class TestMARKStar {
 		for(MARKStar.ScoredSequence seq: markStarSeqs)
 			printMARKStarComputationStats(seq);
 		if(runkstar)
-		for(KStar.ScoredSequence seq: kStarSeqs)
-			printKStarComputationStats(seq);
+			for(KStar.ScoredSequence seq: kStarSeqs)
+				printKStarComputationStats(seq);
 		System.out.println("K* time: "+kstartime);
 		System.out.println("MARK* time: "+runTime.getTime(2));
 	}
@@ -337,29 +337,29 @@ public class TestMARKStar {
 
 	}
 
-    @Test
+	@Test
 	public void KStarComparison() {
 		List<KStar.ScoredSequence> results = runKStarComparison(5,0.68);
-        for (int index = 0; index < results.size(); index++) {
-        	int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
+		for (int index = 0; index < results.size(); index++) {
+			int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
 			int totalConfsLooked = results.get(index).score.complex.getNumConfsLooked()+ results.get(index).score.protein.getNumConfsLooked()+ results.get(index).score.ligand.getNumConfsLooked();
 			System.out.println(String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",results.get(index).score.score, results.get(index).score.lowerBound,
 					results.get(index).score.upperBound,totalConfsLooked,totalConfsEnergied));
-        }
+		}
 	}
 
 
 
 	@Test
 	public void testMARKStar() {
-        List<MARKStar.ScoredSequence> results = runMARKStar(1, 0.01);
-        for (int index = 0; index < results.size(); index++) {
+		List<MARKStar.ScoredSequence> results = runMARKStar(1, 0.01);
+		for (int index = 0; index < results.size(); index++) {
 			int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
 			int totalConfsLooked = results.get(index).score.complex.getNumConfsLooked()+ results.get(index).score.protein.getNumConfsLooked()+ results.get(index).score.ligand.getNumConfsLooked();
 			System.out.println(String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",results.get(index).score.score, results.get(index).score.lowerBound,
 					results.get(index).score.upperBound,totalConfsLooked,totalConfsEnergied));
-        }
-    }
+		}
+	}
 
 	private static List<MARKStar.ScoredSequence> runMARKStar(int numFlex, double epsilon) {
 		//ConfSpaces confSpaces = make1GUASmallCATS(numFlex);
@@ -370,12 +370,12 @@ public class TestMARKStar {
 		// Define the minimizing energy calculator
 		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
 				.setParallelism(parallelism)
-                .setIsMinimizing(true)
+				.setIsMinimizing(true)
 				.build();
 		// Define the rigid energy calculator
-        EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
-                .setIsMinimizing(false)
-                .build();
+		EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
+				.setIsMinimizing(false)
+				.build();
 		// how should we define energies of conformations?
 		MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
 			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
@@ -391,7 +391,7 @@ public class TestMARKStar {
 				.setEpsilon(epsilon)
 				.setEnergyMatrixCachePattern("*testmat.emat")
 				.setShowPfuncProgress(true)
-                .setParallelism(parallelism)
+				.setParallelism(parallelism)
 				.setReduceMinimizations(REUDCE_MINIMIZATIONS)
 				.build();
 		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand,
@@ -453,7 +453,7 @@ public class TestMARKStar {
 
 	public static List<KStar.ScoredSequence> runKStar(ConfSpaces confSpaces, double epsilon) {
 
-        Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
+		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 
 		// Define the minimizing energy calculator
 		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
@@ -499,36 +499,36 @@ public class TestMARKStar {
 
 	public static Result runMARKStar(ConfSpaces confSpaces, double epsilon){
 
-        Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
+		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 
-        // Define the minimizing energy calculator
-	EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
-                .setParallelism(parallelism)
-                .build();
-        // Define the rigid energy calculator
-        EnergyCalculator rigidEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
-                .setParallelism(parallelism)
-                .setIsMinimizing(false)
-                .build();
-        // how should we define energies of conformations?
-        MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
-            return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
-                    .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, minimizingEcalc)
-                            .setCacheFile(new File("test.eref.emat"))
-                            .build()
-                            .calcReferenceEnergies()
-                    )
-                    .build();
-        };
+		// Define the minimizing energy calculator
+		EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+				.setParallelism(parallelism)
+				.build();
+		// Define the rigid energy calculator
+		EnergyCalculator rigidEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+				.setParallelism(parallelism)
+				.setIsMinimizing(false)
+				.build();
+		// how should we define energies of conformations?
+		MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
+			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, minimizingEcalc)
+							.setCacheFile(new File("test.eref.emat"))
+							.build()
+							.calcReferenceEnergies()
+					)
+					.build();
+		};
 
-        // how should confs be ordered and searched?
-        ConfSearchFactory confSearchFactory = (emat, pmat) -> {
-            return new ConfAStarTree.Builder(emat, pmat)
-                    .setTraditional()
-                    .build();
-        };
+		// how should confs be ordered and searched?
+		ConfSearchFactory confSearchFactory = (emat, pmat) -> {
+			return new ConfAStarTree.Builder(emat, pmat)
+					.setTraditional()
+					.build();
+		};
 
-        Result result = new Result();
+		Result result = new Result();
 
 		MARKStar.Settings settings = new MARKStar.Settings.Builder()
 				.setEpsilon(epsilon)
@@ -538,10 +538,10 @@ public class TestMARKStar {
 				.setReduceMinimizations(REUDCE_MINIMIZATIONS)
 				.build();
 
-        result.markstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);
-        result.scores = result.markstar.run();
-        return result;
-    }
+		result.markstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);
+		result.scores = result.markstar.run();
+		return result;
+	}
 
 	public static ConfSpaces make2RL0() {
 
@@ -554,14 +554,14 @@ public class TestMARKStar {
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+				.addMoleculeForWildTypeRotamers(mol)
+				.build();
 
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("G648", "G654")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("G648", "G654")
+				.build();
 		protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType, "GLU").addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType, "ASP").addWildTypeRotamers().setContinuous();
@@ -569,9 +569,9 @@ public class TestMARKStar {
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("A155", "A194")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("A155", "A194")
+				.build();
 		ligand.flexibility.get("A156").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("A172").setLibraryRotamers(Strand.WildType, "ASP", "GLU").addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "PHE", "TYR").addWildTypeRotamers().setContinuous();
@@ -579,14 +579,14 @@ public class TestMARKStar {
 
 		// make the conf spaces ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
-			.addStrand(protein)
-			.build();
+				.addStrand(protein)
+				.build();
 		confSpaces.ligand = new SimpleConfSpace.Builder()
-			.addStrand(ligand)
-			.build();
+				.addStrand(ligand)
+				.build();
 		confSpaces.complex = new SimpleConfSpace.Builder()
-			.addStrands(protein, ligand)
-			.build();
+				.addStrands(protein, ligand)
+				.build();
 
 		return confSpaces;
 	}
@@ -626,7 +626,7 @@ public class TestMARKStar {
 		assertSequence(result,  23, "ILE ASP GLU THR PHE LYS ILE THR", 5.942890e+02, 4.347270e+30, 2.012605e+46, epsilon); // K* = 12.891544 in [12.844167,12.936569] (log10)
 		assertSequence(result,  24, "LEU ASP GLU THR PHE LYS ILE THR", 4.614233e+00, 4.347270e+30, 4.735376e+43, epsilon); // K* = 12.373038 in [12.339795,12.417250] (log10)
 	}
-public static ConfSpaces make1GUASmall(int numFlex) {
+	public static ConfSpaces make1GUASmall(int numFlex) {
 
 		ConfSpaces confSpaces = new ConfSpaces();
 
@@ -637,14 +637,14 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+				.addMoleculeForWildTypeRotamers(mol)
+				.build();
 
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("1", "180")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("1", "180")
+				.build();
 		int start = 21;
 		for(int i = start; i < start+numFlex; i++) {
 			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
@@ -654,21 +654,21 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("181", "215")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("181", "215")
+				.build();
 		ligand.flexibility.get("209").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		// make the complex conf space ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
-			.addStrand(protein)
-			.build();
+				.addStrand(protein)
+				.build();
 		confSpaces.ligand = new SimpleConfSpace.Builder()
-			.addStrand(ligand)
-			.build();
+				.addStrand(ligand)
+				.build();
 		confSpaces.complex = new SimpleConfSpace.Builder()
-			.addStrands(protein, ligand)
-			.build();
+				.addStrands(protein, ligand)
+				.build();
 
 		return confSpaces;
 	}
@@ -683,16 +683,16 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+				.addMoleculeForWildTypeRotamers(mol)
+				.build();
 
 		ArrayList <String> bbflexlist = new ArrayList();
 
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("1", "180")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("1", "180")
+				.build();
 		int start = 21;
 		for(int i = start; i < start+numFlex; i++) {
 			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
@@ -703,9 +703,9 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("181", "215")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("181", "215")
+				.build();
 		ligand.flexibility.get("209").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
 		bbflexlist.add("209");
 		DEEPerSettings deepersettings = new DEEPerSettings(true, "test_deeper.pert", true, "None", false, 2.5,2.5, false, bbflexlist, "/1gua_adj.min.pdb", false, templateLib);
@@ -713,15 +713,15 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 
 		// make the complex conf space ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
-			.addStrand(protein)
-			.build();
+				.addStrand(protein)
+				.build();
 		confSpaces.ligand = new SimpleConfSpace.Builder()
-			.addStrand(ligand, ligand_bbflex)
-			.build();
+				.addStrand(ligand, ligand_bbflex)
+				.build();
 		confSpaces.complex = new SimpleConfSpace.Builder()
-			.addStrand(protein)
-            .addStrand(ligand, ligand_bbflex)
-			.build();
+				.addStrand(protein)
+				.addStrand(ligand, ligand_bbflex)
+				.build();
 
 		return confSpaces;
 	}public static ConfSpaces make1GUASmallCATS(int numFlex) {
@@ -735,15 +735,15 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+				.addMoleculeForWildTypeRotamers(mol)
+				.build();
 
 
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("1", "180")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("1", "180")
+				.build();
 		int start = 21;
 		for(int i = start; i < start+numFlex; i++) {
 			protein.flexibility.get(i+"").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
@@ -754,22 +754,22 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("181", "215")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("181", "215")
+				.build();
 		ligand.flexibility.get("209").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
 
 		// make the complex conf space ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
-			.addStrand(protein, bbflex)
-			.build();
+				.addStrand(protein, bbflex)
+				.build();
 		confSpaces.ligand = new SimpleConfSpace.Builder()
-			.addStrand(ligand)
-			.build();
+				.addStrand(ligand)
+				.build();
 		confSpaces.complex = new SimpleConfSpace.Builder()
-			.addStrand(protein, bbflex)
-            .addStrand(ligand)
-			.build();
+				.addStrand(protein, bbflex)
+				.addStrand(ligand)
+				.build();
 
 		return confSpaces;
 	}
@@ -785,14 +785,14 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+				.addMoleculeForWildTypeRotamers(mol)
+				.build();
 
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("1", "180")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("1", "180")
+				.build();
 		protein.flexibility.get("21").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("24").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("25").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
@@ -802,29 +802,29 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("181", "215")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("181", "215")
+				.build();
 		ligand.flexibility.get("209").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("213").setLibraryRotamers(Strand.WildType, "HID", "HIE", "LYS", "ARG").addWildTypeRotamers().setContinuous();
 
 		// make the complex conf space ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
-			.addStrand(protein)
-			.build();
+				.addStrand(protein)
+				.build();
 		confSpaces.ligand = new SimpleConfSpace.Builder()
-			.addStrand(ligand)
-			.build();
+				.addStrand(ligand)
+				.build();
 		confSpaces.complex = new SimpleConfSpace.Builder()
-			.addStrands(protein, ligand)
-			.build();
+				.addStrands(protein, ligand)
+				.build();
 
 		return confSpaces;
 	}
 
 	@Test
 	public void test2RL0Seq5() {
-	    double epsilon = 0.95;
+		double epsilon = 0.95;
 		Result result = runMARKStar(make2RL0(), epsilon);
 
 	}
@@ -838,7 +838,7 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 		runtime.stop();
 
 		for (int index = 0; index <6; index++){
-		    printSequence(result, index);
+			printSequence(result, index);
 		}
 		// check the results (values collected with e = 0.1 and 64 digits precision)
 		assertSequence(result,   0, "HIE VAL", 1.194026e+42, 2.932628e+07, 1.121625e+66, epsilon); // protein [42.077014,42.077014] (log10)                    ligand [7.467257 , 7.467257] (log10)                    complex [66.049848,66.051195] (log10)                    K* = 16.505577 in [16.505576,16.506925] (log10)
@@ -899,23 +899,23 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+				.addMoleculeForWildTypeRotamers(mol)
+				.build();
 
 		// define the protein strand
 		Strand protein = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("039", "0339")
-			.build();
-        protein.flexibility.get("0313").setLibraryRotamers(Strand.WildType, "ASN", "SER", "THR", "GLN", "HID", "ALA", "VAL", "ILE", "LEU", "GLY", "ALA", "VAL", "GLY").addWildTypeRotamers().setContinuous();
+				.setTemplateLibrary(templateLib)
+				.setResidues("039", "0339")
+				.build();
+		protein.flexibility.get("0313").setLibraryRotamers(Strand.WildType, "ASN", "SER", "THR", "GLN", "HID", "ALA", "VAL", "ILE", "LEU", "GLY", "ALA", "VAL", "GLY").addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("0311").setLibraryRotamers(Strand.WildType, "HID", "HIE", "ASP", "GLU", "SER", "THR", "ASN", "GLN", "ALA", "VAL", "ILE", "LEU", "GLY").addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("0332").setLibraryRotamers(Strand.WildType, "TRP", "ALA", "VAL", "ILE", "LEU", "PHE", "TYR", "MET", "SER", "THR", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("0520", "0729")
-			.build();
+				.setTemplateLibrary(templateLib)
+				.setResidues("0520", "0729")
+				.build();
 		ligand.flexibility.get("0605").setLibraryRotamers(Strand.WildType, "LEU", "ILE", "ALA", "VAL", "PHE", "TYR", "MET", "GLU", "ASP", "HID", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("0696").setLibraryRotamers(Strand.WildType, "GLU", "ASP", "PHE", "TYR", "ALA", "VAL", "ILE", "LEU", "HIE", "HID", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("0697").setLibraryRotamers(Strand.WildType, "LEU", "ILE", "ALA", "VAL", "PHE", "TYR", "MET", "GLU", "ASP", "HID", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
@@ -925,14 +925,14 @@ public static ConfSpaces make1GUASmall(int numFlex) {
 
 		// make the complex conf space ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
-			.addStrand(protein)
-			.build();
+				.addStrand(protein)
+				.build();
 		confSpaces.ligand = new SimpleConfSpace.Builder()
-			.addStrand(ligand)
-			.build();
+				.addStrand(ligand)
+				.build();
 		confSpaces.complex = new SimpleConfSpace.Builder()
-			.addStrands(protein, ligand)
-			.build();
+				.addStrands(protein, ligand)
+				.build();
 
 		return confSpaces;
 	}
