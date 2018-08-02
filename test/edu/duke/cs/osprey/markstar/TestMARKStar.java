@@ -38,7 +38,7 @@ import static org.junit.Assert.assertThat;
 public class TestMARKStar {
 
 	public static final int NUM_CPUs = 4;
-	public static boolean REUDCE_MINIMIZATIONS = false;
+	public static boolean REUDCE_MINIMIZATIONS = true;
 	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
 
 	public static class ConfSpaces {

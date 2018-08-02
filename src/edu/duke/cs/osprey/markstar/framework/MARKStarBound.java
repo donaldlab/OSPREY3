@@ -372,16 +372,16 @@ public class MARKStarBound implements PartitionFunction {
             debugPrint("Processing Node: " + node.toString());
 
             //If the child is a leaf, calculate n-body minimized energies
-            if (shouldMinimize(node)) {
+            if (node.getLevel() < RCs.getNumPos()) {
+                processPartialConfNode(newNodes, newNodesToMinimize, curNode, node);
+            }
+            else if(shouldMinimize(node) && !correctedNode(newNodes, curNode, node)) {
                 synchronized (this) {
                     numMinimizations++;
                 }
                 processFullConfNode(newNodes, curNode, node);
-                if(epsilonBound <= targetEpsilon)
+                if (epsilonBound <= targetEpsilon)
                     return;
-            }
-            else {
-                processPartialConfNode(newNodes, newNodesToMinimize, curNode, node);
             }
             synchronized (this) {
                 numNodes++;
@@ -409,6 +409,21 @@ public class MARKStarBound implements PartitionFunction {
         //double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, correctiongscorer, correctionhscorer);
         System.out.println("Loop complete.");
 
+    }
+
+    private boolean correctedNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
+        double confCorrection = correctionMatrix.confE(node.assignments);
+        if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
+            double oldg = node.gscore;
+            node.gscore = confCorrection;
+            recordCorrection(oldg, confCorrection - oldg);
+            debugCorrection(node, confCorrection, oldg);
+            node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
+            curNode.markUpdated();
+            newNodes.add(curNode);
+            return true;
+        }
+        return false;
     }
 
     private void processPartialConfNode(List<MARKStarNode> newNodes, List<MARKStarNode> newNodesToMinimize, MARKStarNode curNode, Node node) {
@@ -535,7 +550,7 @@ public class MARKStarBound implements PartitionFunction {
 
                 ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, node.getConfLowerBound());
                 ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
-                //computeEnergyCorrection(analysis, conf, context.ecalc);
+                computeEnergyCorrection(analysis, conf, context.ecalc);
 
                 double energy = analysis.epmol.energy;
                 double newConfUpper = energy;
