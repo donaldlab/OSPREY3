@@ -84,6 +84,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		BigDecimal energyWeightSum = BigDecimal.ZERO;
 		BigDecimal minLowerScoreWeight = MathTools.BigPositiveInfinity;
 		BigDecimal cumulativeZReduction = BigDecimal.ZERO;
+		ArrayList<Integer> minList = new ArrayList<Integer>();
 
 		// estimate of inital rates
 		// (values here aren't super imporant since they get tuned during execution,
@@ -530,6 +531,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 			state.prevDelta = delta;
 
 			state.cumulativeZReduction = state.cumulativeZReduction.add(scoreWeight.subtract(energyWeight));
+			int minimizationSize = econf.getAssignments().length;
+			if(state.minList.size() < minimizationSize) {
+				state.minList.addAll(new ArrayList<Integer>(Collections.nCopies(minimizationSize - state.minList.size(), 0)));
+			}
+            state.minList.set(minimizationSize-1, state.minList.get(minimizationSize-1)+1);
 
 			// the other direction could be different now, let's be more likely to explore it
 			state.dScore *= 2.0;
@@ -608,7 +614,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	}
 	@Override
 	public PartitionFunction.Result makeResult() {
-	    //Soo hacky
-		return new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated(), 0,getNumConfsScored(), energyConfs.getNumConformations(),Long.toString(stopwatch.getTimeNs()), new ArrayList<Integer>(), state.cumulativeZReduction);
+		return new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated(), 0,getNumConfsScored(), energyConfs.getNumConformations(),Long.toString(stopwatch.getTimeNs()), state.minList, state.cumulativeZReduction);
 	}
 }
