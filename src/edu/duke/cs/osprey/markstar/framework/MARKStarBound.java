@@ -335,10 +335,10 @@ public class MARKStarBound implements PartitionFunction {
         }
         else debugPrint("Out of conformations.");
         int numMinimizations = 0;
-        int maxMinimizations = parallelism.numThreads/2;
-        int maxNodes = 10000;
+        int maxMinimizations = Math.max(1,parallelism.numThreads/2);
+        int maxNodes = 1000;
         int numNodes = 0;
-        double energyThreshhold = -Math.log(((1-epsilonBound)/(1-targetEpsilon)));
+        double energyThreshhold = Math.max(-2,-Math.log(((1-epsilonBound)/(1-targetEpsilon))));
         while(numMinimizations < maxMinimizations && numNodes < maxNodes &&
                 !queue.isEmpty() && queue.peek().getConfSearchNode().getConfLowerBound() - bestLower < energyThreshhold ) {
             //System.out.println("Current overall error bound: "+epsilonBound);
@@ -501,6 +501,8 @@ public class MARKStarBound implements PartitionFunction {
                         children.add(MARKStarNodeChild);
                     }
                     if (!child.isMinimized()) {
+                        if(newNodes.size() > 100000)
+                            System.out.println("Catch");
                         newNodes.add(MARKStarNodeChild);
                         newNodesToMinimize.add(MARKStarNodeChild);
                     }
@@ -523,7 +525,7 @@ public class MARKStarBound implements PartitionFunction {
             debugCorrection(node, confCorrection, oldg);
             node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
             curNode.markUpdated();
-            queue.add(curNode);
+            newNodes.add(curNode);
             return;
         }
         tasks.submit(() -> {
@@ -533,7 +535,7 @@ public class MARKStarBound implements PartitionFunction {
 
                 ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, node.getConfLowerBound());
                 ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
-                computeEnergyCorrection(analysis, conf, context.ecalc);
+                //computeEnergyCorrection(analysis, conf, context.ecalc);
 
                 double energy = analysis.epmol.energy;
                 double newConfUpper = energy;
