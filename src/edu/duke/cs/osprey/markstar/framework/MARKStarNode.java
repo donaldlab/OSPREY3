@@ -537,8 +537,16 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public void computeNumConformations(RCs rcs) {
             BigInteger numConfs = BigInteger.ONE;
             this.numConfs = numConfs;
-            if(rcs.getNumPos() == assignments.length)
-                return;
+            if(rcs.getNumPos() == assignments.length) {
+                boolean fullyAssigned = true;
+                for (int pos = 0; pos < assignments.length; pos++) {
+                    if(assignments[pos] == Unassigned)
+                        fullyAssigned = false;
+                }
+                if(fullyAssigned)
+                    return;
+            }
+
             for (int pos = 0; pos < assignments.length; pos++) {
                 if (assignments[pos] == Unassigned) {
                     numConfs = numConfs.multiply(BigInteger.valueOf(rcs.getNum(pos)));

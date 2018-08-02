@@ -38,7 +38,7 @@ import static org.junit.Assert.assertThat;
 public class TestMARKStar {
 
 	public static final int NUM_CPUs = 4;
-	public static boolean REUDCE_MINIMIZATIONS = true;
+	public static boolean REUDCE_MINIMIZATIONS = false;
 	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
 
 	public static class ConfSpaces {
@@ -51,6 +51,76 @@ public class TestMARKStar {
 	public static class Result {
 		public MARKStar markstar;
 		public List<MARKStar.ScoredSequence> scores;
+	}
+
+	@Test
+	public void test4KT6 () {
+		ConfSpaces confSpaces = make4KT6();
+		final double epsilon = 0.99;
+		String kstartime = "(not run)";
+		boolean runkstar = false;
+		Stopwatch runtime = new Stopwatch().start();
+		if(runkstar) {
+			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
+			runtime.stop();
+			kstartime = runtime.getTime(2);
+			runtime.reset();
+			runtime.start();
+		}
+		Result result = runMARKStar(confSpaces, epsilon);
+		runtime.stop();
+		String markstartime = runtime.getTime(2);
+		for(MARKStar.ScoredSequence seq: result.scores)
+			printMARKStarComputationStats(seq);
+		System.out.println("MARK* time: "+markstartime+", K* time: "+kstartime);
+	}
+
+	private ConfSpaces make4KT6() {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readFile("examples/python.KStar/4kt6_prepped.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+			.addMoleculeForWildTypeRotamers(mol)
+			.build();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("C193", "C446")
+			.build();
+		protein.flexibility.get("C290").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("D1", "D161")
+			.build();
+		ligand.flexibility.get("D148").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("D149").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("D151").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("D152").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("D153").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("D155").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("D156").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+			.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+			.addStrand(ligand)
+			.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+			.addStrands(protein, ligand)
+			.build();
+
+		return confSpaces;
 	}
 
 	@Test
