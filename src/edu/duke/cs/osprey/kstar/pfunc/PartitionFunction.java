@@ -182,6 +182,7 @@ public interface PartitionFunction {
 		public int numPartialMin=0;
 		public String timeNs;
 		public ArrayList<Integer> minList;
+		public String cumZCorrect;
 
 		public Result(Status status, Values values, int numConfs) {
 			this.status = status;
@@ -191,7 +192,7 @@ public interface PartitionFunction {
 			this.totalNumConfs = BigInteger.valueOf(0).toString();
 		}
 
-		public Result(Status status, Values values, int numConfs, int numPartialMin, int numConfsLooked, BigInteger totalNumConfs, String timeNs, ArrayList<Integer> minList) {
+		public Result(Status status, Values values, int numConfs, int numPartialMin, int numConfsLooked, BigInteger totalNumConfs, String timeNs, ArrayList<Integer> minList, BigDecimal cumZCorrect) {
 			this.status = status;
 			this.values = values;
 			this.numConfs = numConfs;
@@ -200,6 +201,7 @@ public interface PartitionFunction {
 			this.totalNumConfs = totalNumConfs.toString();
 			this.timeNs = timeNs;
 			this.minList = minList;
+			this.cumZCorrect = cumZCorrect.toString();
 		}
 		public void setNumConfsLooked(int numConfsLooked){
 			this.numConfsLooked = numConfsLooked;
