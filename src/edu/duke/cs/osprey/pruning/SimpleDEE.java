@@ -51,7 +51,7 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 
 /**
- * Simple, fast implementation of DEE.
+ * Simple, fast implementation of DEE
  */
 public class SimpleDEE {
 
@@ -134,7 +134,11 @@ public class SimpleDEE {
 	}
 
 	/**
-	 * Runs Dead-End Elimination (DEE) to remove tuples of RCs that will not appear in low-energy conformations.
+	 * Runs various pruning algorithms including
+	 *    steric/threshold pruning
+	 * 	  Dead-End Elimination (DEE)
+	 *    Pruning of Local Unrealistic Geometries (PLUG)
+	 * to remove tuples of RCs that will not appear in low-energy conformations.
 	 */
 	public static class Runner {
 
@@ -145,6 +149,9 @@ public class SimpleDEE {
 		private Double triplesGoldsteinDiffThreshold = null;
 		private boolean typeDependent = false;
 		private int numIterations = Integer.MAX_VALUE;
+		private Double singlesPlugThrehsold = null;
+		private Double pairsPlugThrehsold = null;
+		private Double triplesPlugThrehsold = null;
 		private boolean showProgress = false;
 		private File cacheFile = null;
 		private Parallelism parallelism = Parallelism.makeCpu(1);
@@ -199,6 +206,28 @@ public class SimpleDEE {
 
 		public Runner setNumIterations(int val) {
 			numIterations = val;
+			return this;
+		}
+
+		public Runner setSinglesPlugThreshold(double val) {
+			singlesPlugThrehsold = val;
+			return this;
+		}
+
+		public Runner setPairsPlugThreshold(double val) {
+			pairsPlugThrehsold = val;
+			return this;
+		}
+
+		public Runner setTriplesPlugThreshold(double val) {
+			triplesPlugThrehsold = val;
+			return this;
+		}
+
+		public Runner setPlugThreshold(double val) {
+			setSinglesPlugThreshold(val);
+			setPairsPlugThreshold(val);
+			setTriplesPlugThreshold(val);
 			return this;
 		}
 
@@ -268,27 +297,48 @@ public class SimpleDEE {
 				}
 			}
 
-			// 2. choose the competitor RCs (prune with an interval of 0)
-			if (showProgress) {
-				System.out.println("Choosing competitor residue conformations...");
-			}
-			PruningMatrix competitors = new PruningMatrix(pmat);
-			{
-				SimpleDEE dee = new SimpleDEE(confSpace, emat, competitors);
-				if (singlesGoldsteinDiffThreshold != null) {
-					dee.pruneSinglesGoldstein(0, typeDependent);
+			// 2. pruning with PLUG
+			if (singlesPlugThrehsold != null || pairsPlugThrehsold != null || triplesPlugThrehsold != null) {
+				if (showProgress) {
+					System.out.println("Pruning with PLUG...");
 				}
-				if (pairsGoldsteinDiffThreshold != null) {
-					dee.prunePairsGoldstein(0, typeDependent, parallelism);
+				// TODO: parallelism?
+				PLUG plug = new PLUG(confSpace);
+				if (singlesPlugThrehsold != null) {
+					plug.pruneSingles(pmat, singlesPlugThrehsold);
+					maybeReport.accept("PLUG Singles");
 				}
-				if (triplesGoldsteinDiffThreshold != null) {
-					dee.pruneTriplesGoldstein(0, typeDependent, parallelism);
-					maybeReport.accept("Goldstein Triples");
+				if (pairsPlugThrehsold != null) {
+					plug.prunePairs(pmat, pairsPlugThrehsold);
+					maybeReport.accept("PLUG Pairs");
+				}
+				if (triplesPlugThrehsold != null) {
+					plug.pruneTriples(pmat, triplesPlugThrehsold);
+					maybeReport.accept("PLUG Triples");
 				}
 			}
 
 			// 3. iterative DEE pruning
 			if (singlesGoldsteinDiffThreshold != null || pairsGoldsteinDiffThreshold != null || triplesGoldsteinDiffThreshold != null) {
+
+				// choose the competitor RCs (prune with an interval of 0)
+				if (showProgress) {
+					System.out.println("Choosing competitor residue conformations...");
+				}
+				PruningMatrix competitors = new PruningMatrix(pmat);
+				{
+					SimpleDEE dee = new SimpleDEE(confSpace, emat, competitors);
+					if (singlesGoldsteinDiffThreshold != null) {
+						dee.pruneSinglesGoldstein(0, typeDependent);
+					}
+					if (pairsGoldsteinDiffThreshold != null) {
+						dee.prunePairsGoldstein(0, typeDependent, parallelism);
+					}
+					if (triplesGoldsteinDiffThreshold != null) {
+						dee.pruneTriplesGoldstein(0, typeDependent, parallelism);
+						maybeReport.accept("Goldstein Triples");
+					}
+				}
 
 				SimpleDEE dee = new SimpleDEE(confSpace, emat, pmat, competitors);
 

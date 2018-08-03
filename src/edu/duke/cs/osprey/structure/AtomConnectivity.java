@@ -83,6 +83,9 @@ public class AtomConnectivity {
 		private Set<ResidueTemplate> templates = new HashSet<>();
 		private Parallelism parallelism = Parallelism.makeCpu(1);
 
+		/** should 15 bonded atoms, where at least one is H, be treated as non-bonded? */
+		private boolean treat15HasNonBonded = true;
+
 		public Builder addTemplates(Collection<ResidueTemplate> val) {
 			templates.addAll(val);
 			return this;
@@ -108,9 +111,14 @@ public class AtomConnectivity {
 			parallelism = val;
 			return this;
 		}
+
+		public Builder set15HasNonBonded(boolean val) {
+			treat15HasNonBonded = val;
+			return this;
+		}
 		
 		public AtomConnectivity build() {
-			return new AtomConnectivity(new ArrayList<>(templates), parallelism);
+			return new AtomConnectivity(new ArrayList<>(templates), parallelism, treat15HasNonBonded);
 		}
 	}
 	
@@ -222,12 +230,17 @@ public class AtomConnectivity {
 			return this.templ1 == other.templ1 && this.templ2 == other.templ2;
 		}
 	}
+
+
+	public final boolean treat15HasNonBonded;
 	
 	private Map<Key1,AtomPairs> atomPairs1;
 	private Map<Key2,AtomPairs> atomPairs2;
 	private Map<KeySeparate,AtomPairs> atomPairsSeparate;
 	
-	private AtomConnectivity(List<ResidueTemplate> templates, Parallelism parallelism) {
+	private AtomConnectivity(List<ResidueTemplate> templates, Parallelism parallelism, boolean treat15HasNonBonded) {
+
+		this.treat15HasNonBonded = treat15HasNonBonded;
 		
 		// make sure we have residue templates
 		if (templates == null || templates.isEmpty()) {
@@ -401,7 +414,12 @@ public class AtomConnectivity {
 		for (int i=0; i<res1.atoms.size(); i++) {
 			Atom atom1 = res1.atoms.get(i);
 			
-			AtomNeighbors neighbors = new AtomNeighbors(atom1);
+			AtomNeighbors neighbors;
+			if (treat15HasNonBonded) {
+				neighbors = new AtomNeighbors(atom1);
+			} else {
+				neighbors = new ProbeAtomNeighbors(atom1);
+			}
 			
 			// for self residue pairs, skip self atom pairs and atom pairs in the other direction
 			int n = i;
