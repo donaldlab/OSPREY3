@@ -37,8 +37,8 @@ import static org.junit.Assert.assertThat;
 
 public class TestMARKStar {
 
-	public static final int NUM_CPUs = 4;
-	public static boolean REUDCE_MINIMIZATIONS = true;
+	public static final int NUM_CPUs = 3;
+	public static boolean REUDCE_MINIMIZATIONS = false;
 	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
 
 	public static class ConfSpaces {
@@ -54,11 +54,85 @@ public class TestMARKStar {
 	}
 
 	@Test
+	public void test3K3Q () {
+
+		ConfSpaces confSpaces = makeConfSpaces(
+			"examples/python.KStar/3k3q_prepped.pdb",
+				new String[]{"C253", "C417"},
+				new String[]{"C412", "C404", "C409", "C391", "C390", "C384", "C392", "C383", "C397", "C378", "C376", "C413"},
+				new String[]{"B2","B250"},
+				new String[]{"B193", "B216", "B214"}
+		);
+		final double epsilon = 0.999;
+		String kstartime = "(not run)";
+		boolean runkstar = true;
+		Stopwatch runtime = new Stopwatch().start();
+		if(runkstar) {
+			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
+			runtime.stop();
+			kstartime = runtime.getTime(2);
+			runtime.reset();
+			runtime.start();
+		}
+		Result result = runMARKStar(confSpaces, epsilon);
+		runtime.stop();
+		String markstartime = runtime.getTime(2);
+		for(MARKStar.ScoredSequence seq: result.scores)
+			printMARKStarComputationStats(seq);
+		System.out.println("MARK* time: "+markstartime+", K* time: "+kstartime);
+	}
+
+	private ConfSpaces makeConfSpaces(String pdb, String[] proteinDef, String[] proteinFlex, String[] ligandDef,
+								String[] ligandFlex) {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readFile(pdb);
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+			.addMoleculeForWildTypeRotamers(mol)
+			.build();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues(proteinDef[0], proteinDef[1])
+			.build();
+		for(String resName: proteinFlex)
+            protein.flexibility.get(resName).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues(ligandDef[0], ligandDef[1])
+			.build();
+		for(String resName: ligandFlex)
+			ligand.flexibility.get(resName).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+			.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+			.addStrand(ligand)
+			.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+			.addStrands(protein, ligand)
+			.build();
+
+		return confSpaces;
+	}
+
+	@Test
 	public void test4KT6 () {
 		ConfSpaces confSpaces = make4KT6();
-		final double epsilon = 0.99;
+		final double epsilon = 0.95;
 		String kstartime = "(not run)";
-		boolean runkstar = false;
+		boolean runkstar = true;
 		Stopwatch runtime = new Stopwatch().start();
 		if(runkstar) {
 			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
@@ -202,7 +276,7 @@ public class TestMARKStar {
 	public void test1A0RBBKStar() {
 		TestKStar.ConfSpaces confSpaces = make1A0RBBKStar();
 		int numSequences = 2;
-		double epsilon = 0.99;
+		double epsilon = 0.999;
 		String kstartime = "(Not run)";
 		Stopwatch watch = new Stopwatch();
 		watch.start();
@@ -317,14 +391,14 @@ public class TestMARKStar {
 
 	@Test
 	public void testMARKStarVsKStar() {
-		int numFlex = 14;
+		int numFlex = 10;
 		double epsilon = 0.68;
 		compareMARKStarAndKStar(numFlex, epsilon);
 	}
 
 	@Test
 	public void testMARKStarTinyEpsilon() {
-		printMARKStarComputationStats(runMARKStar(7, 0.001).get(0));
+		printMARKStarComputationStats(runMARKStar(3, 0.9).get(0));
 
 	}
 

@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.ematrix;
 
-import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TupE;
@@ -99,7 +98,6 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         //with RCs whose indices in tup are < curIndex
         double E = 0;
         //E += super.internalEHigherOrder(tup, curIndex, htf);
-
         List<TupE> confCorrections = corrections.getCorrections(tup);
         if(confCorrections.size() > 0) {
             double corr = processCorrections(confCorrections);
@@ -116,6 +114,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         // can get instead of trying to solve the NP-Complete problem.
         Set<Integer> usedPositions = new HashSet<>();
         List<TupE> usedCorrections = new ArrayList<>();
+        int numApplied = 0;
         for(TupE correction: confCorrections) {
             if (usedPositions.size() >= numPos) {
                 break;
@@ -131,6 +130,8 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             if(noIntersections) {
                 usedPositions.addAll(correction.tup.pos);
                 usedCorrections.add(correction);
+                //System.out.println("Applying correction "+correction.tup.stringListing()+":"+correction.E);
+                numApplied++;
                 sum += correction.E;
             }
         }
@@ -199,7 +200,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         }
 
         public boolean contains(RCTuple query) {
-            return root.contains(query, 0);
+            return root.contains(query.orderByPos(), 0);
 
         }
 
@@ -246,7 +247,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                     return true;
                 int nextIndex = tupleIndex + 1;
                 if(position + 1 < currentPos)
-                    return children.get(WILDCARD_RC).contains(query, nextIndex);
+                    return children.get(WILDCARD_RC).contains(query, tupleIndex);
                 if(!children.containsKey(currentRC))
                     return false;
                 return children.get(currentRC).contains(query, nextIndex);
