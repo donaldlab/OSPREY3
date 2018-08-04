@@ -37,7 +37,7 @@ import static org.junit.Assert.assertThat;
 
 public class TestMARKStar {
 
-	public static final int NUM_CPUs = 3;
+	public static final int NUM_CPUs = 4;
 	public static boolean REUDCE_MINIMIZATIONS = false;
 	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
 
@@ -279,7 +279,7 @@ public class TestMARKStar {
 		double epsilon = 0.999;
 		String kstartime = "(Not run)";
 		Stopwatch watch = new Stopwatch();
-		boolean runkstar = false;
+		boolean runkstar = true;
 		if(runkstar) {
 			watch.start();
 			runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
@@ -347,7 +347,7 @@ public class TestMARKStar {
 	public void test1GUA11MARKVsTraditional() {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
-		final double epsilon = 0.999;
+		final double epsilon = 0.99;
 		final int numSequences = 6;
 
 
@@ -979,7 +979,7 @@ public class TestMARKStar {
 	@Test
 	public void test1GUA11() {
 
-		double epsilon = 0.99;
+		double epsilon = 0.999;
 		Stopwatch runtime = new Stopwatch().start();
 		Result result = runMARKStar(make1GUA11(), epsilon);
 		runtime.stop();
