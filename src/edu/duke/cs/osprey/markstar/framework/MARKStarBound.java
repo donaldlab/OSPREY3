@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
@@ -236,9 +237,9 @@ public class MARKStarBound implements PartitionFunction {
     private boolean computedCorrections = false;
     private long loopPartialTime = 0;
 
-    public static MARKStarBound makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info) {
+    public static MARKStarBound makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
         ConfEnergyCalculator minimizingConfEcalc = info.confEcalcMinimized;
-        return new MARKStarBound(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, new RCs(info.confSpace), minimizingConfEcalc.ecalc.parallelism);
+        return new MARKStarBound(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
     }
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,

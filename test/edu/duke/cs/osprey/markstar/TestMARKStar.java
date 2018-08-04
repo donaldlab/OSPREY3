@@ -279,11 +279,14 @@ public class TestMARKStar {
 		double epsilon = 0.999;
 		String kstartime = "(Not run)";
 		Stopwatch watch = new Stopwatch();
-		watch.start();
-		runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
-		watch.stop();
-		kstartime = watch.getTime(2);
-		watch.reset();
+		boolean runkstar = false;
+		if(runkstar) {
+			watch.start();
+			runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
+			watch.stop();
+			kstartime = watch.getTime(2);
+			watch.reset();
+		}
 		watch.start();
 		runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
 		watch.stop();

@@ -325,9 +325,9 @@ public interface PartitionFunction {
 	 * Factory method to make the best pfunc calculator based on the conf ecalc
 	 * @param info
 	 */
-	public static PartitionFunction makeBestFor(BBKStar.ConfSpaceInfo info, boolean useMARKStar) {
+	public static PartitionFunction makeBestFor(BBKStar.ConfSpaceInfo info, RCs rcs, boolean useMARKStar) {
 	    if(useMARKStar)
-            return MARKStarBound.makeFromConfSpaceInfo(info);
+            return MARKStarBound.makeFromConfSpaceInfo(info, rcs);
 		return new GradientDescentPfunc(info.confEcalcMinimized);
 	}
 	public static PartitionFunction makeBestFor(ConfEnergyCalculator confEcalc) {

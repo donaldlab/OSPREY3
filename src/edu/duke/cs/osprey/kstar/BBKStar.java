@@ -392,13 +392,13 @@ public class BBKStar {
 
 			// cache miss, need to compute the partition function
 
+			RCs rcs = sequence.makeRCs(info.confSpace);
 			// make the partition function
-			pfunc = PartitionFunction.makeBestFor(info, bbkstarSettings.useMARKStar);
+			pfunc = PartitionFunction.makeBestFor(info, rcs, bbkstarSettings.useMARKStar);
 			pfunc.setReportProgress(kstarSettings.showPfuncProgress);
 			if (confdb != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confdb.getSequence(sequence));
 			}
-			RCs rcs = sequence.makeRCs(info.confSpace);
 			if (kstarSettings.useExternalMemory) {
 				PartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
 			}
