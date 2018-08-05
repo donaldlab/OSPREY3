@@ -63,6 +63,7 @@ public class MARKStarBound implements PartitionFunction {
     private double internalTimeAverage;
     private double leafTimeAverage;
     private double cleanupTime;
+    private boolean hitLeaf;
 
     public void setCorrections(UpdatingEnergyMatrix cachedCorrections) {
         correctionMatrix = cachedCorrections;
@@ -161,9 +162,12 @@ public class MARKStarBound implements PartitionFunction {
     public void compute(int maxNumConfs) {
         debugPrint("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
         double lastEps = 1;
+        if(!hitLeaf) {
+            runUntilLeaf();
+            return;
+        }
+
         int previousConfCount = numConfsEnergied + numConfsScored + numPartialMinimizations;
-        if(!hasMinimizedFullConf)
-            runUntilNonzeroLower();
         while (epsilonBound > targetEpsilon &&
                 (maxNumConfs < 0 || numConfsEnergied + numConfsScored + numPartialMinimizations - previousConfCount < maxNumConfs)) {
             debugPrint("Tightening from epsilon of "+epsilonBound);
@@ -237,7 +241,6 @@ public class MARKStarBound implements PartitionFunction {
     BigDecimal cumulativeZCorrection = BigDecimal.ZERO;
     BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
     private boolean computedCorrections = false;
-    private boolean hasMinimizedFullConf = false;
     private long loopPartialTime = 0;
 
     public static MARKStarBound makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
@@ -325,12 +328,15 @@ public class MARKStarBound implements PartitionFunction {
     // We want to process internal nodes without worrying about the bound too much until we have
     // a nonzero lower bound. We have to have a nonzero lower bound, so we have to have at least
     // one node with a negative conf upper bound.
-    private void runUntilNonzeroLower() {
+    private void runUntilLeaf() {
+        System.out.println("Running until leaf is found...");
         double bestConfUpper = Double.POSITIVE_INFINITY;
 
         List<MARKStarNode> newNodes = new ArrayList<>();
         List<MARKStarNode> leafNodes = new ArrayList<>();
-        while(!queue.isEmpty() && bestConfUpper >=0 ){
+        int numNodes = 0;
+        while(!queue.isEmpty() && leafNodes.isEmpty()){
+            numNodes++;
             assert(newNodes.size() < 1);
             MARKStarNode curNode = queue.poll();
             Node node = curNode.getConfSearchNode();
@@ -346,10 +352,12 @@ public class MARKStarBound implements PartitionFunction {
             tasks.waitForFinish();
             queue.addAll(newNodes);
             newNodes.clear();
-
+            if(numNodes % 1000 == 0)
+                System.out.println("Processed "+numNodes+" nodes so far...");
         }
         queue.addAll(leafNodes);
-        System.out.println("Nonzero lower bound achieved");
+        System.out.println("Found a leaf!");
+        hitLeaf = true;
     }
     private void tightenBoundInPhases() {
         System.out.println(String.format("Current overall error bound: %12.6f",epsilonBound));
@@ -388,12 +396,13 @@ public class MARKStarBound implements PartitionFunction {
             internalTime.reset();
             internalTime.start();
             for (MARKStarNode internalNode : internalNodes) {
-                processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
+                processPartialConfNodeSerial(newNodes, internalNode, internalNode.getConfSearchNode());
                 //debugPrint("Processing Node: " + internalNode.getConfSearchNode().toString());
             }
             internalTime.stop();
             internalTimeSum=internalTime.getTimeS();
             internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
+            System.out.println("Internal node time :"+internalTimeSum+", average "+internalTimeAverage);
             queue.addAll(leafNodes);
         }
         tasks.waitForFinish();
@@ -527,8 +536,6 @@ public class MARKStarBound implements PartitionFunction {
     private void loopCleanup(List<MARKStarNode> newNodes, Stopwatch loopWatch, int numNodes) {
         queue.addAll(newNodes);
         loopWatch.stop();
-        System.out.println("Loop partial node time: "+TimeFormatter.format(loopPartialTime)+", average "
-            +TimeFormatter.format((long)(1.0*loopPartialTime/numNodes)));
         double loopTime = loopWatch.getTimeS();
         System.out.println("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
         loopWatch.reset();
@@ -558,6 +565,98 @@ public class MARKStarBound implements PartitionFunction {
             return true;
         }
         return false;
+    }
+
+    private void processPartialConfNodeSerial(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
+        // which pos to expand next?
+        node.index(confIndex);
+        int nextPos = order.getNextPos(confIndex, RCs);
+        assert (!confIndex.isDefined(nextPos));
+        assert (confIndex.isUndefined(nextPos));
+
+        // score child nodes with tasks (possibly in parallel)
+        List<MARKStarNode> children = new ArrayList<>();
+        for (int nextRc : RCs.get(nextPos)) {
+
+            if (hasPrunedPair(confIndex, nextPos, nextRc)) {
+                continue;
+            }
+
+            // if this child was pruned dynamically, then don't score it
+            if (pruner != null && pruner.isPruned(node, nextPos, nextRc)) {
+                continue;
+            }
+                    ScoreContext context = contexts.checkout();
+                    Stopwatch partialTime = new Stopwatch().start();
+                    node.index(context.index);
+                    Node child = node.assign(nextPos, nextRc);
+
+                    // score the child node differentially against the parent node
+                    if (child.getLevel() < RCs.getNumPos()) {
+                        double confCorrection = correctionMatrix.confE(child.assignments);
+                        double diff = confCorrection;
+                        double rigiddiff = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        double hdiff = context.hscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        child.gscore = diff;
+                        //Correct for incorrect gscore.
+                        rigiddiff=rigiddiff-node.gscore+node.rigidScore;
+                        child.rigidScore = rigiddiff;
+
+                        double confLowerBound = child.gscore + hdiff;
+                        double confUpperbound = rigiddiff + maxhdiff;
+                        child.computeNumConformations(RCs);
+                        double lowerbound = minimizingEmat.confE(child.assignments);
+                        if(diff < confCorrection) {
+                            /*
+                            debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
+                                    + ":" + diff + "->" + confCorrection);
+                                    */
+                            recordCorrection(confLowerBound, confCorrection - diff);
+                            confLowerBound = confCorrection + hdiff;
+                        }
+                        child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
+                        //progress.reportInternalNode(child.level, child.gscore, child.getHScore(), queue.size(), children.size(), epsilonBound);
+                    }
+                    if (child.getLevel() == RCs.getNumPos()) {
+                        double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        confRigid=confRigid-node.gscore+node.rigidScore;
+
+                        child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
+                        double confCorrection = correctionMatrix.confE(child.assignments);
+                        double lowerbound = minimizingEmat.confE(child.assignments);
+                        if(lowerbound < confCorrection) {
+                            //debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
+                            //        + ":" + lowerbound + "->" + confCorrection);
+                            recordCorrection(lowerbound, confCorrection - lowerbound);
+                        }
+                        checkBounds(confCorrection,confRigid);
+                        child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
+                        child.gscore = child.getConfLowerBound();
+                        child.rigidScore = confRigid;
+                        numConfsScored++;
+                        progress.reportLeafNode(child.gscore, queue.size(), epsilonBound);
+                    }
+                    partialTime.stop();
+                    loopPartialTime+=partialTime.getTimeS();
+
+
+
+                if(Double.isNaN(child.rigidScore))
+                    System.out.println("Huh!?");
+                MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
+                    // collect the possible children
+                    if (MARKStarNodeChild.getConfSearchNode().getConfLowerBound() < 0) {
+                        children.add(MARKStarNodeChild);
+                    }
+                    if (!child.isMinimized()) {
+                        newNodes.add(MARKStarNodeChild);
+                    }
+                    else
+                        MARKStarNodeChild.computeEpsilonErrorBounds();
+
+                curNode.markUpdated();
+        }
     }
 
     private void processPartialConfNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
