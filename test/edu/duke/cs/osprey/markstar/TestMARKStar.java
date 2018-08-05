@@ -63,7 +63,7 @@ public class TestMARKStar {
 				new String[]{"B2","B250"},
 				new String[]{"B193", "B216", "B214"}
 		);
-		final double epsilon = 0.9999;
+		final double epsilon = 0.9999999;
 		String kstartime = "(not run)";
 		boolean runkstar = true;
 		Stopwatch runtime = new Stopwatch().start();
@@ -132,7 +132,7 @@ public class TestMARKStar {
 		ConfSpaces confSpaces = make4KT6();
 		final double epsilon = 0.99;
 		String kstartime = "(not run)";
-		boolean runkstar = true;
+		boolean runkstar = false;
 		Stopwatch runtime = new Stopwatch().start();
 		if(runkstar) {
 			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
@@ -202,7 +202,7 @@ public class TestMARKStar {
 		ConfSpaces confSpaces = make2XXM();
 		final double epsilon = 0.99;
 		String kstartime = "(not run)";
-		boolean runkstar = true;
+		boolean runkstar = false;
 		Stopwatch runtime = new Stopwatch().start();
 		List<KStar.ScoredSequence> kStarSeqs = null;
 		if(runkstar) {

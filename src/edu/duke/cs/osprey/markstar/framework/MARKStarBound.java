@@ -224,7 +224,8 @@ public class MARKStarBound implements PartitionFunction {
     public final AStarPruner pruner;
     private RCs RCs;
     private Parallelism parallelism;
-    private TaskExecutor tasks;
+    private TaskExecutor internalTasks;
+    private TaskExecutor leafTasks;
     private ObjectPool<ScoreContext> contexts;
     private MARKStarNode.ScorerFactory gscorerFactory;
     private MARKStarNode.ScorerFactory hscorerFactory;
@@ -305,7 +306,8 @@ public class MARKStarBound implements PartitionFunction {
         }
 
         parallelism = val;
-        tasks = parallelism.makeTaskExecutor(1000);
+        leafTasks = parallelism.makeTaskExecutor(1000);
+        internalTasks = parallelism.makeTaskExecutor(1000);
         contexts.allocate(parallelism.getParallelism());
     }
 
@@ -349,7 +351,7 @@ public class MARKStarBound implements PartitionFunction {
             }
             else
                 leafNodes.add(curNode);
-            tasks.waitForFinish();
+            internalTasks.waitForFinish();
             queue.addAll(newNodes);
             newNodes.clear();
             if(numNodes % 1000 == 0)
@@ -385,8 +387,8 @@ public class MARKStarBound implements PartitionFunction {
                 processFullConfNode(newNodes, leafNode, leafNode.getConfSearchNode());
                 debugPrint("Processing Node: " + leafNode.getConfSearchNode().toString());
             }
-            minimizingEcalc.tasks.waitForFinish();
             leafTime.stop();
+            leafTasks.waitForFinish();
             leafTimeSum = leafTime.getTimeS();
             leafTimeAverage = leafTimeSum/leafNodes.size();
             queue.addAll(internalNodes);
@@ -399,13 +401,15 @@ public class MARKStarBound implements PartitionFunction {
                 processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
                 //debugPrint("Processing Node: " + internalNode.getConfSearchNode().toString());
             }
-            tasks.waitForFinish();
+            internalTasks.waitForFinish();
             internalTime.stop();
             internalTimeSum=internalTime.getTimeS();
             internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
             System.out.println("Internal node time :"+internalTimeSum+", average "+internalTimeAverage);
             queue.addAll(leafNodes);
         }
+        if (epsilonBound <= targetEpsilon)
+            return;
         loopCleanup(newNodes, loopWatch, numNodes);
         debugHeap();
     }
@@ -436,7 +440,7 @@ public class MARKStarBound implements PartitionFunction {
                 }
                 node.setBoundsFromConfLowerAndUpper(confCorrection, node.getConfUpperBound());
                 curNode.markUpdated();
-                queue.add(curNode);
+                leftoverLeaves.add(curNode);
                 continue;
             }
 
@@ -456,7 +460,9 @@ public class MARKStarBound implements PartitionFunction {
         }
         ZSums[0] = internalZ;
         ZSums[1] = leafZ;
-        queue.addAll(leftoverLeaves);
+        synchronized (this) {
+            queue.addAll(leftoverLeaves);
+        }
     }
 
     private void tightenBound() {
@@ -528,13 +534,15 @@ public class MARKStarBound implements PartitionFunction {
         }
 
         minimizingEcalc.tasks.waitForFinish();
-        tasks.waitForFinish();
+        internalTasks.waitForFinish();
         loopCleanup(newNodes, loopWatch, numNodes);
 
     }
 
     private void loopCleanup(List<MARKStarNode> newNodes, Stopwatch loopWatch, int numNodes) {
-        queue.addAll(newNodes);
+        synchronized (this) {
+            queue.addAll(newNodes);
+        }
         loopWatch.stop();
         double loopTime = loopWatch.getTimeS();
         System.out.println("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
@@ -679,7 +687,7 @@ public class MARKStarBound implements PartitionFunction {
                 continue;
             }
 
-            tasks.submit(() -> {
+            internalTasks.submit(() -> {
 
                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                     Stopwatch partialTime = new Stopwatch().start();
@@ -774,7 +782,7 @@ public class MARKStarBound implements PartitionFunction {
             return;
         }
         Stopwatch minimizationTime = new Stopwatch().start();
-        tasks.submit(() -> {
+        leafTasks.submit(() -> {
             try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                 ScoreContext context = checkout.get();
                 node.index(context.index);
@@ -802,7 +810,6 @@ public class MARKStarBound implements PartitionFunction {
                 recordCorrection(oldgscore, newConfLower-oldgscore);
                 String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                 debugPrint(out);
-                //updateBound();
                 synchronized(this) {
                     numConfsEnergied++;
                     if(numConfsEnergied == 3 || numConfsEnergied == 4 || numConfsEnergied == 5) {
@@ -989,8 +996,8 @@ public class MARKStarBound implements PartitionFunction {
                 }, (econf) -> {
                 });
         }
-        /*
         minimizingEcalc.tasks.waitForFinish();
+        /*
         ConfIndex index = new ConfIndex(RCs.getNumPos());
         if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)
             && minimizingEmat.getInternalEnergy(overlap) != rigidEmat.getInternalEnergy(overlap)) {
