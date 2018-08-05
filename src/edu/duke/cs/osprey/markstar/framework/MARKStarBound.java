@@ -329,6 +329,7 @@ public class MARKStarBound implements PartitionFunction {
         double bestConfUpper = Double.POSITIVE_INFINITY;
 
         List<MARKStarNode> newNodes = new ArrayList<>();
+        List<MARKStarNode> leafNodes = new ArrayList<>();
         while(!queue.isEmpty() && bestConfUpper >=0 ){
             assert(newNodes.size() < 1);
             MARKStarNode curNode = queue.poll();
@@ -340,14 +341,14 @@ public class MARKStarBound implements PartitionFunction {
             if (node.getLevel() < RCs.getNumPos()) {
                 processPartialConfNode(newNodes, curNode, node);
             }
-            else if(shouldMinimize(node)) {
-                processFullConfNode(newNodes, curNode, node);
-            }
+            else
+                leafNodes.add(curNode);
             tasks.waitForFinish();
             queue.addAll(newNodes);
             newNodes.clear();
 
         }
+        queue.addAll(leafNodes);
         System.out.println("Nonzero lower bound achieved");
     }
     private void tightenBoundInPhases() {
