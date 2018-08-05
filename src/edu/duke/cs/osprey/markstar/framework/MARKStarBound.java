@@ -62,6 +62,7 @@ public class MARKStarBound implements PartitionFunction {
     private ArrayList<Integer> minList;
     private double internalTimeAverage;
     private double leafTimeAverage;
+    private double cleanupTime;
 
     public void setCorrections(UpdatingEnergyMatrix cachedCorrections) {
         correctionMatrix = cachedCorrections;
@@ -374,7 +375,7 @@ public class MARKStarBound implements PartitionFunction {
         int maxMinimizations = parallelism.numThreads;
         int maxNodes = 1000;
         if(internalTimeAverage > 0)
-            maxNodes = (int)Math.floor(loopPartialTime*10/internalTimeAverage);
+            maxNodes = (int)Math.floor(10*cleanupTime/internalTimeAverage);
         if(leafTimeAverage > 0)
             maxNodes = (int)Math.floor(0.5*leafTimeAverage/internalTimeAverage);
         while(!queue.isEmpty() && internalNodes.size() < maxNodes){
@@ -503,11 +504,12 @@ public class MARKStarBound implements PartitionFunction {
         loopWatch.reset();
         loopWatch.start();
         processPreminimization(minimizingEcalc);
-        loopWatch.stop();
         System.out.println("Preminimization time : "+loopWatch.getTime(2));
         double curEpsilon = epsilonBound;
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         updateBound();
+        loopWatch.stop();
+        cleanupTime = loopWatch.getTimeS();
         //double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, correctiongscorer, correctionhscorer);
         System.out.println(String.format("Loop complete. Bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
     }
@@ -603,7 +605,7 @@ public class MARKStarBound implements PartitionFunction {
                         progress.reportLeafNode(child.gscore, queue.size(), epsilonBound);
                     }
                     partialTime.stop();
-                    loopPartialTime+=partialTime.getTimeNs();
+                    loopPartialTime+=partialTime.getTimeS();
 
 
                     return child;
