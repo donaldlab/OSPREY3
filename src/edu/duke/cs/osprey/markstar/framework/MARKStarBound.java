@@ -375,7 +375,7 @@ public class MARKStarBound implements PartitionFunction {
         int maxMinimizations = parallelism.numThreads;
         int maxNodes = 1000;
         if(internalTimeAverage > 0)
-            maxNodes = (int)Math.floor(10*cleanupTime/internalTimeAverage);
+            maxNodes = Math.max(maxNodes, (int)Math.floor(10*cleanupTime/internalTimeAverage));
         if(leafTimeAverage > 0)
             maxNodes = (int)Math.floor(0.5*leafTimeAverage/internalTimeAverage);
         while(!queue.isEmpty() && internalNodes.size() < maxNodes){
