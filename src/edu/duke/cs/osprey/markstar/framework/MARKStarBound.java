@@ -162,6 +162,8 @@ public class MARKStarBound implements PartitionFunction {
         debugPrint("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
         double lastEps = 1;
         int previousConfCount = numConfsEnergied + numConfsScored + numPartialMinimizations;
+        if(!hasMinimizedFullConf)
+            runUntilNonzeroLower();
         while (epsilonBound > targetEpsilon &&
                 (maxNumConfs < 0 || numConfsEnergied + numConfsScored + numPartialMinimizations - previousConfCount < maxNumConfs)) {
             debugPrint("Tightening from epsilon of "+epsilonBound);
@@ -235,6 +237,7 @@ public class MARKStarBound implements PartitionFunction {
     BigDecimal cumulativeZCorrection = BigDecimal.ZERO;
     BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
     private boolean computedCorrections = false;
+    private boolean hasMinimizedFullConf = false;
     private long loopPartialTime = 0;
 
     public static MARKStarBound makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
@@ -319,6 +322,34 @@ public class MARKStarBound implements PartitionFunction {
         cumulativeZCorrection = cumulativeZCorrection.add(upper.subtract(corrected));
     }
 
+    // We want to process internal nodes without worrying about the bound too much until we have
+    // a nonzero lower bound. We have to have a nonzero lower bound, so we have to have at least
+    // one node with a negative conf upper bound.
+    private void runUntilNonzeroLower() {
+        double bestConfUpper = Double.POSITIVE_INFINITY;
+
+        List<MARKStarNode> newNodes = new ArrayList<>();
+        while(!queue.isEmpty() && bestConfUpper >=0 ){
+            assert(newNodes.size() < 1);
+            MARKStarNode curNode = queue.poll();
+            Node node = curNode.getConfSearchNode();
+            ConfIndex index = new ConfIndex(RCs.getNumPos());
+            node.index(index);
+
+            bestConfUpper = Math.min(node.getConfUpperBound(), bestConfUpper);
+            if (node.getLevel() < RCs.getNumPos()) {
+                processPartialConfNode(newNodes, curNode, node);
+            }
+            else if(shouldMinimize(node)) {
+                processFullConfNode(newNodes, curNode, node);
+            }
+            tasks.waitForFinish();
+            queue.addAll(newNodes);
+            newNodes.clear();
+
+        }
+        System.out.println("Nonzero lower bound achieved");
+    }
     private void tightenBoundInPhases() {
         System.out.println(String.format("Current overall error bound: %12.6f",epsilonBound));
         List<MARKStarNode> internalNodes = new ArrayList<>();
@@ -361,7 +392,7 @@ public class MARKStarBound implements PartitionFunction {
                 internalTimeSum+=internalTime.getTimeS();
                 //debugPrint("Processing Node: " + internalNode.getConfSearchNode().toString());
             }
-            internalTimeAverage = internalTimeSum/internalNodes.size();
+            internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
             queue.addAll(leafNodes);
         }
         tasks.waitForFinish();
@@ -374,8 +405,6 @@ public class MARKStarBound implements PartitionFunction {
         List<MARKStarNode> leftoverLeaves = new ArrayList<>();
         int maxMinimizations = parallelism.numThreads;
         int maxNodes = 1000;
-        if(internalTimeAverage > 0)
-            maxNodes = Math.max(maxNodes, (int)Math.floor(10*cleanupTime/internalTimeAverage));
         if(leafTimeAverage > 0)
             maxNodes = (int)Math.floor(0.5*leafTimeAverage/internalTimeAverage);
         while(!queue.isEmpty() && internalNodes.size() < maxNodes){
@@ -658,8 +687,6 @@ public class MARKStarBound implements PartitionFunction {
                 double newConfUpper = energy;
                 double newConfLower = energy;
                 checkConfLowerBound(node, energy);
-                if(energy - node.getConfLowerBound()> 7)
-                    System.out.println("Catch");
                 if (energy > node.getConfUpperBound()) {
                     System.err.println("Upper bounds got worse after minimization:" + energy
                             + " > " + (node.getConfUpperBound())+". Rejecting minimized energy.");
@@ -733,7 +760,7 @@ public class MARKStarBound implements PartitionFunction {
 
     private void checkBounds(double lower, double upper)
     {
-        if (upper - lower > 1e-5 && upper < 10)
+        if (upper < lower && upper - lower > 1e-5 && upper < 10)
             debugPrint("Bounds incorrect.");
     }
 

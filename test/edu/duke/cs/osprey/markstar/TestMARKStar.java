@@ -132,7 +132,7 @@ public class TestMARKStar {
 		ConfSpaces confSpaces = make4KT6();
 		final double epsilon = 0.95;
 		String kstartime = "(not run)";
-		boolean runkstar = false;
+		boolean runkstar = true;
 		Stopwatch runtime = new Stopwatch().start();
 		if(runkstar) {
 			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
