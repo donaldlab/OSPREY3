@@ -162,12 +162,11 @@ public class MARKStarBound implements PartitionFunction {
     public void compute(int maxNumConfs) {
         debugPrint("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
         double lastEps = 1;
-        if(!hitLeaf) {
-            runUntilLeaf();
-            return;
-        }
 
         int previousConfCount = numConfsEnergied + numConfsScored + numPartialMinimizations;
+        if(!hitLeaf) {
+            runUntilLeaf();
+        }
         while (epsilonBound > targetEpsilon &&
                 (maxNumConfs < 0 || numConfsEnergied + numConfsScored + numPartialMinimizations - previousConfCount < maxNumConfs)) {
             debugPrint("Tightening from epsilon of "+epsilonBound);
