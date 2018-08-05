@@ -812,10 +812,6 @@ public class MARKStarBound implements PartitionFunction {
                 debugPrint(out);
                 synchronized(this) {
                     numConfsEnergied++;
-                    if(numConfsEnergied == 3 || numConfsEnergied == 4 || numConfsEnergied == 5) {
-                        updateBound();
-                        rootNode.printTree(stateName + "-" + numConfsEnergied + "-" + "debugTree");
-                    }
                 }
                 printMinimizationOutput(node, newConfLower, oldgscore);
 

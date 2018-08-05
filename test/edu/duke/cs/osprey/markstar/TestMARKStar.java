@@ -202,7 +202,7 @@ public class TestMARKStar {
 		ConfSpaces confSpaces = make2XXM();
 		final double epsilon = 0.99;
 		String kstartime = "(not run)";
-		boolean runkstar = false;
+		boolean runkstar = true;
 		Stopwatch runtime = new Stopwatch().start();
 		List<KStar.ScoredSequence> kStarSeqs = null;
 		if(runkstar) {
