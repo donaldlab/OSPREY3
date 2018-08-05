@@ -371,16 +371,12 @@ public class MARKStarBound implements PartitionFunction {
     private void populateQueues(List<MARKStarNode> internalNodes, List<MARKStarNode> leafNodes, BigDecimal internalZ,
                                 BigDecimal leafZ, BigDecimal[] ZSums) {
         List<MARKStarNode> leftoverLeaves = new ArrayList<>();
-        loopPartialTime = 0;
-        Stopwatch loopWatch = new Stopwatch();
-        loopWatch.start();
-        double bestLower = Double.POSITIVE_INFINITY;
-        if (!queue.isEmpty()) {
-            bestLower = queue.peek().getConfSearchNode().getConfLowerBound();
-        }
-        else debugPrint("Out of conformations.");
         int maxMinimizations = parallelism.numThreads;
-        int maxNodes = Math.max(1000, (int)Math.floor(0.5*leafTimeAverage/internalTimeAverage));
+        int maxNodes = 1000;
+        if(internalTimeAverage > 0)
+            maxNodes = (int)Math.floor(loopPartialTime*10/internalTimeAverage);
+        if(leafTimeAverage > 0)
+            maxNodes = (int)Math.floor(0.5*leafTimeAverage/internalTimeAverage);
         while(!queue.isEmpty() && internalNodes.size() < maxNodes){
             MARKStarNode curNode = queue.poll();
             Node node = curNode.getConfSearchNode();

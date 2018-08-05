@@ -63,7 +63,7 @@ public class TestMARKStar {
 				new String[]{"B2","B250"},
 				new String[]{"B193", "B216", "B214"}
 		);
-		final double epsilon = 0.999;
+		final double epsilon = 0.9999;
 		String kstartime = "(not run)";
 		boolean runkstar = true;
 		Stopwatch runtime = new Stopwatch().start();
