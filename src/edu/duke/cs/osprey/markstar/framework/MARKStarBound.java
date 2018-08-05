@@ -379,20 +379,20 @@ public class MARKStarBound implements PartitionFunction {
             }
             minimizingEcalc.tasks.waitForFinish();
             leafTime.stop();
-            leafTimeSum += leafTime.getTimeS();
+            leafTimeSum = leafTime.getTimeS();
             leafTimeAverage = leafTimeSum/leafNodes.size();
             queue.addAll(internalNodes);
         }
         else {
             numNodes = internalNodes.size();
+            internalTime.reset();
+            internalTime.start();
             for (MARKStarNode internalNode : internalNodes) {
-                internalTime.reset();
-                internalTime.start();
                 processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
-                internalTime.stop();
-                internalTimeSum+=internalTime.getTimeS();
                 //debugPrint("Processing Node: " + internalNode.getConfSearchNode().toString());
             }
+            internalTime.stop();
+            internalTimeSum=internalTime.getTimeS();
             internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
             queue.addAll(leafNodes);
         }
@@ -407,7 +407,7 @@ public class MARKStarBound implements PartitionFunction {
         int maxMinimizations = parallelism.numThreads;
         int maxNodes = 1000;
         if(leafTimeAverage > 0)
-            maxNodes = (int)Math.floor(0.5*leafTimeAverage/internalTimeAverage);
+            maxNodes = Math.max(maxNodes, (int)Math.floor(0.1*leafTimeAverage/internalTimeAverage));
         while(!queue.isEmpty() && internalNodes.size() < maxNodes){
             MARKStarNode curNode = queue.poll();
             Node node = curNode.getConfSearchNode();
