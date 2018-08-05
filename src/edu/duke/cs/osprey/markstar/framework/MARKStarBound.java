@@ -166,6 +166,7 @@ public class MARKStarBound implements PartitionFunction {
         int previousConfCount = numConfsEnergied + numConfsScored + numPartialMinimizations;
         if(!hitLeaf) {
             runUntilLeaf();
+            updateBound();
         }
         while (epsilonBound > targetEpsilon &&
                 (maxNumConfs < 0 || numConfsEnergied + numConfsScored + numPartialMinimizations - previousConfCount < maxNumConfs)) {
@@ -395,16 +396,16 @@ public class MARKStarBound implements PartitionFunction {
             internalTime.reset();
             internalTime.start();
             for (MARKStarNode internalNode : internalNodes) {
-                processPartialConfNodeSerial(newNodes, internalNode, internalNode.getConfSearchNode());
+                processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
                 //debugPrint("Processing Node: " + internalNode.getConfSearchNode().toString());
             }
+            tasks.waitForFinish();
             internalTime.stop();
             internalTimeSum=internalTime.getTimeS();
             internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
             System.out.println("Internal node time :"+internalTimeSum+", average "+internalTimeAverage);
             queue.addAll(leafNodes);
         }
-        tasks.waitForFinish();
         loopCleanup(newNodes, loopWatch, numNodes);
         debugHeap();
     }
