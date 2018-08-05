@@ -347,12 +347,12 @@ public class TestMARKStar {
 	public void test1GUA11MARKVsTraditional() {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
-		final double epsilon = 0.99;
+		final double epsilon = 0.999;
 		final int numSequences = 6;
 
 
 		String traditionalTime = "(Not run)";
-		boolean runkstar = true;
+		boolean runkstar = false;
 		Stopwatch timer = new Stopwatch().start();
 		if(runkstar) {
 			TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);

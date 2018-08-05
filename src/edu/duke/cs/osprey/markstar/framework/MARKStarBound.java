@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.markstar.framework;
 
+import EDU.oswego.cs.dl.util.concurrent.FJTask;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
@@ -32,6 +33,7 @@ import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.TimeFormatter;
 import javafx.util.Pair;
+import org.ojalgo.matrix.transformation.Rotation;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -336,14 +338,16 @@ public class MARKStarBound implements PartitionFunction {
         leafZ = MathTools.bigDivide(ZSums[1], new BigDecimal(Math.max(1,leafTimeAverage)), PartitionFunction.decimalPrecision);
         if(MathTools.isLessThan(internalZ, leafZ)) {
             numNodes = leafNodes.size();
+            leafTime.reset();
+            leafTime.start();
             for(MARKStarNode leafNode: leafNodes) {
-                leafTime.reset();
-                leafTime.start();
                 processFullConfNode(newNodes, leafNode, leafNode.getConfSearchNode());
                 debugPrint("Processing Node: " + leafNode.getConfSearchNode().toString());
-                leafTime.stop();
-                leafTimeSum += leafTime.getTimeS();
             }
+            minimizingEcalc.tasks.waitForFinish();
+            leafTime.stop();
+            leafTimeSum += leafTime.getTimeS();
+            leafTimeAverage = leafTimeSum/leafNodes.size();
             queue.addAll(internalNodes);
         }
         else {
@@ -360,7 +364,6 @@ public class MARKStarBound implements PartitionFunction {
             queue.addAll(leafNodes);
         }
         tasks.waitForFinish();
-        minimizingEcalc.tasks.waitForFinish();
         loopCleanup(newNodes, loopWatch, numNodes);
         debugHeap();
     }
@@ -378,26 +381,19 @@ public class MARKStarBound implements PartitionFunction {
         else debugPrint("Out of conformations.");
         int maxMinimizations = parallelism.numThreads;
         int maxNodes = Math.max(1000, (int)Math.floor(0.5*leafTimeAverage/internalTimeAverage));
-        int numNodes = 0;
-        double energyThreshhold = 1000000;// -10*Math.log(((1-epsilonBound)/(1-targetEpsilon)));
         while(!queue.isEmpty() && internalNodes.size() < maxNodes){
-            //System.out.println("Current overall error bound: "+epsilonBound);
             MARKStarNode curNode = queue.poll();
             Node node = curNode.getConfSearchNode();
-            double curLower = node.getConfLowerBound();
             ConfIndex index = new ConfIndex(RCs.getNumPos());
             node.index(index);
             double correctgscore = correctionMatrix.confE(node.assignments);
             double hscore = node.getConfLowerBound() - node.gscore;
             double confCorrection = Math.min(correctgscore, node.rigidScore) + hscore;
             if(!node.isMinimized() && node.getConfLowerBound() - confCorrection > 1e-5) {
-//                debugPrint("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
-//                        + ":" + node.gscore + "] down to " + confCorrection);
                 recordCorrection(node.getConfLowerBound(), correctgscore - node.gscore);
 
                 node.gscore = correctgscore;
                 if (confCorrection > node.rigidScore) {
-                    double rigid = rigidEmat.confE(node.assignments);
                     System.out.println("Overcorrected"+SimpleConfSpace.formatConfRCs(node.assignments)+": " + confCorrection + " > " + node.rigidScore);
                     node.gscore = node.rigidScore;
                     confCorrection = node.rigidScore + hscore;
@@ -407,9 +403,7 @@ public class MARKStarBound implements PartitionFunction {
                 queue.add(curNode);
                 continue;
             }
-            //debugPrint("Processing Node: " + node.toString());
 
-            //If the child is a leaf, calculate n-body minimized energies
             BigDecimal diff = curNode.getUpperBound().subtract(curNode.getLowerBound());
             if (node.getLevel() < RCs.getNumPos()) {
                 internalNodes.add(curNode);
