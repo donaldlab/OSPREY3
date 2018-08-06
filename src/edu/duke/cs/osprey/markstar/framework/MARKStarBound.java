@@ -204,7 +204,7 @@ public class MARKStarBound implements PartitionFunction {
 
     @Override
     public Result makeResult() {
-        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs(), Long.toString(stopwatch.getTimeNs()), minList, cumulativeZCorrection);
+        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs(), Long.toString(stopwatch.getTimeNs()), minList, ZReductionFromMin, cumulativeZCorrection);
         return result;
     }
 
@@ -240,6 +240,7 @@ public class MARKStarBound implements PartitionFunction {
     ConfEnergyCalculator minimizingEcalc = null;
     private Stopwatch stopwatch = new Stopwatch().start();
     BigDecimal cumulativeZCorrection = BigDecimal.ZERO;
+    BigDecimal ZReductionFromMin = BigDecimal.ZERO;
     BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
     private boolean computedCorrections = false;
     private long loopPartialTime = 0;
@@ -325,6 +326,12 @@ public class MARKStarBound implements PartitionFunction {
         BigDecimal upper = bc.calc(lowerBound);
         BigDecimal corrected = bc.calc(lowerBound + correction);
         cumulativeZCorrection = cumulativeZCorrection.add(upper.subtract(corrected));
+    }
+    private void recordReduction(double score, double energy) {
+        BigDecimal scoreWeight = bc.calc(score);
+        BigDecimal energyWeight = bc.calc(energy);
+        ZReductionFromMin = ZReductionFromMin.add(scoreWeight.subtract(energyWeight));
+
     }
 
     // We want to process internal nodes without worrying about the bound too much until we have
@@ -823,6 +830,7 @@ public class MARKStarBound implements PartitionFunction {
                 synchronized(this) {
                     numConfsEnergied++;
                     minList.set(conf.getAssignments().length-1,minList.get(conf.getAssignments().length-1)+1);
+                    recordReduction(conf.getScore(), energy);
                 }
                 printMinimizationOutput(node, newConfLower, oldgscore);
 
