@@ -337,6 +337,7 @@ public class MARKStarBound implements PartitionFunction {
         List<MARKStarNode> newNodes = new ArrayList<>();
         List<MARKStarNode> leafNodes = new ArrayList<>();
         int numNodes = 0;
+        Stopwatch leafLoop = new Stopwatch().start();
         while(!queue.isEmpty() && leafNodes.isEmpty() && bestConfUpper > 0){
             numNodes++;
             assert(newNodes.size() < 1);
@@ -354,7 +355,9 @@ public class MARKStarBound implements PartitionFunction {
             internalTasks.waitForFinish();
             queue.addAll(newNodes);
             newNodes.clear();
-            if(numNodes % 1000 == 0) {
+            if(leafLoop.getTimeS() > 10) {
+                leafLoop.reset();
+                updateBound();
                 System.out.println(String.format("Processed %d so far. Bounds are now [%12.6e,%12.6e]",numNodes,rootNode.getLowerBound(),rootNode.getUpperBound()));
             }
         }
