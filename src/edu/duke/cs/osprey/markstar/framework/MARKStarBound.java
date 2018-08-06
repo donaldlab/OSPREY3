@@ -307,7 +307,6 @@ public class MARKStarBound implements PartitionFunction {
 
         parallelism = val;
         leafTasks = parallelism.makeTaskExecutor(1000);
-        derpTasks = parallelism.makeTaskExecutor(1000);
         internalTasks = parallelism.makeTaskExecutor(1000);
         contexts.allocate(parallelism.getParallelism());
     }
