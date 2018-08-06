@@ -1,15 +1,20 @@
 package edu.duke.cs.osprey.pruning;
 
 
+import edu.duke.cs.osprey.Benchmark;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.*;
+import edu.duke.cs.osprey.tools.Profiler;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -17,6 +22,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -35,13 +41,42 @@ public class PLUGLab {
 			.addStrand(strand)
 			.build();
 
+		// benchmark PLUG
+		RCTuple tuple = new RCTuple(0, 5, 1, 7);
+		PLUG plug = new PLUG(confSpace);
+		Benchmark b = new Benchmark(4, 100, () -> {
+			plug.shouldPruneTuple(tuple, 0.4);
+		});
+		log("tuple %s: %s", tuple, b);
+
+		// TEMP: benchmark emat
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams()).build()) {
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+				.setEnergyPartition(EnergyPartition.AllOnPairs)
+				.build();
+			log("emat: %s", new Benchmark(4, 100, () -> {
+				confEcalc.calcPairEnergy(tuple);
+			}));
+		}
+
+		// 26 ops - base
+		// 62 ops - cache atom voxels
+		// 128 ops - optimize gradient calculation
+		// just enumerating atom pairs is 115 ops =(
+
+		// TEMP
+		//if (true) return;
+
 		// calc an emat
 		EnergyMatrix emat;
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
 			.setParallelism(Parallelism.makeCpu(8))
 			.build()) {
 
-			emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+				.setEnergyPartition(EnergyPartition.AllOnPairs)
+				.build();
+			emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
 				.build()
 				.calcEnergyMatrix();
 		}
@@ -57,13 +92,14 @@ public class PLUGLab {
 		}
 
 		// run PLUG
+		Stopwatch pmatStopwatch = new Stopwatch().start();
 		PruningMatrix pmat = new SimpleDEE.Runner()
 			.setThreshold(null) // no steric pruning
 			.setSinglesPlugThreshold(0.4)
 			.setPairsPlugThreshold(0.4)
 			.setShowProgress(true)
 			.run(confSpace, null);
-
+		log("%s", pmatStopwatch.stop().getTime(2));
 
 		// get the best 10 confs again
 		confs = new ConfAStarTree.Builder(emat, pmat)
@@ -139,7 +175,7 @@ public class PLUGLab {
 	 *
 	 * (use a pseudocolor plot with a contour at 0)
 	 */
-	private static void writeViolations2D(ParametricMolecule pmol, int d1, int d2, Probe.AtomPair pair, double tolerance, File file) {
+	public static void writeViolations2D(ParametricMolecule pmol, int d1, int d2, Probe.AtomPair pair, double tolerance, File file) {
 
 		// figure out the dofs
 		DegreeOfFreedom dof1 = pmol.dofs.get(d1);
@@ -219,6 +255,7 @@ public class PLUGLab {
 			out.write(String.format("delta 1 %d float\n", samples1*samples2));
 
 			// sample DoFs (in reverse axis order, for the vtk file)
+			int p = 0;
 			for (int i2=0; i2<samples2; i2++) {
 				double x2 = sample2.apply(i2);
 				dof2.apply(x2);
@@ -231,11 +268,12 @@ public class PLUGLab {
 					double violation = pair.getViolation(tolerance);
 
 					// write the point
-					if (i2 % 10 > 0) {
+					if (p % 10 > 0) {
 						out.write(" ");
-					} else if (i2 > 0) {
+					} else if (p > 0) {
 						out.write("\n");
 					}
+					p++;
 					out.write(String.format("%.4f", violation));
 				}
 				out.write("\n");

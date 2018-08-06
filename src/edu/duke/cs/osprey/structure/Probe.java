@@ -337,6 +337,7 @@ public class Probe {
 
 		public class Interaction {
 
+			public final AtomPair atomPair = AtomPair.this;
 			public final double dist;
 			public final double overlap;
 			public final Contact contact;
@@ -377,12 +378,16 @@ public class Probe {
 		public final double maxOverlap;
 
 		public AtomPair(Atom a, Atom b) {
+			this(a, b, getAtomInfo(a), getAtomInfo(b));
+		}
+
+		public AtomPair(Atom a, Atom b, AtomInfo infoa, AtomInfo infob) {
 
 			this.a = a;
 			this.b = b;
+			this.infoa = infoa;
+			this.infob = infob;
 
-			this.infoa = getAtomInfo(a);
-			this.infob = getAtomInfo(b);
 			this.attraction = getAttraction(infoa, infob);
 			this.maxOverlap = getMaxOverlap(attraction);
 		}
@@ -398,6 +403,7 @@ public class Probe {
 			return new Interaction(dist, overlap, contact);
 		}
 
+		/** return the overlap of the two atoms beyond the max allowed overlap, and beyond any extra tolerance */
 		public double getViolation(double tolerance) {
 			double dist = getDist();
 			double overlap = getOverlap(infoa, infob, dist);
@@ -414,17 +420,7 @@ public class Probe {
 		return overlap - maxOverlap - tolerance;
 	}
 
-	/** return the overlap of the two atoms beyond the max allowed overlap, and beyond any extra tolerance */
-	public double getViolation(Atom a, Atom b, double tolerance) {
-		AtomInfo infoa = getAtomInfo(a);
-		AtomInfo infob = getAtomInfo(b);
-		Attraction attraction = getAttraction(infoa, infob);
-		double overlap = getOverlap(infoa, infob, getDist(a, b));
-		double maxOverlap = getMaxOverlap(attraction);
-		return getViolation(overlap, maxOverlap, tolerance);
-	}
-
-	public double getDist(Atom a, Atom b) {
+	public double getDistSq(Atom a, Atom b) {
 
 		// get the interatomic distance
 		int i = a.indexInRes*3;
@@ -436,14 +432,15 @@ public class Probe {
 		double by = b.res.coords[i + 1];
 		double bz = b.res.coords[i + 2];
 
-		double d = ax - bx;
-		double distSq = d*d;
-		d = ay - by;
-		distSq += d*d;
-		d = az - bz;
-		distSq += d*d;
+		// calc the squared distance
+		double dx = ax - bx;
+		double dy = ay - by;
+		double dz = az - bz;
+		return dx*dx + dy*dy + dz*dz;
+	}
 
-		return Math.sqrt(distSq);
+	public double getDist(Atom a, Atom b) {
+		return Math.sqrt(getDistSq(a, b));
 	}
 
 	public Attraction getAttraction(AtomInfo a, AtomInfo b) {

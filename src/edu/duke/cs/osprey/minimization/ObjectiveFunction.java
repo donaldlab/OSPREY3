@@ -215,6 +215,10 @@ public interface ObjectiveFunction extends Serializable {
 				out.set(d, getCenter(d));
 			}
 		}
+
+		public double getWidth(int d) {
+			return getMax(d) - getMin(d);
+		}
 		
 		public void set(int d, double min, double max) {
 			bounds[0].set(d, min);
