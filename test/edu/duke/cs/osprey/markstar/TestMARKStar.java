@@ -61,7 +61,7 @@ public class TestMARKStar {
 				new String[]{"A67", "A68", "A78", "A76", "A88", "A89", "A157"},
 				new String[]{"G1", "G123"},
                 new String[]{"G101", "G102", "G103", "G57", "G104"});
-		boolean runkstar = true;
+		boolean runkstar = false;
 		final double epsilon = 0.9999999;
 		TestComparison(confSpaces, epsilon, runkstar);
 	}
