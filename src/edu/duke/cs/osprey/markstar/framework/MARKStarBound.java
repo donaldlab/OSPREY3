@@ -307,6 +307,7 @@ public class MARKStarBound implements PartitionFunction {
 
         parallelism = val;
         leafTasks = parallelism.makeTaskExecutor(1000);
+        derpTasks = parallelism.makeTaskExecutor(1000);
         internalTasks = parallelism.makeTaskExecutor(1000);
         contexts.allocate(parallelism.getParallelism());
     }
@@ -338,7 +339,9 @@ public class MARKStarBound implements PartitionFunction {
         List<MARKStarNode> leafNodes = new ArrayList<>();
         int numNodes = 0;
         Stopwatch leafLoop = new Stopwatch().start();
-        while(!queue.isEmpty() && leafNodes.isEmpty() && bestConfUpper > 0){
+        Stopwatch overallLoop = new Stopwatch().start();
+        while(!queue.isEmpty() && leafNodes.isEmpty() && bestConfUpper > 0
+                && !MathTools.isGreaterThan(rootNode.getLowerBound(), BigDecimal.ZERO)){
             numNodes++;
             assert(newNodes.size() < 1);
             MARKStarNode curNode = queue.poll();
@@ -355,10 +358,14 @@ public class MARKStarBound implements PartitionFunction {
             internalTasks.waitForFinish();
             queue.addAll(newNodes);
             newNodes.clear();
+            debugHeap(true);
             if(leafLoop.getTimeS() > 10) {
+                leafLoop.stop();
                 leafLoop.reset();
+                leafLoop.start();
                 updateBound();
-                System.out.println(String.format("Processed %d so far. Bounds are now [%12.6e,%12.6e]",numNodes,rootNode.getLowerBound(),rootNode.getUpperBound()));
+                System.out.println(String.format("Processed %d, %s so far. Bounds are now [%12.6e,%12.6e]",numNodes, overallLoop.getTime(2),rootNode.getLowerBound(),rootNode.getUpperBound()));
+                System.out.println("Upper bound is "+bestConfUpper);
             }
         }
         queue.addAll(leafNodes);
@@ -1062,6 +1069,12 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void debugHeap() {
+        debugHeap(false);
+    }
+    private void debugHeap(boolean forcePrint) {
+        boolean oldDebugVal = debug;
+        if(forcePrint)
+            debug = true;
         if(debug) {
             if(queue.isEmpty())
                 return;
@@ -1080,6 +1093,7 @@ public class MARKStarBound implements PartitionFunction {
             }
             queue.addAll(copy);
         }
+        debug = oldDebugVal;
     }
 
     private void updateBound() {

@@ -54,6 +54,19 @@ public class TestMARKStar {
 	}
 
 	@Test
+	public void testk4hemBig () {
+		ConfSpaces confSpaces = makeConfSpaces(
+                "examples/python.KStar/4hem_prepped.pdb",
+				new String[]{"A34", "A163"},
+				new String[]{"A67", "A68", "A78", "A76", "A88", "A89", "A157"},
+				new String[]{"G1", "G123"},
+                new String[]{"G101", "G102", "G103", "G57", "G104"});
+		boolean runkstar = true;
+		final double epsilon = 0.9999999;
+		TestComparison(confSpaces, epsilon, runkstar);
+	}
+
+	@Test
 	public void test3K3Q () {
 
 		ConfSpaces confSpaces = makeConfSpaces(
@@ -64,9 +77,13 @@ public class TestMARKStar {
 				new String[]{"B193", "B216", "B214"}
 		);
 		final double epsilon = 0.9999999;
-		String kstartime = "(not run)";
 		boolean runkstar = true;
+		TestComparison(confSpaces, epsilon, runkstar);
+	}
+
+	private void TestComparison(ConfSpaces confSpaces, double epsilon, boolean runkstar) {
 		Stopwatch runtime = new Stopwatch().start();
+		String kstartime = "(Not run)";
 		if(runkstar) {
 			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
 			runtime.stop();
@@ -134,19 +151,7 @@ public class TestMARKStar {
 		String kstartime = "(not run)";
 		boolean runkstar = false;
 		Stopwatch runtime = new Stopwatch().start();
-		if(runkstar) {
-			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
-			runtime.stop();
-			kstartime = runtime.getTime(2);
-			runtime.reset();
-			runtime.start();
-		}
-		Result result = runMARKStar(confSpaces, epsilon);
-		runtime.stop();
-		String markstartime = runtime.getTime(2);
-		for(MARKStar.ScoredSequence seq: result.scores)
-			printMARKStarComputationStats(seq);
-		System.out.println("MARK* time: "+markstartime+", K* time: "+kstartime);
+		TestComparison(confSpaces, epsilon, runkstar);
 	}
 
 	private ConfSpaces make4KT6() {
