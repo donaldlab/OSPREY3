@@ -824,7 +824,7 @@ public class MARKStarBound implements PartitionFunction {
                 double oldgscore = node.gscore;
                 node.gscore = newConfLower;
                 double correctedEnergy = correctionMatrix.confE(node.assignments);
-                recordCorrection(oldgscore, newConfLower-oldgscore);
+                //recordCorrection(oldgscore, newConfLower-oldgscore);
                 String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                 debugPrint(out);
                 synchronized(this) {
