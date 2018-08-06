@@ -337,7 +337,7 @@ public class MARKStarBound implements PartitionFunction {
         List<MARKStarNode> newNodes = new ArrayList<>();
         List<MARKStarNode> leafNodes = new ArrayList<>();
         int numNodes = 0;
-        while(!queue.isEmpty() && leafNodes.isEmpty()){
+        while(!queue.isEmpty() && leafNodes.isEmpty() && bestConfUpper > 0){
             numNodes++;
             assert(newNodes.size() < 1);
             MARKStarNode curNode = queue.poll();
