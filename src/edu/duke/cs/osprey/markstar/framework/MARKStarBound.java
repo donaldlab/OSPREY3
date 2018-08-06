@@ -354,8 +354,9 @@ public class MARKStarBound implements PartitionFunction {
             internalTasks.waitForFinish();
             queue.addAll(newNodes);
             newNodes.clear();
-            if(numNodes % 1000 == 0)
-                System.out.println("Processed "+numNodes+" nodes so far...");
+            if(numNodes % 1000 == 0) {
+                System.out.println(String.format("Processed %d so far. Bounds are now [%12.6e,%12.6e]",numNodes,rootNode.getLowerBound(),rootNode.getUpperBound()));
+            }
         }
         queue.addAll(leafNodes);
         System.out.println("Found a leaf!");
