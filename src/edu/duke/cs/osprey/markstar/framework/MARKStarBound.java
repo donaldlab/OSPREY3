@@ -201,7 +201,7 @@ public class MARKStarBound implements PartitionFunction {
 
     @Override
     public Result makeResult() {
-        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs(), Long.toString(stopwatch.getTimeNs()), minList, cumulativeZCorrection);
+        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs(), Long.toString(stopwatch.getTimeNs()), minList, ZReductionFromMin, cumulativeZCorrection);
         return result;
     }
 
@@ -238,6 +238,7 @@ public class MARKStarBound implements PartitionFunction {
     ConfEnergyCalculator minimizingEcalc = null;
     private Stopwatch stopwatch = new Stopwatch().start();
     BigDecimal cumulativeZCorrection = BigDecimal.ZERO;
+    BigDecimal ZReductionFromMin = BigDecimal.ZERO;
     BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
     private boolean computedCorrections = false;
     private long loopPartialTime = 0;
@@ -324,6 +325,12 @@ public class MARKStarBound implements PartitionFunction {
         BigDecimal upper = bc.calc(lowerBound);
         BigDecimal corrected = bc.calc(lowerBound + correction);
         cumulativeZCorrection = cumulativeZCorrection.add(upper.subtract(corrected));
+    }
+    private void recordReduction(double score, double energy) {
+        BigDecimal scoreWeight = bc.calc(score);
+        BigDecimal energyWeight = bc.calc(energy);
+        ZReductionFromMin = ZReductionFromMin.add(scoreWeight.subtract(energyWeight));
+
     }
 
     // We want to process internal nodes without worrying about the bound too much until we have
@@ -881,6 +888,8 @@ public class MARKStarBound implements PartitionFunction {
                 debugPrint(out);
                 synchronized(this) {
                     numConfsEnergied++;
+                    minList.set(conf.getAssignments().length-1,minList.get(conf.getAssignments().length-1)+1);
+                    recordReduction(conf.getScore(), energy);
                 }
                 printMinimizationOutput(node, newConfLower, oldgscore);
 
@@ -990,6 +999,7 @@ public class MARKStarBound implements PartitionFunction {
                     continue;
                 RCTuple tuple = makeTuple(conf, pos1, pos2, pos3);
                 computeDifference(tuple, ecalc);
+                minList.set(tuple.size()-1,minList.get(tuple.size()-1)+1);
                 localMinimizations++;
             }
             numPartialMinimizations+=localMinimizations;
@@ -1010,7 +1020,6 @@ public class MARKStarBound implements PartitionFunction {
         ecalc.calcEnergyAsync(tuple, (tripleEnergy)->
         {
             double lowerbound = minimizingEmat.getInternalEnergy(tuple);
-            minList.set(tuple.size()-1,minList.get(tuple.size()-1)+1);
             if (tripleEnergy.energy - lowerbound > 0) {
                 double correction = tripleEnergy.energy - lowerbound;
                 correctionMatrix.setHigherOrder(tuple, correction);
@@ -1044,6 +1053,7 @@ public class MARKStarBound implements PartitionFunction {
             if(minimizingEmat.getInternalEnergy(confTuple) == rigidEmat.getInternalEnergy(confTuple))
                 continue;
             numPartialMinimizations++;
+            minList.set(confTuple.size()-1,minList.get(confTuple.size()-1)+1);
             if (confTuple.size() > 2 && confTuple.size() < RCs.getNumPos ()){
                 minimizingEcalc.tasks.submit(() -> {
                     computeTupleCorrection(minimizingEcalc, conf.toTuple());
@@ -1096,7 +1106,6 @@ public class MARKStarBound implements PartitionFunction {
             return;
         double pairwiseLower = minimizingEmat.getInternalEnergy(overlap);
         double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
-        minList.set(overlap.size()-1,minList.get(overlap.size()-1)+1);
         debugPrint("Computing correction for " + overlap.stringListing() + " penalty of " + (partiallyMinimizedLower - pairwiseLower));
         progress.reportPartialMinimization(1, epsilonBound);
         synchronized (correctionMatrix) {
