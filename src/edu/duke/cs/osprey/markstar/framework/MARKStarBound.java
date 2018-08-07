@@ -429,7 +429,6 @@ public class MARKStarBound implements PartitionFunction {
         double internalTimeSum = 0;
         BigDecimal[] ZSums = new BigDecimal[]{internalZ,leafZ};
         populateQueues(internalNodes, leafNodes, internalZ, leafZ, ZSums);
-        debugQueues(internalNodes, leafNodes);
         updateBound();
         System.out.println(String.format("After corrections, bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
         internalZ = ZSums[0];// MathTools.bigDivide(ZSums[0], new BigDecimal(Math.max(1,internalTimeAverage*internalNodes.size())), PartitionFunction.decimalPrecision);
@@ -511,6 +510,7 @@ public class MARKStarBound implements PartitionFunction {
             maxNodes = Math.max(maxNodes, (int)Math.floor(0.1*leafTimeAverage/internalTimeAverage));
         while(!queue.isEmpty() && internalNodes.size() < maxNodes){
             MARKStarNode curNode = queue.poll();
+            breakOnNode(curNode);
             Node node = curNode.getConfSearchNode();
             ConfIndex index = new ConfIndex(RCs.getNumPos());
             node.index(index);
@@ -550,6 +550,23 @@ public class MARKStarBound implements PartitionFunction {
         ZSums[0] = internalZ;
         ZSums[1] = leafZ;
         queue.addAll(leftoverLeaves);
+    }
+
+    private void breakOnNode(MARKStarNode curNode) {
+        int[] assignments = curNode.getConfSearchNode().assignments;
+        int[] confOfInterest = new int[]{5,18,5,5,13,8,34};
+        if(assignments.length != confOfInterest.length)
+            return;
+        boolean equal = true;
+        for(int i = 0; i < assignments.length; i++)
+        {
+            if(assignments[i] != confOfInterest[i]) {
+                equal = false;
+                break;
+            }
+        }
+        if(equal)
+            System.out.println("Catch.");
     }
 
     private void tightenBound() {
@@ -775,6 +792,7 @@ public class MARKStarBound implements PartitionFunction {
             assert(newNodes.size() < 1);
             MARKStarNode curNode = drillQueue.poll();
             Node node = curNode.getConfSearchNode();
+            breakOnNode(curNode);
             ConfIndex index = new ConfIndex(RCs.getNumPos());
             node.index(index);
 
@@ -783,12 +801,8 @@ public class MARKStarBound implements PartitionFunction {
                 newNodes.remove(nextNode);
                 drillQueue.add(nextNode);
             }
-            for(MARKStarNode node2 : newNodes)
-            {
-                if(nodeSet.contains(node2.getConfSearchNode().toString()))
-                    System.err.println("Dupe node.");
-                nodeSet.add(node2.getConfSearchNode().toString());
-            }
+            else
+                newNodes.add(curNode);
 
             generatedNodes.addAll(newNodes);
             newNodes.clear();
@@ -946,7 +960,7 @@ public class MARKStarBound implements PartitionFunction {
                 //recordCorrection(oldgscore, newConfLower-oldgscore);
                 String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                 debugPrint(out);
-                updateBound();
+                curNode.markUpdated();
                 synchronized(this) {
                     numConfsEnergied++;
                     minList.set(conf.getAssignments().length-1,minList.get(conf.getAssignments().length-1)+1);

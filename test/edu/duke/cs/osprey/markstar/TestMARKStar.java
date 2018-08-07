@@ -149,7 +149,7 @@ public class TestMARKStar {
 		ConfSpaces confSpaces = make4KT6();
 		final double epsilon = 0.99;
 		String kstartime = "(not run)";
-		boolean runkstar = false;
+		boolean runkstar = true;
 		Stopwatch runtime = new Stopwatch().start();
 		TestComparison(confSpaces, epsilon, runkstar);
 	}
