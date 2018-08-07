@@ -357,7 +357,7 @@ public class TestMARKStar {
 
 
 		String traditionalTime = "(Not run)";
-		boolean runkstar = false;
+		boolean runkstar = true;
 		Stopwatch timer = new Stopwatch().start();
 		if(runkstar) {
 			TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);

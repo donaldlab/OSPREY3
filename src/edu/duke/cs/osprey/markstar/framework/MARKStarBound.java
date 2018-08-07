@@ -161,6 +161,7 @@ public class MARKStarBound implements PartitionFunction {
         double lastEps = 1;
 
         int previousConfCount = numConfsEnergied + numConfsScored + numPartialMinimizations;
+
         if(!nonZeroLower) {
             runUntilNonZero();
             updateBound();
@@ -258,7 +259,6 @@ public class MARKStarBound implements PartitionFunction {
         hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs);//MPLPPairwiseHScorer(updater, emats, 50, 0.03);
 
         rootNode = MARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs, gscorerFactory, hscorerFactory, true);
-        queue.add(rootNode);
         confIndex = new ConfIndex(rcs.getNumPos());
         this.minimizingEmat = minimizingEmat;
         this.rigidEmat = rigidEmat;
@@ -345,10 +345,10 @@ public class MARKStarBound implements PartitionFunction {
         int numNodes = 0;
         Stopwatch leafLoop = new Stopwatch().start();
         Stopwatch overallLoop = new Stopwatch().start();
-        //boundLowestBoundConfUnderNode(rootNode,newNodes);
+        boundLowestBoundConfUnderNode(rootNode,newNodes);
         queue.addAll(newNodes);
         newNodes.clear();
-        while(!queue.isEmpty() && leafNodes.isEmpty() && bestConfUpper > 0
+        while(!queue.isEmpty() && bestConfUpper > 0
                 && !MathTools.isGreaterThan(rootNode.getLowerBound(), BigDecimal.ZERO)){
             numNodes++;
             assert(newNodes.size() < 1);
@@ -379,6 +379,40 @@ public class MARKStarBound implements PartitionFunction {
         System.out.println("Found a leaf!");
         nonZeroLower = true;
     }
+
+    private void checkForDupes(List<MARKStarNode> newNodes) {
+        Set<String> nodes = new HashSet<>();
+        for(MARKStarNode child: newNodes)
+            if(nodes.contains(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments)))
+                System.out.println("Error.");
+            else
+                nodes.add(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments));
+
+    }
+
+    private void checkForDupes(Queue<MARKStarNode> newNodes) {
+        Set<String> nodes = new HashSet<>();
+        for (MARKStarNode child : newNodes)
+            if (nodes.contains(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments)))
+                System.out.println("Error.");
+            else
+                nodes.add(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments));
+    }
+
+    private void checkForDupes(Queue<MARKStarNode> nodeQueue, List<MARKStarNode> nodeList) {
+        Set<String> nodes = new HashSet<>();
+        for (MARKStarNode child : nodeQueue)
+            if (nodes.contains(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments)))
+                System.out.println("Error.");
+            else
+                nodes.add(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments));
+        for (MARKStarNode child : nodeList)
+            if (nodes.contains(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments)))
+                System.out.println("Error.");
+            else
+                nodes.add(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments));
+    }
+
     private void tightenBoundInPhases() {
         System.out.println(String.format("Current overall error bound: %12.6f",epsilonBound));
         List<MARKStarNode> internalNodes = new ArrayList<>();
@@ -408,33 +442,39 @@ public class MARKStarBound implements PartitionFunction {
             }
             leafTime.stop();
             leafTasks.waitForFinish();
-            leafTimeSum = leafTime.getTimeS();
-            leafTimeAverage = leafTimeSum/leafNodes.size();
+            leafTimeAverage = leafTime.getTimeS();
             queue.addAll(internalNodes);
         }
         else {
             numNodes = internalNodes.size();
             internalTime.reset();
             internalTime.start();
-            for (MARKStarNode internalNode : internalNodes) {
-                processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
-                //debugPrint("Processing Node: " + internalNode.getConfSearchNode().toString());
-            }
-            internalTasks.waitForFinish();
             /*
             for (MARKStarNode internalNode : internalNodes) {
-                if(!MathTools.isGreaterThan(internalNode.getLowerBound(),BigDecimal.ZERO)) {
+                    processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
+            }
+            */
+            for (MARKStarNode internalNode : internalNodes) {
+                if(!MathTools.isGreaterThan(internalNode.getLowerBound(),BigDecimal.ZERO) &&
+                    MathTools.isGreaterThan(
+                            MathTools.bigDivide(internalNode.getUpperBound(),rootNode.getUpperBound(),
+                                    PartitionFunction.decimalPrecision),
+                            new BigDecimal(targetEpsilon))
+                ) {
                     List<MARKStarNode> drillList = new ArrayList<>();
                     drillTasks.submit(() -> {
                         boundLowestBoundConfUnderNode(internalNode, drillList);
                         return null;
                     }, (ignored) -> {
+                        newNodes.addAll(drillList);
                     });
-                    newNodes.addAll(drillList);
                 }
-            }
+                else {
+                    processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
+                }
             drillTasks.waitForFinish();
-            */
+            }
+            internalTasks.waitForFinish();
             internalTime.stop();
             internalTimeSum=internalTime.getTimeS();
             internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
@@ -444,18 +484,19 @@ public class MARKStarBound implements PartitionFunction {
         if (epsilonBound <= targetEpsilon)
             return;
         loopCleanup(newNodes, loopWatch, numNodes);
-        debugHeap();
     }
 
     private void populateQueues(List<MARKStarNode> internalNodes, List<MARKStarNode> leafNodes, BigDecimal internalZ,
                                 BigDecimal leafZ, BigDecimal[] ZSums) {
         List<MARKStarNode> leftoverLeaves = new ArrayList<>();
+        List<MARKStarNode> seenNodes = new ArrayList<>();
         int maxMinimizations = parallelism.numThreads;
         int maxNodes = 1000;
         if(leafTimeAverage > 0)
-            maxNodes = Math.max(maxNodes, (int)Math.floor(0.1*leafTimeAverage/internalTimeAverage));
+            maxNodes = Math.max(maxNodes, (int)Math.floor(0.5*leafTimeAverage/internalTimeAverage));
         while(!queue.isEmpty() && internalNodes.size() < maxNodes){
             MARKStarNode curNode = queue.poll();
+            seenNodes.add(curNode);
             Node node = curNode.getConfSearchNode();
             ConfIndex index = new ConfIndex(RCs.getNumPos());
             node.index(index);
@@ -483,19 +524,18 @@ public class MARKStarBound implements PartitionFunction {
                 internalZ = internalZ.add(diff);
             }
             else if(shouldMinimize(node) && !correctedNode(leftoverLeaves, curNode, node)) {
-                if(leafNodes.size() < maxMinimizations)
+                if(leafNodes.size() < maxMinimizations) {
                     leafNodes.add(curNode);
+                    leafZ = leafZ.add(diff);
+                }
                 else
                     leftoverLeaves.add(curNode);
-                leafZ = leafZ.add(diff);
             }
 
         }
         ZSums[0] = internalZ;
         ZSums[1] = leafZ;
-        synchronized (this) {
-            queue.addAll(leftoverLeaves);
-        }
+        queue.addAll(leftoverLeaves);
     }
 
     private void tightenBound() {
@@ -573,9 +613,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void loopCleanup(List<MARKStarNode> newNodes, Stopwatch loopWatch, int numNodes) {
-        synchronized (this) {
-            queue.addAll(newNodes);
-        }
+        queue.addAll(newNodes);
         loopWatch.stop();
         double loopTime = loopWatch.getTimeS();
         System.out.println("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
@@ -711,11 +749,11 @@ public class MARKStarBound implements PartitionFunction {
         drillQueue.add(startNode);
 
         List<MARKStarNode> newNodes = new ArrayList<>();
-        List<MARKStarNode> leafNodes = new ArrayList<>();
+        Set<String> nodeSet = new HashSet<>();
         int numNodes = 0;
         Stopwatch leafLoop = new Stopwatch().start();
         Stopwatch overallLoop = new Stopwatch().start();
-        while(!drillQueue.isEmpty() && leafNodes.isEmpty()) {
+        while(!drillQueue.isEmpty()) {
             numNodes++;
             assert(newNodes.size() < 1);
             MARKStarNode curNode = drillQueue.poll();
@@ -724,11 +762,18 @@ public class MARKStarBound implements PartitionFunction {
             node.index(index);
 
             if (node.getLevel() < RCs.getNumPos()) {
-                MARKStarNode nextNode = drillDown(generatedNodes, curNode, node);
+                MARKStarNode nextNode = drillDown(newNodes, curNode, node);
+                newNodes.remove(nextNode);
                 drillQueue.add(nextNode);
             }
-            else
-                generatedNodes.add(curNode);
+            for(MARKStarNode node2 : newNodes)
+            {
+                if(nodeSet.contains(node2.getConfSearchNode().toString()))
+                    System.err.println("Dupe node.");
+                nodeSet.add(node2.getConfSearchNode().toString());
+            }
+
+            generatedNodes.addAll(newNodes);
             newNodes.clear();
             //debugHeap(drillQueue, true);
             if(leafLoop.getTimeS() > 10) {
@@ -856,7 +901,6 @@ public class MARKStarBound implements PartitionFunction {
             newNodes.add(curNode);
             return;
         }
-        Stopwatch minimizationTime = new Stopwatch().start();
         leafTasks.submit(() -> {
             try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                 ScoreContext context = checkout.get();
@@ -901,8 +945,6 @@ public class MARKStarBound implements PartitionFunction {
                     progress.reportLeafNode(node.gscore, queue.size(), epsilonBound);
                     if(!node.isMinimized())
                         newNodes.add(curNode);
-                    minimizationTime.stop();
-                    leafTimeAverage = Math.max(leafTimeAverage,minimizationTime.getTimeS());
 
                 });
     }
@@ -1164,7 +1206,6 @@ public class MARKStarBound implements PartitionFunction {
 
     private void updateBound() {
         double curEpsilon = epsilonBound;
-        System.out.println("Num nodes to process: "+rootNode.countNodesToProcess());
         Stopwatch time = new Stopwatch().start();
         epsilonBound = rootNode.computeEpsilonErrorBounds();
         time.stop();
