@@ -119,6 +119,8 @@ public class PLUG {
 			);
 			return PruningMatrix.IteratorCommand.Continue;
 		});
+
+		tasks.waitForFinish();
 	}
 
 	public void pruneTriples(PruningMatrix pmat, double tolerance) {
@@ -148,6 +150,8 @@ public class PLUG {
 			);
 			return PruningMatrix.IteratorCommand.Continue;
 		});
+
+		tasks.waitForFinish();
 	}
 
 	private class Voxel {

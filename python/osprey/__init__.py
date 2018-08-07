@@ -570,7 +570,13 @@ def ReferenceEnergies(confSpace, ecalc, addResEntropy=None):
 	return builder.build()
 
 
-def DEE(confSpace, emat, singlesThreshold=useJavaDefault, pairsThreshold=useJavaDefault, singlesGoldsteinDiffThreshold=useJavaDefault, pairsGoldsteinDiffThreshold=useJavaDefault, triplesGoldsteinDiffThreshold=useJavaDefault, typeDependent=useJavaDefault, numIterations=useJavaDefault, showProgress=useJavaDefault, parallelism=useJavaDefault, cacheFile=useJavaDefault):
+def DEE(confSpace, emat,
+		singlesThreshold=useJavaDefault, pairsThreshold=useJavaDefault,
+		singlesGoldsteinDiffThreshold=useJavaDefault, pairsGoldsteinDiffThreshold=useJavaDefault, triplesGoldsteinDiffThreshold=useJavaDefault,
+		typeDependent=useJavaDefault, numIterations=useJavaDefault,
+		singlesPlugThreshold=useJavaDefault, pairsPlugThreshold=useJavaDefault, triplesPlugThreshold=useJavaDefault,
+		showProgress=useJavaDefault, parallelism=useJavaDefault, cacheFile=useJavaDefault
+	):
 	'''
 	:java:classdoc:`.pruning.SimpleDEE$Runner`
 
@@ -584,6 +590,9 @@ def DEE(confSpace, emat, singlesThreshold=useJavaDefault, pairsThreshold=useJava
 	:builder_option singlesGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#singlesGoldsteinDiffThreshold:
 	:builder_option pairsGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#pairsGoldsteinDiffThreshold:
 	:builder_option triplesGoldsteinDiffThreshold .pruning.SimpleDEE$Runner#triplesGoldsteinDiffThreshold:
+	:builder_option singlesPlugThreshold .pruning.SimpleDEE$Runner#singlesPlugThreshold:
+	:builder_option pairsPlugThreshold .pruning.SimpleDEE$Runner#pairsPlugThreshold:
+	:builder_option triplesPlugThreshold .pruning.SimpleDEE$Runner#triplesPlugThreshold:
 	:builder_option typeDependent .pruning.SimpleDEE$Runner#typeDependent:
 	:builder_option numIterations .pruning.SimpleDEE$Runner#numIterations:
 	:builder_option showProgress .pruning.SimpleDEE$Runner#showProgress:
@@ -605,6 +614,12 @@ def DEE(confSpace, emat, singlesThreshold=useJavaDefault, pairsThreshold=useJava
 		runner.setTypeDependent(typeDependent)
 	if numIterations is not useJavaDefault:
 		runner.setNumIterations(numIterations)
+	if singlesPlugThreshold is not useJavaDefault:
+		runner.setSinglesPlugThreshold(singlesPlugThreshold)
+	if pairsPlugThreshold is not useJavaDefault:
+		runner.setPairsPlugThreshold(pairsPlugThreshold)
+	if triplesPlugThreshold is not useJavaDefault:
+		runner.setTriplesPlugThreshold(triplesPlugThreshold)
 	if showProgress is not useJavaDefault:
 		runner.setShowProgress(showProgress)
 	if parallelism is not useJavaDefault:
