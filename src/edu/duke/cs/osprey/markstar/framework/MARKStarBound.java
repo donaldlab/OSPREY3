@@ -459,7 +459,6 @@ public class MARKStarBound implements PartitionFunction {
                     processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
             }
             */
-            List<MARKStarNode> drillList = new ArrayList<>();
             for (MARKStarNode internalNode : internalNodes) {
                 if(!MathTools.isGreaterThan(internalNode.getLowerBound(),BigDecimal.ZERO) &&
                     MathTools.isGreaterThan(
@@ -468,7 +467,7 @@ public class MARKStarBound implements PartitionFunction {
                             new BigDecimal(1-targetEpsilon))
                 ) {
                     drillTasks.submit(() -> {
-                        boundLowestBoundConfUnderNode(internalNode, drillList);
+                        boundLowestBoundConfUnderNode(internalNode, newNodes);
                         return null;
                     }, (ignored) -> {
                     });
@@ -479,7 +478,6 @@ public class MARKStarBound implements PartitionFunction {
             }
             drillTasks.waitForFinish();
             internalTasks.waitForFinish();
-            newNodes.addAll(drillList);
             internalTime.stop();
             internalTimeSum=internalTime.getTimeS();
             internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
