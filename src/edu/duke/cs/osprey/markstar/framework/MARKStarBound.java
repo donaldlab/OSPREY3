@@ -259,7 +259,6 @@ public class MARKStarBound implements PartitionFunction {
 
         rootNode = MARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs, gscorerFactory, hscorerFactory, true);
         queue.add(rootNode);
-        updateBound();
         confIndex = new ConfIndex(rcs.getNumPos());
         this.minimizingEmat = minimizingEmat;
         this.rigidEmat = rigidEmat;
@@ -284,6 +283,7 @@ public class MARKStarBound implements PartitionFunction {
         //confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
         confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
         setParallelism(parallelism);
+        updateBound();
         this.minList = new ArrayList<Integer>(Collections.nCopies(rcs.getNumPos(),0));
     }
 
@@ -345,7 +345,7 @@ public class MARKStarBound implements PartitionFunction {
         int numNodes = 0;
         Stopwatch leafLoop = new Stopwatch().start();
         Stopwatch overallLoop = new Stopwatch().start();
-        boundLowestBoundConfUnderNode(rootNode,newNodes);
+        //boundLowestBoundConfUnderNode(rootNode,newNodes);
         queue.addAll(newNodes);
         newNodes.clear();
         while(!queue.isEmpty() && leafNodes.isEmpty() && bestConfUpper > 0
@@ -403,6 +403,7 @@ public class MARKStarBound implements PartitionFunction {
             leafTime.start();
             for(MARKStarNode leafNode: leafNodes) {
                 processFullConfNode(newNodes, leafNode, leafNode.getConfSearchNode());
+                leafNode.markUpdated();
                 debugPrint("Processing Node: " + leafNode.getConfSearchNode().toString());
             }
             leafTime.stop();
@@ -417,9 +418,11 @@ public class MARKStarBound implements PartitionFunction {
             internalTime.start();
             for (MARKStarNode internalNode : internalNodes) {
                 processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
+                internalNode.markUpdated();
                 //debugPrint("Processing Node: " + internalNode.getConfSearchNode().toString());
             }
             internalTasks.waitForFinish();
+            /*
             for (MARKStarNode internalNode : internalNodes) {
                 if(!MathTools.isGreaterThan(internalNode.getLowerBound(),BigDecimal.ZERO)) {
                     List<MARKStarNode> drillList = new ArrayList<>();
@@ -432,6 +435,7 @@ public class MARKStarBound implements PartitionFunction {
                 }
             }
             drillTasks.waitForFinish();
+            */
             internalTime.stop();
             internalTimeSum=internalTime.getTimeS();
             internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
@@ -694,10 +698,7 @@ public class MARKStarBound implements PartitionFunction {
                 if (MARKStarNodeChild.getConfSearchNode().getConfLowerBound() < 0) {
                     children.add(MARKStarNodeChild);
                 }
-                if (!child.isMinimized()) {
-                    newNodes.add(MARKStarNodeChild);
-                } else
-                    MARKStarNodeChild.computeEpsilonErrorBounds();
+                newNodes.add(MARKStarNodeChild);
 
                 curNode.markUpdated();
             }
@@ -724,12 +725,11 @@ public class MARKStarBound implements PartitionFunction {
             node.index(index);
 
             if (node.getLevel() < RCs.getNumPos()) {
-                MARKStarNode nextNode = drillDown(newNodes, curNode, node);
+                MARKStarNode nextNode = drillDown(generatedNodes, curNode, node);
                 drillQueue.add(nextNode);
             }
             else
-                leafNodes.add(curNode);
-            generatedNodes.addAll(newNodes);
+                generatedNodes.add(curNode);
             newNodes.clear();
             //debugHeap(drillQueue, true);
             if(leafLoop.getTimeS() > 10) {
@@ -1166,7 +1166,7 @@ public class MARKStarBound implements PartitionFunction {
     private void updateBound() {
         double curEpsilon = epsilonBound;
         Stopwatch time = new Stopwatch().start();
-        epsilonBound = rootNode.computeEpsilonErrorBounds();
+        epsilonBound = rootNode.computeEpsilonErrorBoundsIteratively(internalTasks);
         time.stop();
         System.out.println("Bound update time: "+time.getTime(2));
         debugEpsilon(curEpsilon);

@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -19,7 +20,10 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
@@ -126,6 +130,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         if(children == null || children.size() <1) {
             return nodeEpsilon;
         }
+        if(!updated)
+            return nodeEpsilon;
         updated = false;
         double epsilonBound = 0;
         BigDecimal lastUpper = confSearchNode.subtreeUpperBound;
@@ -290,6 +296,39 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     public List<? extends MARKStarNode> getChildren() {
         return children;
+    }
+
+    class Zbounds {
+        BigDecimal upperBound = BigDecimal.ZERO;
+        BigDecimal lowerBound = BigDecimal.ZERO;
+    }
+
+    public double computeEpsilonErrorBoundsIteratively(TaskExecutor internalTasks) {
+        assert (level == 0);
+        return computeEpsilonErrorBoundsIteratively(new Zbounds(), internalTasks);
+    }
+
+    public double computeEpsilonErrorBoundsIteratively(Zbounds pfuncBounds, TaskExecutor internalTasks) {
+        if(children == null || children.size() <1) {
+                    pfuncBounds.upperBound = pfuncBounds.upperBound.add(confSearchNode.subtreeUpperBound);
+                    pfuncBounds.lowerBound = pfuncBounds.lowerBound.add(confSearchNode.subtreeLowerBound);
+            return nodeEpsilon;
+        }
+        updated = false;
+        double epsilonBound = 0;
+        for(MARKStarNode child: children) {
+            child.computeEpsilonErrorBoundsIteratively(pfuncBounds, internalTasks);
+        }
+        if(level == 0) {
+            epsilonBound = MathTools.bigDivide(pfuncBounds.upperBound.subtract(pfuncBounds.lowerBound),
+                    pfuncBounds.upperBound, PartitionFunction.decimalPrecision).doubleValue();
+            nodeEpsilon = epsilonBound;
+            confSearchNode.subtreeUpperBound = pfuncBounds.upperBound;
+            confSearchNode.subtreeLowerBound = pfuncBounds.lowerBound;
+            if(debug)
+                printBoundBreakDown();
+        }
+        return nodeEpsilon;
     }
 
 
