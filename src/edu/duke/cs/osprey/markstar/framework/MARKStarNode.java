@@ -40,12 +40,14 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     private BigDecimal errorBound = BigDecimal.ONE;
     private double nodeEpsilon = 1;
+    private MARKStarNode parent;
     private List<MARKStarNode> children; // TODO: Pick appropriate data structure
     private Node confSearchNode;
     public final int level;
     private static ExpFunction ef = new ExpFunction();
     private static BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
     private RCs RCs;
+    private boolean partOfLastBound = false;
 
 
     private MARKStarNode(Node confNode) {
@@ -63,6 +65,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     public void markUpdated()
     {
         updated = true;
+        if(level > 0)
+            parent.markUpdated();
     }
 
     public RCTuple toTuple() {
@@ -285,6 +289,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         if(children == null)
             children = new ArrayList<>();
         children.add(newChild);
+        newChild.parent = this;
         return newChild;
     }
 
@@ -298,21 +303,41 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return children;
     }
 
-    class Zbounds {
+    static class Zbounds {
         BigDecimal upperBound = BigDecimal.ZERO;
         BigDecimal lowerBound = BigDecimal.ZERO;
+        public Zbounds(BigDecimal lowerBound, BigDecimal upperBound) {
+            this.lowerBound = lowerBound;
+            this.upperBound = upperBound;
+        }
     }
 
     public double computeEpsilonErrorBoundsIteratively(TaskExecutor internalTasks) {
         assert (level == 0);
-        return computeEpsilonErrorBoundsIteratively(new Zbounds(), internalTasks);
+        return computeEpsilonErrorBoundsIteratively(new Zbounds(confSearchNode.subtreeLowerBound, confSearchNode.subtreeUpperBound), internalTasks);
     }
 
     public double computeEpsilonErrorBoundsIteratively(Zbounds pfuncBounds, TaskExecutor internalTasks) {
         if(children == null || children.size() <1) {
-                    pfuncBounds.upperBound = pfuncBounds.upperBound.add(confSearchNode.subtreeUpperBound);
-                    pfuncBounds.lowerBound = pfuncBounds.lowerBound.add(confSearchNode.subtreeLowerBound);
+            if(!partOfLastBound) {
+                pfuncBounds.upperBound = pfuncBounds.upperBound.add(confSearchNode.subtreeUpperBound);
+                pfuncBounds.lowerBound = pfuncBounds.lowerBound.add(confSearchNode.subtreeLowerBound);
+            }
+            else if(this.confSearchNode.isLeaf()){
+                if(confSearchNode.posterityBounds.upperBound != confSearchNode.subtreeUpperBound)
+                    pfuncBounds.upperBound = pfuncBounds.upperBound.subtract(confSearchNode.posterityBounds.upperBound)
+                            .add(confSearchNode.subtreeUpperBound);
+                if(confSearchNode.posterityBounds.lowerBound != confSearchNode.subtreeLowerBound)
+                    pfuncBounds.lowerBound = pfuncBounds.lowerBound.subtract(confSearchNode.posterityBounds.lowerBound)
+                            .add(confSearchNode.subtreeLowerBound);
+            }
+            partOfLastBound = true;
             return nodeEpsilon;
+        }
+        if(partOfLastBound) {
+            pfuncBounds.upperBound = pfuncBounds.upperBound.subtract(getUpperBound());
+            pfuncBounds.lowerBound = pfuncBounds.lowerBound.subtract(getLowerBound());
+            partOfLastBound = false;
         }
         updated = false;
         double epsilonBound = 0;
@@ -394,6 +419,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public double rigidScore = Double.NaN;
         private BigDecimal subtreeLowerBound = null; //\hat h^ominus(f) - the lower bound on subtree contrib to partition function
         private BigDecimal subtreeUpperBound = null; //\hat h^oplus(f) - the lower bound on subtree contrib to partition function
+        private Zbounds posterityBounds = new Zbounds(subtreeLowerBound, subtreeUpperBound);
         private double confLowerBound = -Double.MAX_VALUE;
         private double confUpperBound = Double.MAX_VALUE;
         public int[] assignments;
@@ -419,6 +445,11 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
+            if(lowerBound == upperBound)
+            {
+                posterityBounds.upperBound = subtreeUpperBound;
+                posterityBounds.lowerBound = subtreeLowerBound;
+            }
             if (lowerBound > upperBound) {
                 if(debug)
                     System.out.println("Incorrect conf bounds set.");
