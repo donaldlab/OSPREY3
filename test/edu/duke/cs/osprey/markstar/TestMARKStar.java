@@ -205,7 +205,7 @@ public class TestMARKStar {
 	@Test
 	public void test2XXM() {
 		ConfSpaces confSpaces = make2XXM();
-		final double epsilon = 0.9;
+		final double epsilon = 0.99;
 		String kstartime = "(not run)";
 		boolean runkstar = true;
 		Stopwatch runtime = new Stopwatch().start();

@@ -348,6 +348,7 @@ public class MARKStarBound implements PartitionFunction {
         boundLowestBoundConfUnderNode(rootNode,newNodes);
         queue.addAll(newNodes);
         newNodes.clear();
+        /*
         while(!queue.isEmpty() && bestConfUpper > 0
                 && !MathTools.isGreaterThan(rootNode.getLowerBound(), BigDecimal.ZERO)){
             numNodes++;
@@ -376,6 +377,7 @@ public class MARKStarBound implements PartitionFunction {
             }
         }
         queue.addAll(leafNodes);
+        */
         System.out.println("Found a leaf!");
         nonZeroLower = true;
     }
@@ -476,8 +478,8 @@ public class MARKStarBound implements PartitionFunction {
                 }
             }
             drillTasks.waitForFinish();
-            newNodes.addAll(drillList);
             internalTasks.waitForFinish();
+            newNodes.addAll(drillList);
             internalTime.stop();
             internalTimeSum=internalTime.getTimeS();
             internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
@@ -778,12 +780,11 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void boundLowestBoundConfUnderNode(MARKStarNode startNode, List<MARKStarNode> generatedNodes) {
-        Comparator<MARKStarNode> confBoundComparator = Comparator.comparingDouble(o -> o.getConfSearchNode().getConfUpperBound());
+        Comparator<MARKStarNode> confBoundComparator = Comparator.comparingDouble(o -> o.getConfSearchNode().getConfLowerBound());
         PriorityQueue<MARKStarNode> drillQueue = new PriorityQueue<>(confBoundComparator);
         drillQueue.add(startNode);
 
         List<MARKStarNode> newNodes = new ArrayList<>();
-        Set<String> nodeSet = new HashSet<>();
         int numNodes = 0;
         Stopwatch leafLoop = new Stopwatch().start();
         Stopwatch overallLoop = new Stopwatch().start();
