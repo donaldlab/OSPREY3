@@ -112,8 +112,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
     public void updateSubtreeBounds() {
+        /*
         if(!updated)
             return;
+            */
         updated = false;
         if(children != null && children.size() > 0) {
             BigDecimal errorUpperBound = BigDecimal.ZERO;
@@ -152,8 +154,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         if(children == null || children.size() <1) {
             return nodeEpsilon;
         }
+        /*
         if(!updated)
             return nodeEpsilon;
+            */
         double epsilonBound = 0;
         BigDecimal lastUpper = confSearchNode.subtreeUpperBound;
         BigDecimal lastLower = confSearchNode.subtreeLowerBound;
