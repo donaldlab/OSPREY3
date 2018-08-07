@@ -418,7 +418,6 @@ public class MARKStarBound implements PartitionFunction {
             internalTime.start();
             for (MARKStarNode internalNode : internalNodes) {
                 processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
-                internalNode.markUpdated();
                 //debugPrint("Processing Node: " + internalNode.getConfSearchNode().toString());
             }
             internalTasks.waitForFinish();
