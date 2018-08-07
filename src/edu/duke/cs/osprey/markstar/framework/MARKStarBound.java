@@ -440,8 +440,8 @@ public class MARKStarBound implements PartitionFunction {
                 leafNode.markUpdated();
                 debugPrint("Processing Node: " + leafNode.getConfSearchNode().toString());
             }
-            leafTime.stop();
             leafTasks.waitForFinish();
+            leafTime.stop();
             leafTimeAverage = leafTime.getTimeS();
             queue.addAll(internalNodes);
         }
@@ -459,7 +459,7 @@ public class MARKStarBound implements PartitionFunction {
                     MathTools.isGreaterThan(
                             MathTools.bigDivide(internalNode.getUpperBound(),rootNode.getUpperBound(),
                                     PartitionFunction.decimalPrecision),
-                            new BigDecimal(targetEpsilon))
+                            new BigDecimal(1-targetEpsilon))
                 ) {
                     List<MARKStarNode> drillList = new ArrayList<>();
                     drillTasks.submit(() -> {
@@ -472,8 +472,8 @@ public class MARKStarBound implements PartitionFunction {
                 else {
                     processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
                 }
-            drillTasks.waitForFinish();
             }
+            drillTasks.waitForFinish();
             internalTasks.waitForFinish();
             internalTime.stop();
             internalTimeSum=internalTime.getTimeS();
@@ -493,7 +493,7 @@ public class MARKStarBound implements PartitionFunction {
         int maxMinimizations = parallelism.numThreads;
         int maxNodes = 1000;
         if(leafTimeAverage > 0)
-            maxNodes = Math.max(maxNodes, (int)Math.floor(0.5*leafTimeAverage/internalTimeAverage));
+            maxNodes = Math.max(maxNodes, (int)Math.floor(0.1*leafTimeAverage/internalTimeAverage));
         while(!queue.isEmpty() && internalNodes.size() < maxNodes){
             MARKStarNode curNode = queue.poll();
             seenNodes.add(curNode);
