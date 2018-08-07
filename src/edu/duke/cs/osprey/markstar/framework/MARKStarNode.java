@@ -50,9 +50,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     private boolean partOfLastBound = false;
 
 
-    private MARKStarNode(Node confNode) {
+    private MARKStarNode(Node confNode, MARKStarNode markStarNode) {
         confSearchNode = confNode;
         level = confSearchNode.getLevel();
+        parent = markStarNode;
         computeEpsilonErrorBounds();
         errorBound = getErrorBound();
     }
@@ -111,6 +112,9 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
     public void updateSubtreeBounds() {
+        if(!updated)
+            return;
+        updated = false;
         if(children != null && children.size() > 0) {
             BigDecimal errorUpperBound = BigDecimal.ZERO;
             BigDecimal errorLowerBound = BigDecimal.ZERO;
@@ -130,13 +134,26 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return nodeEpsilon;
     }
 
+    public int countNodesToProcess() {
+        if(!updated)
+            return 0;
+        if(updated && (children == null || children.size() <1)) {
+            return 1;
+        }
+        int sum = 0;
+        for(MARKStarNode child: children) {
+            sum += child.countNodesToProcess();
+        }
+        return sum;
+
+    }
+
     public double computeEpsilonErrorBounds() {
         if(children == null || children.size() <1) {
             return nodeEpsilon;
         }
         if(!updated)
             return nodeEpsilon;
-        updated = false;
         double epsilonBound = 0;
         BigDecimal lastUpper = confSearchNode.subtreeUpperBound;
         BigDecimal lastLower = confSearchNode.subtreeLowerBound;
@@ -242,7 +259,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     public void printTree(String prefix, FileWriter writer)
     {
-        String out = prefix+confSearchNode.confToString()+": ["+setSigFigs(confSearchNode.subtreeLowerBound)+","+setSigFigs(confSearchNode.subtreeUpperBound)+"]\n";
+        String out = prefix+confSearchNode.confToString()+": ["+setSigFigs(confSearchNode.subtreeLowerBound)
+                +","+setSigFigs(confSearchNode.subtreeUpperBound)+"], updated: "+updated+"\n";
         if(writer != null) {
             try {
                 writer.write(out);
@@ -285,11 +303,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
     public MARKStarNode makeChild(Node child) {
-        MARKStarNode newChild = new MARKStarNode(child);
+        MARKStarNode newChild = new MARKStarNode(child, this);
         if(children == null)
             children = new ArrayList<>();
         children.add(newChild);
-        newChild.parent = this;
         return newChild;
     }
 
@@ -387,7 +404,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         double confLowerBound = rootNode.gscore+hScorer.calc(confIndex, rcs);
         rootNode.computeNumConformations(rcs);
         rootNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound);
-		return new MARKStarNode(rootNode);
+		return new MARKStarNode(rootNode, null);
 	}
 
 

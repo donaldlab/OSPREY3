@@ -1164,6 +1164,7 @@ public class MARKStarBound implements PartitionFunction {
 
     private void updateBound() {
         double curEpsilon = epsilonBound;
+        System.out.println("Num nodes to process: "+rootNode.countNodesToProcess());
         Stopwatch time = new Stopwatch().start();
         epsilonBound = rootNode.computeEpsilonErrorBounds();
         time.stop();
