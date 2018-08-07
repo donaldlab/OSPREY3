@@ -414,7 +414,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void tightenBoundInPhases() {
-        System.out.println(String.format("Current overall error bound: %12.6f",epsilonBound));
+        System.out.println(String.format("Current overall error bound: %12.10f",epsilonBound));
         List<MARKStarNode> internalNodes = new ArrayList<>();
         List<MARKStarNode> leafNodes = new ArrayList<>();
         List<MARKStarNode> newNodes = new ArrayList<>();
@@ -429,8 +429,12 @@ public class MARKStarBound implements PartitionFunction {
         double internalTimeSum = 0;
         BigDecimal[] ZSums = new BigDecimal[]{internalZ,leafZ};
         populateQueues(internalNodes, leafNodes, internalZ, leafZ, ZSums);
-        internalZ = MathTools.bigDivide(ZSums[0], new BigDecimal(Math.max(1,internalTimeAverage*internalNodes.size())), PartitionFunction.decimalPrecision);
-        leafZ = MathTools.bigDivide(ZSums[1], new BigDecimal(Math.max(1,leafTimeAverage)), PartitionFunction.decimalPrecision);
+        debugQueues(internalNodes, leafNodes);
+        updateBound();
+        System.out.println(String.format("After corrections, bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
+        internalZ = ZSums[0];// MathTools.bigDivide(ZSums[0], new BigDecimal(Math.max(1,internalTimeAverage*internalNodes.size())), PartitionFunction.decimalPrecision);
+        leafZ = ZSums[1]; //MathTools.bigDivide(ZSums[1], new BigDecimal(Math.max(1,leafTimeAverage)), PartitionFunction.decimalPrecision);
+        System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
         if(MathTools.isLessThan(internalZ, leafZ)) {
             numNodes = leafNodes.size();
             leafTime.reset();
@@ -454,6 +458,7 @@ public class MARKStarBound implements PartitionFunction {
                     processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
             }
             */
+            List<MARKStarNode> drillList = new ArrayList<>();
             for (MARKStarNode internalNode : internalNodes) {
                 if(!MathTools.isGreaterThan(internalNode.getLowerBound(),BigDecimal.ZERO) &&
                     MathTools.isGreaterThan(
@@ -461,12 +466,10 @@ public class MARKStarBound implements PartitionFunction {
                                     PartitionFunction.decimalPrecision),
                             new BigDecimal(1-targetEpsilon))
                 ) {
-                    List<MARKStarNode> drillList = new ArrayList<>();
                     drillTasks.submit(() -> {
                         boundLowestBoundConfUnderNode(internalNode, drillList);
                         return null;
                     }, (ignored) -> {
-                        newNodes.addAll(drillList);
                     });
                 }
                 else {
@@ -474,6 +477,7 @@ public class MARKStarBound implements PartitionFunction {
                 }
             }
             drillTasks.waitForFinish();
+            newNodes.addAll(drillList);
             internalTasks.waitForFinish();
             internalTime.stop();
             internalTimeSum=internalTime.getTimeS();
@@ -486,17 +490,27 @@ public class MARKStarBound implements PartitionFunction {
         loopCleanup(newNodes, loopWatch, numNodes);
     }
 
+    private void debugQueues(List<MARKStarNode> internalNodes, List<MARKStarNode> leafNodes) {
+        Collections.sort(internalNodes);
+        Collections.sort(leafNodes);
+        for(int i = 0; i < 10; i++)
+        {
+            System.out.println("Internal: "+internalNodes.get(i).getConfSearchNode());
+        }
+        for(int i = 0; i< leafNodes.size(); i++) {
+            System.out.println("Leaf: "+leafNodes.get(i).getConfSearchNode());
+        }
+    }
+
     private void populateQueues(List<MARKStarNode> internalNodes, List<MARKStarNode> leafNodes, BigDecimal internalZ,
                                 BigDecimal leafZ, BigDecimal[] ZSums) {
         List<MARKStarNode> leftoverLeaves = new ArrayList<>();
-        List<MARKStarNode> seenNodes = new ArrayList<>();
         int maxMinimizations = parallelism.numThreads;
         int maxNodes = 1000;
         if(leafTimeAverage > 0)
             maxNodes = Math.max(maxNodes, (int)Math.floor(0.1*leafTimeAverage/internalTimeAverage));
         while(!queue.isEmpty() && internalNodes.size() < maxNodes){
             MARKStarNode curNode = queue.poll();
-            seenNodes.add(curNode);
             Node node = curNode.getConfSearchNode();
             ConfIndex index = new ConfIndex(RCs.getNumPos());
             node.index(index);
@@ -613,7 +627,10 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void loopCleanup(List<MARKStarNode> newNodes, Stopwatch loopWatch, int numNodes) {
-        queue.addAll(newNodes);
+        for(MARKStarNode node: newNodes) {
+            if(node != null)
+                queue.add(node);
+        }
         loopWatch.stop();
         double loopTime = loopWatch.getTimeS();
         System.out.println("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
@@ -728,6 +745,7 @@ public class MARKStarBound implements PartitionFunction {
                 if (Double.isNaN(child.rigidScore))
                     System.out.println("Huh!?");
                 MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
+                MARKStarNodeChild.markUpdated();
                 if (confLowerBound < bestChildLower) {
                     bestChild = MARKStarNodeChild;
                 }
@@ -737,14 +755,13 @@ public class MARKStarBound implements PartitionFunction {
                 }
                 newNodes.add(MARKStarNodeChild);
 
-                curNode.markUpdated();
             }
             return bestChild;
         }
     }
 
     private void boundLowestBoundConfUnderNode(MARKStarNode startNode, List<MARKStarNode> generatedNodes) {
-        Comparator<MARKStarNode> confBoundComparator = Comparator.comparingDouble(o -> o.getConfSearchNode().getConfLowerBound());
+        Comparator<MARKStarNode> confBoundComparator = Comparator.comparingDouble(o -> o.getConfSearchNode().getConfUpperBound());
         PriorityQueue<MARKStarNode> drillQueue = new PriorityQueue<>(confBoundComparator);
         drillQueue.add(startNode);
 
@@ -929,12 +946,13 @@ public class MARKStarBound implements PartitionFunction {
                 //recordCorrection(oldgscore, newConfLower-oldgscore);
                 String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                 debugPrint(out);
+                updateBound();
                 synchronized(this) {
                     numConfsEnergied++;
                     minList.set(conf.getAssignments().length-1,minList.get(conf.getAssignments().length-1)+1);
                     recordReduction(conf.getScore(), energy);
+                    printMinimizationOutput(node, newConfLower, oldgscore);
                 }
-                printMinimizationOutput(node, newConfLower, oldgscore);
 
 
             }
@@ -1209,7 +1227,6 @@ public class MARKStarBound implements PartitionFunction {
         Stopwatch time = new Stopwatch().start();
         epsilonBound = rootNode.computeEpsilonErrorBounds();
         time.stop();
-        System.out.println("Bound update time: "+time.getTime(2));
         debugEpsilon(curEpsilon);
         //System.out.println("Current epsilon:"+epsilonBound);
     }
