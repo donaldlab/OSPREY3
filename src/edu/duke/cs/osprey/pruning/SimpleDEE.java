@@ -302,19 +302,20 @@ public class SimpleDEE {
 				if (showProgress) {
 					System.out.println("Pruning with PLUG...");
 				}
-				// TODO: parallelism?
-				PLUG plug = new PLUG(confSpace);
-				if (singlesPlugThrehsold != null) {
-					plug.pruneSingles(pmat, singlesPlugThrehsold);
-					maybeReport.accept("PLUG Singles");
-				}
-				if (pairsPlugThrehsold != null) {
-					plug.prunePairs(pmat, pairsPlugThrehsold);
-					maybeReport.accept("PLUG Pairs");
-				}
-				if (triplesPlugThrehsold != null) {
-					plug.pruneTriples(pmat, triplesPlugThrehsold);
-					maybeReport.accept("PLUG Triples");
+				try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
+					PLUG plug = new PLUG(confSpace);
+					if (singlesPlugThrehsold != null) {
+						plug.pruneSingles(pmat, singlesPlugThrehsold, tasks);
+						maybeReport.accept("PLUG Singles");
+					}
+					if (pairsPlugThrehsold != null) {
+						plug.prunePairs(pmat, pairsPlugThrehsold, tasks);
+						maybeReport.accept("PLUG Pairs");
+					}
+					if (triplesPlugThrehsold != null) {
+						plug.pruneTriples(pmat, triplesPlugThrehsold, tasks);
+						maybeReport.accept("PLUG Triples");
+					}
 				}
 			}
 

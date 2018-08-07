@@ -17,6 +17,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 public class TestPLUG {
@@ -41,28 +42,11 @@ public class TestPLUG {
 
 		ParametricMolecule pmol = confSpace.makeMolecule(tuple);
 
-		List<Probe.AtomPair.Interaction> contacts = new ArrayList<>();
-
-		// for each res pair
-		for (ResidueInteractions.Pair resPair : inters) {
-			Residue res1 = pmol.mol.residues.getOrThrow(resPair.resNum1);
-			Residue res2 = pmol.mol.residues.getOrThrow(resPair.resNum2);
-
-			// for each atom pair
-			for (int[] atomPair : connectivity.getAtomPairs(res1, res2).getPairs(AtomNeighbors.Type.NONBONDED)) {
-				Atom a1 = res1.atoms.get(atomPair[0]);
-				Atom a2 = res2.atoms.get(atomPair[1]);
-
-				Probe.AtomPair pair = probe.new AtomPair(a1, a2);
-				Probe.AtomPair.Interaction interaction = pair.getInteraction();
-				if (interaction.contact.isContact) {
-					contacts.add(interaction);
-				}
-			}
-		}
-
-		// sort by violation
-		contacts.sort(Comparator.comparingDouble((contact) -> contact.getViolation(tolerance)));
+		// get the contacts sorted by violation
+		List<Probe.AtomPair.Interaction> contacts = probe.getInteractions(pmol.mol.residues, inters, connectivity).stream()
+			.filter(interaction -> interaction.contact.isContact)
+			.sorted(Comparator.comparingDouble(contact -> contact.getViolation(tolerance)))
+			.collect(Collectors.toList());
 
 		for (Probe.AtomPair.Interaction contact : contacts) {
 			log("v=%5.2f %s - %s", contact.getViolation(tolerance), contact.atomPair, contact);

@@ -7,9 +7,11 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.*;
 import edu.duke.cs.osprey.tools.HashCalculator;
+import edu.duke.cs.osprey.tools.Progress;
 import org.apache.commons.math3.linear.ArrayRealVector;
 import org.apache.commons.math3.linear.RealVector;
 import org.apache.commons.math3.optim.SimpleBounds;
@@ -19,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 
@@ -59,28 +62,90 @@ public class PLUG {
 	}
 
 	public void pruneSingles(PruningMatrix pmat, double tolerance) {
+		pruneSingles(pmat, tolerance, new TaskExecutor());
+	}
+
+	public void pruneSingles(PruningMatrix pmat, double tolerance, TaskExecutor tasks) {
+
+		// count unpruned singles
+		AtomicLong numSingles = new AtomicLong(0);
 		pmat.forEachUnprunedSingle((pos1, rc1) -> {
-			if (shouldPruneTuple(new RCTuple(pos1, rc1), tolerance)) {
-				pmat.pruneSingle(pos1, rc1);
-			}
+			numSingles.incrementAndGet();
 			return PruningMatrix.IteratorCommand.Continue;
 		});
+		Progress progress = new Progress(numSingles.get());
+
+		// try to prune each single
+		pmat.forEachUnprunedSingle((pos1, rc1) -> {
+			tasks.submit(
+				() -> shouldPruneTuple(new RCTuple(pos1, rc1), tolerance),
+				(shouldPrune) -> {
+					if (shouldPrune) {
+						pmat.pruneSingle(pos1, rc1);
+					}
+					progress.incrementProgress();
+				}
+			);
+			return PruningMatrix.IteratorCommand.Continue;
+		});
+
+		tasks.waitForFinish();
 	}
 
 	public void prunePairs(PruningMatrix pmat, double tolerance) {
+		prunePairs(pmat, tolerance, new TaskExecutor());
+	}
+
+	public void prunePairs(PruningMatrix pmat, double tolerance, TaskExecutor tasks) {
+
+		// count unpruned pairs
+		AtomicLong numPairs = new AtomicLong(0);
 		pmat.forEachUnprunedPair((pos1, rc1, pos2, rc2) -> {
-			if (shouldPruneTuple(new RCTuple(pos1, rc1, pos2, rc2), tolerance)) {
-				pmat.prunePair(pos1, rc1, pos2, rc2);
-			}
+			numPairs.incrementAndGet();
+			return PruningMatrix.IteratorCommand.Continue;
+		});
+		Progress progress = new Progress(numPairs.get());
+
+		// try to prune each pair
+		pmat.forEachUnprunedPair((pos1, rc1, pos2, rc2) -> {
+			tasks.submit(
+				() -> shouldPruneTuple(new RCTuple(pos1, rc1, pos2, rc2), tolerance),
+				(shouldPrune) -> {
+					if (shouldPrune) {
+						pmat.prunePair(pos1, rc1, pos2, rc2);
+					}
+					progress.incrementProgress();
+				}
+			);
 			return PruningMatrix.IteratorCommand.Continue;
 		});
 	}
 
 	public void pruneTriples(PruningMatrix pmat, double tolerance) {
+		pruneTriples(pmat, tolerance, new TaskExecutor());
+	}
+
+	public void pruneTriples(PruningMatrix pmat, double tolerance, TaskExecutor tasks) {
+
+		// count unpruned triple
+		AtomicLong numTriples = new AtomicLong(0);
 		pmat.forEachUnprunedTriple((pos1, rc1, pos2, rc2, pos3, rc3) -> {
-			if (shouldPruneTuple(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3), tolerance)) {
-				pmat.pruneTriple(pos1, rc1, pos2, rc2, pos3, rc3);
-			}
+			numTriples.incrementAndGet();
+			return PruningMatrix.IteratorCommand.Continue;
+		});
+		Progress progress = new Progress(numTriples.get());
+
+		// try to prune each triple
+		pmat.forEachUnprunedTriple((pos1, rc1, pos2, rc2, pos3, rc3) -> {
+			tasks.submit(
+				() -> shouldPruneTuple(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3), tolerance),
+				(shouldPrune) -> {
+					if (shouldPrune) {
+						pmat.pruneTriple(pos1, rc1, pos2, rc2, pos3, rc3);
+					}
+					progress.incrementProgress();
+				}
+			);
 			return PruningMatrix.IteratorCommand.Continue;
 		});
 	}

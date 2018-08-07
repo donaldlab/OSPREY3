@@ -7,10 +7,9 @@ import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.energy.EnergyPartition;
+import edu.duke.cs.osprey.energy.*;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.*;
 import edu.duke.cs.osprey.tools.Profiler;
@@ -21,6 +20,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -32,6 +32,8 @@ public class PLUGLab {
 
 	public static void main(String[] args) {
 
+		Parallelism parallelism = Parallelism.makeCpu(4);
+
 		// load a protein
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
 		strand.flexibility.get("A23").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous(); // asn
@@ -41,6 +43,7 @@ public class PLUGLab {
 			.addStrand(strand)
 			.build();
 
+		/*
 		// benchmark PLUG
 		RCTuple tuple = new RCTuple(0, 5, 1, 7);
 		PLUG plug = new PLUG(confSpace);
@@ -63,52 +66,91 @@ public class PLUGLab {
 		// 62 ops - cache atom voxels
 		// 128 ops - optimize gradient calculation
 		// just enumerating atom pairs is 115 ops =(
+		*/
 
-		// TEMP
-		//if (true) return;
-
-		// calc an emat
-		EnergyMatrix emat;
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
-			.setParallelism(Parallelism.makeCpu(8))
+			.setParallelism(parallelism)
 			.build()) {
 
-			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
-				.setEnergyPartition(EnergyPartition.AllOnPairs)
+			EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc)
+				.setIsMinimizing(false)
 				.build();
-			emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+				//.setEnergyPartition(EnergyPartition.AllOnPairs)
+				.build();
+
+			// TEMP: look at conf [7, 12, 7]
+			// looks like minimization doesn't avoid the clash, but still gets a relatively good energy
+			// clashes:
+			//    A27:HG23 <-> A30:OE1               overlap=   0.408  >0.000 BadClash
+			//    A27:C    <-> A27:HG22              overlap=   0.551  >0.000 BadClash
+			int[] assignments = new int[] { 7, 12, 7 };
+			RCTuple t = new RCTuple(assignments);
+			ResidueInteractions inters = ResInterGen.of(confSpace)
+				.addIntras(t)
+				.addInters(t)
+				.addShell(t)
+				.make();
+
+			EnergyCalculator.EnergiedParametricMolecule rigidEpmol = rigidEcalc.calcEnergy(confSpace.makeMolecule(t), inters);
+			log("before: %.4f", rigidEpmol.energy);
+			EnergyCalculator.EnergiedParametricMolecule minEpmol = ecalc.calcEnergy(confSpace.makeMolecule(t), inters);
+			log("after:  %.4f", minEpmol.energy);
+
+			Probe probe = new Probe();
+			probe.matchTemplates(confSpace);
+			probe.getInteractions(minEpmol.pmol.mol.residues, inters, ecalc.resPairCache.connectivity).stream()
+				.filter(interaction -> interaction.contact.isContact)
+				.sorted(Comparator.comparing(interaction -> interaction.getViolation(0.0)))
+				.forEach(interaction -> log("%s   %s", interaction.atomPair, interaction));
+
+			log("%s", new ResidueForcefieldBreakdown.ByPosition(confEcalc, assignments, minEpmol).breakdownForcefield(ResidueForcefieldBreakdown.Type.VanDerWaals));
+			log("%d -> %s", 25, minEpmol.pmol.mol.residues.get(25).getPDBResNumber());
+			log("%s", new ResidueForcefieldBreakdown.ByResidue(confEcalc, minEpmol).breakdownForcefield(ResidueForcefieldBreakdown.Type.VanDerWaals));
+
+			PDBIO.writeFile(minEpmol, new File("clash.pdb"));
+
+			if (true) return;
+
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
 				.build()
 				.calcEnergyMatrix();
-		}
 
-		// get the best 10 confs
-		List<ConfSearch.ScoredConf> confs = new ConfAStarTree.Builder(emat, confSpace)
-			.setTraditional()
-			.build()
-			.nextConfs(10);
-		log("before pruning:");
-		for (int i=0; i<confs.size(); i++) {
-			log("\tconf %2d: %s", i, confs.get(i));
-		}
+			// get the best few confs
+			List<ConfSearch.ScoredConf> confs = new ConfAStarTree.Builder(emat, confSpace)
+				.setTraditional()
+				.build()
+				.nextConfs(100);
+			List<ConfSearch.EnergiedConf> econfs = confEcalc.calcAllEnergies(confs);
+			econfs.sort(Comparator.comparing((econf) -> econf.getEnergy()));
+			log("before pruning:");
+			for (int i=0; i<econfs.size(); i++) {
+				log("%s %.4f", Conf.toString(econfs.get(i).getAssignments()), econfs.get(i).getEnergy());
+			}
 
-		// run PLUG
-		Stopwatch pmatStopwatch = new Stopwatch().start();
-		PruningMatrix pmat = new SimpleDEE.Runner()
-			.setThreshold(null) // no steric pruning
-			.setSinglesPlugThreshold(0.4)
-			.setPairsPlugThreshold(0.4)
-			.setShowProgress(true)
-			.run(confSpace, null);
-		log("%s", pmatStopwatch.stop().getTime(2));
+			// run PLUG
+			Stopwatch pmatStopwatch = new Stopwatch().start();
+			PruningMatrix pmat = new SimpleDEE.Runner()
+				.setParallelism(parallelism)
+				.setThreshold(null) // no steric pruning
+				.setSinglesPlugThreshold(0.4)
+				.setPairsPlugThreshold(0.4)
+				.setShowProgress(true)
+				.run(confSpace, null);
+			log("%s", pmatStopwatch.stop().getTime(2));
 
-		// get the best 10 confs again
-		confs = new ConfAStarTree.Builder(emat, pmat)
-			.setTraditional()
-			.build()
-			.nextConfs(10);
-		log("after pruning:");
-		for (int i=0; i<confs.size(); i++) {
-			log("conf %2d: %s", i, confs.get(i));
+			// get the best few confs again
+			confs = new ConfAStarTree.Builder(emat, pmat)
+				.setTraditional()
+				.build()
+				.nextConfs(100);
+			econfs = confEcalc.calcAllEnergies(confs);
+			econfs.sort(Comparator.comparing((econf) -> econf.getEnergy()));
+			log("after pruning:");
+			for (int i=0; i<econfs.size(); i++) {
+				log("%s %.4f", Conf.toString(econfs.get(i).getAssignments()), econfs.get(i).getEnergy());
+			}
 		}
 	}
 

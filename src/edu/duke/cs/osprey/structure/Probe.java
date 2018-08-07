@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.structure;
 
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.ConfigFileReader;
@@ -511,5 +512,26 @@ public class Probe {
 				}
 			}
 		}
+	}
+
+	public List<AtomPair.Interaction> getInteractions(Residues residues, ResidueInteractions inters, AtomConnectivity connectivity) {
+
+		List<AtomPair.Interaction> interactions = new ArrayList<>();
+
+		// for each res pair
+		for (ResidueInteractions.Pair resPair : inters) {
+			Residue res1 = residues.getOrThrow(resPair.resNum1);
+			Residue res2 = residues.getOrThrow(resPair.resNum2);
+
+			// for each atom pair
+			for (int[] atomPair : connectivity.getAtomPairs(res1, res2).getPairs(AtomNeighbors.Type.NONBONDED)) {
+				Atom a1 = res1.atoms.get(atomPair[0]);
+				Atom a2 = res2.atoms.get(atomPair[1]);
+
+				interactions.add(new AtomPair(a1, a2).getInteraction());
+			}
+		}
+
+		return interactions;
 	}
 }
