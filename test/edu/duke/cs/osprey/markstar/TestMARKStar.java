@@ -61,9 +61,24 @@ public class TestMARKStar {
 				new String[]{"A67", "A68", "A78", "A76", "A88", "A89", "A157"},
 				new String[]{"G1", "G123"},
                 new String[]{"G101", "G102", "G103", "G57", "G104"});
-		boolean runkstar = false;
-		final double epsilon = 0.9999999;
+		boolean runkstar = true;
+		final double epsilon = 0.999999999;
 		TestComparison(confSpaces, epsilon, runkstar);
+	}
+
+	@Test
+	public void test1a0rSlowness() {
+		ConfSpaces confSpaces = makeConfSpaces(
+				"examples/python.KStar/1a0r_prepped.pdb",
+				new String[]{"B2", "B340"},
+				new String[]{"B246", "B188", "B275", "B274", "B231", "B230", "B290"},
+				new String[]{"P13", "P230"},
+				new String[]{"P20", "P23", "P17"}
+		);
+		boolean runkstar = true;
+		final double epsilon = 0.9999;
+		TestComparison(confSpaces, epsilon, runkstar);
+
 	}
 
 	@Test
@@ -281,10 +296,10 @@ public class TestMARKStar {
 	public void test1A0RBBKStar() {
 		TestKStar.ConfSpaces confSpaces = make1A0RBBKStar();
 		int numSequences = 2;
-		double epsilon = 0.999;
+		double epsilon = 0.99;
 		String kstartime = "(Not run)";
 		Stopwatch watch = new Stopwatch();
-		boolean runkstar = true;
+		boolean runkstar = false;
 		if(runkstar) {
 			watch.start();
 			runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);

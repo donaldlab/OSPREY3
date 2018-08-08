@@ -432,10 +432,10 @@ public class MARKStarBound implements PartitionFunction {
         BigDecimal[] ZSums = new BigDecimal[]{internalZ,leafZ};
         populateQueues(internalNodes, leafNodes, internalZ, leafZ, ZSums);
         updateBound();
-        System.out.println(String.format("After corrections, bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
+        debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
         internalZ = ZSums[0];// MathTools.bigDivide(ZSums[0], new BigDecimal(Math.max(1,internalTimeAverage*internalNodes.size())), PartitionFunction.decimalPrecision);
         leafZ = ZSums[1]; //MathTools.bigDivide(ZSums[1], new BigDecimal(Math.max(1,leafTimeAverage)), PartitionFunction.decimalPrecision);
-        System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
+        debugPrint(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
         if(MathTools.isLessThan(internalZ, leafZ)) {
             numNodes = leafNodes.size();
             leafTime.reset();
@@ -475,13 +475,14 @@ public class MARKStarBound implements PartitionFunction {
                 else {
                     processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
                 }
+                internalNode.markUpdated();
             }
             drillTasks.waitForFinish();
             internalTasks.waitForFinish();
             internalTime.stop();
             internalTimeSum=internalTime.getTimeS();
             internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
-            System.out.println("Internal node time :"+internalTimeSum+", average "+internalTimeAverage);
+            debugPrint("Internal node time :"+internalTimeSum+", average "+internalTimeAverage);
             queue.addAll(leafNodes);
         }
         if (epsilonBound <= targetEpsilon)
@@ -650,11 +651,11 @@ public class MARKStarBound implements PartitionFunction {
         }
         loopWatch.stop();
         double loopTime = loopWatch.getTimeS();
-        System.out.println("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
+        debugPrint("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
         loopWatch.reset();
         loopWatch.start();
         processPreminimization(minimizingEcalc);
-        System.out.println("Preminimization time : "+loopWatch.getTime(2));
+        debugPrint("Preminimization time : "+loopWatch.getTime(2));
         double curEpsilon = epsilonBound;
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         updateBound();
@@ -803,7 +804,9 @@ public class MARKStarBound implements PartitionFunction {
             else
                 newNodes.add(curNode);
 
-            generatedNodes.addAll(newNodes);
+            synchronized (this) {
+                generatedNodes.addAll(newNodes);
+            }
             newNodes.clear();
             //debugHeap(drillQueue, true);
             if(leafLoop.getTimeS() > 10) {
@@ -1079,7 +1082,6 @@ public class MARKStarBound implements PartitionFunction {
         }
         ecalc.tasks.waitForFinish();
         correctionTime.stop();
-        System.out.println("Correction time: "+correctionTime.getTime(2));
     }
 
 
