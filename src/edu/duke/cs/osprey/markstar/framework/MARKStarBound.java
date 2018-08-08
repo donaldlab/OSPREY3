@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.TupE;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
@@ -243,6 +244,7 @@ public class MARKStarBound implements PartitionFunction {
     BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
     private boolean computedCorrections = false;
     private long loopPartialTime = 0;
+    private Set<String> correctedTuples = Collections.synchronizedSet(new HashSet<String>());
 
     public static MARKStarBound makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
         ConfEnergyCalculator minimizingConfEcalc = info.confEcalcMinimized;
@@ -348,71 +350,8 @@ public class MARKStarBound implements PartitionFunction {
         boundLowestBoundConfUnderNode(rootNode,newNodes);
         queue.addAll(newNodes);
         newNodes.clear();
-        /*
-        while(!queue.isEmpty() && bestConfUpper > 0
-                && !MathTools.isGreaterThan(rootNode.getLowerBound(), BigDecimal.ZERO)){
-            numNodes++;
-            assert(newNodes.size() < 1);
-            MARKStarNode curNode = queue.poll();
-            Node node = curNode.getConfSearchNode();
-            ConfIndex index = new ConfIndex(RCs.getNumPos());
-            node.index(index);
-
-            bestConfUpper = Math.min(node.getConfUpperBound(), bestConfUpper);
-            if (node.getLevel() < RCs.getNumPos()) {
-                processPartialConfNode(newNodes, curNode, node);
-            }
-            else
-                leafNodes.add(curNode);
-            internalTasks.waitForFinish();
-            queue.addAll(newNodes);
-            newNodes.clear();
-            if(leafLoop.getTimeS() > 10) {
-                leafLoop.stop();
-                leafLoop.reset();
-                leafLoop.start();
-                updateBound();
-                System.out.println(String.format("Processed %d, %s so far. Bounds are now [%12.6e,%12.6e]",numNodes, overallLoop.getTime(2),rootNode.getLowerBound(),rootNode.getUpperBound()));
-                System.out.println("Upper bound is "+bestConfUpper);
-            }
-        }
-        queue.addAll(leafNodes);
-        */
         System.out.println("Found a leaf!");
         nonZeroLower = true;
-    }
-
-    private void checkForDupes(List<MARKStarNode> newNodes) {
-        Set<String> nodes = new HashSet<>();
-        for(MARKStarNode child: newNodes)
-            if(nodes.contains(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments)))
-                System.out.println("Error.");
-            else
-                nodes.add(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments));
-
-    }
-
-    private void checkForDupes(Queue<MARKStarNode> newNodes) {
-        Set<String> nodes = new HashSet<>();
-        for (MARKStarNode child : newNodes)
-            if (nodes.contains(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments)))
-                System.out.println("Error.");
-            else
-                nodes.add(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments));
-    }
-
-    private void checkForDupes(Queue<MARKStarNode> nodeQueue, List<MARKStarNode> nodeList) {
-        Set<String> nodes = new HashSet<>();
-        for (MARKStarNode child : nodeQueue)
-            if (nodes.contains(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments)))
-                System.out.println("Error.");
-            else
-                nodes.add(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments));
-        for (MARKStarNode child : nodeList)
-            if (nodes.contains(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments)))
-                System.out.println("Error.");
-            else
-                nodes.add(SimpleConfSpace.formatConfRCs(child.getConfSearchNode().assignments));
     }
 
     private void tightenBoundInPhases() {
@@ -438,6 +377,7 @@ public class MARKStarBound implements PartitionFunction {
         debugPrint(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
         if(MathTools.isLessThan(internalZ, leafZ)) {
             numNodes = leafNodes.size();
+            System.out.println("Processing "+numNodes+" leaf nodes...");
             leafTime.reset();
             leafTime.start();
             for(MARKStarNode leafNode: leafNodes) {
@@ -448,17 +388,14 @@ public class MARKStarBound implements PartitionFunction {
             leafTasks.waitForFinish();
             leafTime.stop();
             leafTimeAverage = leafTime.getTimeS();
+            System.out.println("Processed "+numNodes+" leaves in "+leafTimeAverage+" seconds.");
             queue.addAll(internalNodes);
         }
         else {
             numNodes = internalNodes.size();
+            System.out.println("Processing "+numNodes+" internal nodes...");
             internalTime.reset();
             internalTime.start();
-            /*
-            for (MARKStarNode internalNode : internalNodes) {
-                    processPartialConfNode(newNodes, internalNode, internalNode.getConfSearchNode());
-            }
-            */
             for (MARKStarNode internalNode : internalNodes) {
                 if(!MathTools.isGreaterThan(internalNode.getLowerBound(),BigDecimal.ZERO) &&
                     MathTools.isGreaterThan(
@@ -490,18 +427,6 @@ public class MARKStarBound implements PartitionFunction {
         loopCleanup(newNodes, loopWatch, numNodes);
     }
 
-    private void debugQueues(List<MARKStarNode> internalNodes, List<MARKStarNode> leafNodes) {
-        Collections.sort(internalNodes);
-        Collections.sort(leafNodes);
-        for(int i = 0; i < 10; i++)
-        {
-            System.out.println("Internal: "+internalNodes.get(i).getConfSearchNode());
-        }
-        for(int i = 0; i< leafNodes.size(); i++) {
-            System.out.println("Leaf: "+leafNodes.get(i).getConfSearchNode());
-        }
-    }
-
     private void populateQueues(List<MARKStarNode> internalNodes, List<MARKStarNode> leafNodes, BigDecimal internalZ,
                                 BigDecimal leafZ, BigDecimal[] ZSums) {
         List<MARKStarNode> leftoverLeaves = new ArrayList<>();
@@ -511,7 +436,6 @@ public class MARKStarBound implements PartitionFunction {
             maxNodes = Math.max(maxNodes, (int)Math.floor(0.1*leafTimeAverage/internalTimeAverage));
         while(!queue.isEmpty() && internalNodes.size() < maxNodes){
             MARKStarNode curNode = queue.poll();
-            breakOnNode(curNode);
             Node node = curNode.getConfSearchNode();
             ConfIndex index = new ConfIndex(RCs.getNumPos());
             node.index(index);
@@ -553,24 +477,6 @@ public class MARKStarBound implements PartitionFunction {
         queue.addAll(leftoverLeaves);
     }
 
-    private void breakOnNode(MARKStarNode curNode) {
-        int[] assignments = curNode.getConfSearchNode().assignments;
-        int[] confOfInterest = new int[]{5,18,5,5,13,8,34};
-        if(assignments.length != confOfInterest.length)
-            return;
-        boolean equal = true;
-        for(int i = 0; i < assignments.length; i++)
-        {
-            if(assignments[i] != confOfInterest[i]) {
-                equal = false;
-                break;
-            }
-        }
-        if(equal)
-            System.out.println("Catch.");
-    }
-
-
     private void loopCleanup(List<MARKStarNode> newNodes, Stopwatch loopWatch, int numNodes) {
         for(MARKStarNode node: newNodes) {
             if(node != null)
@@ -599,7 +505,6 @@ public class MARKStarBound implements PartitionFunction {
             double oldg = node.gscore;
             node.gscore = confCorrection;
             recordCorrection(oldg, confCorrection - oldg);
-            debugCorrection(node, confCorrection, oldg);
             node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
             curNode.markUpdated();
             newNodes.add(curNode);
@@ -609,11 +514,11 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private MARKStarNode drillDown(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
-        // which pos to expand next?
         try(ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
             ScoreContext context = checkout.get();
             ConfIndex confIndex = context.index;
             node.index(confIndex);
+            // which pos to expand next?
             int nextPos = order.getNextPos(confIndex, RCs);
             assert (!confIndex.isDefined(nextPos));
             assert (confIndex.isUndefined(nextPos));
@@ -653,15 +558,11 @@ public class MARKStarBound implements PartitionFunction {
                     child.computeNumConformations(RCs);
                     double lowerbound = minimizingEmat.confE(child.assignments);
                     if (diff < confCorrection) {
-                            /*
-                            debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
-                                    + ":" + diff + "->" + confCorrection);
-                                    */
                         recordCorrection(confLowerBound, confCorrection - diff);
                         confLowerBound = confCorrection + hdiff;
                     }
                     child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
-                    //progress.reportInternalNode(child.level, child.gscore, child.getHScore(), queue.size(), children.size(), epsilonBound);
+                    progress.reportInternalNode(child.level, child.gscore, child.getHScore(), queue.size(), children.size(), epsilonBound);
                 }
                 if (child.getLevel() == RCs.getNumPos()) {
                     double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
@@ -671,8 +572,6 @@ public class MARKStarBound implements PartitionFunction {
                     double confCorrection = correctionMatrix.confE(child.assignments);
                     double lowerbound = minimizingEmat.confE(child.assignments);
                     if (lowerbound < confCorrection) {
-                        //debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
-                        //        + ":" + lowerbound + "->" + confCorrection);
                         recordCorrection(lowerbound, confCorrection - lowerbound);
                     }
                     checkBounds(confCorrection, confRigid);
@@ -706,7 +605,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void boundLowestBoundConfUnderNode(MARKStarNode startNode, List<MARKStarNode> generatedNodes) {
-        Comparator<MARKStarNode> confBoundComparator = Comparator.comparingDouble(o -> o.getConfSearchNode().getConfUpperBound());
+        Comparator<MARKStarNode> confBoundComparator = Comparator.comparingDouble(o -> o.getConfSearchNode().getConfLowerBound());
         PriorityQueue<MARKStarNode> drillQueue = new PriorityQueue<>(confBoundComparator);
         drillQueue.add(startNode);
 
@@ -716,10 +615,8 @@ public class MARKStarBound implements PartitionFunction {
         Stopwatch overallLoop = new Stopwatch().start();
         while(!drillQueue.isEmpty()) {
             numNodes++;
-            assert(newNodes.size() < 1);
             MARKStarNode curNode = drillQueue.poll();
             Node node = curNode.getConfSearchNode();
-            breakOnNode(curNode);
             ConfIndex index = new ConfIndex(RCs.getNumPos());
             node.index(index);
 
@@ -731,19 +628,15 @@ public class MARKStarBound implements PartitionFunction {
             else
                 newNodes.add(curNode);
 
-            synchronized (this) {
-                generatedNodes.addAll(newNodes);
-            }
-            newNodes.clear();
             //debugHeap(drillQueue, true);
             if(leafLoop.getTimeS() > 10) {
                 leafLoop.stop();
                 leafLoop.reset();
                 leafLoop.start();
-                updateBound();
                 System.out.println(String.format("Processed %d, %s so far. Bounds are now [%12.6e,%12.6e]",numNodes, overallLoop.getTime(2),rootNode.getLowerBound(),rootNode.getUpperBound()));
             }
         }
+        generatedNodes.addAll(newNodes);
 
     }
 
@@ -792,15 +685,11 @@ public class MARKStarBound implements PartitionFunction {
                         child.computeNumConformations(RCs);
                         double lowerbound = minimizingEmat.confE(child.assignments);
                         if(diff < confCorrection) {
-                            /*
-                            debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
-                                    + ":" + diff + "->" + confCorrection);
-                                    */
                             recordCorrection(confLowerBound, confCorrection - diff);
                             confLowerBound = confCorrection + hdiff;
                         }
                         child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
-                        //progress.reportInternalNode(child.level, child.gscore, child.getHScore(), queue.size(), children.size(), epsilonBound);
+                        progress.reportInternalNode(child.level, child.gscore, child.getHScore(), queue.size(), children.size(), epsilonBound);
                     }
                     if (child.getLevel() == RCs.getNumPos()) {
                         double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
@@ -810,8 +699,6 @@ public class MARKStarBound implements PartitionFunction {
                         double confCorrection = correctionMatrix.confE(child.assignments);
                         double lowerbound = minimizingEmat.confE(child.assignments);
                         if(lowerbound < confCorrection) {
-                            //debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
-                            //        + ":" + lowerbound + "->" + confCorrection);
                             recordCorrection(lowerbound, confCorrection - lowerbound);
                         }
                         checkBounds(confCorrection,confRigid);
@@ -847,6 +734,15 @@ public class MARKStarBound implements PartitionFunction {
         }
     }
 
+    private static class CorrectionData {
+        ConfAnalyzer.ConfAnalysis analysis;
+        ConfSearch.ScoredConf conf;
+    }
+
+    private void processBatchCorrections(List<CorrectionData> correctionData, ConfEnergyCalculator energyCalculator)
+    {
+    }
+
 
     private void processFullConfNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
 
@@ -855,7 +751,6 @@ public class MARKStarBound implements PartitionFunction {
             double oldg = node.gscore;
             node.gscore = confCorrection;
             recordCorrection(oldg, confCorrection - oldg);
-            debugCorrection(node, confCorrection, oldg);
             node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
             curNode.markUpdated();
             newNodes.add(curNode);
@@ -885,8 +780,6 @@ public class MARKStarBound implements PartitionFunction {
                 curNode.setBoundsFromConfLowerAndUpper(newConfLower,newConfUpper);
                 double oldgscore = node.gscore;
                 node.gscore = newConfLower;
-                double correctedEnergy = correctionMatrix.confE(node.assignments);
-                //recordCorrection(oldgscore, newConfLower-oldgscore);
                 String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                 debugPrint(out);
                 curNode.markUpdated();
@@ -923,13 +816,6 @@ public class MARKStarBound implements PartitionFunction {
         }
     }
 
-    private void debugCorrection(Node node, double confCorrection, double oldg) {
-//        debugPrint("Correcting :[" + SimpleConfSpace.formatConfRCs(node.assignments)
-//                + ":" + oldg + "] down to " + confCorrection);
-        if (confCorrection > node.rigidScore)
-            System.err.println("Overcorrected"+SimpleConfSpace.formatConfRCs(node.assignments)+": " + confCorrection + " > " + node.rigidScore);
-    }
-
     private void checkConfLowerBound(Node node, double energy) {
         if(energy < node.getConfLowerBound()) {
             System.err.println("Bounds are incorrect:" + (node.getConfLowerBound()) + " > "
@@ -960,7 +846,7 @@ public class MARKStarBound implements PartitionFunction {
         //System.out.println("Score Analysis: "+scoreAnalysis);
         EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
         //System.out.println("Difference Analysis " + diff);
-        List<Pair<Pair<Integer, Integer>, Double>> sortedPairwiseTerms = new ArrayList<>();
+        List<TupE> sortedPairwiseTerms2 = new ArrayList<>();
         for (int pos = 0; pos < diff.getNumPos(); pos++)
         {
             for (int rc = 0; rc < diff.getNumConfAtPos(pos); rc++)
@@ -975,26 +861,26 @@ public class MARKStarBound implements PartitionFunction {
                         sum+=diff.getOneBody(pos, rc);
                         sum+=diff.getPairwise(pos, rc, pos2, rc2);
                         sum+=diff.getOneBody(pos2,rc2);
-                        sortedPairwiseTerms.add(new Pair(new Pair(pos,pos2), sum));
+                        TupE tupe = new TupE(new RCTuple(pos, rc, pos2, rc2), sum);
+                        sortedPairwiseTerms2.add(tupe);
                     }
                 }
             }
         }
-        Collections.sort(sortedPairwiseTerms, (a,b)->-Double.compare(a.getValue(),b.getValue()));
+        Collections.sort(sortedPairwiseTerms2);
 
-        //Collections.sort(sortedPairwiseTerms, Comparator.comparingDouble(Pair::getValue));
         double threshhold = 0.1;
-        double minDifference = 0.9;//sortedPairwiseTerms.get(0).getValue()*0.7;
-        double maxDiff = sortedPairwiseTerms.get(0).getValue();
-        for(int i = 0; i < sortedPairwiseTerms.size(); i++)
+        double minDifference = 0.9;
+        double maxDiff = sortedPairwiseTerms2.get(0).E;
+        for(int i = 0; i < sortedPairwiseTerms2.size(); i++)
         {
-            Pair<Pair<Integer, Integer>, Double> pairEnergy = sortedPairwiseTerms.get(i);
-            double pairDiff = pairEnergy.getValue();
+            TupE tupe = sortedPairwiseTerms2.get(i);
+            double pairDiff = tupe.E;
             if(pairDiff < minDifference && maxDiff - pairDiff > threshhold)
                 continue;
-            maxDiff = Math.max(maxDiff, pairEnergy.getValue());
-            int pos1 = pairEnergy.getKey().getKey();
-            int pos2 = pairEnergy.getKey().getValue();
+            maxDiff = Math.max(maxDiff, tupe.E);
+            int pos1 = tupe.tup.pos.get(0);
+            int pos2 = tupe.tup.pos.get(1);
             int localMinimizations = 0;
             for(int pos3 = 0; pos3 < diff.getNumPos(); pos3++) {
                 if (pos3 == pos2 || pos3 == pos1)
@@ -1016,6 +902,9 @@ public class MARKStarBound implements PartitionFunction {
 
     private void computeDifference(RCTuple tuple, ConfEnergyCalculator ecalc) {
         computedCorrections = true;
+        if(correctedTuples.contains(tuple.stringListing()))
+            return;
+        correctedTuples.add(tuple.stringListing());
         if(correctionMatrix.hasHigherOrderTermFor(tuple))
             return;
         ecalc.calcEnergyAsync(tuple, (tripleEnergy)->
@@ -1073,32 +962,6 @@ public class MARKStarBound implements PartitionFunction {
                 });
         }
         minimizingEcalc.tasks.waitForFinish();
-        /*
-        ConfIndex index = new ConfIndex(RCs.getNumPos());
-        if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)
-            && minimizingEmat.getInternalEnergy(overlap) != rigidEmat.getInternalEnergy(overlap)) {
-            computeTupleCorrection(ecalc, overlap);
-            for (MARKStarNode conf : topConfs) {
-                tasks.submit(() -> {
-                    Node child = conf.getConfSearchNode();
-                    child.index(index);
-                    double hscore = child.getConfLowerBound() - child.gscore;
-                    double confCorrection = correctionMatrix.confE(child.assignments)+hscore;
-                    double confLowerBound = child.getConfLowerBound();
-                    if (confLowerBound < confCorrection) {
-                        recordCorrection(confLowerBound, confCorrection - child.gscore);
-                        double tighterLower = confCorrection;
-                        debugPrint("Correcting node " + SimpleConfSpace.formatConfRCs(child.assignments)
-                                + ":" + confLowerBound + "->" + tighterLower);
-                        child.setBoundsFromConfLowerAndUpper(tighterLower, child.getConfUpperBound());
-                    }
-                    return null;
-                },(ignored)->{});
-            }
-        }
-        */
-
-
         queue.addAll(topConfs);
     }
 
@@ -1134,34 +997,6 @@ public class MARKStarBound implements PartitionFunction {
         }
         return overlap;
 
-    }
-
-    private void debugHeap() {
-        debugHeap(queue, false);
-    }
-    private void debugHeap(Queue<MARKStarNode> queue, boolean forcePrint) {
-        boolean oldDebugVal = debug;
-        if(forcePrint)
-            debug = true;
-        if(debug) {
-            if(queue.isEmpty())
-                return;
-            debugPrint("A* Heap:");
-            PriorityQueue<MARKStarNode> copy = new PriorityQueue<>();
-            BigDecimal peek = queue.peek().getErrorBound();
-            int numConfs = 0;
-            while(!queue.isEmpty() && copy.size() < 10) {
-                MARKStarNode node = queue.poll();
-                if(node != null && (numConfs < 10 || node.getConfSearchNode().isLeaf()
-                        || node.getErrorBound().multiply(new BigDecimal(1000)).compareTo(peek) >= 0)) {
-                    debugPrint(node.getConfSearchNode().toString() + "," + String.format("%12.6e", node.getErrorBound()));
-                    copy.add(node);
-                }
-                numConfs++;
-            }
-            queue.addAll(copy);
-        }
-        debug = oldDebugVal;
     }
 
     private void updateBound() {

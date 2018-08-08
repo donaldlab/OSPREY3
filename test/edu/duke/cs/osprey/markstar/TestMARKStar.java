@@ -61,7 +61,7 @@ public class TestMARKStar {
 				new String[]{"A67", "A68", "A78", "A76", "A88", "A89", "A157"},
 				new String[]{"G1", "G123"},
                 new String[]{"G101", "G102", "G103", "G57", "G104"});
-		boolean runkstar = true;
+		boolean runkstar = false;
 		final double epsilon = 0.999999999;
 		TestComparison(confSpaces, epsilon, runkstar);
 	}
@@ -91,8 +91,8 @@ public class TestMARKStar {
 				new String[]{"B2","B250"},
 				new String[]{"B193", "B216", "B214"}
 		);
-		final double epsilon = 0.9999999;
-		boolean runkstar = true;
+		final double epsilon = 0.99999;
+		boolean runkstar = false;
 		TestComparison(confSpaces, epsilon, runkstar);
 	}
 
@@ -163,9 +163,7 @@ public class TestMARKStar {
 	public void test4KT6 () {
 		ConfSpaces confSpaces = make4KT6();
 		final double epsilon = 0.99;
-		String kstartime = "(not run)";
-		boolean runkstar = true;
-		Stopwatch runtime = new Stopwatch().start();
+		boolean runkstar = false;
 		TestComparison(confSpaces, epsilon, runkstar);
 	}
 

@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
@@ -307,7 +308,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     public MARKStarNode makeChild(Node child) {
         MARKStarNode newChild = new MARKStarNode(child, this);
         if(children == null)
-            children = new ArrayList<>();
+            children = new CopyOnWriteArrayList<>();
         children.add(newChild);
         return newChild;
     }
