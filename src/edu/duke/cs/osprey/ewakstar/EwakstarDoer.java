@@ -436,6 +436,7 @@ public class EwakstarDoer {
         private double epsilon = 0.68;
         private int smaNodes;
         private boolean useSMA = false;
+        private boolean printPDBs = false;
 
         /** File to which to log sequences as they are found */
         private File logFile = null;
@@ -523,8 +524,14 @@ public class EwakstarDoer {
             return this;
         }
 
+        public Builder setPrintPDBs(boolean val){
+            printPDBs = val;
+            return this;
+        }
+
         public EwakstarDoer build() {
-            return new EwakstarDoer(useSMA,
+            return new EwakstarDoer(printPDBs,
+                    useSMA,
                     smaNodes,
                     state,
                     eW,
@@ -569,10 +576,11 @@ public class EwakstarDoer {
     public EwakstarDoer ewakstarDoerPL;
     public final boolean useSMA;
     public final int smaNodes;
+    public final boolean printPDBs;
 
     private final Map<StateConfs.Key,StateConfs> stateConfsCache = new HashMap<>();
 
-    private EwakstarDoer(boolean useSMA, int smaNodes, State state, double eW, String mutableType, int numMutable, int numCPUs, boolean printToConsole, boolean seqFilterOnly, File logFile, int numEWAKStarSeqs, boolean useWtBenchmark, int orderOfMag, double pfEw, int numPfConfs, double epsilon, int numTopOverallSeqs) {
+    private EwakstarDoer(boolean printPDBs, boolean useSMA, int smaNodes, State state, double eW, String mutableType, int numMutable, int numCPUs, boolean printToConsole, boolean seqFilterOnly, File logFile, int numEWAKStarSeqs, boolean useWtBenchmark, int orderOfMag, double pfEw, int numPfConfs, double epsilon, int numTopOverallSeqs) {
 
         if(mutableType.equals("exact") || mutableType.equals("max")){
             this.numMutable = numMutable;
@@ -584,6 +592,7 @@ public class EwakstarDoer {
             this.useExact = false;
         }
 
+        this.printPDBs = printPDBs;
         this.useSMA = useSMA;
         this.smaNodes = smaNodes;
         this.epsilon = epsilon;
@@ -740,6 +749,7 @@ public class EwakstarDoer {
                 .setNumTopOverallSeqs(numTopOverallSeqs)
                 .addScoreConsoleWriter()
                 .setWTBenchmark(useWtBenchmark)
+                .setPrintPDBs(printPDBs)
                 .addScoreFileWriter(new File("ewakStar.results.txt"))
                 .build();
 
