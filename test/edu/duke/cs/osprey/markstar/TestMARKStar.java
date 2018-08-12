@@ -38,7 +38,7 @@ import static org.junit.Assert.assertThat;
 public class TestMARKStar {
 
 	public static final int NUM_CPUs = 4;
-	public static boolean REUDCE_MINIMIZATIONS = false;
+	public static boolean REUDCE_MINIMIZATIONS = true;
 	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
 
 	public static class ConfSpaces {
@@ -62,7 +62,7 @@ public class TestMARKStar {
 				new String[]{"G1", "G123"},
                 new String[]{"G101", "G102", "G103", "G57", "G104"});
 		boolean runkstar = false;
-		final double epsilon = 0.999999999;
+		final double epsilon = 0.9999999;
 		TestComparison(confSpaces, epsilon, runkstar);
 	}
 
@@ -92,15 +92,16 @@ public class TestMARKStar {
 				new String[]{"B193", "B216", "B214"}
 		);
 		final double epsilon = 0.99999;
-		boolean runkstar = false;
+		boolean runkstar = true;
 		TestComparison(confSpaces, epsilon, runkstar);
 	}
 
 	private void TestComparison(ConfSpaces confSpaces, double epsilon, boolean runkstar) {
 		Stopwatch runtime = new Stopwatch().start();
 		String kstartime = "(Not run)";
+		List<KStar.ScoredSequence> seqs = null;
 		if(runkstar) {
-			List<KStar.ScoredSequence> seqs = runKStar(confSpaces, epsilon);
+			seqs = runKStar(confSpaces, epsilon);
 			runtime.stop();
 			kstartime = runtime.getTime(2);
 			runtime.reset();
@@ -111,6 +112,9 @@ public class TestMARKStar {
 		String markstartime = runtime.getTime(2);
 		for(MARKStar.ScoredSequence seq: result.scores)
 			printMARKStarComputationStats(seq);
+		if(seqs != null)
+		for(KStar.ScoredSequence seq: seqs)
+			printKStarComputationStats(seq);
 		System.out.println("MARK* time: "+markstartime+", K* time: "+kstartime);
 	}
 

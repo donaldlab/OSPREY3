@@ -323,6 +323,19 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return children;
     }
 
+    public static enum Type {
+        internal,
+        boundedLeaf,
+        minimizedLeaf
+    }
+    public Type type(RCs rcs) {
+        if(level < rcs.getNumPos())
+            return  Type.internal;
+        if(!confSearchNode.isMinimized())
+            return Type.boundedLeaf;
+        return Type.minimizedLeaf;
+    }
+
     static class Zbounds {
         BigDecimal upperBound = BigDecimal.ZERO;
         BigDecimal lowerBound = BigDecimal.ZERO;
@@ -558,14 +571,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
         @Override
         public double getHScore() {
-            BigDecimal d = new BigDecimal(numConfs);
-            ExpFunction ef = new ExpFunction();
-            if (confLowerBound > confUpperBound)
-                System.err.println("Incorrect conf bounds set.");
-            BigDecimal subtreeDifference = ef.exp(-confLowerBound).subtract(ef.exp(-confUpperBound));
-            if (isLeaf())
-                return (-subtreeDifference.doubleValue())*minimizationRatio;
-            return -subtreeDifference.doubleValue();
+            return -subtreeUpperBound.subtract(subtreeLowerBound).doubleValue();
         }
 
         @Override
