@@ -204,6 +204,21 @@ public class Probe {
 	}
 
 	/**
+	 * finds a probe template for each template in the residues and remembers the mapping
+	 */
+	public void matchTemplates(Residues residues) {
+
+		Set<ResidueTemplate> templates = new HashSet<>();
+		for (Residue res : residues) {
+			templates.add(res.template);
+		}
+
+		for (ResidueTemplate template : templates) {
+			matchTemplate(template);
+		}
+	}
+
+	/**
 	 * finds a probe template for each template in the library and remembers the mapping
 	 */
 	public void matchTemplates(ResidueTemplateLibrary templateLib) {
@@ -218,7 +233,7 @@ public class Probe {
 	}
 
 	/**
-	 * finds a probe template for each template in the library and remembers the mapping
+	 * finds a probe template for each template in the conf space and remembers the mapping
 	 */
 	public void matchTemplates(SimpleConfSpace confSpace) {
 
@@ -350,7 +365,7 @@ public class Probe {
 			}
 
 			public double getViolation(double tolerance) {
-				return Probe.this.getViolation(overlap, maxOverlap, tolerance);
+				return probe.getViolation(overlap, maxOverlap, tolerance);
 			}
 
 			public boolean isClash(double tolerance) {
@@ -369,6 +384,7 @@ public class Probe {
 			}
 		}
 
+		public final Probe probe = Probe.this;
 
 		public final Atom a;
 		public final Atom b;
@@ -394,21 +410,25 @@ public class Probe {
 		}
 
 		public double getDist() {
-			return Probe.this.getDist(a, b);
+			return probe.getDist(a, b);
 		}
 
 		public Interaction getInteraction() {
 			double dist = getDist();
 			double overlap = getOverlap(infoa, infob, dist);
-			Contact contact = getContact(overlap, maxOverlap, attraction);
+			Contact contact = getContact(overlap);
 			return new Interaction(dist, overlap, contact);
+		}
+
+		public Contact getContact(double overlap) {
+			return probe.getContact(overlap, maxOverlap, attraction);
 		}
 
 		/** return the overlap of the two atoms beyond the max allowed overlap, and beyond any extra tolerance */
 		public double getViolation(double tolerance) {
 			double dist = getDist();
 			double overlap = getOverlap(infoa, infob, dist);
-			return Probe.this.getViolation(overlap, maxOverlap, tolerance);
+			return probe.getViolation(overlap, maxOverlap, tolerance);
 		}
 
 		@Override
@@ -493,6 +513,7 @@ public class Probe {
 	}
 
 	public Contact getContact(double overlap, double maxOverlap, Attraction attraction) {
+
 		if (overlap < minOverlapWideContact) {
 			return Contact.NoContact;
 		} else if (overlap < minOverlapCloseContact) {
@@ -500,11 +521,21 @@ public class Probe {
 		} else if (overlap <= 0) {
 			return Contact.CloseContact;
 		} else {
-			if (attraction.isBond && overlap <= maxOverlap) {
-				// bonded and in range, ignore clashes
-				return Contact.Bonded;
+			// we have positive overlap, clash depends if hbond or not
+			if (attraction.isBond) {
+				// we have an hbond, is bonded or clashing?
+				if (overlap <= maxOverlap) {
+					return Contact.Bonded;
+				} else {
+					// adjust overlap by the allowed hbond amount
+					if (overlap - maxOverlap < minOverlapBadClash) {
+						return Contact.SmallClash;
+					} else {
+						return Contact.BadClash;
+					}
+				}
 			} else {
-				// non-bonded, or bond too close, treat as clash
+				// non-bonded, treat as clash
 				if (overlap < minOverlapBadClash) {
 					return Contact.SmallClash;
 				} else {
