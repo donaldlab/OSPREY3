@@ -354,7 +354,8 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 							result.stopwatch.start();
 							result.epmol = ecalc.calcEnergy(new RCTuple(conf.getAssignments()));
 							result.econf = new ConfSearch.EnergiedConf(conf, result.epmol.energy);
-							state.sConfs.put(result.econf.getEnergy(), conf);
+							if (state.sConfs.size() <= 10) // only want the first 10 PDB files - don't need to calculate and save all of them
+								state.sConfs.put(result.econf.getEnergy(), conf);
 							result.scoreWeight = bcalc.calc(result.econf.getScore());
 							result.energyWeight = bcalc.calc(result.econf.getEnergy());
 							result.stopwatch.stop();
