@@ -58,6 +58,8 @@ public class MARKStarBound implements PartitionFunction {
     // the number of full conformations scored OR energied
     private int numConfsScored = 0;
 
+    private int numInternalNodesProcessed = 0;
+
     private boolean printMinimizedConfs;
     private MARKStarProgress progress;
     public String stateName = String.format("%4f",Math.random());
@@ -163,19 +165,23 @@ public class MARKStarBound implements PartitionFunction {
         return numConfsScored;
     }
 
+    private int workDone() {
+        return numInternalNodesProcessed + numConfsEnergied + numConfsScored + numPartialMinimizations ;
+    }
+
     @Override
     public void compute(int maxNumConfs) {
         debugPrint("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
         double lastEps = 1;
 
-        int previousConfCount = numConfsEnergied + numConfsScored + numPartialMinimizations;
+        int previousConfCount = workDone();
 
         if(!nonZeroLower) {
             runUntilNonZero();
             updateBound();
         }
         while (epsilonBound > targetEpsilon &&
-                (maxNumConfs < 0 || numConfsEnergied + numConfsScored + numPartialMinimizations - previousConfCount < maxNumConfs)
+                workDone()-previousConfCount < maxNumConfs
                 && isStable(stabilityThreshold)) {
             debugPrint("Tightening from epsilon of "+epsilonBound);
             tightenBoundInPhases();
@@ -461,6 +467,7 @@ public class MARKStarBound implements PartitionFunction {
             internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
             debugPrint("Internal node time :"+internalTimeSum+", average "+internalTimeAverage);
             queue.addAll(leafNodes);
+            numInternalNodesProcessed+=internalNodes.size();
         }
         if (epsilonBound <= targetEpsilon)
             return;
