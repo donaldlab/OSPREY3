@@ -16,6 +16,7 @@ import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
+import edu.duke.cs.osprey.markstar.framework.GradientDescentMARKStarPfunc;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundAsync;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -312,6 +313,15 @@ public class MARKStar {
 			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(confSpace),
 			//MARKStarBoundAsync pfunc = new MARKStarBoundAsync(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(confSpace),
 					settings.parallelism);
+			confSearchFactory = (emat, rcs) -> {
+				ConfAStarTree.Builder builder = new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional();
+				return builder.build();
+			};
+			RCs rcs = sequence.makeRCs(confSpace);
+			ConfSearch astar = confSearchFactory.make(minimizingEmat, rcs);
+			//GradientDescentMARKStarPfunc pfunc = new GradientDescentMARKStarPfunc(confSpace, rigidEmat, minimizingEmat,
+			//		rcs, minimizingConfEcalc);
 			pfunc.reduceMinimizations = settings.reduceMinimizations;
 			pfunc.stateName = type.name();
 			if(settings.maxNumConfs > 0)
@@ -325,7 +335,7 @@ public class MARKStar {
 			}
 
 			// compute it
-			pfunc.init(settings.epsilon, stabilityThreshold);
+			pfunc.init(astar, rcs.getNumConformations(), settings.epsilon);
 			Stopwatch computeTimer = new Stopwatch().start();
 			pfunc.compute();
 			computeTimer.stop();

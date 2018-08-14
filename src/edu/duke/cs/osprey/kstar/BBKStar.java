@@ -39,6 +39,7 @@ import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
+import edu.duke.cs.osprey.markstar.framework.GradientDescentMARKStarPfunc;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -420,6 +421,7 @@ public class BBKStar {
 
 		@Override
 		public void estimateScore() {
+		    System.out.println("Refining "+this);
 
 			// tank the sequence if either unbound strand is unstable
 			// yeah, we haven't refined any pfuncs yet this estimation,

@@ -336,58 +336,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return Type.minimizedLeaf;
     }
 
-    static class Zbounds {
-        BigDecimal upperBound = BigDecimal.ZERO;
-        BigDecimal lowerBound = BigDecimal.ZERO;
-        public Zbounds(BigDecimal lowerBound, BigDecimal upperBound) {
-            this.lowerBound = lowerBound;
-            this.upperBound = upperBound;
-        }
-    }
 
-    public double computeEpsilonErrorBoundsIteratively(TaskExecutor internalTasks) {
-        assert (level == 0);
-        return computeEpsilonErrorBoundsIteratively(new Zbounds(confSearchNode.subtreeLowerBound, confSearchNode.subtreeUpperBound), internalTasks);
-    }
 
-    public double computeEpsilonErrorBoundsIteratively(Zbounds pfuncBounds, TaskExecutor internalTasks) {
-        if(children == null || children.size() <1) {
-            if(!partOfLastBound) {
-                pfuncBounds.upperBound = pfuncBounds.upperBound.add(confSearchNode.subtreeUpperBound);
-                pfuncBounds.lowerBound = pfuncBounds.lowerBound.add(confSearchNode.subtreeLowerBound);
-            }
-            else if(this.confSearchNode.isLeaf()){
-                if(confSearchNode.posterityBounds.upperBound != confSearchNode.subtreeUpperBound)
-                    pfuncBounds.upperBound = pfuncBounds.upperBound.subtract(confSearchNode.posterityBounds.upperBound)
-                            .add(confSearchNode.subtreeUpperBound);
-                if(confSearchNode.posterityBounds.lowerBound != confSearchNode.subtreeLowerBound)
-                    pfuncBounds.lowerBound = pfuncBounds.lowerBound.subtract(confSearchNode.posterityBounds.lowerBound)
-                            .add(confSearchNode.subtreeLowerBound);
-            }
-            partOfLastBound = true;
-            return nodeEpsilon;
-        }
-        if(partOfLastBound) {
-            pfuncBounds.upperBound = pfuncBounds.upperBound.subtract(getUpperBound());
-            pfuncBounds.lowerBound = pfuncBounds.lowerBound.subtract(getLowerBound());
-            partOfLastBound = false;
-        }
-        updated = false;
-        double epsilonBound = 0;
-        for(MARKStarNode child: children) {
-            child.computeEpsilonErrorBoundsIteratively(pfuncBounds, internalTasks);
-        }
-        if(level == 0) {
-            epsilonBound = MathTools.bigDivide(pfuncBounds.upperBound.subtract(pfuncBounds.lowerBound),
-                    pfuncBounds.upperBound, PartitionFunction.decimalPrecision).doubleValue();
-            nodeEpsilon = epsilonBound;
-            confSearchNode.subtreeUpperBound = pfuncBounds.upperBound;
-            confSearchNode.subtreeLowerBound = pfuncBounds.lowerBound;
-            if(debug)
-                printBoundBreakDown();
-        }
-        return nodeEpsilon;
-    }
 
 
     public interface ScorerFactory {
@@ -452,7 +402,6 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public double rigidScore = Double.NaN;
         private BigDecimal subtreeLowerBound = null; //\hat h^ominus(f) - the lower bound on subtree contrib to partition function
         private BigDecimal subtreeUpperBound = null; //\hat h^oplus(f) - the lower bound on subtree contrib to partition function
-        private Zbounds posterityBounds = new Zbounds(subtreeLowerBound, subtreeUpperBound);
         private double confLowerBound = -Double.MAX_VALUE;
         private double confUpperBound = Double.MAX_VALUE;
         public int[] assignments;
@@ -478,11 +427,6 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
-            if(lowerBound == upperBound)
-            {
-                posterityBounds.upperBound = subtreeUpperBound;
-                posterityBounds.lowerBound = subtreeLowerBound;
-            }
             if (lowerBound > upperBound) {
                 if(debug)
                     System.out.println("Incorrect conf bounds set.");

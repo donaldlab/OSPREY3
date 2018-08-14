@@ -24,10 +24,16 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static edu.duke.cs.osprey.kstar.TestBBKStar.runBBKStar;
 import static org.hamcrest.Matchers.*;
@@ -41,7 +47,7 @@ public class TestMARKStar {
 	public static boolean REUDCE_MINIMIZATIONS = true;
 	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
 
-	public static class ConfSpaces {
+	public static class ConfSpaces extends TestKStar.ConfSpaces {
 		public ForcefieldParams ffparams;
 		public SimpleConfSpace protein;
 		public SimpleConfSpace ligand;
@@ -96,7 +102,7 @@ public class TestMARKStar {
 		TestComparison(confSpaces, epsilon, runkstar);
 	}
 
-	private void TestComparison(ConfSpaces confSpaces, double epsilon, boolean runkstar) {
+	private void TestComparison(TestKStar.ConfSpaces confSpaces, double epsilon, boolean runkstar) {
 		Stopwatch runtime = new Stopwatch().start();
 		String kstartime = "(Not run)";
 		List<KStar.ScoredSequence> seqs = null;
@@ -165,7 +171,7 @@ public class TestMARKStar {
 
 	@Test
 	public void test4KT6 () {
-		ConfSpaces confSpaces = make4KT6();
+		TestKStar.ConfSpaces confSpaces = make4KT6();
 		final double epsilon = 0.99;
 		boolean runkstar = false;
 		TestComparison(confSpaces, epsilon, runkstar);
@@ -217,6 +223,130 @@ public class TestMARKStar {
 			.build();
 
 		return confSpaces;
+	}
+
+	@Test
+	public void test2RL0BBKStar() {
+		TestKStar.ConfSpaces confSpaces = null;
+		try {
+			confSpaces = loadFromCFS("examples/python.KStar/2rl0_A_13res_6.837E+28.cfs");
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+		int numSequences = 2;
+		double epsilon = 0.99999;
+		String kstartime = "(Not run)";
+		Stopwatch watch = new Stopwatch();
+		boolean runkstar = false;
+		if(runkstar) {
+			watch.start();
+			runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
+			watch.stop();
+			kstartime = watch.getTime(2);
+			watch.reset();
+		}
+		watch.start();
+		runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
+		watch.stop();
+		String bbkstartime = watch.getTime(2);
+		System.out.println("MARK*: "+bbkstartime+", Traditional K*: "+kstartime);
+	}
+
+	@Test
+	public void test2RL0MARKStar() {
+		TestKStar.ConfSpaces confSpaces = null;
+		try {
+			confSpaces = loadFromCFS("examples/python.KStar/2rl0_A_13res_ss_6.837E+28.cfs");
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+		int numSequences = 2;
+		double epsilon = 0.99;
+		String kstartime = "(Not run)";
+		Stopwatch watch = new Stopwatch();
+		boolean runkstar = false;
+		TestComparison(confSpaces, epsilon, runkstar);
+	}
+	@Test
+	public void testConfSpaceParse() {
+		try {
+			loadFromCFS("examples/python.KStar/2rl0_A_13res_6.837E+28.cfs");
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+
+	private TestKStar.ConfSpaces loadFromCFS(String cfsFileName) throws FileNotFoundException {
+	    String fileContents = FileTools.readFile(cfsFileName);
+	    TestKStar.ConfSpaces confSpaces = new ConfSpaces();
+		confSpaces.ffparams = new ForcefieldParams();
+		Map<String, Strand.Builder> strandBuilderMap = new HashMap<>();
+		Map<String, Strand> strandMap = new HashMap<>();
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+				.build();
+
+		for (String line : FileTools.parseLines(fileContents)) {
+			String[] parts = line.split(" = ");
+		    String lineType = parts[0];
+		    switch(lineType) {
+				case "mol":
+					String pdbName = parts[1].substring(parts[1].lastIndexOf('/')+1, parts[1].length()-1);
+					Molecule mol = PDBIO.readFile("examples/python.KStar/"+pdbName);
+					strandBuilderMap.put("strand0", new Strand.Builder(mol).setTemplateLibrary(templateLib));
+					strandBuilderMap.put("strand1", new Strand.Builder(mol).setTemplateLibrary(templateLib));
+					break;
+				case "strand_defs":
+					Pattern definitionPattern = Pattern.compile("\\'(strand\\d)\\': \\[(\\'\\w+\\', ?\\'\\w+\\')\\]");
+					Matcher matcher = definitionPattern.matcher(parts[1]);
+					while(matcher.find()) {
+						String strandNum = matcher.group(1);
+						String strandRange = matcher.group(2);
+						strandRange = strandRange.replaceAll("'","");
+						String[] startAndEnd = strandRange.split(", ?");
+						Strand.Builder strandBuilder = strandBuilderMap.get(strandNum);
+						strandBuilder.setResidues(startAndEnd[0],startAndEnd[1]);
+						strandMap.put(strandNum, strandBuilder.build());
+						//Strand 0: protein
+						//Strant 1: ligand
+					}
+					break;
+				case "strand_flex":
+					String content = parts[1];
+					boolean match0 = content.matches(".*\\'strand\\d\\'.*");
+					boolean match1 = content.matches(".*'strand\\d': ?\\{'\\w+': ?\\['\\w+',.*");
+					boolean match2 = content.matches(".*'strand\\d': ?\\{'\\w+': ?\\[(('\\w+', ?)*)'\\w+'\\].*");
+					definitionPattern = Pattern.compile("'(strand\\d)': ?\\{(('\\w+': ?\\[(('\\w+', ?)*)'\\w+'], ?)*'\\w+': ?\\[(('\\w+', ?)*)'\\w+']+\\s*)}");
+					matcher = definitionPattern.matcher(parts[1]);
+					while(matcher.find()) {
+					    String strandNum = matcher.group(1);
+					    String strandResDefs = matcher.group(2);
+					    Pattern resDefPattern = Pattern.compile("'(\\w+)': ?\\[(('\\w+', ?)*'\\w+')]");
+					    Matcher resDefMatcher = resDefPattern.matcher(strandResDefs);
+					    while(resDefMatcher.find()) {
+							String resNum = resDefMatcher.group(1);
+							String allowedAAs = resDefMatcher.group(2);
+							allowedAAs = allowedAAs.replaceAll("'","");
+							strandMap.get(strandNum).flexibility.get(resNum)
+									.setLibraryRotamers(allowedAAs.split(", ?"))
+									//.addWildTypeRotamers()
+									.setContinuous();
+						}
+						//Strand 0: protein
+						//Strant 1: ligand
+					}
+					break;
+			}
+		}
+		confSpaces.protein = new SimpleConfSpace.Builder().addStrand(strandMap.get("strand0")).build();
+		confSpaces.ligand = new SimpleConfSpace.Builder().addStrand(strandMap.get("strand1")).build();
+		confSpaces.complex= new SimpleConfSpace.Builder().addStrands(strandMap.get("strand0"),
+				strandMap.get("strand1")).build();
+
+
+	    return confSpaces;
 	}
 
 	@Test
@@ -620,7 +750,7 @@ public class TestMARKStar {
 		return result.scores;
 	}
 
-	public static List<KStar.ScoredSequence> runKStar(ConfSpaces confSpaces, double epsilon) {
+	public static List<KStar.ScoredSequence> runKStar(TestKStar.ConfSpaces confSpaces, double epsilon) {
 
 		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 
@@ -666,7 +796,7 @@ public class TestMARKStar {
 		return result.scores;
 	}
 
-	public static Result runMARKStar(ConfSpaces confSpaces, double epsilon){
+	public static Result runMARKStar(TestKStar.ConfSpaces confSpaces, double epsilon){
 
 		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 
