@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.TestBBKStar;
 import edu.duke.cs.osprey.kstar.TestKStar;
+import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.MARKStar.ConfSearchFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -46,13 +47,6 @@ public class TestMARKStar {
 	public static final int NUM_CPUs = 4;
 	public static boolean REUDCE_MINIMIZATIONS = true;
 	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
-
-	public static class ConfSpaces extends TestKStar.ConfSpaces {
-		public ForcefieldParams ffparams;
-		public SimpleConfSpace protein;
-		public SimpleConfSpace ligand;
-		public SimpleConfSpace complex;
-	}
 
 	public static class Result {
 		public MARKStar markstar;
@@ -386,7 +380,6 @@ public class TestMARKStar {
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-				.addMoleculeForWildTypeRotamers(mol)
 				.build();
 
 		// define the protein strand
@@ -817,13 +810,6 @@ public class TestMARKStar {
 							.build()
 							.calcReferenceEnergies()
 					)
-					.build();
-		};
-
-		// how should confs be ordered and searched?
-		ConfSearchFactory confSearchFactory = (emat, pmat) -> {
-			return new ConfAStarTree.Builder(emat, pmat)
-					.setTraditional()
 					.build();
 		};
 
