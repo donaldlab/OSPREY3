@@ -10,24 +10,17 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
-import edu.duke.cs.osprey.markstar.framework.GradientDescentMARKStarPfunc;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
-import edu.duke.cs.osprey.markstar.framework.MARKStarBoundAsync;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.pruning.SimpleDEE;
-import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.io.File;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Implementation of the K* algorithm to predict protein sequence mutations that improve
@@ -386,6 +379,13 @@ public class MARKStar {
 		this.confEcalcFactory = confEcalcFactory;
 		this.settings = settings;
 		this.sequences = new ArrayList();
+	}
+
+	public void precalcEmats() {
+		// compute energy matrices
+		protein.calcEmats();
+		ligand.calcEmats();
+		complex.calcEmats();
 	}
 
 	public List<ScoredSequence> run() {

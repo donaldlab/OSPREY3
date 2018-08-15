@@ -511,6 +511,9 @@ public class MARKStarBound implements PartitionFunction {
             double confCorrection = Math.min(correctgscore, node.rigidScore) + hscore;
             if(!node.isMinimized() && node.getConfLowerBound() < confCorrection
                     && node.getConfLowerBound() - confCorrection > 1e-5) {
+                if(confCorrection < node.getConfLowerBound()) {
+                    System.out.println("huh!?");
+                }
                 recordCorrection(node.getConfLowerBound(), correctgscore - node.gscore);
 
                 node.gscore = correctgscore;
