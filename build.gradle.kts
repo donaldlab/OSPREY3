@@ -112,6 +112,7 @@ dependencies {
 	compile("com.github.haifengl:smile-core:1.5.1")
 	compile("com.github.haifengl:smile-netlib:1.5.1")
 	compile("ch.qos.logback:logback-classic:1.2.3")
+	compile("de.lmu.ifi.dbs.elki:elki:0.7.1")
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
 	// so turn off transitive dependencies. we'll deal with natives manually

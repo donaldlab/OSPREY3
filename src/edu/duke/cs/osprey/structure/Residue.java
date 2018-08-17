@@ -197,6 +197,10 @@ public class Residue implements Serializable {
     public char getChainId() {
         return fullName.charAt(4);
     }
+
+    public String getType() {
+    	return fullName.substring(0, 3).trim();
+	}
     
     public boolean assignTemplate(ResidueTemplateLibrary templateLib) {
         //assign a template to this residue if possible, using the ResidueTemplateLibrary

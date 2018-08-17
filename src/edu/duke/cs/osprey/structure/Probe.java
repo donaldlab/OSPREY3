@@ -374,7 +374,7 @@ public class Probe {
 
 			@Override
 			public String toString() {
-				return String.format("%-10s overlap=%8.3f %s%5.3f%s",
+				return String.format("%-10s overlap=%8.3f %s%5.3f%12s",
 					attraction == Attraction.None ? "" : attraction.name(),
 					overlap,
 					overlap > maxOverlap ? " >" : "<=",

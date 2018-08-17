@@ -266,4 +266,29 @@ public class Protractor {
         assert (angleDegrees <= 180);
         return angleDegrees;
     }
+
+    /** returns the smallest distance between a and b */
+    public static double getDistDegrees(double a, double b) {
+
+    	// sort the points so a < b
+		if (a > b) {
+			double swap = a;
+			a = b;
+			b = swap;
+		}
+
+		double dist = b - a;
+		if (dist <= 180) {
+			assert (dist >= 0);
+			return dist;
+		}
+
+		assert ((360 - dist) >= 0);
+		return 360 - dist;
+	}
+
+	/** returns the smallest directed distance from a to b */
+	public static double getDeltaDegrees(double a, double b) {
+		return normalizeDegrees(b - a);
+	}
 }

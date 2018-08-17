@@ -35,10 +35,8 @@ package edu.duke.cs.osprey.tools;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
+
 
 public class MathTools {
 	
@@ -764,6 +762,74 @@ public class MathTools {
 		public String toString(Integer precision, Integer width) {
 			String spec = "%" + (width != null ? width : "") + (precision != null ? "." + precision : "") + "f";
 			return String.format("[" + spec + "," + spec + "]", lower, upper);
+		}
+	}
+
+	public static class GridIterable implements Iterable<int[]> {
+
+		public final int[] dimensions;
+
+		public GridIterable(int[] dimensions) {
+
+			for (int d : dimensions) {
+				if (d <= 0) {
+					throw new IllegalArgumentException("invalid dimensions: " + Arrays.toString(dimensions));
+				}
+			}
+
+			this.dimensions = dimensions;
+		}
+
+		@Override
+		public Iterator<int[]> iterator() {
+			return new Iterator<int[]>() {
+
+				int[] indices = new int[dimensions.length];
+				boolean hasNext = true;
+
+				{
+					// start indices at one pos before all zeros,
+					// so the first call to next() moves to all zeros
+					Arrays.fill(indices, 0);
+					indices[0] = -1;
+				}
+
+				@Override
+				public boolean hasNext() {
+					return hasNext;
+				}
+
+				@Override
+				public int[] next() {
+
+					if (!hasNext) {
+						throw new NoSuchElementException();
+					}
+
+					// advance to the next index
+					indices[0]++;
+					for (int d=0; d<dimensions.length; d++) {
+						if (indices[d] >= dimensions[d]) {
+							if (d + 1 == dimensions.length) {
+								throw new UnpossibleError();
+							}
+							indices[d] = 0;
+							indices[d + 1]++;
+						}
+					}
+
+					// is there another index after that?
+					hasNext = false;
+					for (int d=0; d<dimensions.length; d++) {
+						if (indices[d] < dimensions[d] - 1) {
+							hasNext = true;
+							break;
+						}
+					}
+
+					return indices;
+				}
+			};
 		}
 	}
 }

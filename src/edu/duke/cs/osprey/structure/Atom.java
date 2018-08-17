@@ -135,4 +135,16 @@ public class Atom implements Serializable {
         return elementType.equalsIgnoreCase("C");
     }
 
+    @Override
+	public String toString() {
+    	if (res != null) {
+			int i = 3*indexInRes;
+			return String.format("%s %s (%.3f, %.3f, %.3f)",
+				res.fullName, name,
+				res.coords[i], res.coords[i + 1], res.coords[i + 2]
+			);
+		} else {
+    		return name;
+		}
+	}
 }
