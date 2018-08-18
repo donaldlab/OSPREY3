@@ -204,10 +204,11 @@ public class EwakstarLab {
 		int numPfConfs = 1; //num of conformations for the partition function calculation
 		double pfEw = 1.0; //partition function energy window calculation
 		int numTopOverallSeqs = 5; //end result number of sequences we want K* estimates for
-		int numCpus = 4;
+		int numCpus = 1;
 		double epsilon = 0.99;
 
 		EwakstarDoer ewakstarDoer = new EwakstarDoer.Builder()
+				.setPrintPDBs(true)
 				.setUseWtBenchmark(false)
 				.setNumEWAKStarSeqs(numEWAKStarSeqs)
 				.setOrderOfMag(orderMag)

@@ -60,6 +60,12 @@ public class EWAKStar {
 
             private int numTopOverallSeqs = (int) Double.POSITIVE_INFINITY;
 
+            private boolean printPDBs = false;
+
+            public Settings.Builder setPrintPDBs(boolean val){
+                printPDBs = val;
+                return this;
+            }
 
             public Settings.Builder setNumTopOverallSeqs(int val){
                 numTopOverallSeqs = val;
@@ -127,10 +133,11 @@ public class EWAKStar {
             }
 
             public Settings build() {
-                return new Settings(useExternalMemory, useExact, numMutations, epsilon, eW, maxPFConfs, numTopOverallSeqs, scoreWriters, showPfuncProgress, wtBenchmark);
+                return new Settings(printPDBs, useExternalMemory, useExact, numMutations, epsilon, eW, maxPFConfs, numTopOverallSeqs, scoreWriters, showPfuncProgress, wtBenchmark);
             }
         }
 
+        public boolean printPDBs;
         public final int numTopOverallSeqs;
         public final boolean useExternalMemory;
         public final int numMutations;
@@ -142,8 +149,9 @@ public class EWAKStar {
         public final EWAKStarScoreWriter.Writers scoreWriters;
         public final boolean showPfuncProgress;
 
-        public Settings(boolean useExternalMemory, boolean useExact, int numMutations, double epsilon, double eW, int maxPFConfs, int numTopOverallSeqs, EWAKStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean wtBenchmark) {
+        public Settings(boolean printPDBs, boolean useExternalMemory, boolean useExact, int numMutations, double epsilon, double eW, int maxPFConfs, int numTopOverallSeqs, EWAKStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean wtBenchmark) {
 
+            this.printPDBs = printPDBs;
             this.numTopOverallSeqs = numTopOverallSeqs;
             this.useExternalMemory = useExternalMemory;
             this.useExact = useExact;

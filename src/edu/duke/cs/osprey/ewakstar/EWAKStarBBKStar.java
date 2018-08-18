@@ -5,6 +5,9 @@ import edu.duke.cs.osprey.astar.conf.ConfSearchCache;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.externalMemory.Queue;
+import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -667,6 +670,26 @@ public class EWAKStarBBKStar {
 
         EWAKStarScore kstarScore = ssnode.makeKStarScore();
         scoredSequences.add(new EWAKStar.ScoredSequence(ssnode.sequence, kstarScore));
+
+        if(kstarSettings.printPDBs) {
+            Iterator<EnergyCalculator.EnergiedParametricMolecule> econfs = ssnode.complex.getEpMols().iterator();
+            HashMap<Double, ConfSearch.ScoredConf> sconfs = ssnode.complex.getSConfs();
+
+            // return the analysis
+            ConfAnalyzer analyzer = new ConfAnalyzer(complex.confEcalcMinimized);
+            ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(sconfs, econfs, 10);
+            String pdbString = "pdbs";
+            File pdbDir = new File(pdbString);
+            if (!pdbDir.exists()) {
+                pdbDir.mkdir();
+            }
+            String seqDir = ssnode.sequence.toString().replaceAll(" ", "_");
+            File directory = new File(pdbString + "/" + seqDir);
+            if (!directory.exists()) {
+                directory.mkdir();
+            }
+            analysis.writePdbs(pdbString + "/" + seqDir + "/conf.*.pdb");
+        }
 
         kstarSettings.scoreWriters.writeScore(new EWAKStarScoreWriter.ScoreInfo(
                 scoredSequences.size() - 1,

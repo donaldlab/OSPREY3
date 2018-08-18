@@ -39,6 +39,8 @@ ewakstarDoer = osprey.EwakstarDoer(
 
     useSMA = False,
 
+    printPDBs = True,
+
     # do we want to set our baseline at the wild-type sequence? as in: do we only want sequences better than wild-type?
     useWtBenchmark = False,
 

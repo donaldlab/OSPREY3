@@ -6,6 +6,8 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -18,6 +20,9 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.function.Function;
 
 /** based on PartitionFunction.java, author: lowegard **/
@@ -126,8 +131,12 @@ public interface EWAKStarPartitionFunction {
 		public final Status status;
 		public final Values values;
 		public final int numConfs;
+		public final ArrayList<EnergyCalculator.EnergiedParametricMolecule> epMols;
+		public final HashMap<Double, ConfSearch.ScoredConf> sConfs;
 
-		public Result(Status status, Values values, int numConfs) {
+		public Result(Status status, ArrayList<EnergyCalculator.EnergiedParametricMolecule> epMols, HashMap<Double, ConfSearch.ScoredConf> sConfs, Values values, int numConfs) {
+			this.epMols = epMols;
+			this.sConfs = sConfs;
 			this.status = status;
 			this.values = values;
 			this.numConfs = numConfs;
@@ -156,7 +165,7 @@ public interface EWAKStarPartitionFunction {
 		}
 
 		public static Result makeAborted() {
-			return new Result(Status.Aborted, Values.makeFullRange(), 0);
+			return new Result(Status.Aborted, null, null, Values.makeFullRange(), 0);
 		}
 	}
 	
@@ -188,6 +197,8 @@ public interface EWAKStarPartitionFunction {
 	}
 
 	Status getStatus();
+	ArrayList<EnergyCalculator.EnergiedParametricMolecule> getEpMols();
+	HashMap<Double, ScoredConf> getSConfs();
 	Values getValues();
 	int getParallelism();
 	int getNumConfsEvaluated();
@@ -199,7 +210,7 @@ public interface EWAKStarPartitionFunction {
 	}
 
 	public default Result makeResult() {
-		return new Result(getStatus(), getValues(), getNumConfsEvaluated());
+		return new Result(getStatus(), getEpMols(), getSConfs(), getValues(), getNumConfsEvaluated());
 	}
 
 
