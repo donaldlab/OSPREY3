@@ -12,24 +12,22 @@ import java.util.List;
 /** tool to write VisIt files for various data sets */
 public class VisIt {
 
-	public static void writeVoxels(List<SmallAngleVoxel> voxels, File file) {
+	public static void writeVoxels(List<SmallAngleVoxel> voxels, int d1, int d2, File file) {
 
 		// convert the voxels to corner points
 		List<double[]> corners = new ArrayList<>();
+
 		for (SmallAngleVoxel voxel : voxels) {
-
-			assert (voxel.intervals.length == 2);
-
-			corners.add(new double[] { voxel.intervals[0].min(), voxel.intervals[1].min() });
-			corners.add(new double[] { voxel.intervals[0].min(), voxel.intervals[1].max() });
-			corners.add(new double[] { voxel.intervals[0].max(), voxel.intervals[1].min() });
-			corners.add(new double[] { voxel.intervals[0].max(), voxel.intervals[1].max() });
+			corners.add(new double[] { voxel.intervals[d1].min(), voxel.intervals[d2].min() });
+			corners.add(new double[] { voxel.intervals[d1].min(), voxel.intervals[d2].max() });
+			corners.add(new double[] { voxel.intervals[d1].max(), voxel.intervals[d2].min() });
+			corners.add(new double[] { voxel.intervals[d1].max(), voxel.intervals[d2].max() });
 		}
 
-		writeDihedrals(corners, file);
+		writeAngles2D(corners, d1, d2, file);
 	}
 
-	public static void writeDihedrals(Collection<double[]> points, File file) {
+	public static void writeAngles2D(Collection<double[]> points, int d1, int d2, File file) {
 
 		try (Writer out = new FileWriter(file)) {
 
@@ -57,16 +55,14 @@ public class VisIt {
 
 			for (double[] p : points) {
 
-				assert (p.length == 2);
-
-				for (int d=0; d<3; d++) {
-					if (d > 0) {
+				for (int i=0; i<3; i++) {
+					if (i > 0) {
 						out.write(" ");
 					}
-					if (d < p.length) {
+					if (i < 2) {
 
 						// map to [0,360] for visualization
-						double pd = p[d];
+						double pd = p[i == 0 ? d1 : d2];
 						while (pd < 0) {
 							pd += 360;
 						}

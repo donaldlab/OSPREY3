@@ -11,16 +11,20 @@ import java.util.stream.Collectors;
 public class SmallAngleVoxel {
 
 	/** an interval on S^1, localized around a point */
-	public class Interval {
+	public static class Interval {
 		
 		public double center;
 		public double less;
 		public double more;
 
 		public Interval(double center) {
+			this(0, center, 0);
+		}
+
+		public Interval(double less, double center, double more) {
 			this.center = center;
-			this.less = 0.0;
-			this.more = 0.0;
+			this.less = less;
+			this.more = more;
 		}
 
 		public void expand(double p) {
@@ -57,7 +61,11 @@ public class SmallAngleVoxel {
 	}
 
 	public Interval[] intervals;
-	
+
+
+	public SmallAngleVoxel(Interval ... intervals) {
+		this.intervals = intervals;
+	}
 
 	public SmallAngleVoxel(double[] p) {
 		intervals = new Interval[p.length];

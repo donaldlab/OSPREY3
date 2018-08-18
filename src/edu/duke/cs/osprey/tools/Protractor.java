@@ -57,12 +57,12 @@ public class Protractor {
         else if(costh < -1 )
             costh = -1;
 
-        return (double) Math.acos( costh );
+        return Math.acos( costh );
     }
 
     
     public static double getAngleDegrees(double A[], double B[], double C[]){
-        return 180. * getAngleRadians(A,B,C) / Math.PI;
+        return Math.toDegrees(getAngleRadians(A,B,C));
     }
     
     public static double getAngleRadians(double A[], double B[], double C[]){//Get the angle ABC
@@ -88,6 +88,51 @@ public class Protractor {
         else
             return ans;
     }
+
+    public static double measureBondAngle(double[] coords, int[] indices) {
+    	return measureBondAngle(coords, indices[0], indices[1], indices[2]);
+	}
+
+	public static double measureBondAngle(double[] coords, int a, int b, int c) {
+    	return measureBondAngle(coords, a, coords, b, coords, c);
+	}
+
+	public static double measureBondAngle(double[][] coords) {
+    	return measureBondAngle(coords[0], 0, coords[1], 0, coords[2], 0);
+	}
+
+	/** measure the bond angle between three atoms, A, B, C, in degrees */
+	public static double measureBondAngle(double[] acoords, int aindex, double[] bcoords, int bindex, double[] ccoords, int cindex) {
+
+		int a3 = aindex*3;
+		int b3 = bindex*3;
+		int c3 = cindex*3;
+
+    	// ac = a - c
+    	double acx = acoords[a3    ] - ccoords[c3    ];
+    	double acy = acoords[a3 + 1] - ccoords[c3 + 1];
+    	double acz = acoords[a3 + 2] - ccoords[c3 + 2];
+
+    	// bc = b - c
+		double bcx = bcoords[b3    ] - ccoords[c3    ];
+		double bcy = bcoords[b3 + 1] - ccoords[c3 + 1];
+		double bcz = bcoords[b3 + 2] - ccoords[c3 + 2];
+
+		// |ac||bc|cos = ac . bc
+		// cos = (ac . bc)/|ac|/|bc|
+		double cos = acx*bcx + acy*bcy + acz*bcz;
+		cos /= acx*acx + acy*acy + acz*acz;
+		cos /= bcx*bcx + bcy*bcy + bcz*bcz;
+
+		// convert to degrees (clamp to [-1,1] to avoid numerical error)
+		if (cos < -1) {
+			return 180;
+		} else if (cos > 1) {
+			return 0;
+		} else {
+			return Math.toDegrees(Math.acos(cos));
+		}
+	}
     
     public static double measureDihedral(double[] coords, int[] indices) {
     	return measureDihedral(coords, indices[0], indices[1], indices[2], indices[3]);
@@ -114,8 +159,12 @@ public class Protractor {
         double angleRadians = Math.atan2(sincos[0], sincos[1]);
         return Protractor.normalizeDegrees(Math.toDegrees(angleRadians));
     }
-    
-    public static double[] measureDihedralSinCos(double[] acoords, int aindex, double[] bcoords, int bindex, double[] ccoords, int cindex, double[] dcoords, int dindex) {
+
+	public static double[] measureDihedralSinCos(double[] coords, int aindex, int bindex, int cindex, int dindex) {
+		return measureDihedralSinCos(coords, aindex, coords, bindex, coords, cindex, coords, dindex);
+	}
+
+	public static double[] measureDihedralSinCos(double[] acoords, int aindex, double[] bcoords, int bindex, double[] ccoords, int cindex, double[] dcoords, int dindex) {
         //This version returns the {sine,cosine} of the dihedral
         
         // This was not written by me, but I have checked it

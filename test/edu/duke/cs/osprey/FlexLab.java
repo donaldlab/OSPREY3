@@ -1,13 +1,21 @@
 package edu.duke.cs.osprey;
 
+import cern.colt.matrix.DoubleFactory1D;
+import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.dof.DOFBlock;
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.dof.DihedralRotation;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.minimization.ObjectiveFunction;
+import edu.duke.cs.osprey.restypes.ResidueTemplate;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.*;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
@@ -16,17 +24,157 @@ import edu.duke.cs.osprey.tools.*;
 
 import java.io.*;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
+import static edu.duke.cs.osprey.tools.Log.logf;
 
 
 public class FlexLab {
 
+	private static PDBScanner scanner = new PDBScanner(
+		new File("/home/jeff/dlab/top8000"),
+
+		// these all have duplicated residues for some reason
+		"3o2rFH_D.pdb",
+		"1xpmFH_D.pdb",
+		"2hmqFH_D.pdb",
+		"3gjuFH_A.pdb",
+		"2zs0FH_D.pdb",
+		"3lf3FH_A.pdb",
+		"3blnFH_A.pdb",
+		"2wtaFH_A.pdb",
+		"1eisFH_A.pdb",
+		"1yslFH_B.pdb",
+		"3piuFH_A.pdb",
+		"2j6vFH_B.pdb",
+		"2vqrFH_A.pdb"
+	);
+
+	private static ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder().build();
+	private static ForcefieldParams ffparams = new ForcefieldParams();
+
+	// define all the dihedrals
+	private static AngleLibrary chiLib = new AngleLibrary();
+	static {
+		chiLib.add("LEU", new AngleLibrary.Dihedral("chi1", "N", "CA", "CB", "CG"));
+		chiLib.add("LEU", new AngleLibrary.Dihedral("chi2", "CA", "CB", "CG", "CD1"));
+	}
+
+	// define all the methyl groups
+	private static AngleLibrary methylLib = new AngleLibrary();
+	static {
+		methylLib.add("LEU", new AngleLibrary.DihedralMod3("methyl1", "CB", "CG", "CD1", "HD11"));
+		methylLib.add("LEU", new AngleLibrary.DihedralMod3("methyl2", "CB", "CG", "CD2", "HD21"));
+	}
+
+	// define all the bond angles
+	private static AngleLibrary angleLib = new AngleLibrary();
+	static {
+		angleLib.add("LEU", new AngleLibrary.BondAngle("tau1", "N", "CA", "CB"));
+		angleLib.add("LEU", new AngleLibrary.BondAngle("tau2", "CA", "CB", "CG"));
+		angleLib.add("LEU", new AngleLibrary.BondAngle("tau31", "CB", "CG", "CD1"));
+		angleLib.add("LEU", new AngleLibrary.BondAngle("tau32", "CB", "CG", "CD2"));
+	}
+
+	static class Rotamer {
+
+		public final String name;
+		public final double percent;
+		public final SmallAngleVoxel voxel;
+
+		public Rotamer(String name, double percent, SmallAngleVoxel voxel) {
+			this.name = name;
+			this.percent = percent;
+			this.voxel = voxel;
+		}
+
+		public boolean matches(double[] dihedrals) {
+			if (voxel == null) {
+				return true;
+			}
+			return voxel.contains(dihedrals);
+		}
+	}
+
+	static class RotamerLibrary {
+
+		public final List<Rotamer> rotamers = new ArrayList<>();
+
+		public void add(Rotamer rot) {
+			rotamers.add(rot);
+		}
+
+		public Rotamer find(double[] dihedrals) {
+			for (Rotamer rot : rotamers) {
+				if (rot.matches(dihedrals)) {
+					return rot;
+				}
+			}
+			throw new NoSuchElementException("no matching rotamer for " + Arrays.toString(dihedrals));
+		}
+	}
+
+	// define a rotamer library based on voxels
+	private static RotamerLibrary rotamers = new RotamerLibrary();
+	static {
+
+		rotamers.add(new Rotamer("pp", 0.6, new SmallAngleVoxel(
+			new SmallAngleVoxel.Interval( -15.0,  62.0,  14.0),
+			new SmallAngleVoxel.Interval( -19.0,  81.0,  13.0)
+		)));
+
+		rotamers.add(new Rotamer("pt", 0.2, new SmallAngleVoxel(
+			new SmallAngleVoxel.Interval( -10.0,  75.0,   7.0),
+			new SmallAngleVoxel.Interval( -10.0, 169.0,  10.0)
+		)));
+
+		rotamers.add(new Rotamer("mm", 0.5, new SmallAngleVoxel(
+			new SmallAngleVoxel.Interval( -17.0, -82.0,  18.0),
+			new SmallAngleVoxel.Interval( -13.0, -64.0,  20.0)
+		)));
+
+		rotamers.add(new Rotamer("tt", 2.0, new SmallAngleVoxel(
+			new SmallAngleVoxel.Interval( -19.0,-173.0,  20.0),
+			new SmallAngleVoxel.Interval( -21.0, 155.0,  21.0)
+		)));
+
+		rotamers.add(new Rotamer("tp", 28.9, new SmallAngleVoxel( // big!
+			new SmallAngleVoxel.Interval( -32.0,-172.0,  43.0),
+			new SmallAngleVoxel.Interval( -26.0,  62.0,  30.0)
+		)));
+
+		rotamers.add(new Rotamer("mt", 61.7, new SmallAngleVoxel( // biggest!
+			new SmallAngleVoxel.Interval( -42.0, -70.0,  33.0),
+			new SmallAngleVoxel.Interval( -36.0, 175.0,  32.0)
+		)));
+
+		rotamers.add(new Rotamer("tm", 0.2, new SmallAngleVoxel(
+			new SmallAngleVoxel.Interval( -10.0,-174.0,   9.0),
+			new SmallAngleVoxel.Interval(  -9.0, -76.0,   9.0)
+		)));
+
+		rotamers.add(new Rotamer("mp", 3.5, new SmallAngleVoxel(
+			new SmallAngleVoxel.Interval( -28.0, -82.0,  32.0),
+			new SmallAngleVoxel.Interval( -52.0,  60.0,  43.0)
+		)));
+
+		rotamers.add(new Rotamer("xx", 0.2, new SmallAngleVoxel(
+			new SmallAngleVoxel.Interval(  -8.0,-146.0,  13.0),
+			new SmallAngleVoxel.Interval(  -8.0,-152.0,   8.0)
+		)));
+
+		rotamers.add(new Rotamer("NA", 0.0, null));
+	}
+
 	public static void main(String[] args)
 	throws Exception {
-		//checkRotamerClashes();
-		top8000();
+		checkRotamerClashes();
+		//top8000Dihedrals();
+		//top8000Angles();
+		//top8000Methyls();
+		//top8000Clashes();
 	}
 
 	public static void checkRotamerClashes() {
@@ -51,38 +199,168 @@ public class FlexLab {
 			.addIntra(0)
 			.make();
 
-		ForcefieldParams ffparams = new ForcefieldParams();
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams).build()) {
 
-			/* TEMP
+			EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc)
+				.setIsMinimizing(false)
+				.build();
+
 			// for each rotamer
 			for (SimpleConfSpace.ResidueConf rc : confSpace.positions.get(0).resConfs) {
 
+				// TEMP: only leucines
+				if (!rc.template.name.equals("LEU")) {
+					continue;
+				}
+
 				RCTuple tuple = new RCTuple(0, rc.index);
-				ParametricMolecule pmol = confSpace.makeMolecule(tuple);
-
-				//EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(confSpace.makeMolecule(tuple), inters);
-
-				// look at probe contacts
 				log("%s %d - %3d", rc.template.name, rc.rotamerIndex, rc.index);
-				List<Probe.AtomPair.Interaction> interactions = probe.getInteractions(pmol.mol.residues, inters, connectivity).stream()
-					.filter(interaction -> interaction.contact.isContact)
-					.sorted(Comparator.comparing(interaction -> interaction.getViolation(0.0)))
-					.collect(Collectors.toList());
 
-				for (Probe.AtomPair.Interaction interaction : interactions) {
-					if (interaction.contact.isClash) {
-						double vdw = calcVDW(interaction.atomPair.a, interaction.atomPair.b, ffparams);
-						log("\t%s   %s     vdw=%.4f", interaction.atomPair, interaction, vdw);
-					}
+				Consumer<Molecule> analyzeClashes = (mol) -> {
+					probe.getInteractions(mol.residues, inters, connectivity).stream()
+						.filter(interaction -> interaction.contact.isClash)
+						.sorted(Comparator.comparing(interaction -> interaction.getViolation(0.0)))
+						.forEach(interaction -> {
+							double vdw = calcVDW(interaction.atomPair.a, interaction.atomPair.b, ffparams);
+							log("\t\t%s   %s     vdw=%.4f", interaction.atomPair, interaction, vdw);
+						});
+				};
+
+				// measure dihedrals and bond angles
+				{
+					ParametricMolecule pmol = confSpace.makeMolecule(tuple);
+					Residue res = pmol.mol.getResByPDBResNumber("A23");
+					double[] dihedrals = chiLib.measure(res);
+					Rotamer rot = rotamers.find(dihedrals);
+					log("\trotamer:     %s  %.1f%%", rot.name, rot.percent);
+					log("\tdihedrals:   %s", Arrays.toString(dihedrals));
+					log("\tbond angles: %s", Arrays.toString(angleLib.measure(res)));
+					log("\trigid: %.3f kcal/mol", rigidEcalc.calcEnergy(pmol, inters).energy);
+					analyzeClashes.accept(pmol.mol);
+				}
+
+				// minimize dihedrals
+				{
+					EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(confSpace.makeMolecule(tuple), inters);
+					log("\tminimzed dihedrals: %.3f kcal/mol", epmol.energy);
+					analyzeClashes.accept(epmol.pmol.mol);
+				}
+
+				// minimize methyls
+				{
+					Molecule mol = confSpace.makeMolecule(tuple).mol;
+					Residue res = mol.getResByPDBResNumber("A23");
+					ParametricMolecule pmol = new ParametricMolecule(
+						mol,
+						Arrays.asList(
+							new MethylRotation(res, "CB", "CG", "CD1", "HD11", "HD12", "HD13"),
+							new MethylRotation(res, "CB", "CG", "CD2", "HD21", "HD22", "HD23")
+						),
+						new ObjectiveFunction.DofBounds(new DoubleMatrix1D[] {
+							DoubleFactory1D.dense.make(new double[] { -60.0, -60.0 }),
+							DoubleFactory1D.dense.make(new double[] { 60.0, 60.0 })
+						})
+					);
+					EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(pmol, inters);
+					log("\tminimzed methyls: %.3f kcal/mol", epmol.energy);
+					analyzeClashes.accept(epmol.pmol.mol);
+				}
+
+				// minimize dihedrals and methyls
+				{
+					ParametricMolecule pmol = confSpace.makeMolecule(tuple);
+					assert (pmol.dofs.size() == 2);
+					Residue res = pmol.mol.getResByPDBResNumber("A23");
+					ParametricMolecule pmol2 = new ParametricMolecule(
+						pmol.mol,
+						Arrays.asList(
+							pmol.dofs.get(0), // chi1
+							pmol.dofs.get(1), // chi2
+							new MethylRotation(res, "CB", "CG", "CD1", "HD11", "HD12", "HD13"),
+							new MethylRotation(res, "CB", "CG", "CD2", "HD21", "HD22", "HD23")
+						),
+						new ObjectiveFunction.DofBounds(new DoubleMatrix1D[] {
+							DoubleFactory1D.dense.make(new double[] { pmol.dofBounds.getMin(0), pmol.dofBounds.getMin(1), -60.0, -60.0 }),
+							DoubleFactory1D.dense.make(new double[] { pmol.dofBounds.getMax(0), pmol.dofBounds.getMax(1), 60.0, 60.0 })
+						})
+					);
+					EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(pmol2, inters);
+					log("\tminimzed dihedrals and methyls: %.3f kcal/mol", epmol.energy);
+					analyzeClashes.accept(epmol.pmol.mol);
 				}
 			}
-			*/
 
+			/* TEMP
 			// look at individual structures
 			RCTuple tuple = new RCTuple(0, 99);
 			ParametricMolecule pmol = confSpace.makeMolecule(tuple);
 			PDBIO.writeFile(pmol.mol, new File("rotamer.pdb"));
+			*/
+		}
+	}
+
+	private static class MethylRotation extends DegreeOfFreedom {
+
+		public final Residue res;
+
+		private final int a;
+		private final int b;
+		private final int C;
+		private final int H1;
+		private final int H2;
+		private final int H3;
+
+		public MethylRotation(Residue res, String a, String b, String C, String H1, String H2, String H3) {
+			this.res = res;
+			this.a = res.getAtomByName(a).indexInRes;
+			this.b = res.getAtomByName(b).indexInRes;
+			this.C = res.getAtomByName(C).indexInRes;
+			this.H1 = res.getAtomByName(H1).indexInRes;
+			this.H2 = res.getAtomByName(H2).indexInRes;
+			this.H3 = res.getAtomByName(H3).indexInRes;
+		}
+
+		@Override
+		public void apply(double angleDegrees) {
+
+			// compute the target dihedral
+			double angleRadians = Math.toRadians(angleDegrees);
+			double sin = Math.sin(angleRadians);
+			double cos = Math.cos(angleRadians);
+
+			// measure the current dihedral
+			double measuredSinCos[] = Protractor.measureDihedralSinCos(res.coords, a, b, C, H1);
+
+			// calc the dihedral rotation as a rigid body transformation relative to the current pose
+			double dsin = sin*measuredSinCos[1] - cos*measuredSinCos[0];
+			double dcos = cos*measuredSinCos[1] + sin*measuredSinCos[0];
+
+			double[] bcoords = new double[] {
+				res.coords[b*3    ],
+				res.coords[b*3 + 1],
+				res.coords[b*3 + 2],
+			};
+			double[] Ccoords = new double[] {
+				res.coords[C*3    ],
+				res.coords[C*3 + 1],
+				res.coords[C*3 + 2],
+			};
+			RigidBodyMotion dihRotation = new DihedralRotation(bcoords, Ccoords, dsin, dcos);
+
+			// rotate all the H atoms
+			dihRotation.transform(res.coords, H1);
+			dihRotation.transform(res.coords, H2);
+			dihRotation.transform(res.coords, H3);
+		}
+
+		@Override
+		public DOFBlock getBlock() {
+			return null;
+		}
+
+		@Override
+		public String getName() {
+			return "methyl";
 		}
 	}
 
@@ -114,84 +392,15 @@ public class FlexLab {
 		return vdw.Aij/r12 - vdw.Bij/r6;
 	}
 
-	public static void top8000()
+	public static void top8000Dihedrals()
 	throws Exception {
 
-		// define all the dihedrals
-		AngleLibrary angleLib = new AngleLibrary();
-		angleLib.add("LEU", new AngleLibrary.Dihedral("chi1", "N", "CA", "CB", "CG"));
-		angleLib.add("LEU", new AngleLibrary.Dihedral("chi2", "CA", "CB", "CG", "CD1"));
-
-		// TODO: fix template matching system
-		//ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder().build();
-
-		final Map<DihedralKey,double[]> dihedralsByKey;
-		if (false) {
-
-			dihedralsByKey = new HashMap<>();
-
-			// these all have duplicated residues for some reason
-			new PDBScanner(new File("/home/jeff/dlab/top8000"),
-				"3o2rFH_D.pdb",
-				"1xpmFH_D.pdb",
-				"2hmqFH_D.pdb",
-				"3gjuFH_A.pdb",
-				"2zs0FH_D.pdb",
-				"3lf3FH_A.pdb",
-				"3blnFH_A.pdb",
-				"2wtaFH_A.pdb",
-				"1eisFH_A.pdb",
-				"1yslFH_B.pdb",
-				"3piuFH_A.pdb",
-				"2j6vFH_B.pdb",
-				"2vqrFH_A.pdb"
-			).scan((file, mol) -> {
-
-				// analyze each residue
-				for (Residue res : mol.residues) {
-
-					// TEMP: just leucines for now
-					String type = res.getType();
-					if (!type.equals("LEU")) {
-						continue;
-					}
-
-					// TODO: filter residues by probe clashes?
-
-					/* TODO: fix template assignment!!
-					// DANGER WILL ROBINSON!!! assigning templates causes dihedral angle measurement to be incorrect!!
-					// assign a template
-					res.assignTemplate(templateLib);
-					if (res.template == null) {
-						log("WARN: no template assigned for %s %s", file.getName(), res.fullName);
-						continue;
-					}
-					*/
-
-					DihedralKey key = new DihedralKey(type, file.getName(), res.getPDBResNumber());
-
-					// measure the dihedrals
-					double[] dihedrals = angleLib.measure(res);
-					if (dihedrals == null) {
-						continue;
-					}
-
-					dihedralsByKey.put(key, dihedrals);
-				}
-			});
-
-			// write all the dihedrals to a file
-			ObjectIO.write(dihedralsByKey, "dihedrals.leu.dat");
-
-		} else {
-
-			log("loading dihedrals");
-			//noinspection unchecked
-			dihedralsByKey = ObjectIO.read("dihedrals.leu.dat", HashMap.class);
-		}
+		Map<ResKey,double[]> dihedralsByKey = readAngles(chiLib, "leu.dihedrals.dat", false);
 
 		log("LEU dihedrals: %d", dihedralsByKey.size());
 		int numAngles = 2;
+
+		VisIt.writeAngles2D(dihedralsByKey.values(), 0, 1, new File("leu.dihedrals.vtk"));
 
 		// make a histogram
 		log("building histogram");
@@ -216,13 +425,19 @@ public class FlexLab {
 			keptDihedrals.add(hist.makeDihedrals(key));
 		}
 
+		VisIt.writeAngles2D(keptDihedrals, 0, 1, new File("leu.keptDihedrals.vtk"));
+
 		// cluster the points
 		List<List<double[]>> clusters = AngleClustering.cluster(keptDihedrals, numAngles, 50.0);
+
+		VisIt.writeAngles2D(clusters.get(5), 0, 1, new File("leu.cluster.vtk"));
 
 		// calc bounding voxels for the clusters
 		List<SmallAngleVoxel> voxels = clusters.stream()
 			.map(cluster -> AngleClustering.calcVoxel(cluster))
 			.collect(Collectors.toList());
+
+		VisIt.writeVoxels(voxels, 0, 1, new File("leu.voxels.vtk"));
 
 		// fix fixed-size voxels to the voxels to maximize conf coverage
 		List<SmallAngleVoxel> fixedVoxels = new ArrayList<>();
@@ -251,6 +466,8 @@ public class FlexLab {
 			);
 		}
 
+		VisIt.writeVoxels(fixedVoxels, 0, 1, new File("leu.fixedVoxels.vtk"));
+
 		// analyze the Lovell rotamers
 		List<SmallAngleVoxel> lovellVoxels = Arrays.asList(
 			new SmallAngleVoxel(new double[] { 62, 80 }),
@@ -277,16 +494,225 @@ public class FlexLab {
 			);
 		}
 
-		// vis it
-		VisIt.writeDihedrals(dihedralsByKey.values(), new File("leu.dihedrals.vtk"));
-		VisIt.writeDihedrals(keptDihedrals, new File("leu.keptDihedrals.vtk"));
-		VisIt.writeDihedrals(clusters.get(5), new File("leu.cluster.vtk"));
-		VisIt.writeVoxels(voxels, new File("leu.voxels.vtk"));
-		VisIt.writeVoxels(fixedVoxels, new File("leu.fixedVoxels.vtk"));
-		VisIt.writeVoxels(lovellVoxels, new File("leu.lovellVoxels.vtk"));
+		VisIt.writeVoxels(lovellVoxels, 0, 1, new File("leu.lovellVoxels.vtk"));
 	}
 
-	static class DihedralKey implements Serializable {
+	public static void top8000Angles()
+	throws Exception {
+
+		// from template coords
+		double[] idealLeu = { 77.3, 77.7 };
+
+		// what does our template have?
+		for (ResidueTemplate template : templateLib.templates) {
+			if (template.name.equalsIgnoreCase("LEU") && template.templateRes.coords != null) {
+
+				double[] angles = angleLib.measure(template.templateRes);
+				log("template angles: %.1f, %.1f", angles[0], angles[1]);
+			}
+		}
+
+		Map<ResKey,double[]> dihedralsByKey = readAngles(chiLib, "leu.dihedrals.dat", false);
+		Map<ResKey,double[]> anglesByKey = readAngles(angleLib, "leu.angles.dat", false);
+
+		// get the angle distributions for each rotamer
+		Map<Rotamer,List<double[]>> anglesByRot = new HashMap<>();
+		for (ResKey key : anglesByKey.keySet()) {
+
+			// get the dihedrals for this res, if any
+			double[] dihedrals = dihedralsByKey.get(key);
+			if (dihedrals == null) {
+				continue;
+			}
+
+			// what rotamer is this?
+			Rotamer rot = rotamers.find(dihedrals);
+
+			double[] angles = anglesByKey.get(key);
+
+			anglesByRot.computeIfAbsent(rot, (r) -> new ArrayList<>()).add(angles);
+		}
+
+		for (Rotamer rot : anglesByRot.keySet()) {
+			VisIt.writeAngles2D(anglesByRot.get(rot), 0, 1, new File(String.format("leu.angles.%s.vtk", rot.name)));
+		}
+	}
+
+	public static void top8000Methyls()
+	throws Exception {
+
+		// NOTE: reduce apparently puts all methyls so H1 is at 180 degrees! (ie, mod 3 is 60 degrees)
+		// so there's really no information about methyl orientation in the structure at all!
+
+		Map<ResKey,double[]> dihedralsByKey = readAngles(chiLib, "leu.dihedrals.dat", false);
+		Map<ResKey,double[]> anglesByKey = readAngles(angleLib, "leu.angles.dat", false);
+		Map<ResKey,double[]> methylsByKey = readAngles(methylLib, "leu.methyls.dat", true);
+
+		// what does our template have?
+		for (ResidueTemplate template : templateLib.templates) {
+			if (template.name.equalsIgnoreCase("LEU") && template.templateRes.coords != null) {
+
+				double[] dihedrals = chiLib.measure(template.templateRes);
+				Rotamer rot = rotamers.find(dihedrals);
+
+				double[] methyls = methylLib.measure(template.templateRes);
+				log("template rot: %s methyls: %.1f, %.1f", rot.name, methyls[0], methyls[1]);
+			}
+		}
+
+		// get the methyl dihedral distributions for each rotamer
+		Map<Rotamer,List<double[]>> methylsByRot = new HashMap<>();
+		for (ResKey key : anglesByKey.keySet()) {
+
+			// get the dihedrals for this res, if any
+			double[] dihedrals = dihedralsByKey.get(key);
+			if (dihedrals == null) {
+				continue;
+			}
+
+			// what rotamer is this?
+			Rotamer rot = rotamers.find(dihedrals);
+
+			double[] methyls = methylsByKey.get(key);
+
+			methylsByRot.computeIfAbsent(rot, (r) -> new ArrayList<>()).add(methyls);
+		}
+
+		List<double[]> allMethyls = methylsByRot.values().stream().flatMap(it -> it.stream()).collect(Collectors.toList());
+		VisIt.writeAngles2D(allMethyls, 0, 1, new File("leu.methyls.vtk"));
+
+		for (Rotamer rot : methylsByRot.keySet()) {
+			VisIt.writeAngles2D(methylsByRot.get(rot), 0, 1, new File(String.format("leu.methyls.%s.vtk", rot.name)));
+		}
+	}
+
+	public static void top8000Clashes() {
+
+		Probe probe = new Probe();
+		probe.matchTemplates(templateLib);
+
+		AtomConnectivity connectivity = new AtomConnectivity.Builder()
+			.addTemplates(templateLib)
+			.set15HasNonBonded(false)
+			.build();
+
+		List<double[]> clashingDihedrals = new ArrayList<>();
+
+		scanner.scan((file, mol) -> {
+
+			// analyze each residue
+			for (Residue res : mol.residues) {
+
+				// TEMP: just leucines for now
+				String type = res.getType();
+				if (!type.equals("LEU")) {
+					continue;
+				}
+
+				// use a custom template assigner for now
+				res.assignTemplateSimple(templateLib);
+				if (res.template == null) {
+					//log("WARN: no template assigned for %s %s", file.getName(), res.fullName);
+					continue;
+				}
+
+				//ResKey key = new ResKey(type, file.getName(), res.getPDBResNumber());
+
+				// get the dihedrals for this res, if any
+				double[] dihedrals = chiLib.measure(res);
+				if (dihedrals == null) {
+					continue;
+				}
+
+				/*
+				// what rotamer is this?
+				Rotamer rot = rotamers.find(dihedrals);
+
+				// just look at the popular rotamers for now
+				if (rot.percent < 50) {
+					continue;
+				}
+				*/
+
+				/*
+				// is this atom pair clashing?
+				Probe.AtomPair atomPair = probe.new AtomPair(
+					res.getAtomByName("C"),
+					res.getAtomByName("HD12")
+				);
+				Probe.AtomPair.Interaction interaction = atomPair.getInteraction();
+				if (interaction.contact == Probe.Contact.BadClash) {
+					double vdw = calcVDW(interaction.atomPair.a, interaction.atomPair.b, ffparams);
+					log("\t%24s   %s   %s     vdw=%.4f", key, rot.name, interaction, vdw);
+				}
+				*/
+
+				// is this example clashing?
+				for (int[] atomPair : connectivity.getAtomPairs(res, res).getPairs(AtomNeighbors.Type.NONBONDED)) {
+
+					Probe.AtomPair probePair = probe.new AtomPair(
+						res.atoms.get(atomPair[0]),
+						res.atoms.get(atomPair[1])
+					);
+
+					if (probePair.getInteraction().contact == Probe.Contact.BadClash) {
+						clashingDihedrals.add(dihedrals);
+						break;
+					}
+				}
+			}
+		});
+
+		VisIt.writeAngles2D(clashingDihedrals, 0, 1, new File("leu.clashingDihedrals.vtk"));
+	}
+
+	private static Map<ResKey,double[]> readAngles(AngleLibrary lib, String filename, boolean recalc)
+	throws Exception {
+
+		if (!recalc) {
+			logf("load");
+
+			//noinspection unchecked
+			HashMap<ResKey,double[]> anglesByKey = ObjectIO.read(filename, HashMap.class);
+
+			log("ed %d angles from %s", anglesByKey.size(), filename);
+
+			return anglesByKey;
+		}
+
+		Map<ResKey,double[]> anglesByKey = new HashMap<>();
+
+		scanner.scan((file, mol) -> {
+
+			// analyze each residue
+			for (Residue res : mol.residues) {
+
+				// TEMP: just leucines for now
+				String type = res.getType();
+				if (!type.equals("LEU")) {
+					continue;
+				}
+
+				ResKey key = new ResKey(type, file.getName(), res.getPDBResNumber());
+
+				// measure the angles
+				double[] angles = lib.measure(res);
+				if (angles == null) {
+					continue;
+				}
+
+				anglesByKey.put(key, angles);
+			}
+		});
+
+		// write all the dihedrals to a file
+		ObjectIO.write(anglesByKey, filename);
+		log("wrote %d angles to %s", anglesByKey.size(), filename);
+
+		return anglesByKey;
+	}
+
+	static class ResKey implements Serializable {
 
 		private static final long serialVersionUID = 7858382121141521600L;
 
@@ -294,7 +720,7 @@ public class FlexLab {
 		public final String filename;
 		public final String resNum;
 
-		public DihedralKey(String type, String filename, String resNum) {
+		public ResKey(String type, String filename, String resNum) {
 			this.type = type;
 			this.filename = filename;
 			this.resNum = resNum;
@@ -311,10 +737,10 @@ public class FlexLab {
 
 		@Override
 		public boolean equals(Object other) {
-			return other instanceof DihedralKey && equals((DihedralKey)other);
+			return other instanceof ResKey && equals((ResKey)other);
 		}
 
-		public boolean equals(DihedralKey other) {
+		public boolean equals(ResKey other) {
 			return this.type.equals(other.type)
 				&& this.filename.equals(other.filename)
 				&& this.resNum.equals(other.resNum);
