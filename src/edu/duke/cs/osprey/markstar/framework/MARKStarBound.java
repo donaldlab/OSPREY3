@@ -3,10 +3,8 @@ package edu.duke.cs.osprey.markstar.framework;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.UpperLowerAStarOrder;
 import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
@@ -26,11 +24,9 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.MARKStarProgress;
 import edu.duke.cs.osprey.markstar.framework.MARKStarNode.Node;
-import edu.duke.cs.osprey.markstar.prototype.SimpleConf;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -39,8 +35,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.*;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.PriorityBlockingQueue;
 
 public class MARKStarBound implements PartitionFunction {
 
@@ -253,21 +247,19 @@ public class MARKStarBound implements PartitionFunction {
     private MARKStarNode.ScorerFactory gscorerFactory;
     private MARKStarNode.ScorerFactory hscorerFactory;
 
-    public static final int MAX_CONFSPACE_FRACTION = 1000000;
-    public static final double MINIMIZATION_FACTOR = 0.1;
     public boolean reduceMinimizations = true;
     private ConfAnalyzer confAnalyzer;
     EnergyMatrix minimizingEmat;
     EnergyMatrix rigidEmat;
     UpdatingEnergyMatrix correctionMatrix;
-    ConfEnergyCalculator minimizingEcalc = null;
+    ConfEnergyCalculator minimizingEcalc;
     private Stopwatch stopwatch = new Stopwatch().start();
     BigDecimal cumulativeZCorrection = BigDecimal.ZERO;
     BigDecimal ZReductionFromMin = BigDecimal.ZERO;
     BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
     private boolean computedCorrections = false;
     private long loopPartialTime = 0;
-    private Set<String> correctedTuples = Collections.synchronizedSet(new HashSet<String>());
+    private Set<String> correctedTuples = Collections.synchronizedSet(new HashSet<>());
     private BigDecimal stabilityThreshold;
     private double leafTimeSum = 0;
     private double internalTimeSum = 0;
@@ -293,7 +285,7 @@ public class MARKStarBound implements PartitionFunction {
         this.minimizingEmat = minimizingEmat;
         this.rigidEmat = rigidEmat;
         this.RCs = rcs;
-        this.order = new UpperLowerAStarOrder();
+        this.order = new BiggestLowerboundDifferenceOrder(); //DynamicHMeanAStarOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
         this.pruner = null;
 
@@ -415,12 +407,16 @@ public class MARKStarBound implements PartitionFunction {
         double leafTimeSum = 0;
         double internalTimeSum = 0;
         BigDecimal[] ZSums = new BigDecimal[]{internalZ,leafZ};
+        /*
+        if(this.stateName.contains("Complex"))
+            debugHeap(queue);
+            */
         populateQueues(queue, internalNodes, leafNodes, internalZ, leafZ, ZSums);
         updateBound();
         debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
         internalZ = ZSums[0];// MathTools.bigDivide(ZSums[0], new BigDecimal(Math.max(1,internalTimeAverage*internalNodes.size())), PartitionFunction.decimalPrecision);
         leafZ = ZSums[1]; //MathTools.bigDivide(ZSums[1], new BigDecimal(Math.max(1,leafTimeAverage)), PartitionFunction.decimalPrecision);
-        debugPrint(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
+        System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
         if(MathTools.isLessThan(internalZ, leafZ)) {
             numNodes = leafNodes.size();
             System.out.println("Processing "+numNodes+" leaf nodes...");
@@ -474,17 +470,18 @@ public class MARKStarBound implements PartitionFunction {
         loopCleanup(newNodes, loopWatch, numNodes);
     }
 
-    private void debugHeap(BlockingQueue<MARKStarNode> asyncQueue) {
+    private void debugHeap(Queue<MARKStarNode> queue) {
         int maxNodes = 10;
         System.out.println("Node heap:");
         List<MARKStarNode> nodes = new ArrayList<>();
-        while(!asyncQueue.isEmpty() && nodes.size() < 10)
+        while(!queue.isEmpty() && nodes.size() < 10)
         {
-            MARKStarNode node = asyncQueue.poll();
+            MARKStarNode node = queue.poll();
             System.out.println(node.getConfSearchNode());
             nodes.add(node);
         }
-        asyncQueue.addAll(nodes);
+        queue.addAll(nodes);
+        rootNode.printTree();
     }
 
 

@@ -251,7 +251,24 @@ public class TestMARKStar {
 	public void test2RL0MARKStar() {
 		TestKStar.ConfSpaces confSpaces = null;
 		try {
-			confSpaces = loadFromCFS("examples/python.KStar/2rl0_A_13res_ss_6.837E+28.cfs");
+			confSpaces = loadSSFromCFS("examples/python.KStar/2rl0_A_13res_ss_6.837E+28.cfs");
+			int numSequences = 2;
+			double epsilon = 0.99999;
+			String kstartime = "(Not run)";
+			Stopwatch watch = new Stopwatch();
+			boolean runkstar = false;
+			if(runkstar) {
+				watch.start();
+				runKStar(confSpaces, epsilon);
+				watch.stop();
+				kstartime = watch.getTime(2);
+				watch.reset();
+			}
+			watch.start();
+			runMARKStar(confSpaces, epsilon);
+			watch.stop();
+			String bbkstartime = watch.getTime(2);
+			System.out.println("MARK*: "+bbkstartime+", Traditional K*: "+kstartime);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -263,6 +280,74 @@ public class TestMARKStar {
 		boolean runkstar = false;
 		TestComparison(confSpaces, epsilon, runkstar);
 	}
+
+    private TestKStar.ConfSpaces loadSSFromCFS(String cfsFileName) throws FileNotFoundException {
+	    String fileContents = FileTools.readFile(cfsFileName);
+	    TestKStar.ConfSpaces confSpaces = new ConfSpaces();
+		confSpaces.ffparams = new ForcefieldParams();
+		Map<String, Strand.Builder> strandBuilderMap = new HashMap<>();
+		Map<String, Strand> strandMap = new HashMap<>();
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+				.build();
+
+		for (String line : FileTools.parseLines(fileContents)) {
+			String[] parts = line.split(" = ");
+		    String lineType = parts[0];
+		    switch(lineType) {
+				case "mol":
+					String pdbName = parts[1].substring(parts[1].lastIndexOf('/')+1, parts[1].length()-1);
+					Molecule mol = PDBIO.readFile("examples/python.KStar/"+pdbName);
+					strandBuilderMap.put("strand0", new Strand.Builder(mol).setTemplateLibrary(templateLib));
+					strandBuilderMap.put("strand1", new Strand.Builder(mol).setTemplateLibrary(templateLib));
+					break;
+				case "strand_defs":
+					Pattern definitionPattern = Pattern.compile("\\'(strand\\d)\\': \\[(\\'\\w+\\', ?\\'\\w+\\')\\]");
+					Matcher matcher = definitionPattern.matcher(parts[1]);
+					while(matcher.find()) {
+						String strandNum = matcher.group(1);
+						String strandRange = matcher.group(2);
+						strandRange = strandRange.replaceAll("'","");
+						String[] startAndEnd = strandRange.split(", ?");
+						Strand.Builder strandBuilder = strandBuilderMap.get(strandNum);
+						strandBuilder.setResidues(startAndEnd[0],startAndEnd[1]);
+						strandMap.put(strandNum, strandBuilder.build());
+						//Strand 0: protein
+						//Strant 1: ligand
+					}
+					break;
+				case "strand_flex":
+					String content = parts[1];
+					boolean match0 = content.matches(".*\\'strand\\d\\'.*");
+					boolean match1 = content.matches(".*'strand\\d': ?\\{'\\w+': ?\\['\\w+',.*");
+					boolean match2 = content.matches(".*'strand\\d': ?\\{'\\w+': ?\\[(('\\w+', ?)*)'\\w+'\\].*");
+					definitionPattern = Pattern.compile("'(strand\\d)': ?\\{(('\\w+': ?\\[(('\\w+', ?)*)'\\w+'], ?)*'\\w+': ?\\[(('\\w+', ?)*)'\\w+']+\\s*)}");
+					matcher = definitionPattern.matcher(parts[1]);
+					while(matcher.find()) {
+					    String strandNum = matcher.group(1);
+					    String strandResDefs = matcher.group(2);
+					    Pattern resDefPattern = Pattern.compile("'(\\w+)': ?\\[(('\\w+', ?)*'\\w+')]");
+					    Matcher resDefMatcher = resDefPattern.matcher(strandResDefs);
+					    while(resDefMatcher.find()) {
+							String resNum = resDefMatcher.group(1);
+							strandMap.get(strandNum).flexibility.get(resNum)
+									.setLibraryRotamers(Strand.WildType)
+									.addWildTypeRotamers();
+						}
+						//Strand 0: protein
+						//Strant 1: ligand
+					}
+					break;
+			}
+		}
+		confSpaces.protein = new SimpleConfSpace.Builder().addStrand(strandMap.get("strand0")).build();
+		confSpaces.ligand = new SimpleConfSpace.Builder().addStrand(strandMap.get("strand1")).build();
+		confSpaces.complex= new SimpleConfSpace.Builder().addStrands(strandMap.get("strand0"),
+				strandMap.get("strand1")).build();
+
+
+	    return confSpaces;
+	}
+
 	@Test
 	public void testConfSpaceParse() {
 		try {
@@ -325,7 +410,7 @@ public class TestMARKStar {
 							allowedAAs = allowedAAs.replaceAll("'","");
 							strandMap.get(strandNum).flexibility.get(resNum)
 									.setLibraryRotamers(allowedAAs.split(", ?"))
-									//.addWildTypeRotamers()
+									.addWildTypeRotamers()
 									.setContinuous();
 						}
 						//Strand 0: protein
@@ -341,6 +426,46 @@ public class TestMARKStar {
 
 
 	    return confSpaces;
+	}
+
+	@Test
+	public void test4WWI() {
+		try {
+			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/4wwi_F_12res_1.780E+30.cfs");
+			TestComparison(confSpaces, 0.99, true);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	public void test1B6C() {
+		try {
+			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/1b6c_E_19res_1.010E+52.cfs");
+			TestComparison(confSpaces, 0.99, true);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	public void test4HEM12ResE66() {
+		try {
+			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/4hem_A_12res_4.754E+66.cfs");
+			TestComparison(confSpaces, 0.9999999, false);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	public void test3K3QHuge() {
+		try {
+			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/3k3q_C_26res_1.223E+76.cfs");
+			TestComparison(confSpaces, 0.99, true);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Test
