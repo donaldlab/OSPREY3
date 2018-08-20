@@ -220,7 +220,17 @@ public class MARKStarBound implements PartitionFunction {
 
     @Override
     public Result makeResult() {
-        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs(), Long.toString(stopwatch.getTimeNs()), minList, ZReductionFromMin, cumulativeZCorrection);
+        // Calculate the upper bound z reductions from conf lower bounds, since we don't explicitly record these
+        lowerReduction_ConfUpperBound = rootNode.getLowerBound().subtract(startLowerBound).subtract(lowerReduction_FullMin);
+        // Calculate the lower bound z reductions from conf upper bounds, since we don't explicitly record these
+        upperReduction_ConfLowerBound = rootNode.getUpperBound().subtract(startUpperBound).subtract(upperReduction_FullMin).subtract(upperReduction_PartialMin);
+
+        PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated());
+        result.setWorkInfo(numPartialMinimizations, numConfsScored,minList);
+        result.setZInfo(lowerReduction_FullMin, lowerReduction_ConfUpperBound, upperReduction_FullMin, upperReduction_PartialMin, upperReduction_ConfLowerBound);
+        result.setOrigBounds(startUpperBound, startLowerBound);
+        result.setTimeInfo(stopwatch.getTimeNs());
+        result.setMiscInfo(new BigDecimal(rootNode.getNumConfs()));
         return result;
     }
 
@@ -255,13 +265,14 @@ public class MARKStarBound implements PartitionFunction {
     ConfEnergyCalculator minimizingEcalc;
     private Stopwatch stopwatch = new Stopwatch().start();
     // Variables for reporting pfunc reductions more accurately
-    BigDecimal startingUpperBound = null; //can't start with infinity
-    BigDecimal startingLowerBound = BigDecimal.ZERO;
-    BigDecimal lowerFullMin = BigDecimal.ZERO; //Pfunc lower bound improvement from full minimization
-    BigDecimal lowerConfUpperBound = BigDecimal.ZERO; //Pfunc lower bound improvement from conf upper bounds
-    BigDecimal upperConfLowerBound = BigDecimal.ZERO; //Pfunc upper bound improvement from conf lower bounds
-    BigDecimal upperFullMin = BigDecimal.ZERO; //Pfunc upper bound improvement from full minimization
-    BigDecimal upperPartialMin = BigDecimal.ZERO; //Pfunc upper bound improvement from partial minimization corrections
+    BigDecimal startUpperBound = null; //can't start with infinity
+    BigDecimal startLowerBound = BigDecimal.ZERO;
+    BigDecimal lowerReduction_FullMin = BigDecimal.ZERO; //Pfunc lower bound improvement from full minimization
+    BigDecimal lowerReduction_ConfUpperBound = BigDecimal.ZERO; //Pfunc lower bound improvement from conf upper bounds
+    BigDecimal upperReduction_FullMin = BigDecimal.ZERO; //Pfunc upper bound improvement from full minimization
+    BigDecimal upperReduction_PartialMin = BigDecimal.ZERO; //Pfunc upper bound improvement from partial minimization corrections
+    BigDecimal upperReduction_ConfLowerBound = BigDecimal.ZERO; //Pfunc upper bound improvement from conf lower bounds
+
     BigDecimal cumulativeZCorrection = BigDecimal.ZERO;//Pfunc upper bound improvement from partial minimization corrections
     BigDecimal ZReductionFromMin = BigDecimal.ZERO;//Pfunc lower bound improvement from full minimization
     BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
@@ -315,8 +326,8 @@ public class MARKStarBound implements PartitionFunction {
         setParallelism(parallelism);
         updateBound();
         // Recording pfunc starting bounds
-        this.startingLowerBound = rootNode.getLowerBound();
-        this.startingUpperBound = rootNode.getUpperBound();
+        this.startLowerBound = rootNode.getLowerBound();
+        this.startUpperBound = rootNode.getUpperBound();
         this.minList = new ArrayList<Integer>(Collections.nCopies(rcs.getNumPos(),0));
     }
 
@@ -359,15 +370,15 @@ public class MARKStarBound implements PartitionFunction {
         BigDecimal upper = bc.calc(lowerBound);
         BigDecimal corrected = bc.calc(lowerBound + correction);
         cumulativeZCorrection = cumulativeZCorrection.add(upper.subtract(corrected));
-        upperPartialMin = upperPartialMin.add(upper.subtract(corrected));
+        upperReduction_PartialMin = upperReduction_PartialMin.add(upper.subtract(corrected));
     }
     private void recordReduction(double lowerBound, double upperBound, double energy) {
         BigDecimal lowerBoundWeight = bc.calc(lowerBound);
         BigDecimal upperBoundWeight = bc.calc(upperBound);
         BigDecimal energyWeight = bc.calc(energy);
         ZReductionFromMin = ZReductionFromMin.add(lowerBoundWeight.subtract(upperBoundWeight));
-        upperFullMin = upperFullMin.add(lowerBoundWeight.subtract(energyWeight));
-        lowerFullMin = lowerFullMin.add(energyWeight.subtract(upperBoundWeight));
+        upperReduction_FullMin = upperReduction_FullMin.add(lowerBoundWeight.subtract(energyWeight));
+        lowerReduction_FullMin = lowerReduction_FullMin.add(energyWeight.subtract(upperBoundWeight));
 
     }
 
