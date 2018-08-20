@@ -85,6 +85,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		BigDecimal minLowerScoreWeight = MathTools.BigPositiveInfinity;
 		BigDecimal cumulativeZReduction = BigDecimal.ZERO;
 		ArrayList<Integer> minList = new ArrayList<Integer>();
+		BigDecimal firstScoreWeight = BigDecimal.ZERO;
 
 		// estimate of inital rates
 		// (values here aren't super imporant since they get tuned during execution,
@@ -407,6 +408,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 				case Score: {
 
+					// Boolean to get the first score conf and store it
+					boolean collectScore = false;
+					if (numScoreConfsEnumerated == 0){
+						collectScore = true;
+					}
 					// gather the scores
 					List<ConfSearch.ScoredConf> confs = new ArrayList<>();
 					for (int i=0; i<numScores; i++) {
@@ -422,6 +428,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 						}
 
 						confs.add(conf);
+					}
+
+					// manually score the first conf to get the first upper bound
+					if(collectScore){
+						state.firstScoreWeight = bcalc.calc(confs.get(0).getScore());
 					}
 
 					class ScoreResult {
@@ -444,6 +455,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 							onScores(result.scoreWeights, result.stopwatch.getTimeS());
 						}
 					);
+
 					//Debug lines. If you pulled from the repo and see this you can delete it.
 					if(false) {
 						String bounds = state.getLowerBound()+","+state.getUpperBound();
@@ -570,6 +582,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	private void onScores(List<BigDecimal> scoreWeights, double seconds) {
 
 		synchronized (this) { // don't race the main thread
+		    // If this is the first score,
 
 			// update the state
 			for (BigDecimal weight : scoreWeights) {
@@ -614,6 +627,27 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	}
 	@Override
 	public PartitionFunction.Result makeResult() {
-		return new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated(), 0,getNumConfsScored(), energyConfs.getNumConformations(),Long.toString(stopwatch.getTimeNs()), state.minList, state.cumulativeZReduction, BigDecimal.ZERO);
+	    //Record original bounds
+		BigDecimal startLowerBound = BigDecimal.ZERO;
+		BigDecimal startUpperBound = state.numConfs.multiply(state.firstScoreWeight);
+	    //Record Z reductions
+		BigDecimal lowerFullMin = state.getLowerBound(); //Pfunc lower bound improvement from full minimization
+		BigDecimal lowerConfUpperBound = BigDecimal.ZERO; //Pfunc lower bound improvement from conf upper bounds, K* has none
+		BigDecimal upperFullMin = state.cumulativeZReduction; //Pfunc upper bound improvement from full minimization
+		BigDecimal upperPartialMin = BigDecimal.ZERO; //Pfunc upper bound improvement from partial minimization corrections, K* has none
+
+		// first need to calculate upper bound without energied confs
+		BigDecimal finalUpperBoundNoEnergies = state.getUpperBound()
+				.add(state.lowerScoreWeightSum)
+				.subtract(state.energyWeightSum);
+		BigDecimal upperConfLowerBound = startUpperBound.subtract(finalUpperBoundNoEnergies);
+
+		PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated());
+		result.setWorkInfo(0, getNumConfsScored(),state.minList);
+		result.setZInfo(lowerFullMin, lowerConfUpperBound, upperFullMin, upperPartialMin, upperConfLowerBound);
+		result.setOrigBounds(startUpperBound, startLowerBound);
+		result.setTimeInfo(stopwatch.getTimeNs());
+		result.setMiscInfo(state.numConfs);
+		return result;
 	}
 }
