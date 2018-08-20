@@ -77,6 +77,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		long numScoredConfs = 0;
 		BigDecimal upperScoreWeightSum = BigDecimal.ZERO;
 		BigDecimal minUpperScoreWeight = MathTools.BigPositiveInfinity;
+		double minUpperScore = Double.NEGATIVE_INFINITY;
 
 		// lower bound (energy axis) vars
 		long numEnergiedConfs = 0;
@@ -425,6 +426,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 					}
 
 					class ScoreResult {
+						public List<Double> scores = new ArrayList<>();
 						List<BigDecimal> scoreWeights = new ArrayList<>();
 						Stopwatch stopwatch = new Stopwatch();
 					}
@@ -436,12 +438,13 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 							result.stopwatch.start();
 							for (ConfSearch.ScoredConf conf : confs) {
 								result.scoreWeights.add(bcalc.calc(conf.getScore()));
+								result.scores.add(conf.getScore());
 							}
 							result.stopwatch.stop();
 							return result;
 						},
 						(result) -> {
-							onScores(result.scoreWeights, result.stopwatch.getTimeS());
+							onScores(result.scoreWeights, result.scores, result.stopwatch.getTimeS());
 						}
 					);
 					//Debug lines. If you pulled from the repo and see this you can delete it.
@@ -567,7 +570,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		}
 	}
 
-	private void onScores(List<BigDecimal> scoreWeights, double seconds) {
+	private void onScores(List<BigDecimal> scoreWeights, List<Double> rawScores, double seconds) {
 
 		synchronized (this) { // don't race the main thread
 
@@ -576,6 +579,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 				state.upperScoreWeightSum = state.upperScoreWeightSum.add(weight);
 				if (MathTools.isLessThan(weight, state.minUpperScoreWeight)) {
 					state.minUpperScoreWeight = weight;
+				}
+			}
+			if(false) {
+				for (double score : rawScores) {
+					state.minUpperScore = Math.max(state.minUpperScore, score);
 				}
 			}
 			state.numScoredConfs += scoreWeights.size();

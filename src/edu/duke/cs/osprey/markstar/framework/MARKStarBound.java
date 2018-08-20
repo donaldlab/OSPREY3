@@ -3,8 +3,10 @@ package edu.duke.cs.osprey.markstar.framework;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
@@ -278,14 +280,15 @@ public class MARKStarBound implements PartitionFunction {
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
         MPLPUpdater updater = new EdgeUpdater();
-        hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs);//MPLPPairwiseHScorer(updater, emats, 50, 0.03);
+        MPLPPairwiseHScorer scorer = new MPLPPairwiseHScorer(updater, minimizingEmat, 1, 0.0001);
+        hscorerFactory = (emats) -> scorer.make();//new TraditionalPairwiseHScorer(emats, rcs);//MPLPPairwiseHScorer(updater, emats, 50, 0.03);//
 
         rootNode = MARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs, gscorerFactory, hscorerFactory, true);
         confIndex = new ConfIndex(rcs.getNumPos());
         this.minimizingEmat = minimizingEmat;
         this.rigidEmat = rigidEmat;
         this.RCs = rcs;
-        this.order = new BiggestLowerboundDifferenceOrder(); //DynamicHMeanAStarOrder();
+        this.order = new BiggestLowerboundDifferenceOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
         this.pruner = null;
 
@@ -407,10 +410,8 @@ public class MARKStarBound implements PartitionFunction {
         double leafTimeSum = 0;
         double internalTimeSum = 0;
         BigDecimal[] ZSums = new BigDecimal[]{internalZ,leafZ};
-        /*
         if(this.stateName.contains("Complex"))
             debugHeap(queue);
-            */
         populateQueues(queue, internalNodes, leafNodes, internalZ, leafZ, ZSums);
         updateBound();
         debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
@@ -1067,7 +1068,7 @@ public class MARKStarBound implements PartitionFunction {
         Stopwatch time = new Stopwatch().start();
         epsilonBound = rootNode.computeEpsilonErrorBounds();
         time.stop();
-        //profilePrint("Bound update time: "+time.getTimeS());
+        //System.out.println("Bound update time: "+time.getTime(2));
         debugEpsilon(curEpsilon);
         //System.out.println("Current epsilon:"+epsilonBound);
     }

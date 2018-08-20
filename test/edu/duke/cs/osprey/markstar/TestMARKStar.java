@@ -44,7 +44,7 @@ import static org.junit.Assert.assertThat;
 
 public class TestMARKStar {
 
-	public static final int NUM_CPUs = 4;
+	public static final int NUM_CPUs = 1;
 	public static boolean REUDCE_MINIMIZATIONS = true;
 	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
 
@@ -451,8 +451,8 @@ public class TestMARKStar {
 	@Test
 	public void test4HEM12ResE66() {
 		try {
-			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/4hem_A_12res_4.754E+66.cfs");
-			TestComparison(confSpaces, 0.9999999, false);
+			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/4hem_A_12res_4.754E+66_shrank.cfs");
+			TestComparison(confSpaces, 0.99, false);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
