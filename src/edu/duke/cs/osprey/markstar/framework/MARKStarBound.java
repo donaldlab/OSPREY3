@@ -260,9 +260,10 @@ public class MARKStarBound implements PartitionFunction {
     BigDecimal lowerFullMin = BigDecimal.ZERO; //Pfunc lower bound improvement from full minimization
     BigDecimal lowerConfUpperBound = BigDecimal.ZERO; //Pfunc lower bound improvement from conf upper bounds
     BigDecimal upperConfLowerBound = BigDecimal.ZERO; //Pfunc upper bound improvement from conf lower bounds
+    BigDecimal upperFullMin = BigDecimal.ZERO; //Pfunc upper bound improvement from full minimization
     BigDecimal upperPartialMin = BigDecimal.ZERO; //Pfunc upper bound improvement from partial minimization corrections
-    BigDecimal cumulativeZCorrection = BigDecimal.ZERO;
-    BigDecimal ZReductionFromMin = BigDecimal.ZERO;
+    BigDecimal cumulativeZCorrection = BigDecimal.ZERO;//Pfunc upper bound improvement from partial minimization corrections
+    BigDecimal ZReductionFromMin = BigDecimal.ZERO;//Pfunc lower bound improvement from full minimization
     BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
     private boolean computedCorrections = false;
     private long loopPartialTime = 0;
@@ -360,11 +361,13 @@ public class MARKStarBound implements PartitionFunction {
         cumulativeZCorrection = cumulativeZCorrection.add(upper.subtract(corrected));
         upperPartialMin = upperPartialMin.add(upper.subtract(corrected));
     }
-    private void recordReduction(double score, double energy) {
-        BigDecimal scoreWeight = bc.calc(score);
+    private void recordReduction(double lowerBound, double upperBound, double energy) {
+        BigDecimal lowerBoundWeight = bc.calc(lowerBound);
+        BigDecimal upperBoundWeight = bc.calc(upperBound);
         BigDecimal energyWeight = bc.calc(energy);
-        ZReductionFromMin = ZReductionFromMin.add(scoreWeight.subtract(energyWeight));
-        lowerFullMin = lowerFullMin.add(scoreWeight.subtract(energyWeight));
+        ZReductionFromMin = ZReductionFromMin.add(lowerBoundWeight.subtract(upperBoundWeight));
+        upperFullMin = upperFullMin.add(lowerBoundWeight.subtract(energyWeight));
+        lowerFullMin = lowerFullMin.add(energyWeight.subtract(upperBoundWeight));
 
     }
 
@@ -840,14 +843,17 @@ public class MARKStarBound implements PartitionFunction {
                 double energy = analysis.epmol.energy;
                 double newConfUpper = energy;
                 double newConfLower = energy;
+                // Record pre-minimization bounds so we can parse out how much minimization helped for upper and lower bounds
+                double oldConfUpper = node.getConfUpperBound();
+                double oldConfLower = node.getConfLowerBound();
                 checkConfLowerBound(node, energy);
-                if (energy > node.getConfUpperBound()) {
-                    System.err.println("Upper bounds got worse after minimization:" + energy
-                            + " > " + (node.getConfUpperBound())+". Rejecting minimized energy.");
+                if (newConfUpper > oldConfUpper) {
+                    System.err.println("Upper bounds got worse after minimization:" + newConfUpper
+                            + " > " + (oldConfUpper)+". Rejecting minimized energy.");
                     System.err.println("Node info: "+node);
 
-                    newConfUpper = node.getConfUpperBound();
-                    newConfLower = node.getConfUpperBound();
+                    newConfUpper = oldConfUpper;
+                    newConfLower = oldConfUpper;
                 }
                 curNode.setBoundsFromConfLowerAndUpper(newConfLower,newConfUpper);
                 double oldgscore = node.gscore;
@@ -858,7 +864,7 @@ public class MARKStarBound implements PartitionFunction {
                 synchronized(this) {
                     numConfsEnergied++;
                     minList.set(conf.getAssignments().length-1,minList.get(conf.getAssignments().length-1)+1);
-                    recordReduction(conf.getScore(), energy);
+                    recordReduction(oldConfLower, oldConfUpper, energy);
                     printMinimizationOutput(node, newConfLower, oldgscore);
                 }
 
