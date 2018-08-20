@@ -254,6 +254,13 @@ public class MARKStarBound implements PartitionFunction {
     UpdatingEnergyMatrix correctionMatrix;
     ConfEnergyCalculator minimizingEcalc;
     private Stopwatch stopwatch = new Stopwatch().start();
+    // Variables for reporting pfunc reductions more accurately
+    BigDecimal startingUpperBound = null; //can't start with infinity
+    BigDecimal startingLowerBound = BigDecimal.ZERO;
+    BigDecimal lowerFullMin = BigDecimal.ZERO; //Pfunc lower bound improvement from full minimization
+    BigDecimal lowerConfUpperBound = BigDecimal.ZERO; //Pfunc lower bound improvement from conf upper bounds
+    BigDecimal upperConfLowerBound = BigDecimal.ZERO; //Pfunc upper bound improvement from conf lower bounds
+    BigDecimal upperPartialMin = BigDecimal.ZERO; //Pfunc upper bound improvement from partial minimization corrections
     BigDecimal cumulativeZCorrection = BigDecimal.ZERO;
     BigDecimal ZReductionFromMin = BigDecimal.ZERO;
     BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
@@ -306,6 +313,9 @@ public class MARKStarBound implements PartitionFunction {
         confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
         setParallelism(parallelism);
         updateBound();
+        // Recording pfunc starting bounds
+        this.startingLowerBound = rootNode.getLowerBound();
+        this.startingUpperBound = rootNode.getUpperBound();
         this.minList = new ArrayList<Integer>(Collections.nCopies(rcs.getNumPos(),0));
     }
 
@@ -348,11 +358,13 @@ public class MARKStarBound implements PartitionFunction {
         BigDecimal upper = bc.calc(lowerBound);
         BigDecimal corrected = bc.calc(lowerBound + correction);
         cumulativeZCorrection = cumulativeZCorrection.add(upper.subtract(corrected));
+        upperPartialMin = upperPartialMin.add(upper.subtract(corrected));
     }
     private void recordReduction(double score, double energy) {
         BigDecimal scoreWeight = bc.calc(score);
         BigDecimal energyWeight = bc.calc(energy);
         ZReductionFromMin = ZReductionFromMin.add(scoreWeight.subtract(energyWeight));
+        lowerFullMin = lowerFullMin.add(scoreWeight.subtract(energyWeight));
 
     }
 
