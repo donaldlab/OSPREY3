@@ -51,6 +51,7 @@ import edu.duke.cs.osprey.kstar.MSKStar;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
+import org.ojalgo.matrix.transformation.Rotation;
 
 public interface PartitionFunction {
 
@@ -176,34 +177,53 @@ public interface PartitionFunction {
 		public final Status status;
 		public final Values values;
 		public final int numConfs;
-		public final String totalNumConfs;
 
-		public int numConfsLooked=0;
-		public int numPartialMin=0;
-		public String timeNs;
-		public ArrayList<Integer> minList;
-		public String cumZCorrect;
-		public String cumZReduct;
+		// Custom testing variables
+		public String totalNumConfs = BigInteger.valueOf(0).toString(); // The total confspace size
+		public int numConfsLooked=0; // The number of confs enumerated but not fully minimized
+		public int numPartialMin=0; // The number of partial minimizations completed
+		public String timeNs = BigInteger.valueOf(0).toString(); // The time in ns taken to complete
+		public ArrayList<Integer> minList = new ArrayList<Integer>(); // A list containing all minimizations performed indexed by number of residues minimized
+		public String lowerImprovFullMin = BigDecimal.valueOf(0).toString(); // The pfunc lower bound improvement from full minimizations
+		public String lowerImprovUpperBounds = BigDecimal.valueOf(0).toString(); // The pfunc lower bound improvement from upper bounding
+		public String upperImprovFullMin = BigDecimal.valueOf(0).toString(); // The pfunc upper bound improvement from full minimizations
+		public String upperImprovPartialMin = BigDecimal.valueOf(0).toString(); // The pfunc upper bound improvement from partial minimizations and corrections
+		public String upperImprovLowerBounds = BigDecimal.valueOf(0).toString(); // The pfunc lower bound improvement from lower bounding
+
+		public String startUpperBound = "Infinity";
+		public String startLowerBound = BigDecimal.valueOf(0).toString();
 
 		public Result(Status status, Values values, int numConfs) {
 			this.status = status;
 			this.values = values;
 			this.numConfs = numConfs;
-			this.numConfsLooked=0;
-			this.totalNumConfs = BigInteger.valueOf(0).toString();
 		}
 
-		public Result(Status status, Values values, int numConfs, int numPartialMin, int numConfsLooked, BigInteger totalNumConfs, String timeNs, ArrayList<Integer> minList, BigDecimal cumZReduct, BigDecimal cumZCorrect) {
-			this.status = status;
-			this.values = values;
-			this.numConfs = numConfs;
+		public void setWorkInfo(int numPartialMin, int numConfsLooked, ArrayList<Integer> minList){
 			this.numPartialMin = numPartialMin;
-			this.numConfsLooked=numConfsLooked;
-			this.totalNumConfs = totalNumConfs.toString();
-			this.timeNs = timeNs;
+			this.numConfsLooked = numConfsLooked;
 			this.minList = minList;
-			this.cumZReduct = cumZReduct.toString();
-			this.cumZCorrect = cumZCorrect.toString();
+		}
+
+		public void setTimeInfo(long timeNs){
+			this.timeNs = Long.toString(timeNs);
+		}
+
+		public void setZInfo(BigDecimal lowerImprovFullMin, BigDecimal lowerImprovUpperBounds, BigDecimal upperImprovFullMin, BigDecimal upperImprovPartialMin, BigDecimal upperImprovLowerBounds){
+			this.lowerImprovFullMin = lowerImprovFullMin.toString();
+			this.lowerImprovUpperBounds = lowerImprovUpperBounds.toString();
+			this.upperImprovFullMin = upperImprovFullMin.toString();
+			this.upperImprovPartialMin = upperImprovPartialMin.toString();
+			this.upperImprovLowerBounds = upperImprovLowerBounds.toString();
+		}
+
+		public void setOrigBounds(BigDecimal startUpperBound, BigDecimal startLowerBound){
+			this.startUpperBound = startUpperBound.toString();
+			this.startLowerBound = startLowerBound.toString();
+		}
+
+		public void setMiscInfo(BigDecimal totalNumConfs){
+			this.totalNumConfs = totalNumConfs.toString();
 		}
 		public void setNumConfsLooked(int numConfsLooked){
 			this.numConfsLooked = numConfsLooked;
