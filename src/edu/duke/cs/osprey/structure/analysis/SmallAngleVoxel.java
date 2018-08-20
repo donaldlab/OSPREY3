@@ -56,7 +56,7 @@ public class SmallAngleVoxel {
 
 		@Override
 		public String toString() {
-			return String.format("[%6.1f,%6.1f,%6.1f] -> [%6.1f,%6.1f]", less, center, more, min(), max());
+			return String.format("[%6.1f, %6.1f, %6.1f] -> [%6.1f,%6.1f]  width=%6.1f", less, center, more, min(), max(), more - less);
 		}
 	}
 

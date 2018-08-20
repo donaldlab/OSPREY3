@@ -72,10 +72,91 @@ public class VisIt {
 
 						assert (Double.isFinite(pd));
 
-						out.write(String.format("%.2f", pd));
+						out.write(String.format("%.4f", pd));
 					} else {
 						out.write("0");
 					}
+				}
+				out.write("\n");
+			}
+
+		} catch (IOException ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+
+	/** values stored in y-major order */
+	public static void writeGrid2D(double[] x, double[] y, double[][] values, File file) {
+
+		try (Writer out = new FileWriter(file)) {
+
+			/* write out the vtk file, e.g.:
+				# vtk DataFile Version 3.0
+				beer is super awesome!
+				ASCII
+				DATASET RECTILINEAR_GRID
+				DIMENSIONS 3 4 1
+				X_COORDINATES 3 float
+				0 2 4
+				Y_COORDINATES 4 float
+				1 2 3 4
+				Z_COORDINATES 1 float
+				0
+				POINT_DATA 12
+				FIELD FieldData 1
+				cellscalar 1 12 float
+				0 0 0
+				1 1 1
+				2 2 2
+				3 3 3
+
+				see: http://www.visitusers.org/index.php?title=ASCII_VTK_Files
+				and: https://www.vtk.org/wp-content/uploads/2015/04/file-formats.pdf
+			*/
+
+			// write headers
+			out.write("# vtk DataFile Version 3.0\n");
+			out.write("whatever\n");
+			out.write("ASCII\n");
+			out.write("DATASET RECTILINEAR_GRID\n");
+			out.write(String.format("DIMENSIONS %d %d %d\n", x.length, y.length, 1));
+
+			out.write(String.format("X_COORDINATES %d float\n", x.length));
+			for (int i=0; i<x.length; i++) {
+				if (i % 10 > 0) {
+					out.write(" ");
+				} else if (i > 0) {
+					out.write("\n");
+				}
+				out.write(String.format("%.4f", x[i]));
+			}
+			out.write("\n");
+
+			out.write(String.format("Y_COORDINATES %d float\n", y.length));
+			for (int i=0; i<y.length; i++) {
+				if (i % 10 > 0) {
+					out.write(" ");
+				} else if (i > 0) {
+					out.write("\n");
+				}
+				out.write(String.format("%.4f", y[i]));
+			}
+			out.write("\n");
+
+			out.write("Z_COORDINATES 1 float\n");
+			out.write("0\n");
+
+			out.write(String.format("POINT_DATA %d\n", x.length*y.length));
+			out.write("FIELD fieldDelta 1\n");
+			out.write(String.format("delta 1 %d float\n", x.length*y.length));
+			for (int iy=0; iy<y.length; iy++) {
+				for (int ix=0; ix<x.length; ix++) {
+					if (ix % 10 > 0) {
+						out.write(" ");
+					} else if (ix > 0) {
+						out.write("\n");
+					}
+					out.write(String.format("%.4f", values[iy][ix]));
 				}
 				out.write("\n");
 			}

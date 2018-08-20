@@ -4,10 +4,7 @@ import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 public class AngleLibrary {
 
@@ -105,8 +102,8 @@ public class AngleLibrary {
 
 		public final String[] atomNames;
 
-		public BondAngle(String name, String a, String b, String c) {
-			super(name);
+		public BondAngle(String a, String b, String c) {
+			super(String.format("%s-%s-%s", a, b, c));
 			this.atomNames = new String[] { a, b, c };
 		}
 
@@ -125,6 +122,60 @@ public class AngleLibrary {
 		}
 	}
 
+	public static class TetrahedralInPlaneAngle extends Angle {
+
+		public final String[] atomNames;
+
+		public TetrahedralInPlaneAngle(String a, String b, String c, String d) {
+			super(String.format("TetraIP-%s", d));
+			this.atomNames = new String[] { a, b, c, d };
+		}
+
+		@Override
+		public Double measure(Residue res) {
+
+			// get the atoms, if possible
+			Atom a = res.getAtomByName(atomNames[0]);
+			Atom b = res.getAtomByName(atomNames[1]);
+			Atom c = res.getAtomByName(atomNames[2]);
+			Atom d = res.getAtomByName(atomNames[3]);
+			if (a == null || b == null || c == null || d == null) {
+				return null;
+			}
+
+			Protractor.TetrahedralGeometry t = new Protractor.TetrahedralGeometry();
+			t.update(res.coords, a.indexInRes, b.indexInRes, c.indexInRes, d.indexInRes);
+			return t.inPlaneDegrees;
+		}
+	}
+
+	public static class TetrahedralOutOfPlaneAngle extends Angle {
+
+		public final String[] atomNames;
+
+		public TetrahedralOutOfPlaneAngle(String a, String b, String c, String d) {
+			super(String.format("TetraOOP-%s", d));
+			this.atomNames = new String[] { a, b, c, d };
+		}
+
+		@Override
+		public Double measure(Residue res) {
+
+			// get the atoms, if possible
+			Atom a = res.getAtomByName(atomNames[0]);
+			Atom b = res.getAtomByName(atomNames[1]);
+			Atom c = res.getAtomByName(atomNames[2]);
+			Atom d = res.getAtomByName(atomNames[3]);
+			if (a == null || b == null || c == null || d == null) {
+				return null;
+			}
+
+			Protractor.TetrahedralGeometry t = new Protractor.TetrahedralGeometry();
+			t.update(res.coords, a.indexInRes, b.indexInRes, c.indexInRes, d.indexInRes);
+			return t.outOfPlaneDegrees;
+		}
+	}
+
 
 	private final Map<String,Map<String,Angle>> angles = new HashMap<>();
 
@@ -136,8 +187,8 @@ public class AngleLibrary {
 		return get(type).get(name);
 	}
 
-	private Map<String,Angle> get(String type) {
-		return angles.computeIfAbsent(type, t -> new LinkedHashMap<>());
+	public Map<String,Angle> get(String type) {
+		return angles.computeIfAbsent(type.toUpperCase(), t -> new LinkedHashMap<>());
 	}
 
 	public double[] measure(Residue res) {

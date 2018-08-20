@@ -60,6 +60,10 @@ public class Protractor {
         return Math.acos( costh );
     }
 
+	public static double getAngleDegrees(double vec1[], double vec2[]) {
+    	return Math.toDegrees(getAngleRadians(vec1, vec2));
+	}
+
     
     public static double getAngleDegrees(double A[], double B[], double C[]){
         return Math.toDegrees(getAngleRadians(A,B,C));
@@ -108,21 +112,21 @@ public class Protractor {
 		int b3 = bindex*3;
 		int c3 = cindex*3;
 
-    	// ac = a - c
-    	double acx = acoords[a3    ] - ccoords[c3    ];
-    	double acy = acoords[a3 + 1] - ccoords[c3 + 1];
-    	double acz = acoords[a3 + 2] - ccoords[c3 + 2];
+    	// ba = a - b
+    	double bax = acoords[a3    ] - bcoords[b3    ];
+    	double bay = acoords[a3 + 1] - bcoords[b3 + 1];
+    	double baz = acoords[a3 + 2] - bcoords[b3 + 2];
 
-    	// bc = b - c
-		double bcx = bcoords[b3    ] - ccoords[c3    ];
-		double bcy = bcoords[b3 + 1] - ccoords[c3 + 1];
-		double bcz = bcoords[b3 + 2] - ccoords[c3 + 2];
+    	// bc = c - b
+		double bcx = ccoords[c3    ] - bcoords[b3    ];
+		double bcy = ccoords[c3 + 1] - bcoords[b3 + 1];
+		double bcz = ccoords[c3 + 2] - bcoords[b3 + 2];
 
-		// |ac||bc|cos = ac . bc
-		// cos = (ac . bc)/|ac|/|bc|
-		double cos = acx*bcx + acy*bcy + acz*bcz;
-		cos /= acx*acx + acy*acy + acz*acz;
-		cos /= bcx*bcx + bcy*bcy + bcz*bcz;
+		// |ba||bc|cos = ba . bc
+		// cos = (ba . bc)/|ba|/|bc|
+		double cos = bax*bcx + bay*bcy + baz*bcz;
+		cos /= Math.sqrt(bax*bax + bay*bay + baz*baz);
+		cos /= Math.sqrt(bcx*bcx + bcy*bcy + bcz*bcz);
 
 		// convert to degrees (clamp to [-1,1] to avoid numerical error)
 		if (cos < -1) {
@@ -318,26 +322,112 @@ public class Protractor {
 
     /** returns the smallest distance between a and b */
     public static double getDistDegrees(double a, double b) {
-
-    	// sort the points so a < b
-		if (a > b) {
-			double swap = a;
-			a = b;
-			b = swap;
-		}
-
-		double dist = b - a;
-		if (dist <= 180) {
-			assert (dist >= 0);
-			return dist;
-		}
-
-		assert ((360 - dist) >= 0);
-		return 360 - dist;
+    	return Math.abs(getDeltaDegrees(a, b));
 	}
 
 	/** returns the smallest directed distance from a to b */
 	public static double getDeltaDegrees(double a, double b) {
 		return normalizeDegrees(b - a);
+	}
+
+	/**
+	 * returns the degrees (relative to 0) in a frame defined by the axis and zero vectors
+	 * the axis and zero vectors are assumed to be perpendicular
+	 * v is the query vector, assumed to be perpendicular to axis
+	 * angles are positive in the ccw direction when looking against the axis
+	 */
+	public static double getFrameDegrees(double[] axis, double[] zero, double[] v) {
+
+		// the angle magnitude is the easy part
+		double degrees = getAngleDegrees(v, zero);
+
+		// but is it positive or negative?
+		if (VectorAlgebra.dot(VectorAlgebra.cross(axis, zero), v) < 0) {
+			degrees = -degrees;
+		}
+
+		return degrees;
+	}
+
+	/**
+	 * eg the bond geometry around a Ca atom:
+	 * a = N
+	 * b = Ca
+	 * c = C
+	 * d = Cb
+	 *
+	 * center is b
+	 * inPlaneAxis is halfway between ba and bc, negated and normalized
+	 * outOfPlaneAxis is perpendicular to the plane of a-b-c, normalized
+ 	 */
+	public static class TetrahedralGeometry {
+
+		public double[] ba = new double[3];
+		public double[] bc = new double[3];
+		public double[] bd = new double[3];
+
+		public double[] center = new double[3];
+		public double[] inPlaneAxis = new double[3];
+		public double[] outOfPlaneAxis = new double[3];
+
+		public double[] baflat = new double[3];
+		public double[] bcflat = new double[3];
+		public double[] bdflat = new double[3];
+
+		public double inPlaneDegrees = Double.NaN;
+		public double outOfPlaneDegrees = Double.NaN;
+
+		public void update(double[] coords, int aindex, int bindex, int cindex, int dindex) {
+			update(coords, aindex, coords, bindex, coords, cindex, coords, dindex);
+		}
+
+		public void update(double[] acoords, int aindex, double[] bcoords, int bindex, double[] ccoords, int cindex, double[] dcoords, int dindex) {
+
+			int a3 = aindex*3;
+			int b3 = bindex*3;
+			int c3 = cindex*3;
+			int d3 = dindex*3;
+
+			// center is just b
+			center[0] = bcoords[b3    ];
+			center[1] = bcoords[b3 + 1];
+			center[2] = bcoords[b3 + 2];
+
+			// ba = a - b
+			ba[0] = acoords[a3    ] - center[0];
+			ba[1] = acoords[a3 + 1] - center[1];
+			ba[2] = acoords[a3 + 2] - center[2];
+
+			// bc = c - b
+			bc[0] = ccoords[c3    ] - center[0];
+			bc[1] = ccoords[c3 + 1] - center[1];
+			bc[2] = ccoords[c3 + 2] - center[2];
+
+			// bd = d - b
+			bd[0] = dcoords[d3    ] - center[0];
+			bd[1] = dcoords[d3 + 1] - center[1];
+			bd[2] = dcoords[d3 + 2] - center[2];
+
+			// the out-of-plane axis is ba x bc
+			VectorAlgebra.copy(VectorAlgebra.cross(ba, bc), outOfPlaneAxis);
+			VectorAlgebra.normalizeInPlace(outOfPlaneAxis);
+
+			VectorAlgebra.copy(VectorAlgebra.perpendicularComponent(ba, outOfPlaneAxis), baflat);
+			VectorAlgebra.copy(VectorAlgebra.perpendicularComponent(bc, outOfPlaneAxis), bcflat);
+			VectorAlgebra.copy(VectorAlgebra.perpendicularComponent(bd, outOfPlaneAxis), bdflat);
+
+			// the in-plane axis is halfway between baflat and bcflat, but negated
+			VectorAlgebra.copy(VectorAlgebra.normalize(baflat), inPlaneAxis);
+			VectorAlgebra.addInPlace(inPlaneAxis, VectorAlgebra.normalize(bcflat));
+			VectorAlgebra.scaleInPlace(inPlaneAxis, -0.5);
+			VectorAlgebra.normalizeInPlace(inPlaneAxis);
+
+			// update tetrahedral angles
+			inPlaneDegrees = Protractor.getFrameDegrees(outOfPlaneAxis, inPlaneAxis, bdflat);
+			outOfPlaneDegrees = Protractor.getAngleDegrees(bd, outOfPlaneAxis);
+
+			// map out-of-plane angle from [0,180] to [-90,90]
+			outOfPlaneDegrees -= 90;
+		}
 	}
 }
