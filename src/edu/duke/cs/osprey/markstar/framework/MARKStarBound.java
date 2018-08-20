@@ -223,7 +223,7 @@ public class MARKStarBound implements PartitionFunction {
         // Calculate the upper bound z reductions from conf lower bounds, since we don't explicitly record these
         lowerReduction_ConfUpperBound = rootNode.getLowerBound().subtract(startLowerBound).subtract(lowerReduction_FullMin);
         // Calculate the lower bound z reductions from conf upper bounds, since we don't explicitly record these
-        upperReduction_ConfLowerBound = rootNode.getUpperBound().subtract(startUpperBound).subtract(upperReduction_FullMin).subtract(upperReduction_PartialMin);
+        upperReduction_ConfLowerBound = startUpperBound.subtract(rootNode.getUpperBound()).subtract(upperReduction_FullMin).subtract(upperReduction_PartialMin);
 
         PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated());
         result.setWorkInfo(numPartialMinimizations, numConfsScored,minList);
