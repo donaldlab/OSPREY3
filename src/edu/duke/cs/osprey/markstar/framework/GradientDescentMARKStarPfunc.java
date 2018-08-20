@@ -901,6 +901,6 @@ public class GradientDescentMARKStarPfunc implements PartitionFunction.WithConfT
 	}
 	@Override
 	public Result makeResult() {
-		return new Result(getStatus(), getValues(), getNumConfsEvaluated(), 0,getNumConfsScored(), energyConfs.getNumConformations(),Long.toString(stopwatch.getTimeNs()), state.minList, state.cumulativeZReduction, BigDecimal.ZERO);
+		return new Result(getStatus(), getValues(), getNumConfsEvaluated());
 	}
 }
