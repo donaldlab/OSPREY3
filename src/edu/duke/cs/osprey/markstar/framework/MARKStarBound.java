@@ -281,14 +281,14 @@ public class MARKStarBound implements PartitionFunction {
 
         MPLPUpdater updater = new EdgeUpdater();
         MPLPPairwiseHScorer scorer = new MPLPPairwiseHScorer(updater, minimizingEmat, 1, 0.0001);
-        hscorerFactory = (emats) -> scorer.make();//new TraditionalPairwiseHScorer(emats, rcs);//MPLPPairwiseHScorer(updater, emats, 50, 0.03);//
+        hscorerFactory = (emats) -> new MPLPPairwiseHScorer(updater, emats, 1, 0.0001);//TraditionalPairwiseHScorer(emats, rcs);//
 
         rootNode = MARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs, gscorerFactory, hscorerFactory, true);
         confIndex = new ConfIndex(rcs.getNumPos());
         this.minimizingEmat = minimizingEmat;
         this.rigidEmat = rigidEmat;
         this.RCs = rcs;
-        this.order = new BiggestLowerboundDifferenceOrder();
+        this.order = new StaticBiggestLowerboundDifferenceOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
         this.pruner = null;
 
@@ -410,8 +410,6 @@ public class MARKStarBound implements PartitionFunction {
         double leafTimeSum = 0;
         double internalTimeSum = 0;
         BigDecimal[] ZSums = new BigDecimal[]{internalZ,leafZ};
-        if(this.stateName.contains("Complex"))
-            debugHeap(queue);
         populateQueues(queue, internalNodes, leafNodes, internalZ, leafZ, ZSums);
         updateBound();
         debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
@@ -482,7 +480,6 @@ public class MARKStarBound implements PartitionFunction {
             nodes.add(node);
         }
         queue.addAll(nodes);
-        rootNode.printTree();
     }
 
 
@@ -625,7 +622,6 @@ public class MARKStarBound implements PartitionFunction {
                     confLowerBound = child.gscore + hdiff;
                     double confUpperbound = rigiddiff + maxhdiff;
                     child.computeNumConformations(RCs);
-                    double lowerbound = minimizingEmat.confE(child.assignments);
                     if (diff < confCorrection) {
                         recordCorrection(confLowerBound, confCorrection - diff);
                         confLowerBound = confCorrection + hdiff;
@@ -698,7 +694,7 @@ public class MARKStarBound implements PartitionFunction {
                 newNodes.add(curNode);
 
             //debugHeap(drillQueue, true);
-            if(leafLoop.getTimeS() > 10) {
+            if(leafLoop.getTimeS() > 1) {
                 leafLoop.stop();
                 leafLoop.reset();
                 leafLoop.start();

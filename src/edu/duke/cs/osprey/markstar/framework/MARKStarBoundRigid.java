@@ -287,7 +287,7 @@ public class MARKStarBoundRigid implements PartitionFunction {
         this.minimizingEmat = minimizingEmat;
         this.rigidEmat = rigidEmat;
         this.RCs = rcs;
-        this.order = new StaticScoreHMeanAStarOrder();
+        this.order = new StaticBiggestLowerboundDifferenceOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
         this.pruner = null;
 

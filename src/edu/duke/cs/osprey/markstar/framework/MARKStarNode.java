@@ -427,12 +427,14 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
-            if (lowerBound > upperBound) {
+            if (lowerBound > upperBound){
                 if(debug)
                     System.out.println("Incorrect conf bounds set.");
                 double temp = lowerBound;
                 lowerBound = upperBound;
                 upperBound = temp;
+                lowerBound = Math.min(0, lowerBound);
+                upperBound = Math.max(0, upperBound);
             }
             updateConfLowerBound(lowerBound);
             updateConfUpperBound(upperBound);

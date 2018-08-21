@@ -304,8 +304,8 @@ public class MARKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			//MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(confSpace),
-			MARKStarBoundRigid pfunc = new MARKStarBoundRigid(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(confSpace),
+			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(confSpace),
+			//MARKStarBoundRigid pfunc = new MARKStarBoundRigid(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(confSpace),
 					settings.parallelism);
 			confSearchFactory = (emat, rcs) -> {
 				ConfAStarTree.Builder builder = new ConfAStarTree.Builder(emat, rcs)
