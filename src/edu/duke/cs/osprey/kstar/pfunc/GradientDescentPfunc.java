@@ -149,6 +149,20 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 				.get();
 		}
+		public BigDecimal getUpperBoundNoE() {
+
+			return new BigMath(PartitionFunction.decimalPrecision)
+
+					// unscored bound
+					.set(numConfs)
+					.sub(numScoredConfs)
+					.mult(minUpperScoreWeight)
+
+					// with scored bound
+					.add(upperScoreWeightSum)
+
+					.get();
+		}
 
 		boolean epsilonReached(double targetEpsilon) {
 			return calcDelta() <= targetEpsilon;
@@ -637,9 +651,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		BigDecimal upperPartialMin = BigDecimal.ZERO; //Pfunc upper bound improvement from partial minimization corrections, K* has none
 
 		// first need to calculate upper bound without energied confs
-		BigDecimal finalUpperBoundNoEnergies = state.getUpperBound()
-				.add(state.lowerScoreWeightSum)
-				.subtract(state.energyWeightSum);
+		BigDecimal finalUpperBoundNoEnergies = state.getUpperBoundNoE();
 		BigDecimal upperConfLowerBound = startUpperBound.subtract(finalUpperBoundNoEnergies);
 
 		PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated());
