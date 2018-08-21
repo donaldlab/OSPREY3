@@ -192,11 +192,15 @@ public interface PartitionFunction {
 
 		public String startUpperBound = "Infinity";
 		public String startLowerBound = BigDecimal.valueOf(0).toString();
+		public String endUpperBound = "Infinity";
+		public String endLowerBound = BigDecimal.valueOf(0).toString();
 
 		public Result(Status status, Values values, int numConfs) {
 			this.status = status;
 			this.values = values;
 			this.numConfs = numConfs;
+			this.endUpperBound = values.calcUpperBound().toString();
+			this.endLowerBound = values.calcLowerBound().toString();
 		}
 
 		public void setWorkInfo(int numPartialMin, int numConfsLooked, ArrayList<Integer> minList){
