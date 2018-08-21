@@ -665,7 +665,7 @@ public class TestMARKStar {
 
 	@Test
 	public void testMARKStarVsKStar() {
-		int numFlex = 6;
+		int numFlex = 8;
 		double epsilon = 0.68;
 		compareMARKStarAndKStar(numFlex, epsilon);
 	}
@@ -702,7 +702,7 @@ public class TestMARKStar {
 		int maxNumFlex = 8;
 		double epsilon = 0.68;
 		for(int i = 1; i < maxNumFlex; i++)
-			compareMARKStarAndKStar(i,0.68);
+			compareMARKStarAndKStar(i,epsilon);
 	}
 
 	private void compareMARKStarAndKStar(int numFlex, double epsilon) {
@@ -765,7 +765,46 @@ public class TestMARKStar {
 				new BigDecimal(result.score.complex.upperImprovLowerBounds),
 				new BigDecimal(result.score.complex.lowerImprovFullMin),
 				new BigDecimal(result.score.complex.lowerImprovUpperBounds)
-
+		));
+		System.out.println("Protein Pfunc stats:");
+		System.out.println(String.format("\tStarting upper bound: %12e\n" +
+						"\tStarting lower bound: %12e\n" +
+						"\tEnding upper bound: %12e\n" +
+						"\tEnding lower bound: %12e\n" +
+						"\tUpper bound improvement from full min: %12e\n" +
+						"\tUpper bound improvement from partial min: %12e\n" +
+						"\tUpper bound improvement from conf lower bounds: %12e\n" +
+						"\tLower bound improvement from full min: %12e\n" +
+						"\tLower bound improvement from conf upper bounds: %12e\n",
+				new BigDecimal(result.score.protein.startUpperBound),
+				new BigDecimal(result.score.protein.startLowerBound),
+				result.score.protein.values.qstar.add(result.score.protein.values.qprime),
+				result.score.protein.values.qstar,
+				new BigDecimal(result.score.protein.upperImprovFullMin),
+				new BigDecimal(result.score.protein.upperImprovPartialMin),
+				new BigDecimal(result.score.protein.upperImprovLowerBounds),
+				new BigDecimal(result.score.protein.lowerImprovFullMin),
+				new BigDecimal(result.score.protein.lowerImprovUpperBounds)
+		));
+		System.out.println("Ligand Pfunc stats:");
+		System.out.println(String.format("\tStarting upper bound: %12e\n" +
+						"\tStarting lower bound: %12e\n" +
+						"\tEnding upper bound: %12e\n" +
+						"\tEnding lower bound: %12e\n" +
+						"\tUpper bound improvement from full min: %12e\n" +
+						"\tUpper bound improvement from partial min: %12e\n" +
+						"\tUpper bound improvement from conf lower bounds: %12e\n" +
+						"\tLower bound improvement from full min: %12e\n" +
+						"\tLower bound improvement from conf upper bounds: %12e\n",
+				new BigDecimal(result.score.ligand.startUpperBound),
+				new BigDecimal(result.score.ligand.startLowerBound),
+				result.score.ligand.values.qstar.add(result.score.ligand.values.qprime),
+				result.score.ligand.values.qstar,
+				new BigDecimal(result.score.ligand.upperImprovFullMin),
+				new BigDecimal(result.score.ligand.upperImprovPartialMin),
+				new BigDecimal(result.score.ligand.upperImprovLowerBounds),
+				new BigDecimal(result.score.ligand.lowerImprovFullMin),
+				new BigDecimal(result.score.ligand.lowerImprovUpperBounds)
 		));
 
 	}
@@ -797,7 +836,46 @@ public class TestMARKStar {
 				new BigDecimal(result.score.complex.upperImprovLowerBounds),
 				new BigDecimal(result.score.complex.lowerImprovFullMin),
 				new BigDecimal(result.score.complex.lowerImprovUpperBounds)
-
+		));
+		System.out.println("Protein Pfunc stats:");
+		System.out.println(String.format("\tStarting upper bound: %12e\n" +
+						"\tStarting lower bound: %12e\n" +
+						"\tEnding upper bound: %12e\n" +
+						"\tEnding lower bound: %12e\n" +
+						"\tUpper bound improvement from full min: %12e\n" +
+						"\tUpper bound improvement from partial min: %12e\n" +
+						"\tUpper bound improvement from conf lower bounds: %12e\n" +
+						"\tLower bound improvement from full min: %12e\n" +
+						"\tLower bound improvement from conf upper bounds: %12e\n",
+				new BigDecimal(result.score.protein.startUpperBound),
+				new BigDecimal(result.score.protein.startLowerBound),
+				result.score.protein.values.qstar.add(result.score.protein.values.qprime),
+				result.score.protein.values.qstar,
+				new BigDecimal(result.score.protein.upperImprovFullMin),
+				new BigDecimal(result.score.protein.upperImprovPartialMin),
+				new BigDecimal(result.score.protein.upperImprovLowerBounds),
+				new BigDecimal(result.score.protein.lowerImprovFullMin),
+				new BigDecimal(result.score.protein.lowerImprovUpperBounds)
+		));
+		System.out.println("Ligand Pfunc stats:");
+		System.out.println(String.format("\tStarting upper bound: %12e\n" +
+						"\tStarting lower bound: %12e\n" +
+						"\tEnding upper bound: %12e\n" +
+						"\tEnding lower bound: %12e\n" +
+						"\tUpper bound improvement from full min: %12e\n" +
+						"\tUpper bound improvement from partial min: %12e\n" +
+						"\tUpper bound improvement from conf lower bounds: %12e\n" +
+						"\tLower bound improvement from full min: %12e\n" +
+						"\tLower bound improvement from conf upper bounds: %12e\n",
+				new BigDecimal(result.score.ligand.startUpperBound),
+				new BigDecimal(result.score.ligand.startLowerBound),
+				result.score.ligand.values.qstar.add(result.score.ligand.values.qprime),
+				result.score.ligand.values.qstar,
+				new BigDecimal(result.score.ligand.upperImprovFullMin),
+				new BigDecimal(result.score.ligand.upperImprovPartialMin),
+				new BigDecimal(result.score.ligand.upperImprovLowerBounds),
+				new BigDecimal(result.score.ligand.lowerImprovFullMin),
+				new BigDecimal(result.score.ligand.lowerImprovUpperBounds)
 		));
 	}
 
