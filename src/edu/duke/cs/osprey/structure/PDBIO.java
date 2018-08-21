@@ -38,10 +38,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
 
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.control.Main;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.kstar.SequenceAnalyzer;
 import org.apache.commons.lang3.text.WordUtils;
 
 import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
@@ -118,7 +116,7 @@ public class PDBIO {
 			for (int i=0; i<atoms.size(); i++) {
 				char atomAlt = alts.get(i);
 				if (atomAlt == ' ' || atomAlt == alt) {
-					resAtoms.add(atoms.get(i));
+					resAtoms.add(atoms.get(i).copy());
 					resCoords.add(coords.get(i));
 				}
 			}
