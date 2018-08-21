@@ -69,65 +69,65 @@ public class FlexLab {
 	private static ForcefieldParams ffparams = new ForcefieldParams();
 
 	// define all the dihedrals
-	private static AngleLibrary chiLib = new AngleLibrary();
+	private static MeasurementLibrary chiLib = new MeasurementLibrary();
 	static {
-		chiLib.add("LEU", new AngleLibrary.Dihedral("chi1", "N", "CA", "CB", "CG"));
-		chiLib.add("LEU", new AngleLibrary.Dihedral("chi2", "CA", "CB", "CG", "CD1"));
+		chiLib.add("LEU", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
+		chiLib.add("LEU", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "CD1"));
 
-		chiLib.add("TRP", new AngleLibrary.Dihedral("chi1", "N", "CA", "CB", "CG"));
-		chiLib.add("TRP", new AngleLibrary.Dihedral("chi2", "CA", "CB", "CG", "CD1"));
+		chiLib.add("TRP", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
+		chiLib.add("TRP", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "CD1"));
 	}
 
 	// define all the methyl groups
-	private static AngleLibrary methylLib = new AngleLibrary();
+	private static MeasurementLibrary methylLib = new MeasurementLibrary();
 	static {
-		methylLib.add("LEU", new AngleLibrary.DihedralMod3("methyl1", "CB", "CG", "CD1", "HD11"));
-		methylLib.add("LEU", new AngleLibrary.DihedralMod3("methyl2", "CB", "CG", "CD2", "HD21"));
+		methylLib.add("LEU", new MeasurementLibrary.DihedralAngles3("methyl1", "CB", "CG", "CD1", "HD11", "HD12", "HD13", 0));
+		methylLib.add("LEU", new MeasurementLibrary.DihedralAngles3("methyl2", "CB", "CG", "CD2", "HD21", "HD22", "HD23", 0));
 	}
 
 	// define all the bond angles
-	private static AngleLibrary angleLib = new AngleLibrary();
+	private static MeasurementLibrary angleLib = new MeasurementLibrary();
 	static {
-		angleLib.add("LEU", new AngleLibrary.BondAngle("N", "CA", "CB"));
-		angleLib.add("LEU", new AngleLibrary.BondAngle("C", "CA", "CB"));
-		angleLib.add("LEU", new AngleLibrary.BondAngle("N", "CA", "C"));
+		angleLib.add("LEU", new MeasurementLibrary.BondAngle("N", "CA", "CB"));
+		angleLib.add("LEU", new MeasurementLibrary.BondAngle("C", "CA", "CB"));
+		angleLib.add("LEU", new MeasurementLibrary.BondAngle("N", "CA", "C"));
 
-		angleLib.add("LEU", new AngleLibrary.BondAngle("CA", "CB", "CG"));
-		angleLib.add("LEU", new AngleLibrary.BondAngle("CB", "CG", "CD1"));
-		angleLib.add("LEU", new AngleLibrary.BondAngle("CB", "CG", "CD2"));
+		angleLib.add("LEU", new MeasurementLibrary.BondAngle("CA", "CB", "CG"));
+		angleLib.add("LEU", new MeasurementLibrary.BondAngle("CB", "CG", "CD1"));
+		angleLib.add("LEU", new MeasurementLibrary.BondAngle("CB", "CG", "CD2"));
 
 		// aromatics
-		angleLib.add("HIS", new AngleLibrary.BondAngle("N", "CA", "CB"));
-		angleLib.add("HIS", new AngleLibrary.BondAngle("CA", "CB", "CG"));
+		angleLib.add("HIS", new MeasurementLibrary.BondAngle("N", "CA", "CB"));
+		angleLib.add("HIS", new MeasurementLibrary.BondAngle("CA", "CB", "CG"));
 
-		angleLib.add("PHE", new AngleLibrary.BondAngle("N", "CA", "CB"));
-		angleLib.add("PHE", new AngleLibrary.BondAngle("CA", "CB", "CG"));
+		angleLib.add("PHE", new MeasurementLibrary.BondAngle("N", "CA", "CB"));
+		angleLib.add("PHE", new MeasurementLibrary.BondAngle("CA", "CB", "CG"));
 
-		angleLib.add("TYR", new AngleLibrary.BondAngle("N", "CA", "CB"));
-		angleLib.add("TYR", new AngleLibrary.BondAngle("CA", "CB", "CG"));
+		angleLib.add("TYR", new MeasurementLibrary.BondAngle("N", "CA", "CB"));
+		angleLib.add("TYR", new MeasurementLibrary.BondAngle("CA", "CB", "CG"));
 
-		angleLib.add("TRP", new AngleLibrary.BondAngle("N", "CA", "CB"));
-		angleLib.add("TRP", new AngleLibrary.BondAngle("CA", "CB", "CG"));
+		angleLib.add("TRP", new MeasurementLibrary.BondAngle("N", "CA", "CB"));
+		angleLib.add("TRP", new MeasurementLibrary.BondAngle("CA", "CB", "CG"));
 
 		// charged
-		angleLib.add("ARG", new AngleLibrary.BondAngle("N", "CA", "CB"));
-		angleLib.add("ARG", new AngleLibrary.BondAngle("CA", "CB", "CG"));
+		angleLib.add("ARG", new MeasurementLibrary.BondAngle("N", "CA", "CB"));
+		angleLib.add("ARG", new MeasurementLibrary.BondAngle("CA", "CB", "CG"));
 
-		angleLib.add("LYS", new AngleLibrary.BondAngle("N", "CA", "CB"));
-		angleLib.add("LYS", new AngleLibrary.BondAngle("CA", "CB", "CG"));
+		angleLib.add("LYS", new MeasurementLibrary.BondAngle("N", "CA", "CB"));
+		angleLib.add("LYS", new MeasurementLibrary.BondAngle("CA", "CB", "CG"));
 
-		angleLib.add("ASP", new AngleLibrary.BondAngle("N", "CA", "CB"));
-		angleLib.add("ASP", new AngleLibrary.BondAngle("CA", "CB", "CG"));
+		angleLib.add("ASP", new MeasurementLibrary.BondAngle("N", "CA", "CB"));
+		angleLib.add("ASP", new MeasurementLibrary.BondAngle("CA", "CB", "CG"));
 
-		angleLib.add("GLU", new AngleLibrary.BondAngle("N", "CA", "CB"));
-		angleLib.add("GLU", new AngleLibrary.BondAngle("CA", "CB", "CG"));
+		angleLib.add("GLU", new MeasurementLibrary.BondAngle("N", "CA", "CB"));
+		angleLib.add("GLU", new MeasurementLibrary.BondAngle("CA", "CB", "CG"));
 	}
 
 	// define all the tetrahedral angles
-	private static AngleLibrary tetraLib = new AngleLibrary();
+	private static MeasurementLibrary tetraLib = new MeasurementLibrary();
 	static {
-		tetraLib.add("LEU", new AngleLibrary.TetrahedralInPlaneAngle("N", "CA", "C", "CB"));
-		tetraLib.add("LEU", new AngleLibrary.TetrahedralOutOfPlaneAngle("N", "CA", "C", "CB"));
+		tetraLib.add("LEU", new MeasurementLibrary.TetrahedralInPlaneAngle("N", "CA", "C", "CB"));
+		tetraLib.add("LEU", new MeasurementLibrary.TetrahedralOutOfPlaneAngle("N", "CA", "C", "CB"));
 	}
 
 	static class Rotamer {
@@ -621,7 +621,7 @@ public class FlexLab {
 				double[] angles = angleLib.measure(template.templateRes);
 				log("template %s angles:", template.name);
 				for (int d=0; d<angles.length; d++) {
-					log("%20s = %.1f", new ArrayList<>(angleLib.get(type).values()).get(d).name, angles[d]);
+					log("%20s = %.1f", angleLib.get(type).get(d).name, angles[d]);
 				}
 			}
 		}
@@ -653,10 +653,10 @@ public class FlexLab {
 		log("angles histograms:\n%s", new DegreesHistogram(allAngles).dump());
 
 		// get detailed stats on each angle
-		List<AngleLibrary.Angle> libAngles = new ArrayList<>(angleLib.get(type).values());
+		List<MeasurementLibrary.Measurement> libAngles = angleLib.get(type);
 		for (int a=0; a<libAngles.size(); a++) {
 
-			SmallAngleCluster cluster = new SmallAngleCluster();
+			ClusterS1 cluster = new ClusterS1();
 			for (double[] angles : allAngles) {
 				cluster.add(angles[a]);
 			}
@@ -681,7 +681,7 @@ public class FlexLab {
 				double[] angles = tetraLib.measure(template.templateRes);
 				log("template %s angles:", template.name);
 				for (int d=0; d<angles.length; d++) {
-					log("%20s = %.1f", new ArrayList<>(tetraLib.get(type).values()).get(d).name, angles[d]);
+					log("%20s = %.1f", tetraLib.get(type).get(d).name, angles[d]);
 				}
 			}
 		}
@@ -713,10 +713,10 @@ public class FlexLab {
 		log("angles histograms:\n%s", new DegreesHistogram(allTetras).dump());
 
 		// get detailed stats on each angle
-		List<AngleLibrary.Angle> libTetras = new ArrayList<>(tetraLib.get(type).values());
+		List<MeasurementLibrary.Measurement> libTetras = tetraLib.get(type);
 		for (int a=0; a<libTetras.size(); a++) {
 
-			SmallAngleCluster cluster = new SmallAngleCluster();
+			ClusterS1 cluster = new ClusterS1();
 			for (double[] tetras : allTetras) {
 				cluster.add(tetras[a]);
 			}
@@ -809,7 +809,7 @@ public class FlexLab {
 					continue;
 				}
 
-				//ResKey key = new ResKey(type, file.getName(), res.getPDBResNumber());
+				ResKey key = new ResKey(type, file.getName(), res.getPDBResNumber());
 
 				// get the dihedrals for this res, if any
 				double[] dihedrals = chiLib.measure(res);
@@ -859,7 +859,7 @@ public class FlexLab {
 		VisIt.writeAngles2D(clashingDihedrals, 0, 1, new File("leu.clashingDihedrals.vtk"));
 	}
 
-	private static Map<ResKey,double[]> readAngles(String type, AngleLibrary lib, String filename, boolean recalc)
+	private static Map<ResKey,double[]> readAngles(String type, MeasurementLibrary lib, String filename, boolean recalc)
 	throws Exception {
 
 		if (!recalc) {
@@ -1029,11 +1029,11 @@ public class FlexLab {
 					+ "\n\tmethyl1:   %6.1f"
 					+ "\n\tmethyl2:   %6.1f",
 					label,
-					tetraLib.get(type).get("TetraIP-CB").measure(res),
-					tetraLib.get(type).get("TetraOOP-CB").measure(res),
-					angleLib.get(type).get("CA-CB-CG").measure(res),
-					methylLib.get(type).get("methyl1").measure(res),
-					methylLib.get(type).get("methyl2").measure(res)
+					tetraLib.get(type, "TetraIP-CB").measure(res),
+					tetraLib.get(type, "TetraOOP-CB").measure(res),
+					angleLib.get(type, "CA-CB-CG").measure(res),
+					methylLib.get(type, "methyl1").measure(res),
+					methylLib.get(type, "methyl2").measure(res)
 				);
 			dumpAngles.accept("stock angles");
 

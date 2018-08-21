@@ -129,9 +129,9 @@ public class Protractor {
 		cos /= Math.sqrt(bcx*bcx + bcy*bcy + bcz*bcz);
 
 		// convert to degrees (clamp to [-1,1] to avoid numerical error)
-		if (cos < -1) {
-			return 180;
-		} else if (cos > 1) {
+		if (cos <= -1) {
+			return -180;
+		} else if (cos >= 1) {
 			return 0;
 		} else {
 			return Math.toDegrees(Math.acos(cos));
@@ -309,6 +309,9 @@ public class Protractor {
     }
     
     public static double normalizeDegrees(double angleDegrees) {
+    	if (!Double.isFinite(angleDegrees)) {
+    		throw new IllegalArgumentException("can't normalize angle: " + angleDegrees);
+		}
         while (angleDegrees <= -180) {
             angleDegrees += 360;
         }
@@ -349,6 +352,23 @@ public class Protractor {
 		return degrees;
 	}
 
+	public static double measureBondLength(double[] coords, int aindex, int bindex) {
+		return measureBondLength(coords, aindex, coords, bindex);
+	}
+
+	public static double measureBondLength(double[] acoords, int aindex, double[] bcoords, int bindex) {
+
+		int a3 = aindex*3;
+		int b3 = bindex*3;
+
+		double dx = acoords[a3    ] - bcoords[b3    ];
+		double dy = acoords[a3 + 1] - bcoords[b3 + 1];
+		double dz = acoords[a3 + 2] - bcoords[b3 + 2];
+
+		return Math.sqrt(dx*dx + dy*dy + dz*dz);
+	}
+
+
 	/**
 	 * eg the bond geometry around a Ca atom:
 	 * a = N
@@ -361,6 +381,18 @@ public class Protractor {
 	 * outOfPlaneAxis is perpendicular to the plane of a-b-c, normalized
  	 */
 	public static class TetrahedralGeometry {
+
+		public static class Angles {
+
+			public final double inPlaneDegrees;
+			public final double outOfPlaneDegrees;
+
+			public Angles(double inPlaneDegrees, double outOfPlaneDegrees) {
+				this.inPlaneDegrees = inPlaneDegrees;
+				this.outOfPlaneDegrees = outOfPlaneDegrees;
+			}
+		}
+
 
 		public double[] ba = new double[3];
 		public double[] bc = new double[3];
@@ -428,6 +460,10 @@ public class Protractor {
 
 			// map out-of-plane angle from [0,180] to [-90,90]
 			outOfPlaneDegrees -= 90;
+		}
+
+		public Angles getAngles() {
+			return new Angles(inPlaneDegrees, outOfPlaneDegrees);
 		}
 	}
 }

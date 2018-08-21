@@ -74,6 +74,22 @@ public class SmallAngleVoxel {
 		}
 	}
 
+	public static SmallAngleVoxel makeFromBounds(double[] bounds) {
+
+		if (bounds.length % 3 != 0) {
+			throw new IllegalArgumentException("bounds could come in multiples of 3");
+		}
+		int n = bounds.length/3;
+
+		SmallAngleVoxel.Interval[] voxels = new SmallAngleVoxel.Interval[n];
+		for (int i=0; i<n; i++) {
+			int i3 = i*3;
+			voxels[i] = new SmallAngleVoxel.Interval(bounds[i3], bounds[i3 + 1], bounds[i3 + 2]);
+		}
+
+		return new SmallAngleVoxel(voxels);
+	}
+
 	public void expand(double[] p) {
 		for (int d=0; d<p.length; d++) {
 			intervals[d].expand(p[d]);

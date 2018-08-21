@@ -732,6 +732,15 @@ public class MathTools {
 			this.upper = upper;
 		}
 
+		public void expand(double p) {
+			lower = Math.min(lower, p);
+			upper = Math.max(upper, p);
+		}
+
+		public double size() {
+			return upper - lower;
+		}
+
 		@Override
 		public int hashCode() {
 			return HashCalculator.combineHashes(
