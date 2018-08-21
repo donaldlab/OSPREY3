@@ -459,6 +459,26 @@ public class TestMARKStar {
 	}
 
 	@Test
+	public void test3MA28ResE24() {
+		try {
+			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/3ma2_A_8res_1.509E+24.cfs");
+			TestComparison(confSpaces, 0.99, false);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	public void test3CAL3ResE20() {
+		try {
+			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/3cal_C_3res_7.245E+20.cfs");
+			TestComparison(confSpaces, 0.99, false);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
 	public void test3K3QHuge() {
 		try {
 			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/3k3q_C_26res_1.223E+76.cfs");
