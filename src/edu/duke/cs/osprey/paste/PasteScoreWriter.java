@@ -174,9 +174,7 @@ public interface PasteScoreWriter {
 
 			@Override
 			public String format(ScoreInfo info) {
-				return String.format("sequence %4d/%4d   %s   PAStE ddG: %-34s   ",
-					info.sequenceNumber + 1,
-					info.numSequences,
+				return String.format("%s   PAStE ddG: %-34s   ",
 					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.calcCellSize() + 1),
 					info.pasteScore.toString()
 					//info.pasteScore.protein.toString(),
@@ -193,21 +191,14 @@ public interface PasteScoreWriter {
 			@Override
 			public String header() {
 				return String.join("\t",
-					"Seq ID",
 					"Sequence",
-					"K* Score (Log10)",
-					"K* Lower Bound",
-					"K* Upper Bound",
+					"PAStE Score (ddG)",
+					"PAStE Lower Bound",
+					"PAStE Upper Bound",
 					"Total # Confs.",
-					"Complex Partition Function",
-					"Complex Epsilon",
-					"Complex # Confs.",
 					"Protein Partition Function",
 					"Protein Epsilon",
 					"Protein # Confs.",
-					"Ligand Partition Function",
-					"Ligand Epsilon",
-					"Ligand # Confs.",
 					"Time (sec)"
 				);
 			}
@@ -215,16 +206,14 @@ public interface PasteScoreWriter {
 			@Override
 			public String format(ScoreInfo info) {
 				return String.join("\t",
-					Integer.toString(info.sequenceNumber),
 					info.sequence.toString(Sequence.Renderer.AssignmentMutations, info.sequence.calcCellSize() + 1),
-					info.pasteScore.scoreLog10String(),
+					info.pasteScore.toString(),
 					info.pasteScore.lowerBoundLog10String(),
 					info.pasteScore.upperBoundLog10String(),
 					Integer.toString(info.pasteScore.protein.numConfs ),
 					String.format("%e", info.pasteScore.protein.values.qstar.doubleValue()),
 					Double.toString(info.pasteScore.protein.values.getEffectiveEpsilon()),
-					Integer.toString(info.pasteScore.protein.numConfs),
-					Long.toString((info.timeNs - startNs)/TimeFormatter.NSpS)
+					Integer.toString(info.pasteScore.protein.numConfs)
 				);
 			}
 		}

@@ -162,7 +162,7 @@ public class PasteScore {
 				return s;
 			}
 		};
-		return String.format("%-9s in [%-9s,%9s]       %s",
+		return String.format("%-9s in [%-9s,%9s]       %35s",
 			trim.apply(scoreToString(score)),
 			trim.apply(scoreToString(lowerBound)),
 			trim.apply(scoreToString(upperBound)),
@@ -182,8 +182,8 @@ public class PasteScore {
 	}
 
 	public String scoreLog10String() { return scoreToLog10String(score); }
-	public String lowerBoundLog10String() { return scoreToLog10String(lowerBound); }
-	public String upperBoundLog10String() { return scoreToLog10String(upperBound); }
+	public String lowerBoundLog10String() { return scoreToLog10String(protein.values.calcLowerBound().doubleValue()); }
+	public String upperBoundLog10String() { return scoreToLog10String(protein.values.calcUpperBound().doubleValue()); }
 
 	public static Double scoreToLog10(Double score) {
 		if (score != null) {
