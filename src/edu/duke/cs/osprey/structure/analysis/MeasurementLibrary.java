@@ -62,26 +62,19 @@ public class MeasurementLibrary {
 		}
 	}
 
-	/** dihedral of the ith d atom, sorted by distance to 150 degrees (eg CH3 groups) */
-	public static class DihedralAngles3 extends Measurement {
+	public static class DeltaDihedralAngle extends Measurement {
 
 		public final String a;
 		public final String b;
 		public final String c;
 		public final String[] d;
-		public final int dindex;
 
-		public DihedralAngles3(String a, String b, String c, String d1, String d2, String d3, int dindex) {
-			this(String.format("Dihedral-%s-%s-%s-%d/3", a, b, c, dindex + 1), a, b, c, d1, d2, d3, dindex);
-		}
-
-		public DihedralAngles3(String name, String a, String b, String c, String d1, String d2, String d3, int dindex) {
-			super(name, Space.S);
+		public DeltaDihedralAngle(String a, String b, String c, String d1, String d2) {
+			super(String.format("DDihedral-%s-%s-%s-%s/%s", a, b, c, d1, d2), Space.S);
 			this.a = a;
 			this.b = b;
 			this.c = c;
-			this.d = new String[] { d1, d2, d3 };
-			this.dindex = dindex;
+			this.d = new String[] { d1, d2 };
 		}
 
 		@Override
@@ -93,23 +86,16 @@ public class MeasurementLibrary {
 			Atom c = res.getAtomByName(this.c);
 			Atom[] d = new Atom[] {
 				res.getAtomByName(this.d[0]),
-				res.getAtomByName(this.d[1]),
-				res.getAtomByName(this.d[2])
+				res.getAtomByName(this.d[1])
 			};
-			if (a == null || b == null || c == null || d[0] == null || d[1] == null || d[2] == null) {
+			if (a == null || b == null || c == null || d[0] == null || d[1] == null) {
 				return null;
 			}
 
-			List<Double> angles = new ArrayList<>();
-			for (int i=0; i<3; i++) {
-				angles.add(Protractor.measureDihedral(res.coords, a.indexInRes, b.indexInRes, c.indexInRes, d[i].indexInRes));
-			}
-
-			// sort by distance to 150 degrees
-			angles.sort(Comparator.comparing(angle -> Protractor.getDistDegrees(angle, 150)));
-
-			// pick the ith angle
-			return angles.get(dindex);
+			return Protractor.getDistDegrees(
+				Protractor.measureDihedral(res.coords, a.indexInRes, b.indexInRes, c.indexInRes, d[0].indexInRes),
+				Protractor.measureDihedral(res.coords, a.indexInRes, b.indexInRes, c.indexInRes, d[1].indexInRes)
+			);
 		}
 	}
 
@@ -344,8 +330,8 @@ public class MeasurementLibrary {
 		return measurements.computeIfAbsent(type.toUpperCase(), t -> new ArrayList<>());
 	}
 
-	public double[] measure(Residue res) {
-		List<Measurement> measurements = get(res.getType());
+	public double[] measure(Residue res, String type) {
+		List<Measurement> measurements = get(type);
 		if (measurements.isEmpty()) {
 			return null;
 		}

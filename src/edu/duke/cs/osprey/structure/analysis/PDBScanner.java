@@ -38,23 +38,26 @@ public class PDBScanner {
 
 	/** scans the first N files in the folder for molecules */
 	public void scan(int numFiles, BiConsumer<File,Molecule> callback) {
-		scan(this.files.subList(0, numFiles), callback);
+		scan(this.files.subList(0, numFiles), true, callback);
 	}
 
 	/** scans the folder for molecules */
 	public void scan(BiConsumer<File,Molecule> callback) {
-		scan(this.files, callback);
+		scan(this.files, true, callback);
 	}
 
 	/** scan just the named file */
 	public void scan(String filename, BiConsumer<File,Molecule> callback) {
-		scan(Arrays.asList(new File(dir, filename)), callback);
+		scan(Arrays.asList(new File(dir, filename)), false, callback);
 	}
 
-	private void scan(List<File> files, BiConsumer<File,Molecule> callback) {
+	private void scan(List<File> files, boolean showProgress, BiConsumer<File,Molecule> callback) {
 
-		Progress progress = new Progress(files.size());
-		log("Reading %d PDB files...", files.size());
+		Progress progress = null;
+		if (showProgress) {
+			progress = new Progress(files.size());
+			log("Reading %d PDB files...", files.size());
+		}
 
 		for (File file : files) {
 
@@ -74,9 +77,13 @@ public class PDBScanner {
 				callback.accept(file, mol);
 			}
 
-			progress.incrementProgress();
+			if (showProgress) {
+				progress.incrementProgress();
+			}
 		}
 
-		log("Done reading PDB files!");
+		if (showProgress) {
+			log("Done reading PDB files!");
+		}
 	}
 }

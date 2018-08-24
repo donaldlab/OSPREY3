@@ -81,8 +81,9 @@ public class FlexLab {
 	// define all the methyl groups
 	private static MeasurementLibrary methylLib = new MeasurementLibrary();
 	static {
-		methylLib.add("LEU", new MeasurementLibrary.DihedralAngles3("methyl1", "CB", "CG", "CD1", "HD11", "HD12", "HD13", 0));
-		methylLib.add("LEU", new MeasurementLibrary.DihedralAngles3("methyl2", "CB", "CG", "CD2", "HD21", "HD22", "HD23", 0));
+		// TEMP
+		//methylLib.add("LEU", new MeasurementLibrary.DihedralAngles3("methyl1", "CB", "CG", "CD1", "HD11", "HD12", "HD13", 0));
+		//methylLib.add("LEU", new MeasurementLibrary.DihedralAngles3("methyl2", "CB", "CG", "CD2", "HD21", "HD22", "HD23", 0));
 	}
 
 	// define all the bond angles
@@ -305,12 +306,12 @@ public class FlexLab {
 				{
 					ParametricMolecule pmol = confSpace.makeMolecule(tuple);
 					Residue res = pmol.mol.getResByPDBResNumber("A23");
-					double[] dihedrals = chiLib.measure(res);
+					double[] dihedrals = chiLib.measure(res, type);
 					Rotamer rot = rotamers.find(type, dihedrals);
 					log("\trotamer:     %s  %.1f%%", rot.name, rot.percent);
 					log("\tdihedrals:   %s", Arrays.toString(dihedrals));
-					log("\tbond angles: %s", Arrays.toString(angleLib.measure(res)));
-					log("\tmethyls:     %s", Arrays.toString(methylLib.measure(res)));
+					log("\tbond angles: %s", Arrays.toString(angleLib.measure(res, type)));
+					log("\tmethyls:     %s", Arrays.toString(methylLib.measure(res, type)));
 					log("\trigid: %.3f kcal/mol", rigidEcalc.calcEnergy(pmol, inters).energy);
 					analyzeClashes.accept(pmol.mol);
 				}
@@ -320,7 +321,7 @@ public class FlexLab {
 					EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(confSpace.makeMolecule(tuple), inters);
 					log("\tminimzed dihedrals: %.3f kcal/mol", epmol.energy);
 					Residue res = epmol.pmol.mol.getResByPDBResNumber("A23");
-					log("\t\tdihedrals: %s", Arrays.toString(chiLib.measure(res)));
+					log("\t\tdihedrals: %s", Arrays.toString(chiLib.measure(res, type)));
 					analyzeClashes.accept(epmol.pmol.mol);
 				}
 
@@ -341,7 +342,7 @@ public class FlexLab {
 					);
 					EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(pmol, inters);
 					log("\tminimzed methyls: %.3f kcal/mol", epmol.energy);
-					log("\t\tmethyls: %s", Arrays.toString(methylLib.measure(res)));
+					log("\t\tmethyls: %s", Arrays.toString(methylLib.measure(res, type)));
 					analyzeClashes.accept(epmol.pmol.mol);
 				}
 
@@ -365,8 +366,8 @@ public class FlexLab {
 					);
 					EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(pmol2, inters);
 					log("\tminimzed dihedrals and methyls: %.3f kcal/mol", epmol.energy);
-					log("\t\tdihedrals: %s", Arrays.toString(chiLib.measure(res)));
-					log("\t\tmethyls: %s", Arrays.toString(methylLib.measure(res)));
+					log("\t\tdihedrals: %s", Arrays.toString(chiLib.measure(res, type)));
+					log("\t\tmethyls: %s", Arrays.toString(methylLib.measure(res, type)));
 					analyzeClashes.accept(epmol.pmol.mol);
 				}
 			}
@@ -618,7 +619,7 @@ public class FlexLab {
 		for (ResidueTemplate template : templateLib.templates) {
 			if (template.name.equalsIgnoreCase(type) && template.templateRes.coords != null) {
 
-				double[] angles = angleLib.measure(template.templateRes);
+				double[] angles = angleLib.measure(template.templateRes, type);
 				log("template %s angles:", template.name);
 				for (int d=0; d<angles.length; d++) {
 					log("%20s = %.1f", angleLib.get(type).get(d).name, angles[d]);
@@ -661,7 +662,8 @@ public class FlexLab {
 				cluster.add(angles[a]);
 			}
 
-			log("angle %s: %s", libAngles.get(a).name, cluster.new Stats());
+			// TEMP
+			//log("angle %s: %s", libAngles.get(a).name, cluster.new Stats());
 		}
 
 		/*
@@ -678,7 +680,7 @@ public class FlexLab {
 		for (ResidueTemplate template : templateLib.templates) {
 			if (template.name.equalsIgnoreCase(type) && template.templateRes.coords != null) {
 
-				double[] angles = tetraLib.measure(template.templateRes);
+				double[] angles = tetraLib.measure(template.templateRes, type);
 				log("template %s angles:", template.name);
 				for (int d=0; d<angles.length; d++) {
 					log("%20s = %.1f", tetraLib.get(type).get(d).name, angles[d]);
@@ -721,7 +723,8 @@ public class FlexLab {
 				cluster.add(tetras[a]);
 			}
 
-			log("tetra %s: %s", libTetras.get(a).name, cluster.new Stats());
+			// TEMP
+			//log("tetra %s: %s", libTetras.get(a).name, cluster.new Stats());
 		}
 
 		/*
@@ -745,10 +748,10 @@ public class FlexLab {
 		for (ResidueTemplate template : templateLib.templates) {
 			if (template.name.equalsIgnoreCase(type) && template.templateRes.coords != null) {
 
-				double[] dihedrals = chiLib.measure(template.templateRes);
+				double[] dihedrals = chiLib.measure(template.templateRes, type);
 				Rotamer rot = rotamers.find(type, dihedrals);
 
-				double[] methyls = methylLib.measure(template.templateRes);
+				double[] methyls = methylLib.measure(template.templateRes, type);
 				log("template rot: %s methyls: %.1f, %.1f", rot.name, methyls[0], methyls[1]);
 			}
 		}
@@ -812,7 +815,7 @@ public class FlexLab {
 				ResKey key = new ResKey(type, file.getName(), res.getPDBResNumber());
 
 				// get the dihedrals for this res, if any
-				double[] dihedrals = chiLib.measure(res);
+				double[] dihedrals = chiLib.measure(res, type);
 				if (dihedrals == null) {
 					continue;
 				}
@@ -888,7 +891,7 @@ public class FlexLab {
 				ResKey key = new ResKey(type, file.getName(), res.getPDBResNumber());
 
 				// measure the angles
-				double[] angles = lib.measure(res);
+				double[] angles = lib.measure(res, type);
 				if (angles == null) {
 					continue;
 				}
@@ -993,7 +996,7 @@ public class FlexLab {
 
 			// look at the bond angles of the template
 			Residue res = pmol.mol.residues.getOrThrow("A23");
-			log("%s template angles: %s", type, Arrays.toString(angleLib.measure(res)));
+			log("%s template angles: %s", type, Arrays.toString(angleLib.measure(res, type)));
 
 			// make tetrahedral geometry dofs
 			List<String> sideChain = Arrays.asList("CB", "CG", "CD1", "HD11", "HD12", "HD13", "CD2", "HD21", "HD22", "HD23");
