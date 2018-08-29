@@ -99,7 +99,7 @@ public class Paste {
              *
              * Set to null to disable the filter entirely.
              */
-            private Double stabilityThreshold = 5.0;
+            private Double stabilityThreshold = null;
 
             /** The maximum number of simultaneous residue mutations to consider for each sequence mutant */
             private int maxSimultaneousMutations = 1;

@@ -25,8 +25,9 @@ public class EwakstarLab {
 	public static void main(String[] args) {
 		// run COMETS
 		//EwakstarDoer ewakstarDoer = run2RL0();
-		EwakstarDoer ewakstarDoer = run1GUA();
+		//EwakstarDoer ewakstarDoer = run1GUA();
 		//EwakstarDoer ewakstarDoer = run1GWC();
+		EwakstarDoer ewakstarDoer = runSpA();
 		Set<Sequence> seqs = ewakstarDoer.run(ewakstarDoer.state);
 	}
 
@@ -283,6 +284,114 @@ public class EwakstarLab {
 					.setTraditional()
 					.build();
 		}
+
+		return ewakstarDoer;
+	}
+
+	public static EwakstarDoer runSpA(){
+		Molecule mol = PDBIO.readFile("./test-resources/4npd.A_DomainA_noH_trim_his_clean.min.pdb");
+		ForcefieldParams ffparams = new ForcefieldParams();
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld).build();
+
+		Strand protein = new Strand.Builder(mol)
+				.setResidues("A1", "A36")
+				.setTemplateLibrary(templateLib)
+				.build();
+		protein.flexibility.get("A8").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+
+		Strand ligand = new Strand.Builder(mol)
+				.setResidues("A37", "A58")
+				.setTemplateLibrary(templateLib)
+				.build();
+		ligand.flexibility.get("A41").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A42").setLibraryRotamers(Strand.WildType, "THR", "LYS").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A45").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A46").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+
+		EwakstarDoer.State PL = new EwakstarDoer.State(
+				"PL",
+				new SimpleConfSpace.Builder()
+						.addStrand(protein)
+						.addStrand(ligand)
+						.build()
+		);
+
+		int orderMag = 20; //order of magnitude worse in partition function we want to keep sequences relative to the wild-type
+		int numEWAKStarSeqs = 10000; //number of sequences we want to limit ourselves to during the "sequence filter" portion of ewakstarDoer
+		double ewakstarEw = 20.0; //energy window within the wild-type for finding sequences in the "sequence filter" portion of ewakstarDoer
+		int numPfConfs = 500; //num of conformations for the partition function calculation
+		double pfEw = 1.0; //partition function energy window calculation
+		int numTopOverallSeqs = 5; //end result number of sequences we want K* estimates for
+		int numCpus = 4;
+		double epsilon = 0.99;
+
+		EwakstarDoer ewakstarDoer = new EwakstarDoer.Builder()
+				.setNumEWAKStarSeqs(numEWAKStarSeqs)
+				.setOrderOfMag(orderMag)
+				.setPfEw(pfEw)
+				.setEpsilon(epsilon)
+				.setNumPfConfs(numPfConfs)
+				.setNumTopOverallSeqs(numTopOverallSeqs)
+				.addState(PL)
+				.setEw(ewakstarEw)
+				.setMutableType("exact")
+				.setNumMutable(1)
+				.setSeqFilterOnly(false)
+				.setNumCpus(numCpus)
+				.setLogFile(new File("ewakstar.sequences.tsv"))
+				.build();
+
+
+		EnergyCalculator ecalc = new EnergyCalculator.Builder(PL.confSpace, ffparams)
+				.setParallelism(Parallelism.makeCpu(numCpus))
+				.build();
+		EnergyCalculator rigidEcalc = new EnergyCalculator.Builder(PL.confSpace, ffparams)
+				.setIsMinimizing(false)
+				.setParallelism(Parallelism.makeCpu(4))
+				.build();
+
+		// what are conformation energies?
+		SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(PL.confSpace, ecalc)
+				.build()
+				.calcReferenceEnergies();
+		SimpleReferenceEnergies rigidEref = new SimplerEnergyMatrixCalculator.Builder(PL.confSpace, rigidEcalc)
+				.build()
+				.calcReferenceEnergies();
+
+		PL.confEcalc =new ConfEnergyCalculator.Builder(PL.confSpace,ecalc)
+				.setReferenceEnergies(eref)
+				.build();
+
+		PL.confRigidEcalc =new ConfEnergyCalculator.Builder(PL.confSpace,rigidEcalc)
+				.setReferenceEnergies(rigidEref)
+				.build();
+
+		// calc the energy matrix
+		PL.emat =new SimplerEnergyMatrixCalculator.Builder(PL.confEcalc)
+				.setCacheFile(new File(String.format("ewakstar.%s.emat", PL.name)))
+				.build()
+				.calcEnergyMatrix();
+
+		PL.fragmentEnergies =PL.emat;
+		PL.ematRigid =new SimplerEnergyMatrixCalculator.Builder(PL.confRigidEcalc)
+				.setCacheFile(new File(String.format("ewakstar.%s.ematRigid", PL.name)))
+				.build()
+				.calcEnergyMatrix();
+
+
+
+		// make the conf tree factory
+		PL.confTreeFactoryMin =(rcs) -> new ConfAStarTree.Builder(PL.emat, rcs)
+				.setMaxNumNodes(2000000)
+				.setTraditional()
+				.build();
+
+		PL.confTreeFactoryRigid =(rcs) -> new ConfAStarTree.Builder(PL.ematRigid, rcs)
+				.setMaxNumNodes(2000000)
+				.setTraditional()
+				.build();
 
 		return ewakstarDoer;
 	}

@@ -132,12 +132,10 @@ public class PasteRunner {
 
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(proteinConfSpace, new ForcefieldParams())
 			.setParallelism(Parallelism.makeCpu(1))
-			//.setParallelism(Parallelism.make(4, 1, 1))
 			.build()
 		) {
 			Paste paste = new Paste(proteinConfSpace, settings);
 
-			//
 
 			SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(paste.protein.confSpace, ecalc).build();
 			paste.protein.confEcalc = new ConfEnergyCalculator.Builder(paste.protein.confSpace, ecalc).setReferenceEnergies(eref).build();
@@ -146,8 +144,6 @@ public class PasteRunner {
 					.setCacheFile(new File(String.format("paste.emat.%s.dat", paste.protein.id)))
 					.build()
 					.calcEnergyMatrix();
-
-			//emat.seteRefMat(eref);
 
 			paste.protein.confSearchFactory = (rcs) -> new ConfAStarTree.Builder(emat, rcs)
 					.setTraditional()

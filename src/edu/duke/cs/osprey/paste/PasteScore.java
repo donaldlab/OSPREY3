@@ -108,7 +108,8 @@ public class PasteScore {
 			this.stability = "Mutation Increases Stability";
 		} else if (this.upperBound > 0 && this.lowerBound > 0){
 			this.stability = "Mutation Decreases Stability";
-		}
+		} else
+			this.stability = "Affect on Stability Unclear";
 	}
 
 	public PasteScore(PastePartitionFunction.Result protein) {

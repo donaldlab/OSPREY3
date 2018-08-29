@@ -795,6 +795,56 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
 	return bbflex
 
+def Paste(complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault):
+    '''
+    :java:classdoc:`.paste.Paste`
+
+    For examples using PAStE, see the examples/python.Paste directory in your Osprey distribution.
+
+	:param complexConfSpace: :java:fielddoc:`.paste.Paste#protein`
+	:type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:builder_option epsilon .paste.Paste$Settings$Builder#epsilon:
+	:builder_option stabilityThreshold .paste.Paste$Settings$Builder#stabilityThreshold:
+	:builder_option maxSimultaneousMutations .paste.Paste$Settings$Builder#maxSimultaneousMutations:
+	:builder_option useExternalMemory .paste.Paste$Settings$Builder#useExternalMemory:
+	:builder_option showPfuncProgress .paste.Paste$Settings$Builder#showPfuncProgress:
+	:param bool writeSequencesToConsole: True to write sequences and scores to the console
+	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
+
+	:rtype: :java:ref:`.paste.Paste`
+	'''
+
+    # build settings
+    settingsBuilder = _get_builder(jvm.getInnerClass(c.paste.Paste, 'Settings'))()
+    if epsilon is not useJavaDefault:
+        settingsBuilder.setEpsilon(epsilon)
+	if stabilityThreshold is not useJavaDefault:
+		settingsBuilder.setStabilityThreshold(jvm.boxDouble(stabilityThreshold))
+	if maxSimultaneousMutations is not useJavaDefault:
+		settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+	if writeSequencesToConsole:
+		settingsBuilder.addScoreConsoleWriter()
+	if writeSequencesToFile is not None:
+		settingsBuilder.addScoreFileWriter(jvm.toFile(writeSequencesToFile))
+	if useExternalMemory is not useJavaDefault:
+		settingsBuilder.setExternalMemory(useExternalMemory)
+	if showPfuncProgress is not useJavaDefault:
+		settingsBuilder.setShowPfuncProgress(showPfuncProgress)
+	settings = settingsBuilder.build()
+
+	return c.paste.Paste(complexConfSpace, settings)
+
+def _PasteConfSearchFactory(func):
+
+	# convert the python lambda to a JVM interface implementation
+	return jpype.JProxy(
+		jvm.getInnerClass(c.paste.Paste, 'ConfSearchFactory'),
+		dict={ 'make': func }
+	)
+
+Paste.ConfSearchFactory = _PasteConfSearchFactory
+
+
 def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault):
 	'''
 	:java:classdoc:`.kstar.KStar`
