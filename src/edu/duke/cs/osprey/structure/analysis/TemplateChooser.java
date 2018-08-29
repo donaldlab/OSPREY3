@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.tools.Protractor;
 
 import java.io.File;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -23,7 +24,7 @@ public class TemplateChooser {
 	
 	public static void main(String[] args) {
 
-		Map<String,List<MeasuredRes>> measurementsByType = new HashMap<>();
+		File dir = new File(args[0]);
 
 		// what residues types do we expect to see?
 		List<String> expectedTypes = Arrays.asList(
@@ -33,110 +34,12 @@ public class TemplateChooser {
 			"SER", "THR", "ASN", "GLN"
 		);
 
-		// scan all the PDB files to collect the measurements
-		PDBScanner scanner = new PDBScanner(new File(args[0]));
-		scanResidues(scanner, (filename, res, type) -> {
-
-			// gather all the measurements
-			double[] measurements = mlib.measure(res, type);
-			if (measurements == null) {
-				return;
-			}
-
-			// make sure we don't have any bad measurements
-			for (double measurement : measurements) {
-				if (!Double.isFinite(measurement)) {
-					List<Measurement> libMeasurements = mlib.get(type);
-					StringBuilder buf = new StringBuilder();
-					buf.append(String.format("invalid measurements for %s %s %s, this is a bug!", filename, res.getPDBResNumber(), type));
-					for (int m=0; m<measurements.length; m++) {
-						buf.append(String.format("\n\t%28s: %8.3f", libMeasurements.get(m).name, measurements[m]));
-					}
-					throw new Error(buf.toString());
-				}
-			}
-
-			// group all the measurements by type,voxel
-			measurementsByType
-				.computeIfAbsent(type, t -> new ArrayList<>())
-				.add(new MeasuredRes(filename, res.getPDBResNumber(), measurements));
-		});
+		// measure all the residues in the PDB dir
+		Map<String,List<MeasuredRes>> measurementsByType = measureResidues(dir, expectedTypes);
 
 		// analyze all the measurements to find the modes
 		log("calculating modal values...");
-		boolean foundAllExpected = true;
-		Map<String,double[]> modesByType = new HashMap<>();
-		for (String type : expectedTypes) {
-
-			List<MeasuredRes> measuredResidues = measurementsByType.get(type);
-			if (measuredResidues == null) {
-				log("%s: no samples! are the measurements wrong?", type);
-				foundAllExpected = false;
-				continue;
-			}
-
-			log("%s: %d samples", type, measuredResidues.size());
-
-			List<Measurement> measurements = mlib.get(type);
-
-			double[] modes = new double[measurements.size()];
-			Arrays.fill(modes, Double.NaN);
-
-			// analyze the distributions of each measurement
-			for (int m=0; m<measurements.size(); m++) {
-
-				Measurement measurement = measurements.get(m);
-				logf("%30s  ", measurement.name);
-
-				switch (measurement.space) {
-
-					case R: {
-						ClusterR1 cluster = new ClusterR1();
-						for (MeasuredRes mres : measuredResidues) {
-							cluster.add(mres.measurements[m]);
-						}
-						ClusterR1.Stats stats = cluster.new Stats(90, 10);
-						MathTools.DoubleBounds bounds90 = stats.getInterval(stats.mode, 90);
-						logf(" mean=%6.3f  mode=%6.3f  90%%bounds=[%6.3f,%6.3f]:%6.3f  100%%bounds=[%6.3f,%6.3f]:%6.3f",
-							stats.mean, stats.mode,
-							bounds90.lower, bounds90.upper, bounds90.size(),
-							stats.bounds.lower, stats.bounds.upper, stats.bounds.size()
-						);
-						modes[m] = stats.mode;
-					} break;
-
-					case S: {
-						ClusterS1 cluster = new ClusterS1();
-						for (MeasuredRes mres : measuredResidues) {
-							cluster.add(mres.measurements[m]);
-						}
-						ClusterS1.Stats stats = cluster.new Stats(90, 40);
-						SmallAngleVoxel.Interval bounds90 = stats.getInterval(stats.mode, 90);
-						logf(" mean=%6.1f  mode=%6.1f  90%%bounds=[%6.1f,%6.1f]:%6.1f  100%%bounds=[%6.1f,%6.1f]:%6.1f",
-							stats.mean, stats.mode,
-							bounds90.min(), bounds90.max(), bounds90.size(),
-							stats.bounds.min(), stats.bounds.max(), stats.bounds.size()
-						);
-						modes[m] = stats.mode;
-					} break;
-				}
-
-				log("");
-			}
-
-			modesByType.put(type, modes);
-		}
-		if (!foundAllExpected) {
-
-			// something's missing... stop here and find out what
-			log("missing data for some residue types: %s, aborting",
-				expectedTypes.stream()
-					.filter(type -> !measurementsByType.containsKey(type))
-					.collect(Collectors.toList())
-			);
-
-			return;
-		}
+		Map<String,double[]> modesByType = calcModes(measurementsByType, expectedTypes);
 
 		// define a distance function for residues
 		DistanceFunction measurementDist = (measurements, a, b) -> {
@@ -162,7 +65,13 @@ public class TemplateChooser {
 		// find the residue that most matches the modes
 		log("finding ideal residues...");
 		Map<String,MeasuredRes> idealResidues = new HashMap<>();
-		scanResidues(scanner, (filename, res, type) -> {
+		scanResidues(dir, (filename, res, type) -> {
+
+			// skip terminal residues
+			// osprey can't design with terminal residues yet
+			if (res.getAtomByName("H3") != null || res.getAtomByName("OXT") != null) {
+				return;
+			}
 
 			double[] measurements = mlib.measure(res, type);
 			if (measurements == null) {
@@ -255,7 +164,7 @@ public class TemplateChooser {
 		for (String type : expectedTypes) {
 			MeasuredRes mres = idealResidues.get(type);
 
-			scanner.scan(mres.filename, (file, mol) -> {
+			new PDBScanner(dir).scan(mres.filename, (file, mol) -> {
 
 				Residue res = mol.getResByPDBResNumber(mres.resNum);
 
@@ -274,10 +183,137 @@ public class TemplateChooser {
 		}
 	}
 
-	private static void scanResidues(PDBScanner pdbScanner, ResidueScanner resScanner) {
+	public static Map<String,List<MeasuredRes>> measureResidues(File dir, Collection<String> types) {
+		return measureResidues(dir, types, res -> true);
+	}
+
+	public static Map<String,List<MeasuredRes>> measureResidues(File dir, Collection<String> types, Predicate<Residue> filter) {
+
+		Map<String,List<MeasuredRes>> measurementsByType = new HashMap<>();
 
 		// scan all the PDB files to collect the measurements
-		pdbScanner.scan((file, mol) -> {
+		scanResidues(dir, (filename, res, type) -> {
+
+			// only check types we care about
+			if (!types.contains(type)) {
+				return;
+			}
+
+			// gather all the measurements
+			double[] measurements = mlib.measure(res, type);
+			if (measurements == null) {
+				return;
+			}
+
+			// apply the filter
+			if (!filter.test(res)) {
+				return;
+			}
+
+			// make sure we don't have any bad measurements
+			for (double measurement : measurements) {
+				if (!Double.isFinite(measurement)) {
+					List<Measurement> libMeasurements = mlib.get(type);
+					StringBuilder buf = new StringBuilder();
+					buf.append(String.format("invalid measurements for %s %s %s, this is a bug!", filename, res.getPDBResNumber(), type));
+					for (int m=0; m<measurements.length; m++) {
+						buf.append(String.format("\n\t%28s: %8.3f", libMeasurements.get(m).name, measurements[m]));
+					}
+					throw new Error(buf.toString());
+				}
+			}
+
+			// group all the measurements by type
+			measurementsByType
+				.computeIfAbsent(type, t -> new ArrayList<>())
+				.add(new MeasuredRes(filename, res.getPDBResNumber(), measurements));
+		});
+
+		return measurementsByType;
+	}
+
+	public static Map<String,double[]> calcModes(Map<String,List<MeasuredRes>> measurementsByType, List<String> types) {
+
+		boolean foundAllExpected = true;
+		Map<String,double[]> modesByType = new HashMap<>();
+		for (String type : types) {
+
+			List<MeasuredRes> measuredResidues = measurementsByType.get(type);
+			if (measuredResidues == null) {
+				log("%s: no samples! are the measurements wrong?", type);
+				foundAllExpected = false;
+				continue;
+			}
+
+			log("%s: %d samples", type, measuredResidues.size());
+
+			List<Measurement> measurements = mlib.get(type);
+
+			double[] modes = new double[measurements.size()];
+			Arrays.fill(modes, Double.NaN);
+
+			// analyze the distributions of each measurement
+			for (int m=0; m<measurements.size(); m++) {
+
+				Measurement measurement = measurements.get(m);
+				logf("%30s  ", measurement.name);
+
+				switch (measurement.space) {
+
+					case R: {
+						ClusterR1 cluster = new ClusterR1();
+						for (MeasuredRes mres : measuredResidues) {
+							cluster.add(mres.measurements[m]);
+						}
+						ClusterR1.Stats stats = cluster.new Stats(90, 10);
+						MathTools.DoubleBounds bounds90 = stats.getInterval(stats.mode, 90);
+						logf(" mean=%6.3f  mode=%6.3f  90%%bounds=[%6.3f,%6.3f]:%6.3f  100%%bounds=[%6.3f,%6.3f]:%6.3f",
+							stats.mean, stats.mode,
+							bounds90.lower, bounds90.upper, bounds90.size(),
+							stats.bounds.lower, stats.bounds.upper, stats.bounds.size()
+						);
+						modes[m] = stats.mode;
+					} break;
+
+					case S: {
+						ClusterS1 cluster = new ClusterS1();
+						for (MeasuredRes mres : measuredResidues) {
+							cluster.add(mres.measurements[m]);
+						}
+						ClusterS1.Stats stats = cluster.new Stats(90, 40);
+						SmallAngleVoxel.Interval bounds90 = stats.getInterval(stats.mode, 90);
+						logf(" mean=%6.1f  mode=%6.1f  90%%bounds=[%6.1f,%6.1f]:%6.1f  100%%bounds=[%6.1f,%6.1f]:%6.1f",
+							stats.mean, stats.mode,
+							bounds90.min(), bounds90.max(), bounds90.size(),
+							stats.bounds.min(), stats.bounds.max(), stats.bounds.size()
+						);
+						modes[m] = stats.mode;
+					} break;
+				}
+
+				log("");
+			}
+
+			modesByType.put(type, modes);
+		}
+
+		if (!foundAllExpected) {
+
+			// something's missing... stop here and find out what
+			throw new NoSuchElementException("missing data for some residue types, aborting: "
+				+ types.stream()
+					.filter(type -> !measurementsByType.containsKey(type))
+					.collect(Collectors.toList())
+			);
+		}
+
+		return modesByType;
+	}
+
+	private static void scanResidues(File dir, ResidueScanner resScanner) {
+
+		// scan all the PDB files to collect the measurements
+		new PDBScanner(dir).scan((file, mol) -> {
 
 			// analyze each residue
 			for (Residue res : mol.residues) {
@@ -660,7 +696,7 @@ public class TemplateChooser {
 		void onResidue(String filename, Residue res, String type, Voxel voxel);
 	}
 
-	private static class MeasuredRes {
+	public static class MeasuredRes {
 
 		public final String filename;
 		public final String resNum;

@@ -6,8 +6,6 @@ import java.util.Arrays;
 import java.util.TreeSet;
 import java.util.function.Function;
 
-import static edu.duke.cs.osprey.tools.Log.log;
-
 
 /** a cluster of data points in R^1 */
 public class ClusterR1 {
@@ -16,6 +14,14 @@ public class ClusterR1 {
 
 	public void add(double a) {
 		values.add(a);
+	}
+
+	public int size() {
+		return values.size();
+	}
+
+	public boolean isEmpty() {
+		return values.isEmpty();
 	}
 
 

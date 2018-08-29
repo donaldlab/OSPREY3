@@ -2,10 +2,7 @@ package edu.duke.cs.osprey;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
-import edu.duke.cs.osprey.confspace.ParametricMolecule;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.dof.DOFBlock;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.DihedralRotation;
@@ -25,7 +22,10 @@ import edu.duke.cs.osprey.tools.*;
 
 import java.io.*;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -37,13 +37,14 @@ public class FlexLab {
 	public static void main(String[] args)
 	throws Exception {
 		//checkRotamerClashes();
-		//top8000Dihedrals("leu");
+		//top8000Dihedrals("arg");
 		//top8000Angles("leu");
 		//top8000Tetrahedrals("leu");
 		//top8000Methyls();
 		//top8000Clashes();
-		//lovellRotamers("leu");
+		//lovellRotamers("asp");
 		energyLandscape("leu");
+		//top8000RotamerStats("asp");
 	}
 
 	private static PDBScanner scanner = new PDBScanner(
@@ -71,19 +72,113 @@ public class FlexLab {
 	// define all the dihedrals
 	private static MeasurementLibrary chiLib = new MeasurementLibrary();
 	static {
+
+		// arg
+		chiLib.add("ARG", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
+		chiLib.add("ARG", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "CD"));
+		chiLib.add("ARG", new MeasurementLibrary.DihedralAngle("chi3", "CB", "CG", "CD", "NE"));
+		chiLib.add("ARG", new MeasurementLibrary.DihedralAngle("chi4", "CG", "CD", "NE", "CZ"));
+		// guanidine group is pretty planar, not much variation in chi5
+		//chiLib.add("ARG", new MeasurementLibrary.DihedralAnglesMinDist("chi5", 0, "CD", "NE", "CZ", "NH1", "NH2"));
+
+		// his
+		for (String type : Arrays.asList("HIP", "HID", "HIE")) {
+			chiLib.add(type, new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
+			chiLib.add(type, new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "ND1"));
+		}
+
+		// lys
+		chiLib.add("LYS", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
+		chiLib.add("LYS", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "CD"));
+		chiLib.add("LYS", new MeasurementLibrary.DihedralAngle("chi3", "CB", "CG", "CD", "CE"));
+		chiLib.add("LYS", new MeasurementLibrary.DihedralAngle("chi4", "CG", "CD", "CE", "NZ"));
+
+		// asp
+		chiLib.add("ASP", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
+		chiLib.add("ASP", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "OD1"));
+
+		// glu
+		chiLib.add("GLU", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
+		chiLib.add("GLU", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "CD"));
+		chiLib.add("GLU", new MeasurementLibrary.DihedralAngle("chi3", "CB", "CG", "CD", "OE1"));
+
+		// cys
+		chiLib.add("CYS", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "SG"));
+
+		// val
+		chiLib.add("VAL", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG1"));
+
+		// ile
+		chiLib.add("ILE", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG1"));
+		chiLib.add("ILE", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG1", "CD1"));
+
+		// leu
 		chiLib.add("LEU", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
 		chiLib.add("LEU", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "CD1"));
 
+		// met
+		chiLib.add("MET", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
+		chiLib.add("MET", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "SD"));
+		chiLib.add("MET", new MeasurementLibrary.DihedralAngle("chi3", "CB", "CG", "SD", "CE"));
+
+		// phe
+		chiLib.add("PHE", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
+		chiLib.add("PHE", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "CD1"));
+
+		// tyr
+		chiLib.add("TYR", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
+		chiLib.add("TYR", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "CD1"));
+		chiLib.add("TYR", new MeasurementLibrary.DihedralAngle("OH", "CE1", "CZ", "OH", "HH"));
+
+		// trp
 		chiLib.add("TRP", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
 		chiLib.add("TRP", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "CD1"));
+
+		// ser
+		chiLib.add("SER", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "OG"));
+		chiLib.add("SER", new MeasurementLibrary.DihedralAngle("OH", "CA", "CB", "OG", "HG"));
+
+		// thr
+		chiLib.add("THR", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "OG1"));
+		chiLib.add("THR", new MeasurementLibrary.DihedralAngle("OH", "CA", "CB", "OG1", "HG1"));
+
+		// asn
+		chiLib.add("ASN", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
+		chiLib.add("ASN", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "OD1"));
+
+		// gln
+		chiLib.add("GLN", new MeasurementLibrary.DihedralAngle("chi1", "N", "CA", "CB", "CG"));
+		chiLib.add("GLN", new MeasurementLibrary.DihedralAngle("chi2", "CA", "CB", "CG", "CD"));
+		chiLib.add("GLN", new MeasurementLibrary.DihedralAngle("chi3", "CB", "CG", "CD", "OE1"));
 	}
 
-	// define all the methyl groups
+	// define all the methyl groups (and NH3 groups too)
 	private static MeasurementLibrary methylLib = new MeasurementLibrary();
 	static {
-		// TEMP
-		//methylLib.add("LEU", new MeasurementLibrary.DihedralAngles3("methyl1", "CB", "CG", "CD1", "HD11", "HD12", "HD13", 0));
-		//methylLib.add("LEU", new MeasurementLibrary.DihedralAngles3("methyl2", "CB", "CG", "CD2", "HD21", "HD22", "HD23", 0));
+
+		// lys
+		methylLib.add("LYS", new MeasurementLibrary.DihedralAnglesMinDist("NH3", 180, "CD", "CE", "NZ", "HZ1", "HZ2", "HZ3"));
+
+		// ala
+		methylLib.add("ALA", new MeasurementLibrary.DihedralAnglesMinDist("CH3", 180, "N", "CA", "CB", "HB1", "HB2", "HB3"));
+
+		// val
+		methylLib.add("VAL", new MeasurementLibrary.DihedralAnglesMinDist("CH3-1", 180, "CA", "CB", "CG1", "HG11", "HG12", "HG13"));
+		methylLib.add("VAL", new MeasurementLibrary.DihedralAnglesMinDist("CH3-2", 180, "CA", "CB", "CG2", "HG21", "HG22", "HG23"));
+
+		// ile
+		methylLib.add("ILE", new MeasurementLibrary.DihedralAnglesMinDist("CH3-1", 180, "CB", "CG1", "CD1", "HD11", "HD12", "HD13"));
+		methylLib.add("ILE", new MeasurementLibrary.DihedralAnglesMinDist("CH3-2", 180, "CA", "CB", "CG2", "HG21", "HG22", "HG23"));
+
+		// leu
+		methylLib.add("LEU", new MeasurementLibrary.DihedralAnglesMinDist("CH3-1", 180, "CB", "CG", "CD1", "HD11", "HD12", "HD13"));
+		methylLib.add("LEU", new MeasurementLibrary.DihedralAnglesMinDist("CH3-2", 180, "CB", "CG", "CD2", "HD21", "HD22", "HD23"));
+
+		// met
+		methylLib.add("MET", new MeasurementLibrary.DihedralAnglesMinDist("CH3", 180, "CG", "SD", "CE", "HE1", "HE2", "HE3"));
+
+		// thr
+		methylLib.add("THR", new MeasurementLibrary.DihedralAnglesMinDist("CH3", 180, "CA", "CB", "CG2", "HG21", "HG22", "HG23"));
 	}
 
 	// define all the bond angles
@@ -143,6 +238,14 @@ public class FlexLab {
 			this.voxel = voxel;
 		}
 
+		public static Rotamer ofModes(String name, double percent, double ... modalAngles) {
+			return new Rotamer(name, percent, new SmallAngleVoxel(
+				Arrays.stream(modalAngles)
+					.mapToObj(angle -> new SmallAngleVoxel.Interval(-9, angle, 9))
+					.toArray(size -> new SmallAngleVoxel.Interval[size])
+			));
+		}
+
 		public boolean matches(double[] dihedrals) {
 			if (voxel == null) {
 				return true;
@@ -169,7 +272,7 @@ public class FlexLab {
 					return rot;
 				}
 			}
-			throw new NoSuchElementException("no matching " + type + " rotamer for " + Arrays.toString(dihedrals));
+			return null;
 		}
 	}
 
@@ -177,6 +280,227 @@ public class FlexLab {
 	private static RotamerLibrary rotamers = new RotamerLibrary();
 	static {
 
+		// re-define the rotamer library based on the Lovell data, but with names and populations
+		rotamers.add("VAL", Rotamer.ofModes("p",  6.20,   64));
+		rotamers.add("VAL", Rotamer.ofModes("t", 75.56,  175));
+		rotamers.add("VAL", Rotamer.ofModes("m", 17.94,  -60));
+
+		// leu
+		rotamers.add("LEU", Rotamer.ofModes("pp",  0.45,   62,   80));
+		rotamers.add("LEU", Rotamer.ofModes("tp", 30.12, -177,   65));
+		rotamers.add("LEU", Rotamer.ofModes("tt",  1.37, -172,  145));
+		rotamers.add("LEU", Rotamer.ofModes("mp",  2.36,  -85,   65));
+		rotamers.add("LEU", Rotamer.ofModes("mt", 64.54,  -65,  175));
+
+		// ile
+		rotamers.add("ILE", Rotamer.ofModes("pp",  0.35,   62,  100));
+		rotamers.add("ILE", Rotamer.ofModes("pt", 12.33,   62,  170));
+		rotamers.add("ILE", Rotamer.ofModes("tp",  2.61, -177,  66));
+		rotamers.add("ILE", Rotamer.ofModes("tt",  5.81, -177,  165));
+		rotamers.add("ILE", Rotamer.ofModes("mp",  0.87,  -65,  100));
+		rotamers.add("ILE", Rotamer.ofModes("mt", 62.03,  -65,  170));
+		rotamers.add("ILE", Rotamer.ofModes("mm", 15.70,  -57,  -60));
+
+		// phe
+		rotamers.add("PHE", Rotamer.ofModes("p90",  11.17,   62,   90));
+		rotamers.add("PHE", Rotamer.ofModes("t80",  34.27, -177,   80));
+		rotamers.add("PHE", Rotamer.ofModes("m-80", 47.38,  -65,  -85));
+		rotamers.add("PHE", Rotamer.ofModes("m-10",  6.89,  -65,  -30));
+
+		// tyr
+		rotamers.add("TYR", Rotamer.ofModes("p90:0",    11.57,   62,   90,   0));
+		rotamers.add("TYR", Rotamer.ofModes("p90:180",  11.57,   62,   90, 180));
+		rotamers.add("TYR", Rotamer.ofModes("t80:0",    34.53, -177,   80,   0));
+		rotamers.add("TYR", Rotamer.ofModes("t80:180",  34.53, -177,   80, 180));
+		rotamers.add("TYR", Rotamer.ofModes("m-80:0",   48.01,  -65,  -85,   0));
+		rotamers.add("TYR", Rotamer.ofModes("m-80:180", 48.01,  -65,  -85, 180));
+		rotamers.add("TYR", Rotamer.ofModes("m-10:0",    5.55,  -65,  -30,   0));
+		rotamers.add("TYR", Rotamer.ofModes("m-10:180",  5.55,  -65,  -30, 180));
+
+		// trp
+		rotamers.add("TRP", Rotamer.ofModes("p-90",  10.35,   62,  -90));
+		rotamers.add("TRP", Rotamer.ofModes("p90",    5.19,   62,   90));
+		rotamers.add("TRP", Rotamer.ofModes("t-100", 15.46, -177, -105));
+		rotamers.add("TRP", Rotamer.ofModes("t60",   18.09, -177,   90));
+		rotamers.add("TRP", Rotamer.ofModes("m-90",   5.13,  -65,  -90));
+		rotamers.add("TRP", Rotamer.ofModes("m-10",  11.73,  -65,   -5));
+		rotamers.add("TRP", Rotamer.ofModes("m100",  33.76,  -65,   95));
+
+		// cys
+		rotamers.add("CYS", Rotamer.ofModes("p", 17.73,   62));
+		rotamers.add("CYS", Rotamer.ofModes("t", 26.33, -177));
+		rotamers.add("CYS", Rotamer.ofModes("m", 55.67,  -65));
+
+		// met
+		rotamers.add("MET", Rotamer.ofModes("ptp",  2.41,   62,  180,   75));
+		rotamers.add("MET", Rotamer.ofModes("ptm",  2.23,   62,  180,  -75));
+		rotamers.add("MET", Rotamer.ofModes("tpp",  6.78, -177,   65,   75));
+		rotamers.add("MET", Rotamer.ofModes("tpt",  2.31, -177,   65,  180));
+		rotamers.add("MET", Rotamer.ofModes("ttp",  7.42, -177,  180,   75));
+		rotamers.add("MET", Rotamer.ofModes("ttt",  3.39, -177,  180,  180));
+		rotamers.add("MET", Rotamer.ofModes("ttm",  6.69, -177,  180,  -75));
+		rotamers.add("MET", Rotamer.ofModes("mtp", 16.76,  -67,  180,   75));
+		rotamers.add("MET", Rotamer.ofModes("mtt",  9.18,  -67,  180,  180));
+		rotamers.add("MET", Rotamer.ofModes("mtm", 11.02,  -67,  180,  -75));
+		rotamers.add("MET", Rotamer.ofModes("mmp",  3.10,  -65,  -65,  103));
+		rotamers.add("MET", Rotamer.ofModes("mmt",  3.55,  -65,  -65,  180));
+		rotamers.add("MET", Rotamer.ofModes("mmm", 19.97,  -65,  -65,  -70));
+
+		// ser
+		rotamers.add("SER", Rotamer.ofModes("p:-60",  48.44,   62,  -60));
+		rotamers.add("SER", Rotamer.ofModes("p:60",   48.44,   62,   60));
+		rotamers.add("SER", Rotamer.ofModes("p:180",  48.44,   62,  180));
+		rotamers.add("SER", Rotamer.ofModes("p:0",    48.44,   62,    0));
+		rotamers.add("SER", Rotamer.ofModes("p:120",  48.44,   62,  120));
+		rotamers.add("SER", Rotamer.ofModes("p:-120", 48.44,   62, -120));
+		rotamers.add("SER", Rotamer.ofModes("t:-60",  22.97, -177,  -60));
+		rotamers.add("SER", Rotamer.ofModes("t:60",   22.97, -177,   60));
+		rotamers.add("SER", Rotamer.ofModes("t:180",  22.97, -177,  180));
+		rotamers.add("SER", Rotamer.ofModes("t:0",    22.97, -177,    0));
+		rotamers.add("SER", Rotamer.ofModes("t:120",  22.97, -177,  120));
+		rotamers.add("SER", Rotamer.ofModes("t:-120", 22.97, -177, -120));
+		rotamers.add("SER", Rotamer.ofModes("m:-60",  28.30,  -65,  -60));
+		rotamers.add("SER", Rotamer.ofModes("m:60",   28.30,  -65,   60));
+		rotamers.add("SER", Rotamer.ofModes("m:180",  28.30,  -65,  180));
+		rotamers.add("SER", Rotamer.ofModes("m:0",    28.30,  -65,    0));
+		rotamers.add("SER", Rotamer.ofModes("m:120",  28.30,  -65,  120));
+		rotamers.add("SER", Rotamer.ofModes("m:-120", 28.30,  -65, -120));
+
+		// thr
+		rotamers.add("THR", Rotamer.ofModes("p:-60",  48.14,   62,  -60));
+		rotamers.add("THR", Rotamer.ofModes("p:60",   48.14,   62,   60));
+		rotamers.add("THR", Rotamer.ofModes("p:180",  48.14,   62,  180));
+		rotamers.add("THR", Rotamer.ofModes("p:0",    48.14,   62,    0));
+		rotamers.add("THR", Rotamer.ofModes("p:120",  48.14,   62,  120));
+		rotamers.add("THR", Rotamer.ofModes("p:-120", 48.14,   62, -120));
+		rotamers.add("THR", Rotamer.ofModes("p:-60",   6.91, -175,  -60));
+		rotamers.add("THR", Rotamer.ofModes("p:60",    6.91, -175,   60));
+		rotamers.add("THR", Rotamer.ofModes("p:180",   6.91, -175,  180));
+		rotamers.add("THR", Rotamer.ofModes("p:0",     6.91, -175,    0));
+		rotamers.add("THR", Rotamer.ofModes("p:120",   6.91, -175,  120));
+		rotamers.add("THR", Rotamer.ofModes("p:-120",  6.91, -175, -120));
+		rotamers.add("THR", Rotamer.ofModes("p:-60",  44.64,  -65,  -60));
+		rotamers.add("THR", Rotamer.ofModes("p:60",   44.64,  -65,   60));
+		rotamers.add("THR", Rotamer.ofModes("p:180",  44.64,  -65,  180));
+		rotamers.add("THR", Rotamer.ofModes("p:0",    44.64,  -65,    0));
+		rotamers.add("THR", Rotamer.ofModes("p:120",  44.64,  -65,  120));
+		rotamers.add("THR", Rotamer.ofModes("p:-120", 44.64,  -65, -120));
+
+		// lys
+		rotamers.add("LYS", Rotamer.ofModes("ptpt",  0.42,  62,  180,   68,  180));
+		rotamers.add("LYS", Rotamer.ofModes("pttp",  0.69,  62,  180,  180,   65));
+		rotamers.add("LYS", Rotamer.ofModes("pttt",  3.98,  62,  180,  180,  180));
+		rotamers.add("LYS", Rotamer.ofModes("pttt",  0.77,  62,  180,  180,  -65));
+		rotamers.add("LYS", Rotamer.ofModes("ptmt",  0.54,  62,  180,  -68,  180));
+		rotamers.add("LYS", Rotamer.ofModes("tptp",  1.17,-177,   68,  180,   65));
+		rotamers.add("LYS", Rotamer.ofModes("tptt",  3.53,-177,   68,  180,  180));
+		rotamers.add("LYS", Rotamer.ofModes("tptm",  0.57,-177,   68,  180,  -65));
+		rotamers.add("LYS", Rotamer.ofModes("ttpp",  0.66,-177,  180,   68,   65));
+		rotamers.add("LYS", Rotamer.ofModes("ttpt",  2.54,-177,  180,   68,  180));
+		rotamers.add("LYS", Rotamer.ofModes("tttp",  3.54,-177,  180,  180,   65));
+		rotamers.add("LYS", Rotamer.ofModes("tttt", 14.48,-177,  180,  180,  180));
+		rotamers.add("LYS", Rotamer.ofModes("tttm",  3.38,-177,  180,  180,  -65));
+		rotamers.add("LYS", Rotamer.ofModes("ttmt",  1.94,-177,  180,  -68,  180));
+		rotamers.add("LYS", Rotamer.ofModes("ttmm",  0.57,-177,  180,  -68,  -65));
+		rotamers.add("LYS", Rotamer.ofModes("mptt",  0.36, -90,   68,  180,  180));
+		rotamers.add("LYS", Rotamer.ofModes("mtpp",  1.13, -67,  180,   68,   65));
+		rotamers.add("LYS", Rotamer.ofModes("mtpt",  3.90, -67,  180,   68,  180));
+		rotamers.add("LYS", Rotamer.ofModes("mttp",  4.06, -67,  180,  180,   65));
+		rotamers.add("LYS", Rotamer.ofModes("mttt", 24.68, -67,  180,  180,  180));
+		rotamers.add("LYS", Rotamer.ofModes("mttm",  5.25, -67,  180,  180,  -65));
+		rotamers.add("LYS", Rotamer.ofModes("mtmt",  3.77, -67,  180,  -68,  180));
+		rotamers.add("LYS", Rotamer.ofModes("mtmm",  1.22, -67,  180,  -68,  -65));
+		rotamers.add("LYS", Rotamer.ofModes("mmtp",  1.33, -62,  -68,  180,   65));
+		rotamers.add("LYS", Rotamer.ofModes("mmtt",  9.01, -62,  -68,  180,  180));
+		rotamers.add("LYS", Rotamer.ofModes("mmtm",  2.09, -62,  -68,  180,  -65));
+		rotamers.add("LYS", Rotamer.ofModes("mmmt",  1.56, -62,  -68,  -68,  180));
+
+		// arg
+		rotamers.add("ARG", Rotamer.ofModes("ptp90",    0.48,   62,  180,   65,   85));
+		rotamers.add("ARG", Rotamer.ofModes("ptp-170",  0.84,  62,  180,   65, -175));
+		rotamers.add("ARG", Rotamer.ofModes("ptt90",    1.76,  62,  180,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("ptt180",   1.77,  62,  180,  180,  180));
+		rotamers.add("ARG", Rotamer.ofModes("ptt-90",   1.57,  62,  180,  180,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("ptm160",   1.08,  62,  180,  -65,  175));
+		rotamers.add("ARG", Rotamer.ofModes("ptm-80",   0.46,  62,  180,  -65,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("tpp80",    0.78,-177,   65,   65,   85));
+		rotamers.add("ARG", Rotamer.ofModes("tpp-160",  1.07,-177,   65,   65, -175));
+		rotamers.add("ARG", Rotamer.ofModes("tpt90",    1.41,-177,   65,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("tpt170",   1.78,-177,   65,  180,  180));
+		rotamers.add("ARG", Rotamer.ofModes("ttp80",    4.09,-177,  180,   65,   85));
+		rotamers.add("ARG", Rotamer.ofModes("ttp-170",  3.31,-177,  180,   65, -175));
+		rotamers.add("ARG", Rotamer.ofModes("ttp-110",  1.34,-177,  180,   65, -105));
+		rotamers.add("ARG", Rotamer.ofModes("ttt90",    2.28,-177,  180,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("ttt180",   5.04,-177,  180,  180,  180));
+		rotamers.add("ARG", Rotamer.ofModes("ttt-90",   2.98,-177,  180,  180,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("ttm110",   1.56,-177,  180,  -65,  105));
+		rotamers.add("ARG", Rotamer.ofModes("ttm170",   2.84,-177,  180,  -65,  175));
+		rotamers.add("ARG", Rotamer.ofModes("ttm-80",   3.24,-177,  180,  -65,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("mtp85",    4.00, -67,  180,   65,   85));
+		rotamers.add("ARG", Rotamer.ofModes("mtp180",   5.40, -67,  180,   65, -175));
+		rotamers.add("ARG", Rotamer.ofModes("mtp-110",  1.01, -67,  180,   65, -105));
+		rotamers.add("ARG", Rotamer.ofModes("mtt90",    5.30, -67,  180,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("mtt180",   9.90, -67,  180,  180,  180));
+		rotamers.add("ARG", Rotamer.ofModes("mtt-85",   6.13, -67,  180,  180,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("mtm110",   1.68, -67,  180,  -65,  105));
+		rotamers.add("ARG", Rotamer.ofModes("mtm180",   5.19, -67,  180,  -65,  175));
+		rotamers.add("ARG", Rotamer.ofModes("mtm-85",   6.14, -67, -167,  -65,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("mmt90",    1.22, -62,  -68,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("mmt180",   2.59, -62,  -68,  180,  180));
+		rotamers.add("ARG", Rotamer.ofModes("mmt-90",   3.08, -62,  -68,  180,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("mmm160",   2.05, -62,  -68,  -65,  175));
+		rotamers.add("ARG", Rotamer.ofModes("mmm-85",   2.20, -62,  -68,  -65,  -85));
+
+		// his
+		for (String type : Arrays.asList("HIP", "HID", "HIE")) {
+			rotamers.add(type, Rotamer.ofModes("p-80",   7.39,   62,  -75));
+			rotamers.add(type, Rotamer.ofModes("p90",    5.01,   62,   80));
+			rotamers.add(type, Rotamer.ofModes("t-170",  4.47, -177, -165));
+			rotamers.add(type, Rotamer.ofModes("t-90",  11.93, -177,  -80));
+			rotamers.add(type, Rotamer.ofModes("t70",   17.01, -177,   60));
+			rotamers.add(type, Rotamer.ofModes("m-70",  31.73,  -65,  -70));
+			rotamers.add(type, Rotamer.ofModes("m170",   9.05,  -65,  165));
+			rotamers.add(type, Rotamer.ofModes("m90",   13.14,  -65,   80));
+		}
+
+		// asp
+		rotamers.add("ASP", Rotamer.ofModes("p0:1", 16.24/2,   62,  -10));
+		rotamers.add("ASP", Rotamer.ofModes("p0:2", 16.24/2,   62,   30));
+		rotamers.add("ASP", Rotamer.ofModes("t0",     23.65, -177,    0));
+		rotamers.add("ASP", Rotamer.ofModes("t70",     8.33, -177,   65));
+		rotamers.add("ASP", Rotamer.ofModes("m-30",   51.48,  -70,  -15));
+
+		// glu
+		rotamers.add("GLU", Rotamer.ofModes("pt0",    4.87,   62,  180,  -20));
+		rotamers.add("GLU", Rotamer.ofModes("pm20",   2.58,   70,  -80,    0));
+		rotamers.add("GLU", Rotamer.ofModes("tp30",   8.03, -177,   65,   10));
+		rotamers.add("GLU", Rotamer.ofModes("tt0",   23.69, -177,  180,    0));
+		rotamers.add("GLU", Rotamer.ofModes("tm-30",  1.50, -177,  -80,  -25));
+		rotamers.add("GLU", Rotamer.ofModes("mp0",    6.39,  -65,   85,    0));
+		rotamers.add("GLU", Rotamer.ofModes("mt-10", 36.58,  -67,  180,  -10));
+		rotamers.add("GLU", Rotamer.ofModes("mm-30", 15.80,  -65,  -65,  -40));
+
+		// asn
+		rotamers.add("ASN", Rotamer.ofModes("p0:1",   14.00/2,   62,  -10));
+		rotamers.add("ASN", Rotamer.ofModes("p0:2",   14.00/2,   62,   30));
+		rotamers.add("ASN", Rotamer.ofModes("t0:1",   29.10/2, -174,  -20));
+		rotamers.add("ASN", Rotamer.ofModes("t0:2",   29.10/2, -177,   30));
+		rotamers.add("ASN", Rotamer.ofModes("m-40:1", 49.01/2,  -65,  -20));
+		rotamers.add("ASN", Rotamer.ofModes("m-40:2", 49.01/2,  -65,  -75));
+		rotamers.add("ASN", Rotamer.ofModes("m110",      7.46,  -65,  120));
+
+		// gln
+		rotamers.add("GLN", Rotamer.ofModes("pt0",     5.08,   62,  180,   20));
+		rotamers.add("GLN", Rotamer.ofModes("pm20",    1.31,   70,  -75,    0));
+		rotamers.add("GLN", Rotamer.ofModes("tp-100",  1.44, -177,   65, -100));
+		rotamers.add("GLN", Rotamer.ofModes("tp40",    9.75, -177,   65,   60));
+		rotamers.add("GLN", Rotamer.ofModes("tt0",    18.69, -177,  180,    0));
+		rotamers.add("GLN", Rotamer.ofModes("mp10",    3.25,  -65,   85,    0));
+		rotamers.add("GLN", Rotamer.ofModes("mt0",    38.71,  -67,  180,  -25));
+		rotamers.add("GLN", Rotamer.ofModes("mm-40",  16.05,  -65,  -65,  -40));
+		rotamers.add("GLN", Rotamer.ofModes("mm110",   3.09,  -65,  -65,  100));
+
+		/* TODO: build a better rotamer library
 		// LEU: +-9 voxels <= 50% (ish) coverage (Lovell voxels get 51.5%)
 		rotamers.add("LEU", new Rotamer("pp", 0.6, new SmallAngleVoxel(
 			new SmallAngleVoxel.Interval( -15.0,  62.0,  14.0),
@@ -250,13 +574,68 @@ public class FlexLab {
 		rotamers.add("PHE", new Rotamer("NA", 0.0, null));
 		rotamers.add("ASP", new Rotamer("NA", 0.0, null));
 		rotamers.add("TYR", new Rotamer("NA", 0.0, null));
+		*/
+	}
+
+	static enum TemplateType {
+
+		Current,
+		Idealized;
+
+		public static class Map<T> extends java.util.EnumMap<TemplateType,T> {
+
+			public Map() {
+				super(TemplateType.class);
+			}
+
+			public <R> Map<R> map(Function<T,R> f) {
+				return mapOf(
+					f.apply(get(Current)),
+					f.apply(get(Idealized))
+				);
+			}
+		}
+
+		public static <T> TemplateType.Map<T> mapOf(T current, T idealized) {
+			TemplateType.Map<T> map = new TemplateType.Map<>();
+			map.put(Current, current);
+			map.put(Idealized, idealized);
+			return map;
+		}
 	}
 
 	public static void checkRotamerClashes() {
 
-		// make a conspace with all the rotamers
+		TemplateType.Map<ResidueTemplateLibrary> templateLibs = TemplateType.mapOf(
+			new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+				.build(),
+			new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+				.clearTemplateCoords()
+				.addTemplateCoords(FileTools.readFile("template coords.txt"))
+				.build()
+		);
+
+		// make a mechanism to change template coords on-the-fly
+		BiConsumer<SimpleConfSpace.ResidueConf,TemplateType> setTemplateCoords = (rc, type) -> {
+			System.arraycopy(
+				templateLibs.get(type).getTemplate(rc.template.name, true).templateRes.coords, 0,
+				rc.template.templateRes.coords, 0,
+				rc.template.templateRes.coords.length
+			);
+		};
+
+		// make a confspace with all the rotamers
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
-		strand.flexibility.get("A23").setLibraryRotamers("ARG", "HIS", "LYS", "ASP", "GLU", "CYS", "GLY", "PRO", "ALA", "VAL", "ILE", "LEU", "MET", "PHE", "TYR", "TRP", "SER", "THR", "ASN", "GLN").setContinuous(); // asn
+		//String resNum = "A23";
+		String resNum = "A37";
+		List<String> resTypes = Arrays.asList(
+			"ARG", "HIP", "HID", "HIE", "LYS", "ASP", "GLU",
+			"CYS", "GLY", "PRO",
+			"ALA", "VAL", "ILE", "LEU", "MET", "PHE", "TYR", "TRP",
+			"SER", "THR", "ASN", "GLN"
+		);
+		strand.flexibility.get(resNum).setLibraryRotamers(resTypes).setContinuous(); // asn
+
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
 			.addStrand(strand)
 			.build();
@@ -274,6 +653,20 @@ public class FlexLab {
 			.addIntra(0)
 			.make();
 
+		class TypeStats {
+
+			final ClusterR1 energies = new ClusterR1();
+			final ClusterR1 clashes = new ClusterR1();
+
+			MathTools.DoubleBounds clashBounds() {
+				if (clashes.isEmpty()) {
+					return new MathTools.DoubleBounds(0, 0);
+				}
+				return clashes.bounds();
+			}
+		}
+		Map<String,TemplateType.Map<TypeStats>> statsByType = new HashMap<>();
+		Map<String,TemplateType.Map<TypeStats>> statsOptByType = new HashMap<>();
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams).build()) {
 
 			EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc)
@@ -283,92 +676,151 @@ public class FlexLab {
 			// for each rotamer
 			for (SimpleConfSpace.ResidueConf rc : confSpace.positions.get(0).resConfs) {
 
-				// TEMP: only leucines
-				if (!rc.template.name.equals("LEU")) {
+				/* TEMP: just one residue type at a time for now
+				String type = "ALA";
+				if (!rc.template.name.equals(type)) {
 					continue;
 				}
-				String type = "LEU";
+				*/
 
-				RCTuple tuple = new RCTuple(0, rc.index);
-				log("%s %d - %3d", rc.template.name, rc.rotamerIndex, rc.index);
+				String type = rc.template.name;
+				//log("%s %d - %3d", rc.template.name, rc.rotamerIndex, rc.index);
 
-				Consumer<Molecule> analyzeClashes = (mol) -> {
-					probe.getInteractions(mol.residues, inters, connectivity).stream()
-						.filter(interaction -> interaction.contact.isClash)
-						.sorted(Comparator.comparing(interaction -> interaction.getViolation(0.0)))
-						.forEach(interaction -> {
-							double vdw = calcVDW(interaction.atomPair.a, interaction.atomPair.b, ffparams);
-							log("\t\t%s   %s     vdw=%.4f", interaction.atomPair, interaction, vdw);
-						});
-				};
-
-				// measure dihedrals and bond angles
+				// what rotamer is this?
+				Rotamer rot;
 				{
-					ParametricMolecule pmol = confSpace.makeMolecule(tuple);
-					Residue res = pmol.mol.getResByPDBResNumber("A23");
+					ParametricMolecule pmol = makeMolecule(confSpace, rc);
+					Residue res = pmol.mol.getResByPDBResNumber(resNum);
 					double[] dihedrals = chiLib.measure(res, type);
-					Rotamer rot = rotamers.find(type, dihedrals);
-					log("\trotamer:     %s  %.1f%%", rot.name, rot.percent);
-					log("\tdihedrals:   %s", Arrays.toString(dihedrals));
-					log("\tbond angles: %s", Arrays.toString(angleLib.measure(res, type)));
-					log("\tmethyls:     %s", Arrays.toString(methylLib.measure(res, type)));
-					log("\trigid: %.3f kcal/mol", rigidEcalc.calcEnergy(pmol, inters).energy);
-					analyzeClashes.accept(pmol.mol);
+					//log("\tdihedrals:   %s", degreesToString(dihedrals));
+					rot = rotamers.find(type, dihedrals);
+					//log("\trotamer:     %s  %.1f%% of population", rot.name, rot.percent);
 				}
 
-				// minimize dihedrals
-				{
-					EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(confSpace.makeMolecule(tuple), inters);
-					log("\tminimzed dihedrals: %.3f kcal/mol", epmol.energy);
-					Residue res = epmol.pmol.mol.getResByPDBResNumber("A23");
-					log("\t\tdihedrals: %s", Arrays.toString(chiLib.measure(res, type)));
-					analyzeClashes.accept(epmol.pmol.mol);
-				}
+				for (TemplateType templateType : TemplateType.values()) {
 
-				// minimize methyls
-				{
-					Molecule mol = confSpace.makeMolecule(tuple).mol;
-					Residue res = mol.getResByPDBResNumber("A23");
-					ParametricMolecule pmol = new ParametricMolecule(
-						mol,
-						Arrays.asList(
-							new MethylRotation(res, "CB", "CG", "CD1", "HD11", "HD12", "HD13"),
-							new MethylRotation(res, "CB", "CG", "CD2", "HD21", "HD22", "HD23")
-						),
-						new ObjectiveFunction.DofBounds(new DoubleMatrix1D[] {
-							DoubleFactory1D.dense.make(new double[] { -60.0, -60.0 }),
-							DoubleFactory1D.dense.make(new double[] { 60.0, 60.0 })
-						})
-					);
-					EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(pmol, inters);
-					log("\tminimzed methyls: %.3f kcal/mol", epmol.energy);
-					log("\t\tmethyls: %s", Arrays.toString(methylLib.measure(res, type)));
-					analyzeClashes.accept(epmol.pmol.mol);
-				}
+					// set the template coords
+					setTemplateCoords.accept(rc, templateType);
 
-				// minimize dihedrals and methyls
-				{
-					ParametricMolecule pmol = confSpace.makeMolecule(tuple);
-					assert (pmol.dofs.size() == 2);
-					Residue res = pmol.mol.getResByPDBResNumber("A23");
-					ParametricMolecule pmol2 = new ParametricMolecule(
-						pmol.mol,
-						Arrays.asList(
-							pmol.dofs.get(0), // chi1
-							pmol.dofs.get(1), // chi2
-							new MethylRotation(res, "CB", "CG", "CD1", "HD11", "HD12", "HD13"),
-							new MethylRotation(res, "CB", "CG", "CD2", "HD21", "HD22", "HD23")
-						),
-						new ObjectiveFunction.DofBounds(new DoubleMatrix1D[] {
-							DoubleFactory1D.dense.make(new double[] { pmol.dofBounds.getMin(0), pmol.dofBounds.getMin(1), -60.0, -60.0 }),
-							DoubleFactory1D.dense.make(new double[] { pmol.dofBounds.getMax(0), pmol.dofBounds.getMax(1), 60.0, 60.0 })
-						})
-					);
-					EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(pmol2, inters);
-					log("\tminimzed dihedrals and methyls: %.3f kcal/mol", epmol.energy);
-					log("\t\tdihedrals: %s", Arrays.toString(chiLib.measure(res, type)));
-					log("\t\tmethyls: %s", Arrays.toString(methylLib.measure(res, type)));
-					analyzeClashes.accept(epmol.pmol.mol);
+					Consumer<Molecule> analyzeClashes = (mol) -> {
+						probe.getInteractions(mol.residues, inters, connectivity).stream()
+							.filter(interaction -> interaction.contact.isClash)
+							.sorted(Comparator.comparing(interaction -> interaction.getViolation(0.0)))
+							.forEach(interaction -> {
+								double vdw = calcVDW(interaction.atomPair.a, interaction.atomPair.b, ffparams);
+								log("\t\t%s   %s     vdw=%.4f", interaction.atomPair, interaction, vdw);
+							});
+					};
+
+					Function<Molecule,Double> avgClash = (mol) ->
+						probe.getInteractions(mol.residues, inters, connectivity).stream()
+							.filter(interaction -> interaction.contact.isClash)
+							.mapToDouble(interaction -> interaction.getViolation(0.0))
+							.average()
+							.orElse(0);
+
+					Function<Molecule,Double> maxClash = (mol) ->
+						probe.getInteractions(mol.residues, inters, connectivity).stream()
+							.filter(interaction -> interaction.contact.isClash)
+							.mapToDouble(interaction -> interaction.getViolation(0.0))
+							.max()
+							.orElse(0);
+
+					TypeStats stats = statsByType
+						.computeIfAbsent(type, t -> new TemplateType.Map<>())
+						.computeIfAbsent(templateType, t -> new TypeStats());
+
+					Function<ParametricMolecule,ParametricMolecule> setBBDofs = pmol -> {
+
+						pmol = wipeDofs(pmol);
+						Residue res = pmol.mol.getResByPDBResNumber(resNum);
+
+						if (!type.equalsIgnoreCase("PRO")) {
+							/* don't minimize these, just set to 0
+							pmol = addDofs(pmol, Arrays.asList(
+								new BoundedDof(
+									new DihedralDof(res, "C", "CA", "N", "H", "H"),
+									0, 360
+								),
+								new BoundedDof(
+									new DihedralDof(res, "N", "CA", "C", "O", "O"),
+									0, 360
+								)
+							));
+							*/
+							new DihedralDof(res, "C", "CA", "N", "H", "H").apply(0);
+							new DihedralDof(res, "N", "CA", "C", "O", "O").apply(0);
+						}
+
+						return pmol;
+					};
+
+					// calc energy and clashes with backbone minimization
+					{
+						ParametricMolecule pmol = makeMolecule(confSpace, rc);
+						pmol = setBBDofs.apply(pmol);
+
+						/* TEMP
+						log("\t%10s %12s: amber=%7.3f avgClash=%5.3f",
+							templateType,
+							"rigid",
+							rigidEcalc.calcEnergy(pmol, inters).energy,
+							avgClash.apply(pmol.mol)
+						);
+						*/
+
+						EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(pmol, inters);
+						stats.energies.add(epmol.energy);
+						stats.clashes.add(maxClash.apply(epmol.pmol.mol));
+						log("%3s\t%s\t%.1f\t%s\t%.3f\t%.3f",
+							type,
+							rot != null ? rot.name : "(none)",
+							rot != null ? rot.percent : 100,
+							templateType.name(),
+							epmol.energy,
+							maxClash.apply(epmol.pmol.mol)
+						);
+						analyzeClashes.accept(epmol.pmol.mol);
+					}
+
+					TypeStats statsOpt = statsOptByType
+						.computeIfAbsent(type, t -> new TemplateType.Map<>())
+						.computeIfAbsent(templateType, t -> new TypeStats());
+
+					// minimize methyls if possible
+					List<MeasurementLibrary.Measurement> methylMeasurements = methylLib.get(type);
+					if (methylMeasurements != null) {
+						ParametricMolecule pmol = makeMolecule(confSpace, rc);
+						pmol = setBBDofs.apply(pmol);
+						Residue res = pmol.mol.getResByPDBResNumber(resNum);
+						pmol = addDofs(
+							pmol,
+							methylMeasurements.stream()
+								.map(measurement -> {
+									MeasurementLibrary.DihedralAnglesMinDist m = (MeasurementLibrary.DihedralAnglesMinDist)measurement;
+									return new BoundedDof(
+										new MethylRotation(res, m.a, m.b, m.c, m.d[0], m.d[1], m.d[2]),
+										180 - 40,
+										180 + 40
+									);
+								})
+								.collect(Collectors.toList())
+						);
+						EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(pmol, inters);
+						/* TEMP
+						double[] methyls = methylLib.measure(res, type);
+						log("\t%10s %12s: amber=%7.3f avgClash=%5.3f methyls=%s",
+							templateType,
+							"min methyls",
+							epmol.energy,
+							avgClash.apply(pmol.mol),
+							degreesToString(methyls)
+						);
+						*/
+						double energy = rigidEcalc.calcEnergy(pmol, inters).energy;
+						statsOpt.energies.add(energy);
+						statsOpt.clashes.add(maxClash.apply(epmol.pmol.mol));
+					}
 				}
 			}
 
@@ -378,6 +830,213 @@ public class FlexLab {
 			ParametricMolecule pmol = confSpace.makeMolecule(tuple);
 			PDBIO.writeFile(pmol.mol, new File("rotamer.pdb"));
 			*/
+		}
+
+		log("\nres type stats for %s", resNum);
+		for (String type : resTypes) {
+
+			TypeStats statsCurrent = statsByType.get(type).get(TemplateType.Current);
+			TypeStats statsIdealized = statsByType.get(type).get(TemplateType.Idealized);
+			TypeStats statsCurrentOpt = statsOptByType.get(type).get(TemplateType.Current);
+			TypeStats statsIdealizedOpt = statsOptByType.get(type).get(TemplateType.Idealized);
+
+			MathTools.DoubleBounds energiesCurrent = statsCurrent.energies.bounds();
+			MathTools.DoubleBounds energiesIdealized = statsIdealized.energies.bounds();
+			MathTools.DoubleBounds energiesCurrentOpt = statsCurrentOpt.energies.bounds();
+			MathTools.DoubleBounds energiesIdealizedOpt = statsIdealizedOpt.energies.bounds();
+
+			MathTools.DoubleBounds clashesCurrent = statsCurrent.clashBounds();
+			MathTools.DoubleBounds clashesIdealized = statsIdealized.clashBounds();
+			MathTools.DoubleBounds clashesCurrentOpt = statsCurrentOpt.clashBounds();
+			MathTools.DoubleBounds clashesIdealizedOpt = statsIdealizedOpt.clashBounds();
+
+			log("%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f",
+				type,
+				energiesCurrent.lower, energiesCurrent.upper,
+				clashesCurrent.lower, clashesCurrent.upper,
+				energiesIdealized.lower, energiesIdealized.upper,
+				clashesIdealized.lower, clashesIdealized.upper,
+				energiesCurrentOpt.lower, energiesCurrentOpt.upper,
+				clashesCurrentOpt.lower, clashesCurrentOpt.upper,
+				energiesIdealizedOpt.lower, energiesIdealizedOpt.upper,
+				clashesIdealizedOpt.lower, clashesIdealizedOpt.upper
+			);
+		}
+	}
+
+	private static ParametricMolecule makeMolecule(SimpleConfSpace confSpace, SimpleConfSpace.ResidueConf rc) {
+
+		// easy mode
+		//return confSpace.makeMolecule(new RCTuple(0, rc.index));
+
+		// get the name of the original res
+		SimpleConfSpace.Position pos = confSpace.positions.get(0);
+
+		// make the molecule from the template res
+		Molecule mol = new Molecule();
+		Residue res = new Residue(rc.template.templateRes);
+		res.fullName = pos.strand.mol.getResByPDBResNumber(pos.resNum).fullName;
+		res.template = rc.template;
+		res.markIntraResBondsByTemplate();
+		res.molec = mol;
+		res.indexInMolecule = mol.residues.size();
+		mol.residues.add(res);
+		mol.markInterResBonds();
+
+		// make the residue DOFs and bounds
+		VoxelShape.Rect voxel = new VoxelShape.Rect();
+		List<DegreeOfFreedom> dofs = voxel.makeDihedralDOFs(res);
+		ObjectiveFunction.DofBounds dofBounds;
+		if (rc.rotamerIndex != null) {
+			dofBounds = voxel.makeDihedralBounds(rc.template, rc.rotamerIndex);
+		} else {
+			dofBounds = new ObjectiveFunction.DofBounds(0);
+		}
+
+		// center all the dofs
+		for (int d=0; d<dofs.size(); d++) {
+			dofs.get(d).apply(dofBounds.getCenter(d));
+		}
+
+		return new ParametricMolecule(mol, dofs, dofBounds);
+	}
+
+	private static class BoundedDof {
+
+		final DegreeOfFreedom dof;
+		final double min;
+		final double max;
+
+		public BoundedDof(DegreeOfFreedom dof, double min, double max) {
+			this.dof = dof;
+			this.min = min;
+			this.max = max;
+		}
+	}
+
+	private static ParametricMolecule wipeDofs(ParametricMolecule pmol) {
+		return new ParametricMolecule(
+			pmol.mol,
+			Collections.emptyList(),
+			new ObjectiveFunction.DofBounds(new DoubleMatrix1D[] {
+				DoubleFactory1D.dense.make(0),
+				DoubleFactory1D.dense.make(0)
+			})
+		);
+	}
+
+	private static ParametricMolecule addDofs(ParametricMolecule pmol, List<BoundedDof> newDofs) {
+
+		// expand the dofs
+		List<DegreeOfFreedom> combinedDofs = new ArrayList<>(pmol.dofs);
+		for (BoundedDof bdof : newDofs) {
+			combinedDofs.add(bdof.dof);
+		}
+
+		// expand the dof bounds
+		DoubleMatrix1D mins = DoubleFactory1D.dense.make(pmol.dofs.size() + newDofs.size());
+		DoubleMatrix1D maxs = mins.copy();
+		for (int i=0; i<pmol.dofs.size(); i++) {
+			mins.set(i, pmol.dofBounds.getMin(i));
+			maxs.set(i, pmol.dofBounds.getMax(i));
+		}
+		for (int i=0; i<newDofs.size(); i++) {
+			mins.set(i + pmol.dofs.size(), newDofs.get(i).min);
+			maxs.set(i + pmol.dofs.size(), newDofs.get(i).max);
+		}
+
+		// build a new pmol
+		return new ParametricMolecule(
+			pmol.mol,
+			combinedDofs,
+			new ObjectiveFunction.DofBounds(new DoubleMatrix1D[] { mins, maxs })
+		);
+	}
+
+	private static String degreesToString(double[] degrees) {
+
+		if (degrees == null) {
+			return "null";
+		}
+
+		StringBuilder buf = new StringBuilder();
+		buf.append("[");
+		for (int i=0; i<degrees.length; i++) {
+			if (i > 0) {
+				buf.append(",");
+			}
+			buf.append(String.format("%6.1f", degrees[i]));
+		}
+		buf.append("]");
+		return buf.toString();
+	}
+
+	private static class DihedralDof extends DegreeOfFreedom {
+
+		public final Residue res;
+
+		private final int a;
+		private final int b;
+		private final int c;
+		private final int d;
+		private final int[] r;
+
+		public DihedralDof(Residue res, String a, String b, String c, String d, String ... r) {
+			this.res = res;
+			this.a = res.getAtomByName(a).indexInRes;
+			this.b = res.getAtomByName(b).indexInRes;
+			this.c = res.getAtomByName(c).indexInRes;
+			this.d = res.getAtomByName(d).indexInRes;
+			this.r = Arrays.stream(r)
+				.mapToInt(atomName -> res.getAtomByName(atomName).indexInRes)
+				.toArray();
+		}
+
+		public double measure() {
+			return Protractor.measureDihedral(res.coords, a, b, c, d);
+		}
+
+		@Override
+		public void apply(double angleDegrees) {
+
+			// compute the target dihedral
+			double angleRadians = Math.toRadians(angleDegrees);
+			double sin = Math.sin(angleRadians);
+			double cos = Math.cos(angleRadians);
+
+			// measure the current dihedral
+			double measuredSinCos[] = Protractor.measureDihedralSinCos(res.coords, a, b, c, d);
+
+			// calc the dihedral rotation as a rigid body transformation relative to the current pose
+			double dsin = sin*measuredSinCos[1] - cos*measuredSinCos[0];
+			double dcos = cos*measuredSinCos[1] + sin*measuredSinCos[0];
+
+			double[] bcoords = new double[] {
+				res.coords[b*3    ],
+				res.coords[b*3 + 1],
+				res.coords[b*3 + 2],
+			};
+			double[] ccoords = new double[] {
+				res.coords[c*3    ],
+				res.coords[c*3 + 1],
+				res.coords[c*3 + 2],
+			};
+			RigidBodyMotion dihRotation = new DihedralRotation(bcoords, ccoords, dsin, dcos);
+
+			// rotate all the downstream atoms
+			for (int r : this.r) {
+				dihRotation.transform(res.coords, r);
+			}
+		}
+
+		@Override
+		public DOFBlock getBlock() {
+			return null;
+		}
+
+		@Override
+		public String getName() {
+			return "dihedral";
 		}
 	}
 
@@ -489,7 +1148,7 @@ public class FlexLab {
 		int numAngles = chiLib.get(type).size();
 		assert (numAngles > 0);
 
-		Map<ResKey,double[]> dihedralsByKey = readAngles(type, chiLib, type + ".dihedrals.dat", false);
+		Map<ResKey,double[]> dihedralsByKey = readAngles(type, chiLib, type + ".dihedrals.dat", true);
 		log("%s dihedrals: %d", type, dihedralsByKey.size());
 
 		VisIt.writeAngles2D(dihedralsByKey.values(), 0, 1, new File(type + ".dihedrals.vtk"));
@@ -564,52 +1223,46 @@ public class FlexLab {
 	public static void lovellRotamers(String type)
 	throws Exception {
 
-		int numAngles = chiLib.get(type).size();
+		File dir = new File("/home/jeff/dlab/top8000");
+		List<String> types = Arrays.asList(type.toUpperCase());
+
 		Map<ResKey,double[]> dihedralsByKey = readAngles(type, chiLib, type + ".dihedrals.dat", false);
 
 		// analyze the Lovell rotamers for leucine
-		List<SmallAngleVoxel> lovellVoxels;
-		if (type.equalsIgnoreCase("leu")) {
-			lovellVoxels = Arrays.asList(
-				new SmallAngleVoxel(new double[] { 62, 80 }),
-				new SmallAngleVoxel(new double[] { -177, 65 }),
-				new SmallAngleVoxel(new double[] { -172, 145 }),
-				new SmallAngleVoxel(new double[] { -85, 65 }),
-				new SmallAngleVoxel(new double[] { -65, 175 })
-			);
-		} else if (type.equalsIgnoreCase("trp")) {
-			lovellVoxels = Arrays.asList(
-				new SmallAngleVoxel(new double[] { 62, -90 }),
-				new SmallAngleVoxel(new double[] { 62, 90 }),
-				new SmallAngleVoxel(new double[] { -177, -105 }),
-				new SmallAngleVoxel(new double[] { -177, 90 }),
-				new SmallAngleVoxel(new double[] { -65, -90 }),
-				new SmallAngleVoxel(new double[] { -65, -5 }),
-				new SmallAngleVoxel(new double[] { -65, 95 })
-			);
-		} else {
-			throw new IllegalArgumentException("unknown lovell voxels for " + type);
-		}
+		ArrayList<SmallAngleVoxel> voxels = new ArrayList<>();
+		double totalPercent = 0.0;
+		for (Rotamer rot : rotamers.get(type)) {
 
-		for (SmallAngleVoxel voxel : lovellVoxels) {
-			for (int d=0; d<numAngles; d++) {
-				voxel.intervals[d].less = -9;
-				voxel.intervals[d].more = 9;
-			}
+			voxels.add(rot.voxel);
 
 			// get dihedral counts
 			long count = dihedralsByKey.values().stream()
-				.filter(p -> voxel.contains(p))
+				.filter(p -> rot.voxel.contains(p))
 				.count();
+			double percent = 100f*count/dihedralsByKey.size();
+			totalPercent += percent;
 
-			log("\nLovell voxel: %6d   %.1f%% of total\n%s",
-				count,
-				100f*count/dihedralsByKey.size(),
-				voxel
-			);
+			log("%s %8s: %6d   %4.1f%% of total", type, rot.name, count, percent);
 		}
 
-		VisIt.writeVoxels(lovellVoxels, 0, 1, new File(type + ".lovellVoxels.vtk"));
+		log("total percent: %.1f%%", totalPercent);
+
+		VisIt.writeVoxels(voxels, 0, 1, new File(type + ".lovellVoxels.vtk"));
+
+		// analyze the voxel stats
+		for (Rotamer rot : rotamers.get(type)) {
+
+			Predicate<Residue> filter = res -> {
+				double[] dihedrals = chiLib.measure(res, type);
+				return dihedrals != null && rot.voxel.contains(dihedrals);
+
+			};
+
+			log("\n\n%s %8s", type, rot.name);
+
+			Map<String,List<TemplateChooser.MeasuredRes>> measurementsByType = TemplateChooser.measureResidues(dir, types, filter);
+			Map<String,double[]> modes = TemplateChooser.calcModes(measurementsByType, types);
+		}
 	}
 
 	public static void top8000Angles(String type)
@@ -972,9 +1625,28 @@ public class FlexLab {
 
 	public static void energyLandscape(String type) {
 
+		TemplateType.Map<ResidueTemplateLibrary> templateLibs = TemplateType.mapOf(
+			new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+				.build(),
+			new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+				.clearTemplateCoords()
+				.addTemplateCoords(FileTools.readFile("template coords.txt"))
+				.build()
+		);
+
+		// make a mechanism to change template coords on-the-fly
+		BiConsumer<SimpleConfSpace.ResidueConf,TemplateType> setTemplateCoords = (rc, templateType) -> {
+			System.arraycopy(
+				templateLibs.get(templateType).getTemplate(rc.template.name, true).templateRes.coords, 0,
+				rc.template.templateRes.coords, 0,
+				rc.template.templateRes.coords.length
+			);
+		};
+
 		// make a conspace with all the rotamers for this type
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
-		strand.flexibility.get("A23").setLibraryRotamers(type).setContinuous(); // asn
+		String resNum = "A37";
+		strand.flexibility.get(resNum).setLibraryRotamers(type).setContinuous(); // asn
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
 			.addStrand(strand)
 			.build();
@@ -986,100 +1658,43 @@ public class FlexLab {
 
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams).build()) {
 
-			EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc)
-				.setIsMinimizing(false)
-				.build();
+			// pick the first rc, doesn't matter
+			SimpleConfSpace.ResidueConf rc = confSpace.positions.get(0).resConfs.get(0);
 
-			// sweep space and sample the energy function at every point
-			RCTuple tuple = new RCTuple(0, 0);
-			ParametricMolecule pmol = confSpace.makeMolecule(tuple);
+			// set the template coords
+			TemplateType templateType = TemplateType.Idealized;
+			setTemplateCoords.accept(rc, templateType);
 
-			// look at the bond angles of the template
-			Residue res = pmol.mol.residues.getOrThrow("A23");
-			log("%s template angles: %s", type, Arrays.toString(angleLib.measure(res, type)));
-
-			// make tetrahedral geometry dofs
-			List<String> sideChain = Arrays.asList("CB", "CG", "CD1", "HD11", "HD12", "HD13", "CD2", "HD21", "HD22", "HD23");
-			TetrahedralInPlaneRotation tetraIPCB = new TetrahedralInPlaneRotation(
-				res,
-				"N", "CA", "C", "CB",
-				sideChain
-			);
-			TetrahedralOutOfPlaneRotation tetraOOPCB = new TetrahedralOutOfPlaneRotation(
-				res,
-				"N", "CA", "C", "CB",
-				sideChain
-			);
-
-			// make bond angle dofs
-			BondAngleRotation rotCACBCG = new BondAngleRotation(
-				res,
-				"CA", "CB", "CG",
-				Arrays.asList("CG", "CD1", "HD11", "HD12", "HD13", "CD2", "HD21", "HD22", "HD23")
-			);
-
-			// make methyl dofs
-			MethylRotation[] methyl = new MethylRotation[] {
-				new MethylRotation(res, "CB", "CG", "CD1", "HD11", "HD12", "HD13"),
-				new MethylRotation(res, "CB", "CG", "CD2", "HD21", "HD22", "HD23")
-			};
-
-			Consumer<String> dumpAngles = (label) ->
-				log("%s:"
-					+ "\n\ttetra IP:  %6.1f"
-					+ "\n\ttetra OOP: %6.1f"
-					+ "\n\tCA-CB-CG:  %6.1f"
-					+ "\n\tmethyl1:   %6.1f"
-					+ "\n\tmethyl2:   %6.1f",
-					label,
-					tetraLib.get(type, "TetraIP-CB").measure(res),
-					tetraLib.get(type, "TetraOOP-CB").measure(res),
-					angleLib.get(type, "CA-CB-CG").measure(res),
-					methylLib.get(type, "methyl1").measure(res),
-					methylLib.get(type, "methyl2").measure(res)
-				);
-			dumpAngles.accept("stock angles");
-
-			// default angles are -3.2, -53.9, 109.4, 60.0, 60.0
-			//tetraIPCB.apply(-3.2);
-			//tetraOOPCB.apply(-53.9);
-			//rotCACBCG.apply(109.4);
-			//methyl[0].apply(60.0);
-			//methyl[1].apply(60.0);
-
-			// change the bond angles to leu modals: -0.6, -52.4, 116.4
-			tetraIPCB.apply(-0.6);
-			tetraOOPCB.apply(-52.4);
-			rotCACBCG.apply(116.4);
-
-			dumpAngles.accept("adjusted angles");
-
-			// sweep over chi angles
-			assert (pmol.dofs.size() == 2);
+			// grab the first two chi angles from the dofs
+			ParametricMolecule pmol = makeMolecule(confSpace, rc);
+			assert (pmol.dofs.size() >= 2);
 			FreeDihedral[] chi = new FreeDihedral[] {
 				(FreeDihedral)pmol.dofs.get(0),
 				(FreeDihedral)pmol.dofs.get(1)
 			};
 
-			// allow minimizing methyls
-			ParametricMolecule pmolMethyls = new ParametricMolecule(
-				pmol.mol,
-				Arrays.asList(methyl[0], methyl[1]),
-				new ObjectiveFunction.DofBounds(new DoubleMatrix1D[] {
-					DoubleFactory1D.dense.make(new double[] { 0, 0 }),
-					DoubleFactory1D.dense.make(new double[] { 120, 120 })
-				})
-			);
+			// wipe all the dofs
+			pmol = wipeDofs(pmol);
 
+			// set the backbone groups to be out of the way
+			Residue res = pmol.mol.getResByPDBResNumber(resNum);
+			new DihedralDof(res, "C", "CA", "N", "H", "H").apply(0);
+			new DihedralDof(res, "N", "CA", "C", "O", "O").apply(0);
+
+			// add methyl rotations
+			assert (type.equalsIgnoreCase("LEU"));
+			pmol = addDofs(pmol, Arrays.asList(
+				new BoundedDof(new MethylRotation(res, "CB", "CG", "CD1", "HD11", "HD12", "HD13"), 0, 120),
+				new BoundedDof(new MethylRotation(res, "CB", "CG", "CD2", "HD21", "HD22", "HD23"), 0, 120)
+			));
+
+			// allocate space for the energies
 			double[][] energies = new double[360][360];
-			double[][] methylAngles1 = new double[360][360];
-			double[][] methylAngles2 = new double[360][360];
 			for (int i=0; i<360; i++) {
 				Arrays.fill(energies[i], Double.NaN);
-				Arrays.fill(methylAngles1[i], Double.NaN);
-				Arrays.fill(methylAngles2[i], Double.NaN);
 			}
 
+			// sweep over chi space and sample the energy function
 			Progress progress = new Progress(360*360);
 			for (int[] indices : new MathTools.GridIterable(new int[] { 360, 360 })) {
 
@@ -1087,24 +1702,13 @@ public class FlexLab {
 				chi[0].apply(indices[0]);
 				chi[1].apply(indices[1]);
 
-				// calc the rigid energy
-				//double energy = rigidEcalc.calcEnergy(pmol, inters).energy;
-
-				// calc the minimized energy
-				double energy = ecalc.calcEnergy(pmolMethyls, inters).energy;
+				// calc the energy here
+				double energy = ecalc.calcEnergy(pmol, inters).energy;
 
 				// store results in y-major order
 				int ix = indices[0];
 				int iy = indices[1];
 				energies[iy][ix] = energy;
-
-				if (energy > 5.0) {
-					methylAngles1[iy][ix] = 0.0;
-					methylAngles2[iy][ix] = 0.0;
-				} else {
-					methylAngles1[iy][ix] = Protractor.getDistDegrees(methyl[0].measure(), 60);
-					methylAngles2[iy][ix] = Protractor.getDistDegrees(methyl[1].measure(), 60);
-				}
 
 				progress.incrementProgress();
 			}
@@ -1117,9 +1721,7 @@ public class FlexLab {
 				yaxis[i] = i;
 			}
 
-			VisIt.writeGrid2D(xaxis, yaxis, energies, new File(type + ".dihedralEnergy.fixedTetraCACBCG.minMethyl.vtk"));
-			VisIt.writeGrid2D(xaxis, yaxis, methylAngles1, new File(type + ".methylAngles1.vtk"));
-			VisIt.writeGrid2D(xaxis, yaxis, methylAngles2, new File(type + ".methylAngles2.vtk"));
+			VisIt.writeGrid2D(xaxis, yaxis, energies, new File(type + ".dihedralEnergy." + templateType.name().toLowerCase() + ".minbb.methyls.vtk"));
 		}
 	}
 
@@ -1305,5 +1907,57 @@ public class FlexLab {
 		public String getName() {
 			return "Tetra-OOP";
 		}
+	}
+
+	private static void top8000RotamerStats(String type)
+	throws Exception {
+
+		// clustering settings
+		int densityWindowRadius = 2;
+		int densityWindowCountThreshold = 20;
+		double clusterDistThreshold = 50.0; // TODO: is this really a distance? it seems too high
+
+		int numAngles = chiLib.get(type).size();
+		assert (numAngles > 0);
+
+		Map<ResKey,double[]> dihedralsByKey = readAngles(type, chiLib, type + ".dihedrals.dat", true);
+		log("%s dihedrals: %d", type, dihedralsByKey.size());
+
+		VisIt.writeAngles2D(dihedralsByKey.values(), 0, 1, new File(type + ".dihedrals.vtk"));
+
+		// make a histogram
+		log("building histogram");
+		DegreesHistogram hist = new DegreesHistogram(numAngles);
+		for (double[] dihedrals : dihedralsByKey.values()) {
+			hist.add(dihedrals);
+		}
+		log("histogram done");
+
+		// filter the histogram
+		{
+			int count = hist.count();
+			log("before filtering: %d", count);
+			hist.filterDensityWindow(densityWindowRadius, densityWindowCountThreshold);
+			int keptCount = hist.count();
+			log("after filtering:  %d  %.1f%%", keptCount, 100f*keptCount/count);
+		}
+
+		// convert the histogram back to dihedrals
+		List<double[]> keptDihedrals = new ArrayList<>();
+		for (long key : hist.buckets.keySet()) {
+			keptDihedrals.add(hist.makeDihedrals(key));
+		}
+
+		VisIt.writeAngles2D(keptDihedrals, 0, 1, new File(type + ".keptDihedrals.vtk"));
+
+		// cluster the points
+		List<List<double[]>> clusters = AngleClustering.cluster(keptDihedrals, numAngles, clusterDistThreshold);
+
+		// calc bounding voxels for the clusters
+		List<SmallAngleVoxel> voxels = clusters.stream()
+			.map(cluster -> AngleClustering.calcVoxel(cluster))
+			.collect(Collectors.toList());
+
+		VisIt.writeVoxels(voxels, 0, 1, new File(type + ".voxels.vtk"));
 	}
 }

@@ -99,6 +99,54 @@ public class MeasurementLibrary {
 		}
 	}
 
+	/** returns the smallest dihedral angle distance to 180 among the d atoms */
+	public static class DihedralAnglesMinDist extends Measurement {
+
+		public final double refAngle;
+		public final String a;
+		public final String b;
+		public final String c;
+		public final String[] d;
+
+		public DihedralAnglesMinDist(String name, double refAngle, String a, String b, String c, String ... d) {
+			super(name, Space.S);
+			this.refAngle = refAngle;
+			this.a = a;
+			this.b = b;
+			this.c = c;
+			this.d = d;
+		}
+
+		@Override
+		public Double measure(Residue res) {
+
+			// get the atoms, if possible
+			Atom a = res.getAtomByName(this.a);
+			Atom b = res.getAtomByName(this.b);
+			Atom c = res.getAtomByName(this.c);
+			if (a == null || b == null || c == null) {
+				return null;
+			}
+			Atom[] d = new Atom[this.d.length];
+			for (int i=0; i<this.d.length; i++) {
+				Atom di = res.getAtomByName(this.d[i]);
+				if (di == null) {
+					return null;
+				}
+				d[i] = di;
+			}
+
+			// get closest dist to 180 degrees
+			double minDist = Double.POSITIVE_INFINITY;
+			for (Atom di : d) {
+				double angle = Protractor.measureDihedral(res.coords, a.indexInRes, b.indexInRes, c.indexInRes, di.indexInRes);
+				minDist = Math.min(minDist, Protractor.getDistDegrees(angle, refAngle));
+			}
+
+			return minDist;
+		}
+	}
+
 	public static class TetrahedralSystem {
 
 		public final String a;
@@ -328,6 +376,10 @@ public class MeasurementLibrary {
 
 	public List<Measurement> get(String type) {
 		return measurements.computeIfAbsent(type.toUpperCase(), t -> new ArrayList<>());
+	}
+
+	public boolean contains(String type) {
+		return measurements.containsKey(type.toUpperCase());
 	}
 
 	public double[] measure(Residue res, String type) {
