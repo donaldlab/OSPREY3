@@ -118,6 +118,36 @@ public class TestMARKStar {
 		System.out.println("MARK* time: "+markstartime+", K* time: "+kstartime);
 	}
 
+	@Test
+	public void test5UCE () {
+		try {
+			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/5uce.cfs");
+			runMARKStar(confSpaces, 0.01);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	public void test5UCF () {
+		try {
+			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/5ucf.cfs");
+			runMARKStar(confSpaces, 0.01);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	public void test5UCFMut () {
+		try {
+			ConfSpaces confSpaces = loadFromCFS("examples/python.KStar/5ucf.cfs");
+			runMARKStar(confSpaces, 0.01);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
 	private ConfSpaces makeConfSpaces(String pdb, String[] proteinDef, String[] proteinFlex, String[] ligandDef,
 								String[] ligandFlex) {
 
@@ -331,6 +361,7 @@ public class TestMARKStar {
 							String resNum = resDefMatcher.group(1);
 							strandMap.get(strandNum).flexibility.get(resNum)
 									.setLibraryRotamers(Strand.WildType)
+									.setContinuous()
 									.addWildTypeRotamers();
 						}
 						//Strand 0: protein
@@ -439,6 +470,26 @@ public class TestMARKStar {
 	}
 
 	@Test
+	public void test1A0R19ResE52() {
+		try {
+			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/1a0r_B_19res_9.186E+52.cfs");
+			TestComparison(confSpaces, 0.99, true);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
+	public void test4WWI27ResE78() {
+		try {
+			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/4wwi_B_27res_1.845E+78.cfs");
+			TestComparison(confSpaces, 0.999999999999, true);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Test
 	public void test1B6C() {
 		try {
 			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/1b6c_E_19res_1.010E+52.cfs");
@@ -491,7 +542,7 @@ public class TestMARKStar {
 	@Test
 	public void test2XXM() {
 		ConfSpaces confSpaces = make2XXM();
-		final double epsilon = 0.99;
+		final double epsilon = 0.9;
 		String kstartime = "(not run)";
 		boolean runkstar = false;
 		Stopwatch runtime = new Stopwatch().start();
@@ -532,21 +583,21 @@ public class TestMARKStar {
 				.setTemplateLibrary(templateLib)
 				.setResidues("A146", "A218")
 				.build();
-		protein.flexibility.get("A177").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("A178").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("A179").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("A180").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("A181").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A177").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		protein.flexibility.get("A178").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		protein.flexibility.get("A179").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		protein.flexibility.get("A180").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		protein.flexibility.get("A181").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
 				.setTemplateLibrary(templateLib)
 				.setResidues("B4", "B113")
 				.build();
-		ligand.flexibility.get("B58").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("B60").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("B61").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("B64").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("B58").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		ligand.flexibility.get("B60").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		ligand.flexibility.get("B61").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		ligand.flexibility.get("B64").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
 
 		// make the conf spaces ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
@@ -569,7 +620,7 @@ public class TestMARKStar {
 		double epsilon = 0.99;
 		String kstartime = "(Not run)";
 		Stopwatch watch = new Stopwatch();
-		boolean runkstar = false;
+		boolean runkstar = true;
 		if(runkstar) {
 			watch.start();
 			runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);

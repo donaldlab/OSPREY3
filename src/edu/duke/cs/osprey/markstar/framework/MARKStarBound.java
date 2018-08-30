@@ -203,7 +203,7 @@ public class MARKStarBound implements PartitionFunction {
         values.qstar = rootNode.getLowerBound();
         values.pstar = rootNode.getUpperBound();
         values.qprime= rootNode.getUpperBound();
-        //rootNode.printTree(stateName);
+        rootNode.printTree(stateName);
     }
 
     private void debugPrint(String s) {
