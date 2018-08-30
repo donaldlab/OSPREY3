@@ -540,6 +540,11 @@ public class TestMARKStar {
 	}
 
 	@Test
+    public void test2RL0Deeper() {
+
+    }
+
+	@Test
 	public void test2XXM() {
 		ConfSpaces confSpaces = make2XXM();
 		final double epsilon = 0.9;
@@ -848,6 +853,12 @@ public class TestMARKStar {
 					results.get(index).score.upperBound,totalConfsLooked,totalConfsEnergied));
 		}
 	}
+
+	@Test
+    public void test1GUASmallDEEP() {
+	    ConfSpaces confSpaces = make1GUASmallDEEP(5);
+	    runMARKStar(confSpaces, 0.99);
+    }
 
 	private static List<MARKStar.ScoredSequence> runMARKStar(int numFlex, double epsilon) {
 		//ConfSpaces confSpaces = make1GUASmallCATS(numFlex);
@@ -1164,7 +1175,6 @@ public class TestMARKStar {
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-				.addMoleculeForWildTypeRotamers(mol)
 				.build();
 
 		ArrayList <String> bbflexlist = new ArrayList();
@@ -1205,7 +1215,8 @@ public class TestMARKStar {
 				.build();
 
 		return confSpaces;
-	}public static ConfSpaces make1GUASmallCATS(int numFlex) {
+	}
+	public static ConfSpaces make1GUASmallCATS(int numFlex) {
 
 		ConfSpaces confSpaces = new ConfSpaces();
 
