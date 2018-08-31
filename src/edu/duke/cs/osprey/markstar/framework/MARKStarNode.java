@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.markstar.prototype.SimpleConf;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -258,10 +259,13 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return setSigFigs(decimal, 4);
     }
 
-    public void printTree(String prefix, FileWriter writer)
+    public void printTree(String prefix, FileWriter writer, SimpleConfSpace confSpace)
     {
-        String out = prefix+confSearchNode.confToString()+": ["+setSigFigs(confSearchNode.subtreeLowerBound)
-                +","+setSigFigs(confSearchNode.subtreeUpperBound)+"], updated: "+updated+"\n";
+        String confString = confSearchNode.confToString();
+        if(confSpace != null)
+            confString = confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);
+        String out = prefix+confString+": ["+setSigFigs(confSearchNode.subtreeLowerBound)
+                +","+setSigFigs(confSearchNode.subtreeUpperBound)+"]"+"\n";
         if(MathTools.isLessThan(confSearchNode.getSubtreeUpperBound(), BigDecimal.ONE))
             return;
         if(writer != null) {
@@ -276,17 +280,21 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         if(children != null && !children.isEmpty()) {
             Collections.sort(children);
             for (MARKStarNode child : children)
-                child.printTree(prefix + "~+", writer);
+                child.printTree(prefix + "~+", writer, confSpace);
         }
 
 
     }
 
-    public void printTree(String name)
+    public void printTree(String name) {
+        printTree(name, null);
+    }
+
+    public void printTree(String name, SimpleConfSpace confspace)
     {
         try {
             FileWriter writer = new FileWriter(new File(name+"ConfTreeBounds.txt"));
-            printTree("",  writer);
+            printTree("",  writer, confspace);
             writer.flush();
         } catch (IOException e) {
             e.printStackTrace();
@@ -294,7 +302,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
     public void printTree() {
-        printTree("", null);
+        printTree("", null, null);
     }
 
     public void index(ConfIndex confIndex) {
