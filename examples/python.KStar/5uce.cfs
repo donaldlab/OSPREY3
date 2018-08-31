@@ -1,5 +1,5 @@
 #The following information is sufficient to generate an OSPREY 3.0
 #configuration space
-mol = "examples/python.KStar/5uce.prepared.minimized.pdb"
+mol = "examples/python.KStar/6uce.prepared.minimized.pdb"
 strand_defs = {'strand1': ['A39', 'A56'], 'strand0': ['A1', 'A38']}
 strand_flex = {'strand0': {'A3':['PHE'], 'A5':['ALA'], 'A7':['ILE'], 'A26':['ALA'], 'A27':['GLU'], 'A30':['PHE'], 'A34':['PHE']}, 'strand1':{'A39':['LEU'], 'A43':['TRP'], 'A45':['TYR'], 'A52':['PHE'], 'A54':['VAL']}}

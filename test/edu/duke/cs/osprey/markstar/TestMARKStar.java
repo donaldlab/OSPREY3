@@ -14,7 +14,6 @@ import edu.duke.cs.osprey.kstar.TestBBKStar;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.markstar.MARKStar.ConfSearchFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -26,7 +25,6 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -540,9 +538,65 @@ public class TestMARKStar {
 	}
 
 	@Test
-    public void test2RL0Deeper() {
+    public void test2RL0DEEper() {
+		ConfSpaces confSpaces = make2RL0CATS();
+		runMARKStar(confSpaces, 0.01);
 
     }
+
+    private ConfSpaces make2RL0CATS(){
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.read(FileTools.readFile("examples/python.KStar/shell.pdb"));
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+				.build();
+
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("G649", "G654")
+				.build();
+        protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G652").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("155", "194")
+				.build();
+		ligand.flexibility.get("A189").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		ligand.flexibility.get("A190").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		ligand.flexibility.get("A191").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		ligand.flexibility.get("A193").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		ligand.flexibility.get("A194").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		CATSStrandFlex protein_bbflex = new CATSStrandFlex(protein, "G649", "G652");
+
+		// make the complex conf space ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+				.addStrand(protein, protein_bbflex)
+				.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+				.addStrand(ligand)
+				.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+				.addStrand(protein, protein_bbflex)
+				.addStrand(ligand)
+				.build();
+
+		return confSpaces;
+	}
 
 	@Test
 	public void test2XXM() {
