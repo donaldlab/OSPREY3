@@ -77,6 +77,12 @@ public class MARKStarProgress extends AStarProgress {
 
     public String makeProgressReport() {
         double diffMs = stopwatch.getTimeMs() - this.msRunning;
+        String oldPool = "(Error)";
+        try {
+            oldPool = ""+JvmMem.getOldPool();
+        } catch (Exception e) {
+
+        }
         return String.format("MARK* expanded:%10d,"
                 +" queued:%10d, scored/sec:%5d, partial minimizations:%5d, time:%s, delta:%12.11f heapMem:%s, extMem:%s",
                 numNodesExpanded, numNodesInQueue,
@@ -84,7 +90,7 @@ public class MARKStarProgress extends AStarProgress {
                 numPartialMinimizations,
                 stopwatch.getTime(2),
                 curEpsilon,
-                JvmMem.getOldPool(),
+                oldPool,
                 ExternalMemory.getUsageReport()
         );
     }

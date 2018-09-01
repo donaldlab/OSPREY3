@@ -801,7 +801,7 @@ public class TestMARKStar {
 
 	@Test
 	public void testMARKStarTinyEpsilon() {
-		printMARKStarComputationStats(runMARKStar(3, 0.9).get(0));
+		printMARKStarComputationStats(runMARKStar(5, 0.68).get(0));
 
 	}
 
@@ -824,6 +824,11 @@ public class TestMARKStar {
 		System.out.println("Without Reduced Minimization time: "+withoutRMTime);
 		System.out.println("Reduced minimization time: "+runTime.getTime(2));
 	}
+
+	@Test
+    public void test1GUASmall() {
+	    runMARKStar(3,0.99);
+    }
 
 	@Test
 	public void test1GUASmallUpTo()

@@ -851,10 +851,16 @@ public class SimpleConfSpace implements Serializable {
 	}
 
 	public String formatConfRotamersWithResidueNumbers(int[] conf) {
-		return String.join(" ", getResidueConfs(conf).stream()
-				.map((resConf) -> String.format("%-5s:%-5s", resConf.template.name, resConf.getRotamerCode()))
-				.collect(Collectors.toList())
-		);
+		return String.join(",",positions.stream()
+				.map((pos) -> {
+					String rcString = pos.resNum+":*";
+				    if(conf[pos.index] > -1) {
+				    	ResidueConf rc = pos.resConfs.get(conf[pos.index]);
+						rcString = pos.resNum+":"+rc.template.name+"-"+rc.getRotamerCode();
+					}
+					return rcString;
+				})
+				.collect(Collectors.toList()));
 	}
 
 	public String formatResidueNumbers() {

@@ -263,8 +263,10 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     {
         String confString = confSearchNode.confToString();
         if(confSpace != null)
-            confString = confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);
-        String out = prefix+confString+": ["+setSigFigs(confSearchNode.subtreeLowerBound)
+            confString = "("+confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments)+")";
+        String out = prefix+confString+":"
+                +"["+confSearchNode.confLowerBound+","+confSearchNode.confUpperBound+"]->"
+                +"["+setSigFigs(confSearchNode.subtreeLowerBound)
                 +","+setSigFigs(confSearchNode.subtreeUpperBound)+"]"+"\n";
         if(MathTools.isLessThan(confSearchNode.getSubtreeUpperBound(), BigDecimal.ONE))
             return;
@@ -278,7 +280,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         else
             System.out.print(out);
         if(children != null && !children.isEmpty()) {
-            Collections.sort(children);
+            Collections.sort(children, (a,b)-> -a.confSearchNode.subtreeUpperBound
+                    .compareTo(b.confSearchNode.subtreeUpperBound));
             for (MARKStarNode child : children)
                 child.printTree(prefix + "~+", writer, confSpace);
         }
