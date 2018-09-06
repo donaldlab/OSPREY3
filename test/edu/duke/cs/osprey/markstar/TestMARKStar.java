@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.TestBBKStar;
 import edu.duke.cs.osprey.kstar.TestKStar;
@@ -607,9 +608,9 @@ public class TestMARKStar {
 	@Test
 	public void testGenerateEnsemble() {
 		ConfSpaces confSpaces = make2XXMSmaller();
-        KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMCATS.ordered.0.01.txt");
-        int numConfs = 100;
-        int levelThreshold = 2;
+        KStarTreeNode root = KStarTreeNode.parseTree("ComplexConfTreeBounds.txt");
+        int numConfs = 10;
+        int levelThreshold = 4;
         Map<KStarTreeNode, List<KStarTreeNode>> samples = root.getTopSamples(numConfs, levelThreshold);
         System.out.println("Tried for "+numConfs+" confs, got "+samples.size()+" lists");
         for(KStarTreeNode subtreeRoot:samples.keySet()) {
@@ -618,6 +619,38 @@ public class TestMARKStar {
 				System.out.println(conf.toString());
 			}
 		}
+        EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+                .setParallelism(new Parallelism(4,0,0))
+                .build();
+        ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpaces.complex, minimizingEcalc)
+                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaces.complex, minimizingEcalc)
+                        .build()
+                        .calcReferenceEnergies()
+                )
+                .build();
+
+        // calc energy matrix
+        EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+                .setCacheFile(new File("2XXM.ensemble.emat"))
+                .build()
+                .calcEnergyMatrix();
+		ConfAnalyzer analyzer = new ConfAnalyzer(confEcalc);
+		Map<KStarTreeNode, List<ConfSearch.ScoredConf>> confLists = new HashMap<>();
+        for(KStarTreeNode subtreeRoot:samples.keySet()) {
+            System.out.println("Under " + subtreeRoot + ":");
+            confLists.put(subtreeRoot, new ArrayList<>());
+            for (KStarTreeNode conf : samples.get(subtreeRoot)) {
+                ConfSearch.ScoredConf scoredConf = new ConfSearch.ScoredConf(conf.getConfAssignments(), conf.getConfLowerbound());
+                confLists.get(subtreeRoot).add(scoredConf);
+            }
+        }
+
+        for(KStarTreeNode subtreeRoot:confLists.keySet()) {
+            System.out.println("Under " + subtreeRoot + ":");
+            ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(confLists.get(subtreeRoot).iterator(), Integer.MAX_VALUE);
+            analysis.writePdbs(subtreeRoot.toString()+"Test*");
+
+        }
 	}
 
 	@Test

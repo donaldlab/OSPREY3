@@ -29,7 +29,7 @@ import java.util.stream.IntStream;
 
 public class KStarTreeNode implements Comparable<KStarTreeNode>{
     public static final Pattern p = Pattern.compile("((~\\+)*)\\((.*)\\)->\\((.*)\\)\\: ?\\[(.*)\\]->\\[(.*)\\](.*)");
-    private static final boolean debug = true;
+    private static final boolean debug = false;
     private static Random[] colorSeeds;
     private BigDecimal overallUpperBound;
     private int level = -1;
@@ -463,8 +463,16 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return fullyAssigned;
     }
 
-    public Object getAssignments() {
+    public String[] getAssignments() {
         return assignments;
+    }
+
+    public int[] getConfAssignments() {
+        return confAssignments;
+    }
+
+    public double getConfLowerbound() {
+        return confLowerBound;
     }
 
     public static class Builder
