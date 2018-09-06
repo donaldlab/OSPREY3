@@ -259,11 +259,12 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         return setSigFigs(decimal, 4);
     }
 
+
     public void printTree(String prefix, FileWriter writer, SimpleConfSpace confSpace)
     {
         String confString = confSearchNode.confToString();
         if(confSpace != null)
-            confString = "("+confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments)+")";
+            confString = confString+"->("+confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments)+")";
         String out = prefix+confString+":"
                 +"["+confSearchNode.confLowerBound+","+confSearchNode.confUpperBound+"]->"
                 +"["+setSigFigs(confSearchNode.subtreeLowerBound)

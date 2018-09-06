@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.kstar.TestBBKStar;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.markstar.visualizer.KStarTreeNode;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -567,6 +568,7 @@ public class TestMARKStar {
 		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		protein.flexibility.get("G652").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ArrayList<String> bbflexlist = new ArrayList<>();
 
 
 
@@ -575,13 +577,17 @@ public class TestMARKStar {
 				.setTemplateLibrary(templateLib)
 				.setResidues("155", "194")
 				.build();
-		ligand.flexibility.get("A189").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
-		ligand.flexibility.get("A190").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
-		ligand.flexibility.get("A191").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
-		ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
-		ligand.flexibility.get("A193").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
-		ligand.flexibility.get("A194").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
-		CATSStrandFlex protein_bbflex = new CATSStrandFlex(protein, "G649", "G652");
+		ligand.flexibility.get("A189").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A190").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A191").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A193").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A194").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		String perturbationFileName = "examples/python.KStar/STR0.2rl0.pert.pert";
+		DEEPerSettings deepersettings = new DEEPerSettings(true, perturbationFileName,
+				false, perturbationFileName, true, 2.5,
+				2.5, false, bbflexlist, "examples/python.KStar/shell.pdb", false, templateLib);
+		DEEPerStrandFlex protein_bbflex = new DEEPerStrandFlex(protein, deepersettings);
 
 		// make the complex conf space ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
@@ -599,9 +605,98 @@ public class TestMARKStar {
 	}
 
 	@Test
+	public void testGenerateEnsemble() {
+		ConfSpaces confSpaces = make2XXMSmaller();
+        KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMCATS.ordered.0.01.txt");
+        int numConfs = 100;
+        int levelThreshold = 2;
+        Map<KStarTreeNode, List<KStarTreeNode>> samples = root.getTopSamples(numConfs, levelThreshold);
+        System.out.println("Tried for "+numConfs+" confs, got "+samples.size()+" lists");
+        for(KStarTreeNode subtreeRoot:samples.keySet()) {
+			System.out.println("Under " + subtreeRoot + ":");
+			for (KStarTreeNode conf : samples.get(subtreeRoot)) {
+				System.out.println(conf.toString());
+			}
+		}
+	}
+
+	@Test
+	public void test2XXMSmaller() {
+		ConfSpaces confSpaces = make2XXMSmaller();
+		final double epsilon = 0.01;
+		String kstartime = "(not run)";
+		boolean runkstar = false;
+		Stopwatch runtime = new Stopwatch().start();
+		List<KStar.ScoredSequence> kStarSeqs = null;
+		if(runkstar) {
+			kStarSeqs = runKStar(confSpaces, epsilon);
+			runtime.stop();
+			kstartime = runtime.getTime(2);
+			runtime.reset();
+			runtime.start();
+		}
+		Result result = runMARKStar(confSpaces, epsilon);
+		runtime.stop();
+		String markstartime = runtime.getTime(2);
+		System.out.println("MARK* time: "+markstartime+", K* time: "+kstartime);
+		for(MARKStar.ScoredSequence seq: result.scores)
+			printMARKStarComputationStats(seq);
+		if(runkstar)
+			for(KStar.ScoredSequence seq: kStarSeqs)
+				printKStarComputationStats(seq);
+	}
+
+	private ConfSpaces make2XXMSmaller() {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readFile("examples/python.KStar/2xxm_prepped.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+				.build();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("A146", "A218")
+				.build();
+		protein.flexibility.get("A177").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		protein.flexibility.get("A178").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		protein.flexibility.get("A179").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		protein.flexibility.get("A180").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("B4", "B113")
+				.build();
+		ligand.flexibility.get("B58").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		ligand.flexibility.get("B60").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		ligand.flexibility.get("B61").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		ligand.flexibility.get("B64").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+				.addStrand(protein)
+				.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+				.addStrand(ligand)
+				.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+				.addStrands(protein, ligand)
+				.build();
+
+		return confSpaces;
+	}
+
+	@Test
 	public void test2XXM() {
 		ConfSpaces confSpaces = make2XXM();
-		final double epsilon = 0.9;
+		final double epsilon = 0.01;
 		String kstartime = "(not run)";
 		boolean runkstar = false;
 		Stopwatch runtime = new Stopwatch().start();
