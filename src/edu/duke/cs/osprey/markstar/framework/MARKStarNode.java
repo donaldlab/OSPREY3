@@ -30,10 +30,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class MARKStarNode implements Comparable<MARKStarNode> {
 
     static boolean debug = false;
-    private static AStarScorer gScorer;
-    private static AStarScorer rigidgScorer;
-    private static AStarScorer hScorer;
-    private static AStarScorer negatedHScorer;
     private boolean updated = true;
     /**
      * TODO: 1. Make MARKStarNodes spawn their own Node and MARKStarNode children.
@@ -360,15 +356,12 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
 
     public static MARKStarNode makeRoot(SimpleConfSpace confSpace, EnergyMatrix rigidEnergyMatrix,
                                         EnergyMatrix minimizingEnergyMatrix, RCs rcs,
-                                        ScorerFactory gScorerFactory, ScorerFactory hscorerFactory,
+                                        AStarScorer gScorer, AStarScorer hScorer,
+                                        AStarScorer rigidgScorer, AStarScorer negatedHScorer,
                                         boolean reportProgress) {
 
 
 		// make the A* scorers
-		gScorer = gScorerFactory.make(minimizingEnergyMatrix);                                            // TODO: I think I want this to be minimizing
-        rigidgScorer = gScorerFactory.make(rigidEnergyMatrix);
-		hScorer = hscorerFactory.make(minimizingEnergyMatrix);                                            // TODO: I think I want this to be minimizing
-		negatedHScorer = hscorerFactory.make(new NegatedEnergyMatrix(confSpace, rigidEnergyMatrix)); // TODO: I think I want this to be rigid
 
 		ConfIndex confIndex = new ConfIndex(confSpace.positions.size());
 
@@ -412,7 +405,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         private static int Unassigned = -1;
         public double gscore = Double.NaN;
         public double rigidScore = Double.NaN;
-        private BigDecimal subtreeLowerBound = null; //\hat h^ominus(f) - the lower bound on subtree contrib to partition function
+        private BigDecimal subtreeLowerBound = BigDecimal.ZERO; //\hat h^ominus(f) - the lower bound on subtree contrib to partition function
         private BigDecimal subtreeUpperBound = null; //\hat h^oplus(f) - the lower bound on subtree contrib to partition function
         private double confLowerBound = -Double.MAX_VALUE;
         private double confUpperBound = Double.MAX_VALUE;
@@ -467,6 +460,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
             if (tighterUpper < 10 && tighterUpper - confUpperBound > 1e-5)
                 System.err.println("Updating conf upper bound of  " + confUpperBound
                         + " with " + tighterUpper + ", which is greater!?");
+            if(tighterUpper == Double.POSITIVE_INFINITY)
+                updateSubtreeLowerBound(BigDecimal.ZERO);
             if(tighterUpper < confUpperBound) {
                 confUpperBound = tighterUpper;
                 updateSubtreeLowerBound(computeBoundsFromEnergy(confUpperBound));

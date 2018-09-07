@@ -423,6 +423,11 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         }
         if(children == null || children.size() < 1) {
             System.out.println("No children. Done here.");
+            if(fullyAssigned()) {
+                List<KStarTreeNode> thisList = new ArrayList<>();
+                thisList.add(this);
+                lists.put(this, thisList);
+            }
             return;
         }
         if(this.level >= levelThreshold) {
@@ -441,7 +446,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         if(numNonZeroChildren < 1)
             return;
         int samplesPerChild = numSamples/numNonZeroChildren;
-        int leftovers = numSamples%children.size();
+        int leftovers = numSamples%numNonZeroChildren;
         for(int i = 0; i < numNonZeroChildren; i++) {
             if(i < leftovers)
                 children.get(i).getTopSamples(samplesPerChild+1, levelThreshold, lists);
@@ -473,6 +478,16 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     public double getConfLowerbound() {
         return confLowerBound;
+    }
+
+    public String getEnsemblePDBName() {
+        String out = "";
+        for(String i: assignments) {
+            i = i.replace(":", "-");
+            if (!i.contains("*"))
+                out += i + "-";
+        }
+        return out;
     }
 
     public static class Builder

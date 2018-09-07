@@ -238,8 +238,12 @@ public class GradientDescentMARKStarPfunc implements PartitionFunction.WithConfT
 		rigidgScorer = new PairwiseGScorer(rigidEnergyMatrix);
 		negatedHScorer = hScorerFactory.make(new NegatedEnergyMatrix(confSpace, rigidEnergyMatrix));
 		hScorer = hScorerFactory.make(minimizingEnergyMatrix);
-        root = MARKStarNode.makeRoot(ecalc.confSpace, rigidEnergyMatrix, minimizingEnergyMatrix,
-				rcs, gScorerFactory, hScorerFactory, false);
+		EnergyMatrix minimizingEmat = minimizingEnergyMatrix;
+		EnergyMatrix rigidEmat = rigidEnergyMatrix;
+		root = MARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs,
+				gScorerFactory.make(minimizingEmat), hScorerFactory.make(minimizingEmat),
+				gScorerFactory.make(rigidEmat),
+				new TraditionalPairwiseHScorer(new NegatedEnergyMatrix(confSpace, rigidEmat), rcs), true);
         order = new UpperLowerAStarOrder();
         this.rcs = rcs;
         this.correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEnergyMatrix);

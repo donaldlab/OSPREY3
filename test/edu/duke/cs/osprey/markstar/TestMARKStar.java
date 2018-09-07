@@ -541,12 +541,12 @@ public class TestMARKStar {
 
 	@Test
     public void test2RL0DEEper() {
-		ConfSpaces confSpaces = make2RL0CATS();
+		ConfSpaces confSpaces = make2RL0DEEPer();
 		runMARKStar(confSpaces, 0.01);
 
     }
 
-    private ConfSpaces make2RL0CATS(){
+    private ConfSpaces make2RL0DEEPer(){
 
 		ConfSpaces confSpaces = new ConfSpaces();
 
@@ -609,8 +609,8 @@ public class TestMARKStar {
 	public void testGenerateEnsemble() {
 		ConfSpaces confSpaces = make2XXMSmaller();
         KStarTreeNode root = KStarTreeNode.parseTree("ComplexConfTreeBounds.txt");
-        int numConfs = 10;
-        int levelThreshold = 4;
+        int numConfs = 60;
+        int levelThreshold = 2;
         Map<KStarTreeNode, List<KStarTreeNode>> samples = root.getTopSamples(numConfs, levelThreshold);
         System.out.println("Tried for "+numConfs+" confs, got "+samples.size()+" lists");
         for(KStarTreeNode subtreeRoot:samples.keySet()) {
@@ -619,38 +619,41 @@ public class TestMARKStar {
 				System.out.println(conf.toString());
 			}
 		}
-        EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
-                .setParallelism(new Parallelism(4,0,0))
-                .build();
-        ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpaces.complex, minimizingEcalc)
-                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaces.complex, minimizingEcalc)
-                        .build()
-                        .calcReferenceEnergies()
-                )
-                .build();
+		boolean printPDBs = false;
+		if(printPDBs) {
+			EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+					.setParallelism(new Parallelism(4, 0, 0))
+					.build();
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpaces.complex, minimizingEcalc)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaces.complex, minimizingEcalc)
+							.build()
+							.calcReferenceEnergies()
+					)
+					.build();
 
-        // calc energy matrix
-        EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-                .setCacheFile(new File("2XXM.ensemble.emat"))
-                .build()
-                .calcEnergyMatrix();
-		ConfAnalyzer analyzer = new ConfAnalyzer(confEcalc);
-		Map<KStarTreeNode, List<ConfSearch.ScoredConf>> confLists = new HashMap<>();
-        for(KStarTreeNode subtreeRoot:samples.keySet()) {
-            System.out.println("Under " + subtreeRoot + ":");
-            confLists.put(subtreeRoot, new ArrayList<>());
-            for (KStarTreeNode conf : samples.get(subtreeRoot)) {
-                ConfSearch.ScoredConf scoredConf = new ConfSearch.ScoredConf(conf.getConfAssignments(), conf.getConfLowerbound());
-                confLists.get(subtreeRoot).add(scoredConf);
-            }
-        }
+			// calc energy matrix
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+					.setCacheFile(new File("2XXM.ensemble.emat"))
+					.build()
+					.calcEnergyMatrix();
+			ConfAnalyzer analyzer = new ConfAnalyzer(confEcalc);
+			Map<KStarTreeNode, List<ConfSearch.ScoredConf>> confLists = new HashMap<>();
+			for (KStarTreeNode subtreeRoot : samples.keySet()) {
+				System.out.println("Under " + subtreeRoot + ":");
+				confLists.put(subtreeRoot, new ArrayList<>());
+				for (KStarTreeNode conf : samples.get(subtreeRoot)) {
+					ConfSearch.ScoredConf scoredConf = new ConfSearch.ScoredConf(conf.getConfAssignments(), conf.getConfLowerbound());
+					confLists.get(subtreeRoot).add(scoredConf);
+				}
+			}
 
-        for(KStarTreeNode subtreeRoot:confLists.keySet()) {
-            System.out.println("Under " + subtreeRoot + ":");
-            ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(confLists.get(subtreeRoot).iterator(), Integer.MAX_VALUE);
-            analysis.writePdbs(subtreeRoot.toString()+"Test*");
+			for (KStarTreeNode subtreeRoot : confLists.keySet()) {
+				System.out.println("Under " + subtreeRoot + ":");
+				ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(confLists.get(subtreeRoot).iterator(), Integer.MAX_VALUE);
+				analysis.writePdbs("pdb/"+subtreeRoot.getEnsemblePDBName()+"Test*.pdb");
 
-        }
+			}
+		}
 	}
 
 	@Test
