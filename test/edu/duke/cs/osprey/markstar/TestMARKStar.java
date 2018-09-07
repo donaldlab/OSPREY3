@@ -565,11 +565,17 @@ public class TestMARKStar {
 				.setTemplateLibrary(templateLib)
 				.setResidues("G649", "G654")
 				.build();
-        protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("G652").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+//        protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+//		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+//		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+//		protein.flexibility.get("G652").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+//		protein.flexibility.get("G653").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+//		protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		ArrayList<String> bbflexlist = new ArrayList<>();
+		for(int startIndex = 649; startIndex < 655; startIndex++) {
+            protein.flexibility.get("G"+startIndex).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+            bbflexlist.add("G"+startIndex);
+		}
 
 
 
