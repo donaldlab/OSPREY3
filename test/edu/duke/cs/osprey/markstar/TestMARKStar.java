@@ -553,7 +553,7 @@ public class TestMARKStar {
 		// configure the forcefield
 		confSpaces.ffparams = new ForcefieldParams();
 
-		Molecule mol = PDBIO.read(FileTools.readFile("examples/python.KStar/shell.pdb"));
+		Molecule mol = PDBIO.read(FileTools.readFile("examples/python.KStar/2RL0.min.reduce.pdb"));
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
