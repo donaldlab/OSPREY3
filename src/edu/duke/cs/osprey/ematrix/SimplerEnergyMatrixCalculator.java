@@ -153,8 +153,11 @@ public class SimplerEnergyMatrixCalculator {
 						for (RCTuple frag : fragments) {
 							if (frag.size() == 1) {
 								energies.add(confEcalc.calcSingleEnergy(frag).energy);
-							} else {
+							} else if(isPairParametricallyCompatible(frag)){
 								energies.add(confEcalc.calcPairEnergy(frag).energy);
+							}
+							else {//frag is not possible (e.g. RCs are from two different backbone states that can't connect)
+								energies.add(Double.POSITIVE_INFINITY);
 							}
 						}
 						
@@ -269,5 +272,25 @@ public class SimplerEnergyMatrixCalculator {
 		confEcalc.tasks.waitForFinish();
 		
 		return eref;
+	}
+
+	private boolean isPairParametricallyCompatible(RCTuple pair){
+		if(pair.size()!=2)
+			throw new RuntimeException("ERROR: Expected RC pair but got tuple of size "+pair.size());
+		SimpleConfSpace.ResidueConf rc1 = confEcalc.confSpace.positions.get(pair.pos.get(0)).resConfs.get(pair.RCs.get(0));
+		SimpleConfSpace.ResidueConf rc2 = confEcalc.confSpace.positions.get(pair.pos.get(1)).resConfs.get(pair.RCs.get(1));
+		for(String dofName : rc1.dofBounds.keySet()){
+			if(rc2.dofBounds.containsKey(dofName)){
+				//shared DOF between the RCs; make sure the interval matches
+				double[] interval1 = rc1.dofBounds.get(dofName);
+				double[] interval2 = rc2.dofBounds.get(dofName);
+				for(int a=0; a<2; a++){
+					if( Math.abs(interval1[a] - interval2[a]) > 1e-8 ){
+						return false;
+					}
+				}
+			}
+		}
+		return true;//found no incompatibilities
 	}
 }
