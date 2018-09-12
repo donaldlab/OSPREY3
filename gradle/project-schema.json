@@ -1,0 +1,125 @@
+{
+    ":": {
+        "conventions": [
+            {
+                "type": "org.gradle.api.plugins.BasePluginConvention",
+                "target": "org.gradle.api.Project",
+                "name": "base"
+            },
+            {
+                "type": "org.gradle.api.plugins.JavaPluginConvention",
+                "target": "org.gradle.api.Project",
+                "name": "java"
+            },
+            {
+                "type": "org.gradle.api.plugins.ApplicationPluginConvention",
+                "target": "org.gradle.api.Project",
+                "name": "application"
+            }
+        ],
+        "configurations": [
+            "annotationProcessor",
+            "apiElements",
+            "archives",
+            "compile",
+            "compileClasspath",
+            "compileOnly",
+            "default",
+            "implementation",
+            "runtime",
+            "runtimeClasspath",
+            "runtimeElements",
+            "runtimeOnly",
+            "testAnnotationProcessor",
+            "testCompile",
+            "testCompileClasspath",
+            "testCompileOnly",
+            "testImplementation",
+            "testRuntime",
+            "testRuntimeClasspath",
+            "testRuntimeOnly"
+        ],
+        "extensions": [
+            {
+                "type": "org.gradle.api.plugins.ExtraPropertiesExtension",
+                "target": "org.gradle.api.Project",
+                "name": "ext"
+            },
+            {
+                "type": "org.gradle.api.internal.plugins.DefaultArtifactPublicationSet",
+                "target": "org.gradle.api.Project",
+                "name": "defaultArtifacts"
+            },
+            {
+                "type": "org.gradle.api.plugins.ExtraPropertiesExtension",
+                "target": "org.gradle.api.internal.plugins.DefaultArtifactPublicationSet",
+                "name": "ext"
+            },
+            {
+                "type": "org.gradle.api.reporting.ReportingExtension",
+                "target": "org.gradle.api.Project",
+                "name": "reporting"
+            },
+            {
+                "type": "org.gradle.api.plugins.ExtraPropertiesExtension",
+                "target": "org.gradle.api.reporting.ReportingExtension",
+                "name": "ext"
+            },
+            {
+                "type": "org.gradle.api.tasks.SourceSetContainer",
+                "target": "org.gradle.api.Project",
+                "name": "sourceSets"
+            },
+            {
+                "type": "org.gradle.api.plugins.ExtraPropertiesExtension",
+                "target": "org.gradle.api.tasks.SourceSetContainer",
+                "name": "ext"
+            },
+            {
+                "type": "org.gradle.api.plugins.JavaPluginExtension",
+                "target": "org.gradle.api.Project",
+                "name": "java"
+            },
+            {
+                "type": "org.gradle.api.plugins.ExtraPropertiesExtension",
+                "target": "org.gradle.api.plugins.JavaPluginExtension",
+                "name": "ext"
+            },
+            {
+                "type": "org.gradle.api.distribution.DistributionContainer",
+                "target": "org.gradle.api.Project",
+                "name": "distributions"
+            },
+            {
+                "type": "org.gradle.api.plugins.ExtraPropertiesExtension",
+                "target": "org.gradle.api.distribution.DistributionContainer",
+                "name": "ext"
+            },
+            {
+                "type": "org.gradle.api.plugins.JavaApplication",
+                "target": "org.gradle.api.Project",
+                "name": "application"
+            },
+            {
+                "type": "org.gradle.api.plugins.ExtraPropertiesExtension",
+                "target": "org.gradle.api.plugins.JavaApplication",
+                "name": "ext"
+            },
+            {
+                "type": "org.gradle.plugins.ide.idea.model.IdeaModel",
+                "target": "org.gradle.api.Project",
+                "name": "idea"
+            },
+            {
+                "type": "org.gradle.api.plugins.ExtraPropertiesExtension",
+                "target": "org.gradle.plugins.ide.idea.model.IdeaModel",
+                "name": "ext"
+            },
+            {
+                "type": "org.gradle.api.plugins.ExtraPropertiesExtension",
+                "target": "org.gradle.api.tasks.SourceSet",
+                "name": "ext"
+            }
+        ]
+    }
+}

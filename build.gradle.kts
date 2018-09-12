@@ -66,23 +66,24 @@ repositories {
 java {
 	sourceCompatibility = JavaVersion.VERSION_1_8
 	targetCompatibility = JavaVersion.VERSION_1_8
-	sourceSets {
-		get("main").apply {
-			java.srcDir("src")
-			resources.srcDir("resources")
-		}
-		get("test").apply {
-			java.srcDir("test")
-			resources.srcDir("test-resources")
-		}
+}
+
+sourceSets {
+	get("main").apply {
+		java.srcDir("src")
+		resources.srcDir("resources")
+	}
+	get("test").apply {
+		java.srcDir("test")
+		resources.srcDir("test-resources")
 	}
 }
 
 idea {
 	module {
 		// use the same output folders as gradle, so the pythonDevelop task works correctly
-		outputDir = java.sourceSets["main"].output.classesDirs.singleFile
-		testOutputDir = java.sourceSets["test"].output.classesDirs.singleFile
+		outputDir = sourceSets["main"].output.classesDirs.singleFile
+		testOutputDir = sourceSets["test"].output.classesDirs.singleFile
 		inheritOutputDirs = false
 	}
 }
@@ -269,7 +270,7 @@ tasks {
 		doLast {
 			Files.createDirectories(pythonBuildDir)
 			val classpathPath = pythonBuildDir.resolve("classpath.txt")
-			Files.write(classpathPath, java.sourceSets["main"].runtimeClasspath.files.map { it.toString() })
+			Files.write(classpathPath, sourceSets["main"].runtimeClasspath.files.map { it.toString() })
 		}
 	}
 
@@ -332,7 +333,7 @@ tasks {
 
 			// copy java libs
 			copy {
-				from(java.sourceSets["main"].runtimeClasspath.files
+				from(sourceSets["main"].runtimeClasspath.files
 					.filter { it.extension == "jar" }
 				)
 				into(libDir.toFile())
