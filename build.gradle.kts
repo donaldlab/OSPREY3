@@ -89,7 +89,7 @@ idea {
 }
 
 application {
-	mainClassName = "edu.duke.cs.osprey.control.Main"
+	mainClassName = System.getenv("OSPREY_MAIN") ?: "edu.duke.cs.osprey.control.Main"
 }
 
 dependencies {
