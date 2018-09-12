@@ -75,14 +75,25 @@ public class StaticBiggestLowerboundDifferenceOrder implements edu.duke.cs.ospre
 		order.addAll(undefinedOrder);
 
 		if(rcs.getNumPos() > 6) {
-			int swapTarget = 7;
-		    int swapIndex = order.indexOf(swapTarget);
-		    int swapped = order.get(0);
-		    order.set(0, swapTarget);
-		    order.set(swapIndex, swapped);
+		    putResidueInPosition(order,0, 3);
+			putResidueInPosition(order,1, 2);
+			putResidueInPosition(order,2, 1);
+			putResidueInPosition(order,3, 0);
 		}
 
 		return order;
+	}
+
+	private void putResidueInPosition(List<Integer> order, int residueIndex, int orderIndex) {
+	    swapPos(order, residueIndex, order.get(orderIndex));
+	}
+
+	private void swapPos(List<Integer> order, int a, int b) {
+		int aIndex = order.indexOf(a);
+		int bIndex = order.indexOf(b);
+
+		order.set(bIndex, a);
+		order.set(aIndex, b);
 	}
 
 

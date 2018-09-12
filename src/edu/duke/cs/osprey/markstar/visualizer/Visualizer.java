@@ -26,7 +26,7 @@ public class Visualizer extends Application {
     @Override
     public void start(Stage primaryStage) throws Exception{
         this.primaryStage = primaryStage;
-        primaryStage.setTitle("MARK* Tree Analyzer (v0.1)");
+        primaryStage.setTitle("MARK* Tree Analyzer (v0.2)");
         BorderPane root = new BorderPane();
         Scene test = new Scene(root, 300, 275);
         primaryStage.setScene(test);
@@ -70,11 +70,11 @@ public class Visualizer extends Application {
     }
 
     private void devShortCut2() {
-        loadTreeFromFile(new File("Complex2XXMContinuous.ordered.0.01.txt"));
+        loadTreeFromFile(new File("ProteinConfTreeBounds.txt"));
     }
 
     private void devShortCut() {
-        loadTreeFromFile(new File("Complex2XXMRigid.0.01.txt"));
+        loadTreeFromFile(new File("ComplexConfTreeBounds.txt"));
     }
 
     private void loadTreeFromFile(File selectedFile) {
@@ -91,6 +91,7 @@ public class Visualizer extends Application {
         root.preprocess();
         root.render(g);
         root.autoExpand(0.01);
+        resize();
         root.showRoot();
         centerPane.setContent(g);
         triroot.setCenter(centerPane);
@@ -125,23 +126,17 @@ public class Visualizer extends Application {
         primaryStage.setScene(tri);
         triroot.widthProperty().addListener(o-> resize());
         triroot.heightProperty().addListener(o-> resize());
-        resize();
     }
 
     private void resize() {
         double width  = triroot.getWidth() - triroot.getInsets().getLeft() - triroot.getInsets().getRight();
         double height = triroot.getHeight() - triroot.getInsets().getTop() - triroot.getInsets().getBottom();
-        double size   = width < height ? width : height;
 
-        if (width > 0 && height > 0) {
-            triroot.setMaxSize(width, height);
-            triroot.setPrefSize(width, height);
-            rootGroup.setTranslateX(width/4);
-            rootGroup.setTranslateY(height/4);
+        triroot.setMaxSize(width, height);
+        triroot.setPrefSize(width, height);
+        rootGroup.setTranslateX(width/2-rootGroup.getBoundsInLocal().getWidth()/2);
+        rootGroup.setTranslateY(height/2-rootGroup.getBoundsInLocal().getHeight()/2);
 
-
-
-        }
     }
 
 

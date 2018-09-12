@@ -14,9 +14,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.transform.Transform;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
+import java.io.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -28,16 +26,16 @@ import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 public class KStarTreeNode implements Comparable<KStarTreeNode>{
-    public static final Pattern p = Pattern.compile("((~\\+)*)\\((.*)\\)->\\((.*)\\)\\: ?\\[(.*)\\]->\\[(.*)\\](.*)");
+    public static final Pattern p = Pattern.compile("((~\\+)*)\\(([^)]+)\\)->\\((.*)\\)\\: ?\\[(.*)\\]->\\[(.*)\\](.*)");
     private static final boolean debug = false;
     private static Random[] colorSeeds;
     private BigDecimal overallUpperBound;
-    private int level = -1;
+    int level = -1;
     private String[] assignments;
     private int[] confAssignments;
     private BigDecimal upperBound;
     private BigDecimal lowerBound;
-    private List<KStarTreeNode> children = new ArrayList<>();
+    List<KStarTreeNode> children = new ArrayList<>();
     private KStarTreeNode parent;
     private boolean visible =  false;
     private boolean expanded = false;
@@ -45,7 +43,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     private Text statText;
     private Group bandGroup;
     private Group rootGroup;
-    private BigDecimal epsilon;
+    BigDecimal epsilon;
     private double borderThickness = 0.5;
     private double centerX;
     private double centerY;
@@ -82,6 +80,14 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return parseTree(new File(fileName), false);
      }
 
+     public BigDecimal getLowerBound() {
+        return lowerBound;
+     }
+
+     public BigDecimal getUpperBound() {
+        return upperBound;
+     }
+
 
     public KStarTreeNode(int level, String[] assignments, int[] confAssignments, BigDecimal lowerBound, BigDecimal upperBound,
                          double confLowerBound, double confUpperBound, double epsilon) {
@@ -100,11 +106,12 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         }
     }
 
+
     public void initStatText() {
         this.statText = new Text(toStringVisual());
         statText.setFill(Color.WHITE);
         statText.setStroke(Color.BLACK);
-        statText.setFont(Font.font("Verdana", FontWeight.BOLD, 12));
+        statText.setFont(Font.font("Verdana", FontWeight.BOLD, 18));
         statText.setVisible(false);
     }
 
@@ -282,14 +289,6 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return new Color(1*(1-newRatio), 0, newRatio,1);
     }
 
-    private Color getRandomColor() {
-        Random colorSeed = getColorSeed();
-        double baseBrightness = 0.2;
-        return new Color(colorSeed.nextDouble()*(1-baseBrightness)+baseBrightness,
-                colorSeed.nextDouble()*(1-baseBrightness)+baseBrightness,
-                colorSeed.nextDouble()*(1-baseBrightness)+baseBrightness, 1).saturate().saturate();
-    }
-
     private void hideConfInfo() {
         statText.setVisible(false);
     }
@@ -346,13 +345,6 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return out;
     }
 
-    private void transformPolygon(Polygon p, Transform t)
-    {
-        double[] points = toPrimitive(p.getPoints());
-        double[] transformed = new double[points.length];
-        t.transform2DPoints(points,0,transformed,0, points.length/2);
-        p.getPoints().setAll(toObject(transformed));
-    }
 
     private double[] toPrimitive(ObservableList<Double> source)
     {
@@ -382,6 +374,12 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     }
 
     public void autoExpand(double v) {
+        autoExpand(v, Integer.MAX_VALUE);
+    }
+
+    public void autoExpand(double v, int maxLevel) {
+        if(level >= maxLevel)
+            return;
         if(!rootGroup.getChildren().contains(statText))
             rootGroup.getChildren().add(statText);
         if(occupancy > v) {
@@ -476,8 +474,11 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return confAssignments;
     }
 
-    public double getConfLowerbound() {
+    public double getConfLowerBound() {
         return confLowerBound;
+    }
+    public double getConfUpperBound() {
+        return confUpperBound;
     }
 
     public String getEnsemblePDBName() {
@@ -572,7 +573,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         }
     }
 
-    private void addChild(KStarTreeNode newNode) {
+    protected void addChild(KStarTreeNode newNode) {
         children.add(newNode);
         newNode.statText = this.statText;
         newNode.parent = this;
@@ -686,5 +687,30 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     public void render(Group g)
     {
         render(g, new Point2D(0,0));
+    }
+
+    public void printTree(String prefix, FileWriter writer)
+    {
+        String confString = toString();
+        String out = prefix+confString;
+        if(writer != null) {
+            try {
+                writer.write(out);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        else
+            System.out.print(out);
+        if(children != null && !children.isEmpty()) {
+            Collections.sort(children, (a,b)-> -a.upperBound
+                    .compareTo(b.upperBound));
+            for (KStarTreeNode child : children)
+                child.printTree(prefix + "~+", writer);
+        }
+    }
+
+    public void printTree() {
+        printTree("", null);
     }
 }

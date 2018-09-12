@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.kstar.TestBBKStar;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.markstar.visualizer.KStarTreeManipulator;
 import edu.duke.cs.osprey.markstar.visualizer.KStarTreeNode;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
@@ -29,12 +30,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.kstar.TestBBKStar.runBBKStar;
 import static org.hamcrest.Matchers.*;
@@ -542,7 +541,7 @@ public class TestMARKStar {
 	@Test
     public void test2RL0DEEper() {
 		ConfSpaces confSpaces = make2RL0DEEPer();
-		runMARKStar(confSpaces, 0.01);
+		runMARKStar(confSpaces, 0.99);
 
     }
 
@@ -572,7 +571,7 @@ public class TestMARKStar {
 //		protein.flexibility.get("G653").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 //		protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		ArrayList<String> bbflexlist = new ArrayList<>();
-		for(int startIndex = 649; startIndex < 655; startIndex++) {
+		for(int startIndex = 649; startIndex < 654; startIndex++) {
             protein.flexibility.get("G"+startIndex).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
             bbflexlist.add("G"+startIndex);
 		}
@@ -612,6 +611,19 @@ public class TestMARKStar {
 	}
 
 	@Test
+	public void testConsolidateTree() {
+		KStarTreeNode root = KStarTreeNode.parseTree("ComplexConfTreeBounds.txt");
+		List<String> proteinResidues = Arrays.stream(new String[]{
+				"A177",
+				"A178",
+				"A179",
+				"A180"
+		}).collect(Collectors.toList());
+		KStarTreeNode newRoot = KStarTreeManipulator.consolidateTree(root, proteinResidues);
+		newRoot.printTree();
+	}
+
+	@Test
 	public void testGenerateEnsemble() {
 		ConfSpaces confSpaces = make2XXMSmaller();
         KStarTreeNode root = KStarTreeNode.parseTree("ComplexConfTreeBounds.txt");
@@ -648,7 +660,7 @@ public class TestMARKStar {
 				System.out.println("Under " + subtreeRoot + ":");
 				confLists.put(subtreeRoot, new ArrayList<>());
 				for (KStarTreeNode conf : samples.get(subtreeRoot)) {
-					ConfSearch.ScoredConf scoredConf = new ConfSearch.ScoredConf(conf.getConfAssignments(), conf.getConfLowerbound());
+					ConfSearch.ScoredConf scoredConf = new ConfSearch.ScoredConf(conf.getConfAssignments(), conf.getConfLowerBound());
 					confLists.get(subtreeRoot).add(scoredConf);
 				}
 			}
@@ -665,7 +677,7 @@ public class TestMARKStar {
 	@Test
 	public void test2XXMSmaller() {
 		ConfSpaces confSpaces = make2XXMSmaller();
-		final double epsilon = 0.01;
+		final double epsilon = 0.3;
 		String kstartime = "(not run)";
 		boolean runkstar = false;
 		Stopwatch runtime = new Stopwatch().start();
@@ -706,20 +718,20 @@ public class TestMARKStar {
 				.setTemplateLibrary(templateLib)
 				.setResidues("A146", "A218")
 				.build();
-		protein.flexibility.get("A177").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
-		protein.flexibility.get("A178").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
-		protein.flexibility.get("A179").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
-		protein.flexibility.get("A180").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		protein.flexibility.get("A177").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A178").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A179").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A180").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
 				.setTemplateLibrary(templateLib)
 				.setResidues("B4", "B113")
 				.build();
-		ligand.flexibility.get("B58").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
-		ligand.flexibility.get("B60").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
-		ligand.flexibility.get("B61").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
-		ligand.flexibility.get("B64").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();//.setContinuous();
+		ligand.flexibility.get("B58").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("B60").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("B61").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("B64").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		// make the conf spaces ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
