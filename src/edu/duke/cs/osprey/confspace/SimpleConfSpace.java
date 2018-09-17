@@ -244,8 +244,6 @@ public class SimpleConfSpace implements Serializable {
 			for(String dofName:dofBounds.keySet()) {
 				if(dofName.contains("PERT")) {
 					double[] bounds = dofBounds.get(dofName);
-					if(bounds[0] > 0)
-						System.out.println("Other backbone!");
 					buf.append("P"+dofBounds.get(dofName)[0]);
 				}
 			}

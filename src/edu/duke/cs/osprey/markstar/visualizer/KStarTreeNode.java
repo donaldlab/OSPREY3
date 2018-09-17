@@ -1,14 +1,12 @@
 package edu.duke.cs.osprey.markstar.visualizer;
 
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import javafx.collections.ObservableList;
 import javafx.geometry.Point2D;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Arc;
-import javafx.scene.shape.ArcType;
-import javafx.scene.shape.Line;
-import javafx.scene.shape.Polygon;
+import javafx.scene.shape.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
@@ -40,7 +38,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     private boolean visible =  false;
     private boolean expanded = false;
     private boolean childrenRendered = false;
-    private Text statText;
+    private static Text statText;
     private Group bandGroup;
     private Group rootGroup;
     BigDecimal epsilon;
@@ -58,6 +56,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     private double ratioToMaxLeaf;
     private double confLowerBound;
     private double confUpperBound;
+    private Arc innerRing;
+    private Arc outerRing;
+    private List<Node> bands;
     private static boolean drawTree = false;
 
     public static KStarTreeNode parseTree(File file, boolean render)
@@ -106,6 +107,103 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         }
     }
 
+    public int numStatesAtLevel(int level) {
+        if(this.level == level || children == null || children.size() < 1) {
+            return 1;
+        }
+        int subTreeSum = 0;
+        for(KStarTreeNode child: children) {
+            subTreeSum += child.numStatesAtLevel(level);
+        }
+        return subTreeSum;
+    }
+
+    public double computeEntropy(int maxLevel) {
+        occupancy = upperBound.divide(overallUpperBound,10,RoundingMode.HALF_DOWN).doubleValue();
+        if(level < maxLevel && (children == null || children.size() < 1))
+            return 0;
+        if(level >= maxLevel || children == null || children.size() < 1) {
+            if(occupancy == 0)
+                return 0;
+            return -1.9891/1000.0 * occupancy * Math.log(occupancy);
+        }
+        double subTreeSum = 0;
+        double subTreeOccupancy = 0;
+        int childCount = 0;
+        for(KStarTreeNode child: children) {
+            subTreeSum += child.computeEntropy(maxLevel);
+            subTreeOccupancy+=child.occupancy;
+            if (Double.isNaN(subTreeSum)) {
+                System.out.println("wtf?");
+            }
+        }
+        return subTreeSum;
+    }
+
+    public double computeEntropy() {
+        return computeEntropy(Integer.MAX_VALUE);
+    }
+
+    public double computeEnthalpyWithEnergiesFrom(Map<String, Double> energyMap, int maxLevel) {
+        if(level >= maxLevel || children == null || children.size() < 1) {
+            occupancy = upperBound.divide(overallUpperBound,5,RoundingMode.HALF_UP).doubleValue();
+            String formattedAssignments = formatAssignmentsVisual(this.assignments);
+            if(!energyMap.containsKey(formattedAssignments))
+                return 0;
+            return occupancy*energyMap.get(formattedAssignments);
+        }
+        double subtreeSum = 0;
+        for(KStarTreeNode child: children) {
+            subtreeSum+=child.computeEnthalpyWithEnergiesFrom(energyMap, maxLevel);
+        }
+        return subtreeSum;
+    }
+
+    public Map<String, Double> computeEnergyMap(int maxLevel) {
+        Map<String, Double> outputMap = new HashMap<>();
+        populateEnergyMap(outputMap, maxLevel);
+        return outputMap;
+    }
+
+    private void populateEnergyMap(Map<String, Double> map, int maxLevel) {
+        if(level >= maxLevel || children == null || children.size() < 1) {
+            map.put(this.formatAssignmentsVisual(assignments), this.confLowerBound);
+            return;
+        }
+        for(KStarTreeNode child: children) {
+            child.populateEnergyMap(map, maxLevel);
+        }
+    }
+
+    public double computeEnthalpy(int maxLevel) {
+        occupancy = upperBound.divide(overallUpperBound,5,RoundingMode.HALF_UP).doubleValue();
+        if(level >= maxLevel || children == null || children.size() < 1)
+            return confLowerBound*occupancy;
+        double subTreeSum = 0;
+        for(KStarTreeNode child: children) {
+            double childEnthalpy = child.computeEnthalpy(maxLevel);
+            subTreeSum += childEnthalpy;
+            if(subTreeSum < confLowerBound) {
+                double subtreeOccupancy = 0;
+                double subtreeEnthalpy = 0;
+                for(KStarTreeNode child2: children) {
+                    System.out.println(child2+":"+child2.occupancy+"->"+child2.computeEnthalpy(maxLevel));
+                    subtreeEnthalpy+= child2.computeEnthalpy(maxLevel);
+                    subtreeOccupancy+=child2.occupancy;
+                }
+                System.out.println("Subtree occupancy:"+subtreeOccupancy);
+                System.out.println("Subtree enthalpy:"+subtreeEnthalpy);
+                System.err.println("???");
+            }
+        }
+        if(subTreeSum < confLowerBound)
+            System.err.println("???");
+        return subTreeSum;
+    }
+
+    public double computeEnthalpy() {
+        return computeEnthalpy(Integer.MAX_VALUE);
+    }
 
     public void initStatText() {
         this.statText = new Text(toStringVisual());
@@ -142,6 +240,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     }
 
+
     private double getMinLeafLower() {
         if(children == null || children.size() < 1)
             return confLowerBound;
@@ -172,7 +271,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     }
 
     private void renderCircle(Group g) {
-        renderBand(g, centerX, centerY, innerRadius, outerRadius, 0, 360,
+        renderBand(centerX, centerY, innerRadius, outerRadius, 0, 360,
                 computeWeights());
     }
 
@@ -185,24 +284,21 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     }
 
-    private void renderBand(Group g, double centerX, double centerY,
+    private void renderBand(double centerX, double centerY,
                             double innerRadius, double outerRadius,
                             double arcStart, double arcLength, double[] weights) {
         if(children.size() < 1 || bandGroup.getChildren().size() > 0)
             return;
-        ArrayList<Node> bands = new ArrayList<>();
+        bands = new ArrayList<>();
         ArrayList<Node> separators = new ArrayList<>();
-        Arc backRing = new Arc(centerX, centerY, outerRadius, outerRadius, arcStart, arcLength);
-        backRing.setType(ArcType.ROUND);
-        backRing.setFill(Color.WHITE);
-        Arc innerRing = new Arc(centerX, centerY, innerRadius+borderThickness, innerRadius+borderThickness,
+        outerRing = new Arc(centerX, centerY, outerRadius, outerRadius, arcStart, arcLength);
+        outerRing.setType(ArcType.ROUND);
+        outerRing.setFill(Color.WHITE);
+        innerRing = new Arc(centerX, centerY, innerRadius+borderThickness, innerRadius+borderThickness,
                 arcStart, arcLength);
         innerRing.setType(ArcType.ROUND);
         innerRing.setFill(Color.WHITE);
 
-        Arc whiteCenter = new Arc(centerX, centerY, innerRadius, innerRadius, arcStart, arcLength);
-        whiteCenter.setType(ArcType.ROUND);
-        whiteCenter.setFill(Color.WHITE);
         double startAngle = arcStart;
         final double arcLengthFinal = arcLength;// - borderThickness*(weights.length);
         for(int i = 0; i < weights.length; i++) {
@@ -216,8 +312,8 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             arc.setType(ArcType.ROUND);
             bands.add(arc);
             double s = Math.toRadians(startAngle+weightLength);
-            Line separator = new Line(centerX+innerRadius*Math.cos(s),
-                    centerY-innerRadius*Math.sin(s),
+            Line separator = new Line(centerX,//+innerRadius*Math.cos(s),
+                    centerY,//-innerRadius*Math.sin(s),
                     centerX+outerRadius*Math.cos(s),
                     centerY-outerRadius*Math.sin(s));
             separator.setStroke(Color.WHITE);
@@ -229,8 +325,8 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             child.innerRadius = innerRadius;
             child.outerRadius = outerRadius;
             arc.setOnMouseClicked((e)-> {
-                child.toggleBand();
-                System.out.println("Clicked "+arc+", visible? :"+child.visible);
+                if(e.isControlDown())
+                    child.toggleBand();
             });
             arc.setOnMouseEntered((e)-> {
                 arc.setFill(arcColor.brighter()
@@ -247,18 +343,17 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             });
             startAngle += weight*arcLengthFinal;
         }
-        bandGroup.getChildren().addAll(backRing, innerRing, whiteCenter);
+        bandGroup.getChildren().addAll(outerRing, innerRing);
         bandGroup.getChildren().addAll(bands);
         bandGroup.getChildren().addAll(separators);
         bandGroup.setVisible(true);
-        g.getChildren().add(bandGroup);
-        whiteCenter.toBack();
+        rootGroup.getChildren().add(bandGroup);
         innerRing.toBack();
         for(Node sep:separators)
             sep.toBack();
         for(Node band: bands)
             band.toBack();
-        backRing.toBack();
+        outerRing.toBack();
         bandGroup.toBack();
 
     }
@@ -304,7 +399,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         expanded = !expanded;
         if(hasChildren() && !childrenRendered){
             expanded = true;
-            renderBand(rootGroup, centerX, centerY, outerRadius-borderThickness, outerRadius+20,
+            renderBand(centerX, centerY, outerRadius-borderThickness, outerRadius+20,
                     startAngle, length, computeWeights());
             childrenRendered = true;
             expanded = true;
@@ -325,7 +420,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         IntStream.range(0,children.size()).forEach(i->
                 weights[i] = children.get(i).upperBound.divide(upperBound,5,RoundingMode.HALF_UP).doubleValue()
         );
-        return threshold(weights,0.01);
+        return weights;
     }
 
     private double[] threshold(double[] weights, double v) {
@@ -378,17 +473,17 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     }
 
     public void autoExpand(double v, int maxLevel) {
-        if(level >= maxLevel)
+        if(level >= maxLevel) {
+            setChildrenVisible(false);
             return;
-        if(!rootGroup.getChildren().contains(statText))
-            rootGroup.getChildren().add(statText);
+        }
         if(occupancy > v) {
             toggleBand();
         }
         if(children == null || children.size() < 1)
             return;
         for(KStarTreeNode child: children) {
-            child.autoExpand(v);
+            child.autoExpand(v, maxLevel);
         }
     }
 
@@ -490,6 +585,52 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         }
         return out;
     }
+
+    public void pieChart(int targetLevel) {
+        if(level +1 < targetLevel) {
+            if(innerRing != null)
+                innerRing.setVisible(false);
+            if(outerRing != null)
+                outerRing.setVisible(false);
+            if(bands != null) {
+               for(Node band: bands)
+                   band.setVisible(false);
+            }
+        }
+        if(level +1 == targetLevel) {
+            this.visible = true;
+            if(bands != null) {
+                for(Node band: bands)
+                    band.setVisible(true);
+            }
+            if(innerRing!=null)
+                innerRing.setVisible(false);
+            if(outerRing != null)
+                outerRing.setVisible(false);
+        }
+        if(level +1 > targetLevel) {
+            if(bands != null) {
+                for(Node band: bands)
+                    band.setVisible(false);
+            }
+            if(innerRing!=null)
+                innerRing.setVisible(false);
+            if(outerRing != null)
+                outerRing.setVisible(false);
+        }
+
+        if(children == null || children.size() <1 )
+            return;
+        for(KStarTreeNode child: children)
+            child.pieChart(targetLevel);
+    }
+
+    public void setTextRoot(Group textGroup) {
+        initStatText();
+        textGroup.getChildren().add(statText);
+        textGroup.setVisible(true);
+    }
+
 
     public static class Builder
     {
@@ -659,6 +800,11 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     private void setVisible(boolean visible) {
         if(this.visible != visible) {
             this.visible = visible;
+            if(innerRing != null)
+                innerRing.setVisible(visible);
+            if(bands != null)
+                for(Node band: bands)
+                    band.setVisible(visible);
         }
         if(bandGroup!=null)
             bandGroup.setVisible(visible);

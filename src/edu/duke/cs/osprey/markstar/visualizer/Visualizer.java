@@ -17,18 +17,24 @@ import java.io.FileReader;
 
 public class Visualizer extends Application {
 
+    private static final double SCALE_DELTA = 1.1;
     Stage primaryStage;
     BorderPane triroot;
     Pane ringNode;
     KStarTreeNode root;
     Group rootGroup;
+    private double mouseDownX;
+    private double mouseDownY;
+    private double ringX;
+    private double ringY;
 
     @Override
     public void start(Stage primaryStage) throws Exception{
         this.primaryStage = primaryStage;
         primaryStage.setTitle("MARK* Tree Analyzer (v0.2)");
-        BorderPane root = new BorderPane();
-        Scene test = new Scene(root, 300, 275);
+        triroot = new BorderPane();
+        triroot.setBackground(new Background(new BackgroundFill(Color.color(1,1,1), CornerRadii.EMPTY, Insets.EMPTY)));
+        Scene test = new Scene(triroot, 300, 275);
         primaryStage.setScene(test);
         final Menu file = new Menu("File");
         final Menu options = new Menu("Options");
@@ -59,7 +65,7 @@ public class Visualizer extends Application {
         menuBar.getMenus().addAll(file, options, help);
         Button button = new Button();
         button.setText("Click me!");
-        root.setTop(menuBar);
+        triroot.setTop(menuBar);
         primaryStage.setScene(test);
         primaryStage.show();
 
@@ -70,31 +76,73 @@ public class Visualizer extends Application {
     }
 
     private void devShortCut2() {
-        loadTreeFromFile(new File("ProteinConfTreeBounds.txt"));
+        loadTreeFromFile(new File("Protein2XXMContinuousBounds.txt"));
     }
 
     private void devShortCut() {
-        loadTreeFromFile(new File("ComplexConfTreeBounds.txt"));
+        loadTreeFromFile(new File("Complex2XXMContinuousBounds.txt"));
     }
 
     private void loadTreeFromFile(File selectedFile) {
-        triroot = new BorderPane();
-        triroot.setBackground(new Background(new BackgroundFill(Color.color(1,1,1), CornerRadii.EMPTY, Insets.EMPTY)));
         ringNode = new Pane();
-        Scene tri = new Scene(triroot, primaryStage.getWidth(), primaryStage.getHeight());
         System.out.println("Parsing "+selectedFile);
         rootGroup = new Group();
+        Group ringGroup = new Group();
+        Group textGroup = new Group();
         Group g = rootGroup;
-        ScrollPane centerPane = new ScrollPane();
+        Pane centerPane = new Pane();
         root = KStarTreeNode.parseTree(selectedFile, true);
-        root.setGroup(g);
+        int level = 5;
+        System.out.println("Enthalpy:"+root.computeEnthalpy(level));
+        System.out.println("Entropy:"+root.computeEntropy(level));
+        System.out.println("Num States at level "+level+":"+root.numStatesAtLevel(level));
+        rootGroup.getChildren().addAll(ringGroup, textGroup);
+        root.setGroup(ringGroup);
         root.preprocess();
         root.render(g);
-        root.autoExpand(0.01);
+        root.setTextRoot(textGroup);
+        root.autoExpand(0.001);//,5);
         resize();
+        //root.pieChart(1);
         root.showRoot();
-        centerPane.setContent(g);
+        centerPane.getChildren().addAll(g);
         triroot.setCenter(centerPane);
+        centerPane.setOnScroll((event)-> {
+            if (event.getDeltaY() == 0) {
+                return;
+            }
+
+            double scaleFactor = (event.getDeltaY() > 0) ? SCALE_DELTA : 1 / SCALE_DELTA;
+            double mouseX = event.getX();
+            double mouseY = event.getY();
+            double ringWidth = ringGroup.getBoundsInLocal().getWidth();
+            double ringHeight= ringGroup.getBoundsInLocal().getHeight();
+            double ringCenterX = ringGroup.getTranslateX()+ringWidth/2;
+            double ringCenterY = ringGroup.getTranslateX()+ringHeight/2;
+            double distFromRingCenterX = ringCenterX-mouseX;
+            double distFromRingCenterY = ringCenterY-mouseY;
+            double deltaX = (scaleFactor-1)*distFromRingCenterX;
+            double deltaY = (scaleFactor-1)*distFromRingCenterY;
+
+            ringGroup.setScaleX(ringGroup.getScaleX() * scaleFactor);
+            ringGroup.setScaleY(ringGroup.getScaleY() * scaleFactor);
+            ringGroup.setTranslateX(-deltaX);
+            ringGroup.setTranslateX(-deltaY);
+            resize();
+        });
+        centerPane.setOnMousePressed((event)-> {
+            mouseDownX = event.getX();
+            mouseDownY = event.getY();
+            ringX = ringGroup.getTranslateX();
+            ringY = ringGroup.getTranslateY();
+        });
+        centerPane.setOnMouseDragged((event)-> {
+            double x = event.getX();
+            double y = event.getY();
+            ringGroup.setTranslateX(ringX+(x-mouseDownX));
+            ringGroup.setTranslateY(ringY+(y-mouseDownY));
+
+        });
         final Menu file = new Menu("File");
         final Menu options = new Menu("Options");
         final Menu help = new Menu("Help");
@@ -123,7 +171,6 @@ public class Visualizer extends Application {
         MenuBar menuBar = new MenuBar();
         menuBar.getMenus().addAll(file, options, help);
         triroot.setTop(menuBar);
-        primaryStage.setScene(tri);
         triroot.widthProperty().addListener(o-> resize());
         triroot.heightProperty().addListener(o-> resize());
     }
@@ -134,8 +181,8 @@ public class Visualizer extends Application {
 
         triroot.setMaxSize(width, height);
         triroot.setPrefSize(width, height);
-        rootGroup.setTranslateX(width/2-rootGroup.getBoundsInLocal().getWidth()/2);
-        rootGroup.setTranslateY(height/2-rootGroup.getBoundsInLocal().getHeight()/2);
+        rootGroup.setTranslateX(width/2);//-rootGroup.getBoundsInLocal().getWidth()/2);
+        rootGroup.setTranslateY(height/2);//-rootGroup.getBoundsInLocal().getHeight()/2);
 
     }
 
