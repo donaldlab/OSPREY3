@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey.markstar.visualizer;
 
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.tools.MathTools;
 import javafx.collections.ObservableList;
 import javafx.geometry.Point2D;
 import javafx.scene.Group;
@@ -50,7 +52,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     private double startAngle;
     private double length;
     private long seedNumber = 10;
-    private double occupancy = 0;
+    private double occupancy = -1;
     private double minLeafLower;
     private double overallLower;
     private double ratioToMaxLeaf;
@@ -118,14 +120,36 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return subTreeSum;
     }
 
+    public BigDecimal maxWeightedErrorBound() {
+        if(children == null || children.size() < 1) {
+            return upperBound.subtract(lowerBound);
+        }
+        BigDecimal maxChildError = BigDecimal.ZERO;
+        for(KStarTreeNode child: children) {
+            BigDecimal childError = child.maxWeightedErrorBound();
+            if(MathTools.isLessThanOrEqual(maxChildError, childError))
+                maxChildError = childError;
+        }
+        return maxChildError;
+    }
+
+    public double maxConfErrorBound() {
+        if(children == null || children.size() < 1) {
+            return Math.min(0,confUpperBound)-confLowerBound;
+        }
+        double maxChildError = 0;
+        for(KStarTreeNode child: children) {
+            maxChildError = Math.max(maxChildError, child.maxConfErrorBound());
+        }
+        return maxChildError;
+    }
+
     public double computeEntropy(int maxLevel) {
-        occupancy = upperBound.divide(overallUpperBound,10,RoundingMode.HALF_DOWN).doubleValue();
-        if(level < maxLevel && (children == null || children.size() < 1))
-            return 0;
         if(level >= maxLevel || children == null || children.size() < 1) {
+            computeOccupancy();
             if(occupancy == 0)
                 return 0;
-            return -1.9891/1000.0 * occupancy * Math.log(occupancy);
+            return -1.9891/1000.0 * occupancy * Math.log(occupancy) * numStatesAtLevel(maxLevel);
         }
         double subTreeSum = 0;
         double subTreeOccupancy = 0;
@@ -140,13 +164,18 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return subTreeSum;
     }
 
+    private void computeOccupancy() {
+        if(occupancy < 0)
+            occupancy = upperBound.divide(overallUpperBound,70, RoundingMode.HALF_UP).doubleValue();
+    }
+
     public double computeEntropy() {
         return computeEntropy(Integer.MAX_VALUE);
     }
 
     public double computeEnthalpyWithEnergiesFrom(Map<String, Double> energyMap, int maxLevel) {
         if(level >= maxLevel || children == null || children.size() < 1) {
-            occupancy = upperBound.divide(overallUpperBound,5,RoundingMode.HALF_UP).doubleValue();
+            computeOccupancy();
             String formattedAssignments = formatAssignmentsVisual(this.assignments);
             if(!energyMap.containsKey(formattedAssignments))
                 return 0;
@@ -176,14 +205,14 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     }
 
     public double computeEnthalpy(int maxLevel) {
-        occupancy = upperBound.divide(overallUpperBound,5,RoundingMode.HALF_UP).doubleValue();
+        computeOccupancy();
         if(level >= maxLevel || children == null || children.size() < 1)
             return confLowerBound*occupancy;
         double subTreeSum = 0;
         for(KStarTreeNode child: children) {
             double childEnthalpy = child.computeEnthalpy(maxLevel);
             subTreeSum += childEnthalpy;
-            if(subTreeSum < confLowerBound) {
+            if(occupancy > 0 && subTreeSum < confLowerBound) {
                 double subtreeOccupancy = 0;
                 double subtreeEnthalpy = 0;
                 for(KStarTreeNode child2: children) {
@@ -196,7 +225,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                 System.err.println("???");
             }
         }
-        if(subTreeSum < confLowerBound)
+        if(occupancy > 0 && subTreeSum < confLowerBound)
             System.err.println("???");
         return subTreeSum;
     }
@@ -532,7 +561,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
         int numNonZeroChildren = 0;
         for(KStarTreeNode child: children) {
-            double childOccupancy = child.upperBound.divide(overallUpperBound,5,RoundingMode.HALF_UP).doubleValue();
+            double childOccupancy = child.getOccupancy();
             if (childOccupancy > 0.01)
                 numNonZeroChildren++;
         }
@@ -550,6 +579,12 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             }
         }
 
+    }
+
+    private double getOccupancy() {
+        if(occupancy < 0)
+            computeOccupancy();
+        return occupancy;
     }
 
     private boolean fullyAssigned() {
@@ -719,7 +754,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         newNode.statText = this.statText;
         newNode.parent = this;
         newNode.overallUpperBound = this.overallUpperBound;
-        newNode.occupancy = upperBound.divide(overallUpperBound,5,RoundingMode.HALF_UP).doubleValue();
+        newNode.computeOccupancy();
     }
 
     public String toString()

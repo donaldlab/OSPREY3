@@ -101,9 +101,9 @@ public class Visualizer extends Application {
         root.preprocess();
         root.render(g);
         root.setTextRoot(textGroup);
-        root.autoExpand(0.001);//,5);
+        root.autoExpand(0.001, 6);//,5);
         resize();
-        //root.pieChart(1);
+        root.pieChart(1);
         root.showRoot();
         centerPane.getChildren().addAll(g);
         triroot.setCenter(centerPane);

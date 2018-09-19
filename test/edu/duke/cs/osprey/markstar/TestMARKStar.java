@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.TestBBKStar;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.visualizer.KStarTreeManipulator;
 import edu.duke.cs.osprey.markstar.visualizer.KStarTreeNode;
@@ -440,31 +441,43 @@ public class TestMARKStar {
 
 	@Test
 	public void testComputeCrossTreeEnthalpy() {
-		KStarTreeNode proteinRoot = KStarTreeNode.parseTree("2XXMProteinConfTreeBounds.txt");
-		int maxLevel = 4;
-		System.out.println("Protein enthalpy: "+proteinRoot.computeEnthalpy(maxLevel));
-		System.out.println("Protein entropy: "+proteinRoot.computeEntropy(maxLevel));
+		KStarTreeNode proteinRoot = KStarTreeNode.parseTree("2XXM10ResProteinConfTreeBounds.txt");
+		int proteinLevel = 6;
+		int ligandLevel = 4;
+		System.out.println("Protein enthalpy: "+proteinRoot.computeEnthalpy(proteinLevel));
+		System.out.println("Protein entropy: "+proteinRoot.computeEntropy(proteinLevel));
+		System.out.println("Protein states: "+proteinRoot.numStatesAtLevel(proteinLevel));
 
-		KStarTreeNode ligandRoot = KStarTreeNode.parseTree("2XXMLigandConfTreeBounds.txt");
-		System.out.println("Ligand enthalpy: "+ligandRoot.computeEnthalpy(maxLevel));
-		System.out.println("Ligand entropy: "+ligandRoot.computeEntropy(maxLevel));
+		KStarTreeNode ligandRoot = KStarTreeNode.parseTree("2XXM10ResLigandConfTreeBounds.txt");
+		System.out.println("Ligand enthalpy: "+ligandRoot.computeEnthalpy(ligandLevel));
+		System.out.println("Ligand entropy: "+ligandRoot.computeEntropy(ligandLevel));
+		System.out.println("Ligand states: "+ligandRoot.numStatesAtLevel(ligandLevel));
 
-		KStarTreeNode complexRoot = KStarTreeNode.parseTree("2XXMComplexConfTreeBounds.txt");
-		System.out.println("Complex enthalpy: "+complexRoot.computeEnthalpy(maxLevel));
-		System.out.println("Complex (protein) entropy: "+complexRoot.computeEntropy(maxLevel));
-		KStarTreeNode complexLigandFirstRoot = KStarTreeNode.parseTree("ComplexLigandFirstConfTreeBounds.txt");
-		System.out.println("Complex (ligand) entropy: "+complexLigandFirstRoot.computeEntropy(maxLevel));
-		double crossTreeEnthalpy = complexRoot.computeEnthalpyWithEnergiesFrom(proteinRoot.computeEnergyMap(maxLevel), maxLevel);
+		KStarTreeNode complexRoot = KStarTreeNode.parseTree("2XXM10ResComplexConfTreeBounds.txt");
+		System.out.println("Complex enthalpy: "+complexRoot.computeEnthalpy(proteinLevel));
+		System.out.println("Complex (protein) entropy: "+complexRoot.computeEntropy(proteinLevel));
+		System.out.println("Complex (protein) states: "+complexRoot.numStatesAtLevel(proteinLevel));
+		KStarTreeNode complexLigandFirstRoot = KStarTreeNode.parseTree("2XXM10ResComplexLigandFirstBounds.txt");
+		System.out.println("Complex (ligand) entropy: "+complexLigandFirstRoot.computeEntropy(ligandLevel));
+		System.out.println("Complex (ligand) states: "+complexLigandFirstRoot.numStatesAtLevel(ligandLevel));
+		double crossTreeEnthalpy = complexRoot.computeEnthalpyWithEnergiesFrom(proteinRoot.computeEnergyMap(proteinLevel), proteinLevel);
 		System.out.println("Cross tree protein enthalpy: "+crossTreeEnthalpy);
-		crossTreeEnthalpy = complexLigandFirstRoot.computeEnthalpyWithEnergiesFrom(ligandRoot.computeEnergyMap(maxLevel), maxLevel);
+		crossTreeEnthalpy = complexLigandFirstRoot.computeEnthalpyWithEnergiesFrom(ligandRoot.computeEnergyMap(ligandLevel), ligandLevel);
 		System.out.println("Cross tree ligand enthalpy: "+crossTreeEnthalpy);
+		System.out.println("Complex full entropy:"+complexRoot.computeEntropy());
+		System.out.println("Complex full enthalpy:"+complexRoot.computeEnthalpy());
+		System.out.println("Complex max conf error bound: "+complexRoot.maxConfErrorBound());
+		System.out.println(String.format("Complex max weighted error bound: %12.4e, largest upper bound %12.4e",
+				complexRoot.maxWeightedErrorBound(),
+				new BoltzmannCalculator(PartitionFunction.decimalPrecision).calc(complexRoot.getConfLowerBound())));
+
 
 	}
 
 	@Test
 	public void testGenerateEnsemble() {
 		ConfSpaces confSpaces = make2XXM10Res();
-        KStarTreeNode root = KStarTreeNode.parseTree("2XXM10ResProteinConfTreeBounds.txt");
+        KStarTreeNode root = KStarTreeNode.parseTree("2XXM10ResComplexConfTreeBounds.txt");
         int numConfs = 150;
         int levelThreshold = 1;
         Map<KStarTreeNode, List<KStarTreeNode>> samples = root.getTopSamples(numConfs, levelThreshold);
@@ -556,22 +569,22 @@ public class TestMARKStar {
 				.setTemplateLibrary(templateLib)
 				.setResidues("A146", "A218")
 				.build();
-		protein.flexibility.get("A149").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("A151").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("A152").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("A175").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("A176").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A177").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A178").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A180").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A181").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A184").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A185").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
 				.setTemplateLibrary(templateLib)
 				.setResidues("B4", "B113")
 				.build();
-		ligand.flexibility.get("B37").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("B45").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("B47").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("B93").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("B103").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("B58").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("B61").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("B64").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 
 		// make the conf spaces ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
@@ -583,6 +596,7 @@ public class TestMARKStar {
 		confSpaces.complex = new SimpleConfSpace.Builder()
 				.addStrands(protein, ligand)
 				.build();
+
 
 		return confSpaces;
 	}
