@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.markstar.TestMARKStar.Result;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
@@ -383,6 +384,17 @@ public class TestMARKStarDesignProblems {
         if(runkstar)
             for(KStar.ScoredSequence seq: kStarSeqs)
                 printKStarComputationStats(seq);
+    }
+
+    @Test
+    public void test3U7Y() {
+        try {
+            //runBBKStar(loadSSFromCFS("3u7y_L_15res_1.326E+48.cfs"),
+             //       5, 0.99, null, 2, true);
+            runMARKStar(loadSSFromCFS("3u7y_L_15res_1.326E+48.cfs"),0.99);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
     private ConfSpaces make2XXM() {

@@ -41,7 +41,7 @@ import java.util.*;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    public boolean debug = true;
+    public boolean debug = false;
     public boolean profileOutput = false;
     private Status status = null;
     private Values values = null;
@@ -414,7 +414,6 @@ public class MARKStarBound implements PartitionFunction {
         double leafTimeSum = 0;
         double internalTimeSum = 0;
         BigDecimal[] ZSums = new BigDecimal[]{internalZ,leafZ};
-        debugHeap(queue);
         populateQueues(queue, internalNodes, leafNodes, internalZ, leafZ, ZSums);
         updateBound();
         debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
