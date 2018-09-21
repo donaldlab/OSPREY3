@@ -3,11 +3,16 @@ package edu.duke.cs.osprey.markstar.framework;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
+
+import java.math.BigDecimal;
 
 public class BiggestLowerboundDifferenceOrder implements edu.duke.cs.osprey.astar.conf.order.AStarOrder {
 
 	public final MathTools.Optimizer optimizer;
+	private BoltzmannCalculator calculator = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
 	public BiggestLowerboundDifferenceOrder() {
 		this(MathTools.Optimizer.Maximize);
@@ -35,17 +40,16 @@ public class BiggestLowerboundDifferenceOrder implements edu.duke.cs.osprey.asta
 	public int getNextPos(ConfIndex confIndex, RCs rcs) {
 
 		int bestPos = -1;
-		double bestScore = optimizer.initDouble();
+		BigDecimal bestScore = BigDecimal.ZERO;
 
 		for (int i=0; i<confIndex.numUndefined; i++) {
 
 			int pos = confIndex.undefinedPos[i];
-			double score = scorePos(confIndex, rcs, pos);
-
-			if (optimizer.isBetter(score, bestScore)) {
-				bestScore = score;
+			BigDecimal score = scorePos(confIndex, rcs, pos);
+			if(score.compareTo(bestScore) > 0)
 				bestPos = pos;
-			}
+
+
 		}
 
 		if (bestPos >= 0) {
@@ -57,20 +61,23 @@ public class BiggestLowerboundDifferenceOrder implements edu.duke.cs.osprey.asta
 		return confIndex.undefinedPos[0];
 	}
 
-	double scorePos(ConfIndex confIndex, RCs rcs, int pos) {
+	BigDecimal scorePos(ConfIndex confIndex, RCs rcs, int pos) {
 
 		// check all the RCs at this pos and aggregate the energies
 		double parentScore = confIndex.node.getScore();
 		double reciprocalSum = 0;
-		double maxLower = Double.NEGATIVE_INFINITY;
-		double minLower = Double.POSITIVE_INFINITY;
+		BigDecimal maxUpper = MathTools.BigNegativeInfinity;
+		BigDecimal minUpper = MathTools.BigPositiveInfinity;
 		for (int rc : rcs.get(pos)) {
 			double childScore = gscorer.calcDifferential(confIndex, rcs, pos, rc)
-				+ hscorer.calcDifferential(confIndex, rcs, pos, rc);
-			maxLower = Math.max(maxLower, childScore);
-			minLower = Math.min(minLower, childScore);
+					+ hscorer.calcDifferential(confIndex, rcs, pos, rc);
+			BigDecimal childWeightedScore =  calculator.calc(childScore);
+			if(MathTools.isLessThan(childWeightedScore, minUpper))
+				minUpper = childWeightedScore;
+			if(MathTools.isGreaterThan(childWeightedScore, maxUpper))
+				maxUpper = childWeightedScore;
 		}
 
-		return minLower -maxLower;
+		return maxUpper.subtract(minUpper);
 	}
 }
