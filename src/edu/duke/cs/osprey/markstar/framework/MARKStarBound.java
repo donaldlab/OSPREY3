@@ -41,7 +41,7 @@ import java.util.*;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    public boolean debug = false;
+    public boolean debug = true;
     public boolean profileOutput = false;
     private Status status = null;
     private Values values = null;
@@ -203,7 +203,7 @@ public class MARKStarBound implements PartitionFunction {
         values.qstar = rootNode.getLowerBound();
         values.pstar = rootNode.getUpperBound();
         values.qprime= rootNode.getUpperBound();
-        rootNode.printTree(stateName, minimizingEcalc.confSpace);
+        //rootNode.printTree(stateName, minimizingEcalc.confSpace);
     }
 
     private void debugPrint(String s) {
@@ -414,6 +414,7 @@ public class MARKStarBound implements PartitionFunction {
         double leafTimeSum = 0;
         double internalTimeSum = 0;
         BigDecimal[] ZSums = new BigDecimal[]{internalZ,leafZ};
+        debugHeap(queue);
         populateQueues(queue, internalNodes, leafNodes, internalZ, leafZ, ZSums);
         updateBound();
         debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
@@ -442,7 +443,7 @@ public class MARKStarBound implements PartitionFunction {
             internalTime.reset();
             internalTime.start();
             for (MARKStarNode internalNode : internalNodes) {
-                if(!MathTools.isGreaterThan(internalNode.getLowerBound(),BigDecimal.ZERO) &&
+                if(!MathTools.isGreaterThan(internalNode.getLowerBound(),BigDecimal.ONE) &&
                     MathTools.isGreaterThan(
                             MathTools.bigDivide(internalNode.getUpperBound(),rootNode.getUpperBound(),
                                     PartitionFunction.decimalPrecision),
