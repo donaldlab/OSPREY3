@@ -308,7 +308,7 @@ public class MARKStarBound implements PartitionFunction {
         progress = new MARKStarProgress(RCs.getNumPos());
         //confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
         confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
-        //setParallelism(parallelism);
+        setParallelism(parallelism);
         updateBound();
         this.minList = new ArrayList<Integer>(Collections.nCopies(rcs.getNumPos(),0));
     }
