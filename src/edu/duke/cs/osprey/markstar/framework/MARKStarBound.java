@@ -242,9 +242,6 @@ public class MARKStarBound implements PartitionFunction {
     public final AStarPruner pruner;
     private RCs RCs;
     private Parallelism parallelism;
-    private TaskExecutor internalTasks;
-    private TaskExecutor leafTasks;
-    private TaskExecutor drillTasks;
     private ObjectPool<ScoreContext> contexts;
     private MARKStarNode.ScorerFactory gscorerFactory;
     private MARKStarNode.ScorerFactory hscorerFactory;
@@ -311,7 +308,7 @@ public class MARKStarBound implements PartitionFunction {
         progress = new MARKStarProgress(RCs.getNumPos());
         //confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
         confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
-        setParallelism(parallelism);
+        //setParallelism(parallelism);
         updateBound();
         this.minList = new ArrayList<Integer>(Collections.nCopies(rcs.getNumPos(),0));
     }
@@ -334,9 +331,6 @@ public class MARKStarBound implements PartitionFunction {
         }
 
         parallelism = val;
-        leafTasks = parallelism.makeTaskExecutor(1000);
-        internalTasks = parallelism.makeTaskExecutor(1000);
-        drillTasks = parallelism.makeTaskExecutor(1000);
         loopTasks = parallelism.makeTaskExecutor(1000);
         contexts.allocate(parallelism.getParallelism());
     }
@@ -430,7 +424,7 @@ public class MARKStarBound implements PartitionFunction {
                 leafNode.markUpdated();
                 debugPrint("Processing Node: " + leafNode.getConfSearchNode().toString());
             }
-            leafTasks.waitForFinish();
+            loopTasks.waitForFinish();
             leafTime.stop();
             leafTimeAverage = leafTime.getTimeS();
             System.out.println("Processed "+numNodes+" leaves in "+leafTimeAverage+" seconds.");
@@ -448,7 +442,7 @@ public class MARKStarBound implements PartitionFunction {
                                     PartitionFunction.decimalPrecision),
                             new BigDecimal(1-targetEpsilon))
                 ) {
-                    drillTasks.submit(() -> {
+                    loopTasks.submit(() -> {
                         boundLowestBoundConfUnderNode(internalNode, newNodes);
                         return null;
                     }, (ignored) -> {
@@ -459,8 +453,7 @@ public class MARKStarBound implements PartitionFunction {
                 }
                 internalNode.markUpdated();
             }
-            drillTasks.waitForFinish();
-            internalTasks.waitForFinish();
+            loopTasks.waitForFinish();
             internalTime.stop();
             internalTimeSum=internalTime.getTimeS();
             internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
@@ -729,7 +722,7 @@ public class MARKStarBound implements PartitionFunction {
                 continue;
             }
 
-            internalTasks.submit(() -> {
+            loopTasks.submit(() -> {
 
                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                     Stopwatch partialTime = new Stopwatch().start();
@@ -816,7 +809,7 @@ public class MARKStarBound implements PartitionFunction {
             newNodes.add(curNode);
             return;
         }
-        leafTasks.submit(() -> {
+        loopTasks.submit(() -> {
             try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                 ScoreContext context = checkout.get();
                 node.index(context.index);
