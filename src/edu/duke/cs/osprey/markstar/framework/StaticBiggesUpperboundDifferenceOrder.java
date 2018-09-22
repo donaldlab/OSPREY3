@@ -5,24 +5,22 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.MathTools;
-import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.math.BigDecimal;
 import java.util.*;
 
-public class StaticBiggestLowerboundDifferenceOrder implements edu.duke.cs.osprey.astar.conf.order.AStarOrder {
+public class StaticBiggesUpperboundDifferenceOrder implements edu.duke.cs.osprey.astar.conf.order.AStarOrder {
 
 	public final MathTools.Optimizer optimizer;
 	private List<Integer> posOrder;
 	private BoltzmannCalculator calculator = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
-	public StaticBiggestLowerboundDifferenceOrder() {
+	public StaticBiggesUpperboundDifferenceOrder() {
 		this(MathTools.Optimizer.Maximize);
 	}
 
-	public StaticBiggestLowerboundDifferenceOrder(MathTools.Optimizer optimizer) {
+	public StaticBiggesUpperboundDifferenceOrder(MathTools.Optimizer optimizer) {
 		this.optimizer = optimizer;
 	}
 
@@ -51,7 +49,7 @@ public class StaticBiggestLowerboundDifferenceOrder implements edu.duke.cs.ospre
 	private List<Integer> calcPosOrder(ConfIndex confIndex, RCs rcs) {
 		// init permutation array with only undefined positions and score them
 		List<Integer> undefinedOrder = new ArrayList<Integer>();
-		Map<Integer, Double > scores = new TreeMap<>();
+		Map<Integer,BigDecimal> scores = new TreeMap<>();
 		for (int posi=0; posi<confIndex.numUndefined; posi++) {
 			int pos = confIndex.undefinedPos[posi];
 			undefinedOrder.add(pos);
@@ -63,10 +61,10 @@ public class StaticBiggestLowerboundDifferenceOrder implements edu.duke.cs.ospre
 
 			@Override
 			public int compare(Integer pos1, Integer pos2) {
-				double score1 = scores.get(pos1);
-				double score2 = scores.get(pos2);
+				BigDecimal score1 = scores.get(pos1);
+				BigDecimal score2 = scores.get(pos2);
 				// NOTE: use reverse order for decreasing sort
-				return Double.compare(score2, score1);
+				return score2.compareTo(score1);
 			}
 		});
 
@@ -95,20 +93,23 @@ public class StaticBiggestLowerboundDifferenceOrder implements edu.duke.cs.ospre
 	}
 
 
-	double scorePos(ConfIndex confIndex, RCs rcs, int pos) {
+	BigDecimal scorePos(ConfIndex confIndex, RCs rcs, int pos) {
 
 		// check all the RCs at this pos and aggregate the energies
 		double parentScore = confIndex.node.getScore();
 		double reciprocalSum = 0;
-		double maxLower= Double.NEGATIVE_INFINITY;
-		double minLower = Double.POSITIVE_INFINITY;
+		BigDecimal maxUpper = MathTools.BigNegativeInfinity;
+		BigDecimal minUpper = MathTools.BigPositiveInfinity;
 		for (int rc : rcs.get(pos)) {
 			double childScore = gscorer.calcDifferential(confIndex, rcs, pos, rc)
 				+ hscorer.calcDifferential(confIndex, rcs, pos, rc);
-			maxLower = Math.max(childScore, maxLower);
-			minLower = Math.min(childScore, minLower);
+			BigDecimal childWeightedScore =  calculator.calc(childScore);
+			if(MathTools.isLessThan(childWeightedScore, minUpper))
+				minUpper = childWeightedScore;
+			if(MathTools.isGreaterThan(childWeightedScore, maxUpper))
+				maxUpper = childWeightedScore;
 		}
 
-		return maxLower - minLower;
+		return maxUpper.subtract(minUpper);
 	}
 }
