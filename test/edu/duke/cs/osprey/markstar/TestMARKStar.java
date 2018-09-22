@@ -476,10 +476,10 @@ public class TestMARKStar {
 
 	@Test
 	public void testGenerateEnsemble() {
-		ConfSpaces confSpaces = make2XXM10Res();
-        KStarTreeNode root = KStarTreeNode.parseTree("2XXM10ResComplexConfTreeBounds.txt");
+		ConfSpaces confSpaces = make2XXMSmaller();
+        KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
         int numConfs = 150;
-        int levelThreshold = 1;
+        int levelThreshold = 3;
         Map<KStarTreeNode, List<KStarTreeNode>> samples = root.getTopSamples(numConfs, levelThreshold);
         System.out.println("Tried for "+numConfs+" confs, got "+samples.size()+" lists");
         for(KStarTreeNode subtreeRoot:samples.keySet()) {
@@ -519,7 +519,7 @@ public class TestMARKStar {
 			for (KStarTreeNode subtreeRoot : confLists.keySet()) {
 				System.out.println("Under " + subtreeRoot + ":");
 				ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(confLists.get(subtreeRoot).iterator(), Integer.MAX_VALUE);
-				analysis.writePdbs("pdb/"+subtreeRoot.getEnsemblePDBName()+"Test*.pdb");
+				analysis.writePdbs("pdb/"+subtreeRoot.getEnsemblePDBName()+subtreeRoot.getConfLowerBound()+"*.pdb");
 
 			}
 		}
