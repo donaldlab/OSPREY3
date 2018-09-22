@@ -65,7 +65,7 @@ public class MARKStarBound implements PartitionFunction {
     private double leafTimeAverage;
     private double cleanupTime;
     private boolean nonZeroLower;
-    private TaskExecutor loopTasks;
+    private static TaskExecutor loopTasks;
 
     public void setCorrections(UpdatingEnergyMatrix cachedCorrections) {
         correctionMatrix = cachedCorrections;
@@ -331,7 +331,9 @@ public class MARKStarBound implements PartitionFunction {
         }
 
         parallelism = val;
-        loopTasks = minimizingEcalc.tasks;
+        //loopTasks = minimizingEcalc.tasks;
+        if(loopTasks == null)
+            loopTasks = parallelism.makeTaskExecutor(1000);
         contexts.allocate(parallelism.getParallelism());
     }
 
