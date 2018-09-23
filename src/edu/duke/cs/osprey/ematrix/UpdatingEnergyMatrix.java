@@ -246,8 +246,11 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                 if(tupleIndex + 1 == positions.size())
                     return true;
                 int nextIndex = tupleIndex + 1;
-                if(position + 1 < currentPos)
+                if(position + 1 < currentPos) {
+                    if(children.get(WILDCARD_RC) == null)
+                        return false;
                     return children.get(WILDCARD_RC).contains(query, tupleIndex);
+                }
                 if(!children.containsKey(currentRC))
                     return false;
                 return children.get(currentRC).contains(query, nextIndex);
