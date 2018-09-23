@@ -790,8 +790,8 @@ def DEEGMECFinder(emat, confSpace, ecalc, confEcalc, name, use_epic, use_lute, c
     return gf
 
 
-def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
-    deeper_settings = c.dof.deeper.DEEPerSettings(True, pert_file_name, True, 'None', False, 2.5, 2.5, False, jvm.toArrayList(flex_res_list), pdb_file, False, strand.templateLib)
+def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file, selectPerts=True, startingPerts='None', onlyStarting=False):
+    deeper_settings = c.dof.deeper.DEEPerSettings(True, pert_file_name, selectPerts, startingPerts, onlyStarting, 2.5, 2.5, False, jvm.toArrayList(flex_res_list), pdb_file, False, strand.templateLib)
     bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
     return bbflex
 
