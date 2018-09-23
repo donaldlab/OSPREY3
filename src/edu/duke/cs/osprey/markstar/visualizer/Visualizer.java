@@ -9,11 +9,14 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.util.Arrays;
+import java.util.Optional;
 
 public class Visualizer extends Application {
 
@@ -36,6 +39,15 @@ public class Visualizer extends Application {
         triroot.setBackground(new Background(new BackgroundFill(Color.color(1,1,1), CornerRadii.EMPTY, Insets.EMPTY)));
         Scene test = new Scene(triroot, 300, 275);
         primaryStage.setScene(test);
+        MenuBar menuBar = getMenuBar(primaryStage);
+        triroot.setTop(menuBar);
+        primaryStage.setScene(test);
+        primaryStage.show();
+
+    }
+
+    @NotNull
+    private MenuBar getMenuBar(Stage primaryStage) {
         final Menu file = new Menu("File");
         final Menu options = new Menu("Options");
         final Menu help = new Menu("Help");
@@ -59,16 +71,28 @@ public class Visualizer extends Application {
         helpDevShortCut3.setOnAction(e -> {
             devShortCut3();
         });
+        MenuItem setvisibleLevels = new MenuItem("Set visible levels");
+        setvisibleLevels.setOnAction(e-> {
+                //int[] levels =
+                //root.pieChart();
+        TextInputDialog dialog = new TextInputDialog("walter");
+        dialog.setHeaderText("Input levels to show");
+
+        // Traditional way to get the response value.
+        Optional<String> result = dialog.showAndWait();
+        result.ifPresent(levelsString -> {
+            int[] levels = Arrays.stream(levelsString.split(",")).mapToInt(Integer::parseInt).toArray();
+            root.pieChart(levels);
+        });
+        });
         help.getItems().add(helpDevShortCut3);
         file.getItems().add(loadTree);
+        options.getItems().add(setvisibleLevels);
         MenuBar menuBar = new MenuBar();
         menuBar.getMenus().addAll(file, options, help);
         Button button = new Button();
         button.setText("Click me!");
-        triroot.setTop(menuBar);
-        primaryStage.setScene(test);
-        primaryStage.show();
-
+        return menuBar;
     }
 
     private void devShortCut3() {
@@ -103,7 +127,7 @@ public class Visualizer extends Application {
         root.setTextRoot(textGroup);
         root.autoExpand(0.001, 6);//,5);
         resize();
-        //root.pieChart(4);
+        root.pieChart(1, 3,6);
         root.showRoot();
         centerPane.getChildren().addAll(g);
         triroot.setCenter(centerPane);
@@ -143,34 +167,7 @@ public class Visualizer extends Application {
             ringGroup.setTranslateY(ringY+(y-mouseDownY));
 
         });
-        final Menu file = new Menu("File");
-        final Menu options = new Menu("Options");
-        final Menu help = new Menu("Help");
-        MenuItem loadTree = new MenuItem("Load tree!");
-        loadTree.setOnAction(e -> {
-            FileChooser fc = new FileChooser();
-            File selectedFile2 = fc.showOpenDialog(primaryStage);
-            loadTreeFromFile(selectedFile2);
-        });
-        MenuItem helpDevShortCut = new MenuItem("DevShortCut");
-        helpDevShortCut.setOnAction(e -> {
-            devShortCut();
-        });
-        help.getItems().add(helpDevShortCut);
-        MenuItem helpDevShortCut2 = new MenuItem("DevShortCut2");
-        helpDevShortCut2.setOnAction(e -> {
-            devShortCut2();
-        });
-        help.getItems().add(helpDevShortCut2);
-        MenuItem helpDevShortCut3 = new MenuItem("DevShortCut3");
-        helpDevShortCut3.setOnAction(e -> {
-            devShortCut3();
-        });
-        help.getItems().add(helpDevShortCut3);
-        file.getItems().add(loadTree);
-        MenuBar menuBar = new MenuBar();
-        menuBar.getMenus().addAll(file, options, help);
-        triroot.setTop(menuBar);
+        triroot.setTop(getMenuBar(primaryStage));
         triroot.widthProperty().addListener(o-> resize());
         triroot.heightProperty().addListener(o-> resize());
     }

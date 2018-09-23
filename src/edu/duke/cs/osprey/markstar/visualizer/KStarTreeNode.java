@@ -621,6 +621,42 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return out;
     }
 
+    public void pieChart(int... levels) {
+        Set<Integer> levelSet = new HashSet<>();
+        for(int level: levels)
+            levelSet.add(level);
+        setVisibleLevels(levelSet);
+    }
+
+    private void setVisibleLevels(Set<Integer> levelSet) {
+        if(!levelSet.contains(level+1)) {
+            if(innerRing != null)
+                innerRing.setVisible(false);
+            if(outerRing != null)
+                outerRing.setVisible(false);
+            if(bands != null) {
+               for(Node band: bands)
+                   band.setVisible(false);
+            }
+        }
+        if(levelSet.contains(level +1)) {
+            this.visible = true;
+            if(bands != null) {
+                for(Node band: bands)
+                    band.setVisible(true);
+            }
+            if(innerRing!=null)
+                innerRing.setVisible(false);
+            if(outerRing != null)
+                outerRing.setVisible(true);
+        }
+
+        if(children == null || children.size() <1 )
+            return;
+        for(KStarTreeNode child: children)
+            child.setVisibleLevels(levelSet);
+    }
+
     public void pieChart(int targetLevel) {
         if(level +1 < targetLevel) {
             if(innerRing != null)
@@ -639,9 +675,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                     band.setVisible(true);
             }
             if(innerRing!=null)
-                innerRing.setVisible(false);
+                innerRing.setVisible(true);
             if(outerRing != null)
-                outerRing.setVisible(false);
+                outerRing.setVisible(true);
         }
         if(level +1 > targetLevel) {
             if(bands != null) {
