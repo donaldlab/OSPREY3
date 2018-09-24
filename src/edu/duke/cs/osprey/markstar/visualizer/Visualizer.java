@@ -73,19 +73,23 @@ public class Visualizer extends Application {
         });
         MenuItem setvisibleLevels = new MenuItem("Set visible levels");
         setvisibleLevels.setOnAction(e-> {
-        TextInputDialog dialog = new TextInputDialog("walter");
-        dialog.setHeaderText("Input levels to show");
+            TextInputDialog dialog = new TextInputDialog("walter");
+            dialog.setHeaderText("Input levels to show");
 
-        // Traditional way to get the response value.
-        Optional<String> result = dialog.showAndWait();
-        result.ifPresent(levelsString -> {
-            int[] levels = Arrays.stream(levelsString.split(",")).mapToInt(Integer::parseInt).toArray();
-            root.pieChart(levels);
+            // Traditional way to get the response value.
+            Optional<String> result = dialog.showAndWait();
+            result.ifPresent(levelsString -> {
+                int[] levels = Arrays.stream(levelsString.split(",")).mapToInt(Integer::parseInt).toArray();
+                root.pieChart(levels);
+            });
         });
+        MenuItem toggleCenter = new MenuItem("Show/Hide white center");
+        toggleCenter.setOnAction(e->{
+            root.toggleCenter();
         });
         help.getItems().add(helpDevShortCut3);
         file.getItems().add(loadTree);
-        options.getItems().add(setvisibleLevels);
+        options.getItems().addAll(setvisibleLevels,toggleCenter);
         MenuBar menuBar = new MenuBar();
         menuBar.getMenus().addAll(file, options, help);
         Button button = new Button();

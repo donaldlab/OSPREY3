@@ -702,6 +702,11 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         textGroup.setVisible(true);
     }
 
+    public void toggleCenter() {
+        if(innerRing!=null)
+            innerRing.setVisible(!innerRing.isVisible());
+    }
+
 
     public static class Builder
     {
