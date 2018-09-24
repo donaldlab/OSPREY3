@@ -73,8 +73,6 @@ public class Visualizer extends Application {
         });
         MenuItem setvisibleLevels = new MenuItem("Set visible levels");
         setvisibleLevels.setOnAction(e-> {
-                //int[] levels =
-                //root.pieChart();
         TextInputDialog dialog = new TextInputDialog("walter");
         dialog.setHeaderText("Input levels to show");
 
@@ -116,10 +114,12 @@ public class Visualizer extends Application {
         Group g = rootGroup;
         Pane centerPane = new Pane();
         root = KStarTreeNode.parseTree(selectedFile, true);
+        /*
         int level = 5;
         System.out.println("Enthalpy:"+root.computeEnthalpy(level));
         System.out.println("Entropy:"+root.computeEntropy(level));
         System.out.println("Num States at level "+level+":"+root.numStatesAtLevel(level));
+        */
         rootGroup.getChildren().addAll(ringGroup, textGroup);
         root.setGroup(ringGroup);
         root.preprocess();
@@ -127,7 +127,7 @@ public class Visualizer extends Application {
         root.setTextRoot(textGroup);
         root.autoExpand(0.001, 6);//,5);
         resize();
-        root.pieChart(1, 3,6);
+        //root.pieChart(1, 3,6);
         root.showRoot();
         centerPane.getChildren().addAll(g);
         triroot.setCenter(centerPane);
