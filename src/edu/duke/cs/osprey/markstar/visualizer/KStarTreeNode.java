@@ -64,7 +64,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     private List<Arc> bands;
     private static boolean drawTree = false;
     private ColorStyle colorStyle = ColorStyle.occupancy;
-    private List<Double> maxLevelOccupancies = new ArrayList<>();
+    private static List<Double> maxLevelOccupancies = new ArrayList<>();
 
     public enum ColorStyle {
         differenceFromEnergy,
@@ -282,6 +282,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         double minLeafLower = getMinLeafLower();
         this.ratioToMaxLeaf = 1;
         setMinLeafLower(minLeafLower);
+        computeLevelMaxOccupancies();
     }
 
     private void setMinLeafLower(double treeLowerBound) {
@@ -417,10 +418,10 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     public void computeLevelMaxOccupancies() {
         if(children == null || children.size() < 1)
             return;
-        while(maxLevelOccupancies.size() <= level)
-            maxLevelOccupancies.add(0.0);
+        while(maxLevelOccupancies.size() <= level+1)
+            maxLevelOccupancies.add(Double.NEGATIVE_INFINITY);
         for(KStarTreeNode child: children) {
-            maxLevelOccupancies.set(level, Math.max(child.occupancy, maxLevelOccupancies.get(level)));
+            maxLevelOccupancies.set(level+1, Math.max(child.occupancy, maxLevelOccupancies.get(level+1)));
             child.computeLevelMaxOccupancies();
         }
 
@@ -446,6 +447,8 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     }
 
     private Color getLogOccupancyWeightedColor() {
+        double logOccupancy = Math.log(occupancy);
+        double occupancy = Math.min(1,1-logOccupancy/Math.log(0.0001));
         if(occupancy < occupancyThreshold)
             return redBlueGradient(occupancy/occupancyThreshold);
         double weight = (occupancy - occupancyThreshold)/(1-occupancyThreshold);
@@ -454,8 +457,6 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
 
     private Color getOccupancyWeightedColor() {
-        if(maxLevelOccupancies.size()<1)
-            computeLevelMaxOccupancies();
         double levelMaxOccupancy = maxLevelOccupancies.get(level);
         double occupancy = this.occupancy/levelMaxOccupancy;
         if(occupancy < occupancyThreshold)

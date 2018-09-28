@@ -88,13 +88,15 @@ public class Visualizer extends Application {
         colorByOccupancy.setOnAction((e)->{root.setColorStyle(KStarTreeNode.ColorStyle.occupancy);});
         MenuItem colorByEnergy = new MenuItem("Color by energy");
         colorByEnergy.setOnAction((e)->{root.setColorStyle(KStarTreeNode.ColorStyle.differenceFromEnergy);});
+        MenuItem colorByLogOccupancy = new MenuItem("Color by log statistical weight");
+        colorByLogOccupancy.setOnAction((e)->root.setColorStyle(KStarTreeNode.ColorStyle.logOccupancy));
         MenuItem toggleCenter = new MenuItem("Show/Hide white center");
         toggleCenter.setOnAction(e->{
             root.toggleCenter();
         });
         help.getItems().add(helpDevShortCut3);
         file.getItems().add(loadTree);
-        options.getItems().addAll(setvisibleLevels,toggleCenter, colorByEnergy, colorByOccupancy);
+        options.getItems().addAll(setvisibleLevels,toggleCenter, colorByEnergy, colorByOccupancy, colorByLogOccupancy);
         MenuBar menuBar = new MenuBar();
         menuBar.getMenus().addAll(file, options, help);
         Button button = new Button();
