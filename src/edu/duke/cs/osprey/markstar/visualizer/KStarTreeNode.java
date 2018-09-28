@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.markstar.visualizer;
 
+import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -60,8 +61,34 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     private double confUpperBound;
     private Arc innerRing;
     private Arc outerRing;
-    private List<Node> bands;
+    private List<Arc> bands;
     private static boolean drawTree = false;
+    private ColorStyle colorStyle = ColorStyle.occupancy;
+    private List<Double> maxLevelOccupancies = new ArrayList<>();
+
+    public enum ColorStyle {
+        differenceFromEnergy,
+        logOccupancy, occupancy
+    }
+
+    public void setColorStyle(ColorStyle style) {
+        colorStyle = style;
+        if(children == null || children. size() < 1)
+            return;
+        for(KStarTreeNode child: children)
+            child.setColorStyle(colorStyle);
+        recolor();
+    }
+
+    private void recolor() {
+        if(children == null || children. size() < 1)
+            return;
+        if(bands != null && bands.size() > 0){
+            for(int i = 0; i < bands.size(); i++){
+                bands.get(i).setFill(children.get(i).getWeightedColor());
+            }
+        }
+    }
 
     public static KStarTreeNode parseTree(File file, boolean render)
     {
@@ -299,7 +326,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             this.visible = true;
     }
 
-    private void renderCircle(Group g) {
+    private void renderCircle() {
         renderBand(centerX, centerY, innerRadius, outerRadius, 0, 360,
                 computeWeights());
     }
@@ -387,16 +414,63 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     }
 
+    public void computeLevelMaxOccupancies() {
+        if(children == null || children.size() < 1)
+            return;
+        while(maxLevelOccupancies.size() <= level)
+            maxLevelOccupancies.add(0.0);
+        for(KStarTreeNode child: children) {
+            maxLevelOccupancies.set(level, Math.max(child.occupancy, maxLevelOccupancies.get(level)));
+            child.computeLevelMaxOccupancies();
+        }
+
+    }
+
     double energyThreshold = 0.5;
     double ratioThreshold = 0.8;
     double redblueEnergyThreshold = 2;
+    double occupancyThreshold = 0.5;
 
     private Color getWeightedColor() {
+        switch(colorStyle) {
+            case differenceFromEnergy:
+                return getEnergyWeightedColor();
+            case occupancy:
+                return getOccupancyWeightedColor();
+            case logOccupancy:
+                return getLogOccupancyWeightedColor();
+            default:
+                return getOccupancyWeightedColor();
+
+        }
+    }
+
+    private Color getLogOccupancyWeightedColor() {
+        if(occupancy < occupancyThreshold)
+            return redBlueGradient(occupancy/occupancyThreshold);
+        double weight = (occupancy - occupancyThreshold)/(1-occupancyThreshold);
+        return blueGreenGradient(weight);
+    }
+
+
+    private Color getOccupancyWeightedColor() {
+        if(maxLevelOccupancies.size()<1)
+            computeLevelMaxOccupancies();
+        double levelMaxOccupancy = maxLevelOccupancies.get(level);
+        double occupancy = this.occupancy/levelMaxOccupancy;
+        if(occupancy < occupancyThreshold)
+            return redBlueGradient(occupancy/occupancyThreshold);
+        double weight = (occupancy - occupancyThreshold)/(1-occupancyThreshold);
+        return blueGreenGradient(weight);
+    }
+
+    private Color getEnergyWeightedColor() {
         if(minLeafLower - overallLower > energyThreshold)
             return redBlueGradient((redblueEnergyThreshold-Math.min(minLeafLower-overallLower, redblueEnergyThreshold))/redblueEnergyThreshold);
         double energyWeight = (minLeafLower -overallLower)/0.5;
         return blueGreenGradient(1-energyWeight);
     }
+
 
     private Color redGreenGradient(double ratioToMaxLeaf) {
         double newRatio = ratioToMaxLeaf;
@@ -418,8 +492,8 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     }
 
     private void showConfInfo(double mouseX, double mouseY) {
-        statText.setX(mouseX);
-        statText.setY(mouseY);
+        statText.setTranslateX(mouseX);
+        statText.setTranslateY(mouseY);
         statText.setText(this.toStringVisual());
         statText.setVisible(true);
     }
@@ -515,6 +589,8 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             child.autoExpand(v, maxLevel);
         }
     }
+
+
 
     public Map<KStarTreeNode,List<KStarTreeNode>> getTopSamples(int numSamples, int levelThreshold) {
         Map<KStarTreeNode,List<KStarTreeNode>> samples = new HashMap<>();
@@ -707,6 +783,21 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             innerRing.setVisible(!innerRing.isVisible());
     }
 
+    public Set<KStarTreeNode> getLevelNodes(int targetLevel) {
+        HashSet<KStarTreeNode> nodes = new HashSet<>();
+        getLevelNodes(targetLevel, nodes);
+        return nodes;
+    }
+
+    private void getLevelNodes(int targetLevel, Set<KStarTreeNode> nodes) {
+        if(this.level == targetLevel)
+            nodes.add(this);
+        if(level > targetLevel || children == null || children.size() < 1)
+            return;
+        for(KStarTreeNode child: children)
+            child.getLevelNodes(targetLevel, nodes);
+    }
+
 
     public static class Builder
     {
@@ -790,6 +881,18 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         }
     }
 
+    public boolean isChildOf(KStarTreeNode otherNode) {
+        if(parent == null)
+            return false;
+        if(parent == otherNode)
+            return true;
+        return parent.isChildOf(otherNode);
+    }
+
+    public boolean isParentOf(KStarTreeNode otherNode) {
+        return otherNode.isChildOf(this);
+    }
+
     protected void addChild(KStarTreeNode newNode) {
         children.add(newNode);
         newNode.statText = this.statText;
@@ -861,9 +964,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     }
 
-    public void render(Group g, Point2D start) {
+    public void render() {
         if(isRoot())
-            renderCircle(g);
+            renderCircle();
     }
     private static String format(BigDecimal x)
     {
@@ -908,7 +1011,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     public void render(Group g)
     {
-        render(g, new Point2D(0,0));
+        render();
     }
 
     public void printTree(String prefix, FileWriter writer)

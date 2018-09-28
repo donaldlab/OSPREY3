@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.markstar.visualizer;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -73,7 +74,7 @@ public class Visualizer extends Application {
         });
         MenuItem setvisibleLevels = new MenuItem("Set visible levels");
         setvisibleLevels.setOnAction(e-> {
-            TextInputDialog dialog = new TextInputDialog("walter");
+            TextInputDialog dialog = new TextInputDialog("1");
             dialog.setHeaderText("Input levels to show");
 
             // Traditional way to get the response value.
@@ -83,13 +84,17 @@ public class Visualizer extends Application {
                 root.pieChart(levels);
             });
         });
+        MenuItem colorByOccupancy = new MenuItem("Color by statistical weight");
+        colorByOccupancy.setOnAction((e)->{root.setColorStyle(KStarTreeNode.ColorStyle.occupancy);});
+        MenuItem colorByEnergy = new MenuItem("Color by energy");
+        colorByEnergy.setOnAction((e)->{root.setColorStyle(KStarTreeNode.ColorStyle.differenceFromEnergy);});
         MenuItem toggleCenter = new MenuItem("Show/Hide white center");
         toggleCenter.setOnAction(e->{
             root.toggleCenter();
         });
         help.getItems().add(helpDevShortCut3);
         file.getItems().add(loadTree);
-        options.getItems().addAll(setvisibleLevels,toggleCenter);
+        options.getItems().addAll(setvisibleLevels,toggleCenter, colorByEnergy, colorByOccupancy);
         MenuBar menuBar = new MenuBar();
         menuBar.getMenus().addAll(file, options, help);
         Button button = new Button();
@@ -129,7 +134,7 @@ public class Visualizer extends Application {
         root.preprocess();
         root.render(g);
         root.setTextRoot(textGroup);
-        root.autoExpand(0.001, 6);//,5);
+        root.autoExpand(0.001, 8);//,5);
         resize();
         //root.pieChart(1, 3,6);
         root.showRoot();
@@ -143,20 +148,26 @@ public class Visualizer extends Application {
             double scaleFactor = (event.getDeltaY() > 0) ? SCALE_DELTA : 1 / SCALE_DELTA;
             double mouseX = event.getX();
             double mouseY = event.getY();
+            Point2D mouseXY = new Point2D(mouseX, mouseY);
+            Point2D mouseLocal = ringGroup.sceneToLocal(mouseXY);
             double ringWidth = ringGroup.getBoundsInLocal().getWidth();
             double ringHeight= ringGroup.getBoundsInLocal().getHeight();
-            double ringCenterX = ringGroup.getTranslateX()+ringWidth/2;
-            double ringCenterY = ringGroup.getTranslateX()+ringHeight/2;
-            double distFromRingCenterX = ringCenterX-mouseX;
-            double distFromRingCenterY = ringCenterY-mouseY;
-            double deltaX = (scaleFactor-1)*distFromRingCenterX;
-            double deltaY = (scaleFactor-1)*distFromRingCenterY;
+            double ringCenterX = ringGroup.getTranslateX();
+            double ringCenterY = ringGroup.getTranslateY();
+            System.out.println("Mouse: ("+mouseX+","+mouseY+")");
+            System.out.println("Mouse local: ("+mouseLocal.getX()+","+mouseLocal.getY()+")");
+
+            System.out.println("Ring: ("+ringCenterX+","+ringCenterY+")");
+            double distFromRingCenterX = ringCenterX-mouseLocal.getX();
+            double distFromRingCenterY = ringCenterY-mouseLocal.getY();
+            double deltaX = (1-scaleFactor)*distFromRingCenterX;
+            double deltaY = (1-scaleFactor)*distFromRingCenterY;
 
             ringGroup.setScaleX(ringGroup.getScaleX() * scaleFactor);
             ringGroup.setScaleY(ringGroup.getScaleY() * scaleFactor);
             ringGroup.setTranslateX(-deltaX);
             ringGroup.setTranslateX(-deltaY);
-            resize();
+            //resize();
         });
         centerPane.setOnMousePressed((event)-> {
             mouseDownX = event.getX();
