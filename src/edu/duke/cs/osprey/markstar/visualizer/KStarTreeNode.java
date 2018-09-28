@@ -386,7 +386,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                     child.toggleBand();
             });
             arc.setOnMouseEntered((e)-> {
-                arc.setFill(arcColor.brighter()
+                arc.setFill(child.getWeightedColor().brighter()
                         .desaturate()
                         .desaturate());
                 child.showConfInfo(e.getX()+10, e.getY());
@@ -395,7 +395,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                 child.showConfInfo(e.getX()+10, e.getY());
             });
             arc.setOnMouseExited((e)-> {
-                arc.setFill(arcColor);
+                arc.setFill(child.getWeightedColor());
                 child.hideConfInfo();
             });
             startAngle += weight*arcLengthFinal;
@@ -431,6 +431,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     double ratioThreshold = 0.8;
     double redblueEnergyThreshold = 2;
     double occupancyThreshold = 0.5;
+    double logOccupancyThreshold = 0.80;
 
     private Color getWeightedColor() {
         switch(colorStyle) {
@@ -448,10 +449,10 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     private Color getLogOccupancyWeightedColor() {
         double logOccupancy = Math.log(occupancy);
-        double occupancy = Math.min(1,1-logOccupancy/Math.log(0.0001));
-        if(occupancy < occupancyThreshold)
-            return redBlueGradient(occupancy/occupancyThreshold);
-        double weight = (occupancy - occupancyThreshold)/(1-occupancyThreshold);
+        double occupancy = Math.max(0.00000000000000000000000001,1-logOccupancy/Math.log(0.0001));
+        if(occupancy < logOccupancyThreshold)
+            return redBlueGradient(occupancy/logOccupancyThreshold);
+        double weight = (occupancy - logOccupancyThreshold)/(1-logOccupancyThreshold);
         return blueGreenGradient(weight);
     }
 
