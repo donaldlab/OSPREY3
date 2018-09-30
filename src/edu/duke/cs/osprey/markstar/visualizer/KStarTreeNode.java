@@ -449,7 +449,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     private Color getLogOccupancyWeightedColor() {
         double logOccupancy = Math.log(occupancy);
-        double occupancy = Math.max(0.00000000000000000000000001,1-logOccupancy/Math.log(0.0001));
+        double occupancy = Math.max(0.00000000000000000000000001,1-logOccupancy/Math.log(0.001));
         if(occupancy < logOccupancyThreshold)
             return redBlueGradient(occupancy/logOccupancyThreshold);
         double weight = (occupancy - logOccupancyThreshold)/(1-logOccupancyThreshold);

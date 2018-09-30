@@ -8,6 +8,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.jetbrains.annotations.NotNull;
@@ -26,6 +27,7 @@ public class Visualizer extends Application {
     BorderPane triroot;
     Pane ringNode;
     KStarTreeNode root;
+    Circle dot = new Circle(0,0,10);
     Group rootGroup;
     private double mouseDownX;
     private double mouseDownY;
@@ -121,6 +123,7 @@ public class Visualizer extends Application {
         System.out.println("Parsing "+selectedFile);
         rootGroup = new Group();
         Group ringGroup = new Group();
+        ringGroup.getChildren().add(dot);
         Group textGroup = new Group();
         Group g = rootGroup;
         Pane centerPane = new Pane();
@@ -136,7 +139,7 @@ public class Visualizer extends Application {
         root.preprocess();
         root.render(g);
         root.setTextRoot(textGroup);
-        root.autoExpand(0.001, 8);//,5);
+        root.autoExpand(0.001, 1);//,5);
         resize();
         //root.pieChart(1, 3,6);
         root.showRoot();
@@ -152,10 +155,13 @@ public class Visualizer extends Application {
             double mouseY = event.getY();
             Point2D mouseXY = new Point2D(mouseX, mouseY);
             Point2D mouseLocal = ringGroup.sceneToLocal(mouseXY);
+            Point2D ringScene = ringGroup.localToScene(mouseXY);
+            dot.setTranslateX(mouseLocal.getX());
+            dot.setTranslateY(mouseLocal.getY());
             double ringWidth = ringGroup.getBoundsInLocal().getWidth();
             double ringHeight= ringGroup.getBoundsInLocal().getHeight();
-            double ringCenterX = ringGroup.getTranslateX();
-            double ringCenterY = ringGroup.getTranslateY();
+            double ringCenterX = ringGroup.getTranslateX()-ringWidth/2;
+            double ringCenterY = ringGroup.getTranslateY()-ringHeight/2;
             System.out.println("Mouse: ("+mouseX+","+mouseY+")");
             System.out.println("Mouse local: ("+mouseLocal.getX()+","+mouseLocal.getY()+")");
 
@@ -167,13 +173,19 @@ public class Visualizer extends Application {
 
             ringGroup.setScaleX(ringGroup.getScaleX() * scaleFactor);
             ringGroup.setScaleY(ringGroup.getScaleY() * scaleFactor);
-            ringGroup.setTranslateX(-deltaX);
-            ringGroup.setTranslateX(-deltaY);
+            Point2D movedMouseScene = ringGroup.localToScene(mouseLocal);
+            System.out.println("Moved mouse Scene: ("+movedMouseScene.getX()+","+movedMouseScene.getY()+")");
+            ringGroup.setTranslateX(ringGroup.getTranslateX() + mouseX - movedMouseScene.getX());
+            ringGroup.setTranslateY(ringGroup.getTranslateY() + mouseY - movedMouseScene.getY());
             //resize();
         });
         centerPane.setOnMousePressed((event)-> {
             mouseDownX = event.getX();
             mouseDownY = event.getY();
+            Point2D mouseXY = new Point2D(mouseDownX, mouseDownY);
+            Point2D mouseLocal = ringGroup.sceneToLocal(mouseXY);
+            Point2D ringScene = ringGroup.localToScene(mouseXY);
+
             ringX = ringGroup.getTranslateX();
             ringY = ringGroup.getTranslateY();
         });
@@ -185,8 +197,8 @@ public class Visualizer extends Application {
 
         });
         triroot.setTop(getMenuBar(primaryStage));
-        triroot.widthProperty().addListener(o-> resize());
-        triroot.heightProperty().addListener(o-> resize());
+        //triroot.widthProperty().addListener(o-> resize());
+        //triroot.heightProperty().addListener(o-> resize());
     }
 
     private void resize() {
