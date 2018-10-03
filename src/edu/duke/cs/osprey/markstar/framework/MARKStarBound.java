@@ -41,8 +41,8 @@ import java.util.*;
 public class MARKStarBound implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    public boolean debug = false;
-    public boolean profileOutput = false;
+    public boolean debug = true;
+    public boolean profileOutput = true;
     private Status status = null;
     private Values values = null;
 
@@ -198,12 +198,16 @@ public class MARKStarBound implements PartitionFunction {
             averageReduction = cumulativeZCorrection
                 .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));
         debugPrint(String.format("Average Z reduction per minimization: %12.6e",averageReduction));
-        if(epsilonBound < targetEpsilon)
-            status = Status.Estimated;
-        values.qstar = rootNode.getLowerBound();
         values.pstar = rootNode.getUpperBound();
+        values.qstar = rootNode.getLowerBound();
         values.qprime= rootNode.getUpperBound();
-        //rootNode.printTree(stateName, minimizingEcalc.confSpace);
+        if(epsilonBound < targetEpsilon) {
+            status = Status.Estimated;
+            if(values.qstar.compareTo(BigDecimal.ZERO) == 0) {
+                status = Status.Unstable;
+            }
+            rootNode.printTree(stateName, minimizingEcalc.confSpace);
+        }
     }
 
     private void debugPrint(String s) {

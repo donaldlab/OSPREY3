@@ -397,6 +397,17 @@ public class TestMARKStarDesignProblems {
         }
     }
 
+    @Test
+    public void test1a0r() {
+
+        try {
+            runBBKStar(loadFromCFS("examples/python.KStar/1a0r_B_10res_8.034E+41.cfs"),
+                   5, 0.68, null, 2, true);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
     private ConfSpaces make2XXM() {
 
         ConfSpaces confSpaces = new ConfSpaces();

@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
+import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.KStar;
@@ -441,14 +442,14 @@ public class TestMARKStar {
 
 	@Test
 	public void testComputeCrossTreeEnthalpy() {
-		KStarTreeNode proteinRoot = KStarTreeNode.parseTree("2XXM10ResProteinConfTreeBounds.txt");
+		KStarTreeNode proteinRoot = KStarTreeNode.parseTree("ProteinConfTreeBounds.txt");
 		int proteinLevel = 6;
 		int ligandLevel = 4;
 		System.out.println("Protein enthalpy: "+proteinRoot.computeEnthalpy(proteinLevel));
 		System.out.println("Protein entropy: "+proteinRoot.computeEntropy(proteinLevel));
 		System.out.println("Protein states: "+proteinRoot.numStatesAtLevel(proteinLevel));
 
-		KStarTreeNode ligandRoot = KStarTreeNode.parseTree("2XXM10ResLigandConfTreeBounds.txt");
+		KStarTreeNode ligandRoot = KStarTreeNode.parseTree("LigandConfTreeBounds.txt");
 		System.out.println("Ligand enthalpy: "+ligandRoot.computeEnthalpy(ligandLevel));
 		System.out.println("Ligand entropy: "+ligandRoot.computeEntropy(ligandLevel));
 		System.out.println("Ligand states: "+ligandRoot.numStatesAtLevel(ligandLevel));
@@ -476,11 +477,12 @@ public class TestMARKStar {
 
 	@Test
 	public void testGenerateEnsemble() {
-		ConfSpaces confSpaces = make2XXMSmaller();
-        KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		ConfSpaces confSpaces = make2XXM10Res();
+        KStarTreeNode root = KStarTreeNode.parseTree("2XXM10ResComplexConfTreeBounds.txt");
         int numConfs = 150;
-        int levelThreshold = 3;
+        int levelThreshold = 4;
         Map<KStarTreeNode, List<KStarTreeNode>> samples = root.getTopSamples(numConfs, levelThreshold);
+        Set<KStarTreeNode> levelNodes = root.getLevelNodes(1);
         System.out.println("Tried for "+numConfs+" confs, got "+samples.size()+" lists");
         for(KStarTreeNode subtreeRoot:samples.keySet()) {
 			System.out.println("Under " + subtreeRoot + ":");
@@ -488,6 +490,11 @@ public class TestMARKStar {
 				System.out.println(conf.toString());
 			}
 		}
+		Map<KStarTreeNode, List<ConfSearch.ScoredConf>> organizedConfs = new HashMap<>();
+        Map<ConfSearch.ScoredConf, String> confNames = new HashMap<>();
+        for(KStarTreeNode levelNode: levelNodes)
+        	organizedConfs.put(levelNode, new ArrayList<>());
+
 		boolean printPDBs = true;
 		if(printPDBs) {
 			EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
@@ -513,17 +520,46 @@ public class TestMARKStar {
 				for (KStarTreeNode conf : samples.get(subtreeRoot)) {
 					ConfSearch.ScoredConf scoredConf = new ConfSearch.ScoredConf(conf.getConfAssignments(), conf.getConfLowerBound());
 					confLists.get(subtreeRoot).add(scoredConf);
+					confNames.put(scoredConf, subtreeRoot.getEnsemblePDBName());
+					for(KStarTreeNode levelNode:levelNodes) {
+						if(conf.isChildOf(levelNode)) {
+							organizedConfs.get(levelNode).add(scoredConf);
+						}
+					}
 				}
 			}
 
-			for (KStarTreeNode subtreeRoot : confLists.keySet()) {
+			File pdbDir = new File("pdb");
+			if(!pdbDir.exists())
+                pdbDir.mkdir();
+			for (KStarTreeNode subtreeRoot : organizedConfs.keySet()) {
 				System.out.println("Under " + subtreeRoot + ":");
-				ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(confLists.get(subtreeRoot).iterator(), Integer.MAX_VALUE);
-				analysis.writePdbs("pdb/"+subtreeRoot.getEnsemblePDBName()+subtreeRoot.getConfLowerBound()+"*.pdb");
+				File subDir = new File("pdb/"+subtreeRoot.getEnsemblePDBName());
+				if(!subDir.exists())
+					subDir.mkdir();
+				ConfAnalyzer.ConfAnalysis analysis2 = analyzer.analyze(organizedConfs.get(subtreeRoot).get(0));
+				System.out.println(analysis2);
+				System.out.println(analysis2.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All));
+				ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(organizedConfs.get(subtreeRoot).iterator(), Integer.MAX_VALUE);
+				analysis.writePdbs("pdb/"+subtreeRoot.getEnsemblePDBName()+"/"
+						+"*.pdb");
 
 			}
 		}
 	}
+
+	@Test
+	public void test3u7y() {
+		try {
+			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/3u7y_L_15res_1.326E+48.cfs");
+			runMARKStar(confSpaces, 0.9999);
+			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+	}
+
 
 	@Test
 	public void test2XXMSmaller() {
@@ -549,6 +585,169 @@ public class TestMARKStar {
 		if(runkstar)
 			for(KStar.ScoredSequence seq: kStarSeqs)
 				printKStarComputationStats(seq);
+	}
+
+	@Test
+	public void testApoPfuncs() {
+		ConfSpaces proteinConfspaces = make3DS210Res();
+		ConfSpaces ligandConfspaces = make2XXC10Res();
+		ConfSpaces mergedConfspaces = new ConfSpaces();
+		mergedConfspaces.ffparams = new ForcefieldParams();
+		mergedConfspaces.protein = proteinConfspaces.protein;
+		mergedConfspaces.ligand = ligandConfspaces.protein;
+		mergedConfspaces.complex = new SimpleConfSpace.Builder()
+				.addStrands(proteinConfspaces.protein.strands.get(0),
+						ligandConfspaces.protein.strands.get(0))
+				.build();
+		runMARKStar(mergedConfspaces, 0.01);
+
+	}
+
+	private ConfSpaces make3DS210Res() {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readFile("examples/python.KStar/3ds2.prepared.minimized.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+				.build();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("A152", "A216")
+				.build();
+		protein.flexibility.get("A177").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A178").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A180").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A181").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A184").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A185").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("A219", "A220")
+				.build();
+		ligand.flexibility.get("A219").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+				.addStrand(protein)
+				.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+				.addStrand(ligand)
+				.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+				.addStrands(protein, ligand)
+				.build();
+
+
+		return confSpaces;
+
+	}
+
+	private ConfSpaces make1A8O10Res() {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readFile("examples/python.KStar/1a8o_mutated.prepared.minimized.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+				.build();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("A152", "A216")
+				.build();
+		protein.flexibility.get("A177").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A178").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A180").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A181").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A184").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A185").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("A219", "A220")
+				.build();
+		ligand.flexibility.get("A219").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+				.addStrand(protein)
+				.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+				.addStrand(ligand)
+				.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+				.addStrands(protein, ligand)
+				.build();
+
+
+		return confSpaces;
+	}
+
+
+	private ConfSpaces make2XXC10Res() {
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readFile("examples/python.KStar/2xxc.prepared.minimized.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+				.build();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("B30", "B111")
+				.build();
+		protein.flexibility.get("B47").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("B58").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("B61").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("B64").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("B4", "B29")
+				.build();
+		ligand.flexibility.get("B4").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+				.addStrand(protein)
+				.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+				.addStrand(ligand)
+				.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+				.addStrands(protein, ligand)
+				.build();
+
+
+		return confSpaces;
+	}
+
+	@Test
+	public void generate2XXM10Res() {
 	}
 
 	private ConfSpaces make2XXM10Res() {
@@ -744,6 +943,19 @@ public class TestMARKStar {
 		double epsilon = 0.68;
 		for(int i = 1; i < maxNumFlex; i++)
 			compareMARKStarAndKStar(i,0.68);
+	}
+
+	@Test
+	public void test4hem7resNanBug() {
+		try {
+			ConfSpaces confSpaces = loadFromCFS("examples/python.KStar/4hem_B_7res_1.131E+41.cfs");
+			TestBBKStar.Results results = runBBKStar(confSpaces, 1, 0.999999999999, null, 2, true);
+			for(KStar.ScoredSequence seq: results.sequences)
+				System.out.println(seq);
+
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
 	}
 
 	private void compareMARKStarAndKStar(int numFlex, double epsilon) {
@@ -955,6 +1167,9 @@ public class TestMARKStar {
 		result.kstar = kstar;
 		result.scores = kstar.run();
 		return result.scores;
+	}
+
+	private void runMARKStarWithLUTE(ConfSpaces confSpaces, double v) {
 	}
 
 	public static Result runMARKStar(TestKStar.ConfSpaces confSpaces, double epsilon){
