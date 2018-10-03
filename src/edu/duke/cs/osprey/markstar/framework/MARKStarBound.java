@@ -693,8 +693,12 @@ public class MARKStarBound implements PartitionFunction {
                 newNodes.remove(nextNode);
                 drillQueue.add(nextNode);
             }
-            else
-                newNodes.add(curNode);
+            else {
+                if(rootNode.getLowerBound().compareTo(BigDecimal.ZERO)==0)
+                    processFullConfNode(generatedNodes, curNode, curNode.getConfSearchNode());
+                else
+                    newNodes.add(curNode);
+            }
 
             //debugHeap(drillQueue, true);
             if(leafLoop.getTimeS() > 1) {
