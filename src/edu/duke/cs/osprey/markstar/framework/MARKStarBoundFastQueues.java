@@ -3,7 +3,6 @@ package edu.duke.cs.osprey.markstar.framework;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
@@ -38,11 +37,11 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.*;
 
-public class MARKStarBound implements PartitionFunction {
+public class MARKStarBoundFastQueues implements PartitionFunction {
 
     private double targetEpsilon = 1;
-    public boolean debug = false;
-    public boolean profileOutput = false;
+    public boolean debug = true;
+    public boolean profileOutput = true;
     private Status status = null;
     private Values values = null;
 
@@ -66,6 +65,8 @@ public class MARKStarBound implements PartitionFunction {
     private double cleanupTime;
     private boolean nonZeroLower;
     private static TaskExecutor loopTasks;
+    private Queue<MARKStarNode> leafQueue;
+    private Queue<MARKStarNode> internalQueue;
 
     public void setCorrections(UpdatingEnergyMatrix cachedCorrections) {
         correctionMatrix = cachedCorrections;
@@ -198,16 +199,12 @@ public class MARKStarBound implements PartitionFunction {
             averageReduction = cumulativeZCorrection
                 .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));
         debugPrint(String.format("Average Z reduction per minimization: %12.6e",averageReduction));
-        values.pstar = rootNode.getUpperBound();
-        values.qstar = rootNode.getLowerBound();
-        values.qprime= rootNode.getUpperBound();
-        if(epsilonBound < targetEpsilon) {
+        if(epsilonBound < targetEpsilon)
             status = Status.Estimated;
-            if(values.qstar.compareTo(BigDecimal.ZERO) == 0) {
-                status = Status.Unstable;
-            }
-            rootNode.printTree(stateName, minimizingEcalc.confSpace);
-        }
+        values.qstar = rootNode.getLowerBound();
+        values.pstar = rootNode.getUpperBound();
+        values.qprime= rootNode.getUpperBound();
+        //rootNode.printTree(stateName, minimizingEcalc.confSpace);
     }
 
     private void debugPrint(String s) {
@@ -269,14 +266,16 @@ public class MARKStarBound implements PartitionFunction {
     private int numLeavesScored = 0;
     private int numInternalScored = 0;
 
-    public static MARKStarBound makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
+    public static MARKStarBoundFastQueues makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
         ConfEnergyCalculator minimizingConfEcalc = info.confEcalcMinimized;
-        return new MARKStarBound(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
+        return new MARKStarBoundFastQueues(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
     }
 
-    public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
-                         ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
+    public MARKStarBoundFastQueues(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
+                                   ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
         this.queue = new PriorityQueue<>();
+        this.leafQueue = new PriorityQueue<>();
+        this.internalQueue = new PriorityQueue<>();
         this.minimizingEcalc = minimizingConfEcalc;
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
@@ -293,7 +292,7 @@ public class MARKStarBound implements PartitionFunction {
         this.minimizingEmat = minimizingEmat;
         this.rigidEmat = rigidEmat;
         this.RCs = rcs;
-        this.order = new StaticBiggesUpperboundDifferenceOrder();
+        this.order = new StaticBiggestLowerboundDifferenceOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
         this.pruner = null;
 
@@ -496,10 +495,10 @@ public class MARKStarBound implements PartitionFunction {
                                 BigDecimal leafZ, BigDecimal[] ZSums) {
         List<MARKStarNode> leftoverLeaves = new ArrayList<>();
         int maxMinimizations = parallelism.numThreads;
-        int maxNodes = 1000;
+        int maxNodes = 1;
         if(leafTimeAverage > 0)
             maxNodes = Math.max(maxNodes, (int)Math.floor(0.1*leafTimeAverage/internalTimeAverage));
-        while(!queue.isEmpty() && internalNodes.size() < maxNodes){
+        while(!queue.isEmpty() && (internalQueue.size() < maxNodes || leafQueue.size() < maxMinimizations)){
             MARKStarNode curNode = queue.poll();
             Node node = curNode.getConfSearchNode();
             ConfIndex index = new ConfIndex(RCs.getNumPos());
@@ -526,24 +525,29 @@ public class MARKStarBound implements PartitionFunction {
                 continue;
             }
 
-            BigDecimal diff = curNode.getUpperBound().subtract(curNode.getLowerBound());
             if (node.getLevel() < RCs.getNumPos()) {
-                internalNodes.add(curNode);
-                internalZ = internalZ.add(diff);
+                internalQueue.add(curNode);
             }
             else if(shouldMinimize(node) && !correctedNode(leftoverLeaves, curNode, node)) {
-                if(leafNodes.size() < maxMinimizations) {
-                    leafNodes.add(curNode);
-                    leafZ = leafZ.add(diff);
-                }
-                else
-                    leftoverLeaves.add(curNode);
+                leafQueue.add(curNode);
             }
 
         }
-        ZSums[0] = internalZ;
-        ZSums[1] = leafZ;
+
+        ZSums[0] = fillListFromQueue(internalNodes, internalQueue, maxNodes);
+        ZSums[1] = fillListFromQueue(leafNodes, leafQueue, maxMinimizations);
         queue.addAll(leftoverLeaves);
+    }
+
+    private BigDecimal fillListFromQueue(List<MARKStarNode> list, Queue<MARKStarNode> queue, int max) {
+        BigDecimal sum = BigDecimal.ZERO;
+        while(!queue.isEmpty() && list.size() < max) {
+            MARKStarNode curNode = queue.poll();
+            BigDecimal diff = curNode.getUpperBound().subtract(curNode.getLowerBound());
+            sum = sum.add(diff);
+            list.add(curNode);
+        }
+        return sum;
     }
 
     private void loopCleanup(List<MARKStarNode> newNodes, Stopwatch loopWatch, int numNodes) {
@@ -949,8 +953,19 @@ public class MARKStarBound implements PartitionFunction {
                 double tupleBounds = rigidEmat.getInternalEnergy(tuple) - minimizingEmat.getInternalEnergy(tuple);
                 if(tupleBounds < triplethreshhold)
                     continue;
-                minList.set(tuple.size()-1,minList.get(tuple.size()-1)+1);
                 computeDifference(tuple, minimizingEcalc);
+                double newTupleBounds = rigidEmat.getInternalEnergy(tuple) - minimizingEmat.getInternalEnergy(tuple);
+                double quadThreshold = 1;
+                if(newTupleBounds > quadThreshold) {
+                    for (int pos4 = 0; pos4 < diff.getNumPos(); pos4++) {
+                        if (pos4 == pos1 || pos4 == pos2 || pos4 == pos3)
+                            continue;
+                        RCTuple tuple2 = makeTuple(conf, pos1, pos2, pos3, pos4);
+                        computeDifference(tuple2, minimizingEcalc);
+
+                    }
+                }
+
                 localMinimizations++;
             }
             numPartialMinimizations+=localMinimizations;
@@ -970,6 +985,7 @@ public class MARKStarBound implements PartitionFunction {
         correctedTuples.add(tuple.stringListing());
         if(correctionMatrix.hasHigherOrderTermFor(tuple))
             return;
+        minList.set(tuple.size()-1,minList.get(tuple.size()-1)+1);
         minimizingEcalc.calcEnergyAsync(tuple, (minimizedTuple) -> {
             double tripleEnergy = minimizedTuple.energy;
 
@@ -991,7 +1007,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void processPreminimization(ConfEnergyCalculator ecalc) {
-        int maxMinimizations = 1;//parallelism.numThreads;
+        int maxMinimizations = parallelism.numThreads;
         List<MARKStarNode> topConfs = getTopConfs(maxMinimizations);
         // Need at least two confs to do any partial preminimization
         if (topConfs.size() < 2) {
@@ -1043,8 +1059,8 @@ public class MARKStarBound implements PartitionFunction {
 
     private List<MARKStarNode> getTopConfs(int numConfs) {
         List<MARKStarNode> topConfs = new ArrayList<>();
-        while (topConfs.size() < numConfs&& !queue.isEmpty()) {
-            MARKStarNode nextLowestConf = queue.poll();
+        while (topConfs.size() < numConfs&& !leafQueue.isEmpty()) {
+            MARKStarNode nextLowestConf = leafQueue.poll();
             topConfs.add(nextLowestConf);
         }
         return topConfs;
