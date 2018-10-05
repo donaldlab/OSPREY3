@@ -441,6 +441,21 @@ public class TestMARKStar {
 		return confSpaces;
 	}
 
+
+	@Test
+	public void testComputeTreeError() {
+		KStarTreeNode proteinRoot = KStarTreeNode.parseTree("2XXM10ResComplexConfTreeBounds.txt");
+		proteinRoot.preprocess();
+		double initialDiff = 0.1;
+		for(double i = initialDiff; i < 10; i+= 0.1) {
+			double diffFromGMEC = i;
+			double[] range = proteinRoot.computeEnergyErrorWithinEnergyRange(diffFromGMEC);
+			int numConfs = proteinRoot.numConfsWithin(diffFromGMEC);
+			System.out.println("For "+numConfs+" confs within " + diffFromGMEC + " kcal/mol of GMEC: Min: " + range[0] + ", max: " + range[1]);
+		}
+
+	}
+
 	@Test
 	public void testComputeCrossTreeEnthalpy() {
 		KStarTreeNode proteinRoot = KStarTreeNode.parseTree("ProteinConfTreeBounds.txt");

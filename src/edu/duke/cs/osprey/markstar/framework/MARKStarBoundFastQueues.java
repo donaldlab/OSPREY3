@@ -223,7 +223,7 @@ public class MARKStarBoundFastQueues implements PartitionFunction {
 
     @Override
     public Result makeResult() {
-        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs(), Long.toString(stopwatch.getTimeNs()), minList, ZReductionFromMin, cumulativeZCorrection);
+        PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated());
         return result;
     }
 

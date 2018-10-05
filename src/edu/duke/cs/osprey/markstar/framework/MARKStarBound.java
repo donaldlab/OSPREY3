@@ -720,10 +720,7 @@ public class MARKStarBound implements PartitionFunction {
                 drillQueue.add(nextNode);
             }
             else {
-                if(rootNode.getLowerBound().compareTo(BigDecimal.ZERO)==0)
-                    processFullConfNode(generatedNodes, curNode, curNode.getConfSearchNode());
-                else
-                    newNodes.add(curNode);
+                newNodes.add(curNode);
             }
 
             //debugHeap(drillQueue, true);

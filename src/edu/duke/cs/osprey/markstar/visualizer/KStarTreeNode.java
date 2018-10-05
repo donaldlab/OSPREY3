@@ -447,6 +447,38 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         }
     }
 
+    public int numConfsWithin(double diffFromGMEC) {
+        if(children == null || children.size()<1
+                && confLowerBound - overallLower < diffFromGMEC) {
+            return 1;
+        }
+        int sum = 0;
+        for(KStarTreeNode child: children)
+            sum+=child.numConfsWithin(diffFromGMEC);
+        return sum;
+
+    }
+
+    public double[] computeEnergyErrorWithinEnergyRange(double diffFromGMEC) {
+        double[] range = new double[2];
+        computeEnergyErrorWithinEnergyRange(diffFromGMEC, range);
+        return range;
+    }
+
+    private void computeEnergyErrorWithinEnergyRange(double diffFromGMEC, double[] range) {
+        if(children == null || children.size()<1
+            && confLowerBound - overallLower < diffFromGMEC) {
+            double diff = range[1] - range[0];
+            if (confUpperBound - confLowerBound > diff || range[0] == 0) {
+                range[0] = confLowerBound;
+                range[1] = confUpperBound;
+            }
+        }
+        for(KStarTreeNode child: children)
+            child.computeEnergyErrorWithinEnergyRange(diffFromGMEC, range);
+
+    }
+
     private Color getLogOccupancyWeightedColor() {
         double logOccupancy = Math.log(occupancy);
         double occupancy = Math.max(0.00000000000000000000000001,1-logOccupancy/Math.log(0.001));
