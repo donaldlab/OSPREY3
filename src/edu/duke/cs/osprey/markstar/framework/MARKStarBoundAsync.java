@@ -224,7 +224,7 @@ public class MARKStarBoundAsync implements PartitionFunction {
 
     @Override
     public Result makeResult() {
-        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs(), Long.toString(stopwatch.getTimeNs()), minList, ZReductionFromMin, cumulativeZCorrection);
+        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated());
         return result;
     }
 
