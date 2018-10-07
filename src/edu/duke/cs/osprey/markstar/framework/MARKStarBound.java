@@ -51,6 +51,9 @@ public class MARKStarBound implements PartitionFunction {
     // max confs minimized, -1 means infinite.
     private int maxNumConfs = -1;
 
+    private int maxMinimizations = 1;
+
+
     // the number of full conformations scored OR energied
     private int numConfsScored = 0;
 
@@ -492,6 +495,8 @@ public class MARKStarBound implements PartitionFunction {
             debugPrint("Internal node time :"+internalTimeSum+", average "+internalTimeAverage);
             queue.addAll(leafNodes);
             numInternalNodesProcessed+=internalNodes.size();
+            if(maxMinimizations < parallelism.numThreads)
+                maxMinimizations++;
         }
         if (epsilonBound <= targetEpsilon)
             return;
@@ -521,7 +526,6 @@ public class MARKStarBound implements PartitionFunction {
     private void populateQueues(Queue<MARKStarNode> queue, List<MARKStarNode> internalNodes, List<MARKStarNode> leafNodes, BigDecimal internalZ,
                                 BigDecimal leafZ, BigDecimal[] ZSums) {
         List<MARKStarNode> leftoverLeaves = new ArrayList<>();
-        int maxMinimizations = parallelism.numThreads;
         int maxNodes = 1000;
         if(leafTimeAverage > 0)
             maxNodes = Math.max(maxNodes, (int)Math.floor(0.1*leafTimeAverage/internalTimeAverage));

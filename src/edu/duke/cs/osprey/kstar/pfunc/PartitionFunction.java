@@ -183,7 +183,7 @@ public interface PartitionFunction {
 		public int numConfsLooked=0; // The number of confs enumerated but not fully minimized
 		public int numPartialMin=0; // The number of partial minimizations completed
 		public String timeNs = BigInteger.valueOf(0).toString(); // The time in ns taken to complete
-		public ArrayList<Integer> minList = new ArrayList<Integer>(); // A list containing all minimizations performed indexed by number of residues minimized
+		public ArrayList<Integer> minList = new ArrayList<>(); // A list containing all minimizations performed indexed by number of residues minimized
 		public String lowerImprovFullMin = BigDecimal.valueOf(0).toString(); // The pfunc lower bound improvement from full minimizations
 		public String lowerImprovUpperBounds = BigDecimal.valueOf(0).toString(); // The pfunc lower bound improvement from upper bounding
 		public String upperImprovFullMin = BigDecimal.valueOf(0).toString(); // The pfunc upper bound improvement from full minimizations
