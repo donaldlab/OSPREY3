@@ -464,6 +464,8 @@ public class MARKStarBound implements PartitionFunction {
             leafTimeAverage = leafTime.getTimeS();
             System.out.println("Processed "+numNodes+" leaves in "+leafTimeAverage+" seconds.");
             queue.addAll(internalNodes);
+            if(maxMinimizations < parallelism.numThreads)
+                maxMinimizations++;
         }
         else {
             numNodes = internalNodes.size();
@@ -495,8 +497,6 @@ public class MARKStarBound implements PartitionFunction {
             debugPrint("Internal node time :"+internalTimeSum+", average "+internalTimeAverage);
             queue.addAll(leafNodes);
             numInternalNodesProcessed+=internalNodes.size();
-            if(maxMinimizations < parallelism.numThreads)
-                maxMinimizations++;
         }
         if (epsilonBound <= targetEpsilon)
             return;
