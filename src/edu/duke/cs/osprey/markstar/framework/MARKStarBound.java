@@ -40,7 +40,7 @@ import java.util.*;
 
 public class MARKStarBound implements PartitionFunction {
 
-    private double targetEpsilon = 1;
+    protected double targetEpsilon = 1;
     public boolean debug = false;
     public boolean profileOutput = false;
     private Status status = null;
@@ -51,24 +51,24 @@ public class MARKStarBound implements PartitionFunction {
     // max confs minimized, -1 means infinite.
     private int maxNumConfs = -1;
 
-    private int maxMinimizations = 1;
+    protected int maxMinimizations = 1;
 
 
     // the number of full conformations scored OR energied
     private int numConfsScored = 0;
 
-    private int numInternalNodesProcessed = 0;
+    protected int numInternalNodesProcessed = 0;
 
     private boolean printMinimizedConfs;
     private MARKStarProgress progress;
     public String stateName = String.format("%4f",Math.random());
     private int numPartialMinimizations;
     private ArrayList<Integer> minList;
-    private double internalTimeAverage;
-    private double leafTimeAverage;
+    protected double internalTimeAverage;
+    protected double leafTimeAverage;
     private double cleanupTime;
     private boolean nonZeroLower;
-    private static TaskExecutor loopTasks;
+    protected static TaskExecutor loopTasks;
 
     public void setCorrections(UpdatingEnergyMatrix cachedCorrections) {
         correctionMatrix = cachedCorrections;
@@ -213,12 +213,12 @@ public class MARKStarBound implements PartitionFunction {
         }
     }
 
-    private void debugPrint(String s) {
+    protected void debugPrint(String s) {
         if(debug)
             System.out.println(s);
     }
 
-    private void profilePrint(String s) {
+    protected void profilePrint(String s) {
         if(profileOutput)
             System.out.println(s);
     }
@@ -249,16 +249,16 @@ public class MARKStarBound implements PartitionFunction {
      * TODO: 2. Make MARKStarNodes compute and update bounds correctly
      */
     // We keep track of the root node for computing our K* bounds
-    private MARKStarNode rootNode;
+    protected MARKStarNode rootNode;
     // Heap of nodes for recursive expansion
-    private final Queue<MARKStarNode> queue;
-    private double epsilonBound = Double.POSITIVE_INFINITY;
+    protected final Queue<MARKStarNode> queue;
+    protected double epsilonBound = Double.POSITIVE_INFINITY;
     private ConfIndex confIndex;
     public final AStarOrder order;
     // TODO: Implement new AStarPruner for MARK*?
     public final AStarPruner pruner;
-    private RCs RCs;
-    private Parallelism parallelism;
+    protected RCs RCs;
+    protected Parallelism parallelism;
     private ObjectPool<ScoreContext> contexts;
     private MARKStarNode.ScorerFactory gscorerFactory;
     private MARKStarNode.ScorerFactory hscorerFactory;
@@ -343,7 +343,7 @@ public class MARKStarBound implements PartitionFunction {
         this.minList = new ArrayList<Integer>(Collections.nCopies(rcs.getNumPos(),0));
     }
 
-    private static class ScoreContext {
+    protected static class ScoreContext {
         public ConfIndex index;
         public AStarScorer gscorer;
         public AStarScorer hscorer;
@@ -373,11 +373,11 @@ public class MARKStarBound implements PartitionFunction {
         }
     }
 
-    private boolean shouldMinimize(Node node) {
+    protected boolean shouldMinimize(Node node) {
         return node.getLevel() == RCs.getNumPos() && !node.isMinimized();
     }
 
-    private void recordCorrection(double lowerBound, double correction) {
+    protected void recordCorrection(double lowerBound, double correction) {
         BigDecimal upper = bc.calc(lowerBound);
         BigDecimal corrected = bc.calc(lowerBound + correction);
         cumulativeZCorrection = cumulativeZCorrection.add(upper.subtract(corrected));
@@ -429,7 +429,7 @@ public class MARKStarBound implements PartitionFunction {
         nonZeroLower = true;
     }
 
-    private void tightenBoundInPhases() {
+    protected void tightenBoundInPhases() {
         System.out.println(String.format("Current overall error bound: %12.10f, spread of [%12.6e, %12.6e]",epsilonBound, rootNode.getLowerBound(), rootNode.getUpperBound()));
         List<MARKStarNode> internalNodes = new ArrayList<>();
         List<MARKStarNode> leafNodes = new ArrayList<>();
@@ -524,7 +524,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
 
-    private void populateQueues(Queue<MARKStarNode> queue, List<MARKStarNode> internalNodes, List<MARKStarNode> leafNodes, BigDecimal internalZ,
+    protected void populateQueues(Queue<MARKStarNode> queue, List<MARKStarNode> internalNodes, List<MARKStarNode> leafNodes, BigDecimal internalZ,
                                 BigDecimal leafZ, BigDecimal[] ZSums) {
         List<MARKStarNode> leftoverLeaves = new ArrayList<>();
         int maxNodes = 1000;
@@ -577,7 +577,7 @@ public class MARKStarBound implements PartitionFunction {
         queue.addAll(leftoverLeaves);
     }
 
-    private void loopCleanup(List<MARKStarNode> newNodes, Stopwatch loopWatch, int numNodes) {
+    protected void loopCleanup(List<MARKStarNode> newNodes, Stopwatch loopWatch, int numNodes) {
         for(MARKStarNode node: newNodes) {
             if(node != null)
                 queue.add(node);
@@ -598,7 +598,7 @@ public class MARKStarBound implements PartitionFunction {
         System.out.println(String.format("Loop complete. Bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
     }
 
-    private boolean correctedNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
+    protected boolean correctedNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
         assert(curNode != null && node != null);
         double confCorrection = correctionMatrix.confE(node.assignments);
         if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
@@ -703,7 +703,7 @@ public class MARKStarBound implements PartitionFunction {
         }
     }
 
-    private void boundLowestBoundConfUnderNode(MARKStarNode startNode, List<MARKStarNode> generatedNodes) {
+    protected void boundLowestBoundConfUnderNode(MARKStarNode startNode, List<MARKStarNode> generatedNodes) {
         Comparator<MARKStarNode> confBoundComparator = Comparator.comparingDouble(o -> o.getConfSearchNode().getConfLowerBound());
         PriorityQueue<MARKStarNode> drillQueue = new PriorityQueue<>(confBoundComparator);
         drillQueue.add(startNode);
@@ -740,7 +740,7 @@ public class MARKStarBound implements PartitionFunction {
 
     }
 
-    private void processPartialConfNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
+    protected void processPartialConfNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
         // which pos to expand next?
         node.index(confIndex);
         int nextPos = order.getNextPos(confIndex, RCs);
@@ -835,7 +835,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
 
-    private void processFullConfNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
+    protected void processFullConfNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
 
         double confCorrection = correctionMatrix.confE(node.assignments);
         if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
@@ -1097,7 +1097,7 @@ public class MARKStarBound implements PartitionFunction {
 
     }
 
-    private void updateBound() {
+    protected void updateBound() {
         double curEpsilon = epsilonBound;
         Stopwatch time = new Stopwatch().start();
         epsilonBound = rootNode.computeEpsilonErrorBounds();

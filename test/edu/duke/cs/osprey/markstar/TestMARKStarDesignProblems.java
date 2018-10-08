@@ -62,7 +62,7 @@ public class TestMARKStarDesignProblems {
         double epsilon = 0.99;
         String kstartime = "(Not run)";
         Stopwatch watch = new Stopwatch();
-        boolean runkstar = true;
+        boolean runkstar = false;
         if(runkstar) {
             watch.start();
             runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
@@ -564,7 +564,7 @@ public class TestMARKStarDesignProblems {
                 new String[]{"G1", "G123"},
                 new String[]{"G101", "G102", "G103", "G57", "G104"});
         boolean runkstar = false;
-        final double epsilon = 0.9999999;
+        final double epsilon = 0.9999;
         TestComparison(confSpaces, epsilon, runkstar);
     }
 

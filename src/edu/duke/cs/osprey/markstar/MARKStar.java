@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundRigid;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -304,7 +305,7 @@ public class MARKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			MARKStarBound pfunc = new MARKStarBound(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(confSpace),
+			MARKStarBoundFastQueues pfunc = new MARKStarBoundFastQueues(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(confSpace),
 			//MARKStarBoundRigid pfunc = new MARKStarBoundRigid(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(confSpace),
 					settings.parallelism);
 			confSearchFactory = (emat, rcs) -> {
