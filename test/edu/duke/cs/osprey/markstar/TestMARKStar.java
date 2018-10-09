@@ -1280,7 +1280,7 @@ public class TestMARKStar {
 		KStar.Settings settings = new KStar.Settings.Builder()
 				.setEpsilon(epsilon)
 				.setStabilityThreshold(null)
-				.setShowPfuncProgress(true)
+				//.setShowPfuncProgress(true)
 				.build();
 		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
@@ -1334,7 +1334,6 @@ public class TestMARKStar {
 		MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
 			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
 					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, minimizingEcalc)
-							.setCacheFile(new File("test.eref.emat"))
 							.build()
 							.calcReferenceEnergies()
 					)
@@ -1345,13 +1344,14 @@ public class TestMARKStar {
 
 		MARKStar.Settings settings = new MARKStar.Settings.Builder()
 				.setEpsilon(epsilon)
-				.setEnergyMatrixCachePattern("*testmat.emat")
+				.setEnergyMatrixCachePattern("*.mark.emat")
 				.setShowPfuncProgress(true)
 				.setParallelism(parallelism)
 				.setReduceMinimizations(REUDCE_MINIMIZATIONS)
 				.build();
 
 		result.markstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);
+		result.markstar.precalcEmats();
 		result.scores = result.markstar.run();
 		return result;
 	}

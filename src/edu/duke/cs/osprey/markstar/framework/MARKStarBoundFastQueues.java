@@ -69,9 +69,9 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
             leafTime.stop();
             leafTimeAverage = leafTime.getTimeS();
             System.out.println("Processed "+numNodes+" leaves in "+leafTimeAverage+" seconds.");
-            queue.addAll(internalNodes);
             if(maxMinimizations < parallelism.numThreads)
                 maxMinimizations++;
+            internalQueue.addAll(internalNodes);
         }
         else {
             numNodes = internalNodes.size();
@@ -101,8 +101,8 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
             internalTimeSum=internalTime.getTimeS();
             internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
             debugPrint("Internal node time :"+internalTimeSum+", average "+internalTimeAverage);
-            queue.addAll(leafNodes);
             numInternalNodesProcessed+=internalNodes.size();
+            leafQueue.addAll(leafNodes);
         }
         if (epsilonBound <= targetEpsilon)
             return;
@@ -159,12 +159,17 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
 
     private BigDecimal fillListFromQueue(List<MARKStarNode> list, Queue<MARKStarNode> queue, int max) {
         BigDecimal sum = BigDecimal.ZERO;
+        List<MARKStarNode> leftovers = new ArrayList<>();
         while(!queue.isEmpty() && list.size() < max) {
             MARKStarNode curNode = queue.poll();
+            if(correctedNode(leftovers, curNode, curNode.getConfSearchNode())) {
+                continue;
+            }
             BigDecimal diff = curNode.getUpperBound().subtract(curNode.getLowerBound());
             sum = sum.add(diff);
             list.add(curNode);
         }
+        queue.addAll(leftovers);
         return sum;
     }
 

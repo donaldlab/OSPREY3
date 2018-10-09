@@ -601,7 +601,8 @@ public class MARKStarBound implements PartitionFunction {
     protected boolean correctedNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
         assert(curNode != null && node != null);
         double confCorrection = correctionMatrix.confE(node.assignments);
-        if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
+        if((node.getLevel() == RCs.getNumPos() && node.getConfLowerBound() < confCorrection)
+                || node.gscore < confCorrection) {
             double oldg = node.gscore;
             node.gscore = confCorrection;
             recordCorrection(oldg, confCorrection - oldg);

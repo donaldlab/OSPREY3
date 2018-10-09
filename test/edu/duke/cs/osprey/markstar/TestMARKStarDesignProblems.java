@@ -594,7 +594,7 @@ public class TestMARKStarDesignProblems {
                 new String[]{"B193", "B216", "B214"}
         );
         final double epsilon = 0.99999;
-        boolean runkstar = true;
+        boolean runkstar = false;
         TestComparison(confSpaces, epsilon, runkstar);
     }
 
@@ -612,7 +612,7 @@ public class TestMARKStarDesignProblems {
     public void test1A0R19ResE52() {
         try {
             ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/1a0r_B_19res_9.186E+52.cfs");
-            TestComparison(confSpaces, 0.99, true);
+            TestComparison(confSpaces, 0.99, false);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -622,7 +622,7 @@ public class TestMARKStarDesignProblems {
     public void test4WWI27ResE78() {
         try {
             ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/4wwi_B_27res_1.845E+78.cfs");
-            TestComparison(confSpaces, 0.999999999999, true);
+            TestComparison(confSpaces, 0.999999999999, false);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -652,7 +652,7 @@ public class TestMARKStarDesignProblems {
     public void test3MA28ResE24() {
         try {
             ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/3ma2_A_8res_1.509E+24.cfs");
-            TestComparison(confSpaces, 0.99, false);
+            TestComparison(confSpaces, 0.01, true);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
