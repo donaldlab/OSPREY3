@@ -95,6 +95,8 @@ public class StaticLowestEntropyOrder implements edu.duke.cs.osprey.astar.conf.o
 					+ hscorer.calcDifferential(confIndex, rcs, pos, rc);
 			sum = sum.add(calculator.calc(childScore));
 		}
+		if(sum.compareTo(BigDecimal.ZERO) == 0)
+			sum = BigDecimal.ONE;
 		for (int rc : rcs.get(pos)) {
 			double childScore = gscorer.calcDifferential(confIndex, rcs, pos, rc)
 				+ hscorer.calcDifferential(confIndex, rcs, pos, rc);
