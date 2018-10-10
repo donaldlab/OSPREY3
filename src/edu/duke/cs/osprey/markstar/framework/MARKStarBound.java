@@ -315,8 +315,7 @@ public class MARKStarBound implements PartitionFunction {
         this.minimizingEmat = minimizingEmat;
         this.rigidEmat = rigidEmat;
         this.RCs = rcs;
-        //this.order = new StaticBiggesUpperboundDifferenceOrder();
-        this.order = new StaticLowestEntropyOrder();
+        this.order = new StaticBiggestLowerboundDifferenceOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
         this.pruner = null;
 
