@@ -22,10 +22,7 @@ import edu.duke.cs.osprey.tools.*;
 
 import java.io.*;
 import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
+import java.util.function.*;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -36,15 +33,16 @@ public class FlexLab {
 
 	public static void main(String[] args)
 	throws Exception {
-		//checkRotamerClashes();
+		checkRotamerClashes();
 		//top8000Dihedrals("arg");
 		//top8000Angles("leu");
 		//top8000Tetrahedrals("leu");
 		//top8000Methyls();
 		//top8000Clashes();
 		//lovellRotamers("asp");
-		energyLandscape("leu");
+		//energyLandscape("leu");
 		//top8000RotamerStats("asp");
+		//checkTemplates();
 	}
 
 	private static PDBScanner scanner = new PDBScanner(
@@ -580,7 +578,8 @@ public class FlexLab {
 	static enum TemplateType {
 
 		Current,
-		Idealized;
+		Idealized,
+		IdealizedV2;
 
 		public static class Map<T> extends java.util.EnumMap<TemplateType,T> {
 
@@ -591,67 +590,52 @@ public class FlexLab {
 			public <R> Map<R> map(Function<T,R> f) {
 				return mapOf(
 					f.apply(get(Current)),
-					f.apply(get(Idealized))
+					f.apply(get(Idealized)),
+					f.apply(get(IdealizedV2))
 				);
 			}
 		}
 
-		public static <T> TemplateType.Map<T> mapOf(T current, T idealized) {
+		public static <T> TemplateType.Map<T> mapOf(T current, T idealized, T idealizedV2) {
 			TemplateType.Map<T> map = new TemplateType.Map<>();
 			map.put(Current, current);
 			map.put(Idealized, idealized);
+			map.put(IdealizedV2, idealizedV2);
 			return map;
 		}
 	}
 
 	public static void checkRotamerClashes() {
 
-		TemplateType.Map<ResidueTemplateLibrary> templateLibs = TemplateType.mapOf(
-			new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
-				.build(),
-			new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
-				.clearTemplateCoords()
-				.addTemplateCoords(FileTools.readFile("template coords.txt"))
-				.build()
-		);
-
-		// make a mechanism to change template coords on-the-fly
-		BiConsumer<SimpleConfSpace.ResidueConf,TemplateType> setTemplateCoords = (rc, type) -> {
-			System.arraycopy(
-				templateLibs.get(type).getTemplate(rc.template.name, true).templateRes.coords, 0,
-				rc.template.templateRes.coords, 0,
-				rc.template.templateRes.coords.length
-			);
-		};
-
-		// make a confspace with all the rotamers
-		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
-		//String resNum = "A23";
-		String resNum = "A37";
 		List<String> resTypes = Arrays.asList(
 			"ARG", "HIP", "HID", "HIE", "LYS", "ASP", "GLU",
 			"CYS", "GLY", "PRO",
 			"ALA", "VAL", "ILE", "LEU", "MET", "PHE", "TYR", "TRP",
 			"SER", "THR", "ASN", "GLN"
 		);
-		strand.flexibility.get(resNum).setLibraryRotamers(resTypes).setContinuous(); // asn
 
-		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
-			.addStrand(strand)
-			.build();
-
-		Probe probe = new Probe();
-		probe.matchTemplates(confSpace);
-
-		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.addTemplates(confSpace)
-			.set15HasNonBonded(false)
-			.build();
-
-		// pick just intra interactions
-		ResidueInteractions inters = ResInterGen.of(confSpace)
-			.addIntra(0)
-			.make();
+		// make the various template libs
+		TemplateType.Map<Map<String,ResidueTemplate>> templateLibs = TemplateType.mapOf(
+			pickTemplates(
+				resTypes,
+				new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+					.build()
+			),
+			pickTemplates(
+				resTypes,
+				new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+					.clearTemplateCoords()
+					.addTemplateCoords(FileTools.readFile("template coords.txt"))
+					.build()
+			),
+			pickTemplates(
+				resTypes,
+				new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+					.clearTemplateCoords()
+					.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
+					.build()
+			)
+		);
 
 		class TypeStats {
 
@@ -667,98 +651,104 @@ public class FlexLab {
 		}
 		Map<String,TemplateType.Map<TypeStats>> statsByType = new HashMap<>();
 		Map<String,TemplateType.Map<TypeStats>> statsOptByType = new HashMap<>();
-		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams).build()) {
 
-			EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc)
-				.setIsMinimizing(false)
-				.build();
+		for (String resType : resTypes) {
+			for (TemplateType templateType : TemplateType.values()) {
 
-			// for each rotamer
-			for (SimpleConfSpace.ResidueConf rc : confSpace.positions.get(0).resConfs) {
-
-				/* TEMP: just one residue type at a time for now
-				String type = "ALA";
-				if (!rc.template.name.equals(type)) {
+				Map<String,ResidueTemplate> templates = templateLibs.get(templateType);
+				if (templates == null) {
 					continue;
 				}
-				*/
 
-				String type = rc.template.name;
-				//log("%s %d - %3d", rc.template.name, rc.rotamerIndex, rc.index);
+				ResidueTemplate templ = templates.get(resType);
 
-				// what rotamer is this?
-				Rotamer rot;
-				{
-					ParametricMolecule pmol = makeMolecule(confSpace, rc);
-					Residue res = pmol.mol.getResByPDBResNumber(resNum);
-					double[] dihedrals = chiLib.measure(res, type);
-					//log("\tdihedrals:   %s", degreesToString(dihedrals));
-					rot = rotamers.find(type, dihedrals);
-					//log("\trotamer:     %s  %.1f%% of population", rot.name, rot.percent);
-				}
+				Probe probe = new Probe();
+				probe.matchTemplate(templ);
+				AtomConnectivity connectivity = new AtomConnectivity.Builder()
+					.addTemplates(Arrays.asList(templ))
+					.set15HasNonBonded(false)
+					.build();
 
-				for (TemplateType templateType : TemplateType.values()) {
+				// make a molecule from just the template
+				Molecule mol = new Molecule();
+				Residue res = new Residue(templ.templateRes);
+				res.fullName = resType + " A   1";
+				res.template = templ;
+				res.markIntraResBondsByTemplate();
+				mol.residues.add(res);
+				res.indexInMolecule = 0;
 
-					// set the template coords
-					setTemplateCoords.accept(rc, templateType);
+				Runnable analyzeClashes = () -> {
+					probe.getInteractions(res, connectivity).stream()
+						.filter(interaction -> interaction.getViolation(0.0) > 0)
+						.sorted(Comparator.comparing(interaction -> interaction.getViolation(0.0)))
+						.forEach(interaction -> {
+							double vdw = calcVDW(interaction.atomPair.a, interaction.atomPair.b, ffparams);
+							// TEMP
+							//log("\t\t%s   %s     vdw=%.4f", interaction.atomPair, interaction, vdw);
+							log("        %4s <-> %-4s   clash=%8.3f A   %12s   %10s   vdw=%.4f kcal/mol",
+								interaction.atomPair.a.name,
+								interaction.atomPair.b.name,
+								interaction.getViolation(0.0),
+								interaction.contact,
+								interaction.atomPair.attraction == Probe.Attraction.None ? "" : interaction.atomPair.attraction,
+								vdw
+							);
+						});
+				};
 
-					Consumer<Molecule> analyzeClashes = (mol) -> {
-						probe.getInteractions(mol.residues, inters, connectivity).stream()
-							.filter(interaction -> interaction.contact.isClash)
-							.sorted(Comparator.comparing(interaction -> interaction.getViolation(0.0)))
-							.forEach(interaction -> {
-								double vdw = calcVDW(interaction.atomPair.a, interaction.atomPair.b, ffparams);
-								log("\t\t%s   %s     vdw=%.4f", interaction.atomPair, interaction, vdw);
-							});
-					};
+				Supplier<Double> maxClash = () ->
+					probe.getInteractions(res, connectivity).stream()
+						.filter(interaction -> interaction.getViolation(0.0) > 0)
+						.mapToDouble(interaction -> interaction.getViolation(0.0))
+						.max()
+						.orElse(0);
 
-					Function<Molecule,Double> avgClash = (mol) ->
-						probe.getInteractions(mol.residues, inters, connectivity).stream()
-							.filter(interaction -> interaction.contact.isClash)
-							.mapToDouble(interaction -> interaction.getViolation(0.0))
-							.average()
-							.orElse(0);
+				try (EnergyCalculator ecalc = new EnergyCalculator.Builder(mol.residues, ffparams).build()) {
 
-					Function<Molecule,Double> maxClash = (mol) ->
-						probe.getInteractions(mol.residues, inters, connectivity).stream()
-							.filter(interaction -> interaction.contact.isClash)
-							.mapToDouble(interaction -> interaction.getViolation(0.0))
-							.max()
-							.orElse(0);
+					// make residue interactions for the ecalc
+					ResidueInteractions inters = new ResidueInteractions();
+					inters.addSingle(res.getPDBResNumber());
 
-					TypeStats stats = statsByType
-						.computeIfAbsent(type, t -> new TemplateType.Map<>())
-						.computeIfAbsent(templateType, t -> new TypeStats());
+					// make the dihedral dofs
+					VoxelShape.Rect voxel = new VoxelShape.Rect();
+					List<DegreeOfFreedom> dofs = voxel.makeDihedralDOFs(res);
 
-					Function<ParametricMolecule,ParametricMolecule> setBBDofs = pmol -> {
+					// get all the dihedral dof bounds
+					List<ObjectiveFunction.DofBounds> boundsByRot = new ArrayList<>();
+					if (templ.getNumRotamers() > 0) {
+						for (int i=0; i<templ.getNumRotamers(); i++) {
+							boundsByRot.add(voxel.makeDihedralBounds(templ, i));
+						}
+					} else {
+						boundsByRot.add(new ObjectiveFunction.DofBounds(0));
+					}
 
-						pmol = wipeDofs(pmol);
-						Residue res = pmol.mol.getResByPDBResNumber(resNum);
+					// for each rotamer
+					for (ObjectiveFunction.DofBounds dofBounds : boundsByRot) {
 
-						if (!type.equalsIgnoreCase("PRO")) {
-							/* don't minimize these, just set to 0
-							pmol = addDofs(pmol, Arrays.asList(
-								new BoundedDof(
-									new DihedralDof(res, "C", "CA", "N", "H", "H"),
-									0, 360
-								),
-								new BoundedDof(
-									new DihedralDof(res, "N", "CA", "C", "O", "O"),
-									0, 360
-								)
-							));
-							*/
-							new DihedralDof(res, "C", "CA", "N", "H", "H").apply(0);
-							new DihedralDof(res, "N", "CA", "C", "O", "O").apply(0);
+						Runnable setRotamericPose = () -> {
+							for (int d=0; d<dofs.size(); d++) {
+								dofs.get(d).apply(dofBounds.getCenter(d));
+							}
+						};
+
+						setRotamericPose.run();
+
+						// get the rotamer name
+						String rotName = null;
+						Double rotPercent = null;
+						Rotamer rot = rotamers.find(resType, chiLib.measure(res, resType));
+						if (rot != null) {
+							rotName = rot.name;
+							rotPercent = rot.percent;
 						}
 
-						return pmol;
-					};
+						TypeStats stats = statsByType
+							.computeIfAbsent(resType, t -> new TemplateType.Map<>())
+							.computeIfAbsent(templateType, t -> new TypeStats());
 
-					// calc energy and clashes with backbone minimization
-					{
-						ParametricMolecule pmol = makeMolecule(confSpace, rc);
-						pmol = setBBDofs.apply(pmol);
+						// calc energy and clashes with backbone minimization
 
 						/* TEMP
 						log("\t%10s %12s: amber=%7.3f avgClash=%5.3f",
@@ -769,9 +759,11 @@ public class FlexLab {
 						);
 						*/
 
-						EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(pmol, inters);
-						stats.energies.add(epmol.energy);
-						stats.clashes.add(maxClash.apply(epmol.pmol.mol));
+						setRotamericPose.run();
+						double amberEnergy = ecalc.calcEnergy(new ParametricMolecule(mol), inters).energy;
+						stats.energies.add(amberEnergy);
+						stats.clashes.add(maxClash.get());
+						/* TEMP
 						log("%3s\t%s\t%.1f\t%s\t%.3f\t%.3f",
 							type,
 							rot != null ? rot.name : "(none)",
@@ -780,59 +772,59 @@ public class FlexLab {
 							epmol.energy,
 							maxClash.apply(epmol.pmol.mol)
 						);
-						analyzeClashes.accept(epmol.pmol.mol);
-					}
-
-					TypeStats statsOpt = statsOptByType
-						.computeIfAbsent(type, t -> new TemplateType.Map<>())
-						.computeIfAbsent(templateType, t -> new TypeStats());
-
-					// minimize methyls if possible
-					List<MeasurementLibrary.Measurement> methylMeasurements = methylLib.get(type);
-					if (methylMeasurements != null) {
-						ParametricMolecule pmol = makeMolecule(confSpace, rc);
-						pmol = setBBDofs.apply(pmol);
-						Residue res = pmol.mol.getResByPDBResNumber(resNum);
-						pmol = addDofs(
-							pmol,
-							methylMeasurements.stream()
-								.map(measurement -> {
-									MeasurementLibrary.DihedralAnglesMinDist m = (MeasurementLibrary.DihedralAnglesMinDist)measurement;
-									return new BoundedDof(
-										new MethylRotation(res, m.a, m.b, m.c, m.d[0], m.d[1], m.d[2]),
-										180 - 40,
-										180 + 40
-									);
-								})
-								.collect(Collectors.toList())
-						);
-						EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(pmol, inters);
-						/* TEMP
-						double[] methyls = methylLib.measure(res, type);
-						log("\t%10s %12s: amber=%7.3f avgClash=%5.3f methyls=%s",
-							templateType,
-							"min methyls",
-							epmol.energy,
-							avgClash.apply(pmol.mol),
-							degreesToString(methyls)
-						);
 						*/
-						double energy = rigidEcalc.calcEnergy(pmol, inters).energy;
-						statsOpt.energies.add(energy);
-						statsOpt.clashes.add(maxClash.apply(epmol.pmol.mol));
+						log("%3s %6s %5.1f%% population   coords=%-10s   AMBER=%7.3f   worstClash=%5.3f",
+							resType,
+							rot != null ? rot.name : "(none)",
+							rot != null ? rot.percent : 100,
+							templateType.name(),
+							amberEnergy,
+							maxClash.get()
+						);
+						analyzeClashes.run();
+
+						TypeStats statsOpt = statsOptByType
+							.computeIfAbsent(resType, t -> new TemplateType.Map<>())
+							.computeIfAbsent(templateType, t -> new TypeStats());
+
+						// minimize methyls if possible
+						List<MeasurementLibrary.Measurement> methylMeasurements = methylLib.get(resType);
+						if (methylMeasurements != null) {
+							setRotamericPose.run();
+							ParametricMolecule pmol = new ParametricMolecule(mol);
+							pmol = addDofs(
+								pmol,
+								methylMeasurements.stream()
+									.map(measurement -> {
+										MeasurementLibrary.DihedralAnglesMinDist m = (MeasurementLibrary.DihedralAnglesMinDist)measurement;
+										return new BoundedDof(
+											new MethylRotation(res, m.a, m.b, m.c, m.d[0], m.d[1], m.d[2]),
+											180 - 40,
+											180 + 40
+										);
+									})
+									.collect(Collectors.toList())
+							);
+							EnergyCalculator.EnergiedParametricMolecule epmol = ecalc.calcEnergy(pmol, inters);
+							/* TEMP
+							double[] methyls = methylLib.measure(res, type);
+							log("\t%10s %12s: amber=%7.3f avgClash=%5.3f methyls=%s",
+								templateType,
+								"min methyls",
+								epmol.energy,
+								avgClash.apply(pmol.mol),
+								degreesToString(methyls)
+							);
+							*/
+							statsOpt.energies.add(epmol.energy);
+							statsOpt.clashes.add(maxClash.get());
+						}
 					}
 				}
 			}
-
-			/* TEMP
-			// look at individual structures
-			RCTuple tuple = new RCTuple(0, 99);
-			ParametricMolecule pmol = confSpace.makeMolecule(tuple);
-			PDBIO.writeFile(pmol.mol, new File("rotamer.pdb"));
-			*/
 		}
 
-		log("\nres type stats for %s", resNum);
+		log("\nres type stats for");
 		for (String type : resTypes) {
 
 			TypeStats statsCurrent = statsByType.get(type).get(TemplateType.Current);
@@ -1440,12 +1432,14 @@ public class FlexLab {
 		Probe probe = new Probe();
 		probe.matchTemplates(templateLib);
 
+		logf("building atom connectivity...");
 		AtomConnectivity connectivity = new AtomConnectivity.Builder()
 			.addTemplates(templateLib)
 			.set15HasNonBonded(false)
 			.build();
+		log(" done!");
 
-		List<double[]> clashingDihedrals = new ArrayList<>();
+		List<Double> clashes = new ArrayList<>();
 
 		scanner.scan((file, mol) -> {
 
@@ -1465,54 +1459,172 @@ public class FlexLab {
 					continue;
 				}
 
-				ResKey key = new ResKey(type, file.getName(), res.getPDBResNumber());
-
-				// get the dihedrals for this res, if any
-				double[] dihedrals = chiLib.measure(res, type);
-				if (dihedrals == null) {
-					continue;
-				}
-
-				/*
-				// what rotamer is this?
-				Rotamer rot = rotamers.find(dihedrals);
-
-				// just look at the popular rotamers for now
-				if (rot.percent < 50) {
-					continue;
-				}
-				*/
-
-				/*
-				// is this atom pair clashing?
-				Probe.AtomPair atomPair = probe.new AtomPair(
-					res.getAtomByName("C"),
-					res.getAtomByName("HD12")
-				);
-				Probe.AtomPair.Interaction interaction = atomPair.getInteraction();
-				if (interaction.contact == Probe.Contact.BadClash) {
-					double vdw = calcVDW(interaction.atomPair.a, interaction.atomPair.b, ffparams);
-					log("\t%24s   %s   %s     vdw=%.4f", key, rot.name, interaction, vdw);
-				}
-				*/
-
-				// is this example clashing?
-				for (int[] atomPair : connectivity.getAtomPairs(res, res).getPairs(AtomNeighbors.Type.NONBONDED)) {
-
-					Probe.AtomPair probePair = probe.new AtomPair(
-						res.atoms.get(atomPair[0]),
-						res.atoms.get(atomPair[1])
-					);
-
-					if (probePair.getInteraction().contact == Probe.Contact.BadClash) {
-						clashingDihedrals.add(dihedrals);
-						break;
-					}
-				}
+				clashes.add(getProbeViolationsAllRotamers(probe, connectivity, res, type));
 			}
 		});
 
-		VisIt.writeAngles2D(clashingDihedrals, 0, 1, new File("leu.clashingDihedrals.vtk"));
+		log("results: %s", clashes.stream().mapToDouble(d -> d).summaryStatistics());
+		log("histogram:\n%s", new Histogram(clashes, 20).toString(5, 3, 20));
+
+		//VisIt.writeAngles2D(clashingDihedrals, 0, 1, new File("leu.clashingDihedrals.vtk"));
+	}
+
+	private static double getProbeViolationsAllRotamers(Probe probe, AtomConnectivity connectivity, Residue res, String type) {
+
+		// get the dihedrals for this res, if any
+		double[] dihedrals = chiLib.measure(res, type);
+		assert (dihedrals != null);
+
+		List<Double> violations = new ArrayList<>();
+		Runnable collectViolations = () -> {
+			probe.getInteractions(res, connectivity).stream()
+				.mapToDouble(inter -> inter.getViolation(0.0))
+				.filter(v -> v > 0.0)
+				.forEach(v -> violations.add(v));
+		};
+
+		// for each rotamer
+		List<Rotamer> rots = rotamers.get(type);
+		if (rots.isEmpty()) {
+
+			// no rotamer, eg gly, pro, ala
+			collectViolations.run();
+
+		} else {
+			for (Rotamer rot : rotamers.get(type)) {
+
+				// center this conformation on the rotamer voxel
+				// NOTE: assumes rotamer voxel dihedral angles have same order as template dihedral angles
+				for (int d=0; d<rot.voxel.intervals.length; d++) {
+					new FreeDihedral(res, d).apply(rot.voxel.intervals[d].center);
+				}
+
+				collectViolations.run();
+			}
+		}
+
+		// return the RMS violation
+		if (violations.isEmpty()) {
+			return 0.0;
+		}
+		double sum = 0.0;
+		for (double v : violations) {
+			sum += v*v;
+		}
+		return Math.sqrt(sum/violations.size());
+	}
+
+	private static Map<String,ResidueTemplate> pickTemplates(List<String> resTypes, ResidueTemplateLibrary templateLib) {
+		Map<String,ResidueTemplate> out = new HashMap<>();
+		for (String resType : resTypes) {
+			out.put(resType, templateLib.getTemplate(resType));
+		}
+		return out;
+	}
+
+	private static void checkTemplates() {
+
+		List<String> resTypes = Arrays.asList(
+			"ARG", "HIP", "HID", "HIE", "LYS", "ASP", "GLU",
+			"CYS", "GLY", "PRO",
+			"ALA", "VAL", "ILE", "LEU", "MET", "PHE", "TYR", "TRP",
+			"SER", "THR", "ASN", "GLN"
+		);
+
+		// make the various template libs
+		TemplateType.Map<Map<String,ResidueTemplate>> templateLibs = TemplateType.mapOf(
+			pickTemplates(
+				resTypes,
+				new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+					.build()
+			),
+			pickTemplates(
+				resTypes,
+				new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+					.clearTemplateCoords()
+					.addTemplateCoords(FileTools.readFile("template coords.txt"))
+					.build()
+			),
+			pickTemplates(
+				resTypes,
+				new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+					.clearTemplateCoords()
+					.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
+					.build()
+			)
+		);
+
+		for (TemplateType templateType : TemplateType.values()) {
+
+			Map<String,ResidueTemplate> templates = templateLibs.get(templateType);
+			if (templates == null) {
+				continue;
+			}
+			log("%s", templateType);
+
+			Probe probe = new Probe();
+			probe.matchTemplates(templates.values());
+			AtomConnectivity connectivity = new AtomConnectivity.Builder()
+				.addTemplates(templates.values())
+				.set15HasNonBonded(false)
+				.build();
+
+			for (String resType : resTypes) {
+				ResidueTemplate templ = templates.get(resType);
+
+				log("\t%s: %s", resType, templ);
+
+				// make a molecule from just the template
+				Molecule mol = new Molecule();
+				Residue res = new Residue(templ.templateRes);
+				res.fullName = resType + " A   1";
+				res.template = templ;
+				res.markIntraResBondsByTemplate();
+				mol.residues.add(res);
+				res.indexInMolecule = 0;
+
+				// make the dihedral dofs
+				VoxelShape.Rect voxel = new VoxelShape.Rect();
+				List<DegreeOfFreedom> dofs = voxel.makeDihedralDOFs(res);
+
+				// get all the dof bounds
+				List<ObjectiveFunction.DofBounds> boundsByRot = new ArrayList<>();
+				if (templ.getNumRotamers() > 0) {
+					for (int i=0; i<templ.getNumRotamers(); i++) {
+						boundsByRot.add(voxel.makeDihedralBounds(templ, i));
+					}
+				} else {
+					boundsByRot.add(new ObjectiveFunction.DofBounds(0));
+				}
+
+				// for each rotamer
+				for (ObjectiveFunction.DofBounds dofBounds : boundsByRot) {
+
+					// set the rotameric pose
+					for (int d=0; d<dofs.size(); d++) {
+						dofs.get(d).apply(dofBounds.getCenter(d));
+					}
+
+					// get the rotamer name
+					String rotName = null;
+					Double rotPercent = null;
+					Rotamer rot = rotamers.find(resType, chiLib.measure(res, resType));
+					if (rot != null) {
+						rotName = rot.name;
+						rotPercent = rot.percent;
+					}
+
+					log("\t\trotamer %8s: %4.1f%%  %s", rotName, rotPercent, dofBounds.toString(4, 0));
+
+					// check for probe clashes
+					probe.getInteractions(res, connectivity).stream()
+						.filter(inter -> inter.getViolation(0.0) > 0.0)
+						.forEach(inter ->
+							log("\t\t\t%s %s", inter.atomPair, inter)
+						);
+				}
+			}
+		}
 	}
 
 	private static Map<ResKey,double[]> readAngles(String type, MeasurementLibrary lib, String filename, boolean recalc)
@@ -1631,6 +1743,10 @@ public class FlexLab {
 			new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
 				.clearTemplateCoords()
 				.addTemplateCoords(FileTools.readFile("template coords.txt"))
+				.build(),
+			new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+				.clearTemplateCoords()
+				.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
 				.build()
 		);
 

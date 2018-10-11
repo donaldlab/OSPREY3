@@ -32,6 +32,7 @@
 
 package edu.duke.cs.osprey.confspace;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
@@ -63,5 +64,12 @@ public class ParametricMolecule implements Serializable {
 		this.mol = mol;
 		this.dofs = dofs;
 		this.dofBounds = dofBounds;
+	}
+
+	/**
+	 * A parametric molecule with no degrees of freedom
+	 */
+	public ParametricMolecule(Molecule mol) {
+		this(mol, new ArrayList<>(), new ObjectiveFunction.DofBounds(0));
 	}
 }

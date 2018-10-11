@@ -62,6 +62,7 @@ public class Residue implements Serializable {
     
     //residue information
     public String fullName;//short name is the first three characters of this
+	                       // eg "ASN A  23"
     
     public int indexInMolecule = -1;//index of this residue in the molecule it's in
     public Molecule molec;//the molecule it's in

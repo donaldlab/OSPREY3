@@ -222,13 +222,16 @@ public class Probe {
 	 * finds a probe template for each template in the library and remembers the mapping
 	 */
 	public void matchTemplates(ResidueTemplateLibrary templateLib) {
+		matchTemplates(templateLib.templates);
+		matchTemplates(templateLib.wildTypeTemplates.values());
+	}
 
-		for (ResidueTemplate resTempl : templateLib.templates) {
-			matchTemplate(resTempl);
-		}
-
-		for (ResidueTemplate resTempl : templateLib.wildTypeTemplates.values()) {
-			matchTemplate(resTempl);
+	/**
+	 * finds a probe template for each template in the library and remembers the mapping
+	 */
+	public void matchTemplates(Collection<ResidueTemplate> templates) {
+		for (ResidueTemplate templ : templates) {
+			matchTemplate(templ);
 		}
 	}
 
@@ -259,9 +262,8 @@ public class Probe {
 	 * finds the templates that match the residue type,
 	 * then tries to match a template to the atom names in a residue
 	 * (should match eg N-terminal or C-terminal amino acids if needed)
-	 * return null if no matching template was found
 	 */
-	private void matchTemplate(ResidueTemplate resTemplate) {
+	public void matchTemplate(ResidueTemplate resTemplate) {
 
 		// look up templates by residue type
 		List<Template> templates = templatesByResType.get(resTemplate.name);
@@ -545,6 +547,11 @@ public class Probe {
 		}
 	}
 
+	/**
+	 * gets probe interactions between all atom pairs defined by the residue pairs
+	 *
+	 * atom connectivity must have set15HasNonBonded(false) to match real probe reults
+	 */
 	public List<AtomPair.Interaction> getInteractions(Residues residues, ResidueInteractions inters, AtomConnectivity connectivity) {
 
 		List<AtomPair.Interaction> interactions = new ArrayList<>();
@@ -561,6 +568,26 @@ public class Probe {
 
 				interactions.add(new AtomPair(a1, a2).getInteraction());
 			}
+		}
+
+		return interactions;
+	}
+
+	/**
+	 * gets probe interactions between all atom pairs within the residue
+	 *
+	 * atom connectivity must have set15HasNonBonded(false) to match real probe reults
+	 */
+	public List<AtomPair.Interaction> getInteractions(Residue res, AtomConnectivity connectivity) {
+
+		List<AtomPair.Interaction> interactions = new ArrayList<>();
+
+		// for each atom pair
+		for (int[] atomPair : connectivity.getAtomPairs(res, res).getPairs(AtomNeighbors.Type.NONBONDED)) {
+			Atom a1 = res.atoms.get(atomPair[0]);
+			Atom a2 = res.atoms.get(atomPair[1]);
+
+			interactions.add(new AtomPair(a1, a2).getInteraction());
 		}
 
 		return interactions;

@@ -6,11 +6,16 @@ import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Progress;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.stream.Stream;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -61,12 +66,10 @@ public class PDBScanner {
 
 		for (File file : files) {
 
-			String pdbText = FileTools.readFile(file);
-
 			// try to read the PDB file, or just skip it
 			List<Molecule> mols;
 			try {
-				mols = PDBIO.readAll(pdbText);
+				mols = PDBIO.readMols(file);
 			} catch (Exception ex) {
 				System.err.println("error reading PDB file " + file.getName() + ", skipping it:\n\t" + ex.getMessage());
 				continue;

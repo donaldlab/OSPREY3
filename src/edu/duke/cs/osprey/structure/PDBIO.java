@@ -32,7 +32,7 @@
 
 package edu.duke.cs.osprey.structure;
 
-import java.io.File;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -147,14 +147,30 @@ public class PDBIO {
 		return mols;
 	}
 	
-	private static List<Molecule> readMols(String pdbText) {
+	public static List<Molecule> readMols(String pdbText) {
+		return readMols(FileTools.parseLines(pdbText));
+	}
+
+	/**
+	 * faster reading method for bulk reads
+	 * doesn't do secondary structure annotation
+	 */
+	public static List<Molecule> readMols(File file) {
+		try (FileReader reader = new FileReader(file)) {
+			return readMols(FileTools.parseLinesFast(reader));
+		} catch (IOException ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+
+	private static List<Molecule> readMols(Iterable<String> pdbIter) {
 		
 		List<Molecule> mols = new ArrayList<>();
 		Molecule mol = new Molecule();
 		mols.add(mol);
 		ResInfo resInfo = new ResInfo();
 		
-		for (String line : FileTools.parseLines(pdbText)) {
+		for (String line : pdbIter) {
 			line = padLine(line);
 			
 			if (isLine(line, "MODEL")) {

@@ -1,10 +1,14 @@
 package edu.duke.cs.osprey.structure.analysis;
 
 
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.confspace.VoxelShape;
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.structure.AtomConnectivity;
+import edu.duke.cs.osprey.structure.Probe;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.analysis.MeasurementLibrary.*;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -12,6 +16,8 @@ import edu.duke.cs.osprey.tools.Protractor;
 
 import java.io.File;
 import java.util.*;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -62,6 +68,64 @@ public class TemplateChooser {
 			return 100.0*dist/measurements.size();
 		};
 
+		// define a distance function for probe violations over all the rotamers
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder().build();
+		Probe probe = new Probe();
+		probe.matchTemplates(templateLib);
+		logf("building atom connectivity...");
+		AtomConnectivity connectivity = new AtomConnectivity.Builder()
+			.addTemplates(templateLib)
+			.set15HasNonBonded(false)
+			.build();
+		log(" done!");
+		BiFunction<Residue,String,Double> rmsViolations = (res, resType) -> {
+
+			// try to assign a template to the residue
+			res.assignTemplateSimple(templateLib, resType);
+			if (res.template == null) {
+				return Double.POSITIVE_INFINITY;
+			}
+
+			List<Double> violations = new ArrayList<>();
+			Runnable collectViolations = () -> {
+				probe.getInteractions(res, connectivity).stream()
+					.mapToDouble(inter -> inter.getViolation(0.0))
+					.filter(v -> v > 0.0)
+					.forEach(v -> violations.add(v));
+			};
+
+			// for each rotamer
+			if (res.template.getNumRotamers() <= 0) {
+
+				// no rotamer, eg gly, pro, ala
+				collectViolations.run();
+
+			} else {
+				VoxelShape voxel = new VoxelShape.Rect();
+				List<DegreeOfFreedom> dofs = voxel.makeDihedralDOFs(res);
+				for (int i=0; i<res.template.getNumRotamers(); i++) {
+
+					// center this conformation on the rotamer voxel
+					ObjectiveFunction.DofBounds dofBounds = voxel.makeDihedralBounds(res.template, i);
+					for (int d=0; d<dofs.size(); d++) {
+						dofs.get(d).apply(dofBounds.getCenter(d));
+					}
+
+					collectViolations.run();
+				}
+			}
+
+			// return the RMS violation
+			if (violations.isEmpty()) {
+				return 0.0;
+			}
+			double sum = 0.0;
+			for (double v : violations) {
+				sum += v*v;
+			}
+			return Math.sqrt(sum/violations.size());
+		};
+
 		// find the residue that most matches the modes
 		log("finding ideal residues...");
 		Map<String,MeasuredRes> idealResidues = new HashMap<>();
@@ -78,30 +142,34 @@ public class TemplateChooser {
 				return;
 			}
 
+			double rmsViolation = rmsViolations.apply(res, type);
+
 			// do we have an ideal-est residue yet?
 			MeasuredRes oldMres = idealResidues.get(type);
 			if (oldMres == null) {
 
 				// nope, assume this one is most ideal for now
-				idealResidues.put(type, new MeasuredRes(filename, res.getPDBResNumber(), measurements));
+				idealResidues.put(type, new MeasuredRes(filename, res.getPDBResNumber(), measurements, rmsViolation));
 
 			} else {
+
+				final double idealWeight = 1.0;
+				final double probeWeight = 12.0;
 
 				// yup, is the new one more ideal?
 				List<Measurement> libMeasurements = mlib.get(type);
 				double[] modes = modesByType.get(type);
-				double oldDist = measurementDist.calc(libMeasurements, modes, oldMres.measurements);
-				double newDist = measurementDist.calc(libMeasurements, modes, measurements);
+				double oldDist = measurementDist.calc(libMeasurements, modes, oldMres.measurements)*idealWeight + oldMres.rmsViolation*probeWeight;
+				double newDist = measurementDist.calc(libMeasurements, modes, measurements)*idealWeight + rmsViolation*probeWeight;
 				if (newDist < oldDist) {
 
 					// yup, make the new residue the current ideal residue
-					idealResidues.put(type, new MeasuredRes(filename, res.getPDBResNumber(), measurements));
+					idealResidues.put(type, new MeasuredRes(filename, res.getPDBResNumber(), measurements, rmsViolation));
 				}
 			}
 		});
 
 		// show the ideal residues and the current templates
-		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER).build();
 		for (String type : expectedTypes) {
 			MeasuredRes mres = idealResidues.get(type);
 			int count = measurementsByType.get(type).size();
@@ -113,8 +181,11 @@ public class TemplateChooser {
 			ResidueTemplate template = templateLib.getTemplate(type, true);
 			double[] templateMeasurements = mlib.measure(template.templateRes, type);
 			double templateDist = measurementDist.calc(measurements, modes, templateMeasurements);
+			double templateRmsViolation = rmsViolations.apply(template.templateRes, type);
 
-			log("%s: %s %s   n=%7d   thisd=%8.4f   currentd=%8.4f", type, mres.filename, mres.resNum, count, dist, templateDist);
+			log("%s: %s %s   n=%7d   thisd=%8.4f   currentd=%8.4f   thisRmsV=%5.3f   currentRmsV=%5.3f",
+				type, mres.filename, mres.resNum, count, dist, templateDist, mres.rmsViolation, templateRmsViolation
+			);
 			for (int m=0; m<measurements.size(); m++) {
 
 				Measurement measurement = measurements.get(m);
@@ -226,7 +297,7 @@ public class TemplateChooser {
 			// group all the measurements by type
 			measurementsByType
 				.computeIfAbsent(type, t -> new ArrayList<>())
-				.add(new MeasuredRes(filename, res.getPDBResNumber(), measurements));
+				.add(new MeasuredRes(filename, res.getPDBResNumber(), measurements, Double.NaN));
 		});
 
 		return measurementsByType;
@@ -701,11 +772,13 @@ public class TemplateChooser {
 		public final String filename;
 		public final String resNum;
 		public final double[] measurements;
+		public final double rmsViolation;
 
-		public MeasuredRes(String filename, String resNum, double[] measurements) {
+		public MeasuredRes(String filename, String resNum, double[] measurements, double rmsViolation) {
 			this.filename = filename;
 			this.resNum = resNum;
 			this.measurements = measurements;
+			this.rmsViolation = rmsViolation;
 		}
 	}
 
