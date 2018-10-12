@@ -39,10 +39,8 @@ import org.junit.Test;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
-import java.util.List;
 
 import static org.hamcrest.Matchers.*;
 
@@ -540,5 +538,31 @@ public class TestMathTools {
 		assertThat(bigDivide(Double.NEGATIVE_INFINITY, 0.0), is(MathTools.BigNegativeInfinity));
 		assertThat(bigDivide(Double.NEGATIVE_INFINITY, -5.0), is(MathTools.BigPositiveInfinity));
 		assertThat(bigDivide(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY), is(MathTools.BigNaN));
+	}
+
+	@Test
+	public void gridIterable() {
+
+		Iterator<int[]> iter = new MathTools.GridIterable(new int[] { 1, 2, 3 }).iterator();
+
+		assertThat(iter.hasNext(), is(true));
+		assertThat(iter.next(), is(new int[] { 0, 0, 0 }));
+
+		assertThat(iter.hasNext(), is(true));
+		assertThat(iter.next(), is(new int[] { 0, 1, 0 }));
+
+		assertThat(iter.hasNext(), is(true));
+		assertThat(iter.next(), is(new int[] { 0, 0, 1 }));
+
+		assertThat(iter.hasNext(), is(true));
+		assertThat(iter.next(), is(new int[] { 0, 1, 1 }));
+
+		assertThat(iter.hasNext(), is(true));
+		assertThat(iter.next(), is(new int[] { 0, 0, 2 }));
+
+		assertThat(iter.hasNext(), is(true));
+		assertThat(iter.next(), is(new int[] { 0, 1, 2 }));
+
+		assertThat(iter.hasNext(), is(false));
 	}
 }

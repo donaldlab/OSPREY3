@@ -112,12 +112,20 @@ public class Atom implements Serializable {
     
     public double[] getCoords(){
         //x,y, and z coordinates, pulled from the residue
-        double x = res.coords[3*indexInRes];
-        double y = res.coords[3*indexInRes+1];
-        double z = res.coords[3*indexInRes+2];
+		int i = 3*indexInRes;
+        double x = res.coords[i++];
+        double y = res.coords[i++];
+        double z = res.coords[i];
         
         return new double[] {x,y,z};
     }
+
+    public void setCoords(double x, double y, double z) {
+    	int i = 3*indexInRes;
+    	res.coords[i++] = x;
+		res.coords[i++] = y;
+		res.coords[i] = z;
+	}
     
     public boolean isHydrogen() {
         return elementType.equalsIgnoreCase("H");
@@ -127,4 +135,16 @@ public class Atom implements Serializable {
         return elementType.equalsIgnoreCase("C");
     }
 
+    @Override
+	public String toString() {
+    	if (res != null) {
+			int i = 3*indexInRes;
+			return String.format("%s %s (%.3f, %.3f, %.3f)",
+				res.fullName, name,
+				res.coords[i], res.coords[i + 1], res.coords[i + 2]
+			);
+		} else {
+    		return name;
+		}
+	}
 }

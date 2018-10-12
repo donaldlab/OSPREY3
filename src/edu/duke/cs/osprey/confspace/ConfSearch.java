@@ -95,6 +95,23 @@ public interface ConfSearch {
 		}
 		return nodes;
     }
+
+	/**
+	 * Get the next `num` conformations in the conformation space
+	 */
+    default List<ScoredConf> nextConfs(int num) {
+		List<ScoredConf> confs = new ArrayList<>();
+		for (int i=0; i<num; i++) {
+
+			ScoredConf conf = nextConf();
+			if (conf == null) {
+				break;
+			}
+
+			confs.add(conf);
+		}
+		return confs;
+	}
     
     /**
      * A conformation from a conformation space with an associated score.

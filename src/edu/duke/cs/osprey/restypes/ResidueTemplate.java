@@ -35,7 +35,9 @@ package edu.duke.cs.osprey.restypes;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
@@ -352,4 +354,20 @@ public class ResidueTemplate implements Serializable {
         // there are tons of templates with the same name, so add the hash id too
         return name + ":" + System.identityHashCode(this);
     }
+
+	public String getDescription() {
+    	StringBuilder buf = new StringBuilder();
+
+    	buf.append(name);
+
+    	// add the atom list
+		buf.append(" [");
+		buf.append(String.join(",", templateRes.atoms.stream()
+			.map(atom -> atom.name)
+			.collect(Collectors.toList()))
+		);
+		buf.append("]");
+
+		return buf.toString();
+	}
 }
