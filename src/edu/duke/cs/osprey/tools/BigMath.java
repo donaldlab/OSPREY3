@@ -41,7 +41,7 @@ public class BigMath {
 
 	public final MathContext context;
 
-	private BigDecimal d;
+	private BigDecimal d = null;
 
 	public BigMath(MathContext context) {
 		this.context = context;
@@ -49,6 +49,10 @@ public class BigMath {
 
 	public BigMath(int precision) {
 		this(new MathContext(precision, RoundingMode.HALF_UP));
+	}
+
+	public BigMath group() {
+		return new BigMath(context);
 	}
 
 	public BigDecimal get() {
@@ -80,6 +84,23 @@ public class BigMath {
 	}
 	public BigMath add(long val) {
 		return add(MathTools.biggen(val));
+	}
+
+	public BigMath addOrSet(BigDecimal val) {
+		if (d == null) {
+			return set(val);
+		} else {
+			return add(val);
+		}
+	}
+	public BigMath addOrSet(BigInteger val) {
+		return addOrSet(new BigDecimal(val));
+	}
+	public BigMath addOrSet(double val) {
+		return addOrSet(MathTools.biggen(val));
+	}
+	public BigMath addOrSet(long val) {
+		return addOrSet(MathTools.biggen(val));
 	}
 
 	public BigMath sub(BigDecimal other) {

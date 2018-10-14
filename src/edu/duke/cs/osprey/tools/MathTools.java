@@ -301,7 +301,7 @@ public class MathTools {
 	}
 
 	public static boolean isFinite(BigDecimal d) {
-		return !isInf(d) && d == BigNaN;
+		return !isInf(d) && !isNaN(d);
 	}
 
 	public static boolean isNaN(BigDecimal d) {

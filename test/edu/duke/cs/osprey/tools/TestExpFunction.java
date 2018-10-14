@@ -34,6 +34,8 @@ package edu.duke.cs.osprey.tools;
 
 import org.junit.Test;
 
+import java.math.MathContext;
+
 import static org.junit.Assert.*;
 import static edu.duke.cs.osprey.TestBase.*;
 
@@ -44,11 +46,36 @@ public class TestExpFunction {
 		final double Epsilon = 1e-8;
 		ExpFunction exp = new ExpFunction();
 		assertThat(exp.exp(-10.0).doubleValue(), isAbsolutely(Math.exp(-10.0), Epsilon));
+		assertThat(exp.exp( -7.5).doubleValue(), isAbsolutely(Math.exp( -7.5), Epsilon));
 		assertThat(exp.exp( -5.0).doubleValue(), isAbsolutely(Math.exp( -5.0), Epsilon));
+		assertThat(exp.exp( -2.5).doubleValue(), isAbsolutely(Math.exp( -2.5), Epsilon));
 		assertThat(exp.exp( -1.0).doubleValue(), isAbsolutely(Math.exp( -1.0), Epsilon));
+		assertThat(exp.exp( -0.5).doubleValue(), isAbsolutely(Math.exp( -0.5), Epsilon));
 		assertThat(exp.exp(  0.0).doubleValue(), isAbsolutely(Math.exp(  0.0), Epsilon));
+		assertThat(exp.exp(  0.5).doubleValue(), isAbsolutely(Math.exp(  0.5), Epsilon));
 		assertThat(exp.exp(  1.0).doubleValue(), isAbsolutely(Math.exp(  1.0), Epsilon));
+		assertThat(exp.exp(  2.5).doubleValue(), isAbsolutely(Math.exp(  2.5), Epsilon));
 		assertThat(exp.exp(  5.0).doubleValue(), isAbsolutely(Math.exp(  5.0), Epsilon));
+		assertThat(exp.exp(  7.5).doubleValue(), isAbsolutely(Math.exp(  7.5), Epsilon));
 		assertThat(exp.exp( 10.0).doubleValue(), isAbsolutely(Math.exp( 10.0), Epsilon));
+	}
+
+	@Test
+	public void expPrecise() {
+		final double Epsilon = 1e-14;
+		ExpFunction exp = new ExpFunction(new MathContext(32));
+		assertThat(exp.expPrecise(-10.0).doubleValue(), isAbsolutely(Math.exp(-10.0), Epsilon));
+		assertThat(exp.expPrecise( -7.5).doubleValue(), isAbsolutely(Math.exp( -7.5), Epsilon));
+		assertThat(exp.expPrecise( -5.0).doubleValue(), isAbsolutely(Math.exp( -5.0), Epsilon));
+		assertThat(exp.expPrecise( -2.5).doubleValue(), isAbsolutely(Math.exp( -2.5), Epsilon));
+		assertThat(exp.expPrecise( -1.0).doubleValue(), isAbsolutely(Math.exp( -1.0), Epsilon));
+		assertThat(exp.expPrecise( -0.5).doubleValue(), isAbsolutely(Math.exp( -0.5), Epsilon));
+		assertThat(exp.expPrecise(  0.0).doubleValue(), isAbsolutely(Math.exp(  0.0), Epsilon));
+		assertThat(exp.expPrecise(  0.5).doubleValue(), isAbsolutely(Math.exp(  0.5), Epsilon));
+		assertThat(exp.expPrecise(  1.0).doubleValue(), isAbsolutely(Math.exp(  1.0), Epsilon));
+		assertThat(exp.expPrecise(  2.5).doubleValue(), isAbsolutely(Math.exp(  2.5), Epsilon));
+		assertThat(exp.expPrecise(  5.0).doubleValue(), isAbsolutely(Math.exp(  5.0), Epsilon));
+		assertThat(exp.expPrecise(  7.5).doubleValue(), isAbsolutely(Math.exp(  7.5), Epsilon));
+		assertThat(exp.expPrecise( 10.0).doubleValue(), isAbsolutely(Math.exp( 10.0), Epsilon));
 	}
 }

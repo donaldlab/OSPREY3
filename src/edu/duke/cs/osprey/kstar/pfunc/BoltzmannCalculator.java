@@ -52,6 +52,10 @@ public class BoltzmannCalculator {
 		return e.exp(-energy/constRT);
 	}
 
+	public BigDecimal calcPrecise(double energy) {
+		return e.expPrecise(-energy/constRT);
+	}
+
 	public double freeEnergy(BigDecimal z) {
 		return -constRT*e.log(z).doubleValue();
 	}

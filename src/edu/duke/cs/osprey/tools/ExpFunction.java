@@ -61,17 +61,20 @@ import java.math.*;
 @SuppressWarnings("serial")
 public class ExpFunction implements Serializable {
 
-	BigDecimal exp = new BigDecimal("2.71828182845904523536"); //Euler's number to 20 decimal digits
+	public static final BigDecimal exp = new BigDecimal("2.71828182845904523536"); //Euler's number to 20 decimal digits
+	public static MathContext mc = new MathContext(100, RoundingMode.HALF_EVEN);
 
 	public final int maxPrecision; //the number of decimal digits to which the BigDecimal numbers must be accurate
-	public static MathContext mc = new MathContext(100, RoundingMode.HALF_EVEN);
-	//constructor
 
 	public ExpFunction() {
+		this.mathContext = null;
 		this.maxPrecision = 8;
 	}
 
+	private final MathContext mathContext;
+
 	public ExpFunction(MathContext mathContext) {
+		this.mathContext = mathContext;
 		this.maxPrecision = mathContext.getPrecision();
 	}
 
@@ -102,6 +105,41 @@ public class ExpFunction implements Serializable {
 		expX = expX.setScale(maxPrecision,4); //rounding is ROUND_HALF_UP (standard rounding: up for next digit >=5, down otherwise)
 
 		return expX;
+	}
+
+	// this is probably enough precision for us, but there's more if we need it:
+	// http://www-history.mcs.st-and.ac.uk/HistTopics/e_10000.html
+	private BigDecimal Eprecise = new BigDecimal(
+		"2.718281828459045235360287471352662497757247093699959574966967627724076630353"
+		+ "547594571382178525166427427466391932003059921817413596629043572900334295260"
+		+ "595630738132328627943490763233829880753195251019011573834187930702154089149"
+		+ "934884167509244761460668082264800168477411853742345442437107539077744992069"
+		+ "551702761838606261331384583000752044933826560297606737113200709328709127443"
+		+ "747047230696977209310141692836819025515108657463772111252389784425056953696"
+		+ "770785449969967946864454905987931636889230098793127736178215424999229576351"
+		+ "482208269895193668033182528869398496465105820939239829488793320362509443117"
+	);
+
+	/** no really, implement exp(x) without loss of precision */
+	public BigDecimal expPrecise(double x) {
+
+		if (x == 0.0) {
+			// exp(0) = 1, easy peasy
+			return BigDecimal.ONE;
+		}
+
+		int intPart;
+		if (x > 0) {
+			intPart = (int)Math.floor(x);
+		} else {
+			intPart = (int)Math.ceil(x);
+		}
+		double fracPart = x - intPart;
+
+		BigDecimal intPartExp = Eprecise.pow(intPart, mathContext);
+		BigDecimal fractPartExp = new BigDecimal(Math.exp(fracPart));
+
+		return intPartExp.multiply(fractPartExp, mathContext);
 	}
 
 	//Returns the BigDecimal number num to the power a	
