@@ -43,10 +43,14 @@ import edu.duke.cs.osprey.tools.UnpossibleError;
 import java.math.BigInteger;
 import java.util.*;
 
-import static edu.duke.cs.osprey.tools.Log.formatBig;
-import static edu.duke.cs.osprey.tools.Log.log;
 
-
+/**
+ * samples conformations for tuples uniformly from the available possibilities
+ * but can get stuck without sampling any confs at all if conformation space is highly pruned
+ *
+ * don't use this anymore, use the RandomizedDFSConfSampler instead, which solves this problem
+ */
+@Deprecated
 public class UniformConfSampler extends ConfSampler {
 
 	public UniformConfSampler(SimpleConfSpace confSpace, PruningMatrix pmat, int randomSeed) {

@@ -1038,7 +1038,7 @@ def LUTE_train(confEcalc, emat, pmat, maxRMSE=0.1, maxOverfittingScore=1.5, rand
 
 		# train LUTE
 		lute = c.lute.LUTE(confSpace)
-		sampler = c.lute.UniformConfSampler(confSpace, pmat, randomSeed)
+		sampler = c.lute.RandomizedDFSConfSampler(confSpace, pmat, randomSeed)
 		lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE)
 		lute.reportConfSpaceSize(pmat)
 

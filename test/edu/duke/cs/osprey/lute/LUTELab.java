@@ -125,7 +125,7 @@ public class LUTELab {
 
 				// compute LUTE fit
 				LUTE lute = new LUTE(confSpace);
-				ConfSampler sampler = new UniformConfSampler(confSpace, pmat, randomSeed);
+				ConfSampler sampler = new RandomizedDFSConfSampler(confSpace, pmat, randomSeed);
 				lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
 				lute.reportConfSpaceSize(pmat);
 				lute.save(new File(String.format("LUTE.%s.dat", name)));
@@ -377,7 +377,7 @@ public class LUTELab {
 
 			// do LUTE stuff
 			LUTE lute = new LUTE(confSpace);
-			ConfSampler sampler = new UniformConfSampler(confSpace, pmat, randomSeed);
+			ConfSampler sampler = new RandomizedDFSConfSampler(confSpace, pmat, randomSeed);
 			/*ConfSampler sampler = new LowEnergyConfSampler(confSpace, randomSeed, pmat, (rcs) ->
 				new ConfAStarTree.Builder(emat, rcs)
 					.setTraditional()
