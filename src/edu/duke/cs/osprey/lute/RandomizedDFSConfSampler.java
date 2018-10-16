@@ -26,13 +26,21 @@ public class RandomizedDFSConfSampler extends ConfSampler {
 
 		// keep track of tuples we can't sample anymore
 		Set<RCTuple> unsampleableTuples = new HashSet<>();
+		boolean sampledSomething = false;
 
 		while (true) {
 
 			// get the next tuple to sample
 			RCTuple tuple = samples.getLeastSampledTuple(unsampleableTuples);
 			if (tuple == null) {
-				throw new Error("can't find another tuple to sample. This is probably a bug?");
+				// we can't keep going, there aren't any tuples left to sample
+				if (sampledSomething) {
+					// at least we made some progress, so that's good
+					return;
+				} else {
+					// no progress, this is bad =(
+					throw new Error("Can't fit LUTE model. No more conformations to sample. Try less pruning?");
+				}
 			}
 			Set<int[]> confs = samples.getConfs(tuple);
 
@@ -47,6 +55,7 @@ public class RandomizedDFSConfSampler extends ConfSampler {
 				unsampleableTuples.add(tuple);
 			} else {
 				samples.addConf(conf);
+				sampledSomething = true;
 			}
 		}
 	}

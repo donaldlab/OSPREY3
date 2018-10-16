@@ -227,6 +227,10 @@ public class MathTools {
 			return BigNegativeInfinity;
 		} else if (Double.isNaN(val)) {
 			return BigNaN;
+		} else if (val == 0.0) {
+			return BigDecimal.ZERO;
+		} else if (val == 1.0) {
+			return BigDecimal.ONE;
 		} else {
 			return BigDecimal.valueOf(val);
 		}
@@ -236,13 +240,43 @@ public class MathTools {
 		return new BigDecimal(val);
 	}
 
+	public static int compare(BigDecimal a, BigDecimal b) {
+		// a < b => -1
+		// a == b => 0
+		// a > b => 1
+		if (a == BigNaN || b == BigNaN) {
+			throw new IllegalArgumentException("can't compare NaN");
+		}
+		if (a == BigPositiveInfinity) {
+			if (b == BigPositiveInfinity) {
+				return 0;
+			} else {
+				return 1;
+			}
+		} else if (a == BigNegativeInfinity) {
+			if (b == BigNegativeInfinity) {
+				return 0;
+			} else {
+				return -1;
+			}
+		} else {
+			if (b == BigPositiveInfinity) {
+				return -1;
+			} else if (b == BigNegativeInfinity) {
+				return 1;
+			} else {
+				return a.compareTo(b);
+			}
+		}
+	}
+
 	/**
 	 * Tests for sameness of values,
 	 * rather than BigDecimal.equals(), which tests sameness of representation
 	 * (i.e., the same value can have multiple representations in BigDecimal)
 	 */
 	public static boolean isSameValue(BigDecimal a, BigDecimal b) {
-		return a == b || a.compareTo(b) == 0;
+		return a == b || compare(a, b) == 0;
 	}
 
 	public static boolean isAbsolutelySame(BigDecimal a, BigDecimal b, double epsilon) {
@@ -269,7 +303,7 @@ public class MathTools {
 	}
 
 	public static boolean isZero(BigDecimal d) {
-		return !isInf(d) && d.compareTo(BigDecimal.ZERO) == 0;
+		return d == BigDecimal.ZERO || (isFinite(d) && d.compareTo(BigDecimal.ZERO) == 0);
 	}
 
 	public static boolean isPositive(BigDecimal d) {
@@ -310,26 +344,7 @@ public class MathTools {
 
 	/** return a < b, correctly handling -Inf, +Inf, and NaN */
 	public static boolean isLessThan(BigDecimal a, BigDecimal b) {
-		if (a == BigNaN || b == BigNaN) {
-			throw new IllegalArgumentException("can't compare NaN");
-		}
-		if (a == BigPositiveInfinity) {
-			return false;
-		} else if (a == BigNegativeInfinity) {
-			if (b == BigNegativeInfinity) {
-				return false;
-			} else {
-				return true;
-			}
-		} else {
-			if (b == BigPositiveInfinity) {
-				return true;
-			} else if (b == BigNegativeInfinity) {
-				return false;
-			} else {
-				return a.compareTo(b) < 0;
-			}
-		}
+		return compare(a, b) == -1;
 	}
 
 	/** return a <= b, correctly handling -Inf, +Inf, and NaN */
@@ -339,26 +354,7 @@ public class MathTools {
 
 	/** return a > b, correctly handling -Inf, +Inf, and NaN */
 	public static boolean isGreaterThan(BigDecimal a, BigDecimal b) {
-		if (a == BigNaN || b == BigNaN) {
-			throw new IllegalArgumentException("can't compare NaN");
-		}
-		if (a == BigPositiveInfinity) {
-			if (b == BigPositiveInfinity) {
-				return false;
-			} else {
-				return true;
-			}
-		} else if (a == BigNegativeInfinity) {
-			return false;
-		} else {
-			if (b == BigPositiveInfinity) {
-				return false;
-			} else if (b == BigNegativeInfinity) {
-				return true;
-			} else {
-				return a.compareTo(b) > 0;
-			}
-		}
+		return compare(a, b) == 1;
 	}
 
 	/** return a >= b, correctly handling -Inf, +Inf, and NaN */
@@ -586,23 +582,8 @@ public class MathTools {
 			}
 
 			@Override
-			public float opt(float a, float b) {
-				return Math.min(a, b);
-			}
-
-			@Override
-			public double opt(double a, double b) {
-				return Math.min(a, b);
-			}
-
-			@Override
-			public int opt(int a, int b) {
-				return Math.min(a, b);
-			}
-
-			@Override
-			public long opt(long a, long b) {
-				return Math.min(a, b);
+			public BigDecimal initBigDecimal() {
+				return MathTools.BigPositiveInfinity;
 			}
 
 			@Override
@@ -623,6 +604,11 @@ public class MathTools {
 			@Override
 			public boolean isBetter(long newval, long oldval) {
 				return newval < oldval;
+			}
+
+			@Override
+			public boolean isBetter(BigDecimal newval, BigDecimal oldval) {
+				return MathTools.isLessThan(newval, oldval);
 			}
 
 			@Override
@@ -654,23 +640,8 @@ public class MathTools {
 			}
 
 			@Override
-			public float opt(float a, float b) {
-				return Math.max(a, b);
-			}
-
-			@Override
-			public double opt(double a, double b) {
-				return Math.max(a, b);
-			}
-
-			@Override
-			public int opt(int a, int b) {
-				return Math.max(a, b);
-			}
-
-			@Override
-			public long opt(long a, long b) {
-				return Math.max(a, b);
+			public BigDecimal initBigDecimal() {
+				return MathTools.BigNegativeInfinity;
 			}
 
 			@Override
@@ -694,6 +665,11 @@ public class MathTools {
 			}
 
 			@Override
+			public boolean isBetter(BigDecimal newval, BigDecimal oldval) {
+				return MathTools.isGreaterThan(newval, oldval);
+			}
+
+			@Override
 			public Optimizer reverse() {
 				return Minimize;
 			}
@@ -703,16 +679,33 @@ public class MathTools {
 		public abstract double initDouble();
 		public abstract int initInt();
 		public abstract long initLong();
+		public abstract BigDecimal initBigDecimal();
 
-		public abstract float opt(float a, float b);
-		public abstract double opt(double a, double b);
-		public abstract int opt(int a, int b);
-		public abstract long opt(long a, long b);
+		public float opt(float a, float b) {
+			return isBetter(a, b) ? a : b;
+		}
+
+		public double opt(double a, double b) {
+			return isBetter(a, b) ? a : b;
+		}
+
+		public int opt(int a, int b) {
+			return isBetter(a, b) ? a : b;
+		}
+
+		public long opt(long a, long b) {
+			return isBetter(a, b) ? a : b;
+		}
+
+		public BigDecimal opt(BigDecimal a, BigDecimal b) {
+			return isBetter(a, b) ? a : b;
+		}
 
 		public abstract boolean isBetter(float newval, float oldval);
 		public abstract boolean isBetter(double newval, double oldval);
 		public abstract boolean isBetter(int newval, int oldval);
 		public abstract boolean isBetter(long newval, long oldval);
+		public abstract boolean isBetter(BigDecimal newval, BigDecimal oldval);
 
 		public abstract Optimizer reverse();
 	}
@@ -771,6 +764,21 @@ public class MathTools {
 		public String toString(Integer precision, Integer width) {
 			String spec = "%" + (width != null ? width : "") + (precision != null ? "." + precision : "") + "f";
 			return String.format("[" + spec + "," + spec + "]", lower, upper);
+		}
+	}
+
+	public static class BigDecimalBounds {
+
+		public BigDecimal lower;
+		public BigDecimal upper;
+
+		public BigDecimalBounds() {
+			this(BigNegativeInfinity, BigPositiveInfinity);
+		}
+
+		public BigDecimalBounds(BigDecimal lower, BigDecimal upper) {
+			this.lower = lower;
+			this.upper = upper;
 		}
 	}
 

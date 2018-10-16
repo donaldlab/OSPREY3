@@ -107,41 +107,6 @@ public class ExpFunction implements Serializable {
 		return expX;
 	}
 
-	// this is probably enough precision for us, but there's more if we need it:
-	// http://www-history.mcs.st-and.ac.uk/HistTopics/e_10000.html
-	private BigDecimal Eprecise = new BigDecimal(
-		"2.718281828459045235360287471352662497757247093699959574966967627724076630353"
-		+ "547594571382178525166427427466391932003059921817413596629043572900334295260"
-		+ "595630738132328627943490763233829880753195251019011573834187930702154089149"
-		+ "934884167509244761460668082264800168477411853742345442437107539077744992069"
-		+ "551702761838606261331384583000752044933826560297606737113200709328709127443"
-		+ "747047230696977209310141692836819025515108657463772111252389784425056953696"
-		+ "770785449969967946864454905987931636889230098793127736178215424999229576351"
-		+ "482208269895193668033182528869398496465105820939239829488793320362509443117"
-	);
-
-	/** no really, implement exp(x) without loss of precision */
-	public BigDecimal expPrecise(double x) {
-
-		if (x == 0.0) {
-			// exp(0) = 1, easy peasy
-			return BigDecimal.ONE;
-		}
-
-		int intPart;
-		if (x > 0) {
-			intPart = (int)Math.floor(x);
-		} else {
-			intPart = (int)Math.ceil(x);
-		}
-		double fracPart = x - intPart;
-
-		BigDecimal intPartExp = Eprecise.pow(intPart, mathContext);
-		BigDecimal fractPartExp = new BigDecimal(Math.exp(fracPart));
-
-		return intPartExp.multiply(fractPartExp, mathContext);
-	}
-
 	//Returns the BigDecimal number num to the power a	
 	BigDecimal pow(BigDecimal num, int a) {
 		return num.pow(a);
@@ -149,7 +114,6 @@ public class ExpFunction implements Serializable {
 
 	//Returns an approximation to the natural logarithm of the BigDecimal number num
 	public BigDecimal log(BigDecimal num){
-
 		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
 			throw new IllegalArgumentException("log of a negative number: " + num);
 		}

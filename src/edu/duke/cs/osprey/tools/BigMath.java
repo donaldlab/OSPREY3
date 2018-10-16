@@ -51,8 +51,9 @@ public class BigMath {
 		this(new MathContext(precision, RoundingMode.HALF_UP));
 	}
 
-	public BigMath group() {
-		return new BigMath(context);
+	public BigMath clear() {
+		d = null;
+		return this;
 	}
 
 	public BigDecimal get() {
@@ -129,6 +130,23 @@ public class BigMath {
 	}
 	public BigMath mult(long val) {
 		return mult(MathTools.biggen(val));
+	}
+
+	public BigMath multOrSet(BigDecimal val) {
+		if (d == null) {
+			return set(val);
+		} else {
+			return mult(val);
+		}
+	}
+	public BigMath multOrSet(BigInteger val) {
+		return multOrSet(new BigDecimal(val));
+	}
+	public BigMath multOrSet(double val) {
+		return multOrSet(MathTools.biggen(val));
+	}
+	public BigMath multOrSet(long val) {
+		return multOrSet(MathTools.biggen(val));
 	}
 
 	public BigMath div(BigDecimal other) {

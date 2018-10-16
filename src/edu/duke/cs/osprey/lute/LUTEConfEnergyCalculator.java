@@ -139,6 +139,6 @@ public class LUTEConfEnergyCalculator extends ConfEnergyCalculator implements Fr
 		if (index == null) {
 			return 0.0;
 		}
-		return state.tupleEnergyOffset + state.tupleEnergies[index];
+		return state.tupleEnergies[index];
 	}
 }
