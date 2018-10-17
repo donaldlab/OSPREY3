@@ -810,7 +810,7 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
 	return bbflex
 
-def Paste(complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault):
+def Paste(complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, maxNumPfConfs=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault):
     '''
     :java:classdoc:`.paste.Paste`
 
@@ -821,6 +821,7 @@ def Paste(complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDe
 	:builder_option epsilon .paste.Paste$Settings$Builder#epsilon:
 	:builder_option stabilityThreshold .paste.Paste$Settings$Builder#stabilityThreshold:
 	:builder_option maxSimultaneousMutations .paste.Paste$Settings$Builder#maxSimultaneousMutations:
+	:builder_option maxNumPfConfs .paste.Paste$Settings$Builder#maxNumPfConfs:
 	:builder_option useExternalMemory .paste.Paste$Settings$Builder#useExternalMemory:
 	:builder_option showPfuncProgress .paste.Paste$Settings$Builder#showPfuncProgress:
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
@@ -835,6 +836,8 @@ def Paste(complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDe
         settingsBuilder.setEpsilon(epsilon)
 	if stabilityThreshold is not useJavaDefault:
 		settingsBuilder.setStabilityThreshold(jvm.boxDouble(stabilityThreshold))
+	if maxNumPfConfs is not useJavaDefault:
+	    settingsBuilder.setPfConfs(maxNumPfConfs)
 	if maxSimultaneousMutations is not useJavaDefault:
 		settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
 	if writeSequencesToConsole:

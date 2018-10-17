@@ -118,6 +118,11 @@ public class Paste {
              */
             private boolean useExternalMemory = false;
 
+            public Builder setPfConfs (int val){
+                maxNumPfConfs = val;
+                return this;
+            }
+
             public Builder setEnergy (double val){
                 eW = val;
                 return this;
