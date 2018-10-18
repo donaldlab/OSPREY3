@@ -400,7 +400,7 @@ public class Paste {
             return pasteScore;
         };
 
-        System.out.println("computing PAStE scores for " + sequences.size() + " sequences to epsilon = " + settings.epsilon + " ...");
+        System.out.println("computing PAStE scores for " + (sequences.size()-1) + " sequence(s) to epsilon = " + settings.epsilon + " ...");
         settings.scoreWriters.writeHeader();
         // TODO: progress bar?
 
