@@ -152,14 +152,13 @@ public class NewalgLab {
 			}
 
 			// estimate Z using the new alg
-			// TODO: normalize the max bound width somehow
-			BigDecimal maxBoundWidth = MathTools.biggen(0.1);
+			double pruneFactor = 0.0;
 			for (int depth=0; depth<=confSpace.positions.size(); depth++) {
 			//for (int depth=0; depth<=3; depth++) {
 			//{ int depth = 4;
 				PfuncCalc pcalc = new PfuncCalc(luteEcalc, pmat);
 				Stopwatch sw = new Stopwatch().start();
-				PartitionFunction.Values Z = pcalc.estimate(depth, maxBoundWidth);
+				PartitionFunction.Values Z = pcalc.estimate(depth, pruneFactor);
 				log("NewAlg %d:   %9s   log(Z) in %s", depth, sw.stop().getTime(2), dump(Z));
 			}
 
@@ -198,7 +197,7 @@ public class NewalgLab {
 
 	private static String dump(PartitionFunction.Values values) {
 		// TEMP
-		if (true) {
+		if (false) {
 			return dumpFreeEnergy(values);
 		}
 		return String.format("[%-9s,%9s] d=%.6f",
@@ -353,62 +352,6 @@ public class NewalgLab {
 			return new BigMath(mathContext);
 		}
 
-		// TEMP
-		public void test() {
-
-			ConfIndex index = new ConfIndex(luteEcalc.confSpace.positions.size());
-			index.updateUndefined();
-			index.assignInPlace(0, 0);
-			index.assignInPlace(1, 6);
-			index.assignInPlace(2, 4);
-			index.assignInPlace(3, 27);
-			//index.assignInPlace(4, 2);
-
-			Runnable analyze = () -> {
-				if (index.numDefined == index.numPos) {
-
-					int pos = index.definedPos[index.numPos - 1];
-					int rc = index.definedRCs[index.numPos - 1];
-					index.unassignInPlace(pos);
-					BigDecimal exact = getZPart(index, pos, rc);
-					index.assignInPlace(pos, rc);
-					log("\t%s   %12s",
-						dump(index),
-						dump(exact)
-					);
-
-				} else {
-
-					BigDecimal exact = calc(index);
-					BigDecimal minZ = optimizeZ(index, MathTools.Optimizer.Minimize);
-					BigDecimal maxZ = optimizeZ(index, MathTools.Optimizer.Maximize);
-					BigInteger size = count(index);
-					BigDecimal leaf = findLeaf(index);
-					BigDecimal lo = bigMath().set(minZ).mult(size).get();
-					BigDecimal hi = bigMath().set(maxZ).mult(size).get();
-					log("\t%s   %12s in [%s,%s] %s  = [%s,%s] * %s   leaf=%s",
-						dump(index),
-						dump(exact),
-						dump(lo), dump(hi),
-						exact == null || (MathTools.isGreaterThanOrEqual(exact, lo) && MathTools.isLessThanOrEqual(exact, hi)) ? " " : "X",
-						dump(minZ), dump(maxZ),
-						Log.formatBig(size),
-						dump(leaf)
-					);
-				}
-			};
-
-			analyze.run();
-
-			int pos = index.numDefined;
-			for (int rc : rcs.get(pos)) {
-			//{ int rc = 2;
-				index.assignInPlace(pos, rc);
-				analyze.run();
-				index.unassignInPlace(pos);
-			}
-		}
-
 		public BigDecimal calc() {
 
 			if (luteEcalc.confSpace.positions.size() == 1) {
@@ -435,7 +378,7 @@ public class NewalgLab {
 			}
 		}
 
-		public PartitionFunction.Values estimate(int maxDepth, BigDecimal maxBoundWidth) {
+		public PartitionFunction.Values estimate(int maxDepth, double pruneFactor) {
 
 			PartitionFunction.Values values = PartitionFunction.Values.makeFullRange();
 
@@ -468,6 +411,30 @@ public class NewalgLab {
 						.get();
 
 				} else {
+
+					// get the bound width at the root node
+					BigDecimal rootBoundWidth = bigMath()
+						.set(optimizeZ(index, MathTools.Optimizer.Maximize))
+						.mult(count(index))
+						.sub(findLeaf(index))
+						.get();
+
+					// scale the bound width by the pruning factor
+					// but do the scaling in log space, ie exp(ln(w + 1)*f) - 1
+					BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
+					BigDecimal maxBoundWidth = bigMath()
+						.set(
+							bcalc.exp(
+								bcalc.ln(
+									bigMath()
+										.set(rootBoundWidth)
+										.add(1.0)
+										.get()
+								)*pruneFactor
+							)
+						)
+						.sub(1.0)
+						.get();
 
 					maxDepth = Math.min(maxDepth, index.numPos);
 					MathTools.BigDecimalBounds Z = estimate(index, maxDepth, maxBoundWidth);
