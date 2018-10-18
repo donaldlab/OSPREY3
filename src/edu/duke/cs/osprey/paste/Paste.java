@@ -277,7 +277,7 @@ public class Paste {
             pfuncResults.clear();
         }
 
-        public PastePartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, ConfDB confDB) {
+        public PastePartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, ConfDB confDB, PastePartitionFunction.Result wtResult) {
 
             Sequence sequence = sequences.get(sequenceIndex).filter(confSpace.seqSpace);
 
@@ -301,7 +301,7 @@ public class Paste {
             }
             ConfSearch astar = confSearchFactory.make(rcs);
             ConfSearch astar2 = confSearchFactory.make(rcs);
-            pfunc.init(astar, astar2, rcs.getNumConformations(), settings.epsilon, settings.eW);
+            pfunc.init(astar, astar2, rcs.getNumConformations(), settings.epsilon, settings.eW, wtResult);
             pfunc.setStabilityThreshold(stabilityThreshold);
 
             // compute it
@@ -411,15 +411,13 @@ public class Paste {
             ConfDB proteinConfDB = confDBs.get(protein.confSpace);
 
             // compute wild type partition functions first (always at pos 0)
-            PastePartitionFunction.Result wtResult = protein.calcPfunc(0, BigDecimal.ZERO, proteinConfDB);
-            PasteScore wildTypeScore = scorer.score(
-                    0, wtResult, wtResult);
+            PastePartitionFunction.Result wtResult = protein.calcPfunc(0, BigDecimal.ZERO, proteinConfDB, null);
 
             // compute all the partition functions and K* scores for the rest of the sequences
             for (int i=1; i<n; i++) {
 
                 // get the pfuncs, with short circuits as needed
-                final PastePartitionFunction.Result proteinResult = protein.calcPfunc(i, null, proteinConfDB);
+                final PastePartitionFunction.Result proteinResult = protein.calcPfunc(i, null, proteinConfDB, wtResult);
 
                 scorer.score(i, proteinResult, wtResult);
             }

@@ -75,7 +75,8 @@ public class PasteScore {
 		// report the partition function value
 		if (protein.status == PastePartitionFunction.Status.EnergyReached ||
 				protein.status == PastePartitionFunction.Status.ConfLimitReached ||
-				protein.status == PastePartitionFunction.Status.EpsilonReached) {
+				protein.status == PastePartitionFunction.Status.EpsilonReached ||
+				protein.status == PastePartitionFunction.Status.NoWindowOverlap) {
 
 			if (MathTools.isNaN(protein.values.qstar)) {
 				this.score = null;
@@ -146,14 +147,6 @@ public class PasteScore {
 		this.stability = "Wild-Type Sequence";
 	}
 
-	public static boolean isLigandComplexUseful(PartitionFunction.Result protein) {
-
-		// assuming we compute pfuncs in order of: protein, ligand, complex:
-		// unbound stability is the only thing that would
-		// make the ligand or complex pfunc results useless at this point
-		return protein.status != PartitionFunction.Status.Unstable;
-	}
-
 	@Override
 	public String toString() {
 		Function<String,String> trim = (s) -> {
@@ -182,7 +175,6 @@ public class PasteScore {
 			&& this.upperBound.equals(other.upperBound);
 	}
 
-	public String scoreLog10String() { return scoreToLog10String(score); }
 	public String lowerBoundLog10String() { return scoreToLog10String(protein.values.calcLowerBound().doubleValue()); }
 	public String upperBoundLog10String() { return scoreToLog10String(protein.values.calcUpperBound().doubleValue()); }
 

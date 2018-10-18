@@ -125,6 +125,7 @@ public class PasteRunner {
 		Paste.Settings settings = new Paste.Settings.Builder()
 			.setEpsilon(0.68)
 			.setStabilityThreshold(null)
+			.setNumMaxPfConfs(100000)
 			.setMaxSimultaneousMutations(3)
 			.addScoreConsoleWriter()
 			.addScoreFileWriter(new File("paste.txt"))
