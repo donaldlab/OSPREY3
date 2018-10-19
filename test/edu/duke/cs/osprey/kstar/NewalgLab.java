@@ -24,8 +24,7 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -43,29 +42,31 @@ public class NewalgLab {
 			.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
 			.build();
 
+		// define flexibility
+		Map<String,List<String>> flex = new HashMap<>();
+		flex.put("A2", Arrays.asList(Strand.WildType)); // ala
+		flex.put("A3", Arrays.asList(Strand.WildType, "ASP")); // glu
+		flex.put("A4", Arrays.asList(Strand.WildType, "LEU")); // ile
+		flex.put("A5", Arrays.asList(Strand.WildType)); // lys
+		//flex.put("A6", Arrays.asList(Strand.WildType)); // hie
+		//flex.put("A7", Arrays.asList(Strand.WildType)); // tyr
+		boolean recalc = false;
+
 		// make a conf space
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb"))
 			.setTemplateLibrary(templateLib)
 			.build();
-		List<String> resNums = Arrays.asList(
-			"A2",
-			"A3",
-			"A4",
-			"A5",
-			"A6",
-			"A7"
-		);
-		for (String resNum : resNums) {
-			strand.flexibility.get(resNum)
-				.setLibraryRotamers(Strand.WildType)
-				.addWildTypeRotamers()
+		for (Map.Entry<String,List<String>> entry : flex.entrySet()) {
+			strand.flexibility.get(entry.getKey())
+				.setLibraryRotamers(entry.getValue())
 				.setContinuous();
 		}
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
 			.addStrand(strand)
 			.build();
 
-		boolean recalc = false;
+		log("seq space: %s", confSpace.seqSpace);
+
 		File ematFile = new File("newalg.emat");
 		File pmatFile = new File("newalg.pmat");
 		File luteFile = new File("newalg.lute");
@@ -129,6 +130,7 @@ public class NewalgLab {
 
 			log("\n");
 
+			/*
 			// calc the LUTE approximation to Z exactly (ie, as well as LUTE could ever do)
 			{
 				Stopwatch sw = new Stopwatch().start();
@@ -152,18 +154,33 @@ public class NewalgLab {
 			}
 
 			// estimate Z using the new alg
-			double pruneFactor = 0.0;
 			for (int depth=0; depth<=confSpace.positions.size(); depth++) {
 			//for (int depth=0; depth<=3; depth++) {
 			//{ int depth = 4;
+				double pruneFactor = 0.0;
 				PfuncCalc pcalc = new PfuncCalc(luteEcalc, pmat);
 				Stopwatch sw = new Stopwatch().start();
 				PartitionFunction.Values Z = pcalc.estimate(depth, pruneFactor);
-				log("NewAlg %d:   %9s   log(Z) in %s", depth, sw.stop().getTime(2), dump(Z));
+				log("NewAlg %d:   %9s   ln(Z) in %s", depth, sw.stop().getTime(2), dump(Z));
+			}
+			*/
+
+			// calc multi-sequence Z tight bounds using the new alg
+			{
+				PfuncCalc pcalc = new PfuncCalc(luteEcalc, pmat);
+				Stopwatch sw = new Stopwatch().start();
+				MathTools.BigDecimalBounds Zbounds = pcalc.calcMultiSequence();
+				log("NewAlg:      %9s   ln(Z) in %s", sw.stop().getTime(2), dump(Zbounds));
 			}
 
-			// TEMP
-			//new PfuncCalc(luteEcalc, pmat).test();
+			// estimate multi-sequence Z bounds using the new alg
+			for (double pruneFactor : Arrays.asList(1.0, 0.9, 0.5, 0.1, 0.01, 0.0)) {
+				int depth = confSpace.positions.size();
+				PfuncCalc pcalc = new PfuncCalc(luteEcalc, pmat);
+				Stopwatch sw = new Stopwatch().start();
+				MathTools.BigDecimalBounds Zbounds = pcalc.estimateMultiSequence(depth, pruneFactor);
+				log("NewAlg %4.2f:   %9s   ln(Z) in %s", pruneFactor, sw.stop().getTime(2), dump(Zbounds));
+			}
 		}
 	}
 
@@ -191,8 +208,30 @@ public class NewalgLab {
 			.set(val)
 			//.add(BigDecimal.ONE)
 			.get();
-		return String.format("%7.2f", new BoltzmannCalculator(PartitionFunction.decimalPrecision).ln(val));
+		return String.format("%9.4f", new BoltzmannCalculator(PartitionFunction.decimalPrecision).ln(val));
 		//return String.format("%e", val);
+	}
+
+	private static String dump(MathTools.BigDecimalBounds values) {
+		return String.format("[%-9s,%9s]",
+			dump(values.lower),
+			dump(values.upper)
+		);
+	}
+
+	private static String dumpScaled(MathTools.BigDecimalBounds values, BigDecimal scale) {
+		return String.format("[%-9s,%9s]",
+			dump(new BigMath(PartitionFunction.decimalPrecision)
+				.set(values.lower)
+				.mult(scale)
+				.get()
+			),
+			dump(new BigMath(PartitionFunction.decimalPrecision)
+				.set(values.upper)
+				.mult(scale)
+				.get()
+			)
+		);
 	}
 
 	private static String dump(PartitionFunction.Values values) {
@@ -883,6 +922,455 @@ public class NewalgLab {
 			}
 
 			return math.get();
+		}
+
+		public MathTools.BigDecimalBounds calcMultiSequence() {
+
+			if (luteEcalc.confSpace.positions.size() == 1) {
+
+				// TODO: brute force all the pfuncs and take the min,max
+				throw new Error("implement me!");
+
+			} else {
+
+				// otherwise, assume no singles, all pairs, and maybe some triples present
+				ConfIndex index = new ConfIndex(luteEcalc.confSpace.positions.size());
+				index.updateUndefined();
+				MathTools.BigDecimalBounds bounds = calcMultiSequence(index);
+
+				bounds.lower = bigMath()
+					.set(bounds.lower)
+					.mult(blute.factor)
+					.get();
+				bounds.upper = bigMath()
+					.set(bounds.upper)
+					.mult(blute.factor)
+					.get();
+
+				return bounds;
+			}
+		}
+
+		private MathTools.BigDecimalBounds calcMultiSequence(ConfIndex index) {
+
+			// cannot work on leaf nodes
+			assert (index.numDefined < index.numPos);
+
+			// pick the next pos to assign
+			int pos = index.numDefined;
+
+			// group RCs by sequences
+			Map<String,List<Integer>> rcsBySeq = new HashMap<>();
+			for (int rc : rcs.get(pos)) {
+				String resType = luteEcalc.confSpace.positions.get(pos).resConfs.get(rc).template.name;
+				rcsBySeq.computeIfAbsent(resType, rt -> new ArrayList<>()).add(rc);
+			}
+
+			Map<String,MathTools.BigDecimalBounds> boundsBySeq = new HashMap<>();
+			for (Map.Entry<String,List<Integer>> entry : rcsBySeq.entrySet()) {
+				String resType = entry.getKey();
+
+				MathTools.BigDecimalBounds seqbounds = boundsBySeq.computeIfAbsent(resType, rt ->
+					new MathTools.BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO)
+				);
+
+				// sum bounds over RCs of the same sequence
+				for (int rc : entry.getValue()) {
+
+					if (index.numDefined == 0) {
+
+						// first pos: no singles, so just recurse
+						index.assignInPlace(pos, rc);
+						MathTools.BigDecimalBounds subbounds = calcMultiSequence(index);
+						index.unassignInPlace(pos);
+
+						seqbounds.lower = bigMath()
+							.set(subbounds.lower)
+							.add(seqbounds.lower)
+							.get();
+						seqbounds.upper = bigMath()
+							.set(subbounds.upper)
+							.add(seqbounds.upper)
+							.get();
+
+					} else {
+
+						// not first pos: have pairs, so get additional boltzmann-weighed energy
+						BigDecimal zpart = getZPart(index, pos, rc);
+
+						// short circuit for efficiency
+						if (MathTools.isZero(zpart)) {
+							continue;
+						}
+
+						if (index.numDefined < numPos - 1) {
+
+							// have positions left to assign, so recurse
+							index.assignInPlace(pos, rc);
+							MathTools.BigDecimalBounds subbounds = calcMultiSequence(index);
+							index.unassignInPlace(pos);
+
+							seqbounds.lower = bigMath()
+								.set(subbounds.lower)
+								.mult(zpart)
+								.add(seqbounds.lower)
+								.get();
+							seqbounds.upper = bigMath()
+								.set(subbounds.upper)
+								.mult(zpart)
+								.add(seqbounds.upper)
+								.get();
+
+						} else {
+
+							// all positions assigned, just add the zpart
+							seqbounds.lower = bigMath()
+								.set(zpart)
+								.add(seqbounds.lower)
+								.get();
+							seqbounds.upper = bigMath()
+								.set(zpart)
+								.add(seqbounds.upper)
+								.get();
+						}
+					}
+				}
+			}
+
+			// min,max over the seq bounds
+			MathTools.BigDecimalBounds bounds = null;
+			for (MathTools.BigDecimalBounds seqbounds : boundsBySeq.values()) {
+
+				if (bounds == null) {
+					bounds = seqbounds;
+				} else {
+
+					if (MathTools.isLessThan(seqbounds.lower, bounds.lower)) {
+						bounds.lower = seqbounds.lower;
+					}
+
+					if (MathTools.isGreaterThan(seqbounds.upper, bounds.upper)) {
+						bounds.upper = seqbounds.upper;
+					}
+				}
+			}
+
+			assert (bounds != null);
+			return bounds;
+		}
+
+		public MathTools.BigDecimalBounds estimateMultiSequence(int maxDepth, double pruneFactor) {
+
+			if (luteEcalc.confSpace.positions.size() == 1) {
+
+				// for tiny confspaces, just calc all the pfuncs
+				return calcMultiSequence();
+
+			} else {
+
+				ConfIndex index = new ConfIndex(luteEcalc.confSpace.positions.size());
+				index.updateUndefined();
+
+				BigDecimal minZ = optimizeZ(index, MathTools.Optimizer.Minimize);
+				BigDecimal maxZ = optimizeZ(index, MathTools.Optimizer.Maximize);
+				MathTools.BigIntegerBounds size = countMultiSequence(index);
+
+				MathTools.BigDecimalBounds rootBound = new MathTools.BigDecimalBounds(
+					bigMath()
+						.set(minZ)
+						.mult(size.lower)
+						.get(),
+					bigMath()
+						.set(maxZ)
+						.mult(size.upper)
+						.get()
+				);
+
+				if (maxDepth == 0) {
+
+					// just use the root bound
+					rootBound.lower = bigMath()
+						.set(rootBound.lower)
+						.mult(blute.factor)
+						.get();
+					rootBound.upper = bigMath()
+						.set(rootBound.upper)
+						.mult(blute.factor)
+						.get();
+					return rootBound;
+
+				} else {
+
+					// get the bound width at the root node
+					BigDecimal rootBoundWidth = bigMath()
+						.set(rootBound.upper)
+						.sub(rootBound.lower)
+						.get();
+
+					// scale the bound width by the pruning factor
+					// but do the scaling in log space, ie exp(ln(w + 1)*f) - 1
+					BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
+					BigDecimal maxBoundWidth = bigMath()
+						.set(
+							bcalc.exp(
+								bcalc.ln(
+									bigMath()
+										.set(rootBoundWidth)
+										.add(1.0)
+										.get()
+								)*pruneFactor
+							)
+						)
+						.sub(1.0)
+						.get();
+
+					maxDepth = Math.min(maxDepth, index.numPos);
+					MathTools.BigDecimalBounds bounds = estimateMultiSequence(index, maxDepth, maxBoundWidth);
+
+					bounds.lower = bigMath()
+						.set(bounds.lower)
+						.mult(blute.factor)
+						.get();
+					bounds.upper = bigMath()
+						.set(bounds.upper)
+						.mult(blute.factor)
+						.get();
+					return bounds;
+				}
+			}
+		}
+
+		private MathTools.BigDecimalBounds estimateMultiSequence(ConfIndex index, int maxDepth, BigDecimal maxBoundWidth) {
+
+			boolean isRoot = index.numDefined == 0;
+			boolean isRCLeaf = index.numDefined + 1 == index.numPos;
+
+			int pos = index.numDefined;
+
+			// group RCs by sequences
+			Map<String,List<Integer>> rcsBySeq = new HashMap<>();
+			for (int rc : rcs.get(pos)) {
+				String resType = luteEcalc.confSpace.positions.get(pos).resConfs.get(rc).template.name;
+				rcsBySeq.computeIfAbsent(resType, rt -> new ArrayList<>()).add(rc);
+			}
+
+			Map<String,MathTools.BigDecimalBounds> boundsBySeq = new HashMap<>();
+			for (Map.Entry<String,List<Integer>> entry : rcsBySeq.entrySet()) {
+				String resType = entry.getKey();
+
+				MathTools.BigDecimalBounds seqbounds = boundsBySeq.computeIfAbsent(resType, rt ->
+					new MathTools.BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO)
+				);
+
+				for (int rc : entry.getValue()) {
+
+					// get the Z part added by this rc, if possible
+					BigDecimal zpart;
+					if (isRoot) {
+
+						// I AM ROOT
+						zpart = BigDecimal.ONE;
+
+					} else {
+
+						zpart = getZPart(index, pos, rc);
+
+						// this subtree contributes nothing to Z
+						if (MathTools.isZero(zpart)) {
+							continue;
+						}
+					}
+
+					if (isRCLeaf) {
+
+						assert (!isRoot);
+
+						// hit bottom,  just add up the Z part
+						seqbounds.lower = bigMath()
+							.set(seqbounds.lower)
+							.add(zpart)
+							.get();
+						seqbounds.upper = bigMath()
+							.set(seqbounds.upper)
+							.add(zpart)
+							.get();
+
+					} else {
+
+						// get the subtree sum bounds
+						index.assignInPlace(pos, rc);
+						BigDecimal minZ = optimizeZ(index, MathTools.Optimizer.Minimize);
+						BigDecimal maxZ = optimizeZ(index, MathTools.Optimizer.Maximize);
+						MathTools.BigIntegerBounds count = countMultiSequence(index);
+						index.unassignInPlace(pos);
+
+						MathTools.BigDecimalBounds rcbounds  = new MathTools.BigDecimalBounds(
+							bigMath()
+								.set(minZ)
+								.mult(count.lower)
+								.get(),
+							bigMath()
+								.set(maxZ)
+								.mult(count.upper)
+								.get()
+						);
+
+						// how wide is the bound?
+						BigDecimal boundWidth = bigMath()
+							.set(rcbounds.upper)
+							.sub(rcbounds.lower)
+							.get();
+						boolean isBoundTooWide = MathTools.isGreaterThanOrEqual(boundWidth, maxBoundWidth);
+
+						// TODO: check for short circuits here?
+
+						// should we recurse here?
+						boolean canGoDeeper = index.numDefined < maxDepth - 1;
+						if (canGoDeeper && isBoundTooWide) {
+
+							// yup, recurse
+							index.assignInPlace(pos, rc);
+							MathTools.BigDecimalBounds subbounds = estimateMultiSequence(index, maxDepth, maxBoundWidth);
+							index.unassignInPlace(pos);
+
+							seqbounds.lower = bigMath()
+								.set(zpart)
+								.mult(subbounds.lower)
+								.add(seqbounds.lower)
+								.get();
+							seqbounds.upper = bigMath()
+								.set(zpart)
+								.mult(subbounds.upper)
+								.add(seqbounds.upper)
+								.get();
+
+						} else {
+
+							// nope, just use the bound
+							seqbounds.lower = bigMath()
+								.set(zpart)
+								.mult(rcbounds.lower)
+								.add(seqbounds.lower)
+								.get();
+							seqbounds.upper = bigMath()
+								.set(zpart)
+								.mult(rcbounds.upper)
+								.add(seqbounds.upper)
+								.get();
+						}
+					}
+				}
+			}
+
+			// min,max over the seq bounds
+			MathTools.BigDecimalBounds bounds = null;
+			for (MathTools.BigDecimalBounds seqbounds : boundsBySeq.values()) {
+
+				if (bounds == null) {
+					bounds = seqbounds;
+				} else {
+
+					if (MathTools.isLessThan(seqbounds.lower, bounds.lower)) {
+						bounds.lower = seqbounds.lower;
+					}
+
+					if (MathTools.isGreaterThan(seqbounds.upper, bounds.upper)) {
+						bounds.upper = seqbounds.upper;
+					}
+				}
+			}
+
+			assert (bounds != null);
+			return bounds;
+		}
+
+		private MathTools.BigIntegerBounds countMultiSequence(ConfIndex index) {
+
+			MathTools.BigIntegerBounds count = new MathTools.BigIntegerBounds(BigInteger.ONE, BigInteger.ONE);
+
+			for (int i=0; i<index.numUndefined; i++) {
+				int pos = index.undefinedPos[i];
+
+				// count the RCs by sequence
+				Map<String,Integer> counts = new HashMap<>();
+				for (int rc : rcs.get(pos)) {
+					String resType = luteEcalc.confSpace.positions.get(pos).resConfs.get(rc).template.name;
+					counts.compute(resType, (rt, current) -> {
+						if (current == null) {
+							return 1;
+						} else {
+							return current + 1;
+						}
+					});
+				}
+
+				int minCount = counts.values().stream().mapToInt(v -> v).min().getAsInt();
+				int maxCount = counts.values().stream().mapToInt(v -> v).max().getAsInt();
+
+				count.lower = count.lower.multiply(BigInteger.valueOf(minCount));
+				count.upper = count.upper.multiply(BigInteger.valueOf(maxCount));
+			}
+
+			return count;
+		}
+
+		private BigDecimal findSmallestLeaf(ConfIndex index) {
+
+			// TODO: could do LP instead of A*?
+			// do A* search
+
+			class Node implements Comparable<Node> {
+
+				ConfIndex index;
+				BigDecimal z;
+
+				@Override
+				public int compareTo(Node other) {
+					return MathTools.compare(this.z, other.z);
+				}
+			}
+
+			// start the queue with a root node
+			PriorityQueue<Node> queue = new PriorityQueue<>();
+			Node root = new Node();
+			root.index = index;
+			root.z = MathTools.BigNegativeInfinity;
+			queue.add(root);
+
+			while (true) {
+
+				Node node = queue.poll();
+				assert (node != null);
+
+				// leaf node? we're done here
+				if (node.index.numDefined == node.index.numPos) {
+					return node.z;
+				}
+
+				// pick a pos to expand next
+				int pos = node.index.numDefined;
+				for (int rc : rcs.get(pos)) {
+
+					Node child = new Node();
+					child.index = node.index.assign(pos, rc);
+
+					if (child.index.numDefined == 1) {
+
+						// no way to score nodes at level 1 since we don't have single tuples
+						child.z = MathTools.BigNegativeInfinity;
+
+					} else {
+
+						// use the heuristic and the zpart
+						child.z = bigMath()
+							.set(optimizeZ(child.index, MathTools.Optimizer.Minimize))
+							.mult(getZPart(node.index, pos, rc))
+							.get();
+					}
+
+					queue.add(child);
+				}
+			}
 		}
 	}
 }

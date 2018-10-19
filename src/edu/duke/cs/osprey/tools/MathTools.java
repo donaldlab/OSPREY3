@@ -782,6 +782,17 @@ public class MathTools {
 		}
 	}
 
+	public static class BigIntegerBounds {
+
+		public BigInteger lower;
+		public BigInteger upper;
+
+		public BigIntegerBounds(BigInteger lower, BigInteger upper) {
+			this.lower = lower;
+			this.upper = upper;
+		}
+	}
+
 	public static class GridIterable implements Iterable<int[]> {
 
 		public final int[] dimensions;
