@@ -4,6 +4,7 @@ package edu.duke.cs.osprey.kstar;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.seq.RTs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -25,6 +26,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -44,13 +46,16 @@ public class NewalgLab {
 
 		// define flexibility
 		Map<String,List<String>> flex = new HashMap<>();
-		flex.put("A2", Arrays.asList(Strand.WildType)); // ala
-		flex.put("A3", Arrays.asList(Strand.WildType, "ASP")); // glu
-		flex.put("A4", Arrays.asList(Strand.WildType, "LEU")); // ile
-		flex.put("A5", Arrays.asList(Strand.WildType)); // lys
-		//flex.put("A6", Arrays.asList(Strand.WildType)); // hie
-		//flex.put("A7", Arrays.asList(Strand.WildType)); // tyr
+		flex.put("A2", Arrays.asList(Strand.WildType /* ala */, "GLY"));
+		flex.put("A3", Arrays.asList(Strand.WildType /* glu */, "ASP"));
+		flex.put("A4", Arrays.asList(Strand.WildType /* ile */, "LEU"));
+		flex.put("A5", Arrays.asList(Strand.WildType /* lys */, "ARG"));
+		flex.put("A6", Arrays.asList(Strand.WildType /* hie */, "PHE"));
+		flex.put("A7", Arrays.asList(Strand.WildType /* tyr */, "PHE"));
 		boolean recalc = false;
+
+		// TODO: try to analyze the partial order of seq leaves and trees?
+		// TODO: how good of a partial order is good enough to stop refining?
 
 		// make a conf space
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb"))
@@ -59,6 +64,7 @@ public class NewalgLab {
 		for (Map.Entry<String,List<String>> entry : flex.entrySet()) {
 			strand.flexibility.get(entry.getKey())
 				.setLibraryRotamers(entry.getValue())
+				.addWildTypeRotamers()
 				.setContinuous();
 		}
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
@@ -165,6 +171,17 @@ public class NewalgLab {
 			}
 			*/
 
+			// calc all sequence Z values
+			{
+				List<Sequence> seqs = new ArrayList<>();
+				seqs.add(confSpace.makeWildTypeSequence());
+				seqs.addAll(confSpace.seqSpace.getMutants());
+				for (Sequence seq : seqs) {
+					PfuncCalc pcalc = new PfuncCalc(luteEcalc, pmat, seq.makeRCs(confSpace));
+					log("seq %s:  ln(Z) = %s", seq, dump(pcalc.calc()));
+				}
+			}
+
 			// calc multi-sequence Z tight bounds using the new alg
 			{
 				PfuncCalc pcalc = new PfuncCalc(luteEcalc, pmat);
@@ -174,7 +191,8 @@ public class NewalgLab {
 			}
 
 			// estimate multi-sequence Z bounds using the new alg
-			for (double pruneFactor : Arrays.asList(1.0, 0.9, 0.5, 0.1, 0.01, 0.0)) {
+			//for (double pruneFactor : Arrays.asList(1.0, 0.9, 0.5, 0.1, 0.01, 0.0)) {
+			{ double pruneFactor = 0.5;
 				int depth = confSpace.positions.size();
 				PfuncCalc pcalc = new PfuncCalc(luteEcalc, pmat);
 				Stopwatch sw = new Stopwatch().start();
@@ -197,6 +215,44 @@ public class NewalgLab {
 		}
 		buf.append(']');
 		return buf.toString();
+	}
+
+	private static String dump(ConfIndex index, SimpleConfSpace confSpace) {
+		StringBuilder buf = new StringBuilder();
+		buf.append('[');
+		for (int i=0; i<index.numDefined; i++) {
+
+			if (i > 0) {
+				buf.append(", ");
+			}
+
+			int pos = index.definedPos[i];
+			int rc = index.definedRCs[i];
+			SimpleConfSpace.Position confPos = confSpace.positions.get(pos);
+			SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(rc);
+
+			buf.append(pos);
+			buf.append('=');
+			buf.append(rc);
+			if (confPos.seqPos != null) {
+				buf.append(" ");
+				buf.append(resConf.template.name);
+			}
+		}
+		buf.append(']');
+		return buf.toString();
+	}
+
+	private static Sequence indexToSeq(ConfIndex index, SimpleConfSpace confSpace) {
+		Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
+		for (int i=0; i<index.numDefined; i++) {
+			SimpleConfSpace.Position confPos = confSpace.positions.get(index.definedPos[i]);
+			SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(index.definedRCs[i]);
+			if (confPos.seqPos != null) {
+				seq.set(confPos.seqPos, resConf.template.name);
+			}
+		}
+		return seq;
 	}
 
 	private static String dump(BigDecimal val) {
@@ -377,14 +433,30 @@ public class NewalgLab {
 		private final int numPos;
 		private final RCs rcs;
 
+		private final int[] seqCounts;
+
 		public PfuncCalc(LUTEConfEnergyCalculator luteEcalc, PruningMatrix pmat) {
+			this(luteEcalc, pmat, new RCs(luteEcalc.confSpace));
+		}
+
+		public PfuncCalc(LUTEConfEnergyCalculator luteEcalc, PruningMatrix pmat, RCs rcs) {
 
 			this.luteEcalc = luteEcalc;
 			this.pmat = pmat;
+			this.rcs = rcs;
 
 			this.blute = new BoltzmannLute(luteEcalc, mathContext);
 			this.numPos = luteEcalc.confSpace.positions.size();
-			this.rcs = new RCs(luteEcalc.confSpace);
+
+			// count the number of sequences at each position
+			seqCounts = new int[luteEcalc.confSpace.positions.size()];
+			for (SimpleConfSpace.Position confPos : luteEcalc.confSpace.positions) {
+				if (confPos.seqPos != null) {
+					seqCounts[confPos.index] = confPos.seqPos.resTypes.size();
+				} else {
+					seqCounts[confPos.index] = 1;
+				}
+			}
 		}
 
 		private BigMath bigMath() {
@@ -1125,7 +1197,13 @@ public class NewalgLab {
 						.get();
 
 					maxDepth = Math.min(maxDepth, index.numPos);
-					MathTools.BigDecimalBounds bounds = estimateMultiSequence(index, maxDepth, maxBoundWidth);
+
+					SeqForest seqForest = new SeqForest(luteEcalc.confSpace, mathContext);
+
+					MathTools.BigDecimalBounds bounds = estimateMultiSequence(index, maxDepth, maxBoundWidth, BigDecimal.ONE, seqForest);
+
+					// TEMP
+					log("seq forest:\n%s", seqForest.dump());
 
 					bounds.lower = bigMath()
 						.set(bounds.lower)
@@ -1140,7 +1218,7 @@ public class NewalgLab {
 			}
 		}
 
-		private MathTools.BigDecimalBounds estimateMultiSequence(ConfIndex index, int maxDepth, BigDecimal maxBoundWidth) {
+		private MathTools.BigDecimalBounds estimateMultiSequence(ConfIndex index, int maxDepth, BigDecimal maxBoundWidth, BigDecimal Zancestry, SeqForest seqForest) {
 
 			boolean isRoot = index.numDefined == 0;
 			boolean isRCLeaf = index.numDefined + 1 == index.numPos;
@@ -1165,21 +1243,26 @@ public class NewalgLab {
 				for (int rc : entry.getValue()) {
 
 					// get the Z part added by this rc, if possible
-					BigDecimal zpart;
+					BigDecimal Zpart;
 					if (isRoot) {
 
 						// I AM ROOT
-						zpart = BigDecimal.ONE;
+						Zpart = BigDecimal.ONE;
 
 					} else {
 
-						zpart = getZPart(index, pos, rc);
+						Zpart = getZPart(index, pos, rc);
 
 						// this subtree contributes nothing to Z
-						if (MathTools.isZero(zpart)) {
+						if (MathTools.isZero(Zpart)) {
 							continue;
 						}
 					}
+
+					BigDecimal Zpath = bigMath()
+						.set(Zancestry)
+						.mult(Zpart)
+						.get();
 
 					if (isRCLeaf) {
 
@@ -1188,12 +1271,21 @@ public class NewalgLab {
 						// hit bottom,  just add up the Z part
 						seqbounds.lower = bigMath()
 							.set(seqbounds.lower)
-							.add(zpart)
+							.add(Zpart)
 							.get();
 						seqbounds.upper = bigMath()
 							.set(seqbounds.upper)
-							.add(zpart)
+							.add(Zpart)
 							.get();
+
+						// add the leaf node to the sequence forest
+						BigDecimal val = bigMath()
+							.set(Zpath)
+							.mult(blute.factor)
+							.get();
+						index.assignInPlace(pos, rc);
+						seqForest.addLeaf(index, val);
+						index.unassignInPlace(pos);
 
 					} else {
 
@@ -1219,6 +1311,7 @@ public class NewalgLab {
 						BigDecimal boundWidth = bigMath()
 							.set(rcbounds.upper)
 							.sub(rcbounds.lower)
+							.mult(Zpath)
 							.get();
 						boolean isBoundTooWide = MathTools.isGreaterThanOrEqual(boundWidth, maxBoundWidth);
 
@@ -1230,16 +1323,16 @@ public class NewalgLab {
 
 							// yup, recurse
 							index.assignInPlace(pos, rc);
-							MathTools.BigDecimalBounds subbounds = estimateMultiSequence(index, maxDepth, maxBoundWidth);
+							MathTools.BigDecimalBounds subbounds = estimateMultiSequence(index, maxDepth, maxBoundWidth, Zpath, seqForest);
 							index.unassignInPlace(pos);
 
 							seqbounds.lower = bigMath()
-								.set(zpart)
+								.set(Zpart)
 								.mult(subbounds.lower)
 								.add(seqbounds.lower)
 								.get();
 							seqbounds.upper = bigMath()
-								.set(zpart)
+								.set(Zpart)
 								.mult(subbounds.upper)
 								.add(seqbounds.upper)
 								.get();
@@ -1248,15 +1341,32 @@ public class NewalgLab {
 
 							// nope, just use the bound
 							seqbounds.lower = bigMath()
-								.set(zpart)
+								.set(Zpart)
 								.mult(rcbounds.lower)
 								.add(seqbounds.lower)
 								.get();
 							seqbounds.upper = bigMath()
-								.set(zpart)
+								.set(Zpart)
 								.mult(rcbounds.upper)
 								.add(seqbounds.upper)
 								.get();
+
+							// add the tree to the sequence forest
+							MathTools.BigDecimalBounds bounds = new MathTools.BigDecimalBounds(
+								bigMath()
+									.set(rcbounds.lower)
+									.mult(Zpath)
+									.mult(blute.factor)
+									.get(),
+								bigMath()
+									.set(rcbounds.upper)
+									.mult(Zpath)
+									.mult(blute.factor)
+									.get()
+							);
+							index.assignInPlace(pos, rc);
+							seqForest.addTree(index, bounds);
+							index.unassignInPlace(pos);
 						}
 					}
 				}
@@ -1371,6 +1481,150 @@ public class NewalgLab {
 					queue.add(child);
 				}
 			}
+		}
+	}
+
+	public static class SeqForest {
+
+		public final SimpleConfSpace confSpace;
+		public final MathContext mathContext;
+
+		private final HashMap<Sequence, MathTools.BigDecimalBounds> trees = new HashMap<>();
+
+		public SeqForest(SimpleConfSpace confSpace, MathContext mathContext) {
+			this.confSpace = confSpace;
+			this.mathContext = mathContext;
+		}
+
+		private BigMath bigMath(BigDecimal val) {
+			return new BigMath(mathContext).set(val);
+		}
+
+		private void updateBounds(ConfIndex index, Consumer<MathTools.BigDecimalBounds> f) {
+			Sequence seq = indexToSeq(index, confSpace);
+			MathTools.BigDecimalBounds bounds = trees.computeIfAbsent(seq, s ->
+				new MathTools.BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO)
+			);
+			f.accept(bounds);
+			trees.put(seq, bounds);
+		}
+
+		public void addLeaf(ConfIndex index, BigDecimal Z) {
+			updateBounds(index, bounds -> {
+				bounds.lower = bigMath(bounds.lower).add(Z).get();
+				bounds.upper = bigMath(bounds.upper).add(Z).get();
+			});
+		}
+
+		public void addTree(ConfIndex index, MathTools.BigDecimalBounds Z) {
+			updateBounds(index, bounds -> {
+				bounds.lower = bigMath(bounds.lower).add(Z.lower).get();
+				bounds.upper = bigMath(bounds.upper).add(Z.upper).get();
+			});
+		}
+
+		public String dump() {
+			StringBuilder buf = new StringBuilder();
+
+			// count full sequences
+			long numSequences = trees.keySet().stream()
+				.filter(s -> s.isFullyAssigned())
+				.count();
+			buf.append(String.format("%d / %s sequences",
+				numSequences,
+				Log.formatBig(new RTs(confSpace.seqSpace).getNumSequences()))
+			);
+
+			// list all the Z bounds
+			for (Map.Entry<Sequence, MathTools.BigDecimalBounds> entry : trees.entrySet()) {
+				Sequence seq = entry.getKey();
+				MathTools.BigDecimalBounds bounds = entry.getValue();
+
+				if (buf.length() > 0) {
+					buf.append("\n");
+				}
+
+				if (seq.isFullyAssigned()) {
+
+					// full sequence
+					MathTools.BigDecimalBounds fullBounds = new MathTools.BigDecimalBounds(bounds);
+					for (Sequence a : getAncestors(seq)) {
+						MathTools.BigDecimalBounds abounds = trees.get(a);
+						fullBounds.lower = bigMath(fullBounds.lower)
+							.add(abounds.lower)
+							.get();
+						fullBounds.upper = bigMath(fullBounds.upper)
+							.add(abounds.upper)
+							.get();
+					}
+
+					buf.append(String.format("partial=%s full=%s [%s]", NewalgLab.dump(bounds), NewalgLab.dump(fullBounds), seq));
+
+				} else {
+
+					// partial sequence
+					buf.append(String.format("bounds=%s %s unseen sequences prefixed with [%s]",
+						NewalgLab.dump(bounds),
+						numUnseenDescendents(seq),
+						seq
+					));
+				}
+			}
+			return buf.toString();
+		}
+
+		private List<Sequence> getAncestors(Sequence seq) {
+			return trees.keySet().stream()
+				.filter(s -> isAncestor(s, seq))
+				.collect(Collectors.toList());
+		}
+
+		private List<Sequence> getDescendents(Sequence seq) {
+			return trees.keySet().stream()
+				.filter(s -> isDescendent(s, seq))
+				.collect(Collectors.toList());
+		}
+
+		private List<Sequence> getAncestorsAndDescendents(Sequence seq) {
+			return trees.keySet().stream()
+				.filter(s -> isAncestor(s, seq) || isDescendent(s, seq))
+				.collect(Collectors.toList());
+		}
+
+		private boolean isAncestor(Sequence ancestor, Sequence descendent) {
+			if (ancestor.countAssignments() >= descendent.countAssignments()) {
+				return false;
+			}
+			for (SeqSpace.Position pos : confSpace.seqSpace.positions) {
+				if (ancestor.isAssigned(pos)) {
+					if (ancestor.get(pos) != descendent.get(pos)) {
+						return false;
+					}
+				}
+			}
+			return true;
+		}
+
+		private boolean isDescendent(Sequence descendent, Sequence ancestor) {
+			return isAncestor(ancestor, descendent);
+		}
+
+		private BigInteger numSequences(Sequence seq) {
+			BigInteger count = BigInteger.ONE;
+			for (SeqSpace.Position pos : confSpace.seqSpace.positions) {
+				if (!seq.isAssigned(pos)) {
+					count = count.multiply(BigInteger.valueOf(pos.resTypes.size()));
+				}
+			}
+			return count;
+		}
+
+		private BigInteger numUnseenDescendents(Sequence seq) {
+			BigInteger count = numSequences(seq);
+			for (Sequence descendent : getDescendents(seq)) {
+				count = count.subtract(numUnseenDescendents(descendent));
+			}
+			return count;
 		}
 	}
 }

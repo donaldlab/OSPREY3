@@ -776,6 +776,10 @@ public class MathTools {
 			this(BigNegativeInfinity, BigPositiveInfinity);
 		}
 
+		public BigDecimalBounds(BigDecimalBounds other) {
+			this(other.lower, other.upper);
+		}
+
 		public BigDecimalBounds(BigDecimal lower, BigDecimal upper) {
 			this.lower = lower;
 			this.upper = upper;
