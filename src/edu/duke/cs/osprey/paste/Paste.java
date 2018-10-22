@@ -422,7 +422,6 @@ public class Paste {
 
 
         // compute wild type partition functions first (always at pos 0)
-        System.out.println(JvmMem.getOldPool());
         PastePartitionFunction.Result wtResult = protein.calcPfunc(0, BigDecimal.ZERO, null);
         wtResult.clearSomeResults();
 
@@ -436,8 +435,6 @@ public class Paste {
 
             scorer.score(i, proteinResult, wtResult);
             proteinResult.clearSomeResults();
-
-            System.out.println(JvmMem.getOldPool());
 
         }
     }
