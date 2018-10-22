@@ -35,11 +35,14 @@ package edu.duke.cs.osprey.paste;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.ewakstar.EWAKStarGradientDescentPfunc;
+import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.tools.JvmMem;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -277,7 +280,7 @@ public class Paste {
             pfuncResults.clear();
         }
 
-        public PastePartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, ConfDB confDB, PastePartitionFunction.Result wtResult) {
+        public PastePartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, PastePartitionFunction.Result wtResult) {
 
             Sequence sequence = sequences.get(sequenceIndex).filter(confSpace.seqSpace);
 
@@ -292,9 +295,6 @@ public class Paste {
             // make the partition function
             PastePartitionFunction pfunc = new PasteGradientDescentPfunc(confEcalc);
             pfunc.setReportProgress(settings.showPfuncProgress);
-            if (confDB != null) {
-                PastePartitionFunction.WithConfTable.setOrThrow(pfunc, confDB.getSequence(sequence));
-            }
             RCs rcs = sequence.makeRCs(confSpace);
             if (settings.useExternalMemory) {
                 PastePartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
@@ -309,7 +309,8 @@ public class Paste {
 
             // save the result
             result = pfunc.makeResult();
-            pfuncResults.put(sequence, result);
+
+            //pfuncResults.put(sequence, result);
 
 			/* HACKHACK: we're done using the A* tree, pfunc, etc
 				and normally the garbage collector will clean them up,
@@ -319,6 +320,7 @@ public class Paste {
 				we might run out. So poke the garbage collector now and try to get
 				it to clean up the off-heap resources right away.
 			*/
+
             Runtime.getRuntime().gc();
 
             return result;
@@ -351,13 +353,7 @@ public class Paste {
         return Arrays.asList(protein);
     }
 
-    public ConfSpaceInfo getConfSpaceInfo() {
-
-        return protein;
-
-    }
-
-    public List<ScoredSequence> run() {
+    public void run() {
 
         // check the conf space infos to make sure we have all the inputs
         protein.check();
@@ -383,11 +379,11 @@ public class Paste {
             PasteScore pasteScore;
             // compute the ddG PAStE score
             if (sequenceNumber == 0){
-                pasteScore = new PasteScore(complexResult);
+                pasteScore = null;
             } else
                 pasteScore = new PasteScore(complexResult, wtResult);
             Sequence sequence = sequences.get(sequenceNumber);
-            scores.add(new ScoredSequence(sequence, pasteScore));
+            //scores.add(new ScoredSequence(sequence, pasteScore));
 
             // report scores
             settings.scoreWriters.writeScore(new PasteScoreWriter.ScoreInfo(
@@ -397,6 +393,26 @@ public class Paste {
                     pasteScore
             ));
 
+            if(pasteScore.stability.equals("Mutation Increases Stability") || pasteScore.stability.equals("Affect on Stability Unclear")) {
+                Iterator<EnergyCalculator.EnergiedParametricMolecule> econfs = complexResult.epMols.iterator();
+                HashMap<Double, ConfSearch.ScoredConf> sconfs = complexResult.sConfs;
+
+                // return the analysis
+                ConfAnalyzer analyzer = new ConfAnalyzer(protein.confEcalc);
+                ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(sconfs, econfs, 10);
+                String pdbString = "pdbs";
+                File pdbDir = new File(pdbString);
+                if (!pdbDir.exists()) {
+                    pdbDir.mkdir();
+                }
+                String seqDir = sequences.get(sequenceNumber).toString().replaceAll(" ", "_");
+                File directory = new File(pdbString + "/" + seqDir);
+                if (!directory.exists()) {
+                    directory.mkdir();
+                }
+                analysis.writePdbs(pdbString + "/" + seqDir + "/conf.*.pdb");
+            }
+
             return pasteScore;
         };
 
@@ -404,25 +420,25 @@ public class Paste {
         settings.scoreWriters.writeHeader();
         // TODO: progress bar?
 
-        // open the conf databases if needed
-        try (ConfDB.DBs confDBs = new ConfDB.DBs()
-                .add(protein.confSpace, protein.confDBFile)
-        ) {
-            ConfDB proteinConfDB = confDBs.get(protein.confSpace);
 
-            // compute wild type partition functions first (always at pos 0)
-            PastePartitionFunction.Result wtResult = protein.calcPfunc(0, BigDecimal.ZERO, proteinConfDB, null);
+        // compute wild type partition functions first (always at pos 0)
+        System.out.println(JvmMem.getOldPool());
+        PastePartitionFunction.Result wtResult = protein.calcPfunc(0, BigDecimal.ZERO, null);
+        wtResult.clearSomeResults();
 
-            // compute all the partition functions and K* scores for the rest of the sequences
-            for (int i=1; i<n; i++) {
+        // compute all the partition functions and K* scores for the rest of the sequences
+        for (int i=1; i<n; i++) {
 
-                // get the pfuncs, with short circuits as needed
-                final PastePartitionFunction.Result proteinResult = protein.calcPfunc(i, null, proteinConfDB, wtResult);
+            System.out.println(JvmMem.getOldPool());
 
-                scorer.score(i, proteinResult, wtResult);
-            }
+            // get the pfuncs, with short circuits as needed
+            final PastePartitionFunction.Result proteinResult = protein.calcPfunc(i, null, wtResult);
+
+            scorer.score(i, proteinResult, wtResult);
+            proteinResult.clearSomeResults();
+
+            System.out.println(JvmMem.getOldPool());
+
         }
-
-        return scores;
     }
 }

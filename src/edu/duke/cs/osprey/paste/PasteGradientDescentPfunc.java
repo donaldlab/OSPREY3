@@ -119,9 +119,9 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 				.get();
 		}
 
-		boolean noWindowOverlaps (PastePartitionFunction.Result wt){
+		boolean noWindowOverlaps (PastePartitionFunction.Result wt, long numConfs){
 
-			if (wt != null) {
+			if (wt != null && numConfs >= 10) {
 
 				double lowerBoundScore = constRT * Math.log(new BigMath(PastePartitionFunction.decimalPrecision)
 						.set(getUpperBound())
@@ -324,7 +324,7 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 				if(wtResult!=null) {
 					keepStepping = keepStepping
 							&& !state.epsilonReached(targetEpsilon)
-							&& !state.noWindowOverlaps(wtResult)
+							&& !state.noWindowOverlaps(wtResult, numEnergyConfsEnumerated)
 							&& state.isStable(stabilityThreshold)
 							&& state.hasLowEnergies()
 							&& !state.energyReached(targetEnergy);
@@ -490,7 +490,7 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 			status = Status.EpsilonReached;
 		}
 
-		if (wtResult!=null && state.noWindowOverlaps(wtResult)){
+		if (wtResult!=null && state.noWindowOverlaps(wtResult, numEnergyConfsEnumerated)){
 			status = Status.NoWindowOverlap;
 		}
 

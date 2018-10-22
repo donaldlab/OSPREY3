@@ -135,6 +135,11 @@ public interface PastePartitionFunction {
 			this.numConfs = numConfs;
 		}
 
+		public void clearSomeResults(){
+			this.epMols.clear();
+			this.sConfs.clear();
+		}
+
 		@Override
 		public String toString() {
 			Function<String,String> trim = (s) -> {
