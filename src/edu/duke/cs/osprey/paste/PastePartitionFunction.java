@@ -182,8 +182,10 @@ public interface PastePartitionFunction {
 	 * @param targetEpsilon The accuracy with which to estimate the partition function.
 	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
 	 *                               including any conformations removed by pruned tuples.
+	 * @param useWindowCriterion True if you want to stop calculating when the lower/upper bounds do not overlap with the
+	 *                           WT lower/upper bounds, otherwise false (you then calculate to epsilon)
 	 */
-	void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy, PastePartitionFunction.Result wtResult);
+	void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy, PastePartitionFunction.Result wtResult, boolean useWindowCriterion);
 
 	/**
 	 * Sets the stability threshold for this PartitionFunction, if supported

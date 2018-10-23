@@ -810,7 +810,7 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
 	return bbflex
 
-def Paste(complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, maxNumPfConfs=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault):
+def Paste(complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, useWindowCriterion=useJavaDefault, maxNumPfConfs=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, mutFile=useJavaDefault):
     '''
     :java:classdoc:`.paste.Paste`
 
@@ -824,6 +824,8 @@ def Paste(complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDe
 	:builder_option maxNumPfConfs .paste.Paste$Settings$Builder#maxNumPfConfs:
 	:builder_option useExternalMemory .paste.Paste$Settings$Builder#useExternalMemory:
 	:builder_option showPfuncProgress .paste.Paste$Settings$Builder#showPfuncProgress:
+	:builder_option useWindowCriterion .paste.Paste$Settings$Builder#useWindowCriterion:
+	:param str addMutFile: Path to the file that has the mutant sequences of interest
 	:param bool writeSequencesToConsole: True to write sequences and scores to the console
 	:param str writeSequencesToFile: Path to the log file to write sequences scores (in TSV format), or None to skip logging
 
@@ -832,6 +834,10 @@ def Paste(complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDe
 
     # build settings
     settingsBuilder = _get_builder(jvm.getInnerClass(c.paste.Paste, 'Settings'))()
+    if useWindowCriterion is not useJavaDefault:
+        settingsBuilder.setUseWindowCriterion(useWindowCriterion)
+    if mutFile is not useJavaDefault:
+        settingsBuilder.addMutFile(jvm.toFile(mutFile))
     if epsilon is not useJavaDefault:
         settingsBuilder.setEpsilon(epsilon)
 	if stabilityThreshold is not useJavaDefault:

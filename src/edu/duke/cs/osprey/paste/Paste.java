@@ -86,6 +86,19 @@ public class Paste {
             private int maxNumPfConfs = 5000;
 
             /**
+             * decide if you want to stop calculating a partition function when the upper/lower bounds no longer
+             * overlap with the WT upper/lower bounds
+             */
+
+            private boolean useWindowCriterion = true;
+
+            /**
+             * read in desired mutated sequences from a file
+             */
+
+            private File mutFile = null;
+
+            /**
              * Pruning criteria to remove sequences with unstable unbound states relative to the wild type sequence.
              * Defined in units of kcal/mol.
              *
@@ -123,6 +136,11 @@ public class Paste {
 
             public Builder setPfConfs (int val){
                 maxNumPfConfs = val;
+                return this;
+            }
+
+            public Builder setUseWindowCriterion(boolean val){
+                useWindowCriterion = val;
                 return this;
             }
 
@@ -175,6 +193,12 @@ public class Paste {
                 return addScoreFileWriter(file, new PasteScoreWriter.Formatter.Log());
             }
 
+
+            public Builder addMutFile(File file){
+                mutFile = file;
+                return this;
+            }
+
             public Builder setShowPfuncProgress(boolean val) {
                 showPfuncProgress = val;
                 return this;
@@ -186,10 +210,11 @@ public class Paste {
             }
 
             public Settings build() {
-                return new Settings(epsilon, eW, maxNumPfConfs, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory);
+                return new Settings(epsilon, eW, maxNumPfConfs, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory, useWindowCriterion, mutFile);
             }
         }
 
+        public final File mutFile;
         public final double epsilon;
         public final Double stabilityThreshold;
         public final int maxSimultaneousMutations;
@@ -198,9 +223,10 @@ public class Paste {
         public final boolean useExternalMemory;
         public final double eW;
         public final int maxNumPfConfs;
+        public final boolean useWindowCriterion;
 
 
-        public Settings(double epsilon, double eW, int maxNumPfConfs, Double stabilityThreshold, int maxSimultaneousMutations, PasteScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory) {
+        public Settings(double epsilon, double eW, int maxNumPfConfs, Double stabilityThreshold, int maxSimultaneousMutations, PasteScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory, boolean useWindowCriterion, File mutFile) {
             this.eW = eW;
             this.maxNumPfConfs = maxNumPfConfs;
             this.epsilon = epsilon;
@@ -209,6 +235,8 @@ public class Paste {
             this.scoreWriters = scoreWriters;
             this.showPfuncProgress = dumpPfuncConfs;
             this.useExternalMemory = useExternalMemory;
+            this.useWindowCriterion = useWindowCriterion;
+            this.mutFile = mutFile;
         }
     }
 
@@ -255,8 +283,6 @@ public class Paste {
         public final ConfSpaceType type;
         public final String id;
 
-        public final Map<Sequence,PastePartitionFunction.Result> pfuncResults = new HashMap<>();
-
         public ConfEnergyCalculator confEcalc = null;
         public ConfSearchFactory confSearchFactory = null;
         public File confDBFile = null;
@@ -276,19 +302,9 @@ public class Paste {
             }
         }
 
-        public void clear() {
-            pfuncResults.clear();
-        }
-
         public PastePartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, PastePartitionFunction.Result wtResult) {
 
             Sequence sequence = sequences.get(sequenceIndex).filter(confSpace.seqSpace);
-
-            // check the cache first
-            PastePartitionFunction.Result result = pfuncResults.get(sequence);
-            if (result != null) {
-                return result;
-            }
 
             // cache miss, need to compute the partition function
 
@@ -301,14 +317,14 @@ public class Paste {
             }
             ConfSearch astar = confSearchFactory.make(rcs);
             ConfSearch astar2 = confSearchFactory.make(rcs);
-            pfunc.init(astar, astar2, rcs.getNumConformations(), settings.epsilon, settings.eW, wtResult);
+            pfunc.init(astar, astar2, rcs.getNumConformations(), settings.epsilon, settings.eW, wtResult, settings.useWindowCriterion);
             pfunc.setStabilityThreshold(stabilityThreshold);
 
             // compute it
             pfunc.compute(settings.maxNumPfConfs);
 
             // save the result
-            result = pfunc.makeResult();
+            PastePartitionFunction.Result result = pfunc.makeResult();
 
             //pfuncResults.put(sequence, result);
 
@@ -360,13 +376,16 @@ public class Paste {
 
         // reset any previous state
         sequences.clear();
-        protein.clear();
 
         List<ScoredSequence> scores = new ArrayList<>();
 
         // collect all the sequences explicitly
         sequences.add(protein.confSpace.seqSpace.makeWildTypeSequence());
-        sequences.addAll(protein.confSpace.seqSpace.getMutants(settings.maxSimultaneousMutations, true));
+        if(settings.mutFile.equals(null)) {
+            sequences.addAll(protein.confSpace.seqSpace.getMutants(settings.maxSimultaneousMutations, true));
+        } else {
+            sequences.addAll(protein.confSpace.seqSpace.getMutants(settings.mutFile));
+        }
 
         // TODO: sequence filtering? do we need to reject some mutation combinations for some reason?
 
@@ -427,8 +446,6 @@ public class Paste {
 
         // compute all the partition functions and K* scores for the rest of the sequences
         for (int i=1; i<n; i++) {
-
-            System.out.println(JvmMem.getOldPool());
 
             // get the pfuncs, with short circuits as needed
             final PastePartitionFunction.Result proteinResult = protein.calcPfunc(i, null, wtResult);

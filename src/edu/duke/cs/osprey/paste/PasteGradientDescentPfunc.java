@@ -196,6 +196,7 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 	private long numEnergyConfsEnumerated = 0;
 	private long numScoreConfsEnumerated = 0;
 
+	private boolean useWindowCriterion;
 	private PastePartitionFunction.Result wtResult = null;
 
 	private ConfDB.ConfTable confTable = null;
@@ -265,12 +266,13 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 	}
 
 	@Override
-	public void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy, PastePartitionFunction.Result wtResult) {
+	public void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy, PastePartitionFunction.Result wtResult, boolean useWindowCriterion) {
 
 		if (targetEpsilon <= 0.0 || targetEnergy < 0) {
 			throw new IllegalArgumentException("target epsilon and target energy must be greater than zero");
 		}
 
+		this.useWindowCriterion = useWindowCriterion;
 		this.wtResult = wtResult;
 		this.energyConfs = energyConfs;
 		this.targetEpsilon = targetEpsilon;
@@ -321,7 +323,7 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 
 				// should we even keep stepping?
 
-				if(wtResult!=null) {
+				if(wtResult!=null && useWindowCriterion) {
 					keepStepping = keepStepping
 							&& !state.epsilonReached(targetEpsilon)
 							&& !state.noWindowOverlaps(wtResult, numEnergyConfsEnumerated)
@@ -490,7 +492,7 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 			status = Status.EpsilonReached;
 		}
 
-		if (wtResult!=null && state.noWindowOverlaps(wtResult, numEnergyConfsEnumerated)){
+		if (useWindowCriterion && wtResult!=null && state.noWindowOverlaps(wtResult, numEnergyConfsEnumerated)){
 			status = Status.NoWindowOverlap;
 		}
 
