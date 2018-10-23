@@ -784,6 +784,24 @@ public class MathTools {
 			this.lower = lower;
 			this.upper = upper;
 		}
+
+		@Override
+		public boolean equals(Object other) {
+			return other instanceof BigDecimalBounds && equals((BigDecimalBounds)other);
+		}
+
+		public boolean equals(BigDecimalBounds other) {
+			return MathTools.isSameValue(this.lower, other.lower)
+				&& MathTools.isSameValue(this.upper, other.upper);
+		}
+
+		@Override
+		public int hashCode() {
+			return HashCalculator.combineHashes(
+				lower.hashCode(),
+				upper.hashCode()
+			);
+		}
 	}
 
 	public static class BigIntegerBounds {

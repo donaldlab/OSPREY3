@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.kstar;
 
 
+import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -18,6 +19,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.sofea.SeqDB;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.*;
 
@@ -171,6 +173,7 @@ public class NewalgLab {
 			}
 			*/
 
+			/* TEMP
 			// calc all sequence Z values
 			{
 				List<Sequence> seqs = new ArrayList<>();
@@ -181,6 +184,7 @@ public class NewalgLab {
 					log("seq %s:  ln(Z) = %s", seq, dump(pcalc.calc()));
 				}
 			}
+			*/
 
 			// calc multi-sequence Z tight bounds using the new alg
 			{
@@ -190,6 +194,7 @@ public class NewalgLab {
 				log("NewAlg:      %9s   ln(Z) in %s", sw.stop().getTime(2), dump(Zbounds));
 			}
 
+			/* TEMP
 			// estimate multi-sequence Z bounds using the new alg
 			//for (double pruneFactor : Arrays.asList(1.0, 0.9, 0.5, 0.1, 0.01, 0.0)) {
 			{ double pruneFactor = 0.5;
@@ -199,6 +204,7 @@ public class NewalgLab {
 				MathTools.BigDecimalBounds Zbounds = pcalc.estimateMultiSequence(depth, pruneFactor);
 				log("NewAlg %4.2f:   %9s   ln(Z) in %s", pruneFactor, sw.stop().getTime(2), dump(Zbounds));
 			}
+			*/
 		}
 	}
 
@@ -255,7 +261,7 @@ public class NewalgLab {
 		return seq;
 	}
 
-	private static String dump(BigDecimal val) {
+	public static String dump(BigDecimal val) {
 		if (val == null) {
 			return "null";
 		}
@@ -268,7 +274,7 @@ public class NewalgLab {
 		//return String.format("%e", val);
 	}
 
-	private static String dump(MathTools.BigDecimalBounds values) {
+	public static String dump(MathTools.BigDecimalBounds values) {
 		return String.format("[%-9s,%9s]",
 			dump(values.lower),
 			dump(values.upper)
@@ -361,7 +367,7 @@ public class NewalgLab {
 
 		public final LUTEConfEnergyCalculator luteEcalc;
 
-		private final BigDecimal factor;
+		public final BigDecimal factor;
 		private final BigDecimal[] values;
 
 		public BoltzmannLute(LUTEConfEnergyCalculator luteEcalc, MathContext mathContext) {
