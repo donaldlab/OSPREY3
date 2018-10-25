@@ -381,7 +381,7 @@ public class Paste {
 
         // collect all the sequences explicitly
         sequences.add(protein.confSpace.seqSpace.makeWildTypeSequence());
-        if(settings.mutFile.equals(null)) {
+        if(settings.mutFile==null) {
             sequences.addAll(protein.confSpace.seqSpace.getMutants(settings.maxSimultaneousMutations, true));
         } else {
             sequences.addAll(protein.confSpace.seqSpace.getMutants(settings.mutFile));
