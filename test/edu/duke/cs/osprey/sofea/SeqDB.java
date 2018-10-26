@@ -1,12 +1,15 @@
 package edu.duke.cs.osprey.sofea;
 
 import static edu.duke.cs.osprey.tools.Log.log;
+import static edu.duke.cs.osprey.tools.Log.logf;
 import static edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.tools.BigMath;
+import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.IntEncoding;
 import edu.duke.cs.osprey.tools.MathTools;
 import org.jetbrains.annotations.NotNull;
@@ -25,14 +28,41 @@ import java.util.function.Consumer;
 
 public class SeqDB implements AutoCloseable {
 
-	public class SeqInfo {
+	private static class SeqInfo {
 
-		public final Sequence seq;
-		public final BigDecimalBounds bounds;
+		public final BigDecimalBounds[] bounds;
 
-		public SeqInfo(Sequence seq, BigDecimalBounds bounds) {
-			this.seq = seq;
-			this.bounds = bounds;
+		public SeqInfo(int numBounds) {
+			this.bounds = new BigDecimalBounds[numBounds];
+		}
+
+		public void setZero() {
+			for (int i=0; i<bounds.length; i++) {
+				bounds[i] = new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
+			}
+		}
+
+		public boolean isZero() {
+			for (BigDecimalBounds b : bounds) {
+				if (!MathTools.isZero(b.lower) || !MathTools.isZero(b.upper)) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		@Override
+		public int hashCode() {
+			return HashCalculator.combineObjHashes(bounds);
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			return other instanceof SeqInfo && equals((SeqInfo)other);
+		}
+
+		public boolean equals(SeqInfo other) {
+			return Arrays.equals(this.bounds, other.bounds);
 		}
 	}
 
@@ -211,19 +241,64 @@ public class SeqDB implements AutoCloseable {
 		}
 	}
 
+	private static class SeqInfoSerializer extends SimpleSerializer<SeqInfo> {
 
-	public final SimpleConfSpace confSpace;
+		private final int numBounds;
+
+		private final BigDecimalBoundsSerializer s = new BigDecimalBoundsSerializer();
+
+		public SeqInfoSerializer(int numBounds) {
+			this.numBounds = numBounds;
+		}
+
+		@Override
+		public void serialize(@NotNull DataOutput2 out, @NotNull SeqInfo data)
+		throws IOException {
+			for (int i=0; i<numBounds; i++) {
+				s.serialize(out, data.bounds[i]);
+			}
+		}
+
+		@Override
+		public SeqInfo deserialize(@NotNull DataInput2 in, int available)
+		throws IOException {
+			SeqInfo data = new SeqInfo(numBounds);
+			for (int i=0; i<numBounds; i++) {
+				data.bounds[i] = s.deserialize(in, available);
+			}
+			return data;
+		}
+
+		@Override
+		public int compare(SeqInfo a, SeqInfo b) {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public boolean equals(SeqInfo a, SeqInfo b) {
+			return a.equals(b);
+		}
+
+		@Override
+		public int hashCode(@NotNull SeqInfo data, int seed) {
+			return DataIO.intHash(data.hashCode() + seed);
+		}
+	}
+
+
+	public final MultiStateConfSpace confSpace;
 	public final MathContext mathContext;
 	public final File file;
 
 	private final DB db;
-	private final HTreeMap<int[],BigDecimalBounds> sequences;
+	private final HTreeMap<int[],SeqInfo> sequencedBounds;
+	private final HTreeMap<Integer,BigDecimalBounds> unsequencedBounds;
 
-	public SeqDB(SimpleConfSpace confSpace, MathContext mathContext) {
+	public SeqDB(MultiStateConfSpace confSpace, MathContext mathContext) {
 		this(confSpace, mathContext, null);
 	}
 
-	public SeqDB(SimpleConfSpace confSpace, MathContext mathContext, File file) {
+	public SeqDB(MultiStateConfSpace confSpace, MathContext mathContext, File file) {
 
 		this.confSpace = confSpace;
 		this.mathContext = mathContext;
@@ -243,15 +318,21 @@ public class SeqDB implements AutoCloseable {
 		}
 
 		// open the tables
-		sequences = db.hashMap("sequences")
+
+		sequencedBounds = db.hashMap("sequenced-bounds")
 			.keySerializer(new IntArraySerializer(
 				confSpace.seqSpace.positions.stream()
 					.flatMap(pos -> pos.resTypes.stream())
 					.mapToInt(resType -> resType.index)
 					.max()
 					.orElse(-1),
-				confSpace.positions.size()
+				confSpace.seqSpace.positions.size()
 			))
+			.valueSerializer(new SeqInfoSerializer(confSpace.sequencedStates.size()))
+			.createOrOpen();
+
+		unsequencedBounds = db.hashMap("unsequenced-bounds")
+			.keySerializer(Serializer.INTEGER)
 			.valueSerializer(new BigDecimalBoundsSerializer())
 			.createOrOpen();
 	}
@@ -262,44 +343,74 @@ public class SeqDB implements AutoCloseable {
 
 	// TODO: aggregate writes in memory before hitting the DB?
 
-	private Sequence makeSeq(ConfIndex index) {
+	private Sequence makeSeq(MultiStateConfSpace.State state, ConfIndex index) {
 		Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
 		for (int i=0; i<index.numDefined; i++) {
-			SimpleConfSpace.Position confPos = confSpace.positions.get(index.definedPos[i]);
+			SimpleConfSpace.Position confPos = state.confSpace.positions.get(index.definedPos[i]);
 			SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(index.definedRCs[i]);
 			if (confPos.seqPos != null) {
-				seq.set(confPos.seqPos, resConf.template.name);
+				// TODO: could try to precalc all these lookups?
+				seq.set(confPos.resNum, resConf.template.name);
 			}
 		}
 		return seq;
 	}
 
-	private void updateSeqZ(Sequence seq, Consumer<BigDecimalBounds> f) {
+	private void updateSeqZ(MultiStateConfSpace.State state, ConfIndex index, Consumer<BigDecimalBounds> f) {
 
-		// get the existing bounds, or a [0,0] bound
-		BigDecimalBounds bounds = sequences.get(seq.rtIndices);
-		if (bounds == null) {
-			bounds = new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
-		}
+		if (state.isSequenced) {
 
-		// apply the modification
-		f.accept(bounds);
+			Sequence seq = makeSeq(state, index);
 
-		// did we end up with [0,0] again?
-		if (MathTools.isZero(bounds.lower) && MathTools.isZero(bounds.upper)) {
+			// get the existing bounds, or a [0,0] bound
+			SeqInfo seqInfo = sequencedBounds.get(seq.rtIndices);
+			if (seqInfo == null) {
+				seqInfo = new SeqInfo(confSpace.sequencedStates.size());
+				seqInfo.setZero();
+			}
 
-			// yup, just delete the whole record. no need to store [0,0] bounds
-			sequences.remove(seq.rtIndices);
+			// apply the modification to the state bounds
+			BigDecimalBounds bounds = seqInfo.bounds[state.sequencedIndex];
+			f.accept(bounds);
+
+			// did we end up with [0,0] again?
+			if (seqInfo.isZero()) {
+
+				// yup, just delete the whole record. no need to store [0,0] bounds
+				sequencedBounds.remove(seq.rtIndices);
+
+			} else {
+
+				// otherwise, update the db
+				sequencedBounds.put(seq.rtIndices, seqInfo);
+			}
 
 		} else {
 
-			// otherwise, update the db
-			sequences.put(seq.rtIndices, bounds);
+			BigDecimalBounds bounds = unsequencedBounds.get(state.index);
+			if (bounds == null) {
+				bounds = new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
+			}
+
+			// apply the modification
+			f.accept(bounds);
+
+			// did we end up with [0,0] again?
+			if (MathTools.isZero(bounds.lower) && MathTools.isZero(bounds.upper)) {
+
+				// yup, just delete the whole record. no need to store [0,0] bounds
+				unsequencedBounds.remove(state.index);
+
+			} else {
+
+				// otherwise, update the db
+				unsequencedBounds.put(state.index, bounds);
+			}
 		}
 	}
 
-	public void addSeqZ(ConfIndex index, BigDecimal Z) {
-		updateSeqZ(makeSeq(index), bounds -> {
+	public void addSeqZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimal Z) {
+		updateSeqZ(state, index, bounds -> {
 			bounds.lower = bigMath()
 			.set(bounds.lower)
 				.add(Z)
@@ -311,8 +422,8 @@ public class SeqDB implements AutoCloseable {
 		});
 	}
 
-	public void addSeqZ(ConfIndex index, BigDecimalBounds Z) {
-		updateSeqZ(makeSeq(index), bounds -> {
+	public void addSeqZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds Z) {
+		updateSeqZ(state, index, bounds -> {
 			bounds.lower = bigMath()
 				.set(bounds.lower)
 				.add(Z.lower)
@@ -324,8 +435,8 @@ public class SeqDB implements AutoCloseable {
 		});
 	}
 
-	public void subSeqZ(ConfIndex index, BigDecimalBounds Z) {
-		updateSeqZ(makeSeq(index), bounds -> {
+	public void subSeqZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds Z) {
+		updateSeqZ(state, index, bounds -> {
 			bounds.lower = bigMath()
 				.set(bounds.lower)
 				.sub(Z.lower)
@@ -351,10 +462,20 @@ public class SeqDB implements AutoCloseable {
 	// TEMP
 	public void dump() {
 		log("Seq DB raw:");
-		for (Map.Entry<int[],BigDecimalBounds> entry : sequences.getEntries()) {
+		log("\tunsequenced states:");
+		for (Map.Entry<Integer,BigDecimalBounds> entry : unsequencedBounds.getEntries()) {
+			MultiStateConfSpace.State state = confSpace.states.get(entry.getKey());
+			log("\t\t%10s=%s", state.name, SofeaLab.dump(entry.getValue()));
+		}
+		log("\tsequenced states:");
+		for (Map.Entry<int[],SeqInfo> entry : sequencedBounds.getEntries()) {
 			Sequence seq = new Sequence(confSpace.seqSpace, entry.getKey());
-			BigDecimalBounds bounds = entry.getValue();
-			log("\t%s  [%s]", SofeaLab.dump(bounds), seq);
+			logf("\t\t");
+			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+				logf("%10s=%s   ", state.name, SofeaLab.dump(entry.getValue().bounds[state.sequencedIndex]));
+
+			}
+			log("[%s]", seq);
 		}
 	}
 
@@ -362,15 +483,21 @@ public class SeqDB implements AutoCloseable {
 
 		log("Seq DB: partial sequences, unexplored subtrees:");
 
-		for (Map.Entry<int[],BigDecimalBounds> entry : sequences.getEntries()) {
-			Sequence seq = new Sequence(confSpace.seqSpace, entry.getKey());
+		for (Map.Entry<int[],SeqInfo> entry : sequencedBounds.getEntries()) {
 
+			Sequence seq = new Sequence(confSpace.seqSpace, entry.getKey());
 			if (seq.isFullyAssigned()) {
 				continue;
 			}
 
-			BigDecimalBounds bounds = entry.getValue();
-			log("\t%s  [%s]", SofeaLab.dump(bounds), seq);
+			SeqInfo seqInfo = entry.getValue();
+
+			logf("\t");
+			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+				logf("%10s=%s   ", state.name, SofeaLab.dump(seqInfo.bounds[state.sequencedIndex]));
+
+			}
+			log("[%s]", seq);
 		}
 	}
 
@@ -380,16 +507,14 @@ public class SeqDB implements AutoCloseable {
 
 		int[] rtIndices = new int[confSpace.seqSpace.positions.size()];
 
-		for (Map.Entry<int[],BigDecimalBounds> entry : sequences.getEntries()) {
-			Sequence seq = new Sequence(confSpace.seqSpace, entry.getKey());
+		for (Map.Entry<int[],SeqInfo> entry : sequencedBounds.getEntries()) {
 
+			Sequence seq = new Sequence(confSpace.seqSpace, entry.getKey());
 			if (!seq.isFullyAssigned()) {
 				continue;
 			}
 
-			BigDecimalBounds bounds = entry.getValue();
-			BigMath lomath = bigMath().set(bounds.lower);
-			BigMath himath = bigMath().set(bounds.upper);
+			SeqInfo seqInfo = entry.getValue();
 
 			// add uncertainty from partial sequence ancestry
 			// NOTE: assumes tree pos order follows seq pos order
@@ -397,15 +522,26 @@ public class SeqDB implements AutoCloseable {
 			for (int i=rtIndices.length - 1; i>=0; i--) {
 				rtIndices[i] = Sequence.Unassigned;
 
-				BigDecimalBounds parentBounds = sequences.get(rtIndices);
-				if (parentBounds != null) {
-					lomath.add(parentBounds.lower);
-					himath.add(parentBounds.upper);
+				SeqInfo parentSeqInfo = sequencedBounds.get(rtIndices);
+				if (parentSeqInfo != null) {
+					// couldn't that unexplored subtree contain no confs for this seq?
+					// NOTE: don't add the lower bounds, the subtree need not necessarily contain confs for this sequence
+					for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+						seqInfo.bounds[state.sequencedIndex].upper = bigMath()
+							.set(seqInfo.bounds[state.sequencedIndex].upper)
+							.add(parentSeqInfo.bounds[state.sequencedIndex].upper)
+							.get();
+					}
 				}
 			}
 
-			bounds = new BigDecimalBounds(lomath.get(), himath.get());
-			log("\t%s  %.6f  [%s]", SofeaLab.dump(bounds), SofeaLab.getBoundsDelta(bounds), seq);
+			logf("\t");
+			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+				BigDecimalBounds bounds = seqInfo.bounds[state.sequencedIndex];
+				logf("%10s=%s %.4f   ", state.name, SofeaLab.dump(bounds), SofeaLab.getBoundsDelta(bounds));
+
+			}
+			log("[%s]", seq);
 		}
 	}
 }

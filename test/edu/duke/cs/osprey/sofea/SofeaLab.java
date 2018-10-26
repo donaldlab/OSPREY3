@@ -19,6 +19,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.FileTools;
@@ -29,10 +30,8 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -49,128 +48,142 @@ public class SofeaLab {
 			.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
 			.build();
 
-		// define flexibility
-		Map<String,List<String>> flex = new HashMap<>();
-		flex.put("A2", Arrays.asList(Strand.WildType /* ala */, "GLY"));
-		flex.put("A3", Arrays.asList(Strand.WildType /* glu */, "ASP"));
-		flex.put("A4", Arrays.asList(Strand.WildType /* ile */, "LEU"));
-		flex.put("A5", Arrays.asList(Strand.WildType /* lys */, "ARG"));
-		flex.put("A6", Arrays.asList(Strand.WildType /* hie */, "PHE"));
-		flex.put("A7", Arrays.asList(Strand.WildType /* tyr */, "PHE"));
 		boolean recalc = false;
 
-		// TODO: try to analyze the partial order of seq leaves and trees?
-		// TODO: how good of a partial order is good enough to stop refining?
+		// define design flexibility [68,73]
+		Map<String,List<String>> designFlex = new HashMap<>();
+		//designFlex.put("A68", Arrays.asList(Strand.WildType /* arg */));
+		designFlex.put("A69", Arrays.asList(Strand.WildType /* ser */, "THR"));
+		designFlex.put("A70", Arrays.asList(Strand.WildType /* gly */, "ALA"));
+		//designFlex.put("A71", Arrays.asList(Strand.WildType /* lys */));
+		//designFlex.put("A72", Arrays.asList(Strand.WildType /* gln */));
+		designFlex.put("A73", Arrays.asList(Strand.WildType /* leu */));
 
-		// make a conf space
-		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb"))
+		// define target flexibility [5,10]
+		List<String> targetFlex = Arrays.asList(
+			"A5", // lys
+			"A6" // hie
+			// "A7" // tyr
+			// "A8" // gln
+			// "A9" // phe
+			// "A10" // asn
+		);
+
+		// build strands
+		Molecule pdb = PDBIO.readResource("/1CC8.ss.pdb");
+		Strand design = new Strand.Builder(pdb)
 			.setTemplateLibrary(templateLib)
+			.setResidues("A68", "A73")
 			.build();
-		for (Map.Entry<String,List<String>> entry : flex.entrySet()) {
-			strand.flexibility.get(entry.getKey())
+		for (Map.Entry<String,List<String>> entry : designFlex.entrySet()) {
+			design.flexibility.get(entry.getKey())
 				.setLibraryRotamers(entry.getValue())
 				.addWildTypeRotamers()
 				.setContinuous();
 		}
-		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
-			.addStrand(strand)
+		Strand target = new Strand.Builder(pdb)
+			.setTemplateLibrary(templateLib)
+			.setResidues("A2", "A67")
+			.build();
+		for (String resNum : targetFlex) {
+			target.flexibility.get(resNum)
+				.setLibraryRotamers(Strand.WildType)
+				.addWildTypeRotamers()
+				.setContinuous();
+		}
+
+		// make a multi-state conf space
+		MultiStateConfSpace confSpace = new MultiStateConfSpace
+			.Builder("design", new SimpleConfSpace.Builder().addStrands(design).build())
+			.addSequencedState("complex", new SimpleConfSpace.Builder().addStrands(design, target).build())
+			.addState("target", new SimpleConfSpace.Builder().addStrands(target).build())
 			.build();
 
 		log("seq space: %s", confSpace.seqSpace);
 
-		File ematFile = new File("newalg.emat");
-		File pmatFile = new File("newalg.pmat");
-		File luteFile = new File("newalg.lute");
-		if (recalc) {
-			ematFile.delete();
-			pmatFile.delete();
-			luteFile.delete();
-		}
-
+		List<Sofea.StateConfig> stateConfigs = new ArrayList<>();
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
 			.setParallelism(Parallelism.makeCpu(4))
 			.build()) {
 
-			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
-			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-				.setCacheFile(ematFile)
-				.build()
-				.calcEnergyMatrix();
-			PruningMatrix pmat = new SimpleDEE.Runner()
-				.setCacheFile(pmatFile)
-				.setParallelism(ecalc.parallelism)
-				.setThreshold(null)
-				.setSinglesPlugThreshold(0.6)
-				.setPairsPlugThreshold(0.6)
-				.setTriplesPlugThreshold(0.6)
-				.setShowProgress(true)
-				.run(confSpace, null);
+			for (MultiStateConfSpace.State state : confSpace.states) {
 
-			// do LUTE stuff
-			LUTEState luteState;
-			if (luteFile.exists()) {
-				luteState = LUTEIO.read(luteFile);
-				log("read LUTE state from file: %s", luteFile.getAbsolutePath());
-			} else {
-				try (ConfDB confdb = new ConfDB(confSpace)) {
-					ConfDB.ConfTable confTable = confdb.new ConfTable("lute");
-
-					final int randomSeed = 12345;
-					final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
-					final double maxOverfittingScore = 1.5;
-					final double maxRMSE = 0.1;
-
-					// compute LUTE fit
-					LUTE lute = new LUTE(confSpace);
-					ConfSampler sampler = new RandomizedDFSConfSampler(confSpace, pmat, randomSeed);
-					lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
-					lute.reportConfSpaceSize(pmat);
-
-					luteState = new LUTEState(lute.getTrainingSystem());
-					LUTEIO.write(luteState, luteFile);
-					log("wrote LUTE state to file: %s", luteFile.getAbsolutePath());
+				File ematFile = new File(String.format("sofea.%s.emat", state.name));
+				File pmatFile = new File(String.format("sofea.%s.pmat", state.name));
+				File luteFile = new File(String.format("sofea.%s.lute", state.name));
+				if (recalc) {
+					ematFile.delete();
+					pmatFile.delete();
+					luteFile.delete();
 				}
+
+				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(state.confSpace, ecalc).build();
+				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+					.setCacheFile(ematFile)
+					.build()
+					.calcEnergyMatrix();
+				PruningMatrix pmat = new SimpleDEE.Runner()
+					.setCacheFile(pmatFile)
+					.setParallelism(ecalc.parallelism)
+					.setThreshold(null)
+					.setSinglesPlugThreshold(0.6)
+					.setPairsPlugThreshold(0.6)
+					.setTriplesPlugThreshold(0.6)
+					.setShowProgress(true)
+					.run(state.confSpace, null);
+
+				// do LUTE stuff
+				LUTEState luteState;
+				if (luteFile.exists()) {
+					luteState = LUTEIO.read(luteFile);
+					log("read LUTE state from file: %s", luteFile.getAbsolutePath());
+				} else {
+					try (ConfDB confdb = new ConfDB(state.confSpace)) {
+						ConfDB.ConfTable confTable = confdb.new ConfTable("lute");
+
+						final int randomSeed = 12345;
+						final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
+						final double maxOverfittingScore = 1.5;
+						final double maxRMSE = 0.1;
+
+						// compute LUTE fit
+						LUTE lute = new LUTE(state.confSpace);
+						ConfSampler sampler = new RandomizedDFSConfSampler(state.confSpace, pmat, randomSeed);
+						lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
+						lute.reportConfSpaceSize(pmat);
+
+						luteState = new LUTEState(lute.getTrainingSystem());
+						LUTEIO.write(luteState, luteFile);
+						log("wrote LUTE state to file: %s", luteFile.getAbsolutePath());
+					}
+				}
+
+				stateConfigs.add(new Sofea.StateConfig(
+					new LUTEConfEnergyCalculator(state.confSpace, luteState),
+					pmat
+				));
 			}
-			LUTEConfEnergyCalculator luteEcalc = new LUTEConfEnergyCalculator(confSpace, luteState);
 
 			log("\n");
 
-			/* TEMP
 			// calc all sequence Z values
 			{
 				List<Sequence> seqs = new ArrayList<>();
-				seqs.add(confSpace.makeWildTypeSequence());
+				seqs.add(confSpace.seqSpace.makeWildTypeSequence());
 				seqs.addAll(confSpace.seqSpace.getMutants());
 				for (Sequence seq : seqs) {
-					PfuncCalc pcalc = new PfuncCalc(luteEcalc, pmat, seq.makeRCs(confSpace));
-					log("seq %s:  ln(Z) = %s", seq, dump(pcalc.calc()));
+					log("seq %s:", seq);
+					for (MultiStateConfSpace.State state : confSpace.states) {
+						Sofea.StateConfig config = stateConfigs.get(state.index);
+						NewalgLab.PfuncCalc pcalc = new NewalgLab.PfuncCalc(config.luteEcalc, config.pmat, seq.makeRCs(state.confSpace));
+						log("\t%10s  ln(Z) = %s", state.name, dump(pcalc.calc()));
+					}
 				}
 			}
-			*/
-
-			// calc multi-sequence Z tight bounds using the new alg
-			{
-				NewalgLab.PfuncCalc pcalc = new NewalgLab.PfuncCalc(luteEcalc, pmat);
-				Stopwatch sw = new Stopwatch().start();
-				MathTools.BigDecimalBounds Zbounds = pcalc.calcMultiSequence();
-				log("NewAlg:      %9s   ln(Z) in %s", sw.stop().getTime(2), dump(Zbounds));
-			}
-
-			/* TEMP
-			// estimate multi-sequence Z bounds using the new alg
-			//for (double pruneFactor : Arrays.asList(1.0, 0.9, 0.5, 0.1, 0.01, 0.0)) {
-			{ double pruneFactor = 0.5;
-				int depth = confSpace.positions.size();
-				PfuncCalc pcalc = new PfuncCalc(luteEcalc, pmat);
-				Stopwatch sw = new Stopwatch().start();
-				MathTools.BigDecimalBounds Zbounds = pcalc.estimateMultiSequence(depth, pruneFactor);
-				log("NewAlg %4.2f:   %9s   ln(Z) in %s", pruneFactor, sw.stop().getTime(2), dump(Zbounds));
-			}
-			*/
 
 			// try SOFEA
 			{
-				Sofea sofea = new Sofea(luteEcalc, pmat);
+				Sofea sofea = new Sofea(confSpace, stateConfigs);
 				Stopwatch sw = new Stopwatch().start();
 				sofea.design();
 				log("SOFEA:   %9s", sw.stop().getTime(2));
@@ -218,27 +231,40 @@ public class SofeaLab {
 
 	public static class Sofea {
 
-		public final LUTEConfEnergyCalculator luteEcalc;
-		public final PruningMatrix pmat;
+		public static class StateConfig {
 
-		private final MathContext mathContext = PartitionFunction.decimalPrecision;
+			public final LUTEConfEnergyCalculator luteEcalc;
+			public final PruningMatrix pmat;
 
-		private final NewalgLab.BoltzmannLute blute;
-		private final int numPos;
-		private final RCs rcs;
-
-		public Sofea(LUTEConfEnergyCalculator luteEcalc, PruningMatrix pmat) {
-			this(luteEcalc, pmat, new RCs(luteEcalc.confSpace));
+			public StateConfig(LUTEConfEnergyCalculator luteEcalc, PruningMatrix pmat) {
+				this.luteEcalc = luteEcalc;
+				this.pmat = pmat;
+			}
 		}
 
-		public Sofea(LUTEConfEnergyCalculator luteEcalc, PruningMatrix pmat, RCs rcs) {
+		public final MultiStateConfSpace confSpace;
+		public final List<StateConfig> stateConfigs;
 
-			this.luteEcalc = luteEcalc;
-			this.pmat = pmat;
-			this.rcs = rcs;
+		private final MathContext mathContext = PartitionFunction.decimalPrecision;
+		private final List<StateInfo> stateInfos;
 
-			this.blute = new NewalgLab.BoltzmannLute(luteEcalc, mathContext);
-			this.numPos = luteEcalc.confSpace.positions.size();
+		public Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs) {
+
+			this.confSpace = confSpace;
+			this.stateConfigs = stateConfigs;
+
+			// TODO: support single tuples for conf spaces
+			// TEMP: blow up if we get single tuples
+			for (MultiStateConfSpace.State state : confSpace.states) {
+				if (state.confSpace.positions.size() <= 1) {
+					throw new Error("TODO: support small conf spaces");
+				}
+			}
+
+			// init the state info
+			stateInfos = confSpace.states.stream()
+				.map(state -> new StateInfo(state))
+				.collect(Collectors.toList());
 		}
 
 		private BigMath bigMath() {
@@ -247,99 +273,104 @@ public class SofeaLab {
 
 		public void design() {
 
-			if (luteEcalc.confSpace.positions.size() == 1) {
+			try (SeqDB seqdb = new SeqDB(confSpace, mathContext)) {
 
-				// TODO
-				throw new UnsupportedOperationException("TODO");
+				FringeDB fringedb = new FringeDB(confSpace);
 
-			} else {
+				// process the root node for each state
+				for (MultiStateConfSpace.State state : confSpace.states) {
+					StateInfo stateInfo = stateInfos.get(state.index);
 
-				// get a multi-sequence Z bound on the root node
-				MathTools.BigDecimalBounds rootBound;
-				{
-					ConfIndex index = new ConfIndex(luteEcalc.confSpace.positions.size());
-					index.updateUndefined();
+					// get a multi-sequence Z bound on the root node
+					MathTools.BigDecimalBounds rootBound;
+					{
+						ConfIndex index = stateInfo.makeConfIndex();
+						BigDecimal minZ = stateInfo.optimizeZ(index, MathTools.Optimizer.Minimize);
+						BigDecimal maxZ = stateInfo.optimizeZ(index, MathTools.Optimizer.Maximize);
+						MathTools.BigIntegerBounds size = stateInfo.count(index);
 
-					BigDecimal minZ = optimizeZ(index, MathTools.Optimizer.Minimize);
-					BigDecimal maxZ = optimizeZ(index, MathTools.Optimizer.Maximize);
-					MathTools.BigIntegerBounds size = count(index);
-
-					rootBound = new MathTools.BigDecimalBounds(
-						bigMath()
-							.set(minZ)
-							.mult(size.lower)
-							.mult(blute.factor)
-							.get(),
-						bigMath()
-							.set(maxZ)
-							.mult(size.upper)
-							.mult(blute.factor)
-							.get()
-					);
-				}
-
-				try (SeqDB seqdb = new SeqDB(luteEcalc.confSpace, mathContext)) {
+						rootBound = new MathTools.BigDecimalBounds(
+							bigMath()
+								.set(minZ)
+								.mult(size.lower)
+								.mult(stateInfo.blute.factor)
+								.get(),
+							bigMath()
+								.set(maxZ)
+								.mult(size.upper)
+								.mult(stateInfo.blute.factor)
+								.get()
+						);
+					}
 
 					// init the fringe with the root node
-					FringeDB fringedb = new FringeDB(luteEcalc.confSpace);
 					{
-						ConfIndex index = new ConfIndex(luteEcalc.confSpace.positions.size());
-						index.updateUndefined();
-						fringedb.add(index, rootBound, blute.factor);
-						seqdb.addSeqZ(index, rootBound);
+						ConfIndex index = stateInfo.makeConfIndex();
+						fringedb.add(state, index, rootBound, stateInfo.blute.factor);
+						seqdb.addSeqZ(state, index, rootBound);
 					}
+				}
 
-					// TEMP: try a few operations
-					for (int i=0; i<20; i++) {
+				// TEMP: try a few operations
+				for (int i=0; i<20; i++) {
 
-						// reduce zmax each iteration
-						BigDecimal zmax = bigMath()
-							.set(fringedb.getZMax())
+					// reduce zmax each iteration
+					List<BigDecimal> zmax = confSpace.states.stream()
+						.map(state -> bigMath()
+							.set(fringedb.getZMax(state))
 							.div(Math.E)
-							.get();
-						log("op %3d  zmax=%s  /2=%s root=%s", i, dump(fringedb.getZMax()), dump(zmax), dump(rootBound));
-
-						final BigDecimal fzmax = zmax; // silly Java closures...
-						fringedb.sweep((index, bounds, zpath) -> {
-
-							seqdb.subSeqZ(index, bounds);
-
-							design(index, bounds, fzmax, zpath, fringedb, seqdb);
-						});
-
-						// TEMP
-						log("fringe size: %d", fringedb.writeSize());
-					}
+							.get()
+						)
+						.collect(Collectors.toList());
 
 					// TEMP
-					seqdb.dumpPartialSequences();
-					seqdb.dumpSequences();
+					log("op %3d", i);
+					for (MultiStateConfSpace.State state : confSpace.states) {
+						 log("\tzmax=%s  /2=%s", dump(fringedb.getZMax(state)), dump(zmax.get(state.index)));
+					}
+
+					fringedb.sweep((state, index, bounds, zpath) -> {
+
+						seqdb.subSeqZ(state, index, bounds);
+
+						design(state, index, bounds, zmax.get(state.index), zpath, fringedb, seqdb);
+					});
+
+					// TEMP
+					log("\tfringe size: %d", fringedb.writeSize());
 				}
+
+				// TEMP
+				seqdb.dump();
+				seqdb.dumpPartialSequences();
+				seqdb.dumpSequences();
 			}
 		}
 
-		private void design(ConfIndex index, BigDecimalBounds bounds, BigDecimal zmax, BigDecimal zpath, FringeDB fringedb, SeqDB seqdb) {
+		private void design(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds bounds, BigDecimal zmax, BigDecimal zpath, FringeDB fringedb, SeqDB seqdb) {
 
 			// skip this tree if it's too small
 			if (MathTools.isLessThan(bounds.upper, zmax)) {
-				fringedb.add(index, bounds, zpath);
-				seqdb.addSeqZ(index, bounds);
+				fringedb.add(state, index, bounds, zpath);
+				seqdb.addSeqZ(state, index, bounds);
 				return;
 			}
 
 			// otherwise, recurse
 
+			StateInfo stateInfo = stateInfos.get(state.index);
+
 			boolean isRoot = index.numDefined == 0;
 			boolean isRCLeaf = index.numDefined + 1 == index.numPos;
 
 			int pos = index.numDefined;
-			for (int rc : rcs.get(pos)) {
+			for (int rc : stateInfo.rcs.get(pos)) {
 
 				// update the zpath with this RC
 				BigDecimal zpathrc = zpath;
 				if (!isRoot) {
 
-					BigDecimal zrc = getZPart(index, pos, rc);
+					BigDecimal zrc = stateInfo.getZPart(index, pos, rc);
 
 					// this subtree contributes nothing to Z
 					if (MathTools.isZero(zrc)) {
@@ -359,16 +390,16 @@ public class SofeaLab {
 					// hit bottom, add the leaf node to the seqdb
 					// TODO: can optimize seq creation
 					index.assignInPlace(pos, rc);
-					seqdb.addSeqZ(index, zpathrc);
+					seqdb.addSeqZ(state, index, zpathrc);
 					index.unassignInPlace(pos);
 
 				} else {
 
 					// get the subtree bounds
 					index.assignInPlace(pos, rc);
-					BigDecimal minZ = optimizeZ(index, MathTools.Optimizer.Minimize);
-					BigDecimal maxZ = optimizeZ(index, MathTools.Optimizer.Maximize);
-					MathTools.BigIntegerBounds count = count(index);
+					BigDecimal minZ = stateInfo.optimizeZ(index, MathTools.Optimizer.Minimize);
+					BigDecimal maxZ = stateInfo.optimizeZ(index, MathTools.Optimizer.Maximize);
+					MathTools.BigIntegerBounds count = stateInfo.count(index);
 					index.unassignInPlace(pos);
 
 					// if the upper bound is zero, this subtree contributes nothing to Z
@@ -391,225 +422,249 @@ public class SofeaLab {
 
 					// recurse
 					index.assignInPlace(pos, rc);
-					design(index, boundsrc, zmax, zpathrc, fringedb, seqdb);
+					design(state, index, boundsrc, zmax, zpathrc, fringedb, seqdb);
 					index.unassignInPlace(pos);
 				}
 			}
 		}
 
-		private BigDecimal getZPart(ConfIndex confIndex, int pos1, int rc1) {
+		private class StateInfo {
 
-			assert (confIndex.numDefined > 0);
+			final MultiStateConfSpace.State state;
+			final NewalgLab.BoltzmannLute blute;
+			final PruningMatrix pmat;
+			final RCs rcs;
+			final List<SimpleConfSpace.Position> positions;
 
-			if (pmat.getOneBody(pos1, rc1)) {
-				return BigDecimal.ZERO;
+			StateInfo(MultiStateConfSpace.State state) {
+				this.state = state;
+				StateConfig config = stateConfigs.get(state.index);
+				this.blute = new NewalgLab.BoltzmannLute(config.luteEcalc, mathContext);
+				this.pmat = config.pmat;
+				this.rcs = new RCs(state.confSpace);
+				this.positions = state.confSpace.positions;
 			}
 
-			BigMath math = bigMath().set(1.0);
-			for (int i=0; i<confIndex.numDefined; i++) {
-				int pos2 = confIndex.definedPos[i];
-				int rc2 = confIndex.definedRCs[i];
+			ConfIndex makeConfIndex() {
+				ConfIndex index = new ConfIndex(positions.size());
+				index.updateUndefined();
+				return index;
+			}
 
-				if (pmat.getPairwise(pos1, rc1, pos2, rc2)) {
+			BigDecimal getZPart(ConfIndex confIndex, int pos1, int rc1) {
+
+				assert (confIndex.numDefined > 0);
+
+				if (pmat.getOneBody(pos1, rc1)) {
 					return BigDecimal.ZERO;
 				}
 
-				math.mult(blute.get(pos1, rc1, pos2, rc2));
+				BigMath math = bigMath().set(1.0);
+				for (int i=0; i<confIndex.numDefined; i++) {
+					int pos2 = confIndex.definedPos[i];
+					int rc2 = confIndex.definedRCs[i];
 
-				for (int j=0; j<i; j++) {
-					int pos3 = confIndex.definedPos[j];
-					int rc3 = confIndex.definedRCs[j];
-
-					if (pmat.getPairwise(pos1, rc1, pos3, rc3)) {
-						return BigDecimal.ZERO;
-					}
-					if (pmat.getPairwise(pos2, rc2, pos3, rc3)) {
-						return BigDecimal.ZERO;
-					}
-					if (pmat.getTuple(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted())) {
+					if (pmat.getPairwise(pos1, rc1, pos2, rc2)) {
 						return BigDecimal.ZERO;
 					}
 
-					BigDecimal triple = blute.get(pos1, rc1, pos2, rc2, pos3, rc3);
-					if (triple != null) {
-						math.mult(triple);
-					}
-				}
-			}
+					math.mult(blute.get(pos1, rc1, pos2, rc2));
 
-			return math.get();
-		}
+					for (int j=0; j<i; j++) {
+						int pos3 = confIndex.definedPos[j];
+						int rc3 = confIndex.definedRCs[j];
 
-		private BigDecimal optimizeZ(ConfIndex index, MathTools.Optimizer opt) {
-
-			BigMath energy = bigMath().set(1.0);
-
-			// get the score for each undefined position
-			for (int i=0; i<index.numUndefined; i++) {
-				int pos1 = index.undefinedPos[i];
-
-				// optimize over possible assignments to pos1
-				BigDecimal pos1Energy = opt.initBigDecimal();
-				for (int rc1 : rcs.get(pos1)) {
-
-					BigMath rc1Energy = bigMath();
-					if (isPruned(index, pos1, rc1)) {
-
-						// prune tuple, no contribution to Z
-						rc1Energy.set(0.0);
-
-					} else {
-
-						rc1Energy.set(1.0);
-
-						// interactions with defined residues
-						for (int j=0; j<index.numDefined; j++) {
-							int pos2 = index.definedPos[j];
-							int rc2 = index.definedRCs[j];
-
-							rc1Energy.mult(blute.get(pos1, rc1, pos2, rc2));
-
-							for (int k=0; k<j; k++) {
-								int pos3 = index.definedPos[k];
-								int rc3 = index.definedRCs[k];
-
-								// triples are optional
-								BigDecimal triple = blute.get(pos1, rc1, pos2, rc2, pos3, rc3);
-								if (triple != null) {
-									rc1Energy.mult(triple);
-								}
-							}
+						if (pmat.getPairwise(pos1, rc1, pos3, rc3)) {
+							return BigDecimal.ZERO;
+						}
+						if (pmat.getPairwise(pos2, rc2, pos3, rc3)) {
+							return BigDecimal.ZERO;
+						}
+						if (pmat.getTuple(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted())) {
+							return BigDecimal.ZERO;
 						}
 
-						// interactions with undefined residues
-						for (int j=0; j<i; j++) {
-							int pos2 = index.undefinedPos[j];
+						BigDecimal triple = blute.get(pos1, rc1, pos2, rc2, pos3, rc3);
+						if (triple != null) {
+							math.mult(triple);
+						}
+					}
+				}
 
-							// optimize over possible assignments to pos2
-							BigDecimal optrc2Energy = opt.initBigDecimal();
-							for (int rc2 : rcs.get(pos2)) {
+				return math.get();
+			}
 
-								BigMath rc2Energy = bigMath();
+			BigDecimal optimizeZ(ConfIndex index, MathTools.Optimizer opt) {
 
-								if (pmat.getPairwise(pos1, rc1, pos2, rc2)) {
+				BigMath energy = bigMath().set(1.0);
 
-									// prune tuple, no contribution to Z
-									rc2Energy.set(0.0);
+				// get the score for each undefined position
+				for (int i=0; i<index.numUndefined; i++) {
+					int pos1 = index.undefinedPos[i];
 
-								} else {
+					// optimize over possible assignments to pos1
+					BigDecimal pos1Energy = opt.initBigDecimal();
+					for (int rc1 : rcs.get(pos1)) {
 
-									// pair with pos2
-									rc2Energy.set(blute.get(pos1, rc1, pos2, rc2));
+						BigMath rc1Energy = bigMath();
+						if (isPruned(index, pos1, rc1)) {
 
-									// triples with defined positions
-									for (int k=0; k<index.numDefined; k++) {
-										int pos3 = index.definedPos[k];
-										int rc3 = index.definedRCs[k];
+							// prune tuple, no contribution to Z
+							rc1Energy.set(0.0);
 
-										// triple are optional
-										BigDecimal triple = blute.get(pos1, rc1, pos2, rc2, pos3, rc3);
-										if (triple != null) {
-											rc2Energy.mult(triple);
-										}
+						} else {
+
+							rc1Energy.set(1.0);
+
+							// interactions with defined residues
+							for (int j=0; j<index.numDefined; j++) {
+								int pos2 = index.definedPos[j];
+								int rc2 = index.definedRCs[j];
+
+								rc1Energy.mult(blute.get(pos1, rc1, pos2, rc2));
+
+								for (int k=0; k<j; k++) {
+									int pos3 = index.definedPos[k];
+									int rc3 = index.definedRCs[k];
+
+									// triples are optional
+									BigDecimal triple = blute.get(pos1, rc1, pos2, rc2, pos3, rc3);
+									if (triple != null) {
+										rc1Energy.mult(triple);
 									}
+								}
+							}
 
-									// triples with undefined positions
-									for (int k=0; k<j; k++) {
-										int pos3 = index.undefinedPos[k];
+							// interactions with undefined residues
+							for (int j=0; j<i; j++) {
+								int pos2 = index.undefinedPos[j];
 
-										// optimize over rcs
-										BigDecimal optrc3Energy = opt.initBigDecimal();
-										for (int rc3 : rcs.get(pos3)) {
+								// optimize over possible assignments to pos2
+								BigDecimal optrc2Energy = opt.initBigDecimal();
+								for (int rc2 : rcs.get(pos2)) {
+
+									BigMath rc2Energy = bigMath();
+
+									if (pmat.getPairwise(pos1, rc1, pos2, rc2)) {
+
+										// prune tuple, no contribution to Z
+										rc2Energy.set(0.0);
+
+									} else {
+
+										// pair with pos2
+										rc2Energy.set(blute.get(pos1, rc1, pos2, rc2));
+
+										// triples with defined positions
+										for (int k=0; k<index.numDefined; k++) {
+											int pos3 = index.definedPos[k];
+											int rc3 = index.definedRCs[k];
+
+											// triple are optional
 											BigDecimal triple = blute.get(pos1, rc1, pos2, rc2, pos3, rc3);
 											if (triple != null) {
-												optrc3Energy = opt.opt(optrc3Energy, triple);
+												rc2Energy.mult(triple);
 											}
 										}
 
-										if (MathTools.isFinite(optrc3Energy)) {
-											rc2Energy.mult(optrc3Energy);
+										// triples with undefined positions
+										for (int k=0; k<j; k++) {
+											int pos3 = index.undefinedPos[k];
+
+											// optimize over rcs
+											BigDecimal optrc3Energy = opt.initBigDecimal();
+											for (int rc3 : rcs.get(pos3)) {
+												BigDecimal triple = blute.get(pos1, rc1, pos2, rc2, pos3, rc3);
+												if (triple != null) {
+													optrc3Energy = opt.opt(optrc3Energy, triple);
+												}
+											}
+
+											if (MathTools.isFinite(optrc3Energy)) {
+												rc2Energy.mult(optrc3Energy);
+											}
 										}
 									}
+
+									optrc2Energy = opt.opt(optrc2Energy, rc2Energy.get());
 								}
 
-								optrc2Energy = opt.opt(optrc2Energy, rc2Energy.get());
+								rc1Energy.mult(optrc2Energy);
 							}
-
-							rc1Energy.mult(optrc2Energy);
 						}
+
+						pos1Energy = opt.opt(pos1Energy, rc1Energy.get());
 					}
 
-					pos1Energy = opt.opt(pos1Energy, rc1Energy.get());
+					assert (MathTools.isFinite(pos1Energy));
+					energy.mult(pos1Energy);
 				}
 
-				assert (MathTools.isFinite(pos1Energy));
-				energy.mult(pos1Energy);
+				return energy.get();
 			}
 
-			return energy.get();
-		}
+			boolean isPruned(ConfIndex index, int pos1, int rc1) {
 
-		private boolean isPruned(ConfIndex index, int pos1, int rc1) {
-
-			if (pmat.getOneBody(pos1, rc1)) {
-				return true;
-			}
-
-			for (int i=0; i<index.numDefined; i++) {
-				int pos2 = index.definedPos[i];
-				int rc2 = index.definedRCs[i];
-
-				if (pmat.getPairwise(pos1, rc1, pos2, rc2)) {
+				if (pmat.getOneBody(pos1, rc1)) {
 					return true;
 				}
 
-				for (int j=0; j<i; j++) {
-					int pos3 = index.definedPos[j];
-					int rc3 = index.definedRCs[j];
+				for (int i=0; i<index.numDefined; i++) {
+					int pos2 = index.definedPos[i];
+					int rc2 = index.definedRCs[i];
 
 					if (pmat.getPairwise(pos1, rc1, pos2, rc2)) {
 						return true;
 					}
-					if (pmat.getPairwise(pos1, rc1, pos3, rc3)) {
-						return true;
-					}
-					if (pmat.getTuple(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted())) {
-						return true;
-					}
-				}
-			}
 
-			return false;
-		}
+					for (int j=0; j<i; j++) {
+						int pos3 = index.definedPos[j];
+						int rc3 = index.definedRCs[j];
 
-		private BigIntegerBounds count(ConfIndex index) {
-
-			BigIntegerBounds count = new BigIntegerBounds(BigInteger.ONE, BigInteger.ONE);
-
-			for (int i=0; i<index.numUndefined; i++) {
-				int pos = index.undefinedPos[i];
-
-				// count the RCs by sequence
-				Map<String,Integer> counts = new HashMap<>();
-				for (int rc : rcs.get(pos)) {
-					String resType = luteEcalc.confSpace.positions.get(pos).resConfs.get(rc).template.name;
-					counts.compute(resType, (rt, current) -> {
-						if (current == null) {
-							return 1;
-						} else {
-							return current + 1;
+						if (pmat.getPairwise(pos1, rc1, pos2, rc2)) {
+							return true;
 						}
-					});
+						if (pmat.getPairwise(pos1, rc1, pos3, rc3)) {
+							return true;
+						}
+						if (pmat.getTuple(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted())) {
+							return true;
+						}
+					}
 				}
 
-				int minCount = counts.values().stream().mapToInt(v -> v).min().getAsInt();
-				int maxCount = counts.values().stream().mapToInt(v -> v).max().getAsInt();
-
-				count.lower = count.lower.multiply(BigInteger.valueOf(minCount));
-				count.upper = count.upper.multiply(BigInteger.valueOf(maxCount));
+				return false;
 			}
 
-			return count;
+			BigIntegerBounds count(ConfIndex index) {
+
+				BigIntegerBounds count = new BigIntegerBounds(BigInteger.ONE, BigInteger.ONE);
+
+				for (int i=0; i<index.numUndefined; i++) {
+					int pos = index.undefinedPos[i];
+
+					// count the RCs by sequence
+					Map<String,Integer> counts = new HashMap<>();
+					for (int rc : rcs.get(pos)) {
+						String resType = positions.get(pos).resConfs.get(rc).template.name;
+						counts.compute(resType, (rt, current) -> {
+							if (current == null) {
+								return 1;
+							} else {
+								return current + 1;
+							}
+						});
+					}
+
+					int minCount = counts.values().stream().mapToInt(v -> v).min().getAsInt();
+					int maxCount = counts.values().stream().mapToInt(v -> v).max().getAsInt();
+
+					count.lower = count.lower.multiply(BigInteger.valueOf(minCount));
+					count.upper = count.upper.multiply(BigInteger.valueOf(maxCount));
+				}
+
+				return count;
+			}
 		}
 	}
 }

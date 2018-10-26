@@ -149,6 +149,10 @@ public class SeqSpace implements Serializable {
 			throw new NoSuchElementException("Res type " + name + " not allowed at position " + resNum + ". Try one of " + resTypes);
 		}
 
+		public boolean hasMutants() {
+			return !mutations.isEmpty();
+		}
+
 		@Override
 		public boolean equals(Object other) {
 			return other instanceof Position && equals((Position)other);
@@ -308,6 +312,15 @@ public class SeqSpace implements Serializable {
 			seq.set(pos, resTypes.get(i));
 		}
 		return seq;
+	}
+
+	public boolean hasMutants() {
+		for (Position pos : positions) {
+			if (pos.hasMutants()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public List<Sequence> getMutants() {

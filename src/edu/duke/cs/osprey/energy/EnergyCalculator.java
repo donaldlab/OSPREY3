@@ -32,12 +32,14 @@
 
 package edu.duke.cs.osprey.energy;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
+import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.DofTypes;
@@ -155,6 +157,15 @@ public class EnergyCalculator implements AutoCleanable {
 				confSpaces.stream()
 					.map(confSpace -> confSpace.getDofTypes())
 					.collect(Collectors.toList())
+			);
+		}
+
+		public Builder(MultiStateConfSpace confSpace, ForcefieldParams ffparams) {
+			this(
+				confSpace.states.stream()
+					.map(state -> state.confSpace)
+					.collect(Collectors.toList()),
+				ffparams
 			);
 		}
 

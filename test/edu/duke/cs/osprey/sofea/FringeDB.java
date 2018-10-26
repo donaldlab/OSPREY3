@@ -6,58 +6,64 @@ import static edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.confspace.Conf;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.kstar.NewalgLab;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class FringeDB {
 
 	private static class Entry {
 
+		final int stateIndex;
 		final int[] conf;
 		final BigDecimalBounds bounds;
 		final BigDecimal zpath;
 
-		public Entry(int[] conf, BigDecimalBounds bounds, BigDecimal zpath) {
+		public Entry(int stateIndex, int[] conf, BigDecimalBounds bounds, BigDecimal zpath) {
+			this.stateIndex = stateIndex;
 			this.conf = conf;
 			this.bounds = bounds;
 			this.zpath = zpath;
 		}
 	}
 
-	public final SimpleConfSpace confSpace;
+	public final MultiStateConfSpace confSpace;
 
 	private List<Entry> entriesRead = new ArrayList<>();
 	private List<Entry> entriesWrite = new ArrayList<>();
-	private BigDecimal zmax = BigDecimal.ZERO;
+	private BigDecimal[] zmax;
 
-	public FringeDB(SimpleConfSpace confSpace) {
+	public FringeDB(MultiStateConfSpace confSpace) {
 		this.confSpace = confSpace;
+		this.zmax = new BigDecimal[confSpace.states.size()];
+		Arrays.fill(this.zmax, BigDecimal.ZERO);
 	}
 
 	// TODO: actually persist to disk
 
-	public void add(ConfIndex index, BigDecimalBounds bounds, BigDecimal zpath) {
+	public void add(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds bounds, BigDecimal zpath) {
 
 		// write the entry
-		entriesWrite.add(new Entry(Conf.make(index), bounds, zpath));
+		entriesWrite.add(new Entry(state.index, Conf.make(index), bounds, zpath));
 
 		// update zmax
-		if (MathTools.isGreaterThan(bounds.upper, zmax)) {
-			zmax = bounds.upper;
+		if (MathTools.isGreaterThan(bounds.upper, zmax[state.index])) {
+			zmax[state.index] = bounds.upper;
 		}
 	}
 
-	public BigDecimal getZMax() {
-		return zmax;
+	public BigDecimal getZMax(MultiStateConfSpace.State state) {
+		return zmax[state.index];
 	}
 
 	public interface Listener {
-		void tree(ConfIndex index, BigDecimalBounds bounds, BigDecimal zpath);
+		void tree(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds bounds, BigDecimal zpath);
 	}
 
 	private void swap() {
@@ -67,7 +73,8 @@ public class FringeDB {
 		entriesRead = entriesWrite;
 		entriesWrite = temp;
 
-		zmax = BigDecimal.ZERO;
+		// reset the max Z values
+		Arrays.fill(this.zmax, BigDecimal.ZERO);
 	}
 
 	public int writeSize() {
@@ -82,11 +89,17 @@ public class FringeDB {
 		// clear the write list
 		entriesWrite.clear();
 
+		// allocate a conf index for each state
+		List<ConfIndex> indices = confSpace.states.stream()
+			.map(state -> new ConfIndex(state.confSpace.positions.size()))
+			.collect(Collectors.toList());
+
 		// sweep over the read list
-		ConfIndex index = new ConfIndex(confSpace.positions.size());
 		for (Entry entry : entriesRead) {
+			ConfIndex index = indices.get(entry.stateIndex);
 			Conf.index(entry.conf, index);
-			listener.tree(index, entry.bounds, entry.zpath);
+			MultiStateConfSpace.State state = confSpace.states.get(entry.stateIndex);
+			listener.tree(state, index, entry.bounds, entry.zpath);
 		}
 	}
 
@@ -94,7 +107,8 @@ public class FringeDB {
 	public void dump() {
 		log("Fringe DB:");
 		for (Entry entry : entriesWrite) {
-			log("%s  %s", NewalgLab.dump(entry.bounds), Conf.toString(entry.conf));
+			MultiStateConfSpace.State state = confSpace.states.get(entry.stateIndex);
+			log("%s  %s %s", NewalgLab.dump(entry.bounds), state.name, Conf.toString(entry.conf));
 		}
 	}
 }
