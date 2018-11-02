@@ -142,7 +142,7 @@ public class SeqSpace implements Serializable {
 		}
 
 		public ResType getResTypeOrThrow(String name) {
-			ResType rt = getResType(name);
+			ResType rt = getResType(name.toUpperCase());
 			if (rt != null) {
 				return rt;
 			}
