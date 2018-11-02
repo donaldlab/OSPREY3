@@ -251,7 +251,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		return (int)state.numEnergiedConfs;
 	}
 
-	@Override
 	public int getNumConfsScored() {
 		return (int) state.numScoredConfs;
 	}
@@ -658,11 +657,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		BigDecimal upperConfLowerBound = startUpperBound.subtract(finalUpperBoundNoEnergies);
 
 		PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated());
-		result.setWorkInfo(0, getNumConfsScored(),state.minList);
-		result.setZInfo(lowerFullMin, lowerConfUpperBound, upperFullMin, upperPartialMin, upperConfLowerBound);
-		result.setOrigBounds(startUpperBound, startLowerBound);
-		result.setTimeInfo(stopwatch.getTimeNs());
-		result.setMiscInfo(state.numConfs);
 		return result;
 	}
 }

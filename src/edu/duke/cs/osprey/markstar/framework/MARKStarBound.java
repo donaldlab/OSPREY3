@@ -102,7 +102,6 @@ public class MARKStarBound implements PartitionFunction {
         init(targetEpsilon);
     }
 
-    @Override
     public void setRCs(RCs rcs) {
         RCs = rcs;
     }
@@ -159,7 +158,6 @@ public class MARKStarBound implements PartitionFunction {
         return numConfsEnergied;
     }
 
-    @Override
     public int getNumConfsScored() {
         return numConfsScored;
     }
@@ -183,6 +181,8 @@ public class MARKStarBound implements PartitionFunction {
                 workDone()-previousConfCount < maxNumConfs
                 && isStable(stabilityThreshold)) {
             debugPrint("Tightening from epsilon of "+epsilonBound);
+            if(debug)
+                debugHeap(queue);
             tightenBoundInPhases();
             debugPrint("Errorbound is now "+epsilonBound);
             if(lastEps < epsilonBound && epsilonBound - lastEps > 0.01) {
@@ -235,11 +235,13 @@ public class MARKStarBound implements PartitionFunction {
         upperReduction_ConfLowerBound = startUpperBound.subtract(rootNode.getUpperBound()).subtract(upperReduction_FullMin).subtract(upperReduction_PartialMin);
 
         PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated());
+        /*
         result.setWorkInfo(numPartialMinimizations, numConfsScored,minList);
         result.setZInfo(lowerReduction_FullMin, lowerReduction_ConfUpperBound, upperReduction_FullMin, upperReduction_PartialMin, upperReduction_ConfLowerBound);
         result.setOrigBounds(startUpperBound, startLowerBound);
         result.setTimeInfo(stopwatch.getTimeNs());
         result.setMiscInfo(new BigDecimal(rootNode.getNumConfs()));
+        */
         return result;
     }
 
@@ -292,8 +294,11 @@ public class MARKStarBound implements PartitionFunction {
     private int numInternalScored = 0;
 
     public static MARKStarBound makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
+        throw new UnsupportedOperationException("MARK* is not yet integrated into BBK*. Coming soon!");
+        /*
         ConfEnergyCalculator minimizingConfEcalc = info.confEcalcMinimized;
         return new MARKStarBound(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
+        */
     }
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
@@ -605,7 +610,7 @@ public class MARKStarBound implements PartitionFunction {
             double oldg = node.gscore;
             node.gscore = confCorrection;
             recordCorrection(oldg, confCorrection - oldg);
-            node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
+            node.setBoundsFromConfLowerAndUpper(node.getConfLowerBound()- oldg + confCorrection, node.getConfUpperBound());
             curNode.markUpdated();
             newNodes.add(curNode);
             return true;

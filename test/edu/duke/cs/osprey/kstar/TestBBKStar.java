@@ -58,6 +58,11 @@ public class TestBBKStar {
 		public List<KStar.ScoredSequence> sequences;
 	}
 
+	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations,
+									 boolean runMARKStar) {
+		return null;
+	}
+
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);

@@ -103,7 +103,6 @@ public class MARKStarBoundRigid implements PartitionFunction {
         init(targetEpsilon);
     }
 
-    @Override
     public void setRCs(RCs rcs) {
         RCs = rcs;
     }
@@ -160,7 +159,6 @@ public class MARKStarBoundRigid implements PartitionFunction {
         return numConfsEnergied;
     }
 
-    @Override
     public int getNumConfsScored() {
         return numConfsScored;
     }
@@ -270,9 +268,12 @@ public class MARKStarBoundRigid implements PartitionFunction {
     private int numLeavesScored = 0;
     private int numInternalScored = 0;
 
-    public static MARKStarBoundRigid makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
+    public static MARKStarBoundFastQueues makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
+        throw new UnsupportedOperationException("MARK* is not yet integrated into BBK*. Coming soon!");
+        /*
         ConfEnergyCalculator minimizingConfEcalc = info.confEcalcMinimized;
-        return new MARKStarBoundRigid(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
+        return new MARKStarBound(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
+        */
     }
 
     public MARKStarBoundRigid(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,

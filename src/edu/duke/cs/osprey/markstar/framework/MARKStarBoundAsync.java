@@ -104,7 +104,6 @@ public class MARKStarBoundAsync implements PartitionFunction {
         init(targetEpsilon);
     }
 
-    @Override
     public void setRCs(RCs rcs) {
         RCs = rcs;
     }
@@ -163,7 +162,6 @@ public class MARKStarBoundAsync implements PartitionFunction {
         return numConfsEnergied;
     }
 
-    @Override
     public int getNumConfsScored() {
         return numConfsScored;
     }
@@ -275,9 +273,12 @@ public class MARKStarBoundAsync implements PartitionFunction {
     private int numInternalScored = 0;
     private double bias = 1;
 
-    public static MARKStarBoundAsync makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
+    public static MARKStarBoundFastQueues makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
+        throw new UnsupportedOperationException("MARK* is not yet integrated into BBK*. Coming soon!");
+        /*
         ConfEnergyCalculator minimizingConfEcalc = info.confEcalcMinimized;
-        return new MARKStarBoundAsync(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
+        return new MARKStarBound(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
+        */
     }
 
     public MARKStarBoundAsync(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,

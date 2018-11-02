@@ -363,9 +363,9 @@ public class TestMARKStarDesignProblems {
     @Test
     public void test2XXM() {
         ConfSpaces confSpaces = make2XXM();
-        final double epsilon = 0.01;
+        final double epsilon = 0.95;
         String kstartime = "(not run)";
-        boolean runkstar = false;
+        boolean runkstar = true;
         Stopwatch runtime = new Stopwatch().start();
         List<KStar.ScoredSequence> kStarSeqs = null;
         if(runkstar) {

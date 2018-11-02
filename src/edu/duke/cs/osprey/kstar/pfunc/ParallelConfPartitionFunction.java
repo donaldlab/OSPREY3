@@ -123,11 +123,6 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	}
 
 	@Override
-	public int getNumConfsScored() {
-	    return 0; //Doesn't compute pairwise-minimized upper bounds.
-	}
-
-	@Override
 	public int getParallelism() {
 		return ecalc.getTasks().getParallelism();
 	}

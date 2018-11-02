@@ -33,9 +33,12 @@
 package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.tools.HashCalculator;
+import javafx.util.Pair;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 
 /**
  *
@@ -283,5 +286,40 @@ public class RCTuple implements Serializable {
 				throw new IllegalStateException("RCTuple positions are not sorted");
 			}
 		}
+	}
+
+	public RCTuple intersect(RCTuple other) {
+		return RCTuple.intersect(this, other);
+	}
+
+	public static RCTuple intersect(RCTuple first, RCTuple second) {
+		RCTuple out = new RCTuple();
+		for(int tupIndex = 0; tupIndex < first.size(); tupIndex++)
+		{
+			int firstPos = first.pos.get(tupIndex);
+			int firstRC  = first.RCs.get(tupIndex);
+			if(second.pos.contains(firstPos) && second.RCs.get(tupIndex) == firstRC)
+				out = out.addRC(firstPos, firstRC);
+		}
+		return out;
+	}
+
+	public RCTuple orderByPos() {
+        // This is why I hate parallel arrays!
+        ArrayList<Pair<Integer, Integer>> RCPairs = new ArrayList<>();
+        for(int i = 0; i < pos.size(); i++) {
+            RCPairs.add(new Pair(pos.get(i), RCs.get(i)));
+        }
+
+        Collections.sort(RCPairs, Comparator.comparingInt(a -> a.getKey()));
+        ArrayList<Integer> newPos = (ArrayList<Integer>) pos.clone();
+        ArrayList<Integer> newRCs = (ArrayList<Integer>) RCs.clone();
+        for(int i = 0; i < RCPairs.size(); i++)
+        {
+            newPos.set(i, RCPairs.get(i).getKey());
+            newRCs.set(i, RCPairs.get(i).getValue());
+        }
+        RCTuple out = new RCTuple(newPos, newRCs);
+        return out;
 	}
 }

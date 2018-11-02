@@ -998,162 +998,19 @@ public class TestMARKStar {
 	}
 
 
-	protected static void printMARKStarComputationStats(MARKStar.ScoredSequence result) {
-		int totalConfsEnergied = result.score.complex.numConfs + result.score.protein.numConfs + result.score.ligand.numConfs;
-		int totalConfsLooked = result.score.complex.getNumConfsLooked()+ result.score.protein.getNumConfsLooked()+ result.score.ligand.getNumConfsLooked();
-		BigInteger totalConfSpaceSize = new BigInteger(result.score.complex.totalNumConfs)
-				.add(new BigInteger(result.score.protein.totalNumConfs)).add(new BigInteger(result.score.ligand.totalNumConfs));
-		System.out.println("MARK* Stats: \n"
-				+String.format("\tscore:%12e in [%12e,%12e] (log10)\n" +
-						"\tconfs looked at:%4d\n" +
-						"\tconfs minimized:%4d\n" +
-						"\ttotal confSize:%4s",
-				MathTools.log10p1(result.score.score),
-				MathTools.log10p1(result.score.lowerBound),
-				MathTools.log10p1(result.score.upperBound),
-				totalConfsLooked,
-				totalConfsEnergied,
-				totalConfSpaceSize.toString()));
-		System.out.println("Above stats for sequence: "+result.sequence);
-		System.out.println("Complex Pfunc stats:");
-		System.out.println(String.format("\tStarting upper bound: %12e\n" +
-				"\tStarting lower bound: %12e\n" +
-				"\tEnding upper bound: %12e\n" +
-				"\tEnding lower bound: %12e\n" +
-                "\tUpper bound improvement from full min: %12e\n" +
-				"\tUpper bound improvement from partial min: %12e\n" +
-				"\tUpper bound improvement from conf lower bounds: %12e\n" +
-				"\tLower bound improvement from full min: %12e\n" +
-				"\tLower bound improvement from conf upper bounds: %12e\n",
-				new BigDecimal(result.score.complex.startUpperBound),
-				new BigDecimal(result.score.complex.startLowerBound),
-				result.score.complex.values.qstar.add(result.score.complex.values.qprime),
-				result.score.complex.values.qstar,
-				new BigDecimal(result.score.complex.upperImprovFullMin),
-				new BigDecimal(result.score.complex.upperImprovPartialMin),
-				new BigDecimal(result.score.complex.upperImprovLowerBounds),
-				new BigDecimal(result.score.complex.lowerImprovFullMin),
-				new BigDecimal(result.score.complex.lowerImprovUpperBounds)
-		));
-		System.out.println("Protein Pfunc stats:");
-		System.out.println(String.format("\tStarting upper bound: %12e\n" +
-						"\tStarting lower bound: %12e\n" +
-						"\tEnding upper bound: %12e\n" +
-						"\tEnding lower bound: %12e\n" +
-						"\tUpper bound improvement from full min: %12e\n" +
-						"\tUpper bound improvement from partial min: %12e\n" +
-						"\tUpper bound improvement from conf lower bounds: %12e\n" +
-						"\tLower bound improvement from full min: %12e\n" +
-						"\tLower bound improvement from conf upper bounds: %12e\n",
-				new BigDecimal(result.score.protein.startUpperBound),
-				new BigDecimal(result.score.protein.startLowerBound),
-				result.score.protein.values.qstar.add(result.score.protein.values.qprime),
-				result.score.protein.values.qstar,
-				new BigDecimal(result.score.protein.upperImprovFullMin),
-				new BigDecimal(result.score.protein.upperImprovPartialMin),
-				new BigDecimal(result.score.protein.upperImprovLowerBounds),
-				new BigDecimal(result.score.protein.lowerImprovFullMin),
-				new BigDecimal(result.score.protein.lowerImprovUpperBounds)
-		));
-		System.out.println("Ligand Pfunc stats:");
-		System.out.println(String.format("\tStarting upper bound: %12e\n" +
-						"\tStarting lower bound: %12e\n" +
-						"\tEnding upper bound: %12e\n" +
-						"\tEnding lower bound: %12e\n" +
-						"\tUpper bound improvement from full min: %12e\n" +
-						"\tUpper bound improvement from partial min: %12e\n" +
-						"\tUpper bound improvement from conf lower bounds: %12e\n" +
-						"\tLower bound improvement from full min: %12e\n" +
-						"\tLower bound improvement from conf upper bounds: %12e\n",
-				new BigDecimal(result.score.ligand.startUpperBound),
-				new BigDecimal(result.score.ligand.startLowerBound),
-				result.score.ligand.values.qstar.add(result.score.ligand.values.qprime),
-				result.score.ligand.values.qstar,
-				new BigDecimal(result.score.ligand.upperImprovFullMin),
-				new BigDecimal(result.score.ligand.upperImprovPartialMin),
-				new BigDecimal(result.score.ligand.upperImprovLowerBounds),
-				new BigDecimal(result.score.ligand.lowerImprovFullMin),
-				new BigDecimal(result.score.ligand.lowerImprovUpperBounds)
-		));
 
-	}
+	protected static void printKStarComputationStats(KStar.ScoredSequence result)
+	{}
 
-	protected static void printKStarComputationStats(KStar.ScoredSequence result) {
-		int totalConfsEnergied = result.score.complex.numConfs + result.score.protein.numConfs + result.score.ligand.numConfs;
-		int totalConfsLooked = result.score.complex.getNumConfsLooked()+ result.score.protein.getNumConfsLooked()+ result.score.ligand.getNumConfsLooked();
-		BigInteger totalConfSpaceSize = new BigInteger(result.score.complex.totalNumConfs)
-				.add(new BigInteger(result.score.protein.totalNumConfs)).add(new BigInteger(result.score.ligand.totalNumConfs));
-		System.out.println("K* Stats: "+String.format("score:%12e in [%12e,%12e] (log10), confs looked at:%4d, confs minimized:%4d\ntotal confSize:%4s",MathTools.log10p1(result.score.score), MathTools.log10p1(result.score.lowerBound),
-				MathTools.log10p1(result.score.upperBound),totalConfsLooked,totalConfsEnergied, totalConfSpaceSize.toString()));
-		System.out.println("Above stats for sequence: "+result.sequence);
-		System.out.println("Complex Pfunc stats:");
-		System.out.println(String.format("\tStarting upper bound: %12e\n" +
-						"\tStarting lower bound: %12e\n" +
-						"\tEnding upper bound: %12e\n" +
-						"\tEnding lower bound: %12e\n" +
-						"\tUpper bound improvement from full min: %12e\n" +
-						"\tUpper bound improvement from partial min: %12e\n" +
-						"\tUpper bound improvement from conf lower bounds: %12e\n" +
-						"\tLower bound improvement from full min: %12e\n" +
-						"\tLower bound improvement from conf upper bounds: %12e\n",
-				new BigDecimal(result.score.complex.startUpperBound),
-				new BigDecimal(result.score.complex.startLowerBound),
-				result.score.complex.values.qstar.add(result.score.complex.values.qprime),
-				result.score.complex.values.qstar,
-				new BigDecimal(result.score.complex.upperImprovFullMin),
-				new BigDecimal(result.score.complex.upperImprovPartialMin),
-				new BigDecimal(result.score.complex.upperImprovLowerBounds),
-				new BigDecimal(result.score.complex.lowerImprovFullMin),
-				new BigDecimal(result.score.complex.lowerImprovUpperBounds)
-		));
-		System.out.println("Protein Pfunc stats:");
-		System.out.println(String.format("\tStarting upper bound: %12e\n" +
-						"\tStarting lower bound: %12e\n" +
-						"\tEnding upper bound: %12e\n" +
-						"\tEnding lower bound: %12e\n" +
-						"\tUpper bound improvement from full min: %12e\n" +
-						"\tUpper bound improvement from partial min: %12e\n" +
-						"\tUpper bound improvement from conf lower bounds: %12e\n" +
-						"\tLower bound improvement from full min: %12e\n" +
-						"\tLower bound improvement from conf upper bounds: %12e\n",
-				new BigDecimal(result.score.protein.startUpperBound),
-				new BigDecimal(result.score.protein.startLowerBound),
-				result.score.protein.values.qstar.add(result.score.protein.values.qprime),
-				result.score.protein.values.qstar,
-				new BigDecimal(result.score.protein.upperImprovFullMin),
-				new BigDecimal(result.score.protein.upperImprovPartialMin),
-				new BigDecimal(result.score.protein.upperImprovLowerBounds),
-				new BigDecimal(result.score.protein.lowerImprovFullMin),
-				new BigDecimal(result.score.protein.lowerImprovUpperBounds)
-		));
-		System.out.println("Ligand Pfunc stats:");
-		System.out.println(String.format("\tStarting upper bound: %12e\n" +
-						"\tStarting lower bound: %12e\n" +
-						"\tEnding upper bound: %12e\n" +
-						"\tEnding lower bound: %12e\n" +
-						"\tUpper bound improvement from full min: %12e\n" +
-						"\tUpper bound improvement from partial min: %12e\n" +
-						"\tUpper bound improvement from conf lower bounds: %12e\n" +
-						"\tLower bound improvement from full min: %12e\n" +
-						"\tLower bound improvement from conf upper bounds: %12e\n",
-				new BigDecimal(result.score.ligand.startUpperBound),
-				new BigDecimal(result.score.ligand.startLowerBound),
-				result.score.ligand.values.qstar.add(result.score.ligand.values.qprime),
-				result.score.ligand.values.qstar,
-				new BigDecimal(result.score.ligand.upperImprovFullMin),
-				new BigDecimal(result.score.ligand.upperImprovPartialMin),
-				new BigDecimal(result.score.ligand.upperImprovLowerBounds),
-				new BigDecimal(result.score.ligand.lowerImprovFullMin),
-				new BigDecimal(result.score.ligand.lowerImprovUpperBounds)
-		));
-	}
+	protected static void printMARKStarComputationStats(MARKStar.ScoredSequence result)
+	{}
 
 	@Test
 	public void KStarComparison() {
 		List<KStar.ScoredSequence> results = runKStarComparison(5,0.68);
 		for (int index = 0; index < results.size(); index++) {
 			int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
-			int totalConfsLooked = results.get(index).score.complex.getNumConfsLooked()+ results.get(index).score.protein.getNumConfsLooked()+ results.get(index).score.ligand.getNumConfsLooked();
+			int totalConfsLooked = -1;
 			System.out.println(String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",results.get(index).score.score, results.get(index).score.lowerBound,
 					results.get(index).score.upperBound,totalConfsLooked,totalConfsEnergied));
 		}
@@ -1166,7 +1023,7 @@ public class TestMARKStar {
 		List<MARKStar.ScoredSequence> results = runMARKStar(1, 0.01);
 		for (int index = 0; index < results.size(); index++) {
 			int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
-			int totalConfsLooked = results.get(index).score.complex.getNumConfsLooked()+ results.get(index).score.protein.getNumConfsLooked()+ results.get(index).score.ligand.getNumConfsLooked();
+			int totalConfsLooked = -1;
 			System.out.println(String.format("score:%12e in [%12e,%12e], confs looked at:%4d, confs minimized:%4d",results.get(index).score.score, results.get(index).score.lowerBound,
 					results.get(index).score.upperBound,totalConfsLooked,totalConfsEnergied));
 		}

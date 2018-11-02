@@ -24,8 +24,11 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
 
 
     public static MARKStarBoundFastQueues makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
+        throw new UnsupportedOperationException("MARK* is not yet integrated into BBK*. Coming soon!");
+        /*
         ConfEnergyCalculator minimizingConfEcalc = info.confEcalcMinimized;
-        return new MARKStarBoundFastQueues(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
+        return new MARKStarBound(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
+        */
     }
 
     public MARKStarBoundFastQueues(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,

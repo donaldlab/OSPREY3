@@ -405,7 +405,6 @@ public class GradientDescentMARKStarPfunc implements PartitionFunction.WithConfT
 		return (int)state.numEnergiedConfs;
 	}
 
-	@Override
 	public int getNumConfsScored() {
 		return (int) state.numScoredConfs;
 	}
