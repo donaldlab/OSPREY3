@@ -41,7 +41,6 @@ import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
-import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -60,10 +59,6 @@ public class TestBBKStar {
 	}
 
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations) {
-	    return runBBKStar(confSpaces, numSequences, epsilon, confdbPattern, maxSimultaneousMutations, false);
-    }
-
-	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations, boolean useMARKStar) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
 
@@ -92,7 +87,6 @@ public class TestBBKStar {
 			BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
 				.setNumBestSequences(numSequences)
 				.setNumConfsPerBatch(8)
-                .setUseMARKStar(useMARKStar)
 				.build();
 			BBKStar bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, kstarSettings, bbkstarSettings);
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
@@ -105,14 +99,13 @@ public class TestBBKStar {
 					).build();
 
 				// compute emats
-				info.ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
-                    .setCacheFile(new File(info.type+".minimized.emat"))
+				EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
 					.build()
 					.calcEnergyMatrix();
 
 				// how should confs be ordered and searched?
 				info.confSearchFactoryMinimized = (rcs) ->
-					new ConfAStarTree.Builder(info.ematMinimized, rcs)
+					new ConfAStarTree.Builder(ematMinimized, rcs)
 						.setTraditional()
 						.build();
 
@@ -121,14 +114,11 @@ public class TestBBKStar {
 					.setIsMinimizing(false)
 					.build();
 				ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
-				info.ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
-                    .setCacheFile(new File(info.type+".rigid.emat"))
+				EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
 					.build()
 					.calcEnergyMatrix();
-
-				info.ematCorrected = new UpdatingEnergyMatrix(info.confSpace, info.ematMinimized);
 				info.confSearchFactoryRigid = (rcs) ->
-					new ConfAStarTree.Builder(info.ematRigid, rcs)
+					new ConfAStarTree.Builder(ematRigid, rcs)
 						.setTraditional()
 						.build();
 
@@ -183,8 +173,8 @@ public class TestBBKStar {
 		assertSequence(results, "TYR ASP GLU THR PHE LYS ILE THR", 11.550098, 11.633104);
 		assertSequence(results, "PHE ASP GLU THR PHE ASP ILE THR", 10.805317, 10.871671);
 		assertSequence(results, "PHE ASP GLU THR PHE GLU ILE THR", 10.012310, 10.079659);
-		//assertSequence(results, "PHE ASP GLU THR PHE LYS PHE THR", null, null);
-		//assertSequence(results, "PHE ASP GLU THR PHE LYS TYR THR", null, null);
+		assertSequence(results, "PHE ASP GLU THR PHE LYS PHE THR", null, null);
+		assertSequence(results, "PHE ASP GLU THR PHE LYS TYR THR", null, null);
 
 		assertThat(results.sequences.size(), is(numSequences));
 		assertDecreasingUpperBounds(results.sequences);
@@ -194,11 +184,9 @@ public class TestBBKStar {
 	public void test1GUA11() {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make1GUA11();
-		final double epsilon = 0.9;
+		final double epsilon = 0.999999;
 		final int numSequences = 6;
-		Stopwatch timer = new Stopwatch().start();
 		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
-		timer.stop();
 
 		// K* bounds collected with e = 0.1 from original K* algo
 		assertSequence(results, "HIE ARG", 17.522258,17.636342);
@@ -210,7 +198,6 @@ public class TestBBKStar {
 
 		assertThat(results.sequences.size(), is(numSequences));
 		assertDecreasingUpperBounds(results.sequences);
-		System.out.println("Total time: "+timer.getTime(2));
 	}
 
 	@Test

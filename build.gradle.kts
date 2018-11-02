@@ -112,6 +112,7 @@ dependencies {
 	compile("com.github.haifengl:smile-core:1.5.1")
 	compile("com.github.haifengl:smile-netlib:1.5.1")
 	compile("ch.qos.logback:logback-classic:1.2.3")
+	compile("de.lmu.ifi.dbs.elki:elki:0.7.1")
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
 	// so turn off transitive dependencies. we'll deal with natives manually
@@ -262,7 +263,7 @@ tasks {
 		description = "Install python package in development mode"
 		workingDir = pythonSrcDir.toFile()
 		commandLine(pipCmd, "install",
-			"--editable",
+			"--user", "--editable",
 			".", // path to package to install, ie osprey
 			"--no-index", "--find-links=$pythonWheelhouseDir" // only use wheelhouse to resolve dependencies
 		)
@@ -342,7 +343,6 @@ tasks {
 		commandLine(pythonCmd, "setup.py", "bdist_wheel", "--dist-dir", pythonBuildDir.toString())
 	}
 
-	/*
 	val pythonInstallScripts by creating {
 		group = "build"
 		description = "Make install scripts for python distribution"
@@ -371,9 +371,8 @@ tasks {
 
 	// insert some build steps before we build the python dist
 	"pythonDistZip" {
-		dependsOn(pythonWheel, pythonInstallScripts, pythonUninstallScripts)
+		dependsOn(pythonWheel, makeDoc, pythonInstallScripts, pythonUninstallScripts)
 	}
-	*/
 
 	val updateLicenseHeaders by creating {
 		group = "build"

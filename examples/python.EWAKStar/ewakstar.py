@@ -35,6 +35,12 @@ ewakstarDoer = osprey.EwakstarDoer(
 
     state = complex,
 
+    smaNodes = 0,
+
+    useSMA = False,
+
+    printPDBs = True,
+
     # do we want to set our baseline at the wild-type sequence? as in: do we only want sequences better than wild-type?
     useWtBenchmark = False,
 
@@ -96,11 +102,19 @@ complex.emat = osprey.EnergyMatrix(complex.confEcalc, cacheFile='ewakstar.%s.ema
 complex.fragmentEnergies = complex.emat
 complex.ematRigid = osprey.EnergyMatrix(complex.confRigidEcalc, cacheFile='ewakstar.%s.ematRigid' % complex.name)
 
+
 # how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
-def makeAStar(rcs, emat=complex.emat):
-	return osprey.AStarTraditional(complex.emat, rcs, showProgress=False, maxNumNodes=2000000)
-def makeAStarRigid(rcs, emat=complex.ematRigid):
-	return osprey.AStarTraditional(complex.ematRigid, rcs, showProgress=False, maxNumNodes=2000000)
+useSMA = False #do you want to use memory bounded A*?
+if(useSMA):
+    def makeAStar(rcs, emat=complex.emat):
+	    return osprey.AStarTraditional(complex.emat, rcs, showProgress=False, maxNumNodes=2000000)
+    def makeAStarRigid(rcs, emat=complex.ematRigid):
+	    return osprey.AStarTraditional(complex.ematRigid, rcs, showProgress=False, maxNumNodes=2000000)
+else:
+    def makeAStar(rcs, emat=complex.emat):
+    	return osprey.AStarTraditional(complex.emat, rcs, showProgress=False)
+    def makeAStarRigid(rcs, emat=complex.ematRigid):
+    	return osprey.AStarTraditional(complex.ematRigid, rcs, showProgress=False)
 
 complex.confTreeFactoryMin = osprey.EwakstarDoer_ConfSearchFactory(makeAStar)
 complex.confTreeFactoryRigid = osprey.EwakstarDoer_ConfSearchFactory(makeAStarRigid)

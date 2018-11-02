@@ -45,6 +45,7 @@ import edu.duke.cs.osprey.structure.PDBIO;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -193,6 +194,32 @@ public class ConfAnalyzer {
 
 	public EnsembleAnalysis analyzeEnsemble(Queue.FIFO<? extends ConfSearch.ScoredConf> confs, int maxNumConfs) {
 		return analyzeEnsemble(confs.iterator(), maxNumConfs);
+	}
+
+	public EnsembleAnalysis analyzeEnsemble(HashMap<Double, ConfSearch.ScoredConf> sConfs, Iterator<? extends EnergyCalculator.EnergiedParametricMolecule> epmols, int maxNumConfs){
+		EnsembleAnalysis analysis = new EnsembleAnalysis();
+
+		// read the top confs
+		for (int i=0; i<maxNumConfs; i++) {
+			final int fi = i;
+
+			// get the next conf
+			if (!epmols.hasNext()) {
+				break;
+			}
+
+			EnergyCalculator.EnergiedParametricMolecule epmol = epmols.next();
+			ConfSearch.ScoredConf conf = sConfs.get(epmol.energy);
+
+			while (analysis.analyses.size() <= fi) {
+				analysis.analyses.add(null);
+			}
+			analysis.analyses.set(fi, new ConfAnalysis(conf.getAssignments(), conf.getScore(), epmol));
+		}
+
+		confEcalc.tasks.waitForFinish();
+
+		return analysis;
 	}
 
 	public EnsembleAnalysis analyzeEnsemble(Iterator<? extends ConfSearch.ScoredConf> confs, int maxNumConfs) {

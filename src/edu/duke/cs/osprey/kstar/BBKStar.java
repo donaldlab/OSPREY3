@@ -34,13 +34,9 @@ package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
-import edu.duke.cs.osprey.markstar.framework.GradientDescentMARKStarPfunc;
-import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -65,7 +61,6 @@ public class BBKStar {
 	// Kotlin would make this so much easier
 	public static class Settings {
 
-
 		public static class Builder {
 
 			/** The number of best (by K* score) sequences to evaluate before finishing */
@@ -79,9 +74,6 @@ public class BBKStar {
 			 */
 			private int numConfsPerBatch = 8;
 
-			/** Should we use the MARK* algorithm to calculate partition functions? */
-			private boolean useMARKStar  = false;
-
 			public Builder setNumBestSequences(int val) {
 				numBestSequences = val;
 				return this;
@@ -92,24 +84,17 @@ public class BBKStar {
 				return this;
 			}
 
-			public Builder setUseMARKStar(boolean val) {
-				useMARKStar = val;
-				return this;
-			}
-
 			public Settings build() {
-				return new Settings(numBestSequences, numConfsPerBatch, useMARKStar);
+				return new Settings(numBestSequences, numConfsPerBatch);
 			}
 		}
 
 		public final int numBestSequences;
 		public final int numConfsPerBatch;
-		public final boolean useMARKStar;
 
-		public Settings(int numBestSequences, int numConfsPerBatch, boolean useMARKStar) {
+		public Settings(int numBestSequences, int numConfsPerBatch) {
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
-			this.useMARKStar = useMARKStar;
 		}
 	}
 
@@ -129,9 +114,6 @@ public class BBKStar {
 		public ConfSearchFactory confSearchFactoryRigid = null;
 
 		public File confDBFile = null;
-		public EnergyMatrix ematMinimized = null;
-		public EnergyMatrix ematRigid = null;
-		public UpdatingEnergyMatrix ematCorrected = null;
 
 		private BigDecimal stabilityThreshold = null;
 
@@ -393,25 +375,18 @@ public class BBKStar {
 
 			// cache miss, need to compute the partition function
 
-			RCs rcs = sequence.makeRCs(info.confSpace);
 			// make the partition function
-			pfunc = PartitionFunction.makeBestFor(info, rcs, bbkstarSettings.useMARKStar);
+			pfunc = PartitionFunction.makeBestFor(info.confEcalcMinimized);
 			pfunc.setReportProgress(kstarSettings.showPfuncProgress);
 			if (confdb != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confdb.getSequence(sequence));
 			}
+			RCs rcs = sequence.makeRCs(info.confSpace);
 			if (kstarSettings.useExternalMemory) {
 				PartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
 			}
 			ConfSearch astar = info.confSearchFactoryMinimized.make(rcs);
 			pfunc.init(astar, rcs.getNumConformations(), kstarSettings.epsilon);
-			if(bbkstarSettings.useMARKStar) {
-				pfunc.setRCs(rcs);
-				MARKStarBound msb = (MARKStarBound) pfunc;
-				if(info.ematCorrected != null) {
-					msb.setCorrections(info.ematCorrected);
-				}
-			}
 			pfunc.setStabilityThreshold(info.stabilityThreshold);
 
 			// update the cache
@@ -421,7 +396,6 @@ public class BBKStar {
 
 		@Override
 		public void estimateScore() {
-		    System.out.println("Refining "+this);
 
 			// tank the sequence if either unbound strand is unstable
 			// yeah, we haven't refined any pfuncs yet this estimation,

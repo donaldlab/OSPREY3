@@ -35,7 +35,9 @@ package edu.duke.cs.osprey.tools;
 import static edu.duke.cs.osprey.TestBase.*;
 import static org.junit.Assert.*;
 
+import java.util.Arrays;
 import java.util.Random;
+import java.util.function.Consumer;
 
 import org.junit.Test;
 
@@ -297,22 +299,43 @@ public class TestDihedrals {
 		checkAngle(coords, 0);
 		
 		// rotate coords by an arbitrary rotation. the less axis-aligned, the better
-		RotationMatrix allRot = new RotationMatrix(3, 8, 1, 36, false);
-		for (int j=0; j<4; j++) {
-			allRot.applyRotation(coords[j], 0);
-		}
-		checkAngle(coords, 0);
-		
+		RotationMatrix arbitraryRotation = new RotationMatrix(3, 8, 1, 36, false);
+		Consumer<double[][]> arbitraryRotate = (x) -> {
+			for (int i=0; i<4; i++) {
+				arbitraryRotation.applyRotation(x[i], 0);
+			}
+		};
+
+		// pick an arbitrary translation too, to get away from the origin
+		Consumer<double[][]> arbitraryTranslate = (x) -> {
+			for (int i=0; i<4; i++) {
+				x[i][0] += 7.0;
+				x[i][1] -= 14.0;
+				x[i][2] += 2.0;
+			}
+		};
+
 		int n = 360*2*1024;
 		for (int i=0; i<n; i++) {
-			
-			// then do the dihedral rotation
-			double nextAngleDegrees = (double)i*720/n - 360;
-			double rotAngleDegrees = nextAngleDegrees - Protractor.measureDihedral(coords);
-			RotationMatrix rot = new RotationMatrix(coords[2][0], coords[2][1], coords[2][2], rotAngleDegrees, false);
-			rot.applyRotation(coords[3], 0);
-			
-			checkAngle(coords, nextAngleDegrees);
+
+			// copy the input coords
+			double[][] x = {
+				Arrays.copyOf(coords[0], 3),
+				Arrays.copyOf(coords[1], 3),
+				Arrays.copyOf(coords[2], 3),
+				Arrays.copyOf(coords[3], 3)
+			};
+
+			// do the dihedral rotation
+			double angleDegrees = (double)i*720/n - 360;
+			RotationMatrix rot = new RotationMatrix(1, 0, 0, angleDegrees, false);
+			rot.applyRotation(x[3], 0);
+
+			// apply arbitrary transformation
+			arbitraryRotate.accept(x);
+			arbitraryTranslate.accept(x);
+
+			checkAngle(x, angleDegrees);
 		}
 	}
 	

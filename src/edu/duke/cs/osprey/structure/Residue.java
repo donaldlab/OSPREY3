@@ -33,8 +33,7 @@
 package edu.duke.cs.osprey.structure;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 
 import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -45,8 +44,10 @@ import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
-import java.util.BitSet;
-import java.util.List;
+
+import java.util.stream.Collectors;
+
+import static edu.duke.cs.osprey.tools.Log.log;
 
 /**
  *
@@ -62,6 +63,7 @@ public class Residue implements Serializable {
     
     //residue information
     public String fullName;//short name is the first three characters of this
+	                       // eg "ASN A  23"
     
     public int indexInMolecule = -1;//index of this residue in the molecule it's in
     public Molecule molec;//the molecule it's in
@@ -197,6 +199,10 @@ public class Residue implements Serializable {
     public char getChainId() {
         return fullName.charAt(4);
     }
+
+    public String getType() {
+    	return fullName.substring(0, 3).trim();
+	}
     
     public boolean assignTemplate(ResidueTemplateLibrary templateLib) {
         //assign a template to this residue if possible, using the ResidueTemplateLibrary
@@ -240,10 +246,91 @@ public class Residue implements Serializable {
         bestMatching.assign();
         return true;//matched successfully!
     }
-    
-    
-    
-    public void markIntraResBondsByTemplate(){
+
+	public void assignTemplateSimple(ResidueTemplateLibrary templateLib) {
+    	assignTemplateSimple(templateLib, getType());
+	}
+
+	/**
+	 * A much simpler template assigner that works only with atom names.
+	 * Doesn't require coords to match templates, and hence is completely immune to bugs
+	 * caused by mis-matched atoms, say, due to issues with stereochemistries.
+	 * Important for accurately assigning templates to structures in the top8000 dataset.
+	 */
+	public void assignTemplateSimple(ResidueTemplateLibrary templateLib, String type) {
+
+		// assign a template without fuzzy matching
+		List<ResidueTemplate> templateCandidates = templateLib.templates.stream()
+			.filter(templ ->
+				templ.name.equals(type)
+				&& templ.templateRes.atoms.size() == atoms.size()
+			)
+			.collect(Collectors.toList());
+		ResidueTemplate template;
+		if (templateCandidates.isEmpty()) {
+			return;
+		} else if (templateCandidates.size() == 1) {
+			template = templateCandidates.get(0);
+		} else {
+			log("warning: too many templates (%d) for %s", templateCandidates.size(), fullName);
+			return;
+		}
+
+		// mangle the residue atom names a bit to increase chances of matching a template
+		List<String> atomNames = atoms.stream()
+			.map(atom -> {
+
+				String name = atom.name;
+
+				// map eg 1H3 to H31
+				if (Character.isDigit(name.charAt(0))) {
+					name = name.substring(1) + name.substring(0, 1);
+				}
+
+				return name;
+			})
+			.collect(Collectors.toList());
+
+		// make sure atom names match the template exactly
+		for (String atomName : atomNames) {
+			if (template.templateRes.getAtomByName(atomName) == null) {
+				log("warning: no atoms match for %s\n\tres:   %s\n\ttempl: %s",
+					fullName,
+					atoms.stream().map(a -> a.name).sorted(Comparator.naturalOrder()).collect(Collectors.toList()),
+					template.templateRes.atoms.stream().map(a -> a.name).sorted(Comparator.naturalOrder()).collect(Collectors.toList())
+				);
+				return;
+			}
+		}
+
+		// keep track of (mapped) atom names and coords
+		Map<String,double[]> coords = new HashMap<>();
+		for (int i=0; i<atoms.size(); i++) {
+			coords.put(atomNames.get(i), atoms.get(i).getCoords());
+		}
+
+		// assign the template
+		this.template = template;
+
+		// copy atoms from template
+		ArrayList<Atom> newAtoms = new ArrayList<>();
+		for (Atom atom : template.templateRes.atoms) {
+			Atom newAtom = atom.copy();
+			newAtom.res = this;
+			newAtoms.add(newAtom);
+		}
+		atoms = newAtoms;
+		markIntraResBondsByTemplate();
+
+		// copy coords back to res array
+		for (Atom atom : atoms) {
+			double[] p = coords.get(atom.name);
+			atom.setCoords(p[0], p[1], p[2]);
+		}
+	}
+
+
+	public void markIntraResBondsByTemplate(){
         //assign all the bonds between atoms in this residue, based on the template
 
         

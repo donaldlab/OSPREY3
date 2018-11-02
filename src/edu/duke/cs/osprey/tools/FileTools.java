@@ -32,16 +32,7 @@
 
 package edu.duke.cs.osprey.tools;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.Serializable;
-import java.io.StringReader;
+import java.io.*;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.Iterator;
@@ -404,41 +395,48 @@ public class FileTools {
 	}
 
 	public static Iterable<String> parseLines(String text) {
-		
+
 		BufferedReader reader = new BufferedReader(new StringReader(text));
-		
-		return new Iterable<String>() {
+
+		return () -> new Iterator<String>() {
+
+			private String nextLine;
+
+			{
+				nextLine = readLine();
+			}
+
+			private String readLine() {
+				try {
+					return reader.readLine();
+				} catch (IOException ex) {
+					throw new Error("can't read line", ex);
+				}
+			}
+
 			@Override
-			public Iterator<String> iterator() {
-				return new Iterator<String>() {
-					
-					private String nextLine;
-					
-					{
-						nextLine = readLine();
-					}
-					
-					private String readLine() {
-						try {
-							return reader.readLine();
-						} catch (IOException ex) {
-							throw new Error("can't read line", ex);
-						}
-					}
+			public boolean hasNext() {
+				return nextLine != null;
+			}
 
-					@Override
-					public boolean hasNext() {
-						return nextLine != null;
-					}
-
-					@Override
-					public String next() {
-						String line = nextLine;
-						nextLine = readLine();
-						return line;
-					}
-				};
+			@Override
+			public String next() {
+				String line = nextLine;
+				nextLine = readLine();
+				return line;
 			}
 		};
+	}
+
+	/**
+	 * like parseLines(), but never returns null lines, so is functionally incompatible
+	 * also empirically much faster
+	 */
+	public static Iterable<String> parseLinesFast(Reader reader) {
+		return () -> new BufferedReader(reader).lines().iterator();
+	}
+
+	public static Iterable<String> parseLinesFast(String text) {
+		return parseLinesFast(new StringReader(text));
 	}
 }

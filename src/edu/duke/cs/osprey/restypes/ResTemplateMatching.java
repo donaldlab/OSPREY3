@@ -35,12 +35,10 @@ package edu.duke.cs.osprey.restypes;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
+import edu.duke.cs.osprey.tools.VectorAlgebra;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -165,8 +163,10 @@ public class ResTemplateMatching {
         
         if(level==numAtoms){//all atoms defined
             if(curMatchingScore<score){//best so far
-                score = curMatchingScore;
-                System.arraycopy(partialMatching,0,matching,0,numAtoms);//store the matching as well as the score
+                if(checkStereochemistry()) {//check we didn't mess up the stereochemistry before accepting the matching
+                    score = curMatchingScore;
+                    System.arraycopy(partialMatching, 0, matching, 0, numAtoms);//store the matching as well as the score
+                }
             }
         }
         else if(curMatchingScore<score){
@@ -340,5 +340,35 @@ public class ResTemplateMatching {
         if(count!=numAtoms)
             throw new RuntimeException("ERROR: Bug in ResTemplateMatching, lost "+(numAtoms-count)+" atoms");
     }
-    
+
+    private boolean checkStereochemistry(){
+        //Check if the current partial matching flips the stereochemistry at any atom with 4 bonds
+        //ONLY WORKS FOR FULLY SPECIFIED PARTIAL MATCHING
+        //This fails not only if the template is different stereochemically from the residue,
+        //but if any stereochemically distinct groups (e.g. the two CD methyls on leucine) are swapped
+        if(template.templateRes.coords==null)//template has no coordinates so we'll just have to assume the stereochemistry is right
+            return true;
+        for(int atNum=0; atNum<numAtoms; atNum++) {
+            Atom templateAtom = template.templateRes.atoms.get(atNum);
+            if(templateAtom.bonds.size() == 4){
+                Atom resAtom = res.atoms.get(partialMatching[atNum]);
+                boolean templateStereoSign = stereoSign(templateAtom, templateAtom.bonds);
+                List<Atom> resBondedAtoms = templateAtom.bonds.stream().map(at->res.atoms.get(partialMatching[at.indexInRes])).collect(Collectors.toList());
+                boolean resStereoSign = stereoSign(resAtom, resBondedAtoms);
+                if(templateStereoSign != resStereoSign)
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean stereoSign(Atom at, List<Atom> subst){
+        if(subst.size()!=4)
+            throw new RuntimeException("ERROR: don't know how to check stereochemistry with "+subst.size()+" substituents");
+        double[] center = at.getCoords();
+        List<double[]> bonds = subst.stream().map( bat -> VectorAlgebra.subtract( bat.getCoords(), center ) ).collect(Collectors.toList());
+        double[] normal = VectorAlgebra.cross(bonds.get(0), bonds.get(1));
+        return VectorAlgebra.dot(normal, bonds.get(2)) > VectorAlgebra.dot(normal, bonds.get(3));
+    }
+
 }

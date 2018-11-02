@@ -1,21 +1,21 @@
 /*
 ** This file is part of OSPREY 3.0
-**
+** 
 ** OSPREY Protein Redesign Software Version 3.0
 ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
-**
+** 
 ** OSPREY is free software: you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License version 2
 ** as published by the Free Software Foundation.
-**
+** 
 ** You should have received a copy of the GNU General Public License
 ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
-**
+** 
 ** OSPREY relies on grants for its development, and since visibility
 ** in the scientific literature is essential for our success, we
 ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
 ** document in this distribution for more information.
-**
+** 
 ** Contact Info:
 **    Bruce Donald
 **    Duke University
@@ -25,7 +25,7 @@
 **    NC 27708-0129
 **    USA
 **    e-mail: www.cs.duke.edu/brd/
-**
+** 
 ** <signature of Bruce Donald>, Mar 1, 2018
 ** Bruce Donald, Professor of Computer Science
 */
@@ -33,14 +33,9 @@
 package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.tools.HashCalculator;
-import javafx.util.Pair;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.stream.IntStream;
 
 /**
  *
@@ -86,7 +81,7 @@ public class RCTuple implements Serializable {
     	this();
     	set(pos1, rc1, pos2, rc2, pos3, rc3);
 	}
-
+    
     //Sometimes we'll want to generate an RC tuple from a conformation, specified as RCs for all positions
     //in order.  
     //In this case, negative values are not (fully) defined, so the tuple contains all positions
@@ -210,26 +205,7 @@ public class RCTuple implements Serializable {
         
         return new RCTuple(newPos,newRCs);
     }
-
-    public RCTuple orderByPos() {
-        // This is why I hate parallel arrays!
-        ArrayList<Pair<Integer, Integer>> RCPairs = new ArrayList<>();
-        for(int i = 0; i < pos.size(); i++) {
-            RCPairs.add(new Pair(pos.get(i), RCs.get(i)));
-        }
-
-        Collections.sort(RCPairs, Comparator.comparingInt(a -> a.getKey()));
-        ArrayList<Integer> newPos = (ArrayList<Integer>) pos.clone();
-        ArrayList<Integer> newRCs = (ArrayList<Integer>) RCs.clone();
-        for(int i = 0; i < RCPairs.size(); i++)
-        {
-            newPos.set(i, RCPairs.get(i).getKey());
-            newRCs.set(i, RCPairs.get(i).getValue());
-        }
-        RCTuple out = new RCTuple(newPos, newRCs);
-        return out;
-    }
-
+    
     @SuppressWarnings("unchecked")
 	public RCTuple addRC(int addedPos, int addedRC){
         //Make a copy of this RCTuple with (addPos,addRC) added
@@ -308,20 +284,4 @@ public class RCTuple implements Serializable {
 			}
 		}
 	}
-
-    public RCTuple intersect(RCTuple other) {
-        return RCTuple.intersect(this, other);
-    }
-
-    public static RCTuple intersect(RCTuple first, RCTuple second) {
-        RCTuple out = new RCTuple();
-        for(int tupIndex = 0; tupIndex < first.size(); tupIndex++)
-        {
-            int firstPos = first.pos.get(tupIndex);
-            int firstRC  = first.RCs.get(tupIndex);
-            if(second.pos.contains(firstPos) && second.RCs.get(tupIndex) == firstRC)
-                out = out.addRC(firstPos, firstRC);
-        }
-        return out;
-    }
 }

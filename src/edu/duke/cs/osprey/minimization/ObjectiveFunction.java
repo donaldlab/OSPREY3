@@ -215,6 +215,10 @@ public interface ObjectiveFunction extends Serializable {
 				out.set(d, getCenter(d));
 			}
 		}
+
+		public double getWidth(int d) {
+			return getMax(d) - getMin(d);
+		}
 		
 		public void set(int d, double min, double max) {
 			bounds[0].set(d, min);
@@ -266,6 +270,24 @@ public interface ObjectiveFunction extends Serializable {
 				}
 			}
 			return true;
+		}
+
+		@Override
+		public String toString() {
+			return toString(9, 4);
+		}
+
+		public String toString(int size, int precision) {
+			String format = "%" + size + "." + precision + "f";
+			format = "[" + format + "," + format + "]";
+			StringBuilder buf = new StringBuilder();
+			for (int d=0; d<size(); d++) {
+				if (d > 0) {
+					buf.append(", ");
+				}
+				buf.append(String.format(format, getMin(d), getMax(d)));
+			}
+			return buf.toString();
 		}
 	}
 

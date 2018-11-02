@@ -337,12 +337,12 @@ public class TestBase {
 			
 			private double getAbsoluteErrorDegrees(double observed) {
 				// can't compare on R^1, have to compare on S^1
-				return Protractor.normalizeDegrees(expected - observed);
+				return Protractor.getDistDegrees(expected, observed);
 			}
 
 			@Override
 			public boolean matches(Object obj) {
-				double observed = ((Double)obj).doubleValue();
+				double observed = (Double)obj;
 				if (Double.isNaN(observed)) {
 					return false;
 				}
@@ -356,7 +356,7 @@ public class TestBase {
 			
 			@Override
 			public void describeMismatch(Object obj, Description desc) {
-				double observed = ((Double)obj).doubleValue();
+				double observed = (Double)obj;
 				double absErr = getAbsoluteErrorDegrees(observed);
 				desc.appendText("value ").appendValue(observed)
 					.appendText(" has absolute err ").appendValue(absErr)

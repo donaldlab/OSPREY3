@@ -32,16 +32,14 @@
 
 package edu.duke.cs.osprey.structure;
 
-import java.io.File;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
 
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.control.Main;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.kstar.SequenceAnalyzer;
 import org.apache.commons.lang3.text.WordUtils;
 
 import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
@@ -118,7 +116,7 @@ public class PDBIO {
 			for (int i=0; i<atoms.size(); i++) {
 				char atomAlt = alts.get(i);
 				if (atomAlt == ' ' || atomAlt == alt) {
-					resAtoms.add(atoms.get(i));
+					resAtoms.add(atoms.get(i).copy());
 					resCoords.add(coords.get(i));
 				}
 			}
@@ -149,14 +147,30 @@ public class PDBIO {
 		return mols;
 	}
 	
-	private static List<Molecule> readMols(String pdbText) {
+	public static List<Molecule> readMols(String pdbText) {
+		return readMols(FileTools.parseLines(pdbText));
+	}
+
+	/**
+	 * faster reading method for bulk reads
+	 * doesn't do secondary structure annotation
+	 */
+	public static List<Molecule> readMols(File file) {
+		try (FileReader reader = new FileReader(file)) {
+			return readMols(FileTools.parseLinesFast(reader));
+		} catch (IOException ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+
+	private static List<Molecule> readMols(Iterable<String> pdbIter) {
 		
 		List<Molecule> mols = new ArrayList<>();
 		Molecule mol = new Molecule();
 		mols.add(mol);
 		ResInfo resInfo = new ResInfo();
 		
-		for (String line : FileTools.parseLines(pdbText)) {
+		for (String line : pdbIter) {
 			line = padLine(line);
 			
 			if (isLine(line, "MODEL")) {

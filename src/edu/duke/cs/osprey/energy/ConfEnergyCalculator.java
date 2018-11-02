@@ -204,8 +204,6 @@ public class ConfEnergyCalculator {
 	 */
 	public EnergyCalculator.EnergiedParametricMolecule calcEnergy(RCTuple frag, ResidueInteractions inters) {
 		numCalculations.incrementAndGet();
-		if(!confSpace.validConformation(frag))
-		    return new EnergyCalculator.EnergiedParametricMolecule(null, inters, 1000);
 		ParametricMolecule bpmol = confSpace.makeMolecule(frag);
 		return ecalc.calcEnergy(bpmol, inters);
 	}

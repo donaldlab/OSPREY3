@@ -163,6 +163,12 @@ public class VectorAlgebra {
         return ans;
     }
 
+	public static void scaleInPlace(double[] vec, double scalar){
+		for (int a=0; a<3; a++) {
+			vec[a] *= scalar;
+		}
+	}
+
     public static double[] cross(double[] vec1,double[] vec2){
         double ans[]=new double[3];
         ans[0]=vec1[1]*vec2[2]-vec2[1]*vec1[2];

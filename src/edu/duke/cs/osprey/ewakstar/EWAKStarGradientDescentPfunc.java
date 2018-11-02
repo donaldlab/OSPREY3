@@ -3,8 +3,12 @@ package edu.duke.cs.osprey.ewakstar;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
+import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PfuncSurface;
 import edu.duke.cs.osprey.tools.BigMath;
@@ -15,6 +19,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 
@@ -40,6 +45,8 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 	private static class State {
 
+		ArrayList<EnergyCalculator.EnergiedParametricMolecule> epMols = new ArrayList<>();
+		HashMap<Double, ConfSearch.ScoredConf> sConfs = new HashMap<>();
 		BigDecimal numConfs;
 
 		double curGMEC = Double.POSITIVE_INFINITY;
@@ -187,6 +194,16 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 	}
 
 	@Override
+	public ArrayList<EnergyCalculator.EnergiedParametricMolecule> getEpMols(){
+		return state.epMols;
+	}
+
+	@Override
+	public HashMap<Double, ConfSearch.ScoredConf> getSConfs(){
+		return state.sConfs;
+	}
+
+	@Override
 	public Values getValues() {
 		return values;
 	}
@@ -324,6 +341,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 					class EnergyResult {
 						ConfSearch.EnergiedConf econf;
+						EnergyCalculator.EnergiedParametricMolecule epmol;
 						BigDecimal scoreWeight;
 						BigDecimal energyWeight;
 						Stopwatch stopwatch = new Stopwatch();
@@ -334,14 +352,17 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 							// compute one energy and weights (and time it)
 							EnergyResult result = new EnergyResult();
 							result.stopwatch.start();
-							result.econf = ecalc.calcEnergy(conf, confTable);
+							result.epmol = ecalc.calcEnergy(new RCTuple(conf.getAssignments()));
+							result.econf = new ConfSearch.EnergiedConf(conf, result.epmol.energy);
+							if (state.sConfs.size() <= 10) // only want the first 10 PDB files - don't need to calculate and save all of them
+								state.sConfs.put(result.econf.getEnergy(), conf);
 							result.scoreWeight = bcalc.calc(result.econf.getScore());
 							result.energyWeight = bcalc.calc(result.econf.getEnergy());
 							result.stopwatch.stop();
 							return result;
 						},
 						(result) -> {
-							onEnergy(result.econf, result.scoreWeight, result.energyWeight, result.stopwatch.getTimeS());
+							onEnergy(result.epmol, result.econf, result.scoreWeight, result.energyWeight, result.stopwatch.getTimeS());
 						}
 					);
 
@@ -444,12 +465,13 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 		}
 	}
 
-	private void onEnergy(ConfSearch.EnergiedConf econf, BigDecimal scoreWeight, BigDecimal energyWeight, double seconds) {
+	private void onEnergy(EnergyCalculator.EnergiedParametricMolecule epmol, ConfSearch.EnergiedConf econf, BigDecimal scoreWeight, BigDecimal energyWeight, double seconds) {
 
 		synchronized (this) { // don't race the main thread
 
 			// update the state
 			state.energyWeightSum = state.energyWeightSum.add(energyWeight);
+			state.epMols.add(epmol);
 
 			if (state.curGMEC >= econf.getEnergy())
 				state.setGMECEnergy(econf.getEnergy());

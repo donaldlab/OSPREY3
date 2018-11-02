@@ -297,7 +297,8 @@ public class HardCodedResidueInfo {
             else if( ( HDCount == 2 ) && ( HECount == 2 ) )
                 return "HIP";
             else{
-                throw new RuntimeException("ERROR: Invalid protonation state for " + res.fullName );
+                throw new RuntimeException("ERROR: Invalid protonation state for " + res.fullName +
+                ".  The residue may be partially disordered--please check it and consider deleting or rebuilding it if so.  ");
             }
         }
         else if( resName.equalsIgnoreCase("CYS") ){

@@ -36,26 +36,22 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.kstar.BBKStar;
-import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScore;
-import edu.duke.cs.osprey.kstar.MSKStar;
-import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
+import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
+import edu.duke.cs.osprey.lute.LUTEPfunc;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
-import org.ojalgo.matrix.transformation.Rotation;
 
 public interface PartitionFunction {
-
-
+	
 	public static enum Status {
 		
 		Estimating(true),
@@ -178,63 +174,10 @@ public interface PartitionFunction {
 		public final Values values;
 		public final int numConfs;
 
-		// Custom testing variables
-		public String totalNumConfs = BigInteger.valueOf(0).toString(); // The total confspace size
-		public int numConfsLooked=0; // The number of confs enumerated but not fully minimized
-		public int numPartialMin=0; // The number of partial minimizations completed
-		public String timeNs = BigInteger.valueOf(0).toString(); // The time in ns taken to complete
-		public ArrayList<Integer> minList = new ArrayList<>(); // A list containing all minimizations performed indexed by number of residues minimized
-		public String lowerImprovFullMin = BigDecimal.valueOf(0).toString(); // The pfunc lower bound improvement from full minimizations
-		public String lowerImprovUpperBounds = BigDecimal.valueOf(0).toString(); // The pfunc lower bound improvement from upper bounding
-		public String upperImprovFullMin = BigDecimal.valueOf(0).toString(); // The pfunc upper bound improvement from full minimizations
-		public String upperImprovPartialMin = BigDecimal.valueOf(0).toString(); // The pfunc upper bound improvement from partial minimizations and corrections
-		public String upperImprovLowerBounds = BigDecimal.valueOf(0).toString(); // The pfunc lower bound improvement from lower bounding
-
-		public String startUpperBound = "Infinity";
-		public String startLowerBound = BigDecimal.valueOf(0).toString();
-		public String endUpperBound = "Infinity";
-		public String endLowerBound = BigDecimal.valueOf(0).toString();
-
 		public Result(Status status, Values values, int numConfs) {
 			this.status = status;
 			this.values = values;
 			this.numConfs = numConfs;
-			this.endUpperBound = values.calcUpperBound().toString();
-			this.endLowerBound = values.calcLowerBound().toString();
-		}
-
-		public void setWorkInfo(int numPartialMin, int numConfsLooked, ArrayList<Integer> minList){
-			this.numPartialMin = numPartialMin;
-			this.numConfsLooked = numConfsLooked;
-			this.minList = minList;
-		}
-
-		public void setTimeInfo(long timeNs){
-			this.timeNs = Long.toString(timeNs);
-		}
-
-		public void setZInfo(BigDecimal lowerImprovFullMin, BigDecimal lowerImprovUpperBounds, BigDecimal upperImprovFullMin, BigDecimal upperImprovPartialMin, BigDecimal upperImprovLowerBounds){
-			this.lowerImprovFullMin = lowerImprovFullMin.toString();
-			this.lowerImprovUpperBounds = lowerImprovUpperBounds.toString();
-			this.upperImprovFullMin = upperImprovFullMin.toString();
-			this.upperImprovPartialMin = upperImprovPartialMin.toString();
-			this.upperImprovLowerBounds = upperImprovLowerBounds.toString();
-		}
-
-		public void setOrigBounds(BigDecimal startUpperBound, BigDecimal startLowerBound){
-			this.startUpperBound = startUpperBound.toString();
-			this.startLowerBound = startLowerBound.toString();
-		}
-
-		public void setMiscInfo(BigDecimal totalNumConfs){
-			this.totalNumConfs = totalNumConfs.toString();
-		}
-		public void setNumConfsLooked(int numConfsLooked){
-			this.numConfsLooked = numConfsLooked;
-		}
-
-		public int getNumConfsLooked(){
-			return this.numConfsLooked;
 		}
 
 		@Override
@@ -307,15 +250,10 @@ public interface PartitionFunction {
 		throw new UnsupportedOperationException(getClass().getName() + " does not yet support stability thresholds");
 	}
 
-	default void setRCs(RCs rcs) {
-		throw new UnsupportedOperationException(getClass().getName() + " does not need to know about RCs.");
-	}
-
 	Status getStatus();
 	Values getValues();
 	int getParallelism();
 	int getNumConfsEvaluated();
-	int getNumConfsScored();
 
 	void compute(int maxNumConfs);
 
@@ -349,15 +287,15 @@ public interface PartitionFunction {
 
 	/**
 	 * Factory method to make the best pfunc calculator based on the conf ecalc
-	 * @param info
 	 */
-	public static PartitionFunction makeBestFor(BBKStar.ConfSpaceInfo info, RCs rcs, boolean useMARKStar) {
-	    if(useMARKStar)
-            return MARKStarBound.makeFromConfSpaceInfo(info, rcs);
-		return new GradientDescentPfunc(info.confEcalcMinimized);
-	}
 	public static PartitionFunction makeBestFor(ConfEnergyCalculator confEcalc) {
-		return new GradientDescentPfunc(confEcalc);
+		if (confEcalc instanceof LUTEConfEnergyCalculator) {
+			// LUTE needs its own calculator, since it doesn't use energy bounds
+			return new LUTEPfunc((LUTEConfEnergyCalculator)confEcalc);
+		} else {
+			// algorithms based on energy bounds can use the GD calculator, it's the most recent pfunc calculator
+			return new GradientDescentPfunc(confEcalc);
+		}
 	}
 
 

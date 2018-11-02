@@ -2,7 +2,7 @@ package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.tools.MathTools;
 
-import java.io.Serializable;
+import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -312,6 +312,36 @@ public class SeqSpace implements Serializable {
 
 	public List<Sequence> getMutants() {
 		return getMutants(positions.size());
+	}
+
+	public List<Sequence> getMutants(File mutFile){
+
+		List<Sequence> sequences = new ArrayList<>();
+		try{
+			FileInputStream is = new FileInputStream(mutFile);
+			BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
+
+			int seqNum=0;
+
+			for(String curLine=bufread.readLine(); curLine!=null; curLine=bufread.readLine()){
+				StringTokenizer st = new StringTokenizer(curLine);
+				int numPos = st.countTokens();
+				ArrayList<String> seq = new ArrayList<>();
+				for(int pos=0; pos<numPos; pos++) {//take only the 3-letter AA type
+					seq.add(st.nextToken().split("=")[1]);
+				}
+
+				sequences.add(makeSequence(seq));
+				seqNum++;
+			}
+
+			bufread.close();
+		}
+		catch(IOException ex){
+			throw new RuntimeException(ex);
+		}
+
+		return sequences;
 	}
 
 	public List<Sequence> getMutants(int maxSimultaneousMutations) {
