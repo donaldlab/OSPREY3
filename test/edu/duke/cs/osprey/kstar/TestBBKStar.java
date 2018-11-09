@@ -43,6 +43,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
@@ -60,7 +61,69 @@ public class TestBBKStar {
 
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations,
 									 boolean runMARKStar) {
-		return null;
+
+		Parallelism parallelism = Parallelism.makeCpu(4);
+
+		// how should we compute energies of molecules?
+		try (EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+			.setParallelism(parallelism)
+			.build()) {
+
+			KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) ->
+				String.format("TestBBKStar.assertSequence(results, \"%s\", %f, %f); // protein %s   ligand %s   complex %s",
+					info.sequence.toString(Sequence.Renderer.ResType),
+					info.kstarScore.lowerBoundLog10(),
+					info.kstarScore.upperBoundLog10(),
+					info.kstarScore.protein.toString(),
+					info.kstarScore.ligand.toString(),
+					info.kstarScore.complex.toString()
+				);
+
+			// configure BBK*
+			KStar.Settings kstarSettings = new KStar.Settings.Builder()
+				.setEpsilon(epsilon)
+				.setStabilityThreshold(null)
+				.setMaxSimultaneousMutations(maxSimultaneousMutations)
+				.addScoreConsoleWriter(testFormatter)
+				.build();
+			BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
+				.setNumBestSequences(numSequences)
+				.setNumConfsPerBatch(8)
+				.build();
+			BBKStar bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, kstarSettings, bbkstarSettings);
+			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
+
+				// how should we define energies of conformations?
+				info.confEcalcMinimized = new ConfEnergyCalculator.Builder(info.confSpace, ecalcMinimized)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(info.confSpace, ecalcMinimized)
+						.build()
+						.calcReferenceEnergies()
+					).build();
+
+				// BBK* needs rigid energies too
+				EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
+					.setIsMinimizing(false)
+					.build();
+				ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
+
+				if(runMARKStar) {
+					PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(info.confSpace);
+					pfuncFactory.setUseMARKStar(confEcalcRigid, info.confEcalcMinimized);
+					info.pfuncFactory = pfuncFactory;
+				}
+
+				// add the ConfDB file if needed
+				if (confdbPattern != null) {
+					info.confDBFile = new File(confdbPattern.replace("*", info.type.name().toLowerCase()));
+				}
+			}
+
+			// run BBK*
+			Results results = new Results();
+			results.bbkstar = bbkstar;
+			results.sequences = bbkstar.run();
+			return results;
+		}
 	}
 
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations) {

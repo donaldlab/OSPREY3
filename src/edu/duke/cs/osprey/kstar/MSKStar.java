@@ -11,11 +11,9 @@ import edu.duke.cs.osprey.astar.seq.order.SequentialSeqAStarOrder;
 import edu.duke.cs.osprey.astar.seq.scoring.NOPSeqAStarScorer;
 import edu.duke.cs.osprey.astar.seq.scoring.SeqAStarScorer;
 import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
-import edu.duke.cs.osprey.kstar.pfunc.LowerBoundCalculator;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.UpperBoundCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.*;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -41,6 +39,8 @@ public class MSKStar {
 	 * (e.g., an unbound state, or a complex state)
 	 */
 	public static class State {
+
+		public PartitionFunctionFactory pfuncFactory;
 
 		public static class InitException extends RuntimeException {
 
@@ -308,14 +308,9 @@ public class MSKStar {
 			this.sequence = sequence;
 
 			// init pfunc calculation
-			pfunc = PartitionFunction.makeBestFor(state.confEcalc);
 			RCs rcs = sequence.makeRCs(state.confSpace);
-			pfunc.init(
-				confTrees.make(() -> state.confTreeFactory.apply(rcs)),
-				confTrees.make(() -> state.confTreeFactory.apply(rcs)),
-				rcs.getNumConformations(),
-				epsilon
-			);
+			pfunc = state.pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
+
 			if (confTable != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confTable);
 			}
@@ -482,6 +477,14 @@ public class MSKStar {
 		/** File to which to log sequences as they are found */
 		private File logFile = null;
 
+		/** Temporary MARKStar fields because this interface doesn't cleanly support
+		 * non-ConfSearch PartitionFunction implementations...
+		 */
+		public EnergyMatrix rigidEmat;
+		public EnergyMatrix minimizingEmat;
+		private boolean useMARKStar;
+
+
 		public Builder(LMFE objective) {
 			this.objective = objective;
 		}
@@ -526,8 +529,20 @@ public class MSKStar {
 			return this;
 		}
 
+		public Builder setUseMARKStar(EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat) {
+			this.useMARKStar = true;
+			this.rigidEmat = rigidEmat;
+			this.minimizingEmat = minimizingEmat;
+			return this;
+		}
+
 		public MSKStar build() {
-			return new MSKStar(objective, constraints, epsilon, objectiveWindowSize, objectiveWindowMax, maxSimultaneousMutations, minNumConfTrees, printToConsole, logFile);
+		    MSKStar mskStar = new MSKStar(objective, constraints, epsilon, objectiveWindowSize, objectiveWindowMax, maxSimultaneousMutations, minNumConfTrees, printToConsole, logFile);
+		    if(useMARKStar) {
+		        mskStar.useMARKStar(rigidEmat, minimizingEmat);
+			}
+
+			return mskStar;
 		}
 	}
 
@@ -547,6 +562,14 @@ public class MSKStar {
 
 	private final Map<StateConfs.Key,StateConfs> stateConfsCache = new HashMap<>();
 	private final ConfSearchCache confTrees;
+
+	/** Temporary MARKStar fields because this interface doesn't cleanly support
+	 * non-ConfSearch PartitionFunction implementations...
+	 */
+	public EnergyMatrix rigidEmat;
+	public EnergyMatrix minimizingEmat;
+	private boolean useMARKStar;
+
 
 	private MSKStar(LMFE objective, List<LMFE> constraints, double epsilon, double objectiveWindowSize, double objectiveWindowMax, int maxSimultaneousMutations, Integer minNumConfTrees, boolean printToConsole, File logFile) {
 
@@ -585,6 +608,12 @@ public class MSKStar {
 		confTrees = new ConfSearchCache(minNumConfTrees);
 
 		log("sequence space has %s sequences\n%s", formatBig(new RTs(seqSpace).getNumSequences()), seqSpace);
+	}
+
+	private void useMARKStar(EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat) {
+		this.useMARKStar = true;
+		this.rigidEmat = rigidEmat;
+		this.minimizingEmat = minimizingEmat;
 	}
 
 	/**

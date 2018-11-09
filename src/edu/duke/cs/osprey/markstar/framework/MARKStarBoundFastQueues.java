@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.BBKStar;
+import edu.duke.cs.osprey.kstar.MSKStar;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.framework.MARKStarNode.Node;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -23,12 +24,16 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
 
 
 
-    public static MARKStarBoundFastQueues makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
-        throw new UnsupportedOperationException("MARK* is not yet integrated into BBK*. Coming soon!");
-        /*
-        ConfEnergyCalculator minimizingConfEcalc = info.confEcalcMinimized;
-        return new MARKStarBound(info.confSpace, info.ematRigid, info.ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
-        */
+    public static MARKStarBoundFastQueues makeFromConfSpaceInfo(SimpleConfSpace confSpace, ConfEnergyCalculator minimizingConfEcalc, EnergyMatrix ematRigid, EnergyMatrix ematMinimized, RCs rcs) {
+        return new MARKStarBoundFastQueues(confSpace, ematRigid, ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
+    }
+
+    public static MARKStarBoundFastQueues makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, ConfEnergyCalculator minimizingConfEcalc, RCs rcs) {
+        return new MARKStarBoundFastQueues(info.confSpace, info.rigidEmat, info.minimizingEmat, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
+    }
+
+    public static MARKStarBoundFastQueues makeFromMSKState(MSKStar.State info, ConfEnergyCalculator minimizingConfEcalc, RCs rcs) {
+        return new MARKStarBoundFastQueues(info.confSpace, null, null, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
     }
 
     public MARKStarBoundFastQueues(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
