@@ -24,18 +24,6 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
 
 
 
-    public static MARKStarBoundFastQueues makeFromConfSpaceInfo(SimpleConfSpace confSpace, ConfEnergyCalculator minimizingConfEcalc, EnergyMatrix ematRigid, EnergyMatrix ematMinimized, RCs rcs) {
-        return new MARKStarBoundFastQueues(confSpace, ematRigid, ematMinimized, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
-    }
-
-    public static MARKStarBoundFastQueues makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, ConfEnergyCalculator minimizingConfEcalc, RCs rcs) {
-        return new MARKStarBoundFastQueues(info.confSpace, info.rigidEmat, info.minimizingEmat, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
-    }
-
-    public static MARKStarBoundFastQueues makeFromMSKState(MSKStar.State info, ConfEnergyCalculator minimizingConfEcalc, RCs rcs) {
-        return new MARKStarBoundFastQueues(info.confSpace, null, null, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
-    }
-
     public MARKStarBoundFastQueues(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                                    ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
         super(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, rcs, parallelism);

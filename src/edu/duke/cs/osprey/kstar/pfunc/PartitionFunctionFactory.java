@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEPfunc;
@@ -13,6 +14,8 @@ import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 
 public class PartitionFunctionFactory {
 
@@ -24,8 +27,11 @@ public class PartitionFunctionFactory {
 
     private ConfEnergyCalculator confUpperBoundECalc;
     private ConfEnergyCalculator confEcalc;
+    private Map<ConfEnergyCalculator, EnergyMatrix> emats = new HashMap<>();
     private SimpleConfSpace confSpace;
+    private EnergyMatrix upperBoundEmat;
     private PartitionFunctionImpl pfuncImpl = PartitionFunctionImpl.MARKStar;
+    private UpdatingEnergyMatrix MARKStarEmat = null;
 
     public PartitionFunctionFactory(SimpleConfSpace confSpace) {
         this.confSpace = confSpace;
@@ -73,8 +79,11 @@ public class PartitionFunctionFactory {
                 pfunc.init(AStarSearch, rcs.getNumConformations(), epsilon);
                 break;
             case MARKStar:
+                EnergyMatrix minimizingEmat = makeEmat(confEcalc);
+                MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
                 MARKStarBoundFastQueues MARKStarBound = new MARKStarBoundFastQueues(confSpace, makeEmat(confUpperBoundECalc),
-                        makeEmat(confEcalc), confEcalc, rcs, confEcalc.ecalc.parallelism);
+                        minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
+                MARKStarBound.setCorrections(MARKStarEmat);
                 MARKStarBound.init(epsilon);
                 pfunc = MARKStarBound;
                 break;
@@ -93,8 +102,12 @@ public class PartitionFunctionFactory {
     }
 
     private EnergyMatrix makeEmat(ConfEnergyCalculator confECalc) {
-        return new SimplerEnergyMatrixCalculator.Builder(confECalc)
-                .build()
-                .calcEnergyMatrix();
+        if(!emats.containsKey(confECalc)) {
+            EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
+                    .build()
+                    .calcEnergyMatrix();
+            emats.put(confECalc, emat);
+        }
+        return emats.get(confECalc);
     }
 }

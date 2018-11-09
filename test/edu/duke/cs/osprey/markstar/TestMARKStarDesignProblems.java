@@ -62,7 +62,7 @@ public class TestMARKStarDesignProblems {
         double epsilon = 0.99;
         String kstartime = "(Not run)";
         Stopwatch watch = new Stopwatch();
-        boolean runkstar = false;
+        boolean runkstar = true;
         if(runkstar) {
             watch.start();
             runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);

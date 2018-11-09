@@ -51,7 +51,6 @@ import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEPfunc;
-import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -302,12 +301,6 @@ public interface PartitionFunction {
 			return new GradientDescentPfunc(confEcalc);
 		}
 	}
-
-	public static PartitionFunction makeMARKStarPFunc(SimpleConfSpace confSpace, EnergyMatrix rigidEmat,
-													  EnergyMatrix minimizingEmat, ConfEnergyCalculator confEcalc, RCs rcs) {
-	    return MARKStarBoundFastQueues.makeFromConfSpaceInfo(confSpace, confEcalc, rigidEmat, minimizingEmat, rcs);
-	}
-
 
 	public static interface WithExternalMemory extends PartitionFunction {
 

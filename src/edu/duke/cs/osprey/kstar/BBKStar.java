@@ -143,19 +143,21 @@ public class BBKStar {
 		}
 
 		private void check() {
-			if (pfuncFactory == null) {
-			    pfuncFactory = new PartitionFunctionFactory(confSpace);
-			    pfuncFactory.setUseGradientDescent(confEcalcMinimized);
-			}
 			if (confEcalcMinimized == null) {
 				throw new KStar.InitException(type, "confEcalcMinimized");
 			}
+			if (pfuncFactory == null) {
+				pfuncFactory = new PartitionFunctionFactory(confSpace);
+				pfuncFactory.setUseGradientDescent(confEcalcMinimized);
+			}
+			/*
 			if (confSearchFactoryMinimized == null) {
 				throw new KStar.InitException(type, "confSearchFactoryMinimized");
 			}
 			if (confSearchFactoryRigid == null) {
 				throw new KStar.InitException(type, "confSearchFactoryRigid");
 			}
+			*/
 		}
 
 		public void setConfDBFile(String path) {
@@ -401,7 +403,7 @@ public class BBKStar {
 			// make the partition function
 			RCs rcs = sequence.makeRCs(info.confSpace);
 
-			pfunc = pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), kstarSettings.epsilon);
+			pfunc = info.pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), kstarSettings.epsilon);
 
 			pfunc.setReportProgress(kstarSettings.showPfuncProgress);
 			if (confdb != null) {
