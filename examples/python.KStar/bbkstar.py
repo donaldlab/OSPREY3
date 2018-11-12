@@ -80,6 +80,8 @@ for info in bbkstar.confSpaceInfos():
 		return osprey.AStarTraditional(emat, rcs, showProgress=False)
 	info.confSearchFactoryRigid = osprey.KStar.ConfSearchFactory(makeRigidAStar)
 
+	info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, confEcalcMinimized, epsilon, confUpperBoundcalc=rigidConfEcalc);
+
 # run BBK*
 scoredSequences = bbkstar.run()
 
