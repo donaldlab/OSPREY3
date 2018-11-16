@@ -298,7 +298,7 @@ public class EwakstarDoer {
             //if we have the wild-type sequence, we want it's minimized energy
             if(isWT){
                 lowestScoringConf = confTree.nextConf();
-                wtConf = state.confEcalc.calcEnergy(confTree.nextConf());
+                wtConf = state.confEcalc.calcEnergy(lowestScoringConf);
             }
             else {
                 lowestScoringConf = confTree.nextConf();
