@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.ematrix;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.confspace.TupE;
 
 import java.util.*;
@@ -9,13 +10,25 @@ import java.util.*;
 
 public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     // Store the seen confs in a trie with wildcards.
-    private static final boolean debug = false;
+    private static final boolean debug = true;
     private TupleTrie corrections;
     private int numPos;
+    
+    //debug variable
+    public final ConfEnergyCalculator sourceECalc;
+
+    public UpdatingEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix target, ConfEnergyCalculator confECalc) {
+        super(confSpace, target);
+        corrections = new TupleTrie(confSpace.positions);
+        this.numPos = confSpace.getNumPos();
+        this.sourceECalc = confECalc;
+
+    }
 
     public UpdatingEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix target) {
         super(confSpace, target);
         this.numPos = confSpace.getNumPos();
+        this.sourceECalc = null;
         corrections = new TupleTrie(confSpace.positions);
     }
 
@@ -252,6 +265,8 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                     return children.get(WILDCARD_RC).contains(query, tupleIndex);
                 }
                 if(!children.containsKey(currentRC))
+                    return false;
+                if(children.get(currentRC) == null)
                     return false;
                 return children.get(currentRC).contains(query, nextIndex);
             }

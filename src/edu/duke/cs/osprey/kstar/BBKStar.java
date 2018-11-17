@@ -147,7 +147,7 @@ public class BBKStar {
 				throw new KStar.InitException(type, "confEcalcMinimized");
 			}
 			if (pfuncFactory == null) {
-				pfuncFactory = new PartitionFunctionFactory(confSpace);
+				pfuncFactory = new PartitionFunctionFactory(confSpace,id);
 				pfuncFactory.setUseGradientDescent(confEcalcMinimized);
 			}
 			/*
@@ -627,6 +627,7 @@ public class BBKStar {
 
 				// get the next node
 				Node node = tree.poll();
+                System.out.println("Refining sequence "+node.sequence);
 
 				if (node instanceof SingleSequenceNode) {
 					SingleSequenceNode ssnode = (SingleSequenceNode)node;

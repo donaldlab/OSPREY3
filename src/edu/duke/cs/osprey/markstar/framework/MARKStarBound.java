@@ -508,7 +508,7 @@ public class MARKStarBound implements PartitionFunction {
         loopCleanup(newNodes, loopWatch, numNodes);
     }
 
-    private void debugHeap(Queue<MARKStarNode> queue) {
+    protected void debugHeap(Queue<MARKStarNode> queue) {
         int maxNodes = 10;
         System.out.println("Node heap:");
         List<MARKStarNode> nodes = new ArrayList<>();
@@ -605,7 +605,7 @@ public class MARKStarBound implements PartitionFunction {
     protected boolean correctedNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
         assert(curNode != null && node != null);
         double confCorrection = correctionMatrix.confE(node.assignments);
-        if((node.getLevel() == RCs.getNumPos() && node.getConfLowerBound() < confCorrection)
+        if((node.getLevel() == RCs.getNumPos() && node.getConfLowerBound()< confCorrection)
                 || node.gscore < confCorrection) {
             double oldg = node.gscore;
             node.gscore = confCorrection;
@@ -670,7 +670,7 @@ public class MARKStarBound implements PartitionFunction {
                 }
                 if (child.getLevel() == RCs.getNumPos()) {
                     double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                    confRigid = confRigid - node.gscore + node.rigidScore;
+                    confRigid = confRigid + node.gscore - node.rigidScore;
 
                     child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                     double confCorrection = correctionMatrix.confE(child.assignments);
@@ -684,6 +684,10 @@ public class MARKStarBound implements PartitionFunction {
                     confLowerBound = lowerbound;
                     child.rigidScore = confRigid;
                     numConfsScored++;
+                    System.out.println("Full node energies for "+child+":");
+                    System.out.println("Lower: "+lowerbound);
+                    System.out.println("corrected: "+confCorrection);
+                    System.out.println("rigid: "+confRigid);
                     progress.reportLeafNode(child.gscore, queue.size(), epsilonBound);
                 }
                 partialTime.stop();
@@ -693,6 +697,7 @@ public class MARKStarBound implements PartitionFunction {
                 if (Double.isNaN(child.rigidScore))
                     System.out.println("Huh!?");
                 MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
+                System.out.println("Creating node "+child);
                 MARKStarNodeChild.markUpdated();
                 if (confLowerBound < bestChildLower) {
                     bestChild = MARKStarNodeChild;
@@ -803,6 +808,7 @@ public class MARKStarBound implements PartitionFunction {
                         child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                         double confCorrection = correctionMatrix.confE(child.assignments);
                         double lowerbound = minimizingEmat.confE(child.assignments);
+
                         if(lowerbound < confCorrection) {
                             recordCorrection(lowerbound, confCorrection - lowerbound);
                         }
@@ -841,13 +847,13 @@ public class MARKStarBound implements PartitionFunction {
 
 
     protected void processFullConfNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
-
+        System.out.println("Processing full conf node: "+node);
         double confCorrection = correctionMatrix.confE(node.assignments);
         if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
             double oldg = node.gscore;
             node.gscore = confCorrection;
             recordCorrection(oldg, confCorrection - oldg);
-            node.setBoundsFromConfLowerAndUpper(confCorrection, node.rigidScore);
+            node.setBoundsFromConfLowerAndUpper(confCorrection, node.getConfUpperBound());
             curNode.markUpdated();
             newNodes.add(curNode);
             return;

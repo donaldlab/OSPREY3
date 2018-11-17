@@ -125,6 +125,7 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
                 if(confCorrection < node.getConfLowerBound()) {
                     System.out.println("huh!?");
                 }
+                System.out.println("Correction from "+correctionMatrix.sourceECalc+":"+node.gscore+"->"+correctgscore);
                 recordCorrection(node.getConfLowerBound(), correctgscore - node.gscore);
 
                 node.gscore = correctgscore;
