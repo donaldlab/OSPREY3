@@ -54,8 +54,8 @@ bbkstar = osprey.BBKStar(
     proteinConfSpace,
     ligandConfSpace,
     complexConfSpace,
-    numBestSequences=2,
-    epsilon=0.01, # you proabably want something more precise in your real designs
+    numBestSequences=7,
+    epsilon=0.1, # you proabably want something more precise in your real designs
     writeSequencesToConsole=True,
     writeSequencesToFile='bbkstar.results.tsv'
 )
@@ -66,7 +66,7 @@ for info in bbkstar.confSpaceInfos():
     # how should we define energies of conformations?
     eref = osprey.ReferenceEnergies(info.confSpace, minimizingEcalc)
     info.confEcalcMinimized = osprey.ConfEnergyCalculator(info.confSpace, minimizingEcalc, referenceEnergies=eref)
-    info.epsilon = 0.1
+    info.epsilon = 0.01
 
     # compute the energy matrix
     emat = osprey.EnergyMatrix(info.confEcalcMinimized, cacheFile='emat.%s.dat' % info.id)
@@ -84,7 +84,8 @@ for info in bbkstar.confSpaceInfos():
         return osprey.AStarTraditional(emat, rcs, showProgress=False)
     info.confSearchFactoryRigid = osprey.KStar.ConfSearchFactory(makeRigidAStar)
 
-    info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id, confUpperBoundcalc=rigidConfEcalc);
+    info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id, confUpperBoundcalc=rigidConfEcalc)
+    #info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id)
 
 # run BBK*
 scoredSequences = bbkstar.run()

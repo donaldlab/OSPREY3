@@ -69,6 +69,7 @@ for state in mskstar.states:
 	def makeAStar(rcs, emat=emat):
 		return osprey.AStarTraditional(emat, rcs, showProgress=False)
 	state.confTreeFactory = osprey.MSKStar_ConfSearchFactory(makeAStar)
+    state.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id, confUpperBoundcalc=rigidConfEcalc)
 
 # finally, run MSK*
 mskstar.findBestSequences(5)
