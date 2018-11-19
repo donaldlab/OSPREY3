@@ -129,7 +129,7 @@ public class TestMARKStarDesignProblems {
     @Test
     public void test2RL0Python() {
         ConfSpaces confSpaces = make2RL0Python();
-        runBBKStar(confSpaces, 2, 0.99, null, 1, true);
+        runBBKStar(confSpaces, 2, 0.01, null, 1, true);
     }
 
     public static ConfSpaces make2RL0Python() {

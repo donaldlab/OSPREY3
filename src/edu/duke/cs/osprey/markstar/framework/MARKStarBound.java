@@ -610,7 +610,7 @@ public class MARKStarBound implements PartitionFunction {
             double oldg = node.gscore;
             node.gscore = confCorrection;
             recordCorrection(oldg, confCorrection - oldg);
-            node.setBoundsFromConfLowerAndUpper(confCorrection, node.getConfUpperBound());
+            node.setBoundsFromConfLowerAndUpper(node.getConfLowerBound() - oldg + confCorrection, node.getConfUpperBound());
             curNode.markUpdated();
             newNodes.add(curNode);
             return true;
