@@ -126,6 +126,60 @@ public class TestMARKStarDesignProblems {
         return confSpaces;
     }
 
+    @Test
+    public void test2RL0Python() {
+        ConfSpaces confSpaces = make2RL0Python();
+        runBBKStar(confSpaces, 2, 0.99, null, 1, true);
+    }
+
+    public static ConfSpaces make2RL0Python() {
+
+        ConfSpaces confSpaces = new ConfSpaces();
+
+        // configure the forcefield
+        confSpaces.ffparams = new ForcefieldParams();
+
+        Molecule mol = PDBIO.readFile("examples/python.KStar/2RL0.min.reduce.pdb");
+
+        // make sure all strands share the same template library
+        ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+                .addMoleculeForWildTypeRotamers(mol)
+                .build();
+
+        // define the protein strand
+        Strand protein = new Strand.Builder(mol)
+                .setTemplateLibrary(templateLib)
+                .setResidues("G648", "G654")
+                .build();
+        protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+        protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+        protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+        protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+        // define the ligand strand
+        Strand ligand = new Strand.Builder(mol)
+                .setTemplateLibrary(templateLib)
+                .setResidues("A155", "A194")
+                .build();
+        ligand.flexibility.get("A156").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+        ligand.flexibility.get("A172").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+        ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+        ligand.flexibility.get("A193").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+        // make the conf spaces ("complex" SimpleConfSpace, har har!)
+        confSpaces.protein = new SimpleConfSpace.Builder()
+                .addStrand(protein)
+                .build();
+        confSpaces.ligand = new SimpleConfSpace.Builder()
+                .addStrand(ligand)
+                .build();
+        confSpaces.complex = new SimpleConfSpace.Builder()
+                .addStrands(protein, ligand)
+                .build();
+
+        return confSpaces;
+    }
+
     public static ConfSpaces make2RL0() {
 
         ConfSpaces confSpaces = new ConfSpaces();

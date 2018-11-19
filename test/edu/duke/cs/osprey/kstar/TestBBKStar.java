@@ -107,7 +107,7 @@ public class TestBBKStar {
 				ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
 
 				if(runMARKStar) {
-					PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(info.confSpace);
+					PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(info.confSpace, info.id);
 					pfuncFactory.setUseMARKStar(confEcalcRigid, info.confEcalcMinimized);
 					info.pfuncFactory = pfuncFactory;
 				}
@@ -135,8 +135,8 @@ public class TestBBKStar {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 		final double epsilon = 0.99;
-		final int numSequences = 25;
-		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
+		final int numSequences = 2;
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 10, true);
 
 		assert2RL0(results, numSequences);
 	}
