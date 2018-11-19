@@ -610,7 +610,7 @@ public class MARKStarBound implements PartitionFunction {
             double oldg = node.gscore;
             node.gscore = confCorrection;
             recordCorrection(oldg, confCorrection - oldg);
-            node.setBoundsFromConfLowerAndUpper(node.getConfLowerBound()- oldg + confCorrection, node.getConfUpperBound());
+            node.setBoundsFromConfLowerAndUpper(confCorrection, node.getConfUpperBound());
             curNode.markUpdated();
             newNodes.add(curNode);
             return true;
@@ -684,10 +684,6 @@ public class MARKStarBound implements PartitionFunction {
                     confLowerBound = lowerbound;
                     child.rigidScore = confRigid;
                     numConfsScored++;
-                    System.out.println("Full node energies for "+child+":");
-                    System.out.println("Lower: "+lowerbound);
-                    System.out.println("corrected: "+confCorrection);
-                    System.out.println("rigid: "+confRigid);
                     progress.reportLeafNode(child.gscore, queue.size(), epsilonBound);
                 }
                 partialTime.stop();
@@ -697,7 +693,6 @@ public class MARKStarBound implements PartitionFunction {
                 if (Double.isNaN(child.rigidScore))
                     System.out.println("Huh!?");
                 MARKStarNode MARKStarNodeChild = curNode.makeChild(child);
-                System.out.println("Creating node "+child);
                 MARKStarNodeChild.markUpdated();
                 if (confLowerBound < bestChildLower) {
                     bestChild = MARKStarNodeChild;
@@ -847,7 +842,6 @@ public class MARKStarBound implements PartitionFunction {
 
 
     protected void processFullConfNode(List<MARKStarNode> newNodes, MARKStarNode curNode, Node node) {
-        System.out.println("Processing full conf node: "+node);
         double confCorrection = correctionMatrix.confE(node.assignments);
         if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
             double oldg = node.gscore;

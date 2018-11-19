@@ -140,6 +140,7 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
                 continue;
             }
 
+
             if (node.getLevel() < RCs.getNumPos()) {
                 internalQueue.add(curNode);
             }
