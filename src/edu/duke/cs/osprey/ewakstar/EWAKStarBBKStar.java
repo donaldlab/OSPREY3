@@ -516,7 +516,7 @@ public class EWAKStarBBKStar {
         }
     }
 
-    public List<EWAKStar.ScoredSequence> run() {
+    public List<Sequence> run() {
 
         protein.check();
         ligand.check();
@@ -527,7 +527,7 @@ public class EWAKStarBBKStar {
         ligandPfuncs.clear();
         complexPfuncs.clear();
 
-        List<EWAKStar.ScoredSequence> scoredSequences = new ArrayList<>();
+        List<Sequence> scoredSequences = new ArrayList<>();
 
 
         try (ConfDB.DBs confDBs = new ConfDB.DBs()
@@ -666,10 +666,10 @@ public class EWAKStarBBKStar {
         return scoredSequences;
     }
 
-    private void reportSequence(SingleSequenceNode ssnode, List<EWAKStar.ScoredSequence> scoredSequences) {
+    private void reportSequence(SingleSequenceNode ssnode, List<Sequence> scoredSequences) {
 
         EWAKStarScore kstarScore = ssnode.makeKStarScore();
-        scoredSequences.add(new EWAKStar.ScoredSequence(ssnode.sequence, kstarScore));
+        scoredSequences.add(ssnode.sequence);
 
         if(kstarSettings.printPDBs) {
             Iterator<EnergyCalculator.EnergiedParametricMolecule> econfs = ssnode.complex.getEpMols().iterator();
@@ -689,6 +689,9 @@ public class EWAKStarBBKStar {
                 directory.mkdir();
             }
             analysis.writePdbs(pdbString + "/" + seqDir + "/conf.*.pdb");
+            sconfs = null;
+            analyzer = null;
+            econfs = null;
         }
 
         kstarSettings.scoreWriters.writeScore(new EWAKStarScoreWriter.ScoreInfo(
@@ -698,5 +701,7 @@ public class EWAKStarBBKStar {
                 complex.confSpace,
                 kstarScore
         ));
+
+        kstarScore = null;
     }
 }
