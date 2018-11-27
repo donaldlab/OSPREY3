@@ -90,4 +90,11 @@ public class MultiStateConfSpace {
 		this.sequencedStates = sequencedStates;
 		this.unsequencedStates = unsequencedStates;
 	}
+
+	public State getState(String name) {
+		return states.stream()
+			.filter(state -> state.name.equals(name))
+			.findFirst()
+			.orElseThrow(() -> new NoSuchElementException("no state with name " + name));
+	}
 }

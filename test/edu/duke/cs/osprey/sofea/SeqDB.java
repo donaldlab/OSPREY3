@@ -412,7 +412,7 @@ public class SeqDB implements AutoCloseable {
 	public void addSeqZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimal Z) {
 		updateSeqZ(state, index, bounds -> {
 			bounds.lower = bigMath()
-			.set(bounds.lower)
+				.set(bounds.lower)
 				.add(Z)
 				.get();
 			bounds.upper = bigMath()
@@ -437,15 +437,15 @@ public class SeqDB implements AutoCloseable {
 
 	public void subSeqZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds Z) {
 		updateSeqZ(state, index, bounds -> {
-			bounds.lower = bigMath()
-				.set(bounds.lower)
-				.sub(Z.lower)
-				.atLeast(0.0) // NOTE: roundoff error can cause this to drop below 0
-				.get();
 			bounds.upper = bigMath()
 				.set(bounds.upper)
 				.sub(Z.upper)
-				.atLeast(0.0)
+				.atLeast(0.0) // NOTE: roundoff error can cause this to drop below 0
+				.get();
+			bounds.lower = bigMath()
+				.set(bounds.lower)
+				.sub(Z.lower)
+				.atMost(bounds.upper) // don't exceed the upper bound due to roundoff error
 				.get();
 		});
 	}

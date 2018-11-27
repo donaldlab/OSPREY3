@@ -30,6 +30,7 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -245,7 +246,11 @@ public class SofeaLab {
 		public final MultiStateConfSpace confSpace;
 		public final List<StateConfig> stateConfigs;
 
-		private final MathContext mathContext = PartitionFunction.decimalPrecision;
+		// NOTE: don't need much precision for most math, but need lots of precision for seqdb math
+		// TODO: externalize these as config options
+		private final MathContext mathContext = new MathContext(32, RoundingMode.HALF_UP);
+		private final MathContext seqdbMathContext = new MathContext(256, RoundingMode.HALF_UP);
+
 		private final List<StateInfo> stateInfos;
 
 		public Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs) {
@@ -273,7 +278,7 @@ public class SofeaLab {
 
 		public void design() {
 
-			try (SeqDB seqdb = new SeqDB(confSpace, mathContext)) {
+			try (SeqDB seqdb = new SeqDB(confSpace, seqdbMathContext)) {
 
 				FringeDB fringedb = new FringeDB(confSpace);
 
@@ -311,14 +316,20 @@ public class SofeaLab {
 					}
 				}
 
+				// TEMP
+				log("seed");
+				log("\tfringe size: %d", fringedb.writeSize());
+
+				final double zmaxFactor = Math.pow(Math.E, 4.0);
+
 				// TEMP: try a few operations
-				for (int i=0; i<20; i++) {
+				for (int i=0; i<10; i++) {
 
 					// reduce zmax each iteration
 					List<BigDecimal> zmax = confSpace.states.stream()
 						.map(state -> bigMath()
 							.set(fringedb.getZMax(state))
-							.div(Math.E)
+							.div(zmaxFactor)
 							.get()
 						)
 						.collect(Collectors.toList());
@@ -326,18 +337,30 @@ public class SofeaLab {
 					// TEMP
 					log("op %3d", i);
 					for (MultiStateConfSpace.State state : confSpace.states) {
-						 log("\tzmax=%s  /2=%s", dump(fringedb.getZMax(state)), dump(zmax.get(state.index)));
+						 log("\tzmax=%s  /f=%s", dump(fringedb.getZMax(state)), dump(zmax.get(state.index)));
 					}
+
+					long[] numProcessed = { 0 };
+					long oldFringeSize = fringedb.writeSize();
 
 					fringedb.sweep((state, index, bounds, zpath) -> {
 
 						seqdb.subSeqZ(state, index, bounds);
 
-						design(state, index, bounds, zmax.get(state.index), zpath, fringedb, seqdb);
+						boolean wasProcessed = design(state, index, bounds, zmax.get(state.index), zpath, fringedb, seqdb);
+
+						if (wasProcessed) {
+							numProcessed[0]++;
+						}
 					});
 
 					// TEMP
-					log("\tfringe size: %d", fringedb.writeSize());
+					log("\tprocessed %d/%d, fringe size: %d", numProcessed[0], oldFringeSize, fringedb.writeSize());
+
+					// stop if we ran out of fringe
+					if (fringedb.writeSize() <= 0) {
+						break;
+					}
 				}
 
 				// TEMP
@@ -347,13 +370,13 @@ public class SofeaLab {
 			}
 		}
 
-		private void design(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds bounds, BigDecimal zmax, BigDecimal zpath, FringeDB fringedb, SeqDB seqdb) {
+		private boolean design(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds bounds, BigDecimal zmax, BigDecimal zpath, FringeDB fringedb, SeqDB seqdb) {
 
 			// skip this tree if it's too small
 			if (MathTools.isLessThan(bounds.upper, zmax)) {
 				fringedb.add(state, index, bounds, zpath);
 				seqdb.addSeqZ(state, index, bounds);
-				return;
+				return false;
 			}
 
 			// otherwise, recurse
@@ -426,6 +449,8 @@ public class SofeaLab {
 					index.unassignInPlace(pos);
 				}
 			}
+
+			return true;
 		}
 
 		private class StateInfo {
