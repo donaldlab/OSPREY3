@@ -348,10 +348,10 @@ public class EWAKStarBBKStar {
             Sequence sequence = this.sequence.filter(info.confSpace.seqSpace);
 
             // first check the cache
-            EWAKStarPartitionFunction pfunc = pfuncCache.get(sequence);
-            if (pfunc != null) {
-                return pfunc;
-            }
+            EWAKStarPartitionFunction pfunc;
+//            if (pfunc != null) {
+//                return pfunc;
+//            }
 
             // cache miss, need to compute the partition function
 
@@ -369,7 +369,7 @@ public class EWAKStarBBKStar {
             pfunc.setStabilityThreshold(info.stabilityThreshold);
 
             // update the cache
-            pfuncCache.put(sequence, pfunc);
+            //pfuncCache.put(sequence, pfunc);
             return pfunc;
         }
 
