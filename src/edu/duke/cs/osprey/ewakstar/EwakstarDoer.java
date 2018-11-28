@@ -635,20 +635,18 @@ public class EwakstarDoer {
         System.out.println("Performing EWAK*");
 
         //calculate the size of the system
-        int combinatorialSize = 0;
+        int combinatorialSize = 1;
+        int combinatorialConf = 1;
         List<List<SimpleConfSpace.Position>> powersetOfPositions = MathTools.powersetUpTo(PL.confSpace.positions, numMutable);
+        powersetOfPositions.remove(0);
         for (List<SimpleConfSpace.Position> mutablePositions : powersetOfPositions) {
-            if(!(useExact && mutablePositions.size()!=numMutable)) {
-                List<Integer> numResTypes = new ArrayList<>();
-                for (SimpleConfSpace.Position pos : mutablePositions) {
-                    numResTypes.add(pos.resFlex.resTypes.size() - 1);
-                }
-                int tempSize = 1;
-                for (Integer n : numResTypes) {
-                    tempSize = tempSize * n;
-                }
-                combinatorialSize += tempSize;
-            }
+
+                Integer numResTypes = mutablePositions.get(0).resFlex.resTypes.size();
+                Integer numResConfs = mutablePositions.get(0).resConfs.size();
+
+                combinatorialSize = combinatorialSize * numResTypes;
+                combinatorialConf = combinatorialConf * numResConfs;
+            
         }
 
         state.checkConfig();
@@ -713,6 +711,8 @@ public class EwakstarDoer {
         Set<Sequence> fullSeqs = combineSeqs(newPSeqs, newLSeqs, filteredSeqsPL);
 
         long stopEWAKStarTime;
+
+        log("The original conformation space size is: %6.3e", ((double)combinatorialConf));
         if (!seqFilterOnly) {
             EwakstarLimitedSequenceTrie elstPL = new EwakstarLimitedSequenceTrie(ewakstarDoerPL.seqSpace);
             if(fullSeqs.size()!=0) {
