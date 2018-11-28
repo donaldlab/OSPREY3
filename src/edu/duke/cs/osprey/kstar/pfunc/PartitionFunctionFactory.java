@@ -32,7 +32,7 @@ public class PartitionFunctionFactory {
     private Map<ConfEnergyCalculator, EnergyMatrix> emats = new HashMap<>();
     private SimpleConfSpace confSpace;
     private EnergyMatrix upperBoundEmat;
-    private PartitionFunctionImpl pfuncImpl = PartitionFunctionImpl.MARKStar;
+    private PartitionFunctionImpl pfuncImpl = PartitionFunctionImpl.GradientDescent;
     private UpdatingEnergyMatrix MARKStarEmat = null;
     private String state = "(undefined)";
 

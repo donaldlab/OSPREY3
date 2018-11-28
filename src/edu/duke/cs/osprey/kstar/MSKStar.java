@@ -482,7 +482,6 @@ public class MSKStar {
 		 */
 		public EnergyMatrix rigidEmat;
 		public EnergyMatrix minimizingEmat;
-		private boolean useMARKStar;
 
 
 		public Builder(LMFE objective) {
@@ -529,18 +528,8 @@ public class MSKStar {
 			return this;
 		}
 
-		public Builder setUseMARKStar(EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat) {
-			this.useMARKStar = true;
-			this.rigidEmat = rigidEmat;
-			this.minimizingEmat = minimizingEmat;
-			return this;
-		}
-
 		public MSKStar build() {
 		    MSKStar mskStar = new MSKStar(objective, constraints, epsilon, objectiveWindowSize, objectiveWindowMax, maxSimultaneousMutations, minNumConfTrees, printToConsole, logFile);
-		    if(useMARKStar) {
-		        mskStar.useMARKStar(rigidEmat, minimizingEmat);
-			}
 
 			return mskStar;
 		}
@@ -562,13 +551,6 @@ public class MSKStar {
 
 	private final Map<StateConfs.Key,StateConfs> stateConfsCache = new HashMap<>();
 	private final ConfSearchCache confTrees;
-
-	/** Temporary MARKStar fields because this interface doesn't cleanly support
-	 * non-ConfSearch PartitionFunction implementations...
-	 */
-	public EnergyMatrix rigidEmat;
-	public EnergyMatrix minimizingEmat;
-	private boolean useMARKStar;
 
 
 	private MSKStar(LMFE objective, List<LMFE> constraints, double epsilon, double objectiveWindowSize, double objectiveWindowMax, int maxSimultaneousMutations, Integer minNumConfTrees, boolean printToConsole, File logFile) {
@@ -608,12 +590,6 @@ public class MSKStar {
 		confTrees = new ConfSearchCache(minNumConfTrees);
 
 		log("sequence space has %s sequences\n%s", formatBig(new RTs(seqSpace).getNumSequences()), seqSpace);
-	}
-
-	private void useMARKStar(EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat) {
-		this.useMARKStar = true;
-		this.rigidEmat = rigidEmat;
-		this.minimizingEmat = minimizingEmat;
 	}
 
 	/**

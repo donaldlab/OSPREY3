@@ -129,7 +129,19 @@ public class TestMARKStarDesignProblems {
     @Test
     public void test2RL0Python() {
         ConfSpaces confSpaces = make2RL0Python();
-        runBBKStar(confSpaces, 2, 0.01, null, 1, true);
+        List<MARKStar.ScoredSequence> markstarResult = runMARKStar(confSpaces, 0.1).scores;
+        boolean runkstar = true;
+        List<KStar.ScoredSequence> kstarResult = null;
+        if(runkstar) {
+            kstarResult = runKStar(confSpaces, 0.1);
+        }
+        for(MARKStar.ScoredSequence seq: markstarResult) {
+            System.out.println(seq);
+        }
+        if(runkstar)
+            for (KStar.ScoredSequence seq : kstarResult) {
+                System.out.println(seq);
+            }
     }
 
     public static ConfSpaces make2RL0Python() {
@@ -151,7 +163,7 @@ public class TestMARKStarDesignProblems {
                 .setTemplateLibrary(templateLib)
                 .setResidues("G648", "G654")
                 .build();
-        protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+        protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
         protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
         protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
         protein.flexibility.get("G654").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();

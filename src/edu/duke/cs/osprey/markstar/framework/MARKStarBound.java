@@ -398,7 +398,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     private void debugBreakOnConf(int[] conf) {
-        int[] confOfInterest = new int[]{1,7,5,9,2,27,3,7,3,10,3};
+        int[] confOfInterest = new int[]{4,5,8,18};
         if(conf.length != confOfInterest.length)
             return;
         boolean match = true;
@@ -670,7 +670,7 @@ public class MARKStarBound implements PartitionFunction {
                 }
                 if (child.getLevel() == RCs.getNumPos()) {
                     double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                    confRigid = confRigid + node.gscore - node.rigidScore;
+                    confRigid=confRigid-node.gscore+node.rigidScore;
 
                     child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                     double confCorrection = correctionMatrix.confE(child.assignments);
