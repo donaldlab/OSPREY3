@@ -635,19 +635,12 @@ public class EwakstarDoer {
         System.out.println("Performing EWAK*");
 
         //calculate the size of the system
-        int combinatorialSize = 1;
-        int combinatorialConf = 1;
-        List<List<SimpleConfSpace.Position>> powersetOfPositions = MathTools.powersetUpTo(PL.confSpace.positions, numMutable);
-        powersetOfPositions.remove(0);
-        for (List<SimpleConfSpace.Position> mutablePositions : powersetOfPositions) {
-
-                Integer numResTypes = mutablePositions.get(0).resFlex.resTypes.size();
-                Integer numResConfs = mutablePositions.get(0).resConfs.size();
-
-                combinatorialSize = combinatorialSize * numResTypes;
-                combinatorialConf = combinatorialConf * numResConfs;
-            
+        BigDecimal totalConfs = BigDecimal.ONE;
+        for(int i=0; i<PL.confSpace.positions.size(); i++) {
+            BigDecimal newConfs = new BigDecimal (PL.confSpace.positions.get(i).resConfs.size());
+            totalConfs = totalConfs.multiply(newConfs);
         }
+
 
         state.checkConfig();
 
@@ -712,7 +705,7 @@ public class EwakstarDoer {
 
         long stopEWAKStarTime;
 
-        log("The original conformation space size is: %6.3e", ((double)combinatorialConf));
+        log("The original conformation space size is: %6.3e", totalConfs);
         if (!seqFilterOnly) {
             EwakstarLimitedSequenceTrie elstPL = new EwakstarLimitedSequenceTrie(ewakstarDoerPL.seqSpace);
             if(fullSeqs.size()!=0) {
@@ -724,13 +717,13 @@ public class EwakstarDoer {
         }
         if(seqFilterOnly) {
             writeSeqsToFile(fullSeqs);
-            System.out.println("Number of sequences filtered down to "+ fullSeqs.size()+" from "+combinatorialSize);
+            System.out.println("Number of sequences filtered down to "+ fullSeqs.size()+" from "+formatBig(new RTs(seqSpace).getNumSequences()));
             stopEWAKStarTime = System.currentTimeMillis()-intermediateStartTime+timeTakenSoFar;
             System.out.println("Total OSPREY/EWAK* time (not including energy matrix time): "+(String.format("%d sec",
                     TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime))));
             return fullSeqs;
         } else
-            System.out.println("Number of sequences filtered down to "+ fullSeqs.size()+" from "+combinatorialSize);
+            System.out.println("Number of sequences filtered down to "+ fullSeqs.size()+" from "+formatBig(new RTs(seqSpace).getNumSequences()));
         stopEWAKStarTime = System.currentTimeMillis()-intermediateStartTime+timeTakenSoFar;
         System.out.println("Total OSPREY/EWAK* time (not including energy matrix time): "+(String.format("%d sec",
                 TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime))));

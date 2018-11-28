@@ -25,9 +25,9 @@ public class EwakstarLab {
 	public static void main(String[] args) {
 		// run COMETS
 		//EwakstarDoer ewakstarDoer = run2RL0();
-		//EwakstarDoer ewakstarDoer = run1GUA();
+		EwakstarDoer ewakstarDoer = run1GUA();
 		//EwakstarDoer ewakstarDoer = run1GWC();
-		EwakstarDoer ewakstarDoer = runSpA();
+		//EwakstarDoer ewakstarDoer = runSpA();
 		Set<Sequence> seqs = ewakstarDoer.run(ewakstarDoer.state);
 	}
 
@@ -221,7 +221,7 @@ public class EwakstarLab {
 				.setEw(ewakstarEw)
 				.setMutableType("exact")
 				.setNumMutable(1)
-				.setSeqFilterOnly(false)
+				.setSeqFilterOnly(true)
 				.setNumCpus(numCpus)
 				.setLogFile(new File("ewakstar.sequences.tsv"))
 				.build();
