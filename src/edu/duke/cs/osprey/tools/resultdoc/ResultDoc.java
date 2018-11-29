@@ -154,10 +154,10 @@ public class ResultDoc implements AutoCloseable {
 
 
 	private final String tableSeparator = " | ";
-	/** NOTE: some markdown parsers don't support this table syntax =( */
+
 	public void tableHeader(String ... text) {
 		println(Streams.joinToString(text, tableSeparator));
-		println(Streams.joinToString(text, tableSeparator, t -> "..."));
+		println(Streams.joinToString(text, tableSeparator, t -> "---"));
 	}
 
 	public void tableRow(String ... text) {
@@ -196,4 +196,6 @@ public class ResultDoc implements AutoCloseable {
 	public void plot(Plot plot) {
 		plot(plot, defaultPlotType);
 	}
+
+	// TODO: support LaTeX via MathJax?
 }
