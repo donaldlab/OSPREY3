@@ -75,8 +75,6 @@ public class BBKStar {
 			 */
 			private int numConfsPerBatch = 8;
 
-			private boolean useMARKStar = false;
-
 			public Builder setNumBestSequences(int val) {
 				numBestSequences = val;
 				return this;
@@ -87,30 +85,17 @@ public class BBKStar {
 				return this;
 			}
 
-			public Builder setUseMARKStar() {
-				useMARKStar = true;
-				return this;
-			}
-
 			public Settings build() {
-				return new Settings(numBestSequences, numConfsPerBatch, useMARKStar);
+				return new Settings(numBestSequences, numConfsPerBatch);
 			}
 		}
 
 		public final int numBestSequences;
 		public final int numConfsPerBatch;
-		public final boolean useMARKStar;
 
 		public Settings(int numBestSequences, int numConfsPerBatch) {
 			this.numBestSequences = numBestSequences;
 			this.numConfsPerBatch = numConfsPerBatch;
-			this.useMARKStar = false;
-		}
-
-		public Settings(int numBestSequences, int numConfsPerBatch, boolean useMARKStar) {
-			this.numBestSequences = numBestSequences;
-			this.numConfsPerBatch = numConfsPerBatch;
-			this.useMARKStar = useMARKStar;
 		}
 	}
 
