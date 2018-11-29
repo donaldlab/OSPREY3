@@ -32,7 +32,13 @@
 
 package edu.duke.cs.osprey.tools;
 
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -45,4 +51,51 @@ public class Streams {
 	public static <T> Stream<T> of(Iterable<T> things) {
 		return StreamSupport.stream(things.spliterator(), false);
 	}
+
+	public static <T> Stream<T> of(T[] things) {
+		return Arrays.stream(things);
+	}
+
+	public static <T> String joinToString(Iterable<T> things, String delimiter, Function<T,String> map) {
+		if (things == null) {
+			return "";
+		}
+		return String.join(delimiter, of(things)
+			.map(map)
+			.collect(Collectors.toList())
+		);
+	}
+
+	public static <T> String joinToString(Iterable<T> things, String delimiter) {
+		return joinToString(things, delimiter, thing -> Objects.toString(thing));
+	}
+
+	public static <T> String joinToString(T[] things, String delimiter, Function<T,String> map) {
+		if (things == null) {
+			return "";
+		}
+		return String.join(delimiter, of(things)
+			.map(map)
+			.collect(Collectors.toList())
+		);
+	}
+
+	public static <T> String joinToString(T[] things, String delimiter) {
+		return joinToString(things, delimiter, thing -> Objects.toString(thing));
+	}
+
+	public static <K,V> String joinToString(Map<K,V> things, String delimiter, BiFunction<K,V,String> map) {
+		if (things == null) {
+			return "";
+		}
+		return String.join(delimiter, of(things.entrySet())
+			.map(entry -> map.apply(entry.getKey(), entry.getValue()))
+			.collect(Collectors.toList())
+		);
+	}
+
+	public static <K,V> String joinToString(Map<K,V> things, String delimiter) {
+		return joinToString(things, delimiter, (key, val) -> Objects.toString(key) + "=" + Objects.toString(val));
+	}
+
 }
