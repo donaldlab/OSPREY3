@@ -65,10 +65,7 @@ for state in mskstar.states:
 	emat = osprey.EnergyMatrix(state.confEcalc, cacheFile='emat.%s.dat' % state.name)
 	state.fragmentEnergies = emat
 
-	# how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
-	def makeAStar(rcs, emat=emat):
-		return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	state.confTreeFactory = osprey.MSKStar_ConfSearchFactory(makeAStar)
+	# how should we compute partition functions?
     state.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id, confUpperBoundcalc=rigidConfEcalc)
 
 # finally, run MSK*

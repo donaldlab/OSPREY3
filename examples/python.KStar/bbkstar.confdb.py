@@ -64,17 +64,12 @@ for info in bbkstar.confSpaceInfos():
 	# compute the energy matrix
 	emat = osprey.EnergyMatrix(info.confEcalcMinimized, cacheFile='emat.%s.dat' % info.id)
 
-	# how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
-	def makeAStar(rcs, emat=emat):
-		return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	info.confSearchFactoryMinimized = osprey.KStar.ConfSearchFactory(makeAStar)
-
 	# BBK* needs rigid energies too
 	rigidConfEcalc = osprey.ConfEnergyCalculatorCopy(info.confEcalcMinimized, rigidEcalc)
 	rigidEmat = osprey.EnergyMatrix(rigidConfEcalc, cacheFile='emat.%s.rigid.dat' % info.id)
-	def makeRigidAStar(rcs, emat=rigidEmat):
-		return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	info.confSearchFactoryRigid = osprey.KStar.ConfSearchFactory(makeRigidAStar)
+
+	# how should partition functions be computed?
+    info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id, confUpperBoundcalc=rigidConfEcalc)
 
 	# set the ConfDB file for this conf space
 	info.setConfDBFile('bbkstar.%s.db' % info.type.name().lower())

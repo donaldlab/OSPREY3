@@ -80,10 +80,8 @@ for info in bbkstar.confSpaceInfos():
     rigidConfEcalc = osprey.ConfEnergyCalculatorCopy(info.confEcalcMinimized, rigidEcalc)
     #rigidConfEcalc = osprey.ConfEnergyCalculator(info.confSpace, rigidEcalc, referenceEnergies=eref)
     rigidEmat = osprey.EnergyMatrix(rigidConfEcalc, cacheFile='emat.%s.rigid.dat' % info.id)
-    def makeRigidAStar(rcs, emat=rigidEmat):
-        return osprey.AStarTraditional(emat, rcs, showProgress=False)
-    info.confSearchFactoryRigid = osprey.KStar.ConfSearchFactory(makeRigidAStar)
 
+    # how should we compute partition functions?
     info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id, confUpperBoundcalc=rigidConfEcalc)
     #info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id)
 

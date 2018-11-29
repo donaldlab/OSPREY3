@@ -36,14 +36,14 @@ public class PartitionFunctionFactory {
     private UpdatingEnergyMatrix MARKStarEmat = null;
     private String state = "(undefined)";
 
-    public PartitionFunctionFactory(SimpleConfSpace confSpace, String state) {
+    public PartitionFunctionFactory(SimpleConfSpace confSpace, ConfEnergyCalculator confECalc, String state) {
         this.state = state;
         this.confSpace = confSpace;
+        this.confEcalc = confECalc;
     }
 
-    public void setUseMARKStar(ConfEnergyCalculator rigidConfECalc, ConfEnergyCalculator minimizingConfECalc) {
+    public void setUseMARKStar(ConfEnergyCalculator rigidConfECalc) {
         this.confUpperBoundECalc = rigidConfECalc;
-        this.confEcalc = minimizingConfECalc;
         this.pfuncImpl = PartitionFunctionImpl.MARKStar;
     }
 
@@ -114,7 +114,7 @@ public class PartitionFunctionFactory {
         if(!emats.containsKey(confECalc)) {
             System.out.println("Making energy matrix for "+confECalc);
             EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
-                    .setCacheFile(new File("/usr/project/xtmp/jj/designScratch/"+state+"."+name+".emat"))
+                    .setCacheFile(new File(state+"."+name+".emat"))
                     .build()
                     .calcEnergyMatrix();
             emats.put(confECalc, emat);
