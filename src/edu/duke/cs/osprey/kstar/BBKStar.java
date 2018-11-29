@@ -147,17 +147,8 @@ public class BBKStar {
 				throw new KStar.InitException(type, "confEcalcMinimized");
 			}
 			if (pfuncFactory == null) {
-				pfuncFactory = new PartitionFunctionFactory(confSpace,id);
-				pfuncFactory.setUseGradientDescent(confEcalcMinimized);
+				throw new KStar.InitException(type, "pfuncFactory");
 			}
-			/*
-			if (confSearchFactoryMinimized == null) {
-				throw new KStar.InitException(type, "confSearchFactoryMinimized");
-			}
-			if (confSearchFactoryRigid == null) {
-				throw new KStar.InitException(type, "confSearchFactoryRigid");
-			}
-			*/
 		}
 
 		public void setConfDBFile(String path) {

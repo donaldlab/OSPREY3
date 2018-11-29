@@ -52,8 +52,7 @@ public class PartitionFunctionFactory {
         this.pfuncImpl = PartitionFunctionImpl.LUTE;
     }
 
-    public void setUseGradientDescent(ConfEnergyCalculator confECalc) {
-        this.confEcalc = confECalc;
+    public void setUseGradientDescent() {
         this.pfuncImpl = PartitionFunctionImpl.GradientDescent;
     }
 

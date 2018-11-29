@@ -80,8 +80,8 @@ public class MSKStar {
 			if (confEcalc == null) {
 				throw new InitException(this, "confEcalc");
 			}
-			if (confTreeFactory == null) {
-				throw new InitException(this, "confTreeFactory");
+			if (pfuncFactory == null) {
+				throw new InitException(this, "pfuncFactory");
 			}
 		}
 	}
