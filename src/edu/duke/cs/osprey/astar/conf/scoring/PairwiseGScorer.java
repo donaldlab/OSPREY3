@@ -88,7 +88,7 @@ public class PairwiseGScorer implements AStarScorer {
 
 	@Override
 	public double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc) {
-		
+
     	// modify the parent node's g-score
     	double gscore = confIndex.node.getGScore(optimizer);
     	

@@ -37,10 +37,10 @@ package edu.duke.cs.osprey.confspace;
  * 
  * @author mhall44
  */
-public class TupE implements Comparable {
+public class TupE implements Comparable<TupE> {
     
-    RCTuple tup;
-    double E;
+    public RCTuple tup;
+    public double E;
 
     public TupE(RCTuple tup, double E) {
         this.tup = tup;
@@ -50,13 +50,8 @@ public class TupE implements Comparable {
     
 	
     @Override
-    public int compareTo(Object o) throws ClassCastException {
-            // TODO Auto-generated method stub
-            if(!(o instanceof TupE))
-                    throw new ClassCastException("Another tupE was expected.");
-            double otherE = ((TupE) o).E;
-            //NOTE THIS IS NORMAL ORDERING FOR ENERGIES. BACKWARDS FROM CONFPAIR
-            return Double.valueOf(E).compareTo(otherE);
+    public int compareTo(TupE o) {
+        return Double.compare(E,o.E);
     }
     
 }

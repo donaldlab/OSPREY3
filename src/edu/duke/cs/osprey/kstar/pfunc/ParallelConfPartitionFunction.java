@@ -121,7 +121,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	public int getNumConfsEvaluated() {
 		return numConfsEvaluated;
 	}
-	
+
 	@Override
 	public int getParallelism() {
 		return ecalc.getTasks().getParallelism();

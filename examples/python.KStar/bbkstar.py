@@ -36,7 +36,7 @@ complexConfSpace = osprey.ConfSpace([protein, ligand])
 
 # how should we compute energies of molecules?
 # (give the complex conf space to the ecalc since it knows about all the templates and degrees of freedom)
-parallelism = osprey.Parallelism(cpuCores=4)
+parallelism = osprey.Parallelism(cpuCores=20)
 minimizingEcalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallelism, isMinimizing=True)
 
 # BBK* needs a rigid energy calculator too, for multi-sequence bounds on K*
@@ -44,47 +44,52 @@ rigidEcalc = osprey.SharedEnergyCalculator(minimizingEcalc, isMinimizing=False)
 
 # how should we define energies of conformations?
 def confEcalcFactory(confSpace, ecalc):
-	eref = osprey.ReferenceEnergies(confSpace, ecalc)
-	return osprey.ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=eref)
+    eref = osprey.ReferenceEnergies(confSpace, ecalc)
+    return osprey.ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=eref)
+
+epsilon = 0.99
 
 # configure BBK*
 bbkstar = osprey.BBKStar(
-	proteinConfSpace,
-	ligandConfSpace,
-	complexConfSpace,
-	numBestSequences=2,
-	epsilon=0.99, # you proabably want something more precise in your real designs
-	writeSequencesToConsole=True,
-	writeSequencesToFile='bbkstar.results.tsv'
+    proteinConfSpace,
+    ligandConfSpace,
+    complexConfSpace,
+    numBestSequences=7,
+    epsilon=0.1, # you proabably want something more precise in your real designs
+    writeSequencesToConsole=True,
+    writeSequencesToFile='bbkstar.results.tsv'
 )
 
 # configure BBK* inputs for each conf space
 for info in bbkstar.confSpaceInfos():
 
-	# how should we define energies of conformations?
-	eref = osprey.ReferenceEnergies(info.confSpace, minimizingEcalc)
-	info.confEcalcMinimized = osprey.ConfEnergyCalculator(info.confSpace, minimizingEcalc, referenceEnergies=eref)
+    # how should we define energies of conformations?
+    eref = osprey.ReferenceEnergies(info.confSpace, minimizingEcalc)
+    info.confEcalcMinimized = osprey.ConfEnergyCalculator(info.confSpace, minimizingEcalc, referenceEnergies=eref)
+    info.epsilon = 0.01
 
-	# compute the energy matrix
-	emat = osprey.EnergyMatrix(info.confEcalcMinimized, cacheFile='emat.%s.dat' % info.id)
+    # compute the energy matrix
+    emat = osprey.EnergyMatrix(info.confEcalcMinimized, cacheFile='emat.%s.dat' % info.id)
 
-	# how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
-	def makeAStar(rcs, emat=emat):
-		return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	info.confSearchFactoryMinimized = osprey.KStar.ConfSearchFactory(makeAStar)
+    # how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
+    def makeAStar(rcs, emat=emat):
+        return osprey.AStarTraditional(emat, rcs, showProgress=False)
+    info.confSearchFactoryMinimized = osprey.KStar.ConfSearchFactory(makeAStar)
 
-	# BBK* needs rigid energies too
-	rigidConfEcalc = osprey.ConfEnergyCalculatorCopy(info.confEcalcMinimized, rigidEcalc)
-	rigidEmat = osprey.EnergyMatrix(rigidConfEcalc, cacheFile='emat.%s.rigid.dat' % info.id)
-	def makeRigidAStar(rcs, emat=rigidEmat):
-		return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	info.confSearchFactoryRigid = osprey.KStar.ConfSearchFactory(makeRigidAStar)
+    # BBK* needs rigid energies too
+    rigidConfEcalc = osprey.ConfEnergyCalculatorCopy(info.confEcalcMinimized, rigidEcalc)
+    #rigidConfEcalc = osprey.ConfEnergyCalculator(info.confSpace, rigidEcalc, referenceEnergies=eref)
+    rigidEmat = osprey.EnergyMatrix(rigidConfEcalc, cacheFile='emat.%s.rigid.dat' % info.id)
+
+    # how should we compute partition functions?
+    info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id, confUpperBoundcalc=rigidConfEcalc)
+    #info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id)
 
 # run BBK*
 scoredSequences = bbkstar.run()
 
 # use results
 for scoredSequence in scoredSequences:
-	print("result:")
-	print("\tsequence: %s" % scoredSequence.sequence)
-	print("\tscore: %s" % scoredSequence.score)
+    print("result:")
+    print("\tsequence: %s" % scoredSequence.sequence)
+    print("\tscore: %s" % scoredSequence.score)

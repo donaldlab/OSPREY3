@@ -43,6 +43,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
@@ -58,7 +59,8 @@ public class TestBBKStar {
 		public List<KStar.ScoredSequence> sequences;
 	}
 
-	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations) {
+	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations,
+									 boolean runMARKStar) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
 
@@ -98,29 +100,17 @@ public class TestBBKStar {
 						.calcReferenceEnergies()
 					).build();
 
-				// compute emats
-				EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
-					.build()
-					.calcEnergyMatrix();
-
-				// how should confs be ordered and searched?
-				info.confSearchFactoryMinimized = (rcs) ->
-					new ConfAStarTree.Builder(ematMinimized, rcs)
-						.setTraditional()
-						.build();
-
 				// BBK* needs rigid energies too
 				EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
 					.setIsMinimizing(false)
 					.build();
 				ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
-				EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
-					.build()
-					.calcEnergyMatrix();
-				info.confSearchFactoryRigid = (rcs) ->
-					new ConfAStarTree.Builder(ematRigid, rcs)
-						.setTraditional()
-						.build();
+
+				if(runMARKStar) {
+					PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(info.confSpace, info.id);
+					pfuncFactory.setUseMARKStar(confEcalcRigid, info.confEcalcMinimized);
+					info.pfuncFactory = pfuncFactory;
+				}
 
 				// add the ConfDB file if needed
 				if (confdbPattern != null) {
@@ -136,13 +126,17 @@ public class TestBBKStar {
 		}
 	}
 
+	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations) {
+		return runBBKStar(confSpaces, numSequences, epsilon, confdbPattern, maxSimultaneousMutations, false);
+	}
+
 	@Test
 	public void test2RL0() {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 		final double epsilon = 0.99;
-		final int numSequences = 25;
-		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
+		final int numSequences = 2;
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 10, true);
 
 		assert2RL0(results, numSequences);
 	}

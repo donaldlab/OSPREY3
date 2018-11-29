@@ -1330,6 +1330,15 @@ def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSi
 
 	return builder.build()
 
+def PartitionFunctionFactory(confSpace, confEcalc, state, confUpperBoundcalc=None):
+    pfuncFactory = c.kstar.pfunc.PartitionFunctionFactory(confSpace, confEcalc, state)
+    if confUpperBoundcalc is not None:
+        pfuncFactory.setUseMARKStar(confUpperBoundcalc)
+    else:
+        pfuncFactory.setUseGradientDescent()
+
+    return pfuncFactory
+
 def EwakstarDoer_ConfSearchFactory(func):
 
     # convert the python lambda to a JVM interface implementation

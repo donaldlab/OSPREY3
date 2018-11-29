@@ -32,6 +32,8 @@
 
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -520,6 +522,136 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
 			}
 		}
 
+		return true;
+	}
+
+	public String diff(int cellWidth, Function<T, String> formatter, EnergyMatrix scoreAnalysis) {
+
+		StringBuilder buf = new StringBuilder();
+
+		// make sure the cell width is at least 6
+		final int fCellWidth = Math.max(cellWidth, 6);
+
+		final String spacer = "  ";
+		Consumer<String> center = (val) -> {
+			int length = val.length();
+
+			if (length > fCellWidth) {
+				buf.append(val.substring(0, fCellWidth));
+				return;
+			}
+
+			int pad = fCellWidth - length;
+			int halfPad = pad/2;
+			if (pad % 2 == 0) {
+				for (int i=0; i<halfPad; i++) {
+					buf.append(" ");
+				}
+				buf.append(val);
+				for (int i=0; i<halfPad; i++) {
+					buf.append(" ");
+				}
+			} else {
+				for (int i=0; i<halfPad; i++) {
+					buf.append(" ");
+				}
+				buf.append(val);
+				for (int i=0; i<halfPad+1; i++) {
+					buf.append(" ");
+				}
+			}
+		};
+		Consumer<Integer> posPrinter = (pos) -> {
+			buf.append(spacer);
+			center.accept(String.format("%d", pos));
+		};
+		Consumer<Integer> rcPrinter = (rc) -> {
+			buf.append(spacer);
+			center.accept(String.format("%3d", rc));
+		};
+		BiConsumer<Integer,Integer> labelPrinter = (pos, rc) -> {
+			String label = String.format("%2d:%-3d", pos, rc);
+			buf.append(String.format("%s%-" + fCellWidth + "s", spacer, label));
+		};
+		Consumer<T> valuePrinter = (energy) -> {
+			String value = formatter.apply(energy);
+			buf.append(spacer);
+			buf.append(String.format("%" + fCellWidth + "s", value));
+		};
+		Runnable blankPrinter = () -> {
+			buf.append(spacer);
+			for (int i=0; i<fCellWidth; i++) {
+				buf.append(" ");
+			}
+		};
+
+		// find the position with the most singles
+		int maxNumRcs = 0;
+		for (int pos1=0; pos1<getNumPos(); pos1++) {
+			maxNumRcs = Math.max(maxNumRcs, getNumConfAtPos(pos1));
+		}
+
+		// singles
+		buf.append("singles:\n");
+		blankPrinter.run();
+		for (int rc=0; rc<maxNumRcs; rc++) {
+			rcPrinter.accept(rc);
+		}
+		buf.append("\n");
+		for (int pos1=0; pos1<getNumPos(); pos1++) {
+			int n1 = getNumConfAtPos(pos1);
+
+			posPrinter.accept(pos1);
+			for (int rc1=0; rc1<n1; rc1++) {
+				valuePrinter.accept(getOneBody(pos1, rc1));
+			}
+			buf.append("\n");
+		}
+
+		// pairs
+		buf.append("pairs:\n");
+		blankPrinter.run();
+		for (int pos1=0; pos1<getNumPos() - 1; pos1++) {
+			int n1 = getNumConfAtPos(pos1);
+			for (int rc1=0; rc1<n1; rc1++) {
+				labelPrinter.accept(pos1, rc1);
+			}
+		}
+		buf.append("\n");
+		for (int pos1=1; pos1<getNumPos(); pos1++) {
+			int n1 = getNumConfAtPos(pos1);
+			for (int rc1=0; rc1<n1; rc1++) {
+
+				labelPrinter.accept(pos1, rc1);
+
+				for (int pos2=0; pos2<pos1; pos2++) {
+					int n2 = getNumConfAtPos(pos2);
+					for (int rc2=0; rc2<n2; rc2++) {
+						valuePrinter.accept(getPairwise(pos1, rc1, pos2, rc2));
+					}
+				}
+
+				buf.append("\n");
+			}
+		}
+
+		return buf.toString();
+	}
+
+	public boolean hasHigherOrderTermFor(RCTuple query) {
+        int pos1 = query.pos.get(0);
+        int rc1 = query.RCs.get(0);
+		int pos2 = query.pos.get(1);
+		int rc2 = query.RCs.get(1);
+		HigherTupleFinder<T> htf = getHigherOrderTerms(pos1,rc1,pos2,rc2);
+		if(htf == null)
+			return false;
+		for(int tupIndex = 2; tupIndex < query.size(); tupIndex++) {
+			HigherTupleFinder<T> highertf = htf.getHigherInteractions(query.pos.get(tupIndex), query.RCs.get(tupIndex));
+			if(highertf == null)
+			    return false;
+			htf = highertf;
+		}
 		return true;
 	}
 }
