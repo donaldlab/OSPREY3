@@ -54,6 +54,16 @@ public class TestResultDoc {
 
 			doc.println();
 
+			StringBuilder tsv = new StringBuilder();
+			tsv.append("Name\tType\tTasty?\n");
+			tsv.append("Provolone\tCheese\tYes\n");
+			tsv.append("Gouda\tCheese\tYes\n");
+			tsv.append("Apple\tFruit\tYes\n");
+			tsv.append("Banana\tFruit\tNo\n");
+			doc.file.tsv(tsv.toString(), "Download foods.tsv");
+
+			doc.println();
+
 			doc.println("And that's the whole story.");
 		}
 

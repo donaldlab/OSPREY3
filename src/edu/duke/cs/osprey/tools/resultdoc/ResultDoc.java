@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.tools.resultdoc;
 
-
 import com.sun.org.apache.xml.internal.security.utils.Base64;
 import edu.duke.cs.osprey.tools.Streams;
 
@@ -8,6 +7,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
 
 public class ResultDoc implements AutoCloseable {
 
@@ -44,7 +44,7 @@ public class ResultDoc implements AutoCloseable {
 		this(pathToStream(path));
 	}
 
-	public ResultDoc(File file) {
+	public ResultDoc(java.io.File file) {
 		this(file.toPath());
 	}
 
@@ -112,33 +112,54 @@ public class ResultDoc implements AutoCloseable {
 		println(text);
 	}
 
+	private static String urlEncodeBinary(byte[] data) {
+		return Base64.encode(data)
+			// keep everything on one line for URIs
+			.replace("\n", "");
+	}
+
+	private static String urlEncodeText(String data) {
+		return data
+			// need to escape some chars to keep from confusing markdown parsers
+			.replace("%", "%25")
+			.replace("\n", "%0A")
+			.replace("\t", "%09")
+			.replace(" ", "%20")
+			.replace("\"", "%22")
+			.replace("(", "%28")
+			.replace(")", "%29")
+			.replace("#", "%23")
+			.replace("|", "%7C")
+			.replace("[", "%5B")
+			.replace("]", "%5D");
+	}
+
+	private static String escapeText(String text) {
+		return text
+			.replace("(", "\\(")
+			.replace(")", "\\)")
+			.replace("[", "\\[")
+			.replace("]", "\\]");
+	}
+
+
 	public class Image {
 
 		/** binary image */
 		public void embed(byte[] data, String type) {
-			print("![](data:" + type + ";base64,");
-			print(Base64.encode(data)
-				// keep everything on one line for URIs
-				.replace("\n", "")
-			);
+			print("![](data:");
+			print(type);
+			print(";base64,");
+			print(urlEncodeBinary(data));
 			println(")");
 		}
 
 		/** text image */
 		public void embed(String data, String type) {
-			print("![](data:" + type + ";utf8,");
-			print(data
-				// need to escape some chars to keep from confusing markdown parsers
-				.replace("%", "%25")
-				.replace("\n", "%0A")
-				.replace("\t", "%09")
-				.replace(" ", "%20")
-				.replace("\"", "%22")
-				.replace("(", "%28")
-				.replace(")", "%29")
-				.replace("#", "%23")
-				.replace("|", "%7C")
-			);
+			print("![](data:");
+			print(type);
+			print(";utf8,");
+			print(urlEncodeText(data));
 			println(")");
 		}
 
@@ -151,6 +172,41 @@ public class ResultDoc implements AutoCloseable {
 		}
 	}
 	public final Image image = new Image();
+
+
+	public class File {
+
+		/** binary file */
+		public void embed(byte[] data, String type, String link) {
+			print("[");
+			print(escapeText(link));
+			print("](data:");
+			print(type);
+			print(";base64,");
+			print(urlEncodeBinary(data));
+			println(")");
+		}
+
+		/** text file */
+		public void embed(String data, String type, String link) {
+			print("[");
+			print(escapeText(link));
+			print("](data:");
+			print(type);
+			print(";utf8,");
+			print(urlEncodeText(data));
+			println(")");
+		}
+
+		public void csv(String data, String link) {
+			embed(data, "text/csv", link);
+		}
+
+		public void tsv(String data, String link) {
+			embed(data, "text/tab-separated-values", link);
+		}
+	}
+	public final File file = new File();
 
 
 	private final String tableSeparator = " | ";
