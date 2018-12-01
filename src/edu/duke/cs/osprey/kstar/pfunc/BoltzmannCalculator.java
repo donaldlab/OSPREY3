@@ -91,4 +91,8 @@ public class BoltzmannCalculator {
 			return BigDecimalMath.log(z, mathContext).doubleValue();
 		}
 	}
+
+	public double ln1p(BigDecimal z) {
+		return ln(z.add(BigDecimal.ONE));
+	}
 }

@@ -25,6 +25,8 @@ import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tools.resultdoc.Plot;
+import edu.duke.cs.osprey.tools.resultdoc.ResultDoc;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -323,7 +325,7 @@ public class SofeaLab {
 				final double zmaxFactor = Math.pow(Math.E, 4.0);
 
 				// TEMP: try a few operations
-				for (int i=0; i<10; i++) {
+				for (int i=0; i<3; i++) {
 
 					// reduce zmax each iteration
 					List<BigDecimal> zmax = confSpace.states.stream()
@@ -367,6 +369,76 @@ public class SofeaLab {
 				seqdb.dump();
 				seqdb.dumpPartialSequences();
 				seqdb.dumpSequences();
+
+				// TEMP: make a resultdoc for the sequences
+				// TODO: move this to SeqDB or a SeqDBAnalyzer class of some kind?
+				BoltzmannCalculator bcalc = new BoltzmannCalculator(seqdbMathContext);
+				try (ResultDoc doc = new ResultDoc("sofea.md")) {
+
+					doc.h1("SOFEA Results");
+
+					for (MultiStateConfSpace.State state : confSpace.states) {
+
+						doc.println();
+						doc.h2(state.name);
+
+						Plot plot = new Plot();
+						plot.ylabels = new ArrayList<>();
+
+						Plot.Intervals intervals = plot.new IntervalsX();
+						intervals.name = "Bounds";
+						intervals.data = new ArrayList<>();
+
+						Plot.PointsX points = plot.new PointsX();
+						points.name = "Exact Value";
+						points.data = new ArrayList<>();
+
+						if (state.isSequenced) {
+
+							for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequences()) {
+
+								Sequence seq = entry.getKey();
+								plot.ylabels.add(seq.toString());
+
+								SeqDB.SeqInfo seqInfo = entry.getValue();
+								intervals.data.add(new Plot.Interval(
+									bcalc.freeEnergyPrecise(seqInfo.bounds[state.index].upper),
+									bcalc.freeEnergyPrecise(seqInfo.bounds[state.index].lower)
+								));
+
+								// TODO: freeEnergyPrecise is really slow for some reason
+
+								// TEMP: show exact values
+								if (seq.isFullyAssigned()) {
+									BigDecimal z = stateInfos.get(state.index).calcZ(seq);
+									points.data.add(bcalc.freeEnergyPrecise(z));
+								} else {
+									points.data.add(null);
+								}
+							}
+
+						} else {
+
+							plot.ylabels.add("");
+
+							BigDecimalBounds bounds = seqdb.getUnsequenced(state.index);
+							intervals.data.add(new Plot.Interval(
+								bcalc.freeEnergyPrecise(bounds.upper),
+								bcalc.freeEnergyPrecise(bounds.lower)
+							));
+
+							// TEMP: show exact values
+							BigDecimal z = stateInfos.get(state.index).calcZ();
+							points.data.add(bcalc.freeEnergyPrecise(z));
+						}
+
+						plot.key = "on tmargin horizontal";
+						plot.xlabel = "Free Energy (kcal/mol)";
+						plot.xlabelrotate = 30.0;
+						plot.height = 70 + plot.ylabels.size()*40;
+						doc.plot(plot);
+					}
+				}
 			}
 		}
 
@@ -689,6 +761,66 @@ public class SofeaLab {
 				}
 
 				return count;
+			}
+
+			BigDecimal calcZ() {
+				ConfIndex index = makeConfIndex();
+				return calcZ(index, rcs);
+			}
+
+			BigDecimal calcZ(Sequence seq) {
+				ConfIndex index = makeConfIndex();
+				RCs rcs = seq.makeRCs(state.confSpace);
+				return calcZ(index, rcs);
+			}
+
+			BigDecimal calcZ(ConfIndex index, RCs rcs) {
+
+				// cannot work on leaf nodes
+				assert (index.numDefined < index.numPos);
+
+				BigDecimal z = BigDecimal.ZERO;
+
+				// pick the next pos to assign
+				int pos = index.numDefined;
+
+				for (int rc : rcs.get(pos)) {
+
+					// get the zpart
+					BigDecimal zpart;
+					if (index.numDefined == 0) {
+						zpart = blute.factor;
+					} else {
+						zpart = getZPart(index, pos, rc);
+					}
+
+					// short circuit for efficiency
+					if (MathTools.isZero(zpart)) {
+						continue;
+					}
+
+					if (index.numDefined < index.numPos - 1) {
+
+						// have positions left to assign, so recurse
+						index.assignInPlace(pos, rc);
+						z = bigMath()
+							.set(calcZ(index, rcs))
+							.mult(zpart)
+							.add(z)
+							.get();
+						index.unassignInPlace(pos);
+
+					} else {
+
+						// all positions assigned, just add the zpart
+						z = bigMath()
+							.set(zpart)
+							.add(z)
+							.get();
+					}
+				}
+
+				return z;
 			}
 		}
 	}

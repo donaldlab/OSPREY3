@@ -21,14 +21,16 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
+import java.util.AbstractMap;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.function.Consumer;
 
 
 public class SeqDB implements AutoCloseable {
 
-	private static class SeqInfo {
+	public static class SeqInfo {
 
 		public final BigDecimalBounds[] bounds;
 
@@ -501,47 +503,79 @@ public class SeqDB implements AutoCloseable {
 		}
 	}
 
-	public void dumpSequences() {
+	public BigDecimalBounds getUnsequenced(int stateIndex) {
+		return unsequencedBounds.get(stateIndex);
+	}
 
-		log("Seq DB: sequences:");
+	public Iterable<Map.Entry<Sequence,SeqInfo>> getSequences() {
 
 		int[] rtIndices = new int[confSpace.seqSpace.positions.size()];
 
-		for (Map.Entry<int[],SeqInfo> entry : sequencedBounds.getEntries()) {
+		return () -> new Iterator<Map.Entry<Sequence,SeqInfo>>() {
 
-			Sequence seq = new Sequence(confSpace.seqSpace, entry.getKey());
-			if (!seq.isFullyAssigned()) {
-				continue;
+			Iterator<Map.Entry<int[],SeqInfo>> iter = sequencedBounds.getEntries().iterator();
+
+			@Override
+			public boolean hasNext() {
+				return iter.hasNext();
 			}
 
-			SeqInfo seqInfo = entry.getValue();
+			@Override
+			public Map.Entry<Sequence, SeqInfo> next() {
 
-			// add uncertainty from partial sequence ancestry
-			// NOTE: assumes tree pos order follows seq pos order
-			System.arraycopy(seq.rtIndices, 0, rtIndices, 0, rtIndices.length);
-			for (int i=rtIndices.length - 1; i>=0; i--) {
-				rtIndices[i] = Sequence.Unassigned;
+				Map.Entry<int[],SeqInfo> entry = iter.next();
 
-				SeqInfo parentSeqInfo = sequencedBounds.get(rtIndices);
-				if (parentSeqInfo != null) {
-					// couldn't that unexplored subtree contain no confs for this seq?
-					// NOTE: don't add the lower bounds, the subtree need not necessarily contain confs for this sequence
-					for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
-						seqInfo.bounds[state.sequencedIndex].upper = bigMath()
-							.set(seqInfo.bounds[state.sequencedIndex].upper)
-							.add(parentSeqInfo.bounds[state.sequencedIndex].upper)
-							.get();
+				Sequence seq = new Sequence(confSpace.seqSpace, entry.getKey());
+				SeqInfo seqInfo = entry.getValue();
+
+				if (seq.isFullyAssigned()) {
+
+					// add uncertainty from partial sequence ancestry
+					// NOTE: assumes tree pos order follows seq pos order
+					System.arraycopy(seq.rtIndices, 0, rtIndices, 0, rtIndices.length);
+					for (int i=rtIndices.length - 1; i>=0; i--) {
+						rtIndices[i] = Sequence.Unassigned;
+
+						SeqInfo parentSeqInfo = sequencedBounds.get(rtIndices);
+						if (parentSeqInfo != null) {
+							// couldn't that unexplored subtree contain no confs for this seq?
+							// NOTE: don't add the lower bounds, the subtree need not necessarily contain confs for this sequence
+							for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+								seqInfo.bounds[state.sequencedIndex].upper = bigMath()
+									.set(seqInfo.bounds[state.sequencedIndex].upper)
+									.add(parentSeqInfo.bounds[state.sequencedIndex].upper)
+									.get();
+							}
+						}
 					}
 				}
+
+				return new AbstractMap.SimpleEntry<>(seq, seqInfo);
 			}
+		};
+	}
+
+	// TEMP
+	public void dumpSequences() {
+
+		log("Seq DB: sequences:");
+		for (Map.Entry<Sequence,SeqInfo> entry : getSequences()) {
+
+			Sequence seq = entry.getKey();
+			SeqInfo seqInfo = entry.getValue();
 
 			logf("\t");
 			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
 				BigDecimalBounds bounds = seqInfo.bounds[state.sequencedIndex];
-				logf("%10s=%s %.4f   ", state.name, SofeaLab.dump(bounds), SofeaLab.getBoundsDelta(bounds));
+				if (seq.isFullyAssigned()) {
+					logf("%10s=%s %.4f   ", state.name, SofeaLab.dump(bounds), SofeaLab.getBoundsDelta(bounds));
+				} else {
+					logf("%10s=%s   ", state.name, SofeaLab.dump(seqInfo.bounds[state.sequencedIndex]));
+				}
 
 			}
 			log("[%s]", seq);
 		}
+
 	}
 }

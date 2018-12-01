@@ -25,6 +25,11 @@ public class GNUPlot {
 			out.write("\n");
 		}
 
+		public void command(String format, Object ... args)
+		throws IOException {
+			command(String.format(format, args));
+		}
+
 		public void flush()
 		throws IOException {
 			out.flush();
@@ -170,7 +175,7 @@ public class GNUPlot {
 
 				format = new TextProp(name + " format");
 				scale = new NumberProp(name + " scale");
-				rotate = new NumberProp("set " + name + " by %s", "set " + name + " norotate");
+				rotate = new NumberProp("set " + name + " rotate by %s", "set " + name + " norotate");
 			}
 
 			/** hide the axis entirely **/
@@ -187,6 +192,11 @@ public class GNUPlot {
 					+ ")"
 				);
 			}
+
+			public void add(Number val, String label)
+			throws IOException {
+				command("set " + name + " add (" + renderText(label) + " " + val + ")");
+			}
 		}
 
 		public final Tics xtics = new Tics("xtics");
@@ -200,6 +210,7 @@ public class GNUPlot {
 		public final LiteralProp terminal = new LiteralProp("terminal");
 		public final TextProp xlabel = new TextProp("xlabel");
 		public final TextProp ylabel = new TextProp("ylabel");
+		public final LiteralProp key = new LiteralProp("key");
 	}
 
 	public static interface Plotter {
