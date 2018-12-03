@@ -168,7 +168,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             System.err.println("Should not be trying to submit correction of lower-order term.");
             return;
         }
-        RCTuple orderedTup = tup.orderByPos();
+        RCTuple orderedTup = tup.sorted();
         corrections.insert(new TupE(orderedTup, val));
     }
 
@@ -208,12 +208,12 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
         public List<TupE> getCorrections(RCTuple query) {
             List<TupE> corrections = new ArrayList<>();
-            root.populateCorrections(query.orderByPos(), corrections);
+            root.populateCorrections(query.sorted(), corrections);
             return corrections;
         }
 
         public boolean contains(RCTuple query) {
-            return root.contains(query.orderByPos(), 0);
+            return root.contains(query.sorted(), 0);
 
         }
 

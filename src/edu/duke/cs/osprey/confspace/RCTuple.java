@@ -304,22 +304,4 @@ public class RCTuple implements Serializable {
 		return out;
 	}
 
-	public RCTuple orderByPos() {
-        // This is why I hate parallel arrays!
-        ArrayList<Pair<Integer, Integer>> RCPairs = new ArrayList<>();
-        for(int i = 0; i < pos.size(); i++) {
-            RCPairs.add(new Pair(pos.get(i), RCs.get(i)));
-        }
-
-        Collections.sort(RCPairs, Comparator.comparingInt(a -> a.getKey()));
-        ArrayList<Integer> newPos = (ArrayList<Integer>) pos.clone();
-        ArrayList<Integer> newRCs = (ArrayList<Integer>) RCs.clone();
-        for(int i = 0; i < RCPairs.size(); i++)
-        {
-            newPos.set(i, RCPairs.get(i).getKey());
-            newRCs.set(i, RCPairs.get(i).getValue());
-        }
-        RCTuple out = new RCTuple(newPos, newRCs);
-        return out;
-	}
 }
