@@ -468,18 +468,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 							return result;
 						},
 						(result) -> {
-							onScores(result.scoreWeights, result.scores, result.stopwatch.getTimeS());
+							onScores(result.scoreWeights, result.stopwatch.getTimeS());
 						}
 					);
-
-					//Debug lines. If you pulled from the repo and see this you can delete it.
-					if(false) {
-						String bounds = state.getLowerBound()+","+state.getUpperBound();
-						if(!MathTools.isInf(state.getUpperBound()))
-							bounds = String.format("%12e+%12e", state.getLowerBound(), state.getUpperBound().subtract(state.getLowerBound()));
-						System.out.println("Score weights are now: [" + bounds + "]");
-						state.printBoundStats();
-					}
 
 					break;
 				}
@@ -521,12 +512,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 			System.out.println(String.format("Total Z upper bound reduction through minimizations: %12.6e",state.cumulativeZReduction));
 			System.out.println(String.format("Average Z upper bound reduction per minimizations: %12.6e",state.cumulativeZReduction.divide(new BigDecimal(state.numEnergiedConfs),
 					new MathContext(BigDecimal.ROUND_HALF_UP))));
-			//Debug printline. Delete if you see it.
-			if(false) {
-				System.out.println(String.format("Partition function approximation complete: [%12.6e,%12.6e]", state.getLowerBound(), state.getUpperBound()));
-				System.out.println(String.format("Score breakdown: q* = %12.6e, q' = %12.6e, p' = %12.6e", values.qstar, values.qprime, values.pstar));
-			}
-
 		}
 
 		// did we drop below the stability threshold?
@@ -590,7 +575,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		}
 	}
 
-	private void onScores(List<BigDecimal> scoreWeights, List<Double> rawScores, double seconds) {
+	private void onScores(List<BigDecimal> scoreWeights, double seconds) {
 
 		synchronized (this) { // don't race the main thread
 		    // If this is the first score,
@@ -600,11 +585,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 				state.upperScoreWeightSum = state.upperScoreWeightSum.add(weight);
 				if (MathTools.isLessThan(weight, state.minUpperScoreWeight)) {
 					state.minUpperScoreWeight = weight;
-				}
-			}
-			if(false) {
-				for (double score : rawScores) {
-					state.minUpperScore = Math.max(state.minUpperScore, score);
 				}
 			}
 			state.numScoredConfs += scoreWeights.size();

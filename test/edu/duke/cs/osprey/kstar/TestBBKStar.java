@@ -107,9 +107,26 @@ public class TestBBKStar {
 				ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
 
 				if(runMARKStar) {
-					PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(info.confSpace, info.id);
-					pfuncFactory.setUseMARKStar(confEcalcRigid, info.confEcalcMinimized);
+					PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id);
+					pfuncFactory.setUseMARKStar(confEcalcRigid);
 					info.pfuncFactory = pfuncFactory;
+				}
+				else {
+					EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
+							.build()
+							.calcEnergyMatrix();
+					info.confSearchFactoryMinimized = (rcs) ->
+							new ConfAStarTree.Builder(ematMinimized, rcs)
+							.setTraditional()
+							.build();
+					EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
+							.build()
+							.calcEnergyMatrix();
+					info.confSearchFactoryRigid = (rcs) ->
+							new ConfAStarTree.Builder(ematRigid, rcs)
+							.setTraditional()
+							.build();
+
 				}
 
 				// add the ConfDB file if needed
@@ -135,7 +152,7 @@ public class TestBBKStar {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 		final double epsilon = 0.99;
-		final int numSequences = 2;
+		final int numSequences = 25;
 		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 10, true);
 
 		assert2RL0(results, numSequences);

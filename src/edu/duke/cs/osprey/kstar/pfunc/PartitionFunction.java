@@ -37,17 +37,12 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.kstar.BBKStar;
-import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEPfunc;
