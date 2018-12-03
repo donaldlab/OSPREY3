@@ -111,14 +111,14 @@ public class MSKStarLab {
 				// use ConfDB
 				state.confDBFile = null;// new File(String.format("mskstar.%s.conf.db", state.name.toLowerCase()));
 
-				state.pfuncFactory = new PartitionFunctionFactory(state.confSpace, state.name);
+				state.pfuncFactory = new PartitionFunctionFactory(state.confSpace, state.confEcalc, state.name);
 				//state.pfuncFactory.setUseGradientDescent(state.confEcalc);
 				EnergyCalculator rigidEcalc = new EnergyCalculator.Builder(confSpaceList, ffparams)
 						.setParallelism(Parallelism.makeCpu(8))
 						.setIsMinimizing(false)
 						.build();
 				ConfEnergyCalculator rigidConfEcalc = new ConfEnergyCalculator(state.confEcalc, rigidEcalc);
-				state.pfuncFactory.setUseMARKStar(rigidConfEcalc, state.confEcalc);
+				state.pfuncFactory.setUseMARKStar(rigidConfEcalc);
 			}
 
 			mskstar.findBestSequences(5);
