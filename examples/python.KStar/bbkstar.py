@@ -36,7 +36,7 @@ complexConfSpace = osprey.ConfSpace([protein, ligand])
 
 # how should we compute energies of molecules?
 # (give the complex conf space to the ecalc since it knows about all the templates and degrees of freedom)
-parallelism = osprey.Parallelism(cpuCores=20)
+parallelism = osprey.Parallelism(cpuCores=4)
 minimizingEcalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallelism, isMinimizing=True)
 
 # BBK* needs a rigid energy calculator too, for multi-sequence bounds on K*
@@ -55,7 +55,7 @@ bbkstar = osprey.BBKStar(
     ligandConfSpace,
     complexConfSpace,
     numBestSequences=7,
-    epsilon=0.1, # you proabably want something more precise in your real designs
+    epsilon=0.68, # you proabably want something more precise in your real designs
     writeSequencesToConsole=True,
     writeSequencesToFile='bbkstar.results.tsv'
 )
@@ -66,7 +66,6 @@ for info in bbkstar.confSpaceInfos():
     # how should we define energies of conformations?
     eref = osprey.ReferenceEnergies(info.confSpace, minimizingEcalc)
     info.confEcalcMinimized = osprey.ConfEnergyCalculator(info.confSpace, minimizingEcalc, referenceEnergies=eref)
-    info.epsilon = 0.01
 
     # compute the energy matrix
     emat = osprey.EnergyMatrix(info.confEcalcMinimized, cacheFile='emat.%s.dat' % info.id)
@@ -76,14 +75,15 @@ for info in bbkstar.confSpaceInfos():
         return osprey.AStarTraditional(emat, rcs, showProgress=False)
     info.confSearchFactoryMinimized = osprey.KStar.ConfSearchFactory(makeAStar)
 
-    # BBK* needs rigid energies too
+    # BBK* needs rigid energies and conformation search too
     rigidConfEcalc = osprey.ConfEnergyCalculatorCopy(info.confEcalcMinimized, rigidEcalc)
-    #rigidConfEcalc = osprey.ConfEnergyCalculator(info.confSpace, rigidEcalc, referenceEnergies=eref)
     rigidEmat = osprey.EnergyMatrix(rigidConfEcalc, cacheFile='emat.%s.rigid.dat' % info.id)
+    def makeAStarRigid(rcs, emat=rigidEmat):
+        return osprey.AStarTraditional(emat, rcs, showProgress=False)
+    info.confSearchFactoryMinimized = osprey.KStar.ConfSearchFactory(makeAStarRigid)
 
-    # how should we compute partition functions?
+    # Specify the input for the partition functions. Providing the confUpperBoundcalc turns on MARK*
     info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id, confUpperBoundcalc=rigidConfEcalc)
-    #info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id)
 
 # run BBK*
 scoredSequences = bbkstar.run()
