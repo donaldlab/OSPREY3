@@ -190,4 +190,20 @@ public class ConfIndex {
 			}
 		}
 	}
+
+	@Override
+	public String toString() {
+		StringBuilder buf = new StringBuilder();
+		buf.append('[');
+		for (int i=0; i<numDefined; i++) {
+			if (i > 0) {
+				buf.append(", ");
+			}
+			buf.append(definedPos[i]);
+			buf.append('=');
+			buf.append(definedRCs[i]);
+		}
+		buf.append(']');
+		return buf.toString();
+	}
 }

@@ -32,8 +32,13 @@
 
 package edu.duke.cs.osprey.tools;
 
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
+import java.math.RoundingMode;
+
 
 public class Log {
 
@@ -52,7 +57,9 @@ public class Log {
 	}
 
 	public static String formatBig(BigInteger i) {
-		if (i.compareTo(BigInteger.valueOf(1000000)) < 0) {
+		if (i == null) {
+			return "null";
+		} else if (i.compareTo(BigInteger.valueOf(1000000)) < 0) {
 			return String.format("%s", i);
 		} else {
 			return String.format("%e", i.doubleValue());
@@ -60,6 +67,30 @@ public class Log {
 	}
 
 	public static String formatBig(BigDecimal f) {
-		return String.format("%e (%.2f)", f.doubleValue(), MathTools.log10p1(f));
+		if (f == null) {
+			return "null";
+		} else {
+			return String.format("%e (%.2f)", f.doubleValue(), MathTools.log10p1(f));
+		}
+	}
+
+	public static String formatBigLn(BigDecimal f) {
+		if (f == null) {
+			return "null";
+		} else {
+			BoltzmannCalculator bcalc = new BoltzmannCalculator(new MathContext(16, RoundingMode.HALF_UP));
+			return String.format("%9.4f", bcalc.ln(f));
+		}
+	}
+
+	public static String formatBigLn(MathTools.BigDecimalBounds b) {
+		if (b == null) {
+			return "null";
+		} else {
+			return String.format("[%-9s,%9s]",
+				formatBigLn(b.lower),
+				formatBigLn(b.upper)
+			);
+		}
 	}
 }

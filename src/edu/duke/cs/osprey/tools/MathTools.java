@@ -785,6 +785,21 @@ public class MathTools {
 			this.upper = upper;
 		}
 
+		public double delta(MathContext mathContext) {
+			return new BigMath(mathContext)
+				.set(upper)
+				.sub(lower)
+				.div(upper)
+				.get()
+				.doubleValue();
+		}
+
+		public double delta() {
+			double l = lower.doubleValue();
+			double u = upper.doubleValue();
+			return (u - l)/u;
+		}
+
 		@Override
 		public boolean equals(Object other) {
 			return other instanceof BigDecimalBounds && equals((BigDecimalBounds)other);
@@ -801,6 +816,11 @@ public class MathTools {
 				lower.hashCode(),
 				upper.hashCode()
 			);
+		}
+
+		@Override
+		public String toString() {
+			return String.format("[%s,%s]", lower, upper);
 		}
 	}
 

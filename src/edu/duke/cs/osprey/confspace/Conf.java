@@ -41,11 +41,16 @@ public class Conf {
 
 	public static final int Unassigned = -1;
 
+	public static int[] make(SimpleConfSpace confSpace) {
+		int[] conf = new int[confSpace.positions.size()];
+		Arrays.fill(conf, Unassigned);
+		return conf;
+	}
+
 	public static int[] make(SimpleConfSpace confSpace, RCTuple frag) {
 
 		// start with an unassigned conf
-		int[] conf = new int[confSpace.positions.size()];
-		Arrays.fill(conf, Unassigned);
+		int[] conf = make(confSpace);
 
 		// assign the fragment to the conf
 		for (int i=0; i<frag.size(); i++) {
