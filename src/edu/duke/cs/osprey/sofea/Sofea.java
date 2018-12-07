@@ -122,6 +122,7 @@ public class Sofea {
 
 				// process the root node for each state
 				FringeDB.Roots roots = fringedb.roots();
+				SeqDB.Transaction seqtx = seqdb.transaction();
 				for (MultiStateConfSpace.State state : confSpace.states) {
 					StateInfo stateInfo = stateInfos.get(state.index);
 
@@ -150,10 +151,10 @@ public class Sofea {
 					// init the fringe with the root node
 					roots.set(state, rootBound, stateInfo.blute.factor);
 					ConfIndex index = stateInfo.makeConfIndex();
-					seqdb.addSeqZ(state, index, rootBound);
+					seqtx.addZ(state, index, rootBound);
 				}
 				roots.commit();
-				seqdb.commit();
+				seqtx.commit();
 
 				// TEMP
 				log("seed");
@@ -195,38 +196,44 @@ public class Sofea {
 						log("\tzmax=%s  /f=%s", Log.formatBigLn(fringedb.getZMax(state)), Log.formatBigLn(zmax.get(state.index)));
 					}
 
-					long[] numProcessed = { 0 };
-					long oldFringeSize = fringedb.getNumNodes();
+					long[] numExpanded = { 0 };
+					long[] numRead = { 0 };
 
 					FringeDB.Sweep sweep = fringedb.sweep();
+					SeqDB.Transaction seqtx = seqdb.transaction();
 					while (!sweep.isEmpty()) {
-						sweep.read();
 
+						sweep.read();
 						MultiStateConfSpace.State state = sweep.state();
 						ConfIndex index = sweep.index();
 						BigDecimalBounds bounds = sweep.bounds();
 						BigDecimal zpath = sweep.zpath();
 
-						seqdb.subSeqZ(state, index, bounds);
+						seqtx.subZ(state, index, bounds);
 
-						boolean wasProcessed = design(state, index, bounds, zmax.get(state.index), zpath, sweep, seqdb);
-						if (wasProcessed) {
-							numProcessed[0]++;
+						boolean wasExpanded = design(state, index, bounds, zmax.get(state.index), zpath, sweep, seqtx);
+						if (wasExpanded) {
+							numExpanded[0]++;
+						}
+						numRead[0]++;
+
+						if (sweep.hasSpaceToReplace()) {
+							sweep.replace();
+						} else {
+							sweep.requeueAndDiscardChildren();
 						}
 
-						if (sweep.hasSpaceToCommit()) {
-							sweep.commitAndAdvance();
-							seqdb.commit();
-						} else {
-							sweep.rollbackAndAdvance();
-							seqdb.rollback();
+						// TODO: come up with better batching heuristic
+						if (sweep.isEmpty() || numRead[0] % 100 == 0) {
+							sweep.commit();
+							seqtx.commit();
 						}
 					}
 					sweep.finish();
 
 					// TEMP
-					log("\tprocessed %d/%d, fringe size: %d/%d",
-						numProcessed[0], oldFringeSize,
+					log("\texpanded %d/%d, fringe size: %d/%d",
+						numExpanded[0], numRead[0],
 						fringedb.getNumNodes(), fringedb.getCapacity()
 					);
 
@@ -274,8 +281,8 @@ public class Sofea {
 
 							SeqDB.SeqInfo seqInfo = entry.getValue();
 							intervals.data.add(new Plot.Interval(
-								bcalc.freeEnergyPrecise(seqInfo.bounds[state.index].upper),
-								bcalc.freeEnergyPrecise(seqInfo.bounds[state.index].lower)
+								bcalc.freeEnergyPrecise(seqInfo.bounds[state.sequencedIndex].upper),
+								bcalc.freeEnergyPrecise(seqInfo.bounds[state.sequencedIndex].lower)
 							));
 
 							// TODO: freeEnergyPrecise is really slow for some reason
@@ -293,7 +300,7 @@ public class Sofea {
 
 						plot.ylabels.add("");
 
-						MathTools.BigDecimalBounds bounds = seqdb.getUnsequenced(state.index);
+						MathTools.BigDecimalBounds bounds = seqdb.getUnsequenced(state.unsequencedIndex);
 						intervals.data.add(new Plot.Interval(
 							bcalc.freeEnergyPrecise(bounds.upper),
 							bcalc.freeEnergyPrecise(bounds.lower)
@@ -314,13 +321,12 @@ public class Sofea {
 		}
 	}
 
-	private boolean design(MultiStateConfSpace.State state, ConfIndex index, MathTools.BigDecimalBounds bounds, BigDecimal zmax, BigDecimal zpath, FringeDB.Sweep sweep, SeqDB seqdb) {
+	private boolean design(MultiStateConfSpace.State state, ConfIndex index, MathTools.BigDecimalBounds bounds, BigDecimal zmax, BigDecimal zpath, FringeDB.Sweep sweep, SeqDB.Transaction seqtx) {
 
 		// skip this tree if it's too small, and add the node to the fringe set
 		if (MathTools.isLessThan(bounds.upper, zmax)) {
-			sweep.addChild(index, bounds, zpath);
-			// TODO: update seqdb changes when sweep commits?
-			seqdb.addSeqZ(state, index, bounds);
+			sweep.addChild(state, index, bounds, zpath);
+			seqtx.addZ(state, index, bounds);
 			return false;
 		}
 
@@ -356,10 +362,9 @@ public class Sofea {
 				assert (!isRoot);
 
 				// hit bottom, add the leaf node to the seqdb
-				// TODO: can optimize seq creation
+				// TODO: can optimize seq creation?
 				index.assignInPlace(pos, rc);
-				// TODO: update seqdb changes when sweep commits?
-				seqdb.addSeqZ(state, index, zpathrc);
+				seqtx.addZ(state, index, zpathrc);
 				index.unassignInPlace(pos);
 
 			} else {
@@ -391,7 +396,7 @@ public class Sofea {
 
 				// recurse
 				index.assignInPlace(pos, rc);
-				design(state, index, boundsrc, zmax, zpathrc, sweep, seqdb);
+				design(state, index, boundsrc, zmax, zpathrc, sweep, seqtx);
 				index.unassignInPlace(pos);
 			}
 		}

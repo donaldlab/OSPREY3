@@ -94,38 +94,38 @@ public class TestFringeDB {
 
 				// do a sweep and consume all the nodes
 				FringeDB.Sweep sweep = db.sweep();
-				while (!sweep.isEmpty()) {
 
-					sweep.read();
-					assertThat(sweep.state().index, is(0));
-					assertThat(sweep.index().numDefined, is(0));
-					assertThat(sweep.bounds(), is(new BigDecimalBounds(
-						MathTools.biggen(0.0),
-						MathTools.biggen(1024.5)
-					)));
-					assertThat(sweep.zpath(), is(MathTools.biggen(4.2)));
-					sweep.commitAndAdvance();
+				sweep.read();
+				assertThat(sweep.state().index, is(0));
+				assertThat(sweep.index().numDefined, is(0));
+				assertThat(sweep.bounds(), is(new BigDecimalBounds(
+					MathTools.biggen(0.0),
+					MathTools.biggen(1024.5)
+				)));
+				assertThat(sweep.zpath(), is(MathTools.biggen(4.2)));
+				sweep.replace();
 
-					sweep.read();
-					assertThat(sweep.state().index, is(1));
-					assertThat(sweep.index().numDefined, is(0));
-					assertThat(sweep.bounds(), is(new BigDecimalBounds(
-						MathTools.biggen(5.2),
-						MathTools.biggen(10.4)
-					)));
-					assertThat(sweep.zpath(), is(MathTools.biggen(1.3)));
-					sweep.commitAndAdvance();
+				sweep.read();
+				assertThat(sweep.state().index, is(1));
+				assertThat(sweep.index().numDefined, is(0));
+				assertThat(sweep.bounds(), is(new BigDecimalBounds(
+					MathTools.biggen(5.2),
+					MathTools.biggen(10.4)
+				)));
+				assertThat(sweep.zpath(), is(MathTools.biggen(1.3)));
+				sweep.replace();
 
-					sweep.read();
-					assertThat(sweep.state().index, is(2));
-					assertThat(sweep.index().numDefined, is(0));
-					assertThat(sweep.bounds(), is(new BigDecimalBounds(
-						MathTools.biggen(4.2),
-						MathTools.biggen(7.3)
-					)));
-					assertThat(sweep.zpath(), is(MathTools.biggen(3.6)));
-					sweep.commitAndAdvance();
-				}
+				sweep.read();
+				assertThat(sweep.state().index, is(2));
+				assertThat(sweep.index().numDefined, is(0));
+				assertThat(sweep.bounds(), is(new BigDecimalBounds(
+					MathTools.biggen(4.2),
+					MathTools.biggen(7.3)
+				)));
+				assertThat(sweep.zpath(), is(MathTools.biggen(3.6)));
+				sweep.replace();
+
+				sweep.commit();
 				sweep.finish();
 
 				// check db state
@@ -196,7 +196,7 @@ public class TestFringeDB {
 					MathTools.biggen(1024.5)
 				)));
 				assertThat(sweep.zpath(), is(MathTools.biggen(4.2)));
-				sweep.rollbackAndAdvance();
+				sweep.requeueAndDiscardChildren();
 
 				sweep.read();
 				assertThat(sweep.state().index, is(1));
@@ -206,7 +206,7 @@ public class TestFringeDB {
 					MathTools.biggen(10.4)
 				)));
 				assertThat(sweep.zpath(), is(MathTools.biggen(1.3)));
-				sweep.rollbackAndAdvance();
+				sweep.requeueAndDiscardChildren();
 
 				sweep.read();
 				assertThat(sweep.state().index, is(2));
@@ -216,8 +216,9 @@ public class TestFringeDB {
 					MathTools.biggen(7.3)
 				)));
 				assertThat(sweep.zpath(), is(MathTools.biggen(3.6)));
-				sweep.rollbackAndAdvance();
+				sweep.requeueAndDiscardChildren();
 
+				sweep.commit();
 				sweep.finish();
 
 				// check db state
@@ -285,7 +286,7 @@ public class TestFringeDB {
 					MathTools.biggen(1024.5)
 				)));
 				assertThat(sweep.zpath(), is(MathTools.biggen(4.2)));
-				sweep.commitAndAdvance();
+				sweep.replace();
 
 				sweep.read();
 				assertThat(sweep.state().index, is(1));
@@ -295,7 +296,7 @@ public class TestFringeDB {
 					MathTools.biggen(10.4)
 				)));
 				assertThat(sweep.zpath(), is(MathTools.biggen(1.3)));
-				sweep.commitAndAdvance();
+				sweep.replace();
 
 				sweep.read();
 				assertThat(sweep.state().index, is(2));
@@ -305,8 +306,9 @@ public class TestFringeDB {
 					MathTools.biggen(7.3)
 				)));
 				assertThat(sweep.zpath(), is(MathTools.biggen(3.6)));
-				sweep.commitAndAdvance();
+				sweep.replace();
 
+				sweep.commit();
 				sweep.finish();
 
 				// check db state
@@ -383,7 +385,8 @@ public class TestFringeDB {
 					MathTools.biggen(1024.5)
 				)));
 				assertThat(sweep.zpath(), is(MathTools.biggen(4.2)));
-				sweep.commitAndAdvance();
+				sweep.replace();
+				sweep.commit();
 
 				assertThat(sweep.numNodesRemaining(), is(2L));
 
@@ -414,7 +417,8 @@ public class TestFringeDB {
 					MathTools.biggen(10.4)
 				)));
 				assertThat(sweep.zpath(), is(MathTools.biggen(1.3)));
-				sweep.rollbackAndAdvance();
+				sweep.requeueAndDiscardChildren();
+				sweep.commit();
 
 				assertThat(sweep.numNodesRemaining(), is(1L));
 
@@ -445,7 +449,8 @@ public class TestFringeDB {
 					MathTools.biggen(7.3)
 				)));
 				assertThat(sweep.zpath(), is(MathTools.biggen(3.6)));
-				sweep.commitAndAdvance();
+				sweep.replace();
+				sweep.commit();
 
 				assertThat(sweep.numNodesRemaining(), is(0L));
 
@@ -529,44 +534,47 @@ public class TestFringeDB {
 
 				// do a sweep and replace the roots with children
 				FringeDB.Sweep sweep = db.sweep();
-				while (!sweep.isEmpty()) {
 
-					sweep.read();
-					assertThat(sweep.state().index, is(0));
-					sweep.addChild(
-						sweep.index().assign(0, 0),
-						new MathTools.BigDecimalBounds(
-							MathTools.biggen(10.4),
-							MathTools.biggen(35.2)
-						),
-						MathTools.biggen(19.9)
-					);
-					sweep.commitAndAdvance();
+				sweep.read();
+				assertThat(sweep.state().index, is(0));
+				sweep.addChild(
+					sweep.state(),
+					sweep.index().assign(0, 0),
+					new MathTools.BigDecimalBounds(
+						MathTools.biggen(10.4),
+						MathTools.biggen(35.2)
+					),
+					MathTools.biggen(19.9)
+				);
+				sweep.replace();
 
-					sweep.read();
-					assertThat(sweep.state().index, is(1));
-					sweep.addChild(
-						sweep.index().assign(0, 1),
-						new MathTools.BigDecimalBounds(
-							MathTools.biggen(93.8),
-							MathTools.biggen(102.3)
-						),
-						MathTools.biggen(38.5)
-					);
-					sweep.addChild(
-						sweep.index().assign(1, 0),
-						new MathTools.BigDecimalBounds(
-							MathTools.biggen(69.2),
-							MathTools.biggen(74.1)
-						),
-						MathTools.biggen(20.8)
-					);
-					sweep.commitAndAdvance();
+				sweep.read();
+				assertThat(sweep.state().index, is(1));
+				sweep.addChild(
+					sweep.state(),
+					sweep.index().assign(0, 1),
+					new MathTools.BigDecimalBounds(
+						MathTools.biggen(93.8),
+						MathTools.biggen(102.3)
+					),
+					MathTools.biggen(38.5)
+				);
+				sweep.addChild(
+					sweep.state(),
+					sweep.index().assign(1, 0),
+					new MathTools.BigDecimalBounds(
+						MathTools.biggen(69.2),
+						MathTools.biggen(74.1)
+					),
+					MathTools.biggen(20.8)
+				);
+				sweep.replace();
 
-					sweep.read();
-					assertThat(sweep.state().index, is(2));
-					sweep.commitAndAdvance();
-				}
+				sweep.read();
+				assertThat(sweep.state().index, is(2));
+				sweep.replace();
+
+				sweep.commit();
 				sweep.finish();
 
 				// check db state
@@ -588,7 +596,7 @@ public class TestFringeDB {
 					MathTools.biggen(35.2)
 				)));
 				assertThat(sweep.zpath(), is(MathTools.biggen(19.9)));
-				sweep.commitAndAdvance();
+				sweep.replace();
 
 				sweep.read();
 				assertThat(sweep.state().index, is(1));
@@ -600,7 +608,7 @@ public class TestFringeDB {
 					MathTools.biggen(102.3)
 				)));
 				assertThat(sweep.zpath(), is(MathTools.biggen(38.5)));
-				sweep.commitAndAdvance();
+				sweep.replace();
 
 				sweep.read();
 				assertThat(sweep.state().index, is(1));
@@ -612,7 +620,7 @@ public class TestFringeDB {
 					MathTools.biggen(74.1)
 				)));
 				assertThat(sweep.zpath(), is(MathTools.biggen(20.8)));
-				sweep.commitAndAdvance();
+				sweep.replace();
 			}
 		}
 	}

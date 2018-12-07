@@ -246,7 +246,7 @@ public class SofeaLab {
 			log("Seq DB raw:");
 			log("\tunsequenced states:");
 			for (MultiStateConfSpace.State state : seqdb.confSpace.unsequencedStates) {
-				BigDecimalBounds z = seqdb.getUnsequenced(state.index);
+				BigDecimalBounds z = seqdb.getUnsequenced(state.unsequencedIndex);
 				Log.log("\t\t%10s=%s", state.name, Log.formatBigLn(z));
 			}
 			log("\tsequenced states:");

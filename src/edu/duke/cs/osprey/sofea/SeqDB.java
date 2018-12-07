@@ -15,10 +15,7 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.MathContext;
-import java.util.AbstractMap;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Consumer;
 
 
@@ -272,14 +269,12 @@ public class SeqDB implements AutoCloseable {
 		// open the DB
 		if (file != null) {
 			db = DBMaker.fileDB(file)
-				.transactionEnable()
 				.fileMmapEnableIfSupported() // use memory-mapped files if possible (can be much faster)
 				// TODO: optimize allocation scheme? https://jankotek.gitbooks.io/mapdb/content/performance/
 				.closeOnJvmShutdown()
 				.make();
 		} else {
 			db = DBMaker.memoryDB()
-				.transactionEnable()
 				.make();
 		}
 
@@ -307,118 +302,187 @@ public class SeqDB implements AutoCloseable {
 		return new BigMath(mathContext);
 	}
 
-	private Sequence makeSeq(MultiStateConfSpace.State state, ConfIndex index) {
-		Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
-		for (int i=0; i<index.numDefined; i++) {
-			SimpleConfSpace.Position confPos = state.confSpace.positions.get(index.definedPos[i]);
-			SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(index.definedRCs[i]);
-			if (confPos.seqPos != null) {
-				seq.set(confPos.resNum, resConf.template.name);
-			}
+
+	public class Transaction {
+
+		private final Map<Sequence,SeqInfo> sequencedBounds = new HashMap<>();
+		private final Map<Integer,BigDecimalBounds> unsequencedBounds = new HashMap<>();
+		private boolean isEmpty = true;
+
+		private Transaction() {
+			// keep the constructor private
 		}
-		return seq;
-	}
 
-	private void updateSeqZ(MultiStateConfSpace.State state, ConfIndex index, Consumer<BigDecimalBounds> f) {
+		private void updateZ(MultiStateConfSpace.State state, ConfIndex index, Consumer<BigDecimalBounds> f) {
 
-		if (state.isSequenced) {
+			if (state.isSequenced) {
 
-			Sequence seq = makeSeq(state, index);
+				// convert the conf index to a sequence
+				Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
+				for (int i=0; i<index.numDefined; i++) {
+					SimpleConfSpace.Position confPos = state.confSpace.positions.get(index.definedPos[i]);
+					SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(index.definedRCs[i]);
+					if (confPos.seqPos != null) {
+						seq.set(confPos.resNum, resConf.template.name);
+					}
+				}
 
-			// get the existing bounds, or a [0,0] bound
-			SeqInfo seqInfo = sequencedBounds.get(seq.rtIndices);
-			if (seqInfo == null) {
-				seqInfo = new SeqInfo(confSpace.sequencedStates.size());
-				seqInfo.setZero();
-			}
+				// get the existing bounds, or a [0,0] bound
+				SeqInfo seqInfo = sequencedBounds.get(seq);
+				if (seqInfo == null) {
+					seqInfo = new SeqInfo(confSpace.sequencedStates.size());
+					seqInfo.setZero();
+				}
 
-			// apply the modification to the state bounds
-			BigDecimalBounds bounds = seqInfo.bounds[state.sequencedIndex];
-			f.accept(bounds);
+				// apply the modification to the state bounds
+				f.accept(seqInfo.bounds[state.sequencedIndex]);
 
-			// did we end up with [0,0] again?
-			if (seqInfo.isZero()) {
-
-				// yup, just delete the whole record. no need to store [0,0] bounds
-				sequencedBounds.remove(seq.rtIndices);
+				// don't store [0,0] bounds
+				if (seqInfo.isZero()) {
+					sequencedBounds.remove(seq);
+				} else {
+					sequencedBounds.put(seq, seqInfo);
+				}
 
 			} else {
 
-				// otherwise, update the db
-				sequencedBounds.put(seq.rtIndices, seqInfo);
+				// get the existing bounds, or a [0,0] bound
+				BigDecimalBounds bounds = unsequencedBounds.get(state.unsequencedIndex);
+				if (bounds == null) {
+					bounds = new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
+				}
+
+				// apply the modification
+				f.accept(bounds);
+
+				// don't store [0,0] bounds
+				if (MathTools.isZero(bounds.lower) && MathTools.isZero(bounds.upper)) {
+					unsequencedBounds.remove(state.unsequencedIndex);
+				} else {
+					unsequencedBounds.put(state.unsequencedIndex, bounds);
+				}
 			}
 
-		} else {
+			isEmpty = false;
+		}
 
-			BigDecimalBounds bounds = unsequencedBounds.get(state.index);
-			if (bounds == null) {
-				bounds = new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
+		public void addZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimal Z) {
+			updateZ(state, index, bounds -> {
+				bounds.lower = bigMath()
+					.set(bounds.lower)
+					.add(Z)
+					.get();
+				bounds.upper = bigMath()
+					.set(bounds.upper)
+					.add(Z)
+					.get();
+			});
+		}
+
+		public void addZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds Z) {
+			updateZ(state, index, bounds -> {
+				bounds.lower = bigMath()
+					.set(bounds.lower)
+					.add(Z.lower)
+					.get();
+				bounds.upper = bigMath()
+					.set(bounds.upper)
+					.add(Z.upper)
+					.get();
+			});
+		}
+
+		public void subZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds Z) {
+			updateZ(state, index, bounds -> {
+				bounds.lower = bigMath()
+					.set(bounds.lower)
+					.sub(Z.lower)
+					.get();
+				bounds.upper = bigMath()
+					.set(bounds.upper)
+					.sub(Z.upper)
+					.get();
+			});
+		}
+
+		public boolean isEmpty() {
+			return isEmpty;
+		}
+
+		public void commit() {
+
+			// push writes to the db
+			for (Map.Entry<Sequence,SeqInfo> entry : sequencedBounds.entrySet()) {
+				Sequence seq = entry.getKey();
+				SeqInfo seqInfo = entry.getValue();
+
+				// combine with the old bounds if needed
+				SeqInfo oldSeqInfo = SeqDB.this.sequencedBounds.get(seq.rtIndices);
+				if (oldSeqInfo != null) {
+
+					for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+						BigDecimalBounds bounds = seqInfo.bounds[state.sequencedIndex];
+						BigDecimalBounds oldBounds = oldSeqInfo.bounds[state.sequencedIndex];
+
+						bounds.upper = bigMath()
+							.set(bounds.upper)
+							.add(oldBounds.upper)
+							.atLeast(0.0) // NOTE: roundoff error can cause this to drop below 0
+							.get();
+						bounds.lower = bigMath()
+							.set(bounds.lower)
+							.add(oldBounds.lower)
+							.atMost(bounds.upper) // don't exceed the upper bound due to roundoff error
+							.get();
+					}
+				}
+
+				// don't store [0,0] bounds, just remove them
+				if (seqInfo.isZero()) {
+					SeqDB.this.sequencedBounds.remove(seq.rtIndices);
+				} else {
+					SeqDB.this.sequencedBounds.put(seq.rtIndices, seqInfo);
+				}
 			}
 
-			// apply the modification
-			f.accept(bounds);
+			for (Map.Entry<Integer,BigDecimalBounds> entry : unsequencedBounds.entrySet()) {
+				int unsequencedIndex = entry.getKey();
+				BigDecimalBounds bounds = entry.getValue();
 
-			// did we end up with [0,0] again?
-			if (MathTools.isZero(bounds.lower) && MathTools.isZero(bounds.upper)) {
+				// combine with the old bounds if needed
+				BigDecimalBounds oldBounds = SeqDB.this.unsequencedBounds.get(unsequencedIndex);
+				if (oldBounds != null) {
+					bounds.upper = bigMath()
+						.set(bounds.upper)
+						.add(oldBounds.upper)
+						.atLeast(0.0) // NOTE: roundoff error can cause this to drop below 0
+						.get();
+					bounds.lower = bigMath()
+						.set(bounds.lower)
+						.add(oldBounds.lower)
+						.atMost(bounds.upper) // don't exceed the upper bound due to roundoff error
+						.get();
+				}
 
-				// yup, just delete the whole record. no need to store [0,0] bounds
-				unsequencedBounds.remove(state.index);
-
-			} else {
-
-				// otherwise, update the db
-				unsequencedBounds.put(state.index, bounds);
+				// don't store [0,0] bounds, just remove them
+				if (MathTools.isZero(bounds.lower) && MathTools.isZero(bounds.upper)) {
+					SeqDB.this.unsequencedBounds.remove(unsequencedIndex);
+				} else {
+					SeqDB.this.unsequencedBounds.put(unsequencedIndex, bounds);
+				}
 			}
+
+			db.commit();
+
+			// reset state
+			sequencedBounds.clear();
+			unsequencedBounds.clear();
+			isEmpty = true;
 		}
 	}
 
-	public void addSeqZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimal Z) {
-		updateSeqZ(state, index, bounds -> {
-			bounds.lower = bigMath()
-				.set(bounds.lower)
-				.add(Z)
-				.get();
-			bounds.upper = bigMath()
-				.set(bounds.upper)
-				.add(Z)
-				.get();
-		});
-	}
-
-	public void addSeqZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds Z) {
-		updateSeqZ(state, index, bounds -> {
-			bounds.lower = bigMath()
-				.set(bounds.lower)
-				.add(Z.lower)
-				.get();
-			bounds.upper = bigMath()
-				.set(bounds.upper)
-				.add(Z.upper)
-				.get();
-		});
-	}
-
-	public void subSeqZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds Z) {
-		updateSeqZ(state, index, bounds -> {
-			bounds.upper = bigMath()
-				.set(bounds.upper)
-				.sub(Z.upper)
-				.atLeast(0.0) // NOTE: roundoff error can cause this to drop below 0
-				.get();
-			bounds.lower = bigMath()
-				.set(bounds.lower)
-				.sub(Z.lower)
-				.atMost(bounds.upper) // don't exceed the upper bound due to roundoff error
-				.get();
-		});
-	}
-
-	public void commit() {
-		db.commit();
-	}
-
-	public void rollback() {
-		db.rollback();
+	public Transaction transaction() {
+		return new Transaction();
 	}
 
 	@Override

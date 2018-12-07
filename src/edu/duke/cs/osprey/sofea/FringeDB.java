@@ -34,9 +34,6 @@ import java.util.NoSuchElementException;
  */
 public class FringeDB implements AutoCloseable {
 
-	// TODO: the initial implementation is super slow!!
-	// need to optimize... maybe try batching more ops into Sweep.commit()/rollback()?
-
 	static final byte[] Magic = { 'f', 'r', 'i', 'n', 'g', 'e', 'd', 'b' };
 
 
@@ -476,15 +473,16 @@ public class FringeDB implements AutoCloseable {
 	public class Sweep {
 
 		private final long numNodes = numToRead;
-		private final ConfIndex[] indices;
+		private final ConfIndex[] indices = new ConfIndex[confSpace.states.size()];
 		private BigDecimal zmax;
 		private Entry entry;
 		private final List<Entry> entries = new ArrayList<>();
+		private int numChildren = 0;
+		private boolean hasBuffer = false;
 
 		private Sweep() {
 
 			// allocate a conf index for each state as scratch space
-			indices = new ConfIndex[confSpace.states.size()];
 			for (MultiStateConfSpace.State state : confSpace.states) {
 				indices[state.index] = new ConfIndex(state.confSpace.positions.size());
 			}
@@ -544,31 +542,91 @@ public class FringeDB implements AutoCloseable {
 		 * save changes by calling commitAndAdvance()
 		 * or discard changes by calling rollbackAndAdvance()
 		 */
-		public void addChild(ConfIndex index, BigDecimalBounds bounds, BigDecimal zpath) {
+		public void addChild(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds bounds, BigDecimal zpath) {
 
 			entries.add(new Entry(entry.stateIndex, Conf.make(index), bounds, zpath));
+			numChildren++;
 
 			if (zmax == null || MathTools.isGreaterThan(bounds.upper, zmax)) {
 				zmax = bounds.upper;
 			}
 		}
 
-		public boolean hasSpaceToCommit() {
-			long usedEntries = numToRead - 1 + numWritten;
+		/**
+		 * Is there enough room in the database to replace the current node with the supplied children?
+		 */
+		public boolean hasSpaceToReplace() {
+			long usedEntries = numToRead - 1 + numWritten + entries.size();
 			long freeEntries = maxNumEntries - usedEntries;
-			return entries.size() <= freeEntries;
+			return numChildren <= freeEntries;
 		}
 
 		/**
 		 * Removes the read node from the queue and adds the new child nodes to the end of the queue.
-		 * All writes are flushed to the underlying storage device by the time this method returns.
 		 */
-		public void commitAndAdvance() {
+		public void replace() {
 
-			if (!hasSpaceToCommit()) {
-				throw new IllegalStateException("not enough space to commit. Must rollback instead");
+			if (!hasSpaceToReplace()) {
+				throw new IllegalStateException("not enough space to replace node with " + numChildren + " children. Must requeue this node instead");
 			}
 
+			// update zmax
+			writeZmax[entry.stateIndex] = zmax;
+
+			// advance the read offset, wrapping if needed
+			readOffset += entryBytes;
+			assert (posEntries + readOffset <= iosize);
+			if (posEntries + readOffset == iosize) {
+				readOffset = 0;
+			}
+			numToRead--;
+
+			hasBuffer = true;
+		}
+
+		/**
+		 * Removes the read node from the queue and adds it to the end of the queue.
+		 * Any child nodes that would have replaced this node are discarded.
+		 */
+		public void requeueAndDiscardChildren() {
+
+			// remove the children added for this node
+			while (numChildren > 0) {
+				entries.remove(entries.size() - 1);
+				numChildren--;
+			}
+
+			// move this node to the back of the queue
+			entries.add(entry);
+
+			// update zmax if needed
+			if (writeZmax[entry.stateIndex] == null || MathTools.isGreaterThan(entry.bounds.upper, writeZmax[entry.stateIndex])) {
+				writeZmax[entry.stateIndex] = entry.bounds.upper;
+			}
+
+			// advance the read offset, wrapping if needed
+			readOffset += entryBytes;
+			assert (posEntries + readOffset <= iosize);
+			if (posEntries + readOffset == iosize) {
+				readOffset = 0;
+			}
+			numToRead--;
+
+			hasBuffer = true;
+		}
+
+		/**
+		 * Returns true if there are any buffered writes waiting to be committed.
+		 */
+		public boolean hasBuffer() {
+			return hasBuffer;
+		}
+
+		/**
+		 * Writes all buffered changes to the underlying storage device.
+		 * All writes are flushed to the underlying storage device by the time this method returns.
+		 */
+		public void commit() {
 			try {
 
 				// write the entries
@@ -587,24 +645,11 @@ public class FringeDB implements AutoCloseable {
 				}
 				entries.clear();
 
-				// update zmax and persist if needed
-				boolean betterZmax = zmax != null
-					&& (writeZmax[entry.stateIndex] == null || MathTools.isGreaterThan(zmax, writeZmax[entry.stateIndex]));
-				if (betterZmax) {
-
-					writeZmax[entry.stateIndex] = zmax;
-
-					io.seek(posZStats + bdio.numBytes*(confSpace.states.size() + entry.stateIndex));
-					bdio.write(io, zmax);
+				// write zmax
+				io.seek(posZStats + bdio.numBytes*confSpace.states.size());
+				for (MultiStateConfSpace.State state : confSpace.states) {
+					bdio.write(io, writeZmax[state.index]);
 				}
-
-				// advance the read offset, wrapping if needed
-				readOffset += entryBytes;
-				assert (posEntries + readOffset <= iosize);
-				if (posEntries + readOffset == iosize) {
-					readOffset = 0;
-				}
-				numToRead--;
 
 				// persist read/write state
 				io.seek(posReadWriteState);
@@ -619,65 +664,8 @@ public class FringeDB implements AutoCloseable {
 			} catch (IOException ex) {
 				throw new RuntimeException("commit failed", ex);
 			}
-		}
 
-		/**
-		 * Removes the read node from the queue and adds it to the end of the queue.
-		 * Any child nodes are discarded.
-		 * All writes are flushed to the underlying storage device by the time this method returns.
-		 */
-		public void rollbackAndAdvance() {
-			try {
-
-				entries.clear();
-
-				if (writeOffset != readOffset) {
-
-					// write the entry back onto the queue
-					io.seek(posEntries + writeOffset);
-					writeEntry(entry);
-				}
-
-				// update zmax and persist if needed
-				boolean betterZmax = writeZmax[entry.stateIndex] == null
-					|| MathTools.isGreaterThan(entry.bounds.upper, writeZmax[entry.stateIndex]);
-				if (betterZmax) {
-
-					writeZmax[entry.stateIndex] = entry.bounds.upper;
-
-					io.seek(posZStats + bdio.numBytes*(confSpace.states.size() + entry.stateIndex));
-					bdio.write(io, writeZmax[entry.stateIndex]);
-				}
-
-				// advance the read offset, wrapping if needed
-				readOffset += entryBytes;
-				assert (posEntries + readOffset <= iosize);
-				if (posEntries + readOffset == iosize) {
-					readOffset = 0;
-				}
-				numToRead--;
-
-				// advance the write offset, wrapping if needed
-				writeOffset += entryBytes;
-				assert (posEntries + writeOffset <= iosize);
-				if (posEntries + writeOffset == iosize) {
-					writeOffset = 0;
-				}
-				numWritten++;
-
-				// persist read state
-				io.seek(posReadWriteState);
-				io.writeLong(readOffset);
-				io.writeLong(numToRead);
-				io.writeLong(writeOffset);
-				io.writeLong(numWritten);
-
-				// flush changes to storage
-				io.getChannel().force(false);
-
-			} catch (IOException ex) {
-				throw new RuntimeException("commit failed", ex);
-			}
+			hasBuffer = false;
 		}
 
 		/**
@@ -688,6 +676,9 @@ public class FringeDB implements AutoCloseable {
 
 			if (numToRead > 0) {
 				throw new IllegalStateException("sweep not finished, " + numToRead + " nodes left to read");
+			}
+			if (hasBuffer) {
+				throw new IllegalStateException("buffer not committed yet. call commit() before finish()");
 			}
 
 			try {
@@ -718,7 +709,7 @@ public class FringeDB implements AutoCloseable {
 				io.getChannel().force(false);
 
 			} catch (IOException ex) {
-				throw new RuntimeException("commit failed", ex);
+				throw new RuntimeException("finish failed", ex);
 			}
 		}
 	}
