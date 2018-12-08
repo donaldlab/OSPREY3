@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.Log;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
+import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 import edu.duke.cs.osprey.tools.resultdoc.Plot;
 import edu.duke.cs.osprey.tools.resultdoc.ResultDoc;
 
@@ -21,16 +22,96 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
+import static edu.duke.cs.osprey.tools.Log.logf;
 
 
+/**
+ * TODO: doc me!
+ */
 public class Sofea {
+
+	public static class Builder {
+
+		public final MultiStateConfSpace confSpace;
+		public final MultiStateConfSpace.LMFE objective;
+
+		private StateConfig[] stateConfigs;
+		private MathContext mathContext = new MathContext(32, RoundingMode.HALF_UP);
+		private File seqdbFile = new File("seq.db");
+		private MathContext seqdbMathContext = new MathContext(256, RoundingMode.HALF_UP);
+		private File fringedbFile = new File("fringe.db");
+		private int fringedbMiB = 10;
+
+		// NOTE: don't need much precision for most math, but need lots of precision for seqdb math
+
+		public Builder(MultiStateConfSpace confSpace, MultiStateConfSpace.LMFE objective) {
+
+			this.confSpace = confSpace;
+			this.objective = objective;
+
+			this.stateConfigs = new StateConfig[confSpace.states.size()];
+		}
+
+		public Builder configEachState(Function<MultiStateConfSpace.State,StateConfig> configurator) {
+			for (MultiStateConfSpace.State state : confSpace.states) {
+				stateConfigs[state.index] = configurator.apply(state);
+			}
+			return this;
+		}
+
+		public Builder setMathContext(MathContext val) {
+			mathContext = val;
+			return this;
+		}
+
+		public Builder setSeqDBFile(File val) {
+			seqdbFile = val;
+			return this;
+		}
+
+		public Builder setSeqDBMathContext(MathContext val) {
+			seqdbMathContext = val;
+			return this;
+		}
+
+		public Builder setFringeDBFile(File val) {
+			fringedbFile = val;
+			return this;
+		}
+
+		public Builder setFringeDBMiB(int val) {
+			fringedbMiB = val;
+			return this;
+		}
+
+		public Sofea make() {
+
+			// make sure all the states are configured
+			List<String> unconfiguredStateNames = confSpace.states.stream()
+				.filter(state -> stateConfigs[state.index] == null)
+				.map(state -> state.name)
+				.collect(Collectors.toList());
+			if (!unconfiguredStateNames.isEmpty()) {
+				throw new IllegalStateException("not all states have been configured. Please configure states: " + unconfiguredStateNames);
+			}
+
+			return new Sofea(
+				confSpace,
+				objective,
+				Arrays.asList(stateConfigs),
+				mathContext,
+				seqdbFile,
+				seqdbMathContext,
+				fringedbFile,
+				fringedbMiB
+			);
+		}
+	}
 
 	public static class StateConfig {
 
@@ -45,23 +126,24 @@ public class Sofea {
 
 
 	public final MultiStateConfSpace confSpace;
+	public final MultiStateConfSpace.LMFE objective;
 	public final List<StateConfig> stateConfigs;
+	public final MathContext mathContext;
 	public final File seqdbFile;
+	public final MathContext seqdbMathContext;
 	public final File fringedbFile;
 	public final int fringedbMiB;
 
-	// NOTE: don't need much precision for most math, but need lots of precision for seqdb math
-	// TODO: externalize these as config options
-	public final MathContext mathContext = new MathContext(32, RoundingMode.HALF_UP);
-	public final MathContext seqdbMathContext = new MathContext(256, RoundingMode.HALF_UP);
-
 	private final List<StateInfo> stateInfos;
 
-	public Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, File seqdbFile, File fringedbFile, int fringedbMiB) {
+	private Sofea(MultiStateConfSpace confSpace, MultiStateConfSpace.LMFE objective, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, int fringedbMiB) {
 
 		this.confSpace = confSpace;
+		this.objective = objective;
 		this.stateConfigs = stateConfigs;
+		this.mathContext = mathContext;
 		this.seqdbFile = seqdbFile;
+		this.seqdbMathContext = seqdbMathContext;
 		this.fringedbFile = fringedbFile;
 		this.fringedbMiB = fringedbMiB;
 
@@ -77,6 +159,10 @@ public class Sofea {
 		stateInfos = confSpace.states.stream()
 			.map(state -> new StateInfo(state))
 			.collect(Collectors.toList());
+	}
+
+	public StateConfig getConfig(MultiStateConfSpace.State state) {
+		return stateConfigs.get(state.index);
 	}
 
 	private BigMath bigMath() {
@@ -173,7 +259,7 @@ public class Sofea {
 				final double zmaxFactor = Math.pow(Math.E, 4.0);
 
 				// TEMP: try a few operations
-				for (int i=0; i<10; i++) {
+				for (int i=0; i<8; i++) {
 
 					// reduce zmax each iteration
 					List<BigDecimal> zmax = confSpace.states.stream()
@@ -237,12 +323,62 @@ public class Sofea {
 						fringedb.getNumNodes(), fringedb.getCapacity()
 					);
 
+					// TEMP
+					evaluateObjective(seqdb);
+
 					// stop if we ran out of fringe nodes
 					if (fringedb.isEmpty()) {
 						break;
 					}
 				}
 			}
+		}
+	}
+
+	// TEMP: try to evaluate the objective function
+	private void evaluateObjective(SeqDB seqdb) {
+
+		log("objective function:");
+
+		BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
+
+		// get the unsequenced z values
+		DoubleBounds[] unsequencedFreeEnergy = new DoubleBounds[confSpace.unsequencedStates.size()];
+		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
+			unsequencedFreeEnergy[state.unsequencedIndex] = bcalc.freeEnergyPrecise(seqdb.getUnsequenced(state.unsequencedIndex));
+		}
+
+		// for each sequence and partial sequence encountered so far...
+		for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequences()) {
+
+			Sequence seq = entry.getKey();
+			SeqDB.SeqInfo seqInfo = entry.getValue();
+
+			// compute bounds on the objective function
+			DoubleBounds objectiveBounds = new DoubleBounds(0.0, 0.0);
+			for (MultiStateConfSpace.State state : objective.states()) {
+
+				DoubleBounds g;
+				if (state.isSequenced) {
+					g = bcalc.freeEnergyPrecise(seqInfo.bounds[state.sequencedIndex]);
+				} else {
+					g = unsequencedFreeEnergy[state.unsequencedIndex];
+				}
+
+				objectiveBounds.lower += g.lower*objective.getWeight(state);
+				objectiveBounds.upper += g.upper*objective.getWeight(state);
+			}
+
+			logf("\tobj=%s", objectiveBounds.toString(4, 9));
+			for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
+				BigDecimalBounds stateBounds = seqInfo.bounds[state.sequencedIndex];
+
+				logf("    %s=%s", state.name, Log.formatBigLn(seqInfo.bounds[state.sequencedIndex]));
+				if (seq.isFullyAssigned()) {
+					logf(" %.4f", stateBounds.delta(mathContext));
+				}
+			}
+			log("    [%s]", seq);
 		}
 	}
 

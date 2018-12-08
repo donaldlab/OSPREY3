@@ -88,113 +88,111 @@ public class SofeaLab {
 		// make a multi-state conf space
 		MultiStateConfSpace confSpace = new MultiStateConfSpace
 			.Builder("design", new SimpleConfSpace.Builder().addStrands(design).build())
-			.addSequencedState("complex", new SimpleConfSpace.Builder().addStrands(design, target).build())
-			.addState("target", new SimpleConfSpace.Builder().addStrands(target).build())
+			.addMutableState("complex", new SimpleConfSpace.Builder().addStrands(design, target).build())
+			.addUnmutableState("target", new SimpleConfSpace.Builder().addStrands(target).build())
+			.build();
+
+		// use the usual affinity optimization objective function
+		MultiStateConfSpace.LMFE objective = confSpace.lmfe()
+			.addPositive("complex")
+			.addNegative("design")
+			.addNegative("target")
 			.build();
 
 		log("seq space: %s", confSpace.seqSpace);
 
-		List<Sofea.StateConfig> stateConfigs = new ArrayList<>();
+		Sofea sofea;
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
 			.setParallelism(Parallelism.makeCpu(4))
 			.build()) {
 
+			sofea = new Sofea.Builder(confSpace, objective)
+				.configEachState(state -> {
+
+					File ematFile = new File(String.format("sofea.%s.emat", state.name));
+					File pmatFile = new File(String.format("sofea.%s.pmat", state.name));
+					File luteFile = new File(String.format("sofea.%s.lute", state.name));
+					if (recalc) {
+						ematFile.delete();
+						pmatFile.delete();
+						luteFile.delete();
+					}
+
+					ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(state.confSpace, ecalc).build();
+					EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+						.setCacheFile(ematFile)
+						.build()
+						.calcEnergyMatrix();
+					PruningMatrix pmat = new SimpleDEE.Runner()
+						.setCacheFile(pmatFile)
+						.setParallelism(ecalc.parallelism)
+						.setThreshold(null)
+						.setSinglesPlugThreshold(0.6)
+						.setPairsPlugThreshold(0.6)
+						.setTriplesPlugThreshold(0.6)
+						.setShowProgress(true)
+						.run(state.confSpace, null);
+
+					// do LUTE stuff
+					LUTEState luteState;
+					if (luteFile.exists()) {
+						luteState = LUTEIO.read(luteFile);
+						log("read LUTE state from file: %s", luteFile.getAbsolutePath());
+					} else {
+						try (ConfDB confdb = new ConfDB(state.confSpace)) {
+							ConfDB.ConfTable confTable = confdb.new ConfTable("lute");
+
+							final int randomSeed = 12345;
+							final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
+							final double maxOverfittingScore = 1.5;
+							final double maxRMSE = 0.1;
+
+							// compute LUTE fit
+							LUTE lute = new LUTE(state.confSpace);
+							ConfSampler sampler = new RandomizedDFSConfSampler(state.confSpace, pmat, randomSeed);
+							lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
+							lute.reportConfSpaceSize(pmat);
+
+							luteState = new LUTEState(lute.getTrainingSystem());
+							LUTEIO.write(luteState, luteFile);
+							log("wrote LUTE state to file: %s", luteFile.getAbsolutePath());
+						}
+					}
+
+					return new Sofea.StateConfig(
+						new LUTEConfEnergyCalculator(state.confSpace, luteState),
+						pmat
+					);
+				})
+				.make();
+		}
+
+		log("\n");
+
+		// calc all sequence Z values
+		List<Sequence> seqs = new ArrayList<>();
+		seqs.add(confSpace.seqSpace.makeWildTypeSequence());
+		seqs.addAll(confSpace.seqSpace.getMutants());
+		for (Sequence seq : seqs) {
+			log("seq %s:", seq);
 			for (MultiStateConfSpace.State state : confSpace.states) {
-
-				File ematFile = new File(String.format("sofea.%s.emat", state.name));
-				File pmatFile = new File(String.format("sofea.%s.pmat", state.name));
-				File luteFile = new File(String.format("sofea.%s.lute", state.name));
-				if (recalc) {
-					ematFile.delete();
-					pmatFile.delete();
-					luteFile.delete();
-				}
-
-				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(state.confSpace, ecalc).build();
-				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-					.setCacheFile(ematFile)
-					.build()
-					.calcEnergyMatrix();
-				PruningMatrix pmat = new SimpleDEE.Runner()
-					.setCacheFile(pmatFile)
-					.setParallelism(ecalc.parallelism)
-					.setThreshold(null)
-					.setSinglesPlugThreshold(0.6)
-					.setPairsPlugThreshold(0.6)
-					.setTriplesPlugThreshold(0.6)
-					.setShowProgress(true)
-					.run(state.confSpace, null);
-
-				// do LUTE stuff
-				LUTEState luteState;
-				if (luteFile.exists()) {
-					luteState = LUTEIO.read(luteFile);
-					log("read LUTE state from file: %s", luteFile.getAbsolutePath());
-				} else {
-					try (ConfDB confdb = new ConfDB(state.confSpace)) {
-						ConfDB.ConfTable confTable = confdb.new ConfTable("lute");
-
-						final int randomSeed = 12345;
-						final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
-						final double maxOverfittingScore = 1.5;
-						final double maxRMSE = 0.1;
-
-						// compute LUTE fit
-						LUTE lute = new LUTE(state.confSpace);
-						ConfSampler sampler = new RandomizedDFSConfSampler(state.confSpace, pmat, randomSeed);
-						lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
-						lute.reportConfSpaceSize(pmat);
-
-						luteState = new LUTEState(lute.getTrainingSystem());
-						LUTEIO.write(luteState, luteFile);
-						log("wrote LUTE state to file: %s", luteFile.getAbsolutePath());
-					}
-				}
-
-				stateConfigs.add(new Sofea.StateConfig(
-					new LUTEConfEnergyCalculator(state.confSpace, luteState),
-					pmat
-				));
-			}
-
-			log("\n");
-
-			// calc all sequence Z values
-			{
-				List<Sequence> seqs = new ArrayList<>();
-				seqs.add(confSpace.seqSpace.makeWildTypeSequence());
-				seqs.addAll(confSpace.seqSpace.getMutants());
-				for (Sequence seq : seqs) {
-					log("seq %s:", seq);
-					for (MultiStateConfSpace.State state : confSpace.states) {
-						Sofea.StateConfig config = stateConfigs.get(state.index);
-						RCs rcs = new RCs(seq.makeRCs(state.confSpace), config.pmat);
-						BigDecimal z = bruteForcePfuncLuteAStar(config.luteEcalc, rcs);
-						log("\t%10s  ln(Z) = %s", state.name, Log.formatBigLn(z));
-					}
-				}
-			}
-
-			// try SOFEA
-			{
-				Sofea sofea = new Sofea(
-					confSpace,
-					stateConfigs,
-					new File("seq.db"),
-					new File("fringe.db"),
-					1
-				);
-				Stopwatch sw = new Stopwatch().start();
-				sofea.init(true);
-				sofea.refine();
-				log("SOFEA:   %9s", sw.stop().getTime(2));
-
-				dump(sofea);
-				dumpPartialSequences(sofea);
-				dumpSequences(sofea);
-				sofea.makeResultDoc(new File("sofea.md"));
+				Sofea.StateConfig config = sofea.getConfig(state);
+				RCs rcs = new RCs(seq.makeRCs(state.confSpace), config.pmat);
+				BigDecimal z = bruteForcePfuncLuteAStar(config.luteEcalc, rcs);
+				log("\t%10s  ln(Z) = %s", state.name, Log.formatBigLn(z));
 			}
 		}
+
+		// try SOFEA
+		Stopwatch sw = new Stopwatch().start();
+		sofea.init(true);
+		sofea.refine();
+		log("SOFEA:   %9s", sw.stop().getTime(2));
+
+		dump(sofea);
+		dumpUnexploredSequences(sofea);
+		dumpSequences(sofea);
+		sofea.makeResultDoc(new File("sofea.md"));
 	}
 
 	private static BigDecimal bruteForcePfuncAStar(ConfEnergyCalculator confEcalc, EnergyMatrix emat, RCs rcs) {
@@ -264,21 +262,20 @@ public class SofeaLab {
 		}
 	}
 
-	private static void dumpPartialSequences(Sofea sofea) {
+	private static void dumpUnexploredSequences(Sofea sofea) {
 
 		try (SeqDB seqdb = sofea.openSeqDB()) {
 
-			log("Seq DB: partial sequences, unexplored subtrees:");
+			log("Seq DB: unexplored sequences:");
 
 			for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequences()) {
 
 				Sequence seq = entry.getKey();
+				SeqDB.SeqInfo seqInfo = entry.getValue();
 
 				if (seq.isFullyAssigned()) {
 					continue;
 				}
-
-				SeqDB.SeqInfo seqInfo = entry.getValue();
 
 				logf("\t");
 				for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
@@ -300,15 +297,14 @@ public class SofeaLab {
 				Sequence seq = entry.getKey();
 				SeqDB.SeqInfo seqInfo = entry.getValue();
 
+				if (!seq.isFullyAssigned()) {
+					continue;
+				}
+
 				logf("\t");
 				for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
 					BigDecimalBounds bounds = seqInfo.bounds[state.sequencedIndex];
-					if (seq.isFullyAssigned()) {
-						logf("%10s=%s %.4f   ", state.name, Log.formatBigLn(bounds), bounds.delta(sofea.mathContext));
-					} else {
-						logf("%10s=%s   ", state.name, Log.formatBigLn(seqInfo.bounds[state.sequencedIndex]));
-					}
-
+					logf("%10s=%s %.4f   ", state.name, Log.formatBigLn(bounds), bounds.delta(sofea.mathContext));
 				}
 				log("[%s]", seq);
 			}

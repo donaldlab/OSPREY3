@@ -39,6 +39,9 @@ import ch.obermuhlner.math.big.BigDecimalMath;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
+import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
+
 
 public class BoltzmannCalculator {
 
@@ -78,6 +81,14 @@ public class BoltzmannCalculator {
 
 	public double freeEnergyPrecise(BigDecimal z) {
 		return -constRT*ln(z);
+	}
+
+	public DoubleBounds freeEnergyPrecise(BigDecimalBounds z) {
+		// remember to swap the bounds, since computing free energy negates the value
+		return new DoubleBounds(
+			freeEnergyPrecise(z.upper),
+			freeEnergyPrecise(z.lower)
+		);
 	}
 
 	public double ln(BigDecimal z) {

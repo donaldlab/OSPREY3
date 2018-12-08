@@ -490,8 +490,8 @@ public class SeqDB implements AutoCloseable {
 		db.close();
 	}
 
-	public BigDecimalBounds getUnsequenced(int stateIndex) {
-		return unsequencedBounds.get(stateIndex);
+	public BigDecimalBounds getUnsequenced(int unsequencedIndex) {
+		return unsequencedBounds.get(unsequencedIndex);
 	}
 
 	/**

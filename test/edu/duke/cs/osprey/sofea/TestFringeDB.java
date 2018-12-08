@@ -652,8 +652,8 @@ public class TestFringeDB {
 		// make a multi-state conf space
 		return new MultiStateConfSpace
 			.Builder("design", new SimpleConfSpace.Builder().addStrands(design).build())
-			.addSequencedState("complex", new SimpleConfSpace.Builder().addStrands(design, target).build())
-			.addState("target", new SimpleConfSpace.Builder().addStrands(target).build())
+			.addMutableState("complex", new SimpleConfSpace.Builder().addStrands(design, target).build())
+			.addUnmutableState("target", new SimpleConfSpace.Builder().addStrands(target).build())
 			.build();
 	}
 }
