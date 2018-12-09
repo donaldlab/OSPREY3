@@ -27,7 +27,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
-import static edu.duke.cs.osprey.tools.Log.logf;
 
 
 /**
@@ -38,7 +37,7 @@ public class Sofea {
 	public static class Builder {
 
 		public final MultiStateConfSpace confSpace;
-		public final MultiStateConfSpace.LMFE objective;
+		public final Criterion criterion;
 
 		private StateConfig[] stateConfigs;
 		private MathContext mathContext = new MathContext(32, RoundingMode.HALF_UP);
@@ -49,10 +48,10 @@ public class Sofea {
 
 		// NOTE: don't need much precision for most math, but need lots of precision for seqdb math
 
-		public Builder(MultiStateConfSpace confSpace, MultiStateConfSpace.LMFE objective) {
+		public Builder(MultiStateConfSpace confSpace, Criterion criterion) {
 
 			this.confSpace = confSpace;
-			this.objective = objective;
+			this.criterion = criterion;
 
 			this.stateConfigs = new StateConfig[confSpace.states.size()];
 		}
@@ -102,7 +101,7 @@ public class Sofea {
 
 			return new Sofea(
 				confSpace,
-				objective,
+				criterion,
 				Arrays.asList(stateConfigs),
 				mathContext,
 				seqdbFile,
@@ -124,9 +123,27 @@ public class Sofea {
 		}
 	}
 
+	public static class SeqResult {
+
+		public final Sequence sequence;
+		public final DoubleBounds lmfeFreeEnergy;
+		public final DoubleBounds[] stateFreeEnergies;
+
+		public SeqResult(Sequence sequence, DoubleBounds lmfeFreeEnergy, DoubleBounds[] stateFreeEnergies) {
+			this.sequence = sequence;
+			this.lmfeFreeEnergy = lmfeFreeEnergy;
+			this.stateFreeEnergies = stateFreeEnergies;
+		}
+	}
+
+	/** decides if computation should continue or not */
+	public static interface Criterion {
+		boolean isFinished(SeqDB seqdb);
+	}
+
 
 	public final MultiStateConfSpace confSpace;
-	public final MultiStateConfSpace.LMFE objective;
+	public final Criterion criterion;
 	public final List<StateConfig> stateConfigs;
 	public final MathContext mathContext;
 	public final File seqdbFile;
@@ -136,10 +153,10 @@ public class Sofea {
 
 	private final List<StateInfo> stateInfos;
 
-	private Sofea(MultiStateConfSpace confSpace, MultiStateConfSpace.LMFE objective, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, int fringedbMiB) {
+	private Sofea(MultiStateConfSpace confSpace, Criterion criterion, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, int fringedbMiB) {
 
 		this.confSpace = confSpace;
-		this.objective = objective;
+		this.criterion = criterion;
 		this.stateConfigs = stateConfigs;
 		this.mathContext = mathContext;
 		this.seqdbFile = seqdbFile;
@@ -258,8 +275,8 @@ public class Sofea {
 
 				final double zmaxFactor = Math.pow(Math.E, 4.0);
 
-				// TEMP: try a few operations
-				for (int i=0; i<8; i++) {
+				long i = 0;
+				while (true) {
 
 					// reduce zmax each iteration
 					List<BigDecimal> zmax = confSpace.states.stream()
@@ -277,7 +294,7 @@ public class Sofea {
 						.collect(Collectors.toList());
 
 					// TEMP
-					log("op %3d", i);
+					log("op %d", ++i);
 					for (MultiStateConfSpace.State state : confSpace.states) {
 						log("\tzmax=%s  /f=%s", Log.formatBigLn(fringedb.getZMax(state)), Log.formatBigLn(zmax.get(state.index)));
 					}
@@ -323,8 +340,10 @@ public class Sofea {
 						fringedb.getNumNodes(), fringedb.getCapacity()
 					);
 
-					// TEMP
-					evaluateObjective(seqdb);
+					// check the termination criterion
+					if (criterion.isFinished(seqdb)) {
+						break;
+					}
 
 					// stop if we ran out of fringe nodes
 					if (fringedb.isEmpty()) {
@@ -332,53 +351,6 @@ public class Sofea {
 					}
 				}
 			}
-		}
-	}
-
-	// TEMP: try to evaluate the objective function
-	private void evaluateObjective(SeqDB seqdb) {
-
-		log("objective function:");
-
-		BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
-
-		// get the unsequenced z values
-		DoubleBounds[] unsequencedFreeEnergy = new DoubleBounds[confSpace.unsequencedStates.size()];
-		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
-			unsequencedFreeEnergy[state.unsequencedIndex] = bcalc.freeEnergyPrecise(seqdb.getUnsequenced(state.unsequencedIndex));
-		}
-
-		// for each sequence and partial sequence encountered so far...
-		for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequences()) {
-
-			Sequence seq = entry.getKey();
-			SeqDB.SeqInfo seqInfo = entry.getValue();
-
-			// compute bounds on the objective function
-			DoubleBounds objectiveBounds = new DoubleBounds(0.0, 0.0);
-			for (MultiStateConfSpace.State state : objective.states()) {
-
-				DoubleBounds g;
-				if (state.isSequenced) {
-					g = bcalc.freeEnergyPrecise(seqInfo.bounds[state.sequencedIndex]);
-				} else {
-					g = unsequencedFreeEnergy[state.unsequencedIndex];
-				}
-
-				objectiveBounds.lower += g.lower*objective.getWeight(state);
-				objectiveBounds.upper += g.upper*objective.getWeight(state);
-			}
-
-			logf("\tobj=%s", objectiveBounds.toString(4, 9));
-			for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
-				BigDecimalBounds stateBounds = seqInfo.bounds[state.sequencedIndex];
-
-				logf("    %s=%s", state.name, Log.formatBigLn(seqInfo.bounds[state.sequencedIndex]));
-				if (seq.isFullyAssigned()) {
-					logf(" %.4f", stateBounds.delta(mathContext));
-				}
-			}
-			log("    [%s]", seq);
 		}
 	}
 

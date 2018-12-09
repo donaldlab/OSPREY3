@@ -117,7 +117,9 @@ public class MultiStateConfSpace {
 	 * A linear multi-state free energy.
 	 * Used as an optimization objective function for many design algorithms.
 	 */
-	public static class LMFE {
+	public class LMFE {
+
+		public final MultiStateConfSpace confSpace = MultiStateConfSpace.this;
 
 		private final Map<State,Double> weightsByState;
 

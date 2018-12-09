@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.confspace;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.Serializable;
+import java.math.BigInteger;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -321,6 +322,14 @@ public class SeqSpace implements Serializable {
 			}
 		}
 		return false;
+	}
+
+	public BigInteger getNumSequences() {
+		BigInteger count = BigInteger.ONE;
+		for (Position pos : positions) {
+			count = count.multiply(BigInteger.valueOf(pos.resTypes.size()));
+		}
+		return count;
 	}
 
 	public List<Sequence> getMutants() {

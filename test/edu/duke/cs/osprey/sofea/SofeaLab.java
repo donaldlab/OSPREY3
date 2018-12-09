@@ -24,6 +24,8 @@ import edu.duke.cs.osprey.tools.*;
 
 import java.io.File;
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.*;
 
 import static edu.duke.cs.osprey.tools.Log.log;
@@ -93,11 +95,15 @@ public class SofeaLab {
 			.build();
 
 		// use the usual affinity optimization objective function
-		MultiStateConfSpace.LMFE objective = confSpace.lmfe()
-			.addPositive("complex")
-			.addNegative("design")
-			.addNegative("target")
-			.build();
+		Sofea.Criterion criterion = new MinLMFE(
+			confSpace.lmfe()
+				.addPositive("complex")
+				.addNegative("design")
+				.addNegative("target")
+				.build(),
+			2,
+			new MathContext(16, RoundingMode.HALF_UP)
+		);
 
 		log("seq space: %s", confSpace.seqSpace);
 
@@ -106,7 +112,7 @@ public class SofeaLab {
 			.setParallelism(Parallelism.makeCpu(4))
 			.build()) {
 
-			sofea = new Sofea.Builder(confSpace, objective)
+			sofea = new Sofea.Builder(confSpace, criterion)
 				.configEachState(state -> {
 
 					File ematFile = new File(String.format("sofea.%s.emat", state.name));
