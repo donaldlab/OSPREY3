@@ -249,8 +249,9 @@ public class EWAKStarBBKStar {
             // NOTE: for the correctness of the bounds, the number of confs must be the same for every node
             // meaning, it might not be sound to do epsilon-based iterative approximations here
 
+            final int numConfs = 1000;
 
-            BigDecimal proteinLowerBound = calcLowerBound(protein, sequence, kstarSettings.maxPFConfs);
+            BigDecimal proteinLowerBound = calcLowerBound(protein, sequence, numConfs);
 
             // if the first few conf upper bound scores (for the pfunc lower bound) are too high,
             // then the K* upper bound is also too high
@@ -260,7 +261,7 @@ public class EWAKStarBBKStar {
                 return;
             }
 
-            BigDecimal ligandLowerBound = calcLowerBound(ligand, sequence, kstarSettings.maxPFConfs);
+            BigDecimal ligandLowerBound = calcLowerBound(ligand, sequence, numConfs);
 
             // if the first few conf upper bound scores (for the pfunc lower bound) are too high,
             // then the K* upper bound is also too high
@@ -270,7 +271,7 @@ public class EWAKStarBBKStar {
                 return;
             }
 
-            BigDecimal complexUpperBound = calcUpperBound(complex, sequence, kstarSettings.maxPFConfs);
+            BigDecimal complexUpperBound = calcUpperBound(complex, sequence, numConfs);
 
             // compute the node score
             score = MathTools.bigDivideDivide(
