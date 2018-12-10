@@ -43,25 +43,25 @@ public class SofeaLab {
 			.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
 			.build();
 
-		boolean recalc = false;
+		boolean recalc = true;
 
 		// define design flexibility [68,73]
 		Map<String,List<String>> designFlex = new HashMap<>();
-		//designFlex.put("A68", Arrays.asList(Strand.WildType /* arg */));
+		designFlex.put("A68", Arrays.asList(Strand.WildType /* arg */));
 		designFlex.put("A69", Arrays.asList(Strand.WildType /* ser */, "THR"));
 		designFlex.put("A70", Arrays.asList(Strand.WildType /* gly */, "ALA"));
-		//designFlex.put("A71", Arrays.asList(Strand.WildType /* lys */));
-		//designFlex.put("A72", Arrays.asList(Strand.WildType /* gln */));
+		designFlex.put("A71", Arrays.asList(Strand.WildType /* lys */));
+		designFlex.put("A72", Arrays.asList(Strand.WildType /* gln */));
 		designFlex.put("A73", Arrays.asList(Strand.WildType /* leu */));
 
 		// define target flexibility [5,10]
 		List<String> targetFlex = Arrays.asList(
 			"A5", // lys
-			"A6" // hie
-			// "A7" // tyr
-			// "A8" // gln
-			// "A9" // phe
-			// "A10" // asn
+			"A6", // hie
+			"A7", // tyr
+			"A8", // gln
+			"A9", // phe
+			"A10" // asn
 		);
 
 		// build strands
@@ -109,7 +109,7 @@ public class SofeaLab {
 
 		Sofea sofea;
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
-			.setParallelism(Parallelism.makeCpu(4))
+			.setParallelism(Parallelism.makeCpu(32))
 			.build()) {
 
 			sofea = new Sofea.Builder(confSpace, criterion)
