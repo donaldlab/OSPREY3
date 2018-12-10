@@ -13,7 +13,7 @@ templateLib = osprey.TemplateLibrary(ffparams.forcefld)
 
 # define the protein strand
 protein = osprey.Strand(mol, templateLib=templateLib, residues=['G648', 'G654'])
-protein.flexibility['G649'].setLibraryRotamers(osprey.WILD_TYPE, 'TYR', 'ALA', 'VAL', 'ILE', 'LEU').addWildTypeRotamers().setContinuous()
+protein.flexibility['G649'].setLibraryRotamers(osprey.WILD_TYPE, 'TYR').addWildTypeRotamers().setContinuous()
 protein.flexibility['G650'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
 protein.flexibility['G651'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
 protein.flexibility['G654'].setLibraryRotamers(osprey.WILD_TYPE).addWildTypeRotamers().setContinuous()
@@ -36,7 +36,7 @@ complexConfSpace = osprey.ConfSpace([protein, ligand])
 
 # how should we compute energies of molecules?
 # (give the complex conf space to the ecalc since it knows about all the templates and degrees of freedom)
-parallelism = osprey.Parallelism(cpuCores=4)
+parallelism = osprey.Parallelism(cpuCores=8)
 minimizingEcalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallelism, isMinimizing=True)
 
 # BBK* needs a rigid energy calculator too, for multi-sequence bounds on K*
@@ -69,7 +69,7 @@ for info in bbkstar.confSpaceInfos():
 	rigidEmat = osprey.EnergyMatrix(rigidConfEcalc, cacheFile='emat.%s.rigid.dat' % info.id)
 
 	# how should partition functions be computed?
-    info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id, confUpperBoundcalc=rigidConfEcalc)
+	info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id)
 
 	# set the ConfDB file for this conf space
 	info.setConfDBFile('bbkstar.%s.db' % info.type.name().lower())

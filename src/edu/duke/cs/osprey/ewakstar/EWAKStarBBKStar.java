@@ -349,10 +349,10 @@ public class EWAKStarBBKStar {
             Sequence sequence = this.sequence.filter(info.confSpace.seqSpace);
 
             // first check the cache
-            EWAKStarPartitionFunction pfunc;
-//            if (pfunc != null) {
-//                return pfunc;
-//            }
+            EWAKStarPartitionFunction pfunc = pfuncCache.get(sequence);
+            if (pfunc != null) {
+                return pfunc;
+            }
 
             // cache miss, need to compute the partition function
 
@@ -370,7 +370,7 @@ public class EWAKStarBBKStar {
             pfunc.setStabilityThreshold(info.stabilityThreshold);
 
             // update the cache
-            //pfuncCache.put(sequence, pfunc);
+            pfuncCache.put(sequence, pfunc);
             return pfunc;
         }
 
@@ -389,7 +389,7 @@ public class EWAKStarBBKStar {
 
             // refine the pfuncs if needed
             if (protein.getStatus().canContinue()) {
-                protein.compute(kstarSettings.maxPFConfs);
+                protein.compute(bbkstarSettings.numConfsPerBatch);
 
                 // tank the sequence if the unbound protein is unstable
                 if (protein.getStatus() == EWAKStarPartitionFunction.Status.Unstable) {
@@ -400,7 +400,7 @@ public class EWAKStarBBKStar {
             }
 
             if (ligand.getStatus().canContinue()) {
-                ligand.compute(kstarSettings.maxPFConfs);
+                ligand.compute(bbkstarSettings.numConfsPerBatch);
 
                 // tank the sequence if the unbound ligand is unstable
                 if (ligand.getStatus() == EWAKStarPartitionFunction.Status.Unstable) {
@@ -411,7 +411,7 @@ public class EWAKStarBBKStar {
             }
 
             if (complex.getStatus().canContinue()) {
-                complex.compute(kstarSettings.maxPFConfs);
+                complex.compute(bbkstarSettings.numConfsPerBatch);
             }
 
             // update the score
