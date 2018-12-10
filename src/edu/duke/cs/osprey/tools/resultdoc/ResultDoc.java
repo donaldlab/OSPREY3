@@ -1,12 +1,12 @@
 package edu.duke.cs.osprey.tools.resultdoc;
 
-import com.sun.org.apache.xml.internal.security.utils.Base64;
 import edu.duke.cs.osprey.tools.Streams;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Base64;
 
 
 public class ResultDoc implements AutoCloseable {
@@ -113,7 +113,7 @@ public class ResultDoc implements AutoCloseable {
 	}
 
 	private static String urlEncodeBinary(byte[] data) {
-		return Base64.encode(data)
+		return Base64.getEncoder().encodeToString(data)
 			// keep everything on one line for URIs
 			.replace("\n", "");
 	}
