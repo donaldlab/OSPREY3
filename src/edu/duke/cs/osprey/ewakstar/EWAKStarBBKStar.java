@@ -366,7 +366,7 @@ public class EWAKStarBBKStar {
             if (kstarSettings.useExternalMemory) {
                 EWAKStarPartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
             }
-            pfunc.init(confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), rcs.getNumConformations(), kstarSettings.epsilon, kstarSettings.eW);
+            pfunc.init(confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), rcs.getNumConformations(), kstarSettings.epsilon, kstarSettings.eW, kstarSettings.maxPFConfs);
             pfunc.setStabilityThreshold(info.stabilityThreshold);
 
             // update the cache

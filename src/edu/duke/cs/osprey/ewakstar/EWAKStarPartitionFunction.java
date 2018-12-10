@@ -184,8 +184,9 @@ public interface EWAKStarPartitionFunction {
 	 * @param targetEpsilon The accuracy with which to estimate the partition function.
 	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
 	 *                               including any conformations removed by pruned tuples.
+	 * @param highestNumConfs The maximum number of conformations allowed for a partition function calculation.
 	 */
-	void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy);
+	void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy, int highestNumConfs);
 
 	/**
 	 * Sets the stability threshold for this PartitionFunction, if supported
