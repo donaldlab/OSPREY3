@@ -41,47 +41,52 @@ rigidEcalc = osprey.SharedEnergyCalculator(minimizingEcalc, isMinimizing=False)
 
 # how should we define energies of conformations?
 def confEcalcFactory(confSpace, ecalc):
-	eref = osprey.ReferenceEnergies(confSpace, ecalc)
-	return osprey.ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=eref)
+    eref = osprey.ReferenceEnergies(confSpace, ecalc)
+    return osprey.ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=eref)
+
+epsilon = 0.99
 
 # configure BBK*
 bbkstar = osprey.BBKStar(
-	proteinConfSpace,
-	ligandConfSpace,
-	complexConfSpace,
-	numBestSequences=2,
-	epsilon=0.99, # you proabably want something more precise in your real designs
-	writeSequencesToConsole=True,
-	writeSequencesToFile='bbkstar.results.tsv'
+    proteinConfSpace,
+    ligandConfSpace,
+    complexConfSpace,
+    numBestSequences=7,
+    epsilon=0.68, # you proabably want something more precise in your real designs
+    writeSequencesToConsole=True,
+    writeSequencesToFile='bbkstar.results.tsv'
 )
 
 # configure BBK* inputs for each conf space
 for info in bbkstar.confSpaceInfos():
 
-	# how should we define energies of conformations?
-	eref = osprey.ReferenceEnergies(info.confSpace, minimizingEcalc)
-	info.confEcalcMinimized = osprey.ConfEnergyCalculator(info.confSpace, minimizingEcalc, referenceEnergies=eref)
+    # how should we define energies of conformations?
+    eref = osprey.ReferenceEnergies(info.confSpace, minimizingEcalc)
+    info.confEcalcMinimized = osprey.ConfEnergyCalculator(info.confSpace, minimizingEcalc, referenceEnergies=eref)
 
-	# compute the energy matrix
-	emat = osprey.EnergyMatrix(info.confEcalcMinimized, cacheFile='emat.%s.dat' % info.id)
+    # compute the energy matrix
+    emat = osprey.EnergyMatrix(info.confEcalcMinimized, cacheFile='emat.%s.dat' % info.id)
 
-	# how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
-	def makeAStar(rcs, emat=emat):
-		return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	info.confSearchFactoryMinimized = osprey.KStar.ConfSearchFactory(makeAStar)
+    # how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
+    def makeAStar(rcs, emat=emat):
+        return osprey.AStarTraditional(emat, rcs, showProgress=False)
+    info.confSearchFactoryMinimized = osprey.KStar.ConfSearchFactory(makeAStar)
 
-	# BBK* needs rigid energies too
-	rigidConfEcalc = osprey.ConfEnergyCalculatorCopy(info.confEcalcMinimized, rigidEcalc)
-	rigidEmat = osprey.EnergyMatrix(rigidConfEcalc, cacheFile='emat.%s.rigid.dat' % info.id)
-	def makeRigidAStar(rcs, emat=rigidEmat):
-		return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	info.confSearchFactoryRigid = osprey.KStar.ConfSearchFactory(makeRigidAStar)
+    # BBK* needs rigid energies and conformation search too
+    rigidConfEcalc = osprey.ConfEnergyCalculatorCopy(info.confEcalcMinimized, rigidEcalc)
+    rigidEmat = osprey.EnergyMatrix(rigidConfEcalc, cacheFile='emat.%s.rigid.dat' % info.id)
+    def makeAStarRigid(rcs, emat=rigidEmat):
+        return osprey.AStarTraditional(emat, rcs, showProgress=False)
+    info.confSearchFactoryMinimized = osprey.KStar.ConfSearchFactory(makeAStarRigid)
+
+    # Specify the input for the partition functions. Providing the confUpperBoundcalc turns on MARK*
+    info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id, confUpperBoundcalc=rigidConfEcalc)
 
 # run BBK*
 scoredSequences = bbkstar.run()
 
 # use results
 for scoredSequence in scoredSequences:
-	print("result:")
-	print("\tsequence: %s" % scoredSequence.sequence)
-	print("\tscore: %s" % scoredSequence.score)
+    print("result:")
+    print("\tsequence: %s" % scoredSequence.sequence)
+    print("\tscore: %s" % scoredSequence.score)

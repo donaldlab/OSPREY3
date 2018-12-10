@@ -45,6 +45,7 @@ import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
+import edu.duke.cs.osprey.tools.FileTools;
 
 /**
  *
@@ -94,7 +95,7 @@ public class PerturbationSelector {
         this.selectLCAs = selectLCAs;
         this.flexibleRes = flexibleRes;
         
-        strand = new Strand.Builder(PDBIO.readFile(PDBFile))
+        strand = new Strand.Builder(PDBIO.read(FileTools.readResource(PDBFile)))
             .setTemplateLibrary(templateLib)
             .setResidues(termini)
             .build();

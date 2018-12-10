@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
@@ -113,6 +114,9 @@ public class BBKStar {
 		/** A ConfSearch that maximizes over conformation scores from rigid tuples */
 		public ConfSearchFactory confSearchFactoryRigid = null;
 
+		/** A class to manage and create the correct partition functions */
+		public PartitionFunctionFactory pfuncFactory = null;
+
 		public File confDBFile = null;
 
 		private BigDecimal stabilityThreshold = null;
@@ -127,11 +131,8 @@ public class BBKStar {
 			if (confEcalcMinimized == null) {
 				throw new KStar.InitException(type, "confEcalcMinimized");
 			}
-			if (confSearchFactoryMinimized == null) {
-				throw new KStar.InitException(type, "confSearchFactoryMinimized");
-			}
-			if (confSearchFactoryRigid == null) {
-				throw new KStar.InitException(type, "confSearchFactoryRigid");
+			if (pfuncFactory == null) {
+				throw new KStar.InitException(type, "pfuncFactory");
 			}
 		}
 
@@ -376,17 +377,17 @@ public class BBKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			pfunc = PartitionFunction.makeBestFor(info.confEcalcMinimized);
+			RCs rcs = sequence.makeRCs(info.confSpace);
+
+			pfunc = info.pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), kstarSettings.epsilon);
+
 			pfunc.setReportProgress(kstarSettings.showPfuncProgress);
 			if (confdb != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confdb.getSequence(sequence));
 			}
-			RCs rcs = sequence.makeRCs(info.confSpace);
 			if (kstarSettings.useExternalMemory) {
 				PartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
 			}
-			ConfSearch astar = info.confSearchFactoryMinimized.make(rcs);
-			pfunc.init(astar, rcs.getNumConformations(), kstarSettings.epsilon);
 			pfunc.setStabilityThreshold(info.stabilityThreshold);
 
 			// update the cache
@@ -508,6 +509,9 @@ public class BBKStar {
 	/** Optional and overridable settings for BBK* */
 	public final Settings bbkstarSettings;
 
+	/** Partition Function manager */
+	PartitionFunctionFactory pfuncFactory;
+
 	// TODO: caching these will keep lots of A* trees in memory. is that a problem? (oh yes, it definitely is)
 	private final Map<Sequence,PartitionFunction> proteinPfuncs;
 	private final Map<Sequence,PartitionFunction> ligandPfuncs;
@@ -599,6 +603,7 @@ public class BBKStar {
 
 				// get the next node
 				Node node = tree.poll();
+                System.out.println("Refining sequence "+node.sequence);
 
 				if (node instanceof SingleSequenceNode) {
 					SingleSequenceNode ssnode = (SingleSequenceNode)node;

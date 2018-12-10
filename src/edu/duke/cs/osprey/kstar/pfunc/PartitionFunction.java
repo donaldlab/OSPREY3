@@ -37,7 +37,6 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
@@ -297,7 +296,6 @@ public interface PartitionFunction {
 			return new GradientDescentPfunc(confEcalc);
 		}
 	}
-
 
 	public static interface WithExternalMemory extends PartitionFunction {
 

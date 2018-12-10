@@ -32,6 +32,7 @@
 
 package edu.duke.cs.osprey.ematrix;
 
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 
 public class ProxyEnergyMatrix extends EnergyMatrix {
@@ -67,6 +68,11 @@ public class ProxyEnergyMatrix extends EnergyMatrix {
 	@Override
 	public void setPairwise(int pos1, int rc1, int pos2, int rc2, Double val) {
 		target.setPairwise(pos1, rc1, pos2, rc2, val);
+	}
+
+	@Override
+	public void setHigherOrder(RCTuple tup, Double val) {
+		super.setHigherOrder(tup, val);
 	}
 
 	// TODO: need to proxy anything else?
