@@ -5,6 +5,7 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.structure.Residues;
 
 import java.util.Arrays;
 
@@ -177,7 +178,7 @@ public interface SeqAStarNode extends OptimizableAStarNode, Comparable<SeqAStarN
 				}
 
 				// map the conf space pos to the seq space pos
-				SeqSpace.Position seqPos = seqSpace.getPosition(confPos.resNum);
+				SeqSpace.Position seqPos = seqSpace.getPosition(Residues.normalizeResNum(confPos.resNum));
 
 				// is this seq pos unassigned? keep everything
 				Integer assignment = getAssignment(seqPos.index);
