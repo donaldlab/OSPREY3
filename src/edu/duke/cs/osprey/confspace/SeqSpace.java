@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.*;
@@ -232,7 +233,7 @@ public class SeqSpace implements Serializable {
 
 	public SeqSpace(SimpleConfSpace confSpace) {
 		for (SimpleConfSpace.Position pos : confSpace.mutablePositions) {
-			makePos(pos.resNum, pos.resFlex.wildType, pos.resTypes);
+			makePos(Residues.normalizeResNum(pos.resNum), pos.resFlex.wildType, pos.resTypes);
 		}
 	}
 
