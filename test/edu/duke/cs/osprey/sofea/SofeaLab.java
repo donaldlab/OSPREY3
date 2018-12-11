@@ -47,7 +47,8 @@ public class SofeaLab {
 
 		// define design flexibility [68,73]
 		Map<String,List<String>> designFlex = new HashMap<>();
-		designFlex.put("A68", Arrays.asList(Strand.WildType /* arg */));
+		// unavoidable clash here. don't use, or sub something smaller
+		//designFlex.put("A68", Arrays.asList(Strand.WildType /* arg */));
 		designFlex.put("A69", Arrays.asList(Strand.WildType /* ser */, "THR"));
 		designFlex.put("A70", Arrays.asList(Strand.WildType /* gly */, "ALA"));
 		designFlex.put("A71", Arrays.asList(Strand.WildType /* lys */));
@@ -132,12 +133,12 @@ public class SofeaLab {
 					PruningMatrix pmat = new SimpleDEE.Runner()
 						.setCacheFile(pmatFile)
 						.setParallelism(ecalc.parallelism)
-						.setThreshold(null)
-						.setSinglesPlugThreshold(0.6)
-						.setPairsPlugThreshold(0.6)
-						.setTriplesPlugThreshold(0.6)
+						.setThreshold(100.0)
+						.setGoldsteinDiffThreshold(50.0)
+						.setPlugThreshold(0.6)
+						.setTransitivePruning(true)
 						.setShowProgress(true)
-						.run(state.confSpace, null);
+						.run(state.confSpace, emat);
 
 					// do LUTE stuff
 					LUTEState luteState;
