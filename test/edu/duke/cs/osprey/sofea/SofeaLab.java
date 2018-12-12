@@ -47,8 +47,8 @@ public class SofeaLab {
 
 		// define design flexibility [68,73]
 		Map<String,List<String>> designFlex = new HashMap<>();
-		// unavoidable clash here. don't use, or sub something smaller
-		//designFlex.put("A68", Arrays.asList(Strand.WildType /* arg */));
+		// unavoidable clash at A68. don't use ARG, or sub something smaller
+		designFlex.put("A68", Arrays.asList(Strand.WildType /* arg */, "GLY", "ALA", "VAL", "LEU", "ILE", "SER", "THR"));
 		designFlex.put("A69", Arrays.asList(Strand.WildType /* ser */, "THR"));
 		designFlex.put("A70", Arrays.asList(Strand.WildType /* gly */, "ALA"));
 		designFlex.put("A71", Arrays.asList(Strand.WildType /* lys */));
@@ -102,7 +102,7 @@ public class SofeaLab {
 				.addNegative("design")
 				.addNegative("target")
 				.build(),
-			2,
+			5,
 			new MathContext(16, RoundingMode.HALF_UP)
 		);
 
@@ -135,7 +135,9 @@ public class SofeaLab {
 						.setParallelism(ecalc.parallelism)
 						.setThreshold(100.0)
 						.setGoldsteinDiffThreshold(50.0)
-						.setPlugThreshold(0.6)
+						.setSinglesPlugThreshold(0.6)
+						.setPairsPlugThreshold(0.6)
+						//.setTriplesPlugThreshold(0.6)
 						.setTransitivePruning(true)
 						.setShowProgress(true)
 						.run(state.confSpace, emat);
@@ -176,6 +178,7 @@ public class SofeaLab {
 
 		log("\n");
 
+		/* TEMP
 		// calc all sequence Z values
 		List<Sequence> seqs = new ArrayList<>();
 		seqs.add(confSpace.seqSpace.makeWildTypeSequence());
@@ -189,6 +192,7 @@ public class SofeaLab {
 				log("\t%10s  ln(Z) = %s", state.name, Log.formatBigLn(z));
 			}
 		}
+		*/
 
 		// try SOFEA
 		Stopwatch sw = new Stopwatch().start();
@@ -199,7 +203,7 @@ public class SofeaLab {
 		dump(sofea);
 		dumpUnexploredSequences(sofea);
 		dumpSequences(sofea);
-		sofea.makeResultDoc(new File("sofea.md"));
+		//sofea.makeResultDoc(new File("sofea.md"));
 	}
 
 	private static BigDecimal bruteForcePfuncAStar(ConfEnergyCalculator confEcalc, EnergyMatrix emat, RCs rcs) {
@@ -311,7 +315,7 @@ public class SofeaLab {
 				logf("\t");
 				for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
 					BigDecimalBounds bounds = seqInfo.bounds[state.sequencedIndex];
-					logf("%10s=%s %.4f   ", state.name, Log.formatBigLn(bounds), bounds.delta(sofea.mathContext));
+					logf("%10s=%s d=%.4f   ", state.name, Log.formatBigLn(bounds), bounds.delta(sofea.mathContext));
 				}
 				log("[%s]", seq);
 			}

@@ -98,8 +98,14 @@ public class MinLMFE implements Sofea.Criterion {
 					g = unsequencedFreeEnergy[state.unsequencedIndex];
 				}
 
-				objectiveBounds.lower += g.lower* objective.getWeight(state);
-				objectiveBounds.upper += g.upper* objective.getWeight(state);
+				objectiveBounds.lower += g.lower*objective.getWeight(state);
+				objectiveBounds.upper += g.upper*objective.getWeight(state);
+
+				// HACKHACK: if we subtract infinities for the upper bound,
+				// assume the upper bonud is +inf instead of nan
+				if (Double.isNaN(objectiveBounds.upper)) {
+					objectiveBounds.upper = Double.POSITIVE_INFINITY;
+				}
 
 				stateFreeEnergies[state.index] = g;
 			}

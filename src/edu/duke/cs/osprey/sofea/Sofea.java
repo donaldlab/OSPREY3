@@ -415,8 +415,8 @@ public class Sofea {
 						));
 
 						// TEMP: show exact values
-						BigDecimal z = stateInfos.get(state.index).calcZ();
-						points.data.add(bcalc.freeEnergyPrecise(z));
+						//BigDecimal z = stateInfos.get(state.index).calcZ();
+						//points.data.add(bcalc.freeEnergyPrecise(z));
 					}
 
 					plot.key = "on tmargin horizontal";
