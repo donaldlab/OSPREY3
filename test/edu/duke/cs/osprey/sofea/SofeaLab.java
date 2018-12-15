@@ -43,14 +43,14 @@ public class SofeaLab {
 			.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
 			.build();
 
-		boolean recalc = true;
+		boolean recalc = false;
 
 		// define design flexibility [68,73]
 		Map<String,List<String>> designFlex = new HashMap<>();
 		// unavoidable clash at A68. don't use ARG, or sub something smaller
-		designFlex.put("A68", Arrays.asList(Strand.WildType /* arg */, "GLY", "ALA", "VAL", "LEU", "ILE", "SER", "THR"));
-		designFlex.put("A69", Arrays.asList(Strand.WildType /* ser */, "THR"));
-		designFlex.put("A70", Arrays.asList(Strand.WildType /* gly */, "ALA"));
+		//designFlex.put("A68", Arrays.asList(Strand.WildType /* arg */));
+		designFlex.put("A69", Arrays.asList(Strand.WildType /* ser */, "THR", "LEU", "ILE", "VAL", "ALA", "GLY", "CYS"));
+		designFlex.put("A70", Arrays.asList(Strand.WildType /* gly */, "ALA", "VAL", "LEU", "ILE", "CYS"));
 		designFlex.put("A71", Arrays.asList(Strand.WildType /* lys */));
 		designFlex.put("A72", Arrays.asList(Strand.WildType /* gln */));
 		designFlex.put("A73", Arrays.asList(Strand.WildType /* leu */));
@@ -88,6 +88,7 @@ public class SofeaLab {
 				.setContinuous();
 		}
 
+		// TEMP
 		// make a multi-state conf space
 		MultiStateConfSpace confSpace = new MultiStateConfSpace
 			.Builder("design", new SimpleConfSpace.Builder().addStrands(design).build())
@@ -96,7 +97,7 @@ public class SofeaLab {
 			.build();
 
 		// use the usual affinity optimization objective function
-		Sofea.Criterion criterion = new MinLMFE(
+		MinLMFE criterion = new MinLMFE(
 			confSpace.lmfe()
 				.addPositive("complex")
 				.addNegative("design")
@@ -105,6 +106,35 @@ public class SofeaLab {
 			5,
 			new MathContext(16, RoundingMode.HALF_UP)
 		);
+		//
+
+		/* TEMP: just do the design state
+		MultiStateConfSpace confSpace = new MultiStateConfSpace
+			.Builder("design", new SimpleConfSpace.Builder().addStrands(design).build())
+			.build();
+
+		MinLMFE criterion = new MinLMFE(
+			confSpace.lmfe()
+				.addPositive("design")
+				.build(),
+			10,
+			new MathContext(16, RoundingMode.HALF_UP)
+		);
+		*/
+
+		/* TEMP: just do the complex state
+		MultiStateConfSpace confSpace = new MultiStateConfSpace
+			.Builder("complex", new SimpleConfSpace.Builder().addStrands(design, target).build())
+			.build();
+
+		MinLMFE criterion = new MinLMFE(
+			confSpace.lmfe()
+				.addPositive("complex")
+				.build(),
+			10,
+			new MathContext(16, RoundingMode.HALF_UP)
+		);
+		*/
 
 		log("seq space: %s", confSpace.seqSpace);
 
@@ -113,6 +143,8 @@ public class SofeaLab {
 			.setParallelism(Parallelism.makeCpu(32))
 			.build()) {
 
+			// TEMP
+			//sofea = new Sofea.Builder(confSpace, null)
 			sofea = new Sofea.Builder(confSpace, criterion)
 				.configEachState(state -> {
 
@@ -186,9 +218,10 @@ public class SofeaLab {
 		for (Sequence seq : seqs) {
 			log("seq %s:", seq);
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				Sofea.StateConfig config = sofea.getConfig(state);
-				RCs rcs = new RCs(seq.makeRCs(state.confSpace), config.pmat);
-				BigDecimal z = bruteForcePfuncLuteAStar(config.luteEcalc, rcs);
+				//Sofea.StateConfig config = sofea.getConfig(state);
+				//RCs rcs = new RCs(seq.makeRCs(state.confSpace), config.pmat);
+				//BigDecimal z = bruteForcePfuncLuteAStar(config.luteEcalc, rcs);
+				BigDecimal z = sofea.calcZ(state, seq);
 				log("\t%10s  ln(Z) = %s", state.name, Log.formatBigLn(z));
 			}
 		}
@@ -203,7 +236,9 @@ public class SofeaLab {
 		dump(sofea);
 		dumpUnexploredSequences(sofea);
 		dumpSequences(sofea);
-		//sofea.makeResultDoc(new File("sofea.md"));
+		try (SeqDB seqdb = sofea.openSeqDB()) {
+			criterion.makeResultDoc(seqdb, new File("sofea.md"));
+		}
 	}
 
 	private static BigDecimal bruteForcePfuncAStar(ConfEnergyCalculator confEcalc, EnergyMatrix emat, RCs rcs) {
@@ -252,20 +287,20 @@ public class SofeaLab {
 
 		try (SeqDB seqdb = sofea.openSeqDB()) {
 
-			log("Seq DB raw:");
-			log("\tunsequenced states:");
+			log("Seq DB:");
+			log("\tunsequenced state bounds:");
 			for (MultiStateConfSpace.State state : seqdb.confSpace.unsequencedStates) {
-				BigDecimalBounds z = seqdb.getUnsequenced(state.unsequencedIndex);
+				BigDecimalBounds z = seqdb.getUnsequencedBound(state);
 				Log.log("\t\t%10s=%s", state.name, Log.formatBigLn(z));
 			}
-			log("\tsequenced states:");
-			for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencesWithoutAncestry()) {
+			log("\tsequenced state sums:");
+			for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedSums()) {
 				Sequence seq = entry.getKey();
 				SeqDB.SeqInfo seqInfo = entry.getValue();
 
 				logf("\t\t");
 				for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
-					BigDecimalBounds bounds = seqInfo.bounds[state.sequencedIndex];
+					BigDecimalBounds bounds = seqInfo.z[state.sequencedIndex];
 					logf("%10s=%s   ", state.name, Log.formatBigLn(bounds));
 				}
 				log("[%s]", seq);
@@ -279,7 +314,7 @@ public class SofeaLab {
 
 			log("Seq DB: unexplored sequences:");
 
-			for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequences()) {
+			for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedBounds()) {
 
 				Sequence seq = entry.getKey();
 				SeqDB.SeqInfo seqInfo = entry.getValue();
@@ -290,7 +325,7 @@ public class SofeaLab {
 
 				logf("\t");
 				for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
-					logf("%10s=%s   ", state.name, Log.formatBigLn(seqInfo.bounds[state.sequencedIndex]));
+					logf("%10s=%s   ", state.name, Log.formatBigLn(seqInfo.z[state.sequencedIndex]));
 
 				}
 				log("[%s]", seq);
@@ -303,7 +338,7 @@ public class SofeaLab {
 		try (SeqDB seqdb = sofea.openSeqDB()) {
 
 			log("Seq DB: sequences:");
-			for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequences()) {
+			for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedBounds()) {
 
 				Sequence seq = entry.getKey();
 				SeqDB.SeqInfo seqInfo = entry.getValue();
@@ -314,7 +349,7 @@ public class SofeaLab {
 
 				logf("\t");
 				for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
-					BigDecimalBounds bounds = seqInfo.bounds[state.sequencedIndex];
+					BigDecimalBounds bounds = seqInfo.z[state.sequencedIndex];
 					logf("%10s=%s d=%.4f   ", state.name, Log.formatBigLn(bounds), bounds.delta(sofea.mathContext));
 				}
 				log("[%s]", seq);

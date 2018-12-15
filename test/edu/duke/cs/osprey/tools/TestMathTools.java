@@ -540,6 +540,20 @@ public class TestMathTools {
 		assertThat(bigDivide(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY), is(MathTools.BigNaN));
 	}
 
+	public static double bigNegate(double a) {
+		return MathTools.bigNegate(MathTools.biggen(a)).doubleValue();
+	}
+
+	@Test
+	public void bigNegate() {
+		assertThat(bigNegate(-1.0), is(1.0));
+		assertThat(bigNegate(0.0), is(0.0));
+		assertThat(bigNegate(1.0), is(-1.0));
+		assertThat(bigNegate(Double.NaN), is(Double.NaN));
+		assertThat(bigNegate(Double.NEGATIVE_INFINITY), is(Double.POSITIVE_INFINITY));
+		assertThat(bigNegate(Double.POSITIVE_INFINITY), is(Double.NEGATIVE_INFINITY));
+	}
+
 	@Test
 	public void gridIterable() {
 

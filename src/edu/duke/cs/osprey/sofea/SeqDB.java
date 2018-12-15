@@ -1,12 +1,9 @@
 package edu.duke.cs.osprey.sofea;
 
-import static edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
-
-import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.tools.*;
+import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import org.jetbrains.annotations.NotNull;
 import org.mapdb.*;
 import org.mapdb.serializer.GroupSerializerObjectArray;
@@ -21,32 +18,44 @@ import java.util.function.Consumer;
 
 public class SeqDB implements AutoCloseable {
 
+	private static boolean isEmptySum(BigDecimalBounds z) {
+		return MathTools.isZero(z.lower) && MathTools.isZero(z.upper);
+	}
+
+	private static BigDecimalBounds makeEmptySum() {
+		return new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
+	}
+
 	public static class SeqInfo {
 
-		public final BigDecimalBounds[] bounds;
+		public final BigDecimalBounds[] z;
 
-		public SeqInfo(int numBounds) {
-			this.bounds = new BigDecimalBounds[numBounds];
+		public SeqInfo(int size) {
+			this.z = new BigDecimalBounds[size];
 		}
 
-		public void setZero() {
-			for (int i=0; i<bounds.length; i++) {
-				bounds[i] = new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
+		public void setEmpty() {
+			for (int i = 0; i<z.length; i++) {
+				z[i] = makeEmptySum();
 			}
 		}
 
-		public boolean isZero() {
-			for (BigDecimalBounds b : bounds) {
-				if (!MathTools.isZero(b.lower) || !MathTools.isZero(b.upper)) {
+		public boolean isEmpty() {
+			for (BigDecimalBounds b : z) {
+				if (!isEmptySum(b)) {
 					return false;
 				}
 			}
 			return true;
 		}
 
+		public BigDecimalBounds get(MultiStateConfSpace.State state) {
+			return z[state.sequencedIndex];
+		}
+
 		@Override
 		public int hashCode() {
-			return HashCalculator.combineObjHashes(bounds);
+			return HashCalculator.combineObjHashes(z);
 		}
 
 		@Override
@@ -55,7 +64,12 @@ public class SeqDB implements AutoCloseable {
 		}
 
 		public boolean equals(SeqInfo other) {
-			return Arrays.equals(this.bounds, other.bounds);
+			return Arrays.equals(this.z, other.z);
+		}
+
+		@Override
+		public String toString() {
+			return Streams.joinToString(z, ", ", b -> Log.formatBigLn(b));
 		}
 	}
 
@@ -217,7 +231,7 @@ public class SeqDB implements AutoCloseable {
 		public void serialize(@NotNull DataOutput2 out, @NotNull SeqInfo data)
 		throws IOException {
 			for (int i=0; i<numBounds; i++) {
-				s.serialize(out, data.bounds[i]);
+				s.serialize(out, data.z[i]);
 			}
 		}
 
@@ -226,7 +240,7 @@ public class SeqDB implements AutoCloseable {
 		throws IOException {
 			SeqInfo data = new SeqInfo(numBounds);
 			for (int i=0; i<numBounds; i++) {
-				data.bounds[i] = s.deserialize(in, available);
+				data.z[i] = s.deserialize(in, available);
 			}
 			return data;
 		}
@@ -253,8 +267,8 @@ public class SeqDB implements AutoCloseable {
 	public final File file;
 
 	private final DB db;
-	private final HTreeMap<int[],SeqInfo> sequencedBounds;
-	private final HTreeMap<Integer,BigDecimalBounds> unsequencedBounds;
+	private final HTreeMap<int[],SeqInfo> sequencedSums;
+	private final HTreeMap<Integer,BigDecimalBounds> unsequencedSums;
 
 	public SeqDB(MultiStateConfSpace confSpace, MathContext mathContext) {
 		this(confSpace, mathContext, null);
@@ -280,7 +294,7 @@ public class SeqDB implements AutoCloseable {
 
 		// open the tables
 
-		sequencedBounds = db.hashMap("sequenced-bounds")
+		sequencedSums = db.hashMap("sequenced-sums")
 			.keySerializer(new IntArraySerializer(
 				confSpace.seqSpace.positions.stream()
 					.flatMap(pos -> pos.resTypes.stream())
@@ -292,7 +306,7 @@ public class SeqDB implements AutoCloseable {
 			.valueSerializer(new SeqInfoSerializer(confSpace.sequencedStates.size()))
 			.createOrOpen();
 
-		unsequencedBounds = db.hashMap("unsequenced-bounds")
+		unsequencedSums = db.hashMap("unsequenced-sums")
 			.keySerializer(Serializer.INTEGER)
 			.valueSerializer(new BigDecimalBoundsSerializer())
 			.createOrOpen();
@@ -305,102 +319,94 @@ public class SeqDB implements AutoCloseable {
 
 	public class Transaction {
 
-		private final Map<Sequence,SeqInfo> sequencedBounds = new HashMap<>();
-		private final Map<Integer,BigDecimalBounds> unsequencedBounds = new HashMap<>();
+		private final Map<Sequence,SeqInfo> sequencedSums = new HashMap<>();
+		private final Map<Integer,BigDecimalBounds> unsequencedSums = new HashMap<>();
 		private boolean isEmpty = true;
 
 		private Transaction() {
 			// keep the constructor private
 		}
 
-		private void updateZ(MultiStateConfSpace.State state, ConfIndex index, Consumer<BigDecimalBounds> f) {
+		private void updateZSum(MultiStateConfSpace.State state, Sequence seq, Consumer<BigDecimalBounds> f) {
 
 			if (state.isSequenced) {
 
-				// convert the conf index to a sequence
-				Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
-				for (int i=0; i<index.numDefined; i++) {
-					SimpleConfSpace.Position confPos = state.confSpace.positions.get(index.definedPos[i]);
-					SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(index.definedRCs[i]);
-					if (confPos.seqPos != null) {
-						seq.set(confPos.resNum, resConf.template.name);
-					}
-				}
-
-				// get the existing bounds, or a [0,0] bound
-				SeqInfo seqInfo = sequencedBounds.get(seq);
+				// get the tx seq info, or empty sums
+				SeqInfo seqInfo = sequencedSums.get(seq);
 				if (seqInfo == null) {
 					seqInfo = new SeqInfo(confSpace.sequencedStates.size());
-					seqInfo.setZero();
+					seqInfo.setEmpty();
 				}
 
-				// apply the modification to the state bounds
-				f.accept(seqInfo.bounds[state.sequencedIndex]);
-
-				// don't store [0,0] bounds
-				if (seqInfo.isZero()) {
-					sequencedBounds.remove(seq);
-				} else {
-					sequencedBounds.put(seq, seqInfo);
-				}
+				f.accept(seqInfo.get(state));
+				sequencedSums.put(seq, seqInfo);
 
 			} else {
 
-				// get the existing bounds, or a [0,0] bound
-				BigDecimalBounds bounds = unsequencedBounds.get(state.unsequencedIndex);
-				if (bounds == null) {
-					bounds = new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
+				// get the tx sum, or empty
+				BigDecimalBounds sum = unsequencedSums.get(state.unsequencedIndex);
+				if (sum == null) {
+					sum = new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
 				}
 
-				// apply the modification
-				f.accept(bounds);
+				f.accept(sum);
+				unsequencedSums.put(state.unsequencedIndex, sum);
 
-				// don't store [0,0] bounds
-				if (MathTools.isZero(bounds.lower) && MathTools.isZero(bounds.upper)) {
-					unsequencedBounds.remove(state.unsequencedIndex);
-				} else {
-					unsequencedBounds.put(state.unsequencedIndex, bounds);
-				}
 			}
 
 			isEmpty = false;
 		}
 
-		public void addZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimal Z) {
-			updateZ(state, index, bounds -> {
-				bounds.lower = bigMath()
-					.set(bounds.lower)
-					.add(Z)
+		public void addZ(MultiStateConfSpace.State state, Sequence seq, BigDecimal z) {
+
+			if (!MathTools.isFinite(z)) {
+				throw new IllegalArgumentException("Z must be finite: " + z);
+			}
+
+			updateZSum(state, seq, sum -> {
+				sum.lower = bigMath()
+					.set(sum.lower)
+					.add(z)
 					.get();
-				bounds.upper = bigMath()
-					.set(bounds.upper)
-					.add(Z)
+				sum.upper = bigMath()
+					.set(sum.upper)
+					.add(z)
 					.get();
 			});
 		}
 
-		public void addZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds Z) {
-			updateZ(state, index, bounds -> {
-				bounds.lower = bigMath()
-					.set(bounds.lower)
-					.add(Z.lower)
+		public void addZ(MultiStateConfSpace.State state, Sequence seq, BigDecimalBounds z) {
+
+			if (!MathTools.isFinite(z.lower) || !MathTools.isFinite(z.upper)) {
+				throw new IllegalArgumentException("Z must be finite: " + z);
+			}
+
+updateZSum(state, seq, sum -> {
+				sum.lower = bigMath()
+					.set(sum.lower)
+					.add(z.lower)
 					.get();
-				bounds.upper = bigMath()
-					.set(bounds.upper)
-					.add(Z.upper)
+				sum.upper = bigMath()
+					.set(sum.upper)
+					.add(z.upper)
 					.get();
 			});
 		}
 
-		public void subZ(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds Z) {
-			updateZ(state, index, bounds -> {
-				bounds.lower = bigMath()
-					.set(bounds.lower)
-					.sub(Z.lower)
+		public void subZ(MultiStateConfSpace.State state, Sequence seq, BigDecimalBounds z) {
+
+			if (!MathTools.isFinite(z.lower) || !MathTools.isFinite(z.upper)) {
+				throw new IllegalArgumentException("Z must be finite: " + z);
+			}
+
+			updateZSum(state, seq, sum -> {
+				sum.lower = bigMath()
+					.set(sum.lower)
+					.sub(z.lower)
 					.get();
-				bounds.upper = bigMath()
-					.set(bounds.upper)
-					.sub(Z.upper)
+				sum.upper = bigMath()
+					.set(sum.upper)
+					.sub(z.upper)
 					.get();
 			});
 		}
@@ -409,74 +415,57 @@ public class SeqDB implements AutoCloseable {
 			return isEmpty;
 		}
 
+		private void combineSums(BigDecimalBounds sum, BigDecimalBounds oldSum) {
+			sum.upper = bigMath()
+				.set(sum.upper)
+				.add(oldSum.upper)
+				.atLeast(0.0) // NOTE: roundoff error can cause this to drop below 0
+				.get();
+			sum.lower = bigMath()
+				.set(sum.lower)
+				.add(oldSum.lower)
+				.atMost(sum.upper) // don't exceed the upper value due to roundoff error
+				.get();
+		}
+
 		public void commit() {
 
 			// push writes to the db
-			for (Map.Entry<Sequence,SeqInfo> entry : sequencedBounds.entrySet()) {
+			for (Map.Entry<Sequence,SeqInfo> entry : sequencedSums.entrySet()) {
 				Sequence seq = entry.getKey();
 				SeqInfo seqInfo = entry.getValue();
 
-				// combine with the old bounds if needed
-				SeqInfo oldSeqInfo = SeqDB.this.sequencedBounds.get(seq.rtIndices);
+				// combine with the old sums if needed
+				SeqInfo oldSeqInfo = SeqDB.this.sequencedSums.get(seq.rtIndices);
 				if (oldSeqInfo != null) {
-
 					for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
-						BigDecimalBounds bounds = seqInfo.bounds[state.sequencedIndex];
-						BigDecimalBounds oldBounds = oldSeqInfo.bounds[state.sequencedIndex];
-
-						bounds.upper = bigMath()
-							.set(bounds.upper)
-							.add(oldBounds.upper)
-							.atLeast(0.0) // NOTE: roundoff error can cause this to drop below 0
-							.get();
-						bounds.lower = bigMath()
-							.set(bounds.lower)
-							.add(oldBounds.lower)
-							.atMost(bounds.upper) // don't exceed the upper bound due to roundoff error
-							.get();
+						BigDecimalBounds sum = seqInfo.z[state.sequencedIndex];
+						BigDecimalBounds oldSum = oldSeqInfo.z[state.sequencedIndex];
+						combineSums(sum, oldSum);
 					}
 				}
 
-				// don't store [0,0] bounds, just remove them
-				if (seqInfo.isZero()) {
-					SeqDB.this.sequencedBounds.remove(seq.rtIndices);
-				} else {
-					SeqDB.this.sequencedBounds.put(seq.rtIndices, seqInfo);
-				}
+				SeqDB.this.sequencedSums.put(seq.rtIndices, seqInfo);
 			}
 
-			for (Map.Entry<Integer,BigDecimalBounds> entry : unsequencedBounds.entrySet()) {
+			for (Map.Entry<Integer,BigDecimalBounds> entry : unsequencedSums.entrySet()) {
 				int unsequencedIndex = entry.getKey();
-				BigDecimalBounds bounds = entry.getValue();
+				BigDecimalBounds sum = entry.getValue();
 
-				// combine with the old bounds if needed
-				BigDecimalBounds oldBounds = SeqDB.this.unsequencedBounds.get(unsequencedIndex);
-				if (oldBounds != null) {
-					bounds.upper = bigMath()
-						.set(bounds.upper)
-						.add(oldBounds.upper)
-						.atLeast(0.0) // NOTE: roundoff error can cause this to drop below 0
-						.get();
-					bounds.lower = bigMath()
-						.set(bounds.lower)
-						.add(oldBounds.lower)
-						.atMost(bounds.upper) // don't exceed the upper bound due to roundoff error
-						.get();
+				// combine with the old sum if needed
+				BigDecimalBounds oldSum = SeqDB.this.unsequencedSums.get(unsequencedIndex);
+				if (oldSum != null) {
+					combineSums(sum, oldSum);
 				}
 
-				// don't store [0,0] bounds, just remove them
-				if (MathTools.isZero(bounds.lower) && MathTools.isZero(bounds.upper)) {
-					SeqDB.this.unsequencedBounds.remove(unsequencedIndex);
-				} else {
-					SeqDB.this.unsequencedBounds.put(unsequencedIndex, bounds);
-				}
+				SeqDB.this.unsequencedSums.put(unsequencedIndex, sum);
 			}
 
 			db.commit();
 
 			// reset state
-			sequencedBounds.clear();
-			unsequencedBounds.clear();
+			sequencedSums.clear();
+			unsequencedSums.clear();
 			isEmpty = true;
 		}
 	}
@@ -490,20 +479,51 @@ public class SeqDB implements AutoCloseable {
 		db.close();
 	}
 
-	public BigDecimalBounds getUnsequenced(int unsequencedIndex) {
-		return unsequencedBounds.get(unsequencedIndex);
+	/**
+	 * returns accumulated Z values for the queried state
+	 * (you probably don't want this unless you're debugging)
+	 */
+	public BigDecimalBounds getUnsequencedSum(MultiStateConfSpace.State state) {
+		BigDecimalBounds z = unsequencedSums.get(state.unsequencedIndex);
+		if (z == null) {
+			z = makeEmptySum();
+		}
+		return z;
+	}
+
+	/**
+	 * returns the current Z bounds for the queried state
+	 */
+	public BigDecimalBounds getUnsequencedBound(MultiStateConfSpace.State state) {
+		BigDecimalBounds z = unsequencedSums.get(state.unsequencedIndex);
+		if (z == null) {
+			z = new BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity);
+		}
+		return z;
+	}
+
+	/**
+	 * returns accumulated state Z values for the queried sequence
+	 * does not include Z uncertainty from ancestral partial sequences
+	 * (you probably don't want this unless you're debugging)
+	 */
+	public SeqInfo getSequencedSums(Sequence seq) {
+		SeqInfo seqInfo = sequencedSums.get(seq.rtIndices);
+		if (seqInfo == null) {
+			seqInfo = new SeqInfo(confSpace.sequencedStates.size());
+			seqInfo.setEmpty();
+		}
+		return seqInfo;
 	}
 
 	/**
 	 * returns accumulated state Z values for all sequences
-	 * does not include Z uncertainty from ancestral partial sequences
-	 * (you probably don't want this unless you're debugging)
 	 */
-	public Iterable<Map.Entry<Sequence,SeqInfo>> getSequencesWithoutAncestry() {
+	public Iterable<Map.Entry<Sequence,SeqInfo>> getSequencedSums() {
 
 		return () -> new Iterator<Map.Entry<Sequence,SeqInfo>>() {
 
-			Iterator<Map.Entry<int[],SeqInfo>> iter = sequencedBounds.getEntries().iterator();
+			Iterator<Map.Entry<int[],SeqInfo>> iter = sequencedSums.getEntries().iterator();
 
 			@Override
 			public boolean hasNext() {
@@ -524,15 +544,27 @@ public class SeqDB implements AutoCloseable {
 	}
 
 	/**
-	 * returns the current state Z bounds for all sequences
+	 * returns the current state Z bounds for the queried sequence
+	 * bounds for partial sequences only describe *unexplored* subtrees
+	 * as more subtrees get explored, those Z values will be transfered to more fully-assigned sequences
+	 * bounds for fully-explored partial sequences will be zero
 	 */
-	public Iterable<Map.Entry<Sequence,SeqInfo>> getSequences() {
+	public SeqInfo getSequencedBounds(Sequence seq) {
+		SeqInfo seqInfo = getSequencedSums(seq);
+		if (seq.isFullyAssigned()) {
+			addZAncestry(seq, seqInfo);
+		}
+		return seqInfo;
+	}
 
-		int[] rtIndices = new int[confSpace.seqSpace.positions.size()];
-
+	/**
+	 * returns Z bounds for all sequences
+	 * returns bounds for both full and partial sequences
+	 */
+	public Iterable<Map.Entry<Sequence,SeqInfo>> getSequencedBounds() {
 		return () -> new Iterator<Map.Entry<Sequence,SeqInfo>>() {
 
-			Iterator<Map.Entry<int[],SeqInfo>> iter = sequencedBounds.getEntries().iterator();
+			Iterator<Map.Entry<int[],SeqInfo>> iter = sequencedSums.getEntries().iterator();
 
 			@Override
 			public boolean hasNext() {
@@ -540,7 +572,7 @@ public class SeqDB implements AutoCloseable {
 			}
 
 			@Override
-			public Map.Entry<Sequence, SeqInfo> next() {
+			public Map.Entry<Sequence,SeqInfo> next() {
 
 				Map.Entry<int[],SeqInfo> entry = iter.next();
 
@@ -548,29 +580,35 @@ public class SeqDB implements AutoCloseable {
 				SeqInfo seqInfo = entry.getValue();
 
 				if (seq.isFullyAssigned()) {
-
-					// add uncertainty from partial sequence ancestry
-					// NOTE: assumes tree pos order follows seq pos order
-					System.arraycopy(seq.rtIndices, 0, rtIndices, 0, rtIndices.length);
-					for (int i=rtIndices.length - 1; i>=0; i--) {
-						rtIndices[i] = Sequence.Unassigned;
-
-						SeqInfo parentSeqInfo = sequencedBounds.get(rtIndices);
-						if (parentSeqInfo != null) {
-							// couldn't that unexplored subtree contain no confs for this seq?
-							// NOTE: don't add the lower bounds, the subtree need not necessarily contain confs for this sequence
-							for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
-								seqInfo.bounds[state.sequencedIndex].upper = bigMath()
-									.set(seqInfo.bounds[state.sequencedIndex].upper)
-									.add(parentSeqInfo.bounds[state.sequencedIndex].upper)
-									.get();
-							}
-						}
-					}
+					addZAncestry(seq, seqInfo);
 				}
 
 				return new AbstractMap.SimpleEntry<>(seq, seqInfo);
 			}
 		};
+	}
+
+	private void addZAncestry(Sequence seq, SeqInfo seqInfo) {
+
+		int[] rtIndices = new int[confSpace.seqSpace.positions.size()];
+		System.arraycopy(seq.rtIndices, 0, rtIndices, 0, rtIndices.length);
+
+		// add uncertainty from partial sequence ancestry
+		// NOTE: assumes tree pos order follows seq pos order
+		for (int i=rtIndices.length - 1; i>=0; i--) {
+			rtIndices[i] = Sequence.Unassigned;
+
+			SeqInfo parentSeqInfo = sequencedSums.get(rtIndices);
+			if (parentSeqInfo != null) {
+				// couldn't that unexplored subtree contain no confs for this seq?
+				// NOTE: don't add the lower bounds, the subtree need not necessarily contain confs for this sequence
+				for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+					seqInfo.z[state.sequencedIndex].upper = bigMath()
+						.set(seqInfo.z[state.sequencedIndex].upper)
+						.add(parentSeqInfo.z[state.sequencedIndex].upper)
+						.get();
+				}
+			}
+		}
 	}
 }

@@ -4,9 +4,15 @@ package edu.duke.cs.osprey.sofea;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
-import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.Log;
+import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
+import edu.duke.cs.osprey.tools.Streams;
+import edu.duke.cs.osprey.tools.UnpossibleError;
+import edu.duke.cs.osprey.tools.resultdoc.Plot;
+import edu.duke.cs.osprey.tools.resultdoc.ResultDoc;
 
+import java.io.File;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.*;
@@ -45,11 +51,11 @@ public class MinLMFE implements Sofea.Criterion {
 
 	public class TopSequences {
 
-		public final TreeSet<Sofea.SeqResult> sequences = new TreeSet<>(Comparator.comparing(r -> r.lmfeFreeEnergy.lower));
-		public double nextLowest = Double.POSITIVE_INFINITY;
+		public final List<Sofea.SeqResult> sequences = new ArrayList<>();
+		public Double nextLowest = null;
 
 		public boolean isTop(DoubleBounds bounds) {
-			return bounds.lower < nextLowest;
+			return nextLowest == null || bounds.lower < nextLowest;
 		}
 
 		public void add(Sofea.SeqResult result) {
@@ -58,10 +64,76 @@ public class MinLMFE implements Sofea.Criterion {
 
 			sequences.add(result);
 
-			// trim down to K sequences, and update the cutoff
-			while (sequences.size() > numSequences) {
-				nextLowest = sequences.pollLast().lmfeFreeEnergy.lower;
+			// sort the sequences by objective lower bound
+			sequences.sort(Comparator.comparing(r -> r.lmfeFreeEnergy.lower));
+
+			// trim down to the best K sequences (allowing ties, but kick out +inf), and update the cutoff
+			int numTopK = 0;
+			Double lastVal = null;
+			for (int i=0; i<sequences.size(); i++) {
+
+				Sofea.SeqResult r = sequences.get(i);
+				double val = r.lmfeFreeEnergy.lower;
+
+				// immediately trim +inf out of top K
+				if (val == Double.POSITIVE_INFINITY) {
+					trimAt(i);
+					break;
+				}
+
+				if (lastVal == null) {
+
+					// no top K yet results, accept the first result
+					numTopK++;
+					lastVal = val;
+
+				} else if (val == lastVal) {
+
+					// same as last result in top K, allow ties
+					numTopK++;
+
+				} else if (val > lastVal) {
+
+					// worse than last result in top K
+					if (numTopK < numSequences) {
+
+						// have room for more in top K, add this result
+						numTopK++;
+						lastVal = val;
+
+					} else {
+
+						// no more room in top k, trim the rest of the list
+						trimAt(i);
+						break;
+					}
+				} else {
+					throw new UnpossibleError();
+				}
 			}
+		}
+
+		private void trimAt(int i) {
+			nextLowest = sequences.get(i).lmfeFreeEnergy.lower;
+			sequences.subList(i, sequences.size()).clear();
+		}
+	}
+
+	private void addWeightedG(DoubleBounds bounds, DoubleBounds g, double weight) {
+
+		// if either bound is [+inf,+inf], assume the result is [+inf,+inf]
+		if ((bounds.lower == Double.POSITIVE_INFINITY && bounds.upper == Double.POSITIVE_INFINITY)
+			|| (g.lower == Double.POSITIVE_INFINITY && g.upper == Double.POSITIVE_INFINITY)) {
+			bounds.lower = Double.POSITIVE_INFINITY;
+			bounds.upper = Double.POSITIVE_INFINITY;
+
+		// otherwise, do the usual arithmetic
+		} else if (weight < 0) {
+			bounds.lower += g.upper*weight;
+			bounds.upper += g.lower*weight;
+		} else if (weight > 0) {
+			bounds.lower += g.lower*weight;
+			bounds.upper += g.upper*weight;
 		}
 	}
 
@@ -73,13 +145,13 @@ public class MinLMFE implements Sofea.Criterion {
 		TopSequences topSequences = new TopSequences();
 
 		// get the unsequenced z values
-		MathTools.DoubleBounds[] unsequencedFreeEnergy = new MathTools.DoubleBounds[confSpace.unsequencedStates.size()];
+		DoubleBounds[] unsequencedFreeEnergy = new DoubleBounds[confSpace.unsequencedStates.size()];
 		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
-			unsequencedFreeEnergy[state.unsequencedIndex] = bcalc.freeEnergyPrecise(seqdb.getUnsequenced(state.unsequencedIndex));
+			unsequencedFreeEnergy[state.unsequencedIndex] = bcalc.freeEnergyPrecise(seqdb.getUnsequencedBound(state));
 		}
 
 		// for each sequence and partial sequence encountered so far...
-		for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequences()) {
+		for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedBounds()) {
 
 			Sequence seq = entry.getKey();
 			SeqDB.SeqInfo seqInfo = entry.getValue();
@@ -88,24 +160,17 @@ public class MinLMFE implements Sofea.Criterion {
 			Arrays.fill(stateFreeEnergies, null);
 
 			// compute bounds on the objective function
-			MathTools.DoubleBounds objectiveBounds = new MathTools.DoubleBounds(0.0, 0.0);
+			DoubleBounds objectiveBounds = new DoubleBounds(0.0, 0.0);
 			for (MultiStateConfSpace.State state : objective.states()) {
 
-				MathTools.DoubleBounds g;
+				DoubleBounds g;
 				if (state.isSequenced) {
-					g = bcalc.freeEnergyPrecise(seqInfo.bounds[state.sequencedIndex]);
+					g = bcalc.freeEnergyPrecise(seqInfo.z[state.sequencedIndex]);
 				} else {
 					g = unsequencedFreeEnergy[state.unsequencedIndex];
 				}
 
-				objectiveBounds.lower += g.lower*objective.getWeight(state);
-				objectiveBounds.upper += g.upper*objective.getWeight(state);
-
-				// HACKHACK: if we subtract infinities for the upper bound,
-				// assume the upper bonud is +inf instead of nan
-				if (Double.isNaN(objectiveBounds.upper)) {
-					objectiveBounds.upper = Double.POSITIVE_INFINITY;
-				}
+				addWeightedG(objectiveBounds, g, objective.getWeight(state));
 
 				stateFreeEnergies[state.index] = g;
 			}
@@ -117,7 +182,7 @@ public class MinLMFE implements Sofea.Criterion {
 				for (MultiStateConfSpace.State state : confSpace.states) {
 					if (stateFreeEnergies[state.index] == null) {
 						if (state.isSequenced) {
-							stateFreeEnergies[state.index] = bcalc.freeEnergyPrecise(seqInfo.bounds[state.sequencedIndex]);
+							stateFreeEnergies[state.index] = bcalc.freeEnergyPrecise(seqInfo.z[state.sequencedIndex]);
 						} else {
 							stateFreeEnergies[state.index] = unsequencedFreeEnergy[state.unsequencedIndex];
 						}
@@ -148,7 +213,7 @@ public class MinLMFE implements Sofea.Criterion {
 		int i = 0;
 		for (Sofea.SeqResult result : topSequences.sequences) {
 			logf("\tseq %2d  obj=%s w=%9.4f",
-				i++,
+				++i,
 				result.lmfeFreeEnergy.toString(4, 9),
 				result.lmfeFreeEnergy.size()
 			);
@@ -163,9 +228,16 @@ public class MinLMFE implements Sofea.Criterion {
 			log("    [%s]", result.sequence);
 		}
 		log("\tnext lowest: %9.4f", topSequences.nextLowest);
+		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
+			DoubleBounds g = bcalc.freeEnergyPrecise(seqdb.getUnsequencedBound(state));
+			log("\t%s=%s w=%.4f", state.name, g.toString(4, 9), g.size());
+		}
 
-		// do we have enough sequences yet?
-		if (topSequences.sequences.size() < numSequences) {
+		// TEMP
+		//dump(seqdb);
+
+		// if we don't have enough sequences, keep going
+		if (topSequences.nextLowest == null) {
 			return false;
 		}
 
@@ -190,5 +262,136 @@ public class MinLMFE implements Sofea.Criterion {
 
 		// all is well!
 		return true;
+	}
+
+	// TEMP
+	public void dump(SeqDB seqdb) {
+		for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedBounds()) {
+			Sequence seq = entry.getKey();
+			SeqDB.SeqInfo info = entry.getValue();
+
+			// get all state z values
+			BigDecimalBounds[] z = new BigDecimalBounds[seqdb.confSpace.states.size()];
+			for (MultiStateConfSpace.State state : seqdb.confSpace.states) {
+				if (state.isSequenced) {
+					z[state.index] = info.z[state.sequencedIndex];
+				} else {
+					z[state.index] = seqdb.getUnsequencedBound(state);
+				}
+			}
+
+			// get all state g values
+			DoubleBounds[] g = new DoubleBounds[z.length];
+			for (int i=0; i<z.length; i++) {
+				g[i] = bcalc.freeEnergyPrecise(z[i]);
+			}
+
+			// compute the LMFE
+			DoubleBounds objectiveBounds = new DoubleBounds(0.0, 0.0);
+			for (MultiStateConfSpace.State state : objective.states()) {
+				addWeightedG(objectiveBounds, g[state.index], objective.getWeight(state));
+			}
+
+			log("seq %s", seq);
+			if (seq.isFullyAssigned()) {
+				SeqDB.SeqInfo sums = seqdb.getSequencedSums(seq);
+				log("\tsums: %s",
+					Streams.joinToString(seqdb.confSpace.sequencedStates,   "   ", state ->
+						String.format("%s=%s",
+							state.name,
+							Log.formatBigLn(sums.get(state))
+						)
+					)
+				);
+			}
+			log("\tZ: %s",
+				Streams.joinToString(seqdb.confSpace.states,   "   ", state ->
+					String.format("%s=%s d=%9.4f",
+						state.name,
+						Log.formatBigLn(z[state.index]),
+						z[state.index].delta(seqdb.mathContext)
+					)
+				)
+			);
+			log("\tG: %s  obj=%s w=%9.4f",
+				Streams.joinToString(seqdb.confSpace.states,   "   ", state ->
+					String.format("%s=%s w=%9.4f",
+						state.name,
+						g[state.index],
+						g[state.index].size()
+					)
+				),
+				objectiveBounds.toString(4, 9),
+				objectiveBounds.size()
+			);
+		}
+	}
+
+	public void makeResultDoc(SeqDB seqdb, File file) {
+
+		TopSequences topSequences = getTopSequences(seqdb);
+
+		BoltzmannCalculator bcalc = new BoltzmannCalculator(seqdb.mathContext);
+		try (ResultDoc doc = new ResultDoc(file)) {
+
+			doc.h1("SOFEA Results");
+
+			Plot plot = new Plot();
+			plot.ylabels = new ArrayList<>();
+
+			Plot.Intervals intervalsUnsequenced = plot.new IntervalsX();
+			intervalsUnsequenced.name = "Unsequenced States";
+			intervalsUnsequenced.data = new ArrayList<>();
+
+			Plot.Intervals[] intervalsSequenced = new Plot.IntervalsX[seqdb.confSpace.sequencedStates.size()];
+			for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
+				intervalsSequenced[state.sequencedIndex] = plot.new IntervalsX();
+				intervalsSequenced[state.sequencedIndex].name = state.name;
+				intervalsSequenced[state.sequencedIndex].data = new ArrayList<>();
+			}
+
+			Plot.Intervals intervalsObjective = plot.new IntervalsX();
+			intervalsObjective.name = "Objective LMFE";
+			intervalsObjective.data = new ArrayList<>();
+
+			// show unsequenced states
+			for (MultiStateConfSpace.State state : seqdb.confSpace.unsequencedStates) {
+
+				BigDecimalBounds z = seqdb.getUnsequencedBound(state);
+				DoubleBounds g = bcalc.freeEnergyPrecise(z);
+
+				plot.ylabels.add(state.name);
+				intervalsUnsequenced.data.add(new Plot.Interval(g.lower, g.upper));
+
+				// add padding to the other series, so the data and labels align vertically
+				intervalsObjective.data.add(null);
+				for (Plot.Intervals intervals : intervalsSequenced) {
+					intervals.data.add(null);
+				}
+			}
+
+			// show sequenced states for the top sequences
+			for (Sofea.SeqResult result : topSequences.sequences) {
+
+				plot.ylabels.add(result.sequence.toString());
+
+				for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
+					DoubleBounds g = result.stateFreeEnergies[state.sequencedIndex];
+					intervalsSequenced[state.sequencedIndex].data.add(new Plot.Interval(g.lower, g.upper));
+				}
+
+				intervalsObjective.data.add(new Plot.Interval(result.lmfeFreeEnergy.lower, result.lmfeFreeEnergy.upper));
+
+				// add padding to the other series, so the data and labels align vertically
+				intervalsUnsequenced.data.add(null);
+			}
+
+			plot.key = "on tmargin horizontal";
+			plot.xlabel = "Free Energy (kcal/mol)";
+			plot.xlabelrotate = 30.0;
+			plot.width = 960;
+			plot.height = 70 + plot.ylabels.size()*40;
+			doc.plot(plot);
+		}
 	}
 }

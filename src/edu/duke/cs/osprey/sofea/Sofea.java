@@ -6,16 +6,11 @@ import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.BigMath;
-import edu.duke.cs.osprey.tools.Log;
-import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.*;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
-import edu.duke.cs.osprey.tools.resultdoc.Plot;
-import edu.duke.cs.osprey.tools.resultdoc.ResultDoc;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -27,6 +22,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
+import static edu.duke.cs.osprey.tools.Log.logf;
 
 
 /**
@@ -42,7 +38,7 @@ public class Sofea {
 		private StateConfig[] stateConfigs;
 		private MathContext mathContext = new MathContext(32, RoundingMode.HALF_UP);
 		private File seqdbFile = new File("seq.db");
-		private MathContext seqdbMathContext = new MathContext(256, RoundingMode.HALF_UP);
+		private MathContext seqdbMathContext = new MathContext(128, RoundingMode.HALF_UP);
 		private File fringedbFile = new File("fringe.db");
 		private int fringedbMiB = 10;
 
@@ -253,8 +249,7 @@ public class Sofea {
 
 					// init the fringe with the root node
 					roots.set(state, rootBound, stateInfo.blute.factor);
-					ConfIndex index = stateInfo.makeConfIndex();
-					seqtx.addZ(state, index, rootBound);
+					seqtx.addZ(state, state.confSpace.makeUnassignedSequence(), rootBound);
 				}
 				roots.commit();
 				seqtx.commit();
@@ -266,44 +261,66 @@ public class Sofea {
 		}
 	}
 
+	private static class StateStats {
+		long read = 0;
+		long expanded = 0;
+		long replaced = 0;
+		long added = 0;
+		long requeued = 0;
+	}
+
 	public void refine() {
-
-		// TODO: add stopping criteria of some kind?
-
 		try (SeqDB seqdb = openSeqDB()) {
 			try (FringeDB fringedb = openFringeDB()) {
+
+				// get the initial zmax
+				BigDecimal[] zmax = confSpace.states.stream()
+					.map(state -> fringedb.getZMax(state))
+					.toArray(size -> new BigDecimal[size]);
 
 				final double zmaxFactor = Math.pow(Math.E, 4.0);
 
 				long i = 0;
 				while (true) {
 
-					// reduce zmax each iteration
-					List<BigDecimal> zmax = confSpace.states.stream()
-						.map(state -> {
-							BigDecimal stateZMax = fringedb.getZMax(state);
-							if (stateZMax == null) {
-								return null;
-							} else {
-								return bigMath()
-									.set(fringedb.getZMax(state))
-									.div(zmaxFactor)
-									.get();
-							}
-						})
-						.collect(Collectors.toList());
-
-					// TEMP
-					log("op %d", ++i);
-					for (MultiStateConfSpace.State state : confSpace.states) {
-						log("\tzmax=%s  /f=%s", Log.formatBigLn(fringedb.getZMax(state)), Log.formatBigLn(zmax.get(state.index)));
+					// check the termination criterion
+					if (criterion != null && criterion.isFinished(seqdb)) {
+						log("SOFEA finished, criterion satisfied");
+						break;
 					}
 
-					long[] numExpanded = { 0 };
-					long[] numRead = { 0 };
+					// stop if we ran out of fringe nodes
+					if (fringedb.isEmpty()) {
+						log("SOFEA finished, explored every node");
+						break;
+					}
+
+					// TEMP
+					log("sweep %d", ++i);
+
+					// reduce zmax each iteration
+					for (MultiStateConfSpace.State state : confSpace.states) {
+
+						// TEMP
+						logf("\t%10s zmax=%s", state.name, Log.formatBigLn(zmax[state.index]));
+
+						zmax[state.index] = bigMath()
+							.set(zmax[state.index])
+							.div(zmaxFactor)
+							.get();
+
+						// TEMP
+						log("  /f=%s", Log.formatBigLn(zmax[state.index]));
+					}
+
+					StateStats[] stats = new StateStats[confSpace.states.size()];
+					for (MultiStateConfSpace.State state : confSpace.states) {
+						stats[state.index] = new StateStats();
+					}
 
 					FringeDB.Sweep sweep = fringedb.sweep();
 					SeqDB.Transaction seqtx = seqdb.transaction();
+					Progress progress = new Progress(sweep.numNodesRemaining());
 					while (!sweep.isEmpty()) {
 
 						sweep.read();
@@ -311,119 +328,50 @@ public class Sofea {
 						ConfIndex index = sweep.index();
 						BigDecimalBounds bounds = sweep.bounds();
 						BigDecimal zpath = sweep.zpath();
+						stats[state.index].read++;
 
-						seqtx.subZ(state, index, bounds);
+						// TODO: if node is not expanded, could optimize out the updates to SeqTX?
+						seqtx.subZ(state, makeSeq(state, index), bounds);
 
-						boolean wasExpanded = design(state, index, bounds, zmax.get(state.index), zpath, sweep, seqtx);
+						boolean wasExpanded = design(state, index, bounds, zmax[state.index], zpath, sweep, seqtx);
 						if (wasExpanded) {
-							numExpanded[0]++;
+							stats[state.index].expanded++;
 						}
-						numRead[0]++;
 
 						if (sweep.hasSpaceToReplace()) {
+							stats[state.index].added += sweep.numChildren();
 							sweep.replace();
+							stats[state.index].replaced++;
 						} else {
 							sweep.requeueAndDiscardChildren();
+							stats[state.index].requeued++;
 						}
 
 						// TODO: come up with better batching heuristic
-						if (sweep.isEmpty() || numRead[0] % 100 == 0) {
+						long numRead = Arrays.stream(stats)
+							.mapToLong(s -> s.read)
+							.sum();
+						if (sweep.isEmpty() || numRead % 100 == 0) {
 							sweep.commit();
 							seqtx.commit();
 						}
+
+						progress.incrementProgress();
 					}
 					sweep.finish();
 
 					// TEMP
-					log("\texpanded %d/%d, fringe size: %d/%d",
-						numExpanded[0], numRead[0],
-						fringedb.getNumNodes(), fringedb.getCapacity()
-					);
-
-					// check the termination criterion
-					if (criterion.isFinished(seqdb)) {
-						break;
+					log("\tfringe size: %d/%d", fringedb.getNumNodes(), fringedb.getCapacity());
+					for (MultiStateConfSpace.State state : confSpace.states) {
+						log("\t%10s  read=%6d  expanded=%6d  replaced=%6d  added=%6d requeued=%6d",
+							state.name,
+							stats[state.index].read,
+							stats[state.index].expanded,
+							stats[state.index].replaced,
+							stats[state.index].added,
+							stats[state.index].requeued
+						);
 					}
-
-					// stop if we ran out of fringe nodes
-					if (fringedb.isEmpty()) {
-						break;
-					}
-				}
-			}
-		}
-	}
-
-	// TODO: move to reporter class of some kind?
-	public void makeResultDoc(File file) {
-
-		try (SeqDB seqdb = openSeqDB()) {
-
-			BoltzmannCalculator bcalc = new BoltzmannCalculator(seqdbMathContext);
-			try (ResultDoc doc = new ResultDoc(file)) {
-
-				doc.h1("SOFEA Results");
-
-				for (MultiStateConfSpace.State state : confSpace.states) {
-
-					doc.println();
-					doc.h2(state.name);
-
-					Plot plot = new Plot();
-					plot.ylabels = new ArrayList<>();
-
-					Plot.Intervals intervals = plot.new IntervalsX();
-					intervals.name = "Bounds";
-					intervals.data = new ArrayList<>();
-
-					Plot.PointsX points = plot.new PointsX();
-					points.name = "Exact Value";
-					points.data = new ArrayList<>();
-
-					if (state.isSequenced) {
-
-						for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequences()) {
-
-							Sequence seq = entry.getKey();
-							plot.ylabels.add(seq.toString());
-
-							SeqDB.SeqInfo seqInfo = entry.getValue();
-							intervals.data.add(new Plot.Interval(
-								bcalc.freeEnergyPrecise(seqInfo.bounds[state.sequencedIndex].upper),
-								bcalc.freeEnergyPrecise(seqInfo.bounds[state.sequencedIndex].lower)
-							));
-
-							// TODO: freeEnergyPrecise is really slow for some reason
-
-							// TEMP: show exact values
-							if (seq.isFullyAssigned()) {
-								BigDecimal z = stateInfos.get(state.index).calcZ(seq);
-								points.data.add(bcalc.freeEnergyPrecise(z));
-							} else {
-								points.data.add(null);
-							}
-						}
-
-					} else {
-
-						plot.ylabels.add("");
-
-						MathTools.BigDecimalBounds bounds = seqdb.getUnsequenced(state.unsequencedIndex);
-						intervals.data.add(new Plot.Interval(
-							bcalc.freeEnergyPrecise(bounds.upper),
-							bcalc.freeEnergyPrecise(bounds.lower)
-						));
-
-						// TEMP: show exact values
-						//BigDecimal z = stateInfos.get(state.index).calcZ();
-						//points.data.add(bcalc.freeEnergyPrecise(z));
-					}
-
-					plot.key = "on tmargin horizontal";
-					plot.xlabel = "Free Energy (kcal/mol)";
-					plot.xlabelrotate = 30.0;
-					plot.height = 70 + plot.ylabels.size()*40;
-					doc.plot(plot);
 				}
 			}
 		}
@@ -434,7 +382,7 @@ public class Sofea {
 		// skip this tree if it's too small, and add the node to the fringe set
 		if (MathTools.isLessThan(bounds.upper, zmax)) {
 			sweep.addChild(state, index, bounds, zpath);
-			seqtx.addZ(state, index, bounds);
+			seqtx.addZ(state, makeSeq(state, index), bounds);
 			return false;
 		}
 
@@ -472,7 +420,7 @@ public class Sofea {
 				// hit bottom, add the leaf node to the seqdb
 				// TODO: can optimize seq creation?
 				index.assignInPlace(pos, rc);
-				seqtx.addZ(state, index, zpathrc);
+				seqtx.addZ(state, makeSeq(state, index), zpathrc);
 				index.unassignInPlace(pos);
 
 			} else {
@@ -510,6 +458,22 @@ public class Sofea {
 		}
 
 		return true;
+	}
+
+	private Sequence makeSeq(MultiStateConfSpace.State state, ConfIndex index) {
+		Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
+		for (int i=0; i<index.numDefined; i++) {
+			SimpleConfSpace.Position confPos = state.confSpace.positions.get(index.definedPos[i]);
+			if (confPos.seqPos != null) {
+				SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(index.definedRCs[i]);
+				seq.set(confPos.resNum, resConf.template.name);
+			}
+		}
+		return seq;
+	}
+
+	public BigDecimal calcZ(MultiStateConfSpace.State state, Sequence seq) {
+		return stateInfos.get(state.index).calcZ(seq);
 	}
 
 	private class StateInfo {

@@ -532,6 +532,7 @@ public class Plot {
 			AtomicInteger i = new AtomicInteger(0);
 			return Streams.joinToString(data, "\n", interval -> {
 				if (interval == null) {
+					i.getAndIncrement();
 					return "";
 				} else {
 					double x = getIntervalMid(interval);
@@ -568,6 +569,7 @@ public class Plot {
 			AtomicInteger i = new AtomicInteger(0);
 			return Streams.joinToString(data, "\n", interval -> {
 				if (interval == null) {
+					i.getAndIncrement();
 					return "";
 				} else {
 					double x = i.getAndIncrement();

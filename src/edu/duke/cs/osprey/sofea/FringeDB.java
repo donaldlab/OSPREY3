@@ -477,7 +477,7 @@ public class FringeDB implements AutoCloseable {
 		private BigDecimal zmax;
 		private Entry entry;
 		private final List<Entry> entries = new ArrayList<>();
-		private int numChildren = 0;
+		private int numUnfinishedChildren = 0;
 		private boolean hasBuffer = false;
 
 		private Sweep() {
@@ -537,6 +537,15 @@ public class FringeDB implements AutoCloseable {
 			return entry.zpath;
 		}
 
+		private long advanceEntryOffset(long offset) {
+			assert (posEntries + offset <= iosize);
+			offset += entryBytes;
+			if (posEntries + offset >= iosize) {
+				offset = 0;
+			}
+			return offset;
+		}
+
 		/**
 		 * add a node to the pending write set
 		 * save changes by calling commitAndAdvance()
@@ -545,11 +554,18 @@ public class FringeDB implements AutoCloseable {
 		public void addChild(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds bounds, BigDecimal zpath) {
 
 			entries.add(new Entry(entry.stateIndex, Conf.make(index), bounds, zpath));
-			numChildren++;
+			numUnfinishedChildren++;
 
 			if (zmax == null || MathTools.isGreaterThan(bounds.upper, zmax)) {
 				zmax = bounds.upper;
 			}
+		}
+
+		/**
+		 * Returns the number of children added for the current node
+		 */
+		public int numChildren() {
+			return numUnfinishedChildren;
 		}
 
 		/**
@@ -558,7 +574,7 @@ public class FringeDB implements AutoCloseable {
 		public boolean hasSpaceToReplace() {
 			long usedEntries = numToRead - 1 + numWritten + entries.size();
 			long freeEntries = maxNumEntries - usedEntries;
-			return numChildren <= freeEntries;
+			return numUnfinishedChildren <= freeEntries;
 		}
 
 		/**
@@ -567,18 +583,17 @@ public class FringeDB implements AutoCloseable {
 		public void replace() {
 
 			if (!hasSpaceToReplace()) {
-				throw new IllegalStateException("not enough space to replace node with " + numChildren + " children. Must requeue this node instead");
+				throw new IllegalStateException("not enough space to replace node with " + numUnfinishedChildren + " children. Must requeue this node instead");
 			}
+
+			// finish the children
+			numUnfinishedChildren = 0;
 
 			// update zmax
 			writeZmax[entry.stateIndex] = zmax;
 
 			// advance the read offset, wrapping if needed
-			readOffset += entryBytes;
-			assert (posEntries + readOffset <= iosize);
-			if (posEntries + readOffset == iosize) {
-				readOffset = 0;
-			}
+			readOffset = advanceEntryOffset(readOffset);
 			numToRead--;
 
 			hasBuffer = true;
@@ -591,9 +606,9 @@ public class FringeDB implements AutoCloseable {
 		public void requeueAndDiscardChildren() {
 
 			// remove the children added for this node
-			while (numChildren > 0) {
+			while (numUnfinishedChildren > 0) {
 				entries.remove(entries.size() - 1);
-				numChildren--;
+				numUnfinishedChildren--;
 			}
 
 			// move this node to the back of the queue
@@ -605,11 +620,7 @@ public class FringeDB implements AutoCloseable {
 			}
 
 			// advance the read offset, wrapping if needed
-			readOffset += entryBytes;
-			assert (posEntries + readOffset <= iosize);
-			if (posEntries + readOffset == iosize) {
-				readOffset = 0;
-			}
+			readOffset = advanceEntryOffset(readOffset);
 			numToRead--;
 
 			hasBuffer = true;
@@ -627,6 +638,11 @@ public class FringeDB implements AutoCloseable {
 		 * All writes are flushed to the underlying storage device by the time this method returns.
 		 */
 		public void commit() {
+
+			if (numUnfinishedChildren > 0) {
+				throw new IllegalStateException("can't commit yet, current node has unfinshed children. call replace or requeue first.");
+			}
+
 			try {
 
 				// write the entries
@@ -636,14 +652,11 @@ public class FringeDB implements AutoCloseable {
 					writeEntry(entry);
 
 					// advance the write offset, wrapping if needed
-					writeOffset += entryBytes;
-					assert (posEntries + writeOffset <= iosize);
-					if (posEntries + writeOffset == iosize) {
-						writeOffset = 0;
-					}
+					writeOffset = advanceEntryOffset(writeOffset);
 					numWritten++;
 				}
 				entries.clear();
+				numUnfinishedChildren = 0;
 
 				// write zmax
 				io.seek(posZStats + bdio.numBytes*confSpace.states.size());

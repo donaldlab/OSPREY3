@@ -77,9 +77,17 @@ public class Log {
 	public static String formatBigLn(BigDecimal f) {
 		if (f == null) {
 			return "null";
+		} else if (MathTools.isZero(f)) {
+			return "0";
 		} else {
 			BoltzmannCalculator bcalc = new BoltzmannCalculator(new MathContext(16, RoundingMode.HALF_UP));
-			return String.format("%9.4f", bcalc.ln(f));
+			double d;
+			if (MathTools.isPositive(f)) {
+				d = bcalc.ln(f);
+			} else {
+				d = -bcalc.ln(MathTools.bigNegate(f));
+			}
+			return String.format("%9.4f", d);
 		}
 	}
 

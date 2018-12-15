@@ -362,6 +362,19 @@ public class MathTools {
 		return isGreaterThan(a, b) || isSameValue(a, b);
 	}
 
+	/** return -a, correctly handling -Inf, +Inf, and NaN */
+	public static BigDecimal bigNegate(BigDecimal a) {
+		if (a == BigNaN) {
+			return BigNaN;
+		} else if (a == BigNegativeInfinity) {
+			return BigPositiveInfinity;
+		} else if (a == BigPositiveInfinity) {
+			return BigNegativeInfinity;
+		} else {
+			return a.negate();
+		}
+	}
+
 	/** return a + b, correctly handling -Inf, +Inf, and NaN */
 	public static BigDecimal bigAdd(BigDecimal a, BigDecimal b, MathContext context) {
 		if (a == BigNaN || b == BigNaN) {
@@ -783,6 +796,10 @@ public class MathTools {
 		public BigDecimalBounds(BigDecimal lower, BigDecimal upper) {
 			this.lower = lower;
 			this.upper = upper;
+		}
+
+		public BigDecimalBounds(double lower, double upper) {
+			this(biggen(lower), biggen(upper));
 		}
 
 		public double delta(MathContext mathContext) {
