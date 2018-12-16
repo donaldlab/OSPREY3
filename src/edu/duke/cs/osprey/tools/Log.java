@@ -83,9 +83,9 @@ public class Log {
 			BoltzmannCalculator bcalc = new BoltzmannCalculator(new MathContext(16, RoundingMode.HALF_UP));
 			double d;
 			if (MathTools.isPositive(f)) {
-				d = bcalc.ln(f);
+				d = bcalc.ln(f.add(BigDecimal.ONE));
 			} else {
-				d = -bcalc.ln(MathTools.bigNegate(f));
+				d = -bcalc.ln(MathTools.bigNegate(f).add(BigDecimal.ONE));
 			}
 			return String.format("%9.4f", d);
 		}

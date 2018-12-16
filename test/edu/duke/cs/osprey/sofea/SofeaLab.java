@@ -103,7 +103,7 @@ public class SofeaLab {
 				.addNegative("design")
 				.addNegative("target")
 				.build(),
-			5,
+			10,
 			new MathContext(16, RoundingMode.HALF_UP)
 		);
 		//
@@ -146,6 +146,7 @@ public class SofeaLab {
 			// TEMP
 			//sofea = new Sofea.Builder(confSpace, null)
 			sofea = new Sofea.Builder(confSpace, criterion)
+				.setFringeDBMiB(100)
 				.configEachState(state -> {
 
 					File ematFile = new File(String.format("sofea.%s.emat", state.name));

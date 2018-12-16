@@ -27,7 +27,7 @@ public class Plot {
 	public static List<Color> defaultColors = Arrays.asList(
 		new Color("004586"), // blue
 		new Color("ff420e"), // red
-		new Color("ffd320"), // yellow
+		//new Color("ffd320"), // yellow (doesn't show up well against the white background)
 		new Color("579d1c"), // green
 		new Color("7e0021"), // magenta
 		new Color("83caff"), // cyan

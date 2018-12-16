@@ -2,10 +2,7 @@ package edu.duke.cs.osprey.sofea;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.*;
@@ -220,7 +217,7 @@ public class Sofea {
 			try (FringeDB fringedb = openFringeDB()) {
 
 				// process the root node for each state
-				FringeDB.Roots roots = fringedb.roots();
+				FringeDB.Transaction fringetx = fringedb.transaction();
 				SeqDB.Transaction seqtx = seqdb.transaction();
 				for (MultiStateConfSpace.State state : confSpace.states) {
 					StateInfo stateInfo = stateInfos.get(state.index);
@@ -248,16 +245,115 @@ public class Sofea {
 					}
 
 					// init the fringe with the root node
-					roots.set(state, rootBound, stateInfo.blute.factor);
+					fringetx.addRootNode(state, rootBound, stateInfo.blute.factor);
 					seqtx.addZ(state, state.confSpace.makeUnassignedSequence(), rootBound);
 				}
-				roots.commit();
+				fringetx.commit();
+				fringedb.finishSweep();
 				seqtx.commit();
 
 				// TEMP
 				log("seed");
 				log("\tfringe size: %d/%d", fringedb.getNumNodes(), fringedb.getCapacity());
 			}
+		}
+	}
+
+	private static class Node {
+
+		final int[] conf;
+		final BigDecimalBounds zbounds;
+		final BigDecimal zpath;
+
+		Node(int[] conf, BigDecimalBounds zbounds, BigDecimal zpath) {
+			this.conf = conf;
+			this.zbounds = zbounds;
+			this.zpath = zpath;
+		}
+	}
+
+	private static class ZVal {
+
+		final int[] conf;
+		final BigDecimal z;
+
+		ZVal(int[] conf, BigDecimal z) {
+			this.conf = conf;
+			this.z = z;
+		}
+	}
+
+	private class NodeTransaction {
+
+		final FringeDB.Transaction fringetx;
+		final SeqDB.Transaction seqtx;
+		final MultiStateConfSpace.State state;
+
+		final List<Node> replacementNodes = new ArrayList<>();
+		final List<ZVal> zvals = new ArrayList<>();
+
+		NodeTransaction(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx, MultiStateConfSpace.State state) {
+			this.fringetx = fringetx;
+			this.seqtx = seqtx;
+			this.state = state;
+		}
+
+		Sequence makeSeq(int[] conf) {
+			Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
+			for (SimpleConfSpace.Position confPos : state.confSpace.positions) {
+				SeqSpace.Position seqPos = confSpace.seqSpace.getPosition(confPos.resNum);
+				int rc = conf[confPos.index];
+				if (seqPos != null && rc != Conf.Unassigned) {
+					SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(rc);
+					seq.set(seqPos, resConf.template.name);
+				}
+			}
+			return seq;
+		}
+
+		void addReplacementNode(Node node) {
+			replacementNodes.add(node);
+		}
+
+		void addReplacementNode(ConfIndex index, BigDecimalBounds zbounds, BigDecimal zpath) {
+			replacementNodes.add(new Node(Conf.make(index), zbounds, zpath));
+		}
+
+		int numReplacementNodes() {
+			return replacementNodes.size();
+		}
+
+		void addZVal(ConfIndex index, BigDecimal z) {
+			zvals.add(new ZVal(Conf.make(index), z));
+		}
+
+		boolean hasRoomToReplace() {
+			return fringetx.hasRoomFor(replacementNodes.size());
+		}
+
+		void replace(Node node) {
+
+			// subtract the node zbounds
+			seqtx.subZ(state, makeSeq(node.conf), node.zbounds);
+
+			// update fringedb and seqdb with the replacement nodes
+			for (Node replacementNode : replacementNodes) {
+				fringetx.addReplacementNode(replacementNode.conf, replacementNode.zbounds, replacementNode.zpath);
+				seqtx.addZ(state, makeSeq(replacementNode.conf), replacementNode.zbounds);
+			}
+
+			// add the z values
+			for (ZVal zval : zvals) {
+				seqtx.addZ(state, makeSeq(zval.conf), zval.z);
+			}
+		}
+
+		void requeue(Node node) {
+
+			// ignore all of the seqdb changes
+
+			// move the node to the end of the fringedb queue
+			fringetx.addReplacementNode(node.conf, node.zbounds, node.zpath);
 		}
 	}
 
@@ -318,47 +414,49 @@ public class Sofea {
 						stats[state.index] = new StateStats();
 					}
 
-					FringeDB.Sweep sweep = fringedb.sweep();
+					FringeDB.Transaction fringetx = fringedb.transaction();
 					SeqDB.Transaction seqtx = seqdb.transaction();
-					Progress progress = new Progress(sweep.numNodesRemaining());
-					while (!sweep.isEmpty()) {
+					Progress progress = new Progress(fringetx.numNodesToRead());
+					while (fringetx.hasNodesToRead()) {
 
-						sweep.read();
-						MultiStateConfSpace.State state = sweep.state();
-						ConfIndex index = sweep.index();
-						BigDecimalBounds bounds = sweep.bounds();
-						BigDecimal zpath = sweep.zpath();
-						stats[state.index].read++;
+						// read the next node
+						fringetx.readNode();
+						MultiStateConfSpace.State state = fringetx.state();
+						Node node = new Node(
+							fringetx.conf(),
+							fringetx.zbounds(),
+							fringetx.zpath()
+						);
 
-						// TODO: if node is not expanded, could optimize out the updates to SeqTX?
-						seqtx.subZ(state, makeSeq(state, index), bounds);
+						NodeTransaction nodetx = new NodeTransaction(fringetx, seqtx, state);
+						stats[nodetx.state.index].read++;
 
-						boolean wasExpanded = design(state, index, bounds, zmax[state.index], zpath, sweep, seqtx);
+						boolean wasExpanded = design(nodetx, zmax[nodetx.state.index], node);
 						if (wasExpanded) {
-							stats[state.index].expanded++;
+							stats[nodetx.state.index].expanded++;
 						}
 
-						if (sweep.hasSpaceToReplace()) {
-							stats[state.index].added += sweep.numChildren();
-							sweep.replace();
-							stats[state.index].replaced++;
+						if (nodetx.hasRoomToReplace()) {
+							stats[nodetx.state.index].added += nodetx.numReplacementNodes();
+							stats[nodetx.state.index].replaced++;
+							nodetx.replace(node);
 						} else {
-							sweep.requeueAndDiscardChildren();
-							stats[state.index].requeued++;
+							stats[nodetx.state.index].requeued++;
+							nodetx.requeue(node);
 						}
 
 						// TODO: come up with better batching heuristic
 						long numRead = Arrays.stream(stats)
 							.mapToLong(s -> s.read)
 							.sum();
-						if (sweep.isEmpty() || numRead % 100 == 0) {
-							sweep.commit();
+						if (!fringetx.hasNodesToRead() || numRead % 100 == 0) {
+							fringetx.commit();
 							seqtx.commit();
 						}
 
 						progress.incrementProgress();
 					}
-					sweep.finish();
+					fringedb.finishSweep();
 
 					// TEMP
 					log("\tfringe size: %d/%d", fringedb.getNumNodes(), fringedb.getCapacity());
@@ -377,19 +475,24 @@ public class Sofea {
 		}
 	}
 
-	private boolean design(MultiStateConfSpace.State state, ConfIndex index, MathTools.BigDecimalBounds bounds, BigDecimal zmax, BigDecimal zpath, FringeDB.Sweep sweep, SeqDB.Transaction seqtx) {
+	private boolean design(NodeTransaction nodetx, BigDecimal zmax, Node node) {
+
+		// TODO: analyze memory usage of ConfIndex instances for correctness and efficiency
 
 		// skip this tree if it's too small, and add the node to the fringe set
-		if (MathTools.isLessThan(bounds.upper, zmax)) {
-			sweep.addChild(state, index, bounds, zpath);
-			seqtx.addZ(state, makeSeq(state, index), bounds);
+		if (MathTools.isLessThan(node.zbounds.upper, zmax)) {
+			nodetx.addReplacementNode(node);
 			return false;
 		}
 
 		// otherwise, recurse
 
-		StateInfo stateInfo = stateInfos.get(state.index);
+		// build the conf index
+		// TODO: optimize out this new call?
+		ConfIndex index = new ConfIndex(nodetx.state.confSpace.positions.size());
+		Conf.index(node.conf, index);
 
+		StateInfo stateInfo = stateInfos.get(nodetx.state.index);
 		boolean isRoot = index.numDefined == 0;
 		boolean isRCLeaf = index.numDefined + 1 == index.numPos;
 
@@ -397,7 +500,7 @@ public class Sofea {
 		for (int rc : stateInfo.rcs.get(pos)) {
 
 			// update the zpath with this RC
-			BigDecimal zpathrc = zpath;
+			BigDecimal zpathrc = node.zpath;
 			if (!isRoot) {
 
 				BigDecimal zrc = stateInfo.getZPart(index, pos, rc);
@@ -418,9 +521,8 @@ public class Sofea {
 				assert (!isRoot);
 
 				// hit bottom, add the leaf node to the seqdb
-				// TODO: can optimize seq creation?
 				index.assignInPlace(pos, rc);
-				seqtx.addZ(state, makeSeq(state, index), zpathrc);
+				nodetx.addZVal(index, zpathrc);
 				index.unassignInPlace(pos);
 
 			} else {
@@ -452,24 +554,12 @@ public class Sofea {
 
 				// recurse
 				index.assignInPlace(pos, rc);
-				design(state, index, boundsrc, zmax, zpathrc, sweep, seqtx);
+				design(nodetx, zmax, new Node(Conf.make(index), boundsrc, zpathrc));
 				index.unassignInPlace(pos);
 			}
 		}
 
 		return true;
-	}
-
-	private Sequence makeSeq(MultiStateConfSpace.State state, ConfIndex index) {
-		Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
-		for (int i=0; i<index.numDefined; i++) {
-			SimpleConfSpace.Position confPos = state.confSpace.positions.get(index.definedPos[i]);
-			if (confPos.seqPos != null) {
-				SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(index.definedRCs[i]);
-				seq.set(confPos.resNum, resConf.template.name);
-			}
-		}
-		return seq;
 	}
 
 	public BigDecimal calcZ(MultiStateConfSpace.State state, Sequence seq) {

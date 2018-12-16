@@ -3,7 +3,6 @@ package edu.duke.cs.osprey.sofea;
 import static edu.duke.cs.osprey.tools.Log.log;
 import static edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 
-import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.tools.IntEncoding;
@@ -13,6 +12,7 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -41,23 +41,72 @@ public class FringeDB implements AutoCloseable {
 
 		final int stateIndex;
 		final int[] conf;
-		final BigDecimalBounds bounds;
+		final BigDecimalBounds zbounds;
 		final BigDecimal zpath;
 
-		public Entry(int stateIndex, int[] conf, BigDecimalBounds bounds, BigDecimal zpath) {
+		public Entry(int stateIndex, int[] conf, BigDecimalBounds zbounds, BigDecimal zpath) {
 			this.stateIndex = stateIndex;
 			this.conf = conf;
-			this.bounds = bounds;
+			this.zbounds = zbounds;
 			this.zpath = zpath;
 		}
 	}
 
+	private class IOState {
+
+		final BigDecimal[] readZmax = new BigDecimal[confSpace.states.size()];
+		final BigDecimal[] writeZmax = new BigDecimal[confSpace.states.size()];
+		long readOffset = 0;
+		long numToRead = 0;
+		long writeOffset = 0;
+		long numWritten = 0;
+
+		IOState() {
+			Arrays.fill(readZmax, null);
+			Arrays.fill(writeZmax, null);
+		}
+
+		void copyTo(IOState other) {
+			System.arraycopy(this.readZmax, 0, other.readZmax, 0, confSpace.states.size());
+			System.arraycopy(this.writeZmax, 0, other.writeZmax, 0, confSpace.states.size());
+			other.readOffset = this.readOffset;
+			other.numToRead = this.numToRead;
+			other.writeOffset = this.writeOffset;
+			other.numWritten = this.numWritten;
+		}
+
+		IOState copy() {
+			IOState copy = new IOState();
+			this.copyTo(copy);
+			return copy;
+		}
+
+		void advanceRead() {
+			readOffset = advanceEntryOffset(readOffset);
+			numToRead--;
+		}
+
+		void advanceWrite() {
+			writeOffset = advanceEntryOffset(writeOffset);
+			numWritten++;
+		}
+
+		long advanceEntryOffset(long offset) {
+			assert (posEntries + offset <= iosize);
+			offset += entryBytes;
+			if (posEntries + offset >= iosize) {
+				offset = 0;
+			}
+			return offset;
+		}
+	}
 
 	public final MultiStateConfSpace confSpace;
 	public final File file;
 
 	private final RandomAccessFile io;
 	private final long iosize;
+	private final IOState iostate;
 
 	private final IntEncoding stateEncoding;
 	private final IntEncoding confEncoding;
@@ -65,17 +114,10 @@ public class FringeDB implements AutoCloseable {
 	private final int confBytes;
 	private final int entryBytes;
 
-	private final long posReadWriteState;
+	private final long posIOState;
 	private final long posZStats;
 	private final long posEntries;
 	private final long maxNumEntries;
-
-	private final BigDecimal[] readZmax;
-	private final BigDecimal[] writeZmax;
-	private long readOffset = 0;
-	private long numToRead = 0;
-	private long writeOffset = 0;
-	private long numWritten = 0;
 
 	/** create a new fringe node database, reserving the desired spase on the filesystem */
 	public static FringeDB create(MultiStateConfSpace confSpace, File file, long sizeBytes, MathContext mathContext) {
@@ -214,11 +256,12 @@ public class FringeDB implements AutoCloseable {
 			entryBytes = calcEntrySize();
 
 			// read the read/write state
-			posReadWriteState = io.getFilePointer();
-			readOffset = io.readLong();
-			numToRead = io.readLong();
-			writeOffset = io.readLong();
-			numWritten = io.readLong();
+			posIOState = io.getFilePointer();
+			iostate = new IOState();
+			iostate.readOffset = io.readLong();
+			iostate.numToRead = io.readLong();
+			iostate.writeOffset = io.readLong();
+			iostate.numWritten = io.readLong();
 
 			// skip to alignment boundary
 			for (int i=52; i<64; i++) {
@@ -227,13 +270,11 @@ public class FringeDB implements AutoCloseable {
 
 			// read the z stats
 			posZStats = io.getFilePointer();
-			readZmax = new BigDecimal[confSpace.states.size()];
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				readZmax[state.index] = bdio.read(io);
+				iostate.readZmax[state.index] = bdio.read(io);
 			}
-			writeZmax = new BigDecimal[confSpace.states.size()];
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				writeZmax[state.index] = bdio.read(io);
+				iostate.writeZmax[state.index] = bdio.read(io);
 			}
 
 			// pad to 32 bytes
@@ -291,8 +332,8 @@ public class FringeDB implements AutoCloseable {
 				io.writeByte(0);
 			}
 
-			bdio.write(io, entry.bounds.lower);
-			bdio.write(io, entry.bounds.upper);
+			bdio.write(io, entry.zbounds.lower);
+			bdio.write(io, entry.zbounds.upper);
 			bdio.write(io, entry.zpath);
 
 			assert (isAlignedOnEntry());
@@ -341,7 +382,7 @@ public class FringeDB implements AutoCloseable {
 	 * Returns the total number of nodes in the database
 	 */
 	public long getNumNodes() {
-		return numToRead + numWritten;
+		return iostate.numToRead + iostate.numWritten;
 	}
 
 	/**
@@ -363,7 +404,7 @@ public class FringeDB implements AutoCloseable {
 	 * Ignores pending Z values in the written nodes.
 	 */
 	public BigDecimal getZMax(MultiStateConfSpace.State state) {
-		return readZmax[state.index];
+		return iostate.readZmax[state.index];
 	}
 
 	// TEMP
@@ -375,301 +416,152 @@ public class FringeDB implements AutoCloseable {
 		log("\tbdio bytes = %d", bdio.numBytes);
 		log("\tconf bytes = %d", confBytes);
 		log("\tentry bytes = %d", entryBytes);
-		log("\tpos read/write = %d", posReadWriteState);
+		log("\tpos read/write = %d", posIOState);
 		log("\tpos z stats = %d", posZStats);
 		log("\tpos entries = %d", posEntries);
 		log("\tmax num entries = %d", maxNumEntries);
-		log("\tread offset = %d", readOffset);
-		log("\tnum to read = %d", numToRead);
-		log("\twrite offset = %d", writeOffset);
-		log("\tnum written = %d", numWritten);
+		log("\tread offset = %d", iostate.readOffset);
+		log("\tnum to read = %d", iostate.numToRead);
+		log("\twrite offset = %d", iostate.writeOffset);
+		log("\tnum written = %d", iostate.numWritten);
 		for (MultiStateConfSpace.State state : confSpace.states) {
-			log("\t\tread Z[%d] = %s", state.index, readZmax[state.index]);
+			log("\t\tread Z[%d] = %s", state.index, iostate.readZmax[state.index]);
 		}
 		for (MultiStateConfSpace.State state : confSpace.states) {
-			log("\t\twrite Z[%d] = %s", state.index, writeZmax[state.index]);
+			log("\t\twrite Z[%d] = %s", state.index, iostate.writeZmax[state.index]);
 		}
 	}
 
+	public class Transaction {
 
-	public class Roots {
+		private final IOState iostate = FringeDB.this.iostate.copy();
 
-		private final Entry[] entries = new Entry[confSpace.states.size()];
-
-		private Roots() {
-			// keep constructor private
-		}
-
-		public void set(MultiStateConfSpace.State state, BigDecimalBounds bounds, BigDecimal zpath) {
-			entries[state.index] = new Entry(
-				state.index,
-				Conf.make(state.confSpace),
-				bounds,
-				zpath
-			);
-		}
-
-		public boolean hasSpaceToCommit() {
-			return entries.length <= maxNumEntries;
-		}
-
-		public void commit() {
-
-			if (!hasSpaceToCommit()) {
-				throw new IllegalStateException("not enough space to commit");
-			}
-
-			try {
-
-				// write the entries
-				io.seek(posEntries);
-				for (Entry entry : entries) {
-					writeEntry(entry);
-				}
-
-				// update zmax
-				io.seek(posZStats);
-				for (int i=0; i<entries.length; i++) {
-					readZmax[i] = entries[i].bounds.upper;
-					bdio.write(io, readZmax[i]);
-				}
-				for (int i=0; i<entries.length; i++) {
-					writeZmax[i] = null;
-					bdio.write(io, writeZmax[i]);
-				}
-
-				// update read/write state to prep for next sweep
-				readOffset = 0;
-				numToRead = entries.length;
-				writeOffset = entryBytes*entries.length;
-				numWritten = 0;
-
-				// persist read/write state
-				io.seek(posReadWriteState);
-				io.writeLong(readOffset);
-				io.writeLong(numToRead);
-				io.writeLong(writeOffset);
-				io.writeLong(numWritten);
-
-				// flush changes to storage
-				io.getChannel().force(false);
-
-			} catch (IOException ex) {
-				throw new RuntimeException("commit failed", ex);
-			}
-		}
-	}
-
-	public Roots roots() {
-
-		if (numToRead > 0) {
-			throw new IllegalStateException("already have roots, can't add more");
-		}
-
-		return new Roots();
-	}
-
-
-	public class Sweep {
-
-		private final long numNodes = numToRead;
-		private final ConfIndex[] indices = new ConfIndex[confSpace.states.size()];
-		private BigDecimal zmax;
 		private Entry entry;
-		private final List<Entry> entries = new ArrayList<>();
-		private int numUnfinishedChildren = 0;
-		private boolean hasBuffer = false;
+		private final List<Entry> entriesToWrite = new ArrayList<>();
 
-		private Sweep() {
-
-			// allocate a conf index for each state as scratch space
-			for (MultiStateConfSpace.State state : confSpace.states) {
-				indices[state.index] = new ConfIndex(state.confSpace.positions.size());
-			}
-		}
-
-		/** total number of nodes in this sweep */
-		public long numNodes() {
-			return numNodes;
+		private Transaction() {
+			// keep the constructor private
 		}
 
 		/** number of unread nodes left in this sweep */
-		public long numNodesRemaining() {
-			return numToRead;
+		public long numNodesToRead() {
+			return iostate.numToRead;
 		}
 
-		/** returns true if there are no remaining nodes to read, false otherwise */
-		public boolean isEmpty() {
-			return numToRead <= 0;
+		/** returns true if there are no remaining nodes to read in this sweep, false otherwise */
+		public boolean hasNodesToRead() {
+			return iostate.numToRead > 0;
 		}
 
-		/** reads the node at the current read position */
-		public void read() {
+		/** reads and removes the node at the head of the queue */
+		public void readNode() {
 
-			if (numToRead <= 0) {
+			if (iostate.numToRead <= 0) {
 				throw new NoSuchElementException("out of fringe nodes to read");
 			}
 
 			try {
-				io.seek(posEntries + readOffset);
+				io.seek(posEntries + iostate.readOffset);
 				entry = readEntry();
 			} catch (IOException ex) {
 				throw new RuntimeException("can't advance to next fringe node", ex);
 			}
 
-			Conf.index(entry.conf, index());
-			zmax = writeZmax[entry.stateIndex];
+			// advance the read offset, wrapping if needed
+			iostate.advanceRead();
 		}
 
 		public MultiStateConfSpace.State state() {
 			return confSpace.states.get(entry.stateIndex);
 		}
 
-		public ConfIndex index() {
-			return indices[entry.stateIndex];
+		public int[] conf() {
+			return entry.conf;
 		}
 
-		public BigDecimalBounds bounds() {
-			return entry.bounds;
+		public BigDecimalBounds zbounds() {
+			return entry.zbounds;
 		}
 
 		public BigDecimal zpath() {
 			return entry.zpath;
 		}
 
-		private long advanceEntryOffset(long offset) {
-			assert (posEntries + offset <= iosize);
-			offset += entryBytes;
-			if (posEntries + offset >= iosize) {
-				offset = 0;
-			}
-			return offset;
-		}
-
-		/**
-		 * add a node to the pending write set
-		 * save changes by calling commitAndAdvance()
-		 * or discard changes by calling rollbackAndAdvance()
-		 */
-		public void addChild(MultiStateConfSpace.State state, ConfIndex index, BigDecimalBounds bounds, BigDecimal zpath) {
-
-			entries.add(new Entry(entry.stateIndex, Conf.make(index), bounds, zpath));
-			numUnfinishedChildren++;
-
-			if (zmax == null || MathTools.isGreaterThan(bounds.upper, zmax)) {
-				zmax = bounds.upper;
+		private void updateZMax(int stateIndex, BigDecimal val) {
+			if (iostate.writeZmax[stateIndex] == null || MathTools.isGreaterThan(val, iostate.writeZmax[stateIndex])) {
+				iostate.writeZmax[stateIndex] = val;
 			}
 		}
 
 		/**
-		 * Returns the number of children added for the current node
+		 * add a node to the pending write set with the same state as the last-read node in the sweep
 		 */
-		public int numChildren() {
-			return numUnfinishedChildren;
+		public void addRootNode(MultiStateConfSpace.State state, BigDecimalBounds zbounds, BigDecimal zpath) {
+			int[] conf = Conf.make(state.confSpace);
+			entriesToWrite.add(new Entry(state.index, conf, zbounds, zpath));
+			updateZMax(state.index, zbounds.upper);
 		}
 
 		/**
-		 * Is there enough room in the database to replace the current node with the supplied children?
+		 * add a node to the pending write set with the same state as the last-read node in the sweep
 		 */
-		public boolean hasSpaceToReplace() {
-			long usedEntries = numToRead - 1 + numWritten + entries.size();
+		public void addReplacementNode(int[] conf, BigDecimalBounds zbounds, BigDecimal zpath) {
+			entriesToWrite.add(new Entry(entry.stateIndex, conf, zbounds, zpath));
+			updateZMax(entry.stateIndex, zbounds.upper);
+		}
+
+		/**
+		 * Is there enough room in the database to add more nodes?
+		 */
+		public boolean hasRoomFor(int count) {
+			long usedEntries = iostate.numToRead + iostate.numWritten + entriesToWrite.size();
 			long freeEntries = maxNumEntries - usedEntries;
-			return numUnfinishedChildren <= freeEntries;
+			return count <= freeEntries;
 		}
 
 		/**
-		 * Removes the read node from the queue and adds the new child nodes to the end of the queue.
+		 * Is there enough room in the database to add the nodes in this transaction?
 		 */
-		public void replace() {
-
-			if (!hasSpaceToReplace()) {
-				throw new IllegalStateException("not enough space to replace node with " + numUnfinishedChildren + " children. Must requeue this node instead");
-			}
-
-			// finish the children
-			numUnfinishedChildren = 0;
-
-			// update zmax
-			writeZmax[entry.stateIndex] = zmax;
-
-			// advance the read offset, wrapping if needed
-			readOffset = advanceEntryOffset(readOffset);
-			numToRead--;
-
-			hasBuffer = true;
+		public boolean hasRoomForCommit() {
+			return hasRoomFor(0);
 		}
 
 		/**
-		 * Removes the read node from the queue and adds it to the end of the queue.
-		 * Any child nodes that would have replaced this node are discarded.
-		 */
-		public void requeueAndDiscardChildren() {
-
-			// remove the children added for this node
-			while (numUnfinishedChildren > 0) {
-				entries.remove(entries.size() - 1);
-				numUnfinishedChildren--;
-			}
-
-			// move this node to the back of the queue
-			entries.add(entry);
-
-			// update zmax if needed
-			if (writeZmax[entry.stateIndex] == null || MathTools.isGreaterThan(entry.bounds.upper, writeZmax[entry.stateIndex])) {
-				writeZmax[entry.stateIndex] = entry.bounds.upper;
-			}
-
-			// advance the read offset, wrapping if needed
-			readOffset = advanceEntryOffset(readOffset);
-			numToRead--;
-
-			hasBuffer = true;
-		}
-
-		/**
-		 * Returns true if there are any buffered writes waiting to be committed.
-		 */
-		public boolean hasBuffer() {
-			return hasBuffer;
-		}
-
-		/**
-		 * Writes all buffered changes to the underlying storage device.
+		 * Flushes all pending writes to the database file.
 		 * All writes are flushed to the underlying storage device by the time this method returns.
 		 */
 		public void commit() {
 
-			if (numUnfinishedChildren > 0) {
-				throw new IllegalStateException("can't commit yet, current node has unfinshed children. call replace or requeue first.");
+			if (!hasRoomForCommit()) {
+				throw new IllegalStateException("transaction too big to commit");
 			}
 
 			try {
 
-				// write the entries
-				for (Entry entry : entries) {
+				// write the replacement entries
+				for (Entry entry : entriesToWrite) {
 
-					io.seek(posEntries + writeOffset);
+					io.seek(posEntries + iostate.writeOffset);
 					writeEntry(entry);
-
-					// advance the write offset, wrapping if needed
-					writeOffset = advanceEntryOffset(writeOffset);
-					numWritten++;
+					iostate.advanceWrite();
 				}
-				entries.clear();
-				numUnfinishedChildren = 0;
+				entriesToWrite.clear();
 
 				// write zmax
 				io.seek(posZStats + bdio.numBytes*confSpace.states.size());
 				for (MultiStateConfSpace.State state : confSpace.states) {
-					bdio.write(io, writeZmax[state.index]);
+					bdio.write(io, iostate.writeZmax[state.index]);
 				}
 
-				// persist read/write state
-				io.seek(posReadWriteState);
-				io.writeLong(readOffset);
-				io.writeLong(numToRead);
-				io.writeLong(writeOffset);
-				io.writeLong(numWritten);
+				// persist io state
+				io.seek(posIOState);
+				io.writeLong(iostate.readOffset);
+				io.writeLong(iostate.numToRead);
+				io.writeLong(iostate.writeOffset);
+				io.writeLong(iostate.numWritten);
+
+				// copy io state outside of transaction
+				iostate.copyTo(FringeDB.this.iostate);
 
 				// flush changes to storage
 				io.getChannel().force(false);
@@ -677,58 +569,53 @@ public class FringeDB implements AutoCloseable {
 			} catch (IOException ex) {
 				throw new RuntimeException("commit failed", ex);
 			}
-
-			hasBuffer = false;
-		}
-
-		/**
-		 * Finishes this sweep and prepares for the next sweep.
-		 * All writes are flushed to the underlying storage device by the time this method returns.
-		 */
-		public void finish() {
-
-			if (numToRead > 0) {
-				throw new IllegalStateException("sweep not finished, " + numToRead + " nodes left to read");
-			}
-			if (hasBuffer) {
-				throw new IllegalStateException("buffer not committed yet. call commit() before finish()");
-			}
-
-			try {
-
-				// update the entry counts
-				numToRead = numWritten;
-				numWritten = 0;
-
-				// update the z stats
-				io.seek(posZStats);
-				for (MultiStateConfSpace.State state : confSpace.states) {
-					readZmax[state.index] = writeZmax[state.index];
-					bdio.write(io, readZmax[state.index]);
-				}
-				for (MultiStateConfSpace.State state : confSpace.states) {
-					writeZmax[state.index] = null;
-					bdio.write(io, writeZmax[state.index]);
-				}
-
-				// persist read state
-				io.seek(posReadWriteState);
-				io.writeLong(readOffset);
-				io.writeLong(numToRead);
-				io.writeLong(writeOffset);
-				io.writeLong(numWritten);
-
-				// flush changes to storage
-				io.getChannel().force(false);
-
-			} catch (IOException ex) {
-				throw new RuntimeException("finish failed", ex);
-			}
 		}
 	}
 
-	/** starts a new sweep, or resumes the current sweep */
-	public Sweep sweep() {
-		return new Sweep();
+	/** starts a new transaction in the current sweep */
+	public Transaction transaction() {
+		return new Transaction();
+	}
+
+	/**
+	 * Finishes this sweep and prepares for the next sweep.
+	 * All writes are flushed to the underlying storage device by the time this method returns.
+	 */
+	public void finishSweep() {
+
+		if (iostate.numToRead > 0) {
+			throw new IllegalStateException("sweep not finished, " + iostate.numToRead + " nodes left to read");
+		}
+
+		try {
+
+			// update the entry counts
+			iostate.numToRead = iostate.numWritten;
+			iostate.numWritten = 0;
+
+			// update the z stats
+			io.seek(posZStats);
+			for (MultiStateConfSpace.State state : confSpace.states) {
+				iostate.readZmax[state.index] = iostate.writeZmax[state.index];
+				bdio.write(io, iostate.readZmax[state.index]);
+			}
+			for (MultiStateConfSpace.State state : confSpace.states) {
+				iostate.writeZmax[state.index] = null;
+				bdio.write(io, iostate.writeZmax[state.index]);
+			}
+
+			// persist read state
+			io.seek(posIOState);
+			io.writeLong(iostate.readOffset);
+			io.writeLong(iostate.numToRead);
+			io.writeLong(iostate.writeOffset);
+			io.writeLong(iostate.numWritten);
+
+			// flush changes to storage
+			io.getChannel().force(false);
+
+		} catch (IOException ex) {
+			throw new RuntimeException("finish failed", ex);
+		}
 	}
 }

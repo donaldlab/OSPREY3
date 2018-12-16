@@ -335,63 +335,103 @@ public class MinLMFE implements Sofea.Criterion {
 		try (ResultDoc doc = new ResultDoc(file)) {
 
 			doc.h1("SOFEA Results");
+			{
+				Plot plot = new Plot();
+				plot.ylabels = new ArrayList<>();
 
-			Plot plot = new Plot();
-			plot.ylabels = new ArrayList<>();
+				Plot.Intervals intervalsMisc = plot.new IntervalsX();
+				intervalsMisc.name = "";
+				intervalsMisc.data = new ArrayList<>();
 
-			Plot.Intervals intervalsUnsequenced = plot.new IntervalsX();
-			intervalsUnsequenced.name = "Unsequenced States";
-			intervalsUnsequenced.data = new ArrayList<>();
+				Plot.Intervals[] intervalsSequenced = new Plot.IntervalsX[seqdb.confSpace.sequencedStates.size()];
+				for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
+					intervalsSequenced[state.sequencedIndex] = plot.new IntervalsX();
+					intervalsSequenced[state.sequencedIndex].name = state.name;
+					intervalsSequenced[state.sequencedIndex].data = new ArrayList<>();
+				}
 
-			Plot.Intervals[] intervalsSequenced = new Plot.IntervalsX[seqdb.confSpace.sequencedStates.size()];
-			for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
-				intervalsSequenced[state.sequencedIndex] = plot.new IntervalsX();
-				intervalsSequenced[state.sequencedIndex].name = state.name;
-				intervalsSequenced[state.sequencedIndex].data = new ArrayList<>();
-			}
+				Plot.Intervals intervalsObjective = plot.new IntervalsX();
+				intervalsObjective.name = "objective LMFE";
+				intervalsObjective.data = new ArrayList<>();
 
-			Plot.Intervals intervalsObjective = plot.new IntervalsX();
-			intervalsObjective.name = "Objective LMFE";
-			intervalsObjective.data = new ArrayList<>();
+				// show unsequenced states
+				for (MultiStateConfSpace.State state : seqdb.confSpace.unsequencedStates) {
 
-			// show unsequenced states
-			for (MultiStateConfSpace.State state : seqdb.confSpace.unsequencedStates) {
+					BigDecimalBounds z = seqdb.getUnsequencedBound(state);
+					DoubleBounds g = bcalc.freeEnergyPrecise(z);
 
-				BigDecimalBounds z = seqdb.getUnsequencedBound(state);
-				DoubleBounds g = bcalc.freeEnergyPrecise(z);
+					plot.ylabels.add(state.name);
+					intervalsMisc.data.add(new Plot.Interval(g.lower, g.upper));
 
-				plot.ylabels.add(state.name);
-				intervalsUnsequenced.data.add(new Plot.Interval(g.lower, g.upper));
+					// add padding to the other series, so the data and labels align vertically
+					intervalsObjective.data.add(null);
+					for (Plot.Intervals intervals : intervalsSequenced) {
+						intervals.data.add(null);
+					}
+				}
+
+				// show sequenced states for the top sequences
+				for (Sofea.SeqResult result : topSequences.sequences) {
+
+					plot.ylabels.add(result.sequence.toString());
+
+					for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
+						DoubleBounds g = result.stateFreeEnergies[state.sequencedIndex];
+						intervalsSequenced[state.sequencedIndex].data.add(new Plot.Interval(g.lower, g.upper));
+					}
+
+					intervalsObjective.data.add(new Plot.Interval(result.lmfeFreeEnergy.lower, result.lmfeFreeEnergy.upper));
+
+					// add padding to the other series, so the data and labels align vertically
+					intervalsMisc.data.add(null);
+				}
+
+				// show the next lowest
+				plot.ylabels.add("next lowest objective LMFE");
+				intervalsMisc.data.add(new Plot.Interval(topSequences.nextLowest, topSequences.nextLowest));
 
 				// add padding to the other series, so the data and labels align vertically
-				intervalsObjective.data.add(null);
 				for (Plot.Intervals intervals : intervalsSequenced) {
 					intervals.data.add(null);
 				}
+				intervalsObjective.data.add(null);
+
+				plot.key = "on tmargin horizontal";
+				plot.xlabel = "Free Energy (kcal/mol)";
+				plot.xlabelrotate = 30.0;
+				plot.width = 960;
+				plot.height = 70 + plot.ylabels.size()*40;
+				doc.plot(plot);
 			}
 
-			// show sequenced states for the top sequences
-			for (Sofea.SeqResult result : topSequences.sequences) {
+			doc.println();
 
-				plot.ylabels.add(result.sequence.toString());
+			// zoom in on just the objective LMFE results
+			doc.h2("Objective LMFE results");
+			{
+				Plot plot = new Plot();
+				plot.ylabels = new ArrayList<>();
 
-				for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
-					DoubleBounds g = result.stateFreeEnergies[state.sequencedIndex];
-					intervalsSequenced[state.sequencedIndex].data.add(new Plot.Interval(g.lower, g.upper));
+				Plot.Intervals intervals = plot.new IntervalsX();
+				intervals.name = "objective LMFE";
+				intervals.data = new ArrayList<>();
+
+				for (Sofea.SeqResult result : topSequences.sequences) {
+					plot.ylabels.add(result.sequence.toString());
+					intervals.data.add(new Plot.Interval(result.lmfeFreeEnergy.lower, result.lmfeFreeEnergy.upper));
 				}
 
-				intervalsObjective.data.add(new Plot.Interval(result.lmfeFreeEnergy.lower, result.lmfeFreeEnergy.upper));
+				// show the next lowest
+				plot.ylabels.add("next lowest sequence");
+				intervals.data.add(new Plot.Interval(topSequences.nextLowest, topSequences.nextLowest));
 
-				// add padding to the other series, so the data and labels align vertically
-				intervalsUnsequenced.data.add(null);
+				plot.key = "on tmargin horizontal";
+				plot.xlabel = "Free Energy (kcal/mol)";
+				plot.xlabelrotate = 30.0;
+				plot.width = 960;
+				plot.height = 70 + plot.ylabels.size()*40;
+				doc.plot(plot);
 			}
-
-			plot.key = "on tmargin horizontal";
-			plot.xlabel = "Free Energy (kcal/mol)";
-			plot.xlabelrotate = 30.0;
-			plot.width = 960;
-			plot.height = 70 + plot.ylabels.size()*40;
-			doc.plot(plot);
 		}
 	}
 }
