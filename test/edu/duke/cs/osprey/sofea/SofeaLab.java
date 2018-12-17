@@ -88,7 +88,6 @@ public class SofeaLab {
 				.setContinuous();
 		}
 
-		// TEMP
 		// make a multi-state conf space
 		MultiStateConfSpace confSpace = new MultiStateConfSpace
 			.Builder("design", new SimpleConfSpace.Builder().addStrands(design).build())
@@ -107,6 +106,25 @@ public class SofeaLab {
 			new MathContext(16, RoundingMode.HALF_UP)
 		);
 		//
+
+		// TEMP: for benchmarking
+		//SweepCount criterion = new SweepCount(5);
+		/*
+			sweep count = 5
+			baseline           14.59  15.49  16.11
+			cleanup logging    14.56  16.29
+			batch 1000         13.02  13.65  13.80
+			batch 10000        14.43  14.13  12.51  13.66
+			RCTuple triples     8.66   9.17   8.76
+			bigMultiply         8.63   9.06   9.25   9.07
+			RCTuple triples     8.99   9.14   8.29   8.92
+			optrc3Energies      7.18   6.67   7.06   7.05
+			RCTuple triples     5.87   6.44   6.86   6.55
+			FringeDB writebuf   4.70   4.42   4.08   4.88
+			FringeDB readbuf    4.42   4.43   4.34   4.76
+			design ConfIndex    4.23   3.92   4.34   4.35
+			count               4.08   4.44   4.33   4.51
+		*/
 
 		/* TEMP: just do the design state
 		MultiStateConfSpace confSpace = new MultiStateConfSpace
@@ -234,12 +252,14 @@ public class SofeaLab {
 		sofea.refine();
 		log("SOFEA:   %9s", sw.stop().getTime(2));
 
+		/* TEMP
 		dump(sofea);
 		dumpUnexploredSequences(sofea);
 		dumpSequences(sofea);
 		try (SeqDB seqdb = sofea.openSeqDB()) {
 			criterion.makeResultDoc(seqdb, new File("sofea.md"));
 		}
+		*/
 	}
 
 	private static BigDecimal bruteForcePfuncAStar(ConfEnergyCalculator confEcalc, EnergyMatrix emat, RCs rcs) {

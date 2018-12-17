@@ -61,7 +61,7 @@ public class TestFringeDB {
 
 				// add the root nodes
 				FringeDB.Transaction tx = db.transaction();
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(0),
 					new BigDecimalBounds(
 						MathTools.biggen(0.0),
@@ -69,7 +69,7 @@ public class TestFringeDB {
 					),
 					MathTools.biggen(4.2)
 				);
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(1),
 					new BigDecimalBounds(
 						MathTools.biggen(5.2),
@@ -77,7 +77,7 @@ public class TestFringeDB {
 					),
 					MathTools.biggen(1.3)
 				);
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(2),
 					new BigDecimalBounds(
 						MathTools.biggen(4.2),
@@ -86,7 +86,7 @@ public class TestFringeDB {
 					MathTools.biggen(3.6)
 				);
 
-				assertThat(tx.hasRoomForCommit(), is(true));
+				assertThat(tx.dbHasRoomForCommit(), is(true));
 				tx.commit();
 				db.finishSweep();
 
@@ -156,7 +156,7 @@ public class TestFringeDB {
 
 				// add the root nodes
 				FringeDB.Transaction tx = db.transaction();
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(0),
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(0.0),
@@ -164,7 +164,7 @@ public class TestFringeDB {
 					),
 					MathTools.biggen(4.2)
 				);
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(1),
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(5.2),
@@ -172,7 +172,7 @@ public class TestFringeDB {
 					),
 					MathTools.biggen(1.3)
 				);
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(2),
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(4.2),
@@ -181,7 +181,7 @@ public class TestFringeDB {
 					MathTools.biggen(3.6)
 				);
 
-				assertThat(tx.hasRoomForCommit(), is(true));
+				assertThat(tx.dbHasRoomForCommit(), is(true));
 				tx.commit();
 				db.finishSweep();
 
@@ -202,7 +202,7 @@ public class TestFringeDB {
 					MathTools.biggen(1024.5)
 				)));
 				assertThat(tx.zpath(), is(MathTools.biggen(4.2)));
-				tx.addReplacementNode(tx.conf(), tx.zbounds(), tx.zpath());
+				tx.writeReplacementNode(tx.conf(), tx.zbounds(), tx.zpath());
 
 				tx.readNode();
 				assertThat(tx.state().index, is(1));
@@ -212,7 +212,7 @@ public class TestFringeDB {
 					MathTools.biggen(10.4)
 				)));
 				assertThat(tx.zpath(), is(MathTools.biggen(1.3)));
-				tx.addReplacementNode(tx.conf(), tx.zbounds(), tx.zpath());
+				tx.writeReplacementNode(tx.conf(), tx.zbounds(), tx.zpath());
 
 				tx.readNode();
 				assertThat(tx.state().index, is(2));
@@ -222,7 +222,7 @@ public class TestFringeDB {
 					MathTools.biggen(7.3)
 				)));
 				assertThat(tx.zpath(), is(MathTools.biggen(3.6)));
-				tx.addReplacementNode(tx.conf(), tx.zbounds(), tx.zpath());
+				tx.writeReplacementNode(tx.conf(), tx.zbounds(), tx.zpath());
 
 				tx.commit();
 				db.finishSweep();
@@ -246,7 +246,7 @@ public class TestFringeDB {
 			// make a new DB with root nodes
 			try (FringeDB db = FringeDB.create(confSpace, file, 1024, mathContext)) {
 				FringeDB.Transaction tx = db.transaction();
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(0),
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(0.0),
@@ -254,7 +254,7 @@ public class TestFringeDB {
 					),
 					MathTools.biggen(4.2)
 				);
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(1),
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(5.2),
@@ -262,7 +262,7 @@ public class TestFringeDB {
 					),
 					MathTools.biggen(1.3)
 				);
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(2),
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(4.2),
@@ -342,7 +342,7 @@ public class TestFringeDB {
 			// make a new DB with root nodes
 			try (FringeDB db = FringeDB.create(confSpace, file, 1024, mathContext)) {
 				FringeDB.Transaction tx = db.transaction();
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(0),
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(0.0),
@@ -350,7 +350,7 @@ public class TestFringeDB {
 					),
 					MathTools.biggen(4.2)
 				);
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(1),
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(5.2),
@@ -358,7 +358,7 @@ public class TestFringeDB {
 					),
 					MathTools.biggen(1.3)
 				);
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(2),
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(4.2),
@@ -421,7 +421,7 @@ public class TestFringeDB {
 					MathTools.biggen(10.4)
 				)));
 				assertThat(tx.zpath(), is(MathTools.biggen(1.3)));
-				tx.addReplacementNode(tx.conf(), tx.zbounds(), tx.zpath());
+				tx.writeReplacementNode(tx.conf(), tx.zbounds(), tx.zpath());
 				tx.commit();
 
 				assertThat(tx.numNodesToRead(), is(1L));
@@ -503,7 +503,7 @@ public class TestFringeDB {
 
 				// add the root nodes
 				FringeDB.Transaction tx = db.transaction();
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(0),
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(0.0),
@@ -511,7 +511,7 @@ public class TestFringeDB {
 					),
 					MathTools.biggen(4.2)
 				);
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(1),
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(5.2),
@@ -519,7 +519,7 @@ public class TestFringeDB {
 					),
 					MathTools.biggen(1.3)
 				);
-				tx.addRootNode(
+				tx.writeRootNode(
 					confSpace.states.get(2),
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(4.2),
@@ -541,7 +541,7 @@ public class TestFringeDB {
 
 				tx.readNode();
 				assertThat(tx.state().index, is(0));
-				tx.addReplacementNode(
+				tx.writeReplacementNode(
 					new int[] { 0, -1 },
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(10.4),
@@ -552,7 +552,7 @@ public class TestFringeDB {
 
 				tx.readNode();
 				assertThat(tx.state().index, is(1));
-				tx.addReplacementNode(
+				tx.writeReplacementNode(
 					new int[] { 1, -1 },
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(93.8),
@@ -560,7 +560,7 @@ public class TestFringeDB {
 					),
 					MathTools.biggen(38.5)
 				);
-				tx.addReplacementNode(
+				tx.writeReplacementNode(
 					new int[] { -1, 0 },
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(69.2),

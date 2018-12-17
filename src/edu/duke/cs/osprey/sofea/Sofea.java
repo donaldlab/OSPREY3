@@ -19,7 +19,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
-import static edu.duke.cs.osprey.tools.Log.logf;
 
 
 /**
@@ -38,6 +37,7 @@ public class Sofea {
 		private MathContext seqdbMathContext = new MathContext(128, RoundingMode.HALF_UP);
 		private File fringedbFile = new File("fringe.db");
 		private int fringedbMiB = 10;
+		private boolean showProgress = true;
 
 		// NOTE: don't need much precision for most math, but need lots of precision for seqdb math
 
@@ -81,6 +81,11 @@ public class Sofea {
 			return this;
 		}
 
+		public Builder setShowProgress(boolean val) {
+			showProgress = val;
+			return this;
+		}
+
 		public Sofea make() {
 
 			// make sure all the states are configured
@@ -100,7 +105,8 @@ public class Sofea {
 				seqdbFile,
 				seqdbMathContext,
 				fringedbFile,
-				fringedbMiB
+				fringedbMiB,
+				showProgress
 			);
 		}
 	}
@@ -131,7 +137,7 @@ public class Sofea {
 
 	/** decides if computation should continue or not */
 	public static interface Criterion {
-		boolean isFinished(SeqDB seqdb);
+		boolean isFinished(SeqDB seqdb, FringeDB fringedb, long sweepCount);
 	}
 
 
@@ -143,10 +149,11 @@ public class Sofea {
 	public final MathContext seqdbMathContext;
 	public final File fringedbFile;
 	public final int fringedbMiB;
+	public final boolean showProgress;
 
 	private final List<StateInfo> stateInfos;
 
-	private Sofea(MultiStateConfSpace confSpace, Criterion criterion, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, int fringedbMiB) {
+	private Sofea(MultiStateConfSpace confSpace, Criterion criterion, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, int fringedbMiB, boolean showProgress) {
 
 		this.confSpace = confSpace;
 		this.criterion = criterion;
@@ -156,6 +163,7 @@ public class Sofea {
 		this.seqdbMathContext = seqdbMathContext;
 		this.fringedbFile = fringedbFile;
 		this.fringedbMiB = fringedbMiB;
+		this.showProgress = showProgress;
 
 		// TODO: support single tuples for conf spaces
 		// TEMP: blow up if we get single tuples
@@ -213,6 +221,10 @@ public class Sofea {
 		seqdbFile.delete();
 		fringedbFile.delete();
 
+		// OPTIMIZATION: allocate one RCTuple instance for all the triple lookups
+		// and set positions in 3-2-1 order so the positions are sorted in ascending order
+		RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
+
 		try (SeqDB seqdb = openSeqDB()) {
 			try (FringeDB fringedb = openFringeDB()) {
 
@@ -226,8 +238,8 @@ public class Sofea {
 					MathTools.BigDecimalBounds rootBound;
 					{
 						ConfIndex index = stateInfo.makeConfIndex();
-						BigDecimal minZ = stateInfo.optimizeZ(index, MathTools.Optimizer.Minimize);
-						BigDecimal maxZ = stateInfo.optimizeZ(index, MathTools.Optimizer.Maximize);
+						BigDecimal minZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Minimize);
+						BigDecimal maxZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Maximize);
 						MathTools.BigIntegerBounds size = stateInfo.count(index);
 
 						rootBound = new MathTools.BigDecimalBounds(
@@ -245,16 +257,12 @@ public class Sofea {
 					}
 
 					// init the fringe with the root node
-					fringetx.addRootNode(state, rootBound, stateInfo.blute.factor);
+					fringetx.writeRootNode(state, rootBound, stateInfo.blute.factor);
 					seqtx.addZ(state, state.confSpace.makeUnassignedSequence(), rootBound);
 				}
 				fringetx.commit();
 				fringedb.finishSweep();
 				seqtx.commit();
-
-				// TEMP
-				log("seed");
-				log("\tfringe size: %d/%d", fringedb.getNumNodes(), fringedb.getCapacity());
 			}
 		}
 	}
@@ -328,17 +336,19 @@ public class Sofea {
 		}
 
 		boolean hasRoomToReplace() {
-			return fringetx.hasRoomFor(replacementNodes.size());
+			return fringetx.dbHasRoomFor(replacementNodes.size());
 		}
 
 		void replace(Node node) {
+
+			flushTransactionsIfNeeded();
 
 			// subtract the node zbounds
 			seqtx.subZ(state, makeSeq(node.conf), node.zbounds);
 
 			// update fringedb and seqdb with the replacement nodes
 			for (Node replacementNode : replacementNodes) {
-				fringetx.addReplacementNode(replacementNode.conf, replacementNode.zbounds, replacementNode.zpath);
+				fringetx.writeReplacementNode(replacementNode.conf, replacementNode.zbounds, replacementNode.zpath);
 				seqtx.addZ(state, makeSeq(replacementNode.conf), replacementNode.zbounds);
 			}
 
@@ -350,10 +360,31 @@ public class Sofea {
 
 		void requeue(Node node) {
 
+			flushTransactionsIfNeeded();
+
 			// ignore all of the seqdb changes
 
 			// move the node to the end of the fringedb queue
-			fringetx.addReplacementNode(node.conf, node.zbounds, node.zpath);
+			fringetx.writeReplacementNode(node.conf, node.zbounds, node.zpath);
+		}
+
+		private void flushTransactionsIfNeeded() {
+
+			// skip if the fringe db transaction isn't full
+			if (fringetx.txHasRoomFor(replacementNodes.size())) {
+				return;
+			}
+
+			// make sure we didn't overflow the buffer entirely
+			if (replacementNodes.size() > fringetx.maxWriteBufferNodes()) {
+				throw new IllegalStateException(String.format("FringeDB write buffer is too small. Holds %d nodes, but need %d nodes",
+					fringetx.maxWriteBufferNodes(), replacementNodes.size()
+				));
+			}
+
+			// commit both transactions at the same time
+			fringetx.commit();
+			seqtx.commit();
 		}
 	}
 
@@ -376,11 +407,15 @@ public class Sofea {
 
 				final double zmaxFactor = Math.pow(Math.E, 4.0);
 
-				long i = 0;
+				// OPTIMIZATION: allocate one RCTuple instance for all the triple lookups
+				// and set positions in 3-2-1 order so the positions are sorted in ascending order
+				RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
+
+				long sweepCount = 0;
 				while (true) {
 
 					// check the termination criterion
-					if (criterion != null && criterion.isFinished(seqdb)) {
+					if (criterion != null && criterion.isFinished(seqdb, fringedb, sweepCount)) {
 						log("SOFEA finished, criterion satisfied");
 						break;
 					}
@@ -391,29 +426,27 @@ public class Sofea {
 						break;
 					}
 
-					// TEMP
-					log("sweep %d", ++i);
-
-					// reduce zmax each iteration
+					// reduce zmax before each sweep
 					for (MultiStateConfSpace.State state : confSpace.states) {
-
-						// TEMP
-						logf("\t%10s zmax=%s", state.name, Log.formatBigLn(zmax[state.index]));
-
 						zmax[state.index] = bigMath()
 							.set(zmax[state.index])
 							.div(zmaxFactor)
 							.get();
-
-						// TEMP
-						log("  /f=%s", Log.formatBigLn(zmax[state.index]));
 					}
 
+					// show progress if needed
+					sweepCount++;
+					if (showProgress) {
+						log("sweep %d", sweepCount);
+					}
+
+					// init sweep stats
 					StateStats[] stats = new StateStats[confSpace.states.size()];
 					for (MultiStateConfSpace.State state : confSpace.states) {
 						stats[state.index] = new StateStats();
 					}
 
+					// start (or resume) the sweep
 					FringeDB.Transaction fringetx = fringedb.transaction();
 					SeqDB.Transaction seqtx = seqdb.transaction();
 					Progress progress = new Progress(fringetx.numNodesToRead());
@@ -431,7 +464,9 @@ public class Sofea {
 						NodeTransaction nodetx = new NodeTransaction(fringetx, seqtx, state);
 						stats[nodetx.state.index].read++;
 
-						boolean wasExpanded = design(nodetx, zmax[nodetx.state.index], node);
+						ConfIndex index = new ConfIndex(state.confSpace.positions.size());
+
+						boolean wasExpanded = design(nodetx, zmax[nodetx.state.index], node, tripleTuple, index);
 						if (wasExpanded) {
 							stats[nodetx.state.index].expanded++;
 						}
@@ -445,39 +480,37 @@ public class Sofea {
 							nodetx.requeue(node);
 						}
 
-						// TODO: come up with better batching heuristic
-						long numRead = Arrays.stream(stats)
-							.mapToLong(s -> s.read)
-							.sum();
-						if (!fringetx.hasNodesToRead() || numRead % 100 == 0) {
-							fringetx.commit();
-							seqtx.commit();
+						if (showProgress) {
+							progress.incrementProgress();
 						}
-
-						progress.incrementProgress();
 					}
+					fringetx.commit();
+					seqtx.commit();
 					fringedb.finishSweep();
 
-					// TEMP
-					log("\tfringe size: %d/%d", fringedb.getNumNodes(), fringedb.getCapacity());
-					for (MultiStateConfSpace.State state : confSpace.states) {
-						log("\t%10s  read=%6d  expanded=%6d  replaced=%6d  added=%6d requeued=%6d",
-							state.name,
-							stats[state.index].read,
-							stats[state.index].expanded,
-							stats[state.index].replaced,
-							stats[state.index].added,
-							stats[state.index].requeued
+					// show stats if needed
+					if (showProgress) {
+						log("\tfringe size: %d/%d (%.1f%%) nodes",
+							fringedb.getNumNodes(), fringedb.getCapacity(),
+							100.0f*fringedb.getNumNodes()/fringedb.getCapacity()
 						);
+						for (MultiStateConfSpace.State state : confSpace.states) {
+							log("\t%10s  read=%6d  expanded=%6d  replaced=%6d  added=%6d requeued=%6d",
+								state.name,
+								stats[state.index].read,
+								stats[state.index].expanded,
+								stats[state.index].replaced,
+								stats[state.index].added,
+								stats[state.index].requeued
+							);
+						}
 					}
 				}
 			}
 		}
 	}
 
-	private boolean design(NodeTransaction nodetx, BigDecimal zmax, Node node) {
-
-		// TODO: analyze memory usage of ConfIndex instances for correctness and efficiency
+	private boolean design(NodeTransaction nodetx, BigDecimal zmax, Node node, RCTuple tripleTuple, ConfIndex index) {
 
 		// skip this tree if it's too small, and add the node to the fringe set
 		if (MathTools.isLessThan(node.zbounds.upper, zmax)) {
@@ -487,9 +520,7 @@ public class Sofea {
 
 		// otherwise, recurse
 
-		// build the conf index
-		// TODO: optimize out this new call?
-		ConfIndex index = new ConfIndex(nodetx.state.confSpace.positions.size());
+		// update the conf index
 		Conf.index(node.conf, index);
 
 		StateInfo stateInfo = stateInfos.get(nodetx.state.index);
@@ -503,7 +534,7 @@ public class Sofea {
 			BigDecimal zpathrc = node.zpath;
 			if (!isRoot) {
 
-				BigDecimal zrc = stateInfo.getZPart(index, pos, rc);
+				BigDecimal zrc = stateInfo.getZPart(index, tripleTuple, pos, rc);
 
 				// this subtree contributes nothing to Z
 				if (MathTools.isZero(zrc)) {
@@ -527,15 +558,16 @@ public class Sofea {
 
 			} else {
 
-				// get the subtree bounds
 				index.assignInPlace(pos, rc);
-				BigDecimal minZ = stateInfo.optimizeZ(index, MathTools.Optimizer.Minimize);
-				BigDecimal maxZ = stateInfo.optimizeZ(index, MathTools.Optimizer.Maximize);
+
+				// get the subtree bounds
+				BigDecimal minZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Minimize);
+				BigDecimal maxZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Maximize);
 				MathTools.BigIntegerBounds count = stateInfo.count(index);
-				index.unassignInPlace(pos);
 
 				// if the upper bound is zero, this subtree contributes nothing to Z
 				if (MathTools.isZero(maxZ) || count.upper.compareTo(BigInteger.ZERO) == 0) {
+					index.unassignInPlace(pos);
 					continue;
 				}
 
@@ -553,8 +585,8 @@ public class Sofea {
 				);
 
 				// recurse
-				index.assignInPlace(pos, rc);
-				design(nodetx, zmax, new Node(Conf.make(index), boundsrc, zpathrc));
+				design(nodetx, zmax, new Node(Conf.make(index), boundsrc, zpathrc), tripleTuple, index);
+
 				index.unassignInPlace(pos);
 			}
 		}
@@ -574,13 +606,65 @@ public class Sofea {
 		final RCs rcs;
 		final List<SimpleConfSpace.Position> positions;
 
+		private final TupleMatrixGeneric<BigDecimal> optrc3Energies;
+		private final int[][] rtsByRcByPos;
+		private final int[] numRtsByPos;
+
 		StateInfo(MultiStateConfSpace.State state) {
+
 			this.state = state;
 			StateConfig config = stateConfigs.get(state.index);
 			this.blute = new BoltzmannLute(config.luteEcalc, mathContext);
 			this.pmat = config.pmat;
 			this.rcs = new RCs(state.confSpace);
 			this.positions = state.confSpace.positions;
+
+			// OPTIMIZATION: allocate one RCTuple instance for all the triple lookups
+			// and set positions in 3-2-1 order so the positions are sorted in ascending order
+			RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
+
+			// pre-calculate all the optimal triple Z values for each RC pair
+			optrc3Energies = new TupleMatrixGeneric<>(state.confSpace);
+			for (int pos1=0; pos1<rcs.getNumPos(); pos1++) {
+				for (int rc1 : rcs.get(pos1)) {
+					for (int pos2=0; pos2<pos1; pos2++) {
+						for (int rc2 : rcs.get(pos2)) {
+
+							BigDecimal optrc3Energy = MathTools.Optimizer.Maximize.initBigDecimal();
+							for (int pos3=0; pos3<pos2; pos3++) {
+								for (int rc3 : rcs.get(pos3)) {
+
+									tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
+									BigDecimal triple = blute.get(tripleTuple);
+									if (triple != null) {
+										optrc3Energy = MathTools.Optimizer.Maximize.opt(optrc3Energy, triple);
+									}
+								}
+							}
+
+							optrc3Energies.setPairwise(pos1, rc1, pos2, rc2, optrc3Energy);
+						}
+					}
+				}
+			}
+
+			// calculate all the RTs by RC and pos
+			rtsByRcByPos = new int[positions.size()][];
+			numRtsByPos = new int[positions.size()];
+			for (SimpleConfSpace.Position confPos : positions) {
+				rtsByRcByPos[confPos.index] = new int[confPos.resConfs.size()];
+				SeqSpace.Position seqPos = confSpace.seqSpace.getPosition(confPos.resNum);
+				if (seqPos != null) {
+					numRtsByPos[confPos.index] = seqPos.resTypes.size();
+					for (SimpleConfSpace.ResidueConf rc : confPos.resConfs) {
+						SeqSpace.ResType rt = seqPos.getResTypeOrThrow(rc.template.name);
+						rtsByRcByPos[confPos.index][rc.index] = rt.index;
+					}
+				} else {
+					numRtsByPos[confPos.index] = 0;
+					Arrays.fill(rtsByRcByPos[confPos.index], Sequence.Unassigned);
+				}
+			}
 		}
 
 		ConfIndex makeConfIndex() {
@@ -589,7 +673,7 @@ public class Sofea {
 			return index;
 		}
 
-		BigDecimal getZPart(ConfIndex confIndex, int pos1, int rc1) {
+		BigDecimal getZPart(ConfIndex confIndex, RCTuple tripleTuple, int pos1, int rc1) {
 
 			assert (confIndex.numDefined > 0);
 
@@ -618,11 +702,12 @@ public class Sofea {
 					if (pmat.getPairwise(pos2, rc2, pos3, rc3)) {
 						return BigDecimal.ZERO;
 					}
-					if (pmat.getTuple(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted())) {
+					tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
+					if (pmat.getTuple(tripleTuple)) {
 						return BigDecimal.ZERO;
 					}
 
-					BigDecimal triple = blute.get(pos1, rc1, pos2, rc2, pos3, rc3);
+					BigDecimal triple = blute.get(tripleTuple);
 					if (triple != null) {
 						math.mult(triple);
 					}
@@ -632,7 +717,7 @@ public class Sofea {
 			return math.get();
 		}
 
-		BigDecimal optimizeZ(ConfIndex index, MathTools.Optimizer opt) {
+		BigDecimal optimizeZ(ConfIndex index, RCTuple tripleTuple, MathTools.Optimizer opt) {
 
 			BigMath energy = bigMath().set(1.0);
 
@@ -645,7 +730,7 @@ public class Sofea {
 				for (int rc1 : rcs.get(pos1)) {
 
 					BigMath rc1Energy = bigMath();
-					if (isPruned(index, pos1, rc1)) {
+					if (isPruned(index, tripleTuple, pos1, rc1)) {
 
 						// prune tuple, no contribution to Z
 						rc1Energy.set(0.0);
@@ -666,7 +751,8 @@ public class Sofea {
 								int rc3 = index.definedRCs[k];
 
 								// triples are optional
-								BigDecimal triple = blute.get(pos1, rc1, pos2, rc2, pos3, rc3);
+								tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
+								BigDecimal triple = blute.get(tripleTuple);
 								if (triple != null) {
 									rc1Energy.mult(triple);
 								}
@@ -698,8 +784,9 @@ public class Sofea {
 										int pos3 = index.definedPos[k];
 										int rc3 = index.definedRCs[k];
 
-										// triple are optional
-										BigDecimal triple = blute.get(pos1, rc1, pos2, rc2, pos3, rc3);
+										// triples are optional
+										tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
+										BigDecimal triple = blute.get(tripleTuple);
 										if (triple != null) {
 											rc2Energy.mult(triple);
 										}
@@ -708,16 +795,7 @@ public class Sofea {
 									// triples with undefined positions
 									for (int k=0; k<j; k++) {
 										int pos3 = index.undefinedPos[k];
-
-										// optimize over rcs
-										BigDecimal optrc3Energy = opt.initBigDecimal();
-										for (int rc3 : rcs.get(pos3)) {
-											BigDecimal triple = blute.get(pos1, rc1, pos2, rc2, pos3, rc3);
-											if (triple != null) {
-												optrc3Energy = opt.opt(optrc3Energy, triple);
-											}
-										}
-
+										BigDecimal optrc3Energy = optrc3Energies.getPairwise(pos1, rc1, pos2, rc2);
 										if (MathTools.isFinite(optrc3Energy)) {
 											rc2Energy.mult(optrc3Energy);
 										}
@@ -741,7 +819,7 @@ public class Sofea {
 			return energy.get();
 		}
 
-		boolean isPruned(ConfIndex index, int pos1, int rc1) {
+		boolean isPruned(ConfIndex index, RCTuple tripleTuple, int pos1, int rc1) {
 
 			if (pmat.getOneBody(pos1, rc1)) {
 				return true;
@@ -765,7 +843,8 @@ public class Sofea {
 					if (pmat.getPairwise(pos1, rc1, pos3, rc3)) {
 						return true;
 					}
-					if (pmat.getTuple(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted())) {
+					tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
+					if (pmat.getTuple(tripleTuple)) {
 						return true;
 					}
 				}
@@ -781,21 +860,26 @@ public class Sofea {
 			for (int i=0; i<index.numUndefined; i++) {
 				int pos = index.undefinedPos[i];
 
-				// count the RCs by sequence
-				Map<String,Integer> counts = new HashMap<>();
-				for (int rc : rcs.get(pos)) {
-					String resType = positions.get(pos).resConfs.get(rc).template.name;
-					counts.compute(resType, (rt, current) -> {
-						if (current == null) {
-							return 1;
-						} else {
-							return current + 1;
-						}
-					});
-				}
+				int minCount = Integer.MAX_VALUE;
+				int maxCount = 0;
 
-				int minCount = counts.values().stream().mapToInt(v -> v).min().getAsInt();
-				int maxCount = counts.values().stream().mapToInt(v -> v).max().getAsInt();
+				int numRts = numRtsByPos[pos];
+				if (numRts > 0) {
+
+					// count the RCs by RT
+					int[] counts = new int[numRts];
+					for (int rc : rcs.get(pos)) {
+						int rtCount = ++counts[rtsByRcByPos[pos][rc]];
+						minCount = Math.min(minCount, rtCount);
+						maxCount = Math.max(maxCount, rtCount);
+					}
+
+				} else {
+
+					// all RCs are the same RT
+					minCount = rcs.getNum(pos);
+					maxCount = minCount;
+				}
 
 				count.lower = count.lower.multiply(BigInteger.valueOf(minCount));
 				count.upper = count.upper.multiply(BigInteger.valueOf(maxCount));
@@ -822,6 +906,10 @@ public class Sofea {
 
 			BigDecimal z = BigDecimal.ZERO;
 
+			// OPTIMIZATION: allocate one RCTuple instance for all the triple lookups
+			// and set positions in 3-2-1 order so the positions are sorted in ascending order
+			RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
+
 			// pick the next pos to assign
 			int pos = index.numDefined;
 
@@ -832,7 +920,7 @@ public class Sofea {
 				if (index.numDefined == 0) {
 					zpart = blute.factor;
 				} else {
-					zpart = getZPart(index, pos, rc);
+					zpart = getZPart(index, tripleTuple, pos, rc);
 				}
 
 				// short circuit for efficiency

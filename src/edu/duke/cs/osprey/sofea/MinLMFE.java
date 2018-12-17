@@ -201,7 +201,7 @@ public class MinLMFE implements Sofea.Criterion {
 	}
 
 	@Override
-	public boolean isFinished(SeqDB seqdb) {
+	public boolean isFinished(SeqDB seqdb, FringeDB fringedb, long sweepCount) {
 
 		assert (objective.confSpace == seqdb.confSpace);
 		MultiStateConfSpace confSpace = seqdb.confSpace;

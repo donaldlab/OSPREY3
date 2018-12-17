@@ -467,6 +467,20 @@ public class TestMathTools {
 	@Test
 	public void bigMultiply() {
 
+		assertThat(bigMultiply(Double.NaN, Double.NaN), is(MathTools.BigNaN));
+
+		assertThat(bigMultiply(Double.POSITIVE_INFINITY, Double.NaN), is(MathTools.BigNaN));
+		assertThat(bigMultiply(Double.NEGATIVE_INFINITY, Double.NaN), is(MathTools.BigNaN));
+		assertThat(bigMultiply(-1.0, Double.NaN), is(MathTools.BigNaN));
+		assertThat(bigMultiply(0.0, Double.NaN), is(MathTools.BigNaN));
+		assertThat(bigMultiply(1.0, Double.NaN), is(MathTools.BigNaN));
+
+		assertThat(bigMultiply(Double.NaN, Double.POSITIVE_INFINITY), is(MathTools.BigNaN));
+		assertThat(bigMultiply(Double.NaN, Double.NEGATIVE_INFINITY), is(MathTools.BigNaN));
+		assertThat(bigMultiply(Double.NaN, -1.0), is(MathTools.BigNaN));
+		assertThat(bigMultiply(Double.NaN, 0.0), is(MathTools.BigNaN));
+		assertThat(bigMultiply(Double.NaN, 1.0), is(MathTools.BigNaN));
+
 		assertThat(bigMultiply(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY), is(MathTools.BigPositiveInfinity));
 		assertThat(bigMultiply(Double.POSITIVE_INFINITY, 5.0), is(MathTools.BigPositiveInfinity));
 		assertThat(bigMultiply(Double.POSITIVE_INFINITY, 0.0).doubleValue(), is(0.0));

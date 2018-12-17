@@ -430,6 +430,11 @@ updateZSum(state, seq, sum -> {
 
 		public void commit() {
 
+			// short circuit
+			if (isEmpty) {
+				return;
+			}
+
 			// push writes to the db
 			for (Map.Entry<Sequence,SeqInfo> entry : sequencedSums.entrySet()) {
 				Sequence seq = entry.getKey();

@@ -433,47 +433,64 @@ public class MathTools {
 
 	/** return a*b, correctly handling -Inf, +Inf, and NaN */
 	public static BigDecimal bigMultiply(BigDecimal a, BigDecimal b, MathContext context) {
-		if (a == BigNaN || b == BigNaN) {
+		if (a == BigNaN) {
 			return BigNaN;
-		}
-		if (isZero(a) || isZero(b)) {
-			return BigDecimal.ZERO;
-		}
-		if (a == BigPositiveInfinity) {
-			if (b == BigNegativeInfinity) {
+		} else if (a == BigPositiveInfinity) {
+			if (b == BigNaN || b == BigNegativeInfinity) {
 				return BigNaN;
-			} else if (isPositive(b)) {
+			} else if (b == BigPositiveInfinity) {
 				return BigPositiveInfinity;
 			} else {
-				return BigNegativeInfinity;
+				int cmp = b.compareTo(BigDecimal.ZERO);
+				if (cmp == 0) {
+					return BigDecimal.ZERO;
+				} else if (cmp > 0) {
+					return BigPositiveInfinity;
+				} else {
+					return BigNegativeInfinity;
+				}
 			}
 		} else if (a == BigNegativeInfinity) {
-			if (b == BigPositiveInfinity) {
+			if (b == BigNaN || b == BigPositiveInfinity) {
 				return BigNaN;
-			} else if (isPositive(b)) {
-				return BigNegativeInfinity;
-			} else {
-				return BigPositiveInfinity;
-			}
-		} else if (isPositive(a)) {
-			if (b == BigPositiveInfinity) {
-				return BigPositiveInfinity;
 			} else if (b == BigNegativeInfinity) {
-				return BigNegativeInfinity;
+				return BigPositiveInfinity;
 			} else {
-				return a.multiply(b, context);
+				int cmp = b.compareTo(BigDecimal.ZERO);
+				if (cmp == 0) {
+					return BigDecimal.ZERO;
+				} else if (cmp > 0) {
+					return BigNegativeInfinity;
+				} else {
+					return BigPositiveInfinity;
+				}
 			}
 		} else {
-			if (b == BigPositiveInfinity) {
-				return BigNegativeInfinity;
+			if (b == BigNaN) {
+				return BigNaN;
+			} else if (b == BigPositiveInfinity) {
+				int cmp = a.compareTo(BigDecimal.ZERO);
+				if (cmp == 0) {
+					return BigDecimal.ZERO;
+				} else if (cmp > 0) {
+					return BigPositiveInfinity;
+				} else {
+					return BigNegativeInfinity;
+				}
 			} else if (b == BigNegativeInfinity) {
-				return BigPositiveInfinity;
+				int cmp = a.compareTo(BigDecimal.ZERO);
+				if (cmp == 0) {
+					return BigDecimal.ZERO;
+				} else if (cmp > 0) {
+					return BigNegativeInfinity;
+				} else {
+					return BigPositiveInfinity;
+				}
 			} else {
 				return a.multiply(b, context);
 			}
 		}
 	}
-	// TODO: test me!!!
 
 	/** return a/b, correctly handling -Inf, +Inf, and NaN */
 	public static BigDecimal bigDivide(BigDecimal a, BigDecimal b, MathContext context) {

@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.sofea;
 
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 
@@ -45,6 +46,10 @@ public class BoltzmannLute {
 
 	public BigDecimal get(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
 		return get(luteEcalc.tuples.getIndex(pos1, rc1, pos2, rc2, pos3, rc3));
+	}
+
+	public BigDecimal get(RCTuple tuple) {
+		return get(luteEcalc.tuples.getIndex(tuple));
 	}
 
 	private BigDecimal get(Integer t) {
