@@ -586,7 +586,12 @@ public class Sofea {
 				index.assignInPlace(pos, rc);
 
 				// get the subtree bounds
-				BigDecimal minZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Minimize);
+				BigDecimal minZ;
+				if (stateInfo.isSingleSequence(index)) {
+					minZ = stateInfo.minimizeZ(index, tripleTuple);
+				} else {
+					minZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Minimize);
+				}
 				BigDecimal maxZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Maximize);
 				MathTools.BigIntegerBounds count = stateInfo.count(index);
 
@@ -631,7 +636,7 @@ public class Sofea {
 		final RCs rcs;
 		final List<SimpleConfSpace.Position> positions;
 
-		private final TupleMatrixGeneric<BigDecimal[]> optrc3Energies;
+		private final List<TupleMatrixGeneric<BigDecimal[]>> optrc3Energies;
 		private final int[][] rtsByRcByPos;
 		private final int[] numRtsByPos;
 
@@ -649,27 +654,33 @@ public class Sofea {
 			RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
 
 			// pre-calculate all the optimal triple Z values for each RC pair
-			optrc3Energies = new TupleMatrixGeneric<>(state.confSpace);
+			optrc3Energies = new ArrayList<>(MathTools.Optimizer.values().length);
+			for (MathTools.Optimizer opt : MathTools.Optimizer.values()) {
+				optrc3Energies.add(new TupleMatrixGeneric<>(state.confSpace));
+			}
 			for (int pos1=0; pos1<rcs.getNumPos(); pos1++) {
 				for (int rc1 : rcs.get(pos1)) {
 					for (int pos2=0; pos2<pos1; pos2++) {
 						for (int rc2 : rcs.get(pos2)) {
 
-							BigDecimal[] pos3Energies = new BigDecimal[state.confSpace.positions.size()];
-							optrc3Energies.setPairwise(pos1, rc1, pos2, rc2, pos3Energies);
+							for (MathTools.Optimizer opt : MathTools.Optimizer.values()) {
 
-							for (int pos3=0; pos3<pos2; pos3++) {
+								BigDecimal[] pos3Energies = new BigDecimal[state.confSpace.positions.size()];
+								optrc3Energies.get(opt.ordinal()).setPairwise(pos1, rc1, pos2, rc2, pos3Energies);
 
-								BigDecimal optrc3Energy = MathTools.Optimizer.Maximize.initBigDecimal();
-								for (int rc3 : rcs.get(pos3)) {
-									tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
-									BigDecimal triple = blute.get(tripleTuple);
-									if (triple != null) {
-										optrc3Energy = MathTools.Optimizer.Maximize.opt(optrc3Energy, triple);
+								for (int pos3=0; pos3<pos2; pos3++) {
+
+									BigDecimal optrc3Energy = opt.initBigDecimal();
+									for (int rc3 : rcs.get(pos3)) {
+										tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
+										BigDecimal triple = blute.get(tripleTuple);
+										if (triple != null) {
+											optrc3Energy = opt.opt(optrc3Energy, triple);
+										}
 									}
-								}
 
-								pos3Energies[pos3] = optrc3Energy;
+									pos3Energies[pos3] = optrc3Energy;
+								}
 							}
 						}
 					}
@@ -752,6 +763,84 @@ public class Sofea {
 			}
 
 			return math.get();
+		}
+
+		boolean isSingleSequence(ConfIndex index) {
+
+			for (int i=0; i<index.numUndefined; i++) {
+				int pos = index.undefinedPos[i];
+
+				// is there more than one RT at this pos?
+				int rtRef = rtsByRcByPos[pos][0];
+				for (int rc : rcs.get(pos)) {
+					int rt = rtsByRcByPos[pos][rc];
+					if (rt != rtRef) {
+
+						// yup, multi-sequence
+						return false;
+					}
+				}
+			}
+
+			// single-sequence
+			return true;
+		}
+
+		BigDecimal minimizeZ(ConfIndex index, RCTuple tripleTuple) {
+
+			// do DFS to get *any* leaf node
+			// but heuristically prefer leaf nodes with higher Z values
+			// so we get a higher min bound on Z
+
+			// only returns a sound lower bound on Z when the subtree describes only a single sequence
+
+			// that requires sorting though, so for now we're just preferring non-zero Z values
+
+			// assign the next position
+			int pos = index.undefinedPos[0];
+
+			// maximize over possible assignments to pos1
+			for (int rc : rcs.get(pos)) {
+
+				// get the zpart
+				BigDecimal zpart;
+				if (index.numDefined == 0) {
+					zpart = blute.factor;
+				} else {
+					zpart = getZPart(index, tripleTuple, pos, rc);
+				}
+
+				// heuristically prefer non-zero z values
+				if (MathTools.isZero(zpart)) {
+					continue;
+				}
+
+				if (index.numDefined < index.numPos - 1) {
+
+					// have positions left to assign, so recurse
+					index.assignInPlace(pos, rc);
+					BigDecimal zsub = minimizeZ(index, tripleTuple);
+					index.unassignInPlace(pos);
+
+					// heuristically prefer non-zero z values
+					if (MathTools.isZero(zsub)) {
+						continue;
+					}
+
+					// recursion reached a leaf node, return the z!
+					return bigMath()
+						.set(zpart)
+						.mult(zsub)
+						.get();
+
+				} else {
+
+					// we're already at a leaf node, just return the zpart
+					return zpart;
+				}
+			}
+
+			return BigDecimal.ZERO;
 		}
 
 		BigDecimal optimizeZ(ConfIndex index, RCTuple tripleTuple, MathTools.Optimizer opt) {
@@ -844,7 +933,7 @@ public class Sofea {
 									// triples with undefined positions
 									for (int k=0; k<j; k++) {
 										int pos3 = index.undefinedPos[k];
-										BigDecimal optrc3Energy = optrc3Energies.getPairwise(pos1, rc1, pos2, rc2)[pos3];
+										BigDecimal optrc3Energy = optrc3Energies.get(opt.ordinal()).getPairwise(pos1, rc1, pos2, rc2)[pos3];
 										if (MathTools.isFinite(optrc3Energy)) {
 											rc2Energy.mult(optrc3Energy);
 										}

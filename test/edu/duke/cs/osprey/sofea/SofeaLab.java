@@ -102,7 +102,7 @@ public class SofeaLab {
 				.addNegative("design")
 				.addNegative("target")
 				.build(),
-			10,
+			4,
 			new MathContext(16, RoundingMode.HALF_UP)
 		);
 		//
@@ -172,12 +172,14 @@ public class SofeaLab {
 
 		Sofea sofea;
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
-			.setParallelism(Parallelism.makeCpu(32))
+			// TEMP
+			.setParallelism(Parallelism.makeCpu(2))
+			//.setParallelism(Parallelism.makeCpu(16))
 			.build()) {
 
 			sofea = new Sofea.Builder(confSpace, criterion)
 				.setFringeDBMiB(100)
-				.setParallelism(Parallelism.makeCpu(2))
+				.setParallelism(ecalc.parallelism)
 				.configEachState(state -> {
 
 					File ematFile = new File(String.format("sofea.%s.emat", state.name));
@@ -265,14 +267,13 @@ public class SofeaLab {
 		sofea.refine();
 		log("SOFEA:   %9s", sw.stop().getTime(2));
 
-		/* TEMP
-		dump(sofea);
-		dumpUnexploredSequences(sofea);
-		dumpSequences(sofea);
+		// TEMP
+		//dump(sofea);
+		//dumpUnexploredSequences(sofea);
+		//dumpSequences(sofea);
 		try (SeqDB seqdb = sofea.openSeqDB()) {
 			criterion.makeResultDoc(seqdb, new File("sofea.md"));
 		}
-		*/
 	}
 
 	private static BigDecimal bruteForcePfuncAStar(ConfEnergyCalculator confEcalc, EnergyMatrix emat, RCs rcs) {
