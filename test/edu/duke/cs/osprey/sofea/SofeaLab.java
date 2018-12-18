@@ -95,7 +95,7 @@ public class SofeaLab {
 			.addUnmutableState("target", new SimpleConfSpace.Builder().addStrands(target).build())
 			.build();
 
-		// use the usual affinity optimization objective function
+		/* use the usual affinity optimization objective function
 		MinLMFE criterion = new MinLMFE(
 			confSpace.lmfe()
 				.addPositive("complex")
@@ -105,10 +105,10 @@ public class SofeaLab {
 			10,
 			new MathContext(16, RoundingMode.HALF_UP)
 		);
-		//
+		*/
 
 		// TEMP: for benchmarking
-		//SweepCount criterion = new SweepCount(5);
+		SweepCount criterion = new SweepCount(9);
 		/*
 			sweep count = 5
 			baseline           14.59  15.49  16.11
@@ -124,6 +124,10 @@ public class SofeaLab {
 			FringeDB readbuf    4.42   4.43   4.34   4.76
 			design ConfIndex    4.23   3.92   4.34   4.35
 			count               4.08   4.44   4.33   4.51
+
+			sweep count = 9
+			baseline           20.65  21.46  21.41  20.95
+			RCTuple triples    17.51  16.60  17.69  17.83
 		*/
 
 		/* TEMP: just do the design state

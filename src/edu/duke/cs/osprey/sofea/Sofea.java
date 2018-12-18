@@ -606,7 +606,7 @@ public class Sofea {
 		final RCs rcs;
 		final List<SimpleConfSpace.Position> positions;
 
-		private final TupleMatrixGeneric<BigDecimal> optrc3Energies;
+		private final TupleMatrixGeneric<BigDecimal[]> optrc3Energies;
 		private final int[][] rtsByRcByPos;
 		private final int[] numRtsByPos;
 
@@ -630,19 +630,22 @@ public class Sofea {
 					for (int pos2=0; pos2<pos1; pos2++) {
 						for (int rc2 : rcs.get(pos2)) {
 
-							BigDecimal optrc3Energy = MathTools.Optimizer.Maximize.initBigDecimal();
-							for (int pos3=0; pos3<pos2; pos3++) {
-								for (int rc3 : rcs.get(pos3)) {
+							BigDecimal[] pos3Energies = new BigDecimal[state.confSpace.positions.size()];
+							optrc3Energies.setPairwise(pos1, rc1, pos2, rc2, pos3Energies);
 
+							for (int pos3=0; pos3<pos2; pos3++) {
+
+								BigDecimal optrc3Energy = MathTools.Optimizer.Maximize.initBigDecimal();
+								for (int rc3 : rcs.get(pos3)) {
 									tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
 									BigDecimal triple = blute.get(tripleTuple);
 									if (triple != null) {
 										optrc3Energy = MathTools.Optimizer.Maximize.opt(optrc3Energy, triple);
 									}
 								}
-							}
 
-							optrc3Energies.setPairwise(pos1, rc1, pos2, rc2, optrc3Energy);
+								pos3Energies[pos3] = optrc3Energy;
+							}
 						}
 					}
 				}
@@ -681,6 +684,9 @@ public class Sofea {
 				return BigDecimal.ZERO;
 			}
 
+			tripleTuple.pos.set(2, pos1);
+			tripleTuple.RCs.set(2, rc1);
+
 			BigMath math = bigMath().set(1.0);
 			for (int i=0; i<confIndex.numDefined; i++) {
 				int pos2 = confIndex.definedPos[i];
@@ -689,6 +695,9 @@ public class Sofea {
 				if (pmat.getPairwise(pos1, rc1, pos2, rc2)) {
 					return BigDecimal.ZERO;
 				}
+
+				tripleTuple.pos.set(1, pos2);
+				tripleTuple.RCs.set(1, rc2);
 
 				math.mult(blute.get(pos1, rc1, pos2, rc2));
 
@@ -702,7 +711,10 @@ public class Sofea {
 					if (pmat.getPairwise(pos2, rc2, pos3, rc3)) {
 						return BigDecimal.ZERO;
 					}
-					tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
+
+					tripleTuple.pos.set(0, pos3);
+					tripleTuple.RCs.set(0, rc3);
+
 					if (pmat.getTuple(tripleTuple)) {
 						return BigDecimal.ZERO;
 					}
@@ -739,10 +751,16 @@ public class Sofea {
 
 						rc1Energy.set(1.0);
 
+						tripleTuple.pos.set(2, pos1);
+						tripleTuple.RCs.set(2, rc1);
+
 						// interactions with defined residues
 						for (int j=0; j<index.numDefined; j++) {
 							int pos2 = index.definedPos[j];
 							int rc2 = index.definedRCs[j];
+
+							tripleTuple.pos.set(1, pos2);
+							tripleTuple.RCs.set(1, rc2);
 
 							rc1Energy.mult(blute.get(pos1, rc1, pos2, rc2));
 
@@ -751,7 +769,8 @@ public class Sofea {
 								int rc3 = index.definedRCs[k];
 
 								// triples are optional
-								tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
+								tripleTuple.pos.set(0, pos3);
+								tripleTuple.RCs.set(0, rc3);
 								BigDecimal triple = blute.get(tripleTuple);
 								if (triple != null) {
 									rc1Energy.mult(triple);
@@ -763,9 +782,13 @@ public class Sofea {
 						for (int j=0; j<i; j++) {
 							int pos2 = index.undefinedPos[j];
 
+							tripleTuple.pos.set(1, pos2);
+
 							// optimize over possible assignments to pos2
 							BigDecimal optrc2Energy = opt.initBigDecimal();
 							for (int rc2 : rcs.get(pos2)) {
+
+								tripleTuple.RCs.set(1, rc2);
 
 								BigMath rc2Energy = bigMath();
 
@@ -785,7 +808,8 @@ public class Sofea {
 										int rc3 = index.definedRCs[k];
 
 										// triples are optional
-										tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
+										tripleTuple.pos.set(0, pos3);
+										tripleTuple.RCs.set(0, rc3);
 										BigDecimal triple = blute.get(tripleTuple);
 										if (triple != null) {
 											rc2Energy.mult(triple);
@@ -795,7 +819,7 @@ public class Sofea {
 									// triples with undefined positions
 									for (int k=0; k<j; k++) {
 										int pos3 = index.undefinedPos[k];
-										BigDecimal optrc3Energy = optrc3Energies.getPairwise(pos1, rc1, pos2, rc2);
+										BigDecimal optrc3Energy = optrc3Energies.getPairwise(pos1, rc1, pos2, rc2)[pos3];
 										if (MathTools.isFinite(optrc3Energy)) {
 											rc2Energy.mult(optrc3Energy);
 										}
@@ -825,6 +849,9 @@ public class Sofea {
 				return true;
 			}
 
+			tripleTuple.pos.set(2, pos1);
+			tripleTuple.RCs.set(2, rc1);
+
 			for (int i=0; i<index.numDefined; i++) {
 				int pos2 = index.definedPos[i];
 				int rc2 = index.definedRCs[i];
@@ -833,17 +860,23 @@ public class Sofea {
 					return true;
 				}
 
+				tripleTuple.pos.set(1, pos2);
+				tripleTuple.RCs.set(1, rc2);
+
 				for (int j=0; j<i; j++) {
 					int pos3 = index.definedPos[j];
 					int rc3 = index.definedRCs[j];
 
-					if (pmat.getPairwise(pos1, rc1, pos2, rc2)) {
-						return true;
-					}
 					if (pmat.getPairwise(pos1, rc1, pos3, rc3)) {
 						return true;
 					}
-					tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
+					if (pmat.getPairwise(pos2, rc2, pos3, rc3)) {
+						return true;
+					}
+
+					tripleTuple.pos.set(0, pos3);
+					tripleTuple.RCs.set(0, rc3);
+
 					if (pmat.getTuple(tripleTuple)) {
 						return true;
 					}
