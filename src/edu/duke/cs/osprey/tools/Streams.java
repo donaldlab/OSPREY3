@@ -36,8 +36,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Function;
+import java.util.function.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -98,4 +97,33 @@ public class Streams {
 		return joinToString(things, delimiter, (key, val) -> Objects.toString(key) + "=" + Objects.toString(val));
 	}
 
+	public static String joinToString(int[] things, String delimiter, IntFunction<String> map) {
+		if (things == null) {
+			return "";
+		}
+		return String.join(delimiter, Arrays.stream(things)
+			.mapToObj(map)
+			.collect(Collectors.toList())
+		);
+	}
+
+	public static String joinToString(long[] things, String delimiter, LongFunction<String> map) {
+		if (things == null) {
+			return "";
+		}
+		return String.join(delimiter, Arrays.stream(things)
+			.mapToObj(map)
+			.collect(Collectors.toList())
+		);
+	}
+
+	public static String joinToString(double[] things, String delimiter, DoubleFunction<String> map) {
+		if (things == null) {
+			return "";
+		}
+		return String.join(delimiter, Arrays.stream(things)
+			.mapToObj(map)
+			.collect(Collectors.toList())
+		);
+	}
 }

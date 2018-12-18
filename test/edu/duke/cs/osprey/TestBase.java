@@ -37,16 +37,13 @@ import static org.hamcrest.Matchers.*;
 
 import java.io.File;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
-import edu.duke.cs.osprey.tools.MathTools;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -68,6 +65,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.Protractor;
+import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class TestBase {
@@ -315,15 +313,52 @@ public class TestBase {
 			@Override
 			public void describeMismatch(Object obj, Description desc) {
 				double[] observed = (double[])obj;
+
+				if (observed.length != n) {
+
+					desc.appendText("value ").appendValue(observed)
+						.appendText(" has length ").appendValue(observed.length);
+
+				} else {
 				
-				// get the max err
-				double maxAbsErr = 0;
-				for (int i=0; i<n; i++) {
-					maxAbsErr = Math.max(maxAbsErr, getAbsoluteError(expected[i], observed[i]));
+					// get the max err
+					double maxAbsErr = 0;
+					for (int i=0; i<n; i++) {
+						maxAbsErr = Math.max(maxAbsErr, getAbsoluteError(expected[i], observed[i]));
+					}
+					desc.appendText("value ").appendValue(observed)
+						.appendText(" has max absolute err ").appendValue(maxAbsErr)
+						.appendText(" that's greater than epsilon ").appendValue(epsilon);
 				}
+			}
+		};
+	}
+
+	public static Matcher<DoubleBounds> isAbsoluteBound(final double expected, final double epsilon) {
+		return new BaseMatcher<DoubleBounds>() {
+
+			@Override
+			public boolean matches(Object obj) {
+				DoubleBounds observed = (DoubleBounds)obj;
+				return expected >= observed.lower - epsilon
+					&& expected <= observed.upper + epsilon;
+			}
+
+			@Override
+			public void describeTo(Description desc) {
+				desc.appendText("bounds ").appendValue(expected);
+			}
+
+			@Override
+			public void describeMismatch(Object obj, Description desc) {
+				DoubleBounds observed = (DoubleBounds)obj;
+				double absErr = Math.max(
+					observed.lower - epsilon - expected,
+					expected - observed.upper + epsilon
+				);
 				desc.appendText("value ").appendValue(observed)
-					.appendText(" has mas absolute err ").appendValue(maxAbsErr)
-					.appendText(" that's greater than epsilon ").appendValue(epsilon);
+					.appendText(" misses target by ").appendValue(absErr)
+					.appendText(" which violates epsilon ").appendValue(epsilon);
 			}
 		};
 	}
@@ -468,6 +503,10 @@ public class TestBase {
 
 		public TempFile(String filename) {
 			super(filename);
+		}
+
+		public TempFile(File dir, String filename) {
+			super(dir, filename);
 		}
 
 		@Override

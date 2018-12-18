@@ -95,79 +95,6 @@ public class SofeaLab {
 			.addUnmutableState("target", new SimpleConfSpace.Builder().addStrands(target).build())
 			.build();
 
-		// use the usual affinity optimization objective function
-		MinLMFE criterion = new MinLMFE(
-			confSpace.lmfe()
-				.addPositive("complex")
-				.addNegative("design")
-				.addNegative("target")
-				.build(),
-			4,
-			new MathContext(16, RoundingMode.HALF_UP)
-		);
-		//
-
-		// TEMP: for benchmarking
-		//SweepCount criterion = new SweepCount(9);
-		/*
-			sweep count = 5
-			baseline           14.59  15.49  16.11
-			cleanup logging    14.56  16.29
-			batch 1000         13.02  13.65  13.80
-			batch 10000        14.43  14.13  12.51  13.66
-			RCTuple triples     8.66   9.17   8.76
-			bigMultiply         8.63   9.06   9.25   9.07
-			RCTuple triples     8.99   9.14   8.29   8.92
-			optrc3Energies      7.18   6.67   7.06   7.05
-			RCTuple triples     5.87   6.44   6.86   6.55
-			FringeDB writebuf   4.70   4.42   4.08   4.88
-			FringeDB readbuf    4.42   4.43   4.34   4.76
-			design ConfIndex    4.23   3.92   4.34   4.35
-			count               4.08   4.44   4.33   4.51
-
-			sweep count = 9
-			baseline           20.65  21.46  21.41  20.95
-			RCTuple triples    17.51  16.60  17.69  17.83
-			tasks 1            17.39  17.70  17.27  17.69
-			tasks 2            11.64  12.34  12.98  12.03
-			tasks 4            12.09  11.55  11.98  12.23
-
-			min lmfe top 10
-			tasks 1            1.10m  1.14m  1.10m
-			tasks 2            43.15  43.64  44.97
-			tasks 4            39.26  40.77  41.70
-
-			NOTE: CPU has 2 physical cores, 4 virtual cores
-		*/
-
-		/* TEMP: just do the design state
-		MultiStateConfSpace confSpace = new MultiStateConfSpace
-			.Builder("design", new SimpleConfSpace.Builder().addStrands(design).build())
-			.build();
-
-		MinLMFE criterion = new MinLMFE(
-			confSpace.lmfe()
-				.addPositive("design")
-				.build(),
-			10,
-			new MathContext(16, RoundingMode.HALF_UP)
-		);
-		*/
-
-		/* TEMP: just do the complex state
-		MultiStateConfSpace confSpace = new MultiStateConfSpace
-			.Builder("complex", new SimpleConfSpace.Builder().addStrands(design, target).build())
-			.build();
-
-		MinLMFE criterion = new MinLMFE(
-			confSpace.lmfe()
-				.addPositive("complex")
-				.build(),
-			10,
-			new MathContext(16, RoundingMode.HALF_UP)
-		);
-		*/
-
 		log("seq space: %s", confSpace.seqSpace);
 
 		Sofea sofea;
@@ -177,7 +104,7 @@ public class SofeaLab {
 			//.setParallelism(Parallelism.makeCpu(16))
 			.build()) {
 
-			sofea = new Sofea.Builder(confSpace, criterion)
+			sofea = new Sofea.Builder(confSpace)
 				.setFringeDBMiB(100)
 				.setParallelism(ecalc.parallelism)
 				.configEachState(state -> {
@@ -239,7 +166,7 @@ public class SofeaLab {
 						pmat
 					);
 				})
-				.make();
+				.build();
 		}
 
 		log("\n");
@@ -261,10 +188,50 @@ public class SofeaLab {
 		}
 		*/
 
+		// use the usual affinity optimization objective function
+		MinLMFE criterion = new MinLMFE(
+			confSpace.lmfe()
+				.addPositive("complex")
+				.addNegative("design")
+				.addNegative("target")
+				.build(),
+			4,
+			new MathContext(16, RoundingMode.HALF_UP)
+		);
+		//
+
+		/* TEMP: just do the design state
+		MultiStateConfSpace confSpace = new MultiStateConfSpace
+			.Builder("design", new SimpleConfSpace.Builder().addStrands(design).build())
+			.build();
+
+		MinLMFE criterion = new MinLMFE(
+			confSpace.lmfe()
+				.addPositive("design")
+				.build(),
+			10,
+			new MathContext(16, RoundingMode.HALF_UP)
+		);
+		*/
+
+		/* TEMP: just do the complex state
+		MultiStateConfSpace confSpace = new MultiStateConfSpace
+			.Builder("complex", new SimpleConfSpace.Builder().addStrands(design, target).build())
+			.build();
+
+		MinLMFE criterion = new MinLMFE(
+			confSpace.lmfe()
+				.addPositive("complex")
+				.build(),
+			10,
+			new MathContext(16, RoundingMode.HALF_UP)
+		);
+		*/
+
 		// try SOFEA
 		Stopwatch sw = new Stopwatch().start();
 		sofea.init(true);
-		sofea.refine();
+		sofea.refine(criterion);
 		log("SOFEA:   %9s", sw.stop().getTime(2));
 
 		// TEMP

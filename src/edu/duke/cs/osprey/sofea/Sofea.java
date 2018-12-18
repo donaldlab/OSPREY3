@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.sofea;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
@@ -31,23 +32,22 @@ public class Sofea {
 	public static class Builder {
 
 		public final MultiStateConfSpace confSpace;
-		public final Criterion criterion;
 
 		private StateConfig[] stateConfigs;
 		private MathContext mathContext = new MathContext(32, RoundingMode.HALF_UP);
 		private File seqdbFile = new File("seq.db");
 		private MathContext seqdbMathContext = new MathContext(128, RoundingMode.HALF_UP);
 		private File fringedbFile = new File("fringe.db");
-		private int fringedbMiB = 10;
+		private long fringedbBytes = 10*1024*1024; // 10 MiB
 		private boolean showProgress = true;
 		private Parallelism parallelism = Parallelism.makeCpu(1);
+		private double sweepDivisor = Math.pow(Math.E, 4.0);
 
 		// NOTE: don't need much precision for most math, but need lots of precision for seqdb math
 
-		public Builder(MultiStateConfSpace confSpace, Criterion criterion) {
+		public Builder(MultiStateConfSpace confSpace) {
 
 			this.confSpace = confSpace;
-			this.criterion = criterion;
 
 			this.stateConfigs = new StateConfig[confSpace.states.size()];
 		}
@@ -79,8 +79,13 @@ public class Sofea {
 			return this;
 		}
 
+		public Builder setFringeDBBytes(long val) {
+			fringedbBytes = val;
+			return this;
+		}
+
 		public Builder setFringeDBMiB(int val) {
-			fringedbMiB = val;
+			fringedbBytes = val*1024*1024;
 			return this;
 		}
 
@@ -94,7 +99,12 @@ public class Sofea {
 			return this;
 		}
 
-		public Sofea make() {
+		public Builder setSweepDivisor(double val) {
+			sweepDivisor = val;
+			return this;
+		}
+
+		public Sofea build() {
 
 			// make sure all the states are configured
 			List<String> unconfiguredStateNames = confSpace.states.stream()
@@ -107,15 +117,15 @@ public class Sofea {
 
 			return new Sofea(
 				confSpace,
-				criterion,
 				Arrays.asList(stateConfigs),
 				mathContext,
 				seqdbFile,
 				seqdbMathContext,
 				fringedbFile,
-				fringedbMiB,
+				fringedbBytes,
 				showProgress,
-				parallelism
+				parallelism,
+				sweepDivisor
 			);
 		}
 	}
@@ -151,30 +161,30 @@ public class Sofea {
 
 
 	public final MultiStateConfSpace confSpace;
-	public final Criterion criterion;
 	public final List<StateConfig> stateConfigs;
 	public final MathContext mathContext;
 	public final File seqdbFile;
 	public final MathContext seqdbMathContext;
 	public final File fringedbFile;
-	public final int fringedbMiB;
+	public final long fringedbBytes;
 	public final boolean showProgress;
 	public final Parallelism parallelism;
+	public final double sweepDivisor;
 
 	private final List<StateInfo> stateInfos;
 
-	private Sofea(MultiStateConfSpace confSpace, Criterion criterion, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, int fringedbMiB, boolean showProgress, Parallelism parallelism) {
+	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, long fringedbBytes, boolean showProgress, Parallelism parallelism, double sweepDivisor) {
 
 		this.confSpace = confSpace;
-		this.criterion = criterion;
 		this.stateConfigs = stateConfigs;
 		this.mathContext = mathContext;
 		this.seqdbFile = seqdbFile;
 		this.seqdbMathContext = seqdbMathContext;
 		this.fringedbFile = fringedbFile;
-		this.fringedbMiB = fringedbMiB;
+		this.fringedbBytes = fringedbBytes;
 		this.showProgress = showProgress;
 		this.parallelism = parallelism;
+		this.sweepDivisor = sweepDivisor;
 
 		// TODO: support single tuples for conf spaces
 		// TEMP: blow up if we get single tuples
@@ -206,7 +216,7 @@ public class Sofea {
 		if (fringedbFile.exists()) {
 			return FringeDB.open(confSpace, fringedbFile);
 		} else {
-			return FringeDB.create(confSpace, fringedbFile, fringedbMiB*1024*1024, mathContext);
+			return FringeDB.create(confSpace, fringedbFile, fringedbBytes, mathContext);
 		}
 	}
 
@@ -410,7 +420,10 @@ public class Sofea {
 		long requeued = 0;
 	}
 
-	public void refine() {
+	/**
+	 * keep sweeping over the fringe set until the criterion is satisfied
+	 */
+	public void refine(Criterion criterion) {
 		try (SeqDB seqdb = openSeqDB()) {
 		try (FringeDB fringedb = openFringeDB()) {
 		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
@@ -419,8 +432,6 @@ public class Sofea {
 			BigDecimal[] zmax = confSpace.states.stream()
 				.map(state -> fringedb.getZMax(state))
 				.toArray(size -> new BigDecimal[size]);
-
-			final double zmaxFactor = Math.pow(Math.E, 4.0);
 
 			long sweepCount = 0;
 			while (true) {
@@ -441,7 +452,7 @@ public class Sofea {
 				for (MultiStateConfSpace.State state : confSpace.states) {
 					zmax[state.index] = bigMath()
 						.set(zmax[state.index])
-						.div(zmaxFactor)
+						.div(sweepDivisor)
 						.get();
 				}
 
@@ -622,6 +633,10 @@ public class Sofea {
 		}
 
 		return true;
+	}
+
+	public double calcG(MultiStateConfSpace.State state, Sequence seq) {
+		return new BoltzmannCalculator(mathContext).freeEnergyPrecise(calcZ(state, seq));
 	}
 
 	public BigDecimal calcZ(MultiStateConfSpace.State state, Sequence seq) {
