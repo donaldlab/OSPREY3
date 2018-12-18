@@ -202,7 +202,7 @@ public class TestFringeDB {
 					MathTools.biggen(1024.5)
 				)));
 				assertThat(tx.zpath(), is(MathTools.biggen(4.2)));
-				tx.writeReplacementNode(tx.conf(), tx.zbounds(), tx.zpath());
+				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zbounds(), tx.zpath());
 
 				tx.readNode();
 				assertThat(tx.state().index, is(1));
@@ -212,7 +212,7 @@ public class TestFringeDB {
 					MathTools.biggen(10.4)
 				)));
 				assertThat(tx.zpath(), is(MathTools.biggen(1.3)));
-				tx.writeReplacementNode(tx.conf(), tx.zbounds(), tx.zpath());
+				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zbounds(), tx.zpath());
 
 				tx.readNode();
 				assertThat(tx.state().index, is(2));
@@ -222,7 +222,7 @@ public class TestFringeDB {
 					MathTools.biggen(7.3)
 				)));
 				assertThat(tx.zpath(), is(MathTools.biggen(3.6)));
-				tx.writeReplacementNode(tx.conf(), tx.zbounds(), tx.zpath());
+				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zbounds(), tx.zpath());
 
 				tx.commit();
 				db.finishSweep();
@@ -421,7 +421,7 @@ public class TestFringeDB {
 					MathTools.biggen(10.4)
 				)));
 				assertThat(tx.zpath(), is(MathTools.biggen(1.3)));
-				tx.writeReplacementNode(tx.conf(), tx.zbounds(), tx.zpath());
+				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zbounds(), tx.zpath());
 				tx.commit();
 
 				assertThat(tx.numNodesToRead(), is(1L));
@@ -542,6 +542,7 @@ public class TestFringeDB {
 				tx.readNode();
 				assertThat(tx.state().index, is(0));
 				tx.writeReplacementNode(
+					tx.state(),
 					new int[] { 0, -1 },
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(10.4),
@@ -553,6 +554,7 @@ public class TestFringeDB {
 				tx.readNode();
 				assertThat(tx.state().index, is(1));
 				tx.writeReplacementNode(
+					tx.state(),
 					new int[] { 1, -1 },
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(93.8),
@@ -561,6 +563,7 @@ public class TestFringeDB {
 					MathTools.biggen(38.5)
 				);
 				tx.writeReplacementNode(
+					tx.state(),
 					new int[] { -1, 0 },
 					new MathTools.BigDecimalBounds(
 						MathTools.biggen(69.2),

@@ -95,7 +95,7 @@ public class SofeaLab {
 			.addUnmutableState("target", new SimpleConfSpace.Builder().addStrands(target).build())
 			.build();
 
-		/* use the usual affinity optimization objective function
+		// use the usual affinity optimization objective function
 		MinLMFE criterion = new MinLMFE(
 			confSpace.lmfe()
 				.addPositive("complex")
@@ -105,10 +105,10 @@ public class SofeaLab {
 			10,
 			new MathContext(16, RoundingMode.HALF_UP)
 		);
-		*/
+		//
 
 		// TEMP: for benchmarking
-		SweepCount criterion = new SweepCount(9);
+		//SweepCount criterion = new SweepCount(9);
 		/*
 			sweep count = 5
 			baseline           14.59  15.49  16.11
@@ -128,6 +128,16 @@ public class SofeaLab {
 			sweep count = 9
 			baseline           20.65  21.46  21.41  20.95
 			RCTuple triples    17.51  16.60  17.69  17.83
+			tasks 1            17.39  17.70  17.27  17.69
+			tasks 2            11.64  12.34  12.98  12.03
+			tasks 4            12.09  11.55  11.98  12.23
+
+			min lmfe top 10
+			tasks 1            1.10m  1.14m  1.10m
+			tasks 2            43.15  43.64  44.97
+			tasks 4            39.26  40.77  41.70
+
+			NOTE: CPU has 2 physical cores, 4 virtual cores
 		*/
 
 		/* TEMP: just do the design state
@@ -165,10 +175,9 @@ public class SofeaLab {
 			.setParallelism(Parallelism.makeCpu(32))
 			.build()) {
 
-			// TEMP
-			//sofea = new Sofea.Builder(confSpace, null)
 			sofea = new Sofea.Builder(confSpace, criterion)
 				.setFringeDBMiB(100)
+				.setParallelism(Parallelism.makeCpu(2))
 				.configEachState(state -> {
 
 					File ematFile = new File(String.format("sofea.%s.emat", state.name));

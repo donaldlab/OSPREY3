@@ -4,6 +4,8 @@ import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
+import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.*;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
@@ -38,6 +40,7 @@ public class Sofea {
 		private File fringedbFile = new File("fringe.db");
 		private int fringedbMiB = 10;
 		private boolean showProgress = true;
+		private Parallelism parallelism = Parallelism.makeCpu(1);
 
 		// NOTE: don't need much precision for most math, but need lots of precision for seqdb math
 
@@ -86,6 +89,11 @@ public class Sofea {
 			return this;
 		}
 
+		public Builder setParallelism(Parallelism val) {
+			parallelism = val;
+			return this;
+		}
+
 		public Sofea make() {
 
 			// make sure all the states are configured
@@ -106,7 +114,8 @@ public class Sofea {
 				seqdbMathContext,
 				fringedbFile,
 				fringedbMiB,
-				showProgress
+				showProgress,
+				parallelism
 			);
 		}
 	}
@@ -150,10 +159,11 @@ public class Sofea {
 	public final File fringedbFile;
 	public final int fringedbMiB;
 	public final boolean showProgress;
+	public final Parallelism parallelism;
 
 	private final List<StateInfo> stateInfos;
 
-	private Sofea(MultiStateConfSpace confSpace, Criterion criterion, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, int fringedbMiB, boolean showProgress) {
+	private Sofea(MultiStateConfSpace confSpace, Criterion criterion, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, int fringedbMiB, boolean showProgress, Parallelism parallelism) {
 
 		this.confSpace = confSpace;
 		this.criterion = criterion;
@@ -164,6 +174,7 @@ public class Sofea {
 		this.fringedbFile = fringedbFile;
 		this.fringedbMiB = fringedbMiB;
 		this.showProgress = showProgress;
+		this.parallelism = parallelism;
 
 		// TODO: support single tuples for conf spaces
 		// TEMP: blow up if we get single tuples
@@ -293,17 +304,24 @@ public class Sofea {
 
 	private class NodeTransaction {
 
-		final FringeDB.Transaction fringetx;
-		final SeqDB.Transaction seqtx;
 		final MultiStateConfSpace.State state;
+		final int[] conf;
+		final BigDecimalBounds zbounds;
+		final BigDecimal zpath;
 
+		final ConfIndex index;
 		final List<Node> replacementNodes = new ArrayList<>();
 		final List<ZVal> zvals = new ArrayList<>();
 
-		NodeTransaction(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx, MultiStateConfSpace.State state) {
-			this.fringetx = fringetx;
-			this.seqtx = seqtx;
+		NodeTransaction(MultiStateConfSpace.State state, int[] conf, BigDecimalBounds zbounds, BigDecimal zpath) {
+
 			this.state = state;
+			this.conf = conf;
+			this.zbounds = zbounds;
+			this.zpath = zpath;
+
+			index = new ConfIndex(state.confSpace.positions.size());
+			Conf.index(conf, index);
 		}
 
 		Sequence makeSeq(int[] conf) {
@@ -319,10 +337,6 @@ public class Sofea {
 			return seq;
 		}
 
-		void addReplacementNode(Node node) {
-			replacementNodes.add(node);
-		}
-
 		void addReplacementNode(ConfIndex index, BigDecimalBounds zbounds, BigDecimal zpath) {
 			replacementNodes.add(new Node(Conf.make(index), zbounds, zpath));
 		}
@@ -335,20 +349,20 @@ public class Sofea {
 			zvals.add(new ZVal(Conf.make(index), z));
 		}
 
-		boolean hasRoomToReplace() {
+		boolean hasRoomToReplace(FringeDB.Transaction fringetx) {
 			return fringetx.dbHasRoomFor(replacementNodes.size());
 		}
 
-		void replace(Node node) {
+		void replace(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
 
-			flushTransactionsIfNeeded();
+			flushTransactionsIfNeeded(fringetx, seqtx);
 
 			// subtract the node zbounds
-			seqtx.subZ(state, makeSeq(node.conf), node.zbounds);
+			seqtx.subZ(state, makeSeq(conf), zbounds);
 
 			// update fringedb and seqdb with the replacement nodes
 			for (Node replacementNode : replacementNodes) {
-				fringetx.writeReplacementNode(replacementNode.conf, replacementNode.zbounds, replacementNode.zpath);
+				fringetx.writeReplacementNode(state, replacementNode.conf, replacementNode.zbounds, replacementNode.zpath);
 				seqtx.addZ(state, makeSeq(replacementNode.conf), replacementNode.zbounds);
 			}
 
@@ -358,17 +372,17 @@ public class Sofea {
 			}
 		}
 
-		void requeue(Node node) {
+		void requeue(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
 
-			flushTransactionsIfNeeded();
+			flushTransactionsIfNeeded(fringetx, seqtx);
 
 			// ignore all of the seqdb changes
 
 			// move the node to the end of the fringedb queue
-			fringetx.writeReplacementNode(node.conf, node.zbounds, node.zpath);
+			fringetx.writeReplacementNode(state, conf, zbounds, zpath);
 		}
 
-		private void flushTransactionsIfNeeded() {
+		private void flushTransactionsIfNeeded(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
 
 			// skip if the fringe db transaction isn't full
 			if (fringetx.txHasRoomFor(replacementNodes.size())) {
@@ -398,130 +412,141 @@ public class Sofea {
 
 	public void refine() {
 		try (SeqDB seqdb = openSeqDB()) {
-			try (FringeDB fringedb = openFringeDB()) {
+		try (FringeDB fringedb = openFringeDB()) {
+		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
 
-				// get the initial zmax
-				BigDecimal[] zmax = confSpace.states.stream()
-					.map(state -> fringedb.getZMax(state))
-					.toArray(size -> new BigDecimal[size]);
+			// get the initial zmax
+			BigDecimal[] zmax = confSpace.states.stream()
+				.map(state -> fringedb.getZMax(state))
+				.toArray(size -> new BigDecimal[size]);
 
-				final double zmaxFactor = Math.pow(Math.E, 4.0);
+			final double zmaxFactor = Math.pow(Math.E, 4.0);
 
-				// OPTIMIZATION: allocate one RCTuple instance for all the triple lookups
-				// and set positions in 3-2-1 order so the positions are sorted in ascending order
-				RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
+			long sweepCount = 0;
+			while (true) {
 
-				long sweepCount = 0;
+				// check the termination criterion
+				if (criterion != null && criterion.isFinished(seqdb, fringedb, sweepCount)) {
+					log("SOFEA finished, criterion satisfied");
+					break;
+				}
+
+				// stop if we ran out of fringe nodes
+				if (fringedb.isEmpty()) {
+					log("SOFEA finished, explored every node");
+					break;
+				}
+
+				// reduce zmax before each sweep
+				for (MultiStateConfSpace.State state : confSpace.states) {
+					zmax[state.index] = bigMath()
+						.set(zmax[state.index])
+						.div(zmaxFactor)
+						.get();
+				}
+
+				// show progress if needed
+				sweepCount++;
+				if (showProgress) {
+					log("sweep %d", sweepCount);
+				}
+
+				// init sweep stats
+				StateStats[] stats = new StateStats[confSpace.states.size()];
+				for (MultiStateConfSpace.State state : confSpace.states) {
+					stats[state.index] = new StateStats();
+				}
+
+				// start (or resume) the sweep
+				FringeDB.Transaction fringetx = fringedb.transaction();
+				SeqDB.Transaction seqtx = seqdb.transaction();
+				Progress progress = new Progress(fringetx.numNodesToRead());
 				while (true) {
 
-					// check the termination criterion
-					if (criterion != null && criterion.isFinished(seqdb, fringedb, sweepCount)) {
-						log("SOFEA finished, criterion satisfied");
-						break;
-					}
-
-					// stop if we ran out of fringe nodes
-					if (fringedb.isEmpty()) {
-						log("SOFEA finished, explored every node");
-						break;
-					}
-
-					// reduce zmax before each sweep
-					for (MultiStateConfSpace.State state : confSpace.states) {
-						zmax[state.index] = bigMath()
-							.set(zmax[state.index])
-							.div(zmaxFactor)
-							.get();
-					}
-
-					// show progress if needed
-					sweepCount++;
-					if (showProgress) {
-						log("sweep %d", sweepCount);
-					}
-
-					// init sweep stats
-					StateStats[] stats = new StateStats[confSpace.states.size()];
-					for (MultiStateConfSpace.State state : confSpace.states) {
-						stats[state.index] = new StateStats();
-					}
-
-					// start (or resume) the sweep
-					FringeDB.Transaction fringetx = fringedb.transaction();
-					SeqDB.Transaction seqtx = seqdb.transaction();
-					Progress progress = new Progress(fringetx.numNodesToRead());
-					while (fringetx.hasNodesToRead()) {
-
-						// read the next node
+					// read the next node
+					final NodeTransaction nodetx;
+					synchronized (Sofea.this) { // don't race the listener thread
+						if (!fringetx.hasNodesToRead()) {
+							break;
+						}
 						fringetx.readNode();
-						MultiStateConfSpace.State state = fringetx.state();
-						Node node = new Node(
+						nodetx = new NodeTransaction(
+							fringetx.state(),
 							fringetx.conf(),
 							fringetx.zbounds(),
 							fringetx.zpath()
 						);
-
-						NodeTransaction nodetx = new NodeTransaction(fringetx, seqtx, state);
-						stats[nodetx.state.index].read++;
-
-						ConfIndex index = new ConfIndex(state.confSpace.positions.size());
-
-						boolean wasExpanded = design(nodetx, zmax[nodetx.state.index], node, tripleTuple, index);
-						if (wasExpanded) {
-							stats[nodetx.state.index].expanded++;
-						}
-
-						if (nodetx.hasRoomToReplace()) {
-							stats[nodetx.state.index].added += nodetx.numReplacementNodes();
-							stats[nodetx.state.index].replaced++;
-							nodetx.replace(node);
-						} else {
-							stats[nodetx.state.index].requeued++;
-							nodetx.requeue(node);
-						}
-
-						if (showProgress) {
-							progress.incrementProgress();
-						}
 					}
-					fringetx.commit();
-					seqtx.commit();
-					fringedb.finishSweep();
+					stats[nodetx.state.index].read++;
 
-					// show stats if needed
-					if (showProgress) {
-						log("\tfringe size: %d/%d (%.1f%%) nodes",
-							fringedb.getNumNodes(), fringedb.getCapacity(),
-							100.0f*fringedb.getNumNodes()/fringedb.getCapacity()
-						);
-						for (MultiStateConfSpace.State state : confSpace.states) {
-							log("\t%10s  read=%6d  expanded=%6d  replaced=%6d  added=%6d requeued=%6d",
-								state.name,
-								stats[state.index].read,
-								stats[state.index].expanded,
-								stats[state.index].replaced,
-								stats[state.index].added,
-								stats[state.index].requeued
-							);
+					// process nodes with tasks (possibly in parallel)
+					tasks.submit(
+						() -> {
+
+							// OPTIMIZATION: allocate one RCTuple instance for all the triple lookups
+							// and set positions in 3-2-1 order so the positions are sorted in ascending order
+							RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
+
+							return design(nodetx, zmax[nodetx.state.index], tripleTuple, nodetx.index, nodetx.zbounds, nodetx.zpath);
+						},
+						(wasExpanded) -> {
+
+							if (wasExpanded) {
+								stats[nodetx.state.index].expanded++;
+							}
+
+							synchronized (Sofea.this) { // don't race the main thread
+								if (nodetx.hasRoomToReplace(fringetx)) {
+									stats[nodetx.state.index].added += nodetx.numReplacementNodes();
+									stats[nodetx.state.index].replaced++;
+									nodetx.replace(fringetx, seqtx);
+								} else {
+									stats[nodetx.state.index].requeued++;
+									nodetx.requeue(fringetx, seqtx);
+								}
+							}
+
+							if (showProgress) {
+								progress.incrementProgress();
+							}
 						}
+					);
+				}
+				tasks.waitForFinish();
+				fringetx.commit();
+				seqtx.commit();
+				fringedb.finishSweep();
+
+				// show stats if needed
+				if (showProgress) {
+					log("\tfringe size: %d/%d (%.1f%%) nodes",
+						fringedb.getNumNodes(), fringedb.getCapacity(),
+						100.0f*fringedb.getNumNodes()/fringedb.getCapacity()
+					);
+					for (MultiStateConfSpace.State state : confSpace.states) {
+						log("\t%10s  read=%6d  expanded=%6d  replaced=%6d  added=%6d requeued=%6d",
+							state.name,
+							stats[state.index].read,
+							stats[state.index].expanded,
+							stats[state.index].replaced,
+							stats[state.index].added,
+							stats[state.index].requeued
+						);
 					}
 				}
 			}
-		}
+		}}}
 	}
 
-	private boolean design(NodeTransaction nodetx, BigDecimal zmax, Node node, RCTuple tripleTuple, ConfIndex index) {
+	private boolean design(NodeTransaction nodetx, BigDecimal zmax, RCTuple tripleTuple, ConfIndex index, BigDecimalBounds zbounds, BigDecimal zpath) {
 
 		// skip this tree if it's too small, and add the node to the fringe set
-		if (MathTools.isLessThan(node.zbounds.upper, zmax)) {
-			nodetx.addReplacementNode(node);
+		if (MathTools.isLessThan(zbounds.upper, zmax)) {
+			nodetx.addReplacementNode(index, zbounds, zpath);
 			return false;
 		}
 
 		// otherwise, recurse
-
-		// update the conf index
-		Conf.index(node.conf, index);
 
 		StateInfo stateInfo = stateInfos.get(nodetx.state.index);
 		boolean isRoot = index.numDefined == 0;
@@ -531,7 +556,7 @@ public class Sofea {
 		for (int rc : stateInfo.rcs.get(pos)) {
 
 			// update the zpath with this RC
-			BigDecimal zpathrc = node.zpath;
+			BigDecimal zpathrc = zpath;
 			if (!isRoot) {
 
 				BigDecimal zrc = stateInfo.getZPart(index, tripleTuple, pos, rc);
@@ -585,7 +610,7 @@ public class Sofea {
 				);
 
 				// recurse
-				design(nodetx, zmax, new Node(Conf.make(index), boundsrc, zpathrc), tripleTuple, index);
+				design(nodetx, zmax, tripleTuple, index, boundsrc, zpathrc);
 
 				index.unassignInPlace(pos);
 			}

@@ -475,7 +475,7 @@ public class FringeDB implements AutoCloseable {
 		/**
 		 * add a node to the transaction write buffer with the same state as the last-read node in the sweep
 		 */
-		public void writeReplacementNode(int[] conf, BigDecimalBounds zbounds, BigDecimal zpath) {
+		public void writeReplacementNode(MultiStateConfSpace.State state, int[] conf, BigDecimalBounds zbounds, BigDecimal zpath) {
 
 			if (!txHasRoomFor(1)) {
 				throw new IllegalStateException("transaction write buffer has no more room for nodes");
@@ -509,7 +509,7 @@ public class FringeDB implements AutoCloseable {
 		public void commit() {
 
 			// short circuit
-			if (writtenEntries <= 0) {
+			if (writtenEntries <= 0 && iostate.numToRead == FringeDB.this.iostate.numToRead) {
 				return;
 			}
 
