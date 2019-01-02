@@ -25,10 +25,122 @@ public class EwakstarLab {
 	public static void main(String[] args) {
 		// run COMETS
 		//EwakstarDoer ewakstarDoer = run2RL0();
-		EwakstarDoer ewakstarDoer = run1GUA();
+		//EwakstarDoer ewakstarDoer = run1GUA();
 		//EwakstarDoer ewakstarDoer = run1GWC();
 		//EwakstarDoer ewakstarDoer = runSpA();
+		EwakstarDoer ewakstarDoer = run2HNV();
 		Set<Sequence> seqs = ewakstarDoer.run(ewakstarDoer.state);
+	}
+
+	public static EwakstarDoer run2HNV(){
+
+		// configure the forcefield
+		ForcefieldParams ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readResource("/2hnv_prepped.pdb");
+
+		// make sure all strands share the same template library
+		// especially since all the state conf spaces will add/share wild-type rotamers to/from the library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld).build();
+
+		// define the protein strand
+		Strand ligand = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("A7", "A87")
+				.build();
+		ligand.flexibility.get("A25").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "ILE", "PHE", "TYR", "TRP", "CYS", "MET", "SER", "THR", "LYS", "ARG", "HIP", "HIE", "HID", "ASP", "GLU", "ASN", "GLN", "GLY").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A36").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// define the ligand strand
+		Strand protein = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("B7", "B87")
+				.build();
+		protein.flexibility.get("B81").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("B87").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+		// make the COMETS states
+
+		EwakstarDoer.State PL = new EwakstarDoer.State(
+				"PL",
+				new SimpleConfSpace.Builder()
+						.addStrand(protein)
+						.addStrand(ligand)
+						.build()
+		);
+
+		int orderMag = 3; //order of magnitude worse in partition function we want to keep sequences relative to the wild-type
+		double ewakstarEw = 30.0; //energy window within the wild-type for finding sequences in the "sequence filter" portion of ewakstarDoer
+		int numPfConfs = 5000; //num of conformations for the partition function calculation
+		double pfEw = 1.0; //partition function energy window calculation
+		int numTopOverallSeqs = 5; //end result number of sequences we want K* estimates for
+		int numCpus = 4;
+		double epsilon = 0.1;
+
+		EwakstarDoer ewakstarDoer = new EwakstarDoer.Builder()
+				.setOrderOfMag(orderMag)
+				.setPfEw(pfEw)
+				.setEpsilon(epsilon)
+				.setNumPfConfs(numPfConfs)
+				.setNumTopOverallSeqs(numTopOverallSeqs)
+				.addState(PL)
+				.setEw(ewakstarEw)
+				.setMutableType("exact")
+				.setNumMutable(1)
+				.setSeqFilterOnly(false)
+				.setNumCpus(numCpus)
+				.setLogFile(new File("ewakstar.sequences.tsv"))
+				.build();
+
+
+		EnergyCalculator ecalc = new EnergyCalculator.Builder(PL.confSpace, ffparams)
+				.setParallelism(Parallelism.makeCpu(numCpus))
+				.build();
+		EnergyCalculator rigidEcalc = new EnergyCalculator.Builder(PL.confSpace, ffparams)
+				.setIsMinimizing(false)
+				.setParallelism(Parallelism.makeCpu(4))
+				.build();
+
+		// what are conformation energies?
+		SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(PL.confSpace, ecalc)
+				.build()
+				.calcReferenceEnergies();
+		SimpleReferenceEnergies rigidEref = new SimplerEnergyMatrixCalculator.Builder(PL.confSpace, rigidEcalc)
+				.build()
+				.calcReferenceEnergies();
+
+		PL.confEcalc =new ConfEnergyCalculator.Builder(PL.confSpace,ecalc)
+				.setReferenceEnergies(eref)
+				.build();
+
+		PL.confRigidEcalc =new ConfEnergyCalculator.Builder(PL.confSpace,rigidEcalc)
+				.setReferenceEnergies(rigidEref)
+				.build();
+
+		// calc the energy matrix
+		PL.emat =new SimplerEnergyMatrixCalculator.Builder(PL.confEcalc)
+				.setCacheFile(new File(String.format("ewakstar.%s.emat", PL.name)))
+				.build()
+				.calcEnergyMatrix();
+
+		PL.fragmentEnergies =PL.emat;
+		PL.ematRigid =new SimplerEnergyMatrixCalculator.Builder(PL.confRigidEcalc)
+				.setCacheFile(new File(String.format("ewakstar.%s.ematRigid", PL.name)))
+				.build()
+				.calcEnergyMatrix();
+
+		// make the conf tree factory
+		PL.confTreeFactoryMin =(rcs)->new ConfAStarTree.Builder(PL.emat,rcs)
+				.setMaxNumNodes(20000000)
+				.setTraditional()
+				.build();
+
+		PL.confTreeFactoryRigid =(rcs)->new ConfAStarTree.Builder(PL.ematRigid,rcs)
+				.setMaxNumNodes(20000000)
+				.setTraditional()
+				.build();
+
+		return ewakstarDoer;
 	}
 
 	public static EwakstarDoer run2RL0(){
@@ -73,7 +185,6 @@ public class EwakstarLab {
 		);
 
 		int orderMag = 3; //order of magnitude worse in partition function we want to keep sequences relative to the wild-type
-		int numEWAKStarSeqs = 10000; //number of sequences we want to limit ourselves to during the "sequence filter" portion of ewakstarDoer
 		double ewakstarEw = 30.0; //energy window within the wild-type for finding sequences in the "sequence filter" portion of ewakstarDoer
 		int numPfConfs = 5000; //num of conformations for the partition function calculation
 		double pfEw = 1.0; //partition function energy window calculation
@@ -82,7 +193,6 @@ public class EwakstarLab {
 		double epsilon = 0.01;
 
 		EwakstarDoer ewakstarDoer = new EwakstarDoer.Builder()
-				.setNumEWAKStarSeqs(numEWAKStarSeqs)
 				.setOrderOfMag(orderMag)
 				.setPfEw(pfEw)
 				.setEpsilon(epsilon)
@@ -200,7 +310,6 @@ public class EwakstarLab {
 
 		boolean useSMA = false;
 		int orderMag = 3; //order of magnitude worse in partition function we want to keep sequences relative to the wild-type
-		int numEWAKStarSeqs = 10000; //number of sequences we want to limit ourselves to during the "sequence filter" portion of ewakstarDoer
 		double ewakstarEw = 2.0; //energy window within the wild-type for finding sequences in the "sequence filter" portion of ewakstarDoer
 		int numPfConfs = 1; //num of conformations for the partition function calculation
 		double pfEw = 1.0; //partition function energy window calculation
@@ -211,7 +320,6 @@ public class EwakstarLab {
 		EwakstarDoer ewakstarDoer = new EwakstarDoer.Builder()
 				.setPrintPDBs(true)
 				.setUseWtBenchmark(false)
-				.setNumEWAKStarSeqs(numEWAKStarSeqs)
 				.setOrderOfMag(orderMag)
 				.setPfEw(pfEw)
 				.setEpsilon(epsilon)
@@ -319,7 +427,6 @@ public class EwakstarLab {
 		);
 
 		int orderMag = 20; //order of magnitude worse in partition function we want to keep sequences relative to the wild-type
-		int numEWAKStarSeqs = 10000; //number of sequences we want to limit ourselves to during the "sequence filter" portion of ewakstarDoer
 		double ewakstarEw = 20.0; //energy window within the wild-type for finding sequences in the "sequence filter" portion of ewakstarDoer
 		int numPfConfs = 500; //num of conformations for the partition function calculation
 		double pfEw = 1.0; //partition function energy window calculation
@@ -328,7 +435,6 @@ public class EwakstarLab {
 		double epsilon = 0.99;
 
 		EwakstarDoer ewakstarDoer = new EwakstarDoer.Builder()
-				.setNumEWAKStarSeqs(numEWAKStarSeqs)
 				.setOrderOfMag(orderMag)
 				.setPfEw(pfEw)
 				.setEpsilon(epsilon)
@@ -439,7 +545,6 @@ public class EwakstarLab {
 		);
 
 		int orderMag = 5; //order of magnitude worse in partition function we want to keep sequences relative to the wild-type
-		int numEWAKStarSeqs = 10000; //number of sequences we want to limit ourselves to during the "sequence filter" portion of ewakstarDoer
 		double ewakstarEw = 10.0; //energy window within the wild-type for finding sequences in the "sequence filter" portion of ewakstarDoer
 		int numPfConfs = 500; //num of conformations for the partition function calculation
 		double pfEw = 1.0; //partition function energy window calculation
@@ -448,7 +553,6 @@ public class EwakstarLab {
 		double epsilon = 0.68;
 
 		EwakstarDoer ewakstarDoer = new EwakstarDoer.Builder()
-				.setNumEWAKStarSeqs(numEWAKStarSeqs)
 				.setOrderOfMag(orderMag)
 				.setPfEw(pfEw)
 				.setEpsilon(epsilon)

@@ -427,7 +427,7 @@ public class EwakstarDoer {
 
         private boolean seqFilterOnly = false;
 
-        private int numEWAKStarSeqs = 20000000;
+        private Double numEWAKStarSeqs = Double.POSITIVE_INFINITY;
         private int orderOfMag = 5;
         private double pfEw = 1.0;
         private int numPfConfs = 500;
@@ -446,7 +446,7 @@ public class EwakstarDoer {
             return this;
         }
 
-        public Builder setNumEWAKStarSeqs(int val){
+        public Builder setNumEWAKStarSeqs(Double val){
             numEWAKStarSeqs = val;
             return this;
         }
@@ -553,7 +553,7 @@ public class EwakstarDoer {
     }
 
 
-    public final int numEWAKStarSeqs;
+    public final Double numEWAKStarSeqs;
     public final int numCPUs;
     public final double eW;
     public final boolean printToConsole;
@@ -581,7 +581,7 @@ public class EwakstarDoer {
 
     private final Map<StateConfs.Key,StateConfs> stateConfsCache = new HashMap<>();
 
-    private EwakstarDoer(boolean printPDBs, boolean useSMA, int smaNodes, State state, double eW, String mutableType, int numMutable, int numCPUs, boolean printToConsole, boolean seqFilterOnly, File logFile, int numEWAKStarSeqs, boolean useWtBenchmark, int orderOfMag, double pfEw, int numPfConfs, double epsilon, int numTopOverallSeqs) {
+    private EwakstarDoer(boolean printPDBs, boolean useSMA, int smaNodes, State state, double eW, String mutableType, int numMutable, int numCPUs, boolean printToConsole, boolean seqFilterOnly, File logFile, Double numEWAKStarSeqs, boolean useWtBenchmark, int orderOfMag, double pfEw, int numPfConfs, double epsilon, int numTopOverallSeqs) {
 
         if(mutableType.equals("exact") || mutableType.equals("max")){
             this.numMutable = numMutable;
@@ -1016,7 +1016,7 @@ public class EwakstarDoer {
 
     }
 
-    public List<SequenceInfo> extractPLSeqsByLB(int numSequences, int orderMag, State PL) {
+    public List<SequenceInfo> extractPLSeqsByLB(double numSequences, int orderMag, State PL) {
 
         // start the A* search over sequences
         SeqAStarTree seqTree = new SeqAStarTree.Builder(new RTs(seqSpace))

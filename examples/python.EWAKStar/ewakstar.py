@@ -44,9 +44,6 @@ ewakstarDoer = osprey.EwakstarDoer(
     # do we want to set our baseline at the wild-type sequence? as in: do we only want sequences better than wild-type?
     useWtBenchmark = False,
 
-    # number of sequences we want to limit ourselves to during the "sequence filter" portion of ewakstarDoer
-    numEWAKStarSeqs = 10000,
-
 	logFile = 'ewakstar.sequences.tsv',
 
 	# how precisely should we estimate partition function values?
