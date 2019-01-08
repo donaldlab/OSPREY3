@@ -381,7 +381,7 @@ public class SeqDB implements AutoCloseable {
 				throw new IllegalArgumentException("Z must be finite: " + z);
 			}
 
-updateZSum(state, seq, sum -> {
+			updateZSum(state, seq, sum -> {
 				sum.lower = bigMath()
 					.set(sum.lower)
 					.add(z.lower)

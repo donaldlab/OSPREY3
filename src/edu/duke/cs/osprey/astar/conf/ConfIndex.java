@@ -65,6 +65,10 @@ public class ConfIndex {
 		this.undefinedPos = other.undefinedPos.clone();
 		this.node = null;
 	}
+
+	public boolean isFullyDefined() {
+		return numDefined == numPos;
+	}
 	
 	public boolean isDefined(int pos) {
 		for (int i=0; i<numDefined; i++) {

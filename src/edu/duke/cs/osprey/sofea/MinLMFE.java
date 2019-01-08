@@ -238,7 +238,7 @@ public class MinLMFE implements Sofea.Criterion {
 
 		// if we don't have enough sequences, keep going
 		if (topSequences.nextLowest == null) {
-			return false;
+			return Sofea.Criterion.KeepIterating;
 		}
 
 		// all the top K sequences must be ...
@@ -246,22 +246,22 @@ public class MinLMFE implements Sofea.Criterion {
 
 			// fully assigned
 			if (!result.sequence.isFullyAssigned()) {
-				return false;
+				return Sofea.Criterion.KeepIterating;
 			}
 
 			// have finite lower bounds
 			if (!Double.isFinite(result.lmfeFreeEnergy.lower)) {
-				return false;
+				return Sofea.Criterion.KeepIterating;
 			}
 
 			// must not overlap the next lowest
 			if (result.lmfeFreeEnergy.upper >= topSequences.nextLowest) {
-				return false;
+				return Sofea.Criterion.KeepIterating;
 			}
 		}
 
 		// all is well!
-		return true;
+		return Sofea.Criterion.Terminate;
 	}
 
 	// TEMP

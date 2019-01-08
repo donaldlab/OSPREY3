@@ -854,7 +854,7 @@ public class MathTools {
 
 		@Override
 		public String toString() {
-			return String.format("[%s,%s]", lower, upper);
+			return String.format("[%e,%e]", lower, upper);
 		}
 	}
 
@@ -866,6 +866,11 @@ public class MathTools {
 		public BigIntegerBounds(BigInteger lower, BigInteger upper) {
 			this.lower = lower;
 			this.upper = upper;
+		}
+
+		@Override
+		public String toString() {
+			return String.format("[%d,%d]", lower, upper);
 		}
 	}
 

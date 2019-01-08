@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.tools.MathTools;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -66,7 +67,9 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
+import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
+
 
 public class TestBase {
 	
@@ -346,7 +349,8 @@ public class TestBase {
 
 			@Override
 			public void describeTo(Description desc) {
-				desc.appendText("bounds ").appendValue(expected);
+				desc.appendText("bounds ").appendValue(expected)
+					.appendText(" within epsilon ").appendValue(epsilon);
 			}
 
 			@Override
@@ -356,13 +360,92 @@ public class TestBase {
 					observed.lower - epsilon - expected,
 					expected - observed.upper + epsilon
 				);
-				desc.appendText("value ").appendValue(observed)
-					.appendText(" misses target by ").appendValue(absErr)
-					.appendText(" which violates epsilon ").appendValue(epsilon);
+				if (expected < observed.lower) {
+					desc.appendValue(expected)
+						.appendText(" is less than ").appendValue(observed)
+						.appendText(" by ").appendValue(absErr);
+				} else {
+					desc.appendValue(observed)
+						.appendText(" is less than ").appendValue(expected)
+						.appendText(" by ").appendValue(absErr);
+				}
 			}
 		};
 	}
-	
+
+	public static Matcher<BigDecimalBounds> isAbsoluteBound(final BigDecimal expected, final double epsilon) {
+		return new BaseMatcher<BigDecimalBounds>() {
+
+			final BigDecimal bigEpsilon = MathTools.biggen(epsilon);
+
+			@Override
+			public boolean matches(Object obj) {
+				BigDecimalBounds observed = (BigDecimalBounds)obj;
+				return MathTools.isGreaterThanOrEqual(observed.upper, observed.lower)
+					&& MathTools.isGreaterThanOrEqual(expected, observed.lower.subtract(bigEpsilon))
+					&& MathTools.isLessThanOrEqual(expected, observed.upper.add(bigEpsilon));
+			}
+
+			@Override
+			public void describeTo(Description desc) {
+				desc.appendText("bounds ").appendValue(format(expected))
+					.appendText(" within epsilon ").appendValue(epsilon);
+			}
+
+			@Override
+			public void describeMismatch(Object obj, Description desc) {
+				BigDecimalBounds observed = (BigDecimalBounds)obj;
+				if (MathTools.isLessThan(observed.upper, observed.lower)) {
+					desc.appendValue(observed).appendText(" is not a valid bound");
+				} else {
+					BigDecimal absErr =
+						observed.lower.subtract(bigEpsilon).subtract(expected)
+						.max(expected.subtract(observed.upper).add(bigEpsilon));
+					if (MathTools.isLessThan(expected, observed.lower)) {
+						desc.appendValue(format(expected))
+							.appendText(" is less than ").appendValue(observed)
+							.appendText(" by ").appendValue(absErr);
+					} else {
+						desc.appendValue(observed)
+							.appendText(" is less than ").appendValue(format(expected))
+							.appendText(" by ").appendValue(format(absErr));
+					}
+				}
+			}
+
+			private String format(BigDecimal val) {
+				return String.format("%e", val);
+			}
+		};
+	}
+
+	public static Matcher<BigDecimalBounds> isAbsoluteBound(final BigDecimalBounds expected, final double epsilon) {
+		return new BaseMatcher<BigDecimalBounds>() {
+
+			final BigDecimal bigEpsilon = MathTools.biggen(epsilon);
+
+			@Override
+			public boolean matches(Object obj) {
+				BigDecimalBounds observed = (BigDecimalBounds)obj;
+				return MathTools.isGreaterThanOrEqual(expected.lower, observed.lower.subtract(bigEpsilon))
+					&& MathTools.isLessThanOrEqual(expected.upper, observed.upper.add(bigEpsilon));
+			}
+
+			@Override
+			public void describeTo(Description desc) {
+				desc.appendText("bounds ").appendValue(expected)
+					.appendText(" within epsilon ").appendValue(epsilon);
+			}
+
+			@Override
+			public void describeMismatch(Object obj, Description desc) {
+				BigDecimalBounds observed = (BigDecimalBounds)obj;
+				desc.appendValue(observed)
+					.appendText(" is not a bound within epsilon");
+			}
+		};
+	}
+
 	public static Matcher<Double> isDegrees(double expected) {
 		return isDegrees(expected, DefaultEpsilon);
 	}

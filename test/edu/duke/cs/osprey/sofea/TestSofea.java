@@ -8,6 +8,7 @@ import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.TestBase.TempFile;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -23,18 +24,25 @@ import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.BigMath;
+import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.MathTools.BigIntegerBounds;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 import edu.duke.cs.osprey.tools.Streams;
 import org.junit.Test;
 
 import java.io.File;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.function.Consumer;
 
 
 public class TestSofea {
+
+	// TODO: test parallel settings
 
 	private static final Parallelism fullCPUParallelism = Parallelism.makeCpu(Parallelism.getMaxNumCPUs());
 	private static final File tmpdir = new File(System.getProperty("java.io.tmpdir"), "testSofea");
@@ -45,14 +53,36 @@ public class TestSofea {
 		tmpdir.mkdirs();
 	}
 
+
+	@Test
+	public void test_Binding1CC8Flex4_Standard_LeafCounts() {
+		Design design = Designs.Binding1CC8Flex4_Standard.get();
+		assertLeafCounts(design);
+	}
+	@Test
+	public void test_Binding1CC8Flex4_Standard_ZValueBounds() {
+		Design design = Designs.Binding1CC8Flex4_Standard.get();
+		assertZValueBounds(design);
+	}
+	@Test
+	public void test_Binding1CC8Flex4_Standard_ZSumBounds() {
+		Design design = Designs.Binding1CC8Flex4_Standard.get();
+		assertZSumBounds(design);
+	}
 	@Test
 	public void test_Binding1CC8Flex4_Standard_CalcG() {
 		Design design = Designs.Binding1CC8Flex4_Standard.get();
 		assertGStates(design, Collections.emptyList(), -17.356, -79.225, -49.195);
 	}
 
+
 	@Test
-	public void test_Stability1CC8Mut2Flex2_Standard_Calc() {
+	public void test_Stability1CC8Mut2Flex2_Standard_LeafCounts() {
+		Design design = Designs.Stability1CC8Mut2Flex2_Standard.get();
+		assertLeafCounts(design);
+	}
+	@Test
+	public void test_Stability1CC8Mut2Flex2_Standard_CalcG() {
 		Design design = Designs.Stability1CC8Mut2Flex2_Standard.get();
 		assertGStates(design, Arrays.asList("SER", "GLY"), -17.356);
 		assertGStates(design, Arrays.asList("VAL", "GLY"), -8.825);
@@ -95,7 +125,22 @@ public class TestSofea {
 
 
 	@Test
-	public void test_Binding1CC8Mut2Flex2_Standard_Calc() {
+	public void test_Binding1CC8Mut2Flex2_Standard_LeafCounts() {
+		Design design = Designs.Binding1CC8Mut2Flex2_Standard.get();
+		assertLeafCounts(design);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex2_Standard_ZValueBounds() {
+		Design design = Designs.Binding1CC8Mut2Flex2_Standard.get();
+		assertZValueBounds(design);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex2_Standard_ZSumBounds() {
+		Design design = Designs.Binding1CC8Mut2Flex2_Standard.get();
+		assertZSumBounds(design);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex2_Standard_CalcG() {
 		Design design = Designs.Binding1CC8Mut2Flex2_Standard.get();
 		assertGStates(design, Arrays.asList("SER", "GLY"), -17.356, -79.225, -49.195);
 		assertGStates(design, Arrays.asList("VAL", "GLY"), -8.825, Double.POSITIVE_INFINITY, -49.195);
@@ -137,8 +182,10 @@ public class TestSofea {
 		);
 	}
 
+
+	// too big for brute-force tests
 	@Test
-	public void test_Binding1CC8Mut3Flex4_Standard_Calc() {
+	public void test_Binding1CC8Mut3Flex4_Standard_CalcG() {
 		Design design = Designs.Binding1CC8Mut3Flex4_Standard.get();
 		assertGStates(design, Arrays.asList("SER", "GLY", "LYS"), -32.567, -148.509, -94.449);
 		assertGStates(design, Arrays.asList("VAL", "GLY", "LYS"), -24.078, Double.POSITIVE_INFINITY, -94.449);
@@ -170,11 +217,51 @@ public class TestSofea {
 		);
 	}
 	@Test
+	public void test_Binding1CC8Mut3Flex4_Standard_SingleSweep_2Threads() {
+		sweepUntilExhaustion(
+			Designs.Binding1CC8Mut3Flex4_Standard.get(),
+			Double.POSITIVE_INFINITY,
+			1024*1024,
+			2,
+			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+		);
+	}
+	@Test
+	public void test_Binding1CC8Mut3Flex4_Standard_SingleSweep_4Threads() {
+		sweepUntilExhaustion(
+			Designs.Binding1CC8Mut3Flex4_Standard.get(),
+			Double.POSITIVE_INFINITY,
+			1024*1024,
+			4,
+			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+		);
+	}
+	@Test
 	public void test_Binding1CC8Mut3Flex4_Standard_MultiSweepHiMem() {
 		sweepUntilExhaustion(
 			Designs.Binding1CC8Mut3Flex4_Standard.get(),
 			50.0,
 			1024*1024,
+			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+		);
+	}
+	@Test
+	public void test_Binding1CC8Mut3Flex4_Standard_MultiSweepHiMem_2Threads() {
+		sweepUntilExhaustion(
+			Designs.Binding1CC8Mut3Flex4_Standard.get(),
+			50.0,
+			1024*1024,
+			2,
+			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+		);
+	}
+	@Test
+	public void test_Binding1CC8Mut3Flex4_Standard_MultiSweepHiMem_4Threads() {
+		sweepUntilExhaustion(
+			Designs.Binding1CC8Mut3Flex4_Standard.get(),
+			50.0,
+			1024*1024,
+			4,
 			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
 		);
 	}
@@ -187,9 +274,45 @@ public class TestSofea {
 			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
 		);
 	}
+	@Test
+	public void test_Binding1CC8Mut3Flex4_Standard_MultiSweepLoMem_2Threads() {
+		sweepUntilExhaustion(
+			Designs.Binding1CC8Mut3Flex4_Standard.get(),
+			50.0,
+			16*1024,
+			2,
+			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+		);
+	}
+	@Test
+	public void test_Binding1CC8Mut3Flex4_Standard_MultiSweepLoMem_4Threads() {
+		sweepUntilExhaustion(
+			Designs.Binding1CC8Mut3Flex4_Standard.get(),
+			50.0,
+			16*1024,
+			4,
+			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+		);
+	}
+
 
 	@Test
-	public void test_Binding1CC8Mut2Flex2_NoPLUG_Calc() {
+	public void test_Binding1CC8Mut2Flex2_NoPLUG_LeafCounts() {
+		Design design = Designs.Binding1CC8Mut2Flex2_NoPLUG.get();
+		assertLeafCounts(design);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex2_NoPLUG_ZValueBounds() {
+		Design design = Designs.Binding1CC8Mut2Flex2_NoPLUG.get();
+		assertZValueBounds(design);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex2_NoPLUG_ZSumBounds() {
+		Design design = Designs.Binding1CC8Mut2Flex2_NoPLUG.get();
+		assertZSumBounds(design);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex2_NoPLUG_CalcG() {
 		Design design = Designs.Binding1CC8Mut2Flex2_NoPLUG.get();
 		assertGStates(design, Arrays.asList("SER", "GLY"), -17.356, -79.225, -49.195);
 		assertGStates(design, Arrays.asList("VAL", "GLY"), -8.825, Double.POSITIVE_INFINITY, -49.195);
@@ -231,6 +354,106 @@ public class TestSofea {
 		);
 	}
 
+
+	/** brute forces every node in the tree and calls the supplied block with a ConfIndex instance describing the node */
+	public static void forEachNode(Sofea.StateInfo stateInfo, Consumer<ConfIndex> block) {
+
+		ConfIndex index = stateInfo.makeConfIndex();
+
+		// NOTE: java has a hard time with recursive lambdas,
+		// so use an array to work around the compiler's limitations
+		Runnable[] f = { null };
+		f[0] = () -> {
+
+			// call the supplied block
+			block.accept(index);
+
+			// stop recursion if this is a leaf node
+			if (index.isFullyDefined()) {
+				return;
+			}
+
+			// otherwise, recurse
+			int pos = index.numDefined;
+			for (int rc : stateInfo.rcs.get(pos)) {
+				index.assignInPlace(pos, rc);
+				f[0].run();
+				index.unassignInPlace(pos);
+			}
+		};
+		f[0].run();
+	}
+
+	public static void assertLeafCounts(Design design) {
+
+		Sofea sofea = new Sofea.Builder(design.confSpace)
+			.configEachState(state -> design.config[state.index])
+			.build();
+
+		for (MultiStateConfSpace.State state : design.confSpace.states) {
+			Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
+
+			forEachNode(stateInfo, index -> {
+				BigIntegerBounds bounds = stateInfo.boundLeavesPerSequence(index);
+				Map<Sequence,BigInteger> counts = stateInfo.countLeavesBySequence(index);
+				BigInteger minCount = counts.values().stream().min(BigInteger::compareTo).orElse(null);
+				BigInteger maxCount = counts.values().stream().max(BigInteger::compareTo).orElse(null);
+				assertThat(bounds.lower, lessThanOrEqualTo(minCount));
+				assertThat(bounds.upper, greaterThanOrEqualTo(maxCount));
+			});
+		}
+	}
+
+	public static void assertZValueBounds(Design design) {
+
+		Sofea sofea = new Sofea.Builder(design.confSpace)
+			.configEachState(state -> design.config[state.index])
+			.build();
+
+		RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
+
+		for (MultiStateConfSpace.State state : design.confSpace.states) {
+			Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
+
+			forEachNode(stateInfo, index -> {
+				BigDecimalBounds bounds = new BigDecimalBounds(
+					stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Minimize),
+					stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Maximize)
+				);
+				BigDecimalBounds exact = stateInfo.exactBoundZ(index, tripleTuple);
+				assertThat(bounds, isAbsoluteBound(exact, 1e-3));
+			});
+		}
+	}
+
+	public static void assertZSumBounds(Design design) {
+
+		Sofea sofea = new Sofea.Builder(design.confSpace)
+			.configEachState(state -> design.config[state.index])
+			.build();
+
+		RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
+
+		for (MultiStateConfSpace.State state : design.confSpace.states) {
+			Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
+
+			forEachNode(stateInfo, index -> {
+
+				// skip leaf nodes
+				if (index.isFullyDefined()) {
+					return;
+				}
+
+				BigDecimalBounds bounds = stateInfo.boundZ(index, tripleTuple, BigDecimal.ONE);
+				BigDecimal exact = stateInfo.calcZ(index, stateInfo.rcs, BigDecimal.ONE);
+				if (bounds != null) {
+					assertThat(bounds, isAbsoluteBound(exact, 1e-3));
+				} else {
+					assertThat(exact.doubleValue(), isAbsolutely(0.0, 1e-3));
+				}
+			});
+		}
+	}
 
 	public static void main(String[] args) {
 
@@ -341,6 +564,10 @@ public class TestSofea {
 	}
 
 	public void sweepUntilExhaustion(Design design, double sweepDivisor, long fringeDBBytes, IntermediateChecker checker) {
+		sweepUntilExhaustion(design, sweepDivisor, fringeDBBytes, 1, checker);
+	}
+
+	public void sweepUntilExhaustion(Design design, double sweepDivisor, long fringeDBBytes, int numThreads, IntermediateChecker checker) {
 		try (TempFile fringedbFile = new TempFile(tmpdir, "fringe.db")) {
 			try (TempFile seqdbFile = new TempFile(tmpdir, "seq.db")) {
 
@@ -350,6 +577,7 @@ public class TestSofea {
 					.setSeqDBFile(seqdbFile)
 					.setSweepDivisor(sweepDivisor)
 					.configEachState(state -> design.config[state.index])
+					.setParallelism(Parallelism.makeCpu(numThreads))
 					.build();
 
 				sofea.init();
@@ -357,7 +585,7 @@ public class TestSofea {
 				// refine, and check results between each sweep
 				sofea.refine((seqdb, fringedb, sweepCount) -> {
 					checker.check(new Results(design, seqdb));
-					return false;
+					return Sofea.Criterion.KeepIterating;
 				});
 
 				// check results once more at end, just for good measure

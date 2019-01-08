@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.*;
+import edu.duke.cs.osprey.tools.MathTools.BigIntegerBounds;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 
@@ -18,6 +19,8 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -26,6 +29,8 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 /**
  * TODO: doc me!
+ *
+ * TODO: use consistent terminology for Z and all its subdivisions
  */
 public class Sofea {
 
@@ -156,7 +161,11 @@ public class Sofea {
 
 	/** decides if computation should continue or not */
 	public static interface Criterion {
+
 		boolean isFinished(SeqDB seqdb, FringeDB fringedb, long sweepCount);
+
+		public static final boolean KeepIterating = false;
+		public static final boolean Terminate = true;
 	}
 
 
@@ -202,6 +211,10 @@ public class Sofea {
 
 	public StateConfig getConfig(MultiStateConfSpace.State state) {
 		return stateConfigs.get(state.index);
+	}
+
+	protected StateInfo getStateInfo(MultiStateConfSpace.State state) {
+		return stateInfos.get(state.index);
 	}
 
 	private BigMath bigMath() {
@@ -261,7 +274,7 @@ public class Sofea {
 						ConfIndex index = stateInfo.makeConfIndex();
 						BigDecimal minZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Minimize);
 						BigDecimal maxZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Maximize);
-						MathTools.BigIntegerBounds size = stateInfo.count(index);
+						BigIntegerBounds size = stateInfo.boundLeavesPerSequence(index);
 
 						rootBound = new MathTools.BigDecimalBounds(
 							bigMath()
@@ -334,19 +347,6 @@ public class Sofea {
 			Conf.index(conf, index);
 		}
 
-		Sequence makeSeq(int[] conf) {
-			Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
-			for (SimpleConfSpace.Position confPos : state.confSpace.positions) {
-				SeqSpace.Position seqPos = confSpace.seqSpace.getPosition(confPos.resNum);
-				int rc = conf[confPos.index];
-				if (seqPos != null && rc != Conf.Unassigned) {
-					SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(rc);
-					seq.set(seqPos, resConf.template.name);
-				}
-			}
-			return seq;
-		}
-
 		void addReplacementNode(ConfIndex index, BigDecimalBounds zbounds, BigDecimal zpath) {
 			replacementNodes.add(new Node(Conf.make(index), zbounds, zpath));
 		}
@@ -359,44 +359,50 @@ public class Sofea {
 			zvals.add(new ZVal(Conf.make(index), z));
 		}
 
-		boolean hasRoomToReplace(FringeDB.Transaction fringetx) {
-			return fringetx.dbHasRoomFor(replacementNodes.size());
+		boolean hasRoomToReplace(FringeDB.Transaction fringetx, int otherNodesInFlight) {
+			return fringetx.dbHasRoomFor(replacementNodes.size() + otherNodesInFlight);
 		}
 
-		void replace(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
+		boolean replace(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
 
-			flushTransactionsIfNeeded(fringetx, seqtx);
+			boolean flushed = flushTransactionsIfNeeded(fringetx, seqtx);
+
+			StateInfo stateInfo = stateInfos.get(state.index);
 
 			// subtract the node zbounds
-			seqtx.subZ(state, makeSeq(conf), zbounds);
+			seqtx.subZ(state, stateInfo.makeSeq(conf), zbounds);
 
 			// update fringedb and seqdb with the replacement nodes
 			for (Node replacementNode : replacementNodes) {
 				fringetx.writeReplacementNode(state, replacementNode.conf, replacementNode.zbounds, replacementNode.zpath);
-				seqtx.addZ(state, makeSeq(replacementNode.conf), replacementNode.zbounds);
+				seqtx.addZ(state, stateInfo.makeSeq(replacementNode.conf), replacementNode.zbounds);
 			}
 
 			// add the z values
 			for (ZVal zval : zvals) {
-				seqtx.addZ(state, makeSeq(zval.conf), zval.z);
+				seqtx.addZ(state, stateInfo.makeSeq(zval.conf), zval.z);
 			}
+
+			return flushed;
 		}
 
-		void requeue(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
+		boolean requeue(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
 
-			flushTransactionsIfNeeded(fringetx, seqtx);
+			boolean flushed = flushTransactionsIfNeeded(fringetx, seqtx);
 
 			// ignore all of the seqdb changes
 
 			// move the node to the end of the fringedb queue
 			fringetx.writeReplacementNode(state, conf, zbounds, zpath);
+
+			return flushed;
 		}
 
-		private void flushTransactionsIfNeeded(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
+		boolean flushTransactionsIfNeeded(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
 
 			// skip if the fringe db transaction isn't full
 			if (fringetx.txHasRoomFor(replacementNodes.size())) {
-				return;
+				return false;
 			}
 
 			// make sure we didn't overflow the buffer entirely
@@ -409,6 +415,8 @@ public class Sofea {
 			// commit both transactions at the same time
 			fringetx.commit();
 			seqtx.commit();
+
+			return true;
 		}
 	}
 
@@ -468,6 +476,10 @@ public class Sofea {
 					stats[state.index] = new StateStats();
 				}
 
+				// keep track of how many nodes are in outstanding tasks, and hence unknown to FringeDB's size counters
+				// NOTE: use a size-one array instead of a plain var, since Java's compiler is kinda dumb about lambdas
+				int[] nodesInFlight = { 0 };
+
 				// start (or resume) the sweep
 				FringeDB.Transaction fringetx = fringedb.transaction();
 				SeqDB.Transaction seqtx = seqdb.transaction();
@@ -481,6 +493,7 @@ public class Sofea {
 							break;
 						}
 						fringetx.readNode();
+						nodesInFlight[0]++;
 						nodetx = new NodeTransaction(
 							fringetx.state(),
 							fringetx.conf(),
@@ -507,7 +520,8 @@ public class Sofea {
 							}
 
 							synchronized (Sofea.this) { // don't race the main thread
-								if (nodetx.hasRoomToReplace(fringetx)) {
+								nodesInFlight[0]--;
+								if (nodetx.hasRoomToReplace(fringetx, nodesInFlight[0])) {
 									stats[nodetx.state.index].added += nodetx.numReplacementNodes();
 									stats[nodetx.state.index].replaced++;
 									nodetx.replace(fringetx, seqtx);
@@ -596,37 +610,14 @@ public class Sofea {
 
 				index.assignInPlace(pos, rc);
 
-				// get the subtree bounds
-				BigDecimal minZ;
-				if (stateInfo.isSingleSequence(index)) {
-					minZ = stateInfo.minimizeZ(index, tripleTuple);
-				} else {
-					minZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Minimize);
+				// get the subtree Z bounds and recurse
+				// but only if the upper bound is nonzero (ie we get non-null subtree bounds)
+				BigDecimalBounds zboundsrc = stateInfo.boundZ(index, tripleTuple, zpathrc);
+				if (zboundsrc != null) {
+
+					// recurse
+					design(nodetx, zmax, tripleTuple, index, zboundsrc, zpathrc);
 				}
-				BigDecimal maxZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Maximize);
-				MathTools.BigIntegerBounds count = stateInfo.count(index);
-
-				// if the upper bound is zero, this subtree contributes nothing to Z
-				if (MathTools.isZero(maxZ) || count.upper.compareTo(BigInteger.ZERO) == 0) {
-					index.unassignInPlace(pos);
-					continue;
-				}
-
-				MathTools.BigDecimalBounds boundsrc  = new MathTools.BigDecimalBounds(
-					bigMath()
-						.set(minZ)
-						.mult(count.lower)
-						.mult(zpathrc)
-						.get(),
-					bigMath()
-						.set(maxZ)
-						.mult(count.upper)
-						.mult(zpathrc)
-						.get()
-				);
-
-				// recurse
-				design(nodetx, zmax, tripleTuple, index, boundsrc, zpathrc);
 
 				index.unassignInPlace(pos);
 			}
@@ -643,7 +634,7 @@ public class Sofea {
 		return stateInfos.get(state.index).calcZ(seq);
 	}
 
-	private class StateInfo {
+	protected class StateInfo {
 
 		final MultiStateConfSpace.State state;
 		final BoltzmannLute blute;
@@ -727,6 +718,19 @@ public class Sofea {
 			return index;
 		}
 
+		Sequence makeSeq(int[] conf) {
+			Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
+			for (SimpleConfSpace.Position confPos : state.confSpace.positions) {
+				SeqSpace.Position seqPos = confSpace.seqSpace.getPosition(confPos.resNum);
+				int rc = conf[confPos.index];
+				if (seqPos != null && rc != Conf.Unassigned) {
+					SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(rc);
+					seq.set(seqPos, resConf.template.name);
+				}
+			}
+			return seq;
+		}
+
 		BigDecimal getZPart(ConfIndex confIndex, RCTuple tripleTuple, int pos1, int rc1) {
 
 			assert (confIndex.numDefined > 0);
@@ -801,26 +805,113 @@ public class Sofea {
 			return true;
 		}
 
+		BigDecimalBounds boundZ(ConfIndex index, RCTuple tripleTuple, BigDecimal zpath) {
+
+			// get bounds on the size of this subtree (varying by sequence)
+			BigIntegerBounds count = boundLeavesPerSequence(index);
+
+			// short circuit if we know Z must be zero
+			if (count.upper.compareTo(BigInteger.ZERO) == 0) {
+				return null;
+			}
+
+			// get the upper bound
+			BigDecimal zmax = optimizeZ(index, tripleTuple, MathTools.Optimizer.Maximize);
+
+			// short circuit if needed
+			if (MathTools.isZero(zmax)) {
+				return null;
+			}
+
+			zmax = bigMath()
+				.set(zmax)
+				.mult(count.upper)
+				.mult(zpath)
+				.get();
+
+			// get the lower bound
+			BigDecimal zmin;
+			if (isSingleSequence(index)) {
+				zmin = bigMath()
+					.set(minimizeZ(index, tripleTuple))
+					.mult(zpath)
+					.get();
+			} else {
+				zmin = bigMath()
+					.set(optimizeZ(index, tripleTuple, MathTools.Optimizer.Minimize))
+					.mult(count.lower)
+					.mult(zpath)
+					.get();
+			}
+
+			return new BigDecimalBounds(zmin, zmax);
+		}
+
+		/** WARNING: naive brute force method, for testing small trees only */
+		BigDecimalBounds exactBoundZ(ConfIndex index, RCTuple tripleTuple) {
+
+			BigDecimalBounds[] opt = { null };
+
+			// NOTE: java has a hard time with recursive lambdas,
+			// so use an array to work around the compiler's limitations
+			@SuppressWarnings("unchecked")
+			Consumer<BigDecimal>[] f = (Consumer<BigDecimal>[])new Consumer[]{null};
+			f[0] = (zpath) -> {
+
+				// if this is a leaf node, update the Z optimization
+				if (index.isFullyDefined()) {
+					if (opt[0] == null) {
+						opt[0] = new BigDecimalBounds(zpath, zpath);
+					} else if (MathTools.isLessThan(zpath, opt[0].lower)) {
+						opt[0].lower = zpath;
+					} else if (MathTools.isGreaterThan(zpath, opt[0].upper)) {
+						opt[0].upper = zpath;
+					}
+					return;
+				}
+
+				// otherwise, recurse
+				int pos = index.numDefined;
+				for (int rc : rcs.get(pos)) {
+
+					BigDecimal zpathrc;
+					if (index.numDefined == 0) {
+						zpathrc = zpath;
+					} else {
+						zpathrc = bigMath()
+							.set(zpath)
+							.mult(getZPart(index, tripleTuple, pos, rc))
+							.get();
+					}
+
+					index.assignInPlace(pos, rc);
+					f[0].accept(zpathrc);
+					index.unassignInPlace(pos);
+				}
+			};
+			f[0].accept(BigDecimal.ONE);
+
+			return opt[0];
+		}
+
 		BigDecimal minimizeZ(ConfIndex index, RCTuple tripleTuple) {
 
 			// do DFS to get *any* leaf node
 			// but heuristically prefer leaf nodes with higher Z values
-			// so we get a higher min bound on Z
-
-			// only returns a sound lower bound on Z when the subtree describes only a single sequence
-
+			// so we get a higher min bound on the Z sum
 			// that requires sorting though, so for now we're just preferring non-zero Z values
+
+			// only returns a sound lower bound on the Z sum when the subtree describes only a single sequence
 
 			// assign the next position
 			int pos = index.undefinedPos[0];
 
-			// maximize over possible assignments to pos1
 			for (int rc : rcs.get(pos)) {
 
 				// get the zpart
 				BigDecimal zpart;
 				if (index.numDefined == 0) {
-					zpart = blute.factor;
+					zpart = BigDecimal.ONE;
 				} else {
 					zpart = getZPart(index, tripleTuple, pos, rc);
 				}
@@ -1015,9 +1106,44 @@ public class Sofea {
 			return false;
 		}
 
-		MathTools.BigIntegerBounds count(ConfIndex index) {
+		/** WARNING: naive brute force method, for testing small trees only */
+		Map<Sequence,BigInteger> countLeavesBySequence(ConfIndex index) {
 
-			MathTools.BigIntegerBounds count = new MathTools.BigIntegerBounds(BigInteger.ONE, BigInteger.ONE);
+			Map<Sequence,BigInteger> out = new HashMap<>();
+
+			// NOTE: java has a hard time with recursive lambdas,
+			// so use an array to work around the compiler's limitations
+			Runnable[] f = { null };
+			f[0] = () -> {
+
+				// if this is a leaf node, increment the sequence counter
+				if (index.isFullyDefined()) {
+					out.compute(makeSeq(Conf.make(index)), (seq,  old) -> {
+						if (old == null) {
+							return BigInteger.ONE;
+						} else {
+							return old.add(BigInteger.ONE);
+						}
+					});
+					return;
+				}
+
+				// otherwise, recurse
+				int pos = index.numDefined;
+				for (int rc : rcs.get(pos)) {
+					index.assignInPlace(pos, rc);
+					f[0].run();
+					index.unassignInPlace(pos);
+				}
+			};
+			f[0].run();
+
+			return out;
+		}
+
+		BigIntegerBounds boundLeavesPerSequence(ConfIndex index) {
+
+			BigIntegerBounds count = new BigIntegerBounds(BigInteger.ONE, BigInteger.ONE);
 
 			for (int i=0; i<index.numUndefined; i++) {
 				int pos = index.undefinedPos[i];
@@ -1052,16 +1178,16 @@ public class Sofea {
 
 		BigDecimal calcZ() {
 			ConfIndex index = makeConfIndex();
-			return calcZ(index, rcs);
+			return calcZ(index, rcs, blute.factor);
 		}
 
 		BigDecimal calcZ(Sequence seq) {
 			ConfIndex index = makeConfIndex();
 			RCs rcs = seq.makeRCs(state.confSpace);
-			return calcZ(index, rcs);
+			return calcZ(index, rcs, blute.factor);
 		}
 
-		BigDecimal calcZ(ConfIndex index, RCs rcs) {
+		BigDecimal calcZ(ConfIndex index, RCs rcs, BigDecimal rootFactor) {
 
 			// cannot work on leaf nodes
 			assert (index.numDefined < index.numPos);
@@ -1080,7 +1206,7 @@ public class Sofea {
 				// get the zpart
 				BigDecimal zpart;
 				if (index.numDefined == 0) {
-					zpart = blute.factor;
+					zpart = rootFactor;
 				} else {
 					zpart = getZPart(index, tripleTuple, pos, rc);
 				}
@@ -1095,7 +1221,7 @@ public class Sofea {
 					// have positions left to assign, so recurse
 					index.assignInPlace(pos, rc);
 					z = bigMath()
-						.set(calcZ(index, rcs))
+						.set(calcZ(index, rcs, rootFactor))
 						.mult(zpart)
 						.add(z)
 						.get();
