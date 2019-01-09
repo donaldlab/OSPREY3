@@ -57,9 +57,14 @@ public class Sofea {
 			this.stateConfigs = new StateConfig[confSpace.states.size()];
 		}
 
+		public Builder configState(MultiStateConfSpace.State state, StateConfig config) {
+			stateConfigs[state.index] = config;
+			return this;
+		}
+
 		public Builder configEachState(Function<MultiStateConfSpace.State,StateConfig> configurator) {
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				stateConfigs[state.index] = configurator.apply(state);
+				configState(state, configurator.apply(state));
 			}
 			return this;
 		}

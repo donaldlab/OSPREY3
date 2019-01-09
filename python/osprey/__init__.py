@@ -429,9 +429,51 @@ def ConfSpace(strands, shellDist=None):
 	return builder.build()
 
 
-def StrandFlex():
-	# TODO: implement me
-	pass
+class StateMutable(object):
+	def __init__(self, name, confSpace):
+		'''
+		:param str name: unique for the state
+		:param confSpace: the conformation space
+		:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+		'''
+		self.name = name
+		self.confSpace = confSpace
+
+class StateUnmutable(object):
+	def __init__(self, name, confSpace):
+		'''
+		:param str name: unique for the state
+		:param confSpace: the conformation space
+		:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+		'''
+		self.name = name
+		self.confSpace = confSpace
+
+
+def MultiStateConfSpace(states):
+	'''
+	:java:classdoc:`.confspace.MultiStateConfSpace`
+
+	:param states: A list of states to use
+	:type states: list of StateMutable and StateUnmutable instances
+	'''
+
+	# split out the mutable and unmutable states
+	mutableStates = [state for state in states if type(state) is StateMutable]
+	unmutableStates = [state for state in states if type(state) is StateUnmutable]
+
+	# start the builder with the first mutable state
+	if len(mutableStates) <= 0:
+		raise Exception("MultiStateConfSpace needs at least one mutable state")
+	builder = _get_builder(c.confspace.MultiStateConfSpace)(mutableStates[0].name, mutableStates[0].confSpace)
+
+	# add the rest of the states
+	for state in mutableStates[1:]:
+		builder.addMutableState(state.name, state.confSpace)
+	for state in unmutableStates:
+		builder.addUnmutableState(state.name, state.confSpace)
+
+	return builder.build()
 
 
 def ForcefieldParams(forcefield=None):
@@ -575,6 +617,7 @@ def DEE(confSpace, emat,
 		singlesGoldsteinDiffThreshold=useJavaDefault, pairsGoldsteinDiffThreshold=useJavaDefault, triplesGoldsteinDiffThreshold=useJavaDefault,
 		typeDependent=useJavaDefault, numIterations=useJavaDefault,
 		singlesPlugThreshold=useJavaDefault, pairsPlugThreshold=useJavaDefault, triplesPlugThreshold=useJavaDefault,
+		singlesTransitivePruning=useJavaDefault, pairsTransitivePruning=useJavaDefault, triplesTransitivePruning=useJavaDefault,
 		showProgress=useJavaDefault, parallelism=useJavaDefault, cacheFile=useJavaDefault
 	):
 	'''
@@ -593,6 +636,9 @@ def DEE(confSpace, emat,
 	:builder_option singlesPlugThreshold .pruning.SimpleDEE$Runner#singlesPlugThreshold:
 	:builder_option pairsPlugThreshold .pruning.SimpleDEE$Runner#pairsPlugThreshold:
 	:builder_option triplesPlugThreshold .pruning.SimpleDEE$Runner#triplesPlugThreshold:
+	:builder_option singlesTransitivePruning .pruning.SimpleDEE$Runner#singlesTransitivePruning:
+	:builder_option pairsTransitivePruning .pruning.SimpleDEE$Runner#pairsTransitivePruning:
+	:builder_option triplesTransitivePruning .pruning.SimpleDEE$Runner#triplesTransitivePruning:
 	:builder_option typeDependent .pruning.SimpleDEE$Runner#typeDependent:
 	:builder_option numIterations .pruning.SimpleDEE$Runner#numIterations:
 	:builder_option showProgress .pruning.SimpleDEE$Runner#showProgress:
@@ -614,6 +660,12 @@ def DEE(confSpace, emat,
 		runner.setTypeDependent(typeDependent)
 	if numIterations is not useJavaDefault:
 		runner.setNumIterations(numIterations)
+	if singlesTransitivePruning is not useJavaDefault:
+		runner.setSinglesTransitivePruning(singlesTransitivePruning)
+	if pairsTransitivePruning is not useJavaDefault:
+		runner.setPairsTransitivePruning(pairsTransitivePruning)
+	if triplesTransitivePruning is not useJavaDefault:
+		runner.setTriplesTransitivePruning(triplesTransitivePruning)
 	if singlesPlugThreshold is not useJavaDefault:
 		runner.setSinglesPlugThreshold(singlesPlugThreshold)
 	if pairsPlugThreshold is not useJavaDefault:
@@ -1390,3 +1442,54 @@ def EwakstarDoer(state, smaNodes, useSMA=useJavaDefault, printPDBs=useJavaDefaul
         builder.setLogFile(jvm.toFile(logFile))
 
     return builder.build()
+
+
+
+def SOFEA_StateConfig(luteEcalc, pmat):
+	'''
+	TODO
+	:param luteEcalc:
+	:param pmat:
+	:return:
+	'''
+	return jvm.getInnerClass(c.sofea.Sofea, 'StateConfig')(luteEcalc, pmat)
+
+def SOFEA(confSpace, configFunc, parallelism=useJavaDefault, fringeDBPath=useJavaDefault, fringeDBSizeMiB=useJavaDefault, seqDBPath=useJavaDefault):
+	'''
+	TODO
+	:param confSpace:
+	:param configFunc:
+	:param parallelism:
+	:param fringeDBPath:
+	:param fringeDBSizeMiB:
+	:param seqDBPath:
+	:return:
+	'''
+
+	builder = _get_builder(c.sofea.Sofea)(confSpace)
+
+	for state in confSpace.states:
+		builder.configState(state, configFunc(state))
+
+	if parallelism is not useJavaDefault:
+		builder.setParallelism(parallelism)
+	if fringeDBPath is not useJavaDefault:
+		builder.setFringeDBFile(jvm.toFile(fringeDBPath))
+	if fringeDBSizeMiB is not useJavaDefault:
+		builder.setFringeDBMiB(fringeDBSizeMiB)
+	if seqDBPath is not useJavaDefault:
+		builder.setSeqDBFile(jvm.toFile(seqDBPath))
+
+	# TODO: expose the rest of the options
+
+	return builder.build()
+
+def SOFEA_MinLMFE(lmfe, numSequences, mathContext):
+	'''
+	TODO
+	:param lmfe:
+	:param numSequences:
+	:param mathContext:
+	:return:
+	'''
+	return c.sofea.MinLMFE(lmfe, numSequences, mathContext)

@@ -61,6 +61,8 @@ def init(c):
 	wrapResidueFlex(c)
 	wrapGMECFinder(c)
 	wrapStrandBuilder(c)
+	wrapAutocloseable(c.sofea.SeqDB)
+	wrapAutocloseable(c.sofea.FringeDB)
 
 
 def checkDeprecatedResNumbers(resNums, fnnames):
@@ -150,3 +152,8 @@ def wrapStrandBuilder(c):
 
 		old(self, start, stop)
 	wrapMethod(jtype, 'setResidues', newSetResidues)
+
+
+def wrapAutocloseable(jtype):
+	setattr(jtype, '__enter__', lambda self: self)
+	setattr(jtype, '__exit__', lambda self, exType, exValue, traceback: self.close())

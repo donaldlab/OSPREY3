@@ -4,6 +4,14 @@ package edu.duke.cs.osprey.confspace;
 import java.util.*;
 
 
+/**
+ * A composite conformation space composed of other conformation spaces.
+ * Each conformation space is a "state" and is associated with a descriptive name, like "protein" or "ligand".
+ *
+ * Each state can be mutable and have an associated sequence space, or be unmutable.
+ * The first conformation space must be mutable, and it defines the sequence space
+ * for the entire multi-state conformation space.
+ */
 public class MultiStateConfSpace {
 
 	public static class State {
