@@ -43,30 +43,16 @@ public class PLUGLab {
 			.addStrand(strand)
 			.build();
 
-		/*
 		// benchmark PLUG
-		RCTuple tuple = new RCTuple(0, 5, 1, 7);
+		RCTuple tuple = new RCTuple(1, 0);
 		PLUG plug = new PLUG(confSpace);
-		Benchmark b = new Benchmark(4, 100, () -> {
+		Benchmark b = new Benchmark(10, 200, () -> {
 			plug.shouldPruneTuple(tuple, 0.4);
 		});
 		log("tuple %s: %s", tuple, b);
 
-		// TEMP: benchmark emat
-		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams()).build()) {
-			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
-				.setEnergyPartition(EnergyPartition.AllOnPairs)
-				.build();
-			log("emat: %s", new Benchmark(4, 100, () -> {
-				confEcalc.calcPairEnergy(tuple);
-			}));
-		}
-
-		// 26 ops - base
-		// 62 ops - cache atom voxels
-		// 128 ops - optimize gradient calculation
-		// just enumerating atom pairs is 115 ops =(
-		*/
+		// TEMP
+		if (true) return;
 
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
 			.setParallelism(parallelism)

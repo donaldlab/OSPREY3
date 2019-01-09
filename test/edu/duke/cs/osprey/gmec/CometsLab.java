@@ -137,7 +137,7 @@ public class CometsLab {
 
 						// compute LUTE fit
 						LUTE lute = new LUTE(state.confSpace);
-						ConfSampler sampler = new UniformConfSampler(state.confSpace, pmat, randomSeed);
+						ConfSampler sampler = new RandomizedDFSConfSampler(state.confSpace, pmat, randomSeed);
 						lute.sampleTuplesAndFit(state.confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
 						lute.reportConfSpaceSize(pmat);
 						lute.save(luteFile);

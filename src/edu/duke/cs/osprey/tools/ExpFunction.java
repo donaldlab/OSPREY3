@@ -61,17 +61,20 @@ import java.math.*;
 @SuppressWarnings("serial")
 public class ExpFunction implements Serializable {
 
-	BigDecimal exp = new BigDecimal("2.71828182845904523536"); //Euler's number to 20 decimal digits
+	public static final BigDecimal exp = new BigDecimal("2.71828182845904523536"); //Euler's number to 20 decimal digits
+	public static MathContext mc = new MathContext(100, RoundingMode.HALF_EVEN);
 
 	public final int maxPrecision; //the number of decimal digits to which the BigDecimal numbers must be accurate
-	public static MathContext mc = new MathContext(100, RoundingMode.HALF_EVEN);
-	//constructor
 
 	public ExpFunction() {
+		this.mathContext = null;
 		this.maxPrecision = 8;
 	}
 
+	private final MathContext mathContext;
+
 	public ExpFunction(MathContext mathContext) {
+		this.mathContext = mathContext;
 		this.maxPrecision = mathContext.getPrecision();
 	}
 
@@ -111,7 +114,6 @@ public class ExpFunction implements Serializable {
 
 	//Returns an approximation to the natural logarithm of the BigDecimal number num
 	public BigDecimal log(BigDecimal num){
-
 		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
 			throw new IllegalArgumentException("log of a negative number: " + num);
 		}

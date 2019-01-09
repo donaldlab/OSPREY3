@@ -41,7 +41,7 @@ public class BigMath {
 
 	public final MathContext context;
 
-	private BigDecimal d;
+	private BigDecimal d = null;
 
 	public BigMath(MathContext context) {
 		this.context = context;
@@ -49,6 +49,11 @@ public class BigMath {
 
 	public BigMath(int precision) {
 		this(new MathContext(precision, RoundingMode.HALF_UP));
+	}
+
+	public BigMath clear() {
+		d = null;
+		return this;
 	}
 
 	public BigDecimal get() {
@@ -68,12 +73,12 @@ public class BigMath {
 		return set(MathTools.biggen(val));
 	}
 
-	public BigMath add(BigDecimal other) {
-		d = MathTools.bigAdd(d, other, context);
+	public BigMath add(BigDecimal val) {
+		d = MathTools.bigAdd(d, val, context);
 		return this;
 	}
-	public BigMath add(BigInteger other) {
-		return add(new BigDecimal(other));
+	public BigMath add(BigInteger val) {
+		return add(new BigDecimal(val));
 	}
 	public BigMath add(double val) {
 		return add(MathTools.biggen(val));
@@ -82,12 +87,29 @@ public class BigMath {
 		return add(MathTools.biggen(val));
 	}
 
-	public BigMath sub(BigDecimal other) {
-		d = MathTools.bigSubtract(d, other, context);
+	public BigMath addOrSet(BigDecimal val) {
+		if (d == null) {
+			return set(val);
+		} else {
+			return add(val);
+		}
+	}
+	public BigMath addOrSet(BigInteger val) {
+		return addOrSet(new BigDecimal(val));
+	}
+	public BigMath addOrSet(double val) {
+		return addOrSet(MathTools.biggen(val));
+	}
+	public BigMath addOrSet(long val) {
+		return addOrSet(MathTools.biggen(val));
+	}
+
+	public BigMath sub(BigDecimal val) {
+		d = MathTools.bigSubtract(d, val, context);
 		return this;
 	}
-	public BigMath sub(BigInteger other) {
-		return sub(new BigDecimal(other));
+	public BigMath sub(BigInteger val) {
+		return sub(new BigDecimal(val));
 	}
 	public BigMath sub(double val) {
 		return sub(MathTools.biggen(val));
@@ -96,12 +118,12 @@ public class BigMath {
 		return sub(MathTools.biggen(val));
 	}
 
-	public BigMath mult(BigDecimal other) {
-		d = MathTools.bigMultiply(d, other,context);
+	public BigMath mult(BigDecimal val) {
+		d = MathTools.bigMultiply(d, val, context);
 		return this;
 	}
-	public BigMath mult(BigInteger other) {
-		return mult(new BigDecimal(other));
+	public BigMath mult(BigInteger val) {
+		return mult(new BigDecimal(val));
 	}
 	public BigMath mult(double val) {
 		return mult(MathTools.biggen(val));
@@ -110,17 +132,66 @@ public class BigMath {
 		return mult(MathTools.biggen(val));
 	}
 
-	public BigMath div(BigDecimal other) {
-		d = MathTools.bigDivide(d, other, context);
+	public BigMath multOrSet(BigDecimal val) {
+		if (d == null) {
+			return set(val);
+		} else {
+			return mult(val);
+		}
+	}
+	public BigMath multOrSet(BigInteger val) {
+		return multOrSet(new BigDecimal(val));
+	}
+	public BigMath multOrSet(double val) {
+		return multOrSet(MathTools.biggen(val));
+	}
+	public BigMath multOrSet(long val) {
+		return multOrSet(MathTools.biggen(val));
+	}
+
+	public BigMath div(BigDecimal val) {
+		d = MathTools.bigDivide(d, val, context);
 		return this;
 	}
-	public BigMath div(BigInteger other) {
-		return div(new BigDecimal(other));
+	public BigMath div(BigInteger val) {
+		return div(new BigDecimal(val));
 	}
 	public BigMath div(double val) {
 		return div(MathTools.biggen(val));
 	}
 	public BigMath div(long val) {
 		return div(MathTools.biggen(val));
+	}
+
+	public BigMath atLeast(BigDecimal val) {
+		if (MathTools.isGreaterThan(val, d)) {
+			d = val;
+		}
+		return this;
+	}
+	public BigMath atLeast(BigInteger val) {
+		return atLeast(new BigDecimal(val));
+	}
+	public BigMath atLeast(double val) {
+		return atLeast(MathTools.biggen(val));
+	}
+	public BigMath atLeast(long val) {
+		return atLeast(MathTools.biggen(val));
+	}
+
+	public BigMath atMost(BigDecimal val) {
+		if (MathTools.isLessThan(val, d)) {
+			d = val;
+		}
+		return this;
+	}
+	public BigMath atMost(BigInteger val) {
+		return atMost(new BigDecimal(val));
+	}
+	public BigMath atMost(double val) {
+		return atMost(MathTools.biggen(val));
+	}
+	public BigMath atMost(long val) {
+		return atMost(MathTools.biggen(val));
 	}
 }

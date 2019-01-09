@@ -81,4 +81,13 @@ public class HashCalculator {
 		}
 		return hashCode;
 	}
+
+	@SafeVarargs
+	public static <T> int combineObjHashes(T ... objs) {
+		int hashCode = 1;
+		for (T obj : objs) {
+			hashCode = hashCode * 31 + obj.hashCode();
+		}
+		return hashCode;
+	}
 }

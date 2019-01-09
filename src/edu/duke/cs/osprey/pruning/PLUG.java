@@ -8,19 +8,14 @@ import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
-import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.*;
-import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.Progress;
 import org.apache.commons.math3.linear.ArrayRealVector;
 import org.apache.commons.math3.linear.RealVector;
 import org.apache.commons.math3.optim.SimpleBounds;
 import org.apache.commons.math3.optim.linear.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -236,48 +231,19 @@ public class PLUG {
 		}
 	}
 
-	private static class AtomKey {
-
-		public final String resNum;
-		public final ResidueTemplate template;
-		public final String atomName;
-
-		public AtomKey(Atom atom) {
-			resNum = atom.res.getPDBResNumber();
-			template = atom.res.template;
-			atomName = atom.name;
-		}
-
-		@Override
-		public int hashCode() {
-			return HashCalculator.combineHashes(
-				resNum.hashCode(),
-				template.hashCode(),
-				atomName.hashCode()
-			);
-		}
-
-		@Override
-		public boolean equals(Object other) {
-			return other instanceof AtomKey && equals((AtomKey)other);
-		}
-
-		public boolean equals(AtomKey other) {
-			return this.resNum.equals(other.resNum)
-				&& this.template == other.template
-				&& this.atomName.equals(other.atomName);
-		}
-	}
-
 	private class AtomVoxel {
 
 		final Atom atom;
-		final List<Integer> dofIndices = new ArrayList<>();
 		final Probe.AtomInfo probeInfo;
+		final List<Integer> dofIndices = new ArrayList<>();
 
-		AtomVoxel(Atom atom, Voxel voxel, Probe probe) {
-
+		AtomVoxel(Atom atom, Probe probe) {
 			this.atom = atom;
+			this.probeInfo = probe.getAtomInfo(atom);
+		}
+
+		AtomVoxel(Atom atom, Probe probe, Voxel voxel) {
+			this(atom, probe);
 
 			// determine which dofs affect this atom position
 			for (int d=0; d<voxel.numDofs; d++) {
@@ -300,8 +266,6 @@ public class PLUG {
 					dofIndices.add(d);
 				}
 			}
-
-			this.probeInfo = probe.getAtomInfo(atom);
 		}
 
 		public boolean hasDofs() {
@@ -404,7 +368,7 @@ public class PLUG {
 
 	public List<LinearConstraint> getLinearConstraints(Voxel voxel, ResidueInteractions inters, double tolerance) {
 
-		HashMap<AtomKey,AtomVoxel> atomVoxels = new HashMap<>();
+		Map<Atom,AtomVoxel> atomVoxels = new HashMap<>();
 		List<LinearConstraint> constraints = new ArrayList<>();
 
 		// for each res pair
@@ -418,19 +382,20 @@ public class PLUG {
 				Atom a2 = res2.atoms.get(atomPair[1]);
 
 				// get voxel info for each atom, or skip the pair if no dofs
-				AtomVoxel v1 = atomVoxels.computeIfAbsent(new AtomKey(a1), (key) -> new AtomVoxel(a1, voxel, probe));
-				AtomVoxel v2 = atomVoxels.computeIfAbsent(new AtomKey(a2), (key) -> new AtomVoxel(a2, voxel, probe));
+				AtomVoxel v1 = atomVoxels.computeIfAbsent(a1, (key) -> new AtomVoxel(a1, probe, voxel));
+				AtomVoxel v2 = atomVoxels.computeIfAbsent(a2, (key) -> new AtomVoxel(a2, probe, voxel));
 				if (!v1.hasDofs() && !v2.hasDofs()) {
 					continue;
 				}
-				AtomPairVoxel pairVoxel = new AtomPairVoxel(voxel, v1, v2);
 
+				AtomPairVoxel pairVoxel = new AtomPairVoxel(voxel, v1, v2);
 				LinearConstraint constraint = getLinearConstraint(pairVoxel, tolerance);
 				if (constraint != null) {
 					constraints.add(constraint);
 				}
 			}
 		}
+
 		return constraints;
 	}
 

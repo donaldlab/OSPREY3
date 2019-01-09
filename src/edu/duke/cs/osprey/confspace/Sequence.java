@@ -120,6 +120,11 @@ public class Sequence {
 		Arrays.fill(rtIndices, Unassigned);
 	}
 
+	public Sequence(SeqSpace seqSpace, int[] rtIndices) {
+		this.seqSpace = seqSpace;
+		this.rtIndices = rtIndices;
+	}
+
 	/**
 	 * Returns the list of residue numbers for this sequence.
 	 */

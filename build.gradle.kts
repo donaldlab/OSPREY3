@@ -113,6 +113,7 @@ dependencies {
 	compile("com.github.haifengl:smile-netlib:1.5.1")
 	compile("ch.qos.logback:logback-classic:1.2.3")
 	compile("de.lmu.ifi.dbs.elki:elki:0.7.1")
+	compile("ch.obermuhlner:big-math:2.0.1")
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
 	// so turn off transitive dependencies. we'll deal with natives manually
@@ -207,6 +208,40 @@ distributions {
 			}
 		}
 	}
+
+	// for running tests on servers
+	create("test").apply {
+		baseName = "osprey-test"
+		contents {
+
+			into("") { // project root
+				from("LICENSE.txt")
+			}
+
+			// include libs, classes, and resources
+			val files = java.sourceSets["test"].runtimeClasspath
+			into("lib") {
+				from(files
+					.filter { it.extension == "jar" }
+				)
+			}
+			into("classes") {
+				from(files
+					.filter { it.isDirectory }
+					// exclude resources dirs, they're apparently already in the classes dirs
+					.filter { !it.endsWith("resources/main") }
+					.filter { !it.endsWith("resources/test") }
+				)
+			}
+
+			// add the run script
+			into("bin") {
+				from(pythonBuildDir) {
+					include("run.*")
+				}
+			}
+		}
+	}
 }
 
 val pythonCmd = "python2"
@@ -214,14 +249,14 @@ val pipCmd = "pip2"
 
 tasks {
 
-	// get vals for tasks we care about that were defined by plugins
-	val jar = tasks.getByName("jar")
-
 	// turn off tar distributions
 	"distTar" {
 		enabled = false
 	}
 	"pythonDistTar" {
+		enabled = false
+	}
+	"testDistTar" {
 		enabled = false
 	}
 
@@ -327,7 +362,7 @@ tasks {
 
 			// copy osprey jar
 			copy {
-				from(jar)
+				from(tasks["jar"])
 				into(libDir.toFile())
 			}
 
@@ -372,6 +407,29 @@ tasks {
 	// insert some build steps before we build the python dist
 	"pythonDistZip" {
 		dependsOn(pythonWheel, makeDoc, pythonInstallScripts, pythonUninstallScripts)
+	}
+
+	val testRunScript by creating {
+		doLast {
+
+			val classpath =
+				(
+					listOf("classes") +
+					java.sourceSets["test"].runtimeClasspath
+						.filter { it.extension == "jar" }
+						.map { "lib/${it.name}" }
+				)
+				.joinToString(":")
+
+			writeShellScript(
+				"run",
+				"java -cp \"$classpath\" $@"
+			)
+		}
+	}
+
+	"testDistZip" {
+		dependsOn(tasks["testClasses"], testRunScript)
 	}
 
 	val updateLicenseHeaders by creating {

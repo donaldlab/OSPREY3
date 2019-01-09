@@ -138,6 +138,7 @@ public class SimpleDEE {
 	 *    steric/threshold pruning
 	 * 	  Dead-End Elimination (DEE)
 	 *    Pruning of Local Unrealistic Geometries (PLUG)
+	 *    Transitive pruning (ie, prune tuples implied by other pruned tuples)
 	 * to remove tuples of RCs that will not appear in low-energy conformations.
 	 */
 	public static class Runner {
@@ -152,6 +153,9 @@ public class SimpleDEE {
 		private Double singlesPlugThrehsold = null;
 		private Double pairsPlugThrehsold = null;
 		private Double triplesPlugThrehsold = null;
+		private boolean singlesTransitivePruning = false;
+		private boolean pairsTransitivePruning = false;
+		private boolean triplesTransitivePruning = false;
 		private boolean showProgress = false;
 		private File cacheFile = null;
 		private Parallelism parallelism = Parallelism.makeCpu(1);
@@ -231,6 +235,28 @@ public class SimpleDEE {
 			return this;
 		}
 
+		public Runner setSinglesTransitivePruning(boolean val) {
+			singlesTransitivePruning = val;
+			return this;
+		}
+
+		public Runner setPairsTransitivePruning(boolean val) {
+			pairsTransitivePruning = val;
+			return this;
+		}
+
+		public Runner setTriplesTransitivePruning(boolean val) {
+			triplesTransitivePruning = val;
+			return this;
+		}
+
+		public Runner setTransitivePruning(boolean val) {
+			setSinglesTransitivePruning(val);
+			setPairsTransitivePruning(val);
+			setTriplesTransitivePruning(val);
+			return this;
+		}
+
 		public Runner setShowProgress(boolean val) {
 			showProgress = val;
 			return this;
@@ -295,31 +321,11 @@ public class SimpleDEE {
 					dee.prunePairsByThreshold(pairsThreshold);
 					maybeReport.accept("Threshold Pairs");
 				}
+
+				transitivePruning(confSpace, pmat, maybeReport);
 			}
 
-			// 2. pruning with PLUG
-			if (singlesPlugThrehsold != null || pairsPlugThrehsold != null || triplesPlugThrehsold != null) {
-				if (showProgress) {
-					System.out.println("Pruning with PLUG...");
-				}
-				try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
-					PLUG plug = new PLUG(confSpace);
-					if (singlesPlugThrehsold != null) {
-						plug.pruneSingles(pmat, singlesPlugThrehsold, tasks);
-						maybeReport.accept("PLUG Singles");
-					}
-					if (pairsPlugThrehsold != null) {
-						plug.prunePairs(pmat, pairsPlugThrehsold, tasks);
-						maybeReport.accept("PLUG Pairs");
-					}
-					if (triplesPlugThrehsold != null) {
-						plug.pruneTriples(pmat, triplesPlugThrehsold, tasks);
-						maybeReport.accept("PLUG Triples");
-					}
-				}
-			}
-
-			// 3. iterative DEE pruning
+			// 2. iterative DEE pruning
 			if (singlesGoldsteinDiffThreshold != null || pairsGoldsteinDiffThreshold != null || triplesGoldsteinDiffThreshold != null) {
 
 				// choose the competitor RCs (prune with an interval of 0)
@@ -373,6 +379,32 @@ public class SimpleDEE {
 						break;
 					}
 				}
+
+				transitivePruning(confSpace, pmat, maybeReport);
+			}
+
+			// 3. pruning with PLUG
+			if (singlesPlugThrehsold != null || pairsPlugThrehsold != null || triplesPlugThrehsold != null) {
+				if (showProgress) {
+					System.out.println("Pruning with PLUG...");
+				}
+				try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
+					PLUG plug = new PLUG(confSpace);
+					if (singlesPlugThrehsold != null) {
+						plug.pruneSingles(pmat, singlesPlugThrehsold, tasks);
+						maybeReport.accept("PLUG Singles");
+					}
+					if (pairsPlugThrehsold != null) {
+						plug.prunePairs(pmat, pairsPlugThrehsold, tasks);
+						maybeReport.accept("PLUG Pairs");
+					}
+					if (triplesPlugThrehsold != null) {
+						plug.pruneTriples(pmat, triplesPlugThrehsold, tasks);
+						maybeReport.accept("PLUG Triples");
+					}
+				}
+
+				transitivePruning(confSpace, pmat, maybeReport);
 			}
 
 			// show total pruning results
@@ -391,6 +423,29 @@ public class SimpleDEE {
 			}
 
 			return pmat;
+		}
+
+		private void transitivePruning(SimpleConfSpace confSpace, PruningMatrix pmat, Consumer<String> maybeReport) {
+			if (singlesTransitivePruning || pairsTransitivePruning || triplesTransitivePruning) {
+				if (showProgress) {
+					System.out.println("Transitive Pruning...");
+				}
+				try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
+					TransitivePruner pruner = new TransitivePruner(confSpace);
+					if (singlesTransitivePruning) {
+						pruner.pruneSingles(pmat, tasks);
+						maybeReport.accept("Transitive Singles");
+					}
+					if (pairsTransitivePruning) {
+						pruner.prunePairs(pmat, tasks);
+						maybeReport.accept("Transitive Pairs");
+					}
+					if (triplesTransitivePruning) {
+						pruner.pruneTriples(pmat, tasks);
+						maybeReport.accept("Transitive Triples");
+					}
+				}
+			}
 		}
 	}
 

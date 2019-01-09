@@ -44,11 +44,17 @@ public class TestExpFunction {
 		final double Epsilon = 1e-8;
 		ExpFunction exp = new ExpFunction();
 		assertThat(exp.exp(-10.0).doubleValue(), isAbsolutely(Math.exp(-10.0), Epsilon));
+		assertThat(exp.exp( -7.5).doubleValue(), isAbsolutely(Math.exp( -7.5), Epsilon));
 		assertThat(exp.exp( -5.0).doubleValue(), isAbsolutely(Math.exp( -5.0), Epsilon));
+		assertThat(exp.exp( -2.5).doubleValue(), isAbsolutely(Math.exp( -2.5), Epsilon));
 		assertThat(exp.exp( -1.0).doubleValue(), isAbsolutely(Math.exp( -1.0), Epsilon));
+		assertThat(exp.exp( -0.5).doubleValue(), isAbsolutely(Math.exp( -0.5), Epsilon));
 		assertThat(exp.exp(  0.0).doubleValue(), isAbsolutely(Math.exp(  0.0), Epsilon));
+		assertThat(exp.exp(  0.5).doubleValue(), isAbsolutely(Math.exp(  0.5), Epsilon));
 		assertThat(exp.exp(  1.0).doubleValue(), isAbsolutely(Math.exp(  1.0), Epsilon));
+		assertThat(exp.exp(  2.5).doubleValue(), isAbsolutely(Math.exp(  2.5), Epsilon));
 		assertThat(exp.exp(  5.0).doubleValue(), isAbsolutely(Math.exp(  5.0), Epsilon));
+		assertThat(exp.exp(  7.5).doubleValue(), isAbsolutely(Math.exp(  7.5), Epsilon));
 		assertThat(exp.exp( 10.0).doubleValue(), isAbsolutely(Math.exp( 10.0), Epsilon));
 	}
 }

@@ -334,7 +334,7 @@ public class TestLute {
 
 			// compute LUTE fit
 			LUTE lute = new LUTE(confSpace);
-			ConfSampler sampler = new UniformConfSampler(confSpace, pmat, randomSeed);
+			ConfSampler sampler = new RandomizedDFSConfSampler(confSpace, pmat, randomSeed);
 			lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
 			lute.reportConfSpaceSize(pmat);
 

@@ -467,6 +467,20 @@ public class TestMathTools {
 	@Test
 	public void bigMultiply() {
 
+		assertThat(bigMultiply(Double.NaN, Double.NaN), is(MathTools.BigNaN));
+
+		assertThat(bigMultiply(Double.POSITIVE_INFINITY, Double.NaN), is(MathTools.BigNaN));
+		assertThat(bigMultiply(Double.NEGATIVE_INFINITY, Double.NaN), is(MathTools.BigNaN));
+		assertThat(bigMultiply(-1.0, Double.NaN), is(MathTools.BigNaN));
+		assertThat(bigMultiply(0.0, Double.NaN), is(MathTools.BigNaN));
+		assertThat(bigMultiply(1.0, Double.NaN), is(MathTools.BigNaN));
+
+		assertThat(bigMultiply(Double.NaN, Double.POSITIVE_INFINITY), is(MathTools.BigNaN));
+		assertThat(bigMultiply(Double.NaN, Double.NEGATIVE_INFINITY), is(MathTools.BigNaN));
+		assertThat(bigMultiply(Double.NaN, -1.0), is(MathTools.BigNaN));
+		assertThat(bigMultiply(Double.NaN, 0.0), is(MathTools.BigNaN));
+		assertThat(bigMultiply(Double.NaN, 1.0), is(MathTools.BigNaN));
+
 		assertThat(bigMultiply(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY), is(MathTools.BigPositiveInfinity));
 		assertThat(bigMultiply(Double.POSITIVE_INFINITY, 5.0), is(MathTools.BigPositiveInfinity));
 		assertThat(bigMultiply(Double.POSITIVE_INFINITY, 0.0).doubleValue(), is(0.0));
@@ -538,6 +552,20 @@ public class TestMathTools {
 		assertThat(bigDivide(Double.NEGATIVE_INFINITY, 0.0), is(MathTools.BigNegativeInfinity));
 		assertThat(bigDivide(Double.NEGATIVE_INFINITY, -5.0), is(MathTools.BigPositiveInfinity));
 		assertThat(bigDivide(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY), is(MathTools.BigNaN));
+	}
+
+	public static double bigNegate(double a) {
+		return MathTools.bigNegate(MathTools.biggen(a)).doubleValue();
+	}
+
+	@Test
+	public void bigNegate() {
+		assertThat(bigNegate(-1.0), is(1.0));
+		assertThat(bigNegate(0.0), is(0.0));
+		assertThat(bigNegate(1.0), is(-1.0));
+		assertThat(bigNegate(Double.NaN), is(Double.NaN));
+		assertThat(bigNegate(Double.NEGATIVE_INFINITY), is(Double.POSITIVE_INFINITY));
+		assertThat(bigNegate(Double.POSITIVE_INFINITY), is(Double.NEGATIVE_INFINITY));
 	}
 
 	@Test

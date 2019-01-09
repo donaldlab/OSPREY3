@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.confspace;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.*;
+import java.math.BigInteger;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -147,6 +148,10 @@ public class SeqSpace implements Serializable {
 				return rt;
 			}
 			throw new NoSuchElementException("Res type " + name + " not allowed at position " + resNum + ". Try one of " + resTypes);
+		}
+
+		public boolean hasMutants() {
+			return !mutations.isEmpty();
 		}
 
 		@Override
@@ -308,6 +313,34 @@ public class SeqSpace implements Serializable {
 			seq.set(pos, resTypes.get(i));
 		}
 		return seq;
+	}
+
+	public boolean hasMutants() {
+		for (Position pos : positions) {
+			if (pos.hasMutants()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public BigInteger getNumSequences() {
+		BigInteger count = BigInteger.ONE;
+		for (Position pos : positions) {
+			count = count.multiply(BigInteger.valueOf(pos.resTypes.size()));
+		}
+		return count;
+	}
+
+	public List<Sequence> getSequences() {
+		return getSequences(positions.size());
+	}
+
+	public List<Sequence> getSequences(int maxSimultaneousMutations) {
+		List<Sequence> sequences = new ArrayList<>();
+		sequences.add(makeWildTypeSequence());
+		sequences.addAll(getMutants(maxSimultaneousMutations));
+		return sequences;
 	}
 
 	public List<Sequence> getMutants() {

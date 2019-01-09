@@ -35,17 +35,24 @@ package edu.duke.cs.osprey.kstar.pfunc;
 import java.math.BigDecimal;
 import java.math.MathContext;
 
+import ch.obermuhlner.math.big.BigDecimalMath;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.tools.ExpFunction;
+import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
+import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
+
 
 public class BoltzmannCalculator {
-	
+
 	public static double constRT = PoissonBoltzmannEnergy.constRT;
 
+	public final MathContext mathContext;
 	public final ExpFunction e;
 
 	public BoltzmannCalculator(MathContext mathContext) {
-		e = new ExpFunction(mathContext);
+		this.mathContext = mathContext;
+		this.e = new ExpFunction(mathContext);
 	}
 	
 	public BigDecimal calc(double energy) {
@@ -54,5 +61,49 @@ public class BoltzmannCalculator {
 
 	public double freeEnergy(BigDecimal z) {
 		return -constRT*e.log(z).doubleValue();
+	}
+
+	public BigDecimal calcPrecise(double e) {
+		return exp(-e/constRT);
+	}
+
+	public BigDecimal exp(double e) {
+		if (Double.isNaN(e)) {
+			return MathTools.BigNaN;
+		} else if (e == Double.NEGATIVE_INFINITY) {
+			return BigDecimal.ZERO;
+		} else if (e == Double.POSITIVE_INFINITY) {
+			return MathTools.BigPositiveInfinity;
+		} else {
+			return BigDecimalMath.exp(new BigDecimal(e), mathContext);
+		}
+	}
+
+	public double freeEnergyPrecise(BigDecimal z) {
+		return -constRT*ln(z);
+	}
+
+	public DoubleBounds freeEnergyPrecise(BigDecimalBounds z) {
+		// remember to swap the bounds, since computing free energy negates the value
+		return new DoubleBounds(
+			freeEnergyPrecise(z.upper),
+			freeEnergyPrecise(z.lower)
+		);
+	}
+
+	public double ln(BigDecimal z) {
+		if (MathTools.isNaN(z) || MathTools.isNegative(z)) {
+			return Double.NaN;
+		} else if (MathTools.isZero(z)) {
+			return Double.NEGATIVE_INFINITY;
+		} else if (z == MathTools.BigPositiveInfinity) {
+			return Double.POSITIVE_INFINITY;
+		} else {
+			return BigDecimalMath.log(z, mathContext).doubleValue();
+		}
+	}
+
+	public double ln1p(BigDecimal z) {
+		return ln(z.add(BigDecimal.ONE));
 	}
 }

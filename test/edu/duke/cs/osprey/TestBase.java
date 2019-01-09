@@ -37,13 +37,11 @@ import static org.hamcrest.Matchers.*;
 
 import java.io.File;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -68,7 +66,10 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.Protractor;
+import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
+import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
+
 
 public class TestBase {
 	
@@ -315,19 +316,136 @@ public class TestBase {
 			@Override
 			public void describeMismatch(Object obj, Description desc) {
 				double[] observed = (double[])obj;
+
+				if (observed.length != n) {
+
+					desc.appendText("value ").appendValue(observed)
+						.appendText(" has length ").appendValue(observed.length);
+
+				} else {
 				
-				// get the max err
-				double maxAbsErr = 0;
-				for (int i=0; i<n; i++) {
-					maxAbsErr = Math.max(maxAbsErr, getAbsoluteError(expected[i], observed[i]));
+					// get the max err
+					double maxAbsErr = 0;
+					for (int i=0; i<n; i++) {
+						maxAbsErr = Math.max(maxAbsErr, getAbsoluteError(expected[i], observed[i]));
+					}
+					desc.appendText("value ").appendValue(observed)
+						.appendText(" has max absolute err ").appendValue(maxAbsErr)
+						.appendText(" that's greater than epsilon ").appendValue(epsilon);
 				}
-				desc.appendText("value ").appendValue(observed)
-					.appendText(" has mas absolute err ").appendValue(maxAbsErr)
-					.appendText(" that's greater than epsilon ").appendValue(epsilon);
 			}
 		};
 	}
-	
+
+	public static Matcher<DoubleBounds> isAbsoluteBound(final double expected, final double epsilon) {
+		return new BaseMatcher<DoubleBounds>() {
+
+			@Override
+			public boolean matches(Object obj) {
+				DoubleBounds observed = (DoubleBounds)obj;
+				return expected >= observed.lower - epsilon
+					&& expected <= observed.upper + epsilon;
+			}
+
+			@Override
+			public void describeTo(Description desc) {
+				desc.appendText("bounds ").appendValue(expected)
+					.appendText(" within epsilon ").appendValue(epsilon);
+			}
+
+			@Override
+			public void describeMismatch(Object obj, Description desc) {
+				DoubleBounds observed = (DoubleBounds)obj;
+				double absErr = Math.max(
+					observed.lower - epsilon - expected,
+					expected - observed.upper + epsilon
+				);
+				if (expected < observed.lower) {
+					desc.appendValue(expected)
+						.appendText(" is less than ").appendValue(observed)
+						.appendText(" by ").appendValue(absErr);
+				} else {
+					desc.appendValue(observed)
+						.appendText(" is less than ").appendValue(expected)
+						.appendText(" by ").appendValue(absErr);
+				}
+			}
+		};
+	}
+
+	public static Matcher<BigDecimalBounds> isAbsoluteBound(final BigDecimal expected, final double epsilon) {
+		return new BaseMatcher<BigDecimalBounds>() {
+
+			final BigDecimal bigEpsilon = MathTools.biggen(epsilon);
+
+			@Override
+			public boolean matches(Object obj) {
+				BigDecimalBounds observed = (BigDecimalBounds)obj;
+				return MathTools.isGreaterThanOrEqual(observed.upper, observed.lower)
+					&& MathTools.isGreaterThanOrEqual(expected, observed.lower.subtract(bigEpsilon))
+					&& MathTools.isLessThanOrEqual(expected, observed.upper.add(bigEpsilon));
+			}
+
+			@Override
+			public void describeTo(Description desc) {
+				desc.appendText("bounds ").appendValue(format(expected))
+					.appendText(" within epsilon ").appendValue(epsilon);
+			}
+
+			@Override
+			public void describeMismatch(Object obj, Description desc) {
+				BigDecimalBounds observed = (BigDecimalBounds)obj;
+				if (MathTools.isLessThan(observed.upper, observed.lower)) {
+					desc.appendValue(observed).appendText(" is not a valid bound");
+				} else {
+					BigDecimal absErr =
+						observed.lower.subtract(bigEpsilon).subtract(expected)
+						.max(expected.subtract(observed.upper).add(bigEpsilon));
+					if (MathTools.isLessThan(expected, observed.lower)) {
+						desc.appendValue(format(expected))
+							.appendText(" is less than ").appendValue(observed)
+							.appendText(" by ").appendValue(absErr);
+					} else {
+						desc.appendValue(observed)
+							.appendText(" is less than ").appendValue(format(expected))
+							.appendText(" by ").appendValue(format(absErr));
+					}
+				}
+			}
+
+			private String format(BigDecimal val) {
+				return String.format("%e", val);
+			}
+		};
+	}
+
+	public static Matcher<BigDecimalBounds> isAbsoluteBound(final BigDecimalBounds expected, final double epsilon) {
+		return new BaseMatcher<BigDecimalBounds>() {
+
+			final BigDecimal bigEpsilon = MathTools.biggen(epsilon);
+
+			@Override
+			public boolean matches(Object obj) {
+				BigDecimalBounds observed = (BigDecimalBounds)obj;
+				return MathTools.isGreaterThanOrEqual(expected.lower, observed.lower.subtract(bigEpsilon))
+					&& MathTools.isLessThanOrEqual(expected.upper, observed.upper.add(bigEpsilon));
+			}
+
+			@Override
+			public void describeTo(Description desc) {
+				desc.appendText("bounds ").appendValue(expected)
+					.appendText(" within epsilon ").appendValue(epsilon);
+			}
+
+			@Override
+			public void describeMismatch(Object obj, Description desc) {
+				BigDecimalBounds observed = (BigDecimalBounds)obj;
+				desc.appendValue(observed)
+					.appendText(" is not a bound within epsilon");
+			}
+		};
+	}
+
 	public static Matcher<Double> isDegrees(double expected) {
 		return isDegrees(expected, DefaultEpsilon);
 	}
@@ -468,6 +586,10 @@ public class TestBase {
 
 		public TempFile(String filename) {
 			super(filename);
+		}
+
+		public TempFile(File dir, String filename) {
+			super(dir, filename);
 		}
 
 		@Override

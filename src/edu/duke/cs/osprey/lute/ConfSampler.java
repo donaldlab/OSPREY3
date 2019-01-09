@@ -100,6 +100,26 @@ public abstract class ConfSampler {
 			return confs.size();
 		}
 
+		public int countTuplesWithLessThan(int numConfs) {
+			int count = 0;
+			for (int tupleConfs : numConfsByTuple) {
+				if (tupleConfs < numConfs) {
+					count++;
+				}
+			}
+			return count;
+		}
+
+		public int countTuplesWithAtLeast(int numConfs) {
+			int count = 0;
+			for (int tupleConfs : numConfsByTuple) {
+				if (tupleConfs >= numConfs) {
+					count++;
+				}
+			}
+			return count;
+		}
+
 		// don't let callers edit these sets
 		// since we need to keep confsByTuple and confs synchronized
 

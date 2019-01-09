@@ -33,6 +33,8 @@
 package edu.duke.cs.osprey.astar.conf;
 
 
+import java.util.Arrays;
+
 public class ConfIndex {
 	
 	public final int numPos;
@@ -52,6 +54,20 @@ public class ConfIndex {
         this.definedRCs = new int[numPos];
         this.numUndefined = 0;
         this.undefinedPos = new int[numPos];
+	}
+
+	public ConfIndex(ConfIndex other) {
+		this.numPos = other.numPos;
+		this.numDefined = other.numDefined;
+		this.definedPos = other.definedPos.clone();
+		this.definedRCs = other.definedRCs.clone();
+		this.numUndefined = other.numUndefined;
+		this.undefinedPos = other.undefinedPos.clone();
+		this.node = null;
+	}
+
+	public boolean isFullyDefined() {
+		return numDefined == numPos;
 	}
 	
 	public boolean isDefined(int pos) {
@@ -74,54 +90,59 @@ public class ConfIndex {
 	
 	public ConfIndex assign(int nextPos, int nextRc) {
 		
-		ConfIndex other = new ConfIndex(numPos);
-		
-		// the next pos should be undefined (and not defined)
-		assert (this.isUndefined(nextPos));
-		assert (!this.isDefined(nextPos));
-		
-		// copy from the other index
-		other.numDefined = this.numDefined + 1;
-		other.numUndefined = this.numUndefined - 1;
-		
-		// update defined side
-		boolean isInserted = false;
-		for (int i=0; i<this.numDefined; i++) {
-			int pos = this.definedPos[i];
-			int rc = this.definedRCs[i];
-			if (nextPos > pos) {
-				other.definedPos[i] = pos;
-				other.definedRCs[i] = rc;
-			} else {
-				
-				if (!isInserted) {
-					other.definedPos[i] = nextPos;
-					other.definedRCs[i] = nextRc;
-					isInserted = true;
-				}
-				
-				other.definedPos[i+1] = pos;
-				other.definedRCs[i+1] = rc;
-			}
-		}
-		if (!isInserted) {
-			other.definedPos[this.numDefined] = nextPos;
-			other.definedRCs[this.numDefined] = nextRc;
-		}
-		
-		// update undefined side
-		int j = 0;
-		for (int i=0; i<this.numUndefined; i++) {
-			int pos = this.undefinedPos[i];
-			if (pos != nextPos) {
-				other.undefinedPos[j++] = pos;
-			}
-		}
+		ConfIndex other = new ConfIndex(this);
+		other.assignInPlace(nextPos, nextRc);
 		
 		// init defaults for things we won't copy
 		other.node = null;
 		
 		return other;
+	}
+
+	public void assignInPlace(int pos, int rc) {
+
+		// update defined side
+		int insertIndex = Arrays.binarySearch(definedPos, 0, numDefined, pos);
+		if (insertIndex >= 0) {
+			throw new IllegalArgumentException("pos " + pos + " already assigned");
+		}
+		insertIndex = -insertIndex - 1;
+		for (int i=numDefined; i>insertIndex; i--) {
+			definedPos[i] = definedPos[i-1];
+			definedRCs[i] = definedRCs[i-1];
+		}
+		definedPos[insertIndex] = pos;
+		definedRCs[insertIndex] = rc;
+		numDefined++;
+
+		updateUndefined();
+	}
+
+	public ConfIndex unassign(int pos) {
+
+		ConfIndex other = new ConfIndex(this);
+		other.unassignInPlace(pos);
+
+		// init defaults for things we won't copy
+		other.node = null;
+
+		return other;
+	}
+
+	public void unassignInPlace(int pos) {
+
+		// update defined side
+		int removeIndex = Arrays.binarySearch(definedPos, 0, numDefined, pos);
+		if (removeIndex < 0) {
+			throw new IllegalArgumentException("pos " + pos + " not assigned");
+		}
+		numDefined--;
+		for (int i=removeIndex; i<numDefined; i++) {
+			definedPos[i] = definedPos[i+1];
+			definedRCs[i] = definedRCs[i+1];
+		}
+
+		updateUndefined();
 	}
 
 	/**
@@ -151,15 +172,42 @@ public class ConfIndex {
 
 	/**
 	 * Populates the unassigned positions, based on what's not assigned
-	 * @return this, for method chaining
+	 * defined positions must be sorted
 	 */
-	public ConfIndex updateUndefined() {
+	public void updateUndefined() {
+
 		numUndefined = 0;
+
+		int i = 0;
 		for (int pos=0; pos<numPos; pos++) {
-			if (!isDefined(pos)) {
+
+			// does this pos match the next defined pos?
+			if (i < numDefined && pos == definedPos[i]) {
+
+				// yup, skip this pos
+				i++;
+
+			} else {
+
+				// nope, it's undefined, append it
 				undefinedPos[numUndefined++] = pos;
 			}
 		}
-		return this;
+	}
+
+	@Override
+	public String toString() {
+		StringBuilder buf = new StringBuilder();
+		buf.append('[');
+		for (int i=0; i<numDefined; i++) {
+			if (i > 0) {
+				buf.append(", ");
+			}
+			buf.append(definedPos[i]);
+			buf.append('=');
+			buf.append(definedRCs[i]);
+		}
+		buf.append(']');
+		return buf.toString();
 	}
 }
