@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -74,7 +75,7 @@ public class MSKStarLab {
 			.addState(ligand, -1.0)
 			.build();
 		MSKStar mskstar = new MSKStar.Builder(objective)
-			.setEpsilon(0.68)
+			.setEpsilon(0.9999)
 			.setMaxSimultaneousMutations(3)
 			.setLogFile(new File("mskstar.tsv"))
 			.build();
@@ -108,7 +109,16 @@ public class MSKStarLab {
 					.build();
 
 				// use ConfDB
-				state.confDBFile = new File(String.format("mskstar.%s.conf.db", state.name.toLowerCase()));
+				state.confDBFile = null;// new File(String.format("mskstar.%s.conf.db", state.name.toLowerCase()));
+
+				state.pfuncFactory = new PartitionFunctionFactory(state.confSpace, state.confEcalc, state.name);
+				//state.pfuncFactory.setUseGradientDescent(state.confEcalc);
+				EnergyCalculator rigidEcalc = new EnergyCalculator.Builder(confSpaceList, ffparams)
+						.setParallelism(Parallelism.makeCpu(8))
+						.setIsMinimizing(false)
+						.build();
+				ConfEnergyCalculator rigidConfEcalc = new ConfEnergyCalculator(state.confEcalc, rigidEcalc);
+				state.pfuncFactory.setUseMARKStar(rigidConfEcalc);
 			}
 
 			mskstar.findBestSequences(5);

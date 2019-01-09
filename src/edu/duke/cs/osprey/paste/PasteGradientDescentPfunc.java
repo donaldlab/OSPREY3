@@ -62,6 +62,8 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 		BigDecimal energyWeightSum = BigDecimal.ZERO;
 		BigDecimal minLowerScoreWeight = MathTools.BigPositiveInfinity;
 
+		public static double constRT = -1.9891/1000.0 * 298.15;//RT in kcal/mol
+
 		// estimate of inital rates
 		// (values here aren't super imporant since they get tuned during execution,
 		// but make scores much faster than energies so we don't get a slow start)
@@ -117,6 +119,33 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 				.get();
 		}
 
+		boolean noWindowOverlaps (PastePartitionFunction.Result wt, long numConfs){
+
+			if (wt != null && numConfs >= 10) {
+
+				double lowerBoundScore = constRT * Math.log(new BigMath(PastePartitionFunction.decimalPrecision)
+						.set(getUpperBound())
+						.div(wt.values.calcLowerBound())
+						.get().doubleValue());
+
+				// calc the upper bound
+				double upperBoundScore = constRT * Math.log((new BigMath(PastePartitionFunction.decimalPrecision)
+						.set(getLowerBound())
+						.div(wt.values.calcUpperBound())
+						.get().doubleValue()));
+
+				if (lowerBoundScore > 0) {
+					return true;
+				} else if (upperBoundScore < 0) {
+					return true;
+				} else
+					return false;
+			}
+
+			else
+				return false;
+		}
+
 		boolean epsilonReached(double targetEpsilon) {return calcDelta() <= targetEpsilon;}
 
 		boolean energyReached(double targetEnergy) {return calcDiff() >= targetEnergy;}
@@ -166,6 +195,9 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 	private boolean hasScoreConfs = true;
 	private long numEnergyConfsEnumerated = 0;
 	private long numScoreConfsEnumerated = 0;
+
+	private boolean useWindowCriterion;
+	private PastePartitionFunction.Result wtResult = null;
 
 	private ConfDB.ConfTable confTable = null;
 
@@ -234,12 +266,14 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 	}
 
 	@Override
-	public void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy) {
+	public void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy, PastePartitionFunction.Result wtResult, boolean useWindowCriterion) {
 
 		if (targetEpsilon <= 0.0 || targetEnergy < 0) {
 			throw new IllegalArgumentException("target epsilon and target energy must be greater than zero");
 		}
 
+		this.useWindowCriterion = useWindowCriterion;
+		this.wtResult = wtResult;
 		this.energyConfs = energyConfs;
 		this.targetEpsilon = targetEpsilon;
 		this.targetEnergy = targetEnergy;
@@ -288,11 +322,21 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 			synchronized (this) { // don't race the listener thread
 
 				// should we even keep stepping?
-				keepStepping = keepStepping
-					&& !state.epsilonReached(targetEpsilon)
-					&& state.isStable(stabilityThreshold)
-					&& state.hasLowEnergies()
-					&& !state.energyReached(targetEnergy);
+
+				if(wtResult!=null && useWindowCriterion) {
+					keepStepping = keepStepping
+							&& !state.epsilonReached(targetEpsilon)
+							&& !state.noWindowOverlaps(wtResult, numEnergyConfsEnumerated)
+							&& state.isStable(stabilityThreshold)
+							&& state.hasLowEnergies()
+							&& !state.energyReached(targetEnergy);
+				} else {
+					keepStepping = keepStepping
+							&& !state.epsilonReached(targetEpsilon)
+							&& state.isStable(stabilityThreshold)
+							&& state.hasLowEnergies()
+							&& !state.energyReached(targetEnergy);
+				}
 				if (!keepStepping) {
 					break;
 				}
@@ -446,6 +490,10 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 		// did we hit the epsilon target?
 		if (state.epsilonReached(targetEpsilon)) {
 			status = Status.EpsilonReached;
+		}
+
+		if (useWindowCriterion && wtResult!=null && state.noWindowOverlaps(wtResult, numEnergyConfsEnumerated)){
+			status = Status.NoWindowOverlap;
 		}
 
 		//did we hit the energy window?

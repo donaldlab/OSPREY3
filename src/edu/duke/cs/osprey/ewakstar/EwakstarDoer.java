@@ -47,7 +47,7 @@ public class EwakstarDoer {
 
     public static class Results {
         private EWAKStarBBKStar bbkstar;
-        public List<EWAKStar.ScoredSequence> sequences;
+        public List<Sequence> sequences;
     }
 
     /**
@@ -298,7 +298,7 @@ public class EwakstarDoer {
             //if we have the wild-type sequence, we want it's minimized energy
             if(isWT){
                 lowestScoringConf = confTree.nextConf();
-                wtConf = state.confEcalc.calcEnergy(confTree.nextConf());
+                wtConf = state.confEcalc.calcEnergy(lowestScoringConf);
             }
             else {
                 lowestScoringConf = confTree.nextConf();
@@ -427,7 +427,7 @@ public class EwakstarDoer {
 
         private boolean seqFilterOnly = false;
 
-        private int numEWAKStarSeqs = 20000000;
+        private Double numEWAKStarSeqs = Double.POSITIVE_INFINITY;
         private int orderOfMag = 5;
         private double pfEw = 1.0;
         private int numPfConfs = 500;
@@ -446,7 +446,7 @@ public class EwakstarDoer {
             return this;
         }
 
-        public Builder setNumEWAKStarSeqs(int val){
+        public Builder setNumEWAKStarSeqs(Double val){
             numEWAKStarSeqs = val;
             return this;
         }
@@ -553,7 +553,7 @@ public class EwakstarDoer {
     }
 
 
-    public final int numEWAKStarSeqs;
+    public final Double numEWAKStarSeqs;
     public final int numCPUs;
     public final double eW;
     public final boolean printToConsole;
@@ -577,10 +577,11 @@ public class EwakstarDoer {
     public final boolean useSMA;
     public final int smaNodes;
     public final boolean printPDBs;
+    public List<SequenceInfo> infos = new ArrayList<>();
 
     private final Map<StateConfs.Key,StateConfs> stateConfsCache = new HashMap<>();
 
-    private EwakstarDoer(boolean printPDBs, boolean useSMA, int smaNodes, State state, double eW, String mutableType, int numMutable, int numCPUs, boolean printToConsole, boolean seqFilterOnly, File logFile, int numEWAKStarSeqs, boolean useWtBenchmark, int orderOfMag, double pfEw, int numPfConfs, double epsilon, int numTopOverallSeqs) {
+    private EwakstarDoer(boolean printPDBs, boolean useSMA, int smaNodes, State state, double eW, String mutableType, int numMutable, int numCPUs, boolean printToConsole, boolean seqFilterOnly, File logFile, Double numEWAKStarSeqs, boolean useWtBenchmark, int orderOfMag, double pfEw, int numPfConfs, double epsilon, int numTopOverallSeqs) {
 
         if(mutableType.equals("exact") || mutableType.equals("max")){
             this.numMutable = numMutable;
@@ -634,21 +635,12 @@ public class EwakstarDoer {
         System.out.println("Performing EWAK*");
 
         //calculate the size of the system
-        int combinatorialSize = 0;
-        List<List<SimpleConfSpace.Position>> powersetOfPositions = MathTools.powersetUpTo(PL.confSpace.positions, numMutable);
-        for (List<SimpleConfSpace.Position> mutablePositions : powersetOfPositions) {
-            if(!(useExact && mutablePositions.size()!=numMutable)) {
-                List<Integer> numResTypes = new ArrayList<>();
-                for (SimpleConfSpace.Position pos : mutablePositions) {
-                    numResTypes.add(pos.resFlex.resTypes.size() - 1);
-                }
-                int tempSize = 1;
-                for (Integer n : numResTypes) {
-                    tempSize = tempSize * n;
-                }
-                combinatorialSize += tempSize;
-            }
+        BigDecimal totalConfs = BigDecimal.ONE;
+        for(int i=0; i<PL.confSpace.positions.size(); i++) {
+            BigDecimal newConfs = new BigDecimal (PL.confSpace.positions.get(i).resConfs.size());
+            totalConfs = totalConfs.multiply(newConfs);
         }
+
 
         state.checkConfig();
 
@@ -712,6 +704,8 @@ public class EwakstarDoer {
         Set<Sequence> fullSeqs = combineSeqs(newPSeqs, newLSeqs, filteredSeqsPL);
 
         long stopEWAKStarTime;
+
+        log("The original conformation space size is: %6.3e", totalConfs);
         if (!seqFilterOnly) {
             EwakstarLimitedSequenceTrie elstPL = new EwakstarLimitedSequenceTrie(ewakstarDoerPL.seqSpace);
             if(fullSeqs.size()!=0) {
@@ -723,13 +717,13 @@ public class EwakstarDoer {
         }
         if(seqFilterOnly) {
             writeSeqsToFile(fullSeqs);
-            System.out.println("Number of sequences filtered down to "+ fullSeqs.size()+" from "+combinatorialSize);
+            System.out.println("Number of sequences filtered down to "+ fullSeqs.size()+" from "+formatBig(new RTs(seqSpace).getNumSequences()));
             stopEWAKStarTime = System.currentTimeMillis()-intermediateStartTime+timeTakenSoFar;
             System.out.println("Total OSPREY/EWAK* time (not including energy matrix time): "+(String.format("%d sec",
                     TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime))));
             return fullSeqs;
         } else
-            System.out.println("Number of sequences filtered down to "+ fullSeqs.size()+" from "+combinatorialSize);
+            System.out.println("Number of sequences filtered down to "+ fullSeqs.size()+" from "+formatBig(new RTs(seqSpace).getNumSequences()));
         stopEWAKStarTime = System.currentTimeMillis()-intermediateStartTime+timeTakenSoFar;
         System.out.println("Total OSPREY/EWAK* time (not including energy matrix time): "+(String.format("%d sec",
                 TimeUnit.MILLISECONDS.toSeconds(stopEWAKStarTime))));
@@ -814,6 +808,7 @@ public class EwakstarDoer {
 
         List<String> resTypes;
         Set<Sequence> newPL = new HashSet<>();
+        BigInteger totalConfs = BigInteger.ZERO;
 
         if(P.size()!=0 && L.size()!=0) {
             for (Sequence sP : P) {
@@ -828,6 +823,7 @@ public class EwakstarDoer {
                     Sequence newSeq = ewakstarDoerPL.seqSpace.makeSequence(resTypes);
                     if (PL.contains(newSeq.toString())) {
                         newPL.add(newSeq);
+                        totalConfs = totalConfs.add(getNumConfsForSeq(newSeq, ewakstarDoerPL.state.confSpace));
                     }
                 }
             }
@@ -842,6 +838,7 @@ public class EwakstarDoer {
                 Sequence newSeq = ewakstarDoerPL.seqSpace.makeSequence(resTypes);
                 if (PL.contains(newSeq.toString())) {
                     newPL.add(newSeq);
+                    totalConfs = totalConfs.add(getNumConfsForSeq(newSeq, ewakstarDoerPL.state.confSpace));
                 }
 
             }
@@ -856,11 +853,13 @@ public class EwakstarDoer {
                 Sequence newSeq = ewakstarDoerPL.seqSpace.makeSequence(resTypes);
                 if (PL.contains(newSeq.toString())) {
                     newPL.add(newSeq);
+                    totalConfs = totalConfs.add(getNumConfsForSeq(newSeq, ewakstarDoerPL.state.confSpace));
                 }
 
             }
         }
 
+        log("The remaining conformation space size is: %6.3e", totalConfs.doubleValue());
         return newPL;
     }
 
@@ -1017,7 +1016,7 @@ public class EwakstarDoer {
 
     }
 
-    public List<SequenceInfo> extractPLSeqsByLB(int numSequences, int orderMag, State PL) {
+    public List<SequenceInfo> extractPLSeqsByLB(double numSequences, int orderMag, State PL) {
 
         // start the A* search over sequences
         SeqAStarTree seqTree = new SeqAStarTree.Builder(new RTs(seqSpace))
@@ -1030,7 +1029,6 @@ public class EwakstarDoer {
                 .setNumMutable(numMutable)
                 .build();
 
-        List<SequenceInfo> infos = new ArrayList<>();
         double pfUB;
         double wtPfLB = Double.POSITIVE_INFINITY;
         boolean didSeqMax = false;
@@ -1042,7 +1040,6 @@ public class EwakstarDoer {
         int wtSpot = 0;
 
         BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
-
 
         for(int seqNum=0; seqNum<numSequences; seqNum++) {
 
@@ -1080,7 +1077,7 @@ public class EwakstarDoer {
             }
 
             Sequence newSequence = node.makeSequence(PL.confSpace.seqSpace);
-            pfUB = Math.log10(bc.calc(confs.stateConfs.lowestScoringConf.getScore()).multiply(new BigDecimal(getNumConfsForSeq(newSequence, PL.confSpace))).doubleValue());
+            pfUB = Math.log10(bc.calc(confs.stateConfs.lowestScoringConf.getScore()).multiply(new BigDecimal (getNumConfsForSeq(newSequence, PL.confSpace))).doubleValue());
             SequenceInfo info = new SequenceInfo(node, confs, pfUB);
             if (!wtFound) {
                 infos.add(info);
@@ -1262,7 +1259,8 @@ public class EwakstarDoer {
     }
 
     public BigInteger getNumConfsForSeq(Sequence seq, SimpleConfSpace confSpace){
-        return seq.makeRCs(confSpace).getNumConformations();
+        BigInteger myNum = seq.makeRCs(confSpace).getNumConformations();
+        return myNum;
     }
 
     private void reportSequence(boolean isFirstSequence, SequenceInfo info) {

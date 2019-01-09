@@ -33,9 +33,12 @@
 package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.tools.HashCalculator;
+import javafx.util.Pair;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 
 /**
  *
@@ -284,4 +287,21 @@ public class RCTuple implements Serializable {
 			}
 		}
 	}
+
+	public RCTuple intersect(RCTuple other) {
+		return RCTuple.intersect(this, other);
+	}
+
+	public static RCTuple intersect(RCTuple first, RCTuple second) {
+		RCTuple out = new RCTuple();
+		for(int tupIndex = 0; tupIndex < first.size(); tupIndex++)
+		{
+			int firstPos = first.pos.get(tupIndex);
+			int firstRC  = first.RCs.get(tupIndex);
+			if(second.pos.contains(firstPos) && second.RCs.get(tupIndex) == firstRC)
+				out = out.addRC(firstPos, firstRC);
+		}
+		return out;
+	}
+
 }

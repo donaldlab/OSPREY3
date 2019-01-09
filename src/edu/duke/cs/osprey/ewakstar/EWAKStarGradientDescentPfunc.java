@@ -122,6 +122,8 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 
 		boolean energyReached(double targetEnergy) {return calcDiff() >= targetEnergy;}
 
+		boolean confMaxReached(int highestNumConfs) {return numEnergiedConfs >= highestNumConfs;}
+
 		boolean isStable(BigDecimal stabilityThreshold) {
 			return numEnergiedConfs <= 0 || stabilityThreshold == null || MathTools.isGreaterThanOrEqual(getUpperBound(), stabilityThreshold);
 		}
@@ -167,6 +169,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 	private boolean hasScoreConfs = true;
 	private long numEnergyConfsEnumerated = 0;
 	private long numScoreConfsEnumerated = 0;
+	private int highestNumConfs = 5000;
 
 	private ConfDB.ConfTable confTable = null;
 
@@ -235,7 +238,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 	}
 
 	@Override
-	public void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy) {
+	public void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy, int highestNumConfs) {
 
 		if (targetEpsilon <= 0.0 || targetEnergy < 0) {
 			throw new IllegalArgumentException("target epsilon and target energy must be greater than zero");
@@ -244,6 +247,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 		this.targetEpsilon = targetEpsilon;
 		this.targetEnergy = targetEnergy;
 
+		this.highestNumConfs = highestNumConfs;
 		// init state
 		status = Status.Estimating;
 		state = new State(numConfsBeforePruning);
@@ -293,7 +297,8 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 					&& !state.epsilonReached(targetEpsilon)
 					&& state.isStable(stabilityThreshold)
 					&& state.hasLowEnergies()
-					&& !state.energyReached(targetEnergy);
+					&& !state.energyReached(targetEnergy)
+					&& !state.confMaxReached(highestNumConfs);
 				if (!keepStepping) {
 					break;
 				}
@@ -455,7 +460,7 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 		}
 
 		//did we hit the conformation limit?
-		if(state.numEnergiedConfs == maxNumConfs){
+		if(state.numEnergiedConfs >= highestNumConfs){
 			status = Status.ConfLimitReached;
 		}
 

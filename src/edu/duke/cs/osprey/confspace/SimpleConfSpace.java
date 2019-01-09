@@ -241,6 +241,12 @@ public class SimpleConfSpace implements Serializable {
 			if (rotamerIndex != null) {
 				buf.append(rotamerIndex);
 			}
+			for(String dofName:dofBounds.keySet()) {
+				if(dofName.contains("PERT")) {
+					double[] bounds = dofBounds.get(dofName);
+					buf.append("P"+dofBounds.get(dofName)[0]);
+				}
+			}
 			return buf.toString();
 		}
 		
@@ -566,7 +572,98 @@ public class SimpleConfSpace implements Serializable {
 		return makeMolecule(conf.getAssignments());
 	}
         //With DEEPer and CATS it is much less messy if we can generate the ParametricMolecule and its bounds together
-	
+
+	public boolean validConformation(RCTuple conf) {
+
+		// make the molecule from the strands (ignore alternates)
+		Molecule mol = new Molecule();
+		for (Strand strand : strands) {
+			for (Residue res : strand.mol.residues) {
+				res = new Residue(res);
+				res.molec = mol;
+				res.indexInMolecule = mol.residues.size();
+				mol.residues.add(res);
+			}
+		}
+		mol.markInterResBonds();
+		HashSet<String> confDOFNames = new HashSet<>();//names of DOFs specified by the conf
+		for (int i=0; i<conf.size(); i++) {
+
+			Position pos = positions.get(conf.pos.get(i));
+			ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
+			Residue res = mol.getResByPDBResNumber(pos.resNum);
+
+			resConf.updateResidue(pos.strand.templateLib, res);
+			// since we always switch to a new template before starting each minimization,
+			// no need to standardize mutatable res at the beginning of the design
+			confDOFNames.addAll(resConf.dofBounds.keySet());
+		}
+
+		// OK now apply all DOF vals including puckers
+
+		// make all the DOFs
+		List<DegreeOfFreedom> dofs = new ArrayList<>();
+
+		// first, backbone flexibility: strand DOFs and DEEPer/CATS DOFs
+		for (Strand strand : getConfStrands(conf)) {
+			for (StrandFlex flex : strandFlex.get(strand)) {
+				for (DegreeOfFreedom dof : flex.makeDofs(strand, mol)) {
+					if (confDOFNames.contains(dof.getName())) {
+						//DEEPer and CATS DOFS may not involve all positions in a strand
+						dofs.add(dof);
+					}
+				}
+			}
+		}
+
+		// then, residue conf DOFs
+		for (int i=0; i<conf.size(); i++) {
+			Position pos = positions.get(conf.pos.get(i));
+			ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
+			Residue res = mol.getResByPDBResNumber(pos.resNum);
+
+			// make the residue DOFs
+			Strand.ResidueFlex resFlex = pos.strand.flexibility.get(pos.resNum);
+			List<DegreeOfFreedom> contDihedralDOFs = resFlex.voxelShape.makeDihedralDOFs(res);
+			dofs.addAll(contDihedralDOFs);
+
+			//so we apply them here instead
+			if (contDihedralDOFs.isEmpty()) {
+				// pose the residue to match the rotamer
+				List<DegreeOfFreedom> dihedralDofs = new VoxelShape.Rect().makeDihedralDOFs(res);
+				for (int d=0; d<resConf.template.numDihedrals; d++) {
+					dihedralDofs.get(d).apply(resConf.template.getRotamericDihedrals(resConf.rotamerIndex, d));
+				}
+			}
+		}
+
+		//Figure out the bounds and apply the DOF values in the middle of the voxel
+		DofBounds dofBounds = new DofBounds(dofs.size());//the bounds to use
+		HashMap<String,Integer> name2Index = DegreeOfFreedom.nameToIndexMap(dofs);//map DOF names to their indices in DOFs
+		HashSet<String> dofsAdded = new HashSet<>();
+
+		for (int i=0; i<conf.size(); i++) {
+			Position pos = positions.get(conf.pos.get(i));
+			ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
+			HashMap<String,double[]> rcDOFBounds = resConf.dofBounds;
+			for(String DOFName : rcDOFBounds.keySet()) {
+				int dofIndex = name2Index.get(DOFName);
+				double curDOFBounds[] = rcDOFBounds.get(DOFName);
+				if (dofsAdded.contains(DOFName)) {//we have bounds on this DOF from another position...check consistency
+					if (Math.abs(dofBounds.getMax(dofIndex)-curDOFBounds[1])>1e-10
+							|| Math.abs(dofBounds.getMin(dofIndex)-curDOFBounds[0])>1e-10) {
+					    return false;
+					}
+				} else { // record the bounds and apply the middle value
+					dofBounds.set(dofIndex, curDOFBounds[0], curDOFBounds[1]);
+					dofs.get(dofIndex).apply(0.5*(curDOFBounds[0]+curDOFBounds[1]));
+					dofsAdded.add(DOFName);
+				}
+			}
+		}
+		return true;
+	}
+
 	/** @see #makeMolecule(RCTuple) */
 	public ParametricMolecule makeMolecule(int[] conf) {
 		return makeMolecule(new RCTuple(conf));
@@ -848,6 +945,19 @@ public class SimpleConfSpace implements Serializable {
 			.map((resConf) -> String.format("%-5s", resConf.getRotamerCode()))
 			.collect(Collectors.toList())
 		);
+	}
+
+	public String formatConfRotamersWithResidueNumbers(int[] conf) {
+		return String.join(",",positions.stream()
+				.map((pos) -> {
+					String rcString = pos.resNum+":*";
+				    if(conf[pos.index] > -1) {
+				    	ResidueConf rc = pos.resConfs.get(conf[pos.index]);
+						rcString = pos.resNum+":"+rc.template.name+"-"+rc.getRotamerCode();
+					}
+					return rcString;
+				})
+				.collect(Collectors.toList()));
 	}
 
 	public String formatResidueNumbers() {

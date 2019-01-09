@@ -249,8 +249,9 @@ public class EWAKStarBBKStar {
             // NOTE: for the correctness of the bounds, the number of confs must be the same for every node
             // meaning, it might not be sound to do epsilon-based iterative approximations here
 
+            final int numConfs = 1000;
 
-            BigDecimal proteinLowerBound = calcLowerBound(protein, sequence, kstarSettings.maxPFConfs);
+            BigDecimal proteinLowerBound = calcLowerBound(protein, sequence, numConfs);
 
             // if the first few conf upper bound scores (for the pfunc lower bound) are too high,
             // then the K* upper bound is also too high
@@ -260,7 +261,7 @@ public class EWAKStarBBKStar {
                 return;
             }
 
-            BigDecimal ligandLowerBound = calcLowerBound(ligand, sequence, kstarSettings.maxPFConfs);
+            BigDecimal ligandLowerBound = calcLowerBound(ligand, sequence, numConfs);
 
             // if the first few conf upper bound scores (for the pfunc lower bound) are too high,
             // then the K* upper bound is also too high
@@ -270,7 +271,7 @@ public class EWAKStarBBKStar {
                 return;
             }
 
-            BigDecimal complexUpperBound = calcUpperBound(complex, sequence, kstarSettings.maxPFConfs);
+            BigDecimal complexUpperBound = calcUpperBound(complex, sequence, numConfs);
 
             // compute the node score
             score = MathTools.bigDivideDivide(
@@ -365,7 +366,7 @@ public class EWAKStarBBKStar {
             if (kstarSettings.useExternalMemory) {
                 EWAKStarPartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
             }
-            pfunc.init(confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), rcs.getNumConformations(), kstarSettings.epsilon, kstarSettings.eW);
+            pfunc.init(confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), rcs.getNumConformations(), kstarSettings.epsilon, kstarSettings.eW, kstarSettings.maxPFConfs);
             pfunc.setStabilityThreshold(info.stabilityThreshold);
 
             // update the cache
@@ -388,7 +389,7 @@ public class EWAKStarBBKStar {
 
             // refine the pfuncs if needed
             if (protein.getStatus().canContinue()) {
-                protein.compute(kstarSettings.maxPFConfs);
+                protein.compute(bbkstarSettings.numConfsPerBatch);
 
                 // tank the sequence if the unbound protein is unstable
                 if (protein.getStatus() == EWAKStarPartitionFunction.Status.Unstable) {
@@ -399,7 +400,7 @@ public class EWAKStarBBKStar {
             }
 
             if (ligand.getStatus().canContinue()) {
-                ligand.compute(kstarSettings.maxPFConfs);
+                ligand.compute(bbkstarSettings.numConfsPerBatch);
 
                 // tank the sequence if the unbound ligand is unstable
                 if (ligand.getStatus() == EWAKStarPartitionFunction.Status.Unstable) {
@@ -410,7 +411,7 @@ public class EWAKStarBBKStar {
             }
 
             if (complex.getStatus().canContinue()) {
-                complex.compute(kstarSettings.maxPFConfs);
+                complex.compute(bbkstarSettings.numConfsPerBatch);
             }
 
             // update the score
@@ -516,7 +517,7 @@ public class EWAKStarBBKStar {
         }
     }
 
-    public List<EWAKStar.ScoredSequence> run() {
+    public List<Sequence> run() {
 
         protein.check();
         ligand.check();
@@ -527,7 +528,7 @@ public class EWAKStarBBKStar {
         ligandPfuncs.clear();
         complexPfuncs.clear();
 
-        List<EWAKStar.ScoredSequence> scoredSequences = new ArrayList<>();
+        List<Sequence> scoredSequences = new ArrayList<>();
 
 
         try (ConfDB.DBs confDBs = new ConfDB.DBs()
@@ -666,10 +667,10 @@ public class EWAKStarBBKStar {
         return scoredSequences;
     }
 
-    private void reportSequence(SingleSequenceNode ssnode, List<EWAKStar.ScoredSequence> scoredSequences) {
+    private void reportSequence(SingleSequenceNode ssnode, List<Sequence> scoredSequences) {
 
         EWAKStarScore kstarScore = ssnode.makeKStarScore();
-        scoredSequences.add(new EWAKStar.ScoredSequence(ssnode.sequence, kstarScore));
+        scoredSequences.add(ssnode.sequence);
 
         if(kstarSettings.printPDBs) {
             Iterator<EnergyCalculator.EnergiedParametricMolecule> econfs = ssnode.complex.getEpMols().iterator();
@@ -689,6 +690,9 @@ public class EWAKStarBBKStar {
                 directory.mkdir();
             }
             analysis.writePdbs(pdbString + "/" + seqDir + "/conf.*.pdb");
+            sconfs = null;
+            analyzer = null;
+            econfs = null;
         }
 
         kstarSettings.scoreWriters.writeScore(new EWAKStarScoreWriter.ScoreInfo(
@@ -698,5 +702,7 @@ public class EWAKStarBBKStar {
                 complex.confSpace,
                 kstarScore
         ));
+
+        kstarScore = null;
     }
 }

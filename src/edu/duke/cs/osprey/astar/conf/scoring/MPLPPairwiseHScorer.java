@@ -44,7 +44,7 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 	private EnergyMatrix emat;
 	private int maxNumIterations;
 	private double epsilon;
-	
+
 	public MPLPPairwiseHScorer(MPLPUpdater updater, EnergyMatrix emat, int maxNumIterations, double epsilon) {
 		this.updater = updater;
 		this.emat = emat;
@@ -59,7 +59,7 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 
 	@Override
 	public double calc(ConfIndex confIndex, RCs rcs) {
-		
+
 		// init lambdas using the traditional A* heuristic
 		// NOTE: we must use these initial values for early stopping to be sound
 		MessageVars lambdas = new MessageVars(rcs, confIndex);

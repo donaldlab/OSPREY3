@@ -125,9 +125,12 @@ public class PasteRunner {
 		Paste.Settings settings = new Paste.Settings.Builder()
 			.setEpsilon(0.68)
 			.setStabilityThreshold(null)
+			.setNumMaxPfConfs(100000)
+			.setUseWindowCriterion(false) //if not using window criterion make sure you have a tighter epsilon
 			.setMaxSimultaneousMutations(3)
 			.addScoreConsoleWriter()
 			.addScoreFileWriter(new File("paste.txt"))
+			.addMutFile(new File("mut.txt"))
 			.build();
 
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(proteinConfSpace, new ForcefieldParams())
@@ -135,7 +138,6 @@ public class PasteRunner {
 			.build()
 		) {
 			Paste paste = new Paste(proteinConfSpace, settings);
-
 
 			SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(paste.protein.confSpace, ecalc).build();
 			paste.protein.confEcalc = new ConfEnergyCalculator.Builder(paste.protein.confSpace, ecalc).setReferenceEnergies(eref).build();
