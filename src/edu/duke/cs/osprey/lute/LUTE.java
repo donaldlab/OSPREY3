@@ -652,7 +652,7 @@ public class LUTE {
 		return Collections.unmodifiableSet(tuples);
 	}
 
-	public void sampleTuplesAndFit(ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore, double maxRMSE) {
+	public boolean sampleTuplesAndFit(ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore, double maxRMSE) {
 
 		// does the conf space only have one position?
 		if (confSpace.positions.size() == 1) {
@@ -667,10 +667,11 @@ public class LUTE {
 			// was that good enough?
 			if (trainingSystem.errors.rms <= maxRMSE) {
 				log("training set RMS error %f meets goal of %f", trainingSystem.errors.rms, maxRMSE);
+				return true;
 			} else {
 				log("training set RMS error %f does not meet goal of %f", trainingSystem.errors.rms, maxRMSE);
+				return false;
 			}
-			return;
 		}
 
 		// start with all pairs first
@@ -683,7 +684,7 @@ public class LUTE {
 		// was that good enough?
 		if (trainingSystem.errors.rms <= maxRMSE) {
 			log("training set RMS error %f meets goal of %f", trainingSystem.errors.rms, maxRMSE);
-			return;
+			return true;
 		}
 		log("training set RMS error %f does not meet goal of %f", trainingSystem.errors.rms, maxRMSE);
 
@@ -702,12 +703,13 @@ public class LUTE {
 			// was that good enough?
 			if (trainingSystem.errors.rms <= maxRMSE) {
 				log("training set RMS error %f meets goal of %f", trainingSystem.errors.rms, maxRMSE);
-				return;
+				return true;
 			}
 			log("training set RMS error %f does not meet goal of %f", trainingSystem.errors.rms, maxRMSE);
 		}
 
 		log("all triples exhausted. Nothing more to try to improve the fit.");
+		return false;
 	}
 
 	public void fit(ConfEnergyCalculator confEcalc, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore) {

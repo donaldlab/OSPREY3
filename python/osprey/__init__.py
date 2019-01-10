@@ -1077,7 +1077,7 @@ def LUTE_train(confEcalc, emat, pmat, maxRMSE=0.1, maxOverfittingScore=1.5, rand
 	:param int randomSeed: Random seed to use for conformation sampling
 	:param str confDBPath: Path to write/read confDB file, or None to omit saving the confDB to disk
 
-	:returns: The LUTE model
+	:returns: The LUTE model if it meets the accuracy goals, or None otherwise
 	:rtype: :java:ref:`.lute.LUTEState`
 	'''
 
@@ -1100,10 +1100,14 @@ def LUTE_train(confEcalc, emat, pmat, maxRMSE=0.1, maxOverfittingScore=1.5, rand
 		# train LUTE
 		lute = c.lute.LUTE(confSpace)
 		sampler = c.lute.RandomizedDFSConfSampler(confSpace, pmat, randomSeed)
-		lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE)
+		fitGoodEnough = lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE)
 		lute.reportConfSpaceSize(pmat)
 
-		# return the LUTE fit
+		# if the fit wasn't good enough, don't send the trained model back
+		if not fitGoodEnough:
+			return None
+
+		# otherwise, return the trained LUTE model
 		return c.lute.LUTEState(lute.getTrainingSystem())
 
 	finally:
