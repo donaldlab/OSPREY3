@@ -387,7 +387,7 @@ tasks {
 				"""
 				|$pipCmd uninstall -y osprey JPype-py2
 				|$pipCmd install --user numpy
-				|$pipCmd install --user osprey --no-index --find-link=wheelhouse
+				|$pipCmd install --user osprey --no-index --find-link=wheelhouse --pre
 				""".trimMargin()
 			)
 		}
