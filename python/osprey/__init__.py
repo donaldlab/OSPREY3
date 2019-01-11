@@ -81,7 +81,7 @@ def _java_aware_excepthook(exctype, value, traceback):
 		pass
 
 
-def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSizeMiB=128):
+def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSizeMiB=128, allowRemoteManagement=False):
 	'''
 	Starts the Java Virtual Machine (JVM) that runs Osprey's computation libraries.
 
@@ -99,6 +99,8 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 	:param int garbageSizeMiB: Size of the garbage portion of the JVM heap that is reserved for temporary objects.
 		This default value is appropriate for the default heap size, but if using larger heap sizes, then increasing
 		the garbage size to 256, 512, or even 1024 MiB can give a modest improvement in performance.
+
+	:param bool allowRemoteManagement: pass ``True`` to listen on ports 9010 and 9011 for JMX remote management.
 	'''
 
 	# disable buffered output on stdout, so python log messages line up with java log messages
@@ -130,7 +132,7 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 			jvm.addClasspath(path.strip())
 
 	# start the jvm
-	jvm.start(heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB)
+	jvm.start(heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB, allowRemoteManagement)
 
 	# set up class factories
 	global c

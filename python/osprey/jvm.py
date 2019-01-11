@@ -66,7 +66,7 @@ def setNativesDir(path):
 	_nativesDir = path
 
 
-def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, garbageSizeMiB=None):
+def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, garbageSizeMiB=None, allowRemoteManagement=False):
 
 	# build JVM launch args
 	args = [
@@ -82,6 +82,13 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, garbageSi
 		args.append('-XX:MaxNewSize=%dM' % garbageSizeMiB)
 	if _nativesDir is not None:
 		args.append('-Djava.library.path=%s' % _nativesDir)
+	if allowRemoteManagement:
+		args.append('-Dcom.sun.management.jmxremote.ssl=false')
+		args.append('-Dcom.sun.management.jmxremote.authenticate=false')
+		args.append('-Dcom.sun.management.jmxremote.port=9010')
+		args.append('-Dcom.sun.management.jmxremote.rmi.port=9011')
+		args.append('-Djava.rmi.server.hostname=localhost')
+		args.append('-Dcom.sun.management.jmxremote.local.only=false')
 
 	# start the JVM
 	jpype.startJVM(*args)
