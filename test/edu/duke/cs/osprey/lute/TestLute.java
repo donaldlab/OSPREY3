@@ -49,6 +49,7 @@ import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import edu.duke.cs.osprey.kstar.*;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.pruning.SimpleDEE;
@@ -534,6 +535,7 @@ public class TestLute {
 						.setLUTE(luteEcalc)
 						.build();
 				info.confSearchFactoryRigid = info.confSearchFactoryMinimized;
+				info.pfuncFactory = new PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id);
 			}
 
 			List<KStar.ScoredSequence> scoredSequences = bbkstar.run();

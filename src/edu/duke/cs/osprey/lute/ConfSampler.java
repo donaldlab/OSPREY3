@@ -144,6 +144,13 @@ public abstract class ConfSampler {
 		}
 	}
 
+	public static class NoMoreSamplesException extends RuntimeException {
+		private static final long serialVersionUID = 3248938824507606370L;
+		NoMoreSamplesException() {
+			super("Can't fit LUTE model. No more conformations to sample. Try less pruning?");
+		}
+	}
+
 	public final SimpleConfSpace confSpace;
 	public final PruningMatrix pmat; // just used to avoid sampling pruned sequences when using a sparse tuple basis (e.g. triples)
 	public final int randomSeed;

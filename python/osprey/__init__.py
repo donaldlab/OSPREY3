@@ -160,6 +160,9 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 
 	# print the preamble
 	print("OSPREY %s" % c.control.Main.Version)
+	print("Using up to %d MiB heap memory: %d MiB for garbage, %d MiB for storage" % (
+		heapSizeMiB, garbageSizeMiB, heapSizeMiB - garbageSizeMiB
+	))
 
 
 def readTextFile(path):

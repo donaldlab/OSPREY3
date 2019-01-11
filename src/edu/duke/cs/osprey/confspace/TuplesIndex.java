@@ -41,8 +41,8 @@ public class TuplesIndex implements Iterable<RCTuple> {
 
 	public static class NoSuchTupleException extends RuntimeException {
 
-		public NoSuchTupleException(RCTuple tuple) {
-			super("no tuple found matching " + tuple);
+		public NoSuchTupleException(RCTuple tuple, int[] conf) {
+			super("no tuple found matching " + tuple + " from conf " + Conf.toString(conf));
 		}
 	}
 
@@ -172,7 +172,7 @@ public class TuplesIndex implements Iterable<RCTuple> {
 			if (t != null) {
 				callback.accept(t);
 			} else if (throwIfMissingSingle) {
-				throw new TuplesIndex.NoSuchTupleException(new RCTuple(pos1, rc1));
+				throw new TuplesIndex.NoSuchTupleException(new RCTuple(pos1, rc1), conf);
 			}
 
 			for (int pos2=0; pos2<pos1; pos2++) {
@@ -186,7 +186,7 @@ public class TuplesIndex implements Iterable<RCTuple> {
 				if (t != null) {
 					callback.accept(t);
 				} else if (throwIfMissingPair) {
-					throw new TuplesIndex.NoSuchTupleException(new RCTuple(pos1, rc1, pos2, rc2));
+					throw new TuplesIndex.NoSuchTupleException(new RCTuple(pos1, rc1, pos2, rc2), conf);
 				}
 			}
 		}

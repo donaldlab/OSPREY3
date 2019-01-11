@@ -662,7 +662,7 @@ public class LUTE {
 			Stopwatch singlesStopwatch = new Stopwatch().start();
 			addTuples(getUnprunedSingleTuples(pmat));
 			log(" done in " + singlesStopwatch.stop().getTime(2));
-			fit(confEcalc, confTable, sampler, fitter, maxOverfittingScore);
+			fit(confEcalc, confTable, sampler, fitter, maxRMSE, maxOverfittingScore);
 
 			// was that good enough?
 			if (trainingSystem.errors.rms <= maxRMSE) {
@@ -679,7 +679,7 @@ public class LUTE {
 		Stopwatch pairsStopwatch = new Stopwatch().start();
 		addTuples(getUnprunedPairTuples(pmat));
 		log(" done in " + pairsStopwatch.stop().getTime(2));
-		fit(confEcalc, confTable, sampler, fitter, maxOverfittingScore);
+		fit(confEcalc, confTable, sampler, fitter, maxRMSE, maxOverfittingScore);
 
 		// was that good enough?
 		if (trainingSystem.errors.rms <= maxRMSE) {
@@ -698,7 +698,7 @@ public class LUTE {
 			log(" done in " + triplesStopwatch.stop().getTime(2));
 
 			// fit again
-			fit(confEcalc, confTable, sampler, fitter, maxOverfittingScore);
+			fit(confEcalc, confTable, sampler, fitter, maxRMSE, maxOverfittingScore);
 
 			// was that good enough?
 			if (trainingSystem.errors.rms <= maxRMSE) {
@@ -712,7 +712,7 @@ public class LUTE {
 		return false;
 	}
 
-	public void fit(ConfEnergyCalculator confEcalc, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore) {
+	public void fit(ConfEnergyCalculator confEcalc, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxTrainingRMSE, double maxOverfittingScore) {
 
 		TuplesIndex tuplesIndex = new TuplesIndex(confSpace, tuples);
 
@@ -747,6 +747,7 @@ public class LUTE {
 
 			// calculate energies for all the samples
 			Progress progress = new Progress(numSamples);
+			progress.setReportMemory(true);
 			log("calculating energies for %d more samples...", numAdditionalSamples);
 			for (Map.Entry<int[],Double> entry : energies.entrySet()) {
 				int[] conf = entry.getKey();
@@ -775,16 +776,23 @@ public class LUTE {
 
 			// measure overfitting by comparing ratio of rms errors
 			overfittingScore = calcOverfittingScore();
-			if (overfittingScore <= maxOverfittingScore) {
-				log("");
-				break;
-			}
 
 			log("    RMS errors:  train %.4f    test %.4f    overfitting score: %.4f",
 				trainingSystem.errors.rms,
 				testSystem.errors.rms,
 				overfittingScore
 			);
+
+			// training RMSE only rises with more samples (mostly)
+			// if we've already exceeded the max, don't bother fixing overfitting
+			if (trainingSystem.errors.rms > maxTrainingRMSE) {
+				break;
+			}
+
+			// if we're not overfitting, then we're done
+			if (overfittingScore <= maxOverfittingScore) {
+				break;
+			}
 
 			samplesPerTuple++;
 		}

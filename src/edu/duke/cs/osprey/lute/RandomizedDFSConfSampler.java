@@ -39,7 +39,7 @@ public class RandomizedDFSConfSampler extends ConfSampler {
 					return;
 				} else {
 					// no progress, this is bad =(
-					throw new Error("Can't fit LUTE model. No more conformations to sample. Try less pruning?");
+					throw new ConfSampler.NoMoreSamplesException();
 				}
 			}
 			Set<int[]> confs = samples.getConfs(tuple);

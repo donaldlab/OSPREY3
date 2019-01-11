@@ -260,8 +260,6 @@ public class Progress {
 				TimeFormatter.format(etaMs*NSpMS, 1)
 			));
 			if (reportMemory) {
-				MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-				Runtime runtime = Runtime.getRuntime();
 				System.out.print(String.format("   heapMem:%s, extMem:%s",
 					JvmMem.getOldPool(),
 					ExternalMemory.getUsageReport()
