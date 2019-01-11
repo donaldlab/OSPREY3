@@ -574,25 +574,18 @@ public class LUTE {
 		int n = emat.getNumPos();
 		int numPairsPerPosition = Math.min(n - 1, maxNumPairsPerPosition);
 
-		// find strongest pairwise energies for each pair of positions
+		// find strongest (in magnitude only) pairwise energies for each pair of positions
 		PosMatrixGeneric<Double> strongestInteractions = new PosMatrixGeneric<>(confSpace);
 		strongestInteractions.fill(0.0);
-		for (int pos1=1; pos1<n; pos1++) {
-			for (int pos2=0; pos2<pos1; pos2++) {
+		pmat.forEachUnprunedPair((pos1, rc1, pos2, rc2) -> {
 
-				// get the strongest (ie, in magnitude only) energy over all RCs for this pair
-				for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
-					for (int rc2=0; rc2<emat.getNumConfAtPos(pos2); rc2++) {
-
-						double interaction = Math.abs(emat.getPairwise(pos1, rc1, pos2, rc2));
-
-						if (interaction > strongestInteractions.get(pos1, pos2)) {
-							strongestInteractions.set(pos1, pos2, interaction);
-						}
-					}
-				}
+			double interaction = Math.abs(emat.getPairwise(pos1, rc1, pos2, rc2));
+			if (interaction > strongestInteractions.get(pos1, pos2)) {
+				strongestInteractions.set(pos1, pos2, interaction);
 			}
-		}
+
+			return PruningMatrix.IteratorCommand.Continue;
+		});
 
 		// pick the top k strongly-interacting positions for each position
 		PosMatrixGeneric<Boolean> topPositionInteractions = new PosMatrixGeneric<>(confSpace);

@@ -711,7 +711,7 @@ public class PruningMatrix extends TupleMatrixBoolean {
 			for (int rc2=0; rc2<getNumConfAtPos(pos2); rc2++) {
 
 				// skip pruned stuff
-				if (getPairwise(pos1, rc1, pos2, rc2)) {
+				if (getOneBody(pos2, rc2) || getPairwise(pos1, rc1, pos2, rc2)) {
 					continue;
 				}
 
@@ -759,7 +759,7 @@ public class PruningMatrix extends TupleMatrixBoolean {
 			for (int rc2=0; rc2<getNumConfAtPos(pos2); rc2++) {
 
 				// skip pruned stuff
-				if (getPairwise(pos1, rc1, pos2, rc2)) {
+				if (getOneBody(pos2, rc2) || getPairwise(pos1, rc1, pos2, rc2)) {
 					continue;
 				}
 
@@ -772,7 +772,11 @@ public class PruningMatrix extends TupleMatrixBoolean {
 					tuple.RCs.set(0, rc3);
 
 					// skip pruned stuff
-					if (getTuple(tuple)) {
+					if (getOneBody(pos3, rc3)
+						|| getPairwise(pos1, rc1, pos3, rc3)
+						|| getPairwise(pos2, rc2, pos3, rc3)
+						|| getTuple(tuple)
+					) {
 						continue;
 					}
 
