@@ -12,8 +12,9 @@ at `Duke University`_.
 .. _Department of Computer Science: http://www.cs.duke.edu
 .. _Duke University: https://www.duke.edu/
 
-For an introduction to OSPREY 3.0 and its new features please read this paper (accepted to the Journal of Computational Chemistry, 2018): 
-https://www.biorxiv.org/content/early/2018/04/23/306324
+For an introduction to OSPREY 3.0 and its new features please read this paper: 
+Journal of Computational Chemistry 2018; 39(30): 2494-2507
+https://onlinelibrary.wiley.com/doi/10.1002/jcc.25522
 
 
 Citation requirements
