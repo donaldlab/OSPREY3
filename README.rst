@@ -13,7 +13,8 @@ at `Duke University`_.
 .. _Duke University: https://www.duke.edu/
 
 For an introduction to OSPREY 3.0 and its new features please read this paper: 
-Journal of Computational Chemistry 2018; 39(30): 2494-2507 `Cover article`_.
+
+*Journal of Computational Chemistry* 2018; 39(30): 2494-2507 `Cover article`_.
 
 .. _Cover article: http://www.cs.duke.edu/brd/papers/jcc18-osprey3point0/cover-jcc.25043.pdf
 
