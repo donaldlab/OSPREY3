@@ -7,8 +7,10 @@ import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.ConfigFileReader;
 import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.Streams;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 /**
@@ -206,39 +208,43 @@ public class Probe {
 	/**
 	 * finds a probe template for each template in the residues and remembers the mapping
 	 */
-	public void matchTemplates(Residues residues) {
+	public boolean matchTemplates(Residues residues) {
 
 		Set<ResidueTemplate> templates = new HashSet<>();
 		for (Residue res : residues) {
 			templates.add(res.template);
 		}
 
+		boolean allMatched = true;
 		for (ResidueTemplate template : templates) {
-			matchTemplate(template);
+			allMatched &= matchTemplate(template);
 		}
+		return allMatched;
 	}
 
 	/**
 	 * finds a probe template for each template in the library and remembers the mapping
 	 */
-	public void matchTemplates(ResidueTemplateLibrary templateLib) {
-		matchTemplates(templateLib.templates);
-		matchTemplates(templateLib.wildTypeTemplates.values());
+	public boolean matchTemplates(ResidueTemplateLibrary templateLib) {
+		return matchTemplates(templateLib.templates)
+			&& matchTemplates(templateLib.wildTypeTemplates.values());
 	}
 
 	/**
 	 * finds a probe template for each template in the library and remembers the mapping
 	 */
-	public void matchTemplates(Collection<ResidueTemplate> templates) {
+	public boolean matchTemplates(Collection<ResidueTemplate> templates) {
+		boolean allMatched = true;
 		for (ResidueTemplate templ : templates) {
-			matchTemplate(templ);
+			allMatched &= matchTemplate(templ);
 		}
+		return allMatched;
 	}
 
 	/**
 	 * finds a probe template for each template in the conf space and remembers the mapping
 	 */
-	public void matchTemplates(SimpleConfSpace confSpace) {
+	public boolean matchTemplates(SimpleConfSpace confSpace) {
 
 		// collect all the templates in the conf space
 		Set<ResidueTemplate> templates = new HashSet<>();
@@ -253,9 +259,11 @@ public class Probe {
 			}
 		}
 
+		boolean allMatched = true;
 		for (ResidueTemplate template : templates) {
-			matchTemplate(template);
+			allMatched &= matchTemplate(template);
 		}
+		return allMatched;
 	}
 
 	/**
@@ -263,12 +271,12 @@ public class Probe {
 	 * then tries to match a template to the atom names in a residue
 	 * (should match eg N-terminal or C-terminal amino acids if needed)
 	 */
-	public void matchTemplate(ResidueTemplate resTemplate) {
+	public boolean matchTemplate(ResidueTemplate resTemplate) {
 
 		// look up templates by residue type
 		List<Template> templates = templatesByResType.get(resTemplate.name);
 		if (templates == null) {
-			return;
+			return false;
 		}
 
 		// make a quick set lookup for the residue atom names
@@ -284,9 +292,11 @@ public class Probe {
 				// found a match! remember it
 				templateMap.put(resTemplate, template);
 
-				return;
+				return true;
 			}
 		}
+
+		return false;
 	}
 
 	public Template getTemplate(Residue res) {
@@ -297,7 +307,13 @@ public class Probe {
 
 		Template template = templateMap.get(res.template);
 		if (template == null) {
-			throw new IllegalArgumentException("no probe template for residue template " + res.template);
+			Set<String> atomNames = res.template.templateRes.atoms.stream()
+				.map(atom -> atom.name)
+				.collect(Collectors.toSet());
+			throw new IllegalArgumentException(
+				"no probe template for residue template " + res.template
+				+ " with atoms " + Streams.joinToString(atomNames, ",")
+			);
 		}
 
 		return template;
