@@ -399,59 +399,34 @@ public class LUTE {
 	}
 
 	public Set<RCTuple> getUnprunedSingleTuples(PruningMatrix pmat) {
-
-		Set<RCTuple> singles = new LinkedHashSet<>();
-
-		for (int pos1=0; pos1<pmat.getNumPos(); pos1++) {
-			for (int rc1=0; rc1<pmat.getNumConfAtPos(pos1); rc1++) {
-
-				// skip pruned singles
-				if (pmat.isSinglePruned(pos1, rc1)) {
-					continue;
-				}
-
-				singles.add(new RCTuple(pos1, rc1));
-			}
-		}
-
-		return singles;
+		Set<RCTuple> tuples = new LinkedHashSet<>();
+		pmat.forEachUnprunedSingle((pos1, rc1) -> {
+			tuples.add(new RCTuple(pos1, rc1));
+			return PruningMatrix.IteratorCommand.Continue;
+		});
+		return tuples;
 	}
 
 	public Set<RCTuple> getUnprunedPairTuples(PruningMatrix pmat) {
+		Set<RCTuple> tuples = new LinkedHashSet<>();
+		pmat.forEachUnprunedPair((pos1, rc1, pos2, rc2) -> {
+			// NOTE: make the tuple in pos2, pos1 order so the positions are already sorted
+			// (because pos2 < pos1 in the forEachUnprunedPair() iteration scheme)
+			tuples.add(new RCTuple(pos2, rc2, pos1, rc1));
+			return PruningMatrix.IteratorCommand.Continue;
+		});
+		return tuples;
+	}
 
-		Set<RCTuple> pairs = new LinkedHashSet<>();
-
-		for (int pos1=0; pos1<pmat.getNumPos(); pos1++) {
-			for (int rc1=0; rc1<pmat.getNumConfAtPos(pos1); rc1++) {
-
-				// skip pruned singles
-				if (pmat.isSinglePruned(pos1, rc1)) {
-					continue;
-				}
-
-				for (int pos2=0; pos2<pos1; pos2++) {
-					for (int rc2=0; rc2<pmat.getNumConfAtPos(pos2); rc2++) {
-
-						// skip pruned singles
-						if (pmat.isSinglePruned(pos2, rc2)) {
-							continue;
-						}
-
-						// skip pruned tuples
-						if (pmat.isPairPruned(pos1, rc1, pos2, rc2)) {
-							continue;
-						}
-
-						// we found it! It's an unpruned pair!
-						// NOTE: make the tuple in pos2, pos1 order so the positions are already sorted
-						// (because pos2 < pos1 by definition)
-						pairs.add(new RCTuple(pos2, rc2, pos1, rc1));
-					}
-				}
-			}
-		}
-
-		return pairs;
+	public Set<RCTuple> getUnprunedTripleTuples(PruningMatrix pmat) {
+		Set<RCTuple> tuples = new LinkedHashSet<>();
+		pmat.forEachUnprunedTriple((pos1, rc1, pos2, rc2, pos3, rc3) -> {
+			// NOTE: make the tuple in pos3, pos2, pos1 order so the positions are already sorted
+			// (because pos3 < pos2 < pos1 in the forEachUnprunedTriple() iteration scheme)
+			tuples.add(new RCTuple(pos3, rc3, pos2, rc2, pos1, rc1));
+			return PruningMatrix.IteratorCommand.Continue;
+		});
+		return tuples;
 	}
 
 	/**
@@ -645,6 +620,9 @@ public class LUTE {
 		return Collections.unmodifiableSet(tuples);
 	}
 
+	/**
+	 * general-purpose tuple sampler that tries to fit smaller tuple sets first before trying bigger ones
+	 */
 	public boolean sampleTuplesAndFit(ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore, double maxRMSE) {
 
 		// does the conf space only have one position?
@@ -702,6 +680,34 @@ public class LUTE {
 		}
 
 		log("all triples exhausted. Nothing more to try to improve the fit.");
+		return false;
+	}
+
+	/**
+	 * for when you know the fit will be difficult and just want to sample all the pairs and triples
+	 */
+	public boolean sampleAllPairsTriplesAndFit(ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore, double maxRMSE) {
+
+		// the conf space must have at least 3 positions
+		if (confSpace.positions.size() < 3) {
+			throw new IllegalArgumentException("conf space must have at least three positions");
+		}
+
+		// sample all the tuples
+		logf("Sampling all pairs and triples...");
+		Stopwatch tupleStopwatch = new Stopwatch().start();
+		addTuples(getUnprunedPairTuples(pmat));
+		addTuples(getUnprunedTripleTuples(pmat));
+		log(" done in " + tupleStopwatch.stop().getTime(2));
+		fit(confEcalc, confTable, sampler, fitter, maxRMSE, maxOverfittingScore);
+
+		// was that good enough?
+		if (trainingSystem.errors.rms <= maxRMSE) {
+			log("training set RMS error %f meets goal of %f", trainingSystem.errors.rms, maxRMSE);
+			return true;
+		}
+		log("training set RMS error %f does not meet goal of %f", trainingSystem.errors.rms, maxRMSE);
+
 		return false;
 	}
 

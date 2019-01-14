@@ -1064,7 +1064,11 @@ def SequenceAnalyzer(kstar):
 	return c.kstar.SequenceAnalyzer(kstar)
 
 
-def LUTE_train(confEcalc, emat, pmat, maxRMSE=0.1, maxOverfittingScore=1.5, randomSeed=12345, confDBPath=None):
+class LUTE_SamplingStrategy:
+	Progressive = 0
+	PairsAndTriples = 1
+
+def LUTE_train(confEcalc, emat, pmat, maxRMSE=0.1, maxOverfittingScore=1.5, randomSeed=12345, confDBPath=None, samplingStrategy=LUTE_SamplingStrategy.Progressive):
 	'''
 	Trains a LUTE model
 
@@ -1105,7 +1109,12 @@ def LUTE_train(confEcalc, emat, pmat, maxRMSE=0.1, maxOverfittingScore=1.5, rand
 		# train LUTE
 		lute = c.lute.LUTE(confSpace)
 		sampler = c.lute.RandomizedDFSConfSampler(confSpace, pmat, randomSeed)
-		fitGoodEnough = lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE)
+		if samplingStrategy == LUTE_SamplingStrategy.PairsAndTriples:
+			sampleAndFitFunc = lute.sampleAllPairsTriplesAndFit
+		else:
+			sampleAndFitFunc = lute.sampleTuplesAndFit
+		fitGoodEnough = sampleAndFitFunc(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE)
+
 		lute.reportConfSpaceSize(pmat)
 
 		# if the fit wasn't good enough, don't send the trained model back
