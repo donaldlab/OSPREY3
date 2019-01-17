@@ -144,7 +144,10 @@ public class BenchmarkTupleIndex {
 		TupleIndexMatrix tmat = new TupleIndexMatrix(confSpace.getNumPos(), confSpace.getNumResConfsByPos(), 0.0);
 		tmat.fill(-1);
 		TupleTree<Integer> ttree = new TupleTree<>();
-		TuplesIndex tindex = new TuplesIndex(confSpace, tuples);
+		TuplesIndex tindex = new TuplesIndex(confSpace);
+		for (RCTuple tuple : tuples) {
+			tindex.appendTuple(tuple);
+		}
 
 		// populate the indices with the tuples
 		for (int t=0; t<tuples.size(); t++) {

@@ -16,7 +16,7 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import org.junit.Test;
 
 import java.util.Arrays;
-import java.util.Set;
+
 
 public class TestRandomizedDFSSampler {
 
@@ -89,18 +89,16 @@ public class TestRandomizedDFSSampler {
 
 		// gather some tuples
 		LUTE lute = new LUTE(confSpace);
-		Set<RCTuple> tuples = lute.getUnprunedPairTuples(pmat);
+		lute.addTuples(lute.getUnprunedPairTuples(pmat));
 		for (int i=0; i<3; i++) {
-			tuples.addAll(lute.sampleTripleTuplesByStrongInteractions(emat, pmat, i));
+			lute.addUniqueTuples(lute.sampleTripleTuplesByStrongInteractions(emat, pmat, i));
 		}
-		TuplesIndex tuplesIndex = new TuplesIndex(confSpace, tuples);
 
 		// sample tuples until we can't anymore
 		final int randomSeed = 12345;
 		ConfSampler sampler = new RandomizedDFSConfSampler(confSpace, pmat, randomSeed);
-		ConfSampler.Samples samples = new ConfSampler.Samples(tuplesIndex);
 		for (int i=1; i<Integer.MAX_VALUE; i++) {
-			sampler.sampleConfsForTuples(samples, i++);
+			sampler.sampleConfsForTuples(lute.trainingSet, i++);
 		}
 	}
 }

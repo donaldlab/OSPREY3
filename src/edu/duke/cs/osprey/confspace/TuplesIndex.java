@@ -37,6 +37,10 @@ import java.util.*;
 import java.util.function.Consumer;
 
 
+/**
+ * Provies efficient mapping between tuples and tuple indices.
+ * Allows modification, but only appending tuples to the list.
+ */
 public class TuplesIndex implements Iterable<RCTuple> {
 
 	public static class NoSuchTupleException extends RuntimeException {
@@ -51,21 +55,32 @@ public class TuplesIndex implements Iterable<RCTuple> {
 	private final List<RCTuple> tuples;
 	private final TupleMatrixGeneric<Integer> index;
 
-	public TuplesIndex(SimpleConfSpace confSpace, RCTuple[] tuplesArray) {
-		this(confSpace, Arrays.asList(tuplesArray));
+	public TuplesIndex(SimpleConfSpace confSpace, RCTuple[] tuples) {
+		this(confSpace);
+		for (RCTuple tuple : tuples) {
+			appendTuple(tuple);
+		}
 	}
 
-	public TuplesIndex(SimpleConfSpace confSpace, Collection<RCTuple> tuplesCollection) {
+	public TuplesIndex(SimpleConfSpace confSpace) {
 
 		this.confSpace = confSpace;
-		this.tuples = new ArrayList<>(tuplesCollection);
 
-		// index the tuples
+		tuples = new ArrayList<>();
 		index = new TupleMatrixGeneric<>(confSpace);
 		index.fill((Integer)null);
-		for (int i=0; i<tuples.size(); i++) {
-			index.setTuple(tuples.get(i), i);
+	}
+
+	public int appendTuple(RCTuple tuple) {
+
+		if (contains(tuple)) {
+			throw new IllegalArgumentException("can't add the same tuple more than once: " + tuple);
 		}
+
+		int i = tuples.size();
+		tuples.add(tuple);
+		index.setTuple(tuple, i);
+		return i;
 	}
 
 	@Override

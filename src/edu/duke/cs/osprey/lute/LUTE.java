@@ -388,14 +388,21 @@ public class LUTE {
 
 	public final SimpleConfSpace confSpace;
 
-	private final Set<RCTuple> tuples = new LinkedHashSet<>();
+	public final TuplesIndex tuplesIndex;
+	public final ConfSampler.Samples trainingSet;
+	public final ConfSampler.Samples testSet;
 
 	private LinearSystem trainingSystem = null;
 	private LinearSystem testSystem = null;
 	private Map<int[],Double> energies = null;
 
 	public LUTE(SimpleConfSpace confSpace) {
+
 		this.confSpace = confSpace;
+
+		tuplesIndex = new TuplesIndex(confSpace);
+		trainingSet = new ConfSampler.Samples(tuplesIndex);
+		testSet = new ConfSampler.Samples(tuplesIndex);
 	}
 
 	public Set<RCTuple> getUnprunedSingleTuples(PruningMatrix pmat) {
@@ -609,15 +616,19 @@ public class LUTE {
 		}
 	}
 
-	public void addTuple(RCTuple tuple) {
-		tuple.checkSortedPositions();
-		tuples.add(tuple);
+	public void addUniqueTuples(Iterable<RCTuple> tuples) {
+		for (RCTuple tuple : tuples) {
+			if (!tuplesIndex.contains(tuple)) {
+				addTuple(tuple);
+			}
+		}
 	}
 
-	public Set<RCTuple> getTuples() {
-		// don't allow callers to directly modify the tuple set
-		// we need to maintain the ordering of tuple positions
-		return Collections.unmodifiableSet(tuples);
+	public void addTuple(RCTuple tuple) {
+		tuple.checkSortedPositions();
+		tuplesIndex.appendTuple(tuple);
+		trainingSet.addTuple(tuple);
+		testSet.addTuple(tuple);
 	}
 
 	/**
@@ -631,7 +642,7 @@ public class LUTE {
 			// can only do singles with such a small conf space
 			logf("Sampling all pair tuples...");
 			Stopwatch singlesStopwatch = new Stopwatch().start();
-			addTuples(getUnprunedSingleTuples(pmat));
+			addUniqueTuples(getUnprunedSingleTuples(pmat));
 			log(" done in " + singlesStopwatch.stop().getTime(2));
 			fit(confEcalc, confTable, sampler, fitter, maxRMSE, maxOverfittingScore);
 
@@ -648,7 +659,7 @@ public class LUTE {
 		// start with all pairs first
 		logf("Sampling all pair tuples...");
 		Stopwatch pairsStopwatch = new Stopwatch().start();
-		addTuples(getUnprunedPairTuples(pmat));
+		addUniqueTuples(getUnprunedPairTuples(pmat));
 		log(" done in " + pairsStopwatch.stop().getTime(2));
 		fit(confEcalc, confTable, sampler, fitter, maxRMSE, maxOverfittingScore);
 
@@ -665,7 +676,7 @@ public class LUTE {
 			// nope, try to pick some triples to get a better fit
 			logf("Sampling triple tuples (top %d strongly-interacting pairs at each position) to try to reduce error...", numPairsPerPosition);
 			Stopwatch triplesStopwatch = new Stopwatch().start();
-			addTuples(sampleTripleTuplesByStrongInteractions(emat, pmat, numPairsPerPosition));
+			addUniqueTuples(sampleTripleTuplesByStrongInteractions(emat, pmat, numPairsPerPosition));
 			log(" done in " + triplesStopwatch.stop().getTime(2));
 
 			// fit again
@@ -686,6 +697,33 @@ public class LUTE {
 	/**
 	 * for when you know the fit will be difficult and just want to sample all the pairs and triples
 	 */
+	public boolean sampleAllPairsAndFit(ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore, double maxRMSE) {
+
+		// the conf space must have at least 3 positions
+		if (confSpace.positions.size() < 3) {
+			throw new IllegalArgumentException("conf space must have at least three positions");
+		}
+
+		// sample all the tuples
+		logf("Sampling all pairs...");
+		Stopwatch tupleStopwatch = new Stopwatch().start();
+		addUniqueTuples(getUnprunedPairTuples(pmat));
+		log(" done in " + tupleStopwatch.stop().getTime(2));
+		fit(confEcalc, confTable, sampler, fitter, maxRMSE, maxOverfittingScore);
+
+		// was that good enough?
+		if (trainingSystem.errors.rms <= maxRMSE) {
+			log("training set RMS error %f meets goal of %f", trainingSystem.errors.rms, maxRMSE);
+			return true;
+		}
+		log("training set RMS error %f does not meet goal of %f", trainingSystem.errors.rms, maxRMSE);
+
+		return false;
+	}
+
+	/**
+	 * for when you know the fit will be difficult and just want to sample all the pairs and triples
+	 */
 	public boolean sampleAllPairsTriplesAndFit(ConfEnergyCalculator confEcalc, EnergyMatrix emat, PruningMatrix pmat, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxOverfittingScore, double maxRMSE) {
 
 		// the conf space must have at least 3 positions
@@ -696,8 +734,8 @@ public class LUTE {
 		// sample all the tuples
 		logf("Sampling all pairs and triples...");
 		Stopwatch tupleStopwatch = new Stopwatch().start();
-		addTuples(getUnprunedPairTuples(pmat));
-		addTuples(getUnprunedTripleTuples(pmat));
+		addUniqueTuples(getUnprunedPairTuples(pmat));
+		addUniqueTuples(getUnprunedTripleTuples(pmat));
 		log(" done in " + tupleStopwatch.stop().getTime(2));
 		fit(confEcalc, confTable, sampler, fitter, maxRMSE, maxOverfittingScore);
 
@@ -713,10 +751,6 @@ public class LUTE {
 
 	public void fit(ConfEnergyCalculator confEcalc, ConfDB.ConfTable confTable, ConfSampler sampler, Fitter fitter, double maxTrainingRMSE, double maxOverfittingScore) {
 
-		TuplesIndex tuplesIndex = new TuplesIndex(confSpace, tuples);
-
-		ConfSampler.Samples trainingSet = new ConfSampler.Samples(tuplesIndex);
-		ConfSampler.Samples testSet = new ConfSampler.Samples(tuplesIndex);
 		energies = new Conf.Map<>();
 		double overfittingScore;
 
@@ -727,7 +761,7 @@ public class LUTE {
 		while (true) {
 
 			// sample the training and test sets
-			logf("\nsampling at least %d confs per tuple for %d tuples...", samplesPerTuple, tuples.size());
+			logf("\nsampling at least %d confs per tuple for %d tuples...", samplesPerTuple, tuplesIndex.size());
 			Stopwatch samplingSw = new Stopwatch().start();
 			sampler.sampleConfsForTuples(trainingSet, samplesPerTuple);
 			sampler.sampleConfsForTuples(testSet, samplesPerTuple);
@@ -762,7 +796,7 @@ public class LUTE {
 				tasks.start(confEcalc.ecalc.parallelism.numThreads);
 
 				// fit the linear system to the training set
-				logf("fitting %d confs to %d tuples ...", numSamples, this.tuples.size());
+				logf("fitting %d confs to %d tuples ...", numSamples, tuplesIndex.size());
 				Stopwatch trainingSw = new Stopwatch().start();
 				trainingSystem = new LinearSystem(tuplesIndex, trainingSet, energies);
 				trainingSystem.fit(fitter, tasks);
@@ -797,7 +831,7 @@ public class LUTE {
 		}
 
 		log("\nLUTE fitting finished in %s:\n", sw.stop().getTime(2));
-		log("sampled at least %d confs per tuple for %d tuples", samplesPerTuple, tuples.size());
+		log("sampled at least %d confs per tuple for %d tuples", samplesPerTuple, tuplesIndex.size());
 		log("sampled %d training confs, %d test confs, %d confs total (%.2f%% overlap)",
 			trainingSet.size(), testSet.size(), energies.size(),
 			100.0*(trainingSet.size() + testSet.size() - energies.size())/energies.size()
@@ -821,6 +855,12 @@ public class LUTE {
 		}
 
 		log("total energy calculations: %d    overfitting score: %.4f <= %.4f", energies.size(), overfittingScore, maxOverfittingScore);
+		log("sample energies:    training set: [%.3f,%.3f]   test set: [%.3f,%.3f]",
+			Arrays.stream(trainingSystem.confEnergies).min().orElse(Double.NaN),
+			Arrays.stream(trainingSystem.confEnergies).max().orElse(Double.NaN),
+			Arrays.stream(testSystem.confEnergies).min().orElse(Double.NaN),
+			Arrays.stream(testSystem.confEnergies).max().orElse(Double.NaN)
+		);
 		log("");
 	}
 

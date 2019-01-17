@@ -39,6 +39,7 @@ import edu.duke.cs.osprey.confspace.TuplesIndex;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 import java.util.*;
+import java.util.function.Function;
 
 
 public abstract class ConfSampler {
@@ -47,23 +48,12 @@ public abstract class ConfSampler {
 
 		public final TuplesIndex tuples;
 
-		private final Set<int[]> confs;
-		private final Map<RCTuple,Set<int[]>> confsByTuple;
-		private final int[] numConfsByTuple;
+		private final Set<int[]> confs = new Conf.Set();
+		private final List<Set<int[]>> confsByTuple = new ArrayList<>();
+		private final List<Integer> numConfsByTuple = new ArrayList<>();
 
 		public Samples(TuplesIndex tuples) {
-
 			this.tuples = tuples;
-
-			confs = new Conf.Set();
-
-			confsByTuple = new HashMap<>();
-			for (RCTuple tuple : tuples) {
-				confsByTuple.put(tuple, new Conf.Set());
-			}
-
-			numConfsByTuple = new int[tuples.size()];
-			Arrays.fill(numConfsByTuple, 0);
 		}
 
 		public RCTuple getLeastSampledTuple(Set<RCTuple> except) {
@@ -77,7 +67,7 @@ public abstract class ConfSampler {
 			int bestSize = -1;
 			for (int t=0; t<tuples.size(); t++) {
 
-				int size = numConfsByTuple[t];
+				int size = numConfsByTuple.get(t);
 				if (bestt == -1 || size < bestSize) {
 
 					// skip excepted tuples
@@ -128,19 +118,53 @@ public abstract class ConfSampler {
 		}
 
 		public Set<int[]> getConfs(RCTuple tuple) {
-			return Collections.unmodifiableSet(confsByTuple.get(tuple));
+			return Collections.unmodifiableSet(confsByTuple.get(tuples.getIndex(tuple)));
 		}
 
 		public void addConf(int[] conf) {
 			boolean throwIfMissingSingle = conf.length == 1;
 			boolean throwIfMissingPair = conf.length > 1;
 			tuples.forEachIn(conf, throwIfMissingSingle, throwIfMissingPair, (index) -> {
-				RCTuple tuple = tuples.get(index);
-				Set<int[]> confsForTuple = confsByTuple.get(tuple);
+				Set<int[]> confsForTuple = confsByTuple.get(index);
 				confsForTuple.add(conf);
-				numConfsByTuple[index] = confsForTuple.size();
+				numConfsByTuple.set(index, confsForTuple.size());
 			});
 			confs.add(conf);
+		}
+
+		public void addTuple(RCTuple tuple) {
+
+			Integer tupleIndex = tuples.getIndex(tuple);
+			if (tupleIndex == null) {
+				throw new IllegalArgumentException("tuple must be indexed");
+			} else if (tupleIndex != tuples.size() - 1) {
+				throw new IllegalArgumentException("must be most recently added tuple to the index");
+			}
+			if (tupleIndex < confsByTuple.size()) {
+				throw new IllegalArgumentException("can't add the same tuple more than once: " + tuple);
+			}
+
+			Function<int[],Boolean> matches = (conf) -> {
+				for (int i=0; i<tuple.size(); i++) {
+					int pos = tuple.pos.get(i);
+					int rc = tuple.RCs.get(i);
+					if (conf[pos] != rc) {
+						return false;
+					}
+				}
+				return true;
+			};
+
+			Set<int[]> tuplesConfs = new Conf.Set();
+			confsByTuple.add(tuplesConfs);
+
+			for (int[] conf : confs) {
+				if (matches.apply(conf)) {
+					tuplesConfs.add(conf);
+				}
+			}
+
+			numConfsByTuple.add(tuplesConfs.size());
 		}
 	}
 

@@ -59,9 +59,9 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -548,5 +548,80 @@ public class TestLute {
 			assertKstar(scoredSequences.get(3), "asp glu ASP", 3.438280, 3.444701, fudge); // protein [2.402387 , 2.404539] (log10)                    ligand [1.189648 , 1.190554] (log10)                    complex [7.033372 , 7.036735] (log10)
 			assertKstar(scoredSequences.get(4), "asp glu GLU", 2.601122, 2.605583, fudge); // protein [2.402387 , 2.404539] (log10)                    ligand [1.247908 , 1.247908] (log10)                    complex [6.253568 , 6.255878] (log10)
 		}
+	}
+
+	@Test
+	public void sampleCaching() {
+
+		// every time we increase the size of the LUTE model (by adding tuples),
+		// the sampler should reuse samples from the previous model size
+
+		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol).setResidues("G648", "G654").build();
+		for (String resNum : Arrays.asList("G650", "G651", "G652")) {
+			protein.flexibility.get(resNum).setLibraryRotamers(Strand.WildType);
+		}
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol).setResidues("A155", "A194").build();
+		for (String resNum : Arrays.asList("A172", "A173", "A174")) {
+			ligand.flexibility.get(resNum).setLibraryRotamers(Strand.WildType);
+		}
+
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+			.addStrands(protein, ligand)
+			.build();
+
+		// calc the emat
+		EnergyMatrix emat;
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
+			.setParallelism(Parallelism.makeCpu(4))
+			.build()
+		) {
+			emat = calcEmat(makeConfEcalc(confSpace, ecalc));
+		}
+
+		// use an empty pmat
+		PruningMatrix pmat = new PruningMatrix(confSpace);
+
+		final int randomSeed = 12345;
+		ConfSampler sampler = new RandomizedDFSConfSampler(confSpace, pmat, randomSeed);
+
+		LUTE lute = new LUTE(confSpace);
+
+		Supplier<Set<int[]>> getSamples = () -> {
+			for (int i=0; i<3; i++) {
+				sampler.sampleConfsForTuples(lute.trainingSet, i);
+			}
+			return new HashSet<>(lute.trainingSet.getAllConfs());
+		};
+
+		// samples confs for pair tuples
+		lute.addTuples(lute.getUnprunedPairTuples(pmat));
+		Set<int[]> pairsSamples = getSamples.get();
+
+		// sample one round of sparse triples
+		lute.addTuples(lute.sampleTripleTuplesByStrongInteractions(emat, pmat, 1));
+		Set<int[]> triples1Samples = getSamples.get();
+
+		// we should re-use all of the samples from the pairs
+		assertThat(triples1Samples.containsAll(pairsSamples), is(true));
+
+		// but the triples should have extra samples too
+		assertThat(triples1Samples.size(), greaterThan(pairsSamples.size()));
+
+		// sample another round of sparse triples
+		lute.addUniqueTuples(lute.sampleTripleTuplesByStrongInteractions(emat, pmat, 2));
+		Set<int[]> triples2Samples = getSamples.get();
+
+		// we should re-use all of the samples from the previous sets
+		assertThat(triples2Samples.containsAll(pairsSamples), is(true));
+		assertThat(triples2Samples.containsAll(triples1Samples), is(true));
+
+		// but the this one should have extra samples too
+		assertThat(triples2Samples.size(), greaterThan(pairsSamples.size()));
+		assertThat(triples2Samples.size(), greaterThan(triples1Samples.size()));
 	}
 }
