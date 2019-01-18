@@ -94,15 +94,17 @@ public class RCTuple implements Serializable {
     	set(conf);
     }
     
-    public void set(int pos, int rc) {
+    public RCTuple set(int pos, int rc) {
     	this.pos.clear();
     	this.RCs.clear();
     	
         this.pos.add(pos);
         this.RCs.add(rc);
+
+        return this;
     }
     
-    public void set(int pos1, int rc1, int pos2, int rc2) {
+    public RCTuple set(int pos1, int rc1, int pos2, int rc2) {
     	this.pos.clear();
     	this.RCs.clear();
     	
@@ -111,9 +113,11 @@ public class RCTuple implements Serializable {
         
         this.pos.add(pos2);
         this.RCs.add(rc2);
+
+        return this;
     }
 
-	public void set(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
+	public RCTuple set(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
 		this.pos.clear();
 		this.RCs.clear();
 
@@ -125,6 +129,8 @@ public class RCTuple implements Serializable {
 
 		this.pos.add(pos3);
 		this.RCs.add(rc3);
+
+		return this;
 	}
 
 	public void set(int[] conf) {

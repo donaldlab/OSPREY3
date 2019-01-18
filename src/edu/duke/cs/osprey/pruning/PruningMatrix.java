@@ -358,7 +358,54 @@ public class PruningMatrix extends TupleMatrixBoolean {
 			|| getTuple(new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3).sorted());
 	}
 
-    public void markAsPruned(RCTuple tup){
+	public boolean isQuadruplePruned(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int rc4) {
+		RCTuple tuple = new RCTuple(0, 0, 0, 0, 0, 0);
+		return isSinglePruned(pos1, rc1)
+			|| isSinglePruned(pos2, rc2)
+			|| isSinglePruned(pos3, rc3)
+			|| isSinglePruned(pos4, rc4)
+			|| getPairwise(pos1, rc1, pos2, rc2)
+			|| getPairwise(pos1, rc1, pos3, rc3)
+			|| getPairwise(pos1, rc1, pos4, rc4)
+			|| getPairwise(pos2, rc2, pos3, rc3)
+			|| getPairwise(pos2, rc2, pos4, rc4)
+			|| getPairwise(pos3, rc3, pos4, rc4)
+			|| getTuple(tuple.set(pos1, rc1, pos2, rc2, pos3, rc3).sorted())
+			|| getTuple(tuple.set(pos1, rc1, pos2, rc2, pos4, rc4).sorted())
+			|| getTuple(tuple.set(pos1, rc1, pos3, rc3, pos4, rc4).sorted())
+			|| getTuple(tuple.set(pos2, rc2, pos3, rc3, pos4, rc4).sorted());
+	}
+
+	public boolean isQuintuplePruned(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int rc4, int pos5, int rc5) {
+		RCTuple tuple = new RCTuple(0, 0, 0, 0, 0, 0);
+		return isSinglePruned(pos1, rc1)
+			|| isSinglePruned(pos2, rc2)
+			|| isSinglePruned(pos3, rc3)
+			|| isSinglePruned(pos4, rc4)
+			|| isSinglePruned(pos5, rc5)
+			|| getPairwise(pos1, rc1, pos2, rc2)
+			|| getPairwise(pos1, rc1, pos3, rc3)
+			|| getPairwise(pos1, rc1, pos4, rc4)
+			|| getPairwise(pos1, rc1, pos5, rc5)
+			|| getPairwise(pos2, rc2, pos3, rc3)
+			|| getPairwise(pos2, rc2, pos4, rc4)
+			|| getPairwise(pos2, rc2, pos5, rc5)
+			|| getPairwise(pos3, rc3, pos4, rc4)
+			|| getPairwise(pos3, rc3, pos5, rc5)
+			|| getPairwise(pos4, rc4, pos5, rc5)
+			|| getTuple(tuple.set(pos1, rc1, pos2, rc2, pos3, rc3).sorted())
+			|| getTuple(tuple.set(pos1, rc1, pos2, rc2, pos4, rc4).sorted())
+			|| getTuple(tuple.set(pos1, rc1, pos2, rc2, pos5, rc5).sorted())
+			|| getTuple(tuple.set(pos1, rc1, pos3, rc3, pos4, rc4).sorted())
+			|| getTuple(tuple.set(pos1, rc1, pos3, rc3, pos5, rc5).sorted())
+			|| getTuple(tuple.set(pos1, rc1, pos4, rc4, pos5, rc5).sorted())
+			|| getTuple(tuple.set(pos2, rc2, pos3, rc3, pos4, rc4).sorted())
+			|| getTuple(tuple.set(pos2, rc2, pos3, rc3, pos5, rc5).sorted())
+			|| getTuple(tuple.set(pos2, rc2, pos4, rc4, pos5, rc5).sorted())
+			|| getTuple(tuple.set(pos3, rc3, pos4, rc4, pos5, rc5).sorted());
+	}
+
+	public void markAsPruned(RCTuple tup){
         setTupleValue(tup, true);
         /*
         int tupSize = tup.pos.size();

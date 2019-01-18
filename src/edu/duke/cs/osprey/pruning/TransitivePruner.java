@@ -1,18 +1,20 @@
 package edu.duke.cs.osprey.pruning;
 
 
-import edu.duke.cs.osprey.astar.conf.ConfIndex;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.Progress;
 
-import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static edu.duke.cs.osprey.tools.Log.log;
 
-
+/**
+ * Checks if each tuple can possibly be part of a full unpruned conformation.
+ *
+ * This pruning essentially checks for the same thing as the LUTE conf sampler,
+ * (namely, can we map a tuple into a set of confs)
+ * but using a polynomial time algorithm instead of an exponential time one
+ */
 public class TransitivePruner {
 
 	public final SimpleConfSpace confSpace;
@@ -33,9 +35,9 @@ public class TransitivePruner {
 
 		pmat.forEachUnprunedSingle((pos1, rc1) -> {
 			tasks.submit(
-				() -> hasLeaf(pmat, new RCTuple(pos1, rc1)),
-				(hasLeaf) -> {
-					if (!hasLeaf) {
+				() -> isPrunedTransitively(pmat, pos1, rc1),
+				(isPruned) -> {
+					if (isPruned) {
 						pmat.pruneSingle(pos1, rc1);
 					}
 					progress.incrementProgress();
@@ -43,6 +45,63 @@ public class TransitivePruner {
 			);
 			return PruningMatrix.IteratorCommand.Continue;
 		});
+	}
+
+	private boolean isPrunedTransitively(PruningMatrix pmat, int pos1, int rc1) {
+
+		for (int pos2=0; pos2<pmat.getNumPos(); pos2++) {
+
+			// skip assigned positions
+			if (pos2 == pos1) {
+				continue;
+			}
+
+			// check pairs
+			if (!isPos2Assignable(pmat, pos1, rc1, pos2)) {
+				return true;
+			}
+
+			for (int pos3=0; pos3<pos2; pos3++) {
+
+				// skip assigned positions
+				if (pos3 == pos1) {
+					continue;
+				}
+
+				// check triples
+				if (!arePos23Assignable(pmat, pos1, rc1, pos2, pos3)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private boolean isPos2Assignable(PruningMatrix pmat, int pos1, int rc1, int pos2) {
+
+		// is there at least one possible assignment to pos2, given rc1?
+		for (int rc2=0; rc2<pmat.getNumConfAtPos(pos2); rc2++) {
+			if (!pmat.isPairPruned(pos1, rc1, pos2, rc2)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private boolean arePos23Assignable(PruningMatrix pmat, int pos1, int rc1, int pos2, int pos3) {
+
+		// is there at least one possible assignment to pos2,pos3, given rc1?
+		for (int rc2=0; rc2<pmat.getNumConfAtPos(pos2); rc2++) {
+			for (int rc3=0; rc3<pmat.getNumConfAtPos(pos3); rc3++) {
+				if (!pmat.isTriplePruned(pos1, rc1, pos2, rc2, pos3, rc3)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	public void prunePairs(PruningMatrix pmat, TaskExecutor tasks) {
@@ -57,9 +116,9 @@ public class TransitivePruner {
 
 		pmat.forEachUnprunedPair((pos1, rc1, pos2, rc2) -> {
 			tasks.submit(
-				() -> hasLeaf(pmat, new RCTuple(pos1, rc1, pos2, rc2)),
-				(hasLeaf) -> {
-					if (!hasLeaf) {
+				() -> isPrunedTransitively(pmat, pos1, rc1, pos2, rc2),
+				(isPruned) -> {
+					if (isPruned) {
 						pmat.prunePair(pos1, rc1, pos2, rc2);
 					}
 					progress.incrementProgress();
@@ -67,6 +126,63 @@ public class TransitivePruner {
 			);
 			return PruningMatrix.IteratorCommand.Continue;
 		});
+	}
+
+	private boolean isPrunedTransitively(PruningMatrix pmat, int pos1, int rc1, int pos2, int rc2) {
+
+		for (int pos3=0; pos3<pmat.getNumPos(); pos3++) {
+
+			// skip assigned positions
+			if (pos3 == pos1 || pos3 == pos2) {
+				continue;
+			}
+
+			// check pairs
+			if (!isPos3Assignable(pmat, pos1, rc1, pos2, rc2, pos3)) {
+				return true;
+			}
+
+			for (int pos4=0; pos4<pos3; pos4++) {
+
+				// skip assigned positions
+				if (pos4 == pos1 || pos4 == pos2) {
+					continue;
+				}
+
+				// check triples
+				if (!arePos34Assignable(pmat, pos1, rc1, pos2, rc2, pos3, pos4)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private boolean isPos3Assignable(PruningMatrix pmat, int pos1, int rc1, int pos2, int rc2, int pos3) {
+
+		// is there at least one possible assignment to pos3, given rc1,rc2?
+		for (int rc3=0; rc3<pmat.getNumConfAtPos(pos3); rc3++) {
+			if (!pmat.isTriplePruned(pos1, rc1, pos2, rc2, pos3, rc3)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private boolean arePos34Assignable(PruningMatrix pmat, int pos1, int rc1, int pos2, int rc2, int pos3, int pos4) {
+
+		// is there at least one possible assignment to pos3,pos4, given rc1,rc2?
+		for (int rc3=0; rc3<pmat.getNumConfAtPos(pos3); rc3++) {
+			for (int rc4=0; rc4<pmat.getNumConfAtPos(pos4); rc4++) {
+				if (!pmat.isQuadruplePruned(pos1, rc1, pos2, rc2, pos3, rc3, pos4, rc4)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	public void pruneTriples(PruningMatrix pmat, TaskExecutor tasks) {
@@ -81,9 +197,9 @@ public class TransitivePruner {
 
 		pmat.forEachUnprunedTriple((pos1, rc1, pos2, rc2, pos3, rc3) -> {
 			tasks.submit(
-				() -> hasLeaf(pmat, new RCTuple(pos1, rc1, pos2, rc2, pos3, rc3)),
-				(hasLeaf) -> {
-					if (!hasLeaf) {
+				() -> isPrunedTransitively(pmat, pos1, rc1, pos2, rc2, pos3, rc3),
+				(isPruned) -> {
+					if (isPruned) {
 						pmat.pruneTriple(pos1, rc1, pos2, rc2, pos3, rc3);
 					}
 					progress.incrementProgress();
@@ -93,100 +209,56 @@ public class TransitivePruner {
 		});
 	}
 
-	private boolean hasLeaf(PruningMatrix pmat, RCTuple tuple) {
+	private boolean isPrunedTransitively(PruningMatrix pmat, int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
 
-		// collect all the positions: assigned first, then unassigned
-		List<SimpleConfSpace.Position> positions = new ArrayList<>();
-		for (int pos : tuple.pos) {
-			positions.add(confSpace.positions.get(pos));
-		}
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			if (!positions.contains(pos)) {
-				positions.add(pos);
+		for (int pos4=0; pos4<pmat.getNumPos(); pos4++) {
+
+			// skip assigned positions
+			if (pos4 == pos1 || pos4 == pos2 || pos4 == pos3) {
+				continue;
 			}
-		}
 
-		// sort unassigned positions by number of unpruned RCs,
-		// so we're likely to dead-end faster
-		positions.subList(tuple.size(), positions.size())
-			.sort(Comparator.comparing(pos -> pos.resConfs.stream()
-				.filter(rc -> !pmat.isSinglePruned(pos.index, rc.index))
-				.count()
-			));
-
-		// do DFS
-		Stack<ConfIndex> stack = new Stack<>();
-
-		// start with the DFS node representing the tuple
-		ConfIndex root = new ConfIndex(positions.size());
-		root.numDefined = tuple.size();
-		for (int i=0; i<tuple.size(); i++) {
-			root.definedPos[i] = tuple.pos.get(i);
-			root.definedRCs[i] = tuple.RCs.get(i);
-		}
-		root.sortDefined();
-		root.updateUndefined();
-		stack.push(root);
-
-		while (!stack.isEmpty()) {
-
-			ConfIndex node = stack.pop();
-
-			// hit a leaf node? we're done here
-			if (node.numDefined == positions.size()) {
+			// check pairs
+			if (!isPos4Assignable(pmat, pos1, rc1, pos2, rc2, pos3, rc3, pos4)) {
 				return true;
 			}
 
-			// otherwise, expand the next pos and RCs
-			SimpleConfSpace.Position pos = positions.get(node.numDefined);
-			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
+			for (int pos5=0; pos5<pos4; pos5++) {
 
-				// if this child was pruned by the pruning matrix, then skip it
-				if (isPruned(pmat, node, pos.index, rc.index)) {
+				// skip assigned positions
+				if (pos5 == pos1 || pos5 == pos2 || pos5 == pos3) {
 					continue;
 				}
 
-				// otherwise, expand it
-				stack.push(node.assign(pos.index, rc.index));
+				// check triples
+				if (!arePos45Assignable(pmat, pos1, rc1, pos2, rc2, pos3, rc3, pos4, pos5)) {
+					return true;
+				}
 			}
 		}
 
 		return false;
 	}
 
-	private boolean isPruned(PruningMatrix pmat, ConfIndex confIndex, int nextPos, int nextRc) {
+	private boolean isPos4Assignable(PruningMatrix pmat, int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4) {
 
-		// check pairs
-		for (int i=0; i<confIndex.numDefined; i++) {
-			int pos = confIndex.definedPos[i];
-			int rc = confIndex.definedRCs[i];
-			assert (pos != nextPos || rc != nextRc);
-			if (pmat.getPairwise(pos, rc, nextPos, nextRc)) {
+		// is there at least one possible assignment to pos4, given rc1,rc2,rc3?
+		for (int rc4=0; rc4<pmat.getNumConfAtPos(pos4); rc4++) {
+			if (!pmat.isQuadruplePruned(pos1, rc1, pos2, rc2, pos3, rc3, pos4, rc4)) {
 				return true;
 			}
 		}
 
-		// check triples
-		if (pmat.hasHigherOrderTuples()) {
+		return false;
+	}
 
-			RCTuple tuple = new RCTuple(0, 0, 0, 0, 0, 0);
+	private boolean arePos45Assignable(PruningMatrix pmat, int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int pos5) {
 
-			for (int i1=0; i1<confIndex.numDefined; i1++) {
-				int pos1 = confIndex.definedPos[i1];
-				int rc1 = confIndex.definedRCs[i1];
-				assert (pos1 != nextPos || rc1 != nextRc);
-
-				for (int i2=0; i2<i1; i2++) {
-					int pos2 = confIndex.definedPos[i2];
-					int rc2 = confIndex.definedRCs[i2];
-					assert (pos2 != nextPos || rc2 != nextRc);
-
-					tuple.set(pos1, rc1, pos2, rc2, nextPos, nextRc);
-					tuple.sortPositions();
-
-					if (pmat.getTuple(tuple)) {
-						return true;
-					}
+		// is there at least one possible assignment to pos4,pos5, given rc1,rc2,rc3?
+		for (int rc4=0; rc4<pmat.getNumConfAtPos(pos4); rc4++) {
+			for (int rc5=0; rc5<pmat.getNumConfAtPos(pos5); rc5++) {
+				if (!pmat.isQuintuplePruned(pos1, rc1, pos2, rc2, pos3, rc3, pos4, rc4, pos5, rc5)) {
+					return true;
 				}
 			}
 		}
