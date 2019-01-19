@@ -756,7 +756,15 @@ public class LUTE {
 
 		Stopwatch sw = new Stopwatch().start();
 
-		int numSamples = 0;
+		// get the initial sample count
+		for (int[] conf : trainingSet.getAllConfs()) {
+			energies.put(conf, null);
+		}
+		for (int[] conf : testSet.getAllConfs()) {
+			energies.put(conf, null);
+		}
+		int numSamples = energies.size();
+
 		int samplesPerTuple = 1;
 		while (true) {
 

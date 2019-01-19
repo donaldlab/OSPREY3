@@ -624,4 +624,63 @@ public class TestLute {
 		assertThat(triples2Samples.size(), greaterThan(pairsSamples.size()));
 		assertThat(triples2Samples.size(), greaterThan(triples1Samples.size()));
 	}
+
+	@Test
+	public void forEachInAfterAddTriples() {
+
+		// make sure adding tuples to the model works
+
+		Strand protein = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
+		for (String resNum : Arrays.asList("A16", "A17", "A18", "A19")) {
+			protein.flexibility.get(resNum).setLibraryRotamers("VAL"); // 3 rotamers each
+		}
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrands(protein).build();
+
+		// just use a blank pmat
+		PruningMatrix pmat = new PruningMatrix(confSpace);
+
+		// start with just pair tuples
+		LUTE lute = new LUTE(confSpace);
+		lute.addUniqueTuples(lute.getUnprunedPairTuples(pmat));
+
+		// pick a conf, any conf
+		int[] conf = new int[] { 1, 2, 0, 1 };
+
+		// check the conf for pairs
+		Set<RCTuple> tupleIndices = new HashSet<>();
+		lute.tuplesIndex.forEachIn(conf, false, false, (t) ->
+			tupleIndices.add(lute.tuplesIndex.get(t))
+		);
+		assertThat(tupleIndices, containsInAnyOrder(
+			new RCTuple(0, 1, 1, 2).sorted(),
+			new RCTuple(0, 1, 2, 0).sorted(),
+			new RCTuple(0, 1, 3, 1).sorted(),
+			new RCTuple(1, 2, 2, 0).sorted(),
+			new RCTuple(1, 2, 3, 1).sorted(),
+			new RCTuple(2, 0, 3, 1).sorted()
+		));
+
+		// add some triple tuples
+		lute.addUniqueTuples(Arrays.asList(
+			new RCTuple(0, 1, 1, 2, 2, 0).sorted(), // in the conf
+			new RCTuple(1, 2, 2, 0, 3, 1).sorted(), // in the conf
+			new RCTuple(0, 0, 1, 0, 2, 0).sorted() // not in the conf
+		));
+
+		// check the conf for pairs and triples
+		tupleIndices.clear();
+		lute.tuplesIndex.forEachIn(conf, false, false, (t) ->
+			tupleIndices.add(lute.tuplesIndex.get(t))
+		);
+		assertThat(tupleIndices, containsInAnyOrder(
+			new RCTuple(0, 1, 1, 2).sorted(),
+			new RCTuple(0, 1, 2, 0).sorted(),
+			new RCTuple(0, 1, 3, 1).sorted(),
+			new RCTuple(1, 2, 2, 0).sorted(),
+			new RCTuple(1, 2, 3, 1).sorted(),
+			new RCTuple(2, 0, 3, 1).sorted(),
+			new RCTuple(0, 1, 1, 2, 2, 0).sorted(),
+			new RCTuple(1, 2, 2, 0, 3, 1).sorted()
+		));
+	}
 }
