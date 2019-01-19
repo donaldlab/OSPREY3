@@ -75,7 +75,7 @@ public class LUTE {
 		OLSCG(true) {
 
 			@Override
-			public double[] fit(LinearSystem system, LinearSystem.BInfo binfo, TaskExecutor tasks) {
+			public double[] fit(LinearSystem system, LinearSystem.BInfo binfo, double[] x0, TaskExecutor tasks) {
 
 				// build the linear model: Ax=b
 				// except conjugate gradient needs square A, so transform to A^tAx = A^tb
@@ -100,10 +100,12 @@ public class LUTE {
 					}
 				};
 
-				RealVector Atb = new ArrayRealVector(system.multAt(binfo.b), false);
+				RealVector Atb = new ArrayRealVector(system.parallelMultAt(binfo.b, tasks), false);
+
+				RealVector rx0 = new ArrayRealVector(x0, false);
 
 				ConjugateGradient cg = new ConjugateGradient(100000, 1e-6, false);
-				return ((ArrayRealVector)cg.solve(AtA, Atb)).getDataRef();
+				return ((ArrayRealVector)cg.solve(AtA, Atb, rx0)).getDataRef();
 			}
 		},
 
@@ -119,7 +121,7 @@ public class LUTE {
 		LASSO(false /* LASSO implementation does its own normalization */) {
 
 			@Override
-			public double[] fit(LinearSystem system, LinearSystem.BInfo binfo, TaskExecutor tasks) {
+			public double[] fit(LinearSystem system, LinearSystem.BInfo binfo, double[] x0, TaskExecutor tasks) {
 
 				// explicitly instantiate A (at least it's a sparse and not a dense matrix though)
 				// the LASSO implementation is actually really fast!
@@ -151,7 +153,7 @@ public class LUTE {
 			this.normalize = normalize;
 		}
 
-		public abstract double[] fit(LinearSystem system, LinearSystem.BInfo binfo, TaskExecutor tasks);
+		public abstract double[] fit(LinearSystem system, LinearSystem.BInfo binfo, double[] x0, TaskExecutor tasks);
 	}
 
 	public static class LinearSystem {
@@ -192,7 +194,7 @@ public class LUTE {
 			tuples.forEachIn(confs.get(c), throwIfMissingSingle, throwIfMissingPair, callback);
 		}
 
-		public void fit(Fitter fitter, TaskExecutor tasks) {
+		public void fit(Fitter fitter, double[] oldTupleEnergies, TaskExecutor tasks) {
 
 			// calculate b, and normalize if needed
 			BInfo binfo = new BInfo();
@@ -215,9 +217,29 @@ public class LUTE {
 				}
 			}
 
-			double[] x = fitter.fit(this, binfo, tasks);
+			// init the conjugate gradient pos with the old pos if provided
+			// this lets us use the linear regressor in "online" mode,
+			// which is faster for training after updates
+			double[] x0 = new double[tuples.size()];
+			if (oldTupleEnergies != null) {
 
-			calcTupleEnergies(x, binfo);
+				System.arraycopy(oldTupleEnergies, 0, x0, 0, oldTupleEnergies.length);
+				Arrays.fill(x0, oldTupleEnergies.length, x0.length, 0.0);
+
+				// normalize x0 if needed
+				if (fitter.normalize) {
+					for (int t=0; t<oldTupleEnergies.length; t++) {
+						x0[t] /= binfo.scale;
+					}
+				}
+
+			} else {
+				Arrays.fill(x0, 0.0);
+			}
+
+			double[] x = fitter.fit(this, binfo, x0, tasks);
+
+			calcTupleEnergies(x, binfo, tasks);
 		}
 
 		private double[] multA(double[] x) {
@@ -319,7 +341,7 @@ public class LUTE {
 			return out;
 		}
 
-		private void calcTupleEnergies(double[] x, BInfo binfo) {
+		private void calcTupleEnergies(double[] x, BInfo binfo, TaskExecutor tasks) {
 
 			// calculate the tuple energies in un-normalized space
 			double[] energies = new double[tuples.size()];
@@ -327,16 +349,16 @@ public class LUTE {
 				energies[t] = x[t]*binfo.scale;
 			}
 
-			setTupleEnergies(energies, binfo.offset);
+			setTupleEnergies(energies, binfo.offset, tasks);
 		}
 
-		public void setTupleEnergies(double[] energies, double offset) {
+		public void setTupleEnergies(double[] energies, double offset, TaskExecutor tasks) {
 
 			this.tupleEnergies = energies;
 			this.tupleEnergyOffset = offset;
 
 			// calculate the residual
-			double[] residual = multA(tupleEnergies);
+			double[] residual = parallelMultA(tupleEnergies, tasks);
 			for (int c=0; c<confs.size(); c++) {
 				residual[c] = (residual[c] + tupleEnergyOffset - confEnergies[c]);
 			}
@@ -594,7 +616,7 @@ public class LUTE {
 		}
 
 		// pick triples involving at least 2/3 strongly interacting pairs
-		Set<RCTuple> triples = new HashSet<>();
+		Set<RCTuple> triples = new LinkedHashSet<>();
 		pmat.forEachUnprunedTriple((pos1, rc1, pos2, rc2, pos3, rc3) -> {
 
 			int numStrongInteractions =
@@ -803,17 +825,23 @@ public class LUTE {
 			try (ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor()) {
 				tasks.start(confEcalc.ecalc.parallelism.numThreads);
 
+				// get the old fit, if any
+				double[] oldTupleEnergies = null;
+				if (trainingSystem != null) {
+					oldTupleEnergies = trainingSystem.tupleEnergies;
+				}
+
 				// fit the linear system to the training set
 				logf("fitting %d confs to %d tuples ...", numSamples, tuplesIndex.size());
 				Stopwatch trainingSw = new Stopwatch().start();
 				trainingSystem = new LinearSystem(tuplesIndex, trainingSet, energies);
-				trainingSystem.fit(fitter, tasks);
+				trainingSystem.fit(fitter, oldTupleEnergies, tasks);
 				logf(" done in %s", trainingSw.stop().getTime(2));
-			}
 
-			// analyze the test set errors
-			testSystem = new LinearSystem(tuplesIndex, testSet, energies);
-			testSystem.setTupleEnergies(trainingSystem.tupleEnergies, trainingSystem.tupleEnergyOffset);
+				// analyze the test set errors
+				testSystem = new LinearSystem(tuplesIndex, testSet, energies);
+				testSystem.setTupleEnergies(trainingSystem.tupleEnergies, trainingSystem.tupleEnergyOffset, tasks);
+			}
 
 			// measure overfitting by comparing ratio of rms errors
 			overfittingScore = calcOverfittingScore();

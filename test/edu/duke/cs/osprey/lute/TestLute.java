@@ -56,10 +56,12 @@ import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.Streams;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -556,23 +558,11 @@ public class TestLute {
 		// every time we increase the size of the LUTE model (by adding tuples),
 		// the sampler should reuse samples from the previous model size
 
-		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
-
-		// define the protein strand
-		Strand protein = new Strand.Builder(mol).setResidues("G648", "G654").build();
-		for (String resNum : Arrays.asList("G650", "G651", "G652")) {
-			protein.flexibility.get(resNum).setLibraryRotamers(Strand.WildType);
+		Strand protein = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
+		for (String resNum : Arrays.asList("A16", "A17", "A18", "A19", "A20", "A21")) {
+			protein.flexibility.get(resNum).setLibraryRotamers("VAL");
 		}
-
-		// define the ligand strand
-		Strand ligand = new Strand.Builder(mol).setResidues("A155", "A194").build();
-		for (String resNum : Arrays.asList("A172", "A173", "A174")) {
-			ligand.flexibility.get(resNum).setLibraryRotamers(Strand.WildType);
-		}
-
-		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
-			.addStrands(protein, ligand)
-			.build();
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrands(protein).build();
 
 		// calc the emat
 		EnergyMatrix emat;
@@ -594,8 +584,12 @@ public class TestLute {
 		Supplier<Set<int[]>> getSamples = () -> {
 			for (int i=0; i<3; i++) {
 				sampler.sampleConfsForTuples(lute.trainingSet, i);
+				sampler.sampleConfsForTuples(lute.testSet, i);
 			}
-			return new HashSet<>(lute.trainingSet.getAllConfs());
+			Conf.Set out = new Conf.Set();
+			out.addAll(lute.trainingSet.getAllConfs());
+			out.addAll(lute.testSet.getAllConfs());
+			return out;
 		};
 
 		// samples confs for pair tuples
@@ -623,6 +617,96 @@ public class TestLute {
 		// but the this one should have extra samples too
 		assertThat(triples2Samples.size(), greaterThan(pairsSamples.size()));
 		assertThat(triples2Samples.size(), greaterThan(triples1Samples.size()));
+	}
+
+	@Test
+	public void sampleCachingAcrossRuns() {
+
+		// if we're re-doing the same design with the same random seed,
+		// make sure we sample confs in the same order
+
+		Strand protein = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
+		for (String resNum : Arrays.asList("A16", "A17", "A18", "A19", "A20", "A21")) {
+			protein.flexibility.get(resNum).setLibraryRotamers("VAL");
+		}
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrands(protein).build();
+
+		// calc the emat
+		EnergyMatrix emat;
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
+			.setParallelism(Parallelism.makeCpu(4))
+			.build()
+		) {
+			emat = calcEmat(makeConfEcalc(confSpace, ecalc));
+		}
+
+		// just use a blank pmat
+		PruningMatrix pmat = new PruningMatrix(confSpace);
+
+		// use the same seed for all LUTE runs
+		int randomSeed = 12345;
+
+		BiFunction<LUTE,ConfSampler,Set<int[]>> getSamples = (lute, sampler) -> {
+			for (int i=0; i<3; i++) {
+				sampler.sampleConfsForTuples(lute.trainingSet, i);
+				sampler.sampleConfsForTuples(lute.testSet, i);
+			}
+			Conf.Set out = new Conf.Set();
+			out.addAll(lute.trainingSet.getAllConfs());
+			out.addAll(lute.testSet.getAllConfs());
+			return out;
+		};
+
+		Function<LUTE,List<RCTuple>> getTuples = (lute) ->
+			Streams.of(lute.tuplesIndex.iterator()).collect(Collectors.toList());
+
+		// save the samples from the initial LUTE run
+		final List<RCTuple> pairsTuples;
+		final List<RCTuple> triples1Tuples;
+		final List<RCTuple> triples2Tuples;
+		final Set<int[]> pairsSamples;
+		final Set<int[]> triples1Samples;
+		final Set<int[]> triples2Samples;
+		{
+			LUTE lute = new LUTE(confSpace);
+			ConfSampler sampler = new RandomizedDFSConfSampler(confSpace, pmat, randomSeed);
+
+			// start with just pair tuples
+			lute.addUniqueTuples(lute.getUnprunedPairTuples(pmat));
+			pairsTuples = getTuples.apply(lute);
+			pairsSamples = getSamples.apply(lute, sampler);
+
+			// then add triples
+			lute.addUniqueTuples(lute.sampleTripleTuplesByStrongInteractions(emat, pmat, 1));
+			triples1Tuples = getTuples.apply(lute);
+			triples1Samples = getSamples.apply(lute, sampler);
+
+			// then add more triples
+			lute.addUniqueTuples(lute.sampleTripleTuplesByStrongInteractions(emat, pmat, 2));
+			triples2Tuples = getTuples.apply(lute);
+			triples2Samples = getSamples.apply(lute, sampler);
+		}
+
+		// do another LUTE run and check the samples
+		{
+			LUTE lute = new LUTE(confSpace);
+			ConfSampler sampler = new RandomizedDFSConfSampler(confSpace, pmat, randomSeed);
+
+			// start with just pair tuples
+			lute.addUniqueTuples(lute.getUnprunedPairTuples(pmat));
+			assertThat(getTuples.apply(lute), is(pairsTuples));
+			assertThat(getSamples.apply(lute, sampler), is(pairsSamples));
+
+			// then add triples
+			lute.addUniqueTuples(lute.sampleTripleTuplesByStrongInteractions(emat, pmat, 1));
+			assertThat(getTuples.apply(lute), is(triples1Tuples));
+			assertThat(getSamples.apply(lute, sampler), is(triples1Samples));
+
+			// then add more triples
+			lute.addUniqueTuples(lute.sampleTripleTuplesByStrongInteractions(emat, pmat, 2));
+			assertThat(getTuples.apply(lute), is(triples2Tuples));
+			assertThat(getSamples.apply(lute, sampler), is(triples2Samples));
+		}
 	}
 
 	@Test
