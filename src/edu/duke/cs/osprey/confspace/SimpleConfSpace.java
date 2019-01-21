@@ -124,7 +124,7 @@ public class SimpleConfSpace implements Serializable {
 			this.index = index;
 			this.mindex = mindex;
 			this.strand = strand;
-			this.resNum = res.getPDBResNumber();
+			this.resNum = Residues.normalizeResNum(res.getPDBResNumber());
 			this.resFlex = strand.flexibility.get(resNum);
 			this.resConfs = new ArrayList<>();
 			this.resTypes = resTypes;
@@ -362,7 +362,7 @@ public class SimpleConfSpace implements Serializable {
 		Set<String> resNums = new HashSet<>();
 		for (Strand strand : strands) {
 			for (Residue res : strand.mol.residues) {
-				String resNum = res.getPDBResNumber();
+				String resNum = Residues.normalizeResNum(res.getPDBResNumber());
 				boolean isUnique = resNums.add(resNum);
 				if (!isUnique) {
 					throw new IllegalArgumentException("residue " + resNum + " appears more than once");
