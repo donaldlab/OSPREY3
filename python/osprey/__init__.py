@@ -1386,6 +1386,8 @@ def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSi
 	for constraint in constraints:
 		builder.addConstraint(constraint)
 
+	if epsilon is not useJavaDefault:
+		builder.setEpsilon(epsilon)
 	if objectiveWindowSize is not useJavaDefault:
 		builder.setObjectiveWindowSize(objectiveWindowSize)
 	if objectiveWindowMax is not useJavaDefault:
