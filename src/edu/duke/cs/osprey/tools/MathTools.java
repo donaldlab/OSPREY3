@@ -240,6 +240,10 @@ public class MathTools {
 		return new BigDecimal(val);
 	}
 
+	public static BigDecimalBounds biggen(double lower, double upper) {
+		return new BigDecimalBounds(biggen(lower), biggen(upper));
+	}
+
 	public static int compare(BigDecimal a, BigDecimal b) {
 		// a < b => -1
 		// a == b => 0
@@ -813,6 +817,10 @@ public class MathTools {
 		public BigDecimalBounds(BigDecimal lower, BigDecimal upper) {
 			this.lower = lower;
 			this.upper = upper;
+		}
+
+		public BigDecimalBounds(BigDecimal val) {
+			this(val, val);
 		}
 
 		public BigDecimalBounds(double lower, double upper) {

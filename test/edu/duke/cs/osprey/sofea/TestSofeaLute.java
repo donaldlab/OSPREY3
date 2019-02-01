@@ -40,7 +40,7 @@ import java.util.*;
 import java.util.function.Consumer;
 
 
-public class TestSofea {
+public class TestSofeaLute {
 
 	// TODO: test parallel settings
 
@@ -101,7 +101,7 @@ public class TestSofea {
 			Designs.Stability1CC8Mut2Flex2_Standard.get(),
 			Double.POSITIVE_INFINITY,
 			1024*1024,
-			TestSofea::assertResults_Stability1CC8Mut2Flex2_Standard
+			TestSofeaLute::assertResults_Stability1CC8Mut2Flex2_Standard
 		);
 	}
 	@Test
@@ -110,7 +110,7 @@ public class TestSofea {
 			Designs.Stability1CC8Mut2Flex2_Standard.get(),
 			50.0,
 			1024*1024,
-			TestSofea::assertResults_Stability1CC8Mut2Flex2_Standard
+			TestSofeaLute::assertResults_Stability1CC8Mut2Flex2_Standard
 		);
 	}
 	@Test
@@ -119,7 +119,7 @@ public class TestSofea {
 			Designs.Stability1CC8Mut2Flex2_Standard.get(),
 			3.0,
 			200,
-			TestSofea::assertResults_Stability1CC8Mut2Flex2_Standard
+			TestSofeaLute::assertResults_Stability1CC8Mut2Flex2_Standard
 		);
 	}
 
@@ -160,7 +160,7 @@ public class TestSofea {
 			Designs.Binding1CC8Mut2Flex2_Standard.get(),
 			Double.POSITIVE_INFINITY,
 			1024*1024,
-			TestSofea::assertResults_Binding1CC8Mut2Flex2_Standard
+			TestSofeaLute::assertResults_Binding1CC8Mut2Flex2_Standard
 		);
 	}
 	@Test
@@ -169,7 +169,7 @@ public class TestSofea {
 			Designs.Binding1CC8Mut2Flex2_Standard.get(),
 			50.0,
 			1024*1024,
-			TestSofea::assertResults_Binding1CC8Mut2Flex2_Standard
+			TestSofeaLute::assertResults_Binding1CC8Mut2Flex2_Standard
 		);
 	}
 	@Test
@@ -178,7 +178,7 @@ public class TestSofea {
 			Designs.Binding1CC8Mut2Flex2_Standard.get(),
 			3.0,
 			4*1024,
-			TestSofea::assertResults_Binding1CC8Mut2Flex2_Standard
+			TestSofeaLute::assertResults_Binding1CC8Mut2Flex2_Standard
 		);
 	}
 
@@ -213,7 +213,7 @@ public class TestSofea {
 			Designs.Binding1CC8Mut3Flex4_Standard.get(),
 			Double.POSITIVE_INFINITY,
 			1024*1024,
-			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+			TestSofeaLute::assertResults_Binding1CC8Mut3Flex4_Standard
 		);
 	}
 	@Test
@@ -223,7 +223,7 @@ public class TestSofea {
 			Double.POSITIVE_INFINITY,
 			1024*1024,
 			2,
-			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+			TestSofeaLute::assertResults_Binding1CC8Mut3Flex4_Standard
 		);
 	}
 	@Test
@@ -233,7 +233,7 @@ public class TestSofea {
 			Double.POSITIVE_INFINITY,
 			1024*1024,
 			4,
-			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+			TestSofeaLute::assertResults_Binding1CC8Mut3Flex4_Standard
 		);
 	}
 	@Test
@@ -242,7 +242,7 @@ public class TestSofea {
 			Designs.Binding1CC8Mut3Flex4_Standard.get(),
 			50.0,
 			1024*1024,
-			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+			TestSofeaLute::assertResults_Binding1CC8Mut3Flex4_Standard
 		);
 	}
 	@Test
@@ -252,7 +252,7 @@ public class TestSofea {
 			50.0,
 			1024*1024,
 			2,
-			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+			TestSofeaLute::assertResults_Binding1CC8Mut3Flex4_Standard
 		);
 	}
 	@Test
@@ -262,7 +262,7 @@ public class TestSofea {
 			50.0,
 			1024*1024,
 			4,
-			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+			TestSofeaLute::assertResults_Binding1CC8Mut3Flex4_Standard
 		);
 	}
 	@Test
@@ -271,7 +271,7 @@ public class TestSofea {
 			Designs.Binding1CC8Mut3Flex4_Standard.get(),
 			50.0,
 			16*1024,
-			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+			TestSofeaLute::assertResults_Binding1CC8Mut3Flex4_Standard
 		);
 	}
 	@Test
@@ -281,7 +281,7 @@ public class TestSofea {
 			50.0,
 			16*1024,
 			2,
-			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+			TestSofeaLute::assertResults_Binding1CC8Mut3Flex4_Standard
 		);
 	}
 	@Test
@@ -291,7 +291,7 @@ public class TestSofea {
 			50.0,
 			16*1024,
 			4,
-			TestSofea::assertResults_Binding1CC8Mut3Flex4_Standard
+			TestSofeaLute::assertResults_Binding1CC8Mut3Flex4_Standard
 		);
 	}
 
@@ -332,7 +332,7 @@ public class TestSofea {
 			Designs.Binding1CC8Mut2Flex2_NoPLUG.get(),
 			Double.POSITIVE_INFINITY,
 			1024*1024,
-			TestSofea::assertResults_Binding1CC8Mut2Flex2_NoPLUG
+			TestSofeaLute::assertResults_Binding1CC8Mut2Flex2_NoPLUG
 		);
 	}
 	@Test
@@ -341,7 +341,7 @@ public class TestSofea {
 			Designs.Binding1CC8Mut2Flex2_NoPLUG.get(),
 			50.0,
 			1024*1024,
-			TestSofea::assertResults_Binding1CC8Mut2Flex2_NoPLUG
+			TestSofeaLute::assertResults_Binding1CC8Mut2Flex2_NoPLUG
 		);
 	}
 	@Test
@@ -350,13 +350,13 @@ public class TestSofea {
 			Designs.Binding1CC8Mut2Flex2_NoPLUG.get(),
 			50.0,
 			16*1024,
-			TestSofea::assertResults_Binding1CC8Mut2Flex2_NoPLUG
+			TestSofeaLute::assertResults_Binding1CC8Mut2Flex2_NoPLUG
 		);
 	}
 
 
 	/** brute forces every node in the tree and calls the supplied block with a ConfIndex instance describing the node */
-	public static void forEachNode(Sofea.StateInfo stateInfo, Consumer<ConfIndex> block) {
+	public static void forEachNode(SofeaLute.StateInfo stateInfo, Consumer<ConfIndex> block) {
 
 		ConfIndex index = stateInfo.makeConfIndex();
 
@@ -386,12 +386,12 @@ public class TestSofea {
 
 	public static void assertLeafCounts(Design design) {
 
-		Sofea sofea = new Sofea.Builder(design.confSpace)
+		SofeaLute sofea = new SofeaLute.Builder(design.confSpace)
 			.configEachState(state -> design.config[state.index])
 			.build();
 
 		for (MultiStateConfSpace.State state : design.confSpace.states) {
-			Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
+			SofeaLute.StateInfo stateInfo = sofea.getStateInfo(state);
 
 			forEachNode(stateInfo, index -> {
 				BigIntegerBounds bounds = stateInfo.boundLeavesPerSequence(index);
@@ -406,14 +406,14 @@ public class TestSofea {
 
 	public static void assertZValueBounds(Design design) {
 
-		Sofea sofea = new Sofea.Builder(design.confSpace)
+		SofeaLute sofea = new SofeaLute.Builder(design.confSpace)
 			.configEachState(state -> design.config[state.index])
 			.build();
 
 		RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
 
 		for (MultiStateConfSpace.State state : design.confSpace.states) {
-			Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
+			SofeaLute.StateInfo stateInfo = sofea.getStateInfo(state);
 
 			forEachNode(stateInfo, index -> {
 				BigDecimalBounds bounds = new BigDecimalBounds(
@@ -428,14 +428,14 @@ public class TestSofea {
 
 	public static void assertZSumBounds(Design design) {
 
-		Sofea sofea = new Sofea.Builder(design.confSpace)
+		SofeaLute sofea = new SofeaLute.Builder(design.confSpace)
 			.configEachState(state -> design.config[state.index])
 			.build();
 
 		RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
 
 		for (MultiStateConfSpace.State state : design.confSpace.states) {
-			Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
+			SofeaLute.StateInfo stateInfo = sofea.getStateInfo(state);
 
 			forEachNode(stateInfo, index -> {
 
@@ -480,7 +480,7 @@ public class TestSofea {
 		return design.confSpace.states.stream()
 			.mapToDouble(state -> {
 
-				Sofea.StateConfig config = design.config[state.index];
+				SofeaLute.StateConfig config = design.config[state.index];
 				RCs rcs = new RCs(
 					seq.makeRCs(state.confSpace),
 					config.pmat
@@ -509,7 +509,7 @@ public class TestSofea {
 
 	public void assertGStates(Design design, Sequence seq, double ... expectedG) {
 
-		Sofea sofea = new Sofea.Builder(design.confSpace)
+		SofeaLute sofea = new SofeaLute.Builder(design.confSpace)
 			.configEachState(state -> design.config[state.index])
 			.build();
 
@@ -531,10 +531,10 @@ public class TestSofea {
 			this.design = design;
 
 			for (Sequence seq : design.confSpace.seqSpace.getSequences()) {
-				sequenced.put(seq, seqdb.getSequencedBounds(seq));
+				sequenced.put(seq, seqdb.getSequencedZSumBounds(seq));
 			}
 			for (MultiStateConfSpace.State state : design.confSpace.unsequencedStates) {
-				unsequenced.add(seqdb.getUnsequencedBound(state));
+				unsequenced.add(seqdb.getUnsequencedZSumBounds(state));
 			}
 		}
 
@@ -571,7 +571,7 @@ public class TestSofea {
 		try (TempFile fringedbFile = new TempFile(tmpdir, "fringe.db")) {
 			try (TempFile seqdbFile = new TempFile(tmpdir, "seq.db")) {
 
-				Sofea sofea = new Sofea.Builder(design.confSpace)
+				SofeaLute sofea = new SofeaLute.Builder(design.confSpace)
 					.setFringeDBFile(fringedbFile)
 					.setFringeDBBytes(fringeDBBytes)
 					.setSeqDBFile(seqdbFile)
@@ -585,7 +585,7 @@ public class TestSofea {
 				// refine, and check results between each sweep
 				sofea.refine((seqdb, fringedb, sweepCount) -> {
 					checker.check(new Results(design, seqdb));
-					return Sofea.Criterion.KeepIterating;
+					return SofeaLute.Criterion.KeepIterating;
 				});
 
 				// check results once more at end, just for good measure
@@ -789,12 +789,12 @@ public class TestSofea {
 
 		public final MultiStateConfSpace confSpace;
 		public final EnergyMatrix[] emats;
-		public final Sofea.StateConfig[] config;
+		public final SofeaLute.StateConfig[] config;
 
 		public Design(MultiStateConfSpace confSpace) {
 			this.confSpace = confSpace;
 			this.emats = new EnergyMatrix[confSpace.states.size()];
-			this.config = new Sofea.StateConfig[confSpace.states.size()];
+			this.config = new SofeaLute.StateConfig[confSpace.states.size()];
 		}
 
 		private static interface StateConfigurator {
@@ -809,7 +809,7 @@ public class TestSofea {
 				LUTEState luteState = trainLute(id, state, confEcalc, emat, pmat);
 
 				design.emats[state.index] = emat;
-				design.config[state.index] = new Sofea.StateConfig(
+				design.config[state.index] = new SofeaLute.StateConfig(
 					new LUTEConfEnergyCalculator(state.confSpace, luteState),
 					pmat
 				);
@@ -824,7 +824,7 @@ public class TestSofea {
 				LUTEState luteState = trainLute(id, state, confEcalc, emat, pmat);
 
 				design.emats[state.index] = emat;
-				design.config[state.index] = new Sofea.StateConfig(
+				design.config[state.index] = new SofeaLute.StateConfig(
 					new LUTEConfEnergyCalculator(state.confSpace, luteState),
 					pmat
 				);

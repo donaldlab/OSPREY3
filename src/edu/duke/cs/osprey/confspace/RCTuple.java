@@ -32,13 +32,11 @@
 
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.tools.HashCalculator;
-import javafx.util.Pair;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 
 /**
  *
@@ -93,6 +91,11 @@ public class RCTuple implements Serializable {
     	this();
     	set(conf);
     }
+
+    public RCTuple(ConfIndex index) {
+    	this();
+    	set(index);
+	}
     
     public RCTuple set(int pos, int rc) {
     	this.pos.clear();
@@ -150,6 +153,15 @@ public class RCTuple implements Serializable {
     	pos.addAll(other.pos);
     	RCs.addAll(other.RCs);
     }
+
+    public void set(ConfIndex index) {
+    	pos.clear();
+    	RCs.clear();
+    	for (int i=0; i<index.numDefined; i++) {
+    		pos.add(index.definedPos[i]);
+    		RCs.add(index.definedRCs[i]);
+		}
+	}
     
     public int size() {
     	return pos.size();

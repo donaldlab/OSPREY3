@@ -28,20 +28,20 @@ public class SeqDB implements AutoCloseable {
 
 	public static class SeqInfo {
 
-		public final BigDecimalBounds[] z;
+		public final BigDecimalBounds[] zSumBounds;
 
 		public SeqInfo(int size) {
-			this.z = new BigDecimalBounds[size];
+			this.zSumBounds = new BigDecimalBounds[size];
 		}
 
 		public void setEmpty() {
-			for (int i = 0; i<z.length; i++) {
-				z[i] = makeEmptySum();
+			for (int i=0; i<zSumBounds.length; i++) {
+				zSumBounds[i] = makeEmptySum();
 			}
 		}
 
 		public boolean isEmpty() {
-			for (BigDecimalBounds b : z) {
+			for (BigDecimalBounds b : zSumBounds) {
 				if (!isEmptySum(b)) {
 					return false;
 				}
@@ -50,12 +50,12 @@ public class SeqDB implements AutoCloseable {
 		}
 
 		public BigDecimalBounds get(MultiStateConfSpace.State state) {
-			return z[state.sequencedIndex];
+			return zSumBounds[state.sequencedIndex];
 		}
 
 		@Override
 		public int hashCode() {
-			return HashCalculator.combineObjHashes(z);
+			return HashCalculator.combineObjHashes(zSumBounds);
 		}
 
 		@Override
@@ -64,12 +64,12 @@ public class SeqDB implements AutoCloseable {
 		}
 
 		public boolean equals(SeqInfo other) {
-			return Arrays.equals(this.z, other.z);
+			return Arrays.equals(this.zSumBounds, other.zSumBounds);
 		}
 
 		@Override
 		public String toString() {
-			return Streams.joinToString(z, ", ", b -> Log.formatBigLn(b));
+			return Streams.joinToString(zSumBounds, ", ", b -> Log.formatBigLn(b));
 		}
 	}
 
@@ -231,7 +231,7 @@ public class SeqDB implements AutoCloseable {
 		public void serialize(@NotNull DataOutput2 out, @NotNull SeqInfo data)
 		throws IOException {
 			for (int i=0; i<numBounds; i++) {
-				s.serialize(out, data.z[i]);
+				s.serialize(out, data.zSumBounds[i]);
 			}
 		}
 
@@ -240,7 +240,7 @@ public class SeqDB implements AutoCloseable {
 		throws IOException {
 			SeqInfo data = new SeqInfo(numBounds);
 			for (int i=0; i<numBounds; i++) {
-				data.z[i] = s.deserialize(in, available);
+				data.zSumBounds[i] = s.deserialize(in, available);
 			}
 			return data;
 		}
@@ -327,7 +327,7 @@ public class SeqDB implements AutoCloseable {
 			// keep the constructor private
 		}
 
-		private void updateZSum(MultiStateConfSpace.State state, Sequence seq, Consumer<BigDecimalBounds> f) {
+		private void updateZSumBounds(MultiStateConfSpace.State state, Sequence seq, Consumer<BigDecimalBounds> f) {
 
 			if (state.isSequenced) {
 
@@ -357,56 +357,56 @@ public class SeqDB implements AutoCloseable {
 			isEmpty = false;
 		}
 
-		public void addZ(MultiStateConfSpace.State state, Sequence seq, BigDecimal z) {
+		public void addZPath(MultiStateConfSpace.State state, Sequence seq, BigDecimal zPath) {
 
-			if (!MathTools.isFinite(z)) {
-				throw new IllegalArgumentException("Z must be finite: " + z);
+			if (!MathTools.isFinite(zPath)) {
+				throw new IllegalArgumentException("Z must be finite: " + zPath);
 			}
 
-			updateZSum(state, seq, sum -> {
+			updateZSumBounds(state, seq, sum -> {
 				sum.lower = bigMath()
 					.set(sum.lower)
-					.add(z)
+					.add(zPath)
 					.get();
 				sum.upper = bigMath()
 					.set(sum.upper)
-					.add(z)
+					.add(zPath)
 					.get();
 			});
 		}
 
-		public void addZ(MultiStateConfSpace.State state, Sequence seq, BigDecimalBounds z) {
+		public void addZSumBounds(MultiStateConfSpace.State state, Sequence seq, BigDecimalBounds zSumBounds) {
 
-			if (!MathTools.isFinite(z.lower) || !MathTools.isFinite(z.upper)) {
-				throw new IllegalArgumentException("Z must be finite: " + z);
+			if (!MathTools.isFinite(zSumBounds.lower) || !MathTools.isFinite(zSumBounds.upper)) {
+				throw new IllegalArgumentException("Z must be finite: " + zSumBounds);
 			}
 
-			updateZSum(state, seq, sum -> {
+			updateZSumBounds(state, seq, sum -> {
 				sum.lower = bigMath()
 					.set(sum.lower)
-					.add(z.lower)
+					.add(zSumBounds.lower)
 					.get();
 				sum.upper = bigMath()
 					.set(sum.upper)
-					.add(z.upper)
+					.add(zSumBounds.upper)
 					.get();
 			});
 		}
 
-		public void subZ(MultiStateConfSpace.State state, Sequence seq, BigDecimalBounds z) {
+		public void subZSumBounds(MultiStateConfSpace.State state, Sequence seq, BigDecimalBounds zSumBounds) {
 
-			if (!MathTools.isFinite(z.lower) || !MathTools.isFinite(z.upper)) {
-				throw new IllegalArgumentException("Z must be finite: " + z);
+			if (!MathTools.isFinite(zSumBounds.lower) || !MathTools.isFinite(zSumBounds.upper)) {
+				throw new IllegalArgumentException("Z must be finite: " + zSumBounds);
 			}
 
-			updateZSum(state, seq, sum -> {
+			updateZSumBounds(state, seq, sum -> {
 				sum.lower = bigMath()
 					.set(sum.lower)
-					.sub(z.lower)
+					.sub(zSumBounds.lower)
 					.get();
 				sum.upper = bigMath()
 					.set(sum.upper)
-					.sub(z.upper)
+					.sub(zSumBounds.upper)
 					.get();
 			});
 		}
@@ -444,8 +444,8 @@ public class SeqDB implements AutoCloseable {
 				SeqInfo oldSeqInfo = SeqDB.this.sequencedSums.get(seq.rtIndices);
 				if (oldSeqInfo != null) {
 					for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
-						BigDecimalBounds sum = seqInfo.z[state.sequencedIndex];
-						BigDecimalBounds oldSum = oldSeqInfo.z[state.sequencedIndex];
+						BigDecimalBounds sum = seqInfo.zSumBounds[state.sequencedIndex];
+						BigDecimalBounds oldSum = oldSeqInfo.zSumBounds[state.sequencedIndex];
 						combineSums(sum, oldSum);
 					}
 				}
@@ -499,7 +499,7 @@ public class SeqDB implements AutoCloseable {
 	/**
 	 * returns the current Z bounds for the queried state
 	 */
-	public BigDecimalBounds getUnsequencedBound(MultiStateConfSpace.State state) {
+	public BigDecimalBounds getUnsequencedZSumBounds(MultiStateConfSpace.State state) {
 		BigDecimalBounds z = unsequencedSums.get(state.unsequencedIndex);
 		if (z == null) {
 			z = new BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity);
@@ -554,7 +554,7 @@ public class SeqDB implements AutoCloseable {
 	 * as more subtrees get explored, those Z values will be transfered to more fully-assigned sequences
 	 * bounds for fully-explored partial sequences will be zero
 	 */
-	public SeqInfo getSequencedBounds(Sequence seq) {
+	public SeqInfo getSequencedZSumBounds(Sequence seq) {
 		SeqInfo seqInfo = getSequencedSums(seq);
 		if (seq.isFullyAssigned()) {
 			addZAncestry(seq, seqInfo);
@@ -566,7 +566,7 @@ public class SeqDB implements AutoCloseable {
 	 * returns Z bounds for all sequences
 	 * returns bounds for both full and partial sequences
 	 */
-	public Iterable<Map.Entry<Sequence,SeqInfo>> getSequencedBounds() {
+	public Iterable<Map.Entry<Sequence,SeqInfo>> getSequencedZSumBounds() {
 		return () -> new Iterator<Map.Entry<Sequence,SeqInfo>>() {
 
 			Iterator<Map.Entry<int[],SeqInfo>> iter = sequencedSums.getEntries().iterator();
@@ -608,9 +608,9 @@ public class SeqDB implements AutoCloseable {
 				// couldn't that unexplored subtree contain no confs for this seq?
 				// NOTE: don't add the lower bounds, the subtree need not necessarily contain confs for this sequence
 				for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
-					seqInfo.z[state.sequencedIndex].upper = bigMath()
-						.set(seqInfo.z[state.sequencedIndex].upper)
-						.add(parentSeqInfo.z[state.sequencedIndex].upper)
+					seqInfo.zSumBounds[state.sequencedIndex].upper = bigMath()
+						.set(seqInfo.zSumBounds[state.sequencedIndex].upper)
+						.add(parentSeqInfo.zSumBounds[state.sequencedIndex].upper)
 						.get();
 				}
 			}

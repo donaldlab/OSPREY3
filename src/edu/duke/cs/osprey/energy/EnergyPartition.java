@@ -65,6 +65,24 @@ public enum EnergyPartition {
 				.addInter(pos1, pos2)
 				.make();
 		}
+
+		@Override
+		public ResidueInteractions makeTuple(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, RCTuple tuple) {
+			return ResInterGen.of(confSpace)
+				.addIntras(tuple, 1, (int pos, int rc) -> {
+					double offset = 0;
+					if (eref != null) {
+						offset += eref.getOffset(confSpace, pos, rc);
+					}
+					if (addResEntropy) {
+						offset += getResEntropy(confSpace, pos, rc);
+					}
+					return offset;
+				})
+				.addInters(tuple)
+				.addShell(tuple)
+				.make();
+		}
 	},
 	
 	/** inters on pairs, intras and shell distributed evenly among pairs */
@@ -108,7 +126,33 @@ public enum EnergyPartition {
 				.addShell(pos2, weight, 0)
 				.make();
 		}
-		
+
+		@Override
+		public ResidueInteractions makeTuple(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, RCTuple tuple) {
+
+			// short circuit
+			if (tuple.size() == 1) {
+				return makeSingle(confSpace, eref, addResEntropy, tuple.pos.get(0), tuple.RCs.get(0));
+			}
+
+			double weight = calcWeight(confSpace)*(tuple.size() - 1);
+
+			return ResInterGen.of(confSpace)
+				.addIntras(tuple, weight, (pos, rc) -> {
+					double offset = 0;
+					if (eref != null) {
+						offset += eref.getOffset(confSpace, pos, rc);
+					}
+					if (addResEntropy) {
+						offset += getResEntropy(confSpace, pos, rc);
+					}
+					return offset;
+				})
+				.addInters(tuple)
+				.addShell(tuple, weight, (pos, rc, shellResNum) -> 0.0)
+				.make();
+		}
+
 		private double calcWeight(SimpleConfSpace confSpace) {
 			return 1.0/(confSpace.positions.size() - 1);
 		}
@@ -116,6 +160,7 @@ public enum EnergyPartition {
 	
 	public abstract ResidueInteractions makeSingle(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, int pos, int rc);
 	public abstract ResidueInteractions makePair(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, int pos1, int rc1, int pos2, int rc2);
+	public abstract ResidueInteractions makeTuple(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, RCTuple frag);
 	
 	public static ResidueInteractions makeFragment(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, RCTuple frag) {
 		return ResInterGen.of(confSpace)

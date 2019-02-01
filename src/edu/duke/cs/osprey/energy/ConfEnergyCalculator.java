@@ -168,7 +168,11 @@ public class ConfEnergyCalculator {
 	public ResidueInteractions makePairInters(int pos1, int rc1, int pos2, int rc2) {
 		return epart.makePair(confSpace, eref, addResEntropy, pos1, rc1, pos2, rc2);
 	}
-	
+
+	public ResidueInteractions makeTupleInters(RCTuple tuple) {
+		return epart.makeTuple(confSpace, eref, addResEntropy, tuple);
+	}
+
 	public EnergyCalculator.EnergiedParametricMolecule calcSingleEnergy(int pos, int rc) {
 		return calcSingleEnergy(new RCTuple(pos, rc));
 	}

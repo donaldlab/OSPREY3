@@ -1,7 +1,10 @@
 package edu.duke.cs.osprey.confspace;
 
 
+import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
+
 import java.util.*;
+import java.util.function.Function;
 
 
 /**
@@ -142,6 +145,18 @@ public class MultiStateConfSpace {
 		public double getWeight(State state) {
 			return weightsByState.get(state);
 		}
+
+		public DoubleBounds[] collectFreeEnergies(Function<State,DoubleBounds> f) {
+			DoubleBounds[] boundsByState = new DoubleBounds[confSpace.states.size()];
+			for (State state : confSpace.states) {
+				boundsByState[state.index] = f.apply(state);
+			}
+			return boundsByState;
+		}
+
+		public LMFECalculator calc() {
+			return new LMFECalculator(this);
+		}
 	}
 
 	public class LMFEBuilder {
@@ -183,5 +198,50 @@ public class MultiStateConfSpace {
 	/** build a linear multi-state free energy */
 	public LMFEBuilder lmfe() {
 		return new LMFEBuilder();
+	}
+
+	public class LMFECalculator {
+
+		public final LMFE lmfe;
+
+		public final DoubleBounds bounds = new DoubleBounds(0, 0);
+
+		public LMFECalculator(LMFE lmfe) {
+			this.lmfe = lmfe;
+		}
+
+		public LMFECalculator add(State state, DoubleBounds freeEnergy) {
+
+			// if either bound is [+inf,+inf], assume the result is [+inf,+inf]
+			if ((bounds.lower == Double.POSITIVE_INFINITY && bounds.upper == Double.POSITIVE_INFINITY)
+				|| (freeEnergy.lower == Double.POSITIVE_INFINITY && freeEnergy.upper == Double.POSITIVE_INFINITY)) {
+
+				bounds.lower = Double.POSITIVE_INFINITY;
+				bounds.upper = Double.POSITIVE_INFINITY;
+
+			// otherwise, do the usual arithmetic
+			} else {
+
+				double weight = lmfe.getWeight(state);
+				if (weight < 0) {
+					bounds.lower += freeEnergy.upper*weight;
+					bounds.upper += freeEnergy.lower*weight;
+				} else if (weight > 0) {
+					bounds.lower += freeEnergy.lower*weight;
+					bounds.upper += freeEnergy.upper*weight;
+				}
+			}
+
+			return this;
+		}
+
+		public LMFECalculator addAll(DoubleBounds[] freeEnergiesByState) {
+
+			for (State state : lmfe.confSpace.states) {
+				add(state, freeEnergiesByState[state.index]);
+			}
+
+			return this;
+		}
 	}
 }

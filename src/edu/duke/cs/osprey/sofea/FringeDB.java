@@ -39,21 +39,21 @@ public class FringeDB implements AutoCloseable {
 
 	private class IOState {
 
-		final BigDecimal[] readZmax = new BigDecimal[confSpace.states.size()];
-		final BigDecimal[] writeZmax = new BigDecimal[confSpace.states.size()];
+		final BigDecimal[] readZSumMax = new BigDecimal[confSpace.states.size()];
+		final BigDecimal[] writeZSumMax = new BigDecimal[confSpace.states.size()];
 		long readIndex = 0;
 		long numToRead = 0;
 		long writeIndex = 0;
 		long numWritten = 0;
 
 		IOState() {
-			Arrays.fill(readZmax, null);
-			Arrays.fill(writeZmax, null);
+			Arrays.fill(readZSumMax, null);
+			Arrays.fill(writeZSumMax, null);
 		}
 
 		void copyTo(IOState other) {
-			System.arraycopy(this.readZmax, 0, other.readZmax, 0, confSpace.states.size());
-			System.arraycopy(this.writeZmax, 0, other.writeZmax, 0, confSpace.states.size());
+			System.arraycopy(this.readZSumMax, 0, other.readZSumMax, 0, confSpace.states.size());
+			System.arraycopy(this.writeZSumMax, 0, other.writeZSumMax, 0, confSpace.states.size());
 			other.readIndex = this.readIndex;
 			other.numToRead = this.numToRead;
 			other.writeIndex = this.writeIndex;
@@ -244,14 +244,15 @@ public class FringeDB implements AutoCloseable {
 			for (int i=52; i<64; i++) {
 				io.readByte();
 			}
+			assert (io.getFilePointer() % 32 == 0);
 
 			// read the z stats
 			posZStats = io.getFilePointer();
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				iostate.readZmax[state.index] = bdio.read(io);
+				iostate.readZSumMax[state.index] = bdio.read(io);
 			}
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				iostate.writeZmax[state.index] = bdio.read(io);
+				iostate.writeZSumMax[state.index] = bdio.read(io);
 			}
 
 			// pad to 32 bytes
@@ -282,7 +283,7 @@ public class FringeDB implements AutoCloseable {
 	}
 
 	private int calcEntrySize() {
-		return stateEncoding.numBytes + confBytes + bdio.numBytes*3;
+		return stateEncoding.numBytes + confBytes + bdio.numBytes*4;
 	}
 
 	/**
@@ -310,8 +311,8 @@ public class FringeDB implements AutoCloseable {
 	 * Returns the largest Z value for the nodes to read.
 	 * Ignores pending Z values in the written nodes.
 	 */
-	public BigDecimal getZMax(MultiStateConfSpace.State state) {
-		return iostate.readZmax[state.index];
+	public BigDecimal getZSumMax(MultiStateConfSpace.State state) {
+		return iostate.readZSumMax[state.index];
 	}
 
 	public class Transaction {
@@ -320,8 +321,8 @@ public class FringeDB implements AutoCloseable {
 
 		private MultiStateConfSpace.State state;
 		private int[] conf;
-		private BigDecimalBounds zbounds;
-		private BigDecimal zpath;
+		private BigDecimalBounds zSumBounds;
+		private BigDecimalBounds zPathHeadBounds;
 
 		private final ByteBuffer readBuf = ByteBuffer.allocate(1024*1024);
 		private final DataInput readIn = new DataInputStream(new ByteBufferInputStream(readBuf));
@@ -382,11 +383,14 @@ public class FringeDB implements AutoCloseable {
 					readIn.readByte();
 				}
 
-				zbounds = new BigDecimalBounds(
+				zSumBounds = new BigDecimalBounds(
 					bdio.read(readIn),
 					bdio.read(readIn)
 				);
-				zpath = bdio.read(readIn);
+				zPathHeadBounds = new BigDecimalBounds(
+					bdio.read(readIn),
+					bdio.read(readIn)
+				);
 
 			} catch (IOException ex) {
 				throw new RuntimeException("can't advance to next fringe node", ex);
@@ -404,17 +408,17 @@ public class FringeDB implements AutoCloseable {
 			return conf;
 		}
 
-		public BigDecimalBounds zbounds() {
-			return zbounds;
+		public BigDecimalBounds zSumBounds() {
+			return zSumBounds;
 		}
 
-		public BigDecimal zpath() {
-			return zpath;
+		public BigDecimalBounds zPathHeadBounds() {
+			return zPathHeadBounds;
 		}
 
 		private void updateZMax(int stateIndex, BigDecimal val) {
-			if (iostate.writeZmax[stateIndex] == null || MathTools.isGreaterThan(val, iostate.writeZmax[stateIndex])) {
-				iostate.writeZmax[stateIndex] = val;
+			if (iostate.writeZSumMax[stateIndex] == null || MathTools.isGreaterThan(val, iostate.writeZSumMax[stateIndex])) {
+				iostate.writeZSumMax[stateIndex] = val;
 			}
 		}
 
@@ -432,7 +436,7 @@ public class FringeDB implements AutoCloseable {
 			return writtenEntries + count <= maxWrittenEntries;
 		}
 
-		private void writeEntry(int stateIndex, int[] conf, BigDecimalBounds zbounds, BigDecimal zpath, DataOutput out) {
+		private void writeEntry(int stateIndex, int[] conf, BigDecimalBounds zSumBounds, BigDecimalBounds zPathHeadBounds, DataOutput out) {
 			try {
 
 				stateEncoding.write(out, stateIndex);
@@ -449,9 +453,10 @@ public class FringeDB implements AutoCloseable {
 					out.writeByte(0);
 				}
 
-				bdio.write(out, zbounds.lower);
-				bdio.write(out, zbounds.upper);
-				bdio.write(out, zpath);
+				bdio.write(out, zSumBounds.lower);
+				bdio.write(out, zSumBounds.upper);
+				bdio.write(out, zPathHeadBounds.lower);
+				bdio.write(out, zPathHeadBounds.upper);
 
 			} catch (IOException ex) {
 				throw new RuntimeException("can't write fringe node", ex);
@@ -461,29 +466,29 @@ public class FringeDB implements AutoCloseable {
 		/**
 		 * add a node to the transaction write buffer with the same state as the last-read node in the sweep
 		 */
-		public void writeRootNode(MultiStateConfSpace.State state, BigDecimalBounds zbounds, BigDecimal zpath) {
+		public void writeRootNode(MultiStateConfSpace.State state, BigDecimalBounds zSumBounds, BigDecimalBounds zPathHeadBounds) {
 
 			if (!txHasRoomFor(1)) {
 				throw new IllegalStateException("transaction write buffer has no more room for nodes");
 			}
 
-			writeEntry(state.index, Conf.make(state.confSpace), zbounds, zpath, writeOut);
+			writeEntry(state.index, Conf.make(state.confSpace), zSumBounds, zPathHeadBounds, writeOut);
 			writtenEntries++;
-			updateZMax(state.index, zbounds.upper);
+			updateZMax(state.index, zSumBounds.upper);
 		}
 
 		/**
 		 * add a node to the transaction write buffer with the same state as the last-read node in the sweep
 		 */
-		public void writeReplacementNode(MultiStateConfSpace.State state, int[] conf, BigDecimalBounds zbounds, BigDecimal zpath) {
+		public void writeReplacementNode(MultiStateConfSpace.State state, int[] conf, BigDecimalBounds zSumBounds, BigDecimalBounds zPathHeadBounds) {
 
 			if (!txHasRoomFor(1)) {
 				throw new IllegalStateException("transaction write buffer has no more room for nodes");
 			}
 
-			writeEntry(state.index, conf, zbounds, zpath, writeOut);
+			writeEntry(state.index, conf, zSumBounds, zPathHeadBounds, writeOut);
 			writtenEntries++;
-			updateZMax(state.index, zbounds.upper);
+			updateZMax(state.index, zSumBounds.upper);
 		}
 
 		/**
@@ -527,10 +532,10 @@ public class FringeDB implements AutoCloseable {
 				iostate.advanceWrite(writtenEntries);
 				writtenEntries = 0;
 
-				// write zmax
+				// write zSumMax
 				io.seek(posZStats + bdio.numBytes*confSpace.states.size());
 				for (MultiStateConfSpace.State state : confSpace.states) {
-					bdio.write(io, iostate.writeZmax[state.index]);
+					bdio.write(io, iostate.writeZSumMax[state.index]);
 				}
 
 				// persist io state
@@ -576,12 +581,12 @@ public class FringeDB implements AutoCloseable {
 			// update the z stats
 			io.seek(posZStats);
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				iostate.readZmax[state.index] = iostate.writeZmax[state.index];
-				bdio.write(io, iostate.readZmax[state.index]);
+				iostate.readZSumMax[state.index] = iostate.writeZSumMax[state.index];
+				bdio.write(io, iostate.readZSumMax[state.index]);
 			}
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				iostate.writeZmax[state.index] = null;
-				bdio.write(io, iostate.writeZmax[state.index]);
+				iostate.writeZSumMax[state.index] = null;
+				bdio.write(io, iostate.writeZSumMax[state.index]);
 			}
 
 			// persist read state

@@ -84,8 +84,14 @@ public class SimpleConfSpace implements Serializable {
 		
 		public Builder addStrands(Strand ... strands) {
 			for (Strand strand : strands) {
-				this.strands.add(strand);
-				this.strandFlex.put(strand, Arrays.asList());
+				addStrand(strand);
+			}
+			return this;
+		}
+
+		public Builder addStrands(Iterable<Strand> strands) {
+			for (Strand strand : strands) {
+				addStrand(strand);
 			}
 			return this;
 		}
