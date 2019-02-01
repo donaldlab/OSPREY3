@@ -37,6 +37,8 @@ import static org.hamcrest.Matchers.*;
 
 import java.io.File;
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -337,114 +339,253 @@ public class TestBase {
 		};
 	}
 
-	public static Matcher<DoubleBounds> isAbsoluteBound(final double expected, final double epsilon) {
-		return new BaseMatcher<DoubleBounds>() {
 
-			@Override
-			public boolean matches(Object obj) {
-				DoubleBounds observed = (DoubleBounds)obj;
-				return expected >= observed.lower - epsilon
-					&& expected <= observed.upper + epsilon;
-			}
+	private abstract static class EpsilonApplier<T> {
 
-			@Override
-			public void describeTo(Description desc) {
-				desc.appendText("bounds ").appendValue(expected)
-					.appendText(" within epsilon ").appendValue(epsilon);
-			}
+		public final double epsilon;
 
-			@Override
-			public void describeMismatch(Object obj, Description desc) {
-				DoubleBounds observed = (DoubleBounds)obj;
-				double absErr = Math.max(
-					observed.lower - epsilon - expected,
-					expected - observed.upper + epsilon
-				);
-				if (expected < observed.lower) {
-					desc.appendValue(expected)
-						.appendText(" is less than ").appendValue(observed)
-						.appendText(" by ").appendValue(absErr);
-				} else {
+		protected EpsilonApplier(double epsilon) {
+			this.epsilon = epsilon;
+		}
+
+		abstract T apply(T thing);
+
+		static EpsilonApplier<DoubleBounds> doubleBoundsAbsolute(double epsilon) {
+			return new EpsilonApplier<DoubleBounds>(epsilon) {
+				@Override
+				public DoubleBounds apply(DoubleBounds bounds) {
+					return new DoubleBounds(
+						bounds.lower - epsilon,
+						bounds.upper + epsilon
+					);
+				}
+			};
+		}
+
+		static EpsilonApplier<DoubleBounds> doubleBoundsRelative(double epsilon) {
+			return new EpsilonApplier<DoubleBounds>(epsilon) {
+				@Override
+				public DoubleBounds apply(DoubleBounds bounds) {
+					double loFactor = 1.0 + (bounds.lower > 0 ? -epsilon : +epsilon);
+					double hiFactor = 1.0 + (bounds.upper > 0 ? +epsilon : -epsilon);
+					return new DoubleBounds(
+						bounds.lower*loFactor,
+						bounds.upper*hiFactor
+					);
+				}
+			};
+		}
+
+		static EpsilonApplier<BigDecimalBounds> bigDecimalBoundsAbsolute(double epsilon) {
+			return new EpsilonApplier<BigDecimalBounds>(epsilon) {
+
+				// use a math context with fixed precision to keep additions from being really slow!
+				MathContext mathContext = new MathContext(32, RoundingMode.HALF_UP);
+				BigDecimal bigEpsilon = MathTools.biggen(epsilon);
+
+				@Override
+				public BigDecimalBounds apply(BigDecimalBounds bounds) {
+					return new BigDecimalBounds(
+						bounds.lower.subtract(bigEpsilon, mathContext),
+						bounds.upper.add(bigEpsilon, mathContext)
+					);
+				}
+			};
+		}
+
+		static EpsilonApplier<BigDecimalBounds> bigDecimalBoundsRelative(double epsilon) {
+			return new EpsilonApplier<BigDecimalBounds>(epsilon) {
+
+				@Override
+				public BigDecimalBounds apply(BigDecimalBounds bounds) {
+					// multiplications are always fast enough, even without a math context
+					BigDecimal loFactor = MathTools.biggen(1.0 + (MathTools.isPositive(bounds.lower) ? -epsilon : +epsilon));
+					BigDecimal hiFactor = MathTools.biggen(1.0 + (MathTools.isPositive(bounds.upper) ? +epsilon : -epsilon));
+					return new BigDecimalBounds(
+						bounds.lower.multiply(loFactor),
+						bounds.upper.multiply(hiFactor)
+					);
+				}
+			};
+		}
+	}
+
+	private static class BigDecimalBoundsMatchingBigDecimal extends BaseMatcher<BigDecimalBounds> {
+
+		private EpsilonApplier<BigDecimalBounds> epsilonApplier;
+		private BigDecimal expected;
+
+		public BigDecimalBoundsMatchingBigDecimal(EpsilonApplier<BigDecimalBounds> epsilonApplier, BigDecimal expected) {
+			this.epsilonApplier = epsilonApplier;
+			this.expected = expected;
+		}
+
+		@Override
+		public boolean matches(Object obj) {
+			BigDecimalBounds observed = (BigDecimalBounds)obj;
+			return observed.isValid() && epsilonApplier.apply(observed).contains(expected);
+		}
+
+		@Override
+		public void describeTo(Description desc) {
+			desc.appendText("bounds ").appendValue(expected)
+				.appendText(" relatively within epsilon ").appendValue(epsilonApplier.epsilon);
+		}
+
+		@Override
+		public void describeMismatch(Object obj, Description desc) {
+			BigDecimalBounds observed = (BigDecimalBounds)obj;
+			if (!observed.isValid()) {
+				desc.appendValue(observed).appendText(" is not a valid bound");
+			} else {
+				if (!epsilonApplier.apply(observed).contains(expected)) {
 					desc.appendValue(observed)
-						.appendText(" is less than ").appendValue(expected)
-						.appendText(" by ").appendValue(absErr);
+						.appendText(" (with epsilon: ")
+						.appendValue(epsilonApplier.apply(observed))
+						.appendText(") is not a relative bound within epsilon");
 				}
 			}
-		};
+		}
+	}
+	public static Matcher<BigDecimalBounds> isAbsoluteBound(BigDecimal expected, double epsilon) {
+		return new BigDecimalBoundsMatchingBigDecimal(EpsilonApplier.bigDecimalBoundsAbsolute(epsilon), expected);
+	}
+	public static Matcher<BigDecimalBounds> isRelativeBound(BigDecimal expected, double epsilon) {
+		return new BigDecimalBoundsMatchingBigDecimal(EpsilonApplier.bigDecimalBoundsRelative(epsilon), expected);
 	}
 
-	public static Matcher<BigDecimalBounds> isAbsoluteBound(final BigDecimal expected, final double epsilon) {
-		return new BaseMatcher<BigDecimalBounds>() {
+	private static class BigDecimalBoundsMatchingBigDecimalBounds extends BaseMatcher<BigDecimalBounds> {
 
-			final BigDecimal bigEpsilon = MathTools.biggen(epsilon);
+		EpsilonApplier<BigDecimalBounds> epsilonApplier;
+		BigDecimalBounds expected;
 
-			@Override
-			public boolean matches(Object obj) {
-				BigDecimalBounds observed = (BigDecimalBounds)obj;
-				return MathTools.isGreaterThanOrEqual(observed.upper, observed.lower)
-					&& MathTools.isGreaterThanOrEqual(expected, observed.lower.subtract(bigEpsilon))
-					&& MathTools.isLessThanOrEqual(expected, observed.upper.add(bigEpsilon));
-			}
+		public BigDecimalBoundsMatchingBigDecimalBounds(EpsilonApplier<BigDecimalBounds> epsilonApplier, BigDecimalBounds expected) {
+			this.epsilonApplier = epsilonApplier;
+			this.expected = expected;
+		}
 
-			@Override
-			public void describeTo(Description desc) {
-				desc.appendText("bounds ").appendValue(format(expected))
-					.appendText(" within epsilon ").appendValue(epsilon);
-			}
+		@Override
+		public boolean matches(Object obj) {
+			BigDecimalBounds observed = (BigDecimalBounds)obj;
+			return observed.isValid() && epsilonApplier.apply(observed).contains(expected);
+		}
 
-			@Override
-			public void describeMismatch(Object obj, Description desc) {
-				BigDecimalBounds observed = (BigDecimalBounds)obj;
-				if (MathTools.isLessThan(observed.upper, observed.lower)) {
-					desc.appendValue(observed).appendText(" is not a valid bound");
-				} else {
-					BigDecimal absErr =
-						observed.lower.subtract(bigEpsilon).subtract(expected)
-						.max(expected.subtract(observed.upper).add(bigEpsilon));
-					if (MathTools.isLessThan(expected, observed.lower)) {
-						desc.appendValue(format(expected))
-							.appendText(" is less than ").appendValue(observed)
-							.appendText(" by ").appendValue(absErr);
-					} else {
-						desc.appendValue(observed)
-							.appendText(" is less than ").appendValue(format(expected))
-							.appendText(" by ").appendValue(format(absErr));
-					}
+		@Override
+		public void describeTo(Description desc) {
+			desc.appendText("bounds ").appendValue(expected)
+				.appendText(" relatively within epsilon ").appendValue(epsilonApplier.epsilon);
+		}
+
+		@Override
+		public void describeMismatch(Object obj, Description desc) {
+			BigDecimalBounds observed = (BigDecimalBounds)obj;
+			if (!observed.isValid()) {
+				desc.appendValue(observed).appendText(" is not a valid bound");
+			} else {
+				if (!epsilonApplier.apply(observed).contains(expected)) {
+					desc.appendValue(observed)
+						.appendText(" (with epsilon: ")
+						.appendValue(epsilonApplier.apply(observed))
+						.appendText(") is not a relative bound within epsilon");
 				}
 			}
-
-			private String format(BigDecimal val) {
-				return String.format("%e", val);
-			}
-		};
+		}
+	}
+	public static Matcher<BigDecimalBounds> isAbsoluteBound(BigDecimalBounds expected, double epsilon) {
+		return new BigDecimalBoundsMatchingBigDecimalBounds(EpsilonApplier.bigDecimalBoundsAbsolute(epsilon), expected);
+	}
+	public static Matcher<BigDecimalBounds> isRelativeBound(BigDecimalBounds expected, double epsilon) {
+		return new BigDecimalBoundsMatchingBigDecimalBounds(EpsilonApplier.bigDecimalBoundsRelative(epsilon), expected);
 	}
 
-	public static Matcher<BigDecimalBounds> isAbsoluteBound(final BigDecimalBounds expected, final double epsilon) {
-		return new BaseMatcher<BigDecimalBounds>() {
+	private static class DoubleBoundsMatchingDouble extends BaseMatcher<DoubleBounds> {
 
-			final BigDecimal bigEpsilon = MathTools.biggen(epsilon);
+		private EpsilonApplier<DoubleBounds> epsilonApplier;
+		private double expected;
 
-			@Override
-			public boolean matches(Object obj) {
-				BigDecimalBounds observed = (BigDecimalBounds)obj;
-				return MathTools.isGreaterThanOrEqual(expected.lower, observed.lower.subtract(bigEpsilon))
-					&& MathTools.isLessThanOrEqual(expected.upper, observed.upper.add(bigEpsilon));
+		public DoubleBoundsMatchingDouble(EpsilonApplier<DoubleBounds> epsilonApplier, double expected) {
+			this.epsilonApplier = epsilonApplier;
+			this.expected = expected;
+		}
+
+		@Override
+		public boolean matches(Object obj) {
+			DoubleBounds observed = (DoubleBounds)obj;
+			return observed.isValid() && epsilonApplier.apply(observed).contains(expected);
+		}
+
+		@Override
+		public void describeTo(Description desc) {
+			desc.appendText("bounds ").appendValue(expected)
+				.appendText(" relatively within epsilon ").appendValue(epsilonApplier.epsilon);
+		}
+
+		@Override
+		public void describeMismatch(Object obj, Description desc) {
+			DoubleBounds observed = (DoubleBounds)obj;
+			if (!observed.isValid()) {
+				desc.appendValue(observed).appendText(" is not a valid bound");
+			} else {
+				if (!epsilonApplier.apply(observed).contains(expected)) {
+					desc.appendValue(observed)
+						.appendText(" (with epsilon: ")
+						.appendValue(epsilonApplier.apply(observed))
+						.appendText(") is not a relative bound within epsilon");
+				}
 			}
-
-			@Override
-			public void describeTo(Description desc) {
-				desc.appendText("bounds ").appendValue(expected)
-					.appendText(" within epsilon ").appendValue(epsilon);
-			}
-
-			@Override
-			public void describeMismatch(Object obj, Description desc) {
-				BigDecimalBounds observed = (BigDecimalBounds)obj;
-				desc.appendValue(observed)
-					.appendText(" is not a bound within epsilon");
-			}
-		};
+		}
 	}
+	public static Matcher<DoubleBounds> isAbsoluteBound(double expected, double epsilon) {
+		return new DoubleBoundsMatchingDouble(EpsilonApplier.doubleBoundsAbsolute(epsilon), expected);
+	}
+	public static Matcher<DoubleBounds> isRelativeBound(double expected, double epsilon) {
+		return new DoubleBoundsMatchingDouble(EpsilonApplier.doubleBoundsRelative(epsilon), expected);
+	}
+
+	private static class DoubleBoundsMatchingDoubleBounds extends BaseMatcher<DoubleBounds> {
+
+		private EpsilonApplier<DoubleBounds> epsilonApplier;
+		private DoubleBounds expected;
+
+		public DoubleBoundsMatchingDoubleBounds(EpsilonApplier<DoubleBounds> epsilonApplier, DoubleBounds expected) {
+			this.epsilonApplier = epsilonApplier;
+			this.expected = expected;
+		}
+
+		@Override
+		public boolean matches(Object obj) {
+			DoubleBounds observed = (DoubleBounds)obj;
+			return observed.isValid() && epsilonApplier.apply(observed).contains(expected);
+		}
+
+		@Override
+		public void describeTo(Description desc) {
+			desc.appendText("bounds ").appendValue(expected)
+				.appendText(" relatively within epsilon ").appendValue(epsilonApplier.epsilon);
+		}
+
+		@Override
+		public void describeMismatch(Object obj, Description desc) {
+			DoubleBounds observed = (DoubleBounds)obj;
+			if (!observed.isValid()) {
+				desc.appendValue(observed).appendText(" is not a valid bound");
+			} else {
+				if (!epsilonApplier.apply(observed).contains(expected)) {
+					desc.appendValue(observed)
+						.appendText(" (with epsilon: ")
+						.appendValue(epsilonApplier.apply(observed))
+						.appendText(") is not a relative bound within epsilon");
+				}
+			}
+		}
+	}
+	public static Matcher<DoubleBounds> isAbsoluteBound(DoubleBounds expected, double epsilon) {
+		return new DoubleBoundsMatchingDoubleBounds(EpsilonApplier.doubleBoundsAbsolute(epsilon), expected);
+	}
+	public static Matcher<DoubleBounds> isRelativeBound(DoubleBounds expected, double epsilon) {
+		return new DoubleBoundsMatchingDoubleBounds(EpsilonApplier.doubleBoundsRelative(epsilon), expected);
+	}
+
 
 	public static Matcher<Double> isDegrees(double expected) {
 		return isDegrees(expected, DefaultEpsilon);

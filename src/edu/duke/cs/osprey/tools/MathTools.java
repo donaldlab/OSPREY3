@@ -768,6 +768,18 @@ public class MathTools {
 			return upper - lower;
 		}
 
+		public boolean isValid() {
+			return lower <= upper;
+		}
+
+		public boolean contains(double val) {
+			return val >= lower && val <= upper;
+		}
+
+		public boolean contains(DoubleBounds val) {
+			return val.lower >= this.lower && val.upper <= this.upper;
+		}
+
 		@Override
 		public int hashCode() {
 			return HashCalculator.combineHashes(
@@ -840,6 +852,20 @@ public class MathTools {
 			double l = lower.doubleValue();
 			double u = upper.doubleValue();
 			return (u - l)/u;
+		}
+
+		public boolean isValid() {
+			return MathTools.isGreaterThanOrEqual(upper, lower);
+		}
+
+		public boolean contains(BigDecimal d) {
+			return MathTools.isGreaterThanOrEqual(d, lower)
+				&& MathTools.isLessThanOrEqual(d, upper);
+		}
+
+		public boolean contains(BigDecimalBounds d) {
+			return MathTools.isGreaterThanOrEqual(d.lower, lower)
+				&& MathTools.isLessThanOrEqual(d.upper, upper);
 		}
 
 		@Override
