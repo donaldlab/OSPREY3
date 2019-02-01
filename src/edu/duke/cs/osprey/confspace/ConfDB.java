@@ -222,13 +222,16 @@ public class ConfDB implements AutoCleanable {
 		public AssignmentsSerializer() {
 			super(assignmentEncoding.numBytes*confSpace.positions.size());
 			this.numPos = confSpace.positions.size();
+
+			// check the unassigned value is -1, since we do arithmetic on it
+			assert (edu.duke.cs.osprey.confspace.Conf.Unassigned == -1);
 		}
 
 		@Override
 		public void serialize(@NotNull DataOutput2 out, @NotNull int[] assignments)
 		throws IOException {
 			for (int i=0; i<numPos; i++) {
-				assignmentEncoding.write(out, assignments[i]);
+				assignmentEncoding.write(out, assignments[i] + 1); // +1 to shift the unassigned value (-1) to non-negative
 			}
 		}
 
@@ -237,7 +240,7 @@ public class ConfDB implements AutoCleanable {
 		throws IOException {
 			int[] assignments = new int[numPos];
 			for (int i=0; i<numPos; i++) {
-				assignments[i] = assignmentEncoding.read(in);
+				assignments[i] = assignmentEncoding.read(in) - 1;
 			}
 			return assignments;
 		}
@@ -734,7 +737,7 @@ public class ConfDB implements AutoCleanable {
 				maxAssignment = Math.max(maxAssignment, resConf.index);
 			}
 		}
-		assignmentEncoding = IntEncoding.get(maxAssignment);
+		assignmentEncoding = IntEncoding.get(maxAssignment + 1); // +1 for the shift to move the unassigned value (-1) to non-negative
 
 		// MapDB serializer for Sequence
 		SimpleSerializer<Sequence> sequenceSerializer = new SimpleSerializer<Sequence>(SimpleSerializer.DynamicSize) {
