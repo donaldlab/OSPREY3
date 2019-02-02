@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
+import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
@@ -448,15 +449,15 @@ public class TestSofea {
 								design.ematsUpper[state.index].getInternalEnergy(tuple)
 							);
 
-							double energy = confEcalc.calcEnergy(tuple, confs.table);
+							ResidueInteractions inters = design.epart.makeTuple(state.confSpace, null, false, tuple);
+							double energy = confEcalc.calcEnergy(tuple, inters, confs.table);
 
-							assertThat(energyBounds, isRelativeBound(energy, 1e-4));
+							assertThat(energyBounds, isRelativeBound(energy, 1e-5));
 						});
 					}
 				}
 		}
 	}
-
 
 	public static void assertLeafCounts(Design design) {
 		try (Ecalcs ecalcs = design.makeEcalcs()) {
