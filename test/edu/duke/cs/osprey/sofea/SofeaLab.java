@@ -151,7 +151,7 @@ public class SofeaLab {
 			for (Sequence seq : confSpace.seqSpace.getSequences()) {
 				log("%s", seq);
 				for (MultiStateConfSpace.State state : confSpace.states) {
-					BigDecimal z = sofea.calcZ(seq, state);
+					BigDecimal z = sofea.calcZSum(seq, state);
 					double g = sofea.bcalc.freeEnergyPrecise(z);
 					log("\t%10s   z=%s  g=%.4f", state.name, Log.formatBigLn(z), g);
 				}
@@ -228,8 +228,8 @@ public class SofeaLab {
 			String bruteForceAstar(ConfEnergyCalculator confEcalc, ConfDB.ConfTable confTable, RCs rcs) {
 
 				BigMath sum = bigMath().set(0.0);
-				BigMath min = bigMath().set(MathTools.BigPositiveInfinity);
-				BigMath max = bigMath().set(MathTools.BigNegativeInfinity);
+				BigMath min = bigMath();
+				BigMath max = bigMath();
 
 				ConfAStarTree astar = new ConfAStarTree.Builder(ematLower, rcs)
 					.setTraditional()
@@ -244,8 +244,8 @@ public class SofeaLab {
 					confEcalc.calcEnergyAsync(conf, confTable, (epmol) -> {
 						BigDecimal z = bcalc.calcPrecise(epmol.getEnergy());
 						sum.add(z);
-						min.atMost(z);
-						max.atLeast(z);
+						min.minOrSet(z);
+						max.maxOrSet(z);
 					});
 				}
 

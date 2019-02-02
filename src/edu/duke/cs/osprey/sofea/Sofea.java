@@ -218,14 +218,6 @@ public class Sofea {
 		this.parallelism = parallelism;
 		this.sweepDivisor = sweepDivisor;
 
-		// TODO: support single tuples for conf spaces
-		// TEMP: blow up if we get single tuples
-		for (MultiStateConfSpace.State state : confSpace.states) {
-			if (state.confSpace.positions.size() <= 1) {
-				throw new Error("TODO: support small conf spaces");
-			}
-		}
-
 		bcalc = new BoltzmannCalculator(mathContext);
 
 		// init the state info
@@ -242,7 +234,7 @@ public class Sofea {
 		return stateInfos.get(state.index);
 	}
 
-	private BigMath bigMath() {
+	protected BigMath bigMath() {
 		return new BigMath(mathContext);
 	}
 
@@ -463,6 +455,11 @@ public class Sofea {
 		try (ConfTables confTables = new ConfTables()) {
 		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
 
+			// init the zSumWidthThresholds
+			BigDecimal[] zSumWidthThreshold = confSpace.states.stream()
+				.map(state -> fringedb.getZSumMax(state))
+				.toArray(size -> new BigDecimal[size]);
+
 			long sweepCount = 0;
 			while (true) {
 
@@ -479,23 +476,23 @@ public class Sofea {
 				}
 
 				// reduce zSumWidthThreshold before each sweep
-				BigDecimal[] zSumWidthThreshold = confSpace.states.stream()
-					.map(state -> {
-						BigDecimal zSumMax = fringedb.getZSumMax(state);
-						if (zSumMax == null) {
-							return null;
-						}
-						return bigMath()
-							.set(zSumMax)
+				for (MultiStateConfSpace.State state : confSpace.states) {
+					BigDecimal zSumMax = fringedb.getZSumMax(state);
+					if (zSumMax == null) {
+						zSumWidthThreshold[state.index] = null;
+					} else {
+						zSumWidthThreshold[state.index] = bigMath()
+							.set(zSumWidthThreshold[state.index])
+							.min(zSumMax)
 							.div(sweepDivisor)
 							.get();
-					})
-					.toArray(size -> new BigDecimal[size]);
+					}
+				}
 
 				// show progress if needed
 				sweepCount++;
 				if (showProgress) {
-					log("sweep %d", sweepCount);
+					log("step %d", sweepCount);
 					for (MultiStateConfSpace.State state : confSpace.states) {
 						if (zSumWidthThreshold[state.index] == null) {
 							log("\t%10s  finished", state.name);
@@ -658,11 +655,11 @@ public class Sofea {
 	}
 
 	/** WARNING: naive brute force method, for testing small trees only */
-	public BigDecimal calcZ(Sequence seq, MultiStateConfSpace.State state) {
+	public BigDecimal calcZSum(Sequence seq, MultiStateConfSpace.State state) {
 		StateInfo stateInfo = stateInfos.get(state.index);
 		try (StateInfo.Confs confs = stateInfo.new Confs()) {
 			RCs rcs = seq.makeRCs(state.confSpace);
-			return stateInfo.calcZ(rcs, confs.table);
+			return stateInfo.calcZSum(stateInfo.makeConfIndex(), rcs, confs.table);
 		}
 	}
 
@@ -767,6 +764,7 @@ public class Sofea {
 			return true;
 		}
 
+		// TODO: can make this linear time since we don't have pruning anymore?
 		/** WARNING: naive brute force method, for testing small trees only */
 		Map<Sequence,BigInteger> countLeavesBySequence(ConfIndex index) {
 
@@ -845,6 +843,7 @@ public class Sofea {
 			}
 
 			// TODO: optimize this?
+			// TODO: different for single-sequence vs multi-sequence?
 
 			BigDecimalBounds zPathHeadBounds = calcZPathHeadBounds(index);
 
@@ -859,6 +858,7 @@ public class Sofea {
 
 			return zSumBounds;
 
+			// TODO: is minimized fragment energy a lower or upper bound on E? on Z?
 			/* TODO: minimize things?
 			BigDecimalBounds zPathHeadBoundsTighter = calcZPathHeadBoundsTighter(index, confEcalc, confTable);
 			BigDecimalBounds zPathBoundsTighter = multBounds(zPathHeadBoundsTighter, zPathTailBounds);
@@ -937,8 +937,7 @@ public class Sofea {
 				BigDecimal zpos1 = opt.initBigDecimal();
 				for (int rc1 : rcs.get(pos1)) {
 
-					BigMath zrc1 = bigMath()
-						.set(zmat.getOneBody(pos1, rc1));
+					BigMath zrc1 = bigMath().set(zmat.getOneBody(pos1, rc1));
 
 					// interactions with defined residues
 					for (int j=0; j<index.numDefined; j++) {
@@ -953,6 +952,7 @@ public class Sofea {
 						int pos2 = index.undefinedPos[j];
 
 						// optimize over possible assignments to pos2
+						// TODO: make this a look-up table?
 						BigDecimal optzrc2 = opt.initBigDecimal();
 						for (int rc2 : rcs.get(pos2)) {
 
@@ -973,6 +973,13 @@ public class Sofea {
 			}
 
 			return z.get();
+		}
+
+		BigDecimalBounds calcZPathBounds(ConfIndex index, RCs rcs) {
+			return multBounds(
+				calcZPathHeadBounds(index),
+				calcZPathTailBounds(index, rcs)
+			);
 		}
 
 		BigInteger countLeafNodes(ConfIndex index, RCs rcs) {
@@ -1061,6 +1068,13 @@ public class Sofea {
 			return bcalc.calcPrecise(e);
 		}
 
+		/** a reminder to myself this this is a bad idea */
+		@Deprecated
+		BigDecimal calcZPathHead(ConfIndex index, ConfDB.ConfTable confTable) {
+			throw new Error("stop trying to do this! There's no such thing!");
+		}
+
+
 		BigDecimal calcZSumLowerTighter(ConfIndex index, RCs rcs, ConfDB.ConfTable confTable) {
 
 			// get to any leaf node and compute its zPath
@@ -1072,32 +1086,45 @@ public class Sofea {
 		}
 
 		/** WARNING: naive brute force method, for testing small trees only */
-		public BigDecimal calcZ(RCs rcs, ConfDB.ConfTable confTable) {
+		BigDecimal calcZSum(ConfIndex index, RCs rcs, ConfDB.ConfTable confTable) {
 
+			// base case, compute the conf energy
+			if (index.isFullyDefined()) {
+				double e = confEcalc.calcEnergy(new RCTuple(index), confTable);
+				return bcalc.calcPrecise(e);
+			}
+
+			// otherwise, recurse
 			BigMath m = bigMath().set(0.0);
-			ConfIndex index = makeConfIndex();
-
-			Runnable[] f = { null };
-			f[0] = () -> {
-
-				// base case, compute the conf energy
-				if (index.isFullyDefined()) {
-					double e = confEcalc.calcEnergy(new RCTuple(index), confTable);
-					m.add(bcalc.calcPrecise(e));
-					return;
-				}
-
-				// otherwise, recurse
-				int pos = index.numDefined;
-				for (int rc : rcs.get(pos)) {
-					index.assignInPlace(pos, rc);
-					f[0].run();
-					index.unassignInPlace(pos);
-				}
-			};
-			f[0].run();
-
+			int pos = index.numDefined;
+			for (int rc : rcs.get(pos)) {
+				index.assignInPlace(pos, rc);
+				m.add(calcZSum(index, rcs, confTable));
+				index.unassignInPlace(pos);
+			}
 			return m.get();
+		}
+
+		/** WARNING: naive brute force method, for testing small trees only */
+		BigDecimalBounds calcZPathBoundsExact(ConfIndex index, RCs rcs, ConfDB.ConfTable confTable) {
+
+			// base case, compute the conf energy
+			if (index.isFullyDefined()) {
+				return new BigDecimalBounds(calcZPath(index, confTable));
+			}
+
+			// otherwise, recurse
+			BigMath mlo = bigMath();
+			BigMath mhi = bigMath();
+			int pos = index.numDefined;
+			for (int rc : rcs.get(pos)) {
+				index.assignInPlace(pos, rc);
+				BigDecimalBounds sub = calcZPathBoundsExact(index, rcs, confTable);
+				mlo.minOrSet(sub.lower);
+				mhi.maxOrSet(sub.upper);
+				index.unassignInPlace(pos);
+			}
+			return new BigDecimalBounds(mlo.get(), mhi.get());
 		}
 	}
 
