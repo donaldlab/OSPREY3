@@ -23,6 +23,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.Log;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.MathTools.BigIntegerBounds;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
@@ -42,7 +43,7 @@ public class TestSofea {
 
 	private static final Parallelism fullCPUParallelism = Parallelism.makeCpu(Parallelism.getMaxNumCPUs());
 	private static final File tmpdir = new File(System.getProperty("java.io.tmpdir"), "testSofea");
-	private static final MathContext mathContext = new MathContext(16, RoundingMode.HALF_UP); // TODO: how much precision do we really need here?
+	private static final MathContext mathContext = new MathContext(16, RoundingMode.HALF_UP);
 	private static final BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
 	private static final double epsilonG = 1e-3;
 
@@ -72,6 +73,11 @@ public class TestSofea {
 		assertZSumBounds(design);
 	}
 	@Test
+	public void test_Binding1CC8Flex3_Traditional_ZSumBoundsTighter() {
+		Design design = Designs.Binding1CC8Flex3_Traditional.get();
+		assertZSumBoundsTighter(design);
+	}
+	@Test
 	public void test_Binding1CC8Flex3_Traditional_CalcG() {
 		Design design = Designs.Binding1CC8Flex3_Traditional.get();
 		assertGStates(design, Collections.emptyList(), -64.654, -31.490, -23.015);
@@ -79,9 +85,29 @@ public class TestSofea {
 
 
 	@Test
+	public void test_Stability1CC8Mut3_Traditional_EnergyBounds() {
+		Design design = Designs.Stability1CC8Mut3_Traditional.get();
+		assertEnergyBounds(design);
+	}
+	@Test
 	public void test_Stability1CC8Mut3_Traditional_LeafCounts() {
 		Design design = Designs.Stability1CC8Mut3_Traditional.get();
 		assertLeafCounts(design);
+	}
+	@Test
+	public void test_Stability1CC8Mut3_Traditional_ZPathBounds() {
+		Design design = Designs.Stability1CC8Mut3_Traditional.get();
+		assertZPathBounds(design);
+	}
+	@Test
+	public void test_Stability1CC8Mut3_Traditional_ZSumBounds() {
+		Design design = Designs.Stability1CC8Mut3_Traditional.get();
+		assertZSumBounds(design);
+	}
+	@Test
+	public void test_Stability1CC8Mut3_Traditional_ZSumBoundsTighter() {
+		Design design = Designs.Stability1CC8Mut3_Traditional.get();
+		assertZSumBoundsTighter(design);
 	}
 	@Test
 	public void test_Stability1CC8Mut3_Traditional_CalcG() {
@@ -138,7 +164,7 @@ public class TestSofea {
 	public void test_Stability1CC8Mut3_Traditional_MultiStepHiMem() {
 		stepUntilExhaustion(
 			Designs.Stability1CC8Mut3_Traditional.get(),
-			50.0,
+			100.0,
 			1024*1024,
 			TestSofea::assertResults_Stability1CC8Mut3_Traditional
 		);
@@ -147,13 +173,18 @@ public class TestSofea {
 	public void test_Stability1CC8Mut3_Traditional_MultiStepLoMem() {
 		stepUntilExhaustion(
 			Designs.Stability1CC8Mut3_Traditional.get(),
-			3.0,
+			100.0,
 			200,
 			TestSofea::assertResults_Stability1CC8Mut3_Traditional
 		);
 	}
 
 
+	@Test
+	public void test_Binding1CC8Mut2Flex1_Traditional_EnergyBounds() {
+		Design design = Designs.Binding1CC8Mut2Flex1_Traditional.get();
+		assertEnergyBounds(design);
+	}
 	@Test
 	public void test_Binding1CC8Mut2Flex1_Traditional_LeafCounts() {
 		Design design = Designs.Binding1CC8Mut2Flex1_Traditional.get();
@@ -168,6 +199,11 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex1_Traditional_ZSumBounds() {
 		Design design = Designs.Binding1CC8Mut2Flex1_Traditional.get();
 		assertZSumBounds(design);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex1_Traditional_ZSumBoundsTighter() {
+		Design design = Designs.Binding1CC8Mut2Flex1_Traditional.get();
+		assertZSumBoundsTighter(design);
 	}
 	@Test
 	public void test_Binding1CC8Mut2Flex1_Traditional_CalcG() {
@@ -201,7 +237,7 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex1_Traditional_MultiStepHiMem() {
 		stepUntilExhaustion(
 			Designs.Binding1CC8Mut2Flex1_Traditional.get(),
-			50.0,
+			100.0,
 			1024*1024,
 			TestSofea::assertResults_Binding1CC8Mut2Flex1_Traditional
 		);
@@ -210,7 +246,7 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex1_Traditional_MultiStepLoMem() {
 		stepUntilExhaustion(
 			Designs.Binding1CC8Mut2Flex1_Traditional.get(),
-			3.0,
+			100.0,
 			4*1024,
 			TestSofea::assertResults_Binding1CC8Mut2Flex1_Traditional
 		);
@@ -218,114 +254,80 @@ public class TestSofea {
 
 
 	// too big for brute-force tests
-	@Test
-	public void test_Binding1CC8Mut2Flex3_Traditional_CalcG() {
-		Design design = Designs.Binding1CC8Mut2Flex3_Traditional.get();
-		assertGStates(design, Arrays.asList("GLN", "LEU"), -113.643, -31.187, -71.258);
-		assertGStates(design, Arrays.asList("VAL", "LEU"), -99.541, -20.093, -71.258);
-		assertGStates(design, Arrays.asList("LEU", "LEU"), -96.647, -20.929, -71.258);
-		assertGStates(design, Arrays.asList("GLN", "VAL"), -103.336, -21.353, -71.258);
-		assertGStates(design, Arrays.asList("VAL", "VAL"), -89.609, -10.657, -71.258);
-		assertGStates(design, Arrays.asList("LEU", "VAL"), -86.786, -11.533, -71.258);
-	}
-	private static void assertResults_Binding1CC8Mut2Flex3_Traditional(Results results) {
-		results.assertGUnsequenced(-71.258);
-		results.assertGSequenced(Arrays.asList("GLN", "LEU"), -113.643, -31.187);
-		results.assertGSequenced(Arrays.asList("VAL", "LEU"), -99.541, -20.093);
-		results.assertGSequenced(Arrays.asList("LEU", "LEU"), -96.647, -20.929);
-		results.assertGSequenced(Arrays.asList("GLN", "VAL"), -103.336, -21.353);
-		results.assertGSequenced(Arrays.asList("VAL", "VAL"), -89.609, -10.657);
-		results.assertGSequenced(Arrays.asList("LEU", "VAL"), -86.786, -11.533);
+	private static void assertResults_Binding1CC8Mut2Flex2_Traditional(Results results) {
+		results.assertGUnsequenced(-47.123);
+		results.assertGSequenced(Arrays.asList("GLN", "LEU"), -89.747, -31.187);
+		results.assertGSequenced(Arrays.asList("VAL", "LEU"), -75.688, -20.093);
+		results.assertGSequenced(Arrays.asList("LEU", "LEU"), -72.585, -20.929);
+		results.assertGSequenced(Arrays.asList("GLN", "VAL"), -79.457, -21.353);
+		results.assertGSequenced(Arrays.asList("VAL", "VAL"), -65.796, -10.657);
+		results.assertGSequenced(Arrays.asList("LEU", "VAL"), -62.727, -11.533);
 	}
 	@Test
-	public void test_Binding1CC8Mut2Flex3_Traditional_SingleStep() { // TODO: NEXTTIME: this worked once, but now it doesn't?
+	public void test_Binding1CC8Mut2Flex2_Traditional_MultiStepHiMem() {
 		stepUntilAllStatesPrecise(
-			Designs.Binding1CC8Mut2Flex3_Traditional.get(),
-			Double.POSITIVE_INFINITY,
-			1024*1024,
-			TestSofea::assertResults_Binding1CC8Mut2Flex3_Traditional
-		);
-	}
-	@Test
-	public void test_Binding1CC8Mut2Flex3_Traditional_SingleStep_2Threads() {
-		stepUntilAllStatesPrecise(
-			Designs.Binding1CC8Mut2Flex3_Traditional.get(),
-			Double.POSITIVE_INFINITY,
-			1024*1024,
-			2,
-			TestSofea::assertResults_Binding1CC8Mut2Flex3_Traditional
-		);
-	}
-	@Test
-	public void test_Binding1CC8Mut2Flex3_Traditional_SingleStep_4Threads() {
-		stepUntilAllStatesPrecise(
-			Designs.Binding1CC8Mut2Flex3_Traditional.get(),
-			Double.POSITIVE_INFINITY,
-			1024*1024,
-			4,
-			TestSofea::assertResults_Binding1CC8Mut2Flex3_Traditional
-		);
-	}
-	@Test
-	public void test_Binding1CC8Mut2Flex3_Traditional_MultiStepHiMem() {
-		stepUntilAllStatesPrecise(
-			Designs.Binding1CC8Mut2Flex3_Traditional.get(),
+			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
 			50.0,
 			1024*1024,
-			TestSofea::assertResults_Binding1CC8Mut2Flex3_Traditional
+			TestSofea::assertResults_Binding1CC8Mut2Flex2_Traditional
 		);
 	}
 	@Test
-	public void test_Binding1CC8Mut2Flex3_Traditional_MultiStepHiMem_2Threads() {
+	public void test_Binding1CC8Mut2Flex2_Traditional_MultiStepHiMem_2Threads() {
 		stepUntilAllStatesPrecise(
-			Designs.Binding1CC8Mut2Flex3_Traditional.get(),
+			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
 			50.0,
 			1024*1024,
 			2,
-			TestSofea::assertResults_Binding1CC8Mut2Flex3_Traditional
+			TestSofea::assertResults_Binding1CC8Mut2Flex2_Traditional
 		);
 	}
 	@Test
-	public void test_Binding1CC8Mut2Flex3_Traditional_MultiStepHiMem_4Threads() {
+	public void test_Binding1CC8Mut2Flex2_Traditional_MultiStepHiMem_4Threads() {
 		stepUntilAllStatesPrecise(
-			Designs.Binding1CC8Mut2Flex3_Traditional.get(),
+			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
 			50.0,
 			1024*1024,
 			4,
-			TestSofea::assertResults_Binding1CC8Mut2Flex3_Traditional
+			TestSofea::assertResults_Binding1CC8Mut2Flex2_Traditional
 		);
 	}
 	@Test
-	public void test_Binding1CC8Mut2Flex3_Traditional_MultiStepLoMem() {
+	public void test_Binding1CC8Mut2Flex2_Traditional_MultiStepLoMem() {
 		stepUntilAllStatesPrecise(
-			Designs.Binding1CC8Mut2Flex3_Traditional.get(),
+			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
 			50.0,
 			16*1024,
-			TestSofea::assertResults_Binding1CC8Mut2Flex3_Traditional
+			TestSofea::assertResults_Binding1CC8Mut2Flex2_Traditional
 		);
 	}
 	@Test
-	public void test_Binding1CC8Mut2Flex3_Traditional_MultiStepLoMem_2Threads() {
+	public void test_Binding1CC8Mut2Flex2_Traditional_MultiStepLoMem_2Threads() {
 		stepUntilAllStatesPrecise(
-			Designs.Binding1CC8Mut2Flex3_Traditional.get(),
+			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
 			50.0,
 			16*1024,
 			2,
-			TestSofea::assertResults_Binding1CC8Mut2Flex3_Traditional
+			TestSofea::assertResults_Binding1CC8Mut2Flex2_Traditional
 		);
 	}
 	@Test
-	public void test_Binding1CC8Mut2Flex3_Traditional_MultiStepLoMem_4Threads() {
+	public void test_Binding1CC8Mut2Flex2_Traditional_MultiStepLoMem_4Threads() {
 		stepUntilAllStatesPrecise(
-			Designs.Binding1CC8Mut2Flex3_Traditional.get(),
+			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
 			50.0,
 			16*1024,
 			4,
-			TestSofea::assertResults_Binding1CC8Mut2Flex3_Traditional
+			TestSofea::assertResults_Binding1CC8Mut2Flex2_Traditional
 		);
 	}
 
 
+	@Test
+	public void test_Binding1CC8Mut2Flex1_AllOnPairs_EnergyBounds() {
+		Design design = Designs.Binding1CC8Mut2Flex1_AllOnPairs.get();
+		assertEnergyBounds(design);
+	}
 	@Test
 	public void test_Binding1CC8Mut2Flex1_AllOnPairs_LeafCounts() {
 		Design design = Designs.Binding1CC8Mut2Flex1_AllOnPairs.get();
@@ -340,6 +342,11 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex1_AllOnPairs_ZSumBounds() {
 		Design design = Designs.Binding1CC8Mut2Flex1_AllOnPairs.get();
 		assertZSumBounds(design);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex1_AllOnPairs_ZSumBoundsTighter() {
+		Design design = Designs.Binding1CC8Mut2Flex1_AllOnPairs.get();
+		assertZSumBoundsTighter(design);
 	}
 	@Test
 	public void test_Binding1CC8Mut2Flex1_AllOnPairs_CalcG() {
@@ -408,7 +415,7 @@ public class TestSofea {
 			}
 
 			// otherwise, recurse
-			int pos = index.numDefined;
+			int pos = stateInfo.posPermutation[index.numDefined];
 			for (int rc : stateInfo.rcs.get(pos)) {
 				index.assignInPlace(pos, rc);
 				f[0].run();
@@ -443,7 +450,7 @@ public class TestSofea {
 
 							double energy = confEcalc.calcEnergy(tuple, confs.table);
 
-							assertThat(energyBounds, isRelativeBound(energy, 1e-3));
+							assertThat(energyBounds, isRelativeBound(energy, 1e-4));
 						});
 					}
 				}
@@ -463,7 +470,7 @@ public class TestSofea {
 				Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
 
 				forEachNode(stateInfo, index -> {
-					BigIntegerBounds bounds = stateInfo.boundLeavesPerSequence(index);
+					BigIntegerBounds bounds = stateInfo.boundLeavesPerSequence(index, stateInfo.rcs);
 					Map<Sequence,BigInteger> counts = stateInfo.countLeavesBySequence(index);
 					BigInteger minCount = counts.values().stream().min(BigInteger::compareTo).orElse(null);
 					BigInteger maxCount = counts.values().stream().max(BigInteger::compareTo).orElse(null);
@@ -510,18 +517,37 @@ public class TestSofea {
 
 					forEachNode(stateInfo, index -> {
 
+						BigDecimalBounds bounds = stateInfo.calcZSumBounds(index, stateInfo.rcs);
+						BigDecimal exact = stateInfo.calcZSum(index, stateInfo.rcs, confs.table);
+						assertThat(bounds, isRelativeBound(exact, 1e-4));
+					});
+				}
+			}
+		}
+	}
+
+	public static void assertZSumBoundsTighter(Design design) {
+		try (Ecalcs ecalcs = design.makeEcalcs()) {
+
+			Sofea sofea = new Sofea.Builder(design.confSpace)
+				.configEachState(state -> design.configState(state, ecalcs))
+				.setMathContext(mathContext)
+				.build();
+
+			for (MultiStateConfSpace.State state : design.confSpace.states) {
+				Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
+				try (Sofea.StateInfo.Confs confs = stateInfo.new Confs()) {
+
+					forEachNode(stateInfo, index -> {
+
 						// skip leaf nodes
 						if (index.isFullyDefined()) {
 							return;
 						}
 
-						BigDecimalBounds bounds = stateInfo.calcZSumBounds(index, stateInfo.rcs);
+						BigDecimalBounds bounds = stateInfo.calcZSumBoundsTighter(index, stateInfo.rcs, confs.table);
 						BigDecimal exact = stateInfo.calcZSum(index, stateInfo.rcs, confs.table);
-						if (bounds != null) {
-							assertThat(bounds, isAbsoluteBound(exact, 1e-3));
-						} else {
-							assertThat(exact.doubleValue(), isAbsolutely(0.0, 1e-3));
-						}
+						assertThat(bounds, isRelativeBound(exact, 1e-6));
 					});
 				}
 			}
@@ -568,7 +594,8 @@ public class TestSofea {
 
 					try (Sofea.StateInfo.Confs confs = sofea.getStateInfo(state).new Confs()) {
 
-						// TODO: NEXTTIME: GradientDescentPfunc is returing some bad answers in multi-thread mode? What broke it?
+						// TODO: GradientDescentPfunc is returing some bad answers in multi-thread mode?
+						// TODO: the pfunc used to work... What broke it?
 						GradientDescentPfunc pfunc = new GradientDescentPfunc(ecalcs.getMinimizing(state));
 						pfunc.setConfTable(confs.table);
 						pfunc.init(astar, rcs.getNumConformations(), 0.00001);
@@ -707,6 +734,8 @@ public class TestSofea {
 
 			// refine, and check results between each sweep
 			sofea.refine((seqdb, fringedb, sweepCount, bcalc) -> {
+
+				// check the bounds are accurate
 				checker.check(new Results(design, seqdb));
 
 				// keep iterating until exhaustion
@@ -715,7 +744,22 @@ public class TestSofea {
 
 			// check results once more at end, just for good measure
 			try (SeqDB seqdb = sofea.openSeqDB()) {
+
+				// check the bounds are accurate
 				checker.check(new Results(design, seqdb));
+
+				// check that bounds are exactly tight
+				for (MultiStateConfSpace.State state : design.confSpace.unsequencedStates) {
+					BigDecimalBounds zSumBounds = seqdb.getUnsequencedZSumBounds(state);
+					assertThat(MathTools.isSameValue(zSumBounds.lower, zSumBounds.upper), is(true));
+				}
+				for (Sequence seq : design.confSpace.seqSpace.getSequences()) {
+					SeqDB.SeqInfo seqInfo = seqdb.getSequencedZSumBounds(seq);
+					for (MultiStateConfSpace.State state : design.confSpace.sequencedStates) {
+						BigDecimalBounds zSumBounds = seqInfo.get(state);
+						assertThat(MathTools.isSameValue(zSumBounds.lower, zSumBounds.upper), is(true));
+					}
+				}
 			}
 		}}}
 	}
@@ -762,7 +806,9 @@ public class TestSofea {
 						}
 					}
 				}
-				return Sofea.Criterion.Satisfied.KeepIterating;
+
+				// yup, we're done
+				return Sofea.Criterion.Satisfied.Terminate;
 			});
 
 			// check results once more at end, just for good measure
@@ -875,14 +921,14 @@ public class TestSofea {
 			}
 		},
 
-		Binding1CC8Mut2Flex3 { // too big to brute force
+		Binding1CC8Mut2Flex2 { // too big to brute force
 
 			@Override
 			public MultiStateConfSpace make() {
 
 				Molecule pdb = PDBIO.readResource("/1CC8.ss.pdb");
 
-				// 183,708 confs
+				// 6561 confs
 				Strand design = new Strand.Builder(pdb)
 					.setResidues("A68", "A73")
 					.build();
@@ -896,7 +942,7 @@ public class TestSofea {
 				Strand target = new Strand.Builder(pdb)
 					.setResidues("A2", "A67")
 					.build();
-				for (String resNum : Arrays.asList("A5", "A6", "A7")) { // lys(27+1) x his(8+1) x tyr(8+1) = 2268
+				for (String resNum : Arrays.asList("A6", "A7")) { // his(8+1) x tyr(8+1) = 81
 					target.flexibility.get(resNum)
 						.setLibraryRotamers(Strand.WildType)
 						.addWildTypeRotamers()
@@ -943,10 +989,10 @@ public class TestSofea {
 				return new Design(this, ConfSpaces.Binding1CC8Mut2Flex1.get(), EnergyPartition.Traditional);
 			}
 		},
-		Binding1CC8Mut2Flex3_Traditional {
+		Binding1CC8Mut2Flex2_Traditional {
 			@Override
 			public Design make() {
-				return new Design(this, ConfSpaces.Binding1CC8Mut2Flex3.get(), EnergyPartition.Traditional);
+				return new Design(this, ConfSpaces.Binding1CC8Mut2Flex2.get(), EnergyPartition.Traditional);
 			}
 		},
 		Binding1CC8Mut2Flex1_AllOnPairs {

@@ -839,19 +839,11 @@ public class MathTools {
 			this(biggen(lower), biggen(upper));
 		}
 
-		public double delta(MathContext mathContext) {
+		public BigDecimal size(MathContext mathContext) {
 			return new BigMath(mathContext)
 				.set(upper)
 				.sub(lower)
-				.div(upper)
-				.get()
-				.doubleValue();
-		}
-
-		public double delta() {
-			double l = lower.doubleValue();
-			double u = upper.doubleValue();
-			return (u - l)/u;
+				.get();
 		}
 
 		public boolean isValid() {

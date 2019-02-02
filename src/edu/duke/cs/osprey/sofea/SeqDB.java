@@ -616,4 +616,31 @@ public class SeqDB implements AutoCloseable {
 			}
 		}
 	}
+
+	public String dump() {
+		StringBuilder buf = new StringBuilder();
+		buf.append("Unsequenced");
+		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
+			BigDecimalBounds zSumBounds = getUnsequencedZSumBounds(state);
+			buf.append(String.format("\n%10s  zSumBounds=%s w=%s",
+				state.name,
+				Log.formatBigLn(zSumBounds),
+				Log.formatBigLn(zSumBounds.size(mathContext))
+			));
+		}
+		buf.append("\nSequenced");
+		for (Map.Entry<Sequence,SeqInfo> entry : getSequencedZSumBounds()) {
+			Sequence seq = entry.getKey();
+			SeqInfo seqInfo = entry.getValue();
+			buf.append(String.format("\n[%s]", seq));
+			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+				buf.append(String.format("\n%10s  zSumBounds=%s w=%s",
+					state.name,
+					Log.formatBigLn(seqInfo.get(state)),
+					Log.formatBigLn(seqInfo.get(state).size(mathContext))
+				));
+			}
+		}
+		return buf.toString();
+	}
 }

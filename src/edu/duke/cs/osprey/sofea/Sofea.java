@@ -9,13 +9,10 @@ import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
-import edu.duke.cs.osprey.tools.BigMath;
-import edu.duke.cs.osprey.tools.Log;
-import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.tools.*;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.BigIntegerBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
-import edu.duke.cs.osprey.tools.Progress;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -47,6 +44,7 @@ public class Sofea {
 		private boolean showProgress = true;
 		private Parallelism parallelism = Parallelism.makeCpu(1);
 		private double sweepDivisor = Math.pow(Math.E, 4.0);
+		private double zPruneThreshold = 1e-5; // ln(1 + 1e-5) < 0.0000
 
 		// NOTE: don't need much precision for most math, but need lots of precision for seqdb math
 
@@ -114,6 +112,11 @@ public class Sofea {
 			return this;
 		}
 
+		public Builder setZPruneThreshold(double val) {
+			zPruneThreshold = val;
+			return this;
+		}
+
 		public Sofea build() {
 
 			// make sure all the states are configured
@@ -135,7 +138,8 @@ public class Sofea {
 				fringedbBytes,
 				showProgress,
 				parallelism,
-				sweepDivisor
+				sweepDivisor,
+				zPruneThreshold
 			);
 		}
 	}
@@ -200,12 +204,13 @@ public class Sofea {
 	public final boolean showProgress;
 	public final Parallelism parallelism;
 	public final double sweepDivisor;
+	public final BigDecimal zPruneThreshold;
 
 	public final BoltzmannCalculator bcalc;
 
 	private final List<StateInfo> stateInfos;
 
-	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, long fringedbBytes, boolean showProgress, Parallelism parallelism, double sweepDivisor) {
+	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, long fringedbBytes, boolean showProgress, Parallelism parallelism, double sweepDivisor, double zPruneThreshold) {
 
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
@@ -217,6 +222,7 @@ public class Sofea {
 		this.showProgress = showProgress;
 		this.parallelism = parallelism;
 		this.sweepDivisor = sweepDivisor;
+		this.zPruneThreshold = MathTools.biggen(zPruneThreshold);
 
 		bcalc = new BoltzmannCalculator(mathContext);
 
@@ -608,23 +614,49 @@ public class Sofea {
 
 	private boolean design(NodeTransaction nodetx, BigDecimal zSumWidthThreshold, ConfIndex index, BigDecimalBounds zSumBounds, BigDecimalBounds zPathHeadBounds, ConfDB.ConfTable confTable) {
 
-		// if this node bound width is too small, add it to the fringe set
+		// forget any subtree that's below the pruning threshold
+		/* NOTE:
+			Unfortunately, a hard pruning threshold is necessary in practice.
+			Clashing confs can have extremely low zPath values (like 1e-30,000,000).
+			When FringeDB runs out of space, we'd normally have to wait for zSumWidthThreshold
+			to drop below the zPath of all leaves in a subtree before we can remove that whole
+			subtree from FringeDB. But if the lowest zPath is supremely low, zSumWidthThreshold
+			will never drop that low even after millions of steps in the sweep. So we need to
+			just give up on these subtrees entirely and hope astronomical numbers of those confs
+			don't add up to a significant portion of the zSum.
+		 */
+		if (MathTools.isLessThan(zSumBounds.upper, zPruneThreshold)) {
+			return false;
+		}
+
 		BigDecimal width = bigMath()
 			.set(zSumBounds.upper)
 			.sub(zSumBounds.lower)
 			.get();
+		StateInfo stateInfo = stateInfos.get(nodetx.state.index);
+
+		// is this a leaf node?
+		if (index.isFullyDefined()) {
+
+			// yup, add the zPath
+			BigDecimal zPath;
+			if (MathTools.isZero(width)) {
+				// if the bound is perfect, no need to mimize
+				zPath = zSumBounds.lower;
+			} else {
+				// otherwise, minimize to get the zPath
+				zPath = stateInfo.calcZPath(index, confTable);
+			}
+			nodetx.addZPath(index, zPath);
+			return true;
+		}
+
+		// not a leaf node
+
+		// if this node bound width is too small, add it to the fringe set
 		if (MathTools.isLessThan(width, zSumWidthThreshold)) {
 			nodetx.addReplacementNode(index, zSumBounds, zPathHeadBounds);
 			return false;
-		}
-
-		StateInfo stateInfo = stateInfos.get(nodetx.state.index);
-
-		// is this a leaf node? get the zPath
-		if (index.isFullyDefined()) {
-			BigDecimal zPath = stateInfo.calcZPath(index, confTable);
-			nodetx.addZPath(index, zPath);
-			return true;
 		}
 
 		// otherwise, recurse
@@ -688,7 +720,7 @@ public class Sofea {
 		final ZMatrix zmatLower;
 		final ZMatrix zmatUpper;
 		final RCs rcs;
-		final List<SimpleConfSpace.Position> positions;
+		final int[] posPermutation;
 
 		private final int[][] rtsByRcByPos;
 		private final int[] numRtsByPos;
@@ -703,12 +735,28 @@ public class Sofea {
 			this.zmatUpper = new ZMatrix(state.confSpace);
 			this.zmatUpper.set(config.ematLower, bcalc);
 			this.rcs = new RCs(state.confSpace);
-			this.positions = state.confSpace.positions;
+
+			// sort positions so multi-sequence layers are first
+			posPermutation = state.confSpace.positions.stream()
+				.sorted((a, b) -> {
+
+					// prefer mutable positions first
+					if (a.hasMutations() && !b.hasMutations()) {
+						return -1;
+					} else if (!a.hasMutations() && b.hasMutations()) {
+						return +1;
+					}
+
+					// otherwise, sort by index
+					return a.index - b.index;
+				})
+				.mapToInt(pos -> pos.index)
+				.toArray();
 
 			// calculate all the RTs by RC and pos
-			rtsByRcByPos = new int[positions.size()][];
-			numRtsByPos = new int[positions.size()];
-			for (SimpleConfSpace.Position confPos : positions) {
+			rtsByRcByPos = new int[state.confSpace.positions.size()][];
+			numRtsByPos = new int[state.confSpace.positions.size()];
+			for (SimpleConfSpace.Position confPos : state.confSpace.positions) {
 				rtsByRcByPos[confPos.index] = new int[confPos.resConfs.size()];
 				SeqSpace.Position seqPos = confSpace.seqSpace.getPosition(confPos.resNum);
 				if (seqPos != null) {
@@ -725,7 +773,7 @@ public class Sofea {
 		}
 
 		ConfIndex makeConfIndex() {
-			ConfIndex index = new ConfIndex(positions.size());
+			ConfIndex index = new ConfIndex(state.confSpace.positions.size());
 			index.updateUndefined();
 			return index;
 		}
@@ -764,7 +812,6 @@ public class Sofea {
 			return true;
 		}
 
-		// TODO: can make this linear time since we don't have pruning anymore?
 		/** WARNING: naive brute force method, for testing small trees only */
 		Map<Sequence,BigInteger> countLeavesBySequence(ConfIndex index) {
 
@@ -788,7 +835,7 @@ public class Sofea {
 				}
 
 				// otherwise, recurse
-				int pos = index.numDefined;
+				int pos = posPermutation[index.numDefined];
 				for (int rc : rcs.get(pos)) {
 					index.assignInPlace(pos, rc);
 					f[0].run();
@@ -800,7 +847,7 @@ public class Sofea {
 			return out;
 		}
 
-		BigIntegerBounds boundLeavesPerSequence(ConfIndex index) {
+		BigIntegerBounds boundLeavesPerSequence(ConfIndex index, RCs rcs) {
 
 			BigIntegerBounds count = new BigIntegerBounds(BigInteger.ONE, BigInteger.ONE);
 
@@ -837,34 +884,67 @@ public class Sofea {
 
 		BigDecimalBounds calcZSumBounds(ConfIndex index, RCs rcs) {
 
-			// for leaf nodes, use the path head bounds
-			if (index.isFullyDefined()) {
-				return calcZPathHeadBounds(index);
-			}
-
-			// TODO: optimize this?
-			// TODO: different for single-sequence vs multi-sequence?
-
 			BigDecimalBounds zPathHeadBounds = calcZPathHeadBounds(index);
 
-			BigDecimalBounds zPathTailBounds = calcZPathTailBounds(index, rcs);
+			if (isSingleSequence(index)) {
+				return new BigDecimalBounds(
+					calcZSumLower(index, rcs), // TODO: this is a really crappy lower bound! any way to make it better without minimizing?
+					bigMath()
+						.set(zPathHeadBounds.upper)
+						.mult(calcZPathTailBound(zmatUpper, MathTools.Optimizer.Maximize, index, rcs))
+						.mult(countLeafNodes(index, rcs))
+						.get()
+				);
+			} else {
+				BigIntegerBounds numLeaves = boundLeavesPerSequence(index, rcs);
+				BigDecimalBounds zPathTailBounds = calcZPathTailBounds(index, rcs);
+				return new BigDecimalBounds(
+					bigMath() // TODO: this is a really crappy lower bound! any way to make it better?
+						.set(zPathHeadBounds.lower)
+						.mult(zPathTailBounds.lower)
+						.mult(numLeaves.lower)
+						.get(),
+					bigMath()
+						.set(zPathHeadBounds.upper)
+						.mult(zPathTailBounds.upper)
+						.mult(numLeaves.upper)
+						.get()
+				);
+			}
+		}
 
-			BigInteger leafNodes = countLeafNodes(index, rcs);
-			BigDecimalBounds zSumTailBounds = new BigDecimalBounds(
-				calcZSumTailLower(index, rcs),
-				bigMath().set(zPathTailBounds.upper).mult(leafNodes).get()
-			);
-			BigDecimalBounds zSumBounds = multBounds(zPathHeadBounds, zSumTailBounds);
+		BigDecimalBounds calcZSumBoundsTighter(ConfIndex index, RCs rcs, ConfDB.ConfTable confTable) {
 
-			return zSumBounds;
+			// don't bother for leaf nodes
+			if (index.isFullyDefined()) {
+				throw new IllegalArgumentException("don't bother doing this for leaf nodes");
+			}
 
-			// TODO: is minimized fragment energy a lower or upper bound on E? on Z?
-			/* TODO: minimize things?
-			BigDecimalBounds zPathHeadBoundsTighter = calcZPathHeadBoundsTighter(index, confEcalc, confTable);
-			BigDecimalBounds zPathBoundsTighter = multBounds(zPathHeadBoundsTighter, zPathTailBounds);
-			BigDecimalBounds zSumBoundsTighter = multBounds(zPathHeadBoundsTighter, zSumTailBounds);
-			zSumBoundsTighter.lower = calcZSumLowerTighter(index, rcs, confEcalc, confTable);
-			*/
+			if (isSingleSequence(index)) {
+				return new BigDecimalBounds(
+					calcZSumLowerTighter(index, rcs, confTable), // minimizes
+					bigMath()
+						.set(calcZPathHeadUpperTighter(index, confTable)) // minimizes
+						.mult(calcZPathTailBound(zmatUpper, MathTools.Optimizer.Maximize, index, rcs))
+						.mult(countLeafNodes(index, rcs))
+						.get()
+				);
+			} else {
+				BigIntegerBounds numLeaves = boundLeavesPerSequence(index, rcs);
+				BigDecimalBounds zPathTailBounds = calcZPathTailBounds(index, rcs);
+				return new BigDecimalBounds(
+					bigMath() // TODO: this is a really crappy lower bound! any way to make it better?
+						.set(calcZPathHeadBound(zmatLower, index))
+						.mult(zPathTailBounds.lower)
+						.mult(numLeaves.lower)
+						.get(),
+					bigMath()
+						.set(calcZPathHeadUpperTighter(index, confTable)) // minimizes
+						.mult(zPathTailBounds.upper)
+						.mult(numLeaves.upper)
+						.get()
+				);
+			}
 		}
 
 		BigDecimalBounds calcZPathHeadBounds(ConfIndex index) {
@@ -1003,7 +1083,7 @@ public class Sofea {
 			// assign each unassigned position greedily
 			for (int i=0; i<numUnassigned; i++) {
 
-				int pos = index.numDefined;
+				int pos = posPermutation[index.numDefined];
 
 				// find the RC with the biggest zPathComponent
 				int bestRC = -1;
@@ -1025,33 +1105,30 @@ public class Sofea {
 		void unassignConf(ConfIndex index, int numAssigned) {
 
 			// undo all the assignments in the reverse order they were assigned
-			for (int pos=index.numPos-1; pos>=numAssigned; pos--) {
-				index.unassignInPlace(pos);
+			for (int i=index.numPos-1; i>=numAssigned; i--) {
+				index.unassignInPlace(posPermutation[i]);
 			}
 		}
 
-		BigDecimal calcZSumTailLower(ConfIndex index, RCs rcs) {
+		BigDecimal calcZSumLower(ConfIndex index, RCs rcs) {
 
-			// get to any leaf node and compute its zPathTailLower
+			// compute the zPathLower for an arbitrary leaf node
+			// but heuristically try to pick one with a high zPathLower
 			int numAssigned = index.numDefined;
 			greedilyAssignConf(index, rcs, zmatLower);
-			BigMath m = bigMath().set(1.0);
-			for (int pos=index.numPos-1; pos>=numAssigned; pos--) {
-				int rc = index.definedRCs[index.findDefined(pos)];
-				index.unassignInPlace(pos);
-				m.mult(calcZPathNodeBound(zmatLower, index, pos, rc));
-			}
-			return m.get();
+			BigDecimal zPathLower = calcZPathHeadBound(zmatLower, index);
+			unassignConf(index, numAssigned);
+			return zPathLower;
 		}
 
 		BigDecimalBounds calcZPathHeadBoundsTighter(ConfIndex index, ConfDB.ConfTable confTable) {
 			return new BigDecimalBounds(
-				calcZPathHeadLowerTighter(index, confTable),
-				calcZPathHeadBound(zmatUpper, index)
+				calcZPathHeadBound(zmatLower, index),
+				calcZPathHeadUpperTighter(index, confTable)
 			);
 		}
 
-		BigDecimal calcZPathHeadLowerTighter(ConfIndex index, ConfDB.ConfTable confTable) {
+		BigDecimal calcZPathHeadUpperTighter(ConfIndex index, ConfDB.ConfTable confTable) {
 			RCTuple tuple = new RCTuple(index);
 			ResidueInteractions inters = confEcalc.makeTupleInters(tuple);
 			double e = confEcalc.calcEnergy(tuple, inters, confTable);
@@ -1077,7 +1154,8 @@ public class Sofea {
 
 		BigDecimal calcZSumLowerTighter(ConfIndex index, RCs rcs, ConfDB.ConfTable confTable) {
 
-			// get to any leaf node and compute its zPath
+			// compute the zPath for an arbitrary leaf node
+			// but heuristically try to pick one with a high zPath
 			int numAssigned = index.numDefined;
 			greedilyAssignConf(index, rcs, zmatUpper);
 			BigDecimal zPath = calcZPath(index, confTable);
@@ -1096,7 +1174,7 @@ public class Sofea {
 
 			// otherwise, recurse
 			BigMath m = bigMath().set(0.0);
-			int pos = index.numDefined;
+			int pos = posPermutation[index.numDefined];
 			for (int rc : rcs.get(pos)) {
 				index.assignInPlace(pos, rc);
 				m.add(calcZSum(index, rcs, confTable));
@@ -1116,7 +1194,7 @@ public class Sofea {
 			// otherwise, recurse
 			BigMath mlo = bigMath();
 			BigMath mhi = bigMath();
-			int pos = index.numDefined;
+			int pos = posPermutation[index.numDefined];
 			for (int rc : rcs.get(pos)) {
 				index.assignInPlace(pos, rc);
 				BigDecimalBounds sub = calcZPathBoundsExact(index, rcs, confTable);
@@ -1132,13 +1210,6 @@ public class Sofea {
 		return new BigDecimalBounds(
 			bigMath().set(a.lower).mult(b.lower).get(),
 			bigMath().set(a.upper).mult(b.upper).get()
-		);
-	}
-
-	private BigDecimalBounds multBounds(BigDecimalBounds a, BigDecimal b) {
-		return new BigDecimalBounds(
-			bigMath().set(a.lower).mult(b).get(),
-			bigMath().set(a.upper).mult(b).get()
 		);
 	}
 }
