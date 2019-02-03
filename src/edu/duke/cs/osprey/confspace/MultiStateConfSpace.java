@@ -142,7 +142,7 @@ public class MultiStateConfSpace {
 			return weightsByState.keySet();
 		}
 
-		public double getWeight(State state) {
+		public Double getWeight(State state) {
 			return weightsByState.get(state);
 		}
 
@@ -212,6 +212,12 @@ public class MultiStateConfSpace {
 
 		public LMFECalculator add(State state, DoubleBounds freeEnergy) {
 
+			// get the weight, if any
+			Double weight = lmfe.getWeight(state);
+			if (weight == null) {
+				return this;
+			}
+
 			// if either bound is [+inf,+inf], assume the result is [+inf,+inf]
 			if ((bounds.lower == Double.POSITIVE_INFINITY && bounds.upper == Double.POSITIVE_INFINITY)
 				|| (freeEnergy.lower == Double.POSITIVE_INFINITY && freeEnergy.upper == Double.POSITIVE_INFINITY)) {
@@ -222,7 +228,6 @@ public class MultiStateConfSpace {
 			// otherwise, do the usual arithmetic
 			} else {
 
-				double weight = lmfe.getWeight(state);
 				if (weight < 0) {
 					bounds.lower += freeEnergy.upper*weight;
 					bounds.upper += freeEnergy.lower*weight;
