@@ -366,7 +366,7 @@ public class EWAKStarBBKStar {
             if (kstarSettings.useExternalMemory) {
                 EWAKStarPartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
             }
-            pfunc.init(confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), rcs.getNumConformations(), kstarSettings.epsilon, kstarSettings.eW, kstarSettings.maxPFConfs);
+            pfunc.init(confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), confTrees.make(() -> info.confTreeFactoryMinimized.apply(rcs)), rcs.getNumConformations(), kstarSettings.epsilon, kstarSettings.eW, kstarSettings.maxPFConfs, kstarSettings.printPDBs);
             pfunc.setStabilityThreshold(info.stabilityThreshold);
 
             // update the cache
@@ -671,6 +671,8 @@ public class EWAKStarBBKStar {
 
         EWAKStarScore kstarScore = ssnode.makeKStarScore();
         scoredSequences.add(ssnode.sequence);
+
+        //System.out.println(ssnode.complex.getSConfs().size());
 
         if(kstarSettings.printPDBs) {
             Iterator<EnergyCalculator.EnergiedParametricMolecule> econfs = ssnode.complex.getEpMols().iterator();

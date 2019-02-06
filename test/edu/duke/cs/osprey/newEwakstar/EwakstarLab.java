@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.ewakstar.EwakstarDoer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -24,11 +25,11 @@ public class EwakstarLab {
 
 	public static void main(String[] args) {
 		// run COMETS
-		//EwakstarDoer ewakstarDoer = run2RL0();
+		EwakstarDoer ewakstarDoer = run2RL0();
 		//EwakstarDoer ewakstarDoer = run1GUA();
 		//EwakstarDoer ewakstarDoer = run1GWC();
 		//EwakstarDoer ewakstarDoer = runSpA();
-		EwakstarDoer ewakstarDoer = run2HNV();
+		//EwakstarDoer ewakstarDoer = run2HNV();
 		Set<Sequence> seqs = ewakstarDoer.run(ewakstarDoer.state);
 	}
 
@@ -123,6 +124,8 @@ public class EwakstarLab {
 				.build()
 				.calcEnergyMatrix();
 
+		PruningMatrix pmat = new SimpleDEE.Runner().run(PL.confSpace,PL.emat);
+
 		PL.fragmentEnergies =PL.emat;
 		PL.ematRigid =new SimplerEnergyMatrixCalculator.Builder(PL.confRigidEcalc)
 				.setCacheFile(new File(String.format("ewakstar.%s.ematRigid", PL.name)))
@@ -194,6 +197,7 @@ public class EwakstarLab {
 
 		EwakstarDoer ewakstarDoer = new EwakstarDoer.Builder()
 				.setOrderOfMag(orderMag)
+				.setPrintPDBs(false)
 				.setPfEw(pfEw)
 				.setEpsilon(epsilon)
 				.setNumPfConfs(numPfConfs)
@@ -603,8 +607,6 @@ public class EwakstarLab {
 				.setCacheFile(new File(String.format("ewakstar.%s.ematRigid", PL.name)))
 				.build()
 				.calcEnergyMatrix();
-
-
 
 		// make the conf tree factory
 		PL.confTreeFactoryMin =(rcs) -> new ConfAStarTree.Builder(PL.emat, rcs)

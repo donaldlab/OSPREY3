@@ -185,8 +185,9 @@ public interface EWAKStarPartitionFunction {
 	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
 	 *                               including any conformations removed by pruned tuples.
 	 * @param highestNumConfs The maximum number of conformations allowed for a partition function calculation.
+	 * @param printPDBs Boolean value for printing PDB files
 	 */
-	void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy, int highestNumConfs);
+	void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy, int highestNumConfs, boolean printPDBs);
 
 	/**
 	 * Sets the stability threshold for this PartitionFunction, if supported
