@@ -428,7 +428,7 @@ public class TestSofea {
 
 	/** WARNING: brute force method, will compute minimized energies for every conf and partial conf, only use on small designs */
 	public static void assertEnergyBounds(Design design) {
-		try (Ecalcs ecalcs = design.makeEcalcs()) {
+		try (Ecalcs ecalcs = design.makeEcalcs(fullCPUParallelism)) {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.configEachState(state -> design.configState(state, ecalcs))
@@ -460,7 +460,7 @@ public class TestSofea {
 	}
 
 	public static void assertLeafCounts(Design design) {
-		try (Ecalcs ecalcs = design.makeEcalcs()) {
+		try (Ecalcs ecalcs = design.makeEcalcs(fullCPUParallelism)) {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.configEachState(state -> design.configState(state, ecalcs))
@@ -483,7 +483,7 @@ public class TestSofea {
 	}
 
 	public static void assertZPathBounds(Design design) {
-		try (Ecalcs ecalcs = design.makeEcalcs()) {
+		try (Ecalcs ecalcs = design.makeEcalcs(fullCPUParallelism)) {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.configEachState(state -> design.configState(state, ecalcs))
@@ -505,7 +505,7 @@ public class TestSofea {
 	}
 
 	public static void assertZSumBounds(Design design) {
-		try (Ecalcs ecalcs = design.makeEcalcs()) {
+		try (Ecalcs ecalcs = design.makeEcalcs(fullCPUParallelism)) {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.configEachState(state -> design.configState(state, ecalcs))
@@ -528,7 +528,7 @@ public class TestSofea {
 	}
 
 	public static void assertZSumBoundsTighter(Design design) {
-		try (Ecalcs ecalcs = design.makeEcalcs()) {
+		try (Ecalcs ecalcs = design.makeEcalcs(fullCPUParallelism)) {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.configEachState(state -> design.configState(state, ecalcs))
@@ -578,7 +578,7 @@ public class TestSofea {
 
 	public static double[] calcGStatesAStar(Design design, Sequence seq) {
 
-		try (Ecalcs ecalcs = design.makeEcalcs()) {
+		try (Ecalcs ecalcs = design.makeEcalcs(fullCPUParallelism)) {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.configEachState(state -> design.configState(state, ecalcs))
@@ -654,7 +654,7 @@ public class TestSofea {
 	}
 
 	public void assertGStates(Design design, Sequence seq, double ... expectedG) {
-		try (Ecalcs ecalcs = design.makeEcalcs()) {
+		try (Ecalcs ecalcs = design.makeEcalcs(fullCPUParallelism)) {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.configEachState(state -> design.configState(state, ecalcs))
@@ -719,7 +719,7 @@ public class TestSofea {
 	public void stepUntilExhaustion(Design design, double sweepDivisor, long fringeDBBytes, int numThreads, IntermediateChecker checker) {
 		try (TempFile fringedbFile = new TempFile(tmpdir, "fringe.db")) {
 		try (TempFile seqdbFile = new TempFile(tmpdir, "seq.db")) {
-		try (Ecalcs ecalcs = design.makeEcalcs()) {
+		try (Ecalcs ecalcs = design.makeEcalcs(Parallelism.makeCpu(numThreads))) {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.setFringeDBFile(fringedbFile)
@@ -727,7 +727,6 @@ public class TestSofea {
 				.setSeqDBFile(seqdbFile)
 				.setSweepDivisor(sweepDivisor)
 				.configEachState(state -> design.configState(state, ecalcs))
-				.setParallelism(Parallelism.makeCpu(numThreads))
 				.setMathContext(mathContext)
 				.build();
 
@@ -772,7 +771,7 @@ public class TestSofea {
 	public void stepUntilAllStatesPrecise(Design design, double sweepDivisor, long fringeDBBytes, int numThreads, IntermediateChecker checker) {
 		try (TempFile fringedbFile = new TempFile(tmpdir, "fringe.db")) {
 		try (TempFile seqdbFile = new TempFile(tmpdir, "seq.db")) {
-		try (Ecalcs ecalcs = design.makeEcalcs()) {
+		try (Ecalcs ecalcs = design.makeEcalcs(Parallelism.makeCpu(numThreads))) {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.setFringeDBFile(fringedbFile)
@@ -780,7 +779,6 @@ public class TestSofea {
 				.setSeqDBFile(seqdbFile)
 				.setSweepDivisor(sweepDivisor)
 				.configEachState(state -> design.configState(state, ecalcs))
-				.setParallelism(Parallelism.makeCpu(numThreads))
 				.build();
 
 			sofea.init(true);
@@ -1030,7 +1028,7 @@ public class TestSofea {
 			// calc the emats
 			ematsLower = new EnergyMatrix[confSpace.states.size()];
 			ematsUpper = new EnergyMatrix[confSpace.states.size()];
-			try (Ecalcs ecalcs = makeEcalcs()) {
+			try (Ecalcs ecalcs = makeEcalcs(fullCPUParallelism)) {
 				for (MultiStateConfSpace.State state : confSpace.states) {
 					ematsLower[state.index] = new SimplerEnergyMatrixCalculator.Builder(ecalcs.getMinimizing(state))
 						.setCacheFile(new File(tmpdir, String.format("%s.%s.emat.lower", id, state.name)))
@@ -1044,8 +1042,8 @@ public class TestSofea {
 			}
 		}
 
-		public Ecalcs makeEcalcs() {
-			return new Ecalcs(confSpace, epart);
+		public Ecalcs makeEcalcs(Parallelism parallelism) {
+			return new Ecalcs(confSpace, epart, parallelism);
 		}
 
 		public Sofea.StateConfig configState(MultiStateConfSpace.State state, Ecalcs ecalcs) {
@@ -1066,12 +1064,12 @@ public class TestSofea {
 		final ConfEnergyCalculator[] minimizingConfEcalcs;
 		final ConfEnergyCalculator[] rigidConfEcalcs;
 
-		public Ecalcs(MultiStateConfSpace confSpace, EnergyPartition epart) {
+		public Ecalcs(MultiStateConfSpace confSpace, EnergyPartition epart, Parallelism parallelism) {
 
 			this.confSpace = confSpace;
 
 			minimizingEcalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
-				.setParallelism(fullCPUParallelism)
+				.setParallelism(parallelism)
 				.build();
 
 			rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)

@@ -1463,14 +1463,14 @@ def EwakstarDoer(state, smaNodes, useSMA=useJavaDefault, printPDBs=useJavaDefaul
 
 
 
-def SOFEA_StateConfig(luteEcalc, pmat):
+def SOFEA_StateConfig(ematLower, ematUpper, confEcalc, confdbPath):
 	'''
 	TODO
 	:param luteEcalc:
 	:param pmat:
 	:return:
 	'''
-	return jvm.getInnerClass(c.sofea.Sofea, 'StateConfig')(luteEcalc, pmat)
+	return jvm.getInnerClass(c.sofea.Sofea, 'StateConfig')(ematLower, ematUpper, confEcalc, jvm.toFile(confdbPath))
 
 def SOFEA(confSpace, configFunc, parallelism=useJavaDefault, fringeDBPath=useJavaDefault, fringeDBSizeMiB=useJavaDefault, seqDBPath=useJavaDefault):
 	'''
@@ -1502,7 +1502,7 @@ def SOFEA(confSpace, configFunc, parallelism=useJavaDefault, fringeDBPath=useJav
 
 	return builder.build()
 
-def SOFEA_MinLMFE(lmfe, numSequences, mathContext):
+def SOFEA_MinLMFE(lmfe, numSequences, bcalc):
 	'''
 	TODO
 	:param lmfe:
@@ -1510,4 +1510,4 @@ def SOFEA_MinLMFE(lmfe, numSequences, mathContext):
 	:param mathContext:
 	:return:
 	'''
-	return c.sofea.MinLMFE(lmfe, numSequences, mathContext)
+	return c.sofea.MinLMFE(lmfe, numSequences, bcalc)

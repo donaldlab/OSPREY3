@@ -20,7 +20,6 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -43,7 +42,6 @@ public class Sofea {
 		private File fringedbFile = new File("fringe.db");
 		private long fringedbBytes = 10*1024*1024; // 10 MiB
 		private boolean showProgress = true;
-		private Parallelism parallelism = Parallelism.makeCpu(1);
 		private double sweepDivisor = Math.pow(Math.E, 4.0);
 		private double zPruneThreshold = 1e-5; // ln(1 + 1e-5) < 0.0000
 
@@ -103,11 +101,6 @@ public class Sofea {
 			return this;
 		}
 
-		public Builder setParallelism(Parallelism val) {
-			parallelism = val;
-			return this;
-		}
-
 		public Builder setSweepDivisor(double val) {
 			sweepDivisor = val;
 			return this;
@@ -138,7 +131,6 @@ public class Sofea {
 				fringedbFile,
 				fringedbBytes,
 				showProgress,
-				parallelism,
 				sweepDivisor,
 				zPruneThreshold
 			);
@@ -203,7 +195,6 @@ public class Sofea {
 	public final File fringedbFile;
 	public final long fringedbBytes;
 	public final boolean showProgress;
-	public final Parallelism parallelism;
 	public final double sweepDivisor;
 	public final BigDecimal zPruneThreshold;
 
@@ -211,7 +202,7 @@ public class Sofea {
 
 	private final List<StateInfo> stateInfos;
 
-	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, long fringedbBytes, boolean showProgress, Parallelism parallelism, double sweepDivisor, double zPruneThreshold) {
+	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, long fringedbBytes, boolean showProgress, double sweepDivisor, double zPruneThreshold) {
 
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
@@ -221,7 +212,6 @@ public class Sofea {
 		this.fringedbFile = fringedbFile;
 		this.fringedbBytes = fringedbBytes;
 		this.showProgress = showProgress;
-		this.parallelism = parallelism;
 		this.sweepDivisor = sweepDivisor;
 		this.zPruneThreshold = MathTools.biggen(zPruneThreshold);
 
@@ -460,7 +450,9 @@ public class Sofea {
 		try (SeqDB seqdb = openSeqDB()) {
 		try (FringeDB fringedb = openFringeDB()) {
 		try (ConfTables confTables = new ConfTables()) {
-		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
+
+			// use the energy calculator to provide the paralleism
+			TaskExecutor tasks = stateConfigs.get(0).confEcalc.tasks;
 
 			// init the zSumWidthThresholds
 			BigDecimal[] zSumWidthThreshold = confSpace.states.stream()
@@ -608,9 +600,10 @@ public class Sofea {
 							stats[state.index].requeued
 						);
 					}
+					log("\tNon-garbage heap memory usage: %s", JvmMem.getOldPool());
 				}
 			}
-		}}}}
+		}}}
 	}
 
 	private boolean design(NodeTransaction nodetx, BigDecimal zSumWidthThreshold, ConfIndex index, BigDecimalBounds zSumBounds, BigDecimalBounds zPathHeadBounds, ConfDB.ConfTable confTable) {
@@ -1179,12 +1172,7 @@ public class Sofea {
 			}
 
 			double e = confEcalc.calcEnergy(new RCTuple(index), confTable);
-			// TEMP
-			//return bcalc.calcPrecise(e);
-			BigDecimal z = bcalc.calcPrecise(e);
-			log("%s  conf %4d  E = %12.6f, Z = %.6e", index, minimizationCounter.incrementAndGet(), e, z);
-
-			return z;
+			return bcalc.calcPrecise(e);
 		}
 
 		/** a reminder to myself this this is a bad idea */
@@ -1247,9 +1235,6 @@ public class Sofea {
 			return new BigDecimalBounds(mlo.get(), mhi.get());
 		}
 	}
-
-	// TEMP
-	private AtomicInteger minimizationCounter = new AtomicInteger(0);
 
 	private BigDecimalBounds multBounds(BigDecimalBounds a, BigDecimalBounds b) {
 		return new BigDecimalBounds(

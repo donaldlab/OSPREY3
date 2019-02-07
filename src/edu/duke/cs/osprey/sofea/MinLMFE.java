@@ -112,6 +112,13 @@ public class MinLMFE implements Sofea.Criterion {
 		}
 	}
 
+	@Override
+	public Filter filterNode(MultiStateConfSpace.State state, int[] conf, BoltzmannCalculator bcalc) {
+		// TODO: filter out nodes for sequences we've determined sufficiently already?
+		// accept all by default
+		return Filter.Process;
+	}
+
 	public TopSequences getTopSequences(SeqDB seqdb) {
 
 		assert (objective.confSpace == seqdb.confSpace);

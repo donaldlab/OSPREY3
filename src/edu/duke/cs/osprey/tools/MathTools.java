@@ -491,7 +491,16 @@ public class MathTools {
 					return BigPositiveInfinity;
 				}
 			} else {
-				return a.multiply(b, context);
+				try {
+					return a.multiply(b, context);
+				} catch (ArithmeticException ex) {
+					if (ex.getMessage().equals("Underflow")) {
+						//log("WARN: multiplication underflows. Assuming %.4e * %.4e is just 0", a, b);
+						return BigDecimal.ZERO;
+					} else {
+						throw ex;
+					}
+				}
 			}
 		}
 	}
