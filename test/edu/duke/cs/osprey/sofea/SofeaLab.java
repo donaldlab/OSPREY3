@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -107,45 +108,29 @@ public class SofeaLab {
 				//.setEnergyPartition(EnergyPartition.AllOnPairs) // use the tighter lower bounds
 				.build();
 
-		try (EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpace, ffparams)
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
+			//.setParallelism(Parallelism.makeCpu(4))
 			.setParallelism(Parallelism.makeCpu(1)) // TEMP: single-threaded for now
 			.build()) {
-
-			EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
-				.setIsMinimizing(false)
-				.build();
 
 			Sofea sofea = new Sofea.Builder(confSpace)
 				.setSweepDivisor(2.0) // TEMP: use a smaller divisor to get more sweep steps
 				.configEachState(state -> {
 
-					File ematLowerFile = new File(tempDir, String.format("sofea.%s.lower.emat", state.name));
-					File ematUpperFile = new File(tempDir, String.format("sofea.%s.upper.emat", state.name));
+					File ematFile = new File(tempDir, String.format("sofea.%s.emat", state.name));
 					File confdbFile = new File(tempDir, String.format("sofea.%s.confdb", state.name));
 					if (recalc) {
-						ematLowerFile.delete();
-						ematUpperFile.delete();
+						ematFile.delete();
 						confdbFile.delete();
 					}
 
-					ConfEnergyCalculator minimizingConfEcalc = makeConfEcalc.apply(state.confSpace, minimizingEcalc);
-					EnergyMatrix ematLower = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc)
-						.setCacheFile(ematLowerFile)
+					ConfEnergyCalculator confEcalc = makeConfEcalc.apply(state.confSpace, ecalc);
+					EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+						.setCacheFile(ematFile)
 						.build()
 						.calcEnergyMatrix();
 
-					ConfEnergyCalculator rigidConfEcalc = makeConfEcalc.apply(state.confSpace, rigidEcalc);
-					EnergyMatrix ematUpper = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc)
-						.setCacheFile(ematUpperFile)
-						.build()
-						.calcEnergyMatrix();
-
-					return new Sofea.StateConfig(
-						ematLower,
-						ematUpper,
-						minimizingConfEcalc,
-						confdbFile
-					);
+					return new Sofea.StateConfig(emat, confEcalc, confdbFile);
 				})
 				.build();
 
@@ -186,21 +171,25 @@ public class SofeaLab {
 			MultiStateConfSpace.State state = confSpace.getState("complex");
 			Sofea.StateConfig config = sofea.getConfig(state);
 
-			// using MARK*  // TODO: am I doing this right?
-			{
+			final double epsilon = 0.14;
+			//final double epsilon = 0.0001;
+
+			// using MARK*
+			if (false) {
+				/* TODO: calc the emat-upper for MARK*
 				RCs rcs = seq.makeRCs(state.confSpace);
 				MARKStarBoundFastQueues pfunc = new MARKStarBoundFastQueues(
 					state.confSpace,
 					config.ematUpper,
-					config.ematLower,
+					config.emat,
 					config.confEcalc,
 					rcs,
 					config.confEcalc.ecalc.parallelism
 				);
-				pfunc.init(0.14);
+				pfunc.init(epsilon);
 				pfunc.setStabilityThreshold(null);
 				pfunc.setReportProgress(true);
-				pfunc.setCorrections(new UpdatingEnergyMatrix(state.confSpace, config.ematLower));
+				pfunc.setCorrections(new UpdatingEnergyMatrix(state.confSpace, config.emat));
 				//pfunc.reduceMinimizations = true or false?
 				pfunc.stateName = state.name;
 
@@ -212,31 +201,71 @@ public class SofeaLab {
 					pfunc.getValues().calcLowerBound(),
 					pfunc.getValues().calcUpperBound()
 				));
+				*/
 			}
 
-			// using the gradient descent pfunc
-			{
-				GradientDescentPfunc pfunc = new GradientDescentPfunc(config.confEcalc);
-				RCs rcs = seq.makeRCs(state.confSpace);
-				ConfAStarTree astar = new ConfAStarTree.Builder(config.ematLower, rcs)
-					.setTraditional()
-					.build();
-				pfunc.init(astar, rcs.getNumConformations(), 0.14);
-				pfunc.setStabilityThreshold(null);
-				pfunc.setReportProgress(true);
+			try (ConfDB confdb = new ConfDB(state.confSpace, new File("pfunc.confdb"))) {
+				ConfDB.ConfTable confTable = confdb.new ConfTable("pfunc");
 
-				Stopwatch sw = new Stopwatch().start();
-				pfunc.compute();
-				log("GD pfunc finished in %s", sw.stop().getTime(2));
+				// using the gradient descent pfunc
+				if (false) {
+					GradientDescentPfunc pfunc = new GradientDescentPfunc(config.confEcalc);
+					RCs rcs = seq.makeRCs(state.confSpace);
+					ConfAStarTree astar = new ConfAStarTree.Builder(config.emat, rcs)
+						.setTraditional()
+						.build();
+					pfunc.init(astar, rcs.getNumConformations(), epsilon);
+					pfunc.setStabilityThreshold(null);
+					pfunc.setReportProgress(true);
+					pfunc.setConfTable(confTable);
 
-				dumpZ.accept(new BigDecimalBounds(
-					pfunc.getValues().calcLowerBound(),
-					pfunc.getValues().calcUpperBound()
-				));
+					Stopwatch sw = new Stopwatch().start();
+					pfunc.compute();
+					log("GD pfunc finished in %s", sw.stop().getTime(2));
+					log("\tnum minimizations: %d", pfunc.getNumConfsEvaluated());
+
+					log("\tZ upper = %s", pfunc.getValues().calcUpperBound());
+
+					dumpZ.accept(new BigDecimalBounds(
+						pfunc.getValues().calcLowerBound(),
+						pfunc.getValues().calcUpperBound()
+					));
+				}
+
+				BigDecimal pfuncUpperBound = new BigDecimal("1.489779375480618714133411059887472011543144099753141485887679129E+129");
+
+				// use the confdb to find the "perfect" number of minimizations needed
+				if (true) {
+					int numConfs = 0;
+					BigMath m = sofea.bigMath().set(0);
+					for (ConfSearch.EnergiedConf econf : confTable.energiedConfs(ConfDB.SortOrder.Energy)) {
+
+						m.add(sofea.bcalc.calcPrecise(econf.getEnergy()));
+						log("\tconf   %4d   [%s]   energy=%9.3f   lower=%9.3f   gap=%9.3f",
+							++numConfs,
+							Streams.joinToString(state.confSpace.positions, ", ", pos -> {
+								int rc = econf.getAssignments()[pos.index];
+								return pos.resConfs.get(rc).getRotamerCode();
+							}),
+							econf.getEnergy(), econf.getScore(), econf.getEnergy() - econf.getScore()
+						);
+
+						// are we done yet?
+						double delta = sofea.bigMath().set(pfuncUpperBound).sub(m.get()).div(pfuncUpperBound).get().doubleValue();
+						if (delta <= epsilon) {
+							dumpZ.accept(new BigDecimalBounds(
+								m.get(),
+								pfuncUpperBound
+							));
+							log("\tnum minimizations: %d", numConfs);
+							break;
+						}
+					}
+				}
 			}
 
 			// using SOFEA
-			{
+			if (true) {
 				// clear the confdb
 				config.confDBFile.delete();
 

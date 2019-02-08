@@ -375,38 +375,30 @@ public class SeqDB implements AutoCloseable {
 			});
 		}
 
-		public void addZSumBounds(MultiStateConfSpace.State state, Sequence seq, BigDecimalBounds zSumBounds) {
+		public void addZSumUpper(MultiStateConfSpace.State state, Sequence seq, BigDecimal zSumUpper) {
 
-			if (!MathTools.isFinite(zSumBounds.lower) || !MathTools.isFinite(zSumBounds.upper)) {
-				throw new IllegalArgumentException("Z must be finite: " + zSumBounds);
+			if (!MathTools.isFinite(zSumUpper)) {
+				throw new IllegalArgumentException("Z must be finite: " + zSumUpper);
 			}
 
 			updateZSumBounds(state, seq, sum -> {
-				sum.lower = bigMath()
-					.set(sum.lower)
-					.add(zSumBounds.lower)
-					.get();
 				sum.upper = bigMath()
 					.set(sum.upper)
-					.add(zSumBounds.upper)
+					.add(zSumUpper)
 					.get();
 			});
 		}
 
-		public void subZSumBounds(MultiStateConfSpace.State state, Sequence seq, BigDecimalBounds zSumBounds) {
+		public void subZSumUpper(MultiStateConfSpace.State state, Sequence seq, BigDecimal zSumUpper) {
 
-			if (!MathTools.isFinite(zSumBounds.lower) || !MathTools.isFinite(zSumBounds.upper)) {
-				throw new IllegalArgumentException("Z must be finite: " + zSumBounds);
+			if (!MathTools.isFinite(zSumUpper)) {
+				throw new IllegalArgumentException("Z must be finite: " + zSumUpper);
 			}
 
 			updateZSumBounds(state, seq, sum -> {
-				sum.lower = bigMath()
-					.set(sum.lower)
-					.sub(zSumBounds.lower)
-					.get();
 				sum.upper = bigMath()
 					.set(sum.upper)
-					.sub(zSumBounds.upper)
+					.sub(zSumUpper)
 					.get();
 			});
 		}

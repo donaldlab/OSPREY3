@@ -25,7 +25,6 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.Log;
 import edu.duke.cs.osprey.tools.MathTools;
-import edu.duke.cs.osprey.tools.MathTools.BigIntegerBounds;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 import edu.duke.cs.osprey.tools.Streams;
@@ -74,11 +73,6 @@ public class TestSofea {
 		assertZSumBounds(design);
 	}
 	@Test
-	public void test_Binding1CC8Flex3_Traditional_ZSumBoundsTighter() {
-		Design design = Designs.Binding1CC8Flex3_Traditional.get();
-		assertZSumBoundsTighter(design);
-	}
-	@Test
 	public void test_Binding1CC8Flex3_Traditional_CalcG() {
 		Design design = Designs.Binding1CC8Flex3_Traditional.get();
 		assertGStates(design, Collections.emptyList(), -64.654, -31.490, -23.015);
@@ -104,11 +98,6 @@ public class TestSofea {
 	public void test_Stability1CC8Mut3_Traditional_ZSumBounds() {
 		Design design = Designs.Stability1CC8Mut3_Traditional.get();
 		assertZSumBounds(design);
-	}
-	@Test
-	public void test_Stability1CC8Mut3_Traditional_ZSumBoundsTighter() {
-		Design design = Designs.Stability1CC8Mut3_Traditional.get();
-		assertZSumBoundsTighter(design);
 	}
 	@Test
 	public void test_Stability1CC8Mut3_Traditional_CalcG() {
@@ -200,11 +189,6 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex1_Traditional_ZSumBounds() {
 		Design design = Designs.Binding1CC8Mut2Flex1_Traditional.get();
 		assertZSumBounds(design);
-	}
-	@Test
-	public void test_Binding1CC8Mut2Flex1_Traditional_ZSumBoundsTighter() {
-		Design design = Designs.Binding1CC8Mut2Flex1_Traditional.get();
-		assertZSumBoundsTighter(design);
 	}
 	@Test
 	public void test_Binding1CC8Mut2Flex1_Traditional_CalcG() {
@@ -345,11 +329,6 @@ public class TestSofea {
 		assertZSumBounds(design);
 	}
 	@Test
-	public void test_Binding1CC8Mut2Flex1_AllOnPairs_ZSumBoundsTighter() {
-		Design design = Designs.Binding1CC8Mut2Flex1_AllOnPairs.get();
-		assertZSumBoundsTighter(design);
-	}
-	@Test
 	public void test_Binding1CC8Mut2Flex1_AllOnPairs_CalcG() {
 		Design design = Designs.Binding1CC8Mut2Flex1_AllOnPairs.get();
 		assertGStates(design, Arrays.asList("GLN", "LEU"), -64.645, -31.187, -23.015);
@@ -437,7 +416,7 @@ public class TestSofea {
 
 				for (MultiStateConfSpace.State state : design.confSpace.states) {
 					Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
-					ConfEnergyCalculator confEcalc = ecalcs.getMinimizing(state);
+					ConfEnergyCalculator confEcalc = ecalcs.getConfEcalc(state);
 
 					try (Sofea.StateInfo.Confs confs = stateInfo.new Confs()) {
 
@@ -445,8 +424,8 @@ public class TestSofea {
 
 							RCTuple tuple = new RCTuple(index);
 							DoubleBounds energyBounds = new DoubleBounds(
-								design.ematsLower[state.index].getInternalEnergy(tuple),
-								design.ematsUpper[state.index].getInternalEnergy(tuple)
+								design.emats[state.index].getInternalEnergy(tuple),
+								Double.POSITIVE_INFINITY
 							);
 
 							ResidueInteractions inters = design.epart.makeTuple(state.confSpace, null, false, tuple);
@@ -471,12 +450,11 @@ public class TestSofea {
 				Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
 
 				forEachNode(stateInfo, index -> {
-					BigIntegerBounds bounds = stateInfo.boundLeavesPerSequence(index, stateInfo.rcs);
-					Map<Sequence,BigInteger> counts = stateInfo.countLeavesBySequence(index);
-					BigInteger minCount = counts.values().stream().min(BigInteger::compareTo).orElse(null);
-					BigInteger maxCount = counts.values().stream().max(BigInteger::compareTo).orElse(null);
-					assertThat(bounds.lower, lessThanOrEqualTo(minCount));
-					assertThat(bounds.upper, greaterThanOrEqualTo(maxCount));
+					BigInteger numLeavesUpper = stateInfo.calcNumLeavesUpperBySequence(index, stateInfo.rcs);
+					Map<Sequence,BigInteger> numLeaves = stateInfo.calcNumLeavesBySequence(index);
+					BigInteger maxCount = numLeaves.values().stream().max(BigInteger::compareTo).orElse(null);
+					// TODO: should these be equal?
+					assertThat(numLeavesUpper, greaterThanOrEqualTo(maxCount));
 				});
 			}
 		}
@@ -496,7 +474,10 @@ public class TestSofea {
 
 					forEachNode(stateInfo, index -> {
 						BigDecimalBounds exact = stateInfo.calcZPathBoundsExact(index, stateInfo.rcs, confs.table);
-						BigDecimalBounds bounds = stateInfo.calcZPathBounds(index, stateInfo.rcs);
+						BigDecimalBounds bounds = new BigDecimalBounds(
+							BigDecimal.ZERO,
+							stateInfo.calcZPathUpper(index, stateInfo.rcs)
+						);
 						assertThat(bounds, isRelativeBound(exact, 1e-3));
 					});
 				}
@@ -518,37 +499,12 @@ public class TestSofea {
 
 					forEachNode(stateInfo, index -> {
 
-						BigDecimalBounds bounds = stateInfo.calcZSumBounds(index, stateInfo.rcs);
+						BigDecimalBounds bounds = new BigDecimalBounds(
+							BigDecimal.ZERO,
+							stateInfo.calcZSumUpper(index, stateInfo.rcs)
+						);
 						BigDecimal exact = stateInfo.calcZSum(index, stateInfo.rcs, confs.table);
 						assertThat(bounds, isRelativeBound(exact, 1e-4));
-					});
-				}
-			}
-		}
-	}
-
-	public static void assertZSumBoundsTighter(Design design) {
-		try (Ecalcs ecalcs = design.makeEcalcs(fullCPUParallelism)) {
-
-			Sofea sofea = new Sofea.Builder(design.confSpace)
-				.configEachState(state -> design.configState(state, ecalcs))
-				.setMathContext(mathContext)
-				.build();
-
-			for (MultiStateConfSpace.State state : design.confSpace.states) {
-				Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
-				try (Sofea.StateInfo.Confs confs = stateInfo.new Confs()) {
-
-					forEachNode(stateInfo, index -> {
-
-						// skip leaf nodes
-						if (index.isFullyDefined()) {
-							return;
-						}
-
-						BigDecimalBounds bounds = stateInfo.calcZSumBoundsTighter(index, stateInfo.rcs, confs.table);
-						BigDecimal exact = stateInfo.calcZSum(index, stateInfo.rcs, confs.table);
-						assertThat(bounds, isRelativeBound(exact, 1e-6));
 					});
 				}
 			}
@@ -589,7 +545,7 @@ public class TestSofea {
 				.mapToDouble(state -> {
 
 					RCs rcs = seq.makeRCs(state.confSpace);
-					ConfAStarTree astar = new ConfAStarTree.Builder(design.ematsLower[state.index], rcs)
+					ConfAStarTree astar = new ConfAStarTree.Builder(design.emats[state.index], rcs)
 						.setTraditional()
 						.build();
 
@@ -597,7 +553,7 @@ public class TestSofea {
 
 						// TODO: GradientDescentPfunc is returing some bad answers in multi-thread mode?
 						// TODO: the pfunc used to work... What broke it?
-						GradientDescentPfunc pfunc = new GradientDescentPfunc(ecalcs.getMinimizing(state));
+						GradientDescentPfunc pfunc = new GradientDescentPfunc(ecalcs.getConfEcalc(state));
 						pfunc.setConfTable(confs.table);
 						pfunc.init(astar, rcs.getNumConformations(), 0.00001);
 						pfunc.setStabilityThreshold(null); // turn the damn thing off!
@@ -1016,8 +972,7 @@ public class TestSofea {
 		public final Designs id;
 		public final MultiStateConfSpace confSpace;
 		public final EnergyPartition epart;
-		public final EnergyMatrix[] ematsLower;
-		public final EnergyMatrix[] ematsUpper;
+		public final EnergyMatrix[] emats;
 
 		public Design(Designs id, MultiStateConfSpace confSpace, EnergyPartition epart) {
 
@@ -1026,16 +981,11 @@ public class TestSofea {
 			this.epart = epart;
 
 			// calc the emats
-			ematsLower = new EnergyMatrix[confSpace.states.size()];
-			ematsUpper = new EnergyMatrix[confSpace.states.size()];
+			emats = new EnergyMatrix[confSpace.states.size()];
 			try (Ecalcs ecalcs = makeEcalcs(fullCPUParallelism)) {
 				for (MultiStateConfSpace.State state : confSpace.states) {
-					ematsLower[state.index] = new SimplerEnergyMatrixCalculator.Builder(ecalcs.getMinimizing(state))
+					emats[state.index] = new SimplerEnergyMatrixCalculator.Builder(ecalcs.getConfEcalc(state))
 						.setCacheFile(new File(tmpdir, String.format("%s.%s.emat.lower", id, state.name)))
-						.build()
-						.calcEnergyMatrix();
-					ematsUpper[state.index] = new SimplerEnergyMatrixCalculator.Builder(ecalcs.getRigid(state))
-						.setCacheFile(new File(tmpdir, String.format("%s.%s.emat.upper", id, state.name)))
 						.build()
 						.calcEnergyMatrix();
 				}
@@ -1048,9 +998,8 @@ public class TestSofea {
 
 		public Sofea.StateConfig configState(MultiStateConfSpace.State state, Ecalcs ecalcs) {
 			return new Sofea.StateConfig(
-				ematsLower[state.index],
-				ematsUpper[state.index],
-				ecalcs.getMinimizing(state),
+				emats[state.index],
+				ecalcs.getConfEcalc(state),
 				new File(tmpdir, String.format("%s.%s.confdb", id, state.name))
 			);
 		}
@@ -1059,30 +1008,20 @@ public class TestSofea {
 	private static class Ecalcs implements AutoCloseable {
 
 		final MultiStateConfSpace confSpace;
-		final EnergyCalculator minimizingEcalc;
-		final EnergyCalculator rigidEcalc;
-		final ConfEnergyCalculator[] minimizingConfEcalcs;
-		final ConfEnergyCalculator[] rigidConfEcalcs;
+		final EnergyCalculator ecalc;
+		final ConfEnergyCalculator[] confEcalcs;
 
 		public Ecalcs(MultiStateConfSpace confSpace, EnergyPartition epart, Parallelism parallelism) {
 
 			this.confSpace = confSpace;
 
-			minimizingEcalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+			ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
 				.setParallelism(parallelism)
 				.build();
 
-			rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
-				.setIsMinimizing(false)
-				.build();
-
-			minimizingConfEcalcs = new ConfEnergyCalculator[confSpace.states.size()];
-			rigidConfEcalcs = new ConfEnergyCalculator[confSpace.states.size()];
+			confEcalcs = new ConfEnergyCalculator[confSpace.states.size()];
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				minimizingConfEcalcs[state.index] = new ConfEnergyCalculator.Builder(state.confSpace, minimizingEcalc)
-					.setEnergyPartition(epart)
-					.build();
-				rigidConfEcalcs[state.index] = new ConfEnergyCalculator.Builder(state.confSpace, rigidEcalc)
+				confEcalcs[state.index] = new ConfEnergyCalculator.Builder(state.confSpace, ecalc)
 					.setEnergyPartition(epart)
 					.build();
 			}
@@ -1090,19 +1029,15 @@ public class TestSofea {
 
 		@Override
 		public void close() {
-			minimizingEcalc.close();
+			ecalc.close();
 		}
 
-		public ConfEnergyCalculator getMinimizing(MultiStateConfSpace.State state) {
-			return minimizingConfEcalcs[state.index];
-		}
-
-		public ConfEnergyCalculator getRigid(MultiStateConfSpace.State state) {
-			return rigidConfEcalcs[state.index];
+		public ConfEnergyCalculator getConfEcalc(MultiStateConfSpace.State state) {
+			return confEcalcs[state.index];
 		}
 
 		public void waitForFinish() {
-			minimizingEcalc.tasks.waitForFinish();
+			ecalc.tasks.waitForFinish();
 		}
 	}
 }

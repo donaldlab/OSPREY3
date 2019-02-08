@@ -1,7 +1,5 @@
 package edu.duke.cs.osprey.sofea;
 
-import static edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
-
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.tools.ByteBufferInputStream;
@@ -283,7 +281,7 @@ public class FringeDB implements AutoCloseable {
 	}
 
 	private int calcEntrySize() {
-		return stateEncoding.numBytes + confBytes + bdio.numBytes*4;
+		return stateEncoding.numBytes + confBytes + bdio.numBytes;
 	}
 
 	/**
@@ -321,8 +319,7 @@ public class FringeDB implements AutoCloseable {
 
 		private MultiStateConfSpace.State state;
 		private int[] conf;
-		private BigDecimalBounds zSumBounds;
-		private BigDecimalBounds zPathHeadBounds;
+		private BigDecimal zSumUpper;
 
 		private final ByteBuffer readBuf = ByteBuffer.allocate(1024*1024);
 		private final DataInput readIn = new DataInputStream(new ByteBufferInputStream(readBuf));
@@ -383,14 +380,7 @@ public class FringeDB implements AutoCloseable {
 					readIn.readByte();
 				}
 
-				zSumBounds = new BigDecimalBounds(
-					bdio.read(readIn),
-					bdio.read(readIn)
-				);
-				zPathHeadBounds = new BigDecimalBounds(
-					bdio.read(readIn),
-					bdio.read(readIn)
-				);
+				zSumUpper = bdio.read(readIn);
 
 			} catch (IOException ex) {
 				throw new RuntimeException("can't advance to next fringe node", ex);
@@ -408,12 +398,8 @@ public class FringeDB implements AutoCloseable {
 			return conf;
 		}
 
-		public BigDecimalBounds zSumBounds() {
-			return zSumBounds;
-		}
-
-		public BigDecimalBounds zPathHeadBounds() {
-			return zPathHeadBounds;
+		public BigDecimal zSumUpper() {
+			return zSumUpper;
 		}
 
 		private void updateZMax(int stateIndex, BigDecimal val) {
@@ -436,7 +422,7 @@ public class FringeDB implements AutoCloseable {
 			return writtenEntries + count <= maxWrittenEntries;
 		}
 
-		private void writeEntry(int stateIndex, int[] conf, BigDecimalBounds zSumBounds, BigDecimalBounds zPathHeadBounds, DataOutput out) {
+		private void writeEntry(int stateIndex, int[] conf, BigDecimal zSumUpper, DataOutput out) {
 			try {
 
 				stateEncoding.write(out, stateIndex);
@@ -453,10 +439,7 @@ public class FringeDB implements AutoCloseable {
 					out.writeByte(0);
 				}
 
-				bdio.write(out, zSumBounds.lower);
-				bdio.write(out, zSumBounds.upper);
-				bdio.write(out, zPathHeadBounds.lower);
-				bdio.write(out, zPathHeadBounds.upper);
+				bdio.write(out, zSumUpper);
 
 			} catch (IOException ex) {
 				throw new RuntimeException("can't write fringe node", ex);
@@ -466,29 +449,29 @@ public class FringeDB implements AutoCloseable {
 		/**
 		 * add a node to the transaction write buffer with the same state as the last-read node in the sweep
 		 */
-		public void writeRootNode(MultiStateConfSpace.State state, BigDecimalBounds zSumBounds, BigDecimalBounds zPathHeadBounds) {
+		public void writeRootNode(MultiStateConfSpace.State state, BigDecimal zSumUpper) {
 
 			if (!txHasRoomFor(1)) {
 				throw new IllegalStateException("transaction write buffer has no more room for nodes");
 			}
 
-			writeEntry(state.index, Conf.make(state.confSpace), zSumBounds, zPathHeadBounds, writeOut);
+			writeEntry(state.index, Conf.make(state.confSpace), zSumUpper, writeOut);
 			writtenEntries++;
-			updateZMax(state.index, zSumBounds.upper);
+			updateZMax(state.index, zSumUpper);
 		}
 
 		/**
 		 * add a node to the transaction write buffer with the same state as the last-read node in the sweep
 		 */
-		public void writeReplacementNode(MultiStateConfSpace.State state, int[] conf, BigDecimalBounds zSumBounds, BigDecimalBounds zPathHeadBounds) {
+		public void writeReplacementNode(MultiStateConfSpace.State state, int[] conf, BigDecimal zSumUpper) {
 
 			if (!txHasRoomFor(1)) {
 				throw new IllegalStateException("transaction write buffer has no more room for nodes");
 			}
 
-			writeEntry(state.index, conf, zSumBounds, zPathHeadBounds, writeOut);
+			writeEntry(state.index, conf, zSumUpper, writeOut);
 			writtenEntries++;
-			updateZMax(state.index, zSumBounds.upper);
+			updateZMax(state.index, zSumUpper);
 		}
 
 		/**

@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.sofea;
 
+import static edu.duke.cs.osprey.tools.MathTools.biggen;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -8,7 +9,6 @@ import edu.duke.cs.osprey.TestBase.TempFile;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import org.junit.Test;
 
@@ -100,14 +100,14 @@ public class TestSeqDB {
 				Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
 
 				SeqDB.Transaction tx = seqdb.transaction();
-				tx.addZSumBounds(target, seq, new BigDecimalBounds(1.0, 2.0));
-				tx.addZSumBounds(design, seq, new BigDecimalBounds(3.0, 4.0));
-				tx.addZSumBounds(complex, seq, new BigDecimalBounds(5.0, 6.0));
+				tx.addZSumUpper(target, seq, biggen(2.0));
+				tx.addZSumUpper(design, seq, biggen(4.0));
+				tx.addZSumUpper(complex, seq, biggen(6.0));
 				tx.commit();
 
-				assertThat(seqdb.getUnsequencedZSumBounds(target), is(new BigDecimalBounds(1.0, 2.0)));
-				assertThat(seqdb.getSequencedSums(seq).get(design), is(new BigDecimalBounds(3.0, 4.0)));
-				assertThat(seqdb.getSequencedSums(seq).get(complex), is(new BigDecimalBounds(5.0, 6.0)));
+				assertThat(seqdb.getUnsequencedZSumBounds(target), is(new BigDecimalBounds(0.0, 2.0)));
+				assertThat(seqdb.getSequencedSums(seq).get(design), is(new BigDecimalBounds(0.0, 4.0)));
+				assertThat(seqdb.getSequencedSums(seq).get(complex), is(new BigDecimalBounds(0.0, 6.0)));
 			}
 		}
 	}
@@ -126,20 +126,20 @@ public class TestSeqDB {
 				Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
 
 				SeqDB.Transaction tx = seqdb.transaction();
-				tx.addZSumBounds(target, seq, new BigDecimalBounds(1.0, 2.0));
-				tx.addZSumBounds(design, seq, new BigDecimalBounds(3.0, 4.0));
-				tx.addZSumBounds(complex, seq, new BigDecimalBounds(5.0, 6.0));
+				tx.addZSumUpper(target, seq, biggen(2.0));
+				tx.addZSumUpper(design, seq, biggen(4.0));
+				tx.addZSumUpper(complex, seq, biggen(6.0));
 				tx.commit();
 
 				tx = seqdb.transaction();
-				tx.addZSumBounds(target, seq, new BigDecimalBounds(1.0, 2.0));
-				tx.addZSumBounds(design, seq, new BigDecimalBounds(3.0, 4.0));
-				tx.addZSumBounds(complex, seq, new BigDecimalBounds(5.0, 6.0));
+				tx.addZSumUpper(target, seq, biggen(2.0));
+				tx.addZSumUpper(design, seq, biggen(4.0));
+				tx.addZSumUpper(complex, seq, biggen(6.0));
 				tx.commit();
 
-				assertThat(seqdb.getUnsequencedZSumBounds(target), is(new BigDecimalBounds(2.0, 4.0)));
-				assertThat(seqdb.getSequencedSums(seq).get(design), is(new BigDecimalBounds(6.0, 8.0)));
-				assertThat(seqdb.getSequencedSums(seq).get(complex), is(new BigDecimalBounds(10.0, 12.0)));
+				assertThat(seqdb.getUnsequencedZSumBounds(target), is(new BigDecimalBounds(0.0, 4.0)));
+				assertThat(seqdb.getSequencedSums(seq).get(design), is(new BigDecimalBounds(0.0, 8.0)));
+				assertThat(seqdb.getSequencedSums(seq).get(complex), is(new BigDecimalBounds(0.0, 12.0)));
 			}
 		}
 	}
@@ -158,15 +158,15 @@ public class TestSeqDB {
 				Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
 
 				SeqDB.Transaction tx = seqdb.transaction();
-				tx.addZSumBounds(target, seq, new BigDecimalBounds(1.0, 2.0));
-				tx.addZSumBounds(design, seq, new BigDecimalBounds(3.0, 4.0));
-				tx.addZSumBounds(complex, seq, new BigDecimalBounds(5.0, 6.0));
+				tx.addZSumUpper(target, seq, biggen(2.0));
+				tx.addZSumUpper(design, seq, biggen(4.0));
+				tx.addZSumUpper(complex, seq, biggen(6.0));
 				tx.commit();
 
 				tx = seqdb.transaction();
-				tx.subZSumBounds(target, seq, new BigDecimalBounds(1.0, 2.0));
-				tx.subZSumBounds(design, seq, new BigDecimalBounds(3.0, 4.0));
-				tx.subZSumBounds(complex, seq, new BigDecimalBounds(5.0, 6.0));
+				tx.subZSumUpper(target, seq, biggen(2.0));
+				tx.subZSumUpper(design, seq, biggen(4.0));
+				tx.subZSumUpper(complex, seq, biggen(6.0));
 				tx.commit();
 
 				assertThat(seqdb.getUnsequencedZSumBounds(target), is(emptySum));
@@ -190,18 +190,18 @@ public class TestSeqDB {
 				Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
 
 				SeqDB.Transaction tx = seqdb.transaction();
-				tx.addZSumBounds(target, seq, new BigDecimalBounds(1.0, 2.0));
-				tx.addZSumBounds(design, seq, new BigDecimalBounds(3.0, 4.0));
-				tx.addZSumBounds(complex, seq, new BigDecimalBounds(5.0, 6.0));
+				tx.addZSumUpper(target, seq, biggen(2.0));
+				tx.addZSumUpper(design, seq, biggen(4.0));
+				tx.addZSumUpper(complex, seq, biggen(6.0));
 				tx.commit();
 
 				tx = seqdb.transaction();
-				tx.subZSumBounds(target, seq, new BigDecimalBounds(1.0, 2.0));
-				tx.subZSumBounds(design, seq, new BigDecimalBounds(3.0, 4.0));
-				tx.subZSumBounds(complex, seq, new BigDecimalBounds(5.0, 6.0));
-				tx.addZPath(target, seq, MathTools.biggen(2.0));
-				tx.addZPath(design, seq, MathTools.biggen(3.0));
-				tx.addZPath(complex, seq, MathTools.biggen(4.0));
+				tx.subZSumUpper(target, seq, biggen(2.0));
+				tx.subZSumUpper(design, seq, biggen(4.0));
+				tx.subZSumUpper(complex, seq, biggen(6.0));
+				tx.addZPath(target, seq, biggen(2.0));
+				tx.addZPath(design, seq, biggen(3.0));
+				tx.addZPath(complex, seq, biggen(4.0));
 				tx.commit();
 
 				assertThat(seqdb.getUnsequencedZSumBounds(target), is(new BigDecimalBounds(2.0, 2.0)));
