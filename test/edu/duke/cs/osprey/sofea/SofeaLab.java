@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.sofea;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -104,9 +105,18 @@ public class SofeaLab {
 
 		BiFunction<SimpleConfSpace,EnergyCalculator,ConfEnergyCalculator> makeConfEcalc = (simpleConfSpace, ecalc) ->
 			new ConfEnergyCalculator.Builder(simpleConfSpace, ecalc)
-				.setEnergyPartition(EnergyPartition.Traditional) // wait for emats is boring...
-				//.setEnergyPartition(EnergyPartition.AllOnPairs) // use the tighter lower bounds
+				//.setEnergyPartition(EnergyPartition.Traditional) // waiting for emats is boring...
+				.setEnergyPartition(EnergyPartition.AllOnPairs) // use the tighter lower bounds
 				.build();
+
+		File seqdbFile = new File(tempDir, "sofea.seqdb");
+		File fringedbFile = new File(tempDir, "sofea.fringedb");
+		File pfuncConfDBFile = new File(tempDir, "pfunc.confdb");
+		if (recalc) {
+			seqdbFile.delete();
+			fringedbFile.delete();
+			pfuncConfDBFile.delete();
+		}
 
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
 			//.setParallelism(Parallelism.makeCpu(4))
@@ -115,6 +125,9 @@ public class SofeaLab {
 
 			Sofea sofea = new Sofea.Builder(confSpace)
 				.setSweepDivisor(2.0) // TEMP: use a smaller divisor to get more sweep steps
+				.setSeqDBFile(seqdbFile)
+				.setFringeDBFile(fringedbFile)
+				.setFringeDBMiB(16)
 				.configEachState(state -> {
 
 					File ematFile = new File(tempDir, String.format("sofea.%s.emat", state.name));
@@ -124,12 +137,21 @@ public class SofeaLab {
 						confdbFile.delete();
 					}
 
-					ConfEnergyCalculator confEcalc = makeConfEcalc.apply(state.confSpace, ecalc);
-					EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-						.setCacheFile(ematFile)
-						.build()
-						.calcEnergyMatrix();
+					// always compute emats with all available speed
+					EnergyMatrix emat;
+					try (EnergyCalculator fastEcalc = new EnergyCalculator.Builder(confSpace, ffparams)
+						.setParallelism(Parallelism.makeCpu(4))
+						.build()) {
 
+						ConfEnergyCalculator fastConfEcalc = makeConfEcalc.apply(state.confSpace, fastEcalc);
+						emat = new SimplerEnergyMatrixCalculator.Builder(fastConfEcalc)
+							.setCacheFile(ematFile)
+							.setTripleCorrectionThreshold(0.0) // TODO: how much does this help?
+							.build()
+							.calcEnergyMatrix();
+					}
+
+					ConfEnergyCalculator confEcalc = makeConfEcalc.apply(state.confSpace, ecalc);
 					return new Sofea.StateConfig(emat, confEcalc, confdbFile);
 				})
 				.build();
@@ -161,26 +183,44 @@ public class SofeaLab {
 
 			Consumer<BigDecimalBounds> dumpZ = z -> {
 				DoubleBounds g = sofea.bcalc.freeEnergyPrecise(z);
-				log("z = %s  d=%9.4f", Log.formatBigLn(z), sofea.bigMath().set(z.upper).sub(z.lower).div(z.upper).get());
-				log("g = %s  w=%9.4f", g.toString(4, 9), g.size());
+				log("ln(1+z) = %s  d=%9.4f", Log.formatBigLn(z), sofea.bigMath().set(z.upper).sub(z.lower).div(z.upper).get());
+				log("      g = %s  w=%9.4f", g.toString(4, 9), g.size());
 			};
-
 
 			// compute the free energy of one sequence in the complex state
 			Sequence seq = confSpace.seqSpace.makeWildTypeSequence();
 			MultiStateConfSpace.State state = confSpace.getState("complex");
 			Sofea.StateConfig config = sofea.getConfig(state);
+			Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
+
+			if (recalc) {
+				config.confDBFile.delete();
+			}
 
 			final double epsilon = 0.14;
 			//final double epsilon = 0.0001;
 
 			// using MARK*
 			if (false) {
-				/* TODO: calc the emat-upper for MARK*
+
+				File ematUpperFile = new File(tempDir, String.format("sofea.%s.emat.upper", state.name));
+				if (recalc) {
+					ematUpperFile.delete();
+				}
+
+				EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc)
+					.setIsMinimizing(false)
+					.build();
+				ConfEnergyCalculator rigidConfEcalc = makeConfEcalc.apply(state.confSpace, rigidEcalc);
+				EnergyMatrix ematUpper = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc)
+					.setCacheFile(ematUpperFile)
+					.build()
+					.calcEnergyMatrix();
+
 				RCs rcs = seq.makeRCs(state.confSpace);
 				MARKStarBoundFastQueues pfunc = new MARKStarBoundFastQueues(
 					state.confSpace,
-					config.ematUpper,
+					ematUpper,
 					config.emat,
 					config.confEcalc,
 					rcs,
@@ -201,14 +241,13 @@ public class SofeaLab {
 					pfunc.getValues().calcLowerBound(),
 					pfunc.getValues().calcUpperBound()
 				));
-				*/
 			}
 
-			try (ConfDB confdb = new ConfDB(state.confSpace, new File("pfunc.confdb"))) {
+			try (ConfDB confdb = new ConfDB(state.confSpace, pfuncConfDBFile)) {
 				ConfDB.ConfTable confTable = confdb.new ConfTable("pfunc");
 
 				// using the gradient descent pfunc
-				if (false) {
+				if (true) {
 					GradientDescentPfunc pfunc = new GradientDescentPfunc(config.confEcalc);
 					RCs rcs = seq.makeRCs(state.confSpace);
 					ConfAStarTree astar = new ConfAStarTree.Builder(config.emat, rcs)
@@ -240,14 +279,19 @@ public class SofeaLab {
 					BigMath m = sofea.bigMath().set(0);
 					for (ConfSearch.EnergiedConf econf : confTable.energiedConfs(ConfDB.SortOrder.Energy)) {
 
+						// TEMP: calculate the corrected score
+						BigDecimal zPathUpper = stateInfo.calcZPathUpper(Conf.index(econf.getAssignments()), stateInfo.rcs);
+						double correctedScore = sofea.bcalc.freeEnergyPrecise(zPathUpper);
+
 						m.add(sofea.bcalc.calcPrecise(econf.getEnergy()));
-						log("\tconf   %4d   [%s]   energy=%9.3f   lower=%9.3f   gap=%9.3f",
+						log("\tconf   %4d   [%32s]   energy=%9.3f   lower=%9.3f   gap=%7.3f   corrected=%9.3f   gap=%7.3f",
 							++numConfs,
 							Streams.joinToString(state.confSpace.positions, ", ", pos -> {
 								int rc = econf.getAssignments()[pos.index];
 								return pos.resConfs.get(rc).getRotamerCode();
 							}),
-							econf.getEnergy(), econf.getScore(), econf.getEnergy() - econf.getScore()
+							econf.getEnergy(), econf.getScore(), econf.getEnergy() - econf.getScore(),
+							correctedScore, econf.getEnergy() - correctedScore
 						);
 
 						// are we done yet?
@@ -266,8 +310,6 @@ public class SofeaLab {
 
 			// using SOFEA
 			if (true) {
-				// clear the confdb
-				config.confDBFile.delete();
 
 				MultiStateConfSpace.LMFE lmfe = confSpace.lmfe()
 					.addPositive("complex")
@@ -275,10 +317,12 @@ public class SofeaLab {
 				double lmfeEnergyWidth = 0.1;
 				SequenceLMFE criterion = new SequenceLMFE(seq, lmfe, lmfeEnergyWidth);
 
+				config.confEcalc.resetCounters();
 				sofea.init(true);
 				Stopwatch sw = new Stopwatch().start();
 				sofea.refine(criterion);
 				log("SOFEA finished in %s", sw.stop().getTime(2));
+				log("\tnum minimizations: %d", config.confEcalc.getNumRequests());
 
 				try (SeqDB seqdb = sofea.openSeqDB()) {
 					dumpZ.accept(seqdb.getSequencedZSumBounds(seq).get(state));

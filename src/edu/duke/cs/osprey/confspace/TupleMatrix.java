@@ -32,6 +32,8 @@
 
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.function.BiConsumer;
@@ -189,5 +191,13 @@ public interface TupleMatrix<T> {
 				}
 			}
 		}
+	}
+
+	/**
+	 * iterate over all higher-order (n>2) tuples matching the conformation index
+	 */
+	default void forEachHigherOrderTupleIn(ConfIndex index, BiConsumer<RCTuple,T> callback) {
+		// TODO: optimize?
+		forEachHigherOrderTupleIn(Conf.make(index), callback);
 	}
 }

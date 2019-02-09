@@ -173,6 +173,10 @@ public class ConfEnergyCalculator {
 		return epart.makeTuple(confSpace, eref, addResEntropy, tuple);
 	}
 
+	public ResidueInteractions makeTripleCorrectionInters(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
+		return epart.makeTripleCorrection(confSpace, eref, addResEntropy, pos1, rc1, pos2, rc2, pos3, rc3);
+	}
+
 	public EnergyCalculator.EnergiedParametricMolecule calcSingleEnergy(int pos, int rc) {
 		return calcSingleEnergy(new RCTuple(pos, rc));
 	}
@@ -187,6 +191,10 @@ public class ConfEnergyCalculator {
 	
 	public EnergyCalculator.EnergiedParametricMolecule calcPairEnergy(RCTuple frag) {
 		return calcEnergy(frag, epart.makePair(confSpace, eref, addResEntropy, frag.pos.get(0), frag.RCs.get(0), frag.pos.get(1), frag.RCs.get(1)));
+	}
+
+	public EnergyCalculator.EnergiedParametricMolecule calcTupleEnergy(RCTuple frag) {
+		return calcEnergy(frag, epart.makeTuple(confSpace, eref, addResEntropy, frag));
 	}
 
 	/**

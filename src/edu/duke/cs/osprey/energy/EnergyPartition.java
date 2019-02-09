@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.energy;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 
@@ -69,19 +70,29 @@ public enum EnergyPartition {
 		@Override
 		public ResidueInteractions makeTuple(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, RCTuple tuple) {
 			return ResInterGen.of(confSpace)
-				.addIntras(tuple, 1, (int pos, int rc) -> {
-					double offset = 0;
-					if (eref != null) {
-						offset += eref.getOffset(confSpace, pos, rc);
-					}
-					if (addResEntropy) {
-						offset += getResEntropy(confSpace, pos, rc);
-					}
-					return offset;
-				})
 				.addInters(tuple)
-				.addShell(tuple)
 				.make();
+		}
+
+		@Override
+		public ResidueInteractions makeTripleCorrection(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
+			double weight = 1.0/(confSpace.positions.size() - 2);
+			double offset = 0.0;
+			return ResInterGen.of(confSpace)
+				.addInter(pos1, pos2, weight, offset)
+				.addInter(pos1, pos3, weight, offset)
+				.addInter(pos2, pos3, weight, offset)
+				.make();
+		}
+
+		@Override
+		public double offsetTripleEnergy(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, EnergyMatrix emat) {
+			double weight = 1.0/(emat.getNumPos() - 2);
+			return weight*(
+				  emat.getPairwise(pos1, rc1, pos2, rc2)
+				+ emat.getPairwise(pos1, rc1, pos3, rc3)
+				+ emat.getPairwise(pos2, rc2, pos3, rc3)
+			);
 		}
 	},
 	
@@ -116,7 +127,7 @@ public enum EnergyPartition {
 				offset2 += getResEntropy(confSpace, pos2, rc2);
 			}
 			
-			double weight = calcWeight(confSpace);
+			double weight = 1.0/(confSpace.positions.size() - 1);
 			
 			return ResInterGen.of(confSpace)
 				.addInter(pos1, pos2)
@@ -135,7 +146,7 @@ public enum EnergyPartition {
 				return makeSingle(confSpace, eref, addResEntropy, tuple.pos.get(0), tuple.RCs.get(0));
 			}
 
-			double weight = calcWeight(confSpace)*(tuple.size() - 1);
+			double weight = (double)(tuple.size() - 1)/(confSpace.positions.size() - 1);
 
 			return ResInterGen.of(confSpace)
 				.addIntras(tuple, weight, (pos, rc) -> {
@@ -153,14 +164,54 @@ public enum EnergyPartition {
 				.make();
 		}
 
-		private double calcWeight(SimpleConfSpace confSpace) {
-			return 1.0/(confSpace.positions.size() - 1);
+		@Override
+		public ResidueInteractions makeTripleCorrection(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
+			double offset1 = 0.0;
+			double offset2 = 0.0;
+			double offset3 = 0.0;
+			if (eref != null) {
+				offset1 += eref.getOffset(confSpace, pos1, rc1);
+				offset2 += eref.getOffset(confSpace, pos2, rc2);
+				offset3 += eref.getOffset(confSpace, pos3, rc3);
+			}
+			if (addResEntropy) {
+				offset1 += getResEntropy(confSpace, pos1, rc1);
+				offset2 += getResEntropy(confSpace, pos2, rc2);
+				offset3 += getResEntropy(confSpace, pos3, rc3);
+			}
+			double singleWeight = 2.0/(confSpace.positions.size() - 2)/(confSpace.positions.size() - 1);
+			double pairWeight = 1.0/(confSpace.positions.size() - 2);
+			return ResInterGen.of(confSpace)
+				.addIntra(pos1, singleWeight, offset1)
+				.addIntra(pos2, singleWeight, offset2)
+				.addIntra(pos3, singleWeight, offset3)
+				.addInter(pos1, pos2, pairWeight, 0.0)
+				.addInter(pos1, pos3, pairWeight, 0.0)
+				.addInter(pos2, pos3, pairWeight, 0.0)
+				.addShell(pos1, singleWeight, 0.0)
+				.addShell(pos2, singleWeight, 0.0)
+				.addShell(pos3, singleWeight, 0.0)
+				.make();
+		}
+
+		@Override
+		public double offsetTripleEnergy(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, EnergyMatrix emat) {
+			// NOTE: no energy on singles, so don't need to add those here
+			double weight = 1.0/(emat.getNumPos() - 2);
+			return weight*(
+				  emat.getPairwise(pos1, rc1, pos2, rc2)
+				+ emat.getPairwise(pos1, rc1, pos3, rc3)
+				+ emat.getPairwise(pos2, rc2, pos3, rc3)
+			);
 		}
 	};
-	
+
 	public abstract ResidueInteractions makeSingle(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, int pos, int rc);
 	public abstract ResidueInteractions makePair(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, int pos1, int rc1, int pos2, int rc2);
 	public abstract ResidueInteractions makeTuple(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, RCTuple frag);
+
+	public abstract ResidueInteractions makeTripleCorrection(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, int pos1, int rc1, int pos2, int rc2, int pos3, int rc3);
+	public abstract double offsetTripleEnergy(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, EnergyMatrix emat);
 	
 	public static ResidueInteractions makeFragment(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, RCTuple frag) {
 		return ResInterGen.of(confSpace)

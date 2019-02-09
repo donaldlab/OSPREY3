@@ -583,9 +583,10 @@ def ConfEnergyCalculatorCopy(source, ecalc):
 	return c.energy.ConfEnergyCalculator(source, ecalc)
 
 
-def EnergyMatrix(confEcalc, cacheFile=None):
+def EnergyMatrix(confEcalc, cacheFile=UseJavaDefault, tripleCorrectionThreshold=UseJavaDefault):
 	'''
 	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcEnergyMatrix`
+	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcTripleCorrectionThreshold`
 
 	:builder_option confEcalc .ematrix.SimplerEnergyMatrixCalculator$Builder#confEcalc:
 	:builder_option cacheFile .ematrix.SimplerEnergyMatrixCalculator$Builder#cacheFile:
@@ -593,8 +594,10 @@ def EnergyMatrix(confEcalc, cacheFile=None):
 	
 	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confEcalc)
 
-	if cacheFile is not None:
+	if cacheFile is not UseJavaDefault:
 		builder.setCacheFile(jvm.toFile(cacheFile))
+	if tripleCorrectionThreshold is not UseJavaDefault:
+		builder.setTripleCorrectionThreshold(jvm.boxDouble(tripleCorrectionThreshold))
 
 	return builder.build().calcEnergyMatrix()
 
@@ -1463,14 +1466,12 @@ def EwakstarDoer(state, smaNodes, useSMA=useJavaDefault, printPDBs=useJavaDefaul
 
 
 
-def SOFEA_StateConfig(ematLower, ematUpper, confEcalc, confdbPath):
+def SOFEA_StateConfig(emat, confEcalc, confdbPath):
 	'''
 	TODO
-	:param luteEcalc:
-	:param pmat:
 	:return:
 	'''
-	return jvm.getInnerClass(c.sofea.Sofea, 'StateConfig')(ematLower, ematUpper, confEcalc, jvm.toFile(confdbPath))
+	return jvm.getInnerClass(c.sofea.Sofea, 'StateConfig')(emat, confEcalc, jvm.toFile(confdbPath))
 
 def SOFEA(confSpace, configFunc, parallelism=useJavaDefault, fringeDBPath=useJavaDefault, fringeDBSizeMiB=useJavaDefault, seqDBPath=useJavaDefault):
 	'''

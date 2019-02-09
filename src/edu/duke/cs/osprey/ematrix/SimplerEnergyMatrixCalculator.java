@@ -41,14 +41,19 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResInterGen;
+import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Progress;
+
+import static edu.duke.cs.osprey.tools.Log.log;
 
 public class SimplerEnergyMatrixCalculator {
 	
 	// NOTE: don't use GPUs on energy matrices, it's too slow
 	// always use the CPU
-	
+	// (until we implement efficient batching in the GPU energy calculator that is...)
+	// unless you're using AllOnPairs energy partition, then the GPU is pretty fast
+
 	public static class Builder {
 		
 		/**
@@ -71,6 +76,9 @@ public class SimplerEnergyMatrixCalculator {
 		 * is best to manually delete the entry matrix cache file after changing design settings.
 		 */
 		private File cacheFile = null;
+
+		// TODO: doc me
+		private Double tripleCorrectionThreshold = null;
 		
 		public Builder(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
 			this(new ConfEnergyCalculator.Builder(confSpace, ecalc).build());
@@ -84,18 +92,25 @@ public class SimplerEnergyMatrixCalculator {
 			cacheFile = val;
 			return this;
 		}
+
+		public Builder setTripleCorrectionThreshold(Double val) {
+			tripleCorrectionThreshold = val;
+			return this;
+		}
 		
 		public SimplerEnergyMatrixCalculator build() {
-			return new SimplerEnergyMatrixCalculator(confEcalc, cacheFile);
+			return new SimplerEnergyMatrixCalculator(confEcalc, cacheFile, tripleCorrectionThreshold);
 		}
 	}
 	
 	public final ConfEnergyCalculator confEcalc;
 	public final File cacheFile;
+	public final Double tripleCorrectionThreshold;
 
-	private SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile) {
+	private SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile, Double tripleCorrectionThreshold) {
 		this.confEcalc = confEcalc;
 		this.cacheFile = cacheFile;
+		this.tripleCorrectionThreshold = tripleCorrectionThreshold;
 	}
 	
 	/**
@@ -124,7 +139,10 @@ public class SimplerEnergyMatrixCalculator {
 		// count how much work there is to do (roughly based on number of residue pairs)
 		final int singleCost = confEcalc.makeSingleInters(0, 0).size();
 		final int pairCost = confEcalc.makePairInters(0, 0, 0, 0).size();
-		Progress progress = new Progress(confEcalc.confSpace.getNumResConfs()*singleCost + confEcalc.confSpace.getNumResConfPairs()*pairCost);
+		Progress progress = new Progress(
+			confEcalc.confSpace.getNumResConfs()*singleCost
+				+ confEcalc.confSpace.getNumResConfPairs()*pairCost
+		);
 		
 		// some fragments can be big and some can be small
 		// try minimize thread sync overhead by not sending a bunch of small fragments in all separate tasks
@@ -143,7 +161,7 @@ public class SimplerEnergyMatrixCalculator {
 				fragments.add(new RCTuple(pos1, rc1, pos2, rc2));
 				cost += pairCost;
 			}
-			
+
 			void submitTask() {
 				confEcalc.tasks.submit(
 					() -> {
@@ -151,14 +169,32 @@ public class SimplerEnergyMatrixCalculator {
 						// calculate all the fragment energies
 						List<Double> energies = new ArrayList<>();
 						for (RCTuple frag : fragments) {
-							if (frag.size() == 1) {
-								energies.add(confEcalc.calcSingleEnergy(frag).energy);
-							} else if(isPairParametricallyCompatible(frag)){
-								energies.add(confEcalc.calcPairEnergy(frag).energy);
+
+							double energy;
+
+							// are there any RCs are from two different backbone states that can't connect?
+							if (isParametricallyIncompatible(frag)) {
+
+								// yup, give this frag an infinite energy so we never choose it
+								energy = Double.POSITIVE_INFINITY;
+
+							} else {
+
+								// nope, calculate the usual fragment energy
+								switch (frag.size()) {
+									case 1: {
+										energy = confEcalc.calcSingleEnergy(frag).energy;
+									} break;
+									case 2: {
+										energy = confEcalc.calcPairEnergy(frag).energy;
+									} break;
+									default: {
+										energy = confEcalc.calcEnergy(frag).energy;
+									}
+								}
 							}
-							else {//frag is not possible (e.g. RCs are from two different backbone states that can't connect)
-								energies.add(Double.POSITIVE_INFINITY);
-							}
+
+							energies.add(energy);
 						}
 						
 						return energies;
@@ -170,8 +206,10 @@ public class SimplerEnergyMatrixCalculator {
 							RCTuple frag = fragments.get(i);
 							if (frag.size() == 1) {
 								emat.setOneBody(frag.pos.get(0), frag.RCs.get(0), energies.get(i));
-							} else {
+							} else if (frag.size() == 2) {
 								emat.setPairwise(frag.pos.get(0), frag.RCs.get(0), frag.pos.get(1), frag.RCs.get(1), energies.get(i));
+							} else {
+								emat.setTuple(frag, energies.get(i));
 							}
 						}
 						
@@ -209,18 +247,22 @@ public class SimplerEnergyMatrixCalculator {
 		}
 		Batcher batcher = new Batcher();
 		
-		// batch all the singles and pairs
-		System.out.println("Calculating energy matrix with " + (confEcalc.confSpace.getNumResConfs() + confEcalc.confSpace.getNumResConfPairs()) + " entries...");
+		// convert the workload into tasks for the task executor
+		log("Calculating energy matrix with %d entries",
+			confEcalc.confSpace.getNumResConfs()
+			+ confEcalc.confSpace.getNumResConfPairs()
+		);
 		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
 			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
 				
-				// singles
+				// single
 				batcher.getBatch().addSingle(pos1, rc1);
 				batcher.submitIfFull();
 				
-				// pairs
 				for (int pos2=0; pos2<pos1; pos2++) {
 					for (int rc2=0; rc2<emat.getNumConfAtPos(pos2); rc2++) {
+
+						// pair
 						batcher.getBatch().addPair(pos1, rc1, pos2, rc2);
 						batcher.submitIfFull();
 					}
@@ -230,6 +272,78 @@ public class SimplerEnergyMatrixCalculator {
 		
 		batcher.submit();
 		confEcalc.tasks.waitForFinish();
+
+		// calc triple corrections if needed
+		if (tripleCorrectionThreshold != null) {
+
+			Progress triplesProgress = new Progress(confEcalc.confSpace.getNumResConfTriples());
+			log("calculating triple corrections for up to %d triples", triplesProgress.getTotalWork());
+			int[] numCorrections = { 0 };
+
+			for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
+				for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
+					for (int pos2=0; pos2<pos1; pos2++) {
+						for (int rc2=0; rc2<emat.getNumConfAtPos(pos2); rc2++) {
+							for (int pos3=0; pos3<pos2; pos3++) {
+								for (int rc3=0; rc3<emat.getNumConfAtPos(pos3); rc3++) {
+
+									// if any of the components are too high, skip this triple
+									if (emat.getOneBody(pos1, rc1) > tripleCorrectionThreshold
+										|| emat.getOneBody(pos2, rc2) > tripleCorrectionThreshold
+										|| emat.getOneBody(pos3, rc3) > tripleCorrectionThreshold
+										|| emat.getPairwise(pos1, rc1, pos2, rc2) > tripleCorrectionThreshold
+										|| emat.getPairwise(pos1, rc1, pos3, rc3) > tripleCorrectionThreshold
+										|| emat.getPairwise(pos2, rc2, pos3, rc3) > tripleCorrectionThreshold) {
+
+										synchronized (triplesProgress) {
+											triplesProgress.incrementProgress();
+										}
+										continue;
+									}
+
+									final RCTuple triple = new RCTuple(pos3, rc3, pos2, rc2, pos1, rc1);
+
+									// check the triple for parametric incompatibilities
+									if (isParametricallyIncompatible(triple)) {
+										synchronized (triplesProgress) {
+											triplesProgress.incrementProgress();
+										}
+										continue;
+									}
+
+									ResidueInteractions inters = confEcalc.makeTripleCorrectionInters(pos1, rc1, pos2, rc2, pos3, rc3);
+									double tripleEnergyOffset = confEcalc.epart.offsetTripleEnergy(pos1, rc1, pos2, rc2, pos3, rc3, emat);
+
+									// calc the energy
+									confEcalc.tasks.submit(
+										() -> confEcalc.calcEnergy(triple, inters).energy,
+										(tripleEnergy) -> {
+
+											// convert the triple energy into a correction
+											double correction = tripleEnergy - tripleEnergyOffset;
+
+											// save the correction only if it's an improvement
+											if (correction > 0) {
+												emat.setTuple(triple, correction);
+												numCorrections[0]++;
+											}
+
+											synchronized (triplesProgress) {
+												triplesProgress.incrementProgress();
+											}
+										}
+									);
+								}
+							}
+						}
+					}
+				}
+			}
+
+			confEcalc.tasks.waitForFinish();
+
+			log("calculated %d/%d useful triple corrections", numCorrections[0], triplesProgress.getTotalWork());
+		}
 		
 		return emat;
 	}
@@ -274,11 +388,24 @@ public class SimplerEnergyMatrixCalculator {
 		return eref;
 	}
 
-	private boolean isPairParametricallyCompatible(RCTuple pair){
-		if(pair.size()!=2)
-			throw new RuntimeException("ERROR: Expected RC pair but got tuple of size "+pair.size());
-		SimpleConfSpace.ResidueConf rc1 = confEcalc.confSpace.positions.get(pair.pos.get(0)).resConfs.get(pair.RCs.get(0));
-		SimpleConfSpace.ResidueConf rc2 = confEcalc.confSpace.positions.get(pair.pos.get(1)).resConfs.get(pair.RCs.get(1));
+	private boolean isParametricallyIncompatible(RCTuple tuple) {
+		for (int i1=0; i1<tuple.size(); i1++) {
+			SimpleConfSpace.ResidueConf rc1 = getRC(tuple, i1);
+			for (int i2=0; i2<i1; i2++) {
+				SimpleConfSpace.ResidueConf rc2 = getRC(tuple, i2);
+				if (!isPairParametricallyCompatible(rc1, rc2)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private SimpleConfSpace.ResidueConf getRC(RCTuple tuple, int index) {
+		return confEcalc.confSpace.positions.get(tuple.pos.get(index)).resConfs.get(tuple.RCs.get(index));
+	}
+
+	private boolean isPairParametricallyCompatible(SimpleConfSpace.ResidueConf rc1, SimpleConfSpace.ResidueConf rc2) {
 		for(String dofName : rc1.dofBounds.keySet()){
 			if(rc2.dofBounds.containsKey(dofName)){
 				//shared DOF between the RCs; make sure the interval matches

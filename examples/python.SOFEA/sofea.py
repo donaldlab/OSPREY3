@@ -37,44 +37,37 @@ confSpace = osprey.MultiStateConfSpace([
 ])
 
 # how should we compute energies of molecules?
-minimizingEcalc = osprey.EnergyCalculator(confSpace, ffparams, parallelism=parallelism)
-rigidEcalc = osprey.SharedEnergyCalculator(minimizingEcalc, isMinimizing=False)
+ecalc = osprey.EnergyCalculator(confSpace, ffparams, parallelism=parallelism)
 
 # make a function that makes a SOFEA config object for a state
 def config(state):
 
 	# how should we define energies of conformations?
-	# we need minimized and rigid energies to get lower and upper bounds respectively
-	# also, use the "AllOnPairs" energy partition to get tighter bounds
-	minimizingConfEcalc = osprey.ConfEnergyCalculator(
+	confEcalc = osprey.ConfEnergyCalculator(
 		state.confSpace,
-		minimizingEcalc,
-		referenceEnergies = osprey.ReferenceEnergies(state.confSpace, minimizingEcalc),
-		energyPartition = osprey.EnergyPartition.AllOnPairs
-	)
-	rigidConfEcalc = osprey.ConfEnergyCalculator(
-		state.confSpace,
-		rigidEcalc,
-		referenceEnergies = osprey.ReferenceEnergies(state.confSpace, rigidEcalc),
+		ecalc,
+		referenceEnergies = osprey.ReferenceEnergies(state.confSpace, ecalc),
+
+		# use the "AllOnPairs" setting to get tighter energy bounds
+		# tighter energy bounds make SOFEA run much faster!
 		energyPartition = osprey.EnergyPartition.AllOnPairs
 	)
 
 	# make the SOFEA config
 	return osprey.SOFEA_StateConfig(
 
-		# calculate the energy matrix bounds
-		# and save them to disk so we don't have to calculate them again later
-		ematLower = osprey.EnergyMatrix(
-			minimizingConfEcalc,
-			cacheFile = 'sofea.%s.emat.lower' % state.name
-		),
-		ematUpper = osprey.EnergyMatrix(
-			rigidConfEcalc,
-			cacheFile = 'sofea.%s.emat.upper' % state.name
+		# calculate the energy matrix
+		emat = osprey.EnergyMatrix(
+			confEcalc,
+
+			# save the emat to disk so we don't have to calculate it again later
+			cacheFile = 'sofea.%s.emat' % state.name,
+
+			# correct overly optimistic energy bounds with triples to get even tighter energy bounds!
+			tripleCorrectionThreshold = 0.0
 		),
 
-		# use the minimizing energy calculator for SOFEA
-		confEcalc = minimizingConfEcalc,
+		confEcalc = confEcalc,
 
 		# where to save the conformation database?
 		confdbPath = 'sofea.%s.confdb' % state.name

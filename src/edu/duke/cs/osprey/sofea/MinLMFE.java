@@ -207,16 +207,6 @@ public class MinLMFE implements Sofea.Criterion {
 			log("\t%s=%s w=%.4f", state.name, g.toString(4, 9), g.size());
 		}
 
-		// if all possible sequences are already top, we're done
-		if (BigInteger.valueOf(topSequences.sequences.size()).compareTo(confSpace.seqSpace.getNumSequences()) >= 0) {
-			return Satisfied.Terminate;
-		}
-
-		// if we don't have enough sequences, keep going
-		if (topSequences.nextLowest == null) {
-			return Satisfied.KeepIterating;
-		}
-
 		// all the top K sequences must be ...
 		for (Sofea.SeqResult result : topSequences.sequences) {
 
@@ -225,18 +215,29 @@ public class MinLMFE implements Sofea.Criterion {
 				return Satisfied.KeepIterating;
 			}
 
-			// have finite lower bounds
-			if (!Double.isFinite(result.lmfeFreeEnergy.lower)) {
+			// have finite bounds
+			if (!Double.isFinite(result.lmfeFreeEnergy.lower) || !Double.isFinite(result.lmfeFreeEnergy.upper)) {
 				return Satisfied.KeepIterating;
 			}
+		}
 
-			// must not overlap the next lowest
+		// if all possible sequences are already top, we're done
+		if (BigInteger.valueOf(topSequences.sequences.size()).compareTo(confSpace.seqSpace.getNumSequences()) >= 0) {
+			return Satisfied.Terminate;
+
+		// if we don't have enough sequences, keep going
+		} else if (topSequences.nextLowest == null) {
+			return Satisfied.KeepIterating;
+		}
+
+		// if any top sequence overlaps the next lowest, keep going
+		for (Sofea.SeqResult result : topSequences.sequences) {
 			if (result.lmfeFreeEnergy.upper >= topSequences.nextLowest) {
 				return Satisfied.KeepIterating;
 			}
 		}
 
-		// all is well!
+		// we're all done here!
 		return Satisfied.Terminate;
 	}
 

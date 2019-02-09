@@ -865,6 +865,7 @@ public class Sofea {
 
 			BigMath z = bigMath().set(1.0);
 
+			// multiply all the singles and pairs
 			for (int i1=0; i1<index.numDefined; i1++) {
 				int pos1 = index.definedPos[i1];
 				int rc1 = index.definedRCs[i1];
@@ -879,13 +880,20 @@ public class Sofea {
 				}
 			}
 
+			// multiply the higher order corrections if needed
+			zmat.forEachHigherOrderTupleIn(index, (tuple, tupleZ) -> {
+				z.mult(tupleZ);
+			});
+
 			return z.get();
 		}
 
 		BigDecimal calcZPathNodeUpper(ConfIndex index, int pos1, int rc1) {
 
+			// start with the single
 			BigMath z = bigMath().set(zmat.getOneBody(pos1, rc1));
 
+			// multiply all the pairs
 			for (int i=0; i<index.numDefined; i++) {
 				int pos2 = index.definedPos[i];
 				int rc2 = index.definedRCs[i];
@@ -893,10 +901,31 @@ public class Sofea {
 				z.mult(zmat.getPairwise(pos1, rc1, pos2, rc2));
 			}
 
+			// multiply the higher order corrections if needed
+			// NOTE: can't use forEachHigherOrderTupleIn(index) since it will count corrections in the path head
+			if (zmat.hasHigherOrderTuples()) {
+				// NOTE: set tuple positions in revese order, so they're already sorted by position
+				RCTuple triple = new RCTuple(0, 0, 0, 0, pos1, rc1);
+				for (int i2=0; i2<index.numDefined; i2++) {
+					triple.pos.set(1, index.definedPos[i2]);
+					triple.RCs.set(1, index.definedRCs[i2]);
+					for (int i3=0; i3<i2; i3++) {
+						triple.pos.set(0, index.definedPos[i3]);
+						triple.RCs.set(0, index.definedRCs[i3]);
+						BigDecimal correction = zmat.getTuple(triple);
+						if (correction != null) {
+							z.mult(correction);
+						}
+					}
+				}
+			}
+
 			return z.get();
 		}
 
 		BigDecimal calcZPathTailUpper(ConfIndex index, RCs rcs) {
+
+			// TODO: use higher-order corrections?
 
 			// this is the usual A* heuristic
 
