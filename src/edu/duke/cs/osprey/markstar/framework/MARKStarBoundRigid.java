@@ -224,7 +224,16 @@ public class MARKStarBoundRigid implements PartitionFunction {
 
     @Override
     public Result makeResult() {
-        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated(),numPartialMinimizations, numConfsScored, rootNode.getNumConfs(), Long.toString(stopwatch.getTimeNs()), minList, ZReductionFromMin, cumulativeZCorrection);
+        PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated());
+        result.setWorkInfo(numPartialMinimizations, numConfsScored,minList);
+        // Just to make this compile, we are not reporting Z reductions here
+        result.setZInfo(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+        // Likewise we are not reporting the starting bounds
+        result.setOrigBounds(BigDecimal.ZERO, BigDecimal.ZERO);
+        result.setTimeInfo(stopwatch.getTimeNs());
+        result.setMiscInfo(new BigDecimal(rootNode.getNumConfs()));
+        // The following values were reported previously, but are no longer
+        //ZReductionFromMin, cumulativeZCorrection
         return result;
     }
 
