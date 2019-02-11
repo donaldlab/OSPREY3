@@ -60,7 +60,8 @@ BreakdownType = None
 # make a special type to use in function signatures to explicitly
 # signal that values should rely on defaults in the java code
 class UseJavaDefault:
-	pass
+	def __repr__(self):
+		return "(default defined in Java code)"
 useJavaDefault = UseJavaDefault()
 
 
@@ -1468,23 +1469,38 @@ def EwakstarDoer(state, smaNodes, useSMA=useJavaDefault, printPDBs=useJavaDefaul
 
 def SOFEA_StateConfig(emat, confEcalc, confdbPath=None):
 	'''
-	TODO
-	:return:
+	:java:classdoc:`.sofea.Sofea$StateConfig`
+
+	:param emat: :java:fielddoc:`.sofea.Sofea$StateConfig#emat`
+	:param confEcalc: :java:fielddoc:`.sofea.Sofea$StateConfig#confEcalc`
+	:param confdbPath: :java:fielddoc:`.sofea.Sofea$StateConfig#confDBFile`
+	:rtype: :java:ref:`.sofea.Sofea$StateConfig`
 	'''
 	confdbFile = jvm.toFile(confdbPath) if confdbPath is not None else None
 	return jvm.getInnerClass(c.sofea.Sofea, 'StateConfig')(emat, confEcalc, confdbFile)
 
 
-def SOFEA(confSpace, configFunc, parallelism=useJavaDefault, fringeDBPath=useJavaDefault, fringeDBSizeMiB=useJavaDefault, seqDBPath=useJavaDefault):
+def SOFEA(confSpace, configFunc, mathContext=useJavaDefault, seqdbPath='sofea.seqdb', seqdbMathContext=useJavaDefault, fringedbPath='sofea.fringedb', fringedbMiB=10, showProgress=useJavaDefault, sweepIncrement=useJavaDefault, maxNumMinimizations=useJavaDefault, negligableFreeEnergy=useJavaDefault):
 	'''
-	TODO
-	:param confSpace:
-	:param configFunc:
-	:param parallelism:
-	:param fringeDBPath:
-	:param fringeDBSizeMiB:
-	:param seqDBPath:
-	:return:
+	:java:classdoc:`.sofea.Sofea`
+
+	:param confSpace: A multi-state configuration space
+	:type confSpace: :java:ref:`.confspace.MultiStateConfSpace`
+
+	:param configFunc: a function that creates a :java:ref:`.sofea.Sofea$StateConfig` for a state
+	:type configFunc: function(:java:ref:`.confspace.MultiStateConfSpace$State`) returning :java:ref:`.sofea.Sofea$StateConfig`
+
+	:builder_option mathContext .sofea.Sofea$Builder#mathContext:
+	:param str seqdbPath: Path to write the sequence database file
+	:builder_option seqdbMathContext .sofea.Sofea$Builder#seqdbMathContext:
+	:param str fringedbPath: Path to write the fringe set
+	:param int fringedbMiB: size of the fringe set in MiB
+	:builder_option showProgress .sofea.Sofea$Builder#showProgress:
+	:builder_option sweepIncrement .sofea.Sofea$Builder#sweepIncrement:
+	:builder_option maxNumMinimizations .sofea.Sofea$Builder#maxNumMinimizations:
+	:builder_option negligableFreeEnergy .sofea.Sofea$Builder#negligableFreeEnergy:
+
+	:builder_return .sofea.Sofea$Builder:
 	'''
 
 	builder = _get_builder(c.sofea.Sofea)(confSpace)
@@ -1492,28 +1508,47 @@ def SOFEA(confSpace, configFunc, parallelism=useJavaDefault, fringeDBPath=useJav
 	for state in confSpace.states:
 		builder.configState(state, configFunc(state))
 
-	if parallelism is not useJavaDefault:
-		builder.setParallelism(parallelism)
-	if fringeDBPath is not useJavaDefault:
-		builder.setFringeDBFile(jvm.toFile(fringeDBPath))
-	if fringeDBSizeMiB is not useJavaDefault:
-		builder.setFringeDBMiB(fringeDBSizeMiB)
-	if seqDBPath is not useJavaDefault:
-		builder.setSeqDBFile(jvm.toFile(seqDBPath))
-
-	# TODO: expose the rest of the options
+	if mathContext is not useJavaDefault:
+		builder.setMathContext(mathContext)
+	if seqdbPath is not useJavaDefault:
+		builder.setSeqDBFile(jvm.toFile(seqdbPath))
+	if seqdbMathContext is not useJavaDefault:
+		builder.setSeqDBMathContext(seqdbMathContext)
+	if fringedbPath is not useJavaDefault:
+		builder.setFringeDBFile(jvm.toFile(fringedbPath))
+	if fringedbMiB is not useJavaDefault:
+		builder.setFringeDBMiB(fringedbMiB)
+	if showProgress is not useJavaDefault:
+		builder.setShowProgerss(showProgress)
+	if sweepIncrement is not useJavaDefault:
+		builder.setSweepIncrement(sweepIncrement)
+	if maxNumMinimizations is not useJavaDefault:
+		builder.setMaxNumMinimizations(maxNumMinimizations)
+	if negligableFreeEnergy is not useJavaDefault:
+		builder.setNegligableFreeEnergy(negligableFreeEnergy)
 
 	return builder.build()
 
 
-def SOFEA_MinLMFE(lmfe, numSequences, minFreeEnergyWidth, bcalc):
+def SOFEA_MinLMFE(lmfe, numSequences, minFreeEnergyWidth):
 	'''
-	TODO
-	:param lmfe:
-	:param numSequences:
-	:param mathContext:
-	:return:
-	'''
-	return c.sofea.MinLMFE(lmfe, numSequences, minFreeEnergyWidth, bcalc)
+	:java:classdoc:`.sofea.MinLMFE`
 
-# TODO: SequenceLMFE
+	:param lmfe: :java:fielddoc:`.sofea.MinLMFE#lmfe`
+	:param numSequences: :java:fielddoc:`.sofea.MinLMFE#numSequences`
+	:param minFreeEnergyWidth: :java:fielddoc:`.sofea.MinLMFE#minFreeEnergyWidth`
+	:rtype: :java:ref:`.sofea.MinLMFE`
+	'''
+	return c.sofea.MinLMFE(lmfe, numSequences, minFreeEnergyWidth)
+
+
+def SOFEA_SequenceLMFE(sequence, lmfe, minFreeEnergyWidth):
+	'''
+	:java:classdoc:`.sofea.SequenceLMFE`
+
+	:param sequence: :java:fielddoc:`.sofea.SequenceLMFE#seq`
+	:param lmfe: :java:fielddoc:`.sofea.SequenceLMFE#lmfe`
+	:param minFreeEnergyWidth: :java:fielddoc:`.sofea.SequenceLMFE#minFreeEnergyWidth`
+	:rtype: :java:ref:`.sofea.SequenceLMFE`
+	'''
+	return c.sofea.SequenceLMFE(sequence, lmfe, minFreeEnergyWidth)

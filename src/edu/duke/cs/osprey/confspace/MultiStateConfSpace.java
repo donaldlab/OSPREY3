@@ -148,7 +148,7 @@ public class MultiStateConfSpace {
 
 		public DoubleBounds[] collectFreeEnergies(Function<State,DoubleBounds> f) {
 			DoubleBounds[] boundsByState = new DoubleBounds[confSpace.states.size()];
-			for (State state : confSpace.states) {
+			for (State state : states()) {
 				boundsByState[state.index] = f.apply(state);
 			}
 			return boundsByState;

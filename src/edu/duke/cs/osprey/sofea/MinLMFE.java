@@ -14,22 +14,31 @@ import edu.duke.cs.osprey.tools.resultdoc.ResultDoc;
 import java.io.File;
 import java.math.BigInteger;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static edu.duke.cs.osprey.tools.Log.log;
-import static edu.duke.cs.osprey.tools.Log.logf;
 
 
 /**
- * Finishes SOFEA computation when we've found the lowest K sequences by LMFE
+ * Finishes SOFEA computation when we've found the best K sequences
+ * that minimize an LMFE objective function.
  */
 public class MinLMFE implements Sofea.Criterion {
 
+	/**
+	 * The multi-state objective function.
+	 */
 	public final MultiStateConfSpace.LMFE objective;
+
+	/**
+	 * The number of best sequences to find.
+	 */
 	public final int numSequences;
+
+	/**
+	 * The best desired precision for a state free energy.
+	 */
 	public final double minFreeEnergyWidth;
-	public final BoltzmannCalculator bcalc;
 
 	private final HashSet<StateSeq> finishedSequenced = new HashSet<>();
 	private final HashSet<Integer> finishedUnsequenced = new HashSet<>();
@@ -63,7 +72,7 @@ public class MinLMFE implements Sofea.Criterion {
 		}
 	}
 
-	public MinLMFE(MultiStateConfSpace.LMFE objective, int numSequences, double minFreeEnergyWidth, BoltzmannCalculator bcalc) {
+	public MinLMFE(MultiStateConfSpace.LMFE objective, int numSequences, double minFreeEnergyWidth) {
 
 		// make sure we have enough sequences
 		BigInteger maxNumSequences = objective.confSpace.seqSpace.getNumSequences();
@@ -76,7 +85,6 @@ public class MinLMFE implements Sofea.Criterion {
 		this.objective = objective;
 		this.numSequences = numSequences;
 		this.minFreeEnergyWidth = minFreeEnergyWidth;
-		this.bcalc = bcalc;
 	}
 
 	public class TopSequences {
@@ -193,7 +201,7 @@ public class MinLMFE implements Sofea.Criterion {
 		}
 	}
 
-	public TopSequences getTopSequences(SeqDB seqdb) {
+	public TopSequences getTopSequences(SeqDB seqdb, BoltzmannCalculator bcalc) {
 
 		assert (objective.confSpace == seqdb.confSpace);
 		MultiStateConfSpace confSpace = seqdb.confSpace;
@@ -261,7 +269,7 @@ public class MinLMFE implements Sofea.Criterion {
 		assert (objective.confSpace == seqdb.confSpace);
 		MultiStateConfSpace confSpace = seqdb.confSpace;
 
-		TopSequences topSequences = getTopSequences(seqdb);
+		TopSequences topSequences = getTopSequences(seqdb, bcalc);
 
 		// report progress
 		log("lowest %d/%d sequences by LMFE:", topSequences.sequences.size(), numSequences);
@@ -353,9 +361,9 @@ public class MinLMFE implements Sofea.Criterion {
 
 	public void makeResultDoc(SeqDB seqdb, File file) {
 
-		TopSequences topSequences = getTopSequences(seqdb);
-
 		BoltzmannCalculator bcalc = new BoltzmannCalculator(seqdb.mathContext);
+		TopSequences topSequences = getTopSequences(seqdb, bcalc);
+
 		try (ResultDoc doc = new ResultDoc(file)) {
 
 			doc.h1("SOFEA Results");

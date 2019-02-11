@@ -74,9 +74,9 @@ def config(state):
 sofea = osprey.SOFEA(
 	confSpace = confSpace,
 	configFunc = config,
-	fringeDBPath = 'sofea.fringedb',
-	fringeDBSizeMiB = 100,
-	seqDBPath = 'sofea.seqdb'
+	fringedbPath = 'sofea.fringedb',
+	fringedbMiB = 100,
+	seqdbPath = 'sofea.seqdb'
 )
 
 # start new databases if this is the first time running this script
@@ -102,11 +102,7 @@ criterion = osprey.SOFEA_MinLMFE(
 	numSequences = 2,
 
 	# how precise do we want each free energy to be?
-	minFreeEnergyWidth = 0.1,
-
-	# free energy calculations require high-precision arithmetic
-	# copy the same Boltzmann calculator used by SOFEA itself
-	bcalc = sofea.bcalc
+	minFreeEnergyWidth = 1.0
 )
 
 # finally, run the design!

@@ -88,4 +88,10 @@ public class TestPythonScripts {
 	@Test public void LUTE() { runKStar("LUTE.train.py"); runKStar("LUTE.kstar.py"); runKStar("LUTE.bbkstar.py"); }
 	@Test public void mskstar() { runKStar("mskstar.py"); }
 	@Test public void mskstarBoudedMemory() { runKStar("mskstar.boundedMemory.py"); }
+
+	private void runSofea(String script) {
+		run("examples/python.SOFEA", script);
+	}
+
+	@Test public void sofea() { runSofea("sofea.py"); }
 }

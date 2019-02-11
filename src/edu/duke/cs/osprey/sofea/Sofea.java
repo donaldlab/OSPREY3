@@ -25,7 +25,17 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 
 /**
- * TODO: doc me!
+ * SOFEA - Sweep Operations for Free Energy Approximation
+ *
+ * Explores a (possibly multi-sequence and multi-state) conformation space by visiting
+ * subtrees containing low-energy conformations first, in less than exponential memory.
+ * Keeps a running free-energy calculation going for each state and sequence.
+ * Free energy approximations are improved by sweeping an energy threshold over a bounded
+ * parameter space. If the entire parameter space is swept, the free energies are guaranteed
+ * to be completely precise, but hopefully you can stop before then.
+ *
+ * SOFEA can be used to do multi-state design when used with a stopping criterion that stops
+ * the sweep when enough sequences are found whose free energies optimize some objective function.
  */
 public class Sofea {
 
@@ -34,16 +44,63 @@ public class Sofea {
 		public final MultiStateConfSpace confSpace;
 
 		private StateConfig[] stateConfigs;
-		private MathContext mathContext = new MathContext(32, RoundingMode.HALF_UP);
-		private File seqdbFile = new File("seq.db");
-		private MathContext seqdbMathContext = new MathContext(128, RoundingMode.HALF_UP);
-		private File fringedbFile = new File("fringe.db");
-		private long fringedbBytes = 10*1024*1024; // 10 MiB
-		private boolean showProgress = true;
-		private double sweepIncrement = 1.0; // in kcal/mol
-		private double zPruneThreshold = 1e-5; // ln(1 + 1e-5) < 0.0000
 
-		// NOTE: don't need much precision for most math, but need lots of precision for seqdb math
+		/**
+		 * SOFEA does math with very large floating numbers, how much decimal precision should we use?
+		 */
+		private MathContext mathContext = new MathContext(32, RoundingMode.HALF_UP);
+
+		/**
+		 * File for the sequence database
+		 */
+		private File seqdbFile = new File("seq.db");
+
+		/**
+		 * The sequence database adds very large and very small numbers together,
+		 * so it needs a bit more floating point precision.
+		 */
+		private MathContext seqdbMathContext = new MathContext(128, RoundingMode.HALF_UP);
+
+		/**
+		 * File for the fringe datbase, ie the set of fringe nodes
+		 */
+		private File fringedbFile = new File("fringe.db");
+
+		/**
+		 * Max size of the fringe database, in bytes
+		 */
+		private long fringedbBytes = 10*1024*1024; // 10 MiB
+
+		/**
+		 * True to print progress info to the console
+		 */
+		private boolean showProgress = true;
+
+		/**
+		 * Amount the threshold should be increased at each step of the sweep, in kcal/mol.
+		 */
+		// TODO: don't do linear steps?
+		private double sweepIncrement = 1.0;
+
+		/**
+		 * How many full conformation minimizations could your hardware platform concievably do in
+		 * the amount of time you're willing to wait?
+		 *
+		 * Used with negligableFreeEnergy to determine upper bounds for sweep thresholds.
+		 *
+		 * Even conformations with high energies can contibute significantly to the free energy when
+		 * there are astronomical numbers of them. But if we could never possibly minimize all of them
+		 * to calculate their free energy using current resources, let's just ignore those confs.
+		 */
+		private long maxNumMinimizations = 1000000000; // we probably can't minimize 1B confs, right?
+
+		/**
+		 * At what free energy threshold would we stop caring about the free energy contribution
+		 * of a huge number of high-energy conformations?
+		 *
+		 * Used with maxNumMinimizations to determine upper bounds for sweep thresholds.
+		 */
+		private double negligableFreeEnergy = -1.0;
 
 		public Builder(MultiStateConfSpace confSpace) {
 
@@ -104,8 +161,13 @@ public class Sofea {
 			return this;
 		}
 
-		public Builder setZPruneThreshold(double val) {
-			zPruneThreshold = val;
+		public Builder setMaxNumMinimizations(long val) {
+			maxNumMinimizations = val;
+			return this;
+		}
+
+		public Builder setNegligableFreeEnergy(double val) {
+			negligableFreeEnergy = val;
 			return this;
 		}
 
@@ -130,15 +192,30 @@ public class Sofea {
 				fringedbBytes,
 				showProgress,
 				sweepIncrement,
-				zPruneThreshold
+				maxNumMinimizations,
+				negligableFreeEnergy
 			);
 		}
 	}
 
+	/**
+	 * Per-state configuration needed to run SOFEA.
+	 */
 	public static class StateConfig {
 
+		/**
+		 * An energy matrix of lower energy bounds on RC tuples.
+		 */
 		public final EnergyMatrix emat;
+
+		/**
+		 * A tool to compute energies for conformations.
+		 */
 		public final ConfEnergyCalculator confEcalc;
+
+		/**
+		 * File to cache conformation energies. Optional, can be null.
+		 */
 		public final File confDBFile;
 
 		public StateConfig(EnergyMatrix emat, ConfEnergyCalculator confEcalc, File confDBFile) {
@@ -192,13 +269,16 @@ public class Sofea {
 	public final long fringedbBytes;
 	public final boolean showProgress;
 	public final double sweepIncrement;
-	public final BigDecimal zPruneThreshold;
+	public final long maxNumMinimizations;
+	public final double negligableFreeEnergy;
 
 	public final BoltzmannCalculator bcalc;
+	public final double gThresholdUpper;
+	public final BigDecimal zPruneThreshold;
 
 	private final List<StateInfo> stateInfos;
 
-	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, long fringedbBytes, boolean showProgress, double sweepIncrement, double zPruneThreshold) {
+	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, long fringedbBytes, boolean showProgress, double sweepIncrement, long maxNumMinimizations, double negligableFreeEnergy) {
 
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
@@ -209,9 +289,13 @@ public class Sofea {
 		this.fringedbBytes = fringedbBytes;
 		this.showProgress = showProgress;
 		this.sweepIncrement = sweepIncrement;
-		this.zPruneThreshold = MathTools.biggen(zPruneThreshold);
+		this.maxNumMinimizations = maxNumMinimizations;
+		this.negligableFreeEnergy = negligableFreeEnergy;
 
 		bcalc = new BoltzmannCalculator(mathContext);
+
+		gThresholdUpper = bcalc.freeEnergyPrecise(bigMath().set(bcalc.calcPrecise(negligableFreeEnergy)).div(maxNumMinimizations).get());
+		zPruneThreshold = bcalc.calcPrecise(gThresholdUpper);
 
 		// init the state info
 		stateInfos = confSpace.states.stream()
@@ -244,13 +328,17 @@ public class Sofea {
 	}
 
 	/**
-	 * start a new design using the conf space,
-	 * or fail if previous results already exist
+	 * Start a new design using the conf space,
+	 * or fail if previous results already exist.
 	 */
 	public void init() {
 		init(false);
 	}
 
+	/**
+	 * Start a new design using the conf space, or fail unless overwrite=true.
+	 * If overwrite=true, the previous results are destroyed.
+	 */
 	public void init(boolean overwrite) {
 
 		// don't overwrite an existing results unless explicitly asked
@@ -445,7 +533,7 @@ public class Sofea {
 	}
 
 	/**
-	 * keep sweeping over the threshold space until the criterion is satisfied
+	 * Keep sweeping the threshold over the parameter space until the criterion is satisfied.
 	 */
 	public void refine(Criterion criterion) {
 		try (SeqDB seqdb = openSeqDB()) {
@@ -466,7 +554,14 @@ public class Sofea {
 
 			// init the gThresholds based on the fringe set
 			Double[] gThreshold = confSpace.states.stream()
-				.map(state -> bcalc.freeEnergyPrecise(fringedb.getZSumMax(state)))
+				.map(state -> {
+					BigDecimal zSumMax = fringedb.getZSumMax(state);
+					if (zSumMax == null) {
+						return null;
+					} else {
+						return bcalc.freeEnergyPrecise(zSumMax);
+					}
+				})
 				.toArray(size -> new Double[size]);
 
 			for (long step=1; ; step++) {
@@ -485,22 +580,36 @@ public class Sofea {
 
 				// increment gThreshold before each pass over the fringe set
 				for (MultiStateConfSpace.State state : confSpace.states) {
-					gThreshold[state.index] += sweepIncrement;
+					if (gThreshold[state.index] != null) {
+						if (gThreshold[state.index] > gThresholdUpper) {
+							gThreshold[state.index] = null;
+						} else {
+							gThreshold[state.index] += sweepIncrement;
+						}
+					}
 				}
 
 				// calc the corresponding zThreshold
 				BigDecimal[] zThreshold = confSpace.states.stream()
-					.map(state -> bcalc.calcPrecise(gThreshold[state.index]))
+					.map(state -> {
+						Double g = gThreshold[state.index];
+						if (g == null) {
+							return null;
+						} else {
+							return bcalc.calcPrecise(g);
+						}
+					})
 					.toArray(size -> new BigDecimal[size]);
 
 				// show progress if needed
 				if (showProgress) {
 					log("step %d", step);
 					for (MultiStateConfSpace.State state : confSpace.states) {
-						log("\t%10s  gThreshold = %9.3f  of  %9.3f",
+						log("\t%10s  gThreshold = %9.3f  in  [%9.3f,%9.3f]",
 							state.name,
 							gThreshold[state.index],
-							gThresholdLower[state.index]
+							gThresholdLower[state.index],
+							gThresholdUpper
 						);
 					}
 				}
@@ -625,18 +734,8 @@ public class Sofea {
 
 	private boolean design(NodeTransaction nodetx, BigDecimal zSumThreshold, ConfIndex index, BigDecimal zSumUpper, ConfDB.ConfTable confTable) {
 
-		// forget any subtree that's below the pruning threshold
-		/* NOTE:
-			Unfortunately, a hard pruning threshold is necessary in practice.
-			Clashing confs can have extremely low zPath values (like 1e-30,000,000).
-			When FringeDB runs out of space, we'd normally have to wait for zSumThreshold
-			to drop below the zPath of all leaves in a subtree before we can remove that whole
-			subtree from FringeDB. But if the lowest zPath is supremely low, zSumThreshold
-			will never drop that low even after millions of steps in the sweep. So we need to
-			just give up on these subtrees entirely and hope astronomical numbers of those confs
-			don't add up to a significant portion of the zSum.
-		 */
-		if (MathTools.isLessThan(zSumUpper, zPruneThreshold)) {
+		// forget any subtree if we've hit the end of the sweep interval, or that's below the pruning threshold
+		if (zSumThreshold == null || MathTools.isLessThan(zSumUpper, zPruneThreshold)) {
 			return false;
 		}
 
@@ -676,7 +775,7 @@ public class Sofea {
 	}
 
 	/** WARNING: naive brute force method, for testing small trees only */
-	public BigDecimal calcZSum(Sequence seq, MultiStateConfSpace.State state) {
+	protected BigDecimal calcZSum(Sequence seq, MultiStateConfSpace.State state) {
 		StateInfo stateInfo = stateInfos.get(state.index);
 		try (StateInfo.Confs confs = stateInfo.new Confs()) {
 			RCs rcs = seq.makeRCs(state.confSpace);

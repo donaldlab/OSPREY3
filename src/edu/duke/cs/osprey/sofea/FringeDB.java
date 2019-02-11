@@ -357,11 +357,56 @@ public class FringeDB implements AutoCloseable {
 
 				// if the read buffer is empty, fill it up
 				if (readBuf.position() == readBuf.limit()) {
-					int numToRead = Math.min(maxReadEntries, (int)Math.min(iostate.numToRead, Integer.MAX_VALUE));
-					io.seek(posEntries + iostate.readIndex*entryBytes);
-					io.readFully(readBuf.array(), 0, numToRead*entryBytes);
-					readBuf.position(0);
-					readBuf.limit(numToRead*entryBytes);
+
+					// what's the most entries we could read without wrapping around?
+					long numToRead = maxNumEntries - iostate.readIndex;
+
+					// but don't read more entries than are waiting
+					numToRead = Math.min(numToRead, iostate.numToRead);
+
+					// but don't read more than the buffer
+					numToRead = Math.min(numToRead, maxReadEntries);
+
+					try {
+
+						int readSize = (int)(numToRead*entryBytes);
+						io.seek(posEntries + iostate.readIndex*entryBytes);
+						io.readFully(readBuf.array(), 0, readSize);
+						readBuf.position(0);
+						readBuf.limit(readSize);
+
+					} catch (IOException ex) {
+
+						// this actually happened, so add more debugging info to the exception
+						throw new IOException(
+							String.format(
+								"can't fill read buffer."
+									+ "\n\tmaxReadEntries=%d"
+									+ "\n\tiostate.numToRead=%d"
+									+ "\n\tmaxNumToRead=%d"
+									+ "\n\tnumToRead=%d"
+									+ "\n\tposEntries=%d"
+									+ "\n\tiostate.readIndex=%d"
+									+ "\n\tentryBytes=%d"
+									+ "\n\tseek pos=%d"
+									+ "\n\tread len=%d"
+									+ "\n\tend read pos=%d"
+									+ "\n\tcapacity=%d",
+								maxReadEntries,
+								iostate.numToRead,
+								maxNumEntries - iostate.readIndex,
+								numToRead,
+								posEntries,
+								iostate.readIndex,
+								entryBytes,
+								posEntries + iostate.readIndex*entryBytes,
+								numToRead*entryBytes,
+								posEntries + iostate.readIndex*entryBytes + numToRead*entryBytes,
+								io.length()
+							),
+							ex
+						);
+					}
 				}
 
 				// read the next entry out of the read buffer
@@ -509,10 +554,28 @@ public class FringeDB implements AutoCloseable {
 
 				// write the replacement entries
 				writeBuf.flip();
-				io.seek(posEntries + iostate.writeIndex*entryBytes);
-				io.write(writeBuf.array(), 0, writtenEntries*entryBytes);
+				long maxNumToWriteAtOnce = maxNumEntries - iostate.writeIndex;
+				if (writtenEntries <= maxNumToWriteAtOnce) {
+
+					// write it all in one pass
+					io.seek(posEntries + iostate.writeIndex*entryBytes);
+					io.write(writeBuf.array(), 0, writtenEntries*entryBytes);
+					iostate.advanceWrite(writtenEntries);
+
+				} else {
+
+					// write in two passes
+					int numWrittenPass1 = (int)maxNumToWriteAtOnce;
+					io.seek(posEntries + iostate.writeIndex*entryBytes);
+					io.write(writeBuf.array(), 0, numWrittenPass1*entryBytes);
+					iostate.advanceWrite(numWrittenPass1);
+
+					int numWrittenPass2 = writtenEntries - (int)maxNumToWriteAtOnce;
+					io.seek(posEntries + iostate.writeIndex*entryBytes);
+					io.write(writeBuf.array(), numWrittenPass1*entryBytes, numWrittenPass2*entryBytes);
+					iostate.advanceWrite(numWrittenPass2);
+				}
 				writeBuf.clear();
-				iostate.advanceWrite(writtenEntries);
 				writtenEntries = 0;
 
 				// write zSumMax

@@ -35,6 +35,13 @@ import re
 import six
 
 
+# define FileNotFoundError if not defined already
+try:
+	FileNotFoundError
+except NameError:
+	FileNotFoundError = IOError
+
+
 ast_cache = {}
 doctags = []
 
@@ -332,11 +339,15 @@ class DefaultDoctag(Doctag):
 
 
 	def render_ast_expression(self, ast):
-		
+
 		if isinstance(ast, javalang.tree.Literal):
 
 			# expr is literal value
-			return ast.value
+			return '%s%s%s' % (
+				''.join(ast.prefix_operators),
+				ast.value,
+				''.join(ast.postfix_operators)
+			)
 
 		elif isinstance(ast, javalang.tree.MemberReference):
 

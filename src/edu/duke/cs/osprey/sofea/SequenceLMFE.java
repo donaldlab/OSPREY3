@@ -6,55 +6,64 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import static edu.duke.cs.osprey.tools.Log.log;
 
 
+/**
+ * Finished SOFEA computation when the state free energies for a single sequence
+ * reach a desired precision.
+ */
 public class SequenceLMFE implements Sofea.Criterion {
 
+	/**
+	 * The sequence.
+	 */
 	public final Sequence seq;
-	public final MultiStateConfSpace.LMFE lmfe;
-	public final double maxLMFEWidth;
 
-	public SequenceLMFE(Sequence seq, MultiStateConfSpace.LMFE lmfe, double maxLMFEWidth) {
+	/**
+	 * The multi-state objective function.
+	 */
+	public final MultiStateConfSpace.LMFE lmfe;
+
+	/**
+	 * The best desired precision for a state free energy.
+	 */
+	public final double minFreeEnergyWidth;
+
+	private final Set<Integer> finishedStates = new HashSet<>();
+
+	public SequenceLMFE(Sequence seq, MultiStateConfSpace.LMFE lmfe, double minFreeEnergyWidth) {
 		this.seq = seq;
 		this.lmfe = lmfe;
-		this.maxLMFEWidth = maxLMFEWidth;
+		this.minFreeEnergyWidth = minFreeEnergyWidth;
 	}
 
 	@Override
 	public Filter filterNode(MultiStateConfSpace.State state, int[] conf, BoltzmannCalculator bcalc) {
 
-		for (SimpleConfSpace.Position confPos : state.confSpace.positions) {
-
-			// skip non-mutable positions
-			if (confPos.seqPos == null) {
-				continue;
-			}
-
-			// skip unassigned positions
-			int rc = conf[confPos.index];
-			if (rc == Conf.Unassigned) {
-				continue;
-			}
-
-			// if the RTs don't match, requeue this node
-			SeqSpace.ResType seqResType = seq.get(confPos.seqPos.resNum);
-			String confRT = confPos.resConfs.get(rc).template.name;
-			if (!seqResType.name.equalsIgnoreCase(confRT)) {
-				return Filter.Requeue;
-			}
+		// is this a state we care about?
+		if (!lmfe.states().contains(state) || finishedStates.contains(state.index)) {
+			return Filter.Requeue;
 		}
 
-		// the sequence matches, process this node
+		// is this a sequence we care about?
+		Sequence nodeSeq = state.confSpace.seqSpace.makeSequence(state.confSpace, conf);
+		if (!nodeSeq.equals(seq)) {
+			return Filter.Requeue;
+		}
+
+		// the state and sequence matches, process this node
 		return Filter.Process;
 	}
 
 	@Override
 	public Satisfied isSatisfied(SeqDB seqdb, FringeDB fringedb, long sweepCount, BoltzmannCalculator bcalc) {
 
-		SeqDB.SeqInfo seqInfo = seqdb.getSequencedZSumBounds(seq);
-
 		// get the state free energies
+		SeqDB.SeqInfo seqInfo = seqdb.getSequencedZSumBounds(seq);
 		DoubleBounds[] stateFreeEnergies = lmfe.collectFreeEnergies(state -> {
 			BigDecimalBounds zSumBounds;
 			if (state.isSequenced) {
@@ -65,28 +74,35 @@ public class SequenceLMFE implements Sofea.Criterion {
 			return bcalc.freeEnergyPrecise(zSumBounds);
 		});
 
-		// compute the lmfe bounds
-		DoubleBounds lmfeBounds = lmfe.calc().addAll(stateFreeEnergies).bounds;
-
-		boolean isSatisfied = lmfeBounds.size() <= maxLMFEWidth;
+		// are the state free energies precise enough?
+		boolean isFinished = true;
+		for (MultiStateConfSpace.State state : lmfe.states()) {
+			if (stateFreeEnergies[state.index].size() <= minFreeEnergyWidth) {
+				finishedStates.add(state.index);
+			} else {
+				isFinished = false;
+			}
+		}
 
 		// report progress
+		DoubleBounds lmfeBounds = lmfe.calc().addAll(stateFreeEnergies).bounds;
 		log("sequence [%s]:", seq);
-		log("%10s=%s w=%9.4f  <  %9.4f   ? %s",
+		log("%10s=%s w=%9.4f",
 			"LMFE",
 			lmfeBounds.toString(4, 9),
-			lmfeBounds.size(),
-			maxLMFEWidth,
-			isSatisfied ? "yes, finished" : "no, keep refining"
+			lmfeBounds.size()
 		);
-		for (MultiStateConfSpace.State state : seqdb.confSpace.states) {
-			log("%10s=%s w=%9.4f",
+		for (MultiStateConfSpace.State state : lmfe.states()) {
+			DoubleBounds g = stateFreeEnergies[state.index];
+			log("%10s=%s w=%9.4f  <  %9.4f   ? %s",
 				state.name,
-				stateFreeEnergies[state.index].toString(4, 9),
-				stateFreeEnergies[state.index].size()
+				g.toString(4, 9),
+				g.size(),
+				minFreeEnergyWidth,
+				g.size() <= minFreeEnergyWidth ? "yes, finished" : "no, keep refining"
 			);
 		}
 
-		return isSatisfied ? Satisfied.Terminate : Satisfied.KeepIterating;
+		return isFinished ? Satisfied.Terminate : Satisfied.KeepIterating;
 	}
 }
