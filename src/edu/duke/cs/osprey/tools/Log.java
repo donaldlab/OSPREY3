@@ -80,12 +80,15 @@ public class Log {
 		} else if (MathTools.isZero(f)) {
 			return "0";
 		} else {
-			BoltzmannCalculator bcalc = new BoltzmannCalculator(new MathContext(16, RoundingMode.HALF_UP));
+			MathContext mathContext = new MathContext(16, RoundingMode.HALF_UP);
+			BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
 			double d;
-			if (MathTools.isPositive(f)) {
-				d = bcalc.ln(f.add(BigDecimal.ONE));
+			if (MathTools.isInf(f) || MathTools.isNaN(f)) {
+				d = f.doubleValue();
+			} else if (MathTools.isPositive(f)) {
+				d = bcalc.ln(f.add(BigDecimal.ONE, mathContext));
 			} else {
-				d = -bcalc.ln(MathTools.bigNegate(f).add(BigDecimal.ONE));
+				d = -bcalc.ln(MathTools.bigNegate(f).add(BigDecimal.ONE, mathContext));
 			}
 			return String.format("%9.4f", d);
 		}

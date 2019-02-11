@@ -3,13 +3,12 @@ package edu.duke.cs.osprey.sofea;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
-import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
-import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.*;
-import edu.duke.cs.osprey.tools.MathTools.BigIntegerBounds;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 
@@ -19,8 +18,6 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -28,9 +25,17 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 
 /**
- * TODO: doc me!
+ * SOFEA - Sweep Operations for Free Energy Approximation
  *
- * TODO: use consistent terminology for Z and all its subdivisions
+ * Explores a (possibly multi-sequence and multi-state) conformation space by visiting
+ * subtrees containing low-energy conformations first, in less than exponential memory.
+ * Keeps a running free-energy calculation going for each state and sequence.
+ * Free energy approximations are improved by sweeping an energy threshold over a bounded
+ * parameter space. If the entire parameter space is swept, the free energies are guaranteed
+ * to be completely precise, but hopefully you can stop before then.
+ *
+ * SOFEA can be used to do multi-state design when used with a stopping criterion that stops
+ * the sweep when enough sequences are found whose free energies optimize some objective function.
  */
 public class Sofea {
 
@@ -39,16 +44,63 @@ public class Sofea {
 		public final MultiStateConfSpace confSpace;
 
 		private StateConfig[] stateConfigs;
-		private MathContext mathContext = new MathContext(32, RoundingMode.HALF_UP);
-		private File seqdbFile = new File("seq.db");
-		private MathContext seqdbMathContext = new MathContext(128, RoundingMode.HALF_UP);
-		private File fringedbFile = new File("fringe.db");
-		private long fringedbBytes = 10*1024*1024; // 10 MiB
-		private boolean showProgress = true;
-		private Parallelism parallelism = Parallelism.makeCpu(1);
-		private double sweepDivisor = Math.pow(Math.E, 4.0);
 
-		// NOTE: don't need much precision for most math, but need lots of precision for seqdb math
+		/**
+		 * SOFEA does math with very large floating numbers, how much decimal precision should we use?
+		 */
+		private MathContext mathContext = new MathContext(32, RoundingMode.HALF_UP);
+
+		/**
+		 * File for the sequence database
+		 */
+		private File seqdbFile = new File("seq.db");
+
+		/**
+		 * The sequence database adds very large and very small numbers together,
+		 * so it needs a bit more floating point precision.
+		 */
+		private MathContext seqdbMathContext = new MathContext(128, RoundingMode.HALF_UP);
+
+		/**
+		 * File for the fringe datbase, ie the set of fringe nodes
+		 */
+		private File fringedbFile = new File("fringe.db");
+
+		/**
+		 * Max size of the fringe database, in bytes
+		 */
+		private long fringedbBytes = 10*1024*1024; // 10 MiB
+
+		/**
+		 * True to print progress info to the console
+		 */
+		private boolean showProgress = true;
+
+		/**
+		 * Amount the threshold should be increased at each step of the sweep, in kcal/mol.
+		 */
+		// TODO: don't do linear steps?
+		private double sweepIncrement = 1.0;
+
+		/**
+		 * How many full conformation minimizations could your hardware platform concievably do in
+		 * the amount of time you're willing to wait?
+		 *
+		 * Used with negligableFreeEnergy to determine upper bounds for sweep thresholds.
+		 *
+		 * Even conformations with high energies can contibute significantly to the free energy when
+		 * there are astronomical numbers of them. But if we could never possibly minimize all of them
+		 * to calculate their free energy using current resources, let's just ignore those confs.
+		 */
+		private long maxNumMinimizations = 1000000000; // we probably can't minimize 1B confs, right?
+
+		/**
+		 * At what free energy threshold would we stop caring about the free energy contribution
+		 * of a huge number of high-energy conformations?
+		 *
+		 * Used with maxNumMinimizations to determine upper bounds for sweep thresholds.
+		 */
+		private double negligableFreeEnergy = -1.0;
 
 		public Builder(MultiStateConfSpace confSpace) {
 
@@ -104,13 +156,18 @@ public class Sofea {
 			return this;
 		}
 
-		public Builder setParallelism(Parallelism val) {
-			parallelism = val;
+		public Builder setSweepIncrement(double val) {
+			sweepIncrement = val;
 			return this;
 		}
 
-		public Builder setSweepDivisor(double val) {
-			sweepDivisor = val;
+		public Builder setMaxNumMinimizations(long val) {
+			maxNumMinimizations = val;
+			return this;
+		}
+
+		public Builder setNegligableFreeEnergy(double val) {
+			negligableFreeEnergy = val;
 			return this;
 		}
 
@@ -134,20 +191,37 @@ public class Sofea {
 				fringedbFile,
 				fringedbBytes,
 				showProgress,
-				parallelism,
-				sweepDivisor
+				sweepIncrement,
+				maxNumMinimizations,
+				negligableFreeEnergy
 			);
 		}
 	}
 
+	/**
+	 * Per-state configuration needed to run SOFEA.
+	 */
 	public static class StateConfig {
 
-		public final LUTEConfEnergyCalculator luteEcalc;
-		public final PruningMatrix pmat;
+		/**
+		 * An energy matrix of lower energy bounds on RC tuples.
+		 */
+		public final EnergyMatrix emat;
 
-		public StateConfig(LUTEConfEnergyCalculator luteEcalc, PruningMatrix pmat) {
-			this.luteEcalc = luteEcalc;
-			this.pmat = pmat;
+		/**
+		 * A tool to compute energies for conformations.
+		 */
+		public final ConfEnergyCalculator confEcalc;
+
+		/**
+		 * File to cache conformation energies. Optional, can be null.
+		 */
+		public final File confDBFile;
+
+		public StateConfig(EnergyMatrix emat, ConfEnergyCalculator confEcalc, File confDBFile) {
+			this.emat = emat;
+			this.confEcalc = confEcalc;
+			this.confDBFile = confDBFile;
 		}
 	}
 
@@ -164,13 +238,25 @@ public class Sofea {
 		}
 	}
 
-	/** decides if computation should continue or not */
+	/** decides if computation should continue or not, and which nodes we should process */
 	public static interface Criterion {
 
-		boolean isFinished(SeqDB seqdb, FringeDB fringedb, long sweepCount);
+		enum Filter {
+			Process,
+			Requeue
+		}
 
-		public static final boolean KeepIterating = false;
-		public static final boolean Terminate = true;
+		enum Satisfied {
+			KeepIterating,
+			Terminate
+		}
+
+		default Filter filterNode(MultiStateConfSpace.State state, int[] conf, BoltzmannCalculator bcalc) {
+			// accept all by default
+			return Filter.Process;
+		}
+
+		Satisfied isSatisfied(SeqDB seqdb, FringeDB fringedb, long sweepCount, BoltzmannCalculator bcalc);
 	}
 
 
@@ -182,12 +268,17 @@ public class Sofea {
 	public final File fringedbFile;
 	public final long fringedbBytes;
 	public final boolean showProgress;
-	public final Parallelism parallelism;
-	public final double sweepDivisor;
+	public final double sweepIncrement;
+	public final long maxNumMinimizations;
+	public final double negligableFreeEnergy;
+
+	public final BoltzmannCalculator bcalc;
+	public final double gThresholdUpper;
+	public final BigDecimal zPruneThreshold;
 
 	private final List<StateInfo> stateInfos;
 
-	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, long fringedbBytes, boolean showProgress, Parallelism parallelism, double sweepDivisor) {
+	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, long fringedbBytes, boolean showProgress, double sweepIncrement, long maxNumMinimizations, double negligableFreeEnergy) {
 
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
@@ -197,16 +288,14 @@ public class Sofea {
 		this.fringedbFile = fringedbFile;
 		this.fringedbBytes = fringedbBytes;
 		this.showProgress = showProgress;
-		this.parallelism = parallelism;
-		this.sweepDivisor = sweepDivisor;
+		this.sweepIncrement = sweepIncrement;
+		this.maxNumMinimizations = maxNumMinimizations;
+		this.negligableFreeEnergy = negligableFreeEnergy;
 
-		// TODO: support single tuples for conf spaces
-		// TEMP: blow up if we get single tuples
-		for (MultiStateConfSpace.State state : confSpace.states) {
-			if (state.confSpace.positions.size() <= 1) {
-				throw new Error("TODO: support small conf spaces");
-			}
-		}
+		bcalc = new BoltzmannCalculator(mathContext);
+
+		gThresholdUpper = bcalc.freeEnergyPrecise(bigMath().set(bcalc.calcPrecise(negligableFreeEnergy)).div(maxNumMinimizations).get());
+		zPruneThreshold = bcalc.calcPrecise(gThresholdUpper);
 
 		// init the state info
 		stateInfos = confSpace.states.stream()
@@ -222,7 +311,7 @@ public class Sofea {
 		return stateInfos.get(state.index);
 	}
 
-	private BigMath bigMath() {
+	protected BigMath bigMath() {
 		return new BigMath(mathContext);
 	}
 
@@ -239,13 +328,17 @@ public class Sofea {
 	}
 
 	/**
-	 * start a new design using the conf space,
-	 * or fail if previous results already exist
+	 * Start a new design using the conf space,
+	 * or fail if previous results already exist.
 	 */
 	public void init() {
 		init(false);
 	}
 
+	/**
+	 * Start a new design using the conf space, or fail unless overwrite=true.
+	 * If overwrite=true, the previous results are destroyed.
+	 */
 	public void init(boolean overwrite) {
 
 		// don't overwrite an existing results unless explicitly asked
@@ -260,10 +353,6 @@ public class Sofea {
 		seqdbFile.delete();
 		fringedbFile.delete();
 
-		// OPTIMIZATION: allocate one RCTuple instance for all the triple lookups
-		// and set positions in 3-2-1 order so the positions are sorted in ascending order
-		RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
-
 		try (SeqDB seqdb = openSeqDB()) {
 			try (FringeDB fringedb = openFringeDB()) {
 
@@ -274,30 +363,12 @@ public class Sofea {
 					StateInfo stateInfo = stateInfos.get(state.index);
 
 					// get a multi-sequence Z bound on the root node
-					MathTools.BigDecimalBounds rootBound;
-					{
-						ConfIndex index = stateInfo.makeConfIndex();
-						BigDecimal minZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Minimize);
-						BigDecimal maxZ = stateInfo.optimizeZ(index, tripleTuple, MathTools.Optimizer.Maximize);
-						BigIntegerBounds size = stateInfo.boundLeavesPerSequence(index);
-
-						rootBound = new MathTools.BigDecimalBounds(
-							bigMath()
-								.set(minZ)
-								.mult(size.lower)
-								.mult(stateInfo.blute.factor)
-								.get(),
-							bigMath()
-								.set(maxZ)
-								.mult(size.upper)
-								.mult(stateInfo.blute.factor)
-								.get()
-						);
-					}
+					ConfIndex index = stateInfo.makeConfIndex();
+					BigDecimal zSumUpper = stateInfo.calcZSumUpper(index, stateInfo.rcs);
 
 					// init the fringe with the root node
-					fringetx.writeRootNode(state, rootBound, stateInfo.blute.factor);
-					seqtx.addZ(state, state.confSpace.makeUnassignedSequence(), rootBound);
+					fringetx.writeRootNode(state, zSumUpper);
+					seqtx.addZSumUpper(state, state.confSpace.makeUnassignedSequence(), zSumUpper);
 				}
 				fringetx.commit();
 				fringedb.finishSweep();
@@ -309,24 +380,22 @@ public class Sofea {
 	private static class Node {
 
 		final int[] conf;
-		final BigDecimalBounds zbounds;
-		final BigDecimal zpath;
+		final BigDecimal zSumUpper;
 
-		Node(int[] conf, BigDecimalBounds zbounds, BigDecimal zpath) {
+		Node(int[] conf, BigDecimal zSumUpper) {
 			this.conf = conf;
-			this.zbounds = zbounds;
-			this.zpath = zpath;
+			this.zSumUpper = zSumUpper;
 		}
 	}
 
-	private static class ZVal {
+	private static class ZPath {
 
 		final int[] conf;
-		final BigDecimal z;
+		final BigDecimal zPath;
 
-		ZVal(int[] conf, BigDecimal z) {
+		ZPath(int[] conf, BigDecimal zPath) {
 			this.conf = conf;
-			this.z = z;
+			this.zPath = zPath;
 		}
 	}
 
@@ -334,34 +403,36 @@ public class Sofea {
 
 		final MultiStateConfSpace.State state;
 		final int[] conf;
-		final BigDecimalBounds zbounds;
-		final BigDecimal zpath;
+		final BigDecimal zSumUpper;
 
 		final ConfIndex index;
 		final List<Node> replacementNodes = new ArrayList<>();
-		final List<ZVal> zvals = new ArrayList<>();
+		final List<ZPath> zPaths = new ArrayList<>();
 
-		NodeTransaction(MultiStateConfSpace.State state, int[] conf, BigDecimalBounds zbounds, BigDecimal zpath) {
+		NodeTransaction(MultiStateConfSpace.State state, int[] conf, BigDecimal zSumUpper) {
 
 			this.state = state;
 			this.conf = conf;
-			this.zbounds = zbounds;
-			this.zpath = zpath;
+			this.zSumUpper = zSumUpper;
 
 			index = new ConfIndex(state.confSpace.positions.size());
 			Conf.index(conf, index);
 		}
 
-		void addReplacementNode(ConfIndex index, BigDecimalBounds zbounds, BigDecimal zpath) {
-			replacementNodes.add(new Node(Conf.make(index), zbounds, zpath));
+		void addReplacementNode(ConfIndex index, BigDecimal zSumUpper) {
+			replacementNodes.add(new Node(Conf.make(index), zSumUpper));
 		}
 
 		int numReplacementNodes() {
 			return replacementNodes.size();
 		}
 
-		void addZVal(ConfIndex index, BigDecimal z) {
-			zvals.add(new ZVal(Conf.make(index), z));
+		void addZPath(ConfIndex index, BigDecimal zPath) {
+			zPaths.add(new ZPath(Conf.make(index), zPath));
+		}
+
+		int  numZPaths() {
+			return zPaths.size();
 		}
 
 		boolean hasRoomToReplace(FringeDB.Transaction fringetx, int otherNodesInFlight) {
@@ -370,45 +441,48 @@ public class Sofea {
 
 		boolean replace(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
 
-			boolean flushed = flushTransactionsIfNeeded(fringetx, seqtx);
+			// flush transactions if needed
+			boolean flush = !fringetx.txHasRoomFor(replacementNodes.size());
+			if (flush) {
+				flushTransactions(fringetx, seqtx);
+			}
 
 			StateInfo stateInfo = stateInfos.get(state.index);
 
-			// subtract the node zbounds
-			seqtx.subZ(state, stateInfo.makeSeq(conf), zbounds);
+			// subtract the node zSumUpper
+			seqtx.subZSumUpper(state, stateInfo.makeSeq(conf), zSumUpper);
 
 			// update fringedb and seqdb with the replacement nodes
 			for (Node replacementNode : replacementNodes) {
-				fringetx.writeReplacementNode(state, replacementNode.conf, replacementNode.zbounds, replacementNode.zpath);
-				seqtx.addZ(state, stateInfo.makeSeq(replacementNode.conf), replacementNode.zbounds);
+				fringetx.writeReplacementNode(state, replacementNode.conf, replacementNode.zSumUpper);
+				seqtx.addZSumUpper(state, stateInfo.makeSeq(replacementNode.conf), replacementNode.zSumUpper);
 			}
 
 			// add the z values
-			for (ZVal zval : zvals) {
-				seqtx.addZ(state, stateInfo.makeSeq(zval.conf), zval.z);
+			for (ZPath zPath : zPaths) {
+				seqtx.addZPath(state, stateInfo.makeSeq(zPath.conf), zPath.zPath);
 			}
 
-			return flushed;
+			return flush;
 		}
 
 		boolean requeue(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
 
-			boolean flushed = flushTransactionsIfNeeded(fringetx, seqtx);
+			// flush transactions if needed
+			boolean flush = !fringetx.txHasRoomFor(1);
+			if (flush) {
+				flushTransactions(fringetx, seqtx);
+			}
 
 			// ignore all of the seqdb changes
 
 			// move the node to the end of the fringedb queue
-			fringetx.writeReplacementNode(state, conf, zbounds, zpath);
+			fringetx.writeReplacementNode(state, conf, zSumUpper);
 
-			return flushed;
+			return flush;
 		}
 
-		boolean flushTransactionsIfNeeded(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
-
-			// skip if the fringe db transaction isn't full
-			if (fringetx.txHasRoomFor(replacementNodes.size())) {
-				return false;
-			}
+		boolean flushTransactions(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
 
 			// make sure we didn't overflow the buffer entirely
 			if (replacementNodes.size() > fringetx.maxWriteBufferNodes()) {
@@ -425,32 +499,75 @@ public class Sofea {
 		}
 	}
 
+	private class ConfTables implements AutoCloseable {
+
+		StateInfo.Confs[] confsByState;
+
+		ConfTables() {
+			confsByState = new StateInfo.Confs[confSpace.states.size()];
+			for (MultiStateConfSpace.State state : confSpace.states) {
+				confsByState[state.index] = stateInfos.get(state.index).new Confs();
+			}
+		}
+
+		@Override
+		public void close() {
+			for (StateInfo.Confs confs : confsByState) {
+				confs.close();
+			}
+		}
+
+		public ConfDB.ConfTable get(MultiStateConfSpace.State state) {
+			return confsByState[state.index].table;
+		}
+	}
+
 	private static class StateStats {
 		long read = 0;
 		long expanded = 0;
-		long replaced = 0;
+		long requeuedByThreshold = 0;
+		long requeuedByFilter = 0;
+		long requeuedForSpace = 0;
 		long added = 0;
-		long requeued = 0;
+		long minimizations = 0;
 	}
 
 	/**
-	 * keep sweeping over the fringe set until the criterion is satisfied
+	 * Keep sweeping the threshold over the parameter space until the criterion is satisfied.
 	 */
 	public void refine(Criterion criterion) {
 		try (SeqDB seqdb = openSeqDB()) {
 		try (FringeDB fringedb = openFringeDB()) {
-		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
+		try (ConfTables confTables = new ConfTables()) {
 
-			// get the initial zmax
-			BigDecimal[] zmax = confSpace.states.stream()
-				.map(state -> fringedb.getZMax(state))
-				.toArray(size -> new BigDecimal[size]);
+			// use the energy calculator to provide the paralleism
+			TaskExecutor tasks = stateConfigs.get(0).confEcalc.tasks;
 
-			long sweepCount = 0;
-			while (true) {
+			// calculate lower bounds on gThreshold
+			double[] gThresholdLower = confSpace.states.stream()
+				.mapToDouble(state -> {
+					Sofea.StateInfo stateInfo = getStateInfo(state);
+					BigDecimal zSumUpper = stateInfo.calcZSumUpper(stateInfo.makeConfIndex(), stateInfo.rcs);
+					return bcalc.freeEnergyPrecise(zSumUpper);
+				})
+				.toArray();
+
+			// init the gThresholds based on the fringe set
+			Double[] gThreshold = confSpace.states.stream()
+				.map(state -> {
+					BigDecimal zSumMax = fringedb.getZSumMax(state);
+					if (zSumMax == null) {
+						return null;
+					} else {
+						return bcalc.freeEnergyPrecise(zSumMax);
+					}
+				})
+				.toArray(size -> new Double[size]);
+
+			for (long step=1; ; step++) {
 
 				// check the termination criterion
-				if (criterion != null && criterion.isFinished(seqdb, fringedb, sweepCount)) {
+				if (criterion != null && criterion.isSatisfied(seqdb, fringedb, step, bcalc) == Criterion.Satisfied.Terminate) {
 					log("SOFEA finished, criterion satisfied");
 					break;
 				}
@@ -461,18 +578,40 @@ public class Sofea {
 					break;
 				}
 
-				// reduce zmax before each sweep
+				// increment gThreshold before each pass over the fringe set
 				for (MultiStateConfSpace.State state : confSpace.states) {
-					zmax[state.index] = bigMath()
-						.set(zmax[state.index])
-						.div(sweepDivisor)
-						.get();
+					if (gThreshold[state.index] != null) {
+						if (gThreshold[state.index] > gThresholdUpper) {
+							gThreshold[state.index] = null;
+						} else {
+							gThreshold[state.index] += sweepIncrement;
+						}
+					}
 				}
 
+				// calc the corresponding zThreshold
+				BigDecimal[] zThreshold = confSpace.states.stream()
+					.map(state -> {
+						Double g = gThreshold[state.index];
+						if (g == null) {
+							return null;
+						} else {
+							return bcalc.calcPrecise(g);
+						}
+					})
+					.toArray(size -> new BigDecimal[size]);
+
 				// show progress if needed
-				sweepCount++;
 				if (showProgress) {
-					log("sweep %d", sweepCount);
+					log("step %d", step);
+					for (MultiStateConfSpace.State state : confSpace.states) {
+						log("\t%10s  gThreshold = %9.3f  in  [%9.3f,%9.3f]",
+							state.name,
+							gThreshold[state.index],
+							gThresholdLower[state.index],
+							gThresholdUpper
+						);
+					}
 				}
 
 				// init sweep stats
@@ -485,13 +624,14 @@ public class Sofea {
 				// NOTE: use a size-one array instead of a plain var, since Java's compiler is kinda dumb about lambdas
 				int[] nodesInFlight = { 0 };
 
-				// start (or resume) the sweep
+				// start (or resume) the iteration over the fringe set
 				FringeDB.Transaction fringetx = fringedb.transaction();
 				SeqDB.Transaction seqtx = seqdb.transaction();
 				Progress progress = new Progress(fringetx.numNodesToRead());
+				progress.setReportMemory(true);
 				while (true) {
 
-					// read the next node
+					// read the next node and make a transaction for it
 					final NodeTransaction nodetx;
 					synchronized (Sofea.this) { // don't race the listener thread
 						if (!fringetx.hasNodesToRead()) {
@@ -502,42 +642,63 @@ public class Sofea {
 						nodetx = new NodeTransaction(
 							fringetx.state(),
 							fringetx.conf(),
-							fringetx.zbounds(),
-							fringetx.zpath()
+							fringetx.zSumUpper()
 						);
 					}
 					stats[nodetx.state.index].read++;
 
-					// process nodes with tasks (possibly in parallel)
-					tasks.submit(
-						() -> {
-
-							// OPTIMIZATION: allocate one RCTuple instance for all the triple lookups
-							// and set positions in 3-2-1 order so the positions are sorted in ascending order
-							RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
-
-							return design(nodetx, zmax[nodetx.state.index], tripleTuple, nodetx.index, nodetx.zbounds, nodetx.zpath);
-						},
-						(wasExpanded) -> {
-
-							if (wasExpanded) {
-								stats[nodetx.state.index].expanded++;
-							}
-
-							synchronized (Sofea.this) { // don't race the main thread
-								nodesInFlight[0]--;
-								if (nodetx.hasRoomToReplace(fringetx, nodesInFlight[0])) {
-									stats[nodetx.state.index].added += nodetx.numReplacementNodes();
-									stats[nodetx.state.index].replaced++;
-									nodetx.replace(fringetx, seqtx);
-								} else {
-									stats[nodetx.state.index].requeued++;
-									nodetx.requeue(fringetx, seqtx);
-								}
-							}
-
+					// check the node filter in the criterion
+					if (criterion.filterNode(nodetx.state, nodetx.conf, bcalc) == Criterion.Filter.Requeue) {
+						synchronized (Sofea.this) { // don't race the listener thread
+							stats[nodetx.state.index].requeuedByFilter++;
+							nodesInFlight[0]--;
+							nodetx.requeue(fringetx, seqtx);
 							if (showProgress) {
 								progress.incrementProgress();
+							}
+						}
+						continue;
+					}
+
+					// process nodes with tasks (possibly in parallel)
+					tasks.submit(
+						() -> design(
+							nodetx,
+							zThreshold[nodetx.state.index],
+							nodetx.index,
+							nodetx.zSumUpper,
+							confTables.get(nodetx.state)
+						),
+						(wasExpanded) -> {
+
+							stats[nodetx.state.index].minimizations += nodetx.numZPaths();
+							if (wasExpanded) {
+
+								synchronized (Sofea.this) { // don't race the main thread
+									nodesInFlight[0]--;
+									if (nodetx.hasRoomToReplace(fringetx, nodesInFlight[0])) {
+										stats[nodetx.state.index].added += nodetx.numReplacementNodes();
+										stats[nodetx.state.index].expanded++;
+										nodetx.replace(fringetx, seqtx);
+									} else {
+										stats[nodetx.state.index].requeuedForSpace++;
+										nodetx.requeue(fringetx, seqtx);
+									}
+									if (showProgress) {
+										progress.incrementProgress();
+									}
+								}
+
+							} else {
+
+								stats[nodetx.state.index].requeuedByThreshold++;
+								synchronized (Sofea.this) { // don't race the main thread
+									nodesInFlight[0]--;
+									nodetx.requeue(fringetx, seqtx);
+									if (showProgress) {
+										progress.incrementProgress();
+									}
+								}
 							}
 						}
 					);
@@ -554,100 +715,107 @@ public class Sofea {
 						100.0f*fringedb.getNumNodes()/fringedb.getCapacity()
 					);
 					for (MultiStateConfSpace.State state : confSpace.states) {
-						log("\t%10s  read=%6d  expanded=%6d  replaced=%6d  added=%6d requeued=%6d",
+						log("\t%10s  read=%6d [ expanded=%6d  requeuedByThreshold=%6d  requeuedByFilter=%6d  requeuedForSpace=%6d ] added=%6d  minimizations=%6d",
 							state.name,
 							stats[state.index].read,
 							stats[state.index].expanded,
-							stats[state.index].replaced,
+							stats[state.index].requeuedByThreshold,
+							stats[state.index].requeuedByFilter,
+							stats[state.index].requeuedForSpace,
 							stats[state.index].added,
-							stats[state.index].requeued
+							stats[state.index].minimizations
 						);
 					}
+					log("\tNon-garbage heap memory usage: %s", JvmMem.getOldPool());
 				}
 			}
 		}}}
 	}
 
-	private boolean design(NodeTransaction nodetx, BigDecimal zmax, RCTuple tripleTuple, ConfIndex index, BigDecimalBounds zbounds, BigDecimal zpath) {
+	private boolean design(NodeTransaction nodetx, BigDecimal zSumThreshold, ConfIndex index, BigDecimal zSumUpper, ConfDB.ConfTable confTable) {
 
-		// skip this tree if it's too small, and add the node to the fringe set
-		if (MathTools.isLessThan(zbounds.upper, zmax)) {
-			nodetx.addReplacementNode(index, zbounds, zpath);
+		// forget any subtree if we've hit the end of the sweep interval, or that's below the pruning threshold
+		if (zSumThreshold == null || MathTools.isLessThan(zSumUpper, zPruneThreshold)) {
 			return false;
 		}
 
-		// otherwise, recurse
+		// if zSumUpper is too small, add the node to the fringe set
+		if (MathTools.isLessThan(zSumUpper, zSumThreshold)) {
+			nodetx.addReplacementNode(index, zSumUpper);
+			return false;
+		}
 
 		StateInfo stateInfo = stateInfos.get(nodetx.state.index);
-		boolean isRoot = index.numDefined == 0;
-		boolean isRCLeaf = index.numDefined + 1 == index.numPos;
 
-		int pos = index.numDefined;
+		// is this a leaf node?
+		if (index.isFullyDefined()) {
+
+			// yup, add the zPath
+			nodetx.addZPath(index, stateInfo.calcZPath(index, confTable));
+			return true;
+		}
+
+		// not a leaf node
+
+		// no more easy bound improvement possible, so recuse
+		int pos = stateInfo.posPermutation[index.numDefined];
 		for (int rc : stateInfo.rcs.get(pos)) {
-
-			// update the zpath with this RC
-			BigDecimal zpathrc = zpath;
-			if (!isRoot) {
-
-				BigDecimal zrc = stateInfo.getZPart(index, tripleTuple, pos, rc);
-
-				// this subtree contributes nothing to Z
-				if (MathTools.isZero(zrc)) {
-					continue;
-				}
-
-				zpathrc = bigMath()
-					.set(zpathrc)
-					.mult(zrc)
-					.get();
-			}
-
-			if (isRCLeaf) {
-
-				assert (!isRoot);
-
-				// hit bottom, add the leaf node to the seqdb
-				index.assignInPlace(pos, rc);
-				nodetx.addZVal(index, zpathrc);
-				index.unassignInPlace(pos);
-
-			} else {
-
-				index.assignInPlace(pos, rc);
-
-				// get the subtree Z bounds and recurse
-				// but only if the upper bound is nonzero (ie we get non-null subtree bounds)
-				BigDecimalBounds zboundsrc = stateInfo.boundZ(index, tripleTuple, zpathrc);
-				if (zboundsrc != null) {
-
-					// recurse
-					design(nodetx, zmax, tripleTuple, index, zboundsrc, zpathrc);
-				}
-
-				index.unassignInPlace(pos);
-			}
+			index.assignInPlace(pos, rc);
+			design(
+				nodetx,
+				zSumThreshold,
+				index,
+				stateInfo.calcZSumUpper(index, stateInfo.rcs),
+				confTable
+			);
+			index.unassignInPlace(pos);
 		}
 
 		return true;
 	}
 
-	public double calcG(MultiStateConfSpace.State state, Sequence seq) {
-		return new BoltzmannCalculator(mathContext).freeEnergyPrecise(calcZ(state, seq));
-	}
-
-	public BigDecimal calcZ(MultiStateConfSpace.State state, Sequence seq) {
-		return stateInfos.get(state.index).calcZ(seq);
+	/** WARNING: naive brute force method, for testing small trees only */
+	protected BigDecimal calcZSum(Sequence seq, MultiStateConfSpace.State state) {
+		StateInfo stateInfo = stateInfos.get(state.index);
+		try (StateInfo.Confs confs = stateInfo.new Confs()) {
+			RCs rcs = seq.makeRCs(state.confSpace);
+			return stateInfo.calcZSum(stateInfo.makeConfIndex(), rcs, confs.table);
+		}
 	}
 
 	protected class StateInfo {
 
-		final MultiStateConfSpace.State state;
-		final BoltzmannLute blute;
-		final PruningMatrix pmat;
-		final RCs rcs;
-		final List<SimpleConfSpace.Position> positions;
+		class Confs implements AutoCloseable {
 
-		private final List<TupleMatrixGeneric<BigDecimal[]>> optrc3Energies;
+			final ConfDB confdb;
+			final ConfDB.ConfTable table;
+
+			Confs() {
+				StateConfig config = stateConfigs.get(state.index);
+				if (config.confDBFile != null) {
+					confdb = new ConfDB(state.confSpace, config.confDBFile);
+					table = confdb.new ConfTable("sofea");
+				} else {
+					confdb = null;
+					table = null;
+				}
+			}
+
+			@Override
+			public void close() {
+				if (confdb != null) {
+					confdb.close();
+				}
+			}
+		}
+
+		final MultiStateConfSpace.State state;
+
+		final ConfEnergyCalculator confEcalc;
+		final ZMatrix zmat;
+		final RCs rcs;
+		final int[] posPermutation;
+
 		private final int[][] rtsByRcByPos;
 		private final int[] numRtsByPos;
 
@@ -655,53 +823,41 @@ public class Sofea {
 
 			this.state = state;
 			StateConfig config = stateConfigs.get(state.index);
-			this.blute = new BoltzmannLute(config.luteEcalc, mathContext);
-			this.pmat = config.pmat;
+			this.confEcalc = config.confEcalc;
+			this.zmat = new ZMatrix(state.confSpace);
+			this.zmat.set(config.emat, bcalc);
 			this.rcs = new RCs(state.confSpace);
-			this.positions = state.confSpace.positions;
 
-			// OPTIMIZATION: allocate one RCTuple instance for all the triple lookups
-			// and set positions in 3-2-1 order so the positions are sorted in ascending order
-			RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
+			// sort positions so multi-sequence layers are first
+			posPermutation = state.confSpace.positions.stream()
+				.sorted((a, b) -> {
 
-			// pre-calculate all the optimal triple Z values for each RC pair
-			optrc3Energies = new ArrayList<>(MathTools.Optimizer.values().length);
-			for (MathTools.Optimizer opt : MathTools.Optimizer.values()) {
-				optrc3Energies.add(new TupleMatrixGeneric<>(state.confSpace));
-			}
-			for (int pos1=0; pos1<rcs.getNumPos(); pos1++) {
-				for (int rc1 : rcs.get(pos1)) {
-					for (int pos2=0; pos2<pos1; pos2++) {
-						for (int rc2 : rcs.get(pos2)) {
-
-							for (MathTools.Optimizer opt : MathTools.Optimizer.values()) {
-
-								BigDecimal[] pos3Energies = new BigDecimal[state.confSpace.positions.size()];
-								optrc3Energies.get(opt.ordinal()).setPairwise(pos1, rc1, pos2, rc2, pos3Energies);
-
-								for (int pos3=0; pos3<pos2; pos3++) {
-
-									BigDecimal optrc3Energy = opt.initBigDecimal();
-									for (int rc3 : rcs.get(pos3)) {
-										tripleTuple.set(pos3, rc3, pos2, rc2, pos1, rc1);
-										BigDecimal triple = blute.get(tripleTuple);
-										if (triple != null) {
-											optrc3Energy = opt.opt(optrc3Energy, triple);
-										}
-									}
-
-									pos3Energies[pos3] = optrc3Energy;
-								}
-							}
-						}
+					// prefer mutable positions first
+					if (a.hasMutations() && !b.hasMutations()) {
+						return -1;
+					} else if (!a.hasMutations() && b.hasMutations()) {
+						return +1;
 					}
-				}
-			}
+
+					/* TODO: what heuristic works well here?
+					// then, sort by ordering heuristic
+					// negate to sort in (weakly) descending order
+					int order = -calcOrderHeuristic(a).compareTo(calcOrderHeuristic(b));
+					if (order != 0) {
+						return order;
+					}
+					*/
+
+					// otherwise, sort by index
+					return a.index - b.index;
+				})
+				.mapToInt(pos -> pos.index)
+				.toArray();
 
 			// calculate all the RTs by RC and pos
-			rtsByRcByPos = new int[positions.size()][];
-			numRtsByPos = new int[positions.size()];
-			for (SimpleConfSpace.Position confPos : positions) {
+			rtsByRcByPos = new int[state.confSpace.positions.size()][];
+			numRtsByPos = new int[state.confSpace.positions.size()];
+			for (SimpleConfSpace.Position confPos : state.confSpace.positions) {
 				rtsByRcByPos[confPos.index] = new int[confPos.resConfs.size()];
 				SeqSpace.Position seqPos = confSpace.seqSpace.getPosition(confPos.resNum);
 				if (seqPos != null) {
@@ -718,75 +874,13 @@ public class Sofea {
 		}
 
 		ConfIndex makeConfIndex() {
-			ConfIndex index = new ConfIndex(positions.size());
+			ConfIndex index = new ConfIndex(state.confSpace.positions.size());
 			index.updateUndefined();
 			return index;
 		}
 
 		Sequence makeSeq(int[] conf) {
-			Sequence seq = confSpace.seqSpace.makeUnassignedSequence();
-			for (SimpleConfSpace.Position confPos : state.confSpace.positions) {
-				SeqSpace.Position seqPos = confSpace.seqSpace.getPosition(confPos.resNum);
-				int rc = conf[confPos.index];
-				if (seqPos != null && rc != Conf.Unassigned) {
-					SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(rc);
-					seq.set(seqPos, resConf.template.name);
-				}
-			}
-			return seq;
-		}
-
-		BigDecimal getZPart(ConfIndex confIndex, RCTuple tripleTuple, int pos1, int rc1) {
-
-			assert (confIndex.numDefined > 0);
-
-			if (pmat.getOneBody(pos1, rc1)) {
-				return BigDecimal.ZERO;
-			}
-
-			tripleTuple.pos.set(2, pos1);
-			tripleTuple.RCs.set(2, rc1);
-
-			BigMath math = bigMath().set(1.0);
-			for (int i=0; i<confIndex.numDefined; i++) {
-				int pos2 = confIndex.definedPos[i];
-				int rc2 = confIndex.definedRCs[i];
-
-				if (pmat.getPairwise(pos1, rc1, pos2, rc2)) {
-					return BigDecimal.ZERO;
-				}
-
-				tripleTuple.pos.set(1, pos2);
-				tripleTuple.RCs.set(1, rc2);
-
-				math.mult(blute.get(pos1, rc1, pos2, rc2));
-
-				for (int j=0; j<i; j++) {
-					int pos3 = confIndex.definedPos[j];
-					int rc3 = confIndex.definedRCs[j];
-
-					if (pmat.getPairwise(pos1, rc1, pos3, rc3)) {
-						return BigDecimal.ZERO;
-					}
-					if (pmat.getPairwise(pos2, rc2, pos3, rc3)) {
-						return BigDecimal.ZERO;
-					}
-
-					tripleTuple.pos.set(0, pos3);
-					tripleTuple.RCs.set(0, rc3);
-
-					if (pmat.getTuple(tripleTuple)) {
-						return BigDecimal.ZERO;
-					}
-
-					BigDecimal triple = blute.get(tripleTuple);
-					if (triple != null) {
-						math.mult(triple);
-					}
-				}
-			}
-
-			return math.get();
+			return confSpace.seqSpace.makeSequence(state.confSpace, conf);
 		}
 
 		boolean isSingleSequence(ConfIndex index) {
@@ -810,309 +904,8 @@ public class Sofea {
 			return true;
 		}
 
-		BigDecimalBounds boundZ(ConfIndex index, RCTuple tripleTuple, BigDecimal zpath) {
-
-			// get bounds on the size of this subtree (varying by sequence)
-			BigIntegerBounds count = boundLeavesPerSequence(index);
-
-			// short circuit if we know Z must be zero
-			if (count.upper.compareTo(BigInteger.ZERO) == 0) {
-				return null;
-			}
-
-			// get the upper bound
-			BigDecimal zmax = optimizeZ(index, tripleTuple, MathTools.Optimizer.Maximize);
-
-			// short circuit if needed
-			if (MathTools.isZero(zmax)) {
-				return null;
-			}
-
-			zmax = bigMath()
-				.set(zmax)
-				.mult(count.upper)
-				.mult(zpath)
-				.get();
-
-			// get the lower bound
-			BigDecimal zmin;
-			if (isSingleSequence(index)) {
-				zmin = bigMath()
-					.set(minimizeZ(index, tripleTuple))
-					.mult(zpath)
-					.get();
-			} else {
-				zmin = bigMath()
-					.set(optimizeZ(index, tripleTuple, MathTools.Optimizer.Minimize))
-					.mult(count.lower)
-					.mult(zpath)
-					.get();
-			}
-
-			return new BigDecimalBounds(zmin, zmax);
-		}
-
 		/** WARNING: naive brute force method, for testing small trees only */
-		BigDecimalBounds exactBoundZ(ConfIndex index, RCTuple tripleTuple) {
-
-			BigDecimalBounds[] opt = { null };
-
-			// NOTE: java has a hard time with recursive lambdas,
-			// so use an array to work around the compiler's limitations
-			@SuppressWarnings("unchecked")
-			Consumer<BigDecimal>[] f = (Consumer<BigDecimal>[])new Consumer[]{null};
-			f[0] = (zpath) -> {
-
-				// if this is a leaf node, update the Z optimization
-				if (index.isFullyDefined()) {
-					if (opt[0] == null) {
-						opt[0] = new BigDecimalBounds(zpath, zpath);
-					} else if (MathTools.isLessThan(zpath, opt[0].lower)) {
-						opt[0].lower = zpath;
-					} else if (MathTools.isGreaterThan(zpath, opt[0].upper)) {
-						opt[0].upper = zpath;
-					}
-					return;
-				}
-
-				// otherwise, recurse
-				int pos = index.numDefined;
-				for (int rc : rcs.get(pos)) {
-
-					BigDecimal zpathrc;
-					if (index.numDefined == 0) {
-						zpathrc = zpath;
-					} else {
-						zpathrc = bigMath()
-							.set(zpath)
-							.mult(getZPart(index, tripleTuple, pos, rc))
-							.get();
-					}
-
-					index.assignInPlace(pos, rc);
-					f[0].accept(zpathrc);
-					index.unassignInPlace(pos);
-				}
-			};
-			f[0].accept(BigDecimal.ONE);
-
-			return opt[0];
-		}
-
-		BigDecimal minimizeZ(ConfIndex index, RCTuple tripleTuple) {
-
-			// do DFS to get *any* leaf node
-			// but heuristically prefer leaf nodes with higher Z values
-			// so we get a higher min bound on the Z sum
-			// that requires sorting though, so for now we're just preferring non-zero Z values
-
-			// only returns a sound lower bound on the Z sum when the subtree describes only a single sequence
-
-			// assign the next position
-			int pos = index.undefinedPos[0];
-
-			for (int rc : rcs.get(pos)) {
-
-				// get the zpart
-				BigDecimal zpart;
-				if (index.numDefined == 0) {
-					zpart = BigDecimal.ONE;
-				} else {
-					zpart = getZPart(index, tripleTuple, pos, rc);
-				}
-
-				// heuristically prefer non-zero z values
-				if (MathTools.isZero(zpart)) {
-					continue;
-				}
-
-				if (index.numDefined < index.numPos - 1) {
-
-					// have positions left to assign, so recurse
-					index.assignInPlace(pos, rc);
-					BigDecimal zsub = minimizeZ(index, tripleTuple);
-					index.unassignInPlace(pos);
-
-					// heuristically prefer non-zero z values
-					if (MathTools.isZero(zsub)) {
-						continue;
-					}
-
-					// recursion reached a leaf node, return the z!
-					return bigMath()
-						.set(zpart)
-						.mult(zsub)
-						.get();
-
-				} else {
-
-					// we're already at a leaf node, just return the zpart
-					return zpart;
-				}
-			}
-
-			return BigDecimal.ZERO;
-		}
-
-		BigDecimal optimizeZ(ConfIndex index, RCTuple tripleTuple, MathTools.Optimizer opt) {
-
-			BigMath energy = bigMath().set(1.0);
-
-			// get the score for each undefined position
-			for (int i=0; i<index.numUndefined; i++) {
-				int pos1 = index.undefinedPos[i];
-
-				// optimize over possible assignments to pos1
-				BigDecimal pos1Energy = opt.initBigDecimal();
-				for (int rc1 : rcs.get(pos1)) {
-
-					BigMath rc1Energy = bigMath();
-					if (isPruned(index, tripleTuple, pos1, rc1)) {
-
-						// prune tuple, no contribution to Z
-						rc1Energy.set(0.0);
-
-					} else {
-
-						rc1Energy.set(1.0);
-
-						tripleTuple.pos.set(2, pos1);
-						tripleTuple.RCs.set(2, rc1);
-
-						// interactions with defined residues
-						for (int j=0; j<index.numDefined; j++) {
-							int pos2 = index.definedPos[j];
-							int rc2 = index.definedRCs[j];
-
-							tripleTuple.pos.set(1, pos2);
-							tripleTuple.RCs.set(1, rc2);
-
-							rc1Energy.mult(blute.get(pos1, rc1, pos2, rc2));
-
-							for (int k=0; k<j; k++) {
-								int pos3 = index.definedPos[k];
-								int rc3 = index.definedRCs[k];
-
-								// triples are optional
-								tripleTuple.pos.set(0, pos3);
-								tripleTuple.RCs.set(0, rc3);
-								BigDecimal triple = blute.get(tripleTuple);
-								if (triple != null) {
-									rc1Energy.mult(triple);
-								}
-							}
-						}
-
-						// interactions with undefined residues
-						for (int j=0; j<i; j++) {
-							int pos2 = index.undefinedPos[j];
-
-							tripleTuple.pos.set(1, pos2);
-
-							// optimize over possible assignments to pos2
-							BigDecimal optrc2Energy = opt.initBigDecimal();
-							for (int rc2 : rcs.get(pos2)) {
-
-								tripleTuple.RCs.set(1, rc2);
-
-								BigMath rc2Energy = bigMath();
-
-								if (pmat.getPairwise(pos1, rc1, pos2, rc2)) {
-
-									// prune tuple, no contribution to Z
-									rc2Energy.set(0.0);
-
-								} else {
-
-									// pair with pos2
-									rc2Energy.set(blute.get(pos1, rc1, pos2, rc2));
-
-									// triples with defined positions
-									for (int k=0; k<index.numDefined; k++) {
-										int pos3 = index.definedPos[k];
-										int rc3 = index.definedRCs[k];
-
-										// triples are optional
-										tripleTuple.pos.set(0, pos3);
-										tripleTuple.RCs.set(0, rc3);
-										BigDecimal triple = blute.get(tripleTuple);
-										if (triple != null) {
-											rc2Energy.mult(triple);
-										}
-									}
-
-									// triples with undefined positions
-									for (int k=0; k<j; k++) {
-										int pos3 = index.undefinedPos[k];
-										BigDecimal optrc3Energy = optrc3Energies.get(opt.ordinal()).getPairwise(pos1, rc1, pos2, rc2)[pos3];
-										if (MathTools.isFinite(optrc3Energy)) {
-											rc2Energy.mult(optrc3Energy);
-										}
-									}
-								}
-
-								optrc2Energy = opt.opt(optrc2Energy, rc2Energy.get());
-							}
-
-							rc1Energy.mult(optrc2Energy);
-						}
-					}
-
-					pos1Energy = opt.opt(pos1Energy, rc1Energy.get());
-				}
-
-				assert (MathTools.isFinite(pos1Energy));
-				energy.mult(pos1Energy);
-			}
-
-			return energy.get();
-		}
-
-		boolean isPruned(ConfIndex index, RCTuple tripleTuple, int pos1, int rc1) {
-
-			if (pmat.getOneBody(pos1, rc1)) {
-				return true;
-			}
-
-			tripleTuple.pos.set(2, pos1);
-			tripleTuple.RCs.set(2, rc1);
-
-			for (int i=0; i<index.numDefined; i++) {
-				int pos2 = index.definedPos[i];
-				int rc2 = index.definedRCs[i];
-
-				if (pmat.getPairwise(pos1, rc1, pos2, rc2)) {
-					return true;
-				}
-
-				tripleTuple.pos.set(1, pos2);
-				tripleTuple.RCs.set(1, rc2);
-
-				for (int j=0; j<i; j++) {
-					int pos3 = index.definedPos[j];
-					int rc3 = index.definedRCs[j];
-
-					if (pmat.getPairwise(pos1, rc1, pos3, rc3)) {
-						return true;
-					}
-					if (pmat.getPairwise(pos2, rc2, pos3, rc3)) {
-						return true;
-					}
-
-					tripleTuple.pos.set(0, pos3);
-					tripleTuple.RCs.set(0, rc3);
-
-					if (pmat.getTuple(tripleTuple)) {
-						return true;
-					}
-				}
-			}
-
-			return false;
-		}
-
-		/** WARNING: naive brute force method, for testing small trees only */
-		Map<Sequence,BigInteger> countLeavesBySequence(ConfIndex index) {
+		Map<Sequence,BigInteger> calcNumLeavesBySequence(ConfIndex index) {
 
 			Map<Sequence,BigInteger> out = new HashMap<>();
 
@@ -1134,7 +927,7 @@ public class Sofea {
 				}
 
 				// otherwise, recurse
-				int pos = index.numDefined;
+				int pos = posPermutation[index.numDefined];
 				for (int rc : rcs.get(pos)) {
 					index.assignInPlace(pos, rc);
 					f[0].run();
@@ -1146,14 +939,13 @@ public class Sofea {
 			return out;
 		}
 
-		BigIntegerBounds boundLeavesPerSequence(ConfIndex index) {
+		BigInteger calcNumLeavesUpperBySequence(ConfIndex index, RCs rcs) {
 
-			BigIntegerBounds count = new BigIntegerBounds(BigInteger.ONE, BigInteger.ONE);
+			BigInteger count = BigInteger.ONE;
 
 			for (int i=0; i<index.numUndefined; i++) {
 				int pos = index.undefinedPos[i];
 
-				int minCount = Integer.MAX_VALUE;
 				int maxCount = 0;
 
 				int numRts = numRtsByPos[pos];
@@ -1163,86 +955,264 @@ public class Sofea {
 					int[] counts = new int[numRts];
 					for (int rc : rcs.get(pos)) {
 						int rtCount = ++counts[rtsByRcByPos[pos][rc]];
-						minCount = Math.min(minCount, rtCount);
 						maxCount = Math.max(maxCount, rtCount);
 					}
 
 				} else {
 
 					// all RCs are the same RT
-					minCount = rcs.getNum(pos);
-					maxCount = minCount;
+					maxCount = rcs.getNum(pos);
 				}
 
-				count.lower = count.lower.multiply(BigInteger.valueOf(minCount));
-				count.upper = count.upper.multiply(BigInteger.valueOf(maxCount));
+				count = count.multiply(BigInteger.valueOf(maxCount));
 			}
 
 			return count;
 		}
 
-		BigDecimal calcZ() {
-			ConfIndex index = makeConfIndex();
-			return calcZ(index, rcs, blute.factor);
+		BigDecimal calcZSumUpper(ConfIndex index, RCs rcs) {
+			return bigMath()
+				.set(calcZPathHeadUpper(index))
+				.mult(calcZPathTailUpper(index, rcs))
+				.mult(calcNumLeavesUpperBySequence(index, rcs))
+				.get();
 		}
 
-		BigDecimal calcZ(Sequence seq) {
-			ConfIndex index = makeConfIndex();
-			RCs rcs = seq.makeRCs(state.confSpace);
-			return calcZ(index, rcs, blute.factor);
+		BigDecimal calcZPathUpper(ConfIndex index, RCs rcs) {
+			return bigMath()
+				.set(calcZPathHeadUpper(index))
+				.mult(calcZPathTailUpper(index, rcs))
+				.get();
 		}
 
-		BigDecimal calcZ(ConfIndex index, RCs rcs, BigDecimal rootFactor) {
+		BigDecimal calcZPathHeadUpper(ConfIndex index) {
 
-			// cannot work on leaf nodes
-			assert (index.numDefined < index.numPos);
+			BigMath z = bigMath().set(1.0);
 
-			BigDecimal z = BigDecimal.ZERO;
+			// multiply all the singles and pairs
+			for (int i1=0; i1<index.numDefined; i1++) {
+				int pos1 = index.definedPos[i1];
+				int rc1 = index.definedRCs[i1];
 
-			// OPTIMIZATION: allocate one RCTuple instance for all the triple lookups
-			// and set positions in 3-2-1 order so the positions are sorted in ascending order
-			RCTuple tripleTuple = new RCTuple(0, 0, 0, 0, 0, 0);
+				z.mult(zmat.getOneBody(pos1, rc1));
 
-			// pick the next pos to assign
-			int pos = index.numDefined;
+				for (int i2=0; i2<i1; i2++) {
+					int pos2 = index.definedPos[i2];
+					int rc2 = index.definedRCs[i2];
 
-			for (int rc : rcs.get(pos)) {
-
-				// get the zpart
-				BigDecimal zpart;
-				if (index.numDefined == 0) {
-					zpart = rootFactor;
-				} else {
-					zpart = getZPart(index, tripleTuple, pos, rc);
-				}
-
-				// short circuit for efficiency
-				if (MathTools.isZero(zpart)) {
-					continue;
-				}
-
-				if (index.numDefined < index.numPos - 1) {
-
-					// have positions left to assign, so recurse
-					index.assignInPlace(pos, rc);
-					z = bigMath()
-						.set(calcZ(index, rcs, rootFactor))
-						.mult(zpart)
-						.add(z)
-						.get();
-					index.unassignInPlace(pos);
-
-				} else {
-
-					// all positions assigned, just add the zpart
-					z = bigMath()
-						.set(zpart)
-						.add(z)
-						.get();
+					z.mult(zmat.getPairwise(pos1, rc1, pos2, rc2));
 				}
 			}
 
-			return z;
+			// multiply the higher order corrections if needed
+			zmat.forEachHigherOrderTupleIn(index, (tuple, tupleZ) -> {
+				z.mult(tupleZ);
+			});
+
+			return z.get();
+		}
+
+		BigDecimal calcZPathNodeUpper(ConfIndex index, int pos1, int rc1) {
+
+			// start with the single
+			BigMath z = bigMath().set(zmat.getOneBody(pos1, rc1));
+
+			// multiply all the pairs
+			for (int i=0; i<index.numDefined; i++) {
+				int pos2 = index.definedPos[i];
+				int rc2 = index.definedRCs[i];
+
+				z.mult(zmat.getPairwise(pos1, rc1, pos2, rc2));
+			}
+
+			// multiply the higher order corrections if needed
+			// NOTE: can't use forEachHigherOrderTupleIn(index) since it will count corrections in the path head
+			if (zmat.hasHigherOrderTuples()) {
+				// NOTE: set tuple positions in revese order, so they're already sorted by position
+				RCTuple triple = new RCTuple(0, 0, 0, 0, pos1, rc1);
+				for (int i2=0; i2<index.numDefined; i2++) {
+					triple.pos.set(1, index.definedPos[i2]);
+					triple.RCs.set(1, index.definedRCs[i2]);
+					for (int i3=0; i3<i2; i3++) {
+						triple.pos.set(0, index.definedPos[i3]);
+						triple.RCs.set(0, index.definedRCs[i3]);
+						BigDecimal correction = zmat.getTuple(triple);
+						if (correction != null) {
+							z.mult(correction);
+						}
+					}
+				}
+			}
+
+			return z.get();
+		}
+
+		BigDecimal calcZPathTailUpper(ConfIndex index, RCs rcs) {
+
+			// TODO: use higher-order corrections?
+
+			// this is the usual A* heuristic
+
+			MathTools.Optimizer opt = MathTools.Optimizer.Maximize;
+			BigMath z = bigMath().set(1.0);
+
+			// for each undefined position
+			for (int i=0; i<index.numUndefined; i++) {
+				int pos1 = index.undefinedPos[i];
+
+				// optimize over possible assignments to pos1
+				BigDecimal zpos1 = opt.initBigDecimal();
+				for (int rc1 : rcs.get(pos1)) {
+
+					BigMath zrc1 = bigMath().set(zmat.getOneBody(pos1, rc1));
+
+					// interactions with defined residues
+					for (int j=0; j<index.numDefined; j++) {
+						int pos2 = index.definedPos[j];
+						int rc2 = index.definedRCs[j];
+
+						zrc1.mult(zmat.getPairwise(pos1, rc1, pos2, rc2));
+					}
+
+					// interactions with undefined residues
+					for (int j=0; j<i; j++) {
+						int pos2 = index.undefinedPos[j];
+
+						// optimize over possible assignments to pos2
+						// TODO: make this a look-up table?
+						BigDecimal optzrc2 = opt.initBigDecimal();
+						for (int rc2 : rcs.get(pos2)) {
+
+							// pair with pos2
+							BigDecimal zrc2 = zmat.getPairwise(pos1, rc1, pos2, rc2);
+
+							optzrc2 = opt.opt(optzrc2, zrc2);
+						}
+
+						zrc1.mult(optzrc2);
+					}
+
+					zpos1 = opt.opt(zpos1, zrc1.get());
+				}
+
+				assert (MathTools.isFinite(zpos1));
+				z.mult(zpos1);
+			}
+
+			return z.get();
+		}
+
+		BigInteger countLeafNodes(ConfIndex index, RCs rcs) {
+
+			BigInteger count = BigInteger.ONE;
+
+			for (int i=0; i<index.numUndefined; i++) {
+				int pos = index.undefinedPos[i];
+				count = count.multiply(BigInteger.valueOf(rcs.getNum(pos)));
+			}
+
+			return count;
+		}
+
+		void greedilyAssignConf(ConfIndex index, RCs rcs) {
+
+			// get to any leaf node and compute the subtree part of its zPath
+
+			int numUnassigned = index.numUndefined;
+
+			// assign each unassigned position greedily
+			for (int i=0; i<numUnassigned; i++) {
+
+				int pos = posPermutation[index.numDefined];
+
+				// find the RC with the biggest zPathComponent
+				int bestRC = -1;
+				BigDecimal bestZPathNodeUpper = MathTools.BigNegativeInfinity;
+				for (int rc : rcs.get(pos)) {
+
+					BigDecimal zPathNodeUpper = calcZPathNodeUpper(index, pos, rc);
+					if (MathTools.isGreaterThan(zPathNodeUpper, bestZPathNodeUpper)) {
+						bestZPathNodeUpper = zPathNodeUpper;
+						bestRC = rc;
+					}
+				}
+
+				// make the assignment
+				index.assignInPlace(pos, bestRC);
+			}
+		}
+
+		void unassignConf(ConfIndex index, int numAssigned) {
+
+			// undo all the assignments in the reverse order they were assigned
+			for (int i=index.numPos-1; i>=numAssigned; i--) {
+				index.unassignInPlace(posPermutation[i]);
+			}
+		}
+
+		BigDecimal calcZPathHeadUpperTighter(ConfIndex index, ConfDB.ConfTable confTable) {
+			RCTuple tuple = new RCTuple(index);
+			ResidueInteractions inters = confEcalc.makeTupleInters(tuple);
+			double e = confEcalc.calcEnergy(tuple, inters, confTable);
+			return bcalc.calcPrecise(e);
+		}
+
+		BigDecimal calcZPath(ConfIndex index, ConfDB.ConfTable confTable) {
+
+			if (!index.isFullyDefined()) {
+				throw new IllegalArgumentException("not a full conf");
+			}
+
+			double e = confEcalc.calcEnergy(new RCTuple(index), confTable);
+			return bcalc.calcPrecise(e);
+		}
+
+		/** a reminder to myself this this is a bad idea */
+		@Deprecated
+		BigDecimal calcZPathHead(ConfIndex index, ConfDB.ConfTable confTable) {
+			throw new Error("stop trying to do this! There's no such thing!");
+		}
+
+		/** WARNING: naive brute force method, for testing small trees only */
+		BigDecimal calcZSum(ConfIndex index, RCs rcs, ConfDB.ConfTable confTable) {
+
+			// base case, compute the conf energy
+			if (index.isFullyDefined()) {
+				double e = confEcalc.calcEnergy(new RCTuple(index), confTable);
+				return bcalc.calcPrecise(e);
+			}
+
+			// otherwise, recurse
+			BigMath m = bigMath().set(0.0);
+			int pos = posPermutation[index.numDefined];
+			for (int rc : rcs.get(pos)) {
+				index.assignInPlace(pos, rc);
+				m.add(calcZSum(index, rcs, confTable));
+				index.unassignInPlace(pos);
+			}
+			return m.get();
+		}
+
+		/** WARNING: naive brute force method, for testing small trees only */
+		BigDecimalBounds calcZPathBoundsExact(ConfIndex index, RCs rcs, ConfDB.ConfTable confTable) {
+
+			// base case, compute the conf energy
+			if (index.isFullyDefined()) {
+				return new BigDecimalBounds(calcZPath(index, confTable));
+			}
+
+			// otherwise, recurse
+			BigMath mlo = bigMath();
+			BigMath mhi = bigMath();
+			int pos = posPermutation[index.numDefined];
+			for (int rc : rcs.get(pos)) {
+				index.assignInPlace(pos, rc);
+				BigDecimalBounds sub = calcZPathBoundsExact(index, rcs, confTable);
+				mlo.minOrSet(sub.lower);
+				mhi.maxOrSet(sub.upper);
+				index.unassignInPlace(pos);
+			}
+			return new BigDecimalBounds(mlo.get(), mhi.get());
 		}
 	}
 }

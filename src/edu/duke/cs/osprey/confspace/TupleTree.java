@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.confspace;
 
 
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.tools.UnpossibleError;
 
 import java.io.Serializable;
@@ -272,7 +273,13 @@ public class TupleTree<T> implements Serializable {
 		}
 	}
 
+	public void forEachIn(ConfIndex index, BiConsumer<RCTuple,T> callback) {
+		// TODO: optimize?
+		forEachIn(Conf.make(index), callback);
+	}
+
 	// TODO: make an iterator instead of writing to a list?
+	// TODO: make a forEach style callback?
 
 	public List<RCTuple> makeTuplesList() {
 		List<RCTuple> tuples = new ArrayList<>();

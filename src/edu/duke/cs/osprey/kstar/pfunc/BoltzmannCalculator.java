@@ -42,6 +42,8 @@ import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 
+import static edu.duke.cs.osprey.tools.Log.log;
+
 
 public class BoltzmannCalculator {
 
@@ -75,7 +77,25 @@ public class BoltzmannCalculator {
 		} else if (e == Double.POSITIVE_INFINITY) {
 			return MathTools.BigPositiveInfinity;
 		} else {
-			return BigDecimalMath.exp(new BigDecimal(e), mathContext);
+
+			// if the energy is too large, just return 0
+			// NOTE: this logic checks the exact conditions in BigDecimalMath.exp() that triggers an overflow exception
+			BigDecimal d = new BigDecimal(e);
+			BigDecimal i = BigDecimalMath.integralPart(d);
+			if (i.signum() != 0) {
+				long num = i.longValueExact();
+				if ((int)num != num) {
+					if (e > 0) {
+						//log("WARN: assuming exp of huge positive value (%.2e) is just +inf", e);
+						return MathTools.BigPositiveInfinity;
+					} else {
+						//log("WARN: assuming exp of huge negative value (%.2e) is just 0", e);
+						return BigDecimal.ZERO;
+					}
+				}
+			}
+
+			return BigDecimalMath.exp(d, mathContext);
 		}
 	}
 
@@ -99,11 +119,18 @@ public class BoltzmannCalculator {
 		} else if (z == MathTools.BigPositiveInfinity) {
 			return Double.POSITIVE_INFINITY;
 		} else {
+
+			// HACKHACK: values with really huge exponents take forever to calculate
+			// if the exponent is too big, just cheat and say the answer is inf
+			if (z.scale() > 10000) {
+				log("WARN: assuming ln of tiny value (%.2e) is just -inf", z);
+				return Double.NEGATIVE_INFINITY;
+			} else if (z.scale() < -10000) {
+				log("WARN: assuming ln of huge value (%.2e) is just +inf", z);
+				return Double.POSITIVE_INFINITY;
+			}
+
 			return BigDecimalMath.log(z, mathContext).doubleValue();
 		}
-	}
-
-	public double ln1p(BigDecimal z) {
-		return ln(z.add(BigDecimal.ONE));
 	}
 }

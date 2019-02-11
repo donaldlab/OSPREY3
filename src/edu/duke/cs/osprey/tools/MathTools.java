@@ -240,6 +240,10 @@ public class MathTools {
 		return new BigDecimal(val);
 	}
 
+	public static BigDecimalBounds biggen(double lower, double upper) {
+		return new BigDecimalBounds(biggen(lower), biggen(upper));
+	}
+
 	public static int compare(BigDecimal a, BigDecimal b) {
 		// a < b => -1
 		// a == b => 0
@@ -487,7 +491,16 @@ public class MathTools {
 					return BigPositiveInfinity;
 				}
 			} else {
-				return a.multiply(b, context);
+				try {
+					return a.multiply(b, context);
+				} catch (ArithmeticException ex) {
+					if (ex.getMessage().equals("Underflow")) {
+						//log("WARN: multiplication underflows. Assuming %.4e * %.4e is just 0", a, b);
+						return BigDecimal.ZERO;
+					} else {
+						throw ex;
+					}
+				}
 			}
 		}
 	}
@@ -764,6 +777,18 @@ public class MathTools {
 			return upper - lower;
 		}
 
+		public boolean isValid() {
+			return lower <= upper;
+		}
+
+		public boolean contains(double val) {
+			return val >= lower && val <= upper;
+		}
+
+		public boolean contains(DoubleBounds val) {
+			return val.lower >= this.lower && val.upper <= this.upper;
+		}
+
 		@Override
 		public int hashCode() {
 			return HashCalculator.combineHashes(
@@ -815,23 +840,33 @@ public class MathTools {
 			this.upper = upper;
 		}
 
+		public BigDecimalBounds(BigDecimal val) {
+			this(val, val);
+		}
+
 		public BigDecimalBounds(double lower, double upper) {
 			this(biggen(lower), biggen(upper));
 		}
 
-		public double delta(MathContext mathContext) {
+		public BigDecimal size(MathContext mathContext) {
 			return new BigMath(mathContext)
 				.set(upper)
 				.sub(lower)
-				.div(upper)
-				.get()
-				.doubleValue();
+				.get();
 		}
 
-		public double delta() {
-			double l = lower.doubleValue();
-			double u = upper.doubleValue();
-			return (u - l)/u;
+		public boolean isValid() {
+			return MathTools.isGreaterThanOrEqual(upper, lower);
+		}
+
+		public boolean contains(BigDecimal d) {
+			return MathTools.isGreaterThanOrEqual(d, lower)
+				&& MathTools.isLessThanOrEqual(d, upper);
+		}
+
+		public boolean contains(BigDecimalBounds d) {
+			return MathTools.isGreaterThanOrEqual(d.lower, lower)
+				&& MathTools.isLessThanOrEqual(d.upper, upper);
 		}
 
 		@Override

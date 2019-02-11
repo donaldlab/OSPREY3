@@ -1,32 +1,31 @@
 package edu.duke.cs.osprey.sofea;
 
-import static edu.duke.cs.osprey.tools.Log.logf;
-import static edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
-
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.lute.*;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.*;
+import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
+import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 
 import java.io.File;
 import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
 import java.util.*;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -36,6 +35,9 @@ public class SofeaLab {
 	public static void main(String[] args) {
 
 		ForcefieldParams ffparams = new ForcefieldParams();
+		boolean recalc = false;
+		File tempDir = new File("/tmp/sofeaLab");
+		tempDir.mkdirs();
 
 		// use the new templates, cuz why not
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld)
@@ -43,26 +45,24 @@ public class SofeaLab {
 			.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
 			.build();
 
-		boolean recalc = false;
-
 		// define design flexibility [68,73]
 		Map<String,List<String>> designFlex = new HashMap<>();
 		// unavoidable clash at A68. don't use ARG, or sub something smaller
-		//designFlex.put("A68", Arrays.asList(Strand.WildType /* arg */));
-		designFlex.put("A69", Arrays.asList(Strand.WildType /* ser */, "THR", "LEU", "ILE", "VAL", "ALA", "GLY", "CYS"));
-		designFlex.put("A70", Arrays.asList(Strand.WildType /* gly */, "ALA", "VAL", "LEU", "ILE", "CYS"));
-		designFlex.put("A71", Arrays.asList(Strand.WildType /* lys */));
-		designFlex.put("A72", Arrays.asList(Strand.WildType /* gln */));
-		designFlex.put("A73", Arrays.asList(Strand.WildType /* leu */));
+		//designFlex.put("A68", Arrays.asList(Strand.WildType /* arg=34 */));
+		//designFlex.put("A69", Arrays.asList(Strand.WildType /* ser=18 *//*, "THR", "LEU", "ILE", "VAL", "ALA", "GLY", "CYS"*/));
+		designFlex.put("A70", Arrays.asList(Strand.WildType /* gly=1 *//*, "ALA", "VAL", "LEU", "ILE", "CYS"*/));
+		//designFlex.put("A71", Arrays.asList(Strand.WildType /* lys=27 */));
+		//designFlex.put("A72", Arrays.asList(Strand.WildType /* gln=9 */));
+		designFlex.put("A73", Arrays.asList(Strand.WildType /* leu=5 */));
 
 		// define target flexibility [5,10]
 		List<String> targetFlex = Arrays.asList(
-			"A5", // lys
-			"A6", // hie
-			"A7", // tyr
-			"A8", // gln
-			"A9", // phe
-			"A10" // asn
+			"A5", // lys=27
+			"A6", // hie=8
+			"A7", // tyr=8
+			"A8", // gln=9
+			"A9", // phe=4
+			"A10" // asn=7
 		);
 
 		// build strands
@@ -89,272 +89,243 @@ public class SofeaLab {
 		}
 
 		// make a multi-state conf space
+		Function<List<Strand>,SimpleConfSpace> makeConfSpace = (strands) ->
+			new SimpleConfSpace.Builder().addStrands(strands)
+				.setShellDistance(6.0)
+				.build();
 		MultiStateConfSpace confSpace = new MultiStateConfSpace
-			.Builder("design", new SimpleConfSpace.Builder().addStrands(design).build())
-			.addMutableState("complex", new SimpleConfSpace.Builder().addStrands(design, target).build())
-			.addUnmutableState("target", new SimpleConfSpace.Builder().addStrands(target).build())
+			.Builder("complex", makeConfSpace.apply(Arrays.asList(design, target)))
+			// TEMP: just complex state for now
+			//.addMutableState("design", makeConfSpace.apply(Arrays.asList(design)))
+			//.addUnmutableState("target", makeConfSpace.apply(Arrays.asList(target)))
 			.build();
 
 		log("seq space: %s", confSpace.seqSpace);
 
-		Sofea sofea;
+		BiFunction<SimpleConfSpace,EnergyCalculator,ConfEnergyCalculator> makeConfEcalc = (simpleConfSpace, ecalc) ->
+			new ConfEnergyCalculator.Builder(simpleConfSpace, ecalc)
+				//.setEnergyPartition(EnergyPartition.Traditional) // waiting for emats is boring...
+				.setEnergyPartition(EnergyPartition.AllOnPairs) // use the tighter lower bounds
+				.build();
+
+		File seqdbFile = new File(tempDir, "sofea.seqdb");
+		File fringedbFile = new File(tempDir, "sofea.fringedb");
+		File pfuncConfDBFile = new File(tempDir, "pfunc.confdb");
+		if (recalc) {
+			seqdbFile.delete();
+			fringedbFile.delete();
+			pfuncConfDBFile.delete();
+		}
+
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
-			// TEMP
-			.setParallelism(Parallelism.makeCpu(2))
-			//.setParallelism(Parallelism.makeCpu(16))
+			//.setParallelism(Parallelism.makeCpu(4))
+			.setParallelism(Parallelism.makeCpu(1)) // TEMP: single-threaded for now
 			.build()) {
 
-			sofea = new Sofea.Builder(confSpace)
-				.setFringeDBMiB(100)
-				.setParallelism(ecalc.parallelism)
+			Sofea sofea = new Sofea.Builder(confSpace)
+				.setSweepIncrement(1)
+				.setSeqDBFile(seqdbFile)
+				.setFringeDBFile(fringedbFile)
+				.setFringeDBMiB(16)
 				.configEachState(state -> {
 
-					File ematFile = new File(String.format("sofea.%s.emat", state.name));
-					File pmatFile = new File(String.format("sofea.%s.pmat", state.name));
-					File luteFile = new File(String.format("sofea.%s.lute", state.name));
+					File ematFile = new File(tempDir, String.format("sofea.%s.emat", state.name));
+					File confdbFile = new File(tempDir, String.format("sofea.%s.confdb", state.name));
 					if (recalc) {
 						ematFile.delete();
-						pmatFile.delete();
-						luteFile.delete();
+						confdbFile.delete();
 					}
 
-					ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(state.confSpace, ecalc).build();
-					EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-						.setCacheFile(ematFile)
-						.build()
-						.calcEnergyMatrix();
-					PruningMatrix pmat = new SimpleDEE.Runner()
-						.setCacheFile(pmatFile)
-						.setParallelism(ecalc.parallelism)
-						.setThreshold(100.0)
-						.setGoldsteinDiffThreshold(50.0)
-						.setSinglesPlugThreshold(0.6)
-						.setPairsPlugThreshold(0.6)
-						//.setTriplesPlugThreshold(0.6)
-						.setTransitivePruning(true)
-						.setShowProgress(true)
-						.run(state.confSpace, emat);
+					// always compute emats with all available speed
+					EnergyMatrix emat;
+					try (EnergyCalculator fastEcalc = new EnergyCalculator.Builder(confSpace, ffparams)
+						.setParallelism(Parallelism.makeCpu(4))
+						.build()) {
 
-					// do LUTE stuff
-					LUTEState luteState;
-					if (luteFile.exists()) {
-						luteState = LUTEIO.read(luteFile);
-						log("read LUTE state from file: %s", luteFile.getAbsolutePath());
-					} else {
-						try (ConfDB confdb = new ConfDB(state.confSpace)) {
-							ConfDB.ConfTable confTable = confdb.new ConfTable("lute");
-
-							final int randomSeed = 12345;
-							final LUTE.Fitter fitter = LUTE.Fitter.OLSCG;
-							final double maxOverfittingScore = 1.5;
-							final double maxRMSE = 0.1;
-
-							// compute LUTE fit
-							LUTE lute = new LUTE(state.confSpace);
-							ConfSampler sampler = new RandomizedDFSConfSampler(state.confSpace, pmat, randomSeed);
-							lute.sampleTuplesAndFit(confEcalc, emat, pmat, confTable, sampler, fitter, maxOverfittingScore, maxRMSE);
-							lute.reportConfSpaceSize(pmat);
-
-							luteState = new LUTEState(lute.getTrainingSystem());
-							LUTEIO.write(luteState, luteFile);
-							log("wrote LUTE state to file: %s", luteFile.getAbsolutePath());
-						}
+						ConfEnergyCalculator fastConfEcalc = makeConfEcalc.apply(state.confSpace, fastEcalc);
+						emat = new SimplerEnergyMatrixCalculator.Builder(fastConfEcalc)
+							.setCacheFile(ematFile)
+							.setTripleCorrectionThreshold(10.0) // TODO: how much does this help?
+							.build()
+							.calcEnergyMatrix();
 					}
 
-					return new Sofea.StateConfig(
-						new LUTEConfEnergyCalculator(state.confSpace, luteState),
-						pmat
-					);
+					ConfEnergyCalculator confEcalc = makeConfEcalc.apply(state.confSpace, ecalc);
+					return new Sofea.StateConfig(emat, confEcalc, confdbFile);
 				})
 				.build();
-		}
 
-		log("\n");
-
-		/* TEMP
-		// calc all sequence Z values
-		List<Sequence> seqs = new ArrayList<>();
-		seqs.add(confSpace.seqSpace.makeWildTypeSequence());
-		seqs.addAll(confSpace.seqSpace.getMutants());
-		for (Sequence seq : seqs) {
-			log("seq %s:", seq);
-			for (MultiStateConfSpace.State state : confSpace.states) {
-				//Sofea.StateConfig config = sofea.getConfig(state);
-				//RCs rcs = new RCs(seq.makeRCs(state.confSpace), config.pmat);
-				//BigDecimal z = bruteForcePfuncLuteAStar(config.luteEcalc, rcs);
-				BigDecimal z = sofea.calcZ(state, seq);
-				log("\t%10s  ln(Z) = %s", state.name, Log.formatBigLn(z));
+			/* TEMP: brute force the free energies for all sequences
+			for (Sequence seq : confSpace.seqSpace.getSequences()) {
+				log("%s", seq);
+				for (MultiStateConfSpace.State state : confSpace.states) {
+					BigDecimal z = sofea.calcZSum(seq, state);
+					double g = sofea.bcalc.freeEnergyPrecise(z);
+					log("\t%10s   z=%s  g=%.4f", state.name, Log.formatBigLn(z), g);
+				}
 			}
-		}
-		*/
+			*/
 
-		// use the usual affinity optimization objective function
-		MinLMFE criterion = new MinLMFE(
-			confSpace.lmfe()
+			/*
+			MultiStateConfSpace.LMFE lmfe = confSpace.lmfe()
 				.addPositive("complex")
 				.addNegative("design")
 				.addNegative("target")
-				.build(),
-			4,
-			new MathContext(16, RoundingMode.HALF_UP)
-		);
-		//
+				.build();
 
-		/* TEMP: just do the design state
-		MultiStateConfSpace confSpace = new MultiStateConfSpace
-			.Builder("design", new SimpleConfSpace.Builder().addStrands(design).build())
-			.build();
+			MinLMFE criterion = new MinLMFE(lmfe, 1);
 
-		MinLMFE criterion = new MinLMFE(
-			confSpace.lmfe()
-				.addPositive("design")
-				.build(),
-			10,
-			new MathContext(16, RoundingMode.HALF_UP)
-		);
-		*/
+			// do the design!
+			sofea.refine(criterion);
+			*/
 
-		/* TEMP: just do the complex state
-		MultiStateConfSpace confSpace = new MultiStateConfSpace
-			.Builder("complex", new SimpleConfSpace.Builder().addStrands(design, target).build())
-			.build();
 
-		MinLMFE criterion = new MinLMFE(
-			confSpace.lmfe()
-				.addPositive("complex")
-				.build(),
-			10,
-			new MathContext(16, RoundingMode.HALF_UP)
-		);
-		*/
+			Consumer<BigDecimalBounds> dumpZ = z -> {
+				DoubleBounds g = sofea.bcalc.freeEnergyPrecise(z);
+				log("ln(1+z) = %s  d=%9.4f", Log.formatBigLn(z), sofea.bigMath().set(z.upper).sub(z.lower).div(z.upper).get());
+				log("      g = %s  w=%9.4f", g.toString(4, 9), g.size());
+			};
 
-		// try SOFEA
-		Stopwatch sw = new Stopwatch().start();
-		sofea.init(true);
-		sofea.refine(criterion);
-		log("SOFEA:   %9s", sw.stop().getTime(2));
+			// compute the free energy of one sequence in the complex state
+			Sequence seq = confSpace.seqSpace.makeWildTypeSequence();
+			MultiStateConfSpace.State state = confSpace.getState("complex");
+			Sofea.StateConfig config = sofea.getConfig(state);
+			Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
 
-		// TEMP
-		//dump(sofea);
-		//dumpUnexploredSequences(sofea);
-		//dumpSequences(sofea);
-		try (SeqDB seqdb = sofea.openSeqDB()) {
-			criterion.makeResultDoc(seqdb, new File("sofea.md"));
-		}
-	}
-
-	private static BigDecimal bruteForcePfuncAStar(ConfEnergyCalculator confEcalc, EnergyMatrix emat, RCs rcs) {
-
-		BigMath sum = new BigMath(PartitionFunction.decimalPrecision);
-		sum.set(0.0);
-
-		BoltzmannCalculator bcalc = new BoltzmannCalculator(sum.context);
-
-		ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
-			.setTraditional()
-			.build();
-		while (true) {
-
-			ConfSearch.ScoredConf conf = astar.nextConf();
-			if (conf == null) {
-				break;
+			if (recalc) {
+				config.confDBFile.delete();
 			}
 
-			confEcalc.calcEnergyAsync(conf, (epmol) -> {
-				sum.add(bcalc.calcPrecise(epmol.getEnergy()));
-			});
-		}
+			final double epsilon = 0.14;
+			//final double epsilon = 0.0001;
 
-		return sum.get();
-	}
+			// using MARK*
+			if (false) {
 
-	private static BigDecimal bruteForcePfuncLuteAStar(LUTEConfEnergyCalculator luteEcalc, RCs rcs) {
+				File ematUpperFile = new File(tempDir, String.format("sofea.%s.emat.upper", state.name));
+				if (recalc) {
+					ematUpperFile.delete();
+				}
 
-		BigMath sum = new BigMath(PartitionFunction.decimalPrecision);
-		sum.set(0.0);
+				EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc)
+					.setIsMinimizing(false)
+					.build();
+				ConfEnergyCalculator rigidConfEcalc = makeConfEcalc.apply(state.confSpace, rigidEcalc);
+				EnergyMatrix ematUpper = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc)
+					.setCacheFile(ematUpperFile)
+					.build()
+					.calcEnergyMatrix();
 
-		BoltzmannCalculator bcalc = new BoltzmannCalculator(sum.context);
+				RCs rcs = seq.makeRCs(state.confSpace);
+				MARKStarBoundFastQueues pfunc = new MARKStarBoundFastQueues(
+					state.confSpace,
+					ematUpper,
+					config.emat,
+					config.confEcalc,
+					rcs,
+					config.confEcalc.ecalc.parallelism
+				);
+				pfunc.init(epsilon);
+				pfunc.setStabilityThreshold(null);
+				pfunc.setReportProgress(true);
+				pfunc.setCorrections(new UpdatingEnergyMatrix(state.confSpace, config.emat));
+				//pfunc.reduceMinimizations = true or false?
+				pfunc.stateName = state.name;
 
-		ConfAStarTree astar = new ConfAStarTree.Builder(null, rcs)
-			.setLUTE(luteEcalc)
-			.build();
-		for (ConfSearch.ScoredConf conf : astar.nextConfs(Double.POSITIVE_INFINITY)) {
-			sum.add(bcalc.calcPrecise(conf.getScore()));
-		}
+				Stopwatch sw = new Stopwatch().start();
+				pfunc.compute();
+				log("MARK* pfunc finished in %s", sw.stop().getTime(2));
 
-		return sum.get();
-	}
-
-	private static void dump(Sofea sofea) {
-
-		try (SeqDB seqdb = sofea.openSeqDB()) {
-
-			log("Seq DB:");
-			log("\tunsequenced state bounds:");
-			for (MultiStateConfSpace.State state : seqdb.confSpace.unsequencedStates) {
-				BigDecimalBounds z = seqdb.getUnsequencedBound(state);
-				Log.log("\t\t%10s=%s", state.name, Log.formatBigLn(z));
+				dumpZ.accept(new BigDecimalBounds(
+					pfunc.getValues().calcLowerBound(),
+					pfunc.getValues().calcUpperBound()
+				));
 			}
-			log("\tsequenced state sums:");
-			for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedSums()) {
-				Sequence seq = entry.getKey();
-				SeqDB.SeqInfo seqInfo = entry.getValue();
 
-				logf("\t\t");
-				for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
-					BigDecimalBounds bounds = seqInfo.z[state.sequencedIndex];
-					logf("%10s=%s   ", state.name, Log.formatBigLn(bounds));
+			try (ConfDB confdb = new ConfDB(state.confSpace, pfuncConfDBFile)) {
+				ConfDB.ConfTable confTable = confdb.new ConfTable("pfunc");
+
+				// using the gradient descent pfunc
+				if (true) {
+					GradientDescentPfunc pfunc = new GradientDescentPfunc(config.confEcalc);
+					RCs rcs = seq.makeRCs(state.confSpace);
+					ConfAStarTree astar = new ConfAStarTree.Builder(config.emat, rcs)
+						.setTraditional()
+						.build();
+					pfunc.init(astar, rcs.getNumConformations(), epsilon);
+					pfunc.setStabilityThreshold(null);
+					pfunc.setReportProgress(true);
+					pfunc.setConfTable(confTable);
+
+					Stopwatch sw = new Stopwatch().start();
+					pfunc.compute();
+					log("GD pfunc finished in %s", sw.stop().getTime(2));
+					log("\tnum minimizations: %d", pfunc.getNumConfsEvaluated());
+
+					log("\tZ upper = %s", pfunc.getValues().calcUpperBound());
+
+					dumpZ.accept(new BigDecimalBounds(
+						pfunc.getValues().calcLowerBound(),
+						pfunc.getValues().calcUpperBound()
+					));
 				}
-				log("[%s]", seq);
+
+				BigDecimal pfuncUpperBound = new BigDecimal("1.489779375480618714133411059887472011543144099753141485887679129E+129");
+
+				// use the confdb to find the "perfect" number of minimizations needed
+				if (true) {
+					int numConfs = 0;
+					BigMath m = sofea.bigMath().set(0);
+					for (ConfSearch.EnergiedConf econf : confTable.energiedConfs(ConfDB.SortOrder.Energy)) {
+
+						// TEMP: calculate the corrected score
+						BigDecimal zPathUpper = stateInfo.calcZPathUpper(Conf.index(econf.getAssignments()), stateInfo.rcs);
+						double correctedScore = sofea.bcalc.freeEnergyPrecise(zPathUpper);
+
+						m.add(sofea.bcalc.calcPrecise(econf.getEnergy()));
+						log("\tconf   %4d   [%32s]   energy=%9.3f   lower=%9.3f   gap=%7.3f   corrected=%9.3f   gap=%7.3f",
+							++numConfs,
+							Streams.joinToString(state.confSpace.positions, ", ", pos -> {
+								int rc = econf.getAssignments()[pos.index];
+								return pos.resConfs.get(rc).getRotamerCode();
+							}),
+							econf.getEnergy(), econf.getScore(), econf.getEnergy() - econf.getScore(),
+							correctedScore, econf.getEnergy() - correctedScore
+						);
+
+						// are we done yet?
+						double delta = sofea.bigMath().set(pfuncUpperBound).sub(m.get()).div(pfuncUpperBound).get().doubleValue();
+						if (delta <= epsilon) {
+							dumpZ.accept(new BigDecimalBounds(
+								m.get(),
+								pfuncUpperBound
+							));
+							log("\tnum minimizations: %d", numConfs);
+							break;
+						}
+					}
+				}
 			}
-		}
-	}
 
-	private static void dumpUnexploredSequences(Sofea sofea) {
+			// using SOFEA
+			if (true) {
 
-		try (SeqDB seqdb = sofea.openSeqDB()) {
+				MultiStateConfSpace.LMFE lmfe = confSpace.lmfe()
+					.addPositive("complex")
+					.build();
+				double lmfeEnergyWidth = 0.1;
+				SequenceLMFE criterion = new SequenceLMFE(seq, lmfe, lmfeEnergyWidth);
 
-			log("Seq DB: unexplored sequences:");
+				config.confEcalc.resetCounters();
+				sofea.init(true);
+				Stopwatch sw = new Stopwatch().start();
+				sofea.refine(criterion);
+				log("SOFEA finished in %s", sw.stop().getTime(2));
+				log("\tnum minimizations: %d", config.confEcalc.getNumRequests());
 
-			for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedBounds()) {
-
-				Sequence seq = entry.getKey();
-				SeqDB.SeqInfo seqInfo = entry.getValue();
-
-				if (seq.isFullyAssigned()) {
-					continue;
+				try (SeqDB seqdb = sofea.openSeqDB()) {
+					dumpZ.accept(seqdb.getSequencedZSumBounds(seq).get(state));
 				}
-
-				logf("\t");
-				for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
-					logf("%10s=%s   ", state.name, Log.formatBigLn(seqInfo.z[state.sequencedIndex]));
-
-				}
-				log("[%s]", seq);
-			}
-		}
-	}
-
-	private static void dumpSequences(Sofea sofea) {
-
-		try (SeqDB seqdb = sofea.openSeqDB()) {
-
-			log("Seq DB: sequences:");
-			for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedBounds()) {
-
-				Sequence seq = entry.getKey();
-				SeqDB.SeqInfo seqInfo = entry.getValue();
-
-				if (!seq.isFullyAssigned()) {
-					continue;
-				}
-
-				logf("\t");
-				for (MultiStateConfSpace.State state : seqdb.confSpace.sequencedStates) {
-					BigDecimalBounds bounds = seqInfo.z[state.sequencedIndex];
-					logf("%10s=%s d=%.4f   ", state.name, Log.formatBigLn(bounds), bounds.delta(sofea.mathContext));
-				}
-				log("[%s]", seq);
 			}
 		}
 	}

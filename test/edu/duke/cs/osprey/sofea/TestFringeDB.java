@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.sofea;
 
+import static edu.duke.cs.osprey.tools.MathTools.biggen;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -9,8 +10,6 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.MathTools;
-import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -35,14 +34,14 @@ public class TestFringeDB {
 			try (FringeDB db = FringeDB.create(confSpace, file, 1024, mathContext)) {
 				assertThat(file.length(), is(1024L));
 				assertThat(db.getNumNodes(), is(0L));
-				assertThat(db.getCapacity(), is(21L));
+				assertThat(db.getCapacity(), is(50L));
 			}
 
 			// re-open the existing FringeDB
 			try (FringeDB db = FringeDB.open(confSpace, file)) {
 				assertThat(file.length(), is(1024L));
 				assertThat(db.getNumNodes(), is(0L));
-				assertThat(db.getCapacity(), is(21L));
+				assertThat(db.getCapacity(), is(50L));
 			}
 		}
 	}
@@ -55,45 +54,24 @@ public class TestFringeDB {
 		try (TempFile file = new TempFile("fringe.db")) {
 			try (FringeDB db = FringeDB.create(confSpace, file, 1024, mathContext)) {
 
-				assertThat(db.getZMax(confSpace.states.get(0)), is(nullValue()));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(nullValue()));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(nullValue()));
 
 				// add the root nodes
 				FringeDB.Transaction tx = db.transaction();
-				tx.writeRootNode(
-					confSpace.states.get(0),
-					new BigDecimalBounds(
-						MathTools.biggen(0.0),
-						MathTools.biggen(1024.5)
-					),
-					MathTools.biggen(4.2)
-				);
-				tx.writeRootNode(
-					confSpace.states.get(1),
-					new BigDecimalBounds(
-						MathTools.biggen(5.2),
-						MathTools.biggen(10.4)
-					),
-					MathTools.biggen(1.3)
-				);
-				tx.writeRootNode(
-					confSpace.states.get(2),
-					new BigDecimalBounds(
-						MathTools.biggen(4.2),
-						MathTools.biggen(7.3)
-					),
-					MathTools.biggen(3.6)
-				);
+				tx.writeRootNode(confSpace.states.get(0), biggen(1024.5));
+				tx.writeRootNode(confSpace.states.get(1), biggen(10.4));
+				tx.writeRootNode(confSpace.states.get(2), biggen(7.3));
 
 				assertThat(tx.dbHasRoomForCommit(), is(true));
 				tx.commit();
 				db.finishSweep();
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(MathTools.biggen(1024.5)));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(MathTools.biggen(7.3)));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(biggen(7.3)));
 				assertThat(db.getNumNodes(), is(3L));
 
 				// do a sweep and consume all the nodes
@@ -104,39 +82,27 @@ public class TestFringeDB {
 				assertThat(tx.numNodesToRead(), is(2L));
 				assertThat(tx.state().index, is(0));
 				assertThat(tx.conf(), is(conf(-1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(0.0),
-					MathTools.biggen(1024.5)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(4.2)));
+				assertThat(tx.zSumUpper(), is(biggen(1024.5)));
 
 				tx.readNode();
 				assertThat(tx.numNodesToRead(), is(1L));
 				assertThat(tx.state().index, is(1));
 				assertThat(tx.conf(), is(conf(-1, -1, -1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(5.2),
-					MathTools.biggen(10.4)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(1.3)));
+				assertThat(tx.zSumUpper(), is(biggen(10.4)));
 
 				tx.readNode();
 				assertThat(tx.numNodesToRead(), is(0L));
 				assertThat(tx.state().index, is(2));
 				assertThat(tx.conf(), is(conf(-1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(4.2),
-					MathTools.biggen(7.3)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(3.6)));
+				assertThat(tx.zSumUpper(), is(biggen(7.3)));
 
 				tx.commit();
 				db.finishSweep();
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(nullValue()));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(nullValue()));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(nullValue()));
 				assertThat(db.getNumNodes(), is(0L));
 			}
 		}
@@ -150,45 +116,24 @@ public class TestFringeDB {
 		try (TempFile file = new TempFile("fringe.db")) {
 			try (FringeDB db = FringeDB.create(confSpace, file, 1024, mathContext)) {
 
-				assertThat(db.getZMax(confSpace.states.get(0)), is(nullValue()));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(nullValue()));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(nullValue()));
 
 				// add the root nodes
 				FringeDB.Transaction tx = db.transaction();
-				tx.writeRootNode(
-					confSpace.states.get(0),
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(0.0),
-						MathTools.biggen(1024.5)
-					),
-					MathTools.biggen(4.2)
-				);
-				tx.writeRootNode(
-					confSpace.states.get(1),
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(5.2),
-						MathTools.biggen(10.4)
-					),
-					MathTools.biggen(1.3)
-				);
-				tx.writeRootNode(
-					confSpace.states.get(2),
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(4.2),
-						MathTools.biggen(7.3)
-					),
-					MathTools.biggen(3.6)
-				);
+				tx.writeRootNode(confSpace.states.get(0), biggen(1024.5));
+				tx.writeRootNode(confSpace.states.get(1), biggen(10.4));
+				tx.writeRootNode(confSpace.states.get(2), biggen(7.3));
 
 				assertThat(tx.dbHasRoomForCommit(), is(true));
 				tx.commit();
 				db.finishSweep();
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(MathTools.biggen(1024.5)));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(MathTools.biggen(7.3)));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(biggen(7.3)));
 				assertThat(db.getNumNodes(), is(3L));
 
 				// do a sweep and keep all the nodes
@@ -197,40 +142,28 @@ public class TestFringeDB {
 				tx.readNode();
 				assertThat(tx.state().index, is(0));
 				assertThat(tx.conf(), is(conf(-1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(0.0),
-					MathTools.biggen(1024.5)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(4.2)));
-				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zbounds(), tx.zpath());
+				assertThat(tx.zSumUpper(), is(biggen(1024.5)));
+				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zSumUpper());
 
 				tx.readNode();
 				assertThat(tx.state().index, is(1));
 				assertThat(tx.conf(), is(conf(-1, -1, -1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(5.2),
-					MathTools.biggen(10.4)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(1.3)));
-				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zbounds(), tx.zpath());
+				assertThat(tx.zSumUpper(), is(biggen(10.4)));
+				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zSumUpper());
 
 				tx.readNode();
 				assertThat(tx.state().index, is(2));
 				assertThat(tx.conf(), is(conf(-1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(4.2),
-					MathTools.biggen(7.3)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(3.6)));
-				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zbounds(), tx.zpath());
+				assertThat(tx.zSumUpper(), is(biggen(7.3)));
+				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zSumUpper());
 
 				tx.commit();
 				db.finishSweep();
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(MathTools.biggen(1024.5)));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(MathTools.biggen(7.3)));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(biggen(7.3)));
 				assertThat(db.getNumNodes(), is(3L));
 			}
 		}
@@ -246,30 +179,9 @@ public class TestFringeDB {
 			// make a new DB with root nodes
 			try (FringeDB db = FringeDB.create(confSpace, file, 1024, mathContext)) {
 				FringeDB.Transaction tx = db.transaction();
-				tx.writeRootNode(
-					confSpace.states.get(0),
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(0.0),
-						MathTools.biggen(1024.5)
-					),
-					MathTools.biggen(4.2)
-				);
-				tx.writeRootNode(
-					confSpace.states.get(1),
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(5.2),
-						MathTools.biggen(10.4)
-					),
-					MathTools.biggen(1.3)
-				);
-				tx.writeRootNode(
-					confSpace.states.get(2),
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(4.2),
-						MathTools.biggen(7.3)
-					),
-					MathTools.biggen(3.6)
-				);
+				tx.writeRootNode(confSpace.states.get(0), biggen(1024.5));
+				tx.writeRootNode(confSpace.states.get(1), biggen(10.4));
+				tx.writeRootNode(confSpace.states.get(2), biggen(7.3));
 				tx.commit();
 				db.finishSweep();
 			}
@@ -278,9 +190,9 @@ public class TestFringeDB {
 			try (FringeDB db = FringeDB.open(confSpace, file)) {
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(MathTools.biggen(1024.5)));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(MathTools.biggen(7.3)));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(biggen(7.3)));
 				assertThat(db.getNumNodes(), is(3L));
 
 				FringeDB.Transaction tx = db.transaction();
@@ -288,45 +200,33 @@ public class TestFringeDB {
 				tx.readNode();
 				assertThat(tx.state().index, is(0));
 				assertThat(tx.conf(), is(conf(-1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(0.0),
-					MathTools.biggen(1024.5)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(4.2)));
+				assertThat(tx.zSumUpper(), is(biggen(1024.5)));
 
 				tx.readNode();
 				assertThat(tx.state().index, is(1));
 				assertThat(tx.conf(), is(conf(-1, -1, -1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(5.2),
-					MathTools.biggen(10.4)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(1.3)));
+				assertThat(tx.zSumUpper(), is(biggen(10.4)));
 
 				tx.readNode();
 				assertThat(tx.state().index, is(2));
 				assertThat(tx.conf(), is(conf(-1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(4.2),
-					MathTools.biggen(7.3)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(3.6)));
+				assertThat(tx.zSumUpper(), is(biggen(7.3)));
 
 				tx.commit();
 				db.finishSweep();
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(nullValue()));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(nullValue()));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(nullValue()));
 				assertThat(db.getNumNodes(), is(0L));
 			}
 
 			// we should have an empty DB again
 			try (FringeDB db = FringeDB.open(confSpace, file)) {
-				assertThat(db.getZMax(confSpace.states.get(0)), is(nullValue()));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(nullValue()));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(nullValue()));
 				assertThat(db.getNumNodes(), is(0L));
 			}
 		}
@@ -342,30 +242,9 @@ public class TestFringeDB {
 			// make a new DB with root nodes
 			try (FringeDB db = FringeDB.create(confSpace, file, 1024, mathContext)) {
 				FringeDB.Transaction tx = db.transaction();
-				tx.writeRootNode(
-					confSpace.states.get(0),
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(0.0),
-						MathTools.biggen(1024.5)
-					),
-					MathTools.biggen(4.2)
-				);
-				tx.writeRootNode(
-					confSpace.states.get(1),
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(5.2),
-						MathTools.biggen(10.4)
-					),
-					MathTools.biggen(1.3)
-				);
-				tx.writeRootNode(
-					confSpace.states.get(2),
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(4.2),
-						MathTools.biggen(7.3)
-					),
-					MathTools.biggen(3.6)
-				);
+				tx.writeRootNode(confSpace.states.get(0), biggen(1024.5));
+				tx.writeRootNode(confSpace.states.get(1), biggen(10.4));
+				tx.writeRootNode(confSpace.states.get(2), biggen(7.3));
 				tx.commit();
 				db.finishSweep();
 			}
@@ -374,9 +253,9 @@ public class TestFringeDB {
 			try (FringeDB db = FringeDB.open(confSpace, file)) {
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(MathTools.biggen(1024.5)));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(MathTools.biggen(7.3)));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(biggen(7.3)));
 				assertThat(db.getNumNodes(), is(3L));
 
 				FringeDB.Transaction tx = db.transaction();
@@ -385,19 +264,15 @@ public class TestFringeDB {
 				tx.readNode();
 				assertThat(tx.state().index, is(0));
 				assertThat(tx.conf(), is(conf(-1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(0.0),
-					MathTools.biggen(1024.5)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(4.2)));
+				assertThat(tx.zSumUpper(), is(biggen(1024.5)));
 				tx.commit();
 
 				assertThat(tx.numNodesToRead(), is(2L));
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(MathTools.biggen(1024.5)));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(MathTools.biggen(7.3)));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(biggen(7.3)));
 				assertThat(db.getNumNodes(), is(2L));
 			}
 
@@ -405,9 +280,9 @@ public class TestFringeDB {
 			try (FringeDB db = FringeDB.open(confSpace, file)) {
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(MathTools.biggen(1024.5)));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(MathTools.biggen(7.3)));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(biggen(7.3)));
 				assertThat(db.getNumNodes(), is(2L));
 
 				FringeDB.Transaction tx = db.transaction();
@@ -416,20 +291,16 @@ public class TestFringeDB {
 				tx.readNode();
 				assertThat(tx.state().index, is(1));
 				assertThat(tx.conf(), is(conf(-1, -1, -1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(5.2),
-					MathTools.biggen(10.4)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(1.3)));
-				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zbounds(), tx.zpath());
+				assertThat(tx.zSumUpper(), is(biggen(10.4)));
+				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zSumUpper());
 				tx.commit();
 
 				assertThat(tx.numNodesToRead(), is(1L));
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(MathTools.biggen(1024.5)));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(MathTools.biggen(7.3)));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(biggen(7.3)));
 				assertThat(db.getNumNodes(), is(2L));
 			}
 
@@ -437,9 +308,9 @@ public class TestFringeDB {
 			try (FringeDB db = FringeDB.open(confSpace, file)) {
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(MathTools.biggen(1024.5)));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(MathTools.biggen(7.3)));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(biggen(7.3)));
 				assertThat(db.getNumNodes(), is(2L));
 
 				FringeDB.Transaction tx = db.transaction();
@@ -448,19 +319,15 @@ public class TestFringeDB {
 				tx.readNode();
 				assertThat(tx.state().index, is(2));
 				assertThat(tx.conf(), is(conf(-1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(4.2),
-					MathTools.biggen(7.3)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(3.6)));
+				assertThat(tx.zSumUpper(), is(biggen(7.3)));
 				tx.commit();
 
 				assertThat(tx.numNodesToRead(), is(0L));
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(MathTools.biggen(1024.5)));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(MathTools.biggen(7.3)));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(biggen(7.3)));
 				assertThat(db.getNumNodes(), is(1L));
 			}
 
@@ -472,9 +339,9 @@ public class TestFringeDB {
 				db.finishSweep();
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(nullValue()));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(nullValue()));
 				assertThat(db.getNumNodes(), is(1L));
 			}
 
@@ -485,9 +352,9 @@ public class TestFringeDB {
 				assertThat(tx.numNodesToRead(), is(1L));
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(nullValue()));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(nullValue()));
 				assertThat(db.getNumNodes(), is(1L));
 			}
 		}
@@ -503,37 +370,16 @@ public class TestFringeDB {
 
 				// add the root nodes
 				FringeDB.Transaction tx = db.transaction();
-				tx.writeRootNode(
-					confSpace.states.get(0),
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(0.0),
-						MathTools.biggen(1024.5)
-					),
-					MathTools.biggen(4.2)
-				);
-				tx.writeRootNode(
-					confSpace.states.get(1),
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(5.2),
-						MathTools.biggen(10.4)
-					),
-					MathTools.biggen(1.3)
-				);
-				tx.writeRootNode(
-					confSpace.states.get(2),
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(4.2),
-						MathTools.biggen(7.3)
-					),
-					MathTools.biggen(3.6)
-				);
+				tx.writeRootNode(confSpace.states.get(0), biggen(1024.5));
+				tx.writeRootNode(confSpace.states.get(1), biggen(10.4));
+				tx.writeRootNode(confSpace.states.get(2), biggen(7.3));
 				tx.commit();
 				db.finishSweep();
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(MathTools.biggen(1024.5)));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(10.4)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(MathTools.biggen(7.3)));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(10.4)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(biggen(7.3)));
 				assertThat(db.getNumNodes(), is(3L));
 
 				// do a sweep and replace the roots with children
@@ -541,36 +387,12 @@ public class TestFringeDB {
 
 				tx.readNode();
 				assertThat(tx.state().index, is(0));
-				tx.writeReplacementNode(
-					tx.state(),
-					new int[] { 0, -1 },
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(10.4),
-						MathTools.biggen(35.2)
-					),
-					MathTools.biggen(19.9)
-				);
+				tx.writeReplacementNode(tx.state(), new int[] { 0, -1 }, biggen(35.2));
 
 				tx.readNode();
 				assertThat(tx.state().index, is(1));
-				tx.writeReplacementNode(
-					tx.state(),
-					new int[] { 1, -1 },
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(93.8),
-						MathTools.biggen(102.3)
-					),
-					MathTools.biggen(38.5)
-				);
-				tx.writeReplacementNode(
-					tx.state(),
-					new int[] { -1, 0 },
-					new MathTools.BigDecimalBounds(
-						MathTools.biggen(69.2),
-						MathTools.biggen(74.1)
-					),
-					MathTools.biggen(20.8)
-				);
+				tx.writeReplacementNode(tx.state(), new int[] { 1, -1 }, biggen(102.3));
+				tx.writeReplacementNode(tx.state(), new int[] { -1, 0 }, biggen(74.1));
 
 				tx.readNode();
 				assertThat(tx.state().index, is(2));
@@ -579,9 +401,9 @@ public class TestFringeDB {
 				db.finishSweep();
 
 				// check db state
-				assertThat(db.getZMax(confSpace.states.get(0)), is(MathTools.biggen(35.2)));
-				assertThat(db.getZMax(confSpace.states.get(1)), is(MathTools.biggen(102.3)));
-				assertThat(db.getZMax(confSpace.states.get(2)), is(nullValue()));
+				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(35.2)));
+				assertThat(db.getZSumMax(confSpace.states.get(1)), is(biggen(102.3)));
+				assertThat(db.getZSumMax(confSpace.states.get(2)), is(nullValue()));
 				assertThat(db.getNumNodes(), is(3L));
 
 				// sweep the children
@@ -590,29 +412,17 @@ public class TestFringeDB {
 				tx.readNode();
 				assertThat(tx.state().index, is(0));
 				assertThat(tx.conf(), is(conf(0, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(10.4),
-					MathTools.biggen(35.2)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(19.9)));
+				assertThat(tx.zSumUpper(), is(biggen(35.2)));
 
 				tx.readNode();
 				assertThat(tx.state().index, is(1));
 				assertThat(tx.conf(), is(conf(1, -1, -1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(93.8),
-					MathTools.biggen(102.3)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(38.5)));
+				assertThat(tx.zSumUpper(), is(biggen(102.3)));
 
 				tx.readNode();
 				assertThat(tx.state().index, is(1));
 				assertThat(tx.conf(), is(conf(-1, 0, -1, -1)));
-				assertThat(tx.zbounds(), is(new BigDecimalBounds(
-					MathTools.biggen(69.2),
-					MathTools.biggen(74.1)
-				)));
-				assertThat(tx.zpath(), is(MathTools.biggen(20.8)));
+				assertThat(tx.zSumUpper(), is(biggen(74.1)));
 
 				// TODO: NEXTTIME: make sure the confs agree
 			}
