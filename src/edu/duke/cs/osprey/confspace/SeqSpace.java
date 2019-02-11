@@ -315,6 +315,19 @@ public class SeqSpace implements Serializable {
 		return seq;
 	}
 
+	public Sequence makeSequence(SimpleConfSpace confSpace, int[] conf) {
+		Sequence seq = makeUnassignedSequence();
+		for (SimpleConfSpace.Position confPos : confSpace.positions) {
+			SeqSpace.Position seqPos = getPosition(confPos.resNum);
+			int rc = conf[confPos.index];
+			if (seqPos != null && rc != Conf.Unassigned) {
+				SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(rc);
+				seq.set(seqPos, resConf.template.name);
+			}
+		}
+		return seq;
+	}
+
 	public boolean hasMutants() {
 		for (Position pos : positions) {
 			if (pos.hasMutants()) {

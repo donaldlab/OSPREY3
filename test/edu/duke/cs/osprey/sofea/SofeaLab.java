@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.sofea;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -124,7 +123,7 @@ public class SofeaLab {
 			.build()) {
 
 			Sofea sofea = new Sofea.Builder(confSpace)
-				.setSweepDivisor(2.0) // TEMP: use a smaller divisor to get more sweep steps
+				.setSweepIncrement(1)
 				.setSeqDBFile(seqdbFile)
 				.setFringeDBFile(fringedbFile)
 				.setFringeDBMiB(16)
@@ -146,7 +145,7 @@ public class SofeaLab {
 						ConfEnergyCalculator fastConfEcalc = makeConfEcalc.apply(state.confSpace, fastEcalc);
 						emat = new SimplerEnergyMatrixCalculator.Builder(fastConfEcalc)
 							.setCacheFile(ematFile)
-							.setTripleCorrectionThreshold(0.0) // TODO: how much does this help?
+							.setTripleCorrectionThreshold(10.0) // TODO: how much does this help?
 							.build()
 							.calcEnergyMatrix();
 					}

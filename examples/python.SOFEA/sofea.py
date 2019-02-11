@@ -67,10 +67,7 @@ def config(state):
 			tripleCorrectionThreshold = 0.0
 		),
 
-		confEcalc = confEcalc,
-
-		# where to save the conformation database?
-		confdbPath = 'sofea.%s.confdb' % state.name
+		confEcalc = confEcalc
 	)
 
 # configure the SOFEA algorithm
@@ -103,6 +100,9 @@ criterion = osprey.SOFEA_MinLMFE(
 
 	# get the 2 sequences with the lowest LMFE
 	numSequences = 2,
+
+	# how precise do we want each free energy to be?
+	minFreeEnergyWidth = 0.1,
 
 	# free energy calculations require high-precision arithmetic
 	# copy the same Boltzmann calculator used by SOFEA itself

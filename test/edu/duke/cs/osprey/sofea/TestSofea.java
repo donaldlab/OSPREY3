@@ -154,7 +154,7 @@ public class TestSofea {
 	public void test_Stability1CC8Mut3_Traditional_MultiStepHiMem() {
 		stepUntilExhaustion(
 			Designs.Stability1CC8Mut3_Traditional.get(),
-			100.0,
+			5.0,
 			1024*1024,
 			TestSofea::assertResults_Stability1CC8Mut3_Traditional
 		);
@@ -163,8 +163,8 @@ public class TestSofea {
 	public void test_Stability1CC8Mut3_Traditional_MultiStepLoMem() {
 		stepUntilExhaustion(
 			Designs.Stability1CC8Mut3_Traditional.get(),
-			100.0,
-			200,
+			5.0,
+			1024,
 			TestSofea::assertResults_Stability1CC8Mut3_Traditional
 		);
 	}
@@ -222,7 +222,7 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex1_Traditional_MultiStepHiMem() {
 		stepUntilExhaustion(
 			Designs.Binding1CC8Mut2Flex1_Traditional.get(),
-			100.0,
+			5.0,
 			1024*1024,
 			TestSofea::assertResults_Binding1CC8Mut2Flex1_Traditional
 		);
@@ -231,8 +231,8 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex1_Traditional_MultiStepLoMem() {
 		stepUntilExhaustion(
 			Designs.Binding1CC8Mut2Flex1_Traditional.get(),
-			100.0,
-			4*1024,
+			5.0,
+			1024,
 			TestSofea::assertResults_Binding1CC8Mut2Flex1_Traditional
 		);
 	}
@@ -252,7 +252,7 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex2_Traditional_MultiStepHiMem() {
 		stepUntilAllStatesPrecise(
 			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
-			50.0,
+			5.0,
 			1024*1024,
 			TestSofea::assertResults_Binding1CC8Mut2Flex2_Traditional
 		);
@@ -261,7 +261,7 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex2_Traditional_MultiStepHiMem_2Threads() {
 		stepUntilAllStatesPrecise(
 			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
-			50.0,
+			5.0,
 			1024*1024,
 			2,
 			TestSofea::assertResults_Binding1CC8Mut2Flex2_Traditional
@@ -271,7 +271,7 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex2_Traditional_MultiStepHiMem_4Threads() {
 		stepUntilAllStatesPrecise(
 			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
-			50.0,
+			5.0,
 			1024*1024,
 			4,
 			TestSofea::assertResults_Binding1CC8Mut2Flex2_Traditional
@@ -281,8 +281,8 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex2_Traditional_MultiStepLoMem() {
 		stepUntilAllStatesPrecise(
 			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
-			50.0,
-			16*1024,
+			5.0,
+			1024,
 			TestSofea::assertResults_Binding1CC8Mut2Flex2_Traditional
 		);
 	}
@@ -290,8 +290,8 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex2_Traditional_MultiStepLoMem_2Threads() {
 		stepUntilAllStatesPrecise(
 			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
-			50.0,
-			16*1024,
+			5.0,
+			1024,
 			2,
 			TestSofea::assertResults_Binding1CC8Mut2Flex2_Traditional
 		);
@@ -300,8 +300,8 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex2_Traditional_MultiStepLoMem_4Threads() {
 		stepUntilAllStatesPrecise(
 			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
-			50.0,
-			16*1024,
+			5.0,
+			1024,
 			4,
 			TestSofea::assertResults_Binding1CC8Mut2Flex2_Traditional
 		);
@@ -360,7 +360,7 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex1_AllOnPairs_MultiStepHiMem() {
 		stepUntilExhaustion(
 			Designs.Binding1CC8Mut2Flex1_AllOnPairs.get(),
-			50.0,
+			5.0,
 			1024*1024,
 			TestSofea::assertResults_Binding1CC8Mut2Flex1_AllOnPairs
 		);
@@ -369,8 +369,8 @@ public class TestSofea {
 	public void test_Binding1CC8Mut2Flex1_AllOnPairs_MultiStepLoMem() {
 		stepUntilExhaustion(
 			Designs.Binding1CC8Mut2Flex1_AllOnPairs.get(),
-			50.0,
-			16*1024,
+			5.0,
+			1024,
 			TestSofea::assertResults_Binding1CC8Mut2Flex1_AllOnPairs
 		);
 	}
@@ -668,11 +668,11 @@ public class TestSofea {
 		void check(Results results);
 	}
 
-	public void stepUntilExhaustion(Design design, double sweepDivisor, long fringeDBBytes, IntermediateChecker checker) {
-		stepUntilExhaustion(design, sweepDivisor, fringeDBBytes, 1, checker);
+	public void stepUntilExhaustion(Design design, double sweepIncrement, long fringeDBBytes, IntermediateChecker checker) {
+		stepUntilExhaustion(design, sweepIncrement, fringeDBBytes, 1, checker);
 	}
 
-	public void stepUntilExhaustion(Design design, double sweepDivisor, long fringeDBBytes, int numThreads, IntermediateChecker checker) {
+	public void stepUntilExhaustion(Design design, double sweepIncrement, long fringeDBBytes, int numThreads, IntermediateChecker checker) {
 		try (TempFile fringedbFile = new TempFile(tmpdir, "fringe.db")) {
 		try (TempFile seqdbFile = new TempFile(tmpdir, "seq.db")) {
 		try (Ecalcs ecalcs = design.makeEcalcs(Parallelism.makeCpu(numThreads))) {
@@ -681,7 +681,7 @@ public class TestSofea {
 				.setFringeDBFile(fringedbFile)
 				.setFringeDBBytes(fringeDBBytes)
 				.setSeqDBFile(seqdbFile)
-				.setSweepDivisor(sweepDivisor)
+				.setSweepIncrement(sweepIncrement)
 				.configEachState(state -> design.configState(state, ecalcs))
 				.setMathContext(mathContext)
 				.build();
@@ -720,11 +720,11 @@ public class TestSofea {
 		}}}
 	}
 
-	public void stepUntilAllStatesPrecise(Design design, double sweepDivisor, long fringeDBBytes, IntermediateChecker checker) {
-		stepUntilAllStatesPrecise(design, sweepDivisor, fringeDBBytes, 1, checker);
+	public void stepUntilAllStatesPrecise(Design design, double sweepIncrement, long fringeDBBytes, IntermediateChecker checker) {
+		stepUntilAllStatesPrecise(design, sweepIncrement, fringeDBBytes, 1, checker);
 	}
 
-	public void stepUntilAllStatesPrecise(Design design, double sweepDivisor, long fringeDBBytes, int numThreads, IntermediateChecker checker) {
+	public void stepUntilAllStatesPrecise(Design design, double sweepIncrement, long fringeDBBytes, int numThreads, IntermediateChecker checker) {
 		try (TempFile fringedbFile = new TempFile(tmpdir, "fringe.db")) {
 		try (TempFile seqdbFile = new TempFile(tmpdir, "seq.db")) {
 		try (Ecalcs ecalcs = design.makeEcalcs(Parallelism.makeCpu(numThreads))) {
@@ -733,7 +733,7 @@ public class TestSofea {
 				.setFringeDBFile(fringedbFile)
 				.setFringeDBBytes(fringeDBBytes)
 				.setSeqDBFile(seqdbFile)
-				.setSweepDivisor(sweepDivisor)
+				.setSweepIncrement(sweepIncrement)
 				.configEachState(state -> design.configState(state, ecalcs))
 				.build();
 

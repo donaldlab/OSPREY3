@@ -4,6 +4,7 @@ package edu.duke.cs.osprey.sofea;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 import edu.duke.cs.osprey.tools.UnpossibleError;
@@ -13,6 +14,8 @@ import edu.duke.cs.osprey.tools.resultdoc.ResultDoc;
 import java.io.File;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 import static edu.duke.cs.osprey.tools.Log.logf;
@@ -25,9 +28,42 @@ public class MinLMFE implements Sofea.Criterion {
 
 	public final MultiStateConfSpace.LMFE objective;
 	public final int numSequences;
+	public final double minFreeEnergyWidth;
 	public final BoltzmannCalculator bcalc;
 
-	public MinLMFE(MultiStateConfSpace.LMFE objective, int numSequences, BoltzmannCalculator bcalc) {
+	private final HashSet<StateSeq> finishedSequenced = new HashSet<>();
+	private final HashSet<Integer> finishedUnsequenced = new HashSet<>();
+
+	private static class StateSeq {
+
+		final int stateIndex;
+		final int[] seq;
+
+		StateSeq(MultiStateConfSpace.State state, Sequence seq) {
+			this.stateIndex = state.sequencedIndex;
+			this.seq = seq.rtIndices;
+		}
+
+		@Override
+		public int hashCode() {
+			return HashCalculator.combineHashes(
+				stateIndex + 1,
+				Arrays.hashCode(seq)
+			);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			return obj instanceof StateSeq && equals((StateSeq)obj);
+		}
+
+		public boolean equals(StateSeq other) {
+			return this.stateIndex == other.stateIndex
+				&& Arrays.equals(this.seq, other.seq);
+		}
+	}
+
+	public MinLMFE(MultiStateConfSpace.LMFE objective, int numSequences, double minFreeEnergyWidth, BoltzmannCalculator bcalc) {
 
 		// make sure we have enough sequences
 		BigInteger maxNumSequences = objective.confSpace.seqSpace.getNumSequences();
@@ -39,16 +75,17 @@ public class MinLMFE implements Sofea.Criterion {
 
 		this.objective = objective;
 		this.numSequences = numSequences;
+		this.minFreeEnergyWidth = minFreeEnergyWidth;
 		this.bcalc = bcalc;
 	}
 
 	public class TopSequences {
 
 		public final List<Sofea.SeqResult> sequences = new ArrayList<>();
-		public Double nextLowest = null;
+		public Sofea.SeqResult nextLowest = null;
 
 		public boolean isTop(DoubleBounds bounds) {
-			return nextLowest == null || bounds.lower < nextLowest;
+			return nextLowest == null || bounds.upper < nextLowest.lmfeFreeEnergy.upper;
 		}
 
 		public void add(Sofea.SeqResult result) {
@@ -57,8 +94,8 @@ public class MinLMFE implements Sofea.Criterion {
 
 			sequences.add(result);
 
-			// sort the sequences by objective lower bound
-			sequences.sort(Comparator.comparing(r -> r.lmfeFreeEnergy.lower));
+			// sort the sequences by objective upper bound
+			sequences.sort(Comparator.comparing(r -> r.lmfeFreeEnergy.upper));
 
 			// trim down to the best K sequences (allowing ties, but kick out +inf), and update the cutoff
 			int numTopK = 0;
@@ -66,7 +103,7 @@ public class MinLMFE implements Sofea.Criterion {
 			for (int i=0; i<sequences.size(); i++) {
 
 				Sofea.SeqResult r = sequences.get(i);
-				double val = r.lmfeFreeEnergy.lower;
+				double val = r.lmfeFreeEnergy.upper;
 
 				// immediately trim +inf out of top K
 				if (val == Double.POSITIVE_INFINITY) {
@@ -107,16 +144,53 @@ public class MinLMFE implements Sofea.Criterion {
 		}
 
 		private void trimAt(int i) {
-			nextLowest = sequences.get(i).lmfeFreeEnergy.lower;
+			nextLowest = sequences.get(i);
+			// but don't keep +inf sequences even at the next lowest
+			if (nextLowest.lmfeFreeEnergy.upper == Double.POSITIVE_INFINITY) {
+				nextLowest = null;
+			}
 			sequences.subList(i, sequences.size()).clear();
 		}
 	}
 
 	@Override
 	public Filter filterNode(MultiStateConfSpace.State state, int[] conf, BoltzmannCalculator bcalc) {
-		// TODO: filter out nodes for sequences we've determined sufficiently already?
-		// accept all by default
-		return Filter.Process;
+
+		// filter out nodes for sequences we've determined sufficiently already!!
+		// we're spending too much time minizing confs that don't help us get to the termination criterion
+		boolean isFinished;
+		if (state.isSequenced) {
+
+			isFinished = finishedSequenced.contains(new StateSeq(
+				state,
+				state.confSpace.seqSpace.makeSequence(state.confSpace, conf)
+			));
+
+		} else {
+
+			isFinished = finishedUnsequenced.contains(state.unsequencedIndex);
+		}
+
+		// if the state/sequence is already sufficiently precise, put its nodes back on the queue for later
+		if (isFinished) {
+			return Filter.Requeue;
+		} else {
+			return Filter.Process;
+		}
+	}
+
+	private void updateFinished(MultiStateConfSpace.State state, DoubleBounds freeEnergyBounds) {
+		double width = freeEnergyBounds.size();
+		if (width <= minFreeEnergyWidth) {
+			finishedUnsequenced.add(state.unsequencedIndex);
+		}
+	}
+
+	private void updateFinished(MultiStateConfSpace.State state, Sequence seq, DoubleBounds freeEnergyBounds) {
+		double width = freeEnergyBounds.size();
+		if (width <= minFreeEnergyWidth) {
+			finishedSequenced.add(new StateSeq(state, seq));
+		}
 	}
 
 	public TopSequences getTopSequences(SeqDB seqdb) {
@@ -129,7 +203,9 @@ public class MinLMFE implements Sofea.Criterion {
 		// get the unsequenced z values
 		DoubleBounds[] unsequencedFreeEnergy = new DoubleBounds[confSpace.unsequencedStates.size()];
 		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
-			unsequencedFreeEnergy[state.unsequencedIndex] = bcalc.freeEnergyPrecise(seqdb.getUnsequencedZSumBounds(state));
+			DoubleBounds freeEnergyBounds = bcalc.freeEnergyPrecise(seqdb.getUnsequencedZSumBounds(state));
+			updateFinished(state, freeEnergyBounds);
+			unsequencedFreeEnergy[state.unsequencedIndex] = freeEnergyBounds;
 		}
 
 		// for each sequence and partial sequence encountered so far...
@@ -145,6 +221,11 @@ public class MinLMFE implements Sofea.Criterion {
 					return unsequencedFreeEnergy[state.unsequencedIndex];
 				}
 			});
+
+			// keep track of sequences that are sufficiently precise
+			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+				updateFinished(state, seq, stateFreeEnergies[state.index]);
+			}
 
 			// compute bounds on the objective function
 			DoubleBounds objectiveBounds = objective.calc().addAll(stateFreeEnergies).bounds;
@@ -185,23 +266,31 @@ public class MinLMFE implements Sofea.Criterion {
 		// report progress
 		log("lowest %d/%d sequences by LMFE:", topSequences.sequences.size(), numSequences);
 		int i = 0;
-		for (Sofea.SeqResult result : topSequences.sequences) {
-			logf("\tseq %2d  obj=%s w=%9.4f",
-				++i,
-				result.lmfeFreeEnergy.toString(4, 9),
-				result.lmfeFreeEnergy.size()
-			);
-			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
-				DoubleBounds stateFreeEnergy = result.stateFreeEnergies[state.index];
-				logf("    %s=%s w=%.4f",
-					state.name,
-					stateFreeEnergy.toString(4, 9),
-					stateFreeEnergy.size()
-				);
+		Function<Sofea.SeqResult,String> resultToString = result -> {
+			StringBuilder buf = new StringBuilder();
+			if (result == null) {
+				buf.append("(none yet)");
+			} else {
+				buf.append(String.format("obj=%s w=%9.4f",
+					result.lmfeFreeEnergy.toString(4, 9),
+					result.lmfeFreeEnergy.size()
+				));
+				for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+					DoubleBounds stateFreeEnergy = result.stateFreeEnergies[state.index];
+					buf.append(String.format("    %s=%s w=%.4f",
+						state.name,
+						stateFreeEnergy.toString(4, 9),
+						stateFreeEnergy.size()
+					));
+				}
+				buf.append(String.format("    [%s]", result.sequence));
 			}
-			log("    [%s]", result.sequence);
+			return buf.toString();
+		};
+		for (Sofea.SeqResult result : topSequences.sequences) {
+			log("\tseq %6d   %s", ++i, resultToString.apply(result));
 		}
-		log("\tnext lowest: %9.4f", topSequences.nextLowest);
+		log("\tnext lowest: %s", resultToString.apply(topSequences.nextLowest));
 		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
 			DoubleBounds g = bcalc.freeEnergyPrecise(seqdb.getUnsequencedZSumBounds(state));
 			log("\t%s=%s w=%.4f", state.name, g.toString(4, 9), g.size());
@@ -223,22 +312,43 @@ public class MinLMFE implements Sofea.Criterion {
 
 		// if all possible sequences are already top, we're done
 		if (BigInteger.valueOf(topSequences.sequences.size()).compareTo(confSpace.seqSpace.getNumSequences()) >= 0) {
+			log("All sequences found, terminating");
 			return Satisfied.Terminate;
 
+		}
+
 		// if we don't have enough sequences, keep going
-		} else if (topSequences.nextLowest == null) {
+		if (topSequences.nextLowest == null) {
 			return Satisfied.KeepIterating;
 		}
 
-		// if any top sequence overlaps the next lowest, keep going
-		for (Sofea.SeqResult result : topSequences.sequences) {
-			if (result.lmfeFreeEnergy.upper >= topSequences.nextLowest) {
-				return Satisfied.KeepIterating;
-			}
+		// if all top sequences are sufficiently precise, we're done (because no more refinement is possible)
+		Function<Sofea.SeqResult,Boolean> seqFinished = result ->
+			confSpace.states.stream().allMatch(state -> {
+				if (state.isSequenced) {
+					return finishedSequenced.contains(new StateSeq(state, result.sequence));
+				} else {
+					return finishedUnsequenced.contains(state.unsequencedIndex);
+				}
+			});
+		boolean allFinished = seqFinished.apply(topSequences.nextLowest)
+			&& topSequences.sequences.stream().allMatch(result -> seqFinished.apply(result));
+		if (allFinished) {
+			log("All sequences sufficiently precise, terminating");
+			return Satisfied.Terminate;
 		}
 
-		// we're all done here!
-		return Satisfied.Terminate;
+		// if all top sequences are distinct from the next lowest, we're done
+		boolean allDistinct = topSequences.sequences.stream().allMatch(result ->
+			result.lmfeFreeEnergy.upper <= topSequences.nextLowest.lmfeFreeEnergy.lower
+		);
+		if (allDistinct) {
+			log("Found top %d sequences, terminating", topSequences.sequences.size());
+			return Satisfied.Terminate;
+		}
+
+		// nope, keep going
+		return Satisfied.KeepIterating;
 	}
 
 	public void makeResultDoc(SeqDB seqdb, File file) {
@@ -302,7 +412,7 @@ public class MinLMFE implements Sofea.Criterion {
 
 				// show the next lowest
 				plot.ylabels.add("next lowest objective LMFE");
-				intervalsMisc.data.add(new Plot.Interval(topSequences.nextLowest, topSequences.nextLowest));
+				intervalsMisc.data.add(new Plot.Interval(topSequences.nextLowest.lmfeFreeEnergy.lower, topSequences.nextLowest.lmfeFreeEnergy.upper));
 
 				// add padding to the other series, so the data and labels align vertically
 				for (Plot.Intervals intervals : intervalsSequenced) {
@@ -337,7 +447,7 @@ public class MinLMFE implements Sofea.Criterion {
 
 				// show the next lowest
 				plot.ylabels.add("next lowest sequence");
-				intervals.data.add(new Plot.Interval(topSequences.nextLowest, topSequences.nextLowest));
+				intervals.data.add(new Plot.Interval(topSequences.nextLowest.lmfeFreeEnergy.lower, topSequences.nextLowest.lmfeFreeEnergy.upper));
 
 				plot.key = "on tmargin horizontal";
 				plot.xlabel = "Free Energy (kcal/mol)";
