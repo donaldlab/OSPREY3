@@ -86,6 +86,20 @@ public class KStarTreeManipulator {
         return binnedNodes;
     }
 
+    private static Map<Integer, Map<Integer, List<KStarTreeNode>>> binAllNodes(KStarTreeNode subtreeRoot){
+        /**
+         * bin all nodes in subtree first by level, then by assignment
+         */
+
+        Map<Integer, Map<Integer, List<KStarTreeNode>>> binnedByLevel = new HashMap<>();
+
+        int level = subtreeRoot.level;
+        for( int i = level; i < subtreeRoot.getAssignments().length; i++ ){
+            binnedByLevel.put(i, binNodes(subtreeRoot, i));
+        }
+        return binnedByLevel;
+    }
+
     public static KStarTreeNode mergeSubtreeLevels(KStarTreeNode subtreeRoot, int targetLevel) {
         List<KStarTreeNode> children = subtreeRoot.children;
         if(children == null || children.size() < 1)
