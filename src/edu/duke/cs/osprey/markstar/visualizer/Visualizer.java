@@ -198,7 +198,7 @@ public class Visualizer extends Application {
         /**
          * Prints out residue entropy for each residue in a tree
          */
-        root.calcResidueEntropy();
+        KStarTreeAnalyzer.calcResidueEntropy(root);
     }
 
 
