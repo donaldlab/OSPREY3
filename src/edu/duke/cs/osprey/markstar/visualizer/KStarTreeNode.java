@@ -1072,4 +1072,13 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     public void printTree() {
         printTree("", null);
     }
+
+    public void calcResidueEntropy(){
+        /**
+         * Calculates residue entropy by collecting nodes for each residue, treating this node as root
+         */
+        //call something that calculates bounds on residue occupancy
+        //do calculations to turn this into entropy bounds
+    }
 }
+

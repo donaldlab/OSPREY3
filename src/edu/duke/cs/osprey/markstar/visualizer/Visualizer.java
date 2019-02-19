@@ -194,6 +194,13 @@ public class Visualizer extends Application {
 
     }
 
+    private void calcResidueEntropy(){
+        /**
+         * Prints out residue entropy for each residue in a tree
+         */
+        root.calcResidueEntropy();
+    }
+
 
 
 
