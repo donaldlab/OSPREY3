@@ -348,6 +348,18 @@ public class TestMARKStar {
 	}
 
 	@Test
+	public void testBinByRotamers(){
+		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		List<Map<Integer, List<KStarTreeNode>>> binnedByRots = KStarTreeManipulator.binAllNodes(root);
+		System.out.println(String.format("There are %s levels.",binnedByRots.size()));
+		for(int i = 0; i < binnedByRots.size(); i++){
+			Map<Integer, List<KStarTreeNode>> map = binnedByRots.get(i);
+			System.out.println(String.format("Level %d has %d assignments.",
+					i,
+					map.size()));
+		}
+	}
+	@Test
 	public void testConsolidateTree() {
 		KStarTreeNode root = KStarTreeNode.parseTree("ComplexConfTreeBounds.txt");
 		List<String> proteinResidues = Arrays.stream(new String[]{

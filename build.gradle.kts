@@ -406,7 +406,7 @@ tasks {
 
 	// insert some build steps before we build the python dist
 	"pythonDistZip" {
-		dependsOn(pythonWheel, makeDoc, pythonInstallScripts, pythonUninstallScripts)
+		dependsOn(pythonWheel, pythonInstallScripts, pythonUninstallScripts)
 	}
 
 	val testRunScript by creating {

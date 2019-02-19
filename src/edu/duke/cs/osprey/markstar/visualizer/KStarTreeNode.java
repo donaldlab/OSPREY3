@@ -298,6 +298,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     }
 
 
+    public KStarTreeNode getParent(){
+        return parent;
+    }
     private double getMinLeafLower() {
         if(children == null || children.size() < 1)
             return confLowerBound;

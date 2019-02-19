@@ -4,6 +4,8 @@ import org.ojalgo.matrix.transformation.Rotation;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class KStarTreeManipulator {
 
@@ -86,18 +88,18 @@ public class KStarTreeManipulator {
         return binnedNodes;
     }
 
-    private static Map<Integer, Map<Integer, List<KStarTreeNode>>> binAllNodes(KStarTreeNode subtreeRoot){
+    public static List<Map<Integer, List<KStarTreeNode>>> binAllNodes(KStarTreeNode subtreeRoot){
         /**
          * bin all nodes in subtree first by level, then by assignment
          */
 
-        Map<Integer, Map<Integer, List<KStarTreeNode>>> binnedByLevel = new HashMap<>();
+        List<Map<Integer, List<KStarTreeNode>>> binnedByRot = new ArrayList<>();
 
         int level = subtreeRoot.level;
-        for( int i = level; i < subtreeRoot.getAssignments().length; i++ ){
-            binnedByLevel.put(i, binNodes(subtreeRoot, i));
+        for( int i = level+1; i < subtreeRoot.getAssignments().length; i++ ){
+            binnedByRot.add(binByRotamer(subtreeRoot, i));
         }
-        return binnedByLevel;
+        return binnedByRot;
     }
 
     public static KStarTreeNode mergeSubtreeLevels(KStarTreeNode subtreeRoot, int targetLevel) {
@@ -184,5 +186,47 @@ public class KStarTreeManipulator {
             return;
         for(KStarTreeNode child: children)
             binNodes(child, binnedNodes, targetLevel);
+    }
+
+    private static Map<Integer, List<KStarTreeNode>> binByRotamer(KStarTreeNode subtreeRoot, int targetLevel) {
+        Map<Integer, List<KStarTreeNode>> binnedNodes = new HashMap<>();
+        binByRotamer(subtreeRoot, binnedNodes, targetLevel);
+        return binnedNodes;
+    }
+
+    private static void binByRotamer(KStarTreeNode subtreeRoot, Map<Integer, List<KStarTreeNode>> binnedNodes, int targetLevel) {
+        int level = subtreeRoot.level;
+        if(level > targetLevel)
+            return;
+        if(level == targetLevel)
+        {
+            List<String> assignments = Arrays.asList(subtreeRoot.getAssignments());
+            List<String> parentAssignments = Arrays.asList(subtreeRoot.getParent().getAssignments());
+            int[] confAssignments = subtreeRoot.getConfAssignments();
+
+            int assIndex=0;
+            List<String> newResidue = assignments.stream()
+                    .filter(not(new HashSet<>(parentAssignments)::contains))
+                    .collect(Collectors.toList());
+            if( newResidue.size() > 1) {
+                System.out.println("We added two residues!?");
+            }else{
+                assIndex=assignments.indexOf(newResidue.get(0));
+            }
+            int assignmentAtLevel = confAssignments[assIndex];
+            if(!binnedNodes.containsKey(assignmentAtLevel))
+                binnedNodes.put(assignmentAtLevel, new ArrayList<>());
+            binnedNodes.get(assignmentAtLevel).add(subtreeRoot);
+            return;
+        }
+
+        List<KStarTreeNode> children = subtreeRoot.children;
+        if(children == null || children.size() < 1)
+            return;
+        for(KStarTreeNode child: children)
+            binByRotamer(child, binnedNodes, targetLevel);
+    }
+    private static <T> Predicate<T> not(Predicate<T> predicate) {
+        return predicate.negate();
     }
 }
