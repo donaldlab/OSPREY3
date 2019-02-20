@@ -31,11 +31,11 @@ public class KStarTreeAnalyzer {
 
         for( Map<String, BigDecimal> residueLower : marginTree.get(0) ) {
             lowerList.add(residueLower.entrySet()
-                    .stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().divide(overallLowerBound,10, RoundingMode.HALF_UP))));
+                    .stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().divide(overallUpperBound,10, RoundingMode.HALF_UP))));
         }
         for( Map<String, BigDecimal> residueUpper : marginTree.get(1) ) {
             upperList.add(residueUpper.entrySet()
-                    .stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().divide(overallUpperBound,10, RoundingMode.HALF_UP))));
+                    .stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().divide(overallLowerBound,10, RoundingMode.HALF_UP))));
         }
 
         occTree.add(lowerList);
@@ -60,6 +60,9 @@ public class KStarTreeAnalyzer {
          *
          * This method takes a KStar tree (representing a Boltzmann distribution) and marginalizes
          * the distribution over each residue.
+         *
+         * TODO: Fix issue where sum of marginal pfuncs exceeds overall pFunc bounds
+         * I think this is something to do with rounding, but I believe it is possible that it may be more complicated
          */
 
         List<List<Map<String, BigDecimal>>> boundsList = new ArrayList<>();
