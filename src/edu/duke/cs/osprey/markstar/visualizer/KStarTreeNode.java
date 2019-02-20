@@ -954,6 +954,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             System.err.println("We added two residues!?");
         }else{
             String[] info = newResidueList.get(0).split("-",2);
+            if(info[0]=="" || info[1]==""){
+                System.err.println(String.format("Uh-oh! %s %s",info[0],info[1]));
+            }
             margResidue = info[0];
             margRotamer = info[1];
         }

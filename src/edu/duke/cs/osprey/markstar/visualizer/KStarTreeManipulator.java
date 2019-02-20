@@ -201,11 +201,9 @@ public class KStarTreeManipulator {
         if(level == targetLevel)
         {
             String rotamer = subtreeRoot.getMargRotamer();
-            if(!binnedNodes.containsKey(rotamer)) {
+            if(!binnedNodes.containsKey(rotamer))
                 binnedNodes.put(rotamer, new ArrayList<>());
-            }else {
-                binnedNodes.get(rotamer).add(subtreeRoot);
-            }
+            binnedNodes.get(rotamer).add(subtreeRoot);
             return;
         }
 
