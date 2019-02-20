@@ -15,25 +15,25 @@ public class KStarTreeAnalyzer {
         //do calculations to turn this into entropy bounds
     }
 
-    public static List<List<Map<Integer,BigDecimal>>> calcResidueOccupancyList(KStarTreeNode rootNode){
+    public static List<List<Map<String,BigDecimal>>> calcResidueOccupancyList(KStarTreeNode rootNode){
         /**
          * Calculates the occupancy of each rotamer for all residues
          */
         BigDecimal overallUpperBound = rootNode.getUpperBound();
         BigDecimal overallLowerBound = rootNode.getLowerBound();
 
-        List<List<Map<Integer,BigDecimal>>> marginTree = marginalizeTree(rootNode);
+        List<List<Map<String,BigDecimal>>> marginTree = marginalizeTree(rootNode);
 
-        List<List<Map<Integer, BigDecimal>>> occTree = new ArrayList<>();
+        List<List<Map<String, BigDecimal>>> occTree = new ArrayList<>();
 
-        List<Map<Integer, BigDecimal>> lowerList = new ArrayList<>();
-        List<Map<Integer, BigDecimal>> upperList = new ArrayList<>();
+        List<Map<String, BigDecimal>> lowerList = new ArrayList<>();
+        List<Map<String, BigDecimal>> upperList = new ArrayList<>();
 
-        for( Map<Integer, BigDecimal> residueLower : marginTree.get(0) ) {
+        for( Map<String, BigDecimal> residueLower : marginTree.get(0) ) {
             lowerList.add(residueLower.entrySet()
                     .stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().divide(overallLowerBound,10, RoundingMode.HALF_UP))));
         }
-        for( Map<Integer, BigDecimal> residueUpper : marginTree.get(1) ) {
+        for( Map<String, BigDecimal> residueUpper : marginTree.get(1) ) {
             upperList.add(residueUpper.entrySet()
                     .stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().divide(overallUpperBound,10, RoundingMode.HALF_UP))));
         }
@@ -42,19 +42,19 @@ public class KStarTreeAnalyzer {
         occTree.add(upperList);
         return occTree;
     }
-    public static void printOccupancyList(List<List<Map<Integer,BigDecimal>>> occTree){
-        for( Map<Integer,BigDecimal> residue : occTree.get(0)){
+    public static void printOccupancyList(List<List<Map<String,BigDecimal>>> occTree){
+        for( Map<String,BigDecimal> residue : occTree.get(0)){
             System.out.println(String.format("Residue %d has lower bounded occupancies:\n\t%s",
                     occTree.get(0).indexOf(residue),
                     residue.toString()));
         }
-        for( Map<Integer,BigDecimal> residue : occTree.get(1)){
+        for( Map<String,BigDecimal> residue : occTree.get(1)){
             System.out.println(String.format("Residue %d has upper bounded occupancies:\n\t%s",
                     occTree.get(1).indexOf(residue),
                     residue.toString()));
         }
     }
-    public static List<List<Map<Integer,BigDecimal>>> marginalizeTree(KStarTreeNode rootNode){
+    public static List<List<Map<String,BigDecimal>>> marginalizeTree(KStarTreeNode rootNode){
         /**
          * Marginalizes a tree by residue
          *
@@ -62,17 +62,17 @@ public class KStarTreeAnalyzer {
          * the distribution over each residue.
          */
 
-        List<List<Map<Integer, BigDecimal>>> boundsList = new ArrayList<>();
-        List<Map<Integer, BigDecimal>> reducedTreeLower = new ArrayList<>();
-        List<Map<Integer, BigDecimal>> reducedTreeUpper = new ArrayList<>();
+        List<List<Map<String, BigDecimal>>> boundsList = new ArrayList<>();
+        List<Map<String, BigDecimal>> reducedTreeLower = new ArrayList<>();
+        List<Map<String, BigDecimal>> reducedTreeUpper = new ArrayList<>();
 
-        List<Map<Integer, List<KStarTreeNode>>> flatTree = KStarTreeManipulator.binAllNodes(rootNode);
+        List<Map<String, List<KStarTreeNode>>> flatTree = KStarTreeManipulator.binAllNodes(rootNode);
 
-        for( Map<Integer, List<KStarTreeNode>> level : flatTree){
-            Map<Integer, BigDecimal> newMapLower = new HashMap<>();
-            Map<Integer, BigDecimal> newMapUpper = new HashMap<>();
+        for( Map<String, List<KStarTreeNode>> level : flatTree){
+            Map<String, BigDecimal> newMapLower = new HashMap<>();
+            Map<String, BigDecimal> newMapUpper = new HashMap<>();
             // for each rotamer at a residue, accumulate the upper and lower bounds
-            for( Integer rotamer : level.keySet() ){
+            for( String rotamer : level.keySet() ){
                 newMapLower.put(rotamer,
                         level.get(rotamer).stream()
                                 .map(KStarTreeNode::getLowerBound)
@@ -91,7 +91,7 @@ public class KStarTreeAnalyzer {
         boundsList.add(reducedTreeUpper);
         return boundsList;
     }
-    public static void testMarginalizedTree(List<List<Map<Integer,BigDecimal>>> mTree, BigDecimal upperBound, BigDecimal lowerBound, Boolean quiet){
+    public static void testMarginalizedTree(List<List<Map<String,BigDecimal>>> mTree, BigDecimal upperBound, BigDecimal lowerBound, Boolean quiet){
         /**
          * Tests to ensure that each marginal distribution contained in a marginalized Tree captures the full Boltzmann distribution
          *
@@ -99,7 +99,7 @@ public class KStarTreeAnalyzer {
          * Also I THINK that we have rounding errors because of the necessity of printing things out to file
          */
 
-        for( Map<Integer, BigDecimal> residueLower : mTree.get(0) ) {
+        for( Map<String, BigDecimal> residueLower : mTree.get(0) ) {
             BigDecimal totalStatWeightLower = residueLower.values().stream()
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             if (!quiet) {
@@ -109,7 +109,7 @@ public class KStarTreeAnalyzer {
                         lowerBound));
             }
         }
-        for( Map<Integer, BigDecimal> residueUpper : mTree.get(1) ){
+        for( Map<String, BigDecimal> residueUpper : mTree.get(1) ){
             BigDecimal totalStatWeightUpper = residueUpper.values().stream()
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             if(!quiet){
@@ -122,7 +122,7 @@ public class KStarTreeAnalyzer {
 
     }
 
-    public static void testMarginalizedTree(List<List<Map<Integer,BigDecimal>>> mTree, BigDecimal upperBound, BigDecimal lowerBound){
+    public static void testMarginalizedTree(List<List<Map<String,BigDecimal>>> mTree, BigDecimal upperBound, BigDecimal lowerBound){
         testMarginalizedTree(mTree, upperBound, lowerBound, true);
     }
 }

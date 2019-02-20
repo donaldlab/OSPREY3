@@ -22,8 +22,10 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class KStarTreeNode implements Comparable<KStarTreeNode>{
@@ -65,6 +67,10 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     private static boolean drawTree = false;
     private ColorStyle colorStyle = ColorStyle.occupancy;
     private static List<Double> maxLevelOccupancies = new ArrayList<>();
+
+    //used for marginal calculations
+    private String margResidue;
+    private String margRotamer;
 
     public enum ColorStyle {
         differenceFromEnergy,
@@ -934,8 +940,30 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         children.add(newNode);
         newNode.statText = this.statText;
         newNode.parent = this;
+        // Figure out which marginal residue and rotamer the child represents
+        newNode.determineMarginalIdentity();
         newNode.overallUpperBound = this.overallUpperBound;
         newNode.computeOccupancy();
+    }
+    public void determineMarginalIdentity(){
+        List<String> parentAssignments = Arrays.asList(parent.getAssignments());
+        List<String> newResidueList = Arrays.asList(assignments).stream()
+                .filter(not(new HashSet<>(parentAssignments)::contains))
+                .collect(Collectors.toList());
+        if( newResidueList.size() > 1) {
+            System.err.println("We added two residues!?");
+        }else{
+            String[] info = newResidueList.get(0).split("-",2);
+            margResidue = info[0];
+            margRotamer = info[1];
+        }
+    }
+    public String getMargResidue(){return margResidue;}
+
+    public String getMargRotamer(){return margRotamer;}
+
+    private static <T> Predicate<T> not(Predicate<T> predicate) {
+        return predicate.negate();
     }
 
     public String toString()

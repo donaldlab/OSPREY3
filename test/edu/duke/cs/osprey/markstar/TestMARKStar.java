@@ -351,10 +351,10 @@ public class TestMARKStar {
 	@Test
 	public void testBinByRotamers(){
 		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
-		List<Map<Integer, List<KStarTreeNode>>> binnedByRots = KStarTreeManipulator.binAllNodes(root);
+		List<Map<String, List<KStarTreeNode>>> binnedByRots = KStarTreeManipulator.binAllNodes(root);
 		System.out.println(String.format("There are %s levels.",binnedByRots.size()));
 		for(int i = 0; i < binnedByRots.size(); i++){
-			Map<Integer, List<KStarTreeNode>> map = binnedByRots.get(i);
+			Map<String, List<KStarTreeNode>> map = binnedByRots.get(i);
 			System.out.println(String.format("Level %d has %d assignments.",
 					i,
 					map.size()));
@@ -363,14 +363,14 @@ public class TestMARKStar {
 	@Test
 	public void testMarginalization(){
 		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
-		List<List<Map<Integer, BigDecimal>>> marginalTree = KStarTreeAnalyzer.marginalizeTree(root);
+		List<List<Map<String, BigDecimal>>> marginalTree = KStarTreeAnalyzer.marginalizeTree(root);
 		KStarTreeAnalyzer.testMarginalizedTree(marginalTree, root.getUpperBound(), root.getLowerBound(), false);
 	}
 	@Test
 	public void testOccupancy(){
 		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
-		List<List<Map<Integer, BigDecimal>>> marginalTree = KStarTreeAnalyzer.marginalizeTree(root);
-		List<List<Map<Integer, BigDecimal>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(root);
+		List<List<Map<String, BigDecimal>>> marginalTree = KStarTreeAnalyzer.marginalizeTree(root);
+		List<List<Map<String, BigDecimal>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(root);
 
 		KStarTreeAnalyzer.printOccupancyList(occTree);
 
