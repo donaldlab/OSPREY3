@@ -92,6 +92,8 @@ public class KStarTreeAnalyzer {
         }
         boundsList.add(reducedTreeLower);
         boundsList.add(reducedTreeUpper);
+        // test to make sure we aren't missing significant amounts of pfunc
+        testMarginalizedTree(boundsList,rootNode.getUpperBound(),rootNode.getLowerBound());
         return boundsList;
     }
     public static void testMarginalizedTree(List<List<Map<String,BigDecimal>>> mTree, BigDecimal upperBound, BigDecimal lowerBound, Boolean quiet){
@@ -111,6 +113,18 @@ public class KStarTreeAnalyzer {
                         totalStatWeightLower,
                         lowerBound));
             }
+            BigDecimal percentDiff = lowerBound.subtract(totalStatWeightLower).divide(totalStatWeightLower, 10, BigDecimal.ROUND_HALF_UP );
+            if (percentDiff.abs().compareTo(BigDecimal.valueOf(0.000001)) >= 0){
+                if(percentDiff.compareTo(BigDecimal.ZERO) >=1)
+                    System.err.println(String.format("WARNING: Residue %d exceeds the full pfunc lower bound by %.9f %%",
+                            mTree.get(0).indexOf(residueLower),
+                            percentDiff.multiply(BigDecimal.valueOf(100))));
+                else
+                    System.err.println(String.format("WARNING: Residue %d is less than the full pfunc lower bound by %.9f %%",
+                            mTree.get(0).indexOf(residueLower),
+                            percentDiff.multiply(BigDecimal.valueOf(100))));
+            }
+
         }
         for( Map<String, BigDecimal> residueUpper : mTree.get(1) ){
             BigDecimal totalStatWeightUpper = residueUpper.values().stream()
@@ -120,6 +134,17 @@ public class KStarTreeAnalyzer {
                         mTree.get(1).indexOf(residueUpper),
                         totalStatWeightUpper,
                         upperBound));
+            }
+            BigDecimal percentDiff = upperBound.subtract(totalStatWeightUpper).divide(totalStatWeightUpper, 10, BigDecimal.ROUND_HALF_UP );
+            if (percentDiff.abs().compareTo(BigDecimal.valueOf(0.000001)) >= 0) {
+                if (percentDiff.compareTo(BigDecimal.ZERO) >= 1)
+                    System.err.println(String.format("WARNING: Residue %d exceeds the full pfunc upper bound by %.9f %%",
+                            mTree.get(1).indexOf(residueUpper),
+                            percentDiff.multiply(BigDecimal.valueOf(100))));
+                else
+                    System.err.println(String.format("WARNING: Residue %d is less than the full pfunc upper bound by %.9f %%",
+                            mTree.get(1).indexOf(residueUpper),
+                            percentDiff.multiply(BigDecimal.valueOf(100))));
             }
         }
 

@@ -369,7 +369,6 @@ public class TestMARKStar {
 	@Test
 	public void testOccupancy(){
 		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
-		List<List<Map<String, BigDecimal>>> marginalTree = KStarTreeAnalyzer.marginalizeTree(root);
 		List<List<Map<String, BigDecimal>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(root);
 
 		KStarTreeAnalyzer.printOccupancyList(occTree);
