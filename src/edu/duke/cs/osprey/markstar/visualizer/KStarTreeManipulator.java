@@ -96,7 +96,7 @@ public class KStarTreeManipulator {
         List<Map<String, List<KStarTreeNode>>> binnedByRot = new ArrayList<>();
 
         int level = subtreeRoot.level;
-        for( int i = level+1; i < subtreeRoot.getAssignments().length; i++ ){
+        for( int i = level+1; i <= subtreeRoot.getAssignments().length; i++ ){
             binnedByRot.add(binByRotamer(subtreeRoot, i));
         }
         return binnedByRot;
