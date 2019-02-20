@@ -363,13 +363,13 @@ public class TestMARKStar {
 	@Test
 	public void testMarginalization(){
 		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
-		List<Map<String, List<BigDecimal>>> marginalTree = KStarTreeAnalyzer.marginalizeTree(root);
+		Map<String,Map<String, List<BigDecimal>>> marginalTree = KStarTreeAnalyzer.marginalizeTree(root);
 		KStarTreeAnalyzer.testMarginalizedTree(marginalTree, root.getUpperBound(), root.getLowerBound(), false);
 	}
 	@Test
 	public void testOccupancy(){
 		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
-		List<Map<String, List<BigDecimal>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(root);
+		Map<String,Map<String, List<BigDecimal>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(root);
 
 		KStarTreeAnalyzer.printOccupancyList(occTree);
 
