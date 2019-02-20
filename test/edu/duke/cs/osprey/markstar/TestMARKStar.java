@@ -17,6 +17,7 @@ import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.markstar.visualizer.KStarTreeAnalyzer;
 import edu.duke.cs.osprey.markstar.visualizer.KStarTreeManipulator;
 import edu.duke.cs.osprey.markstar.visualizer.KStarTreeNode;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -358,6 +359,21 @@ public class TestMARKStar {
 					i,
 					map.size()));
 		}
+	}
+	@Test
+	public void testMarginalization(){
+		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		List<List<Map<Integer, BigDecimal>>> marginalTree = KStarTreeAnalyzer.marginalizeTree(root);
+		KStarTreeAnalyzer.testMarginalizedTree(marginalTree, root.getUpperBound(), root.getLowerBound(), false);
+	}
+	@Test
+	public void testOccupancy(){
+		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		List<List<Map<Integer, BigDecimal>>> marginalTree = KStarTreeAnalyzer.marginalizeTree(root);
+		List<List<Map<Integer, BigDecimal>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(root);
+
+		KStarTreeAnalyzer.printOccupancyList(occTree);
+
 	}
 	@Test
 	public void testConsolidateTree() {
