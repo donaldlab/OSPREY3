@@ -8,12 +8,19 @@ import com.mathworks.engine.*;
 
 public class KStarTreeAnalyzer {
 
-    public static void calcResidueEntropy(KStarTreeNode rootNode){
+    public static Map<String,List<Double>> calcResidueEntropy(KStarTreeNode rootNode) throws Exception{
         /**
          * Calculates residue entropy by collecting nodes for each residue, treating this node as root
          */
         //call something that calculates bounds on residue occupancy
+        Map<String,Map<String,List<Double>>> occMap = calcResidueOccupancyList(rootNode);
         //do calculations to turn this into entropy bounds
+        Map<String,List<Double>> entropyMap = new HashMap();
+
+        for (String residue : occMap.keySet()){
+            entropyMap.put(residue, matlabMaxEntropy(occMap.get(residue)));
+        }
+        return entropyMap;
     }
 
     public static Map<String,Map<String,List<Double>>> calcResidueOccupancyList(KStarTreeNode rootNode){
@@ -188,6 +195,14 @@ public class KStarTreeAnalyzer {
     }
 
     public static List<Double> matlabMaxEntropy(Map<String,List<Double>> residue) throws Exception{
+        /**
+         * Calculates residue entropy by maximizing and minimizing -p*ln(p)
+         *
+         * Currently this method uses the matlab fmincon solver, which AFAIK is a gradient descent solver.
+         * Therefore these bounds are not provable.
+         *
+         * TODO: Implement a provable solver
+         */
         String lowerBound = "";
         String upperBound = "";
         String startPoint = "";

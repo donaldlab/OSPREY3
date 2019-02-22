@@ -18,6 +18,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class Visualizer extends Application {
@@ -194,11 +196,11 @@ public class Visualizer extends Application {
 
     }
 
-    private void calcResidueEntropy(){
+    private void calcResidueEntropy() throws Exception{
         /**
          * Prints out residue entropy for each residue in a tree
          */
-        KStarTreeAnalyzer.calcResidueEntropy(root);
+        Map<String,List<Double>> residueEntropy = KStarTreeAnalyzer.calcResidueEntropy(root);
     }
 
 

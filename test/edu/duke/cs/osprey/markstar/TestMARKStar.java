@@ -371,7 +371,7 @@ public class TestMARKStar {
 				));
 	}
 	@Test
-	public void testEntropy() throws Exception{
+	public void testOccupancyThenEntropy() throws Exception{
 		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
 		Map<String,Map<String, List<Double>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(root);
 
@@ -380,7 +380,18 @@ public class TestMARKStar {
 			List<Double> maxEnt = KStarTreeAnalyzer.matlabMaxEntropy(occTree.get(residue));
 			System.out.println(String.format("%s Entropy: %s",residue,maxEnt.toString()));
 		}
-
+	}
+	@Test
+	public void testEntropy() throws Exception{
+		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		Map<String,List<Double>> entropyBounds = KStarTreeAnalyzer.calcResidueEntropy(root);
+		for(String residue : entropyBounds.keySet()){
+			System.out.println(String.format("Entropy of %s: [%.4f,%.4f]",
+					residue,
+					entropyBounds.get(residue).get(0),
+					entropyBounds.get(residue).get(1)
+					));
+		}
 	}
 	@Test
 	public void testOccupancyBounds(){
