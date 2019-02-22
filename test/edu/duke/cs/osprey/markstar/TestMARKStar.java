@@ -366,11 +366,15 @@ public class TestMARKStar {
 		Map<String,Map<String, List<BigDecimal>>> marginalTree = KStarTreeAnalyzer.marginalizeTree(root);
 	}
 	@Test
-	public void testOccupancy(){
+	public void testOccupancy() throws Exception{
 		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
 		Map<String,Map<String, List<Double>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(root);
 
 		KStarTreeAnalyzer.printOccupancyList(occTree);
+		for( String residue : occTree.keySet()){
+			List<Double> maxEnt = KStarTreeAnalyzer.matlabMaxEntropy(occTree.get(residue));
+			System.out.println(String.format("%s Entropy: %s",residue,maxEnt.toString()));
+		}
 
 	}
 	@Test

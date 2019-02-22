@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.mathworks.engine.*;
 
 public class KStarTreeAnalyzer {
 
@@ -181,5 +182,43 @@ public class KStarTreeAnalyzer {
 
     public static void testCumulativeMarginals(Map<String,List<BigDecimal>> residue, String resname, BigDecimal lowerBound, BigDecimal upperBound){
         testCumulativeMarginals(residue, resname, upperBound, lowerBound, true);
+    }
+
+    public static List<Double> matlabMaxEntropy(Map<String,List<Double>> residue) throws Exception{
+        String lowerBound = "";
+        String upperBound = "";
+        String startPoint = "";
+        for(String rotamer : residue.keySet()){
+            // If we have a maximum of zero probability, exclude it completely
+            // TODO: Decide if this is a conceptual issue
+            if(residue.get(rotamer).get(1) > 0.0) {
+                lowerBound = lowerBound + ',' + String.format("%.5E", residue.get(rotamer).get(0));
+                upperBound = upperBound + ',' + String.format("%.5E", residue.get(rotamer).get(1));
+                startPoint = startPoint + ',' + String.format("%.5e", (residue.get(rotamer).get(0) + residue.get(rotamer).get(1)) / 2.0);
+            }
+        }
+
+        String lb = String.format("[%s];", lowerBound);
+        String ub = String.format("[%s];", upperBound);
+        String SP = String.format("[%s];", startPoint);
+
+        MatlabEngine eng = MatlabEngine.startMatlab();
+        eng.eval("minfun = @(x) -1.0 * dot(x, log(x));");
+        eng.eval("maxfun = @(x) dot(x, log(x));");
+        eng.eval("A = [];");
+        eng.eval("b = [];");
+        eng.eval("Aeq = [];");
+        eng.eval("beq = [];");
+        eng.eval("lb = "+lb);
+        eng.eval("ub = "+ub);
+        eng.eval("SP = "+SP);
+        eng.eval("[ xmin, min ] = fmincon( minfun, SP, A, b, Aeq, beq, lb, ub );");
+        eng.eval("[ xmax, negMax ] = fmincon( maxfun, SP, A, b, Aeq, beq, lb, ub );");
+
+        // TODO: introduce Boltzmann's constant
+        Double min = (Double)eng.getVariable("min");
+        Double max = -1.0 * (Double)eng.getVariable("negMax");
+        eng.close();
+        return Arrays.asList(min,max);
     }
 }
