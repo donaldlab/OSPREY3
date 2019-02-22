@@ -364,9 +364,14 @@ public class TestMARKStar {
 	public void testMarginalization(){
 		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
 		Map<String,Map<String, List<BigDecimal>>> marginalTree = KStarTreeAnalyzer.marginalizeTree(root);
+		KStarTreeAnalyzer.testCumulativeMarginals(marginalTree,root.getLowerBound(),root.getUpperBound(),false);
+		System.out.println(String.format("Are these true bounds? [%.5e,%.5e]",
+				marginalTree.get("B64:LYS").get("W0").get(0),
+				marginalTree.get("B64:LYS").get("W0").get(1)
+				));
 	}
 	@Test
-	public void testOccupancy() throws Exception{
+	public void testEntropy() throws Exception{
 		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
 		Map<String,Map<String, List<Double>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(root);
 
@@ -376,6 +381,23 @@ public class TestMARKStar {
 			System.out.println(String.format("%s Entropy: %s",residue,maxEnt.toString()));
 		}
 
+	}
+	@Test
+	public void testOccupancyBounds(){
+		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		Map<String,Map<String, List<Double>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(root);
+		for(String residue : occTree.keySet()){
+			for(String rotamer: occTree.get(residue).keySet()){
+				if (occTree.get(residue).get(rotamer).get(0) > occTree.get(residue).get(rotamer).get(1)){
+					System.err.println(String.format("ERROR: Residue %s has impossible bounds of [%.9f,%.9f] at rotamer %s",
+                            residue,
+							occTree.get(residue).get(rotamer).get(0),
+                            occTree.get(residue).get(rotamer).get(1),
+							rotamer
+							));
+				}
+			}
+		}
 	}
 	@Test
 	public void testConsolidateTree() {

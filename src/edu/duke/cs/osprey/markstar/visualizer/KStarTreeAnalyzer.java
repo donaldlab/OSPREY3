@@ -123,12 +123,12 @@ public class KStarTreeAnalyzer {
                                     // then the lower bound is equal to the highest of a + the lowest of all others.
                                     // and the upper bound is equal to the lowest of a + the highest of all others,
                                     return Arrays.asList(
-                                            a.getValue().get(0),
-                                            a.getValue().get(1));
-                                } else {
-                                    return Arrays.asList(
                                             a.getValue().get(1),
                                             a.getValue().get(0));
+                                } else {
+                                    return Arrays.asList(
+                                            a.getValue().get(0),
+                                            a.getValue().get(1));
                                 }
                             })
                     .reduce(Arrays.asList(BigDecimal.ZERO, BigDecimal.ZERO),
@@ -141,7 +141,7 @@ public class KStarTreeAnalyzer {
     }
 
 
-    public static void testCumulativeMarginals(Map<String,List<BigDecimal>> residue, String resname, BigDecimal lowerBound, BigDecimal upperBound, Boolean quiet){
+    public static void testCumulativeMarginals(Map<String,Map<String,List<BigDecimal>>> marginalMap, BigDecimal lowerBound, BigDecimal upperBound, Boolean quiet){
         /**
          * Tests to ensure that the marginal distribution over a residue captures the full Boltzmann distribution
          *
@@ -150,38 +150,41 @@ public class KStarTreeAnalyzer {
          *
          * Returns the sum of the marginal partition function for a residue
          */
-        List<BigDecimal> totalStatWeight = residue.values().stream()
-                .reduce(Arrays.asList(BigDecimal.ZERO, BigDecimal.ZERO),
-                        (a, b) -> Arrays.asList(
-                                a.get(0).add(b.get(0)),
-                                a.get(0).add(b.get(0))));
-        if (!quiet) {
-            System.out.println(String.format("Residue %s has marginal bounds of [%.8e, %.8e](L,U). Full pfunc -> [%.8e, %.8e](L,U)",
-                    resname,
-                    totalStatWeight.get(0),
-                    totalStatWeight.get(1),
-                    lowerBound,
-                    upperBound
-            ));
-        }
-        List<Double> percentDiff = Arrays.asList(
-                totalStatWeight.get(0).subtract(lowerBound).divide(lowerBound, 10, BigDecimal.ROUND_HALF_UP ).doubleValue(),
-                totalStatWeight.get(1).subtract(upperBound).divide(upperBound, 10, BigDecimal.ROUND_HALF_UP ).doubleValue()
-                );
-        if (Math.abs(percentDiff.get(0)) >= 0.000001 || Math.abs(percentDiff.get(1)) >= 0.000001){
-            System.err.println(String.format("WARNING: Residue %s marginal distributions have residuals of [%.8f, %.8f](L,U) %% of the full pfunc",
-                    resname,
-                    percentDiff.get(0)*100,
-                    percentDiff.get(1)*100
-                    ));
-            //TODO: If the marginal value is significantly less than the full partition function, split weight equally among rotamers
-            // This is because if we haven't expanded a node, it won't be in the tree, but this means that the statistical weight for
-            // That residue's rotamers won't be accounted for - since we don't have info we must split bounds equally... I think
+
+        for(String residue : marginalMap.keySet()) {
+            List<BigDecimal> totalStatWeight = marginalMap.get(residue).values().stream()
+                    .reduce(Arrays.asList(BigDecimal.ZERO, BigDecimal.ZERO),
+                            (a, b) -> Arrays.asList(
+                                    a.get(0).add(b.get(0)),
+                                    a.get(1).add(b.get(1))));
+            if (!quiet) {
+                System.out.println(String.format("Residue %s has marginal bounds of [%.8e, %.8e](L,U). Full pfunc -> [%.8e, %.8e](L,U)",
+                        residue,
+                        totalStatWeight.get(0),
+                        totalStatWeight.get(1),
+                        lowerBound,
+                        upperBound
+                ));
+            }
+            List<Double> percentDiff = Arrays.asList(
+                    totalStatWeight.get(0).subtract(lowerBound).divide(lowerBound, 10, BigDecimal.ROUND_HALF_UP).doubleValue(),
+                    totalStatWeight.get(1).subtract(upperBound).divide(upperBound, 10, BigDecimal.ROUND_HALF_UP).doubleValue()
+            );
+            if (Math.abs(percentDiff.get(0)) >= 0.000001 || Math.abs(percentDiff.get(1)) >= 0.000001) {
+                System.err.println(String.format("WARNING: Residue %s marginal distributions have residuals of [%.8f, %.8f](L,U) %% of the full pfunc",
+                        residue,
+                        percentDiff.get(0) * 100,
+                        percentDiff.get(1) * 100
+                ));
+                //TODO: If the marginal value is significantly less than the full partition function, split weight equally among rotamers
+                // This is because if we haven't expanded a node, it won't be in the tree, but this means that the statistical weight for
+                // That residue's rotamers won't be accounted for - since we don't have info we must split bounds equally... I think
+            }
         }
     }
 
-    public static void testCumulativeMarginals(Map<String,List<BigDecimal>> residue, String resname, BigDecimal lowerBound, BigDecimal upperBound){
-        testCumulativeMarginals(residue, resname, upperBound, lowerBound, true);
+    public static void testCumulativeMarginals(Map<String,Map<String,List<BigDecimal>>> marginalMap, BigDecimal lowerBound, BigDecimal upperBound){
+        testCumulativeMarginals(marginalMap, upperBound, lowerBound, true);
     }
 
     public static List<Double> matlabMaxEntropy(Map<String,List<Double>> residue) throws Exception{
