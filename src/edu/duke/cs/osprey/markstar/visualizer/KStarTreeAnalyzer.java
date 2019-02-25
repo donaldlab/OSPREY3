@@ -209,11 +209,16 @@ public class KStarTreeAnalyzer {
         for(String rotamer : residue.keySet()){
             // If we have a maximum of zero probability, exclude it completely
             // TODO: Decide if this is a conceptual issue
-            // Turns out our solver does poorly if it's less than 5E-9, so lets include that check as well
-            if(residue.get(rotamer).get(1) > 0.0 && residue.get(rotamer).get(1)-residue.get(rotamer).get(0) > 5E-9) {
-                lowerBound = lowerBound + ',' + String.format("%.5E", residue.get(rotamer).get(0));
-                upperBound = upperBound + ',' + String.format("%.5E", residue.get(rotamer).get(1));
-                startPoint = startPoint + ',' + String.format("%.5E", (residue.get(rotamer).get(0) + residue.get(rotamer).get(1)) / 2.0);
+            if(residue.get(rotamer).get(1) > 0.0){
+                // Turns out our solver does poorly if it's less than 5E-9, so lets include that check as well
+                // Turns out our solver does poorly if it's less than 5E-8, so lets include that check as well
+                if (residue.get(rotamer).get(1)-residue.get(rotamer).get(0) < 5E-8) {
+                    // here we need to introduce an equality constraint instead of a bound constraint...
+                }else {
+                    lowerBound = lowerBound + ',' + String.format("%.5E", residue.get(rotamer).get(0));
+                    upperBound = upperBound + ',' + String.format("%.5E", residue.get(rotamer).get(1));
+                    startPoint = startPoint + ',' + String.format("%.5E", (residue.get(rotamer).get(0) + residue.get(rotamer).get(1)) / 2.0);
+                }
             }
         }
 

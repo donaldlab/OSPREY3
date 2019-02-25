@@ -371,19 +371,21 @@ public class TestMARKStar {
 				));
 	}
 	@Test
-	public void testOccupancyThenEntropy() throws Exception{
-		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+	public void testOccupancy(){
+		//KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190218_nmr_flex/erbin/tight/0/0.961725ConfTreeBounds.txt");
 		Map<String,Map<String, List<Double>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(root);
 
 		KStarTreeAnalyzer.printOccupancyList(occTree);
-		for( String residue : occTree.keySet()){
-			List<Double> maxEnt = KStarTreeAnalyzer.matlabMaxEntropy(occTree.get(residue));
-			System.out.println(String.format("%s Entropy: %s",residue,maxEnt.toString()));
-		}
 	}
 	@Test
 	public void testEntropy() throws Exception{
-		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		//KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190213_indiv_res_flex/erbin_1mfg/L1291/0.518010ConfTreeBounds.txt");
+		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190213_indiv_res_flex/scrib_6ms1/L738/0.243057ConfTreeBounds.txt");
+		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190214_loop_flex/erbin/noflex/0.726540ConfTreeBounds.txt");
+		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190214_loop_flex/scrib_1/noflex/0.703284ConfTreeBounds.txt");
+		KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190218_nmr_flex/scrib/tight/15/0.740540ConfTreeBounds.txt");
 		Map<String,List<Double>> entropyBounds = KStarTreeAnalyzer.calcResidueEntropy(root);
 		for(String residue : entropyBounds.keySet()){
 			System.out.println(String.format("Entropy of %s: [%.4f,%.4f]",
@@ -395,7 +397,8 @@ public class TestMARKStar {
 	}
 	@Test
 	public void testOccupancyBounds(){
-		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		//KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190218_nmr_flex/erbin/tight/0/0.961725ConfTreeBounds.txt");
 		Map<String,Map<String, List<Double>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(root);
 		for(String residue : occTree.keySet()){
 			for(String rotamer: occTree.get(residue).keySet()){
