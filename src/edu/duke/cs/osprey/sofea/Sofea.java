@@ -5,7 +5,6 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.*;
@@ -474,10 +473,39 @@ public class Sofea {
 				flushTransactions(fringetx, seqtx);
 			}
 
-			// ignore all of the seqdb changes
+			// don't commit changes to seqdb directly
+			// instead use the pending replacement nodes and zPaths to calculate a tighter zSumUpper
+			// then only commit the delta to seqdb at the sequence of the requeued node
+			BigMath m = bigMath().set(0);
+			for (Node replacementNode : replacementNodes) {
+				m.add(replacementNode.zSumUpper);
+			}
+			for (ZPath zPath : zPaths) {
+				m.add(zPath.zPath);
+			}
+			BigDecimal newZSumUpper = m.get();
+
+			// is the new bound tighter?
+			if (MathTools.isLessThan(newZSumUpper, zSumUpper)) {
+
+				// yup, use that bound and update seqdb with the delta
+				seqtx.subZSumUpper(
+					state,
+					stateInfos.get(state.index).makeSeq(conf),
+					bigMath()
+						.set(zSumUpper)
+						.sub(newZSumUpper)
+						.get()
+				);
+
+			} else {
+
+				// nope, keep the old bound
+				newZSumUpper = zSumUpper;
+			}
 
 			// move the node to the end of the fringedb queue
-			fringetx.writeReplacementNode(state, conf, zSumUpper);
+			fringetx.writeReplacementNode(state, conf, newZSumUpper);
 
 			return flush;
 		}
@@ -589,8 +617,8 @@ public class Sofea {
 					}
 				}
 
-				// calc the corresponding zThreshold
-				BigDecimal[] zThreshold = confSpace.states.stream()
+				// calc the corresponding zThresholds
+				BigDecimal[] zThresholds = confSpace.states.stream()
 					.map(state -> {
 						Double g = gThreshold[state.index];
 						if (g == null) {
@@ -600,6 +628,11 @@ public class Sofea {
 						}
 					})
 					.toArray(size -> new BigDecimal[size]);
+
+				// are all the zThresholds null? that's a problem
+				if (Arrays.stream(zThresholds).allMatch(zThreshold -> zThreshold == null)) {
+					throw new Error("Swept entire threshold space, but still have nodes to expand. This is a bug.");
+				}
 
 				// show progress if needed
 				if (showProgress) {
@@ -664,7 +697,7 @@ public class Sofea {
 					tasks.submit(
 						() -> design(
 							nodetx,
-							zThreshold[nodetx.state.index],
+							zThresholds[nodetx.state.index],
 							nodetx.index,
 							nodetx.zSumUpper,
 							confTables.get(nodetx.state)
@@ -993,16 +1026,14 @@ public class Sofea {
 
 		BigDecimal calcZPathTailUpper(ConfIndex index, RCs rcs) {
 
-			// TODO: use higher-order corrections?
-
 			// this is the usual A* heuristic
 
 			MathTools.Optimizer opt = MathTools.Optimizer.Maximize;
 			BigMath z = bigMath().set(1.0);
 
 			// for each undefined position
-			for (int i=0; i<index.numUndefined; i++) {
-				int pos1 = index.undefinedPos[i];
+			for (int i1=0; i1<index.numUndefined; i1++) {
+				int pos1 = index.undefinedPos[i1];
 
 				// optimize over possible assignments to pos1
 				BigDecimal zpos1 = opt.initBigDecimal();
@@ -1011,30 +1042,45 @@ public class Sofea {
 					BigMath zrc1 = bigMath().set(zmat.getOneBody(pos1, rc1));
 
 					// interactions with defined residues
-					for (int j=0; j<index.numDefined; j++) {
-						int pos2 = index.definedPos[j];
-						int rc2 = index.definedRCs[j];
+					for (int i2=0; i2<index.numDefined; i2++) {
+						int pos2 = index.definedPos[i2];
+						int rc2 = index.definedRCs[i2];
 
 						zrc1.mult(zmat.getPairwise(pos1, rc1, pos2, rc2));
 					}
 
+					index.assignInPlace(pos1, rc1);
+
+					// higher-order corrections with defined residues and pos1 candidate rc
+					zmat.forEachHigherOrderTupleIn(index, (tuple, tupleZ) -> {
+						zrc1.mult(tupleZ);
+					});
+
 					// interactions with undefined residues
-					for (int j=0; j<i; j++) {
-						int pos2 = index.undefinedPos[j];
+					for (int i2=0; i2<i1; i2++) {
+						int pos2 = index.undefinedPos[i2];
 
 						// optimize over possible assignments to pos2
-						// TODO: make this a look-up table?
 						BigDecimal optzrc2 = opt.initBigDecimal();
 						for (int rc2 : rcs.get(pos2)) {
 
 							// pair with pos2
-							BigDecimal zrc2 = zmat.getPairwise(pos1, rc1, pos2, rc2);
+							BigMath zrc2 = bigMath().set(zmat.getPairwise(pos1, rc1, pos2, rc2));
 
-							optzrc2 = opt.opt(optzrc2, zrc2);
+							// higher-order corrections with defined residues and pos1,pos2 candidates
+							index.assignInPlace(pos2, rc2);
+							zmat.forEachHigherOrderTupleIn(index, (tuple, tupleZ) -> {
+								zrc2.mult(tupleZ);
+							});
+							index.unassignInPlace(pos2);
+
+							optzrc2 = opt.opt(optzrc2, zrc2.get());
 						}
 
 						zrc1.mult(optzrc2);
 					}
+
+					index.unassignInPlace(pos1);
 
 					zpos1 = opt.opt(zpos1, zrc1.get());
 				}

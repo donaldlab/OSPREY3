@@ -15,7 +15,6 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
-import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
@@ -53,11 +52,6 @@ public class TestSofea {
 
 
 	@Test
-	public void test_Binding1CC8Flex3_Traditional_EnergyBounds() {
-		Design design = Designs.Binding1CC8Flex3_Traditional.get();
-		assertEnergyBounds(design);
-	}
-	@Test
 	public void test_Binding1CC8Flex3_Traditional_LeafCounts() {
 		Design design = Designs.Binding1CC8Flex3_Traditional.get();
 		assertLeafCounts(design);
@@ -79,11 +73,6 @@ public class TestSofea {
 	}
 
 
-	@Test
-	public void test_Stability1CC8Mut3_Traditional_EnergyBounds() {
-		Design design = Designs.Stability1CC8Mut3_Traditional.get();
-		assertEnergyBounds(design);
-	}
 	@Test
 	public void test_Stability1CC8Mut3_Traditional_LeafCounts() {
 		Design design = Designs.Stability1CC8Mut3_Traditional.get();
@@ -170,11 +159,6 @@ public class TestSofea {
 	}
 
 
-	@Test
-	public void test_Binding1CC8Mut2Flex1_Traditional_EnergyBounds() {
-		Design design = Designs.Binding1CC8Mut2Flex1_Traditional.get();
-		assertEnergyBounds(design);
-	}
 	@Test
 	public void test_Binding1CC8Mut2Flex1_Traditional_LeafCounts() {
 		Design design = Designs.Binding1CC8Mut2Flex1_Traditional.get();
@@ -309,11 +293,6 @@ public class TestSofea {
 
 
 	@Test
-	public void test_Binding1CC8Mut2Flex1_AllOnPairs_EnergyBounds() {
-		Design design = Designs.Binding1CC8Mut2Flex1_AllOnPairs.get();
-		assertEnergyBounds(design);
-	}
-	@Test
 	public void test_Binding1CC8Mut2Flex1_AllOnPairs_LeafCounts() {
 		Design design = Designs.Binding1CC8Mut2Flex1_AllOnPairs.get();
 		assertLeafCounts(design);
@@ -376,6 +355,55 @@ public class TestSofea {
 	}
 
 
+	@Test
+	public void test_Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections_ZPathBounds() {
+		Design design = Designs.Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections.get();
+		assertZPathBounds(design);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections_ZSumBounds() {
+		Design design = Designs.Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections.get();
+		assertZSumBounds(design);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections_CalcG() {
+		Design design = Designs.Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections.get();
+		assertGStates(design, Arrays.asList("GLN", "LEU"), -64.645, -31.187, -23.015);
+		assertGStates(design, Arrays.asList("VAL", "LEU"), -50.170, -20.093, -23.015);
+		assertGStates(design, Arrays.asList("LEU", "LEU"), -44.926, -20.929, -23.015);
+		assertGStates(design, Arrays.asList("GLN", "VAL"), -54.359, -21.353, -23.015);
+		assertGStates(design, Arrays.asList("VAL", "VAL"), -40.287, -10.657, -23.015);
+		assertGStates(design, Arrays.asList("LEU", "VAL"), -35.082, -11.533, -23.015);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections_SingleStep() {
+		stepUntilExhaustion(
+			Designs.Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections.get(),
+			Double.POSITIVE_INFINITY,
+			1024*1024,
+			TestSofea::assertResults_Binding1CC8Mut2Flex1_AllOnPairs
+		);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections_MultiStepHiMem() {
+		stepUntilExhaustion(
+			Designs.Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections.get(),
+			5.0,
+			1024*1024,
+			TestSofea::assertResults_Binding1CC8Mut2Flex1_AllOnPairs
+		);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections_MultiStepLoMem() {
+		stepUntilExhaustion(
+			Designs.Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections.get(),
+			5.0,
+			1024,
+			TestSofea::assertResults_Binding1CC8Mut2Flex1_AllOnPairs
+		);
+	}
+
+
 	/** brute forces every node in the tree and calls the supplied block with a ConfIndex instance describing the node */
 	public static void forEachNode(Sofea.StateInfo stateInfo, Consumer<ConfIndex> block) {
 
@@ -403,39 +431,6 @@ public class TestSofea {
 			}
 		};
 		f[0].run();
-	}
-
-	/** WARNING: brute force method, will compute minimized energies for every conf and partial conf, only use on small designs */
-	public static void assertEnergyBounds(Design design) {
-		try (Ecalcs ecalcs = design.makeEcalcs(fullCPUParallelism)) {
-
-			Sofea sofea = new Sofea.Builder(design.confSpace)
-				.configEachState(state -> design.configState(state, ecalcs))
-				.setMathContext(mathContext)
-				.build();
-
-				for (MultiStateConfSpace.State state : design.confSpace.states) {
-					Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
-					ConfEnergyCalculator confEcalc = ecalcs.getConfEcalc(state);
-
-					try (Sofea.StateInfo.Confs confs = stateInfo.new Confs()) {
-
-						forEachNode(stateInfo, index -> {
-
-							RCTuple tuple = new RCTuple(index);
-							DoubleBounds energyBounds = new DoubleBounds(
-								design.emats[state.index].getInternalEnergy(tuple),
-								Double.POSITIVE_INFINITY
-							);
-
-							ResidueInteractions inters = design.epart.makeTuple(state.confSpace, null, false, tuple);
-							double energy = confEcalc.calcEnergy(tuple, inters, confs.table);
-
-							assertThat(energyBounds, isRelativeBound(energy, 1e-5));
-						});
-					}
-				}
-		}
 	}
 
 	public static void assertLeafCounts(Design design) {
@@ -713,7 +708,7 @@ public class TestSofea {
 					SeqDB.SeqInfo seqInfo = seqdb.getSequencedZSumBounds(seq);
 					for (MultiStateConfSpace.State state : design.confSpace.sequencedStates) {
 						BigDecimalBounds zSumBounds = seqInfo.get(state);
-						assertThat(MathTools.isSameValue(zSumBounds.lower, zSumBounds.upper), is(true));
+						assertThat(MathTools.isRelativelySame(zSumBounds.lower, zSumBounds.upper, mathContext, 1e-6), is(true));
 					}
 				}
 			}
@@ -929,31 +924,37 @@ public class TestSofea {
 		Binding1CC8Flex3_Traditional {
 			@Override
 			public Design make() {
-				return new Design(this, ConfSpaces.Binding1CC8Flex3.get(), EnergyPartition.Traditional);
+				return new Design(this, ConfSpaces.Binding1CC8Flex3.get(), EnergyPartition.Traditional, null);
 			}
 		},
 		Stability1CC8Mut3_Traditional {
 			@Override
 			public Design make() {
-				return new Design(this, ConfSpaces.Stability1CC8Mut3.get(), EnergyPartition.Traditional);
+				return new Design(this, ConfSpaces.Stability1CC8Mut3.get(), EnergyPartition.Traditional, null);
 			}
 		},
 		Binding1CC8Mut2Flex1_Traditional {
 			@Override
 			public Design make() {
-				return new Design(this, ConfSpaces.Binding1CC8Mut2Flex1.get(), EnergyPartition.Traditional);
+				return new Design(this, ConfSpaces.Binding1CC8Mut2Flex1.get(), EnergyPartition.Traditional, null);
 			}
 		},
 		Binding1CC8Mut2Flex2_Traditional {
 			@Override
 			public Design make() {
-				return new Design(this, ConfSpaces.Binding1CC8Mut2Flex2.get(), EnergyPartition.Traditional);
+				return new Design(this, ConfSpaces.Binding1CC8Mut2Flex2.get(), EnergyPartition.Traditional, null);
 			}
 		},
 		Binding1CC8Mut2Flex1_AllOnPairs {
 			@Override
 			public Design make() {
-				return new Design(this, ConfSpaces.Binding1CC8Mut2Flex1.get(), EnergyPartition.AllOnPairs);
+				return new Design(this, ConfSpaces.Binding1CC8Mut2Flex1.get(), EnergyPartition.AllOnPairs, null);
+			}
+		},
+		Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections {
+			@Override
+			public Design make() {
+				return new Design(this, ConfSpaces.Binding1CC8Mut2Flex1.get(), EnergyPartition.AllOnPairs, 0.0);
 			}
 		};
 
@@ -974,7 +975,7 @@ public class TestSofea {
 		public final EnergyPartition epart;
 		public final EnergyMatrix[] emats;
 
-		public Design(Designs id, MultiStateConfSpace confSpace, EnergyPartition epart) {
+		public Design(Designs id, MultiStateConfSpace confSpace, EnergyPartition epart, Double tripleCorrectionThreshold) {
 
 			this.id = id;
 			this.confSpace = confSpace;
@@ -985,7 +986,8 @@ public class TestSofea {
 			try (Ecalcs ecalcs = makeEcalcs(fullCPUParallelism)) {
 				for (MultiStateConfSpace.State state : confSpace.states) {
 					emats[state.index] = new SimplerEnergyMatrixCalculator.Builder(ecalcs.getConfEcalc(state))
-						.setCacheFile(new File(tmpdir, String.format("%s.%s.emat.lower", id, state.name)))
+						.setCacheFile(new File(tmpdir, String.format("%s.%s.emat", id, state.name)))
+						.setTripleCorrectionThreshold(tripleCorrectionThreshold)
 						.build()
 						.calcEnergyMatrix();
 				}
