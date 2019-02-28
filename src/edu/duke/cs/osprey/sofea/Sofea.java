@@ -883,27 +883,6 @@ public class Sofea {
 			return confSpace.seqSpace.makeSequence(state.confSpace, conf);
 		}
 
-		boolean isSingleSequence(ConfIndex index) {
-
-			for (int i=0; i<index.numUndefined; i++) {
-				int pos = index.undefinedPos[i];
-
-				// is there more than one RT at this pos?
-				int rtRef = rtsByRcByPos[pos][0];
-				for (int rc : rcs.get(pos)) {
-					int rt = rtsByRcByPos[pos][rc];
-					if (rt != rtRef) {
-
-						// yup, multi-sequence
-						return false;
-					}
-				}
-			}
-
-			// single-sequence
-			return true;
-		}
-
 		/** WARNING: naive brute force method, for testing small trees only */
 		Map<Sequence,BigInteger> calcNumLeavesBySequence(ConfIndex index) {
 
@@ -1012,41 +991,6 @@ public class Sofea {
 			return z.get();
 		}
 
-		BigDecimal calcZPathNodeUpper(ConfIndex index, int pos1, int rc1) {
-
-			// start with the single
-			BigMath z = bigMath().set(zmat.getOneBody(pos1, rc1));
-
-			// multiply all the pairs
-			for (int i=0; i<index.numDefined; i++) {
-				int pos2 = index.definedPos[i];
-				int rc2 = index.definedRCs[i];
-
-				z.mult(zmat.getPairwise(pos1, rc1, pos2, rc2));
-			}
-
-			// multiply the higher order corrections if needed
-			// NOTE: can't use forEachHigherOrderTupleIn(index) since it will count corrections in the path head
-			if (zmat.hasHigherOrderTuples()) {
-				// NOTE: set tuple positions in revese order, so they're already sorted by position
-				RCTuple triple = new RCTuple(0, 0, 0, 0, pos1, rc1);
-				for (int i2=0; i2<index.numDefined; i2++) {
-					triple.pos.set(1, index.definedPos[i2]);
-					triple.RCs.set(1, index.definedRCs[i2]);
-					for (int i3=0; i3<i2; i3++) {
-						triple.pos.set(0, index.definedPos[i3]);
-						triple.RCs.set(0, index.definedRCs[i3]);
-						BigDecimal correction = zmat.getTuple(triple);
-						if (correction != null) {
-							z.mult(correction);
-						}
-					}
-				}
-			}
-
-			return z.get();
-		}
-
 		BigDecimal calcZPathTailUpper(ConfIndex index, RCs rcs) {
 
 			// TODO: use higher-order corrections?
@@ -1100,61 +1044,6 @@ public class Sofea {
 			}
 
 			return z.get();
-		}
-
-		BigInteger countLeafNodes(ConfIndex index, RCs rcs) {
-
-			BigInteger count = BigInteger.ONE;
-
-			for (int i=0; i<index.numUndefined; i++) {
-				int pos = index.undefinedPos[i];
-				count = count.multiply(BigInteger.valueOf(rcs.getNum(pos)));
-			}
-
-			return count;
-		}
-
-		void greedilyAssignConf(ConfIndex index, RCs rcs) {
-
-			// get to any leaf node and compute the subtree part of its zPath
-
-			int numUnassigned = index.numUndefined;
-
-			// assign each unassigned position greedily
-			for (int i=0; i<numUnassigned; i++) {
-
-				int pos = posPermutation[index.numDefined];
-
-				// find the RC with the biggest zPathComponent
-				int bestRC = -1;
-				BigDecimal bestZPathNodeUpper = MathTools.BigNegativeInfinity;
-				for (int rc : rcs.get(pos)) {
-
-					BigDecimal zPathNodeUpper = calcZPathNodeUpper(index, pos, rc);
-					if (MathTools.isGreaterThan(zPathNodeUpper, bestZPathNodeUpper)) {
-						bestZPathNodeUpper = zPathNodeUpper;
-						bestRC = rc;
-					}
-				}
-
-				// make the assignment
-				index.assignInPlace(pos, bestRC);
-			}
-		}
-
-		void unassignConf(ConfIndex index, int numAssigned) {
-
-			// undo all the assignments in the reverse order they were assigned
-			for (int i=index.numPos-1; i>=numAssigned; i--) {
-				index.unassignInPlace(posPermutation[i]);
-			}
-		}
-
-		BigDecimal calcZPathHeadUpperTighter(ConfIndex index, ConfDB.ConfTable confTable) {
-			RCTuple tuple = new RCTuple(index);
-			ResidueInteractions inters = confEcalc.makeTupleInters(tuple);
-			double e = confEcalc.calcEnergy(tuple, inters, confTable);
-			return bcalc.calcPrecise(e);
 		}
 
 		BigDecimal calcZPath(ConfIndex index, ConfDB.ConfTable confTable) {
