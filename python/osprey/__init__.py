@@ -584,13 +584,14 @@ def ConfEnergyCalculatorCopy(source, ecalc):
 	return c.energy.ConfEnergyCalculator(source, ecalc)
 
 
-def EnergyMatrix(confEcalc, cacheFile=UseJavaDefault, tripleCorrectionThreshold=UseJavaDefault):
+def EnergyMatrix(confEcalc, cacheFile=UseJavaDefault, tripleCorrectionThreshold=UseJavaDefault, quadCorrectionThreshold=UseJavaDefault):
 	'''
 	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcEnergyMatrix`
-	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcTripleCorrectionThreshold`
 
 	:builder_option confEcalc .ematrix.SimplerEnergyMatrixCalculator$Builder#confEcalc:
 	:builder_option cacheFile .ematrix.SimplerEnergyMatrixCalculator$Builder#cacheFile:
+	:builder_option tripleCorrectionThreshold .ematrix.SimplerEnergyMatrixCalculator$Builder#tripleCorrectionThreshold:
+	:builder_option quadCorrectionThreshold .ematrix.SimplerEnergyMatrixCalculator$Builder#quadCorrectionThreshold:
 	'''
 	
 	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confEcalc)
@@ -599,6 +600,8 @@ def EnergyMatrix(confEcalc, cacheFile=UseJavaDefault, tripleCorrectionThreshold=
 		builder.setCacheFile(jvm.toFile(cacheFile))
 	if tripleCorrectionThreshold is not UseJavaDefault:
 		builder.setTripleCorrectionThreshold(jvm.boxDouble(tripleCorrectionThreshold))
+	if quadCorrectionThreshold is not UseJavaDefault:
+		builder.setQuadCorrectionThreshold(jvm.boxDouble(quadCorrectionThreshold))
 
 	return builder.build().calcEnergyMatrix()
 

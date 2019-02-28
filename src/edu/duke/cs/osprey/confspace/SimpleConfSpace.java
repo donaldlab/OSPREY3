@@ -573,6 +573,21 @@ public class SimpleConfSpace implements Serializable {
 		return count;
 	}
 
+	/** Gets the total number of residue conf quads for all positions */
+	public int getNumResConfQuads() {
+		int count = 0;
+		for (int pos1=2; pos1<positions.size(); pos1++) {
+			for (int pos2=1; pos2<pos1; pos2++) {
+				for (int pos3=0; pos3<pos2; pos3++) {
+					for (int pos4=0; pos4<pos3; pos4++) {
+						count += numResConfsByPos[pos1]*numResConfsByPos[pos2]*numResConfsByPos[pos3]*numResConfsByPos[pos4];
+					}
+				}
+			}
+		}
+		return count;
+	}
+
 	/** @see #makeMolecule(RCTuple) */
 	public ParametricMolecule makeMolecule(ScoredConf conf) {
 		return makeMolecule(conf.getAssignments());

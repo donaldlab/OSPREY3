@@ -77,8 +77,17 @@ public class SimplerEnergyMatrixCalculator {
 		 */
 		private File cacheFile = null;
 
-		// TODO: doc me
+		/**
+		 * Compute energy corrections for all triples whose constituent single and pair energies
+		 * are below the given threshold. ie. ignore triples with clashes.
+		 */
 		private Double tripleCorrectionThreshold = null;
+
+		/**
+		 * Compute energy corrections for all quads whose constituent single and pair energies
+		 * are below the given threshold. ie. ignore quads with clashes.
+		 */
+		private Double quadCorrectionThrehshold = null;
 		
 		public Builder(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
 			this(new ConfEnergyCalculator.Builder(confSpace, ecalc).build());
@@ -97,20 +106,27 @@ public class SimplerEnergyMatrixCalculator {
 			tripleCorrectionThreshold = val;
 			return this;
 		}
+
+		public Builder setQuadCorrectionThreshold(Double val) {
+			quadCorrectionThrehshold = val;
+			return this;
+		}
 		
 		public SimplerEnergyMatrixCalculator build() {
-			return new SimplerEnergyMatrixCalculator(confEcalc, cacheFile, tripleCorrectionThreshold);
+			return new SimplerEnergyMatrixCalculator(confEcalc, cacheFile, tripleCorrectionThreshold, quadCorrectionThrehshold);
 		}
 	}
 	
 	public final ConfEnergyCalculator confEcalc;
 	public final File cacheFile;
 	public final Double tripleCorrectionThreshold;
+	public final Double quadCorrectionThreshold;
 
-	private SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile, Double tripleCorrectionThreshold) {
+	private SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile, Double tripleCorrectionThreshold, Double quadCorrectionThreshold) {
 		this.confEcalc = confEcalc;
 		this.cacheFile = cacheFile;
 		this.tripleCorrectionThreshold = tripleCorrectionThreshold;
+		this.quadCorrectionThreshold = quadCorrectionThreshold;
 	}
 	
 	/**
@@ -273,82 +289,170 @@ public class SimplerEnergyMatrixCalculator {
 		batcher.submit();
 		confEcalc.tasks.waitForFinish();
 
-		// calc triple corrections if needed
-		if (tripleCorrectionThreshold != null) {
+		// calc corrections if needed (but only use the highest-order corrections chosen)
+		if (quadCorrectionThreshold != null) {
+			calcQuadCorrections(emat);
+		} else if (tripleCorrectionThreshold != null) {
+			calcTripleCorrections(emat);
+		}
 
-			Progress triplesProgress = new Progress(confEcalc.confSpace.getNumResConfTriples());
-			log("calculating triple corrections for up to %d triples", triplesProgress.getTotalWork());
-			int[] numCorrections = { 0 };
+		return emat;
+	}
 
-			for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
-				for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
-					for (int pos2=0; pos2<pos1; pos2++) {
-						for (int rc2=0; rc2<emat.getNumConfAtPos(pos2); rc2++) {
-							for (int pos3=0; pos3<pos2; pos3++) {
-								for (int rc3=0; rc3<emat.getNumConfAtPos(pos3); rc3++) {
+	// TODO: improve progress bar performance by pre-counting the tuples that pass the threshold
 
-									// if any of the components are too high, skip this triple
-									if (emat.getOneBody(pos1, rc1) > tripleCorrectionThreshold
-										|| emat.getOneBody(pos2, rc2) > tripleCorrectionThreshold
-										|| emat.getOneBody(pos3, rc3) > tripleCorrectionThreshold
-										|| emat.getPairwise(pos1, rc1, pos2, rc2) > tripleCorrectionThreshold
-										|| emat.getPairwise(pos1, rc1, pos3, rc3) > tripleCorrectionThreshold
-										|| emat.getPairwise(pos2, rc2, pos3, rc3) > tripleCorrectionThreshold) {
+	private void calcTripleCorrections(EnergyMatrix emat) {
 
-										synchronized (triplesProgress) {
-											triplesProgress.incrementProgress();
-										}
-										continue;
+		Progress progress = new Progress(confEcalc.confSpace.getNumResConfTriples());
+		log("calculating triple corrections for up to %d triples", progress.getTotalWork());
+		int[] numCorrections = { 0 };
+
+		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
+			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
+				for (int pos2=0; pos2<pos1; pos2++) {
+					for (int rc2=0; rc2<emat.getNumConfAtPos(pos2); rc2++) {
+						for (int pos3=0; pos3<pos2; pos3++) {
+							for (int rc3=0; rc3<emat.getNumConfAtPos(pos3); rc3++) {
+
+								// if any of the components are too high, skip this triple
+								if (emat.getOneBody(pos1, rc1) > tripleCorrectionThreshold
+									|| emat.getOneBody(pos2, rc2) > tripleCorrectionThreshold
+									|| emat.getOneBody(pos3, rc3) > tripleCorrectionThreshold
+									|| emat.getPairwise(pos1, rc1, pos2, rc2) > tripleCorrectionThreshold
+									|| emat.getPairwise(pos1, rc1, pos3, rc3) > tripleCorrectionThreshold
+									|| emat.getPairwise(pos2, rc2, pos3, rc3) > tripleCorrectionThreshold) {
+
+									synchronized (progress) {
+										progress.incrementProgress();
 									}
+									continue;
+								}
 
-									final RCTuple triple = new RCTuple(pos3, rc3, pos2, rc2, pos1, rc1);
+								final RCTuple triple = new RCTuple(pos3, rc3, pos2, rc2, pos1, rc1);
 
-									// check the triple for parametric incompatibilities
-									if (isParametricallyIncompatible(triple)) {
-										synchronized (triplesProgress) {
-											triplesProgress.incrementProgress();
-										}
-										continue;
+								// check the triple for parametric incompatibilities
+								if (isParametricallyIncompatible(triple)) {
+									synchronized (progress) {
+										progress.incrementProgress();
 									}
+									continue;
+								}
 
-									ResidueInteractions inters = confEcalc.makeTripleCorrectionInters(pos1, rc1, pos2, rc2, pos3, rc3);
-									double tripleEnergyOffset = confEcalc.epart.offsetTripleEnergy(pos1, rc1, pos2, rc2, pos3, rc3, emat);
+								ResidueInteractions inters = confEcalc.makeTripleCorrectionInters(pos1, rc1, pos2, rc2, pos3, rc3);
+								double tripleEnergyOffset = confEcalc.epart.offsetTripleEnergy(pos1, rc1, pos2, rc2, pos3, rc3, emat);
 
-									// calc the energy
-									confEcalc.tasks.submit(
-										() -> confEcalc.calcEnergy(triple, inters).energy,
-										(tripleEnergy) -> {
+								// calc the energy
+								confEcalc.tasks.submit(
+									() -> confEcalc.calcEnergy(triple, inters).energy,
+									(tripleEnergy) -> {
 
-											// convert the triple energy into a correction
-											double correction = tripleEnergy - tripleEnergyOffset;
+										// convert the triple energy into a correction
+										double correction = tripleEnergy - tripleEnergyOffset;
 
-											// save the correction only if it's an improvement
-											if (correction > 0) {
-												emat.setTuple(triple, correction);
-												numCorrections[0]++;
-											}
-
-											synchronized (triplesProgress) {
-												triplesProgress.incrementProgress();
-											}
+										// save the correction only if it's an improvement
+										if (correction > 0) {
+											emat.setTuple(triple, correction);
+											numCorrections[0]++;
 										}
-									);
+
+										synchronized (progress) {
+											progress.incrementProgress();
+										}
+									}
+								);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		confEcalc.tasks.waitForFinish();
+
+		log("calculated %d/%d useful triple corrections", numCorrections[0], progress.getTotalWork());
+	}
+
+	private void calcQuadCorrections(EnergyMatrix emat) {
+
+		Progress progress = new Progress(confEcalc.confSpace.getNumResConfQuads());
+		log("calculating quad corrections for up to %d quads", progress.getTotalWork());
+		int[] numCorrections = { 0 };
+
+		// TODO: this indentation is ridiculous...
+		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
+			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
+				for (int pos2=0; pos2<pos1; pos2++) {
+					for (int rc2=0; rc2<emat.getNumConfAtPos(pos2); rc2++) {
+						for (int pos3=0; pos3<pos2; pos3++) {
+							for (int rc3=0; rc3<emat.getNumConfAtPos(pos3); rc3++) {
+								for (int pos4=0; pos4<pos3; pos4++) {
+									for (int rc4=0; rc4<emat.getNumConfAtPos(pos4); rc4++) {
+
+										// if any of the components are too high, skip this quad
+										if (emat.getOneBody(pos1, rc1) > quadCorrectionThreshold
+											|| emat.getOneBody(pos2, rc2) > quadCorrectionThreshold
+											|| emat.getOneBody(pos3, rc3) > quadCorrectionThreshold
+											|| emat.getOneBody(pos4, rc4) > quadCorrectionThreshold
+											|| emat.getPairwise(pos1, rc1, pos2, rc2) > quadCorrectionThreshold
+											|| emat.getPairwise(pos1, rc1, pos3, rc3) > quadCorrectionThreshold
+											|| emat.getPairwise(pos1, rc1, pos4, rc4) > quadCorrectionThreshold
+											|| emat.getPairwise(pos2, rc2, pos3, rc3) > quadCorrectionThreshold
+											|| emat.getPairwise(pos2, rc2, pos4, rc4) > quadCorrectionThreshold
+											|| emat.getPairwise(pos3, rc3, pos4, rc4) > quadCorrectionThreshold
+										) {
+
+											synchronized (progress) {
+												progress.incrementProgress();
+											}
+											continue;
+										}
+
+										final RCTuple quad = new RCTuple(pos4, rc4, pos3, rc3, pos2, rc2, pos1, rc1);
+
+										// check the quad for parametric incompatibilities
+										if (isParametricallyIncompatible(quad)) {
+											synchronized (progress) {
+												progress.incrementProgress();
+											}
+											continue;
+										}
+
+										ResidueInteractions inters = confEcalc.makeQuadCorrectionInters(pos1, rc1, pos2, rc2, pos3, rc3, pos4, rc4);
+										double quadEnergyOffset = confEcalc.epart.offsetQuadEnergy(pos1, rc1, pos2, rc2, pos3, rc3, pos4, rc4, emat);
+
+										// calc the energy
+										confEcalc.tasks.submit(
+											() -> confEcalc.calcEnergy(quad, inters).energy,
+											(quadEnergy) -> {
+
+												// convert the quad energy into a correction
+												double correction = quadEnergy - quadEnergyOffset;
+
+												// save the correction only if it's an improvement
+												if (correction > 0) {
+													emat.setTuple(quad, correction);
+													numCorrections[0]++;
+												}
+
+												synchronized (progress) {
+													progress.incrementProgress();
+												}
+											}
+										);
+									}
 								}
 							}
 						}
 					}
 				}
 			}
-
-			confEcalc.tasks.waitForFinish();
-
-			log("calculated %d/%d useful triple corrections", numCorrections[0], triplesProgress.getTotalWork());
 		}
-		
-		return emat;
+
+		confEcalc.tasks.waitForFinish();
+
+		log("calculated %d/%d useful quad corrections", numCorrections[0], progress.getTotalWork());
 	}
-	
-	
+
 	/**
 	 * Calculates a reference energy for each residue position and residue type
 	 * based on the minimum energy of all residue conformations at that position

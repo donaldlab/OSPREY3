@@ -23,48 +23,87 @@ import static edu.duke.cs.osprey.TestBase.isAbsolutely;
 import static edu.duke.cs.osprey.tools.Log.log;
 
 
-public class TestTriplesCorrections {
+public class TestEmatCorrections {
 
 	// conf spaces with < 3 positions won't get corrected, but should still be accurate
 	@Test
-	public void testPerfectCorrections_1CC8_2N_Traditional() {
+	public void testAccurateTriples_1CC8_2N_Traditional() {
 		assertAccurateCorrections(
 			makeConfSpaceNoFixed(
 				"/1CC8.ss.pdb",
 				"A45", // val
 				"A47" // val
 			),
-			EnergyPartition.Traditional
+			EnergyPartition.Traditional,
+			3
+		);
+	}
+	@Test
+	public void testAccurateQuads_1CC8_2N_Traditional() {
+		assertAccurateCorrections(
+			makeConfSpaceNoFixed(
+				"/1CC8.ss.pdb",
+				"A45", // val
+				"A47" // val
+			),
+			EnergyPartition.Traditional,
+			4
 		);
 	}
 
 	// AllOnPairs conf spaces with 2 positions won't get corrected either, but the bounds should be perfect anyway! =F
 	@Test
-	public void testPerfectCorrections_1CC8_2N_AllOnPairs() {
+	public void testPerfectTriples_1CC8_2N_AllOnPairs() {
 		assertPerfectCorrections(
 			makeConfSpaceNoFixed(
 				"/1CC8.ss.pdb",
 				"A45", // val
 				"A47" // val
 			),
-			EnergyPartition.AllOnPairs
+			EnergyPartition.AllOnPairs,
+			3
 		);
 	}
 	@Test
-	public void testPerfectCorrections_1CC8_2F_AllOnPairs() {
+	public void testPerfectTriples_1CC8_2F_AllOnPairs() {
 		assertPerfectCorrections(
 			makeConfSpace(
 				"/1CC8.ss.pdb",
 				"A45", // val
 				"A47" // val
 			),
-			EnergyPartition.AllOnPairs
+			EnergyPartition.AllOnPairs,
+			3
+		);
+	}
+	@Test
+	public void testPerfectQuads_1CC8_2N_AllOnPairs() {
+		assertPerfectCorrections(
+			makeConfSpaceNoFixed(
+				"/1CC8.ss.pdb",
+				"A45", // val
+				"A47" // val
+			),
+			EnergyPartition.AllOnPairs,
+			4
+		);
+	}
+	@Test
+	public void testPerfectQuads_1CC8_2F_AllOnPairs() {
+		assertPerfectCorrections(
+			makeConfSpace(
+				"/1CC8.ss.pdb",
+				"A45", // val
+				"A47" // val
+			),
+			EnergyPartition.AllOnPairs,
+			4
 		);
 	}
 
-	// conf spaces with >= 3 positions should get corrected, and the corrections should be accurate
+	// conf spaces with >= 3 positions should get corrected by triples, and the corrections should be accurate
 	@Test
-	public void testPerfectCorrections_1CC8_3N_Traditional() {
+	public void testAccurateTriples_1CC8_3N_Traditional() {
 		assertAccurateCorrections(
 			makeConfSpaceNoFixed(
 				"/1CC8.ss.pdb",
@@ -72,11 +111,12 @@ public class TestTriplesCorrections {
 				"A45", // val
 				"A47" // val
 			),
-			EnergyPartition.Traditional
+			EnergyPartition.Traditional,
+			3
 		);
 	}
 	@Test
-	public void testPerfectCorrections_1CC8_3F_Traditional() {
+	public void testAccurateTriples_1CC8_3F_Traditional() {
 		assertAccurateCorrections(
 			makeConfSpace(
 				"/1CC8.ss.pdb",
@@ -84,13 +124,44 @@ public class TestTriplesCorrections {
 				"A45", // val
 				"A47" // val
 			),
-			EnergyPartition.Traditional
+			EnergyPartition.Traditional,
+			3
 		);
 	}
 
-	// except corrections should be perfect for AllOnPairs with 3 positions! =D
+	// conf spaces with >= 4 positions should get corrected by quads, and the corrections should be accurate
 	@Test
-	public void testPerfectCorrections_1CC8_3N_AllOnPairs() {
+	public void testAccurateQuads_1CC8_4N_Traditional() {
+		assertAccurateCorrections(
+			makeConfSpaceNoFixed(
+				"/1CC8.ss.pdb",
+				"A26", // leu
+				"A45", // val
+				"A47", // val
+				"A60" // ile
+			),
+			EnergyPartition.Traditional,
+			4
+		);
+	}
+	@Test
+	public void testAccurateQuads_1CC8_4F_Traditional() {
+		assertAccurateCorrections(
+			makeConfSpace(
+				"/1CC8.ss.pdb",
+				"A26", // leu
+				"A45", // val
+				"A47", // val
+				"A60" // ile
+			),
+			EnergyPartition.Traditional,
+			4
+		);
+	}
+
+	// triples corrections should be perfect for AllOnPairs with 3 positions! =D
+	@Test
+	public void testPerfectTriples_1CC8_3N_AllOnPairs() {
 		assertPerfectCorrections(
 			makeConfSpaceNoFixed(
 				"/1CC8.ss.pdb",
@@ -98,11 +169,12 @@ public class TestTriplesCorrections {
 				"A45", // val
 				"A47" // val
 			),
-			EnergyPartition.AllOnPairs
+			EnergyPartition.AllOnPairs,
+			3
 		);
 	}
 	@Test
-	public void testPerfectCorrections_1CC8_3F_AllOnPairs() {
+	public void testPerfectTriples_1CC8_3F_AllOnPairs() {
 		assertPerfectCorrections(
 			makeConfSpace(
 				"/1CC8.ss.pdb",
@@ -110,12 +182,44 @@ public class TestTriplesCorrections {
 				"A45", // val
 				"A47" // val
 			),
-			EnergyPartition.AllOnPairs
+			EnergyPartition.AllOnPairs,
+			3
 		);
 	}
 
+	// quads corrections should be perfect for AllOnPairs with 4 positions! =D
 	@Test
-	public void testPerfectCorrections_1CC8_4N_Traditional() {
+	public void testPerfectQuads_1CC8_4N_AllOnPairs() {
+		assertPerfectCorrections(
+			makeConfSpaceNoFixed(
+				"/1CC8.ss.pdb",
+				"A26", // leu
+				"A45", // val
+				"A47", // val
+				"A60" // ile
+			),
+			EnergyPartition.AllOnPairs,
+			4
+		);
+	}
+	@Test
+	public void testPerfectQuads_1CC8_4F_AllOnPairs() {
+		assertPerfectCorrections(
+			makeConfSpace(
+				"/1CC8.ss.pdb",
+				"A26", // leu
+				"A45", // val
+				"A47", // val
+				"A60" // ile
+			),
+			EnergyPartition.AllOnPairs,
+			4
+		);
+	}
+
+	// triples should help for n > 3 residues
+	@Test
+	public void testAccurateTriples_1CC8_4N_Traditional() {
 		assertAccurateCorrections(
 			makeConfSpaceNoFixed(
 				"/1CC8.ss.pdb",
@@ -124,11 +228,12 @@ public class TestTriplesCorrections {
 				"A47", // val
 				"A60" // ile
 			),
-			EnergyPartition.Traditional
+			EnergyPartition.Traditional,
+			3
 		);
 	}
 	@Test
-	public void testPerfectCorrections_1CC8_4F_Traditional() {
+	public void testAccurateTriples_1CC8_4F_Traditional() {
 		assertAccurateCorrections(
 			makeConfSpace(
 				"/1CC8.ss.pdb",
@@ -137,11 +242,12 @@ public class TestTriplesCorrections {
 				"A47", // val
 				"A60" // ile
 			),
-			EnergyPartition.Traditional
+			EnergyPartition.Traditional,
+			3
 		);
 	}
 	@Test
-	public void testPerfectCorrections_1CC8_4N_AllOnPairs() {
+	public void testAccurateTriples_1CC8_4N_AllOnPairs() {
 		assertAccurateCorrections(
 			makeConfSpaceNoFixed(
 				"/1CC8.ss.pdb",
@@ -150,11 +256,12 @@ public class TestTriplesCorrections {
 				"A47", // val
 				"A60" // ile
 			),
-			EnergyPartition.AllOnPairs
+			EnergyPartition.AllOnPairs,
+			3
 		);
 	}
 	@Test
-	public void testPerfectCorrections_1CC8_4F_AllOnPairs() {
+	public void testAccurateTriples_1CC8_4F_AllOnPairs() {
 		assertAccurateCorrections(
 			makeConfSpace(
 				"/1CC8.ss.pdb",
@@ -163,9 +270,73 @@ public class TestTriplesCorrections {
 				"A47", // val
 				"A60" // ile
 			),
-			EnergyPartition.AllOnPairs
+			EnergyPartition.AllOnPairs,
+			3
 		);
 	}
+
+	// quads should help for n > 4 residues
+	@Test
+	public void testAccurateQuads_1CC8_5N_Traditional() {
+		assertAccurateCorrections(
+			makeConfSpaceNoFixed(
+				"/1CC8.ss.pdb",
+				"A26", // leu
+				"A45", // val
+				"A47", // val
+				"A60", // ile
+				"A56" // ile
+			),
+			EnergyPartition.Traditional,
+			4
+		);
+	}
+	@Test
+	public void testAccurateQuads_1CC8_5F_Traditional() {
+		assertAccurateCorrections(
+			makeConfSpace(
+				"/1CC8.ss.pdb",
+				"A26", // leu
+				"A45", // val
+				"A47", // val
+				"A60", // ile
+				"A56" // ile
+			),
+			EnergyPartition.Traditional,
+			4
+		);
+	}
+	@Test
+	public void testAccurateQuads_1CC8_5N_AllOnPairs() {
+		assertAccurateCorrections(
+			makeConfSpaceNoFixed(
+				"/1CC8.ss.pdb",
+				"A26", // leu
+				"A45", // val
+				"A47", // val
+				"A60", // ile
+				"A56" // ile
+			),
+			EnergyPartition.AllOnPairs,
+			4
+		);
+	}
+	@Test
+	public void testAccurateQuads_1CC8_5F_AllOnPairs() {
+		assertAccurateCorrections(
+			makeConfSpace(
+				"/1CC8.ss.pdb",
+				"A26", // leu
+				"A45", // val
+				"A47", // val
+				"A60", // ile
+				"A56" // ile
+			),
+			EnergyPartition.AllOnPairs,
+			4
+		);
+	}
+
 
 	private static SimpleConfSpace makeConfSpace(String pdbPath, String ... resNums) {
 
@@ -216,14 +387,14 @@ public class TestTriplesCorrections {
 			.build();
 	}
 
-	private static void assertPerfectCorrections(SimpleConfSpace confSpace, EnergyPartition epart) {
-		forEachTopConf(confSpace, epart, (index, conf, energy, lowerBound, correctedBound) -> {
+	private static void assertPerfectCorrections(SimpleConfSpace confSpace, EnergyPartition epart, int order) {
+		forEachTopConf(confSpace, epart, order, (index, conf, energy, lowerBound, correctedBound) -> {
 			assertThat(energy - correctedBound, isAbsolutely(0, 1e-4));
 		});
 	}
 
-	private static void assertAccurateCorrections(SimpleConfSpace confSpace, EnergyPartition epart) {
-		forEachTopConf(confSpace, epart, (index, conf, energy, lowerBound, correctedBound) -> {
+	private static void assertAccurateCorrections(SimpleConfSpace confSpace, EnergyPartition epart, int order) {
+		forEachTopConf(confSpace, epart, order, (index, conf, energy, lowerBound, correctedBound) -> {
 			assertThat(energy - correctedBound, greaterThanOrEqualTo(-1e-4));
 		});
 	}
@@ -232,7 +403,7 @@ public class TestTriplesCorrections {
 		void onConf(int index, int[] conf, double energy, double lowerBound, double correctedBound);
 	}
 
-	private static void forEachTopConf(SimpleConfSpace confSpace, EnergyPartition epart, ConfListener listener) {
+	private static void forEachTopConf(SimpleConfSpace confSpace, EnergyPartition epart, int order, ConfListener listener) {
 
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
 			.setParallelism(Parallelism.makeCpu(4))
@@ -244,7 +415,8 @@ public class TestTriplesCorrections {
 
 			// calc an emat
 			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-				.setTripleCorrectionThreshold(Double.POSITIVE_INFINITY) // TODO: try lower?
+				.setTripleCorrectionThreshold(order >= 3 ? Double.POSITIVE_INFINITY : null)
+				.setQuadCorrectionThreshold(order >= 4 ? Double.POSITIVE_INFINITY : null)
 				.build()
 				.calcEnergyMatrix();
 

@@ -177,6 +177,10 @@ public class ConfEnergyCalculator {
 		return epart.makeTripleCorrection(confSpace, eref, addResEntropy, pos1, rc1, pos2, rc2, pos3, rc3);
 	}
 
+	public ResidueInteractions makeQuadCorrectionInters(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int rc4) {
+		return epart.makeQuadCorrection(confSpace, eref, addResEntropy, pos1, rc1, pos2, rc2, pos3, rc3, pos4, rc4);
+	}
+
 	public EnergyCalculator.EnergiedParametricMolecule calcSingleEnergy(int pos, int rc) {
 		return calcSingleEnergy(new RCTuple(pos, rc));
 	}

@@ -76,8 +76,10 @@ public enum EnergyPartition {
 
 		@Override
 		public ResidueInteractions makeTripleCorrection(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, int pos1, int rc1, int pos2, int rc2, int pos3, int rc3) {
-			double weight = 1.0/(confSpace.positions.size() - 2);
+			int numTriplesPerPair = confSpace.positions.size() - 2; // ie (n-2) choose 1
+			double weight = 1.0/numTriplesPerPair;
 			double offset = 0.0;
+			// NOTE: don't need to apply offsets (eg, eref or entropies) since we're only doing pairs here
 			return ResInterGen.of(confSpace)
 				.addInter(pos1, pos2, weight, offset)
 				.addInter(pos1, pos3, weight, offset)
@@ -87,11 +89,46 @@ public enum EnergyPartition {
 
 		@Override
 		public double offsetTripleEnergy(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, EnergyMatrix emat) {
-			double weight = 1.0/(emat.getNumPos() - 2);
+			int n = emat.getNumPos();
+			int numTriplesPerPair = n - 2; // ie (n-2) choose 1
+			double weight = 1.0/numTriplesPerPair;
 			return weight*(
 				  emat.getPairwise(pos1, rc1, pos2, rc2)
 				+ emat.getPairwise(pos1, rc1, pos3, rc3)
 				+ emat.getPairwise(pos2, rc2, pos3, rc3)
+			);
+		}
+
+		@Override
+		public ResidueInteractions makeQuadCorrection(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int rc4) {
+			int n = confSpace.positions.size();
+			int numQuadsPerPair = (n - 2)*(n - 3)/2; // ie (n-2) choose 2
+			double weight = 1.0/numQuadsPerPair;
+			double offset = 0.0;
+			return ResInterGen.of(confSpace)
+				.addInter(pos1, pos2, weight, offset)
+				.addInter(pos1, pos3, weight, offset)
+				.addInter(pos1, pos4, weight, offset)
+				.addInter(pos2, pos3, weight, offset)
+				.addInter(pos2, pos4, weight, offset)
+				.addInter(pos3, pos4, weight, offset)
+				.make();
+		}
+
+		// TODO: refactor combinatorics into helper functions
+
+		@Override
+		public double offsetQuadEnergy(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int rc4, EnergyMatrix emat) {
+			int n = emat.getNumPos();
+			int numQuadsPerPair = (n - 2)*(n - 3)/2; // ie (n-2) choose 2
+			double weight = 1.0/numQuadsPerPair;
+			return weight*(
+				  emat.getPairwise(pos1, rc1, pos2, rc2)
+				+ emat.getPairwise(pos1, rc1, pos3, rc3)
+				+ emat.getPairwise(pos1, rc1, pos4, rc4)
+				+ emat.getPairwise(pos2, rc2, pos3, rc3)
+				+ emat.getPairwise(pos2, rc2, pos4, rc4)
+				+ emat.getPairwise(pos3, rc3, pos4, rc4)
 			);
 		}
 	},
@@ -179,8 +216,11 @@ public enum EnergyPartition {
 				offset2 += getResEntropy(confSpace, pos2, rc2);
 				offset3 += getResEntropy(confSpace, pos3, rc3);
 			}
-			double singleWeight = 2.0/(confSpace.positions.size() - 2)/(confSpace.positions.size() - 1);
-			double pairWeight = 1.0/(confSpace.positions.size() - 2);
+			int n = confSpace.positions.size();
+			int numTriplesPerSingle = (n - 1)*(n - 2)/2; // ie (n-1) choose 2
+			int numTriplesPerPair = n - 2; // ie (n-2) choose 1
+			double singleWeight = 1.0/numTriplesPerSingle;
+			double pairWeight = 1.0/numTriplesPerPair;
 			return ResInterGen.of(confSpace)
 				.addIntra(pos1, singleWeight, offset1)
 				.addIntra(pos2, singleWeight, offset2)
@@ -197,11 +237,70 @@ public enum EnergyPartition {
 		@Override
 		public double offsetTripleEnergy(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, EnergyMatrix emat) {
 			// NOTE: no energy on singles, so don't need to add those here
-			double weight = 1.0/(emat.getNumPos() - 2);
+			int n = emat.getNumPos();
+			int numTriplesPerPair = n - 2; // ie (n-2) choose 1
+			double weight = 1.0/numTriplesPerPair;
 			return weight*(
 				  emat.getPairwise(pos1, rc1, pos2, rc2)
 				+ emat.getPairwise(pos1, rc1, pos3, rc3)
 				+ emat.getPairwise(pos2, rc2, pos3, rc3)
+			);
+		}
+
+		@Override
+		public ResidueInteractions makeQuadCorrection(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int rc4) {
+			double offset1 = 0.0;
+			double offset2 = 0.0;
+			double offset3 = 0.0;
+			double offset4 = 0.0;
+			if (eref != null) {
+				offset1 += eref.getOffset(confSpace, pos1, rc1);
+				offset2 += eref.getOffset(confSpace, pos2, rc2);
+				offset3 += eref.getOffset(confSpace, pos3, rc3);
+				offset4 += eref.getOffset(confSpace, pos4, rc4);
+			}
+			if (addResEntropy) {
+				offset1 += getResEntropy(confSpace, pos1, rc1);
+				offset2 += getResEntropy(confSpace, pos2, rc2);
+				offset3 += getResEntropy(confSpace, pos3, rc3);
+				offset4 += getResEntropy(confSpace, pos4, rc4);
+			}
+			int n = confSpace.positions.size();
+			int numQuadsPerSingle = (n - 1)*(n - 2)*(n - 3)/3/2; // ie (n-1) choose 3
+			int numQuadsPerPair = (n - 2)*(n - 3)/2; // ie (n-2) choose 2
+			double singleWeight = 1.0/numQuadsPerSingle;
+			double pairWeight = 1.0/numQuadsPerPair;
+			return ResInterGen.of(confSpace)
+				.addIntra(pos1, singleWeight, offset1)
+				.addIntra(pos2, singleWeight, offset2)
+				.addIntra(pos3, singleWeight, offset3)
+				.addIntra(pos4, singleWeight, offset4)
+				.addInter(pos1, pos2, pairWeight, 0.0)
+				.addInter(pos1, pos3, pairWeight, 0.0)
+				.addInter(pos1, pos4, pairWeight, 0.0)
+				.addInter(pos2, pos3, pairWeight, 0.0)
+				.addInter(pos2, pos4, pairWeight, 0.0)
+				.addInter(pos3, pos4, pairWeight, 0.0)
+				.addShell(pos1, singleWeight, 0.0)
+				.addShell(pos2, singleWeight, 0.0)
+				.addShell(pos3, singleWeight, 0.0)
+				.addShell(pos4, singleWeight, 0.0)
+				.make();
+		}
+
+		@Override
+		public double offsetQuadEnergy(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int rc4, EnergyMatrix emat) {
+			// NOTE: no energy on singles, so don't need to add those here
+			int n = emat.getNumPos();
+			int numQuadsPerPair = (n - 2)*(n - 3)/2; // ie (n-2) choose 2
+			double weight = 1.0/numQuadsPerPair;
+			return weight*(
+				  emat.getPairwise(pos1, rc1, pos2, rc2)
+				+ emat.getPairwise(pos1, rc1, pos3, rc3)
+				+ emat.getPairwise(pos1, rc1, pos4, rc4)
+				+ emat.getPairwise(pos2, rc2, pos3, rc3)
+				+ emat.getPairwise(pos2, rc2, pos4, rc4)
+				+ emat.getPairwise(pos3, rc3, pos4, rc4)
 			);
 		}
 	};
@@ -212,7 +311,10 @@ public enum EnergyPartition {
 
 	public abstract ResidueInteractions makeTripleCorrection(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, int pos1, int rc1, int pos2, int rc2, int pos3, int rc3);
 	public abstract double offsetTripleEnergy(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, EnergyMatrix emat);
-	
+
+	public abstract ResidueInteractions makeQuadCorrection(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int rc4);
+	public abstract double offsetQuadEnergy(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int rc4, EnergyMatrix emat);
+
 	public static ResidueInteractions makeFragment(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, boolean addResEntropy, RCTuple frag) {
 		return ResInterGen.of(confSpace)
 			.addIntras(frag, 1, (int pos, int rc) -> {
