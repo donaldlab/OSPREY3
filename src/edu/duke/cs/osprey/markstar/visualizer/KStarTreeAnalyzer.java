@@ -210,23 +210,65 @@ public class KStarTreeAnalyzer {
          *
          * TODO: Implement a provable solver
          */
+
         String lowerBound = "";
         String upperBound = "";
         String startPoint = "";
+        Double threshold = 5E-8;
+        Double pseudocount = 5E-8;
+
+        boolean equality = false;
+        List<String> AeqList = new ArrayList();
+        List<String> beqList = new ArrayList();
+
+        int indexCounter = 0;
+        int numVars = residue.keySet().size();
+
         for(String rotamer : residue.keySet()){
-            // If we have a maximum of zero probability, exclude it completely
             // TODO: Decide if this is a conceptual issue
             if(residue.get(rotamer).get(1) > 0.0){
                 // Turns out our solver does poorly if it's less than 5E-9, so lets include that check as well
                 // Turns out our solver does poorly if it's less than 5E-8, so lets include that check as well
-                if (residue.get(rotamer).get(1)-residue.get(rotamer).get(0) < 5E-8) {
+                if (residue.get(rotamer).get(1)-residue.get(rotamer).get(0) < threshold) {
+                    // for now just arbitrarily increase the bound
+                    lowerBound = lowerBound + ',' + String.format("%.5E", residue.get(rotamer).get(0));
+                    upperBound = upperBound + ',' + String.format("%.5E", residue.get(rotamer).get(0)+threshold);
+                    startPoint = startPoint + ',' + String.format("%.5E", (residue.get(rotamer).get(0) + threshold) / 2.0);
+                    /*
+
                     // here we need to introduce an equality constraint instead of a bound constraint...
+                    equality = true;
+                    // allow loose bounds
+                    lowerBound = lowerBound + ',' + "0";
+                    upperBound = upperBound + ',' + "1";
+                    //define start point and equality constraint as the UPPER BOUND on probability
+                    startPoint = startPoint + ',' + String.format("%.5E", residue.get(rotamer).get(1));
+                    String positionConstraint = String.format("%.5E", residue.get(rotamer).get(1));
+                    // Define equality constraint string
+                    String equalityConstraint = "[";
+                    for (int i = 0; i<indexCounter; i++){
+                        equalityConstraint+= "0,";
+                    }
+                    equalityConstraint+=positionConstraint+",";
+                    for (int i = indexCounter+1; i<numVars; i++){
+                        equalityConstraint+= "0,";
+                    }
+                    equalityConstraint += "]";
+                    AeqList.add(equalityConstraint);
+                    beqList.add("["+positionConstraint+"]");
+                     */
                 }else {
                     lowerBound = lowerBound + ',' + String.format("%.5E", residue.get(rotamer).get(0));
                     upperBound = upperBound + ',' + String.format("%.5E", residue.get(rotamer).get(1));
                     startPoint = startPoint + ',' + String.format("%.5E", (residue.get(rotamer).get(0) + residue.get(rotamer).get(1)) / 2.0);
                 }
+            }else{
+                // If we have a maximum of zero probability, add a pseudocount
+                lowerBound = lowerBound + ',' + String.format("%.5E", 0.0);
+                upperBound = upperBound + ',' + String.format("%.5E", pseudocount);
+                startPoint = startPoint + ',' + String.format("%.5E", pseudocount / 2.0);
             }
+            indexCounter++;
         }
 
         String lb = String.format("[%s];", lowerBound);
@@ -238,8 +280,16 @@ public class KStarTreeAnalyzer {
         eng.eval("maxfun = @(x) dot(x, log(x));");
         eng.eval("A = [];");
         eng.eval("b = [];");
-        eng.eval("Aeq = [];");
-        eng.eval("beq = [];");
+        eng.eval("Aeq = ones(1,"+String.format("%d",numVars)+");");
+        eng.eval("beq = [1];");
+        if(equality){
+            for(String constraint: AeqList){
+                eng.eval(String.format("Aeq = [Aeq; %s]", constraint));
+            }
+            for(String bconstraint: beqList) {
+                eng.eval(String.format("beq = [beq; %s]", bconstraint));
+            }
+        }
         eng.eval("lb = "+lb);
         eng.eval("ub = "+ub);
         eng.eval("SP = "+SP);

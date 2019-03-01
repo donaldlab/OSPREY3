@@ -399,6 +399,8 @@ public class TestMARKStar {
 		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190214_loop_flex/erbin/noflex/0.726540ConfTreeBounds.txt");
 		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190214_loop_flex/scrib_1/noflex/0.703284ConfTreeBounds.txt");
 		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190218_nmr_flex/scrib/tight/15/0.740540ConfTreeBounds.txt");
+		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190218_nmr_flex/scrib/tight/15/0.740540ConfTreeBounds.txt");
+		//KStarTreeNode root = KStarTreeNode.parseTree("../../../../projects/promiscuity/pdz/design/190214_loop_flex/scrib_1/noflex/0.703284ConfTreeBounds.txt");
 		Map<String,List<Double>> entropyBounds = KStarTreeAnalyzer.calcResidueEntropy(root);
 		for(String residue : entropyBounds.keySet()){
 			System.out.println(String.format("Entropy of %s: [%.4f,%.4f]",
@@ -411,13 +413,22 @@ public class TestMARKStar {
 	@Test
 	public void testEntropy_lowMem() throws Exception{
 	    KStarTreeNode.Marginalizer marginalizer = new KStarTreeNode.Marginalizer();
-		marginalizer.parseAndMarginalize("Complex2XXMContinuousBounds.txt")
+		//marginalizer.parseAndMarginalize("Complex2XXMContinuousBounds.txt")
+		marginalizer.parseAndMarginalize("../../../../projects/promiscuity/pdz/design/190214_loop_flex/scrib_1/noflex/0.703284ConfTreeBounds.txt")
+		//marginalizer.parseAndMarginalize("../../../../projects/promiscuity/pdz/design/190214_loop_flex/erbin/noflex/0.726540ConfTreeBounds.txt")
                 .setEpsilon(0.68);
 		Map<String,Map<String,List<BigDecimal>>> margDists = marginalizer.build();
 		KStarTreeNode root = marginalizer.getRoot();
 		Map<String,Map<String,List<Double>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(margDists, root.getLowerBound(), root.getUpperBound());
 		Map<String,List<Double>> entropyBounds = KStarTreeAnalyzer.calcResidueEntropy(occTree);
-		for(String residue : entropyBounds.keySet()){
+		List<String> sortedKeys = new ArrayList(entropyBounds.keySet());
+		Collections.sort(sortedKeys);
+		for (String residue: sortedKeys){
+			  System.out.println(String.format("Residue %s has bounded occupancies:\n\t%s",
+                    residue,
+                    occTree.get(residue).toString()));
+		}
+		for(String residue : sortedKeys){
 			System.out.println(String.format("Entropy of %s: [%.4f,%.4f]",
 					residue,
 					entropyBounds.get(residue).get(0),

@@ -128,6 +128,7 @@ public class Visualizer extends Application {
         Group g = rootGroup;
         Pane centerPane = new Pane();
         root = KStarTreeNode.parseTree(selectedFile, true);
+        System.out.println("Tree loaded");
         /*
         int level = 5;
         System.out.println("Enthalpy:"+root.computeEnthalpy(level));

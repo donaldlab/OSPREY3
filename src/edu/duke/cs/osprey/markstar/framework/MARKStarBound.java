@@ -209,7 +209,7 @@ public class MARKStarBound implements PartitionFunction {
             if(values.qstar.compareTo(BigDecimal.ZERO) == 0) {
                 status = Status.Unstable;
             }
-            //rootNode.printTree(stateName, minimizingEcalc.confSpace);
+            rootNode.printTree(stateName, minimizingEcalc.confSpace);
         }
     }
 
