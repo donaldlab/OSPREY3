@@ -376,8 +376,12 @@ public class TestMARKStar {
 		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
 		Map<String,Map<String, List<BigDecimal>>> indirMarginalTree = KStarTreeAnalyzer.marginalizeTree(root);
 		KStarTreeAnalyzer.testCumulativeMarginals(indirMarginalTree,root.getLowerBound(),root.getUpperBound(),false);
-		Map<String,Map<String, List<BigDecimal>>> dirMarginalTree = KStarTreeNode.parseAndMarginalize("Complex2XXMContinuousBounds.txt");
-		KStarTreeAnalyzer.testCumulativeMarginals(dirMarginalTree,root.getLowerBound(),root.getUpperBound(),false);
+		KStarTreeNode.Marginalizer marginalizer = new KStarTreeNode.Marginalizer();
+		marginalizer.parseAndMarginalize("Complex2XXMContinuousBounds.txt")
+				.setEpsilon(0.68);
+		Map<String,Map<String,List<BigDecimal>>> dirMarginalTree = marginalizer.build();
+		KStarTreeNode dirRoot = marginalizer.getRoot();
+		KStarTreeAnalyzer.testCumulativeMarginals(dirMarginalTree,dirRoot.getLowerBound(),dirRoot.getUpperBound(),false);
 	}
 	@Test
 	public void testOccupancy(){
@@ -389,12 +393,12 @@ public class TestMARKStar {
 	}
 	@Test
 	public void testEntropy() throws Exception{
-		//KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
 		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190213_indiv_res_flex/erbin_1mfg/L1291/0.518010ConfTreeBounds.txt");
 		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190213_indiv_res_flex/scrib_6ms1/L738/0.243057ConfTreeBounds.txt");
 		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190214_loop_flex/erbin/noflex/0.726540ConfTreeBounds.txt");
 		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190214_loop_flex/scrib_1/noflex/0.703284ConfTreeBounds.txt");
-		KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190218_nmr_flex/scrib/tight/15/0.740540ConfTreeBounds.txt");
+		//KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190218_nmr_flex/scrib/tight/15/0.740540ConfTreeBounds.txt");
 		Map<String,List<Double>> entropyBounds = KStarTreeAnalyzer.calcResidueEntropy(root);
 		for(String residue : entropyBounds.keySet()){
 			System.out.println(String.format("Entropy of %s: [%.4f,%.4f]",
@@ -402,6 +406,23 @@ public class TestMARKStar {
 					entropyBounds.get(residue).get(0),
 					entropyBounds.get(residue).get(1)
 					));
+		}
+	}
+	@Test
+	public void testEntropy_lowMem() throws Exception{
+	    KStarTreeNode.Marginalizer marginalizer = new KStarTreeNode.Marginalizer();
+		marginalizer.parseAndMarginalize("Complex2XXMContinuousBounds.txt")
+                .setEpsilon(0.68);
+		Map<String,Map<String,List<BigDecimal>>> margDists = marginalizer.build();
+		KStarTreeNode root = marginalizer.getRoot();
+		Map<String,Map<String,List<Double>>> occTree = KStarTreeAnalyzer.calcResidueOccupancyList(margDists, root.getLowerBound(), root.getUpperBound());
+		Map<String,List<Double>> entropyBounds = KStarTreeAnalyzer.calcResidueEntropy(occTree);
+		for(String residue : entropyBounds.keySet()){
+			System.out.println(String.format("Entropy of %s: [%.4f,%.4f]",
+					residue,
+					entropyBounds.get(residue).get(0),
+					entropyBounds.get(residue).get(1)
+			));
 		}
 	}
 	@Test

@@ -96,23 +96,6 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         }
     }
 
-    public static Map<String,Map<String,List<BigDecimal>>> parseAndMarginalize(File file){
-        try {
-            BufferedReader fileStream = new BufferedReader(new FileReader(file));
-            KStarTreeNode.Marginalizer marginalizer = new KStarTreeNode.Marginalizer();
-            marginalizer.setEpsilon(0.68);
-            fileStream.lines().forEach(line -> marginalizer.addNode(line));
-            return marginalizer.build();
-        } catch(Exception e)
-        {
-        System.err.println("Parse tree failed: ");
-        e.printStackTrace();
-        }
-        return null;
-    }
-    public static Map<String,Map<String,List<BigDecimal>>> parseAndMarginalize(String file){
-        return parseAndMarginalize(new File(file));
-    }
 
 
     public static KStarTreeNode parseTree(File file, boolean render)
@@ -931,6 +914,26 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         public Map<String, Map<String,List<BigDecimal>>> build()
         {
             return marginalDists;
+        }
+
+        public KStarTreeNode getRoot(){
+            return this.root;
+        }
+        public Marginalizer parseAndMarginalize(File file){
+            try {
+                BufferedReader fileStream = new BufferedReader(new FileReader(file));
+                fileStream.lines().forEach(line -> this.addNode(line));
+                return this;
+            } catch(Exception e)
+            {
+                System.err.println("Parse tree failed: ");
+                e.printStackTrace();
+            }
+            return null;
+        }
+        public Marginalizer parseAndMarginalize(String file){
+             parseAndMarginalize(new File(file));
+             return this;
         }
     }
     public static class Builder

@@ -14,15 +14,41 @@ public class KStarTreeAnalyzer {
          */
         //call something that calculates bounds on residue occupancy
         Map<String,Map<String,List<Double>>> occMap = calcResidueOccupancyList(rootNode);
-        //do calculations to turn this into entropy bounds
+        return calcResidueEntropy(occMap);
+    }
+    public static Map<String,List<Double>> calcResidueEntropy(Map<String,Map<String,List<Double>>> occMap) throws Exception {
+        /**
+         * Calculates residue entropy by collecting nodes for each residue, treating this node as root
+         */
         Map<String,List<Double>> entropyMap = new HashMap();
-
         for (String residue : occMap.keySet()){
             entropyMap.put(residue, matlabMaxEntropy(occMap.get(residue)));
         }
         return entropyMap;
     }
 
+    public static Map<String,Map<String,List<Double>>> calcResidueOccupancyList(Map<String,Map<String,List<BigDecimal>>> margDist, BigDecimal overallLowerBound, BigDecimal overallUpperBound){
+        Map<String,Map<String, List<Double>>> occTree = new HashMap<>();
+
+        for( String residue : margDist.keySet() ) {
+            Map<String,List<Double>> residueOccupancy = new HashMap<>();
+            Map<String,List<BigDecimal>> residueMarginalSum = getCumulativeMarginalRes(margDist.get(residue), residue, overallLowerBound, overallUpperBound, false);
+            // Note that we are forcing occupancies to always sum to 1 despite rounding errors
+            // If we have an undershoot, then I believe this should effectively spread the weight equally over rotamers, which is what we want
+            // If we have an overshoot, I think that the weight is shifted slightly more toward high occupancy rotamers, as those have been rounded more aggressively
+
+            for(String rotamer : margDist.get(residue).keySet()){
+                residueOccupancy.put(rotamer,
+                        Arrays.asList(
+                                // Lower bound on occupancy is the lower bound on stat weight over the upper bound on cumulative stat weight (with this rotamer lower bound)
+                                margDist.get(residue).get(rotamer).get(0).divide(residueMarginalSum.get(rotamer).get(1),10,RoundingMode.HALF_UP).doubleValue(),
+                                // Upper bound on occupancy is the upper bound on stat weight over the lower bound on cumulative stat weight (with this rotamer upper bound)
+                                margDist.get(residue).get(rotamer).get(1).divide(residueMarginalSum.get(rotamer).get(0),10,RoundingMode.HALF_UP).doubleValue()));
+            }
+            occTree.put(residue, residueOccupancy);
+        }
+        return occTree;
+    }
     public static Map<String,Map<String,List<Double>>> calcResidueOccupancyList(KStarTreeNode rootNode){
         /**
          * Calculates the occupancy of each rotamer for all residues
@@ -32,26 +58,7 @@ public class KStarTreeAnalyzer {
 
         Map<String,Map<String,List<BigDecimal>>> marginTree = marginalizeTree(rootNode);
 
-        Map<String,Map<String, List<Double>>> occTree = new HashMap<>();
-
-        for( String residue : marginTree.keySet() ) {
-            Map<String,List<Double>> residueOccupancy = new HashMap<>();
-            Map<String,List<BigDecimal>> residueMarginalSum = getCumulativeMarginalRes(marginTree.get(residue), residue, overallLowerBound, overallUpperBound, false);
-            // Note that we are forcing occupancies to always sum to 1 despite rounding errors
-            // If we have an undershoot, then I believe this should effectively spread the weight equally over rotamers, which is what we want
-            // If we have an overshoot, I think that the weight is shifted slightly more toward high occupancy rotamers, as those have been rounded more aggressively
-
-            for(String rotamer : marginTree.get(residue).keySet()){
-                residueOccupancy.put(rotamer,
-                        Arrays.asList(
-                                // Lower bound on occupancy is the lower bound on stat weight over the upper bound on cumulative stat weight (with this rotamer lower bound)
-                                marginTree.get(residue).get(rotamer).get(0).divide(residueMarginalSum.get(rotamer).get(1),10,RoundingMode.HALF_UP).doubleValue(),
-                                // Upper bound on occupancy is the upper bound on stat weight over the lower bound on cumulative stat weight (with this rotamer upper bound)
-                                marginTree.get(residue).get(rotamer).get(1).divide(residueMarginalSum.get(rotamer).get(0),10,RoundingMode.HALF_UP).doubleValue()));
-            }
-            occTree.put(residue, residueOccupancy);
-        }
-        return occTree;
+        return calcResidueOccupancyList(marginTree,overallLowerBound,overallUpperBound);
     }
     public static void printOccupancyList(Map<String,Map<String,List<Double>>> occTree){
         for( String residue : occTree.keySet()){
