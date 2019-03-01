@@ -370,6 +370,15 @@ public class TestMARKStar {
 				marginalTree.get("B64:LYS").get("W0").get(1)
 				));
 	}
+
+	@Test
+	public void testDirectMarginalization(){
+		KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
+		Map<String,Map<String, List<BigDecimal>>> indirMarginalTree = KStarTreeAnalyzer.marginalizeTree(root);
+		KStarTreeAnalyzer.testCumulativeMarginals(indirMarginalTree,root.getLowerBound(),root.getUpperBound(),false);
+		Map<String,Map<String, List<BigDecimal>>> dirMarginalTree = KStarTreeNode.parseAndMarginalize("Complex2XXMContinuousBounds.txt");
+		KStarTreeAnalyzer.testCumulativeMarginals(dirMarginalTree,root.getLowerBound(),root.getUpperBound(),false);
+	}
 	@Test
 	public void testOccupancy(){
 		//KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");

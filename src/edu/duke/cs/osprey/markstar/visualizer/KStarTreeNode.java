@@ -96,6 +96,25 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         }
     }
 
+    public static Map<String,Map<String,List<BigDecimal>>> parseAndMarginalize(File file){
+        try {
+            BufferedReader fileStream = new BufferedReader(new FileReader(file));
+            KStarTreeNode.Marginalizer marginalizer = new KStarTreeNode.Marginalizer();
+            marginalizer.setEpsilon(0.68);
+            fileStream.lines().forEach(line -> marginalizer.addNode(line));
+            return marginalizer.build();
+        } catch(Exception e)
+        {
+        System.err.println("Parse tree failed: ");
+        e.printStackTrace();
+        }
+        return null;
+    }
+    public static Map<String,Map<String,List<BigDecimal>>> parseAndMarginalize(String file){
+        return parseAndMarginalize(new File(file));
+    }
+
+
     public static KStarTreeNode parseTree(File file, boolean render)
     {
         try {
@@ -841,7 +860,79 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             child.getLevelNodes(targetLevel, nodes);
     }
 
+    public static class Marginalizer{
+        private KStarTreeNode root;
+        private Map<String,Map<String,List<BigDecimal>>> marginalDists = new HashMap<>();
+        private Stack<KStarTreeNode> buildStack = new Stack<>();
+        private int lastLevel = -1;
+        private KStarTreeNode lastNode;
+        private double epsilon = 0;
 
+        public void addNode(String line)
+        {
+            Matcher m = p.matcher(line);
+            if(m.matches() && debug) {
+                System.out.println("Groups:");
+                for(int i = 0; i < m.groupCount(); i++)
+                    System.out.println("group "+i+":"+m.group(i));
+            }
+            int level = m.group(1).length()/2;
+            String[] bounds = m.group(6).split(",");
+            int[] confAssignments = Arrays.stream(m.group(3).replaceAll(" ","").split(",")).mapToInt(Integer::parseInt).toArray();
+            String[] assignments = m.group(4).split(",");
+            BigDecimal lowerBound = new BigDecimal(bounds[0]);
+            BigDecimal upperBound = new BigDecimal(bounds[1]);
+            String[] confBounds = m.group(5).split(",");
+            double confLowerBound = Double.valueOf(confBounds[0]);
+            double confUpperBound = Double.valueOf(confBounds[1]);
+            if(level > lastLevel) {
+                buildStack.push(lastNode);
+            }
+            if(level < lastLevel) {
+                while(level < lastLevel) {
+                    lastLevel--;
+                    buildStack.pop();
+                }
+            }
+            KStarTreeNode newNode = new KStarTreeNode(level, assignments, confAssignments, lowerBound, upperBound,
+                    confLowerBound, confUpperBound, epsilon);
+            KStarTreeNode curParent = buildStack.peek();
+            if(newNode.isRoot()) {
+                root = newNode;
+            }
+            else {
+                // instead of constructing a tree, add up by residue and rotamer
+                newNode.determineMarginalIdentity(curParent);
+                String residue = newNode.getMargResidue();
+                String rotamer = newNode.getMargRotamer();
+                if (!marginalDists.containsKey(residue)){
+                    marginalDists.put(residue, new HashMap<>());
+                }
+                if (!marginalDists.get(residue).containsKey(rotamer)){
+                    marginalDists.get(residue).put(rotamer,
+                            Arrays.asList(newNode.getLowerBound(), newNode.getUpperBound()));
+                }else{
+                    marginalDists.get(residue).get(rotamer).set(0, marginalDists.get(residue).get(rotamer).get(0).add(newNode.getLowerBound()));
+                    marginalDists.get(residue).get(rotamer).set(1, marginalDists.get(residue).get(rotamer).get(1).add(newNode.getUpperBound()));
+
+                }
+            }
+            lastLevel = level;
+            lastNode = newNode;
+
+
+        }
+
+        public Marginalizer setEpsilon(double epsilon)
+        {
+            this.epsilon = epsilon;
+            return this;
+        }
+        public Map<String, Map<String,List<BigDecimal>>> build()
+        {
+            return marginalDists;
+        }
+    }
     public static class Builder
     {
         private KStarTreeNode root;
@@ -941,12 +1032,12 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         newNode.statText = this.statText;
         newNode.parent = this;
         // Figure out which marginal residue and rotamer the child represents
-        newNode.determineMarginalIdentity();
+        newNode.determineMarginalIdentity(newNode.getParent());
         newNode.overallUpperBound = this.overallUpperBound;
         newNode.computeOccupancy();
     }
-    public void determineMarginalIdentity(){
-        List<String> parentAssignments = Arrays.asList(parent.getAssignments());
+    public void determineMarginalIdentity(KStarTreeNode theParent){
+        List<String> parentAssignments = Arrays.asList(theParent.getAssignments());
         List<String> newResidueList = Arrays.asList(assignments).stream()
                 .filter(not(new HashSet<>(parentAssignments)::contains))
                 .collect(Collectors.toList());
