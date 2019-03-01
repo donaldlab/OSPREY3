@@ -609,10 +609,10 @@ public class FringeDB implements AutoCloseable {
 	}
 
 	/**
-	 * Finishes this sweep and prepares for the next sweep.
+	 * Finishes this step and prepares for the next step.
 	 * All writes are flushed to the underlying storage device by the time this method returns.
 	 */
-	public void finishSweep() {
+	public void finishStep() {
 
 		if (iostate.numToRead > 0) {
 			throw new IllegalStateException("sweep not finished, " + iostate.numToRead + " nodes left to read");

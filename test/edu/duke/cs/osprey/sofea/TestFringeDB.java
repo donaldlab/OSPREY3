@@ -66,7 +66,7 @@ public class TestFringeDB {
 
 				assertThat(tx.dbHasRoomForCommit(), is(true));
 				tx.commit();
-				db.finishSweep();
+				db.finishStep();
 
 				// check db state
 				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
@@ -97,7 +97,7 @@ public class TestFringeDB {
 				assertThat(tx.zSumUpper(), is(biggen(7.3)));
 
 				tx.commit();
-				db.finishSweep();
+				db.finishStep();
 
 				// check db state
 				assertThat(db.getZSumMax(confSpace.states.get(0)), is(nullValue()));
@@ -128,7 +128,7 @@ public class TestFringeDB {
 
 				assertThat(tx.dbHasRoomForCommit(), is(true));
 				tx.commit();
-				db.finishSweep();
+				db.finishStep();
 
 				// check db state
 				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
@@ -158,7 +158,7 @@ public class TestFringeDB {
 				tx.writeReplacementNode(tx.state(), tx.conf(), tx.zSumUpper());
 
 				tx.commit();
-				db.finishSweep();
+				db.finishStep();
 
 				// check db state
 				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
@@ -183,7 +183,7 @@ public class TestFringeDB {
 				tx.writeRootNode(confSpace.states.get(1), biggen(10.4));
 				tx.writeRootNode(confSpace.states.get(2), biggen(7.3));
 				tx.commit();
-				db.finishSweep();
+				db.finishStep();
 			}
 
 			// open the DB and consume all the nodes
@@ -213,7 +213,7 @@ public class TestFringeDB {
 				assertThat(tx.zSumUpper(), is(biggen(7.3)));
 
 				tx.commit();
-				db.finishSweep();
+				db.finishStep();
 
 				// check db state
 				assertThat(db.getZSumMax(confSpace.states.get(0)), is(nullValue()));
@@ -246,7 +246,7 @@ public class TestFringeDB {
 				tx.writeRootNode(confSpace.states.get(1), biggen(10.4));
 				tx.writeRootNode(confSpace.states.get(2), biggen(7.3));
 				tx.commit();
-				db.finishSweep();
+				db.finishStep();
 			}
 
 			// open the DB and consume one node
@@ -336,7 +336,7 @@ public class TestFringeDB {
 
 				FringeDB.Transaction tx = db.transaction();
 				assertThat(tx.numNodesToRead(), is(0L));
-				db.finishSweep();
+				db.finishStep();
 
 				// check db state
 				assertThat(db.getZSumMax(confSpace.states.get(0)), is(nullValue()));
@@ -374,7 +374,7 @@ public class TestFringeDB {
 				tx.writeRootNode(confSpace.states.get(1), biggen(10.4));
 				tx.writeRootNode(confSpace.states.get(2), biggen(7.3));
 				tx.commit();
-				db.finishSweep();
+				db.finishStep();
 
 				// check db state
 				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(1024.5)));
@@ -398,7 +398,7 @@ public class TestFringeDB {
 				assertThat(tx.state().index, is(2));
 
 				tx.commit();
-				db.finishSweep();
+				db.finishStep();
 
 				// check db state
 				assertThat(db.getZSumMax(confSpace.states.get(0)), is(biggen(35.2)));

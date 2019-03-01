@@ -32,8 +32,6 @@
 
 package edu.duke.cs.osprey.confspace;
 
-import edu.duke.cs.osprey.astar.conf.ConfIndex;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.function.BiConsumer;
@@ -167,37 +165,95 @@ public interface TupleMatrix<T> {
 	 */
 	default void forEachHigherOrderTupleIn(int[] conf, BiConsumer<RCTuple,T> callback) {
 
-		if (hasHigherOrderTuples()) {
+		if (!hasHigherOrderTuples()) {
+			return;
+		}
 
-			int numPos = getNumPos();
-			for (int pos1=1; pos1<numPos; pos1++) {
+		int numPos = getNumPos();
+		for (int pos1=1; pos1<numPos; pos1++) {
 
-				int rc1 = conf[pos1];
-				if (rc1 == Conf.Unassigned) {
+			int rc1 = conf[pos1];
+			if (rc1 == Conf.Unassigned) {
+				continue;
+			}
+
+			for (int pos2=0; pos2<pos1; pos2++) {
+
+				int rc2 = conf[pos2];
+				if (rc2 == Conf.Unassigned) {
 					continue;
 				}
 
-				for (int pos2=0; pos2<pos1; pos2++) {
-
-					int rc2 = conf[pos2];
-					if (rc2 == Conf.Unassigned) {
-						continue;
-					}
-
-					TupleTree<T> tree = getHigherOrderTuples(pos1, rc1, pos2, rc2);
-					if (tree != null) {
-						tree.forEachIn(conf, callback);
-					}
+				TupleTree<T> tree = getHigherOrderTuples(pos1, rc1, pos2, rc2);
+				if (tree != null) {
+					tree.forEachIn(conf, callback);
 				}
 			}
 		}
 	}
 
 	/**
-	 * iterate over all higher-order (n>2) tuples matching the conformation index
+	 * iterate over all higher-order (n>2) tuples matching the conformation but containing the given position
 	 */
-	default void forEachHigherOrderTupleIn(ConfIndex index, BiConsumer<RCTuple,T> callback) {
-		// TODO: optimize?
-		forEachHigherOrderTupleIn(Conf.make(index), callback);
+	default void forEachHigherOrderTupleIn(int[] conf, int posa, BiConsumer<RCTuple,T> callback) {
+
+		if (!hasHigherOrderTuples()) {
+			return;
+		}
+
+		int numPos = getNumPos();
+		for (int pos1=1; pos1<numPos; pos1++) {
+
+			int rc1 = conf[pos1];
+			if (rc1 == Conf.Unassigned) {
+				continue;
+			}
+
+			for (int pos2=0; pos2<pos1; pos2++) {
+
+				int rc2 = conf[pos2];
+				if (rc2 == Conf.Unassigned) {
+					continue;
+				}
+
+				TupleTree<T> tree = getHigherOrderTuples(pos1, rc1, pos2, rc2);
+				if (tree != null) {
+					tree.forEachIn(conf, posa, callback);
+				}
+			}
+		}
+	}
+
+	/**
+	 * iterate over all higher-order (n>2) tuples matching the conformation but containing the given positions
+	 */
+	default void forEachHigherOrderTupleIn(int[] conf, int posa, int posb, BiConsumer<RCTuple,T> callback) {
+
+		if (!hasHigherOrderTuples()) {
+			return;
+		}
+
+
+		int numPos = getNumPos();
+		for (int pos1=1; pos1<numPos; pos1++) {
+
+			int rc1 = conf[pos1];
+			if (rc1 == Conf.Unassigned) {
+				continue;
+			}
+
+			for (int pos2=0; pos2<pos1; pos2++) {
+
+				int rc2 = conf[pos2];
+				if (rc2 == Conf.Unassigned) {
+					continue;
+				}
+
+				TupleTree<T> tree = getHigherOrderTuples(pos1, rc1, pos2, rc2);
+				if (tree != null) {
+					tree.forEachIn(conf, posa, posb, callback);
+				}
+			}
+		}
 	}
 }

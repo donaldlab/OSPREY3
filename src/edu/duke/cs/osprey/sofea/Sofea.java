@@ -77,9 +77,15 @@ public class Sofea {
 
 		/**
 		 * Amount the threshold should be increased at each step of the sweep, in kcal/mol.
+		 * Not super important to pick the best value here, since SOFEA can evaluate the criterion
+		 * as many times as needed during a single sweep step.
 		 */
-		// TODO: don't do linear steps?
 		private double sweepIncrement = 1.0;
+
+		/**
+		 * Within one step of a sweep, what's the longest we should wait to check the criterion?
+		 */
+		private int maxCriterionCheckSeconds = 60;
 
 		/**
 		 * How many full conformation minimizations could your hardware platform concievably do in
@@ -160,6 +166,11 @@ public class Sofea {
 			return this;
 		}
 
+		public Builder setMaxCriterionCheckSeconds(int val) {
+			maxCriterionCheckSeconds = val;
+			return this;
+		}
+
 		public Builder setMaxNumMinimizations(long val) {
 			maxNumMinimizations = val;
 			return this;
@@ -191,6 +202,7 @@ public class Sofea {
 				fringedbBytes,
 				showProgress,
 				sweepIncrement,
+				maxCriterionCheckSeconds,
 				maxNumMinimizations,
 				negligableFreeEnergy
 			);
@@ -268,6 +280,7 @@ public class Sofea {
 	public final long fringedbBytes;
 	public final boolean showProgress;
 	public final double sweepIncrement;
+	public final int maxCriterionCheckSeconds;
 	public final long maxNumMinimizations;
 	public final double negligableFreeEnergy;
 
@@ -277,7 +290,7 @@ public class Sofea {
 
 	private final List<StateInfo> stateInfos;
 
-	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, long fringedbBytes, boolean showProgress, double sweepIncrement, long maxNumMinimizations, double negligableFreeEnergy) {
+	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbFile, long fringedbBytes, boolean showProgress, double sweepIncrement, int maxCriterionCheckSeconds, long maxNumMinimizations, double negligableFreeEnergy) {
 
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
@@ -288,6 +301,7 @@ public class Sofea {
 		this.fringedbBytes = fringedbBytes;
 		this.showProgress = showProgress;
 		this.sweepIncrement = sweepIncrement;
+		this.maxCriterionCheckSeconds = maxCriterionCheckSeconds;
 		this.maxNumMinimizations = maxNumMinimizations;
 		this.negligableFreeEnergy = negligableFreeEnergy;
 
@@ -370,7 +384,7 @@ public class Sofea {
 					seqtx.addZSumUpper(state, state.confSpace.makeUnassignedSequence(), zSumUpper);
 				}
 				fringetx.commit();
-				fringedb.finishSweep();
+				fringedb.finishStep();
 				seqtx.commit();
 			}
 		}
@@ -571,7 +585,7 @@ public class Sofea {
 			// use the energy calculator to provide the paralleism
 			TaskExecutor tasks = stateConfigs.get(0).confEcalc.tasks;
 
-			// calculate lower bounds on gThreshold
+			// calculate lower bounds on gThresholds
 			double[] gThresholdLower = confSpace.states.stream()
 				.mapToDouble(state -> {
 					Sofea.StateInfo stateInfo = getStateInfo(state);
@@ -581,7 +595,7 @@ public class Sofea {
 				.toArray();
 
 			// init the gThresholds based on the fringe set
-			Double[] gThreshold = confSpace.states.stream()
+			Double[] gThresholds = confSpace.states.stream()
 				.map(state -> {
 					BigDecimal zSumMax = fringedb.getZSumMax(state);
 					if (zSumMax == null) {
@@ -592,42 +606,51 @@ public class Sofea {
 				})
 				.toArray(size -> new Double[size]);
 
+			// start doing steps
+			steploop:
 			for (long step=1; ; step++) {
 
-				// check the termination criterion
-				if (criterion != null && criterion.isSatisfied(seqdb, fringedb, step, bcalc) == Criterion.Satisfied.Terminate) {
-					log("SOFEA finished, criterion satisfied");
-					break;
-				}
-
-				// stop if we ran out of fringe nodes
+				// stop stepping if we ran out of fringe nodes
 				if (fringedb.isEmpty()) {
 					log("SOFEA finished, explored every node");
 					break;
 				}
 
-				// increment gThreshold before each pass over the fringe set
+				// increment gThresholds before each pass over the fringe set
 				for (MultiStateConfSpace.State state : confSpace.states) {
-					if (gThreshold[state.index] != null) {
-						if (gThreshold[state.index] > gThresholdUpper) {
-							gThreshold[state.index] = null;
+					if (gThresholds[state.index] != null) {
+						if (gThresholds[state.index] > gThresholdUpper) {
+							gThresholds[state.index] = null;
 						} else {
-							gThreshold[state.index] += sweepIncrement;
+							gThresholds[state.index] += sweepIncrement;
 						}
 					}
 				}
 
 				// calc the corresponding zThresholds
-				BigDecimal[] zThresholds = confSpace.states.stream()
-					.map(state -> {
-						Double g = gThreshold[state.index];
-						if (g == null) {
-							return null;
+				BigDecimal[] zThresholds = new BigDecimal[confSpace.states.size()];
+				BigDecimal[] zLeafThresholds = new BigDecimal[confSpace.states.size()];
+				for (MultiStateConfSpace.State state : confSpace.states) {
+					Double g = gThresholds[state.index];
+					if (g == null) {
+						zThresholds[state.index] = null;
+						zLeafThresholds[state.index] = null;
+					} else {
+						zThresholds[state.index] = bcalc.calcPrecise(g);
+						// make a separate threshold for leaf nodes
+						// since processing a leaf node involves minimizations,
+						// it's MUCH slower than processing an internal node
+						// heuristically, it seems that expanding leaf nodes and NOT minimizing them right away
+						// leads to fewer minimizations overall, and hence faster performance for SOFEA
+						if (g > gThresholdUpper) {
+							// for the last step, just match the internal node threhsold, so we don't forget to process any nodes
+							zLeafThresholds[state.index] = zThresholds[state.index];
 						} else {
-							return bcalc.calcPrecise(g);
+							// TODO: make this adjustment self-tuning, like the gradient descent pfunc calculator does
+							zLeafThresholds[state.index] = bcalc.calcPrecise(g - sweepIncrement*2);
 						}
-					})
-					.toArray(size -> new BigDecimal[size]);
+					}
+				}
 
 				// are all the zThresholds null? that's a problem
 				if (Arrays.stream(zThresholds).allMatch(zThreshold -> zThreshold == null)) {
@@ -640,22 +663,12 @@ public class Sofea {
 					for (MultiStateConfSpace.State state : confSpace.states) {
 						log("\t%10s  gThreshold = %9.3f  in  [%9.3f,%9.3f]",
 							state.name,
-							gThreshold[state.index],
+							gThresholds[state.index],
 							gThresholdLower[state.index],
 							gThresholdUpper
 						);
 					}
 				}
-
-				// init sweep stats
-				StateStats[] stats = new StateStats[confSpace.states.size()];
-				for (MultiStateConfSpace.State state : confSpace.states) {
-					stats[state.index] = new StateStats();
-				}
-
-				// keep track of how many nodes are in outstanding tasks, and hence unknown to FringeDB's size counters
-				// NOTE: use a size-one array instead of a plain var, since Java's compiler is kinda dumb about lambdas
-				int[] nodesInFlight = { 0 };
 
 				// start (or resume) the iteration over the fringe set
 				FringeDB.Transaction fringetx = fringedb.transaction();
@@ -664,126 +677,160 @@ public class Sofea {
 				progress.setReportMemory(true);
 				while (true) {
 
-					// read the next node and make a transaction for it
-					final NodeTransaction nodetx;
-					synchronized (Sofea.this) { // don't race the listener thread
-						if (!fringetx.hasNodesToRead()) {
+					// finish this step when we run out of nodes
+					if (!fringetx.hasNodesToRead()) {
+						fringedb.finishStep();
+						break;
+					}
+
+					// check the termination criterion before continuing with the step
+					if (criterion != null && criterion.isSatisfied(seqdb, fringedb, step, bcalc) == Criterion.Satisfied.Terminate) {
+						log("SOFEA finished, criterion satisfied");
+						break steploop;
+					}
+
+					// init step stats
+					StateStats[] stats = new StateStats[confSpace.states.size()];
+					for (MultiStateConfSpace.State state : confSpace.states) {
+						stats[state.index] = new StateStats();
+					}
+
+					// keep track of how many nodes are in outstanding tasks, and hence unknown to FringeDB's size counters
+					// NOTE: use a size-one array instead of a plain var, since Java's compiler is kinda dumb about lambdas
+					int[] nodesInFlight = { 0 };
+
+					// start the timer for checking the criterion
+					Stopwatch criterionStopwatch = new Stopwatch().start();
+					while (true) {
+
+						// if we've waited long enough, pause this step to check the criterion again
+						if (criterionStopwatch.getTimeS() > maxCriterionCheckSeconds) {
 							break;
 						}
-						fringetx.readNode();
-						nodesInFlight[0]++;
-						nodetx = new NodeTransaction(
-							fringetx.state(),
-							fringetx.conf(),
-							fringetx.zSumUpper()
-						);
-					}
-					stats[nodetx.state.index].read++;
 
-					// check the node filter in the criterion
-					if (criterion.filterNode(nodetx.state, nodetx.conf, bcalc) == Criterion.Filter.Requeue) {
+						// read the next node and make a transaction for it
+						final NodeTransaction nodetx;
 						synchronized (Sofea.this) { // don't race the listener thread
-							stats[nodetx.state.index].requeuedByFilter++;
-							nodesInFlight[0]--;
-							nodetx.requeue(fringetx, seqtx);
-							if (showProgress) {
-								progress.incrementProgress();
+							if (!fringetx.hasNodesToRead()) {
+								break;
 							}
+							fringetx.readNode();
+							nodesInFlight[0]++;
+							nodetx = new NodeTransaction(
+								fringetx.state(),
+								fringetx.conf(),
+								fringetx.zSumUpper()
+							);
 						}
-						continue;
-					}
+						stats[nodetx.state.index].read++;
 
-					// process nodes with tasks (possibly in parallel)
-					tasks.submit(
-						() -> design(
-							nodetx,
-							zThresholds[nodetx.state.index],
-							nodetx.index,
-							nodetx.zSumUpper,
-							confTables.get(nodetx.state)
-						),
-						(wasExpanded) -> {
+						// check the node filter in the criterion
+						if (criterion.filterNode(nodetx.state, nodetx.conf, bcalc) == Criterion.Filter.Requeue) {
+							synchronized (Sofea.this) { // don't race the listener thread
+								stats[nodetx.state.index].requeuedByFilter++;
+								nodesInFlight[0]--;
+								nodetx.requeue(fringetx, seqtx);
+								if (showProgress) {
+									progress.incrementProgress();
+								}
+							}
+							continue;
+						}
 
-							stats[nodetx.state.index].minimizations += nodetx.numZPaths();
-							if (wasExpanded) {
+						// process nodes with tasks (possibly in parallel)
+						tasks.submit(
+							() -> design(
+								nodetx,
+								zThresholds[nodetx.state.index],
+								zLeafThresholds[nodetx.state.index],
+								nodetx.index,
+								nodetx.zSumUpper,
+								confTables.get(nodetx.state)
+							),
+							(wasExpanded) -> {
 
-								synchronized (Sofea.this) { // don't race the main thread
-									nodesInFlight[0]--;
-									if (nodetx.hasRoomToReplace(fringetx, nodesInFlight[0])) {
-										stats[nodetx.state.index].added += nodetx.numReplacementNodes();
-										stats[nodetx.state.index].expanded++;
-										nodetx.replace(fringetx, seqtx);
-									} else {
-										stats[nodetx.state.index].requeuedForSpace++;
+								stats[nodetx.state.index].minimizations += nodetx.numZPaths();
+								if (wasExpanded) {
+
+									synchronized (Sofea.this) { // don't race the main thread
+										nodesInFlight[0]--;
+										if (nodetx.hasRoomToReplace(fringetx, nodesInFlight[0])) {
+											stats[nodetx.state.index].added += nodetx.numReplacementNodes();
+											stats[nodetx.state.index].expanded++;
+											nodetx.replace(fringetx, seqtx);
+										} else {
+											stats[nodetx.state.index].requeuedForSpace++;
+											nodetx.requeue(fringetx, seqtx);
+										}
+										if (showProgress) {
+											progress.incrementProgress();
+										}
+									}
+
+								} else {
+
+									stats[nodetx.state.index].requeuedByThreshold++;
+									synchronized (Sofea.this) { // don't race the main thread
+										nodesInFlight[0]--;
 										nodetx.requeue(fringetx, seqtx);
-									}
-									if (showProgress) {
-										progress.incrementProgress();
-									}
-								}
-
-							} else {
-
-								stats[nodetx.state.index].requeuedByThreshold++;
-								synchronized (Sofea.this) { // don't race the main thread
-									nodesInFlight[0]--;
-									nodetx.requeue(fringetx, seqtx);
-									if (showProgress) {
-										progress.incrementProgress();
+										if (showProgress) {
+											progress.incrementProgress();
+										}
 									}
 								}
 							}
-						}
-					);
-				}
-				tasks.waitForFinish();
-				fringetx.commit();
-				seqtx.commit();
-				fringedb.finishSweep();
-
-				// show stats if needed
-				if (showProgress) {
-					log("\tfringe size: %d/%d (%.1f%%) nodes",
-						fringedb.getNumNodes(), fringedb.getCapacity(),
-						100.0f*fringedb.getNumNodes()/fringedb.getCapacity()
-					);
-					for (MultiStateConfSpace.State state : confSpace.states) {
-						log("\t%10s  read=%6d [ expanded=%6d  requeuedByThreshold=%6d  requeuedByFilter=%6d  requeuedForSpace=%6d ] added=%6d  minimizations=%6d",
-							state.name,
-							stats[state.index].read,
-							stats[state.index].expanded,
-							stats[state.index].requeuedByThreshold,
-							stats[state.index].requeuedByFilter,
-							stats[state.index].requeuedForSpace,
-							stats[state.index].added,
-							stats[state.index].minimizations
 						);
 					}
-					log("\tNon-garbage heap memory usage: %s", JvmMem.getOldPool());
+					tasks.waitForFinish();
+					fringetx.commit();
+					seqtx.commit();
+
+					// show stats if needed
+					if (showProgress) {
+						log("\tfringe size: %d/%d (%.1f%% used) nodes",
+							fringedb.getNumNodes(), fringedb.getCapacity(),
+							100.0f*fringedb.getNumNodes()/fringedb.getCapacity()
+						);
+						for (MultiStateConfSpace.State state : confSpace.states) {
+							log("\t%10s  read=%6d [ expanded=%6d  requeuedByThreshold=%6d  requeuedByFilter=%6d  requeuedForSpace=%6d ] added=%6d  minimizations=%6d",
+								state.name,
+								stats[state.index].read,
+								stats[state.index].expanded,
+								stats[state.index].requeuedByThreshold,
+								stats[state.index].requeuedByFilter,
+								stats[state.index].requeuedForSpace,
+								stats[state.index].added,
+								stats[state.index].minimizations
+							);
+						}
+						log("\tNon-garbage heap memory usage: %s", JvmMem.getOldPool());
+					}
 				}
 			}
 		}}}
 	}
 
-	private boolean design(NodeTransaction nodetx, BigDecimal zSumThreshold, ConfIndex index, BigDecimal zSumUpper, ConfDB.ConfTable confTable) {
+	private boolean design(NodeTransaction nodetx, BigDecimal zSumThreshold, BigDecimal zSumLeafThreshold, ConfIndex index, BigDecimal zSumUpper, ConfDB.ConfTable confTable) {
 
 		// forget any subtree if we've hit the end of the sweep interval, or that's below the pruning threshold
 		if (zSumThreshold == null || MathTools.isLessThan(zSumUpper, zPruneThreshold)) {
 			return false;
 		}
 
+		// is this a leaf node?
+		boolean isLeaf = index.isFullyDefined();
+
 		// if zSumUpper is too small, add the node to the fringe set
-		if (MathTools.isLessThan(zSumUpper, zSumThreshold)) {
+		if ((isLeaf && MathTools.isLessThan(zSumUpper, zSumLeafThreshold)) || MathTools.isLessThan(zSumUpper, zSumThreshold)) {
 			nodetx.addReplacementNode(index, zSumUpper);
 			return false;
 		}
 
 		StateInfo stateInfo = stateInfos.get(nodetx.state.index);
 
-		// is this a leaf node?
-		if (index.isFullyDefined()) {
+		if (isLeaf) {
 
-			// yup, add the zPath
+			// add the zPath
 			nodetx.addZPath(index, stateInfo.calcZPath(index, confTable));
 			return true;
 		}
@@ -797,6 +844,7 @@ public class Sofea {
 			design(
 				nodetx,
 				zSumThreshold,
+				zSumLeafThreshold,
 				index,
 				stateInfo.calcZSumUpper(index, stateInfo.rcs),
 				confTable
@@ -851,6 +899,7 @@ public class Sofea {
 
 		private final int[][] rtsByRcByPos;
 		private final int[] numRtsByPos;
+		private final BigDecimal[][][] maxzrc2; // indexed by pos1, rc1, pos2
 
 		StateInfo(MultiStateConfSpace.State state) {
 
@@ -902,6 +951,27 @@ public class Sofea {
 				} else {
 					numRtsByPos[confPos.index] = 0;
 					Arrays.fill(rtsByRcByPos[confPos.index], Sequence.Unassigned);
+				}
+			}
+
+			// calculate all the max rc2 values for every pos1, rc1, pos2
+			final MathTools.Optimizer opt = MathTools.Optimizer.Maximize;
+			maxzrc2 = new BigDecimal[rcs.getNumPos()][][];
+			for (int pos1=0; pos1<rcs.getNumPos(); pos1++) {
+				maxzrc2[pos1] = new BigDecimal[rcs.getNum(pos1)][];
+				for (int rc1 : rcs.get(pos1)) {
+					maxzrc2[pos1][rc1] = new BigDecimal[pos1];
+					for (int pos2=0; pos2<pos1; pos2++) {
+
+						BigDecimal optzrc2 = opt.initBigDecimal();
+						for (int rc2 : rcs.get(pos2)) {
+
+							BigDecimal zrc2 = zmat.getPairwise(pos1, rc1, pos2, rc2);
+							optzrc2 = opt.opt(optzrc2, zrc2);
+						}
+
+						maxzrc2[pos1][rc1][pos2] = optzrc2;
+					}
 				}
 			}
 		}
@@ -1017,7 +1087,8 @@ public class Sofea {
 			}
 
 			// multiply the higher order corrections if needed
-			zmat.forEachHigherOrderTupleIn(index, (tuple, tupleZ) -> {
+			int[] conf = Conf.make(index);
+			zmat.forEachHigherOrderTupleIn(conf, (tuple, tupleZ) -> {
 				z.mult(tupleZ);
 			});
 
@@ -1027,6 +1098,11 @@ public class Sofea {
 		BigDecimal calcZPathTailUpper(ConfIndex index, RCs rcs) {
 
 			// this is the usual A* heuristic
+
+			// NOTE: applying higher-order corrections here isn't terribly useful
+			// they're quite slow to multiply in, and don't improve zSumUpper that much
+			// of course, they help get a better zPathTailUpper, but most of the zSumUpper looseness
+			// comes from multiplying by the number of nodes rather than the looseness of zPathTailUpper
 
 			MathTools.Optimizer opt = MathTools.Optimizer.Maximize;
 			BigMath z = bigMath().set(1.0);
@@ -1049,38 +1125,13 @@ public class Sofea {
 						zrc1.mult(zmat.getPairwise(pos1, rc1, pos2, rc2));
 					}
 
-					index.assignInPlace(pos1, rc1);
-
-					// higher-order corrections with defined residues and pos1 candidate rc
-					zmat.forEachHigherOrderTupleIn(index, (tuple, tupleZ) -> {
-						zrc1.mult(tupleZ);
-					});
-
 					// interactions with undefined residues
 					for (int i2=0; i2<i1; i2++) {
 						int pos2 = index.undefinedPos[i2];
 
 						// optimize over possible assignments to pos2
-						BigDecimal optzrc2 = opt.initBigDecimal();
-						for (int rc2 : rcs.get(pos2)) {
-
-							// pair with pos2
-							BigMath zrc2 = bigMath().set(zmat.getPairwise(pos1, rc1, pos2, rc2));
-
-							// higher-order corrections with defined residues and pos1,pos2 candidates
-							index.assignInPlace(pos2, rc2);
-							zmat.forEachHigherOrderTupleIn(index, (tuple, tupleZ) -> {
-								zrc2.mult(tupleZ);
-							});
-							index.unassignInPlace(pos2);
-
-							optzrc2 = opt.opt(optzrc2, zrc2.get());
-						}
-
-						zrc1.mult(optzrc2);
+						zrc1.mult(maxzrc2[pos1][rc1][pos2]);
 					}
-
-					index.unassignInPlace(pos1);
 
 					zpos1 = opt.opt(zpos1, zrc1.get());
 				}
