@@ -23,7 +23,6 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.Log;
-import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 import edu.duke.cs.osprey.tools.Streams;
@@ -48,6 +47,49 @@ public class TestSofea {
 
 	static {
 		tmpdir.mkdirs();
+	}
+
+
+	@Test
+	public void test_Stability1CC8Flex3_Traditional_LeafCounts() {
+		Design design = Designs.Stability1CC8Flex3_Traditional.get();
+		assertLeafCounts(design);
+	}
+	@Test
+	public void test_Stability1CC8Flex3_Traditional_ZPathBounds() {
+		Design design = Designs.Stability1CC8Flex3_Traditional.get();
+		assertZPathBounds(design);
+	}
+	@Test
+	public void test_Stability1CC8Flex3_Traditional_ZSumBounds() {
+		Design design = Designs.Stability1CC8Flex3_Traditional.get();
+		assertZSumBounds(design);
+	}
+	@Test
+	public void test_Stability1CC8Flex3_Traditional_CalcG() {
+		Design design = Designs.Stability1CC8Flex3_Traditional.get();
+		assertGStates(design, Arrays.asList("VAL", "VAL", "VAL"), 2.988);
+	}
+	private static void assertResults_Stability1CC8Flex3_Traditional(Results results) {
+		results.assertGSequenced(Arrays.asList("VAL", "VAL", "VAL"), 2.988);
+	}
+	@Test
+	public void test_Stability1CC8Flex3_Traditional_SingleStep() {
+		stepUntilExhaustion(
+			Designs.Stability1CC8Flex3_Traditional.get(),
+			Double.POSITIVE_INFINITY,
+			1024*1024,
+			TestSofea::assertResults_Stability1CC8Flex3_Traditional
+		);
+	}
+	@Test
+	public void test_Stability1CC8Flex3_Traditional_MultiStepHiMem() {
+		stepUntilExhaustion(
+			Designs.Stability1CC8Flex3_Traditional.get(),
+			5.0,
+			1024*1024,
+			TestSofea::assertResults_Stability1CC8Flex3_Traditional
+		);
 	}
 
 
@@ -668,13 +710,16 @@ public class TestSofea {
 	}
 
 	public void stepUntilExhaustion(Design design, double sweepIncrement, long fringeDBBytes, int numThreads, IntermediateChecker checker) {
-		try (TempFile fringedbFile = new TempFile(tmpdir, "fringe.db")) {
+		try (TempFile fringedbLowerFile = new TempFile(tmpdir, "fringe.lower.db")) {
+		try (TempFile fringedbUpperFile = new TempFile(tmpdir, "fringe.upper.db")) {
 		try (TempFile seqdbFile = new TempFile(tmpdir, "seq.db")) {
 		try (Ecalcs ecalcs = design.makeEcalcs(Parallelism.makeCpu(numThreads))) {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
-				.setFringeDBFile(fringedbFile)
-				.setFringeDBBytes(fringeDBBytes)
+				.setFringeDBLowerFile(fringedbLowerFile)
+				.setFringeDBLowerBytes(fringeDBBytes)
+				.setFringeDBUpperFile(fringedbUpperFile)
+				.setFringeDBUpperBytes(fringeDBBytes)
 				.setSeqDBFile(seqdbFile)
 				.setSweepIncrement(sweepIncrement)
 				.configEachState(state -> design.configState(state, ecalcs))
@@ -684,13 +729,13 @@ public class TestSofea {
 			sofea.init(true);
 
 			// refine, and check results between each sweep
-			sofea.refine((seqdb, fringedb, sweepCount, bcalc) -> {
+			sofea.refine((seqdb, fringedbLower, fringedbUpper, pass1Step, pass2Step, bcalc) -> {
 
 				// check the bounds are accurate
 				checker.check(new Results(design, seqdb));
 
 				// keep iterating until exhaustion
-				return Sofea.Criterion.Satisfied.KeepIterating;
+				return Sofea.Criterion.Satisfied.KeepSweeping;
 			});
 
 			// check results once more at end, just for good measure
@@ -699,20 +744,20 @@ public class TestSofea {
 				// check the bounds are accurate
 				checker.check(new Results(design, seqdb));
 
-				// check that bounds are exactly tight
+				// check that bounds are exactly tight (within roundoff error)
 				for (MultiStateConfSpace.State state : design.confSpace.unsequencedStates) {
 					BigDecimalBounds zSumBounds = seqdb.getUnsequencedZSumBounds(state);
-					assertThat(MathTools.isSameValue(zSumBounds.lower, zSumBounds.upper), is(true));
+					assertThat(zSumBounds.lower, isRelatively(zSumBounds.upper, 1e-6));
 				}
 				for (Sequence seq : design.confSpace.seqSpace.getSequences()) {
 					SeqDB.SeqInfo seqInfo = seqdb.getSequencedZSumBounds(seq);
 					for (MultiStateConfSpace.State state : design.confSpace.sequencedStates) {
 						BigDecimalBounds zSumBounds = seqInfo.get(state);
-						assertThat(MathTools.isRelativelySame(zSumBounds.lower, zSumBounds.upper, mathContext, 1e-6), is(true));
+						assertThat(zSumBounds.lower, isRelatively(zSumBounds.upper, 1e-6));
 					}
 				}
 			}
-		}}}
+		}}}}
 	}
 
 	public void stepUntilAllStatesPrecise(Design design, double sweepIncrement, long fringeDBBytes, IntermediateChecker checker) {
@@ -720,22 +765,26 @@ public class TestSofea {
 	}
 
 	public void stepUntilAllStatesPrecise(Design design, double sweepIncrement, long fringeDBBytes, int numThreads, IntermediateChecker checker) {
-		try (TempFile fringedbFile = new TempFile(tmpdir, "fringe.db")) {
+		try (TempFile fringedbLowerFile = new TempFile(tmpdir, "fringe.lower.db")) {
+		try (TempFile fringedbUpperFile = new TempFile(tmpdir, "fringe.upper.db")) {
 		try (TempFile seqdbFile = new TempFile(tmpdir, "seq.db")) {
 		try (Ecalcs ecalcs = design.makeEcalcs(Parallelism.makeCpu(numThreads))) {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
-				.setFringeDBFile(fringedbFile)
-				.setFringeDBBytes(fringeDBBytes)
+				.setFringeDBLowerFile(fringedbLowerFile)
+				.setFringeDBLowerBytes(fringeDBBytes)
+				.setFringeDBUpperFile(fringedbUpperFile)
+				.setFringeDBUpperBytes(fringeDBBytes)
 				.setSeqDBFile(seqdbFile)
 				.setSweepIncrement(sweepIncrement)
 				.configEachState(state -> design.configState(state, ecalcs))
+				.setMathContext(mathContext)
 				.build();
 
 			sofea.init(true);
 
 			// refine, and check results between each sweep
-			sofea.refine((seqdb, fringedb, sweepCount, bcalc) -> {
+			sofea.refine((seqdb, fringedbLower, fringedbUpper, pass1Step, pass2Step, bcalc) -> {
 				checker.check(new Results(design, seqdb));
 
 				// are G estimates for all states precise enough?
@@ -752,7 +801,7 @@ public class TestSofea {
 						if (g.size() > epsilonG) {
 
 							// nope, keep iterating
-							return Sofea.Criterion.Satisfied.KeepIterating;
+							return Sofea.Criterion.Satisfied.KeepSweeping;
 						}
 					}
 				}
@@ -765,12 +814,36 @@ public class TestSofea {
 			try (SeqDB seqdb = sofea.openSeqDB()) {
 				checker.check(new Results(design, seqdb));
 			}
-		}}}
+		}}}}
 	}
 
 	private static enum ConfSpaces {
 
 		// WARNING: if you change any details here, make sure to delete any cached files in `TestSofea.tmpdir`
+
+		Stability1CC8Flex3 {
+
+			@Override
+			public MultiStateConfSpace make() {
+
+				Molecule pdb = PDBIO.readResource("/1CC8.ss.pdb");
+
+				// 27 confs
+				Strand design = new Strand.Builder(pdb)
+					.setResidues("A68", "A73")
+					.build();
+				for (String resNum : Arrays.asList("A71", "A72", "A73")) { // val(3) x val(3) x val(3) = 27
+					design.flexibility.get(resNum)
+						.setLibraryRotamers("VAL")
+						.setContinuous();
+				}
+
+				// make a multi-state conf space
+				return new MultiStateConfSpace
+					.Builder("design", new SimpleConfSpace.Builder().addStrands(design).build())
+					.build();
+			}
+		},
 
 		Binding1CC8Flex3 {
 
@@ -921,6 +994,12 @@ public class TestSofea {
 
 		// WARNING: if you change any details here, make sure to delete any cached files in `TestSofea.tmpdir`
 
+		Stability1CC8Flex3_Traditional {
+			@Override
+			public Design make() {
+				return new Design(this, ConfSpaces.Stability1CC8Flex3.get(), EnergyPartition.Traditional, null);
+			}
+		},
 		Binding1CC8Flex3_Traditional {
 			@Override
 			public Design make() {

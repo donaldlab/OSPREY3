@@ -651,14 +651,14 @@ public class TestBase {
 
 			@Override
 			public void describeTo(Description desc) {
-				desc.appendText("close to ").appendValue(expected);
+				desc.appendText("close to ").appendValue(String.format("%e", expected));
 			}
 			
 			@Override
 			public void describeMismatch(Object obj, Description desc) {
 				BigDecimal observed = (BigDecimal)obj;
 				double relErr = getRelativeError(expected, observed);
-				desc.appendText("value ").appendValue(observed.doubleValue())
+				desc.appendText("value ").appendValue(String.format("%e", observed))
 					.appendText(" has relative err ").appendValue(relErr)
 					.appendText(" that's greater than epsilon ").appendValue(epsilon);
 			}

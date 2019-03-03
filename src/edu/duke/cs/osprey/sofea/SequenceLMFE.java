@@ -60,7 +60,7 @@ public class SequenceLMFE implements Sofea.Criterion {
 	}
 
 	@Override
-	public Satisfied isSatisfied(SeqDB seqdb, FringeDB fringedb, long sweepCount, BoltzmannCalculator bcalc) {
+	public Satisfied isSatisfied(SeqDB seqdb, FringeDB fringedbLower, FringeDB fringedbUpper, long pass1Step, long pass2Step, BoltzmannCalculator bcalc) {
 
 		// get the state free energies
 		SeqDB.SeqInfo seqInfo = seqdb.getSequencedZSumBounds(seq);
@@ -103,6 +103,6 @@ public class SequenceLMFE implements Sofea.Criterion {
 			);
 		}
 
-		return isFinished ? Satisfied.Terminate : Satisfied.KeepIterating;
+		return isFinished ? Satisfied.Terminate : Satisfied.KeepSweeping;
 	}
 }

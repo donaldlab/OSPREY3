@@ -264,7 +264,7 @@ public class MinLMFE implements Sofea.Criterion {
 	}
 
 	@Override
-	public Satisfied isSatisfied(SeqDB seqdb, FringeDB fringedb, long sweepCount, BoltzmannCalculator bcalc) {
+	public Satisfied isSatisfied(SeqDB seqdb, FringeDB fringedbLower, FringeDB fringedbUpper, long pass1Step, long pass2Step, BoltzmannCalculator bcalc) {
 
 		assert (objective.confSpace == seqdb.confSpace);
 		MultiStateConfSpace confSpace = seqdb.confSpace;
@@ -309,12 +309,12 @@ public class MinLMFE implements Sofea.Criterion {
 
 			// fully assigned
 			if (!result.sequence.isFullyAssigned()) {
-				return Satisfied.KeepIterating;
+				return Satisfied.KeepSweeping;
 			}
 
 			// have finite bounds
 			if (!Double.isFinite(result.lmfeFreeEnergy.lower) || !Double.isFinite(result.lmfeFreeEnergy.upper)) {
-				return Satisfied.KeepIterating;
+				return Satisfied.KeepSweeping;
 			}
 		}
 
@@ -327,7 +327,7 @@ public class MinLMFE implements Sofea.Criterion {
 
 		// if we don't have enough sequences, keep going
 		if (topSequences.nextLowest == null) {
-			return Satisfied.KeepIterating;
+			return Satisfied.KeepSweeping;
 		}
 
 		// if all top sequences are sufficiently precise, we're done (because no more refinement is possible)
@@ -356,7 +356,7 @@ public class MinLMFE implements Sofea.Criterion {
 		}
 
 		// nope, keep going
-		return Satisfied.KeepIterating;
+		return Satisfied.KeepSweeping;
 	}
 
 	public void makeResultDoc(SeqDB seqdb, File file) {

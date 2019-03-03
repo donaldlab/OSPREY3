@@ -305,6 +305,16 @@ public class FringeDB implements AutoCloseable {
 		return getNumNodes() <= 0;
 	}
 
+	/** number of unread nodes left in this sweep */
+	public long numNodesToRead() {
+		return iostate.numToRead;
+	}
+
+	/** returns true if there are no remaining nodes to read in this sweep, false otherwise */
+	public boolean hasNodesToRead() {
+		return iostate.numToRead > 0;
+	}
+
 	/**
 	 * Returns the largest Z value for the nodes to read.
 	 * Ignores pending Z values in the written nodes.
@@ -470,6 +480,7 @@ public class FringeDB implements AutoCloseable {
 		private void writeEntry(int stateIndex, int[] conf, BigDecimal zSumUpper, DataOutput out) {
 			try {
 
+				// write the state index
 				stateEncoding.write(out, stateIndex);
 
 				// write the conf, but +1 each rc so the min value is 0 instead of -1

@@ -357,10 +357,10 @@ public class SeqDB implements AutoCloseable {
 			isEmpty = false;
 		}
 
-		public void addZPath(MultiStateConfSpace.State state, Sequence seq, BigDecimal zPath) {
+		public void addZPath(MultiStateConfSpace.State state, Sequence seq, BigDecimal zPath, BigDecimal zSumUpper) {
 
-			if (!MathTools.isFinite(zPath)) {
-				throw new IllegalArgumentException("Z must be finite: " + zPath);
+			if (!MathTools.isFinite(zPath) || !MathTools.isFinite(zSumUpper)) {
+				throw new IllegalArgumentException("Z must be finite: " + zPath + ", " + zSumUpper);
 			}
 
 			updateZSumBounds(state, seq, sum -> {
@@ -371,6 +371,7 @@ public class SeqDB implements AutoCloseable {
 				sum.upper = bigMath()
 					.set(sum.upper)
 					.add(zPath)
+					.sub(zSumUpper)
 					.get();
 			});
 		}
@@ -381,12 +382,12 @@ public class SeqDB implements AutoCloseable {
 				throw new IllegalArgumentException("Z must be finite: " + zSumUpper);
 			}
 
-			updateZSumBounds(state, seq, sum -> {
+			updateZSumBounds(state, seq, sum ->
 				sum.upper = bigMath()
 					.set(sum.upper)
 					.add(zSumUpper)
-					.get();
-			});
+					.get()
+			);
 		}
 
 		public void subZSumUpper(MultiStateConfSpace.State state, Sequence seq, BigDecimal zSumUpper) {
@@ -395,12 +396,12 @@ public class SeqDB implements AutoCloseable {
 				throw new IllegalArgumentException("Z must be finite: " + zSumUpper);
 			}
 
-			updateZSumBounds(state, seq, sum -> {
+			updateZSumBounds(state, seq, sum ->
 				sum.upper = bigMath()
 					.set(sum.upper)
 					.sub(zSumUpper)
-					.get();
-			});
+					.get()
+			);
 		}
 
 		public boolean isEmpty() {
@@ -474,6 +475,53 @@ public class SeqDB implements AutoCloseable {
 	@Override
 	public void close() {
 		db.close();
+	}
+
+	private void updateZSumBounds(MultiStateConfSpace.State state, Sequence seq, Consumer<BigDecimalBounds> f) {
+
+		if (state.isSequenced) {
+
+			// get the tx seq info, or empty sums
+			SeqInfo seqInfo = sequencedSums.get(seq.rtIndices);
+			if (seqInfo == null) {
+				seqInfo = new SeqInfo(confSpace.sequencedStates.size());
+				seqInfo.setEmpty();
+			}
+
+			f.accept(seqInfo.get(state));
+			sequencedSums.put(seq.rtIndices, seqInfo);
+
+		} else {
+
+			// get the tx sum, or empty
+			BigDecimalBounds sum = unsequencedSums.get(state.unsequencedIndex);
+			if (sum == null) {
+				sum = new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
+			}
+
+			f.accept(sum);
+			unsequencedSums.put(state.unsequencedIndex, sum);
+
+		}
+	}
+
+	public void addZPath(MultiStateConfSpace.State state, Sequence seq, BigDecimal zPath, BigDecimal zSumUpper) {
+
+		if (!MathTools.isFinite(zPath)) {
+			throw new IllegalArgumentException("Z must be finite: " + zPath);
+		}
+
+		updateZSumBounds(state, seq, sum -> {
+			sum.lower = bigMath()
+				.set(sum.lower)
+				.add(zPath)
+				.get();
+			sum.upper = bigMath()
+				.set(sum.upper)
+				.add(zPath)
+				.sub(zSumUpper)
+				.get();
+		});
 	}
 
 	/**

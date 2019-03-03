@@ -109,11 +109,13 @@ public class SofeaLab {
 				.build();
 
 		File seqdbFile = new File(tempDir, "sofea.seqdb");
-		File fringedbFile = new File(tempDir, "sofea.fringedb");
+		File fringedbLowerFile = new File(tempDir, "sofea.lower.fringedb");
+		File fringedbUpperFile = new File(tempDir, "sofea.upper.fringedb");
 		File pfuncConfDBFile = new File(tempDir, "pfunc.confdb");
 		if (recalc) {
 			seqdbFile.delete();
-			fringedbFile.delete();
+			fringedbLowerFile.delete();
+			fringedbUpperFile.delete();
 			pfuncConfDBFile.delete();
 		}
 
@@ -125,8 +127,10 @@ public class SofeaLab {
 			Sofea sofea = new Sofea.Builder(confSpace)
 				.setSweepIncrement(1)
 				.setSeqDBFile(seqdbFile)
-				.setFringeDBFile(fringedbFile)
-				.setFringeDBMiB(16)
+				.setFringeDBLowerFile(fringedbLowerFile)
+				.setFringeDBLowerMiB(16)
+				.setFringeDBUpperFile(fringedbUpperFile)
+				.setFringeDBUpperMiB(16)
 				.configEachState(state -> {
 
 					File ematFile = new File(tempDir, String.format("sofea.%s.emat", state.name));

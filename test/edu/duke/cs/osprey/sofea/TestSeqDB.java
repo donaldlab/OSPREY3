@@ -73,7 +73,7 @@ public class TestSeqDB {
 				SeqDB.Transaction tx = seqdb.transaction();
 				assertThat(tx.isEmpty(), is(true));
 
-				tx.addZPath(design, design.confSpace.makeUnassignedSequence(), BigDecimal.ONE);
+				tx.addZPath(design, design.confSpace.makeUnassignedSequence(), BigDecimal.ONE, BigDecimal.ONE);
 
 				assertThat(tx.isEmpty(), is(false));
 
@@ -196,15 +196,12 @@ public class TestSeqDB {
 				tx.commit();
 
 				tx = seqdb.transaction();
-				tx.subZSumUpper(target, seq, biggen(2.0));
-				tx.subZSumUpper(design, seq, biggen(4.0));
-				tx.subZSumUpper(complex, seq, biggen(6.0));
-				tx.addZPath(target, seq, biggen(2.0));
-				tx.addZPath(design, seq, biggen(3.0));
-				tx.addZPath(complex, seq, biggen(4.0));
+				tx.addZPath(target, seq, biggen(1.0), biggen(2.0));
+				tx.addZPath(design, seq, biggen(3.0), biggen(4.0));
+				tx.addZPath(complex, seq, biggen(4.0), biggen(6.0));
 				tx.commit();
 
-				assertThat(seqdb.getUnsequencedZSumBounds(target), is(new BigDecimalBounds(2.0, 2.0)));
+				assertThat(seqdb.getUnsequencedZSumBounds(target), is(new BigDecimalBounds(1.0, 1.0)));
 				assertThat(seqdb.getSequencedSums(seq).get(design), is(new BigDecimalBounds(3.0, 3.0)));
 				assertThat(seqdb.getSequencedSums(seq).get(complex), is(new BigDecimalBounds(4.0, 4.0)));
 			}

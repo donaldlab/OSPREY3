@@ -351,7 +351,9 @@ public class SeqSpace implements Serializable {
 
 	public List<Sequence> getSequences(int maxSimultaneousMutations) {
 		List<Sequence> sequences = new ArrayList<>();
-		sequences.add(makeWildTypeSequence());
+		if (containsWildTypeSequence()) {
+			sequences.add(makeWildTypeSequence());
+		}
 		sequences.addAll(getMutants(maxSimultaneousMutations));
 		return sequences;
 	}
