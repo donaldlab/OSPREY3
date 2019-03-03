@@ -133,4 +133,22 @@ public class BoltzmannCalculator {
 			return BigDecimalMath.log(z, mathContext).doubleValue();
 		}
 	}
+
+	/**
+	 * computes the following:
+	 *  for z == 0: 0
+	 *  for z > 0: ln(1+z)
+	 *  for z < 0: -ln(1-z)
+	 */
+	public double ln1p(BigDecimal z) {
+		double d;
+		if (MathTools.isInf(z) || MathTools.isNaN(z) || MathTools.isZero(z)) {
+			d = z.doubleValue();
+		} else if (MathTools.isPositive(z)) {
+			d = ln(z.add(BigDecimal.ONE, mathContext));
+		} else {
+			d = -ln(MathTools.bigNegate(z).add(BigDecimal.ONE, mathContext));
+		}
+		return d;
+	}
 }

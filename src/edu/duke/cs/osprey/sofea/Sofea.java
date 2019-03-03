@@ -672,6 +672,29 @@ public class Sofea {
 			.toArray(size -> new Double[size]);
 	}
 
+	private double calcSeqdbScore(SeqDB seqdb) {
+
+		// return the sum of all bound widths in the database
+		BigMath m = bigMath().set(0);
+
+		for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedZSumBounds()) {
+			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+				BigDecimalBounds z = entry.getValue().get(state);
+				assert (MathTools.isFinite(z.upper));
+				m.add(z.upper);
+				m.sub(z.lower);
+			}
+		}
+		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
+			BigDecimalBounds z = seqdb.getUnsequencedZSumBounds(state);
+			assert (MathTools.isFinite(z.upper));
+			m.add(z.upper);
+			m.sub(z.lower);
+		}
+
+		return bcalc.ln1p(m.get());
+	}
+
 	/**
 	 * Keep sweeping the threshold over the parameter space until the criterion is satisfied.
 	 */
@@ -715,7 +738,13 @@ public class Sofea {
 				return;
 			}
 
-			steploop:
+			// how "wide" is the entire seqdb? (used for balancing performance of the two passes)
+			// TEMP
+			double seqdbScore = calcSeqdbScore(seqdb);
+			log("initial SeqDB score: %s", seqdbScore);
+			double pass1Slope = 0.0;
+			double pass2Slope = 0.0;
+
 			while (true) {
 
 				// stop stepping if we ran out of fringe nodes
@@ -760,24 +789,52 @@ public class Sofea {
 					}
 				}
 
-				// start (or continue) pass 1
-				Stopwatch pass1Stopwatch = new Stopwatch().start();
-				pass1(fringedbLower, seqdb, pass1step, criterion, gPass1Thresholds);
-				pass1Stopwatch.stop();
-
-				// did we finish the pass 1 step?
+				// how much time should we spend on pass 1?
+				double pass1TargetSeconds;
 				if (!fringedbLower.hasNodesToRead()) {
-					fringedbLower.finishStep();
-					needPass1Step = true;
+					// out of nodes to check
+					pass1TargetSeconds = 0;
+				} else if (pass2Slope == 0) {
+					// pass 2 only gets stuck at exactly zero in the very beginning
+					// it won't last long, so let pass 2 run exclusively until it gets off the flat spot
+					pass1TargetSeconds = 0;
+				} else {
+					// run for the max allowed time
+					pass1TargetSeconds = maxCriterionCheckSeconds;
 				}
 
-				if (showProgress) {
-					showFringes.run();
-				}
+				if (pass1TargetSeconds > 0) {
 
-				// check the termination criterion
-				if (checkCriterion.apply(pass1step, pass2step)) {
-					break;
+					// start (or continue) pass 1
+					Stopwatch pass1Stopwatch = new Stopwatch().start();
+					pass1(fringedbLower, seqdb, pass1step, criterion, gPass1Thresholds, pass1Stopwatch, pass1TargetSeconds);
+					double pass1ElapsedSeconds = pass1Stopwatch.stop().getTimeS();
+
+					// did we finish the pass 1 step?
+					if (!fringedbLower.hasNodesToRead()) {
+						fringedbLower.finishStep();
+						needPass1Step = true;
+					}
+
+					if (showProgress) {
+						showFringes.run();
+					}
+
+					// check the termination criterion
+					if (checkCriterion.apply(pass1step, pass2step)) {
+						break;
+					}
+
+					{ // how much progress did we get from pass 1?
+						double newSeqdbScore = calcSeqdbScore(seqdb);
+						double delta = seqdbScore - newSeqdbScore;
+						pass1Slope = delta/pass1ElapsedSeconds;
+						// TEMP
+						log("\n### P1  score=%.3f -> %.3f  delta=%s  seconds=%.3f slope=%s\n",
+							seqdbScore, newSeqdbScore, delta, pass1ElapsedSeconds, pass1Slope
+						);
+						seqdbScore = newSeqdbScore;
+					}
 				}
 
 				// should pass 2 take a step?
@@ -813,15 +870,24 @@ public class Sofea {
 				}
 
 				// how much time should we spend on pass 2?
-				// (we can easily minimize more confs than we need, so slow it down a bit)
-				// TODO: auto-tune this like in GradientDescentPfunc ?
-				// TEMP: a factor of 10 seems to (empirically) work well enough for now
-				double pass2Ms = pass1Stopwatch.getTimeMs()*10;
-				while (!needPass2Step && pass2Ms > 0) {
+				double pass2TargetSeconds;
+				if (!fringedbUpper.hasNodesToRead()) {
+					// no more nodes to check
+					pass2TargetSeconds = 0;
+				} else if (fringedbLower.hasNodesToRead() && pass1Slope > pass2Slope) {
+					// if pass 1 is making more progress, don't spend any time on pass 2
+					pass2TargetSeconds = 0;
+				} else {
+					// run for the max allowed time
+					pass2TargetSeconds = maxCriterionCheckSeconds;
+				}
 
+				if (pass2TargetSeconds > 0) {
+
+					// run pass 2
 					Stopwatch pass2Stopwatch = new Stopwatch().start();
-					pass2(fringedbUpper, seqdb, pass2step, criterion, gPass2Thresholds, confTables, pass2Ms);
-					pass2Ms -= pass2Stopwatch.stop().getTimeMs();
+					pass2(fringedbUpper, seqdb, pass2step, criterion, gPass2Thresholds, confTables, pass2Stopwatch, pass2TargetSeconds);
+					double pass2ElapsedSeconds = pass2Stopwatch.stop().getTimeS();
 
 					// did we finish the pass 2 step?
 					if (!fringedbUpper.hasNodesToRead()) {
@@ -831,7 +897,18 @@ public class Sofea {
 
 					// check the termination criterion
 					if (checkCriterion.apply(pass1step, pass2step)) {
-						break steploop;
+						break;
+					}
+
+					{ // how much progress did we get from pass 2?
+						double newSeqdbScore = calcSeqdbScore(seqdb);
+						double delta = seqdbScore - newSeqdbScore;
+						pass2Slope = delta/pass2ElapsedSeconds;
+						// TEMP
+						log("\n### P2  score=%.3f -> %.3f  delta=%s  seconds=%.3f slope=%s\n",
+							seqdbScore, newSeqdbScore, delta, pass2ElapsedSeconds, pass2Slope
+						);
+						seqdbScore = newSeqdbScore;
 					}
 				}
 			}
@@ -850,7 +927,7 @@ public class Sofea {
 			.toArray(size -> new BigDecimal[size]);
 	}
 
-	private void pass1(FringeDB fringedb, SeqDB seqdb, long step, Criterion criterion, Double[] gThresholds) {
+	private void pass1(FringeDB fringedb, SeqDB seqdb, long step, Criterion criterion, Double[] gThresholds, Stopwatch stopwatch, double targetSeconds) {
 
 		if (showProgress) {
 			logf("pass 1 running ...");
@@ -886,11 +963,10 @@ public class Sofea {
 		int[] nodesInFlight = { 0 };
 
 		// start a timer to limit this pass
-		Stopwatch stopwatch = new Stopwatch().start();
 		while (true) {
 
-			// if we've waited long enough, pause this pass to check the criterion again
-			if (stopwatch.getTimeS() > maxCriterionCheckSeconds) {
+			// stop this pass if we hit our time quota
+			if (stopwatch.getTimeS() > targetSeconds) {
 				break;
 			}
 
@@ -1050,7 +1126,7 @@ public class Sofea {
 		return result;
 	}
 
-	private void pass2(FringeDB fringedb, SeqDB seqdb, long step, Criterion criterion, Double[] gThresholds, ConfTables confTables, double maxMs) {
+	private void pass2(FringeDB fringedb, SeqDB seqdb, long step, Criterion criterion, Double[] gThresholds, ConfTables confTables, Stopwatch stopwatch, double targetSeconds) {
 
 		if (showProgress) {
 			logf("pass 2 running ...");
@@ -1087,16 +1163,10 @@ public class Sofea {
 		}
 
 		// start a timer to limit this pass
-		Stopwatch stopwatch = new Stopwatch().start();
 		while (true) {
 
-			// if we've waited long enough, pause this pass to check the criterion again
-			if (stopwatch.getTimeS() > maxCriterionCheckSeconds) {
-				break;
-			}
-
-			// don't spend more time mimizing than our allowed quota
-			if (stopwatch.getTimeMs() > maxMs) {
+			// stop this pass if we hit our time quota
+			if (stopwatch.getTimeS() > targetSeconds) {
 				break;
 			}
 

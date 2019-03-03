@@ -134,10 +134,11 @@ public class SofeaLab {
 				.configEachState(state -> {
 
 					File ematFile = new File(tempDir, String.format("sofea.%s.emat", state.name));
-					File confdbFile = new File(tempDir, String.format("sofea.%s.confdb", state.name));
+					//File confdbFile = new File(tempDir, String.format("sofea.%s.confdb", state.name));
+					File confdbFile = null;
 					if (recalc) {
 						ematFile.delete();
-						confdbFile.delete();
+						//confdbFile.delete();
 					}
 
 					// always compute emats with all available speed
