@@ -74,13 +74,15 @@ def config(state):
 sofea = osprey.SOFEA(
 	confSpace = confSpace,
 	configFunc = config,
-	fringedbPath = 'sofea.fringedb',
-	fringedbMiB = 100,
+	fringedbLowerPath = 'sofea.lower.fringedb',
+	fringedbLowerMiB = 100,
+	fringedbUpperPath = 'sofea.upper.fringedb',
+	fringedbUpperMiB = 10,
 	seqdbPath = 'sofea.seqdb'
 )
 
 # start new databases if this is the first time running this script
-if not osprey.jvm.toFile('sofea.fringedb').exists():
+if not osprey.jvm.toFile('sofea.seqdb').exists():
 	sofea.init()
 
 # otherwise, keep the existing databases

@@ -323,9 +323,7 @@ public class SofeaLab {
 
 				config.confEcalc.resetCounters();
 				sofea.init(true);
-				Stopwatch sw = new Stopwatch().start();
 				sofea.refine(criterion);
-				log("SOFEA finished in %s", sw.stop().getTime(2));
 				log("\tnum minimizations: %d", config.confEcalc.getNumRequests());
 
 				try (SeqDB seqdb = sofea.openSeqDB()) {

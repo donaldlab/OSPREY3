@@ -164,7 +164,7 @@ public class Sofea {
 		}
 
 		public Builder setFringeDBLowerMiB(int val) {
-			fringedbLowerBytes = val*1024*1024;
+			fringedbLowerBytes = val*1024L*1024L;
 			return this;
 		}
 
@@ -179,7 +179,7 @@ public class Sofea {
 		}
 
 		public Builder setFringeDBUpperMiB(int val) {
-			fringedbUpperBytes = val*1024*1024;
+			fringedbUpperBytes = val*1024L*1024L;
 			return this;
 		}
 
@@ -379,6 +379,7 @@ public class Sofea {
 		if (fringedbLowerFile.exists()) {
 			return FringeDB.open(confSpace, fringedbLowerFile);
 		} else {
+			log("Allocating %d bytes for %s", fringedbLowerBytes, fringedbLowerFile);
 			return FringeDB.create(confSpace, fringedbLowerFile, fringedbLowerBytes, mathContext);
 		}
 	}
@@ -387,6 +388,7 @@ public class Sofea {
 		if (fringedbUpperFile.exists()) {
 			return FringeDB.open(confSpace, fringedbUpperFile);
 		} else {
+			log("Allocating %d bytes for %s", fringedbUpperBytes, fringedbUpperFile);
 			return FringeDB.create(confSpace, fringedbUpperFile, fringedbUpperBytes, mathContext);
 		}
 	}
@@ -461,8 +463,8 @@ public class Sofea {
 	private static class ZPath {
 
 		final int[] conf;
-		final BigDecimal zPath;
-		final BigDecimal zSumUpper;
+		BigDecimal zPath;
+		BigDecimal zSumUpper;
 
 		ZPath(int[] conf, BigDecimal zPath, BigDecimal zSumUpper) {
 			this.conf = conf;
@@ -517,9 +519,6 @@ public class Sofea {
 
 			StateInfo stateInfo = stateInfos.get(state.index);
 
-			// subtract the node zSumUpper
-			seqtx.subZSumUpper(state, stateInfo.makeSeq(conf), zSumUpper);
-
 			// and update zSumUpper for all sequences encountered at leaf nodes
 			for (ZPath zPath : zPaths) {
 				seqtx.addZSumUpper(state, stateInfo.makeSeq(zPath.conf), zPath.zSumUpper);
@@ -530,6 +529,9 @@ public class Sofea {
 				fringetx.writeReplacementNode(state, replacementNode.conf, replacementNode.zSumUpper);
 				seqtx.addZSumUpper(state, stateInfo.makeSeq(replacementNode.conf), replacementNode.zSumUpper);
 			}
+
+			// subtract the node zSumUpper
+			seqtx.subZSumUpper(state, stateInfo.makeSeq(conf), zSumUpper);
 
 			return flush;
 		}
@@ -566,8 +568,13 @@ public class Sofea {
 
 				// and update seqdb
 				Sequence seq = stateInfos.get(state.index).makeSeq(conf);
+				for (Node replacementNode : replacementNodes) {
+					seqtx.addZSumUpper(state, seq, replacementNode.zSumUpper);
+				}
+				for (ZPath zPath : zPaths) {
+					seqtx.addZSumUpper(state, seq, zPath.zSumUpper);
+				}
 				seqtx.subZSumUpper(state, seq, zSumUpper);
-				seqtx.addZSumUpper(state, seq, newZSumUpper);
 			}
 
 			return flush;
@@ -610,7 +617,7 @@ public class Sofea {
 				m.add(replacementNode.zSumUpper);
 			}
 			for (ZPath zPath : zPaths) {
-				m.add(zPath.zPath);
+				m.add(zPath.zSumUpper);
 			}
 
 			// move the node to the end of the fringedb queue
@@ -675,24 +682,54 @@ public class Sofea {
 	private double calcSeqdbScore(SeqDB seqdb) {
 
 		// return the sum of all bound widths in the database
-		BigMath m = bigMath().set(0);
+		BigMath m = seqdb.bigMath().set(0);
 
-		for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedZSumBounds()) {
+		for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedSums()) {
 			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
 				BigDecimalBounds z = entry.getValue().get(state);
 				assert (MathTools.isFinite(z.upper));
 				m.add(z.upper);
 				m.sub(z.lower);
+				// DEBUG
+				//log("SEQDB %10s [%s]  [%e,%e] w=%e", state.name, entry.getKey(), z.lower, z.upper, z.size(mathContext));
 			}
 		}
 		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
-			BigDecimalBounds z = seqdb.getUnsequencedZSumBounds(state);
+			BigDecimalBounds z = seqdb.getUnsequencedSum(state);
 			assert (MathTools.isFinite(z.upper));
 			m.add(z.upper);
 			m.sub(z.lower);
+			// DEBUG
+			//log("SEQDB %10s  [%e,%e] w=%e", state.name, z.lower, z.upper, z.size(mathContext));
 		}
 
+		// DEBUG
+		//log("SEQDB  width=%e  score=%s", m.get(), bcalc.ln1p(m.get()));
+
+		// the width should always be >= 0
+		assert (MathTools.isGreaterThanOrEqual(m.get(), BigDecimal.ZERO));
+
 		return bcalc.ln1p(m.get());
+	}
+
+	private boolean needsMinimization(SeqDB seqdb) {
+
+		// need at least one lower bound in the seqdb, otherwise we need to minimize something
+		for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedSums()) {
+			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+				if (MathTools.isPositive(entry.getValue().get(state).lower)) {
+					return false;
+				}
+			}
+		}
+
+		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
+			if (MathTools.isPositive(seqdb.getUnsequencedSum(state).lower)) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**
@@ -704,26 +741,30 @@ public class Sofea {
 		try (FringeDB fringedbUpper = openFringeDBUpper()) {
 		try (ConfTables confTables = new ConfTables()) {
 
+			Stopwatch stopwatch = new Stopwatch().start();
+
 			// init the gThresholds based on the fringe sets
 			Double[] gPass1Thresholds = initGThresholds(fringedbLower);
 			Double[] gPass2Thresholds = initGThresholds(fringedbUpper);
 
 			BiFunction<Long,Long,Boolean> checkCriterion = (pass1step, pass2step) -> {
 				if (criterion != null && criterion.isSatisfied(seqdb, fringedbLower, fringedbUpper, pass1step, pass2step, bcalc) == Criterion.Satisfied.Terminate) {
-					log("SOFEA finished, criterion satisfied");
+					log("SOFEA finished in %s, criterion satisfied", stopwatch.getTime(2));
 					return true;
 				}
 				return false;
 			};
 
 			Runnable showFringes = () -> {
-				log("fringe sizes:  lower = %d/%d nodes (%.1f%% used)  upper = %d/%d nodes (%.1f%% used)",
+				log("fringe sizes:  lower = %d/%d nodes (%.1f%% used)  upper = %d/%d nodes (%.1f%% used)  heap = %s  running for %s",
 					fringedbLower.getNumNodes(),
 					fringedbLower.getCapacity(),
 					100.0f*fringedbLower.getNumNodes()/fringedbLower.getCapacity(),
 					fringedbUpper.getNumNodes(),
 					fringedbUpper.getCapacity(),
-					100.0f*fringedbUpper.getNumNodes()/fringedbUpper.getCapacity()
+					100.0f*fringedbUpper.getNumNodes()/fringedbUpper.getCapacity(),
+					JvmMem.getOldPool(),
+					stopwatch.getTime(2)
 				);
 			};
 
@@ -738,18 +779,22 @@ public class Sofea {
 				return;
 			}
 
-			// how "wide" is the entire seqdb? (used for balancing performance of the two passes)
-			// TEMP
+			// how precise is the entire seqdb? (used for balancing performance of the two passes)
 			double seqdbScore = calcSeqdbScore(seqdb);
-			log("initial SeqDB score: %s", seqdbScore);
-			double pass1Slope = 0.0;
-			double pass2Slope = 0.0;
+			boolean needsMinimization = needsMinimization(seqdb);
+			// TEMP
+			log("initial SeqDB score: %s  needmin: %b", seqdbScore, needsMinimization);
+
+			double pass1Slope = Double.POSITIVE_INFINITY;
+			double pass2Slope = Double.POSITIVE_INFINITY;
+
+			final double slopeGrowthRate = 2.0; // magic number, chosen empirically
 
 			while (true) {
 
 				// stop stepping if we ran out of fringe nodes
 				if (fringedbLower.isEmpty() && fringedbUpper.isEmpty()) {
-					log("SOFEA finished, explored every node");
+					log("SOFEA finished in %s, explored every node", stopwatch.getTime(2));
 					break;
 				}
 
@@ -757,57 +802,67 @@ public class Sofea {
 					showFringes.run();
 				}
 
-				// should pass 1 take a step?
-				if (needPass1Step) {
-
-					// yup
-					pass1step++;
-					needPass1Step = false;
-
-					// update the threshold
-					for (MultiStateConfSpace.State state : confSpace.states) {
-						if (gPass1Thresholds[state.index] != null) {
-							if (gPass1Thresholds[state.index] > gThresholdUpper) {
-								gPass1Thresholds[state.index] = null;
-							} else {
-								gPass1Thresholds[state.index] += sweepIncrement;
-							}
-						}
-					}
-
-					// show progress if needed
-					if (showProgress) {
-						log("pass 1 step %d", pass1step);
-						for (MultiStateConfSpace.State state : confSpace.states) {
-							log("\t%10s  gThreshold = %9.3f  in  [%9.3f,%9.3f]",
-								state.name,
-								gPass1Thresholds[state.index],
-								gThresholdsLower[state.index],
-								gThresholdUpper
-							);
-						}
-					}
-				}
-
 				// how much time should we spend on pass 1?
 				double pass1TargetSeconds;
 				if (!fringedbLower.hasNodesToRead()) {
 					// out of nodes to check
 					pass1TargetSeconds = 0;
-				} else if (pass2Slope == 0) {
-					// pass 2 only gets stuck at exactly zero in the very beginning
-					// it won't last long, so let pass 2 run exclusively until it gets off the flat spot
+				} else if (pass1step <= pass2step) {
+					// don't let pass 2 get ahead of pass 1
+					pass1TargetSeconds = maxCriterionCheckSeconds;
+				} else if (fringedbUpper.hasNodesToRead() && pass2Slope >= pass1Slope) {
+					// if pass 2 is making more progress, don't spend any time on pass 1
 					pass1TargetSeconds = 0;
 				} else {
-					// run for the max allowed time
+					// otherwise, run for the max allowed time
 					pass1TargetSeconds = maxCriterionCheckSeconds;
 				}
 
+				// TEMP
+				log("PASS 1  %.4f s   needmin=%b  s1=[%d,%b,%s]  s2=[%d,%b,%s]",
+					pass1TargetSeconds,
+					needsMinimization,
+					pass1step, fringedbLower.hasNodesToRead(), pass1Slope,
+					pass2step, fringedbUpper.hasNodesToRead(), pass2Slope
+				);
+
 				if (pass1TargetSeconds > 0) {
+
+					// should pass 1 take a step?
+					if (needPass1Step) {
+
+						// yup
+						pass1step++;
+						needPass1Step = false;
+
+						// update the threshold
+						for (MultiStateConfSpace.State state : confSpace.states) {
+							if (gPass1Thresholds[state.index] != null) {
+								if (gPass1Thresholds[state.index] > gThresholdUpper) {
+									gPass1Thresholds[state.index] = null;
+								} else {
+									gPass1Thresholds[state.index] += sweepIncrement;
+								}
+							}
+						}
+
+						// show progress if needed
+						if (showProgress) {
+							log("pass 1 step %d", pass1step);
+							for (MultiStateConfSpace.State state : confSpace.states) {
+								log("\t%10s  gThreshold = %9.3f  in  [%9.3f,%9.3f]",
+									state.name,
+									gPass1Thresholds[state.index],
+									gThresholdsLower[state.index],
+									gThresholdUpper
+								);
+							}
+						}
+					}
 
 					// start (or continue) pass 1
 					Stopwatch pass1Stopwatch = new Stopwatch().start();
-					pass1(fringedbLower, seqdb, pass1step, criterion, gPass1Thresholds, pass1Stopwatch, pass1TargetSeconds);
+					long pass1Nodes = pass1(fringedbLower, seqdb, pass1step, criterion, gPass1Thresholds, pass1Stopwatch, pass1TargetSeconds);
 					double pass1ElapsedSeconds = pass1Stopwatch.stop().getTimeS();
 
 					// did we finish the pass 1 step?
@@ -826,46 +881,36 @@ public class Sofea {
 					}
 
 					{ // how much progress did we get from pass 1?
+
 						double newSeqdbScore = calcSeqdbScore(seqdb);
+						needsMinimization = needsMinimization(seqdb);
+
 						double delta = seqdbScore - newSeqdbScore;
-						pass1Slope = delta/pass1ElapsedSeconds;
+						if (delta < -1e-9) {
+							throw new Error("Negative improvement (" + delta + "). This is a bug.");
+						} else if (delta < 0) {
+							delta = 0;
+						}
+
+						// sometimes there aren't any nodes in the threhsold window, which gives us a zero slope
+						// that doesn't mean the slop is actually zero, since the next threshold window probably has nodes in it
+						// so only update the slope if we actually processed any nodes this time
+						if (pass1Nodes > 0) {
+							pass1Slope = delta/pass1ElapsedSeconds;
+						}
+
 						// TEMP
 						log("\n### P1  score=%.3f -> %.3f  delta=%s  seconds=%.3f slope=%s\n",
 							seqdbScore, newSeqdbScore, delta, pass1ElapsedSeconds, pass1Slope
 						);
+
 						seqdbScore = newSeqdbScore;
-					}
-				}
 
-				// should pass 2 take a step?
-				if (needPass2Step) {
-
-					// yup
-					pass2step++;
-					needPass2Step = false;
-
-					// update the gThresholds
-					for (MultiStateConfSpace.State state : confSpace.states) {
-						if (gPass2Thresholds[state.index] != null) {
-							if (gPass2Thresholds[state.index] > gThresholdUpper) {
-								gPass2Thresholds[state.index] = null;
-							} else {
-								gPass2Thresholds[state.index] += sweepIncrement;
-							}
+						// let the other slope grow a bit so we don't get stuck on pass 1
+						if (pass2Slope == 0) {
+							pass2Slope = pass1Slope/1e4;
 						}
-					}
-
-					// show progress if needed
-					if (showProgress) {
-						log("pass 2 step %d", pass2step);
-						for (MultiStateConfSpace.State state : confSpace.states) {
-							log("\t%10s  gThreshold = %9.3f  in  [%9.3f,%9.3f]",
-								state.name,
-								gPass2Thresholds[state.index],
-								gThresholdsLower[state.index],
-								gThresholdUpper
-							);
-						}
+						pass2Slope *= slopeGrowthRate;
 					}
 				}
 
@@ -874,15 +919,61 @@ public class Sofea {
 				if (!fringedbUpper.hasNodesToRead()) {
 					// no more nodes to check
 					pass2TargetSeconds = 0;
+				} else if (needsMinimization) {
+					// haven't minimized anything yet, so keep trying until we do
+					pass2TargetSeconds = maxCriterionCheckSeconds;
+				} else if (fringedbLower.hasNodesToRead() && pass2step >= pass1step) {
+					// don't let pass 2 get ahead of pass 1
+					pass2TargetSeconds = 0;
 				} else if (fringedbLower.hasNodesToRead() && pass1Slope > pass2Slope) {
 					// if pass 1 is making more progress, don't spend any time on pass 2
 					pass2TargetSeconds = 0;
 				} else {
-					// run for the max allowed time
+					// otherwise, run for the max allowed time
 					pass2TargetSeconds = maxCriterionCheckSeconds;
 				}
 
+				// TEMP
+				log("PASS 2  %.4f s   needmin=%b  s1=[%d,%b,%s]  s2=[%d,%b,%s]",
+					pass2TargetSeconds,
+					needsMinimization,
+					pass1step, fringedbLower.hasNodesToRead(), pass1Slope,
+					pass2step, fringedbUpper.hasNodesToRead(), pass2Slope
+				);
+
 				if (pass2TargetSeconds > 0) {
+
+					// should pass 2 take a step?
+					if (needPass2Step) {
+
+						// yup
+						pass2step++;
+						needPass2Step = false;
+
+						// update the gThresholds
+						for (MultiStateConfSpace.State state : confSpace.states) {
+							if (gPass2Thresholds[state.index] != null) {
+								if (gPass2Thresholds[state.index] > gThresholdUpper) {
+									gPass2Thresholds[state.index] = null;
+								} else {
+									gPass2Thresholds[state.index] += sweepIncrement;
+								}
+							}
+						}
+
+						// show progress if needed
+						if (showProgress) {
+							log("pass 2 step %d", pass2step);
+							for (MultiStateConfSpace.State state : confSpace.states) {
+								log("\t%10s  gThreshold = %9.3f  in  [%9.3f,%9.3f]",
+									state.name,
+									gPass2Thresholds[state.index],
+									gThresholdsLower[state.index],
+									gThresholdUpper
+								);
+							}
+						}
+					}
 
 					// run pass 2
 					Stopwatch pass2Stopwatch = new Stopwatch().start();
@@ -901,15 +992,35 @@ public class Sofea {
 					}
 
 					{ // how much progress did we get from pass 2?
+
 						double newSeqdbScore = calcSeqdbScore(seqdb);
+						needsMinimization = needsMinimization(seqdb);
+
 						double delta = seqdbScore - newSeqdbScore;
+						if (delta < -1e-9) {
+							throw new Error("Negative improvement (" + delta + "). This is a bug.");
+						} else if (delta < 0) {
+							delta = 0;
+						}
 						pass2Slope = delta/pass2ElapsedSeconds;
+
 						// TEMP
 						log("\n### P2  score=%.3f -> %.3f  delta=%s  seconds=%.3f slope=%s\n",
 							seqdbScore, newSeqdbScore, delta, pass2ElapsedSeconds, pass2Slope
 						);
 						seqdbScore = newSeqdbScore;
+
+						// let the other slope grow a bit so we don't get stuck on pass 2
+						if (pass1Slope == 0) {
+							pass1Slope = pass2Slope/1e4;
+						}
+						pass1Slope *= slopeGrowthRate;
 					}
+				}
+
+				// make sure we did one of the passes, just in case
+				if (pass1TargetSeconds <= 0 && pass2TargetSeconds <= 0) {
+					throw new Error("Neither pass chosen. This is a bug.");
 				}
 			}
 		}}}}
@@ -927,7 +1038,7 @@ public class Sofea {
 			.toArray(size -> new BigDecimal[size]);
 	}
 
-	private void pass1(FringeDB fringedb, SeqDB seqdb, long step, Criterion criterion, Double[] gThresholds, Stopwatch stopwatch, double targetSeconds) {
+	private long pass1(FringeDB fringedb, SeqDB seqdb, long step, Criterion criterion, Double[] gThresholds, Stopwatch stopwatch, double targetSeconds) {
 
 		if (showProgress) {
 			logf("pass 1 running ...");
@@ -935,7 +1046,6 @@ public class Sofea {
 
 		class StateStats {
 			long read = 0;
-			long removed = 0;
 			long expanded = 0;
 			long requeuedByThreshold = 0;
 			long requeuedByFilter = 0;
@@ -962,7 +1072,7 @@ public class Sofea {
 		// NOTE: use a size-one array instead of a plain var, since Java's compiler is kinda dumb about lambdas
 		int[] nodesInFlight = { 0 };
 
-		// start a timer to limit this pass
+		// keep processing nodes until we get told to stop
 		while (true) {
 
 			// stop this pass if we hit our time quota
@@ -1010,12 +1120,7 @@ public class Sofea {
 
 						nodesInFlight[0]--;
 
-						if (result.removed) {
-
-							stats[nodetx.state.index].removed++;
-							nodetx.replacePass1(fringetx, seqtx);
-
-						} else if (!result.expanded) {
+						if (result == NodeResult.Saved) {
 
 							stats[nodetx.state.index].requeuedByThreshold++;
 							nodetx.requeuePass1(fringetx, seqtx);
@@ -1051,10 +1156,9 @@ public class Sofea {
 				100f*nodesRead/numNodesToRead
 			);
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				log("\t%10s  read=%6d [ removed=%6d  expanded=%6d  requeuedByThreshold=%6d  requeuedByFilter=%6d  requeuedForSpace=%6d ] added=%6d",
+				log("\t%10s  read=%6d [ expanded=%6d  requeuedByThreshold=%6d  requeuedByFilter=%6d  requeuedForSpace=%6d ] added=%6d",
 					state.name,
 					stats[state.index].read,
-					stats[state.index].removed,
 					stats[state.index].expanded,
 					stats[state.index].requeuedByThreshold,
 					stats[state.index].requeuedByFilter,
@@ -1063,6 +1167,11 @@ public class Sofea {
 				);
 			}
 		}
+
+		// how many nodes did we process that potentially helped improve the bounds?
+		return confSpace.states.stream()
+			.mapToLong(state -> stats[state.index].read - stats[state.index].requeuedByFilter - stats[state.index].requeuedByThreshold)
+			.sum();
 	}
 
 	private enum NodeResult {
@@ -1134,7 +1243,6 @@ public class Sofea {
 
 		class StateStats {
 			long read = 0;
-			long removed = 0;
 			long expanded = 0;
 			long requeuedByThreshold = 0;
 			long requeuedByFilter = 0;
@@ -1162,13 +1270,46 @@ public class Sofea {
 			stats[state.index] = new StateStats();
 		}
 
-		// start a timer to limit this pass
+		Deque<NodeTransaction> minimizationQueue = new ArrayDeque<>();
+
+		Runnable processMinimizationQueue = () -> {
+			synchronized (Sofea.this) { // don't race the listener thread
+				while (!minimizationQueue.isEmpty()) {
+					NodeTransaction nodetx = minimizationQueue.pollFirst();
+
+					// process the minimization queue before exiting the loop
+					tasks.submit(
+						() -> {
+							ConfDB.ConfTable confTable = confTables.get(nodetx.state);
+							StateInfo stateInfo = getStateInfo(nodetx.state);
+							for (ZPath zPath : nodetx.zPaths) {
+								zPath.zPath = stateInfo.calcZPath(zPath.conf, confTable);
+							}
+							return 42; // it's the answer
+						},
+						(theAnswer) -> {
+							synchronized (Sofea.this) { // don't race the main thread
+								nodesInFlight[0] -= nodetx.replacementNodes.size();
+								stats[nodetx.state.index].expanded++;
+								stats[nodetx.state.index].added += nodetx.numReplacementNodes();
+								stats[nodetx.state.index].minimized += nodetx.zPaths.size();
+								nodetx.replacePass2(fringetx, seqtx);
+							}
+						}
+					);
+				}
+			}
+		};
+
+		// keep processing nodes until we get told to stop
 		while (true) {
 
 			// stop this pass if we hit our time quota
 			if (stopwatch.getTimeS() > targetSeconds) {
 				break;
 			}
+
+			processMinimizationQueue.run();
 
 			// read the next node and make a transaction for it
 			final NodeTransaction nodetx;
@@ -1210,23 +1351,29 @@ public class Sofea {
 					synchronized (Sofea.this) { // don't race the main thread
 
 						nodesInFlight[0]--;
-						stats[nodetx.state.index].minimized += nodetx.zPaths.size();
 
-						if (result.removed) {
-
-							stats[nodetx.state.index].removed++;
-							nodetx.replacePass2(fringetx, seqtx);
-
-						} else if (!result.expanded) {
+						if (result == NodeResult.Saved) {
 
 							stats[nodetx.state.index].requeuedByThreshold++;
 							nodetx.requeuePass2(fringetx, seqtx);
 
 						} else if (nodetx.hasRoomToReplace(fringetx, nodesInFlight[0])) {
 
-							stats[nodetx.state.index].expanded++;
-							stats[nodetx.state.index].added += nodetx.numReplacementNodes();
-							nodetx.replacePass2(fringetx, seqtx);
+							if (nodetx.zPaths.isEmpty()) {
+
+								// no minimizations needed
+								stats[nodetx.state.index].expanded++;
+								stats[nodetx.state.index].added += nodetx.numReplacementNodes();
+								nodetx.replacePass2(fringetx, seqtx);
+
+							} else {
+
+								// now we know we won't have to throw away info, we can do the minimizations
+								// but tell the main thread to send the tasks,
+								// since the listener thread can deadlock if it tries
+								nodesInFlight[0] += nodetx.replacementNodes.size();
+								minimizationQueue.add(nodetx);
+							}
 
 						} else {
 
@@ -1238,8 +1385,16 @@ public class Sofea {
 			);
 		}
 		tasks.waitForFinish();
+
+		// do one last flush of the minimization queue
+		processMinimizationQueue.run();
+		tasks.waitForFinish();
+
 		fringetx.commit();
 		seqtx.commit();
+
+		// there shouldn't be any leftover minimizations
+		assert (minimizationQueue.isEmpty());
 
 		// show stats if needed
 		if (showProgress) {
@@ -1253,10 +1408,9 @@ public class Sofea {
 				100f*nodesRead/numNodesToRead
 			);
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				log("\t%10s  read=%6d [ removed=%6d  expanded=%6d  requeuedByThreshold=%6d  requeuedByFilter=%6d  requeuedForSpace=%6d ] added=%6d  minimized=%6d",
+				log("\t%10s  read=%6d [ expanded=%6d  requeuedByThreshold=%6d  requeuedByFilter=%6d  requeuedForSpace=%6d ] added=%6d  minimized=%6d",
 					state.name,
 					stats[state.index].read,
-					stats[state.index].removed,
 					stats[state.index].expanded,
 					stats[state.index].requeuedByThreshold,
 					stats[state.index].requeuedByFilter,
@@ -1285,8 +1439,10 @@ public class Sofea {
 
 		// if we're a leaf node, calc the zPath
 		if (index.isFullyDefined()) {
-			BigDecimal zPath = stateInfo.calcZPath(nodetx.index, confTable);
-			nodetx.addZPath(index, zPath, zSumUpper);
+			// there might not be enough room to replace this subtree
+			// so defer minimizations until after we know there's enough space
+			// otherwise, we'd just do the minimization and then throw away the result
+			nodetx.addZPath(index, null, zSumUpper);
 			return NodeResult.Removed;
 		}
 
@@ -1370,33 +1526,6 @@ public class Sofea {
 			this.zmat.set(config.emat, bcalc);
 			this.rcs = new RCs(state.confSpace);
 
-			// sort positions so multi-sequence layers are first
-			posPermutation = state.confSpace.positions.stream()
-				.sorted((a, b) -> {
-
-					// prefer mutable positions first
-					if (a.hasMutations() && !b.hasMutations()) {
-						return -1;
-					} else if (!a.hasMutations() && b.hasMutations()) {
-						return +1;
-					}
-
-					/* TODO: what heuristic works well here?
-					// then, sort by ordering heuristic
-					// negate to sort in (weakly) descending order
-					int order = -calcOrderHeuristic(a).compareTo(calcOrderHeuristic(b));
-					if (order != 0) {
-						return order;
-					}
-					*/
-					// TODO: try sorting by max spread of zSumUpper over RCs at a pos
-
-					// otherwise, sort by index
-					return a.index - b.index;
-				})
-				.mapToInt(pos -> pos.index)
-				.toArray();
-
 			// calculate all the RTs by RC and pos
 			rtsByRcByPos = new int[state.confSpace.positions.size()][];
 			numRtsByPos = new int[state.confSpace.positions.size()];
@@ -1434,6 +1563,77 @@ public class Sofea {
 						maxzrc2[pos1][rc1][pos2] = optzrc2;
 					}
 				}
+			}
+
+			// sort positions so multi-sequence layers are first
+			posPermutation = state.confSpace.positions.stream()
+				.sorted((a, b) -> {
+
+					// prefer mutable positions first
+					if (a.hasMutations() && !b.hasMutations()) {
+						return -1;
+					} else if (!a.hasMutations() && b.hasMutations()) {
+						return +1;
+					}
+
+					// then, sort by ordering heuristic
+					int order = Double.compare(calcOrderHeuristic(a), calcOrderHeuristic(b));
+					if (order != 0) {
+						// negate to sort in (weakly) descending order
+						return -order;
+					}
+
+					// otherwise, sort by index
+					return a.index - b.index;
+				})
+				.mapToInt(pos -> pos.index)
+				.toArray();
+		}
+
+		double calcOrderHeuristic(SimpleConfSpace.Position pos) {
+
+			// compute zSumUpper for all RCs at this pos,
+			// as if this pos were the root of a conf tree
+			ConfIndex index = makeConfIndex();
+			BigDecimal rootZSumUpper = calcZSumUpper(index, rcs);
+			BigDecimal[] zSumUppersByRc = Arrays.stream(rcs.get(pos.index))
+				.mapToObj(rc -> {
+					index.assignInPlace(pos.index, rc);
+					// TODO: go deeper with recursion?
+					BigDecimal zSumUpper = calcZSumUpper(index, rcs);
+					index.unassignInPlace(pos.index);
+					return zSumUpper;
+				})
+				.toArray(size -> new BigDecimal[size]);
+
+			// TODO: what heuristic works best here?
+			// hard to experiment on small test cases, since position ordering seems to have little effect on performance
+			// need to experiemnt on bigger test cases, but alas, that's slow
+			return 0.0;
+
+			/*
+			BigMath max = bigMath();
+			for (BigDecimal zSumUpper : zSumUppersByRc) {
+				max.maxOrSet(zSumUpper);
+			}
+			return bcalc.ln1p(max.get());
+			*/
+		}
+
+		void checkOrderHeuristic(SimpleConfSpace.Position pos) {
+
+			// compute the spread of zSumUpper over RCs at this pos,
+			// if this pos were the root of a conf tree
+
+			log("pos %d", pos.index);
+			ConfIndex index = makeConfIndex();
+			for (int rc : rcs.get(pos.index)) {
+
+				index.assignInPlace(pos.index, rc);
+				BigDecimal zSumUpper = calcZSumUpper(index, rcs);
+				index.unassignInPlace(pos.index);
+
+				log("\tRC %d -> %e", rc, zSumUpper);
 			}
 		}
 
@@ -1611,6 +1811,16 @@ public class Sofea {
 			}
 
 			double e = confEcalc.calcEnergy(new RCTuple(index), confTable);
+			return bcalc.calcPrecise(e);
+		}
+
+		BigDecimal calcZPath(int[] conf, ConfDB.ConfTable confTable) {
+
+			if (!Conf.isCompletelyAssigned(conf)) {
+				throw new IllegalArgumentException("not a full conf");
+			}
+
+			double e = confEcalc.calcEnergy(new RCTuple(conf), confTable);
 			return bcalc.calcPrecise(e);
 		}
 

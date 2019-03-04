@@ -312,7 +312,7 @@ public class SeqDB implements AutoCloseable {
 			.createOrOpen();
 	}
 
-	private BigMath bigMath() {
+	public BigMath bigMath() {
 		return new BigMath(mathContext);
 	}
 
@@ -325,6 +325,10 @@ public class SeqDB implements AutoCloseable {
 
 		private Transaction() {
 			// keep the constructor private
+		}
+
+		public BigMath bigMath() {
+			return SeqDB.this.bigMath();
 		}
 
 		private void updateZSumBounds(MultiStateConfSpace.State state, Sequence seq, Consumer<BigDecimalBounds> f) {
@@ -412,13 +416,19 @@ public class SeqDB implements AutoCloseable {
 			sum.upper = bigMath()
 				.set(sum.upper)
 				.add(oldSum.upper)
-				.atLeast(0.0) // NOTE: roundoff error can cause this to drop below 0
 				.get();
 			sum.lower = bigMath()
 				.set(sum.lower)
 				.add(oldSum.lower)
-				.atMost(sum.upper) // don't exceed the upper value due to roundoff error
 				.get();
+		}
+
+		private void fixRoundoffError(BigDecimalBounds z) {
+			// trust the lower bound more, since it's based on minimizations
+			if (!z.isValid()) {
+				// TODO: throw an Exception if the error is bigger than what we'd expect from roundoff?
+				z.upper = z.lower;
+			}
 		}
 
 		public void commit() {
@@ -440,6 +450,7 @@ public class SeqDB implements AutoCloseable {
 						BigDecimalBounds sum = seqInfo.zSumBounds[state.sequencedIndex];
 						BigDecimalBounds oldSum = oldSeqInfo.zSumBounds[state.sequencedIndex];
 						combineSums(sum, oldSum);
+						fixRoundoffError(sum);
 					}
 				}
 
@@ -454,6 +465,7 @@ public class SeqDB implements AutoCloseable {
 				BigDecimalBounds oldSum = SeqDB.this.unsequencedSums.get(unsequencedIndex);
 				if (oldSum != null) {
 					combineSums(sum, oldSum);
+					fixRoundoffError(sum);
 				}
 
 				SeqDB.this.unsequencedSums.put(unsequencedIndex, sum);
@@ -475,53 +487,6 @@ public class SeqDB implements AutoCloseable {
 	@Override
 	public void close() {
 		db.close();
-	}
-
-	private void updateZSumBounds(MultiStateConfSpace.State state, Sequence seq, Consumer<BigDecimalBounds> f) {
-
-		if (state.isSequenced) {
-
-			// get the tx seq info, or empty sums
-			SeqInfo seqInfo = sequencedSums.get(seq.rtIndices);
-			if (seqInfo == null) {
-				seqInfo = new SeqInfo(confSpace.sequencedStates.size());
-				seqInfo.setEmpty();
-			}
-
-			f.accept(seqInfo.get(state));
-			sequencedSums.put(seq.rtIndices, seqInfo);
-
-		} else {
-
-			// get the tx sum, or empty
-			BigDecimalBounds sum = unsequencedSums.get(state.unsequencedIndex);
-			if (sum == null) {
-				sum = new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
-			}
-
-			f.accept(sum);
-			unsequencedSums.put(state.unsequencedIndex, sum);
-
-		}
-	}
-
-	public void addZPath(MultiStateConfSpace.State state, Sequence seq, BigDecimal zPath, BigDecimal zSumUpper) {
-
-		if (!MathTools.isFinite(zPath)) {
-			throw new IllegalArgumentException("Z must be finite: " + zPath);
-		}
-
-		updateZSumBounds(state, seq, sum -> {
-			sum.lower = bigMath()
-				.set(sum.lower)
-				.add(zPath)
-				.get();
-			sum.upper = bigMath()
-				.set(sum.upper)
-				.add(zPath)
-				.sub(zSumUpper)
-				.get();
-		});
 	}
 
 	/**

@@ -1483,7 +1483,7 @@ def SOFEA_StateConfig(emat, confEcalc, confdbPath=None):
 	return jvm.getInnerClass(c.sofea.Sofea, 'StateConfig')(emat, confEcalc, confdbFile)
 
 
-def SOFEA(confSpace, configFunc, mathContext=useJavaDefault, seqdbPath='sofea.seqdb', seqdbMathContext=useJavaDefault, fringedbPath='sofea.fringedb', fringedbMiB=10, showProgress=useJavaDefault, sweepIncrement=useJavaDefault, maxNumMinimizations=useJavaDefault, negligableFreeEnergy=useJavaDefault):
+def SOFEA(confSpace, configFunc, mathContext=useJavaDefault, seqdbPath='sofea.seqdb', seqdbMathContext=useJavaDefault, fringedbLowerPath='sofea.lower.fringedb', fringedbLowerMiB=10, fringedbUpperPath='sofea.upper.fringedb', fringedbUpperMiB=10, showProgress=useJavaDefault, sweepIncrement=useJavaDefault, maxNumMinimizations=useJavaDefault, negligableFreeEnergy=useJavaDefault):
 	'''
 	:java:classdoc:`.sofea.Sofea`
 
@@ -1496,8 +1496,10 @@ def SOFEA(confSpace, configFunc, mathContext=useJavaDefault, seqdbPath='sofea.se
 	:builder_option mathContext .sofea.Sofea$Builder#mathContext:
 	:param str seqdbPath: Path to write the sequence database file
 	:builder_option seqdbMathContext .sofea.Sofea$Builder#seqdbMathContext:
-	:param str fringedbPath: Path to write the fringe set
-	:param int fringedbMiB: size of the fringe set in MiB
+	:param str fringedbLowerPath: Path to write the lower fringe set
+	:param int fringedbLowerMiB: size of the lower fringe set in MiB
+	:param str fringedbUpperPath: Path to write the upper fringe set
+	:param int fringedbUpperMiB: size of the upper fringe set in MiB
 	:builder_option showProgress .sofea.Sofea$Builder#showProgress:
 	:builder_option sweepIncrement .sofea.Sofea$Builder#sweepIncrement:
 	:builder_option maxNumMinimizations .sofea.Sofea$Builder#maxNumMinimizations:
@@ -1517,12 +1519,16 @@ def SOFEA(confSpace, configFunc, mathContext=useJavaDefault, seqdbPath='sofea.se
 		builder.setSeqDBFile(jvm.toFile(seqdbPath))
 	if seqdbMathContext is not useJavaDefault:
 		builder.setSeqDBMathContext(seqdbMathContext)
-	if fringedbPath is not useJavaDefault:
-		builder.setFringeDBFile(jvm.toFile(fringedbPath))
-	if fringedbMiB is not useJavaDefault:
-		builder.setFringeDBMiB(fringedbMiB)
+	if fringedbLowerPath is not useJavaDefault:
+		builder.setFringeDBLowerFile(jvm.toFile(fringedbLowerPath))
+	if fringedbLowerMiB is not useJavaDefault:
+		builder.setFringeDBLowerMiB(fringedbLowerMiB)
+	if fringedbUpperPath is not useJavaDefault:
+		builder.setFringeDBUpperFile(jvm.toFile(fringedbUpperPath))
+	if fringedbUpperMiB is not useJavaDefault:
+		builder.setFringeDBUpperMiB(fringedbUpperMiB)
 	if showProgress is not useJavaDefault:
-		builder.setShowProgerss(showProgress)
+		builder.setShowProgress(showProgress)
 	if sweepIncrement is not useJavaDefault:
 		builder.setSweepIncrement(sweepIncrement)
 	if maxNumMinimizations is not useJavaDefault:

@@ -99,6 +99,10 @@ public class FringeDB implements AutoCloseable {
 	/** create a new fringe node database, reserving the desired spase on the filesystem */
 	public static FringeDB create(MultiStateConfSpace confSpace, File file, long sizeBytes, MathContext mathContext) {
 
+		if (sizeBytes <= 0) {
+			throw new IllegalArgumentException("invalid FringeDB size: " + sizeBytes + " bytes");
+		}
+
 		// write the header to a new file
 		try (RandomAccessFile io = new RandomAccessFile(file, "rw")) {
 

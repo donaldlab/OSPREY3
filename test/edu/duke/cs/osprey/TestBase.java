@@ -349,9 +349,14 @@ public class TestBase {
 		}
 
 		abstract T apply(T thing);
+		abstract String term();
 
 		static EpsilonApplier<DoubleBounds> doubleBoundsAbsolute(double epsilon) {
 			return new EpsilonApplier<DoubleBounds>(epsilon) {
+				@Override
+				public String term() {
+					return "absolutely";
+				}
 				@Override
 				public DoubleBounds apply(DoubleBounds bounds) {
 					return new DoubleBounds(
@@ -364,6 +369,10 @@ public class TestBase {
 
 		static EpsilonApplier<DoubleBounds> doubleBoundsRelative(double epsilon) {
 			return new EpsilonApplier<DoubleBounds>(epsilon) {
+				@Override
+				public String term() {
+					return "relatively";
+				}
 				@Override
 				public DoubleBounds apply(DoubleBounds bounds) {
 					double loFactor = 1.0 + (bounds.lower > 0 ? -epsilon : +epsilon);
@@ -384,6 +393,10 @@ public class TestBase {
 				BigDecimal bigEpsilon = MathTools.biggen(epsilon);
 
 				@Override
+				public String term() {
+					return "absolutely";
+				}
+				@Override
 				public BigDecimalBounds apply(BigDecimalBounds bounds) {
 					return new BigDecimalBounds(
 						bounds.lower.subtract(bigEpsilon, mathContext),
@@ -396,6 +409,10 @@ public class TestBase {
 		static EpsilonApplier<BigDecimalBounds> bigDecimalBoundsRelative(double epsilon) {
 			return new EpsilonApplier<BigDecimalBounds>(epsilon) {
 
+				@Override
+				public String term() {
+					return "relatively";
+				}
 				@Override
 				public BigDecimalBounds apply(BigDecimalBounds bounds) {
 					// multiplications are always fast enough, even without a math context
@@ -429,7 +446,7 @@ public class TestBase {
 		@Override
 		public void describeTo(Description desc) {
 			desc.appendText("bounds ").appendValue(expected)
-				.appendText(" relatively within epsilon ").appendValue(epsilonApplier.epsilon);
+				.appendText(" " + epsilonApplier.term() + " within epsilon ").appendValue(epsilonApplier.epsilon);
 		}
 
 		@Override
@@ -442,7 +459,7 @@ public class TestBase {
 					desc.appendValue(observed)
 						.appendText(" (with epsilon: ")
 						.appendValue(epsilonApplier.apply(observed))
-						.appendText(") is not a relative bound within epsilon");
+						.appendText(") does not bound " + epsilonApplier.term() + " within epsilon");
 				}
 			}
 		}
@@ -473,7 +490,7 @@ public class TestBase {
 		@Override
 		public void describeTo(Description desc) {
 			desc.appendText("bounds ").appendValue(expected)
-				.appendText(" relatively within epsilon ").appendValue(epsilonApplier.epsilon);
+				.appendText(" " + epsilonApplier.term() + " within epsilon ").appendValue(epsilonApplier.epsilon);
 		}
 
 		@Override
@@ -486,7 +503,7 @@ public class TestBase {
 					desc.appendValue(observed)
 						.appendText(" (with epsilon: ")
 						.appendValue(epsilonApplier.apply(observed))
-						.appendText(") is not a relative bound within epsilon");
+						.appendText(") does not bound " + epsilonApplier.term() + " within epsilon");
 				}
 			}
 		}
@@ -517,7 +534,7 @@ public class TestBase {
 		@Override
 		public void describeTo(Description desc) {
 			desc.appendText("bounds ").appendValue(expected)
-				.appendText(" relatively within epsilon ").appendValue(epsilonApplier.epsilon);
+				.appendText(" " + epsilonApplier.term() + " within epsilon ").appendValue(epsilonApplier.epsilon);
 		}
 
 		@Override
@@ -530,7 +547,7 @@ public class TestBase {
 					desc.appendValue(observed)
 						.appendText(" (with epsilon: ")
 						.appendValue(epsilonApplier.apply(observed))
-						.appendText(") is not a relative bound within epsilon");
+						.appendText(") does not bound " + epsilonApplier.term() + " within epsilon");
 				}
 			}
 		}
@@ -561,7 +578,7 @@ public class TestBase {
 		@Override
 		public void describeTo(Description desc) {
 			desc.appendText("bounds ").appendValue(expected)
-				.appendText(" relatively within epsilon ").appendValue(epsilonApplier.epsilon);
+				.appendText(" " + epsilonApplier.term() + " within epsilon ").appendValue(epsilonApplier.epsilon);
 		}
 
 		@Override
@@ -574,7 +591,7 @@ public class TestBase {
 					desc.appendValue(observed)
 						.appendText(" (with epsilon: ")
 						.appendValue(epsilonApplier.apply(observed))
-						.appendText(") is not a relative bound within epsilon");
+						.appendText(") does not bound " + epsilonApplier.term() + " within epsilon");
 				}
 			}
 		}
