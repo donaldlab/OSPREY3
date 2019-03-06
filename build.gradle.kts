@@ -61,9 +61,6 @@ version = Files.readAllLines(projectDir.resolve("resources/config/version"))[0]
 
 repositories {
 	jcenter()
-	flatDir{
-		dirs 'lib'
-	}
 }
 
 java {
@@ -160,8 +157,8 @@ dependencies {
 		runtime("org.jcuda:jcuda-natives:0.8.0:$it")
 	}
 	// Add matlab engine
-	compile("engine.jar")
-	files('')
+	compile(files("/lib/engine.jar"))
+	files("")
 }
 
 distributions {
