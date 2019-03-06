@@ -1516,7 +1516,7 @@ def Marginalizer():
 	'''
 	TODO
 	'''
-	return c.markstar.visualizer.KStarTreeNode.Marginalizer()
+	return jvm.getInnerClass(c.markstar.visualizer.KStarTreeNode, 'Marginalizer')()
 def KStarTreeAnalyzer():
 	'''
 	TODO
