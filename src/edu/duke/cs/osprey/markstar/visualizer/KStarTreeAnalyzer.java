@@ -1,5 +1,9 @@
 package edu.duke.cs.osprey.markstar.visualizer;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
@@ -25,6 +29,35 @@ public class KStarTreeAnalyzer {
             entropyMap.put(residue, matlabMaxEntropy(occMap.get(residue)));
         }
         return entropyMap;
+    }
+    public static void printOccupancies(Map<String,Map<String,List<Double>>> occList, File outFile) throws IOException{
+        List<String> sortedKeys = new ArrayList(occList.keySet());
+		Collections.sort(sortedKeys);
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(outFile));
+        writer.write("## Occupancy Bounds\n");
+        for (String residue : sortedKeys){
+            writer.write(residue+"\n");
+            for (String rotamer : occList.get(residue).keySet()){
+                writer.write(String.format("\t%s:\t[%.4f,%.4f]\n", rotamer, occList.get(residue).get(rotamer).get(0), occList.get(residue).get(rotamer).get(1)));
+            }
+        }
+    }
+    public static void printOccupancies(Map<String,Map<String,List<Double>>> occList, String outFile) throws IOException{
+        printOccupancies(occList, new File(outFile));
+    }
+    public static void printEntropies(Map<String,List<Double>> entList, File outFile) throws IOException{
+        List<String> sortedKeys = new ArrayList(entList.keySet());
+        Collections.sort(sortedKeys);
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(outFile));
+        writer.write("## Entropy Bounds\n");
+        for (String residue : sortedKeys){
+            writer.write(String.format("%s:\t[%.4f,%.4f]\n", residue, entList.get(residue).get(0), entList.get(residue).get(1)));
+        }
+    }
+    public static void printEntropies(Map<String,List<Double>> entList, String outFile) throws IOException{
+        printEntropies(entList, new File(outFile));
     }
 
     public static Map<String,Map<String,List<Double>>> calcResidueOccupancyList(Map<String,Map<String,List<BigDecimal>>> margDist, BigDecimal overallLowerBound, BigDecimal overallUpperBound){
