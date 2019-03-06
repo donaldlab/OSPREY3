@@ -1511,3 +1511,14 @@ def SOFEA_MinLMFE(lmfe, numSequences, mathContext):
 	:return:
 	'''
 	return c.sofea.MinLMFE(lmfe, numSequences, mathContext)
+
+def Marginalizer():
+	'''
+	TODO
+	'''
+	return c.markstar.visualizer.KStarTreeNode.Marginalizer()
+def KStarTreeAnalyzer():
+	'''
+	TODO
+	'''
+	return c.markstar.visualizer.KStarTreeAnalyzer();
