@@ -157,7 +157,7 @@ dependencies {
 		runtime("org.jcuda:jcuda-natives:0.8.0:$it")
 	}
 	// Add matlab engine
-	compile(files("/lib/engine.jar"))
+	compile(files("lib/engine.jar"))
 	files("")
 }
 
