@@ -72,7 +72,8 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, garbageSi
 	args = [
 		jpype.getDefaultJVMPath(),
 		'-Xmx%dM' % heapSizeMiB,
-		'-Djava.class.path=%s' % makeClasspath()
+		'-Djava.class.path=%s' % makeClasspath(),
+		'-Djava.library.path=/auto/pkg/matlab-2018b/bin/glnxa64'
 	]
 	if enableAssertions:
 		args.append("-ea")

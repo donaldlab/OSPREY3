@@ -61,6 +61,9 @@ version = Files.readAllLines(projectDir.resolve("resources/config/version"))[0]
 
 repositories {
 	jcenter()
+	flatDir{
+		dirs 'lib'
+	}
 }
 
 java {
@@ -156,6 +159,8 @@ dependencies {
 	listOf("linux-x86_64", "apple-x86_64", "windows-x86_64").forEach {
 		runtime("org.jcuda:jcuda-natives:0.8.0:$it")
 	}
+	// Add matlab engine
+	compile("engine.jar")
 	files('')
 }
 
