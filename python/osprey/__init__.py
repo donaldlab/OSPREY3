@@ -1521,4 +1521,4 @@ def KStarTreeAnalyzer():
 	'''
 	TODO
 	'''
-	return c.markstar.visualizer.KStarTreeAnalyzer();
+	return c.markstar.visualizer.KStarTreeAnalyzer;
