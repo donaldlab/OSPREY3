@@ -42,6 +42,7 @@ public class KStarTreeAnalyzer {
                 writer.write(String.format("\t%s:\t[%.4f,%.4f]\n", rotamer, occList.get(residue).get(rotamer).get(0), occList.get(residue).get(rotamer).get(1)));
             }
         }
+        writer.close();
     }
     public static void printOccupancies(Map<String,Map<String,List<Double>>> occList, String outFile) throws IOException{
         printOccupancies(occList, new File(outFile));
@@ -55,6 +56,7 @@ public class KStarTreeAnalyzer {
         for (String residue : sortedKeys){
             writer.write(String.format("%s:\t[%.4f,%.4f]\n", residue, entList.get(residue).get(0), entList.get(residue).get(1)));
         }
+        writer.close();
     }
     public static void printEntropies(Map<String,List<Double>> entList, String outFile) throws IOException{
         printEntropies(entList, new File(outFile));
