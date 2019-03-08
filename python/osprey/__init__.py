@@ -868,7 +868,7 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	return bbflex
 
 def StrandRotTrans():
-	return jvm.getInnerclass(c.confspace.StrandFlex, 'TranslateRotate')()
+	return jvm.getInnerClass(c.confspace.StrandFlex, 'TranslateRotate')()
 
 def Paste(complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, useWindowCriterion=useJavaDefault, maxNumPfConfs=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, mutFile=useJavaDefault):
     '''
