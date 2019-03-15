@@ -41,6 +41,8 @@ import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
+import edu.duke.cs.osprey.energy.approximation.ApproximatorMatrix;
+import edu.duke.cs.osprey.energy.approximation.ResidueInteractionsApproximator;
 import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
@@ -68,6 +70,9 @@ public class ConfEnergyCalculator {
 		
 		private SimpleReferenceEnergies eref = null;
 		private boolean addResEntropy = false;
+
+		private ApproximatorMatrix amat = null;
+		private double approximationErrorBudget = 1e-3;
 		
 		public Builder(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
 			this.confSpace  = confSpace;
@@ -88,9 +93,19 @@ public class ConfEnergyCalculator {
 			this.addResEntropy = val;
 			return this;
 		}
+
+		public Builder setApproximatorMatrix(ApproximatorMatrix val) {
+			this.amat = val;
+			return this;
+		}
+
+		public Builder setApproximationErrorBudget(double val) {
+			this.approximationErrorBudget = val;
+			return this;
+		}
 		
 		public ConfEnergyCalculator build() {
-			return new ConfEnergyCalculator(confSpace, ecalc, epart, eref, addResEntropy);
+			return new ConfEnergyCalculator(confSpace, ecalc, epart, eref, addResEntropy, amat, approximationErrorBudget);
 		}
 	}
 	
@@ -99,26 +114,29 @@ public class ConfEnergyCalculator {
 	public final EnergyPartition epart;
 	public final SimpleReferenceEnergies eref;
 	public final boolean addResEntropy;
+	public final ApproximatorMatrix amat;
+	public final double approximationErrorBudget;
+
 	public final TaskExecutor tasks;
 
 	protected final AtomicLong numCalculations = new AtomicLong(0L);
 	protected final AtomicLong numConfDBReads = new AtomicLong(0L);
 
-	protected ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy) {
-		this(confSpace, ecalc, ecalc.tasks, epart, eref, addResEntropy);
-	}
-
 	protected ConfEnergyCalculator(SimpleConfSpace confSpace, TaskExecutor tasks) {
-		this(confSpace, null, tasks, null, null, false);
+		this(confSpace, null, null, null, false, null, Double.NaN);
 	}
 
-	protected ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, TaskExecutor tasks, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy) {
+	protected ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy, ApproximatorMatrix amat, double approximationErrorBudget) {
+
 		this.confSpace = confSpace;
 		this.ecalc = ecalc;
 		this.epart = epart;
 		this.eref = eref;
 		this.addResEntropy = addResEntropy;
-		this.tasks = tasks;
+		this.amat = amat;
+		this.approximationErrorBudget = approximationErrorBudget;
+
+		this.tasks = ecalc.tasks;
 	}
 
 	protected ConfEnergyCalculator(ConfEnergyCalculator other) {
@@ -126,7 +144,7 @@ public class ConfEnergyCalculator {
 	}
 
 	public ConfEnergyCalculator(ConfEnergyCalculator other, EnergyCalculator ecalc) {
-		this(other.confSpace, ecalc, other.epart, other.eref, other.addResEntropy);
+		this(other.confSpace, ecalc, other.epart, other.eref, other.addResEntropy, other.amat, other.approximationErrorBudget);
 	}
 
 	/**
@@ -219,9 +237,16 @@ public class ConfEnergyCalculator {
 	 * @return The energy of the resulting molecule fragment and its pose
 	 */
 	public EnergyCalculator.EnergiedParametricMolecule calcEnergy(RCTuple frag, ResidueInteractions inters) {
+
 		numCalculations.incrementAndGet();
-		ParametricMolecule bpmol = confSpace.makeMolecule(frag);
-		return ecalc.calcEnergy(bpmol, inters);
+		ParametricMolecule pmol = confSpace.makeMolecule(frag);
+
+		ResidueInteractionsApproximator approximator = null;
+		if (amat != null) {
+			approximator = amat.get(frag, inters, approximationErrorBudget);
+		}
+
+		return ecalc.calcEnergy(pmol, inters, approximator);
 	}
 
 	/**

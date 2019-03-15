@@ -96,6 +96,16 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 			return resNum1.equals(other.resNum1)
 				&& resNum2.equals(other.resNum2);
 		}
+
+		public String getOtherResNum(String resNum) {
+			if (resNum.equals(resNum1)) {
+				return resNum2;
+			} else if (resNum.equals(resNum2)) {
+				return resNum1;
+			} else {
+				return null;
+			}
+		}
 	}
 	
 	private Set<String> resNums;
@@ -111,6 +121,16 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 		for (Pair pair : pairs) {
 			addPair(pair.resNum1, pair.resNum2, pair.weight, pair.offset);
 		}
+	}
+
+	public boolean contains(Pair pair) {
+		return pairs.contains(pair);
+	}
+
+	public void add(Pair pair) {
+		resNums.add(pair.resNum1);
+		resNums.add(pair.resNum2);
+		pairs.add(pair);
 	}
 	
 	public void addSingle(String resNum) {
@@ -166,5 +186,15 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 			filtered.add(residues.getOrThrow(resNum));
 		}
 		return filtered;
+	}
+
+	public static ResidueInteractions subtract(ResidueInteractions a, ResidueInteractions b) {
+		ResidueInteractions out = new ResidueInteractions();
+		for (Pair pair : a) {
+			if (!b.contains(pair)) {
+				out.add(pair);
+			}
+		}
+		return out;
 	}
 }
