@@ -839,6 +839,28 @@ public class SimpleConfSpace implements Serializable {
 		
 		return dofTypes;
 	}
+
+	public int countDofs(RCTuple conf) {
+
+		int count = 0;
+
+		// backbone flexibility
+		for (Strand strand : getConfStrands(conf)) {
+			for (StrandFlex flex : strandFlex.get(strand)) {
+				count += flex.countDofs(strand);
+			}
+		}
+
+		// residue flexibility
+		for (int i=0; i<conf.size(); i++) {
+			Position pos = positions.get(conf.pos.get(i));
+			ResidueConf rc = pos.resConfs.get(conf.RCs.get(i));
+			Strand.ResidueFlex resFlex = pos.strand.flexibility.get(pos.resNum);
+			count += resFlex.voxelShape.countDihedralDOFs(rc.template);
+		}
+
+		return count;
+	}
         
         public int getNumPos(){
             return positions.size();

@@ -32,9 +32,7 @@
 
 package edu.duke.cs.osprey.energy;
 
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.*;
 
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residues;
@@ -50,6 +48,18 @@ import edu.duke.cs.osprey.tools.HashCalculator;
  * The {@link ResInterGen} helper class can assist with creating residue interactions.
  */
 public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
+
+	private static String makeId(String resNum1, String resNum2) {
+
+		// sort res numbers so we always have a stable order
+		if (resNum1.compareTo(resNum2) > 0) {
+			String swap = resNum1;
+			resNum1 = resNum2;
+			resNum2 = swap;
+		}
+
+		return resNum1 + " " + resNum2;
+	}
 	
 	public static class Pair {
 		
@@ -60,6 +70,8 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 		public final String resNum2;
 		public final double weight;
 		public final double offset;
+
+		public final String id;
 		
 		public Pair(String resNum1, String resNum2, double weight, double offset) {
 			
@@ -74,8 +86,10 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 			this.resNum2 = resNum2;
 			this.weight = weight;
 			this.offset = offset;
+
+			this.id = makeId(resNum1, resNum2);
 		}
-		
+
 		@Override
 		public int hashCode() {
 			return HashCalculator.combineHashes(
@@ -109,11 +123,11 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	}
 	
 	private Set<String> resNums;
-	private Set<Pair> pairs;
+	private Map<String,Pair> pairs;
 	
 	public ResidueInteractions() {
 		resNums = new LinkedHashSet<>();
-		pairs = new LinkedHashSet<>();
+		pairs = new LinkedHashMap<>();
 	}
 
 	public ResidueInteractions(Pair ... pairs) {
@@ -124,13 +138,17 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	}
 
 	public boolean contains(Pair pair) {
-		return pairs.contains(pair);
+		return pairs.containsKey(pair.id);
+	}
+
+	public Pair get(String resNum1, String resNum2) {
+		return pairs.get(makeId(resNum1, resNum2));
 	}
 
 	public void add(Pair pair) {
 		resNums.add(pair.resNum1);
 		resNums.add(pair.resNum2);
-		pairs.add(pair);
+		pairs.put(pair.id, pair);
 	}
 	
 	public void addSingle(String resNum) {
@@ -139,7 +157,7 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	
 	public void addSingle(String resNum, double weight, double offset) {
 		resNums.add(resNum);
-		pairs.add(new Pair(resNum, resNum, weight, offset));
+		add(new Pair(resNum, resNum, weight, offset));
 	}
 	
 	public void addPair(String resNum1, String resNum2) {
@@ -149,7 +167,7 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	public void addPair(String resNum1, String resNum2, double weight, double offset) {
 		resNums.add(resNum1);
 		resNums.add(resNum2);
-		pairs.add(new Pair(resNum1, resNum2, weight, offset));
+		add(new Pair(resNum1, resNum2, weight, offset));
 	}
 
 	public void addComplete(Residues residues) {
@@ -173,7 +191,7 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	
 	@Override
 	public Iterator<Pair> iterator() {
-		return pairs.iterator();
+		return pairs.values().iterator();
 	}
 	
 	public int size() {

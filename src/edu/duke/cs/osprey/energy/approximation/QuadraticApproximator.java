@@ -116,9 +116,9 @@ public class QuadraticApproximator implements ApproximatedObjectiveFunction.Appr
 
 	public void add(QuadraticApproximator other, double weight, double offset) {
 
-		if (this.coefficients.size() != other.coefficients.size()) {
-			throw new IllegalArgumentException(String.format("coefficient sizes don't match: %d != %d",
-				this.coefficients.size(), other.coefficients.size()
+		if (this.d != other.d) {
+			throw new IllegalArgumentException(String.format("number of degrees of freedom don't match: %d != %d",
+				this.d, other.d
 			));
 		}
 

@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
 import org.junit.Test;
 
+import java.util.List;
 import java.util.function.BiConsumer;
 
 
@@ -69,6 +70,9 @@ public class TestApproximatedForcefields {
 				.setNumSamplesPerDoF(5)
 				.calc();
 
+			// check the sorted orders
+			checkAmatOrders(amat);
+
 			ConfEnergyCalculator confEcalcApprox = new ConfEnergyCalculator.Builder(confSpace, ecalc)
 				.setEnergyPartition(confEcalc.epart)
 				.setReferenceEnergies(confEcalc.eref)
@@ -77,6 +81,26 @@ public class TestApproximatedForcefields {
 				.build();
 
 			f.accept(confEcalc, confEcalcApprox);
+		}
+	}
+
+	private static void checkAmatOrders(ApproximatorMatrix amat) {
+
+		for (SimpleConfSpace.Position pos : confSpace.positions) {
+			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
+
+				List<ApproximatorMatrix.Entry> entries = amat.get(pos.index, rc.index);
+
+				if (entries.size() > 1) {
+
+					// amats should store their approximators in order of weakly increasing error
+					for (int i=1; i<entries.size(); i++) {
+						double errori = entries.get(i).approximator.error();
+						double errorim1 = entries.get(i - 1).approximator.error();
+						assertThat(errori, greaterThanOrEqualTo(errorim1));
+					}
+				}
+			}
 		}
 	}
 
@@ -167,8 +191,8 @@ public class TestApproximatedForcefields {
 				for (String fixedResNum : confSpace.shellResNumbers) {
 					for (SimpleConfSpace.Position pos1 : confSpace.positions) {
 						for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
-							Approximator.Addable approximator1 = amat1.get(fixedResNum, pos1.index, rc1.index);
-							Approximator.Addable approximator2 = amat2.get(fixedResNum, pos1.index, rc1.index);
+							Approximator.Addable approximator1 = amat1.get(pos1.index, rc1.index, fixedResNum);
+							Approximator.Addable approximator2 = amat2.get(pos1.index, rc1.index, fixedResNum);
 							assertThat(approximator1, is(approximator2));
 						}
 					}

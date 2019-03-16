@@ -12,10 +12,21 @@ import java.util.*;
 
 public class ApproximatorMatrix implements IOable {
 
+	public static class Entry {
+
+		public final String resNum;
+		public final Approximator.Addable approximator;
+
+		public Entry(String resNum, Approximator.Addable approximator) {
+			this.resNum = resNum;
+			this.approximator = approximator;
+		}
+	}
+
 	public final SimpleConfSpace confSpace;
 
 	private final int[] offsets;
-	private final Map<String,Approximator.Addable[]> approximators;
+	private final List<List<Entry>> entries;
 
 	public ApproximatorMatrix(SimpleConfSpace confSpace) {
 
@@ -29,9 +40,9 @@ public class ApproximatorMatrix implements IOable {
 			offset += pos.resConfs.size();
 		}
 
-		approximators = new LinkedHashMap<>();
-		for (String fixedResNum : confSpace.shellResNumbers) {
-			approximators.put(fixedResNum, new Approximator.Addable[offset]);
+		entries = new ArrayList<>(offset);
+		for (int i=0; i<offset; i++) {
+			entries.add(new ArrayList<>());
 		}
 	}
 
@@ -39,76 +50,82 @@ public class ApproximatorMatrix implements IOable {
 		return offsets[pos] + rc;
 	}
 
-	public Approximator.Addable get(String fixedResNum, int pos, int rc) {
-		Approximator.Addable[] approximators = this.approximators.get(fixedResNum);
-		if (approximators == null) {
-			return null;
-		}
-		return approximators[getIndex(pos, rc)];
+	public List<Entry> get(int pos, int rc) {
+		return Collections.unmodifiableList(entries.get(getIndex(pos, rc)));
 	}
 
-	public void set(String fixedResNum, int pos, int rc, Approximator.Addable approximator) {
-		approximators.get(fixedResNum)[getIndex(pos, rc)] = approximator;
+	public Approximator.Addable get(int pos, int rc, String resNum) {
+		for (Entry entry : entries.get(getIndex(pos, rc))) {
+			if (entry.resNum.equals(resNum)) {
+				return entry.approximator;
+			}
+		}
+		return null;
 	}
 
-	private static class ResPairApproximator {
+	public void set(int pos, int rc, String resNum, Approximator.Addable approximator) {
 
-		public final ResidueInteractions.Pair pair;
-		public final Approximator.Addable approximator;
+		List<Entry> entries = this.entries.get(getIndex(pos, rc));
 
-		public ResPairApproximator(ResidueInteractions.Pair pair, Approximator.Addable approximator) {
-			this.pair = pair;
-			this.approximator = approximator;
+		// if the list already has an entry for this res num, remove it
+		for (int i=0; i<entries.size(); i++) {
+			if (entries.get(i).resNum.equals(resNum)) {
+				entries.remove(i);
+				break;
+			}
 		}
+
+		// add the new approximator in order of weakly increasing error
+		int i = 0;
+		for (; i<entries.size(); i++) {
+			if (approximator.error() < entries.get(i).approximator.error()) {
+				break;
+			}
+		}
+		entries.add(i, new Entry(resNum, approximator));
 	}
 
 	public ResidueInteractionsApproximator get(RCTuple tuple, ResidueInteractions inters, double errorBudget) {
 
 		double errorBudgetPerResidue = errorBudget/tuple.size();
 
-		// TODO: optimize this?
-
-		// TODO: does this match the DOF order that the conf space picks?
 		Approximator[] approximators = new Approximator[tuple.size()];
 		ResidueInteractions approxInters = new ResidueInteractions();
 
 		for (int i=0; i<tuple.size(); i++) {
+
 			int pos = tuple.pos.get(i);
 			int rc = tuple.RCs.get(i);
 
 			String resNum = confSpace.positions.get(pos).resNum;
 
-			// collect the approximators for the fixed residues
-			List<ResPairApproximator> resPairApproximators = new ArrayList<>();
-			for (ResidueInteractions.Pair pair : inters) {
-				 String fixedResNum = pair.getOtherResNum(resNum);
-				 if (fixedResNum != null) {
-				 	Approximator.Addable approximator = get(fixedResNum, pos, rc);
-					if (approximator != null) {
-				 		resPairApproximators.add(new ResPairApproximator(pair, approximator));
+			Approximator.Addable approximator = null;
+			for (Entry entry : entries.get(getIndex(pos, rc))) {
+				ResidueInteractions.Pair pair = inters.get(resNum, entry.resNum);
+				if (pair != null) {
+
+					// check the budget
+					double error = approximator != null ? approximator.error() : 0.0;
+					if (error + entry.approximator.error() > errorBudgetPerResidue) {
+						break;
 					}
-				 }
-			}
 
-			// no approximators good enough? make a no-op approximator
-			if (resPairApproximators.isEmpty()) {
-				int d = confSpace.makeMolecule(new RCTuple(pos, rc)).dofs.size();
-				approximators[i] = new NOPApproximator(d);
-				continue;
-			}
+					approxInters.add(pair);
 
-			// add as many approximators as we can and stay under the error budget
-			resPairApproximators.sort(Comparator.comparing(a -> a.approximator.error()));
-			Approximator.Addable approximator = resPairApproximators.get(0).approximator.makeIdentity();
-			for (ResPairApproximator pair : resPairApproximators) {
-				if (approximator.error() + pair.approximator.error() > errorBudgetPerResidue) {
-					break;
+					if (approximator == null) {
+						approximator = entry.approximator.makeIdentity();
+					}
+					approximator.add(entry.approximator, pair.weight, pair.offset);
 				}
-				approxInters.add(pair.pair);
-				approximator.add(pair.approximator, pair.pair.weight, pair.pair.offset);
 			}
 
-			approximators[i] = approximator;
+			// didn't find anything within budget? make a no-op approximator
+			if (approximator == null) {
+				int d = confSpace.countDofs(new RCTuple(pos, rc));
+				approximators[i] = new NOPApproximator(d);
+			} else {
+				approximators[i] = approximator;
+			}
 		}
 
 		// combine the approximators for all the residues
@@ -127,18 +144,15 @@ public class ApproximatorMatrix implements IOable {
 	}
 
 	private byte getType(Approximator approximator) {
-		if (approximator == null) {
-			return 0;
-		} else if (approximator instanceof QuadraticApproximator) {
+		if (approximator instanceof QuadraticApproximator) {
 			return 1;
 		} else {
 			throw new IllegalArgumentException("unrecognized approximator type: " + approximator.getClass().getName());
 		}
 	}
 
-	private Approximator alloc(byte type, int d) {
+	private Approximator.Addable alloc(byte type, int d) {
 		switch (type) {
-			case 0: return null;
 			case 1: return new QuadraticApproximator(d);
 			default: throw new IllegalArgumentException("unrecognized approximator type: " + type);
 		}
@@ -148,13 +162,13 @@ public class ApproximatorMatrix implements IOable {
 	public void writeTo(DataOutput out)
 	throws IOException {
 
-		for (String fixedResNum : confSpace.shellResNumbers) {
-			for (Approximator approximator : approximators.get(fixedResNum)) {
-				out.writeByte(getType(approximator));
-				if (approximator != null) {
-					out.writeInt(approximator.numDofs());
-					IOable.of(approximator).writeTo(out);
-				}
+		for (List<Entry> entries : this.entries) {
+			out.writeInt(entries.size());
+			for (Entry entry : entries) {
+				out.writeUTF(entry.resNum);
+				out.writeByte(getType(entry.approximator));
+				out.writeInt(entry.approximator.numDofs());
+				IOable.of(entry.approximator).writeTo(out);
 			}
 		}
 	}
@@ -163,16 +177,19 @@ public class ApproximatorMatrix implements IOable {
 	public void readFrom(DataInput in)
 	throws IOException {
 
-		for (String fixedResNum : confSpace.shellResNumbers) {
-			Approximator[] approximators = this.approximators.get(fixedResNum);
-			for (int i=0; i<approximators.length; i++) {
+		for (List<Entry> entries : this.entries) {
+
+			entries.clear();
+			int numEntries = in.readInt();
+			for (int i=0; i<numEntries; i++) {
+
+				String resNum = in.readUTF();
 				byte type = in.readByte();
-				if (type != 0) {
-					approximators[i] = alloc(type, in.readInt());
-					IOable.of(approximators[i]).readFrom(in);
-				} else {
-					approximators[i] = null;
-				}
+				int d = in.readInt();
+				Approximator.Addable approximator = alloc(type, d);
+				IOable.of(approximator).readFrom(in);
+
+				entries.add(new Entry(resNum, approximator));
 			}
 		}
 	}

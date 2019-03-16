@@ -78,16 +78,18 @@ public class ApproximatorMatrixCalculator {
 			for (SimpleConfSpace.Position pos1 : confEcalc.confSpace.positions) {
 				for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
 
-					confEcalc.ecalc.tasks.submit(
+					confEcalc.tasks.submit(
 						() -> calc(fixedResNum, pos1.index, rc1.index),
 						(approximator) -> {
-							amat.set(fixedResNum, pos1.index, rc1.index, approximator);
+							amat.set(pos1.index, rc1.index, fixedResNum, approximator);
 							progress.incrementProgress();
 						}
 					);
 				}
 			}
 		}
+
+		confEcalc.tasks.waitForFinish();
 
 		if (cacheFile != null) {
 			amat.writeTo(cacheFile);
