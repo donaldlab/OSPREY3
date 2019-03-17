@@ -597,7 +597,7 @@ def ApproximatorMatrix(confEcalc, cacheFile=UseJavaDefault, numSamplesPerDof=Use
 
 	:builder_option confEcalc .energy.approximation.ApproximatorMatrixCalculator#confEcalc:
 	:builder_option cacheFile .energy.approximation.ApproximatorMatrixCalculator#cacheFile:
-	:builder_option numSamplesPerDof .energy.approximation.ApproximatorMatrixCalculator#numSamplesPerDof:
+	:builder_option numSamplesPerDof .energy.approximation.ApproximatorMatrixCalculator#numSamplesPerDoF:
 	'''
 
 	calculator = c.energy.approximation.ApproximatorMatrixCalculator(confEcalc)
@@ -1318,7 +1318,7 @@ def COMETS(objective, constraints=[], objectiveWindowSize=useJavaDefault, object
 	:builder_option objectiveWindowSize .gmec.Comets$Builder#objectiveWindowSize:
 	:builder_option objectiveWindowMax .gmec.Comets$Builder#objectiveWindowMax:
 	:builder_option maxSimultaneousMutations .gmec.Comets$Builder#maxSimultaneousMutations:
-	:builder_option minNumConfTrees .gmec.Comets$Builder#minNumConfsTrees:
+	:builder_option minNumConfTrees .gmec.Comets$Builder#minNumConfTrees:
 
 	:param str logFile: :java:fielddoc:`.gmec.Comets$Builder#logFile`
 
@@ -1407,7 +1407,7 @@ def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSi
 	:builder_option objectiveWindowSize .kstar.MSKStar$Builder#objectiveWindowSize:
 	:builder_option objectiveWindowMax .kstar.MSKStar$Builder#objectiveWindowMax:
 	:builder_option maxSimultaneousMutations .kstar.MSKStar$Builder#maxSimultaneousMutations:
-	:builder_option minNumConfTrees .kstar.MSKStar$Builder#minNumConfsTrees:
+	:builder_option minNumConfTrees .kstar.MSKStar$Builder#minNumConfTrees:
 
 	:param str logFile: :java:fielddoc:`.kstar.MSKStar$Builder#logFile`
 
@@ -1569,7 +1569,7 @@ def SOFEA_MinLMFE(lmfe, numSequences, minFreeEnergyWidth):
 	'''
 	:java:classdoc:`.sofea.MinLMFE`
 
-	:param lmfe: :java:fielddoc:`.sofea.MinLMFE#lmfe`
+	:param lmfe: :java:fielddoc:`.sofea.MinLMFE#objective`
 	:param numSequences: :java:fielddoc:`.sofea.MinLMFE#numSequences`
 	:param minFreeEnergyWidth: :java:fielddoc:`.sofea.MinLMFE#minFreeEnergyWidth`
 	:rtype: :java:ref:`.sofea.MinLMFE`

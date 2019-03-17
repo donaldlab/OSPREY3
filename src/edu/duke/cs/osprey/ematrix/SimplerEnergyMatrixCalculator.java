@@ -87,7 +87,7 @@ public class SimplerEnergyMatrixCalculator {
 		 * Compute energy corrections for all quads whose constituent single and pair energies
 		 * are below the given threshold. ie. ignore quads with clashes.
 		 */
-		private Double quadCorrectionThrehshold = null;
+		private Double quadCorrectionThreshold = null;
 		
 		public Builder(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
 			this(new ConfEnergyCalculator.Builder(confSpace, ecalc).build());
@@ -108,12 +108,12 @@ public class SimplerEnergyMatrixCalculator {
 		}
 
 		public Builder setQuadCorrectionThreshold(Double val) {
-			quadCorrectionThrehshold = val;
+			quadCorrectionThreshold = val;
 			return this;
 		}
 		
 		public SimplerEnergyMatrixCalculator build() {
-			return new SimplerEnergyMatrixCalculator(confEcalc, cacheFile, tripleCorrectionThreshold, quadCorrectionThrehshold);
+			return new SimplerEnergyMatrixCalculator(confEcalc, cacheFile, tripleCorrectionThreshold, quadCorrectionThreshold);
 		}
 	}
 	
