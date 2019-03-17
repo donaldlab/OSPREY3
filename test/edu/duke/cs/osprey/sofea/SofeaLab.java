@@ -9,6 +9,8 @@ import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
+import edu.duke.cs.osprey.energy.approximation.ApproximatorMatrix;
+import edu.duke.cs.osprey.energy.approximation.ApproximatorMatrixCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
@@ -23,7 +25,6 @@ import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 import java.io.File;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -35,7 +36,7 @@ public class SofeaLab {
 	public static void main(String[] args) {
 
 		ForcefieldParams ffparams = new ForcefieldParams();
-		boolean recalc = false;
+		boolean recalc = true;
 		File tempDir = new File("/tmp/sofeaLab");
 		tempDir.mkdirs();
 
@@ -90,9 +91,7 @@ public class SofeaLab {
 
 		// make a multi-state conf space
 		Function<List<Strand>,SimpleConfSpace> makeConfSpace = (strands) ->
-			new SimpleConfSpace.Builder().addStrands(strands)
-				.setShellDistance(6.0)
-				.build();
+			new SimpleConfSpace.Builder().addStrands(strands).build();
 		MultiStateConfSpace confSpace = new MultiStateConfSpace
 			.Builder("complex", makeConfSpace.apply(Arrays.asList(design, target)))
 			// TEMP: just complex state for now
@@ -102,10 +101,12 @@ public class SofeaLab {
 
 		log("seq space: %s", confSpace.seqSpace);
 
-		BiFunction<SimpleConfSpace,EnergyCalculator,ConfEnergyCalculator> makeConfEcalc = (simpleConfSpace, ecalc) ->
+		ConfEcalcFactory makeConfEcalc = (simpleConfSpace, ecalc, amat) ->
 			new ConfEnergyCalculator.Builder(simpleConfSpace, ecalc)
 				//.setEnergyPartition(EnergyPartition.Traditional) // waiting for emats is boring...
 				.setEnergyPartition(EnergyPartition.AllOnPairs) // use the tighter lower bounds
+				.setApproximatorMatrix(amat)
+				.setApproximationErrorBudget(1e-1)
 				.build();
 
 		File seqdbFile = new File(tempDir, "sofea.seqdb");
@@ -134,29 +135,40 @@ public class SofeaLab {
 				.configEachState(state -> {
 
 					File ematFile = new File(tempDir, String.format("sofea.%s.emat", state.name));
-					//File confdbFile = new File(tempDir, String.format("sofea.%s.confdb", state.name));
-					File confdbFile = null;
 					if (recalc) {
 						ematFile.delete();
-						//confdbFile.delete();
 					}
 
 					// always compute emats with all available speed
 					EnergyMatrix emat;
+					ApproximatorMatrix amat;
 					try (EnergyCalculator fastEcalc = new EnergyCalculator.Builder(confSpace, ffparams)
 						.setParallelism(Parallelism.makeCpu(4))
 						.build()) {
 
-						ConfEnergyCalculator fastConfEcalc = makeConfEcalc.apply(state.confSpace, fastEcalc);
+						ConfEnergyCalculator fastConfEcalc = makeConfEcalc.make(state.confSpace, fastEcalc);
+
+						if (true) {
+
+							amat = new ApproximatorMatrixCalculator(fastConfEcalc)
+								.setNumSamplesPerDoF(9)
+								.calc();
+
+							fastConfEcalc = makeConfEcalc.make(state.confSpace, fastEcalc, amat);
+
+						} else {
+							amat = null;
+						}
+
 						emat = new SimplerEnergyMatrixCalculator.Builder(fastConfEcalc)
 							.setCacheFile(ematFile)
-							.setTripleCorrectionThreshold(10.0) // TODO: how much does this help?
+							.setTripleCorrectionThreshold(10.0)
 							.build()
 							.calcEnergyMatrix();
 					}
 
-					ConfEnergyCalculator confEcalc = makeConfEcalc.apply(state.confSpace, ecalc);
-					return new Sofea.StateConfig(emat, confEcalc, confdbFile);
+					ConfEnergyCalculator confEcalc = makeConfEcalc.make(state.confSpace, ecalc, amat);
+					return new Sofea.StateConfig(emat, confEcalc, null);
 				})
 				.build();
 
@@ -197,9 +209,6 @@ public class SofeaLab {
 			Sofea.StateConfig config = sofea.getConfig(state);
 			Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
 
-			if (recalc) {
-				config.confDBFile.delete();
-			}
 
 			final double epsilon = 0.14;
 			//final double epsilon = 0.0001;
@@ -215,7 +224,7 @@ public class SofeaLab {
 				EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(ecalc)
 					.setIsMinimizing(false)
 					.build();
-				ConfEnergyCalculator rigidConfEcalc = makeConfEcalc.apply(state.confSpace, rigidEcalc);
+				ConfEnergyCalculator rigidConfEcalc = makeConfEcalc.make(state.confSpace, rigidEcalc);
 				EnergyMatrix ematUpper = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc)
 					.setCacheFile(ematUpperFile)
 					.build()
@@ -278,7 +287,7 @@ public class SofeaLab {
 				BigDecimal pfuncUpperBound = new BigDecimal("1.489779375480618714133411059887472011543144099753141485887679129E+129");
 
 				// use the confdb to find the "perfect" number of minimizations needed
-				if (true) {
+				if (false) {
 					int numConfs = 0;
 					BigMath m = sofea.bigMath().set(0);
 					for (ConfSearch.EnergiedConf econf : confTable.energiedConfs(ConfDB.SortOrder.Energy)) {
@@ -331,5 +340,15 @@ public class SofeaLab {
 				}
 			}
 		}
+	}
+
+	interface ConfEcalcFactory {
+
+		default ConfEnergyCalculator make(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
+			return make(confSpace, ecalc, null);
+		}
+
+		ConfEnergyCalculator make(SimpleConfSpace confSpace, EnergyCalculator ecalc, ApproximatorMatrix amat);
+
 	}
 }

@@ -71,8 +71,11 @@ public class ConfEnergyCalculator {
 		private SimpleReferenceEnergies eref = null;
 		private boolean addResEntropy = false;
 
+		/** The approximator matrix */
 		private ApproximatorMatrix amat = null;
-		private double approximationErrorBudget = 1e-3;
+
+		/** How much error can be tolerated for the energy of a conformation? */
+		private double approximationErrorBudget = 1e-2;
 		
 		public Builder(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
 			this.confSpace  = confSpace;

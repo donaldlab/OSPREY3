@@ -10,6 +10,9 @@ import java.io.*;
 import java.util.*;
 
 
+/**
+ * Forcefield approximators for RC,residue pairs in a conf space
+ */
 public class ApproximatorMatrix implements IOable {
 
 	public static class Entry {

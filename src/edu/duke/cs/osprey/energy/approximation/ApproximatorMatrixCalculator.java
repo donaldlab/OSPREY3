@@ -33,7 +33,7 @@ public class ApproximatorMatrixCalculator {
 	 * Number of sample points per degree of freedom for the training set.
 	 * Always use an odd number so we sample the center point of the voxel.
 	 */
-	private int numSamplesPerDoF = 9; // TODO: find a good default that balances speed and accuracy
+	private int numSamplesPerDoF = 9;
 
 	/**
 	 * The type of model to use for approximating forcefield energies
