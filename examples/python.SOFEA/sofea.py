@@ -53,6 +53,30 @@ def config(state):
 		energyPartition = osprey.EnergyPartition.AllOnPairs
 	)
 
+	# train forcefield approximations to make energy calculations go much faster
+	amat = osprey.ApproximatorMatrix(
+		confEcalc,
+
+		# save the approximator matrix to disk so we don't have to calculate it again later
+		cacheFile = 'sofea.%s.amat' % state.name,
+	)
+
+	# update the conformation energy calculator with the forcefield approximations
+	confEcalc = osprey.ConfEnergyCalculator(
+		state.confSpace,
+		ecalc,
+
+		# copy settings from the previous confEcalc
+		referenceEnergies = confEcalc.eref,
+		energyPartition = confEcalc.epart,
+
+		# give the new confEcalc the approximator matrix
+		amat = amat,
+
+		# how much error can we tolerate per conformation?
+		approximationErrorBudget = 0.1 # kcal/mol
+	)
+
 	# make the SOFEA config
 	return osprey.SOFEA_StateConfig(
 

@@ -550,7 +550,7 @@ def SharedEnergyCalculator(ecalc, isMinimizing=None):
 	return builder.build()
 
 
-def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=None, addResEntropy=None, energyPartition=None):
+def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=UseJavaDefault, addResEntropy=UseJavaDefault, energyPartition=UseJavaDefault, amat=UseJavaDefault, approximationErrorBudget=UseJavaDefault):
 	'''
 	:java:classdoc:`.energy.ConfEnergyCalculator`
 
@@ -559,15 +559,22 @@ def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=None, addResEntropy
 	:builder_option referenceEnergies .energy.ConfEnergyCalculator$Builder#eref:
 	:builder_option addResEntropy .energy.ConfEnergyCalculator$Builder#addResEntropy:
 	:builder_option energyPartition .energy.ConfEnergyCalculator$Builder#epart:
+	:builder_option amat .energy.ConfEnergyCalculator$Builder#amat:
+	:builder_option approximationErrorBudget .energy.ConfEnergyCalculator$Builder#approximationErrorBudget:
 	:builder_return .energy.ConfEnergyCalculator$Builder:
 	'''
 	builder = _get_builder(c.energy.ConfEnergyCalculator)(confSpace, ecalc)
 
-	if referenceEnergies is not None:
+	if referenceEnergies is not UseJavaDefault:
 		builder.setReferenceEnergies(referenceEnergies)
-
-	if energyPartition is not None:
+	if addResEntropy is not UseJavaDefault:
+		builder.addResEntropy(addResEntropy)
+	if energyPartition is not UseJavaDefault:
 		builder.setEnergyPartition(energyPartition)
+	if amat is not UseJavaDefault:
+		builder.setApproximatorMatrix(amat)
+	if approximationErrorBudget is not UseJavaDefault:
+		builder.setApproximationErrorBudget(approximationErrorBudget)
 
 	return builder.build()
 
@@ -582,6 +589,25 @@ def ConfEnergyCalculatorCopy(source, ecalc):
 	:builder_return .energy.ConfEnergyCalculator$Builder:
 	'''
 	return c.energy.ConfEnergyCalculator(source, ecalc)
+
+
+def ApproximatorMatrix(confEcalc, cacheFile=UseJavaDefault, numSamplesPerDof=UseJavaDefault):
+	'''
+	:java:classdoc:`.energy.approximation.ApproximatorMatrix`
+
+	:builder_option confEcalc .energy.approximation.ApproximatorMatrixCalculator#confEcalc:
+	:builder_option cacheFile .energy.approximation.ApproximatorMatrixCalculator#cacheFile:
+	:builder_option numSamplesPerDof .energy.approximation.ApproximatorMatrixCalculator#numSamplesPerDof:
+	'''
+
+	calculator = c.energy.approximation.ApproximatorMatrixCalculator(confEcalc)
+
+	if cacheFile is not UseJavaDefault:
+		calculator.setCacheFile(jvm.toFile(cacheFile))
+	if numSamplesPerDof is not UseJavaDefault:
+		calculator.setNumSamplesPerDof(numSamplesPerDof)
+
+	return calculator.calc()
 
 
 def EnergyMatrix(confEcalc, cacheFile=UseJavaDefault, tripleCorrectionThreshold=UseJavaDefault, quadCorrectionThreshold=UseJavaDefault):
