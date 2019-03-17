@@ -150,9 +150,9 @@ public class SimpleDEE {
 		private Double triplesGoldsteinDiffThreshold = null;
 		private boolean typeDependent = false;
 		private int numIterations = Integer.MAX_VALUE;
-		private Double singlesPlugThrehsold = null;
-		private Double pairsPlugThrehsold = null;
-		private Double triplesPlugThrehsold = null;
+		private Double singlesPlugThreshold = null;
+		private Double pairsPlugThreshold = null;
+		private Double triplesPlugThreshold = null;
 		private boolean singlesTransitivePruning = false;
 		private boolean pairsTransitivePruning = false;
 		private boolean triplesTransitivePruning = false;
@@ -214,17 +214,17 @@ public class SimpleDEE {
 		}
 
 		public Runner setSinglesPlugThreshold(double val) {
-			singlesPlugThrehsold = val;
+			singlesPlugThreshold = val;
 			return this;
 		}
 
 		public Runner setPairsPlugThreshold(double val) {
-			pairsPlugThrehsold = val;
+			pairsPlugThreshold = val;
 			return this;
 		}
 
 		public Runner setTriplesPlugThreshold(double val) {
-			triplesPlugThrehsold = val;
+			triplesPlugThreshold = val;
 			return this;
 		}
 
@@ -384,22 +384,22 @@ public class SimpleDEE {
 			}
 
 			// 3. pruning with PLUG
-			if (singlesPlugThrehsold != null || pairsPlugThrehsold != null || triplesPlugThrehsold != null) {
+			if (singlesPlugThreshold != null || pairsPlugThreshold != null || triplesPlugThreshold != null) {
 				if (showProgress) {
 					System.out.println("Pruning with PLUG...");
 				}
 				try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
 					PLUG plug = new PLUG(confSpace);
-					if (singlesPlugThrehsold != null) {
-						plug.pruneSingles(pmat, singlesPlugThrehsold, tasks);
+					if (singlesPlugThreshold != null) {
+						plug.pruneSingles(pmat, singlesPlugThreshold, tasks);
 						maybeReport.accept("PLUG Singles");
 					}
-					if (pairsPlugThrehsold != null) {
-						plug.prunePairs(pmat, pairsPlugThrehsold, tasks);
+					if (pairsPlugThreshold != null) {
+						plug.prunePairs(pmat, pairsPlugThreshold, tasks);
 						maybeReport.accept("PLUG Pairs");
 					}
-					if (triplesPlugThrehsold != null) {
-						plug.pruneTriples(pmat, triplesPlugThrehsold, tasks);
+					if (triplesPlugThreshold != null) {
+						plug.pruneTriples(pmat, triplesPlugThreshold, tasks);
 						maybeReport.accept("PLUG Triples");
 					}
 				}
