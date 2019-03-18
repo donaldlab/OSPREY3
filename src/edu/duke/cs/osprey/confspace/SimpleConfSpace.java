@@ -36,10 +36,7 @@ import java.math.BigInteger;
 import java.util.*;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
-import edu.duke.cs.osprey.dof.DegreeOfFreedom;
-import edu.duke.cs.osprey.dof.FreeDihedral;
-import edu.duke.cs.osprey.dof.ProlinePucker;
-import edu.duke.cs.osprey.dof.ResidueTypeDOF;
+import edu.duke.cs.osprey.dof.*;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
@@ -50,6 +47,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.Serializable;
 import java.util.stream.Collectors;
+
 
 /**
  * Maintains the design positions and residue conformations for a list of strands.
@@ -225,7 +223,7 @@ public class SimpleConfSpace implements Serializable {
 			this.dofBounds.putAll(bbVoxel);
 		}
 
-		public void updateResidue(ResidueTemplateLibrary templateLib, Residue res) {
+		public void updateResidue(ResidueTemplateLibrary templateLib, Residue res, MutAlignmentCache mutAlignmentCache) {
 
 			// HACKHACK: make sure prolines have puckers
 			boolean toProline = template.name.equalsIgnoreCase("PRO");
@@ -233,7 +231,7 @@ public class SimpleConfSpace implements Serializable {
 				res.pucker = new ProlinePucker(templateLib, res);
 			}
 
-			ResidueTypeDOF.switchToTemplate(templateLib, res, template, false);
+			ResidueTypeDOF.switchToTemplate(templateLib, res, template, false, mutAlignmentCache, false);
 
 			// NOTE: currently only set for prolines, will idealize sidechain and check for problems
 			if (postTemplateModifier != null) {
@@ -357,6 +355,9 @@ public class SimpleConfSpace implements Serializable {
 	public final Set<String> shellResNumbers;
 
 	private final int[] numResConfsByPos;
+	private final Molecule molTemplate;
+
+	private final MutAlignmentCache mutAlignmentCache = new MutAlignmentCache();
 
 	public SimpleConfSpace(List<Strand> strands, Map<Strand,List<StrandFlex>> strandFlex, double shellDist) {
 
@@ -460,6 +461,17 @@ public class SimpleConfSpace implements Serializable {
 		seqSpace = new SeqSpace(this);
 		for (SeqSpace.Position seqPos : seqSpace.positions) {
 			positionsByResNum.get(seqPos.resNum).seqPos = seqPos;
+		}
+
+		// make the molecule template, to speed up makeMolecule()
+		molTemplate = new Molecule();
+		for (Strand strand : strands) {
+			for (Residue res : strand.mol.residues) {
+				res = new Residue(res);
+				res.molec = molTemplate;
+				res.indexInMolecule = molTemplate.residues.size();
+				molTemplate.residues.add(res);
+			}
 		}
 	}
 
@@ -592,102 +604,47 @@ public class SimpleConfSpace implements Serializable {
 	public ParametricMolecule makeMolecule(ScoredConf conf) {
 		return makeMolecule(conf.getAssignments());
 	}
-        //With DEEPer and CATS it is much less messy if we can generate the ParametricMolecule and its bounds together
-
-	public boolean validConformation(RCTuple conf) {
-
-		// make the molecule from the strands (ignore alternates)
-		Molecule mol = new Molecule();
-		for (Strand strand : strands) {
-			for (Residue res : strand.mol.residues) {
-				res = new Residue(res);
-				res.molec = mol;
-				res.indexInMolecule = mol.residues.size();
-				mol.residues.add(res);
-			}
-		}
-		mol.markInterResBonds();
-		HashSet<String> confDOFNames = new HashSet<>();//names of DOFs specified by the conf
-		for (int i=0; i<conf.size(); i++) {
-
-			Position pos = positions.get(conf.pos.get(i));
-			ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
-			Residue res = mol.getResByPDBResNumber(pos.resNum);
-
-			resConf.updateResidue(pos.strand.templateLib, res);
-			// since we always switch to a new template before starting each minimization,
-			// no need to standardize mutatable res at the beginning of the design
-			confDOFNames.addAll(resConf.dofBounds.keySet());
-		}
-
-		// OK now apply all DOF vals including puckers
-
-		// make all the DOFs
-		List<DegreeOfFreedom> dofs = new ArrayList<>();
-
-		// first, backbone flexibility: strand DOFs and DEEPer/CATS DOFs
-		for (Strand strand : getConfStrands(conf)) {
-			for (StrandFlex flex : strandFlex.get(strand)) {
-				for (DegreeOfFreedom dof : flex.makeDofs(strand, mol)) {
-					if (confDOFNames.contains(dof.getName())) {
-						//DEEPer and CATS DOFS may not involve all positions in a strand
-						dofs.add(dof);
-					}
-				}
-			}
-		}
-
-		// then, residue conf DOFs
-		for (int i=0; i<conf.size(); i++) {
-			Position pos = positions.get(conf.pos.get(i));
-			ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
-			Residue res = mol.getResByPDBResNumber(pos.resNum);
-
-			// make the residue DOFs
-			Strand.ResidueFlex resFlex = pos.strand.flexibility.get(pos.resNum);
-			List<DegreeOfFreedom> contDihedralDOFs = resFlex.voxelShape.makeDihedralDOFs(res);
-			dofs.addAll(contDihedralDOFs);
-
-			//so we apply them here instead
-			if (contDihedralDOFs.isEmpty()) {
-				// pose the residue to match the rotamer
-				List<DegreeOfFreedom> dihedralDofs = new VoxelShape.Rect().makeDihedralDOFs(res);
-				for (int d=0; d<resConf.template.numDihedrals; d++) {
-					dihedralDofs.get(d).apply(resConf.template.getRotamericDihedrals(resConf.rotamerIndex, d));
-				}
-			}
-		}
-
-		//Figure out the bounds and apply the DOF values in the middle of the voxel
-		DofBounds dofBounds = new DofBounds(dofs.size());//the bounds to use
-		HashMap<String,Integer> name2Index = DegreeOfFreedom.nameToIndexMap(dofs);//map DOF names to their indices in DOFs
-		HashSet<String> dofsAdded = new HashSet<>();
-
-		for (int i=0; i<conf.size(); i++) {
-			Position pos = positions.get(conf.pos.get(i));
-			ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
-			HashMap<String,double[]> rcDOFBounds = resConf.dofBounds;
-			for(String DOFName : rcDOFBounds.keySet()) {
-				int dofIndex = name2Index.get(DOFName);
-				double curDOFBounds[] = rcDOFBounds.get(DOFName);
-				if (dofsAdded.contains(DOFName)) {//we have bounds on this DOF from another position...check consistency
-					if (Math.abs(dofBounds.getMax(dofIndex)-curDOFBounds[1])>1e-10
-							|| Math.abs(dofBounds.getMin(dofIndex)-curDOFBounds[0])>1e-10) {
-					    return false;
-					}
-				} else { // record the bounds and apply the middle value
-					dofBounds.set(dofIndex, curDOFBounds[0], curDOFBounds[1]);
-					dofs.get(dofIndex).apply(0.5*(curDOFBounds[0]+curDOFBounds[1]));
-					dofsAdded.add(DOFName);
-				}
-			}
-		}
-		return true;
-	}
 
 	/** @see #makeMolecule(RCTuple) */
 	public ParametricMolecule makeMolecule(int[] conf) {
 		return makeMolecule(new RCTuple(conf));
+	}
+
+	/**
+	 * create a new {@link Molecule} in the specified conformation
+	 * but without any continuous flexibility
+	 */
+	public Molecule makeDiscreteMolecule(RCTuple conf) {
+
+		Molecule mol = new Molecule();
+		for (Residue res : molTemplate.residues) {
+
+			// is this a conformation residue?
+			Position pos = getPositionOrNull(res.getPDBResNumber());
+			if (pos != null) {
+
+				// is this residue part of the given conformation?
+				int index = conf.pos.indexOf(pos.index);
+				if (index >= 0) {
+
+					// yup, get the RC
+					ResidueConf rc = pos.resConfs.get(conf.RCs.get(index));
+
+					// build the residue from the RC
+					Residue newRes = res.copyToMol(mol, false);
+					rc.updateResidue(pos.strand.templateLib, newRes, mutAlignmentCache);
+
+					continue;
+				}
+			}
+
+			// otherise, just copy from the template molecule
+			res.copyToMol(mol, true);
+		}
+
+		mol.markInterResBonds();
+
+		return mol;
 	}
 	
 	/**
@@ -699,30 +656,15 @@ public class SimpleConfSpace implements Serializable {
 	 * from accumulating across separate analyses. 
 	 */
 	public ParametricMolecule makeMolecule(RCTuple conf) {
-		
-		// make the molecule from the strands (ignore alternates)
-		Molecule mol = new Molecule();
-		for (Strand strand : strands) {
-			for (Residue res : strand.mol.residues) {
-				res = new Residue(res);
-				res.molec = mol;
-				res.indexInMolecule = mol.residues.size();
-				mol.residues.add(res);
-			}
-		}
-		mol.markInterResBonds();
-		
-		// mutate to the conf templates, and figure out what conformational DOFs are specified by the conf
-		HashSet<String> confDOFNames = new HashSet<>();//names of DOFs specified by the conf
+
+		// copy the molecule from the template and make mutations as needed
+		Molecule mol = makeDiscreteMolecule(conf);
+
+		// figure out what conformational DOFs are specified by the conf
+		HashSet<String> confDOFNames = new HashSet<>();
 		for (int i=0; i<conf.size(); i++) {
-			
 			Position pos = positions.get(conf.pos.get(i));
 			ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
-			Residue res = mol.getResByPDBResNumber(pos.resNum);
-			
-			resConf.updateResidue(pos.strand.templateLib, res);
-			// since we always switch to a new template before starting each minimization,
-			// no need to standardize mutatable res at the beginning of the design
 			confDOFNames.addAll(resConf.dofBounds.keySet());
 		}
 
@@ -742,7 +684,7 @@ public class SimpleConfSpace implements Serializable {
 				}
 			}
 		}
-		
+
 		// then, residue conf DOFs
 		for (int i=0; i<conf.size(); i++) {
 			Position pos = positions.get(conf.pos.get(i));

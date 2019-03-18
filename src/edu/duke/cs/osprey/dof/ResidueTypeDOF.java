@@ -110,12 +110,12 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     public void switchToTemplate(ResidueTemplate newTemplate) {
     	switchToTemplate(templateLib, res, newTemplate, idealizeSidechainAfterMutation);
     }
-    
-    public static void switchToTemplate(ResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate) {
-    	switchToTemplate(templateLib, res, newTemplate, false);
-    }
-    
-    public static void switchToTemplate(ResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate, boolean idealizeSidechainAfterMutation) {
+
+	public static void switchToTemplate(ResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate, boolean idealizeSidechainAfterMutation) {
+    	switchToTemplate(templateLib, res, newTemplate, idealizeSidechainAfterMutation, new MutAlignmentCache(), true);
+	}
+
+    public static void switchToTemplate(ResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate, boolean idealizeSidechainAfterMutation, MutAlignmentCache mutAlignmentCache, boolean reconnectInterResBonds) {
         ResidueTemplate oldTemplate = res.template;
 
         if (oldTemplate.CAEquivalent == null || newTemplate.CAEquivalent == null) {//non-mutatable templates
@@ -136,7 +136,7 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
         res.fullName = newTemplate.name + res.fullName.substring(3);
         //res type name is first three characters of full name
         
-        MutAlignment mutAlignment = new MutAlignment(oldTemplate, newTemplate);
+        MutAlignment mutAlignment = mutAlignmentCache.get(oldTemplate, newTemplate);
         //coordinates will come from the template,
         //but we'll move them as a rigid body to match the backbone atoms
         int[][] mutAlignAtoms = mutAlignment.getMutAlignmentAtoms();
@@ -182,7 +182,9 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
         
         //reconnect all bonds
         res.markIntraResBondsByTemplate();
-        res.reconnectInterResBonds();
+        if (reconnectInterResBonds) {
+        	res.reconnectInterResBonds();
+		}
         
         //special case if sidechain loops back in additional place to backbone...
         if(oldTemplate.name.equalsIgnoreCase("PRO") || newTemplate.name.equalsIgnoreCase("PRO")){

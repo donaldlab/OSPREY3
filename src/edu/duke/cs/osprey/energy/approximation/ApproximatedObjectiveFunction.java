@@ -128,6 +128,10 @@ public class ApproximatedObjectiveFunction implements ObjectiveFunction {
 
 	public ApproximatedObjectiveFunction(ObjectiveFunction f, Approximator approximator) {
 
+		if (f.getNumDOFs() != approximator.numDofs()) {
+			throw new IllegalArgumentException("number of degrees of freedom don't match!");
+		}
+
 		this.f = f;
 		this.approximator = approximator;
 

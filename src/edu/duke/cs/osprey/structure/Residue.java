@@ -174,7 +174,59 @@ public class Residue implements Serializable {
             atoms.get(a).indexInRes = a;
         }
     }
-    
+
+    /**
+	 * An optimized copy method
+	 * (profiling shows the usual constructors are a bit slow)
+	 */
+    public Residue copyToMol(Molecule mol, boolean copyIntraBonds) {
+    	Residue copy = new Residue();
+
+		// copy the simple properties
+		copy.fullName = this.fullName;
+		copy.resNum = this.resNum;
+		copy.template = this.template;
+		copy.confProblems = new ArrayList<>(this.confProblems);
+		copy.pucker = this.pucker;
+		copy.secondaryStruct = this.secondaryStruct;
+
+		// copy the atoms
+		copy.atoms = new ArrayList<>();
+		for (Atom atom : this.atoms) {
+			atom.copyToRes(copy);
+		}
+
+		// copy the bonds if needed
+		if (copyIntraBonds) {
+			for (int i=0; i<this.atoms.size(); i++) {
+				Atom thisAtom = this.atoms.get(i);
+				Atom copyAtom = copy.atoms.get(i);
+				for (Atom thisBondedAtom : thisAtom.bonds) {
+					copyAtom.bonds.add(copy.atoms.get(thisBondedAtom.indexInRes));
+				}
+			}
+			copy.intraResBondsMarked = this.intraResBondsMarked;
+		} else {
+			copy.intraResBondsMarked = false;
+		}
+
+		// copy the coords
+		copy.coords = Arrays.copyOf(this.coords, this.coords.length);
+
+		// NOTE: we don't copy inter-res atom bonds, so the molecule will have to re-bond everything
+
+		// put the copy res in the mol
+		copy.molec = mol;
+		copy.indexInMolecule = mol.residues.size();
+		mol.residues.add(copy);
+
+		return copy;
+	}
+
+	// private constructor just for the optimized copyToMol() method,
+	// so we can bypass the other slower constructors without breaking existing code
+	private Residue() {}
+
     // cache res numbers for performance
     // they're used a LOT and profiling shows this is actually a performance bottleneck!
     private String resNum = null;

@@ -160,7 +160,7 @@ public class QuadraticApproximator implements ApproximatedObjectiveFunction.Appr
 		}
 
 		// add the offset
-		this.coefficients.set(0, this.coefficients.get(0) + offset);
+		this.coefficients.set(0, this.coefficients.get(0) + offset*weight);
 
 		this.maxe += other.maxe;
 	}

@@ -49,6 +49,7 @@ import edu.duke.cs.osprey.tools.Progress;
 
 import java.io.File;
 import java.util.*;
+import java.util.function.Consumer;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -103,20 +104,28 @@ public class ApproximatorMatrixCalculator {
 			return amat;
 		}
 
-		Progress progress = new Progress(confEcalc.confSpace.shellResNumbers.size()*confEcalc.confSpace.getNumResConfs());
-		log("calculating %d approximators for %d RCs ...", progress.getTotalWork(), confEcalc.confSpace.getNumResConfs());
+		int numRCs = confEcalc.confSpace.getNumResConfs();
+		Progress progress = new Progress(numRCs*(1 + confEcalc.confSpace.shellResNumbers.size()));
+		log("calculating %d approximators for %d RCs ...", progress.getTotalWork(), numRCs);
 
-		for (String fixedResNum : confEcalc.confSpace.shellResNumbers) {
-			for (SimpleConfSpace.Position pos1 : confEcalc.confSpace.positions) {
-				for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
+		for (SimpleConfSpace.Position pos1 : confEcalc.confSpace.positions) {
+			for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
 
+				Consumer<String> calc = (resNum) ->
 					confEcalc.tasks.submit(
-						() -> calc(fixedResNum, pos1.index, rc1.index),
+						() -> calc(resNum, pos1.index, rc1.index),
 						(approximator) -> {
-							amat.set(pos1.index, rc1.index, fixedResNum, approximator);
+							amat.set(pos1.index, rc1.index, resNum, approximator);
 							progress.incrementProgress();
 						}
 					);
+
+				// single
+				calc.accept(pos1.resNum);
+
+				// inters with fixed residues
+				for (String resNum : confEcalc.confSpace.shellResNumbers) {
+					calc.accept(resNum);
 				}
 			}
 		}
@@ -131,11 +140,11 @@ public class ApproximatorMatrixCalculator {
 		return amat;
 	}
 
-	private Approximator.Addable calc(String fixedResNum, int pos, int rc) {
+	private Approximator.Addable calc(String resNum, int pos, int rc) {
 
 		// make the residue interactions
 		ResidueInteractions inters = new ResidueInteractions();
-		inters.addPair(confEcalc.confSpace.positions.get(pos).resNum, fixedResNum);
+		inters.addPair(confEcalc.confSpace.positions.get(pos).resNum, resNum);
 
 		// make the molecule
 		ParametricMolecule pmol = confEcalc.confSpace.makeMolecule(new RCTuple(pos, rc));
