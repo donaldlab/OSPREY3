@@ -50,76 +50,155 @@ import java.util.List;
 
 public class QuadraticApproximator implements ApproximatedObjectiveFunction.Approximator.Addable, IOable {
 
-	public final int d;
+	public final List<Integer> dofBlockIds;
+	public final List<Integer> dofCounts;
+	public final int numDofs;
 	public final DoubleMatrix1D coefficients;
 
 	private double maxe;
 
-	public QuadraticApproximator(int d) {
-		this.d = d;
-		this.coefficients = DoubleFactory1D.dense.make(1 + d + d*(d + 1)/2);
-		this.maxe = 0.0;
-	}
+	private final int[] blockIndicesByDof;
+	private final int[] dofOffsetsByBlock;
 
-	public QuadraticApproximator(int d, DoubleMatrix1D coefficients, double maxe) {
-		this(d);
-		this.coefficients.assign(coefficients);
-		this.maxe = maxe;
+	public QuadraticApproximator(List<Integer> dofBlockIds, List<Integer> dofCounts) {
+
+		this.dofBlockIds = dofBlockIds;
+		this.dofCounts = dofCounts;
+		this.numDofs = dofCounts.stream().mapToInt(i -> i).sum();
+		this.coefficients = DoubleFactory1D.dense.make(1 + numDofs + numDofs*(numDofs + 1)/2);
+		this.maxe = 0.0;
+
+		// compute the dof<->block lookup tables
+		blockIndicesByDof = new int[numDofs];
+		dofOffsetsByBlock = new int[dofBlockIds.size()];
+		int n = 0;
+		for (int i=0; i<dofBlockIds.size(); i++) {
+			dofOffsetsByBlock[i] = n;
+			for (int j=0; j<dofCounts.get(i); j++) {
+				blockIndicesByDof[n++] = i;
+			}
+		}
 	}
 
 	@Override
 	public int numDofs() {
-		return d;
+		return numDofs;
 	}
 
 	@Override
-	public double getValue(cern.colt.matrix.DoubleMatrix1D x) {
+	public List<Integer> dofBlockIds() {
+		return dofBlockIds;
+	}
 
-		if (x.size() != d) {
-			throw new IllegalArgumentException(String.format("x is wrong size (%d), expected %d", x.size(), d));
+	@Override
+	public List<Integer> dofCounts() {
+		return dofCounts;
+	}
+
+	@Override
+	public int numParams() {
+		return coefficients.size();
+	}
+
+	@Override
+	public double train(List<Minimizer.Result> trainingSet, List<Minimizer.Result> testSet) {
+
+		// make sure all the samples have the right dimension
+		for (Minimizer.Result sample : trainingSet) {
+			if (sample.dofValues.size() != numDofs) {
+				throw new IllegalArgumentException("samples have wrong number of dimensions");
+			}
+		}
+
+		LinearSystem trainingSystem = new LinearSystem(trainingSet);
+		LinearSystem testSystem = new LinearSystem(testSet);
+
+		// solve Ax = b in least squares sense
+		coefficients.assign(new QRDecomposition(trainingSystem.A).solve(trainingSystem.b).viewColumn(0));
+
+		// calculate the residual (Ax - b) for the test set
+		DoubleMatrix1D residual = new Algebra()
+			.mult(testSystem.A, coefficients)
+			.assign(testSystem.b.viewColumn(0), (ri, bi) -> Math.abs(ri - bi));
+
+		// calculate the max error
+		maxe = 0.0;
+		for (int i=0; i<residual.size(); i++) {
+			assert (residual.get(i) >= 0.0);
+			maxe = Math.max(maxe, residual.get(i));
+		}
+
+		return maxe;
+	}
+
+	@Override
+	public void train(double energy) {
+		coefficients.set(0, energy);
+		for (int i=1; i<coefficients.size(); i++) {
+			coefficients.set(i, 0);
+		}
+	}
+
+	private int index1(int d1) {
+		return 1 + d1;
+	}
+
+	private int index2(int d1, int d2) {
+
+		// make sure d2 <= d1
+		if (d2 > d1) {
+			int swap = d1;
+			d1 = d2;
+			d2 = swap;
+		}
+
+		return 1 + numDofs + d1*(d1 + 1)/2 + d2;
+	}
+
+	@Override
+	public double getValue(DoubleMatrix1D x) {
+
+		if (x.size() != numDofs) {
+			throw new IllegalArgumentException(String.format("x is wrong size (%d), expected %d", x.size(), numDofs));
 		}
 
 		// constant term
 		double v = coefficients.get(0);
 
-		// linear terms
-		for (int d1=0; d1<d; d1++) {
-			v += coefficients.get(1 + d1)*x.get(d1);
-		}
+		for (int d1=0; d1<numDofs; d1++) {
 
-		// quadratic terms
-		for (int d1=0; d1<d; d1++) {
+			// linear term
+			double v1 = coefficients.get(index1(d1));
+
+			// quadratic terms
 			for (int d2=0; d2<=d1; d2++) {
-				double c = coefficients.get(1 + d + d1*(d1 + 1)/2 + d2);
-				v += c*x.get(d1)*x.get(d2);
+				double c = coefficients.get(index2(d1, d2));
+				v1 += c*x.get(d2);
 			}
+
+			v += v1*x.get(d1);
 		}
 
 		return v;
 	}
 
 	@Override
-	public double getValForDOF(int dof, double val, DoubleMatrix1D x) {
+	public double getValForDOF(int d1, double val, DoubleMatrix1D x) {
 
-		// constant term
-		double v = coefficients.get(0);
-
-		// linear terms
-		for (int d1=0; d1<d; d1++) {
-			double c = coefficients.get(1 + dof);
-			double xd1 = d1 == dof ? val : x.get(d1);
-			v += c*xd1;
-		}
+		// linear term
+		double v = coefficients.get(index1(d1));
 
 		// quadratic terms
-		for (int d1=0; d1<d; d1++) {
-			double xd1 = d1 == dof ? val : x.get(d1);
-			for (int d2=0; d2<=d1; d2++) {
-				double xd2 = d2 == dof ? val : x.get(d2);
-				double c = coefficients.get(1 + d + d1*(d1 + 1)/2 + d2);
-				v += c*xd1*xd2;
-			}
+		for (int d2=0; d2<numDofs; d2++) {
+			double x2 = x.get(d2);
+			double c = coefficients.get(index2(d1, d2));
+			v += c*x2;
 		}
+
+		v *= x.get(d1);
+
+		// constant term
+		v += coefficients.get(0);
 
 		return v;
 	}
@@ -130,39 +209,80 @@ public class QuadraticApproximator implements ApproximatedObjectiveFunction.Appr
 	}
 
 	@Override
-	public QuadraticApproximator makeIdentity() {
-		return new QuadraticApproximator(d);
+	public QuadraticApproximator makeIdentity(List<Integer> dofBlockIds, List<Integer> dofCounts) {
+		return new QuadraticApproximator(dofBlockIds, dofCounts);
 	}
 
 	@Override
-	public void add(Addable other, double weight, double offset) {
-		if (other instanceof QuadraticApproximator) {
-			add((QuadraticApproximator)other, weight, offset);
+	public void add(Addable src, double weight, double offset) {
+		if (src instanceof QuadraticApproximator) {
+			add((QuadraticApproximator)src, this, weight, offset);
 		} else {
 			throw new IllegalArgumentException("can't add different approximator types together:"
 				+ "\n\t" + this.getClass().getName()
-				+ "\n\t" + other.getClass().getName()
+				+ "\n\t" + src.getClass().getName()
 			);
 		}
 	}
 
-	public void add(QuadraticApproximator other, double weight, double offset) {
+	public static void add(QuadraticApproximator src, QuadraticApproximator dst, double weight, double offset) {
 
-		if (this.d != other.d) {
-			throw new IllegalArgumentException(String.format("number of degrees of freedom don't match: %d != %d",
-				this.d, other.d
-			));
+		// match source blocks to destination blocks
+		int[] dstBlockIndices = new int[src.dofBlockIds.size()];
+		for (int srci=0; srci<src.dofBlockIds.size(); srci++) {
+			int blockId = src.dofBlockIds.get(srci);
+
+			int dsti = dst.dofBlockIds.indexOf(blockId);
+			if (dsti < 0) {
+				throw new IllegalArgumentException("destination approximator doesn't have dof block " + blockId);
+			}
+
+			// check the sizes just in case
+			if (!dst.dofCounts.get(dsti).equals(src.dofCounts.get(srci))) {
+				throw new IllegalArgumentException("block " + blockId + " has different sizes in different approximators");
+			}
+
+			dstBlockIndices[srci] = dsti;
 		}
 
-		// add the weighted coefficients
-		for (int i=0; i<this.coefficients.size(); i++) {
-			this.coefficients.set(i, this.coefficients.get(i) + other.coefficients.get(i)*weight);
+		// match source dofs to destination dofs
+		int[] dstDofs = new int[src.numDofs];
+		for (int srcd=0; srcd<src.numDofs; srcd++) {
+
+			int srcb = src.blockIndicesByDof[srcd];
+
+			int dofOffset = srcd - src.dofOffsetsByBlock[srcb];
+
+			int dstb = dstBlockIndices[srcb];
+			int dstd = dst.dofOffsetsByBlock[dstb] + dofOffset;
+
+			dstDofs[srcd] = dstd;
 		}
 
-		// add the offset
-		this.coefficients.set(0, this.coefficients.get(0) + offset*weight);
+		// constant term (with the offset)
+		dst.coefficients.set(0, dst.coefficients.get(0) + (src.coefficients.get(0) + offset)*weight);
 
-		this.maxe += other.maxe;
+		// linear terms
+		for (int srcd1=0; srcd1<src.numDofs; srcd1++) {
+			int dstd1 = dstDofs[srcd1];
+			int srci = src.index1(srcd1);
+			int dsti = dst.index1(dstd1);
+			dst.coefficients.set(dsti, dst.coefficients.get(dsti) + src.coefficients.get(srci)*weight);
+		}
+
+		// quadratic terms
+		for (int srcd1=0; srcd1<src.numDofs; srcd1++) {
+			int dstd1 = dstDofs[srcd1];
+			for (int srcd2=0; srcd2<=srcd1; srcd2++) {
+				int dstd2 = dstDofs[srcd2];
+				int srci = src.index2(srcd1, srcd2);
+				int dsti = dst.index2(dstd1, dstd2);
+				dst.coefficients.set(dsti, dst.coefficients.get(dsti) + src.coefficients.get(srci)*weight);
+			}
+		}
+
+		// update the error
+		dst.maxe += src.maxe;
 	}
 
 	@Override
@@ -189,64 +309,47 @@ public class QuadraticApproximator implements ApproximatedObjectiveFunction.Appr
 	}
 
 	public boolean equals(QuadraticApproximator other) {
-		return this.d == other.d
+		return this.dofBlockIds.equals(other.dofBlockIds)
+			&& this.dofCounts.equals(other.dofCounts)
 			&& this.coefficients.equals(other.coefficients)
 			&& this.maxe == other.maxe;
 	}
 
-	// TODO: use training and test sets?
+	// define the Ax=b linear system that describes our quadratic approximation
+	private class LinearSystem {
 
-	public static QuadraticApproximator train(List<Minimizer.Result> samples) {
+		public final List<Minimizer.Result> samples;
+		public final DoubleMatrix2D A;
+		public final DoubleMatrix2D b;
 
-		int d = samples.get(0).dofValues.size();
+		public LinearSystem(List<Minimizer.Result> samples) {
 
-		// define the Ax=b linear system that describes our quadratic approximation
-		DoubleMatrix2D b = DoubleFactory2D.dense.make(samples.size(), 1);
-		DoubleMatrix2D A = DoubleFactory2D.dense.make(samples.size(), 1 + d + d*(d + 1)/2);
+			this.samples = samples;
 
-		for (int i=0; i<samples.size(); i++) {
-			DoubleMatrix1D x = samples.get(i).dofValues;
-			double energy = samples.get(i).energy;
+			A = DoubleFactory2D.dense.make(samples.size(), coefficients.size());
+			b = DoubleFactory2D.dense.make(samples.size(), 1);
 
-			b.set(i, 0, energy);
+			for (int i=0; i<samples.size(); i++) {
+				DoubleMatrix1D x = samples.get(i).dofValues;
+				double energy = samples.get(i).energy;
 
-			// degree 0 term
-			A.set(i, 0, 1.0);
+				b.set(i, 0, energy);
 
-			// degree 1 terms
-			for (int d1=0; d1<d; d1++) {
-				A.set(i, 1 + d1, x.get(d1));
-			}
+				// degree 0 term
+				A.set(i, 0, 1.0);
 
-			// degree 2 terms
-			for (int d1=0; d1<d; d1++) {
-				int d1offset = d1*(d1 + 1)/2;
-				for (int d2=0; d2<=d1; d2++) {
-					A.set(i, 1 + d + d1offset + d2, x.get(d1)*x.get(d2));
+				// degree 1 terms
+				for (int d1=0; d1<numDofs; d1++) {
+					A.set(i, index1(d1), x.get(d1));
+				}
+
+				// degree 2 terms
+				for (int d1=0; d1<numDofs; d1++) {
+					for (int d2=0; d2<=d1; d2++) {
+						A.set(i, index2(d1, d2), x.get(d1)*x.get(d2));
+					}
 				}
 			}
 		}
-
-		// solve Ax = b in least squares sense
-		DoubleMatrix1D coefficients = new QRDecomposition(A).solve(b).viewColumn(0);
-
-		// calculate the residual: Ax - b
-		DoubleMatrix1D residual = new Algebra()
-			.mult(A, coefficients)
-			.assign(b.viewColumn(0), (ri, bi) -> ri - bi);
-
-		// calculate the max training error?
-		double maxe = 0.0;
-		for (int i=0; i<samples.size(); i++) {
-			maxe = Math.max(maxe, residual.get(i));
-		}
-
-		return new QuadraticApproximator(d, coefficients, maxe);
-	}
-
-	public static QuadraticApproximator train(double energy) {
-		QuadraticApproximator approximator = new QuadraticApproximator(0);
-		approximator.coefficients.set(0, energy);
-		return approximator;
 	}
 }

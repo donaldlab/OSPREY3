@@ -53,11 +53,25 @@ public interface TupleMatrix<T> {
     T getOneBody(int res, int conf);
     void setOneBody(int res, int conf, T val);
     void setOneBody(int res, ArrayList<T> val);
-    
-    T getPairwise(int res1, int conf1, int res2, int conf2);
+
+    default T getOneBody(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1) {
+    	return getOneBody(pos1.index, rc1.index);
+	}
+	default void setOneBody(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1, T val) {
+		setOneBody(pos1.index, rc1.index, val);
+	}
+
+	T getPairwise(int res1, int conf1, int res2, int conf2);
     void setPairwise(int res1, int conf1, int res2, int conf2, T val);
     void setPairwise(int res1, int res2, ArrayList<ArrayList<T>> val);
-    
+
+	default T getPairwise(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1, SimpleConfSpace.Position pos2, SimpleConfSpace.ResidueConf rc2) {
+		return getPairwise(pos1.index, rc1.index, pos2.index, rc2.index);
+	}
+	default void setPairwise(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1, SimpleConfSpace.Position pos2, SimpleConfSpace.ResidueConf rc2, T val) {
+		setPairwise(pos1.index, rc1.index, pos2.index, rc2.index, val);
+	}
+
     boolean hasHigherOrderTerms();
     void setTupleValue(RCTuple tup, T val);
     HigherTupleFinder<T> getHigherOrderTerms(int res1, int conf1, int res2, int conf2);

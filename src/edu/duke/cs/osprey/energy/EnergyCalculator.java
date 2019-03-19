@@ -615,7 +615,7 @@ public class EnergyCalculator implements AutoCleanable {
 		// separate forcefield and approx residue interactions if needed
 		ResidueInteractions ffInters = inters;
 		if (approximator != null) {
-			ffInters = ResidueInteractions.subtract(inters, approximator.inters);
+			ffInters = approximator.ffInters;
 		}
 
 		// start in the center of the voxel

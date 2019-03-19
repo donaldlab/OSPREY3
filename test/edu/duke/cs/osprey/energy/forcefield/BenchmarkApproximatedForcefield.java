@@ -127,17 +127,19 @@ public class BenchmarkApproximatedForcefield {
 			// calc the approximator matrix
 			ApproximatorMatrix amat = new ApproximatorMatrixCalculator(confEcalc)
 				.setCacheFile(new File("benchmark.amat"))
-				.setNumSamplesPerDoF(9)
 				.calc();
 
 			ConfEnergyCalculator confEcalcApprox = new ConfEnergyCalculator.Builder(confSpace, ecalc)
 				.setEnergyPartition(confEcalc.epart)
 				.setApproximatorMatrix(amat)
 				.setApproximationErrorBudget(1e-1)
+				//.setApproximationErrorBudget(10)
+				//.setApproximationErrorBudget(Double.POSITIVE_INFINITY)
 				.build();
 
 			// calc energy matrices
 
+			/* TEMP
 			log("\ncalculating real emat...");
 			Stopwatch realEmatStopwatch = new Stopwatch().start();
 			EnergyMatrix emat = calcEmat.apply(confEcalc, "real");
@@ -147,9 +149,11 @@ public class BenchmarkApproximatedForcefield {
 			Stopwatch approxEmatStopwatch = new Stopwatch().start();
 			EnergyMatrix ematApprox = calcEmat.apply(confEcalcApprox, "approx");
 			log("\tdone in %s", approxEmatStopwatch.stop().getTime(2));
+			*/
 
 			// calc full conf minimizations
 
+			/*
 			log("\ncalculating real confs...");
 			Stopwatch realConfsStopwatch = new Stopwatch().start();
 			calcConfs.accept(emat, confEcalc);
@@ -159,8 +163,37 @@ public class BenchmarkApproximatedForcefield {
 			Stopwatch approxConfsStopwatch = new Stopwatch().start();
 			calcConfs.accept(ematApprox, confEcalcApprox);
 			log("\tdone in %s", approxConfsStopwatch.stop().getTime(2));
+			*/
 
-			/* TEMP
+			// benchmark minimizing a full conf (with the wild-type conf)
+			RCTuple tuple = new RCTuple();
+			for (SimpleConfSpace.Position pos : confSpace.positions) {
+				tuple.pos.add(pos.index);
+				tuple.RCs.add(pos.resConfs.size() - 1);
+			}
+
+			{
+				ResidueInteractions inters = EnergyPartition.makeFragment(confSpace, null, false, tuple);
+				double energyReal = confEcalc.calcEnergy(tuple, inters).energy;
+				double energyApprox = confEcalcApprox.calcEnergy(tuple, inters).energy;
+
+				ResidueInteractionsApproximator approximator = amat.get(tuple, inters, confEcalcApprox.approximationErrorBudget);
+
+				Benchmark bmMol = new Benchmark(1, 100, 1000, () -> confSpace.makeDiscreteMolecule(tuple));
+				Benchmark bmReal = new Benchmark(1, 10, 20, () -> confEcalc.calcEnergy(tuple, inters));
+				Benchmark bmApprox = new Benchmark(1, 10, 20, () -> confEcalcApprox.calcEnergy(tuple, inters));
+
+				log("mol=[%8.2f ms   %6.1f ops]   real=[%8.4f   %8.2f ms   %6.1f ops]   approx=[%8.4f   %8.2f ms   %6.1f ops]   error=%8.4f   inters=%3d/%3d (%5.1f%%)   speedup=%4.1fx",
+					bmMol.stopwatch.getTimeMs(), bmMol.opsPerSecond,
+					energyReal, bmReal.stopwatch.getTimeMs(), bmReal.opsPerSecond,
+					energyApprox, bmApprox.stopwatch.getTimeMs(), bmApprox.opsPerSecond,
+					Math.abs(energyReal - energyApprox),
+					approximator.approxInters.size(), inters.size(), 100f*approximator.approxInters.size()/inters.size(),
+					bmApprox.opsPerSecond/bmReal.opsPerSecond
+				);
+			}
+
+			/*
 			// breakdown each residue
 			for (SimpleConfSpace.Position pos : confSpace.positions) {
 			//{ SimpleConfSpace.Position pos = confSpace.positions.get(6);

@@ -182,9 +182,7 @@ public class SofeaLab {
 
 						if (true) {
 
-							amat = new ApproximatorMatrixCalculator(fastConfEcalc)
-								.setNumSamplesPerDoF(9)
-								.calc();
+							amat = new ApproximatorMatrixCalculator(fastConfEcalc).calc();
 
 							fastConfEcalc = makeConfEcalc.make(state.confSpace, fastEcalc, amat);
 

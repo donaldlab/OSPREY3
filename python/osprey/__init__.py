@@ -591,21 +591,21 @@ def ConfEnergyCalculatorCopy(source, ecalc):
 	return c.energy.ConfEnergyCalculator(source, ecalc)
 
 
-def ApproximatorMatrix(confEcalc, cacheFile=UseJavaDefault, numSamplesPerDof=UseJavaDefault):
+def ApproximatorMatrix(confEcalc, cacheFile=UseJavaDefault, numSamplesPerParam=UseJavaDefault):
 	'''
 	:java:classdoc:`.energy.approximation.ApproximatorMatrix`
 
 	:builder_option confEcalc .energy.approximation.ApproximatorMatrixCalculator#confEcalc:
 	:builder_option cacheFile .energy.approximation.ApproximatorMatrixCalculator#cacheFile:
-	:builder_option numSamplesPerDof .energy.approximation.ApproximatorMatrixCalculator#numSamplesPerDoF:
+	:builder_option numSamplesPerParam .energy.approximation.ApproximatorMatrixCalculator#numSamplesPerParam:
 	'''
 
 	calculator = c.energy.approximation.ApproximatorMatrixCalculator(confEcalc)
 
 	if cacheFile is not UseJavaDefault:
 		calculator.setCacheFile(jvm.toFile(cacheFile))
-	if numSamplesPerDof is not UseJavaDefault:
-		calculator.setNumSamplesPerDof(numSamplesPerDof)
+	if numSamplesPerParam is not UseJavaDefault:
+		calculator.setNumSamplesPerDof(numSamplesPerParam)
 
 	return calculator.calc()
 

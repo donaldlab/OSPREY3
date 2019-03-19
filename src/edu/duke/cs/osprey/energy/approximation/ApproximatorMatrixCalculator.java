@@ -37,6 +37,7 @@ import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.dof.DofInfo;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
@@ -49,7 +50,6 @@ import edu.duke.cs.osprey.tools.Progress;
 
 import java.io.File;
 import java.util.*;
-import java.util.function.Consumer;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -63,10 +63,9 @@ public class ApproximatorMatrixCalculator {
 	public final ConfEnergyCalculator confEcalc;
 
 	/**
-	 * Number of sample points per degree of freedom for the training set.
-	 * Always use an odd number so we sample the center point of the voxel.
+	 * Number of sample points per model parameter for the training set and test set
 	 */
-	private int numSamplesPerDoF = 9;
+	private int numSamplesPerParam = 10;
 
 	/**
 	 * The type of model to use for approximating forcefield energies
@@ -79,8 +78,8 @@ public class ApproximatorMatrixCalculator {
 		this.confEcalc = confEcalc;
 	}
 
-	public ApproximatorMatrixCalculator setNumSamplesPerDoF(int val) {
-		numSamplesPerDoF = val;
+	public ApproximatorMatrixCalculator setNumSamplesPerParam(int val) {
+		numSamplesPerParam = val;
 		return this;
 	}
 
@@ -108,24 +107,46 @@ public class ApproximatorMatrixCalculator {
 		Progress progress = new Progress(numRCs*(1 + confEcalc.confSpace.shellResNumbers.size()));
 		log("calculating %d approximators for %d RCs ...", progress.getTotalWork(), numRCs);
 
+		// singles and interactions with fixed residues
 		for (SimpleConfSpace.Position pos1 : confEcalc.confSpace.positions) {
 			for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
 
-				Consumer<String> calc = (resNum) ->
+				// single
+				confEcalc.tasks.submit(
+					() -> calc(pos1, rc1),
+					(approximator) -> {
+						amat.set(pos1, rc1, approximator);
+						progress.incrementProgress();
+					}
+				);
+
+				// interactions with fixed residues
+				for (String resNum : confEcalc.confSpace.shellResNumbers) {
 					confEcalc.tasks.submit(
-						() -> calc(resNum, pos1.index, rc1.index),
+						() -> calc(pos1, rc1, resNum),
 						(approximator) -> {
-							amat.set(pos1.index, rc1.index, resNum, approximator);
+							amat.set(pos1, rc1, resNum, approximator);
 							progress.incrementProgress();
 						}
 					);
+				}
+			}
+		}
 
-				// single
-				calc.accept(pos1.resNum);
+		// pairs
+		for (SimpleConfSpace.Position pos1 : confEcalc.confSpace.positions) {
+			for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
+				for (SimpleConfSpace.Position pos2 : confEcalc.confSpace.positions.subList(0, pos1.index)) {
+					for (SimpleConfSpace.ResidueConf rc2: pos2.resConfs) {
 
-				// inters with fixed residues
-				for (String resNum : confEcalc.confSpace.shellResNumbers) {
-					calc.accept(resNum);
+						confEcalc.tasks.submit(
+							() -> calc(pos1, rc1, pos2, rc2),
+							(approximator) -> {
+								amat.set(pos1, rc1, pos2, rc2, approximator);
+								progress.incrementProgress();
+							}
+						);
+					}
 				}
 			}
 		}
@@ -140,67 +161,125 @@ public class ApproximatorMatrixCalculator {
 		return amat;
 	}
 
-	private Approximator.Addable calc(String resNum, int pos, int rc) {
+	public Approximator.Addable calc(SimpleConfSpace.Position pos, SimpleConfSpace.ResidueConf rc, String fixedResNum) {
 
-		// make the residue interactions
 		ResidueInteractions inters = new ResidueInteractions();
-		inters.addPair(confEcalc.confSpace.positions.get(pos).resNum, resNum);
+		inters.addPair(pos.resNum, fixedResNum);
+
+		return calc(new RCTuple(pos.index, rc.index), inters);
+	}
+
+	public Approximator.Addable calc(SimpleConfSpace.Position pos, SimpleConfSpace.ResidueConf rc) {
+
+		ResidueInteractions inters = new ResidueInteractions();
+		inters.addPair(pos.resNum, pos.resNum);
+
+		return calc(new RCTuple(pos.index, rc.index), inters);
+	}
+
+	public Approximator.Addable calc(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1, SimpleConfSpace.Position pos2, SimpleConfSpace.ResidueConf rc2) {
+
+		ResidueInteractions inters = new ResidueInteractions();
+		inters.addPair(pos1.resNum, pos2.resNum);
+
+		return calc(new RCTuple(pos1.index, rc1.index, pos2.index, rc2.index), inters);
+	}
+
+	public Approximator.Addable calc(RCTuple tuple, ResidueInteractions inters) {
 
 		// make the molecule
-		ParametricMolecule pmol = confEcalc.confSpace.makeMolecule(new RCTuple(pos, rc));
-		int d = pmol.dofBounds.size();
+		ParametricMolecule pmol = confEcalc.confSpace.makeMolecule(tuple);
 
 		// make the energy function
 		try (EnergyFunction ff = confEcalc.ecalc.makeEnergyFunction(pmol, inters)) {
 			MoleculeObjectiveFunction f = new MoleculeObjectiveFunction(pmol, ff);
 
-			DoubleMatrix1D x = DoubleFactory1D.dense.make(d);
+			// gather the dof info
+			DofInfo dofInfo = confEcalc.confSpace.makeDofInfo(tuple);
 
-			if (d > 0) {
+			// make the model
+			Approximator.Addable approximator;
+			switch (type) {
+				case Quadratic: approximator = new QuadraticApproximator(dofInfo.ids, dofInfo.counts); break;
+				default: throw new IllegalArgumentException("unknown approximator type: " + type);
+			}
 
-				// have continuous flexibilty, sample dense from the config space
+			if (pmol.dofs.isEmpty()) {
 
-				int[] dims = new int[d];
-				Arrays.fill(dims, numSamplesPerDoF);
-
-				int numSamples = numSamplesPerDoF;
-				for (int i=1; i<d; i++) {
-					numSamples *= numSamplesPerDoF;
-				}
-				numSamples += 1;
-				List<Minimizer.Result> samples = new ArrayList<>(numSamples);
-
-				// sample points from a dense regular grid
-				for (int[] p : new MathTools.GridIterable(dims)) {
-
-					for (int d1=0; d1<d; d1++) {
-						double min = pmol.dofBounds.getMin(d1);
-						double max = pmol.dofBounds.getMax(d1);
-						double xd = min + (max - min)*p[d1]/(dims[d1] - 1);
-						x.set(d1, xd);
-					}
-
-					double energy = f.getValue(x);
-
-					samples.add(new Minimizer.Result(x.copy(), energy));
-				}
-
-				// also sample the minimized center point
-				samples.add(new SimpleCCDMinimizer(f).minimizeFromCenter());
-
-				switch (type) {
-					case Quadratic: return QuadraticApproximator.train(samples);
-					default: throw new IllegalArgumentException("unknown approximator type: " + type);
-				}
+				// no continuous flexibiltiy, just use the one energy value
+				approximator.train(ff.getEnergy());
 
 			} else {
 
-				// no continuous flexibiltiy, just use the one energy value
-				switch (type) {
-					case Quadratic: return QuadraticApproximator.train(f.getValue(x));
-					default: throw new IllegalArgumentException("unknown approximator type: " + type);
-				}
+				// have continuous flexibilty, sample from the config space
+				int numSamples = 1 + approximator.numParams()*numSamplesPerParam;
+				Random rand = new Random(tuple.hashCode());
+				approximator.train(
+					sampleRandomly(pmol, f, numSamples, rand),
+					sampleRandomly(pmol, f, numSamples, rand)
+				);
 			}
+
+			return approximator;
 		}
+	}
+
+	private List<Minimizer.Result> sampleRandomly(ParametricMolecule pmol, MoleculeObjectiveFunction f, int numSamples, Random rand) {
+
+		List<Minimizer.Result> samples = new ArrayList<>(numSamples);
+
+		// start with the minimized center point
+		samples.add(new SimpleCCDMinimizer(f).minimizeFromCenter());
+
+		// sample randomly
+		for (int i=1; i<numSamples; i++) {
+
+			DoubleMatrix1D x = DoubleFactory1D.dense.make(pmol.dofBounds.size());
+			for (int d=0; d<pmol.dofBounds.size(); d++) {
+				double min = pmol.dofBounds.getMin(d);
+				double max = pmol.dofBounds.getMax(d);
+				x.set(d, min + rand.nextDouble()*(max - min));
+			}
+
+			samples.add(new Minimizer.Result(x, f.getValue(x)));
+		}
+
+		// also sample the minimized center point
+		samples.add(new SimpleCCDMinimizer(f).minimizeFromCenter());
+
+		return samples;
+	}
+
+	private List<Minimizer.Result> sampleDensely(ParametricMolecule pmol, MoleculeObjectiveFunction f, int numSamplesPerDof) {
+
+		int numDims = pmol.dofBounds.size();
+		int[] dims = new int[numDims];
+		Arrays.fill(dims, numSamplesPerDof);
+
+		int numSamples = numSamplesPerDof;
+		for (int i=1; i<numDims; i++) {
+			numSamples *= numSamplesPerDof;
+		}
+		numSamples += 1;
+		List<Minimizer.Result> samples = new ArrayList<>(numSamples);
+
+		// start with the minimized center point
+		samples.add(new SimpleCCDMinimizer(f).minimizeFromCenter());
+
+		// sample points from a dense regular grid
+		for (int[] p : new MathTools.GridIterable(dims)) {
+
+			DoubleMatrix1D x = DoubleFactory1D.dense.make(numDims);
+			for (int d=0; d<numDims; d++) {
+				double min = pmol.dofBounds.getMin(d);
+				double max = pmol.dofBounds.getMax(d);
+				double xd = min + (max - min)*p[d]/(dims[d] - 1);
+				x.set(d, xd);
+			}
+
+			samples.add(new Minimizer.Result(x, f.getValue(x)));
+		}
+
+		return samples;
 	}
 }

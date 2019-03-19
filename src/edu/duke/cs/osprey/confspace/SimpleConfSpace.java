@@ -782,14 +782,16 @@ public class SimpleConfSpace implements Serializable {
 		return dofTypes;
 	}
 
-	public int countDofs(RCTuple conf) {
+	public DofInfo makeDofInfo(RCTuple conf) {
 
-		int count = 0;
+		// NOTE: this method should describe dofs in the same order that makeMolecule() does
+
+		DofInfo info = new DofInfo(conf);
 
 		// backbone flexibility
 		for (Strand strand : getConfStrands(conf)) {
 			for (StrandFlex flex : strandFlex.get(strand)) {
-				count += flex.countDofs(strand);
+				info.addStrand(strand, flex.countDofs(strand));
 			}
 		}
 
@@ -798,10 +800,10 @@ public class SimpleConfSpace implements Serializable {
 			Position pos = positions.get(conf.pos.get(i));
 			ResidueConf rc = pos.resConfs.get(conf.RCs.get(i));
 			Strand.ResidueFlex resFlex = pos.strand.flexibility.get(pos.resNum);
-			count += resFlex.voxelShape.countDihedralDOFs(rc.template);
+			info.addPos(pos, rc, resFlex.voxelShape.countDihedralDOFs(rc.template));
 		}
 
-		return count;
+		return info;
 	}
         
         public int getNumPos(){
