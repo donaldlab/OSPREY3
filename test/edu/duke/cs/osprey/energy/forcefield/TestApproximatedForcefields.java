@@ -46,14 +46,12 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
-import edu.duke.cs.osprey.energy.approximation.ApproximatedObjectiveFunction.Approximator;
 import edu.duke.cs.osprey.energy.approximation.ApproximatorMatrix;
 import edu.duke.cs.osprey.energy.approximation.ApproximatorMatrixCalculator;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
 import org.junit.Test;
 
-import java.util.List;
 import java.util.function.BiConsumer;
 
 
@@ -65,11 +63,12 @@ public class TestApproximatedForcefields {
 
 		// get a strand with a variety of amino acids
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
-		strand.flexibility.get("A16").setLibraryRotamers("GLY").setContinuous();
-		strand.flexibility.get("A17").setLibraryRotamers("ALA").setContinuous();
-		strand.flexibility.get("A18").setLibraryRotamers("VAL").setContinuous();
-		strand.flexibility.get("A19").setLibraryRotamers("SER").setContinuous();
-		strand.flexibility.get("A20").setLibraryRotamers("LYS").setContinuous();
+
+		strand.flexibility.get("A2" ).setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous(); // ala
+		strand.flexibility.get("A11").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous(); // val
+		strand.flexibility.get("A17").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous(); // gly
+		strand.flexibility.get("A24").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous(); // lys
+		strand.flexibility.get("A69").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous(); // ser
 
 		// make the conf space
 		confSpace = new SimpleConfSpace.Builder()
@@ -79,7 +78,7 @@ public class TestApproximatedForcefields {
 
 	private static void withCPUConfEcalcs(EnergyPartition epart, boolean useEref, BiConsumer<ConfEnergyCalculator,ConfEnergyCalculator> f) {
 
-		// get an energy calculator
+		// get a (minimizing) energy calculator
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
 			.setParallelism(Parallelism.makeCpu(4))
 			.build()
@@ -97,59 +96,37 @@ public class TestApproximatedForcefields {
 				.setReferenceEnergies(eref)
 				.build();
 
-			// calc the approximator matrix
-			ApproximatorMatrix amat = new ApproximatorMatrixCalculator(confEcalc)
-				.setNumSamplesPerDoF(5)
-				.calc();
+			// calc the approximator matrix with the minimizing energy calculator
+			ApproximatorMatrix amat = new ApproximatorMatrixCalculator(confEcalc).calc();
 
-			// check the sorted orders
-			checkAmatOrders(amat);
-
-			ConfEnergyCalculator confEcalcApprox = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+			// do the tests with non-minimizing energy calculators
+			// to avoid having the accuracy tests depend on poorly conditioned numerical minimization
+			EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalc)
+				.setIsMinimizing(false)
+				.build();
+			ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator.Builder(confSpace, ecalcRigid)
+				.setEnergyPartition(confEcalc.epart)
+				.setReferenceEnergies(confEcalc.eref)
+				.build();
+			ConfEnergyCalculator confEcalcRigidApprox = new ConfEnergyCalculator.Builder(confSpace, ecalcRigid)
 				.setEnergyPartition(confEcalc.epart)
 				.setReferenceEnergies(confEcalc.eref)
 				.setApproximatorMatrix(amat)
 				.setApproximationErrorBudget(1e-3)
 				.build();
 
-			f.accept(confEcalc, confEcalcApprox);
-		}
-	}
-
-	private static void checkAmatOrders(ApproximatorMatrix amat) {
-
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
-
-				List<ApproximatorMatrix.Entry> entries = amat.get(pos.index, rc.index);
-
-				if (entries.size() > 1) {
-
-					// amats should store their approximators in order of weakly increasing error
-					for (int i=1; i<entries.size(); i++) {
-						double errori = entries.get(i).approximator.error();
-						double errorim1 = entries.get(i - 1).approximator.error();
-						assertThat(errori, greaterThanOrEqualTo(errorim1));
-					}
-				}
-			}
+			f.accept(confEcalcRigid, confEcalcRigidApprox);
 		}
 	}
 
 	private static void check(EnergyPartition epart, boolean useEref) {
-		withCPUConfEcalcs(epart, useEref, (confEcalc, confEcalcApprox) -> {
+		withCPUConfEcalcs(epart, useEref, (confEcalcRigid, confEcalcRigidApprox) -> {
 
-			double epsilon = confEcalcApprox.approximationErrorBudget;
-
-			// HACKHACK: the minimizer is somewhat ill-conditioned in general
-			// small changes in the energies can cause it to follow slightly different paths
-			// so unfortunately we need to add some slack to our error budget
-			// to deal with the real-world side-effects of using an imperfect minimizer
-			epsilon *= 2.5;
+			double epsilon = confEcalcRigidApprox.approximationErrorBudget;
 
 			// compare energy matrices
-			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc).build().calcEnergyMatrix();
-			EnergyMatrix ematApprox = new SimplerEnergyMatrixCalculator.Builder(confEcalcApprox).build().calcEnergyMatrix();
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid).build().calcEnergyMatrix();
+			EnergyMatrix ematApprox = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigidApprox).build().calcEnergyMatrix();
 
 			for (SimpleConfSpace.Position pos1 : confSpace.positions) {
 				for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
@@ -184,9 +161,12 @@ public class TestApproximatedForcefields {
 			for (int i=0; i<100; i++) {
 
 				ConfSearch.ScoredConf conf = astar.nextConf();
+				if (conf == null) {
+					break;
+				}
 
-				double energy = confEcalc.calcEnergy(conf).getEnergy();
-				double energyApprox = confEcalcApprox.calcEnergy(conf).getEnergy();
+				double energy = confEcalcRigid.calcEnergy(conf).getEnergy();
+				double energyApprox = confEcalcRigidApprox.calcEnergy(conf).getEnergy();
 				assertThat(energyApprox, isAbsolutely(energy, epsilon));
 			}
 		});
@@ -211,7 +191,6 @@ public class TestApproximatedForcefields {
 
 				// calc the approximator matrix
 				ApproximatorMatrix amat1 = new ApproximatorMatrixCalculator(confEcalc)
-					.setNumSamplesPerDoF(3)
 					.setCacheFile(file)
 					.calc();
 
@@ -220,12 +199,23 @@ public class TestApproximatedForcefields {
 					.setCacheFile(file)
 					.calc();
 
-				for (String fixedResNum : confSpace.shellResNumbers) {
-					for (SimpleConfSpace.Position pos1 : confSpace.positions) {
-						for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
-							Approximator.Addable approximator1 = amat1.get(pos1.index, rc1.index, fixedResNum);
-							Approximator.Addable approximator2 = amat2.get(pos1.index, rc1.index, fixedResNum);
-							assertThat(approximator1, is(approximator2));
+				// check that all the approximators are the same
+				for (SimpleConfSpace.Position pos1 : confSpace.positions) {
+					for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
+
+						// singles
+						assertThat(amat2.get(pos1, rc1), is(amat1.get(pos1, rc1)));
+
+						// pairs
+						for (SimpleConfSpace.Position pos2 : confSpace.positions.subList(0, pos1.index)) {
+							for (SimpleConfSpace.ResidueConf rc2 : pos2.resConfs) {
+								assertThat(amat2.get(pos1, rc1, pos2, rc2), is(amat1.get(pos1, rc1, pos2, rc2)));
+							}
+						}
+
+						// inters with fixed residues
+						for (String fixedResNum : confSpace.shellResNumbers) {
+							assertThat(amat2.get(pos1, rc1, fixedResNum), is(amat1.get(pos1, rc1, fixedResNum)));
 						}
 					}
 				}

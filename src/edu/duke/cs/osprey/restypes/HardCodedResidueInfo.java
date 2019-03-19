@@ -263,20 +263,18 @@ public class HardCodedResidueInfo {
     public static boolean hasAminoAcidBB(Residue res){
         //does res have the three main amino-acid backbone atoms (N,CA, and C)?
         //This would allow it to peptide-bond
-        if( res.getAtomIndexByName("N")>=0 && res.getAtomIndexByName("CA")>=0 
-                && res.getAtomIndexByName("C")>=0){
-            return true;//found them all
-        }
-        return false;//didn't find them all
+		return res.getAtomIndexByName("N") >= 0
+			&& res.getAtomIndexByName("CA") >= 0
+			&& res.getAtomIndexByName("C") >= 0;
     }
 
 	public static boolean hasNucleicAcidBB(Residue res){
-    	return res.getAtomByName("P") != null
-			&& res.getAtomByName("O5'") != null
-			&& res.getAtomByName("C5'") != null
-			&& res.getAtomByName("C4'") != null
-			&& res.getAtomByName("C3'") != null
-			&& res.getAtomByName("O3'") != null;
+    	return res.getAtomIndexByName("P") >= 0
+			&& res.getAtomIndexByName("O5'") >= 0
+			&& res.getAtomIndexByName("C5'") >= 0
+			&& res.getAtomIndexByName("C4'") >= 0
+			&& res.getAtomIndexByName("C3'") >= 0
+			&& res.getAtomIndexByName("O3'") >= 0;
 	}
 
     public static String getTemplateName(Residue res){

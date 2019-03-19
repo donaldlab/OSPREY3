@@ -32,16 +32,79 @@
 
 package edu.duke.cs.osprey.energy.approximation;
 
+import edu.duke.cs.osprey.dof.DofInfo;
+import edu.duke.cs.osprey.energy.approximation.ApproximatedObjectiveFunction.Approximator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 
 
 public class ResidueInteractionsApproximator {
 
-	public final ResidueInteractions inters;
-	public final ApproximatedObjectiveFunction.Approximator approximator;
+	public static class Builder {
 
-	public ResidueInteractionsApproximator(ResidueInteractions inters, ApproximatedObjectiveFunction.Approximator approximator) {
-		this.inters = inters;
+		public final DofInfo dofInfo;
+
+		private Approximator.Addable approximator = null;
+		private ResidueInteractions approxInters = new ResidueInteractions();
+		private ResidueInteractions ffInters = new ResidueInteractions();
+
+		public Builder(DofInfo dofInfo) {
+			this.dofInfo = dofInfo;
+		}
+
+		public boolean isEmpty() {
+			return approximator == null;
+		}
+
+		public double error() {
+			if (approximator == null) {
+				return 0;
+			} else {
+				return approximator.error();
+			}
+		}
+
+		public void approximate(ResidueInteractions.Pair inter, Approximator.Addable approximator) {
+			init(approximator);
+			this.approximator.add(approximator, inter.weight, inter.offset);
+			approxInters.add(inter);
+		}
+
+		public void dontApproximate(ResidueInteractions.Pair inter) {
+			ffInters.add(inter);
+		}
+
+		private void init(Approximator.Addable approximator) {
+			if (this.approximator == null) {
+				this.approximator = approximator.makeIdentity(dofInfo.ids, dofInfo.counts);
+			}
+		}
+
+		public ResidueInteractionsApproximator build() {
+
+			if (approximator != null) {
+				return new ResidueInteractionsApproximator(
+					approximator,
+					ffInters,
+					approxInters
+				);
+			}
+
+			// otherwise, make a no-op approximator
+			return new ResidueInteractionsApproximator(
+				new NOPApproximator(dofInfo.numDofs()),
+				ffInters,
+				new ResidueInteractions()
+			);
+		}
+	}
+
+	public final Approximator approximator;
+	public final ResidueInteractions ffInters;
+	public final ResidueInteractions approxInters;
+
+	public ResidueInteractionsApproximator(Approximator approximator, ResidueInteractions ffInters, ResidueInteractions approxInters) {
 		this.approximator = approximator;
+		this.ffInters = ffInters;
+		this.approxInters = approxInters;
 	}
 }

@@ -60,6 +60,6 @@ public class NOPApproximator implements ApproximatedObjectiveFunction.Approximat
 
 	@Override
 	public double error() {
-		return 0;
+		return Double.NaN;
 	}
 }

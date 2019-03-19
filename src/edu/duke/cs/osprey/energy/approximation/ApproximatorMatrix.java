@@ -34,6 +34,8 @@ package edu.duke.cs.osprey.energy.approximation;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.TupleMatrixGeneric;
+import edu.duke.cs.osprey.dof.DofInfo;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.approximation.ApproximatedObjectiveFunction.Approximator;
 import edu.duke.cs.osprey.tools.IOable;
@@ -47,21 +49,11 @@ import java.util.*;
  */
 public class ApproximatorMatrix implements IOable {
 
-	public static class Entry {
-
-		public final String resNum;
-		public final Approximator.Addable approximator;
-
-		public Entry(String resNum, Approximator.Addable approximator) {
-			this.resNum = resNum;
-			this.approximator = approximator;
-		}
-	}
-
 	public final SimpleConfSpace confSpace;
 
 	private final int[] offsets;
-	private final List<List<Entry>> entries;
+	private final List<Map<String,Approximator.Addable>> fixedApproximators;
+	private final TupleMatrixGeneric<Approximator.Addable> tupleApproximators;
 
 	public ApproximatorMatrix(SimpleConfSpace confSpace) {
 
@@ -75,121 +67,200 @@ public class ApproximatorMatrix implements IOable {
 			offset += pos.resConfs.size();
 		}
 
-		entries = new ArrayList<>(offset);
+		fixedApproximators = new ArrayList<>(offset);
 		for (int i=0; i<offset; i++) {
-			entries.add(new ArrayList<>());
+			fixedApproximators.add(new HashMap<>());
 		}
+
+		tupleApproximators = new TupleMatrixGeneric<>(confSpace);
+	}
+
+	public Approximator.Addable get(int pos1, int rc1) {
+		return tupleApproximators.getOneBody(pos1, rc1);
+	}
+	public void set(int pos1, int rc1, Approximator.Addable approximator) {
+		tupleApproximators.setOneBody(pos1, rc1, approximator);
+	}
+	public Approximator.Addable get(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1) {
+		return tupleApproximators.getOneBody(pos1, rc1);
+	}
+	public void set(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1, Approximator.Addable approximator) {
+		tupleApproximators.setOneBody(pos1, rc1, approximator);
+	}
+
+	public Approximator.Addable get(int pos1, int rc1, int pos2, int rc2) {
+		return tupleApproximators.getPairwise(pos1, rc1, pos2, rc2);
+	}
+	public void set(int pos1, int rc1, int pos2, int rc2, Approximator.Addable approximator) {
+		tupleApproximators.setPairwise(pos1, rc1, pos2, rc2, approximator);
+	}
+	public Approximator.Addable get(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1, SimpleConfSpace.Position pos2, SimpleConfSpace.ResidueConf rc2) {
+		return tupleApproximators.getPairwise(pos1, rc1, pos2, rc2);
+	}
+	public void set(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1, SimpleConfSpace.Position pos2, SimpleConfSpace.ResidueConf rc2, Approximator.Addable approximator) {
+		tupleApproximators.setPairwise(pos1, rc1, pos2, rc2, approximator);
 	}
 
 	private int getIndex(int pos, int rc) {
 		return offsets[pos] + rc;
 	}
 
-	public List<Entry> get(int pos, int rc) {
-		return Collections.unmodifiableList(entries.get(getIndex(pos, rc)));
+	public Approximator.Addable get(int pos1, int rc1, String fixedResNum) {
+		return fixedApproximators.get(getIndex(pos1, rc1)).get(fixedResNum);
+	}
+	public void set(int pos1, int rc1, String fixedResNum, Approximator.Addable approximator) {
+		fixedApproximators.get(getIndex(pos1, rc1)).put(fixedResNum, approximator);
+	}
+	public Approximator.Addable get(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1, String fixedResNum) {
+		return get(pos1.index, rc1.index, fixedResNum);
+	}
+	public void set(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1, String fixedResNum, Approximator.Addable approximator) {
+		set(pos1.index, rc1.index, fixedResNum, approximator);
 	}
 
-	public Approximator.Addable get(int pos, int rc, String resNum) {
-		for (Entry entry : entries.get(getIndex(pos, rc))) {
-			if (entry.resNum.equals(resNum)) {
-				return entry.approximator;
-			}
+	private static class InteractionApproximator {
+
+		final ResidueInteractions.Pair inter;
+		final Approximator.Addable approximator;
+
+		InteractionApproximator(ResidueInteractions.Pair inter, Approximator.Addable approximator) {
+			this.inter = inter;
+			this.approximator = approximator;
 		}
-		return null;
-	}
-
-	public void set(int pos, int rc, String resNum, Approximator.Addable approximator) {
-
-		List<Entry> entries = this.entries.get(getIndex(pos, rc));
-
-		// if the list already has an entry for this res num, remove it
-		for (int i=0; i<entries.size(); i++) {
-			if (entries.get(i).resNum.equals(resNum)) {
-				entries.remove(i);
-				break;
-			}
-		}
-
-		// add the new approximator in order of weakly increasing error
-		int i = 0;
-		for (; i<entries.size(); i++) {
-			if (approximator.error() < entries.get(i).approximator.error()) {
-				break;
-			}
-		}
-		entries.add(i, new Entry(resNum, approximator));
 	}
 
 	public ResidueInteractionsApproximator get(RCTuple tuple, ResidueInteractions inters, double errorBudget) {
 
-		double errorBudgetPerResidue = errorBudget/tuple.size();
+		// TODO: optimize me!
 
-		Approximator[] approximators = new Approximator[tuple.size()];
-		ResidueInteractions approxInters = new ResidueInteractions();
+		DofInfo dofInfo = confSpace.makeDofInfo(tuple);
 
-		for (int i=0; i<tuple.size(); i++) {
+		// DEBUG
+		//log("%s", dofInfo);
 
-			int pos = tuple.pos.get(i);
-			int rc = tuple.RCs.get(i);
+		double errorBudgetPerInter = errorBudget/inters.size();
 
-			String resNum = confSpace.positions.get(pos).resNum;
+		ResidueInteractionsApproximator.Builder builder = new ResidueInteractionsApproximator.Builder(dofInfo);
 
+		// which residue interactions can be approximated?
+		List<InteractionApproximator> leftovers = new ArrayList<>();
+		for (ResidueInteractions.Pair inter : inters) {
+
+			// find out if any design positions are involved in this residue interaction
+			Integer blockIndex1 = dofInfo.getBlockIndex(inter.resNum1);
+			Integer blockIndex2 = dofInfo.getBlockIndex(inter.resNum2);
+
+			// get the approximator for this residue interaction
 			Approximator.Addable approximator = null;
-			for (Entry entry : entries.get(getIndex(pos, rc))) {
-				ResidueInteractions.Pair pair = inters.get(resNum, entry.resNum);
-				if (pair != null) {
+			if (blockIndex1 != null && blockIndex2 != null) {
 
-					// check the budget
-					double error = approximator != null ? approximator.error() : 0.0;
-					if (error + entry.approximator.error() > errorBudgetPerResidue) {
-						break;
-					}
+				if (blockIndex1.equals(blockIndex2)) {
 
-					approxInters.add(pair);
+					// single
+					SimpleConfSpace.Position pos = dofInfo.positions.get(blockIndex1);
+					SimpleConfSpace.ResidueConf rc = dofInfo.resConfs.get(blockIndex1);
+					approximator = get(pos, rc);
 
-					if (approximator == null) {
-						approximator = entry.approximator.makeIdentity();
-					}
-					approximator.add(entry.approximator, pair.weight, pair.offset);
+				} else {
+
+					// pair
+					SimpleConfSpace.Position pos1 = dofInfo.positions.get(blockIndex1);
+					SimpleConfSpace.ResidueConf rc1 = dofInfo.resConfs.get(blockIndex1);
+					SimpleConfSpace.Position pos2 = dofInfo.positions.get(blockIndex2);
+					SimpleConfSpace.ResidueConf rc2 = dofInfo.resConfs.get(blockIndex2);
+					approximator = get(pos1, rc1, pos2, rc2);
 				}
+
+			} else if (blockIndex1 != null || blockIndex2 != null) {
+
+				// fixed residue interaction
+				int blockIndex = blockIndex1 != null ? blockIndex1 : blockIndex2;
+				String fixedResNum = blockIndex1 != null ? inter.resNum2 : inter.resNum1;
+
+				SimpleConfSpace.Position pos = dofInfo.positions.get(blockIndex);
+				SimpleConfSpace.ResidueConf rc = dofInfo.resConfs.get(blockIndex);
+				approximator = get(pos, rc, fixedResNum);
+
+			} else {
+
+				// just in case...
+				assert (false) : String.format("residue interaction %s:%s appears unrelated to tuple %s",
+					inter.resNum1, inter.resNum2, tuple
+				);
 			}
 
-			// didn't find anything within budget? make a no-op approximator
 			if (approximator == null) {
-				int d = confSpace.countDofs(new RCTuple(pos, rc));
-				approximators[i] = new NOPApproximator(d);
+				builder.dontApproximate(inter);
+			} else if (approximator.error() <= errorBudgetPerInter) {
+				builder.approximate(inter, approximator);
 			} else {
-				approximators[i] = approximator;
+				leftovers.add(new InteractionApproximator(inter, approximator));
 			}
 		}
 
-		// combine the approximators for all the residues
-		Approximator approximator = new ApproximatedObjectiveFunction.Approximators(approximators);
+		assert (builder.error() <= errorBudget);
+
+		if (!leftovers.isEmpty()) {
+
+			// sort the leftover approximators by error, we'll add whatever else we can and stay under budget
+			leftovers.sort(Comparator.comparing(interApproximator -> interApproximator.approximator.error()));
+
+			for (InteractionApproximator interApproximator : leftovers) {
+
+				/* DEBUG
+				log("leftover:  %3s:%3s  err=%8.6f   accept? %b   coefficients=%s",
+					interApproximator.inter.resNum1, interApproximator.inter.resNum2,
+					interApproximator.approximator.error(),
+					builder.error() + interApproximator.approximator.error() <= errorBudget,
+					Arrays.toString(((QuadraticApproximator)interApproximator.approximator).coefficients.toArray())
+				);
+				*/
+
+				if (builder.error() + interApproximator.approximator.error() <= errorBudget) {
+					builder.approximate(interApproximator.inter, interApproximator.approximator);
+				} else {
+					// we won't approximate this interaction, let the forcefield compute it as usual
+					builder.dontApproximate(interApproximator.inter);
+				}
+			}
+		}
+
+		return builder.build();
 
 		/* DEBUG
-		log("approximated %d/%d (%.1f%%) inters   error = %12.6f/%12.6f    for tuple %s",
-			approxInters.size(), inters.size(),
-			100.0*approxInters.size()/inters.size(),
-			approximator.error(), errorBudget,
+		log("approximated %2d + %2d of %2d (%5.1f%%) inters   error = %12.6f/%12.6f    for tuple %s",
+			out.approxInters.size(), out.ffInters.size(), inters.size(),
+			100.0*out.approxInters.size()/inters.size(),
+			out.approximator.error(), errorBudget,
 			tuple
 		);
 		*/
-
-		return new ResidueInteractionsApproximator(approxInters, approximator);
 	}
 
 	private byte getType(Approximator approximator) {
-		if (approximator instanceof QuadraticApproximator) {
+		if (approximator == null) {
+			return 0;
+		} else if (approximator instanceof QuadraticApproximator) {
 			return 1;
 		} else {
 			throw new IllegalArgumentException("unrecognized approximator type: " + approximator.getClass().getName());
 		}
 	}
 
-	private Approximator.Addable alloc(byte type, int d) {
+	private Approximator.Addable alloc(byte type, RCTuple tuple) {
+		DofInfo dofInfo = confSpace.makeDofInfo(tuple);
 		switch (type) {
-			case 1: return new QuadraticApproximator(d);
+			case 0: return null;
+			case 1: return new QuadraticApproximator(dofInfo.ids, dofInfo.counts);
 			default: throw new IllegalArgumentException("unrecognized approximator type: " + type);
+		}
+	}
+
+	private void write(Approximator.Addable approximator, DataOutput out)
+	throws IOException {
+		out.writeByte(getType(approximator));
+		if (approximator != null) {
+			IOable.of(approximator).writeTo(out);
 		}
 	}
 
@@ -197,34 +268,73 @@ public class ApproximatorMatrix implements IOable {
 	public void writeTo(DataOutput out)
 	throws IOException {
 
-		for (List<Entry> entries : this.entries) {
-			out.writeInt(entries.size());
-			for (Entry entry : entries) {
-				out.writeUTF(entry.resNum);
-				out.writeByte(getType(entry.approximator));
-				out.writeInt(entry.approximator.numDofs());
-				IOable.of(entry.approximator).writeTo(out);
+		// singles
+		for (SimpleConfSpace.Position pos1 : confSpace.positions) {
+			for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
+				write(get(pos1, rc1), out);
 			}
 		}
+
+		// pairs
+		for (SimpleConfSpace.Position pos1 : confSpace.positions) {
+			for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
+				for (SimpleConfSpace.Position pos2 : confSpace.positions.subList(0, pos1.index)) {
+					for (SimpleConfSpace.ResidueConf rc2: pos2.resConfs) {
+						write(get(pos1, rc1, pos2, rc2), out);
+					}
+				}
+			}
+		}
+
+		// inters with fixed residues
+		for (SimpleConfSpace.Position pos1 : confSpace.positions) {
+			for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
+				for (String resNum : confSpace.shellResNumbers) {
+					write(get(pos1, rc1, resNum), out);
+				}
+			}
+		}
+	}
+
+	private Approximator.Addable read(DataInput in, RCTuple tuple)
+	throws IOException {
+		byte type = in.readByte();
+		if (type == 0) {
+			return null;
+		}
+		Approximator.Addable approximator = alloc(type, tuple);
+		IOable.of(approximator).readFrom(in);
+		return approximator;
 	}
 
 	@Override
 	public void readFrom(DataInput in)
 	throws IOException {
 
-		for (List<Entry> entries : this.entries) {
+		// singles
+		for (SimpleConfSpace.Position pos1 : confSpace.positions) {
+			for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
+				set(pos1, rc1, read(in, new RCTuple(pos1.index, rc1.index)));
+			}
+		}
 
-			entries.clear();
-			int numEntries = in.readInt();
-			for (int i=0; i<numEntries; i++) {
+		// pairs
+		for (SimpleConfSpace.Position pos1 : confSpace.positions) {
+			for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
+				for (SimpleConfSpace.Position pos2 : confSpace.positions.subList(0, pos1.index)) {
+					for (SimpleConfSpace.ResidueConf rc2: pos2.resConfs) {
+						set(pos1, rc1, pos2, rc2, read(in, new RCTuple(pos1.index, rc1.index, pos2.index, rc2.index)));
+					}
+				}
+			}
+		}
 
-				String resNum = in.readUTF();
-				byte type = in.readByte();
-				int d = in.readInt();
-				Approximator.Addable approximator = alloc(type, d);
-				IOable.of(approximator).readFrom(in);
-
-				entries.add(new Entry(resNum, approximator));
+		// inters with fixed residues
+		for (SimpleConfSpace.Position pos1 : confSpace.positions) {
+			for (SimpleConfSpace.ResidueConf rc1 : pos1.resConfs) {
+				for (String resNum : confSpace.shellResNumbers) {
+					set(pos1, rc1, resNum, read(in, new RCTuple(pos1.index, rc1.index)));
+				}
 			}
 		}
 	}

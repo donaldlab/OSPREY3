@@ -347,4 +347,12 @@ public class RCTuple implements Serializable {
 		return out;
 	}
 
+	public Integer getRC(int index) {
+		for (int i=0; i<size(); i++) {
+			if (pos.get(i) == index) {
+				return RCs.get(i);
+			}
+		}
+		return null;
+	}
 }
