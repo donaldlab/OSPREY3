@@ -75,7 +75,17 @@ public class ApproximatorMatrixCalculator {
 	private File cacheFile = null;
 
 	public ApproximatorMatrixCalculator(ConfEnergyCalculator confEcalc) {
-		this.confEcalc = confEcalc;
+
+		// build a new confEcalc based on the provided one,
+		// but change the conf error budget to distibute the error budget among all the tuples evenly
+		// so the errors for all the tuples can't add up in a single conf to exceed the budget
+		int n = confEcalc.confSpace.positions.size();
+		int maxTuplesPerConf = n + n*(n - 1)/2;
+		this.confEcalc = new ConfEnergyCalculator.Builder(confEcalc.confSpace, confEcalc.ecalc)
+			.setApproximationErrorBudget(confEcalc.approximationErrorBudget/maxTuplesPerConf)
+			.setReferenceEnergies(confEcalc.eref)
+			.setEnergyPartition(confEcalc.epart)
+			.build();
 	}
 
 	public ApproximatorMatrixCalculator setNumSamplesPerParam(int val) {

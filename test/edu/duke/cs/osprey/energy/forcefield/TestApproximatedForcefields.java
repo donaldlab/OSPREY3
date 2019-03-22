@@ -165,6 +165,10 @@ public class TestApproximatedForcefields {
 					break;
 				}
 
+				double lowerBound = conf.getScore();
+				double lowerBoundApprox = ematApprox.confE(conf.getAssignments());
+				assertThat(lowerBoundApprox, isAbsolutely(lowerBound, epsilon));
+
 				double energy = confEcalcRigid.calcEnergy(conf).getEnergy();
 				double energyApprox = confEcalcRigidApprox.calcEnergy(conf).getEnergy();
 				assertThat(energyApprox, isAbsolutely(energy, epsilon));
