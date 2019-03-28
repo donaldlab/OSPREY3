@@ -323,7 +323,7 @@ public class SofeaLab {
 					for (ConfSearch.EnergiedConf econf : confTable.energiedConfs(ConfDB.SortOrder.Energy)) {
 
 						// TEMP: calculate the corrected score
-						BigDecimal zPathUpper = stateInfo.calcZPathUpper(Conf.index(econf.getAssignments()), stateInfo.rcs);
+						BigDecimal zPathUpper = stateInfo.calcZPathUpper(Conf.index(econf.getAssignments()), stateInfo.rcs).toBigDecimal();
 						double correctedScore = sofea.bcalc.freeEnergyPrecise(zPathUpper);
 
 						m.add(sofea.bcalc.calcPrecise(econf.getEnergy()));

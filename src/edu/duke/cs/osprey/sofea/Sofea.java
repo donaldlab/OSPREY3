@@ -79,11 +79,6 @@ public class Sofea {
 		private StateConfig[] stateConfigs;
 
 		/**
-		 * SOFEA does math with very large floating numbers, how much decimal precision should we use?
-		 */
-		private MathContext mathContext = new MathContext(32, RoundingMode.HALF_UP);
-
-		/**
 		 * File for the sequence database
 		 */
 		private File seqdbFile = new File("seq.db");
@@ -105,14 +100,14 @@ public class Sofea {
 		private long fringedbLowerBytes = 10*1024*1024; // 10 MiB
 
 		/**
-		 * File for the upper fringe datbase, ie the set of lower fringe nodes
+		 * File for the upper fringe datbase, ie the set of upper fringe nodes
 		 */
 		private File fringedbUpperFile = new File("fringe.upper.db");
 
 		/**
 		 * Max size of the upper fringe database, in bytes
 		 */
-		private long fringedbUpperBytes = 1*1024*1024; // 1 MiB
+		private long fringedbUpperBytes = 1024*1024; // 1 MiB
 
 		/**
 		 * True to print progress info to the console
@@ -167,11 +162,6 @@ public class Sofea {
 			for (MultiStateConfSpace.State state : confSpace.states) {
 				configState(state, configurator.apply(state));
 			}
-			return this;
-		}
-
-		public Builder setMathContext(MathContext val) {
-			mathContext = val;
 			return this;
 		}
 
@@ -254,7 +244,6 @@ public class Sofea {
 			return new Sofea(
 				confSpace,
 				Arrays.asList(stateConfigs),
-				mathContext,
 				seqdbFile,
 				seqdbMathContext,
 				fringedbLowerFile,
@@ -311,7 +300,7 @@ public class Sofea {
 	}
 
 	/** decides if computation should continue or not, and which nodes we should process */
-	public static interface Criterion {
+	public interface Criterion {
 
 		enum Filter {
 			Process,
@@ -334,7 +323,6 @@ public class Sofea {
 
 	public final MultiStateConfSpace confSpace;
 	public final List<StateConfig> stateConfigs;
-	public final MathContext mathContext;
 	public final File seqdbFile;
 	public final MathContext seqdbMathContext;
 	public final File fringedbLowerFile;
@@ -347,18 +335,18 @@ public class Sofea {
 	public final long maxNumMinimizations;
 	public final double negligableFreeEnergy;
 
+	public final MathContext mathContext = BigExp.mathContext;
 	public final BoltzmannCalculator bcalc;
 	public final double gThresholdUpper;
-	public final BigDecimal zPruneThreshold;
+	public final BigExp zPruneThreshold;
 
 	private final List<StateInfo> stateInfos;
 	private final double[] gThresholdsLower;
 
-	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, MathContext mathContext, File seqdbFile, MathContext seqdbMathContext, File fringedbLowerFile, long fringedbLowerBytes, File fringedbUpperFile, long fringedbUpperBytes, boolean showProgress, double sweepIncrement, int maxCriterionCheckSeconds, long maxNumMinimizations, double negligableFreeEnergy) {
+	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, File seqdbFile, MathContext seqdbMathContext, File fringedbLowerFile, long fringedbLowerBytes, File fringedbUpperFile, long fringedbUpperBytes, boolean showProgress, double sweepIncrement, int maxCriterionCheckSeconds, long maxNumMinimizations, double negligableFreeEnergy) {
 
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
-		this.mathContext = mathContext;
 		this.seqdbFile = seqdbFile;
 		this.seqdbMathContext = seqdbMathContext;
 		this.showProgress = showProgress;
@@ -374,7 +362,7 @@ public class Sofea {
 		bcalc = new BoltzmannCalculator(mathContext);
 
 		gThresholdUpper = bcalc.freeEnergyPrecise(bigMath().set(bcalc.calcPrecise(negligableFreeEnergy)).div(maxNumMinimizations).get());
-		zPruneThreshold = bcalc.calcPrecise(gThresholdUpper);
+		zPruneThreshold = new BigExp(bcalc.calcPrecise(gThresholdUpper));
 
 		// init the state info
 		stateInfos = confSpace.states.stream()
@@ -385,8 +373,8 @@ public class Sofea {
 		gThresholdsLower = confSpace.states.stream()
 			.mapToDouble(state -> {
 				Sofea.StateInfo stateInfo = getStateInfo(state);
-				BigDecimal zSumUpper = stateInfo.calcZSumUpper(stateInfo.makeConfIndex(), stateInfo.rcs);
-				return bcalc.freeEnergyPrecise(zSumUpper);
+				BigExp zSumUpper = stateInfo.calcZSumUpper(stateInfo.makeConfIndex(), stateInfo.rcs);
+				return bcalc.freeEnergyPrecise(zSumUpper.toBigDecimal(BigExp.mathContext));
 			})
 			.toArray();
 	}
@@ -412,7 +400,7 @@ public class Sofea {
 			return FringeDB.open(confSpace, fringedbLowerFile);
 		} else {
 			log("Allocating %d bytes for %s", fringedbLowerBytes, fringedbLowerFile);
-			return FringeDB.create(confSpace, fringedbLowerFile, fringedbLowerBytes, mathContext);
+			return FringeDB.create(confSpace, fringedbLowerFile, fringedbLowerBytes);
 		}
 	}
 
@@ -421,7 +409,7 @@ public class Sofea {
 			return FringeDB.open(confSpace, fringedbUpperFile);
 		} else {
 			log("Allocating %d bytes for %s", fringedbUpperBytes, fringedbUpperFile);
-			return FringeDB.create(confSpace, fringedbUpperFile, fringedbUpperBytes, mathContext);
+			return FringeDB.create(confSpace, fringedbUpperFile, fringedbUpperBytes);
 		}
 	}
 
@@ -466,7 +454,10 @@ public class Sofea {
 
 				// get a multi-sequence Z bound on the root node
 				ConfIndex index = stateInfo.makeConfIndex();
-				BigDecimal zSumUpper = stateInfo.calcZSumUpper(index, stateInfo.rcs);
+				BigExp zSumUpper = stateInfo.calcZSumUpper(index, stateInfo.rcs);
+
+				// make sure BigExp values are fully normalized before writing to the databases to avoid some roundoff error
+				zSumUpper.normalize(true);
 
 				// init the fringes with the root node
 				fringetxLower.writeRootNode(state, zSumUpper);
@@ -484,9 +475,9 @@ public class Sofea {
 	private static class Node {
 
 		final int[] conf;
-		final BigDecimal zSumUpper;
+		final BigExp zSumUpper;
 
-		Node(int[] conf, BigDecimal zSumUpper) {
+		Node(int[] conf, BigExp zSumUpper) {
 			this.conf = conf;
 			this.zSumUpper = zSumUpper;
 		}
@@ -495,10 +486,10 @@ public class Sofea {
 	private static class ZPath {
 
 		final int[] conf;
-		BigDecimal zPath;
-		BigDecimal zSumUpper;
+		BigExp zPath;
+		BigExp zSumUpper;
 
-		ZPath(int[] conf, BigDecimal zPath, BigDecimal zSumUpper) {
+		ZPath(int[] conf, BigExp zPath, BigExp zSumUpper) {
 			this.conf = conf;
 			this.zPath = zPath;
 			this.zSumUpper = zSumUpper;
@@ -509,13 +500,13 @@ public class Sofea {
 
 		final MultiStateConfSpace.State state;
 		final int[] conf;
-		final BigDecimal zSumUpper;
+		final BigExp zSumUpper;
 
 		final ConfIndex index;
 		final List<Node> replacementNodes = new ArrayList<>();
 		final List<ZPath> zPaths = new ArrayList<>();
 
-		NodeTransaction(MultiStateConfSpace.State state, int[] conf, BigDecimal zSumUpper) {
+		NodeTransaction(MultiStateConfSpace.State state, int[] conf, BigExp zSumUpper) {
 
 			this.state = state;
 			this.conf = conf;
@@ -525,7 +516,7 @@ public class Sofea {
 			Conf.index(conf, index);
 		}
 
-		void addReplacementNode(ConfIndex index, BigDecimal zSumUpper) {
+		void addReplacementNode(ConfIndex index, BigExp zSumUpper) {
 			replacementNodes.add(new Node(Conf.make(index), zSumUpper));
 		}
 
@@ -533,12 +524,23 @@ public class Sofea {
 			return replacementNodes.size();
 		}
 
-		void addZPath(ConfIndex index, BigDecimal zPath, BigDecimal zSumUpper) {
+		void addZPath(ConfIndex index, BigExp zPath, BigExp zSumUpper) {
 			zPaths.add(new ZPath(Conf.make(index), zPath, zSumUpper));
 		}
 
 		boolean hasRoomToReplace(FringeDB.Transaction fringetx, int otherNodesInFlight) {
 			return fringetx.dbHasRoomFor(replacementNodes.size() + otherNodesInFlight);
+		}
+
+		void normalize() {
+			// make sure BigExp values are fully normalized before writing to the databases to avoid some roundoff error
+			for (ZPath zPath : zPaths) {
+				zPath.zSumUpper.normalize(true);
+			}
+			for (Node replacementNode : replacementNodes) {
+				replacementNode.zSumUpper.normalize(true);
+			}
+			// zSumUpper should already be normalized
 		}
 
 		boolean replacePass1(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
@@ -550,6 +552,7 @@ public class Sofea {
 			}
 
 			StateInfo stateInfo = stateInfos.get(state.index);
+			normalize();
 
 			// and update zSumUpper for all sequences encountered at leaf nodes
 			for (ZPath zPath : zPaths) {
@@ -585,15 +588,18 @@ public class Sofea {
 
 			} else {
 
+				normalize();
+
 				// use the replacement nodes and zPaths to compute a new zSumUpper
-				BigMath m = bigMath().set(0);
+				// NOTE: need full precision of SeqDB's math context here to avoid some roundoff error
+				BigMath m = new BigMath(seqdbMathContext).set(0);
 				for (Node replacementNode : replacementNodes) {
 					m.add(replacementNode.zSumUpper);
 				}
 				for (ZPath zPath : zPaths) {
 					m.add(zPath.zSumUpper);
 				}
-				BigDecimal newZSumUpper = m.get();
+				BigExp newZSumUpper = new BigExp(m.get());
 
 				// move the node to the end of the fringedb queue, but with the new bound
 				fringetx.writeReplacementNode(state, conf, newZSumUpper);
@@ -622,6 +628,8 @@ public class Sofea {
 
 			StateInfo stateInfo = stateInfos.get(state.index);
 
+			normalize();
+
 			// update fringedb with the replacement nodes
 			for (Node replacementNode : replacementNodes) {
 				fringetx.writeReplacementNode(state, replacementNode.conf, replacementNode.zSumUpper);
@@ -643,17 +651,21 @@ public class Sofea {
 				flushTransactions(fringetx, seqtx);
 			}
 
+			normalize();
+
 			// use replacement nodes and zPaths (that we'd otherwise throw away) to compute a tighter zSumUpper
-			BigMath m = bigMath().set(0);
+			// NOTE: need full precision of SeqDB's math context here to avoid some roundoff error
+			BigMath m = new BigMath(seqdbMathContext).set(0);
 			for (Node replacementNode : replacementNodes) {
 				m.add(replacementNode.zSumUpper);
 			}
 			for (ZPath zPath : zPaths) {
 				m.add(zPath.zSumUpper);
 			}
+			BigExp newZSumUpper = new BigExp(m.get());
 
 			// move the node to the end of the fringedb queue
-			fringetx.writeReplacementNode(state, conf, m.get());
+			fringetx.writeReplacementNode(state, conf, newZSumUpper);
 
 			return flush;
 		}
@@ -701,8 +713,8 @@ public class Sofea {
 	private Double[] initGThresholds(FringeDB fringedb) {
 		return confSpace.states.stream()
 			.map(state -> {
-				BigDecimal zSumMax = fringedb.getZSumMax(state);
-				if (zSumMax == null) {
+				BigExp zSumMax = fringedb.getZSumMax(state);
+				if (zSumMax.isNaN()) {
 					return null;
 				} else {
 					return bcalc.freeEnergyPrecise(zSumMax);
@@ -1058,19 +1070,19 @@ public class Sofea {
 		}}}}
 	}
 
-	private BigDecimal[] gtozThresholds(Double[] gs) {
+	private BigExp[] gtozThresholds(Double[] gs) {
 		return Arrays.stream(gs)
 			.map(g -> {
 				if (g == null) {
 					return null;
 				} else {
-					return bcalc.calcPrecise(g);
+					return new BigExp(bcalc.calcPrecise(g));
 				}
 			})
-			.toArray(size -> new BigDecimal[size]);
+			.toArray(size -> new BigExp[size]);
 	}
 
-	private long pass1(FringeDB fringedb, SeqDB seqdb, long step, Criterion criterion, Double[] gThresholds, Stopwatch stopwatch, double targetSeconds) {
+	/* TEMP private */ public long pass1(FringeDB fringedb, SeqDB seqdb, long step, Criterion criterion, Double[] gThresholds, Stopwatch stopwatch, double targetSeconds) {
 
 		if (showProgress) {
 			logf("pass 1 running ...");
@@ -1085,7 +1097,7 @@ public class Sofea {
 			long added = 0;
 		}
 
-		BigDecimal[] zThresholds = gtozThresholds(gThresholds);
+		BigExp[] zThresholds = gtozThresholds(gThresholds);
 
 		// use the energy calculator to provide the paralleism
 		TaskExecutor tasks = stateConfigs.get(0).confEcalc.tasks;
@@ -1129,7 +1141,7 @@ public class Sofea {
 			}
 
 			// check the node filter in the criterion
-			if (criterion.filterNode(nodetx.state, nodetx.conf, bcalc) == Criterion.Filter.Requeue) {
+			if (criterion != null && criterion.filterNode(nodetx.state, nodetx.conf, bcalc) == Criterion.Filter.Requeue) {
 				synchronized (Sofea.this) { // don't race the listener thread
 					stats[nodetx.state.index].requeuedByFilter++;
 					nodesInFlight[0]--;
@@ -1222,10 +1234,10 @@ public class Sofea {
 		}
 	}
 
-	private NodeResult refineZSumUpper(NodeTransaction nodetx, BigDecimal zSumThreshold, ConfIndex index, BigDecimal zSumUpper) {
+	private NodeResult refineZSumUpper(NodeTransaction nodetx, BigExp zSumThreshold, ConfIndex index, BigExp zSumUpper) {
 
 		// forget any subtree if it's below the pruning threshold
-		if (MathTools.isLessThan(zSumUpper, zPruneThreshold)) {
+		if (zSumUpper.lessThan(zPruneThreshold)) {
 			return NodeResult.Removed;
 		}
 
@@ -1236,7 +1248,7 @@ public class Sofea {
 		}
 
 		// if zSumUpper is too small, add the node to the fringe set
-		if (zSumThreshold != null && MathTools.isLessThan(zSumUpper, zSumThreshold)) {
+		if (zSumThreshold != null && zSumUpper.lessThan(zSumThreshold)) {
 			nodetx.addReplacementNode(index, zSumUpper);
 			return NodeResult.Saved;
 		}
@@ -1286,7 +1298,7 @@ public class Sofea {
 		// use the energy calculator to provide the paralleism
 		TaskExecutor tasks = stateConfigs.get(0).confEcalc.tasks;
 
-		BigDecimal[] zThresholds = gtozThresholds(gThresholds);
+		BigExp[] zThresholds = gtozThresholds(gThresholds);
 
 		FringeDB.Transaction fringetx = fringedb.transaction();
 		long numNodesToRead = fringetx.numNodesToRead();
@@ -1315,7 +1327,7 @@ public class Sofea {
 							ConfDB.ConfTable confTable = confTables.get(nodetx.state);
 							StateInfo stateInfo = getStateInfo(nodetx.state);
 							for (ZPath zPath : nodetx.zPaths) {
-								zPath.zPath = stateInfo.calcZPath(zPath.conf, confTable);
+								zPath.zPath = new BigExp(stateInfo.calcZPath(zPath.conf, confTable));
 							}
 							return 42; // it's the answer
 						},
@@ -1360,7 +1372,7 @@ public class Sofea {
 			}
 
 			// check the node filter in the criterion
-			if (criterion.filterNode(nodetx.state, nodetx.conf, bcalc) == Criterion.Filter.Requeue) {
+			if (criterion != null && criterion.filterNode(nodetx.state, nodetx.conf, bcalc) == Criterion.Filter.Requeue) {
 				synchronized (Sofea.this) { // don't race the listener thread
 					nodesInFlight[0]--;
 					stats[nodetx.state.index].requeuedByFilter++;
@@ -1454,15 +1466,15 @@ public class Sofea {
 		}
 	}
 
-	private NodeResult refineZSumLower(NodeTransaction nodetx, BigDecimal zSumThreshold, ConfIndex index, BigDecimal zSumUpper, ConfDB.ConfTable confTable) {
+	private NodeResult refineZSumLower(NodeTransaction nodetx, BigExp zSumThreshold, ConfIndex index, BigExp zSumUpper, ConfDB.ConfTable confTable) {
 
 		// forget any subtree if it's below the pruning threshold
-		if (MathTools.isLessThan(zSumUpper, zPruneThreshold)) {
+		if (zSumUpper.lessThan(zPruneThreshold)) {
 			return NodeResult.Removed;
 		}
 
 		// if zSumUpper is too small, add the node to the fringe set
-		if (zSumThreshold != null && MathTools.isLessThan(zSumUpper, zSumThreshold)) {
+		if (zSumThreshold != null && zSumUpper.lessThan(zSumThreshold)) {
 			nodetx.addReplacementNode(index, zSumUpper);
 			return NodeResult.Saved;
 		}
@@ -1547,7 +1559,7 @@ public class Sofea {
 
 		private final int[][] rtsByRcByPos;
 		private final int[] numRtsByPos;
-		private final BigDecimal[][][] maxzrc2; // indexed by pos1, rc1, pos2
+		private final BigExp[][][] maxzrc2; // indexed by pos1, rc1, pos2
 
 		StateInfo(MultiStateConfSpace.State state) {
 
@@ -1555,7 +1567,7 @@ public class Sofea {
 			StateConfig config = stateConfigs.get(state.index);
 			this.confEcalc = config.confEcalc;
 			this.zmat = new ZMatrix(state.confSpace);
-			this.zmat.set(config.emat, bcalc);
+			this.zmat.set(config.emat);
 			this.rcs = new RCs(state.confSpace);
 
 			// calculate all the RTs by RC and pos
@@ -1577,19 +1589,16 @@ public class Sofea {
 			}
 
 			// calculate all the max rc2 values for every pos1, rc1, pos2
-			final MathTools.Optimizer opt = MathTools.Optimizer.Maximize;
-			maxzrc2 = new BigDecimal[rcs.getNumPos()][][];
+			maxzrc2 = new BigExp[rcs.getNumPos()][][];
 			for (int pos1=0; pos1<rcs.getNumPos(); pos1++) {
-				maxzrc2[pos1] = new BigDecimal[rcs.getNum(pos1)][];
+				maxzrc2[pos1] = new BigExp[rcs.getNum(pos1)][];
 				for (int rc1 : rcs.get(pos1)) {
-					maxzrc2[pos1][rc1] = new BigDecimal[pos1];
+					maxzrc2[pos1][rc1] = new BigExp[pos1];
 					for (int pos2=0; pos2<pos1; pos2++) {
 
-						BigDecimal optzrc2 = opt.initBigDecimal();
+						BigExp optzrc2 = new BigExp(Double.NEGATIVE_INFINITY);
 						for (int rc2 : rcs.get(pos2)) {
-
-							BigDecimal zrc2 = zmat.getPairwise(pos1, rc1, pos2, rc2);
-							optzrc2 = opt.opt(optzrc2, zrc2);
+							optzrc2.max(zmat.getPairwise(pos1, rc1, pos2, rc2));
 						}
 
 						maxzrc2[pos1][rc1][pos2] = optzrc2;
@@ -1624,26 +1633,26 @@ public class Sofea {
 
 		double calcOrderHeuristic(SimpleConfSpace.Position pos) {
 
-			// compute zSumUpper for all RCs at this pos,
-			// as if this pos were the root of a conf tree
-			ConfIndex index = makeConfIndex();
-			BigDecimal rootZSumUpper = calcZSumUpper(index, rcs);
-			BigDecimal[] zSumUppersByRc = Arrays.stream(rcs.get(pos.index))
-				.mapToObj(rc -> {
-					index.assignInPlace(pos.index, rc);
-					// TODO: go deeper with recursion?
-					BigDecimal zSumUpper = calcZSumUpper(index, rcs);
-					index.unassignInPlace(pos.index);
-					return zSumUpper;
-				})
-				.toArray(size -> new BigDecimal[size]);
-
 			// TODO: what heuristic works best here?
 			// hard to experiment on small test cases, since position ordering seems to have little effect on performance
 			// need to experiemnt on bigger test cases, but alas, that's slow
 			return 0.0;
 
 			/*
+			// compute zSumUpper for all RCs at this pos,
+			// as if this pos were the root of a conf tree
+			ConfIndex index = makeConfIndex();
+			BigExp rootZSumUpper = calcZSumUpper(index, rcs);
+			BigExp[] zSumUppersByRc = Arrays.stream(rcs.get(pos.index))
+				.mapToObj(rc -> {
+					index.assignInPlace(pos.index, rc);
+					// TODO: go deeper with recursion?
+					BigExp zSumUpper = calcZSumUpper(index, rcs);
+					index.unassignInPlace(pos.index);
+					return zSumUpper;
+				})
+				.toArray(size -> new BigExp[size]);
+
 			BigMath max = bigMath();
 			for (BigDecimal zSumUpper : zSumUppersByRc) {
 				max.maxOrSet(zSumUpper);
@@ -1662,7 +1671,7 @@ public class Sofea {
 			for (int rc : rcs.get(pos.index)) {
 
 				index.assignInPlace(pos.index, rc);
-				BigDecimal zSumUpper = calcZSumUpper(index, rcs);
+				BigExp zSumUpper = calcZSumUpper(index, rcs);
 				index.unassignInPlace(pos.index);
 
 				log("\tRC %d -> %e", rc, zSumUpper);
@@ -1714,9 +1723,9 @@ public class Sofea {
 			return out;
 		}
 
-		BigInteger calcNumLeavesUpperBySequence(ConfIndex index, RCs rcs) {
+		BigExp calcNumLeavesUpperBySequence(ConfIndex index, RCs rcs) {
 
-			BigInteger count = BigInteger.ONE;
+			BigExp count = new BigExp(1.0);
 
 			for (int i=0; i<index.numUndefined; i++) {
 				int pos = index.undefinedPos[i];
@@ -1739,30 +1748,28 @@ public class Sofea {
 					maxCount = rcs.getNum(pos);
 				}
 
-				count = count.multiply(BigInteger.valueOf(maxCount));
+				count.mult(maxCount);
 			}
 
 			return count;
 		}
 
-		BigDecimal calcZSumUpper(ConfIndex index, RCs rcs) {
-			return bigMath()
-				.set(calcZPathHeadUpper(index))
-				.mult(calcZPathTailUpper(index, rcs))
-				.mult(calcNumLeavesUpperBySequence(index, rcs))
-				.get();
+		BigExp calcZSumUpper(ConfIndex index, RCs rcs) {
+			BigExp out = calcZPathHeadUpper(index);
+			out.mult(calcZPathTailUpper(index, rcs));
+			out.mult(calcNumLeavesUpperBySequence(index, rcs));
+			return out;
 		}
 
-		BigDecimal calcZPathUpper(ConfIndex index, RCs rcs) {
-			return bigMath()
-				.set(calcZPathHeadUpper(index))
-				.mult(calcZPathTailUpper(index, rcs))
-				.get();
+		BigExp calcZPathUpper(ConfIndex index, RCs rcs) {
+			BigExp out = calcZPathHeadUpper(index);
+			out.mult(calcZPathTailUpper(index, rcs));
+			return out;
 		}
 
-		BigDecimal calcZPathHeadUpper(ConfIndex index) {
+		BigExp calcZPathHeadUpper(ConfIndex index) {
 
-			BigMath z = bigMath().set(1.0);
+			BigExp z = new BigExp(1.0);
 
 			// multiply all the singles and pairs
 			for (int i1=0; i1<index.numDefined; i1++) {
@@ -1785,10 +1792,10 @@ public class Sofea {
 				z.mult(tupleZ);
 			});
 
-			return z.get();
+			return z;
 		}
 
-		BigDecimal calcZPathTailUpper(ConfIndex index, RCs rcs) {
+		BigExp calcZPathTailUpper(ConfIndex index, RCs rcs) {
 
 			// this is the usual A* heuristic
 
@@ -1797,18 +1804,17 @@ public class Sofea {
 			// of course, they help get a better zPathTailUpper, but most of the zSumUpper looseness
 			// comes from multiplying by the number of nodes rather than the looseness of zPathTailUpper
 
-			MathTools.Optimizer opt = MathTools.Optimizer.Maximize;
-			BigMath z = bigMath().set(1.0);
+			BigExp z = new BigExp(1.0);
 
 			// for each undefined position
 			for (int i1=0; i1<index.numUndefined; i1++) {
 				int pos1 = index.undefinedPos[i1];
 
 				// optimize over possible assignments to pos1
-				BigDecimal zpos1 = opt.initBigDecimal();
+				BigExp zpos1 = new BigExp(Double.NEGATIVE_INFINITY);
 				for (int rc1 : rcs.get(pos1)) {
 
-					BigMath zrc1 = bigMath().set(zmat.getOneBody(pos1, rc1));
+					BigExp zrc1 = new BigExp(zmat.getOneBody(pos1, rc1));
 
 					// interactions with defined residues
 					for (int i2=0; i2<index.numDefined; i2++) {
@@ -1826,14 +1832,14 @@ public class Sofea {
 						zrc1.mult(maxzrc2[pos1][rc1][pos2]);
 					}
 
-					zpos1 = opt.opt(zpos1, zrc1.get());
+					zpos1.max(zrc1);
 				}
 
-				assert (MathTools.isFinite(zpos1));
+				assert (zpos1.isFinite());
 				z.mult(zpos1);
 			}
 
-			return z.get();
+			return z;
 		}
 
 		BigDecimal calcZPath(ConfIndex index, ConfDB.ConfTable confTable) {

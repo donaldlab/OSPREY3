@@ -54,6 +54,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.Log;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
@@ -61,7 +62,6 @@ import edu.duke.cs.osprey.tools.Streams;
 import org.junit.Test;
 
 import java.io.File;
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -512,18 +512,16 @@ public class TestSofea {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.configEachState(state -> design.configState(state, ecalcs))
-				.setMathContext(mathContext)
 				.build();
 
 			for (MultiStateConfSpace.State state : design.confSpace.states) {
 				Sofea.StateInfo stateInfo = sofea.getStateInfo(state);
 
 				forEachNode(stateInfo, index -> {
-					BigInteger numLeavesUpper = stateInfo.calcNumLeavesUpperBySequence(index, stateInfo.rcs);
+					BigExp numLeavesUpper = stateInfo.calcNumLeavesUpperBySequence(index, stateInfo.rcs);
 					Map<Sequence,BigInteger> numLeaves = stateInfo.calcNumLeavesBySequence(index);
-					BigInteger maxCount = numLeaves.values().stream().max(BigInteger::compareTo).orElse(null);
-					// TODO: should these be equal?
-					assertThat(numLeavesUpper, greaterThanOrEqualTo(maxCount));
+					BigExp maxCount = new BigExp(numLeaves.values().stream().max(BigInteger::compareTo).orElse(null));
+					assertThat(numLeavesUpper, isRelatively(maxCount, 1e-9));
 				});
 			}
 		}
@@ -534,7 +532,6 @@ public class TestSofea {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.configEachState(state -> design.configState(state, ecalcs))
-				.setMathContext(mathContext)
 				.build();
 
 			for (MultiStateConfSpace.State state : design.confSpace.states) {
@@ -542,9 +539,13 @@ public class TestSofea {
 				try (Sofea.StateInfo.Confs confs = stateInfo.new Confs()) {
 
 					forEachNode(stateInfo, index -> {
-						BigDecimalBounds exact = stateInfo.calcZPathBoundsExact(index, stateInfo.rcs, confs.table);
-						BigDecimalBounds bounds = new BigDecimalBounds(
-							BigDecimal.ZERO,
+						BigDecimalBounds exactBigDecimal = stateInfo.calcZPathBoundsExact(index, stateInfo.rcs, confs.table);
+						BigExp.Bounds exact = new BigExp.Bounds(
+							new BigExp(exactBigDecimal.lower),
+							new BigExp(exactBigDecimal.upper)
+						);
+						BigExp.Bounds bounds = new BigExp.Bounds(
+							new BigExp(0.0),
 							stateInfo.calcZPathUpper(index, stateInfo.rcs)
 						);
 						assertThat(bounds, isRelativeBound(exact, 1e-3));
@@ -559,7 +560,6 @@ public class TestSofea {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.configEachState(state -> design.configState(state, ecalcs))
-				.setMathContext(mathContext)
 				.build();
 
 			for (MultiStateConfSpace.State state : design.confSpace.states) {
@@ -568,11 +568,11 @@ public class TestSofea {
 
 					forEachNode(stateInfo, index -> {
 
-						BigDecimalBounds bounds = new BigDecimalBounds(
-							BigDecimal.ZERO,
+						BigExp.Bounds bounds = new BigExp.Bounds(
+							new BigExp(0.0),
 							stateInfo.calcZSumUpper(index, stateInfo.rcs)
 						);
-						BigDecimal exact = stateInfo.calcZSum(index, stateInfo.rcs, confs.table);
+						BigExp exact = new BigExp(stateInfo.calcZSum(index, stateInfo.rcs, confs.table));
 						assertThat(bounds, isRelativeBound(exact, 1e-4));
 					});
 				}
@@ -607,7 +607,6 @@ public class TestSofea {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.configEachState(state -> design.configState(state, ecalcs))
-				.setMathContext(mathContext)
 				.build();
 
 			return design.confSpace.states.stream()
@@ -683,7 +682,6 @@ public class TestSofea {
 
 			Sofea sofea = new Sofea.Builder(design.confSpace)
 				.configEachState(state -> design.configState(state, ecalcs))
-				.setMathContext(mathContext)
 				.build();
 
 			double[] g = design.confSpace.states.stream()
@@ -755,7 +753,6 @@ public class TestSofea {
 				.setSeqDBFile(seqdbFile)
 				.setSweepIncrement(sweepIncrement)
 				.configEachState(state -> design.configState(state, ecalcs))
-				.setMathContext(mathContext)
 				.build();
 
 			sofea.init(true);
@@ -779,13 +776,13 @@ public class TestSofea {
 				// check that bounds are exactly tight (within roundoff error)
 				for (MultiStateConfSpace.State state : design.confSpace.unsequencedStates) {
 					BigDecimalBounds zSumBounds = seqdb.getUnsequencedZSumBounds(state);
-					assertThat(zSumBounds.lower, isRelatively(zSumBounds.upper, 1e-6));
+					assertThat(zSumBounds.lower, isRelatively(zSumBounds.upper, 1e-10));
 				}
 				for (Sequence seq : design.confSpace.seqSpace.getSequences()) {
 					SeqDB.SeqInfo seqInfo = seqdb.getSequencedZSumBounds(seq);
 					for (MultiStateConfSpace.State state : design.confSpace.sequencedStates) {
 						BigDecimalBounds zSumBounds = seqInfo.get(state);
-						assertThat(zSumBounds.lower, isRelatively(zSumBounds.upper, 1e-6));
+						assertThat(zSumBounds.lower, isRelatively(zSumBounds.upper, 1e-10));
 					}
 				}
 			}
@@ -810,7 +807,6 @@ public class TestSofea {
 				.setSeqDBFile(seqdbFile)
 				.setSweepIncrement(sweepIncrement)
 				.configEachState(state -> design.configState(state, ecalcs))
-				.setMathContext(mathContext)
 				.build();
 
 			sofea.init(true);

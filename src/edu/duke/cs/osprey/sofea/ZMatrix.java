@@ -39,19 +39,27 @@ import edu.duke.cs.osprey.confspace.TupleMatrixGeneric;
 import edu.duke.cs.osprey.confspace.TupleTree;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.tools.BigExp;
 
-import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 
-import static edu.duke.cs.osprey.tools.Log.log;
 
 /** a matrix of Boltzmann-weighted energies */
-public class ZMatrix extends TupleMatrixGeneric<BigDecimal> {
+public class ZMatrix extends TupleMatrixGeneric<BigExp> {
+
+	// since we're outputting BigExp values, we only need about 16 decimal digits of precision
+	private final BoltzmannCalculator bcalc = new BoltzmannCalculator(new MathContext(16, RoundingMode.HALF_UP));
 
 	public ZMatrix(SimpleConfSpace confSpace) {
 		super(confSpace);
 	}
 
-	public void set(EnergyMatrix emat, BoltzmannCalculator bcalc) {
+	private BigExp calc(double energy) {
+		return new BigExp(bcalc.calcPrecise(energy));
+	}
+
+	public void set(EnergyMatrix emat) {
 
 		// convert singles and pairs
 		int n = getNumPos();
@@ -59,13 +67,13 @@ public class ZMatrix extends TupleMatrixGeneric<BigDecimal> {
 			int m1 = getNumConfAtPos(pos1);
 			for (int rc1=0; rc1<m1; rc1++) {
 
-				this.setOneBody(pos1, rc1, bcalc.calcPrecise(emat.getOneBody(pos1, rc1)));
+				this.setOneBody(pos1, rc1, calc(emat.getOneBody(pos1, rc1)));
 
 				for (int pos2=0; pos2<pos1; pos2++) {
 					int m2 = getNumConfAtPos(pos2);
 					for (int rc2=0; rc2<m2; rc2++) {
 
-						this.setPairwise(pos1, rc1, pos2, rc2, bcalc.calcPrecise(emat.getPairwise(pos1, rc1, pos2, rc2)));
+						this.setPairwise(pos1, rc1, pos2, rc2, calc(emat.getPairwise(pos1, rc1, pos2, rc2)));
 					}
 				}
 			}
@@ -86,7 +94,7 @@ public class ZMatrix extends TupleMatrixGeneric<BigDecimal> {
 							TupleTree<Double> tuples = emat.getHigherOrderTuples(pos1, rc1, pos2, rc2);
 							if (tuples != null) {
 								for (RCTuple tuple : tuples.makeTuplesList()) {
-									this.setTuple(tuple, bcalc.calcPrecise(tuples.get(tuple)));
+									this.setTuple(tuple, calc(tuples.get(tuple)));
 								}
 							}
 						}

@@ -37,6 +37,7 @@ import java.math.MathContext;
 
 import ch.obermuhlner.math.big.BigDecimalMath;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
+import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
@@ -103,7 +104,19 @@ public class BoltzmannCalculator {
 		return -constRT*ln(z);
 	}
 
+	public double freeEnergyPrecise(BigExp z) {
+		return freeEnergyPrecise(z.toBigDecimal(mathContext));
+	}
+
 	public DoubleBounds freeEnergyPrecise(BigDecimalBounds z) {
+		// remember to swap the bounds, since computing free energy negates the value
+		return new DoubleBounds(
+			freeEnergyPrecise(z.upper),
+			freeEnergyPrecise(z.lower)
+		);
+	}
+
+	public DoubleBounds freeEnergyPrecise(BigExp.Bounds z) {
 		// remember to swap the bounds, since computing free energy negates the value
 		return new DoubleBounds(
 			freeEnergyPrecise(z.upper),
@@ -134,6 +147,10 @@ public class BoltzmannCalculator {
 		}
 	}
 
+	public double ln(BigExp z) {
+		return ln(z.toBigDecimal(mathContext));
+	}
+
 	/**
 	 * computes the following:
 	 *  for z == 0: 0
@@ -150,5 +167,9 @@ public class BoltzmannCalculator {
 			d = -ln(MathTools.bigNegate(z).add(BigDecimal.ONE, mathContext));
 		}
 		return d;
+	}
+
+	public double ln1p(BigExp z) {
+		return ln1p(z.toBigDecimal(mathContext));
 	}
 }

@@ -1509,7 +1509,7 @@ def SOFEA_StateConfig(emat, confEcalc, confdbPath=None):
 	return jvm.getInnerClass(c.sofea.Sofea, 'StateConfig')(emat, confEcalc, confdbFile)
 
 
-def SOFEA(confSpace, configFunc, mathContext=useJavaDefault, seqdbPath='sofea.seqdb', seqdbMathContext=useJavaDefault, fringedbLowerPath='sofea.lower.fringedb', fringedbLowerMiB=10, fringedbUpperPath='sofea.upper.fringedb', fringedbUpperMiB=10, showProgress=useJavaDefault, sweepIncrement=useJavaDefault, maxNumMinimizations=useJavaDefault, negligableFreeEnergy=useJavaDefault):
+def SOFEA(confSpace, configFunc, seqdbPath='sofea.seqdb', seqdbMathContext=useJavaDefault, fringedbLowerPath='sofea.lower.fringedb', fringedbLowerMiB=10, fringedbUpperPath='sofea.upper.fringedb', fringedbUpperMiB=10, showProgress=useJavaDefault, sweepIncrement=useJavaDefault, maxNumMinimizations=useJavaDefault, negligableFreeEnergy=useJavaDefault):
 	'''
 	:java:classdoc:`.sofea.Sofea`
 
@@ -1519,7 +1519,6 @@ def SOFEA(confSpace, configFunc, mathContext=useJavaDefault, seqdbPath='sofea.se
 	:param configFunc: a function that creates a :java:ref:`.sofea.Sofea$StateConfig` for a state
 	:type configFunc: function(:java:ref:`.confspace.MultiStateConfSpace$State`) returning :java:ref:`.sofea.Sofea$StateConfig`
 
-	:builder_option mathContext .sofea.Sofea$Builder#mathContext:
 	:param str seqdbPath: Path to write the sequence database file
 	:builder_option seqdbMathContext .sofea.Sofea$Builder#seqdbMathContext:
 	:param str fringedbLowerPath: Path to write the lower fringe set
@@ -1539,8 +1538,6 @@ def SOFEA(confSpace, configFunc, mathContext=useJavaDefault, seqdbPath='sofea.se
 	for state in confSpace.states:
 		builder.configState(state, configFunc(state))
 
-	if mathContext is not useJavaDefault:
-		builder.setMathContext(mathContext)
 	if seqdbPath is not useJavaDefault:
 		builder.setSeqDBFile(jvm.toFile(seqdbPath))
 	if seqdbMathContext is not useJavaDefault:
