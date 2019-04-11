@@ -32,13 +32,11 @@
 
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.tools.HashCalculator;
-import javafx.util.Pair;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 
 /**
  *
@@ -84,7 +82,13 @@ public class RCTuple implements Serializable {
     	this();
     	set(pos1, rc1, pos2, rc2, pos3, rc3);
 	}
-    
+
+	// a quad
+	public RCTuple(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int rc4) {
+		this();
+		set(pos1, rc1, pos2, rc2, pos3, rc3, pos4, rc4);
+	}
+
     //Sometimes we'll want to generate an RC tuple from a conformation, specified as RCs for all positions
     //in order.  
     //In this case, negative values are not (fully) defined, so the tuple contains all positions
@@ -93,6 +97,11 @@ public class RCTuple implements Serializable {
     	this();
     	set(conf);
     }
+
+    public RCTuple(ConfIndex index) {
+    	this();
+    	set(index);
+	}
     
     public RCTuple set(int pos, int rc) {
     	this.pos.clear();
@@ -133,6 +142,25 @@ public class RCTuple implements Serializable {
 		return this;
 	}
 
+	public RCTuple set(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int rc4) {
+		this.pos.clear();
+		this.RCs.clear();
+
+		this.pos.add(pos1);
+		this.RCs.add(rc1);
+
+		this.pos.add(pos2);
+		this.RCs.add(rc2);
+
+		this.pos.add(pos3);
+		this.RCs.add(rc3);
+
+		this.pos.add(pos4);
+		this.RCs.add(rc4);
+
+		return this;
+	}
+
 	public void set(int[] conf) {
     	pos.clear();
     	RCs.clear();
@@ -150,6 +178,15 @@ public class RCTuple implements Serializable {
     	pos.addAll(other.pos);
     	RCs.addAll(other.RCs);
     }
+
+    public void set(ConfIndex index) {
+    	pos.clear();
+    	RCs.clear();
+    	for (int i=0; i<index.numDefined; i++) {
+    		pos.add(index.definedPos[i]);
+    		RCs.add(index.definedRCs[i]);
+		}
+	}
     
     public int size() {
     	return pos.size();
@@ -310,4 +347,12 @@ public class RCTuple implements Serializable {
 		return out;
 	}
 
+	public Integer getRC(int index) {
+		for (int i=0; i<size(); i++) {
+			if (pos.get(i) == index) {
+				return RCs.get(i);
+			}
+		}
+		return null;
+	}
 }

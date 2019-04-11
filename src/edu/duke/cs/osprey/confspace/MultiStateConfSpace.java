@@ -1,7 +1,42 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.confspace;
 
 
+import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
+
 import java.util.*;
+import java.util.function.Function;
 
 
 /**
@@ -139,8 +174,20 @@ public class MultiStateConfSpace {
 			return weightsByState.keySet();
 		}
 
-		public double getWeight(State state) {
+		public Double getWeight(State state) {
 			return weightsByState.get(state);
+		}
+
+		public DoubleBounds[] collectFreeEnergies(Function<State,DoubleBounds> f) {
+			DoubleBounds[] boundsByState = new DoubleBounds[confSpace.states.size()];
+			for (State state : states()) {
+				boundsByState[state.index] = f.apply(state);
+			}
+			return boundsByState;
+		}
+
+		public LMFECalculator calc() {
+			return new LMFECalculator(this);
 		}
 	}
 
@@ -183,5 +230,55 @@ public class MultiStateConfSpace {
 	/** build a linear multi-state free energy */
 	public LMFEBuilder lmfe() {
 		return new LMFEBuilder();
+	}
+
+	public class LMFECalculator {
+
+		public final LMFE lmfe;
+
+		public final DoubleBounds bounds = new DoubleBounds(0, 0);
+
+		public LMFECalculator(LMFE lmfe) {
+			this.lmfe = lmfe;
+		}
+
+		public LMFECalculator add(State state, DoubleBounds freeEnergy) {
+
+			// get the weight, if any
+			Double weight = lmfe.getWeight(state);
+			if (weight == null) {
+				return this;
+			}
+
+			// if either bound is [+inf,+inf], assume the result is [+inf,+inf]
+			if ((bounds.lower == Double.POSITIVE_INFINITY && bounds.upper == Double.POSITIVE_INFINITY)
+				|| (freeEnergy.lower == Double.POSITIVE_INFINITY && freeEnergy.upper == Double.POSITIVE_INFINITY)) {
+
+				bounds.lower = Double.POSITIVE_INFINITY;
+				bounds.upper = Double.POSITIVE_INFINITY;
+
+			// otherwise, do the usual arithmetic
+			} else {
+
+				if (weight < 0) {
+					bounds.lower += freeEnergy.upper*weight;
+					bounds.upper += freeEnergy.lower*weight;
+				} else if (weight > 0) {
+					bounds.lower += freeEnergy.lower*weight;
+					bounds.upper += freeEnergy.upper*weight;
+				}
+			}
+
+			return this;
+		}
+
+		public LMFECalculator addAll(DoubleBounds[] freeEnergiesByState) {
+
+			for (State state : lmfe.confSpace.states) {
+				add(state, freeEnergiesByState[state.index]);
+			}
+
+			return this;
+		}
 	}
 }

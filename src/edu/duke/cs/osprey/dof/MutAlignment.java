@@ -338,7 +338,7 @@ public class MutAlignment {
 
     private static Set<String> getBondingAtomNames(InterResBondingTemplate irb){
         if(irb instanceof InterResBondingTemplate.SpecifiedBondingAtomsTemplate)
-            return ((InterResBondingTemplate.SpecifiedBondingAtomsTemplate) irb).getBondingAtomNames();
+            return new HashSet<>(((InterResBondingTemplate.SpecifiedBondingAtomsTemplate) irb).getBondingAtomNames());
         else if(irb instanceof InterResBondingTemplate.NoBondingTemplate)
             return new HashSet<>();
         else if(irb instanceof InterResBondingTemplate.CysteineBondingTemplate)

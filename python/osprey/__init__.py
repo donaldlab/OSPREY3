@@ -60,7 +60,8 @@ BreakdownType = None
 # make a special type to use in function signatures to explicitly
 # signal that values should rely on defaults in the java code
 class UseJavaDefault:
-	pass
+	def __repr__(self):
+		return "(default defined in Java code)"
 useJavaDefault = UseJavaDefault()
 
 
@@ -549,7 +550,7 @@ def SharedEnergyCalculator(ecalc, isMinimizing=None):
 	return builder.build()
 
 
-def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=None, addResEntropy=None, energyPartition=None):
+def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=UseJavaDefault, addResEntropy=UseJavaDefault, energyPartition=UseJavaDefault, amat=UseJavaDefault, approximationErrorBudget=UseJavaDefault):
 	'''
 	:java:classdoc:`.energy.ConfEnergyCalculator`
 
@@ -558,15 +559,22 @@ def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=None, addResEntropy
 	:builder_option referenceEnergies .energy.ConfEnergyCalculator$Builder#eref:
 	:builder_option addResEntropy .energy.ConfEnergyCalculator$Builder#addResEntropy:
 	:builder_option energyPartition .energy.ConfEnergyCalculator$Builder#epart:
+	:builder_option amat .energy.ConfEnergyCalculator$Builder#amat:
+	:builder_option approximationErrorBudget .energy.ConfEnergyCalculator$Builder#approximationErrorBudget:
 	:builder_return .energy.ConfEnergyCalculator$Builder:
 	'''
 	builder = _get_builder(c.energy.ConfEnergyCalculator)(confSpace, ecalc)
 
-	if referenceEnergies is not None:
+	if referenceEnergies is not UseJavaDefault:
 		builder.setReferenceEnergies(referenceEnergies)
-
-	if energyPartition is not None:
+	if addResEntropy is not UseJavaDefault:
+		builder.addResEntropy(addResEntropy)
+	if energyPartition is not UseJavaDefault:
 		builder.setEnergyPartition(energyPartition)
+	if amat is not UseJavaDefault:
+		builder.setApproximatorMatrix(amat)
+	if approximationErrorBudget is not UseJavaDefault:
+		builder.setApproximationErrorBudget(approximationErrorBudget)
 
 	return builder.build()
 
@@ -583,18 +591,43 @@ def ConfEnergyCalculatorCopy(source, ecalc):
 	return c.energy.ConfEnergyCalculator(source, ecalc)
 
 
-def EnergyMatrix(confEcalc, cacheFile=None):
+def ApproximatorMatrix(confEcalc, cacheFile=UseJavaDefault, numSamplesPerParam=UseJavaDefault):
+	'''
+	:java:classdoc:`.energy.approximation.ApproximatorMatrix`
+
+	:builder_option confEcalc .energy.approximation.ApproximatorMatrixCalculator#confEcalc:
+	:builder_option cacheFile .energy.approximation.ApproximatorMatrixCalculator#cacheFile:
+	:builder_option numSamplesPerParam .energy.approximation.ApproximatorMatrixCalculator#numSamplesPerParam:
+	'''
+
+	calculator = c.energy.approximation.ApproximatorMatrixCalculator(confEcalc)
+
+	if cacheFile is not UseJavaDefault:
+		calculator.setCacheFile(jvm.toFile(cacheFile))
+	if numSamplesPerParam is not UseJavaDefault:
+		calculator.setNumSamplesPerDof(numSamplesPerParam)
+
+	return calculator.calc()
+
+
+def EnergyMatrix(confEcalc, cacheFile=UseJavaDefault, tripleCorrectionThreshold=UseJavaDefault, quadCorrectionThreshold=UseJavaDefault):
 	'''
 	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcEnergyMatrix`
 
 	:builder_option confEcalc .ematrix.SimplerEnergyMatrixCalculator$Builder#confEcalc:
 	:builder_option cacheFile .ematrix.SimplerEnergyMatrixCalculator$Builder#cacheFile:
+	:builder_option tripleCorrectionThreshold .ematrix.SimplerEnergyMatrixCalculator$Builder#tripleCorrectionThreshold:
+	:builder_option quadCorrectionThreshold .ematrix.SimplerEnergyMatrixCalculator$Builder#quadCorrectionThreshold:
 	'''
 	
 	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confEcalc)
 
-	if cacheFile is not None:
+	if cacheFile is not UseJavaDefault:
 		builder.setCacheFile(jvm.toFile(cacheFile))
+	if tripleCorrectionThreshold is not UseJavaDefault:
+		builder.setTripleCorrectionThreshold(jvm.boxDouble(tripleCorrectionThreshold))
+	if quadCorrectionThreshold is not UseJavaDefault:
+		builder.setQuadCorrectionThreshold(jvm.boxDouble(quadCorrectionThreshold))
 
 	return builder.build().calcEnergyMatrix()
 
@@ -1288,7 +1321,7 @@ def COMETS(objective, constraints=[], objectiveWindowSize=useJavaDefault, object
 	:builder_option objectiveWindowSize .gmec.Comets$Builder#objectiveWindowSize:
 	:builder_option objectiveWindowMax .gmec.Comets$Builder#objectiveWindowMax:
 	:builder_option maxSimultaneousMutations .gmec.Comets$Builder#maxSimultaneousMutations:
-	:builder_option minNumConfTrees .gmec.Comets$Builder#minNumConfsTrees:
+	:builder_option minNumConfTrees .gmec.Comets$Builder#minNumConfTrees:
 
 	:param str logFile: :java:fielddoc:`.gmec.Comets$Builder#logFile`
 
@@ -1377,7 +1410,7 @@ def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSi
 	:builder_option objectiveWindowSize .kstar.MSKStar$Builder#objectiveWindowSize:
 	:builder_option objectiveWindowMax .kstar.MSKStar$Builder#objectiveWindowMax:
 	:builder_option maxSimultaneousMutations .kstar.MSKStar$Builder#maxSimultaneousMutations:
-	:builder_option minNumConfTrees .kstar.MSKStar$Builder#minNumConfsTrees:
+	:builder_option minNumConfTrees .kstar.MSKStar$Builder#minNumConfTrees:
 
 	:param str logFile: :java:fielddoc:`.kstar.MSKStar$Builder#logFile`
 
@@ -1468,25 +1501,41 @@ def EwakstarDoer(state, smaNodes, useSMA=useJavaDefault, printPDBs=useJavaDefaul
 
 
 
-def SOFEA_StateConfig(luteEcalc, pmat):
+def SOFEA_StateConfig(emat, confEcalc, confdbPath=None):
 	'''
-	TODO
-	:param luteEcalc:
-	:param pmat:
-	:return:
-	'''
-	return jvm.getInnerClass(c.sofea.Sofea, 'StateConfig')(luteEcalc, pmat)
+	:java:classdoc:`.sofea.Sofea$StateConfig`
 
-def SOFEA(confSpace, configFunc, parallelism=useJavaDefault, fringeDBPath=useJavaDefault, fringeDBSizeMiB=useJavaDefault, seqDBPath=useJavaDefault):
+	:param emat: :java:fielddoc:`.sofea.Sofea$StateConfig#emat`
+	:param confEcalc: :java:fielddoc:`.sofea.Sofea$StateConfig#confEcalc`
+	:param confdbPath: :java:fielddoc:`.sofea.Sofea$StateConfig#confDBFile`
+	:rtype: :java:ref:`.sofea.Sofea$StateConfig`
 	'''
-	TODO
-	:param confSpace:
-	:param configFunc:
-	:param parallelism:
-	:param fringeDBPath:
-	:param fringeDBSizeMiB:
-	:param seqDBPath:
-	:return:
+	confdbFile = jvm.toFile(confdbPath) if confdbPath is not None else None
+	return jvm.getInnerClass(c.sofea.Sofea, 'StateConfig')(emat, confEcalc, confdbFile)
+
+
+def SOFEA(confSpace, configFunc, seqdbPath='sofea.seqdb', seqdbMathContext=useJavaDefault, fringedbLowerPath='sofea.lower.fringedb', fringedbLowerMiB=10, fringedbUpperPath='sofea.upper.fringedb', fringedbUpperMiB=10, showProgress=useJavaDefault, sweepIncrement=useJavaDefault, maxNumMinimizations=useJavaDefault, negligableFreeEnergy=useJavaDefault):
+	'''
+	:java:classdoc:`.sofea.Sofea`
+
+	:param confSpace: A multi-state configuration space
+	:type confSpace: :java:ref:`.confspace.MultiStateConfSpace`
+
+	:param configFunc: a function that creates a :java:ref:`.sofea.Sofea$StateConfig` for a state
+	:type configFunc: function(:java:ref:`.confspace.MultiStateConfSpace$State`) returning :java:ref:`.sofea.Sofea$StateConfig`
+
+	:param str seqdbPath: Path to write the sequence database file
+	:builder_option seqdbMathContext .sofea.Sofea$Builder#seqdbMathContext:
+	:param str fringedbLowerPath: Path to write the lower fringe set
+	:param int fringedbLowerMiB: size of the lower fringe set in MiB
+	:param str fringedbUpperPath: Path to write the upper fringe set
+	:param int fringedbUpperMiB: size of the upper fringe set in MiB
+	:builder_option showProgress .sofea.Sofea$Builder#showProgress:
+	:builder_option sweepIncrement .sofea.Sofea$Builder#sweepIncrement:
+	:builder_option maxNumMinimizations .sofea.Sofea$Builder#maxNumMinimizations:
+	:builder_option negligableFreeEnergy .sofea.Sofea$Builder#negligableFreeEnergy:
+
+	:builder_return .sofea.Sofea$Builder:
 	'''
 
 	builder = _get_builder(c.sofea.Sofea)(confSpace)
@@ -1494,25 +1543,49 @@ def SOFEA(confSpace, configFunc, parallelism=useJavaDefault, fringeDBPath=useJav
 	for state in confSpace.states:
 		builder.configState(state, configFunc(state))
 
-	if parallelism is not useJavaDefault:
-		builder.setParallelism(parallelism)
-	if fringeDBPath is not useJavaDefault:
-		builder.setFringeDBFile(jvm.toFile(fringeDBPath))
-	if fringeDBSizeMiB is not useJavaDefault:
-		builder.setFringeDBMiB(fringeDBSizeMiB)
-	if seqDBPath is not useJavaDefault:
-		builder.setSeqDBFile(jvm.toFile(seqDBPath))
-
-	# TODO: expose the rest of the options
+	if seqdbPath is not useJavaDefault:
+		builder.setSeqDBFile(jvm.toFile(seqdbPath))
+	if seqdbMathContext is not useJavaDefault:
+		builder.setSeqDBMathContext(seqdbMathContext)
+	if fringedbLowerPath is not useJavaDefault:
+		builder.setFringeDBLowerFile(jvm.toFile(fringedbLowerPath))
+	if fringedbLowerMiB is not useJavaDefault:
+		builder.setFringeDBLowerMiB(fringedbLowerMiB)
+	if fringedbUpperPath is not useJavaDefault:
+		builder.setFringeDBUpperFile(jvm.toFile(fringedbUpperPath))
+	if fringedbUpperMiB is not useJavaDefault:
+		builder.setFringeDBUpperMiB(fringedbUpperMiB)
+	if showProgress is not useJavaDefault:
+		builder.setShowProgress(showProgress)
+	if sweepIncrement is not useJavaDefault:
+		builder.setSweepIncrement(sweepIncrement)
+	if maxNumMinimizations is not useJavaDefault:
+		builder.setMaxNumMinimizations(maxNumMinimizations)
+	if negligableFreeEnergy is not useJavaDefault:
+		builder.setNegligableFreeEnergy(negligableFreeEnergy)
 
 	return builder.build()
 
-def SOFEA_MinLMFE(lmfe, numSequences, mathContext):
+
+def SOFEA_MinLMFE(lmfe, numSequences, minFreeEnergyWidth):
 	'''
-	TODO
-	:param lmfe:
-	:param numSequences:
-	:param mathContext:
-	:return:
+	:java:classdoc:`.sofea.MinLMFE`
+
+	:param lmfe: :java:fielddoc:`.sofea.MinLMFE#objective`
+	:param numSequences: :java:fielddoc:`.sofea.MinLMFE#numSequences`
+	:param minFreeEnergyWidth: :java:fielddoc:`.sofea.MinLMFE#minFreeEnergyWidth`
+	:rtype: :java:ref:`.sofea.MinLMFE`
 	'''
-	return c.sofea.MinLMFE(lmfe, numSequences, mathContext)
+	return c.sofea.MinLMFE(lmfe, numSequences, minFreeEnergyWidth)
+
+
+def SOFEA_SequenceLMFE(sequence, lmfe, minFreeEnergyWidth):
+	'''
+	:java:classdoc:`.sofea.SequenceLMFE`
+
+	:param sequence: :java:fielddoc:`.sofea.SequenceLMFE#seq`
+	:param lmfe: :java:fielddoc:`.sofea.SequenceLMFE#lmfe`
+	:param minFreeEnergyWidth: :java:fielddoc:`.sofea.SequenceLMFE#minFreeEnergyWidth`
+	:rtype: :java:ref:`.sofea.SequenceLMFE`
+	'''
+	return c.sofea.SequenceLMFE(sequence, lmfe, minFreeEnergyWidth)

@@ -43,6 +43,7 @@ import java.util.Set;
 
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
+import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residues;
@@ -342,50 +343,44 @@ public class EEF1 implements Serializable {
 	
 	//Determines if ths given atom is a carboxyl oxygen (there should be only one carbon bound to the
 	//		given oxygen and exactly two oxygens (including the given one) should be bound to that carbon)
-	private boolean isCarboxylO(Atom at1){
+	private boolean isCarboxylO(Atom atom) {
 		
-		if (!at1.elementType.equalsIgnoreCase("O")) //not O
+		if (!atom.isOxygen()) {
 			return false;
-		else {
-			
-			int numBoundC = 0;
-			boolean isCarboxylO = false;
-			if (at1.bonds!=null){ //check bonds
-				for (int i=0; i<at1.bonds.size(); i++){		
-					
-					Atom at2 = at1.bonds.get(i);
-					
-					if (at2.elementType.equalsIgnoreCase("C")){ //found a bound C
-						
-						numBoundC++;
-						if (numBoundC>1) //more than 1 C bound
-							return false;
-						else
-							isCarboxylO = isCOhelper(at2);
-					}
+		}
+
+		// try to find the lone bound carbon
+		Atom boundC = null;
+		for (Atom bondedAtom : atom.bonds) {
+			if (bondedAtom.isCarbon()) {
+				if (boundC != null) {
+					// more than one bound carbon, can't be carboxyl O
+					return false;
 				}
+				boundC = bondedAtom;
 			}
-			return isCarboxylO;			
 		}
+
+		// found it, is it a carboxyl C?
+		return isCarboxylC(boundC);
 	}
-	
-	//Used by isCarboxylO(); see comments above
-	private boolean isCOhelper(Atom at2){		
-		
-		int numBoundO = 0;
-		if (at2.bonds!=null){ //check bonds
-			for (int j=0; j<at2.bonds.size(); j++){
-				if (at2.bonds.get(j).elementType.equalsIgnoreCase("O"))
-					numBoundO++;
-			}
-		}
-		
-		if (numBoundO==2)
-			return true;
-		else
+
+	private boolean isCarboxylC(Atom atom) {
+
+		if (!atom.isCarbon()) {
 			return false;
+		}
+
+		// does the carbon have exactly two bound oxygens?
+		int numO = 0;
+		for (Atom bondedAtom : atom.bonds) {
+			if (bondedAtom.isOxygen()) {
+				numO++;
+			}
+		}
+		return numO == 2;
 	}
-	
+
 	//Determines if the given heavy atom is aromatic
 	private boolean isAromatic(String atomName, String elementType, String AAname) {
 		
@@ -418,23 +413,24 @@ public class EEF1 implements Serializable {
 	}
 	
 	//Get the number of H bound to the given atom
-	private int getNumBoundH(Atom at1){
-		
+	private int getNumBoundH(Atom atom) {
 		int numBoundH = 0;
-		for (int i=0; i<at1.bonds.size(); i++){
-			if (at1.bonds.get(i).elementType.equalsIgnoreCase("H"))
+		for (Atom bondedAtom : atom.bonds) {
+			if (bondedAtom.isHydrogen()) {
 				numBoundH++;
+			}
 		}
-		
 		return numBoundH;
 	}
-	
+
+	private static class ResInfo {
+		int[] indices;
+		double internalEnergy;
+	}
+
+	private static final Map<ResidueTemplate,ResInfo> resInfoCache = new HashMap<>();
+
 	public class ResiduesInfo implements SolvationForcefield.ResiduesInfo {
-		
-		private class ResInfo {
-			public int[] indices;
-			public double internalEnergy;
-		}
 		
 		public final Residues residues;
 		
@@ -446,32 +442,31 @@ public class EEF1 implements Serializable {
 			
 			infos = new IdentityHashMap<>();
 			for (Residue res : residues) {
-				
-				ResInfo info = new ResInfo();
-				infos.put(res, info);
-				
-				// calculate the group indices
-				info.indices = new int[res.atoms.size()];
-				for (int i=0; i<res.atoms.size(); i++) {
-					Atom atom = res.atoms.get(i);
-					if (atom.isHydrogen()) {
-						info.indices[i] = -1;
-					} else {
-						int index = getSolvGroupIndex(atom);
-						if (index == -1) {
-							warnAtomType(atom.forceFieldType);
+
+				synchronized (resInfoCache) {
+					infos.put(res, resInfoCache.computeIfAbsent(res.template, (template) -> {
+
+						ResInfo info = new ResInfo();
+
+						// calculate the group indices
+						info.indices = new int[res.atoms.size()];
+						info.internalEnergy = 0.0;
+						for (int i=0; i<res.atoms.size(); i++) {
+							Atom atom = res.atoms.get(i);
+							if (atom.isHydrogen()) {
+								info.indices[i] = -1;
+							} else {
+								int index = getSolvGroupIndex(atom);
+								if (index == -1) {
+									warnAtomType(atom.forceFieldType);
+								}
+								info.indices[i] = index;
+								info.internalEnergy += dGiRef[index];
+							}
 						}
-						info.indices[i] = index;
-					}
-				}
-				
-				// calculate the internal energy
-				// add up all the dGref terms for all the atoms
-				info.internalEnergy = 0.0;
-				for (int index : info.indices) {
-					if (index != -1) {
-						info.internalEnergy += dGiRef[index];
-					}
+
+						return info;
+					}));
 				}
 			}
 		}

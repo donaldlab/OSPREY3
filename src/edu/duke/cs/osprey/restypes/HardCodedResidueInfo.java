@@ -252,23 +252,31 @@ public class HardCodedResidueInfo {
                 return new InterResBondingTemplate.CysteineBondingTemplate();
             else
                 return new InterResBondingTemplate.PeptideBondingTemplate();
-        }
-        else
+        } else if (HardCodedResidueInfo.hasNucleicAcidBB(res)) {
+        	return new InterResBondingTemplate.NucleotideBondingTemplate();
+		} else {
             return new InterResBondingTemplate.NoBondingTemplate();
+		}
     }
     
     
     public static boolean hasAminoAcidBB(Residue res){
         //does res have the three main amino-acid backbone atoms (N,CA, and C)?
         //This would allow it to peptide-bond
-        if( res.getAtomIndexByName("N")>=0 && res.getAtomIndexByName("CA")>=0 
-                && res.getAtomIndexByName("C")>=0){
-            return true;//found them all
-        }
-        return false;//didn't find them all
+		return res.getAtomIndexByName("N") >= 0
+			&& res.getAtomIndexByName("CA") >= 0
+			&& res.getAtomIndexByName("C") >= 0;
     }
-    
-    
+
+	public static boolean hasNucleicAcidBB(Residue res){
+    	return res.getAtomIndexByName("P") >= 0
+			&& res.getAtomIndexByName("O5'") >= 0
+			&& res.getAtomIndexByName("C5'") >= 0
+			&& res.getAtomIndexByName("C4'") >= 0
+			&& res.getAtomIndexByName("C3'") >= 0
+			&& res.getAtomIndexByName("O3'") >= 0;
+	}
+
     public static String getTemplateName(Residue res){
         //some residues may have template names different than what's in the full name for the residue
         //we identify those here

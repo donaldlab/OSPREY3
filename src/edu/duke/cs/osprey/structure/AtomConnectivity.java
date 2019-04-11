@@ -334,10 +334,10 @@ public class AtomConnectivity {
 		}
 	
 		// are they bonded together?
-		if (isDipeptide(res1, res2)) {
+		if (isInterResBonded(res1, res2)) {
 			// yup, in forward order
 			return atomPairs2.get(new Key2(res1.template, res2.template, true));
-		} else if (isDipeptide(res2, res1)) {
+		} else if (isInterResBonded(res2, res1)) {
 			// yup, in reverse order
 			return atomPairs2.get(new Key2(res2.template, res1.template, false));
 		} else {
@@ -355,7 +355,7 @@ public class AtomConnectivity {
 		
 		Residue res1 = makeResidue(templ1);
 		Residue res2 = makeResidue(templ2);
-		if (!makePeptideBond(res1, res2)) {
+		if (!makeInterResBond(res1, res2)) {
 			return null;
 		}
 		
@@ -375,32 +375,14 @@ public class AtomConnectivity {
 		return res;
 	}
 	
-	private boolean makePeptideBond(Residue res1, Residue res2) {
-		
-		Atom C = res1.getAtomByName("C");
-		Atom N = res2.getAtomByName("N");
-		
-		// no way to make a peptide bond? then we don't care about this sequence of templates
-		// TODO: what about non-protein chains?
-		if (C == null || N == null) {
-			return false;
-		}
-		
-		C.addBond(N);
-		
-		return true;
+	private boolean makeInterResBond(Residue res1, Residue res2) {
+		return res1.template.interResBonding.makeInterResBondForward(res1, res2)
+			|| res2.template.interResBonding.makeInterResBondForward(res1, res2);
 	}
 	
-	private boolean isDipeptide(Residue res1, Residue res2) {
-		
-		Atom C = res1.getAtomByName("C");
-		Atom N = res2.getAtomByName("N");
-		
-		if (C == null || N == null) {
-			return false;
-		}
-		
-		return C.bonds.contains(N);
+	private boolean isInterResBonded(Residue res1, Residue res2) {
+		return res1.template.interResBonding.isInterResBondedForward(res1, res2)
+			|| res2.template.interResBonding.isInterResBondedForward(res1, res2);
 	}
 	
 	private AtomPairs makeAtomPairs(Residue res1, Residue res2) {

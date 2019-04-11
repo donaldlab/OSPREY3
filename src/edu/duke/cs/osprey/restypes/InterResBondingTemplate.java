@@ -36,7 +36,7 @@ import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
 import java.io.Serializable;
-import java.util.Set;
+import java.util.List;
 
 /**
  *
@@ -58,7 +58,11 @@ public abstract class InterResBondingTemplate implements Serializable {
     public abstract boolean atomCanBondOtherRes(Atom atom);
     //atom is from this residue; can it bond other residues?
 
+	public abstract boolean isInterResBondedForward(Residue res1, Residue res2);
+	public abstract boolean makeInterResBondForward(Residue res1, Residue res2);
+
     public static class NoBondingTemplate extends InterResBondingTemplate {
+
         //for residues that can't bond to anything else
         @Override
         public void connectInterResBonds(Residue res, boolean lowerNumResOnly) {}
@@ -67,9 +71,20 @@ public abstract class InterResBondingTemplate implements Serializable {
         public boolean atomCanBondOtherRes(Atom atom) {
             return false;
         }
+
+        @Override
+		public boolean isInterResBondedForward(Residue res1, Residue res2) {
+        	return false;
+		}
+
+		@Override
+		public boolean makeInterResBondForward(Residue res1, Residue res2) {
+        	return false;
+		}
     }
 
     public static class PeptideBondingTemplate extends InterResBondingTemplate {
+
         @Override
         public void connectInterResBonds(Residue res, boolean lowerNumResOnly) {
             if(res.indexInMolecule>0){//res is not the first residue
@@ -87,10 +102,94 @@ public abstract class InterResBondingTemplate implements Serializable {
         public boolean atomCanBondOtherRes(Atom atom) {
             return atom.name.equalsIgnoreCase("N") || atom.name.equalsIgnoreCase("C");
         }
-    }
+
+		@Override
+		public boolean isInterResBondedForward(Residue res1, Residue res2) {
+
+			// make res1:C to res2:N bond
+			Atom C = res1.getAtomByName("C");
+			Atom N = res2.getAtomByName("N");
+
+			if (C == null || N == null) {
+				return false;
+			}
+
+			return C.bonds.contains(N);
+		}
+
+		@Override
+		public boolean makeInterResBondForward(Residue res1, Residue res2) {
+
+			// check for res1:C to res2:N bond
+			Atom C = res1.getAtomByName("C");
+			Atom N = res2.getAtomByName("N");
+
+			// no way to make a peptide bond? then fail
+			if (C == null || N == null) {
+				return false;
+			}
+
+			// don't worry if the atoms are too far apart, just make the bond
+			C.addBond(N);
+			return true;
+		}
+	}
+
+	public static class NucleotideBondingTemplate extends InterResBondingTemplate {
+
+		@Override
+		public void connectInterResBonds(Residue res, boolean lowerNumResOnly) {
+			if(res.indexInMolecule>0){//res is not the first residue
+				Residue prevRes = res.molec.residues.get(res.indexInMolecule-1);
+				tryToMakeNucleotideBond(prevRes,res);
+			}
+			if(res.indexInMolecule<res.molec.residues.size()-1
+				&& !lowerNumResOnly){//res is not the last residue, and we need to connect to higher-numbered res
+				Residue nextRes = res.molec.residues.get(res.indexInMolecule+1);
+				tryToMakeNucleotideBond(res,nextRes);
+			}
+		}
+
+		@Override
+		public boolean atomCanBondOtherRes(Atom atom) {
+			return atom.name.equalsIgnoreCase("P") || atom.name.equalsIgnoreCase("O3'");
+		}
+
+		@Override
+		public boolean isInterResBondedForward(Residue res1, Residue res2) {
+
+			// make res1:O3' to res2:P bond
+			Atom O = res1.getAtomByName("O3'");
+			Atom P = res2.getAtomByName("P");
+
+			if (O == null || P == null) {
+				return false;
+			}
+
+			return O.bonds.contains(P);
+		}
+
+		@Override
+		public boolean makeInterResBondForward(Residue res1, Residue res2) {
+
+			// check for res1:O3' to res2:P bond
+			Atom O = res1.getAtomByName("O3'");
+			Atom P = res2.getAtomByName("P");
+
+			// no way to make a nucleotide bond? then fail
+			if (O == null || P == null) {
+				return false;
+			}
+
+			// don't worry if the atoms are too far apart, just make the bond
+			O.addBond(P);
+			return true;
+		}
+	}
 
 
-    public static class CysteineBondingTemplate extends PeptideBondingTemplate {
+	public static class CysteineBondingTemplate extends PeptideBondingTemplate {
+
         @Override
         public void connectInterResBonds(Residue res, boolean lowerNumResOnly) {
             super.connectInterResBonds(res, lowerNumResOnly);//connect peptide bonds
@@ -110,15 +209,26 @@ public abstract class InterResBondingTemplate implements Serializable {
             return atom.name.equalsIgnoreCase("N") || atom.name.equalsIgnoreCase("C")
                     || atom.name.equalsIgnoreCase("SG");
         }
-    }
+
+		@Override
+		public boolean isInterResBondedForward(Residue res1, Residue res2) {
+			throw new UnsupportedOperationException("atom connectivity queries for cysteine bonds are not yet implemented");
+		}
+
+		@Override
+		public boolean makeInterResBondForward(Residue res1, Residue res2) {
+			throw new UnsupportedOperationException("atom connectivity queries for cysteine bonds are not yet implemented");
+		}
+	}
 
 
     public static class SpecifiedBondingAtomsTemplate extends InterResBondingTemplate {
+
         //A list of atom names in this residue is specified as being available for bonding
         //other residues; it will bond anything within range that is available for bonding
-        Set<String> bondingAtomNames;
+        List<String> bondingAtomNames;
 
-        public SpecifiedBondingAtomsTemplate(Set<String> bondingAtNames){
+        public SpecifiedBondingAtomsTemplate(List<String> bondingAtNames){
             bondingAtomNames = bondingAtNames;
         }
 
@@ -151,7 +261,20 @@ public abstract class InterResBondingTemplate implements Serializable {
             return bondingAtomNames.contains(atom.name);
         }
 
-        public Set<String> getBondingAtomNames(){return bondingAtomNames;}
+        public List<String> getBondingAtomNames(){return bondingAtomNames;}
+
+        private static String notSupportedMsg = "atom connectivity queries for generic inter-residue bonds are not supported."
+			+ " Generic inter-residue bonds do not define a \"forward\" direction";
+
+		@Override
+		public boolean isInterResBondedForward(Residue res1, Residue res2) {
+			throw new UnsupportedOperationException(notSupportedMsg);
+		}
+
+		@Override
+		public boolean makeInterResBondForward(Residue res1, Residue res2) {
+			throw new UnsupportedOperationException(notSupportedMsg);
+		}
     }
 
 
@@ -176,6 +299,27 @@ public abstract class InterResBondingTemplate implements Serializable {
         }
     }
 
+	public static void tryToMakeNucleotideBond(Residue res1, Residue res2) {
+
+		// Given consecutive residues res1 and res2, make a nucleotide bond between them if appropriate
+
+		int Oi = res1.getAtomIndexByName("O3'");
+		if (Oi < 0) {
+			return;
+		}
+		int Pi = res2.getAtomIndexByName("P");
+		if (Pi < 0) {
+			return;
+		}
+		Atom O = res1.atoms.get(Oi);
+		Atom P = res2.atoms.get(Pi);
+
+		// Get distance between these atoms
+		double dist = VectorAlgebra.distance(res1.coords, Oi, res2.coords, Pi);
+		if (dist < HardCodedResidueInfo.bondLengthUpperBound(O.elementNumber, P.elementNumber)) {
+			O.addBond(P);
+		}
+	}
 
     public static void tryToMakeDisulfideBond(Residue res1, Residue res2){
         //Given CYX residues res1 and res2, make a disulfide bond between them if appropriate
