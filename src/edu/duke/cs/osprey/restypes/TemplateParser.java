@@ -203,13 +203,15 @@ public class TemplateParser {
 		StringTokenizer st = new StringTokenizer(line," ");
 		st.nextToken();//INTER-RES
 		st.nextToken();//BONDING:
-		HashSet<String> bondingAtoms = new HashSet<>();
+		List<String> bondingAtoms = new ArrayList<>();
 		while(st.hasMoreTokens()){
 			String tok = st.nextToken();
 			if(tok.equalsIgnoreCase("NONE"))
 				return new InterResBondingTemplate.NoBondingTemplate();
 			else if(tok.equalsIgnoreCase("PEPTIDE"))
 				return new InterResBondingTemplate.PeptideBondingTemplate();
+			else if (tok.equalsIgnoreCase("NUCLEOTIDE"))
+				return new InterResBondingTemplate.NucleotideBondingTemplate();
 			else if(tok.equalsIgnoreCase("CYS"))
 				return new InterResBondingTemplate.CysteineBondingTemplate();
 			else

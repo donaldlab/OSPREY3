@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.restypes;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.Streams;
 import edu.duke.cs.osprey.tools.StringParsing;
 
 import java.io.*;
@@ -129,7 +130,17 @@ public class RotamerLibraryReader implements Serializable {
                     for(int dihedNum=0; dihedNum<numDihedrals; dihedNum++){
                         for(int a=0; a<4; a++){
                             String atomName = dihedralAtomNames[dihedNum][a];
-                            template.dihedral4Atoms[dihedNum][a] = template.templateRes.getAtomIndexByName(atomName);
+                            int atomIndex = template.templateRes.getAtomIndexByName(atomName);
+                            if (atomIndex < 0) {
+                            	throw new NoSuchElementException(String.format(
+                            		"can't match dihedral %s to template %s: didn't find atom named %s among [%s]",
+									Arrays.toString(dihedralAtomNames[dihedNum]),
+									template.name,
+									atomName,
+									Streams.joinToString(template.templateRes.atoms, ",", atom -> atom.name)
+								));
+							}
+                            template.dihedral4Atoms[dihedNum][a] = atomIndex;
                         }
                     }
                     

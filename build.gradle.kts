@@ -442,6 +442,32 @@ tasks {
 			updateLicenseHeaders()
 		}
 	}
+
+	val appendBuildNumber by creating {
+		dependsOn("processResources")
+		doLast {
+			
+			// read the version number
+			val versionFile = projectDir.resolve("build/resources/main/config/version").toFile()
+			var version = versionFile.readText()
+
+			// append the travis build number if available
+			val travisBuildNumber = System.getenv("TRAVIS_BUILD_NUMBER")
+			if (travisBuildNumber != null) {
+				version += "-b$travisBuildNumber"
+
+			// otherwise, use a "-dev" build number
+			} else {
+				version += "-dev"
+			}
+
+			versionFile.writeText(version)
+		}
+	}
+
+	"jar" {
+		dependsOn(appendBuildNumber)
+	}
 }
 
 fun nvcc(exec: Exec, kernelName: String, maxRegisters: Int? = null, profile: Boolean = false) {

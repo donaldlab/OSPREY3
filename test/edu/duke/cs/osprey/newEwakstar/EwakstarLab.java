@@ -1,3 +1,35 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.newEwakstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -9,6 +41,7 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.ewakstar.EwakstarDoer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -24,11 +57,11 @@ public class EwakstarLab {
 
 	public static void main(String[] args) {
 		// run COMETS
-		//EwakstarDoer ewakstarDoer = run2RL0();
+		EwakstarDoer ewakstarDoer = run2RL0();
 		//EwakstarDoer ewakstarDoer = run1GUA();
 		//EwakstarDoer ewakstarDoer = run1GWC();
 		//EwakstarDoer ewakstarDoer = runSpA();
-		EwakstarDoer ewakstarDoer = run2HNV();
+		//EwakstarDoer ewakstarDoer = run2HNV();
 		Set<Sequence> seqs = ewakstarDoer.run(ewakstarDoer.state);
 	}
 
@@ -123,6 +156,8 @@ public class EwakstarLab {
 				.build()
 				.calcEnergyMatrix();
 
+		PruningMatrix pmat = new SimpleDEE.Runner().run(PL.confSpace,PL.emat);
+
 		PL.fragmentEnergies =PL.emat;
 		PL.ematRigid =new SimplerEnergyMatrixCalculator.Builder(PL.confRigidEcalc)
 				.setCacheFile(new File(String.format("ewakstar.%s.ematRigid", PL.name)))
@@ -194,6 +229,7 @@ public class EwakstarLab {
 
 		EwakstarDoer ewakstarDoer = new EwakstarDoer.Builder()
 				.setOrderOfMag(orderMag)
+				.setPrintPDBs(false)
 				.setPfEw(pfEw)
 				.setEpsilon(epsilon)
 				.setNumPfConfs(numPfConfs)
@@ -603,8 +639,6 @@ public class EwakstarLab {
 				.setCacheFile(new File(String.format("ewakstar.%s.ematRigid", PL.name)))
 				.build()
 				.calcEnergyMatrix();
-
-
 
 		// make the conf tree factory
 		PL.confTreeFactoryMin =(rcs) -> new ConfAStarTree.Builder(PL.emat, rcs)

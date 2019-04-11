@@ -101,7 +101,41 @@ public class Atom implements Serializable {
         
         return ans;
     }
-    
+
+	/**
+	 * An optimized copy method
+	 * (profiling shows the usual constructors are a bit slow)
+	 * but doesn't copy the bonds
+	 */
+    public Atom copyToRes(Residue res) {
+		Atom copy = new Atom();
+
+		// copy simple properties
+		copy.name = this.name;
+		copy.elementType = this.elementType;
+		copy.BFactor = this.BFactor;
+		copy.modelAtomNumber = this.modelAtomNumber;
+		copy.forceFieldType = this.forceFieldType;
+		copy.type = this.type;
+		copy.charge = this.charge;
+		copy.elementNumber = this.elementNumber;
+		copy.radius = this.radius;
+		copy.mass = this.mass;
+
+		// init the bonds
+		copy.bonds = new ArrayList<>();
+
+		// put the copy atom in the res
+		copy.res = res;
+		copy.indexInRes = res.atoms.size();
+		res.atoms.add(copy);
+
+		return copy;
+	}
+
+	// private constructor just for the optimized copyToRes() method,
+	// so we can bypass the other slower constructors without breaking existing code
+	private Atom() {}
     
     public void addBond(Atom atom2){
         //add a bond between this and atom2
@@ -135,7 +169,11 @@ public class Atom implements Serializable {
         return elementType.equalsIgnoreCase("C");
     }
 
-    @Override
+	public boolean isOxygen() {
+		return elementType.equalsIgnoreCase("O");
+	}
+
+	@Override
 	public String toString() {
     	if (res != null) {
 			int i = 3*indexInRes;

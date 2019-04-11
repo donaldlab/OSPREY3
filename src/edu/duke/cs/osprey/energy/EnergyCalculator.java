@@ -32,7 +32,6 @@
 
 package edu.duke.cs.osprey.energy;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -43,6 +42,8 @@ import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.DofTypes;
+import edu.duke.cs.osprey.energy.approximation.ApproximatedObjectiveFunction;
+import edu.duke.cs.osprey.energy.approximation.ResidueInteractionsApproximator;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -54,12 +55,7 @@ import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.gpu.cuda.kernels.ResidueCudaCCDMinimizer;
 import edu.duke.cs.osprey.gpu.cuda.kernels.ResidueForcefieldEnergyCuda;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
-import edu.duke.cs.osprey.minimization.CCDMinimizer;
-import edu.duke.cs.osprey.minimization.CudaCCDMinimizer;
-import edu.duke.cs.osprey.minimization.Minimizer;
-import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
-import edu.duke.cs.osprey.minimization.ObjectiveFunction;
-import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
+import edu.duke.cs.osprey.minimization.*;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
@@ -535,7 +531,8 @@ public class EnergyCalculator implements AutoCleanable {
 			this.energy = energy;
 		}
 	}
-	
+
+
 	public final Parallelism parallelism;
 	public final TaskExecutor tasks;
 	public final Type type;
@@ -586,31 +583,68 @@ public class EnergyCalculator implements AutoCleanable {
 		context.cleanup();
 		tasks.clean();
 	}
-	
+
 	/**
 	 * Calculate the energy of a molecule. If the molecule has continuous degrees of freedom,
 	 * they will be minimized within the specified bounds before calculating the energy.
-	 * 
+	 *
 	 * @param pmol The molecule
 	 * @param inters Residue interactions for the energy function
 	 * @return The calculated energy and the associated molecule pose
 	 */
 	public EnergiedParametricMolecule calcEnergy(ParametricMolecule pmol, ResidueInteractions inters) {
+		return calcEnergy(pmol, inters, null);
+	}
+
+	/**
+	 * Calculate the energy of a molecule. If the molecule has continuous degrees of freedom,
+	 * they will be minimized within the specified bounds before calculating the energy.
+	 *
+	 * @param pmol The molecule
+	 * @param inters Residue interactions for the energy function
+	 * @param approximator An approximator to compute approximations to the energy function for certain residue interactions
+	 * @return The calculated energy and the associated molecule pose
+	 */
+	public EnergiedParametricMolecule calcEnergy(ParametricMolecule pmol, ResidueInteractions inters, ResidueInteractionsApproximator approximator) {
 		
 		// short circuit: no inters, no energy!
 		if (inters.size() <= 0) {
 			return new EnergiedParametricMolecule(pmol, null, 0);
 		}
 
+		// separate forcefield and approx residue interactions if needed
+		ResidueInteractions ffInters = inters;
+		if (approximator != null) {
+			ffInters = approximator.ffInters;
+		}
+
+		// start in the center of the voxel
+		DoubleMatrix1D x = DoubleFactory1D.dense.make(pmol.dofs.size());
+
 		// if we don't need to minimize, just return the energy of the current pose
 		if (!isMinimizing || pmol.dofBounds.size() <= 0) {
-			try (EnergyFunction efunc = context.efuncs.make(inters, pmol.mol)) {
-				return new EnergiedParametricMolecule(pmol, inters, null, efunc.getEnergy());
+
+			// get the dof values for the approximator if needed
+			if (approximator != null) {
+				for (int d=0; d<pmol.dofs.size(); d++) {
+					x.set(d, pmol.dofs.get(d).getCurVal());
+				}
+			}
+
+			try (EnergyFunction efunc = context.efuncs.make(ffInters, pmol.mol)) {
+
+				double energy = efunc.getEnergy();
+
+				// add the approximated energy if needed
+				if (approximator != null) {
+					energy += approximator.approximator.getValue(x);
+				}
+
+				return new EnergiedParametricMolecule(pmol, inters, x, energy);
 			}
 		}
 
-		// start at the center of the voxel
-		DoubleMatrix1D x = DoubleFactory1D.dense.make(pmol.dofs.size());
+		// we're minimizing, so start at the center of the voxel
 		pmol.dofBounds.getCenter(x);
 
 		if (alwaysResolveClashesEnergy != null) {
@@ -626,9 +660,15 @@ public class EnergyCalculator implements AutoCleanable {
 		}
 
 		// minimize using the full forcefield
-		try (EnergyFunction efunc = context.efuncs.make(inters, pmol.mol)) {
-			MoleculeObjectiveFunction mof = new MoleculeObjectiveFunction(pmol, efunc);
-			try (Minimizer minimizer = context.minimizers.make(mof)) {
+		try (EnergyFunction efunc = context.efuncs.make(ffInters, pmol.mol)) {
+
+			// build the minimization objective function, add the approximator if needed
+			ObjectiveFunction f = new MoleculeObjectiveFunction(pmol, efunc);
+			if (approximator != null) {
+				f = new ApproximatedObjectiveFunction(f, approximator.approximator);
+			}
+
+			try (Minimizer minimizer = context.minimizers.make(f)) {
 
 				Minimizer.Result result = minimizer.minimizeFrom(x);
 
@@ -636,7 +676,7 @@ public class EnergyCalculator implements AutoCleanable {
 				if (isInfiniteWell(result.energy)) {
 
 					// try to resolve the clash and try the minimization again
-					Minimizer.Result vdwResult = minimizeWithVdw(pmol, inters, x);
+					Minimizer.Result vdwResult = minimizeWithVdw(pmol, ffInters, x);
 					result = minimizer.minimizeFrom(vdwResult.dofValues);
 
 					// are we still in the well?

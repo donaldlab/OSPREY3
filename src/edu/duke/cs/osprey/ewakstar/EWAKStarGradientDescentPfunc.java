@@ -1,3 +1,35 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.ewakstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -171,6 +203,8 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 	private long numScoreConfsEnumerated = 0;
 	private int highestNumConfs = 5000;
 
+	private boolean printPDBs = false;
+
 	private ConfDB.ConfTable confTable = null;
 
 	private boolean useExternalMemory = false;
@@ -238,12 +272,13 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 	}
 
 	@Override
-	public void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy, int highestNumConfs) {
+	public void init(ConfSearch scoreConfs, ConfSearch energyConfs, BigInteger numConfsBeforePruning, double targetEpsilon, double targetEnergy, int highestNumConfs, boolean printPDBs) {
 
 		if (targetEpsilon <= 0.0 || targetEnergy < 0) {
 			throw new IllegalArgumentException("target epsilon and target energy must be greater than zero");
 		}
 
+		this.printPDBs = printPDBs;
 		this.targetEpsilon = targetEpsilon;
 		this.targetEnergy = targetEnergy;
 
@@ -357,10 +392,9 @@ public class EWAKStarGradientDescentPfunc implements EWAKStarPartitionFunction.W
 							// compute one energy and weights (and time it)
 							EnergyResult result = new EnergyResult();
 							result.stopwatch.start();
-							result.epmol = ecalc.calcEnergy(new RCTuple(conf.getAssignments()));
-							result.econf = new ConfSearch.EnergiedConf(conf, result.epmol.energy);
-							if (state.sConfs.size() <= 10) // only want the first 10 PDB files - don't need to calculate and save all of them
-								state.sConfs.put(result.econf.getEnergy(), conf);
+							if(printPDBs){result.epmol = ecalc.calcEnergy(new RCTuple(conf.getAssignments()));}
+							result.econf = ecalc.calcEnergy(conf, confTable);
+							if (printPDBs) { state.sConfs.put(result.econf.getEnergy(), conf);}
 							result.scoreWeight = bcalc.calc(result.econf.getScore());
 							result.energyWeight = bcalc.calc(result.econf.getEnergy());
 							result.stopwatch.stop();

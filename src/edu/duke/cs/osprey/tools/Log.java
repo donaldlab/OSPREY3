@@ -80,14 +80,9 @@ public class Log {
 		} else if (MathTools.isZero(f)) {
 			return "0";
 		} else {
-			BoltzmannCalculator bcalc = new BoltzmannCalculator(new MathContext(16, RoundingMode.HALF_UP));
-			double d;
-			if (MathTools.isPositive(f)) {
-				d = bcalc.ln(f.add(BigDecimal.ONE));
-			} else {
-				d = -bcalc.ln(MathTools.bigNegate(f).add(BigDecimal.ONE));
-			}
-			return String.format("%9.4f", d);
+			MathContext mathContext = new MathContext(16, RoundingMode.HALF_UP);
+			BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
+			return String.format("%9.4f", bcalc.ln1p(f));
 		}
 	}
 
