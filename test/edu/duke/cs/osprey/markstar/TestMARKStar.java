@@ -416,6 +416,15 @@ public class TestMARKStar {
 		KStarTreeAnalyzer.testCumulativeMarginals(dirMarginalTree,dirRoot.getLowerBound(),dirRoot.getUpperBound(),false);
 	}
 	@Test
+    public void testMarginalizationMoreSigs(){
+        KStarTreeNode.Marginalizer marginalizer = new KStarTreeNode.Marginalizer();
+        marginalizer.parseAndMarginalize("Complex2RL0DEEPERConfTreeBounds.txt")
+                .setEpsilon(0.68);
+        Map<String,Map<String,List<BigDecimal>>> dirMarginalTree = marginalizer.build();
+        KStarTreeNode dirRoot = marginalizer.getRoot();
+        KStarTreeAnalyzer.testCumulativeMarginals(dirMarginalTree,dirRoot.getLowerBound(),dirRoot.getUpperBound(),false);
+    }
+	@Test
 	public void testOccupancy(){
 		//KStarTreeNode root = KStarTreeNode.parseTree("Complex2XXMContinuousBounds.txt");
 		KStarTreeNode root = KStarTreeNode.parseTree("../../Desktop/190218_nmr_flex/erbin/tight/0/0.961725ConfTreeBounds.txt");
