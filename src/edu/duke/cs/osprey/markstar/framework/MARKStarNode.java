@@ -280,11 +280,11 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     }
 
     public static BigDecimal setSigFigs(BigDecimal decimal, int numSigFigs) {
-       return decimal.setScale(4-decimal.precision()+decimal.scale(),RoundingMode.HALF_UP);
+       return decimal.setScale(numSigFigs-decimal.precision()+decimal.scale(),RoundingMode.HALF_UP);
     }
 
     public static BigDecimal setSigFigs(BigDecimal decimal){
-        return setSigFigs(decimal, 4);
+        return setSigFigs(decimal, 150);
     }
 
 

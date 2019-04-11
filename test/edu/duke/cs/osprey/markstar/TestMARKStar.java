@@ -321,7 +321,7 @@ public class TestMARKStar {
 		// configure the forcefield
 		confSpaces.ffparams = new ForcefieldParams();
 
-		Molecule mol = PDBIO.read(FileTools.readFile("examples/python.KStar/2RL0.min.reduce.pdb"));
+		Molecule mol = PDBIO.read(FileTools.readFile("examples/2RL0.kstar/2RL0.min.reduce.pdb"));
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
@@ -355,24 +355,26 @@ public class TestMARKStar {
 		ligand.flexibility.get("A189").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("A190").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 		ligand.flexibility.get("A191").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("A193").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("A194").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-		String perturbationFileName = "examples/python.KStar/STR0.2rl0.pert.pert";
-		DEEPerSettings deepersettings = new DEEPerSettings(true, perturbationFileName,
-				false, perturbationFileName, true, 2.5,
-				2.5, false, bbflexlist, "examples/python.KStar/shell.pdb", false, templateLib);
-		DEEPerStrandFlex protein_bbflex = new DEEPerStrandFlex(protein, deepersettings);
+		//ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		//ligand.flexibility.get("A193").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		//ligand.flexibility.get("A194").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		//String perturbationFileName = "examples/python.KStar/STR0.2rl0.pert.pert";
+		//DEEPerSettings deepersettings = new DEEPerSettings(true, perturbationFileName,
+				//false, perturbationFileName, true, 2.5,
+				//2.5, false, bbflexlist, "examples/python.KStar/shell.pdb", false, templateLib);
+		//DEEPerStrandFlex protein_bbflex = new DEEPerStrandFlex(protein, deepersettings);
 
 		// make the complex conf space ("complex" SimpleConfSpace, har har!)
 		confSpaces.protein = new SimpleConfSpace.Builder()
-				.addStrand(protein, protein_bbflex)
+				//.addStrand(protein, protein_bbflex)
+				.addStrand(protein)
 				.build();
 		confSpaces.ligand = new SimpleConfSpace.Builder()
 				.addStrand(ligand)
 				.build();
 		confSpaces.complex = new SimpleConfSpace.Builder()
-				.addStrand(protein, protein_bbflex)
+				//.addStrand(protein, protein_bbflex)
+				.addStrand(protein)
 				.addStrand(ligand)
 				.build();
 
