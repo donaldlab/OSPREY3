@@ -1509,7 +1509,7 @@ def SOFEA_StateConfig(emat, confEcalc, confdbPath=None):
 	return jvm.getInnerClass(c.sofea.Sofea, 'StateConfig')(emat, confEcalc, confdbFile)
 
 
-def SOFEA(confSpace, configFunc, seqdbPath='sofea.seqdb', seqdbMathContext=useJavaDefault, fringedbLowerPath='sofea.lower.fringedb', fringedbLowerMiB=10, fringedbUpperPath='sofea.upper.fringedb', fringedbUpperMiB=10, showProgress=useJavaDefault, sweepIncrement=useJavaDefault, maxNumMinimizations=useJavaDefault, negligableFreeEnergy=useJavaDefault):
+def SOFEA(confSpace, configFunc, seqdbPath='sofea.seqdb', seqdbMathContext=useJavaDefault, fringedbLowerPath='sofea.lower.fringedb', fringedbLowerMiB=10, fringedbUpperPath='sofea.upper.fringedb', fringedbUpperMiB=10, rcdbPath=useJavaDefault, showProgress=useJavaDefault, performanceLogPath=useJavaDefault, sweepIncrement=useJavaDefault, maxNumMinimizations=useJavaDefault, negligableFreeEnergy=useJavaDefault):
 	'''
 	:java:classdoc:`.sofea.Sofea`
 
@@ -1525,7 +1525,9 @@ def SOFEA(confSpace, configFunc, seqdbPath='sofea.seqdb', seqdbMathContext=useJa
 	:param int fringedbLowerMiB: size of the lower fringe set in MiB
 	:param str fringedbUpperPath: Path to write the upper fringe set
 	:param int fringedbUpperMiB: size of the upper fringe set in MiB
+	:param str rcdbPath: Path to write the upper fringe set
 	:builder_option showProgress .sofea.Sofea$Builder#showProgress:
+	:param str performanceLogPath: Path to write the performance log
 	:builder_option sweepIncrement .sofea.Sofea$Builder#sweepIncrement:
 	:builder_option maxNumMinimizations .sofea.Sofea$Builder#maxNumMinimizations:
 	:builder_option negligableFreeEnergy .sofea.Sofea$Builder#negligableFreeEnergy:
@@ -1550,8 +1552,12 @@ def SOFEA(confSpace, configFunc, seqdbPath='sofea.seqdb', seqdbMathContext=useJa
 		builder.setFringeDBUpperFile(jvm.toFile(fringedbUpperPath))
 	if fringedbUpperMiB is not useJavaDefault:
 		builder.setFringeDBUpperMiB(fringedbUpperMiB)
+	if rcdbPath is not useJavaDefault:
+		builder.setRCDBFile(jvm.toFile(rcdbPath))
 	if showProgress is not useJavaDefault:
 		builder.setShowProgress(showProgress)
+	if performanceLogPath is not useJavaDefault:
+		builder.setPerformanceLogFile(jvm.toFile(performanceLogPath))
 	if sweepIncrement is not useJavaDefault:
 		builder.setSweepIncrement(sweepIncrement)
 	if maxNumMinimizations is not useJavaDefault:

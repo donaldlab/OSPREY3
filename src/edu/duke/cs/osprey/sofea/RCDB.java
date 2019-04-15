@@ -35,8 +35,10 @@ package edu.duke.cs.osprey.sofea;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.tools.*;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
+import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.HTreeMap;
@@ -246,6 +248,15 @@ public class RCDB implements AutoCloseable {
 			zSumBounds.lower,
 			upper.get()
 		);
+	}
+
+	public BigDecimalBounds getZSumBounds(MultiStateConfSpace.State state, Sequence seq, SimpleConfSpace.Position pos, SimpleConfSpace.ResidueConf rc) {
+		return getZSumBounds(state, seq, pos.index, rc.index);
+	}
+
+	public DoubleBounds getGBounds(MultiStateConfSpace.State state, Sequence seq, SimpleConfSpace.Position pos, SimpleConfSpace.ResidueConf rc, MathContext mathContext) {
+		BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
+		return bcalc.freeEnergyPrecise(getZSumBounds(state, seq, pos, rc));
 	}
 
 	private void forEachPartialSequence(Sequence seq, Consumer<Sequence> block) {

@@ -45,8 +45,10 @@ import edu.duke.cs.osprey.tools.resultdoc.ResultDoc;
 
 import java.io.File;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -233,6 +235,10 @@ public class MinLMFE implements Sofea.Criterion {
 		}
 	}
 
+	public TopSequences getTopSequences(SeqDB seqdb, MathContext mathContext) {
+		return getTopSequences(seqdb, new BoltzmannCalculator(mathContext));
+	}
+
 	public TopSequences getTopSequences(SeqDB seqdb, BoltzmannCalculator bcalc) {
 
 		assert (objective.confSpace == seqdb.confSpace);
@@ -293,6 +299,16 @@ public class MinLMFE implements Sofea.Criterion {
 		}
 
 		return topSequences;
+	}
+
+	public List<DoubleBounds> getUnsequencedGBounds(SeqDB seqdb, MathContext mathContext) {
+
+		BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
+
+		// get the unsequenced g values
+		return objective.confSpace.unsequencedStates.stream()
+			.map(state -> bcalc.freeEnergyPrecise(seqdb.getUnsequencedZSumBounds(state)))
+			.collect(Collectors.toList());
 	}
 
 	@Override

@@ -38,8 +38,11 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 
+import java.math.MathContext;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -136,5 +139,17 @@ public class SequenceLMFE implements Sofea.Criterion {
 		}
 
 		return isFinished ? Satisfied.Terminate : Satisfied.KeepSweeping;
+	}
+
+	public BigDecimalBounds getZBounds(SeqDB seqdb, MultiStateConfSpace.State state) {
+		if (state.isSequenced) {
+			return seqdb.getSequencedZSumBounds(seq).zSumBounds[state.sequencedIndex];
+		} else {
+			return seqdb.getUnsequencedZSumBounds(state);
+		}
+	}
+
+	public DoubleBounds getGBounds(SeqDB seqdb, MultiStateConfSpace.State state, MathContext mathContext) {
+		return new BoltzmannCalculator(mathContext).freeEnergyPrecise(getZBounds(seqdb, state));
 	}
 }

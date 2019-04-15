@@ -44,6 +44,9 @@ import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Writer;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -118,6 +121,11 @@ public class Sofea {
 		 * True to print progress info to the console
 		 */
 		private boolean showProgress = true;
+
+		/**
+		 * Record performance info to a log file if desired.
+		 */
+		private File performanceLogFile = null;
 
 		/**
 		 * Amount the threshold should be increased at each step of the sweep, in kcal/mol.
@@ -220,6 +228,11 @@ public class Sofea {
 			return this;
 		}
 
+		public Builder setPerformanceLogFile(File val) {
+			performanceLogFile = val;
+			return this;
+		}
+
 		public Builder setSweepIncrement(double val) {
 			sweepIncrement = val;
 			return this;
@@ -262,6 +275,7 @@ public class Sofea {
 				fringedbUpperBytes,
 				rcdbFile,
 				showProgress,
+				performanceLogFile,
 				sweepIncrement,
 				maxCriterionCheckSeconds,
 				maxNumMinimizations,
@@ -342,6 +356,7 @@ public class Sofea {
 	public final long fringedbUpperBytes;
 	public final File rcdbFile;
 	public final boolean showProgress;
+	public final File performanceLogFile;
 	public final double sweepIncrement;
 	public final int maxCriterionCheckSeconds;
 	public final long maxNumMinimizations;
@@ -355,18 +370,24 @@ public class Sofea {
 	private final List<StateInfo> stateInfos;
 	private final double[] gThresholdsLower;
 
-	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, File seqdbFile, MathContext seqdbMathContext, File fringedbLowerFile, long fringedbLowerBytes, File fringedbUpperFile, long fringedbUpperBytes, File rcdbFile, boolean showProgress, double sweepIncrement, int maxCriterionCheckSeconds, long maxNumMinimizations, double negligableFreeEnergy) {
+	private Sofea(
+		MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, File seqdbFile, MathContext seqdbMathContext,
+		File fringedbLowerFile, long fringedbLowerBytes, File fringedbUpperFile, long fringedbUpperBytes, File rcdbFile,
+		boolean showProgress, File performanceLogFile,
+		double sweepIncrement, int maxCriterionCheckSeconds, long maxNumMinimizations, double negligableFreeEnergy
+	) {
 
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
 		this.seqdbFile = seqdbFile;
 		this.seqdbMathContext = seqdbMathContext;
-		this.showProgress = showProgress;
 		this.fringedbLowerFile = fringedbLowerFile;
 		this.fringedbLowerBytes = fringedbLowerBytes;
 		this.fringedbUpperFile = fringedbUpperFile;
 		this.fringedbUpperBytes = fringedbUpperBytes;
 		this.rcdbFile = rcdbFile;
+		this.showProgress = showProgress;
+		this.performanceLogFile = performanceLogFile;
 		this.sweepIncrement = sweepIncrement;
 		this.maxCriterionCheckSeconds = maxCriterionCheckSeconds;
 		this.maxNumMinimizations = maxNumMinimizations;
@@ -431,6 +452,24 @@ public class Sofea {
 			return new RCDB(confSpace, seqdbMathContext, rcdbFile);
 		} else {
 			return null;
+		}
+	}
+
+	private void performanceLog(String pattern, Object ... args) {
+
+		if (performanceLogFile == null) {
+			return;
+		}
+
+		try (Writer out = new FileWriter(performanceLogFile)) {
+
+			out.write(String.format(pattern, args));
+
+		} catch (IOException ex) {
+
+			// don't crash the whole run with errors here
+			// just quietly report the error
+			ex.printStackTrace(System.err);
 		}
 	}
 
@@ -847,8 +886,6 @@ public class Sofea {
 				assert (MathTools.isFinite(z.upper));
 				m.add(z.upper);
 				m.sub(z.lower);
-				// DEBUG
-				//log("SEQDB %10s [%s]  [%e,%e] w=%e", state.name, entry.getKey(), z.lower, z.upper, z.size(mathContext));
 			}
 		}
 		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
@@ -856,12 +893,7 @@ public class Sofea {
 			assert (MathTools.isFinite(z.upper));
 			m.add(z.upper);
 			m.sub(z.lower);
-			// DEBUG
-			//log("SEQDB %10s  [%e,%e] w=%e", state.name, z.lower, z.upper, z.size(mathContext));
 		}
-
-		// DEBUG
-		//log("SEQDB  width=%e  score=%s", m.get(), bcalc.ln1p(m.get()));
 
 		// the width should always be >= 0
 		assert (MathTools.isGreaterThanOrEqual(m.get(), BigDecimal.ZERO));
@@ -940,8 +972,9 @@ public class Sofea {
 			// how precise is the entire seqdb? (used for balancing performance of the two passes)
 			double seqdbScore = calcSeqdbScore(seqdb);
 			boolean needsMinimization = needsMinimization(seqdb);
-			// TEMP
-			log("initial SeqDB score: %s  needmin: %b", seqdbScore, needsMinimization);
+			if (performanceLogFile != null) {
+				performanceLog("initial SeqDB score: %s  needmin: %b", seqdbScore, needsMinimization);
+			}
 
 			double pass1Slope = Double.POSITIVE_INFINITY;
 			double pass2Slope = Double.POSITIVE_INFINITY;
@@ -976,13 +1009,14 @@ public class Sofea {
 					pass1TargetSeconds = maxCriterionCheckSeconds;
 				}
 
-				// TEMP
-				log("PASS 1  %.4f s   needmin=%b  s1=[%d,%b,%s]  s2=[%d,%b,%s]",
-					pass1TargetSeconds,
-					needsMinimization,
-					pass1step, fringedbLower.hasNodesToRead(), pass1Slope,
-					pass2step, fringedbUpper.hasNodesToRead(), pass2Slope
-				);
+				if (performanceLogFile != null) {
+					performanceLog("PASS 1  %.4f s   needmin=%b  s1=[%d,%b,%s]  s2=[%d,%b,%s]",
+						pass1TargetSeconds,
+						needsMinimization,
+						pass1step, fringedbLower.hasNodesToRead(), pass1Slope,
+						pass2step, fringedbUpper.hasNodesToRead(), pass2Slope
+					);
+				}
 
 				if (pass1TargetSeconds > 0) {
 
@@ -1008,7 +1042,7 @@ public class Sofea {
 						if (showProgress) {
 							log("pass 1 step %d", pass1step);
 							for (MultiStateConfSpace.State state : confSpace.states) {
-								log("\t%10s  gThreshold = %9.3f  in  [%9.3f,%9.3f]",
+								log("\t%20s  gThreshold = %9.3f  in  [%9.3f,%9.3f]",
 									state.name,
 									gPass1Thresholds[state.index],
 									gThresholdsLower[state.index],
@@ -1057,10 +1091,11 @@ public class Sofea {
 							pass1Slope = delta/pass1ElapsedSeconds;
 						}
 
-						// TEMP
-						log("\n### P1  score=%.3f -> %.3f  delta=%s  seconds=%.3f slope=%s\n",
-							seqdbScore, newSeqdbScore, delta, pass1ElapsedSeconds, pass1Slope
-						);
+						if (performanceLogFile != null) {
+							performanceLog("pass1 score=%.3f -> %.3f  delta=%s  seconds=%.3f slope=%s",
+								seqdbScore, newSeqdbScore, delta, pass1ElapsedSeconds, pass1Slope
+							);
+						}
 
 						seqdbScore = newSeqdbScore;
 
@@ -1091,13 +1126,14 @@ public class Sofea {
 					pass2TargetSeconds = maxCriterionCheckSeconds;
 				}
 
-				// TEMP
-				log("PASS 2  %.4f s   needmin=%b  s1=[%d,%b,%s]  s2=[%d,%b,%s]",
-					pass2TargetSeconds,
-					needsMinimization,
-					pass1step, fringedbLower.hasNodesToRead(), pass1Slope,
-					pass2step, fringedbUpper.hasNodesToRead(), pass2Slope
-				);
+				if (performanceLogFile != null) {
+					performanceLog("PASS 2  %.4f s   needmin=%b  s1=[%d,%b,%s]  s2=[%d,%b,%s]",
+						pass2TargetSeconds,
+						needsMinimization,
+						pass1step, fringedbLower.hasNodesToRead(), pass1Slope,
+						pass2step, fringedbUpper.hasNodesToRead(), pass2Slope
+					);
+				}
 
 				if (pass2TargetSeconds > 0) {
 
@@ -1123,7 +1159,7 @@ public class Sofea {
 						if (showProgress) {
 							log("pass 2 step %d", pass2step);
 							for (MultiStateConfSpace.State state : confSpace.states) {
-								log("\t%10s  gThreshold = %9.3f  in  [%9.3f,%9.3f]",
+								log("\t%20s  gThreshold = %9.3f  in  [%9.3f,%9.3f]",
 									state.name,
 									gPass2Thresholds[state.index],
 									gThresholdsLower[state.index],
@@ -1162,10 +1198,11 @@ public class Sofea {
 						}
 						pass2Slope = delta/pass2ElapsedSeconds;
 
-						// TEMP
-						log("\n### P2  score=%.3f -> %.3f  delta=%s  seconds=%.3f slope=%s\n",
-							seqdbScore, newSeqdbScore, delta, pass2ElapsedSeconds, pass2Slope
-						);
+						if (performanceLogFile != null) {
+							performanceLog("\n### P2  score=%.3f -> %.3f  delta=%s  seconds=%.3f slope=%s\n",
+								seqdbScore, newSeqdbScore, delta, pass2ElapsedSeconds, pass2Slope
+							);
+						}
 						seqdbScore = newSeqdbScore;
 
 						// let the other slope grow a bit so we don't get stuck on pass 2
@@ -1196,7 +1233,7 @@ public class Sofea {
 			.toArray(size -> new BigExp[size]);
 	}
 
-	/* TEMP private */ public long pass1(FringeDB fringedb, SeqDB seqdb, RCDB rcdb, long step, Criterion criterion, Double[] gThresholds, Stopwatch stopwatch, double targetSeconds) {
+	private long pass1(FringeDB fringedb, SeqDB seqdb, RCDB rcdb, long step, Criterion criterion, Double[] gThresholds, Stopwatch stopwatch, double targetSeconds) {
 
 		if (showProgress) {
 			logf("pass 1 running ...");
@@ -1313,8 +1350,10 @@ public class Sofea {
 				numNodesToRead,
 				100f*nodesRead/numNodesToRead
 			);
+		}
+		if (performanceLogFile != null) {
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				log("\t%10s  read=%6d [ expanded=%6d  requeuedByThreshold=%6d  requeuedByFilter=%6d  requeuedForSpace=%6d ] added=%6d",
+				performanceLog("\t%20s  read=%6d [ expanded=%6d  requeuedByThreshold=%6d  requeuedByFilter=%6d  requeuedForSpace=%6d ] added=%6d",
 					state.name,
 					stats[state.index].read,
 					stats[state.index].expanded,
@@ -1597,8 +1636,10 @@ public class Sofea {
 				numNodesToRead,
 				100f*nodesRead/numNodesToRead
 			);
+		}
+		if (performanceLogFile != null) {
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				log("\t%10s  read=%6d [ expanded=%6d  requeuedByThreshold=%6d  requeuedByFilter=%6d  requeuedForSpace=%6d ] added=%6d  minimized=%6d",
+				performanceLog("\t%20s  read=%6d [ expanded=%6d  requeuedByThreshold=%6d  requeuedByFilter=%6d  requeuedForSpace=%6d ] added=%6d  minimized=%6d",
 					state.name,
 					stats[state.index].read,
 					stats[state.index].expanded,

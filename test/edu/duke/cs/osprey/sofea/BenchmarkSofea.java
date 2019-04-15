@@ -162,6 +162,7 @@ public class BenchmarkSofea {
 				})
 				.build();
 
+			/* TEMP
 			// run pass 1
 			sofea.init(true);
 			try (FringeDB fringedb = sofea.openFringeDBLower()) {
@@ -194,6 +195,7 @@ public class BenchmarkSofea {
 					log("finished pass 1 step 2 in %s", stopwatch.getTime(2));
 				}
 			}
+			*/
 
 			/* TEMP
 			MultiStateConfSpace.State state = confSpace.getState("complex");
