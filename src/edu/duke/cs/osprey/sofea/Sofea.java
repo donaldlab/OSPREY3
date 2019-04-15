@@ -110,6 +110,11 @@ public class Sofea {
 		private long fringedbUpperBytes = 1024*1024; // 1 MiB
 
 		/**
+		 * File for the Residue Conformation (RC) database, or null to skip traking RC info.
+		 */
+		private File rcdbFile = null;
+
+		/**
 		 * True to print progress info to the console
 		 */
 		private boolean showProgress = true;
@@ -205,6 +210,11 @@ public class Sofea {
 			return this;
 		}
 
+		public Builder setRCDBFile(File val) {
+			rcdbFile = val;
+			return this;
+		}
+
 		public Builder setShowProgress(boolean val) {
 			showProgress = val;
 			return this;
@@ -250,6 +260,7 @@ public class Sofea {
 				fringedbLowerBytes,
 				fringedbUpperFile,
 				fringedbUpperBytes,
+				rcdbFile,
 				showProgress,
 				sweepIncrement,
 				maxCriterionCheckSeconds,
@@ -329,6 +340,7 @@ public class Sofea {
 	public final long fringedbLowerBytes;
 	public final File fringedbUpperFile;
 	public final long fringedbUpperBytes;
+	public final File rcdbFile;
 	public final boolean showProgress;
 	public final double sweepIncrement;
 	public final int maxCriterionCheckSeconds;
@@ -343,7 +355,7 @@ public class Sofea {
 	private final List<StateInfo> stateInfos;
 	private final double[] gThresholdsLower;
 
-	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, File seqdbFile, MathContext seqdbMathContext, File fringedbLowerFile, long fringedbLowerBytes, File fringedbUpperFile, long fringedbUpperBytes, boolean showProgress, double sweepIncrement, int maxCriterionCheckSeconds, long maxNumMinimizations, double negligableFreeEnergy) {
+	private Sofea(MultiStateConfSpace confSpace, List<StateConfig> stateConfigs, File seqdbFile, MathContext seqdbMathContext, File fringedbLowerFile, long fringedbLowerBytes, File fringedbUpperFile, long fringedbUpperBytes, File rcdbFile, boolean showProgress, double sweepIncrement, int maxCriterionCheckSeconds, long maxNumMinimizations, double negligableFreeEnergy) {
 
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
@@ -354,6 +366,7 @@ public class Sofea {
 		this.fringedbLowerBytes = fringedbLowerBytes;
 		this.fringedbUpperFile = fringedbUpperFile;
 		this.fringedbUpperBytes = fringedbUpperBytes;
+		this.rcdbFile = rcdbFile;
 		this.sweepIncrement = sweepIncrement;
 		this.maxCriterionCheckSeconds = maxCriterionCheckSeconds;
 		this.maxNumMinimizations = maxNumMinimizations;
@@ -413,6 +426,14 @@ public class Sofea {
 		}
 	}
 
+	public RCDB openRCDB() {
+		if (rcdbFile != null) {
+			return new RCDB(confSpace, seqdbMathContext, rcdbFile);
+		} else {
+			return null;
+		}
+	}
+
 	/**
 	 * Start a new design using the conf space,
 	 * or fail if previous results already exist.
@@ -428,18 +449,30 @@ public class Sofea {
 	public void init(boolean overwrite) {
 
 		// don't overwrite an existing results unless explicitly asked
-		if (!overwrite && (seqdbFile.exists() || fringedbLowerFile.exists() || fringedbUpperFile.exists())) {
-			throw new Error("Database files already exist, will not destroy existing results at:"
-				+ "\n\t" + seqdbFile.getAbsolutePath()
-				+ "\n\t" + fringedbLowerFile.getAbsolutePath()
-				+ "\n\t" + fringedbUpperFile.getAbsolutePath()
-			);
+		if (!overwrite) {
+
+			List<File> filesToCheck = new ArrayList<>();
+			filesToCheck.add(seqdbFile);
+			filesToCheck.add(fringedbLowerFile);
+			filesToCheck.add(fringedbUpperFile);
+			if (rcdbFile != null) {
+				filesToCheck.add(rcdbFile);
+			}
+
+			if (filesToCheck.stream().anyMatch(file -> file.exists())) {
+				throw new Error("Database files already exist, will not destroy existing results at:"
+					+ "\n\t" + Streams.joinToString(filesToCheck, "\n\t", file -> file.getAbsolutePath())
+				);
+			}
 		}
 
 		// clear old results
 		seqdbFile.delete();
 		fringedbLowerFile.delete();
 		fringedbUpperFile.delete();
+		if (rcdbFile != null) {
+			rcdbFile.delete();
+		}
 
 		try (SeqDB seqdb = openSeqDB()) {
 		try (FringeDB fringedbLower = openFringeDBLower()) {
@@ -496,6 +529,23 @@ public class Sofea {
 		}
 	}
 
+	private static class RCInfo {
+
+		final int[] conf;
+		final int pos;
+		final BigDecimal zSumUpper;
+		final int parentPos;
+		final BigDecimal zSumUpperInParent;
+
+		RCInfo(int[] conf, int pos, BigDecimal zSumUpper, int parentPos, BigDecimal zSumUpperInParent) {
+			this.conf = conf;
+			this.pos = pos;
+			this.zSumUpper = zSumUpper;
+			this.parentPos = parentPos;
+			this.zSumUpperInParent = zSumUpperInParent;
+		}
+	}
+
 	private class NodeTransaction {
 
 		final MultiStateConfSpace.State state;
@@ -505,6 +555,7 @@ public class Sofea {
 		final ConfIndex index;
 		final List<Node> replacementNodes = new ArrayList<>();
 		final List<ZPath> zPaths = new ArrayList<>();
+		final List<RCInfo> rcInfos = new ArrayList<>();
 
 		NodeTransaction(MultiStateConfSpace.State state, int[] conf, BigExp zSumUpper) {
 
@@ -524,8 +575,16 @@ public class Sofea {
 			return replacementNodes.size();
 		}
 
-		void addZPath(ConfIndex index, BigExp zPath, BigExp zSumUpper) {
-			zPaths.add(new ZPath(Conf.make(index), zPath, zSumUpper));
+		void addZPath(ConfIndex index, BigExp zSumUpper) {
+			zPaths.add(new ZPath(Conf.make(index), null, zSumUpper));
+		}
+
+		void addRCInfo(ConfIndex index, int pos, BigDecimal zSumUpper) {
+			addRCInfo(index, pos, zSumUpper, Conf.Unassigned, null);
+		}
+
+		void addRCInfo(ConfIndex index, int pos, BigDecimal zSumUpper, int parentPos, BigDecimal zSumUpperInParent) {
+			rcInfos.add(new RCInfo(Conf.make(index), pos, zSumUpper, parentPos, zSumUpperInParent));
 		}
 
 		boolean hasRoomToReplace(FringeDB.Transaction fringetx, int otherNodesInFlight) {
@@ -543,7 +602,7 @@ public class Sofea {
 			// zSumUpper should already be normalized
 		}
 
-		boolean replacePass1(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
+		boolean replacePass1(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx, RCDB rcdb) {
 
 			// flush transactions if needed
 			boolean flush = !fringetx.txHasRoomFor(replacementNodes.size());
@@ -562,16 +621,22 @@ public class Sofea {
 			// update fringedb and seqdb with the replacement nodes
 			for (Node replacementNode : replacementNodes) {
 				fringetx.writeReplacementNode(state, replacementNode.conf, replacementNode.zSumUpper);
-				seqtx.addZSumUpper(state, stateInfo.makeSeq(replacementNode.conf), replacementNode.zSumUpper);
+				Sequence seq = stateInfo.makeSeq(replacementNode.conf);
+				seqtx.addZSumUpper(state, seq, replacementNode.zSumUpper);
 			}
 
 			// subtract the node zSumUpper
 			seqtx.subZSumUpper(state, stateInfo.makeSeq(conf), zSumUpper);
 
+			// update rcdb if needed
+			if (rcdb != null) {
+				updateRCDBPass1(rcdb);
+			}
+
 			return flush;
 		}
 
-		boolean requeuePass1(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
+		boolean requeuePass1(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx, RCDB rcdb) {
 
 			// flush transactions if needed
 			boolean flush = !fringetx.txHasRoomFor(1);
@@ -584,7 +649,7 @@ public class Sofea {
 				// just move the node to the end of the fringedb queue
 				fringetx.writeReplacementNode(state, conf, zSumUpper);
 
-				// and don't update seqdb
+				// and don't update seqdb or rcdb
 
 			} else {
 
@@ -613,12 +678,41 @@ public class Sofea {
 					seqtx.addZSumUpper(state, seq, zPath.zSumUpper);
 				}
 				seqtx.subZSumUpper(state, seq, zSumUpper);
+
+				// update rcdb if needed
+				if (rcdb != null ) {
+					updateRCDBPass1(rcdb);
+				}
 			}
 
 			return flush;
 		}
 
-		boolean replacePass2(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
+		void updateRCDBPass1(RCDB rcdb) {
+
+			StateInfo stateInfo = stateInfos.get(state.index);
+
+			for (RCInfo rcInfo : rcInfos) {
+
+				// add zSumUppers for all encountered nodes
+				rcdb.addZSumUpper(state, stateInfo.makeSeq(rcInfo.conf), rcInfo.conf, rcInfo.pos, rcInfo.zSumUpper);
+
+				// and subtract from the parent nodes if needed
+				if (rcInfo.parentPos != Conf.Unassigned) {
+					Conf.unassignFor(rcInfo.conf, rcInfo.pos, () ->
+						rcdb.subZSumUpper(state, stateInfo.makeSeq(rcInfo.conf), rcInfo.conf, rcInfo.parentPos, rcInfo.zSumUpperInParent)
+					);
+				}
+			}
+
+			// subtract the current node, unless it's a root node
+			int pos = stateInfo.getLastAssignedPos(conf);
+			if (pos >= 0) {
+				rcdb.subZSumUpper(state, stateInfo.makeSeq(conf), conf, pos, zSumUpper.toBigDecimal());
+			}
+		}
+
+		boolean replacePass2(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx, RCDB rcdb) {
 
 			// flush transactions if needed
 			boolean flush = !fringetx.txHasRoomFor(replacementNodes.size());
@@ -640,10 +734,28 @@ public class Sofea {
 				seqtx.addZPath(state, stateInfo.makeSeq(zPath.conf), zPath.zPath, zPath.zSumUpper);
 			}
 
+			// update rcdb if needed
+			if (rcdb != null) {
+				for (ZPath zPath : zPaths) {
+
+					// add to the lower bound for all the RCs in this conf
+					int pos = stateInfo.getLastAssignedPos(zPath.conf);
+					rcdb.addZPath(state, stateInfo.makeSeq(zPath.conf), zPath.conf, pos, zPath.zPath.toBigDecimal(), zPath.zSumUpper.toBigDecimal());
+
+					// subtract from the upper bound for the parent node
+					Conf.unassignFor(zPath.conf, pos, () -> {
+						int parentPos = stateInfo.getLastAssignedPos(zPath.conf);
+						if (parentPos >= 0) {
+							rcdb.subZSumUpper(state, stateInfo.makeSeq(zPath.conf), zPath.conf, parentPos, zPath.zSumUpper.toBigDecimal());
+						}
+					});
+				}
+			}
+
 			return flush;
 		}
 
-		boolean requeuePass2(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx) {
+		boolean requeuePass2(FringeDB.Transaction fringetx, SeqDB.Transaction seqtx, RCDB rcdb) {
 
 			// flush transactions if needed
 			boolean flush = !fringetx.txHasRoomFor(1);
@@ -682,6 +794,7 @@ public class Sofea {
 			// commit both transactions at the same time
 			fringetx.commit();
 			seqtx.commit();
+			// TODO: make transactions for RCDB
 
 			return true;
 		}
@@ -783,6 +896,7 @@ public class Sofea {
 		try (SeqDB seqdb = openSeqDB()) {
 		try (FringeDB fringedbLower = openFringeDBLower()) {
 		try (FringeDB fringedbUpper = openFringeDBUpper()) {
+		try (RCDB rcdb = openRCDB()) {
 		try (ConfTables confTables = new ConfTables()) {
 
 			Stopwatch stopwatch = new Stopwatch().start();
@@ -906,7 +1020,7 @@ public class Sofea {
 
 					// start (or continue) pass 1
 					Stopwatch pass1Stopwatch = new Stopwatch().start();
-					long pass1Nodes = pass1(fringedbLower, seqdb, pass1step, criterion, gPass1Thresholds, pass1Stopwatch, pass1TargetSeconds);
+					long pass1Nodes = pass1(fringedbLower, seqdb, rcdb, pass1step, criterion, gPass1Thresholds, pass1Stopwatch, pass1TargetSeconds);
 					double pass1ElapsedSeconds = pass1Stopwatch.stop().getTimeS();
 
 					// did we finish the pass 1 step?
@@ -1021,7 +1135,7 @@ public class Sofea {
 
 					// run pass 2
 					Stopwatch pass2Stopwatch = new Stopwatch().start();
-					pass2(fringedbUpper, seqdb, pass2step, criterion, gPass2Thresholds, confTables, pass2Stopwatch, pass2TargetSeconds);
+					pass2(fringedbUpper, seqdb, rcdb, pass2step, criterion, gPass2Thresholds, confTables, pass2Stopwatch, pass2TargetSeconds);
 					double pass2ElapsedSeconds = pass2Stopwatch.stop().getTimeS();
 
 					// did we finish the pass 2 step?
@@ -1067,7 +1181,7 @@ public class Sofea {
 					throw new Error("Neither pass chosen. This is a bug.");
 				}
 			}
-		}}}}
+		}}}}}
 	}
 
 	private BigExp[] gtozThresholds(Double[] gs) {
@@ -1082,7 +1196,7 @@ public class Sofea {
 			.toArray(size -> new BigExp[size]);
 	}
 
-	/* TEMP private */ public long pass1(FringeDB fringedb, SeqDB seqdb, long step, Criterion criterion, Double[] gThresholds, Stopwatch stopwatch, double targetSeconds) {
+	/* TEMP private */ public long pass1(FringeDB fringedb, SeqDB seqdb, RCDB rcdb, long step, Criterion criterion, Double[] gThresholds, Stopwatch stopwatch, double targetSeconds) {
 
 		if (showProgress) {
 			logf("pass 1 running ...");
@@ -1145,7 +1259,7 @@ public class Sofea {
 				synchronized (Sofea.this) { // don't race the listener thread
 					stats[nodetx.state.index].requeuedByFilter++;
 					nodesInFlight[0]--;
-					nodetx.requeuePass1(fringetx, seqtx);
+					nodetx.requeuePass1(fringetx, seqtx, rcdb);
 				}
 				continue;
 			}
@@ -1167,18 +1281,18 @@ public class Sofea {
 						if (result == NodeResult.Saved) {
 
 							stats[nodetx.state.index].requeuedByThreshold++;
-							nodetx.requeuePass1(fringetx, seqtx);
+							nodetx.requeuePass1(fringetx, seqtx, rcdb);
 
 						} else if (nodetx.hasRoomToReplace(fringetx, nodesInFlight[0])) {
 
 							stats[nodetx.state.index].expanded++;
 							stats[nodetx.state.index].added += nodetx.numReplacementNodes();
-							nodetx.replacePass1(fringetx, seqtx);
+							nodetx.replacePass1(fringetx, seqtx, rcdb);
 
 						} else {
 
 							stats[nodetx.state.index].requeuedForSpace++;
-							nodetx.requeuePass1(fringetx, seqtx);
+							nodetx.requeuePass1(fringetx, seqtx, rcdb);
 						}
 					}
 				}
@@ -1241,32 +1355,49 @@ public class Sofea {
 			return NodeResult.Removed;
 		}
 
+		StateInfo stateInfo = stateInfos.get(nodetx.state.index);
+		Integer lastAssignedPos = null;
+		if (rcdbFile != null && index.numDefined > 0) {
+			lastAssignedPos = stateInfo.posPermutation[index.numDefined - 1];
+		}
+
 		// if we're a leaf node, just use the bound
 		if (index.isFullyDefined()) {
-			nodetx.addZPath(index, null, zSumUpper);
+			nodetx.addZPath(index, zSumUpper);
+			if (lastAssignedPos != null) {
+				nodetx.addRCInfo(index, lastAssignedPos, zSumUpper.toBigDecimal());
+			}
 			return NodeResult.Removed;
 		}
 
 		// if zSumUpper is too small, add the node to the fringe set
 		if (zSumThreshold != null && zSumUpper.lessThan(zSumThreshold)) {
 			nodetx.addReplacementNode(index, zSumUpper);
+			if (lastAssignedPos != null) {
+				nodetx.addRCInfo(index, lastAssignedPos, zSumUpper.toBigDecimal());
+			}
 			return NodeResult.Saved;
 		}
 
-		StateInfo stateInfo = stateInfos.get(nodetx.state.index);
-
 		NodeResult result = NodeResult.ExpandedThenRemoved;
+
+		// if we're tracking RC info, sum up all the bounds
+		BigMath m = null;
+		if (lastAssignedPos != null) {
+			m = new BigMath(seqdbMathContext).set(0);
+		}
 
 		// not a leaf node, recurse
 		int pos = stateInfo.posPermutation[index.numDefined];
 		for (int rc : stateInfo.rcs.get(pos)) {
 
 			index.assignInPlace(pos, rc);
+			BigExp rcZSumUpper = stateInfo.calcZSumUpper(index, stateInfo.rcs);
 			NodeResult rcResult = refineZSumUpper(
 				nodetx,
 				zSumThreshold,
 				index,
-				stateInfo.calcZSumUpper(index, stateInfo.rcs)
+				rcZSumUpper
 			);
 			index.unassignInPlace(pos);
 
@@ -1274,12 +1405,27 @@ public class Sofea {
 			if (!rcResult.removed) {
 				result = NodeResult.ExpandedThenSaved;
 			}
+
+			// update RC info if needed
+			if (m != null) {
+				m.add(rcZSumUpper);
+			}
+		}
+
+		// update RC info if needed
+		if (lastAssignedPos != null) {
+			if (index.numDefined > 1) {
+				int lastLastAssignedPos = stateInfo.posPermutation[index.numDefined - 2];
+				nodetx.addRCInfo(index, lastAssignedPos, m.get(), lastLastAssignedPos, zSumUpper.toBigDecimal());
+			} else {
+				nodetx.addRCInfo(index, lastAssignedPos, m.get());
+			}
 		}
 
 		return result;
 	}
 
-	private void pass2(FringeDB fringedb, SeqDB seqdb, long step, Criterion criterion, Double[] gThresholds, ConfTables confTables, Stopwatch stopwatch, double targetSeconds) {
+	private void pass2(FringeDB fringedb, SeqDB seqdb, RCDB rcdb, long step, Criterion criterion, Double[] gThresholds, ConfTables confTables, Stopwatch stopwatch, double targetSeconds) {
 
 		if (showProgress) {
 			logf("pass 2 running ...");
@@ -1337,7 +1483,7 @@ public class Sofea {
 								stats[nodetx.state.index].expanded++;
 								stats[nodetx.state.index].added += nodetx.numReplacementNodes();
 								stats[nodetx.state.index].minimized += nodetx.zPaths.size();
-								nodetx.replacePass2(fringetx, seqtx);
+								nodetx.replacePass2(fringetx, seqtx, rcdb);
 							}
 						}
 					);
@@ -1376,7 +1522,7 @@ public class Sofea {
 				synchronized (Sofea.this) { // don't race the listener thread
 					nodesInFlight[0]--;
 					stats[nodetx.state.index].requeuedByFilter++;
-					nodetx.requeuePass2(fringetx, seqtx);
+					nodetx.requeuePass2(fringetx, seqtx, rcdb);
 				}
 				continue;
 			}
@@ -1399,7 +1545,7 @@ public class Sofea {
 						if (result == NodeResult.Saved) {
 
 							stats[nodetx.state.index].requeuedByThreshold++;
-							nodetx.requeuePass2(fringetx, seqtx);
+							nodetx.requeuePass2(fringetx, seqtx, rcdb);
 
 						} else if (nodetx.hasRoomToReplace(fringetx, nodesInFlight[0])) {
 
@@ -1408,7 +1554,7 @@ public class Sofea {
 								// no minimizations needed
 								stats[nodetx.state.index].expanded++;
 								stats[nodetx.state.index].added += nodetx.numReplacementNodes();
-								nodetx.replacePass2(fringetx, seqtx);
+								nodetx.replacePass2(fringetx, seqtx, rcdb);
 
 							} else {
 
@@ -1422,7 +1568,7 @@ public class Sofea {
 						} else {
 
 							stats[nodetx.state.index].requeuedForSpace++;
-							nodetx.requeuePass2(fringetx, seqtx);
+							nodetx.requeuePass2(fringetx, seqtx, rcdb);
 						}
 					}
 				}
@@ -1486,7 +1632,7 @@ public class Sofea {
 			// there might not be enough room to replace this subtree
 			// so defer minimizations until after we know there's enough space
 			// otherwise, we'd just do the minimization and then throw away the result
-			nodetx.addZPath(index, null, zSumUpper);
+			nodetx.addZPath(index, zSumUpper);
 			return NodeResult.Removed;
 		}
 
@@ -1686,6 +1832,16 @@ public class Sofea {
 
 		Sequence makeSeq(int[] conf) {
 			return confSpace.seqSpace.makeSequence(state.confSpace, conf);
+		}
+
+		int getLastAssignedPos(int[] conf) {
+			for (int i=posPermutation.length - 1; i>=0; i--) {
+				int pos = posPermutation[i];
+				if (conf[pos] != Conf.Unassigned) {
+					return pos;
+				}
+			}
+			return -1;
 		}
 
 		/** WARNING: naive brute force method, for testing small trees only */

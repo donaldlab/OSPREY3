@@ -199,6 +199,25 @@ public class Sequence {
 	}
 
 	/**
+	 * Set the specified residue number to unassigned.
+	 * @return this sequence, for method chaining
+	 */
+	public Sequence unset(SeqSpace.Position pos) {
+		rtIndices[pos.index] = Sequence.Unassigned;
+		return this;
+	}
+
+	/**
+	 * Set the specified residue number to unassigned.
+	 * @return this sequence, for method chaining
+	 */
+	public Sequence unset(String resNum) {
+		SeqSpace.Position pos = seqSpace.getPositionOrThrow(resNum);
+		rtIndices[pos.index] = Sequence.Unassigned;
+		return this;
+	}
+
+	/**
 	 * Returns the residue type of the wild-type at the specified residue
 	 */
 	public SeqSpace.ResType getWildType(String resNum) {

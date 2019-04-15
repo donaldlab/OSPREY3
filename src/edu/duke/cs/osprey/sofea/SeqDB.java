@@ -38,7 +38,6 @@ import edu.duke.cs.osprey.tools.*;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import org.jetbrains.annotations.NotNull;
 import org.mapdb.*;
-import org.mapdb.serializer.GroupSerializerObjectArray;
 
 import java.io.File;
 import java.io.IOException;
@@ -105,155 +104,11 @@ public class SeqDB implements AutoCloseable {
 		}
 	}
 
-	private static abstract class SimpleSerializer<T> extends GroupSerializerObjectArray<T> {
-
-		public final int fixedSize;
-
-		protected SimpleSerializer() {
-			// dynamic size, rather than fixed
-			this(-1);
-		}
-
-		protected SimpleSerializer(int fixedSize) {
-			this.fixedSize = fixedSize;
-		}
-
-		@Override
-		public boolean isTrusted() {
-			// we always read/write the same number of bytes, so we're "trusted" by MapDB
-			return true;
-		}
-
-		@Override
-		public int fixedSize() {
-			return fixedSize;
-		}
-	}
-
-	// NOTE: all int values get +1 when serialized, so we can accomodate the range [-1,maxVal]
-	private static class IntArraySerializer extends SimpleSerializer<int[]> {
-
-		private final IntEncoding encoding;
-		private final int numPos;
-
-		public IntArraySerializer(int maxVal, int numPos) {
-			this(IntEncoding.get(maxVal + 1), numPos);
-		}
-
-		private IntArraySerializer(IntEncoding encoding, int numPos) {
-			super(encoding.numBytes*numPos);
-			this.encoding = encoding;
-			this.numPos = numPos;
-		}
-
-		@Override
-		public void serialize(@NotNull DataOutput2 out, @NotNull int[] data)
-		throws IOException {
-			assert (data.length == numPos);
-			for (int i=0; i<numPos; i++) {
-				encoding.write(out, data[i] + 1);
-			}
-		}
-
-		@Override
-		public int[] deserialize(@NotNull DataInput2 in, int available)
-		throws IOException {
-			int[] data = new int[numPos];
-			for (int i=0; i<numPos; i++) {
-				data[i] = encoding.read(in) - 1;
-			}
-			return data;
-		}
-
-		@Override
-		public int compare(int[] a, int[] b) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public boolean equals(int[] a, int[] b) {
-			return Arrays.equals(a, b);
-		}
-
-		@Override
-		public int hashCode(@NotNull int[] data, int seed) {
-			return DataIO.intHash(Arrays.hashCode(data) + seed);
-		}
-	}
-
-	private static class BigDecimalSerializer extends SimpleSerializer<BigDecimal> {
-
-		private BigDecimalIO io = new BigDecimalIO.Variable();
-
-		@Override
-		public void serialize(@NotNull DataOutput2 out, @NotNull BigDecimal data)
-		throws IOException {
-			io.write(out, data);
-		}
-
-		@Override
-		public BigDecimal deserialize(@NotNull DataInput2 in, int available)
-		throws IOException {
-			return io.read(in);
-		}
-
-		@Override
-		public int compare(BigDecimal a, BigDecimal b) {
-			return MathTools.compare(a, b);
-		}
-
-		@Override
-		public boolean equals(BigDecimal a, BigDecimal b) {
-			return MathTools.isSameValue(a, b);
-		}
-
-		@Override
-		public int hashCode(@NotNull BigDecimal data, int seed) {
-			return DataIO.intHash(data.hashCode() + seed);
-		}
-	}
-
-	private static class BigDecimalBoundsSerializer extends SimpleSerializer<BigDecimalBounds> {
-
-		private final BigDecimalSerializer s = new BigDecimalSerializer();
-
-		@Override
-		public void serialize(@NotNull DataOutput2 out, @NotNull BigDecimalBounds data)
-		throws IOException {
-			s.serialize(out, data.lower);
-			s.serialize(out, data.upper);
-		}
-
-		@Override
-		public BigDecimalBounds deserialize(@NotNull DataInput2 in, int available)
-		throws IOException {
-			return new BigDecimalBounds(
-				s.deserialize(in, available),
-				s.deserialize(in, available)
-			);
-		}
-
-		@Override
-		public int compare(BigDecimalBounds a, BigDecimalBounds b) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public boolean equals(BigDecimalBounds a, BigDecimalBounds b) {
-			return a.equals(b);
-		}
-
-		@Override
-		public int hashCode(@NotNull BigDecimalBounds data, int seed) {
-			return DataIO.intHash(data.hashCode() + seed);
-		}
-	}
-
-	private static class SeqInfoSerializer extends SimpleSerializer<SeqInfo> {
+	private static class SeqInfoSerializer extends MapDBTools.SimpleSerializer<SeqInfo> {
 
 		private final int numBounds;
 
-		private final BigDecimalBoundsSerializer s = new BigDecimalBoundsSerializer();
+		private final MapDBTools.BigDecimalBoundsSerializer s = new MapDBTools.BigDecimalBoundsSerializer();
 
 		public SeqInfoSerializer(int numBounds) {
 			this.numBounds = numBounds;
@@ -327,7 +182,7 @@ public class SeqDB implements AutoCloseable {
 		// open the tables
 
 		sequencedSums = db.hashMap("sequenced-sums")
-			.keySerializer(new IntArraySerializer(
+			.keySerializer(new MapDBTools.IntArraySerializer(
 				confSpace.seqSpace.positions.stream()
 					.flatMap(pos -> pos.resTypes.stream())
 					.mapToInt(resType -> resType.index)
@@ -340,7 +195,7 @@ public class SeqDB implements AutoCloseable {
 
 		unsequencedSums = db.hashMap("unsequenced-sums")
 			.keySerializer(Serializer.INTEGER)
-			.valueSerializer(new BigDecimalBoundsSerializer())
+			.valueSerializer(new MapDBTools.BigDecimalBoundsSerializer())
 			.createOrOpen();
 	}
 

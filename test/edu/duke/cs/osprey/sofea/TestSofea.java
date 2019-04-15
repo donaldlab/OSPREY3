@@ -55,6 +55,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.Log;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
@@ -67,6 +68,7 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 
 public class TestSofea {
@@ -121,6 +123,22 @@ public class TestSofea {
 			5.0,
 			1024*1024,
 			TestSofea::assertResults_Stability1CC8Flex3_Traditional
+		);
+	}
+	@Test
+	public void test_Stability1CC8Flex3_Traditional_SingleStep_RCInfo() {
+		stepUntilExhaustionAndCheckRCInfo(
+			Designs.Stability1CC8Flex3_Traditional.get(),
+			Double.POSITIVE_INFINITY,
+			1024*1024
+		);
+	}
+	@Test
+	public void test_Stability1CC8Flex3_Traditional_MultiStepHiMem_RCInfo() {
+		stepUntilExhaustionAndCheckRCInfo(
+			Designs.Stability1CC8Flex3_Traditional.get(),
+			5.0,
+			1024*1024
 		);
 	}
 
@@ -459,6 +477,14 @@ public class TestSofea {
 		);
 	}
 	@Test
+	public void test_Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections_SingleStep_RCInfo() {
+		stepUntilExhaustionAndCheckRCInfo(
+			Designs.Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections.get(),
+			Double.POSITIVE_INFINITY,
+			1024*1024
+		);
+	}
+	@Test
 	public void test_Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections_MultiStepHiMem() {
 		stepUntilExhaustion(
 			Designs.Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections.get(),
@@ -474,6 +500,22 @@ public class TestSofea {
 			5.0,
 			1024,
 			TestSofea::assertResults_Binding1CC8Mut2Flex1_AllOnPairs
+		);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections_MultiStepHiMem_RCInfo() {
+		stepUntilExhaustionAndCheckRCInfo(
+			Designs.Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections.get(),
+			5.0,
+			1024*1024
+		);
+	}
+	@Test
+	public void test_Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections_MultiStepLoMem_RCInfo() {
+		stepUntilExhaustionAndCheckRCInfo(
+			Designs.Binding1CC8Mut2Flex1_AllOnPairs_TripleCorrections.get(),
+			5.0,
+			1024
 		);
 	}
 
@@ -787,6 +829,83 @@ public class TestSofea {
 				}
 			}
 		}}}}
+	}
+
+	public void stepUntilExhaustionAndCheckRCInfo(Design design, double sweepIncrement, long fringeDBBytes) {
+		try (TempFile fringedbLowerFile = new TempFile(tmpdir, "fringe.lower.db")) {
+		try (TempFile fringedbUpperFile = new TempFile(tmpdir, "fringe.upper.db")) {
+		try (TempFile seqdbFile = new TempFile(tmpdir, "seq.db")) {
+		try (TempFile rcdbFile = new TempFile(tmpdir, "rc.db")) {
+		try (Ecalcs ecalcs = design.makeEcalcs(Parallelism.makeCpu(1))) {
+
+			Sofea sofea = new Sofea.Builder(design.confSpace)
+				.setFringeDBLowerFile(fringedbLowerFile)
+				.setFringeDBLowerBytes(fringeDBBytes)
+				.setFringeDBUpperFile(fringedbUpperFile)
+				.setFringeDBUpperBytes(fringeDBBytes)
+				.setSeqDBFile(seqdbFile)
+				.setRCDBFile(rcdbFile)
+				.setSweepIncrement(sweepIncrement)
+				.setNegligableFreeEnergy(10.0)
+				.configEachState(state -> design.configState(state, ecalcs))
+				.build();
+
+			// iterate everything until exhaustion
+			sofea.init(true);
+			sofea.refine((seqdb, fringedbLower, fringedbUpper, pass1Step, pass2Step, bcalc) ->
+				Sofea.Criterion.Satisfied.KeepSweeping
+			);
+
+			// check the RCDB results
+			final double epsilon = 1e-6;
+			try (SeqDB seqdb = sofea.openSeqDB()) {
+			try (RCDB rcdb = sofea.openRCDB()) {
+
+				for (MultiStateConfSpace.State state : design.confSpace.states) {
+
+					Supplier<List<Sequence>> getSequences = () -> {
+						if (state.isSequenced) {
+							return design.confSpace.seqSpace.getSequences();
+						} else {
+							return Arrays.asList(design.confSpace.seqSpace.makeUnassignedSequence());
+						}
+					};
+
+					for (Sequence seq : getSequences.get()) {
+
+						BigDecimalBounds seqZSumBounds;
+						if (state.isSequenced) {
+							seqZSumBounds = seqdb.getSequencedZSumBounds(seq).get(state);
+						} else {
+							seqZSumBounds = seqdb.getUnsequencedSum(state);
+						}
+						assertThat(seqZSumBounds.lower, isRelatively(seqZSumBounds.upper, 1e-10));
+
+						RCs rcs = seq.makeRCs(state.confSpace);
+						for (SimpleConfSpace.Position pos : state.confSpace.positions) {
+
+							// add bounds for all the RCs at a position in this sequence
+							BigMath lower = rcdb.bigMath();
+							BigMath upper = rcdb.bigMath();
+							for (int rc : rcs.get(pos.index)) {
+								SimpleConfSpace.ResidueConf resConf = pos.resConfs.get(rc);
+
+								BigDecimalBounds bounds = rcdb.getZSumBounds(state, seq, pos.index, rc);
+								lower.addOrSet(bounds.lower);
+								upper.addOrSet(bounds.upper);
+
+								// make sure these bounds are tight
+								assertThat(lower.get(), isRelatively(upper.get(), epsilon));
+							}
+
+							// make sure the sum matches the sequence bounds
+							assertThat(lower.get(), isRelatively(seqZSumBounds.lower, epsilon));
+							assertThat(upper.get(), isRelatively(seqZSumBounds.upper, epsilon));
+						}
+					}
+				}
+			}}
+		}}}}}
 	}
 
 	public void stepUntilAllStatesPrecise(Design design, double sweepIncrement, long fringeDBBytes, IntermediateChecker checker) {

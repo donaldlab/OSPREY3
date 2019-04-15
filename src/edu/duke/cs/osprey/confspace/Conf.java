@@ -34,8 +34,10 @@ package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.tools.HashCalculator;
+import edu.duke.cs.osprey.tools.Streams;
 
 import java.util.*;
+import java.util.function.Supplier;
 
 public class Conf {
 
@@ -108,6 +110,30 @@ public class Conf {
 		return Arrays.toString(conf);
 	}
 
+	public static String toString(int[] conf, SimpleConfSpace confSpace) {
+		return Streams.joinToString(confSpace.positions, ",", p -> {
+			int prc = conf[p.index];
+			if (prc == Conf.Unassigned) {
+				return "_";
+			}
+			SimpleConfSpace.ResidueConf resConf = p.resConfs.get(prc);
+			return resConf.template.name + ":" + resConf.getRotamerCode();
+		});
+	}
+
+	public static boolean isCompletelyUnassigned(int[] conf) {
+		for (int i : conf) {
+			if (i != Unassigned) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public static boolean hasAssignments(int[] conf) {
+		return !isCompletelyUnassigned(conf);
+	}
+
 	public static boolean isCompletelyAssigned(int[] conf) {
 		for (int i : conf) {
 			if (i == Unassigned) {
@@ -161,6 +187,26 @@ public class Conf {
 			}
 		}
 		return false;
+	}
+
+	public static void unassignFor(int[] conf, int pos, Runnable block) {
+		int rc = conf[pos];
+		conf[pos] = Unassigned;
+		try {
+			block.run();
+		} finally {
+			conf[pos] = rc;
+		}
+	}
+
+	public static <T> T unassignFor(int[] conf, int pos, Supplier<T> block) {
+		int rc = conf[pos];
+		conf[pos] = Unassigned;
+		try {
+			return block.get();
+		} finally {
+			conf[pos] = rc;
+		}
 	}
 
 
