@@ -412,25 +412,25 @@ public class Paste {
                     pasteScore
             ));
 
-            if(pasteScore.stability.equals("Mutation Increases Stability") || pasteScore.stability.equals("Affect on Stability Unclear")) {
-                Iterator<EnergyCalculator.EnergiedParametricMolecule> econfs = complexResult.epMols.iterator();
-                HashMap<Double, ConfSearch.ScoredConf> sconfs = complexResult.sConfs;
 
-                // return the analysis
-                ConfAnalyzer analyzer = new ConfAnalyzer(protein.confEcalc);
-                ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(sconfs, econfs, 10);
-                String pdbString = "pdbs";
-                File pdbDir = new File(pdbString);
-                if (!pdbDir.exists()) {
-                    pdbDir.mkdir();
-                }
-                String seqDir = sequences.get(sequenceNumber).toString().replaceAll(" ", "_");
-                File directory = new File(pdbString + "/" + seqDir);
-                if (!directory.exists()) {
-                    directory.mkdir();
-                }
-                analysis.writePdbs(pdbString + "/" + seqDir + "/conf.*.pdb");
+            Iterator<EnergyCalculator.EnergiedParametricMolecule> econfs = complexResult.epMols.iterator();
+            HashMap<Double, ConfSearch.ScoredConf> sconfs = complexResult.sConfs;
+
+            // return the analysis
+            ConfAnalyzer analyzer = new ConfAnalyzer(protein.confEcalc);
+            ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(sconfs, econfs, 10);
+            String pdbString = "pdbs";
+            File pdbDir = new File(pdbString);
+            if (!pdbDir.exists()) {
+                pdbDir.mkdir();
             }
+            String seqDir = sequences.get(sequenceNumber).toString().replaceAll(" ", "_");
+            File directory = new File(pdbString + "/" + seqDir);
+            if (!directory.exists()) {
+                directory.mkdir();
+            }
+            analysis.writePdbs(pdbString + "/" + seqDir + "/conf.*.pdb");
+
 
             return pasteScore;
         };
