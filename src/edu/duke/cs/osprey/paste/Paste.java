@@ -321,7 +321,7 @@ public class Paste {
             pfunc.setStabilityThreshold(stabilityThreshold);
 
             // compute it
-            pfunc.compute(settings.maxNumPfConfs);
+            pfunc.compute(settings.maxNumPfConfs, numPDBs);
 
             // save the result
             PastePartitionFunction.Result result = pfunc.makeResult();
@@ -357,12 +357,14 @@ public class Paste {
     /** Optional and overridable settings for K* */
     public final Settings settings;
 
+    private final int numPDBs;
     private List<Sequence> sequences;
 
-    public Paste(SimpleConfSpace protein, Settings settings) {
+    public Paste(SimpleConfSpace protein, Settings settings, int numPDBs) {
         this.settings = settings;
         this.protein = new ConfSpaceInfo(protein, ConfSpaceType.Protein);
         this.sequences = new ArrayList<>();
+        this.numPDBs = numPDBs;
     }
 
     public Iterable<ConfSpaceInfo> confSpaceInfos() {
@@ -412,13 +414,9 @@ public class Paste {
                     pasteScore
             ));
 
-
-            Iterator<EnergyCalculator.EnergiedParametricMolecule> econfs = complexResult.epMols.iterator();
-            HashMap<Double, ConfSearch.ScoredConf> sconfs = complexResult.sConfs;
-
             // return the analysis
             ConfAnalyzer analyzer = new ConfAnalyzer(protein.confEcalc);
-            ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(sconfs, econfs, 10);
+            ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(complexResult.sConfs, complexResult.epMols.iterator(), numPDBs);
             String pdbString = "pdbs";
             File pdbDir = new File(pdbString);
             if (!pdbDir.exists()) {

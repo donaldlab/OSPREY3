@@ -900,7 +900,7 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
 	return bbflex
 
-def Paste(complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, useWindowCriterion=useJavaDefault, maxNumPfConfs=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, mutFile=useJavaDefault):
+def Paste(complexConfSpace, numPDBs, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, useWindowCriterion=useJavaDefault, maxNumPfConfs=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, mutFile=useJavaDefault):
     '''
     :java:classdoc:`.paste.Paste`
 
@@ -946,7 +946,7 @@ def Paste(complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDe
 		settingsBuilder.setShowPfuncProgress(showPfuncProgress)
 	settings = settingsBuilder.build()
 
-	return c.paste.Paste(complexConfSpace, settings)
+	return c.paste.Paste(complexConfSpace, settings, numPDBs)
 
 def _PasteConfSearchFactory(func):
 
