@@ -32,14 +32,10 @@
 
 package edu.duke.cs.osprey.confspace;
 
-import edu.duke.cs.osprey.tools.AutoCleanable;
-import edu.duke.cs.osprey.tools.IntEncoding;
-import edu.duke.cs.osprey.tools.Streams;
+import edu.duke.cs.osprey.tools.*;
 
-import edu.duke.cs.osprey.tools.UnpossibleError;
 import org.jetbrains.annotations.NotNull;
 import org.mapdb.*;
-import org.mapdb.serializer.GroupSerializerObjectArray;
 
 import java.io.File;
 import java.io.IOException;
@@ -187,35 +183,7 @@ public class ConfDB implements AutoCleanable {
 		}
 	}
 
-	private static abstract class SimpleSerializer<T> extends GroupSerializerObjectArray<T> {
-
-		public static final int DynamicSize = -1;
-
-		public final int fixedSize;
-
-		protected SimpleSerializer(int fixedSize) {
-			this.fixedSize = fixedSize;
-		}
-
-		@Override
-		public boolean isTrusted() {
-			// we always read/write the same number of bytes, so we're "trusted" by MapDB
-			return true;
-		}
-
-		@Override
-		public int fixedSize() {
-			return fixedSize;
-		}
-
-		@Override
-		public T deserializeFromLong(long input, int available) {
-			// nope
-			throw new UnsupportedOperationException();
-		}
-	}
-
-	private class AssignmentsSerializer extends SimpleSerializer<int[]> {
+	private class AssignmentsSerializer extends MapDBTools.SimpleSerializer<int[]> {
 
 		private final int numPos;
 
@@ -275,12 +243,12 @@ public class ConfDB implements AutoCleanable {
 		}
 	}
 
-	private class MultiAssignmentsSerializer extends SimpleSerializer<List<int[]>> {
+	private class MultiAssignmentsSerializer extends MapDBTools.SimpleSerializer<List<int[]>> {
 
 		private final AssignmentsSerializer serializer = new AssignmentsSerializer();
 
 		public MultiAssignmentsSerializer() {
-			super(SimpleSerializer.DynamicSize);
+			super(MapDBTools.SimpleSerializer.DynamicSize);
 		}
 
 		@Override
@@ -328,7 +296,7 @@ public class ConfDB implements AutoCleanable {
 
 			// MapDB serializer for ConfInfo
 			final int ConfInfoBytes = Double.BYTES*2 + Long.BYTES*2;
-			SimpleSerializer<ConfInfo> confInfoSerializer = new SimpleSerializer<ConfInfo>(ConfInfoBytes) {
+			MapDBTools.SimpleSerializer<ConfInfo> confInfoSerializer = new MapDBTools.SimpleSerializer<ConfInfo>(ConfInfoBytes) {
 
 				@Override
 				public void serialize(@NotNull DataOutput2 out, @NotNull ConfInfo info)
@@ -580,7 +548,7 @@ public class ConfDB implements AutoCleanable {
 		public final Sequence sequence;
 
 		public SequenceDB(Sequence sequence) {
-			super(getSequenceId(sequence));
+			super(Streams.joinToString(confSpace.seqSpace.positions, ":", pos -> sequence.get(pos).name));
 			this.sequence = sequence;
 		}
 
@@ -740,55 +708,11 @@ public class ConfDB implements AutoCleanable {
 		assignmentEncoding = IntEncoding.get(maxAssignment + 1); // +1 for the shift to move the unassigned value (-1) to non-negative
 
 		// MapDB serializer for Sequence
-		SimpleSerializer<Sequence> sequenceSerializer = new SimpleSerializer<Sequence>(SimpleSerializer.DynamicSize) {
-
-			@Override
-			public void serialize(@NotNull DataOutput2 out, @NotNull Sequence sequence)
-			throws IOException {
-				out.writeUTF(getSequenceId(sequence));
-			}
-
-			@Override
-			public Sequence deserialize(@NotNull DataInput2 in, int available)
-			throws IOException {
-				return makeSequenceFromId(in.readUTF());
-			}
-
-			@Override
-			public int compare(Sequence a, Sequence b) {
-
-				// short circuit
-				if (a == b) {
-					return 0;
-				}
-
-				// lexicographical comparison
-				for (SeqSpace.Position pos : confSpace.seqSpace.positions) {
-					SeqSpace.ResType aResType = a.get(pos);
-					SeqSpace.ResType bResType = b.get(pos);
-					if (aResType != null && bResType != null) {
-						// both not null, safe to compare
-						int val = aResType.compareTo(bResType);
-						if (val != 0) {
-							return val;
-						}
-					} else if (aResType == null && bResType != null) {
-						// a null, but not b, assume a < b
-						return -1;
-					} else if (aResType != null) {
-						// b null, but not a, assume a > b
-						return 1;
-					}
-					// both null, continue to next pos
-				}
-
-				return 0;
-			}
-		};
+		MapDBTools.SequenceSerializer sequenceSerializer = new MapDBTools.SequenceSerializer(confSpace.seqSpace);
 
 		// MapDB serialzier for SequenceInfo
 		final int infoSize = Double.BYTES;
-		SimpleSerializer<SequenceInfo> infoSerializer = new SimpleSerializer<SequenceInfo>(infoSize) {
+		MapDBTools.SimpleSerializer<SequenceInfo> infoSerializer = new MapDBTools.SimpleSerializer<SequenceInfo>(infoSize) {
 
 			@Override
 			public void serialize(@NotNull DataOutput2 out, @NotNull SequenceInfo info)
@@ -819,23 +743,6 @@ public class ConfDB implements AutoCleanable {
 			.valueSerializer(infoSerializer)
 			.createOrOpen();
 		sequenceDBs = new HashMap<>();
-	}
-
-	private String getSequenceId(Sequence sequence) {
-		return String.join(":", () ->
-			sequence.seqSpace.positions.stream()
-				.map((pos) -> (CharSequence)sequence.get(pos).name)
-				.iterator()
-		);
-	}
-
-	private Sequence makeSequenceFromId(String id) {
-		Sequence sequence = confSpace.makeUnassignedSequence();
-		String[] resTypes = id.split(":");
-		for (SeqSpace.Position pos : confSpace.seqSpace.positions) {
-			sequence.set(pos.resNum, resTypes[pos.index]);
-		}
-		return sequence;
 	}
 
 	public long getNumSequences() {

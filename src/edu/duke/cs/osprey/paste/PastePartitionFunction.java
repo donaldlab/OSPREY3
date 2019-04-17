@@ -235,10 +235,10 @@ public interface PastePartitionFunction {
 	int getParallelism();
 	int getNumConfsEvaluated();
 
-	void compute(int maxNumConfs);
+	void compute(int maxNumConfs, int numPDBs);
 
 	default void compute() {
-		compute(Integer.MAX_VALUE);
+		compute(Integer.MAX_VALUE, 10);
 	}
 
 	public default Result makeResult() {

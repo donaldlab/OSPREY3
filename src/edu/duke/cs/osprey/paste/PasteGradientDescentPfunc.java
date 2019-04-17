@@ -331,7 +331,7 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 	}
 
 	@Override
-	public void compute(int maxNumConfs) {
+	public void compute(int maxNumConfs, int numPDBs) {
 
 		if (status == null) {
 			throw new IllegalStateException("pfunc was not initialized. Call init() before compute()");
@@ -429,8 +429,9 @@ public class PasteGradientDescentPfunc implements PastePartitionFunction.WithCon
 							result.stopwatch.start();
 							result.epmol = ecalc.calcEnergy(new RCTuple(conf.getAssignments()));
 							result.econf = new ConfSearch.EnergiedConf(conf, result.epmol.energy);
-							if (state.sConfs.size() <= 10) // only want the first 10 PDB files - don't need to calculate and save all of them
+							if (state.sConfs.size() <= numPDBs){ // only want n PDB files - don't need to calculate and save all of them
 								state.sConfs.put(result.econf.getEnergy(), conf);
+							}
 							result.scoreWeight = bcalc.calc(result.econf.getScore());
 							result.energyWeight = bcalc.calc(result.econf.getEnergy());
 							result.stopwatch.stop();

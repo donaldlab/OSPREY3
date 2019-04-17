@@ -1,3 +1,0 @@
-Sequence	PAStE Score (ddG)	PAStE Lower Bound	PAStE Upper Bound	Variant Bounds	WT Bounds	Total # Confs.	Protein Partition Function	Protein Epsilon	Protein # Confs.	Time (sec)
-A42=THR	-1.228483 in [-1.903635,-0.558741]              Mutation Increases Stability	31.166528	31.660946	[31.166528,31.660946] (log10)	[30.266902,30.757359] (log10)	131	1.467331e+31	0.6796816526825198	131
-A42=ala	-0.000000 in [-0.669742, 0.669742]               Affect on Stability Unclear	30.266902	30.757359	[30.266902,30.757359] (log10)	[30.266902,30.757359] (log10)	28	1.848852e+30	0.6767462506648473	28

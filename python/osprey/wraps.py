@@ -63,6 +63,7 @@ def init(c):
 	wrapStrandBuilder(c)
 	wrapAutocloseable(c.sofea.SeqDB)
 	wrapAutocloseable(c.sofea.FringeDB)
+	wrapAutocloseable(c.sofea.RCDB)
 
 
 def checkDeprecatedResNumbers(resNums, fnnames):
