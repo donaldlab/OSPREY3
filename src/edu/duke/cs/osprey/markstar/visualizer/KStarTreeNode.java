@@ -54,9 +54,12 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
+
+import static edu.duke.cs.osprey.tools.Log.log;
 
 public class KStarTreeNode implements Comparable<KStarTreeNode>{
     public static final Pattern p = Pattern.compile("((~\\+)*)\\(([^)]+)\\)->\\((.*)\\)\\: ?\\[(.*)\\]->\\[(.*)\\](.*)");
@@ -122,14 +125,21 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         }
     }
 
-    public static KStarTreeNode parseTree(File file, boolean render)
+    public static KStarTreeNode parseTree(File file, boolean render, Map<Integer,BigDecimal> zCutoffsByLevel)
     {
         try {
             BufferedReader fileStream = new BufferedReader(new FileReader(file));
             KStarTreeNode.Builder builder = new KStarTreeNode.Builder();
             builder.setEpsilon(0.68);
             builder.setRender(render);
-            fileStream.lines().forEach(line -> builder.addNode(line));
+            AtomicLong numNodes = new AtomicLong(0);
+            fileStream.lines().forEach(line -> {
+                boolean addedNode = builder.addNode(line, zCutoffsByLevel);
+                if (addedNode) {
+                    numNodes.incrementAndGet();
+                }
+            });
+            log("added %d nodes from the tree", numNodes.get());
             return builder.assembleTree();
         } catch(Exception e)
         {
@@ -139,7 +149,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return null;
     }
      public static KStarTreeNode parseTree(String fileName) {
-        return parseTree(new File(fileName), false);
+        return parseTree(new File(fileName), false, null);
      }
 
      public BigDecimal getLowerBound() {
@@ -405,7 +415,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                     centerY,//-innerRadius*Math.sin(s),
                     centerX+outerRadius*Math.cos(s),
                     centerY-outerRadius*Math.sin(s));
-            separator.setStroke(Color.WHITE);
+            separator.setStroke(Color.gray(0.92));
             separator.setStrokeWidth(borderThickness);
             separators.add(separator);
             double finalStartAngle = startAngle;
@@ -878,8 +888,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             this.render = render;
             return this;
         }
-        public void addNode(String line)
+        public boolean addNode(String line, Map<Integer,BigDecimal> zCutoffsByLevel)
         {
+            // regex all the things!!
             Matcher m = p.matcher(line);
             if(m.matches() && debug) {
                 System.out.println("Groups:");
@@ -895,14 +906,26 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             String[] confBounds = m.group(5).split(",");
             double confLowerBound = Double.valueOf(confBounds[0]);
             double confUpperBound = Double.valueOf(confBounds[1]);
+
+            if (zCutoffsByLevel != null) {
+
+                // if this node is too "small", just drop it entirely
+                if (upperBound.compareTo(zCutoffsByLevel.get(level)) < 0) {
+                    return false;
+                }
+
+                // if this node had its parent dropped, drop it too
+                if (level > lastLevel + 1) {
+                    return false;
+                }
+            }
+
             if(level > lastLevel) {
                 buildStack.push(lastNode);
             }
-            if(level < lastLevel) {
-                while(level < lastLevel) {
-                    lastLevel--;
-                    buildStack.pop();
-                }
+            while(level < lastLevel) {
+                lastLevel--;
+                buildStack.pop();
             }
             KStarTreeNode newNode = new KStarTreeNode(level, assignments, confAssignments, lowerBound, upperBound,
                     confLowerBound, confUpperBound, epsilon);
@@ -917,7 +940,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             lastLevel = level;
             lastNode = newNode;
 
-
+            return true;
         }
 
         public Builder setEpsilon(double epsilon)

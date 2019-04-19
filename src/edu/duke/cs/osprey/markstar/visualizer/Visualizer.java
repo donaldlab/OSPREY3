@@ -40,17 +40,23 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Circle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
+import java.util.stream.Collectors;
+
+import static edu.duke.cs.osprey.tools.Log.log;
 
 public class Visualizer extends Application {
 
@@ -66,7 +72,7 @@ public class Visualizer extends Application {
     private double ringY;
 
     @Override
-    public void start(Stage primaryStage) throws Exception{
+    public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
         primaryStage.setTitle("MARK* Tree Analyzer (v0.2)");
         triroot = new BorderPane();
@@ -138,7 +144,8 @@ public class Visualizer extends Application {
     }
 
     private void devShortCut3() {
-        loadTreeFromFile(new File("Complex2XXMCATS.ordered.0.01.txt"));
+        loadTreeFromFile(new File("/tmp/0.389867ConfTreeBounds.txt"));
+        //loadTreeFromFile(new File("/tmp/0.875183ConfTreeBounds.txt"));
     }
 
     private void devShortCut2() {
@@ -157,7 +164,68 @@ public class Visualizer extends Application {
         Group textGroup = new Group();
         Group g = rootGroup;
         Pane centerPane = new Pane();
-        root = KStarTreeNode.parseTree(selectedFile, true);
+
+        // handle the huge tree file with multiple passes,
+        // so we don't have to keep it all in memory at once
+
+        // pass 1: get the biggest Z value for every level in the tree
+        log("reading tree file for calibration, pass 1 ...");
+        Map<Integer,BigDecimal> biggestZByLevel = new HashMap<>();
+        AtomicLong numNodes = new AtomicLong(0);
+        try (BufferedReader fileStream = new BufferedReader(new FileReader(selectedFile))) {
+            fileStream.lines().forEach(line -> {
+
+                // parse the level and Z upper bound from the line
+                Matcher m = KStarTreeNode.p.matcher(line);
+                m.matches();
+                int level = m.group(1).length()/2;
+                BigDecimal upperBound = new BigDecimal(m.group(6).split(",")[1]);
+
+                // keep the biggest Z value for each level
+                biggestZByLevel.compute(level, (key, old) -> {
+                    if (old == null || upperBound.compareTo(old) > 0) {
+                        return upperBound;
+                    } else {
+                        return old;
+                    }
+                });
+
+                numNodes.incrementAndGet();
+            });
+        } catch (Exception ex) {
+            throw new RuntimeException("can't read tree file", ex);
+        }
+        log("finished parsing %d nodes", numNodes.get());
+
+        // show the Z values for each level
+        log("biggest Z upper bounds for each level:");
+        for (Map.Entry<Integer,BigDecimal> entry : biggestZByLevel.entrySet()) {
+            int level = entry.getKey();
+            BigDecimal upperBound = entry.getValue();
+            log("\t%2d -> %e", level, upperBound);
+        }
+
+        // make cutoffs from the upper bounds by scaling them
+        final double cutoffFactor = 1e-2;
+        log("cutoff factor: %f", cutoffFactor);
+        BigDecimal bigScale = BigDecimal.valueOf(cutoffFactor);
+        Map<Integer,BigDecimal> zCutoffsByLevel = biggestZByLevel.entrySet().stream()
+            .collect(Collectors.toMap(
+                e -> e.getKey(),
+                e -> e.getValue().multiply(bigScale)
+            ));
+
+        // show the Z cutoffs for each level
+        for (Map.Entry<Integer,BigDecimal> entry : zCutoffsByLevel.entrySet()) {
+            int level = entry.getKey();
+            BigDecimal upperBound = entry.getValue();
+            log("\t%2d: %e", level, upperBound);
+        }
+
+        // pass 2: read the tree and render the nodes
+        log("reading tree file for display, pass 2 ...");
+        root = KStarTreeNode.parseTree(selectedFile, true, zCutoffsByLevel);
+
         /*
         int level = 5;
         System.out.println("Enthalpy:"+root.computeEnthalpy(level));
