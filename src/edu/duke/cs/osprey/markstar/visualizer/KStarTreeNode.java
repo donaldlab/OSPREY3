@@ -32,9 +32,13 @@
 
 package edu.duke.cs.osprey.markstar.visualizer;
 
+import edu.duke.cs.osprey.confspace.Conf;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.markstar.framework.MARKStarNode;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 import javafx.collections.ObservableList;
 import javafx.geometry.Point2D;
@@ -50,6 +54,7 @@ import javafx.scene.transform.Transform;
 import java.io.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
@@ -177,6 +182,61 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             this.overallUpperBound = upperBound;
         }
     }
+
+    public KStarTreeNode assign(
+    	int pos, int rc, String assignment,
+		BigDecimal lowerBound, BigDecimal upperBound,
+		double confLowerBound, double confUpperBound
+	) {
+
+    	// make the assignments
+    	String[] assignments = this.assignments.clone();
+    	assignments[pos] = assignment;
+    	int[] conf = this.confAssignments.clone();
+    	conf[pos] = rc;
+
+    	KStarTreeNode child = new KStarTreeNode(
+    		level + 1,
+			assignments,
+			conf,
+			lowerBound, upperBound,
+			confLowerBound, confUpperBound,
+			epsilon.doubleValue()
+		);
+
+    	// propagate copies of info to the new node
+    	child.overallUpperBound = this.overallUpperBound;
+
+    	// add the child node to the tree
+		addChild(child);
+
+    	return child;
+	}
+
+	public void updateBoundsFromChildren(MathContext mathContext) {
+
+    	if (children.isEmpty()) {
+    		throw new IllegalStateException("no children from which to update bounds");
+		}
+
+		BigMath lower = new BigMath(mathContext).set(0);
+		BigMath upper = new BigMath(mathContext).set(0);
+		confLowerBound = Double.POSITIVE_INFINITY;
+		confUpperBound = Double.NEGATIVE_INFINITY;
+
+		for (KStarTreeNode child : children) {
+			lower.add(child.lowerBound);
+			upper.add(child.upperBound);
+			confLowerBound = Math.min(confLowerBound, child.confLowerBound);
+			confUpperBound = Math.max(confUpperBound, child.confUpperBound);
+		}
+
+		lowerBound = lower.get();
+		upperBound = upper.get();
+
+		occupancy = -1;
+		computeOccupancy();
+	}
 
     public int numStatesAtLevel(int level) {
         if(this.level == level || children == null || children.size() < 1) {
@@ -983,12 +1043,52 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     }
 
     protected void addChild(KStarTreeNode newNode) {
+
+    	if (newNode.parent != null) {
+    		throw new IllegalArgumentException("node already has a parent");
+		}
+
         children.add(newNode);
         newNode.statText = this.statText;
         newNode.parent = this;
         newNode.overallUpperBound = this.overallUpperBound;
         newNode.computeOccupancy();
     }
+
+    public KStarTreeNode parent() {
+    	return parent;
+	}
+
+    public void removeFromParent() {
+    	if (parent != null) {
+    		boolean wasRemoved = parent.children.remove(this);
+    		if (!wasRemoved) {
+    			throw new IllegalStateException("node was not a child of its parent");
+			}
+    		parent = null;
+		}
+	}
+
+	public Integer getAssignmentIndex() {
+
+    	// root node? no assignment
+		if (parent == null) {
+			return null;
+		}
+
+		// we should have exactly one more assignment than our parent
+		// which one is it?
+		for (int i=0; i<assignments.length; i++) {
+			int myrc = confAssignments[i];
+			int parentrc = parent.confAssignments[i];
+			if (myrc != Conf.Unassigned && parentrc == Conf.Unassigned) {
+				return i;
+			}
+		}
+
+		// something is wrong, find a programmer
+		throw new Error("tree structure doesn't match assignment order. this is a bug.");
+	}
 
     public String toString()
     {
@@ -1127,4 +1227,62 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     public void printTree() {
         printTree("", null);
     }
+
+    /** printTree uses a different format than MARK* apparently */
+    public void printTreeLikeMARKStar(Writer out)
+	throws IOException {
+    	printTreeLikeMARKStar(out, "");
+	}
+
+	public void printTreeLikeMARKStar(Writer out, String prefix)
+	throws IOException {
+
+    	// render the prefix
+		out.append(prefix);
+
+    	// render the conf
+		out.append("(");
+		for (int rc : confAssignments) {
+			out.append(Integer.toString(rc));
+			out.append(", ");
+		}
+		out.append(")");
+
+		out.append("->");
+
+		// render the assignments
+		out.append("(");
+		for (int i=0; i<assignments.length; i++) {
+			if (i > 0) {
+				out.append(",");
+			}
+			out.append(assignments[i]);
+		}
+		out.append(")");
+
+		out.append(":");
+
+		// render the conf bounds
+		out.append("[");
+		out.append(Double.toString(confLowerBound));
+		out.append(",");
+		out.append(Double.toString(confUpperBound));
+		out.append("]");
+
+		out.append("->");
+
+		// render the zSum bounds
+		out.append("[");
+		out.append(lowerBound.toString()); // this will print an exact representation of the BigDecimal
+		out.append(",");
+		out.append(upperBound.toString());
+		out.append("]");
+
+		out.append("\n");
+
+		// recurse
+		for (KStarTreeNode child : children) {
+			child.printTreeLikeMARKStar(out, prefix + "~+");
+		}
+	}
 }
