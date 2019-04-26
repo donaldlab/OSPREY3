@@ -32,9 +32,11 @@
 
 package edu.duke.cs.osprey.kstar.pfunc;
 
+import com.google.common.collect.Ordering;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import java.io.File;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -45,6 +47,8 @@ import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEPfunc;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
+import edu.duke.cs.osprey.markstar.framework.RespectfulSBLDOrder;
+import edu.duke.cs.osprey.markstar.framework.StaticBiggestLowerboundDifferenceOrder;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 import java.math.BigInteger;
@@ -59,6 +63,13 @@ public class PartitionFunctionFactory {
         LUTE
     }
 
+    enum OrderingImpl{
+        Standard,
+        Respectful,
+        Manual
+    }
+
+
     private ConfEnergyCalculator confUpperBoundECalc;
     private ConfEnergyCalculator confEcalc;
     private Map<ConfEnergyCalculator, EnergyMatrix> emats = new HashMap<>();
@@ -67,6 +78,7 @@ public class PartitionFunctionFactory {
     private PartitionFunctionImpl pfuncImpl = PartitionFunctionImpl.GradientDescent;
     private UpdatingEnergyMatrix MARKStarEmat = null;
     private String state = "(undefined)";
+    private OrderingImpl orderingImpl = OrderingImpl.Standard;
 
     public PartitionFunctionFactory(SimpleConfSpace confSpace, ConfEnergyCalculator confECalc, String state) {
         this.state = state;
@@ -86,6 +98,14 @@ public class PartitionFunctionFactory {
 
     public void setUseGradientDescent() {
         this.pfuncImpl = PartitionFunctionImpl.GradientDescent;
+    }
+
+    public void setRespectfulOrdering(){
+        this.orderingImpl = OrderingImpl.Respectful;
+    }
+
+    public void setManualOrdering(){
+        throw new java.lang.UnsupportedOperationException("Manual ordering is not yet implemented!");
     }
 
     public ConfSearch makeConfSearch(EnergyMatrix emat, RCs rcs, PruningMatrix pmat) {
@@ -117,8 +137,21 @@ public class PartitionFunctionFactory {
                 EnergyMatrix minimizingEmat = makeEmat(confEcalc, "minimizing");
                 if(MARKStarEmat == null)
                     MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
+                //Set ordering also
+                AStarOrder order = null;
+                switch(orderingImpl) {
+                    case Standard:
+                        order = new StaticBiggestLowerboundDifferenceOrder();
+                        break;
+                    case Respectful:
+                        order = new RespectfulSBLDOrder(confSpace);
+                        break;
+                    case Manual:
+                        break;
+                }
+
                 MARKStarBound MARKStarBound = new MARKStarBoundFastQueues(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
-                        minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
+                        minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism, order);
                 MARKStarBound.setCorrections(MARKStarEmat);
                 MARKStarBound.init(epsilon);
                 pfunc = MARKStarBound;

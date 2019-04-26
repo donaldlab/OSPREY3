@@ -49,6 +49,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundRigid;
+import edu.duke.cs.osprey.markstar.framework.StaticBiggestLowerboundDifferenceOrder;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -339,7 +340,7 @@ public class MARKStar {
 			// make the partition function
 			MARKStarBoundFastQueues pfunc = new MARKStarBoundFastQueues(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(confSpace),
 			//MARKStarBoundRigid pfunc = new MARKStarBoundRigid(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, sequence.makeRCs(confSpace),
-					settings.parallelism);
+					settings.parallelism, new StaticBiggestLowerboundDifferenceOrder());
 			confSearchFactory = (emat, rcs) -> {
 				ConfAStarTree.Builder builder = new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional();

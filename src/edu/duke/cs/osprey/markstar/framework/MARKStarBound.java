@@ -334,7 +334,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     public MARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
-                         ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
+                         ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism, AStarOrder order) {
         this.queue = new PriorityQueue<>();
         this.minimizingEcalc = minimizingConfEcalc;
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
@@ -352,7 +352,8 @@ public class MARKStarBound implements PartitionFunction {
         this.minimizingEmat = minimizingEmat;
         this.rigidEmat = rigidEmat;
         this.RCs = rcs;
-        this.order = new StaticBiggestLowerboundDifferenceOrder();
+        //this.order = new StaticBiggestLowerboundDifferenceOrder();
+        this.order = order;
         order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
         this.pruner = null;
 

@@ -1438,12 +1438,18 @@ def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSi
 
 	return builder.build()
 
-def PartitionFunctionFactory(confSpace, confEcalc, state, confUpperBoundcalc=None):
+def PartitionFunctionFactory(confSpace, confEcalc, state, confUpperBoundcalc=None, respectfulOrder=False, manualOrder=False):
     pfuncFactory = c.kstar.pfunc.PartitionFunctionFactory(confSpace, confEcalc, state)
     if confUpperBoundcalc is not None:
         pfuncFactory.setUseMARKStar(confUpperBoundcalc)
     else:
         pfuncFactory.setUseGradientDescent()
+
+    if manualOrder == True:
+    	pfuncFactory.setManualOrdering()
+    elif respectfulOrder == True:
+    	pfuncFactory.setRespectfulOrdering()
+
 
     return pfuncFactory
 
