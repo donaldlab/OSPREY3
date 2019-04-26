@@ -80,7 +80,7 @@ public class StaticBiggestLowerboundDifferenceOrder implements edu.duke.cs.ospre
 		return posOrder.get(confIndex.node.getLevel());
 	}
 
-	private List<Integer> calcPosOrder(ConfIndex confIndex, RCs rcs) {
+	protected List<Integer> calcPosOrder(ConfIndex confIndex, RCs rcs) {
 		// init permutation array with only undefined positions and score them
 		List<Integer> undefinedOrder = new ArrayList<Integer>();
 		Map<Integer, Double > scores = new TreeMap<>();
