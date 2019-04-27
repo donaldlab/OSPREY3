@@ -45,10 +45,7 @@ import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEPfunc;
-import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
-import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
-import edu.duke.cs.osprey.markstar.framework.RespectfulSBLDOrder;
-import edu.duke.cs.osprey.markstar.framework.StaticBiggestLowerboundDifferenceOrder;
+import edu.duke.cs.osprey.markstar.framework.*;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 import java.math.BigInteger;
@@ -105,7 +102,7 @@ public class PartitionFunctionFactory {
     }
 
     public void setManualOrdering(){
-        throw new java.lang.UnsupportedOperationException("Manual ordering is not yet implemented!");
+        this.orderingImpl = OrderingImpl.Manual;
     }
 
     public ConfSearch makeConfSearch(EnergyMatrix emat, RCs rcs, PruningMatrix pmat) {
@@ -147,6 +144,7 @@ public class PartitionFunctionFactory {
                         order = new RespectfulSBLDOrder(confSpace);
                         break;
                     case Manual:
+                        order = new ManualOrder();
                         break;
                 }
 
