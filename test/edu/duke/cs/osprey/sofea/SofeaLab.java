@@ -46,6 +46,7 @@ import edu.duke.cs.osprey.energy.approximation.ApproximatorMatrixCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
+import edu.duke.cs.osprey.markstar.framework.StaticBiggestLowerboundDifferenceOrder;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -267,7 +268,8 @@ public class SofeaLab {
 					config.emat,
 					config.confEcalc,
 					rcs,
-					config.confEcalc.ecalc.parallelism
+					config.confEcalc.ecalc.parallelism,
+                    new StaticBiggestLowerboundDifferenceOrder()
 				);
 				pfunc.init(epsilon);
 				pfunc.setStabilityThreshold(null);
