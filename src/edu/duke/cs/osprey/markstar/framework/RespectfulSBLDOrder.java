@@ -3,9 +3,6 @@ package edu.duke.cs.osprey.markstar.framework;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.Strand;
-import edu.duke.cs.osprey.markstar.prototype.SimpleConf;
-import sun.java2d.pipe.SpanShapeRenderer;
 
 import java.util.*;
 import java.util.stream.Collectors;
