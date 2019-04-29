@@ -49,7 +49,9 @@ import edu.duke.cs.osprey.markstar.framework.*;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class PartitionFunctionFactory {
@@ -76,6 +78,7 @@ public class PartitionFunctionFactory {
     private UpdatingEnergyMatrix MARKStarEmat = null;
     private String state = "(undefined)";
     private OrderingImpl orderingImpl = OrderingImpl.Standard;
+    private List<Integer> manualOrderList = new ArrayList();
 
     public PartitionFunctionFactory(SimpleConfSpace confSpace, ConfEnergyCalculator confECalc, String state) {
         this.state = state;
@@ -101,7 +104,7 @@ public class PartitionFunctionFactory {
         this.orderingImpl = OrderingImpl.Respectful;
     }
 
-    public void setManualOrdering(){
+    public void setManualOrdering(List<Integer> permList){
         this.orderingImpl = OrderingImpl.Manual;
     }
 
@@ -144,7 +147,7 @@ public class PartitionFunctionFactory {
                         order = new RespectfulSBLDOrder(confSpace);
                         break;
                     case Manual:
-                        order = new ManualOrder();
+                        order = new ManualOrder(manualOrderList);
                         break;
                 }
 

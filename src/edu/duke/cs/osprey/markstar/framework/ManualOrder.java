@@ -16,8 +16,11 @@ public class ManualOrder implements AStarOrder {
     private AStarScorer hscorer;
 
     private List<Integer> posOrder;
+    private List<Integer> permutation;
 
-    public ManualOrder(){}
+    public ManualOrder(List<Integer> permutation){
+        this.permutation = permutation;
+    }
 
     @Override
     public void setScorers(AStarScorer gscorer, AStarScorer hscorer) {
@@ -45,14 +48,16 @@ public class ManualOrder implements AStarOrder {
             int pos = confIndex.undefinedPos[posi];
             undefinedOrder.add(pos);
         }
-        // Do not sort, as we want the residues to remain in the order they are in
+        // Force the permutation order, keeping only undefined residues
+        List<Integer> intersected = permutation;
+        intersected.retainAll(undefinedOrder);
         // prepend the defined positions to build the full order
         List<Integer> order = new ArrayList<>();
         for (int posi=0; posi<confIndex.numDefined; posi++) {
             int pos = confIndex.definedPos[posi];
             order.add(pos);
         }
-        order.addAll(undefinedOrder);
+        order.addAll(intersected);
 
         return order;
     }

@@ -1438,16 +1438,22 @@ def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSi
 
 	return builder.build()
 
-def PartitionFunctionFactory(confSpace, confEcalc, state, confUpperBoundcalc=None, respectfulOrder=False, manualOrder=False):
+def PartitionFunctionFactory(confSpace, confEcalc, state, confUpperBoundcalc=None, respectfulOrder=False, manualOrder=useJavaDefault):
     pfuncFactory = c.kstar.pfunc.PartitionFunctionFactory(confSpace, confEcalc, state)
     if confUpperBoundcalc is not None:
         pfuncFactory.setUseMARKStar(confUpperBoundcalc)
     else:
         pfuncFactory.setUseGradientDescent()
 
-    if manualOrder == True:
-    	pfuncFactory.setManualOrdering()
-    elif respectfulOrder == True:
+    if manualOrder == useJavaDefault:
+    	raise NotImplementedError('You must include a specific ordering when using Manual Ordering')
+	else:
+		permList = jpype.java.util.ArrayList()
+		for i in manualOrder:
+			permList.add(i)
+    	pfuncFactory.setManualOrdering(permList)
+
+    if respectfulOrder == True:
     	pfuncFactory.setRespectfulOrdering()
 
 
