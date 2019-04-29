@@ -78,7 +78,7 @@ public class PartitionFunctionFactory {
     private UpdatingEnergyMatrix MARKStarEmat = null;
     private String state = "(undefined)";
     private OrderingImpl orderingImpl = OrderingImpl.Standard;
-    private List<Integer> manualOrderList = new ArrayList();
+    private List<Integer> manualOrderList = null;
 
     public PartitionFunctionFactory(SimpleConfSpace confSpace, ConfEnergyCalculator confECalc, String state) {
         this.state = state;
@@ -106,6 +106,7 @@ public class PartitionFunctionFactory {
 
     public void setManualOrdering(List<Integer> permList){
         this.orderingImpl = OrderingImpl.Manual;
+        this.manualOrderList = permList;
     }
 
     public ConfSearch makeConfSearch(EnergyMatrix emat, RCs rcs, PruningMatrix pmat) {
