@@ -148,13 +148,19 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         if(children != null && children.size() > 0) {
             BigDecimal errorUpperBound = BigDecimal.ZERO;
             BigDecimal errorLowerBound = BigDecimal.ZERO;
+            double minChildELB = Double.MAX_VALUE;
+            double minChildEUB = Double.MAX_VALUE;
             for(MARKStarNode child: children) {
                 child.updateSubtreeBounds();
                 errorUpperBound = errorUpperBound.add(child.confSearchNode.subtreeUpperBound);
                 errorLowerBound = errorLowerBound.add(child.confSearchNode.subtreeLowerBound);
+                minChildELB = Double.min(minChildELB, child.confSearchNode.minLeafELB);
+                minChildEUB = Double.min(minChildEUB, child.confSearchNode.minLeafEUB);
             }
             confSearchNode.subtreeUpperBound = errorUpperBound;
             confSearchNode.subtreeLowerBound = errorLowerBound;
+            confSearchNode.minLeafELB = minChildELB;
+            confSearchNode.minLeafEUB = minChildEUB;
         }
     }
 
@@ -294,7 +300,8 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         if(confSpace != null)
             confString = confString+"->("+confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments)+")";
         String out = prefix+confString+":"
-                +"["+confSearchNode.confLowerBound+","+confSearchNode.confUpperBound+"]->"
+                +"["+confSearchNode.confLowerBound+","+confSearchNode.confUpperBound+"]"
+                +"{"+confSearchNode.minLeafELB + "," + confSearchNode.minLeafEUB +"}->"
                 +"["+setSigFigs(confSearchNode.subtreeLowerBound)
                 +","+setSigFigs(confSearchNode.subtreeUpperBound)+"]"+"\n";
         if(MathTools.isLessThan(confSearchNode.getSubtreeUpperBound(), BigDecimal.ONE))
@@ -448,6 +455,12 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
         public BigInteger numConfs = BigInteger.ZERO;
         private double minimizationRatio = 1;
 
+        /**
+         * The following structures are intended to store information about the lowest and highest energy conformations in a subtree
+         */
+        public double minLeafELB = Double.MAX_VALUE;
+        public double minLeafEUB = Double.MAX_VALUE;
+
         public Node(int size) {
             this(size, 0);
         }
@@ -484,6 +497,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
                         + " with " + tighterLower + ", which is lower!?");
             if(tighterLower > confLowerBound) {
                 confLowerBound = tighterLower;
+                minLeafELB = tighterLower;
                 updateSubtreeUpperBound(computeBoundsFromEnergy(confLowerBound));
             }
         }
@@ -496,6 +510,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
                 updateSubtreeLowerBound(BigDecimal.ZERO);
             if(tighterUpper < confUpperBound) {
                 confUpperBound = tighterUpper;
+                minLeafEUB = tighterUpper;
                 updateSubtreeLowerBound(computeBoundsFromEnergy(confUpperBound));
             }
         }
