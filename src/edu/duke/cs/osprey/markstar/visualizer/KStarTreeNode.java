@@ -59,7 +59,7 @@ import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 public class KStarTreeNode implements Comparable<KStarTreeNode>{
-    public static final Pattern p = Pattern.compile("((~\\+)*)\\(([^)]+)\\)->\\((.*)\\)\\: ?\\[(.*)\\]->\\[(.*)\\](.*)");
+    public static final Pattern p = Pattern.compile("((~\\+)*)\\(([^)]+)\\)->\\((.*)\\)\\: ?\\[(.*)\\]\\{(.*)\\}->\\[(.*)\\](.*)");
     private static final boolean debug = false;
     private static Random[] colorSeeds;
     private BigDecimal overallUpperBound;
@@ -97,6 +97,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     private static boolean drawTree = false;
     private ColorStyle colorStyle = ColorStyle.occupancy;
     private static List<Double> maxLevelOccupancies = new ArrayList<>();
+
+    private double minLeafELB;
+    private double minLeafEUB;
 
     public enum ColorStyle {
         differenceFromEnergy,
@@ -152,7 +155,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
 
     public KStarTreeNode(int level, String[] assignments, int[] confAssignments, BigDecimal lowerBound, BigDecimal upperBound,
-                         double confLowerBound, double confUpperBound, double epsilon) {
+                         double confLowerBound, double confUpperBound, double minLeafELB, double minLeafEUB, double epsilon) {
         this.level = level;
         this.assignments = assignments;
         this.confAssignments = confAssignments;
@@ -162,6 +165,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         this.bandGroup = new Group();
         this.confLowerBound = confLowerBound;
         this.confUpperBound = confUpperBound;
+        this.minLeafELB = minLeafELB;
+        this.minLeafEUB = minLeafEUB;
+
         this.colorSeeds = new Random[assignments.length];
         if(isRoot()) {
             this.overallUpperBound = upperBound;
@@ -311,7 +317,10 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             System.err.println("This is only run from the root for now.");
             System.exit(-1);
         }
-        double minLeafLower = getMinLeafLower();
+        // Now we have this information stored in the tree
+        //double minLeafLower = getMinLeafLower();
+
+        double minLeafLower = getMinLeafELB();
         this.ratioToMaxLeaf = 1;
         setMinLeafLower(minLeafLower);
         computeLevelMaxOccupancies();
@@ -319,7 +328,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     private void setMinLeafLower(double treeLowerBound) {
         this.overallLower = treeLowerBound;
-        this.minLeafLower = getMinLeafLower();
+        // Now we have this information stored in the tree
+        //this.minLeafLower = getMinLeafLower();
+        this.minLeafLower = getMinLeafELB();
         double colorThreshhold = 2;
         this.ratioToMaxLeaf = (colorThreshhold-Math.min(colorThreshhold,minLeafLower - overallLower))/colorThreshhold;
         if(children == null || children.size() < 1)
@@ -887,7 +898,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                     System.out.println("group "+i+":"+m.group(i));
             }
             int level = m.group(1).length()/2;
-            String[] bounds = m.group(6).split(",");
+            String[] bounds = m.group(7).split(",");
             int[] confAssignments = Arrays.stream(m.group(3).replaceAll(" ","").split(",")).mapToInt(Integer::parseInt).toArray();
             String[] assignments = m.group(4).split(",");
             BigDecimal lowerBound = new BigDecimal(bounds[0]);
@@ -895,6 +906,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             String[] confBounds = m.group(5).split(",");
             double confLowerBound = Double.valueOf(confBounds[0]);
             double confUpperBound = Double.valueOf(confBounds[1]);
+            String[] energyBounds = m.group(6).split(",");
+            double minLeafELB = Double.valueOf(energyBounds[0]);
+            double minLeafEUB = Double.valueOf(energyBounds[1]);
             if(level > lastLevel) {
                 buildStack.push(lastNode);
             }
@@ -905,7 +919,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                 }
             }
             KStarTreeNode newNode = new KStarTreeNode(level, assignments, confAssignments, lowerBound, upperBound,
-                    confLowerBound, confUpperBound, epsilon);
+                    confLowerBound, confUpperBound, minLeafELB, minLeafEUB, epsilon);
             KStarTreeNode curParent = buildStack.peek();
             if(newNode.isRoot()) {
                 root = newNode;
@@ -1103,5 +1117,12 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
 
     public void printTree() {
         printTree("", null);
+    }
+
+    public double getMinLeafELB(){
+        return minLeafELB;
+    }
+    public double getMinLeafEUB() {
+        return minLeafEUB;
     }
 }
