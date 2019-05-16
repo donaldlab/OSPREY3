@@ -62,6 +62,8 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
         this.leafQueue = new PriorityQueue<>();
         this.internalQueue = new PriorityQueue<>();
     }
+
+    @Override
     protected void tightenBoundInPhases() {
         System.out.println(String.format("Current overall error bound: %12.10f, spread of [%12.6e, %12.6e]",epsilonBound, rootNode.getLowerBound(), rootNode.getUpperBound()));
         List<MARKStarNode> internalNodes = new ArrayList<>();
