@@ -1445,9 +1445,7 @@ def PartitionFunctionFactory(confSpace, confEcalc, state, confUpperBoundcalc=Non
     else:
         pfuncFactory.setUseGradientDescent()
 
-    if manualOrder is useJavaDefault:
-        raise NotImplementedError('You must include a specific ordering when using Manual Ordering')
-    else:
+    if manualOrder is not useJavaDefault:
         permList = jpype.java.util.ArrayList()
         for i in manualOrder:
             permList.add(i)
