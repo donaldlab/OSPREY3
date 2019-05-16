@@ -48,7 +48,7 @@ public class KStarTreeManipulator {
         String[] defaultAssignment = residues.toArray(new String[residues.size()]);
         KStarTreeNode newRoot = new KStarTreeNode(root.level, defaultAssignment, defaultConf,
                 root.getLowerBound(), root.getUpperBound(), root.getConfLowerBound(), root.getConfUpperBound(),
-                root.epsilon.doubleValue());
+                root.getMinLeafELB(), root.getMinLeafEUB(), root.epsilon.doubleValue());
         mergeTreeToLevels(newRoot, root, levelsToKeep, 0);
         return newRoot;
     }
@@ -107,8 +107,10 @@ public class KStarTreeManipulator {
             BigDecimal cumulativeUpperBound = binnedNodes.get(assignmentAtLevel).stream().map(KStarTreeNode::getUpperBound).reduce(BigDecimal.ZERO, BigDecimal::add);
             double minConfLower = binnedNodes.get(assignmentAtLevel).stream().map(KStarTreeNode::getConfLowerBound).reduce(Double.POSITIVE_INFINITY, Double::min);
             double maxConfUpper = binnedNodes.get(assignmentAtLevel).stream().map(KStarTreeNode::getConfUpperBound).reduce(Double.NEGATIVE_INFINITY, Double::max);
+            double minLeafELB = binnedNodes.get(assignmentAtLevel).stream().map(KStarTreeNode::getMinLeafELB).reduce(Double.NEGATIVE_INFINITY, Double::min);
+            double minLeafEUB = binnedNodes.get(assignmentAtLevel).stream().map(KStarTreeNode::getMinLeafEUB).reduce(Double.NEGATIVE_INFINITY, Double::min);
             KStarTreeNode newNode = new KStarTreeNode(subtreeRoot.level+1, newAssignments, newConfAssignments, cumulativeLowerBound, cumulativeUpperBound,
-                    minConfLower, maxConfUpper, subtreeRoot.epsilon.doubleValue());
+                    minConfLower, maxConfUpper, minLeafELB, minLeafEUB, subtreeRoot.epsilon.doubleValue());
             newChildren.add(newNode);
         }
         return newChildren;
@@ -146,7 +148,7 @@ public class KStarTreeManipulator {
         String[] splicedRootAssignments = cutStringAssignments(subtreeRoot.getAssignments(), subtreeRoot.level, targetLevel-1);
         KStarTreeNode newSubtreeRoot = new KStarTreeNode(subtreeRoot.level, splicedRootAssignments, splicedRootConfAssignments,
                 subtreeRoot.getLowerBound(), subtreeRoot.getUpperBound(), subtreeRoot.getConfLowerBound(), subtreeRoot.getConfUpperBound(),
-                subtreeRoot.epsilon.doubleValue());
+                subtreeRoot.getMinLeafELB(), subtreeRoot.getMinLeafEUB(), subtreeRoot.epsilon.doubleValue());
         int[] confAssignments = subtreeRoot.getConfAssignments();
         for(Integer assignmentAtLevel:binnedNodes.keySet())
         {
@@ -156,8 +158,10 @@ public class KStarTreeManipulator {
             BigDecimal cumulativeUpperBound = binnedNodes.get(assignmentAtLevel).stream().map(KStarTreeNode::getUpperBound).reduce(BigDecimal.ZERO, BigDecimal::add);
             double minConfLower = binnedNodes.get(assignmentAtLevel).stream().map(KStarTreeNode::getConfLowerBound).reduce(Double.POSITIVE_INFINITY, Double::min);
             double maxConfUpper = binnedNodes.get(assignmentAtLevel).stream().map(KStarTreeNode::getConfUpperBound).reduce(Double.NEGATIVE_INFINITY, Double::max);
+            double minLeafELB = binnedNodes.get(assignmentAtLevel).stream().map(KStarTreeNode::getMinLeafELB).reduce(Double.NEGATIVE_INFINITY, Double::min);
+            double minLeafEUB = binnedNodes.get(assignmentAtLevel).stream().map(KStarTreeNode::getMinLeafEUB).reduce(Double.NEGATIVE_INFINITY, Double::min);
             KStarTreeNode newNode = new KStarTreeNode(subtreeRoot.level, splicedAssignments, splicedConfAssignments, cumulativeLowerBound, cumulativeUpperBound,
-                    minConfLower, maxConfUpper, subtreeRoot.epsilon.doubleValue());
+                    minConfLower, maxConfUpper, minLeafELB, minLeafEUB, subtreeRoot.epsilon.doubleValue());
             newSubtreeRoot.addChild(newNode);
         }
         return newSubtreeRoot;
