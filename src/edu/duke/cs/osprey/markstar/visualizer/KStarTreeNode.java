@@ -1076,7 +1076,8 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     {
         NumberFormat formatter = new DecimalFormat("0.0E0");
         formatter.setRoundingMode(RoundingMode.HALF_UP);
-        formatter.setMinimumFractionDigits((x.scale() > 0) ? x.precision() : x.scale());
+        //formatter.setMinimumFractionDigits((x.scale() > 0) ? x.precision() : x.scale());
+        formatter.setMinimumFractionDigits(3);
         return formatter.format(x);
     }
 
