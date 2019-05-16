@@ -179,7 +179,7 @@ public class Visualizer extends Application {
                 Matcher m = KStarTreeNode.p.matcher(line);
                 m.matches();
                 int level = m.group(1).length()/2;
-                BigDecimal upperBound = new BigDecimal(m.group(6).split(",")[1]);
+                BigDecimal upperBound = new BigDecimal(m.group(7).split(",")[1]);
 
                 // keep the biggest Z value for each level
                 biggestZByLevel.compute(level, (key, old) -> {
