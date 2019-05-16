@@ -80,7 +80,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     private Group bandGroup;
     private Group rootGroup;
     BigDecimal epsilon;
-    private double borderThickness = 0.5;
+    private double borderThickness = 1;
     private double centerX;
     private double centerY;
     private double innerRadius = 30;
@@ -426,8 +426,11 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                     centerY,//-innerRadius*Math.sin(s),
                     centerX+outerRadius*Math.cos(s),
                     centerY-outerRadius*Math.sin(s));
-            separator.setStroke(Color.gray(0.92));
-            separator.setStrokeWidth(borderThickness);
+            // If we want gray strokes
+            //separator.setStroke(Color.gray(0.92));
+            // If we want white strokes
+            separator.setStroke(Color.WHITE);
+            separator.setStrokeWidth(borderThickness/2);
             separators.add(separator);
             double finalStartAngle = startAngle;
             double finalLength = arcLengthFinal*weight;
