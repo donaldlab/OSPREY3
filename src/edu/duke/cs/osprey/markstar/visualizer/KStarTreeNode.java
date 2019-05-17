@@ -892,7 +892,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                     System.out.println("group "+i+":"+m.group(i));
             }
             int level = m.group(1).length()/2;
-            String[] bounds = m.group(6).split(",");
+            String[] bounds = m.group(7).split(",");
             int[] confAssignments = Arrays.stream(m.group(3).replaceAll(" ","").split(",")).mapToInt(Integer::parseInt).toArray();
             String[] assignments = m.group(4).split(",");
             BigDecimal lowerBound = new BigDecimal(bounds[0]);
@@ -900,6 +900,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             String[] confBounds = m.group(5).split(",");
             double confLowerBound = Double.valueOf(confBounds[0]);
             double confUpperBound = Double.valueOf(confBounds[1]);
+            String[] energyBounds = m.group(6).split(",");
+            double minLeafELB = Double.valueOf(energyBounds[0]);
+            double minLeafEUB = Double.valueOf(energyBounds[1]);
             if(level > lastLevel) {
                 buildStack.push(lastNode);
             }
@@ -910,7 +913,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                 }
             }
             KStarTreeNode newNode = new KStarTreeNode(level, assignments, confAssignments, lowerBound, upperBound,
-                    confLowerBound, confUpperBound, epsilon);
+                    confLowerBound, confUpperBound, minLeafELB, minLeafEUB, epsilon);
             KStarTreeNode curParent = buildStack.peek();
             if(newNode.isRoot()) {
                 root = newNode;
