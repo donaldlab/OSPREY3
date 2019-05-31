@@ -285,7 +285,7 @@ tasks {
 
 	val jar = "jar" {
 		dependsOn(appendBuildNumber)
-	}
+	}.get()
 
 	val compileCuda_residueForcefield by creating(Exec::class) {
 		nvcc(this, "residueForcefield")
@@ -346,7 +346,7 @@ tasks {
 	val pythonWheel by creating(Exec::class) {
 		group = "build"
 		description = "Build python wheel"
-		inputs.file(jar)
+		inputs.files(jar.outputs.files)
 		outputs.dir(pythonWheelDir)
 		doFirst {
 
