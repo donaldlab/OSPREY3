@@ -147,6 +147,9 @@ dependencies {
 	// TPIE-Java isn't in the maven/jcenter repos yet, download directly from Github
 	compile(url("https://github.com/donaldlab/TPIE-Java/releases/download/v1.1/edu.duke.cs.tpie-1.1.jar"))
 
+	// libs that have no authoritative source on the internet
+	compile(files("lib/kdtree.jar"))
+
 	// native libs for GPU stuff
 	listOf("natives-linux-amd64", "natives-macosx-universal", "natives-windows-amd64").forEach {
 		runtime("org.jogamp.gluegen:gluegen-rt:2.3.2:$it")
