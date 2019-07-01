@@ -20,8 +20,9 @@ cache:
         - $HOME/.gradle/caches/
         - $HOME/.gradle/wrapper/
 
-# install python dependencies before building
+# install java and python dependencies before building
 before_install:
+    - sudo apt-get install -y openjfx
     - sudo pip install setuptools wheel sphinx guzzle_sphinx_theme javalang
 
 # disable tests in automatic builds
