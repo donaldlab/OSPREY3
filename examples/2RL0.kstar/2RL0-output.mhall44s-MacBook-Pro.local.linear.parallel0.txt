@@ -1,3 +1,0 @@
-Seq ID	Sequence	K* Score (Log10)	UB(K*) Score (Log10)	Total # Confs.	Complex Partition Function	Complex Epsilon	Complex # Confs.	Protein Partition Function	Protein Epsilon	Protein # Confs.	Ligand Partition Function	Ligand Epsilon	Ligand # Confs.	# Seqs Created	# Seqs Completed	Time (sec)
-
-0	PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193	20.019364831726463	20.019364831726463	4	2.0790E54	0.98362002	2	1.3840E4	0.83718451	1	1.4367E30	0.75695614	1	1	1	4
