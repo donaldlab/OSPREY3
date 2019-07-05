@@ -1,4 +1,0 @@
-0 CONF: 5 12 8 RESTYPES: Leu Lys Asn ROTS: 1 12 3 Lower bound/enumeration energy: -31.370784666667742 Energy: -31.266996836627904 Best so far: -31.266996836627904
-1 CONF: 13 12 8 RESTYPES: Ile Lys Asn ROTS: 4 12 3 Lower bound/enumeration energy: -31.30107004464116 Energy: -31.204172945832134 Best so far: -31.266996836627904
-2 CONF: 5 12 7 RESTYPES: Leu Lys Asn ROTS: 1 12 2 Lower bound/enumeration energy: -31.275970818532816 Energy: -31.17979192577627 Best so far: -31.266996836627904
-3 CONF: 13 12 7 RESTYPES: Ile Lys Asn ROTS: 4 12 2 Lower bound/enumeration energy: -31.203678144272303 Energy: -31.11453321706216 Best so far: -31.266996836627904
