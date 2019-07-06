@@ -7,8 +7,16 @@ branches:
 
 # only use the v8 JDK, otherwise the JavaFX stuff doesn't compile
 # (because they stopped shipping JavaFX in the JVM in v9+)
+# and also because we want to guarantee compatibility with a v8 JVM
 jdk:
     - openjdk8
+
+# just in case, explicitly pick the xenial verison of Ubuntu, so we get the v8 OpenJFX
+# (later versions of Ubuntu ship a v11 by default, which doesn't work for us)
+# see: https://packages.ubuntu.com/xenial/openjfx
+# could use bionic (or anything after xenial),
+# but then we need to pass the v8 OpenJFX version explicitly to apt-get install
+dist: xenial
 
 # travis docs say we need this to prevent issues with gradle builds
 # https://docs.travis-ci.com/user/languages/java/
