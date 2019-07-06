@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.structure;
 
-import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.tools.Streams;
 import edu.duke.cs.osprey.tools.UnpossibleError;
 import org.tomlj.*;
@@ -20,7 +19,13 @@ public class OMOLIO {
 
 		StringBuilder buf = new StringBuilder();
 
+		// write the name
 		buf.append(String.format("name = %s\n", quote(mol.name)));
+
+		// write the type, if we're not a polymer
+		if (mol.residues.size() == 1) {
+			buf.append(String.format("type = %s\n", quote(mol.residues.get(0).getType())));
+		}
 
 		buf.append("\n");
 
@@ -82,20 +87,14 @@ public class OMOLIO {
 					.forEach(res -> {
 
 						// split into mainchain and sidechain
-						List<Integer> mainchain = res.atoms.stream()
-							.filter(atom -> HardCodedResidueInfo.possibleBBAtomsLookup.contains(atom.name))
+						List<Integer> atoms = res.atoms.stream()
 							.map(atom -> indicesByAtom.get(atom))
-							.collect(Collectors.toList());
-						List<Integer> sidechain = res.atoms.stream()
-							.map(atom -> indicesByAtom.get(atom))
-							.filter(index -> !mainchain.contains(index))
 							.collect(Collectors.toList());
 
-						buf.append(String.format("\t{ id=%7s, type=%6s, mainchain=[%s], sidechains=[[%s]] },\n",
+						buf.append(String.format("\t{ id=%7s, type=%6s, atoms=[%s] },\n",
 							quote(res.getPDBResNumber().substring(1)),
-							quote(res.template.name),
-							indicesToString(mainchain),
-							indicesToString(sidechain)
+							quote(res.getType()),
+							indicesToString(atoms)
 						));
 					});
 				buf.append("]\n");
@@ -182,33 +181,18 @@ public class OMOLIO {
 
 				String id = getStringOrThrow(residueTable, pos, "id");
 				String type = getStringOrThrow(residueTable, pos, "type");
-				TomlArray mainchain = getArrayOrThrow(residueTable, pos, "mainchain");
-				TomlArray sidechains = getArrayOrThrow(residueTable, pos, "sidechains");
+				TomlArray resAtomsArray = getArrayOrThrow(residueTable, pos, "atoms");
 
 				// collect all the atoms and coords
 				ArrayList<Atom> resAtoms = new ArrayList<>();
 				ArrayList<double[]> resCoords = new ArrayList<>();
-				if (!mainchain.containsLongs()) {
-					throw new ParseException("field \"mainchain\" doesn't contain integers", pos);
+				if (!resAtomsArray.containsLongs()) {
+					throw new ParseException("field \"atoms\" doesn't contain integers", pos);
 				}
-				for (int a=0; a<mainchain.size(); a++) {
-					int index = (int)mainchain.getLong(a);
+				for (int a=0; a<resAtomsArray.size(); a++) {
+					int index = (int)resAtomsArray.getLong(a);
 					resAtoms.add(atoms.get(index));
 					resCoords.add(atomCoords.get(index));
-				}
-				if (!sidechains.containsArrays()) {
-					throw new ParseException("field \"sidechains\" doesn't contain arrays", pos);
-				}
-				for (int s=0; s<sidechains.size(); s++) {
-					TomlArray sidechain = sidechains.getArray(s);
-					if (!sidechain.containsLongs()) {
-						throw new ParseException("field \"sidechains\" doesn't contain arrays of integers", pos);
-					}
-					for (int a=0; a<sidechain.size(); a++) {
-						int index = (int)sidechain.getLong(a);
-						resAtoms.add(atoms.get(index));
-						resCoords.add(atomCoords.get(index));
-					}
 				}
 
 				// build the residue "full name", eg "ASN A  23"
