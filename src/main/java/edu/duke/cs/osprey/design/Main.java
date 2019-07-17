@@ -21,10 +21,10 @@ public class Main {
     public final static String ProgramName = "osprey";
 
     private void printErrorMessage(String msg) {
-        System.out.println();
         System.out.println(msg);
         System.out.println();
         System.out.println("Use --help or <command> --help for more info.");
+        System.out.println();
     }
 
     public int run(String[] args) {
@@ -43,6 +43,7 @@ public class Main {
         try {
             commander.parse(args);
         } catch (MissingCommandException ex) {
+            printErrorMessage(String.format("Error: the command \"%s\" does not exist.", ex.getUnknownCommand()));
             return Failure;
         } catch (ParameterException ex) {
             printErrorMessage(String.format("Error: %s", ex.getMessage()));
