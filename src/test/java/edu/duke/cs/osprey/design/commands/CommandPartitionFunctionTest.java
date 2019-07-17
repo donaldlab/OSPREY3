@@ -32,32 +32,4 @@ class CommandPartitionFunctionTest extends CapturedIOTest {
         assertNotEquals(noArgsRetval, helpArgsRetval);
         assertEquals(noArgsOut, helpArgsOut);
     }
-
-    @Test
-    void requiresADesignFile() {
-        String[] argv = { commandName };
-        var noArgsRetval = new Main().run(argv);
-        assertNotEquals(Main.Success, noArgsRetval);
-    }
-
-    @Test
-    void commandFailsWithoutDesignFile() {
-        String[] argv = { commandName,  "--design" };
-        assertNotEquals(Main.Success, new Main().run(argv));
-    }
-
-    @Test
-    void commandSucceedsWithDesignFile() {
-        var pathToDesignFile = getClass().getResource("/test-design.yaml").getPath();
-        String[] argv = { commandName,  "--design", pathToDesignFile };
-        assertEquals(Main.Success, new Main().run(argv));
-    }
-
-    @Test
-    void designMustBePassedAnExistingFile() {
-        var pathToDesignFile = "non-existant.yaml";
-        String[] argv = { commandName,  "--design", pathToDesignFile };
-        assertNotEquals(Main.Success, new Main().run(argv));
-        assertTrue(mockedOut.toString().contains("exist"));
-    }
 }

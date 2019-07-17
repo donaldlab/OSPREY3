@@ -5,44 +5,34 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameters;
 import com.beust.jcommander.ParametersDelegate;
 import edu.duke.cs.osprey.design.Main;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Optional;
 
 @Parameters(commandDescription = CommandPartitionFunction.CommandDescription)
-public class CommandPartitionFunction implements RunnableCommand {
+public class CommandPartitionFunction extends RunnableCommand {
 
     public static final String CommandName = "stability";
     static final String CommandDescription = "Estimate the partition function value(s) of a set of sequence(s)";
 
-    @ParametersDelegate
-    private DesignFileDelegate delegate = new DesignFileDelegate();
-
-    private void printHelp(JCommander commander) {
-        var msg = String.format("%s: %s", CommandName, CommandDescription);
-        System.out.println(msg);
-        System.out.println();
-        commander.usage();
-    }
-
-    private void printMissingDesignFile(JCommander commander) {
-        System.out.println("Error: Missing a design file.");
-    }
-
     @Override
     public int run(JCommander commander, String[] args) {
-        if (args.length == 1) {
-            printHelp(commander);
-            return Main.Failure;
-        }
+        var retVal = processHelpAndNoArgs(commander, args);
 
-        if (delegate.help) {
-            printHelp(commander);
-            return Main.Success;
-        }
-
-        if (delegate.design == null) {
-            printMissingDesignFile(commander);
-            return Main.Failure;
+        if (retVal.isPresent()) {
+            return retVal.get();
         }
 
         return Main.Success;
+    }
+
+    @Override
+    public String getCommandName() {
+        return CommandName;
+    }
+
+    @Override
+    public String getCommandDescription() {
+        return CommandDescription;
     }
 }
