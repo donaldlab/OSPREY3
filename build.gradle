@@ -1,10 +1,11 @@
 plugins {
+    id 'com.github.johnrengelman.shadow' version '5.1.0'
     id 'java'
     id 'org.openjfx.javafxplugin' version '0.0.7'
 }
 
 group 'edu.duke.cs'
-version '3.0-SNAPSHOT'
+version '3.0-BETA'
 
 sourceCompatibility = 11
 
@@ -32,6 +33,7 @@ dependencies {
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.2'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.9.9'
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.9'
+    implementation 'com.beust:jcommander:1.72'
 
     javafx {
         version = "11.0.1"
@@ -60,4 +62,10 @@ test {
 task compileGpu(type:Exec) {
     workingDir 'src/main/resources/gpuKernels/cuda'
     commandLine './compile.sh'
+}
+
+jar {
+   manifest {
+       attributes("Main-Class": "edu.duke.cs.osprey.design.Main")
+   }
 }

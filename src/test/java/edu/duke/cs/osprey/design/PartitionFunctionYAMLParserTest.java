@@ -1,3 +1,5 @@
+package edu.duke.cs.osprey.design;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import edu.duke.cs.osprey.design.models.StabilityDesign;
@@ -18,7 +20,7 @@ class PartitionFunctionYAMLParserTest {
     @BeforeEach
     void getTestDesign() {
         var mapper = new ObjectMapper(new YAMLFactory());
-        var stream = getClass().getResourceAsStream("test-design.yaml");
+        var stream = getClass().getResourceAsStream("/test-design.yaml");
 
         try {
             stabilityDesign = mapper.readValue(stream, StabilityDesign.class);
