@@ -33,8 +33,8 @@ public class FlexLab {
 
 	public static void main(String[] args)
 	throws Exception {
-		checkRotamerClashes();
-		//top8000Dihedrals("arg");
+		//checkRotamerClashes();
+		top8000Dihedrals("arg");
 		//top8000Angles("leu");
 		//top8000Tetrahedrals("leu");
 		//top8000Methyls();
@@ -46,7 +46,7 @@ public class FlexLab {
 	}
 
 	private static PDBScanner scanner = new PDBScanner(
-		new File("/home/jeff/dlab/top8000"),
+		new File("C:\\Projects\\rotamers\\top8000_chains_70\\top8000_chains_70"),
 
 		// these all have duplicated residues for some reason
 		"3o2rFH_D.pdb",
@@ -1133,21 +1133,21 @@ public class FlexLab {
 	throws Exception {
 
 		// clustering settings
-		int densityWindowRadius = 2;
+		int densityWindowRadius = 3;
 		int densityWindowCountThreshold = 20;
 		double clusterDistThreshold = 50.0; // TODO: is this really a distance? it seems too high
 
 		int numAngles = chiLib.get(type).size();
 		assert (numAngles > 0);
 
-		Map<ResKey,double[]> dihedralsByKey = readAngles(type, chiLib, type + ".dihedrals.dat", true);
+		Map<ResKey,double[]> dihedralsByKey = readAngles(type, chiLib, type + ".dihedrals.dat", false);
 		log("%s dihedrals: %d", type, dihedralsByKey.size());
 
 		VisIt.writeAngles2D(dihedralsByKey.values(), 0, 1, new File(type + ".dihedrals.vtk"));
 
 		// make a histogram
 		log("building histogram");
-		DegreesHistogram hist = new DegreesHistogram(numAngles);
+		DegreesHistogram hist = new DegreesHistogram(4);
 		for (double[] dihedrals : dihedralsByKey.values()) {
 			hist.add(dihedrals);
 		}

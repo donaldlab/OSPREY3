@@ -93,7 +93,7 @@ public class SimplerEnergyMatrixCalculator {
 	public final ConfEnergyCalculator confEcalc;
 	public final File cacheFile;
 
-	private SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile) {
+	protected SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile) {
 		this.confEcalc = confEcalc;
 		this.cacheFile = cacheFile;
 	}
@@ -116,7 +116,7 @@ public class SimplerEnergyMatrixCalculator {
 		}
 	}
 	
-	private EnergyMatrix reallyCalcEnergyMatrix() {
+	protected EnergyMatrix reallyCalcEnergyMatrix() {
 		
 		// allocate the new matrix
 		EnergyMatrix emat = new EnergyMatrix(confEcalc.confSpace);
@@ -274,7 +274,7 @@ public class SimplerEnergyMatrixCalculator {
 		return eref;
 	}
 
-	private boolean isPairParametricallyCompatible(RCTuple pair){
+	protected boolean isPairParametricallyCompatible(RCTuple pair){
 		if(pair.size()!=2)
 			throw new RuntimeException("ERROR: Expected RC pair but got tuple of size "+pair.size());
 		SimpleConfSpace.ResidueConf rc1 = confEcalc.confSpace.positions.get(pair.pos.get(0)).resConfs.get(pair.RCs.get(0));
