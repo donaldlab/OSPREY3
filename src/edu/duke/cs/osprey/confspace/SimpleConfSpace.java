@@ -456,6 +456,42 @@ public class SimpleConfSpace implements Serializable {
 			positionsByResNum.get(seqPos.resNum).seqPos = seqPos;
 		}
 	}
+	public SimpleConfSpace(List<Strand> strands, Map<Strand,List<StrandFlex>> strandFlex, double shellDist, List<Position> positions, List<Position> mutablePositions,List<Position> immutablePositions, Set<String> shellResNumbers) {
+		this.strands = strands;
+		this.strandFlex = strandFlex;
+		this.shellDist = shellDist;
+		this.positions = positions;
+		this.mutablePositions = mutablePositions;
+		this.immutablePositions = immutablePositions;
+		this.shellResNumbers = shellResNumbers;
+
+		// index the positions
+		positionsByResNum = new HashMap<>();
+		for (Position pos : positions) {
+			positionsByResNum.put(Residues.normalizeResNum(pos.resNum), pos);
+		}
+
+		// count the residue conformations
+		numResConfsByPos = new int[positions.size()];
+		for (int i=0; i<positions.size(); i++) {
+			numResConfsByPos[i] = positions.get(i).resConfs.size();
+		}
+
+		// make the sequence space
+		seqSpace = new SeqSpace(this);
+		for (SeqSpace.Position seqPos : seqSpace.positions) {
+			positionsByResNum.get(seqPos.resNum).seqPos = seqPos;
+		}
+
+	}
+
+	public SimpleConfSpace makeFlexibleCopy(){
+	    List<Position> flexPositions = new ArrayList(this.positions);
+        flexPositions.removeAll(this.mutablePositions);
+	    List<Position> emptyMutablePositions = new ArrayList();
+        SimpleConfSpace copy = new SimpleConfSpace(this.strands, this.strandFlex, this.shellDist, flexPositions, emptyMutablePositions, this.immutablePositions, this.shellResNumbers);
+		return copy;
+	}
 
 	private void makeResidueConfsFromTemplate(Position pos, ResidueTemplate template, ResidueConf.Type type) {
 		

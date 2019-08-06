@@ -36,6 +36,7 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import org.junit.BeforeClass;
@@ -568,5 +569,26 @@ public class TestSimpleConfSpace extends TestBase {
 			.build();
 
 		assertThat(separateConfSpace.shellResNumbers, is(combinedConfSpace.shellResNumbers));
+	}
+
+	@Test
+	public void testFlexibleCopy(){
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG");
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "LYS");
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "VAL");
+
+		SimpleConfSpace mutableConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(9)
+				.build();
+
+		SimpleConfSpace flexibleConfSpace = mutableConfSpace.makeFlexibleCopy();
+
+		assertThat(flexibleConfSpace.immutablePositions, is(mutableConfSpace.immutablePositions));
+		assertThat(flexibleConfSpace.shellResNumbers, is(mutableConfSpace.shellResNumbers));
+		assertThat(flexibleConfSpace.mutablePositions.isEmpty(), is(true));
 	}
 }
