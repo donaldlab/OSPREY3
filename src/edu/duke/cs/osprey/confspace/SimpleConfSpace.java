@@ -456,7 +456,9 @@ public class SimpleConfSpace implements Serializable {
 			positionsByResNum.get(seqPos.resNum).seqPos = seqPos;
 		}
 	}
-	public SimpleConfSpace(List<Strand> strands, Map<Strand,List<StrandFlex>> strandFlex, double shellDist, List<Position> positions, List<Position> mutablePositions,List<Position> immutablePositions, Set<String> shellResNumbers) {
+	public SimpleConfSpace(List<Strand> strands, Map<Strand,List<StrandFlex>> strandFlex, double shellDist,
+						   List<Position> positions, List<Position> mutablePositions,List<Position> immutablePositions,
+						   Set<String> shellResNumbers) {
 		this.strands = strands;
 		this.strandFlex = strandFlex;
 		this.shellDist = shellDist;

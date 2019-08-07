@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.sharkstar;
 
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.ConfSearchCache;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.seq.RTs;
@@ -214,7 +215,9 @@ public class SHARKStar {
 			SeqAStarOrder order = new SequentialSeqAStarOrder();
 			int nextPos = order.getNextPos(assignments, rts);
 			double lowerBound = 0.0;
-		    for(int pos : assignments.assignedPos) {
+			for (WeightedState wstate : objective.states) {
+				RCs rcs = assignments.makeRCs(seqSpace, wstate.state.confSpace);
+                for(int pos1: assignments.assignedPos) {
 				/**
 				 * definitions:
 				 * Assigned -> residues with assigned AAs
@@ -260,41 +263,143 @@ public class SHARKStar {
 				 * 	return sum
 				 *
 				 */
-
-
-				for (WeightedState wstate : objective.states) {
-
-					// make a conf tree for all the sequences descibed by the partial assignments
-					RCs rcs = assignments.makeRCs(seqSpace, wstate.state.confSpace);
-					ConfAStarTree confTree = wstate.state.confTreeFactory.apply(rcs);
+                    for(int rc1:rcs.get(pos1)) {
+						double summ = wstate.getSingleEnergy(pos1, rc1);
+						// make a conf tree for all the sequences described by the partial assignments
+						double bestPair = Double.POSITIVE_INFINITY;
+						for (int pos2 : assignments.assignedPos) {
+							if(pos2 >= pos1) continue;
+							for(int rc2:rcs.get(pos2)) {
+								bestPair = Math.min(bestPair, wstate.getPairEnergy(pos1, rc1, pos2, rc2));
+							}
+							summ += bestPair;
+						}
+					}
 
 					if (wstate.weight > 0) {
 
-						// compute an upper bound on the pfunc value of the multi-sequence conf space
-						UpperBoundCalculator ubcalc = new UpperBoundCalculator(confTree, rcs.getNumConformations());
-						ubcalc.run(upperBatchSize);
-
+						BigDecimal energySum =  BigDecimal.ONE; //calcSumAtPos(rcs);
 						// add the bound to our estimate of the objective LMFE
-						lowerBound += wstate.weight * bcalc.freeEnergy(ubcalc.totalBound);
+						lowerBound += wstate.weight * bcalc.freeEnergy(energySum);
 
 					} else {
 
 						// compute a lower bound on the pfunc value of the multi-sequence conf space
-						LowerBoundCalculator lbcalc = new LowerBoundCalculator(confTree, wstate.state.confEcalc);
-						lbcalc.confTable = confDBs.tables.get(wstate.state);
-						for (int i = 0; i < numLowerBatches; i++) {
-							lbcalc.run(wstate.state.confEcalc.tasks.getParallelism());
-						}
-
 						// add the weighted bound to our estimate of the objective LMFE
-						lowerBound += wstate.weight * bcalc.freeEnergy(lbcalc.weightedEnergySum);
+						lowerBound += wstate.weight * bcalc.freeEnergy(BigDecimal.ONE);
 					}
 				}
-			}
+
+				for(int pos1: assignments.unassignedPos) {
+				/**
+				 * definitions:
+				 * Assigned -> residues with assigned AAs
+				 * Used -> residues that don't have assigned AAs, but have already been used in the h
+				 * 		score calculation
+				 * Unused -> residues that have been neither assigned nor used.
+				 *  Function 1: ComputeMultisequenceBound(Assigned residues, candidate AA)
+				 *  add candidate AA to Used
+				 * 	For each residue r in Unassigned ^ Unused: (residues are assigned, unassigned residues can be used)
+				 * 		bestAA = null
+				 * 		bestScore = 0
+				 * 		For each amino acid aa allowed at r:
+				 * 			For	each rotamer q in aa at r:
+				 * 				score = scoreRotamer(q, Assigned, Used) + scoreRotamer(q, Unassigned, Unused)
+				 * 				if score > bestScore:
+				 * 					bestAA = aa
+				 * 					bestScore = score
+				 *
+				 * 	Function 2: scoreRotamer(rotamer q, Assigned, Used)
+				 * 	sum = 0
+				 * 	For each residue r in Assigned + Used:
+				 * 		bestPairwise = null
+				 * 		bestPairwiseEnergy = inf`
+				 * 		For each rotamer q' in amino acid aa assigned to r:
+				 * 			pairwiseEnergy = scorePair(q, q')
+				 * 			if pairwiseEnergy < bestPairwiseEnergy
+				 * 				bestPairwiseEnergy = pairwiseEnergy
+				 * 		sum += bestPairwiseEnergy
+				 * 	return sum
+				 *
+				 *
+				 * 	Function 3: scoreRotamerAgainstUnused(rotamer q, Unassigned, Unused)
+				 * 	sum = 0
+				 * 	For each residue r in Unusued:
+				 * 		bestPairwise = null
+				 * 		bestPairwiseEnergy = inf
+				 *	 	For each amino acid aa' allowed at r:
+				 *	 		For each rotamer q' in aa:
+				 *	 			pairwiseEnergy = scorePair(q, q')
+				 * 				if pairwiseEnergy < bestPairwiseEnergy
+				 * 					bestPairwiseEnergy = pairwiseEnergy
+				 * 		sum += bestPairwiseEnergy
+				 * 	return sum
+				 *
+				 */
+                    for(int rc1:rcs.get(pos1)) {
+						double summ = wstate.getSingleEnergy(pos1, rc1);
+						// make a conf tree for all the sequences described by the partial assignments
+						double bestPair = Double.POSITIVE_INFINITY;
+						for (int pos2 : assignments.unassignedPos) {
+							if(pos2 >= pos1) continue;
+							for(int rc2:rcs.get(pos2)) {
+								bestPair = Math.min(bestPair, wstate.getPairEnergy(pos1, rc1, pos2, rc2));
+							}
+							summ += bestPair;
+						}
+					}
+
+					if (wstate.weight > 0) {
+
+						BigDecimal energySum =  BigDecimal.ONE; //calcSumAtPos(rcs);
+						// add the bound to our estimate of the objective LMFE
+						lowerBound += wstate.weight * bcalc.freeEnergy(energySum);
+
+					} else {
+
+						// compute a lower bound on the pfunc value of the multi-sequence conf space
+						// add the weighted bound to our estimate of the objective LMFE
+						lowerBound += wstate.weight * bcalc.freeEnergy(BigDecimal.ONE);
+					}
+				}			}
 			return lowerBound;
 
 		}
+
+		private double calcSumAtPos(ConfIndex index, RCs rcs, int pos, int AA, ConfEnergyCalculator ecalc) {
+			return 0;
+		}
+
+
+		List<SeqSpace.ResType> getRTs(SimpleConfSpace.Position confPos, SeqAStarNode.Assignments assignments) {
+
+			// TODO: pre-compute this somehow?
+
+			// map the conf pos to a sequence pos
+			SeqSpace.Position seqPos = seqSpace.getPosition(confPos.resNum);
+			if (seqPos != null) {
+
+				Integer assignedRT = assignments.getAssignment(seqPos.index);
+				if (assignedRT != null) {
+					// use just the assigned res type
+					return Collections.singletonList(seqPos.resTypes.get(assignedRT));
+				} else {
+					// use all the res types at the pos
+					return seqPos.resTypes;
+				}
+
+			} else {
+
+				// immutable position, use all the res types (should just be one)
+				assert (confPos.resTypes.size() == 1);
+
+				// use the null value to signal there's no res type here
+				return Collections.singletonList(null);
+			}
+		}
 	}
+
+
 
 	private class ConfDBs extends ConfDB.DBs {
 
