@@ -506,6 +506,16 @@ public class SimpleConfSpace implements Serializable {
 			positionsByResNum.get(seqPos.resNum).seqPos = seqPos;
 		}
 
+		// make the molecule template, to speed up makeMolecule()
+		molTemplate = new Molecule();
+		for (Strand strand : strands) {
+			for (Residue res : strand.mol.residues) {
+				res = new Residue(res);
+				res.molec = molTemplate;
+				res.indexInMolecule = molTemplate.residues.size();
+				molTemplate.residues.add(res);
+			}
+		}
 	}
 
 	public SimpleConfSpace makeFlexibleCopy(){

@@ -122,7 +122,7 @@ public class SimplerEnergyMatrixCalculator {
 	public final Double tripleCorrectionThreshold;
 	public final Double quadCorrectionThreshold;
 
-	private SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile, Double tripleCorrectionThreshold, Double quadCorrectionThreshold) {
+	protected SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile, Double tripleCorrectionThreshold, Double quadCorrectionThreshold) {
 		this.confEcalc = confEcalc;
 		this.cacheFile = cacheFile;
 		this.tripleCorrectionThreshold = tripleCorrectionThreshold;
@@ -492,7 +492,7 @@ public class SimplerEnergyMatrixCalculator {
 		return eref;
 	}
 
-	private boolean isParametricallyIncompatible(RCTuple tuple) {
+	protected boolean isParametricallyIncompatible(RCTuple tuple) {
 		for (int i1=0; i1<tuple.size(); i1++) {
 			SimpleConfSpace.ResidueConf rc1 = getRC(tuple, i1);
 			for (int i2=0; i2<i1; i2++) {
