@@ -1046,6 +1046,40 @@ public class TestSimpleConfSpace extends TestBase {
 	}
 
 	/**
+	 * try to create an Augmented confspace with an unrelated confspace
+	 *
+	 * This should fail with an illegal argument exception
+	 */
+	@Test(expected=IllegalArgumentException.class)
+	public void testInvalidAugmentation(){
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG");
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "LYS");
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "VAL");
+
+		SimpleConfSpace firstConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(9)
+				.build();
+
+		Strand strand2 = new Strand.Builder(mol).setResidues("A20", "A30").build();
+		strand2.flexibility.get("A21").setLibraryRotamers(Strand.WildType);
+		strand2.flexibility.get("A23").setLibraryRotamers(Strand.WildType, "PRO");
+		strand2.flexibility.get("A24").setLibraryRotamers(Strand.WildType);
+		strand2.flexibility.get("A25").setLibraryRotamers(Strand.WildType, "MET");
+		strand2.flexibility.get("A26").setLibraryRotamers(Strand.WildType);
+
+		SimpleConfSpace invalidAugmentConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(9)
+				.build();
+
+		firstConfSpace.makeAugmentedCopy(invalidAugmentConfSpace);
+	}
+
+	/**
 	 * Computes a single partition function for <sequence> to <epsilon>
 	 */
 	private PartitionFunction makeMARKStarPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon){

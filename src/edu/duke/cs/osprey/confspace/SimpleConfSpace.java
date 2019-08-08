@@ -558,9 +558,12 @@ public class SimpleConfSpace implements Serializable {
 	 * Enforce this
 	 */
 	public SimpleConfSpace makeAugmentedCopy(SimpleConfSpace addend){
-		assert (this.strands.equals(addend.strands));
-		assert (this.strandFlex.equals(addend.strandFlex));
-		assert (this.shellDist == addend.shellDist);
+		if (!this.strands.equals(addend.strands))
+				throw new IllegalArgumentException("Strands must match to make an Augmented copy" + addend.strands);
+		if (!this.strandFlex.equals(addend.strandFlex))
+			throw new IllegalArgumentException("StrandFlex must match to make an Augmented copy" + addend.strandFlex);
+		if (this.shellDist != addend.shellDist)
+			throw new IllegalArgumentException("ShellDist must match to make an Augmented copy" + addend.shellDist);
 
 		List<Position> newPositions = new ArrayList<>(this.positions);
 		List<Position> newMutablePositions = new ArrayList<>(this.mutablePositions);
