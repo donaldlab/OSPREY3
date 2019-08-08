@@ -135,6 +135,11 @@ public class SimpleConfSpace implements Serializable {
 			return resNum;
 		}
 
+		@Override
+		public boolean equals(Object obj){
+            return (obj instanceof Position) && (this.resNum.equals(((Position) obj).resNum));
+		}
+
 		public String formatConfPos(ConfSearch.ScoredConf conf) {
 			return formatConfPos(conf.getAssignments());
 		}
@@ -490,6 +495,32 @@ public class SimpleConfSpace implements Serializable {
         flexPositions.removeAll(this.mutablePositions);
 	    List<Position> emptyMutablePositions = new ArrayList();
         SimpleConfSpace copy = new SimpleConfSpace(this.strands, this.strandFlex, this.shellDist, flexPositions, emptyMutablePositions, this.immutablePositions, this.shellResNumbers);
+		return copy;
+	}
+
+	public SimpleConfSpace makeCopyExcludingResNums(Set<String> toExclude){
+	    // remove from positions
+        List<Position> newPositions = this.positions.stream()
+				.filter( e -> (!toExclude.contains(e.resNum)) )
+				.collect(Collectors.toList());
+
+        // remove from mutable positions
+		List<Position> newMutablePositions = this.mutablePositions.stream()
+				.filter( e -> (!toExclude.contains(e.resNum)) )
+				.collect(Collectors.toList());
+
+		// remove from immutable positions
+		List<Position> newImmutablePositions = this.immutablePositions.stream()
+				.filter( e -> (!toExclude.contains(e.resNum)) )
+				.collect(Collectors.toList());
+
+		// remove from static positions
+		Set<String> newShellResNumbers = this.shellResNumbers.stream()
+				.filter( e -> (!toExclude.contains(e)) )
+				.collect(Collectors.toSet());
+
+		// make copy of confspace
+		SimpleConfSpace copy = new SimpleConfSpace(this.strands, this.strandFlex, this.shellDist, newPositions, newMutablePositions, newImmutablePositions, newShellResNumbers);
 		return copy;
 	}
 
