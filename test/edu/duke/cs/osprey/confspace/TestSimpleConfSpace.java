@@ -859,8 +859,8 @@ public class TestSimpleConfSpace extends TestBase {
 
         assertThat(flexPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
 		assertThat(manualPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
-		assertThat(UBdiff, lessThan(0.01));
-		assertThat(LBdiff, lessThan(0.01));
+		assertThat(UBdiff, lessThan(1e-10));
+		assertThat(LBdiff, lessThan(1e-10));
 	}
 
 	/**
