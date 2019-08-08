@@ -48,7 +48,6 @@ import edu.duke.cs.osprey.tools.MathTools;
 import java.io.Serializable;
 import java.util.stream.Collectors;
 
-
 /**
  * Maintains the design positions and residue conformations for a list of strands.
  * 
@@ -549,18 +548,54 @@ public class SimpleConfSpace implements Serializable {
 			}
 		}
 	}
+	/**
+	 * Make a copy of this confspace augmented by the larger confspace
+	 *
+	 * The intended use of this method is to go back to the original (not flexible or excluded)
+	 * confspace. We can't just use the original confspace, because the pos indices may have changed.
+	 *
+	 * Note that the addend should share the same strandFlex and molecule.
+	 * Enforce this
+	 */
+	public SimpleConfSpace makeAugmentedCopy(SimpleConfSpace addend){
+		assert (this.strands.equals(addend.strands));
+		assert (this.strandFlex.equals(addend.strandFlex));
+		assert (this.shellDist == addend.shellDist);
 
+		List<Position> newPositions = new ArrayList<>(this.positions);
+		List<Position> newMutablePositions = new ArrayList<>(this.mutablePositions);
+		List<Position> newImmutablePositions = new ArrayList<>(this.immutablePositions);
+		Set<String> newShellResNumbers = new HashSet<>(this.shellResNumbers);
+
+		List<Position> addendPositions = new ArrayList<>(addend.positions);
+		List<Position> addendMutablePositions = new ArrayList<>(addend.mutablePositions);
+		List<Position> addendImmutablePositions = new ArrayList<>(addend.immutablePositions);
+		Set<String> addendShellResNumbers = new HashSet<>(addend.shellResNumbers);
+
+		addendPositions.removeAll(this.positions);
+		addendMutablePositions.removeAll(this.mutablePositions);
+		addendImmutablePositions.removeAll(this.immutablePositions);
+		addendShellResNumbers.removeAll(this.shellResNumbers);
+
+		newPositions.addAll(addendPositions);
+		newMutablePositions.addAll(addendMutablePositions);
+		newImmutablePositions.addAll(addendImmutablePositions);
+		newShellResNumbers.addAll(addendShellResNumbers);
+
+		return new SimpleConfSpace(this.strands, this.strandFlex, this.shellDist, newPositions, newMutablePositions, newImmutablePositions, newShellResNumbers);
+	}
+
+	/**
+	 * Make a copy of the confspace that does not have any mutable positions.
+	 * These mutable positions are excluded, in that they are not flexible or static.
+	 *
+	 * Note that the positions in the flexible copy will not have the same index as
+	 * in the original confspace.
+	 *
+	 * Also note that the StrandFlex will not be consistent with the positions - some
+	 * residues for which there are StrandFlex will not have corresponding positions
+	 */
 	public SimpleConfSpace makeFlexibleCopy(){
-		/**
-		 * Make a copy of the confspace that does not have any mutable positions.
-		 * These mutable positions are excluded, in that they are not flexible or static.
-		 *
-		 * Note that the positions in the flexible copy will not have the same index as
-		 * in the original confspace.
-		 *
-		 * Also note that the StrandFlex will not be consistent with the positions - some
-		 * residues for which there are StrandFlex will not have corresponding positions
-		 */
 	    List<Position> flexPositions = new ArrayList(this.positions);
         flexPositions.removeAll(this.mutablePositions);
 	    List<Position> emptyMutablePositions = new ArrayList();
@@ -568,18 +603,17 @@ public class SimpleConfSpace implements Serializable {
 		return copy;
 	}
 
+	/**
+	 * Make a copy of the confspace that does not have the specified positions.
+	 * These specified positions are excluded, in that they are not flexible or static.
+	 *
+	 * Note that the positions in the excluded copy will not have the same index as
+	 * in the original confspace.
+	 *
+	 * Also note that the StrandFlex will not be consistent with the positions - some
+	 * residues for which there are StrandFlex will not have corresponding positions
+	 */
 	public SimpleConfSpace makeCopyExcludingResNums(Set<String> toExclude){
-		/**
-		 * Make a copy of the confspace that does not have the specified positions.
-		 * These specified positions are excluded, in that they are not flexible or static.
-		 *
-		 * Note that the positions in the excluded copy will not have the same index as
-		 * in the original confspace.
-		 *
-		 * Also note that the StrandFlex will not be consistent with the positions - some
-		 * residues for which there are StrandFlex will not have corresponding positions
-		 */
-
 	    // remove from positions
         List<Position> newPositions = this.positions.stream()
 				.filter( e -> (!toExclude.contains(e.resNum)) )

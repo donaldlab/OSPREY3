@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.confspace;
 
 import static org.hamcrest.Matchers.*;
+import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
 import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
@@ -43,6 +44,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import EDU.oswego.cs.dl.util.concurrent.FJTask;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -52,8 +54,10 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.markstar.MARKStar;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
+import edu.duke.cs.osprey.markstar.prototype.SimpleConf;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import org.jetbrains.annotations.NotNull;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -724,8 +728,12 @@ public class TestSimpleConfSpace extends TestBase {
 		// Making a confspace copy that removes the mutable residues only
 		SimpleConfSpace flexibleConfSpace = originalConfSpace.makeFlexibleCopy();
 
-		PartitionFunction flexPfunc = makeMARKStarPfuncForConfSpace(flexibleConfSpace, 0.68);
-		PartitionFunction origPfunc = makeMARKStarPfuncForConfSpace(originalConfSpace, 0.68);
+		PartitionFunction flexPfunc = makeMARKStarPfuncForConfSpace(flexibleConfSpace,
+				flexibleConfSpace.makeWildTypeSequence(),
+				0.68);
+		PartitionFunction origPfunc = makeMARKStarPfuncForConfSpace(originalConfSpace,
+				originalConfSpace.makeWildTypeSequence(),
+				0.68);
 
 		flexPfunc.compute();
 		origPfunc.compute();
@@ -806,7 +814,9 @@ public class TestSimpleConfSpace extends TestBase {
 		// Making a confspace copy that removes the mutable residues only
 		SimpleConfSpace flexibleConfSpace = mutableConfSpace.makeFlexibleCopy();
 
-		PartitionFunction flexPfunc = makeMARKStarPfuncForConfSpace(flexibleConfSpace, 0.68);
+		PartitionFunction flexPfunc = makeMARKStarPfuncForConfSpace(flexibleConfSpace,
+				flexibleConfSpace.makeWildTypeSequence(),
+				0.68);
 		flexPfunc.compute();
 
 		assertThat(flexPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
@@ -842,8 +852,12 @@ public class TestSimpleConfSpace extends TestBase {
 
 		SimpleConfSpace manualFlexibleConfSpace = mutableConfSpace.makeCopyExcludingResNums(toExclude);
 
-		PartitionFunction flexPfunc = makeMARKStarPfuncForConfSpace(flexibleConfSpace, 0.68);
-		PartitionFunction manualPfunc = makeMARKStarPfuncForConfSpace(manualFlexibleConfSpace, 0.68);
+		PartitionFunction flexPfunc = makeMARKStarPfuncForConfSpace(flexibleConfSpace,
+				flexibleConfSpace.makeWildTypeSequence(),
+				0.68);
+		PartitionFunction manualPfunc = makeMARKStarPfuncForConfSpace(manualFlexibleConfSpace,
+				manualFlexibleConfSpace.makeWildTypeSequence(),
+				0.68);
 
         flexPfunc.compute();
         manualPfunc.compute();
@@ -864,9 +878,177 @@ public class TestSimpleConfSpace extends TestBase {
 	}
 
 	/**
-	 * Computes a single partition function for the wild-type sequence only
+	 * Make an augmented copy by augmenting a confspace with itself.
+	 * This should result in the same confspace, with the same positions, mutables, flexibles, shellRes
 	 */
-	private PartitionFunction makeMARKStarPfuncForConfSpace(SimpleConfSpace confSpace, double epsilon){
+	@Test
+	public void testAugmentWithSameConfSpace(){
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG");
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "LYS");
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "VAL");
+
+		SimpleConfSpace originalConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(9)
+				.build();
+
+		SimpleConfSpace augmentedConfSpace = originalConfSpace.makeAugmentedCopy(originalConfSpace);
+
+		assertThat(augmentedConfSpace.immutablePositions, is(originalConfSpace.immutablePositions));
+		assertThat(augmentedConfSpace.mutablePositions, is(originalConfSpace.mutablePositions));
+		assertThat(augmentedConfSpace.shellResNumbers, is(originalConfSpace.shellResNumbers));
+		assertThat(augmentedConfSpace.positions, is(originalConfSpace.positions));
+		assertThat(augmentedConfSpace.seqSpace, is(originalConfSpace.seqSpace));
+	}
+
+	/**
+	 * Make an augmented copy of a flexible confspace
+	 * Test that it has the same positions as the original confspace
+	 */
+	@Test
+	public void testAugmentFlexibleConfSpace(){
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG");
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "LYS");
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "VAL");
+
+		SimpleConfSpace originalConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(9)
+				.build();
+
+		SimpleConfSpace flexibleConfSpace = originalConfSpace.makeFlexibleCopy();
+		SimpleConfSpace augmentedConfSpace = flexibleConfSpace.makeAugmentedCopy(originalConfSpace);
+
+		assertThat(augmentedConfSpace.immutablePositions, is(originalConfSpace.immutablePositions));
+		assertThat(augmentedConfSpace.mutablePositions, is(originalConfSpace.mutablePositions));
+		assertThat(augmentedConfSpace.shellResNumbers, is(originalConfSpace.shellResNumbers));
+		// the positions list should be in a different order, so will not work with "is"
+		assertThat(augmentedConfSpace.positions, not(is(originalConfSpace.positions)));
+		// use containsInAnyOrder and toArray
+		assertThat(augmentedConfSpace.positions, containsInAnyOrder(originalConfSpace.positions.toArray()));
+		assertThat(augmentedConfSpace.seqSpace, is(originalConfSpace.seqSpace));
+
+	}
+	/**
+	 * Test that the augmented pfunc and the original pfunc have the same seqspace
+	 */
+	@Test
+	public void testAugmentedConfSpaceSeqsVsOriginalConfSpace(){
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG");
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "LYS");
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "VAL");
+
+		SimpleConfSpace originalConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(9)
+				.build();
+
+		SimpleConfSpace flexibleConfSpace = originalConfSpace.makeFlexibleCopy();
+		SimpleConfSpace augmentedConfSpace = flexibleConfSpace.makeAugmentedCopy(originalConfSpace);
+
+		assertThat(augmentedConfSpace.seqSpace, is(originalConfSpace.seqSpace));
+	}
+
+	/**
+	 * Test that we can compute partition functions for both wild-type and Mutant sequences for augmented confspaces
+	 */
+	@Test
+	public void testAugmentedConfSpacePfunc(){
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG");
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "LYS");
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "VAL");
+
+		SimpleConfSpace originalConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(9)
+				.build();
+
+		SimpleConfSpace flexibleConfSpace = originalConfSpace.makeFlexibleCopy();
+		SimpleConfSpace augmentedConfSpace = flexibleConfSpace.makeAugmentedCopy(originalConfSpace);
+
+		List<Sequence> augmentedSeqs = augmentedConfSpace.seqSpace.getSequences();
+		Sequence seq = augmentedSeqs.get(augmentedSeqs.size()-1);
+
+		PartitionFunction augmentedPfunc = makeMARKStarPfuncForConfSpace(
+				augmentedConfSpace, seq, 0.68);
+
+		augmentedPfunc.compute();
+
+		System.out.println(seq);
+		System.out.println(augmentedPfunc.makeResult().toString());
+
+		assertThat(augmentedPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+	}
+
+	/**
+	 * Test that the augmented confspace pfuncs give the same values as the original confspace pfunc
+	 */
+	@Test
+	public void testAugmentedConfSpacePfuncVsOriginalPfunc(){
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG");
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "LYS");
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "VAL");
+
+		SimpleConfSpace originalConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(9)
+				.build();
+
+		SimpleConfSpace flexibleConfSpace = originalConfSpace.makeFlexibleCopy();
+		SimpleConfSpace augmentedConfSpace = flexibleConfSpace.makeAugmentedCopy(originalConfSpace);
+
+		List<Sequence> origSeqs = originalConfSpace.seqSpace.getSequences();
+		List<Sequence> augmentedSeqs = augmentedConfSpace.seqSpace.getSequences();
+		Sequence origMutSeq = origSeqs.get(origSeqs.size()-1);
+		Sequence augmentedMutSeq = augmentedSeqs.get(augmentedSeqs.size()-1);
+
+		PartitionFunction origPfunc = makeMARKStarPfuncForConfSpace(
+				originalConfSpace,
+				origMutSeq,
+				0.1);
+		PartitionFunction augmentedPfunc = makeMARKStarPfuncForConfSpace(
+				augmentedConfSpace,
+				augmentedMutSeq,
+				0.1);
+
+		origPfunc.compute();
+		augmentedPfunc.compute();
+
+		double UBdiff = augmentedPfunc.getValues().calcUpperBound()
+				.divide(origPfunc.getValues().calcUpperBound(), RoundingMode.HALF_UP)
+				.subtract(BigDecimal.valueOf(1.0))
+				.abs().doubleValue();
+		double LBdiff = augmentedPfunc.getValues().calcLowerBound()
+				.divide(origPfunc.getValues().calcLowerBound(), RoundingMode.HALF_UP)
+				.subtract(BigDecimal.valueOf(1.0))
+				.abs().doubleValue();
+
+		assertThat(augmentedMutSeq.toString(), is(origMutSeq.toString()));
+		assertThat(augmentedPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+		assertThat(origPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+		assertThat(UBdiff, lessThan(1e-10));
+		assertThat(LBdiff, lessThan(1e-10));
+	}
+
+	/**
+	 * Computes a single partition function for <sequence> to <epsilon>
+	 */
+	private PartitionFunction makeMARKStarPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon){
 		// Set up partition function requirements
 		Parallelism parallelism = Parallelism.makeCpu(4);
 		ForcefieldParams ffparams = new ForcefieldParams();
@@ -891,12 +1073,10 @@ public class TestSimpleConfSpace extends TestBase {
 			PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalcMinimized, "pfunc");
 			pfuncFactory.setUseMARKStar(confEcalcRigid);
 			// filter the global sequence to this conf space
-			Sequence sequence = confSpace.seqSpace.makeWildTypeSequence();
 			// make the partition function
 			RCs rcs = sequence.makeRCs(confSpace);
 
-			PartitionFunction pfunc = pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
-			return pfunc;
+			return pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
 		}
 	}
 }
