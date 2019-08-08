@@ -1,3 +1,35 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.sofea;
 
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
@@ -6,7 +38,6 @@ import edu.duke.cs.osprey.tools.*;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import org.jetbrains.annotations.NotNull;
 import org.mapdb.*;
-import org.mapdb.serializer.GroupSerializerObjectArray;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,20 +59,20 @@ public class SeqDB implements AutoCloseable {
 
 	public static class SeqInfo {
 
-		public final BigDecimalBounds[] z;
+		public final BigDecimalBounds[] zSumBounds;
 
 		public SeqInfo(int size) {
-			this.z = new BigDecimalBounds[size];
+			this.zSumBounds = new BigDecimalBounds[size];
 		}
 
 		public void setEmpty() {
-			for (int i = 0; i<z.length; i++) {
-				z[i] = makeEmptySum();
+			for (int i=0; i<zSumBounds.length; i++) {
+				zSumBounds[i] = makeEmptySum();
 			}
 		}
 
 		public boolean isEmpty() {
-			for (BigDecimalBounds b : z) {
+			for (BigDecimalBounds b : zSumBounds) {
 				if (!isEmptySum(b)) {
 					return false;
 				}
@@ -50,12 +81,12 @@ public class SeqDB implements AutoCloseable {
 		}
 
 		public BigDecimalBounds get(MultiStateConfSpace.State state) {
-			return z[state.sequencedIndex];
+			return zSumBounds[state.sequencedIndex];
 		}
 
 		@Override
 		public int hashCode() {
-			return HashCalculator.combineObjHashes(z);
+			return HashCalculator.combineObjHashes(zSumBounds);
 		}
 
 		@Override
@@ -64,164 +95,20 @@ public class SeqDB implements AutoCloseable {
 		}
 
 		public boolean equals(SeqInfo other) {
-			return Arrays.equals(this.z, other.z);
+			return Arrays.equals(this.zSumBounds, other.zSumBounds);
 		}
 
 		@Override
 		public String toString() {
-			return Streams.joinToString(z, ", ", b -> Log.formatBigLn(b));
+			return Streams.joinToString(zSumBounds, ", ", b -> Log.formatBigLn(b));
 		}
 	}
 
-	private static abstract class SimpleSerializer<T> extends GroupSerializerObjectArray<T> {
-
-		public final int fixedSize;
-
-		protected SimpleSerializer() {
-			// dynamic size, rather than fixed
-			this(-1);
-		}
-
-		protected SimpleSerializer(int fixedSize) {
-			this.fixedSize = fixedSize;
-		}
-
-		@Override
-		public boolean isTrusted() {
-			// we always read/write the same number of bytes, so we're "trusted" by MapDB
-			return true;
-		}
-
-		@Override
-		public int fixedSize() {
-			return fixedSize;
-		}
-	}
-
-	// NOTE: all int values get +1 when serialized, so we can accomodate the range [-1,maxVal]
-	private static class IntArraySerializer extends SimpleSerializer<int[]> {
-
-		private final IntEncoding encoding;
-		private final int numPos;
-
-		public IntArraySerializer(int maxVal, int numPos) {
-			this(IntEncoding.get(maxVal + 1), numPos);
-		}
-
-		private IntArraySerializer(IntEncoding encoding, int numPos) {
-			super(encoding.numBytes*numPos);
-			this.encoding = encoding;
-			this.numPos = numPos;
-		}
-
-		@Override
-		public void serialize(@NotNull DataOutput2 out, @NotNull int[] data)
-		throws IOException {
-			assert (data.length == numPos);
-			for (int i=0; i<numPos; i++) {
-				encoding.write(out, data[i] + 1);
-			}
-		}
-
-		@Override
-		public int[] deserialize(@NotNull DataInput2 in, int available)
-		throws IOException {
-			int[] data = new int[numPos];
-			for (int i=0; i<numPos; i++) {
-				data[i] = encoding.read(in) - 1;
-			}
-			return data;
-		}
-
-		@Override
-		public int compare(int[] a, int[] b) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public boolean equals(int[] a, int[] b) {
-			return Arrays.equals(a, b);
-		}
-
-		@Override
-		public int hashCode(@NotNull int[] data, int seed) {
-			return DataIO.intHash(Arrays.hashCode(data) + seed);
-		}
-	}
-
-	private static class BigDecimalSerializer extends SimpleSerializer<BigDecimal> {
-
-		private BigDecimalIO io = new BigDecimalIO.Variable();
-
-		@Override
-		public void serialize(@NotNull DataOutput2 out, @NotNull BigDecimal data)
-		throws IOException {
-			io.write(out, data);
-		}
-
-		@Override
-		public BigDecimal deserialize(@NotNull DataInput2 in, int available)
-		throws IOException {
-			return io.read(in);
-		}
-
-		@Override
-		public int compare(BigDecimal a, BigDecimal b) {
-			return MathTools.compare(a, b);
-		}
-
-		@Override
-		public boolean equals(BigDecimal a, BigDecimal b) {
-			return MathTools.isSameValue(a, b);
-		}
-
-		@Override
-		public int hashCode(@NotNull BigDecimal data, int seed) {
-			return DataIO.intHash(data.hashCode() + seed);
-		}
-	}
-
-	private static class BigDecimalBoundsSerializer extends SimpleSerializer<BigDecimalBounds> {
-
-		private final BigDecimalSerializer s = new BigDecimalSerializer();
-
-		@Override
-		public void serialize(@NotNull DataOutput2 out, @NotNull BigDecimalBounds data)
-		throws IOException {
-			s.serialize(out, data.lower);
-			s.serialize(out, data.upper);
-		}
-
-		@Override
-		public BigDecimalBounds deserialize(@NotNull DataInput2 in, int available)
-		throws IOException {
-			return new BigDecimalBounds(
-				s.deserialize(in, available),
-				s.deserialize(in, available)
-			);
-		}
-
-		@Override
-		public int compare(BigDecimalBounds a, BigDecimalBounds b) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public boolean equals(BigDecimalBounds a, BigDecimalBounds b) {
-			return a.equals(b);
-		}
-
-		@Override
-		public int hashCode(@NotNull BigDecimalBounds data, int seed) {
-			return DataIO.intHash(data.hashCode() + seed);
-		}
-	}
-
-	private static class SeqInfoSerializer extends SimpleSerializer<SeqInfo> {
+	private static class SeqInfoSerializer extends MapDBTools.SimpleSerializer<SeqInfo> {
 
 		private final int numBounds;
 
-		private final BigDecimalBoundsSerializer s = new BigDecimalBoundsSerializer();
+		private final MapDBTools.BigDecimalBoundsSerializer s = new MapDBTools.BigDecimalBoundsSerializer();
 
 		public SeqInfoSerializer(int numBounds) {
 			this.numBounds = numBounds;
@@ -231,7 +118,7 @@ public class SeqDB implements AutoCloseable {
 		public void serialize(@NotNull DataOutput2 out, @NotNull SeqInfo data)
 		throws IOException {
 			for (int i=0; i<numBounds; i++) {
-				s.serialize(out, data.z[i]);
+				s.serialize(out, data.zSumBounds[i]);
 			}
 		}
 
@@ -240,7 +127,7 @@ public class SeqDB implements AutoCloseable {
 		throws IOException {
 			SeqInfo data = new SeqInfo(numBounds);
 			for (int i=0; i<numBounds; i++) {
-				data.z[i] = s.deserialize(in, available);
+				data.zSumBounds[i] = s.deserialize(in, available);
 			}
 			return data;
 		}
@@ -295,7 +182,7 @@ public class SeqDB implements AutoCloseable {
 		// open the tables
 
 		sequencedSums = db.hashMap("sequenced-sums")
-			.keySerializer(new IntArraySerializer(
+			.keySerializer(new MapDBTools.IntArraySerializer(
 				confSpace.seqSpace.positions.stream()
 					.flatMap(pos -> pos.resTypes.stream())
 					.mapToInt(resType -> resType.index)
@@ -308,11 +195,11 @@ public class SeqDB implements AutoCloseable {
 
 		unsequencedSums = db.hashMap("unsequenced-sums")
 			.keySerializer(Serializer.INTEGER)
-			.valueSerializer(new BigDecimalBoundsSerializer())
+			.valueSerializer(new MapDBTools.BigDecimalBoundsSerializer())
 			.createOrOpen();
 	}
 
-	private BigMath bigMath() {
+	public BigMath bigMath() {
 		return new BigMath(mathContext);
 	}
 
@@ -327,7 +214,11 @@ public class SeqDB implements AutoCloseable {
 			// keep the constructor private
 		}
 
-		private void updateZSum(MultiStateConfSpace.State state, Sequence seq, Consumer<BigDecimalBounds> f) {
+		public BigMath bigMath() {
+			return SeqDB.this.bigMath();
+		}
+
+		private void updateZSumBounds(MultiStateConfSpace.State state, Sequence seq, Consumer<BigDecimalBounds> f) {
 
 			if (state.isSequenced) {
 
@@ -357,58 +248,51 @@ public class SeqDB implements AutoCloseable {
 			isEmpty = false;
 		}
 
-		public void addZ(MultiStateConfSpace.State state, Sequence seq, BigDecimal z) {
+		public void addZPath(MultiStateConfSpace.State state, Sequence seq, BigExp zPath, BigExp zSumUpper) {
 
-			if (!MathTools.isFinite(z)) {
-				throw new IllegalArgumentException("Z must be finite: " + z);
+			if (!zPath.isFinite() || !zSumUpper.isFinite()) {
+				throw new IllegalArgumentException("Z must be finite: " + zPath + ", " + zSumUpper);
 			}
 
-			updateZSum(state, seq, sum -> {
+			updateZSumBounds(state, seq, sum -> {
 				sum.lower = bigMath()
 					.set(sum.lower)
-					.add(z)
+					.add(zPath.toBigDecimal(mathContext))
 					.get();
 				sum.upper = bigMath()
 					.set(sum.upper)
-					.add(z)
+					.add(zPath.toBigDecimal(mathContext))
+					.sub(zSumUpper.toBigDecimal(mathContext))
 					.get();
 			});
 		}
 
-		public void addZ(MultiStateConfSpace.State state, Sequence seq, BigDecimalBounds z) {
+		public void addZSumUpper(MultiStateConfSpace.State state, Sequence seq, BigExp zSumUpper) {
 
-			if (!MathTools.isFinite(z.lower) || !MathTools.isFinite(z.upper)) {
-				throw new IllegalArgumentException("Z must be finite: " + z);
+			if (!zSumUpper.isFinite()) {
+				throw new IllegalArgumentException("Z must be finite: " + zSumUpper);
 			}
 
-			updateZSum(state, seq, sum -> {
-				sum.lower = bigMath()
-					.set(sum.lower)
-					.add(z.lower)
-					.get();
+			updateZSumBounds(state, seq, sum ->
 				sum.upper = bigMath()
 					.set(sum.upper)
-					.add(z.upper)
-					.get();
-			});
+					.add(zSumUpper.toBigDecimal(mathContext))
+					.get()
+			);
 		}
 
-		public void subZ(MultiStateConfSpace.State state, Sequence seq, BigDecimalBounds z) {
+		public void subZSumUpper(MultiStateConfSpace.State state, Sequence seq, BigExp zSumUpper) {
 
-			if (!MathTools.isFinite(z.lower) || !MathTools.isFinite(z.upper)) {
-				throw new IllegalArgumentException("Z must be finite: " + z);
+			if (!zSumUpper.isFinite()) {
+				throw new IllegalArgumentException("Z must be finite: " + zSumUpper);
 			}
 
-			updateZSum(state, seq, sum -> {
-				sum.lower = bigMath()
-					.set(sum.lower)
-					.sub(z.lower)
-					.get();
+			updateZSumBounds(state, seq, sum ->
 				sum.upper = bigMath()
 					.set(sum.upper)
-					.sub(z.upper)
-					.get();
-			});
+					.sub(zSumUpper.toBigDecimal(mathContext))
+					.get()
+			);
 		}
 
 		public boolean isEmpty() {
@@ -419,13 +303,19 @@ public class SeqDB implements AutoCloseable {
 			sum.upper = bigMath()
 				.set(sum.upper)
 				.add(oldSum.upper)
-				.atLeast(0.0) // NOTE: roundoff error can cause this to drop below 0
 				.get();
 			sum.lower = bigMath()
 				.set(sum.lower)
 				.add(oldSum.lower)
-				.atMost(sum.upper) // don't exceed the upper value due to roundoff error
 				.get();
+		}
+
+		private void fixRoundoffError(BigDecimalBounds z) {
+			// trust the lower bound more, since it's based on minimizations
+			if (!z.isValid()) {
+				// TODO: throw an Exception if the error is bigger than what we'd expect from roundoff?
+				z.upper = z.lower;
+			}
 		}
 
 		public void commit() {
@@ -444,9 +334,10 @@ public class SeqDB implements AutoCloseable {
 				SeqInfo oldSeqInfo = SeqDB.this.sequencedSums.get(seq.rtIndices);
 				if (oldSeqInfo != null) {
 					for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
-						BigDecimalBounds sum = seqInfo.z[state.sequencedIndex];
-						BigDecimalBounds oldSum = oldSeqInfo.z[state.sequencedIndex];
+						BigDecimalBounds sum = seqInfo.zSumBounds[state.sequencedIndex];
+						BigDecimalBounds oldSum = oldSeqInfo.zSumBounds[state.sequencedIndex];
 						combineSums(sum, oldSum);
+						fixRoundoffError(sum);
 					}
 				}
 
@@ -461,6 +352,7 @@ public class SeqDB implements AutoCloseable {
 				BigDecimalBounds oldSum = SeqDB.this.unsequencedSums.get(unsequencedIndex);
 				if (oldSum != null) {
 					combineSums(sum, oldSum);
+					fixRoundoffError(sum);
 				}
 
 				SeqDB.this.unsequencedSums.put(unsequencedIndex, sum);
@@ -499,7 +391,7 @@ public class SeqDB implements AutoCloseable {
 	/**
 	 * returns the current Z bounds for the queried state
 	 */
-	public BigDecimalBounds getUnsequencedBound(MultiStateConfSpace.State state) {
+	public BigDecimalBounds getUnsequencedZSumBounds(MultiStateConfSpace.State state) {
 		BigDecimalBounds z = unsequencedSums.get(state.unsequencedIndex);
 		if (z == null) {
 			z = new BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity);
@@ -554,7 +446,7 @@ public class SeqDB implements AutoCloseable {
 	 * as more subtrees get explored, those Z values will be transfered to more fully-assigned sequences
 	 * bounds for fully-explored partial sequences will be zero
 	 */
-	public SeqInfo getSequencedBounds(Sequence seq) {
+	public SeqInfo getSequencedZSumBounds(Sequence seq) {
 		SeqInfo seqInfo = getSequencedSums(seq);
 		if (seq.isFullyAssigned()) {
 			addZAncestry(seq, seqInfo);
@@ -566,7 +458,7 @@ public class SeqDB implements AutoCloseable {
 	 * returns Z bounds for all sequences
 	 * returns bounds for both full and partial sequences
 	 */
-	public Iterable<Map.Entry<Sequence,SeqInfo>> getSequencedBounds() {
+	public Iterable<Map.Entry<Sequence,SeqInfo>> getSequencedZSumBounds() {
 		return () -> new Iterator<Map.Entry<Sequence,SeqInfo>>() {
 
 			Iterator<Map.Entry<int[],SeqInfo>> iter = sequencedSums.getEntries().iterator();
@@ -608,12 +500,39 @@ public class SeqDB implements AutoCloseable {
 				// couldn't that unexplored subtree contain no confs for this seq?
 				// NOTE: don't add the lower bounds, the subtree need not necessarily contain confs for this sequence
 				for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
-					seqInfo.z[state.sequencedIndex].upper = bigMath()
-						.set(seqInfo.z[state.sequencedIndex].upper)
-						.add(parentSeqInfo.z[state.sequencedIndex].upper)
+					seqInfo.zSumBounds[state.sequencedIndex].upper = bigMath()
+						.set(seqInfo.zSumBounds[state.sequencedIndex].upper)
+						.add(parentSeqInfo.zSumBounds[state.sequencedIndex].upper)
 						.get();
 				}
 			}
 		}
+	}
+
+	public String dump() {
+		StringBuilder buf = new StringBuilder();
+		buf.append("Unsequenced");
+		for (MultiStateConfSpace.State state : confSpace.unsequencedStates) {
+			BigDecimalBounds zSumBounds = getUnsequencedZSumBounds(state);
+			buf.append(String.format("\n%10s  zSumBounds=%s w=%s",
+				state.name,
+				Log.formatBigLn(zSumBounds),
+				Log.formatBigLn(zSumBounds.size(mathContext))
+			));
+		}
+		buf.append("\nSequenced");
+		for (Map.Entry<Sequence,SeqInfo> entry : getSequencedZSumBounds()) {
+			Sequence seq = entry.getKey();
+			SeqInfo seqInfo = entry.getValue();
+			buf.append(String.format("\n[%s]", seq));
+			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
+				buf.append(String.format("\n%10s  zSumBounds=%s w=%s",
+					state.name,
+					Log.formatBigLn(seqInfo.get(state)),
+					Log.formatBigLn(seqInfo.get(state).size(mathContext))
+				));
+			}
+		}
+		return buf.toString();
 	}
 }

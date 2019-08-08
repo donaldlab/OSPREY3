@@ -47,7 +47,6 @@ import java.util.function.BiConsumer;
 public class TupleTree<T> implements Serializable {
 
 	private static final long serialVersionUID = -8048566743262701431L;
-	private static final int NotATuple = -1;
 
 	private class Node implements Serializable {
 
@@ -99,7 +98,6 @@ public class TupleTree<T> implements Serializable {
 			return child;
 		}
 
-		@SuppressWarnings("unchecked")
 		public Node get(int pos, int rc) {
 			if (children == null) {
 				return null;
@@ -226,22 +224,29 @@ public class TupleTree<T> implements Serializable {
 		root.data = null;
 	}
 
-	public void forEachIn(int[] conf, BiConsumer<RCTuple,T> callback) {
+	private boolean matchesBaseTuple(int[] conf) {
 
-		// check the base tuple if needed
-		if (baseTuple != null) {
-			for (int i=0; i<baseTuple.size(); i++) {
+		if (baseTuple == null) {
+			return true;
+		}
 
-				int pos = baseTuple.pos.get(i);
-				int rc = baseTuple.RCs.get(i);
+		for (int i=0; i<baseTuple.size(); i++) {
 
-				if (conf[pos] != rc) {
-					return;
-				}
+			int pos = baseTuple.pos.get(i);
+			int rc = baseTuple.RCs.get(i);
+
+			if (rc != conf[pos]) {
+				return false;
 			}
 		}
 
-		forEachIn(conf, root, conf.length, callback);
+		return true;
+	}
+
+	public void forEachIn(int[] conf, BiConsumer<RCTuple,T> callback) {
+		if (matchesBaseTuple(conf)) {
+			forEachIn(conf, root, conf.length, callback);
+		}
 	}
 
 	private void forEachIn(int[] conf, Node parent, int untilPos, BiConsumer<RCTuple,T> callback) {
@@ -272,7 +277,76 @@ public class TupleTree<T> implements Serializable {
 		}
 	}
 
+	public void forEachIn(int[] conf, int pos1, BiConsumer<RCTuple,T> callback) {
+		if (matchesBaseTuple(conf)) {
+			forEachIn(conf, pos1, root, pos1 + 1, callback);
+		}
+	}
+
+	private void forEachIn(int[] conf, int pos1, Node parent, int untilPos, BiConsumer<RCTuple,T> callback) {
+
+		for (int pos=pos1; pos<untilPos; pos++) {
+
+			// skip unassigned positions
+			int rc = conf[pos];
+			if (rc == Conf.Unassigned) {
+				continue;
+			}
+
+			// get the node for this rc, if any
+			Node node = parent.get(pos, rc);
+			if (node == null) {
+				continue;
+			}
+
+			// callback if there's a tuple at this node that matches pos1
+			if (node.tuple != null && node.tuple.pos.contains(pos1)) {
+				callback.accept(node.tuple, node.data);
+			}
+
+			// recurse if possible
+			if (node.children != null) {
+				forEachIn(conf, node, pos, callback);
+			}
+		}
+	}
+
+	public void forEachIn(int[] conf, int pos1, int pos2, BiConsumer<RCTuple,T> callback) {
+		if (matchesBaseTuple(conf)) {
+			forEachIn(conf, pos1, pos2, root, pos1 + 1, callback);
+		}
+	}
+
+	private void forEachIn(int[] conf, int pos1, int pos2, Node parent, int untilPos, BiConsumer<RCTuple,T> callback) {
+
+		for (int pos=Math.max(pos1, pos2); pos<untilPos; pos++) {
+
+			// skip unassigned positions
+			int rc = conf[pos];
+			if (rc == Conf.Unassigned) {
+				continue;
+			}
+
+			// get the node for this rc, if any
+			Node node = parent.get(pos, rc);
+			if (node == null) {
+				continue;
+			}
+
+			// callback if there's a tuple at this node that matches pos1, pos2
+			if (node.tuple != null && node.tuple.pos.contains(pos1) && node.tuple.pos.contains(pos2)) {
+				callback.accept(node.tuple, node.data);
+			}
+
+			// recurse if possible
+			if (node.children != null) {
+				forEachIn(conf, node, pos, callback);
+			}
+		}
+	}
+
 	// TODO: make an iterator instead of writing to a list?
+	// TODO: make a forEach style callback?
 
 	public List<RCTuple> makeTuplesList() {
 		List<RCTuple> tuples = new ArrayList<>();

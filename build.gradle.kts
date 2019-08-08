@@ -38,7 +38,6 @@ import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.StandardCopyOption
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.ArrayList
 
 
 plugins {
@@ -81,8 +80,8 @@ java {
 idea {
 	module {
 		// use the same output folders as gradle, so the pythonDevelop task works correctly
-		outputDir = java.sourceSets["main"].output.classesDirs.singleFile
-		testOutputDir = java.sourceSets["test"].output.classesDirs.singleFile
+		outputDir = sourceSets["main"].output.classesDirs.singleFile
+		testOutputDir = sourceSets["test"].output.classesDirs.singleFile
 		inheritOutputDirs = false
 	}
 }
@@ -114,6 +113,7 @@ dependencies {
 	compile("ch.qos.logback:logback-classic:1.2.3")
 	compile("de.lmu.ifi.dbs.elki:elki:0.7.1")
 	compile("ch.obermuhlner:big-math:2.0.1")
+	compile("org.tomlj:tomlj:1.0.0")
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
 	// so turn off transitive dependencies. we'll deal with natives manually
@@ -132,7 +132,7 @@ dependencies {
 		val filePath = libDir.resolve(filename)
 
 		// create a gradle task to download the file
-		val downloadTask by project.tasks.creating {
+		val downloadTask by tasks.creating {
 			Files.createDirectories(libDir)
 			url.openStream().use {
 				Files.copy(it, filePath, StandardCopyOption.REPLACE_EXISTING)
@@ -147,6 +147,9 @@ dependencies {
 
 	// TPIE-Java isn't in the maven/jcenter repos yet, download directly from Github
 	compile(url("https://github.com/donaldlab/TPIE-Java/releases/download/v1.1/edu.duke.cs.tpie-1.1.jar"))
+
+	// libs that have no authoritative source on the internet
+	compile(files("lib/kdtree.jar"))
 
 	// native libs for GPU stuff
 	listOf("natives-linux-amd64", "natives-macosx-universal", "natives-windows-amd64").forEach {
@@ -219,7 +222,7 @@ distributions {
 			}
 
 			// include libs, classes, and resources
-			val files = java.sourceSets["test"].runtimeClasspath
+			val files = sourceSets["test"].runtimeClasspath
 			into("lib") {
 				from(files
 					.filter { it.extension == "jar" }
@@ -259,6 +262,34 @@ tasks {
 	"testDistTar" {
 		enabled = false
 	}
+
+	val testClasses = "testClasses" {}
+
+	val appendBuildNumber by creating {
+		dependsOn("processResources")
+		doLast {
+
+			// read the version number
+			val versionFile = projectDir.resolve("build/resources/main/config/version").toFile()
+			var version = versionFile.readText()
+
+			// append the travis build number if available
+			val travisBuildNumber = System.getenv("TRAVIS_BUILD_NUMBER")
+			if (travisBuildNumber != null) {
+				version += "-b$travisBuildNumber"
+
+				// otherwise, use a "-dev" build number
+			} else {
+				version += "-dev"
+			}
+
+			versionFile.writeText(version)
+		}
+	}
+
+	val jar = "jar" {
+		dependsOn(appendBuildNumber)
+	}.get()
 
 	val compileCuda_residueForcefield by creating(Exec::class) {
 		nvcc(this, "residueForcefield")
@@ -305,7 +336,7 @@ tasks {
 		doLast {
 			Files.createDirectories(pythonBuildDir)
 			val classpathPath = pythonBuildDir.resolve("classpath.txt")
-			Files.write(classpathPath, java.sourceSets["main"].runtimeClasspath.files.map { it.toString() })
+			Files.write(classpathPath, sourceSets["main"].runtimeClasspath.files.map { it.toString() })
 		}
 	}
 
@@ -319,7 +350,7 @@ tasks {
 	val pythonWheel by creating(Exec::class) {
 		group = "build"
 		description = "Build python wheel"
-		inputs.file(tasks.getByName("jar"))
+		inputs.files(jar.outputs.files)
 		outputs.dir(pythonWheelDir)
 		doFirst {
 
@@ -362,13 +393,13 @@ tasks {
 
 			// copy osprey jar
 			copy {
-				from(tasks["jar"])
+				from(jar)
 				into(libDir.toFile())
 			}
 
 			// copy java libs
 			copy {
-				from(java.sourceSets["main"].runtimeClasspath.files
+				from(sourceSets["main"].runtimeClasspath.files
 					.filter { it.extension == "jar" }
 				)
 				into(libDir.toFile())
@@ -415,7 +446,7 @@ tasks {
 			val classpath =
 				(
 					listOf("classes") +
-					java.sourceSets["test"].runtimeClasspath
+					sourceSets["test"].runtimeClasspath
 						.filter { it.extension == "jar" }
 						.map { "lib/${it.name}" }
 				)
@@ -429,7 +460,7 @@ tasks {
 	}
 
 	"testDistZip" {
-		dependsOn(tasks["testClasses"], testRunScript)
+		dependsOn(testClasses, testRunScript)
 	}
 
 	val updateLicenseHeaders by creating {

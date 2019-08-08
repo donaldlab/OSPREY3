@@ -53,7 +53,8 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 public class Molecule implements Serializable {
     
     private static final long serialVersionUID = -2709516483892891323L;
-    
+
+    public String name = null;
     public Residues residues;
     private Map<Integer,ArrayList<Residue>> alternates;
     

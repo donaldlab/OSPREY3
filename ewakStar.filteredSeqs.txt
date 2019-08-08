@@ -1,5 +1,0 @@
-182=thr 194=val 196=VAL 210=ala 212=lys 213=val
-182=thr 194=val 196=asn 210=ala 212=TYR 213=val
-182=LYS 194=val 196=asn 210=ala 212=lys 213=val
-182=thr 194=val 196=asn 210=ala 212=lys 213=val
-182=thr 194=val 196=asn 210=SER 212=lys 213=val

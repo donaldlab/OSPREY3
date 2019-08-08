@@ -107,7 +107,7 @@ The install scripts use ``pip`` internally to install the Python package. If you
 the installation of the python package, you can ingore the install scripts and call ``pip`` directly.
 First download the `newest Osprey Python release`_ and extract it to your favorite folder. Then call ``pip``::
 
-	$ pip2 install osprey --no-index --use-wheel --find-link=wheelhouse
+	$ pip2 install osprey --user --pre --no-index --use-wheel --find-link=wheelhouse
 
 
 Upgrading from an older version
