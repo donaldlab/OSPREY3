@@ -35,6 +35,8 @@ package edu.duke.cs.osprey.confspace;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -584,6 +586,11 @@ public class TestSimpleConfSpace extends TestBase {
 		assertThat(separateConfSpace.shellResNumbers, is(combinedConfSpace.shellResNumbers));
 	}
 
+	/**
+	 * Make a copy of a mutable confspace that excludes flexible residues.
+	 *
+	 * Test to make sure that these residues are indeed gone from the confspace
+	 */
 	@Test
 	public void testFlexibleCopy() {
 		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
@@ -605,6 +612,12 @@ public class TestSimpleConfSpace extends TestBase {
 		assertThat(flexibleConfSpace.mutablePositions.isEmpty(), is(true));
 	}
 
+	/**
+	 * Make a copy of a mutable confspace that excludes specific residues.
+	 * In this case, we exclude one mutable, one flexible, and one static.
+	 *
+	 * Test to make sure that these residues are indeed gone from the confspace
+	 */
 	@Test
 	public void testExcludedResNumCopy() {
 		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
@@ -659,6 +672,83 @@ public class TestSimpleConfSpace extends TestBase {
 				is(false));
 	}
 
+	/**
+	 * Make a flexible copy of a flexible confspace.
+	 * These should be the same confspace, so they should have the same positions and static residues
+	 *
+	 */
+	@Test
+	public void testFlexibleCopyOfFlexibleConfSpace(){
+		// Making a confspace with flexible residues only
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType);
+
+		SimpleConfSpace originalConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(100)
+				.build();
+
+		// Making a confspace copy that removes the mutable residues only
+		SimpleConfSpace flexibleConfSpace = originalConfSpace.makeFlexibleCopy();
+
+		assertThat(flexibleConfSpace.immutablePositions, is(originalConfSpace.immutablePositions));
+		assertThat(flexibleConfSpace.mutablePositions, is(originalConfSpace.mutablePositions));
+		assertThat(flexibleConfSpace.shellResNumbers, is(originalConfSpace.shellResNumbers));
+		assertThat(flexibleConfSpace.positions, is(originalConfSpace.positions));
+		assertThat(flexibleConfSpace.seqSpace, is(originalConfSpace.seqSpace));
+	}
+
+	/**
+	 * Make a flexible copy of a flexible confspace.
+	 * These should be the same confspace, so their partition functions should be the same
+	 */
+	@Test
+	public void testFlexibleCopyOfFlexibleConfSpacePfuncs(){
+		// Making a confspace with flexible residues only
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType);
+
+		SimpleConfSpace originalConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(100)
+				.build();
+
+		// Making a confspace copy that removes the mutable residues only
+		SimpleConfSpace flexibleConfSpace = originalConfSpace.makeFlexibleCopy();
+
+		PartitionFunction flexPfunc = makeMARKStarPfuncForConfSpace(flexibleConfSpace, 0.68);
+		PartitionFunction origPfunc = makeMARKStarPfuncForConfSpace(originalConfSpace, 0.68);
+
+		flexPfunc.compute();
+		origPfunc.compute();
+
+		double UBdiff = flexPfunc.getValues().calcUpperBound()
+				.divide(origPfunc.getValues().calcUpperBound(), RoundingMode.HALF_UP)
+				.subtract(BigDecimal.valueOf(1.0))
+				.abs().doubleValue();
+		double LBdiff = flexPfunc.getValues().calcLowerBound()
+				.divide(origPfunc.getValues().calcLowerBound(), RoundingMode.HALF_UP)
+				.subtract(BigDecimal.valueOf(1.0))
+				.abs().doubleValue();
+
+		assertThat(flexPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+		assertThat(origPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+		assertThat(UBdiff, lessThan(1e-10));
+		assertThat(LBdiff, lessThan(1e-10));
+	}
+
+	/**
+	 * Make a flexible copy of a mutable confspace, and make an excluded copy excluding only mutable residues
+	 * These confspaces should be the same, so they should have the same positions and static residues
+	 */
 	@Test
 	public void testFlexibleCopyAgainstManualCopy() {
 		// Making a confspace with both mutable and flexible residues
@@ -692,4 +782,121 @@ public class TestSimpleConfSpace extends TestBase {
 		assertThat(flexibleConfSpace.seqSpace, is(manualFlexibleConfSpace.seqSpace));
 	}
 
+	/**
+	 * Make a flexible copy of a mutable confspace.
+	 *
+	 * Ensure that we can calculate the partition function as we would expect.
+	 * This suggests that the confspace is valid
+	 */
+	@Test
+	public void testFlexibleCopyPfunc(){
+		// Making a confspace with both mutable and flexible residues
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "LYS");
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "VAL");
+
+		SimpleConfSpace mutableConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(100)
+				.build();
+
+		// Making a confspace copy that removes the mutable residues only
+		SimpleConfSpace flexibleConfSpace = mutableConfSpace.makeFlexibleCopy();
+
+		PartitionFunction flexPfunc = makeMARKStarPfuncForConfSpace(flexibleConfSpace, 0.68);
+		flexPfunc.compute();
+
+		assertThat(flexPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+	}
+
+	/**
+	 * Make a flexible copy of a mutable confspace, and make an excluded copy excluding only mutable residues
+	 * These confspaces should be the same, so they should return the same pfunc value
+	 */
+	@Test
+	public void testFlexibleCopyVsExcludedCopyPfunc() {
+		// Making a confspace with both mutable and flexible residues
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG");
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "LYS");
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType);
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "VAL");
+
+		SimpleConfSpace mutableConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(100)
+				.build();
+
+		// Making a confspace copy that removes the mutable residues only
+		SimpleConfSpace flexibleConfSpace = mutableConfSpace.makeFlexibleCopy();
+
+		// Manually making a confspace that should be the same as the flexible copy, if I'm right
+		Set<String> toExclude = new HashSet<>();
+		toExclude.add("A2");
+		toExclude.add("A3");
+		toExclude.add("A6");
+
+		SimpleConfSpace manualFlexibleConfSpace = mutableConfSpace.makeCopyExcludingResNums(toExclude);
+
+		PartitionFunction flexPfunc = makeMARKStarPfuncForConfSpace(flexibleConfSpace, 0.68);
+		PartitionFunction manualPfunc = makeMARKStarPfuncForConfSpace(manualFlexibleConfSpace, 0.68);
+
+        flexPfunc.compute();
+        manualPfunc.compute();
+
+        double UBdiff = flexPfunc.getValues().calcUpperBound()
+				.divide(manualPfunc.getValues().calcUpperBound(), RoundingMode.HALF_UP)
+				.subtract(BigDecimal.valueOf(1.0))
+				.abs().doubleValue();
+		double LBdiff = flexPfunc.getValues().calcLowerBound()
+				.divide(manualPfunc.getValues().calcLowerBound(), RoundingMode.HALF_UP)
+				.subtract(BigDecimal.valueOf(1.0))
+				.abs().doubleValue();
+
+        assertThat(flexPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+		assertThat(manualPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+		assertThat(UBdiff, lessThan(0.01));
+		assertThat(LBdiff, lessThan(0.01));
+	}
+
+	/**
+	 * Computes a single partition function for the wild-type sequence only
+	 */
+	private PartitionFunction makeMARKStarPfuncForConfSpace(SimpleConfSpace confSpace, double epsilon){
+		// Set up partition function requirements
+		Parallelism parallelism = Parallelism.makeCpu(4);
+		ForcefieldParams ffparams = new ForcefieldParams();
+
+		// how should we compute energies of molecules?
+		try (EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
+				.setParallelism(parallelism)
+				.build()) {
+			// how should we define energies of conformations?
+			ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
+							.build()
+							.calcReferenceEnergies()
+					)
+					.build();
+
+			// BBK* needs rigid energies too
+			EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
+					.setIsMinimizing(false)
+					.build();
+			ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(confEcalcMinimized, ecalcRigid);
+			PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalcMinimized, "pfunc");
+			pfuncFactory.setUseMARKStar(confEcalcRigid);
+			// filter the global sequence to this conf space
+			Sequence sequence = confSpace.seqSpace.makeWildTypeSequence();
+			// make the partition function
+			RCs rcs = sequence.makeRCs(confSpace);
+
+			PartitionFunction pfunc = pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
+			return pfunc;
+		}
+	}
 }

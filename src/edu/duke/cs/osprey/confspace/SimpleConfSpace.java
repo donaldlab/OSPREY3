@@ -134,6 +134,16 @@ public class SimpleConfSpace implements Serializable {
 			this.resTypes = resTypes;
 		}
 
+		public Position(int index, int mindex, Strand strand, String resNum, List<String> resTypes) {
+			this.index = index;
+			this.mindex = mindex;
+			this.strand = strand;
+			this.resNum = resNum;
+			this.resFlex = strand.flexibility.get(resNum);
+			this.resConfs = new ArrayList<>();
+			this.resTypes = resTypes;
+		}
+
 		@Override
 		public String toString() {
 			return resNum;
@@ -483,21 +493,43 @@ public class SimpleConfSpace implements Serializable {
 		this.strands = strands;
 		this.strandFlex = strandFlex;
 		this.shellDist = shellDist;
-		this.positions = positions;
-		this.mutablePositions = mutablePositions;
-		this.immutablePositions = immutablePositions;
 		this.shellResNumbers = shellResNumbers;
 
-		// index the positions
+		// Need to rebuild positions to make index and mindex work properly
+		List<Position> newPositions = new ArrayList<>();
+		List<Position> newMutablePositions = new ArrayList<>();
+		List<Position> newImmutablePositions = new ArrayList<>();
+
+		for (Position pos: positions){
+			int index = newPositions.size();
+			int mindex = (pos.mindex != -1) ? newMutablePositions.size() : -1;
+			Position posCopy = new Position(index, mindex, pos.strand, pos.resNum, pos.resTypes);
+			newPositions.add(posCopy);
+			if (mindex >= 0) {
+				newMutablePositions.add(posCopy);
+			} else {
+				newImmutablePositions.add(posCopy);
+			}
+
+			// steal the residue confs from the original position:
+			posCopy.resConfs.addAll(pos.resConfs);
+
+		}
+
+		this.positions = newPositions;
+		this.mutablePositions = newMutablePositions;
+		this.immutablePositions = newImmutablePositions;
+
+		// populate positionByResNum
 		positionsByResNum = new HashMap<>();
-		for (Position pos : positions) {
+		for (Position pos : this.positions) {
 			positionsByResNum.put(Residues.normalizeResNum(pos.resNum), pos);
 		}
 
 		// count the residue conformations
-		numResConfsByPos = new int[positions.size()];
-		for (int i=0; i<positions.size(); i++) {
-			numResConfsByPos[i] = positions.get(i).resConfs.size();
+		numResConfsByPos = new int[this.positions.size()];
+		for (int i=0; i<this.positions.size(); i++) {
+			numResConfsByPos[i] = this.positions.get(i).resConfs.size();
 		}
 
 		// make the sequence space
@@ -519,6 +551,16 @@ public class SimpleConfSpace implements Serializable {
 	}
 
 	public SimpleConfSpace makeFlexibleCopy(){
+		/**
+		 * Make a copy of the confspace that does not have any mutable positions.
+		 * These mutable positions are excluded, in that they are not flexible or static.
+		 *
+		 * Note that the positions in the flexible copy will not have the same index as
+		 * in the original confspace.
+		 *
+		 * Also note that the StrandFlex will not be consistent with the positions - some
+		 * residues for which there are StrandFlex will not have corresponding positions
+		 */
 	    List<Position> flexPositions = new ArrayList(this.positions);
         flexPositions.removeAll(this.mutablePositions);
 	    List<Position> emptyMutablePositions = new ArrayList();
@@ -527,6 +569,17 @@ public class SimpleConfSpace implements Serializable {
 	}
 
 	public SimpleConfSpace makeCopyExcludingResNums(Set<String> toExclude){
+		/**
+		 * Make a copy of the confspace that does not have the specified positions.
+		 * These specified positions are excluded, in that they are not flexible or static.
+		 *
+		 * Note that the positions in the excluded copy will not have the same index as
+		 * in the original confspace.
+		 *
+		 * Also note that the StrandFlex will not be consistent with the positions - some
+		 * residues for which there are StrandFlex will not have corresponding positions
+		 */
+
 	    // remove from positions
         List<Position> newPositions = this.positions.stream()
 				.filter( e -> (!toExclude.contains(e.resNum)) )
