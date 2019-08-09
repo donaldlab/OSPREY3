@@ -6,11 +6,12 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 
 import java.math.BigDecimal;
 
-public class SHARKStarBound extends MARKStarBound {
+public class SHARKStarBound extends MARKStarBoundFastQueues {
 
 	/**
 	 * Constructor to make a default MARKStarBound Class

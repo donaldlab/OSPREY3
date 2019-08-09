@@ -46,6 +46,7 @@ import edu.duke.cs.osprey.lute.LUTEPfunc;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.sharkstar.SHARKStarBound;
 
 import java.math.BigInteger;
 import java.util.HashMap;
@@ -56,7 +57,8 @@ public class PartitionFunctionFactory {
     enum PartitionFunctionImpl {
         MARKStar,
         GradientDescent,
-        LUTE
+        LUTE,
+        SHARKStar
     }
 
     private ConfEnergyCalculator confUpperBoundECalc;
@@ -82,6 +84,11 @@ public class PartitionFunctionFactory {
     public void setUseLUTE(ConfEnergyCalculator confECalc) {
         this.confEcalc = confECalc;
         this.pfuncImpl = PartitionFunctionImpl.LUTE;
+    }
+
+    public void setUseSHARKStar(ConfEnergyCalculator rigidConfECalc) {
+        this.confUpperBoundECalc = rigidConfECalc;
+        this.pfuncImpl = PartitionFunctionImpl.SHARKStar;
     }
 
     public void setUseGradientDescent() {
@@ -131,6 +138,16 @@ public class PartitionFunctionFactory {
                         rcs.getNumConformations(),
                         epsilon
                 );
+                break;
+            case SHARKStar:
+                minimizingEmat = makeEmat(confEcalc, "minimizing");
+                if(MARKStarEmat == null)
+                    MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
+                SHARKStarBound SHARKStarBound = new SHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
+                        minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
+                SHARKStarBound.setCorrections(MARKStarEmat);
+                SHARKStarBound.init(epsilon);
+                pfunc = SHARKStarBound;
                 break;
         }
         return pfunc;
