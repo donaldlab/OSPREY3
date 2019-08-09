@@ -69,6 +69,7 @@ public class PartitionFunctionFactory {
     private PartitionFunctionImpl pfuncImpl = PartitionFunctionImpl.GradientDescent;
     private UpdatingEnergyMatrix MARKStarEmat = null;
     private String state = "(undefined)";
+    private SHARKStarBound preComputedFlex = null;
 
     public PartitionFunctionFactory(SimpleConfSpace confSpace, ConfEnergyCalculator confECalc, String state) {
         this.state = state;
@@ -84,6 +85,11 @@ public class PartitionFunctionFactory {
     public void setUseLUTE(ConfEnergyCalculator confECalc) {
         this.confEcalc = confECalc;
         this.pfuncImpl = PartitionFunctionImpl.LUTE;
+    }
+
+    public void setUseSHARKStar(ConfEnergyCalculator rigidConfECalc, SHARKStarBound preComputedFlex){
+        this.preComputedFlex = preComputedFlex;
+        setUseSHARKStar(rigidConfECalc);
     }
 
     public void setUseSHARKStar(ConfEnergyCalculator rigidConfECalc) {
@@ -143,8 +149,15 @@ public class PartitionFunctionFactory {
                 minimizingEmat = makeEmat(confEcalc, "minimizing");
                 if(MARKStarEmat == null)
                     MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
-                SHARKStarBound SHARKStarBound = new SHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
-                        minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
+                SHARKStarBound SHARKStarBound = null;
+                if(preComputedFlex == null) {
+                    SHARKStarBound = new SHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
+                            minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
+                }
+                else {
+                    SHARKStarBound = new SHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
+                            minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism, preComputedFlex);
+                }
                 SHARKStarBound.setCorrections(MARKStarEmat);
                 SHARKStarBound.init(epsilon);
                 pfunc = SHARKStarBound;

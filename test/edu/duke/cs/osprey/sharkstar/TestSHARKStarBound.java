@@ -34,7 +34,7 @@ public class TestSHARKStarBound extends TestBase {
     /**
      * Computes a single partition function using <confSpace> for <sequence> to <epsilon>
      */
-    private PartitionFunction makeSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon){
+    private SHARKStarBound makeSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon, SHARKStarBound preComputedFlex){
         // Set up partition function requirements
         Parallelism parallelism = Parallelism.makeCpu(4);
         ForcefieldParams ffparams = new ForcefieldParams();
@@ -57,12 +57,15 @@ public class TestSHARKStarBound extends TestBase {
                     .build();
             ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(confEcalcMinimized, ecalcRigid);
             PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalcMinimized, "pfunc");
-            pfuncFactory.setUseSHARKStar(confEcalcRigid);
+            if (preComputedFlex == null)
+                pfuncFactory.setUseSHARKStar(confEcalcRigid);
+            else
+                pfuncFactory.setUseSHARKStar(confEcalcRigid, preComputedFlex);
             // filter the global sequence to this conf space
             // make the partition function
             RCs rcs = sequence.makeRCs(confSpace);
 
-            return pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
+            return (SHARKStarBound) pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
         }
     }
 
@@ -109,9 +112,65 @@ public class TestSHARKStarBound extends TestBase {
     public void testComputeSingleSequencePfunc(){
         SimpleConfSpace flexConfSpace = make1CC8Flexible();
         Sequence wildType = flexConfSpace.makeWildTypeSequence();
-        PartitionFunction pfunc = makeSHARKStarPfuncForConfSpace(flexConfSpace, wildType, 0.68);
+        PartitionFunction pfunc = makeSHARKStarPfuncForConfSpace(flexConfSpace, wildType, 0.68, null);
         pfunc.compute();
 
         assertThat(pfunc.getStatus(), is(PartitionFunction.Status.Estimated));
     }
+
+    /**
+     * Test that we can make a SHARKStarBound with a precomputed flexible SHARKStarBound
+     *
+     * Test that the upper and lower pfunc bounds are passed through properly
+     */
+    @Test
+    public void testPrecomputeFlexible(){
+        // make full confspace and the flexible copy
+        SimpleConfSpace mutableConfSpace = make1CC8Mutable();
+        SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
+
+        // precompute flexible residues
+        Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null);
+        preCompFlex.compute();
+
+        // make the full confspace partitionFunction
+        Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
+
+        // Test that the precomputed bounds are the same
+        assertThat(fullPfunc.getPrecomputedUpperBound(), is(preCompFlex.getUpperBound()));
+        assertThat(fullPfunc.getPrecomputedLowerBound(), is(preCompFlex.getLowerBound()));
+
+        // Ensure that the new rootNode bounds are not the same
+        assertThat(fullPfunc.getUpperBound(), not(is(preCompFlex.getUpperBound())));
+        assertThat(fullPfunc.getLowerBound(), not(is(preCompFlex.getLowerBound())));
+
+    }
+
+    /**
+     * Test that we can effectively map the precomputed flexible tree to the full confspace
+     */
+    @Test
+    public void testMappingPrecomputationToFullTree(){
+        // make full confspace and the flexible copy
+        SimpleConfSpace mutableConfSpace = make1CC8Mutable();
+        SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
+
+        // precompute flexible residues
+        Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null);
+        preCompFlex.compute();
+
+        // make the full confspace partitionFunction
+        Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
+
+        //clear screen sort of
+        System.out.println("\n\n\n\n\n\n\n####################");
+        // map the precomputed tree onto the full confspace tree
+        fullPfunc.updateConfTree();
+
+    }
 }
+
