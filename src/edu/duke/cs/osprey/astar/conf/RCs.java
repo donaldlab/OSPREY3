@@ -172,6 +172,15 @@ public class RCs {
 		return unprunedRCsAtPos[pos][rci];
 	}
 
+	public boolean contains(int pos, int rc) {
+		for (int i : get(pos)) {
+			if (i == rc) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	@Override
 	public String toString() {
 		return "[" + String.join(",", Arrays.stream(unprunedRCsAtPos)

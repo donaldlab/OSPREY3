@@ -1,34 +1,34 @@
 /*
- ** This file is part of OSPREY 3.0
- **
- ** OSPREY Protein Redesign Software Version 3.0
- ** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
- **
- ** OSPREY is free software: you can redistribute it and/or modify
- ** it under the terms of the GNU General Public License version 2
- ** as published by the Free Software Foundation.
- **
- ** You should have received a copy of the GNU General Public License
- ** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
- **
- ** OSPREY relies on grants for its development, and since visibility
- ** in the scientific literature is essential for our success, we
- ** ask that users of OSPREY cite our papers. See the CITING_OSPREY
- ** document in this distribution for more information.
- **
- ** Contact Info:
- **    Bruce Donald
- **    Duke University
- **    Department of Computer Science
- **    Levine Science Research Center (LSRC)
- **    Durham
- **    NC 27708-0129
- **    USA
- **    e-mail: www.cs.duke.edu/brd/
- **
- ** <signature of Bruce Donald>, Mar 1, 2018
- ** Bruce Donald, Professor of Computer Science
- */
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
 
 package edu.duke.cs.osprey.paste;
 
@@ -321,7 +321,7 @@ public class Paste {
             pfunc.setStabilityThreshold(stabilityThreshold);
 
             // compute it
-            pfunc.compute(settings.maxNumPfConfs);
+            pfunc.compute(settings.maxNumPfConfs, numPDBs);
 
             // save the result
             PastePartitionFunction.Result result = pfunc.makeResult();
@@ -357,12 +357,14 @@ public class Paste {
     /** Optional and overridable settings for K* */
     public final Settings settings;
 
+    private final int numPDBs;
     private List<Sequence> sequences;
 
-    public Paste(SimpleConfSpace protein, Settings settings) {
+    public Paste(SimpleConfSpace protein, Settings settings, int numPDBs) {
         this.settings = settings;
         this.protein = new ConfSpaceInfo(protein, ConfSpaceType.Protein);
         this.sequences = new ArrayList<>();
+        this.numPDBs = numPDBs;
     }
 
     public Iterable<ConfSpaceInfo> confSpaceInfos() {
@@ -412,25 +414,21 @@ public class Paste {
                     pasteScore
             ));
 
-            if(pasteScore.stability.equals("Mutation Increases Stability") || pasteScore.stability.equals("Affect on Stability Unclear")) {
-                Iterator<EnergyCalculator.EnergiedParametricMolecule> econfs = complexResult.epMols.iterator();
-                HashMap<Double, ConfSearch.ScoredConf> sconfs = complexResult.sConfs;
-
-                // return the analysis
-                ConfAnalyzer analyzer = new ConfAnalyzer(protein.confEcalc);
-                ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(sconfs, econfs, 10);
-                String pdbString = "pdbs";
-                File pdbDir = new File(pdbString);
-                if (!pdbDir.exists()) {
-                    pdbDir.mkdir();
-                }
-                String seqDir = sequences.get(sequenceNumber).toString().replaceAll(" ", "_");
-                File directory = new File(pdbString + "/" + seqDir);
-                if (!directory.exists()) {
-                    directory.mkdir();
-                }
-                analysis.writePdbs(pdbString + "/" + seqDir + "/conf.*.pdb");
+            // return the analysis
+            ConfAnalyzer analyzer = new ConfAnalyzer(protein.confEcalc);
+            ConfAnalyzer.EnsembleAnalysis analysis = analyzer.analyzeEnsemble(complexResult.sConfs, complexResult.epMols.iterator(), numPDBs);
+            String pdbString = "pdbs";
+            File pdbDir = new File(pdbString);
+            if (!pdbDir.exists()) {
+                pdbDir.mkdir();
             }
+            String seqDir = sequences.get(sequenceNumber).toString().replaceAll(" ", "_");
+            File directory = new File(pdbString + "/" + seqDir);
+            if (!directory.exists()) {
+                directory.mkdir();
+            }
+            analysis.writePdbs(pdbString + "/" + seqDir + "/conf.*.pdb");
+
 
             return pasteScore;
         };

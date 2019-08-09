@@ -47,11 +47,17 @@ import java.util.Arrays;
 import java.util.HashMap;
 
 public abstract class StrandFlex implements Serializable {
-	
+
 	public abstract List<? extends DegreeOfFreedom> makeDofs(Strand strand, Molecule mol);//DOF will control the conformation of mol
 	public abstract DofBounds makeBounds(Strand strand);
-        
-        public abstract ArrayList<HashMap<String,double[]> > listBackboneVoxels(Position pos);
+
+	public int countDofs(Strand strand) {
+		// by default, make the dofs and then count them
+		// subclasses can override this to optimize, if they want
+		return makeDofs(strand, strand.mol).size();
+	}
+
+	public abstract ArrayList<HashMap<String,double[]> > listBackboneVoxels(Position pos);
         //list the backbone voxels (in DOF name --> bounds form) for a particular position
 	
 	public DofTypes getDofTypes() {

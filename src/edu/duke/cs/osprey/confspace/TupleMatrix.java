@@ -53,11 +53,25 @@ public interface TupleMatrix<T> {
     T getOneBody(int res, int conf);
     void setOneBody(int res, int conf, T val);
     void setOneBody(int res, ArrayList<T> val);
-    
-    T getPairwise(int res1, int conf1, int res2, int conf2);
+
+    default T getOneBody(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1) {
+    	return getOneBody(pos1.index, rc1.index);
+	}
+	default void setOneBody(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1, T val) {
+		setOneBody(pos1.index, rc1.index, val);
+	}
+
+	T getPairwise(int res1, int conf1, int res2, int conf2);
     void setPairwise(int res1, int conf1, int res2, int conf2, T val);
     void setPairwise(int res1, int res2, ArrayList<ArrayList<T>> val);
-    
+
+	default T getPairwise(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1, SimpleConfSpace.Position pos2, SimpleConfSpace.ResidueConf rc2) {
+		return getPairwise(pos1.index, rc1.index, pos2.index, rc2.index);
+	}
+	default void setPairwise(SimpleConfSpace.Position pos1, SimpleConfSpace.ResidueConf rc1, SimpleConfSpace.Position pos2, SimpleConfSpace.ResidueConf rc2, T val) {
+		setPairwise(pos1.index, rc1.index, pos2.index, rc2.index, val);
+	}
+
     boolean hasHigherOrderTerms();
     void setTupleValue(RCTuple tup, T val);
     HigherTupleFinder<T> getHigherOrderTerms(int res1, int conf1, int res2, int conf2);
@@ -165,27 +179,93 @@ public interface TupleMatrix<T> {
 	 */
 	default void forEachHigherOrderTupleIn(int[] conf, BiConsumer<RCTuple,T> callback) {
 
-		if (hasHigherOrderTuples()) {
+		if (!hasHigherOrderTuples()) {
+			return;
+		}
 
-			int numPos = getNumPos();
-			for (int pos1=1; pos1<numPos; pos1++) {
+		int numPos = getNumPos();
+		for (int pos1=1; pos1<numPos; pos1++) {
 
-				int rc1 = conf[pos1];
-				if (rc1 == Conf.Unassigned) {
+			int rc1 = conf[pos1];
+			if (rc1 == Conf.Unassigned) {
+				continue;
+			}
+
+			for (int pos2=0; pos2<pos1; pos2++) {
+
+				int rc2 = conf[pos2];
+				if (rc2 == Conf.Unassigned) {
 					continue;
 				}
 
-				for (int pos2=0; pos2<pos1; pos2++) {
+				TupleTree<T> tree = getHigherOrderTuples(pos1, rc1, pos2, rc2);
+				if (tree != null) {
+					tree.forEachIn(conf, callback);
+				}
+			}
+		}
+	}
 
-					int rc2 = conf[pos2];
-					if (rc2 == Conf.Unassigned) {
-						continue;
-					}
+	/**
+	 * iterate over all higher-order (n>2) tuples matching the conformation but containing the given position
+	 */
+	default void forEachHigherOrderTupleIn(int[] conf, int posa, BiConsumer<RCTuple,T> callback) {
 
-					TupleTree<T> tree = getHigherOrderTuples(pos1, rc1, pos2, rc2);
-					if (tree != null) {
-						tree.forEachIn(conf, callback);
-					}
+		if (!hasHigherOrderTuples()) {
+			return;
+		}
+
+		int numPos = getNumPos();
+		for (int pos1=1; pos1<numPos; pos1++) {
+
+			int rc1 = conf[pos1];
+			if (rc1 == Conf.Unassigned) {
+				continue;
+			}
+
+			for (int pos2=0; pos2<pos1; pos2++) {
+
+				int rc2 = conf[pos2];
+				if (rc2 == Conf.Unassigned) {
+					continue;
+				}
+
+				TupleTree<T> tree = getHigherOrderTuples(pos1, rc1, pos2, rc2);
+				if (tree != null) {
+					tree.forEachIn(conf, posa, callback);
+				}
+			}
+		}
+	}
+
+	/**
+	 * iterate over all higher-order (n>2) tuples matching the conformation but containing the given positions
+	 */
+	default void forEachHigherOrderTupleIn(int[] conf, int posa, int posb, BiConsumer<RCTuple,T> callback) {
+
+		if (!hasHigherOrderTuples()) {
+			return;
+		}
+
+
+		int numPos = getNumPos();
+		for (int pos1=1; pos1<numPos; pos1++) {
+
+			int rc1 = conf[pos1];
+			if (rc1 == Conf.Unassigned) {
+				continue;
+			}
+
+			for (int pos2=0; pos2<pos1; pos2++) {
+
+				int rc2 = conf[pos2];
+				if (rc2 == Conf.Unassigned) {
+					continue;
+				}
+
+				TupleTree<T> tree = getHigherOrderTuples(pos1, rc1, pos2, rc2);
+				if (tree != null) {
+					tree.forEachIn(conf, posa, posb, callback);
 				}
 			}
 		}

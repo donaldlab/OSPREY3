@@ -71,21 +71,29 @@ public class ConfIndex {
 	}
 	
 	public boolean isDefined(int pos) {
+		return findDefined(pos) >= 0;
+	}
+
+	public int findDefined(int pos) {
 		for (int i=0; i<numDefined; i++) {
 			if (definedPos[i] == pos) {
-				return true;
+				return i;
 			}
 		}
-		return false;
+		return -1;
 	}
-	
+
 	public boolean isUndefined(int pos) {
+		return findUndefined(pos) >= 0;
+	}
+
+	public int findUndefined(int pos) {
 		for (int i=0; i<numUndefined; i++) {
 			if (undefinedPos[i] == pos) {
-				return true;
+				return i;
 			}
 		}
-		return false;
+		return -1;
 	}
 	
 	public ConfIndex assign(int nextPos, int nextRc) {

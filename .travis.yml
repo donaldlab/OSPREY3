@@ -5,6 +5,11 @@ branches:
     only:
         - master
 
+# only use the v8 JDK, otherwise the JavaFX stuff doesn't compile
+# (because they stopped shipping JavaFX in the JVM in v9+)
+jdk:
+    - openjdk8
+
 # travis docs say we need this to prevent issues with gradle builds
 # https://docs.travis-ci.com/user/languages/java/
 before_cache:
@@ -15,8 +20,9 @@ cache:
         - $HOME/.gradle/caches/
         - $HOME/.gradle/wrapper/
 
-# install python dependencies before building
+# install java and python dependencies before building
 before_install:
+    - sudo apt-get install -y openjfx
     - sudo pip install setuptools wheel sphinx guzzle_sphinx_theme javalang
 
 # disable tests in automatic builds

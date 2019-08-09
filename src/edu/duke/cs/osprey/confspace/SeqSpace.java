@@ -1,3 +1,35 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.tools.MathTools;
@@ -315,6 +347,19 @@ public class SeqSpace implements Serializable {
 		return seq;
 	}
 
+	public Sequence makeSequence(SimpleConfSpace confSpace, int[] conf) {
+		Sequence seq = makeUnassignedSequence();
+		for (SimpleConfSpace.Position confPos : confSpace.positions) {
+			SeqSpace.Position seqPos = getPosition(confPos.resNum);
+			int rc = conf[confPos.index];
+			if (seqPos != null && rc != Conf.Unassigned) {
+				SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(rc);
+				seq.set(seqPos, resConf.template.name);
+			}
+		}
+		return seq;
+	}
+
 	public boolean hasMutants() {
 		for (Position pos : positions) {
 			if (pos.hasMutants()) {
@@ -338,7 +383,9 @@ public class SeqSpace implements Serializable {
 
 	public List<Sequence> getSequences(int maxSimultaneousMutations) {
 		List<Sequence> sequences = new ArrayList<>();
-		sequences.add(makeWildTypeSequence());
+		if (containsWildTypeSequence()) {
+			sequences.add(makeWildTypeSequence());
+		}
 		sequences.addAll(getMutants(maxSimultaneousMutations));
 		return sequences;
 	}

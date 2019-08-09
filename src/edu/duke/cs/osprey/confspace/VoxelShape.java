@@ -46,6 +46,8 @@ import java.io.Serializable;
 public abstract class VoxelShape implements Serializable {
 	
 	public static final double DefaultHalfWidthDegrees = 9;
+
+	public abstract int countDihedralDOFs(ResidueTemplate template);
 	
 	/**
 	 * make degrees of freedom for the residue in its current state (ie, ignore possible mutations)
@@ -60,6 +62,11 @@ public abstract class VoxelShape implements Serializable {
 	public abstract DofTypes getDofTypes();
 
 	public static class Point extends VoxelShape {
+
+		@Override
+		public int countDihedralDOFs(ResidueTemplate template) {
+			return 0;
+		}
 
 		@Override
 		public List<DegreeOfFreedom> makeDihedralDOFs(Residue res) {
@@ -91,6 +98,11 @@ public abstract class VoxelShape implements Serializable {
 		
 		public Rect(double halfWidth) {
 			this.halfWidth = halfWidth;
+		}
+
+		@Override
+		public int countDihedralDOFs(ResidueTemplate template) {
+			return template.numDihedrals;
 		}
 
 		@Override

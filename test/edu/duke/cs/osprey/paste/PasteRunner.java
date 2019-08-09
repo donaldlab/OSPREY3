@@ -133,11 +133,12 @@ public class PasteRunner {
 			.addMutFile(new File("mut.txt"))
 			.build();
 
+		int numPDBs = 15;
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(proteinConfSpace, new ForcefieldParams())
 			.setParallelism(Parallelism.makeCpu(1))
 			.build()
 		) {
-			Paste paste = new Paste(proteinConfSpace, settings);
+			Paste paste = new Paste(proteinConfSpace, settings, numPDBs);
 
 			SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(paste.protein.confSpace, ecalc).build();
 			paste.protein.confEcalc = new ConfEnergyCalculator.Builder(paste.protein.confSpace, ecalc).setReferenceEnergies(eref).build();

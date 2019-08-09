@@ -33,7 +33,8 @@ ecalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallel
 # configure PAStE
 paste = osprey.Paste(
 	complexConfSpace,
-	epsilon=0.99, # you proabably want something more precise in your real designs
+	numPDBs = 15,
+	epsilon=0.68, # you proabably want something more precise in your real designs
 	useWindowCriterion=True,
 	writeSequencesToConsole=True,
 	writeSequencesToFile='paste.results.tsv',

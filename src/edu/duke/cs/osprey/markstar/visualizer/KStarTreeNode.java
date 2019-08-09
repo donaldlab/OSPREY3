@@ -1,8 +1,44 @@
+/*
+** This file is part of OSPREY 3.0
+** 
+** OSPREY Protein Redesign Software Version 3.0
+** Copyright (C) 2001-2018 Bruce Donald Lab, Duke University
+** 
+** OSPREY is free software: you can redistribute it and/or modify
+** it under the terms of the GNU General Public License version 2
+** as published by the Free Software Foundation.
+** 
+** You should have received a copy of the GNU General Public License
+** along with OSPREY.  If not, see <http://www.gnu.org/licenses/>.
+** 
+** OSPREY relies on grants for its development, and since visibility
+** in the scientific literature is essential for our success, we
+** ask that users of OSPREY cite our papers. See the CITING_OSPREY
+** document in this distribution for more information.
+** 
+** Contact Info:
+**    Bruce Donald
+**    Duke University
+**    Department of Computer Science
+**    Levine Science Research Center (LSRC)
+**    Durham
+**    NC 27708-0129
+**    USA
+**    e-mail: www.cs.duke.edu/brd/
+** 
+** <signature of Bruce Donald>, Mar 1, 2018
+** Bruce Donald, Professor of Computer Science
+*/
+
 package edu.duke.cs.osprey.markstar.visualizer;
 
+import edu.duke.cs.osprey.confspace.Conf;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.markstar.framework.MARKStarNode;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 import javafx.collections.ObservableList;
 import javafx.geometry.Point2D;
@@ -18,13 +54,17 @@ import javafx.scene.transform.Transform;
 import java.io.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
+
+import static edu.duke.cs.osprey.tools.Log.log;
 
 public class KStarTreeNode implements Comparable<KStarTreeNode>{
     public static final Pattern p = Pattern.compile("((~\\+)*)\\(([^)]+)\\)->\\((.*)\\)\\: ?\\[(.*)\\]->\\[(.*)\\](.*)");
@@ -90,14 +130,21 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         }
     }
 
-    public static KStarTreeNode parseTree(File file, boolean render)
+    public static KStarTreeNode parseTree(File file, boolean render, Map<Integer,BigDecimal> zCutoffsByLevel)
     {
         try {
             BufferedReader fileStream = new BufferedReader(new FileReader(file));
             KStarTreeNode.Builder builder = new KStarTreeNode.Builder();
             builder.setEpsilon(0.68);
             builder.setRender(render);
-            fileStream.lines().forEach(line -> builder.addNode(line));
+            AtomicLong numNodes = new AtomicLong(0);
+            fileStream.lines().forEach(line -> {
+                boolean addedNode = builder.addNode(line, zCutoffsByLevel);
+                if (addedNode) {
+                    numNodes.incrementAndGet();
+                }
+            });
+            log("added %d nodes from the tree", numNodes.get());
             return builder.assembleTree();
         } catch(Exception e)
         {
@@ -107,7 +154,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
         return null;
     }
      public static KStarTreeNode parseTree(String fileName) {
-        return parseTree(new File(fileName), false);
+        return parseTree(new File(fileName), false, null);
      }
 
      public BigDecimal getLowerBound() {
@@ -135,6 +182,61 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             this.overallUpperBound = upperBound;
         }
     }
+
+    public KStarTreeNode assign(
+    	int pos, int rc, String assignment,
+		BigDecimal lowerBound, BigDecimal upperBound,
+		double confLowerBound, double confUpperBound
+	) {
+
+    	// make the assignments
+    	String[] assignments = this.assignments.clone();
+    	assignments[pos] = assignment;
+    	int[] conf = this.confAssignments.clone();
+    	conf[pos] = rc;
+
+    	KStarTreeNode child = new KStarTreeNode(
+    		level + 1,
+			assignments,
+			conf,
+			lowerBound, upperBound,
+			confLowerBound, confUpperBound,
+			epsilon.doubleValue()
+		);
+
+    	// propagate copies of info to the new node
+    	child.overallUpperBound = this.overallUpperBound;
+
+    	// add the child node to the tree
+		addChild(child);
+
+    	return child;
+	}
+
+	public void updateBoundsFromChildren(MathContext mathContext) {
+
+    	if (children.isEmpty()) {
+    		throw new IllegalStateException("no children from which to update bounds");
+		}
+
+		BigMath lower = new BigMath(mathContext).set(0);
+		BigMath upper = new BigMath(mathContext).set(0);
+		confLowerBound = Double.POSITIVE_INFINITY;
+		confUpperBound = Double.NEGATIVE_INFINITY;
+
+		for (KStarTreeNode child : children) {
+			lower.add(child.lowerBound);
+			upper.add(child.upperBound);
+			confLowerBound = Math.min(confLowerBound, child.confLowerBound);
+			confUpperBound = Math.max(confUpperBound, child.confUpperBound);
+		}
+
+		lowerBound = lower.get();
+		upperBound = upper.get();
+
+		occupancy = -1;
+		computeOccupancy();
+	}
 
     public int numStatesAtLevel(int level) {
         if(this.level == level || children == null || children.size() < 1) {
@@ -373,7 +475,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
                     centerY,//-innerRadius*Math.sin(s),
                     centerX+outerRadius*Math.cos(s),
                     centerY-outerRadius*Math.sin(s));
-            separator.setStroke(Color.WHITE);
+            separator.setStroke(Color.gray(0.92));
             separator.setStrokeWidth(borderThickness);
             separators.add(separator);
             double finalStartAngle = startAngle;
@@ -846,8 +948,9 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             this.render = render;
             return this;
         }
-        public void addNode(String line)
+        public boolean addNode(String line, Map<Integer,BigDecimal> zCutoffsByLevel)
         {
+            // regex all the things!!
             Matcher m = p.matcher(line);
             if(m.matches() && debug) {
                 System.out.println("Groups:");
@@ -863,14 +966,26 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             String[] confBounds = m.group(5).split(",");
             double confLowerBound = Double.valueOf(confBounds[0]);
             double confUpperBound = Double.valueOf(confBounds[1]);
+
+            if (zCutoffsByLevel != null) {
+
+                // if this node is too "small", just drop it entirely
+                if (upperBound.compareTo(zCutoffsByLevel.get(level)) < 0) {
+                    return false;
+                }
+
+                // if this node had its parent dropped, drop it too
+                if (level > lastLevel + 1) {
+                    return false;
+                }
+            }
+
             if(level > lastLevel) {
                 buildStack.push(lastNode);
             }
-            if(level < lastLevel) {
-                while(level < lastLevel) {
-                    lastLevel--;
-                    buildStack.pop();
-                }
+            while(level < lastLevel) {
+                lastLevel--;
+                buildStack.pop();
             }
             KStarTreeNode newNode = new KStarTreeNode(level, assignments, confAssignments, lowerBound, upperBound,
                     confLowerBound, confUpperBound, epsilon);
@@ -885,7 +1000,7 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
             lastLevel = level;
             lastNode = newNode;
 
-
+            return true;
         }
 
         public Builder setEpsilon(double epsilon)
@@ -928,12 +1043,52 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     }
 
     protected void addChild(KStarTreeNode newNode) {
+
+    	if (newNode.parent != null) {
+    		throw new IllegalArgumentException("node already has a parent");
+		}
+
         children.add(newNode);
         newNode.statText = this.statText;
         newNode.parent = this;
         newNode.overallUpperBound = this.overallUpperBound;
         newNode.computeOccupancy();
     }
+
+    public KStarTreeNode parent() {
+    	return parent;
+	}
+
+    public void removeFromParent() {
+    	if (parent != null) {
+    		boolean wasRemoved = parent.children.remove(this);
+    		if (!wasRemoved) {
+    			throw new IllegalStateException("node was not a child of its parent");
+			}
+    		parent = null;
+		}
+	}
+
+	public Integer getAssignmentIndex() {
+
+    	// root node? no assignment
+		if (parent == null) {
+			return null;
+		}
+
+		// we should have exactly one more assignment than our parent
+		// which one is it?
+		for (int i=0; i<assignments.length; i++) {
+			int myrc = confAssignments[i];
+			int parentrc = parent.confAssignments[i];
+			if (myrc != Conf.Unassigned && parentrc == Conf.Unassigned) {
+				return i;
+			}
+		}
+
+		// something is wrong, find a programmer
+		throw new Error("tree structure doesn't match assignment order. this is a bug.");
+	}
 
     public String toString()
     {
@@ -1072,4 +1227,62 @@ public class KStarTreeNode implements Comparable<KStarTreeNode>{
     public void printTree() {
         printTree("", null);
     }
+
+    /** printTree uses a different format than MARK* apparently */
+    public void printTreeLikeMARKStar(Writer out)
+	throws IOException {
+    	printTreeLikeMARKStar(out, "");
+	}
+
+	public void printTreeLikeMARKStar(Writer out, String prefix)
+	throws IOException {
+
+    	// render the prefix
+		out.append(prefix);
+
+    	// render the conf
+		out.append("(");
+		for (int rc : confAssignments) {
+			out.append(Integer.toString(rc));
+			out.append(", ");
+		}
+		out.append(")");
+
+		out.append("->");
+
+		// render the assignments
+		out.append("(");
+		for (int i=0; i<assignments.length; i++) {
+			if (i > 0) {
+				out.append(",");
+			}
+			out.append(assignments[i]);
+		}
+		out.append(")");
+
+		out.append(":");
+
+		// render the conf bounds
+		out.append("[");
+		out.append(Double.toString(confLowerBound));
+		out.append(",");
+		out.append(Double.toString(confUpperBound));
+		out.append("]");
+
+		out.append("->");
+
+		// render the zSum bounds
+		out.append("[");
+		out.append(lowerBound.toString()); // this will print an exact representation of the BigDecimal
+		out.append(",");
+		out.append(upperBound.toString());
+		out.append("]");
+
+		out.append("\n");
+
+		// recurse
+		for (KStarTreeNode child : children) {
+			child.printTreeLikeMARKStar(out, prefix + "~+");
+		}
+	}
 }

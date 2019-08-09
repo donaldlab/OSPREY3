@@ -1,7 +1,6 @@
 
 # temp folders
 build
-lib
 **/*.egg-info
 **/*.pyc
 
@@ -23,3 +22,5 @@ bin
 # Gradle things
 .gradle
 
+# automatically-downloaded libraries
+lib/edu.duke.cs.tpie-*.jar

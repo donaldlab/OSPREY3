@@ -47,6 +47,17 @@ public class SparseEnergyMatrixCalculator extends SimplerEnergyMatrixCalculator 
          */
         private double energyCutoff = 0.2;
 
+		/**
+		 * Compute energy corrections for all triples whose constituent single and pair energies
+		 * are below the given threshold. ie. ignore triples with clashes.
+		 */
+		private Double tripleCorrectionThreshold = null;
+
+		/**
+		 * Compute energy corrections for all quads whose constituent single and pair energies
+		 * are below the given threshold. ie. ignore quads with clashes.
+		 */
+		private Double quadCorrectionThreshold = null;
 
         public Builder(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
             this(new ConfEnergyCalculator.Builder(confSpace, ecalc).build());
@@ -71,22 +82,31 @@ public class SparseEnergyMatrixCalculator extends SimplerEnergyMatrixCalculator 
             return this;
         }
 
+		public Builder setTripleCorrectionThreshold(Double val) {
+			tripleCorrectionThreshold = val;
+			return this;
+		}
+
+		public Builder setQuadCorrectionThreshold(Double val) {
+			quadCorrectionThreshold = val;
+			return this;
+		}
         public SparseEnergyMatrixCalculator build() {
-            return new SparseEnergyMatrixCalculator(confEcalc, cacheFile, distanceCutoff, energyCutoff);
+            return new SparseEnergyMatrixCalculator(confEcalc, cacheFile, distanceCutoff, energyCutoff, tripleCorrectionThreshold, quadCorrectionThreshold);
         }
     }
 
     private final double distanceCutoff;
     private final double energyCutoff;
+
     public SparseEnergyMatrixCalculator(ConfEnergyCalculator confECalc, File cacheFile,
-                                        double distanceCutoff, double energyCutoff) {
-        super(confECalc, cacheFile);
+                                        double distanceCutoff, double energyCutoff, double tripleCorrectionThreshold, double quadCorrectionThreshold) {
+        super(confECalc, cacheFile, tripleCorrectionThreshold, quadCorrectionThreshold);
         this.distanceCutoff = distanceCutoff;
         this.energyCutoff = energyCutoff;
 
     }
 
-    @Override
 	protected EnergyMatrix reallyCalcEnergyMatrix()
     {
 
@@ -125,7 +145,7 @@ public class SparseEnergyMatrixCalculator extends SimplerEnergyMatrixCalculator 
 						for (RCTuple frag : fragments) {
 							if (frag.size() == 1) {
 								energies.add(confEcalc.calcSingleEnergy(frag).energy);
-							} else if(isPairParametricallyCompatible(frag)){
+							} else if(!isParametricallyIncompatible(frag)){
 								energies.add(confEcalc.calcPairEnergy(frag).energy);
 							}
 							else {//frag is not possible (e.g. RCs are from two different backbone states that can't connect)

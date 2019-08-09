@@ -63,6 +63,9 @@ public class BigMath {
 		d = val;
 		return this;
 	}
+	public BigMath set(BigExp val) {
+		return set(val.toBigDecimal(context));
+	}
 	public BigMath set(BigInteger val) {
 		return set(new BigDecimal(val));
 	}
@@ -76,6 +79,9 @@ public class BigMath {
 	public BigMath add(BigDecimal val) {
 		d = MathTools.bigAdd(d, val, context);
 		return this;
+	}
+	public BigMath add(BigExp val) {
+		return add(val.toBigDecimal(context));
 	}
 	public BigMath add(BigInteger val) {
 		return add(new BigDecimal(val));
@@ -94,6 +100,9 @@ public class BigMath {
 			return add(val);
 		}
 	}
+	public BigMath addOrSet(BigExp val) {
+		return addOrSet(val.toBigDecimal(context));
+	}
 	public BigMath addOrSet(BigInteger val) {
 		return addOrSet(new BigDecimal(val));
 	}
@@ -108,6 +117,9 @@ public class BigMath {
 		d = MathTools.bigSubtract(d, val, context);
 		return this;
 	}
+	public BigMath sub(BigExp val) {
+		return sub(val.toBigDecimal(context));
+	}
 	public BigMath sub(BigInteger val) {
 		return sub(new BigDecimal(val));
 	}
@@ -121,6 +133,9 @@ public class BigMath {
 	public BigMath mult(BigDecimal val) {
 		d = MathTools.bigMultiply(d, val, context);
 		return this;
+	}
+	public BigMath mult(BigExp val) {
+		return mult(val.toBigDecimal(context));
 	}
 	public BigMath mult(BigInteger val) {
 		return mult(new BigDecimal(val));
@@ -139,6 +154,9 @@ public class BigMath {
 			return mult(val);
 		}
 	}
+	public BigMath multOrSet(BigExp val) {
+		return multOrSet(val.toBigDecimal(context));
+	}
 	public BigMath multOrSet(BigInteger val) {
 		return multOrSet(new BigDecimal(val));
 	}
@@ -152,6 +170,9 @@ public class BigMath {
 	public BigMath div(BigDecimal val) {
 		d = MathTools.bigDivide(d, val, context);
 		return this;
+	}
+	public BigMath div(BigExp val) {
+		return div(val.toBigDecimal(context));
 	}
 	public BigMath div(BigInteger val) {
 		return div(new BigDecimal(val));
@@ -169,6 +190,9 @@ public class BigMath {
 		}
 		return this;
 	}
+	public BigMath atLeast(BigExp val) {
+		return atLeast(val.toBigDecimal(context));
+	}
 	public BigMath atLeast(BigInteger val) {
 		return atLeast(new BigDecimal(val));
 	}
@@ -185,6 +209,9 @@ public class BigMath {
 		}
 		return this;
 	}
+	public BigMath atMost(BigExp val) {
+		return atMost(val.toBigDecimal(context));
+	}
 	public BigMath atMost(BigInteger val) {
 		return atMost(new BigDecimal(val));
 	}
@@ -193,5 +220,75 @@ public class BigMath {
 	}
 	public BigMath atMost(long val) {
 		return atMost(MathTools.biggen(val));
+	}
+
+	public BigMath min(BigDecimal val) {
+		return atMost(val);
+	}
+	public BigMath min(BigExp val) {
+		return min(val.toBigDecimal(context));
+	}
+	public BigMath min(BigInteger val) {
+		return min(new BigDecimal(val));
+	}
+	public BigMath min(double val) {
+		return min(MathTools.biggen(val));
+	}
+	public BigMath min(long val) {
+		return min(MathTools.biggen(val));
+	}
+
+	public BigMath max(BigDecimal val) {
+		return atLeast(val);
+	}
+	public BigMath max(BigExp val) {
+		return max(val.toBigDecimal(context));
+	}
+	public BigMath max(BigInteger val) {
+		return max(new BigDecimal(val));
+	}
+	public BigMath max(double val) {
+		return max(MathTools.biggen(val));
+	}
+	public BigMath max(long val) {
+		return max(MathTools.biggen(val));
+	}
+
+	public BigMath minOrSet(BigDecimal val) {
+		if (d == null || MathTools.isLessThan(val, d)) {
+			d = val;
+		}
+		return this;
+	}
+	public BigMath minOrSet(BigExp val) {
+		return minOrSet(val.toBigDecimal(context));
+	}
+	public BigMath minOrSet(BigInteger val) {
+		return minOrSet(new BigDecimal(val));
+	}
+	public BigMath minOrSet(double val) {
+		return minOrSet(MathTools.biggen(val));
+	}
+	public BigMath minOrSet(long val) {
+		return minOrSet(MathTools.biggen(val));
+	}
+
+	public BigMath maxOrSet(BigDecimal val) {
+		if (d == null || MathTools.isGreaterThan(val, d)) {
+			d = val;
+		}
+		return this;
+	}
+	public BigMath maxOrSet(BigExp val) {
+		return maxOrSet(val.toBigDecimal(context));
+	}
+	public BigMath maxOrSet(BigInteger val) {
+		return maxOrSet(new BigDecimal(val));
+	}
+	public BigMath maxOrSet(double val) {
+		return maxOrSet(MathTools.biggen(val));
+	}
+	public BigMath maxOrSet(long val) {
+		return maxOrSet(MathTools.biggen(val));
 	}
 }
