@@ -80,7 +80,7 @@ public class MARKStarNode implements Comparable<MARKStarNode> {
     private boolean partOfLastBound = false;
 
 
-    private MARKStarNode(Node confNode, MARKStarNode markStarNode) {
+    protected MARKStarNode(Node confNode, MARKStarNode markStarNode) {
         confSearchNode = confNode;
         level = confSearchNode.getLevel();
         parent = markStarNode;
