@@ -22,6 +22,8 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.Arrays;
+
 public class TestSHARKStarBound extends TestBase {
 
     private static Molecule metallochaperone;
@@ -166,11 +168,8 @@ public class TestSHARKStarBound extends TestBase {
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
         SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
 
-        //clear screen sort of
-        System.out.println("\n\n\n\n\n\n\n####################");
-        // map the precomputed tree onto the full confspace tree
-        fullPfunc.updateConfTree();
-
+        int[] expectedArray = {2,4};
+        assertThat(fullPfunc.genConfSpaceMapping(), is(expectedArray));
     }
 }
 

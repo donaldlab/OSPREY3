@@ -11,9 +11,14 @@ import edu.duke.cs.osprey.markstar.framework.MARKStarNode;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.apache.commons.lang3.ArrayUtils.toArray;
 
 public class SHARKStarBound extends MARKStarBoundFastQueues {
 
+	private SHARKStarBound precomputedPfunc;
 	private MARKStarNode precomputedRootNode;
 	private SimpleConfSpace confSpace;
 
@@ -44,6 +49,7 @@ public class SHARKStarBound extends MARKStarBoundFastQueues {
 		 */
 
 		this.confSpace = confSpace;
+		precomputedPfunc = precomputedFlex;
 		precomputedRootNode = precomputedFlex.rootNode;
 		//updateConfTree(precomputedFlex.rootNode);
 		updateBound();
@@ -150,7 +156,11 @@ public class SHARKStarBound extends MARKStarBoundFastQueues {
 	 * Generate a permutation matrix that lets us map positions from the precomputed confspace to the new confspace
 	 */
 	public int[] genConfSpaceMapping(){
-		return null;
+	    // the permutation matrix maps confs in the precomputed flexible to the full confspace
+        // Note that I think this works because Positions have equals() check the residue number
+		return precomputedPfunc.confSpace.positions.stream()
+				.mapToInt(confSpace.positions :: indexOf)
+				.toArray();
 	}
 
 }
