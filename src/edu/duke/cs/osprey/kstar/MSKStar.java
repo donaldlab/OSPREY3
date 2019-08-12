@@ -113,7 +113,7 @@ public class MSKStar {
 				throw new InitException(this, "confEcalc");
 			}
 			if (pfuncFactory == null) {
-				throw new InitException(this, "pfuncFactory");
+			    pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalc, name);
 			}
 		}
 	}

@@ -82,6 +82,9 @@ public class SHARKStar {
 				throw new InitException(this, "confEcalc");
 			}
 			if (pfuncFactory == null) {
+				pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalc, name);
+			}
+			if (pfuncFactory == null) {
 				throw new InitException(this, "pfuncFactory");
 			}
 		}
@@ -211,12 +214,16 @@ public class SHARKStar {
 
 		@Override
 		public double calc(SeqAStarNode.Assignments assignments) {
-		    double sum = 0;
-			SeqAStarOrder order = new SequentialSeqAStarOrder();
-			int nextPos = order.getNextPos(assignments, rts);
 			double lowerBound = 0.0;
+			MathTools.Optimizer opt = null;
 			for (WeightedState wstate : objective.states) {
+				if(wstate.weight < 0)
+					opt = MathTools.Optimizer.Maximize;
+				if(wstate.weight > 0)
+					opt = MathTools.Optimizer.Minimize;
 				RCs rcs = assignments.makeRCs(seqSpace, wstate.state.confSpace);
+				BigDecimal sequenceSum = BigDecimal.ONE;
+				if (assignments.numAssigned > 0)
                 for(int pos1: assignments.assignedPos) {
 				/**
 				 * definitions:
@@ -263,113 +270,128 @@ public class SHARKStar {
 				 * 	return sum
 				 *
 				 */
+					BigDecimal residueSum = BigDecimal.ZERO;
                     for(int rc1:rcs.get(pos1)) {
-						double summ = wstate.getSingleEnergy(pos1, rc1);
+						double rotamerSum = wstate.getSingleEnergy(pos1, rc1);
 						// make a conf tree for all the sequences described by the partial assignments
 						double bestPair = Double.POSITIVE_INFINITY;
+						if(assignments.assignedPos.length < 2)
+							bestPair = 0;
 						for (int pos2 : assignments.assignedPos) {
 							if(pos2 >= pos1) continue;
 							for(int rc2:rcs.get(pos2)) {
-								bestPair = Math.min(bestPair, wstate.getPairEnergy(pos1, rc1, pos2, rc2));
+								bestPair = opt.opt(bestPair, wstate.getPairEnergy(pos1, rc1, pos2, rc2));
 							}
-							summ += bestPair;
+							rotamerSum += bestPair;
 						}
+						residueSum = residueSum.add(bcalc.calc(rotamerSum));
 					}
+					sequenceSum = sequenceSum.multiply(residueSum);
 
-					if (wstate.weight > 0) {
-
-						BigDecimal energySum =  BigDecimal.ONE; //calcSumAtPos(rcs);
-						// add the bound to our estimate of the objective LMFE
-						lowerBound += wstate.weight * bcalc.freeEnergy(energySum);
-
-					} else {
-
-						// compute a lower bound on the pfunc value of the multi-sequence conf space
-						// add the weighted bound to our estimate of the objective LMFE
-						lowerBound += wstate.weight * bcalc.freeEnergy(BigDecimal.ONE);
-					}
 				}
 
-				for(int pos1: assignments.unassignedPos) {
-				/**
-				 * definitions:
-				 * Assigned -> residues with assigned AAs
-				 * Used -> residues that don't have assigned AAs, but have already been used in the h
-				 * 		score calculation
-				 * Unused -> residues that have been neither assigned nor used.
-				 *  Function 1: ComputeMultisequenceBound(Assigned residues, candidate AA)
-				 *  add candidate AA to Used
-				 * 	For each residue r in Unassigned ^ Unused: (residues are assigned, unassigned residues can be used)
-				 * 		bestAA = null
-				 * 		bestScore = 0
-				 * 		For each amino acid aa allowed at r:
-				 * 			For	each rotamer q in aa at r:
-				 * 				score = scoreRotamer(q, Assigned, Used) + scoreRotamer(q, Unassigned, Unused)
-				 * 				if score > bestScore:
-				 * 					bestAA = aa
-				 * 					bestScore = score
-				 *
-				 * 	Function 2: scoreRotamer(rotamer q, Assigned, Used)
-				 * 	sum = 0
-				 * 	For each residue r in Assigned + Used:
-				 * 		bestPairwise = null
-				 * 		bestPairwiseEnergy = inf`
-				 * 		For each rotamer q' in amino acid aa assigned to r:
-				 * 			pairwiseEnergy = scorePair(q, q')
-				 * 			if pairwiseEnergy < bestPairwiseEnergy
-				 * 				bestPairwiseEnergy = pairwiseEnergy
-				 * 		sum += bestPairwiseEnergy
-				 * 	return sum
-				 *
-				 *
-				 * 	Function 3: scoreRotamerAgainstUnused(rotamer q, Unassigned, Unused)
-				 * 	sum = 0
-				 * 	For each residue r in Unusued:
-				 * 		bestPairwise = null
-				 * 		bestPairwiseEnergy = inf
-				 *	 	For each amino acid aa' allowed at r:
-				 *	 		For each rotamer q' in aa:
-				 *	 			pairwiseEnergy = scorePair(q, q')
-				 * 				if pairwiseEnergy < bestPairwiseEnergy
-				 * 					bestPairwiseEnergy = pairwiseEnergy
-				 * 		sum += bestPairwiseEnergy
-				 * 	return sum
-				 *
-				 */
-                    for(int rc1:rcs.get(pos1)) {
-						double summ = wstate.getSingleEnergy(pos1, rc1);
-						// make a conf tree for all the sequences described by the partial assignments
-						double bestPair = Double.POSITIVE_INFINITY;
-						for (int pos2 : assignments.unassignedPos) {
-							if(pos2 >= pos1) continue;
-							for(int rc2:rcs.get(pos2)) {
-								bestPair = Math.min(bestPair, wstate.getPairEnergy(pos1, rc1, pos2, rc2));
-							}
-							summ += bestPair;
-						}
-					}
+				if(assignments.numUnassigned > 0) {
+                    for(int pos1: assignments.unassignedPos) {
+                        BigDecimal residueSum = BigDecimal.ZERO;
+						BigDecimal AASum = BigDecimal.ZERO;
+                        for (int rc1 : rcs.get(pos1)) {
+                            double rotamerSum = wstate.getSingleEnergy(pos1, rc1);
+                            // make a conf tree for all the sequences described by the partial assignments
+                            double bestPair = Double.POSITIVE_INFINITY;
+                            if (assignments.assignedPos.length < 2)
+                                bestPair = 0;
+                            for (int pos2 : assignments.assignedPos) {
+                                if (pos2 >= pos1) continue;
+                                for (int rc2 : rcs.get(pos2)) {
+                                    bestPair = opt.opt(bestPair, wstate.getPairEnergy(pos1, rc1, pos2, rc2));
+                                }
+                                rotamerSum += bestPair;
+                            }
+                            residueSum = residueSum.add(bcalc.calc(rotamerSum));
+                        }
+
+                        sequenceSum = sequenceSum.multiply(residueSum);
+                    }
+				}
 
 					if (wstate.weight > 0) {
 
-						BigDecimal energySum =  BigDecimal.ONE; //calcSumAtPos(rcs);
 						// add the bound to our estimate of the objective LMFE
-						lowerBound += wstate.weight * bcalc.freeEnergy(energySum);
+						lowerBound += wstate.weight * bcalc.freeEnergy(sequenceSum);
 
 					} else {
 
 						// compute a lower bound on the pfunc value of the multi-sequence conf space
 						// add the weighted bound to our estimate of the objective LMFE
-						lowerBound += wstate.weight * bcalc.freeEnergy(BigDecimal.ONE);
+						lowerBound += wstate.weight * bcalc.freeEnergy(sequenceSum);
 					}
-				}			}
+                    System.out.println("Lowerbound updated to "+lowerBound);
+				}
 			return lowerBound;
 
 		}
+/*
+		public double calc(SeqAStarNode.Assignments assignments) {
 
-		private double calcSumAtPos(ConfIndex index, RCs rcs, int pos, int AA, ConfEnergyCalculator ecalc) {
-			return 0;
+			// TODO: if inner loops are independent of assignments, pre-compute them somehow?
+
+			// sum over all positions
+			double score = objective.offset;
+			List<SimpleConfSpace.Position> allPositions = objective.states.get(0).state.confSpace.positions;
+			for (int i1=0; i1<allPositions.size(); i1++) {
+				SimpleConfSpace.Position pos1 = allPositions.get(i1);
+
+				// optimize over res types at pos1
+				double bestPos1Energy = opt.initDouble();
+				for (SeqSpace.ResType rt1 : getRTs(pos1, assignments)) {
+
+					// sum over states (always just 1, due to how we build allPositions)
+					WeightedState wstate = statesByAllPosition.get(i1);
+
+					// min over RCs at (pos1,rt1,state)
+					double bestRC1Energy = opt.initDouble();
+					for (SimpleConfSpace.ResidueConf rc1 : getRCs(pos1, rt1, wstate.state)) {
+
+						double rc1Energy = 0.0;
+
+						// singles
+						rc1Energy += wstate.getSingleEnergy(pos1.index, rc1.index);
+
+						// pairs
+						for (int i2=0; i2<pos1.index; i2++) {
+							SimpleConfSpace.Position pos2 = wstate.state.confSpace.positions.get(i2);
+
+							// min over RTs at pos2
+							double bestRT2Energy = opt.initDouble();
+							for (SeqSpace.ResType rt2 : getRTs(pos2, assignments)) {
+
+								// min over RCs at (pos2,rt2,state)
+								double bestRC2Energy = opt.initDouble();
+								for (SimpleConfSpace.ResidueConf rc2 : getRCs(pos2, rt2, wstate.state)) {
+
+									double rc2Energy = wstate.getPairEnergy(pos1.index, rc1.index, pos2.index, rc2.index);
+
+									bestRC2Energy = opt.opt(bestRC2Energy, rc2Energy);
+								}
+
+								bestRT2Energy = opt.opt(bestRT2Energy, bestRC2Energy);
+							}
+
+							rc1Energy += bestRT2Energy;
+						}
+
+						bestRC1Energy = opt.opt(bestRC1Energy, rc1Energy);
+					}
+
+					bestPos1Energy = opt.opt(bestPos1Energy, bestRC1Energy);
+				}
+
+				score += bestPos1Energy;
+			}
+
+			return score;
 		}
-
+		*/
 
 		List<SeqSpace.ResType> getRTs(SimpleConfSpace.Position confPos, SeqAStarNode.Assignments assignments) {
 
@@ -956,6 +978,46 @@ public class SHARKStar {
 				}
 				System.err.println(buf);
 			}
+		}
+	}
+
+	List<SeqSpace.ResType> getRTs(SimpleConfSpace.Position confPos, SeqAStarNode.Assignments assignments) {
+
+		// TODO: pre-compute this somehow?
+
+		// map the conf pos to a sequence pos
+		SeqSpace.Position seqPos = seqSpace.getPosition(confPos.resNum);
+		if (seqPos != null) {
+
+			Integer assignedRT = assignments.getAssignment(seqPos.index);
+			if (assignedRT != null) {
+				// use just the assigned res type
+				return Collections.singletonList(seqPos.resTypes.get(assignedRT));
+			} else {
+				// use all the res types at the pos
+				return seqPos.resTypes;
+			}
+
+		} else {
+
+			// immutable position, use all the res types (should just be one)
+			assert (confPos.resTypes.size() == 1);
+
+			// use the null value to signal there's no res type here
+			return Collections.singletonList(null);
+		}
+	}
+
+	List<SimpleConfSpace.ResidueConf> getRCs(SimpleConfSpace.Position pos, SeqSpace.ResType rt, State state) {
+		// TODO: pre-compute this somehow?
+		if (rt != null) {
+			// mutable pos, grab the RCs that match the RT
+			return pos.resConfs.stream()
+					.filter(rc -> rc.template.name.equals(rt.name))
+					.collect(Collectors.toList());
+		} else {
+			// immutable pos, use all the RCs
+			return pos.resConfs;
 		}
 	}
 }
