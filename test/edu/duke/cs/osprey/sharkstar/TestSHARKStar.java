@@ -134,7 +134,7 @@ public class TestSHARKStar {
 	private static Problem make2RL0OnlyOneMutant() {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0OnlyOneMutant();
-		final double epsilon = 0.95;
+		final double epsilon = 0.00001;
 
 		SHARKStar.State protein = new SHARKStar.State("Protein", confSpaces.protein);
 		SHARKStar.State ligand = new SHARKStar.State("Ligand", confSpaces.ligand);

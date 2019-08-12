@@ -252,6 +252,7 @@ public class SHARKStar {
 					}
 					stateSum = stateSum.multiply(residueSum);
 				}
+				System.out.println("Sum for "+assignments+" in state "+wstate.state+":"+bcalc.freeEnergy(stateSum));
 				if (wstate.weight > 0) {
 
 					// add the bound to our estimate of the objective LMFE
@@ -389,68 +390,6 @@ public class SHARKStar {
 			return lowerBound;
 
 		}
-/*
-		public double calc(SeqAStarNode.Assignments assignments) {
-
-			// TODO: if inner loops are independent of assignments, pre-compute them somehow?
-
-			// sum over all positions
-			double score = objective.offset;
-			List<SimpleConfSpace.Position> allPositions = objective.states.get(0).state.confSpace.positions;
-			for (int i1=0; i1<allPositions.size(); i1++) {
-				SimpleConfSpace.Position pos1 = allPositions.get(i1);
-
-				// optimize over res types at pos1
-				double bestPos1Energy = opt.initDouble();
-				for (SeqSpace.ResType rt1 : getRTs(pos1, assignments)) {
-
-					// sum over states (always just 1, due to how we build allPositions)
-					WeightedState wstate = statesByAllPosition.get(i1);
-
-					// min over RCs at (pos1,rt1,state)
-					double bestRC1Energy = opt.initDouble();
-					for (SimpleConfSpace.ResidueConf rc1 : getRCs(pos1, rt1, wstate.state)) {
-
-						double rc1Energy = 0.0;
-
-						// singles
-						rc1Energy += wstate.getSingleEnergy(pos1.index, rc1.index);
-
-						// pairs
-						for (int i2=0; i2<pos1.index; i2++) {
-							SimpleConfSpace.Position pos2 = wstate.state.confSpace.positions.get(i2);
-
-							// min over RTs at pos2
-							double bestRT2Energy = opt.initDouble();
-							for (SeqSpace.ResType rt2 : getRTs(pos2, assignments)) {
-
-								// min over RCs at (pos2,rt2,state)
-								double bestRC2Energy = opt.initDouble();
-								for (SimpleConfSpace.ResidueConf rc2 : getRCs(pos2, rt2, wstate.state)) {
-
-									double rc2Energy = wstate.getPairEnergy(pos1.index, rc1.index, pos2.index, rc2.index);
-
-									bestRC2Energy = opt.opt(bestRC2Energy, rc2Energy);
-								}
-
-								bestRT2Energy = opt.opt(bestRT2Energy, bestRC2Energy);
-							}
-
-							rc1Energy += bestRT2Energy;
-						}
-
-						bestRC1Energy = opt.opt(bestRC1Energy, rc1Energy);
-					}
-
-					bestPos1Energy = opt.opt(bestPos1Energy, bestRC1Energy);
-				}
-
-				score += bestPos1Energy;
-			}
-
-			return score;
-		}
-		*/
 
 		List<SeqSpace.ResType> getRTs(SimpleConfSpace.Position confPos, SeqAStarNode.Assignments assignments) {
 
