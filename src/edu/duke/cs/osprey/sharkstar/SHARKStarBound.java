@@ -11,8 +11,7 @@ import edu.duke.cs.osprey.markstar.framework.MARKStarNode;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import static org.apache.commons.lang3.ArrayUtils.toArray;
 
@@ -21,6 +20,8 @@ public class SHARKStarBound extends MARKStarBoundFastQueues {
 	private SHARKStarBound precomputedPfunc;
 	private MARKStarNode precomputedRootNode;
 	private SimpleConfSpace confSpace;
+
+	private Map<Sequence, SHARKStarQueue> sequenceQueues = new HashMap<>();
 
 	/**
 	 * Constructor to make a default MARKStarBound Class
@@ -163,4 +164,7 @@ public class SHARKStarBound extends MARKStarBoundFastQueues {
 				.toArray();
 	}
 
+	private class SHARKStarQueue extends PriorityQueue<SHARKStarNode> {
+		private BigDecimal pa
+	}
 }

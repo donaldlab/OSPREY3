@@ -212,7 +212,8 @@ public class SHARKStar {
 			return 0;
 		}
 
-		public double calcPrototype(SeqAStarNode.Assignments assignments) {
+		@Override
+		public double calc(SeqAStarNode.Assignments assignments) {
 			double lowerBound = 0.0;
 			MathTools.Optimizer confOpt = null;
 			MathTools.Optimizer seqOpt = null;
@@ -270,126 +271,6 @@ public class SHARKStar {
 
 		}
 
-		@Override
-		public double calc(SeqAStarNode.Assignments assignments) {
-			if(true)
-				return calcPrototype(assignments);
-			double lowerBound = 0.0;
-			MathTools.Optimizer opt = null;
-			for (WeightedState wstate : objective.states) {
-				if(wstate.weight < 0)
-					opt = MathTools.Optimizer.Maximize;
-				if(wstate.weight > 0)
-					opt = MathTools.Optimizer.Minimize;
-				RCs rcs = assignments.makeRCs(seqSpace, wstate.state.confSpace);
-				BigDecimal sequenceSum = BigDecimal.ONE;
-				if (assignments.numAssigned > 0)
-					for(int pos1: assignments.assignedPos) {
-						/**
-						 * definitions:
-						 * Assigned -> residues with assigned AAs
-						 * Used -> residues that don't have assigned AAs, but have already been used in the h
-						 * 		score calculation
-						 * Unused -> residues that have been neither assigned nor used.
-						 *  Function 1: ComputeMultisequenceBound(Assigned residues, candidate AA)
-						 *  add candidate AA to Used
-						 * 	For each residue r in Unassigned ^ Unused: (residues are assigned, unassigned residues can be used)
-						 * 		bestAA = null
-						 * 		bestScore = 0
-						 * 		For each amino acid aa allowed at r:
-						 * 			For	each rotamer q in aa at r:
-						 * 				score = scoreRotamer(q, Assigned, Used) + scoreRotamer(q, Unassigned, Unused)
-						 * 				if score > bestScore:
-						 * 					bestAA = aa
-						 * 					bestScore = score
-						 *
-						 * 	Function 2: scoreRotamer(rotamer q, Assigned, Used)
-						 * 	sum = 0
-						 * 	For each residue r in Assigned + Used:
-						 * 		bestPairwise = null
-						 * 		bestPairwiseEnergy = inf`
-						 * 		For each rotamer q' in amino acid aa assigned to r:
-						 * 			pairwiseEnergy = scorePair(q, q')
-						 * 			if pairwiseEnergy < bestPairwiseEnergy
-						 * 				bestPairwiseEnergy = pairwiseEnergy
-						 * 		sum += bestPairwiseEnergy
-						 * 	return sum
-						 *
-						 *
-						 * 	Function 3: scoreRotamerAgainstUnused(rotamer q, Unassigned, Unused)
-						 * 	sum = 0
-						 * 	For each residue r in Unusued:
-						 * 		bestPairwise = null
-						 * 		bestPairwiseEnergy = inf
-						 *	 	For each amino acid aa' allowed at r:
-						 *	 		For each rotamer q' in aa:
-						 *	 			pairwiseEnergy = scorePair(q, q')
-						 * 				if pairwiseEnergy < bestPairwiseEnergy
-						 * 					bestPairwiseEnergy = pairwiseEnergy
-						 * 		sum += bestPairwiseEnergy
-						 * 	return sum
-						 *
-						 */
-						BigDecimal residueSum = BigDecimal.ZERO;
-						for(int rc1:rcs.get(pos1)) {
-							double rotamerSum = wstate.getSingleEnergy(pos1, rc1);
-							// make a conf tree for all the sequences described by the partial assignments
-							double bestPair = Double.POSITIVE_INFINITY;
-							if(assignments.assignedPos.length < 2)
-								bestPair = 0;
-							for (int pos2 : assignments.assignedPos) {
-								if(pos2 >= pos1) continue;
-								for(int rc2:rcs.get(pos2)) {
-									bestPair = opt.opt(bestPair, wstate.getPairEnergy(pos1, rc1, pos2, rc2));
-								}
-								rotamerSum += bestPair;
-							}
-							residueSum = residueSum.add(bcalc.calc(rotamerSum));
-						}
-						sequenceSum = sequenceSum.multiply(residueSum);
-
-					}
-
-				if(assignments.numUnassigned > 0) {
-					for(int pos1: assignments.unassignedPos) {
-						BigDecimal residueSum = BigDecimal.ZERO;
-						BigDecimal AASum = BigDecimal.ZERO;
-						for (int rc1 : rcs.get(pos1)) {
-							double rotamerSum = wstate.getSingleEnergy(pos1, rc1);
-							// make a conf tree for all the sequences described by the partial assignments
-							double bestPair = Double.POSITIVE_INFINITY;
-							if (assignments.assignedPos.length < 2)
-								bestPair = 0;
-							for (int pos2 : assignments.assignedPos) {
-								if (pos2 >= pos1) continue;
-								for (int rc2 : rcs.get(pos2)) {
-									bestPair = opt.opt(bestPair, wstate.getPairEnergy(pos1, rc1, pos2, rc2));
-								}
-								rotamerSum += bestPair;
-							}
-							residueSum = residueSum.add(bcalc.calc(rotamerSum));
-						}
-
-						sequenceSum = sequenceSum.multiply(residueSum);
-					}
-				}
-
-				if (wstate.weight > 0) {
-
-					// add the bound to our estimate of the objective LMFE
-					lowerBound += wstate.weight * bcalc.freeEnergy(sequenceSum);
-
-				} else {
-
-					// compute a lower bound on the pfunc value of the multi-sequence conf space
-					// add the weighted bound to our estimate of the objective LMFE
-					lowerBound += wstate.weight * bcalc.freeEnergy(sequenceSum);
-				}
-				System.out.println("Lowerbound updated to "+lowerBound);
-			}
-			return lowerBound;
-
-		}
 
 		List<SeqSpace.ResType> getRTs(SimpleConfSpace.Position confPos, SeqAStarNode.Assignments assignments) {
 
