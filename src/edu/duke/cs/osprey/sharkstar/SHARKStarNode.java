@@ -71,7 +71,9 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
         }
         // Now I'm going to be hacky and just copy over the assignments
         this.getConfSearchNode().assignments = newNode.assignments;
-        this.getConfSearchNode().pos = permutation[this.getConfSearchNode().pos];
+        if (this.getConfSearchNode().pos != -1){
+            this.getConfSearchNode().pos = permutation[this.getConfSearchNode().pos];
+        }
 
         //TODO: Determine whether anything else in the ConfSearchNode must be changed
 

@@ -71,7 +71,7 @@ public class SHARKStarBound implements PartitionFunction {
 
 
 	// We keep track of the root node for computing our K* bounds
-	private SHARKStarNode rootNode;
+	public SHARKStarNode rootNode;
 	// Heap of nodes for recursive expansion
 	protected final Queue<SHARKStarNode> queue;
 	protected double epsilonBound = Double.POSITIVE_INFINITY;
@@ -114,7 +114,7 @@ public class SHARKStarBound implements PartitionFunction {
 	private int numInternalScored = 0;
 
 	private SHARKStarBound precomputedPfunc;
-	private SHARKStarNode precomputedRootNode;
+	public SHARKStarNode precomputedRootNode;
 	private SimpleConfSpace confSpace;
 
 	private Queue<SHARKStarNode> leafQueue;
@@ -284,9 +284,9 @@ public class SHARKStarBound implements PartitionFunction {
 	 */
 	public void updatePrecomputedConfTree(){
 		int[] permutationArray = genConfSpaceMapping();
-		updatePrecomputedNode(this.rootNode, permutationArray, this.confSpace.getNumPos());
+		updatePrecomputedNode(precomputedRootNode, permutationArray, this.confSpace.getNumPos());
+		this.rootNode = precomputedRootNode;
 		//System.out.println("The precomputed root node is " + precomputedRootNode.toTuple());
-		//precomputedRootNode.printTree();
 		//System.out.println("\n###############\nFull root upper: "+rootNode.getUpperBound()+" lower: "+rootNode.getLowerBound());
 
 		/*
@@ -301,8 +301,10 @@ public class SHARKStarBound implements PartitionFunction {
 	}
 
 	private void updatePrecomputedNode(SHARKStarNode node, int[] permutation, int size){
-		for (SHARKStarNode child : (List<SHARKStarNode>) node.getChildren()){
-			updatePrecomputedNode(child, permutation, size);
+		if (node.getChildren() != null){
+            for (SHARKStarNode child : node.getChildren()){
+                updatePrecomputedNode(child, permutation, size);
+            }
 		}
 		node.makeNodeCompatibleWithConfSpace(permutation, size);
 	}
