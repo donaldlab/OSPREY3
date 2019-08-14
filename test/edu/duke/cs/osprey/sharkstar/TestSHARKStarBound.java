@@ -170,6 +170,8 @@ public class TestSHARKStarBound extends TestBase {
 
         int[] expectedArray = {2,4};
         assertThat(fullPfunc.genConfSpaceMapping(), is(expectedArray));
+
+        fullPfunc.updatePrecomputedConfTree();
     }
 }
 
