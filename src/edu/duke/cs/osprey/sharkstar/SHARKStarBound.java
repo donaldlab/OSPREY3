@@ -1,19 +1,17 @@
 package edu.duke.cs.osprey.sharkstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.pruning.AStarSequencePruner;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.markstar.framework.MARKStarNode;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 
 import java.math.BigDecimal;
 import java.util.*;
-
-import static org.apache.commons.lang3.ArrayUtils.toArray;
 
 public class SHARKStarBound extends MARKStarBoundFastQueues {
 
@@ -165,6 +163,27 @@ public class SHARKStarBound extends MARKStarBoundFastQueues {
 	}
 
 	private class SHARKStarQueue extends PriorityQueue<SHARKStarNode> {
-		private BigDecimal pa
+		private BigDecimal partitionFunctionUpperSum = BigDecimal.ONE;
+		private BigDecimal partitionFunctionLowerSum= BigDecimal.ONE;
+
+		public BigDecimal getPartitionFunctionUpperBound() {
+			return partitionFunctionUpperSum;
+		}
+
+		public BigDecimal getPartitionFunctionLowerBound() {
+			return partitionFunctionLowerSum;
+		}
+
+		public boolean add(SHARKStarNode node) {
+			partitionFunctionUpperSum = partitionFunctionUpperSum.add(node.getUpperBound());
+			partitionFunctionLowerSum = partitionFunctionLowerSum.add(node.getLowerBound());
+			return super.add(node);
+		}
+
+		public boolean poll(SHARKStarNode node) {
+			partitionFunctionUpperSum = partitionFunctionUpperSum.subtract(node.getUpperBound());
+			partitionFunctionLowerSum = partitionFunctionLowerSum.subtract(node.getLowerBound());
+			return super.add(node);
+		}
 	}
 }
