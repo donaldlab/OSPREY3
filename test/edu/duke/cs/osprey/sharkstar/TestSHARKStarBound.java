@@ -22,6 +22,8 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Arrays;
 
 public class TestSHARKStarBound extends TestBase {
@@ -170,6 +172,77 @@ public class TestSHARKStarBound extends TestBase {
 
         int[] expectedArray = {2,4};
         assertThat(fullPfunc.genConfSpaceMapping(), is(expectedArray));
+
+        fullPfunc.rootNode.printTree();
+        fullPfunc.precomputedRootNode.printTree();
+        fullPfunc.updatePrecomputedConfTree();
+        fullPfunc.rootNode.printTree();
+
+    }
+
+    /**
+     * Test to make sure that we can compute partition functions after having passed in a flexible precomputed space
+     */
+    @Test
+    public void testPrecomputedPfuncComputation(){
+        // make full confspace and the flexible copy
+        SimpleConfSpace mutableConfSpace = make1CC8Mutable();
+        SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
+
+        // precompute flexible residues
+        Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null);
+        preCompFlex.compute();
+
+        // make the full confspace partitionFunction
+        Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
+
+        // update and compute
+        fullPfunc.updatePrecomputedConfTree();
+        fullPfunc.compute();
+    }
+
+    /**
+     * Test to make sure that the 2-step computed partition functions return the same bounds as the one-step pfunc
+     */
+    @Test
+    public void testPreComputedPfuncCorrectness(){
+        // make full confspace and the flexible copy
+        SimpleConfSpace mutableConfSpace = make1CC8Mutable();
+        SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
+
+        // precompute flexible residues
+        Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null);
+        preCompFlex.compute();
+
+        // make the full confspace partitionFunction
+        Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
+
+        // update and compute
+        fullPfunc.updatePrecomputedConfTree();
+        fullPfunc.compute();
+
+        // compute partition function the regular way
+        SHARKStarBound regPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, null);
+        regPfunc.compute();
+
+        double UBdiff = fullPfunc.getValues().calcUpperBound()
+                .divide(regPfunc.getValues().calcUpperBound(), RoundingMode.HALF_UP)
+                .subtract(BigDecimal.valueOf(1.0))
+                .abs().doubleValue();
+        double LBdiff = fullPfunc.getValues().calcLowerBound()
+                .divide(regPfunc.getValues().calcLowerBound(), RoundingMode.HALF_UP)
+                .subtract(BigDecimal.valueOf(1.0))
+                .abs().doubleValue();
+
+        assertThat(fullPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+        assertThat(regPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+        assertThat(UBdiff, lessThan(1e-10));
+        assertThat(LBdiff, lessThan(1e-10));
+
     }
 }
 
