@@ -208,10 +208,6 @@ public class SHARKStar {
 
 		BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
-		public double ensembleCalc(SeqAStarNode.Assignments assignments) {
-			return 0;
-		}
-
 		@Override
 		public double calc(SeqAStarNode.Assignments assignments) {
 			double lowerBound = 0.0;

@@ -1,11 +1,13 @@
 package edu.duke.cs.osprey.sharkstar;
 
+import static edu.duke.cs.osprey.sharkstar.SHARKStarNode.setSigFigs;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
@@ -13,6 +15,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -71,6 +74,31 @@ public class TestSHARKStarBound extends TestBase {
 
             return (SHARKStarBound) pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
         }
+    }
+
+    private GradientDescentPfunc makeGradientDescentPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon){
+        // Set up partition function requirements
+        Parallelism parallelism = Parallelism.makeCpu(4);
+        ForcefieldParams ffparams = new ForcefieldParams();
+
+        // how should we compute energies of molecules?
+        EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
+                .setParallelism(parallelism)
+            .build();
+        // how should we define energies of conformations?
+        ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
+                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
+                        .build()
+                        .calcReferenceEnergies()
+                )
+                .build();
+
+        PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalcMinimized, "pfunc");
+        // filter the global sequence to this conf space
+        // make the partition function
+        RCs rcs = sequence.makeRCs(confSpace);
+
+        return (GradientDescentPfunc) pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
     }
 
     /**
@@ -225,45 +253,51 @@ public class TestSHARKStarBound extends TestBase {
      */
     @Test
     public void testPreComputedPfuncCorrectness(){
+        double epsilon = 0.68;
         // make full confspace and the flexible copy
         SimpleConfSpace mutableConfSpace = make1CC8Mutable();
         SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
 
         // precompute flexible residues
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
-        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null);
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, epsilon, null);
         preCompFlex.compute();
 
-        // make the full confspace partitionFunction
+        // make the full confspace partitionFunction, and compute it much, much more accurately.
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
-        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon, preCompFlex);
 
         // update and compute
         //fullPfunc.updatePrecomputedConfTree();
         fullPfunc.compute();
 
+        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon/10000);
+        traditionalPfunc.setReportProgress(true);
+        traditionalPfunc.compute();
+
+        System.out.println("=============================================================================================");
+        System.out.println("====================== Running SHARK* without precomputed tree ==============================");
+        System.out.println("=============================================================================================");
         // compute partition function the regular way
-        SHARKStarBound regPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, null);
+        SHARKStarBound regPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon, null);
         regPfunc.compute();
 
-        double UBdiff = fullPfunc.getValues().calcUpperBound()
-                .divide(regPfunc.getValues().calcUpperBound(), RoundingMode.HALF_UP)
-                .subtract(BigDecimal.valueOf(1.0))
-                .abs().doubleValue();
-        double LBdiff = fullPfunc.getValues().calcLowerBound()
-                .divide(regPfunc.getValues().calcLowerBound(), RoundingMode.HALF_UP)
-                .subtract(BigDecimal.valueOf(1.0))
-                .abs().doubleValue();
-
-        System.out.println("RegPfunc: " + regPfunc.getValues().calcUpperBound());
-        System.out.println("RegPfunc: " + regPfunc.getValues().calcLowerBound());
-        System.out.println("precompPfunc: " + fullPfunc.getValues().calcUpperBound());
-        System.out.println("precompPfunc: " + fullPfunc.getValues().calcLowerBound());
+        System.out.println("Gradient Descent pfunc: "+formatBounds(traditionalPfunc.getValues().calcLowerBound(),
+                traditionalPfunc.getValues().calcUpperBound()));
+        System.out.println("RegPfunc: " + formatBounds(regPfunc.getValues().calcLowerBound(), regPfunc.getValues().calcUpperBound()));
+        System.out.println("precompPfunc: " + formatBounds(fullPfunc.getValues().calcLowerBound(), fullPfunc.getValues().calcUpperBound()));
         assertThat(fullPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
         assertThat(regPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
-        assertThat(UBdiff, lessThan(1e-10));
-        assertThat(LBdiff, lessThan(1e-10));
+        assertThat(regPfunc.getValues().calcUpperBound(), greaterThan(traditionalPfunc.getValues().calcUpperBound()));
+        assertThat(regPfunc.getValues().calcLowerBound(), lessThan(traditionalPfunc.getValues().calcLowerBound()));
+        assertThat(fullPfunc.getValues().calcUpperBound(), greaterThan(traditionalPfunc.getValues().calcUpperBound()));
+        assertThat(fullPfunc.getValues().calcLowerBound(), lessThan(traditionalPfunc.getValues().calcLowerBound()));
 
+    }
+
+    private String formatBounds(BigDecimal lower, BigDecimal upper) {
+
+        return "[" + setSigFigs(lower) + "," + setSigFigs(upper) + "]";
     }
 }
 

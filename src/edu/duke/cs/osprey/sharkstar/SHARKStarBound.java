@@ -47,7 +47,7 @@ import java.util.*;
 public class SHARKStarBound implements PartitionFunction {
 
 	protected double targetEpsilon = 1;
-	public boolean debug = false;
+	public boolean debug = true;
 	public boolean profileOutput = false;
 	private Status status = null;
 	private Values values = null;
@@ -129,6 +129,7 @@ public class SHARKStarBound implements PartitionFunction {
 
 	private Queue<SHARKStarNode> leafQueue;
 	private Queue<SHARKStarNode> internalQueue;
+	private SHARKStarNodeScorer sharkStarNodeScorer;
 
 	private Map<Sequence, SHARKStarQueue> sequenceQueues = new HashMap<>();
 
@@ -148,8 +149,7 @@ public class SHARKStarBound implements PartitionFunction {
 		gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
 		MPLPUpdater updater = new EdgeUpdater();
-		MPLPPairwiseHScorer scorer = new MPLPPairwiseHScorer(updater, minimizingEmat, 1, 0.0001);
-		hscorerFactory = (emats) -> new MPLPPairwiseHScorer(updater, emats, 1, 0.0001);//TraditionalPairwiseHScorer(emats, rcs);//
+		hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs);//MPLPPairwiseHScorer(updater, emats, 1, 0.0001);//
 
 		rootNode = SHARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs,
 				gscorerFactory.make(minimizingEmat), hscorerFactory.make(minimizingEmat),
@@ -485,8 +485,10 @@ public class SHARKStarBound implements PartitionFunction {
 				workDone()-previousConfCount < maxNumConfs
 				&& isStable(stabilityThreshold)) {
 			debugPrint("Tightening from epsilon of "+epsilonBound);
-			if(debug)
+			if(debug) {
 				debugHeap(queue);
+				//rootNode.printTree();
+			}
 			tightenBoundInPhases();
 			debugPrint("Errorbound is now "+epsilonBound);
 			if(lastEps < epsilonBound && epsilonBound - lastEps > 0.01) {
@@ -513,7 +515,7 @@ public class SHARKStarBound implements PartitionFunction {
 			if(values.qstar.compareTo(BigDecimal.ZERO) == 0) {
 				status = Status.Unstable;
 			}
-			//rootNode.printTree(stateName, minimizingEcalc.confSpace);
+			rootNode.printTree();//stateName, minimizingEcalc.confSpace);
 		}
 	}
 
@@ -1364,6 +1366,8 @@ public class SHARKStarBound implements PartitionFunction {
 		}
 	}
 
+
+
 	protected static class ScoreContext {
 		public ConfIndex index;
 		public AStarScorer gscorer;
@@ -1371,5 +1375,67 @@ public class SHARKStarBound implements PartitionFunction {
 		public AStarScorer negatedhscorer;
 		public AStarScorer rigidscorer;
 		public ConfEnergyCalculator ecalc;
+	}
+
+	private class SHARKStarNodeScorer implements AStarScorer {
+
+		private EnergyMatrix emat;
+		public SHARKStarNodeScorer(EnergyMatrix emat) {
+		    this.emat = emat;
+		}
+		@Override
+		public AStarScorer make() {
+		    return new SHARKStarNodeScorer(emat);
+		}
+
+
+		public double calc(ConfIndex confIndex, Sequence seq, SimpleConfSpace confSpace) {
+			return calc(confIndex, seq.makeRCs(confSpace));
+		}
+		/* Assumes: that the rcs contain only the sequence in question. In this case, we need only
+		*  sum over all unassigned positions. Returns a lower bound on the ensemble energy.
+		*  Note: I currently exponentiate and log for compatibilty. This could be optimized.*/
+		@Override
+		public double calc(ConfIndex confIndex, edu.duke.cs.osprey.astar.conf.RCs rcs) {
+			double baseEnergy = 0;
+			BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+		    for(int definedPos: confIndex.definedPos) {
+		    	int rot1 = confIndex.findDefined(definedPos);
+		    	baseEnergy += emat.getEnergy(definedPos, rot1);
+				for(int definedPos2: confIndex.definedPos) {
+					if(definedPos2 >= definedPos)
+						continue;
+					int rot2 = confIndex.findDefined(definedPos2);
+					baseEnergy += emat.getEnergy(definedPos, rot1, definedPos2, rot2);
+				}
+			}
+		    BigDecimal pfuncBound = BigDecimal.ONE;
+		    for (int undefinedPos1: confIndex.undefinedPos) {
+		        double bestEnergy = 0;
+		        for(int rot1: rcs.get(undefinedPos1)) {
+					double rotEnergy = emat.getEnergy(undefinedPos1, rot1);
+					for (int definedPos : confIndex.definedPos) {
+						rotEnergy += emat.getEnergy(undefinedPos1, rot1, definedPos,
+								confIndex.findDefined(definedPos));
+					}
+					for (int undefinedPos2 : confIndex.undefinedPos) {
+						if (undefinedPos2 >= undefinedPos1)
+							continue;
+						double bestPair = Double.MAX_VALUE;
+						for(int rot2: rcs.get(undefinedPos2)) {
+							bestPair = Math.min(bestPair, emat.getEnergy(undefinedPos1, rot1, undefinedPos2, rot2));
+						}
+					}
+					bestEnergy = Math.min(bestEnergy, rotEnergy);
+				}
+		        pfuncBound = pfuncBound.multiply(bcalc.calc(bestEnergy));
+			}
+			return baseEnergy+bcalc.freeEnergy(pfuncBound);
+		}
+
+		@Override
+		public double calcDifferential(ConfIndex confIndex, edu.duke.cs.osprey.astar.conf.RCs rcs, int nextPos, int nextRc) {
+			return 0;
+		}
 	}
 }
