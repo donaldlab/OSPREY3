@@ -61,7 +61,7 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
      *                      so, permutation[i] gives the new ConfSpace index for residue i.
      * @param size  The size of the new confSpace
      */
-    public void makeNodeCompatibleWithConfSpace(int[] permutation, int size){
+    public void makeNodeCompatibleWithConfSpace(int[] permutation, int size, RCs RCs){
         // first change the confSearch information
 
         // we copy over the new RCs based on permutation information
@@ -76,6 +76,11 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
         }
 
         //TODO: Determine whether anything else in the ConfSearchNode must be changed
+
+        // Compute the number of conformations
+        this.getConfSearchNode().computeNumConformations(RCs);
+        // Compute the new hscores
+        this.updated = true;
 
         // Now we change info in the SHARKStarNode
         //TODO: Determine whether we need to do anything here
@@ -362,6 +367,7 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
         boundedLeaf,
         minimizedLeaf
     }
+
     public Type type(RCs rcs) {
         if(level < rcs.getNumPos())
             return  Type.internal;
@@ -370,15 +376,9 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
         return Type.minimizedLeaf;
     }
 
-
-
-
-
     public interface ScorerFactory {
         AStarScorer make(EnergyMatrix emat);
     }
-
-
 
     public static SHARKStarNode makeRoot(SimpleConfSpace confSpace, EnergyMatrix rigidEnergyMatrix,
                                         EnergyMatrix minimizingEnergyMatrix, RCs rcs,
@@ -449,6 +449,24 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
             assignments = new int[size];
             Arrays.fill(assignments, Unassigned);
             this.level = level;
+        }
+
+        public void setSubtreeUpperBound(double confLowerBound){
+            this.subtreeUpperBound = computeBoundsFromEnergy(confLowerBound);
+        }
+
+        public void setSubtreeLowerBound(double confUpperBound){
+            this.subtreeLowerBound = computeBoundsFromEnergy(confUpperBound);
+        }
+
+        public void setConfLowerBound(double confLowerBound){
+           this.confLowerBound = confLowerBound;
+           setSubtreeUpperBound(confLowerBound);
+        }
+
+        public void setConfUpperBound(double confUpperBound){
+            this.confUpperBound = confUpperBound;
+            setSubtreeLowerBound(confUpperBound);
         }
 
         public void setMinimizationRatio(double v) {
@@ -606,7 +624,7 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
             return numConfs;
         }
 
-        public void computeNumConformations(edu.duke.cs.osprey.astar.conf.RCs rcs) {
+        public void computeNumConformations(RCs rcs) {
             BigInteger numConfs = BigInteger.ONE;
             this.numConfs = numConfs;
             if(rcs.getNumPos() == assignments.length) {

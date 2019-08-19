@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.markstar.framework;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -60,6 +61,22 @@ public class StaticBiggestLowerboundDifferenceOrder implements edu.duke.cs.ospre
 
 	private AStarScorer gscorer;
 	private AStarScorer hscorer;
+
+	public void updateForPrecomputedOrder(StaticBiggestLowerboundDifferenceOrder precomputedOrder, ConfIndex rootConfIndex, RCs rcs, int[] permutation){
+
+		// establish new world order
+		List<Integer> mutableOrder = calcPosOrder(rootConfIndex, rcs);
+		List<Integer> newWorldOrder = new ArrayList<>();
+
+		for (int pos : precomputedOrder.posOrder){
+			newWorldOrder.add(permutation[pos]);
+		}
+		for (int pos: mutableOrder){
+			if (!newWorldOrder.contains(pos))
+				newWorldOrder.add(pos);
+		}
+		this.posOrder = newWorldOrder;
+	}
 
 	@Override
 	public void setScorers(AStarScorer gscorer, AStarScorer hscorer) {

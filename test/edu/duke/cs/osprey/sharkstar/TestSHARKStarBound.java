@@ -137,18 +137,20 @@ public class TestSHARKStarBound extends TestBase {
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
         SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null);
         preCompFlex.compute();
+        BigDecimal precomputedUpper = preCompFlex.getUpperBound();
+        BigDecimal precomputedLower = preCompFlex.getLowerBound();
 
         // make the full confspace partitionFunction
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
         SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
 
         // Test that the precomputed bounds are the same
-        assertThat(fullPfunc.getPrecomputedUpperBound(), is(preCompFlex.getUpperBound()));
-        assertThat(fullPfunc.getPrecomputedLowerBound(), is(preCompFlex.getLowerBound()));
+        assertThat(fullPfunc.getPrecomputedUpperBound(), is(precomputedUpper));
+        assertThat(fullPfunc.getPrecomputedLowerBound(), is(precomputedLower));
 
-        // Ensure that the new rootNode bounds are not the same
-        assertThat(fullPfunc.getUpperBound(), not(is(preCompFlex.getUpperBound())));
-        assertThat(fullPfunc.getLowerBound(), not(is(preCompFlex.getLowerBound())));
+        // Ensure that the new rootNode bounds are not the same as the precomputed bounds
+        assertThat(fullPfunc.getUpperBound(), not(is(fullPfunc.getPrecomputedUpperBound())));
+        assertThat(fullPfunc.getLowerBound(), not(is(fullPfunc.getPrecomputedLowerBound())));
 
     }
 
@@ -172,12 +174,28 @@ public class TestSHARKStarBound extends TestBase {
 
         int[] expectedArray = {2,4};
         assertThat(fullPfunc.genConfSpaceMapping(), is(expectedArray));
+    }
 
-        fullPfunc.rootNode.printTree();
-        fullPfunc.precomputedRootNode.printTree();
-        fullPfunc.updatePrecomputedConfTree();
-        fullPfunc.rootNode.printTree();
+    /**
+     * Test to make sure that our epsilon gets reset correctly upon making a precomputed tree
+     */
+    @Test
+    public void testPrecomputedPfuncEpsilon(){
+        // make full confspace and the flexible copy
+        SimpleConfSpace mutableConfSpace = make1CC8Mutable();
+        SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
 
+        // precompute flexible residues
+        Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null);
+        preCompFlex.compute();
+
+        // make the full confspace partitionFunction
+        Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
+
+        assertThat(preCompFlex.epsilonBound, lessThan(0.68));
+        assertThat(fullPfunc.epsilonBound, greaterThan(0.68));
     }
 
     /**
@@ -199,7 +217,6 @@ public class TestSHARKStarBound extends TestBase {
         SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
 
         // update and compute
-        fullPfunc.updatePrecomputedConfTree();
         fullPfunc.compute();
     }
 
@@ -222,7 +239,7 @@ public class TestSHARKStarBound extends TestBase {
         SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
 
         // update and compute
-        fullPfunc.updatePrecomputedConfTree();
+        //fullPfunc.updatePrecomputedConfTree();
         fullPfunc.compute();
 
         // compute partition function the regular way
@@ -238,6 +255,10 @@ public class TestSHARKStarBound extends TestBase {
                 .subtract(BigDecimal.valueOf(1.0))
                 .abs().doubleValue();
 
+        System.out.println("RegPfunc: " + regPfunc.getValues().calcUpperBound());
+        System.out.println("RegPfunc: " + regPfunc.getValues().calcLowerBound());
+        System.out.println("precompPfunc: " + fullPfunc.getValues().calcUpperBound());
+        System.out.println("precompPfunc: " + fullPfunc.getValues().calcLowerBound());
         assertThat(fullPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
         assertThat(regPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
         assertThat(UBdiff, lessThan(1e-10));

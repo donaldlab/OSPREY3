@@ -40,6 +40,7 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.*;
 
+import static org.apache.commons.lang3.ArrayUtils.add;
 import static org.apache.commons.lang3.ArrayUtils.toArray;
 import java.util.*;
 
@@ -82,7 +83,7 @@ public class SHARKStarBound implements PartitionFunction {
 	protected final Queue<SHARKStarNode> queue;
 	protected double epsilonBound = Double.POSITIVE_INFINITY;
 	private ConfIndex confIndex;
-	public final AStarOrder order;
+	public StaticBiggestLowerboundDifferenceOrder order;
 	// TODO: Implement new AStarPruner for MARK*?
 	public final AStarPruner pruner;
 	protected RCs RCs;
@@ -122,6 +123,9 @@ public class SHARKStarBound implements PartitionFunction {
 	private SHARKStarBound precomputedPfunc;
 	public SHARKStarNode precomputedRootNode;
 	private SimpleConfSpace confSpace;
+
+	private BigDecimal precomputedUpperBound;
+	private BigDecimal precomputedLowerBound;
 
 	private Queue<SHARKStarNode> leafQueue;
 	private Queue<SHARKStarNode> internalQueue;
@@ -200,10 +204,18 @@ public class SHARKStarBound implements PartitionFunction {
 
 		 */
 
-		this.confSpace = confSpace;
 		precomputedPfunc = precomputedFlex;
 		precomputedRootNode = precomputedFlex.rootNode;
-		//updateConfTree(precomputedFlex.rootNode);
+		precomputedUpperBound = precomputedRootNode.getUpperBound();
+		precomputedLowerBound = precomputedRootNode.getLowerBound();
+		updatePrecomputedConfTree();
+		addPrecomputedFringeToQueue();
+
+		// Fix order issues
+		ConfIndex rootIndex = new ConfIndex(RCs.getNumPos());
+        this.rootNode.getConfSearchNode().index(rootIndex);
+		this.order.updateForPrecomputedOrder((StaticBiggestLowerboundDifferenceOrder) precomputedFlex.order, rootIndex, this.RCs, genConfSpaceMapping());
+
 		updateBound();
 
 
@@ -272,7 +284,7 @@ public class SHARKStarBound implements PartitionFunction {
 	 * @return BigDecimal precomputed pfunc lower bound
 	 */
 	public BigDecimal getPrecomputedLowerBound (){
-		return precomputedRootNode.getLowerBound();
+		return precomputedLowerBound;
 	}
 
 	/**
@@ -281,7 +293,7 @@ public class SHARKStarBound implements PartitionFunction {
 	 * @return BigDecimal precomputed pfunc upper bound
 	 */
 	public BigDecimal getPrecomputedUpperBound (){
-		return precomputedRootNode.getUpperBound();
+		return precomputedUpperBound;
 	}
 
 	/**
@@ -314,7 +326,43 @@ public class SHARKStarBound implements PartitionFunction {
                 updatePrecomputedNode(child, permutation, size);
             }
 		}
-		node.makeNodeCompatibleWithConfSpace(permutation, size);
+		node.makeNodeCompatibleWithConfSpace(permutation, size, this.RCs);
+	}
+
+	/**
+	 * Add the newly updated nodes to the queue so that we don't redo any work
+	 */
+	private void addPrecomputedFringeToQueue(){
+		addSubTreeFringeToQueue(this.rootNode);
+
+	}
+
+	/**
+	 * Add the fringe nodes in the current subtree to the queue
+	 * @param subTreeRoot the root node of the subtree on which to operate
+	 */
+	private void addSubTreeFringeToQueue(SHARKStarNode subTreeRoot){
+		if (subTreeRoot.getChildren() == null || subTreeRoot.getChildren().size() ==0){
+		    // Compute correct hscores
+			try(ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+				ScoreContext context = checkout.get();
+				// index the node
+				subTreeRoot.getConfSearchNode().index(context.index);
+				double hscore = context.hscorer.calc(context.index, RCs);
+				double maxhscore = -context.negatedhscorer.calc(context.index, RCs);
+				Node confNode = subTreeRoot.getConfSearchNode();
+				double confLowerBound = confNode.gscore + hscore;
+				double confUpperBound = confNode.rigidScore + maxhscore;
+				confNode.setConfLowerBound(confLowerBound);
+				confNode.setConfUpperBound(confUpperBound);
+			}
+			// add node to queue
+			queue.add(subTreeRoot);
+		}else{
+			for (SHARKStarNode node : subTreeRoot.getChildren()){
+			addSubTreeFringeToQueue(node);
+			}
+		}
 	}
 
 	/**
@@ -432,6 +480,7 @@ public class SHARKStarBound implements PartitionFunction {
 			runUntilNonZero();
 			updateBound();
 		}
+
 		while (epsilonBound > targetEpsilon &&
 				workDone()-previousConfCount < maxNumConfs
 				&& isStable(stabilityThreshold)) {
@@ -566,7 +615,9 @@ public class SHARKStarBound implements PartitionFunction {
 		int numNodes = 0;
 		Stopwatch leafLoop = new Stopwatch().start();
 		Stopwatch overallLoop = new Stopwatch().start();
-		boundLowestBoundConfUnderNode(rootNode,newNodes);
+		if (queue.isEmpty())
+		    queue.add(rootNode);
+        boundLowestBoundConfUnderNode(queue.poll(), newNodes);
 		queue.addAll(newNodes);
 
 
@@ -673,7 +724,8 @@ public class SHARKStarBound implements PartitionFunction {
 	protected void populateQueues(Queue<SHARKStarNode> queue, List<SHARKStarNode> internalNodes, List<SHARKStarNode> leafNodes, BigDecimal internalZ,
 								  BigDecimal leafZ, BigDecimal[] ZSums) {
 		List<SHARKStarNode> leftoverLeaves = new ArrayList<>();
-		int maxNodes = 1000;
+		//int maxNodes = 1000;
+		int maxNodes = 1;
 		if(leafTimeAverage > 0)
 			maxNodes = Math.max(maxNodes, (int)Math.floor(0.1*leafTimeAverage/internalTimeAverage));
 		while(!queue.isEmpty() && (internalQueue.size() < maxNodes || leafQueue.size() < maxMinimizations)){
