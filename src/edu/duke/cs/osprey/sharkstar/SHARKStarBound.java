@@ -2,16 +2,13 @@ package edu.duke.cs.osprey.sharkstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.*;
-import edu.duke.cs.osprey.astar.conf.pruning.AStarSequencePruner;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -25,10 +22,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.MARKStarProgress;
 import edu.duke.cs.osprey.markstar.framework.StaticBiggestLowerboundDifferenceOrder;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.sharkstar.SHARKStarNode;
 import edu.duke.cs.osprey.sharkstar.SHARKStarNode.Node;
-import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
-import edu.duke.cs.osprey.markstar.framework.MARKStarNode;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -41,8 +35,6 @@ import java.math.MathContext;
 import java.util.*;
 
 import static org.apache.commons.lang3.ArrayUtils.add;
-import static org.apache.commons.lang3.ArrayUtils.toArray;
-import java.util.*;
 
 public class SHARKStarBound implements PartitionFunction {
 
@@ -230,6 +222,14 @@ public class SHARKStarBound implements PartitionFunction {
 
 		TODO: Populate queue
 		 */
+	}
+
+	/**
+	 * Returns a wrapped pointer to this class, so that BBK* and MSK* can pretend they have single-sequence
+	 * partition functions.
+	 */
+	public PartitionFunction getPartitionFunctionForSequence(Sequence seq) {
+		return new SHARKStarSingleSequenceBound(seq, this);
 	}
 
 	/**
@@ -1436,6 +1436,85 @@ public class SHARKStarBound implements PartitionFunction {
 		@Override
 		public double calcDifferential(ConfIndex confIndex, edu.duke.cs.osprey.astar.conf.RCs rcs, int nextPos, int nextRc) {
 			return 0;
+		}
+	}
+
+	/**
+	 * Thin wrapper class to play nice with BBK* and MSK*
+	 */
+	public class SHARKStarSingleSequenceBound implements PartitionFunction {
+		private Sequence sequence;
+		private SHARKStarBound multisequenceBound;
+		private Status status;
+		private Values values;
+        private int numConfsEvaluated = 0;
+        private PriorityQueue<SHARKStarNode> fringeNodes = new PriorityQueue<>();
+
+		public SHARKStarSingleSequenceBound(Sequence seq, SHARKStarBound sharkStarBound) {
+		    this.sequence = seq;
+		    this.multisequenceBound = sharkStarBound;
+		}
+
+
+		@Override
+		public void setReportProgress(boolean val) {
+			multisequenceBound.setReportProgress(val);
+		}
+
+		@Override
+		public void setConfListener(ConfListener val) {
+			multisequenceBound.setConfListener(val);
+		}
+
+		@Override
+		public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
+		    /* Nop */
+		}
+
+		@Override
+		public void init(ConfSearch upperBoundConfs, ConfSearch lowerBoundConfs, BigInteger numConfsBeforePruning, double targetEpsilon) {
+			/* Nop */
+
+		}
+
+		@Override
+		public void setStabilityThreshold(BigDecimal stabilityThreshold) {
+			multisequenceBound.setStabilityThreshold(stabilityThreshold);
+		}
+
+		@Override
+		public Status getStatus() {
+		    return this.status;
+		}
+
+		@Override
+		public Values getValues() {
+			return this.values;
+		}
+
+		@Override
+		public int getParallelism() {
+		    return multisequenceBound.getParallelism();
+		}
+
+		@Override
+		public int getNumConfsEvaluated() {
+			return numConfsEvaluated;
+		}
+
+		@Override
+		public void compute(int maxNumConfs) {
+
+		}
+
+		@Override
+		public void compute() {
+			compute(Integer.MAX_VALUE);
+		}
+
+		@Override
+		public Result makeResult() {
+			return null;
 		}
 	}
 }
