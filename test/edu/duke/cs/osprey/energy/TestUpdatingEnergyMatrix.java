@@ -46,6 +46,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
+
 public class TestUpdatingEnergyMatrix {
     public static final int NUM_FLEX = 10;
     public static final int NUM_TUPS = 100;
@@ -74,6 +77,24 @@ public class TestUpdatingEnergyMatrix {
         SimpleConfSpace confSpace = make1GUASmall(4);
         UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpace.positions);
         runManual(trie);
+    }
+
+    @Test
+    public void testGetAllCorrections(){
+        SimpleConfSpace confSpace = make1GUASmall(4);
+        UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpace.positions);
+        runManual(trie);
+
+        for(int i = 0; i < NUM_TUPS; i++)
+        {
+            TupE tupE = makeRandomTupE(confSpace);
+            System.out.println("Inserting "+tupE.tup.stringListing()+":"+tupE.E);
+            trie.insert(tupE);
+        }
+
+        List<TupE> corrections = trie.getAllCorrections();
+        assertThat(corrections.size(), is(trie.size()));
+        System.out.println("Retrieved "+trie.size()+" corrections.");
     }
 
     private void runManual(UpdatingEnergyMatrix.TupleTrie trie) {

@@ -28,6 +28,8 @@ import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import hep.aida.ref.Test;
+import jdk.nashorn.internal.runtime.regexp.joni.exception.ValueException;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -35,8 +37,12 @@ import java.math.MathContext;
 import java.util.*;
 
 import static org.apache.commons.lang3.ArrayUtils.add;
+import static org.apache.commons.lang3.ArrayUtils.toArray;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class SHARKStarBound implements PartitionFunction {
+    public int TestNumCorrections=0;
 
 	protected double targetEpsilon = 1;
 	public boolean debug = true;
@@ -61,7 +67,7 @@ public class SHARKStarBound implements PartitionFunction {
 	private MARKStarProgress progress;
 	public String stateName = String.format("%4f",Math.random());
 	private int numPartialMinimizations;
-	private ArrayList<Integer> minList;
+	public ArrayList<Integer> minList;
 	protected double internalTimeAverage;
 	protected double leafTimeAverage;
 	private double cleanupTime;
@@ -115,6 +121,7 @@ public class SHARKStarBound implements PartitionFunction {
 	private SHARKStarBound precomputedPfunc;
 	public SHARKStarNode precomputedRootNode;
 	private SimpleConfSpace confSpace;
+	private int[] confSpacePermutation;
 
 	private BigDecimal precomputedUpperBound;
 	private BigDecimal precomputedLowerBound;
@@ -171,6 +178,8 @@ public class SHARKStarBound implements PartitionFunction {
 		this.leafQueue = new PriorityQueue<>();
 		this.internalQueue = new PriorityQueue<>();
 
+		correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEmat, minimizingConfEcalc);
+
 		progress = new MARKStarProgress(RCs.getNumPos());
 		//confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
 		confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
@@ -182,6 +191,7 @@ public class SHARKStarBound implements PartitionFunction {
 		this.startUpperBound = rootNode.getUpperBound();
 		this.minList = new ArrayList<Integer>(Collections.nCopies(rcs.getNumPos(),0));
 		this.confSpace = confSpace;
+		this.confSpacePermutation = null;
     }
 
 	public SHARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
@@ -189,38 +199,27 @@ public class SHARKStarBound implements PartitionFunction {
 						  SHARKStarBound precomputedFlex) {
 
 		this(confSpace, rigidEmat, minimizingEmat, minimizingConfEcalc, rcs, parallelism);
-
 		/*
-		Now we need to do a couple things.
 		For now, let's assume we are working with a single sequence
-
 		 */
+		this.precomputedPfunc = precomputedFlex;
+		this.precomputedRootNode = precomputedFlex.rootNode;
+		this.precomputedUpperBound = precomputedRootNode.getUpperBound();
+		this.precomputedLowerBound = precomputedRootNode.getLowerBound();
+		this.confSpacePermutation = genConfSpaceMapping();
 
-		precomputedPfunc = precomputedFlex;
-		precomputedRootNode = precomputedFlex.rootNode;
-		precomputedUpperBound = precomputedRootNode.getUpperBound();
-		precomputedLowerBound = precomputedRootNode.getLowerBound();
 		updatePrecomputedConfTree();
 		addPrecomputedFringeToQueue();
 
 		// Fix order issues
 		ConfIndex rootIndex = new ConfIndex(RCs.getNumPos());
         this.rootNode.getConfSearchNode().index(rootIndex);
-		this.order.updateForPrecomputedOrder((StaticBiggestLowerboundDifferenceOrder) precomputedFlex.order, rootIndex, this.RCs, genConfSpaceMapping());
+		this.order.updateForPrecomputedOrder(precomputedFlex.order, rootIndex, this.RCs, genConfSpaceMapping());
 
 		updateBound();
 
-
 		/*
-		TODO: Go through the tree to make sure that the assignments are compatible with the new confspace
-
 		TODO: Make sure all of the energy matrices (including the correction emats) are compatible with the new confspace
-
-		TODO: Do something with score / object contexts?
-
-		TODO: Go through and update bounds
-
-		TODO: Populate queue
 		 */
 	}
 
@@ -295,30 +294,29 @@ public class SHARKStarBound implements PartitionFunction {
 	 * However, when we want to compute for mutable residues, we need to extend the length of assignments in our tree
 	 */
 	public void updatePrecomputedConfTree(){
-		int[] permutationArray = genConfSpaceMapping();
-		updatePrecomputedNode(precomputedRootNode, permutationArray, this.confSpace.getNumPos());
+		updatePrecomputedNode(precomputedRootNode, this.confSpace.getNumPos());
 		this.rootNode = precomputedRootNode;
-		//System.out.println("The precomputed root node is " + precomputedRootNode.toTuple());
-		//System.out.println("\n###############\nFull root upper: "+rootNode.getUpperBound()+" lower: "+rootNode.getLowerBound());
-
 		/*
-		Here's the plan: use the permutation matrix to map assignements onto the new tree.
-		The g scores should map fine
-		the h scores may need to be updated, which is kind of awkward I suppose.
-		But, any full conformations should be minimized and should be added to the MAE energy matrix
+		any full conformations should be minimized and should be added to the MAE energy matrix
 		likewise for any partial minimizations
 		 */
 
 		//TODO: update partial minimizations and full conformations?
 	}
 
-	private void updatePrecomputedNode(SHARKStarNode node, int[] permutation, int size){
+	/**
+	 * Recursively makes the subtree rooted by node compatible with the new confspace
+	 *
+	 * @param node the subtree root
+	 * @param size the number of positions in the new confspace
+	 */
+	private void updatePrecomputedNode(SHARKStarNode node, int size){
 		if (node.getChildren() != null){
             for (SHARKStarNode child : node.getChildren()){
-                updatePrecomputedNode(child, permutation, size);
+                updatePrecomputedNode(child, size);
             }
 		}
-		node.makeNodeCompatibleWithConfSpace(permutation, size, this.RCs);
+		node.makeNodeCompatibleWithConfSpace(confSpacePermutation, size, this.RCs);
 	}
 
 	/**
@@ -366,6 +364,60 @@ public class SHARKStarBound implements PartitionFunction {
 		return precomputedPfunc.confSpace.positions.stream()
 				.mapToInt(confSpace.positions :: indexOf)
 				.toArray();
+	}
+
+	/**
+	 * Returns a correction matrix with full minimizations included
+	 */
+	public UpdatingEnergyMatrix genCorrectionMatrix(){
+		addFullMinimizationsToCorrectionMatrix();
+		return this.correctionMatrix;
+	}
+
+	/**
+	 * Takes partial minimizations from the precomputed correctionMatrix, maps them to the new confspace, and
+	 * stores them in this correctionMatrix
+	 */
+	public void mergeCorrections(UpdatingEnergyMatrix precomputedCorrections){
+	    List<TupE> corrections = precomputedCorrections.getAllCorrections().stream()
+				.map((tup) -> {
+					return tup.permute(confSpacePermutation);
+				})
+				.collect(Collectors.toList());
+	    if (corrections.size()!=0) {
+			TestNumCorrections = corrections.size();
+			this.correctionMatrix.insertAll(corrections);
+		}else
+	    	System.out.println("No corrections to insert");
+	}
+
+	/**
+	 * Takes the full minimizations from this tree, insert them into the correction matrix
+	 */
+	private void addFullMinimizationsToCorrectionMatrix(){
+		captureSubtreeFullMinimizations(this.rootNode);
+	}
+
+	/**
+	 * Takes the full minimizations from this subtree, insert them into the correction matrix
+	 */
+	private void captureSubtreeFullMinimizations(SHARKStarNode subTreeRoot){
+		if (subTreeRoot.getChildren() == null || subTreeRoot.getChildren().size() ==0){
+			if (subTreeRoot.getConfSearchNode().isMinimized()){
+				RCTuple tuple = subTreeRoot.toTuple();
+				double confEnergy = subTreeRoot.getConfSearchNode().getConfLowerBound();
+				double lowerbound = this.minimizingEmat.getInternalEnergy(tuple);
+				if (lowerbound == confEnergy)
+					throw new ValueException("Minimized energies shouldn't equal lower bounds");
+				double correction = confEnergy - lowerbound;
+				this.correctionMatrix.setHigherOrder(tuple, correction);
+			}
+		}else{
+			for (SHARKStarNode node : subTreeRoot.getChildren()){
+				captureSubtreeFullMinimizations(node);
+			}
+		}
+
 	}
 
 	private class SHARKStarQueue extends PriorityQueue<SHARKStarNode> {
@@ -507,7 +559,7 @@ public class SHARKStarBound implements PartitionFunction {
 			if(values.qstar.compareTo(BigDecimal.ZERO) == 0) {
 				status = Status.Unstable;
 			}
-			rootNode.printTree();//stateName, minimizingEcalc.confSpace);
+			//rootNode.printTree();//stateName, minimizingEcalc.confSpace);
 		}
 	}
 
@@ -1330,11 +1382,6 @@ public class SHARKStarBound implements PartitionFunction {
 		}
 		return false;
 	}
-
-	public void setCorrections(UpdatingEnergyMatrix cachedCorrections) {
-		correctionMatrix = cachedCorrections;
-	}
-
 
 	public static class Values extends PartitionFunction.Values {
 

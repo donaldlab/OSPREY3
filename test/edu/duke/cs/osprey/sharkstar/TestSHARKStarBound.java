@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -38,41 +39,41 @@ public class TestSHARKStarBound extends TestBase {
     /**
      * Computes a single partition function using <confSpace> for <sequence> to <epsilon>
      */
-    private SHARKStarBound makeSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace,
-                                                                       @NotNull Sequence sequence, double epsilon,
-                                                                       SHARKStarBound preComputedFlex){
+    private SHARKStarBound makeSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon, SHARKStarBound preComputedFlex, UpdatingEnergyMatrix preCompCorrections){
         // Set up partition function requirements
         Parallelism parallelism = Parallelism.makeCpu(4);
         ForcefieldParams ffparams = new ForcefieldParams();
 
         // how should we compute energies of molecules?
-        try (EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
+        EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
                 .setParallelism(parallelism)
-                .build()) {
-            // how should we define energies of conformations?
-            ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
-                    .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
-                            .build()
-                            .calcReferenceEnergies()
-                    )
-                    .build();
+                .build();
+        // how should we define energies of conformations?
+        ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
+                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
+                        .build()
+                        .calcReferenceEnergies()
+                )
+                .build();
 
-            // BBK* needs rigid energies too
-            EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
-                    .setIsMinimizing(false)
-                    .build();
-            ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(confEcalcMinimized, ecalcRigid);
-            PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalcMinimized, "pfunc");
-            if (preComputedFlex == null)
-                pfuncFactory.setUseSHARKStar(confEcalcRigid);
-            else
-                pfuncFactory.setUseSHARKStar(confEcalcRigid, preComputedFlex);
-            // filter the global sequence to this conf space
-            // make the partition function
-            RCs rcs = sequence.makeRCs(confSpace);
+        // BBK* needs rigid energies too
+        EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
+                .setIsMinimizing(false)
+                .build();
+        ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(confEcalcMinimized, ecalcRigid);
+        PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalcMinimized, "pfunc");
+        if (preComputedFlex == null)
+            pfuncFactory.setUseSHARKStar(confEcalcRigid);
+        else
+            pfuncFactory.setUseSHARKStar(confEcalcRigid, preComputedFlex);
+        if (preCompCorrections != null)
+            pfuncFactory.setPrecomputedCorrections(preCompCorrections);
+        // filter the global sequence to this conf space
+        // make the partition function
+        RCs rcs = sequence.makeRCs(confSpace);
 
-            return (SHARKStarBound) pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
-        }
+        return (SHARKStarBound) pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
+
     }
 
     private PartitionFunction makeMultiSequenceSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace,
@@ -173,13 +174,36 @@ public class TestSHARKStarBound extends TestBase {
     }
 
     /**
+     * Creates a mutable confspace with one chain using 10 residues from 1CC8
+     */
+    private SimpleConfSpace make1CC8MutableContinuous(){
+        Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A20").build();
+        strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG").setContinuous();
+        strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "ILE").setContinuous();
+        strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType, "MET").setContinuous();
+        strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A7").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A8").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A9").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A10").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A11").setLibraryRotamers(Strand.WildType).setContinuous();
+
+        return new SimpleConfSpace.Builder()
+                .addStrands(strand1)
+                .setShellDistance(9)
+                .build();
+
+    }
+
+    /**
      * Test that the SHARKStarBound can compute a partition function on a single sequence
      */
     @Test
     public void testComputeSingleSequencePfunc(){
         SimpleConfSpace flexConfSpace = make1CC8Flexible();
         Sequence wildType = flexConfSpace.makeWildTypeSequence();
-        PartitionFunction pfunc = makeSHARKStarPfuncForConfSpace(flexConfSpace, wildType, 0.68, null);
+        PartitionFunction pfunc = makeSHARKStarPfuncForConfSpace(flexConfSpace, wildType, 0.68, null, null);
         pfunc.compute();
 
         assertThat(pfunc.getStatus(), is(PartitionFunction.Status.Estimated));
@@ -198,14 +222,14 @@ public class TestSHARKStarBound extends TestBase {
 
         // precompute flexible residues
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
-        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null);
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null, null);
         preCompFlex.compute();
         BigDecimal precomputedUpper = preCompFlex.getUpperBound();
         BigDecimal precomputedLower = preCompFlex.getLowerBound();
 
         // make the full confspace partitionFunction
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
-        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex, preCompFlex.genCorrectionMatrix());
 
         // Test that the precomputed bounds are the same
         assertThat(fullPfunc.getPrecomputedUpperBound(), is(precomputedUpper));
@@ -228,12 +252,12 @@ public class TestSHARKStarBound extends TestBase {
 
         // precompute flexible residues
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
-        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null);
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null, null);
         preCompFlex.compute();
 
         // make the full confspace partitionFunction
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
-        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex, preCompFlex.genCorrectionMatrix());
 
         int[] expectedArray = {2,4};
         assertThat(fullPfunc.genConfSpaceMapping(), is(expectedArray));
@@ -250,12 +274,12 @@ public class TestSHARKStarBound extends TestBase {
 
         // precompute flexible residues
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
-        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null);
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null, null);
         preCompFlex.compute();
 
         // make the full confspace partitionFunction
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
-        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex, preCompFlex.genCorrectionMatrix());
 
         assertThat(preCompFlex.epsilonBound, lessThan(0.68));
         assertThat(fullPfunc.epsilonBound, greaterThan(0.68));
@@ -272,12 +296,12 @@ public class TestSHARKStarBound extends TestBase {
 
         // precompute flexible residues
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
-        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null);
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null, null);
         preCompFlex.compute();
 
         // make the full confspace partitionFunction
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
-        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex);
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex, preCompFlex.genCorrectionMatrix());
 
         // update and compute
         fullPfunc.compute();
@@ -295,12 +319,12 @@ public class TestSHARKStarBound extends TestBase {
 
         // precompute flexible residues
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
-        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, epsilon, null);
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, epsilon, null, null);
         preCompFlex.compute();
 
         // make the full confspace partitionFunction, and compute it much, much more accurately.
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
-        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon, preCompFlex);
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon, preCompFlex, preCompFlex.genCorrectionMatrix());
 
         // update and compute
         //fullPfunc.updatePrecomputedConfTree();
@@ -314,7 +338,7 @@ public class TestSHARKStarBound extends TestBase {
         System.out.println("====================== Running SHARK* without precomputed tree ==============================");
         System.out.println("=============================================================================================");
         // compute partition function the regular way
-        SHARKStarBound regPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon, null);
+        SHARKStarBound regPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon, null, null);
         regPfunc.compute();
 
         System.out.println("Gradient Descent pfunc: "+formatBounds(traditionalPfunc.getValues().calcLowerBound(),
@@ -365,6 +389,34 @@ public class TestSHARKStarBound extends TestBase {
 
     private String formatBounds(BigDecimal lower, BigDecimal upper) {
         return "[" + setSigFigs(lower) + "," + setSigFigs(upper) + "]";
+    }
+
+    @Test
+    public void testCapturingPartialMinimizations(){
+        double epsilon = 0.68;
+        // make full confspace and the flexible copy
+        SimpleConfSpace mutableConfSpace = make1CC8MutableContinuous();
+        SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
+
+        // precompute flexible residues
+        Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, epsilon, null, null);
+        preCompFlex.compute();
+        UpdatingEnergyMatrix precomputedCorrections = preCompFlex.genCorrectionMatrix();
+        // Pre-fullpfunc minlist
+        System.out.println(preCompFlex.minList.toString());
+
+        // make the full confspace partitionFunction, and compute it much, much more accurately.
+        Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon, preCompFlex, precomputedCorrections);
+
+        // update and compute
+        fullPfunc.compute();
+
+        System.out.println(preCompFlex.minList.toString());
+        System.out.println("Precompflex reports "+preCompFlex.correctionMatrix.getTrieSize()+" corrections.");
+        System.out.println("Precompflex reports "+precomputedCorrections+" corrections (including full mins).");
+        System.out.println(fullPfunc.TestNumCorrections);
     }
 }
 
