@@ -64,6 +64,14 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         corrections = new TupleTrie(confSpace.positions);
     }
 
+    public List<TupE> getAllCorrections(){
+        return corrections.getAllCorrections();
+    }
+
+    public int getTrieSize(){
+        return this.corrections.size();
+    }
+
     /*Hack 1: Don't share residues*/
     @Override
     public boolean hasHigherOrderTerms() {
@@ -193,8 +201,14 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         return sum;
     }
 
+    public void insertAll(List<TupE> corrList){
+        for (TupE correction : corrList){
+            corrections.insert(correction);
+        }
+    }
+
     @Override
-    public void setHigherOrder(RCTuple tup, Double val) {
+        public void setHigherOrder(RCTuple tup, Double val) {
         if(tup.size() < 3)
         {
             System.err.println("Should not be trying to submit correction of lower-order term.");
@@ -251,6 +265,12 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
         public int size() {
             return numCorrections;
+        }
+
+        public List<TupE> getAllCorrections(){
+            List<TupE> output = new ArrayList<>();
+            root.getAllCorrections(output);
+            return output;
         }
 
 
@@ -396,6 +416,19 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                     children.put(WILDCARD_RC, new TupleTrieNode(positions, positionIndex+1));
                 children.get(WILDCARD_RC).populateCorrections(query, output, nextIndex);
             }
+
+            public void getAllCorrections(List<TupE> output){
+                if(corrections.size() > 0)
+                {
+                    output.addAll(corrections);
+                    debugPrint("Adding corrections from "+this);
+                }
+
+                for (TupleTrieNode child : this.children.values()){
+                    child.getAllCorrections(output);
+                }
+            }
+
         }
 
     }

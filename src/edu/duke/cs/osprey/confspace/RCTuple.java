@@ -37,6 +37,8 @@ import edu.duke.cs.osprey.tools.HashCalculator;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -354,5 +356,18 @@ public class RCTuple implements Serializable {
 			}
 		}
 		return null;
+	}
+
+	public RCTuple permutedCopy(int[] perm){
+	    /*
+	    //ACTUALLY, since we are using subtuples, this isn't the case
+	    if (perm.length != this.pos.size())
+	        throw new IllegalArgumentException("Cannot permute an RCTuple if the permutation list and the posList are not equal length.");
+	     */
+	    ArrayList<Integer> newPos = new ArrayList<>();
+	    for (int i : this.pos){
+	    	newPos.add(perm[i]);
+		}
+		return new RCTuple(newPos, this.RCs);
 	}
 }

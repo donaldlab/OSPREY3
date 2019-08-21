@@ -97,6 +97,10 @@ public class PartitionFunctionFactory {
         this.pfuncImpl = PartitionFunctionImpl.SHARKStar;
     }
 
+    public void setPrecomputedCorrections(UpdatingEnergyMatrix corrections){
+        this.MARKStarEmat = corrections;
+    }
+
     public void setUseGradientDescent() {
         this.pfuncImpl = PartitionFunctionImpl.GradientDescent;
     }
@@ -147,8 +151,8 @@ public class PartitionFunctionFactory {
                 break;
             case SHARKStar:
                 minimizingEmat = makeEmat(confEcalc, "minimizing");
-                if(MARKStarEmat == null)
-                    MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
+                //if(MARKStarEmat == null)
+                    //MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
                 SHARKStarBound SHARKStarBound = null;
                 if(preComputedFlex == null) {
                     SHARKStarBound = new SHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
@@ -157,8 +161,10 @@ public class PartitionFunctionFactory {
                 else {
                     SHARKStarBound = new SHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
                             minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism, preComputedFlex);
+
                 }
-                SHARKStarBound.setCorrections(MARKStarEmat);
+                if (MARKStarEmat != null)
+                    SHARKStarBound.mergeCorrections(MARKStarEmat);
                 SHARKStarBound.init(epsilon);
                 pfunc = SHARKStarBound;
                 break;

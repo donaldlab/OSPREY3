@@ -50,6 +50,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.markstar.MARKStar;
@@ -823,6 +824,74 @@ public class TestSimpleConfSpace extends TestBase {
 	}
 
 	/**
+	 * Make a flexible copy of a mutable confspace.
+	 *
+	 * Ensure that we can calculate the partition function as we would expect WITH continuous flex.
+	 * This suggests that the confspace is valid
+	 *
+	 * Use gradient descent pfunc
+	 */
+	@Test
+	public void testFlexibleCopyPfuncContinuousTraditional(){
+		// Making a confspace with both mutable and flexible residues
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType).setContinuous();
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "LYS").setContinuous();
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType).setContinuous();
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType).setContinuous();
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "VAL").setContinuous();
+
+		SimpleConfSpace mutableConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(100)
+				.build();
+
+		// Making a confspace copy that removes the mutable residues only
+		SimpleConfSpace flexibleConfSpace = mutableConfSpace.makeFlexibleCopy();
+
+		PartitionFunction flexPfunc = makeGradientDescentPfuncForConfSpace(flexibleConfSpace,
+				flexibleConfSpace.makeWildTypeSequence(),
+				0.68);
+		flexPfunc.compute();
+
+		assertThat(flexPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+	}
+
+	/**
+	 * Make a flexible copy of a mutable confspace.
+	 *
+	 * Ensure that we can calculate the partition function as we would expect WITH continuous flex.
+	 * This suggests that the confspace is valid
+	 *
+	 * Use MARK* pfunc
+	 */
+	@Test
+	public void testFlexibleCopyPfuncContinuous(){
+		// Making a confspace with both mutable and flexible residues
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType).setContinuous();
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "LYS").setContinuous();
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType).setContinuous();
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType).setContinuous();
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "VAL").setContinuous();
+
+		SimpleConfSpace mutableConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(100)
+				.build();
+
+		// Making a confspace copy that removes the mutable residues only
+		SimpleConfSpace flexibleConfSpace = mutableConfSpace.makeFlexibleCopy();
+
+		PartitionFunction flexPfunc = makeMARKStarPfuncForConfSpace(flexibleConfSpace,
+				flexibleConfSpace.makeWildTypeSequence(),
+				0.68);
+		flexPfunc.compute();
+
+		assertThat(flexPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+	}
+
+	/**
 	 * Make a flexible copy of a mutable confspace, and make an excluded copy excluding only mutable residues
 	 * These confspaces should be the same, so they should return the same pfunc value
 	 */
@@ -993,6 +1062,40 @@ public class TestSimpleConfSpace extends TestBase {
 	}
 
 	/**
+	 * Test that we can compute partition functions for both wild-type and Mutant sequences for augmented continuously flexible confspaces
+	 */
+	@Test
+	public void testAugmentedConfSpacePfuncContinuous(){
+		Strand strand1 = new Strand.Builder(mol).setResidues("A2", "A10").build();
+		strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG").setContinuous();
+		strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "LYS").setContinuous();
+		strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType).setContinuous();
+		strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType).setContinuous();
+		strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType, "VAL").setContinuous();
+
+		SimpleConfSpace originalConfSpace = new SimpleConfSpace.Builder()
+				.addStrands(strand1)
+				.setShellDistance(9)
+				.build();
+
+		SimpleConfSpace flexibleConfSpace = originalConfSpace.makeFlexibleCopy();
+		SimpleConfSpace augmentedConfSpace = flexibleConfSpace.makeAugmentedCopy(originalConfSpace);
+
+		List<Sequence> augmentedSeqs = augmentedConfSpace.seqSpace.getSequences();
+		Sequence seq = augmentedSeqs.get(augmentedSeqs.size()-1);
+
+		PartitionFunction augmentedPfunc = makeMARKStarPfuncForConfSpace(
+				augmentedConfSpace, seq, 0.68);
+
+		augmentedPfunc.compute();
+
+		System.out.println(seq);
+		System.out.println(augmentedPfunc.makeResult().toString());
+
+		assertThat(augmentedPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+	}
+
+	/**
 	 * Test that the augmented confspace pfuncs give the same values as the original confspace pfunc
 	 */
 	@Test
@@ -1088,29 +1191,53 @@ public class TestSimpleConfSpace extends TestBase {
 		ForcefieldParams ffparams = new ForcefieldParams();
 
 		// how should we compute energies of molecules?
-		try (EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
+		EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
 				.setParallelism(parallelism)
-				.build()) {
-			// how should we define energies of conformations?
-			ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
-					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
-							.build()
-							.calcReferenceEnergies()
-					)
-					.build();
+				.build();
+		// how should we define energies of conformations?
+		ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
+				.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
+						.build()
+						.calcReferenceEnergies()
+				)
+				.build();
 
-			// BBK* needs rigid energies too
-			EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
-					.setIsMinimizing(false)
-					.build();
-			ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(confEcalcMinimized, ecalcRigid);
-			PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalcMinimized, "pfunc");
-			pfuncFactory.setUseMARKStar(confEcalcRigid);
-			// filter the global sequence to this conf space
-			// make the partition function
-			RCs rcs = sequence.makeRCs(confSpace);
+		// BBK* needs rigid energies too
+		EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
+				.setIsMinimizing(false)
+				.build();
+		ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(confEcalcMinimized, ecalcRigid);
+		PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalcMinimized, "pfunc");
+		pfuncFactory.setUseMARKStar(confEcalcRigid);
+		// filter the global sequence to this conf space
+		// make the partition function
+		RCs rcs = sequence.makeRCs(confSpace);
 
-			return pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
-		}
+		return pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
+	}
+
+	private GradientDescentPfunc makeGradientDescentPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon){
+		// Set up partition function requirements
+		Parallelism parallelism = Parallelism.makeCpu(4);
+		ForcefieldParams ffparams = new ForcefieldParams();
+
+		// how should we compute energies of molecules?
+		EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
+				.setParallelism(parallelism)
+				.build();
+		// how should we define energies of conformations?
+		ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
+				.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
+						.build()
+						.calcReferenceEnergies()
+				)
+				.build();
+
+		PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalcMinimized, "pfunc");
+		// filter the global sequence to this conf space
+		// make the partition function
+		RCs rcs = sequence.makeRCs(confSpace);
+
+		return (GradientDescentPfunc) pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
 	}
 }

@@ -75,16 +75,9 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
             this.getConfSearchNode().pos = permutation[this.getConfSearchNode().pos];
         }
 
-        //TODO: Determine whether anything else in the ConfSearchNode must be changed
-
         // Compute the number of conformations
         this.getConfSearchNode().computeNumConformations(RCs);
-        // Compute the new hscores
         this.updated = true;
-
-        // Now we change info in the SHARKStarNode
-        //TODO: Determine whether we need to do anything here
-
     }
 
     public BigInteger getNumConfs()

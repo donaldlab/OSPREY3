@@ -46,7 +46,10 @@ public class TupE implements Comparable<TupE> {
         this.tup = tup;
         this.E = E;
     }
-    
+
+    public TupE permute(int[] perm){
+        return new TupE(this.tup.permutedCopy(perm), this.E);
+    }
     
 	
     @Override
