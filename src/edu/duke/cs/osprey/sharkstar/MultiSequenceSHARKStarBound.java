@@ -1551,8 +1551,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             if (upperBound.subtract(lowerBound).compareTo(BigDecimal.ONE) < 1) {
                 sequenceEpsilon = 0;
             } else {
-                epsilonBound = confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound)
-                        .divide(confSearchNode.subtreeUpperBound, RoundingMode.HALF_UP).doubleValue();
                 sequenceEpsilon = upperBound.subtract(lowerBound)
                         .divide(upperBound, RoundingMode.HALF_UP).doubleValue();
             }

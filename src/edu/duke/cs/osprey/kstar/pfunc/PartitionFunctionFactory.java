@@ -185,7 +185,6 @@ public class PartitionFunctionFactory {
                 else {
                     SHARKStarBound = new SHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
                             minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism, preComputedFlex);
-
                 }
                 if (MARKStarEmat != null)
                     SHARKStarBound.mergeCorrections(MARKStarEmat);
