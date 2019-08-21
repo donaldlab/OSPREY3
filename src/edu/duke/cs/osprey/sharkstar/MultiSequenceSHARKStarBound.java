@@ -36,7 +36,7 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.*;
 
-public class MultiSequenceSHARKStarBound implements PartitionFunction{
+public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     protected double targetEpsilon = 1;
     public boolean debug = true;
@@ -59,7 +59,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
 
     private boolean printMinimizedConfs;
     private MARKStarProgress progress;
-    public String stateName = String.format("%4f",Math.random());
+    public String stateName = String.format("%4f", Math.random());
     private int numPartialMinimizations;
     private ArrayList<Integer> minList;
     protected double internalTimeAverage;
@@ -125,12 +125,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
 
     /**
      * Constructor to make a default SHARKStarBound Class
-     * @param confSpace the partition function conformation space
-     * @param rigidEmat the rigid pairwise energy matrix
-     * @param minimizingEmat the parwise-minimized energy matrix
+     *
+     * @param confSpace           the partition function conformation space
+     * @param rigidEmat           the rigid pairwise energy matrix
+     * @param minimizingEmat      the parwise-minimized energy matrix
      * @param minimizingConfEcalc the energy calculator to calculate minimized conf energies
-     * @param rcs information on possible rotamers at all design positions
-     * @param parallelism information for threading
+     * @param rcs                 information on possible rotamers at all design positions
+     * @param parallelism         information for threading
      */
     public MultiSequenceSHARKStarBound(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
                                        ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
@@ -150,7 +151,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         this.rigidEmat = rigidEmat;
         this.RCs = rcs;
         this.order = new StaticBiggestLowerboundDifferenceOrder();
-        order.setScorers(gscorerFactory.make(minimizingEmat),hscorerFactory.make(minimizingEmat));
+        order.setScorers(gscorerFactory.make(minimizingEmat), hscorerFactory.make(minimizingEmat));
         this.pruner = null;
 
         this.contexts = new ObjectPool<>((lingored) -> {
@@ -176,7 +177,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         // Recording pfunc starting bounds
         this.startLowerBound = rootNode.getLowerBound();
         this.startUpperBound = rootNode.getUpperBound();
-        this.minList = new ArrayList<Integer>(Collections.nCopies(rcs.getNumPos(),0));
+        this.minList = new ArrayList<Integer>(Collections.nCopies(rcs.getNumPos(), 0));
         this.confSpace = confSpace;
     }
 
@@ -231,47 +232,47 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
 
     /**
      * Returns the partition function lower bound for a particular sequence
-     *
+     * <p>
      * Note that SHARKStarBound will eventually contain a multi-sequence confTree, although this isn't currently the case
      *
      * @param seq Sequence for which to get pfunc lower bound
      * @return BigDecimal pfunc lower bound
      */
-    public BigDecimal getLowerBound (Sequence seq){
+    public BigDecimal getLowerBound(Sequence seq) {
         throw new UnsupportedOperationException("getLowerBound(seq) is not yet implemented");
     }
 
     /**
      * Returns the partition function upper bound for a particular sequence
-     *
+     * <p>
      * Note that SHARKStarBound will eventually contain a multi-sequence confTree, although this isn't currently the case
      *
      * @param seq Sequence for which to get pfunc upper bound
      * @return BigDecimal pfunc upper bound
      */
-    public BigDecimal getUpperBound (Sequence seq){
+    public BigDecimal getUpperBound(Sequence seq) {
         throw new UnsupportedOperationException("getUpperBound(seq) is not yet implemented");
     }
 
     /**
      * Returns the partition function lower bound for the whole confTree
-     *
+     * <p>
      * Note that SHARKStarBound will eventually contain a multi-sequence confTree, although this isn't currently the case
      *
      * @return BigDecimal pfunc lower bound
      */
-    public BigDecimal getLowerBound (){
+    public BigDecimal getLowerBound() {
         return rootNode.getLowerBound();
     }
 
     /**
      * Returns the partition function upper bound for the whole confTree
-     *
+     * <p>
      * Note that SHARKStarBound will eventually contain a multi-sequence confTree, although this isn't currently the case
      *
      * @return BigDecimal pfunc upper bound
      */
-    public BigDecimal getUpperBound (){
+    public BigDecimal getUpperBound() {
         return rootNode.getUpperBound();
     }
 
@@ -280,7 +281,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
      *
      * @return BigDecimal precomputed pfunc lower bound
      */
-    public BigDecimal getPrecomputedLowerBound (){
+    public BigDecimal getPrecomputedLowerBound() {
         return precomputedLowerBound;
     }
 
@@ -289,17 +290,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
      *
      * @return BigDecimal precomputed pfunc upper bound
      */
-    public BigDecimal getPrecomputedUpperBound (){
+    public BigDecimal getPrecomputedUpperBound() {
         return precomputedUpperBound;
     }
 
     /**
      * Makes the current confTree consistent with the current confSpace
-     *
+     * <p>
      * When we precompute flexible residues, we will have a tree that is for a flexible confspace.
      * However, when we want to compute for mutable residues, we need to extend the length of assignments in our tree
      */
-    public void updatePrecomputedConfTree(){
+    public void updatePrecomputedConfTree() {
         int[] permutationArray = genConfSpaceMapping();
         updatePrecomputedNode(precomputedRootNode, permutationArray, this.confSpace.getNumPos());
         this.rootNode = precomputedRootNode;
@@ -317,9 +318,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         //TODO: update partial minimizations and full conformations?
     }
 
-    private void updatePrecomputedNode(SHARKStarNode node, int[] permutation, int size){
-        if (node.getChildren() != null){
-            for (SHARKStarNode child : node.getChildren()){
+    private void updatePrecomputedNode(SHARKStarNode node, int[] permutation, int size) {
+        if (node.getChildren() != null) {
+            for (SHARKStarNode child : node.getChildren()) {
                 updatePrecomputedNode(child, permutation, size);
             }
         }
@@ -329,19 +330,20 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
     /**
      * Add the newly updated nodes to the queue so that we don't redo any work
      */
-    private void addPrecomputedFringeToQueue(PriorityQueue<SHARKStarNode> queue){
+    private void addPrecomputedFringeToQueue(PriorityQueue<SHARKStarNode> queue) {
         addSubTreeFringeToQueue(this.rootNode, queue);
 
     }
 
     /**
      * Add the fringe nodes in the current subtree to the queue
+     *
      * @param subTreeRoot the root node of the subtree on which to operate
      */
-    private void addSubTreeFringeToQueue(SHARKStarNode subTreeRoot, PriorityQueue<SHARKStarNode> queue){
-        if (subTreeRoot.isLeaf()){
+    private void addSubTreeFringeToQueue(SHARKStarNode subTreeRoot, PriorityQueue<SHARKStarNode> queue) {
+        if (subTreeRoot.isLeaf()) {
             // Compute correct hscores
-            try(ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+            try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                 ScoreContext context = checkout.get();
                 // index the node
                 subTreeRoot.getConfSearchNode().index(context.index);
@@ -355,8 +357,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
             }
             // add node to queue
             queue.add(subTreeRoot);
-        }else{
-            for (SHARKStarNode node : subTreeRoot.getChildren()){
+        } else {
+            for (SHARKStarNode node : subTreeRoot.getChildren()) {
                 addSubTreeFringeToQueue(node, queue);
             }
         }
@@ -365,17 +367,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
     /**
      * Generate a permutation matrix that lets us map positions from the precomputed confspace to the new confspace
      */
-    public int[] genConfSpaceMapping(){
+    public int[] genConfSpaceMapping() {
         // the permutation matrix maps confs in the precomputed flexible to the full confspace
         // Note that I think this works because Positions have equals() check the residue number
         return precomputedPfunc.confSpace.positions.stream()
-                .mapToInt(confSpace.positions :: indexOf)
+                .mapToInt(confSpace.positions::indexOf)
                 .toArray();
     }
 
     private class SHARKStarQueue extends PriorityQueue<SHARKStarNode> {
         private BigDecimal partitionFunctionUpperSum = BigDecimal.ZERO;
-        private BigDecimal partitionFunctionLowerSum= BigDecimal.ZERO;
+        private BigDecimal partitionFunctionLowerSum = BigDecimal.ZERO;
 
         public BigDecimal getPartitionFunctionUpperBound() {
             return partitionFunctionUpperSum;
@@ -400,8 +402,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
             return node;
         }
     }
+
     @Override
-    public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon){
+    public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
         init(targetEpsilon);
     }
 
@@ -464,7 +467,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
     }
 
     private int workDone() {
-        return numInternalNodesProcessed + numConfsEnergied + numConfsScored + numPartialMinimizations ;
+        return numInternalNodesProcessed + numConfsEnergied + numConfsScored + numPartialMinimizations;
     }
 
     @Override
@@ -474,50 +477,50 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
     }
 
     public void computeForSequence(int maxNumConfs, SingleSequenceSHARKStarBound sequenceBound) {
-        debugPrint("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
+        debugPrint("Num conformations: " + rootNode.getConfSearchNode().getNumConformations());
         double lastEps = 1;
 
         int previousConfCount = workDone();
 
-        if(!nonZeroLower) {
+        if (!nonZeroLower) {
             runUntilNonZero(sequenceBound);
         }
 
-        while (sequenceBound.sequenceEpsilon> targetEpsilon &&
-                workDone()-previousConfCount < maxNumConfs
+        while (sequenceBound.sequenceEpsilon > targetEpsilon &&
+                workDone() - previousConfCount < maxNumConfs
                 && isStable(stabilityThreshold)) {
-            debugPrint("Tightening from epsilon of "+sequenceBound.sequenceEpsilon);
-            if(debug) {
+            debugPrint("Tightening from epsilon of " + sequenceBound.sequenceEpsilon);
+            if (debug) {
                 debugHeap(sequenceBound.fringeNodes);
                 //rootNode.printTree();
             }
             tightenBoundInPhases(sequenceBound);
-            debugPrint("Errorbound is now "+sequenceBound.sequenceEpsilon);
-            if(lastEps < sequenceBound.sequenceEpsilon && sequenceBound.sequenceEpsilon - lastEps > 0.01) {
+            debugPrint("Errorbound is now " + sequenceBound.sequenceEpsilon);
+            if (lastEps < sequenceBound.sequenceEpsilon && sequenceBound.sequenceEpsilon - lastEps > 0.01) {
                 System.err.println("Error. Bounds got looser.");
                 //System.exit(-1);
             }
             lastEps = sequenceBound.sequenceEpsilon;
         }
-        if(!isStable(stabilityThreshold))
+        if (!isStable(stabilityThreshold))
             sequenceBound.status = Status.Unstable;
         loopTasks.waitForFinish();
         minimizingEcalc.tasks.waitForFinish();
         BigDecimal averageReduction = BigDecimal.ZERO;
         int totalMinimizations = numConfsEnergied + numPartialMinimizations;
-        if(totalMinimizations> 0)
+        if (totalMinimizations > 0)
             averageReduction = cumulativeZCorrection
                     .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));
-        debugPrint(String.format("Average Z reduction per minimization: %12.6e",averageReduction));
+        debugPrint(String.format("Average Z reduction per minimization: %12.6e", averageReduction));
     }
 
     protected void debugPrint(String s) {
-        if(debug)
+        if (debug)
             System.out.println(s);
     }
 
     protected void profilePrint(String s) {
-        if(profileOutput)
+        if (profileOutput)
             System.out.println(s);
     }
 
@@ -551,7 +554,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
 
         parallelism = val;
         //loopTasks = minimizingEcalc.tasks;
-        if(loopTasks == null)
+        if (loopTasks == null)
             loopTasks = parallelism.makeTaskExecutor(1000);
         contexts.allocate(parallelism.getParallelism());
     }
@@ -566,6 +569,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         cumulativeZCorrection = cumulativeZCorrection.add(upper.subtract(corrected));
         upperReduction_PartialMin = upperReduction_PartialMin.add(upper.subtract(corrected));
     }
+
     private void recordReduction(double lowerBound, double upperBound, double energy) {
         BigDecimal lowerBoundWeight = bc.calc(lowerBound);
         BigDecimal upperBoundWeight = bc.calc(upperBound);
@@ -577,18 +581,18 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
     }
 
     private void debugBreakOnConf(int[] conf) {
-        int[] confOfInterest = new int[]{4,5,8,18};
-        if(conf.length != confOfInterest.length)
+        int[] confOfInterest = new int[]{4, 5, 8, 18};
+        if (conf.length != confOfInterest.length)
             return;
         boolean match = true;
-        for(int i = 0; i < confOfInterest.length; i++) {
-            if(conf[i] != confOfInterest[i]) {
+        for (int i = 0; i < confOfInterest.length; i++) {
+            if (conf[i] != confOfInterest[i]) {
                 match = false;
                 break;
             }
         }
-        if(match)
-            System.out.println("Matched "+SimpleConfSpace.formatConfRCs(conf));
+        if (match)
+            System.out.println("Matched " + SimpleConfSpace.formatConfRCs(conf));
     }
 
     // We want to process internal nodes without worrying about the bound too much until we have
@@ -617,8 +621,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
 
     protected void tightenBoundInPhases(SingleSequenceSHARKStarBound bound) {
         PriorityQueue<SHARKStarNode> queue = bound.fringeNodes;
-        if(queue.isEmpty())
+        if (queue.isEmpty())
             bound.updateBound();
+        if (queue.peek().getConfSearchNode().getSubtreeUpperBound().compareTo(BigDecimal.ONE) < 1)
+            System.err.println("Nope. bad.");
         assert (!queue.isEmpty());
         System.out.println(String.format("Current overall error bound: %12.10f, spread of [%12.6e, %12.6e]",
                 bound.sequenceEpsilon, bound.getValues().calcLowerBound(),
@@ -635,20 +641,20 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         Stopwatch leafTime = new Stopwatch();
         double leafTimeSum = 0;
         double internalTimeSum = 0;
-        BigDecimal[] ZSums = new BigDecimal[]{internalZ,leafZ};
+        BigDecimal[] ZSums = new BigDecimal[]{internalZ, leafZ};
         populateQueues(queue, internalNodes, leafNodes, internalZ, leafZ, ZSums);
         bound.updateBound();
-        debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]",bound.getValues().calcLowerBound(),
+        debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]", bound.getValues().calcLowerBound(),
                 bound.getValues().calcUpperBound()));
         internalZ = ZSums[0];
         leafZ = ZSums[1];
         System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
-        if(MathTools.isLessThan(internalZ, leafZ)) {
+        if (MathTools.isLessThan(internalZ, leafZ)) {
             numNodes = leafNodes.size();
-            System.out.println("Processing "+numNodes+" leaf nodes...");
+            System.out.println("Processing " + numNodes + " leaf nodes...");
             leafTime.reset();
             leafTime.start();
-            for(SHARKStarNode leafNode: leafNodes) {
+            for (SHARKStarNode leafNode : leafNodes) {
                 processFullConfNode(bound, newNodes, leafNode, leafNode.getConfSearchNode());
                 leafNode.markUpdated();
                 debugPrint("Processing Node: " + leafNode.getConfSearchNode().toString());
@@ -656,40 +662,38 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
             loopTasks.waitForFinish();
             leafTime.stop();
             leafTimeAverage = leafTime.getTimeS();
-            System.out.println("Processed "+numNodes+" leaves in "+leafTimeAverage+" seconds.");
-            if(maxMinimizations < parallelism.numThreads)
+            System.out.println("Processed " + numNodes + " leaves in " + leafTimeAverage + " seconds.");
+            if (maxMinimizations < parallelism.numThreads)
                 maxMinimizations++;
             internalQueue.addAll(internalNodes);
-        }
-        else {
+        } else {
             numNodes = internalNodes.size();
-            System.out.println("Processing "+numNodes+" internal nodes...");
+            System.out.println("Processing " + numNodes + " internal nodes...");
             internalTime.reset();
             internalTime.start();
             for (SHARKStarNode internalNode : internalNodes) {
-                if(!MathTools.isGreaterThan(internalNode.getLowerBound(),BigDecimal.ONE) &&
+                if (!MathTools.isGreaterThan(internalNode.getLowerBound(), BigDecimal.ONE) &&
                         MathTools.isGreaterThan(
-                                MathTools.bigDivide(internalNode.getUpperBound(),rootNode.getUpperBound(),
+                                MathTools.bigDivide(internalNode.getUpperBound(), rootNode.getUpperBound(),
                                         PartitionFunction.decimalPrecision),
-                                new BigDecimal(1-targetEpsilon))
+                                new BigDecimal(1 - targetEpsilon))
                 ) {
                     loopTasks.submit(() -> {
                         boundLowestBoundConfUnderNode(bound, internalNode, newNodes);
                         return null;
                     }, (ignored) -> {
                     });
-                }
-                else {
+                } else {
                     processPartialConfNode(bound, newNodes, internalNode, internalNode.getConfSearchNode());
                 }
                 internalNode.markUpdated();
             }
             loopTasks.waitForFinish();
             internalTime.stop();
-            internalTimeSum=internalTime.getTimeS();
-            internalTimeAverage = internalTimeSum/Math.max(1,internalNodes.size());
-            debugPrint("Internal node time :"+internalTimeSum+", average "+internalTimeAverage);
-            numInternalNodesProcessed+=internalNodes.size();
+            internalTimeSum = internalTime.getTimeS();
+            internalTimeAverage = internalTimeSum / Math.max(1, internalNodes.size());
+            debugPrint("Internal node time :" + internalTimeSum + ", average " + internalTimeAverage);
+            numInternalNodesProcessed += internalNodes.size();
             leafQueue.addAll(leafNodes);
         }
         if (bound.sequenceEpsilon <= targetEpsilon)
@@ -701,8 +705,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         int maxNodes = 10;
         System.out.println("Node heap:");
         List<SHARKStarNode> nodes = new ArrayList<>();
-        while(!queue.isEmpty() && nodes.size() < 10)
-        {
+        while (!queue.isEmpty() && nodes.size() < 10) {
             SHARKStarNode node = queue.poll();
             System.out.println(node.getConfSearchNode());
             nodes.add(node);
@@ -722,9 +725,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         List<SHARKStarNode> leftoverLeaves = new ArrayList<>();
         //int maxNodes = 1000;
         int maxNodes = 1;
-        if(leafTimeAverage > 0)
-            maxNodes = Math.max(maxNodes, (int)Math.floor(0.1*leafTimeAverage/internalTimeAverage));
-        while(!queue.isEmpty() && (internalQueue.size() < maxNodes || leafQueue.size() < maxMinimizations)){
+        if (leafTimeAverage > 0)
+            maxNodes = Math.max(maxNodes, (int) Math.floor(0.1 * leafTimeAverage / internalTimeAverage));
+        while (!queue.isEmpty() && (internalQueue.size() < maxNodes || leafQueue.size() < maxMinimizations)) {
             SHARKStarNode curNode = queue.poll();
             Node node = curNode.getConfSearchNode();
             ConfIndex index = new ConfIndex(RCs.getNumPos());
@@ -732,17 +735,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
             double correctgscore = correctionMatrix.confE(node.assignments);
             double hscore = node.getConfLowerBound() - node.gscore;
             double confCorrection = Math.min(correctgscore, node.rigidScore) + hscore;
-            if(!node.isMinimized() && node.getConfLowerBound() < confCorrection
+            if (!node.isMinimized() && node.getConfLowerBound() < confCorrection
                     && node.getConfLowerBound() - confCorrection > 1e-5) {
-                if(confCorrection < node.getConfLowerBound()) {
+                if (confCorrection < node.getConfLowerBound()) {
                     System.out.println("huh!?");
                 }
-                System.out.println("Correction from "+correctionMatrix.sourceECalc+":"+node.gscore+"->"+correctgscore);
+                System.out.println("Correction from " + correctionMatrix.sourceECalc + ":" + node.gscore + "->" + correctgscore);
                 recordCorrection(node.getConfLowerBound(), correctgscore - node.gscore);
 
                 node.gscore = correctgscore;
                 if (confCorrection > node.rigidScore) {
-                    System.out.println("Overcorrected"+SimpleConfSpace.formatConfRCs(node.assignments)+": " + confCorrection + " > " + node.rigidScore);
+                    System.out.println("Overcorrected" + SimpleConfSpace.formatConfRCs(node.assignments) + ": " + confCorrection + " > " + node.rigidScore);
                     node.gscore = node.rigidScore;
                     confCorrection = node.rigidScore + hscore;
                 }
@@ -755,8 +758,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
 
             if (node.getLevel() < RCs.getNumPos()) {
                 internalQueue.add(curNode);
-            }
-            else if(shouldMinimize(node) && !correctedNode(leftoverLeaves, curNode, node)) {
+            } else if (shouldMinimize(node) && !correctedNode(leftoverLeaves, curNode, node)) {
                 leafQueue.add(curNode);
             }
 
@@ -770,9 +772,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
     private BigDecimal fillListFromQueue(List<SHARKStarNode> list, Queue<SHARKStarNode> queue, int max) {
         BigDecimal sum = BigDecimal.ZERO;
         List<SHARKStarNode> leftovers = new ArrayList<>();
-        while(!queue.isEmpty() && list.size() < max) {
+        while (!queue.isEmpty() && list.size() < max) {
             SHARKStarNode curNode = queue.poll();
-            if(correctedNode(leftovers, curNode, curNode.getConfSearchNode())) {
+            if (correctedNode(leftovers, curNode, curNode.getConfSearchNode())) {
                 continue;
             }
             BigDecimal diff = curNode.getUpperBound().subtract(curNode.getLowerBound());
@@ -785,31 +787,31 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
 
     protected void loopCleanup(SingleSequenceSHARKStarBound bound, List<SHARKStarNode> newNodes, Stopwatch loopWatch, int numNodes) {
         PriorityQueue<SHARKStarNode> queue = bound.fringeNodes;
-        for(SHARKStarNode node: newNodes) {
-            if(node != null)
+        for (SHARKStarNode node : newNodes) {
+            if (node != null)
                 queue.add(node);
         }
         bound.updateBound();
         loopWatch.stop();
         double loopTime = loopWatch.getTimeS();
-        profilePrint("Processed "+numNodes+" this loop, spawning "+newNodes.size()+" in "+loopTime+", "+stopwatch.getTime()+" so far");
+        profilePrint("Processed " + numNodes + " this loop, spawning " + newNodes.size() + " in " + loopTime + ", " + stopwatch.getTime() + " so far");
         loopWatch.reset();
         loopWatch.start();
         processPreminimization(bound, minimizingEcalc);
-        profilePrint("Preminimization time : "+loopWatch.getTime(2));
+        profilePrint("Preminimization time : " + loopWatch.getTime(2));
         double curEpsilon = bound.sequenceEpsilon;
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         loopWatch.stop();
         cleanupTime = loopWatch.getTimeS();
         //double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, correctiongscorer, correctionhscorer);
-        System.out.println(String.format("Loop complete. Bounds are now [%12.6e,%12.6e]",bound.getValues().calcLowerBound(),
+        System.out.println(String.format("Loop complete. Bounds are now [%12.6e,%12.6e]", bound.getValues().calcLowerBound(),
                 bound.getValues().calcUpperBound()));
     }
 
     protected boolean correctedNode(List<SHARKStarNode> newNodes, SHARKStarNode curNode, Node node) {
-        assert(curNode != null && node != null);
+        assert (curNode != null && node != null);
         double confCorrection = correctionMatrix.confE(node.assignments);
-        if((node.getLevel() == RCs.getNumPos() && node.getConfLowerBound()< confCorrection)
+        if ((node.getLevel() == RCs.getNumPos() && node.getConfLowerBound() < confCorrection)
                 || node.gscore < confCorrection) {
             double oldg = node.gscore;
             node.gscore = confCorrection;
@@ -825,7 +827,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
     private SHARKStarNode drillDown(SingleSequenceSHARKStarBound bound, List<SHARKStarNode> newNodes,
                                     SHARKStarNode curNode, Node node) {
         PriorityQueue<SHARKStarNode> queue = bound.fringeNodes;
-        try(ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+        try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
             ScoreContext context = checkout.get();
             ConfIndex confIndex = context.index;
             node.index(confIndex);
@@ -876,7 +878,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
                 }
                 if (child.getLevel() == RCs.getNumPos()) {
                     double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                    confRigid=confRigid-node.gscore+node.rigidScore;
+                    confRigid = confRigid - node.gscore + node.rigidScore;
 
                     child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                     double confCorrection = correctionMatrix.confE(child.assignments);
@@ -897,7 +899,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
 
 
                 SHARKStarNode SHARKStarNodeChild = curNode.makeChild(child);
-                if(child.isMinimized() && child.getLevel() == RCs.getNumPos())
+                if (child.isMinimized() && child.getLevel() == RCs.getNumPos())
                     bound.addFinishedNode(SHARKStarNodeChild);
                 if (Double.isNaN(child.rigidScore))
                     System.out.println("Huh!?");
@@ -927,7 +929,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         int numNodes = 0;
         Stopwatch leafLoop = new Stopwatch().start();
         Stopwatch overallLoop = new Stopwatch().start();
-        while(!drillQueue.isEmpty()) {
+        while (!drillQueue.isEmpty()) {
             numNodes++;
             SHARKStarNode curNode = drillQueue.poll();
             Node node = curNode.getConfSearchNode();
@@ -938,17 +940,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
                 SHARKStarNode nextNode = drillDown(bound, newNodes, curNode, node);
                 newNodes.remove(nextNode);
                 drillQueue.add(nextNode);
-            }
-            else {
+            } else {
                 newNodes.add(curNode);
             }
 
             //debugHeap(drillQueue, true);
-            if(leafLoop.getTimeS() > 1) {
+            if (leafLoop.getTimeS() > 1) {
                 leafLoop.stop();
                 leafLoop.reset();
                 leafLoop.start();
-                System.out.println(String.format("Processed %d, %s so far. Bounds are now [%12.6e,%12.6e]",numNodes, overallLoop.getTime(2),rootNode.getLowerBound(),rootNode.getUpperBound()));
+                System.out.println(String.format("Processed %d, %s so far. Bounds are now [%12.6e,%12.6e]", numNodes, overallLoop.getTime(2), rootNode.getLowerBound(), rootNode.getUpperBound()));
             }
         }
         generatedNodes.addAll(newNodes);
@@ -994,14 +995,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
                         double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         child.gscore = diff;
                         //Correct for incorrect gscore.
-                        rigiddiff=rigiddiff-node.gscore+node.rigidScore;
+                        rigiddiff = rigiddiff - node.gscore + node.rigidScore;
                         child.rigidScore = rigiddiff;
 
                         double confLowerBound = child.gscore + hdiff;
                         double confUpperbound = rigiddiff + maxhdiff;
                         child.computeNumConformations(RCs);
                         double lowerbound = minimizingEmat.confE(child.assignments);
-                        if(diff < confCorrection) {
+                        if (diff < confCorrection) {
                             recordCorrection(confLowerBound, confCorrection - diff);
                             confLowerBound = confCorrection + hdiff;
                         }
@@ -1010,16 +1011,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
                     }
                     if (child.getLevel() == RCs.getNumPos()) {
                         double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                        confRigid=confRigid-node.gscore+node.rigidScore;
+                        confRigid = confRigid - node.gscore + node.rigidScore;
 
                         child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                         double confCorrection = correctionMatrix.confE(child.assignments);
                         double lowerbound = minimizingEmat.confE(child.assignments);
 
-                        if(lowerbound < confCorrection) {
+                        if (lowerbound < confCorrection) {
                             recordCorrection(lowerbound, confCorrection - lowerbound);
                         }
-                        checkBounds(confCorrection,confRigid);
+                        checkBounds(confCorrection, confRigid);
                         child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
                         child.gscore = confCorrection;
                         child.rigidScore = confRigid;
@@ -1027,14 +1028,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
                         progress.reportLeafNode(child.gscore, queue.size(), bound.sequenceEpsilon);
                     }
                     partialTime.stop();
-                    loopPartialTime+=partialTime.getTimeS();
+                    loopPartialTime += partialTime.getTimeS();
 
 
                     return child;
                 }
 
             }, (Node child) -> {
-                if(Double.isNaN(child.rigidScore))
+                if (Double.isNaN(child.rigidScore))
                     System.out.println("Huh!?");
                 SHARKStarNode SHARKStarNodeChild = curNode.makeChild(child);
                 // collect the possible children
@@ -1043,8 +1044,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
                 }
                 if (!child.isMinimized()) {
                     newNodes.add(SHARKStarNodeChild);
-                }
-                else {
+                } else {
                     SHARKStarNodeChild.computeEpsilonErrorBounds();
                     bound.addFinishedNode(SHARKStarNodeChild);
                 }
@@ -1059,7 +1059,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
                                        SHARKStarNode curNode, Node node) {
         PriorityQueue<SHARKStarNode> queue = bound.fringeNodes;
         double confCorrection = correctionMatrix.confE(node.assignments);
-        if(node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
+        if (node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
             double oldg = node.gscore;
             node.gscore = confCorrection;
             recordCorrection(oldg, confCorrection - oldg);
@@ -1087,21 +1087,21 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
                         checkConfLowerBound(node, energy);
                         if (newConfUpper > oldConfUpper) {
                             System.err.println("Upper bounds got worse after minimization:" + newConfUpper
-                                    + " > " + (oldConfUpper)+". Rejecting minimized energy.");
-                            System.err.println("Node info: "+node);
+                                    + " > " + (oldConfUpper) + ". Rejecting minimized energy.");
+                            System.err.println("Node info: " + node);
 
                             newConfUpper = oldConfUpper;
                             newConfLower = oldConfUpper;
                         }
-                        curNode.setBoundsFromConfLowerAndUpper(newConfLower,newConfUpper);
+                        curNode.setBoundsFromConfLowerAndUpper(newConfLower, newConfUpper);
                         double oldgscore = node.gscore;
                         node.gscore = newConfLower;
                         String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                         debugPrint(out);
                         curNode.markUpdated();
-                        synchronized(this) {
+                        synchronized (this) {
                             numConfsEnergied++;
-                            minList.set(conf.getAssignments().length-1,minList.get(conf.getAssignments().length-1)+1);
+                            minList.set(conf.getAssignments().length - 1, minList.get(conf.getAssignments().length - 1) + 1);
                             recordReduction(oldConfLower, oldConfUpper, energy);
                             printMinimizationOutput(node, newConfLower, oldgscore, bound.sequenceEpsilon);
                             bound.addFinishedNode(curNode);
@@ -1114,7 +1114,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
                 // Dummy function. We're not doing anything here.
                 (Node child) -> {
                     progress.reportLeafNode(node.gscore, queue.size(), bound.sequenceEpsilon);
-                    if(!node.isMinimized())
+                    if (!node.isMinimized())
                         newNodes.add(curNode);
 
                 });
@@ -1124,17 +1124,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         if (printMinimizedConfs) {
             System.out.println("[" + SimpleConfSpace.formatConfRCs(node.assignments) + "]"
                     + String.format("conf:%4d, score:%12.6f, lower:%12.6f, corrected:%12.6f energy:%12.6f"
-                            +", bounds:[%12e, %12e], delta:%12.6f, time:%10s",
+                            + ", bounds:[%12e, %12e], delta:%12.6f, time:%10s",
                     numConfsEnergied, oldgscore, minimizingEmat.confE(node.assignments),
                     correctionMatrix.confE(node.assignments), newConfLower,
-                    rootNode.getConfSearchNode().getSubtreeLowerBound(),rootNode.getConfSearchNode().getSubtreeUpperBound(),
+                    rootNode.getConfSearchNode().getSubtreeLowerBound(), rootNode.getConfSearchNode().getSubtreeUpperBound(),
                     epsilonBound, stopwatch.getTime(2)));
 
         }
     }
 
     private void checkConfLowerBound(Node node, double energy) {
-        if(energy < node.getConfLowerBound()) {
+        if (energy < node.getConfLowerBound()) {
             System.err.println("Bounds are incorrect:" + (node.getConfLowerBound()) + " > "
                     + energy);
             if (energy < 10)
@@ -1144,15 +1144,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
     }
 
 
-    private void checkBounds(double lower, double upper)
-    {
+    private void checkBounds(double lower, double upper) {
         if (upper < lower && upper - lower > 1e-5 && upper < 10)
             debugPrint("Bounds incorrect.");
     }
 
     private void computeEnergyCorrection(ConfAnalyzer.ConfAnalysis analysis, ConfSearch.ScoredConf conf,
                                          ConfEnergyCalculator ecalc, double epsilonBound) {
-        if(conf.getAssignments().length < 3)
+        if (conf.getAssignments().length < 3)
             return;
         //System.out.println("Analysis:"+analysis);
         EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);
@@ -1163,20 +1162,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
         //System.out.println("Difference Analysis " + diff);
         List<TupE> sortedPairwiseTerms2 = new ArrayList<>();
-        for (int pos = 0; pos < diff.getNumPos(); pos++)
-        {
-            for (int rc = 0; rc < diff.getNumConfAtPos(pos); rc++)
-            {
-                for (int pos2 = 0; pos2 < diff.getNumPos(); pos2++)
-                {
-                    for (int rc2 = 0; rc2 < diff.getNumConfAtPos(pos2); rc2++)
-                    {
-                        if(pos >= pos2)
+        for (int pos = 0; pos < diff.getNumPos(); pos++) {
+            for (int rc = 0; rc < diff.getNumConfAtPos(pos); rc++) {
+                for (int pos2 = 0; pos2 < diff.getNumPos(); pos2++) {
+                    for (int rc2 = 0; rc2 < diff.getNumConfAtPos(pos2); rc2++) {
+                        if (pos >= pos2)
                             continue;
                         double sum = 0;
-                        sum+=diff.getOneBody(pos, rc);
-                        sum+=diff.getPairwise(pos, rc, pos2, rc2);
-                        sum+=diff.getOneBody(pos2,rc2);
+                        sum += diff.getOneBody(pos, rc);
+                        sum += diff.getPairwise(pos, rc, pos2, rc2);
+                        sum += diff.getOneBody(pos2, rc2);
                         TupE tupe = new TupE(new RCTuple(pos, rc, pos2, rc2), sum);
                         sortedPairwiseTerms2.add(tupe);
                     }
@@ -1189,28 +1184,27 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         double minDifference = 0.9;
         double triplethreshhold = 0.3;
         double maxDiff = sortedPairwiseTerms2.get(0).E;
-        for(int i = 0; i < sortedPairwiseTerms2.size(); i++)
-        {
+        for (int i = 0; i < sortedPairwiseTerms2.size(); i++) {
             TupE tupe = sortedPairwiseTerms2.get(i);
             double pairDiff = tupe.E;
-            if(pairDiff < minDifference &&  maxDiff - pairDiff > threshhold)
+            if (pairDiff < minDifference && maxDiff - pairDiff > threshhold)
                 continue;
             maxDiff = Math.max(maxDiff, tupe.E);
             int pos1 = tupe.tup.pos.get(0);
             int pos2 = tupe.tup.pos.get(1);
             int localMinimizations = 0;
-            for(int pos3 = 0; pos3 < diff.getNumPos(); pos3++) {
+            for (int pos3 = 0; pos3 < diff.getNumPos(); pos3++) {
                 if (pos3 == pos2 || pos3 == pos1)
                     continue;
                 RCTuple tuple = makeTuple(conf, pos1, pos2, pos3);
                 double tupleBounds = rigidEmat.getInternalEnergy(tuple) - minimizingEmat.getInternalEnergy(tuple);
-                if(tupleBounds < triplethreshhold)
+                if (tupleBounds < triplethreshhold)
                     continue;
-                minList.set(tuple.size()-1,minList.get(tuple.size()-1)+1);
+                minList.set(tuple.size() - 1, minList.get(tuple.size() - 1) + 1);
                 computeDifference(tuple, minimizingEcalc);
                 localMinimizations++;
             }
-            numPartialMinimizations+=localMinimizations;
+            numPartialMinimizations += localMinimizations;
             progress.reportPartialMinimization(localMinimizations, epsilonBound);
         }
         correctionTime.stop();
@@ -1218,14 +1212,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
     }
 
 
-
-
     private void computeDifference(RCTuple tuple, ConfEnergyCalculator ecalc) {
         computedCorrections = true;
-        if(correctedTuples.contains(tuple.stringListing()))
+        if (correctedTuples.contains(tuple.stringListing()))
             return;
         correctedTuples.add(tuple.stringListing());
-        if(correctionMatrix.hasHigherOrderTermFor(tuple))
+        if (correctionMatrix.hasHigherOrderTermFor(tuple))
             return;
         minimizingEcalc.calcEnergyAsync(tuple, (minimizedTuple) -> {
             double tripleEnergy = minimizedTuple.energy;
@@ -1234,15 +1226,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
             if (tripleEnergy - lowerbound > 0) {
                 double correction = tripleEnergy - lowerbound;
                 correctionMatrix.setHigherOrder(tuple, correction);
-            }
-            else
-                System.err.println("Negative correction for "+tuple.stringListing());
+            } else
+                System.err.println("Negative correction for " + tuple.stringListing());
         });
     }
 
     private RCTuple makeTuple(ConfSearch.ScoredConf conf, int... positions) {
         RCTuple out = new RCTuple();
-        for(int pos: positions)
+        for (int pos : positions)
             out = out.addRC(pos, conf.getAssignments()[pos]);
         return out;
     }
@@ -1261,11 +1252,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         //Only continue if we have something to minimize
         for (SHARKStarNode conf : topConfs) {
             RCTuple confTuple = conf.toTuple();
-            if(minimizingEmat.getInternalEnergy(confTuple) == rigidEmat.getInternalEnergy(confTuple))
+            if (minimizingEmat.getInternalEnergy(confTuple) == rigidEmat.getInternalEnergy(confTuple))
                 continue;
             numPartialMinimizations++;
-            minList.set(confTuple.size()-1,minList.get(confTuple.size()-1)+1);
-            if (confTuple.size() > 2 && confTuple.size() < RCs.getNumPos ()){
+            minList.set(confTuple.size() - 1, minList.get(confTuple.size() - 1) + 1);
+            if (confTuple.size() > 2 && confTuple.size() < RCs.getNumPos()) {
                 minimizingEcalc.tasks.submit(() -> {
                     computeTupleCorrection(minimizingEcalc, conf.toTuple(), bound.sequenceEpsilon);
                     return null;
@@ -1274,7 +1265,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
             }
         }
         //minimizingEcalc.tasks.waitForFinish();
-        if(overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)
+        if (overlap.size() > 3 && !correctionMatrix.hasHigherOrderTermFor(overlap)
                 && minimizingEmat.getInternalEnergy(overlap) != rigidEmat.getInternalEnergy(overlap)) {
             minimizingEcalc.tasks.submit(() -> {
                 computeTupleCorrection(ecalc, overlap, bound.sequenceEpsilon);
@@ -1286,12 +1277,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
     }
 
     private void computeTupleCorrection(ConfEnergyCalculator ecalc, RCTuple overlap, double epsilonBound) {
-        if(correctionMatrix.hasHigherOrderTermFor(overlap))
+        if (correctionMatrix.hasHigherOrderTermFor(overlap))
             return;
         double pairwiseLower = minimizingEmat.getInternalEnergy(overlap);
         double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
         progress.reportPartialMinimization(1, epsilonBound);
-        if(partiallyMinimizedLower > pairwiseLower)
+        if (partiallyMinimizedLower > pairwiseLower)
             synchronized (correctionMatrix) {
                 correctionMatrix.setHigherOrder(overlap, partiallyMinimizedLower - pairwiseLower);
             }
@@ -1300,7 +1291,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
 
     private List<SHARKStarNode> getTopConfs(PriorityQueue<SHARKStarNode> queue, int numConfs) {
         List<SHARKStarNode> topConfs = new ArrayList<>();
-        while (topConfs.size() < numConfs&& !queue.isEmpty()) {
+        while (topConfs.size() < numConfs && !queue.isEmpty()) {
             SHARKStarNode nextLowestConf = queue.poll();
             topConfs.add(nextLowestConf);
         }
@@ -1310,9 +1301,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
 
     private RCTuple findLargestOverlap(RCTuple conf, List<SHARKStarNode> otherConfs, int minResidues) {
         RCTuple overlap = conf;
-        for(SHARKStarNode other: otherConfs) {
+        for (SHARKStarNode other : otherConfs) {
             overlap = overlap.intersect(other.toTuple());
-            if(overlap.size() < minResidues)
+            if (overlap.size() < minResidues)
                 break;
         }
         return overlap;
@@ -1345,10 +1336,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
 
     public static class Values extends PartitionFunction.Values {
 
-        public Values ()
-        {
+        public Values() {
             pstar = MathTools.BigPositiveInfinity;
         }
+
         @Override
         public BigDecimal calcUpperBound() {
             return pstar;
@@ -1366,7 +1357,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
     }
 
 
-
     protected static class ScoreContext {
         public ConfIndex index;
         public AStarScorer gscorer;
@@ -1379,9 +1369,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
     private class SHARKStarNodeScorer implements AStarScorer {
 
         private EnergyMatrix emat;
+
         public SHARKStarNodeScorer(EnergyMatrix emat) {
             this.emat = emat;
         }
+
         @Override
         public AStarScorer make() {
             return new SHARKStarNodeScorer(emat);
@@ -1391,6 +1383,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         public double calc(ConfIndex confIndex, Sequence seq, SimpleConfSpace confSpace) {
             return calc(confIndex, seq.makeRCs(confSpace));
         }
+
         /* Assumes: that the rcs contain only the sequence in question. In this case, we need only
          *  sum over all unassigned positions. Returns a lower bound on the ensemble energy.
          *  Note: I currently exponentiate and log for compatibilty. This could be optimized.*/
@@ -1398,20 +1391,20 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         public double calc(ConfIndex confIndex, edu.duke.cs.osprey.astar.conf.RCs rcs) {
             double baseEnergy = 0;
             BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
-            for(int definedPos: confIndex.definedPos) {
+            for (int definedPos : confIndex.definedPos) {
                 int rot1 = confIndex.findDefined(definedPos);
                 baseEnergy += emat.getEnergy(definedPos, rot1);
-                for(int definedPos2: confIndex.definedPos) {
-                    if(definedPos2 >= definedPos)
+                for (int definedPos2 : confIndex.definedPos) {
+                    if (definedPos2 >= definedPos)
                         continue;
                     int rot2 = confIndex.findDefined(definedPos2);
                     baseEnergy += emat.getEnergy(definedPos, rot1, definedPos2, rot2);
                 }
             }
             BigDecimal pfuncBound = BigDecimal.ONE;
-            for (int undefinedPos1: confIndex.undefinedPos) {
+            for (int undefinedPos1 : confIndex.undefinedPos) {
                 double bestEnergy = 0;
-                for(int rot1: rcs.get(undefinedPos1)) {
+                for (int rot1 : rcs.get(undefinedPos1)) {
                     double rotEnergy = emat.getEnergy(undefinedPos1, rot1);
                     for (int definedPos : confIndex.definedPos) {
                         rotEnergy += emat.getEnergy(undefinedPos1, rot1, definedPos,
@@ -1421,7 +1414,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
                         if (undefinedPos2 >= undefinedPos1)
                             continue;
                         double bestPair = Double.MAX_VALUE;
-                        for(int rot2: rcs.get(undefinedPos2)) {
+                        for (int rot2 : rcs.get(undefinedPos2)) {
                             bestPair = Math.min(bestPair, emat.getEnergy(undefinedPos1, rot1, undefinedPos2, rot2));
                         }
                     }
@@ -1429,7 +1422,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
                 }
                 pfuncBound = pfuncBound.multiply(bcalc.calc(bestEnergy));
             }
-            return baseEnergy+bcalc.freeEnergy(pfuncBound);
+            return baseEnergy + bcalc.freeEnergy(pfuncBound);
         }
 
         @Override
@@ -1476,7 +1469,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
 
         @Override
         public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
-            init(confSearch,null, numConfsBeforePruning, targetEpsilon);
+            init(confSearch, null, numConfsBeforePruning, targetEpsilon);
         }
 
         @Override
@@ -1484,7 +1477,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
             values = new Values();
             status = Status.Estimating;
         }
-
 
 
         @Override
@@ -1516,9 +1508,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
         public void compute(int maxNumConfs) {
             multisequenceBound.computeForSequence(maxNumConfs, this);
             updateBound();
-            if(sequenceEpsilon < targetEpsilon) {
+            if (sequenceEpsilon < targetEpsilon) {
                 status = Status.Estimated;
-                if(values.qstar.compareTo(BigDecimal.ZERO) == 0) {
+                if (values.qstar.compareTo(BigDecimal.ZERO) == 0) {
                     status = Status.Unstable;
                 }
             }
@@ -1556,17 +1548,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction{
             values.pstar = upperBound;
             values.qstar = lowerBound;
             values.qprime = upperBound;
-            if(upperBound.subtract(lowerBound).compareTo(BigDecimal.ONE)<1)
-            {
+            if (upperBound.subtract(lowerBound).compareTo(BigDecimal.ONE) < 1) {
                 sequenceEpsilon = 0;
-            }
-            else {
+            } else {
+                epsilonBound = confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound)
+                        .divide(confSearchNode.subtreeUpperBound, RoundingMode.HALF_UP).doubleValue();
                 sequenceEpsilon = upperBound.subtract(lowerBound)
                         .divide(upperBound, RoundingMode.HALF_UP).doubleValue();
-                //debugChecks(values.pstar, values.qstar, epsilonBound);
             }
-
         }
     }
 }
-
