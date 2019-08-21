@@ -36,6 +36,7 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import java.io.File;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -46,6 +47,7 @@ import edu.duke.cs.osprey.lute.LUTEPfunc;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound;
 import edu.duke.cs.osprey.sharkstar.SHARKStarBound;
 
 import java.math.BigInteger;
@@ -58,7 +60,8 @@ public class PartitionFunctionFactory {
         MARKStar,
         GradientDescent,
         LUTE,
-        SHARKStar
+        SHARKStar,
+        MSSHARKStar,
     }
 
     private ConfEnergyCalculator confUpperBoundECalc;
@@ -70,6 +73,8 @@ public class PartitionFunctionFactory {
     private UpdatingEnergyMatrix MARKStarEmat = null;
     private String state = "(undefined)";
     private SHARKStarBound preComputedFlex = null;
+    private MultiSequenceSHARKStarBound preComputedMSFlex = null;
+    private MultiSequenceSHARKStarBound fullMSBound = null;
 
     public PartitionFunctionFactory(SimpleConfSpace confSpace, ConfEnergyCalculator confECalc, String state) {
         this.state = state;
@@ -97,6 +102,17 @@ public class PartitionFunctionFactory {
         this.pfuncImpl = PartitionFunctionImpl.SHARKStar;
     }
 
+    public void setUseMSSHARKStar(ConfEnergyCalculator rigidConfECalc, MultiSequenceSHARKStarBound preComputedFlex){
+        this.preComputedMSFlex = preComputedFlex;
+        setUseMSSHARKStar(rigidConfECalc);
+    }
+
+    public void setUseMSSHARKStar(ConfEnergyCalculator rigidConfECalc) {
+        this.confUpperBoundECalc = rigidConfECalc;
+        this.pfuncImpl = PartitionFunctionImpl.MSSHARKStar;
+    }
+
+
     public void setUseGradientDescent() {
         this.pfuncImpl = PartitionFunctionImpl.GradientDescent;
     }
@@ -115,10 +131,18 @@ public class PartitionFunctionFactory {
 
 
     public PartitionFunction makePartitionFunctionFor(RCs rcs, BigInteger confSpaceSize, double epsilon) {
-        return makePartitionFunctionFor(rcs, confSpaceSize, epsilon, null);
+        return makePartitionFunctionFor(rcs, confSpaceSize, epsilon, null, null);
     }
 
     public PartitionFunction makePartitionFunctionFor(RCs rcs, BigInteger confSpaceSize, double epsilon, PruningMatrix pmat) {
+        return makePartitionFunctionFor(rcs, confSpaceSize, epsilon, pmat,null);
+    }
+
+    public PartitionFunction makePartitionFunctionFor(RCs rcs, BigInteger confSpaceSize, double epsilon, Sequence seq) {
+        return makePartitionFunctionFor(rcs, confSpaceSize, epsilon, null,seq);
+    }
+
+    public PartitionFunction makePartitionFunctionFor(RCs rcs, BigInteger confSpaceSize, double epsilon, PruningMatrix pmat, Sequence seq) {
         PartitionFunction pfunc = null;
         switch (pfuncImpl) {
             case GradientDescent:
@@ -161,6 +185,25 @@ public class PartitionFunctionFactory {
                 SHARKStarBound.setCorrections(MARKStarEmat);
                 SHARKStarBound.init(epsilon);
                 pfunc = SHARKStarBound;
+                break;
+            case MSSHARKStar:
+                if(fullMSBound == null) {
+                    minimizingEmat = makeEmat(confEcalc, "minimizing");
+                    if(MARKStarEmat == null)
+                        MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
+                    if (preComputedFlex == null) {
+                        fullMSBound = new MultiSequenceSHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
+                                minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
+                    } else {
+                        fullMSBound = new MultiSequenceSHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
+                                minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism, preComputedMSFlex);
+                    }
+                    fullMSBound.setCorrections(MARKStarEmat);
+                    fullMSBound.init(epsilon);
+                }
+                pfunc = fullMSBound;
+                if(seq != null)
+                    pfunc = fullMSBound.getPartitionFunctionForSequence(seq);
                 break;
         }
         return pfunc;

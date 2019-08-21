@@ -362,6 +362,10 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
         return children;
     }
 
+    public boolean isLeaf() {
+        return getChildren() == null || getChildren().size() < 1;
+    }
+
     public static enum Type {
         internal,
         boundedLeaf,

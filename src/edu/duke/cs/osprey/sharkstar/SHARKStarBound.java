@@ -225,14 +225,6 @@ public class SHARKStarBound implements PartitionFunction {
 	}
 
 	/**
-	 * Returns a wrapped pointer to this class, so that BBK* and MSK* can pretend they have single-sequence
-	 * partition functions.
-	 */
-	public PartitionFunction getPartitionFunctionForSequence(Sequence seq) {
-		return new SHARKStarSingleSequenceBound(seq, this);
-	}
-
-	/**
 	 * Returns the partition function lower bound for a particular sequence
 	 *
 	 * Note that SHARKStarBound will eventually contain a multi-sequence confTree, although this isn't currently the case
@@ -342,7 +334,7 @@ public class SHARKStarBound implements PartitionFunction {
 	 * @param subTreeRoot the root node of the subtree on which to operate
 	 */
 	private void addSubTreeFringeToQueue(SHARKStarNode subTreeRoot){
-		if (subTreeRoot.getChildren() == null || subTreeRoot.getChildren().size() ==0){
+		if (subTreeRoot.isLeaf()) {
 		    // Compute correct hscores
 			try(ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
 				ScoreContext context = checkout.get();
@@ -646,8 +638,8 @@ public class SHARKStarBound implements PartitionFunction {
 		populateQueues(queue, internalNodes, leafNodes, internalZ, leafZ, ZSums);
 		updateBound();
 		debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
-		internalZ = ZSums[0];// MathTools.bigDivide(ZSums[0], new BigDecimal(Math.max(1,internalTimeAverage*internalNodes.size())), PartitionFunction.decimalPrecision);
-		leafZ = ZSums[1]; //MathTools.bigDivide(ZSums[1], new BigDecimal(Math.max(1,leafTimeAverage)), PartitionFunction.decimalPrecision);
+		internalZ = ZSums[0];
+		leafZ = ZSums[1];
 		System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
 		if(MathTools.isLessThan(internalZ, leafZ)) {
 			numNodes = leafNodes.size();
@@ -1436,85 +1428,6 @@ public class SHARKStarBound implements PartitionFunction {
 		@Override
 		public double calcDifferential(ConfIndex confIndex, edu.duke.cs.osprey.astar.conf.RCs rcs, int nextPos, int nextRc) {
 			return 0;
-		}
-	}
-
-	/**
-	 * Thin wrapper class to play nice with BBK* and MSK*
-	 */
-	public class SHARKStarSingleSequenceBound implements PartitionFunction {
-		private Sequence sequence;
-		private SHARKStarBound multisequenceBound;
-		private Status status;
-		private Values values;
-        private int numConfsEvaluated = 0;
-        private PriorityQueue<SHARKStarNode> fringeNodes = new PriorityQueue<>();
-
-		public SHARKStarSingleSequenceBound(Sequence seq, SHARKStarBound sharkStarBound) {
-		    this.sequence = seq;
-		    this.multisequenceBound = sharkStarBound;
-		}
-
-
-		@Override
-		public void setReportProgress(boolean val) {
-			multisequenceBound.setReportProgress(val);
-		}
-
-		@Override
-		public void setConfListener(ConfListener val) {
-			multisequenceBound.setConfListener(val);
-		}
-
-		@Override
-		public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
-		    /* Nop */
-		}
-
-		@Override
-		public void init(ConfSearch upperBoundConfs, ConfSearch lowerBoundConfs, BigInteger numConfsBeforePruning, double targetEpsilon) {
-			/* Nop */
-
-		}
-
-		@Override
-		public void setStabilityThreshold(BigDecimal stabilityThreshold) {
-			multisequenceBound.setStabilityThreshold(stabilityThreshold);
-		}
-
-		@Override
-		public Status getStatus() {
-		    return this.status;
-		}
-
-		@Override
-		public Values getValues() {
-			return this.values;
-		}
-
-		@Override
-		public int getParallelism() {
-		    return multisequenceBound.getParallelism();
-		}
-
-		@Override
-		public int getNumConfsEvaluated() {
-			return numConfsEvaluated;
-		}
-
-		@Override
-		public void compute(int maxNumConfs) {
-
-		}
-
-		@Override
-		public void compute() {
-			compute(Integer.MAX_VALUE);
-		}
-
-		@Override
-		public Result makeResult() {
-			return null;
 		}
 	}
 }

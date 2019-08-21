@@ -7,7 +7,6 @@ import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
@@ -26,8 +25,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.Arrays;
 
 public class TestSHARKStarBound extends TestBase {
 
@@ -41,7 +38,9 @@ public class TestSHARKStarBound extends TestBase {
     /**
      * Computes a single partition function using <confSpace> for <sequence> to <epsilon>
      */
-    private SHARKStarBound makeSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon, SHARKStarBound preComputedFlex){
+    private SHARKStarBound makeSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace,
+                                                                       @NotNull Sequence sequence, double epsilon,
+                                                                       SHARKStarBound preComputedFlex){
         // Set up partition function requirements
         Parallelism parallelism = Parallelism.makeCpu(4);
         ForcefieldParams ffparams = new ForcefieldParams();
@@ -73,6 +72,42 @@ public class TestSHARKStarBound extends TestBase {
             RCs rcs = sequence.makeRCs(confSpace);
 
             return (SHARKStarBound) pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
+        }
+    }
+
+    private PartitionFunction makeMultiSequenceSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace,
+                                                          RCs rcs, double epsilon,
+                                                          MultiSequenceSHARKStarBound preComputedFlex){
+        // Set up partition function requirements
+        Parallelism parallelism = Parallelism.makeCpu(4);
+        ForcefieldParams ffparams = new ForcefieldParams();
+
+        // how should we compute energies of molecules?
+        try (EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
+                .setParallelism(parallelism)
+                .build()) {
+            // how should we define energies of conformations?
+            ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
+                    .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
+                            .build()
+                            .calcReferenceEnergies()
+                    )
+                    .build();
+
+            // BBK* needs rigid energies too
+            EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
+                    .setIsMinimizing(false)
+                    .build();
+            ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(confEcalcMinimized, ecalcRigid);
+            PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalcMinimized, "pfunc");
+            if (preComputedFlex == null)
+                pfuncFactory.setUseMSSHARKStar(confEcalcRigid);
+            else
+                pfuncFactory.setUseMSSHARKStar(confEcalcRigid, preComputedFlex);
+            // filter the global sequence to this conf space
+            // make the partition function
+
+            return pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
         }
     }
 
@@ -295,8 +330,40 @@ public class TestSHARKStarBound extends TestBase {
 
     }
 
-    private String formatBounds(BigDecimal lower, BigDecimal upper) {
+    @Test
+    public void testMultiSequence() {
+        double epsilon = 0.68;
+        // make full confspace and the flexible copy
+        SimpleConfSpace mutableConfSpace = make1CC8Mutable();
+        SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
 
+        // precompute flexible residues
+        Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
+        PartitionFunction preCompFlex = makeMultiSequenceSHARKStarPfuncForConfSpace(flexCopyConfSpace,
+                flexSeq.makeRCs(flexCopyConfSpace), epsilon, null);
+        ((MultiSequenceSHARKStarBound) preCompFlex).getPartitionFunctionForSequence(flexSeq).compute();
+
+        // make the full confspace partitionFunction, and compute it much, much more accurately.
+        Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
+        MultiSequenceSHARKStarBound fullPfunc =
+                (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace,
+                        fullSeq.makeRCs(mutableConfSpace), epsilon, (MultiSequenceSHARKStarBound) preCompFlex);
+
+        PartitionFunction wtBound =
+                fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
+
+        PartitionFunction muttBound =
+                fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence()
+                                                            .set("A2","ARG"));
+
+        wtBound.compute();
+        muttBound.compute();
+
+        assertThat(wtBound.getStatus(), is(PartitionFunction.Status.Estimated));
+        assertThat(muttBound.getStatus(), is(PartitionFunction.Status.Estimated));
+    }
+
+    private String formatBounds(BigDecimal lower, BigDecimal upper) {
         return "[" + setSigFigs(lower) + "," + setSigFigs(upper) + "]";
     }
 }
