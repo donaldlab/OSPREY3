@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
+import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -35,6 +36,7 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
@@ -122,6 +124,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private SHARKStarNodeScorer sharkStarNodeScorer;
 
     private Map<Sequence, SHARKStarQueue> sequenceQueues = new HashMap<>();
+    private List<SHARKStarNode> precomputedFringe = new ArrayList<>();
 
     /**
      * Constructor to make a default SHARKStarBound Class
@@ -331,35 +334,32 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
      * Add the newly updated nodes to the queue so that we don't redo any work
      */
     private void addPrecomputedFringeToQueue(PriorityQueue<SHARKStarNode> queue) {
-        addSubTreeFringeToQueue(this.rootNode, queue);
+        if(precomputedFringe.size() < 1)
+            processPrecomputedFringe(this.rootNode);
+        queue.addAll(precomputedFringe);
 
     }
 
-    /**
-     * Add the fringe nodes in the current subtree to the queue
-     *
-     * @param subTreeRoot the root node of the subtree on which to operate
-     */
-    private void addSubTreeFringeToQueue(SHARKStarNode subTreeRoot, PriorityQueue<SHARKStarNode> queue) {
-        if (subTreeRoot.isLeaf()) {
+    private void processPrecomputedFringe(SHARKStarNode root) {
+        if (root.isLeaf()) {
             // Compute correct hscores
             try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                 ScoreContext context = checkout.get();
                 // index the node
-                subTreeRoot.getConfSearchNode().index(context.index);
+                root.getConfSearchNode().index(context.index);
                 double hscore = context.hscorer.calc(context.index, RCs);
                 double maxhscore = -context.negatedhscorer.calc(context.index, RCs);
-                Node confNode = subTreeRoot.getConfSearchNode();
+                Node confNode = root.getConfSearchNode();
                 double confLowerBound = confNode.gscore + hscore;
                 double confUpperBound = confNode.rigidScore + maxhscore;
                 confNode.setConfLowerBound(confLowerBound);
                 confNode.setConfUpperBound(confUpperBound);
             }
             // add node to queue
-            queue.add(subTreeRoot);
+            precomputedFringe.add(root);
         } else {
-            for (SHARKStarNode node : subTreeRoot.getChildren()) {
-                addSubTreeFringeToQueue(node, queue);
+            for (SHARKStarNode node : root.getChildren()) {
+                processPrecomputedFringe(node);
             }
         }
     }
@@ -1553,6 +1553,46 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             } else {
                 sequenceEpsilon = upperBound.subtract(lowerBound)
                         .divide(upperBound, RoundingMode.HALF_UP).doubleValue();
+            }
+        }
+        List<SeqSpace.ResType> getRTs(SimpleConfSpace.Position confPos, SeqAStarNode.Assignments assignments) {
+
+            // TODO: pre-compute this somehow?
+            SeqSpace seqSpace = sequence.seqSpace;
+
+            // map the conf pos to a sequence pos
+            SeqSpace.Position seqPos = seqSpace.getPosition(confPos.resNum);
+            if (seqPos != null) {
+
+                Integer assignedRT = assignments.getAssignment(seqPos.index);
+                if (assignedRT != null) {
+                    // use just the assigned res type
+                    return Collections.singletonList(seqPos.resTypes.get(assignedRT));
+                } else {
+                    // use all the res types at the pos
+                    return seqPos.resTypes;
+                }
+
+            } else {
+
+                // immutable position, use all the res types (should just be one)
+                assert (confPos.resTypes.size() == 1);
+
+                // use the null value to signal there's no res type here
+                return Collections.singletonList(null);
+            }
+        }
+
+        List<SimpleConfSpace.ResidueConf> getRCs(SimpleConfSpace.Position pos, SeqSpace.ResType rt, SHARKStar.State state) {
+            // TODO: pre-compute this somehow?
+            if (rt != null) {
+                // mutable pos, grab the RCs that match the RT
+                return pos.resConfs.stream()
+                        .filter(rc -> rc.template.name.equals(rt.name))
+                        .collect(Collectors.toList());
+            } else {
+                // immutable pos, use all the RCs
+                return pos.resConfs;
             }
         }
     }
