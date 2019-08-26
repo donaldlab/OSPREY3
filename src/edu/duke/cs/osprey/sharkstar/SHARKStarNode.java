@@ -5,6 +5,7 @@ import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
@@ -12,6 +13,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.framework.MARKStarNode;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.MathTools;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -22,6 +24,7 @@ import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 
@@ -38,7 +41,7 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
     private BigDecimal errorBound = BigDecimal.ONE;
     private double nodeEpsilon = 1;
     private SHARKStarNode parent;
-    private List<SHARKStarNode> children; // TODO: Pick appropriate data structure
+    //private List<SHARKStarNode> children; // TODO: Pick appropriate data structure
     private Node confSearchNode;
     public final int level;
     private static ExpFunction ef = new ExpFunction();
@@ -46,12 +49,19 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
     private RCs RCs;
     private boolean partOfLastBound = false;
 
+    // Information for MultiSequence SHARK* Nodes
+    private Map<Sequence, BigDecimal> upperBounds;
+    private Map<Sequence, BigDecimal> lowerBounds;
+    private Map<Sequence, List<SHARKStarNode>> children; // probably should override the children list
+
+
     private SHARKStarNode(Node confNode, SHARKStarNode parent){
         confSearchNode = confNode;
         this.level = confSearchNode.getLevel();
         this.parent = parent;
-        computeEpsilonErrorBounds();
-        errorBound = getErrorBound();
+        // This stuff doesn't work as well when we have multisequence stuff, moved to makeChild
+        //computeEpsilonErrorBounds();
+        //errorBound = getErrorBound();
     }
 
     /**
@@ -96,36 +106,36 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
         return new RCTuple(confSearchNode.assignments);
     }
 
-    private void printBoundBreakDown()
+    private void printBoundBreakDown(Sequence seq)
     {
-        printBoundBreakDown("");
+        printBoundBreakDown(seq, "");
     }
 
-    private void printBoundBreakDown(String prefix)
+    private void printBoundBreakDown(Sequence seq, String prefix)
     {
         if(level == 0) {
             System.out.println("=====================BEGIN TREE INFO==================================");
-            System.out.println(prefix + confSearchNode + ": [" + setSigFigs(confSearchNode.subtreeLowerBound)
-                    + "," + setSigFigs(confSearchNode.subtreeUpperBound) + "], errorBound =" + String.format("%3.3e",errorBound));
+            System.out.println(prefix + confSearchNode + ": [" + setSigFigs(lowerBounds.get(seq))
+                    + "," + setSigFigs(upperBounds.get(seq)) + "], errorBound =" + String.format("%3.3e",errorBound));
         }
 
         if(children != null && children.size() > 0) {
             BigDecimal upper = BigDecimal.ZERO;
             BigDecimal lower = BigDecimal.ZERO;
-            Collections.sort(children);
+            Collections.sort(children.get(seq));
             prefix+="+~~";
-            for(SHARKStarNode child: children) {
-                System.out.print(prefix+child.confSearchNode+": ["+setSigFigs(child.confSearchNode.subtreeLowerBound)
-                        +","+setSigFigs(child.confSearchNode.subtreeUpperBound)+"], epsilon="+String.format("%3.3e",errorBound));
+            for(SHARKStarNode child: children.get(seq)) {
+                System.out.print(prefix+child.confSearchNode+": ["+setSigFigs(child.lowerBounds.get(seq))
+                        +","+setSigFigs(child.upperBounds.get(seq))+"], epsilon="+String.format("%3.3e",errorBound));
                 System.out.print("Upper: " + setSigFigs(upper) + " + "
-                        + setSigFigs(child.confSearchNode.subtreeUpperBound) + " = "
-                        + setSigFigs(upper.add(child.confSearchNode.subtreeUpperBound)));
+                        + setSigFigs(child.upperBounds.get(seq)) + " = "
+                        + setSigFigs(upper.add(child.upperBounds.get(seq))));
                 System.out.println("Lower: " + setSigFigs(lower) + " + "
-                        + setSigFigs(child.confSearchNode.subtreeLowerBound) + " = "
-                        + setSigFigs(lower.add(child.confSearchNode.subtreeLowerBound)));
-                upper = upper.add(child.confSearchNode.subtreeUpperBound);
-                lower = lower.add(child.confSearchNode.subtreeLowerBound);
-                child.printBoundBreakDown(prefix);
+                        + setSigFigs(child.lowerBounds.get(seq)) + " = "
+                        + setSigFigs(lower.add(child.lowerBounds.get(seq))));
+                upper = upper.add(child.upperBounds.get(seq));
+                lower = lower.add(child.lowerBounds.get(seq));
+                child.printBoundBreakDown(seq, prefix);
             }
         }
         if(level == 0) {
@@ -133,71 +143,71 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
         }
     }
 
-    public void updateSubtreeBounds() {
+    public void updateSubtreeBounds(Sequence seq) {
         if(!updated)
             return;
         updated = false;
-        if(children != null && children.size() > 0) {
+        if(children.get(seq) != null && children.get(seq).size() > 0) {
             BigDecimal errorUpperBound = BigDecimal.ZERO;
             BigDecimal errorLowerBound = BigDecimal.ZERO;
-            for(SHARKStarNode child: children) {
-                child.updateSubtreeBounds();
-                errorUpperBound = errorUpperBound.add(child.confSearchNode.subtreeUpperBound);
-                errorLowerBound = errorLowerBound.add(child.confSearchNode.subtreeLowerBound);
+            for(SHARKStarNode child: children.get(seq)) {
+                child.updateSubtreeBounds(seq);
+                errorUpperBound = errorUpperBound.add(child.upperBounds.get(seq));
+                errorLowerBound = errorLowerBound.add(child.lowerBounds.get(seq));
             }
-            confSearchNode.subtreeUpperBound = errorUpperBound;
-            confSearchNode.subtreeLowerBound = errorLowerBound;
+            upperBounds.replace(seq, errorUpperBound);
+            lowerBounds.replace(seq, errorLowerBound);
         }
     }
 
-    public double recomputeEpsilon() {
-        nodeEpsilon = confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound)
-                .divide(confSearchNode.subtreeUpperBound, RoundingMode.HALF_UP).doubleValue();
+    public double recomputeEpsilon(Sequence seq) {
+        nodeEpsilon = upperBounds.get(seq).subtract(lowerBounds.get(seq))
+                .divide(upperBounds.get(seq), RoundingMode.HALF_UP).doubleValue();
         return nodeEpsilon;
     }
 
-    public int countNodesToProcess() {
+    public int countNodesToProcess(Sequence seq) {
         if(!updated)
             return 0;
         if(updated && (children == null || children.size() <1)) {
             return 1;
         }
         int sum = 0;
-        for(SHARKStarNode child: children) {
-            sum += child.countNodesToProcess();
+        for(SHARKStarNode child: children.get(seq)) {
+            sum += child.countNodesToProcess(seq);
         }
         return sum;
 
     }
 
-    public double computeEpsilonErrorBounds() {
+    public double computeEpsilonErrorBounds(Sequence seq) {
         if(children == null || children.size() <1) {
             return nodeEpsilon;
         }
         if(!updated)
             return nodeEpsilon;
         double epsilonBound = 0;
-        BigDecimal lastUpper = confSearchNode.subtreeUpperBound;
-        BigDecimal lastLower = confSearchNode.subtreeLowerBound;
-        updateSubtreeBounds();
-        if(confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound).compareTo(BigDecimal.ONE)<1)
+        BigDecimal lastUpper = upperBounds.get(seq);
+        BigDecimal lastLower = lowerBounds.get(seq);
+        updateSubtreeBounds(seq);
+        if(upperBounds.get(seq).subtract(lowerBounds.get(seq)).compareTo(BigDecimal.ONE)<1)
         {
             return 0;
         }
         if(level == 0) {
-            epsilonBound = confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound)
-                    .divide(confSearchNode.subtreeUpperBound, RoundingMode.HALF_UP).doubleValue();
-            debugChecks(lastUpper, lastLower, epsilonBound);
+            epsilonBound = upperBounds.get(seq).subtract(lowerBounds.get(seq))
+                    .divide(upperBounds.get(seq), RoundingMode.HALF_UP).doubleValue();
+            debugChecks(lastUpper, lastLower, epsilonBound, seq);
             nodeEpsilon = epsilonBound;
             if(debug)
-                printBoundBreakDown();
+                printBoundBreakDown(seq);
         }
         return nodeEpsilon;
     }
 
-    public void updateConfBounds(ConfIndex index, RCs rcs, AStarScorer gscorer, AStarScorer hScorer)
+    public void updateConfBounds(ConfIndex index, RCs rcs, AStarScorer gscorer, AStarScorer hScorer, Sequence seq)
     {
-        if(children == null || children.size() <1) {
+        if(children.get(seq) == null || children.get(seq).size() <1) {
             confSearchNode.index(index);
             double gscore = gscorer.calc(index, rcs);
             double hscore = hScorer.calc(index, rcs);
@@ -205,14 +215,14 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
                 confSearchNode.setBoundsFromConfLowerAndUpper(gscore+hscore,confSearchNode.confUpperBound);
         }
 
-        if(children != null && children.size() > 0) {
-            for(SHARKStarNode child: children) {
-                child.updateConfBounds(index, rcs, gscorer, hScorer);
+        if(children.get(seq) != null && children.get(seq).size() > 0) {
+            for(SHARKStarNode child: children.get(seq)) {
+                child.updateConfBounds(index, rcs, gscorer, hScorer, seq);
             }
         }
     }
 
-    public double updateAndReportConfBoundChange(ConfIndex index, RCs rcs, AStarScorer gscorer, AStarScorer hScorer)
+    public double updateAndReportConfBoundChange(ConfIndex index, RCs rcs, AStarScorer gscorer, AStarScorer hScorer, Sequence seq)
     {
         if(children == null || children.size() <1) {
             confSearchNode.index(index);
@@ -228,40 +238,47 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
             }
         }
         double sum = 0;
-        if(children != null && children.size() > 0) {
-            for(SHARKStarNode child: children) {
-                sum += child.updateAndReportConfBoundChange(index, rcs, gscorer, hScorer);
+        if(children.get(seq) != null && children.get(seq).size() > 0) {
+            for(SHARKStarNode child: children.get(seq)) {
+                sum += child.updateAndReportConfBoundChange(index, rcs, gscorer, hScorer, seq);
             }
         }
         if(sum > 0 && level == 0)
             System.out.println("Children corrected "+sum);
         return sum;
     }
-    private void debugChecks(BigDecimal lastUpper, BigDecimal lastLower, double epsilonBound) {
+    private void debugChecks(BigDecimal lastUpper, BigDecimal lastLower, double epsilonBound, Sequence seq) {
         if (!debug)
             return;
         BigDecimal tolerance = new BigDecimal(0.00001);
         if(lastUpper != null
-                && confSearchNode.subtreeUpperBound.subtract(lastUpper).compareTo(BigDecimal.ZERO) > 0
-                && confSearchNode.subtreeUpperBound.subtract(lastUpper).compareTo(tolerance) > 0) {
+                && upperBounds.get(seq).subtract(lastUpper).compareTo(BigDecimal.ZERO) > 0
+                && upperBounds.get(seq).subtract(lastUpper).compareTo(tolerance) > 0) {
             System.err.println("Upper bound got bigger!?");
-            System.err.println("Previous: "+setSigFigs(lastUpper)+", now "+setSigFigs(confSearchNode.subtreeUpperBound));
-            System.err.println("Increased by "+lastUpper.subtract(confSearchNode.subtreeUpperBound));
+            System.err.println("Previous: "+setSigFigs(lastUpper)+", now "+setSigFigs(upperBounds.get(seq)));
+            System.err.println("Increased by "+lastUpper.subtract(upperBounds.get(seq)));
         }
         if(lastLower != null
-                && confSearchNode.subtreeLowerBound.subtract(lastLower).compareTo(BigDecimal.ZERO) < 0
-                && lastLower.subtract(confSearchNode.subtreeLowerBound).compareTo(tolerance) > 0) {
+                && lowerBounds.get(seq).subtract(lastLower).compareTo(BigDecimal.ZERO) < 0
+                && lastLower.subtract(lowerBounds.get(seq)).compareTo(tolerance) > 0) {
             System.err.println("Lower bound got smaller!?");
-            System.err.println("Decreased by "+lastLower.subtract(confSearchNode.subtreeLowerBound));
+            System.err.println("Decreased by "+lastLower.subtract(lowerBounds.get(seq)));
         }
         if(nodeEpsilon < epsilonBound && epsilonBound - nodeEpsilon > 0.0001) {
             System.err.println("Epsilon got bigger. Error.");
-            System.err.println("UpperBound change: "+confSearchNode.subtreeUpperBound.subtract(lastUpper));
-            System.err.println("LowerBound change: "+confSearchNode.subtreeLowerBound.subtract(lastLower));
+            System.err.println("UpperBound change: "+upperBounds.get(seq).subtract(lastUpper));
+            System.err.println("LowerBound change: "+lowerBounds.get(seq).subtract(lastLower));
         }
 
     }
 
+    public BigDecimal getUpperBound(Sequence seq){
+        throw new NotImplementedException();
+    }
+
+    public BigDecimal getLowerBound(Sequence seq){
+        throw new NotImplementedException();
+    }
 
     public BigDecimal getUpperBound(){
         return confSearchNode.subtreeUpperBound;
@@ -280,15 +297,15 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
     }
 
 
-    public void printTree(String prefix, FileWriter writer, SimpleConfSpace confSpace)
+    public void printTree(String prefix, FileWriter writer, SimpleConfSpace confSpace, Sequence seq)
     {
         String confString = confSearchNode.confToString();
         if(confSpace != null)
             confString = confString+"->("+confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments)+")";
         String out = prefix+confString+":"
                 +"["+confSearchNode.confLowerBound+","+confSearchNode.confUpperBound+"]->"
-                +"["+setSigFigs(confSearchNode.subtreeLowerBound)
-                +","+setSigFigs(confSearchNode.subtreeUpperBound)+"]"+"\n";
+                +"["+setSigFigs(lowerBounds.get(seq))
+                +","+setSigFigs(upperBounds.get(seq))+"]"+"\n";
         if(MathTools.isLessThan(confSearchNode.getSubtreeUpperBound(), BigDecimal.ONE))
             return;
         if(writer != null) {
@@ -300,33 +317,33 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
         }
         else
             System.out.print(out);
-        if(children != null && !children.isEmpty()) {
-            Collections.sort(children, (a,b)-> -a.confSearchNode.subtreeUpperBound
-                    .compareTo(b.confSearchNode.subtreeUpperBound));
-            for (SHARKStarNode child : children)
-                child.printTree(prefix + "~+", writer, confSpace);
+        if(children.get(seq) != null && !children.get(seq).isEmpty()) {
+            Collections.sort(children.get(seq), (a,b)-> -a.upperBounds.get(seq)
+                    .compareTo(b.upperBounds.get(seq)));
+            for (SHARKStarNode child : children.get(seq))
+                child.printTree(prefix + "~+", writer, confSpace, seq);
         }
 
 
     }
 
-    public void printTree(String name) {
-        printTree(name, null);
+    public void printTree(String name, Sequence seq) {
+        printTree(name, null, seq);
     }
 
-    public void printTree(String name, SimpleConfSpace confspace)
+    public void printTree(String name, SimpleConfSpace confspace, Sequence seq)
     {
         try {
             FileWriter writer = new FileWriter(new File(name+"ConfTreeBounds.txt"));
-            printTree("",  writer, confspace);
+            printTree("",  writer, confspace, seq);
             writer.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public void printTree() {
-        printTree("", null, null);
+    public void printTree(Sequence seq) {
+        printTree("", null, null, seq);
     }
 
     public void index(ConfIndex confIndex) {
@@ -337,11 +354,13 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
         return confSearchNode;
     }
 
-    public SHARKStarNode makeChild(Node child) {
+    public SHARKStarNode makeChild(Node child, Sequence seq) {
         SHARKStarNode newChild = new SHARKStarNode(child, this);
-        if(children == null)
-            children = new CopyOnWriteArrayList<>();
-        children.add(newChild);
+        newChild.computeEpsilonErrorBounds(seq);
+        newChild.errorBound = getErrorBound(seq);
+        if(children.get(seq) == null)
+            children.put (seq, new CopyOnWriteArrayList<>());
+        children.get(seq).add(newChild);
         return newChild;
     }
 
@@ -351,12 +370,12 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
         confSearchNode.setBoundsFromConfLowerAndUpper(lowerBound, upperBound);
     }
 
-    public List<? extends SHARKStarNode> getChildren() {
-        return children;
+    public List<? extends SHARKStarNode> getChildren(Sequence seq) {
+        return children.get(seq);
     }
 
-    public boolean isLeaf() {
-        return getChildren() == null || getChildren().size() < 1;
+    public boolean isLeaf(Sequence seq) {
+        return getChildren(seq) == null || getChildren(seq).size() < 1;
     }
 
     public static enum Type {
@@ -407,16 +426,16 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
         return -getErrorBound().compareTo(other.getErrorBound());
     }
 
-    public BigDecimal getErrorBound() {
+    public BigDecimal getErrorBound(Sequence seq) {
         if(confSearchNode.isMinimized())
             return BigDecimal.ZERO;
-        if(children == null || children.size() < 1) {
-            BigDecimal diff = confSearchNode.subtreeUpperBound.subtract(confSearchNode.subtreeLowerBound);
+        if(children.get(seq) == null || children.get(seq).size() < 1) {
+            BigDecimal diff = upperBounds.get(seq).subtract(lowerBounds.get(seq));
             return  diff.multiply(new BigDecimal(confSearchNode.minimizationRatio));
         }
         BigDecimal errorSum = BigDecimal.ZERO;
-        for(SHARKStarNode childNode: children) {
-            errorSum = errorSum.add(childNode.getErrorBound());
+        for(SHARKStarNode childNode: children.get(seq)) {
+            errorSum = errorSum.add(childNode.getErrorBound(seq));
         }
         errorBound = errorSum;
         return errorBound;
