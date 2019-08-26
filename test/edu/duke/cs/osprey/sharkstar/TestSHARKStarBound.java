@@ -363,9 +363,14 @@ public class TestSHARKStarBound extends TestBase {
 
         // precompute flexible residues
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
-        PartitionFunction preCompFlex = makeMultiSequenceSHARKStarPfuncForConfSpace(flexCopyConfSpace,
-                flexSeq.makeRCs(flexCopyConfSpace), epsilon, null);
-        ((MultiSequenceSHARKStarBound) preCompFlex).getPartitionFunctionForSequence(flexSeq).compute();
+        MultiSequenceSHARKStarBound preCompFlex = (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(
+                flexCopyConfSpace, flexSeq.makeRCs(flexCopyConfSpace), epsilon, null);
+        PartitionFunction ssbound = preCompFlex.getPartitionFunctionForSequence(flexSeq);
+        ssbound.compute();
+
+        System.out.println("Precomputed flex done.");
+        if(true)
+            return;
 
         // make the full confspace partitionFunction, and compute it much, much more accurately.
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();

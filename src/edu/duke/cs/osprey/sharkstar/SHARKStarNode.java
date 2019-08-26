@@ -5,6 +5,7 @@ import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
@@ -19,9 +20,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 
@@ -43,8 +42,8 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
     public final int level;
     private static ExpFunction ef = new ExpFunction();
     private static BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
-    private RCs RCs;
     private boolean partOfLastBound = false;
+    private Map<Sequence, MathTools.DoubleBounds> sequenceBounds = new HashMap<>();
 
     private SHARKStarNode(Node confNode, SHARKStarNode parent){
         confSearchNode = confNode;
@@ -289,7 +288,7 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
                 +"["+confSearchNode.confLowerBound+","+confSearchNode.confUpperBound+"]->"
                 +"["+setSigFigs(confSearchNode.subtreeLowerBound)
                 +","+setSigFigs(confSearchNode.subtreeUpperBound)+"]"+"\n";
-        if(MathTools.isLessThan(confSearchNode.getSubtreeUpperBound(), BigDecimal.ONE))
+        if(MathTools.isLessThan(confSearchNode.getSubtreeUpperBound(), BigDecimal.ZERO))
             return;
         if(writer != null) {
             try {
@@ -526,7 +525,7 @@ public class SHARKStarNode implements Comparable<SHARKStarNode> {
         }
 
         public boolean isMinimized() {
-            return confLowerBound == confUpperBound;
+            return Math.abs(confLowerBound - confUpperBound) < 1e-5;
         }
 
         public boolean isLeaf() {
