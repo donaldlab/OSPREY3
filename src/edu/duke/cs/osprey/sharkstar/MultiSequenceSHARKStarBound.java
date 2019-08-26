@@ -1555,7 +1555,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         }
 
         public void updateBound() {
-            rootNode.computeEpsilonErrorBounds();
+            rootNode.computeEpsilonErrorBounds(sequence);
             BigDecimal upperBound = fringeNodes.getPartitionFunctionUpperBound()
                     .add(internalQueue.getPartitionFunctionUpperBound())
                     .add(leafQueue.getPartitionFunctionUpperBound())
