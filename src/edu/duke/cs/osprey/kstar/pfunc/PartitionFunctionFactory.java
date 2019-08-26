@@ -196,7 +196,7 @@ public class PartitionFunctionFactory {
                     minimizingEmat = makeEmat(confEcalc, "minimizing");
                     if(MARKStarEmat == null)
                         MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
-                    if (preComputedFlex == null) {
+                    if (preComputedMSFlex == null) {
                         fullMSBound = new MultiSequenceSHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
                                 minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
                     } else {

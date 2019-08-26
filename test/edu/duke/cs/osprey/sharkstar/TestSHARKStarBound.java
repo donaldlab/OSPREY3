@@ -30,6 +30,7 @@ import java.math.BigDecimal;
 public class TestSHARKStarBound extends TestBase {
 
     private static Molecule metallochaperone;
+    private static PartitionFunctionFactory MSSHARKStarPfuncFactory;
 
     @BeforeClass
     public static void beforeClass() {
@@ -378,10 +379,11 @@ public class TestSHARKStarBound extends TestBase {
 
         PartitionFunction muttBound =
                 fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence()
-                                                            .set("A2","ARG"));
+                                                            .set("A3","ILE"));
 
-        wtBound.compute();
+        System.out.println("========================== Now computing mutant sequence ========================");
         muttBound.compute();
+        wtBound.compute();
 
         assertThat(wtBound.getStatus(), is(PartitionFunction.Status.Estimated));
         assertThat(muttBound.getStatus(), is(PartitionFunction.Status.Estimated));
