@@ -7,9 +7,7 @@ import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -26,6 +24,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public class TestSHARKStarBound extends TestBase {
 
@@ -380,8 +379,8 @@ public class TestSHARKStarBound extends TestBase {
                 fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence()
                                                             .set("A2","ARG"));
 
-        wtBound.compute();
-        muttBound.compute();
+        //wtBound.compute();
+        //muttBound.compute();
 
         assertThat(wtBound.getStatus(), is(PartitionFunction.Status.Estimated));
         assertThat(muttBound.getStatus(), is(PartitionFunction.Status.Estimated));
@@ -402,6 +401,10 @@ public class TestSHARKStarBound extends TestBase {
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
         SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, epsilon, null, null);
         preCompFlex.compute();
+
+        // get the list of corrections
+        List<TupE> flexibleCorrections = preCompFlex.correctionMatrix.getAllCorrections();
+
         UpdatingEnergyMatrix precomputedCorrections = preCompFlex.genCorrectionMatrix();
         // Pre-fullpfunc minlist
         System.out.println(preCompFlex.minList.toString());
@@ -413,10 +416,19 @@ public class TestSHARKStarBound extends TestBase {
         // update and compute
         fullPfunc.compute();
 
-        System.out.println(preCompFlex.minList.toString());
-        System.out.println("Precompflex reports "+preCompFlex.correctionMatrix.getTrieSize()+" corrections.");
-        System.out.println("Precompflex reports "+precomputedCorrections+" corrections (including full mins).");
-        System.out.println(fullPfunc.TestNumCorrections);
+        // Check that the number of corrections is right
+        assertThat((precomputedCorrections.getTrieSize()), is(fullPfunc.TestNumCorrections));
+
+        // Check that all of the corrections are properly stored in the new list
+        RCTuple permTup = null;
+        for (TupE tupe : flexibleCorrections){
+            // assert that all of them exist
+            permTup = tupe.tup.permutedCopy(fullPfunc.getConfSpacePermutation());
+            assertThat(fullPfunc.correctionMatrix.hasHigherOrderTermFor(permTup), is(true));
+            System.out.println(permTup);
+            // assert that the energies are correct
+            System.out.println(fullPfunc.correctionMatrix.getInternalEnergy(permTup));
+        }
     }
 }
 
