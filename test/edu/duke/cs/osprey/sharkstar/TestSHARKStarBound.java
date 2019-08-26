@@ -1,6 +1,6 @@
 package edu.duke.cs.osprey.sharkstar;
 
-import static edu.duke.cs.osprey.sharkstar.SHARKStarNode.setSigFigs;
+import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarNode.setSigFigs;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
 import static org.junit.Assert.*;
