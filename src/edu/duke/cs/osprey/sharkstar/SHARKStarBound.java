@@ -366,6 +366,10 @@ public class SHARKStarBound implements PartitionFunction {
 				.toArray();
 	}
 
+	public int[] getConfSpacePermutation(){
+		return this.confSpacePermutation;
+	}
+
 	/**
 	 * Returns a correction matrix with full minimizations included
 	 */
