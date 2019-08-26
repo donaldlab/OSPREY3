@@ -413,7 +413,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         @Override
         public int compare(MultiSequenceSHARKStarNode o1, MultiSequenceSHARKStarNode o2) {
-            return o1.getErrorBound(seq).compareTo(o2.getErrorBound(seq));
+            return -o1.getErrorBound(seq).compareTo(o2.getErrorBound(seq));
         }
 
         @Override
