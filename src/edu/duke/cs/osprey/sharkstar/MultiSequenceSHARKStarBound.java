@@ -35,6 +35,8 @@ import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.printTree;
+
 public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     protected double targetEpsilon = 1;
@@ -76,9 +78,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     protected RCs fullRCs;
     protected Parallelism parallelism;
     private ObjectPool<ScoreContext> contexts;
-    private MultiSequenceSHARKStarNode.ScorerFactory gscorerFactory;
-    private MultiSequenceSHARKStarNode.ScorerFactory hscorerFactory;
-    private MultiSequenceSHARKStarNode.ScorerFactory nhscorerFactory;
+    private ScorerFactory gscorerFactory;
+    private ScorerFactory hscorerFactory;
+    private ScorerFactory nhscorerFactory;
 
     public boolean reduceMinimizations = true;
     private ConfAnalyzer confAnalyzer;
@@ -672,7 +674,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         newNodes.clear();
         System.out.println("Found a leaf!");
         rootNode.computeEpsilonErrorBounds(bound.sequence);
-        rootNode.printTree();
+        printTree(rootNode);
         nonZeroLower = true;
     }
 
@@ -854,7 +856,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         processPreminimization(bound, minimizingEcalc);
         profilePrint("Preminimization time : " + loopWatch.getTime(2));
         double curEpsilon = bound.sequenceEpsilon;
-        rootNode.printTree();
+        printTree(rootNode);
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         loopWatch.stop();
         cleanupTime = loopWatch.getTimeS();
@@ -1679,5 +1681,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         public boolean nonZeroLower() {
             return this.fringeNodes.getPartitionFunctionLowerBound().compareTo(BigDecimal.ZERO) > 0;
         }
+    }
+
+    public interface ScorerFactory {
+        AStarScorer make(EnergyMatrix emat);
     }
 }

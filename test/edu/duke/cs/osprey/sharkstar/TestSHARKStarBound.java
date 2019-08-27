@@ -1,8 +1,7 @@
 package edu.duke.cs.osprey.sharkstar;
 
-import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarNode.setSigFigs;
+import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.setSigFigs;
 import static org.hamcrest.Matchers.*;
-import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.TestBase;
@@ -356,7 +355,7 @@ public class TestSHARKStarBound extends TestBase {
 
     @Test
     public void testMultiSequence() {
-        double epsilon = 0.68;
+        double epsilon = 0.01;
         // make full confspace and the flexible copy
         SimpleConfSpace mutableConfSpace = make1CC8Mutable();
         SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();

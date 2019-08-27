@@ -13,15 +13,14 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.*;
 import java.util.Map;
-import java.util.concurrent.CopyOnWriteArrayList;
+
+import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.printBoundBreakDown;
+import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.setSigFigs;
 
 
 public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARKStarNode> {
@@ -101,45 +100,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return new RCTuple(confSearchNode.assignments);
     }
 
-    private void printBoundBreakDown(Sequence seq)
-    {
-        printBoundBreakDown(seq, "");
-    }
-
-    private void printBoundBreakDown(Sequence seq, String prefix)
-    {
-        if(level == 0) {
-            System.out.println("=====================BEGIN TREE INFO==================================");
-            System.out.println(prefix + confSearchNode + ": [" + setSigFigs(getSequenceBounds(seq).lower)
-                    + "," + setSigFigs(getSequenceBounds(seq).upper) + "], errorBound =" + String.format("%3.3e",errorBound));
-        }
-
-        List< MultiSequenceSHARKStarNode> childrenForSequence = getChildren(seq);
-
-        if( childrenForSequence  != null &&  childrenForSequence .size() > 0) {
-            BigDecimal upper = BigDecimal.ZERO;
-            BigDecimal lower = BigDecimal.ZERO;
-            Collections.sort( childrenForSequence );
-            prefix+="+~~";
-            for(MultiSequenceSHARKStarNode child:  childrenForSequence ) {
-                BigDecimal childUpper = child.getSequenceBounds(seq).upper;
-                BigDecimal childLower = child.getSequenceBounds(seq).lower;
-                System.out.print(prefix+child.confSearchNode+": ["+setSigFigs(childLower)
-                        +","+setSigFigs(childUpper)+"], epsilon="+String.format("%3.3e",errorBound));
-                System.out.print("Upper: " + setSigFigs(upper) + " + "
-                        + setSigFigs(childUpper) + " = "
-                        + setSigFigs(upper.add(childUpper)));
-                System.out.println("Lower: " + setSigFigs(lower) + " + "
-                        + setSigFigs(childLower) + " = "
-                        + setSigFigs(lower.add(childLower)));
-                upper = upper.add(childUpper);
-                lower = lower.add(childLower);
-                child.printBoundBreakDown(seq, prefix);
-            }
-        }
-        if(level == 0) {
-            System.out.println("=====================END TREE INFO==================================");
-        }
+    public BigDecimal getErrorBound(){
+        return errorBound;
     }
 
     public void updateSubtreeBounds(Sequence seq) {
@@ -204,7 +166,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             debugChecks(lastUpper, lastLower, epsilonBound, seq);
             nodeEpsilon = epsilonBound;
             if(debug)
-                printBoundBreakDown(seq);
+                printBoundBreakDown(seq, this);
         }
         return nodeEpsilon;
     }
@@ -294,67 +256,14 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return confSearchNode.subtreeLowerBound;
     }
 
-    public static BigDecimal setSigFigs(BigDecimal decimal, int numSigFigs) {
-        return decimal.setScale(4-decimal.precision()+decimal.scale(),RoundingMode.HALF_UP);
+    public double getConfLowerbound() {
+        return confSearchNode.confLowerBound;
     }
 
-    public static BigDecimal setSigFigs(BigDecimal decimal){
-        return setSigFigs(decimal, 4);
+    public double getConfUpperbound() {
+        return confSearchNode.confUpperBound;
     }
 
-    public void printTree(String prefix, FileWriter writer, SimpleConfSpace confSpace, Sequence seq)
-    {
-        String confString = confSearchNode.confToString();
-        if(confSpace != null)
-            confString = confString+"->("+confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments)+")";
-        String out = prefix+confString+":"
-                +"["+confSearchNode.confLowerBound+","+confSearchNode.confUpperBound+"]->"
-                +"["+setSigFigs(getSequenceBounds(seq).lower)
-                +","+setSigFigs(getSequenceBounds(seq).upper)+"]"+"\n";
-        if(MathTools.isLessThan(confSearchNode.getSubtreeUpperBound(), BigDecimal.ZERO))
-            return;
-        if(writer != null) {
-            try {
-                writer.write(out);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        else
-            System.out.print(out);
-        List<MultiSequenceSHARKStarNode> children = getChildren(seq);
-        if( children != null && ! children.isEmpty()) {
-            Collections.sort( children, (a, b)-> -a.getSequenceBounds(seq).upper
-                    .compareTo(b.getSequenceBounds(seq).upper));
-            for (MultiSequenceSHARKStarNode child :  children)
-                child.printTree(prefix + "~+", writer, confSpace, seq);
-        }
-
-
-    }
-
-    public void printTree(String name, Sequence seq) {
-        printTree(name, null, seq);
-    }
-
-    public void printTree(String name, SimpleConfSpace confspace, Sequence seq)
-    {
-        try {
-            FileWriter writer = new FileWriter(new File(name+"ConfTreeBounds.txt"));
-            printTree("",  writer, confspace, seq);
-            writer.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void printTree(Sequence seq) {
-        printTree("", null, null, seq);
-    }
-
-    public void printTree() {
-        printTree(null);
-    }
 
     public void index(ConfIndex confIndex) {
         confSearchNode.index(confIndex);
@@ -415,10 +324,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return Type.minimizedLeaf;
     }
 
-    public interface ScorerFactory {
-        AStarScorer make(EnergyMatrix emat);
-    }
-
     public static MultiSequenceSHARKStarNode makeRoot(SimpleConfSpace confSpace, EnergyMatrix rigidEnergyMatrix,
                                                       EnergyMatrix minimizingEnergyMatrix, RCs rcs,
                                                       AStarScorer gScorer, AStarScorer hScorer,
@@ -464,7 +369,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return errorBound;
     }
 
-    protected MathTools.BigDecimalBounds getSequenceBounds(Sequence seq) {
+    public MathTools.BigDecimalBounds getSequenceBounds(Sequence seq) {
         if(!sequenceBounds.containsKey(seq)) {
             sequenceBounds.put(seq, new MathTools.BigDecimalBounds(confSearchNode.subtreeLowerBound,
                     confSearchNode.subtreeUpperBound));
