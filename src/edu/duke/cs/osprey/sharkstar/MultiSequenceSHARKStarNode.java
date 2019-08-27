@@ -311,7 +311,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                 +"["+confSearchNode.confLowerBound+","+confSearchNode.confUpperBound+"]->"
                 +"["+setSigFigs(getSequenceBounds(seq).lower)
                 +","+setSigFigs(getSequenceBounds(seq).upper)+"]"+"\n";
-        if(MathTools.isLessThan(confSearchNode.getSubtreeUpperBound(), BigDecimal.ONE))
+        if(MathTools.isLessThan(confSearchNode.getSubtreeUpperBound(), BigDecimal.ZERO))
             return;
         if(writer != null) {
             try {
