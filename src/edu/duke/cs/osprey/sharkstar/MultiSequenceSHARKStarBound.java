@@ -139,8 +139,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.minimizingEcalc = minimizingConfEcalc;
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
-        MPLPUpdater updater = new EdgeUpdater();
-        hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs);//MPLPPairwiseHScorer(updater, emats, 1, 0.0001);//
+        hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs);
 
         rootNode = MultiSequenceSHARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs,
                 gscorerFactory.make(minimizingEmat), hscorerFactory.make(minimizingEmat),
