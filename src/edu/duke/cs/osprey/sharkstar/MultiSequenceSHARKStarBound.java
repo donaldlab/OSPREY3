@@ -6,8 +6,6 @@ import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -73,13 +71,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     // Heap of nodes for recursive expansion
     private ConfIndex confIndex;
     public StaticBiggestLowerboundDifferenceOrder order;
-    // TODO: Implement new AStarPruner for MARK*?
     public final AStarPruner pruner;
+    // TODO: Implement new AStarPruner for MARK*?
     protected RCs fullRCs;
     protected Parallelism parallelism;
     private ObjectPool<ScoreContext> contexts;
     private MultiSequenceSHARKStarNode.ScorerFactory gscorerFactory;
     private MultiSequenceSHARKStarNode.ScorerFactory hscorerFactory;
+    private MultiSequenceSHARKStarNode.ScorerFactory nhscorerFactory;
 
     public boolean reduceMinimizations = true;
     private ConfAnalyzer confAnalyzer;
@@ -116,11 +115,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private BigDecimal precomputedUpperBound;
     private BigDecimal precomputedLowerBound;
 
-    private Queue<MultiSequenceSHARKStarNode> leafQueues;
-    private Queue<MultiSequenceSHARKStarNode> internalQueues;
-    private SHARKStarNodeScorer sharkStarNodeScorer;
-
-    private Map<Sequence, SHARKStarQueue> sequenceQueues = new HashMap<>();
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
     /**
@@ -138,12 +132,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.minimizingEcalc = minimizingConfEcalc;
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);
 
-        hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs);
+
+        hscorerFactory = (emats) -> new SHARKStarNodeScorer(emats, rcs);
+        nhscorerFactory = (emats) -> new SHARKStarNodeScorer(new NegatedEnergyMatrix(confSpace, rigidEmat), rcs, true);
+        //hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs);
+        //nhscorerFactory = (emats) -> new TraditionalPairwiseHScorer(new NegatedEnergyMatrix(confSpace, rigidEmat), rcs);
 
         rootNode = MultiSequenceSHARKStarNode.makeRoot(confSpace, rigidEmat, minimizingEmat, rcs,
                 gscorerFactory.make(minimizingEmat), hscorerFactory.make(minimizingEmat),
                 gscorerFactory.make(rigidEmat),
-                new TraditionalPairwiseHScorer(new NegatedEnergyMatrix(confSpace, rigidEmat), rcs), true);
+                nhscorerFactory.make(rigidEmat), true);
         confIndex = new ConfIndex(rcs.getNumPos());
         this.minimizingEmat = minimizingEmat;
         this.rigidEmat = rigidEmat;
@@ -159,7 +157,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             context.hscorer = hscorerFactory.make(minimizingEmat);
             context.rigidscorer = gscorerFactory.make(rigidEmat);
             /** These scoreres should match the scorers in the SHARKStarNode root - they perform the same calculations**/
-            context.negatedhscorer = new TraditionalPairwiseHScorer(new NegatedEnergyMatrix(confSpace, rigidEmat), rcs); //this is used for upper bounds, so we want it rigid
+            context.negatedhscorer = nhscorerFactory.make(rigidEmat); //this is used for upper bounds, so we want it rigid
             context.ecalc = minimizingConfEcalc;
             return context;
         });
@@ -341,9 +339,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                 ScoreContext context = checkout.get();
                 // index the node
-                root.getConfSearchNode().index(context.index);
-                double hscore = context.hscorer.calc(context.index, fullRCs);
-                double maxhscore = -context.negatedhscorer.calc(context.index, fullRCs);
+                root.index(context.index);
+                double hscore = context.hscorer.calc(context.index, bound.seqRCs);
+                double maxhscore = -context.negatedhscorer.calc(context.index, bound.seqRCs);
                 Node confNode = root.getConfSearchNode();
                 double confLowerBound = confNode.gscore + hscore;
                 double confUpperBound = confNode.rigidScore + maxhscore;
@@ -1440,6 +1438,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             this.negated = negated;
         }
 
+        public SHARKStarNodeScorer(EnergyMatrix emats, RCs rcs) {
+           this(emats);
+        }
+
+        public SHARKStarNodeScorer(EnergyMatrix emats, RCs rcs, boolean negated) {
+            this(emats, negated);
+        }
+
         @Override
         public AStarScorer make() {
             return new SHARKStarNodeScorer(emat);
@@ -1461,8 +1467,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
             BigDecimal pfuncBound = BigDecimal.ONE;
             for (int undefinedPosIndex1 = 0; undefinedPosIndex1 < confIndex.numUndefined; undefinedPosIndex1++) {
-                double bestEnergy = 0;
                 int undefinedPos1 = confIndex.undefinedPos[undefinedPosIndex1];
+                BigDecimal residueSum = BigDecimal.ZERO;
                 for (int rot1 : rcs.get(undefinedPos1)) {
                     double rotEnergy = emat.getEnergy(undefinedPos1, rot1);
                     for (int definedPosIndex = 0; definedPosIndex < confIndex.numDefined; definedPosIndex ++) {
@@ -1478,13 +1484,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         for (int rot2 : rcs.get(undefinedPos2)) {
                             bestPair = Math.min(bestPair, emat.getEnergy(undefinedPos1, rot1, undefinedPos2, rot2));
                         }
-                        bestEnergy += bestPair;
+                        rotEnergy+= bestPair;
                     }
-                    bestEnergy = Math.min(bestEnergy, rotEnergy);
+                    residueSum = residueSum.add(bcalc.calc(sign*rotEnergy));
                 }
-                pfuncBound = pfuncBound.multiply(bcalc.calc(sign*bestEnergy), PartitionFunction.decimalPrecision);
+                pfuncBound = pfuncBound.multiply(residueSum, PartitionFunction.decimalPrecision);
             }
-            return bcalc.freeEnergy(pfuncBound);
+            return sign*bcalc.freeEnergy(pfuncBound);
         }
 
     }

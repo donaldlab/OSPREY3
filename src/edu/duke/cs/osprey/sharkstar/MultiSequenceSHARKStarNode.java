@@ -557,8 +557,9 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             }
         }
 
+        // HACK: We no longer need to use the number of conformations, so we don't.
         private BigDecimal computeBoundsFromEnergy(double energy) {
-            return bc.calc(energy).multiply(new BigDecimal(getNumConformations()));
+            return bc.calc(energy);//.multiply(new BigDecimal(getNumConformations()));
         }
 
         private void updateSubtreeLowerBound(BigDecimal tighterLower) {
@@ -672,24 +673,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
 
         public void computeNumConformations(RCs rcs) {
-            BigInteger numConfs = BigInteger.ONE;
-            this.numConfs = numConfs;
-            if(rcs.getNumPos() == assignments.length) {
-                boolean fullyAssigned = true;
-                for (int pos = 0; pos < assignments.length; pos++) {
-                    if(assignments[pos] == Unassigned)
-                        fullyAssigned = false;
-                }
-                if(fullyAssigned)
-                    return;
-            }
-
-            for (int pos = 0; pos < assignments.length; pos++) {
-                if (assignments[pos] == Unassigned) {
-                    numConfs = numConfs.multiply(BigInteger.valueOf(rcs.getNum(pos)));
-                }
-            }
-            this.numConfs = numConfs;
+            this.numConfs = rcs.getNumConformations();
             assert(this.numConfs.compareTo(BigInteger.ZERO) > 0);
         }
 
