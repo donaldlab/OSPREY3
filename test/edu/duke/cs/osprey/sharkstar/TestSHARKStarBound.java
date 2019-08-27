@@ -1,15 +1,13 @@
 package edu.duke.cs.osprey.sharkstar;
 
-import static edu.duke.cs.osprey.sharkstar.SHARKStarNode.setSigFigs;
+import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarNode.setSigFigs;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -26,6 +24,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public class TestSHARKStarBound extends TestBase {
 
@@ -364,9 +363,14 @@ public class TestSHARKStarBound extends TestBase {
 
         // precompute flexible residues
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
-        PartitionFunction preCompFlex = makeMultiSequenceSHARKStarPfuncForConfSpace(flexCopyConfSpace,
-                flexSeq.makeRCs(flexCopyConfSpace), epsilon, null);
-        ((MultiSequenceSHARKStarBound) preCompFlex).getPartitionFunctionForSequence(flexSeq).compute();
+        MultiSequenceSHARKStarBound preCompFlex = (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(
+                flexCopyConfSpace, flexSeq.makeRCs(flexCopyConfSpace), epsilon, null);
+        PartitionFunction ssbound = preCompFlex.getPartitionFunctionForSequence(flexSeq);
+        ssbound.compute();
+
+        System.out.println("Precomputed flex done.");
+        if(true)
+            return;
 
         // make the full confspace partitionFunction, and compute it much, much more accurately.
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
@@ -404,6 +408,10 @@ public class TestSHARKStarBound extends TestBase {
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
         SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, epsilon, null, null);
         preCompFlex.compute();
+
+        // get the list of corrections
+        List<TupE> flexibleCorrections = preCompFlex.correctionMatrix.getAllCorrections();
+
         UpdatingEnergyMatrix precomputedCorrections = preCompFlex.genCorrectionMatrix();
         // Pre-fullpfunc minlist
         System.out.println(preCompFlex.minList.toString());
@@ -415,10 +423,19 @@ public class TestSHARKStarBound extends TestBase {
         // update and compute
         fullPfunc.compute();
 
-        System.out.println(preCompFlex.minList.toString());
-        System.out.println("Precompflex reports "+preCompFlex.correctionMatrix.getTrieSize()+" corrections.");
-        System.out.println("Precompflex reports "+precomputedCorrections+" corrections (including full mins).");
-        System.out.println(fullPfunc.TestNumCorrections);
+        // Check that the number of corrections is right
+        assertThat((precomputedCorrections.getTrieSize()), is(fullPfunc.TestNumCorrections));
+
+        // Check that all of the corrections are properly stored in the new list
+        RCTuple permTup = null;
+        for (TupE tupe : flexibleCorrections){
+            // assert that all of them exist
+            permTup = tupe.tup.permutedCopy(fullPfunc.getConfSpacePermutation());
+            assertThat(fullPfunc.correctionMatrix.hasHigherOrderTermFor(permTup), is(true));
+            System.out.println(permTup);
+            // assert that the energies are correct
+            System.out.println(fullPfunc.correctionMatrix.getInternalEnergy(permTup));
+        }
     }
 }
 

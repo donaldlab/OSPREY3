@@ -28,7 +28,6 @@ import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.Stopwatch;
-import hep.aida.ref.Test;
 import jdk.nashorn.internal.runtime.regexp.joni.exception.ValueException;
 
 import java.math.BigDecimal;
@@ -37,8 +36,7 @@ import java.math.MathContext;
 import java.util.*;
 
 import static org.apache.commons.lang3.ArrayUtils.add;
-import static org.apache.commons.lang3.ArrayUtils.toArray;
-import java.util.*;
+
 import java.util.stream.Collectors;
 
 public class SHARKStarBound implements PartitionFunction {
@@ -364,6 +362,10 @@ public class SHARKStarBound implements PartitionFunction {
 		return precomputedPfunc.confSpace.positions.stream()
 				.mapToInt(confSpace.positions :: indexOf)
 				.toArray();
+	}
+
+	public int[] getConfSpacePermutation(){
+		return this.confSpacePermutation;
 	}
 
 	/**
