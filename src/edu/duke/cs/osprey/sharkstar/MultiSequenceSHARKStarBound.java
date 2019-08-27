@@ -51,7 +51,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     protected int maxMinimizations = 1;
 
-
     // the number of full conformations scored OR energied
     private int numConfsScored = 0;
 
