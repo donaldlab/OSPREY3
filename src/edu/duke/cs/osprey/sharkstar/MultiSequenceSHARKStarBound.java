@@ -5,7 +5,6 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -345,8 +344,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 double hscore = context.hscorer.calc(context.index, bound.seqRCs);
                 double maxhscore = -context.negatedhscorer.calc(context.index, bound.seqRCs);
                 Node confNode = root.getConfSearchNode();
-                double confLowerBound = confNode.gscore + hscore;
-                double confUpperBound = confNode.rigidScore + maxhscore;
+                double confLowerBound = confNode.partialConfLowerbound + hscore;
+                double confUpperBound = confNode.partialConfUpperBound + maxhscore;
                 confNode.setConfLowerBound(confLowerBound);
                 confNode.setConfUpperBound(confUpperBound);
             }
@@ -785,21 +784,21 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             ConfIndex index = new ConfIndex(fullRCs.getNumPos());
             node.index(index);
             double correctgscore = correctionMatrix.confE(node.assignments);
-            double hscore = node.getConfLowerBound() - node.gscore;
-            double confCorrection = Math.min(correctgscore, node.rigidScore) + hscore;
+            double hscore = node.getConfLowerBound() - node.partialConfLowerbound;
+            double confCorrection = Math.min(correctgscore, node.partialConfUpperBound) + hscore;
             if (!node.isMinimized() && node.getConfLowerBound() < confCorrection
                     && node.getConfLowerBound() - confCorrection > 1e-5) {
                 if (confCorrection < node.getConfLowerBound()) {
                     System.out.println("huh!?");
                 }
-                System.out.println("Correction from " + correctionMatrix.sourceECalc + ":" + node.gscore + "->" + correctgscore);
-                recordCorrection(node.getConfLowerBound(), correctgscore - node.gscore);
+                System.out.println("Correction from " + correctionMatrix.sourceECalc + ":" + node.partialConfLowerbound + "->" + correctgscore);
+                recordCorrection(node.getConfLowerBound(), correctgscore - node.partialConfLowerbound);
 
-                node.gscore = correctgscore;
-                if (confCorrection > node.rigidScore) {
-                    System.out.println("Overcorrected" + SimpleConfSpace.formatConfRCs(node.assignments) + ": " + confCorrection + " > " + node.rigidScore);
-                    node.gscore = node.rigidScore;
-                    confCorrection = node.rigidScore + hscore;
+                node.partialConfLowerbound = correctgscore;
+                if (confCorrection > node.partialConfUpperBound) {
+                    System.out.println("Overcorrected" + SimpleConfSpace.formatConfRCs(node.assignments) + ": " + confCorrection + " > " + node.partialConfUpperBound);
+                    node.partialConfLowerbound = node.partialConfUpperBound;
+                    confCorrection = node.partialConfUpperBound + hscore;
                 }
                 node.setBoundsFromConfLowerAndUpper(confCorrection, node.getConfUpperBound());
                 curNode.markUpdated();
@@ -869,9 +868,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         assert (curNode != null && node != null);
         double confCorrection = correctionMatrix.confE(node.assignments);
         if ((node.getLevel() == fullRCs.getNumPos() && node.getConfLowerBound() < confCorrection)
-                || node.gscore < confCorrection) {
-            double oldg = node.gscore;
-            node.gscore = confCorrection;
+                || node.partialConfLowerbound < confCorrection) {
+            double oldg = node.partialConfLowerbound;
+            node.partialConfLowerbound = confCorrection;
             recordCorrection(oldg, confCorrection - oldg);
             node.setBoundsFromConfLowerAndUpper(node.getConfLowerBound() - oldg + confCorrection, node.getConfUpperBound());
             curNode.markUpdated();
@@ -919,12 +918,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     double rigiddiff = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     double hdiff = context.hscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                    child.gscore = diff;
+                    child.partialConfLowerbound = diff;
                     //Correct for incorrect gscore.
-                    rigiddiff = rigiddiff - node.gscore + node.rigidScore;
-                    child.rigidScore = rigiddiff;
+                    rigiddiff = rigiddiff - node.partialConfLowerbound + node.partialConfUpperBound;
+                    child.partialConfUpperBound = rigiddiff;
 
-                    confLowerBound = child.gscore + hdiff;
+                    confLowerBound = child.partialConfLowerbound + hdiff;
                     double confUpperbound = rigiddiff + maxhdiff;
                     child.computeNumConformations(RCs);
                     if (diff < confCorrection) {
@@ -932,11 +931,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         confLowerBound = confCorrection + hdiff;
                     }
                     child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
-                    progress.reportInternalNode(child.level, child.gscore, child.getHScore(), queue.size(), children.size(), bound.sequenceEpsilon);
+                    progress.reportInternalNode(child.level, child.partialConfLowerbound, child.getHScore(), queue.size(), children.size(), bound.sequenceEpsilon);
                 }
                 if (child.getLevel() == RCs.getNumPos()) {
                     double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                    confRigid = confRigid - node.gscore + node.rigidScore;
+                    confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
 
                     child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                     double confCorrection = correctionMatrix.confE(child.assignments);
@@ -946,18 +945,18 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     }
                     checkBounds(confCorrection, confRigid);
                     child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
-                    child.gscore = child.getConfLowerBound();
+                    child.partialConfLowerbound = child.getConfLowerBound();
                     confLowerBound = lowerbound;
-                    child.rigidScore = confRigid;
+                    child.partialConfUpperBound = confRigid;
                     numConfsScored++;
-                    progress.reportLeafNode(child.gscore, queue.size(), bound.sequenceEpsilon);
+                    progress.reportLeafNode(child.partialConfLowerbound, queue.size(), bound.sequenceEpsilon);
                 }
                 partialTime.stop();
                 loopPartialTime += partialTime.getTimeS();
 
 
                 MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild = curNode.makeChild(child, bound.sequence);
-                if (Double.isNaN(child.rigidScore))
+                if (Double.isNaN(child.partialConfUpperBound))
                     System.out.println("Huh!?");
                 MultiSequenceSHARKStarNodeChild.markUpdated();
                 if (confLowerBound < bestChildLower) {
@@ -1053,12 +1052,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         double rigiddiff = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double hdiff = context.hscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double maxhdiff = -context.negatedhscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                        child.gscore = diff;
+                        child.partialConfLowerbound = diff;
                         //Correct for incorrect gscore.
-                        rigiddiff = rigiddiff - node.gscore + node.rigidScore;
-                        child.rigidScore = rigiddiff;
+                        rigiddiff = rigiddiff - node.partialConfLowerbound + node.partialConfUpperBound;
+                        child.partialConfUpperBound = rigiddiff;
 
-                        double confLowerBound = child.gscore + hdiff;
+                        double confLowerBound = child.partialConfLowerbound + hdiff;
                         double confUpperbound = rigiddiff + maxhdiff;
                         child.computeNumConformations(RCs);
                         double lowerbound = minimizingEmat.confE(child.assignments);
@@ -1067,11 +1066,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             confLowerBound = confCorrection + hdiff;
                         }
                         child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
-                        progress.reportInternalNode(child.level, child.gscore, child.getHScore(), queue.size(), children.size(), bound.sequenceEpsilon);
+                        progress.reportInternalNode(child.level, child.partialConfLowerbound, child.getHScore(), queue.size(), children.size(), bound.sequenceEpsilon);
                     }
                     if (child.getLevel() == RCs.getNumPos()) {
                         double confRigid = context.rigidscorer.calcDifferential(context.index, RCs, nextPos, nextRc);
-                        confRigid = confRigid - node.gscore + node.rigidScore;
+                        confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
 
                         child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
                         double confCorrection = correctionMatrix.confE(child.assignments);
@@ -1082,10 +1081,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         }
                         checkBounds(confCorrection, confRigid);
                         child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
-                        child.gscore = confCorrection;
-                        child.rigidScore = confRigid;
+                        child.partialConfLowerbound = confCorrection;
+                        child.partialConfUpperBound = confRigid;
                         numConfsScored++;
-                        progress.reportLeafNode(child.gscore, queue.size(), bound.sequenceEpsilon);
+                        progress.reportLeafNode(child.partialConfLowerbound, queue.size(), bound.sequenceEpsilon);
                     }
                     partialTime.stop();
                     loopPartialTime += partialTime.getTimeS();
@@ -1095,7 +1094,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 }
 
             }, (Node child) -> {
-                if (Double.isNaN(child.rigidScore))
+                if (Double.isNaN(child.partialConfUpperBound))
                     System.out.println("Huh!?");
                 MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild = curNode.makeChild(child, bound.sequence);
                 // collect the possible children
@@ -1119,9 +1118,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                        MultiSequenceSHARKStarNode curNode, Node node) {
         PriorityQueue<MultiSequenceSHARKStarNode> queue = bound.fringeNodes;
         double confCorrection = correctionMatrix.confE(node.assignments);
-        if (node.getConfLowerBound() < confCorrection || node.gscore < confCorrection) {
-            double oldg = node.gscore;
-            node.gscore = confCorrection;
+        if (node.getConfLowerBound() < confCorrection || node.partialConfLowerbound < confCorrection) {
+            double oldg = node.partialConfLowerbound;
+            node.partialConfLowerbound = confCorrection;
             recordCorrection(oldg, confCorrection - oldg);
             node.setBoundsFromConfLowerAndUpper(confCorrection, node.getConfUpperBound());
             curNode.markUpdated();
@@ -1154,8 +1153,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             newConfLower = oldConfUpper;
                         }
                         curNode.setBoundsFromConfLowerAndUpper(newConfLower, newConfUpper);
-                        double oldgscore = node.gscore;
-                        node.gscore = newConfLower;
+                        double oldgscore = node.partialConfLowerbound;
+                        node.partialConfLowerbound = newConfLower;
                         String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (node.getConfLowerBound()) + "," + (node.getConfUpperBound()) + "]";
                         debugPrint(out);
                         curNode.markUpdated();
@@ -1173,7 +1172,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 },
                 // Dummy function. We're not doing anything here.
                 (Node child) -> {
-                    progress.reportLeafNode(node.gscore, queue.size(), bound.sequenceEpsilon);
+                    progress.reportLeafNode(node.partialConfLowerbound, queue.size(), bound.sequenceEpsilon);
                     if (!node.isMinimized())
                         newNodes.add(curNode);
 

@@ -53,9 +53,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         this.level = confSearchNode.getLevel();
         this.children = new ArrayList<>();
         this.parent = parent;
-        // This stuff doesn't work as well when we have multisequence stuff, moved to makeChild
-        //computeEpsilonErrorBounds();
-        //errorBound = getErrorBound();
     }
 
     /**
@@ -127,26 +124,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                 .divide(bounds.upper, RoundingMode.HALF_UP).doubleValue();
     }
 
-    public double recomputeEpsilon(Sequence seq) {
-        nodeEpsilon = computeEpsilon(getSequenceBounds(seq));
-        return nodeEpsilon;
-    }
-
-    public int countNodesToProcess(Sequence seq) {
-        List< MultiSequenceSHARKStarNode> childrenForSeq = getChildren(seq);
-        if(!updated)
-            return 0;
-        if(updated && (childrenForSeq == null || childrenForSeq.size() <1)) {
-            return 1;
-        }
-        int sum = 0;
-        for(MultiSequenceSHARKStarNode child: childrenForSeq) {
-            sum += child.countNodesToProcess(seq);
-        }
-        return sum;
-
-    }
-
     public double computeEpsilonErrorBounds(Sequence seq) {
         if(children == null || children.size() <1) {
             return nodeEpsilon;
@@ -171,50 +148,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return nodeEpsilon;
     }
 
-    public void updateConfBounds(ConfIndex index, RCs rcs, AStarScorer gscorer, AStarScorer hScorer, Sequence seq)
-    {
-        List< MultiSequenceSHARKStarNode> childrenForSeq = getChildren(seq);
-        if(childrenForSeq == null || childrenForSeq.size() <1) {
-            confSearchNode.index(index);
-            double gscore = gscorer.calc(index, rcs);
-            double hscore = hScorer.calc(index, rcs);
-            if(gscore+hscore > confSearchNode.getConfLowerBound())
-                confSearchNode.setBoundsFromConfLowerAndUpper(gscore+hscore,confSearchNode.confUpperBound);
-        }
-
-        if(childrenForSeq != null && childrenForSeq.size() > 0) {
-            for(MultiSequenceSHARKStarNode child: childrenForSeq) {
-                child.updateConfBounds(index, rcs, gscorer, hScorer, seq);
-            }
-        }
-    }
-
-    public double updateAndReportConfBoundChange(ConfIndex index, RCs rcs, AStarScorer gscorer, AStarScorer hScorer, Sequence seq)
-    {
-        List<MultiSequenceSHARKStarNode> childrenForSeq = getChildren(seq);
-        if(childrenForSeq  == null || childrenForSeq .size() <1) {
-            confSearchNode.index(index);
-            double gscore = gscorer.calc(index, rcs);
-            double hscore = hScorer.calc(index, rcs);
-            if(gscore+hscore - confSearchNode.getConfLowerBound() > 1e-5) {
-                double previousLower = confSearchNode.getConfLowerBound();
-                confSearchNode.setBoundsFromConfLowerAndUpper(gscore + hscore, confSearchNode.confUpperBound);
-                if(gscore+hscore < -10)
-                    System.out.println("Correcting "+toTuple().stringListing()+" down to "+(gscore+hscore)+" from "+previousLower
-                            +", reducing it by "+(gscore+hscore - previousLower));
-                return gscore+hscore - previousLower;
-            }
-        }
-        double sum = 0;
-        if(childrenForSeq != null && childrenForSeq.size() > 0) {
-            for(MultiSequenceSHARKStarNode child: childrenForSeq) {
-                sum += child.updateAndReportConfBoundChange(index, rcs, gscorer, hScorer, seq);
-            }
-        }
-        if(sum > 0 && level == 0)
-            System.out.println("Children corrected "+sum);
-        return sum;
-    }
     private void debugChecks(BigDecimal lastUpper, BigDecimal lastLower, double epsilonBound, Sequence seq) {
         if (!debug)
             return;
@@ -339,10 +272,10 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         Node node = new Node(confSpace.positions.size());
         Node rootNode = node;
         rootNode.index(confIndex);
-        rootNode.gscore = gScorer.calc(confIndex, rcs);
-        rootNode.rigidScore = rigidgScorer.calc(confIndex,rcs);
+        rootNode.partialConfLowerbound = gScorer.calc(confIndex, rcs);
+        rootNode.partialConfUpperBound = rigidgScorer.calc(confIndex,rcs);
         double confUpperBound = rigidgScorer.calc(confIndex,rcs)-negatedHScorer.calc(confIndex, rcs);
-        double confLowerBound = rootNode.gscore+hScorer.calc(confIndex, rcs);
+        double confLowerBound = rootNode.partialConfLowerbound +hScorer.calc(confIndex, rcs);
         rootNode.computeNumConformations(rcs);
         rootNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound);
         return new MultiSequenceSHARKStarNode(rootNode, null);
@@ -358,8 +291,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         if(confSearchNode.isMinimized())
             return BigDecimal.ZERO;
         if(getChildren(seq) == null || getChildren(seq).size() < 1) {
-            BigDecimal diff = getSequenceBounds(seq).upper.subtract(getSequenceBounds(seq).lower);
-            return  diff.multiply(new BigDecimal(confSearchNode.minimizationRatio));
+            return  getSequenceBounds(seq).upper.subtract(getSequenceBounds(seq).lower);
         }
         BigDecimal errorSum = BigDecimal.ZERO;
         for(MultiSequenceSHARKStarNode childNode: getChildren(seq)) {
@@ -380,10 +312,10 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     public static class Node implements ConfAStarNode {
 
         private static int Unassigned = -1;
-        public double gscore = Double.NaN;
-        public double rigidScore = Double.NaN;
+        public double partialConfLowerbound = Double.NaN;
+        public double partialConfUpperBound = Double.NaN;
         private BigDecimal subtreeLowerBound = BigDecimal.ZERO; //\hat h^ominus(f) - the lower bound on subtree contrib to partition function
-        private BigDecimal subtreeUpperBound = null; //\hat h^oplus(f) - the lower bound on subtree contrib to partition function
+        private BigDecimal subtreeUpperBound = MathTools.BigPositiveInfinity; //\hat h^oplus(f) - the lower bound on subtree contrib to partition function
         private double confLowerBound = -Double.MAX_VALUE;
         private double confUpperBound = Double.MAX_VALUE;
         public int[] assignments;
@@ -391,7 +323,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         public int rc = Unassigned;
         public final int level;
         public BigInteger numConfs = BigInteger.ZERO;
-        private double minimizationRatio = 1;
 
         public Node(int size) {
             this(size, 0);
@@ -419,10 +350,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         public void setConfUpperBound(double confUpperBound){
             this.confUpperBound = confUpperBound;
             setSubtreeLowerBound(confUpperBound);
-        }
-
-        public void setMinimizationRatio(double v) {
-            minimizationRatio = v;
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
@@ -500,20 +427,12 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
         @Override
         public double getGScore() {
-            return gscore;
+            return partialConfLowerbound;
         }
 
         @Override
         public void setGScore(double val) {
-            gscore = val;
-        }
-
-        public double getMaxScore() {
-            return -confLowerBound;
-        }
-
-        public double getMinScore() {
-            return -confUpperBound;
+            partialConfLowerbound = val;
         }
 
         @Override
@@ -565,7 +484,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
         public String toString() {
             String out = confToString();
-            out += "Energy:" + String.format("%4.2f", gscore) + "*" + numConfs;
+            out += "Energy:" + String.format("%4.2f", partialConfLowerbound) + "*" + numConfs;
             if (!isMinimized())
                 out += " in [" + String.format("%4.4e,%4.4e", confLowerBound, confUpperBound) + "]->[" + setSigFigs(subtreeLowerBound) + "," + setSigFigs(subtreeUpperBound) + "]";
             else
