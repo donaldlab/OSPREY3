@@ -368,8 +368,6 @@ public class TestSHARKStarBound extends TestBase {
         ssbound.compute();
 
         System.out.println("Precomputed flex done.");
-        if(true)
-            return;
 
         // make the full confspace partitionFunction, and compute it much, much more accurately.
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
@@ -379,14 +377,13 @@ public class TestSHARKStarBound extends TestBase {
 
         PartitionFunction wtBound =
                 fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
-
-        PartitionFunction muttBound =
-                fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence()
-                                                            .set("A3","ILE"));
+        wtBound.compute();
 
         System.out.println("========================== Now computing mutant sequence ========================");
+        PartitionFunction muttBound =
+                fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence()
+                        .set("A3","ILE"));
         muttBound.compute();
-        wtBound.compute();
 
         assertThat(wtBound.getStatus(), is(PartitionFunction.Status.Estimated));
         assertThat(muttBound.getStatus(), is(PartitionFunction.Status.Estimated));
