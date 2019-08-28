@@ -1,13 +1,10 @@
 package edu.duke.cs.osprey.sharkstar;
 
-import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.ExpFunction;
@@ -174,19 +171,11 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public BigDecimal getUpperBound(Sequence seq){
-        throw new UnsupportedOperationException();
+        return getSequenceBounds(seq).upper;
     }
 
     public BigDecimal getLowerBound(Sequence seq){
-        throw new UnsupportedOperationException();
-    }
-
-    public BigDecimal getUpperBound(){
-        return confSearchNode.subtreeUpperBound;
-    }
-
-    public BigDecimal getLowerBound(){
-        return confSearchNode.subtreeLowerBound;
+        return getSequenceBounds(seq).lower;
     }
 
     public double getConfLowerbound() {
@@ -215,10 +204,25 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return newChild;
     }
 
-    public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
+    public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound, Sequence seq) {
+        MathTools.BigDecimalBounds bounds = getSequenceBounds(seq);
+        BigDecimal subtreeLowerBound = bounds.lower;
+        BigDecimal subtreeUpperBound = bounds.upper;
+        BigDecimal tighterLower = bc.calc(lowerBound);
+        BigDecimal tighterUpper = bc.calc(upperBound);
+        if (subtreeLowerBound != null && subtreeLowerBound.compareTo(tighterLower) > 0)
+            System.err.println("Updating subtree lower bound " + setSigFigs(subtreeLowerBound)
+                    + " with " + tighterLower + ", which is lower!?");
+        if (subtreeUpperBound != null && subtreeUpperBound.compareTo(tighterUpper) < 0)
+            System.err.println("Updating subtree upper bound " + setSigFigs(subtreeUpperBound)
+                    + " with " + setSigFigs(tighterUpper) + ", which is greater!?");
+        getSequenceBounds(seq).lower = bc.calc(lowerBound);
+        getSequenceBounds(seq).upper = bc.calc(upperBound);
+        /* old behavior. replaced with new behavior that doesn't put subtree bounds in confSearchNodes.
         confSearchNode.updateConfLowerBound(lowerBound);
         confSearchNode.updateConfUpperBound(upperBound);
         confSearchNode.setBoundsFromConfLowerAndUpper(lowerBound, upperBound);
+         */
     }
 
     public List<MultiSequenceSHARKStarNode> getChildren() {
@@ -257,27 +261,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return Type.minimizedLeaf;
     }
 
-    public static MultiSequenceSHARKStarNode makeRoot(SimpleConfSpace confSpace, EnergyMatrix rigidEnergyMatrix,
-                                                      EnergyMatrix minimizingEnergyMatrix, RCs rcs,
-                                                      AStarScorer gScorer, AStarScorer hScorer,
-                                                      AStarScorer rigidgScorer, AStarScorer negatedHScorer,
-                                                      boolean reportProgress) {
-
-
-        // make the A* scorers
-
-        ConfIndex confIndex = new ConfIndex(confSpace.positions.size());
-
-        // make the root node
-        Node node = new Node(confSpace.positions.size());
-        Node rootNode = node;
-        rootNode.index(confIndex);
-        rootNode.partialConfLowerbound = gScorer.calc(confIndex, rcs);
-        rootNode.partialConfUpperBound = rigidgScorer.calc(confIndex,rcs);
-        double confUpperBound = rigidgScorer.calc(confIndex,rcs)-negatedHScorer.calc(confIndex, rcs);
-        double confLowerBound = rootNode.partialConfLowerbound +hScorer.calc(confIndex, rcs);
-        rootNode.computeNumConformations(rcs);
-        rootNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound);
+    public static MultiSequenceSHARKStarNode makeRoot(Node rootNode) {
         return new MultiSequenceSHARKStarNode(rootNode, null);
     }
 
@@ -303,19 +287,31 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     public MathTools.BigDecimalBounds getSequenceBounds(Sequence seq) {
         if(!sequenceBounds.containsKey(seq)) {
-            sequenceBounds.put(seq, new MathTools.BigDecimalBounds(confSearchNode.subtreeLowerBound,
-                    confSearchNode.subtreeUpperBound));
+            sequenceBounds.put(seq, new MathTools.BigDecimalBounds());
         }
         return sequenceBounds.get(seq);
     }
 
-    public static class Node implements ConfAStarNode {
+    public String toSeqString(Sequence seq) {
+        String out = confSearchNode.confToString();
+        BigDecimal subtreeLowerBound = getLowerBound(seq);
+        BigDecimal subtreeUpperBound = getUpperBound(seq);
+        out += "Energy:" + String.format("%4.2f", confSearchNode.partialConfLowerbound) + "*" + confSearchNode.numConfs;
+        if (!confSearchNode.isMinimized())
+            out += " in [" + String.format("%4.4e,%4.4e", confSearchNode.confLowerBound, confSearchNode.confUpperBound)
+                    + "]->[" + setSigFigs(subtreeLowerBound) + "," + setSigFigs(subtreeUpperBound) + "]";
+        else
+            out += " (minimized) -> " + setSigFigs(subtreeLowerBound);
+        return out;
+    }
+
+    public static class Node {
 
         private static int Unassigned = -1;
         public double partialConfLowerbound = Double.NaN;
         public double partialConfUpperBound = Double.NaN;
-        private BigDecimal subtreeLowerBound = BigDecimal.ZERO; //\hat h^ominus(f) - the lower bound on subtree contrib to partition function
-        private BigDecimal subtreeUpperBound = MathTools.BigPositiveInfinity; //\hat h^oplus(f) - the lower bound on subtree contrib to partition function
+        private BigDecimal subtreeLowerBound_deprecated = BigDecimal.ZERO; //\hat h^ominus(f) - the lower bound on subtree contrib to partition function
+        private BigDecimal subtreeUpperBound_deprecated = MathTools.BigPositiveInfinity; //\hat h^oplus(f) - the lower bound on subtree contrib to partition function
         private double confLowerBound = -Double.MAX_VALUE;
         private double confUpperBound = Double.MAX_VALUE;
         public int[] assignments;
@@ -334,22 +330,12 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             this.level = level;
         }
 
-        public void setSubtreeUpperBound(double confLowerBound){
-            this.subtreeUpperBound = computeBoundsFromEnergy(confLowerBound);
+        public void setConfLowerBound(double confLowerBound) {
+            this.confLowerBound = confLowerBound;
         }
 
-        public void setSubtreeLowerBound(double confUpperBound){
-            this.subtreeLowerBound = computeBoundsFromEnergy(confUpperBound);
-        }
-
-        public void setConfLowerBound(double confLowerBound){
-           this.confLowerBound = confLowerBound;
-           setSubtreeUpperBound(confLowerBound);
-        }
-
-        public void setConfUpperBound(double confUpperBound){
+        public void setConfUpperBound(double confUpperBound) {
             this.confUpperBound = confUpperBound;
-            setSubtreeLowerBound(confUpperBound);
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
@@ -373,7 +359,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                         + " with " + tighterLower + ", which is lower!?");
             if (tighterLower > confLowerBound) {
                 confLowerBound = tighterLower;
-                updateSubtreeUpperBound(computeBoundsFromEnergy(confLowerBound));
             }
         }
 
@@ -385,27 +370,13 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                 updateSubtreeLowerBound(BigDecimal.ZERO);
             if (tighterUpper < confUpperBound) {
                 confUpperBound = tighterUpper;
-                updateSubtreeLowerBound(computeBoundsFromEnergy(confUpperBound));
             }
         }
 
-        // HACK: We no longer need to use the number of conformations, so we don't.
-        private BigDecimal computeBoundsFromEnergy(double energy) {
-            return bc.calc(energy);//.multiply(new BigDecimal(getNumConformations()));
-        }
-
         private void updateSubtreeLowerBound(BigDecimal tighterLower) {
-            if (subtreeLowerBound != null && subtreeLowerBound.compareTo(tighterLower) > 0)
-                System.err.println("Updating subtree lower bound " + setSigFigs(subtreeLowerBound)
-                        + " with " + tighterLower + ", which is lower!?");
-            subtreeLowerBound = tighterLower;
         }
 
         private void updateSubtreeUpperBound(BigDecimal tighterUpper) {
-            if (subtreeUpperBound != null && subtreeUpperBound.compareTo(tighterUpper) < 0)
-                System.err.println("Updating subtree upper bound " + setSigFigs(subtreeUpperBound)
-                        + " with " + setSigFigs(tighterUpper) + ", which is greater!?");
-            subtreeUpperBound = tighterUpper;
         }
 
         public boolean isMinimized() {
@@ -416,7 +387,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             return level == assignments.length;
         }
 
-        @Override
         public Node assign(int pos, int rc) {
             Node node = new Node(assignments.length, level + 1);
             node.pos = pos;
@@ -425,37 +395,11 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             node.assignments[pos] = rc;
             return node;
         }
-        @Override
-        public double getGScore() {
-            return partialConfLowerbound;
-        }
 
-        @Override
-        public void setGScore(double val) {
-            partialConfLowerbound = val;
-        }
-
-        @Override
-        public double getHScore() {
-            return -subtreeUpperBound.subtract(subtreeLowerBound).doubleValue();
-        }
-
-        @Override
-        public void setHScore(double val) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public int getLevel() {
             return level;
         }
 
-        @Override
-        public void getConf(int[] conf) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public void index(ConfIndex confIndex) {
             confIndex.numDefined = 0;
             confIndex.numUndefined = 0;
@@ -470,7 +414,9 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                     confIndex.numDefined++;
                 }
             }
-            confIndex.node = this;
+
+            /* We never use this. Supporting it is unnecessary now. */
+            confIndex.node = null;
         }
 
         public String confToString() {
@@ -482,15 +428,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             return out;
         }
 
-        public String toString() {
-            String out = confToString();
-            out += "Energy:" + String.format("%4.2f", partialConfLowerbound) + "*" + numConfs;
-            if (!isMinimized())
-                out += " in [" + String.format("%4.4e,%4.4e", confLowerBound, confUpperBound) + "]->[" + setSigFigs(subtreeLowerBound) + "," + setSigFigs(subtreeUpperBound) + "]";
-            else
-                out += " (minimized) -> " + setSigFigs(subtreeLowerBound);
-            return out;
-        }
 
         public BigInteger getNumConformations() {
             return numConfs;
@@ -498,7 +435,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
         public void computeNumConformations(RCs rcs) {
             this.numConfs = rcs.getNumConformations();
-            assert(this.numConfs.compareTo(BigInteger.ZERO) > 0);
+            assert (this.numConfs.compareTo(BigInteger.ZERO) > 0);
         }
 
         public double getConfLowerBound() {
@@ -508,14 +445,5 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         public double getConfUpperBound() {
             return confUpperBound;
         }
-
-        public BigDecimal getSubtreeLowerBound() {
-            return subtreeLowerBound;
-        }
-
-        public BigDecimal getSubtreeUpperBound() {
-            return subtreeUpperBound;
-        }
-
     }
 }
