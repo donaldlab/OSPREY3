@@ -23,9 +23,9 @@ public class MultiSequenceSHARKStarNodeStatistics {
             confString = confString+"->("+confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments)+")";
         String out = prefix+confString+":"
                 +"["+confSearchNode.getConfLowerBound()+","+confSearchNode.getConfUpperBound()+"]->"
-                +"["+setSigFigs(node.getSequenceBounds(seq).lower)
-                +","+setSigFigs(node.getSequenceBounds(seq).upper)+"]"+"\n";
-        if(MathTools.isLessThan(confSearchNode.getSubtreeUpperBound(), BigDecimal.ZERO))
+                +"["+formatBound(node.getLowerBound(seq))
+                +","+formatBound(node.getUpperBound(seq))+"]"+"\n";
+        if(MathTools.isLessThan(node.getUpperBound(seq), BigDecimal.ZERO))
             return;
         if(writer != null) {
             try {
@@ -47,6 +47,12 @@ public class MultiSequenceSHARKStarNodeStatistics {
 
     }
 
+    private static String formatBound(BigDecimal bound) {
+        if(bound instanceof MathTools.MagicBigDecimal)
+            return bound.toString();
+        return setSigFigs(bound).toString();
+    }
+
     public static void printTree(String name, Sequence seq, MultiSequenceSHARKStarNode node) {
         printTree(name, null, seq, node);
     }
@@ -64,10 +70,6 @@ public class MultiSequenceSHARKStarNodeStatistics {
 
     public static void printTree(Sequence seq, MultiSequenceSHARKStarNode node) {
         printTree("", null, null, seq, node);
-    }
-
-    public static void printTree(MultiSequenceSHARKStarNode node) {
-        printTree(null, node);
     }
 
     public static BigDecimal setSigFigs(BigDecimal decimal, int numSigFigs) {
