@@ -209,7 +209,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         ConfIndex rootIndex = new ConfIndex(fullRCs.getNumPos());
         this.rootNode.getConfSearchNode().index(rootIndex);
         this.order.updateForPrecomputedOrder((StaticBiggestLowerboundDifferenceOrder) precomputedFlex.order, rootIndex, this.fullRCs, genConfSpaceMapping());
-        printTree(this.precomputedSequence, this.rootNode);
 
 
 		/*
@@ -552,7 +551,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             debugPrint("Tightening from epsilon of " + sequenceBound.sequenceEpsilon);
             if (debug) {
                 debugHeap(sequenceBound.fringeNodes);
-                //rootNode.printTree();
+                //printTree(sequenceBound.sequence,rootNode);
             }
             tightenBoundInPhases(sequenceBound);
             debugPrint("Errorbound is now " + sequenceBound.sequenceEpsilon);
@@ -691,10 +690,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     protected void tightenBoundInPhases(SingleSequenceSHARKStarBound bound) {
         PriorityQueue<MultiSequenceSHARKStarNode> queue = bound.fringeNodes;
-        if (!queue.isEmpty() && queue.peek().getUpperBound(bound.sequence).compareTo(BigDecimal.ONE) < 1) {
-            System.err.println("Nope. bad.");
-            System.exit(-1);
-        }
         assert (!queue.isEmpty() || !bound.internalQueue.isEmpty() || !bound.leafQueue.isEmpty());
         System.out.println(String.format("Current overall error bound: %12.10f, spread of [%12.6e, %12.6e]",
                 bound.sequenceEpsilon, bound.getValues().calcLowerBound(),
@@ -866,7 +861,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         processPreminimization(bound, minimizingEcalc);
         profilePrint("Preminimization time : " + loopWatch.getTime(2));
         double curEpsilon = bound.sequenceEpsilon;
-        //printTree(bound.sequence, rootNode);
+        printTree(bound.sequence, rootNode);
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         loopWatch.stop();
         cleanupTime = loopWatch.getTimeS();
@@ -976,7 +971,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     bestChild = MultiSequenceSHARKStarNodeChild;
                 }
                 // collect the possible children
-                if (true || MultiSequenceSHARKStarNodeChild.getConfLowerBound(bound.sequence) < 0) {
+                if (MultiSequenceSHARKStarNodeChild.getConfLowerBound(bound.sequence) < 0) {
                     children.add(MultiSequenceSHARKStarNodeChild);
                 }
                 newNodes.add(MultiSequenceSHARKStarNodeChild);

@@ -17,6 +17,8 @@ public class MultiSequenceSHARKStarNodeStatistics {
 
     public static void printTree(String prefix, FileWriter writer, SimpleConfSpace confSpace, Sequence seq, MultiSequenceSHARKStarNode node)
     {
+        if (MathTools.isLessThan(node.getUpperBound(seq), BigDecimal.ONE))
+            return;
         MultiSequenceSHARKStarNode.Node confSearchNode = node.getConfSearchNode();
         String confString = confSearchNode.confToString();
         if(confSpace != null)

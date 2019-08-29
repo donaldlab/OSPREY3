@@ -93,9 +93,11 @@ public class MARKStarProgress extends AStarProgress {
         this.gscore = gscore;
         this.hscore = hscore;
 
-        if (!stopwatch.isRunning()) {
-            stopwatch.start();
-            msRunning = 0;
+        synchronized (stopwatch) {
+            if (!stopwatch.isRunning()) {
+                stopwatch.start();
+                msRunning = 0;
+            }
         }
 
         // should we write a progress report?
