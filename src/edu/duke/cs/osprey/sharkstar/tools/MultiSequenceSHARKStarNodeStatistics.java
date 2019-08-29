@@ -22,7 +22,7 @@ public class MultiSequenceSHARKStarNodeStatistics {
         if(confSpace != null)
             confString = confString+"->("+confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments)+")";
         String out = prefix+confString+":"
-                +"["+confSearchNode.getConfLowerBound()+","+confSearchNode.getConfUpperBound()+"]->"
+                +"["+node.getConfLowerBound(seq)+","+node.getConfUpperBound(seq)+"]->"
                 +"["+formatBound(node.getLowerBound(seq))
                 +","+formatBound(node.getUpperBound(seq))+"]"+"\n";
         if(MathTools.isLessThan(node.getUpperBound(seq), BigDecimal.ZERO))

@@ -370,10 +370,10 @@ public class TestSHARKStarBound extends TestBase {
         System.out.println("Precomputed flex done.");
 
         // make the full confspace partitionFunction, and compute it much, much more accurately.
-        Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
+        Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
         MultiSequenceSHARKStarBound fullPfunc =
                 (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace,
-                        fullSeq.makeRCs(mutableConfSpace), epsilon, (MultiSequenceSHARKStarBound) preCompFlex);
+                        fullSeq.makeRCs(mutableConfSpace), epsilon, preCompFlex);
 
         PartitionFunction wtBound =
                 fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());

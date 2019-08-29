@@ -67,12 +67,13 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         // first change the confSearch information
 
         // we copy over the new RCs based on permutation information
-        Node newNode = new Node(size, this.level);
+        int[] newAssignments = new int[size];
+        Arrays.fill(newAssignments, -1);
         for (int i =0; i < this.getConfSearchNode().assignments.length; i++){
-            newNode.assignments[permutation[i]] = this.getConfSearchNode().assignments[i];
+            newAssignments[permutation[i]] = this.getConfSearchNode().assignments[i];
         }
         // Now I'm going to be hacky and just copy over the assignments
-        this.getConfSearchNode().assignments = newNode.assignments;
+        this.getConfSearchNode().assignments = newAssignments;
         if (this.getConfSearchNode().pos != -1){
             this.getConfSearchNode().pos = permutation[this.getConfSearchNode().pos];
         }
@@ -214,6 +215,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                     + " with " + setSigFigs(tighterUpper) + ", which is greater!?");
         getSequenceBounds(seq).lower = bc.calc(upperBound);
         getSequenceBounds(seq).upper = bc.calc(lowerBound);
+        getSequenceConfBounds(seq).lower = lowerBound;
+        getSequenceConfBounds(seq).upper = upperBound;
         /* old behavior. replaced with new behavior that doesn't put subtree bounds in confSearchNodes.
         confSearchNode.updateConfLowerBound(lowerBound);
         confSearchNode.updateConfUpperBound(upperBound);
@@ -223,7 +226,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     private MathTools.DoubleBounds getSequenceConfBounds(Sequence seq) {
         if(!confBounds.containsKey(seq)) {
-            confBounds.put(seq, new MathTools.DoubleBounds());
+            confBounds.put(seq, new MathTools.DoubleBounds(Double.MAX_VALUE, Double.MIN_VALUE));
         }
         return confBounds.get(seq);
     }
@@ -263,16 +266,24 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             child.setNewConfSpace(confSpace);
     }
 
+    public double getConfLowerBound(Sequence seq) {
+        return getSequenceConfBounds(seq).lower;
+    }
+
+    public double getConfUpperBound(Sequence seq) {
+        return getSequenceConfBounds(seq).upper;
+    }
+
     public static enum Type {
         internal,
         boundedLeaf,
         minimizedLeaf
     }
 
-    public Type type(RCs rcs) {
-        if(level < rcs.getNumPos())
+    public Type type(MultiSequenceSHARKStarBound.SingleSequenceSHARKStarBound bound) {
+        if(level < bound.seqRCs.getNumPos())
             return  Type.internal;
-        if(!confSearchNode.isMinimized())
+        if(isMinimized(bound.sequence))
             return Type.boundedLeaf;
         return Type.minimizedLeaf;
     }
@@ -288,10 +299,13 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public BigDecimal getErrorBound(Sequence seq) {
-        if(confSearchNode.isMinimized())
+        if(isMinimized(seq))
             return BigDecimal.ZERO;
         if(getChildren(seq) == null || getChildren(seq).size() < 1) {
-            return  getSequenceBounds(seq).upper.subtract(getSequenceBounds(seq).lower);
+            MathTools.BigDecimalBounds seqBounds = getSequenceBounds(seq);
+            if(MathTools.isFinite(seqBounds.lower) && MathTools.isFinite(seqBounds.upper))
+                return  getSequenceBounds(seq).upper.subtract(getSequenceBounds(seq).lower);
+            else return null;
         }
         BigDecimal errorSum = BigDecimal.ZERO;
         for(MultiSequenceSHARKStarNode childNode: getChildren(seq)) {
@@ -313,12 +327,18 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         BigDecimal subtreeLowerBound = getLowerBound(seq);
         BigDecimal subtreeUpperBound = getUpperBound(seq);
         out += "Energy:" + String.format("%4.2f", confSearchNode.partialConfLowerbound) + "*" + confSearchNode.numConfs;
-        if (!confSearchNode.isMinimized())
-            out += " in [" + String.format("%4.4e,%4.4e", confSearchNode.confLowerBound, confSearchNode.confUpperBound)
+        if (!isMinimized(seq))
+            out += " in [" + String.format("%4.4e,%4.4e", getSequenceConfBounds(seq).lower, getSequenceConfBounds(seq).upper)
                     + "]->[" + setSigFigs(subtreeLowerBound) + "," + setSigFigs(subtreeUpperBound) + "]";
         else
             out += " (minimized) -> " + setSigFigs(subtreeLowerBound);
         return out;
+    }
+
+    public boolean isMinimized(Sequence seq) {
+        double confLowerBound = getSequenceConfBounds(seq).lower;
+        double confUpperBound = getSequenceConfBounds(seq).upper;
+        return Math.abs(confLowerBound - confUpperBound) < 1e-5;
     }
 
     public static class Node implements ConfAStarNode {
@@ -326,22 +346,27 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         private static int Unassigned = -1;
         public double partialConfLowerbound = 0;
         public double partialConfUpperBound = 0;
-        public double confLowerBound = Double.MAX_VALUE;
-        public double confUpperBound = Double.MIN_VALUE;
+        private double confLowerBound = Double.MAX_VALUE;
+        private double confUpperBound = Double.MIN_VALUE;
         public int[] assignments;
         public int pos = Unassigned;
         public int rc = Unassigned;
         public final int level;
         public BigInteger numConfs = BigInteger.ZERO;
 
-        public Node(int size) {
-            this(size, 0);
+        public Node(int size, int level) {
+            this(size, level, new MathTools.DoubleBounds());
+        }
+        public Node(int size, MathTools.DoubleBounds fullConfBounds) {
+            this(size, 0, fullConfBounds);
         }
 
-        public Node(int size, int level) {
+        public Node(int size, int level, MathTools.DoubleBounds fullConfBounds) {
             assignments = new int[size];
             Arrays.fill(assignments, Unassigned);
             this.level = level;
+            confLowerBound = fullConfBounds.lower;
+            confUpperBound = fullConfBounds.upper;
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
@@ -377,10 +402,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             if (tighterUpper < confUpperBound) {
                 confUpperBound = tighterUpper;
             }
-        }
-
-        public boolean isMinimized() {
-            return Math.abs(confLowerBound - confUpperBound) < 1e-5;
         }
 
         public boolean isLeaf() {
