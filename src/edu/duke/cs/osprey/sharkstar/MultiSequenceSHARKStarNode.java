@@ -105,9 +105,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     public void updateSubtreeBounds(Sequence seq) {
         List<MultiSequenceSHARKStarNode> childrenForSequence = getChildren(seq);
-        if(!updated)
-            return;
-        updated = false;
         if(childrenForSequence != null && childrenForSequence.size() > 0) {
             BigDecimal errorUpperBound = BigDecimal.ZERO;
             BigDecimal errorLowerBound = BigDecimal.ZERO;
@@ -235,7 +232,18 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             return children;
         if(!childrenMap.containsKey(seq))
             childrenMap.put(seq, populateChildren(seq));
+        checkChildren(childrenMap.get(seq));
         return childrenMap.get(seq);
+    }
+
+    private void checkChildren(List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes) {
+        Set<Integer> rcs = new HashSet<>();
+        for(MultiSequenceSHARKStarNode node: multiSequenceSHARKStarNodes) {
+            int rc = node.confSearchNode.assignments[node.confSearchNode.pos];
+            if(rcs.contains(rc))
+                System.err.println("Dupe node.");
+            rcs.add(rc);
+        }
     }
 
     private List<MultiSequenceSHARKStarNode> populateChildren(Sequence seq) {
@@ -245,6 +253,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             if (Arrays.stream(seqRCs.get(child.confSearchNode.pos)).anyMatch(i -> i == child.confSearchNode.rc))
                 childrenForSeq.add(child);
         }
+        checkChildren(childrenForSeq);
         return childrenForSeq;
     }
 

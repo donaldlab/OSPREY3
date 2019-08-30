@@ -231,11 +231,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     public PartitionFunction getPartitionFunctionForSequence(Sequence seq) {
         SingleSequenceSHARKStarBound newBound = new SingleSequenceSHARKStarBound(seq, this);
         newBound.init(null, null, targetEpsilon);
-        if(precomputedRootNode != null)
-            addPrecomputedFringeToQueue(newBound);
-        else
-            newBound.fringeNodes.add(this.rootNode);
+        computeFringeForSequence(newBound, this.rootNode);
         newBound.updateBound();
+        rootNode.updateSubtreeBounds(seq);
         printTree(seq, this.rootNode);
         return newBound;
     }
@@ -308,8 +306,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     private void updatePrecomputedNode(MultiSequenceSHARKStarNode node, int[] permutation, int size) {
-        if (node.getChildren(null) != null) {
-            for (MultiSequenceSHARKStarNode child : node.getChildren(null)) {
+        if (node.getChildren(precomputedSequence) != null) {
+            for (MultiSequenceSHARKStarNode child : node.getChildren(precomputedSequence)) {
                 updatePrecomputedNode(child, permutation, size);
             }
         }
@@ -334,12 +332,26 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     /**
      * Add the newly updated nodes to the queue so that we don't redo any work
      */
-    private void addPrecomputedFringeToQueue(SingleSequenceSHARKStarBound bound) {
-        if(precomputedFringe.size() < 1)
-            processPrecomputedFringe(this.precomputedRootNode, bound);
+    private void addPrecomputedFringeToQueues(SingleSequenceSHARKStarBound bound) {
+        processPrecomputedFringe(this.rootNode, bound);
         initForSeq(precomputedFringe, bound);
         bound.fringeNodes.addAll(precomputedFringe);
 
+    }
+
+    private void computeFringeForSequence(SingleSequenceSHARKStarBound bound, MultiSequenceSHARKStarNode curNode) {
+        Node confNode = curNode.getConfSearchNode();
+        RCs rcs = bound.seqRCs;
+        confNode.index(confIndex);
+
+        double confLowerBound = confNode.partialConfLowerbound + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
+        double confUpperBound = confNode.partialConfLowerbound - nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
+        curNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, bound.sequence);
+        if(curNode.getChildren(bound.sequence).size() < 1)
+            bound.fringeNodes.add(curNode);
+        else
+            for(MultiSequenceSHARKStarNode child: curNode.getChildren(bound.sequence))
+                computeFringeForSequence(bound, child);
     }
 
     private void processPrecomputedFringe(MultiSequenceSHARKStarNode root, SingleSequenceSHARKStarBound bound) {
