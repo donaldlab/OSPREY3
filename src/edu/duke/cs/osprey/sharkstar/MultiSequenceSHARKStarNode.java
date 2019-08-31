@@ -418,8 +418,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
 
         public Node assign(int pos, int rc) {
-            if(pos ==5 && rc == 8)
-                System.err.println("Not a real RC?");
             Node node = new Node(assignments.length, level + 1);
             node.pos = pos;
             node.rc = rc;
