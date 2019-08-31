@@ -188,12 +188,13 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return confSearchNode;
     }
 
-    public MultiSequenceSHARKStarNode makeChild(Node child, Sequence seq) {
+    public MultiSequenceSHARKStarNode makeChild(Node child, Sequence seq, double lowerBound, double upperBound) {
         MultiSequenceSHARKStarNode newChild = new MultiSequenceSHARKStarNode(child, this, this.fullConfSpace);
         newChild.computeEpsilonErrorBounds(seq);
-        newChild.errorBound = getErrorBound(seq);
         getChildren(seq).add(newChild);
         children.add(newChild);
+        newChild.setBoundsFromConfLowerAndUpper(lowerBound, upperBound, seq);
+        newChild.errorBound = getErrorBound(seq);
         return newChild;
     }
 
@@ -331,7 +332,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public String toSeqString(Sequence seq) {
-        String out = confSearchNode.confToString();
+        String out = confSearchNode.confToString();//fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);
         BigDecimal subtreeLowerBound = getLowerBound(seq);
         BigDecimal subtreeUpperBound = getUpperBound(seq);
         out += "Energy:" + String.format("%4.2f", confSearchNode.partialConfLowerbound) + "*" + confSearchNode.numConfs;
@@ -417,6 +418,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
 
         public Node assign(int pos, int rc) {
+            if(pos ==5 && rc == 8)
+                System.err.println("Not a real RC?");
             Node node = new Node(assignments.length, level + 1);
             node.pos = pos;
             node.rc = rc;

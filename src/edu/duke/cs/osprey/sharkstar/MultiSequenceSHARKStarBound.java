@@ -231,6 +231,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     public PartitionFunction getPartitionFunctionForSequence(Sequence seq) {
         SingleSequenceSHARKStarBound newBound = new SingleSequenceSHARKStarBound(seq, this);
         newBound.init(null, null, targetEpsilon);
+        System.out.println("Full RCs: "+fullRCs);
+        System.out.println("Sequence RCs: "+newBound.seqRCs);
         computeFringeForSequence(newBound, this.rootNode);
         newBound.updateBound();
         rootNode.updateSubtreeBounds(seq);
@@ -342,11 +344,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private void computeFringeForSequence(SingleSequenceSHARKStarBound bound, MultiSequenceSHARKStarNode curNode) {
         Node confNode = curNode.getConfSearchNode();
         RCs rcs = bound.seqRCs;
-        confNode.index(confIndex);
+        try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+            ScoreContext context = checkout.get();
+            confNode.index(context.index);
+            if(confIndex.findDefined(5)==8)
+                System.err.println("Whaaa?");
 
-        double confLowerBound = confNode.partialConfLowerbound + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
-        double confUpperBound = confNode.partialConfLowerbound - nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
-        curNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, bound.sequence);
+            RCs test = new RCs(minimizingEcalc.confSpace);
+            double confLowerBound = confNode.partialConfLowerbound + context.hscorer.calc(context.index, rcs);
+            double confUpperBound = confNode.partialConfLowerbound - context.negatedhscorer.calc(context.index, rcs);
+            curNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, bound.sequence);
+        }
         if(curNode.getChildren(bound.sequence).size() < 1)
             bound.fringeNodes.add(curNode);
         else
@@ -873,7 +881,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         processPreminimization(bound, minimizingEcalc);
         profilePrint("Preminimization time : " + loopWatch.getTime(2));
         double curEpsilon = bound.sequenceEpsilon;
-        printTree(bound.sequence, rootNode);
+        //printTree(bound.sequence, rootNode);
         //rootNode.updateConfBounds(new ConfIndex(RCs.getNumPos()), RCs, gscorer, hscorer);
         loopWatch.stop();
         cleanupTime = loopWatch.getTimeS();
@@ -930,6 +938,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 Stopwatch partialTime = new Stopwatch().start();
                 Node child = node.assign(nextPos, nextRc);
                 double confLowerBound = Double.POSITIVE_INFINITY;
+                double confUpperBound = Double.NEGATIVE_INFINITY;
 
                 // score the child node differentially against the parent node
                 if (child.getLevel() < RCs.getNumPos()) {
@@ -944,13 +953,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     child.partialConfUpperBound = rigiddiff;
 
                     confLowerBound = child.partialConfLowerbound + hdiff;
-                    double confUpperbound = rigiddiff + maxhdiff;
+                    confUpperBound = rigiddiff + maxhdiff;
                     child.computeNumConformations(RCs);
                     if (diff < confCorrection) {
                         recordCorrection(confLowerBound, confCorrection - diff);
                         confLowerBound = confCorrection + hdiff;
                     }
-                    child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperbound);
+                    child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound);
                     progress.reportInternalNode(child.level, child.partialConfLowerbound, confLowerBound, queue.size(), children.size(), bound.sequenceEpsilon);
                 }
                 if (child.getLevel() == RCs.getNumPos()) {
@@ -968,6 +977,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     child.partialConfLowerbound = confCorrection;
                     confLowerBound = lowerbound;
                     child.partialConfUpperBound = confRigid;
+                    confUpperBound = confRigid;
                     numConfsScored++;
                     progress.reportLeafNode(child.partialConfLowerbound, queue.size(), bound.sequenceEpsilon);
                 }
@@ -975,7 +985,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 loopPartialTime += partialTime.getTimeS();
 
 
-                MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild = curNode.makeChild(child, bound.sequence);
+                MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild = curNode.makeChild(child, bound.sequence, confLowerBound, confUpperBound);
                 if (Double.isNaN(child.partialConfUpperBound))
                     System.out.println("Huh!?");
                 MultiSequenceSHARKStarNodeChild.markUpdated();
@@ -1139,7 +1149,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             }, (PartialConfNodeResult result) -> {
                 assert (result.isValid());
                 MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild = curNode.makeChild(result.resultNode,
-                        bound.sequence);
+                        bound.sequence, result.lowerBound, result.upperBound);
                 MultiSequenceSHARKStarNodeChild.setBoundsFromConfLowerAndUpper(result.lowerBound,
                         result.upperBound, bound.sequence);
                 // collect the possible children
@@ -1508,8 +1518,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     double rotEnergy = emat.getEnergy(undefinedPos1, rot1);
                     for (int definedPosIndex = 0; definedPosIndex < confIndex.numDefined; definedPosIndex ++) {
                         int definedPos = confIndex.definedPos[definedPosIndex];
-                        int definedRC = confIndex.definedRCs[definedPos];
+                        int definedRC = confIndex.definedRCs[definedPosIndex];
+                        if(definedPos == 5 && definedRC == 8) {
+                            System.out.println("RC at pos 5:" + definedRC);
+                            System.out.println("RC at pos "+undefinedPos1+":" + rot1);
+                            if(undefinedPos1 == 6 && rot1 == 8)
+                                System.out.println("Why is this the only one that fails?");
+                        }
                         rotEnergy += emat.getEnergy(undefinedPos1, rot1, definedPos, definedRC);
+                        if(definedPos == 5 && definedRC == 8)
+                            System.out.println("energy for "+confIndex+"and (5:8):" +emat.getEnergy(undefinedPos1, rot1, definedPos, definedRC));
                     }
                     for (int undefinedPosIndex2 = 0; undefinedPosIndex2 < confIndex.numUndefined; undefinedPosIndex2++) {
                         int undefinedPos2 = confIndex.undefinedPos[undefinedPosIndex2];

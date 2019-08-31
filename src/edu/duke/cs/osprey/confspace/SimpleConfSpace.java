@@ -158,6 +158,8 @@ public class SimpleConfSpace implements Serializable {
 		}
 
 		public String formatConfPos(int[] conf) {
+			if(conf[index] < 0)
+				return "(Unassigned)";
 			SimpleConfSpace.ResidueConf rc = resConfs.get(conf[index]);
 			return String.format("%s-%s-%d",
 				rc.template.name.toUpperCase(),

@@ -159,11 +159,13 @@ public class TestSHARKStarBound extends TestBase {
      */
     private SimpleConfSpace make1CC8Mutable(){
         Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A10").build();
-        strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG");
+        strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
         strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "ILE");
-        strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
+        strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType, "ALA");
         strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType, "MET");
         strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType);
+        strand1.flexibility.get("A7").setLibraryRotamers(Strand.WildType);
+        strand1.flexibility.get("A8").setLibraryRotamers(Strand.WildType);
 
         return new SimpleConfSpace.Builder()
                 .addStrands(strand1)
@@ -380,13 +382,63 @@ public class TestSHARKStarBound extends TestBase {
         wtBound.compute();
 
         System.out.println("========================== Now computing mutant sequence ========================");
+        Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("A5","MET") .set("A3","ILE");
         PartitionFunction muttBound =
-                fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence()
-                        .set("A3","ILE"));
+                fullPfunc.getPartitionFunctionForSequence(mutantSequence);
         muttBound.compute();
+
+        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, mutantSequence, epsilon);
+        traditionalPfunc.setReportProgress(true);
+        traditionalPfunc.compute();
+        System.out.println("Gradient Descent pfunc: "+formatBounds(traditionalPfunc.getValues().calcLowerBound(),
+                traditionalPfunc.getValues().calcUpperBound()));
+        System.out.println("precompPfunc: " + formatBounds(muttBound.getValues().calcLowerBound(), muttBound.getValues().calcUpperBound()));
 
         assertThat(wtBound.getStatus(), is(PartitionFunction.Status.Estimated));
         assertThat(muttBound.getStatus(), is(PartitionFunction.Status.Estimated));
+    }
+
+    public void testMultiSequenceCorrectness() {
+        double epsilon = 0.68;
+        // make full confspace and the flexible copy
+        SimpleConfSpace mutableConfSpace = make1CC8Mutable();
+        SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
+
+        // precompute flexible residues
+        Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
+        SHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, epsilon, null, null);
+        preCompFlex.compute();
+
+        // make the full confspace partitionFunction, and compute it much, much more accurately.
+        Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
+        SHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon, preCompFlex, preCompFlex.genCorrectionMatrix());
+
+        // update and compute
+        //fullPfunc.updatePrecomputedConfTree();
+        fullPfunc.compute();
+
+        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon/10000);
+        traditionalPfunc.setReportProgress(true);
+        traditionalPfunc.compute();
+
+        System.out.println("=============================================================================================");
+        System.out.println("====================== Running SHARK* without precomputed tree ==============================");
+        System.out.println("=============================================================================================");
+        // compute partition function the regular way
+        SHARKStarBound regPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon, null, null);
+        regPfunc.compute();
+
+        System.out.println("Gradient Descent pfunc: "+formatBounds(traditionalPfunc.getValues().calcLowerBound(),
+                traditionalPfunc.getValues().calcUpperBound()));
+        System.out.println("RegPfunc: " + formatBounds(regPfunc.getValues().calcLowerBound(), regPfunc.getValues().calcUpperBound()));
+        System.out.println("precompPfunc: " + formatBounds(fullPfunc.getValues().calcLowerBound(), fullPfunc.getValues().calcUpperBound()));
+        assertThat(fullPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+        assertThat(regPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+        assertThat(regPfunc.getValues().calcUpperBound(), greaterThan(traditionalPfunc.getValues().calcUpperBound()));
+        assertThat(regPfunc.getValues().calcLowerBound(), lessThan(traditionalPfunc.getValues().calcLowerBound()));
+        assertThat(fullPfunc.getValues().calcUpperBound(), greaterThan(traditionalPfunc.getValues().calcUpperBound()));
+        assertThat(fullPfunc.getValues().calcLowerBound(), lessThan(traditionalPfunc.getValues().calcLowerBound()));
+
     }
 
     private String formatBounds(BigDecimal lower, BigDecimal upper) {
