@@ -240,7 +240,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         computeFringeForSequence(newBound, this.rootNode);
         newBound.updateBound();
         rootNode.updateSubtreeBounds(seq);
-        printTree(seq, this.rootNode);
+        //printTree(seq, this.rootNode);
         return newBound;
     }
 
@@ -810,8 +810,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                   BigDecimal leafZ, BigDecimal[] ZSums) {
         List<MultiSequenceSHARKStarNode> leftoverLeaves = new ArrayList<>();
         PriorityQueue<MultiSequenceSHARKStarNode> queue = bound.fringeNodes;
-        //int maxNodes = 1000;
-        int maxNodes = 1;
+        int maxNodes = 1000;
+        //int maxNodes = 1;
         if (leafTimeAverage > 0)
             maxNodes = Math.max(maxNodes, (int) Math.floor(0.1 * leafTimeAverage / internalTimeAverage));
         while (!queue.isEmpty() && (bound.internalQueue.size() < maxNodes || bound.leafQueue.size() < maxMinimizations)) {
@@ -1735,12 +1735,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     .add(internalQueue.getPartitionFunctionLowerBound())
                     .add(leafQueue.getPartitionFunctionLowerBound())
                     .add(finishedNodeZ);
-            if(MathTools.isLessThan(lowerBound, lastLower) && ! MathTools.isRelativelySame(lowerBound, lastLower, PartitionFunction.decimalPrecision, 1e-3)) {
+            if(MathTools.isLessThan(lowerBound, lastLower) && ! MathTools.isRelativelySame(lowerBound, lastLower, PartitionFunction.decimalPrecision, 10)) {
                 System.err.println("Bounds getting looser. Lower bound is getting lower...");
                 errors = true;
             }
-            if(MathTools.isGreaterThan(upperBound, lastUpper) && ! MathTools.isRelativelySame(upperBound, lastUpper, PartitionFunction.decimalPrecision, 1e-3)) {
-                System.err.println("Bounds getting looser. Upper bound is getting upper...");
+            if(MathTools.isGreaterThan(upperBound, lastUpper) && ! MathTools.isRelativelySame(upperBound, lastUpper, PartitionFunction.decimalPrecision, 10)) {
+                System.err.println("Bounds getting looser. Upper bound is getting bigger...");
                 errors = true;
             }
             values.pstar = upperBound;

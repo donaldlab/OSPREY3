@@ -415,9 +415,9 @@ public class TestSHARKStarBound extends TestBase {
     @Test
     public void testMultiSequenceContinuous() {
 
-        double epsilon = 0.68;
+        double epsilon = 0.99;
         // make full confspace and the flexible copy
-        SimpleConfSpace mutableConfSpace = make1CC8MutableContinuousSmall();
+        SimpleConfSpace mutableConfSpace = make1CC8MutableContinuous();
         SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
 
         // precompute flexible residues
@@ -435,6 +435,7 @@ public class TestSHARKStarBound extends TestBase {
                 (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace,
                         fullSeq.makeRCs(mutableConfSpace), epsilon, preCompFlex);
 
+        System.out.println("========================== Now computing wildtype sequence ========================");
         PartitionFunction wtBound =
                 fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
         wtBound.compute();

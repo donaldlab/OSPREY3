@@ -199,8 +199,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound, Sequence seq) {
-        if(confSearchNode.pos == 0 && confSearchNode.rc == 0 && confSearchNode.level ==2)
-            System.out.println("This should be it.");
         MathTools.BigDecimalBounds bounds = getSequenceBounds(seq);
         BigDecimal subtreeLowerBound = bounds.lower;
         BigDecimal subtreeUpperBound = bounds.upper;
