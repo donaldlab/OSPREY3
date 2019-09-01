@@ -83,9 +83,9 @@ public class TestSHARKStarBound extends TestBase {
         ForcefieldParams ffparams = new ForcefieldParams();
 
         // how should we compute energies of molecules?
-        try (EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
+        EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
                 .setParallelism(parallelism)
-                .build()) {
+                .build();
             // how should we define energies of conformations?
             ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
                     .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
@@ -108,7 +108,6 @@ public class TestSHARKStarBound extends TestBase {
             // make the partition function
 
             return pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
-        }
     }
 
     private GradientDescentPfunc makeGradientDescentPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon){
@@ -189,6 +188,21 @@ public class TestSHARKStarBound extends TestBase {
         strand1.flexibility.get("A9").setLibraryRotamers(Strand.WildType).setContinuous();
         strand1.flexibility.get("A10").setLibraryRotamers(Strand.WildType).setContinuous();
         strand1.flexibility.get("A11").setLibraryRotamers(Strand.WildType).setContinuous();
+
+        return new SimpleConfSpace.Builder()
+                .addStrands(strand1)
+                .setShellDistance(9)
+                .build();
+
+    }
+
+    private SimpleConfSpace make1CC8MutableContinuousSmall() {
+        Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A10").build();
+        strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "ILE").setContinuous();
+        strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType, "MET").setContinuous();
+        strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType).setContinuous();
 
         return new SimpleConfSpace.Builder()
                 .addStrands(strand1)
@@ -398,6 +412,51 @@ public class TestSHARKStarBound extends TestBase {
         assertThat(muttBound.getStatus(), is(PartitionFunction.Status.Estimated));
     }
 
+    @Test
+    public void testMultiSequenceContinuous() {
+
+        double epsilon = 0.68;
+        // make full confspace and the flexible copy
+        SimpleConfSpace mutableConfSpace = make1CC8MutableContinuousSmall();
+        SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
+
+        // precompute flexible residues
+        Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
+        MultiSequenceSHARKStarBound preCompFlex = (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(
+                flexCopyConfSpace, flexSeq.makeRCs(flexCopyConfSpace), epsilon, null);
+        PartitionFunction ssbound = preCompFlex.getPartitionFunctionForSequence(flexSeq);
+        ssbound.compute();
+
+        System.out.println("Precomputed flex done.");
+
+        // make the full confspace partitionFunction, and compute it much, much more accurately.
+        Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
+        MultiSequenceSHARKStarBound fullPfunc =
+                (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace,
+                        fullSeq.makeRCs(mutableConfSpace), epsilon, preCompFlex);
+
+        PartitionFunction wtBound =
+                fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
+        wtBound.compute();
+
+        System.out.println("========================== Now computing mutant sequence ========================");
+        Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("A3","ILE");
+        PartitionFunction muttBound =
+                fullPfunc.getPartitionFunctionForSequence(mutantSequence);
+        muttBound.compute();
+
+        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, mutantSequence, epsilon);
+        traditionalPfunc.setReportProgress(true);
+        traditionalPfunc.compute();
+        System.out.println("Gradient Descent pfunc: "+formatBounds(traditionalPfunc.getValues().calcLowerBound(),
+                traditionalPfunc.getValues().calcUpperBound()));
+        System.out.println("precompPfunc: " + formatBounds(muttBound.getValues().calcLowerBound(), muttBound.getValues().calcUpperBound()));
+
+        assertThat(wtBound.getStatus(), is(PartitionFunction.Status.Estimated));
+        assertThat(muttBound.getStatus(), is(PartitionFunction.Status.Estimated));
+
+    }
+
     public void testMultiSequenceCorrectness() {
         double epsilon = 0.68;
         // make full confspace and the flexible copy
@@ -485,5 +544,7 @@ public class TestSHARKStarBound extends TestBase {
             System.out.println(fullPfunc.correctionMatrix.getInternalEnergy(permTup));
         }
     }
+
+
 }
 

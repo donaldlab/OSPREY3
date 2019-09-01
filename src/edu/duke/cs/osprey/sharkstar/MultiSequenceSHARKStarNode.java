@@ -199,6 +199,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound, Sequence seq) {
+        if(confSearchNode.pos == 0 && confSearchNode.rc == 0 && confSearchNode.level ==2)
+            System.out.println("This should be it.");
         MathTools.BigDecimalBounds bounds = getSequenceBounds(seq);
         BigDecimal subtreeLowerBound = bounds.lower;
         BigDecimal subtreeUpperBound = bounds.upper;
@@ -335,7 +337,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         String out = confSearchNode.confToString();//fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);
         BigDecimal subtreeLowerBound = getLowerBound(seq);
         BigDecimal subtreeUpperBound = getUpperBound(seq);
-        out += "Energy:" + String.format("%4.2f", confSearchNode.partialConfLowerbound) + "*" + confSearchNode.numConfs;
+        out += "Energy:" + String.format("%4.2f", confSearchNode.getPartialConfLowerBound()) + "*" + confSearchNode.numConfs;
         if (!isMinimized(seq))
             out += " in [" + String.format("%4.4e,%4.4e", getSequenceConfBounds(seq).lower, getSequenceConfBounds(seq).upper)
                     + "]->[" + setSigFigs(subtreeLowerBound) + "," + setSigFigs(subtreeUpperBound) + "]";
@@ -353,8 +355,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     public static class Node implements ConfAStarNode {
 
         private static int Unassigned = -1;
-        public double partialConfLowerbound = 0;
-        public double partialConfUpperBound = 0;
+        private double partialConfLowerBound = Double.NaN;
+        private double partialConfUpperBound = Double.NaN;
         private double confLowerBound = Double.MAX_VALUE;
         private double confUpperBound = Double.MIN_VALUE;
         public int[] assignments;
@@ -376,9 +378,17 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             this.level = level;
             confLowerBound = fullConfBounds.lower;
             confUpperBound = fullConfBounds.upper;
+            if(this.level == 0) {
+                partialConfUpperBound = 0;
+                partialConfLowerBound = 0;
+            }
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
+            if(level == assignments.length) {
+                partialConfLowerBound = lowerBound;
+                partialConfUpperBound = upperBound;
+            }
             if(upperBound == Double.NaN)
                 System.err.println("????");
             if (lowerBound - upperBound > 1e-5) {
@@ -390,8 +400,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                 lowerBound = Math.min(0, lowerBound);
                 upperBound = Math.max(lowerBound, upperBound);
             }
-            updateConfLowerBound(lowerBound);
-            updateConfUpperBound(upperBound);
+            //updateConfLowerBound(lowerBound);
+            //updateConfUpperBound(upperBound);
         }
 
 
@@ -433,7 +443,12 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
         @Override
         public double getGScore() {
-            return partialConfLowerbound;
+            return getPartialConfLowerBound();
+        }
+
+        @Override
+        public double getRigidGScore() {
+            return getPartialConfUpperBound();
         }
 
         @Override
@@ -443,7 +458,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
         @Override
         public double getHScore() {
-            return confLowerBound - partialConfLowerbound;
+            return confLowerBound - getPartialConfLowerBound();
         }
 
         @Override
@@ -491,5 +506,19 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             assert (this.numConfs.compareTo(BigInteger.ZERO) > 0);
         }
 
+        public double getPartialConfLowerBound() {
+            return partialConfLowerBound;
+        }
+
+        public void setPartialConfLowerAndUpper(double partialConfLowerBound, double partialConfUpperBound) {
+            this.partialConfLowerBound = partialConfLowerBound;
+            if(partialConfUpperBound == 0)
+                System.err.println("Wtf?");
+            this.partialConfUpperBound = partialConfUpperBound;
+        }
+
+        public double getPartialConfUpperBound() {
+            return partialConfUpperBound;
+        }
     }
 }

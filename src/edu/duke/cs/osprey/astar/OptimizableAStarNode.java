@@ -50,6 +50,10 @@ public interface OptimizableAStarNode {
 	default double getGScore(MathTools.Optimizer optimizer) {
 		return Tools.optimizeScore(getGScore(), optimizer);
 	}
+	default double getRigidGScore() {
+		return getGScore();
+	}
+
 	default void setGScore(double val, MathTools.Optimizer optimizer) {
 		setGScore(Tools.optimizeScore(val, optimizer));
 	}

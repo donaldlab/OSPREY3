@@ -218,4 +218,12 @@ public class ConfIndex {
 		buf.append(']');
 		return buf.toString();
 	}
+
+	public int[] makeConf() {
+		int[] out = new int[numPos];
+		Arrays.fill(out, -1);
+		for(int i = 0; i < numDefined; i++)
+			out[definedPos[i]] = definedRCs[i];
+		return out;
+	}
 }
