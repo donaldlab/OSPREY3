@@ -505,11 +505,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     public void init(double targetEpsilon) {
         this.targetEpsilon = targetEpsilon;
         this.status = Status.Estimating;
-        /*
         if(precomputedPfunc == null)
-            precomputeFlexible();
-
-         */
+            precomputeFlexible_expensiveWay();
     }
 
     /* We are recomputing the energy matrix here because there's some
@@ -517,7 +514,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         the extensive energy calculation features we rely on are
         computing the right energy fors the flexible conf space.
      */
-    public MultiSequenceSHARKStarBound precomputeFlexible_expensiveWay() {
+    private MultiSequenceSHARKStarBound precomputeFlexible_expensiveWay() {
         SimpleConfSpace flexConfSpace = confSpace.makeFlexibleCopy();
         Sequence unassignedFlex = flexConfSpace.makeUnassignedSequence();
         RCs flexRCs = new RCs(flexConfSpace);

@@ -146,6 +146,13 @@ public class PartitionFunctionFactory {
         return makePartitionFunctionFor(rcs, confSpaceSize, epsilon, null,seq);
     }
 
+    public PartitionFunction makePartitionFunctionFor(double epsilon, Sequence seq) {
+        if(pfuncImpl != PartitionFunctionImpl.MSSHARKStar)
+            throw new UnsupportedOperationException("Can only generate sequence-specific partition funcitions with SHARK*");
+        RCs seqRCs = seq.makeRCs(confSpace);
+        return makePartitionFunctionFor(seqRCs, seqRCs.getNumConformations(), epsilon, seq);
+    }
+
     public PartitionFunction makePartitionFunctionFor(RCs rcs, BigInteger confSpaceSize, double epsilon, PruningMatrix pmat, Sequence seq) {
         PartitionFunction pfunc = null;
         switch (pfuncImpl) {
