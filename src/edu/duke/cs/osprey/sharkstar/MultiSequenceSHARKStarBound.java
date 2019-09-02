@@ -11,9 +11,12 @@ import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -27,6 +30,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -229,7 +233,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         // Fix order issues
         ConfIndex rootIndex = new ConfIndex(fullRCs.getNumPos());
         this.rootNode.getConfSearchNode().index(rootIndex);
-        this.order.updateForPrecomputedOrder((StaticBiggestLowerboundDifferenceOrder) precomputedFlex.order, rootIndex, this.fullRCs, genConfSpaceMapping());
+        this.order.updateForPrecomputedOrder(precomputedFlex.order, rootIndex, this.fullRCs, genConfSpaceMapping());
     }
 
     /**
@@ -501,6 +505,41 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     public void init(double targetEpsilon) {
         this.targetEpsilon = targetEpsilon;
         this.status = Status.Estimating;
+        /*
+        if(precomputedPfunc == null)
+            precomputeFlexible();
+
+         */
+    }
+
+    /* We are recomputing the energy matrix here because there's some
+        stupidly nontrivial parallel array mapping to be done to ensure that
+        the extensive energy calculation features we rely on are
+        computing the right energy fors the flexible conf space.
+     */
+    public MultiSequenceSHARKStarBound precomputeFlexible_expensiveWay() {
+        SimpleConfSpace flexConfSpace = confSpace.makeFlexibleCopy();
+        Sequence unassignedFlex = flexConfSpace.makeUnassignedSequence();
+        RCs flexRCs = new RCs(flexConfSpace);
+
+        ConfEnergyCalculator flexMinimizingConfECalc = FlexEmatCalculator_badCode.makeMinimizeConfEcalc(flexConfSpace,
+                this.parallelism);
+        ConfEnergyCalculator rigidConfECalc = FlexEmatCalculator_badCode.makeRigidConfEcalc(flexMinimizingConfECalc);
+        EnergyMatrix flexMinimizingEmat = FlexEmatCalculator_badCode.makeEmat(flexMinimizingConfECalc, "minimizing");
+        EnergyMatrix flexRigidEmat = FlexEmatCalculator_badCode.makeEmat(rigidConfECalc, "rigid");
+        UpdatingEnergyMatrix flexCorrection = new UpdatingEnergyMatrix(flexConfSpace, flexMinimizingEmat,
+                flexMinimizingConfECalc);
+
+
+        MultiSequenceSHARKStarBound precompFlex = new MultiSequenceSHARKStarBound(
+                flexConfSpace, flexRigidEmat, flexMinimizingEmat,
+                flexMinimizingConfECalc, flexRCs, this.parallelism);
+        precompFlex.initFlex(this.targetEpsilon, this.stabilityThreshold, flexCorrection);
+        PartitionFunction flexBound =
+                precompFlex.getPartitionFunctionForSequence(unassignedFlex);
+        flexBound.compute();
+        processPrecomputedFlex(precompFlex);
+        return precompFlex;
     }
 
     public void init(double epsilon, BigDecimal stabilityThreshold) {
@@ -508,10 +547,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.stabilityThreshold = stabilityThreshold;
     }
 
-    public void initFlex(double epsilon, BigDecimal stabilityThreshold) {
-        this.targetEpsilon = targetEpsilon;
+    private void initFlex(double epsilon, BigDecimal stabilityThreshold, UpdatingEnergyMatrix correctionMatrix) {
+        this.targetEpsilon = epsilon;
         this.status = Status.Estimating;
         this.stabilityThreshold = stabilityThreshold;
+        this.correctionMatrix = correctionMatrix;
     }
 
     public void setRCs(RCs rcs) {
@@ -1816,5 +1856,42 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     public interface ScorerFactory {
         AStarScorer make(EnergyMatrix emat);
+    }
+
+    private static class FlexEmatCalculator_badCode {
+
+        public static EnergyMatrix makeEmat(ConfEnergyCalculator confECalc, String name) {
+            System.out.println("Making energy matrix for "+confECalc);
+            EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
+                    .setCacheFile(new File("flex"+"."+name+".emat"))
+                    .build()
+                    .calcEnergyMatrix();
+            return emat;
+        }
+
+        public static ConfEnergyCalculator makeRigidConfEcalc(ConfEnergyCalculator sourceConfEcalc){
+            EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(sourceConfEcalc.ecalc)
+                    .setIsMinimizing(false)
+                    .build();
+            ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(sourceConfEcalc, ecalcRigid);
+            return confEcalcRigid;
+        }
+
+        public static ConfEnergyCalculator makeMinimizeConfEcalc(SimpleConfSpace confSpace, Parallelism parallelism) {
+            ForcefieldParams ffparams = new ForcefieldParams();
+
+            // how should we compute energies of molecules?
+            EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
+                    .setParallelism(parallelism)
+                    .build();
+            // how should we define energies of conformations?
+            ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
+                    .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
+                            .build()
+                            .calcReferenceEnergies()
+                    )
+                    .build();
+            return confEcalcMinimized;
+        }
     }
 }

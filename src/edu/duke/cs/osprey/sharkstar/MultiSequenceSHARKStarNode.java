@@ -326,7 +326,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     public MathTools.BigDecimalBounds getSequenceBounds(Sequence seq) {
         if(!sequenceBounds.containsKey(seq)) {
-            sequenceBounds.put(seq, new MathTools.BigDecimalBounds());
+            sequenceBounds.put(seq, new MathTools.BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity));
         }
         return sequenceBounds.get(seq);
     }
