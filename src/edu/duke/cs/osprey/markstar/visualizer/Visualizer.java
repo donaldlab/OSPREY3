@@ -206,7 +206,7 @@ public class Visualizer extends Application {
         }
 
         // make cutoffs from the upper bounds by scaling them
-        final double cutoffFactor = 1e-2;
+        final double cutoffFactor = 1e-3;
         log("cutoff factor: %f", cutoffFactor);
         BigDecimal bigScale = BigDecimal.valueOf(cutoffFactor);
         Map<Integer,BigDecimal> zCutoffsByLevel = biggestZByLevel.entrySet().stream()

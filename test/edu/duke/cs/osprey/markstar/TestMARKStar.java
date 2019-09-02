@@ -487,6 +487,15 @@ public class TestMARKStar {
 		}
 
 	}
+	@Test
+	public void testProvableUBounds(){
+		KStarTreeNode complexRoot = KStarTreeNode.parseTree("0.825284ConfTreeBounds.txt");
+		System.out.println("Previous protein enthalpy: "+complexRoot.computeEnthalpy(8));
+
+		double lowerbound = KStarTreeAnalyzer.computeMinInternalEnergy(complexRoot);
+		double upperbound = KStarTreeAnalyzer.computeMaxInternalEnergy(complexRoot);
+		System.out.println("New bounds on internal energy ["+lowerbound+", "+upperbound+"]");
+	}
 
 	@Test
 	public void testComputeCrossTreeEnthalpy() {
