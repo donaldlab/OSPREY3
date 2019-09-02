@@ -42,7 +42,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     protected double targetEpsilon = 1;
     public boolean debug = true;
     public boolean profileOutput = false;
-    private PartitionFunction.Status statuss = null;
+    private PartitionFunction.Status status = null;
 
     // the number of full conformations minimized
     private int numConfsEnergied = 0;
@@ -202,17 +202,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
 		 */
 
-        precomputedPfunc = precomputedFlex;
-        precomputedRootNode = precomputedFlex.rootNode;
-        this.precomputedSequence = precomputedFlex.confSpace.makeWildTypeSequence();
-        precomputedUpperBound = precomputedRootNode.getUpperBound(precomputedSequence);
-        precomputedLowerBound = precomputedRootNode.getLowerBound(precomputedSequence);
-        updatePrecomputedConfTree();
-
-        // Fix order issues
-        ConfIndex rootIndex = new ConfIndex(fullRCs.getNumPos());
-        this.rootNode.getConfSearchNode().index(rootIndex);
-        this.order.updateForPrecomputedOrder((StaticBiggestLowerboundDifferenceOrder) precomputedFlex.order, rootIndex, this.fullRCs, genConfSpaceMapping());
+        processPrecomputedFlex(precomputedFlex);
 
 
 		/*
@@ -226,6 +216,20 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
 		TODO: Populate queue
 		 */
+    }
+
+    private void processPrecomputedFlex(MultiSequenceSHARKStarBound precomputedFlex) {
+        precomputedPfunc = precomputedFlex;
+        precomputedRootNode = precomputedFlex.rootNode;
+        this.precomputedSequence = precomputedFlex.confSpace.makeWildTypeSequence();
+        precomputedUpperBound = precomputedRootNode.getUpperBound(precomputedSequence);
+        precomputedLowerBound = precomputedRootNode.getLowerBound(precomputedSequence);
+        updatePrecomputedConfTree();
+
+        // Fix order issues
+        ConfIndex rootIndex = new ConfIndex(fullRCs.getNumPos());
+        this.rootNode.getConfSearchNode().index(rootIndex);
+        this.order.updateForPrecomputedOrder((StaticBiggestLowerboundDifferenceOrder) precomputedFlex.order, rootIndex, this.fullRCs, genConfSpaceMapping());
     }
 
     /**
@@ -494,6 +498,22 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         init(targetEpsilon);
     }
 
+    public void init(double targetEpsilon) {
+        this.targetEpsilon = targetEpsilon;
+        this.status = Status.Estimating;
+    }
+
+    public void init(double epsilon, BigDecimal stabilityThreshold) {
+        init(epsilon);
+        this.stabilityThreshold = stabilityThreshold;
+    }
+
+    public void initFlex(double epsilon, BigDecimal stabilityThreshold) {
+        this.targetEpsilon = targetEpsilon;
+        this.status = Status.Estimating;
+        this.stabilityThreshold = stabilityThreshold;
+    }
+
     public void setRCs(RCs rcs) {
         fullRCs = rcs;
     }
@@ -516,15 +536,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.maxNumConfs = maxNumConfs;
     }
 
-    public void init(double targetEpsilon) {
-        this.targetEpsilon = targetEpsilon;
-        statuss = Status.Estimating;
-    }
-
-    public void init(double epsilon, BigDecimal stabilityThreshold) {
-        init(epsilon);
-        this.stabilityThreshold = stabilityThreshold;
-    }
 
 
     @Override
