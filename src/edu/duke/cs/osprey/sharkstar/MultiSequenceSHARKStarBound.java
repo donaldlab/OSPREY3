@@ -627,7 +627,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             if (debug) {
                 rootNode.updateSubtreeBounds(sequenceBound.sequence);
                 debugHeap(sequenceBound.fringeNodes);
-                //printTree(sequenceBound.sequence,rootNode);
+                printTree(sequenceBound.sequence,rootNode);
             }
             tightenBoundInPhases(sequenceBound);
             debugPrint("Errorbound is now " + sequenceBound.sequenceEpsilon);
@@ -792,6 +792,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 bound.getValues().calcUpperBound()));
         internalZ = ZSums[0];
         leafZ = ZSums[1];
+        if(MathTools.isRelativelySame(internalZ, leafZ, PartitionFunction.decimalPrecision, 1e-3)
+                && MathTools.isRelativelySame(leafZ, BigDecimal.ZERO, PartitionFunction.decimalPrecision, 1e-3))
+            System.out.println("This is a bad time.");
         System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
         if (MathTools.isLessThan(internalZ, leafZ)) {
             numNodes = leafNodes.size();

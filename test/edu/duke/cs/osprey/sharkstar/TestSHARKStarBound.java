@@ -450,9 +450,9 @@ public class TestSHARKStarBound extends TestBase {
     @Test
     public void testMultiSequenceContinuous() {
 
-        double epsilon = 0.99;
+        double epsilon = 0.68;
         // make full confspace and the flexible copy
-        SimpleConfSpace mutableConfSpace = make1CC8MutableContinuous();
+        SimpleConfSpace mutableConfSpace = make1CC8MutableContinuous_debug();
         SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
 
         // precompute flexible residues
@@ -490,6 +490,21 @@ public class TestSHARKStarBound extends TestBase {
 
         assertThat(wtBound.getStatus(), is(PartitionFunction.Status.Estimated));
         assertThat(muttBound.getStatus(), is(PartitionFunction.Status.Estimated));
+
+    }
+
+    private SimpleConfSpace make1CC8MutableContinuous_debug() {
+    Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A10").build();
+        strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ALA", "ARG").setContinuous();
+        strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "GLU", "ILE").setContinuous();
+        strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType, "LYS", "MET").setContinuous();
+        strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType).setContinuous();
+
+        return new SimpleConfSpace.Builder()
+                .addStrands(strand1)
+                .setShellDistance(9)
+                .build();
 
     }
 
