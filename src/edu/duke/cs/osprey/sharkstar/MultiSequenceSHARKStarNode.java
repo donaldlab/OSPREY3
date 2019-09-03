@@ -331,8 +331,21 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return sequenceBounds.get(seq);
     }
 
-    public String toSeqString(Sequence seq) {
+    public String toFancySeqString(Sequence seq) {
         String out = confSearchNode.confToString();//fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);
+        BigDecimal subtreeLowerBound = getLowerBound(seq);
+        BigDecimal subtreeUpperBound = getUpperBound(seq);
+        out += "Energy:" + String.format("%4.2f", confSearchNode.getPartialConfLowerBound()) + "*" + confSearchNode.numConfs;
+        if (!isMinimized(seq))
+            out += " in [" + String.format("%4.4e,%4.4e", getSequenceConfBounds(seq).lower, getSequenceConfBounds(seq).upper)
+                    + "]->[" + setSigFigs(subtreeLowerBound) + "," + setSigFigs(subtreeUpperBound) + "]";
+        else
+            out += " (minimized) -> " + setSigFigs(subtreeLowerBound);
+        return out;
+    }
+
+    public String toSeqString(Sequence seq) {
+        String out = confSearchNode.confToString();//fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);//
         BigDecimal subtreeLowerBound = getLowerBound(seq);
         BigDecimal subtreeUpperBound = getUpperBound(seq);
         out += "Energy:" + String.format("%4.2f", confSearchNode.getPartialConfLowerBound()) + "*" + confSearchNode.numConfs;

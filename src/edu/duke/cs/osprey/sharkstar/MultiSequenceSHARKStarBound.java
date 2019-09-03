@@ -124,7 +124,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    private static final int[] debugConf = new int[]{};
+    private static final int[] debugConf = new int[]{-1, -1, 4, -1, 3};
 
     /**
      * Constructor to make a default SHARKStarBound Class
@@ -627,7 +627,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             if (debug) {
                 rootNode.updateSubtreeBounds(sequenceBound.sequence);
                 debugHeap(sequenceBound.fringeNodes);
-                printTree(sequenceBound.sequence,rootNode);
+                //printTree(sequenceBound.sequence,rootNode);
             }
             tightenBoundInPhases(sequenceBound);
             debugPrint("Errorbound is now " + sequenceBound.sequenceEpsilon);
@@ -793,8 +793,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         internalZ = ZSums[0];
         leafZ = ZSums[1];
         if(MathTools.isRelativelySame(internalZ, leafZ, PartitionFunction.decimalPrecision, 1e-3)
-                && MathTools.isRelativelySame(leafZ, BigDecimal.ZERO, PartitionFunction.decimalPrecision, 1e-3))
+                && MathTools.isRelativelySame(leafZ, BigDecimal.ZERO, PartitionFunction.decimalPrecision, 1e-3)) {
+            rootNode.updateSubtreeBounds(bound.sequence);
+            printTree(bound.sequence, rootNode);
             System.out.println("This is a bad time.");
+        }
         System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
         if (MathTools.isLessThan(internalZ, leafZ)) {
             numNodes = leafNodes.size();
@@ -867,6 +870,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             maxNodes = Math.max(maxNodes, (int) Math.floor(0.1 * leafTimeAverage / internalTimeAverage));
         while (!queue.isEmpty() && (bound.internalQueue.size() < maxNodes || bound.leafQueue.size() < maxMinimizations)) {
             MultiSequenceSHARKStarNode curNode = queue.poll();
+            if(confMatch(debugConf, curNode.getConfSearchNode().assignments))
+                System.out.println("Gotcha-populate");
             Node node = curNode.getConfSearchNode();
             ConfIndex index = new ConfIndex(fullRCs.getNumPos());
 
@@ -1056,7 +1061,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     bestChild = MultiSequenceSHARKStarNodeChild;
                 }
                 // collect the possible children
-                if (MultiSequenceSHARKStarNodeChild.getConfLowerBound(bound.sequence) < 0) {
+                if (MultiSequenceSHARKStarNodeChild.getConfLowerBound(bound.sequence) < 0 || true) {
                     children.add(MultiSequenceSHARKStarNodeChild);
                 }
                 newNodes.add(MultiSequenceSHARKStarNodeChild);
