@@ -1269,6 +1269,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         return true;
     }
 
+    private boolean confSubset(int[] assignments, int[] ints) {
+        if(assignments.length != ints.length)
+            return false;
+        for(int i = 0; i < assignments.length; i++) {
+            if(assignments[i] != ints[i] && assignments[i] >= 0)
+                return false;
+        }
+        return true;
+    }
+
 
     protected void processFullConfNode(SingleSequenceSHARKStarBound bound, List<MultiSequenceSHARKStarNode> newNodes,
                                        MultiSequenceSHARKStarNode curNode, Node node) {
