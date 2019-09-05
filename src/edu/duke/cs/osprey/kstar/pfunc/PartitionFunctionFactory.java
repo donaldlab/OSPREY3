@@ -205,7 +205,7 @@ public class PartitionFunctionFactory {
                 String RCString = ""+rcs.getNumPos();
                 if(!stateBounds.containsKey(RCString)) {
                     MultiSequenceSHARKStarBound stateMSBound;
-                    minimizingEmat = makeEmat(confEcalc, "minimizing");
+                    minimizingEmat = makeEmat(confEcalc, "minimized");
                     EnergyMatrix rigidEmat = makeEmat(confUpperBoundECalc);
                     if(MARKStarEmat == null)
                         MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
@@ -217,6 +217,7 @@ public class PartitionFunctionFactory {
                                 minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism, preComputedMSFlex);
                     }
                     stateMSBound.setCorrections(MARKStarEmat);
+                    stateMSBound.setCachePattern(cachePattern);
                     stateMSBound.init(epsilon);
                     stateBounds.put(RCString, stateMSBound);
                 }
@@ -237,7 +238,7 @@ public class PartitionFunctionFactory {
         if(!emats.containsKey(confECalc)) {
             System.out.println("Making energy matrix for "+confECalc);
             EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
-                    .setCacheFile(new File(cachePattern+state+"."+name+".emat"))
+                    .setCacheFile(new File(cachePattern+"."+name+".emat"))
                     .build()
                     .calcEnergyMatrix();
             emats.put(confECalc, emat);

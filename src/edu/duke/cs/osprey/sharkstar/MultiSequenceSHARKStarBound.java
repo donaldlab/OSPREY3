@@ -126,7 +126,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
     private static final int[] debugConf = new int[]{};//-1, -1, 4, -1, 3};
-    private String cachePattern;
+    private String cachePattern = "NOT_INITIALIZED";
 
     /**
      * Constructor to make a default SHARKStarBound Class
@@ -523,11 +523,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         Sequence unassignedFlex = flexConfSpace.makeUnassignedSequence();
         RCs flexRCs = new RCs(flexConfSpace);
 
+        System.out.println("Making flexible confspace bound...");
+
         ConfEnergyCalculator flexMinimizingConfECalc = FlexEmatCalculator_badCode.makeMinimizeConfEcalc(flexConfSpace,
                 this.parallelism);
         ConfEnergyCalculator rigidConfECalc = FlexEmatCalculator_badCode.makeRigidConfEcalc(flexMinimizingConfECalc);
-        EnergyMatrix flexMinimizingEmat = FlexEmatCalculator_badCode.makeEmat(flexMinimizingConfECalc, "minimizing", cachePattern);
-        EnergyMatrix flexRigidEmat = FlexEmatCalculator_badCode.makeEmat(rigidConfECalc, "rigid", cachePattern);
+        EnergyMatrix flexMinimizingEmat = FlexEmatCalculator_badCode.makeEmat(flexMinimizingConfECalc, "minimized", cachePattern+".flex");
+        EnergyMatrix flexRigidEmat = FlexEmatCalculator_badCode.makeEmat(rigidConfECalc, "rigid", cachePattern+".flex");
         UpdatingEnergyMatrix flexCorrection = new UpdatingEnergyMatrix(flexConfSpace, flexMinimizingEmat,
                 flexMinimizingConfECalc);
 
@@ -535,6 +537,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         MultiSequenceSHARKStarBound precompFlex = new MultiSequenceSHARKStarBound(
                 flexConfSpace, flexRigidEmat, flexMinimizingEmat,
                 flexMinimizingConfECalc, flexRCs, this.parallelism);
+        precompFlex.setCachePattern(cachePattern);
         precompFlex.initFlex(this.targetEpsilon, this.stabilityThreshold, flexCorrection);
         PartitionFunction flexBound =
                 precompFlex.getPartitionFunctionForSequence(unassignedFlex);
@@ -1880,9 +1883,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private static class FlexEmatCalculator_badCode {
 
         public static EnergyMatrix makeEmat(ConfEnergyCalculator confECalc, String name, String cachePattern) {
-            System.out.println("Making energy matrix for "+confECalc);
             EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
-                    .setCacheFile(new File(cachePattern+"flex"+"."+name+".emat"))
+                    .setCacheFile(new File(name+".emat"))
+                    //.setCacheFile(new File(cachePattern+"."+name+".emat"))
                     .build()
                     .calcEnergyMatrix();
             return emat;
