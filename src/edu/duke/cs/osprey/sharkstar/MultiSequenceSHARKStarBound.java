@@ -20,6 +20,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.markstar.MARKStarProgress;
 import edu.duke.cs.osprey.markstar.framework.StaticBiggestLowerboundDifferenceOrder;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -46,7 +47,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     protected double targetEpsilon = 1;
     public boolean debug = true;
     public boolean profileOutput = false;
-    private PartitionFunction.Status status = null;
+    private Status status = null;
 
     // the number of full conformations minimized
     private int numConfsEnergied = 0;
@@ -124,7 +125,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    private static final int[] debugConf = new int[]{-1, -1, 4, -1, 3};
+    private static final int[] debugConf = new int[]{};//-1, -1, 4, -1, 3};
+    private String cachePattern;
 
     /**
      * Constructor to make a default SHARKStarBound Class
@@ -524,8 +526,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         ConfEnergyCalculator flexMinimizingConfECalc = FlexEmatCalculator_badCode.makeMinimizeConfEcalc(flexConfSpace,
                 this.parallelism);
         ConfEnergyCalculator rigidConfECalc = FlexEmatCalculator_badCode.makeRigidConfEcalc(flexMinimizingConfECalc);
-        EnergyMatrix flexMinimizingEmat = FlexEmatCalculator_badCode.makeEmat(flexMinimizingConfECalc, "minimizing");
-        EnergyMatrix flexRigidEmat = FlexEmatCalculator_badCode.makeEmat(rigidConfECalc, "rigid");
+        EnergyMatrix flexMinimizingEmat = FlexEmatCalculator_badCode.makeEmat(flexMinimizingConfECalc, "minimizing", cachePattern);
+        EnergyMatrix flexRigidEmat = FlexEmatCalculator_badCode.makeEmat(rigidConfECalc, "rigid", cachePattern);
         UpdatingEnergyMatrix flexCorrection = new UpdatingEnergyMatrix(flexConfSpace, flexMinimizingEmat,
                 flexMinimizingConfECalc);
 
@@ -1622,7 +1624,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
          *  sum over all unassigned positions. Returns a lower bound on the ensemble energy.
          *  Note: I currently exponentiate and log for compatibilty. This could be optimized.*/
         @Override
-        public double calc(ConfIndex confIndex, edu.duke.cs.osprey.astar.conf.RCs rcs) {
+        public double calc(ConfIndex confIndex, RCs rcs) {
             BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
             BigDecimal pfuncBound = BigDecimal.ONE;
             for (int undefinedPosIndex1 = 0; undefinedPosIndex1 < confIndex.numUndefined; undefinedPosIndex1++) {
@@ -1780,7 +1782,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             upperReduction_ConfLowerBound = startUpperBound.subtract(rootNode.getUpperBound(sequence))
                     .subtract(upperReduction_FullMin).subtract(upperReduction_PartialMin);
 
-            PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated());
+            Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated());
             /*
             result.setWorkInfo(numPartialMinimizations, numConfsScored,minList);
             result.setZInfo(lowerReduction_FullMin, lowerReduction_ConfUpperBound, upperReduction_FullMin, upperReduction_PartialMin, upperReduction_ConfLowerBound);
@@ -1877,10 +1879,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private static class FlexEmatCalculator_badCode {
 
-        public static EnergyMatrix makeEmat(ConfEnergyCalculator confECalc, String name) {
+        public static EnergyMatrix makeEmat(ConfEnergyCalculator confECalc, String name, String cachePattern) {
             System.out.println("Making energy matrix for "+confECalc);
             EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
-                    .setCacheFile(new File("flex"+"."+name+".emat"))
+                    .setCacheFile(new File(cachePattern+"flex"+"."+name+".emat"))
                     .build()
                     .calcEnergyMatrix();
             return emat;
@@ -1911,4 +1913,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             return confEcalcMinimized;
         }
     }
+     public void setCachePattern(String pattern){
+        this.cachePattern = pattern;
+     }
+
 }

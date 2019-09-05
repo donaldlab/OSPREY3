@@ -55,7 +55,9 @@ import java.util.Map;
 public class PartitionFunctionFactory {
 
     private Map<String, MultiSequenceSHARKStarBound> stateBounds = new HashMap<>();
-    private Map<String, EnergyMatrix> energymatrices = new HashMap<>();
+    private Map<String, EnergyMatrix> rigidMatrices = new HashMap<>();
+    private Map<String, EnergyMatrix> pairwiseMinmizedMatrices = new HashMap<>();
+    private String cachePattern;
 
     enum PartitionFunctionImpl {
         MARKStar,
@@ -204,13 +206,14 @@ public class PartitionFunctionFactory {
                 if(!stateBounds.containsKey(RCString)) {
                     MultiSequenceSHARKStarBound stateMSBound;
                     minimizingEmat = makeEmat(confEcalc, "minimizing");
+                    EnergyMatrix rigidEmat = makeEmat(confUpperBoundECalc);
                     if(MARKStarEmat == null)
                         MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
                     if (preComputedMSFlex == null) {
-                        stateMSBound = new MultiSequenceSHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
+                        stateMSBound = new MultiSequenceSHARKStarBound(confSpace, rigidEmat,
                                 minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
                     } else {
-                        stateMSBound = new MultiSequenceSHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
+                        stateMSBound = new MultiSequenceSHARKStarBound(confSpace, rigidEmat,
                                 minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism, preComputedMSFlex);
                     }
                     stateMSBound.setCorrections(MARKStarEmat);
@@ -234,11 +237,16 @@ public class PartitionFunctionFactory {
         if(!emats.containsKey(confECalc)) {
             System.out.println("Making energy matrix for "+confECalc);
             EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
-                    .setCacheFile(new File(state+"."+name+".emat"))
+                    .setCacheFile(new File(cachePattern+state+"."+name+".emat"))
                     .build()
                     .calcEnergyMatrix();
             emats.put(confECalc, emat);
         }
         return emats.get(confECalc);
     }
+
+    public void setCachePattern(String pattern){
+        cachePattern = pattern;
+    }
+
 }
