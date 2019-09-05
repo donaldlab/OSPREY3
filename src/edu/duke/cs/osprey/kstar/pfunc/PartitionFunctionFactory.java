@@ -35,9 +35,7 @@ package edu.duke.cs.osprey.kstar.pfunc;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import java.io.File;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
@@ -55,6 +53,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class PartitionFunctionFactory {
+
+    private Map<String, MultiSequenceSHARKStarBound> stateBounds = new HashMap<>();
 
     enum PartitionFunctionImpl {
         MARKStar,
@@ -199,23 +199,26 @@ public class PartitionFunctionFactory {
                 pfunc = SHARKStarBound;
                 break;
             case MSSHARKStar:
-                if(fullMSBound == null) {
+                String RCString = rcs.toString();
+                if(!stateBounds.containsKey(RCString)) {
+                    MultiSequenceSHARKStarBound stateMSBound;
                     minimizingEmat = makeEmat(confEcalc, "minimizing");
                     if(MARKStarEmat == null)
                         MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
                     if (preComputedMSFlex == null) {
-                        fullMSBound = new MultiSequenceSHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
+                        stateMSBound = new MultiSequenceSHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
                                 minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
                     } else {
-                        fullMSBound = new MultiSequenceSHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
+                        stateMSBound = new MultiSequenceSHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
                                 minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism, preComputedMSFlex);
                     }
-                    fullMSBound.setCorrections(MARKStarEmat);
-                    fullMSBound.init(epsilon);
+                    stateMSBound.setCorrections(MARKStarEmat);
+                    stateMSBound.init(epsilon);
+                    stateBounds.put(RCString, stateMSBound);
                 }
-                pfunc = fullMSBound;
+                pfunc = stateBounds.get(RCString);
                 if(seq != null)
-                    pfunc = fullMSBound.getPartitionFunctionForSequence(seq);
+                    pfunc = stateBounds.get(RCString).getPartitionFunctionForSequence(seq);
                 break;
         }
         return pfunc;

@@ -379,7 +379,7 @@ public class BBKStar {
 			// make the partition function
 			RCs rcs = sequence.makeRCs(info.confSpace);
 
-			pfunc = info.pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), kstarSettings.epsilon);
+			pfunc = info.pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), kstarSettings.epsilon, sequence);
 
 			pfunc.setReportProgress(kstarSettings.showPfuncProgress);
 			if (confdb != null) {
