@@ -28,11 +28,13 @@ import java.util.List;
 public class TestSHARKStarBound extends TestBase {
 
     private static Molecule metallochaperone;
+    private static Molecule protein_1a0r;
     private static PartitionFunctionFactory MSSHARKStarPfuncFactory;
 
     @BeforeClass
     public static void beforeClass() {
         metallochaperone = PDBIO.readFile("examples/1CC8/1CC8.ss.pdb");
+        protein_1a0r = PDBIO.readFile("test-resources/1a0r_prepped.pdb");
     }
 
     /**
@@ -452,7 +454,7 @@ public class TestSHARKStarBound extends TestBase {
 
         double epsilon = 0.68;
         // make full confspace and the flexible copy
-        SimpleConfSpace mutableConfSpace = make1CC8MutableContinuous_debug();
+        SimpleConfSpace mutableConfSpace = make1a0r_debug();
         SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
 
         // precompute flexible residues
@@ -476,7 +478,7 @@ public class TestSHARKStarBound extends TestBase {
         wtBound.compute();
 
         System.out.println("========================== Now computing mutant sequence ========================");
-        Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("A3","ILE");
+        Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("B282","ARG");
         PartitionFunction muttBound =
                 fullPfunc.getPartitionFunctionForSequence(mutantSequence);
         muttBound.compute();
@@ -506,6 +508,17 @@ public class TestSHARKStarBound extends TestBase {
                 .setShellDistance(9)
                 .build();
 
+    }
+
+    private SimpleConfSpace make1a0r_debug() {
+        Strand strand1 = new Strand.Builder(protein_1a0r).setResidues("B2", "B340").build();
+        strand1.flexibility.get("B282").setLibraryRotamers(Strand.WildType, "ALA", "ARG").addWildTypeRotamers().setContinuous();
+        strand1.flexibility.get("B235").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+        return new SimpleConfSpace.Builder()
+                .addStrands(strand1)
+                .setShellDistance(9)
+                .build();
     }
 
     public void testMultiSequenceCorrectness() {

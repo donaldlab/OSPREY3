@@ -168,6 +168,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.fullRCs = rcs;
         this.order = new StaticBiggestLowerboundDifferenceOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat), hscorerFactory.make(minimizingEmat));
+        /* force init order */
+        order.getNextPos(confIndex,fullRCs);
         this.pruner = null;
 
         this.contexts = new ObjectPool<>((lingored) -> {

@@ -158,7 +158,7 @@ public class TestMARKStar {
 
 
 
-    protected  static TestKStar.ConfSpaces loadSSFromCFS(String cfsFileName) throws FileNotFoundException {
+    public static TestKStar.ConfSpaces loadSSFromCFS(String cfsFileName) throws FileNotFoundException {
 	    String fileContents = FileTools.readFile(cfsFileName);
 	    TestKStar.ConfSpaces confSpaces = new ConfSpaces();
 		confSpaces.ffparams = new ForcefieldParams();
