@@ -55,6 +55,7 @@ import java.util.Map;
 public class PartitionFunctionFactory {
 
     private Map<String, MultiSequenceSHARKStarBound> stateBounds = new HashMap<>();
+    private String ematPath = "";
 
     enum PartitionFunctionImpl {
         MARKStar,
@@ -225,6 +226,12 @@ public class PartitionFunctionFactory {
 
     }
 
+    public void setEmatPath(String path) {
+        if(!path.endsWith("/"))
+            path = path+'/';
+        ematPath = path;
+    }
+
     private EnergyMatrix makeEmat(ConfEnergyCalculator confECalc) {
         return makeEmat(confECalc, "default");
     }
@@ -233,7 +240,7 @@ public class PartitionFunctionFactory {
         if(!emats.containsKey(confECalc)) {
             System.out.println("Making energy matrix for "+confECalc);
             EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
-                    .setCacheFile(new File(state+"."+name+".emat"))
+                    .setCacheFile(new File(ematPath+state+"."+name+".emat"))
                     .build()
                     .calcEnergyMatrix();
             emats.put(confECalc, emat);
