@@ -789,7 +789,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         double internalTimeSum = 0;
         BigDecimal[] ZSums = new BigDecimal[]{internalZ, leafZ};
         populateQueues(bound, internalNodes, leafNodes, internalZ, leafZ, ZSums);
-        //bound.updateBound();
+        bound.updateBound();
         debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]", bound.getValues().calcLowerBound(),
                 bound.getValues().calcUpperBound()));
         internalZ = ZSums[0];
