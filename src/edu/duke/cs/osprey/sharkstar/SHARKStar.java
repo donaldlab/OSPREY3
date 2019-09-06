@@ -188,114 +188,6 @@ public class SHARKStar {
 		}
 	}
 
-	/**
-	 * implements A* heuristic for partially-defined sequences
-	 */
-	private class SeqHScorer implements SeqAStarScorer {
-
-		public final RTs rts = null;
-		private BigDecimal flexibleUpper;
-		private BigDecimal flexibleLower;
-		// TODO: make configurable
-		private static final int upperBatchSize = 1000;
-		private static final int numLowerBatches = 1;
-
-		final ConfDBs confDBs;
-
-		SeqHScorer(ConfDBs confDBs) {
-			this.confDBs = confDBs;
-		}
-
-		BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
-
-		@Override
-		public double calc(SeqAStarNode.Assignments assignments) {
-			double lowerBound = 0.0;
-			MathTools.Optimizer confOpt = null;
-			MathTools.Optimizer seqOpt = null;
-			for (WeightedState wstate : objective.states) {
-				List<SimpleConfSpace.Position> positions = wstate.state.confSpace.positions;
-				if(wstate.weight < 0) {
-					confOpt = MathTools.Optimizer.Maximize;
-					seqOpt = MathTools.Optimizer.Minimize;
-				}
-				if(wstate.weight > 0) {
-					confOpt = MathTools.Optimizer.Minimize;
-					seqOpt = MathTools.Optimizer.Maximize;
-				}
-
-				BigDecimal stateSum = BigDecimal.ONE;
-				for(SimpleConfSpace.Position pos1 : wstate.state.confSpace.positions) {
-					BigDecimal residueSum = seqOpt.initBigDecimal();
-					for (SeqSpace.ResType rt1 : getRTs(pos1, assignments)) {
-						BigDecimal AASum = BigDecimal.ZERO;
-						for (SimpleConfSpace.ResidueConf rc1 : getRCs(pos1, rt1, wstate.state)) {
-							double rotamerSum = wstate.getSingleEnergy(pos1.index, rc1.index);
-							for(SimpleConfSpace.Position pos2 : wstate.state.confSpace.positions) {
-								if (pos2.index >= pos1.index)
-									continue;
-								double bestPair = confOpt.initDouble();
-								for (SeqSpace.ResType rt2 : getRTs(pos2, assignments)) {
-									for (SimpleConfSpace.ResidueConf rc2 : getRCs(pos2, rt2, wstate.state)) {
-										bestPair = confOpt.opt(bestPair, wstate.getPairEnergy(pos1.index, rc1.index,
-												pos2.index, rc2.index));
-									}
-								}
-								rotamerSum += bestPair;
-							}
-							AASum = AASum.add(bcalc.calc(rotamerSum));
-						}
-						residueSum = seqOpt.opt(residueSum, AASum);
-					}
-					stateSum = stateSum.multiply(residueSum);
-				}
-				System.out.println("Sum for "+assignments+" in state "+wstate.state+":"+bcalc.freeEnergy(stateSum));
-				if (wstate.weight > 0) {
-
-					// add the bound to our estimate of the objective LMFE
-					lowerBound += wstate.weight * bcalc.freeEnergy(stateSum);
-
-				} else {
-
-					// compute a lower bound on the pfunc value of the multi-sequence conf space
-					// add the weighted bound to our estimate of the objective LMFE
-					lowerBound += wstate.weight * bcalc.freeEnergy(stateSum);
-				}
-				System.out.println("Lowerbound updated to "+lowerBound);
-			}
-			return lowerBound;
-
-		}
-
-
-		List<SeqSpace.ResType> getRTs(SimpleConfSpace.Position confPos, SeqAStarNode.Assignments assignments) {
-
-			// TODO: pre-compute this somehow?
-
-			// map the conf pos to a sequence pos
-			SeqSpace.Position seqPos = seqSpace.getPosition(confPos.resNum);
-			if (seqPos != null) {
-
-				Integer assignedRT = assignments.getAssignment(seqPos.index);
-				if (assignedRT != null) {
-					// use just the assigned res type
-					return Collections.singletonList(seqPos.resTypes.get(assignedRT));
-				} else {
-					// use all the res types at the pos
-					return seqPos.resTypes;
-				}
-
-			} else {
-
-				// immutable position, use all the res types (should just be one)
-				assert (confPos.resTypes.size() == 1);
-
-				// use the null value to signal there's no res type here
-				return Collections.singletonList(null);
-			}
-		}
-	}
-
 
 
 	private class ConfDBs extends ConfDB.DBs {
@@ -676,7 +568,7 @@ public class SHARKStar {
 					.setHeuristics(
 							new SequentialSeqAStarOrder(),
 							new NOPSeqAStarScorer(),
-							new SeqHScorer(confDBs)
+							new SHARKSeqHScorer(seqSpace, objective.states)
 					)
 					.setNumMutable(maxSimultaneousMutations)
 					.build();
@@ -856,44 +748,5 @@ public class SHARKStar {
 		}
 	}
 
-	List<SeqSpace.ResType> getRTs(SimpleConfSpace.Position confPos, SeqAStarNode.Assignments assignments) {
-
-		// TODO: pre-compute this somehow?
-
-		// map the conf pos to a sequence pos
-		SeqSpace.Position seqPos = seqSpace.getPosition(confPos.resNum);
-		if (seqPos != null) {
-
-			Integer assignedRT = assignments.getAssignment(seqPos.index);
-			if (assignedRT != null) {
-				// use just the assigned res type
-				return Collections.singletonList(seqPos.resTypes.get(assignedRT));
-			} else {
-				// use all the res types at the pos
-				return seqPos.resTypes;
-			}
-
-		} else {
-
-			// immutable position, use all the res types (should just be one)
-			assert (confPos.resTypes.size() == 1);
-
-			// use the null value to signal there's no res type here
-			return Collections.singletonList(null);
-		}
-	}
-
-	List<SimpleConfSpace.ResidueConf> getRCs(SimpleConfSpace.Position pos, SeqSpace.ResType rt, State state) {
-		// TODO: pre-compute this somehow?
-		if (rt != null) {
-			// mutable pos, grab the RCs that match the RT
-			return pos.resConfs.stream()
-					.filter(rc -> rc.template.name.equals(rt.name))
-					.collect(Collectors.toList());
-		} else {
-			// immutable pos, use all the RCs
-			return pos.resConfs;
-		}
-	}
 }
 

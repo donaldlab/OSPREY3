@@ -152,7 +152,6 @@ public class SHARKStarBound implements PartitionFunction {
 				gscorerFactory.make(minimizingEmat), hscorerFactory.make(minimizingEmat),
 				gscorerFactory.make(rigidEmat),
 				new TraditionalPairwiseHScorer(new NegatedEnergyMatrix(confSpace, rigidEmat), rcs), true);
-		//hscorerFactory.make(new NegatedEnergyMatrix(confSpace, rigidEmat), rcs), true);
 		confIndex = new ConfIndex(rcs.getNumPos());
 		this.minimizingEmat = minimizingEmat;
 		this.rigidEmat = rigidEmat;
@@ -322,7 +321,6 @@ public class SHARKStarBound implements PartitionFunction {
 	 */
 	private void addPrecomputedFringeToQueue(){
 		addSubTreeFringeToQueue(this.rootNode);
-
 	}
 
 	/**
