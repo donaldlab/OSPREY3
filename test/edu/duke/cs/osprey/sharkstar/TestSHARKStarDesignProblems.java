@@ -39,7 +39,6 @@ import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
-import edu.duke.cs.osprey.markstar.MARKStar;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -51,7 +50,6 @@ import java.io.FileNotFoundException;
 import java.util.List;
 
 import static edu.duke.cs.osprey.kstar.TestBBKStar.runBBKStar;
-import static edu.duke.cs.osprey.markstar.TestMARKStar.loadSSFromCFS;
 import static edu.duke.cs.osprey.sharkstar.TestSHARKStar.*;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
@@ -61,7 +59,7 @@ public class TestSHARKStarDesignProblems {
     public void test5UCE () {
         try {
             ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/5uce.cfs");
-            runMARKStar(confSpaces, 0.01);
+            runBBSHARKStar(confSpaces, 0.01);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -71,7 +69,7 @@ public class TestSHARKStarDesignProblems {
     public void test5UCF () {
         try {
             ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/5ucf.cfs");
-            runMARKStar(confSpaces, 0.01);
+            runBBSHARKStar(confSpaces, 0.01);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -81,7 +79,7 @@ public class TestSHARKStarDesignProblems {
     public void test5UCFMut () {
         try {
             ConfSpaces confSpaces = loadFromCFS("examples/python.KStar/5ucf.cfs");
-            runMARKStar(confSpaces, 0.01);
+            runBBSHARKStar(confSpaces, 0.01);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -161,13 +159,13 @@ public class TestSHARKStarDesignProblems {
     @Test
     public void test2RL0Python() {
         ConfSpaces confSpaces = make2RL0Python();
-        List<MARKStar.ScoredSequence> sharkstarResult = runMARKStar(confSpaces, 0.1).scores;
+        List<BBSHARKStar.ScoredSequence> sharkstarResult = runBBSHARKStar(confSpaces, 0.1).scores;
         boolean runkstar = true;
         List<KStar.ScoredSequence> kstarResult = null;
         if(runkstar) {
             kstarResult = runKStar(confSpaces, 0.1);
         }
-        for(MARKStar.ScoredSequence seq: sharkstarResult) {
+        for(BBSHARKStar.ScoredSequence seq: sharkstarResult) {
             System.out.println(seq);
         }
         if(runkstar)
@@ -276,7 +274,7 @@ public class TestSHARKStarDesignProblems {
     public void test2RL0() {
 
         double epsilon = 0.95;
-        Result result = runMARKStar(make2RL0(), epsilon);
+        Result result = runBBSHARKStar(make2RL0(), epsilon);
 
         // check the results (values collected with e = 0.1 and 64 digits precision)
         // NOTE: these values don't match the ones in the TestKSImplLinear test because the conf spaces are slightly different
@@ -310,7 +308,7 @@ public class TestSHARKStarDesignProblems {
 
     public static void assertSequence(Result result, int sequenceIndex, String sequence, Double proteinQStar, Double ligandQStar, Double complexQStar, double epsilon) {
 
-        MARKStar.ScoredSequence scoredSequence = result.scores.get(sequenceIndex);
+        BBSHARKStar.ScoredSequence scoredSequence = result.scores.get(sequenceIndex);
 
         // check the sequence
         assertThat(scoredSequence.sequence.toString(Sequence.Renderer.ResType), is(sequence));
@@ -339,7 +337,7 @@ public class TestSHARKStarDesignProblems {
                 watch.reset();
             }
             watch.start();
-            runMARKStar(confSpaces, epsilon);
+            runBBSHARKStar(confSpaces, epsilon);
             watch.stop();
             String bbkstartime = watch.getTime(2);
             System.out.println("MARK*: "+bbkstartime+", Traditional K*: "+kstartime);
@@ -359,7 +357,7 @@ public class TestSHARKStarDesignProblems {
 
         double epsilon = 0.999;
         Stopwatch runtime = new Stopwatch().start();
-        Result result = runMARKStar(make1GUA11(), epsilon);
+        Result result = runBBSHARKStar(make1GUA11(), epsilon);
         runtime.stop();
 
         for (int index = 0; index <6; index++){
@@ -473,12 +471,12 @@ public class TestSHARKStarDesignProblems {
             runtime.reset();
             runtime.start();
         }
-        Result result = runMARKStar(confSpaces, epsilon);
+        Result result = runBBSHARKStar(confSpaces, epsilon);
         runtime.stop();
         String sharkstartime = runtime.getTime(2);
         System.out.println("MARK* time: "+sharkstartime+", K* time: "+kstartime);
-        for(MARKStar.ScoredSequence seq: result.scores)
-            printMARKStarComputationStats(seq);
+        for(BBSHARKStar.ScoredSequence seq: result.scores)
+            printBBSHARKStarComputationStats(seq);
         if(runkstar)
             for(KStar.ScoredSequence seq: kStarSeqs)
                 printKStarComputationStats(seq);
@@ -489,7 +487,7 @@ public class TestSHARKStarDesignProblems {
         try {
             //runBBKStar(loadSSFromCFS("3u7y_L_15res_1.326E+48.cfs"),
              //       5, 0.99, null, 2, true);
-            runMARKStar(loadSSFromCFS("3u7y_L_15res_1.326E+48.cfs"),0.99);
+            runBBSHARKStar(loadSSFromCFS("3u7y_L_15res_1.326E+48.cfs"),0.99);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }

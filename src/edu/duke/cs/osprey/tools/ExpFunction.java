@@ -137,7 +137,10 @@ public class ExpFunction implements Serializable {
 					t += 1.0;
 				}
 				else {
-					sum = sum.add(new BigDecimal(t+Math.log(x.doubleValue())));
+					double addend = 0;
+					if(x.doubleValue()>0)
+						addend = Math.log(x.doubleValue());
+					sum = sum.add(new BigDecimal(t+addend));
 					done = true;
 				}
 				x = x.divide(exp,4);

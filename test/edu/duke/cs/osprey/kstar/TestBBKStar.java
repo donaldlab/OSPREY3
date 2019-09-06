@@ -60,7 +60,7 @@ public class TestBBKStar {
 	}
 
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations,
-									 boolean runMARKStar) {
+									 boolean runSHARKStar) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
 
@@ -106,28 +106,26 @@ public class TestBBKStar {
 					.build();
 				ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
 
-				if(runMARKStar) {
-					PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id);
-					pfuncFactory.setUseMARKStar(confEcalcRigid);
-					info.pfuncFactory = pfuncFactory;
+				PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id);
+				info.pfuncFactory = pfuncFactory;
+				if(runSHARKStar) {
+					pfuncFactory.setUseMSSHARKStar(confEcalcRigid);
 				}
-				else {
-					EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
-							.build()
-							.calcEnergyMatrix();
-					info.confSearchFactoryMinimized = (rcs) ->
-							new ConfAStarTree.Builder(ematMinimized, rcs)
-							.setTraditional()
-							.build();
-					EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
-							.build()
-							.calcEnergyMatrix();
-					info.confSearchFactoryRigid = (rcs) ->
-							new ConfAStarTree.Builder(ematRigid, rcs)
-							.setTraditional()
-							.build();
+				EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
+						.build()
+						.calcEnergyMatrix();
+				info.confSearchFactoryMinimized = (rcs) ->
+						new ConfAStarTree.Builder(ematMinimized, rcs)
+						.setTraditional()
+						.build();
+				EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
+						.build()
+						.calcEnergyMatrix();
+				info.confSearchFactoryRigid = (rcs) ->
+						new ConfAStarTree.Builder(ematRigid, rcs)
+						.setTraditional()
+						.build();
 
-				}
 
 				// add the ConfDB file if needed
 				if (confdbPattern != null) {

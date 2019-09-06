@@ -49,7 +49,7 @@ import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.markstar.MARKStar;
+import edu.duke.cs.osprey.sharkstar.BBSHARKStar;
 import edu.duke.cs.osprey.markstar.visualizer.KStarTreeManipulator;
 import edu.duke.cs.osprey.markstar.visualizer.KStarTreeNode;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -81,8 +81,8 @@ public class TestSHARKStar {
 	public static final EnergyPartition ENERGY_PARTITION = EnergyPartition.Traditional;
 
 	public static class Result {
-		public MARKStar markstar;
-		public List<MARKStar.ScoredSequence> scores;
+		public BBSHARKStar markstar;
+		public List<BBSHARKStar.ScoredSequence> scores;
 	}
 
 
@@ -97,11 +97,11 @@ public class TestSHARKStar {
 			runtime.reset();
 			runtime.start();
 		}
-		Result result = runMARKStar(confSpaces, epsilon);
+		Result result = runBBSHARKStar(confSpaces, epsilon);
 		runtime.stop();
 		String markstartime = runtime.getTime(2);
-		for(MARKStar.ScoredSequence seq: result.scores)
-			printMARKStarComputationStats(seq);
+		for(BBSHARKStar.ScoredSequence seq: result.scores)
+			printBBSHARKStarComputationStats(seq);
 		if(seqs != null)
 		for(KStar.ScoredSequence seq: seqs)
 			printKStarComputationStats(seq);
@@ -308,7 +308,7 @@ public class TestSHARKStar {
 	@Test
     public void test2RL0DEEper() {
 		ConfSpaces confSpaces = make2RL0DEEPer();
-		runMARKStar(confSpaces, 0.99);
+		runBBSHARKStar(confSpaces, 0.99);
 
     }
 
@@ -393,7 +393,7 @@ public class TestSHARKStar {
 	@Test
 	public void test1UBQDEEPer() {
 	    ConfSpaces confSpaces = make1UBQDEEPer();
-	    runMARKStar(confSpaces, 0.9);
+	    runBBSHARKStar(confSpaces, 0.9);
 
 	}
 
@@ -598,7 +598,7 @@ public class TestSHARKStar {
 	public void test3u7y() {
 		try {
 			ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/3u7y_L_15res_1.326E+48.cfs");
-			runMARKStar(confSpaces, 0.9999);
+			runBBSHARKStar(confSpaces, 0.9999);
 			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
@@ -622,12 +622,12 @@ public class TestSHARKStar {
 			runtime.reset();
 			runtime.start();
 		}
-		Result result = runMARKStar(confSpaces, epsilon);
+		Result result = runBBSHARKStar(confSpaces, epsilon);
 		runtime.stop();
 		String markstartime = runtime.getTime(2);
 		System.out.println("MARK* time: "+markstartime+", K* time: "+kstartime);
-		for(MARKStar.ScoredSequence seq: result.scores)
-			printMARKStarComputationStats(seq);
+		for(BBSHARKStar.ScoredSequence seq: result.scores)
+			printBBSHARKStarComputationStats(seq);
 		if(runkstar)
 			for(KStar.ScoredSequence seq: kStarSeqs)
 				printKStarComputationStats(seq);
@@ -645,7 +645,7 @@ public class TestSHARKStar {
 				.addStrands(proteinConfspaces.protein.strands.get(0),
 						ligandConfspaces.protein.strands.get(0))
 				.build();
-		runMARKStar(mergedConfspaces, 0.01);
+		runBBSHARKStar(mergedConfspaces, 0.01);
 
 	}
 
@@ -899,12 +899,12 @@ public class TestSHARKStar {
 	public void test1GUA11MARKVsTraditional() {
 
 		ConfSpaces confSpaces = TestKStar.make1GUA11();
-		final double epsilon = 0.999;
-		final int numSequences = 6;
+		final double epsilon = 0.99999;
+		final int numSequences = 2;
 
 
 		String traditionalTime = "(Not run)";
-		boolean runkstar = true;
+		boolean runkstar = false;
 		Stopwatch timer = new Stopwatch().start();
 		if(runkstar) {
 			TestBBKStar.Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
@@ -914,17 +914,17 @@ public class TestSHARKStar {
 			timer.start();
 		}
 		runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
-		String MARKStarTime = timer.getTime(2);
+		String BBSHARKStarTime = timer.getTime(2);
 		timer.stop();
 
 		//assert2RL0(results, numSequences);
 		System.out.println("Traditional time: "+traditionalTime);
-		System.out.println("MARK* time: "+MARKStarTime);
+		System.out.println("MARK* time: "+BBSHARKStarTime);
 	}
 
 
 	@Test
-	public void timeMARKStarVsTraditional() {
+	public void timeBBSHARKStarVsTraditional() {
 
 		ConfSpaces confSpaces = TestKStar.make2RL0();
 		final double epsilon = 0.68;
@@ -936,24 +936,24 @@ public class TestSHARKStar {
 		timer.reset();
 		timer.start();
 		results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
-		String MARKStarTime = timer.getTime(2);
+		String BBSHARKStarTime = timer.getTime(2);
 		timer.stop();
 
 		//assert2RL0(results, numSequences);
 		System.out.println("Traditional time: "+traditionalTime);
-		System.out.println("MARK* time: "+MARKStarTime);
+		System.out.println("MARK* time: "+BBSHARKStarTime);
 	}
 
 	@Test
-	public void testMARKStarVsKStar() {
+	public void testBBSHARKStarVsKStar() {
 		int numFlex = 8;
 		double epsilon = 0.68;
-		compareMARKStarAndKStar(numFlex, epsilon);
+		compareBBSHARKStarAndKStar(numFlex, epsilon);
 	}
 
 	@Test
-	public void testMARKStarTinyEpsilon() {
-		printMARKStarComputationStats(runMARKStar(5, 0.68).get(0));
+	public void testBBSHARKStarTinyEpsilon() {
+		printBBSHARKStarComputationStats(runBBSHARKStar(5, 0.68).get(0));
 
 	}
 
@@ -964,14 +964,14 @@ public class TestSHARKStar {
 		REUDCE_MINIMIZATIONS = false;
 		System.out.println("Trying without reduced minimizations...");
 		Stopwatch runTime = new Stopwatch().start();
-		runMARKStar(numFlex, epsilon);
+		runBBSHARKStar(numFlex, epsilon);
 		String withoutRMTime= runTime.getTime(2);
 		runTime.stop();
 		runTime.reset();
 		runTime.start();
 		REUDCE_MINIMIZATIONS = true;
 		System.out.println("Retrying with reduced minimizations...");
-		runMARKStar(numFlex, epsilon);
+		runBBSHARKStar(numFlex, epsilon);
 		runTime.stop();
 		System.out.println("Without Reduced Minimization time: "+withoutRMTime);
 		System.out.println("Reduced minimization time: "+runTime.getTime(2));
@@ -979,7 +979,7 @@ public class TestSHARKStar {
 
 	@Test
     public void test1GUASmall() {
-	    runMARKStar(3,0.99);
+	    runBBSHARKStar(3,0.99);
     }
 
 	@Test
@@ -988,7 +988,7 @@ public class TestSHARKStar {
 		int maxNumFlex = 8;
 		double epsilon = 0.68;
 		for(int i = 1; i < maxNumFlex; i++)
-			compareMARKStarAndKStar(i,epsilon);
+			compareBBSHARKStarAndKStar(i,epsilon);
 	}
 
 	@Test
@@ -1004,7 +1004,7 @@ public class TestSHARKStar {
 		}
 	}
 
-	private void compareMARKStarAndKStar(int numFlex, double epsilon) {
+	private void compareBBSHARKStarAndKStar(int numFlex, double epsilon) {
 		Stopwatch runTime = new Stopwatch().start();
 		String kstartime = "(not run)";
 		List<KStar.ScoredSequence> kStarSeqs = null;
@@ -1016,10 +1016,10 @@ public class TestSHARKStar {
 			runTime.reset();
 			runTime.start();
 		}
-		List<MARKStar.ScoredSequence> markStarSeqs = runMARKStar(numFlex, epsilon);
+		List<BBSHARKStar.ScoredSequence> markStarSeqs = runBBSHARKStar(numFlex, epsilon);
 		runTime.stop();
-		for(MARKStar.ScoredSequence seq: markStarSeqs)
-			printMARKStarComputationStats(seq);
+		for(BBSHARKStar.ScoredSequence seq: markStarSeqs)
+			printBBSHARKStarComputationStats(seq);
 		if(runkstar)
 			for(KStar.ScoredSequence seq: kStarSeqs)
 				printKStarComputationStats(seq);
@@ -1032,7 +1032,7 @@ public class TestSHARKStar {
 	protected static void printKStarComputationStats(KStar.ScoredSequence result)
 	{}
 
-	protected static void printMARKStarComputationStats(MARKStar.ScoredSequence result)
+	protected static void printBBSHARKStarComputationStats(BBSHARKStar.ScoredSequence result)
 	{}
 
 	@Test
@@ -1049,8 +1049,8 @@ public class TestSHARKStar {
 
 
 	@Test
-	public void testMARKStar() {
-		List<MARKStar.ScoredSequence> results = runMARKStar(1, 0.01);
+	public void testBBSHARKStar() {
+		List<BBSHARKStar.ScoredSequence> results = runBBSHARKStar(1, 0.01);
 		for (int index = 0; index < results.size(); index++) {
 			int totalConfsEnergied = results.get(index).score.complex.numConfs + results.get(index).score.protein.numConfs + results.get(index).score.ligand.numConfs;
 			int totalConfsLooked = -1;
@@ -1062,10 +1062,10 @@ public class TestSHARKStar {
 	@Test
     public void test1GUASmallDEEP() {
 	    ConfSpaces confSpaces = make1GUASmallDEEP(5);
-	    runMARKStar(confSpaces, 0.99);
+	    runBBSHARKStar(confSpaces, 0.99);
     }
 
-	private static List<MARKStar.ScoredSequence> runMARKStar(int numFlex, double epsilon) {
+	private static List<BBSHARKStar.ScoredSequence> runBBSHARKStar(int numFlex, double epsilon) {
 		//ConfSpaces confSpaces = make1GUASmallCATS(numFlex);
 		//ConfSpaces confSpaces = make1GUASmallDEEP(numFlex);
 		ConfSpaces confSpaces = make1GUASmall(numFlex);
@@ -1081,7 +1081,7 @@ public class TestSHARKStar {
 				.setIsMinimizing(false)
 				.build();
 		// how should we define energies of conformations?
-		MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
+		BBSHARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
 			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
 					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, minimizingEcalc)
 							.build()
@@ -1091,14 +1091,14 @@ public class TestSHARKStar {
 					.build();
 		};
 
-		MARKStar.Settings settings = new MARKStar.Settings.Builder()
+		BBSHARKStar.Settings settings = new BBSHARKStar.Settings.Builder()
 				.setEpsilon(epsilon)
 				.setEnergyMatrixCachePattern("*testmat.emat")
 				.setShowPfuncProgress(true)
 				.setParallelism(parallelism)
 				.setReduceMinimizations(REUDCE_MINIMIZATIONS)
 				.build();
-		MARKStar run = new MARKStar(confSpaces.protein, confSpaces.ligand,
+		BBSHARKStar run = new BBSHARKStar(confSpaces.protein, confSpaces.ligand,
 				confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);
 		return run.run();
 	}
@@ -1201,10 +1201,10 @@ public class TestSHARKStar {
 		return result.scores;
 	}
 
-	private void runMARKStarWithLUTE(ConfSpaces confSpaces, double v) {
+	private void runBBSHARKStarWithLUTE(ConfSpaces confSpaces, double v) {
 	}
 
-	public static Result runMARKStar(ConfSpaces confSpaces, double epsilon){
+	public static Result runBBSHARKStar(ConfSpaces confSpaces, double epsilon){
 
 		Parallelism parallelism = Parallelism.makeCpu(NUM_CPUs);
 
@@ -1218,7 +1218,7 @@ public class TestSHARKStar {
 				.setIsMinimizing(false)
 				.build();
 		// how should we define energies of conformations?
-		MARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
+		BBSHARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
 			return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
 					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, minimizingEcalc)
 							.build()
@@ -1229,7 +1229,7 @@ public class TestSHARKStar {
 
 		Result result = new Result();
 
-		MARKStar.Settings settings = new MARKStar.Settings.Builder()
+		BBSHARKStar.Settings settings = new BBSHARKStar.Settings.Builder()
 				.setEpsilon(epsilon)
 				.setEnergyMatrixCachePattern("*.mark.emat")
 				.setShowPfuncProgress(true)
@@ -1237,7 +1237,7 @@ public class TestSHARKStar {
 				.setReduceMinimizations(REUDCE_MINIMIZATIONS)
 				.build();
 
-		result.markstar = new MARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);
+		result.markstar = new BBSHARKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, settings);
 		result.markstar.precalcEmats();
 		result.scores = result.markstar.run();
 		return result;
@@ -1392,7 +1392,7 @@ public class TestSHARKStar {
 	}
 
 	public static void printSequence(Result result, int sequenceIndex){
-		MARKStar.ScoredSequence scoredSequence =result.scores.get(sequenceIndex);
+		BBSHARKStar.ScoredSequence scoredSequence =result.scores.get(sequenceIndex);
 		String out = "Printing sequence "+sequenceIndex+": "+scoredSequence.sequence.toString(Sequence.Renderer.ResType)+"\n"+
 				"Protein LB: "+String.format("%6.3e",scoredSequence.score.protein.values.qstar)+
 				" Protein UB: "+String.format("%6.3e",scoredSequence.score.protein.values.pstar)+"\n"+

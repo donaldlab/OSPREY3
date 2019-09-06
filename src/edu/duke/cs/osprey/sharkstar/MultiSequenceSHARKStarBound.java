@@ -45,7 +45,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private Sequence precomputedSequence;
     protected double targetEpsilon = 1;
-    public boolean debug = true;
+    public boolean debug = false;
     public boolean profileOutput = false;
     private Status status = null;
 
@@ -163,7 +163,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         this.rootNode = MultiSequenceSHARKStarNode.makeRoot(rootConfNode, confSpace);
         double confLowerBound = partialConfLowerbound + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
-        double confUpperBound = partialConfLowerbound - nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
+        double confUpperBound = partialConfUpperBound + nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
         rootNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, precomputedSequence);
         this.minimizingEmat = minimizingEmat;
         this.rigidEmat = rigidEmat;
@@ -340,7 +340,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             confNode.index(confIndex);
 
             double confLowerBound = confNode.getPartialConfLowerBound() + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
-            double confUpperBound = confNode.getPartialConfLowerBound() - nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
+            double confUpperBound = confNode.getPartialConfUpperBound() + nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
             node.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, bound.sequence);
             initForSeq(node.getChildren(bound.sequence), bound);
         }
@@ -634,7 +634,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             if (debug) {
                 rootNode.updateSubtreeBounds(sequenceBound.sequence);
                 debugHeap(sequenceBound.fringeNodes);
-                //printTree(sequenceBound.sequence,rootNode);
+                printTree(sequenceBound.sequence,rootNode);
             }
             tightenBoundInPhases(sequenceBound);
             debugPrint("Errorbound is now " + sequenceBound.sequenceEpsilon);
