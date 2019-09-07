@@ -125,7 +125,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    private static final int[] debugConf = new int[]{};//-1, -1, 4, -1, 3};
+    private static final int[] debugConf = new int[]{};//7, 7, 9, -1, 3, 8, 13, -1};
     private String cachePattern = "NOT_INITIALIZED";
 
     /**
@@ -1172,8 +1172,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     Node child = node.assign(nextPos, nextRc);
                     PartialConfNodeResult result = new PartialConfNodeResult();
                     result.resultNode = child;
-                    if(confMatch(child.assignments, debugConf))
+                    if(confMatch(child.assignments, debugConf)) {
                         System.out.println("Gotcha-prequel.");
+                        System.out.println("Sequence is "+bound.sequence);
+                    }
 
                     // score the child node differentially against the parent node
                     if (child.getLevel() < RCs.getNumPos()) {
@@ -1656,6 +1658,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         conf[undefinedPos1] = rot1;
                         RCTuple testTuple = new RCTuple(conf);
                         double energyCheck = emat.getInternalEnergy(testTuple);
+                        System.out.println("Conf: "+confSpace.formatConfRotamersWithResidueNumbers(conf));
                         System.out.println("Energy of " + testTuple + ": " + energyCheck);
                         System.out.println("Rot energy of "+ testTuple + ": " + rotEnergy);
                     }

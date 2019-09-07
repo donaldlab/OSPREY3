@@ -140,6 +140,7 @@ public class ExpFunction implements Serializable {
 					double addend = 0;
 					if(x.doubleValue()>0)
 						addend = Math.log(x.doubleValue());
+					else return MathTools.BigNegativeInfinity;
 					sum = sum.add(new BigDecimal(t+addend));
 					done = true;
 				}

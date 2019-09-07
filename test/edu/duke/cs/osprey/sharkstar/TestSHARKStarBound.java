@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
@@ -454,7 +455,7 @@ public class TestSHARKStarBound extends TestBase {
 
         double epsilon = 0.68;
         // make full confspace and the flexible copy
-        SimpleConfSpace mutableConfSpace = make1a0r_debug();
+        SimpleConfSpace mutableConfSpace = make1gua_debug();
         SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
 
         // precompute flexible residues
@@ -478,7 +479,7 @@ public class TestSHARKStarBound extends TestBase {
         wtBound.compute();
 
         System.out.println("========================== Now computing mutant sequence ========================");
-        Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("B282","ARG");
+        Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("213","LYS");
         PartitionFunction muttBound =
                 fullPfunc.getPartitionFunctionForSequence(mutantSequence);
         muttBound.compute();
@@ -508,6 +509,10 @@ public class TestSHARKStarBound extends TestBase {
                 .setShellDistance(9)
                 .build();
 
+    }
+
+    private SimpleConfSpace make1gua_debug() {
+        return TestKStar.make1GUA11().complex;
     }
 
     private SimpleConfSpace make1a0r_debug() {
