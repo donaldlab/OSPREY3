@@ -57,11 +57,13 @@ import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -591,6 +593,34 @@ public class TestSHARKStar {
 						+"*.pdb");
 
 			}
+		}
+	}
+
+	@Test
+	public void testMaxBigDecimal() {
+	    double start = 1;
+		BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+		double freeEnergy = 0;
+		while(false && freeEnergy != Double.MIN_VALUE) {
+			BigDecimal weight = bcalc.calc(-start);
+			System.out.println(String.format("%f -> %12.4e",start,weight));
+			freeEnergy = bcalc.freeEnergy(weight);
+			start*=10;
+		}
+		//System.out.println("Can't handle " + freeEnergy);
+		double testStart = 4.214298665166900042184220388932985996613539214914929615225692176E+71;
+		double test = bcalc.freeEnergy(new BigDecimal(4.214298665166900042184220388932985996613539214914929615225692176E+71));
+		System.out.println(test);
+	}
+
+	@Test
+	public void test5it3() {
+		try {
+			ConfSpaces confSpaces = loadSSFromCFS("test-resources/5it3_A_7res_6.446E+08.cfs");
+			//runBBSHARKStar(confSpaces, 0.9999);
+			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
 		}
 	}
 

@@ -394,6 +394,12 @@ public class BBSHARKStar {
 		this.protein = new ConfSpaceInfo(ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, rigidEcalc), confEcalcFactory.make(protein, minimizingEcalc));
 		this.ligand = new ConfSpaceInfo(ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, rigidEcalc), confEcalcFactory.make(ligand, minimizingEcalc));
 		this.complex = new ConfSpaceInfo(ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, rigidEcalc), confEcalcFactory.make(complex, minimizingEcalc));
+		this.protein.pfuncFactory = new PartitionFunctionFactory(protein, this.protein.minimizingConfEcalc, "protein");
+		this.protein.pfuncFactory.setUseMSSHARKStar(this.protein.rigidConfEcalc);
+		this.ligand.pfuncFactory = new PartitionFunctionFactory(ligand, this.ligand.minimizingConfEcalc, "ligand");
+		this.ligand.pfuncFactory.setUseMSSHARKStar(this.ligand.rigidConfEcalc);
+		this.complex.pfuncFactory = new PartitionFunctionFactory(complex, this.complex.minimizingConfEcalc, "complex");
+		this.complex.pfuncFactory.setUseMSSHARKStar(this.complex.rigidConfEcalc);
 		this.rigidEcalc = rigidEcalc;
 		this.minimizingEcalc = minimizingEcalc;
 		this.confEcalcFactory = confEcalcFactory;

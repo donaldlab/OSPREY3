@@ -49,6 +49,8 @@
 package edu.duke.cs.osprey.tools;
 
 
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+
 import java.io.Serializable;
 import java.math.*;
 
@@ -137,12 +139,10 @@ public class ExpFunction implements Serializable {
 					t += 1.0;
 				}
 				else {
-					double addend = 0;
-					if(x.doubleValue()>0)
-						addend = Math.log(x.doubleValue());
-					else return MathTools.BigNegativeInfinity;
-					sum = sum.add(new BigDecimal(t+addend));
 					done = true;
+				}
+				if (Double.isFinite(Math.log(x.doubleValue()))){
+					sum = sum.add(new BigDecimal(t+Math.log(x.doubleValue())));
 				}
 				x = x.divide(exp,4);
 			}
