@@ -6,11 +6,13 @@ import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseRigidGScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -182,6 +184,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             context.partialConfUpperBoundScorer = rigidgscorerFactory.make(rigidEmat);
             /** These scoreres should match the scorers in the SHARKStarNode root - they perform the same calculations**/
             context.upperBoundScorer = nhscorerFactory.make(rigidEmat); //this is used for upper bounds, so we want it rigid
+            context.sanityCheckUpperBoundScorer = new TraditionalPairwiseHScorer(rigidEmat, rcs, MathTools.Optimizer.Maximize);
+            context.sanityCheckLowerBoundScorer = new TraditionalPairwiseHScorer(rigidEmat, rcs, MathTools.Optimizer.Minimize);
             context.ecalc = minimizingConfEcalc;
             return context;
         });
@@ -1191,6 +1195,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         double rigiddiff = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double hdiff = context.lowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double maxhdiff = context.upperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        double checkminhdiff = context.sanityCheckLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                        if(maxhdiff < 0 && checkminhdiff > 0) {
+                            System.err.println("This can't be true. Best energy is bad, but the average is somehow okay.");
+                            System.out.println("This can't be true. Best energy is bad, but the average is somehow okay.");
+                        }
                         double checkNum = 0;
                         if(confMatch(child.assignments, debugConf)) {
                             checkNum = rigidEmat.getInternalEnergy(new RCTuple(child.makeConf(fullRCs.getNumPos())));
@@ -1590,6 +1599,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         public AStarScorer upperBoundScorer;
         public AStarScorer partialConfUpperBoundScorer;
         public ConfEnergyCalculator ecalc;
+        public TraditionalPairwiseHScorer sanityCheckUpperBoundScorer;
+        public TraditionalPairwiseHScorer sanityCheckLowerBoundScorer;
     }
 
     private class SHARKStarNodeScorer implements AStarScorer {
