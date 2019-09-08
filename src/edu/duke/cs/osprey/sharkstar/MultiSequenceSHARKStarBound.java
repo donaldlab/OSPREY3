@@ -47,7 +47,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private Sequence precomputedSequence;
     protected double targetEpsilon = 1;
-    public boolean debug = true;
+    public boolean debug = false;
     public boolean profileOutput = false;
     private Status status = null;
 
@@ -127,7 +127,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    private static final int[] debugConf = new int[]{7, 7, 34, -1};//7, 7, 9, -1, 3, 8, 13, -1};
+    private static final int[] debugConf = new int[]{};
     private String cachePattern = "NOT_INITIALIZED";
 
     /**
@@ -1072,7 +1072,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     protected void boundLowestBoundConfUnderNode(SingleSequenceSHARKStarBound bound, MultiSequenceSHARKStarNode startNode,
                                                  List<MultiSequenceSHARKStarNode> generatedNodes) {
-        System.out.println("Bounding "+startNode.getConfSearchNode());
+        System.out.println("Bounding "+startNode.toSeqString(bound.sequence));
         Comparator<MultiSequenceSHARKStarNode> confBoundComparator = Comparator.comparingDouble(o -> o.getConfLowerBound(bound.sequence));
         PriorityQueue<MultiSequenceSHARKStarNode> queue = bound.fringeNodes;
         RCs RCs = bound.seqRCs;
