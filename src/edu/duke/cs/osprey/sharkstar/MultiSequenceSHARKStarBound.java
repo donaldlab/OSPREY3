@@ -47,7 +47,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private Sequence precomputedSequence;
     protected double targetEpsilon = 1;
-    public boolean debug = false;
+    public boolean debug = true;
     public boolean profileOutput = false;
     private Status status = null;
 
@@ -127,7 +127,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    private static final int[] debugConf = new int[]{};//7, 7, 9, -1, 3, 8, 13, -1};
+    private static final int[] debugConf = new int[]{7, 7, 34, -1};//7, 7, 9, -1, 3, 8, 13, -1};
     private String cachePattern = "NOT_INITIALIZED";
 
     /**
@@ -1634,6 +1634,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         public double calc(ConfIndex confIndex, RCs rcs) {
             BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
             BigDecimal pfuncBound = BigDecimal.ONE;
+            int[] conf = confIndex.makeConf();
+            if(confMatch(conf, debugConf)){
+                System.out.println("Node Conf: "+confSpace.formatConfRotamersWithResidueNumbers(conf));
+                RCTuple testTuple = new RCTuple(conf);
+                double energyCheck = emat.getInternalEnergy(testTuple);
+                System.out.println("Energy of " + testTuple + ": " + energyCheck);
+                System.out.println("Gotcha-calc0");
+            }
             for (int undefinedPosIndex1 = 0; undefinedPosIndex1 < confIndex.numUndefined; undefinedPosIndex1++) {
                 int undefinedPos1 = confIndex.undefinedPos[undefinedPosIndex1];
                 BigDecimal residueSum = BigDecimal.ZERO;
@@ -1654,24 +1662,27 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         }
                         rotEnergy+= bestPair;
                     }
-                    int[] conf = confIndex.makeConf();
                     if(confMatch(conf, debugConf)){
                         System.out.println("Gotcha-calc");
-                        conf[undefinedPos1] = rot1;
-                        RCTuple testTuple = new RCTuple(conf);
+                        int[] conf2 = confIndex.makeConf();
+                        conf2[undefinedPos1] = rot1;
+                        RCTuple testTuple = new RCTuple(conf2);
                         double energyCheck = emat.getInternalEnergy(testTuple);
-                        System.out.println("Conf: "+confSpace.formatConfRotamersWithResidueNumbers(conf));
+                        System.out.println("Child Conf: "+confSpace.formatConfRotamersWithResidueNumbers(conf2));
                         System.out.println("Energy of " + testTuple + ": " + energyCheck);
                         System.out.println("Rot energy of "+ testTuple + ": " + rotEnergy);
                     }
                     residueSum = residueSum.add(bcalc.calc(rotEnergy));
                 }
-                int[] conf = confIndex.makeConf();
                 if(confMatch(conf, debugConf)){
                     System.out.println("Gotcha-calc2");
                     System.out.println("End residue sum: "+residueSum);
                 }
                 pfuncBound = pfuncBound.multiply(residueSum, PartitionFunction.decimalPrecision);
+            }
+            if(confMatch(conf, debugConf)){
+                System.out.println("Gotcha-calc3");
+                System.out.println("End bound: "+bcalc.freeEnergy(pfuncBound));
             }
             return bcalc.freeEnergy(pfuncBound);
         }
