@@ -1060,7 +1060,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     bestChild = MultiSequenceSHARKStarNodeChild;
                 }
                 // collect the possible children
-                if (MultiSequenceSHARKStarNodeChild.getConfLowerBound(bound.sequence) < 0 || true) {
+                if (MultiSequenceSHARKStarNodeChild.getConfLowerBound(bound.sequence) < 0) {
                     children.add(MultiSequenceSHARKStarNodeChild);
                 }
                 newNodes.add(MultiSequenceSHARKStarNodeChild);
@@ -1092,8 +1092,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
             if (node.getLevel() < RCs.getNumPos()) {
                 MultiSequenceSHARKStarNode nextNode = drillDown(bound, newNodes, curNode, node);
-                newNodes.remove(nextNode);
-                drillQueue.add(nextNode);
+                // Sometimes there are no good leaf nodes. Weird.
+                if(nextNode != null) {
+                    newNodes.remove(nextNode);
+                    drillQueue.add(nextNode);
+                }
             } else {
                 newNodes.add(curNode);
             }
