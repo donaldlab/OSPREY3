@@ -608,8 +608,8 @@ public class TestSHARKStar {
 			start*=10;
 		}
 		//System.out.println("Can't handle " + freeEnergy);
-		double testStart = 4.214298665166900042184220388932985996613539214914929615225692176E+71;
-		double test = bcalc.freeEnergy(new BigDecimal(4.214298665166900042184220388932985996613539214914929615225692176E+71));
+		double testStart = 2.951434193876944278317141875E-37;
+		double test = bcalc.freeEnergy(new BigDecimal(testStart));
 		System.out.println(test);
 	}
 

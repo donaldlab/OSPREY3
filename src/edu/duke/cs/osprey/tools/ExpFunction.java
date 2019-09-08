@@ -124,8 +124,8 @@ public class ExpFunction implements Serializable {
 		BigDecimal x = num;
 
 		if (num.compareTo(new BigDecimal(Math.pow(10, 38)))<0){ //num is small, so use the standard Math.log() function
-			if (num.compareTo(new BigDecimal("0.00001"))<0)
-				sum = new BigDecimal("0.0");
+			if (num.compareTo(new BigDecimal(1e-323))<0)
+				sum = MathTools.BigNegativeInfinity;
 			else
 				sum = new BigDecimal(Math.log(num.doubleValue()));
 		}
