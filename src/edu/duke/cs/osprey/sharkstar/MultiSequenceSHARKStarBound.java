@@ -335,7 +335,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         node.setNewConfSpace(confSpace);
     }
 
-    private void initForSeq(List<MultiSequenceSHARKStarNode> nodes, SingleSequenceSHARKStarBound bound) {
+    private void initForSeqq(List<MultiSequenceSHARKStarNode> nodes, SingleSequenceSHARKStarBound bound) {
         for(MultiSequenceSHARKStarNode node:nodes) {
             Node confNode = node.getConfSearchNode();
             RCs rcs = bound.seqRCs;
@@ -344,18 +344,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             double confLowerBound = confNode.getPartialConfLowerBound() + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
             double confUpperBound = confNode.getPartialConfUpperBound() + nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
             node.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, bound.sequence);
-            initForSeq(node.getChildren(bound.sequence), bound);
+            initForSeqq(node.getChildren(bound.sequence), bound);
         }
-
-    }
-
-    /**
-     * Add the newly updated nodes to the queue so that we don't redo any work
-     */
-    private void addPrecomputedFringeToQueues(SingleSequenceSHARKStarBound bound) {
-        processPrecomputedFringe(this.rootNode, bound);
-        initForSeq(precomputedFringe, bound);
-        bound.fringeNodes.addAll(precomputedFringe);
 
     }
 
