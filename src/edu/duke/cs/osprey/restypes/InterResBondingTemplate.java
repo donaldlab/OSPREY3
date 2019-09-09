@@ -204,6 +204,9 @@ public abstract class InterResBondingTemplate implements Serializable {
             }
         }
 
+        // Don't handle cysteines differently for now.
+        /*
+
         @Override
         public boolean atomCanBondOtherRes(Atom atom) {
             return atom.name.equalsIgnoreCase("N") || atom.name.equalsIgnoreCase("C")
@@ -219,6 +222,7 @@ public abstract class InterResBondingTemplate implements Serializable {
 		public boolean makeInterResBondForward(Residue res1, Residue res2) {
 			throw new UnsupportedOperationException("atom connectivity queries for cysteine bonds are not yet implemented");
 		}
+		*/
 	}
 
 
