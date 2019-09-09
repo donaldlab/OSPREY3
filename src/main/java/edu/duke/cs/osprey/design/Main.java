@@ -52,7 +52,7 @@ public class Main {
 
         if (args.length == 0 || this.help) {
             commander.usage();
-            return Success;
+            return args.length == 0 ? Failure : Success;
         }
 
         var parsedCommand = commander.getParsedCommand();
@@ -61,52 +61,6 @@ public class Main {
 
     public static void main(String[] args) {
         exit(new Main().run(args));
-
-        /*
-        var designFile = new File(args[0]);
-        var stabilityDesign = StabilityDesign.parse(designFile);
-        var molecule = PDBIO.read(stabilityDesign.molecule);
-
-        var ffParams = new ForcefieldParams();
-        var templateLibrary = new ResidueTemplateLibrary.Builder(ffParams.forcefld)
-                .build();
-
-        var protein = new Strand.Builder(molecule)
-                .setTemplateLibrary(templateLibrary)
-                .build();
-
-        stabilityDesign.residueModifiers.forEach(mod -> {
-            var residue = protein.flexibility.get(mod.identity.positionIdentifier());
-            residue.addWildTypeRotamers = mod.flexibility.includeStructureRotamer;
-            var toMutations = mod.mutable.stream().map(AminoAcid::toValue).collect(Collectors.toUnmodifiableList());
-            if (!toMutations.isEmpty()) {
-                residue.setLibraryRotamers(toMutations);
-            }
-            residue.setContinuous();
-        });
-
-        var confSpace = new SimpleConfSpace.Builder()
-                .addStrand(protein)
-                .setShellDistance(4)
-                .build();
-
-        var parallelism = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0);
-
-        var energyCalculator = new EnergyCalculator.Builder(confSpace, ffParams)
-                .setParallelism(parallelism)
-                .build();
-
-        var confEnergyCalculator = new ConfEnergyCalculator.Builder(confSpace, energyCalculator)
-                .build();
-
-        var partitionFnBuilder = new PartitionFunctionFactory(confSpace, confEnergyCalculator, "default");
-        partitionFnBuilder.setUseGradientDescent();
-
-        var rcs = new RCs(confSpace);
-        var partFn = partitionFnBuilder.makePartitionFunctionFor(rcs, null, stabilityDesign.epsilon);
-        partFn.compute();
-        var evaluated = partFn.getNumConfsEvaluated();
-         */
     }
 }
 

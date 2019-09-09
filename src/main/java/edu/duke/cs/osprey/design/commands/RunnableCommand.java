@@ -14,7 +14,7 @@ public abstract class RunnableCommand {
     public abstract String getCommandDescription();
 
     @ParametersDelegate
-    private DesignFileDelegate delegate = new DesignFileDelegate();
+    protected DesignFileDelegate delegate = new DesignFileDelegate();
 
     Optional<Integer> processHelpAndNoArgs(JCommander commander, String[] args) {
         if (args.length == 1) {

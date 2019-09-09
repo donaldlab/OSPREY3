@@ -174,6 +174,10 @@ public class Strand implements Serializable {
 		 * If no residue types are passed, the wild type will be used. 
 		 */
 		public ResidueFlex setLibraryRotamers(String ... resTypes) {
+		    if (resTypes.length == 0) {
+				return setLibraryRotamers(Collections.singletonList(this.wildType));
+			}
+
 			return setLibraryRotamers(Arrays.asList(resTypes));
 		}
 		
