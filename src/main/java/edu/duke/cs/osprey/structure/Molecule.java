@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 
 /**
- *
+ * Represents residues and their alternates, typically from a PDB file
  * @author mhall44
  */
 public class Molecule implements Serializable {
