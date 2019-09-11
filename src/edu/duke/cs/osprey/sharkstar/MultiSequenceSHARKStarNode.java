@@ -249,10 +249,14 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     private List<MultiSequenceSHARKStarNode> populateChildren(Sequence seq) {
         List<MultiSequenceSHARKStarNode> childrenForSeq = new ArrayList<>();
+        Set<Integer> rcs = new HashSet<>();
         RCs seqRCs = seq.makeRCs(fullConfSpace);
         for (MultiSequenceSHARKStarNode child: children) {
-            if (Arrays.stream(seqRCs.get(child.confSearchNode.pos)).anyMatch(i -> i == child.confSearchNode.rc))
+            if (Arrays.stream(seqRCs.get(child.confSearchNode.pos)).anyMatch(i -> i == child.confSearchNode.rc)
+                    && !rcs.contains(child.confSearchNode.rc)) {
                 childrenForSeq.add(child);
+                rcs.add(child.confSearchNode.rc);
+            }
         }
         checkChildren(childrenForSeq);
         return childrenForSeq;
