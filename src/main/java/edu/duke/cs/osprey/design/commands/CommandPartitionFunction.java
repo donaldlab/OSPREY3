@@ -43,19 +43,35 @@ public class CommandPartitionFunction extends RunnableCommand {
             return Main.Failure;
         }
 
+        /* Reads a PDB file into a Molecule. */
         var molecule = PDBIO.read(design.molecule);
+
+        /* This reads parm96a.dat, which contains  the energy parameters of DNA, RNA, and protein residues */
         var ffParams = new ForcefieldParams();
+
+        /* Reads the templates, rotamers, and entropy info for a given forcefield */
+        /*
+            "/config/parm96a.dat",
+            "/config/all_amino94.in",
+            "/config/all_aminont94.in",
+            "/config/all_aminoct94.in",
+            "/config/all_nuc94_and_gr.in",
+         */
         var templateLibrary = new ResidueTemplateLibrary.Builder(ffParams.forcefld)
                 .build();
+
+        /* Strands combine a Molecule with design flexibility and templates */
         var protein = new Strand.Builder(molecule)
                 .setTemplateLibrary(templateLibrary)
                 .build();
 
+        /* This block makes certain residues in the protein flexible or mutable */
         design.residueModifiers.forEach(mod -> {
             var residue = protein.flexibility.get(Integer.toString(mod.identity.residueNumber));
             residue.addWildTypeRotamers = true; // mod.flexibility.includeStructureRotamer;
             var toMutations = mod.mutability.stream().map(AminoAcid::toValue).collect(Collectors.toUnmodifiableList());
 
+            // null is okay, as is a List, but not an empty List :(
             if (!toMutations.isEmpty()) {
                 residue.setLibraryRotamers(toMutations);
             } else {
@@ -63,24 +79,36 @@ public class CommandPartitionFunction extends RunnableCommand {
             }
         });
 
+        /* Maintains flexibility information with the molecule, and can use that to make new molecules */
         var confSpace = new SimpleConfSpace.Builder()
                 .addStrand(protein)
+                .setShellDistance(0)
                 .build();
 
+        /* Decides whether to use CPU(s) and/or GPU(s) (only about runtime specifications) */
         var parallelism = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0);
 
+        /* Used to calculate energies of a molecule, also used to minimize the molecule */
         var energyCalculator = new EnergyCalculator.Builder(confSpace, ffParams)
                 .setParallelism(parallelism)
                 .build();
 
+        /*
+         * Calculate energy for molecules created from conformation spaces.
+         *
+         * Provides support for applying conformation energy modifications,
+         * such as reference energies, residue entropies, and energy partitions.
+         */
         var confEnergyCalculator = new ConfEnergyCalculator.Builder(confSpace, energyCalculator)
                 .build();
+
+        /* Contains the confSpace and a pruning matrix */
+        var rcs = new RCs(confSpace);
 
         var partitionFnBuilder = new PartitionFunctionFactory(confSpace, confEnergyCalculator, "default");
         partitionFnBuilder.setUseGradientDescent();
 
-        var rcs = new RCs(confSpace);
-        var partFn = partitionFnBuilder.makePartitionFunctionFor(rcs, null, design.epsilon);
+        var partFn = partitionFnBuilder.makePartitionFunctionFor(rcs, null, 0.3);
         partFn.compute();
         var evaluated = partFn.getNumConfsEvaluated();
         return Main.Success;

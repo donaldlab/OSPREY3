@@ -953,7 +953,6 @@ public class ForcefieldParams implements Serializable {
             throw new RuntimeException("ERROR: Couldn't find any equilibrium bond length"
                     + " for atoms with masses " + mass1 + " and " + mass2);
         }
-        
 
         //Doubles the size of the a[] String array
 	private String [] doubleArraySize(String a[]){
