@@ -59,7 +59,7 @@ public class PartitionFunctionFactory {
     private Map<String, EnergyMatrix> pairwiseMinmizedMatrices = new HashMap<>();
     private String cachePattern;
 
-    enum PartitionFunctionImpl {
+    public enum PartitionFunctionImpl {
         MARKStar,
         GradientDescent,
         LUTE,
@@ -123,6 +123,10 @@ public class PartitionFunctionFactory {
 
     public void setUseGradientDescent() {
         this.pfuncImpl = PartitionFunctionImpl.GradientDescent;
+    }
+
+    public PartitionFunctionImpl getPfuncImpl() {
+        return pfuncImpl;
     }
 
     public ConfSearch makeConfSearch(EnergyMatrix emat, RCs rcs, PruningMatrix pmat) {

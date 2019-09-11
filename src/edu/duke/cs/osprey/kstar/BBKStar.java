@@ -33,19 +33,14 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.seq.RTs;
-import edu.duke.cs.osprey.astar.seq.nodes.SeqAStarNode;
-import edu.duke.cs.osprey.astar.seq.scoring.SeqAStarScorer;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.*;
 import edu.duke.cs.osprey.sharkstar.SHARKSeqHScorer;
-import edu.duke.cs.osprey.sharkstar.SHARKStar;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
-import org.ojalgo.matrix.transformation.Rotation;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -310,7 +305,7 @@ public class BBKStar {
 			isUnboundUnstable = false;
 		}
 
-		private BigDecimal calcLowerBoundBySumProduct(ConfSpaceInfo info, Sequence sequence) {
+		private BigDecimal calcUpperBoundBySumProduct(ConfSpaceInfo info, Sequence sequence) {
 			RCs rcs = sequence.makeRCs(info.confSpace);
 			EnergyMatrix rigidEmat = info.pfuncFactory.getOrMakeEmat(info.confEcalcRigid,
 					info.id+"rigid");
@@ -344,6 +339,16 @@ public class BBKStar {
 		}
 
 		private BigDecimal calcUpperBound(ConfSpaceInfo info, Sequence sequence, int numConfs) {
+		    switch(info.pfuncFactory.getPfuncImpl()) {
+				case SHARKStar:
+					return calcUpperBoundBySumProduct(info, sequence);
+				default:
+					return calcUpperBoundByConf(info, sequence, numConfs);
+
+			}
+		}
+
+		private BigDecimal calcUpperBoundByConf (ConfSpaceInfo info, Sequence sequence, int numConfs) {
 
 			// to compute upper bounds on pfuncs,
 			// we'll use the upper bound calculator in the usual way
