@@ -176,10 +176,10 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		 * Calculate the upper bound of the partition function, using "energied" conformations where available and
 		 * "scored" conformations where not.
 		 *
-		 * = min(boltzmann-weighted upper-bound conf) * |confs with only upper-bound|
-		 * 		+ sum(boltzemann-weighted upper-bound of confs with only upper-bounds)
-		 * 		- sum(boltzmann-weighted upper-bound of confs with both upper- and lower-bounds)
-		 * 		+ sum(boltzmann-weighted lower-bound of confs with both upper- and lower-bounds)
+		 * = min(boltzmann-weighted lower-bounded conf) * |unbounded confs| 						-> the worst of the bounded confs * the number of bounded confs
+		 * 		+ sum(boltzemann-weighted upper-bound of confs with only upper-bounds) 				-> boltzmann-weighted confs of confs with calculated lower bounds
+		 * 		- sum(boltzmann-weighted upper-bound of confs with both upper- and lower-bounds) 	-> boltzmann-weighted confs with a lower bound and have been minimized
+		 * 		+ sum(boltzmann-weighted lower-bound of confs with both upper- and lower-bounds)	-> boltzmann-weighted minimized confs
 		 *
 		 * @return The upper bound of the partition function
 		 */
@@ -480,11 +480,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 				case Score: {
 
-					// Boolean to get the first score conf and store it
-					boolean collectScore = false;
-					if (numScoreConfsEnumerated == 0){
-						collectScore = true;
-					}
 					// gather the scores
 					List<ConfSearch.ScoredConf> confs = new ArrayList<>();
 					for (int i=0; i<numScores; i++) {
@@ -530,6 +525,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 				}
 
 				case None:
+					// TODO: Throw an exception here
 					// out of energy confs and score confs
 					// theoretically, this shouldn't happen without hitting our epsilon target, right?
 					keepStepping = false;
