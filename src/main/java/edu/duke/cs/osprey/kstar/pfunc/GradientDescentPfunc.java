@@ -81,13 +81,12 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		BigDecimal confSpaceSize;
 
 		/**
-		 * The number of conformations that have picked out from the lower energy bound conf search that contribute
-		 * to the partition function upper bound.
+		 * The number of in-order, lower-bounded conformations that have been examined.
 		 */
 		long numberScoredConfs = 0;
 
 		/**
-		 * Boltzmann-weighted sum of the conformations that have been picked out from the lower-bound conf search.
+		 * The partial Boltzmann-weighted sum of the in-order, lower-bounded conformations.
 		 */
 		BigDecimal sumOfScoredConfs = BigDecimal.ZERO;
 
