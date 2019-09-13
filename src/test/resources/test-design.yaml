@@ -3,7 +3,7 @@ osprey_version: Osprey 3.0
 design_name: Test design
 residue_configurations:
 - !ResidueModifier
-  mutable: []
+  mutability: []
   flexibility: !Flexibility
     is_flexible: true
     include_structure_rotamer: false
@@ -12,7 +12,7 @@ residue_configurations:
     res_num: 10
     aa_type: !AminoAcid Leu
 - !ResidueModifier
-  mutable: []
+  mutability: []
   flexibility: !Flexibility
     is_flexible: true
     include_structure_rotamer: false
@@ -21,7 +21,7 @@ residue_configurations:
     res_num: 11
     aa_type: !AminoAcid Ile
 - !ResidueModifier
-  mutable: []
+  mutability: []
   flexibility: !Flexibility
     is_flexible: true
     include_structure_rotamer: true
@@ -30,7 +30,7 @@ residue_configurations:
     res_num: 12
     aa_type: !AminoAcid Val
 - !ResidueModifier
-  mutable: []
+  mutability: []
   flexibility: !Flexibility
     is_flexible: true
     include_structure_rotamer: true
@@ -39,7 +39,7 @@ residue_configurations:
     res_num: 13
     aa_type: !AminoAcid Lys
 - !ResidueModifier
-  mutable:
+  mutability:
   - !AminoAcid Ala
   flexibility: !Flexibility
     is_flexible: true
@@ -49,7 +49,7 @@ residue_configurations:
     res_num: 14
     aa_type: !AminoAcid Asp
 - !ResidueModifier
-  mutable:
+  mutability:
   - !AminoAcid Phe
   - !AminoAcid Ala
   flexibility: !Flexibility
@@ -60,7 +60,7 @@ residue_configurations:
     res_num: 15
     aa_type: !AminoAcid Gly
 - !ResidueModifier
-  mutable:
+  mutability:
   - !AminoAcid Ala
   flexibility: !Flexibility
     is_flexible: true
@@ -70,7 +70,7 @@ residue_configurations:
     res_num: 16
     aa_type: !AminoAcid Arg
 - !ResidueModifier
-  mutable:
+  mutability:
   - !AminoAcid Ala
   flexibility: !Flexibility
     is_flexible: false

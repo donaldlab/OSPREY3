@@ -17,5 +17,5 @@ public class DesignFileDelegate {
     boolean helpDesign;
 
     @Parameter(description = "The approximation accuracy. Z* = (1 - epsilon)Z", names={"--epsilon", "-e"})
-    double epsilon = 0.63;
+    double epsilon;
 }

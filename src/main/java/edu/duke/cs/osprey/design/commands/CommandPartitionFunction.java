@@ -12,12 +12,16 @@ import edu.duke.cs.osprey.design.models.StabilityDesign;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.BigMath;
 
 import java.io.IOException;
+import java.text.NumberFormat;
 import java.util.stream.Collectors;
 
 @Parameters(commandDescription = CommandPartitionFunction.CommandDescription)
@@ -43,10 +47,24 @@ public class CommandPartitionFunction extends RunnableCommand {
             return Main.Failure;
         }
 
+        return runStabilityDesign(design);
+    }
+
+    @Override
+    public String getCommandName() {
+        return CommandName;
+    }
+
+    @Override
+    public String getCommandDescription() {
+        return CommandDescription;
+    }
+
+    private int runStabilityDesign(StabilityDesign design) {
         /* Reads a PDB file into a Molecule. */
         var molecule = PDBIO.read(design.molecule);
 
-        /* This reads parm96a.dat, which contains  the energy parameters of DNA, RNA, and protein residues */
+        /* This reads parm96a.dat, which contains the energy parameters of DNA, RNA, and protein residues */
         var ffParams = new ForcefieldParams();
 
         /* Reads the templates, rotamers, and entropy info for a given forcefield */
@@ -61,23 +79,20 @@ public class CommandPartitionFunction extends RunnableCommand {
                 .build();
 
         /* Strands combine a Molecule with design flexibility and templates */
-        var protein = new Strand.Builder(molecule)
-                .setTemplateLibrary(templateLibrary)
-                .build();
+        var strandBuilder = new Strand.Builder(molecule)
+                .setTemplateLibrary(templateLibrary);
 
-        /* This block makes certain residues in the protein flexible or mutable */
-        design.residueModifiers.forEach(mod -> {
-            var residue = protein.flexibility.get(Integer.toString(mod.identity.residueNumber));
-            residue.addWildTypeRotamers = true; // mod.flexibility.includeStructureRotamer;
-            var toMutations = mod.mutability.stream().map(AminoAcid::toValue).collect(Collectors.toUnmodifiableList());
+        /* Add in flexibility and mutability parameters */
+        for (var mod : design.residueModifiers) {
+            strandBuilder.setResidueMutability(
+                    String.valueOf(mod.identity.residueNumber),
+                    mod.mutability.stream().map(AminoAcid::toValue).collect(Collectors.toUnmodifiableList()),
+                    mod.flexibility.includeStructureRotamer,
+                    false
+            );
+        }
 
-            // null is okay, as is a List, but not an empty List :(
-            if (!toMutations.isEmpty()) {
-                residue.setLibraryRotamers(toMutations);
-            } else {
-                residue.setLibraryRotamers();
-            }
-        });
+        var protein = strandBuilder.build();
 
         /* Maintains flexibility information with the molecule, and can use that to make new molecules */
         var confSpace = new SimpleConfSpace.Builder()
@@ -85,7 +100,7 @@ public class CommandPartitionFunction extends RunnableCommand {
                 .setShellDistance(0)
                 .build();
 
-        /* Decides whether to use CPU(s) and/or GPU(s) (only about runtime specifications) */
+        /* Decides whether to use CPU(s) and/or GPU(s) (purely implementation specific) */
         var parallelism = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0);
 
         /* Used to calculate energies of a molecule, also used to minimize the molecule */
@@ -108,19 +123,13 @@ public class CommandPartitionFunction extends RunnableCommand {
         var partitionFnBuilder = new PartitionFunctionFactory(confSpace, confEnergyCalculator, "default");
         partitionFnBuilder.setUseGradientDescent();
 
-        var partFn = partitionFnBuilder.makePartitionFunctionFor(rcs, null, 0.3);
+        var partFn = partitionFnBuilder.makePartitionFunctionFor(rcs, delegate.epsilon > 0 ? delegate.epsilon : design.epsilon);
         partFn.compute();
-        var evaluated = partFn.getNumConfsEvaluated();
+        var numberFormat = NumberFormat.getPercentInstance();
+        var percentEvaluated = numberFormat.format(new BigMath(PartitionFunction.decimalPrecision).set(partFn.getNumConfsEvaluated()).div(rcs.getNumConformations().doubleValue()).get());
+        System.out.println(String.format("Evaluated %s of conf space (%d / %s)", percentEvaluated, partFn.getNumConfsEvaluated(), rcs.getNumConformations().toString()));
+        System.out.println(partFn.makeResult());
         return Main.Success;
     }
 
-    @Override
-    public String getCommandName() {
-        return CommandName;
-    }
-
-    @Override
-    public String getCommandDescription() {
-        return CommandDescription;
-    }
 }

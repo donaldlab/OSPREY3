@@ -46,8 +46,7 @@ import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.StringParsing;
 
 /**
- * Options for configuring forcefields for energy calculation.
- * @author mhall44
+ * Contains forcefield parameters for a variety of different published forcefields.  By default, {@link ForcefieldParams.Forcefield#AMBER} is used.
  */
 public class ForcefieldParams implements Serializable {
     

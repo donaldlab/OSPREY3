@@ -20,7 +20,7 @@ class MainTest extends CapturedIOTest {
         var main = new Main();
         var retVal = main.run(argv);
         assertTrue(mockedOut.toString().contains("Usage"));
-        assertEquals(0, retVal);
+        assertEquals(1, retVal);
     }
 
     @Test
@@ -68,13 +68,6 @@ class MainTest extends CapturedIOTest {
     void commandFailsWithoutDesignFile(String commandName) {
         String[] argv = { commandName,  "--design" };
         assertNotEquals(Main.Success, new Main().run(argv));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {CommandBindingAffinity.CommandName, CommandPartitionFunction.CommandName})
-    void commandSucceedsWithDesignFile(String commandName) {
-        String[] argv = { commandName,  "--design", testDesignPath };
-        assertEquals(Main.Success, new Main().run(argv));
     }
 
     @ParameterizedTest

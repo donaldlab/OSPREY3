@@ -41,7 +41,7 @@ import edu.duke.cs.osprey.structure.Molecule;
 import java.io.Serializable;
 
 /**
- * A {@see Molecule} instance with associated continuous degrees of freedom.
+ * A {@link Molecule} instance with associated continuous degrees of freedom.
  */
 public class ParametricMolecule implements Serializable {
 	
