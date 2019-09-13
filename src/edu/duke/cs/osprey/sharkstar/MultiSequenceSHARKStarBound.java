@@ -47,7 +47,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private Sequence precomputedSequence;
     protected double targetEpsilon = 1;
-    public boolean debug = false;
+    public boolean debug = true;
     public boolean profileOutput = false;
     private Status status = null;
 

@@ -251,14 +251,15 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         List<MultiSequenceSHARKStarNode> childrenForSeq = new ArrayList<>();
         Set<Integer> rcs = new HashSet<>();
         RCs seqRCs = seq.makeRCs(fullConfSpace);
+        //int maxChildren = seqRCs.get(confSearchNode.pos+1).length;
         for (MultiSequenceSHARKStarNode child: children) {
-            if (Arrays.stream(seqRCs.get(child.confSearchNode.pos)).anyMatch(i -> i == child.confSearchNode.rc)
-                    && !rcs.contains(child.confSearchNode.rc)) {
+            //if (Arrays.stream(seqRCs.get(child.confSearchNode.pos)).anyMatch(i -> i == child.confSearchNode.rc)
+             //       && !rcs.contains(child.confSearchNode.rc)) {
+            if (Arrays.stream(seqRCs.get(child.confSearchNode.pos)).anyMatch(i -> i == child.confSearchNode.rc)) {
                 childrenForSeq.add(child);
                 rcs.add(child.confSearchNode.rc);
             }
         }
-        checkChildren(childrenForSeq);
         return childrenForSeq;
     }
 
