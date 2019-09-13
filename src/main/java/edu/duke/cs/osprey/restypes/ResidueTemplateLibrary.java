@@ -43,8 +43,6 @@ import java.util.*;
 
 /**
  * Library of {@link ResidueTemplate} instances used by {@link Strand} instances to define discrete flexibilty.
- *
- * See Python script examples/python.GMEC/templateLibrary.py in your Osprey distribution for example usage.
  */
 // NOTE: we should not be serializing this class, but DEEPer expects just about everything to be serializable
 // objects referring to this class get serialized, taking the library with it

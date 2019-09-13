@@ -102,11 +102,11 @@ public class PartitionFunctionFactory {
     }
 
 
-    public PartitionFunction makePartitionFunctionFor(RCs rcs, BigInteger confSpaceSize, double epsilon) {
-        return makePartitionFunctionFor(rcs, confSpaceSize, epsilon, null);
+    public PartitionFunction makePartitionFunctionFor(RCs rcs, double epsilon) {
+        return makePartitionFunctionFor(rcs, epsilon, null);
     }
 
-    public PartitionFunction makePartitionFunctionFor(RCs rcs, BigInteger confSpaceSize, double epsilon, PruningMatrix pmat) {
+    public PartitionFunction makePartitionFunctionFor(RCs rcs, double epsilon, PruningMatrix pmat) {
         PartitionFunction pfunc = null;
         switch (pfuncImpl) {
             case GradientDescent:

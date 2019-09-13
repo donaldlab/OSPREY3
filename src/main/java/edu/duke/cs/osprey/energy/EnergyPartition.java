@@ -38,6 +38,9 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 
+/**
+ * Used as a helper to create {@link ResidueInteractions}
+ */
 public enum EnergyPartition {
 	
 	/** intras and shell on singles, inters on pairs */

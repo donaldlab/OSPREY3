@@ -37,9 +37,9 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ResidueInteractions.Pair;
 
 /**
- * Helper class to create residue interactions.
+ * Helper class to create {@link ResidueInteractions}
  * 
- * First call ResInterGen.of(yourConfSpace), then .addXXX() for each interactions you wish to add.
+ * First call {@link ResInterGen#of(SimpleConfSpace)}, then the .addXXX() methods for each interactions you wish to add.
  */
 public class ResInterGen {
 	

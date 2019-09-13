@@ -702,10 +702,10 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
 	
 	/**
 	 * create a new {@link ParametricMolecule} in the specified conformation
-	 * for analysis (e.g., energy calculation, minimization)
+	 * for analysis (e.g., energy calculation, minimization).
 	 * 
 	 * To increase stability of analysis, each analysis should be conducted
-	 * with a new molecule instance. this completely prevents roundoff error
+	 * with a new molecule instance. This completely prevents roundoff error
 	 * from accumulating across separate analyses. 
 	 */
 	public ParametricMolecule makeMolecule(RCTuple conf) {

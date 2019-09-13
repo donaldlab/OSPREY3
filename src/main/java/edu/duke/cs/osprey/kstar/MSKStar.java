@@ -341,7 +341,7 @@ public class MSKStar {
 
 			// init pfunc calculation
 			RCs rcs = sequence.makeRCs(state.confSpace);
-			pfunc = state.pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
+			pfunc = state.pfuncFactory.makePartitionFunctionFor(rcs, epsilon);
 
 			if (confTable != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confTable);
