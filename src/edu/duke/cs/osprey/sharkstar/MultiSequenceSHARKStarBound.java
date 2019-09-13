@@ -609,6 +609,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public void computeForSequence(int maxNumConfs, SingleSequenceSHARKStarBound sequenceBound) {
+        System.out.println("Tightening bound for "+sequenceBound.sequence);
         debugPrint("Num conformations: " + sequenceBound.numConformations);
         double lastEps = 1;
 
@@ -626,7 +627,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             if (debug) {
                 rootNode.updateSubtreeBounds(sequenceBound.sequence);
                 debugHeap(sequenceBound.fringeNodes);
-                printTree(confSpace.makeUnassignedSequence(),rootNode);
+                printTree(sequenceBound.sequence,rootNode);
             }
             tightenBoundInPhases(sequenceBound);
             debugPrint("Errorbound is now " + sequenceBound.sequenceEpsilon);

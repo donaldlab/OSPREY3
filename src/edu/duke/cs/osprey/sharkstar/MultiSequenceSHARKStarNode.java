@@ -233,16 +233,22 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             return children;
         if(!childrenMap.containsKey(seq))
             childrenMap.put(seq, populateChildren(seq));
-        checkChildren(childrenMap.get(seq));
+        checkChildren(seq);
         return childrenMap.get(seq);
     }
 
-    private void checkChildren(List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes) {
+    private void checkChildren(Sequence seq) {
         Set<Integer> rcs = new HashSet<>();
+        List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes = childrenMap.get(seq);
         for(MultiSequenceSHARKStarNode node: multiSequenceSHARKStarNodes) {
             int rc = node.confSearchNode.assignments[node.confSearchNode.pos];
-            if(rcs.contains(rc))
-                System.err.println("Dupe node.");
+            if(rcs.contains(rc)) {
+                System.out.println("Dupe nodes for "+seq+":");
+                for(MultiSequenceSHARKStarNode nodecheck: multiSequenceSHARKStarNodes) {
+                    if(nodecheck.confSearchNode.assignments[node.confSearchNode.pos] == rc)
+                        System.out.println(nodecheck+"-"+nodecheck.confSearchNode.confToString());
+                }
+            }
             rcs.add(rc);
         }
     }
