@@ -626,7 +626,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             if (debug) {
                 rootNode.updateSubtreeBounds(sequenceBound.sequence);
                 debugHeap(sequenceBound.fringeNodes);
-                printTree(sequenceBound.sequence,rootNode);
+                printTree(confSpace.makeUnassignedSequence(),rootNode);
             }
             tightenBoundInPhases(sequenceBound);
             debugPrint("Errorbound is now " + sequenceBound.sequenceEpsilon);
