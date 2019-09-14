@@ -1,0 +1,5 @@
+#The following information is sufficient to generate an OSPREY 3.0
+#configuration space
+mol = "test-resources/5it3_prepped.pdb"
+strand_defs = {'strand1': ['B183', 'B267'], 'strand0': ['A183', 'A267']}
+strand_flex = {'strand1': {'B247': ['VAL'], 'B251': ['ARG'], 'B250': ['HIE']}, 'strand0': {'A219': ['ALA', 'VAL', 'LEU', 'ILE', 'PHE', 'TYR', 'TRP', 'CYS', 'MET', 'SER', 'THR', 'LYS', 'ARG', 'HIP', 'HIE', 'HID', 'ASP', 'GLU', 'ASN', 'GLN', 'GLY'], 'A216': ['ARG'], 'A185': ['HIE'], 'A215': ['ASN']}}

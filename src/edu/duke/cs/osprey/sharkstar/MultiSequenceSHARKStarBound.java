@@ -249,12 +249,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     public PartitionFunction getPartitionFunctionForSequence(Sequence seq) {
         SingleSequenceSHARKStarBound newBound = new SingleSequenceSHARKStarBound(seq, this);
         newBound.init(null, null, targetEpsilon);
+        System.out.println("Creating new pfunc for sequence "+seq);
         System.out.println("Full RCs: "+fullRCs);
         System.out.println("Sequence RCs: "+newBound.seqRCs);
         computeFringeForSequence(newBound, this.rootNode);
         newBound.updateBound();
         rootNode.updateSubtreeBounds(seq);
-        //printTree(seq, this.rootNode);
+        printTree(seq, this.rootNode);
         return newBound;
     }
 
@@ -611,7 +612,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     public void computeForSequence(int maxNumConfs, SingleSequenceSHARKStarBound sequenceBound) {
         System.out.println("Tightening bound for "+sequenceBound.sequence);
         debugPrint("Num conformations: " + sequenceBound.numConformations);
-        double lastEps = 1;
+        sequenceBound.updateBound();
+        double lastEps = sequenceBound.sequenceEpsilon;
 
         int previousConfCount = workDone();
 
@@ -627,10 +629,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             if (debug) {
                 rootNode.updateSubtreeBounds(sequenceBound.sequence);
                 debugHeap(sequenceBound.fringeNodes);
-                printTree(sequenceBound.sequence,rootNode);
+                //printTree(sequenceBound.sequence,rootNode);
             }
             tightenBoundInPhases(sequenceBound);
             debugPrint("Errorbound is now " + sequenceBound.sequenceEpsilon);
+            debugPrint("Bound reduction: "+(lastEps - sequenceBound.sequenceEpsilon));
             if (lastEps < sequenceBound.sequenceEpsilon && sequenceBound.sequenceEpsilon - lastEps > 0.01
                 || sequenceBound.errors()) {
                 System.err.println("Error. Bounds got looser.");
