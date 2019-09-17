@@ -111,16 +111,19 @@ public class TestBBKStar {
 				if(runSHARKStar) {
 					pfuncFactory.setUseMSSHARKStar(confEcalcRigid);
 				}
-				EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
+				info.pfuncFactory.setCachePattern(info.id);
+				EnergyMatrix ematMinimized = info.pfuncFactory.getOrMakeEmat(info.confEcalcMinimized, "minimized");
+				/*new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
 						.build()
-						.calcEnergyMatrix();
+						.calcEnergyMatrix();*/
 				info.confSearchFactoryMinimized = (rcs) ->
 						new ConfAStarTree.Builder(ematMinimized, rcs)
 						.setTraditional()
 						.build();
-				EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
+				EnergyMatrix ematRigid = info.pfuncFactory.getOrMakeEmat(confEcalcRigid, "rigid");
+				/*new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
 						.build()
-						.calcEnergyMatrix();
+						.calcEnergyMatrix();*/
 				info.confSearchFactoryRigid = (rcs) ->
 						new ConfAStarTree.Builder(ematRigid, rcs)
 						.setTraditional()

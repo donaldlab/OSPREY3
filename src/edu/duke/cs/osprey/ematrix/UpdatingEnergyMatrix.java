@@ -209,11 +209,13 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
     @Override
         public void setHigherOrder(RCTuple tup, Double val) {
+        /*
         if(tup.size() < 3)
         {
             System.err.println("Should not be trying to submit correction of lower-order term.");
             return;
         }
+        */
         RCTuple orderedTup = tup.sorted();
         corrections.insert(new TupE(orderedTup, val));
     }

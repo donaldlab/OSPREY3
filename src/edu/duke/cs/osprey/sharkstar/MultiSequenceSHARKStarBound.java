@@ -127,7 +127,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    private static final int[] debugConf = new int[]{};
+    private static final int[] debugConf = new int[]{202,8,7};
     private String cachePattern = "NOT_INITIALIZED";
 
     /**
@@ -235,11 +235,29 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         precomputedUpperBound = precomputedRootNode.getUpperBound(precomputedSequence);
         precomputedLowerBound = precomputedRootNode.getLowerBound(precomputedSequence);
         updatePrecomputedConfTree();
+        mergeCorrections(precomputedFlex.correctionMatrix, genConfSpaceMapping());
 
         // Fix order issues
         ConfIndex rootIndex = new ConfIndex(fullRCs.getNumPos());
         this.rootNode.getConfSearchNode().index(rootIndex);
         this.order.updateForPrecomputedOrder(precomputedFlex.order, rootIndex, this.fullRCs, genConfSpaceMapping());
+    }
+
+    /**
+     * Takes partial minimizations from the precomputed correctionMatrix, maps them to the new confspace, and
+     * stores them in this correctionMatrix
+     */
+    public void mergeCorrections(UpdatingEnergyMatrix precomputedCorrections, int[] confSpacePermutation){
+        List<TupE> corrections = precomputedCorrections.getAllCorrections().stream()
+                .map((tup) -> {
+                    return tup.permute(confSpacePermutation);
+                })
+                .collect(Collectors.toList());
+        if (corrections.size()!=0) {
+            int TestNumCorrections = corrections.size();
+            this.correctionMatrix.insertAll(corrections);
+        }else
+            System.out.println("No corrections to insert");
     }
 
     /**
@@ -255,7 +273,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         computeFringeForSequence(newBound, this.rootNode);
         newBound.updateBound();
         rootNode.updateSubtreeBounds(seq);
-        printTree(seq, this.rootNode);
+        //printTree(seq, this.rootNode);
+        printTree("", null, confSpace, seq, this.rootNode);
         return newBound;
     }
 
@@ -352,6 +371,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private void computeFringeForSequence(SingleSequenceSHARKStarBound bound, MultiSequenceSHARKStarNode curNode) {
         Node confNode = curNode.getConfSearchNode();
+        if(confMatch(debugConf, confNode.assignments)){
+            System.out.println("Gotcha-fringe");
+        }
         RCs rcs = bound.seqRCs;
         try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
             ScoreContext context = checkout.get();
@@ -880,7 +902,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
             node.index(index);
             double correctgscore = correctionMatrix.confE(node.assignments);
-            double hscore =  -node.getPartialConfLowerBound();
+            double hscore = curNode.getConfLowerBound(bound.sequence) - node.getPartialConfLowerBound();
             double confCorrection = Math.min(correctgscore, node.getPartialConfUpperBound()) + hscore;
             if (!curNode.isMinimized(bound.sequence) && curNode.getConfLowerBound(bound.sequence) < confCorrection
                     && curNode.getConfLowerBound(bound.sequence) - confCorrection > 1e-5) {
@@ -1186,7 +1208,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             System.out.println("Difftf? "+diffwtf);
                         }
                         double confCorrection = correctionMatrix.confE(child.assignments);
-                        double diff = confCorrection;
+                        double diff = Math.max(confCorrection,
+                                context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc));
                         double rigiddiff = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double hdiff = context.lowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double maxhdiff = context.upperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
@@ -1216,6 +1239,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         result.upperBound = confUpperbound;
                     }
                     if (child.getLevel() == RCs.getNumPos()) {
+                        if(confMatch(debugConf, child.assignments)) {
+                            System.out.println("Gotcha-fullConf");
+                        }
                         double confRigid = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         //confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
 
@@ -1334,7 +1360,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (curNode.getConfLowerBound(bound.sequence)) + "," + (curNode.getConfUpperBound(bound.sequence)) + "]";
                         debugPrint(out);
                         curNode.markUpdated();
+                        if(confMatch(new int[]{8,7}, node.assignments))
+                            System.out.println("Gotcha-min");
                         synchronized (this) {
+                            if(precomputedSequence.equals(confSpace.makeUnassignedSequence()))
+                                correctionMatrix.setHigherOrder(curNode.toTuple(),
+                                        energy - oldgscore);
                             numConfsEnergied++;
                             minList.set(conf.getAssignments().length - 1, minList.get(conf.getAssignments().length - 1) + 1);
                             recordReduction(oldConfLower, oldConfUpper, energy);
@@ -1791,7 +1822,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         @Override
         public Result makeResult() {
-            // Calculate the upper bound z reductions from conf lower bounds, since we don't explicitly record these
             lowerReduction_ConfUpperBound = rootNode.getLowerBound(sequence)
                     .subtract(startLowerBound).subtract(lowerReduction_FullMin);
             // Calculate the lower bound z reductions from conf upper bounds, since we don't explicitly record these
