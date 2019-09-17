@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.sharkstar;
 
+import static edu.duke.cs.osprey.sharkstar.TestSHARKStar.loadFromCFS;
 import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.setSigFigs;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -24,6 +25,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -36,7 +38,7 @@ public class TestSHARKStarBound extends TestBase {
     @BeforeClass
     public static void beforeClass() {
         metallochaperone = PDBIO.readFile("examples/1CC8/1CC8.ss.pdb");
-        protein_1a0r = PDBIO.readFile("test-resources/1a0r_prepped.pdb");
+        //protein_1a0r = PDBIO.readFile("examples//1a0r_prepped.pdb");
     }
 
     /**
@@ -110,6 +112,7 @@ public class TestSHARKStarBound extends TestBase {
                 MSSHARKStarPfuncFactory.setUseMSSHARKStar(confEcalcRigid, preComputedFlex);
             // filter the global sequence to this conf space
             // make the partition function
+            MSSHARKStarPfuncFactory.setCachePattern("defualt");
 
             return MSSHARKStarPfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
     }
@@ -452,11 +455,43 @@ public class TestSHARKStarBound extends TestBase {
     }
 
     @Test
+    public void testContinuous_3ma2() {
+
+        double epsilon = 0.68;
+        try {
+            SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs").complex;
+            Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
+            MultiSequenceSHARKStarBound fullPfunc =
+                    (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace,
+                            fullSeq.makeRCs(mutableConfSpace), epsilon, null);
+
+            PartitionFunction wtBound =
+                    fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
+            wtBound.compute();
+
+            System.out.println("========================== Now computing mutant sequence ========================");
+            Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("A5","MET") .set("A3","ILE");
+            PartitionFunction muttBound =
+                    fullPfunc.getPartitionFunctionForSequence(mutantSequence);
+            muttBound.compute();
+
+            PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, mutantSequence, epsilon);
+            traditionalPfunc.setReportProgress(true);
+            traditionalPfunc.compute();
+            System.out.println("Gradient Descent pfunc: "+formatBounds(traditionalPfunc.getValues().calcLowerBound(),
+                    traditionalPfunc.getValues().calcUpperBound()));
+            System.out.println("precompPfunc: " + formatBounds(muttBound.getValues().calcLowerBound(), muttBound.getValues().calcUpperBound()));
+        }catch(IOException e) {
+
+        }
+    }
+
+    @Test
     public void testMultiSequenceContinuous() {
 
         double epsilon = 0.68;
+        SimpleConfSpace mutableConfSpace = make1CC8MutableContinuous();
         // make full confspace and the flexible copy
-        SimpleConfSpace mutableConfSpace = make1gua_debug();
         SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
 
         // precompute flexible residues
