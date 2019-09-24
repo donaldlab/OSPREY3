@@ -56,9 +56,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static edu.duke.cs.osprey.tools.Log.log;
-import static edu.duke.cs.osprey.tools.Log.logf;
-
 
 /**
  * SOFEA - Sweep Operations for Free Energy Approximation
@@ -455,15 +452,37 @@ public class Sofea {
 		}
 	}
 
+	// wrap the usual log,logf functions to also output to the performance log when needed
+	public void logf(String format, Object ... args) {
+		String msg = String.format(format, args);
+		System.out.print(msg);
+		performanceLog(msg);
+	}
+	public void log(String format, Object ... args) {
+		String msg = String.format(format, args);
+		System.out.println(msg);
+		performanceLog(msg);
+	}
+
 	private void performanceLog(String pattern, Object ... args) {
 
 		if (performanceLogFile == null) {
 			return;
 		}
 
-		try (Writer out = new FileWriter(performanceLogFile)) {
+		performanceLog(String.format(pattern, args));
+	}
 
-			out.write(String.format(pattern, args));
+	private void performanceLog(String msg) {
+
+		if (performanceLogFile == null) {
+			return;
+		}
+
+		try (Writer out = new FileWriter(performanceLogFile, true)) {
+
+			out.write(msg);
+			out.write("\n");
 
 		} catch (IOException ex) {
 
@@ -1222,7 +1241,7 @@ public class Sofea {
 						pass2Slope = delta/pass2ElapsedSeconds;
 
 						if (performanceLogFile != null) {
-							performanceLog("\n### P2  score=%.3f -> %.3f  delta=%s  seconds=%.3f slope=%s\n",
+							performanceLog("\n### P2  score=%.3f -> %.3f  delta=%s  seconds=%.3f slope=%s",
 								seqdbScore, newSeqdbScore, delta, pass2ElapsedSeconds, pass2Slope
 							);
 						}
