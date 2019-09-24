@@ -804,19 +804,26 @@ public class Sofea {
 
 			normalize();
 
+			// start with the node's original zSumUpper
+			BigExp zSumUpper = fringetx.zSumUpper();
+
 			// use replacement nodes and zPaths (that we'd otherwise throw away) to compute a tighter zSumUpper
 			// NOTE: need full precision of SeqDB's math context here to avoid some roundoff error
-			BigMath m = new BigMath(seqdbMathContext).set(0);
-			for (Node replacementNode : replacementNodes) {
-				m.add(replacementNode.zSumUpper);
+			if (!replacementNodes.isEmpty() && !zPaths.isEmpty()) {
+
+				BigMath m = new BigMath(seqdbMathContext).set(0);
+				for (Node replacementNode : replacementNodes) {
+					m.add(replacementNode.zSumUpper);
+				}
+				for (ZPath zPath : zPaths) {
+					m.add(zPath.zSumUpper);
+				}
+
+				zSumUpper = new BigExp(m.get());
 			}
-			for (ZPath zPath : zPaths) {
-				m.add(zPath.zSumUpper);
-			}
-			BigExp newZSumUpper = new BigExp(m.get());
 
 			// move the node to the end of the fringedb queue
-			fringetx.writeReplacementNode(state, conf, newZSumUpper);
+			fringetx.writeReplacementNode(state, conf, zSumUpper);
 
 			return flush;
 		}
@@ -925,6 +932,13 @@ public class Sofea {
 	 * Keep sweeping the threshold over the parameter space until the criterion is satisfied.
 	 */
 	public void refine(Criterion criterion) {
+		refine(criterion, true);
+	}
+
+	/**
+	 * Keep sweeping the threshold over the parameter space until the criterion is satisfied.
+	 */
+	public void refine(Criterion criterion, boolean resumeSweep) {
 		try (SeqDB seqdb = openSeqDB()) {
 		try (FringeDB fringedbLower = openFringeDBLower()) {
 		try (FringeDB fringedbUpper = openFringeDBUpper()) {
@@ -936,6 +950,15 @@ public class Sofea {
 			// init the gThresholds based on the fringe sets
 			Double[] gPass1Thresholds = initGThresholds(fringedbLower);
 			Double[] gPass2Thresholds = initGThresholds(fringedbUpper);
+
+			if (!resumeSweep) {
+
+				// reset the G thresholds to the lower bound
+				for (MultiStateConfSpace.State state : confSpace.states) {
+					gPass1Thresholds[state.index] = gThresholdsLower[state.index];
+					gPass2Thresholds[state.index] = gThresholdsLower[state.index];
+				}
+			}
 
 			BiFunction<Long,Long,Boolean> checkCriterion = (pass1step, pass2step) -> {
 				if (criterion != null && criterion.isSatisfied(seqdb, fringedbLower, fringedbUpper, pass1step, pass2step, bcalc) == Criterion.Satisfied.Terminate) {

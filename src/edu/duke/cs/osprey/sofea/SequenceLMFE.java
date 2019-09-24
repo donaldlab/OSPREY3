@@ -40,9 +40,7 @@ import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
 
 import java.math.MathContext;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -86,7 +84,7 @@ public class SequenceLMFE implements Sofea.Criterion {
 
 		// is this a sequence we care about?
 		Sequence nodeSeq = state.confSpace.seqSpace.makeSequence(state.confSpace, conf);
-		if (!nodeSeq.equals(seq)) {
+		if (!seq.isSubsequenceOf(nodeSeq)) {
 			return Filter.Requeue;
 		}
 
@@ -151,5 +149,9 @@ public class SequenceLMFE implements Sofea.Criterion {
 
 	public DoubleBounds getGBounds(SeqDB seqdb, MultiStateConfSpace.State state, MathContext mathContext) {
 		return new BoltzmannCalculator(mathContext).freeEnergyPrecise(getZBounds(seqdb, state));
+	}
+
+	public DoubleBounds getGBounds(SeqDB seqdb, MultiStateConfSpace.State state) {
+		return getGBounds(seqdb, state, seqdb.mathContext);
 	}
 }

@@ -420,6 +420,31 @@ public class Sequence {
 			&& Arrays.equals(this.rtIndices, other.rtIndices);
 	}
 
+	public boolean isSubsequenceOf(Sequence other) {
+
+		if (this.seqSpace != other.seqSpace) {
+			return false;
+		}
+
+		// compare just the assigned positions
+		for (SeqSpace.Position pos : seqSpace.positions) {
+
+			// skip unassigned positions in the other sequence
+			int otherRt = other.rtIndices[pos.index];
+			if (otherRt == Unassigned) {
+				continue;
+			}
+
+			// check for matching subsequence
+			int thisRt = this.rtIndices[pos.index];
+			if (thisRt != otherRt) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	public static enum Renderer {
 
 		/**
