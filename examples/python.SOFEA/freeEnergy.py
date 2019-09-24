@@ -112,9 +112,7 @@ sofea = osprey.SOFEA(
 	fringedbLowerMiB = 100,
 	fringedbUpperPath = 'sofea.upper.fringedb',
 	fringedbUpperMiB = 10,
-	seqdbPath = 'sofea.seqdb',
-	# TEMP
-	performanceLogPath = 'sofea.log'
+	seqdbPath = 'sofea.seqdb'
 )
 
 # start new databases if this is the first time running this script
