@@ -39,12 +39,8 @@ complexState = confSpace.getState('complex')
 seq = confSpace.seqSpace.makeWildTypeSequence()
 
 # (or any other sequence defined in your conf space)
-seq = confSpace.seqSpace.makeUnassignedSequence()\
-	.set('G649', 'ALA')
-
-# Otherwise, if you set a new sequence to `seq` and re-run this script but forget to
-# set `reusmeSequence` to False, SOFEA will get stuck in an infinite loop,
-# since it's trying to resume a computation on the wrong sequence.
+#seq = confSpace.seqSpace.makeUnassignedSequence()\
+#	.set('G649', 'ALA')
 
 # how should we compute energies of molecules?
 ecalc = osprey.EnergyCalculator(confSpace, ffparams, parallelism=parallelism)
