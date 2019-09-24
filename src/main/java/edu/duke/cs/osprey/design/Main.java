@@ -60,7 +60,29 @@ public class Main {
     }
 
     public static void main(String[] args) {
+
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            if (throwable instanceof OutOfMemoryError) {
+                printMemoryStatistics();
+            }
+
+            throwable.printStackTrace();
+            exit(Failure);
+        });
+
         exit(new Main().run(args));
+    }
+
+    private static void printMemoryStatistics() {
+        var runtime = Runtime.getRuntime();
+        System.err.println(
+                String.format(
+                        "Current HeapSize: %d\nMax Heap Size: %d\nCurrent Free Space: %d\n",
+                        runtime.totalMemory(),
+                        runtime.maxMemory(),
+                        runtime.freeMemory()
+                )
+        );
     }
 }
 
