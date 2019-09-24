@@ -4,7 +4,6 @@ package edu.duke.cs.osprey.design.commands;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameters;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.design.Main;
@@ -13,7 +12,6 @@ import edu.duke.cs.osprey.design.models.StabilityDesign;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.kstar.pfunc.ThermodynamicsConfListener;
@@ -23,7 +21,6 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.BigMath;
 
 import java.io.IOException;
-import java.math.MathContext;
 import java.text.NumberFormat;
 import java.util.stream.Collectors;
 
@@ -125,19 +122,19 @@ public class CommandPartitionFunction extends RunnableCommand {
 
         var partitionFnBuilder = new PartitionFunctionFactory(confSpace, confEnergyCalculator, "default");
         partitionFnBuilder.setUseGradientDescent();
-
         var partFn = partitionFnBuilder.makePartitionFunctionFor(rcs, delegate.epsilon > 0 ? delegate.epsilon : design.epsilon);
 
         final var thermodynamicsConfListener = new ThermodynamicsConfListener();
-
         partFn.setConfListener(thermodynamicsConfListener);
         partFn.compute();
+
         thermodynamicsConfListener.setPartitionFunctionValue(partFn.getValues().qstar);
         var enthalpy = thermodynamicsConfListener.getEnthalpy();
         var entropy = thermodynamicsConfListener.getEntropy();
 
         var numberFormat = NumberFormat.getPercentInstance();
         var percentEvaluated = numberFormat.format(new BigMath(PartitionFunction.decimalPrecision).set(partFn.getNumConfsEvaluated()).div(rcs.getNumConformations().doubleValue()).get());
+
         System.out.println(String.format("Evaluated %s of conf space (%d / %s)", percentEvaluated, partFn.getNumConfsEvaluated(), rcs.getNumConformations().toString()));
         System.out.println(partFn.makeResult());
         System.out.println(String.format("Enthalpy: %.04f, Entropy: %.04f", enthalpy, entropy));
