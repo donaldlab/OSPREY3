@@ -225,10 +225,12 @@ public interface PartitionFunction {
 	
 	public static interface ConfListener {
 		void onConf(ScoredConf conf);
+
+		void finished(PartitionFunction pfunc);
 	}
 	
 	void setReportProgress(boolean val);
-	void setConfListener(ConfListener val);
+	void addConfListener(ConfListener val);
 
 	/**
 	 * Initializes the partition function for calculation.

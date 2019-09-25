@@ -79,7 +79,7 @@ public class LUTEPfunc implements PartitionFunction {
 	}
 
 	@Override
-	public void setConfListener(ConfListener val) {
+	public void addConfListener(ConfListener val) {
 		confListener = val;
 	}
 

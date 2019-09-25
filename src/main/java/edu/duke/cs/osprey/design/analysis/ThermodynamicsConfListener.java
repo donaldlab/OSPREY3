@@ -1,7 +1,9 @@
-package edu.duke.cs.osprey.kstar.pfunc;
+package edu.duke.cs.osprey.design.analysis;
 
 import edu.duke.cs.osprey.Constants;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.ExpFunction;
 
@@ -9,7 +11,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ThermodynamicsConfListener implements PartitionFunction.ConfListener {
+public class ThermodynamicsConfListener implements CommandAnalysis {
 
     private List<ConfSearch.EnergiedConf> confs = new ArrayList<>();
     private BigDecimal pFuncValue;
@@ -21,8 +23,9 @@ public class ThermodynamicsConfListener implements PartitionFunction.ConfListene
         confs.add((ConfSearch.EnergiedConf) conf);
     }
 
-    public void setPartitionFunctionValue(BigDecimal value) {
-        this.pFuncValue = value;
+    @Override
+    public void finished(PartitionFunction pfunc) {
+        pFuncValue = pfunc.getValues().qstar;
     }
 
     private static BigMath makeBigMath() {
@@ -53,5 +56,10 @@ public class ThermodynamicsConfListener implements PartitionFunction.ConfListene
                 .mult(eFn.log(pFuncValue))
                 .add(getEnthalpy().doubleValue() / Constants.T)
                 .get();
+    }
+
+    @Override
+    public void printResults() {
+        System.out.println(String.format("Enthalpy: %.04f, Entropy: %.04f", getEnthalpy(), getEntropy()));
     }
 }
