@@ -75,7 +75,7 @@ public class PFAdapter extends PFAbstract {
 		
 		// report top confs if needed
 		if (isFullyDefined() && saveTopConfsAsPDB) {
-			pfunc.setConfListener((ScoredConf sconf) -> {	
+			pfunc.addConfListener((ScoredConf sconf) -> {
 				double energy = sconf instanceof EnergiedConf ? ((EnergiedConf)sconf).getEnergy() : sconf.getScore();
 				saveTopConf(new KSConf(
 					((EnergiedConf)sconf).getAssignments(),

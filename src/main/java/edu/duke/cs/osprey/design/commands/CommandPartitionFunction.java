@@ -2,19 +2,22 @@ package edu.duke.cs.osprey.design.commands;
 
 
 import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.design.Main;
+import edu.duke.cs.osprey.design.analysis.CommandAnalysis;
 import edu.duke.cs.osprey.design.models.AminoAcid;
 import edu.duke.cs.osprey.design.models.StabilityDesign;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.design.analysis.EnergyAnalysisConfListener;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
-import edu.duke.cs.osprey.kstar.pfunc.ThermodynamicsConfListener;
+import edu.duke.cs.osprey.design.analysis.ThermodynamicsConfListener;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -22,6 +25,9 @@ import edu.duke.cs.osprey.tools.BigMath;
 
 import java.io.IOException;
 import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Parameters(commandDescription = CommandPartitionFunction.CommandDescription)
@@ -29,6 +35,16 @@ public class CommandPartitionFunction extends RunnableCommand {
 
     public static final String CommandName = "stability";
     static final String CommandDescription = "Estimate the partition function value(s) of different conformations";
+    final List<CommandAnalysis> confListeners = new LinkedList<>();
+
+    @Parameter(names = "--thermodynamics", description = "Calculate the enthalpy and entropy of ensembles.")
+    private boolean captureThermodynamics;
+
+    @Parameter(names = "--energy", description = "Analyze the energy of conformation(s).")
+    private List<Integer> captureEnergies = new ArrayList<>();
+    private ConfEnergyCalculator confEnergyCalc;
+    private PartitionFunction pFunc;
+    private RCs rcs;
 
     @Override
     public int run(JCommander commander, String[] args) {
@@ -114,31 +130,45 @@ public class CommandPartitionFunction extends RunnableCommand {
          * Provides support for applying conformation energy modifications,
          * such as reference energies, residue entropies, and energy partitions.
          */
-        var confEnergyCalculator = new ConfEnergyCalculator.Builder(confSpace, energyCalculator)
+        confEnergyCalc = new ConfEnergyCalculator.Builder(confSpace, energyCalculator)
                 .build();
 
         /* Contains the confSpace and a pruning matrix */
-        var rcs = new RCs(confSpace);
+        rcs = new RCs(confSpace);
 
-        var partitionFnBuilder = new PartitionFunctionFactory(confSpace, confEnergyCalculator, "default");
+        var partitionFnBuilder = new PartitionFunctionFactory(confSpace, confEnergyCalc, "default");
         partitionFnBuilder.setUseGradientDescent();
-        var partFn = partitionFnBuilder.makePartitionFunctionFor(rcs, delegate.epsilon > 0 ? delegate.epsilon : design.epsilon);
+        pFunc = partitionFnBuilder.makePartitionFunctionFor(rcs, delegate.epsilon > 0 ? delegate.epsilon : design.epsilon);
+        addListeners();
+        pFunc.compute();
 
-        final var thermodynamicsConfListener = new ThermodynamicsConfListener();
-        partFn.setConfListener(thermodynamicsConfListener);
-        partFn.compute();
-
-        thermodynamicsConfListener.setPartitionFunctionValue(partFn.getValues().qstar);
-        var enthalpy = thermodynamicsConfListener.getEnthalpy();
-        var entropy = thermodynamicsConfListener.getEntropy();
-
-        var numberFormat = NumberFormat.getPercentInstance();
-        var percentEvaluated = numberFormat.format(new BigMath(PartitionFunction.decimalPrecision).set(partFn.getNumConfsEvaluated()).div(rcs.getNumConformations().doubleValue()).get());
-
-        System.out.println(String.format("Evaluated %s of conf space (%d / %s)", percentEvaluated, partFn.getNumConfsEvaluated(), rcs.getNumConformations().toString()));
-        System.out.println(partFn.makeResult());
-        System.out.println(String.format("Enthalpy: %.04f, Entropy: %.04f", enthalpy, entropy));
+        printResults();
         return Main.Success;
     }
 
+    private void printResults() {
+        var numberFormat = NumberFormat.getPercentInstance();
+        var percentEvaluated = numberFormat.format(new BigMath(PartitionFunction.decimalPrecision).set(pFunc.getNumConfsEvaluated()).div(rcs.getNumConformations().doubleValue()).get());
+
+        System.out.println(String.format("Evaluated %s of conf space (%d / %s)", percentEvaluated, pFunc.getNumConfsEvaluated(), rcs.getNumConformations().toString()));
+        System.out.println(pFunc.makeResult());
+
+        for (var listener : confListeners) {
+            listener.printResults();
+        }
+    }
+
+    private void addListeners() {
+        if (captureThermodynamics) {
+            final var listener = new ThermodynamicsConfListener();
+            confListeners.add(listener);
+            pFunc.addConfListener(listener);
+        }
+
+        if (!captureEnergies.isEmpty()) {
+            final var listener = new EnergyAnalysisConfListener(confEnergyCalc, captureEnergies);
+            confListeners.add(listener);
+            pFunc.addConfListener(listener);
+        }
+    }
 }

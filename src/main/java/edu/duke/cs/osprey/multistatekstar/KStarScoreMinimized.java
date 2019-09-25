@@ -152,7 +152,7 @@ public class KStarScoreMinimized implements KStarScore {
 			partitionFunctions[state].maxNumTopConfs = settings.numTopConfsToSave;
 
 			final int pfState = state;
-			partitionFunctions[state].setConfListener((ScoredConf conf) -> {
+			partitionFunctions[state].addConfListener((ScoredConf conf) -> {
 				partitionFunctions[pfState].saveConf(conf);
 			});
 

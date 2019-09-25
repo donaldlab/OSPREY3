@@ -139,7 +139,7 @@ public class MARKStarBoundRigid implements PartitionFunction {
     }
 
     @Override
-    public void setConfListener(ConfListener val) {
+    public void addConfListener(ConfListener val) {
 
     }
 
