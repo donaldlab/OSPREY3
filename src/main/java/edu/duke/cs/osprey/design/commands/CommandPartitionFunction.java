@@ -35,13 +35,14 @@ public class CommandPartitionFunction extends RunnableCommand {
 
     public static final String CommandName = "stability";
     static final String CommandDescription = "Estimate the partition function value(s) of different conformations";
-    final List<CommandAnalysis> confListeners = new LinkedList<>();
+    private final List<CommandAnalysis> confListeners = new LinkedList<>();
 
     @Parameter(names = "--thermodynamics", description = "Calculate the enthalpy and entropy of ensembles.")
     private boolean captureThermodynamics;
 
     @Parameter(names = "--energy", description = "Analyze the energy of conformation(s).")
     private List<Integer> captureEnergies = new ArrayList<>();
+
     private ConfEnergyCalculator confEnergyCalc;
     private PartitionFunction pFunc;
     private RCs rcs;
@@ -159,14 +160,15 @@ public class CommandPartitionFunction extends RunnableCommand {
     }
 
     private void addListeners() {
-        if (captureThermodynamics) {
-            final var listener = new ThermodynamicsConfListener();
+        if (!captureEnergies.isEmpty()) {
+            final var oneIndexed = captureEnergies.stream().map(x -> x - 1).collect(Collectors.toList());
+            final var listener = new EnergyAnalysisConfListener(confEnergyCalc, oneIndexed);
             confListeners.add(listener);
             pFunc.addConfListener(listener);
         }
 
-        if (!captureEnergies.isEmpty()) {
-            final var listener = new EnergyAnalysisConfListener(confEnergyCalc, captureEnergies);
+        if (captureThermodynamics) {
+            final var listener = new ThermodynamicsConfListener();
             confListeners.add(listener);
             pFunc.addConfListener(listener);
         }
