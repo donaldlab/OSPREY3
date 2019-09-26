@@ -22,6 +22,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.BigMath;
+import edu.duke.cs.osprey.tools.FileTools;
 
 import java.io.IOException;
 import java.text.NumberFormat;
@@ -40,6 +41,7 @@ public class CommandPartitionFunction extends RunnableCommand {
     @Parameter(names = "--thermodynamics", description = "Calculate the enthalpy and entropy of ensembles.")
     private boolean captureThermodynamics;
 
+    @SuppressWarnings("MismatchedQueryAndUpdateOfCollection") // Ignored because updated by command line arguments
     @Parameter(names = "--energy", description = "Analyze the energy of conformation(s).")
     private List<Integer> captureEnergies = new ArrayList<>();
 
@@ -93,6 +95,8 @@ public class CommandPartitionFunction extends RunnableCommand {
             "/config/all_nuc94_and_gr.in",
          */
         var templateLibrary = new ResidueTemplateLibrary.Builder(ffParams.forcefld)
+                .clearTemplateCoords()
+                .addTemplateCoords(FileTools.readResource("/config/jeff-template-coords.txt"))
                 .build();
 
         /* Strands combine a Molecule with design flexibility and templates */
