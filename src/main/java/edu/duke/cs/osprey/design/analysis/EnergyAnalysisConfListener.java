@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.design.analysis;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.control.Main;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
