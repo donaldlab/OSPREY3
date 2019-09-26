@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.design.analysis;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.control.Main;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 
@@ -37,6 +38,17 @@ public class EnergyAnalysisConfListener implements CommandAnalysis {
 
     @Override
     public void printResults() {
+        System.out.println("Energy analysis follows:\n");
+        for (var idx : indices) {
+            var analysis = analyzeConf(idx);
+            System.out.println(String.format("Energy Analysis of %d sequence", idx + 1));
+            System.out.println(analysis + "\n");
 
+            System.out.println(String.format("Forcefield breakdown: \n%s\n", analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All)));
+            System.out.println(String.format("Electrostatic breakdown: \n%s\n", analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.Electrostatics)));
+            System.out.println(String.format("van der Waals breakdown: \n%s\n", analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.VanDerWaals)));
+            System.out.println(String.format("Solvation breakdown: \n%s\n", analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.Solvation)));
+            System.out.println(String.format("Offsets breakdown: \n%s\n", analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.Offsets)));
+        }
     }
 }
