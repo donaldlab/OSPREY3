@@ -65,7 +65,7 @@ public class FlexLab {
 
 	public static void main(String[] args)
 	throws Exception {
-		checkRotamerClashes();
+		//checkRotamerClashes();
 		//top8000Dihedrals("arg");
 		//top8000Angles("leu");
 		//top8000Tetrahedrals("leu");
@@ -75,6 +75,7 @@ public class FlexLab {
 		//energyLandscape("leu");
 		//top8000RotamerStats("asp");
 		//checkTemplates();
+		makeConfLib();
 	}
 
 	private static PDBScanner scanner = new PDBScanner(
@@ -311,6 +312,8 @@ public class FlexLab {
 	static {
 
 		// re-define the rotamer library based on the Lovell data, but with names and populations
+
+		// val
 		rotamers.add("VAL", Rotamer.ofModes("p",  6.20,   64));
 		rotamers.add("VAL", Rotamer.ofModes("t", 75.56,  175));
 		rotamers.add("VAL", Rotamer.ofModes("m", 17.94,  -60));
@@ -334,27 +337,27 @@ public class FlexLab {
 		// phe
 		rotamers.add("PHE", Rotamer.ofModes("p90",  11.17,   62,   90));
 		rotamers.add("PHE", Rotamer.ofModes("t80",  34.27, -177,   80));
-		rotamers.add("PHE", Rotamer.ofModes("m-80", 47.38,  -65,  -85));
-		rotamers.add("PHE", Rotamer.ofModes("m-10",  6.89,  -65,  -30));
+		rotamers.add("PHE", Rotamer.ofModes("m-85", 47.38,  -65,  -85));
+		rotamers.add("PHE", Rotamer.ofModes("m-30",  6.89,  -65,  -30));
 
 		// tyr
-		rotamers.add("TYR", Rotamer.ofModes("p90:0",    11.57,   62,   90,   0));
-		rotamers.add("TYR", Rotamer.ofModes("p90:180",  11.57,   62,   90, 180));
-		rotamers.add("TYR", Rotamer.ofModes("t80:0",    34.53, -177,   80,   0));
-		rotamers.add("TYR", Rotamer.ofModes("t80:180",  34.53, -177,   80, 180));
-		rotamers.add("TYR", Rotamer.ofModes("m-80:0",   48.01,  -65,  -85,   0));
-		rotamers.add("TYR", Rotamer.ofModes("m-80:180", 48.01,  -65,  -85, 180));
-		rotamers.add("TYR", Rotamer.ofModes("m-10:0",    5.55,  -65,  -30,   0));
-		rotamers.add("TYR", Rotamer.ofModes("m-10:180",  5.55,  -65,  -30, 180));
+		rotamers.add("TYR", Rotamer.ofModes("p90_0",    11.57,   62,   90,   0));
+		rotamers.add("TYR", Rotamer.ofModes("p90_180",  11.57,   62,   90, 180));
+		rotamers.add("TYR", Rotamer.ofModes("t80_0",    34.53, -177,   80,   0));
+		rotamers.add("TYR", Rotamer.ofModes("t80_180",  34.53, -177,   80, 180));
+		rotamers.add("TYR", Rotamer.ofModes("m-85_0",   48.01,  -65,  -85,   0));
+		rotamers.add("TYR", Rotamer.ofModes("m-85_180", 48.01,  -65,  -85, 180));
+		rotamers.add("TYR", Rotamer.ofModes("m-30_0",    5.55,  -65,  -30,   0));
+		rotamers.add("TYR", Rotamer.ofModes("m-30_180",  5.55,  -65,  -30, 180));
 
 		// trp
 		rotamers.add("TRP", Rotamer.ofModes("p-90",  10.35,   62,  -90));
 		rotamers.add("TRP", Rotamer.ofModes("p90",    5.19,   62,   90));
-		rotamers.add("TRP", Rotamer.ofModes("t-100", 15.46, -177, -105));
-		rotamers.add("TRP", Rotamer.ofModes("t60",   18.09, -177,   90));
+		rotamers.add("TRP", Rotamer.ofModes("t-105", 15.46, -177, -105));
+		rotamers.add("TRP", Rotamer.ofModes("t90",   18.09, -177,   90));
 		rotamers.add("TRP", Rotamer.ofModes("m-90",   5.13,  -65,  -90));
-		rotamers.add("TRP", Rotamer.ofModes("m-10",  11.73,  -65,   -5));
-		rotamers.add("TRP", Rotamer.ofModes("m100",  33.76,  -65,   95));
+		rotamers.add("TRP", Rotamer.ofModes("m0",  11.73,  -65,   -5));
+		rotamers.add("TRP", Rotamer.ofModes("m95",  33.76,  -65,   95));
 
 		// cys
 		rotamers.add("CYS", Rotamer.ofModes("p", 17.73,   62));
@@ -377,50 +380,50 @@ public class FlexLab {
 		rotamers.add("MET", Rotamer.ofModes("mmm", 19.97,  -65,  -65,  -70));
 
 		// ser
-		rotamers.add("SER", Rotamer.ofModes("p:-60",  48.44,   62,  -60));
-		rotamers.add("SER", Rotamer.ofModes("p:60",   48.44,   62,   60));
-		rotamers.add("SER", Rotamer.ofModes("p:180",  48.44,   62,  180));
-		rotamers.add("SER", Rotamer.ofModes("p:0",    48.44,   62,    0));
-		rotamers.add("SER", Rotamer.ofModes("p:120",  48.44,   62,  120));
-		rotamers.add("SER", Rotamer.ofModes("p:-120", 48.44,   62, -120));
-		rotamers.add("SER", Rotamer.ofModes("t:-60",  22.97, -177,  -60));
-		rotamers.add("SER", Rotamer.ofModes("t:60",   22.97, -177,   60));
-		rotamers.add("SER", Rotamer.ofModes("t:180",  22.97, -177,  180));
-		rotamers.add("SER", Rotamer.ofModes("t:0",    22.97, -177,    0));
-		rotamers.add("SER", Rotamer.ofModes("t:120",  22.97, -177,  120));
-		rotamers.add("SER", Rotamer.ofModes("t:-120", 22.97, -177, -120));
-		rotamers.add("SER", Rotamer.ofModes("m:-60",  28.30,  -65,  -60));
-		rotamers.add("SER", Rotamer.ofModes("m:60",   28.30,  -65,   60));
-		rotamers.add("SER", Rotamer.ofModes("m:180",  28.30,  -65,  180));
-		rotamers.add("SER", Rotamer.ofModes("m:0",    28.30,  -65,    0));
-		rotamers.add("SER", Rotamer.ofModes("m:120",  28.30,  -65,  120));
-		rotamers.add("SER", Rotamer.ofModes("m:-120", 28.30,  -65, -120));
+		rotamers.add("SER", Rotamer.ofModes("p_-60",  48.44,   62,  -60));
+		rotamers.add("SER", Rotamer.ofModes("p_60",   48.44,   62,   60));
+		rotamers.add("SER", Rotamer.ofModes("p_180",  48.44,   62,  180));
+		rotamers.add("SER", Rotamer.ofModes("p_0",    48.44,   62,    0));
+		rotamers.add("SER", Rotamer.ofModes("p_120",  48.44,   62,  120));
+		rotamers.add("SER", Rotamer.ofModes("p_-120", 48.44,   62, -120));
+		rotamers.add("SER", Rotamer.ofModes("t_-60",  22.97, -177,  -60));
+		rotamers.add("SER", Rotamer.ofModes("t_60",   22.97, -177,   60));
+		rotamers.add("SER", Rotamer.ofModes("t_180",  22.97, -177,  180));
+		rotamers.add("SER", Rotamer.ofModes("t_0",    22.97, -177,    0));
+		rotamers.add("SER", Rotamer.ofModes("t_120",  22.97, -177,  120));
+		rotamers.add("SER", Rotamer.ofModes("t_-120", 22.97, -177, -120));
+		rotamers.add("SER", Rotamer.ofModes("m_-60",  28.30,  -65,  -60));
+		rotamers.add("SER", Rotamer.ofModes("m_60",   28.30,  -65,   60));
+		rotamers.add("SER", Rotamer.ofModes("m_180",  28.30,  -65,  180));
+		rotamers.add("SER", Rotamer.ofModes("m_0",    28.30,  -65,    0));
+		rotamers.add("SER", Rotamer.ofModes("m_120",  28.30,  -65,  120));
+		rotamers.add("SER", Rotamer.ofModes("m_-120", 28.30,  -65, -120));
 
 		// thr
-		rotamers.add("THR", Rotamer.ofModes("p:-60",  48.14,   62,  -60));
-		rotamers.add("THR", Rotamer.ofModes("p:60",   48.14,   62,   60));
-		rotamers.add("THR", Rotamer.ofModes("p:180",  48.14,   62,  180));
-		rotamers.add("THR", Rotamer.ofModes("p:0",    48.14,   62,    0));
-		rotamers.add("THR", Rotamer.ofModes("p:120",  48.14,   62,  120));
-		rotamers.add("THR", Rotamer.ofModes("p:-120", 48.14,   62, -120));
-		rotamers.add("THR", Rotamer.ofModes("p:-60",   6.91, -175,  -60));
-		rotamers.add("THR", Rotamer.ofModes("p:60",    6.91, -175,   60));
-		rotamers.add("THR", Rotamer.ofModes("p:180",   6.91, -175,  180));
-		rotamers.add("THR", Rotamer.ofModes("p:0",     6.91, -175,    0));
-		rotamers.add("THR", Rotamer.ofModes("p:120",   6.91, -175,  120));
-		rotamers.add("THR", Rotamer.ofModes("p:-120",  6.91, -175, -120));
-		rotamers.add("THR", Rotamer.ofModes("p:-60",  44.64,  -65,  -60));
-		rotamers.add("THR", Rotamer.ofModes("p:60",   44.64,  -65,   60));
-		rotamers.add("THR", Rotamer.ofModes("p:180",  44.64,  -65,  180));
-		rotamers.add("THR", Rotamer.ofModes("p:0",    44.64,  -65,    0));
-		rotamers.add("THR", Rotamer.ofModes("p:120",  44.64,  -65,  120));
-		rotamers.add("THR", Rotamer.ofModes("p:-120", 44.64,  -65, -120));
+		rotamers.add("THR", Rotamer.ofModes("p_-60",  48.14,   62,  -60));
+		rotamers.add("THR", Rotamer.ofModes("p_60",   48.14,   62,   60));
+		rotamers.add("THR", Rotamer.ofModes("p_180",  48.14,   62,  180));
+		rotamers.add("THR", Rotamer.ofModes("p_0",    48.14,   62,    0));
+		rotamers.add("THR", Rotamer.ofModes("p_120",  48.14,   62,  120));
+		rotamers.add("THR", Rotamer.ofModes("p_-120", 48.14,   62, -120));
+		rotamers.add("THR", Rotamer.ofModes("t_-60",   6.91, -175,  -60));
+		rotamers.add("THR", Rotamer.ofModes("t_60",    6.91, -175,   60));
+		rotamers.add("THR", Rotamer.ofModes("t_180",   6.91, -175,  180));
+		rotamers.add("THR", Rotamer.ofModes("t_0",     6.91, -175,    0));
+		rotamers.add("THR", Rotamer.ofModes("t_120",   6.91, -175,  120));
+		rotamers.add("THR", Rotamer.ofModes("t_-120",  6.91, -175, -120));
+		rotamers.add("THR", Rotamer.ofModes("m_-60",  44.64,  -65,  -60));
+		rotamers.add("THR", Rotamer.ofModes("m_60",   44.64,  -65,   60));
+		rotamers.add("THR", Rotamer.ofModes("m_180",  44.64,  -65,  180));
+		rotamers.add("THR", Rotamer.ofModes("m_0",    44.64,  -65,    0));
+		rotamers.add("THR", Rotamer.ofModes("m_120",  44.64,  -65,  120));
+		rotamers.add("THR", Rotamer.ofModes("m_-120", 44.64,  -65, -120));
 
 		// lys
 		rotamers.add("LYS", Rotamer.ofModes("ptpt",  0.42,  62,  180,   68,  180));
 		rotamers.add("LYS", Rotamer.ofModes("pttp",  0.69,  62,  180,  180,   65));
 		rotamers.add("LYS", Rotamer.ofModes("pttt",  3.98,  62,  180,  180,  180));
-		rotamers.add("LYS", Rotamer.ofModes("pttt",  0.77,  62,  180,  180,  -65));
+		rotamers.add("LYS", Rotamer.ofModes("pttm",  0.77,  62,  180,  180,  -65));
 		rotamers.add("LYS", Rotamer.ofModes("ptmt",  0.54,  62,  180,  -68,  180));
 		rotamers.add("LYS", Rotamer.ofModes("tptp",  1.17,-177,   68,  180,   65));
 		rotamers.add("LYS", Rotamer.ofModes("tptt",  3.53,-177,   68,  180,  180));
@@ -446,89 +449,89 @@ public class FlexLab {
 		rotamers.add("LYS", Rotamer.ofModes("mmmt",  1.56, -62,  -68,  -68,  180));
 
 		// arg
-		rotamers.add("ARG", Rotamer.ofModes("ptp90",    0.48,   62,  180,   65,   85));
-		rotamers.add("ARG", Rotamer.ofModes("ptp-170",  0.84,  62,  180,   65, -175));
-		rotamers.add("ARG", Rotamer.ofModes("ptt90",    1.76,  62,  180,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("ptp85",    0.48,   62,  180,   65,   85));
+		rotamers.add("ARG", Rotamer.ofModes("ptp180",  0.84,  62,  180,   65, -175));
+		rotamers.add("ARG", Rotamer.ofModes("ptt85",    1.76,  62,  180,  180,   85));
 		rotamers.add("ARG", Rotamer.ofModes("ptt180",   1.77,  62,  180,  180,  180));
-		rotamers.add("ARG", Rotamer.ofModes("ptt-90",   1.57,  62,  180,  180,  -85));
-		rotamers.add("ARG", Rotamer.ofModes("ptm160",   1.08,  62,  180,  -65,  175));
-		rotamers.add("ARG", Rotamer.ofModes("ptm-80",   0.46,  62,  180,  -65,  -85));
-		rotamers.add("ARG", Rotamer.ofModes("tpp80",    0.78,-177,   65,   65,   85));
-		rotamers.add("ARG", Rotamer.ofModes("tpp-160",  1.07,-177,   65,   65, -175));
-		rotamers.add("ARG", Rotamer.ofModes("tpt90",    1.41,-177,   65,  180,   85));
-		rotamers.add("ARG", Rotamer.ofModes("tpt170",   1.78,-177,   65,  180,  180));
-		rotamers.add("ARG", Rotamer.ofModes("ttp80",    4.09,-177,  180,   65,   85));
-		rotamers.add("ARG", Rotamer.ofModes("ttp-170",  3.31,-177,  180,   65, -175));
-		rotamers.add("ARG", Rotamer.ofModes("ttp-110",  1.34,-177,  180,   65, -105));
-		rotamers.add("ARG", Rotamer.ofModes("ttt90",    2.28,-177,  180,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("ptt-85",   1.57,  62,  180,  180,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("ptm180",   1.08,  62,  180,  -65,  175));
+		rotamers.add("ARG", Rotamer.ofModes("ptm-85",   0.46,  62,  180,  -65,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("tpp85",    0.78,-177,   65,   65,   85));
+		rotamers.add("ARG", Rotamer.ofModes("tpp180",  1.07,-177,   65,   65, -175));
+		rotamers.add("ARG", Rotamer.ofModes("tpt85",    1.41,-177,   65,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("tpt180",   1.78,-177,   65,  180,  180));
+		rotamers.add("ARG", Rotamer.ofModes("ttp85",    4.09,-177,  180,   65,   85));
+		rotamers.add("ARG", Rotamer.ofModes("ttp180",  3.31,-177,  180,   65, -175));
+		rotamers.add("ARG", Rotamer.ofModes("ttp-105",  1.34,-177,  180,   65, -105));
+		rotamers.add("ARG", Rotamer.ofModes("ttt85",    2.28,-177,  180,  180,   85));
 		rotamers.add("ARG", Rotamer.ofModes("ttt180",   5.04,-177,  180,  180,  180));
-		rotamers.add("ARG", Rotamer.ofModes("ttt-90",   2.98,-177,  180,  180,  -85));
-		rotamers.add("ARG", Rotamer.ofModes("ttm110",   1.56,-177,  180,  -65,  105));
-		rotamers.add("ARG", Rotamer.ofModes("ttm170",   2.84,-177,  180,  -65,  175));
-		rotamers.add("ARG", Rotamer.ofModes("ttm-80",   3.24,-177,  180,  -65,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("ttt-85",   2.98,-177,  180,  180,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("ttm105",   1.56,-177,  180,  -65,  105));
+		rotamers.add("ARG", Rotamer.ofModes("ttm180",   2.84,-177,  180,  -65,  175));
+		rotamers.add("ARG", Rotamer.ofModes("ttm-85",   3.24,-177,  180,  -65,  -85));
 		rotamers.add("ARG", Rotamer.ofModes("mtp85",    4.00, -67,  180,   65,   85));
 		rotamers.add("ARG", Rotamer.ofModes("mtp180",   5.40, -67,  180,   65, -175));
-		rotamers.add("ARG", Rotamer.ofModes("mtp-110",  1.01, -67,  180,   65, -105));
-		rotamers.add("ARG", Rotamer.ofModes("mtt90",    5.30, -67,  180,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("mtp-105",  1.01, -67,  180,   65, -105));
+		rotamers.add("ARG", Rotamer.ofModes("mtt85",    5.30, -67,  180,  180,   85));
 		rotamers.add("ARG", Rotamer.ofModes("mtt180",   9.90, -67,  180,  180,  180));
 		rotamers.add("ARG", Rotamer.ofModes("mtt-85",   6.13, -67,  180,  180,  -85));
-		rotamers.add("ARG", Rotamer.ofModes("mtm110",   1.68, -67,  180,  -65,  105));
+		rotamers.add("ARG", Rotamer.ofModes("mtm105",   1.68, -67,  180,  -65,  105));
 		rotamers.add("ARG", Rotamer.ofModes("mtm180",   5.19, -67,  180,  -65,  175));
 		rotamers.add("ARG", Rotamer.ofModes("mtm-85",   6.14, -67, -167,  -65,  -85));
-		rotamers.add("ARG", Rotamer.ofModes("mmt90",    1.22, -62,  -68,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("mmt85",    1.22, -62,  -68,  180,   85));
 		rotamers.add("ARG", Rotamer.ofModes("mmt180",   2.59, -62,  -68,  180,  180));
-		rotamers.add("ARG", Rotamer.ofModes("mmt-90",   3.08, -62,  -68,  180,  -85));
-		rotamers.add("ARG", Rotamer.ofModes("mmm160",   2.05, -62,  -68,  -65,  175));
+		rotamers.add("ARG", Rotamer.ofModes("mmt-85",   3.08, -62,  -68,  180,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("mmm180",   2.05, -62,  -68,  -65,  175));
 		rotamers.add("ARG", Rotamer.ofModes("mmm-85",   2.20, -62,  -68,  -65,  -85));
 
 		// his
 		for (String type : Arrays.asList("HIP", "HID", "HIE")) {
 			rotamers.add(type, Rotamer.ofModes("p-80",   7.39,   62,  -75));
-			rotamers.add(type, Rotamer.ofModes("p90",    5.01,   62,   80));
-			rotamers.add(type, Rotamer.ofModes("t-170",  4.47, -177, -165));
-			rotamers.add(type, Rotamer.ofModes("t-90",  11.93, -177,  -80));
-			rotamers.add(type, Rotamer.ofModes("t70",   17.01, -177,   60));
+			rotamers.add(type, Rotamer.ofModes("p80",    5.01,   62,   80));
+			rotamers.add(type, Rotamer.ofModes("t-160",  4.47, -177, -165));
+			rotamers.add(type, Rotamer.ofModes("t-80",  11.93, -177,  -80));
+			rotamers.add(type, Rotamer.ofModes("t60",   17.01, -177,   60));
 			rotamers.add(type, Rotamer.ofModes("m-70",  31.73,  -65,  -70));
 			rotamers.add(type, Rotamer.ofModes("m170",   9.05,  -65,  165));
-			rotamers.add(type, Rotamer.ofModes("m90",   13.14,  -65,   80));
+			rotamers.add(type, Rotamer.ofModes("m80",   13.14,  -65,   80));
 		}
 
 		// asp
-		rotamers.add("ASP", Rotamer.ofModes("p0:1", 16.24/2,   62,  -10));
-		rotamers.add("ASP", Rotamer.ofModes("p0:2", 16.24/2,   62,   30));
+		rotamers.add("ASP", Rotamer.ofModes("p-10", 16.24/2,   62,  -10));
+		rotamers.add("ASP", Rotamer.ofModes("p30", 16.24/2,   62,   30));
 		rotamers.add("ASP", Rotamer.ofModes("t0",     23.65, -177,    0));
 		rotamers.add("ASP", Rotamer.ofModes("t70",     8.33, -177,   65));
-		rotamers.add("ASP", Rotamer.ofModes("m-30",   51.48,  -70,  -15));
+		rotamers.add("ASP", Rotamer.ofModes("m-20",   51.48,  -70,  -15));
 
 		// glu
-		rotamers.add("GLU", Rotamer.ofModes("pt0",    4.87,   62,  180,  -20));
-		rotamers.add("GLU", Rotamer.ofModes("pm20",   2.58,   70,  -80,    0));
-		rotamers.add("GLU", Rotamer.ofModes("tp30",   8.03, -177,   65,   10));
+		rotamers.add("GLU", Rotamer.ofModes("pt-20",    4.87,   62,  180,  -20));
+		rotamers.add("GLU", Rotamer.ofModes("pm0",   2.58,   70,  -80,    0));
+		rotamers.add("GLU", Rotamer.ofModes("tp10",   8.03, -177,   65,   10));
 		rotamers.add("GLU", Rotamer.ofModes("tt0",   23.69, -177,  180,    0));
-		rotamers.add("GLU", Rotamer.ofModes("tm-30",  1.50, -177,  -80,  -25));
+		rotamers.add("GLU", Rotamer.ofModes("tm-20",  1.50, -177,  -80,  -25));
 		rotamers.add("GLU", Rotamer.ofModes("mp0",    6.39,  -65,   85,    0));
 		rotamers.add("GLU", Rotamer.ofModes("mt-10", 36.58,  -67,  180,  -10));
-		rotamers.add("GLU", Rotamer.ofModes("mm-30", 15.80,  -65,  -65,  -40));
+		rotamers.add("GLU", Rotamer.ofModes("mm-40", 15.80,  -65,  -65,  -40));
 
 		// asn
-		rotamers.add("ASN", Rotamer.ofModes("p0:1",   14.00/2,   62,  -10));
-		rotamers.add("ASN", Rotamer.ofModes("p0:2",   14.00/2,   62,   30));
-		rotamers.add("ASN", Rotamer.ofModes("t0:1",   29.10/2, -174,  -20));
-		rotamers.add("ASN", Rotamer.ofModes("t0:2",   29.10/2, -177,   30));
-		rotamers.add("ASN", Rotamer.ofModes("m-40:1", 49.01/2,  -65,  -20));
-		rotamers.add("ASN", Rotamer.ofModes("m-40:2", 49.01/2,  -65,  -75));
-		rotamers.add("ASN", Rotamer.ofModes("m110",      7.46,  -65,  120));
+		rotamers.add("ASN", Rotamer.ofModes("p-10",   14.00/2,   62,  -10));
+		rotamers.add("ASN", Rotamer.ofModes("p30",   14.00/2,   62,   30));
+		rotamers.add("ASN", Rotamer.ofModes("t-20",   29.10/2, -174,  -20));
+		rotamers.add("ASN", Rotamer.ofModes("t30",   29.10/2, -177,   30));
+		rotamers.add("ASN", Rotamer.ofModes("m-20", 49.01/2,  -65,  -20));
+		rotamers.add("ASN", Rotamer.ofModes("m-80", 49.01/2,  -65,  -75));
+		rotamers.add("ASN", Rotamer.ofModes("m120",      7.46,  -65,  120));
 
 		// gln
-		rotamers.add("GLN", Rotamer.ofModes("pt0",     5.08,   62,  180,   20));
-		rotamers.add("GLN", Rotamer.ofModes("pm20",    1.31,   70,  -75,    0));
+		rotamers.add("GLN", Rotamer.ofModes("pt20",     5.08,   62,  180,   20));
+		rotamers.add("GLN", Rotamer.ofModes("pm0",    1.31,   70,  -75,    0));
 		rotamers.add("GLN", Rotamer.ofModes("tp-100",  1.44, -177,   65, -100));
-		rotamers.add("GLN", Rotamer.ofModes("tp40",    9.75, -177,   65,   60));
+		rotamers.add("GLN", Rotamer.ofModes("tp60",    9.75, -177,   65,   60));
 		rotamers.add("GLN", Rotamer.ofModes("tt0",    18.69, -177,  180,    0));
-		rotamers.add("GLN", Rotamer.ofModes("mp10",    3.25,  -65,   85,    0));
-		rotamers.add("GLN", Rotamer.ofModes("mt0",    38.71,  -67,  180,  -25));
+		rotamers.add("GLN", Rotamer.ofModes("mp0",    3.25,  -65,   85,    0));
+		rotamers.add("GLN", Rotamer.ofModes("mt-30",    38.71,  -67,  180,  -25));
 		rotamers.add("GLN", Rotamer.ofModes("mm-40",  16.05,  -65,  -65,  -40));
-		rotamers.add("GLN", Rotamer.ofModes("mm110",   3.09,  -65,  -65,  100));
+		rotamers.add("GLN", Rotamer.ofModes("mm100",   3.09,  -65,  -65,  100));
 
 		/* TODO: build a better rotamer library
 		// LEU: +-9 voxels <= 50% (ish) coverage (Lovell voxels get 51.5%)
@@ -1657,6 +1660,246 @@ public class FlexLab {
 				}
 			}
 		}
+	}
+
+	private static void makeConfLib()
+	throws Exception {
+
+		Map<String,String> resTypes = new HashMap<>();
+		resTypes.put("ARG", "Arginine");
+		resTypes.put("HIP", "Histidine - HD1,HE2");
+		resTypes.put("HID", "Histidine - HD1");
+		resTypes.put("HIE", "Histidine - HE2");
+		resTypes.put("LYS", "Lysine");
+		resTypes.put("ASP", "Aspartic Acid");
+		resTypes.put("GLU", "Glutamic Acid");
+		resTypes.put("CYS", "Cysteine");
+		resTypes.put("GLY", "Glycine");
+		resTypes.put("PRO", "Proline");
+		resTypes.put("ALA", "Alanine");
+		resTypes.put("VAL", "Valine");
+		resTypes.put("ILE", "Isoleucine");
+		resTypes.put("LEU", "Leucine");
+		resTypes.put("MET", "Methionine");
+		resTypes.put("PHE", "Phenylalanine");
+		resTypes.put("TYR", "Tryosine");
+		resTypes.put("TRP", "Tryptophan");
+		resTypes.put("SER", "Serine");
+		resTypes.put("THR", "Threonine");
+		resTypes.put("ASN", "Asparagine");
+		resTypes.put("GLN", "Glutamine");
+
+		// get the templates we care about
+		Map<String,ResidueTemplate> templateLib = pickTemplates(
+			new ArrayList<>(resTypes.keySet()),
+			new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+				.clearTemplateCoords()
+				.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
+				.build()
+		);
+
+		Function<String,String> quote = s -> "\'" + s + "\'";
+		Function<List<String>,String> multilineQuote = s -> "\'\'\'\n" + Streams.joinToString(s, "\n") + "\'\'\'";
+
+		try (FileWriter out = new FileWriter("aminoAcids.conflib.toml")) {
+
+			// write header info
+			outPrintln(out, "");
+			outPrintln(out, "name = %s", quote.apply("Lovell rotamer library"));
+			outPrintln(out, "description = %s", multilineQuote.apply(Arrays.asList(
+				"An exact replica of the Lovell-based rotamer library from Osprey 3, ",
+				"but transformed into the new conformation library format for the Osprey GUI.",
+				"Extra rotamers have been added to sample Hydroxyl group orientations.",
+				"This library uses the newer \"v2\" template coordinates."
+			)));
+			outPrintln(out, "citation = %s", multilineQuote.apply(Arrays.asList(
+				"Lovell, Word, Richardson, and Richardson.",
+				"\"The Penultimate Rotamer Library.\"",
+				"PROTEINS: Structure, Function, and Genetics, 40:389-408 (2000)."
+			)));
+
+			for (Map.Entry<String,ResidueTemplate> entry : templateLib.entrySet()) {
+				String id = entry.getKey();
+				ResidueTemplate templ = entry.getValue();
+
+				outPrintln(out, "\n[frag.%s]", id);
+				outPrintln(out, "name = \"%s\"", resTypes.get(id));
+
+				// copy the template residue
+				Residue res = new Residue(templ.templateRes);
+				res.copyIntraBondsFrom(templ.templateRes);
+
+				// remove the backbone atoms and bonds,
+				// but keep track of bonds between the sidechain and the mainchain
+				List<Atom> mainchainAtoms = res.atoms.stream()
+					.filter(atom -> Arrays.asList("H", "N", "CA", "C", "O").contains(atom.name))
+					.collect(Collectors.toList());
+
+				class AnchorBond {
+					Atom mainchain;
+					Atom sidechain;
+					AnchorBond(Atom mainchain, Atom sidechain) {
+						this.mainchain = mainchain;
+						this.sidechain = sidechain;
+					}
+				}
+				List<AnchorBond> anchorBonds = new ArrayList<>();
+
+				log("Template: %s", id);
+
+				for (Atom mainchainAtom : mainchainAtoms) {
+					for (Atom bondedAtom : mainchainAtom.bonds) {
+
+						if (!mainchainAtoms.contains(bondedAtom)) {
+							// bonded to a sidechain atom, save the bond
+							anchorBonds.add(new AnchorBond(mainchainAtom, bondedAtom));
+						}
+
+						bondedAtom.bonds.remove(mainchainAtom);
+					}
+					res.atoms.remove(mainchainAtom);
+				}
+
+				// write out the atoms
+				outPrintln(out, "atoms = [");
+				for (int i=0; i<res.atoms.size(); i++) {
+					Atom atom = res.atoms.get(i);
+					outPrintln(out, "\t{ id = %2d, name = %7s, elem = %4s },",
+						i + 1,
+						quote.apply(atom.name),
+						quote.apply(atom.elementType)
+					);
+				}
+				outPrintln(out, "]");
+
+				// write out the intra bonds
+				outPrintln(out, "intraBonds = [");
+				for (Atom atom : res.atoms) {
+					int i1 = res.atoms.indexOf(atom);
+					for (Atom bondedAtom : atom.bonds) {
+						int i2 = res.atoms.indexOf(bondedAtom);
+						if (i2 < i1) {
+							outPrintln(out, "\t[ %2d, %2d ], # %4s - %-4s",
+								i1 + 1,
+								i2 + 1,
+								atom.name,
+								bondedAtom.name
+							);
+						}
+					}
+				}
+				outPrintln(out, "]");
+
+				// collect the unique anchor atoms and give them indices
+				Map<Atom,Integer> anchorAtoms = new IdentityHashMap<>();
+				anchorBonds.stream()
+					.map(bond -> bond.mainchain)
+					.forEach(atom -> {
+						if (!anchorAtoms.containsKey(atom)) {
+							anchorAtoms.put(atom, anchorAtoms.size());
+						}
+					});
+
+				// write out the inter bonds
+				outPrintln(out, "interBonds = [");
+				for (AnchorBond bond : anchorBonds) {
+					int sidechainIndex = res.atoms.indexOf(bond.sidechain);
+					int anchorIndex = anchorAtoms.get(bond.mainchain);
+					outPrintln(out, "\t[ %2d, %2d ], # %4s - %-4s",
+						sidechainIndex + 1,
+						anchorIndex + 1,
+						bond.sidechain.name,
+						"A" + (anchorIndex + 1)
+					);
+				}
+				outPrintln(out, "]");
+
+				// does this template have rotamers?
+				if (templ.getNumRotamers() > 0) {
+
+					// print the conformations
+					for (int r=0; r<templ.getNumRotamers(); r++) {
+
+						// find the rotamer info
+						Rotamer rot = rotamers.find(id, templ.getRotamericDihedrals(r));
+						if (rot == null) {
+							throw new Error("can't find rotmer into for " + id + " rotamer " + r);
+						}
+
+						// start with fresh coords for each conf
+						// and a residue that includes the backbone atoms, so the dihderal atom indices match
+						Residue confRes = new Residue(templ.templateRes);
+						confRes.template = templ;
+
+						// apply all the dihedral angles
+						double [] anglesDegrees = templ.getRotamericDihedrals(r);
+						for (int d=0; d<templ.numDihedrals; d++) {
+							new FreeDihedral(confRes, d).apply(anglesDegrees[d]);
+						}
+
+						outPrintln(out, "[frag.%s.conf.%s]", id, rot.name);
+						outPrintln(out, "name = %s", quote.apply(rot.name));
+						outPrintln(out, "description = 'chi = [%s]'",
+							Streams.joinToString(anglesDegrees, ", ", a -> String.format("%.0f", a))
+						);
+
+						// but write out the coords using the ids from the sidechain atoms only
+						outPrintln(out, "coords = [");
+						for (Atom atom : confRes.atoms) {
+
+							// is this a sidechain atom?
+							int i = res.getAtomIndexByName(atom.name);
+							if (i >= 0) {
+
+								// yup, print the coords
+								double[] coords = atom.getCoords();
+								outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ]}, # %s",
+									i + 1,
+									coords[0], coords[1], coords[2],
+									res.atoms.get(i).name
+								);
+							}
+						}
+						outPrintln(out, "]");
+					}
+
+				} else {
+
+					// nope, no rotamers. just a single conformation
+					outPrintln(out, "[frag.%s.conf.%s]", id, id);
+					outPrintln(out, "name = %s", quote.apply(id));
+
+					// but write out the coords using the ids from the sidechain atoms only
+					outPrintln(out, "coords = [");
+					for (Atom atom : res.atoms) {
+
+						// is this a sidechain atom?
+						int i = res.getAtomIndexByName(atom.name);
+						if (i >= 0) {
+
+							// yup, print the coords
+							double[] coords = atom.getCoords();
+							outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ]}, # %s",
+								i + 1,
+								coords[0], coords[1], coords[2],
+								res.atoms.get(i).name
+							);
+						}
+					}
+					outPrintln(out, "]");
+				}
+			}
+		}
+	}
+
+	private static void outPrint(FileWriter out, String fmt, Object ... args)
+	throws IOException {
+		out.write(String.format(fmt, args));
+	}
+	private static void outPrintln(FileWriter out, String fmt, Object ... args)
+	throws IOException {
+		outPrint(out, fmt, args);
+		out.write("\n");
 	}
 
 	private static Map<ResKey,double[]> readAngles(String type, MeasurementLibrary lib, String filename, boolean recalc)
