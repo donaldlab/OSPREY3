@@ -42,6 +42,7 @@ import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Streams;
 import org.apache.commons.lang3.StringUtils;
+import org.hamcrest.Matcher;
 import org.junit.Test;
 
 import java.io.*;
@@ -80,10 +81,10 @@ public class TestProbe {
 				assertThat(interaction.contact, is(overlap.contact));
 			} catch (AssertionError e) {
 				String msg = String.format("\n%s   osprey: d=%5.3f r1=%5.3f r2=%5.3f g=%6.3f %-12s"
-						+ "\n%-8s <-> %-8s   probe:  d=%5.3f r1=%5.3f r2=%5.3f g=%6.3f %-12s",
+						+ "\n%s:%-4s <-> %s:%-4s   probe:  d=%5.3f r1=%5.3f r2=%5.3f g=%6.3f %-12s",
 					pair,
 					pair.getDist(), pair.infoa.vdwRadius, pair.infob.vdwRadius, interaction.overlap, interaction.contact,
-					overlap.a1.res.getPDBResNumber() + ":" + overlap.a1.name, overlap.a2.res.getPDBResNumber() + ":" + overlap.a2.name,
+					overlap.a1.res.getPDBResNumber(), overlap.a1.name, overlap.a2.res.getPDBResNumber(), overlap.a2.name,
 					overlap.dist, overlap.radius1, overlap.radius2, overlap.overlap, overlap.contact
 				);
 				throw new AssertionError(msg, e);
@@ -161,39 +162,39 @@ public class TestProbe {
 
 		// should be no contact at this range
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.NoContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.NoContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.NoContact)));
 
 		// should be right at edge of wide contact
 		setAtomPos(pair.b,0, 0, 2*r + 0.5 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.NoContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.NoContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.NoContact)));
 		setAtomPos(pair.b,0, 0, 2*r + 0.5 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.WideContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.WideContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.WideContact)));
 
 		// should be right at edge of close contact
 		setAtomPos(pair.b,0, 0, 2*r + 0.25 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.WideContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.WideContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.WideContact)));
 		setAtomPos(pair.b,0, 0, 2*r + 0.25 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.CloseContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.CloseContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.CloseContact)));
 
 		// should be right at edge of small clash
 		setAtomPos(pair.b,0, 0, 2*r + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.CloseContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.CloseContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.CloseContact)));
 		setAtomPos(pair.b,0, 0, 2*r - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.SmallClash));
-		//assertThat(probeContact(pair), is(Probe.Contact.SmallClash));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.SmallClash)));
 
 		// should be right at edge of bad clash
 		setAtomPos(pair.b,0, 0, 2*r - 0.4 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.SmallClash));
-		//assertThat(probeContact(pair), is(Probe.Contact.SmallClash));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.SmallClash)));
 		setAtomPos(pair.b,0, 0, 2*r - 0.4 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.BadClash));
-		//assertThat(probeContact(pair), is(Probe.Contact.BadClash));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.BadClash)));
 	}
 
 	@Test
@@ -221,47 +222,47 @@ public class TestProbe {
 
 		// should be no contact at this range
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.NoContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.NoContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.NoContact)));
 
 		// should be right at edge of wide contact
 		setAtomPos(pair.b,0, 0, r1 + r2 + 0.5 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.NoContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.NoContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.NoContact)));
 		setAtomPos(pair.b,0, 0, r1 + r2 + 0.5 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.WideContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.WideContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.WideContact)));
 
 		// should be right at edge of close contact
 		setAtomPos(pair.b,0, 0, r1 + r2 + 0.25 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.WideContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.WideContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.WideContact)));
 		setAtomPos(pair.b,0, 0, r1 + r2 + 0.25 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.CloseContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.CloseContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.CloseContact)));
 
 		// should be right at edge of the bond
 		setAtomPos(pair.b,0, 0, r1 + r2 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.CloseContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.CloseContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.CloseContact)));
 		setAtomPos(pair.b,0, 0, r1 + r2 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.Bonded));
-		//assertThat(probeContact(pair), is(Probe.Contact.Bonded));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.Bonded)));
 
 		// should be right at edge of small clash
 		setAtomPos(pair.b,0, 0, r1 + r2 - 0.6 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.Bonded));
-		//assertThat(probeContact(pair), is(Probe.Contact.Bonded));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.Bonded)));
 		setAtomPos(pair.b,0, 0, r1 + r2 - 0.6 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.SmallClash));
-		//assertThat(probeContact(pair), is(Probe.Contact.SmallClash));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.SmallClash)));
 
 		// should be right at edge of bad clash
 		setAtomPos(pair.b,0, 0, r1 + r2 - 0.6 - 0.4 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.SmallClash));
-		//assertThat(probeContact(pair), is(Probe.Contact.SmallClash));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.SmallClash)));
 		setAtomPos(pair.b,0, 0, r1 + r2 - 0.6 - 0.4 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.BadClash));
-		//assertThat(probeContact(pair), is(Probe.Contact.BadClash));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.BadClash)));
 	}
 
 	@Test
@@ -289,47 +290,47 @@ public class TestProbe {
 
 		// should be no contact at this range
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.NoContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.NoContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.NoContact)));
 
 		// should be right at edge of wide contact
 		setAtomPos(pair.b,0, 0, r1 + r2 + 0.5 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.NoContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.NoContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.NoContact)));
 		setAtomPos(pair.b,0, 0, r1 + r2 + 0.5 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.WideContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.WideContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.WideContact)));
 
 		// should be right at edge of close contact
 		setAtomPos(pair.b,0, 0, r1 + r2 + 0.25 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.WideContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.WideContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.WideContact)));
 		setAtomPos(pair.b,0, 0, r1 + r2 + 0.25 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.CloseContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.CloseContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.CloseContact)));
 
 		// should be right at edge of the bond
 		setAtomPos(pair.b,0, 0, r1 + r2 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.CloseContact));
-		//assertThat(probeContact(pair), is(Probe.Contact.CloseContact));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.CloseContact)));
 		setAtomPos(pair.b,0, 0, r1 + r2 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.Bonded));
-		//assertThat(probeContact(pair), is(Probe.Contact.Bonded));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.Bonded)));
 
 		// should be right at edge of small clash
 		setAtomPos(pair.b,0, 0, r1 + r2 - 0.8 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.Bonded));
-		//assertThat(probeContact(pair), is(Probe.Contact.Bonded));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.Bonded)));
 		setAtomPos(pair.b,0, 0, r1 + r2 - 0.8 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.SmallClash));
-		//assertThat(probeContact(pair), is(Probe.Contact.SmallClash));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.SmallClash)));
 
 		// should be right at edge of bad clash
 		setAtomPos(pair.b,0, 0, r1 + r2 - 0.8 - 0.4 + 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.SmallClash));
-		//assertThat(probeContact(pair), is(Probe.Contact.SmallClash));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.SmallClash)));
 		setAtomPos(pair.b,0, 0, r1 + r2 - 0.8 - 0.4 - 1e-3);
 		assertThat(pair.getInteraction().contact, is(Probe.Contact.BadClash));
-		//assertThat(probeContact(pair), is(Probe.Contact.BadClash));
+		ifProbe(() -> assertThat(probeContact(pair), is(Probe.Contact.BadClash)));
 	}
 
 	public static void setAtomPos(Atom a, double x, double y, double z) {
@@ -437,11 +438,13 @@ public class TestProbe {
 
 	public static Overlap probe(Probe.AtomPair pair) {
 
-		List<Overlap> overlaps = probe(
-			pair.a.res.molec,
+		Molecule mol = pair.a.res.molec;
+		List<String> lines = probe(
+			mol,
 			atomPattern(pair.a),
 			atomPattern(pair.b)
 		);
+		List<Overlap> overlaps = parseLines(mol, lines);
 		if (overlaps.size() > 1) {
 			throw new IllegalStateException("found too many overlaps: " + overlaps.size());
 		} else if (overlaps.size() == 1) {
@@ -451,13 +454,21 @@ public class TestProbe {
 		}
 	}
 
-	public static List<Overlap> probe(Molecule mol) {
-		return probe(mol, "-self", "all");
+	private static String CustomProbePath = null;
+
+	private static void ifProbe(Runnable block) {
+		if (CustomProbePath != null) {
+			block.run();
+		}
 	}
 
-	public static List<Overlap> probe(Molecule mol, String source, String target) {
+	public static List<String> probe(Molecule mol, String source, String target) {
 
-		if (true) throw new Error("this function requires a customized version of probe, which you probably don't have");
+		if (CustomProbePath == null) {
+			throw new Error("this function requires a customized version of probe, which you probably don't have");
+			// but if you want to get it, see test-resources/probe/probe.c
+			// copy it over the probe version 2.13.110909 and compile
+		}
 
 		List<String> lines;
 
@@ -466,7 +477,7 @@ public class TestProbe {
 			PDBIO.writeFile(mol, file);
 
 			List<String> args = new ArrayList<>(Arrays.asList(
-				"/home/jeff/dlab/probe.2.13.110909.src/probe", // nope, you don't have this executable. sorry =(
+				CustomProbePath, // nope, you don't have this executable. sorry =(
 				"-osprey", // use the special osprey output mode
 				"-4H", "-mc", "-het", // probe defaults
 				source, target,
@@ -503,7 +514,7 @@ public class TestProbe {
 			throw new Error("atom selection is empty: " + target);
 		}
 
-		return parseLines(mol, lines.subList(2, lines.size()));
+		return lines.subList(2, lines.size());
 	}
 
 	public static class StreamReader {
@@ -577,9 +588,20 @@ public class TestProbe {
 			boolean isHbond = tok.nextToken().equals("Y");
 			boolean isTooCloseHbond = tok.nextToken().equals("Y");
 
+			// fix up the atom names
+			Function<String,String> fix = name -> {
+				if (Character.isDigit(name.charAt(0))) {
+					return name.substring(1) + name.charAt(0);
+				} else {
+					return name;
+				}
+			};
+			atomName1 = fix.apply(atomName1);
+			atomName2 = fix.apply(atomName2);
+
 			// find the atoms
-			Atom a1 = mol.residues.getOrThrow(resNum1).getAtomByName(atomName1);
-			Atom a2 = mol.residues.getOrThrow(resNum2).getAtomByName(atomName2);
+			Atom a1 = mol.residues.getOrThrow(resNum1).getAtomByNameOrThrow(atomName1);
+			Atom a2 = mol.residues.getOrThrow(resNum2).getAtomByNameOrThrow(atomName2);
 
 			// build the overlap
 			overlaps.add(new Overlap(a1, a2, radius1, radius2, dist, -gap, contact, isHbond, isTooCloseHbond));
@@ -591,5 +613,16 @@ public class TestProbe {
 	public static List<String> readLines(String path) {
 		return Streams.of(FileTools.parseLines(FileTools.readResource(path)))
 			.collect(Collectors.toList());
+	}
+
+	public static void main(String[] args) {
+
+		// re-generate the 1CC8.probe test file
+		Molecule mol = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build().mol;
+		List<String> lines = probe(mol, "all", "all");
+		FileTools.writeFile(
+			Streams.joinToString(lines, "\n"),
+			new File("test-resources/probe/1CC8.probe")
+		);
 	}
 }
