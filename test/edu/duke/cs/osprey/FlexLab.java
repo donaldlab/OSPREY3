@@ -700,7 +700,6 @@ public class FlexLab {
 				Probe probe = new Probe();
 				probe.matchTemplate(templ);
 				AtomConnectivity connectivity = new AtomConnectivity.Builder()
-					.addTemplates(Arrays.asList(templ))
 					.set15HasNonBonded(false)
 					.build();
 
@@ -1469,7 +1468,6 @@ public class FlexLab {
 
 		logf("building atom connectivity...");
 		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.addTemplates(templateLib)
 			.set15HasNonBonded(false)
 			.build();
 		log(" done!");
@@ -1600,7 +1598,6 @@ public class FlexLab {
 			Probe probe = new Probe();
 			probe.matchTemplates(templates.values());
 			AtomConnectivity connectivity = new AtomConnectivity.Builder()
-				.addTemplates(templates.values())
 				.set15HasNonBonded(false)
 				.build();
 

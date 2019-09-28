@@ -37,7 +37,6 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.TestBase;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.tools.FileTools;
@@ -80,10 +79,12 @@ public class TestProbe {
 				assertThat(interaction.overlap, isAbsolutely(overlap.overlap, 1e-3));
 				assertThat(interaction.contact, is(overlap.contact));
 			} catch (AssertionError e) {
-				String msg = String.format("%s   osprey: r1=%5.3f r2=%5.3f g=%6.3f %-12s   probe: r1=%5.3f r2=%5.3f g=%6.3f %-12s",
+				String msg = String.format("\n%s   osprey: d=%5.3f r1=%5.3f r2=%5.3f g=%6.3f %-12s"
+						+ "\n%-8s <-> %-8s   probe:  d=%5.3f r1=%5.3f r2=%5.3f g=%6.3f %-12s",
 					pair,
-					pair.infoa.vdwRadius, pair.infob.vdwRadius, interaction.overlap, interaction.contact,
-					overlap.radius1, overlap.radius2, overlap.overlap, overlap.contact
+					pair.getDist(), pair.infoa.vdwRadius, pair.infob.vdwRadius, interaction.overlap, interaction.contact,
+					overlap.a1.res.getPDBResNumber() + ":" + overlap.a1.name, overlap.a2.res.getPDBResNumber() + ":" + overlap.a2.name,
+					overlap.dist, overlap.radius1, overlap.radius2, overlap.overlap, overlap.contact
 				);
 				throw new AssertionError(msg, e);
 			}
@@ -95,9 +96,6 @@ public class TestProbe {
 
 		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
 		strand.flexibility.get("A23").addWildTypeRotamers();
-		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
-			.addStrand(strand)
-			.build();
 
 		Probe probe = new Probe();
 		probe.matchTemplates(strand.mol.residues);
@@ -106,7 +104,6 @@ public class TestProbe {
 		normalizeMol(strand.mol);
 
 		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.addTemplates(confSpace)
 			.set15HasNonBonded(false)
 			.build();
 

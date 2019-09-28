@@ -596,10 +596,7 @@ public class BenchmarkMinimization extends TestBase {
 		
 		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		ForcefieldParams ffparams = new ForcefieldParams();
-		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.addTemplates(simpleConfSpace)
-			.setParallelism(Parallelism.makeCpu(4))
-			.build();
+		AtomConnectivity connectivity = new AtomConnectivity.Builder().build();
 		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
 		
 		for (int numThreads : numThreadsList) {

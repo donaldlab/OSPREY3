@@ -106,7 +106,6 @@ public class TemplateChooser {
 		probe.matchTemplates(templateLib);
 		logf("building atom connectivity...");
 		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.addTemplates(templateLib)
 			.set15HasNonBonded(false)
 			.build();
 		log(" done!");

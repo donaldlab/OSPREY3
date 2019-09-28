@@ -64,10 +64,7 @@ public class TestResidueForcefieldBreakdown {
 
 		// build the energy function
 		ForcefieldParams ffparams = new ForcefieldParams();
-		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.addTemplates(residues)
-			.setParallelism(Parallelism.makeCpu(4))
-			.build();
+		AtomConnectivity connectivity = new AtomConnectivity.Builder().build();
 		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
 		ResidueForcefieldEnergy efunc = new ResidueForcefieldEnergy(resPairCache, inters, residues);
 
