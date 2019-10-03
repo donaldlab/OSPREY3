@@ -217,8 +217,8 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					// compute vdw
 					double r6 = r2*r2*r2;
 					double r12 = r6*r6;
-					resPairEnergy += Aij/r12 - Bij/r6;
-					
+					final double increment = Aij/r12 - Bij/r6;
+					resPairEnergy +=  increment;
 				} else {
 					pos += 2;
 				}
