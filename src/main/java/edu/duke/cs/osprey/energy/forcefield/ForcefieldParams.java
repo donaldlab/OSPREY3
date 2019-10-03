@@ -33,7 +33,6 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
 import java.io.Serializable;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Iterator;
 import java.util.StringTokenizer;
 
@@ -874,11 +873,16 @@ public class ForcefieldParams implements Serializable {
 	
 	
 	public static class VdwParams {
-		public double Aij = 0.0;
-		public double Bij = 0.0;
+		public final double Aij;
+		public final double Bij;
+
+		public VdwParams(double aij, double bij) {
+		    Aij = aij;
+		    Bij = bij;
+		}
 	}
 	
-	public void getVdwParams(Atom atom1, Atom atom2, AtomNeighbors.Type neighborType, VdwParams out) {
+	public VdwParams getVdwParams(Atom atom1, Atom atom2, AtomNeighbors.Type neighborType) {
 		
 		// calc vdW params
 		// Aij = (ri+rj)^12 * sqrt(ei*ej)
@@ -910,9 +914,8 @@ public class ForcefieldParams implements Serializable {
 			default:
 				throw new IllegalArgumentException("no van der Waals params for closely bonded atoms");
 		}
-		
-		out.Aij = Aij;
-		out.Bij = Bij;
+
+		return new VdwParams(Aij, Bij);
 	}
         
         

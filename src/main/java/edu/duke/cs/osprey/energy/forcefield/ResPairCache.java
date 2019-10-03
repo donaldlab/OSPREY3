@@ -98,8 +98,6 @@ public class ResPairCache {
 		
 		public AtomPairInfo(Residue res1, Residue res2, ForcefieldParams ffparams, AtomPairs atomPairs, SolvationForcefield.ResiduesInfo solvInfo) {
 			
-			VdwParams vdwparams = new VdwParams();
-			
 			// how many precomputed values per atom pair?
 			int numPrecomputedPerAtomPair = 1 + 2;
 			if (solvInfo != null) {
@@ -141,7 +139,7 @@ public class ResPairCache {
 					precomputed[precomputedIndex++] = atom1.charge*atom2.charge;
 					
 					// calc vdw params
-					ffparams.getVdwParams(atom1, atom2, type, vdwparams);
+					var vdwparams = ffparams.getVdwParams(atom1, atom2, type);
 					precomputed[precomputedIndex++] = vdwparams.Aij;
 					precomputed[precomputedIndex++] = vdwparams.Bij;
 					
