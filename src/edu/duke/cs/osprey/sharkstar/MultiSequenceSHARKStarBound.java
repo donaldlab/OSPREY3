@@ -774,7 +774,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         Stopwatch leafLoop = new Stopwatch().start();
         Stopwatch overallLoop = new Stopwatch().start();
         if (queue.isEmpty()) {
-            if(!bound.leafQueue.isEmpty() )
+            if(!bound.leafQueue.isEmpty()&&
+                    MathTools.isGreaterThan(bound.leafQueue.peek().getLowerBound(bound.sequence),
+                            BigDecimal.ONE))
                 queue.add(bound.leafQueue.poll());
             else if(!bound.internalQueue.isEmpty() )
                 queue.add(bound.internalQueue.poll());
