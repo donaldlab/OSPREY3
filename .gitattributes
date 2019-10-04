@@ -1,1 +1,1 @@
-libs/edu.duke.cs.tpie-1.1.jar filter=lfs diff=lfs merge=lfs -text
+libs/*.jar filter=lfs diff=lfs merge=lfs -text
