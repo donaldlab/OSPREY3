@@ -140,8 +140,9 @@ public class ExpFunction implements Serializable {
 				}
 				else {
 					double addend = Math.log(x.doubleValue());
+					sum = sum.add(new BigDecimal(t));
                     if(Double.isFinite(addend))
-						sum = sum.add(new BigDecimal(t+addend));
+						sum = sum.add(new BigDecimal(addend));
 					done = true;
 				}
 				x = x.divide(exp,4);

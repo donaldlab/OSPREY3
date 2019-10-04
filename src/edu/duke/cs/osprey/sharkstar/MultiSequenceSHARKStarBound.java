@@ -272,6 +272,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         System.out.println("Sequence RCs: "+newBound.seqRCs);
         computeFringeForSequence(newBound, this.rootNode);
         newBound.updateBound();
+        if(newBound.sequenceEpsilon == 0)
+            System.err.println("Perfectly bounded sequence? how?");
         rootNode.updateSubtreeBounds(seq);
         //printTree(seq, this.rootNode);
         //printTree("", null, confSpace, seq, this.rootNode);
@@ -556,6 +558,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         precompFlex.initFlex(this.targetEpsilon, this.stabilityThreshold, flexCorrection);
         PartitionFunction flexBound =
                 precompFlex.getPartitionFunctionForSequence(unassignedFlex);
+        SingleSequenceSHARKStarBound bound = (SingleSequenceSHARKStarBound) flexBound;
         flexBound.compute();
         processPrecomputedFlex(precompFlex);
         return precompFlex;
@@ -636,6 +639,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         debugPrint("Num conformations: " + sequenceBound.numConformations);
         sequenceBound.updateBound();
         double lastEps = sequenceBound.sequenceEpsilon;
+        if(lastEps == 0)
+            System.err.println("???!");
 
         int previousConfCount = workDone();
 
