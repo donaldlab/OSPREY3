@@ -274,7 +274,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         newBound.updateBound();
         rootNode.updateSubtreeBounds(seq);
         //printTree(seq, this.rootNode);
-        printTree("", null, confSpace, seq, this.rootNode);
+        //printTree("", null, confSpace, seq, this.rootNode);
         return newBound;
     }
 
@@ -773,8 +773,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         int numNodes = 0;
         Stopwatch leafLoop = new Stopwatch().start();
         Stopwatch overallLoop = new Stopwatch().start();
-        if (queue.isEmpty())
-            queue.add(rootNode);
+        if (queue.isEmpty()) {
+            if(!bound.leafQueue.isEmpty() )
+                queue.add(bound.leafQueue.poll());
+            else if(!bound.internalQueue.isEmpty() )
+                queue.add(bound.internalQueue.poll());
+            else
+                queue.add(rootNode);
+        }
         boundLowestBoundConfUnderNode(bound, queue.poll(), newNodes);
         for(MultiSequenceSHARKStarNode newNode : newNodes) {
             if(!newNode.isMinimized(bound.sequence))

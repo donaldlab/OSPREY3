@@ -189,12 +189,19 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public MultiSequenceSHARKStarNode makeChild(Node child, Sequence seq, double lowerBound, double upperBound) {
+        checkChildren(seq);
+        for(MultiSequenceSHARKStarNode childCheck: getChildren(seq)) {
+            if(childCheck.getConfSearchNode().rc == child.rc) {
+                System.err.println("Should not be making a dupe node.");
+            }
+        }
         MultiSequenceSHARKStarNode newChild = new MultiSequenceSHARKStarNode(child, this, this.fullConfSpace);
         newChild.computeEpsilonErrorBounds(seq);
         getChildren(seq).add(newChild);
         children.add(newChild);
         newChild.setBoundsFromConfLowerAndUpper(lowerBound, upperBound, seq);
         newChild.errorBound = getErrorBound(seq);
+        checkChildren(seq);
         return newChild;
     }
 
