@@ -45,6 +45,9 @@ public class CommandPartitionFunction extends RunnableCommand {
     @Parameter(names = "--energy", description = "Analyze the energy of conformation(s).")
     private List<Integer> captureEnergies = new ArrayList<>();
 
+    @Parameter(names = "--max-num-confs", description = "Sets an upper bound on the number of conformations evaluated.")
+    private int maxNumberConfs = -1;
+
     private ConfEnergyCalculator confEnergyCalc;
     private PartitionFunction pFunc;
     private RCs rcs;
@@ -135,6 +138,7 @@ public class CommandPartitionFunction extends RunnableCommand {
          * Provides support for applying conformation energy modifications,
          * such as reference energies, residue entropies, and energy partitions.
          */
+        // https://github.com/donaldlab/OSPREY3/blob/sharkstar/test/edu/duke/cs/osprey/sharkstar/TestSHARKStarBound.java#L65
         confEnergyCalc = new ConfEnergyCalculator.Builder(confSpace, energyCalculator)
                 .build();
 
@@ -145,7 +149,7 @@ public class CommandPartitionFunction extends RunnableCommand {
         partitionFnBuilder.setUseGradientDescent();
         pFunc = partitionFnBuilder.makePartitionFunctionFor(rcs, delegate.epsilon > 0 ? delegate.epsilon : design.epsilon);
         addListeners();
-        pFunc.compute();
+        pFunc.compute(maxNumberConfs > 0 ? maxNumberConfs : Integer.MAX_VALUE);
 
         printResults();
         return Main.Success;

@@ -77,6 +77,11 @@ public class ResPairCache {
 			this.weight = weight;
 			this.offset = offset;
 		}
+
+		@Override
+		public String toString() {
+			return String.format("%s:%s", res1.fullName, res2.fullName);
+		}
 	}
 	
 	public static class AtomPairInfo {

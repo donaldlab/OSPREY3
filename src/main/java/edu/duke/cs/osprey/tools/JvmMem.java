@@ -85,17 +85,17 @@ public class JvmMem {
 
 	private static MemoryPoolMXBean getPool(String name) {
 		return ManagementFactory.getMemoryPoolMXBeans().stream()
-			.filter((pool) -> pool.getName().equals(name))
+			.filter((pool) -> pool.getName().endsWith(name))
 			.findFirst()
 			.orElseThrow(() -> new NoSuchElementException("no memory pool named " + name));
 	}
 
 	public static MemInfo getEdenPool() {
-		return new MemInfo(getPool("PS Eden Space"));
+		return new MemInfo(getPool("Eden Space"));
 	}
 
 	public static MemInfo getSurvivorPool() {
-		return new MemInfo(getPool("PS Eden Space"));
+		return new MemInfo(getPool("Eden Space"));
 	}
 
 	public static MemInfo getYoungPool() {
@@ -103,6 +103,6 @@ public class JvmMem {
 	}
 
 	public static MemInfo getOldPool() {
-		return new MemInfo(getPool("PS Old Gen"));
+		return new MemInfo(getPool("Old Gen"));
 	}
 }

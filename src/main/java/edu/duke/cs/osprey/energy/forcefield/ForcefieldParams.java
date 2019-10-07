@@ -130,7 +130,17 @@ public class ForcefieldParams implements Serializable {
             1.0,
             1.0/1.2
         ),
-        CHARMM22(
+		AMBER_FF14SB(
+				"/config/ff14SB/parm10.dat",
+				"/config/ff14SB/amino12.lib",
+				"/config/ff14SB/amino12nt.lib",
+				"/config/ff14SB/amino12ct.lib",
+				"/config/all_nuc94_and_gr.in", // TODO: Fix this
+				0,
+				0,
+				0
+				),
+		CHARMM22(
             "/config/parmcharm22.dat",
             "/config/all_amino_charmm22.txt",
             "/config/all_amino_charmm22_nt.txt",
