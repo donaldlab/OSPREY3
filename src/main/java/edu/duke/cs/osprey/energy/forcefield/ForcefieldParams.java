@@ -118,7 +118,6 @@ public class ForcefieldParams implements Serializable {
     public SolvationForcefield solvationForcefield = SolvationForcefield.EEF1;
     
     public enum Forcefield {
-        
         AMBER(
             "/config/parm96a.dat",
             "/config/all_amino94.in",
@@ -130,15 +129,15 @@ public class ForcefieldParams implements Serializable {
             1.0/1.2
         ),
 		AMBER_FF14SB(
-				"/config/ff14SB/parm10.dat",
-				"/config/ff14SB/amino12.lib",
-				"/config/ff14SB/amino12nt.lib",
-				"/config/ff14SB/amino12ct.lib",
-				"/config/all_nuc94_and_gr.in", // TODO: Fix this
-				0,
-				0,
-				0
-				),
+			 "/config/ff14SB/parm10.dat",
+			 "/config/ff14SB/amino12.lib",
+			 "/config/ff14SB/aminont12.lib",
+			 "/config/ff14SB/aminoct12.lib",
+			 "/config/all_nuc94_and_gr.in", // TODO: Fix this
+			 0.5, // From Amber 18 manual, end of section 14.1.6
+			 0.5,
+			 0
+		),
 		CHARMM22(
             "/config/parmcharm22.dat",
             "/config/all_amino_charmm22.txt",
@@ -831,7 +830,7 @@ public class ForcefieldParams implements Serializable {
 		public double epsilon;
 	}
 	
-	// This function returns the r and epsilon paramters for a given atom type
+	// This function returns the r and epsilon parameters for a given atom type
 	public boolean getNonBondedParameters(int atomType, NBParams out) {
 		
 		for(int q=0;q<vdwAtomType1.length;q++) {
@@ -876,13 +875,13 @@ public class ForcefieldParams implements Serializable {
 		public final double Aij;
 		public final double Bij;
 
-		public VdwParams(double aij, double bij) {
+		VdwParams(double aij, double bij) {
 		    Aij = aij;
 		    Bij = bij;
 		}
 	}
 	
-	public VdwParams getVdwParams(Atom atom1, Atom atom2, AtomNeighbors.Type neighborType) {
+	VdwParams getVdwParams(Atom atom1, Atom atom2, AtomNeighbors.Type neighborType) {
 		
 		// calc vdW params
 		// Aij = (ri+rj)^12 * sqrt(ei*ej)
@@ -907,10 +906,10 @@ public class ForcefieldParams implements Serializable {
 			case BONDED14:
 				Aij *= forcefld.Aij14Factor;
 				Bij *= forcefld.Bij14Factor;
-			break;
+				break;
 			case NONBONDED:
 				Bij *= 2;
-			break;
+				break;
 			default:
 				throw new IllegalArgumentException("no van der Waals params for closely bonded atoms");
 		}
