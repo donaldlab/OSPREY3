@@ -127,7 +127,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    private static final int[] debugConf = new int[]{8, 3, 4, 5, -1, 8};
+    private static final int[] debugConf = new int[]{8, 3, 4, 5, 201, 8};
+    private static final int[] debugConf2 = new int[]{8, 3, 4, 5, 8};
     private String cachePattern = "NOT_INITIALIZED";
 
     /**
@@ -1255,9 +1256,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         result.upperBound = confUpperbound;
                     }
                     if (child.getLevel() == RCs.getNumPos()) {
-                        if(confMatch(debugConf, child.assignments)) {
-                            System.out.println("Gotcha-fullConf");
-                        }
                         double confRigid = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         //confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
 
@@ -1266,6 +1264,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         double confCorrection = correctionMatrix.confE(child.assignments);
                         double lowerbound = Math.max(minimizingEmat.confE(child.assignments), confLower);
 
+                        if(confMatch(debugConf, child.assignments)) {
+                            System.out.println("Gotcha-fullConf");
+                        }
                         if (lowerbound < confCorrection) {
                             recordCorrection(lowerbound, confCorrection - lowerbound);
                         }
@@ -1291,8 +1292,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 MultiSequenceSHARKStarNodeChild.setBoundsFromConfLowerAndUpper(result.lowerBound,
                         result.upperBound, bound.sequence);
                 //System.out.println("Created new child "+MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence));
-                if(MathTools.isGreaterThan(MultiSequenceSHARKStarNodeChild.getUpperBound(bound.sequence),
-                        curNode.getUpperBound(bound.sequence))) {
+                BigDecimal childUpper = MultiSequenceSHARKStarNodeChild.getUpperBound(bound.sequence);
+                if(MathTools.isGreaterThan(childUpper, curNode.getUpperBound(bound.sequence)) &&
+                        !MathTools.isRelativelySame(childUpper, curNode.getUpperBound(bound.sequence),
+                        PartitionFunction.decimalPrecision, 0.01)) {
                     System.err.println("Error. Child has better upper bound than parent.");
                     System.err.println(String.format("%s:%12.6e", curNode.toSeqString(bound.sequence), curNode.getUpperBound(bound.sequence)));
                     System.err.println(String.format("%s:%12.6e", MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence), MultiSequenceSHARKStarNodeChild.getUpperBound(bound.sequence)));
@@ -1384,12 +1387,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (curNode.getConfLowerBound(bound.sequence)) + "," + (curNode.getConfUpperBound(bound.sequence)) + "]";
                         debugPrint(out);
                         curNode.markUpdated();
-                        if(confMatch(new int[]{8,7}, node.assignments))
+                        if(confMatch(debugConf2, node.assignments)) {
+                            double lowerBound = correctionMatrix.confE(node.assignments);
+                            double pairMinLower = minimizingEmat.confE(node.assignments);
+                            double minimized = newConfLower;
                             System.out.println("Gotcha-min");
+                        }
                         synchronized (this) {
                             if(precomputedSequence.equals(confSpace.makeUnassignedSequence()))
                                 correctionMatrix.setHigherOrder(curNode.toTuple(),
-                                        energy - oldgscore);
+                                        energy - minimizingEmat.confE(node.assignments));
                             numConfsEnergied++;
                             minList.set(conf.getAssignments().length - 1, minList.get(conf.getAssignments().length - 1) + 1);
                             recordReduction(oldConfLower, oldConfUpper, energy);
