@@ -127,7 +127,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    private static final int[] debugConf = new int[]{202,8,7};
+    private static final int[] debugConf = new int[]{8, 3, 4, 5, -1, 8};
     private String cachePattern = "NOT_INITIALIZED";
 
     /**
@@ -381,7 +381,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             ScoreContext context = checkout.get();
             confNode.index(context.index);
 
-            RCs test = new RCs(minimizingEcalc.confSpace);
             double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, rcs);
             double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, rcs);
             curNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, bound.sequence);
@@ -649,6 +648,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             sequenceBound.updateBound();
         }
 
+        int loop = 1;
         while (sequenceBound.sequenceEpsilon > targetEpsilon &&
                 workDone() - previousConfCount < maxNumConfs
                 && isStable(stabilityThreshold, sequenceBound.sequence)) {
@@ -657,6 +657,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 rootNode.updateSubtreeBounds(sequenceBound.sequence);
                 debugHeap(sequenceBound.fringeNodes);
                 //printTree(sequenceBound.sequence,rootNode);
+                printTree("J:\\Research\\SHARKStar\\"+stateName+"treeLoop"+loop+".lscp",sequenceBound.sequence,rootNode);
             }
             tightenBoundInPhases(sequenceBound);
             debugPrint("Errorbound is now " + sequenceBound.sequenceEpsilon);
@@ -665,10 +666,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 || sequenceBound.errors()) {
                 System.err.println("Error. Bounds got looser.");
                 rootNode.updateSubtreeBounds(sequenceBound.sequence);
-                printTree(sequenceBound.sequence,rootNode);
+                //printTree(sequenceBound.sequence,rootNode);
+                printTree("J:\\Research\\SHARKStar\\"+stateName+"boundsFail"+loop+".lscp",sequenceBound.sequence,rootNode);
                 System.exit(-1);
             }
             lastEps = sequenceBound.sequenceEpsilon;
+            loop++;
         }
         if (!isStable(stabilityThreshold, sequenceBound.sequence))
             sequenceBound.status = Status.Unstable;
@@ -1259,8 +1262,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         //confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
 
                         child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
+                        double confLower = context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double confCorrection = correctionMatrix.confE(child.assignments);
-                        double lowerbound = minimizingEmat.confE(child.assignments);
+                        double lowerbound = Math.max(minimizingEmat.confE(child.assignments), confLower);
 
                         if (lowerbound < confCorrection) {
                             recordCorrection(lowerbound, confCorrection - lowerbound);
@@ -1287,6 +1291,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 MultiSequenceSHARKStarNodeChild.setBoundsFromConfLowerAndUpper(result.lowerBound,
                         result.upperBound, bound.sequence);
                 //System.out.println("Created new child "+MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence));
+                if(MathTools.isGreaterThan(MultiSequenceSHARKStarNodeChild.getUpperBound(bound.sequence),
+                        curNode.getUpperBound(bound.sequence))) {
+                    System.err.println("Error. Child has better upper bound than parent.");
+                    System.err.println(String.format("%s:%12.6e", curNode.toSeqString(bound.sequence), curNode.getUpperBound(bound.sequence)));
+                    System.err.println(String.format("%s:%12.6e", MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence), MultiSequenceSHARKStarNodeChild.getUpperBound(bound.sequence)));
+                    System.exit(-1);
+                }
                 // collect the possible children
                 if (MultiSequenceSHARKStarNodeChild.getConfLowerBound(bound.sequence) < 0) {
                     children.add(MultiSequenceSHARKStarNodeChild);

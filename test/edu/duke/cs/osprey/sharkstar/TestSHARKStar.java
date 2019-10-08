@@ -246,6 +246,8 @@ public class TestSHARKStar {
 				.build();
 
 		for (String line : FileTools.parseLines(fileContents)) {
+			if(line.startsWith("#"))
+				continue;
 			String[] parts = line.split(" = ");
 		    String lineType = parts[0];
 		    switch(lineType) {
@@ -629,7 +631,7 @@ public class TestSHARKStar {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/3ma2_D_10res_1.140E+10.cfs");
 			//runBBSHARKStar(confSpaces, 0.9999);
-			runBBKStar(confSpaces, 1, 0.999, null, 5, true);
+			runBBKStar(confSpaces, 2, 0.68, null, 5, true);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}

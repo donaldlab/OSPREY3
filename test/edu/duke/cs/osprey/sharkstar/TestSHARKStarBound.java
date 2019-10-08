@@ -25,6 +25,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
@@ -530,6 +531,42 @@ public class TestSHARKStarBound extends TestBase {
         assertThat(wtBound.getStatus(), is(PartitionFunction.Status.Estimated));
         assertThat(muttBound.getStatus(), is(PartitionFunction.Status.Estimated));
 
+    }
+
+    @Test
+    public void debug3ma2Bigger() {
+        double epsilon = 0.68;
+        try {
+            SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_D_10res_1.140E+10.cfs").ligand;
+            Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
+            MultiSequenceSHARKStarBound fullPfunc =
+                    (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace,
+                            fullSeq.makeRCs(mutableConfSpace), epsilon, null);
+
+            boolean runWT = false;
+            if(runWT) {
+                PartitionFunction wtBound =
+                        fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
+                wtBound.compute();
+            }
+
+            System.out.println("========================== Now computing mutant sequence ========================");
+            Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("D198","GLY");
+            PartitionFunction muttBound =
+                    fullPfunc.getPartitionFunctionForSequence(mutantSequence);
+            muttBound.compute();
+
+            PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, mutantSequence, epsilon);
+            traditionalPfunc.setReportProgress(true);
+            traditionalPfunc.compute();
+            System.out.println("Gradient Descent pfunc: "+formatBounds(traditionalPfunc.getValues().calcLowerBound(),
+                    traditionalPfunc.getValues().calcUpperBound()));
+            System.out.println("precompPfunc: " + formatBounds(muttBound.getValues().calcLowerBound(), muttBound.getValues().calcUpperBound()));
+            }
+        catch(IOException e) {
+                e.printStackTrace();
+
+        }
     }
 
     private SimpleConfSpace make1CC8MutableContinuous_debug() {

@@ -350,7 +350,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public String toFancySeqString(Sequence seq) {
-        String out = confSearchNode.confToString();//fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);
+        String out = fullConfSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments);
         BigDecimal subtreeLowerBound = getLowerBound(seq);
         BigDecimal subtreeUpperBound = getUpperBound(seq);
         out += "Energy:" + String.format("%4.2f", confSearchNode.getPartialConfLowerBound()) + "*" + confSearchNode.numConfs;
