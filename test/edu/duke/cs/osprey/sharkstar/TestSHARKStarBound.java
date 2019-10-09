@@ -209,8 +209,6 @@ public class TestSHARKStarBound extends TestBase {
         strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType).setContinuous();
         strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "ILE").setContinuous();
         strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType).setContinuous();
-        strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType, "MET").setContinuous();
-        strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType).setContinuous();
 
         return new SimpleConfSpace.Builder()
                 .addStrands(strand1)
@@ -488,6 +486,33 @@ public class TestSHARKStarBound extends TestBase {
     }
 
     @Test
+    public void test1CC8Small() {
+        double epsilon = 0.68;
+        SimpleConfSpace mutableConfSpace = make1CC8MutableContinuousSmall();
+        Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
+        MultiSequenceSHARKStarBound fullPfunc =
+                (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace,
+                        fullSeq.makeRCs(mutableConfSpace), epsilon, null);
+
+        PartitionFunction wtBound =
+                fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
+        wtBound.compute();
+
+        System.out.println("========================== Now computing mutant sequence ========================");
+        Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("A3","ILE");
+        PartitionFunction muttBound =
+                fullPfunc.getPartitionFunctionForSequence(mutantSequence);
+        muttBound.compute();
+
+        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, mutantSequence, epsilon);
+        traditionalPfunc.setReportProgress(true);
+        traditionalPfunc.compute();
+        System.out.println("Gradient Descent pfunc: "+formatBounds(traditionalPfunc.getValues().calcLowerBound(),
+                traditionalPfunc.getValues().calcUpperBound()));
+        System.out.println("precompPfunc: " + formatBounds(muttBound.getValues().calcLowerBound(), muttBound.getValues().calcUpperBound()));
+    }
+
+    @Test
     public void testMultiSequenceContinuous() {
 
         double epsilon = 0.68;
@@ -537,13 +562,13 @@ public class TestSHARKStarBound extends TestBase {
     public void debug3ma2Bigger() {
         double epsilon = 0.68;
         try {
-            SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_D_10res_1.140E+10.cfs").ligand;
+            SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_D_10res_1.140E+10.cfs").complex;
             Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
             MultiSequenceSHARKStarBound fullPfunc =
                     (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace,
                             fullSeq.makeRCs(mutableConfSpace), epsilon, null);
 
-            boolean runWT = false;
+            boolean runWT = true;
             if(runWT) {
                 PartitionFunction wtBound =
                         fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
