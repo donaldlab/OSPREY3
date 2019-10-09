@@ -74,7 +74,6 @@ public class PartitionFunctionFactory {
     private PartitionFunctionImpl pfuncImpl = PartitionFunctionImpl.GradientDescent;
     private UpdatingEnergyMatrix MARKStarEmat = null;
     private String state = "(undefined)";
-    private SHARKStarBound preComputedFlex = null;
     private MultiSequenceSHARKStarBound preComputedMSFlex = null;
     private MultiSequenceSHARKStarBound fullMSBound = null;
 
@@ -93,16 +92,6 @@ public class PartitionFunctionFactory {
     public void setUseLUTE(ConfEnergyCalculator confECalc) {
         this.confEcalc = confECalc;
         this.pfuncImpl = PartitionFunctionImpl.LUTE;
-    }
-
-    public void setUseSHARKStar(ConfEnergyCalculator rigidConfECalc, SHARKStarBound preComputedFlex){
-        this.preComputedFlex = preComputedFlex;
-        setUseSHARKStar(rigidConfECalc);
-    }
-
-    public void setUseSHARKStar(ConfEnergyCalculator rigidConfECalc) {
-        this.confUpperBoundECalc = rigidConfECalc;
-        this.pfuncImpl = PartitionFunctionImpl.SHARKStar;
     }
 
     public void setPrecomputedCorrections(UpdatingEnergyMatrix corrections){
@@ -186,24 +175,6 @@ public class PartitionFunctionFactory {
                         rcs.getNumConformations(),
                         epsilon
                 );
-                break;
-            case SHARKStar:
-                minimizingEmat = makeEmat(confEcalc, "minimizing");
-                //if(MARKStarEmat == null)
-                    //MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
-                SHARKStarBound SHARKStarBound = null;
-                if(preComputedFlex == null) {
-                    SHARKStarBound = new SHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
-                            minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
-                }
-                else {
-                    SHARKStarBound = new SHARKStarBound(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
-                            minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism, preComputedFlex);
-                }
-                if (MARKStarEmat != null)
-                    SHARKStarBound.mergeCorrections(MARKStarEmat);
-                SHARKStarBound.init(epsilon);
-                pfunc = SHARKStarBound;
                 break;
             case MSSHARKStar:
                 String RCString = ""+rcs.getNumPos();
