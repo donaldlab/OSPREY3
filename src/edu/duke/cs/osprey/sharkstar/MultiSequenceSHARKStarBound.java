@@ -25,6 +25,7 @@ import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import jdk.nashorn.internal.runtime.regexp.joni.exception.ValueException;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -58,7 +59,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private MARKStarProgress progress;
     public String stateName = String.format("%4f", Math.random());
     private int numPartialMinimizations;
-    private ArrayList<Integer> minList;
+    public ArrayList<Integer> minList;
     protected double internalTimeAverage;
     protected double leafTimeAverage;
     private double cleanupTime;
@@ -305,18 +306,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         int[] permutationArray = genConfSpaceMapping();
         updatePrecomputedNode(precomputedRootNode, permutationArray, this.confSpace.getNumPos());
         this.rootNode = precomputedRootNode;
-        //System.out.println("The precomputed root node is " + precomputedRootNode.toTuple());
-        //System.out.println("\n###############\nFull root upper: "+rootNode.getUpperBound()+" lower: "+rootNode.getLowerBound());
-
-		/*
-		Here's the plan: use the permutation matrix to map assignements onto the new tree.
-		The g scores should map fine
-		the h scores may need to be updated, which is kind of awkward I suppose.
-		But, any full conformations should be minimized and should be added to the MAE energy matrix
-		likewise for any partial minimizations
-		 */
-
-        //TODO: update partial minimizations and full conformations?
     }
 
     private void updatePrecomputedNode(MultiSequenceSHARKStarNode node, int[] permutation, int size) {
@@ -331,9 +320,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private void computeFringeForSequence(SingleSequenceSHARKStarBound bound, MultiSequenceSHARKStarNode curNode) {
         Node confNode = curNode.getConfSearchNode();
-        if(confMatch(debugConf, confNode.assignments)){
-            System.out.println("Gotcha-fringe");
-        }
         RCs rcs = bound.seqRCs;
         try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
             ScoreContext context = checkout.get();
@@ -542,22 +528,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     @Override
     public Result makeResult() {
-        throw new UnsupportedOperationException("???");
-        /*
-        // Calculate the upper bound z reductions from conf lower bounds, since we don't explicitly record these
-        lowerReduction_ConfUpperBound = rootNode.getLowerBound().subtract(startLowerBound).subtract(lowerReduction_FullMin);
-        // Calculate the lower bound z reductions from conf upper bounds, since we don't explicitly record these
-        upperReduction_ConfLowerBound = startUpperBound.subtract(rootNode.getUpperBound()).subtract(upperReduction_FullMin).subtract(upperReduction_PartialMin);
-
-        PartitionFunction.Result result = new PartitionFunction.Result(getStatus(), getValues(), getNumConfsEvaluated());
-        /*
-        result.setWorkInfo(numPartialMinimizations, numConfsScored,minList);
-        result.setZInfo(lowerReduction_FullMin, lowerReduction_ConfUpperBound, upperReduction_FullMin, upperReduction_PartialMin, upperReduction_ConfLowerBound);
-        result.setOrigBounds(startUpperBound, startLowerBound);
-        result.setTimeInfo(stopwatch.getTimeNs());
-        result.setMiscInfo(new BigDecimal(rootNode.getNumConfs()));
-        return result;
-        */
+        throw new UnsupportedOperationException("Multisequence results are ill-defined.");
     }
 
     public void setParallelism(Parallelism val) {
@@ -592,21 +563,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         upperReduction_FullMin = upperReduction_FullMin.add(lowerBoundWeight.subtract(energyWeight));
         lowerReduction_FullMin = lowerReduction_FullMin.add(energyWeight.subtract(upperBoundWeight));
 
-    }
-
-    private void debugBreakOnConf(int[] conf) {
-        int[] confOfInterest = new int[]{4, 5, 8, 18};
-        if (conf.length != confOfInterest.length)
-            return;
-        boolean match = true;
-        for (int i = 0; i < confOfInterest.length; i++) {
-            if (conf[i] != confOfInterest[i]) {
-                match = false;
-                break;
-            }
-        }
-        if (match)
-            System.out.println("Matched " + SimpleConfSpace.formatConfRCs(conf));
     }
 
     // We want to process internal nodes without worrying about the bound too much until we have
@@ -751,8 +707,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             maxNodes = Math.max(maxNodes, (int) Math.floor(0.1 * leafTimeAverage / internalTimeAverage));
         while (!queue.isEmpty() && (bound.internalQueue.size() < maxNodes || bound.leafQueue.size() < maxMinimizations)) {
             MultiSequenceSHARKStarNode curNode = queue.poll();
-            if(confMatch(debugConf, curNode.getConfSearchNode().assignments))
-                System.out.println("Gotcha-populate");
             Node node = curNode.getConfSearchNode();
             ConfIndex index = new ConfIndex(fullRCs.getNumPos());
 
@@ -845,7 +799,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             node.setBoundsFromConfLowerAndUpper(confCorrection, node.getPartialConfUpperBound());
             recordCorrection(oldg, confCorrection - oldg);
             //node.setBoundsFromConfLowerAndUpper(curNode.getConfLowerBound(seq) - oldg + confCorrection, curNode.getConfUpperBound(seq));
-            curNode.setBoundsFromConfLowerAndUpper(curNode.getConfLowerBound(seq) - oldg + confCorrection, curNode.getConfUpperBound(seq), seq);
+            curNode.setBoundsFromConfLowerAndUpper(curNode.getConfLowerBound(seq), curNode.getConfUpperBound(seq), seq);
             curNode.markUpdated();
             newNodes.add(curNode);
             return true;
@@ -886,9 +840,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 Node child = node.assign(nextPos, nextRc);
                 double confLowerBound = Double.POSITIVE_INFINITY;
                 double confUpperBound = Double.NEGATIVE_INFINITY;
-
-                if(confMatch(child.assignments, debugConf))
-                    System.out.println("Gotcha-prequel-drill.");
 
                 // score the child node differentially against the parent node
                 if (child.getLevel() < RCs.getNumPos()) {
@@ -998,6 +949,51 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     }
 
+    /**
+     * Returns a correction matrix with full minimizations included
+     */
+    public UpdatingEnergyMatrix genCorrectionMatrix() {
+        addFullMinimizationsToCorrectionMatrix();
+        return this.correctionMatrix;
+    }
+
+    /**
+     * Takes the full minimizations from this tree, insert them into the correction matrix
+     */
+    private void addFullMinimizationsToCorrectionMatrix(){
+        captureSubtreeFullMinimizations(this.rootNode);
+    }
+
+    /**
+     * Takes the full minimizations from this subtree, insert them into the correction matrix
+     */
+    private void captureSubtreeFullMinimizations(MultiSequenceSHARKStarNode subTreeRoot){
+        if (subTreeRoot.getChildren(precomputedSequence) == null || subTreeRoot.getChildren(precomputedSequence).size() ==0){
+            if (subTreeRoot.isMinimized(precomputedSequence)){
+                RCTuple tuple = subTreeRoot.toTuple();
+                double confEnergy = subTreeRoot.getConfLowerBound(precomputedSequence);
+                double lowerbound = this.minimizingEmat.getInternalEnergy(tuple);
+                if (lowerbound == confEnergy)
+                    throw new ValueException("Minimized energies shouldn't equal lower bounds");
+                double correction = confEnergy - lowerbound;
+                this.correctionMatrix.setHigherOrder(tuple, correction);
+            }
+        }else{
+            for (MultiSequenceSHARKStarNode node : subTreeRoot.getChildren(precomputedSequence)){
+                captureSubtreeFullMinimizations(node);
+            }
+        }
+
+    }
+
+    public List<TupE> getCorrections() {
+        return correctionMatrix.getAllCorrections().stream()
+                .map((tup) -> {
+                    return tup.permute(genConfSpaceMapping());
+                })
+                .collect(Collectors.toList());
+    }
+
     private class PartialConfNodeResult {
         Node resultNode = null;
         double upperBound = Double.NaN;
@@ -1005,38 +1001,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         public boolean isValid() {
             return resultNode != null && !Double.isNaN(upperBound) && !Double.isNaN(lowerBound);
-        }
-    }
-
-    private void checkPartialConfNode(SingleSequenceSHARKStarBound bound, List<MultiSequenceSHARKStarNode> processedNodes) {
-
-        for(MultiSequenceSHARKStarNode curNode: processedNodes) {
-            BigDecimal childUpperSum = BigDecimal.ZERO;
-            BigDecimal childLowerSum = BigDecimal.ZERO;
-            for (MultiSequenceSHARKStarNode newChild : curNode.getChildren(bound.sequence)) {
-                BigDecimal childUpper = newChild.getUpperBound(bound.sequence);
-                childUpperSum = childUpperSum.add(childUpper);
-                BigDecimal childLower = newChild.getLowerBound(bound.sequence);
-                childLowerSum = childLowerSum.add(childLower);
-            }
-            if (MathTools.isGreaterThan(childUpperSum, curNode.getUpperBound(bound.sequence)) &&
-                    !MathTools.isRelativelySame(childUpperSum, curNode.getUpperBound(bound.sequence),
-                            PartitionFunction.decimalPrecision, 0.01)) {
-                System.err.println("Error. Child has greater upper bound than parent.");
-                System.err.println(String.format("%s:%12.6e", curNode.toSeqString(bound.sequence), curNode.getUpperBound(bound.sequence)));
-                for (MultiSequenceSHARKStarNode newChild : curNode.getChildren(bound.sequence))
-                    System.err.println(String.format("%s:%12.6e", newChild.toSeqString(bound.sequence), newChild.getUpperBound(bound.sequence)));
-                System.exit(-1);
-            }
-            if (MathTools.isLessThan(childLowerSum, curNode.getLowerBound(bound.sequence)) &&
-                    !MathTools.isRelativelySame(childLowerSum, curNode.getLowerBound(bound.sequence),
-                            PartitionFunction.decimalPrecision, 0.01)) {
-                System.err.println("Error. Child has lower lower bound than parent.");
-                System.err.println(String.format("%s:%12.6e", curNode.toSeqString(bound.sequence), curNode.getLowerBound(bound.sequence)));
-                for (MultiSequenceSHARKStarNode newChild : curNode.getChildren(bound.sequence))
-                    System.err.println(String.format("%s:%12.6e", newChild.toSeqString(bound.sequence), newChild.getLowerBound(bound.sequence)));
-                System.exit(-1);
-            }
         }
     }
 
@@ -1050,10 +1014,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         int nextPos = order.getNextPos(confIndex, RCs);
         assert (!confIndex.isDefined(nextPos));
         assert (confIndex.isUndefined(nextPos));
-        if(confMatch(curNode.getConfSearchNode().assignments, debugConf)) {
-            System.out.println("Gotcha.");
-            System.out.println("Energy of partial conf: "+rigidEmat.getInternalEnergy(curNode.toTuple()));
-        }
 
         // score child nodes with tasks (possibly in parallel)
         List<MultiSequenceSHARKStarNode> children = new ArrayList<>();
@@ -1080,20 +1040,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     Node child = node.assign(nextPos, nextRc);
                     PartialConfNodeResult result = new PartialConfNodeResult();
                     result.resultNode = child;
-                    if(confMatch(child.assignments, debugConf)) {
-                        System.out.println("Gotcha-prequel.");
-                        System.out.println("Sequence is "+bound.sequence);
-                    }
 
                     // score the child node differentially against the parent node
                     if (child.getLevel() < RCs.getNumPos()) {
-                        double wtf;
-                        if(confMatch(child.assignments, debugConf)) {
-                            wtf = rigidEmat.getInternalEnergy(curNode.toTuple());
-                            double wtff = curNode.getConfSearchNode().getRigidGScore();
-                            double diffwtf = wtf-wtff;
-                            System.out.println("Difftf? "+diffwtf);
-                        }
                         double confCorrection = correctionMatrix.confE(child.assignments);
                         double diff = Math.max(confCorrection,
                                 context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc));
@@ -1101,13 +1050,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         double hdiff = context.lowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double maxhdiff = context.upperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double checkNum = 0;
-                        if(confMatch(child.assignments, debugConf)) {
-                            checkNum = rigidEmat.getInternalEnergy(new RCTuple(child.makeConf(fullRCs.getNumPos())));
-                            double diffNum = rigiddiff - checkNum;
-                            ConfIndex copy = context.index.assign(nextPos, nextRc);
-                            double checkNum2 = context.partialConfUpperBoundScorer.calc(copy, RCs);
-                            System.out.println("The weirdness is "+diffNum);
-                        }
                         //Correct for incorrect gscore.
                         //rigiddiff = rigiddiff - node.partialConfLowerbound + node.partialConfUpperBound;
                         child.setPartialConfLowerAndUpper(diff, rigiddiff);
@@ -1134,9 +1076,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         double confCorrection = correctionMatrix.confE(child.assignments);
                         double lowerbound = Math.max(minimizingEmat.confE(child.assignments), confLower);
 
-                        if(confMatch(debugConf, child.assignments)) {
-                            System.out.println("Gotcha-fullConf");
-                        }
                         if (lowerbound < confCorrection) {
                             recordCorrection(lowerbound, confCorrection - lowerbound);
                         }
@@ -1248,12 +1187,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (curNode.getConfLowerBound(bound.sequence)) + "," + (curNode.getConfUpperBound(bound.sequence)) + "]";
                         debugPrint(out);
                         curNode.markUpdated();
-                        if(confMatch(debugConf2, node.assignments)) {
-                            double lowerBound = correctionMatrix.confE(node.assignments);
-                            double pairMinLower = minimizingEmat.confE(node.assignments);
-                            double minimized = newConfLower;
-                            System.out.println("Gotcha-min");
-                        }
                         synchronized (this) {
                             if(precomputedSequence.equals(confSpace.makeUnassignedSequence()))
                                 correctionMatrix.setHigherOrder(curNode.toTuple(),
@@ -1359,7 +1292,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
 
-    private void computeDifference(RCTuple tuple, ConfEnergyCalculator ecalc) {
+    private void computeDifference(RCTuple tuple, ConfEnergyCalculator minimizingEcalc) {
         computedCorrections = true;
         if (correctedTuples.contains(tuple.stringListing()))
             return;

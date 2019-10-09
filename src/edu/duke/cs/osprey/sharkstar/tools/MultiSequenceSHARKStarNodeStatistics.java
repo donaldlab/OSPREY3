@@ -2,7 +2,9 @@ package edu.duke.cs.osprey.sharkstar.tools;
 
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarNode;
+import edu.duke.cs.osprey.sharkstar.SingleSequenceSHARKStarBound;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -122,4 +124,37 @@ public class MultiSequenceSHARKStarNodeStatistics {
             System.out.println("=====================END TREE INFO==================================");
         }
     }
+
+    public static void checkPartialConfNode(SingleSequenceSHARKStarBound bound, List<MultiSequenceSHARKStarNode> processedNodes) {
+
+        for(MultiSequenceSHARKStarNode curNode: processedNodes) {
+            BigDecimal childUpperSum = BigDecimal.ZERO;
+            BigDecimal childLowerSum = BigDecimal.ZERO;
+            for (MultiSequenceSHARKStarNode newChild : curNode.getChildren(bound.sequence)) {
+                BigDecimal childUpper = newChild.getUpperBound(bound.sequence);
+                childUpperSum = childUpperSum.add(childUpper);
+                BigDecimal childLower = newChild.getLowerBound(bound.sequence);
+                childLowerSum = childLowerSum.add(childLower);
+            }
+            if (MathTools.isGreaterThan(childUpperSum, curNode.getUpperBound(bound.sequence)) &&
+                    !MathTools.isRelativelySame(childUpperSum, curNode.getUpperBound(bound.sequence),
+                            PartitionFunction.decimalPrecision, 0.01)) {
+                System.err.println("Error. Child has greater upper bound than parent.");
+                System.err.println(String.format("%s:%12.6e", curNode.toSeqString(bound.sequence), curNode.getUpperBound(bound.sequence)));
+                for (MultiSequenceSHARKStarNode newChild : curNode.getChildren(bound.sequence))
+                    System.err.println(String.format("%s:%12.6e", newChild.toSeqString(bound.sequence), newChild.getUpperBound(bound.sequence)));
+                System.exit(-1);
+            }
+            if (MathTools.isLessThan(childLowerSum, curNode.getLowerBound(bound.sequence)) &&
+                    !MathTools.isRelativelySame(childLowerSum, curNode.getLowerBound(bound.sequence),
+                            PartitionFunction.decimalPrecision, 0.01)) {
+                System.err.println("Error. Child has lower lower bound than parent.");
+                System.err.println(String.format("%s:%12.6e", curNode.toSeqString(bound.sequence), curNode.getLowerBound(bound.sequence)));
+                for (MultiSequenceSHARKStarNode newChild : curNode.getChildren(bound.sequence))
+                    System.err.println(String.format("%s:%12.6e", newChild.toSeqString(bound.sequence), newChild.getLowerBound(bound.sequence)));
+                System.exit(-1);
+            }
+        }
+    }
+
 }

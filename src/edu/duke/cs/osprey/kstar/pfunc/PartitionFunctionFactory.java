@@ -46,7 +46,6 @@ import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound;
-import edu.duke.cs.osprey.sharkstar.SHARKStarBound;
 
 import java.math.BigInteger;
 import java.util.HashMap;
