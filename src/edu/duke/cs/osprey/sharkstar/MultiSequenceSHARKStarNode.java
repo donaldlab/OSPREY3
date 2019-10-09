@@ -307,7 +307,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         minimizedLeaf
     }
 
-    public Type type(MultiSequenceSHARKStarBound.SingleSequenceSHARKStarBound bound) {
+    public Type type(SingleSequenceSHARKStarBound bound) {
         if(level < bound.seqRCs.getNumPos())
             return  Type.internal;
         if(isMinimized(bound.sequence))

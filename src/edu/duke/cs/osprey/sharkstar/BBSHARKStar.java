@@ -32,7 +32,6 @@
 
 package edu.duke.cs.osprey.sharkstar;
 
-import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
@@ -47,7 +46,6 @@ import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
-import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -337,8 +335,8 @@ public class BBSHARKStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			MultiSequenceSHARKStarBound.SingleSequenceSHARKStarBound pfunc =
-					(MultiSequenceSHARKStarBound.SingleSequenceSHARKStarBound) pfuncFactory.makePartitionFunctionFor(settings.epsilon, sequence);
+			SingleSequenceSHARKStarBound pfunc =
+					(SingleSequenceSHARKStarBound) pfuncFactory.makePartitionFunctionFor(settings.epsilon, sequence);
 			pfunc.setReportProgress(settings.showPfuncProgress);
 
 			if (settings.showPfuncProgress == true){
