@@ -1,10 +1,5 @@
 package edu.duke.cs.osprey.sharkstar;
 
-import static edu.duke.cs.osprey.sharkstar.TestSHARKStar.loadFromCFS;
-import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.setSigFigs;
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
@@ -17,7 +12,6 @@ import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
-import edu.duke.cs.osprey.markstar.prototype.SimpleConf;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -25,10 +19,14 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
+
+import static edu.duke.cs.osprey.sharkstar.TestSHARKStar.loadFromCFS;
+import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.setSigFigs;
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.assertThat;
 
 public class TestSHARKStarBound extends TestBase {
 
@@ -243,14 +241,16 @@ public class TestSHARKStarBound extends TestBase {
 
         // precompute flexible residues
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
-        MultiSequenceSHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68, null, null);
+        MultiSequenceSHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq,
+                0.68, null, null);
         preCompFlex.compute();
         BigDecimal precomputedUpper = preCompFlex.getUpperBound(flexSeq);
         BigDecimal precomputedLower = preCompFlex.getLowerBound(flexSeq);
 
         // make the full confspace partitionFunction
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
-        MultiSequenceSHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, 0.68, preCompFlex, preCompFlex.genCorrectionMatrix());
+        MultiSequenceSHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq,
+                0.68, preCompFlex, preCompFlex.genCorrectionMatrix());
 
         // Test that the precomputed bounds are the same
         assertThat(fullPfunc.getPrecomputedUpperBound(), is(precomputedUpper));
@@ -275,7 +275,8 @@ public class TestSHARKStarBound extends TestBase {
         Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
         MultiSequenceSHARKStarBound precomp = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, 0.68,
                 null, null);
-        SingleSequenceSHARKStarBound preCompFlex = (SingleSequenceSHARKStarBound) precomp.getPartitionFunctionForSequence(flexSeq);
+        SingleSequenceSHARKStarBound preCompFlex =
+                (SingleSequenceSHARKStarBound) precomp.getPartitionFunctionForSequence(flexSeq);
         preCompFlex.compute();
 
         // make the full confspace partitionFunction
@@ -365,7 +366,8 @@ public class TestSHARKStarBound extends TestBase {
         System.out.println("====================== Running SHARK* without precomputed tree ==============================");
         System.out.println("=============================================================================================");
         // compute partition function the regular way
-        MultiSequenceSHARKStarBound regPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon, null, null);
+        MultiSequenceSHARKStarBound regPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq,
+                epsilon, null, null);
         regPfunc.compute();
 
         System.out.println("Gradient Descent pfunc: "+formatBounds(traditionalPfunc.getValues().calcLowerBound(),
@@ -704,7 +706,7 @@ public class TestSHARKStarBound extends TestBase {
         fullPfunc.compute();
 
         // Check that the number of corrections is right
-        assertThat((precomputedCorrections.getTrieSize()), is(fullPfunc.getCorrections()));
+        assertThat((precomputedCorrections.getTrieSize()), is(fullPfunc.getCorrections().size()));
 
         // Check that all of the corrections are properly stored in the new list
         RCTuple permTup = null;
