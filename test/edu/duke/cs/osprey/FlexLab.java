@@ -35,10 +35,8 @@ package edu.duke.cs.osprey;
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.*;
-import edu.duke.cs.osprey.dof.DOFBlock;
-import edu.duke.cs.osprey.dof.DegreeOfFreedom;
-import edu.duke.cs.osprey.dof.DihedralRotation;
-import edu.duke.cs.osprey.dof.FreeDihedral;
+import edu.duke.cs.osprey.dof.*;
+import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
@@ -1687,37 +1685,27 @@ public class FlexLab {
 		resTypes.put("GLN", "Glutamine");
 
 		// get the templates we care about
+		ResidueTemplateLibrary rawTemplateLib = new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+			.clearTemplateCoords()
+			.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
+			.build();
 		Map<String,ResidueTemplate> templateLib = pickTemplates(
 			new ArrayList<>(resTypes.keySet()),
-			new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
-				.clearTemplateCoords()
-				.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
-				.build()
+			rawTemplateLib
 		);
 
 		Function<String,String> quote = s -> "\'" + s + "\'";
-		Function<List<String>,String> multilineQuote = s -> "\'\'\'\n" + Streams.joinToString(s, "\n") + "\'\'\'";
+
+		// get examples of (hopefully close to ideal) backbone geometry from 1CC8
+		Molecule mol1cc8 = PDBIO.readResource("/1CC8.ss.pdb");
 
 		try (FileWriter out = new FileWriter("aminoAcids.conflib.toml")) {
-
-			// write header info
-			outPrintln(out, "");
-			outPrintln(out, "name = %s", quote.apply("Lovell rotamer library"));
-			outPrintln(out, "description = %s", multilineQuote.apply(Arrays.asList(
-				"An exact replica of the Lovell-based rotamer library from Osprey 3, ",
-				"but transformed into the new conformation library format for the Osprey GUI.",
-				"Extra rotamers have been added to sample Hydroxyl group orientations.",
-				"This library uses the newer \"v2\" template coordinates."
-			)));
-			outPrintln(out, "citation = %s", multilineQuote.apply(Arrays.asList(
-				"Lovell, Word, Richardson, and Richardson.",
-				"\"The Penultimate Rotamer Library.\"",
-				"PROTEINS: Structure, Function, and Genetics, 40:389-408 (2000)."
-			)));
 
 			for (Map.Entry<String,ResidueTemplate> entry : templateLib.entrySet()) {
 				String id = entry.getKey();
 				ResidueTemplate templ = entry.getValue();
+
+				log("Template: %s", id);
 
 				outPrintln(out, "\n[frag.%s]", id);
 				outPrintln(out, "name = \"%s\"", resTypes.get(id));
@@ -1725,42 +1713,25 @@ public class FlexLab {
 				// copy the template residue
 				Residue res = new Residue(templ.templateRes);
 				res.copyIntraBondsFrom(templ.templateRes);
+				res.template = templ;
 
-				// remove the backbone atoms and bonds,
-				// but keep track of bonds between the sidechain and the mainchain
+				// split into mainchain and sidechain atoms
 				List<Atom> mainchainAtoms = res.atoms.stream()
-					.filter(atom -> Arrays.asList("H", "N", "CA", "C", "O").contains(atom.name))
+					.filter(atom -> Arrays.asList("N", "CA", "C", "O").contains(atom.name))
+					.collect(Collectors.toList());
+				List<Atom> sidechainAtoms = res.atoms.stream()
+					.filter(atom -> !mainchainAtoms.contains(atom))
 					.collect(Collectors.toList());
 
-				class AnchorBond {
-					Atom mainchain;
-					Atom sidechain;
-					AnchorBond(Atom mainchain, Atom sidechain) {
-						this.mainchain = mainchain;
-						this.sidechain = sidechain;
-					}
-				}
-				List<AnchorBond> anchorBonds = new ArrayList<>();
-
-				log("Template: %s", id);
-
-				for (Atom mainchainAtom : mainchainAtoms) {
-					for (Atom bondedAtom : mainchainAtom.bonds) {
-
-						if (!mainchainAtoms.contains(bondedAtom)) {
-							// bonded to a sidechain atom, save the bond
-							anchorBonds.add(new AnchorBond(mainchainAtom, bondedAtom));
-						}
-
-						bondedAtom.bonds.remove(mainchainAtom);
-					}
-					res.atoms.remove(mainchainAtom);
-				}
+				// grab the CA anchor atoms from the backbone
+				Atom atomCA = res.getAtomByName("CA");
+				Atom atomN = res.getAtomByName("N");
+				Atom atomC = res.getAtomByName("C");
 
 				// write out the atoms
 				outPrintln(out, "atoms = [");
-				for (int i=0; i<res.atoms.size(); i++) {
-					Atom atom = res.atoms.get(i);
+				for (int i=0; i<sidechainAtoms.size(); i++) {
+					Atom atom = sidechainAtoms.get(i);
 					outPrintln(out, "\t{ id = %2d, name = %7s, elem = %4s },",
 						i + 1,
 						quote.apply(atom.name),
@@ -1769,13 +1740,13 @@ public class FlexLab {
 				}
 				outPrintln(out, "]");
 
-				// write out the intra bonds
-				outPrintln(out, "intraBonds = [");
-				for (Atom atom : res.atoms) {
-					int i1 = res.atoms.indexOf(atom);
+				// write out the bonds
+				outPrintln(out, "bonds = [");
+				for (Atom atom : sidechainAtoms) {
+					int i1 = sidechainAtoms.indexOf(atom);
 					for (Atom bondedAtom : atom.bonds) {
-						int i2 = res.atoms.indexOf(bondedAtom);
-						if (i2 < i1) {
+						int i2 = sidechainAtoms.indexOf(bondedAtom);
+						if (i2 >= 0 && i2 < i1) {
 							outPrintln(out, "\t[ %2d, %2d ], # %4s - %-4s",
 								i1 + 1,
 								i2 + 1,
@@ -1787,26 +1758,43 @@ public class FlexLab {
 				}
 				outPrintln(out, "]");
 
-				// collect the unique anchor atoms and give them indices
-				Map<Atom,Integer> anchorAtoms = new IdentityHashMap<>();
-				anchorBonds.stream()
-					.map(bond -> bond.mainchain)
-					.forEach(atom -> {
-						if (!anchorAtoms.containsKey(atom)) {
-							anchorAtoms.put(atom, anchorAtoms.size());
-						}
-					});
+				// TODO: write out anchors for N-terminal residues?
+				//   maybe we can use just double-type anchors for all amino acids?
 
-				// write out the inter bonds
-				outPrintln(out, "interBonds = [");
-				for (AnchorBond bond : anchorBonds) {
-					int sidechainIndex = res.atoms.indexOf(bond.sidechain);
-					int anchorIndex = anchorAtoms.get(bond.mainchain);
-					outPrintln(out, "\t[ %2d, %2d ], # %4s - %-4s",
-						sidechainIndex + 1,
-						anchorIndex + 1,
-						bond.sidechain.name,
-						"A" + (anchorIndex + 1)
+				// write out the anchors
+				outPrintln(out, "anchors = [");
+				if (id.equals("PRO")) {
+
+					// write out one double-type anchor
+					List<Atom> atomsBondedToCA = atomCA.bonds.stream()
+						.filter(bondedAtom -> sidechainAtoms.contains(bondedAtom))
+						.collect(Collectors.toList());
+					List<Atom> atomsBondedToN = atomN.bonds.stream()
+						.filter(bondedAtom -> sidechainAtoms.contains(bondedAtom))
+						.collect(Collectors.toList());
+					outPrintln(out, "\t{ id = 1, type = \"double\", bondsa = [ %s ], bondsb = [ %s ] }, # CA - %s; N - %s",
+						Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+						Streams.joinToString(atomsBondedToN, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+						Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name),
+						Streams.joinToString(atomsBondedToN, ", ", atom -> atom.name)
+					);
+
+				} else {
+
+					// write out two single-type anchors
+
+					// write the CA anchor
+					List<Atom> atomsBondedToCA = atomCA.bonds.stream()
+						.filter(bondedAtom -> sidechainAtoms.contains(bondedAtom))
+						.collect(Collectors.toList());
+					outPrintln(out, "\t{ id = 1, type = \"single\", bonds = [ %s ] }, # CA - %s",
+						Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+						Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name)
+					);
+
+					// write the N anchor
+					outPrintln(out, "\t{ id = 2, type = \"single\", bonds = [ %d ] }, # N - H",
+						sidechainAtoms.indexOf(res.getAtomByNameOrThrow("H")) + 1
 					);
 				}
 				outPrintln(out, "]");
@@ -1845,18 +1833,122 @@ public class FlexLab {
 						for (Atom atom : confRes.atoms) {
 
 							// is this a sidechain atom?
-							int i = res.getAtomIndexByName(atom.name);
+							int i = sidechainAtoms.indexOf(res.getAtomByName(atom.name));
+							if (i >= 0) {
+
+								// yup, print the coords
+								double[] coords;
+								if (atom.name.equals("H")) {
+									// use the 1CC8 geometry for the H coords, since it has a different anchor
+									coords = mol1cc8.getResByPDBResNumber("A33").getAtomByNameOrThrow("H").getCoords();
+								} else {
+									coords = atom.getCoords();
+								}
+								outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ] }, # %s",
+									i + 1,
+									coords[0], coords[1], coords[2],
+									atom.name
+								);
+							}
+						}
+						outPrintln(out, "]");
+
+						outPrintln(out, "anchorCoords = [");
+
+						// write the CA anchor
+						double[] coordsa = atomCA.getCoords();
+						double[] coordsb = atomN.getCoords();
+						double[] coordsc = atomC.getCoords();
+						outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+							coordsa[0], coordsa[1], coordsa[2],
+							coordsb[0], coordsb[1], coordsb[2],
+							coordsc[0], coordsc[1], coordsc[2]
+						);
+
+						// use geometry from 1CC8 for the N anchor
+						Residue asp32 = mol1cc8.getResByPDBResNumber("A32");
+						Residue val33 = mol1cc8.getResByPDBResNumber("A33");
+
+						// write the N anchor
+						coordsa = val33.getAtomByNameOrThrow("N").getCoords();
+						coordsb = asp32.getAtomByNameOrThrow("C").getCoords();
+						coordsc = val33.getAtomByNameOrThrow("CA").getCoords();
+						outPrintln(out, "\t{ id = 2, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # N, C, CA",
+							coordsa[0], coordsa[1], coordsa[2],
+							coordsb[0], coordsb[1], coordsb[2],
+							coordsc[0], coordsc[1], coordsc[2]
+						);
+
+						outPrintln(out, "]");
+					}
+
+				} else if (id.equals("PRO")) {
+
+					// use geometry from 1CC8 for the N anchor
+					Residue leu51 = mol1cc8.getResByPDBResNumber("A51");
+					Residue pro52 = mol1cc8.getResByPDBResNumber("A52");
+
+					// for each pucker
+					for (ProlinePucker.Direction puckerDir : ProlinePucker.Direction.values()) {
+
+						// apply the pucker
+						res.pucker = new ProlinePucker(rawTemplateLib, res);
+						res.pucker.apply(puckerDir);
+
+						outPrintln(out, "[frag.%s.conf.%s]", id, puckerDir.name().toLowerCase());
+						outPrintln(out, "name = %s", quote.apply(puckerDir.name().toLowerCase()));
+
+						outPrintln(out, "description = 'phi = %s'",
+							String.format("%.0f", Protractor.getPhiPsi(pro52)[0])
+						);
+
+						// but write out the coords using the ids from the sidechain atoms only
+						outPrintln(out, "coords = [");
+						for (Atom atom : res.atoms) {
+
+							// is this a sidechain atom?
+							int i = sidechainAtoms.indexOf(res.getAtomByName(atom.name));
 							if (i >= 0) {
 
 								// yup, print the coords
 								double[] coords = atom.getCoords();
-								outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ]}, # %s",
+								outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ] }, # %s",
 									i + 1,
 									coords[0], coords[1], coords[2],
-									res.atoms.get(i).name
+									atom.name
 								);
 							}
 						}
+						outPrintln(out, "]");
+
+						// write coords for the double anchor
+						double[] coordsa = pro52.getAtomByNameOrThrow("CA").getCoords();
+						double[] coordsb = pro52.getAtomByNameOrThrow("N").getCoords();
+						double[] coordsc = leu51.getAtomByNameOrThrow("C").getCoords();
+						double[] coordsd = pro52.getAtomByNameOrThrow("C").getCoords();
+						RigidBodyMotion xform = new RigidBodyMotion(
+							new double[][] {
+								coordsa,
+								coordsb,
+								coordsd
+							},
+							new double[][] {
+								atomCA.getCoords(),
+								atomN.getCoords(),
+								atomC.getCoords()
+							}
+						);
+						xform.transform(coordsa);
+						xform.transform(coordsb);
+						xform.transform(coordsc);
+						xform.transform(coordsd);
+						outPrintln(out, "anchorCoords = [");
+						outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ], d = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, Cn Cc",
+							coordsa[0], coordsa[1], coordsa[2],
+							coordsb[0], coordsb[1], coordsb[2],
+							coordsc[0], coordsc[1], coordsc[2],
+							coordsd[0], coordsd[1], coordsd[2]
+						);
 						outPrintln(out, "]");
 					}
 
@@ -1871,18 +1963,53 @@ public class FlexLab {
 					for (Atom atom : res.atoms) {
 
 						// is this a sidechain atom?
-						int i = res.getAtomIndexByName(atom.name);
+						int i = sidechainAtoms.indexOf(res.getAtomByName(atom.name));
 						if (i >= 0) {
 
 							// yup, print the coords
-							double[] coords = atom.getCoords();
-							outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ]}, # %s",
+							double[] coords;
+							if (atom.name.equals("H")) {
+								// use the 1CC8 geometry for the H coords, since it has a different anchor
+								coords = mol1cc8.getResByPDBResNumber("A33").getAtomByNameOrThrow("H").getCoords();
+							} else {
+								coords = atom.getCoords();
+							}
+							outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ] }, # %s",
 								i + 1,
 								coords[0], coords[1], coords[2],
-								res.atoms.get(i).name
+								atom.name
 							);
 						}
 					}
+					outPrintln(out, "]");
+
+					// write the anchor coords
+					outPrintln(out, "anchorCoords = [");
+
+					// write the CA anchor
+					double[] coordsa = atomCA.getCoords();
+					double[] coordsb = atomN.getCoords();
+					double[] coordsc = atomC.getCoords();
+					outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+						coordsa[0], coordsa[1], coordsa[2],
+						coordsb[0], coordsb[1], coordsb[2],
+						coordsc[0], coordsc[1], coordsc[2]
+					);
+
+					// use geometry from 1CC8 for the N anchor
+					Residue asp32 = mol1cc8.getResByPDBResNumber("A32");
+					Residue val33 = mol1cc8.getResByPDBResNumber("A33");
+
+					// write the N anchor
+					coordsa = val33.getAtomByNameOrThrow("N").getCoords();
+					coordsb = asp32.getAtomByNameOrThrow("C").getCoords();
+					coordsc = val33.getAtomByNameOrThrow("CA").getCoords();
+					outPrintln(out, "\t{ id = 2, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # N, C, CA",
+						coordsa[0], coordsa[1], coordsa[2],
+						coordsb[0], coordsb[1], coordsb[2],
+						coordsc[0], coordsc[1], coordsc[2]
+					);
+
 					outPrintln(out, "]");
 				}
 			}
