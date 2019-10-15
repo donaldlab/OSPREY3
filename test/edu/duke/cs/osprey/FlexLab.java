@@ -1657,8 +1657,22 @@ public class FlexLab {
 		}
 	}
 
+	enum TerminusType {
+		Non,
+		N
+	}
+
 	private static void makeConfLib()
 	throws Exception {
+
+		/* NOTE:
+			Fair warning, this function is a quite messy and gross!
+			It was meant to be a one-off throwaway function,
+			so it's not super readable or maintainable.
+			Once the design of the new conformation system is complete,
+			then hopefully we only need to ever call this function once to
+			export Osprey's v3 conformations and then we're done with it.
+		*/
 
 		Map<String,String> resTypes = new HashMap<>();
 		resTypes.put("ARG", "Arginine");
@@ -1685,14 +1699,10 @@ public class FlexLab {
 		resTypes.put("GLN", "Glutamine");
 
 		// get the templates we care about
-		ResidueTemplateLibrary rawTemplateLib = new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
 			.clearTemplateCoords()
 			.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
 			.build();
-		Map<String,ResidueTemplate> templateLib = pickTemplates(
-			new ArrayList<>(resTypes.keySet()),
-			rawTemplateLib
-		);
 
 		Function<String,String> quote = s -> "\'" + s + "\'";
 
@@ -1701,136 +1711,422 @@ public class FlexLab {
 
 		try (FileWriter out = new FileWriter("aminoAcids.conflib.toml")) {
 
-			for (Map.Entry<String,ResidueTemplate> entry : templateLib.entrySet()) {
-				String id = entry.getKey();
-				ResidueTemplate templ = entry.getValue();
+			for (TerminusType terminusType : TerminusType.values()) {
 
-				log("Template: %s", id);
+				// pick the templates for the terminus type
+				Map<String,ResidueTemplate> templates = new HashMap<>();
+				for (String resType : resTypes.keySet()) {
 
-				outPrintln(out, "\n[frag.%s]", id);
-				outPrintln(out, "name = \"%s\"", resTypes.get(id));
+					List<ResidueTemplate> resTemplates = templateLib.templates.stream()
+						.filter(t -> t.name.equalsIgnoreCase(resType))
+						.filter(t -> {
 
-				// copy the template residue
-				Residue res = new Residue(templ.templateRes);
-				res.copyIntraBondsFrom(templ.templateRes);
-				res.template = templ;
+							long numNH = t.templateRes.getAtomByNameOrThrow("N").bonds.stream()
+								.filter(atom -> atom.elementType.equalsIgnoreCase("H"))
+								.count();
+							Atom oxt = t.templateRes.getAtomByName("OXT");
 
-				// split into mainchain and sidechain atoms
-				List<Atom> mainchainAtoms = res.atoms.stream()
-					.filter(atom -> Arrays.asList("N", "CA", "C", "O").contains(atom.name))
-					.collect(Collectors.toList());
-				List<Atom> sidechainAtoms = res.atoms.stream()
-					.filter(atom -> !mainchainAtoms.contains(atom))
-					.collect(Collectors.toList());
+							TerminusType type = null;
+							if (numNH <= 1 && oxt == null) {
+								type = TerminusType.Non;
+							} else if (numNH >= 2 && oxt == null) {
+								type = TerminusType.N;
+							}
 
-				// grab the CA anchor atoms from the backbone
-				Atom atomCA = res.getAtomByName("CA");
-				Atom atomN = res.getAtomByName("N");
-				Atom atomC = res.getAtomByName("C");
+							// don't actually get N-terminal templates for N-terminal fragments
+							//return type == terminusType;
 
-				// write out the atoms
-				outPrintln(out, "atoms = [");
-				for (int i=0; i<sidechainAtoms.size(); i++) {
-					Atom atom = sidechainAtoms.get(i);
-					outPrintln(out, "\t{ id = %2d, name = %7s, elem = %4s },",
-						i + 1,
-						quote.apply(atom.name),
-						quote.apply(atom.elementType)
-					);
+							// instead, just always get the non terminal template
+							// we don't have template coords for N-terminal templates (yet?), so we can't use them
+							return type == TerminusType.Non;
+
+						})
+						.collect(Collectors.toList());
+
+					// we should have gotten just one template
+					if (resTemplates.size() != 1) {
+						throw new Error("couldn't get terminal template");
+					}
+
+					templates.put(resType, resTemplates.get(0));
 				}
-				outPrintln(out, "]");
 
-				// write out the bonds
-				outPrintln(out, "bonds = [");
-				for (Atom atom : sidechainAtoms) {
-					int i1 = sidechainAtoms.indexOf(atom);
-					for (Atom bondedAtom : atom.bonds) {
-						int i2 = sidechainAtoms.indexOf(bondedAtom);
-						if (i2 >= 0 && i2 < i1) {
-							outPrintln(out, "\t[ %2d, %2d ], # %4s - %-4s",
-								i1 + 1,
-								i2 + 1,
-								atom.name,
-								bondedAtom.name
-							);
+				for (Map.Entry<String,ResidueTemplate> entry : templates.entrySet()) {
+					String type = entry.getKey();
+					ResidueTemplate templ = entry.getValue();
+
+					String id;
+					String name;
+					switch (terminusType) {
+						case Non:
+							id = type;
+							name = resTypes.get(type);
+						break;
+						case N:
+							id = type + "n";
+							name = resTypes.get(type) + ", N-terminal";
+						break;
+						default: throw new Error();
+					}
+
+					log("Template: %s -> %s", id, name);
+
+					// if we don't have coords, then skip this fragment for now...
+					if (templ.templateRes.coords == null) {
+						log("\tNo coords, skipping");
+						continue;
+					}
+
+					if (type.equals("PRO") && terminusType == TerminusType.N) {
+						log("\tN-terminal proline not supported (yet)");
+						// no coords for N-terminal residues, so we can't
+						// properly write out a doublehalf anchored fragment for proline =(
+						continue;
+					}
+
+					outPrintln(out, "\n[frag.%s]", id);
+					outPrintln(out, "name = \"%s\"", name);
+					outPrintln(out, "type = \"%s\"", type);
+
+					// copy the template residue
+					Residue res = new Residue(templ.templateRes);
+					res.copyIntraBondsFrom(templ.templateRes);
+					res.template = templ;
+
+					// split into mainchain and sidechain atoms
+					List<Atom> mainchainAtoms = res.atoms.stream()
+						.filter(atom -> Arrays.asList("N", "CA", "C", "O").contains(atom.name))
+						.collect(Collectors.toList());
+					List<Atom> sidechainAtoms = res.atoms.stream()
+						.filter(atom -> !mainchainAtoms.contains(atom))
+						.collect(Collectors.toList());
+
+					// grab the CA anchor atoms from the backbone
+					Atom atomCA = res.getAtomByNameOrThrow("CA");
+					Atom atomN = res.getAtomByNameOrThrow("N");
+					Atom atomC = res.getAtomByNameOrThrow("C");
+
+					if (type.equals("PRO")) {
+						// nothing to do
+					} else {
+						switch (terminusType) {
+							case N:
+								// The new doublehalf anchor type would require coords for eg H1, H2, H3,
+								// but Osprey don't have them in its template library.
+								// So we'll use a single anchor for N-terminal fragments instead,
+								// and leave off all N-bonded atoms entirely.
+								// Sadly this means we can't support proline mutations in N-terminal residues for now. =(
+								// And since we're actually using coords from a non-terminal residue template,
+								// that means we need to remove the amide hydrogen, H.
+								sidechainAtoms.remove(res.getAtomByNameOrThrow("H"));
+							break;
 						}
 					}
-				}
-				outPrintln(out, "]");
 
-				// TODO: write out anchors for N-terminal residues?
-				//   maybe we can use just double-type anchors for all amino acids?
+					// write out the atoms
+					outPrintln(out, "atoms = [");
+					for (int i=0; i<sidechainAtoms.size(); i++) {
+						Atom atom = sidechainAtoms.get(i);
+						outPrintln(out, "\t{ id = %2d, name = %7s, elem = %4s },",
+							i + 1,
+							quote.apply(atom.name),
+							quote.apply(atom.elementType)
+						);
+					}
+					outPrintln(out, "]");
 
-				// write out the anchors
-				outPrintln(out, "anchors = [");
-				if (id.equals("PRO")) {
+					// write out the bonds
+					outPrintln(out, "bonds = [");
+					for (Atom atom : sidechainAtoms) {
+						int i1 = sidechainAtoms.indexOf(atom);
+						for (Atom bondedAtom : atom.bonds) {
+							int i2 = sidechainAtoms.indexOf(bondedAtom);
+							if (i2 >= 0 && i2 < i1) {
+								outPrintln(out, "\t[ %2d, %2d ], # %4s - %-4s",
+									i1 + 1,
+									i2 + 1,
+									atom.name,
+									bondedAtom.name
+								);
+							}
+						}
+					}
+					outPrintln(out, "]");
 
-					// write out one double-type anchor
 					List<Atom> atomsBondedToCA = atomCA.bonds.stream()
 						.filter(bondedAtom -> sidechainAtoms.contains(bondedAtom))
 						.collect(Collectors.toList());
 					List<Atom> atomsBondedToN = atomN.bonds.stream()
 						.filter(bondedAtom -> sidechainAtoms.contains(bondedAtom))
 						.collect(Collectors.toList());
-					outPrintln(out, "\t{ id = 1, type = \"double\", bondsa = [ %s ], bondsb = [ %s ] }, # CA - %s; N - %s",
-						Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
-						Streams.joinToString(atomsBondedToN, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
-						Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name),
-						Streams.joinToString(atomsBondedToN, ", ", atom -> atom.name)
-					);
 
-				} else {
+					// write out the anchors
+					outPrintln(out, "anchors = [");
+					switch (terminusType) {
+						case Non:
+							if (type.equals("PRO")) {
 
-					// write out two single-type anchors
+								// write out one double-type anchor
+								outPrintln(out, "\t{ id = 1, type = \"double\", bondsa = [ %s ], bondsb = [ %s ] }, # CA - %s; N - %s",
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToN, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name),
+									Streams.joinToString(atomsBondedToN, ", ", atom -> atom.name)
+								);
 
-					// write the CA anchor
-					List<Atom> atomsBondedToCA = atomCA.bonds.stream()
-						.filter(bondedAtom -> sidechainAtoms.contains(bondedAtom))
-						.collect(Collectors.toList());
-					outPrintln(out, "\t{ id = 1, type = \"single\", bonds = [ %s ] }, # CA - %s",
-						Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
-						Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name)
-					);
+							} else {
 
-					// write the N anchor
-					outPrintln(out, "\t{ id = 2, type = \"single\", bonds = [ %d ] }, # N - H",
-						sidechainAtoms.indexOf(res.getAtomByNameOrThrow("H")) + 1
-					);
-				}
-				outPrintln(out, "]");
+								// write out two single-type anchors
 
-				// does this template have rotamers?
-				if (templ.getNumRotamers() > 0) {
+								// write the CA anchor
+								outPrintln(out, "\t{ id = 1, type = \"single\", bonds = [ %s ] }, # CA - %s",
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name)
+								);
 
-					// print the conformations
-					for (int r=0; r<templ.getNumRotamers(); r++) {
+								// write the N anchor
+								outPrintln(out, "\t{ id = 2, type = \"single\", bonds = [ %s ] }, # N - %s",
+									Streams.joinToString(atomsBondedToN, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToN, ", ", atom -> atom.name)
+								);
+							}
+						break;
+						case N:
 
-						// find the rotamer info
-						Rotamer rot = rotamers.find(id, templ.getRotamericDihedrals(r));
-						if (rot == null) {
-							throw new Error("can't find rotmer into for " + id + " rotamer " + r);
+							if (type.equals("PRO")) {
+
+								// not supported yet
+								// we shouldn't ever execute here anyway, since a continue statement should have skipped this
+								assert (false);
+
+							} else {
+
+								/* if we had coords for N-terminal residues (eg H1, H2, H3), we could use this nifty new doublehalf anchor type
+								// write out one doublehalf-type anchor
+								outPrintln(out, "\t{ id = 1, type = \"doublehalf\", bondsa = [ %s ], bondsb = [ %s ] }, # CA - %s; N - %s",
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToN, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name),
+									Streams.joinToString(atomsBondedToN, ", ", atom -> atom.name)
+								);
+								*/
+
+								// alas we don't (yet?), so just use a single anchor instead
+								outPrintln(out, "\t{ id = 1, type = \"single\", bonds = [ %s ] }, # CA - %s",
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name)
+								);
+							}
+						break;
+					}
+					outPrintln(out, "]");
+
+					// does this template have rotamers?
+					if (templ.getNumRotamers() > 0) {
+
+						// print the conformations
+						for (int r=0; r<templ.getNumRotamers(); r++) {
+
+							// find the rotamer info
+							double[] dihedrals = templ.getRotamericDihedrals(r);
+							Rotamer rot = rotamers.find(type, dihedrals);
+							if (rot == null) {
+								throw new Error("can't find rotmer info for " + type + " rotamer " + r + "\ndihedrals: " + Arrays.toString(dihedrals));
+							}
+
+							// start with fresh coords for each conf
+							// and a residue that includes the backbone atoms, so the dihderal atom indices match
+							Residue confRes = new Residue(templ.templateRes);
+							confRes.template = templ;
+
+							// apply all the dihedral angles
+							double [] anglesDegrees = templ.getRotamericDihedrals(r);
+							for (int d=0; d<templ.numDihedrals; d++) {
+								new FreeDihedral(confRes, d).apply(anglesDegrees[d]);
+							}
+
+							outPrintln(out, "[frag.%s.conf.%s]", id, rot.name);
+							outPrintln(out, "name = %s", quote.apply(rot.name));
+							outPrintln(out, "description = 'chi = [%s]'",
+								Streams.joinToString(anglesDegrees, ", ", a -> String.format("%.0f", a))
+							);
+
+							// but write out the coords using the ids from the sidechain atoms only
+							outPrintln(out, "coords = [");
+							for (Atom atom : confRes.atoms) {
+
+								// is this a sidechain atom?
+								int i = sidechainAtoms.indexOf(res.getAtomByName(atom.name));
+								if (i >= 0) {
+
+									// yup, print the coords
+									double[] coords;
+									if (atom.name.equals("H")) {
+										// use the 1CC8 geometry for the H coords, since it has a different anchor
+										coords = mol1cc8.getResByPDBResNumber("A33").getAtomByNameOrThrow("H").getCoords();
+									} else {
+										coords = atom.getCoords();
+									}
+									outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ] }, # %s",
+										i + 1,
+										coords[0], coords[1], coords[2],
+										atom.name
+									);
+								}
+							}
+							outPrintln(out, "]");
+
+							outPrintln(out, "anchorCoords = [");
+
+							switch (terminusType) {
+								case Non: {
+
+									// write the CA anchor
+									double[] coordsa = atomCA.getCoords();
+									double[] coordsb = atomN.getCoords();
+									double[] coordsc = atomC.getCoords();
+									outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+										coordsa[0], coordsa[1], coordsa[2],
+										coordsb[0], coordsb[1], coordsb[2],
+										coordsc[0], coordsc[1], coordsc[2]
+									);
+
+									// use geometry from 1CC8 for the N anchor
+									Residue asp32 = mol1cc8.getResByPDBResNumber("A32");
+									Residue val33 = mol1cc8.getResByPDBResNumber("A33");
+
+									// write the N anchor
+									coordsa = val33.getAtomByNameOrThrow("N").getCoords();
+									coordsb = asp32.getAtomByNameOrThrow("C").getCoords();
+									coordsc = val33.getAtomByNameOrThrow("CA").getCoords();
+									outPrintln(out, "\t{ id = 2, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # N, C, CA",
+										coordsa[0], coordsa[1], coordsa[2],
+										coordsb[0], coordsb[1], coordsb[2],
+										coordsc[0], coordsc[1], coordsc[2]
+									);
+								} break;
+								case N: {
+
+									/* if we had coords for N-terminal residues (eg H1, H2, H3), we could use this nifty new doublehalf anchor type
+									// write the doublehalf anchor
+									double[] coordsa = atomCA.getCoords();
+									double[] coordsb = atomN.getCoords();
+									double[] coordsc = atomC.getCoords();
+									outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+										coordsa[0], coordsa[1], coordsa[2],
+										coordsb[0], coordsb[1], coordsb[2],
+										coordsc[0], coordsc[1], coordsc[2]
+									);
+									*/
+
+									// alas we don't (yet?), so just use a single anchor instead
+									double[] coordsa = atomCA.getCoords();
+									double[] coordsb = atomN.getCoords();
+									double[] coordsc = atomC.getCoords();
+									outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+										coordsa[0], coordsa[1], coordsa[2],
+										coordsb[0], coordsb[1], coordsb[2],
+										coordsc[0], coordsc[1], coordsc[2]
+									);
+
+								} break;
+							}
+
+							outPrintln(out, "]");
 						}
 
-						// start with fresh coords for each conf
-						// and a residue that includes the backbone atoms, so the dihderal atom indices match
-						Residue confRes = new Residue(templ.templateRes);
-						confRes.template = templ;
+					} else if (type.equals("PRO")) {
 
-						// apply all the dihedral angles
-						double [] anglesDegrees = templ.getRotamericDihedrals(r);
-						for (int d=0; d<templ.numDihedrals; d++) {
-							new FreeDihedral(confRes, d).apply(anglesDegrees[d]);
+						// use geometry from 1CC8 for the N anchor
+						Residue leu51 = mol1cc8.getResByPDBResNumber("A51");
+						Residue pro52 = mol1cc8.getResByPDBResNumber("A52");
+
+						// for each pucker
+						for (ProlinePucker.Direction puckerDir : ProlinePucker.Direction.values()) {
+
+							// apply the pucker
+							res.pucker = new ProlinePucker(templateLib, res);
+							res.pucker.apply(puckerDir);
+
+							outPrintln(out, "[frag.%s.conf.%s]", id, puckerDir.name().toLowerCase());
+							outPrintln(out, "name = %s", quote.apply(puckerDir.name().toLowerCase()));
+
+							outPrintln(out, "description = 'phi = %s'",
+								String.format("%.0f", Protractor.getPhiPsi(pro52)[0])
+							);
+
+							// but write out the coords using the ids from the sidechain atoms only
+							outPrintln(out, "coords = [");
+							for (Atom atom : res.atoms) {
+
+								// is this a sidechain atom?
+								int i = sidechainAtoms.indexOf(res.getAtomByName(atom.name));
+								if (i >= 0) {
+
+									// yup, print the coords
+									double[] coords = atom.getCoords();
+									outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ] }, # %s",
+										i + 1,
+										coords[0], coords[1], coords[2],
+										atom.name
+									);
+								}
+							}
+							outPrintln(out, "]");
+
+							switch (terminusType) {
+								case Non: {
+
+									// write coords for the double anchor
+									double[] coordsa = pro52.getAtomByNameOrThrow("CA").getCoords();
+									double[] coordsb = pro52.getAtomByNameOrThrow("N").getCoords();
+									double[] coordsc = leu51.getAtomByNameOrThrow("C").getCoords();
+									double[] coordsd = pro52.getAtomByNameOrThrow("C").getCoords();
+									RigidBodyMotion xform = new RigidBodyMotion(
+										new double[][] {
+											coordsa,
+											coordsb,
+											coordsd
+										},
+										new double[][] {
+											atomCA.getCoords(),
+											atomN.getCoords(),
+											atomC.getCoords()
+										}
+									);
+									xform.transform(coordsa);
+									xform.transform(coordsb);
+									xform.transform(coordsc);
+									xform.transform(coordsd);
+									outPrintln(out, "anchorCoords = [");
+									outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ], d = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, Cn Cc",
+										coordsa[0], coordsa[1], coordsa[2],
+										coordsb[0], coordsb[1], coordsb[2],
+										coordsc[0], coordsc[1], coordsc[2],
+										coordsd[0], coordsd[1], coordsd[2]
+									);
+								} break;
+								case N: {
+
+									// not supported yet
+									// we shouldn't ever execute here anyway, since a continue statement should have skipped this
+									assert (false);
+
+								} break;
+							}
+
+							outPrintln(out, "]");
 						}
 
-						outPrintln(out, "[frag.%s.conf.%s]", id, rot.name);
-						outPrintln(out, "name = %s", quote.apply(rot.name));
-						outPrintln(out, "description = 'chi = [%s]'",
-							Streams.joinToString(anglesDegrees, ", ", a -> String.format("%.0f", a))
-						);
+					} else {
+
+						// nope, no rotamers. just a single conformation
+						outPrintln(out, "[frag.%s.conf.%s]", id, type);
+						outPrintln(out, "name = %s", quote.apply(id));
 
 						// but write out the coords using the ids from the sidechain atoms only
 						outPrintln(out, "coords = [");
-						for (Atom atom : confRes.atoms) {
+						for (Atom atom : res.atoms) {
 
 							// is this a sidechain atom?
 							int i = sidechainAtoms.indexOf(res.getAtomByName(atom.name));
@@ -1853,164 +2149,65 @@ public class FlexLab {
 						}
 						outPrintln(out, "]");
 
+						// write the anchor coords
 						outPrintln(out, "anchorCoords = [");
 
-						// write the CA anchor
-						double[] coordsa = atomCA.getCoords();
-						double[] coordsb = atomN.getCoords();
-						double[] coordsc = atomC.getCoords();
-						outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
-							coordsa[0], coordsa[1], coordsa[2],
-							coordsb[0], coordsb[1], coordsb[2],
-							coordsc[0], coordsc[1], coordsc[2]
-						);
+						switch (terminusType) {
+							case Non: {
 
-						// use geometry from 1CC8 for the N anchor
-						Residue asp32 = mol1cc8.getResByPDBResNumber("A32");
-						Residue val33 = mol1cc8.getResByPDBResNumber("A33");
-
-						// write the N anchor
-						coordsa = val33.getAtomByNameOrThrow("N").getCoords();
-						coordsb = asp32.getAtomByNameOrThrow("C").getCoords();
-						coordsc = val33.getAtomByNameOrThrow("CA").getCoords();
-						outPrintln(out, "\t{ id = 2, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # N, C, CA",
-							coordsa[0], coordsa[1], coordsa[2],
-							coordsb[0], coordsb[1], coordsb[2],
-							coordsc[0], coordsc[1], coordsc[2]
-						);
-
-						outPrintln(out, "]");
-					}
-
-				} else if (id.equals("PRO")) {
-
-					// use geometry from 1CC8 for the N anchor
-					Residue leu51 = mol1cc8.getResByPDBResNumber("A51");
-					Residue pro52 = mol1cc8.getResByPDBResNumber("A52");
-
-					// for each pucker
-					for (ProlinePucker.Direction puckerDir : ProlinePucker.Direction.values()) {
-
-						// apply the pucker
-						res.pucker = new ProlinePucker(rawTemplateLib, res);
-						res.pucker.apply(puckerDir);
-
-						outPrintln(out, "[frag.%s.conf.%s]", id, puckerDir.name().toLowerCase());
-						outPrintln(out, "name = %s", quote.apply(puckerDir.name().toLowerCase()));
-
-						outPrintln(out, "description = 'phi = %s'",
-							String.format("%.0f", Protractor.getPhiPsi(pro52)[0])
-						);
-
-						// but write out the coords using the ids from the sidechain atoms only
-						outPrintln(out, "coords = [");
-						for (Atom atom : res.atoms) {
-
-							// is this a sidechain atom?
-							int i = sidechainAtoms.indexOf(res.getAtomByName(atom.name));
-							if (i >= 0) {
-
-								// yup, print the coords
-								double[] coords = atom.getCoords();
-								outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ] }, # %s",
-									i + 1,
-									coords[0], coords[1], coords[2],
-									atom.name
+								// write the CA anchor
+								double[] coordsa = atomCA.getCoords();
+								double[] coordsb = atomN.getCoords();
+								double[] coordsc = atomC.getCoords();
+								outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+									coordsa[0], coordsa[1], coordsa[2],
+									coordsb[0], coordsb[1], coordsb[2],
+									coordsc[0], coordsc[1], coordsc[2]
 								);
-							}
-						}
-						outPrintln(out, "]");
 
-						// write coords for the double anchor
-						double[] coordsa = pro52.getAtomByNameOrThrow("CA").getCoords();
-						double[] coordsb = pro52.getAtomByNameOrThrow("N").getCoords();
-						double[] coordsc = leu51.getAtomByNameOrThrow("C").getCoords();
-						double[] coordsd = pro52.getAtomByNameOrThrow("C").getCoords();
-						RigidBodyMotion xform = new RigidBodyMotion(
-							new double[][] {
-								coordsa,
-								coordsb,
-								coordsd
-							},
-							new double[][] {
-								atomCA.getCoords(),
-								atomN.getCoords(),
-								atomC.getCoords()
-							}
-						);
-						xform.transform(coordsa);
-						xform.transform(coordsb);
-						xform.transform(coordsc);
-						xform.transform(coordsd);
-						outPrintln(out, "anchorCoords = [");
-						outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ], d = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, Cn Cc",
-							coordsa[0], coordsa[1], coordsa[2],
-							coordsb[0], coordsb[1], coordsb[2],
-							coordsc[0], coordsc[1], coordsc[2],
-							coordsd[0], coordsd[1], coordsd[2]
-						);
+								// use geometry from 1CC8 for the N anchor
+								Residue asp32 = mol1cc8.getResByPDBResNumber("A32");
+								Residue val33 = mol1cc8.getResByPDBResNumber("A33");
+
+								// write the N anchor
+								coordsa = val33.getAtomByNameOrThrow("N").getCoords();
+								coordsb = asp32.getAtomByNameOrThrow("C").getCoords();
+								coordsc = val33.getAtomByNameOrThrow("CA").getCoords();
+								outPrintln(out, "\t{ id = 2, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # N, C, CA",
+									coordsa[0], coordsa[1], coordsa[2],
+									coordsb[0], coordsb[1], coordsb[2],
+									coordsc[0], coordsc[1], coordsc[2]
+								);
+							} break;
+							case N: {
+
+								/* if we had coords for N-terminal residues (eg H1, H2, H3), we could use this nifty new doublehalf anchor type
+								// write the doublehalf anchor
+								double[] coordsa = atomCA.getCoords();
+								double[] coordsb = atomN.getCoords();
+								double[] coordsc = atomC.getCoords();
+								outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+									coordsa[0], coordsa[1], coordsa[2],
+									coordsb[0], coordsb[1], coordsb[2],
+									coordsc[0], coordsc[1], coordsc[2]
+								);
+								*/
+
+								// alas we don't (yet?), so just use a single anchor instead
+								double[] coordsa = atomCA.getCoords();
+								double[] coordsb = atomN.getCoords();
+								double[] coordsc = atomC.getCoords();
+								outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+									coordsa[0], coordsa[1], coordsa[2],
+									coordsb[0], coordsb[1], coordsb[2],
+									coordsc[0], coordsc[1], coordsc[2]
+								);
+
+							} break;
+						}
+
 						outPrintln(out, "]");
 					}
-
-				} else {
-
-					// nope, no rotamers. just a single conformation
-					outPrintln(out, "[frag.%s.conf.%s]", id, id);
-					outPrintln(out, "name = %s", quote.apply(id));
-
-					// but write out the coords using the ids from the sidechain atoms only
-					outPrintln(out, "coords = [");
-					for (Atom atom : res.atoms) {
-
-						// is this a sidechain atom?
-						int i = sidechainAtoms.indexOf(res.getAtomByName(atom.name));
-						if (i >= 0) {
-
-							// yup, print the coords
-							double[] coords;
-							if (atom.name.equals("H")) {
-								// use the 1CC8 geometry for the H coords, since it has a different anchor
-								coords = mol1cc8.getResByPDBResNumber("A33").getAtomByNameOrThrow("H").getCoords();
-							} else {
-								coords = atom.getCoords();
-							}
-							outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ] }, # %s",
-								i + 1,
-								coords[0], coords[1], coords[2],
-								atom.name
-							);
-						}
-					}
-					outPrintln(out, "]");
-
-					// write the anchor coords
-					outPrintln(out, "anchorCoords = [");
-
-					// write the CA anchor
-					double[] coordsa = atomCA.getCoords();
-					double[] coordsb = atomN.getCoords();
-					double[] coordsc = atomC.getCoords();
-					outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
-						coordsa[0], coordsa[1], coordsa[2],
-						coordsb[0], coordsb[1], coordsb[2],
-						coordsc[0], coordsc[1], coordsc[2]
-					);
-
-					// use geometry from 1CC8 for the N anchor
-					Residue asp32 = mol1cc8.getResByPDBResNumber("A32");
-					Residue val33 = mol1cc8.getResByPDBResNumber("A33");
-
-					// write the N anchor
-					coordsa = val33.getAtomByNameOrThrow("N").getCoords();
-					coordsb = asp32.getAtomByNameOrThrow("C").getCoords();
-					coordsc = val33.getAtomByNameOrThrow("CA").getCoords();
-					outPrintln(out, "\t{ id = 2, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # N, C, CA",
-						coordsa[0], coordsa[1], coordsa[2],
-						coordsb[0], coordsb[1], coordsb[2],
-						coordsc[0], coordsc[1], coordsc[2]
-					);
-
-					outPrintln(out, "]");
 				}
 			}
 		}
