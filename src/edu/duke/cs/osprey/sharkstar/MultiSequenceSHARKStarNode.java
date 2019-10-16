@@ -119,8 +119,12 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     private double computeEpsilon(MathTools.BigDecimalBounds bounds) {
-        return bounds.upper.subtract(bounds.lower)
-                .divide(bounds.upper, RoundingMode.HALF_UP).doubleValue();
+        if (bounds.upper.subtract(bounds.lower).compareTo(BigDecimal.ONE) < 1) {
+            return 0;
+        } else {
+            return bounds.upper.subtract(bounds.lower)
+                    .divide(bounds.upper, RoundingMode.HALF_UP).doubleValue();
+        }
     }
 
     public double computeEpsilonErrorBounds(Sequence seq) {

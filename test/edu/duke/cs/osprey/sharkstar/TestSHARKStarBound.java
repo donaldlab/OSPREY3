@@ -612,7 +612,7 @@ public class TestSHARKStarBound extends TestBase {
             }
 
             System.out.println("========================== Now computing mutant sequence ========================");
-            Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("L117","GLY");
+            Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("L117","LEU");
             PartitionFunction muttBound =
                     fullPfunc.getPartitionFunctionForSequence(mutantSequence);
             muttBound.compute();
