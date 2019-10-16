@@ -103,7 +103,7 @@ public class EnergyMatrixCorrector {
         });
     }
 
-    RCTuple makeTuple(ConfSearch.ScoredConf conf, int... positions) {
+    public static RCTuple makeTuple(ConfSearch.ScoredConf conf, int... positions) {
         RCTuple out = new RCTuple();
         for (int pos : positions)
             out = out.addRC(pos, conf.getAssignments()[pos]);
