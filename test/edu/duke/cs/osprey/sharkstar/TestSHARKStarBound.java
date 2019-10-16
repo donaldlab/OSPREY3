@@ -594,6 +594,42 @@ public class TestSHARKStarBound extends TestBase {
         }
     }
 
+    @Test
+    public void debug3u7y() {
+        double epsilon = 0.68;
+        try {
+            SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3u7y_L_4res_9.135E+04.cfs").complex;
+            Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
+            MultiSequenceSHARKStarBound fullPfunc =
+                    (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace,
+                            fullSeq.makeRCs(mutableConfSpace), epsilon, null);
+
+            boolean runWT = true;
+            if(runWT) {
+                PartitionFunction wtBound =
+                        fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
+                wtBound.compute();
+            }
+
+            System.out.println("========================== Now computing mutant sequence ========================");
+            Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("L117","GLY");
+            PartitionFunction muttBound =
+                    fullPfunc.getPartitionFunctionForSequence(mutantSequence);
+            muttBound.compute();
+
+            PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, mutantSequence, epsilon);
+            traditionalPfunc.setReportProgress(true);
+            traditionalPfunc.compute();
+            System.out.println("Gradient Descent pfunc: "+formatBounds(traditionalPfunc.getValues().calcLowerBound(),
+                    traditionalPfunc.getValues().calcUpperBound()));
+            System.out.println("precompPfunc: " + formatBounds(muttBound.getValues().calcLowerBound(), muttBound.getValues().calcUpperBound()));
+        }
+        catch(IOException e) {
+            e.printStackTrace();
+
+        }
+    }
+
     private SimpleConfSpace make1CC8MutableContinuous_debug() {
     Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A10").build();
         strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ALA", "ARG").setContinuous();
