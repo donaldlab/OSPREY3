@@ -1698,6 +1698,11 @@ public class FlexLab {
 		resTypes.put("ASN", "Asparagine");
 		resTypes.put("GLN", "Glutamine");
 
+		Map<String,String> seqTypes = new HashMap<>();
+		seqTypes.put("HIP", "HIS");
+		seqTypes.put("HID", "HIS");
+		seqTypes.put("HIE", "HIS");
+
 		// get the templates we care about
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
 			.clearTemplateCoords()
@@ -1784,9 +1789,11 @@ public class FlexLab {
 						continue;
 					}
 
+					String seqType = seqTypes.getOrDefault(type, type);
+
 					outPrintln(out, "\n[frag.%s]", id);
 					outPrintln(out, "name = \"%s\"", name);
-					outPrintln(out, "type = \"%s\"", type);
+					outPrintln(out, "type = \"%s\"", seqType);
 
 					// copy the template residue
 					Residue res = new Residue(templ.templateRes);
