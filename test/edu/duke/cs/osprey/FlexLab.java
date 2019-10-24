@@ -1792,8 +1792,8 @@ public class FlexLab {
 					String seqType = seqTypes.getOrDefault(type, type);
 
 					outPrintln(out, "\n[frag.%s]", id);
-					outPrintln(out, "name = \"%s\"", name);
-					outPrintln(out, "type = \"%s\"", seqType);
+					outPrintln(out, "name = %s", quote.apply(name));
+					outPrintln(out, "type = %s", quote.apply(seqType));
 
 					// copy the template residue
 					Residue res = new Residue(templ.templateRes);
@@ -1874,7 +1874,7 @@ public class FlexLab {
 							if (type.equals("PRO")) {
 
 								// write out one double-type anchor
-								outPrintln(out, "\t{ id = 1, type = \"double\", bondsa = [ %s ], bondsb = [ %s ] }, # CA - %s; N - %s",
+								outPrintln(out, "\t{ id = 1, type = 'double', bondsa = [ %s ], bondsb = [ %s ] }, # CA - %s; N - %s",
 									Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
 									Streams.joinToString(atomsBondedToN, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
 									Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name),
@@ -1886,13 +1886,13 @@ public class FlexLab {
 								// write out two single-type anchors
 
 								// write the CA anchor
-								outPrintln(out, "\t{ id = 1, type = \"single\", bonds = [ %s ] }, # CA - %s",
+								outPrintln(out, "\t{ id = 1, type = 'single', bonds = [ %s ] }, # CA - %s",
 									Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
 									Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name)
 								);
 
 								// write the N anchor
-								outPrintln(out, "\t{ id = 2, type = \"single\", bonds = [ %s ] }, # N - %s",
+								outPrintln(out, "\t{ id = 2, type = 'single', bonds = [ %s ] }, # N - %s",
 									Streams.joinToString(atomsBondedToN, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
 									Streams.joinToString(atomsBondedToN, ", ", atom -> atom.name)
 								);
@@ -1910,7 +1910,7 @@ public class FlexLab {
 
 								/* if we had coords for N-terminal residues (eg H1, H2, H3), we could use this nifty new doublehalf anchor type
 								// write out one doublehalf-type anchor
-								outPrintln(out, "\t{ id = 1, type = \"doublehalf\", bondsa = [ %s ], bondsb = [ %s ] }, # CA - %s; N - %s",
+								outPrintln(out, "\t{ id = 1, type = 'doublehalf', bondsa = [ %s ], bondsb = [ %s ] }, # CA - %s; N - %s",
 									Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
 									Streams.joinToString(atomsBondedToN, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
 									Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name),
@@ -1919,13 +1919,82 @@ public class FlexLab {
 								*/
 
 								// alas we don't (yet?), so just use a single anchor instead
-								outPrintln(out, "\t{ id = 1, type = \"single\", bonds = [ %s ] }, # CA - %s",
+								outPrintln(out, "\t{ id = 1, type = 'single', bonds = [ %s ] }, # CA - %s",
 									Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
 									Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name)
 								);
 							}
 						break;
 					}
+					outPrintln(out, "]");
+
+					Function<String,String> findAtomId = (atomName) -> {
+						if (atomName.equals("N")) {
+							// for N, look at the anchor atoms
+							if (type.equals("PRO")) {
+								return "[1,2]";
+							} else {
+								return "[1,2]";
+							}
+						} else if (atomName.equals("CA")) {
+							// for CA, look at the anchor atoms
+							if (type.equals("PRO")) {
+								return "[1,1]";
+							} else {
+								return "[1,1]";
+							}
+						} else {
+							// for everything else, look at the sidechain atoms
+							int index = sidechainAtoms.indexOf(res.getAtomByNameOrThrow(atomName));
+							if (index < 0) {
+								throw new Error(String.format("can't find atom %s in res type %s", atomName, type));
+							}
+							return Integer.toString(index + 1);
+						}
+					};
+
+					// write out the degrees of freedom
+					outPrintln(out, "dofs = [");
+					int nextDofId = 1;
+
+					// chi angles
+					for (MeasurementLibrary.Measurement measurement : chiLib.get(type)) {
+						if (measurement instanceof MeasurementLibrary.DihedralAngle) {
+							MeasurementLibrary.DihedralAngle dihedral = (MeasurementLibrary.DihedralAngle)measurement;
+
+							outPrintln(out, "\t{ id = %2d, type = 'dihedral', a = %s, b = %s, c = %s, d = %s }, # %s, %s, %s, %s",
+								nextDofId++,
+								findAtomId.apply(dihedral.a),
+								findAtomId.apply(dihedral.b),
+								findAtomId.apply(dihedral.c),
+								findAtomId.apply(dihedral.d),
+								dihedral.a,
+								dihedral.b,
+								dihedral.c,
+								dihedral.d
+							);
+						}
+					}
+
+					// H-group dihedral angles
+					for (MeasurementLibrary.Measurement measurement : methylLib.get(type)) {
+						if (measurement instanceof MeasurementLibrary.DihedralAnglesMinDist) {
+							MeasurementLibrary.DihedralAnglesMinDist dihedral = (MeasurementLibrary.DihedralAnglesMinDist)measurement;
+
+							outPrintln(out, "\t{ id = %2d, type = 'dihedral', a = %s, b = %s, c = %s, d = %s }, # %s, %s, %s, %s",
+								nextDofId++,
+								findAtomId.apply(dihedral.a),
+								findAtomId.apply(dihedral.b),
+								findAtomId.apply(dihedral.c),
+								findAtomId.apply(dihedral.d[0]),
+								dihedral.a,
+								dihedral.b,
+								dihedral.c,
+								dihedral.d[0]
+							);
+						}
+					}
+
 					outPrintln(out, "]");
 
 					// does this template have rotamers?
