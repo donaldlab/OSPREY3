@@ -117,7 +117,7 @@ public class EnergyCalculator implements AutoCleanable {
 		 * be resolved, and the conformation falls into the well again, return positive infinity
 		 * energy instead of effectively negative infinity.
 		 *
-		 * If you wish to use the inifinite well detection and resolution, -10,000 kcal/mol is
+		 * If you wish to use the infinite well detection and resolution, -10,000 kcal/mol is
 		 * probably a good threshold to choose.
 		 */
 		private Double infiniteWellEnergy = null;

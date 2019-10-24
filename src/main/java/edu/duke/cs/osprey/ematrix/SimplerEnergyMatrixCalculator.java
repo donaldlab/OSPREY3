@@ -71,7 +71,7 @@ public class SimplerEnergyMatrixCalculator {
 		 * 
 		 * @warning If design settings are changed between runs, Osprey will make
 		 * some effort to detect that the energy matrix cache is out-of-date and compute a
-		 * new energy matrix instead of usng the cached, incorrect one. Osprey might not detect
+		 * new energy matrix instead of using the cached, incorrect one. Osprey might not detect
 		 * all design changes though, and incorrectly reuse a cached energy matrix, so it
 		 * is best to manually delete the entry matrix cache file after changing design settings.
 		 */
