@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarNode.Node;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.sharkstar.tools.SHARKStarEnsembleAnalyzer;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -88,6 +89,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     EnergyMatrix rigidEmat;
     UpdatingEnergyMatrix correctionMatrix;
     ConfEnergyCalculator minimizingEcalc;
+
+    private SHARKStarEnsembleAnalyzer ensembleAnalyzer;
     private Stopwatch stopwatch = new Stopwatch().start();
     // Variables for reporting pfunc reductions more accurately
     BigDecimal startUpperBound = null; //can't start with infinity
@@ -119,7 +122,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    private static final int[] debugConf = new int[]{4, -1, 8, 9};
+    public static final int[] debugConf = new int[]{};//4, -1, 8, 9};
     private static final int[] debugConf2 = new int[]{};//{8, 3, 4, 5, 8};
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -185,6 +188,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         progress = new MARKStarProgress(fullRCs.getNumPos());
         //confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
         confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
+        ensembleAnalyzer = new SHARKStarEnsembleAnalyzer(minimizingEcalc, minimizingEmat);
+
         setParallelism(parallelism);
 
         // Recording pfunc starting bounds
@@ -390,6 +395,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 precompFlex.getPartitionFunctionForSequence(unassignedFlex);
         SingleSequenceSHARKStarBound bound = (SingleSequenceSHARKStarBound) flexBound;
         flexBound.compute();
+        precompFlex.printEnsembleAnalysis();
         processPrecomputedFlex(precompFlex);
         return precompFlex;
     }
@@ -1216,7 +1222,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         if (newConfUpper > oldConfUpper) {
                             System.err.println("Upper bounds got worse after minimization:" + newConfUpper
                                     + " > " + (oldConfUpper) + ". Rejecting minimized energy.");
-                            System.err.println("Node info: " + node);
+                            System.err.println("Node info: " + curNode.toSeqString(bound.sequence));
 
                             newConfUpper = oldConfUpper;
                             newConfLower = oldConfUpper;
@@ -1226,6 +1232,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         node.setPartialConfLowerAndUpper(newConfLower, newConfUpper);
                         String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (curNode.getConfLowerBound(bound.sequence)) + "," + (curNode.getConfUpperBound(bound.sequence)) + "]";
                         debugPrint(out);
+                        ensembleAnalyzer.analyzeFullConf(analysis, conf);
                         curNode.markUpdated();
                         synchronized (this) {
                             if(precomputedSequence.equals(confSpace.makeUnassignedSequence()))
@@ -1331,6 +1338,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     public void setCachePattern(String pattern){
         this.cachePattern = pattern;
-     }
+    }
+
+    public void printEnsembleAnalysis() {
+        ensembleAnalyzer.printStats();
+    }
+
 
 }

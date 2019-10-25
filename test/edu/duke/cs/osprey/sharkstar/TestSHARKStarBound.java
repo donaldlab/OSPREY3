@@ -511,6 +511,7 @@ public class TestSHARKStarBound extends TestBase {
         PartitionFunction muttBound =
                 fullPfunc.getPartitionFunctionForSequence(mutantSequence);
         muttBound.compute();
+        fullPfunc.printEnsembleAnalysis();
 
         PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, mutantSequence, epsilon);
         traditionalPfunc.setReportProgress(true);
@@ -568,7 +569,7 @@ public class TestSHARKStarBound extends TestBase {
 
     @Test
     public void debug3ma2Bigger() {
-        double epsilon = 0.68;
+        double epsilon = 0.999;
         try {
             SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_D_10res_1.140E+10.cfs").complex;
             Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
@@ -588,6 +589,7 @@ public class TestSHARKStarBound extends TestBase {
             PartitionFunction muttBound =
                     fullPfunc.getPartitionFunctionForSequence(mutantSequence);
             muttBound.compute();
+            fullPfunc.printEnsembleAnalysis();
 
             PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, mutantSequence, epsilon);
             traditionalPfunc.setReportProgress(true);
@@ -604,7 +606,7 @@ public class TestSHARKStarBound extends TestBase {
 
     @Test
     public void debug3u7y() {
-        double epsilon = 0.68;
+        double epsilon = 0.3;
         try {
             SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3u7y_L_4res_9.135E+04.cfs").complex;
             Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
@@ -624,6 +626,7 @@ public class TestSHARKStarBound extends TestBase {
             PartitionFunction muttBound =
                     fullPfunc.getPartitionFunctionForSequence(mutantSequence);
             muttBound.compute();
+            fullPfunc.printEnsembleAnalysis();
 
             PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, mutantSequence, epsilon);
             traditionalPfunc.setReportProgress(true);
@@ -666,6 +669,46 @@ public class TestSHARKStarBound extends TestBase {
                 .addStrands(strand1)
                 .setShellDistance(9)
                 .build();
+    }
+
+    public void testSpecificComplex(String cfsFile, double epsilon, String mutRes, String AAs){
+        try {
+            SimpleConfSpace mutableConfSpace = loadFromCFS(cfsFile).complex;
+            Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
+            MultiSequenceSHARKStarBound fullPfunc =
+                    (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace,
+                            fullSeq.makeRCs(mutableConfSpace), epsilon, null);
+
+            boolean runWT = true;
+            if(runWT) {
+                PartitionFunction wtBound =
+                        fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
+                wtBound.compute();
+            }
+
+            System.out.println("========================== Now computing mutant sequence ========================");
+            Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set(mutRes, AAs);
+            PartitionFunction muttBound =
+                    fullPfunc.getPartitionFunctionForSequence(mutantSequence);
+            muttBound.compute();
+            fullPfunc.printEnsembleAnalysis();
+
+            PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, mutantSequence, epsilon);
+            traditionalPfunc.setReportProgress(true);
+            traditionalPfunc.compute();
+            System.out.println("Gradient Descent pfunc: "+formatBounds(traditionalPfunc.getValues().calcLowerBound(),
+                    traditionalPfunc.getValues().calcUpperBound()));
+            System.out.println("precompPfunc: " + formatBounds(muttBound.getValues().calcLowerBound(), muttBound.getValues().calcUpperBound()));
+        }
+        catch(IOException e) {
+            e.printStackTrace();
+
+        }
+    }
+
+    @Test
+    public void testComplex() {
+        testSpecificComplex("test-resources/2p4a_A_5res_5.846E+05.cfs", 0.99, "A61", "ALA");
     }
 
     public void testMultiSequenceCorrectness() {
