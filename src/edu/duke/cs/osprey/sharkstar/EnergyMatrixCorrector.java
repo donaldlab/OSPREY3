@@ -56,6 +56,15 @@ public class EnergyMatrixCorrector {
         double threshhold = 0.1;
         double minDifference = 0.9;
         double triplethreshhold = 0.3;
+        storePartialConfCorrections(conf, epsilonBound, diff, sortedPairwiseTerms2,
+                threshhold, minDifference, triplethreshhold);
+        correctionTime.stop();
+        ecalc.tasks.waitForFinish();
+    }
+
+    private void storePartialConfCorrections(ConfSearch.ScoredConf conf, double epsilonBound, EnergyMatrix diff,
+                                             List<TupE> sortedPairwiseTerms2, double threshhold, double minDifference,
+                                             double triplethreshhold) {
         double maxDiff = sortedPairwiseTerms2.get(0).E;
         for (int i = 0; i < sortedPairwiseTerms2.size(); i++) {
             TupE tupe = sortedPairwiseTerms2.get(i);
@@ -80,8 +89,6 @@ public class EnergyMatrixCorrector {
             multiSequenceSHARKStarBound.setNumPartialMinimizations(multiSequenceSHARKStarBound.getNumPartialMinimizations() + localMinimizations);
             multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(localMinimizations, epsilonBound);
         }
-        correctionTime.stop();
-        ecalc.tasks.waitForFinish();
     }
 
     void computeDifference(RCTuple tuple, ConfEnergyCalculator minimizingEcalc) {

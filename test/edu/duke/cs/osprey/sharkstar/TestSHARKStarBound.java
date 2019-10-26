@@ -111,7 +111,7 @@ public class TestSHARKStarBound extends TestBase {
                 MSSHARKStarPfuncFactory.setUseMSSHARKStar(confEcalcRigid, preComputedFlex);
             // filter the global sequence to this conf space
             // make the partition function
-            MSSHARKStarPfuncFactory.setCachePattern("defualt");
+            MSSHARKStarPfuncFactory.setCachePattern("default");
 
             return MSSHARKStarPfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
     }
@@ -464,7 +464,7 @@ public class TestSHARKStarBound extends TestBase {
     @Test
     public void testContinuous_3ma2() {
 
-        double epsilon = 0.68;
+        double epsilon = 0.99;
         try {
             SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs").complex;
             Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
@@ -475,6 +475,10 @@ public class TestSHARKStarBound extends TestBase {
             PartitionFunction wtBound =
                     fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
             wtBound.compute();
+            fullPfunc.printEnsembleAnalysis();
+
+            if(true)
+                return;
 
             System.out.println("========================== Now computing mutant sequence ========================");
             Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("A5","MET") .set("A3","ILE");
