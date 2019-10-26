@@ -1190,7 +1190,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     protected void processFullConfNode(SingleSequenceSHARKStarBound bound, List<MultiSequenceSHARKStarNode> newNodes,
                                        MultiSequenceSHARKStarNode curNode, Node node) {
         PriorityQueue<MultiSequenceSHARKStarNode> queue = bound.fringeNodes;
-        if(curNode.getConfLowerBound(bound.sequence) > 10 && queue.peek().getConfLowerBound(bound.sequence) < 0) {
+        if(curNode.getConfLowerBound(bound.sequence) > 10 &&
+                (!bound.fringeNodes.isEmpty() && bound.fringeNodes.peek().getConfLowerBound(bound.sequence) < 0
+                || !bound.internalQueue.isEmpty() && bound.internalQueue.peek().getConfLowerBound(bound.sequence) < 0
+                || !bound.leafQueue.isEmpty() && bound.leafQueue.peek().getConfLowerBound(bound.sequence) < 0)) {
             System.out.println("not processing high-energy conformation");
             newNodes.add(curNode);
             return;
