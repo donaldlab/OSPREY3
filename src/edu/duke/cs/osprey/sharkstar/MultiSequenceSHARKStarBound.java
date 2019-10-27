@@ -492,6 +492,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             if (debug) {
                 rootNode.updateSubtreeBounds(sequenceBound.sequence);
                 debugHeap(sequenceBound.fringeNodes);
+                debugHeap(sequenceBound.leafQueue);
+                debugHeap(sequenceBound.internalQueue);
                 //printTree(sequenceBound.sequence,rootNode);
             }
             tightenBoundInPhases(sequenceBound);
@@ -1190,6 +1192,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     protected void processFullConfNode(SingleSequenceSHARKStarBound bound, List<MultiSequenceSHARKStarNode> newNodes,
                                        MultiSequenceSHARKStarNode curNode, Node node) {
         PriorityQueue<MultiSequenceSHARKStarNode> queue = bound.fringeNodes;
+        /*
         if(curNode.getConfLowerBound(bound.sequence) > 10 &&
                 (!bound.fringeNodes.isEmpty() && bound.fringeNodes.peek().getConfLowerBound(bound.sequence) < 0
                 || !bound.internalQueue.isEmpty() && bound.internalQueue.peek().getConfLowerBound(bound.sequence) < 0
@@ -1198,6 +1201,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             newNodes.add(curNode);
             return;
         }
+        */
         double confCorrection = correctionMatrix.confE(node.assignments);
         if (curNode.getConfLowerBound(bound.sequence) < confCorrection || node.getPartialConfLowerBound() < confCorrection) {
             double oldg = node.getPartialConfLowerBound();

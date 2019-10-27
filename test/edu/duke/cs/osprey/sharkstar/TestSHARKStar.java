@@ -620,7 +620,7 @@ public class TestSHARKStar {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs");
 			//runBBSHARKStar(confSpaces, 0.9999);
-			runBBKStar(confSpaces, 1, 0.68, null, 5, true);
+			runBBKStar(confSpaces, 3, 0.99999999999, null, 5, true);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
