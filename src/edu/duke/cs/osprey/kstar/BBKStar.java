@@ -619,6 +619,9 @@ public class BBKStar {
 			PriorityQueue<Node> tree = new PriorityQueue<>();
 			tree.add(new MultiSequenceNode(complex.confSpace.makeUnassignedSequence(), confDBs));
 
+			// Ensemble stat hack
+			PartitionFunction lastPfunc = null;
+
 			// start searching the tree
 			System.out.println("computing K* scores for the " + bbkstarSettings.numBestSequences + " best sequences to epsilon = " + kstarSettings.epsilon + " ...");
 			kstarSettings.scoreWriters.writeHeader();
@@ -637,6 +640,7 @@ public class BBKStar {
 
 							// sequence is finished, return it!
 							reportSequence(ssnode, scoredSequences);
+							lastPfunc = ssnode.complex;
 
 						break;
 						case Estimating:
@@ -653,9 +657,6 @@ public class BBKStar {
 							// from here on out, it's all blocked sequences
 							// so it's ok to put them in the sorted order now
 							reportSequence(ssnode, scoredSequences);
-							ssnode.complex.printStats();
-							ssnode.ligand.printStats();
-							ssnode.protein.printStats();
 					}
 
 				} else if (node instanceof MultiSequenceNode) {
@@ -681,6 +682,8 @@ public class BBKStar {
 					throw new Error("BBK* ended, but the tree isn't empty and we didn't return enough sequences. This is a bug.");
 				}
 			}
+			System.out.println("Trying to print ensemble stats.");
+			lastPfunc.printStats();
 		}
 
 		return scoredSequences;
