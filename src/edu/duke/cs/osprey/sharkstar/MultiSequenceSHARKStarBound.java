@@ -1255,7 +1255,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         node.setPartialConfLowerAndUpper(newConfLower, newConfUpper);
                         String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (curNode.getConfLowerBound(bound.sequence)) + "," + (curNode.getConfUpperBound(bound.sequence)) + "]";
                         debugPrint(out);
-                        //ensembleAnalyzer.analyzeFullConf(analysis, conf);
+                        ensembleAnalyzer.analyzeFullConf(analysis, conf);
                         curNode.markUpdated();
                         synchronized (this) {
                             if(precomputedSequence.equals(confSpace.makeUnassignedSequence()))

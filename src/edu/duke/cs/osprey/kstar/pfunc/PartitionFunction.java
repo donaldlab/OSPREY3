@@ -256,6 +256,10 @@ public interface PartitionFunction {
 
 	void compute(int maxNumConfs);
 
+	default void printStats() {
+		System.out.println("(no stats collected.)");
+	}
+
 	default void compute() {
 		compute(Integer.MAX_VALUE);
 	}

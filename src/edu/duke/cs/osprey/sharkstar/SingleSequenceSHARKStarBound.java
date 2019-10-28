@@ -215,6 +215,10 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         return this.fringeNodes.getPartitionFunctionLowerBound().compareTo(BigDecimal.ZERO) > 0;
     }
 
+    @Override
+    public void printStats() {
+        multisequenceBound.printEnsembleAnalysis();
+    }
     public boolean errors() {
         return errors;
     }
