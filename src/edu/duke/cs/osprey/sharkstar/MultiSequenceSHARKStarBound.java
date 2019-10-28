@@ -122,7 +122,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{};//4, -1, 8, 9};
+    public static final int[] debugConf = new int[]{-1, 5, 3, 3, 8, 3};//4, -1, 8, 9};
     private static final int[] debugConf2 = new int[]{};//{8, 3, 4, 5, 8};
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -645,6 +645,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             System.out.println("This is a bad time.");
         }
         System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
+        if(!bound.internalQueue.isEmpty() &&
+                MathTools.isLessThan(internalZ, bound.internalQueue.peek().getUpperBound(bound.sequence)))
+            System.out.println("Should have used a node from the internal queue. How??");
         if (MathTools.isLessThan(internalZ, leafZ)) {
             numNodes = leafNodes.size();
             System.out.println("Processing " + numNodes + " leaf nodes...");
@@ -713,8 +716,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         int maxNodes = 1000;
         if (leafTimeAverage > 0)
             maxNodes = Math.max(maxNodes, (int) Math.floor(0.1 * leafTimeAverage / internalTimeAverage));
-        while (!queue.isEmpty() && (bound.internalQueue.size() < maxNodes || bound.leafQueue.size() < maxMinimizations)) {
+        while (!queue.isEmpty() && (bound.internalQueue.size() < maxNodes
+                || (!bound.leafQueue.isEmpty() && MathTools.isGreaterThan(queue.peek().getErrorBound(bound.sequence),
+                                                                            bound.leafQueue.peek().getErrorBound()))
+                || bound.leafQueue.size() < maxMinimizations)) {
             MultiSequenceSHARKStarNode curNode = queue.poll();
+            if(confMatch(debugConf, curNode.getConfSearchNode().assignments))
+                System.out.println("Gotcha-populate");
             Node node = curNode.getConfSearchNode();
             ConfIndex index = new ConfIndex(fullRCs.getNumPos());
 
@@ -761,6 +769,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         List<MultiSequenceSHARKStarNode> leftovers = new ArrayList<>();
         while (!queue.isEmpty() && list.size() < max) {
             MultiSequenceSHARKStarNode curNode = queue.poll();
+            if(confMatch(debugConf, curNode.getConfSearchNode().assignments))
+                System.out.println("Gotcha-fillList");
             if (correctedNode(leftovers, curNode, curNode.getConfSearchNode(), seq)) {
                 continue;
             }
@@ -1192,7 +1202,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     protected void processFullConfNode(SingleSequenceSHARKStarBound bound, List<MultiSequenceSHARKStarNode> newNodes,
                                        MultiSequenceSHARKStarNode curNode, Node node) {
         PriorityQueue<MultiSequenceSHARKStarNode> queue = bound.fringeNodes;
-        /*
         if(curNode.getConfLowerBound(bound.sequence) > 10 &&
                 (!bound.fringeNodes.isEmpty() && bound.fringeNodes.peek().getConfLowerBound(bound.sequence) < 0
                 || !bound.internalQueue.isEmpty() && bound.internalQueue.peek().getConfLowerBound(bound.sequence) < 0
@@ -1201,7 +1210,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             newNodes.add(curNode);
             return;
         }
-        */
         double confCorrection = correctionMatrix.confE(node.assignments);
         if (curNode.getConfLowerBound(bound.sequence) < confCorrection || node.getPartialConfLowerBound() < confCorrection) {
             double oldg = node.getPartialConfLowerBound();
@@ -1244,7 +1252,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         node.setPartialConfLowerAndUpper(newConfLower, newConfUpper);
                         String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (curNode.getConfLowerBound(bound.sequence)) + "," + (curNode.getConfUpperBound(bound.sequence)) + "]";
                         debugPrint(out);
-                        ensembleAnalyzer.analyzeFullConf(analysis, conf);
+                        //ensembleAnalyzer.analyzeFullConf(analysis, conf);
                         curNode.markUpdated();
                         synchronized (this) {
                             if(precomputedSequence.equals(confSpace.makeUnassignedSequence()))

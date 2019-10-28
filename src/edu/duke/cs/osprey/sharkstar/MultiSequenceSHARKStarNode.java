@@ -418,10 +418,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
 
         public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
-            if(level == assignments.length) {
-                partialConfLowerBound = lowerBound;
-                partialConfUpperBound = upperBound;
-            }
+            partialConfLowerBound = lowerBound;
+            partialConfUpperBound = upperBound;
             if(upperBound == Double.NaN)
                 System.err.println("????");
             if (lowerBound - upperBound > 1e-5) {
