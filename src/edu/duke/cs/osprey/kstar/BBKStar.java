@@ -653,6 +653,9 @@ public class BBKStar {
 							// from here on out, it's all blocked sequences
 							// so it's ok to put them in the sorted order now
 							reportSequence(ssnode, scoredSequences);
+							ssnode.complex.printStats();
+							ssnode.ligand.printStats();
+							ssnode.protein.printStats();
 					}
 
 				} else if (node instanceof MultiSequenceNode) {
