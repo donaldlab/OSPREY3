@@ -49,8 +49,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     // max confs minimized, -1 means infinite.
     private int maxNumConfs = -1;
 
-    protected int maxMinimizations = 1;
-
     // the number of full conformations scored OR energied
     private int numConfsScored = 0;
 
@@ -467,7 +465,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     @Override
     public void compute(int maxNumConfs) {
         throw new UnsupportedOperationException("Do not try to run Multisequence SHARK* bounds directly. Call " +
-                "makeBoundFor() and use the generated single sequence bound.");
+                "getPartitionFunctionForSequence() and use the generated single sequence bound.");
     }
 
     public void computeForSequence(int maxNumConfs, SingleSequenceSHARKStarBound sequenceBound) {
@@ -662,8 +660,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             leafTime.stop();
             leafTimeAverage = leafTime.getTimeS();
             System.out.println("Processed " + numNodes + " leaves in " + leafTimeAverage + " seconds.");
-            if (maxMinimizations < parallelism.numThreads)
-                maxMinimizations++;
+            if (bound.maxMinimizations < parallelism.numThreads)
+                bound.maxMinimizations++;
             bound.internalQueue.addAll(internalNodes);
         } else {
             numNodes = internalNodes.size();
@@ -719,7 +717,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         while (!queue.isEmpty() && (bound.internalQueue.size() < maxNodes
                 || (!bound.leafQueue.isEmpty() && MathTools.isGreaterThan(queue.peek().getErrorBound(bound.sequence),
                                                                             bound.leafQueue.peek().getErrorBound()))
-                || bound.leafQueue.size() < maxMinimizations)) {
+                || bound.leafQueue.size() < bound.maxMinimizations)) {
             MultiSequenceSHARKStarNode curNode = queue.poll();
             if(confMatch(debugConf, curNode.getConfSearchNode().assignments))
                 System.out.println("Gotcha-populate");
@@ -760,7 +758,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         }
 
         ZSums[0] = fillListFromQueue(internalNodes, bound.internalQueue, maxNodes, bound.sequence);
-        ZSums[1] = fillListFromQueue(leafNodes, bound.leafQueue, maxMinimizations, bound.sequence);
+        ZSums[1] = fillListFromQueue(leafNodes, bound.leafQueue, bound.maxMinimizations, bound.sequence);
         queue.addAll(leftoverLeaves);
     }
 
@@ -815,6 +813,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         if (node.getPartialConfLowerBound() < confCorrection) {
             double oldg = node.getPartialConfLowerBound();
             node.setBoundsFromConfLowerAndUpper(confCorrection, node.getPartialConfUpperBound());
+            node.setPartialConfLowerAndUpper(confCorrection, node.getPartialConfUpperBound());
             recordCorrection(oldg, confCorrection - oldg);
             //node.setBoundsFromConfLowerAndUpper(curNode.getConfLowerBound(seq) - oldg + confCorrection, curNode.getConfUpperBound(seq));
             curNode.setBoundsFromConfLowerAndUpper(curNode.getConfLowerBound(seq), curNode.getConfUpperBound(seq), seq);
@@ -1202,6 +1201,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     protected void processFullConfNode(SingleSequenceSHARKStarBound bound, List<MultiSequenceSHARKStarNode> newNodes,
                                        MultiSequenceSHARKStarNode curNode, Node node) {
         PriorityQueue<MultiSequenceSHARKStarNode> queue = bound.fringeNodes;
+        if(curNode.isMinimized(bound.sequence)) {
+            bound.addFinishedNode(curNode);
+            return;
+        }
         if(curNode.getConfLowerBound(bound.sequence) > 10 &&
                 (!bound.fringeNodes.isEmpty() && bound.fringeNodes.peek().getConfLowerBound(bound.sequence) < 0
                 || !bound.internalQueue.isEmpty() && bound.internalQueue.peek().getConfLowerBound(bound.sequence) < 0

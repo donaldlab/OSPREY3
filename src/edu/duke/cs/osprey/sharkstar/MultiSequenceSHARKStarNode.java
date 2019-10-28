@@ -242,13 +242,19 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     public List<MultiSequenceSHARKStarNode> getChildren(Sequence seq) {
         if(seq == null)
             return children;
-        if(!childrenMap.containsKey(seq))
-            childrenMap.put(seq, populateChildren(seq));
-        checkChildren(seq);
+        initChildren(seq);
+        if(debug)
+            checkChildren(seq);
         return childrenMap.get(seq);
     }
 
+    private void initChildren(Sequence seq) {
+        if(!childrenMap.containsKey(seq))
+            childrenMap.put(seq, populateChildren(seq));
+    }
+
     private void checkChildren(Sequence seq) {
+        initChildren(seq);
         Set<Integer> rcs = new HashSet<>();
         List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes = childrenMap.get(seq);
         for(MultiSequenceSHARKStarNode node: multiSequenceSHARKStarNodes) {
@@ -417,25 +423,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             }
         }
 
-        public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
-            partialConfLowerBound = lowerBound;
-            partialConfUpperBound = upperBound;
-            if(upperBound == Double.NaN)
-                System.err.println("????");
-            if (lowerBound - upperBound > 1e-5) {
-                if (debug)
-                    System.out.println("Incorrect conf bounds set.");
-                double temp = lowerBound;
-                lowerBound = upperBound;
-                upperBound = temp;
-                lowerBound = Math.min(0, lowerBound);
-                upperBound = Math.max(lowerBound, upperBound);
-            }
-            //updateConfLowerBound(lowerBound);
-            //updateConfUpperBound(upperBound);
-        }
-
-
         private void updateConfLowerBound(double tighterLower) {
             if (tighterLower < 10 && tighterLower - confLowerBound < -1e-5)
                 System.err.println("Updating conf lower bound of  " + confLowerBound
@@ -550,6 +537,26 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
         public double getPartialConfUpperBound() {
             return partialConfUpperBound;
+        }
+
+        public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound) {
+            if(level == assignments.length) {
+                partialConfLowerBound = lowerBound;
+                partialConfUpperBound = upperBound;
+            }
+            if(upperBound == Double.NaN)
+                System.err.println("????");
+            if (lowerBound - upperBound > 1e-5) {
+                if (debug)
+                    System.out.println("Incorrect conf bounds set.");
+                double temp = lowerBound;
+                lowerBound = upperBound;
+                upperBound = temp;
+                lowerBound = Math.min(0, lowerBound);
+                upperBound = Math.max(lowerBound, upperBound);
+            }
+            //updateConfLowerBound(lowerBound);
+            //updateConfUpperBound(upperBound);
         }
     }
 }

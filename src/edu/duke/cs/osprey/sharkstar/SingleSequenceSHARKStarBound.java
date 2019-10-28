@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
  * Thin wrapper class to play nice with BBK* and MSK*
  */
 public class SingleSequenceSHARKStarBound implements PartitionFunction {
+    public int maxMinimizations = 1;
     private MultiSequenceSHARKStarBound multiSequenceSHARKStarBound;
     public final Sequence sequence;
     private MultiSequenceSHARKStarBound multisequenceBound;

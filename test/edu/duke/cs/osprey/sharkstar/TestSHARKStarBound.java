@@ -715,46 +715,32 @@ public class TestSHARKStarBound extends TestBase {
         testSpecificComplex("test-resources/2p4a_A_5res_5.846E+05.cfs", 0.99, "A61", "ALA");
     }
 
+    @Test
     public void testMultiSequenceCorrectness() {
         double epsilon = 0.68;
         // make full confspace and the flexible copy
         SimpleConfSpace mutableConfSpace = make1CC8Mutable();
-        SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();
 
-        // precompute flexible residues
-        Sequence flexSeq = flexCopyConfSpace.makeWildTypeSequence();
-        MultiSequenceSHARKStarBound preCompFlex = makeSHARKStarPfuncForConfSpace(flexCopyConfSpace, flexSeq, epsilon, null, null);
-        preCompFlex.compute();
 
         // make the full confspace partitionFunction, and compute it much, much more accurately.
         Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
-        MultiSequenceSHARKStarBound fullPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon, preCompFlex, preCompFlex.genCorrectionMatrix());
+        MultiSequenceSHARKStarBound fullPfunc =
+                (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace, new RCs(mutableConfSpace), epsilon, null);
 
         // update and compute
-        //fullPfunc.updatePrecomputedConfTree();
-        fullPfunc.compute();
+        PartitionFunction seqPfunc = fullPfunc.getPartitionFunctionForSequence(fullSeq);
+        seqPfunc.compute();
 
         PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon/10000);
         traditionalPfunc.setReportProgress(true);
         traditionalPfunc.compute();
 
-        System.out.println("=============================================================================================");
-        System.out.println("====================== Running SHARK* without precomputed tree ==============================");
-        System.out.println("=============================================================================================");
-        // compute partition function the regular way
-        MultiSequenceSHARKStarBound regPfunc = makeSHARKStarPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon, null, null);
-        regPfunc.compute();
-
         System.out.println("Gradient Descent pfunc: "+formatBounds(traditionalPfunc.getValues().calcLowerBound(),
                 traditionalPfunc.getValues().calcUpperBound()));
-        System.out.println("RegPfunc: " + formatBounds(regPfunc.getValues().calcLowerBound(), regPfunc.getValues().calcUpperBound()));
-        System.out.println("precompPfunc: " + formatBounds(fullPfunc.getValues().calcLowerBound(), fullPfunc.getValues().calcUpperBound()));
-        assertThat(fullPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
-        assertThat(regPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
-        assertThat(regPfunc.getValues().calcUpperBound(), greaterThan(traditionalPfunc.getValues().calcUpperBound()));
-        assertThat(regPfunc.getValues().calcLowerBound(), lessThan(traditionalPfunc.getValues().calcLowerBound()));
-        assertThat(fullPfunc.getValues().calcUpperBound(), greaterThan(traditionalPfunc.getValues().calcUpperBound()));
-        assertThat(fullPfunc.getValues().calcLowerBound(), lessThan(traditionalPfunc.getValues().calcLowerBound()));
+        System.out.println("precompPfunc: " + formatBounds(seqPfunc.getValues().calcLowerBound(), seqPfunc.getValues().calcUpperBound()));
+        assertThat(seqPfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+        assertThat(seqPfunc.getValues().calcUpperBound(), greaterThan(traditionalPfunc.getValues().calcUpperBound()));
+        assertThat(seqPfunc.getValues().calcLowerBound(), lessThan(traditionalPfunc.getValues().calcLowerBound()));
 
     }
 
