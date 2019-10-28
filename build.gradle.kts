@@ -133,9 +133,11 @@ dependencies {
 
 		// create a gradle task to download the file
 		val downloadTask by tasks.creating {
-			Files.createDirectories(libDir)
-			url.openStream().use {
-				Files.copy(it, filePath, StandardCopyOption.REPLACE_EXISTING)
+			if (!Files.exists(filePath)) {
+				Files.createDirectories(libDir)
+				url.openStream().use {
+					Files.copy(it, filePath, StandardCopyOption.REPLACE_EXISTING)
+				}
 			}
 		}
 
