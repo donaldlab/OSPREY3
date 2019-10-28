@@ -1,0 +1,5 @@
+#The following information is sufficient to generate an OSPREY 3.0
+#configuration space
+mol = "/usr/project/dlab/Users/gth/projects/osprey_test_suite/pdb/4znc_prepped.pdb"
+strand_defs = {'strand1': ['F240', 'F444'], 'strand0': ['E238', 'E444']}
+strand_flex = {'strand1': {'F349': ['TYR'], 'F439': ['LYS'], 'F350': ['THR'], 'F351': ['LEU']}, 'strand0': {'E357': ['GLU'], 'E356': ['ALA', 'VAL', 'LEU', 'ILE', 'PHE', 'TYR', 'TRP', 'CYS', 'MET', 'SER', 'THR', 'LYS', 'ARG', 'HIP', 'HIE', 'HID', 'ASP', 'GLU', 'ASN', 'GLN', 'GLY'], 'E354': ['ALA', 'VAL', 'LEU', 'ILE', 'PHE', 'TYR', 'TRP', 'CYS', 'MET', 'SER', 'THR', 'LYS', 'ARG', 'HIP', 'HIE', 'HID', 'ASP', 'GLU', 'ASN', 'GLN', 'GLY']}}
