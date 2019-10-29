@@ -717,6 +717,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         while (!queue.isEmpty() && (bound.internalQueue.size() < maxNodes
                 || (!bound.leafQueue.isEmpty() && MathTools.isGreaterThan(queue.peek().getErrorBound(bound.sequence),
                                                                             bound.leafQueue.peek().getErrorBound()))
+                || (!bound.internalQueue.isEmpty() && MathTools.isGreaterThan(queue.peek().getErrorBound(bound.sequence),
+                                                                            bound.internalQueue.peek().getErrorBound()))
                 || bound.leafQueue.size() < bound.maxMinimizations)) {
             MultiSequenceSHARKStarNode curNode = queue.poll();
             if(confMatch(debugConf, curNode.getConfSearchNode().assignments))

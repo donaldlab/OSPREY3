@@ -4,6 +4,7 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
@@ -44,7 +45,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     // Information for MultiSequence SHARK* Nodes
     private Map<Sequence, MathTools.BigDecimalBounds> sequenceBounds = new HashMap<>();
-    private Map<Sequence, List<MultiSequenceSHARKStarNode>> childrenMap = new HashMap<>(); // probably should override the children list
+    private Map<SeqSpace.ResType, List<MultiSequenceSHARKStarNode>> childrenMap = new HashMap<>(); // probably should override the children list
     private Map<Sequence, MathTools.DoubleBounds> confBounds = new HashMap<>();
 
 
@@ -240,23 +241,28 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public List<MultiSequenceSHARKStarNode> getChildren(Sequence seq) {
+        // 10-29-2019: Fix this.
+        SeqSpace.Position pos = seq.seqSpace.positions.get(level -1);
+        SeqSpace.ResType AA = seq.get(pos);
         if(seq == null)
             return children;
-        initChildren(seq);
+        initChildren(AA);
         if(debug)
             checkChildren(seq);
-        return childrenMap.get(seq);
+        return childrenMap.get(AA);
     }
 
-    private void initChildren(Sequence seq) {
+    private void initChildren(SeqSpace.ResType seq) {
         if(!childrenMap.containsKey(seq))
             childrenMap.put(seq, populateChildren(seq));
     }
 
     private void checkChildren(Sequence seq) {
-        initChildren(seq);
+        SeqSpace.Position pos = seq.seqSpace.positions.get(level -1);
+        SeqSpace.ResType AA = seq.get(pos);
+        initChildren(AA);
         Set<Integer> rcs = new HashSet<>();
-        List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes = childrenMap.get(seq);
+        List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes = childrenMap.get(AA);
         for(MultiSequenceSHARKStarNode node: multiSequenceSHARKStarNodes) {
             int rc = node.confSearchNode.assignments[node.confSearchNode.pos];
             if(rcs.contains(rc)) {
@@ -270,20 +276,22 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
     }
 
-    private List<MultiSequenceSHARKStarNode> populateChildren(Sequence seq) {
+    private List<MultiSequenceSHARKStarNode> populateChildren(SeqSpace.ResType seq) {
         List<MultiSequenceSHARKStarNode> childrenForSeq = new ArrayList<>();
         Set<Integer> rcs = new HashSet<>();
-        RCs seqRCs = seq.makeRCs(fullConfSpace);
+        RCs seqRCs = RCsForResType(seq);
         //int maxChildren = seqRCs.get(confSearchNode.pos+1).length;
         for (MultiSequenceSHARKStarNode child: children) {
-            //if (Arrays.stream(seqRCs.get(child.confSearchNode.pos)).anyMatch(i -> i == child.confSearchNode.rc)
-             //       && !rcs.contains(child.confSearchNode.rc)) {
             if (Arrays.stream(seqRCs.get(child.confSearchNode.pos)).anyMatch(i -> i == child.confSearchNode.rc)) {
                 childrenForSeq.add(child);
                 rcs.add(child.confSearchNode.rc);
             }
         }
         return childrenForSeq;
+    }
+
+    private RCs RCsForResType(SeqSpace.ResType seq) {
+        return new RCs(fullConfSpace, (pos, resConf) -> seq.name.equals(resConf.template.name));
     }
 
     public boolean isLeaf() {
