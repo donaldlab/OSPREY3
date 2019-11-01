@@ -180,6 +180,26 @@ public class TestSHARKStarBound extends TestBase {
     }
 
     /**
+     * Creates a mutable confspace with one chain using a few residues from 1CC8 continous
+     */
+    private SimpleConfSpace make1CC8Mutable2(){
+        Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A10").build();
+        strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "ILE").setContinuous();
+        strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType, "ALA").setContinuous();
+        strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType, "MET").setContinuous();
+        strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A7").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A8").setLibraryRotamers(Strand.WildType).setContinuous();
+
+        return new SimpleConfSpace.Builder()
+                .addStrands(strand1)
+                .setShellDistance(9)
+                .build();
+
+    }
+
+    /**
      * Creates a mutable confspace with one chain using 10 residues from 1CC8
      */
     private SimpleConfSpace make1CC8MutableContinuous(){
@@ -719,11 +739,11 @@ public class TestSHARKStarBound extends TestBase {
     public void testMultiSequenceCorrectness() {
         double epsilon = 0.68;
         // make full confspace and the flexible copy
-        SimpleConfSpace mutableConfSpace = make1CC8Mutable();
+        SimpleConfSpace mutableConfSpace = make1CC8Mutable2();
 
 
         // make the full confspace partitionFunction, and compute it much, much more accurately.
-        Sequence fullSeq = mutableConfSpace.makeWildTypeSequence();
+        Sequence fullSeq = mutableConfSpace.makeWildTypeSequence().set("A4", "ALA").set("A5","MET");
         MultiSequenceSHARKStarBound fullPfunc =
                 (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace, new RCs(mutableConfSpace), epsilon, null);
 
