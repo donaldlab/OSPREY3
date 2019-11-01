@@ -44,7 +44,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     // Information for MultiSequence SHARK* Nodes
     private Map<Sequence, MathTools.BigDecimalBounds> sequenceBounds = new HashMap<>();
-    private Map<String, List<MultiSequenceSHARKStarNode>> childrenMap = new HashMap<String, List<MultiSequenceSHARKStarNode>>(); // probably should override the children list
+    private Map<String, List<MultiSequenceSHARKStarNode>> childrenByAA= new HashMap<>(); // probably should override the children list
+    private Map<Sequence, List<MultiSequenceSHARKStarNode>> childrenBySequence = new HashMap<>(); // probably should override the children list
     private Map<Sequence, MathTools.DoubleBounds> confBounds = new HashMap<>();
 
 
@@ -241,13 +242,12 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     public List<MultiSequenceSHARKStarNode> getChildren(Sequence seq) {
         // 10-29-2019: need to both cache AA children and also establish sequence-speficic trees?
-        String AA = getAllowedAA(seq);
         if(seq == null)
             return children;
-        initChildren(AA);
+        initChildren(seq);
         if(debug)
             checkChildren(seq);
-        return childrenMap.get(AA);
+        return childrenBySequence.get(seq);
     }
 
     private String getAllowedAA(Sequence seq) {
@@ -258,16 +258,23 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return AA;
     }
 
-    private void initChildren(String seq) {
-        if(!childrenMap.containsKey(seq))
-            childrenMap.put(seq, populateChildren(seq));
+    private void initChildren(Sequence seq) {
+        if(!childrenBySequence.containsKey(seq)) {
+            if (level >= fullConfSpace.positions.size()) {
+                childrenBySequence.put(seq, new ArrayList<>());
+                return;
+            }
+            String AA = getAllowedAA(seq);
+            if (!childrenByAA.containsKey(AA) || childrenByAA.get(AA).isEmpty())
+                childrenByAA.put(AA, populateChildren(seq));
+            childrenBySequence.put(seq, childrenByAA.get(AA));
+        }
     }
 
     private void checkChildren(Sequence seq) {
-        String AA = getAllowedAA(seq);
-        initChildren(AA);
+        initChildren(seq);
         Set<Integer> rcs = new HashSet<>();
-        List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes = childrenMap.get(AA);
+        List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes = childrenBySequence.get(seq);
         for(MultiSequenceSHARKStarNode node: multiSequenceSHARKStarNodes) {
             int rc = node.confSearchNode.assignments[node.confSearchNode.pos];
             if(rcs.contains(rc)) {
@@ -281,10 +288,10 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
     }
 
-    private List<MultiSequenceSHARKStarNode> populateChildren(String seq) {
+    private List<MultiSequenceSHARKStarNode> populateChildren(Sequence seq) {
         List<MultiSequenceSHARKStarNode> childrenForSeq = new ArrayList<>();
         Set<Integer> rcs = new HashSet<>();
-        RCs seqRCs = RCsForResType(seq);
+        RCs seqRCs =  seq.makeRCs(fullConfSpace);
         //int maxChildren = seqRCs.get(confSearchNode.pos+1).length;
         for (MultiSequenceSHARKStarNode child: children) {
             if (Arrays.stream(seqRCs.get(child.confSearchNode.pos)).anyMatch(i -> i == child.confSearchNode.rc)) {
@@ -295,8 +302,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return childrenForSeq;
     }
 
-    private RCs RCsForResType(String seq) {
-        return new RCs(fullConfSpace, (pos, resConf) -> seq.equals(resConf.template.name));
+    private RCs RCsForResType(String seq, SimpleConfSpace.Position qpos) {
+        return new RCs(fullConfSpace, (pos, resConf) -> seq.equals(resConf.template.name) && qpos.index == pos.index);
     }
 
     public boolean isLeaf() {

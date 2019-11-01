@@ -616,11 +616,24 @@ public class TestSHARKStar {
 	}
 
 	@Test
+	public void test4wem() {
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/4wem_B_5res_2.014E+07.cfs");
+			//runBBSHARKStar(confSpaces, 0.9999);
+			runBBKStar(confSpaces, 3, 0.99999999999, null, 5, true);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
+
+	@Test
 	public void test4znc() {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/4znc_E_7res_1.065E+10.cfs");
 			//runBBSHARKStar(confSpaces, 0.9999);
-			runBBKStar(confSpaces, 3, 0.99999999999, null, 5, true);
+			runBBKStar(confSpaces, 3, 0.68, null, 5, true);
+			runBBKStar(confSpaces, 3, 0.68, null, 5, false);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
