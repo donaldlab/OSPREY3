@@ -43,6 +43,7 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -309,13 +310,14 @@ public interface PartitionFunction {
 	 * Overloads previous function to allow for MARKStar.
 	 */
 	public static PartitionFunction makeBestFor(ConfEnergyCalculator minimizingConfEcalc,
-												ConfEnergyCalculator rigidConfEcalc, String state) {
+												ConfEnergyCalculator rigidConfEcalc,
+												Sequence sequence, String state) {
 	    if(rigidConfEcalc == null)
 	    	return makeBestFor(minimizingConfEcalc);
 		SimpleConfSpace confSpace = minimizingConfEcalc.confSpace;
 		EnergyMatrix minimizingEmat = makeEmat(minimizingConfEcalc, state, "minimizing");
 		UpdatingEnergyMatrix MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, minimizingConfEcalc);
-		RCs rcs = new RCs(confSpace);
+		RCs rcs = sequence.makeRCs(confSpace);
 		MARKStarBound MARKStarBound = new MARKStarBoundFastQueues(confSpace, makeEmat(rigidConfEcalc, state, "rigid"),
 				minimizingEmat, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
 		MARKStarBound.setCorrections(MARKStarEmat);

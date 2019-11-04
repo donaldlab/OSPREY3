@@ -257,7 +257,7 @@ public class KStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			PartitionFunction pfunc = PartitionFunction.makeBestFor(confEcalc, rigidConfEcalc, type.name());
+			PartitionFunction pfunc = PartitionFunction.makeBestFor(confEcalc, rigidConfEcalc, sequence, type.name());
 			pfunc.setReportProgress(settings.showPfuncProgress);
 			if (confDB != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confDB.getSequence(sequence));
