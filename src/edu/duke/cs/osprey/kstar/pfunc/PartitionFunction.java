@@ -32,6 +32,7 @@
 
 package edu.duke.cs.osprey.kstar.pfunc;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -42,10 +43,16 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStarScore;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEPfunc;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -297,6 +304,24 @@ public interface PartitionFunction {
 		}
 	}
 
+	/**
+	 * Factory method to make the best pfunc calculator based on the conf ecalc.
+	 * Overloads previous function to allow for MARKStar.
+	 */
+	public static PartitionFunction makeBestFor(ConfEnergyCalculator minimizingConfEcalc,
+												ConfEnergyCalculator rigidConfEcalc, String state) {
+	    if(rigidConfEcalc == null)
+	    	return makeBestFor(minimizingConfEcalc);
+		SimpleConfSpace confSpace = minimizingConfEcalc.confSpace;
+		EnergyMatrix minimizingEmat = makeEmat(minimizingConfEcalc, state, "minimizing");
+		UpdatingEnergyMatrix MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, minimizingConfEcalc);
+		RCs rcs = new RCs(confSpace);
+		MARKStarBound MARKStarBound = new MARKStarBoundFastQueues(confSpace, makeEmat(rigidConfEcalc, state, "rigid"),
+				minimizingEmat, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
+		MARKStarBound.setCorrections(MARKStarEmat);
+		return MARKStarBound;
+	}
+
 	public static interface WithExternalMemory extends PartitionFunction {
 
 		void setUseExternalMemory(boolean val, RCs rcs);
@@ -314,5 +339,12 @@ public interface PartitionFunction {
 				super("This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support external memory");
 			}
 		}
+	}
+
+	public static EnergyMatrix makeEmat(ConfEnergyCalculator confECalc, String state, String name) {
+		return new SimplerEnergyMatrixCalculator.Builder(confECalc)
+				.setCacheFile(new File(state+"."+name+".emat"))
+				.build()
+				.calcEnergyMatrix();
 	}
 }

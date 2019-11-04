@@ -144,12 +144,10 @@ public class PartitionFunctionFactory {
     private EnergyMatrix makeEmat(ConfEnergyCalculator confECalc, String name) {
         if(!emats.containsKey(confECalc)) {
             System.out.println("Making energy matrix for "+confECalc);
-            EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
-                    .setCacheFile(new File(state+"."+name+".emat"))
-                    .build()
-                    .calcEnergyMatrix();
+            EnergyMatrix emat = PartitionFunction.makeEmat(confECalc, state, name);
             emats.put(confECalc, emat);
         }
         return emats.get(confECalc);
     }
+
 }

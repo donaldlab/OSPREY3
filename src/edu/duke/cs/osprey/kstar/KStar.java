@@ -221,6 +221,7 @@ public class KStar {
 		public final Map<Sequence,PartitionFunction.Result> pfuncResults = new HashMap<>();
 
 		public ConfEnergyCalculator confEcalc = null;
+		public ConfEnergyCalculator confEcalcRigid = null;
 		public ConfSearchFactory confSearchFactory = null;
 		public File confDBFile = null;
 
@@ -256,7 +257,7 @@ public class KStar {
 			// cache miss, need to compute the partition function
 
 			// make the partition function
-			PartitionFunction pfunc = PartitionFunction.makeBestFor(confEcalc);
+			PartitionFunction pfunc = PartitionFunction.makeBestFor(confEcalc, confEcalcRigid, type.name());
 			pfunc.setReportProgress(settings.showPfuncProgress);
 			if (confDB != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confDB.getSequence(sequence));
