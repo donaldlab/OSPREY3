@@ -289,21 +289,20 @@ public class TestForcefieldEnergy extends TestBase {
 		}
 	}
 	
-	private static ResPairCache makeResPairCache(Residues residues, ForcefieldParams ffparams) {
-		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.addTemplates(residues)
-			.setParallelism(Parallelism.makeCpu(4))
+	private static ResPairCache makeResPairCache(ForcefieldParams ffparams) {
+		AtomConnectivity atomConnectivity = new AtomConnectivity.Builder()
+			.set15HasNonBonded(true)
 			.build();
-		return new ResPairCache(ffparams, connectivity);
+		return new ResPairCache(ffparams, atomConnectivity);
 	}
 	
 	// define all the different forcefields and how to make them
 	private static EfuncGen efuncsCpu = (residues, inters, ffparams) -> new EnergyFunctionGenerator(ffparams).residueInteractionEnergy(residues, inters);
 	private static EfuncGen efuncsBigCpu = new EfuncGen.FFInters((ffparams, inters) -> new BigForcefieldEnergy(ffparams, inters));
-	private static EfuncGen efuncsResidueCpu = (residues, inters, ffparams) -> new ResidueForcefieldEnergy(makeResPairCache(residues, ffparams), inters, residues);
+	private static EfuncGen efuncsResidueCpu = (residues, inters, ffparams) -> new ResidueForcefieldEnergy(makeResPairCache(ffparams), inters, residues);
 	private static EfuncGen efuncsOpenCL = new EfuncGen.FFInters(new EfuncGen.FFInters.OpenCL((queues, ffparams, inters) -> new GpuForcefieldEnergy(ffparams, inters, queues)));
 	private static EfuncGen efuncsCuda = new EfuncGen.FFInters(new EfuncGen.FFInters.Cuda((streams, ffparams, inters) -> new GpuForcefieldEnergy(ffparams, inters, streams)));
-	private static EfuncGen efuncsResidueCuda = new EfuncGen.Cuda((streams, residues, inters, ffparams) -> new ResidueForcefieldEnergyCuda(streams, makeResPairCache(residues, ffparams), inters, residues));
+	private static EfuncGen efuncsResidueCuda = new EfuncGen.Cuda((streams, residues, inters, ffparams) -> new ResidueForcefieldEnergyCuda(streams, makeResPairCache(ffparams), inters, residues));
 	
 	
 	private void checkEnergies(EfuncGen efuncs, Residues residues, TestParams ... params) {

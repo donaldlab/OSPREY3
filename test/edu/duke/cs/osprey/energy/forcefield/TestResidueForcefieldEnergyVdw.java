@@ -89,9 +89,7 @@ public class TestResidueForcefieldEnergyVdw {
 
 		ResPairCache resPairCache = new ResPairCache(
 			new ForcefieldParams(),
-			new AtomConnectivity.Builder()
-				.addTemplates(residues)
-				.build()
+			new AtomConnectivity.Builder().build()
 		);
 		ResidueInteractions inters = new ResidueInteractions();
 		inters.addComplete(residues);

@@ -506,6 +506,14 @@ public class Residue implements Serializable {
         }
         return null;
     }
+
+    public Atom getAtomByNameOrThrow(String name) {
+		Atom atom = getAtomByName(name);
+		if (atom == null) {
+			throw new NoSuchElementException("no atom named " + name + " in residue " + getPDBResNumber());
+		}
+		return atom;
+	}
     
     public int getAtomIndexByName(String n){
         //index in atoms of atom with name n

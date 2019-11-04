@@ -83,7 +83,6 @@ public class PLUG {
 
 		// init atom connectivity
 		this.connectivity = new AtomConnectivity.Builder()
-			.addTemplates(confSpace)
 			.set15HasNonBonded(false) // follows probe convention
 			.build();
 	}

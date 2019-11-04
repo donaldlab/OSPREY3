@@ -36,10 +36,8 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.Serializable;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.Set;
 
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
@@ -165,11 +163,10 @@ public class EEF1 implements Serializable {
 		}		
 	}
 	
-	private static Set<String> warnedAtomTypes = new HashSet<>();
-	private static void warnAtomType(String type) {
-		if (warnedAtomTypes.add(type)) {
-			System.err.println("WARNING: couldn't find solvation parameters for atom type: " + type + ", using default values");
-		}
+	private static void warnAtom(Atom atom) {
+		System.err.println(String.format("WARNING: couldn't find solvation parameters for atom %s @ %s, using default values",
+			atom.name, atom.res != null ? atom.res.getPDBResNumber() : "(no residue)"
+		));
 	}
 	
 	public void getSolvationParametersOrDefaults(Atom atom, SolvParams solvparams) {
@@ -177,7 +174,7 @@ public class EEF1 implements Serializable {
 		if (!success) {
 			
 			// if there's no params, don't crash, use defaults instead
-			warnAtomType(atom.forceFieldType);
+			warnAtom(atom);
 			
 			solvparams.dGref = 0;
 			solvparams.dGfree = 0;
@@ -367,7 +364,7 @@ public class EEF1 implements Serializable {
 
 	private boolean isCarboxylC(Atom atom) {
 
-		if (!atom.isCarbon()) {
+		if (atom == null || !atom.isCarbon()) {
 			return false;
 		}
 
@@ -457,11 +454,12 @@ public class EEF1 implements Serializable {
 								info.indices[i] = -1;
 							} else {
 								int index = getSolvGroupIndex(atom);
-								if (index == -1) {
-									warnAtomType(atom.forceFieldType);
+								if (index >= 0) {
+									info.internalEnergy += dGiRef[index];
+								} else {
+									warnAtom(atom);
 								}
 								info.indices[i] = index;
-								info.internalEnergy += dGiRef[index];
 							}
 						}
 

@@ -60,9 +60,7 @@ public class TestPLUG {
 		Probe probe = new Probe();
 		probe.matchTemplates(confSpace);
 
-		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.addTemplates(confSpace)
-			.build();
+		AtomConnectivity connectivity = new AtomConnectivity.Builder().build();
 
 		// make full inters
 		ResidueInteractions inters = ResInterGen.of(confSpace)

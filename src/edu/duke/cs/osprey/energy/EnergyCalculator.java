@@ -129,26 +129,18 @@ public class EnergyCalculator implements AutoCleanable {
 		 */
 		private Double alwaysResolveClashesEnergy = null;
 
-		/**
-		 * warning: using this constructor can cause AtomConnecivity cache pre-population to go very slowly
-		 * try the conf space list constrcutor instead
-		 */
+		@Deprecated
 		public Builder(ResidueTemplateLibrary templateLib, ForcefieldParams ffparams) {
 			this.ffparams = ffparams;
-			this.atomConnectivityBuilder.addTemplates(templateLib);
 		}
 
 		public Builder(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
 			this.ffparams = ffparams;
-			this.atomConnectivityBuilder.addTemplates(confSpace);
 			this.dofTypes = confSpace.getDofTypes();
 		}
 
 		public Builder(List<SimpleConfSpace> confSpaces, ForcefieldParams ffparams) {
 			this.ffparams = ffparams;
-			for (SimpleConfSpace confSpace : confSpaces) {
-				this.atomConnectivityBuilder.addTemplates(confSpace);
-			}
 			this.dofTypes = SimpleConfSpace.DofTypes.combine(
 				confSpaces.stream()
 					.map(confSpace -> confSpace.getDofTypes())
@@ -165,9 +157,9 @@ public class EnergyCalculator implements AutoCleanable {
 			);
 		}
 
+		@Deprecated
 		public Builder(Residues residues, ForcefieldParams ffparams) {
 			this.ffparams = ffparams;
-			this.atomConnectivityBuilder.addTemplates(residues);
 		}
 
 		public Builder setParallelism(Parallelism val) {
@@ -184,7 +176,8 @@ public class EnergyCalculator implements AutoCleanable {
 			dofTypes = val;
 			return this;
 		}
-		
+
+		@Deprecated
 		public Builder addTemplates(Consumer<AtomConnectivity.Builder> block) {
 			block.accept(atomConnectivityBuilder);
 			return this;
@@ -223,10 +216,7 @@ public class EnergyCalculator implements AutoCleanable {
 			
 			// make a res pair cache if needed
 			if (resPairCache == null) {
-				AtomConnectivity connectivity = atomConnectivityBuilder
-					.setParallelism(Parallelism.makeCpu(parallelism.numThreads))
-					.build();
-				resPairCache = new ResPairCache(ffparams, connectivity);
+				resPairCache = new ResPairCache(ffparams, atomConnectivityBuilder.build());
 			}
 			
 			return new EnergyCalculator(parallelism, type, resPairCache, isMinimizing, infiniteWellEnergy, alwaysResolveClashesEnergy);

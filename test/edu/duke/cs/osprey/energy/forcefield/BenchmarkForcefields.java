@@ -85,10 +85,7 @@ public class BenchmarkForcefields extends TestBase {
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
 		// pre-compute atom connectivities
-		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.addTemplates(confSpace)
-			.setParallelism(Parallelism.makeCpu(4))
-			.build();
+		AtomConnectivity connectivity = new AtomConnectivity.Builder().build();
 		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
 		
 		// get a molecule

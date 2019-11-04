@@ -35,10 +35,8 @@ package edu.duke.cs.osprey;
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.*;
-import edu.duke.cs.osprey.dof.DOFBlock;
-import edu.duke.cs.osprey.dof.DegreeOfFreedom;
-import edu.duke.cs.osprey.dof.DihedralRotation;
-import edu.duke.cs.osprey.dof.FreeDihedral;
+import edu.duke.cs.osprey.dof.*;
+import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
@@ -65,7 +63,7 @@ public class FlexLab {
 
 	public static void main(String[] args)
 	throws Exception {
-		checkRotamerClashes();
+		//checkRotamerClashes();
 		//top8000Dihedrals("arg");
 		//top8000Angles("leu");
 		//top8000Tetrahedrals("leu");
@@ -75,6 +73,7 @@ public class FlexLab {
 		//energyLandscape("leu");
 		//top8000RotamerStats("asp");
 		//checkTemplates();
+		makeConfLib();
 	}
 
 	private static PDBScanner scanner = new PDBScanner(
@@ -311,6 +310,8 @@ public class FlexLab {
 	static {
 
 		// re-define the rotamer library based on the Lovell data, but with names and populations
+
+		// val
 		rotamers.add("VAL", Rotamer.ofModes("p",  6.20,   64));
 		rotamers.add("VAL", Rotamer.ofModes("t", 75.56,  175));
 		rotamers.add("VAL", Rotamer.ofModes("m", 17.94,  -60));
@@ -334,27 +335,27 @@ public class FlexLab {
 		// phe
 		rotamers.add("PHE", Rotamer.ofModes("p90",  11.17,   62,   90));
 		rotamers.add("PHE", Rotamer.ofModes("t80",  34.27, -177,   80));
-		rotamers.add("PHE", Rotamer.ofModes("m-80", 47.38,  -65,  -85));
-		rotamers.add("PHE", Rotamer.ofModes("m-10",  6.89,  -65,  -30));
+		rotamers.add("PHE", Rotamer.ofModes("m-85", 47.38,  -65,  -85));
+		rotamers.add("PHE", Rotamer.ofModes("m-30",  6.89,  -65,  -30));
 
 		// tyr
-		rotamers.add("TYR", Rotamer.ofModes("p90:0",    11.57,   62,   90,   0));
-		rotamers.add("TYR", Rotamer.ofModes("p90:180",  11.57,   62,   90, 180));
-		rotamers.add("TYR", Rotamer.ofModes("t80:0",    34.53, -177,   80,   0));
-		rotamers.add("TYR", Rotamer.ofModes("t80:180",  34.53, -177,   80, 180));
-		rotamers.add("TYR", Rotamer.ofModes("m-80:0",   48.01,  -65,  -85,   0));
-		rotamers.add("TYR", Rotamer.ofModes("m-80:180", 48.01,  -65,  -85, 180));
-		rotamers.add("TYR", Rotamer.ofModes("m-10:0",    5.55,  -65,  -30,   0));
-		rotamers.add("TYR", Rotamer.ofModes("m-10:180",  5.55,  -65,  -30, 180));
+		rotamers.add("TYR", Rotamer.ofModes("p90_0",    11.57,   62,   90,   0));
+		rotamers.add("TYR", Rotamer.ofModes("p90_180",  11.57,   62,   90, 180));
+		rotamers.add("TYR", Rotamer.ofModes("t80_0",    34.53, -177,   80,   0));
+		rotamers.add("TYR", Rotamer.ofModes("t80_180",  34.53, -177,   80, 180));
+		rotamers.add("TYR", Rotamer.ofModes("m-85_0",   48.01,  -65,  -85,   0));
+		rotamers.add("TYR", Rotamer.ofModes("m-85_180", 48.01,  -65,  -85, 180));
+		rotamers.add("TYR", Rotamer.ofModes("m-30_0",    5.55,  -65,  -30,   0));
+		rotamers.add("TYR", Rotamer.ofModes("m-30_180",  5.55,  -65,  -30, 180));
 
 		// trp
 		rotamers.add("TRP", Rotamer.ofModes("p-90",  10.35,   62,  -90));
 		rotamers.add("TRP", Rotamer.ofModes("p90",    5.19,   62,   90));
-		rotamers.add("TRP", Rotamer.ofModes("t-100", 15.46, -177, -105));
-		rotamers.add("TRP", Rotamer.ofModes("t60",   18.09, -177,   90));
+		rotamers.add("TRP", Rotamer.ofModes("t-105", 15.46, -177, -105));
+		rotamers.add("TRP", Rotamer.ofModes("t90",   18.09, -177,   90));
 		rotamers.add("TRP", Rotamer.ofModes("m-90",   5.13,  -65,  -90));
-		rotamers.add("TRP", Rotamer.ofModes("m-10",  11.73,  -65,   -5));
-		rotamers.add("TRP", Rotamer.ofModes("m100",  33.76,  -65,   95));
+		rotamers.add("TRP", Rotamer.ofModes("m0",  11.73,  -65,   -5));
+		rotamers.add("TRP", Rotamer.ofModes("m95",  33.76,  -65,   95));
 
 		// cys
 		rotamers.add("CYS", Rotamer.ofModes("p", 17.73,   62));
@@ -377,50 +378,50 @@ public class FlexLab {
 		rotamers.add("MET", Rotamer.ofModes("mmm", 19.97,  -65,  -65,  -70));
 
 		// ser
-		rotamers.add("SER", Rotamer.ofModes("p:-60",  48.44,   62,  -60));
-		rotamers.add("SER", Rotamer.ofModes("p:60",   48.44,   62,   60));
-		rotamers.add("SER", Rotamer.ofModes("p:180",  48.44,   62,  180));
-		rotamers.add("SER", Rotamer.ofModes("p:0",    48.44,   62,    0));
-		rotamers.add("SER", Rotamer.ofModes("p:120",  48.44,   62,  120));
-		rotamers.add("SER", Rotamer.ofModes("p:-120", 48.44,   62, -120));
-		rotamers.add("SER", Rotamer.ofModes("t:-60",  22.97, -177,  -60));
-		rotamers.add("SER", Rotamer.ofModes("t:60",   22.97, -177,   60));
-		rotamers.add("SER", Rotamer.ofModes("t:180",  22.97, -177,  180));
-		rotamers.add("SER", Rotamer.ofModes("t:0",    22.97, -177,    0));
-		rotamers.add("SER", Rotamer.ofModes("t:120",  22.97, -177,  120));
-		rotamers.add("SER", Rotamer.ofModes("t:-120", 22.97, -177, -120));
-		rotamers.add("SER", Rotamer.ofModes("m:-60",  28.30,  -65,  -60));
-		rotamers.add("SER", Rotamer.ofModes("m:60",   28.30,  -65,   60));
-		rotamers.add("SER", Rotamer.ofModes("m:180",  28.30,  -65,  180));
-		rotamers.add("SER", Rotamer.ofModes("m:0",    28.30,  -65,    0));
-		rotamers.add("SER", Rotamer.ofModes("m:120",  28.30,  -65,  120));
-		rotamers.add("SER", Rotamer.ofModes("m:-120", 28.30,  -65, -120));
+		rotamers.add("SER", Rotamer.ofModes("p_-60",  48.44,   62,  -60));
+		rotamers.add("SER", Rotamer.ofModes("p_60",   48.44,   62,   60));
+		rotamers.add("SER", Rotamer.ofModes("p_180",  48.44,   62,  180));
+		rotamers.add("SER", Rotamer.ofModes("p_0",    48.44,   62,    0));
+		rotamers.add("SER", Rotamer.ofModes("p_120",  48.44,   62,  120));
+		rotamers.add("SER", Rotamer.ofModes("p_-120", 48.44,   62, -120));
+		rotamers.add("SER", Rotamer.ofModes("t_-60",  22.97, -177,  -60));
+		rotamers.add("SER", Rotamer.ofModes("t_60",   22.97, -177,   60));
+		rotamers.add("SER", Rotamer.ofModes("t_180",  22.97, -177,  180));
+		rotamers.add("SER", Rotamer.ofModes("t_0",    22.97, -177,    0));
+		rotamers.add("SER", Rotamer.ofModes("t_120",  22.97, -177,  120));
+		rotamers.add("SER", Rotamer.ofModes("t_-120", 22.97, -177, -120));
+		rotamers.add("SER", Rotamer.ofModes("m_-60",  28.30,  -65,  -60));
+		rotamers.add("SER", Rotamer.ofModes("m_60",   28.30,  -65,   60));
+		rotamers.add("SER", Rotamer.ofModes("m_180",  28.30,  -65,  180));
+		rotamers.add("SER", Rotamer.ofModes("m_0",    28.30,  -65,    0));
+		rotamers.add("SER", Rotamer.ofModes("m_120",  28.30,  -65,  120));
+		rotamers.add("SER", Rotamer.ofModes("m_-120", 28.30,  -65, -120));
 
 		// thr
-		rotamers.add("THR", Rotamer.ofModes("p:-60",  48.14,   62,  -60));
-		rotamers.add("THR", Rotamer.ofModes("p:60",   48.14,   62,   60));
-		rotamers.add("THR", Rotamer.ofModes("p:180",  48.14,   62,  180));
-		rotamers.add("THR", Rotamer.ofModes("p:0",    48.14,   62,    0));
-		rotamers.add("THR", Rotamer.ofModes("p:120",  48.14,   62,  120));
-		rotamers.add("THR", Rotamer.ofModes("p:-120", 48.14,   62, -120));
-		rotamers.add("THR", Rotamer.ofModes("p:-60",   6.91, -175,  -60));
-		rotamers.add("THR", Rotamer.ofModes("p:60",    6.91, -175,   60));
-		rotamers.add("THR", Rotamer.ofModes("p:180",   6.91, -175,  180));
-		rotamers.add("THR", Rotamer.ofModes("p:0",     6.91, -175,    0));
-		rotamers.add("THR", Rotamer.ofModes("p:120",   6.91, -175,  120));
-		rotamers.add("THR", Rotamer.ofModes("p:-120",  6.91, -175, -120));
-		rotamers.add("THR", Rotamer.ofModes("p:-60",  44.64,  -65,  -60));
-		rotamers.add("THR", Rotamer.ofModes("p:60",   44.64,  -65,   60));
-		rotamers.add("THR", Rotamer.ofModes("p:180",  44.64,  -65,  180));
-		rotamers.add("THR", Rotamer.ofModes("p:0",    44.64,  -65,    0));
-		rotamers.add("THR", Rotamer.ofModes("p:120",  44.64,  -65,  120));
-		rotamers.add("THR", Rotamer.ofModes("p:-120", 44.64,  -65, -120));
+		rotamers.add("THR", Rotamer.ofModes("p_-60",  48.14,   62,  -60));
+		rotamers.add("THR", Rotamer.ofModes("p_60",   48.14,   62,   60));
+		rotamers.add("THR", Rotamer.ofModes("p_180",  48.14,   62,  180));
+		rotamers.add("THR", Rotamer.ofModes("p_0",    48.14,   62,    0));
+		rotamers.add("THR", Rotamer.ofModes("p_120",  48.14,   62,  120));
+		rotamers.add("THR", Rotamer.ofModes("p_-120", 48.14,   62, -120));
+		rotamers.add("THR", Rotamer.ofModes("t_-60",   6.91, -175,  -60));
+		rotamers.add("THR", Rotamer.ofModes("t_60",    6.91, -175,   60));
+		rotamers.add("THR", Rotamer.ofModes("t_180",   6.91, -175,  180));
+		rotamers.add("THR", Rotamer.ofModes("t_0",     6.91, -175,    0));
+		rotamers.add("THR", Rotamer.ofModes("t_120",   6.91, -175,  120));
+		rotamers.add("THR", Rotamer.ofModes("t_-120",  6.91, -175, -120));
+		rotamers.add("THR", Rotamer.ofModes("m_-60",  44.64,  -65,  -60));
+		rotamers.add("THR", Rotamer.ofModes("m_60",   44.64,  -65,   60));
+		rotamers.add("THR", Rotamer.ofModes("m_180",  44.64,  -65,  180));
+		rotamers.add("THR", Rotamer.ofModes("m_0",    44.64,  -65,    0));
+		rotamers.add("THR", Rotamer.ofModes("m_120",  44.64,  -65,  120));
+		rotamers.add("THR", Rotamer.ofModes("m_-120", 44.64,  -65, -120));
 
 		// lys
 		rotamers.add("LYS", Rotamer.ofModes("ptpt",  0.42,  62,  180,   68,  180));
 		rotamers.add("LYS", Rotamer.ofModes("pttp",  0.69,  62,  180,  180,   65));
 		rotamers.add("LYS", Rotamer.ofModes("pttt",  3.98,  62,  180,  180,  180));
-		rotamers.add("LYS", Rotamer.ofModes("pttt",  0.77,  62,  180,  180,  -65));
+		rotamers.add("LYS", Rotamer.ofModes("pttm",  0.77,  62,  180,  180,  -65));
 		rotamers.add("LYS", Rotamer.ofModes("ptmt",  0.54,  62,  180,  -68,  180));
 		rotamers.add("LYS", Rotamer.ofModes("tptp",  1.17,-177,   68,  180,   65));
 		rotamers.add("LYS", Rotamer.ofModes("tptt",  3.53,-177,   68,  180,  180));
@@ -446,89 +447,89 @@ public class FlexLab {
 		rotamers.add("LYS", Rotamer.ofModes("mmmt",  1.56, -62,  -68,  -68,  180));
 
 		// arg
-		rotamers.add("ARG", Rotamer.ofModes("ptp90",    0.48,   62,  180,   65,   85));
-		rotamers.add("ARG", Rotamer.ofModes("ptp-170",  0.84,  62,  180,   65, -175));
-		rotamers.add("ARG", Rotamer.ofModes("ptt90",    1.76,  62,  180,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("ptp85",    0.48,   62,  180,   65,   85));
+		rotamers.add("ARG", Rotamer.ofModes("ptp180",  0.84,  62,  180,   65, -175));
+		rotamers.add("ARG", Rotamer.ofModes("ptt85",    1.76,  62,  180,  180,   85));
 		rotamers.add("ARG", Rotamer.ofModes("ptt180",   1.77,  62,  180,  180,  180));
-		rotamers.add("ARG", Rotamer.ofModes("ptt-90",   1.57,  62,  180,  180,  -85));
-		rotamers.add("ARG", Rotamer.ofModes("ptm160",   1.08,  62,  180,  -65,  175));
-		rotamers.add("ARG", Rotamer.ofModes("ptm-80",   0.46,  62,  180,  -65,  -85));
-		rotamers.add("ARG", Rotamer.ofModes("tpp80",    0.78,-177,   65,   65,   85));
-		rotamers.add("ARG", Rotamer.ofModes("tpp-160",  1.07,-177,   65,   65, -175));
-		rotamers.add("ARG", Rotamer.ofModes("tpt90",    1.41,-177,   65,  180,   85));
-		rotamers.add("ARG", Rotamer.ofModes("tpt170",   1.78,-177,   65,  180,  180));
-		rotamers.add("ARG", Rotamer.ofModes("ttp80",    4.09,-177,  180,   65,   85));
-		rotamers.add("ARG", Rotamer.ofModes("ttp-170",  3.31,-177,  180,   65, -175));
-		rotamers.add("ARG", Rotamer.ofModes("ttp-110",  1.34,-177,  180,   65, -105));
-		rotamers.add("ARG", Rotamer.ofModes("ttt90",    2.28,-177,  180,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("ptt-85",   1.57,  62,  180,  180,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("ptm180",   1.08,  62,  180,  -65,  175));
+		rotamers.add("ARG", Rotamer.ofModes("ptm-85",   0.46,  62,  180,  -65,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("tpp85",    0.78,-177,   65,   65,   85));
+		rotamers.add("ARG", Rotamer.ofModes("tpp180",  1.07,-177,   65,   65, -175));
+		rotamers.add("ARG", Rotamer.ofModes("tpt85",    1.41,-177,   65,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("tpt180",   1.78,-177,   65,  180,  180));
+		rotamers.add("ARG", Rotamer.ofModes("ttp85",    4.09,-177,  180,   65,   85));
+		rotamers.add("ARG", Rotamer.ofModes("ttp180",  3.31,-177,  180,   65, -175));
+		rotamers.add("ARG", Rotamer.ofModes("ttp-105",  1.34,-177,  180,   65, -105));
+		rotamers.add("ARG", Rotamer.ofModes("ttt85",    2.28,-177,  180,  180,   85));
 		rotamers.add("ARG", Rotamer.ofModes("ttt180",   5.04,-177,  180,  180,  180));
-		rotamers.add("ARG", Rotamer.ofModes("ttt-90",   2.98,-177,  180,  180,  -85));
-		rotamers.add("ARG", Rotamer.ofModes("ttm110",   1.56,-177,  180,  -65,  105));
-		rotamers.add("ARG", Rotamer.ofModes("ttm170",   2.84,-177,  180,  -65,  175));
-		rotamers.add("ARG", Rotamer.ofModes("ttm-80",   3.24,-177,  180,  -65,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("ttt-85",   2.98,-177,  180,  180,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("ttm105",   1.56,-177,  180,  -65,  105));
+		rotamers.add("ARG", Rotamer.ofModes("ttm180",   2.84,-177,  180,  -65,  175));
+		rotamers.add("ARG", Rotamer.ofModes("ttm-85",   3.24,-177,  180,  -65,  -85));
 		rotamers.add("ARG", Rotamer.ofModes("mtp85",    4.00, -67,  180,   65,   85));
 		rotamers.add("ARG", Rotamer.ofModes("mtp180",   5.40, -67,  180,   65, -175));
-		rotamers.add("ARG", Rotamer.ofModes("mtp-110",  1.01, -67,  180,   65, -105));
-		rotamers.add("ARG", Rotamer.ofModes("mtt90",    5.30, -67,  180,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("mtp-105",  1.01, -67,  180,   65, -105));
+		rotamers.add("ARG", Rotamer.ofModes("mtt85",    5.30, -67,  180,  180,   85));
 		rotamers.add("ARG", Rotamer.ofModes("mtt180",   9.90, -67,  180,  180,  180));
 		rotamers.add("ARG", Rotamer.ofModes("mtt-85",   6.13, -67,  180,  180,  -85));
-		rotamers.add("ARG", Rotamer.ofModes("mtm110",   1.68, -67,  180,  -65,  105));
+		rotamers.add("ARG", Rotamer.ofModes("mtm105",   1.68, -67,  180,  -65,  105));
 		rotamers.add("ARG", Rotamer.ofModes("mtm180",   5.19, -67,  180,  -65,  175));
 		rotamers.add("ARG", Rotamer.ofModes("mtm-85",   6.14, -67, -167,  -65,  -85));
-		rotamers.add("ARG", Rotamer.ofModes("mmt90",    1.22, -62,  -68,  180,   85));
+		rotamers.add("ARG", Rotamer.ofModes("mmt85",    1.22, -62,  -68,  180,   85));
 		rotamers.add("ARG", Rotamer.ofModes("mmt180",   2.59, -62,  -68,  180,  180));
-		rotamers.add("ARG", Rotamer.ofModes("mmt-90",   3.08, -62,  -68,  180,  -85));
-		rotamers.add("ARG", Rotamer.ofModes("mmm160",   2.05, -62,  -68,  -65,  175));
+		rotamers.add("ARG", Rotamer.ofModes("mmt-85",   3.08, -62,  -68,  180,  -85));
+		rotamers.add("ARG", Rotamer.ofModes("mmm180",   2.05, -62,  -68,  -65,  175));
 		rotamers.add("ARG", Rotamer.ofModes("mmm-85",   2.20, -62,  -68,  -65,  -85));
 
 		// his
 		for (String type : Arrays.asList("HIP", "HID", "HIE")) {
 			rotamers.add(type, Rotamer.ofModes("p-80",   7.39,   62,  -75));
-			rotamers.add(type, Rotamer.ofModes("p90",    5.01,   62,   80));
-			rotamers.add(type, Rotamer.ofModes("t-170",  4.47, -177, -165));
-			rotamers.add(type, Rotamer.ofModes("t-90",  11.93, -177,  -80));
-			rotamers.add(type, Rotamer.ofModes("t70",   17.01, -177,   60));
+			rotamers.add(type, Rotamer.ofModes("p80",    5.01,   62,   80));
+			rotamers.add(type, Rotamer.ofModes("t-160",  4.47, -177, -165));
+			rotamers.add(type, Rotamer.ofModes("t-80",  11.93, -177,  -80));
+			rotamers.add(type, Rotamer.ofModes("t60",   17.01, -177,   60));
 			rotamers.add(type, Rotamer.ofModes("m-70",  31.73,  -65,  -70));
 			rotamers.add(type, Rotamer.ofModes("m170",   9.05,  -65,  165));
-			rotamers.add(type, Rotamer.ofModes("m90",   13.14,  -65,   80));
+			rotamers.add(type, Rotamer.ofModes("m80",   13.14,  -65,   80));
 		}
 
 		// asp
-		rotamers.add("ASP", Rotamer.ofModes("p0:1", 16.24/2,   62,  -10));
-		rotamers.add("ASP", Rotamer.ofModes("p0:2", 16.24/2,   62,   30));
+		rotamers.add("ASP", Rotamer.ofModes("p-10", 16.24/2,   62,  -10));
+		rotamers.add("ASP", Rotamer.ofModes("p30", 16.24/2,   62,   30));
 		rotamers.add("ASP", Rotamer.ofModes("t0",     23.65, -177,    0));
 		rotamers.add("ASP", Rotamer.ofModes("t70",     8.33, -177,   65));
-		rotamers.add("ASP", Rotamer.ofModes("m-30",   51.48,  -70,  -15));
+		rotamers.add("ASP", Rotamer.ofModes("m-20",   51.48,  -70,  -15));
 
 		// glu
-		rotamers.add("GLU", Rotamer.ofModes("pt0",    4.87,   62,  180,  -20));
-		rotamers.add("GLU", Rotamer.ofModes("pm20",   2.58,   70,  -80,    0));
-		rotamers.add("GLU", Rotamer.ofModes("tp30",   8.03, -177,   65,   10));
+		rotamers.add("GLU", Rotamer.ofModes("pt-20",    4.87,   62,  180,  -20));
+		rotamers.add("GLU", Rotamer.ofModes("pm0",   2.58,   70,  -80,    0));
+		rotamers.add("GLU", Rotamer.ofModes("tp10",   8.03, -177,   65,   10));
 		rotamers.add("GLU", Rotamer.ofModes("tt0",   23.69, -177,  180,    0));
-		rotamers.add("GLU", Rotamer.ofModes("tm-30",  1.50, -177,  -80,  -25));
+		rotamers.add("GLU", Rotamer.ofModes("tm-20",  1.50, -177,  -80,  -25));
 		rotamers.add("GLU", Rotamer.ofModes("mp0",    6.39,  -65,   85,    0));
 		rotamers.add("GLU", Rotamer.ofModes("mt-10", 36.58,  -67,  180,  -10));
-		rotamers.add("GLU", Rotamer.ofModes("mm-30", 15.80,  -65,  -65,  -40));
+		rotamers.add("GLU", Rotamer.ofModes("mm-40", 15.80,  -65,  -65,  -40));
 
 		// asn
-		rotamers.add("ASN", Rotamer.ofModes("p0:1",   14.00/2,   62,  -10));
-		rotamers.add("ASN", Rotamer.ofModes("p0:2",   14.00/2,   62,   30));
-		rotamers.add("ASN", Rotamer.ofModes("t0:1",   29.10/2, -174,  -20));
-		rotamers.add("ASN", Rotamer.ofModes("t0:2",   29.10/2, -177,   30));
-		rotamers.add("ASN", Rotamer.ofModes("m-40:1", 49.01/2,  -65,  -20));
-		rotamers.add("ASN", Rotamer.ofModes("m-40:2", 49.01/2,  -65,  -75));
-		rotamers.add("ASN", Rotamer.ofModes("m110",      7.46,  -65,  120));
+		rotamers.add("ASN", Rotamer.ofModes("p-10",   14.00/2,   62,  -10));
+		rotamers.add("ASN", Rotamer.ofModes("p30",   14.00/2,   62,   30));
+		rotamers.add("ASN", Rotamer.ofModes("t-20",   29.10/2, -174,  -20));
+		rotamers.add("ASN", Rotamer.ofModes("t30",   29.10/2, -177,   30));
+		rotamers.add("ASN", Rotamer.ofModes("m-20", 49.01/2,  -65,  -20));
+		rotamers.add("ASN", Rotamer.ofModes("m-80", 49.01/2,  -65,  -75));
+		rotamers.add("ASN", Rotamer.ofModes("m120",      7.46,  -65,  120));
 
 		// gln
-		rotamers.add("GLN", Rotamer.ofModes("pt0",     5.08,   62,  180,   20));
-		rotamers.add("GLN", Rotamer.ofModes("pm20",    1.31,   70,  -75,    0));
+		rotamers.add("GLN", Rotamer.ofModes("pt20",     5.08,   62,  180,   20));
+		rotamers.add("GLN", Rotamer.ofModes("pm0",    1.31,   70,  -75,    0));
 		rotamers.add("GLN", Rotamer.ofModes("tp-100",  1.44, -177,   65, -100));
-		rotamers.add("GLN", Rotamer.ofModes("tp40",    9.75, -177,   65,   60));
+		rotamers.add("GLN", Rotamer.ofModes("tp60",    9.75, -177,   65,   60));
 		rotamers.add("GLN", Rotamer.ofModes("tt0",    18.69, -177,  180,    0));
-		rotamers.add("GLN", Rotamer.ofModes("mp10",    3.25,  -65,   85,    0));
-		rotamers.add("GLN", Rotamer.ofModes("mt0",    38.71,  -67,  180,  -25));
+		rotamers.add("GLN", Rotamer.ofModes("mp0",    3.25,  -65,   85,    0));
+		rotamers.add("GLN", Rotamer.ofModes("mt-30",    38.71,  -67,  180,  -25));
 		rotamers.add("GLN", Rotamer.ofModes("mm-40",  16.05,  -65,  -65,  -40));
-		rotamers.add("GLN", Rotamer.ofModes("mm110",   3.09,  -65,  -65,  100));
+		rotamers.add("GLN", Rotamer.ofModes("mm100",   3.09,  -65,  -65,  100));
 
 		/* TODO: build a better rotamer library
 		// LEU: +-9 voxels <= 50% (ish) coverage (Lovell voxels get 51.5%)
@@ -697,7 +698,6 @@ public class FlexLab {
 				Probe probe = new Probe();
 				probe.matchTemplate(templ);
 				AtomConnectivity connectivity = new AtomConnectivity.Builder()
-					.addTemplates(Arrays.asList(templ))
 					.set15HasNonBonded(false)
 					.build();
 
@@ -1466,7 +1466,6 @@ public class FlexLab {
 
 		logf("building atom connectivity...");
 		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.addTemplates(templateLib)
 			.set15HasNonBonded(false)
 			.build();
 		log(" done!");
@@ -1597,7 +1596,6 @@ public class FlexLab {
 			Probe probe = new Probe();
 			probe.matchTemplates(templates.values());
 			AtomConnectivity connectivity = new AtomConnectivity.Builder()
-				.addTemplates(templates.values())
 				.set15HasNonBonded(false)
 				.build();
 
@@ -1657,6 +1655,648 @@ public class FlexLab {
 				}
 			}
 		}
+	}
+
+	enum TerminusType {
+		Non,
+		N
+	}
+
+	private static void makeConfLib()
+	throws Exception {
+
+		/* NOTE:
+			Fair warning, this function is a quite messy and gross!
+			It was meant to be a one-off throwaway function,
+			so it's not super readable or maintainable.
+			Once the design of the new conformation system is complete,
+			then hopefully we only need to ever call this function once to
+			export Osprey's v3 conformations and then we're done with it.
+		*/
+
+		Map<String,String> resTypes = new HashMap<>();
+		resTypes.put("ARG", "Arginine");
+		resTypes.put("HIP", "Histidine - HD1,HE2");
+		resTypes.put("HID", "Histidine - HD1");
+		resTypes.put("HIE", "Histidine - HE2");
+		resTypes.put("LYS", "Lysine");
+		resTypes.put("ASP", "Aspartic Acid");
+		resTypes.put("GLU", "Glutamic Acid");
+		resTypes.put("CYS", "Cysteine");
+		resTypes.put("GLY", "Glycine");
+		resTypes.put("PRO", "Proline");
+		resTypes.put("ALA", "Alanine");
+		resTypes.put("VAL", "Valine");
+		resTypes.put("ILE", "Isoleucine");
+		resTypes.put("LEU", "Leucine");
+		resTypes.put("MET", "Methionine");
+		resTypes.put("PHE", "Phenylalanine");
+		resTypes.put("TYR", "Tryosine");
+		resTypes.put("TRP", "Tryptophan");
+		resTypes.put("SER", "Serine");
+		resTypes.put("THR", "Threonine");
+		resTypes.put("ASN", "Asparagine");
+		resTypes.put("GLN", "Glutamine");
+
+		Map<String,String> seqTypes = new HashMap<>();
+		seqTypes.put("HIP", "HIS");
+		seqTypes.put("HID", "HIS");
+		seqTypes.put("HIE", "HIS");
+
+		// get the templates we care about
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ForcefieldParams.Forcefield.AMBER)
+			.clearTemplateCoords()
+			.addTemplateCoords(FileTools.readFile("template coords.v2.txt"))
+			.build();
+
+		Function<String,String> quote = s -> "\'" + s + "\'";
+
+		// get examples of (hopefully close to ideal) backbone geometry from 1CC8
+		Molecule mol1cc8 = PDBIO.readResource("/1CC8.ss.pdb");
+
+		try (FileWriter out = new FileWriter("aminoAcids.conflib.toml")) {
+
+			for (TerminusType terminusType : TerminusType.values()) {
+
+				// pick the templates for the terminus type
+				Map<String,ResidueTemplate> templates = new HashMap<>();
+				for (String resType : resTypes.keySet()) {
+
+					List<ResidueTemplate> resTemplates = templateLib.templates.stream()
+						.filter(t -> t.name.equalsIgnoreCase(resType))
+						.filter(t -> {
+
+							long numNH = t.templateRes.getAtomByNameOrThrow("N").bonds.stream()
+								.filter(atom -> atom.elementType.equalsIgnoreCase("H"))
+								.count();
+							Atom oxt = t.templateRes.getAtomByName("OXT");
+
+							TerminusType type = null;
+							if (numNH <= 1 && oxt == null) {
+								type = TerminusType.Non;
+							} else if (numNH >= 2 && oxt == null) {
+								type = TerminusType.N;
+							}
+
+							// don't actually get N-terminal templates for N-terminal fragments
+							//return type == terminusType;
+
+							// instead, just always get the non terminal template
+							// we don't have template coords for N-terminal templates (yet?), so we can't use them
+							return type == TerminusType.Non;
+
+						})
+						.collect(Collectors.toList());
+
+					// we should have gotten just one template
+					if (resTemplates.size() != 1) {
+						throw new Error("couldn't get terminal template");
+					}
+
+					templates.put(resType, resTemplates.get(0));
+				}
+
+				for (Map.Entry<String,ResidueTemplate> entry : templates.entrySet()) {
+					String type = entry.getKey();
+					ResidueTemplate templ = entry.getValue();
+
+					String id;
+					String name;
+					switch (terminusType) {
+						case Non:
+							id = type;
+							name = resTypes.get(type);
+						break;
+						case N:
+							id = type + "n";
+							name = resTypes.get(type) + ", N-terminal";
+						break;
+						default: throw new Error();
+					}
+
+					log("Template: %s -> %s", id, name);
+
+					// if we don't have coords, then skip this fragment for now...
+					if (templ.templateRes.coords == null) {
+						log("\tNo coords, skipping");
+						continue;
+					}
+
+					if (type.equals("PRO") && terminusType == TerminusType.N) {
+						log("\tN-terminal proline not supported (yet)");
+						// no coords for N-terminal residues, so we can't
+						// properly write out a doublehalf anchored fragment for proline =(
+						continue;
+					}
+
+					String seqType = seqTypes.getOrDefault(type, type);
+
+					outPrintln(out, "\n[frag.%s]", id);
+					outPrintln(out, "name = %s", quote.apply(name));
+					outPrintln(out, "type = %s", quote.apply(seqType));
+
+					// copy the template residue
+					Residue res = new Residue(templ.templateRes);
+					res.copyIntraBondsFrom(templ.templateRes);
+					res.template = templ;
+
+					// split into mainchain and sidechain atoms
+					List<Atom> mainchainAtoms = res.atoms.stream()
+						.filter(atom -> Arrays.asList("N", "CA", "C", "O").contains(atom.name))
+						.collect(Collectors.toList());
+					List<Atom> sidechainAtoms = res.atoms.stream()
+						.filter(atom -> !mainchainAtoms.contains(atom))
+						.collect(Collectors.toList());
+
+					// grab the CA anchor atoms from the backbone
+					Atom atomCA = res.getAtomByNameOrThrow("CA");
+					Atom atomN = res.getAtomByNameOrThrow("N");
+					Atom atomC = res.getAtomByNameOrThrow("C");
+
+					if (type.equals("PRO")) {
+						// nothing to do
+					} else {
+						switch (terminusType) {
+							case N:
+								// The new doublehalf anchor type would require coords for eg H1, H2, H3,
+								// but Osprey don't have them in its template library.
+								// So we'll use a single anchor for N-terminal fragments instead,
+								// and leave off all N-bonded atoms entirely.
+								// Sadly this means we can't support proline mutations in N-terminal residues for now. =(
+								// And since we're actually using coords from a non-terminal residue template,
+								// that means we need to remove the amide hydrogen, H.
+								sidechainAtoms.remove(res.getAtomByNameOrThrow("H"));
+							break;
+						}
+					}
+
+					// write out the atoms
+					outPrintln(out, "atoms = [");
+					for (int i=0; i<sidechainAtoms.size(); i++) {
+						Atom atom = sidechainAtoms.get(i);
+						outPrintln(out, "\t{ id = %2d, name = %7s, elem = %4s },",
+							i + 1,
+							quote.apply(atom.name),
+							quote.apply(atom.elementType)
+						);
+					}
+					outPrintln(out, "]");
+
+					// write out the bonds
+					outPrintln(out, "bonds = [");
+					for (Atom atom : sidechainAtoms) {
+						int i1 = sidechainAtoms.indexOf(atom);
+						for (Atom bondedAtom : atom.bonds) {
+							int i2 = sidechainAtoms.indexOf(bondedAtom);
+							if (i2 >= 0 && i2 < i1) {
+								outPrintln(out, "\t[ %2d, %2d ], # %4s - %-4s",
+									i1 + 1,
+									i2 + 1,
+									atom.name,
+									bondedAtom.name
+								);
+							}
+						}
+					}
+					outPrintln(out, "]");
+
+					List<Atom> atomsBondedToCA = atomCA.bonds.stream()
+						.filter(bondedAtom -> sidechainAtoms.contains(bondedAtom))
+						.collect(Collectors.toList());
+					List<Atom> atomsBondedToN = atomN.bonds.stream()
+						.filter(bondedAtom -> sidechainAtoms.contains(bondedAtom))
+						.collect(Collectors.toList());
+
+					// write out the anchors
+					outPrintln(out, "anchors = [");
+					switch (terminusType) {
+						case Non:
+							if (type.equals("PRO")) {
+
+								// write out one double-type anchor
+								outPrintln(out, "\t{ id = 1, type = 'double', bondsa = [ %s ], bondsb = [ %s ] }, # CA - %s; N - %s",
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToN, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name),
+									Streams.joinToString(atomsBondedToN, ", ", atom -> atom.name)
+								);
+
+							} else {
+
+								// write out two single-type anchors
+
+								// write the CA anchor
+								outPrintln(out, "\t{ id = 1, type = 'single', bonds = [ %s ] }, # CA - %s",
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name)
+								);
+
+								// write the N anchor
+								outPrintln(out, "\t{ id = 2, type = 'single', bonds = [ %s ] }, # N - %s",
+									Streams.joinToString(atomsBondedToN, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToN, ", ", atom -> atom.name)
+								);
+							}
+						break;
+						case N:
+
+							if (type.equals("PRO")) {
+
+								// not supported yet
+								// we shouldn't ever execute here anyway, since a continue statement should have skipped this
+								assert (false);
+
+							} else {
+
+								/* if we had coords for N-terminal residues (eg H1, H2, H3), we could use this nifty new doublehalf anchor type
+								// write out one doublehalf-type anchor
+								outPrintln(out, "\t{ id = 1, type = 'doublehalf', bondsa = [ %s ], bondsb = [ %s ] }, # CA - %s; N - %s",
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToN, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name),
+									Streams.joinToString(atomsBondedToN, ", ", atom -> atom.name)
+								);
+								*/
+
+								// alas we don't (yet?), so just use a single anchor instead
+								outPrintln(out, "\t{ id = 1, type = 'single', bonds = [ %s ] }, # CA - %s",
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> Integer.toString(sidechainAtoms.indexOf(atom) + 1)),
+									Streams.joinToString(atomsBondedToCA, ", ", atom -> atom.name)
+								);
+							}
+						break;
+					}
+					outPrintln(out, "]");
+
+					Function<String,String> findAtomId = (atomName) -> {
+						if (atomName.equals("N")) {
+							// for N, look at the anchor atoms
+							if (type.equals("PRO")) {
+								return "[1,2]";
+							} else {
+								return "[1,2]";
+							}
+						} else if (atomName.equals("CA")) {
+							// for CA, look at the anchor atoms
+							if (type.equals("PRO")) {
+								return "[1,1]";
+							} else {
+								return "[1,1]";
+							}
+						} else {
+							// for everything else, look at the sidechain atoms
+							int index = sidechainAtoms.indexOf(res.getAtomByNameOrThrow(atomName));
+							if (index < 0) {
+								throw new Error(String.format("can't find atom %s in res type %s", atomName, type));
+							}
+							return Integer.toString(index + 1);
+						}
+					};
+
+					// write out the degrees of freedom
+					outPrintln(out, "dofs = [");
+					int nextDofId = 1;
+
+					// chi angles
+					for (MeasurementLibrary.Measurement measurement : chiLib.get(type)) {
+						if (measurement instanceof MeasurementLibrary.DihedralAngle) {
+							MeasurementLibrary.DihedralAngle dihedral = (MeasurementLibrary.DihedralAngle)measurement;
+
+							outPrintln(out, "\t{ id = %2d, type = 'dihedral', a = %s, b = %s, c = %s, d = %s }, # %s, %s, %s, %s",
+								nextDofId++,
+								findAtomId.apply(dihedral.a),
+								findAtomId.apply(dihedral.b),
+								findAtomId.apply(dihedral.c),
+								findAtomId.apply(dihedral.d),
+								dihedral.a,
+								dihedral.b,
+								dihedral.c,
+								dihedral.d
+							);
+						}
+					}
+
+					// H-group dihedral angles
+					for (MeasurementLibrary.Measurement measurement : methylLib.get(type)) {
+						if (measurement instanceof MeasurementLibrary.DihedralAnglesMinDist) {
+							MeasurementLibrary.DihedralAnglesMinDist dihedral = (MeasurementLibrary.DihedralAnglesMinDist)measurement;
+
+							outPrintln(out, "\t{ id = %2d, type = 'dihedral', a = %s, b = %s, c = %s, d = %s }, # %s, %s, %s, %s",
+								nextDofId++,
+								findAtomId.apply(dihedral.a),
+								findAtomId.apply(dihedral.b),
+								findAtomId.apply(dihedral.c),
+								findAtomId.apply(dihedral.d[0]),
+								dihedral.a,
+								dihedral.b,
+								dihedral.c,
+								dihedral.d[0]
+							);
+						}
+					}
+
+					outPrintln(out, "]");
+
+					// does this template have rotamers?
+					if (templ.getNumRotamers() > 0) {
+
+						// print the conformations
+						for (int r=0; r<templ.getNumRotamers(); r++) {
+
+							// find the rotamer info
+							double[] dihedrals = templ.getRotamericDihedrals(r);
+							Rotamer rot = rotamers.find(type, dihedrals);
+							if (rot == null) {
+								throw new Error("can't find rotmer info for " + type + " rotamer " + r + "\ndihedrals: " + Arrays.toString(dihedrals));
+							}
+
+							// start with fresh coords for each conf
+							// and a residue that includes the backbone atoms, so the dihderal atom indices match
+							Residue confRes = new Residue(templ.templateRes);
+							confRes.template = templ;
+
+							// apply all the dihedral angles
+							double [] anglesDegrees = templ.getRotamericDihedrals(r);
+							for (int d=0; d<templ.numDihedrals; d++) {
+								new FreeDihedral(confRes, d).apply(anglesDegrees[d]);
+							}
+
+							outPrintln(out, "[frag.%s.conf.%s]", id, rot.name);
+							outPrintln(out, "name = %s", quote.apply(rot.name));
+							outPrintln(out, "description = 'chi = [%s]'",
+								Streams.joinToString(anglesDegrees, ", ", a -> String.format("%.0f", a))
+							);
+
+							// but write out the coords using the ids from the sidechain atoms only
+							outPrintln(out, "coords = [");
+							for (Atom atom : confRes.atoms) {
+
+								// is this a sidechain atom?
+								int i = sidechainAtoms.indexOf(res.getAtomByName(atom.name));
+								if (i >= 0) {
+
+									// yup, print the coords
+									double[] coords;
+									if (atom.name.equals("H")) {
+										// use the 1CC8 geometry for the H coords, since it has a different anchor
+										coords = mol1cc8.getResByPDBResNumber("A33").getAtomByNameOrThrow("H").getCoords();
+									} else {
+										coords = atom.getCoords();
+									}
+									outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ] }, # %s",
+										i + 1,
+										coords[0], coords[1], coords[2],
+										atom.name
+									);
+								}
+							}
+							outPrintln(out, "]");
+
+							outPrintln(out, "anchorCoords = [");
+
+							switch (terminusType) {
+								case Non: {
+
+									// write the CA anchor
+									double[] coordsa = atomCA.getCoords();
+									double[] coordsb = atomN.getCoords();
+									double[] coordsc = atomC.getCoords();
+									outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+										coordsa[0], coordsa[1], coordsa[2],
+										coordsb[0], coordsb[1], coordsb[2],
+										coordsc[0], coordsc[1], coordsc[2]
+									);
+
+									// use geometry from 1CC8 for the N anchor
+									Residue asp32 = mol1cc8.getResByPDBResNumber("A32");
+									Residue val33 = mol1cc8.getResByPDBResNumber("A33");
+
+									// write the N anchor
+									coordsa = val33.getAtomByNameOrThrow("N").getCoords();
+									coordsb = asp32.getAtomByNameOrThrow("C").getCoords();
+									coordsc = val33.getAtomByNameOrThrow("CA").getCoords();
+									outPrintln(out, "\t{ id = 2, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # N, C, CA",
+										coordsa[0], coordsa[1], coordsa[2],
+										coordsb[0], coordsb[1], coordsb[2],
+										coordsc[0], coordsc[1], coordsc[2]
+									);
+								} break;
+								case N: {
+
+									/* if we had coords for N-terminal residues (eg H1, H2, H3), we could use this nifty new doublehalf anchor type
+									// write the doublehalf anchor
+									double[] coordsa = atomCA.getCoords();
+									double[] coordsb = atomN.getCoords();
+									double[] coordsc = atomC.getCoords();
+									outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+										coordsa[0], coordsa[1], coordsa[2],
+										coordsb[0], coordsb[1], coordsb[2],
+										coordsc[0], coordsc[1], coordsc[2]
+									);
+									*/
+
+									// alas we don't (yet?), so just use a single anchor instead
+									double[] coordsa = atomCA.getCoords();
+									double[] coordsb = atomN.getCoords();
+									double[] coordsc = atomC.getCoords();
+									outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+										coordsa[0], coordsa[1], coordsa[2],
+										coordsb[0], coordsb[1], coordsb[2],
+										coordsc[0], coordsc[1], coordsc[2]
+									);
+
+								} break;
+							}
+
+							outPrintln(out, "]");
+						}
+
+					} else if (type.equals("PRO")) {
+
+						// use geometry from 1CC8 for the N anchor
+						Residue leu51 = mol1cc8.getResByPDBResNumber("A51");
+						Residue pro52 = mol1cc8.getResByPDBResNumber("A52");
+
+						// for each pucker
+						for (ProlinePucker.Direction puckerDir : ProlinePucker.Direction.values()) {
+
+							// apply the pucker
+							res.pucker = new ProlinePucker(templateLib, res);
+							res.pucker.apply(puckerDir);
+
+							outPrintln(out, "[frag.%s.conf.%s]", id, puckerDir.name().toLowerCase());
+							outPrintln(out, "name = %s", quote.apply(puckerDir.name().toLowerCase()));
+
+							outPrintln(out, "description = 'phi = %s'",
+								String.format("%.0f", Protractor.getPhiPsi(pro52)[0])
+							);
+
+							// but write out the coords using the ids from the sidechain atoms only
+							outPrintln(out, "coords = [");
+							for (Atom atom : res.atoms) {
+
+								// is this a sidechain atom?
+								int i = sidechainAtoms.indexOf(res.getAtomByName(atom.name));
+								if (i >= 0) {
+
+									// yup, print the coords
+									double[] coords = atom.getCoords();
+									outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ] }, # %s",
+										i + 1,
+										coords[0], coords[1], coords[2],
+										atom.name
+									);
+								}
+							}
+							outPrintln(out, "]");
+
+							switch (terminusType) {
+								case Non: {
+
+									// write coords for the double anchor
+									double[] coordsa = pro52.getAtomByNameOrThrow("CA").getCoords();
+									double[] coordsb = pro52.getAtomByNameOrThrow("N").getCoords();
+									double[] coordsc = leu51.getAtomByNameOrThrow("C").getCoords();
+									double[] coordsd = pro52.getAtomByNameOrThrow("C").getCoords();
+									RigidBodyMotion xform = new RigidBodyMotion(
+										new double[][] {
+											coordsa,
+											coordsb,
+											coordsd
+										},
+										new double[][] {
+											atomCA.getCoords(),
+											atomN.getCoords(),
+											atomC.getCoords()
+										}
+									);
+									xform.transform(coordsa);
+									xform.transform(coordsb);
+									xform.transform(coordsc);
+									xform.transform(coordsd);
+									outPrintln(out, "anchorCoords = [");
+									outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ], d = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, Cn Cc",
+										coordsa[0], coordsa[1], coordsa[2],
+										coordsb[0], coordsb[1], coordsb[2],
+										coordsc[0], coordsc[1], coordsc[2],
+										coordsd[0], coordsd[1], coordsd[2]
+									);
+								} break;
+								case N: {
+
+									// not supported yet
+									// we shouldn't ever execute here anyway, since a continue statement should have skipped this
+									assert (false);
+
+								} break;
+							}
+
+							outPrintln(out, "]");
+						}
+
+					} else {
+
+						// nope, no rotamers. just a single conformation
+						outPrintln(out, "[frag.%s.conf.%s]", id, type);
+						outPrintln(out, "name = %s", quote.apply(id));
+
+						// but write out the coords using the ids from the sidechain atoms only
+						outPrintln(out, "coords = [");
+						for (Atom atom : res.atoms) {
+
+							// is this a sidechain atom?
+							int i = sidechainAtoms.indexOf(res.getAtomByName(atom.name));
+							if (i >= 0) {
+
+								// yup, print the coords
+								double[] coords;
+								if (atom.name.equals("H")) {
+									// use the 1CC8 geometry for the H coords, since it has a different anchor
+									coords = mol1cc8.getResByPDBResNumber("A33").getAtomByNameOrThrow("H").getCoords();
+								} else {
+									coords = atom.getCoords();
+								}
+								outPrintln(out, "\t{ id = %2d, xyz = [ %12.6f, %12.6f, %12.6f ] }, # %s",
+									i + 1,
+									coords[0], coords[1], coords[2],
+									atom.name
+								);
+							}
+						}
+						outPrintln(out, "]");
+
+						// write the anchor coords
+						outPrintln(out, "anchorCoords = [");
+
+						switch (terminusType) {
+							case Non: {
+
+								// write the CA anchor
+								double[] coordsa = atomCA.getCoords();
+								double[] coordsb = atomN.getCoords();
+								double[] coordsc = atomC.getCoords();
+								outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+									coordsa[0], coordsa[1], coordsa[2],
+									coordsb[0], coordsb[1], coordsb[2],
+									coordsc[0], coordsc[1], coordsc[2]
+								);
+
+								// use geometry from 1CC8 for the N anchor
+								Residue asp32 = mol1cc8.getResByPDBResNumber("A32");
+								Residue val33 = mol1cc8.getResByPDBResNumber("A33");
+
+								// write the N anchor
+								coordsa = val33.getAtomByNameOrThrow("N").getCoords();
+								coordsb = asp32.getAtomByNameOrThrow("C").getCoords();
+								coordsc = val33.getAtomByNameOrThrow("CA").getCoords();
+								outPrintln(out, "\t{ id = 2, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # N, C, CA",
+									coordsa[0], coordsa[1], coordsa[2],
+									coordsb[0], coordsb[1], coordsb[2],
+									coordsc[0], coordsc[1], coordsc[2]
+								);
+							} break;
+							case N: {
+
+								/* if we had coords for N-terminal residues (eg H1, H2, H3), we could use this nifty new doublehalf anchor type
+								// write the doublehalf anchor
+								double[] coordsa = atomCA.getCoords();
+								double[] coordsb = atomN.getCoords();
+								double[] coordsc = atomC.getCoords();
+								outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+									coordsa[0], coordsa[1], coordsa[2],
+									coordsb[0], coordsb[1], coordsb[2],
+									coordsc[0], coordsc[1], coordsc[2]
+								);
+								*/
+
+								// alas we don't (yet?), so just use a single anchor instead
+								double[] coordsa = atomCA.getCoords();
+								double[] coordsb = atomN.getCoords();
+								double[] coordsc = atomC.getCoords();
+								outPrintln(out, "\t{ id = 1, a = [ %12.6f, %12.6f, %12.6f ], b = [ %12.6f, %12.6f, %12.6f ], c = [ %12.6f, %12.6f, %12.6f ] }, # CA, N, C",
+									coordsa[0], coordsa[1], coordsa[2],
+									coordsb[0], coordsb[1], coordsb[2],
+									coordsc[0], coordsc[1], coordsc[2]
+								);
+
+							} break;
+						}
+
+						outPrintln(out, "]");
+					}
+				}
+			}
+		}
+	}
+
+	private static void outPrint(FileWriter out, String fmt, Object ... args)
+	throws IOException {
+		out.write(String.format(fmt, args));
+	}
+	private static void outPrintln(FileWriter out, String fmt, Object ... args)
+	throws IOException {
+		outPrint(out, fmt, args);
+		out.write("\n");
 	}
 
 	private static Map<ResKey,double[]> readAngles(String type, MeasurementLibrary lib, String filename, boolean recalc)
