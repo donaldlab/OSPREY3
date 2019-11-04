@@ -64,6 +64,34 @@ public class EnergyMatrixCorrector {
 
     private void storePartialConfCorrections(ConfSearch.ScoredConf conf, double epsilonBound, EnergyMatrix diff,
                                              List<TupE> sortedPairwiseTerms2, double threshhold, double minDifference,
+                                             double minTupleDiff, int tupleSize, RCTuple curTuple) {
+        double maxDiff = sortedPairwiseTerms2.get(0).E;
+        for (int i = 0; i < sortedPairwiseTerms2.size(); i++) {
+            TupE tupe = sortedPairwiseTerms2.get(i);
+            double pairDiff = tupe.E;
+            if (pairDiff < minDifference && maxDiff - pairDiff > threshhold)
+                continue;
+            maxDiff = Math.max(maxDiff, tupe.E);
+
+            for (int nextPos = 0; nextPos < diff.getNumPos(); nextPos++) {
+                if (curTuple.pos.contains(nextPos))
+                    continue;
+                if(curTuple.pos.size() >= tupleSize) {
+                    RCTuple tuple = curTuple.set(nextPos, conf.getAssignments()[nextPos]);
+                    double tupleBounds = multiSequenceSHARKStarBound.getRigidEmat().getInternalEnergy(tuple) - multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(tuple);
+                    if (tupleBounds < minTupleDiff)
+                        continue;
+                    multiSequenceSHARKStarBound.minList.set(tuple.size() - 1, multiSequenceSHARKStarBound.minList.get(tuple.size() - 1) + 1);
+                    computeDifference(tuple, multiSequenceSHARKStarBound.getMinimizingEcalc());
+                    multiSequenceSHARKStarBound.setNumPartialMinimizations(multiSequenceSHARKStarBound.getNumPartialMinimizations() + 1);
+                    multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
+                }
+            }
+        }
+    }
+
+    private void storePartialConfCorrections(ConfSearch.ScoredConf conf, double epsilonBound, EnergyMatrix diff,
+                                             List<TupE> sortedPairwiseTerms2, double threshhold, double minDifference,
                                              double triplethreshhold) {
         double maxDiff = sortedPairwiseTerms2.get(0).E;
         for (int i = 0; i < sortedPairwiseTerms2.size(); i++) {
