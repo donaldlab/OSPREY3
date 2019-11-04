@@ -41,38 +41,38 @@ ecalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallel
 
 # configure K*
 kstar = osprey.KStar(
-	proteinConfSpace,
-	ligandConfSpace,
-	complexConfSpace,
-	epsilon=0.99, # you proabably want something more precise in your real designs
-	writeSequencesToConsole=True,
-	writeSequencesToFile='kstar.results.tsv'
+    proteinConfSpace,
+    ligandConfSpace,
+    complexConfSpace,
+    epsilon=0.99, # you proabably want something more precise in your real designs
+    writeSequencesToConsole=True,
+    writeSequencesToFile='kstar.results.tsv'
 )
 
 # configure K* inputs for each conf space
 for info in kstar.confSpaceInfos():
 
-	# how should we define energies of conformations?
-	eref = osprey.ReferenceEnergies(info.confSpace, ecalc)
-	info.confEcalc = osprey.ConfEnergyCalculator(info.confSpace, ecalc, referenceEnergies=eref)
+    # how should we define energies of conformations?
+    eref = osprey.ReferenceEnergies(info.confSpace, ecalc)
+    info.confEcalc = osprey.ConfEnergyCalculator(info.confSpace, ecalc, referenceEnergies=eref)
 
-        # if you want to use MARK*, pass in a energy calculator as well
-        rigidEcalc = osprey.SharedEnergyCalculator(ecalc, isMinimizing=False)
-	info.rigidConfEcalc = osprey.ConfEnergyCalculatorCopy(info.confEcalc, rigidEcalc)
+    # if you want to use MARK*, pass in a energy calculator as well
+    rigidEcalc = osprey.SharedEnergyCalculator(ecalc, isMinimizing=False)
+    info.rigidConfEcalc = osprey.ConfEnergyCalculatorCopy(info.confEcalc, rigidEcalc)
 
-	# compute the energy matrix
-	emat = osprey.EnergyMatrix(info.confEcalc, cacheFile='emat.%s.dat' % info.id)
+    # compute the energy matrix
+    emat = osprey.EnergyMatrix(info.confEcalc, cacheFile='emat.%s.dat' % info.id)
 
-	# how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
-	def makeAStar(rcs, emat=emat):
-		return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	info.confSearchFactory = osprey.KStar.ConfSearchFactory(makeAStar)
+    # how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
+    def makeAStar(rcs, emat=emat):
+        return osprey.AStarTraditional(emat, rcs, showProgress=False)
+    info.confSearchFactory = osprey.KStar.ConfSearchFactory(makeAStar)
 
 # run K*
 scoredSequences = kstar.run()
 
 # use results
 for scoredSequence in scoredSequences:
-	print("result:")
-	print("\tsequence: %s" % scoredSequence.sequence)
-	print("\tscore: %s" % scoredSequence.score)
+    print("result:")
+    print("\tsequence: %s" % scoredSequence.sequence)
+    print("\tscore: %s" % scoredSequence.score)
