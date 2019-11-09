@@ -750,6 +750,8 @@ public class TestSHARKStarBound extends TestBase {
         // update and compute
         PartitionFunction seqPfunc = fullPfunc.getPartitionFunctionForSequence(fullSeq);
         seqPfunc.compute();
+        fullPfunc.setReportProgress(true);
+        fullPfunc.printEnsembleAnalysis();
 
         PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, fullSeq, epsilon/10000);
         traditionalPfunc.setReportProgress(true);

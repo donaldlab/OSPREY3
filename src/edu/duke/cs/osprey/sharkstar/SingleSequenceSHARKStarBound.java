@@ -231,4 +231,10 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     public void setStatus(Status status) {
         this.status = status;
     }
+
+    public boolean isEmpty() {
+        return fringeNodes.isEmpty()
+                && internalQueue.isEmpty()
+                && leafQueue.isEmpty();
+    }
 }

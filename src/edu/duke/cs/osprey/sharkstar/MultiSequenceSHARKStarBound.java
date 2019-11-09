@@ -54,7 +54,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     protected int numInternalNodesProcessed = 0;
 
-    private boolean printMinimizedConfs;
+    private boolean printMinimizedConfs = true;
     private MARKStarProgress progress;
     public String stateName = String.format("%4f", Math.random());
     private int numPartialMinimizations;
@@ -121,7 +121,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
     public static final int[] debugConf = new int[]{};//4, -1, 8, 9};
-    private static final int[] debugConf2 = new int[]{};//{8, 3, 4, 5, 8};
+    private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
     /**
@@ -492,6 +492,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 debugHeap(sequenceBound.fringeNodes);
                 debugHeap(sequenceBound.leafQueue);
                 debugHeap(sequenceBound.internalQueue);
+                internalQueueWasEmpty = sequenceBound.internalQueue.isEmpty();
                 //printTree(sequenceBound.sequence,rootNode);
             }
             tightenBoundInPhases(sequenceBound);
@@ -613,7 +614,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     protected void tightenBoundInPhases(SingleSequenceSHARKStarBound bound) {
         PriorityQueue<MultiSequenceSHARKStarNode> queue = bound.fringeNodes;
-        assert (!queue.isEmpty() || !bound.internalQueue.isEmpty() || !bound.leafQueue.isEmpty());
+        assert (!bound.isEmpty());
         System.out.println(String.format("Current overall error bound: %12.10f, spread of [%12.6e, %12.6e]",
                 bound.getSequenceEpsilon(), bound.getValues().calcLowerBound(),
                 bound.getValues().calcUpperBound()));

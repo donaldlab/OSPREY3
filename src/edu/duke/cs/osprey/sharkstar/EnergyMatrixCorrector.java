@@ -56,15 +56,16 @@ public class EnergyMatrixCorrector {
         double threshhold = 0.1;
         double minDifference = 0.9;
         double triplethreshhold = 0.3;
-        storePartialConfCorrections(conf, epsilonBound, diff, sortedPairwiseTerms2,
-                threshhold, minDifference, triplethreshhold);
+        // storePartialConfCorrections(conf, epsilonBound, diff, sortedPairwiseTerms2, threshhold, minDifference, triplethreshhold);
+        storePartialConfCorrections(conf, epsilonBound, diff, sortedPairwiseTerms2, threshhold, minDifference, triplethreshhold,
+                4);
         correctionTime.stop();
         ecalc.tasks.waitForFinish();
     }
 
     private void storePartialConfCorrections(ConfSearch.ScoredConf conf, double epsilonBound, EnergyMatrix diff,
                                              List<TupE> sortedPairwiseTerms2, double threshhold, double minDifference,
-                                             double minTupleDiff, int tupleSize, RCTuple curTuple) {
+                                             double minTupleDiff, int maxTupleSize) {
         double maxDiff = sortedPairwiseTerms2.get(0).E;
         for (int i = 0; i < sortedPairwiseTerms2.size(); i++) {
             TupE tupe = sortedPairwiseTerms2.get(i);
@@ -72,17 +73,20 @@ public class EnergyMatrixCorrector {
             if (pairDiff < minDifference && maxDiff - pairDiff > threshhold)
                 continue;
             maxDiff = Math.max(maxDiff, tupe.E);
-            recursePartialCorrection(conf, epsilonBound, diff, minTupleDiff, tupleSize, curTuple);
+            int pos1 = tupe.tup.pos.get(0);
+            int pos2 = tupe.tup.pos.get(1);
+            recursePartialCorrection(conf, epsilonBound, diff, minTupleDiff, maxTupleSize, makeTuple(conf, pos1, pos2));
         }
     }
 
-    private void recursePartialCorrection(ConfSearch.ScoredConf conf, double epsilonBound, EnergyMatrix diff, double minTupleDiff, int tupleSize, RCTuple curTuple) {
-
+    private void recursePartialCorrection(ConfSearch.ScoredConf conf, double epsilonBound, EnergyMatrix diff, double minTupleDiff, int maxTupleSize, RCTuple curTuple) {
+        if(curTuple.size() > maxTupleSize)
+            return;
         for (int nextPos = 0; nextPos < diff.getNumPos(); nextPos++) {
             if (curTuple.pos.contains(nextPos))
                 continue;
-            if(curTuple.pos.size() >= tupleSize) {
-                RCTuple tuple = curTuple.set(nextPos, conf.getAssignments()[nextPos]);
+            RCTuple tuple = curTuple.addRC(nextPos, conf.getAssignments()[nextPos]);
+            if(tuple.pos.size() > 2) {
                 double tupleBounds = multiSequenceSHARKStarBound.getRigidEmat().getInternalEnergy(tuple) - multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(tuple);
                 if (tupleBounds < minTupleDiff)
                     continue;
@@ -90,11 +94,9 @@ public class EnergyMatrixCorrector {
                 computeDifference(tuple, multiSequenceSHARKStarBound.getMinimizingEcalc());
                 multiSequenceSHARKStarBound.setNumPartialMinimizations(multiSequenceSHARKStarBound.getNumPartialMinimizations() + 1);
                 multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
-                return;
             }
-            recursePartialCorrection(conf, epsilonBound, diff, minTupleDiff, tupleSize, curTuple);
+            recursePartialCorrection(conf, epsilonBound, diff, minTupleDiff, maxTupleSize, tuple);
         }
-        return;
     }
 
     private void storePartialConfCorrections(ConfSearch.ScoredConf conf, double epsilonBound, EnergyMatrix diff,
