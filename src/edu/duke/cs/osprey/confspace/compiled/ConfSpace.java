@@ -72,25 +72,14 @@ public class ConfSpace {
 
 	public class IndicesSingle {
 
-		/** indexed by param, [0=confAtomi, 1=parami] */
-		private final int[][] internals;
+		private final double internalEnergy;
 
 		/** indexed by param, [0=confAtomi, 1=staticAtomi, 2=parami] */
 		private final int[][] statics;
 
-		IndicesSingle(int[][] internals, int[][] statics) {
-			this.internals = internals;
+		IndicesSingle(double internalEnergy, int[][] statics) {
+			this.internalEnergy = internalEnergy;
 			this.statics = statics;
-		}
-
-		public int sizeInternals() {
-			return internals.length;
-		}
-		public int getInternalConfAtomIndex(int i) {
-			return internals[i][0];
-		}
-		public int getInternalParamsIndex(int i) {
-			return internals[i][1];
 		}
 
 		public int sizeStatics() {
@@ -251,33 +240,23 @@ public class ConfSpace {
 					atomNames
 				);
 
+				// read the internal energies
+				TomlTable internalTable = TomlTools.getTableOrThrow(confTable, "energy", confPos);
+				TomlPosition internalPos = confTable.inputPositionOf("energy");
+
 				// read the forcefield params
-				TomlTable paramsTable = TomlTools.getTableOrThrow(confTable, "params", confPos);
-				TomlPosition paramsPos = confTable.inputPositionOf("params");
-				TomlTable paramsInternalTable = TomlTools.getTableOrThrow(paramsTable, "internal", paramsPos);
-				TomlPosition paramsInternalPos = paramsTable.inputPositionOf("internal");
-				TomlTable paramsStaticTable = TomlTools.getTableOrThrow(paramsTable, "static", paramsPos);
-				TomlPosition paramsStaticPos = paramsTable.inputPositionOf("static");
+				TomlTable paramsStaticTable = TomlTools.getTableOrThrow(confTable, "params.static", confPos);
+				TomlPosition paramsStaticPos = confTable.inputPositionOf("params.static");
 
 				for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
 					String ffkey = "" + ffi;
 
-					// pre-allocate space for the params
-					TomlArray internalArray = TomlTools.getArrayOrThrow(paramsInternalTable, ffkey, paramsInternalPos);
-					TomlPosition internalPos = paramsInternalTable.inputPositionOf(ffkey);
-					TomlArray staticArray = TomlTools.getArrayOrThrow(paramsStaticTable, ffkey, paramsStaticPos);
-					TomlPosition staticPos = paramsStaticTable.inputPositionOf(ffkey);
-
-					// read the internal forcefield params
-					int[][] internals = new int[internalArray.size()][2];
-					for (int i=0; i<internalArray.size(); i++) {
-						TomlArray indicesArray = TomlTools.getArrayOrThrow(internalArray, i, internalPos);
-						TomlPosition indicesPos = internalArray.inputPositionOf(i);
-						internals[i][0] = TomlTools.getIntOrThrow(indicesArray, 0, indicesPos); // atomi
-						internals[i][1] = TomlTools.getIntOrThrow(indicesArray, 1, indicesPos); // parami
-					}
+					// read the internal energy
+					double internalEnergy = TomlTools.getDoubleOrThrow(internalTable, ffkey, internalPos);
 
 					// read the pos-static forcefield params
+					TomlArray staticArray = TomlTools.getArrayOrThrow(paramsStaticTable, ffkey, paramsStaticPos);
+					TomlPosition staticPos = paramsStaticTable.inputPositionOf(ffkey);
 					int[][] statics = new int[staticArray.size()][3];
 					for (int i=0; i<staticArray.size(); i++) {
 						TomlArray indicesArray = TomlTools.getArrayOrThrow(staticArray, i, staticPos);
@@ -287,7 +266,7 @@ public class ConfSpace {
 						statics[i][2] = TomlTools.getIntOrThrow(indicesArray, 2, indicesPos); // parami
 					}
 
-					indicesSingles[ffi][posi][confi] = new IndicesSingle(internals, statics);
+					indicesSingles[ffi][posi][confi] = new IndicesSingle(internalEnergy, statics);
 				}
 			}
 
@@ -501,23 +480,11 @@ public class ConfSpace {
 			return coords.getStaticEnergy(ffi);
 		}
 
-		default double calcEnergyInternal(ConfSpace.AssignedCoords coords, int posi) {
-
-			double energy = 0.0;
-
-			// TODO: hopefully escape analysis allocte this on the stack?
-			Vector3d pos = new Vector3d();
+		default double getEnergyInternal(ConfSpace.AssignedCoords coords, int posi) {
 
 			int ffi = ffi();
 			ConfSpace.IndicesSingle indices = coords.getIndices(ffi, posi);
-			for (int i=0; i<indices.sizeInternals(); i++) {
-				int confAtomi = indices.getInternalConfAtomIndex(i);
-				int paramsi = indices.getInternalParamsIndex(i);
-				coords.getConfCoords(posi, confAtomi, pos);
-				energy += calcEnergy(pos, coords.getParams(ffi, paramsi));
-			}
-
-			return energy;
+			return indices.internalEnergy;
 		}
 
 		default double calcEnergyStatic(ConfSpace.AssignedCoords coords, int posi) {
@@ -572,7 +539,7 @@ public class ConfSpace {
 			// add the singles
 			int numPos = coords.getConfSpace().positions.length;
 			for (int posi=0; posi<numPos; posi++) {
-				energy += calcEnergyInternal(coords, posi);
+				energy += getEnergyInternal(coords, posi);
 				energy += calcEnergyStatic(coords, posi);
 			}
 
