@@ -1,7 +1,8 @@
 package edu.duke.cs.osprey.structure;
 
 import edu.duke.cs.osprey.tools.Streams;
-import edu.duke.cs.osprey.tools.UnpossibleError;
+import edu.duke.cs.osprey.tools.TomlParseException;
+import edu.duke.cs.osprey.tools.TomlTools;
 import org.tomlj.*;
 
 import java.util.ArrayList;
@@ -121,12 +122,7 @@ public class OMOLIO {
 
 	public static Molecule read(String toml) {
 
-		TomlParseResult doc = Toml.parse(toml);
-		if (doc.hasErrors()) {
-			throw new ParseException("TOML parsing failure:\n"
-				+ Streams.joinToString(doc.errors(), "\n", err -> err.toString())
-			);
-		}
+		TomlTable doc = TomlTools.parseOrThrow(toml);
 
 		Molecule mol = new Molecule();
 
@@ -136,61 +132,44 @@ public class OMOLIO {
 		// read the atoms
 		Map<Integer,Atom> atoms = new HashMap<>();
 		Map<Integer,double[]> atomCoords = new HashMap<>();
-		TomlArray atomsArray = doc.getArray("atoms");
-		if (atomsArray == null) {
-			throw new ParseException("missing atoms");
-		}
-		if (!atomsArray.containsTables()) {
-			throw new ParseException("atoms does not contain tables", doc.inputPositionOf("atoms"));
-		}
+		TomlArray atomsArray = TomlTools.getArrayOrThrow(doc, "atoms");
 		for (int i=0; i<atomsArray.size(); i++) {
-			TomlTable atomTable = atomsArray.getTable(i);
-			TomlPosition pos = atomsArray.inputPositionOf(i);
+			TomlTable atomTable = TomlTools.getTableOrThrow(atomsArray, i);
+			TomlPosition atomPos = atomsArray.inputPositionOf(i);
 
-			int index = getIntOrThrow(atomTable, pos, "i");
-			String name = getStringOrThrow(atomTable, pos, "name");
-			double x = getDoubleOrThrow(atomTable, pos, "x");
-			double y = getDoubleOrThrow(atomTable, pos, "y");
-			double z = getDoubleOrThrow(atomTable, pos, "z");
-			String element = getStringOrThrow(atomTable, pos, "elem");
+			int index = TomlTools.getIntOrThrow(atomTable, "i", atomPos);
+			String name = TomlTools.getStringOrThrow(atomTable, "name", atomPos);
+			double x = TomlTools.getDoubleOrThrow(atomTable, "x", atomPos);
+			double y = TomlTools.getDoubleOrThrow(atomTable, "y", atomPos);
+			double z = TomlTools.getDoubleOrThrow(atomTable, "z", atomPos);
+			String element = TomlTools.getStringOrThrow(atomTable,"elem", atomPos);
 
 			if (atoms.containsKey(index)) {
-				throw new ParseException("duplicated atom index: " + index, pos);
+				throw new TomlParseException("duplicated atom index: " + index, atomPos);
 			}
 			atoms.put(index, new Atom(name, element));
 			atomCoords.put(index, new double[] { x, y, z });
 		}
 
 		// read the polymer to get the residues
-		TomlTable polymerTable = doc.getTable("polymer");
-		if (polymerTable == null) {
-			throw new ParseException("missing polymer");
-		}
+		TomlTable polymerTable = TomlTools.getTableOrThrow(doc, "polymer");
 		for (String chainId : polymerTable.keySet()) {
-			TomlArray chainArray = polymerTable.getArray(chainId);
-			if (chainArray == null) {
-				throw new UnpossibleError(); // silly IDE linter doesn't know this can't happen
-			}
-			if (!chainArray.containsTables()) {
-				throw new ParseException("chain does not contain tables", polymerTable.inputPositionOf(chainId));
-			}
+			TomlPosition chainPos = polymerTable.inputPositionOf(chainId);
+			TomlArray chainArray = TomlTools.getArrayOrThrow(polymerTable, chainId, chainPos);
 
 			for (int i=0; i<chainArray.size(); i++) {
-				TomlTable residueTable = chainArray.getTable(i);
-				TomlPosition pos = chainArray.inputPositionOf(i);
+				TomlTable residueTable = TomlTools.getTableOrThrow(chainArray, i, chainPos);
+				TomlPosition residuePos = chainArray.inputPositionOf(i);
 
-				String id = getStringOrThrow(residueTable, pos, "id");
-				String type = getStringOrThrow(residueTable, pos, "type");
-				TomlArray resAtomsArray = getArrayOrThrow(residueTable, pos, "atoms");
+				String id = TomlTools.getStringOrThrow(residueTable, "id", residuePos);
+				String type = TomlTools.getStringOrThrow(residueTable, "type", residuePos);
+				TomlArray resAtomsArray = TomlTools.getArrayOrThrow(residueTable, "atoms", residuePos);
 
 				// collect all the atoms and coords
 				ArrayList<Atom> resAtoms = new ArrayList<>();
 				ArrayList<double[]> resCoords = new ArrayList<>();
-				if (!resAtomsArray.containsLongs()) {
-					throw new ParseException("field \"atoms\" doesn't contain integers", pos);
-				}
 				for (int a=0; a<resAtomsArray.size(); a++) {
-					int index = (int)resAtomsArray.getLong(a);
+					int index = TomlTools.getIntOrThrow(resAtomsArray, a);
 					resAtoms.add(atoms.get(index));
 					resCoords.add(atomCoords.get(index));
 				}
@@ -209,22 +188,16 @@ public class OMOLIO {
 		}
 
 		// read the bonds
-		TomlArray bondsArray = doc.getArray("bonds");
-		if (bondsArray == null) {
-			throw new ParseException("no bonds");
-		}
-		if (!bondsArray.containsArrays()) {
-			throw new ParseException("bonds does not contain arrays", doc.inputPositionOf("bonds"));
-		}
+		TomlArray bondsArray = TomlTools.getArrayOrThrow(doc, "bonds");
 		for (int i=0; i<bondsArray.size(); i++) {
-			TomlArray bondArray = bondsArray.getArray(i);
+			TomlArray bondArray = TomlTools.getArrayOrThrow(bondsArray, i);
 			TomlPosition pos = bondsArray.inputPositionOf(i);
 
 			if (bondArray.size() != 2 || !bondArray.containsLongs()) {
-				throw new ParseException("bond needs two integers", pos);
+				throw new TomlParseException("bond needs two integers", pos);
 			}
-			int i1 = (int)bondArray.getLong(0);
-			int i2 = (int)bondArray.getLong(1);
+			int i1 = TomlTools.getIntOrThrow(bondArray, 0);
+			int i2 = TomlTools.getIntOrThrow(bondArray, 1);
 
 			Atom a1 = atoms.get(i1);
 			Atom a2 = atoms.get(i2);
@@ -233,51 +206,5 @@ public class OMOLIO {
 		}
 
 		return mol;
-	}
-
-	private static String getStringOrThrow(TomlTable table, TomlPosition pos, String key) {
-		String val = table.getString(key);
-		if (val == null) {
-			throw new ParseException("missing field \"" + key + "\", or it is not a string", pos);
-		}
-		return val;
-	}
-
-	private static int getIntOrThrow(TomlTable table, TomlPosition pos, String key) {
-		Long val = table.getLong(key);
-		if (val == null) {
-			throw new ParseException("missing field \"" + key + "\", or it is not an integer", pos);
-		}
-		return val.intValue();
-	}
-
-	private static double getDoubleOrThrow(TomlTable table, TomlPosition pos, String key) {
-		Double val = table.getDouble(key);
-		if (val == null) {
-			throw new ParseException("missing field \"" + key + "\", or it is not a floating-point number", pos);
-		}
-		return val;
-	}
-
-	private static TomlArray getArrayOrThrow(TomlTable table, TomlPosition pos, String key) {
-		TomlArray val = table.getArray(key);
-		if (val == null) {
-			throw new ParseException("missing field \"" + key + "\", or it is not an array", pos);
-		}
-		return val;
-	}
-
-	public static class ParseException extends RuntimeException {
-
-		public final TomlPosition pos;
-
-		public ParseException(String msg, TomlPosition pos) {
-			super(msg + (pos != null ? " at " + pos.toString() : ""));
-			this.pos = pos;
-		}
-
-		public ParseException(String msg) {
-			this(msg, null);
-		}
 	}
 }
