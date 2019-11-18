@@ -484,7 +484,7 @@ public class TestSHARKStarBound extends TestBase {
     @Test
     public void testContinuous_3ma2() {
 
-        double epsilon = 0.99;
+        double epsilon = 0.68;
         try {
             SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs").complex;
             Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
@@ -492,19 +492,21 @@ public class TestSHARKStarBound extends TestBase {
                     (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace,
                             fullSeq.makeRCs(mutableConfSpace), epsilon, null);
 
-            PartitionFunction wtBound =
-                    fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
-            wtBound.compute();
-            fullPfunc.printEnsembleAnalysis();
-
-            if(true)
-                return;
+            boolean computeWT = true;
+            if(computeWT) {
+                PartitionFunction wtBound =
+                        fullPfunc.getPartitionFunctionForSequence(mutableConfSpace.makeWildTypeSequence());
+                wtBound.compute();
+            }
 
             System.out.println("========================== Now computing mutant sequence ========================");
-            Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("A5","MET") .set("A3","ILE");
+            Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("A189","TYR");
             PartitionFunction muttBound =
                     fullPfunc.getPartitionFunctionForSequence(mutantSequence);
             muttBound.compute();
+
+            if(true)
+                return;
 
             PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, mutantSequence, epsilon);
             traditionalPfunc.setReportProgress(true);

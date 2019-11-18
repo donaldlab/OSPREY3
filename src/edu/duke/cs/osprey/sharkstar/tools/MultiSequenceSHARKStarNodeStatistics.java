@@ -17,8 +17,19 @@ import java.util.List;
 
 public class MultiSequenceSHARKStarNodeStatistics {
 
-    public static void printTree(String prefix, FileWriter writer, SimpleConfSpace confSpace, Sequence seq, MultiSequenceSHARKStarNode node)
+    public interface BoundGetter {
+        MathTools.BigDecimalBounds getBounds(MultiSequenceSHARKStarNode node);
+    }
+
+    public static void printLastTree(Sequence seq, MultiSequenceSHARKStarNode node) {
+        printTree("", null, null, seq, node, (node1)->node1.getLastSequenceBounds(seq));
+    }
+
+    public static void printTree(String prefix, FileWriter writer, SimpleConfSpace confSpace, Sequence seq,
+                                 MultiSequenceSHARKStarNode node, BoundGetter boundGetter)
     {
+        if(boundGetter == null)
+            boundGetter = (node1) -> node1.getSequenceBounds(seq);
         if (MathTools.isLessThan(node.getUpperBound(seq), BigDecimal.ONE))
             return;
         MultiSequenceSHARKStarNode.Node confSearchNode = node.getConfSearchNode();
@@ -42,10 +53,11 @@ public class MultiSequenceSHARKStarNodeStatistics {
             System.out.print(out);
         List<MultiSequenceSHARKStarNode> children = node.getChildren(seq);
         if( children != null && ! children.isEmpty()) {
-            Collections.sort( children, (a, b)-> -a.getSequenceBounds(seq).upper
-                    .compareTo(b.getSequenceBounds(seq).upper));
+            BoundGetter finalBoundGetter = boundGetter;
+            Collections.sort( children, (a, b)-> -finalBoundGetter.getBounds(a).upper
+                    .compareTo(finalBoundGetter.getBounds(b).upper));
             for (MultiSequenceSHARKStarNode child :  children)
-                printTree(prefix + "~+", writer, confSpace, seq, child);
+                printTree(prefix + "~+", writer, confSpace, seq, child, boundGetter);
         }
 
 
@@ -65,7 +77,7 @@ public class MultiSequenceSHARKStarNodeStatistics {
     {
         try {
             FileWriter writer = new FileWriter(new File(name+"ConfTreeBounds.txt"));
-            printTree("",  writer, confspace, seq, node);
+            printTree("",  writer, confspace, seq, node, null);
             writer.flush();
         } catch (IOException e) {
             e.printStackTrace();
@@ -73,7 +85,7 @@ public class MultiSequenceSHARKStarNodeStatistics {
     }
 
     public static void printTree(Sequence seq, MultiSequenceSHARKStarNode node) {
-        printTree("", null, null, seq, node);
+        printTree("",  null, null, seq, node, null);
     }
 
     public static BigDecimal setSigFigs(BigDecimal decimal, int numSigFigs) {

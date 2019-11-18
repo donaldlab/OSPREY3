@@ -3,4 +3,4 @@
 mol = "test-resources/3ma2_prepped.pdb"
 strand_defs = {'strand1': ['B301', 'B424'], 'strand0': ['A117', 'A284']}
 #strand_flex = {'strand1': {'B334': ['LEU'], 'B335': ['TYR'], 'B369': ['VAL']}, 'strand0': {'A209': ['ILE'], 'A203': ['TYR'], 'A189': ['ALA', 'VAL', 'LEU', 'ILE', 'PHE', 'TYR', 'TRP', 'CYS', 'MET', 'SER', 'THR', 'LYS', 'ARG', 'HIP', 'HIE', 'HID', 'ASP', 'GLU', 'ASN', 'GLN', 'GLY']}}
-strand_flex = {'strand1': {'B334': ['LEU'], 'B335': ['TYR'], 'B369': ['VAL']}, 'strand0': {'A209': ['ILE'], 'A203': ['TYR'], 'A189': ['ALA', 'SER', 'THR']}}
+strand_flex = {'strand1': {'B334': ['LEU'], 'B335': ['TYR'], 'B369': ['VAL']}, 'strand0': {'A209': ['ILE'], 'A203': ['TYR'], 'A189': ['ALA', 'SER', 'TYR']}}

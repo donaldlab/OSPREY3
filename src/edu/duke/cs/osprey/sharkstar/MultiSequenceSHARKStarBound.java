@@ -33,6 +33,7 @@ import java.math.MathContext;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.printLastTree;
 import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.printTree;
 
 public class MultiSequenceSHARKStarBound implements PartitionFunction {
@@ -502,7 +503,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 || sequenceBound.errors()) {
                 System.err.println("Error. Bounds got looser.");
                 rootNode.updateSubtreeBounds(sequenceBound.sequence);
-                //printTree(sequenceBound.sequence,rootNode);
+                rootNode.debugTree(sequenceBound.sequence);
                 System.exit(-1);
             }
             lastEps = sequenceBound.getSequenceEpsilon();
