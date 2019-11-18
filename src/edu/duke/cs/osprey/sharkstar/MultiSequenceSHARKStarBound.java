@@ -33,8 +33,7 @@ import java.math.MathContext;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.printLastTree;
-import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.printTree;
+import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.*;
 
 public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
@@ -503,7 +502,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 || sequenceBound.errors()) {
                 System.err.println("Error. Bounds got looser.");
                 rootNode.updateSubtreeBounds(sequenceBound.sequence);
-                rootNode.debugTree(sequenceBound.sequence);
+                //rootNode.debugTree(sequenceBound.sequence);
                 System.exit(-1);
             }
             lastEps = sequenceBound.getSequenceEpsilon();
@@ -632,7 +631,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         double leafTimeSum = 0;
         double internalTimeSum = 0;
         BigDecimal[] ZSums = new BigDecimal[]{internalZ, leafZ};
-        populateQueues(bound, internalNodes, leafNodes, internalZ, leafZ, ZSums);
+        populateQueues(bound, internalNodes, leafNodes, ZSums);
         //bound.updateBound();
         //debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]", bound.getValues().calcLowerBound(),
         //        bound.getValues().calcUpperBound()));
@@ -709,8 +708,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
 
-    protected void populateQueues(SingleSequenceSHARKStarBound bound, List<MultiSequenceSHARKStarNode> internalNodes, List<MultiSequenceSHARKStarNode> leafNodes, BigDecimal internalZ,
-                                  BigDecimal leafZ, BigDecimal[] ZSums) {
+    protected void populateQueues(SingleSequenceSHARKStarBound bound, List<MultiSequenceSHARKStarNode> internalNodes,
+                                  List<MultiSequenceSHARKStarNode> leafNodes, BigDecimal[] ZSums) {
         List<MultiSequenceSHARKStarNode> leftoverLeaves = new ArrayList<>();
         PriorityQueue<MultiSequenceSHARKStarNode> queue = bound.fringeNodes;
         int maxNodes = 1000;
@@ -763,17 +762,25 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         ZSums[0] = fillListFromQueue(internalNodes, bound.internalQueue, maxNodes, bound.sequence);
         ZSums[1] = fillListFromQueue(leafNodes, bound.leafQueue, bound.maxMinimizations, bound.sequence);
+        if(!bound.internalQueue.isEmpty() &&
+                MathTools.isLessThan(ZSums[0], bound.internalQueue.peek().getErrorBound(bound.sequence)))
+            System.out.println("Should have used a node from the internal queue. How??");
         queue.addAll(leftoverLeaves);
     }
 
     private BigDecimal fillListFromQueue(List<MultiSequenceSHARKStarNode> list, Queue<MultiSequenceSHARKStarNode> queue, int max, Sequence seq) {
         BigDecimal sum = BigDecimal.ZERO;
         List<MultiSequenceSHARKStarNode> leftovers = new ArrayList<>();
-        while (!queue.isEmpty() && list.size() < max) {
+        while (!queue.isEmpty() && list.size() < max ) {
             MultiSequenceSHARKStarNode curNode = queue.poll();
             if(confMatch(debugConf, curNode.getConfSearchNode().assignments))
                 System.out.println("Gotcha-fillList");
             if (correctedNode(leftovers, curNode, curNode.getConfSearchNode(), seq)) {
+                BigDecimal diff = curNode.getUpperBound(seq).subtract(curNode.getLowerBound(seq));
+                if(MathTools.isGreaterThan(diff, sum)) {
+                    leftovers.remove(curNode);
+                    list.add(curNode);
+                }
                 continue;
             }
             BigDecimal diff = curNode.getUpperBound(seq).subtract(curNode.getLowerBound(seq));

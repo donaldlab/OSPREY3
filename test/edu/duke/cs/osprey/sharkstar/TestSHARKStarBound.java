@@ -484,7 +484,7 @@ public class TestSHARKStarBound extends TestBase {
     @Test
     public void testContinuous_3ma2() {
 
-        double epsilon = 0.68;
+        double epsilon = 0.3;
         try {
             SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs").complex;
             Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
@@ -504,9 +504,6 @@ public class TestSHARKStarBound extends TestBase {
             PartitionFunction muttBound =
                     fullPfunc.getPartitionFunctionForSequence(mutantSequence);
             muttBound.compute();
-
-            if(true)
-                return;
 
             PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(mutableConfSpace, mutantSequence, epsilon);
             traditionalPfunc.setReportProgress(true);
