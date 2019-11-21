@@ -94,6 +94,11 @@ public class StaticBiggestLowerboundDifferenceOrder implements edu.duke.cs.ospre
 		if (posOrder == null) {
 			posOrder = calcPosOrder(confIndex, rcs);
 		}
+		if(confIndex.node.getLevel() >= posOrder.size())
+			return -1;
+		int nextPos = posOrder.get(confIndex.node.getLevel());
+		if(confIndex.isDefined(nextPos))
+			System.err.println("Returning defined position.");
 		return posOrder.get(confIndex.node.getLevel());
 	}
 

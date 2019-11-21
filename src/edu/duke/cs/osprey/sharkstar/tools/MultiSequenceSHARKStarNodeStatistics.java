@@ -36,14 +36,15 @@ public class MultiSequenceSHARKStarNodeStatistics {
             boundGetter = (node1) -> node1.getSequenceBounds(seq);
         if (MathTools.isLessThan(node.getUpperBound(seq), BigDecimal.ONE))
             return;
+        MathTools.BigDecimalBounds bounds = boundGetter.getBounds(node);
         MultiSequenceSHARKStarNode.Node confSearchNode = node.getConfSearchNode();
         String confString = confSearchNode.confToString();
         if(confSpace != null)
             confString = confString+"->("+confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments)+")";
         String out = prefix+confString+":"
                 +"["+node.getConfLowerBound(seq)+","+node.getConfUpperBound(seq)+"]->"
-                +"["+formatBound(node.getLowerBound(seq))
-                +","+formatBound(node.getUpperBound(seq))+"]"+"\n";
+                +"["+formatBound(bounds.lower)
+                +","+formatBound(bounds.upper)+"]"+"\n";
         if(MathTools.isLessThan(node.getUpperBound(seq), BigDecimal.ZERO))
             return;
         if(writer != null) {
@@ -94,6 +95,12 @@ public class MultiSequenceSHARKStarNodeStatistics {
 
     public static BigDecimal setSigFigs(BigDecimal decimal, int numSigFigs) {
         return decimal.setScale(4-decimal.precision()+decimal.scale(), RoundingMode.HALF_UP);
+    }
+
+    public static String convertMagicBigDecimalToString(BigDecimal decimal) {
+        if(MathTools.isFinite(decimal))
+            return setSigFigs(decimal).toEngineeringString();
+        return decimal.toString();
     }
 
     public static BigDecimal setSigFigs(BigDecimal decimal){

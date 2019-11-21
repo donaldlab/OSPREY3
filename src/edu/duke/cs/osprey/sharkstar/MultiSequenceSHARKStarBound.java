@@ -146,11 +146,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         nhscorerFactory = (emats) -> new SHARKStarNodeScorer(emats, true);
         //hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs);
         //nhscorerFactory = (emats) -> new TraditionalPairwiseHScorer(new NegatedEnergyMatrix(confSpace, rigidEmat), rcs);
+        this.minimizingEmat = minimizingEmat;
+        this.rigidEmat = rigidEmat;
+        this.fullRCs = rcs;
+        this.pruner = null;
 
-        // No precomputed sequence means the "precomputed" sequence is empty
-        this.precomputedSequence = confSpace.makeUnassignedSequence();
         confIndex = new ConfIndex(rcs.getNumPos());
-
         Node rootConfNode = new Node(confSpace.positions.size(), 0, new MathTools.DoubleBounds());
         rootConfNode.index(confIndex);
         double partialConfLowerbound = gscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
@@ -158,18 +159,20 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         rootConfNode.computeNumConformations(rcs);
         rootConfNode.setBoundsFromConfLowerAndUpper(partialConfLowerbound, partialConfUpperBound);
 
-        this.rootNode = MultiSequenceSHARKStarNode.makeRoot(rootConfNode, confSpace);
-        double confLowerBound = partialConfLowerbound + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
-        double confUpperBound = partialConfUpperBound + nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
-        rootNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, precomputedSequence);
-        this.minimizingEmat = minimizingEmat;
-        this.rigidEmat = rigidEmat;
-        this.fullRCs = rcs;
+        // Initialize residue ordering
         this.order = new StaticBiggestLowerboundDifferenceOrder();
         order.setScorers(gscorerFactory.make(minimizingEmat), hscorerFactory.make(minimizingEmat));
         /* force init order */
         order.getNextPos(confIndex,fullRCs);
-        this.pruner = null;
+
+        // No precomputed sequence means the "precomputed" sequence is empty
+        this.precomputedSequence = confSpace.makeUnassignedSequence();
+
+        this.rootNode = MultiSequenceSHARKStarNode.makeRoot(rootConfNode, confSpace,
+                confSpace.positions.get(order.getNextPos(confIndex, rcs)));
+        double confLowerBound = partialConfLowerbound + hscorerFactory.make(minimizingEmat).calc(confIndex, rcs);
+        double confUpperBound = partialConfUpperBound + nhscorerFactory.make(rigidEmat).calc(confIndex, rcs);
+        rootNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, precomputedSequence);
 
         this.contexts = new ObjectPool<>((lingored) -> {
             ScoreContext context = new ScoreContext();
@@ -247,7 +250,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         System.out.println("Full RCs: "+fullRCs);
         System.out.println("Sequence RCs: "+newBound.seqRCs);
         computeFringeForSequence(newBound, this.rootNode);
+        printTree(seq, rootNode);
+        rootNode.updateSubtreeBounds(seq);
         newBound.updateBound();
+        printTree(seq, rootNode);
         if(newBound.getSequenceEpsilon() == 0)
             System.err.println("Perfectly bounded sequence? how?");
         rootNode.updateSubtreeBounds(seq);
@@ -337,6 +343,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         else
             for(MultiSequenceSHARKStarNode child: curNode.getChildren(bound.sequence))
                 computeFringeForSequence(bound, child);
+        curNode.updateSubtreeBounds(bound.sequence);
     }
 
     /**
@@ -494,6 +501,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 debugHeap(sequenceBound.internalQueue);
                 internalQueueWasEmpty = sequenceBound.internalQueue.isEmpty();
                 //printTree(sequenceBound.sequence,rootNode);
+                rootNode.debugTree(sequenceBound.sequence);
             }
             tightenBoundInPhases(sequenceBound);
             debugPrint("Errorbound is now " + sequenceBound.getSequenceEpsilon());
@@ -517,6 +525,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             averageReduction = cumulativeZCorrection
                     .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));
         debugPrint(String.format("Average Z reduction per minimization: %12.6e", averageReduction));
+        printTree(sequenceBound.sequence, rootNode);
     }
 
     protected void debugPrint(String s) {
@@ -868,6 +877,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 Node child = node.assign(nextPos, nextRc);
                 double confLowerBound = Double.POSITIVE_INFINITY;
                 double confUpperBound = Double.NEGATIVE_INFINITY;
+                node.index(context.index);
 
                 // score the child node differentially against the parent node
                 if (child.getLevel() < RCs.getNumPos()) {
@@ -911,8 +921,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 partialTime.stop();
                 loopPartialTime += partialTime.getTimeS();
 
-
-                MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild = curNode.makeChild(child, bound.sequence, confLowerBound, confUpperBound);
+                child.index(context.index);
+                SimpleConfSpace.Position designPos = confSpace.positions.get(nextPos);
+                int nextDesignIndex = order.getNextPos(context.index, bound.seqRCs);
+                SimpleConfSpace.Position nextDesignPos = null;
+                if(nextDesignIndex >=0)
+                    nextDesignPos = confSpace.positions.get(nextDesignIndex);
+                MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild = curNode.makeChild(child, bound.sequence,
+                        confLowerBound, confUpperBound, designPos, nextDesignPos);
                 if (Double.isNaN(child.getPartialConfUpperBound()))
                     System.out.println("Huh!?");
                 MultiSequenceSHARKStarNodeChild.markUpdated();
@@ -1163,22 +1179,33 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 }
 
             }, (PartialConfNodeResult result) -> {
-                assert (result.isValid());
-                MultiSequenceSHARKStarNode newChild = curNode.makeChild(result.resultNode,
-                        bound.sequence, result.lowerBound, result.upperBound);
-                newChild.setBoundsFromConfLowerAndUpper(result.lowerBound,
-                        result.upperBound, bound.sequence);
-                //System.out.println("Created new child "+MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence));
-                // collect the possible children
-                if (newChild.getConfLowerBound(bound.sequence) < 0) {
-                    children.add(newChild);
 
-                }
-                if (!newChild.isMinimized(bound.sequence)) {
-                    newNodes.add(newChild);
-                } else {
-                    newChild.computeEpsilonErrorBounds(bound.sequence);
-                    bound.addFinishedNode(newChild);
+                try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                    ScoreContext context = checkout.get();
+                    ConfIndex confIndex = context.index;
+                    assert (result.isValid());
+                    result.resultNode.index(confIndex);
+                    SimpleConfSpace.Position designPos = confSpace.positions.get(nextPos);
+                    int nextDesignIndex = order.getNextPos(confIndex, bound.seqRCs);
+                    SimpleConfSpace.Position nextDesignPos = null;
+                    if (nextDesignIndex >= 0)
+                        nextDesignPos = confSpace.positions.get(nextDesignIndex);
+                    MultiSequenceSHARKStarNode newChild = curNode.makeChild(result.resultNode,
+                            bound.sequence, result.lowerBound, result.upperBound, designPos, nextDesignPos);
+                    newChild.setBoundsFromConfLowerAndUpper(result.lowerBound,
+                            result.upperBound, bound.sequence);
+                    //System.out.println("Created new child "+MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence));
+                    // collect the possible children
+                    if (newChild.getConfLowerBound(bound.sequence) < 0) {
+                        children.add(newChild);
+
+                    }
+                    if (!newChild.isMinimized(bound.sequence)) {
+                        newNodes.add(newChild);
+                    } else {
+                        newChild.computeEpsilonErrorBounds(bound.sequence);
+                        bound.addFinishedNode(newChild);
+                    }
                 }
 
                 //curNode.updateSubtreeBounds(bound.sequence);
