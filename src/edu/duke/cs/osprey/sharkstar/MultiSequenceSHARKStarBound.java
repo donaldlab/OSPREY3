@@ -120,7 +120,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{-1, 5, 3, 5, 5, 3};//4, -1, 8, 9};
+    public static final int[] debugConf = new int[]{-1, 8, 7, 5, 8, 3};//4, -1, 8, 9};
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -250,15 +250,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         System.out.println("Full RCs: "+fullRCs);
         System.out.println("Sequence RCs: "+newBound.seqRCs);
         computeFringeForSequence(newBound, this.rootNode);
-        printTree(seq, rootNode);
         rootNode.updateSubtreeBounds(seq);
         newBound.updateBound();
-        printTree(seq, rootNode);
         if(newBound.getSequenceEpsilon() == 0)
             System.err.println("Perfectly bounded sequence? how?");
         rootNode.updateSubtreeBounds(seq);
-        //printTree(seq, this.rootNode);
-        //printTree("", null, confSpace, seq, this.rootNode);
         return newBound;
     }
 
@@ -525,7 +521,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             averageReduction = cumulativeZCorrection
                     .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));
         debugPrint(String.format("Average Z reduction per minimization: %12.6e", averageReduction));
-        printTree(sequenceBound.sequence, rootNode);
     }
 
     protected void debugPrint(String s) {
@@ -617,7 +612,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         newNodes.clear();
         System.out.println("Found a leaf!");
         rootNode.computeEpsilonErrorBounds(bound.sequence);
-        //printTree(bound.sequence, rootNode);
         nonZeroLower = true;
     }
 
