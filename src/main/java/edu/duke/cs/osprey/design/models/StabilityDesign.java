@@ -23,6 +23,12 @@ public class StabilityDesign {
 
     public String molecule;
 
+    @JsonProperty("extra_templates")
+    public String extraTemplates;
+
+    @JsonProperty("extra_template_coordinates")
+    public String extraTemplatesCoordinates;
+
     public static StabilityDesign parse(File file) throws IOException {
         var mapper = new ObjectMapper(new YAMLFactory());
         var stream = new FileInputStream(file);

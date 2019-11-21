@@ -22,7 +22,6 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.BigMath;
-import edu.duke.cs.osprey.tools.FileTools;
 
 import java.io.IOException;
 import java.text.NumberFormat;
@@ -97,9 +96,12 @@ public class CommandPartitionFunction extends RunnableCommand {
             "/config/all_aminoct94.in",
             "/config/all_nuc94_and_gr.in",
          */
+        var extraTemplates = design.extraTemplates;
+        var extraTemplateCoords = design.extraTemplatesCoordinates;
+
         var templateLibrary = new ResidueTemplateLibrary.Builder(ffParams.forcefld)
-                .clearTemplateCoords()
-                .addTemplateCoords(FileTools.readResource("/config/jeff-template-coords.txt"))
+                .addTemplates(extraTemplates)
+                .addTemplateCoords(extraTemplateCoords)
                 .build();
 
         /* Strands combine a Molecule with design flexibility and templates */
