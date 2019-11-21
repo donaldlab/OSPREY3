@@ -518,7 +518,7 @@ public class TestSHARKStarBound extends TestBase {
 
     @Test
     public void test1CC8Small() {
-        double epsilon = 0.68;
+        double epsilon = 0.01;
         SimpleConfSpace mutableConfSpace = make1CC8MutableContinuousSmall();
         Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
         MultiSequenceSHARKStarBound fullPfunc =
@@ -547,7 +547,7 @@ public class TestSHARKStarBound extends TestBase {
     @Test
     public void testMultiSequenceContinuous() {
 
-        double epsilon = 0.68;
+        double epsilon = 0.01;
         SimpleConfSpace mutableConfSpace = make1CC8MutableContinuous();
         // make full confspace and the flexible copy
         SimpleConfSpace flexCopyConfSpace = mutableConfSpace.makeFlexibleCopy();

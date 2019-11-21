@@ -120,7 +120,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{};//4, -1, 8, 9};
+    public static final int[] debugConf = new int[]{-1, 5, 3, 5, 5, 3};//4, -1, 8, 9};
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -832,11 +832,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         double confCorrection = correctionMatrix.confE(node.assignments);
         if (node.getPartialConfLowerBound() < confCorrection) {
             double oldg = node.getPartialConfLowerBound();
-            node.setBoundsFromConfLowerAndUpper(confCorrection, node.getPartialConfUpperBound());
             node.setPartialConfLowerAndUpper(confCorrection, node.getPartialConfUpperBound());
             recordCorrection(oldg, confCorrection - oldg);
             //node.setBoundsFromConfLowerAndUpper(curNode.getConfLowerBound(seq) - oldg + confCorrection, curNode.getConfUpperBound(seq));
-            curNode.setBoundsFromConfLowerAndUpper(curNode.getConfLowerBound(seq), curNode.getConfUpperBound(seq), seq);
+            curNode.setBoundsFromConfLowerAndUpper(curNode.getConfLowerBound(seq) - oldg + confCorrection, curNode.getConfUpperBound(seq), seq);
             curNode.markUpdated();
             newNodes.add(curNode);
             return true;
@@ -1254,7 +1253,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         double confCorrection = correctionMatrix.confE(node.assignments);
         if (curNode.getConfLowerBound(bound.sequence) < confCorrection || node.getPartialConfLowerBound() < confCorrection) {
             double oldg = node.getPartialConfLowerBound();
-            node.setPartialConfLowerAndUpper(confCorrection, confCorrection);
+            node.setPartialConfLowerAndUpper(confCorrection, node.getPartialConfUpperBound());
             recordCorrection(oldg, confCorrection - oldg);
             curNode.setBoundsFromConfLowerAndUpper(confCorrection, curNode.getConfUpperBound(bound.sequence), bound.sequence);
             node.setBoundsFromConfLowerAndUpper(confCorrection, curNode.getConfUpperBound(bound.sequence));
