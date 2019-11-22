@@ -120,7 +120,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{-1, 8, 7, 5, 8, 3};//4, -1, 8, 9};
+    public static final int[] debugConf = new int[]{-1, 5, 0, 5, 4, 3};//-1, 8, 7, 5, 8, 3};//4, -1, 8, 9};
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -329,10 +329,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
             ScoreContext context = checkout.get();
             confNode.index(context.index);
+            if(isDebugConf(confNode.assignments))
+                System.out.println("Gotcha-fringe");
 
             double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, rcs);
             double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, rcs);
             curNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, bound.sequence);
+            if(isDebugConf(confNode.assignments))
+                System.out.println("end result: "+curNode.toSeqString(bound.sequence));
         }
         if(curNode.getChildren(bound.sequence).size() < 1)
             bound.fringeNodes.add(curNode);
@@ -1206,6 +1210,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 curNode.markUpdated();
             });
         }
+    }
+
+    public static boolean isDebugConf(int[] assignments) {
+        return confMatch(debugConf, assignments);
     }
 
     public static boolean confMatch(int[] assignments, int[] ints) {
