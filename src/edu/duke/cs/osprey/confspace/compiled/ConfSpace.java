@@ -1,13 +1,14 @@
 package edu.duke.cs.osprey.confspace.compiled;
 
 
+import edu.duke.cs.osprey.energy.compiled.AmberEnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.EEF1EnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.EnergyCalculator;
 import edu.duke.cs.osprey.tools.TomlTools;
 import org.joml.Vector3d;
-import org.joml.Vector3dc;
 import org.tomlj.*;
 
 import java.util.Arrays;
-import java.util.NoSuchElementException;
 
 
 /**
@@ -62,6 +63,7 @@ public class ConfSpace {
 
 	public final String name;
 	public final String[] forcefieldIds;
+	public final EnergyCalculator[] ecalcs;
 
 	private final int numStaticAtoms;
 	private final CoordsList staticCoords;
@@ -72,7 +74,7 @@ public class ConfSpace {
 
 	public class IndicesSingle {
 
-		private final double internalEnergy;
+		public final double internalEnergy;
 
 		/** indexed by param, [0=confAtomi, 1=staticAtomi, 2=parami] */
 		private final int[][] statics;
@@ -139,11 +141,37 @@ public class ConfSpace {
 
 		name = TomlTools.getStringOrThrow(doc, "name");
 
-		// read the forcefield ids
+		// read and build the forcefield implementations
 		TomlArray forcefieldsArray = TomlTools.getArrayOrThrow(doc, "forcefields");
 		forcefieldIds = new String[forcefieldsArray.size()];
-		for (int i=0; i<forcefieldsArray.size(); i++) {
-			forcefieldIds[i] = TomlTools.getStringOrThrow(forcefieldsArray, i);
+		ecalcs = new EnergyCalculator[forcefieldsArray.size()];
+		for (int ffi=0; ffi<forcefieldsArray.size(); ffi++) {
+			TomlArray ffArray = TomlTools.getArrayOrThrow(forcefieldsArray, ffi);
+			TomlPosition ffPos = forcefieldsArray.inputPositionOf(ffi);
+
+			String id = TomlTools.getStringOrThrow(ffArray, 0, ffPos);
+			forcefieldIds[ffi] = id;
+
+			// TODO: make a better way to register and instantiate ecalc implementations?
+			String implementation = TomlTools.getStringOrThrow(ffArray, 1, ffPos);
+			switch (implementation) {
+				case "amber":
+					ecalcs[ffi] = new AmberEnergyCalculator(id, ffi);
+				break;
+				case "eef1":
+					ecalcs[ffi] = new EEF1EnergyCalculator(id, ffi);
+				break;
+			}
+		}
+
+		// read the forcefield settings, when needed
+		for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
+			String ffkey = "ffsettings." + ffi;
+			TomlTable ffsettingsTable = doc.getTable(ffkey);
+			TomlPosition ffsettingsPos = doc.inputPositionOf(ffkey);
+			if (ffsettingsTable != null) {
+				ecalcs[ffi].readSettings(ffsettingsTable, ffsettingsPos);
+			}
 		}
 
 		// read the static coords
@@ -351,27 +379,6 @@ public class ConfSpace {
 	}
 
 	/**
-	 * Returns the index of the forcefield whose id matches the query.
-	 * Returns -1 if no match was found.
-	 */
-	public int findForcefieldIndex(String id) {
-		for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
-			if (forcefieldIds[ffi].equalsIgnoreCase(id)) {
-				return ffi;
-			}
-		}
-		return -1;
-	}
-
-	public int getForcefieldIndexOrThrow(String id) {
-		int ffi = findForcefieldIndex(id);
-		if (ffi >= 0) {
-			return ffi;
-		}
-		throw new NoSuchElementException("no forcefield found with id: " + id);
-	}
-
-	/**
 	 * A copy of the conf space atom coords with the desired assignments.
 	 */
 	public class AssignedCoords {
@@ -462,95 +469,5 @@ public class ConfSpace {
 
 	public AssignedCoords assign(int[] assignments) {
 		return new AssignedCoords(assignments);
-	}
-
-	public interface EnergyCalculator {
-
-		/** get the index of this forcefield in the conf space */
-		int ffi();
-
-		/** calculate the single-position energy */
-		double calcEnergy(Vector3dc pos, double[] params);
-
-		/** calculate position-pair energy */
-		double calcEnergy(Vector3dc pos1, Vector3dc pos2, double[] params);
-
-		default double getStaticEnergy(ConfSpace.AssignedCoords coords) {
-			int ffi = ffi();
-			return coords.getStaticEnergy(ffi);
-		}
-
-		default double getEnergyInternal(ConfSpace.AssignedCoords coords, int posi) {
-
-			int ffi = ffi();
-			ConfSpace.IndicesSingle indices = coords.getIndices(ffi, posi);
-			return indices.internalEnergy;
-		}
-
-		default double calcEnergyStatic(ConfSpace.AssignedCoords coords, int posi) {
-
-			double energy = 0.0;
-
-			// TODO: hopefully escape analysis allocte this on the stack?
-			Vector3d pos1 = new Vector3d();
-			Vector3d pos2 = new Vector3d();
-
-			int ffi = ffi();
-			ConfSpace.IndicesSingle indices = coords.getIndices(ffi, posi);
-			for (int i=0; i<indices.sizeStatics(); i++) {
-				int confAtomi = indices.getStaticConfAtomIndex(i);
-				int staticAtomi = indices.getStaticStaticAtomIndex(i);
-				int paramsi = indices.getStaticParamsIndex(i);
-				coords.getConfCoords(posi, confAtomi, pos1);
-				coords.getStaticCoords(staticAtomi, pos2);
-				energy += calcEnergy(pos1, pos2, coords.getParams(ffi, paramsi));
-			}
-
-			return energy;
-		}
-
-		default double calcEnergyPair(ConfSpace.AssignedCoords coords, int posi1, int posi2) {
-
-			double energy = 0.0;
-
-			// TODO: hopefully escape analysis allocte this on the stack?
-			Vector3d pos1 = new Vector3d();
-			Vector3d pos2 = new Vector3d();
-
-			int ffi = ffi();
-			ConfSpace.IndicesPair indices = coords.getIndices(ffi, posi1, posi2);
-			for (int i=0; i<indices.size(); i++) {
-				int confAtomi1 = indices.getConfAtom1Index(i);
-				int confAtomi2 = indices.getConfAtom2Index(i);
-				int paramsi = indices.getParamsIndex(i);
-				coords.getConfCoords(posi1, confAtomi1, pos1);
-				coords.getConfCoords(posi2, confAtomi2, pos2);
-				energy += calcEnergy(pos1, pos2, coords.getParams(ffi, paramsi));
-			}
-
-			return energy;
-		}
-
-		default double calcEnergy(ConfSpace.AssignedCoords coords) {
-
-			// start with the static energy
-			double energy = getStaticEnergy(coords);
-
-			// add the singles
-			int numPos = coords.getConfSpace().positions.length;
-			for (int posi=0; posi<numPos; posi++) {
-				energy += getEnergyInternal(coords, posi);
-				energy += calcEnergyStatic(coords, posi);
-			}
-
-			// add the pairs
-			for (int posi1=0; posi1<numPos; posi1++) {
-				for (int posi2=0; posi2<posi1; posi2++) {
-					energy += calcEnergyPair(coords, posi1, posi2);
-				}
-			}
-
-			return energy;
-		}
 	}
 }

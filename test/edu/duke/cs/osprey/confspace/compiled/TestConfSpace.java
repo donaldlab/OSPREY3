@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.confspace.compiled;
 
 
-import edu.duke.cs.osprey.energy.compiled.EEF1EnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.EnergyCalculator;
 import edu.duke.cs.osprey.tools.FileTools;
 import org.junit.Test;
 
@@ -16,9 +16,12 @@ public class TestConfSpace {
 		String toml = FileTools.readFile("../osprey-gui/test.ccs.toml");
 
 		ConfSpace confSpace = new ConfSpace(toml);
-		EEF1EnergyCalculator ecalc = new EEF1EnergyCalculator(confSpace);
+		EnergyCalculator ecalcAmber = confSpace.ecalcs[0];
+		EnergyCalculator ecalcEef1 = confSpace.ecalcs[1];
 
 		// calculate the EEF1 energy
-		log("Energy: %.6f", ecalc.calcEnergy(confSpace.assign(new int[] { 0, 0, 0 })));
+		ConfSpace.AssignedCoords conf = confSpace.assign(new int[]{0, 0, 0});
+		log("Energy Amber: %.6f", ecalcAmber.calcEnergy(conf));
+		log("Energy EEF1:  %.6f", ecalcEef1.calcEnergy(conf));
 	}
 }

@@ -133,6 +133,17 @@ public class TomlTools {
 		throw invalidTableType(key, "Double", value, tablePos);
 	}
 
+	public static boolean getBooleanOrThrow(TomlTable table, String key) {
+		return getBooleanOrThrow(table, key, null);
+	}
+	public static boolean getBooleanOrThrow(TomlTable table, String key, TomlPosition tablePos) {
+		Object value = getOrThrow(table, key, tablePos);
+		if (value instanceof Boolean) {
+			return (Boolean)value;
+		}
+		throw invalidTableType(key, "Boolean", value, tablePos);
+	}
+
 
 	// ARRAY TOOLS
 
@@ -235,4 +246,16 @@ public class TomlTools {
 		}
 		throw invalidArrayType(i, "Double", value, array.inputPositionOf(i));
 	}
+
+	public static boolean getBooleanOrThrow(TomlArray array, int i) {
+		return getBooleanOrThrow(array, i, null);
+	}
+	public static boolean getBooleanOrThrow(TomlArray array, int i, TomlPosition arrayPos) {
+		Object value = getOrThrow(array, i, arrayPos);
+		if (value instanceof Boolean) {
+			return (Boolean)value;
+		}
+		throw invalidArrayType(i, "Boolean", value, array.inputPositionOf(i));
+	}
+
 }
