@@ -110,8 +110,9 @@ public class CommandPartitionFunction extends RunnableCommand {
 
         /* Add in flexibility and mutability parameters */
         for (var mod : design.residueModifiers) {
+            var identifier = mod.identity.chain + mod.identity.residueNumber;
             strandBuilder.setResidueMutability(
-                    String.valueOf(mod.identity.residueNumber),
+                    identifier,
                     mod.mutability.stream().map(AminoAcid::toValue).collect(Collectors.toUnmodifiableList()),
                     mod.flexibility.includeStructureRotamer,
                     false
