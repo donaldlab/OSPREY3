@@ -44,6 +44,7 @@ public class Main {
             commander.parse(args);
         } catch (MissingCommandException ex) {
             printErrorMessage(String.format("Error: the command \"%s\" does not exist.", ex.getUnknownCommand()));
+            commander.usage();
             return Failure;
         } catch (ParameterException ex) {
             printErrorMessage(String.format("Error: %s", ex.getMessage()));

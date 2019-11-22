@@ -26,7 +26,7 @@ public class StabilityDesign {
     @JsonProperty("extra_templates")
     public String extraTemplates;
 
-    @JsonProperty("extra_template_coordinates")
+    @JsonProperty("extra_templates_coordinates")
     public String extraTemplatesCoordinates;
 
     public static StabilityDesign parse(File file) throws IOException {
