@@ -206,9 +206,14 @@ public class ConfSpace {
 			staticEnergies[ffi] = TomlTools.getDoubleOrThrow(staticEnergyTable, ffkey, staticEnergyPos);
 		}
 
-		// read the design positions
-		TomlTable positionsTable = TomlTools.getTableOrThrow(doc, "pos");
-		int numPositions = positionsTable.size();
+		// read the design positions, if any
+		TomlTable positionsTable = doc.getTable("pos");
+		int numPositions;
+		if (positionsTable != null) {
+			numPositions = positionsTable.size();
+		} else {
+			numPositions = 0;
+		}
 
 		positions = new Pos[numPositions];
 		indicesSingles = new IndicesSingle[forcefieldIds.length][numPositions][];
@@ -307,7 +312,8 @@ public class ConfSpace {
 		}
 
 		// read pos-pos forcefield params
-		indicesPairs = new IndicesPair[forcefieldIds.length][numPositions][numPositions*(numPositions + 1)/2 - 1][][];
+		int numPosPairs = Math.max(0, numPositions*(numPositions + 1)/2 - 1);
+		indicesPairs = new IndicesPair[forcefieldIds.length][numPositions][numPosPairs][][];
 
 		// for each position pair ...
 		for (int posi1=0; posi1<numPositions; posi1++) {
