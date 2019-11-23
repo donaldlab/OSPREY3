@@ -129,6 +129,10 @@ public class EnergyCalculator implements AutoCleanable {
 		 */
 		private Double alwaysResolveClashesEnergy = null;
 
+		public Builder(ForcefieldParams ffparams) {
+			this.ffparams = ffparams;
+		}
+
 		@Deprecated
 		public Builder(ResidueTemplateLibrary templateLib, ForcefieldParams ffparams) {
 			this.ffparams = ffparams;
