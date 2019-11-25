@@ -120,7 +120,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{-1, 5, 0, 5, 4, 3};//-1, 8, 7, 5, 8, 3};//4, -1, 8, 9};
+    public static final int[] debugConf = new int[]{-1, 8, 7, 5, 5, 3};//-1, 8, 7, 5, 8, 3};//4, -1, 8, 9};
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -337,6 +337,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             curNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, bound.sequence);
             if(isDebugConf(confNode.assignments))
                 System.out.println("end result: "+curNode.toSeqString(bound.sequence));
+            correctionMatrix.setHigherOrder(curNode.toTuple(), minimizingEmat.confE(curNode.getConfSearchNode().assignments) -
+                    confNode.getPartialConfLowerBound() - confLowerBound);
         }
         if(curNode.getChildren(bound.sequence).size() < 1)
             bound.fringeNodes.add(curNode);
@@ -857,6 +859,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             List<MultiSequenceSHARKStarNode> children = new ArrayList<>();
             double bestChildLower = Double.POSITIVE_INFINITY;
             MultiSequenceSHARKStarNode bestChild = null;
+            if(isDebugConf(node.assignments))
+                System.out.println("Start node bounds: "+curNode.toSeqString(bound.sequence));
             for (int nextRc : RCs.get(nextPos)) {
 
                 if (hasPrunedPair(context.index, nextPos, nextRc)) {
@@ -896,6 +900,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     }
                     child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound);
                     progress.reportInternalNode(child.level, child.getPartialConfLowerBound(), confLowerBound, queue.size(), children.size(), bound.getSequenceEpsilon());
+                    if(isDebugConf(node.assignments))
+                        System.out.println("End node bounds: "+curNode.toSeqString(bound.sequence));
                 }
                 if (child.getLevel() == RCs.getNumPos()) {
                     double confRigid = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);

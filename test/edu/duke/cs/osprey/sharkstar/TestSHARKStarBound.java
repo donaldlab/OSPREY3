@@ -484,7 +484,7 @@ public class TestSHARKStarBound extends TestBase {
     @Test
     public void testContinuous_3ma2() {
 
-        double epsilon = 0.1;
+        double epsilon = 0.68;
         try {
             SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs").complex;
             Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
