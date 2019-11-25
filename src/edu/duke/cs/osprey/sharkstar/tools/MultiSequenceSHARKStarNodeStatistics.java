@@ -59,8 +59,8 @@ public class MultiSequenceSHARKStarNodeStatistics {
         List<MultiSequenceSHARKStarNode> children = node.getChildren(seq);
         if( children != null && ! children.isEmpty()) {
             BoundGetter finalBoundGetter = boundGetter;
-            Collections.sort( children, (a, b)-> -finalBoundGetter.getBounds(a).upper
-                    .compareTo(finalBoundGetter.getBounds(b).upper));
+            Collections.sort( children, (a, b)->
+                    -MathTools.compare(finalBoundGetter.getBounds(a).upper, finalBoundGetter.getBounds(b).upper));
             for (MultiSequenceSHARKStarNode child :  children)
                 printTree(prefix + "~+", writer, confSpace, seq, child, boundGetter);
         }
