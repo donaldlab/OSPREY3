@@ -120,7 +120,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{-1, 8, 7, 5, 5, 3};//-1, 8, 7, 5, 8, 3};//4, -1, 8, 9};
+    public static final int[] debugConf = new int[]{-1, 4, 7, 1, 4, 3};//
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
