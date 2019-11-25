@@ -337,8 +337,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             curNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, bound.sequence);
             if(isDebugConf(confNode.assignments))
                 System.out.println("end result: "+curNode.toSeqString(bound.sequence));
-            correctionMatrix.setHigherOrder(curNode.toTuple(), minimizingEmat.confE(curNode.getConfSearchNode().assignments) -
-                    confNode.getPartialConfLowerBound() - confLowerBound);
+            correctionMatrix.setHigherOrder(curNode.toTuple(), confNode.getPartialConfLowerBound()
+                    - minimizingEmat.confE(confNode.assignments));
         }
         if(curNode.getChildren(bound.sequence).size() < 1)
             bound.fringeNodes.add(curNode);
@@ -904,6 +904,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         System.out.println("End node bounds: "+curNode.toSeqString(bound.sequence));
                 }
                 if (child.getLevel() == RCs.getNumPos()) {
+                    if(isDebugConf(child.assignments))
+                        System.out.println("Gotcha-drilldown-leaf");
                     double confRigid = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     //confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
 
@@ -915,7 +917,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     }
                     checkBounds(confCorrection, confRigid);
                     child.setBoundsFromConfLowerAndUpper(confCorrection, confRigid);
-                    confLowerBound = lowerbound;
+                    confLowerBound = confCorrection;
                     child.setPartialConfLowerAndUpper(confCorrection, confRigid);
                     confUpperBound = confRigid;
                     numConfsScored++;
@@ -968,6 +970,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             Node node = curNode.getConfSearchNode();
             ConfIndex index = new ConfIndex(RCs.getNumPos());
             node.index(index);
+            if(isDebugConf(node.assignments))
+                System.out.println("Gotcha-boundLowest");
 
             if (node.getLevel() < RCs.getNumPos()) {
                 MultiSequenceSHARKStarNode nextNode = drillDown(bound, newNodes, curNode, node);
@@ -1101,6 +1105,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         int nextPos = order.getNextPos(confIndex, RCs);
         assert (!confIndex.isDefined(nextPos));
         assert (confIndex.isUndefined(nextPos));
+        if(isDebugConf(node.assignments))
+            System.out.println("Gotcha-processPartial");
 
         // score child nodes with tasks (possibly in parallel)
         List<MultiSequenceSHARKStarNode> children = new ArrayList<>();
