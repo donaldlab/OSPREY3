@@ -27,12 +27,32 @@ public interface EnergyCalculator {
 		return coords.getStaticEnergy(ffi);
 	}
 
-	/** calculate the internal energy of position i */
-	default double getEnergySingle(ConfSpace.AssignedCoords coords, int posi) {
+	/** calculate the single energy of position i */
+	default double calcEnergySingle(ConfSpace.AssignedCoords coords, int posi) {
 
 		int ffi = ffi();
 		ConfSpace.IndicesSingle indices = coords.getIndices(ffi, posi);
-		return indices.internalEnergy;
+
+		// start with the internal energy
+		double energy = indices.energy;
+
+		// TODO: hopefully escape analysis will allocte this on the stack?
+		Vector3d pos1 = new Vector3d();
+		Vector3d pos2 = new Vector3d();
+
+		// add the internal interactions
+		for (int i=0; i<indices.sizeInternals(); i++) {
+			int confAtom1i = indices.getInternalConfAtom1Index(i);
+			int confAtom2i = indices.getInternalConfAtom2Index(i);
+			int paramsi = indices.getInternalParamsIndex(i);
+			coords.getConfCoords(posi, confAtom1i, pos1);
+			coords.getConfCoords(posi, confAtom2i, pos2);
+			double r2 = pos1.distanceSquared(pos2);
+			double r = Math.sqrt(r2);
+			energy += calcEnergy(r, r2, coords.getParams(ffi, paramsi));
+		}
+
+		return energy;
 	}
 
 	/** calculate the pair energy between position i and the static atoms */
@@ -93,7 +113,7 @@ public interface EnergyCalculator {
 		// add the singles
 		int numPos = coords.getConfSpace().positions.length;
 		for (int posi=0; posi<numPos; posi++) {
-			energy += getEnergySingle(coords, posi);
+			energy += calcEnergySingle(coords, posi);
 			energy += calcEnergyStatic(coords, posi);
 		}
 

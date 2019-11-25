@@ -1,7 +1,5 @@
 package edu.duke.cs.osprey.energy.compiled;
 
-import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
-
 
 /**
  * Calculate energies from a compiled ConfSpace.AssignedCoords according to the EEF1 forcefield.
@@ -9,6 +7,10 @@ import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 public class EEF1EnergyCalculator implements EnergyCalculator {
 
 	public static final String implementation = "eef1";
+
+	// Only need to count interactions with 9 A.
+	// Farther interactions are already counted in the pre-calculated internal energy.
+	private static final double cutoff = 9.0;
 
 	public final String id;
 	public final int ffi;
@@ -38,8 +40,12 @@ public class EEF1EnergyCalculator implements EnergyCalculator {
 		double alpha1 = params[4];
 		double alpha2 = params[5];
 
-		double Xij = (r - vdwRadius1)/lambda1;
-		double Xji = (r - vdwRadius2)/lambda2;
-		return -(alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
+		if (r <= cutoff) {
+			double Xij = (r - vdwRadius1)/lambda1;
+			double Xji = (r - vdwRadius2)/lambda2;
+			return -(alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
+		} else {
+			return 0.0;
+		}
 	}
 }

@@ -9,6 +9,7 @@ import org.joml.Vector3d;
 import org.tomlj.*;
 
 import java.util.Arrays;
+import java.util.NoSuchElementException;
 
 
 /**
@@ -19,15 +20,15 @@ public class ConfSpace {
 	public static int NotAssigned = -1;
 
 	/** a conformation at a design position */
-	class Conf {
+	public class Conf {
 
-		final int index;
-		final String id;
-		final String type; // TODO: use integers for types? with a lookup table to the name?
+		public final int index;
+		public final String id;
+		public final String type; // TODO: use integers for types? with a lookup table to the name?
 
-		final int numAtoms;
-		final CoordsList coords;
-		final String[] atomNames;
+		public final int numAtoms;
+		public final CoordsList coords;
+		public final String[] atomNames;
 
 		public Conf(int index, String id, String type, int numAtoms, CoordsList coords, String[] atomNames) {
 			this.index = index;
@@ -59,6 +60,23 @@ public class ConfSpace {
 				.max()
 				.orElse(0);
 		}
+
+		public Conf findConf(String id) {
+			for (Conf conf : confs) {
+				if (conf.id.equals(id)) {
+					return conf;
+				}
+			}
+			return null;
+		}
+
+		public Conf findConfOrThrow(String id) {
+			Conf conf = findConf(id);
+			if (conf != null) {
+				return conf;
+			}
+			throw new NoSuchElementException("no conf with id " + id);
+		}
 	}
 
 	public final String name;
@@ -74,14 +92,31 @@ public class ConfSpace {
 
 	public class IndicesSingle {
 
-		public final double internalEnergy;
+		public final double energy;
+
+		/** indexed by param, [0=confAtom1i, 1=confAtom2i, 2=parami] */
+		private final int[][] internals;
 
 		/** indexed by param, [0=confAtomi, 1=staticAtomi, 2=parami] */
 		private final int[][] statics;
 
-		IndicesSingle(double internalEnergy, int[][] statics) {
-			this.internalEnergy = internalEnergy;
+		IndicesSingle(double energy, int[][] internals, int[][] statics) {
+			this.energy = energy;
+			this.internals = internals;
 			this.statics = statics;
+		}
+
+		public int sizeInternals() {
+			return internals.length;
+		}
+		public int getInternalConfAtom1Index(int i) {
+			return internals[i][0];
+		}
+		public int getInternalConfAtom2Index(int i) {
+			return internals[i][1];
+		}
+		public int getInternalParamsIndex(int i) {
+			return internals[i][2];
 		}
 
 		public int sizeStatics() {
@@ -274,18 +309,32 @@ public class ConfSpace {
 				);
 
 				// read the internal energies
-				TomlTable internalTable = TomlTools.getTableOrThrow(confTable, "energy", confPos);
-				TomlPosition internalPos = confTable.inputPositionOf("energy");
+				TomlTable energyTable = TomlTools.getTableOrThrow(confTable, "energy", confPos);
+				TomlPosition energyPos = confTable.inputPositionOf("energy");
 
 				// read the forcefield params
+				TomlTable paramsInternalTable = TomlTools.getTableOrThrow(confTable, "params.internal", confPos);
+				TomlPosition paramsInternalPos = confTable.inputPositionOf("params.internal");
 				TomlTable paramsStaticTable = TomlTools.getTableOrThrow(confTable, "params.static", confPos);
 				TomlPosition paramsStaticPos = confTable.inputPositionOf("params.static");
 
 				for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
 					String ffkey = "" + ffi;
 
-					// read the internal energy
-					double internalEnergy = TomlTools.getDoubleOrThrow(internalTable, ffkey, internalPos);
+					// read the energy
+					double energy = TomlTools.getDoubleOrThrow(energyTable, ffkey, energyPos);
+
+					// read the pos internal forcefield params
+					TomlArray internalArray = TomlTools.getArrayOrThrow(paramsInternalTable, ffkey, paramsInternalPos);
+					TomlPosition internalPos = paramsInternalTable.inputPositionOf(ffkey);
+					int[][] singles = new int[internalArray.size()][3];
+					for (int i=0; i<internalArray.size(); i++) {
+						TomlArray indicesArray = TomlTools.getArrayOrThrow(internalArray, i, internalPos);
+						TomlPosition indicesPos = internalArray.inputPositionOf(i);
+						singles[i][0] = TomlTools.getIntOrThrow(indicesArray, 0, indicesPos); // atom1i
+						singles[i][1] = TomlTools.getIntOrThrow(indicesArray, 1, indicesPos); // atom2i
+						singles[i][2] = TomlTools.getIntOrThrow(indicesArray, 2, indicesPos); // parami
+					}
 
 					// read the pos-static forcefield params
 					TomlArray staticArray = TomlTools.getArrayOrThrow(paramsStaticTable, ffkey, paramsStaticPos);
@@ -299,7 +348,7 @@ public class ConfSpace {
 						statics[i][2] = TomlTools.getIntOrThrow(indicesArray, 2, indicesPos); // parami
 					}
 
-					indicesSingles[ffi][posi][confi] = new IndicesSingle(internalEnergy, statics);
+					indicesSingles[ffi][posi][confi] = new IndicesSingle(energy, singles, statics);
 				}
 			}
 
@@ -436,7 +485,7 @@ public class ConfSpace {
 
 		public IndicesSingle getIndices(int ffi, int posi) {
 
-			// get the assignment, or skip if nothing was assigned
+			// get the assignment, or null if nothing was assigned
 			int confi = assignments[posi];
 			if (confi == NotAssigned) {
 				return null;
@@ -447,7 +496,7 @@ public class ConfSpace {
 
 		public IndicesPair getIndices(int ffi, int posi1, int posi2) {
 
-			// get the assignments, or skip if nothing was assigned
+			// get the assignments, or null if nothing was assigned
 			int confi1 = assignments[posi1];
 			int confi2 = assignments[posi2];
 			if (confi1 == NotAssigned || confi2 == NotAssigned) {
