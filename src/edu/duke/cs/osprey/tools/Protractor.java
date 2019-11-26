@@ -323,6 +323,21 @@ public class Protractor {
         return angleDegrees;
     }
 
+    public static double normalizeMinusPiToPi(double angleRadians) {
+		if (!Double.isFinite(angleRadians)) {
+			throw new IllegalArgumentException("can't normalize angle: " + angleRadians);
+		}
+		while (angleRadians <= -Math.PI) {
+			angleRadians += Math.PI*2;
+		}
+		while (angleRadians > Math.PI) {
+			angleRadians -= Math.PI*2;
+		}
+		assert (angleRadians > -Math.PI);
+		assert (angleRadians <= Math.PI);
+		return angleRadians;
+	}
+
     /** returns the smallest distance between a and b */
     public static double getDistDegrees(double a, double b) {
     	return Math.abs(getDeltaDegrees(a, b));

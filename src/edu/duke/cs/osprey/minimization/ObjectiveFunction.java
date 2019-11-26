@@ -85,12 +85,17 @@ public interface ObjectiveFunction extends Serializable {
     //(e.g. for first initial value checking in CCD)
     
     
-    public boolean isDOFAngle(int dof);//Is the given degree of freedom an angle?
+    default public boolean isDOFAngle(int dof) {
+    	throw new UnsupportedOperationException();
+	}
+	//Is the given degree of freedom an angle?
     //This is important because angles can wrap around (at 360-degree intervals)
     
     
 
-    public ArrayList<Integer> getInitFixableDOFs();
+    default public ArrayList<Integer> getInitFixableDOFs() {
+		throw new UnsupportedOperationException();
+	}
     //If we're going to initialize full minimization with minimization over a limited number of DOFs,
     //these are the indices of the DOFs that will be fixed
 

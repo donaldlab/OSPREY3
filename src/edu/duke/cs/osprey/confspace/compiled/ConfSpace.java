@@ -1,11 +1,11 @@
 package edu.duke.cs.osprey.confspace.compiled;
 
 
+import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle;
 import edu.duke.cs.osprey.energy.compiled.AmberEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.EEF1EnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.EnergyCalculator;
 import edu.duke.cs.osprey.tools.TomlTools;
-import org.joml.Vector3d;
 import org.tomlj.*;
 
 import java.util.Arrays;
@@ -16,8 +16,6 @@ import java.util.NoSuchElementException;
  * A conformation space that reads the output produced by the ConfSpaceCompiler in the GUI.
  */
 public class ConfSpace {
-
-	public static int NotAssigned = -1;
 
 	/** a conformation at a design position */
 	public class Conf {
@@ -30,24 +28,27 @@ public class ConfSpace {
 		public final CoordsList coords;
 		public final String[] atomNames;
 
-		public Conf(int index, String id, String type, int numAtoms, CoordsList coords, String[] atomNames) {
+		public final ContinuousMotion.Description[] motions;
+
+		public Conf(int index, String id, String type, int numAtoms, CoordsList coords, String[] atomNames, ContinuousMotion.Description[] motions) {
 			this.index = index;
 			this.id = id;
 			this.type = type;
 			this.numAtoms = numAtoms;
 			this.coords = coords;
 			this.atomNames = atomNames;
+			this.motions = motions;
 		}
 	}
 
 	/** a design position */
 	public class Pos {
 
-		final int index;
-		final String name;
+		public final int index;
+		public final String name;
 
-		final Conf[] confs;
-		final int maxNumAtoms;
+		public final Conf[] confs;
+		public final int maxNumAtoms;
 
 		public Pos(int index, String name, Conf[] confs) {
 
@@ -83,10 +84,10 @@ public class ConfSpace {
 	public final String[] forcefieldIds;
 	public final EnergyCalculator[] ecalcs;
 
-	private final int numStaticAtoms;
-	private final CoordsList staticCoords;
-	private final String[] staticNames;
-	private final double[] staticEnergies;
+	public final int numStaticAtoms;
+	public final CoordsList staticCoords;
+	public final String[] staticNames;
+	public final double[] staticEnergies;
 
 	public final Pos[] positions;
 
@@ -298,6 +299,50 @@ public class ConfSpace {
 					);
 				}
 
+				// read the DoF descriptions
+				ContinuousMotion.Description[] motions;
+				TomlArray motionsArray = confTable.getArray("motions");
+				if (motionsArray == null) {
+
+					motions = new ContinuousMotion.Description[0];
+
+				} else {
+
+					TomlPosition motionsPos = confTable.inputPositionOf("motions");
+					motions = new ContinuousMotion.Description[motionsArray.size()];
+					for (int i=0; i<motionsArray.size(); i++) {
+						TomlTable motionTable = TomlTools.getTableOrThrow(motionsArray, i, motionsPos);
+						TomlPosition motionPos = motionsArray.inputPositionOf(i);
+
+						// TODO: make a better way to register and instantiate motions?
+						String motionType = TomlTools.getStringOrThrow(motionTable, "type", motionPos);
+						switch (motionType) {
+
+							case "dihedral":
+								TomlArray boundsArray = TomlTools.getArrayOrThrow(motionTable, "bounds", motionPos);
+								TomlArray abcdArray = TomlTools.getArrayOrThrow(motionTable, "abcd", motionPos);
+								TomlArray rotatedArray = TomlTools.getArrayOrThrow(motionTable, "rotated", motionPos);
+								int[] rotated = new int[rotatedArray.size()];
+								for (int j=0; j<rotatedArray.size(); j++) {
+									rotated[j] = TomlTools.getIntOrThrow(rotatedArray, j, motionPos);
+								}
+								motions[i] = new DihedralAngle.Description(
+									TomlTools.getDoubleOrThrow(boundsArray, 0, motionPos),
+									TomlTools.getDoubleOrThrow(boundsArray, 1, motionPos),
+									TomlTools.getIntOrThrow(abcdArray, 0, motionPos),
+									TomlTools.getIntOrThrow(abcdArray, 1, motionPos),
+									TomlTools.getIntOrThrow(abcdArray, 2, motionPos),
+									TomlTools.getIntOrThrow(abcdArray, 3, motionPos),
+									rotated
+								);
+							break;
+
+							default:
+								throw new UnsupportedOperationException("continuous motion type '" + motionType + "' is not supported");
+						}
+					}
+				}
+
 				// finally, make the conf
 				confs[confi] = new Conf(
 					confi,
@@ -305,7 +350,8 @@ public class ConfSpace {
 					type,
 					numAtoms,
 					atomCoords,
-					atomNames
+					atomNames,
+					motions
 				);
 
 				// read the internal energies
@@ -429,100 +475,21 @@ public class ConfSpace {
 				ffparams[ffi][i] = params;
 			}
 		}
-
-		// TODO: read the DoFs
-	}
-
-	/**
-	 * A copy of the conf space atom coords with the desired assignments.
-	 */
-	public class AssignedCoords {
-
-		/** conf indices for the design positions, in order */
-		final int[] assignments;
-
-		private final int[] atomOffsetsByPos;
-
-		/** atom coords for the conformations */
-		private final CoordsList confCoords;
-
-		public AssignedCoords(int[] assignments) {
-
-			this.assignments = assignments;
-
-			// copy all the conf coords into a single list
-
-			// how many atoms do we need?
-			atomOffsetsByPos = new int[positions.length];
-			int numCoords = 0;
-			for (Pos pos : positions) {
-				atomOffsetsByPos[pos.index] = numCoords;
-				numCoords += pos.maxNumAtoms;
-			}
-
-			// copy over the coords
-			confCoords = new CoordsList(numCoords);
-			for (Pos pos : positions) {
-
-				// get the conf, or skip this position if nothing was assigned
-				int confi = assignments[pos.index];
-				if (confi == NotAssigned) {
-					continue;
-				}
-
-				Conf conf = pos.confs[confi];
-				confCoords.copyFrom(conf.coords, atomOffsetsByPos[pos.index]);
-			}
-		}
-
-		public ConfSpace getConfSpace() {
-			return ConfSpace.this;
-		}
-
-		public double getStaticEnergy(int ffi) {
-			return staticEnergies[ffi];
-		}
-
-		public IndicesSingle getIndices(int ffi, int posi) {
-
-			// get the assignment, or null if nothing was assigned
-			int confi = assignments[posi];
-			if (confi == NotAssigned) {
-				return null;
-			}
-
-			return indicesSingles[ffi][posi][confi];
-		}
-
-		public IndicesPair getIndices(int ffi, int posi1, int posi2) {
-
-			// get the assignments, or null if nothing was assigned
-			int confi1 = assignments[posi1];
-			int confi2 = assignments[posi2];
-			if (confi1 == NotAssigned || confi2 == NotAssigned) {
-				return null;
-			}
-
-			return indicesPairs[ffi][posi1][posi2][confi1][confi2];
-		}
-
-		public double[] getParams(int ffi, int paramsi) {
-			return ffparams[ffi][paramsi];
-		}
-
-		public void getStaticCoords(int atomi, Vector3d out) {
-			staticCoords.get(atomi, out);
-		}
-
-		public void getConfCoords(int posi, int atomi, Vector3d out) {
-			int offset = atomOffsetsByPos[posi];
-			confCoords.get(offset + atomi, out);
-		}
-
-		// TODO: add DoFs
 	}
 
 	public AssignedCoords assign(int[] assignments) {
-		return new AssignedCoords(assignments);
+		return new AssignedCoords(this, assignments);
+	}
+
+	public IndicesSingle indicesSingles(int ffi, int posi, int confi) {
+		return indicesSingles[ffi][posi][confi];
+	}
+
+	public IndicesPair indicesPairs(int ffi, int posi1, int confi1, int posi2, int confi2) {
+		return indicesPairs[ffi][posi1][posi2][confi1][confi2];
+	}
+
+	public double[] ffparams(int ffi, int paramsi) {
+		return ffparams[ffi][paramsi];
 	}
 }

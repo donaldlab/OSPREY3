@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.energy.compiled;
 
 
+import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import org.joml.Vector3d;
 import org.tomlj.TomlPosition;
@@ -22,13 +23,13 @@ public interface EnergyCalculator {
 	double calcEnergy(double r, double r2, double[] params);
 
 	/** get the internal energy of the static atoms */
-	default double getEnergyStatic(ConfSpace.AssignedCoords coords) {
+	default double getEnergyStatic(AssignedCoords coords) {
 		int ffi = ffi();
 		return coords.getStaticEnergy(ffi);
 	}
 
 	/** calculate the single energy of position i */
-	default double calcEnergySingle(ConfSpace.AssignedCoords coords, int posi) {
+	default double calcEnergySingle(AssignedCoords coords, int posi) {
 
 		int ffi = ffi();
 		ConfSpace.IndicesSingle indices = coords.getIndices(ffi, posi);
@@ -56,7 +57,7 @@ public interface EnergyCalculator {
 	}
 
 	/** calculate the pair energy between position i and the static atoms */
-	default double calcEnergyStatic(ConfSpace.AssignedCoords coords, int posi) {
+	default double calcEnergyStatic(AssignedCoords coords, int posi) {
 
 		double energy = 0.0;
 
@@ -81,7 +82,7 @@ public interface EnergyCalculator {
 	}
 
 	/** calculate the pair energy between position i1 and position i2 */
-	default double calcEnergyPair(ConfSpace.AssignedCoords coords, int posi1, int posi2) {
+	default double calcEnergyPair(AssignedCoords coords, int posi1, int posi2) {
 
 		double energy = 0.0;
 
@@ -105,13 +106,13 @@ public interface EnergyCalculator {
 		return energy;
 	}
 
-	default double calcEnergy(ConfSpace.AssignedCoords coords) {
+	default double calcEnergy(AssignedCoords coords) {
 
 		// start with the static energy
 		double energy = getEnergyStatic(coords);
 
 		// add the singles
-		int numPos = coords.getConfSpace().positions.length;
+		int numPos = coords.confSpace.positions.length;
 		for (int posi=0; posi<numPos; posi++) {
 			energy += calcEnergySingle(coords, posi);
 			energy += calcEnergyStatic(coords, posi);
@@ -120,6 +121,32 @@ public interface EnergyCalculator {
 		// add the pairs
 		for (int posi1=0; posi1<numPos; posi1++) {
 			for (int posi2=0; posi2<posi1; posi2++) {
+				energy += calcEnergyPair(coords, posi1, posi2);
+			}
+		}
+
+		return energy;
+	}
+
+	/**
+	 * Calculate just the energy from the given positions.
+	 */
+	default double calcSubEnergy(AssignedCoords coords, int[] posIndices) {
+
+		// start with 0 energy
+		double energy = 0.0;
+
+		// add the singles
+		for (int posi : posIndices) {
+			energy += calcEnergySingle(coords, posi);
+			energy += calcEnergyStatic(coords, posi);
+		}
+
+		// add the pairs
+		for (int i1=0; i1<posIndices.length; i1++) {
+			int posi1 = posIndices[i1];
+			for (int i2=0; i2<i1; i2++) {
+				int posi2 = posIndices[i2];
 				energy += calcEnergyPair(coords, posi1, posi2);
 			}
 		}
