@@ -8,11 +8,14 @@ import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.ExpFunction;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
 import com.google.auto.value.AutoValue;
+
+import static ch.obermuhlner.math.big.DefaultBigDecimalMath.log;
 
 public class ThermodynamicsConfListener implements CommandAnalysis {
 
@@ -39,10 +42,7 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
     }
 
     private static BigDecimal getBoundedProbability(ConfSearch.EnergiedConf conf, BigDecimal bound) {
-        return makeBigMath()
-                .set(bCalc.calc(conf.getEnergy()))
-                .div(bound)
-                .get();
+        return bCalc.calc(conf.getEnergy()).divide(bound, RoundingMode.HALF_EVEN);
     }
 
     private ProbabilityEnergyTuple getConfProperties(ConfSearch.EnergiedConf conf) {
@@ -88,14 +88,14 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
 
     private BigDecimal getUpperBoundEntropy() {
         return makeBigMath().set(Constants.R)
-                .mult(eFn.log(pFuncUpperBound))
+                .mult(log(pFuncUpperBound))
                 .add(getUpperBoundEnthalpy().doubleValue() / Constants.T)
                 .get();
     }
 
     private BigDecimal getLowerBoundEntropy() {
         return makeBigMath().set(Constants.R)
-                .mult(eFn.log(pFuncLowerBound))
+                .mult(log(pFuncLowerBound))
                 .add(getLowerBoundEnthalpy().doubleValue() / Constants.T)
                 .get();
     }
