@@ -189,7 +189,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             printTree(seq, this);
             System.out.println("Last Tree:");
             printLastTree(seq, this);
-            //System.exit(-1);
+            System.exit(-1);
         }
         if(lastLower != null
                 && MathTools.isLessThan(getSequenceBounds(seq).lower,lastLower)
@@ -201,7 +201,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             printTree(seq, this);
             System.out.println("Last Tree:");
             printLastTree(seq, this);
-            //System.exit(-1);
+            System.exit(-1);
         }
         /* this check doesn't work across multiple sequences yet.
         if(lastEpsilon < nodeEpsilon && nodeEpsilon - lastEpsilon > 0.0001) {
