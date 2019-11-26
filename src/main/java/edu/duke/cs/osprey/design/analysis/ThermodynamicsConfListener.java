@@ -10,6 +10,9 @@ import edu.duke.cs.osprey.tools.ExpFunction;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
+
+import com.google.auto.value.AutoValue;
 
 public class ThermodynamicsConfListener implements CommandAnalysis {
 
@@ -42,6 +45,14 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
                 .get();
     }
 
+    private ProbabilityEnergyTuple getConfProperties(ConfSearch.EnergiedConf conf) {
+        return ProbabilityEnergyTuple.create(conf, getLowerBoundProbability(conf), getUpperBoundProbability(conf));
+    }
+
+    private Stream<ProbabilityEnergyTuple> confPropStream() {
+        return confs.stream().map(this::getConfProperties);
+    }
+
     private BigDecimal getUpperBoundProbability(ConfSearch.EnergiedConf conf) {
         return getBoundedProbability(conf, pFuncLowerBound);
     }
@@ -50,34 +61,39 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
         return getBoundedProbability(conf, pFuncUpperBound);
     }
 
-    public BigDecimal getUpperBoundEnthalpy() {
-        var math = makeBigMath();
-        return confs.stream()
-                .map(conf -> math.set(getLowerBoundProbability(conf)).mult(conf.getEnergy()).get())
+    private BigDecimal getUpperBoundEnthalpy() {
+        return confPropStream()
+                .map(props -> props.lowerBoundProbability().multiply(props.energy()))
                 .reduce(BigDecimal::add)
                 .orElseThrow();
     }
 
-    public BigDecimal getLowerBoundEnthalpy() {
-        var upperBoundProbabilitySum = confs.stream()
-                .map(this::getUpperBoundProbability)
+    private BigDecimal getLowerBoundEnthalpy() {
+        var part1 = confPropStream()
+                .map(prop -> prop.upperBoundProbability().multiply(prop.energy()))
                 .reduce(BigDecimal::add)
                 .orElseThrow();
 
-        var restOfProbability = makeBigMath().set(1).sub(upperBoundProbabilitySum);
-        var restOfProbabilityTimesWorstEnergyConf = restOfProbability.mult(confs.get(confs.size() - 1).getEnergy()).get();
+        var upperBoundProbabilitySum = confPropStream()
+                .map(ProbabilityEnergyTuple::upperBoundProbability)
+                .reduce(BigDecimal::add)
+                .orElseThrow();
 
-        return upperBoundProbabilitySum.add(restOfProbabilityTimesWorstEnergyConf);
+        var part2 = BigDecimal.ONE
+                .subtract(upperBoundProbabilitySum)
+                .multiply(confPropStream().reduce((first, second) -> second).orElseThrow().energy());
+
+        return part1.add(part2);
     }
 
-    public BigDecimal getUpperBoundEntropy() {
+    private BigDecimal getUpperBoundEntropy() {
         return makeBigMath().set(Constants.R)
                 .mult(eFn.log(pFuncUpperBound))
                 .add(getUpperBoundEnthalpy().doubleValue() / Constants.T)
                 .get();
     }
 
-    public BigDecimal getLowerBoundEntropy() {
+    private BigDecimal getLowerBoundEntropy() {
         return makeBigMath().set(Constants.R)
                 .mult(eFn.log(pFuncLowerBound))
                 .add(getLowerBoundEnthalpy().doubleValue() / Constants.T)
@@ -89,4 +105,17 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
         System.out.println(String.format("Enthalpy[%.04f - %.04f]", getLowerBoundEnthalpy(), getUpperBoundEnthalpy()));
         System.out.println(String.format("Entropy[%.04f - %.04f]", getLowerBoundEntropy(), getUpperBoundEntropy()));
     }
+}
+
+@AutoValue
+abstract class ProbabilityEnergyTuple {
+
+    static ProbabilityEnergyTuple create(ConfSearch.EnergiedConf conf, BigDecimal lowerBoundProbability, BigDecimal upperBoundProbability) {
+        return new AutoValue_ProbabilityEnergyTuple(conf, lowerBoundProbability, upperBoundProbability, new BigDecimal(conf.getEnergy()));
+    }
+
+    abstract ConfSearch.EnergiedConf conf();
+    abstract BigDecimal lowerBoundProbability();
+    abstract BigDecimal upperBoundProbability();
+    abstract BigDecimal energy();
 }
