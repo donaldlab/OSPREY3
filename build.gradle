@@ -24,7 +24,7 @@ dependencies {
     implementation 'commons-io:commons-io:2.5'
     implementation 'org.mapdb:mapdb:3.0.5'
     implementation 'de.lmu.ifi.dbs.elki:elki:0.7.1'
-    implementation 'ch.obermuhlner:big-math:2.0.1'
+    implementation 'ch.obermuhlner:big-math:2.3.0'
     implementation 'org.jogamp.jocl:jocl:2.3.2'
     implementation 'org.jogamp.gluegen:gluegen-rt:2.3.2'
     implementation 'com.github.haifengl:smile-core:1.5.1'
