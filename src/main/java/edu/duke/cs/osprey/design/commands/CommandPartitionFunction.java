@@ -110,7 +110,7 @@ public class CommandPartitionFunction extends RunnableCommand {
 
         /* Add in flexibility and mutability parameters */
         for (var mod : design.residueModifiers) {
-            var identifier = mod.identity.chain + mod.identity.residueNumber;
+            var identifier = mod.identity.positionIdentifier();
             strandBuilder.setResidueMutability(
                     identifier,
                     mod.mutability.stream().map(AminoAcid::toValue).collect(Collectors.toUnmodifiableList()),
@@ -118,8 +118,16 @@ public class CommandPartitionFunction extends RunnableCommand {
                     false
             );
         }
-
         var protein = strandBuilder.build();
+
+        // Validate that design intentions match input structure
+        var identities = design.residueModifiers.stream().map(m -> m.identity).collect(Collectors.toUnmodifiableList());
+        for(var identity : identities) {
+            var flex = protein.flexibility.get(identity.positionIdentifier());
+            if (!flex.wildType.substring(0, 2).equalsIgnoreCase(identity.aminoAcidType.toValue().substring(0, 2))) {
+                throw new RuntimeException(String.format("Design parameter thought residue %s was %s, but in structure is %s", identity.positionIdentifier(), identity.aminoAcidType.toValue(), flex.wildType));
+            }
+        }
 
         /* Maintains flexibility information with the molecule, and can use that to make new molecules */
         var confSpace = new SimpleConfSpace.Builder()
