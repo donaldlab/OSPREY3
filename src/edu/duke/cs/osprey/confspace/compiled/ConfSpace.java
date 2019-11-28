@@ -17,6 +17,9 @@ import java.util.NoSuchElementException;
  */
 public class ConfSpace {
 
+	public static int NotAssigned = -1;
+
+
 	/** a conformation at a design position */
 	public class Conf {
 
@@ -160,8 +163,8 @@ public class ConfSpace {
 		}
 	}
 
-	/** indexed by ff, pos1, pos2, conf1, conf2 */
-	private final IndicesPair[][][][][] indicesPairs;
+	/** indexed by ff, pos1:pos2, conf1, conf2 */
+	private final IndicesPair[][][][] indicesPairs;
 
 
 	/**
@@ -408,7 +411,7 @@ public class ConfSpace {
 
 		// read pos-pos forcefield params
 		int numPosPairs = Math.max(0, numPositions*(numPositions + 1)/2 - 1);
-		indicesPairs = new IndicesPair[forcefieldIds.length][numPositions][numPosPairs][][];
+		indicesPairs = new IndicesPair[forcefieldIds.length][numPosPairs][][];
 
 		// for each position pair ...
 		for (int posi1=0; posi1<numPositions; posi1++) {
@@ -416,8 +419,10 @@ public class ConfSpace {
 			for (int posi2=0; posi2<posi1; posi2++) {
 				Pos pos2 = positions[posi2];
 
+				int posPairIndex = posPairIndex(pos1.index, pos2.index);
+
 				for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
-					indicesPairs[ffi][pos1.index][pos2.index] = new IndicesPair[pos1.confs.length][pos2.confs.length];
+					indicesPairs[ffi][posPairIndex] = new IndicesPair[pos1.confs.length][pos2.confs.length];
 				}
 
 				// for each conf pair ...
@@ -445,7 +450,7 @@ public class ConfSpace {
 								indicesPair[i][2] = TomlTools.getIntOrThrow(indicesArray, 2, indicesPos); // parami
 							}
 
-							indicesPairs[ffi][pos1.index][pos2.index][conf1.index][conf2.index] = new IndicesPair(indicesPair);
+							indicesPairs[ffi][posPairIndex][conf1.index][conf2.index] = new IndicesPair(indicesPair);
 						}
 					}
 				}
@@ -477,8 +482,24 @@ public class ConfSpace {
 		}
 	}
 
-	public AssignedCoords assign(int[] assignments) {
-		return new AssignedCoords(this, assignments);
+	private int posPairIndex(int posi1, int posi2) {
+
+		// posi2 should be strictly less than posi1
+		if (posi2 > posi1) {
+			int swap = posi1;
+			posi1 = posi2;
+			posi2 = swap;
+		} else if (posi1 == posi2) {
+			throw new Error("Can't pair position " + posi1 + " with itself");
+		}
+
+		return posi1*(posi1 - 1)/2 + posi2;
+	}
+
+	public int[] getNumConfsAtPos() {
+		return Arrays.stream(positions)
+			.mapToInt(pos -> pos.confs.length)
+			.toArray();
 	}
 
 	public IndicesSingle indicesSingles(int ffi, int posi, int confi) {
@@ -486,10 +507,63 @@ public class ConfSpace {
 	}
 
 	public IndicesPair indicesPairs(int ffi, int posi1, int confi1, int posi2, int confi2) {
-		return indicesPairs[ffi][posi1][posi2][confi1][confi2];
+		return indicesPairs[ffi][posPairIndex(posi1, posi2)][confi1][confi2];
 	}
 
 	public double[] ffparams(int ffi, int paramsi) {
 		return ffparams[ffi][paramsi];
+	}
+
+	/** Gets the total number of confs for all positions */
+	public int countConfSingles() {
+		int count = 0;
+		for (int posi1=1; posi1<positions.length; posi1++) {
+			count += positions[posi1].confs.length;
+		}
+		return count;
+	}
+
+	/** Gets the total number of conf pairs for all positions */
+	public int countConfPairs() {
+		int count = 0;
+		for (int posi1=1; posi1<positions.length; posi1++) {
+			for (int posi2=0; posi2<posi1; posi2++) {
+				count += positions[posi1].confs.length*positions[posi2].confs.length;
+			}
+		}
+		return count;
+	}
+
+	/** Makes assignments with no assigned positions. */
+	public int[] assign() {
+		int[] assignments = new int[positions.length];
+		Arrays.fill(assignments, NotAssigned);
+		return assignments;
+	}
+
+	/** Makes assignments with one assigned position */
+	public int[] assign(int posi1, int confi1) {
+		int[] assignments = assign();
+		assignments[posi1] = confi1;
+		return assignments;
+	}
+
+	/** Makes assignments with two assigned positions */
+	public int[] assign(int posi1, int confi1, int posi2, int confi2) {
+		int[] assignments = assign(posi1, confi1);
+		assignments[posi2] = confi2;
+		return assignments;
+	}
+
+	/** Makes assignments with three assigned positions */
+	public int[] assign(int posi1, int confi1, int posi2, int confi2, int posi3, int confi3) {
+		int[] assignments = assign(posi1, confi1, posi2, confi2);
+		assignments[posi3] = confi3;
+		return assignments;
+	}
+
+	/** Makes coordinates with the given assignments */
+	public AssignedCoords makeCoords(int[] assignments) {
+		return new AssignedCoords(this, assignments);
 	}
 }

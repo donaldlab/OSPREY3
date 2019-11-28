@@ -76,6 +76,10 @@ public class EnergyMatrix extends TupleMatrixDouble implements FragmentEnergies 
     public EnergyMatrix(SimpleConfSpace confSpace) {
         super(confSpace, Double.POSITIVE_INFINITY, 0);
     }
+
+    public EnergyMatrix(edu.duke.cs.osprey.confspace.compiled.ConfSpace confSpace) {
+    	super(confSpace);
+	}
     
     public EnergyMatrix(int numPos, int[] numRCsAtPos, double pruningInterval){
         super(numPos, numRCsAtPos, pruningInterval, 0.);

@@ -8,6 +8,9 @@ import org.tomlj.TomlPosition;
 import org.tomlj.TomlTable;
 
 
+/**
+ * Calculates the energy of atomic coordinates according to a forcefield definition.
+ */
 public interface EnergyCalculator {
 
 	/** get the id of this energy calculator, that matches the forcefield ids in the conf space */

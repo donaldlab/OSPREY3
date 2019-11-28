@@ -53,6 +53,10 @@ public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
     public TupleMatrixDouble(SimpleConfSpace confSpace, double pruningInterval, double defaultHigherInteraction) {
         super(confSpace, pruningInterval, defaultHigherInteraction);
     }
+
+    public TupleMatrixDouble(edu.duke.cs.osprey.confspace.compiled.ConfSpace confSpace) {
+    	super(confSpace);
+	}
     
     public TupleMatrixDouble(int numPos, int[] numAllowedAtPos, double pruningInterval, double defaultHigherInteraction) {
     	super(numPos, numAllowedAtPos, pruningInterval, defaultHigherInteraction);

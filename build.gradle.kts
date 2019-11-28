@@ -115,6 +115,7 @@ dependencies {
 	compile("ch.obermuhlner:big-math:2.0.1")
 	compile("org.tomlj:tomlj:1.0.0")
 	compile("org.joml:joml:1.9.19")
+	compile("org.tukaani:xz:1.8")
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
 	// so turn off transitive dependencies. we'll deal with natives manually

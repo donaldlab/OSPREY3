@@ -10,9 +10,6 @@ import org.joml.Vector3d;
 
 import java.util.List;
 
-import static edu.duke.cs.osprey.tools.Log.log;
-import static edu.duke.cs.osprey.tools.Log.logf;
-
 
 public class DihedralAngle implements ContinuousMotion {
 
@@ -72,14 +69,24 @@ public class DihedralAngle implements ContinuousMotion {
 		Vector3d b = new Vector3d();
 		Vector3d c = new Vector3d();
 		Vector3d d = new Vector3d();
-		coords.getConfCoords(posi, desc.a, a);
-		coords.getConfCoords(posi, desc.b, b);
-		coords.getConfCoords(posi, desc.c, c);
-		coords.getConfCoords(posi, desc.d, d);
+		getCoords(posi, desc.a, a);
+		getCoords(posi, desc.b, b);
+		getCoords(posi, desc.c, c);
+		getCoords(posi, desc.d, d);
 		this.initialAngleRadians = measureAngleRadians(a, b, c, d);
 
 		this.minAngleRadians = Math.toRadians(desc.minDegrees);
 		this.maxAngleRadians = Math.toRadians(desc.maxDegrees);
+	}
+
+	private void getCoords(int posi, int atomi, Vector3d out) {
+		if (atomi >= 0) {
+			// positive indices encode conformation atoms
+			coords.getConfCoords(posi, atomi, out);
+		} else {
+			// negative indices encode static atoms
+			coords.getStaticCoords(-atomi - 1, out);
+		}
 	}
 
 	public void setAngle(double angleRadians) {
@@ -97,10 +104,10 @@ public class DihedralAngle implements ContinuousMotion {
 		Vector3d d = new Vector3d();
 
 		// copy our a,b,c,d from the coords array
-		coords.getConfCoords(posi, desc.a, a);
-		coords.getConfCoords(posi, desc.b, b);
-		coords.getConfCoords(posi, desc.c, c);
-		coords.getConfCoords(posi, desc.d, d);
+		getCoords(posi, desc.a, a);
+		getCoords(posi, desc.b, b);
+		getCoords(posi, desc.c, c);
+		getCoords(posi, desc.d, d);
 
 		// translate so b is at the origin
 		a.sub(b);

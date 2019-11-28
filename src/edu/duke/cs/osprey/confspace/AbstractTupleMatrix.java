@@ -32,15 +32,15 @@
 
 package edu.duke.cs.osprey.confspace;
 
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
 
 public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializable {
 
@@ -90,6 +90,10 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     protected AbstractTupleMatrix(SimpleConfSpace confSpace, double pruningInterval, T defaultHigherInteraction) {
         this(confSpace.positions.size(), confSpace.getNumResConfsByPos(), pruningInterval, defaultHigherInteraction);
     }
+
+    protected AbstractTupleMatrix(edu.duke.cs.osprey.confspace.compiled.ConfSpace confSpace) {
+    	this(confSpace.positions.length, confSpace.getNumConfsAtPos(), 0.0, null);
+	}
     
     protected AbstractTupleMatrix(int numPos, int[] numConfAtPos, double pruningInterval, T defaultHigherInteraction) {
         //allocate the matrix based on the provided conformational space size

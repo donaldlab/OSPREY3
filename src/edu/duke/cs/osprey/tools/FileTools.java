@@ -381,6 +381,14 @@ public class FileTools {
 		return new FilePathRoot().readBytes(file);
 	}
 
+	public static byte[] readResourceBytes(String path) {
+		return new ResourcePathRoot().readBytes(path);
+	}
+
+	public static byte[] readResourceBytes(String path, Class<?> relativeTo) {
+		return new ResourcePathRoot(relativeTo).readBytes(path);
+	}
+
 	public static void writeFileBytes(byte[] bytes, String path) {
 		new FilePathRoot().writeBytes(bytes, path);
 	}
