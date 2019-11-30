@@ -53,9 +53,9 @@ public class TomlTools {
 	private static TomlParseException invalidTableType(String key, String desiredType, Object value, TomlPosition tablePos) {
 		return new TomlParseException(String.format("%s in table%s should be a %s, not a(n) %s",
 			key,
+			formatPos(tablePos),
 			desiredType,
-			value.getClass().getSimpleName(),
-			formatPos(tablePos)
+			value.getClass().getSimpleName()
 		));
 	}
 

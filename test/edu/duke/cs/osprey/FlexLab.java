@@ -1953,8 +1953,8 @@ public class FlexLab {
 						}
 					};
 
-					// write out the degrees of freedom
-					outPrintln(out, "dofs = [");
+					// write out the continuous motions
+					outPrintln(out, "motions = [");
 					int nextDofId = 1;
 
 					// chi angles

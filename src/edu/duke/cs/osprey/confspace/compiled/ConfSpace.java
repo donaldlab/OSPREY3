@@ -5,9 +5,11 @@ import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle;
 import edu.duke.cs.osprey.energy.compiled.AmberEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.EEF1EnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.EnergyCalculator;
+import edu.duke.cs.osprey.tools.LZMA2;
 import edu.duke.cs.osprey.tools.TomlTools;
 import org.tomlj.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 
@@ -173,6 +175,36 @@ public class ConfSpace {
 	 */
 	private final double[][][] ffparams;
 
+
+	private static String decodeString(byte[] bytes) {
+
+		// look for XZ magic bytes to see if this conf space is compressed or not
+		// see XZ file spec, 2.1.1.1. Header Magic Bytes:
+		// https://tukaani.org/xz/xz-file-format.txt
+		byte[] magic = new byte[] { (byte)0xfd, '7', 'z', 'X', 'Z', 0x00 };
+		if (bytes.length > 6
+			&& bytes[0] == magic[0]
+			&& bytes[1] == magic[1]
+			&& bytes[2] == magic[2]
+			&& bytes[3] == magic[3]
+			&& bytes[4] == magic[4]
+			&& bytes[5] == magic[5]
+		) {
+
+			// yup, decompres it
+			return LZMA2.decompressString(bytes);
+
+		} else {
+
+			// nope, it's just a UTF8 string
+			return new String(bytes, StandardCharsets.UTF_8);
+		}
+	}
+
+	public ConfSpace(byte[] bytes) {
+		this(decodeString(bytes));
+	}
+
 	public ConfSpace(String toml) {
 
 		// parse the TOML file
@@ -215,6 +247,7 @@ public class ConfSpace {
 
 		// read the static coords
 		TomlTable staticTable = TomlTools.getTableOrThrow(doc, "static");
+		TomlPosition staticPos = doc.inputPositionOf("static");
 		TomlArray staticAtomsArray = TomlTools.getArrayOrThrow(staticTable, "atoms");
 		numStaticAtoms = staticAtomsArray.size();
 		staticCoords = new CoordsList(numStaticAtoms);
@@ -236,13 +269,12 @@ public class ConfSpace {
 			staticNames[i] = TomlTools.getStringOrThrow(table, "name", tablePos);
 		}
 
-		// read the static energies
-		TomlTable staticEnergyTable = TomlTools.getTableOrThrow(staticTable, "energy");
-		TomlPosition staticEnergyPos = staticTable.inputPositionOf("energy");
+		// read the energies
 		staticEnergies = new double[forcefieldIds.length];
+		TomlArray staticEnergyArray = TomlTools.getArrayOrThrow(staticTable, "energy", staticPos);
+		TomlPosition staticEnergyPos = staticTable.inputPositionOf("energy");
 		for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
-			String ffkey = "" + ffi;
-			staticEnergies[ffi] = TomlTools.getDoubleOrThrow(staticEnergyTable, ffkey, staticEnergyPos);
+			staticEnergies[ffi] = TomlTools.getDoubleOrThrow(staticEnergyArray, ffi, staticEnergyPos);
 		}
 
 		// read the design positions, if any
@@ -358,24 +390,24 @@ public class ConfSpace {
 				);
 
 				// read the internal energies
-				TomlTable energyTable = TomlTools.getTableOrThrow(confTable, "energy", confPos);
+				TomlArray energyArray = TomlTools.getArrayOrThrow(confTable, "energy", confPos);
 				TomlPosition energyPos = confTable.inputPositionOf("energy");
 
 				// read the forcefield params
-				TomlTable paramsInternalTable = TomlTools.getTableOrThrow(confTable, "params.internal", confPos);
-				TomlPosition paramsInternalPos = confTable.inputPositionOf("params.internal");
-				TomlTable paramsStaticTable = TomlTools.getTableOrThrow(confTable, "params.static", confPos);
-				TomlPosition paramsStaticPos = confTable.inputPositionOf("params.static");
+				TomlTable atomPairsSingleTable = TomlTools.getTableOrThrow(confTable, "atomPairs.single", confPos);
+				TomlPosition atomPairsSinglePos = confTable.inputPositionOf("atomPairs.single");
+				TomlTable atomPairsStaticTable = TomlTools.getTableOrThrow(confTable, "atomPairs.static", confPos);
+				TomlPosition atomPairsStaticPos = confTable.inputPositionOf("atomPairs.static");
 
 				for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
 					String ffkey = "" + ffi;
 
 					// read the energy
-					double energy = TomlTools.getDoubleOrThrow(energyTable, ffkey, energyPos);
+					double energy = TomlTools.getDoubleOrThrow(energyArray, ffi, energyPos);
 
 					// read the pos internal forcefield params
-					TomlArray internalArray = TomlTools.getArrayOrThrow(paramsInternalTable, ffkey, paramsInternalPos);
-					TomlPosition internalPos = paramsInternalTable.inputPositionOf(ffkey);
+					TomlArray internalArray = TomlTools.getArrayOrThrow(atomPairsSingleTable, ffkey, atomPairsSinglePos);
+					TomlPosition internalPos = atomPairsSingleTable.inputPositionOf(ffkey);
 					int[][] singles = new int[internalArray.size()][3];
 					for (int i=0; i<internalArray.size(); i++) {
 						TomlArray indicesArray = TomlTools.getArrayOrThrow(internalArray, i, internalPos);
@@ -386,12 +418,12 @@ public class ConfSpace {
 					}
 
 					// read the pos-static forcefield params
-					TomlArray staticArray = TomlTools.getArrayOrThrow(paramsStaticTable, ffkey, paramsStaticPos);
-					TomlPosition staticPos = paramsStaticTable.inputPositionOf(ffkey);
-					int[][] statics = new int[staticArray.size()][3];
-					for (int i=0; i<staticArray.size(); i++) {
-						TomlArray indicesArray = TomlTools.getArrayOrThrow(staticArray, i, staticPos);
-						TomlPosition indicesPos = staticArray.inputPositionOf(i);
+					TomlArray posStaticArray = TomlTools.getArrayOrThrow(atomPairsStaticTable, ffkey, atomPairsStaticPos);
+					TomlPosition posStaticPos = atomPairsStaticTable.inputPositionOf(ffkey);
+					int[][] statics = new int[posStaticArray.size()][3];
+					for (int i=0; i<posStaticArray.size(); i++) {
+						TomlArray indicesArray = TomlTools.getArrayOrThrow(posStaticArray, i, posStaticPos);
+						TomlPosition indicesPos = posStaticArray.inputPositionOf(i);
 						statics[i][0] = TomlTools.getIntOrThrow(indicesArray, 0, indicesPos); // atomi
 						statics[i][1] = TomlTools.getIntOrThrow(indicesArray, 1, indicesPos); // statici
 						statics[i][2] = TomlTools.getIntOrThrow(indicesArray, 2, indicesPos); // parami
@@ -429,7 +461,7 @@ public class ConfSpace {
 				for (Conf conf1 : pos1.confs) {
 					for (Conf conf2 : pos2.confs) {
 
-						String key = String.format("pos.%d.conf.%d.params.pos.%d.conf.%d",
+						String key = String.format("pos.%d.conf.%d.atomPairs.pos.%d.conf.%d",
 							pos1.index, conf1.index, pos2.index, conf2.index
 						);
 						TomlTable pairTable = TomlTools.getTableOrThrow(doc, key);
