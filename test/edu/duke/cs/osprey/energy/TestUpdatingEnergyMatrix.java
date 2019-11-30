@@ -41,11 +41,11 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
 import org.junit.Test;
 
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
 
+import static edu.duke.cs.osprey.sharkstar.TestSHARKStar.loadFromCFS;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -58,7 +58,7 @@ public class TestUpdatingEnergyMatrix {
     {
         SimpleConfSpace confSpace = make1GUASmall(NUM_FLEX);
         UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpace.positions);
-        runManual(trie);
+        runManual(trie, makeManualTupE());
         for(int i = 0; i < NUM_TUPS; i++)
         {
             TupE tupE = makeRandomTupE(confSpace);
@@ -76,14 +76,27 @@ public class TestUpdatingEnergyMatrix {
     public void testTupleTrieManual () {
         SimpleConfSpace confSpace = make1GUASmall(4);
         UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpace.positions);
-        runManual(trie);
+        runManual(trie, makeManualTupE());
+    }
+
+    @Test
+    public void testTupleTrieManual2 () {
+        try {
+            SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs").complex;
+            UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(mutableConfSpace.positions);
+            UpdatingEnergyMatrix.debug = true;
+            runManual(trie, makeManualTupE2());
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
     }
 
     @Test
     public void testGetAllCorrections(){
         SimpleConfSpace confSpace = make1GUASmall(4);
         UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpace.positions);
-        runManual(trie);
+        runManual(trie, makeManualTupE());
 
         for(int i = 0; i < NUM_TUPS; i++)
         {
@@ -97,8 +110,8 @@ public class TestUpdatingEnergyMatrix {
         System.out.println("Retrieved "+trie.size()+" corrections.");
     }
 
-    private void runManual(UpdatingEnergyMatrix.TupleTrie trie) {
-        for(TupE tupE : makeManualTupE()) {
+    private void runManual(UpdatingEnergyMatrix.TupleTrie trie, List<TupE> tupleList) {
+        for(TupE tupE : tupleList) {
             System.out.println("Inserting "+tupE.tup.stringListing()+":"+tupE.E);
             trie.insert(tupE);
             List<TupE> corrections = trie.getCorrections(tupE.tup);
@@ -132,6 +145,25 @@ public class TestUpdatingEnergyMatrix {
         return out;
     }
 
+    private List<TupE> makeManualTupE2() {
+        List<TupE> out = new ArrayList<>();
+        out.add(makeTuple(new int[]{0,1,2,3,4,5},
+                new int[]{8,8,0,1,4,3},
+                Math.random() *-40));
+        out.add(makeTuple(new int[]{1, 2, 3, 4, 5},
+                new int[]{8, 0, 1, 4, 3},
+                Math.random() *-40));
+        return out;
+    }
+
+    private TupE makeTuple(int[] pos, int[] RCs, double energy) {
+        RCTuple tuple = new RCTuple();
+        for(int i = 0; i < pos.length; i++) {
+            tuple = tuple.addRC(pos[i], RCs[i]);
+        }
+        return new TupE(tuple, energy);
+    }
+
     private TupE makeRandomTupE(SimpleConfSpace space) {
         RCTuple tup = new RCTuple();
         for(SimpleConfSpace.Position pos: space.positions) {
@@ -153,7 +185,6 @@ public class TestUpdatingEnergyMatrix {
 
         // make sure all strands share the same template library
         ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld)
-                .addMoleculeForWildTypeRotamers(mol)
                 .build();
 
         // define the protein strand

@@ -56,5 +56,10 @@ public class TupE implements Comparable<TupE> {
     public int compareTo(TupE o) {
         return Double.compare(E,o.E);
     }
+
+    @Override
+    public String toString() {
+        return tup.stringListing()+"->"+E;
+    }
     
 }

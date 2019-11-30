@@ -42,7 +42,7 @@ import java.util.*;
 
 public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     // Store the seen confs in a trie with wildcards.
-    private static final boolean debug = false;
+    public static final boolean debug = false;
     private TupleTrie corrections;
     private int numPos;
     
@@ -393,6 +393,10 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                 {
                     output.addAll(corrections);
                     debugPrint("Adding corrections from "+this);
+                    if(debug)
+                    for(TupE correction:corrections) {
+                        System.out.println(correction);
+                    }
                 }
                 if(tupleIndex >= query.size())
                     return;
@@ -411,7 +415,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                 int nextIndex = tupleIndex + 1;
                 if(position + 1 < currentPos)
                     nextIndex = tupleIndex;
-                if(children.containsKey(currentRC))
+                if(position + 1 ==  currentPos && children.containsKey(currentRC))
                     children.get(currentRC).populateCorrections(query, output, nextIndex);
                 // Also branch on wildcard.
                 if(!children.containsKey(WILDCARD_RC))

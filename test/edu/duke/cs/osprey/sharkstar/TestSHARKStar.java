@@ -236,7 +236,7 @@ public class TestSHARKStar {
 	}
 
 
-	protected static ConfSpaces loadFromCFS(String cfsFileName) throws FileNotFoundException {
+	public static ConfSpaces loadFromCFS(String cfsFileName) throws FileNotFoundException {
 	    String fileContents = FileTools.readFile(cfsFileName);
 	    ConfSpaces confSpaces = new ConfSpaces();
 		confSpaces.ffparams = new ForcefieldParams();

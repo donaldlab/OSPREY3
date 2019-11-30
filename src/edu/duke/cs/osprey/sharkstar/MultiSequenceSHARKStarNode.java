@@ -18,6 +18,8 @@ import java.math.RoundingMode;
 import java.util.*;
 import java.util.Map;
 
+import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.confMatch;
+import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.isDebugConf;
 import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.*;
 
 
@@ -116,6 +118,10 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         getSequenceBounds(seq).upper = upper;
         getSequenceBounds(seq).lower = lower;
         //System.out.println(toSeqString(seq)+String.format(", previously [%12.4e,%12.4e]",getLastSequenceBounds(seq).lower.doubleValue(), getLastSequenceBounds(seq).upper.doubleValue()));
+        if(isDebugConf(confSearchNode.assignments)) {
+            System.out.println("Updating "+toSeqString(seq));
+            System.out.println(toSeqString(seq)+String.format(", previously [%12.4e,%12.4e]",getLastSequenceBounds(seq).lower.doubleValue(), getLastSequenceBounds(seq).upper.doubleValue()));
+        }
         debugChecks(seq);
     }
 

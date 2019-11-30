@@ -120,7 +120,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{-1, 8, 1, 1, 4, 3};//-1, 8, 0, 1, 4, 3};//-1, 4, 7, 1, 4, 3};//
+    public static final int[] debugConf = new int[]{-1, 8, 0, 1, 4, 3};//-1, 8, 0, 1, 4, 3};//-1, 4, 7, 1, 4, 3};//
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -646,6 +646,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         //        bound.getValues().calcUpperBound()));
         internalZ = ZSums[0];
         leafZ = ZSums[1];
+        if(leafNodes.isEmpty() && internalNodes.isEmpty()) {
+            System.out.println("Nothing was populated?");
+            populateQueues(bound, internalNodes, leafNodes, ZSums);
+        }
         if(MathTools.isRelativelySame(internalZ, leafZ, PartitionFunction.decimalPrecision, 1e-3)
                 && MathTools.isRelativelySame(leafZ, BigDecimal.ZERO, PartitionFunction.decimalPrecision, 1e-3)) {
             rootNode.updateSubtreeBounds(bound.sequence);
@@ -831,6 +835,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         assert (curNode != null && node != null);
         double confCorrection = correctionMatrix.confE(node.assignments);
         if (node.getPartialConfLowerBound() < confCorrection) {
+            if(isDebugConf(node.assignments)) {
+                System.out.println("Gotcha-correction");
+            }
             double oldg = node.getPartialConfLowerBound();
             node.setPartialConfLowerAndUpper(confCorrection, node.getPartialConfUpperBound());
             recordCorrection(oldg, confCorrection - oldg);
@@ -1205,6 +1212,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                             bound.sequence, result.lowerBound, result.upperBound, designPos, nextDesignPos);
                     newChild.setBoundsFromConfLowerAndUpper(result.lowerBound,
                             result.upperBound, bound.sequence);
+                    if(isDebugConf(result.resultNode.assignments))
+                        System.out.println("New child: "+newChild.toSeqString(bound.sequence));
                     //System.out.println("Created new child "+MultiSequenceSHARKStarNodeChild.toSeqString(bound.sequence));
                     // collect the possible children
                     if (newChild.getConfLowerBound(bound.sequence) < 0) {
