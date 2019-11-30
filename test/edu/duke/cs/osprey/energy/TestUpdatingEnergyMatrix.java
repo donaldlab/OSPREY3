@@ -84,7 +84,6 @@ public class TestUpdatingEnergyMatrix {
         try {
             SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs").complex;
             UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(mutableConfSpace.positions);
-            UpdatingEnergyMatrix.debug = true;
             runManual(trie, makeManualTupE2());
         } catch (FileNotFoundException e) {
             e.printStackTrace();
