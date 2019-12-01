@@ -111,7 +111,7 @@ anchors = [
 	{ id =  1, type = 'single', bonds = [ 2, 3 ] }, # HA, CB
 	{ id =  2, type = 'single', bonds = [ 1 ] }, # H
 ]
-dofs = [
+motions = [
 	{ id =  1, type = 'dihedral', a = [ 1, 2 ], b = [ 1, 1 ], c = 3, d = 4 }, # A1, A0, CB, HB1
 ]
 [frag.ALA.conf.ALA]
@@ -147,7 +147,7 @@ bonds = [
 anchors = [
 	{ id =  1, type = 'single', bonds = [ 1, 2 ] }, # HA, CB
 ]
-dofs = [
+motions = [
 	{ id =  1, type = 'dihedral', a = [ 1, 2 ], b = [ 1, 1 ], c = 2, d = 3 }, # A1, A0, CB, HB1
 ]
 [frag.ALAn.conf.ALA]
@@ -177,7 +177,7 @@ anchors = [
 	{ id =  1, type = 'single', bonds = [ 2, 3 ] }, # HA2, HA3
 	{ id =  2, type = 'single', bonds = [ 1 ] }, # H
 ]
-dofs = [
+motions = [
 ]
 [frag.GLY.conf.GLY]
 name = 'GLY'
@@ -203,7 +203,7 @@ bonds = [
 anchors = [
 	{ id =  1, type = 'single', bonds = [ 1, 2 ] }, # HA2, HA3
 ]
-dofs = [
+motions = [
 ]
 [frag.GLYn.conf.GLY]
 name = 'GLYn'
@@ -253,7 +253,7 @@ anchors = [
 	{ id =  1, type = 'single', bonds = [ 2, 3 ] }, # HA, CB
 	{ id =  2, type = 'single', bonds = [ 1 ] }, # H
 ]
-dofs = [
+motions = [
 	{ id =  1, type = 'dihedral', a = [ 1, 2 ], b = [ 1, 1 ], c = 3, d = 9 }, # A1, A0, CB, CG1
 	{ id =  2, type = 'dihedral', a = [ 1, 1 ], b = 3, c = 9, d = 12 }, # A0, CB, CG1, CD1
 	{ id =  3, type = 'dihedral', a = 3, b = 9, c = 12, d = 13 }, # CB, CG1, CD1, HD11
@@ -464,7 +464,7 @@ bonds = [
 anchors = [
 	{ id =  1, type = 'single', bonds = [ 1, 2 ] }, # HA, CB
 ]
-dofs = [
+motions = [
 	{ id =  1, type = 'dihedral', a = [ 1, 2 ], b = [ 1, 1 ], c = 2, d = 8 }, # A1, A0, CB, CG1
 	{ id =  2, type = 'dihedral', a = [ 1, 1 ], b = 2, c = 8, d = 11 }, # A0, CB, CG1, CD1
 	{ id =  3, type = 'dihedral', a = 2, b = 8, c = 11, d = 12 }, # CB, CG1, CD1, HD11
@@ -663,7 +663,7 @@ anchors = [
 	{ id =  1, type = 'single', bonds = [ 2, 3 ] }, # HA, CB
 	{ id =  2, type = 'single', bonds = [ 1 ] }, # H
 ]
-dofs = [
+motions = [
 	{ id =  1, type = 'dihedral', a = [ 1, 2 ], b = [ 1, 1 ], c = 3, d = 6 }, # A1, A0, CB, CG
 	{ id =  2, type = 'dihedral', a = [ 1, 1 ], b = 3, c = 6, d = 8 }, # A0, CB, CG, CD1
 	{ id =  3, type = 'dihedral', a = 3, b = 6, c = 8, d = 9 }, # CB, CG, CD1, HD11
@@ -826,7 +826,7 @@ bonds = [
 anchors = [
 	{ id =  1, type = 'single', bonds = [ 1, 2 ] }, # HA, CB
 ]
-dofs = [
+motions = [
 	{ id =  1, type = 'dihedral', a = [ 1, 2 ], b = [ 1, 1 ], c = 2, d = 5 }, # A1, A0, CB, CG
 	{ id =  2, type = 'dihedral', a = [ 1, 1 ], b = 2, c = 5, d = 7 }, # A0, CB, CG, CD1
 	{ id =  3, type = 'dihedral', a = 2, b = 5, c = 7, d = 8 }, # CB, CG, CD1, HD11
@@ -975,7 +975,7 @@ anchors = [
 	{ id =  1, type = 'single', bonds = [ 2, 3 ] }, # HA, CB
 	{ id =  2, type = 'single', bonds = [ 1 ] }, # H
 ]
-dofs = [
+motions = [
 	{ id =  1, type = 'dihedral', a = [ 1, 2 ], b = [ 1, 1 ], c = 3, d = 5 }, # A1, A0, CB, CG1
 	{ id =  2, type = 'dihedral', a = [ 1, 1 ], b = 3, c = 5, d = 6 }, # A0, CB, CG1, HG11
 	{ id =  3, type = 'dihedral', a = [ 1, 1 ], b = 3, c = 9, d = 10 }, # A0, CB, CG2, HG21
@@ -1074,7 +1074,7 @@ bonds = [
 anchors = [
 	{ id =  1, type = 'single', bonds = [ 1, 2 ] }, # HA, CB
 ]
-dofs = [
+motions = [
 	{ id =  1, type = 'dihedral', a = [ 1, 2 ], b = [ 1, 1 ], c = 2, d = 4 }, # A1, A0, CB, CG1
 	{ id =  2, type = 'dihedral', a = [ 1, 1 ], b = 2, c = 4, d = 5 }, # A0, CB, CG1, HG11
 	{ id =  3, type = 'dihedral', a = [ 1, 1 ], b = 2, c = 8, d = 9 }, # A0, CB, CG2, HG21
@@ -1169,7 +1169,7 @@ bonds = [
 anchors = [
 	{ id =  1, type = 'single', bonds = [ 2, 12 ] }, # HA, CB
 ]
-dofs = [
+motions = [
 ]
 [frag.wt-72_GLN.conf.wt-72_GLN]
 name = 'WildType'
@@ -1229,7 +1229,7 @@ anchors = [
 	{ id =  1, type = 'single', bonds = [ 11, 14 ] }, # CB, HA
 	{ id =  2, type = 'single', bonds = [ 15 ] }, # H
 ]
-dofs = [
+motions = [
 	{ id =  1, type = 'dihedral', a = [ 1, 2 ], b = [ 1, 1 ], c = 11, d = 12 }, # A1, A0, CB, CG
 	{ id =  2, type = 'dihedral', a = [ 1, 1 ], b = 11, c = 12, d = 4 }, # A0, CB, CG, CD1
 	{ id =  3, type = 'dihedral', a = 11, b = 12, c = 4, d = 9 }, # CB, CG, CD1, HD11
@@ -1284,23 +1284,23 @@ confs = [
 	{ frag =       'ALAn', confs = [ 'ALA' ] },
 ]
 
-[confspace.positions.0.confspace.dofSettings.VALn]
+[confspace.positions.0.confspace.motionSettings.VALn]
 includeHGroupRotations = false
 dihedralRadiusDegrees = 9.0
 
-[confspace.positions.0.confspace.dofSettings.ILEn]
+[confspace.positions.0.confspace.motionSettings.ILEn]
 includeHGroupRotations = false
 dihedralRadiusDegrees = 9.0
 
-[confspace.positions.0.confspace.dofSettings.LEUn]
+[confspace.positions.0.confspace.motionSettings.LEUn]
 includeHGroupRotations = false
 dihedralRadiusDegrees = 9.0
 
-[confspace.positions.0.confspace.dofSettings.GLYn]
+[confspace.positions.0.confspace.motionSettings.GLYn]
 includeHGroupRotations = false
 dihedralRadiusDegrees = 9.0
 
-[confspace.positions.0.confspace.dofSettings.ALAn]
+[confspace.positions.0.confspace.motionSettings.ALAn]
 includeHGroupRotations = false
 dihedralRadiusDegrees = 9.0
 
@@ -1332,23 +1332,23 @@ confs = [
 	{ frag =        'ILE', confs = [ 'mp', 'pt', 'tp', 'tt', 'pp', 'mm', 'mt' ] },
 ]
 
-[confspace.positions.1.confspace.dofSettings.VAL]
+[confspace.positions.1.confspace.motionSettings.VAL]
 includeHGroupRotations = false
 dihedralRadiusDegrees = 9.0
 
-[confspace.positions.1.confspace.dofSettings.LEU]
+[confspace.positions.1.confspace.motionSettings.LEU]
 includeHGroupRotations = false
 dihedralRadiusDegrees = 9.0
 
-[confspace.positions.1.confspace.dofSettings.ILE]
+[confspace.positions.1.confspace.motionSettings.ILE]
 includeHGroupRotations = false
 dihedralRadiusDegrees = 9.0
 
-[confspace.positions.1.confspace.dofSettings.ALA]
+[confspace.positions.1.confspace.motionSettings.ALA]
 includeHGroupRotations = false
 dihedralRadiusDegrees = 9.0
 
-[confspace.positions.1.confspace.dofSettings.GLY]
+[confspace.positions.1.confspace.motionSettings.GLY]
 includeHGroupRotations = false
 dihedralRadiusDegrees = 9.0
 

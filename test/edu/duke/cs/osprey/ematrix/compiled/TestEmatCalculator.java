@@ -23,7 +23,5 @@ public class TestEmatCalculator {
 
 		// TEMP
 		System.out.println(emat.toString());
-
-		// TODO: NEXTTIME: not getting any pair energies, no atom pairs in the ccs for some reason...
 	}
 }

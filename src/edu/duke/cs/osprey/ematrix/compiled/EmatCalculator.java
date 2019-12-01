@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.ematrix.compiled;
 
-import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
@@ -10,8 +9,6 @@ import edu.duke.cs.osprey.tools.Progress;
 
 import java.io.File;
 import java.util.List;
-
-import static edu.duke.cs.osprey.tools.Log.log;
 
 
 /**
@@ -141,9 +138,6 @@ public class EmatCalculator {
 					emat.setOneBody(posi1, confi1, energy);
 
 					progress.incrementProgress(inters.size());
-
-					// TEMP
-					log("single %d:%d = %f", posi1, confi1, energy);
 				}
 
 				for (int posi2=0; posi2<posi1; posi2++) {
@@ -161,9 +155,6 @@ public class EmatCalculator {
 						emat.setPairwise(posi1, confi1, posi2, confi2, energy);
 
 						progress.incrementProgress(inters.size());
-
-						// TEMP
-						log("pair %d:%d - %d:%d = %f  inters = %s", posi1, confi1, posi2, confi2, energy, inters);
 					}
 				}
 			}
