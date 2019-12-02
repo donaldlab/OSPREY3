@@ -47,9 +47,14 @@ public class CommandPartitionFunction extends RunnableCommand {
     @Parameter(names = "--max-num-confs", description = "Sets an upper bound on the number of conformations evaluated.")
     private int maxNumberConfs = -1;
 
+    @Parameter(names = "--design-info", description = "Print information about the design and exit")
+    private boolean printDesignInfo;
+
     private ConfEnergyCalculator confEnergyCalc;
     private PartitionFunction pFunc;
     private RCs rcs;
+    /* This reads parm96a.dat, which contains the energy parameters of DNA, RNA, and protein residues */
+    private ForcefieldParams ffParams = new ForcefieldParams();
 
     @Override
     public int run(JCommander commander, String[] args) {
@@ -68,6 +73,10 @@ public class CommandPartitionFunction extends RunnableCommand {
             return Main.Failure;
         }
 
+        if (printDesignInfo) {
+            return printDesignDebugInfo(design);
+        }
+
         return runStabilityDesign(design);
     }
 
@@ -81,12 +90,9 @@ public class CommandPartitionFunction extends RunnableCommand {
         return CommandDescription;
     }
 
-    private int runStabilityDesign(StabilityDesign design) {
+    private SimpleConfSpace createConfSpace(StabilityDesign design) {
         /* Reads a PDB file into a Molecule. */
         var molecule = PDBIO.read(design.molecule);
-
-        /* This reads parm96a.dat, which contains the energy parameters of DNA, RNA, and protein residues */
-        var ffParams = new ForcefieldParams();
 
         /* Reads the templates, rotamers, and entropy info for a given forcefield */
         /*
@@ -130,10 +136,26 @@ public class CommandPartitionFunction extends RunnableCommand {
         }
 
         /* Maintains flexibility information with the molecule, and can use that to make new molecules */
-        var confSpace = new SimpleConfSpace.Builder()
+
+        return new SimpleConfSpace.Builder()
                 .addStrand(protein)
                 .setShellDistance(0)
                 .build();
+    }
+
+    private int printDesignDebugInfo(StabilityDesign design) {
+        var confSpace = createConfSpace(design);
+        var numConfs = confSpace.getNumConformations();
+        System.out.println(String.format("Design: %s", design.designName));
+        System.out.println(String.format("Epsilon: %f", design.epsilon));
+        System.out.println(String.format("Number of conformations in design:\t%s", numConfs.toString()));
+        return Main.Success;
+    }
+
+    private int runStabilityDesign(StabilityDesign design) {
+
+        /* Maintains flexibility information with the molecule, and can use that to make new molecules */
+        var confSpace = createConfSpace(design);
 
         /* Decides whether to use CPU(s) and/or GPU(s) (purely implementation specific) */
         var parallelism = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0);
