@@ -486,7 +486,7 @@ public class TestSHARKStarBound extends TestBase {
 
         double epsilon = 0.68;
         try {
-            SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs").complex;
+            SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs").protein;
             Sequence fullSeq = mutableConfSpace.makeUnassignedSequence();
             MultiSequenceSHARKStarBound fullPfunc =
                     (MultiSequenceSHARKStarBound) makeMultiSequenceSHARKStarPfuncForConfSpace(mutableConfSpace,
@@ -500,7 +500,7 @@ public class TestSHARKStarBound extends TestBase {
             }
 
             System.out.println("========================== Now computing mutant sequence ========================");
-            Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("A189","TYR");
+            Sequence mutantSequence = mutableConfSpace.makeWildTypeSequence() .set("A189","MET");
             PartitionFunction muttBound =
                     fullPfunc.getPartitionFunctionForSequence(mutantSequence);
             muttBound.compute();
