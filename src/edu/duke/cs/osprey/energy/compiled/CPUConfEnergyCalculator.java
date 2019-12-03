@@ -5,14 +5,11 @@ import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
-import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 
 import java.util.List;
-
-import static edu.duke.cs.osprey.tools.Log.log;
 
 
 public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
@@ -29,7 +26,7 @@ public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 	}
 
 	@Override
-	public double calcEnergy(int[] conf, List<PosInter> inters) {
+	public EnergiedCoords calc(int[] conf, List<PosInter> inters) {
 
 		// build the conformation coords
 		AssignedCoords coords = confSpace.makeCoords(conf);
@@ -38,20 +35,11 @@ public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 
 		for (EnergyCalculator ecalc : confSpace.ecalcs) {
 			for (PosInter inter : inters) {
-
-				if (inter.posi1 == inter.posi2) {
-					energy += inter.weight*ecalc.calcEnergySingle(coords, inter.posi1);
-				} else if (inter.posi1 == PosInter.StaticPos) {
-					energy += inter.weight*ecalc.calcEnergyStatic(coords, inter.posi2);
-				} else if (inter.posi2 == PosInter.StaticPos) {
-					energy += inter.weight*ecalc.calcEnergyStatic(coords, inter.posi1);
-				} else {
-					energy += inter.weight*ecalc.calcEnergyPair(coords, inter.posi1, inter.posi2);
-				}
+				energy += ecalc.calcEnergy(coords, inter);
 			}
 		}
 
-		return energy;
+		return new EnergiedCoords(coords, energy);
 	}
 
 	@Override
@@ -100,7 +88,7 @@ public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 
 				double energy = 0.0;
 				for (EnergyCalculator ecalc : confSpace.ecalcs) {
-					energy += ecalc.calcEnergy(coords);
+					energy += ecalc.calcEnergy(coords, inters);
 				}
 				return energy;
 			}
@@ -112,7 +100,7 @@ public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 
 				double energy = 0.0;
 				for (EnergyCalculator ecalc : confSpace.ecalcs) {
-					energy += ecalc.calcSubEnergy(coords, coords.dofs.get(dof).modifiedPosIndices());
+					energy += ecalc.calcSubEnergy(coords, inters, coords.dofs.get(dof).modifiedPosIndices());
 				}
 				return energy;
 			}
@@ -126,15 +114,6 @@ public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 		// minimize it!
 		Minimizer.Result result = new SimpleCCDMinimizer(f).minimizeFromCenter();
 
-		return new EnergiedCoords(
-			coords,
-			result.energy,
-			result.dofValues
-		);
-	}
-
-	@Override
-	public EnergiedCoords minimize(int[] conf) {
-		return minimize(conf, PosInterDist.all(confSpace));
+		return new EnergiedCoords(coords, result.energy, result.dofValues);
 	}
 }

@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey.confspace.compiled;
 
 
+import java.util.Set;
+
 /**
  * A single dimension over which a minimizer can explore
  * the energy landscape of a continuous motion.
@@ -16,7 +18,7 @@ public interface DegreeOfFreedom {
 	void set(double val);
 
 	/** which design positions are modified by this DoF? */
-	int[] modifiedPosIndices();
+	Set<Integer> modifiedPosIndices();
 
 	double initialStepSize();
 }

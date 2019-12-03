@@ -34,7 +34,6 @@ package edu.duke.cs.osprey.confspace;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.function.BiConsumer;
@@ -91,8 +90,8 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
         this(confSpace.positions.size(), confSpace.getNumResConfsByPos(), pruningInterval, defaultHigherInteraction);
     }
 
-    protected AbstractTupleMatrix(edu.duke.cs.osprey.confspace.compiled.ConfSpace confSpace) {
-    	this(confSpace.positions.length, confSpace.getNumConfsAtPos(), 0.0, null);
+    protected AbstractTupleMatrix(ConfSpaceIteration confSpace) {
+    	this(confSpace.numPos(), confSpace.numConfsByPos(), 0.0, null);
 	}
     
     protected AbstractTupleMatrix(int numPos, int[] numConfAtPos, double pruningInterval, T defaultHigherInteraction) {
@@ -246,16 +245,16 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
 		}
     }
 
-	public boolean matches(SimpleConfSpace confSpace) {
+	public boolean matches(ConfSpaceIteration confSpace) {
 
 		// check number of design positions
-		if (getNumPos() != confSpace.positions.size()) {
+		if (getNumPos() != confSpace.numPos()) {
 			return false;
 		}
 
 		// check number of residue confs at each position
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			if (pos.resConfs.size() != getNumConfAtPos(pos.index)) {
+		for (int posi=0; posi<getNumPos(); posi++) {
+			if (confSpace.numConf(posi) != numConfAtPos[posi]) {
 				return false;
 			}
 		}

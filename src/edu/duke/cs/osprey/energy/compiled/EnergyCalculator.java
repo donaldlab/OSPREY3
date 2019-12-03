@@ -3,9 +3,13 @@ package edu.duke.cs.osprey.energy.compiled;
 
 import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
+import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import org.joml.Vector3d;
 import org.tomlj.TomlPosition;
 import org.tomlj.TomlTable;
+
+import java.util.List;
+import java.util.Set;
 
 
 /**
@@ -109,6 +113,7 @@ public interface EnergyCalculator {
 		return energy;
 	}
 
+	/** calculate the total energy for the conformation */
 	default double calcEnergy(AssignedCoords coords) {
 
 		// start with the static energy
@@ -131,26 +136,63 @@ public interface EnergyCalculator {
 		return energy;
 	}
 
-	/**
-	 * Calculate just the energy from the given positions.
-	 */
-	default double calcSubEnergy(AssignedCoords coords, int[] posIndices) {
+	/** calculate the energy of just the given position interaction */
+	default double calcEnergy(AssignedCoords coords, PosInter inter) {
 
-		// start with 0 energy
-		double energy = 0.0;
+		double energy;
+		if (inter.posi1 == inter.posi2) {
+			if (inter.posi1 == PosInter.StaticPos) {
 
-		// add the singles
-		for (int posi : posIndices) {
-			energy += calcEnergySingle(coords, posi);
-			energy += calcEnergyStatic(coords, posi);
+				// static energy
+				energy = getEnergyStatic(coords);
+
+			} else {
+
+				// pos single energy
+				energy = calcEnergySingle(coords, inter.posi1);
+			}
+		} else if (inter.posi1 == PosInter.StaticPos) {
+
+			// pos-static energy
+			energy = calcEnergyStatic(coords, inter.posi2);
+
+		} else if (inter.posi2 == PosInter.StaticPos) {
+
+			// pos-static energy
+			energy = calcEnergyStatic(coords, inter.posi1);
+
+		} else {
+
+			// pos-pos pair energy
+			energy = calcEnergyPair(coords, inter.posi1, inter.posi2);
 		}
 
-		// add the pairs
-		for (int i1=0; i1<posIndices.length; i1++) {
-			int posi1 = posIndices[i1];
-			for (int i2=0; i2<i1; i2++) {
-				int posi2 = posIndices[i2];
-				energy += calcEnergyPair(coords, posi1, posi2);
+		// apply weight and offset
+		return inter.weight*(energy + inter.offset);
+	}
+
+	/** calculate the conformation energy using just the given position interactions */
+	default double calcEnergy(AssignedCoords coords, List<PosInter> inters) {
+
+		double energy = 0.0;
+
+		for (PosInter inter : inters) {
+			energy += calcEnergy(coords, inter);
+		}
+
+		return energy;
+	}
+
+	/**
+	 * Calculate just the energy from the given positions using the given position interactions
+	 */
+	default double calcSubEnergy(AssignedCoords coords, List<PosInter> inters, Set<Integer> posIndices) {
+
+		double energy = 0.0;
+
+		for (PosInter inter : inters) {
+			if (inter.isIncludedIn(posIndices)) {
+				energy += calcEnergy(coords, inter);
 			}
 		}
 

@@ -151,6 +151,27 @@ public class ConfEnergyCalculator {
 	}
 
 	/**
+	 * This constructor is intended for the ConfEnergyCalculatorAdapter.
+	 */
+	protected ConfEnergyCalculator(TaskExecutor tasks) {
+
+		// yeah, lots of these are null, but hopefully the adapter can override
+		// enough functions that no one will see NullPointerExceptions
+		this.confSpace = null;
+		this.ecalc = null;
+		this.epart = null;
+		this.eref = null;
+		this.addResEntropy = false;
+		this.amat = null;
+		this.approximationErrorBudget = 0.0;
+		this.tasks = tasks;
+	}
+
+	public ConfSpaceIteration confSpaceIteration() {
+		return confSpace;
+	}
+
+	/**
 	 * returns the number of requested energy calculations,
 	 * including ones cached in a conf DB
 	 */
@@ -200,6 +221,11 @@ public class ConfEnergyCalculator {
 
 	public ResidueInteractions makeQuadCorrectionInters(int pos1, int rc1, int pos2, int rc2, int pos3, int rc3, int pos4, int rc4) {
 		return epart.makeQuadCorrection(confSpace, eref, addResEntropy, pos1, rc1, pos2, rc2, pos3, rc3, pos4, rc4);
+	}
+
+	public EnergyCalculator.EnergiedParametricMolecule calcIntraEnergy(int pos, int rc) {
+		ResidueInteractions inters = ResInterGen.of(confSpace).addIntra(pos).make();
+		return calcEnergy(new RCTuple(pos, rc), inters);
 	}
 
 	public EnergyCalculator.EnergiedParametricMolecule calcSingleEnergy(int pos, int rc) {

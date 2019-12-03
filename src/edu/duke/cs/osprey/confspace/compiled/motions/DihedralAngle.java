@@ -8,7 +8,9 @@ import edu.duke.cs.osprey.tools.Protractor;
 import org.joml.Quaterniond;
 import org.joml.Vector3d;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 
 public class DihedralAngle implements ContinuousMotion {
@@ -167,6 +169,11 @@ public class DihedralAngle implements ContinuousMotion {
 
 		private double angleRadians = initialAngleRadians;
 
+		private final Set<Integer> modifiedPosIndices = new HashSet<>();
+		{
+			modifiedPosIndices.add(posi);
+		}
+
 		@Override
 		public double min() {
 			return minAngleRadians;
@@ -191,8 +198,8 @@ public class DihedralAngle implements ContinuousMotion {
 		}
 
 		@Override
-		public int[] modifiedPosIndices() {
-			return new int[] { posi };
+		public Set<Integer> modifiedPosIndices() {
+			return modifiedPosIndices;
 		}
 
 		@Override

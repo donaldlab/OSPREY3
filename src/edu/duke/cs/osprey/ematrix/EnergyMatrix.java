@@ -77,7 +77,7 @@ public class EnergyMatrix extends TupleMatrixDouble implements FragmentEnergies 
         super(confSpace, Double.POSITIVE_INFINITY, 0);
     }
 
-    public EnergyMatrix(edu.duke.cs.osprey.confspace.compiled.ConfSpace confSpace) {
+    public EnergyMatrix(ConfSpaceIteration confSpace) {
     	super(confSpace);
 	}
     

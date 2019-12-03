@@ -35,10 +35,7 @@ package edu.duke.cs.osprey.ematrix;
 import java.util.HashMap;
 import java.util.Map;
 
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import java.io.Serializable;
@@ -116,13 +113,12 @@ public class SimpleReferenceEnergies implements Serializable {
 		}
 	}
 	
-	public double getFragmentEnergy(SimpleConfSpace confSpace, RCTuple frag) {
-		double energy = 0;
-		for (int i=0; i<frag.size(); i++) {
-			Position pos = confSpace.positions.get(frag.pos.get(i));
-			ResidueConf rc = pos.resConfs.get(frag.RCs.get(i));
-			energy += getOffset(pos.index, rc.template.name);
-		}
-		return energy;
+	@Override
+	public boolean equals(Object other) {
+		return other instanceof SimpleReferenceEnergies && equals((SimpleReferenceEnergies)other);
+	}
+
+	public boolean equals(SimpleReferenceEnergies other) {
+		return this.energies.equals(other.energies);
 	}
 }

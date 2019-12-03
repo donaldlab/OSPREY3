@@ -33,10 +33,9 @@
 package edu.duke.cs.osprey.confspace;
 
 import java.util.ArrayList;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import org.apache.commons.collections4.iterators.ArrayIterator;
+
 
 public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
 	
@@ -54,7 +53,7 @@ public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
         super(confSpace, pruningInterval, defaultHigherInteraction);
     }
 
-    public TupleMatrixDouble(edu.duke.cs.osprey.confspace.compiled.ConfSpace confSpace) {
+    public TupleMatrixDouble(ConfSpaceIteration confSpace) {
     	super(confSpace);
 	}
     

@@ -2,9 +2,9 @@ package edu.duke.cs.osprey.ematrix.compiled;
 
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
-import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.tools.Progress;
 
 import java.io.File;
@@ -19,11 +19,7 @@ public class EmatCalculator {
 	public static class Builder {
 
 		public final ConfEnergyCalculator confEcalc;
-
-		/**
-		 * Defines how energies for single, pair, etc tuples should be distributed.
-		 */
-		private PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
+		public final PosInterGen posInterGen;
 
 		/**
 		 * True to minimize conformations, false to use rigid conformations.
@@ -46,13 +42,9 @@ public class EmatCalculator {
 		 */
 		private File cacheFile = null;
 
-		public Builder(ConfEnergyCalculator confEcalc) {
+		public Builder(ConfEnergyCalculator confEcalc, PosInterGen posInterGen) {
 			this.confEcalc = confEcalc;
-		}
-
-		public Builder setPosInterDist(PosInterDist val) {
-			posInterDist = val;
-			return this;
+			this.posInterGen = posInterGen;
 		}
 
 		public Builder setMinimize(boolean val) {
@@ -68,7 +60,7 @@ public class EmatCalculator {
 		public EmatCalculator build() {
 			return new EmatCalculator(
 				confEcalc,
-				posInterDist,
+				posInterGen,
 				minimize,
 				cacheFile
 			);
@@ -77,14 +69,14 @@ public class EmatCalculator {
 
 
 	public final ConfEnergyCalculator confEcalc;
-	public final PosInterDist posInterDist;
+	public final PosInterGen posInterGen;
 	public final boolean minimize;
 	public final File cacheFile;
 
-	private EmatCalculator(ConfEnergyCalculator confEcalc, PosInterDist posInterDist, boolean minimize, File cacheFile) {
+	private EmatCalculator(ConfEnergyCalculator confEcalc, PosInterGen posInterGen, boolean minimize, File cacheFile) {
 
 		this.confEcalc = confEcalc;
-		this.posInterDist = posInterDist;
+		this.posInterGen = posInterGen;
 		this.minimize = minimize;
 		this.cacheFile = cacheFile;
 	}
@@ -109,26 +101,27 @@ public class EmatCalculator {
 
 		ConfSpace confSpace = confEcalc.confSpace();
 
+		// TODO: report progress
 		// TODO: add reference energies?
 
 		// count how much work there is to do
 		// estimate work based on number of position interactions and the conf space size
-		final int singleCost = posInterDist.single(confSpace, 0).size();
-		final int pairCost = posInterDist.pair(confSpace, 0, 0).size();
+		final int singleCost = posInterGen.single(confSpace, 0, 0).size();
+		final int pairCost = posInterGen.pair(confSpace, 0, 0, 0, 0).size();
 		Progress progress = new Progress(
-			confSpace.countConfSingles()*singleCost
-				+ confSpace.countConfPairs()*pairCost
+			confSpace.countSingles()*singleCost
+				+ confSpace.countPairs()*pairCost
 		);
 
 		// TODO: use any parallelism provided by the confEcalc
 
-		for (int posi1=0; posi1<emat.getNumPos(); posi1++) {
-			for (int confi1=0; confi1<emat.getNumConfAtPos(posi1); confi1++) {
+		for (int posi1=0; posi1<confSpace.numPos(); posi1++) {
+			for (int confi1=0; confi1<confSpace.numConf(posi1); confi1++) {
 
 				// singles
 				{
 					int[] assignments = confSpace.assign(posi1, confi1);
-					List<PosInter> inters = posInterDist.single(confSpace, posi1);
+					List<PosInter> inters = posInterGen.single(confSpace, posi1, confi1);
 					double energy;
 					if (minimize) {
 						energy = confEcalc.minimizeEnergy(assignments, inters);
@@ -141,11 +134,11 @@ public class EmatCalculator {
 				}
 
 				for (int posi2=0; posi2<posi1; posi2++) {
-					for (int confi2=0; confi2<emat.getNumConfAtPos(posi2); confi2++) {
+					for (int confi2=0; confi2<confSpace.numConf(posi2); confi2++) {
 
 						// pairs
 						int[] assignments = confSpace.assign(posi1, confi1, posi2, confi2);
-						List<PosInter> inters = posInterDist.pair(confSpace, posi1, posi2);
+						List<PosInter> inters = posInterGen.pair(confSpace, posi1, confi1, posi2, confi2);
 						double energy;
 						if (minimize) {
 							energy = confEcalc.minimizeEnergy(assignments, inters);

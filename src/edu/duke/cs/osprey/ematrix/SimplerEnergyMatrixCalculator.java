@@ -36,11 +36,11 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Progress;
@@ -150,15 +150,14 @@ public class SimplerEnergyMatrixCalculator {
 	private EnergyMatrix reallyCalcEnergyMatrix() {
 		
 		// allocate the new matrix
-		EnergyMatrix emat = new EnergyMatrix(confEcalc.confSpace);
-		
+		EnergyMatrix emat = new EnergyMatrix(confEcalc.confSpaceIteration());
+
 		// count how much work there is to do (roughly based on number of residue pairs)
 		final int singleCost = confEcalc.makeSingleInters(0, 0).size();
 		final int pairCost = confEcalc.makePairInters(0, 0, 0, 0).size();
-		Progress progress = new Progress(
-			confEcalc.confSpace.getNumResConfs()*singleCost
-				+ confEcalc.confSpace.getNumResConfPairs()*pairCost
-		);
+		final int numSingles = confEcalc.confSpaceIteration().countSingles();
+		final int numPairs = confEcalc.confSpaceIteration().countPairs();
+		Progress progress = new Progress(numSingles*singleCost + numPairs*pairCost);
 		
 		// some fragments can be big and some can be small
 		// try minimize thread sync overhead by not sending a bunch of small fragments in all separate tasks
@@ -264,10 +263,7 @@ public class SimplerEnergyMatrixCalculator {
 		Batcher batcher = new Batcher();
 		
 		// convert the workload into tasks for the task executor
-		log("Calculating energy matrix with %d entries",
-			confEcalc.confSpace.getNumResConfs()
-			+ confEcalc.confSpace.getNumResConfPairs()
-		);
+		log("Calculating energy matrix with %d entries", numSingles + numPairs);
 		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
 			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
 				
@@ -461,26 +457,28 @@ public class SimplerEnergyMatrixCalculator {
 	public SimpleReferenceEnergies calcReferenceEnergies() {
 		
 		SimpleReferenceEnergies eref = new SimpleReferenceEnergies();
+
+		ConfSpaceIteration confSpace = confEcalc.confSpaceIteration();
 		
 		// send all the tasks
-		Progress progress = new Progress(confEcalc.confSpace.getNumResConfs());
+		Progress progress = new Progress(confSpace.countSingles());
 		System.out.println("Calculating reference energies for " + progress.getTotalWork() + " residue confs...");
-		for (SimpleConfSpace.Position pos : confEcalc.confSpace.positions) {
-			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
-			
-				String resType = rc.template.name;
-				RCTuple frag = new RCTuple(pos.index, rc.index);
-				confEcalc.calcEnergyAsync(
-					frag,
-					ResInterGen.of(confEcalc.confSpace).addIntra(pos.index).make(),
-					(EnergyCalculator.EnergiedParametricMolecule epmol) -> {
-						
+		for (int posi=0; posi<confSpace.numPos(); posi++) {
+			for (int confi=0; confi<confSpace.numConf(posi); confi++) {
+
+				String resType = confSpace.confResType(posi, confi);
+				int fposi = posi;
+				int fconfi = confi;
+				confEcalc.tasks.submit(
+					() -> confEcalc.calcIntraEnergy(fposi, fconfi),
+					(epmol) -> {
+
 						// keep the min energy for each pos,resType
-						Double e = eref.get(frag.pos.get(0), resType);
+						Double e = eref.get(fposi, resType);
 						if (e == null || epmol.energy < e) {
 							e = epmol.energy;
 						}
-						eref.set(frag.pos.get(0), resType, e);
+						eref.set(fposi, resType, e);
 						progress.incrementProgress();
 					}
 				);
@@ -493,6 +491,13 @@ public class SimplerEnergyMatrixCalculator {
 	}
 
 	private boolean isParametricallyIncompatible(RCTuple tuple) {
+
+		// if we don't have an old-style conf space, that means we must have a new compiled conf space
+		// the new conf spaces don't have incompatible conformations (yet?)
+		if (confEcalc.confSpace == null) {
+			return false;
+		}
+
 		for (int i1=0; i1<tuple.size(); i1++) {
 			SimpleConfSpace.ResidueConf rc1 = getRC(tuple, i1);
 			for (int i2=0; i2<i1; i2++) {

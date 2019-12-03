@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
  * 
  * Also creates molecules in conformations on-demand.
  */
-public class SimpleConfSpace implements Serializable {
+public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
 
 	public static class Builder {
 		
@@ -598,6 +598,31 @@ public class SimpleConfSpace implements Serializable {
 			}
 		}
 		return count;
+	}
+
+	@Override
+	public int countSingles() {
+		return getNumResConfs();
+	}
+
+	@Override
+	public int countPairs() {
+		return getNumResConfPairs();
+	}
+
+	@Override
+	public int numPos() {
+		return positions.size();
+	}
+
+	@Override
+	public int numConf(int posi) {
+		return getNumResConfs(posi);
+	}
+
+	@Override
+	public String confResType(int posi, int confi) {
+		return positions.get(posi).resConfs.get(confi).template.name;
 	}
 
 	/** @see #makeMolecule(RCTuple) */

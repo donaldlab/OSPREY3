@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.confspace.compiled;
 
 
+import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle;
 import edu.duke.cs.osprey.energy.compiled.AmberEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.EEF1EnergyCalculator;
@@ -17,7 +18,7 @@ import java.util.NoSuchElementException;
 /**
  * A conformation space that reads the output produced by the ConfSpaceCompiler in the GUI.
  */
-public class ConfSpace {
+public class ConfSpace implements ConfSpaceIteration {
 
 	public static int NotAssigned = -1;
 
@@ -546,8 +547,8 @@ public class ConfSpace {
 		return ffparams[ffi][paramsi];
 	}
 
-	/** Gets the total number of confs for all positions */
-	public int countConfSingles() {
+	@Override
+	public int countSingles() {
 		int count = 0;
 		for (int posi1=1; posi1<positions.length; posi1++) {
 			count += positions[posi1].confs.length;
@@ -555,8 +556,8 @@ public class ConfSpace {
 		return count;
 	}
 
-	/** Gets the total number of conf pairs for all positions */
-	public int countConfPairs() {
+	@Override
+	public int countPairs() {
 		int count = 0;
 		for (int posi1=1; posi1<positions.length; posi1++) {
 			for (int posi2=0; posi2<posi1; posi2++) {
@@ -564,6 +565,21 @@ public class ConfSpace {
 			}
 		}
 		return count;
+	}
+
+	@Override
+	public int numPos() {
+		return positions.length;
+	}
+
+	@Override
+	public int numConf(int posi) {
+		return positions[posi].confs.length;
+	}
+
+	@Override
+	public String confResType(int posi, int confi) {
+		return positions[posi].confs[confi].type;
 	}
 
 	/** Makes assignments with no assigned positions. */
