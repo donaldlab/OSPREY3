@@ -52,6 +52,7 @@ import edu.duke.cs.osprey.astar.conf.smastar.ConfSMAStarQueue;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
@@ -89,7 +90,11 @@ public class ConfAStarTree implements ConfSearch {
 		public Builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
 			this(emat, new RCs(confSpace));
 		}
-		
+
+		public Builder(EnergyMatrix emat, ConfSpace confSpace) {
+			this(emat, new RCs(confSpace));
+		}
+
 		public Builder(EnergyMatrix emat, PruningMatrix pmat) {
 			this(emat, new RCs(pmat));
 		}

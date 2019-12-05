@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class RCs {
@@ -55,6 +56,20 @@ public class RCs {
 		unprunedRCsAtPos = new int[confSpace.positions.size()][];
 		for (SimpleConfSpace.Position pos : confSpace.positions) {
 			unprunedRCsAtPos[pos.index] = pos.resConfs.stream()
+				.filter((resConf) -> filter.test(pos, resConf))
+				.mapToInt((resConf) -> resConf.index)
+				.toArray();
+		}
+	}
+
+	public RCs(ConfSpace confSpace) {
+		this(confSpace, (pos, resConf) -> true);
+	}
+
+	public RCs(ConfSpace confSpace, BiPredicate<ConfSpace.Pos,ConfSpace.Conf> filter) {
+		unprunedRCsAtPos = new int[confSpace.positions.length][];
+		for (ConfSpace.Pos pos : confSpace.positions) {
+			unprunedRCsAtPos[pos.index] = Arrays.stream(pos.confs)
 				.filter((resConf) -> filter.test(pos, resConf))
 				.mapToInt((resConf) -> resConf.index)
 				.toArray();

@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.confspace.compiled;
 
 
 import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle;
 import edu.duke.cs.osprey.energy.compiled.AmberEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.EEF1EnergyCalculator;
@@ -607,6 +608,14 @@ public class ConfSpace implements ConfSpaceIteration {
 	public int[] assign(int posi1, int confi1, int posi2, int confi2, int posi3, int confi3) {
 		int[] assignments = assign(posi1, confi1, posi2, confi2);
 		assignments[posi3] = confi3;
+		return assignments;
+	}
+
+	public int[] assign(RCTuple tuple) {
+		int[] assignments = assign();
+		for (int i=0; i<tuple.size(); i++) {
+			assignments[tuple.pos.get(i)] = tuple.RCs.get(i);
+		}
 		return assignments;
 	}
 

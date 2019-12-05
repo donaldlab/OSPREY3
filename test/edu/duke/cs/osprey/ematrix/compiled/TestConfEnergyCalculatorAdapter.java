@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.ematrix.compiled;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -11,6 +12,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
+import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import edu.duke.cs.osprey.tools.FileTools;
 import org.junit.Test;
 
@@ -120,8 +122,59 @@ public class TestConfEnergyCalculatorAdapter {
 		assertThat(adaptedEmat, is(emat));
 	}
 
+	@Test
+	public void astar() {
+
+		// compute the energy matrix, with reference energies
+		SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
+			.setMinimize(true)
+			.build()
+			.calc();
+		PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, eref);
+		EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
+			.setMinimize(true)
+			.build()
+			.calc();
+
+		// enumerate conformations with A*, and hopefully don't crash
+		// the conf space only has few hundred confs, so we can enumerate them all easily
+		ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+			.setTraditional()
+			.build();
+		int numConfs = 0;
+		while (astar.nextConf() != null) {
+			numConfs++;
+		}
+
+		assertThat(numConfs, is(289));
+	}
+
+	@Test
+	public void findGMEC() {
+
+		// compute the energy matrix, with reference energies
+		SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
+			.setMinimize(true)
+			.build()
+			.calc();
+		PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, eref);
+		EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
+			.setMinimize(true)
+			.build()
+			.calc();
+
+		// define the conf search function
+		ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+			.setTraditional()
+			.build();
+
+		// find the GMEC, hopefully without crashing
+		ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter(confEcalc, posInterGen, true);
+		SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, adapter).build();
+		gmecFinder.find();
+	}
+
 	// TODO: parallelism?
-	// TODO: GMEC finder?
 	// TODO: K*?
 	// TODO: SOFEA?
 }

@@ -4,10 +4,8 @@ package edu.duke.cs.osprey.energy.compiled;
 import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
-import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
-import edu.duke.cs.osprey.energy.approximation.ApproximatorMatrix;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 
 import java.util.Collections;
@@ -143,11 +141,6 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 	}
 
 	@Override
-	public EnergyCalculator.EnergiedParametricMolecule calcPairEnergy(int pos1, int rc1, int pos2, int rc2) {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
 	public EnergyCalculator.EnergiedParametricMolecule calcPairEnergy(RCTuple frag) {
 
 		// convert the fragment to a conformation in the space
@@ -170,13 +163,17 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 
 	@Override
 	public EnergyCalculator.EnergiedParametricMolecule calcEnergy(RCTuple frag) {
-		throw new UnsupportedOperationException();
+
+		int[] conf = confEcalc.confSpace().assign(frag);
+
+		// make the position interactions for the whole conformation
+		List<PosInter> inters = posInterGen.all(confEcalc.confSpace(), conf);
+
+		return epmol(conf, inters);
 	}
 
 	@Override
 	public EnergyCalculator.EnergiedParametricMolecule calcEnergy(RCTuple frag, ResidueInteractions inters) {
 		throw new UnsupportedOperationException();
 	}
-
-	// TODO: NEXTTIME: how to implement the functions that take ResidueInteractions ???
 }
