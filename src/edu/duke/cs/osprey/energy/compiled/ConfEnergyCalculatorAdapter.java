@@ -4,9 +4,10 @@ package edu.duke.cs.osprey.energy.compiled;
 import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
+import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
+import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
-import edu.duke.cs.osprey.parallelism.TaskExecutor;
 
 import java.util.Collections;
 import java.util.List;
@@ -25,15 +26,54 @@ import java.util.List;
 @Deprecated
 public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfEnergyCalculator {
 
+	public static class Builder {
+
+		public final ConfEnergyCalculator confEcalc;
+
+		/** Defines what position interactions should be used for conformations and conformation fragments */
+		private PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
+
+		/** Reference energies used to design against the unfolded state, useful for GMEC designs */
+		private SimpleReferenceEnergies eref = null;
+
+		private boolean minimizing = true;
+
+		public Builder(ConfEnergyCalculator confEcalc) {
+			this.confEcalc = confEcalc;
+		}
+
+		public Builder setPosInterDist(PosInterDist val) {
+			posInterDist = val;
+			return this;
+		}
+
+		public Builder setReferenceEnergies(SimpleReferenceEnergies val) {
+			eref = val;
+			return this;
+		}
+
+		public Builder setMinimizing(boolean val) {
+			minimizing = val;
+			return this;
+		}
+
+		public ConfEnergyCalculatorAdapter build() {
+			return new ConfEnergyCalculatorAdapter(
+				confEcalc,
+				new PosInterGen(posInterDist, eref),
+				minimizing
+			);
+		}
+	}
+
 	public final ConfEnergyCalculator confEcalc;
 	public final PosInterGen posInterGen;
 	public final boolean minimizing;
 
-	// TODO: support parallelism
 	// TODO: support approximator matrices?
 
-	public ConfEnergyCalculatorAdapter(ConfEnergyCalculator confEcalc, PosInterGen posInterGen, boolean minimizing) {
-		super(new TaskExecutor());
+	private ConfEnergyCalculatorAdapter(ConfEnergyCalculator confEcalc, PosInterGen posInterGen, boolean minimizing) {
+		super(confEcalc.tasks());
 
 		this.confEcalc = confEcalc;
 		this.posInterGen = posInterGen;

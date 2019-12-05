@@ -10,171 +10,212 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.FileTools;
 import org.junit.Test;
 
 
+@SuppressWarnings("deprecation") // yes, we're using the deprecated adapter class: we're testing it
 public class TestConfEnergyCalculatorAdapter {
 
 	private static ConfSpace confSpace = new ConfSpace(FileTools.readResourceBytes("/confSpaces/dipeptide.5hydrophobic.ccs.toml.xz"));
-	private static CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace);
 
 	@Test
 	public void energyMatrixRigid() {
 
-		// compute the true energy matrix using the new calculator
-		PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
-		EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
-			.setMinimize(false)
-			.build()
-			.calc();
+		try (CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace, 1)) {
 
-		// compare to the energy matrix computed using the adapted old calculator
-		ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter(confEcalc, posInterGen, false);
-		EnergyMatrix adaptedEmat = new SimplerEnergyMatrixCalculator.Builder(adapter)
-			.build()
-			.calcEnergyMatrix();
+			// compute the true energy matrix using the new calculator
+			PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
+			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
+				.setMinimize(false)
+				.build()
+				.calc();
 
-		assertThat(adaptedEmat, is(emat));
+			// compare to the energy matrix computed using the adapted old calculator
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				.setPosInterDist(posInterGen.dist)
+				.setMinimizing(false)
+				.build();
+			EnergyMatrix adaptedEmat = new SimplerEnergyMatrixCalculator.Builder(adapter)
+				.build()
+				.calcEnergyMatrix();
+
+			assertThat(adaptedEmat, is(emat));
+		}
 	}
 
-	@Test
-	public void energyMatrixMinimized() {
+	private void energyMatrixMinimized(Parallelism parallelism) {
 
-		// compute the true energy matrix using the new calculator
-		PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
-		EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
-			.setMinimize(true)
-			.build()
-			.calc();
+		try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
 
-		// compare to the energy matrix computed using the adapted old calculator
-		ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter(confEcalc, posInterGen, true);
-		EnergyMatrix adaptedEmat = new SimplerEnergyMatrixCalculator.Builder(adapter)
-			.build()
-			.calcEnergyMatrix();
+			// compute the true energy matrix using the new calculator
+			PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
+			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
+				.setMinimize(true)
+				.build()
+				.calc();
 
-		assertThat(adaptedEmat, is(emat));
+			// compare to the energy matrix computed using the adapted old calculator
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				.setPosInterDist(posInterGen.dist)
+				.setMinimizing(true)
+				.build();
+			EnergyMatrix adaptedEmat = new SimplerEnergyMatrixCalculator.Builder(adapter)
+				.build()
+				.calcEnergyMatrix();
+
+			assertThat(adaptedEmat, is(emat));
+		}
 	}
+	@Test public void energyMatrixMinimized_CPU1() { energyMatrixMinimized(Parallelism.makeCpu(1)); }
+	@Test public void energyMatrixMinimized_CPU2() { energyMatrixMinimized(Parallelism.makeCpu(2)); }
+	@Test public void energyMatrixMinimized_CPU4() { energyMatrixMinimized(Parallelism.makeCpu(4)); }
 
 	@Test
 	public void referenceEnergyRigid() {
 
-		// compute the true reference energies using the new calculator
-		SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
-			.setMinimize(false)
-			.build()
-			.calc();
+		try (CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace, 1)) {
 
-		// compare to the reference energies computed using the adapted old calculator
-		PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
-		ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter(confEcalc, posInterGen, false);
-		SimpleReferenceEnergies adaptedEref = new SimplerEnergyMatrixCalculator.Builder(adapter)
-			.build()
-			.calcReferenceEnergies();
+			// compute the true reference energies using the new calculator
+			SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
+				.setMinimize(false)
+				.build()
+				.calc();
 
-		assertThat(adaptedEref, is(eref));
+			// compare to the reference energies computed using the adapted old calculator
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				.setMinimizing(false)
+				.build();
+			SimpleReferenceEnergies adaptedEref = new SimplerEnergyMatrixCalculator.Builder(adapter)
+				.build()
+				.calcReferenceEnergies();
+
+			assertThat(adaptedEref, is(eref));
+		}
 	}
 
 	@Test
 	public void referenceEnergyMinimized() {
 
-		// compute the true reference energies using the new calculator
-		SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
-			.setMinimize(true)
-			.build()
-			.calc();
+		try (CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace, 1)) {
 
-		// compare to the reference energies computed using the adapted old calculator
-		PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
-		ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter(confEcalc, posInterGen, true);
+			// compute the true reference energies using the new calculator
+			SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
+				.setMinimize(true)
+				.build()
+				.calc();
 
-		SimpleReferenceEnergies adaptedEref = new SimplerEnergyMatrixCalculator.Builder(adapter)
-			.build()
-			.calcReferenceEnergies();
+			// compare to the reference energies computed using the adapted old calculator
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				.setMinimizing(true)
+				.build();
+			SimpleReferenceEnergies adaptedEref = new SimplerEnergyMatrixCalculator.Builder(adapter)
+				.build()
+				.calcReferenceEnergies();
 
-		assertThat(adaptedEref, is(eref));
+			assertThat(adaptedEref, is(eref));
+		}
 	}
 
 	@Test
 	public void energyMatrixWithEref() {
 
-		// compute the true energy matrix using the new calculators
-		SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
-			.setMinimize(false)
-			.build()
-			.calc();
-		PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, eref);
-		EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
-			.setMinimize(false)
-			.build()
-			.calc();
+		try (CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace, 1)) {
 
-		// compare to the energy matrix computed using the adapted old calculator
-		ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter(confEcalc, posInterGen, false);
-		EnergyMatrix adaptedEmat = new SimplerEnergyMatrixCalculator.Builder(adapter)
-			.build()
-			.calcEnergyMatrix();
+			// compute the true energy matrix using the new calculators
+			SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
+				.setMinimize(false)
+				.build()
+				.calc();
+			PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, eref);
+			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
+				.setMinimize(false)
+				.build()
+				.calc();
 
-		assertThat(adaptedEmat, is(emat));
+			// compare to the energy matrix computed using the adapted old calculator
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				.setPosInterDist(posInterGen.dist)
+				.setReferenceEnergies(eref)
+				.setMinimizing(false)
+				.build();
+			EnergyMatrix adaptedEmat = new SimplerEnergyMatrixCalculator.Builder(adapter)
+				.build()
+				.calcEnergyMatrix();
+
+			assertThat(adaptedEmat, is(emat));
+		}
 	}
 
 	@Test
 	public void astar() {
 
-		// compute the energy matrix, with reference energies
-		SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
-			.setMinimize(true)
-			.build()
-			.calc();
-		PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, eref);
-		EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
-			.setMinimize(true)
-			.build()
-			.calc();
+		try (CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace, 1)) {
 
-		// enumerate conformations with A*, and hopefully don't crash
-		// the conf space only has few hundred confs, so we can enumerate them all easily
-		ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
-			.setTraditional()
-			.build();
-		int numConfs = 0;
-		while (astar.nextConf() != null) {
-			numConfs++;
+			// compute the energy matrix, with reference energies
+			SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
+				.setMinimize(true)
+				.build()
+				.calc();
+			PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, eref);
+			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
+				.setMinimize(true)
+				.build()
+				.calc();
+
+			// enumerate conformations with A*, and hopefully don't crash
+			// the conf space only has few hundred confs, so we can enumerate them all easily
+			ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+				.setTraditional()
+				.build();
+			int numConfs = 0;
+			while (astar.nextConf() != null) {
+				numConfs++;
+			}
+
+			assertThat(numConfs, is(289));
 		}
-
-		assertThat(numConfs, is(289));
 	}
 
-	@Test
-	public void findGMEC() {
+	public void findGMEC(Parallelism parallelism) {
 
-		// compute the energy matrix, with reference energies
-		SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
-			.setMinimize(true)
-			.build()
-			.calc();
-		PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, eref);
-		EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
-			.setMinimize(true)
-			.build()
-			.calc();
+		try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
 
-		// define the conf search function
-		ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
-			.setTraditional()
-			.build();
+			// compute the energy matrix, with reference energies
+			SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
+				.setMinimize(true)
+				.build()
+				.calc();
+			PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, eref);
+			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
+				.setMinimize(true)
+				.build()
+				.calc();
 
-		// find the GMEC, hopefully without crashing
-		ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter(confEcalc, posInterGen, true);
-		SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, adapter).build();
-		gmecFinder.find();
+			// define the conf search function
+			ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+				.setTraditional()
+				.build();
+
+			// find the GMEC, hopefully without crashing
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				.setPosInterDist(posInterGen.dist)
+				.setMinimizing(true)
+				.build();
+			SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, adapter).build();
+			gmecFinder.find();
+		}
 	}
+	@Test public void findGMEC_CPU1() { findGMEC(Parallelism.makeCpu(1)); }
+	@Test public void findGMEC_CPU2() { findGMEC(Parallelism.makeCpu(2)); }
+	@Test public void findGMEC_CPU4() { findGMEC(Parallelism.makeCpu(4)); }
 
-	// TODO: parallelism?
+	// TODO: GPU ecalcs?
 	// TODO: K*?
 	// TODO: SOFEA?
 }

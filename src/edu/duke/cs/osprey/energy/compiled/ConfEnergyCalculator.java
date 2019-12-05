@@ -4,11 +4,13 @@ import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
+import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 
 import java.util.List;
 
 
-public interface ConfEnergyCalculator {
+public interface ConfEnergyCalculator extends AutoCloseable {
 
 	class EnergiedCoords {
 
@@ -28,8 +30,13 @@ public interface ConfEnergyCalculator {
 		}
 	}
 
+	// don't make callers catch the Exception on close()
+	@Override
+	void close();
+
 
 	ConfSpace confSpace();
+	TaskExecutor tasks();
 
 	/**
 	 * Build the conformation and calculate its rigid (ie unminimized) energy, using the provided interactions.
@@ -56,5 +63,16 @@ public interface ConfEnergyCalculator {
 		return minimize(conf, inters).energy;
 	}
 
-	// TODO: parallelism/async?
+
+	/**
+	 * Builds the appropriate conformation energy calculator based on the desired parallelism.
+	 */
+	static ConfEnergyCalculator build(ConfSpace confSpace, Parallelism parallelism) {
+		if (parallelism.numGpus > 0) {
+			// TODO
+			throw new UnsupportedOperationException("GPU energy calculation not implement yet");
+		} else {
+			return new CPUConfEnergyCalculator(confSpace, parallelism.numThreads);
+		}
+	}
 }
