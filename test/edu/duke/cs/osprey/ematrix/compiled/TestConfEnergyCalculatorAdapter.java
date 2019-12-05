@@ -1,9 +1,13 @@
 package edu.duke.cs.osprey.ematrix.compiled;
 
+import static edu.duke.cs.osprey.TestBase.isAbsoluteBound;
+import static edu.duke.cs.osprey.TestBase.isAbsolutely;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -14,8 +18,11 @@ import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.MathTools;
 import org.junit.Test;
 
 
@@ -157,16 +164,13 @@ public class TestConfEnergyCalculatorAdapter {
 
 		try (CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace, 1)) {
 
-			// compute the energy matrix, with reference energies
-			SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
-				.setMinimize(true)
+			// compute the energy matrix
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				.setMinimizing(true)
+				.build();
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(adapter)
 				.build()
-				.calc();
-			PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, eref);
-			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
-				.setMinimize(true)
-				.build()
-				.calc();
+				.calcEnergyMatrix();
 
 			// enumerate conformations with A*, and hopefully don't crash
 			// the conf space only has few hundred confs, so we can enumerate them all easily
@@ -174,10 +178,23 @@ public class TestConfEnergyCalculatorAdapter {
 				.setTraditional()
 				.build();
 			int numConfs = 0;
-			while (astar.nextConf() != null) {
+			while (true) {
+				ConfSearch.ScoredConf conf = astar.nextConf();
+				if (conf == null) {
+					break;
+				}
+				ConfSearch.EnergiedConf econf = adapter.calcEnergy(conf);
+
+				// make sure the lower bound is valid
+				double error = econf.getScore() - econf.getEnergy();
+				assertThat(error, lessThanOrEqualTo(1e-2));
+				// TODO: we're seeing some non-trivial error here (eg, 0.0029, 0.0017)
+				//  is this just a minimizer failure... or is this a bug?
+
 				numConfs++;
 			}
 
+			// make sure we got all the confs
 			assertThat(numConfs, is(289));
 		}
 	}
@@ -187,15 +204,19 @@ public class TestConfEnergyCalculatorAdapter {
 		try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
 
 			// compute the energy matrix, with reference energies
-			SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
-				.setMinimize(true)
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				.setMinimizing(true)
+				.build();
+			SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(adapter)
 				.build()
-				.calc();
-			PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, eref);
-			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
-				.setMinimize(true)
+				.calcReferenceEnergies();
+			adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				.setReferenceEnergies(eref)
+				.setMinimizing(true)
+				.build();
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(adapter)
 				.build()
-				.calc();
+				.calcEnergyMatrix();
 
 			// define the conf search function
 			ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
@@ -203,17 +224,58 @@ public class TestConfEnergyCalculatorAdapter {
 				.build();
 
 			// find the GMEC, hopefully without crashing
-			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
-				.setPosInterDist(posInterGen.dist)
-				.setMinimizing(true)
-				.build();
 			SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, adapter).build();
-			gmecFinder.find();
+			ConfSearch.EnergiedConf gmec = gmecFinder.find();
+
+			// make sure we got the right conformation and energy
+			assertThat(gmec.getAssignments(), is(new int[] { 3, 0 }));
+			assertThat(gmec.getScore(), isAbsolutely(20.890101, 1e-6));
+			assertThat(gmec.getEnergy(), isAbsolutely(20.944495, 1e-6));
 		}
 	}
 	@Test public void findGMEC_CPU1() { findGMEC(Parallelism.makeCpu(1)); }
 	@Test public void findGMEC_CPU2() { findGMEC(Parallelism.makeCpu(2)); }
 	@Test public void findGMEC_CPU4() { findGMEC(Parallelism.makeCpu(4)); }
+
+	public void calcPfunc(Parallelism parallelism) {
+
+		try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
+
+			// compute the energy matrix
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				.setMinimizing(true)
+				.build();
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(adapter)
+				.build()
+				.calcEnergyMatrix();
+
+			// compute the partition function
+			GradientDescentPfunc pfunc = new GradientDescentPfunc(adapter);
+			RCs rcs = new RCs(confSpace);
+			pfunc.init(
+				new ConfAStarTree.Builder(emat, rcs)
+					.setTraditional()
+					.build(),
+				new ConfAStarTree.Builder(emat, rcs)
+					.setTraditional()
+					.build(),
+				rcs.getNumConformations(),
+				0.68
+			);
+			pfunc.compute();
+			PartitionFunction.Result result = pfunc.makeResult();
+
+			// make sure we got the right answer
+			assertThat(result.status, is(PartitionFunction.Status.Estimated));
+			assertThat(result.values.calcFreeEnergyBounds(), isAbsoluteBound(new MathTools.DoubleBounds(
+				-24.381189,
+				-24.375781
+			), 1e-6));
+		}
+	}
+	@Test public void calcPfunc_CPU1() { calcPfunc(Parallelism.makeCpu(1)); }
+	@Test public void calcPfunc_CPU2() { calcPfunc(Parallelism.makeCpu(2)); }
+	@Test public void calcPfunc_CPU4() { calcPfunc(Parallelism.makeCpu(4)); }
 
 	// TODO: GPU ecalcs?
 	// TODO: K*?

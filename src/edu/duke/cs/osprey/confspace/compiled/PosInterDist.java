@@ -107,6 +107,26 @@ public enum PosInterDist {
 		return inters;
 	}
 
+	/**
+	 * Include all dynamic interactions, ie all except the static-static interaction.
+	 * Doesn't depend on the distribution.
+	 */
+	public static List<PosInter> dynamic(ConfSpace confSpace, SimpleReferenceEnergies eref, int[] conf) {
+		List<PosInter> inters = new ArrayList<>();
+		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
+
+			// pos and pos-static interactions go on singles
+			inters.add(new PosInter(posi1, posi1, 1.0, getErefOffset(confSpace, eref, posi1, conf[posi1])));
+			inters.add(new PosInter(posi1, PosInter.StaticPos, 1.0, 0.0));
+
+			// pos-pos interactions go on pairs
+			for (int posi2=0; posi2<posi1; posi2++) {
+				inters.add(new PosInter(posi1, posi2, 1.0, 0.0));
+			}
+		}
+		return inters;
+	}
+
 	private static double getErefOffset(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi, int confi) {
 		if (eref != null) {
 			return eref.getOffset(posi, confSpace.confResType(posi, confi));

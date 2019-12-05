@@ -34,4 +34,8 @@ public class PosInterGen {
 	public List<PosInter> all(ConfSpace confSpace, int[] conf) {
 		return PosInterDist.all(confSpace, eref, conf);
 	}
+
+	public List<PosInter> dynamic(ConfSpace confSpace, int[] conf) {
+		return PosInterDist.dynamic(confSpace, eref, conf);
+	}
 }
