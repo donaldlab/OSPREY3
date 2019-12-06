@@ -213,6 +213,10 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
 
     public boolean nonZeroLower() {
         return this.fringeNodes.getPartitionFunctionLowerBound().compareTo(BigDecimal.ZERO) > 0;
+        /* This should be correct, but it broke everything. Fix this.
+                || internalQueue.getPartitionFunctionLowerBound().compareTo(BigDecimal.ZERO) > 0
+                || leafQueue.getPartitionFunctionLowerBound().compareTo(BigDecimal.ZERO) > 0 ;
+         */
     }
 
     @Override

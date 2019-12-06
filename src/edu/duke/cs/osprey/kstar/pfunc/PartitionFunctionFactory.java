@@ -197,6 +197,7 @@ public class PartitionFunctionFactory {
                     stateBounds.put(RCString, stateMSBound);
                 }
                 pfunc = stateBounds.get(RCString);
+                System.out.println("Using state bounds "+pfunc+" for RCs "+rcs.toString()+" and seq "+seq);
                 if(seq != null)
                     pfunc = stateBounds.get(RCString).getPartitionFunctionForSequence(seq);
                 break;
