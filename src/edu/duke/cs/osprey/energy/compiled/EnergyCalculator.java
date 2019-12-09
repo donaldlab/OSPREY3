@@ -39,16 +39,16 @@ public interface EnergyCalculator {
 	default double calcEnergySingle(AssignedCoords coords, int posi) {
 
 		int ffi = ffi();
-		ConfSpace.IndicesSingle indices = coords.getIndices(ffi, posi);
 
 		// start with the internal energy
-		double energy = indices.energy;
+		double energy = coords.getInternalEnergy(ffi, posi);
 
 		// TODO: hopefully escape analysis will allocte this on the stack?
 		Vector3d pos1 = new Vector3d();
 		Vector3d pos2 = new Vector3d();
 
 		// add the internal interactions
+		ConfSpace.IndicesSingle indices = coords.getIndices(ffi, posi);
 		for (int i=0; i<indices.sizeInternals(); i++) {
 			int confAtom1i = indices.getInternalConfAtom1Index(i);
 			int confAtom2i = indices.getInternalConfAtom2Index(i);

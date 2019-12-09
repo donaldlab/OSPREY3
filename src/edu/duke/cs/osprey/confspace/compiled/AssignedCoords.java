@@ -70,6 +70,17 @@ public class AssignedCoords {
 		return confSpace.staticEnergies[ffi];
 	}
 
+	public double getInternalEnergy(int ffi, int posi) {
+
+		// get the assignment, or 0 if nothing was assigned
+		int confi = assignments[posi];
+		if (confi == ConfSpace.NotAssigned) {
+			return 0.0;
+		}
+
+		return confSpace.positions[posi].confs[confi].energies[ffi];
+	}
+
 	public ConfSpace.IndicesSingle getIndices(int ffi, int posi) {
 
 		// get the assignment, or null if nothing was assigned

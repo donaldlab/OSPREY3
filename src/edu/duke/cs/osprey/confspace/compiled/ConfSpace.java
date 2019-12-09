@@ -14,6 +14,8 @@ import org.tomlj.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 
 /**
@@ -30,21 +32,25 @@ public class ConfSpace implements ConfSpaceIteration {
 		public final int index;
 		public final String id;
 		public final String type; // TODO: use integers for types? with a lookup table to the name?
+		public final int fragIndex;
 
 		public final int numAtoms;
 		public final CoordsList coords;
 		public final String[] atomNames;
-
 		public final ContinuousMotion.Description[] motions;
+		/** indexed by ffi */
+		public final double[] energies;
 
-		public Conf(int index, String id, String type, int numAtoms, CoordsList coords, String[] atomNames, ContinuousMotion.Description[] motions) {
+		public Conf(int index, String id, String type, int fragIndex, int numAtoms, CoordsList coords, String[] atomNames, ContinuousMotion.Description[] motions, double[] energies) {
 			this.index = index;
 			this.id = id;
 			this.type = type;
+			this.fragIndex = fragIndex;
 			this.numAtoms = numAtoms;
 			this.coords = coords;
 			this.atomNames = atomNames;
 			this.motions = motions;
+			this.energies = energies;
 		}
 	}
 
@@ -100,16 +106,13 @@ public class ConfSpace implements ConfSpaceIteration {
 
 	public class IndicesSingle {
 
-		public final double energy;
-
 		/** indexed by param, [0=confAtom1i, 1=confAtom2i, 2=parami] */
 		private final int[][] internals;
 
 		/** indexed by param, [0=confAtomi, 1=staticAtomi, 2=parami] */
 		private final int[][] statics;
 
-		IndicesSingle(double energy, int[][] internals, int[][] statics) {
-			this.energy = energy;
+		IndicesSingle(int[][] internals, int[][] statics) {
 			this.internals = internals;
 			this.statics = statics;
 		}
@@ -141,7 +144,7 @@ public class ConfSpace implements ConfSpaceIteration {
 		}
 	}
 
-	/** indexed by ff, pos, conf */
+	/** indexed by ff, pos, frag */
 	private final IndicesSingle[][][] indicesSingles;
 
 	public class IndicesPair {
@@ -167,7 +170,7 @@ public class ConfSpace implements ConfSpaceIteration {
 		}
 	}
 
-	/** indexed by ff, pos1:pos2, conf1, conf2 */
+	/** indexed by ff, pos1:pos2, frag1, frag2 */
 	private final IndicesPair[][][][] indicesPairs;
 
 
@@ -314,6 +317,7 @@ public class ConfSpace implements ConfSpaceIteration {
 
 				String id = TomlTools.getStringOrThrow(confTable, "id", confPos);
 				String type = TomlTools.getStringOrThrow(confTable, "type", confPos);
+				int fragIndex = TomlTools.getIntOrThrow(confTable, "fragIndex", confPos);
 
 				// read the conformation atoms
 				TomlArray atomsArray = TomlTools.getArrayOrThrow(confTable, "atoms", confPos);
@@ -380,32 +384,58 @@ public class ConfSpace implements ConfSpaceIteration {
 					}
 				}
 
+				// read the internal energies
+				TomlArray energyArray = TomlTools.getArrayOrThrow(confTable, "energy", confPos);
+				TomlPosition energyPos = confTable.inputPositionOf("energy");
+				double[] energies = new double[forcefieldIds.length];
+				for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
+					energies[ffi] = TomlTools.getDoubleOrThrow(energyArray, ffi, energyPos);
+				}
+
 				// finally, make the conf
 				confs[confi] = new Conf(
 					confi,
 					id,
 					type,
+					fragIndex,
 					numAtoms,
 					atomCoords,
 					atomNames,
-					motions
+					motions,
+					energies
 				);
+			}
 
-				// read the internal energies
-				TomlArray energyArray = TomlTools.getArrayOrThrow(confTable, "energy", confPos);
-				TomlPosition energyPos = confTable.inputPositionOf("energy");
+			// finally, make the position
+			positions[posi] = new Pos(
+				posi,
+				posName,
+				confs
+			);
+		}
 
-				// read the forcefield params
-				TomlTable atomPairsSingleTable = TomlTools.getTableOrThrow(confTable, "atomPairs.single", confPos);
-				TomlPosition atomPairsSinglePos = confTable.inputPositionOf("atomPairs.single");
-				TomlTable atomPairsStaticTable = TomlTools.getTableOrThrow(confTable, "atomPairs.static", confPos);
-				TomlPosition atomPairsStaticPos = confTable.inputPositionOf("atomPairs.static");
+		// read pos and pos-static forcefield params
+		for (int posi=0; posi<numPositions; posi++) {
+			Pos pos = positions[posi];
+
+			Set<Integer> frag1Indices = Arrays.stream(pos.confs)
+				.map(conf -> conf.fragIndex)
+				.collect(Collectors.toSet());
+			for (int fragi : frag1Indices) {
+
+				String keySingle = String.format("pos.%d.frag.%d.atomPairs.single",
+					pos.index, fragi
+				);
+				TomlTable atomPairsSingleTable = TomlTools.getTableOrThrow(doc, keySingle);
+				TomlPosition atomPairsSinglePos = doc.inputPositionOf(keySingle);
+				String keyStatic = String.format("pos.%d.frag.%d.atomPairs.static",
+					pos.index, fragi
+				);
+				TomlTable atomPairsStaticTable = TomlTools.getTableOrThrow(doc, keyStatic);
+				TomlPosition atomPairsStaticPos = doc.inputPositionOf(keyStatic);
 
 				for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
 					String ffkey = "" + ffi;
-
-					// read the energy
-					double energy = TomlTools.getDoubleOrThrow(energyArray, ffi, energyPos);
 
 					// read the pos internal forcefield params
 					TomlArray internalArray = TomlTools.getArrayOrThrow(atomPairsSingleTable, ffkey, atomPairsSinglePos);
@@ -431,16 +461,9 @@ public class ConfSpace implements ConfSpaceIteration {
 						statics[i][2] = TomlTools.getIntOrThrow(indicesArray, 2, indicesPos); // parami
 					}
 
-					indicesSingles[ffi][posi][confi] = new IndicesSingle(energy, singles, statics);
+					indicesSingles[ffi][posi][fragi] = new IndicesSingle(singles, statics);
 				}
 			}
-
-			// finally, make the position
-			positions[posi] = new Pos(
-				posi,
-				posName,
-				confs
-			);
 		}
 
 		// read pos-pos forcefield params
@@ -450,8 +473,17 @@ public class ConfSpace implements ConfSpaceIteration {
 		// for each position pair ...
 		for (int posi1=0; posi1<numPositions; posi1++) {
 			Pos pos1 = positions[posi1];
+
+			Set<Integer> frag1Indices = Arrays.stream(pos1.confs)
+				.map(conf -> conf.fragIndex)
+				.collect(Collectors.toSet());
+
 			for (int posi2=0; posi2<posi1; posi2++) {
 				Pos pos2 = positions[posi2];
+
+				Set<Integer> frag2Indices = Arrays.stream(pos2.confs)
+					.map(conf -> conf.fragIndex)
+					.collect(Collectors.toSet());
 
 				int posPairIndex = posPairIndex(pos1.index, pos2.index);
 
@@ -459,12 +491,12 @@ public class ConfSpace implements ConfSpaceIteration {
 					indicesPairs[ffi][posPairIndex] = new IndicesPair[pos1.confs.length][pos2.confs.length];
 				}
 
-				// for each conf pair ...
-				for (Conf conf1 : pos1.confs) {
-					for (Conf conf2 : pos2.confs) {
+				// for each frag pair ...
+				for (int fragi1 : frag1Indices) {
+					for (int fragi2 : frag2Indices) {
 
-						String key = String.format("pos.%d.conf.%d.atomPairs.pos.%d.conf.%d",
-							pos1.index, conf1.index, pos2.index, conf2.index
+						String key = String.format("pos.%d.frag.%d.atomPairs.pos.%d.frag.%d",
+							pos1.index, fragi1, pos2.index, fragi2
 						);
 						TomlTable pairTable = TomlTools.getTableOrThrow(doc, key);
 						TomlPosition pairPos = doc.inputPositionOf(key);
@@ -484,7 +516,7 @@ public class ConfSpace implements ConfSpaceIteration {
 								indicesPair[i][2] = TomlTools.getIntOrThrow(indicesArray, 2, indicesPos); // parami
 							}
 
-							indicesPairs[ffi][posPairIndex][conf1.index][conf2.index] = new IndicesPair(indicesPair);
+							indicesPairs[ffi][posPairIndex][fragi1][fragi2] = new IndicesPair(indicesPair);
 						}
 					}
 				}
@@ -530,18 +562,21 @@ public class ConfSpace implements ConfSpaceIteration {
 		return posi1*(posi1 - 1)/2 + posi2;
 	}
 
-	public int[] getNumConfsAtPos() {
-		return Arrays.stream(positions)
-			.mapToInt(pos -> pos.confs.length)
-			.toArray();
-	}
-
 	public IndicesSingle indicesSingles(int ffi, int posi, int confi) {
-		return indicesSingles[ffi][posi][confi];
+
+		// convert the conf index to a frag index
+		int fragi = positions[posi].confs[confi].fragIndex;
+
+		return indicesSingles[ffi][posi][fragi];
 	}
 
 	public IndicesPair indicesPairs(int ffi, int posi1, int confi1, int posi2, int confi2) {
-		return indicesPairs[ffi][posPairIndex(posi1, posi2)][confi1][confi2];
+
+		// convert the conf indices to frag indices
+		int fragi1 = positions[posi1].confs[confi1].fragIndex;
+		int fragi2 = positions[posi2].confs[confi2].fragIndex;
+
+		return indicesPairs[ffi][posPairIndex(posi1, posi2)][fragi1][fragi2];
 	}
 
 	public double[] ffparams(int ffi, int paramsi) {
