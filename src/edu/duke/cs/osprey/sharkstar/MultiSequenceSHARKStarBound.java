@@ -596,9 +596,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         Stopwatch leafLoop = new Stopwatch().start();
         Stopwatch overallLoop = new Stopwatch().start();
         if (queue.isEmpty()) {
-            if(!bound.leafQueue.isEmpty()&&
-                    MathTools.isGreaterThan(bound.leafQueue.peek().getLowerBound(bound.sequence),
-                            BigDecimal.ONE))
+            if(!bound.leafQueue.isEmpty())
                 queue.add(bound.leafQueue.poll());
             else if(!bound.internalQueue.isEmpty() )
                 queue.add(bound.internalQueue.poll());
@@ -653,7 +651,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         if(MathTools.isRelativelySame(internalZ, leafZ, PartitionFunction.decimalPrecision, 1e-3)
                 && MathTools.isRelativelySame(leafZ, BigDecimal.ZERO, PartitionFunction.decimalPrecision, 1e-3)) {
             rootNode.updateSubtreeBounds(bound.sequence);
-            printTree(bound.sequence, rootNode);
+            //printTree(bound.sequence, rootNode);
             System.out.println("This is a bad time.");
         }
         System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));

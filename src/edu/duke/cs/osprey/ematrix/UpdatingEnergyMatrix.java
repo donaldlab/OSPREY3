@@ -42,7 +42,7 @@ import java.util.*;
 
 public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     // Store the seen confs in a trie with wildcards.
-    public static final boolean debug = false;
+    public static final boolean debug = true;
     private TupleTrie corrections;
     private int numPos;
     
