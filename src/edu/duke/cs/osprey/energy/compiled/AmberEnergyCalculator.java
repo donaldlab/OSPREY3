@@ -1,8 +1,7 @@
 package edu.duke.cs.osprey.energy.compiled;
 
-import edu.duke.cs.osprey.tools.TomlTools;
-import org.tomlj.TomlPosition;
-import org.tomlj.TomlTable;
+import java.io.DataInput;
+import java.io.IOException;
 
 
 /**
@@ -34,8 +33,9 @@ public class AmberEnergyCalculator implements EnergyCalculator {
 	}
 
 	@Override
-	public void readSettings(TomlTable toml, TomlPosition pos) {
-		distanceDependentDielectric = TomlTools.getBooleanOrThrow(toml, "distanceDependentDielectric", pos);
+	public void readSettings(DataInput in)
+	throws IOException {
+		distanceDependentDielectric = in.readBoolean();
 		hasSettings = true;
 	}
 

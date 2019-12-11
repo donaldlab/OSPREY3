@@ -8,6 +8,8 @@ import org.joml.Vector3d;
 import org.tomlj.TomlPosition;
 import org.tomlj.TomlTable;
 
+import java.io.DataInput;
+import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 
@@ -23,8 +25,8 @@ public interface EnergyCalculator {
 	/** get the index of this forcefield in the conf space */
 	int ffi();
 
-	/** read runtime settings from the TOML table */
-	default void readSettings(TomlTable toml, TomlPosition pos) {}
+	/** read runtime settings from the stream */
+	default void readSettings(DataInput in) throws IOException {}
 
 	/** calculate position-pair energy */
 	double calcEnergy(double r, double r2, double[] params);

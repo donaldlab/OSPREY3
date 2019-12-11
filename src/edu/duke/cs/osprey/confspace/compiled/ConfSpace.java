@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.confspace.compiled;
 
-
 import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle;
@@ -8,14 +7,13 @@ import edu.duke.cs.osprey.energy.compiled.AmberEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.EEF1EnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.EnergyCalculator;
 import edu.duke.cs.osprey.tools.LZMA2;
-import edu.duke.cs.osprey.tools.TomlTools;
-import org.tomlj.*;
 
-import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 
 /**
@@ -59,14 +57,16 @@ public class ConfSpace implements ConfSpaceIteration {
 
 		public final int index;
 		public final String name;
+		public final int numFrags;
 
 		public final Conf[] confs;
 		public final int maxNumAtoms;
 
-		public Pos(int index, String name, Conf[] confs) {
+		public Pos(int index, String name, int numFrags, Conf[] confs) {
 
 			this.index = index;
 			this.name = name;
+			this.numFrags = numFrags;
 			this.confs = confs;
 
 			maxNumAtoms = Arrays.stream(confs)
@@ -181,215 +181,213 @@ public class ConfSpace implements ConfSpaceIteration {
 	private final double[][][] ffparams;
 
 
-	private static String decodeString(byte[] bytes) {
+	public static ConfSpace fromBytes(byte[] bytes) {
 
+		// is the compiled conformation space compressed?
 		// look for XZ magic bytes to see if this conf space is compressed or not
 		// see XZ file spec, 2.1.1.1. Header Magic Bytes:
 		// https://tukaani.org/xz/xz-file-format.txt
-		byte[] magic = new byte[] { (byte)0xfd, '7', 'z', 'X', 'Z', 0x00 };
+		byte[] xzMagic = new byte[] { (byte)0xfd, '7', 'z', 'X', 'Z', 0x00 };
 		if (bytes.length > 6
-			&& bytes[0] == magic[0]
-			&& bytes[1] == magic[1]
-			&& bytes[2] == magic[2]
-			&& bytes[3] == magic[3]
-			&& bytes[4] == magic[4]
-			&& bytes[5] == magic[5]
+			&& bytes[0] == xzMagic[0]
+			&& bytes[1] == xzMagic[1]
+			&& bytes[2] == xzMagic[2]
+			&& bytes[3] == xzMagic[3]
+			&& bytes[4] == xzMagic[4]
+			&& bytes[5] == xzMagic[5]
 		) {
 
 			// yup, decompres it
-			return LZMA2.decompressString(bytes);
+			bytes = LZMA2.decompressBytes(bytes);
+		}
 
-		} else {
+		try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes))) {
 
-			// nope, it's just a UTF8 string
-			return new String(bytes, StandardCharsets.UTF_8);
+			// look for the compiled conf space magic bytes "_ospccs_"
+			boolean startValid =
+				in.read() == '_'
+				&& in.read() == 'o'
+				&& in.read() == 's'
+				&& in.read() == 'p'
+				&& in.read() == 'c'
+				&& in.read() == 'c'
+				&& in.read() == 's'
+				&& in.read() == '_';
+			if (!startValid) {
+				throw new IllegalArgumentException("unrecognized compiled conformation space format");
+			}
+
+			// read the version and call the appropriate constructor
+			int version = in.readInt();
+			ConfSpace confSpace;
+			switch (version) {
+				case 1: confSpace = new ConfSpace(in); break;
+				// if we need more versions in the future:
+				// case 2: confSpace = new ConfSpace(in, 0); break;
+				// case 3: confSpace = new ConfSpace(in, 0, 0); break;
+				// etc ...
+				default: throw new IllegalArgumentException("unrecognized compiled conformation space version: " + version);
+			}
+
+			// we should see more magic bytes at the end
+			// if not, something got corrupted, or there's a bug
+			boolean endValid =
+				in.read() == '_'
+					&& in.read() == 'o'
+					&& in.read() == 's'
+					&& in.read() == 'p'
+					&& in.read() == 'c'
+					&& in.read() == 'c'
+					&& in.read() == 's'
+					&& in.read() == '_';
+			if (!endValid) {
+				throw new IllegalArgumentException("compiled conformation space has been corrupted");
+			}
+
+			return confSpace;
+
+		} catch (IOException ex) {
+			throw new RuntimeException("can't read compiled conformation space", ex);
 		}
 	}
 
-	public ConfSpace(byte[] bytes) {
-		this(decodeString(bytes));
-	}
+	/**
+	 * version 1 constructor
+	 */
+	private ConfSpace(DataInput in)
+	throws IOException {
 
-	public ConfSpace(String toml) {
-
-		// parse the TOML file
-		TomlTable doc = TomlTools.parseOrThrow(toml);
-
-		name = TomlTools.getStringOrThrow(doc, "name");
+		// read the name
+		name = in.readUTF();
 
 		// read and build the forcefield implementations
-		TomlArray forcefieldsArray = TomlTools.getArrayOrThrow(doc, "forcefields");
-		forcefieldIds = new String[forcefieldsArray.size()];
-		ecalcs = new EnergyCalculator[forcefieldsArray.size()];
-		for (int ffi=0; ffi<forcefieldsArray.size(); ffi++) {
-			TomlArray ffArray = TomlTools.getArrayOrThrow(forcefieldsArray, ffi);
-			TomlPosition ffPos = forcefieldsArray.inputPositionOf(ffi);
+		int numForcefields = in.readInt();
+		forcefieldIds = new String[numForcefields];
+		ecalcs = new EnergyCalculator[numForcefields];
+		for (int ffi=0; ffi<numForcefields; ffi++) {
 
-			String id = TomlTools.getStringOrThrow(ffArray, 0, ffPos);
+			String id = in.readUTF();
 			forcefieldIds[ffi] = id;
 
+			// build the forcefield implementation
 			// TODO: make a better way to register and instantiate ecalc implementations?
-			String implementation = TomlTools.getStringOrThrow(ffArray, 1, ffPos);
-			switch (implementation) {
+			switch (in.readUTF()) {
 				case "amber":
 					ecalcs[ffi] = new AmberEnergyCalculator(id, ffi);
-				break;
+					break;
 				case "eef1":
 					ecalcs[ffi] = new EEF1EnergyCalculator(id, ffi);
-				break;
+					break;
 			}
 		}
 
 		// read the forcefield settings, when needed
 		for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
-			String ffkey = "ffsettings." + ffi;
-			TomlTable ffsettingsTable = doc.getTable(ffkey);
-			TomlPosition ffsettingsPos = doc.inputPositionOf(ffkey);
-			if (ffsettingsTable != null) {
-				ecalcs[ffi].readSettings(ffsettingsTable, ffsettingsPos);
-			}
+			ecalcs[ffi].readSettings(in);
 		}
 
 		// read the static coords
-		TomlTable staticTable = TomlTools.getTableOrThrow(doc, "static");
-		TomlPosition staticPos = doc.inputPositionOf("static");
-		TomlArray staticAtomsArray = TomlTools.getArrayOrThrow(staticTable, "atoms");
-		numStaticAtoms = staticAtomsArray.size();
+		numStaticAtoms = in.readInt();
 		staticCoords = new CoordsList(numStaticAtoms);
 		staticNames = new String[numStaticAtoms];
 		for (int i=0; i<numStaticAtoms; i++) {
-			TomlTable table = TomlTools.getTableOrThrow(staticAtomsArray, i);
-			TomlPosition tablePos = staticAtomsArray.inputPositionOf(i);
 
 			// read the coords
-			TomlArray coordsArray = TomlTools.getArrayOrThrow(table, "xyz", tablePos);
 			staticCoords.set(
 				i,
-				coordsArray.getDouble(0),
-				coordsArray.getDouble(1),
-				coordsArray.getDouble(2)
+				in.readDouble(),
+				in.readDouble(),
+				in.readDouble()
 			);
 
 			// read the name
-			staticNames[i] = TomlTools.getStringOrThrow(table, "name", tablePos);
+			staticNames[i] = in.readUTF();
 		}
 
-		// read the energies
+		// read the energies for static atoms
 		staticEnergies = new double[forcefieldIds.length];
-		TomlArray staticEnergyArray = TomlTools.getArrayOrThrow(staticTable, "energy", staticPos);
-		TomlPosition staticEnergyPos = staticTable.inputPositionOf("energy");
 		for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
-			staticEnergies[ffi] = TomlTools.getDoubleOrThrow(staticEnergyArray, ffi, staticEnergyPos);
+			staticEnergies[ffi] = in.readDouble();
 		}
 
 		// read the design positions, if any
-		TomlTable positionsTable = doc.getTable("pos");
-		int numPositions;
-		if (positionsTable != null) {
-			numPositions = positionsTable.size();
-		} else {
-			numPositions = 0;
-		}
-
+		int numPositions = in.readInt();
 		positions = new Pos[numPositions];
 		indicesSingles = new IndicesSingle[forcefieldIds.length][numPositions][];
-
 		for (int posi=0; posi<numPositions; posi++) {
-			String posKey = "" + posi;
-			TomlTable posTable = TomlTools.getTableOrThrow(positionsTable, posKey);
-			TomlPosition posPos = positionsTable.inputPositionOf(posKey);
 
-			String posName = TomlTools.getStringOrThrow(posTable, "name", posPos);
+			// read the position properties
+			String posName = in.readUTF();
+
+			// read the fragments
+			int numFrags = in.readInt();
 
 			// read the conformations
-			TomlTable confsTable = TomlTools.getTableOrThrow(posTable, "conf", posPos);
-			int numConfs = confsTable.size();
-
+			int numConfs = in.readInt();
 			for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
 				indicesSingles[ffi][posi] = new IndicesSingle[numConfs];
 			}
-
 			Conf[] confs = new Conf[numConfs];
 			for (int confi=0; confi<numConfs; confi++) {
-				String confKey = "" + confi;
-				TomlTable confTable = TomlTools.getTableOrThrow(confsTable, confKey, posPos);
-				TomlPosition confPos = confsTable.inputPositionOf(confKey);
 
-				String id = TomlTools.getStringOrThrow(confTable, "id", confPos);
-				String type = TomlTools.getStringOrThrow(confTable, "type", confPos);
-				int fragIndex = TomlTools.getIntOrThrow(confTable, "fragIndex", confPos);
+				// read the conf properties
+				String id = in.readUTF();
+				String type = in.readUTF();
+				int fragIndex = in.readInt();
 
 				// read the conformation atoms
-				TomlArray atomsArray = TomlTools.getArrayOrThrow(confTable, "atoms", confPos);
-				int numAtoms = atomsArray.size();
+				int numAtoms = in.readInt();
 				CoordsList atomCoords = new CoordsList(numAtoms);
 				String[] atomNames = new String[numAtoms];
 				for(int atomi=0; atomi<numAtoms; atomi++) {
-					TomlTable atomTable = TomlTools.getTableOrThrow(atomsArray, atomi);
-					TomlPosition atomPos = atomsArray.inputPositionOf(atomi);
-
-					atomNames[atomi] = TomlTools.getStringOrThrow(atomTable, "name", atomPos);
-
-					// read the coords
-					TomlArray xyzArray = TomlTools.getArrayOrThrow(atomTable, "xyz", atomPos);
 					atomCoords.set(
 						atomi,
-						TomlTools.getDoubleOrThrow(xyzArray, 0, atomPos),
-						TomlTools.getDoubleOrThrow(xyzArray, 1, atomPos),
-						TomlTools.getDoubleOrThrow(xyzArray, 2, atomPos)
+						in.readDouble(),
+						in.readDouble(),
+						in.readDouble()
 					);
+					atomNames[atomi] = in.readUTF();
 				}
 
-				// read the DoF descriptions
-				ContinuousMotion.Description[] motions;
-				TomlArray motionsArray = confTable.getArray("motions");
-				if (motionsArray == null) {
+				// read the motions
+				int numMotions = in.readInt();
+				ContinuousMotion.Description[] motions = new ContinuousMotion.Description[numMotions];
+				for (int motioni=0; motioni<numMotions; motioni++) {
 
-					motions = new ContinuousMotion.Description[0];
+					String motionType = in.readUTF();
+					// TODO: make a better way to register and instantiate motions?
+					switch (motionType) {
 
-				} else {
+						// NOTE: these string values are defined by the conf space compiler in the GUI code
 
-					TomlPosition motionsPos = confTable.inputPositionOf("motions");
-					motions = new ContinuousMotion.Description[motionsArray.size()];
-					for (int i=0; i<motionsArray.size(); i++) {
-						TomlTable motionTable = TomlTools.getTableOrThrow(motionsArray, i, motionsPos);
-						TomlPosition motionPos = motionsArray.inputPositionOf(i);
-
-						// TODO: make a better way to register and instantiate motions?
-						String motionType = TomlTools.getStringOrThrow(motionTable, "type", motionPos);
-						switch (motionType) {
-
-							case "dihedral":
-								TomlArray boundsArray = TomlTools.getArrayOrThrow(motionTable, "bounds", motionPos);
-								TomlArray abcdArray = TomlTools.getArrayOrThrow(motionTable, "abcd", motionPos);
-								TomlArray rotatedArray = TomlTools.getArrayOrThrow(motionTable, "rotated", motionPos);
-								int[] rotated = new int[rotatedArray.size()];
-								for (int j=0; j<rotatedArray.size(); j++) {
-									rotated[j] = TomlTools.getIntOrThrow(rotatedArray, j, motionPos);
-								}
-								motions[i] = new DihedralAngle.Description(
-									TomlTools.getDoubleOrThrow(boundsArray, 0, motionPos),
-									TomlTools.getDoubleOrThrow(boundsArray, 1, motionPos),
-									TomlTools.getIntOrThrow(abcdArray, 0, motionPos),
-									TomlTools.getIntOrThrow(abcdArray, 1, motionPos),
-									TomlTools.getIntOrThrow(abcdArray, 2, motionPos),
-									TomlTools.getIntOrThrow(abcdArray, 3, motionPos),
-									rotated
-								);
+						case "dihedral":
+							double minDegrees = in.readDouble();
+							double maxDegrees = in.readDouble();
+							int a = in.readInt();
+							int b = in.readInt();
+							int c = in.readInt();
+							int d = in.readInt();
+							int numRotated = in.readInt();
+							int[] rotated = new int[numRotated];
+							for (int roti=0; roti<numRotated; roti++) {
+								rotated[roti] = in.readInt();
+							}
+							motions[motioni] = new DihedralAngle.Description(
+								minDegrees, maxDegrees,
+								a, b, c, d,
+								rotated
+							);
 							break;
 
-							default:
-								throw new UnsupportedOperationException("continuous motion type '" + motionType + "' is not supported");
-						}
+						default:
+							throw new UnsupportedOperationException("continuous motion type '" + motionType + "' is not supported");
 					}
 				}
 
 				// read the internal energies
-				TomlArray energyArray = TomlTools.getArrayOrThrow(confTable, "energy", confPos);
-				TomlPosition energyPos = confTable.inputPositionOf("energy");
 				double[] energies = new double[forcefieldIds.length];
 				for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
-					energies[ffi] = TomlTools.getDoubleOrThrow(energyArray, ffi, energyPos);
+					energies[ffi] = in.readDouble();
 				}
 
 				// finally, make the conf
@@ -410,6 +408,7 @@ public class ConfSpace implements ConfSpaceIteration {
 			positions[posi] = new Pos(
 				posi,
 				posName,
+				numFrags,
 				confs
 			);
 		}
@@ -418,47 +417,26 @@ public class ConfSpace implements ConfSpaceIteration {
 		for (int posi=0; posi<numPositions; posi++) {
 			Pos pos = positions[posi];
 
-			Set<Integer> frag1Indices = Arrays.stream(pos.confs)
-				.map(conf -> conf.fragIndex)
-				.collect(Collectors.toSet());
-			for (int fragi : frag1Indices) {
-
-				String keySingle = String.format("pos.%d.frag.%d.atomPairs.single",
-					pos.index, fragi
-				);
-				TomlTable atomPairsSingleTable = TomlTools.getTableOrThrow(doc, keySingle);
-				TomlPosition atomPairsSinglePos = doc.inputPositionOf(keySingle);
-				String keyStatic = String.format("pos.%d.frag.%d.atomPairs.static",
-					pos.index, fragi
-				);
-				TomlTable atomPairsStaticTable = TomlTools.getTableOrThrow(doc, keyStatic);
-				TomlPosition atomPairsStaticPos = doc.inputPositionOf(keyStatic);
+			for (int fragi=0; fragi<pos.numFrags; fragi++) {
 
 				for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
-					String ffkey = "" + ffi;
 
 					// read the pos internal forcefield params
-					TomlArray internalArray = TomlTools.getArrayOrThrow(atomPairsSingleTable, ffkey, atomPairsSinglePos);
-					TomlPosition internalPos = atomPairsSingleTable.inputPositionOf(ffkey);
-					int[][] singles = new int[internalArray.size()][3];
-					for (int i=0; i<internalArray.size(); i++) {
-						TomlArray indicesArray = TomlTools.getArrayOrThrow(internalArray, i, internalPos);
-						TomlPosition indicesPos = internalArray.inputPositionOf(i);
-						singles[i][0] = TomlTools.getIntOrThrow(indicesArray, 0, indicesPos); // atom1i
-						singles[i][1] = TomlTools.getIntOrThrow(indicesArray, 1, indicesPos); // atom2i
-						singles[i][2] = TomlTools.getIntOrThrow(indicesArray, 2, indicesPos); // parami
+					int numSingles = in.readInt();
+					int[][] singles = new int[numSingles][3];
+					for (int i=0; i<numSingles; i++) {
+						singles[i][0] = in.readInt(); // atomi1
+						singles[i][1] = in.readInt(); // atomi2
+						singles[i][2] = in.readInt(); // parami
 					}
 
 					// read the pos-static forcefield params
-					TomlArray posStaticArray = TomlTools.getArrayOrThrow(atomPairsStaticTable, ffkey, atomPairsStaticPos);
-					TomlPosition posStaticPos = atomPairsStaticTable.inputPositionOf(ffkey);
-					int[][] statics = new int[posStaticArray.size()][3];
-					for (int i=0; i<posStaticArray.size(); i++) {
-						TomlArray indicesArray = TomlTools.getArrayOrThrow(posStaticArray, i, posStaticPos);
-						TomlPosition indicesPos = posStaticArray.inputPositionOf(i);
-						statics[i][0] = TomlTools.getIntOrThrow(indicesArray, 0, indicesPos); // atomi
-						statics[i][1] = TomlTools.getIntOrThrow(indicesArray, 1, indicesPos); // statici
-						statics[i][2] = TomlTools.getIntOrThrow(indicesArray, 2, indicesPos); // parami
+					int numStatics = in.readInt();
+					int[][] statics = new int[numStatics][3];
+					for (int i=0; i<numStatics; i++) {
+						statics[i][0] = in.readInt(); // atomi
+						statics[i][1] = in.readInt(); // statici
+						statics[i][2] = in.readInt(); // parami
 					}
 
 					indicesSingles[ffi][posi][fragi] = new IndicesSingle(singles, statics);
@@ -473,47 +451,28 @@ public class ConfSpace implements ConfSpaceIteration {
 		// for each position pair ...
 		for (int posi1=0; posi1<numPositions; posi1++) {
 			Pos pos1 = positions[posi1];
-
-			Set<Integer> frag1Indices = Arrays.stream(pos1.confs)
-				.map(conf -> conf.fragIndex)
-				.collect(Collectors.toSet());
-
 			for (int posi2=0; posi2<posi1; posi2++) {
 				Pos pos2 = positions[posi2];
-
-				Set<Integer> frag2Indices = Arrays.stream(pos2.confs)
-					.map(conf -> conf.fragIndex)
-					.collect(Collectors.toSet());
-
 				int posPairIndex = posPairIndex(pos1.index, pos2.index);
 
 				for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
 					indicesPairs[ffi][posPairIndex] = new IndicesPair[pos1.confs.length][pos2.confs.length];
 				}
 
-				// for each frag pair ...
-				for (int fragi1 : frag1Indices) {
-					for (int fragi2 : frag2Indices) {
-
-						String key = String.format("pos.%d.frag.%d.atomPairs.pos.%d.frag.%d",
-							pos1.index, fragi1, pos2.index, fragi2
-						);
-						TomlTable pairTable = TomlTools.getTableOrThrow(doc, key);
-						TomlPosition pairPos = doc.inputPositionOf(key);
+				// for each fragment pair ...
+				for (int fragi1=0; fragi1<pos1.numFrags; fragi1++) {
+					for (int fragi2=0; fragi2<pos2.numFrags; fragi2++) {
 
 						// for each forcefield ...
 						for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
-							String ffkey = "" + ffi;
-							TomlArray ffArray = TomlTools.getArrayOrThrow(pairTable, ffkey, pairPos);
-							TomlPosition ffPos = pairTable.inputPositionOf(ffkey);
 
-							int[][] indicesPair = new int[ffArray.size()][3];
-							for (int i=0; i<ffArray.size(); i++) {
-								TomlArray indicesArray = TomlTools.getArrayOrThrow(ffArray, i, ffPos);
-								TomlPosition indicesPos = ffArray.inputPositionOf(i);
-								indicesPair[i][0] = TomlTools.getIntOrThrow(indicesArray, 0, indicesPos); // atomi1
-								indicesPair[i][1] = TomlTools.getIntOrThrow(indicesArray, 1, indicesPos); // atomi2
-								indicesPair[i][2] = TomlTools.getIntOrThrow(indicesArray, 2, indicesPos); // parami
+							// read the atom pairs
+							int numPairs = in.readInt();
+							int[][] indicesPair = new int[numPairs][3];
+							for (int i=0; i<numPairs; i++) {
+								indicesPair[i][0] = in.readInt(); // atomi1
+								indicesPair[i][1] = in.readInt(); // atomi2
+								indicesPair[i][2] = in.readInt(); // parami
 							}
 
 							indicesPairs[ffi][posPairIndex][fragi1][fragi2] = new IndicesPair(indicesPair);
@@ -523,30 +482,42 @@ public class ConfSpace implements ConfSpaceIteration {
 			}
 		}
 
-		// finally, read the parameters themselves
-		TomlTable ffparamsTable = TomlTools.getTableOrThrow(doc, "ffparams");
-		TomlPosition ffparamsPos = doc.inputPositionOf("ffparams");
+		// finally, read the forcefield parameters themselves
 		ffparams = new double[forcefieldIds.length][][];
 		for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
-			String ffkey = "" + ffi;
-			TomlArray ffArray = TomlTools.getArrayOrThrow(ffparamsTable, ffkey, ffparamsPos);
-			TomlPosition ffPos = ffparamsTable.inputPositionOf(ffkey);
 
-			int numParams = ffArray.size();
+			int numParams = in.readInt();
 			ffparams[ffi] = new double[numParams][];
 			for (int i=0; i<numParams; i++) {
-				TomlArray paramsArray = TomlTools.getArrayOrThrow(ffArray, i, ffPos);
-				TomlPosition paramsPos = ffArray.inputPositionOf(i);
 
-				double[] params = new double[paramsArray.size()];
-				for (int p=0; p<paramsArray.size(); p++) {
-					params[p] = TomlTools.getDoubleOrThrow(paramsArray, p, paramsPos);
+				int numNumbers = in.readInt();
+				double[] params = new double[numNumbers];
+				for (int p=0; p<numNumbers; p++) {
+					params[p] = in.readDouble();
 				}
 
 				ffparams[ffi][i] = params;
 			}
 		}
 	}
+
+	/*
+	 * If we need a version 2 constructor in the future, it would look like this:
+	 *
+	 * private ConfSpace(DataInput in, int a)
+	 * throws IOException { }
+	 *
+	 * version 3 would look like:
+	 *
+	 * private ConfSpace(DataInput in, int a, int b)
+	 * throws IOException { }
+	 *
+	 * And so on ...
+	 *
+	 * Java doesn't support named constructors, so we have to differentiate by the function signature instead.
+	 * The extra integers are just dummy arguments to give us different constructor signatures,
+	 * but those extra arguments aren't needed for anything else.
+	 */
 
 	private int posPairIndex(int posi1, int posi2) {
 

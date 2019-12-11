@@ -29,7 +29,7 @@ import org.junit.Test;
 @SuppressWarnings("deprecation") // yes, we're using the deprecated adapter class: we're testing it
 public class TestConfEnergyCalculatorAdapter {
 
-	private static ConfSpace confSpace = new ConfSpace(FileTools.readResourceBytes("/confSpaces/dipeptide.5hydrophobic.ccs.toml.xz"));
+	private static ConfSpace confSpace = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/dipeptide.5hydrophobic.ccs.xz"));
 
 	@Test
 	public void energyMatrixRigid() {
@@ -278,6 +278,4 @@ public class TestConfEnergyCalculatorAdapter {
 	@Test public void calcPfunc_CPU4() { calcPfunc(Parallelism.makeCpu(4)); }
 
 	// TODO: GPU ecalcs?
-	// TODO: K*?
-	// TODO: SOFEA?
 }
