@@ -7,4 +7,6 @@ public class Flexibility {
     public boolean isFlexible;
     @JsonProperty("include_structure_rotamer")
     public boolean includeStructureRotamer;
+    @JsonProperty("use_continuous")
+    public boolean useContinuous;
 }

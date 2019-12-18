@@ -22,6 +22,8 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.BigMath;
+import jcuda.runtime.JCuda;
+import jcuda.runtime.cudaDeviceProp;
 
 import java.io.IOException;
 import java.text.NumberFormat;
@@ -29,6 +31,9 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static jcuda.runtime.JCuda.cudaGetDeviceCount;
+import static jcuda.runtime.JCuda.cudaGetDeviceProperties;
 
 @Parameters(commandDescription = CommandPartitionFunction.CommandDescription)
 public class CommandPartitionFunction extends RunnableCommand {
@@ -49,6 +54,9 @@ public class CommandPartitionFunction extends RunnableCommand {
 
     @Parameter(names = "--design-info", description = "Print information about the design and exit")
     private boolean printDesignInfo;
+
+    @Parameter(names = {"--cuda", "-c"})
+    private boolean useCuda;
 
     private ConfEnergyCalculator confEnergyCalc;
     private PartitionFunction pFunc;
@@ -121,7 +129,7 @@ public class CommandPartitionFunction extends RunnableCommand {
                     identifier,
                     mod.mutability.stream().map(AminoAcid::toValue).collect(Collectors.toUnmodifiableList()),
                     mod.flexibility.includeStructureRotamer,
-                    false
+                    mod.flexibility.useContinuous
             );
         }
         var protein = strandBuilder.build();
@@ -153,12 +161,11 @@ public class CommandPartitionFunction extends RunnableCommand {
     }
 
     private int runStabilityDesign(StabilityDesign design) {
-
         /* Maintains flexibility information with the molecule, and can use that to make new molecules */
         var confSpace = createConfSpace(design);
 
         /* Decides whether to use CPU(s) and/or GPU(s) (purely implementation specific) */
-        var parallelism = new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0);
+        var parallelism = getParallelism();
 
         /* Used to calculate energies of a molecule, also used to minimize the molecule */
         var energyCalculator = new EnergyCalculator.Builder(confSpace, ffParams)
@@ -213,5 +220,28 @@ public class CommandPartitionFunction extends RunnableCommand {
             confListeners.add(listener);
             pFunc.addConfListener(listener);
         }
+    }
+
+    private int getNumGpu() {
+        var deviceCount = new int[]{0};
+        cudaGetDeviceCount(deviceCount);
+        return deviceCount[0];
+    }
+
+    private int getNumberGpuMultiprocessors(int deviceIdx) {
+        var deviceProps = new cudaDeviceProp();
+        cudaGetDeviceProperties(deviceProps, deviceIdx);
+        return deviceProps.multiProcessorCount;
+    }
+
+    private Parallelism getParallelism() {
+        if (useCuda) {
+            JCuda.setExceptionsEnabled(true);
+            var numGpus = getNumGpu();
+            var numMultiprocessors = getNumberGpuMultiprocessors(0);
+            return new Parallelism(Runtime.getRuntime().availableProcessors(), numGpus, numMultiprocessors);
+        }
+
+        return new Parallelism(Runtime.getRuntime().availableProcessors(), 0, 0);
     }
 }
