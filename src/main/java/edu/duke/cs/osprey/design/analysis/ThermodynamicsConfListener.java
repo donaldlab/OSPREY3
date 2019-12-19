@@ -22,7 +22,6 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
     private List<ConfSearch.EnergiedConf> confs = new ArrayList<>();
     private BigDecimal pFuncLowerBound;
     private BigDecimal pFuncUpperBound;
-    private ExpFunction eFn = new ExpFunction();
     private static BoltzmannCalculator bCalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
     @Override
@@ -50,7 +49,7 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
     }
 
     private Stream<ProbabilityEnergyTuple> confPropStream() {
-        return confs.stream().map(this::getConfProperties);
+        return confs.stream().parallel().map(this::getConfProperties);
     }
 
     private BigDecimal getUpperBoundProbability(ConfSearch.EnergiedConf conf) {
