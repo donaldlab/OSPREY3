@@ -58,6 +58,9 @@ public class CommandPartitionFunction extends RunnableCommand {
     @Parameter(names = {"--cuda", "-c"})
     private boolean useCuda;
 
+    @Parameter(names = "--verify-design", description = "Verifies input parameters, but does not run the design")
+    private boolean verifyInput;
+
     private ConfEnergyCalculator confEnergyCalc;
     private PartitionFunction pFunc;
     private RCs rcs;
@@ -141,6 +144,10 @@ public class CommandPartitionFunction extends RunnableCommand {
             if (!flex.wildType.substring(0, 2).equalsIgnoreCase(identity.aminoAcidType.toValue().substring(0, 2))) {
                 throw new RuntimeException(String.format("Design parameter thought residue %s was %s, but in structure is %s", identity.positionIdentifier(), identity.aminoAcidType.toValue(), flex.wildType));
             }
+        }
+
+        if (verifyInput) {
+            return Main.Success;
         }
 
         /* Maintains flexibility information with the molecule, and can use that to make new molecules */

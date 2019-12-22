@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.design.models;
 
-import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum AminoAcid {
@@ -43,7 +42,6 @@ public enum AminoAcid {
     public String toValue() {
         return threeLetter;
     }
-
 }
 
 
