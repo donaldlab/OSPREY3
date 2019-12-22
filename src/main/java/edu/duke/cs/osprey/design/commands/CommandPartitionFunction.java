@@ -146,10 +146,6 @@ public class CommandPartitionFunction extends RunnableCommand {
             }
         }
 
-        if (verifyInput) {
-            return Main.Success;
-        }
-
         /* Maintains flexibility information with the molecule, and can use that to make new molecules */
 
         return new SimpleConfSpace.Builder()
@@ -170,6 +166,10 @@ public class CommandPartitionFunction extends RunnableCommand {
     private int runStabilityDesign(StabilityDesign design) {
         /* Maintains flexibility information with the molecule, and can use that to make new molecules */
         var confSpace = createConfSpace(design);
+
+        if (verifyInput) {
+            return Main.Success;
+        }
 
         /* Decides whether to use CPU(s) and/or GPU(s) (purely implementation specific) */
         var parallelism = getParallelism();
