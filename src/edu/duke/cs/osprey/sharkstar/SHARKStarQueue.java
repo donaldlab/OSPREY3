@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
 
+import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.confMatch;
 import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.debug;
 
 class SHARKStarQueue extends PriorityQueue<MultiSequenceSHARKStarNode> {

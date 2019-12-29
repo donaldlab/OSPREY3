@@ -238,8 +238,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     public MultiSequenceSHARKStarNode makeChild(Node child, Sequence seq, double lowerBound, double upperBound,
                                                 SimpleConfSpace.Position designPosition,
                                                 SimpleConfSpace.Position nextDesignPosition) {
-            checkChildren(seq);
-            for(MultiSequenceSHARKStarNode childCheck: getChildren(seq)) {
+        checkChildren(seq);
+        for(MultiSequenceSHARKStarNode childCheck: getChildren(seq)) {
             if(childCheck.getConfSearchNode().rc == child.rc) {
                 System.err.println("Should not be making a dupe node.");
             }

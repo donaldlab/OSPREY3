@@ -120,7 +120,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{};
+    public static final int[] debugConf = new int[]{-1,8,7};
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -502,7 +502,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 debugHeap(sequenceBound.leafQueue);
                 debugHeap(sequenceBound.internalQueue);
                 internalQueueWasEmpty = sequenceBound.internalQueue.isEmpty();
-                //printTree(sequenceBound.sequence,rootNode);
                 rootNode.debugTree(sequenceBound.sequence);
             }
             tightenBoundInPhases(sequenceBound);
@@ -653,6 +652,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             rootNode.updateSubtreeBounds(bound.sequence);
             //printTree(bound.sequence, rootNode);
             System.out.println("This is a bad time.");
+            populateQueues(bound, new ArrayList<>(), new ArrayList<>(), ZSums);
         }
         System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
         if(!bound.internalQueue.isEmpty() &&
@@ -790,9 +790,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 BigDecimal diff = curNode.getUpperBound(seq).subtract(curNode.getLowerBound(seq));
                 if(MathTools.isGreaterThan(diff, sum)) {
                     leftovers.remove(curNode);
-                    list.add(curNode);
                 }
-                continue;
+                else continue;
             }
             BigDecimal diff = curNode.getUpperBound(seq).subtract(curNode.getLowerBound(seq));
             sum = sum.add(diff);
@@ -1132,6 +1131,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             loopTasks.submit(() -> {
 
                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                    if(isDebugConf(node.assignments) && nextPos == 0 && nextRc == 0)
+                        System.out.println("catch");
                     Stopwatch partialTime = new Stopwatch().start();
                     ScoreContext context = checkout.get();
                     node.index(context.index);
