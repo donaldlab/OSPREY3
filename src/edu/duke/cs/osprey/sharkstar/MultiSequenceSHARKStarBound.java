@@ -790,8 +790,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 BigDecimal diff = curNode.getUpperBound(seq).subtract(curNode.getLowerBound(seq));
                 if(MathTools.isGreaterThan(diff, sum)) {
                     leftovers.remove(curNode);
+                    queue.add(curNode);
                 }
-                else continue;
+                continue;
             }
             BigDecimal diff = curNode.getUpperBound(seq).subtract(curNode.getLowerBound(seq));
             sum = sum.add(diff);
