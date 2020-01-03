@@ -556,7 +556,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         parallelism = val;
         //loopTasks = minimizingEcalc.tasks;
         if (loopTasks == null)
-            loopTasks = parallelism.makeTaskExecutor(1000000);
+            loopTasks = parallelism.makeTaskExecutor(null);
         contexts.allocate(parallelism.getParallelism());
     }
 
