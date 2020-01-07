@@ -672,7 +672,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             leafTime.stop();
             leafTimeAverage = leafTime.getTimeS();
             System.out.println("Processed " + numNodes + " leaves in " + leafTimeAverage + " seconds.");
-            if (bound.maxMinimizations < parallelism.numThreads)
+            if (bound.maxMinimizations < parallelism.numThreads/5)
                 bound.maxMinimizations++;
             bound.internalQueue.addAll(internalNodes);
         } else {
