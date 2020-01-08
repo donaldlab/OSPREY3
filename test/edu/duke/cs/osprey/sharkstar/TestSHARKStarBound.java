@@ -80,11 +80,18 @@ public class TestSHARKStarBound extends TestBase {
 
     }
 
-    private PartitionFunction makeMultiSequenceSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace,
+    public static PartitionFunction makeMultiSequenceSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace,
+                                                                                RCs rcs, double epsilon,
+                                                                                MultiSequenceSHARKStarBound preComputedFlex){
+        return makeMultiSequenceSHARKStarPfuncForConfSpace(confSpace, rcs, epsilon, preComputedFlex, 4);
+    }
+
+    public static PartitionFunction makeMultiSequenceSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace,
                                                           RCs rcs, double epsilon,
-                                                          MultiSequenceSHARKStarBound preComputedFlex){
+                                                          MultiSequenceSHARKStarBound preComputedFlex,
+                                                          int numCPUs){
         // Set up partition function requirements
-        Parallelism parallelism = Parallelism.makeCpu(4);
+        Parallelism parallelism = Parallelism.makeCpu(numCPUs);
         ForcefieldParams ffparams = new ForcefieldParams();
 
         // how should we compute energies of molecules?
