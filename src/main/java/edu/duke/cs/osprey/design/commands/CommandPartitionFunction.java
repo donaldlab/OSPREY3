@@ -150,7 +150,6 @@ public class CommandPartitionFunction extends RunnableCommand {
 
         return new SimpleConfSpace.Builder()
                 .addStrand(protein)
-                .setShellDistance(0)
                 .build();
     }
 
@@ -192,9 +191,10 @@ public class CommandPartitionFunction extends RunnableCommand {
         /* Contains the confSpace and a pruning matrix */
         rcs = new RCs(confSpace);
 
-        var partitionFnBuilder = new PartitionFunctionFactory(confSpace, confEnergyCalc, "default");
+        var epsilon = delegate.epsilon > 0 ? delegate.epsilon : design.epsilon;
+        var partitionFnBuilder = new PartitionFunctionFactory(confSpace, confEnergyCalc, design.designName);
         partitionFnBuilder.setUseGradientDescent();
-        pFunc = partitionFnBuilder.makePartitionFunctionFor(rcs, delegate.epsilon > 0 ? delegate.epsilon : design.epsilon);
+        pFunc = partitionFnBuilder.makePartitionFunctionFor(rcs, epsilon);
         addListeners();
         pFunc.compute(maxNumberConfs > 0 ? maxNumberConfs : Integer.MAX_VALUE);
 
