@@ -110,7 +110,7 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
 abstract class ProbabilityEnergyTuple {
 
     static ProbabilityEnergyTuple create(ConfSearch.EnergiedConf conf, BigDecimal lowerBoundProbability, BigDecimal upperBoundProbability) {
-        return new AutoValue_ProbabilityEnergyTuple(conf, lowerBoundProbability, upperBoundProbability, new BigDecimal(conf.getEnergy()));
+        return new AutoValue_ProbabilityEnergyTuple(conf, lowerBoundProbability, upperBoundProbability, BigDecimal.valueOf(conf.getEnergy()));
     }
 
     abstract ConfSearch.EnergiedConf conf();
