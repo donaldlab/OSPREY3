@@ -19,11 +19,13 @@ import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.debugConf
 public class SHARKStarNodeScorer implements AStarScorer {
     protected EnergyMatrix emat;
     protected MathTools.Optimizer opt = MathTools.Optimizer.Minimize;
+    protected int[] debugConf;
 
     public SHARKStarNodeScorer(EnergyMatrix emat, boolean negated) {
         this.emat = emat;
         if(negated)
             opt = MathTools.Optimizer.Maximize;
+        this.debugConf = new int[]{};
     }
 
     @Override
@@ -93,5 +95,9 @@ public class SHARKStarNodeScorer implements AStarScorer {
             System.out.println("End bound: "+bcalc.freeEnergy(pfuncBound));
         }
         return bcalc.freeEnergy(pfuncBound);
+    }
+
+    public void setDebugConf(int[] conf){
+        this.debugConf = conf;
     }
 }
