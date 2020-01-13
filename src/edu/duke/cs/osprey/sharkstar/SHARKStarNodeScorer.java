@@ -21,7 +21,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
     protected EnergyMatrix emat;
     protected MathTools.Optimizer opt = MathTools.Optimizer.Minimize;
     protected int[] debugConf;
-    protected int[][][] bestPair;
+    protected int[][][] bestPairs;
 
     public SHARKStarNodeScorer(EnergyMatrix emat, boolean negated) {
         this.emat = emat;
@@ -36,24 +36,27 @@ public class SHARKStarNodeScorer implements AStarScorer {
                 .boxed()
                 .max(Integer::compare)
                 .get();
-        bestPair = new int[emat.getNumPos()][maxNumRots][emat.getNumPos()];
+        bestPairs = new int[emat.getNumPos()][maxNumRots][emat.getNumPos()];
         fillBestPairMatrix();
     }
 
     private void fillBestPairMatrix(){
+        //TODO: have this consider multiple sequences?
         for (int pos = 0; pos < emat.getNumPos(); pos++) {
             for (int rc = 0; rc < emat.getNumConfAtPos(pos); rc++){
-                for (int partnerPos = pos + 1; partnerPos < emat.getNumPos(); partnerPos++){
-                   int bestPartnerRC = 0;
-                   double bestPairwiseEnergy = Double.MAX_VALUE;
-                   for(int partnerRC = 0; partnerRC < emat.getNumConfAtPos(partnerPos); partnerRC++){
+                for (int partnerPos = 0; partnerPos < emat.getNumPos(); partnerPos++){
+                    if(pos == partnerPos)
+                        continue;
+                    int bestPartnerRC = 0;
+                    double bestPairwiseEnergy = opt.initDouble();
+                    for(int partnerRC = 0; partnerRC < emat.getNumConfAtPos(partnerPos); partnerRC++){
                        double partnerEnergy = emat.getEnergy(pos, rc, partnerPos, partnerRC);
                        if( opt.isBetter(partnerEnergy, bestPairwiseEnergy)){
                            bestPartnerRC = partnerRC;
                            bestPairwiseEnergy = partnerEnergy;
                        }
                    }
-                   bestPair[pos][rc][partnerPos] = bestPartnerRC;
+                   bestPairs[pos][rc][partnerPos] = bestPartnerRC;
                 }
             }
         }
@@ -87,21 +90,26 @@ public class SHARKStarNodeScorer implements AStarScorer {
             int undefinedPos1 = confIndex.undefinedPos[undefinedPosIndex1];
             BigDecimal residueSum = BigDecimal.ZERO;
             for (int rot1 : rcs.get(undefinedPos1)) {
-                double rotEnergy = emat.getEnergy(undefinedPos1, rot1);
-                for (int definedPosIndex = 0; definedPosIndex < confIndex.numDefined; definedPosIndex ++) {
+                double rotEnergy = emat.getEnergy(undefinedPos1, rot1); // get the singletons
+
+                for (int definedPosIndex = 0; definedPosIndex < confIndex.numDefined; definedPosIndex ++) { // iterate through the defined residues
                     int definedPos = confIndex.definedPos[definedPosIndex];
                     int definedRC = confIndex.definedRCs[definedPosIndex];
-                    rotEnergy += emat.getEnergy(undefinedPos1, rot1, definedPos, definedRC);
+                    rotEnergy += emat.getEnergy(undefinedPos1, rot1, definedPos, definedRC); // get the defined pairwise
                 }
                 for (int undefinedPosIndex2 = 0; undefinedPosIndex2 < confIndex.numUndefined; undefinedPosIndex2++) {
                     int undefinedPos2 = confIndex.undefinedPos[undefinedPosIndex2];
                     if (undefinedPos2 >= undefinedPos1)
                         continue;
-                    double bestPair = Double.MAX_VALUE;
+                    // No longer necessary, we precompute this, just testing
+                    /*
+                    double bestPair = opt.initDouble();
                     for (int rot2 : rcs.get(undefinedPos2)) {
                         bestPair = opt.opt(bestPair, emat.getEnergy(undefinedPos1, rot1, undefinedPos2, rot2));
                     }
-                    rotEnergy+= bestPair;
+                    //rotEnergy+=bestPair;
+                     */
+                    rotEnergy+=emat.getEnergy(undefinedPos1, rot1, undefinedPos2, bestPairs[undefinedPos1][rot1][undefinedPos2]);
                 }
                 if(confMatch(conf, debugConf)){
                     System.out.println("Gotcha-calc");
