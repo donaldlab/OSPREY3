@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 
 import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.confMatch;
 import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.debugConf;
@@ -20,12 +21,42 @@ public class SHARKStarNodeScorer implements AStarScorer {
     protected EnergyMatrix emat;
     protected MathTools.Optimizer opt = MathTools.Optimizer.Minimize;
     protected int[] debugConf;
+    protected int[][][] bestPair;
 
     public SHARKStarNodeScorer(EnergyMatrix emat, boolean negated) {
         this.emat = emat;
         if(negated)
             opt = MathTools.Optimizer.Maximize;
         this.debugConf = new int[]{};
+        init();
+    }
+
+    protected void init(){
+        int maxNumRots = Arrays.stream(emat.getNumConfAtPos())
+                .boxed()
+                .max(Integer::compare)
+                .get();
+        bestPair = new int[emat.getNumPos()][maxNumRots][emat.getNumPos()];
+        fillBestPairMatrix();
+    }
+
+    private void fillBestPairMatrix(){
+        for (int pos = 0; pos < emat.getNumPos(); pos++) {
+            for (int rc = 0; rc < emat.getNumConfAtPos(pos); rc++){
+                for (int partnerPos = pos + 1; partnerPos < emat.getNumPos(); partnerPos++){
+                   int bestPartnerRC = 0;
+                   double bestPairwiseEnergy = Double.MAX_VALUE;
+                   for(int partnerRC = 0; partnerRC < emat.getNumConfAtPos(partnerPos); partnerRC++){
+                       double partnerEnergy = emat.getEnergy(pos, rc, partnerPos, partnerRC);
+                       if( opt.isBetter(partnerEnergy, bestPairwiseEnergy)){
+                           bestPartnerRC = partnerRC;
+                           bestPairwiseEnergy = partnerEnergy;
+                       }
+                   }
+                   bestPair[pos][rc][partnerPos] = bestPartnerRC;
+                }
+            }
+        }
     }
 
     @Override
