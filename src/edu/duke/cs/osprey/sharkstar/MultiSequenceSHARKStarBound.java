@@ -946,6 +946,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         recordCorrection(confLowerBound, confCorrection - diff);
                         confLowerBound = confCorrection + hdiff;
                     }
+                    /*
+                    child.index(context.index);
+                    // get the log pfunc upper bound
+                    confLowerBound = context.lowerBoundScorer.calc(context.index, RCs);
+                    // get the log pfunc lower bound
+                    confUpperBound = context.upperBoundScorer.calc(context.index, RCs);
+                    // Note, these will eventually get exponentiated and used as the pfunc upper and lower
+                    node.index(context.index);
+                    */
+
                     child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound);
                     progress.reportInternalNode(child.level, child.getPartialConfLowerBound(), confLowerBound, queue.size(), children.size(), bound.getSequenceEpsilon());
                     if(isDebugConf(node.assignments))
@@ -954,6 +964,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 if (child.getLevel() == RCs.getNumPos()) {
                     if(isDebugConf(child.assignments))
                         System.out.println("Gotcha-drilldown-leaf");
+                    /*
+                    //Stop with corrections right now
                     double confRigid = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     //confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
 
@@ -968,6 +980,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     confLowerBound = confCorrection;
                     child.setPartialConfLowerAndUpper(confCorrection, confRigid);
                     confUpperBound = confRigid;
+                     */
+                    confLowerBound = context.lowerBoundScorer.calc(context.index, RCs);
+                    confUpperBound = context.upperBoundScorer.calc(context.index, RCs);
+                    child.setPartialConfLowerAndUpper(confLowerBound, confUpperBound);
                     numConfsScored++;
                     progress.reportLeafNode(child.getPartialConfLowerBound(), queue.size(), bound.getSequenceEpsilon());
                 }
