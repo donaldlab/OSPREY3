@@ -195,7 +195,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             printTree(seq, this);
             System.out.println("Last Tree:");
             printLastTree(seq, this);
-            System.exit(-1);
+            throw new RuntimeException("Exiting due to increasing upper bound! This is bad!");
         }
         if(lastLower != null
                 && MathTools.isLessThan(getSequenceBounds(seq).lower,lastLower)
@@ -207,7 +207,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             printTree(seq, this);
             System.out.println("Last Tree:");
             printLastTree(seq, this);
-            System.exit(-1);
+            throw new RuntimeException("ERROR: Exiting due to decreasing lower bound! This is bad!");
         }
         /* this check doesn't work across multiple sequences yet.
         if(lastEpsilon < nodeEpsilon && nodeEpsilon - lastEpsilon > 0.0001) {
