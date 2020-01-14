@@ -24,6 +24,7 @@ import org.ojalgo.matrix.transformation.Rotation;
 import java.io.FileNotFoundException;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -110,12 +111,48 @@ public class TestSHARKStarNodeScorer {
     @Test
     public void testRootBound(){
         rootNode.index(confIndex);
-        int[] debugConf = {-1, -1, -1, -1, -1, -1, -1};
-        lbScorer.setDebugConf(debugConf);
+        //int[] debugConf = {-1, -1, -1, -1, -1, -1, -1};
+        //lbScorer.setDebugConf(debugConf);
         double lb = lbGScorer.calc(confIndex, rcs) + lbScorer.calc(confIndex,rcs);
         double ub = ubGScorer.calc(confIndex, rcs) + ubScorer.calc(confIndex,rcs);
 
-        System.out.println(String.format("%s bounds: [%.3e, %.3e] --> Energy [%.3f, %.3f]", rootNode.confToString(), bc.calc(ub), bc.calc(lb), lb, ub));
+        System.out.println(String.format("%s bounds: [%.3e, %.3e] --> Energy [%.20f, %.20f]", rootNode.confToString(), bc.calc(ub), bc.calc(lb), lb, ub));
+    }
+
+    @Test
+    public void testRootBound_allatonce(){
+        rootNode.index(confIndex);
+        //int[] debugConf = {-1, -1, -1, -1, -1, -1, -1};
+        //lbScorer.setDebugConf(debugConf);
+        BigDecimal pfuncUpper = lbScorer.calcCombinedScore(confIndex,rcs);
+        BigDecimal pfuncLower =  ubScorer.calcCombinedScore(confIndex,rcs);
+
+        System.out.println(String.format("%s bounds: [%.3e, %.3e] --> Energy [%.20f, %.20f]", rootNode.confToString(), pfuncLower.doubleValue(), pfuncUpper.doubleValue(), bc.freeEnergy(pfuncUpper),bc.freeEnergy(pfuncLower) ));
+    }
+
+    @Test
+    public void testBoltzmannAndFreeEnergy(){
+        rootNode.index(confIndex);
+        BigDecimal pfuncUpper = lbScorer.calcCombinedScore(confIndex,rcs);
+        double energy = bc.freeEnergy(pfuncUpper);
+        BigDecimal weightedEnergy = bc.calc(energy);
+        double energy2 = bc.freeEnergy(weightedEnergy);
+        BigDecimal weightedEnergy2 = bc.calc(energy2);
+
+        System.out.println(String.format("Directly calculated pfunc: %.3e --> \n" +
+                "energy via bc.freeEnergy: %.3f --> \n" +
+                        "pfunc via bc.calc: %.3e --> \n" +
+                        "energy via bc.freeEnergy: %.3f --> \n" +
+                        "pfunc via bc.calc: %.3e",
+                pfuncUpper.doubleValue(), energy, weightedEnergy, energy2, weightedEnergy2));
+
+        BigDecimal testValue = BigDecimal.valueOf(7e75).setScale(64);
+        double testenergy = bc.freeEnergy(testValue);
+        BigDecimal testValue2 = bc.calc(testenergy);
+        System.out.println(String.format("test value: %.3e --> \n" +
+                        "energy via bc.freeEnergy: %.3f --> \n" +
+                        "pfunc via bc.calc: %.3e --> \n",
+                testValue, testenergy, testValue2));
     }
 
     @Test
@@ -134,6 +171,22 @@ public class TestSHARKStarNodeScorer {
                     node.confToString(), bc.calc(ub), bc.calc(lb), lb, ub, g_lb, g_ub, h_lb, h_ub));
             pfuncSum_upper = pfuncSum_upper.add(bc.calc(lb));
             pfuncSum_lower = pfuncSum_lower.add(bc.calc(ub));
+        }
+        System.out.println(String.format("Level 1 sum bounds: [%.3e, %.3e]", pfuncSum_lower.doubleValue(), pfuncSum_upper.doubleValue()));
+    }
+
+    @Test
+    public void testLevel1Bound_allatonece(){
+        BigDecimal pfuncSum_upper = BigDecimal.ZERO;
+        BigDecimal pfuncSum_lower = BigDecimal.ZERO;
+        for (MultiSequenceSHARKStarNode.Node node : levelOne){
+            node.index(confIndex);
+            BigDecimal pfuncUpper = lbScorer.calcCombinedScore(confIndex, rcs);
+            BigDecimal pfuncLower = ubScorer.calcCombinedScore(confIndex, rcs);
+            System.out.println(String.format("%s bounds: [%.3e, %.3e] --> Energy [%.3f, %.3f]",
+                    node.confToString(), pfuncLower, pfuncUpper, bc.freeEnergy(pfuncUpper), bc.freeEnergy(pfuncLower)));
+            pfuncSum_upper = pfuncSum_upper.add(pfuncUpper);
+            pfuncSum_lower = pfuncSum_lower.add(pfuncLower);
         }
         System.out.println(String.format("Level 1 sum bounds: [%.3e, %.3e]", pfuncSum_lower.doubleValue(), pfuncSum_upper.doubleValue()));
     }
