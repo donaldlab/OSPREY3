@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseRigidGScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -183,6 +184,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             /** These scoreres should match the scorers in the SHARKStarNode root - they perform the same calculations**/
             context.upperBoundScorer = nhscorerFactory.make(rigidEmat); //this is used for upper bounds, so we want it rigid
             context.ecalc = minimizingConfEcalc;
+
             return context;
         });
 
@@ -890,6 +892,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                 // score the child node differentially against the parent node
                 if (child.getLevel() < RCs.getNumPos()) {
+
                     double confCorrection = correctionMatrix.confE(child.assignments);
                     double diff = confCorrection;
                     double rigiddiff = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
@@ -906,6 +909,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         recordCorrection(confLowerBound, confCorrection - diff);
                         confLowerBound = confCorrection + hdiff;
                     }
+
                     child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound);
                     progress.reportInternalNode(child.level, child.getPartialConfLowerBound(), confLowerBound, queue.size(), children.size(), bound.getSequenceEpsilon());
                     if(isDebugConf(node.assignments))
@@ -928,6 +932,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     confLowerBound = confCorrection;
                     child.setPartialConfLowerAndUpper(confCorrection, confRigid);
                     confUpperBound = confRigid;
+                    child.setPartialConfLowerAndUpper(confLowerBound, confUpperBound);
                     numConfsScored++;
                     progress.reportLeafNode(child.getPartialConfLowerBound(), queue.size(), bound.getSequenceEpsilon());
                 }

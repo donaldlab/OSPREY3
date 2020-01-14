@@ -51,6 +51,7 @@ package edu.duke.cs.osprey.tools;
 
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 
+import javax.annotation.PreDestroy;
 import java.io.Serializable;
 import java.math.*;
 
@@ -65,6 +66,7 @@ public class ExpFunction implements Serializable {
 
 	public static final BigDecimal exp = new BigDecimal("2.71828182845904523536"); //Euler's number to 20 decimal digits
 	public static MathContext mc = new MathContext(100, RoundingMode.HALF_EVEN);
+	public static final BigDecimal cutoffLog = new BigDecimal(Math.pow(10,38));
 
 	public final int maxPrecision; //the number of decimal digits to which the BigDecimal numbers must be accurate
 
@@ -114,16 +116,24 @@ public class ExpFunction implements Serializable {
 		return num.pow(a);
 	}
 
-	//Returns an approximation to the natural logarithm of the BigDecimal number num
-	public BigDecimal log(BigDecimal num){
+	@Deprecated
+	public BigDecimal logStable(BigDecimal num){
+		/**logStable
+		 *
+		 * Computes an approximation to the natural logarithm of BigDecimal number num.
+		 * Conceptually the same as the log method, but we count up to avoid scale issues
+		 * that were happening with the other method.
+         *
+		 * NOTE: THIS DOESN'T CURRENTLY WORK AS ACCURATELY AS THE OTHER LOG FUNCTION
+		 */
 		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
 			throw new IllegalArgumentException("log of a negative number: " + num);
 		}
 
 		BigDecimal sum = new BigDecimal("0.0");
-		BigDecimal x = num;
+		BigDecimal x = BigDecimal.ONE;
 
-		if (num.compareTo(new BigDecimal(Math.pow(10, 38)))<0){ //num is small, so use the standard Math.log() function
+		if (num.compareTo(cutoffLog)<0){ //num is small, so use the standard Math.log() function
 			if (num.compareTo(new BigDecimal(1e-323))<0)
 				sum = MathTools.BigNegativeInfinity;
 			else
@@ -135,7 +145,48 @@ public class ExpFunction implements Serializable {
 
 			boolean done = false;
 			while (!done){
-				if (x.compareTo(exp)>0){
+				if (x.compareTo(num)<0){
+					t += 1.0;
+					x = x.multiply(exp, mc);
+				}
+				else {
+					double addend = Math.log(num.subtract(x,mc).doubleValue());
+					sum = sum.add(new BigDecimal(t));
+					if(Double.isFinite(addend))
+						sum = sum.add(new BigDecimal(addend));
+					done = true;
+				}
+			}
+		}
+
+		return sum;
+
+	}
+	//Returns an approximation to the natural logarithm of the BigDecimal number num
+	public BigDecimal log(BigDecimal num){
+		/**
+		 * Note: This starts to fail if num's exponent is much bigger than the MathContext precision + 36, empirically
+		 */
+		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
+			throw new IllegalArgumentException("log of a negative number: " + num);
+		}
+
+		BigDecimal sum = new BigDecimal("0.0");
+		BigDecimal x = num;
+
+		if (num.compareTo(cutoffLog)<0){ //num is small, so use the standard Math.log() function
+			if (num.compareTo(new BigDecimal(1e-323))<0)
+				sum = MathTools.BigNegativeInfinity;
+			else
+				sum = new BigDecimal(Math.log(num.doubleValue()));
+		}
+		else { //num is large, so compute an approximation to the natural logarithm
+
+			double t = 0.0;
+
+			boolean done = false;
+			while (!done){
+				if (x.compareTo(cutoffLog)>0){
 					t += 1.0;
 				}
 				else {
