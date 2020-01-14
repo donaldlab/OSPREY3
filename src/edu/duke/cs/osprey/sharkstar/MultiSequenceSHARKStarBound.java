@@ -82,12 +82,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private ScorerFactory hscorerFactory;
     private ScorerFactory nhscorerFactory;
 
-    // debug stuff GTH
-    private ScorerFactory debugScorerFactory_one;
-    private ScorerFactory debugScorerFactory_two;
-    // end debug stuff GTH
-
-
     public boolean reduceMinimizations = true;
     private ConfAnalyzer confAnalyzer;
     EnergyMatrix minimizingEmat;
@@ -151,11 +145,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         hscorerFactory = (emats) -> new SHARKStarNodeScorer(emats, false);
         nhscorerFactory = (emats) -> new SHARKStarNodeScorer(emats, true);
-        //debug stuff GTH
-        debugScorerFactory_one = (emats) -> new TraditionalPairwiseHScorer(emats, rcs, MathTools.Optimizer.Minimize);
-        debugScorerFactory_two = (emats) -> new TraditionalPairwiseHScorer(emats, rcs, MathTools.Optimizer.Maximize);
-
-        //end debug stuff GTH
         //hscorerFactory = (emats) -> new TraditionalPairwiseHScorer(emats, rcs);
         //nhscorerFactory = (emats) -> new TraditionalPairwiseHScorer(new NegatedEnergyMatrix(confSpace, rigidEmat), rcs);
         this.minimizingEmat = minimizingEmat;
@@ -196,10 +185,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             context.upperBoundScorer = nhscorerFactory.make(rigidEmat); //this is used for upper bounds, so we want it rigid
             context.ecalc = minimizingConfEcalc;
 
-            //debug stuff GTH
-            context.debugScorer_lower = debugScorerFactory_one.make(minimizingEmat);
-            context.debugScorer_upper = debugScorerFactory_two.make(rigidEmat);
-            // end debug stuff GTH
             return context;
         });
 
@@ -907,28 +892,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                 // score the child node differentially against the parent node
                 if (child.getLevel() < RCs.getNumPos()) {
-                    // debug stuff GTH
-                    //score the node
-                    double gscoreLB = context.partialConfLowerBoundScorer.calc(context.index, RCs);
-                    double gscoreUB = context.partialConfUpperBoundScorer.calc(context.index, RCs);
-                    double hscoreLB = context.lowerBoundScorer.calc(context.index, RCs);
-                    double hscoreUB = context.upperBoundScorer.calc(context.index, RCs);
-                    double realHscoreLB = context.debugScorer_lower.calc(context.index, RCs);
-                    double realHscoreUB = context.debugScorer_upper.calc(context.index, RCs);
-                    double test_confLower = gscoreLB + hscoreLB;
-                    double test_confUpper = gscoreUB + hscoreUB;
-                    //score the child
-                    child.index(context.index);
-                    double c_gscoreLB = context.partialConfLowerBoundScorer.calc(context.index, RCs);
-                    double c_gscoreUB = context.partialConfUpperBoundScorer.calc(context.index, RCs);
-                    double c_hscoreLB = context.lowerBoundScorer.calc(context.index, RCs);
-                    double c_hscoreUB = context.upperBoundScorer.calc(context.index, RCs);
-                    double c_realHscoreLB = context.debugScorer_lower.calc(context.index, RCs);
-                    double c_realHscoreUB = context.debugScorer_upper.calc(context.index, RCs);
-                    double c_test_confLower = c_gscoreLB + c_hscoreLB;
-                    double c_test_confUpper = c_gscoreUB + c_hscoreUB;
-                    node.index(context.index);
-                    // end debug stuff GTH
 
                     double confCorrection = correctionMatrix.confE(child.assignments);
                     double diff = confCorrection;
@@ -946,15 +909,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         recordCorrection(confLowerBound, confCorrection - diff);
                         confLowerBound = confCorrection + hdiff;
                     }
-                    /*
-                    child.index(context.index);
-                    // get the log pfunc upper bound
-                    confLowerBound = context.lowerBoundScorer.calc(context.index, RCs);
-                    // get the log pfunc lower bound
-                    confUpperBound = context.upperBoundScorer.calc(context.index, RCs);
-                    // Note, these will eventually get exponentiated and used as the pfunc upper and lower
-                    node.index(context.index);
-                    */
 
                     child.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound);
                     progress.reportInternalNode(child.level, child.getPartialConfLowerBound(), confLowerBound, queue.size(), children.size(), bound.getSequenceEpsilon());
@@ -964,8 +918,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 if (child.getLevel() == RCs.getNumPos()) {
                     if(isDebugConf(child.assignments))
                         System.out.println("Gotcha-drilldown-leaf");
-                    /*
-                    //Stop with corrections right now
                     double confRigid = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     //confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
 
@@ -980,9 +932,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     confLowerBound = confCorrection;
                     child.setPartialConfLowerAndUpper(confCorrection, confRigid);
                     confUpperBound = confRigid;
-                     */
-                    confLowerBound = context.lowerBoundScorer.calc(context.index, RCs);
-                    confUpperBound = context.upperBoundScorer.calc(context.index, RCs);
                     child.setPartialConfLowerAndUpper(confLowerBound, confUpperBound);
                     numConfsScored++;
                     progress.reportLeafNode(child.getPartialConfLowerBound(), queue.size(), bound.getSequenceEpsilon());
@@ -1474,11 +1423,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         public AStarScorer upperBoundScorer;
         public AStarScorer partialConfUpperBoundScorer;
         public ConfEnergyCalculator ecalc;
-
-        // debug stuff GTH
-        public AStarScorer debugScorer_lower;
-        public AStarScorer debugScorer_upper;
-        // end debug stuff GTH
     }
 
     public interface ScorerFactory {

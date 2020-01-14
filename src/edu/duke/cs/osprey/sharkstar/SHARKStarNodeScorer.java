@@ -194,14 +194,6 @@ public class SHARKStarNodeScorer implements AStarScorer {
                     int undefinedPos2 = confIndex.undefinedPos[undefinedPosIndex2];
                     if (undefinedPos2 >= undefinedPos1)
                         continue;
-                    // No longer necessary, we precompute this, just testing
-                    /*
-                    double bestPair = opt.initDouble();
-                    for (int rot2 : rcs.get(undefinedPos2)) {
-                        bestPair = opt.opt(bestPair, emat.getEnergy(undefinedPos1, rot1, undefinedPos2, rot2));
-                    }
-                    //rotEnergy+=bestPair;
-                     */
                     rotEnergy+=emat.getEnergy(undefinedPos1, rot1, undefinedPos2, bestPairs[undefinedPos1][rot1][undefinedPos2]);
                 }
                 if(confMatch(conf, debugConf)){
