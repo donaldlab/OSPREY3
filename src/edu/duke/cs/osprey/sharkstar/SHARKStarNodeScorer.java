@@ -21,14 +21,20 @@ import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.debugConf
 public class SHARKStarNodeScorer implements AStarScorer {
     protected EnergyMatrix emat;
     protected MathTools.Optimizer opt = MathTools.Optimizer.Minimize;
+    /*
     protected int[] debugConf;
+     */
+
     protected int[][][] bestPairs;
 
     public SHARKStarNodeScorer(EnergyMatrix emat, boolean negated) {
         this.emat = emat;
         if(negated)
             opt = MathTools.Optimizer.Maximize;
+        /*
         this.debugConf = new int[]{};
+
+         */
         init();
     }
 
@@ -156,7 +162,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
                         continue;
                     rotEnergy+=emat.getEnergy(undefinedPos1, rot1, undefinedPos2, bestPairs[undefinedPos1][rot1][undefinedPos2]);
                 }
-                residueSum = residueSum.add(bcalc.calc(rotEnergy));
+                residueSum = residueSum.add(bcalc.calc(rotEnergy), bcalc.mathContext);
             }
             pfuncBound = pfuncBound.multiply(residueSum, PartitionFunction.decimalPrecision);
         }
@@ -206,7 +212,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
                     System.out.println("Energy of " + testTuple + ": " + energyCheck);
                     System.out.println("Rot energy of "+ testTuple + ": " + rotEnergy);
                 }
-                residueSum = residueSum.add(bcalc.calc(rotEnergy));
+                residueSum = residueSum.add(bcalc.calc(rotEnergy),bcalc.mathContext);
             }
             if(confMatch(conf, debugConf)){
                 System.out.println("Gotcha-calc2");
@@ -216,12 +222,15 @@ public class SHARKStarNodeScorer implements AStarScorer {
         }
         if(confMatch(conf, debugConf)){
             System.out.println("Gotcha-calc3");
-            System.out.println("End bound: "+bcalc.freeEnergy(pfuncBound));
+            System.out.println("End bound: "+bcalc.freeEnergyPrecise(pfuncBound));
         }
-        return bcalc.freeEnergy(pfuncBound);
+        return bcalc.freeEnergyPrecise(pfuncBound);
     }
 
+    /*
     public void setDebugConf(int[] conf){
         this.debugConf = conf;
     }
+
+     */
 }
