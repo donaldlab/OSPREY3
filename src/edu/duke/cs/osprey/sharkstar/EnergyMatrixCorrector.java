@@ -135,16 +135,15 @@ public class EnergyMatrixCorrector {
         multiSequenceSHARKStarBound.getCorrectedTuples().add(tuple.stringListing());
         if (multiSequenceSHARKStarBound.getCorrectionMatrix().hasHigherOrderTermFor(tuple))
             return;
-        minimizingEcalc.calcEnergyAsync(tuple, (minimizedTuple) -> {
-            double tripleEnergy = minimizedTuple.energy;
+        double tripleEnergy = minimizingEcalc.calcEnergy(tuple).energy;
 
-            double lowerbound = multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(tuple);
-            if (tripleEnergy - lowerbound > 0) {
-                double correction = tripleEnergy - lowerbound;
-                multiSequenceSHARKStarBound.getCorrectionMatrix().setHigherOrder(tuple, correction);
-            } else
-                System.err.println("Negative correction for " + tuple.stringListing());
-        });
+        double lowerbound = multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(tuple);
+        if (tripleEnergy - lowerbound > 0) {
+            double correction = tripleEnergy - lowerbound;
+            multiSequenceSHARKStarBound.getCorrectionMatrix().setHigherOrder(tuple, correction);
+        } else
+            System.err.println("Negative correction for " + tuple.stringListing());
+
     }
 
     public static RCTuple makeTuple(ConfSearch.ScoredConf conf, int... positions) {
