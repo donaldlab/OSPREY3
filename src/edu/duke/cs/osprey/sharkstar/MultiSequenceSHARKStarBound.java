@@ -382,6 +382,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private MultiSequenceSHARKStarBound precomputeFlexible_expensiveWay() {
         SimpleConfSpace flexConfSpace = confSpace.makeFlexibleCopy();
         Sequence unassignedFlex = flexConfSpace.makeUnassignedSequence();
+        // Sometimes our designs don't have immutable residues on one side.
+        if(flexConfSpace.positions.size() < 1)
+            return null;
         RCs flexRCs = new RCs(flexConfSpace);
 
         System.out.println("Making flexible confspace bound...");
