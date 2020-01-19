@@ -32,9 +32,12 @@
 
 package edu.duke.cs.osprey.kstar;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
@@ -155,7 +158,13 @@ public class SequenceAnalyzer {
 				adapter.confSpace = info.confSpace;
 				adapter.id = info.id;
 				adapter.confEcalc = info.confEcalcMinimized;
-				adapter.confSearchFactory = info.confSearchFactoryMinimized;
+				EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
+						.build()
+						.calcEnergyMatrix();
+				adapter.confSearchFactory = (rcs) ->
+						new ConfAStarTree.Builder(ematMinimized, rcs)
+								.setTraditional()
+								.build();
 				adapter.confDBFile = info.confDBFile;
 				return adapter;
 			}
