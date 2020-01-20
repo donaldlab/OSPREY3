@@ -201,7 +201,7 @@ public interface SeqAStarNode extends OptimizableAStarNode, Comparable<SeqAStarN
 		}
 
 		public RCs makeRCs(SeqSpace seqSpace, SimpleConfSpace confSpace) {
-			return new RCs(confSpace, (confPos, resConf) -> {
+			return new RCs(confSpace, (SimpleConfSpace.Position confPos, SimpleConfSpace.ResidueConf resConf) -> {
 
 				// immutable pos? keep everything
 				if (!confPos.hasMutations()) {

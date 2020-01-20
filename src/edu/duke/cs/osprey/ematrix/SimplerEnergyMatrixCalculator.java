@@ -466,7 +466,7 @@ public class SimplerEnergyMatrixCalculator {
 		for (int posi=0; posi<confSpace.numPos(); posi++) {
 			for (int confi=0; confi<confSpace.numConf(posi); confi++) {
 
-				String resType = confSpace.confResType(posi, confi);
+				String resType = confSpace.confType(posi, confi);
 				int fposi = posi;
 				int fconfi = confi;
 				confEcalc.tasks.submit(

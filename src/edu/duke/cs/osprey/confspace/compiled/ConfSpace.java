@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.confspace.compiled;
 
 import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle;
 import edu.duke.cs.osprey.energy.compiled.AmberEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.EEF1EnergyCalculator;
@@ -50,6 +51,23 @@ public class ConfSpace implements ConfSpaceIteration {
 			this.motions = motions;
 			this.energies = energies;
 		}
+
+		public Integer findAtomIndex(String name) {
+			for (int atomi=0; atomi<numAtoms; atomi++) {
+				if (atomNames[atomi].equals(name)) {
+					return atomi;
+				}
+			}
+			return null;
+		}
+
+		public int findAtomIndexOrThrow(String name) {
+			Integer atomi = findAtomIndex(name);
+			if (atomi != null) {
+				return atomi;
+			}
+			throw new NoSuchElementException("no atom with name " + name);
+		}
 	}
 
 	/** a design position */
@@ -57,15 +75,18 @@ public class ConfSpace implements ConfSpaceIteration {
 
 		public final int index;
 		public final String name;
+		public final String wildType;
 		public final int numFrags;
 
 		public final Conf[] confs;
 		public final int maxNumAtoms;
+		public final boolean hasMutations;
 
-		public Pos(int index, String name, int numFrags, Conf[] confs) {
+		public Pos(int index, String name, String wildType, int numFrags, Conf[] confs) {
 
 			this.index = index;
 			this.name = name;
+			this.wildType = wildType;
 			this.numFrags = numFrags;
 			this.confs = confs;
 
@@ -73,6 +94,9 @@ public class ConfSpace implements ConfSpaceIteration {
 				.mapToInt(conf -> conf.numAtoms)
 				.max()
 				.orElse(0);
+
+			hasMutations = Arrays.stream(confs)
+				.anyMatch(conf -> !conf.type.equals(wildType));
 		}
 
 		public Conf findConf(String id) {
@@ -103,6 +127,7 @@ public class ConfSpace implements ConfSpaceIteration {
 	public final double[] staticEnergies;
 
 	public final Pos[] positions;
+	public final SeqSpace seqSpace;
 
 	public class IndicesSingle {
 
@@ -318,6 +343,7 @@ public class ConfSpace implements ConfSpaceIteration {
 
 			// read the position properties
 			String posName = in.readUTF();
+			String wildType = in.readUTF();
 
 			// read the fragments
 			int numFrags = in.readInt();
@@ -408,6 +434,7 @@ public class ConfSpace implements ConfSpaceIteration {
 			positions[posi] = new Pos(
 				posi,
 				posName,
+				wildType,
 				numFrags,
 				confs
 			);
@@ -499,6 +526,8 @@ public class ConfSpace implements ConfSpaceIteration {
 				ffparams[ffi][i] = params;
 			}
 		}
+
+		seqSpace = new SeqSpace(this);
 	}
 
 	/*
@@ -557,7 +586,7 @@ public class ConfSpace implements ConfSpaceIteration {
 	@Override
 	public int countSingles() {
 		int count = 0;
-		for (int posi1=1; posi1<positions.length; posi1++) {
+		for (int posi1=0; posi1<positions.length; posi1++) {
 			count += positions[posi1].confs.length;
 		}
 		return count;
@@ -585,8 +614,60 @@ public class ConfSpace implements ConfSpaceIteration {
 	}
 
 	@Override
-	public String confResType(int posi, int confi) {
+	public String name(int posi) {
+		return positions[posi].name;
+	}
+
+	@Override
+	public String confId(int posi, int confi) {
+		return positions[posi].confs[confi].id;
+	}
+
+	@Override
+	public String confType(int posi, int confi) {
 		return positions[posi].confs[confi].type;
+	}
+
+	@Override
+	public SeqSpace seqSpace() {
+		return seqSpace;
+	}
+
+	@Override
+	public String wildType(int posi) {
+		return positions[posi].wildType;
+	}
+
+	@Override
+	public boolean hasMutations(int posi) {
+		return positions[posi].hasMutations;
+	}
+
+	/**
+	 * Finds the first position with the given name, or null if no positions match.
+	 * WARNING: position names are not guaranteed to be unique.
+	 */
+	public Pos findPos(String name) {
+		for (Pos pos : positions) {
+			if (pos.name.equals(name)) {
+				return pos;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Finds the first static atom with the given name and returns its index,
+	 * or null if no static atom names match.
+	 * WARNING: static atom names are not guaranteed to be unique.
+	 */
+	public Integer findStaticAtomIndex(String name) {
+		for (int i=0; i<staticNames.length; i++) {
+			if (staticNames[i].equals(name)) {
+				return i;
+			}
+		}
+		return null;
 	}
 
 	/** Makes assignments with no assigned positions. */

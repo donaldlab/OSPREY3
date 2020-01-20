@@ -42,11 +42,12 @@ import java.io.IOException;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 public class ConfDB implements AutoCleanable {
 
-	public static ConfDB makeIfNeeded(SimpleConfSpace confSpace, File file) {
+	public static ConfDB makeIfNeeded(ConfSpaceIteration confSpace, File file) {
 
 		// no file? confdb not needed
 		if (file == null) {
@@ -60,17 +61,17 @@ public class ConfDB implements AutoCleanable {
 
 		public class Adder {
 
-			public void add(SimpleConfSpace confSpace, File file) {
+			public void add(ConfSpaceIteration confSpace, File file) {
 				if (file != null) {
 					dbs.put(confSpace, new ConfDB(confSpace, file));
 				}
 			}
 		}
 
-		private final Map<SimpleConfSpace,ConfDB> dbs = new HashMap<>();
+		private final Map<ConfSpaceIteration,ConfDB> dbs = new IdentityHashMap<>();
 		private final Adder adder = new Adder();
 
-		public DBs add(SimpleConfSpace confSpace, File file) {
+		public DBs add(ConfSpaceIteration confSpace, File file) {
 			adder.add(confSpace, file);
 			return this;
 		}
@@ -82,7 +83,7 @@ public class ConfDB implements AutoCleanable {
 			return this;
 		}
 
-		public ConfDB get(SimpleConfSpace confSpace) {
+		public ConfDB get(ConfSpaceIteration confSpace) {
 			return dbs.get(confSpace);
 		}
 
@@ -188,8 +189,8 @@ public class ConfDB implements AutoCleanable {
 		private final int numPos;
 
 		public AssignmentsSerializer() {
-			super(assignmentEncoding.numBytes*confSpace.positions.size());
-			this.numPos = confSpace.positions.size();
+			super(assignmentEncoding.numBytes*confSpace.numPos());
+			this.numPos = confSpace.numPos();
 
 			// check the unassigned value is -1, since we do arithmetic on it
 			assert (edu.duke.cs.osprey.confspace.Conf.Unassigned == -1);
@@ -548,7 +549,7 @@ public class ConfDB implements AutoCleanable {
 		public final Sequence sequence;
 
 		public SequenceDB(Sequence sequence) {
-			super(Streams.joinToString(confSpace.seqSpace.positions, ":", pos -> sequence.get(pos).name));
+			super(Streams.joinToString(confSpace.seqSpace().positions, ":", pos -> sequence.get(pos).name));
 			this.sequence = sequence;
 		}
 
@@ -681,7 +682,7 @@ public class ConfDB implements AutoCleanable {
 		}
 	}
 
-	public final SimpleConfSpace confSpace;
+	public final ConfSpaceIteration confSpace;
 	public final File file;
 
 	private final DB db;
@@ -689,26 +690,24 @@ public class ConfDB implements AutoCleanable {
 	private final Map<Sequence,SequenceDB> sequenceDBs;
 	private final IntEncoding assignmentEncoding;
 
-	public ConfDB(SimpleConfSpace confSpace) {
+	public ConfDB(ConfSpaceIteration confSpace) {
 		this(confSpace, null);
 	}
 
-	public ConfDB(SimpleConfSpace confSpace, File file) {
+	public ConfDB(ConfSpaceIteration confSpace, File file) {
 
 		this.confSpace = confSpace;
 		this.file = file;
 
 		// determine conf encoding
-		int maxAssignment = 0;
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			for (SimpleConfSpace.ResidueConf resConf : pos.resConfs) {
-				maxAssignment = Math.max(maxAssignment, resConf.index);
-			}
-		}
+		int maxAssignment = IntStream.range(0, confSpace.numPos())
+			.map(pos -> confSpace.numConf(pos))
+			.max()
+			.orElse(0);
 		assignmentEncoding = IntEncoding.get(maxAssignment + 1); // +1 for the shift to move the unassigned value (-1) to non-negative
 
 		// MapDB serializer for Sequence
-		MapDBTools.SequenceSerializer sequenceSerializer = new MapDBTools.SequenceSerializer(confSpace.seqSpace);
+		MapDBTools.SequenceSerializer sequenceSerializer = new MapDBTools.SequenceSerializer(confSpace.seqSpace());
 
 		// MapDB serialzier for SequenceInfo
 		final int infoSize = Double.BYTES;
@@ -759,7 +758,7 @@ public class ConfDB implements AutoCleanable {
 	public SequenceDB getSequence(Sequence sequence) {
 
 		// make sure the sequence spaces match
-		if (sequence.seqSpace != confSpace.seqSpace) {
+		if (sequence.seqSpace != confSpace.seqSpace()) {
 			throw new IllegalArgumentException("this sequence is from a different sequence space than the sequence space used by this db");
 		}
 

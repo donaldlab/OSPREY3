@@ -789,6 +789,10 @@ public class MathTools {
 			return val.lower >= this.lower && val.upper <= this.upper;
 		}
 
+		public boolean intersects(DoubleBounds other) {
+			return other.upper >= this.lower && other.lower <= this.upper;
+		}
+
 		@Override
 		public int hashCode() {
 			return HashCalculator.combineHashes(

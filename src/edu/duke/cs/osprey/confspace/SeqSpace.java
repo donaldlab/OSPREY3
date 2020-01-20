@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.tools.MathTools;
+import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 
 import java.io.*;
 import java.math.BigInteger;
@@ -133,7 +134,7 @@ public class SeqSpace implements Serializable {
 		public final SeqSpace seqSpace = SeqSpace.this;
 
 		public final int index;
-		public final String resNum;
+		public final String resNum; // TODO: rename to something not residue-based?
 		public final ResType wildType;
 		public final List<ResType> resTypes;
 		public final List<ResType> mutations;
@@ -270,6 +271,16 @@ public class SeqSpace implements Serializable {
 	public SeqSpace(SimpleConfSpace confSpace) {
 		for (SimpleConfSpace.Position pos : confSpace.mutablePositions) {
 			makePos(pos.resNum, pos.resFlex.wildType, pos.resTypes);
+		}
+	}
+
+	public SeqSpace(ConfSpace confSpace) {
+		for (ConfSpace.Pos pos : confSpace.positions) {
+			List<String> types = Arrays.stream(pos.confs)
+				.map(conf -> conf.type)
+				.distinct()
+				.collect(Collectors.toList());
+			makePos(pos.name, pos.wildType, types);
 		}
 	}
 

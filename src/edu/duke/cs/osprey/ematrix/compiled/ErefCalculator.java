@@ -9,6 +9,8 @@ import edu.duke.cs.osprey.tools.Progress;
 import java.util.ArrayList;
 import java.util.List;
 
+import static edu.duke.cs.osprey.tools.Log.log;
+
 
 /**
  * Calculate reference energies for a conformation space.
@@ -62,6 +64,7 @@ public class ErefCalculator {
 
 		// count how much work there is to do
 		Progress progress = new Progress(confSpace.countSingles());
+		log("Calculating reference energies for %s position confs...", progress.getTotalWork());
 
 		// TODO: use any parallelism provided by the confEcalc
 
@@ -81,7 +84,7 @@ public class ErefCalculator {
 				}
 
 				// keep the min energy for each pos,resType
-				String resType = confSpace.confResType(posi, confi);
+				String resType = confSpace.confType(posi, confi);
 				Double e = eref.get(posi, resType);
 				if (e == null || energy < e) {
 					e = energy;

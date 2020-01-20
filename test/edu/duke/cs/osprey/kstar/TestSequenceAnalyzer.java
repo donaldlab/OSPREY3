@@ -38,6 +38,7 @@ import static edu.duke.cs.osprey.TestBase.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -66,8 +67,10 @@ public class TestSequenceAnalyzer {
 			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
-				info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, ecalc)
-					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(info.confSpace, ecalc)
+				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+
+				info.confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
 						.build()
 						.calcReferenceEnergies()
 					).build();

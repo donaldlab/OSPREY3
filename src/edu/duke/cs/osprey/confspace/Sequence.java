@@ -384,21 +384,22 @@ public class Sequence {
 		return seq;
 	}
 
-	public RCs makeRCs(SimpleConfSpace confSpace) {
-		return new RCs(confSpace, (pos, resConf) -> {
+	public RCs makeRCs(ConfSpaceIteration confSpace) {
+		return new RCs(confSpace, (posi, confi) -> {
 
 			// immutable pos? keep everything
-			if (!pos.hasMutations()) {
+			if (!confSpace.hasMutations(posi)) {
 				return true;
 			}
 
 			// no assignments? keep everything
-			if (!isAssigned(pos.resNum)) {
+			String name = confSpace.name(posi);
+			if (!isAssigned(name)) {
 				return true;
 			}
 
 			// otherwise, only keep matching RCs
-			return get(pos.resNum).name.equals(resConf.template.name);
+			return get(name).name.equals(confSpace.confType(posi, confi));
 		});
 	}
 

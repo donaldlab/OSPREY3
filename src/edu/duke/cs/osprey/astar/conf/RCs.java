@@ -39,19 +39,24 @@ import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+
 
 public class RCs {
 	
 	private PruningMatrix pruneMat = null;
 	private int[][] unprunedRCsAtPos;
 
+	/** use the ConfSpaceIteration constructors instead */
+	@Deprecated
 	public RCs(SimpleConfSpace confSpace) {
-		this(confSpace, (pos, resConf) -> true);
+		this(confSpace, (SimpleConfSpace.Position pos, SimpleConfSpace.ResidueConf resConf) -> true);
 	}
 
+	/** use the ConfSpaceIteration constructors instead */
+	@Deprecated
 	public RCs(SimpleConfSpace confSpace, BiPredicate<SimpleConfSpace.Position,SimpleConfSpace.ResidueConf> filter) {
 		unprunedRCsAtPos = new int[confSpace.positions.size()][];
 		for (SimpleConfSpace.Position pos : confSpace.positions) {
@@ -62,16 +67,16 @@ public class RCs {
 		}
 	}
 
-	public RCs(ConfSpace confSpace) {
-		this(confSpace, (pos, resConf) -> true);
+	public RCs(ConfSpaceIteration confSpace) {
+		this(confSpace, (posi, confi) -> true);
 	}
 
-	public RCs(ConfSpace confSpace, BiPredicate<ConfSpace.Pos,ConfSpace.Conf> filter) {
-		unprunedRCsAtPos = new int[confSpace.positions.length][];
-		for (ConfSpace.Pos pos : confSpace.positions) {
-			unprunedRCsAtPos[pos.index] = Arrays.stream(pos.confs)
-				.filter((resConf) -> filter.test(pos, resConf))
-				.mapToInt((resConf) -> resConf.index)
+	public RCs(ConfSpaceIteration confSpace, BiPredicate<Integer,Integer> filter) {
+		unprunedRCsAtPos = new int[confSpace.numPos()][];
+		for (int posi=0; posi<confSpace.numPos(); posi++) {
+			final int fposi = posi;
+			unprunedRCsAtPos[posi] = IntStream.range(0, confSpace.numConf(posi))
+				.filter(confi -> filter.test(fposi, confi))
 				.toArray();
 		}
 	}

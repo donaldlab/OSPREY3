@@ -48,6 +48,8 @@ import edu.duke.cs.osprey.tools.MathTools;
 import java.io.Serializable;
 import java.util.stream.Collectors;
 
+import static edu.duke.cs.osprey.tools.Log.log;
+
 
 /**
  * Maintains the design positions and residue conformations for a list of strands.
@@ -401,6 +403,7 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
 
 				// make residue confs from library rotamers
 				for (String resType : resFlex.resTypes) {
+					// TODO BUGBUG: this doesn't assign the correct template for terminal residues!!
 					makeResidueConfsFromTemplate(pos, strand.templateLib.getTemplateOrThrow(resType, true), ResidueConf.Type.Library);
 				}
 
@@ -621,8 +624,32 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
 	}
 
 	@Override
-	public String confResType(int posi, int confi) {
+	public String name(int posi) {
+		return positions.get(posi).resNum;
+	}
+
+	@Override
+	public String confId(int posi, int confi) {
+		return positions.get(posi).resConfs.get(confi).getRotamerCode();
+	}
+
+	@Override
+	public String confType(int posi, int confi) {
 		return positions.get(posi).resConfs.get(confi).template.name;
+	}
+
+	@Override
+	public SeqSpace seqSpace() {
+		return seqSpace;
+	}
+
+	@Override
+	public String wildType(int posi) {
+		return positions.get(posi).resFlex.wildType;
+	}
+
+	public boolean hasMutations(int posi) {
+		return positions.get(posi).hasMutations();
 	}
 
 	/** @see #makeMolecule(RCTuple) */
@@ -985,18 +1012,6 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
 
 	public Sequence makeWildTypeSequence() {
 		return seqSpace.makeWildTypeSequence();
-	}
-
-	public Sequence makeSequenceFromAssignments(int[] assignments) {
-		Sequence seq = seqSpace.makeUnassignedSequence();
-		for (Position pos : positions) {
-			seq.set(pos.resNum, pos.resConfs.get(assignments[pos.index]).template.name);
-		}
-		return seq;
-	}
-
-	public Sequence makeSequenceFromConf(ConfSearch.ScoredConf conf) {
-		return makeSequenceFromAssignments(conf.getAssignments());
 	}
 
 	public BigInteger calcNumSequences() {

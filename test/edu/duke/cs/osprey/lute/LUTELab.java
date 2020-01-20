@@ -218,13 +218,15 @@ public class LUTELab {
 			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+
 				// how should we define energies of conformations?
 				LUTEState luteState = LUTEIO.read(new File(String.format("LUTE.%s.dat", info.id)));
-				LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(info.confSpace, luteState);
+				LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(confSpace, luteState);
 				info.confEcalc = luteConfEcalc;
 
 				// load the pruning matrix
-				PruningMatrix pmat = SimpleDEE.read(info.confSpace, new File(String.format("LUTE.%s.pmat.dat", info.id)));
+				PruningMatrix pmat = SimpleDEE.read(confSpace, new File(String.format("LUTE.%s.pmat.dat", info.id)));
 
 				// how should confs be ordered and searched?
 				info.confSearchFactory = (rcs) -> {

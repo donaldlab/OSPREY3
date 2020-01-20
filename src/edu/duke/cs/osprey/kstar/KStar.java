@@ -214,7 +214,7 @@ public class KStar {
 
 	public class ConfSpaceInfo {
 
-		public final SimpleConfSpace confSpace;
+		public final ConfSpaceIteration confSpace;
 		public final ConfSpaceType type;
 		public final String id;
 
@@ -225,7 +225,7 @@ public class KStar {
 		public ConfSearchFactory confSearchFactory = null;
 		public File confDBFile = null;
 
-		public ConfSpaceInfo(SimpleConfSpace confSpace, ConfSpaceType type) {
+		public ConfSpaceInfo(ConfSpaceIteration confSpace, ConfSpaceType type) {
 			this.confSpace = confSpace;
 			this.type = type;
 			this.id = type.name().toLowerCase();
@@ -246,7 +246,7 @@ public class KStar {
 
 		public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, ConfDB confDB) {
 
-			Sequence sequence = sequences.get(sequenceIndex).filter(confSpace.seqSpace);
+			Sequence sequence = sequences.get(sequenceIndex).filter(confSpace.seqSpace());
 
 			// check the cache first
 			PartitionFunction.Result result = pfuncResults.get(sequence);
@@ -313,7 +313,7 @@ public class KStar {
 
 	private List<Sequence> sequences;
 
-	public KStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, Settings settings) {
+	public KStar(ConfSpaceIteration protein, ConfSpaceIteration ligand, ConfSpaceIteration complex, Settings settings) {
 		this.settings = settings;
 		this.protein = new ConfSpaceInfo(protein, ConfSpaceType.Protein);
 		this.ligand = new ConfSpaceInfo(ligand, ConfSpaceType.Ligand);
@@ -353,10 +353,10 @@ public class KStar {
 		List<ScoredSequence> scores = new ArrayList<>();
 
 		// collect all the sequences explicitly
-		if (complex.confSpace.seqSpace.containsWildTypeSequence()) {
-			sequences.add(complex.confSpace.seqSpace.makeWildTypeSequence());
+		if (complex.confSpace.seqSpace().containsWildTypeSequence()) {
+			sequences.add(complex.confSpace.seqSpace().makeWildTypeSequence());
 		}
-		sequences.addAll(complex.confSpace.seqSpace.getMutants(settings.maxSimultaneousMutations, true));
+		sequences.addAll(complex.confSpace.seqSpace().getMutants(settings.maxSimultaneousMutations, true));
 
 		// TODO: sequence filtering? do we need to reject some mutation combinations for some reason?
 

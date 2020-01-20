@@ -37,14 +37,10 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.confspace.ConfDB;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.energy.*;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -57,8 +53,11 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 
 public class TestKStar {
@@ -118,9 +117,11 @@ public class TestKStar {
 			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+
 				// how should we define energies of conformations?
-				info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, ecalc)
-					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(info.confSpace, ecalc)
+				info.confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
 						.build()
 						.calcReferenceEnergies()
 					)
@@ -199,6 +200,159 @@ public class TestKStar {
 			.build();
 
 		return confSpaces;
+	}
+
+	private static void assertPosition(SimpleConfSpace confSpace, String resNum, String wildType, int numConfs, List<String> descriptions) {
+
+		SimpleConfSpace.Position confPos = confSpace.getPositionOrThrow(resNum);
+		SeqSpace.Position seqPos = confSpace.seqSpace.getPositionOrThrow(resNum);
+
+		assertThat(confPos.resNum, is(resNum));
+		assertThat(seqPos.resNum, is(resNum));
+
+		assertThat(confPos.resFlex.wildType, is(wildType));
+		assertThat(seqPos.wildType.name, is(wildType));
+
+		// check the types
+		String[] resTypes = descriptions.stream()
+			.map(desc -> desc.split(":")[0])
+			.toArray(String[]::new);
+		assertThat(
+			confPos.resConfs.stream()
+				.map(resConf -> resConf.template.name)
+				.collect(Collectors.toSet()), // collapse duplicates
+			containsInAnyOrder(resTypes)
+		);
+		assertThat(
+			seqPos.resTypes.stream()
+				.map(resType -> resType.name)
+				.collect(Collectors.toList()),
+			containsInAnyOrder(resTypes)
+		);
+
+		// count the conformations for each type
+		int[] numConfsByDesc = descriptions.stream()
+			.mapToInt(desc -> Integer.parseInt(desc.split(":")[1]))
+			.toArray();
+		for (int i=0; i<descriptions.size(); i++) {
+			int fi = i; // javac is dumb ...
+
+			List<SimpleConfSpace.ResidueConf> resConfs = confPos.resConfs.stream()
+				.filter(resConf -> resConf.template.name.equals(resTypes[fi]))
+				.collect(Collectors.toList());
+
+			assertThat(resConfs.size(), is(numConfsByDesc[i]));
+		}
+
+		// check the total number of conformations
+		assertThat(confPos.resConfs.size(), is(numConfs));
+	}
+
+	@Test
+	public void check2RL0() {
+
+		// make a version of the 2RL0 "design" that matches the conf spaces prepped by the GUI
+
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+			.clearTemplateCoords()
+			.addTemplateCoords(FileTools.readFile("../osprey3/template coords.v2.txt"))
+			// add a special template so we don't delete the un-protonated N-terminal GLY
+			.addTemplates(
+				"\n" +
+				"\n" +
+				"GLYCINE un-protonated                                           \n" +
+				"                                                                \n" +
+				" GLY  INT     1                                                 \n" +
+				" CORR OMIT DU   BEG                                             \n" +
+				"   0.00000                                                      \n" +
+				"   1  DUMM  DU    M    0  -1  -2     0.000     0.000     0.000   0.00000\n" +
+				"   2  DUMM  DU    M    1   0  -1     1.449     0.000     0.000   0.00000\n" +
+				"   3  DUMM  DU    M    2   1   0     1.522   111.100     0.000   0.00000\n" +
+				"   4  N     N     M    3   2   1     1.335   116.600   180.000  -0.41570\n" +
+				"   5  CA    CT    M    4   3   2     1.449   121.900   180.000  -0.02520\n" +
+				"   6  HA2   H1    E    5   4   3     1.090   109.500   300.000   0.06980\n" +
+				"   7  HA3   H1    E    5   4   3     1.090   109.500    60.000   0.06980\n" +
+				"   8  C     C     M    5   4   3     1.522   110.400   180.000   0.59730\n" +
+				"   9  O     O     E    8   5   4     1.229   120.500     0.000  -0.56790\n" +
+				"\n" +
+				"IMPROPER                                                        \n" +
+				" CA   +M   C    O                                               \n" +
+				"                                                                \n" +
+				"DONE\n"
+			)
+			.build();
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("G638", "G654")
+			.build();
+		protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType, "GLU").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType, "ASP").addWildTypeRotamers().setContinuous();
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+			.setTemplateLibrary(templateLib)
+			.setResidues("A153", "A241")
+			.build();
+		ligand.flexibility.get("A156").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A172").setLibraryRotamers(Strand.WildType, "ASP", "GLU").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "PHE", "TYR").addWildTypeRotamers().setContinuous();
+		ligand.flexibility.get("A193").setLibraryRotamers(Strand.WildType, "SER", "ASN").addWildTypeRotamers().setContinuous();
+
+		// make the conf spaces ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+			.addStrand(protein)
+			.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+			.addStrand(ligand)
+			.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+			.addStrands(protein, ligand)
+			.build();
+
+		Consumer<SimpleConfSpace> assertProtein = (confSpace) -> {
+			assertPosition(confSpace, "G649", "PHE", 29, Arrays.asList("PHE:5",  "TYR:8",  "ALA:1", "VAL:3", "ILE:7", "LEU:5"));
+			assertPosition(confSpace, "G650", "ASP", 14, Arrays.asList("ASP:6",  "GLU:8"));
+			assertPosition(confSpace, "G651", "GLU", 14, Arrays.asList("GLU:9",  "ASP:5"));
+		};
+
+		Consumer<SimpleConfSpace> assertLigand = (confSpace) -> {
+			assertPosition(confSpace, "A156", "PHE", 29, Arrays.asList("PHE:5",  "TYR:8",  "ALA:1", "VAL:3", "ILE:7", "LEU:5"));
+			assertPosition(confSpace, "A172", "LYS", 41, Arrays.asList("LYS:28", "ASP:5",  "GLU:8"));
+			assertPosition(confSpace, "A192", "ILE", 29, Arrays.asList("ILE:8",  "ALA:1",  "VAL:3", "LEU:5", "PHE:4", "TYR:8"));
+			assertPosition(confSpace, "A193", "THR", 44, Arrays.asList("THR:19", "SER:18", "ASN:7"));
+		};
+
+		// check the protein
+		assertThat(confSpaces.protein.positions.size(), is(3));
+		assertProtein.accept(confSpaces.protein);
+		assertThat(confSpaces.protein.countSingles(), is(57));
+		assertThat(confSpaces.protein.countPairs(), is(1008));
+
+		// check the ligand
+		assertThat(confSpaces.ligand.positions.size(), is(4));
+		assertLigand.accept(confSpaces.ligand);
+		assertThat(confSpaces.ligand.countSingles(), is(143));
+		assertThat(confSpaces.ligand.countPairs(), is(7575));
+
+		// check the complex
+		assertThat(confSpaces.complex.positions.size(), is(7));
+		assertProtein.accept(confSpaces.complex);
+		assertLigand.accept(confSpaces.complex);
+		assertThat(confSpaces.complex.countSingles(), is(200));
+		assertThat(confSpaces.complex.countPairs(), is(16734));
+
+		runKStar(confSpaces, 0.1, null, false, 1);
 	}
 
 	@Test

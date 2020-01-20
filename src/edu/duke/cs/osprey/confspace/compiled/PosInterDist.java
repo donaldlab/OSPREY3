@@ -129,7 +129,7 @@ public enum PosInterDist {
 
 	private static double getErefOffset(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi, int confi) {
 		if (eref != null) {
-			return eref.getOffset(posi, confSpace.confResType(posi, confi));
+			return eref.getOffset(posi, confSpace.confType(posi, confi));
 		}
 		return 0.0;
 	}

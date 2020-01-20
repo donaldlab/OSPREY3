@@ -267,7 +267,9 @@ public class TestLute {
 				KStar kstar = new KStar(protein, ligand, complex, settings);
 				for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
-					info.confEcalc = makeConfEcalc(info.confSpace, ecalc);
+					SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+
+					info.confEcalc = makeConfEcalc(confSpace, ecalc);
 					EnergyMatrix emat = calcEmat(info.confEcalc);
 					info.confSearchFactory = (rcs) ->
 						new ConfAStarTree.Builder(emat, rcs)
@@ -474,12 +476,14 @@ public class TestLute {
 			KStar kstar = new KStar(protein, ligand, complex, settings);
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
-				info.confEcalc = makeConfEcalc(info.confSpace, ecalc);
+				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+
+				info.confEcalc = makeConfEcalc(confSpace, ecalc);
 				EnergyMatrix emat = calcEmat(info.confEcalc);
-				PruningMatrix pmat = calcPmat(info.confSpace, emat);
+				PruningMatrix pmat = calcPmat(confSpace, emat);
 
 				// train LUTE
-				LUTEConfEnergyCalculator luteEcalc = train(info.confSpace, info.confEcalc, emat, pmat);
+				LUTEConfEnergyCalculator luteEcalc = train(confSpace, info.confEcalc, emat, pmat);
 
 				info.confSearchFactory = (rcs) ->
 					new ConfAStarTree.Builder(null, new RCs(rcs, pmat))

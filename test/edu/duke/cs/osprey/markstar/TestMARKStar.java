@@ -1129,9 +1129,11 @@ public class TestMARKStar {
 		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+			SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+
 			// how should we define energies of conformations?
-			info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, minimizingEcalc)
-					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(info.confSpace, minimizingEcalc)
+			info.confEcalc = new ConfEnergyCalculator.Builder(confSpace, minimizingEcalc)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, minimizingEcalc)
 							.build()
 							.calcReferenceEnergies()
 					)
@@ -1174,9 +1176,11 @@ public class TestMARKStar {
 		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+			SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+
 			// how should we define energies of conformations?
-			info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, minimizingEcalc)
-					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(info.confSpace, minimizingEcalc)
+			info.confEcalc = new ConfEnergyCalculator.Builder(confSpace, minimizingEcalc)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, minimizingEcalc)
 							.build()
 							.calcReferenceEnergies()
 					)

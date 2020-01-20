@@ -10,6 +10,8 @@ import edu.duke.cs.osprey.tools.Progress;
 import java.io.File;
 import java.util.List;
 
+import static edu.duke.cs.osprey.tools.Log.log;
+
 
 /**
  * Calculates energy matrices for a conformation space.
@@ -108,10 +110,10 @@ public class EmatCalculator {
 		// estimate work based on number of position interactions and the conf space size
 		final int singleCost = posInterGen.single(confSpace, 0, 0).size();
 		final int pairCost = posInterGen.pair(confSpace, 0, 0, 0, 0).size();
-		Progress progress = new Progress(
-			confSpace.countSingles()*singleCost
-				+ confSpace.countPairs()*pairCost
-		);
+		int numSingles = confSpace.countSingles();
+		int numPairs = confSpace.countPairs();
+		Progress progress = new Progress(numSingles*singleCost + numPairs*pairCost);
+		log("Calculating energy matrix with %d entries", numSingles + numPairs);
 
 		// TODO: use any parallelism provided by the confEcalc
 

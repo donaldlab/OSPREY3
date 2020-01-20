@@ -165,6 +165,11 @@ dependencies {
 	}
 }
 
+tasks.withType<Test> {
+	// the default 512m is too little memory to run test designs
+	maxHeapSize = "2g"
+}
+
 distributions {
 
 	get("main").apply {

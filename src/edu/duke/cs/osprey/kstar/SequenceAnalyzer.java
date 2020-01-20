@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -46,6 +47,8 @@ import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import java.io.File;
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Shows information about a single sequence.
@@ -64,7 +67,7 @@ public class SequenceAnalyzer {
 			this.ensemble = ensemble;
 		}
 
-		public SimpleConfSpace getConfSpace() {
+		public ConfSpaceIteration getConfSpace() {
 			return info.confSpace;
 		}
 
@@ -75,11 +78,15 @@ public class SequenceAnalyzer {
 		@Override
 		public String toString() {
 
-			SimpleConfSpace confSpace = getConfSpace();
+			ConfSpaceIteration confSpace = getConfSpace();
 			int indexSize = 1 + (int)Math.log10(ensemble.analyses.size());
 
 			StringBuilder buf = new StringBuilder();
-			buf.append(String.format("Residues           %s\n", confSpace.formatResidueNumbers()));
+			buf.append("Residues           "); // TODO: rename to something not residue-specific?
+			buf.append(IntStream.range(0, confSpace.numPos())
+				.mapToObj(posi -> String.format("%-5s", confSpace.name(posi)))
+				.collect(Collectors.joining(" "))
+			);
 			buf.append(String.format("%-16s   %s\n", info.id + " Sequence", sequence.toString(Sequence.Renderer.ResTypeMutations, 5)));
 			buf.append(String.format("Ensemble of %d conformations:\n", ensemble.analyses.size()));
 			for (int i=0; i<ensemble.analyses.size(); i++) {
@@ -87,8 +94,11 @@ public class SequenceAnalyzer {
 				buf.append("\t");
 				buf.append(String.format("%" + indexSize + "d/%" + indexSize + "d", i + 1, ensemble.analyses.size()));
 				buf.append(String.format("     Energy: %-12.6f     Score: %-12.6f", analysis.epmol.energy, analysis.score));
-				buf.append("     Rotamers: ");
-				buf.append(confSpace.formatConfRotamers(analysis.assignments));
+				buf.append("     Rotamers: "); // TODO: rename to something not rotamer-specific?
+				buf.append(IntStream.range(0, confSpace.numPos())
+					.mapToObj(posi -> confSpace.confId(posi, analysis.assignments[posi]))
+					.collect(Collectors.joining(" "))
+				);
 				buf.append("     Residue Conf IDs: ");
 				buf.append(SimpleConfSpace.formatConfRCs(analysis.assignments));
 				buf.append("\n");
@@ -98,7 +108,7 @@ public class SequenceAnalyzer {
 	}
 
 	public static class ConfSpaceInfo {
-		public SimpleConfSpace confSpace;
+		public ConfSpaceIteration confSpace;
 		public String id;
 		public ConfEnergyCalculator confEcalc;
 		public KStar.ConfSearchFactory confSearchFactory;
@@ -124,7 +134,7 @@ public class SequenceAnalyzer {
 
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
-				if (info.confSpace.seqSpace != sequence.seqSpace) {
+				if (info.confSpace.seqSpace() != sequence.seqSpace) {
 					continue;
 				}
 

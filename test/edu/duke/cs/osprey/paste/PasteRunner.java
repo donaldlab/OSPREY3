@@ -175,7 +175,9 @@ public class PasteRunner {
 			KStar kstar = new KStar(targetConfSpace, ligandConfSpace, complexConfSpace, settings);
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
-				info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, ecalc).build();
+				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+
+				info.confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
 
 				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
 						.setCacheFile(new File(String.format("kstar.emat.%s.dat", info.id)))

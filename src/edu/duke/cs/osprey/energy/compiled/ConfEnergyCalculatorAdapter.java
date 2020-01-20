@@ -36,7 +36,7 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 		/** Reference energies used to design against the unfolded state, useful for GMEC designs */
 		private SimpleReferenceEnergies eref = null;
 
-		private boolean minimizing = true;
+		private boolean minimize = true;
 
 		public Builder(ConfEnergyCalculator confEcalc) {
 			this.confEcalc = confEcalc;
@@ -52,8 +52,8 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 			return this;
 		}
 
-		public Builder setMinimizing(boolean val) {
-			minimizing = val;
+		public Builder setMinimize(boolean val) {
+			minimize = val;
 			return this;
 		}
 
@@ -61,23 +61,23 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 			return new ConfEnergyCalculatorAdapter(
 				confEcalc,
 				new PosInterGen(posInterDist, eref),
-				minimizing
+				minimize
 			);
 		}
 	}
 
 	public final ConfEnergyCalculator confEcalc;
 	public final PosInterGen posInterGen;
-	public final boolean minimizing;
+	public final boolean minimize;
 
 	// TODO: support approximator matrices?
 
-	private ConfEnergyCalculatorAdapter(ConfEnergyCalculator confEcalc, PosInterGen posInterGen, boolean minimizing) {
+	private ConfEnergyCalculatorAdapter(ConfEnergyCalculator confEcalc, PosInterGen posInterGen, boolean minimize) {
 		super(confEcalc.tasks());
 
 		this.confEcalc = confEcalc;
 		this.posInterGen = posInterGen;
-		this.minimizing = minimizing;
+		this.minimize = minimize;
 	}
 
 	@Override
@@ -133,7 +133,7 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 
 	private EnergyCalculator.EnergiedParametricMolecule epmol(int[] conf, List<PosInter> inters) {
 
-		if (minimizing) {
+		if (minimize) {
 
 			// minimize the conformation
 			ConfEnergyCalculator.EnergiedCoords result = confEcalc.minimize(conf, inters);

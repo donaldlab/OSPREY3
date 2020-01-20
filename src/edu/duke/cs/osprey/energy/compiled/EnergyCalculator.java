@@ -5,8 +5,6 @@ import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import org.joml.Vector3d;
-import org.tomlj.TomlPosition;
-import org.tomlj.TomlTable;
 
 import java.io.DataInput;
 import java.io.IOException;
