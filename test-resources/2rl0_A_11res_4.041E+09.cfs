@@ -1,0 +1,5 @@
+#The following information is sufficient to generate an OSPREY 3.0
+#configuration space
+mol = "/usr/project/dlab/Users/gth/projects/osprey_test_suite/pdb/2rl0_prepped.pdb"
+strand_defs = {'strand1': ['G638', 'G654'], 'strand0': ['A153', 'A241']}
+strand_flex = {'strand1': {'G651': ['GLU'], 'G649': ['PHE']}, 'strand0': {'A174': ['TYR'], 'A159': ['ALA'], 'A172': ['ALA', 'VAL', 'LEU', 'ILE', 'PHE', 'TYR', 'TRP', 'CYS', 'MET', 'SER', 'THR', 'LYS', 'ARG', 'HIP', 'HIE', 'HID', 'ASP', 'GLU', 'ASN', 'GLN', 'GLY'], 'A170': ['TRP'], 'A157': ['ASP'], 'A192': ['ILE'], 'A182': ['CYX'], 'A194': ['CYX'], 'A180': ['VAL']}}

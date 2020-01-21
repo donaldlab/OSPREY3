@@ -21,14 +21,20 @@ import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.debugConf
 public class SHARKStarNodeScorer implements AStarScorer {
     protected EnergyMatrix emat;
     protected MathTools.Optimizer opt = MathTools.Optimizer.Minimize;
+    /*
     protected int[] debugConf;
+     */
+
     protected int[][][] bestPairs;
 
     public SHARKStarNodeScorer(EnergyMatrix emat, boolean negated) {
         this.emat = emat;
         if(negated)
             opt = MathTools.Optimizer.Maximize;
+        /*
         this.debugConf = new int[]{};
+
+         */
         init();
     }
 
@@ -87,7 +93,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
         for (int i=0; i<confIndex.numDefined; i++) {
             int pos1 = confIndex.definedPos[i];
             int rc1 = confIndex.definedRCs[i];
-            pfuncBound = pfuncBound.multiply(bcalc.calc(emat.getOneBody(pos1, rc1)));
+            pfuncBound = pfuncBound.multiply(bcalc.calcPrecise(emat.getOneBody(pos1, rc1)));
         }
 
         // defined pairwise energies
@@ -99,7 +105,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
                 int pos2 = confIndex.definedPos[j];
                 int rc2 = confIndex.definedRCs[j];
 
-                pfuncBound = pfuncBound.multiply(bcalc.calc(emat.getPairwise(pos1, rc1, pos2, rc2)));
+                pfuncBound = pfuncBound.multiply(bcalc.calcPrecise(emat.getPairwise(pos1, rc1, pos2, rc2)));
             }
         }
         return pfuncBound;
@@ -122,7 +128,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
         for (int i=0; i<confIndex.numDefined; i++) {
             int pos1 = confIndex.definedPos[i];
             int rc1 = confIndex.definedRCs[i];
-            pfuncBound = pfuncBound.multiply(bcalc.calc(emat.getOneBody(pos1, rc1)));
+            pfuncBound = pfuncBound.multiply(bcalc.calcPrecise(emat.getOneBody(pos1, rc1)));
         }
 
         // defined pairwise energies
@@ -134,7 +140,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
                 int pos2 = confIndex.definedPos[j];
                 int rc2 = confIndex.definedRCs[j];
 
-                pfuncBound = pfuncBound.multiply(bcalc.calc(emat.getPairwise(pos1, rc1, pos2, rc2)));
+                pfuncBound = pfuncBound.multiply(bcalc.calcPrecise(emat.getPairwise(pos1, rc1, pos2, rc2)));
             }
         }
 
@@ -156,7 +162,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
                         continue;
                     rotEnergy+=emat.getEnergy(undefinedPos1, rot1, undefinedPos2, bestPairs[undefinedPos1][rot1][undefinedPos2]);
                 }
-                residueSum = residueSum.add(bcalc.calc(rotEnergy));
+                residueSum = residueSum.add(bcalc.calcPrecise(rotEnergy), bcalc.mathContext);
             }
             pfuncBound = pfuncBound.multiply(residueSum, PartitionFunction.decimalPrecision);
         }
@@ -206,7 +212,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
                     System.out.println("Energy of " + testTuple + ": " + energyCheck);
                     System.out.println("Rot energy of "+ testTuple + ": " + rotEnergy);
                 }
-                residueSum = residueSum.add(bcalc.calc(rotEnergy));
+                residueSum = residueSum.add(bcalc.calcPrecise(rotEnergy),bcalc.mathContext);
             }
             if(confMatch(conf, debugConf)){
                 System.out.println("Gotcha-calc2");
@@ -216,12 +222,15 @@ public class SHARKStarNodeScorer implements AStarScorer {
         }
         if(confMatch(conf, debugConf)){
             System.out.println("Gotcha-calc3");
-            System.out.println("End bound: "+bcalc.freeEnergy(pfuncBound));
+            System.out.println("End bound: "+bcalc.freeEnergyPrecise(pfuncBound));
         }
-        return bcalc.freeEnergy(pfuncBound);
+        return bcalc.freeEnergyPrecise(pfuncBound);
     }
 
+    /*
     public void setDebugConf(int[] conf){
         this.debugConf = conf;
     }
+
+     */
 }

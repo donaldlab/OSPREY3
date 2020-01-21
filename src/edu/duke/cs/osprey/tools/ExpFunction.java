@@ -51,7 +51,6 @@ package edu.duke.cs.osprey.tools;
 
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 
-import javax.annotation.PreDestroy;
 import java.io.Serializable;
 import java.math.*;
 
