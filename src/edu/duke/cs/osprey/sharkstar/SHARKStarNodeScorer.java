@@ -93,7 +93,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
         for (int i=0; i<confIndex.numDefined; i++) {
             int pos1 = confIndex.definedPos[i];
             int rc1 = confIndex.definedRCs[i];
-            pfuncBound = pfuncBound.multiply(bcalc.calc(emat.getOneBody(pos1, rc1)));
+            pfuncBound = pfuncBound.multiply(bcalc.calcPrecise(emat.getOneBody(pos1, rc1)));
         }
 
         // defined pairwise energies
@@ -105,7 +105,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
                 int pos2 = confIndex.definedPos[j];
                 int rc2 = confIndex.definedRCs[j];
 
-                pfuncBound = pfuncBound.multiply(bcalc.calc(emat.getPairwise(pos1, rc1, pos2, rc2)));
+                pfuncBound = pfuncBound.multiply(bcalc.calcPrecise(emat.getPairwise(pos1, rc1, pos2, rc2)));
             }
         }
         return pfuncBound;
@@ -128,7 +128,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
         for (int i=0; i<confIndex.numDefined; i++) {
             int pos1 = confIndex.definedPos[i];
             int rc1 = confIndex.definedRCs[i];
-            pfuncBound = pfuncBound.multiply(bcalc.calc(emat.getOneBody(pos1, rc1)));
+            pfuncBound = pfuncBound.multiply(bcalc.calcPrecise(emat.getOneBody(pos1, rc1)));
         }
 
         // defined pairwise energies
@@ -140,7 +140,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
                 int pos2 = confIndex.definedPos[j];
                 int rc2 = confIndex.definedRCs[j];
 
-                pfuncBound = pfuncBound.multiply(bcalc.calc(emat.getPairwise(pos1, rc1, pos2, rc2)));
+                pfuncBound = pfuncBound.multiply(bcalc.calcPrecise(emat.getPairwise(pos1, rc1, pos2, rc2)));
             }
         }
 
@@ -162,7 +162,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
                         continue;
                     rotEnergy+=emat.getEnergy(undefinedPos1, rot1, undefinedPos2, bestPairs[undefinedPos1][rot1][undefinedPos2]);
                 }
-                residueSum = residueSum.add(bcalc.calc(rotEnergy), bcalc.mathContext);
+                residueSum = residueSum.add(bcalc.calcPrecise(rotEnergy), bcalc.mathContext);
             }
             pfuncBound = pfuncBound.multiply(residueSum, PartitionFunction.decimalPrecision);
         }
@@ -212,7 +212,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
                     System.out.println("Energy of " + testTuple + ": " + energyCheck);
                     System.out.println("Rot energy of "+ testTuple + ": " + rotEnergy);
                 }
-                residueSum = residueSum.add(bcalc.calc(rotEnergy),bcalc.mathContext);
+                residueSum = residueSum.add(bcalc.calcPrecise(rotEnergy),bcalc.mathContext);
             }
             if(confMatch(conf, debugConf)){
                 System.out.println("Gotcha-calc2");
