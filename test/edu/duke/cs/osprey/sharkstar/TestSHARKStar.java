@@ -707,6 +707,17 @@ public class TestSHARKStar {
 
 	}
 
+	@Test
+	public void test2rl0_UBerror() {
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_11res_4.041E+09.cfs");
+			runBBSHARKStar(confSpaces, 0.9999);
+			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+	}
 
 	@Test
 	public void test2XXMSmaller() {
