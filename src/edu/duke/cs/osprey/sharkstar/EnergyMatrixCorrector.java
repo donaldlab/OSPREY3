@@ -96,7 +96,7 @@ public class EnergyMatrixCorrector {
         for (int nextPos = 0; nextPos < diff.getNumPos(); nextPos++) {
             if (curTuple.pos.contains(nextPos))
                 continue;
-            RCTuple tuple = curTuple.addRC(nextPos, conf.getAssignments()[nextPos]);
+            RCTuple tuple = curTuple.addRC(nextPos, conf.getAssignments()[nextPos]).sorted();
             if(tuple.pos.size() > 2 && !multiSequenceSHARKStarBound.correctionMatrix.hasHigherOrderTermFor(tuple)) {
                 double tupleBounds = multiSequenceSHARKStarBound.getRigidEmat().getInternalEnergy(tuple) - multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(tuple);
                 if (tupleBounds < minTupleDiff)
@@ -161,7 +161,7 @@ public class EnergyMatrixCorrector {
         RCTuple out = new RCTuple();
         for (int pos : positions)
             out = out.addRC(pos, conf.getAssignments()[pos]);
-        return out;
+        return out.sorted();
     }
 
     void processPreminimization(SingleSequenceSHARKStarBound bound, ConfEnergyCalculator ecalc) {

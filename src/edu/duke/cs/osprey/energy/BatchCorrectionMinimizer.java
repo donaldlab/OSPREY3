@@ -16,7 +16,7 @@ import static edu.duke.cs.osprey.tools.Log.log;
 public class BatchCorrectionMinimizer {
 
     private final ConfEnergyCalculator confEcalc;
-    public final int CostThreshold = 10000;
+    public final int CostThreshold = 1000;
     public final int[] costs = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     private Batch batch = null;
     private UpdatingEnergyMatrix.TupleTrie submittedConfs;
