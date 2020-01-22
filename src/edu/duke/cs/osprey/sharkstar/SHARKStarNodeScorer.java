@@ -222,9 +222,9 @@ public class SHARKStarNodeScorer implements AStarScorer {
         }
         if(confMatch(conf, debugConf)){
             System.out.println("Gotcha-calc3");
-            System.out.println("End bound: "+bcalc.freeEnergyPrecise(pfuncBound));
+            System.out.println("End bound: "+bcalc.freeEnergy(pfuncBound));
         }
-        return bcalc.freeEnergyPrecise(pfuncBound);
+        return bcalc.freeEnergy(pfuncBound);
     }
 
     /*

@@ -2,10 +2,9 @@ package edu.duke.cs.osprey.energy;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.TupE;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
-import edu.duke.cs.osprey.tools.Progress;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,6 +19,7 @@ public class BatchCorrectionMinimizer {
     public final int CostThreshold = 10000;
     public final int[] costs = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     private Batch batch = null;
+    private UpdatingEnergyMatrix.TupleTrie submittedConfs;
     private UpdatingEnergyMatrix correctionMatrix;
     private EnergyMatrix minimizingEnergyMatrix;
     public BatchCorrectionMinimizer(ConfEnergyCalculator confEcalc, UpdatingEnergyMatrix correctionMatrix,
@@ -27,11 +27,13 @@ public class BatchCorrectionMinimizer {
         this.confEcalc = confEcalc;
         this.correctionMatrix = correctionMatrix;
         this.minimizingEnergyMatrix = minimizingEnergyMatrix;
+        submittedConfs = new UpdatingEnergyMatrix.TupleTrie(confEcalc.confSpace.positions);
     }
 
     public Batch getBatch() {
             if (batch == null) {
                 batch = new Batch();
+                submittedConfs.clear();
             }
             return batch;
         }
@@ -55,6 +57,9 @@ public class BatchCorrectionMinimizer {
         int cost = 0;
 
         public void addTuple(RCTuple tuple) {
+            if(submittedConfs.contains(tuple))
+                return;
+            submittedConfs.insert(new TupE(tuple, 0));
             int tupleSize = tuple.size();
             if(costs[tupleSize] < 0)
                 costs[tupleSize] = confEcalc.makeFragInters(tuple).size();

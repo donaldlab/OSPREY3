@@ -275,6 +275,10 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             return output;
         }
 
+        public void clear() {
+            root = createTrie(positions);
+        }
+
 
         private class TupleTrieNode {
             // Wildcard rc
