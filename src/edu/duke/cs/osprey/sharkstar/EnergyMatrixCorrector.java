@@ -93,7 +93,7 @@ public class EnergyMatrixCorrector {
             if (curTuple.pos.contains(nextPos))
                 continue;
             RCTuple tuple = curTuple.addRC(nextPos, conf.getAssignments()[nextPos]);
-            if(tuple.pos.size() > 2) {
+            if(tuple.pos.size() > 2 && !multiSequenceSHARKStarBound.correctionMatrix.hasHigherOrderTermFor(tuple)) {
                 double tupleBounds = multiSequenceSHARKStarBound.getRigidEmat().getInternalEnergy(tuple) - multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(tuple);
                 if (tupleBounds < minTupleDiff)
                     continue;
