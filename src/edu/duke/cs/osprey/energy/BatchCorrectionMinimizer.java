@@ -33,7 +33,6 @@ public class BatchCorrectionMinimizer {
     public Batch getBatch() {
             if (batch == null) {
                 batch = new Batch();
-                submittedConfs.clear();
             }
             return batch;
         }
@@ -49,7 +48,8 @@ public class BatchCorrectionMinimizer {
                 batch.submitTask();
                 batch = null;
             }
-        }
+        submittedConfs.clear();
+    }
 
     public class Batch {
 
@@ -57,9 +57,11 @@ public class BatchCorrectionMinimizer {
         int cost = 0;
 
         public void addTuple(RCTuple tuple) {
-            if(submittedConfs.contains(tuple))
-                return;
-            submittedConfs.insert(new TupE(tuple, 0));
+            synchronized (this) {
+                if (submittedConfs.contains(tuple))
+                    return;
+                submittedConfs.insert(new TupE(tuple, 0));
+            }
             int tupleSize = tuple.size();
             if(costs[tupleSize] < 0)
                 costs[tupleSize] = confEcalc.makeFragInters(tuple).size();
