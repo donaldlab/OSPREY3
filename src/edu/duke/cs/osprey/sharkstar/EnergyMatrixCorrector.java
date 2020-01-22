@@ -11,10 +11,7 @@ import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.PriorityQueue;
+import java.util.*;
 
 public class EnergyMatrixCorrector {
     private final MultiSequenceSHARKStarBound multiSequenceSHARKStarBound;
@@ -62,9 +59,14 @@ public class EnergyMatrixCorrector {
         double threshhold = 0.1;
         double minDifference = 0.9;
         double triplethreshhold = 0.3;
+        Set<RCTuple> scheduledMinimizations = new HashSet<>();
         // storePartialConfCorrections(conf, epsilonBound, diff, sortedPairwiseTerms2, threshhold, minDifference, triplethreshhold);
         storePartialConfCorrections(conf, epsilonBound, diff, sortedPairwiseTerms2, threshhold, minDifference, triplethreshhold,
-                4);
+                4, scheduledMinimizations);
+        for(RCTuple scheduledTuple: scheduledMinimizations) {
+            batcher.getBatch().addTuple(scheduledTuple);
+            batcher.submitIfFull();
+        }
         batcher.submit();
         confEcalc.tasks.waitForFinish();
         correctionTime.stop();
@@ -72,7 +74,8 @@ public class EnergyMatrixCorrector {
 
     private void storePartialConfCorrections(ConfSearch.ScoredConf conf, double epsilonBound, EnergyMatrix diff,
                                              List<TupE> sortedPairwiseTerms2, double threshhold, double minDifference,
-                                             double minTupleDiff, int maxTupleSize) {
+                                             double minTupleDiff, int maxTupleSize,
+                                             Set<RCTuple> scheduledMinimizations) {
         double maxDiff = sortedPairwiseTerms2.get(0).E;
         for (int i = 0; i < sortedPairwiseTerms2.size(); i++) {
             TupE tupe = sortedPairwiseTerms2.get(i);
@@ -82,11 +85,12 @@ public class EnergyMatrixCorrector {
             maxDiff = Math.max(maxDiff, tupe.E);
             int pos1 = tupe.tup.pos.get(0);
             int pos2 = tupe.tup.pos.get(1);
-            recursePartialCorrection(conf, epsilonBound, diff, minTupleDiff, maxTupleSize, makeTuple(conf, pos1, pos2));
+            recursePartialCorrection(conf, epsilonBound, diff, minTupleDiff, maxTupleSize, makeTuple(conf, pos1, pos2), scheduledMinimizations);
         }
     }
 
-    private void recursePartialCorrection(ConfSearch.ScoredConf conf, double epsilonBound, EnergyMatrix diff, double minTupleDiff, int maxTupleSize, RCTuple curTuple) {
+    private void recursePartialCorrection(ConfSearch.ScoredConf conf, double epsilonBound, EnergyMatrix diff, double minTupleDiff, int maxTupleSize, RCTuple curTuple,
+                                          Set<RCTuple> scheduledMinimizations) {
         if(curTuple.size() > maxTupleSize)
             return;
         for (int nextPos = 0; nextPos < diff.getNumPos(); nextPos++) {
@@ -98,12 +102,11 @@ public class EnergyMatrixCorrector {
                 if (tupleBounds < minTupleDiff)
                     continue;
                 multiSequenceSHARKStarBound.minList.set(tuple.size() - 1, multiSequenceSHARKStarBound.minList.get(tuple.size() - 1) + 1);
-                batcher.getBatch().addTuple(tuple);
-                batcher.submitIfFull();
+                scheduledMinimizations.add(tuple);
                 multiSequenceSHARKStarBound.setNumPartialMinimizations(multiSequenceSHARKStarBound.getNumPartialMinimizations() + 1);
                 multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
             }
-            recursePartialCorrection(conf, epsilonBound, diff, minTupleDiff, maxTupleSize, tuple);
+            recursePartialCorrection(conf, epsilonBound, diff, minTupleDiff, maxTupleSize, tuple, scheduledMinimizations);
         }
     }
 

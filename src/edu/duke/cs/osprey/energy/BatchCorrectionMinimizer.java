@@ -76,7 +76,6 @@ public class BatchCorrectionMinimizer {
                         // calculate all the fragment energies
                         Map<RCTuple, EnergyCalculator.EnergiedParametricMolecule> confs = new HashMap<>();
                         for (RCTuple frag : fragments) {
-                            System.out.println("Minimizing "+frag.stringListing());
 
                             double energy;
 
@@ -90,7 +89,6 @@ public class BatchCorrectionMinimizer {
 
                                 // nope, calculate the usual fragment energy
                                 confs.put(frag, confEcalc.calcEnergy(frag));
-                                System.out.println("Minimized "+frag.stringListing());
                             }
                         }
                         System.out.println("Minimized "+fragments.size()+" tuples.");
