@@ -5,6 +5,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.TupE;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.energy.BatchCorrectionMinimizer;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
@@ -17,13 +18,18 @@ import java.util.PriorityQueue;
 
 public class EnergyMatrixCorrector {
     private final MultiSequenceSHARKStarBound multiSequenceSHARKStarBound;
+    private ConfEnergyCalculator confEcalc;
+    private BatchCorrectionMinimizer batcher;
 
     public EnergyMatrixCorrector(MultiSequenceSHARKStarBound multiSequenceSHARKStarBound) {
         this.multiSequenceSHARKStarBound = multiSequenceSHARKStarBound;
+        this.confEcalc = multiSequenceSHARKStarBound.minimizingEcalc;
+        this.batcher = new BatchCorrectionMinimizer(confEcalc, multiSequenceSHARKStarBound.correctionMatrix,
+                multiSequenceSHARKStarBound.minimizingEmat);
     }
 
     void computeEnergyCorrection(ConfAnalyzer.ConfAnalysis analysis, ConfSearch.ScoredConf conf,
-                                 ConfEnergyCalculator ecalc, double epsilonBound) {
+                                 double epsilonBound) {
         if (conf.getAssignments().length < 3)
             return;
         //System.out.println("Analysis:"+analysis);
@@ -59,8 +65,9 @@ public class EnergyMatrixCorrector {
         // storePartialConfCorrections(conf, epsilonBound, diff, sortedPairwiseTerms2, threshhold, minDifference, triplethreshhold);
         storePartialConfCorrections(conf, epsilonBound, diff, sortedPairwiseTerms2, threshhold, minDifference, triplethreshhold,
                 4);
+        batcher.submit();
+        confEcalc.tasks.waitForFinish();
         correctionTime.stop();
-        ecalc.tasks.waitForFinish();
     }
 
     private void storePartialConfCorrections(ConfSearch.ScoredConf conf, double epsilonBound, EnergyMatrix diff,
@@ -91,7 +98,8 @@ public class EnergyMatrixCorrector {
                 if (tupleBounds < minTupleDiff)
                     continue;
                 multiSequenceSHARKStarBound.minList.set(tuple.size() - 1, multiSequenceSHARKStarBound.minList.get(tuple.size() - 1) + 1);
-                computeDifference(tuple, multiSequenceSHARKStarBound.getMinimizingEcalc());
+                batcher.getBatch().addTuple(tuple);
+                batcher.submitIfFull();
                 multiSequenceSHARKStarBound.setNumPartialMinimizations(multiSequenceSHARKStarBound.getNumPartialMinimizations() + 1);
                 multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
             }

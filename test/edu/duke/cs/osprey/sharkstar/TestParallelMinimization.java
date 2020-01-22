@@ -65,7 +65,7 @@ public class TestParallelMinimization {
         minimizingConfEcalc = mssharkbound.minimizingEcalc;
         confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
-        energyMatrixCorrector.computeEnergyCorrection(analysis, conf, minimizingConfEcalc, 0);
+        energyMatrixCorrector.computeEnergyCorrection(analysis, conf, 0);
     }
 
     private void minimizeOneConformation(int numCores) {

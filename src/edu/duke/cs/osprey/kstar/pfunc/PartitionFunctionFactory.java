@@ -182,16 +182,8 @@ public class PartitionFunctionFactory {
                     MultiSequenceSHARKStarBound stateMSBound;
                     minimizingEmat = makeEmat(confEcalc, "minimized");
                     EnergyMatrix rigidEmat = makeEmat(confUpperBoundECalc);
-                    if(MARKStarEmat == null)
-                        MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
-                    if (preComputedMSFlex == null) {
-                        stateMSBound = new MultiSequenceSHARKStarBound(confSpace, rigidEmat,
-                                minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
-                    } else {
-                        stateMSBound = new MultiSequenceSHARKStarBound(confSpace, rigidEmat,
-                                minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism, preComputedMSFlex);
-                    }
-                    stateMSBound.setCorrections(MARKStarEmat);
+                    stateMSBound = new MultiSequenceSHARKStarBound(confSpace, rigidEmat,
+                            minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
                     stateMSBound.setCachePattern(cachePattern);
                     stateMSBound.init(epsilon);
                     stateBounds.put(RCString, stateMSBound);

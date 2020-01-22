@@ -38,7 +38,7 @@ import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStati
 
 public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
-    private final EnergyMatrixCorrector energyMatrixCorrector = new EnergyMatrixCorrector(this);
+    private final EnergyMatrixCorrector energyMatrixCorrector;
     private Sequence precomputedSequence;
     protected double targetEpsilon = 1;
     public static final boolean debug = true;
@@ -151,6 +151,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.rigidEmat = rigidEmat;
         this.fullRCs = rcs;
         this.pruner = null;
+        this.correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
 
         confIndex = new ConfIndex(rcs.getNumPos());
         Node rootConfNode = new Node(confSpace.positions.size(), 0, new MathTools.DoubleBounds());
@@ -192,6 +193,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         //confAnalyzer = new ConfAnalyzer(minimizingConfEcalc, minimizingEmat);
         confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
         ensembleAnalyzer = new SHARKStarEnsembleAnalyzer(minimizingEcalc, minimizingEmat);
+        energyMatrixCorrector = new EnergyMatrixCorrector(this);
 
         setParallelism(parallelism);
 
@@ -1307,7 +1309,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, curNode.getConfLowerBound(bound.sequence));
                         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
                         Stopwatch correctionTimer = new Stopwatch().start();
-                        energyMatrixCorrector.computeEnergyCorrection(analysis, conf, context.ecalc, bound.getSequenceEpsilon());
+                        energyMatrixCorrector.computeEnergyCorrection(analysis, conf, bound.getSequenceEpsilon());
 
                         double energy = analysis.epmol.energy;
                         double newConfUpper = energy;
