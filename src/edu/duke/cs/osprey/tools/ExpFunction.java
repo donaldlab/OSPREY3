@@ -64,17 +64,15 @@ import java.math.*;
 public class ExpFunction implements Serializable {
 
 	public static final BigDecimal exp = new BigDecimal("2.71828182845904523536"); //Euler's number to 20 decimal digits
-	public static MathContext mc = new MathContext(100, RoundingMode.HALF_EVEN);
 	public static final BigDecimal cutoffLog = new BigDecimal(Math.pow(10,38));
+	private final MathContext mathContext;
 
 	public final int maxPrecision; //the number of decimal digits to which the BigDecimal numbers must be accurate
 
 	public ExpFunction() {
-		this.mathContext = null;
-		this.maxPrecision = 8;
+		this.mathContext = new MathContext(100, RoundingMode.HALF_EVEN);;
+		this.maxPrecision = this.mathContext.getPrecision();
 	}
-
-	private final MathContext mathContext;
 
 	public ExpFunction(MathContext mathContext) {
 		this.mathContext = mathContext;
@@ -115,69 +113,22 @@ public class ExpFunction implements Serializable {
 		return num.pow(a);
 	}
 
-	@Deprecated
-	public BigDecimal logStable(BigDecimal num){
-		/**logStable
-		 *
-		 * Computes an approximation to the natural logarithm of BigDecimal number num.
-		 * Conceptually the same as the log method, but we count up to avoid scale issues
-		 * that were happening with the other method.
-         *
-		 * NOTE: THIS DOESN'T CURRENTLY WORK AS ACCURATELY AS THE OTHER LOG FUNCTION
-		 */
-		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
-			throw new IllegalArgumentException("log of a negative number: " + num);
-		}
-
-		BigDecimal sum = new BigDecimal("0.0");
-		BigDecimal x = BigDecimal.ONE;
-
-		if (num.compareTo(cutoffLog)<0){ //num is small, so use the standard Math.log() function
-			if (num.compareTo(new BigDecimal(1e-323))<0)
-				sum = MathTools.BigNegativeInfinity;
-			else
-				sum = new BigDecimal(Math.log(num.doubleValue()));
-		}
-		else { //num is large, so compute an approximation to the natural logarithm
-
-			double t = 0.0;
-
-			boolean done = false;
-			while (!done){
-				if (x.compareTo(num)<0){
-					t += 1.0;
-					x = x.multiply(exp, mc);
-				}
-				else {
-					double addend = Math.log(num.subtract(x,mc).doubleValue());
-					sum = sum.add(new BigDecimal(t));
-					if(Double.isFinite(addend))
-						sum = sum.add(new BigDecimal(addend));
-					done = true;
-				}
-			}
-		}
-
-		return sum;
-
-	}
 	//Returns an approximation to the natural logarithm of the BigDecimal number num
 	public BigDecimal log(BigDecimal num){
-		/**
-		 * Note: This starts to fail if num's exponent is much bigger than the MathContext precision + 36, empirically
-		 */
 		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
 			throw new IllegalArgumentException("log of a negative number: " + num);
 		}
 
-		BigDecimal sum = new BigDecimal("0.0");
-		BigDecimal x = num;
+		BigMath sum = new BigMath(mathContext)
+				.set(0.0);
+		BigMath x = new BigMath(mathContext)
+				.set(num);
 
 		if (num.compareTo(cutoffLog)<0){ //num is small, so use the standard Math.log() function
 			if (num.compareTo(new BigDecimal(1e-323))<0)
-				sum = MathTools.BigNegativeInfinity;
+				sum.set(MathTools.BigNegativeInfinity);
 			else
-				sum = new BigDecimal(Math.log(num.doubleValue()));
+				sum.set(Math.log(num.doubleValue()));
 		}
 		else { //num is large, so compute an approximation to the natural logarithm
 
@@ -185,21 +136,22 @@ public class ExpFunction implements Serializable {
 
 			boolean done = false;
 			while (!done){
-				if (x.compareTo(cutoffLog)>0){
+				if (x.get().compareTo(cutoffLog)>0){
 					t += 1.0;
 				}
 				else {
-					double addend = Math.log(x.doubleValue());
-					sum = sum.add(new BigDecimal(t));
+				    //TODO: Probably could optimize this further
+					double addend = Math.log(x.get().doubleValue());
+					sum.add(t);
                     if(Double.isFinite(addend))
-						sum = sum.add(new BigDecimal(addend));
+						sum.add(new BigDecimal(addend));
 					done = true;
 				}
-				x = x.divide(exp,4);
+				x.div(exp);
 			}
 		}
 
-		return sum;
+		return sum.get();
 	}
 	
 	// Returns the natural logarithm of a big decimal
@@ -210,7 +162,7 @@ public class ExpFunction implements Serializable {
 			throw new IllegalArgumentException("log of a negative number: " + num);
 		}
 
-		int powerOfTen = num.round(mc).scale() * -1;
+		int powerOfTen = num.round(mathContext).scale() * -1;
 		double fract = num.movePointLeft(powerOfTen).doubleValue();
 		double returnVal = (double) (powerOfTen + Math.log10(fract)) / log10ofE;
 
@@ -226,7 +178,7 @@ public class ExpFunction implements Serializable {
 			throw new IllegalArgumentException("log of a negative number: " + num);
 		}
 
-		int powerOfTen = num.round(mc).scale() * -1;
+		int powerOfTen = num.round(mathContext).scale() * -1;
 		double fract = num.movePointLeft(powerOfTen).doubleValue();
 		double returnVal = (double) (powerOfTen + Math.log10(fract));
 
