@@ -54,6 +54,8 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import java.io.Serializable;
 import java.math.*;
 
+import static edu.duke.cs.osprey.tools.Log.log;
+
 /**
  * Manages the computation of exp(x) for large values of x, using BigDecimal;
  * 		For large values of x, the standard Math.exp(x) cannot be used, since it only has double precision;
@@ -63,11 +65,17 @@ import java.math.*;
 @SuppressWarnings("serial")
 public class ExpFunction implements Serializable {
 
-	public static final BigDecimal exp = new BigDecimal("2.71828182845904523536"); //Euler's number to 20 decimal digits
-	public static final BigDecimal cutoffLog = new BigDecimal(Math.pow(10,38));
 	private final MathContext mathContext;
 
 	public final int maxPrecision; //the number of decimal digits to which the BigDecimal numbers must be accurate
+
+	public static final BigDecimal exp = new BigDecimal("2.71828182845904523536"); //Euler's number to 20 decimal digits
+
+	// Values used to avoid numerical instability with very large numbers
+	public static final BigDecimal cutoffLog = new BigDecimal(Math.pow(10,38));
+
+	// logger
+	private static edu.duke.cs.osprey.tools.Log logger = new edu.duke.cs.osprey.tools.Log();
 
 	public ExpFunction() {
 		this.mathContext = new MathContext(100, RoundingMode.HALF_EVEN);;
@@ -94,6 +102,10 @@ public class ExpFunction implements Serializable {
 			expX = new BigDecimal(Math.exp(x));
 		}
 		else { //x is large, so use the BigDecimal arithmetic approach
+			if ( x >= Integer.MAX_VALUE ) {
+				logger.log("WARN: assuming exp of huge positive value (%.2e) is just +inf", x);
+				return MathTools.BigPositiveInfinity;
+			}
 			int integerPart = (int)Math.floor(x);
 			double fractionPart = x - integerPart;
 
