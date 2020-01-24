@@ -42,6 +42,7 @@ import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
+import org.ojalgo.matrix.transformation.Rotation;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -52,6 +53,8 @@ public class BoltzmannCalculator {
 
 	public final MathContext mathContext;
 	public final ExpFunction e;
+	public final BigDecimal intMax = new BigDecimal(Integer.MAX_VALUE);
+	public final BigDecimal intMin = new BigDecimal(Integer.MIN_VALUE);
 
 	public BoltzmannCalculator(MathContext mathContext) {
 		this.mathContext = mathContext;
@@ -84,13 +87,12 @@ public class BoltzmannCalculator {
 			BigDecimal d = new BigDecimal(e);
 			BigDecimal i = BigDecimalMath.integralPart(d);
 			if (i.signum() != 0) {
-				long num = i.longValueExact();
-				if ((int)num != num) {
+				if ( i.compareTo(intMax) >= 0 || i.compareTo(intMin) <= 0 ) {
 					if (e > 0) {
-						//log("WARN: assuming exp of huge positive value (%.2e) is just +inf", e);
+						log("WARN: assuming exp of huge positive value (%.2e) is just +inf", e);
 						return MathTools.BigPositiveInfinity;
 					} else {
-						//log("WARN: assuming exp of huge negative value (%.2e) is just 0", e);
+						log("WARN: assuming exp of huge negative value (%.2e) is just 0", e);
 						return BigDecimal.ZERO;
 					}
 				}
