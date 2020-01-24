@@ -67,12 +67,12 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 	/**
 	 * Builds the appropriate conformation energy calculator based on the desired parallelism.
 	 */
-	static ConfEnergyCalculator build(ConfSpace confSpace, Parallelism parallelism) {
+	static ConfEnergyCalculator build(ConfSpace confSpace, Parallelism parallelism, TaskExecutor tasks) {
 		if (parallelism.numGpus > 0) {
 			// TODO
 			throw new UnsupportedOperationException("GPU energy calculation not implement yet");
 		} else {
-			return new CPUConfEnergyCalculator(confSpace, parallelism.numThreads);
+			return new CPUConfEnergyCalculator(confSpace, tasks);
 		}
 	}
 }

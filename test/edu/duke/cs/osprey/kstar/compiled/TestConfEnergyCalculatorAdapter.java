@@ -16,6 +16,7 @@ import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.MathTools;
 import org.junit.Test;
@@ -67,43 +68,51 @@ public class TestConfEnergyCalculatorAdapter {
 			//.setShowPfuncProgress(true)
 			.addScoreConsoleWriter(testFormatter)
 			.build();
-		KStar kstar = new KStar(chainG, chainA, complex, settings);
-		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
-
-			ConfSpace confSpace = (ConfSpace)info.confSpace;
-
-			PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
-			boolean minimize = true;
-			// TODO: use shared thread pool for all conf spaces?
-			ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace, 4);
-
-			SimpleReferenceEnergies eref = new ErefCalculator.Builder(ecalc)
-				.setMinimize(minimize)
-				.build()
-				.calc();
-
-			PosInterGen posInterGen = new PosInterGen(posInterDist, eref);
-			EnergyMatrix emat = new EmatCalculator.Builder(ecalc, posInterGen)
-				.setMinimize(minimize)
-				.build()
-				.calc();
-
-			info.confEcalc = new ConfEnergyCalculatorAdapter.Builder(ecalc)
-				.setMinimize(minimize)
-				.setPosInterDist(posInterDist)
-				.setReferenceEnergies(eref)
-				.build();
-
-			info.confSearchFactory = (rcs) ->
-				new ConfAStarTree.Builder(emat, rcs)
-					.setTraditional()
-					.build();
-		}
-
-		// run K*
 		TestKStar.Result result = new TestKStar.Result();
-		result.kstar = kstar;
-		result.scores = kstar.run();
+		result.kstar = new KStar(chainG, chainA, complex, settings);
+
+		try (ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor()) {
+			tasks.start(4);
+
+			for (KStar.ConfSpaceInfo info : result.kstar.confSpaceInfos()) {
+
+				ConfSpace confSpace = (ConfSpace)info.confSpace;
+
+				PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
+				boolean minimize = true;
+				ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace, tasks);
+
+				SimpleReferenceEnergies eref = new ErefCalculator.Builder(ecalc)
+					.setMinimize(minimize)
+					.build()
+					.calc();
+
+				PosInterGen posInterGen = new PosInterGen(posInterDist, eref);
+				EnergyMatrix emat = new EmatCalculator.Builder(ecalc, posInterGen)
+					.setMinimize(minimize)
+					.build()
+					.calc();
+
+				info.confEcalc = new ConfEnergyCalculatorAdapter.Builder(ecalc)
+					.setMinimize(minimize)
+					.setPosInterDist(posInterDist)
+					.setReferenceEnergies(eref)
+					.build();
+
+				info.confSearchFactory = (rcs) ->
+					new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional()
+						.build();
+			}
+
+			// run K*
+			result.scores = result.kstar.run();
+
+			// cleanup
+			for (KStar.ConfSpaceInfo info : result.kstar.confSpaceInfos()) {
+				((ConfEnergyCalculatorAdapter)info.confEcalc).confEcalc.close();
+			}
+		}
 
 		// make sure the K* bounds are correct
 		assertKStar(result, "PHE LYS ILE SER PHE ASP GLU", 19.623811, 19.748049);

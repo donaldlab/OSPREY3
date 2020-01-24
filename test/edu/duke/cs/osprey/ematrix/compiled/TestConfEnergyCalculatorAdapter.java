@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.MathTools;
 import org.junit.Test;
@@ -58,25 +59,27 @@ public class TestConfEnergyCalculatorAdapter {
 
 	private void energyMatrixMinimized(Parallelism parallelism) {
 
-		try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
+		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
+			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism, tasks)) {
 
-			// compute the true energy matrix using the new calculator
-			PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
-			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
-				.setMinimize(true)
-				.build()
-				.calc();
+				// compute the true energy matrix using the new calculator
+				PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
+				EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
+					.setMinimize(true)
+					.build()
+					.calc();
 
-			// compare to the energy matrix computed using the adapted old calculator
-			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
-				.setPosInterDist(posInterGen.dist)
-				.setMinimize(true)
-				.build();
-			EnergyMatrix adaptedEmat = new SimplerEnergyMatrixCalculator.Builder(adapter)
-				.build()
-				.calcEnergyMatrix();
+				// compare to the energy matrix computed using the adapted old calculator
+				ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+					.setPosInterDist(posInterGen.dist)
+					.setMinimize(true)
+					.build();
+				EnergyMatrix adaptedEmat = new SimplerEnergyMatrixCalculator.Builder(adapter)
+					.build()
+					.calcEnergyMatrix();
 
-			assertThat(adaptedEmat, is(emat));
+				assertThat(adaptedEmat, is(emat));
+			}
 		}
 	}
 	@Test public void energyMatrixMinimized_CPU1() { energyMatrixMinimized(Parallelism.makeCpu(1)); }
@@ -201,36 +204,38 @@ public class TestConfEnergyCalculatorAdapter {
 
 	public void findGMEC(Parallelism parallelism) {
 
-		try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
+		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
+			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism, tasks)) {
 
-			// compute the energy matrix, with reference energies
-			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
-				.setMinimize(true)
-				.build();
-			SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(adapter)
-				.build()
-				.calcReferenceEnergies();
-			adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
-				.setReferenceEnergies(eref)
-				.setMinimize(true)
-				.build();
-			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(adapter)
-				.build()
-				.calcEnergyMatrix();
+				// compute the energy matrix, with reference energies
+				ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+					.setMinimize(true)
+					.build();
+				SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(adapter)
+					.build()
+					.calcReferenceEnergies();
+				adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+					.setReferenceEnergies(eref)
+					.setMinimize(true)
+					.build();
+				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(adapter)
+					.build()
+					.calcEnergyMatrix();
 
-			// define the conf search function
-			ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
-				.setTraditional()
-				.build();
+				// define the conf search function
+				ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+					.setTraditional()
+					.build();
 
-			// find the GMEC, hopefully without crashing
-			SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, adapter).build();
-			ConfSearch.EnergiedConf gmec = gmecFinder.find();
+				// find the GMEC, hopefully without crashing
+				SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, adapter).build();
+				ConfSearch.EnergiedConf gmec = gmecFinder.find();
 
-			// make sure we got the right conformation and energy
-			assertThat(gmec.getAssignments(), is(new int[] { 3, 0 }));
-			assertThat(gmec.getScore(), isAbsolutely(20.890101, 1e-6));
-			assertThat(gmec.getEnergy(), isAbsolutely(20.944495, 1e-6));
+				// make sure we got the right conformation and energy
+				assertThat(gmec.getAssignments(), is(new int[] { 3, 0 }));
+				assertThat(gmec.getScore(), isAbsolutely(20.890101, 1e-6));
+				assertThat(gmec.getEnergy(), isAbsolutely(20.944495, 1e-6));
+			}
 		}
 	}
 	@Test public void findGMEC_CPU1() { findGMEC(Parallelism.makeCpu(1)); }
@@ -239,38 +244,40 @@ public class TestConfEnergyCalculatorAdapter {
 
 	public void calcPfunc(Parallelism parallelism) {
 
-		try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
+		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
+			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism, tasks)) {
 
-			// compute the energy matrix
-			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
-				.setMinimize(true)
-				.build();
-			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(adapter)
-				.build()
-				.calcEnergyMatrix();
+				// compute the energy matrix
+				ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+					.setMinimize(true)
+					.build();
+				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(adapter)
+					.build()
+					.calcEnergyMatrix();
 
-			// compute the partition function
-			GradientDescentPfunc pfunc = new GradientDescentPfunc(adapter);
-			RCs rcs = new RCs(confSpace);
-			pfunc.init(
-				new ConfAStarTree.Builder(emat, rcs)
-					.setTraditional()
-					.build(),
-				new ConfAStarTree.Builder(emat, rcs)
-					.setTraditional()
-					.build(),
-				rcs.getNumConformations(),
-				0.68
-			);
-			pfunc.compute();
-			PartitionFunction.Result result = pfunc.makeResult();
+				// compute the partition function
+				GradientDescentPfunc pfunc = new GradientDescentPfunc(adapter);
+				RCs rcs = new RCs(confSpace);
+				pfunc.init(
+					new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional()
+						.build(),
+					new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional()
+						.build(),
+					rcs.getNumConformations(),
+					0.68
+				);
+				pfunc.compute();
+				PartitionFunction.Result result = pfunc.makeResult();
 
-			// make sure we got the right answer
-			assertThat(result.status, is(PartitionFunction.Status.Estimated));
-			assertThat(result.values.calcFreeEnergyBounds(), isAbsoluteBound(new MathTools.DoubleBounds(
-				-24.381189,
-				-24.375781
-			), 1e-6));
+				// make sure we got the right answer
+				assertThat(result.status, is(PartitionFunction.Status.Estimated));
+				assertThat(result.values.calcFreeEnergyBounds(), isAbsoluteBound(new MathTools.DoubleBounds(
+					-24.381189,
+					-24.375781
+				), 1e-6));
+			}
 		}
 	}
 	@Test public void calcPfunc_CPU1() { calcPfunc(Parallelism.makeCpu(1)); }

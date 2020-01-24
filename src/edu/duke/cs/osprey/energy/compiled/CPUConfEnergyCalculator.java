@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 
 import java.util.List;
@@ -16,25 +17,39 @@ import java.util.List;
 public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 
 	public final ConfSpace confSpace;
-	public final int numThreads;
-	public final ThreadPoolTaskExecutor tasks;
+	public final TaskExecutor tasks;
+
+	private final boolean ownTasks;
+
+	public CPUConfEnergyCalculator(ConfSpace confSpace, TaskExecutor tasks) {
+		this.confSpace = confSpace;
+		this.tasks = tasks;
+		this.ownTasks = false;
+	}
 
 	public CPUConfEnergyCalculator(ConfSpace confSpace, int numThreads) {
 
 		this.confSpace = confSpace;
-		this.numThreads = numThreads;
 
-		tasks = new ThreadPoolTaskExecutor();
+		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
 		tasks.start(numThreads);
+		this.tasks = tasks;
+		this.ownTasks = true;
+	}
+
+	public CPUConfEnergyCalculator(ConfSpace confSpace) {
+		this(confSpace, 1);
 	}
 
 	@Override
 	public void close() {
-		tasks.close();
+		if (ownTasks) {
+			tasks.close();
+		}
 	}
 
 	@Override
-	public ThreadPoolTaskExecutor tasks() {
+	public TaskExecutor tasks() {
 		return tasks;
 	}
 
