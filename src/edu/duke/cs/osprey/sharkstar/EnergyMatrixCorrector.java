@@ -16,17 +16,14 @@ import java.util.*;
 public class EnergyMatrixCorrector {
     private final MultiSequenceSHARKStarBound multiSequenceSHARKStarBound;
     private ConfEnergyCalculator confEcalc;
-    private BatchCorrectionMinimizer batcher;
 
     public EnergyMatrixCorrector(MultiSequenceSHARKStarBound multiSequenceSHARKStarBound) {
         this.multiSequenceSHARKStarBound = multiSequenceSHARKStarBound;
         this.confEcalc = multiSequenceSHARKStarBound.minimizingEcalc;
-        this.batcher = new BatchCorrectionMinimizer(confEcalc, multiSequenceSHARKStarBound.correctionMatrix,
-                multiSequenceSHARKStarBound.minimizingEmat);
     }
 
     void computeEnergyCorrection(ConfAnalyzer.ConfAnalysis analysis, ConfSearch.ScoredConf conf,
-                                 double epsilonBound) {
+                                 double epsilonBound, BatchCorrectionMinimizer batcher) {
         if (conf.getAssignments().length < 3)
             return;
         //System.out.println("Analysis:"+analysis);

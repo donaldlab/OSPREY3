@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
+import edu.duke.cs.osprey.energy.BatchCorrectionMinimizer;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
@@ -185,6 +186,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             /** These scoreres should match the scorers in the SHARKStarNode root - they perform the same calculations**/
             context.upperBoundScorer = nhscorerFactory.make(rigidEmat); //this is used for upper bounds, so we want it rigid
             context.ecalc = minimizingConfEcalc;
+            context.batcher = new BatchCorrectionMinimizer(minimizingConfEcalc, correctionMatrix, minimizingEmat);
 
             return context;
         });
@@ -1309,7 +1311,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, curNode.getConfLowerBound(bound.sequence));
                         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
                         Stopwatch correctionTimer = new Stopwatch().start();
-                        energyMatrixCorrector.computeEnergyCorrection(analysis, conf, bound.getSequenceEpsilon());
+                        energyMatrixCorrector.computeEnergyCorrection(analysis, conf, bound.getSequenceEpsilon(),
+                                context.batcher);
 
                         double energy = analysis.epmol.energy;
                         double newConfUpper = energy;
@@ -1428,6 +1431,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         public AStarScorer upperBoundScorer;
         public AStarScorer partialConfUpperBoundScorer;
         public ConfEnergyCalculator ecalc;
+        public BatchCorrectionMinimizer batcher;
     }
 
     public interface ScorerFactory {
