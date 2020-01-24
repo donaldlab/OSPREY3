@@ -61,12 +61,12 @@ public class EnergyMatrixCorrector {
         double triplethreshhold = 0.3;
         Set<RCTuple> scheduledMinimizations = new HashSet<>();
         // storePartialConfCorrections(conf, epsilonBound, diff, sortedPairwiseTerms2, threshhold, minDifference, triplethreshhold);
-        synchronized (scheduledMinimizations) {
             storePartialConfCorrections(conf, epsilonBound, diff, sortedPairwiseTerms2, threshhold, minDifference, triplethreshhold,
                     4, scheduledMinimizations);
-            for (RCTuple scheduledTuple : scheduledMinimizations) {
-                batcher.getBatch().addTuple(scheduledTuple);
-                batcher.submitIfFull();
+        for (RCTuple scheduledTuple : scheduledMinimizations) {
+            synchronized (batcher) {
+            batcher.getBatch().addTuple(scheduledTuple);
+            batcher.submitIfFull();
             }
         }
         batcher.submit();
