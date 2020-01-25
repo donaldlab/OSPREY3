@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.sharkstar;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.energy.BatchCorrectionMinimizer;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.TestKStar;
@@ -65,7 +66,9 @@ public class TestParallelMinimization {
         minimizingConfEcalc = mssharkbound.minimizingEcalc;
         confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
-        energyMatrixCorrector.computeEnergyCorrection(analysis, conf, 0);
+        BatchCorrectionMinimizer batcher = new BatchCorrectionMinimizer(minimizingConfEcalc, mssharkbound.correctionMatrix,
+                mssharkbound.minimizingEmat);
+        energyMatrixCorrector.computeEnergyCorrection(analysis, conf, 0, batcher);
     }
 
     private void minimizeOneConformation(int numCores) {
