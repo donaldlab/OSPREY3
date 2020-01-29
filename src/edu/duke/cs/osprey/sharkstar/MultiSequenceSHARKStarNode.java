@@ -37,14 +37,15 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     private SimpleConfSpace fullConfSpace;
     public final int level;
     private static BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
-    private final SimpleConfSpace.Position designPosition;
-    private final SimpleConfSpace.Position nextDesignPosition;
+    public final SimpleConfSpace.Position designPosition;
+    public SimpleConfSpace.Position nextDesignPosition;
 
     // Information for MultiSequence SHARK* Nodes
     private Map<Sequence, MathTools.BigDecimalBounds> sequenceBounds = new HashMap<>();
     private Map<String, List<MultiSequenceSHARKStarNode>> childrenByAA= new HashMap<>(); // probably should override the children list
     private Map<Sequence, List<MultiSequenceSHARKStarNode>> childrenBySequence = new HashMap<>(); // probably should override the children list
     private Map<Sequence, MathTools.DoubleBounds> confBounds = new HashMap<>();
+    private Map<Integer,MultiSequenceSHARKStarNode> childrenByRC;
 
     // Debugging variables
     private Map<Sequence, MathTools.BigDecimalBounds> lastSequenceBounds = new HashMap<>();
@@ -53,12 +54,13 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     private MultiSequenceSHARKStarNode(Node confNode, MultiSequenceSHARKStarNode parent, SimpleConfSpace fullConfSpace,
                                        SimpleConfSpace.Position designPosition, SimpleConfSpace.Position nextDesignPosition){
         this.fullConfSpace = fullConfSpace;
-        confSearchNode = confNode;
+        this.confSearchNode = confNode;
         this.level = confSearchNode.getLevel();
         this.children = new ArrayList<>();
         this.parent = parent;
         this.designPosition = designPosition;
         this.nextDesignPosition = nextDesignPosition;
+        this.childrenByRC = new HashMap<>();
     }
 
     /**
@@ -219,6 +221,9 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     }
 
+    protected Map<Sequence, MathTools.BigDecimalBounds> getSequenceBounds() {
+        return sequenceBounds;
+    }
     public BigDecimal getUpperBound(Sequence seq){
         return getSequenceBounds(seq).upper;
     }
@@ -235,24 +240,32 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return confSearchNode;
     }
 
-    public MultiSequenceSHARKStarNode makeChild(Node child, Sequence seq, double lowerBound, double upperBound,
-                                                SimpleConfSpace.Position designPosition,
-                                                SimpleConfSpace.Position nextDesignPosition) {
+    public MultiSequenceSHARKStarNode makeOrUpdateChild(Node child, Sequence seq, double lowerBound, double upperBound,
+                                                        SimpleConfSpace.Position designPosition,
+                                                        SimpleConfSpace.Position nextDesignPosition) {
         checkChildren(seq);
-        for(MultiSequenceSHARKStarNode childCheck: getChildren(seq)) {
+        for(MultiSequenceSHARKStarNode childCheck: children) {
             if(childCheck.getConfSearchNode().rc == child.rc) {
                 System.err.println("Should not be making a dupe node.");
             }
         }
-        MultiSequenceSHARKStarNode newChild = new MultiSequenceSHARKStarNode(child, this, this.fullConfSpace,
-                designPosition, nextDesignPosition);
+        MultiSequenceSHARKStarNode newChild = makeOrGetChild(child);
         newChild.computeEpsilonErrorBounds(seq);
         getChildren(seq).add(newChild);
-        children.add(newChild);
         newChild.setBoundsFromConfLowerAndUpper(lowerBound, upperBound, seq);
         newChild.errorBound = getErrorBound(seq);
         checkChildren(seq);
         return newChild;
+    }
+
+    private MultiSequenceSHARKStarNode makeOrGetChild(Node child) {
+        if(!childrenByRC.containsKey(child.rc)) {
+            MultiSequenceSHARKStarNode newChild = new MultiSequenceSHARKStarNode(child, this,
+                    this.fullConfSpace, designPosition, nextDesignPosition);
+            childrenByRC.put(child.rc, newChild);
+            children.add(newChild);
+        }
+        return childrenByRC.get(child.rc);
     }
 
     public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound, Sequence seq) {
@@ -280,6 +293,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public List<MultiSequenceSHARKStarNode> getChildren(Sequence seq) {
+        if(!childrenBySequence.containsKey(seq) && confMatch(confSearchNode.assignments, new int[]{8,-1,10}))
+            System.out.println("Gotcha-getchildren");
         if(seq == null)
             return children;
         initChildren(seq);
@@ -298,7 +313,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     private void initChildren(Sequence seq) {
         if(!childrenBySequence.containsKey(seq)) {
-            if (level >= fullConfSpace.positions.size()-1) {
+            if (level >= fullConfSpace.positions.size()) {
                 childrenBySequence.put(seq, new ArrayList<>());
                 return;
             }
@@ -309,15 +324,17 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
     }
 
-    private void checkChildren(Sequence seq) {
-        initChildren(seq);
+    private void checkAllChildren() {
+        checkListForDupes(children, "(all sequences)");
+    }
+
+    private void checkListForDupes(List<MultiSequenceSHARKStarNode> list, String identifier) {
         Set<Integer> rcs = new HashSet<>();
-        List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes = childrenBySequence.get(seq);
-        for(MultiSequenceSHARKStarNode node: multiSequenceSHARKStarNodes) {
+        for(MultiSequenceSHARKStarNode node: list) {
             int rc = node.confSearchNode.assignments[node.confSearchNode.pos];
             if(rcs.contains(rc)) {
-                System.out.println("Dupe nodes for "+seq+":");
-                for(MultiSequenceSHARKStarNode nodecheck: multiSequenceSHARKStarNodes) {
+                System.out.println("Dupe nodes for "+identifier+":");
+                for(MultiSequenceSHARKStarNode nodecheck: list) {
                     if(nodecheck.confSearchNode.assignments[node.confSearchNode.pos] == rc)
                         System.out.println(nodecheck+"-"+nodecheck.confSearchNode.confToString());
                 }
@@ -326,18 +343,38 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         }
     }
 
+    private void checkChildren(Sequence seq) {
+        checkAllChildren();
+        initChildren(seq);
+        List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes = childrenBySequence.get(seq);
+        checkListForDupes(multiSequenceSHARKStarNodes, seq.toString());
+        checkAllChildren();
+    }
+
     private List<MultiSequenceSHARKStarNode> populateChildren(Sequence seq) {
         List<MultiSequenceSHARKStarNode> childrenForSeq = new ArrayList<>();
         Set<Integer> rcs = new HashSet<>();
         RCs seqRCs =  seq.makeRCs(fullConfSpace);
         //int maxChildren = seqRCs.get(confSearchNode.pos+1).length;
+        if(nextDesignPosition == null)
+            return null;
+        for(int rcInAA : seqRCs.get(nextDesignPosition.index)) {
+            if(childrenByRC.containsKey(rcInAA) && childrenByRC.get(rcInAA) != null)
+                childrenForSeq.add(childrenByRC.get(rcInAA));
+            if((!childrenByRC.containsKey(rcInAA) || childrenByRC.get(rcInAA) == null) && children.size() > 0)
+                System.out.println("Null child. Make sure it should be null.");
+        }
+        /*
         for (MultiSequenceSHARKStarNode child: children) {
             if (child.designPosition.equals(nextDesignPosition) &&
                     Arrays.stream(seqRCs.get(child.confSearchNode.pos)).anyMatch(i -> i == child.confSearchNode.rc)) {
                 childrenForSeq.add(child);
+                if(rcs.contains(child.confSearchNode.rc))
+                    System.out.println("Adding two of the same RC to a child set");
                 rcs.add(child.confSearchNode.rc);
             }
         }
+        */
         return childrenForSeq;
     }
 

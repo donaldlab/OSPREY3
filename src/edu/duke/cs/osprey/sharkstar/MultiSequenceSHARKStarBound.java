@@ -6,7 +6,6 @@ import edu.duke.cs.osprey.astar.conf.pruning.AStarPruner;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseRigidGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -23,6 +22,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarNode.Node;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics;
 import edu.duke.cs.osprey.sharkstar.tools.SHARKStarEnsembleAnalyzer;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
@@ -34,8 +34,6 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.*;
 
 public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
@@ -111,7 +109,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private double leafTimeSum = 0;
     private double internalTimeSum = 0;
     private int numLeavesScored = 0;
-    private int numInternalScored = 0;
+
 
     private MultiSequenceSHARKStarBound precomputedPfunc;
     public MultiSequenceSHARKStarNode precomputedRootNode;
@@ -122,7 +120,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{5, 0, 7, -1, 8, 2, 3, 7, 3, 4, 8};
+    public static final int[] debugConf = new int[]{59, 202, 8, 18};
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -345,12 +343,24 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 System.out.println("end result: "+curNode.toSeqString(bound.sequence));
             correctionMatrix.setHigherOrder(curNode.toTuple(), confNode.getPartialConfLowerBound()
                     - minimizingEmat.confE(confNode.assignments));
+            if(curNode.nextDesignPosition == null && curNode.level < confSpace.positions.size()) {
+                curNode.nextDesignPosition = confSpace.positions.get(order.getNextPos(context.index, rcs));
+            }
+            if(bound.sequence.countMutations() < 1 && curNode.getChildren(bound.sequence).size() < 1 && curNode.getChildren(null).size() > 0) {
+                System.out.println("Gotta be careful here.");
+                MultiSequenceSHARKStarNodeStatistics.printTree(bound.sequence, rootNode);
+                computeFringeForSequence(bound, curNode);
+                for(Sequence seq : curNode.getSequenceBounds().keySet()) {
+                    boolean equals = bound.sequence.equals(seq);
+                    System.out.println("Are sequences "+bound.sequence+" and "+seq+" equal? "+equals);
+                }
+            }
+            if(curNode.getChildren(bound.sequence).size() < 1)
+                bound.fringeNodes.add(curNode);
+            else
+                for(MultiSequenceSHARKStarNode child: curNode.getChildren(bound.sequence))
+                    computeFringeForSequence(bound, child);
         }
-        if(curNode.getChildren(bound.sequence).size() < 1)
-            bound.fringeNodes.add(curNode);
-        else
-            for(MultiSequenceSHARKStarNode child: curNode.getChildren(bound.sequence))
-                computeFringeForSequence(bound, child);
         curNode.updateSubtreeBounds(bound.sequence);
     }
 
@@ -952,7 +962,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 SimpleConfSpace.Position nextDesignPos = null;
                 if(nextDesignIndex >=0)
                     nextDesignPos = confSpace.positions.get(nextDesignIndex);
-                MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild = curNode.makeChild(child, bound.sequence,
+                if(isDebugConf(curNode.getConfSearchNode().assignments))
+                    System.out.println("Gotcha-makeChild");
+                MultiSequenceSHARKStarNode MultiSequenceSHARKStarNodeChild = curNode.makeOrUpdateChild(child, bound.sequence,
                         confLowerBound, confUpperBound, designPos, nextDesignPos);
                 if (Double.isNaN(child.getPartialConfUpperBound()))
                     System.out.println("Huh!?");
@@ -1223,7 +1235,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     SimpleConfSpace.Position nextDesignPos = null;
                     if (nextDesignIndex >= 0)
                         nextDesignPos = confSpace.positions.get(nextDesignIndex);
-                    MultiSequenceSHARKStarNode newChild = curNode.makeChild(result.resultNode,
+                    if(isDebugConf(curNode.getConfSearchNode().assignments))
+                        System.out.println("Gotcha-makeChild");
+                    MultiSequenceSHARKStarNode newChild = curNode.makeOrUpdateChild(result.resultNode,
                             bound.sequence, result.lowerBound, result.upperBound, designPos, nextDesignPos);
                     newChild.setBoundsFromConfLowerAndUpper(result.lowerBound,
                             result.upperBound, bound.sequence);

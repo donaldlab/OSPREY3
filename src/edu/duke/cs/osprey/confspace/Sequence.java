@@ -416,7 +416,7 @@ public class Sequence {
 	}
 
 	public boolean equals(Sequence other) {
-		return this.seqSpace == other.seqSpace
+		return this.seqSpace.equals(other.seqSpace)
 			&& Arrays.equals(this.rtIndices, other.rtIndices);
 	}
 

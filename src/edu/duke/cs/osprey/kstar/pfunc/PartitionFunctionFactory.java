@@ -177,7 +177,7 @@ public class PartitionFunctionFactory {
                 );
                 break;
             case MSSHARKStar:
-                String RCString = ""+rcs.getNumPos();
+                String RCString = ""+rcs.getNumPos()+cachePattern;
                 if(!stateBounds.containsKey(RCString)) {
                     MultiSequenceSHARKStarBound stateMSBound;
                     minimizingEmat = makeEmat(confEcalc, "minimized");
