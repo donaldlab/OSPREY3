@@ -78,7 +78,7 @@ public class ExpFunction implements Serializable {
 	private static edu.duke.cs.osprey.tools.Log logger = new edu.duke.cs.osprey.tools.Log();
 
 	public ExpFunction() {
-		this.mathContext = new MathContext(100, RoundingMode.CEILING);;
+		this.mathContext = new MathContext(100, RoundingMode.FLOOR);
 		this.maxPrecision = this.mathContext.getPrecision();
 	}
 

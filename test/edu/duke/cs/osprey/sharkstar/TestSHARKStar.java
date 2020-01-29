@@ -253,7 +253,7 @@ public class TestSHARKStar {
 		    switch(lineType) {
 				case "mol":
 					String pdbName = parts[1].substring(parts[1].lastIndexOf('/')+1, parts[1].length()-1);
-					Molecule mol = PDBIO.readFile("examples/python.KStar/"+pdbName);
+					Molecule mol = PDBIO.readFile(parts[1].replace("\"",""));
 					strandBuilderMap.put("strand0", new Strand.Builder(mol).setTemplateLibrary(templateLib));
 					strandBuilderMap.put("strand1", new Strand.Builder(mol).setTemplateLibrary(templateLib));
 					break;

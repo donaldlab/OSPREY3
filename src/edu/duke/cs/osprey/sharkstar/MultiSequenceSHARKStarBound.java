@@ -35,6 +35,8 @@ import java.math.MathContext;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStatistics.printTree;
+
 public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private final EnergyMatrixCorrector energyMatrixCorrector;
@@ -120,7 +122,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{59, 202, 8, 18};
+    public static final int[] debugConf = new int[]{-1, -1, 8, 18};
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -348,7 +350,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             }
             if(bound.sequence.countMutations() < 1 && curNode.getChildren(bound.sequence).size() < 1 && curNode.getChildren(null).size() > 0) {
                 System.out.println("Gotta be careful here.");
-                MultiSequenceSHARKStarNodeStatistics.printTree(bound.sequence, rootNode);
+                printTree(bound.sequence, rootNode);
                 computeFringeForSequence(bound, curNode);
                 for(Sequence seq : curNode.getSequenceBounds().keySet()) {
                     boolean equals = bound.sequence.equals(seq);
