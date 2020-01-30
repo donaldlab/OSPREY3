@@ -414,11 +414,6 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
 			}
 		}
 
-		// make sure we have some design positions
-		if (positions.isEmpty()) {
-			throw new IllegalArgumentException("ConfSpace has no design positions, try adding some strand flexibility");
-		}
-
 		// index the positions
 		positionsByResNum = new HashMap<>();
 		for (Position pos : positions) {
@@ -444,11 +439,16 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
 		for (Residue staticRes : staticResidues) {
 
 			// see if a flexible residue is nearby
+			Residue nearbyFlexibleRes = null;
 			for (Residue flexibleRes : flexibleResidues) {
 				if (staticRes.distanceTo(flexibleRes) <= shellDist) {
-					shellResNumbers.add(Residues.normalizeResNum(staticRes.getPDBResNumber()));
+					nearbyFlexibleRes = staticRes;
 					break;
 				}
+			}
+
+			if (nearbyFlexibleRes != null || flexibleResidues.isEmpty()) {
+				shellResNumbers.add(Residues.normalizeResNum(staticRes.getPDBResNumber()));
 			}
 		}
 		assert (shellResNumbers.size() <= staticResidues.size());

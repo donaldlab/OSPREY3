@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.energy.compiled;
 
 import cern.colt.matrix.DoubleMatrix1D;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
@@ -48,6 +49,13 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 	 */
 	EnergiedCoords minimize(int[] conf, List<PosInter> inters);
 
+	default EnergiedCoords calcOrMinimize(int[] conf, List<PosInter> inters, boolean minimize) {
+		if (minimize) {
+			return minimize(conf, inters);
+		} else {
+			return calc(conf, inters);
+		}
+	}
 
 	/**
 	 * Calculate the rigid (ie unminimized) energy of the conformation, using the provided interactions.
@@ -63,6 +71,29 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 		return minimize(conf, inters).energy;
 	}
 
+	default double calcOrMinimizeEnergy(int[] conf, List<PosInter> inters, boolean minimize) {
+		if (minimize) {
+			return minimizeEnergy(conf, inters);
+		} else {
+			return calcEnergy(conf, inters);
+		}
+	}
+
+	default ConfSearch.EnergiedConf calcEnergy(ConfSearch.ScoredConf conf, List<PosInter> inters) {
+		return new ConfSearch.EnergiedConf(conf, calcEnergy(conf.getAssignments(), inters));
+	}
+
+	default ConfSearch.EnergiedConf minimizeEnergy(ConfSearch.ScoredConf conf, List<PosInter> inters) {
+		return new ConfSearch.EnergiedConf(conf, minimizeEnergy(conf.getAssignments(), inters));
+	}
+
+	default ConfSearch.EnergiedConf calcOrMinimizeEnergy(ConfSearch.ScoredConf conf, List<PosInter> inters, boolean minimize) {
+		if (minimize) {
+			return minimizeEnergy(conf, inters);
+		} else {
+			return calcEnergy(conf, inters);
+		}
+	}
 
 	/**
 	 * Builds the appropriate conformation energy calculator based on the desired parallelism.

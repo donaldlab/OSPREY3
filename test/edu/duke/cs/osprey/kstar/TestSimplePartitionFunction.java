@@ -438,4 +438,53 @@ public class TestSimplePartitionFunction {
 			}
 		});
 	}
+
+	public static TestInfo makeNoPositionsTestInfo() {
+
+		TestInfo info = new TestInfo();
+
+		// choose a forcefield
+		info.ffparams = new ForcefieldParams();
+
+		// choose a molecule
+		info.mol = PDBIO.readFile("examples/2RL0.kstar/2RL0.min.reduce.pdb");
+
+		// make sure all strands share the same template library
+		info.templateLib = new ResidueTemplateLibrary.Builder(info.ffparams.forcefld).build();
+
+		info.protein = new Strand.Builder(info.mol)
+			.setTemplateLibrary(info.templateLib)
+			.setResidues("G648", "G654")
+			.build();
+
+		info.ligand = new Strand.Builder(info.mol)
+			.setTemplateLibrary(info.templateLib)
+			.setResidues("A155", "A194")
+			.build();
+
+		return info;
+	}
+
+	private static EnergyMatrix calcNoPositionsProteinEmat = null;
+	public void calcNoPositionsProtein(PfuncFactory pfuncs, Parallelism parallelism) {
+		TestInfo info = makeNoPositionsTestInfo();
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+			.addStrand(info.protein)
+			.build();
+		if (calcNoPositionsProteinEmat == null) {
+			calcNoPositionsProteinEmat = calcEmat(info.ffparams, confSpace, parallelism);
+		}
+		final double targetEpsilon = 0.05;
+		final String approxQStar = "0.0e+0";
+		testStrand(info.ffparams, confSpace, parallelism, targetEpsilon, approxQStar, calcNoPositionsProteinEmat, pfuncs);
+	}
+	@Test public void testNoPositionsProteinSimple1Cpu() { calcNoPositionsProtein(simplePfuncs, Parallelism.make(1, 0, 0)); }
+	@Test public void testNoPositionsProteinSimple2Cpus() { calcNoPositionsProtein(simplePfuncs, Parallelism.make(2, 0, 0)); }
+	@Test public void testNoPositionsProteinSimple1GpuStream() { calcNoPositionsProtein(simplePfuncs, Parallelism.make(1, 1, 1)); }
+	@Test public void testNoPositionsProteinSimple4GpuStreams() { calcNoPositionsProtein(simplePfuncs, Parallelism.make(2, 1, 4)); }
+	@Test public void testNoPositionsProteinGD1Cpu() { calcNoPositionsProtein(gdPfuncs, Parallelism.make(1, 0, 0)); }
+	@Test public void testNoPositionsProteinGD2Cpus() { calcNoPositionsProtein(gdPfuncs, Parallelism.make(2, 0, 0)); }
+	@Test public void testNoPositionsProteinGD1GpuStream() { calcNoPositionsProtein(gdPfuncs, Parallelism.make(1, 1, 1)); }
+	@Test public void testNoPositionsProteinGD4GpuStreams() { calcNoPositionsProtein(gdPfuncs, Parallelism.make(2, 1, 4)); }
+
 }

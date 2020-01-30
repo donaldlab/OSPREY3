@@ -153,8 +153,18 @@ public class SimplerEnergyMatrixCalculator {
 		EnergyMatrix emat = new EnergyMatrix(confEcalc.confSpaceIteration());
 
 		// count how much work there is to do (roughly based on number of residue pairs)
-		final int singleCost = confEcalc.makeSingleInters(0, 0).size();
-		final int pairCost = confEcalc.makePairInters(0, 0, 0, 0).size();
+		final int singleCost;
+		if (emat.getNumPos() <= 0) {
+			singleCost = 0;
+		} else {
+			singleCost = confEcalc.makeSingleInters(0, 0).size();
+		}
+		final int pairCost;
+		if (emat.getNumPos() <= 0) {
+			pairCost = 0;
+		} else {
+			pairCost = confEcalc.makePairInters(0, 0, 0, 0).size();
+		}
 		final int numSingles = confEcalc.confSpaceIteration().countSingles();
 		final int numPairs = confEcalc.confSpaceIteration().countPairs();
 		Progress progress = new Progress(numSingles*singleCost + numPairs*pairCost);

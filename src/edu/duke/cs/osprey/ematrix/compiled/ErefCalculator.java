@@ -76,12 +76,7 @@ public class ErefCalculator {
 				inters.add(new PosInter(posi, posi, 1.0, 0.0));
 
 				int[] assignments = confSpace.assign(posi, confi);
-				double energy;
-				if (minimize) {
-					energy = confEcalc.minimizeEnergy(assignments, inters);
-				} else {
-					energy = confEcalc.calcEnergy(assignments, inters);
-				}
+				double energy = confEcalc.calcOrMinimizeEnergy(assignments, inters, minimize);
 
 				// keep the min energy for each pos,resType
 				String resType = confSpace.confType(posi, confi);

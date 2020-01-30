@@ -70,7 +70,7 @@ public class Log {
 		if (f == null) {
 			return "null";
 		} else {
-			return String.format("%e (%.2f)", f.doubleValue(), MathTools.log10p1(f));
+			return String.format("%e (%.2f)", f, MathTools.log10p1(f));
 		}
 	}
 

@@ -2,7 +2,9 @@ package edu.duke.cs.osprey.ematrix.compiled;
 
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
+import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.tools.Progress;
@@ -21,12 +23,20 @@ public class EmatCalculator {
 	public static class Builder {
 
 		public final ConfEnergyCalculator confEcalc;
-		public final PosInterGen posInterGen;
+
+		/** Defines what position interactions should be used for conformations and conformation fragments */
+		private PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
+
+		/** Reference energies used to design against the unfolded state, useful for GMEC designs */
+		private SimpleReferenceEnergies eref = null;
 
 		/**
 		 * True to minimize conformations, false to use rigid conformations.
 		 */
 		private boolean minimize = true;
+
+		/** True to include the static-static energies in conformation energies */
+		private boolean includeStaticStatic = false;
 
 		/**
 		 * Path to file where energy matrix should be saved between computations.
@@ -44,13 +54,27 @@ public class EmatCalculator {
 		 */
 		private File cacheFile = null;
 
-		public Builder(ConfEnergyCalculator confEcalc, PosInterGen posInterGen) {
+		public Builder(ConfEnergyCalculator confEcalc) {
 			this.confEcalc = confEcalc;
-			this.posInterGen = posInterGen;
+		}
+
+		public Builder setPosInterDist(PosInterDist val) {
+			posInterDist = val;
+			return this;
+		}
+
+		public Builder setReferenceEnergies(SimpleReferenceEnergies val) {
+			eref = val;
+			return this;
 		}
 
 		public Builder setMinimize(boolean val) {
 			minimize = val;
+			return this;
+		}
+
+		public Builder setIncludeStaticStatic(boolean val) {
+			includeStaticStatic = val;
 			return this;
 		}
 
@@ -62,8 +86,9 @@ public class EmatCalculator {
 		public EmatCalculator build() {
 			return new EmatCalculator(
 				confEcalc,
-				posInterGen,
+				new PosInterGen(posInterDist, eref),
 				minimize,
+				includeStaticStatic,
 				cacheFile
 			);
 		}
@@ -73,13 +98,15 @@ public class EmatCalculator {
 	public final ConfEnergyCalculator confEcalc;
 	public final PosInterGen posInterGen;
 	public final boolean minimize;
+	public final boolean includeStaticStatic;
 	public final File cacheFile;
 
-	private EmatCalculator(ConfEnergyCalculator confEcalc, PosInterGen posInterGen, boolean minimize, File cacheFile) {
+	private EmatCalculator(ConfEnergyCalculator confEcalc, PosInterGen posInterGen, boolean minimize, boolean includeStaticStatic, File cacheFile) {
 
 		this.confEcalc = confEcalc;
 		this.posInterGen = posInterGen;
 		this.minimize = minimize;
+		this.includeStaticStatic = includeStaticStatic;
 		this.cacheFile = cacheFile;
 	}
 
@@ -103,19 +130,32 @@ public class EmatCalculator {
 
 		ConfSpace confSpace = confEcalc.confSpace();
 
-		// TODO: report progress
-		// TODO: add reference energies?
-
 		// count how much work there is to do
 		// estimate work based on number of position interactions and the conf space size
-		final int singleCost = posInterGen.single(confSpace, 0, 0).size();
-		final int pairCost = posInterGen.pair(confSpace, 0, 0, 0, 0).size();
+		final int singleCost;
+		final int pairCost;
+		if (confSpace.numPos() > 0) {
+			singleCost = posInterGen.single(confSpace, 0, 0).size();
+			pairCost = posInterGen.pair(confSpace, 0, 0, 0, 0).size();
+		} else {
+			singleCost = 0;
+			pairCost = 0;
+		}
 		int numSingles = confSpace.countSingles();
 		int numPairs = confSpace.countPairs();
-		Progress progress = new Progress(numSingles*singleCost + numPairs*pairCost);
-		log("Calculating energy matrix with %d entries", numSingles + numPairs);
+		Progress progress = new Progress(1 + numSingles*singleCost + numPairs*pairCost);
+		log("Calculating energy matrix with %d entries", 1 + numSingles + numPairs);
 
 		// TODO: use any parallelism provided by the confEcalc
+
+		// static-static energy
+		if (includeStaticStatic) {
+			List<PosInter> inters = posInterGen.staticStatic(confSpace);
+			int[] conf = confSpace.assign();
+			double energy = confEcalc.calcOrMinimizeEnergy(conf, inters, minimize);
+			emat.setConstTerm(energy);
+		}
+		progress.incrementProgress();
 
 		for (int posi1=0; posi1<confSpace.numPos(); posi1++) {
 			for (int confi1=0; confi1<confSpace.numConf(posi1); confi1++) {
@@ -124,12 +164,7 @@ public class EmatCalculator {
 				{
 					int[] assignments = confSpace.assign(posi1, confi1);
 					List<PosInter> inters = posInterGen.single(confSpace, posi1, confi1);
-					double energy;
-					if (minimize) {
-						energy = confEcalc.minimizeEnergy(assignments, inters);
-					} else {
-						energy = confEcalc.calcEnergy(assignments, inters);
-					}
+					double energy = confEcalc.calcOrMinimizeEnergy(assignments, inters, minimize);
 					emat.setOneBody(posi1, confi1, energy);
 
 					progress.incrementProgress(inters.size());
@@ -141,12 +176,7 @@ public class EmatCalculator {
 						// pairs
 						int[] assignments = confSpace.assign(posi1, confi1, posi2, confi2);
 						List<PosInter> inters = posInterGen.pair(confSpace, posi1, confi1, posi2, confi2);
-						double energy;
-						if (minimize) {
-							energy = confEcalc.minimizeEnergy(assignments, inters);
-						} else {
-							energy = confEcalc.calcEnergy(assignments, inters);
-						}
+						double energy = confEcalc.calcOrMinimizeEnergy(assignments, inters, minimize);
 						emat.setPairwise(posi1, confi1, posi2, confi2, energy);
 
 						progress.incrementProgress(inters.size());

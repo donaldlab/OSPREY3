@@ -38,6 +38,9 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 
 		private boolean minimize = true;
 
+		/** True to include the static-static energies in conformation energies */
+		private boolean includeStaticStatic = false;
+
 		public Builder(ConfEnergyCalculator confEcalc) {
 			this.confEcalc = confEcalc;
 		}
@@ -57,11 +60,17 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 			return this;
 		}
 
+		public Builder setIncludeStaticStatic(boolean val) {
+			includeStaticStatic = val;
+			return this;
+		}
+
 		public ConfEnergyCalculatorAdapter build() {
 			return new ConfEnergyCalculatorAdapter(
 				confEcalc,
 				new PosInterGen(posInterDist, eref),
-				minimize
+				minimize,
+				includeStaticStatic
 			);
 		}
 	}
@@ -69,15 +78,17 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 	public final ConfEnergyCalculator confEcalc;
 	public final PosInterGen posInterGen;
 	public final boolean minimize;
+	public final boolean includeStaticStatic;
 
 	// TODO: support approximator matrices?
 
-	private ConfEnergyCalculatorAdapter(ConfEnergyCalculator confEcalc, PosInterGen posInterGen, boolean minimize) {
+	private ConfEnergyCalculatorAdapter(ConfEnergyCalculator confEcalc, PosInterGen posInterGen, boolean minimize, boolean includeStaticStatic) {
 		super(confEcalc.tasks());
 
 		this.confEcalc = confEcalc;
 		this.posInterGen = posInterGen;
 		this.minimize = minimize;
+		this.includeStaticStatic = includeStaticStatic;
 	}
 
 	@Override
@@ -207,7 +218,12 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 		int[] conf = confEcalc.confSpace().assign(frag);
 
 		// make the position interactions for the whole conformation
-		List<PosInter> inters = posInterGen.dynamic(confEcalc.confSpace(), conf);
+		List<PosInter> inters;
+		if (includeStaticStatic) {
+			inters = posInterGen.all(confEcalc.confSpace(), conf);
+		} else {
+			inters = posInterGen.dynamic(confEcalc.confSpace(), conf);
+		}
 
 		return epmol(conf, inters);
 	}

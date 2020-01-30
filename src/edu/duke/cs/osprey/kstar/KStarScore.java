@@ -38,6 +38,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 import java.math.BigDecimal;
 import java.util.function.Function;
 
+
 public class KStarScore {
 
 	public final PartitionFunction.Result protein;
@@ -171,16 +172,9 @@ public class KStarScore {
 
 	public static Double scoreToLog10(BigDecimal score) {
 		if (score != null) {
-			return Math.log10(score.doubleValue());
+			return MathTools.log10(score);
 		}
 		return null;
-	}
-
-	public static String scoreToString(BigDecimal score) {
-		if (score != null) {
-			return String.format("%e", score.doubleValue());
-		}
-		return "none";
 	}
 
 	public static String scoreToLog10String(BigDecimal score) {

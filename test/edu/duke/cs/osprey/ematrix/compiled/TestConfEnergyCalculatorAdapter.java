@@ -16,7 +16,6 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
-import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -38,15 +37,16 @@ public class TestConfEnergyCalculatorAdapter {
 		try (CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace, 1)) {
 
 			// compute the true energy matrix using the new calculator
-			PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
-			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
+			PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
+			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc)
+				.setPosInterDist(posInterDist)
 				.setMinimize(false)
 				.build()
 				.calc();
 
 			// compare to the energy matrix computed using the adapted old calculator
 			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
-				.setPosInterDist(posInterGen.dist)
+				.setPosInterDist(posInterDist)
 				.setMinimize(false)
 				.build();
 			EnergyMatrix adaptedEmat = new SimplerEnergyMatrixCalculator.Builder(adapter)
@@ -63,15 +63,16 @@ public class TestConfEnergyCalculatorAdapter {
 			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism, tasks)) {
 
 				// compute the true energy matrix using the new calculator
-				PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, null);
-				EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
+				PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
+				EnergyMatrix emat = new EmatCalculator.Builder(confEcalc)
+					.setPosInterDist(posInterDist)
 					.setMinimize(true)
 					.build()
 					.calc();
 
 				// compare to the energy matrix computed using the adapted old calculator
 				ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
-					.setPosInterDist(posInterGen.dist)
+					.setPosInterDist(posInterDist)
 					.setMinimize(true)
 					.build();
 				EnergyMatrix adaptedEmat = new SimplerEnergyMatrixCalculator.Builder(adapter)
@@ -142,15 +143,17 @@ public class TestConfEnergyCalculatorAdapter {
 				.setMinimize(false)
 				.build()
 				.calc();
-			PosInterGen posInterGen = new PosInterGen(PosInterDist.DesmetEtAl1992, eref);
-			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc, posInterGen)
+			PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
+			EnergyMatrix emat = new EmatCalculator.Builder(confEcalc)
+				.setPosInterDist(posInterDist)
+				.setReferenceEnergies(eref)
 				.setMinimize(false)
 				.build()
 				.calc();
 
 			// compare to the energy matrix computed using the adapted old calculator
 			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
-				.setPosInterDist(posInterGen.dist)
+				.setPosInterDist(posInterDist)
 				.setReferenceEnergies(eref)
 				.setMinimize(false)
 				.build();

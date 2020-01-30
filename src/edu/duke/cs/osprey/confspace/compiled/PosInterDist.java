@@ -84,6 +84,15 @@ public enum PosInterDist {
 		}
 	};
 
+	public static List<PosInter> staticStatic(ConfSpace confSpace) {
+		List<PosInter> inters = new ArrayList<>();
+
+		// include the static energy
+		inters.add(new PosInter(PosInter.StaticPos, PosInter.StaticPos, 1.0, 0.0));
+
+		return inters;
+	}
+
 	/**
 	 * Include all interactions. Doesn't depend on the distribution.
 	 */

@@ -32,6 +32,8 @@
 
 package edu.duke.cs.osprey.tools;
 
+import ch.obermuhlner.math.big.BigDecimalMath;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -544,6 +546,19 @@ public class MathTools {
 		return bigDivide(bigDivide(a, b, context), c, context);
 	}
 
+	public static double log10(BigDecimal x) {
+		if (x == BigPositiveInfinity) {
+			return Double.POSITIVE_INFINITY;
+		} else if (x == BigNaN || isLessThan(x, BigDecimal.ZERO)) {
+			return Double.NaN;
+		} else if (isZero(x)) {
+			return Double.NEGATIVE_INFINITY;
+		} else {
+			MathContext mc = new MathContext(16);
+			return BigDecimalMath.log10(x, mc).doubleValue();
+		}
+	}
+
 	/**
 	 * returns log10(x+1)
 	 *
@@ -556,7 +571,8 @@ public class MathTools {
 		} else if (x == BigNegativeInfinity || x == BigNaN) {
 			return Double.NaN;
 		} else {
-			return Math.log10(x.add(BigDecimal.ONE).doubleValue());
+			MathContext mc = new MathContext(16);
+			return BigDecimalMath.log10(x.add(BigDecimal.ONE, mc), mc).doubleValue();
 		}
 	}
 

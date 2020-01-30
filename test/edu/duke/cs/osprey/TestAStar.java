@@ -32,16 +32,15 @@
 
 package edu.duke.cs.osprey;
 
-import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
-import com.google.common.collect.Lists;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.MathTools;
 import org.junit.BeforeClass;
@@ -66,7 +65,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public class TestAStar extends TestBase {
-	
+
 	@BeforeClass
 	public static void before() {
 		initDefaultEnvironment();
@@ -588,5 +587,66 @@ public class TestAStar extends TestBase {
 				assertThat(descendingConfs.get(i).getScore(), isAbsolutely(ascendingConfs.get(ascendingConfs.size() - 1 - i).getScore()));
 			}
 		}
+	}
+
+
+	// WEIRD EDGE CASE TESTS
+
+	@Test
+	public void oneVAL() {
+
+		// build the conf space
+		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
+		strand.flexibility.get("A20").setLibraryRotamers("VAL");
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+			.addStrand(strand)
+			.build();
+
+		// get all the confs using A*
+		List<ConfSearch.ScoredConf> confs = sortConfs(confSpace);
+
+		// check for correctness
+		assertThat(confs.size(), is(3));
+		assertThat(confs.get(0).getAssignments(), is(new int[] { 1 }));
+		assertThat(confs.get(1).getAssignments(), is(new int[] { 0 }));
+		assertThat(confs.get(2).getAssignments(), is(new int[] { 2 }));
+	}
+
+	@Test
+	public void noDesignPositions() {
+
+		// build the conf space
+		Strand strand = new Strand.Builder(PDBIO.readResource("/1CC8.ss.pdb")).build();
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
+			.addStrand(strand)
+			.build();
+
+		// get all the confs using A*
+		List<ConfSearch.ScoredConf> confs = sortConfs(confSpace);
+
+		// check for correctness
+		assertThat(confs.size(), is(1));
+		assertThat(confs.get(0).getAssignments(), is(new int[] { /* no positions means no assignments */ }));
+	}
+
+	private List<ConfSearch.ScoredConf> sortConfs(SimpleConfSpace confSpace) {
+
+		// compute the energy matrix
+		EnergyMatrix emat;
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+			.setParallelism(Parallelism.makeCpu(4))
+			.setIsMinimizing(false)
+			.build()
+		) {
+			emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+				.build()
+				.calcEnergyMatrix();
+		}
+
+		// enumerate all the confs using A*
+		ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+			.setTraditional()
+			.build();
+		return astar.nextConfs(Double.POSITIVE_INFINITY);
 	}
 }

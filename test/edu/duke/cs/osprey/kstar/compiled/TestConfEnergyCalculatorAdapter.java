@@ -11,7 +11,6 @@ import edu.duke.cs.osprey.ematrix.compiled.ErefCalculator;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
-import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.TestKStar;
@@ -52,10 +51,10 @@ public class TestConfEnergyCalculatorAdapter {
 				formatPfunc.apply(info.kstarScore.protein),
 				formatPfunc.apply(info.kstarScore.ligand),
 				formatPfunc.apply(info.kstarScore.complex),
-				info.kstarScore.protein.toString(),
-				info.kstarScore.ligand.toString(),
-				info.kstarScore.complex.toString(),
-				info.kstarScore.toString()
+				info.kstarScore.protein,
+				info.kstarScore.ligand,
+				info.kstarScore.complex,
+				info.kstarScore
 			);
 		};
 
@@ -87,16 +86,17 @@ public class TestConfEnergyCalculatorAdapter {
 					.build()
 					.calc();
 
-				PosInterGen posInterGen = new PosInterGen(posInterDist, eref);
-				EnergyMatrix emat = new EmatCalculator.Builder(ecalc, posInterGen)
+				EnergyMatrix emat = new EmatCalculator.Builder(ecalc)
+					.setPosInterDist(posInterDist)
+					.setReferenceEnergies(eref)
 					.setMinimize(minimize)
 					.build()
 					.calc();
 
 				info.confEcalc = new ConfEnergyCalculatorAdapter.Builder(ecalc)
-					.setMinimize(minimize)
 					.setPosInterDist(posInterDist)
 					.setReferenceEnergies(eref)
+					.setMinimize(minimize)
 					.build();
 
 				info.confSearchFactory = (rcs) ->

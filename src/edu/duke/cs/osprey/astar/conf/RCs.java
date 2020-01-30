@@ -131,6 +131,12 @@ public class RCs {
 	}
 	
 	public boolean hasConfs() {
+
+		// a conf space with no design positions still technically has the empty conformation
+		if (unprunedRCsAtPos.length <= 0) {
+			return true;
+		}
+
 		for (int[] rcs : unprunedRCsAtPos) {
 			if (rcs.length > 0) {
 				return true;
