@@ -244,12 +244,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                                                         SimpleConfSpace.Position designPosition,
                                                         SimpleConfSpace.Position nextDesignPosition) {
         checkChildren(seq);
-        for(MultiSequenceSHARKStarNode childCheck: children) {
-            if(childCheck.getConfSearchNode().rc == child.rc) {
-                System.err.println("Should not be making a dupe node.");
-            }
-        }
-        MultiSequenceSHARKStarNode newChild = makeOrGetChild(child);
+        MultiSequenceSHARKStarNode newChild = makeOrGetChild(child, designPosition, nextDesignPosition);
         newChild.computeEpsilonErrorBounds(seq);
         getChildren(seq).add(newChild);
         newChild.setBoundsFromConfLowerAndUpper(lowerBound, upperBound, seq);
@@ -258,11 +253,12 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return newChild;
     }
 
-    private MultiSequenceSHARKStarNode makeOrGetChild(Node child) {
+    private MultiSequenceSHARKStarNode makeOrGetChild(Node child, SimpleConfSpace.Position designPosition,
+                                                    SimpleConfSpace.Position nextDesignPosition) {
         if(!childrenByRC.containsKey(child.rc)) {
             MultiSequenceSHARKStarNode newChild = new MultiSequenceSHARKStarNode(child, this,
-                    this.fullConfSpace, designPosition, nextDesignPosition);
-            childrenByRC.put(child.rc, newChild);
+                this.fullConfSpace, designPosition, nextDesignPosition);
+        childrenByRC.put(child.rc, newChild);
             children.add(newChild);
         }
         return childrenByRC.get(child.rc);
@@ -361,7 +357,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         for(int rcInAA : seqRCs.get(nextDesignPosition.index)) {
             if(childrenByRC.containsKey(rcInAA) && childrenByRC.get(rcInAA) != null)
                 childrenForSeq.add(childrenByRC.get(rcInAA));
-            if((!childrenByRC.containsKey(rcInAA) || childrenByRC.get(rcInAA) == null) && children.size() > 0)
+            if((!childrenByRC.containsKey(rcInAA) || childrenByRC.get(rcInAA) == null) && children.size() > 0
+            &&  childrenBySequence.containsKey(seq.get(nextDesignPosition.resNum).name))
                 System.out.println("Null child. Make sure it should be null.");
         }
         /*

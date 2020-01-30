@@ -99,7 +99,9 @@ public class MultiSequenceSHARKStarNodeStatistics {
 
     public static String convertMagicBigDecimalToString(BigDecimal decimal) {
         if(MathTools.isFinite(decimal))
-            return setSigFigs(decimal).toEngineeringString();
+            if(MathTools.isLessThan(decimal, BigDecimal.ONE))
+                return "(<1)";
+            else return setSigFigs(decimal).toEngineeringString();
         return decimal.toString();
     }
 
