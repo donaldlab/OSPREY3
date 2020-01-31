@@ -191,7 +191,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                 && getSequenceBounds(seq).upper.subtract(lastUpper).compareTo(BigDecimal.TEN) > 0
                 && getSequenceBounds(seq).upper.subtract(lastUpper).compareTo(tolerance.multiply(lastUpper)) > 0) {
             System.err.println("Upper bound got bigger!?");
-            System.err.println("Previous: "+setSigFigs(lastUpper)+", now "+setSigFigs(getSequenceBounds(seq).upper));
+            System.err.println("Previous: "+convertMagicBigDecimalToString(lastUpper)+", now "+convertMagicBigDecimalToString(getSequenceBounds(seq).upper));
             System.err.println("Increased by "+getSequenceBounds(seq).upper.subtract(lastUpper));
             System.out.println("Current Tree:");
             printTree(seq, this);
@@ -265,11 +265,15 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound, Sequence seq) {
+        if(isDebugConf(confSearchNode.assignments))
+            System.out.println("Gotcha-boundset");
         MathTools.BigDecimalBounds bounds = getSequenceBounds(seq);
         BigDecimal subtreeLowerBound = bounds.lower;
         BigDecimal subtreeUpperBound = bounds.upper;
         BigDecimal tighterLower = bc.calc(upperBound);
         BigDecimal tighterUpper = bc.calc(lowerBound);
+        System.out.println("Setting "+toSeqString(seq)+" to ["+convertMagicBigDecimalToString(tighterLower)+","
+                +tighterUpper+"] for sequence"+seq);
         if (subtreeLowerBound != null && MathTools.isGreaterThan(subtreeLowerBound, tighterLower))
             System.err.println("Updating subtree lower bound " + convertMagicBigDecimalToString(subtreeLowerBound)
                     + " with " + tighterLower + ", which is lower!?");
@@ -476,9 +480,9 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         out += "Energy:" + String.format("%4.2f", confSearchNode.getPartialConfLowerBound()) + "*" + confSearchNode.numConfs;
         if (!isMinimized(seq))
             out += " in [" + String.format("%4.4e,%4.4e", getSequenceConfBounds(seq).lower, getSequenceConfBounds(seq).upper)
-                    + "]->[" + setSigFigs(subtreeLowerBound) + "," + setSigFigs(subtreeUpperBound) + "]";
+                    + "]->[" + convertMagicBigDecimalToString(subtreeLowerBound) + "," + convertMagicBigDecimalToString(subtreeUpperBound) + "]";
         else
-            out += " (minimized) -> " + setSigFigs(subtreeLowerBound);
+            out += " (minimized) -> " + convertMagicBigDecimalToString(subtreeLowerBound);
         return out;
     }
 
@@ -489,9 +493,9 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         out += "Energy:" + String.format("%4.2f", confSearchNode.getPartialConfLowerBound()) + "*" + confSearchNode.numConfs;
         if (!isMinimized(seq))
             out += " in [" + String.format("%4.4e,%4.4e", getSequenceConfBounds(seq).lower, getSequenceConfBounds(seq).upper)
-                    + "]->[" + setSigFigs(subtreeLowerBound) + "," + setSigFigs(subtreeUpperBound) + "]";
+                    + "]->[" + convertMagicBigDecimalToString(subtreeLowerBound) + "," + convertMagicBigDecimalToString(subtreeUpperBound) + "]";
         else
-            out += " (minimized) -> " + setSigFigs(subtreeLowerBound);
+            out += " (minimized) -> " + convertMagicBigDecimalToString(subtreeLowerBound);
         return out;
     }
 

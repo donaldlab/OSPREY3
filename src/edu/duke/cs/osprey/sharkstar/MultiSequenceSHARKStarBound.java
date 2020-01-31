@@ -122,7 +122,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{};//-1, -1, 8, 18};
+    public static final int[] debugConf = new int[]{8, 4, 15, -1, -1, 8, -1};//-1, -1, 8, 18};
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -352,10 +352,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 System.out.println("Gotta be careful here.");
                 printTree(bound.sequence, rootNode);
                 computeFringeForSequence(bound, curNode);
-                for(Sequence seq : curNode.getSequenceBounds().keySet()) {
-                    boolean equals = bound.sequence.equals(seq);
-                    System.out.println("Are sequences "+bound.sequence+" and "+seq+" equal? "+equals);
-                }
             }
             if(curNode.getChildren(bound.sequence).size() < 1)
                 bound.fringeNodes.add(curNode);
@@ -1161,12 +1157,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             loopTasks.submit(() -> {
 
                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
-                    if(isDebugConf(node.assignments) && nextPos == 0 && nextRc == 0)
-                        System.out.println("catch");
                     Stopwatch partialTime = new Stopwatch().start();
                     ScoreContext context = checkout.get();
                     node.index(context.index);
                     Node child = node.assign(nextPos, nextRc);
+                    if(isDebugConf(child.assignments))
+                        System.out.println("catch");
                     PartialConfNodeResult result = new PartialConfNodeResult();
                     result.resultNode = child;
 
