@@ -36,11 +36,13 @@ public class ConfSpace implements ConfSpaceIteration {
 		public final int numAtoms;
 		public final CoordsList coords;
 		public final String[] atomNames;
+		public final int[] atomMolInfoIndices;
+		public final int[] atomResInfoIndices;
 		public final ContinuousMotion.Description[] motions;
 		/** indexed by ffi */
 		public final double[] energies;
 
-		public Conf(int index, String id, String type, int fragIndex, int numAtoms, CoordsList coords, String[] atomNames, ContinuousMotion.Description[] motions, double[] energies) {
+		public Conf(int index, String id, String type, int fragIndex, int numAtoms, CoordsList coords, String[] atomNames, int[] atomMolInfoIndices, int[] atomResInfoIndices, ContinuousMotion.Description[] motions, double[] energies) {
 			this.index = index;
 			this.id = id;
 			this.type = type;
@@ -48,6 +50,8 @@ public class ConfSpace implements ConfSpaceIteration {
 			this.numAtoms = numAtoms;
 			this.coords = coords;
 			this.atomNames = atomNames;
+			this.atomResInfoIndices = atomResInfoIndices;
+			this.atomMolInfoIndices = atomMolInfoIndices;
 			this.motions = motions;
 			this.energies = energies;
 		}
@@ -117,13 +121,45 @@ public class ConfSpace implements ConfSpaceIteration {
 		}
 	}
 
+	public static class MolInfo {
+
+		public final String name;
+		/** can be null */
+		public final String type;
+
+		public MolInfo(String name, String type) {
+			this.name = name;
+			this.type = type;
+		}
+	}
+
+	public static class ResInfo {
+
+		public final String chainId;
+		public final String resId;
+		public final String resType;
+		public final int indexInChain;
+
+		public ResInfo(String chainId, String resId, String resType, int indexInChain) {
+			this.chainId = chainId;
+			this.resId = resId;
+			this.resType = resType;
+			this.indexInChain = indexInChain;
+		}
+	}
+
 	public final String name;
 	public final String[] forcefieldIds;
 	public final EnergyCalculator[] ecalcs;
 
+	public final MolInfo[] molInfos;
+	public final ResInfo[] resInfos;
+
 	public final int numStaticAtoms;
 	public final CoordsList staticCoords;
 	public final String[] staticNames;
+	public final int[] staticMolInfoIndices;
+	public final int[] staticResInfoIndices;
 	public final double[] staticEnergies;
 
 	public final Pos[] positions;
@@ -311,10 +347,32 @@ public class ConfSpace implements ConfSpaceIteration {
 			ecalcs[ffi].readSettings(in);
 		}
 
+		// read the molecule infos
+		molInfos = new MolInfo[in.readInt()];
+		for (int i=0; i<molInfos.length; i++) {
+			molInfos[i] = new MolInfo(
+				in.readUTF(),
+				in.readByte() == 1 ? in.readUTF() : null
+			);
+		}
+
+		// read the res infos
+		resInfos = new ResInfo[in.readInt()];
+		for (int i=0; i<resInfos.length; i++) {
+			resInfos[i] = new ResInfo(
+				in.readUTF(),
+				in.readUTF(),
+				in.readUTF(),
+				in.readInt()
+			);
+		}
+
 		// read the static coords
 		numStaticAtoms = in.readInt();
 		staticCoords = new CoordsList(numStaticAtoms);
 		staticNames = new String[numStaticAtoms];
+		staticResInfoIndices = new int[numStaticAtoms];
+		staticMolInfoIndices = new int[numStaticAtoms];
 		for (int i=0; i<numStaticAtoms; i++) {
 
 			// read the coords
@@ -325,7 +383,9 @@ public class ConfSpace implements ConfSpaceIteration {
 				in.readDouble()
 			);
 
-			// read the name
+			// read the metadata
+			staticMolInfoIndices[i] = in.readInt();
+			staticResInfoIndices[i] = in.readInt();
 			staticNames[i] = in.readUTF();
 		}
 
@@ -365,6 +425,8 @@ public class ConfSpace implements ConfSpaceIteration {
 				int numAtoms = in.readInt();
 				CoordsList atomCoords = new CoordsList(numAtoms);
 				String[] atomNames = new String[numAtoms];
+				int[] atomMolInfoIndices = new int[numAtoms];
+				int[] atomResInfoIndices = new int[numAtoms];
 				for(int atomi=0; atomi<numAtoms; atomi++) {
 					atomCoords.set(
 						atomi,
@@ -372,6 +434,8 @@ public class ConfSpace implements ConfSpaceIteration {
 						in.readDouble(),
 						in.readDouble()
 					);
+					atomMolInfoIndices[atomi] = in.readInt();
+					atomResInfoIndices[atomi] = in.readInt();
 					atomNames[atomi] = in.readUTF();
 				}
 
@@ -425,6 +489,8 @@ public class ConfSpace implements ConfSpaceIteration {
 					numAtoms,
 					atomCoords,
 					atomNames,
+					atomMolInfoIndices,
+					atomResInfoIndices,
 					motions,
 					energies
 				);

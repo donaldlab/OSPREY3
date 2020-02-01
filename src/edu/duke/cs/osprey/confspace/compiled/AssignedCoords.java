@@ -1,11 +1,18 @@
 package edu.duke.cs.osprey.confspace.compiled;
 
 
+import edu.duke.cs.osprey.confspace.Conf;
+import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.Residue;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 
 /**
@@ -31,6 +38,8 @@ public class AssignedCoords {
 
 		this.confSpace = confSpace;
 		this.assignments = assignments;
+
+		// TODO: copy "static" coords too, since some motions might actually change them (eg molecule rotation,translation)
 
 		// copy all the conf coords into a single list
 
@@ -118,5 +127,188 @@ public class AssignedCoords {
 
 	public void setConfCoords(int posi, int atomi, Vector3dc val) {
 		confCoords.set(atomOffsetsByPos[posi] + atomi, val);
+	}
+
+	/**
+	 * Converts the coordinates to a Molecule instance.
+	 * The molecule will have no bonds though,
+	 * since bond information is not available here.
+	 */
+	public Molecule toMol() {
+
+		// NOTE: This function doesn't get called too much,
+		// so it doesn't have to be super fast.
+		// It just needs to work correctly.
+
+		// collect all the atoms by molecule
+		// and also by chain and residue if possible
+		class AtomInfo {
+			Vector3d pos = new Vector3d();
+			public String name;
+			int molInfoIndex;
+			int resInfoIndex;
+		}
+
+		Map<Integer,Map<String,Map<Integer,List<AtomInfo>>>> residuedAtomInfos = new LinkedHashMap<>();
+		Map<Integer,List<AtomInfo>> molAtomInfos = new LinkedHashMap<>();
+
+		// adds atom infos to the right spot in the collections
+		Consumer<AtomInfo> addInfo = info -> {
+			if (info.resInfoIndex >= 0) {
+				residuedAtomInfos
+					.computeIfAbsent(info.molInfoIndex, index -> new LinkedHashMap<>())
+					.computeIfAbsent(confSpace.resInfos[info.resInfoIndex].chainId, id -> new LinkedHashMap<>())
+					.computeIfAbsent(info.resInfoIndex, index -> new ArrayList<>())
+					.add(info);
+			} else {
+				molAtomInfos
+					.computeIfAbsent(info.molInfoIndex, index -> new ArrayList<>())
+					.add(info);
+			}
+		};
+
+		// figure out which res infos to use with the current assignments
+		Map<Integer,Integer> resInfoIndexMap = new HashMap<>();
+		Function<ConfSpace.ResInfo,List<Integer>> findResInfos = resInfo -> {
+			List<Integer> out = new ArrayList<>();
+			for (int i=0; i<confSpace.resInfos.length; i++) {
+				boolean sameRes = resInfo.chainId.equals(confSpace.resInfos[i].chainId)
+					&& resInfo.resId.equals(confSpace.resInfos[i].resId);
+				if (sameRes) {
+					out.add(i);
+				}
+			}
+			return out;
+		};
+
+		// first, collect all the conf atoms
+		for (int posi=0; posi<confSpace.numPos(); posi++) {
+
+			// get the conf
+			int confi = assignments[posi];
+			if (confi == Conf.Unassigned) {
+				continue;
+			}
+			ConfSpace.Conf conf = confSpace.positions[posi].confs[confi];
+
+			for (int atomi=0; atomi<conf.numAtoms; atomi++) {
+
+				AtomInfo atomInfo = new AtomInfo();
+				getConfCoords(posi, atomi, atomInfo.pos);
+				atomInfo.name = conf.atomNames[atomi];
+				atomInfo.molInfoIndex = conf.atomMolInfoIndices[atomi];
+				atomInfo.resInfoIndex = conf.atomResInfoIndices[atomi];
+
+				addInfo.accept(atomInfo);
+
+				// update the res info index map with this assignment
+				if (atomInfo.resInfoIndex >= 0 && !resInfoIndexMap.containsKey(atomInfo.resInfoIndex)) {
+					ConfSpace.ResInfo atomResInfo = confSpace.resInfos[atomInfo.resInfoIndex];
+					for (int sameResIndex : findResInfos.apply(atomResInfo)) {
+						resInfoIndexMap.put(sameResIndex, atomInfo.resInfoIndex);
+					}
+				}
+			}
+		}
+
+
+		// collect all the static atoms
+		for (int i=0; i<confSpace.numStaticAtoms; i++) {
+
+			AtomInfo atomInfo = new AtomInfo();
+			getStaticCoords(i, atomInfo.pos);
+			atomInfo.name = confSpace.staticNames[i];
+			atomInfo.molInfoIndex = confSpace.staticMolInfoIndices[i];
+			atomInfo.resInfoIndex = confSpace.staticResInfoIndices[i];
+
+			// use the res info index from any assignments
+			atomInfo.resInfoIndex = resInfoIndexMap.getOrDefault(atomInfo.resInfoIndex, atomInfo.resInfoIndex);
+
+			addInfo.accept(atomInfo);
+		}
+
+		Molecule mol = new Molecule();
+
+		Set<String> usedChainIds = new HashSet<>();
+		Supplier<String> makeChainId = () -> {
+			for (char id='A'; id<='Z'; id++) {
+				String str = Character.toString(id);
+				if (!usedChainIds.contains(str)) {
+					usedChainIds.add(str);
+					return str;
+				}
+			}
+			throw new NoSuchElementException("can't find unused chain id");
+		};
+
+		Set<String> usedResIds = new HashSet<>();
+		Supplier<String> makeResId = () -> {
+			for (int id=1; id<9999; id++) {
+				String str = Integer.toString(id);
+				if (!usedResIds.contains(str)) {
+					usedResIds.add(str);
+					return str;
+				}
+			}
+			throw new NoSuchElementException("can't find unused chain id");
+		};
+
+		BiConsumer<String,List<AtomInfo>> makeRes = (name, atomInfos) -> {
+
+			// make the atoms
+			ArrayList<Atom> atoms = new ArrayList<>();
+			double[] coords = new double[atomInfos.size()*3];
+			for (int i=0; i<atomInfos.size(); i++) {
+				AtomInfo atomInfo = atomInfos.get(i);
+
+				atoms.add(new Atom(atomInfo.name));
+
+				coords[i*3] = atomInfo.pos.x;
+				coords[i*3 + 1] = atomInfo.pos.y;
+				coords[i*3 + 2] = atomInfo.pos.z;
+			}
+
+			mol.residues.add(new Residue(atoms, coords, name, mol));
+		};
+
+		// do the residued atoms first
+		residuedAtomInfos.forEach((molInfoIndex, byChain) -> {
+			byChain.forEach((chainId, byRes) -> {
+				byRes.keySet().stream()
+					.sorted(Comparator.comparing(resInfoIndex -> confSpace.resInfos[resInfoIndex].indexInChain))
+					.forEach(resInfoIndex -> {
+
+						List<AtomInfo> atomInfos = byRes.get(resInfoIndex);
+
+						// make the residue
+						ConfSpace.ResInfo resInfo = confSpace.resInfos[resInfoIndex];
+						String name = String.format("%3s%2s%4s",
+							resInfo.resType,
+							resInfo.chainId,
+							resInfo.resId
+						);
+
+						usedChainIds.add(resInfo.chainId);
+						usedResIds.add(resInfo.resId);
+
+						makeRes.accept(name, atomInfos);
+					});
+			});
+		});
+
+		// then do the molecule atoms
+		molAtomInfos.forEach((molInfoIndex, atomInfos) -> {
+			ConfSpace.MolInfo molInfo = confSpace.molInfos[molInfoIndex];
+
+			// make one residue for all the atoms
+			String name = String.format("%3s%2s%4s",
+				molInfo.type != null ? molInfo.type : "XXX",
+				makeChainId.get(),
+				makeResId.get()
+			);
+			makeRes.accept(name, atomInfos);
+		});
+
+		return mol;
 	}
 }
