@@ -16,9 +16,8 @@ kstar = osprey.KStar(
 	dhfr,
 	nadph06w,
 	complex,
-	epsilon=0.99, # you proabably want something more precise in your real designs
-	writeSequencesToConsole=True,
-	writeSequencesToFile='kstar.results.tsv'
+	epsilon=0.68,
+	writeSequencesToConsole=True
 )
 
 # configure K* inputs for each conf space
@@ -58,11 +57,26 @@ for info in kstar.confSpaceInfos():
 		return osprey.AStarTraditional(emat, rcs, showProgress=False)
 	info.confSearchFactory = osprey.KStar.ConfSearchFactory(makeAStar)
 
+	# use a conformation database, to make computing ensembles easier
+	info.setConfDBFile('kstar.%s.db' % info.type.name().lower())
+
 # run K*
 scoredSequences = kstar.run()
 
 # use results
+analyzer = osprey.SequenceAnalyzer(kstar)
 for scoredSequence in scoredSequences:
+
 	print("result:")
 	print("\tsequence: %s" % scoredSequence.sequence)
 	print("\tscore: %s" % scoredSequence.score)
+
+	# write the sequence ensemble
+	numConfs = 10
+	analysis = analyzer.analyze(scoredSequence.sequence, numConfs)
+	print(analysis)
+
+	analysis.writePdb(
+		'seq.%s.pdb' % scoredSequence.sequence,
+		'Top %d conformations for sequence %s' % (numConfs, scoredSequence.sequence)
+	)

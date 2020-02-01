@@ -465,7 +465,7 @@ public class ConfEnergyCalculator {
 	}
 
 
-	private EnergiedConf calcEnergy(ScoredConf conf, ConfDB.ConfTable table, Supplier<EnergiedConf> supplier) {
+	protected EnergiedConf calcEnergy(ScoredConf conf, ConfDB.ConfTable table, Supplier<EnergiedConf> supplier) {
 
 		// no confDB? just compute the energy
 		if (table == null) {

@@ -1,8 +1,8 @@
 package edu.duke.cs.osprey.energy.compiled;
 
 
-import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
-import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
@@ -142,6 +142,12 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 		throw new UnsupportedOperationException();
 	}
 
+	private ParametricMolecule pmol(AssignedCoords coords) {
+
+		// convert the coords to a pmol, without the dofs, since they can't be converted
+		return new ParametricMolecule(coords.toMol(), null, null);
+	}
+
 	private EnergyCalculator.EnergiedParametricMolecule epmol(int[] conf, List<PosInter> inters) {
 
 		if (minimize) {
@@ -151,15 +157,15 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 
 			// wrap the energy and the dof values in an otherwise-empty epmol
 			// and hope the caller doesn't want the pmol or the residue interactions
-			return new EnergyCalculator.EnergiedParametricMolecule(null, null, result.dofValues, result.energy);
+			return new EnergyCalculator.EnergiedParametricMolecule(pmol(result.coords), null, result.dofValues, result.energy);
 
 		} else {
 
-			double energy = confEcalc.calcEnergy(conf, inters);
+			ConfEnergyCalculator.EnergiedCoords result = confEcalc.calc(conf, inters);
 
 			// wrap the energy in an otherwise-empty epmol
 			// and hope the caller doesn't want the pmol or the residue interactions
-			return new EnergyCalculator.EnergiedParametricMolecule(null, null, energy);
+			return new EnergyCalculator.EnergiedParametricMolecule(pmol(result.coords), null, result.energy);
 		}
 	}
 

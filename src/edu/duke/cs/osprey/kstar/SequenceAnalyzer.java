@@ -33,10 +33,7 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -73,6 +70,10 @@ public class SequenceAnalyzer {
 
 		public void writePdbs(String filePattern) {
 			ensemble.writePdbs(filePattern);
+		}
+
+		public void writePdb(String path, String comment) {
+			ensemble.writePdb(path, comment);
 		}
 
 		@Override
@@ -183,6 +184,12 @@ public class SequenceAnalyzer {
 		};
 	}
 
+	/**
+	 * Analyzes the sequence by computing an ensemble within the specified energy window to the GMEC.
+	 * Uses the conformation database, if available to speed up energy calculations.
+	 * May need to calculate structures for many conformations not in the low-energy ensemble though,
+	 * so could be very slow!
+	 */
 	public Analysis analyze(Sequence sequence, double energyWindowSize) {
 
 		ConfSpaceInfo info = finder.apply(sequence);
@@ -198,5 +205,29 @@ public class SequenceAnalyzer {
 		ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc);
 		ConfAnalyzer.EnsembleAnalysis ensemble = analyzer.analyzeEnsemble(econfs, Integer.MAX_VALUE);
 		return new Analysis(info, sequence, ensemble);
+	}
+
+	/**
+	 * Analyzes the sequence by getting the ensemble purely from the conformation database.
+	 * Will only calculate structures for the low-energy conformations in the conformation
+	 * database, so guaranteed to be fast.
+	 */
+	public Analysis analyze(Sequence sequence, int numConfs) {
+
+		ConfSpaceInfo info = finder.apply(sequence);
+
+		// iterate through conformations in the confdb in order of (weakly) increasing energy
+		try (ConfDB confdb = new ConfDB(info.confSpace, info.confDBFile)) {
+
+			Iterator<ConfSearch.EnergiedConf> econfs = confdb
+				.getSequence(sequence)
+				.energiedConfs(ConfDB.SortOrder.Energy)
+				.iterator();
+
+			// return the analysis
+			ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc);
+			ConfAnalyzer.EnsembleAnalysis ensemble = analyzer.analyzeEnsemble(econfs, numConfs);
+			return new Analysis(info, sequence, ensemble);
+		}
 	}
 }
