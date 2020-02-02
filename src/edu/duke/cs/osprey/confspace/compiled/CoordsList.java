@@ -14,7 +14,7 @@ import org.joml.Vector3dc;
  */
 public class CoordsList {
 
-	final int size;
+	public final int size;
 
 	private final double[] coords;
 

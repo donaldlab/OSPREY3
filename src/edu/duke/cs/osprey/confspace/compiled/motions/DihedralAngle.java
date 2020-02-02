@@ -15,7 +15,7 @@ import java.util.Set;
 
 public class DihedralAngle implements ContinuousMotion {
 
-	public static class Description implements ContinuousMotion.Description {
+	public static class Description implements ContinuousMotion.ConfDescription {
 
 		public final double minDegrees;
 		public final double maxDegrees;
@@ -54,6 +54,12 @@ public class DihedralAngle implements ContinuousMotion {
 	public final AssignedCoords coords;
 	public final int posi;
 
+	private final int ai;
+	private final int bi;
+	private final int ci;
+	private final int di;
+	private final int []ri;
+
 	public final double initialAngleRadians;
 	public final double minAngleRadians;
 	public final double maxAngleRadians;
@@ -64,6 +70,16 @@ public class DihedralAngle implements ContinuousMotion {
 		this.coords = coords;
 		this.posi = posi;
 
+		// cache all the atom indices
+		ai = getAtomIndex(posi, desc.a);
+		bi = getAtomIndex(posi, desc.b);
+		ci = getAtomIndex(posi, desc.c);
+		di = getAtomIndex(posi, desc.d);
+		ri = new int[desc.rotated.length];
+		for (int i=0; i<ri.length; i++) {
+			ri[i] = getAtomIndex(posi, desc.rotated[i]);
+		}
+
 		// TODO: profile and optimize this
 
 		// calculate the initial angle in radians
@@ -71,23 +87,33 @@ public class DihedralAngle implements ContinuousMotion {
 		Vector3d b = new Vector3d();
 		Vector3d c = new Vector3d();
 		Vector3d d = new Vector3d();
-		getCoords(posi, desc.a, a);
-		getCoords(posi, desc.b, b);
-		getCoords(posi, desc.c, c);
-		getCoords(posi, desc.d, d);
+		coords.coords.get(ai, a);
+		coords.coords.get(bi, b);
+		coords.coords.get(ci, c);
+		coords.coords.get(di, d);
 		this.initialAngleRadians = measureAngleRadians(a, b, c, d);
 
 		this.minAngleRadians = Math.toRadians(desc.minDegrees);
 		this.maxAngleRadians = Math.toRadians(desc.maxDegrees);
 	}
 
-	private void getCoords(int posi, int atomi, Vector3d out) {
+	private int getAtomIndex(int posi, int atomi) {
 		if (atomi >= 0) {
 			// positive indices encode conformation atoms
-			coords.getConfCoords(posi, atomi, out);
+			return coords.getConfIndex(posi, atomi);
 		} else {
 			// negative indices encode static atoms
-			coords.getStaticCoords(-atomi - 1, out);
+			return coords.getStaticIndex(-atomi - 1);
+		}
+	}
+
+	private String getAtomName(int posi, int atomi) {
+		if (atomi >= 0) {
+			// positive indices encode conformation atoms
+			return coords.confSpace.positions[posi].confs[coords.assignments[posi]].atomNames[atomi];
+		} else {
+			// negative indices encode static atoms
+			return coords.confSpace.staticNames[-atomi - 1];
 		}
 	}
 
@@ -106,10 +132,10 @@ public class DihedralAngle implements ContinuousMotion {
 		Vector3d d = new Vector3d();
 
 		// copy our a,b,c,d from the coords array
-		getCoords(posi, desc.a, a);
-		getCoords(posi, desc.b, b);
-		getCoords(posi, desc.c, c);
-		getCoords(posi, desc.d, d);
+		coords.coords.get(ai, a);
+		coords.coords.get(bi, b);
+		coords.coords.get(ci, c);
+		coords.coords.get(di, d);
 
 		// translate so b is at the origin
 		a.sub(b);
@@ -130,14 +156,14 @@ public class DihedralAngle implements ContinuousMotion {
 			.conjugate();
 
 		// transform all the rotated atoms
-		for (int i : desc.rotated) {
-			coords.getConfCoords(posi, i, temp);
+		for (int i : ri) {
+			coords.coords.get(i, temp);
 			temp.sub(b);
 			temp.rotate(qIn);
 			temp.rotate(qZ);
 			temp.rotate(qOut);
 			temp.add(b);
-			coords.setConfCoords(posi, i, temp);
+			coords.coords.set(i, temp);
 		}
 	}
 
@@ -175,6 +201,17 @@ public class DihedralAngle implements ContinuousMotion {
 		}
 
 		@Override
+		public String name() {
+			return String.format("dihedral angle @ %s: %s-%s-%s-%s",
+				coords.confSpace.name(posi),
+				getAtomName(posi, desc.a),
+				getAtomName(posi, desc.b),
+				getAtomName(posi, desc.c),
+				getAtomName(posi, desc.d)
+			);
+		}
+
+		@Override
 		public double min() {
 			return minAngleRadians;
 		}
@@ -206,6 +243,11 @@ public class DihedralAngle implements ContinuousMotion {
 		public double initialStepSize() {
 			return 0.004363323; // 0.25 degrees
 		}
+	}
+
+	@Override
+	public boolean isAbsolute() {
+		return false;
 	}
 
 	@Override

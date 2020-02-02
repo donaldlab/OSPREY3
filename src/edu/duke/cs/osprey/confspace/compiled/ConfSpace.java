@@ -4,10 +4,12 @@ import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle;
+import edu.duke.cs.osprey.confspace.compiled.motions.TranslationRotation;
 import edu.duke.cs.osprey.energy.compiled.AmberEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.EEF1EnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.EnergyCalculator;
 import edu.duke.cs.osprey.tools.LZMA2;
+import org.joml.Vector3d;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInput;
@@ -38,11 +40,11 @@ public class ConfSpace implements ConfSpaceIteration {
 		public final String[] atomNames;
 		public final int[] atomMolInfoIndices;
 		public final int[] atomResInfoIndices;
-		public final ContinuousMotion.Description[] motions;
+		public final ContinuousMotion.ConfDescription[] motions;
 		/** indexed by ffi */
 		public final double[] energies;
 
-		public Conf(int index, String id, String type, int fragIndex, int numAtoms, CoordsList coords, String[] atomNames, int[] atomMolInfoIndices, int[] atomResInfoIndices, ContinuousMotion.Description[] motions, double[] energies) {
+		public Conf(int index, String id, String type, int fragIndex, int numAtoms, CoordsList coords, String[] atomNames, int[] atomMolInfoIndices, int[] atomResInfoIndices, ContinuousMotion.ConfDescription[] motions, double[] energies) {
 			this.index = index;
 			this.id = id;
 			this.type = type;
@@ -126,10 +128,12 @@ public class ConfSpace implements ConfSpaceIteration {
 		public final String name;
 		/** can be null */
 		public final String type;
+		public final ContinuousMotion.MolDescription[] motions;
 
-		public MolInfo(String name, String type) {
+		public MolInfo(String name, String type, int numMotions) {
 			this.name = name;
 			this.type = type;
+			this.motions = new ContinuousMotion.MolDescription[numMotions];
 		}
 	}
 
@@ -352,8 +356,35 @@ public class ConfSpace implements ConfSpaceIteration {
 		for (int i=0; i<molInfos.length; i++) {
 			molInfos[i] = new MolInfo(
 				in.readUTF(),
-				in.readByte() == 1 ? in.readUTF() : null
+				in.readByte() == 1 ? in.readUTF() : null,
+				in.readInt()
 			);
+
+			// read the motions, if any
+			for (int motioni=0; motioni<molInfos[i].motions.length; motioni++) {
+
+				String motionType = in.readUTF();
+				// TODO: make a better way to register and instantiate motions?
+				switch (motionType) {
+
+					// NOTE: these string values are defined by the conf space compiler in the GUI code
+
+					case "translationRotation":
+						molInfos[i].motions[motioni] = new TranslationRotation.Description(
+							in.readDouble(),
+							in.readDouble(),
+							new Vector3d(
+								in.readDouble(),
+								in.readDouble(),
+								in.readDouble()
+							)
+						);
+					break;
+
+					default:
+						throw new UnsupportedOperationException("continuous motion type '" + motionType + "' is not supported for molecules");
+				}
+			}
 		}
 
 		// read the res infos
@@ -441,7 +472,7 @@ public class ConfSpace implements ConfSpaceIteration {
 
 				// read the motions
 				int numMotions = in.readInt();
-				ContinuousMotion.Description[] motions = new ContinuousMotion.Description[numMotions];
+				ContinuousMotion.ConfDescription[] motions = new ContinuousMotion.ConfDescription[numMotions];
 				for (int motioni=0; motioni<numMotions; motioni++) {
 
 					String motionType = in.readUTF();
@@ -467,10 +498,10 @@ public class ConfSpace implements ConfSpaceIteration {
 								a, b, c, d,
 								rotated
 							);
-							break;
+						break;
 
 						default:
-							throw new UnsupportedOperationException("continuous motion type '" + motionType + "' is not supported");
+							throw new UnsupportedOperationException("continuous motion type '" + motionType + "' is not supported for conformations");
 					}
 				}
 

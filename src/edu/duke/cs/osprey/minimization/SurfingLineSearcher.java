@@ -38,8 +38,7 @@ public class SurfingLineSearcher implements LineSearcher {
 	// this version is just easier to read and a little bit more optimized
 	
 	private static final double Tolerance = 1e-6;
-	private static final double InitialStepSize = 0.25; // for dihedral dofs, TODO: make configurable
-	
+
 	private ObjectiveFunction.OneDof f;
 	
 	private double firstStep;
@@ -70,9 +69,9 @@ public class SurfingLineSearcher implements LineSearcher {
 		// get the step size, try to make it adaptive (based on historical steps if possible; else on step #)
 		double step;
 		if (Math.abs(lastStep) > Tolerance && Math.abs(firstStep) > Tolerance) {
-			step = InitialStepSize*Math.abs(lastStep / firstStep);
+			step = f.getInitialStepSize()*Math.abs(lastStep / firstStep);
 		} else {
-			step = InitialStepSize/Math.pow(iteration + 1, 3);
+			step = f.getInitialStepSize()/Math.pow(iteration + 1, 3);
 		}
 		
 		// make sure the step isn't so big that the quadratic approximation is worthless

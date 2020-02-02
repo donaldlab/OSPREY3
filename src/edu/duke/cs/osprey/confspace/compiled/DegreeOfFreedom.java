@@ -11,6 +11,8 @@ import java.util.Set;
  */
 public interface DegreeOfFreedom {
 
+	String name();
+
 	double min();
 	double max();
 

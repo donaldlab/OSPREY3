@@ -9,12 +9,27 @@ import java.util.List;
 public interface ContinuousMotion {
 
 	/**
-	 * A description of a DegreeOfFreedom.
-	 * Used to create a DegreeOfFreedom from an AssignedCoords.
+	 * A description of a continuous motion affecting a conformation.
+	 * Used to create ContinuousMotion instances from an AssignedCoords.
 	 */
-	interface Description {
+	interface ConfDescription {
 		ContinuousMotion build(AssignedCoords conf, ConfSpace.Pos pos);
 	}
+
+	/**
+	 * A description of a continuous motion affecting a molecule.
+	 * Used to create ContinuousMotion instances from an AssignedCoords.
+	 */
+	interface MolDescription {
+		ContinuousMotion build(AssignedCoords conf, int molInfoIndex);
+	}
+
+	/**
+	 * True if the motion assumes atom coordinates start in some canonical location.
+	 * Which means only one absolute motion is allowed per molecule,
+	 * and it must be the first motion applied.
+	 */
+	boolean isAbsolute();
 
 	/**
 	 * Create degrees of freedom from the motion and add them to the list.

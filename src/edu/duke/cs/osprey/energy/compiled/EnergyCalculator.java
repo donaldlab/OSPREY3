@@ -43,7 +43,7 @@ public interface EnergyCalculator {
 		// start with the internal energy
 		double energy = coords.getInternalEnergy(ffi, posi);
 
-		// TODO: hopefully escape analysis will allocte this on the stack?
+		// TODO: hopefully escape analysis will allocate this on the stack?
 		Vector3d pos1 = new Vector3d();
 		Vector3d pos2 = new Vector3d();
 
@@ -53,8 +53,8 @@ public interface EnergyCalculator {
 			int confAtom1i = indices.getInternalConfAtom1Index(i);
 			int confAtom2i = indices.getInternalConfAtom2Index(i);
 			int paramsi = indices.getInternalParamsIndex(i);
-			coords.getConfCoords(posi, confAtom1i, pos1);
-			coords.getConfCoords(posi, confAtom2i, pos2);
+			coords.coords.get(coords.getConfIndex(posi, confAtom1i), pos1);
+			coords.coords.get(coords.getConfIndex(posi, confAtom2i), pos2);
 			double r2 = pos1.distanceSquared(pos2);
 			double r = Math.sqrt(r2);
 			energy += calcEnergy(r, r2, coords.getParams(ffi, paramsi));
@@ -68,7 +68,7 @@ public interface EnergyCalculator {
 
 		double energy = 0.0;
 
-		// TODO: hopefully escape analysis will allocte this on the stack?
+		// TODO: hopefully escape analysis will allocate this on the stack?
 		Vector3d pos1 = new Vector3d();
 		Vector3d pos2 = new Vector3d();
 
@@ -78,8 +78,8 @@ public interface EnergyCalculator {
 			int confAtomi = indices.getStaticConfAtomIndex(i);
 			int staticAtomi = indices.getStaticStaticAtomIndex(i);
 			int paramsi = indices.getStaticParamsIndex(i);
-			coords.getConfCoords(posi, confAtomi, pos1);
-			coords.getStaticCoords(staticAtomi, pos2);
+			coords.coords.get(coords.getConfIndex(posi, confAtomi), pos1);
+			coords.coords.get(coords.getStaticIndex(staticAtomi), pos2);
 			double r2 = pos1.distanceSquared(pos2);
 			double r = Math.sqrt(r2);
 			energy += calcEnergy(r, r2, coords.getParams(ffi, paramsi));
@@ -93,7 +93,7 @@ public interface EnergyCalculator {
 
 		double energy = 0.0;
 
-		// TODO: hopefully escape analysis will allocte this on the stack?
+		// TODO: hopefully escape analysis will allocate this on the stack?
 		Vector3d pos1 = new Vector3d();
 		Vector3d pos2 = new Vector3d();
 
@@ -103,8 +103,8 @@ public interface EnergyCalculator {
 			int confAtomi1 = indices.getConfAtom1Index(i);
 			int confAtomi2 = indices.getConfAtom2Index(i);
 			int paramsi = indices.getParamsIndex(i);
-			coords.getConfCoords(posi1, confAtomi1, pos1);
-			coords.getConfCoords(posi2, confAtomi2, pos2);
+			coords.coords.get(coords.getConfIndex(posi1, confAtomi1), pos1);
+			coords.coords.get(coords.getConfIndex(posi2, confAtomi2), pos2);
 			double r2 = pos1.distanceSquared(pos2);
 			double r = Math.sqrt(r2);
 			energy += calcEnergy(r, r2, coords.getParams(ffi, paramsi));

@@ -136,6 +136,10 @@ public interface ObjectiveFunction extends Serializable {
 		public double getValue(double xd) {
 			return f.getValForDOF(d, xd);
 		}
+
+		public double getInitialStepSize() {
+			return f.getInitStepSize(d);
+		}
 	}
 	
 	public static class DofBounds implements Serializable {

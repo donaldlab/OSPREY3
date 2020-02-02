@@ -281,3 +281,9 @@ bonds = [
 
 [confspace]
 name = 'F98Y: NADPH & 06W'
+
+[confspace.molMotionSettings.0]
+
+[confspace.molMotionSettings.1]
+maxTranslationDist = 1.2
+maxRotationDegrees = 5.0

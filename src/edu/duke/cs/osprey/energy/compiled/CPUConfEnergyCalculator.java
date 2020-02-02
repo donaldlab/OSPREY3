@@ -81,6 +81,9 @@ public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 		// build the conformation coords
 		AssignedCoords coords = confSpace.makeCoords(conf);
 
+		// TODO: can optimize by not including molecule rotation,translation DoFs
+		//  unless interactions span across molecules
+
 		// create an objective function for minimization
 		ObjectiveFunction f = new ObjectiveFunction() {
 

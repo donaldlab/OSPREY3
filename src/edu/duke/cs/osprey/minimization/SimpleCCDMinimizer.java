@@ -45,7 +45,6 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reu
 	
 	private Factory<LineSearcher,Void> lineSearcherFactory;
 	private ObjectiveFunction f;
-	private List<ObjectiveFunction.OneDof> dofs;
 	private List<LineSearcher> lineSearchers;
 
 	public SimpleCCDMinimizer() {
@@ -60,7 +59,6 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reu
 	public SimpleCCDMinimizer(Factory<LineSearcher,Void> lineSearcherFactory) {
 		this.lineSearcherFactory = lineSearcherFactory;
 		
-		dofs = new ArrayList<>();
 		lineSearchers = new ArrayList<>();
 	}
 
@@ -70,14 +68,12 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reu
 		this.f = f;
 		
 		// build the dofs
-		dofs.clear();
 		lineSearchers.clear();
 		
 		for (int d=0; d<f.getNumDOFs(); d++) {
 			
 			ObjectiveFunction.OneDof fd = new ObjectiveFunction.OneDof(f, d);
-			dofs.add(fd);
-			
+
 			if (fd.getXMin() < fd.getXMax()) {
 				LineSearcher lineSearcher = lineSearcherFactory.make(null);
 				lineSearcher.init(fd);

@@ -6,13 +6,14 @@ import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import org.joml.Vector3d;
-import org.joml.Vector3dc;
 
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static edu.duke.cs.osprey.tools.Log.log;
 
 
 /**
@@ -28,8 +29,8 @@ public class AssignedCoords {
 
 	private final int[] atomOffsetsByPos;
 
-	/** atom coords for the conformations */
-	private final CoordsList confCoords;
+	/** atom coords for the static atoms and the conformation atoms */
+	public final CoordsList coords;
 
 	/** degrees of freedom that modify the atom coords */
 	public final List<DegreeOfFreedom> dofs;
@@ -39,20 +40,21 @@ public class AssignedCoords {
 		this.confSpace = confSpace;
 		this.assignments = assignments;
 
-		// TODO: copy "static" coords too, since some motions might actually change them (eg molecule rotation,translation)
-
-		// copy all the conf coords into a single list
-
-		// how many atoms do we need?
+		// how many atoms do we need for conformation coords?
+		// (also compute conformation atom offets)
 		atomOffsetsByPos = new int[confSpace.positions.length];
-		int numCoords = 0;
+		int numConfCoords = 0;
 		for (ConfSpace.Pos pos : confSpace.positions) {
-			atomOffsetsByPos[pos.index] = numCoords;
-			numCoords += pos.maxNumAtoms;
+			atomOffsetsByPos[pos.index] = confSpace.staticCoords.size + numConfCoords;
+			numConfCoords += pos.maxNumAtoms;
 		}
 
-		confCoords = new CoordsList(numCoords);
-		dofs = new ArrayList<>();
+		coords = new CoordsList(confSpace.staticCoords.size + numConfCoords);
+
+		// copy over the static atoms first, so DoFs can modify them
+		coords.copyFrom(confSpace.staticCoords, 0);
+
+		// then copy the conformation coords
 		for (ConfSpace.Pos pos : confSpace.positions) {
 
 			// get the conf, or skip this position if nothing was assigned
@@ -60,18 +62,40 @@ public class AssignedCoords {
 			if (confi == ConfSpace.NotAssigned) {
 				continue;
 			}
+			ConfSpace.Conf conf = pos.confs[confi];
 
 			// copy over the coords
+			coords.copyFrom(conf.coords, atomOffsetsByPos[pos.index]);
+		}
+
+		dofs = new ArrayList<>();
+
+		// first, make the molecule motions and convert them into degrees of freedom
+		for (int moli=0; moli<confSpace.molInfos.length; moli++) {
+			ConfSpace.MolInfo molInfo = confSpace.molInfos[moli];
+			for (int i=0; i<molInfo.motions.length; i++) {
+				ContinuousMotion motion = molInfo.motions[i].build(this, moli);
+				motion.appendDofs(dofs);
+			}
+		}
+
+		// TODO: make sure there's only "absolute" motion, and it always goes first?
+
+		// then, make motions for conformations
+		for (ConfSpace.Pos pos : confSpace.positions) {
+
+			// get the conf, or skip this position if nothing was assigned
+			int confi = assignments[pos.index];
+			if (confi == ConfSpace.NotAssigned) {
+				continue;
+			}
 			ConfSpace.Conf conf = pos.confs[confi];
-			confCoords.copyFrom(conf.coords, atomOffsetsByPos[pos.index]);
 
 			// make the motions and convert them into degrees of freedom
 			for (int i=0; i<conf.motions.length; i++) {
 				ContinuousMotion motion = conf.motions[i].build(this, pos);
 				motion.appendDofs(dofs);
 			}
-
-			// TODO: add non-pos-specific DoFs?
 		}
 	}
 
@@ -117,16 +141,13 @@ public class AssignedCoords {
 		return confSpace.ffparams(ffi, paramsi);
 	}
 
-	public void getStaticCoords(int atomi, Vector3d out) {
-		confSpace.staticCoords.get(atomi, out);
+	public int getStaticIndex(int atomi) {
+		// easy peasy
+		return atomi;
 	}
 
-	public void getConfCoords(int posi, int atomi, Vector3d out) {
-		confCoords.get(atomOffsetsByPos[posi] + atomi, out);
-	}
-
-	public void setConfCoords(int posi, int atomi, Vector3dc val) {
-		confCoords.set(atomOffsetsByPos[posi] + atomi, val);
+	public int getConfIndex(int posi, int atomi) {
+		return atomOffsetsByPos[posi] + atomi;
 	}
 
 	/**
@@ -194,7 +215,7 @@ public class AssignedCoords {
 			for (int atomi=0; atomi<conf.numAtoms; atomi++) {
 
 				AtomInfo atomInfo = new AtomInfo();
-				getConfCoords(posi, atomi, atomInfo.pos);
+				coords.get(getConfIndex(posi, atomi), atomInfo.pos);
 				atomInfo.name = conf.atomNames[atomi];
 				atomInfo.molInfoIndex = conf.atomMolInfoIndices[atomi];
 				atomInfo.resInfoIndex = conf.atomResInfoIndices[atomi];
@@ -216,7 +237,7 @@ public class AssignedCoords {
 		for (int i=0; i<confSpace.numStaticAtoms; i++) {
 
 			AtomInfo atomInfo = new AtomInfo();
-			getStaticCoords(i, atomInfo.pos);
+			coords.get(getStaticIndex(i), atomInfo.pos);
 			atomInfo.name = confSpace.staticNames[i];
 			atomInfo.molInfoIndex = confSpace.staticMolInfoIndices[i];
 			atomInfo.resInfoIndex = confSpace.staticResInfoIndices[i];
