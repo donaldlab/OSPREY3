@@ -278,12 +278,15 @@ bonds = [
 	[  104,  123], #    CBB - H60   
 ]
 
-
 [confspace]
 name = 'F98Y: NADPH & 06W'
 
-[confspace.molMotionSettings.0]
+[confspace.molMotions.0.0]
+type = 'translationRotation'
+maxTranslationDist =     1.200000
+maxRotationDegrees =     5.000000
 
-[confspace.molMotionSettings.1]
-maxTranslationDist = 1.2
-maxRotationDegrees = 5.0
+[confspace.molMotions.1.0]
+type = 'translationRotation'
+maxTranslationDist =     1.200000
+maxRotationDegrees =     5.000000

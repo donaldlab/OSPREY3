@@ -235,9 +235,9 @@ public class TestConfEnergyCalculatorAdapter {
 				ConfSearch.EnergiedConf gmec = gmecFinder.find();
 
 				// make sure we got the right conformation and energy
-				assertThat(gmec.getAssignments(), is(new int[] { 3, 0 }));
-				assertThat(gmec.getScore(), isAbsolutely(20.890101, 1e-6));
-				assertThat(gmec.getEnergy(), isAbsolutely(20.944495, 1e-6));
+				assertThat(gmec.getAssignments(), is(new int[] { 6, 0 }));
+				assertThat(gmec.getScore(), isAbsolutely(20.894928, 1e-6));
+				assertThat(gmec.getEnergy(), isAbsolutely(20.948575, 1e-6));
 			}
 		}
 	}
