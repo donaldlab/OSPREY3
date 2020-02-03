@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.sharkstar;
 
+import EDU.oswego.cs.dl.util.concurrent.FJTask;
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -153,17 +154,10 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             BigDecimal errorLowerBound = BigDecimal.ZERO;
             for(MultiSequenceSHARKStarNode child: childrenForSequence) {
                 child.updateSubtreeBounds(seq);
-                if(isDebugConf(confSearchNode.assignments)) {
-                    System.out.println("Adding "+formatBounds(child.getSequenceBounds(seq).lower,
-                            child.getSequenceBounds(seq).upper)+" to "+formatBounds(errorLowerBound, errorUpperBound));
-                }
                 errorUpperBound = MathTools.bigAdd(errorUpperBound, child.getSequenceBounds(seq).upper,
                         PartitionFunction.decimalPrecision);
                 errorLowerBound = MathTools.bigAdd(errorLowerBound,child.getSequenceBounds(seq).lower,
                         PartitionFunction.decimalPrecision);
-                if(isDebugConf(confSearchNode.assignments)) {
-                    System.out.println("Bounds are now "+formatBounds(errorLowerBound, errorUpperBound));
-                }
             }
             setSubtreeBounds(seq, errorLowerBound, errorUpperBound);
         }
@@ -213,10 +207,11 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         BigDecimal tolerance = new BigDecimal(0.0001);
         BigDecimal lastUpper = getLastSequenceBounds(seq).upper;
         BigDecimal lastLower = getLastSequenceBounds(seq).lower;
+        BigDecimal upperChange = MathTools.bigSubtract(getSequenceBounds(seq).upper, lastUpper, PartitionFunction.decimalPrecision);
         if(lastUpper != null
                 && MathTools.isGreaterThan(getSequenceBounds(seq).upper,lastUpper)
-                && getSequenceBounds(seq).upper.subtract(lastUpper).compareTo(BigDecimal.TEN) > 0
-                && getSequenceBounds(seq).upper.subtract(lastUpper).compareTo(tolerance.multiply(lastUpper)) > 0) {
+                && MathTools.isGreaterThan( upperChange,BigDecimal.TEN)
+                && MathTools.isGreaterThan(upperChange, tolerance.multiply(lastUpper))) {
             System.err.println("Upper bound got bigger!?");
             System.err.println("Previous: "+convertMagicBigDecimalToString(lastUpper)+", now "+convertMagicBigDecimalToString(getSequenceBounds(seq).upper));
             System.err.println("Increased by "+getSequenceBounds(seq).upper.subtract(lastUpper));
@@ -270,10 +265,13 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         checkChildren(seq);
         MultiSequenceSHARKStarNode newChild = makeOrGetChild(child, designPosition, nextDesignPosition);
         newChild.computeEpsilonErrorBounds(seq);
+        /*
         if(getChildren(seq).contains(newChild) || getChildren(seq).stream().anyMatch((node)->node.confSearchNode.rc == child.rc)){
             System.err.println("Re-exploring processed internal node for "+seq);
         }
-        getChildren(seq).add(newChild);
+         */
+        if(!getChildren(seq).contains(newChild))
+            getChildren(seq).add(newChild);
         newChild.setBoundsFromConfLowerAndUpper(lowerBound, upperBound, seq);
         newChild.errorBound = getErrorBound(seq);
         checkChildren(seq);
@@ -439,6 +437,11 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     public double getConfUpperBound(Sequence seq) {
         return getSequenceConfBounds(seq).upper;
+    }
+
+    public void checkDescendents(Sequence seq) {
+        if(!getChildren(seq).isEmpty())
+            System.out.println("Already expanded node?");
     }
 
     public static enum Type {

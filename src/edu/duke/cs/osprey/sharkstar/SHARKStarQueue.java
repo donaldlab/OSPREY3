@@ -21,7 +21,7 @@ class SHARKStarQueue extends PriorityQueue<MultiSequenceSHARKStarNode> {
         super(new Comparator<MultiSequenceSHARKStarNode>() {
             @Override
             public int compare(MultiSequenceSHARKStarNode o1, MultiSequenceSHARKStarNode o2) {
-                return -o1.getErrorBound(seq).compareTo(o2.getErrorBound(seq));
+                return -MathTools.compare(o1.getErrorBound(seq),o2.getErrorBound(seq));
             }
         });
         this.seq = seq;

@@ -122,7 +122,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{8, 4, 15, -1, -1, 8, -1};//-1, -1, 8, 18};
+    public static final int[] debugConf = new int[]{8, 4, 27, -1, -1, 3, -1};//-1, -1, 8, 18};
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -701,6 +701,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             internalTime.reset();
             internalTime.start();
             for (MultiSequenceSHARKStarNode internalNode : internalNodes) {
+                internalNode.checkDescendents(bound.sequence);
                 if (!MathTools.isGreaterThan(internalNode.getLowerBound(bound.sequence), BigDecimal.ONE) &&
                         MathTools.isGreaterThan(
                                 MathTools.bigDivide(internalNode.getUpperBound(bound.sequence), rootNode.getUpperBound(bound.sequence),
@@ -708,6 +709,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                 new BigDecimal(1 - targetEpsilon))
                 ) {
                     loopTasks.submit(() -> {
+                        if(internalNode.getChildren(bound.sequence).size() > 0)
+                            System.out.println("how?");
                         boundLowestBoundConfUnderNode(bound, internalNode, newNodes);
                         return null;
                     }, (ignored) -> {
