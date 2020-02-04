@@ -122,7 +122,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{8, 4, 27, -1, -1, 3, -1};//-1, -1, 8, 18};
+    public static final int[] debugConf = new int[]{4, 5, 6, -1, -1, -1, -1};//-1, -1, 8, 18};
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -1164,8 +1164,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     ScoreContext context = checkout.get();
                     node.index(context.index);
                     Node child = node.assign(nextPos, nextRc);
-                    if(isDebugConf(child.assignments))
-                        System.out.println("catch");
                     PartialConfNodeResult result = new PartialConfNodeResult();
                     result.resultNode = child;
 

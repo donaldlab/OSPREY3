@@ -62,7 +62,7 @@ public class TestBBKStar {
 	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon, String confdbPattern, int maxSimultaneousMutations,
 									 boolean runSHARKStar) {
 
-		Parallelism parallelism = Parallelism.makeCpu(1);
+		Parallelism parallelism = Parallelism.makeCpu(4);
 
 		// how should we compute energies of molecules?
 		try (EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)

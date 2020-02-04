@@ -214,7 +214,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                 && MathTools.isGreaterThan(upperChange, tolerance.multiply(lastUpper))) {
             System.err.println("Upper bound got bigger!?");
             System.err.println("Previous: "+convertMagicBigDecimalToString(lastUpper)+", now "+convertMagicBigDecimalToString(getSequenceBounds(seq).upper));
-            System.err.println("Increased by "+getSequenceBounds(seq).upper.subtract(lastUpper));
+            System.err.println("Increased by "+convertMagicBigDecimalToString(upperChange));
             System.out.println("Current Tree:");
             printTree(seq, this);
             System.out.println("Last Tree:");
