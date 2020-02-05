@@ -40,12 +40,15 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory.makeConfSearchFactory;
 
 /**
  * Shows information about a single sequence.
@@ -169,13 +172,7 @@ public class SequenceAnalyzer {
 				adapter.confSpace = info.confSpace;
 				adapter.id = info.id;
 				adapter.confEcalc = info.confEcalcMinimized;
-				EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
-						.build()
-						.calcEnergyMatrix();
-				adapter.confSearchFactory = (rcs) ->
-						new ConfAStarTree.Builder(ematMinimized, rcs)
-								.setTraditional()
-								.build();
+				adapter.confSearchFactory = makeConfSearchFactory(info.confEcalcMinimized);
 				adapter.confDBFile = info.confDBFile;
 				return adapter;
 			}

@@ -41,6 +41,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEPfunc;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
@@ -148,6 +149,16 @@ public class PartitionFunctionFactory {
             emats.put(confECalc, emat);
         }
         return emats.get(confECalc);
+    }
+
+    public static KStar.ConfSearchFactory makeConfSearchFactory(ConfEnergyCalculator confEcalc) {
+        EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+                .build()
+                .calcEnergyMatrix();
+        return (rcs) ->
+                new ConfAStarTree.Builder(ematMinimized, rcs)
+                        .setTraditional()
+                        .build();
     }
 
 }
