@@ -172,7 +172,9 @@ public class SequenceAnalyzer {
 				adapter.confSpace = info.confSpace;
 				adapter.id = info.id;
 				adapter.confEcalc = info.confEcalcMinimized;
-				adapter.confSearchFactory = makeConfSearchFactory(info.confEcalcMinimized);
+				adapter.confSearchFactory = info.confSearchFactoryMinimized;
+				if(adapter.confSearchFactory == null)
+					adapter.confSearchFactory = makeConfSearchFactory(info.confEcalcMinimized);
 				adapter.confDBFile = info.confDBFile;
 				return adapter;
 			}
