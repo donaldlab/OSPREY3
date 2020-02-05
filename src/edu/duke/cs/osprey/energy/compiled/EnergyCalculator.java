@@ -30,9 +30,31 @@ public interface EnergyCalculator {
 	double calcEnergy(double r, double r2, double[] params);
 
 	/** get the internal energy of the static atoms */
-	default double getEnergyStatic(AssignedCoords coords) {
+	default double calcEnergyStatic(AssignedCoords coords) {
+
 		int ffi = ffi();
-		return coords.getStaticEnergy(ffi);
+
+		// start with the static energy
+		double energy = coords.getStaticEnergy(ffi);
+
+		// TODO: hopefully escape analysis will allocate this on the stack?
+		Vector3d pos1 = new Vector3d();
+		Vector3d pos2 = new Vector3d();
+
+		// add the internal interactions
+		ConfSpace.IndicesStatic indices = coords.getIndices(ffi);
+		for (int i=0; i<indices.size(); i++) {
+			int atomi1 = indices.getStaticAtom1Index(i);
+			int atomi2 = indices.getStaticAtom2Index(i);
+			int paramsi = indices.getParamsIndex(i);
+			coords.coords.get(coords.getStaticIndex(atomi1), pos1);
+			coords.coords.get(coords.getStaticIndex(atomi2), pos2);
+			double r2 = pos1.distanceSquared(pos2);
+			double r = Math.sqrt(r2);
+			energy += calcEnergy(r, r2, coords.getParams(ffi, paramsi));
+		}
+
+		return energy;
 	}
 
 	/** calculate the single energy of position i */
@@ -117,7 +139,7 @@ public interface EnergyCalculator {
 	default double calcEnergy(AssignedCoords coords) {
 
 		// start with the static energy
-		double energy = getEnergyStatic(coords);
+		double energy = calcEnergyStatic(coords);
 
 		// add the singles
 		int numPos = coords.confSpace.positions.length;
@@ -144,7 +166,7 @@ public interface EnergyCalculator {
 			if (inter.posi1 == PosInter.StaticPos) {
 
 				// static energy
-				energy = getEnergyStatic(coords);
+				energy = calcEnergyStatic(coords);
 
 			} else {
 

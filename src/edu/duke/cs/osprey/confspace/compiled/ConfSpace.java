@@ -169,6 +169,32 @@ public class ConfSpace implements ConfSpaceIteration {
 	public final Pos[] positions;
 	public final SeqSpace seqSpace;
 
+	public class IndicesStatic {
+
+		/** indexed by param, [0=atomi1, 1=atomi2, 2=parami] */
+		private final int[][] indices;
+
+		public IndicesStatic(int[][] indices) {
+			this.indices = indices;
+		}
+
+		public int size() {
+			return indices.length;
+		}
+		public int getStaticAtom1Index(int i) {
+			return indices[i][0];
+		}
+		public int getStaticAtom2Index(int i) {
+			return indices[i][1];
+		}
+		public int getParamsIndex(int i) {
+			return indices[i][2];
+		}
+	}
+
+	/** indexed by ff */
+	private final IndicesStatic[] indicesStatic;
+
 	public class IndicesSingle {
 
 		/** indexed by param, [0=confAtom1i, 1=confAtom2i, 2=parami] */
@@ -336,13 +362,21 @@ public class ConfSpace implements ConfSpaceIteration {
 
 			// build the forcefield implementation
 			// TODO: make a better way to register and instantiate ecalc implementations?
-			switch (in.readUTF()) {
+			String type = in.readUTF();
+			switch (type) {
+
+				// NOTE: these string values are defined by the conf space compiler in the GUI code
+
 				case "amber":
 					ecalcs[ffi] = new AmberEnergyCalculator(id, ffi);
-					break;
+				break;
+
 				case "eef1":
 					ecalcs[ffi] = new EEF1EnergyCalculator(id, ffi);
-					break;
+				break;
+
+				default:
+					throw new UnsupportedOperationException("forcefield type '" + type + "' is not supported");
 			}
 		}
 
@@ -369,16 +403,12 @@ public class ConfSpace implements ConfSpaceIteration {
 
 					// NOTE: these string values are defined by the conf space compiler in the GUI code
 
+					case "dihedralAngle":
+						molInfos[i].motions[motioni] = readDihedralAngle(in);
+					break;
+
 					case "translationRotation":
-						molInfos[i].motions[motioni] = new TranslationRotation.Description(
-							in.readDouble(),
-							in.readDouble(),
-							new Vector3d(
-								in.readDouble(),
-								in.readDouble(),
-								in.readDouble()
-							)
-						);
+						molInfos[i].motions[motioni] = readTranslationRotation(in);
 					break;
 
 					default:
@@ -481,23 +511,8 @@ public class ConfSpace implements ConfSpaceIteration {
 
 						// NOTE: these string values are defined by the conf space compiler in the GUI code
 
-						case "dihedral":
-							double minDegrees = in.readDouble();
-							double maxDegrees = in.readDouble();
-							int a = in.readInt();
-							int b = in.readInt();
-							int c = in.readInt();
-							int d = in.readInt();
-							int numRotated = in.readInt();
-							int[] rotated = new int[numRotated];
-							for (int roti=0; roti<numRotated; roti++) {
-								rotated[roti] = in.readInt();
-							}
-							motions[motioni] = new DihedralAngle.Description(
-								minDegrees, maxDegrees,
-								a, b, c, d,
-								rotated
-							);
+						case "dihedralAngle":
+							motions[motioni] = readDihedralAngle(in);
 						break;
 
 						default:
@@ -535,6 +550,21 @@ public class ConfSpace implements ConfSpaceIteration {
 				numFrags,
 				confs
 			);
+		}
+
+		// read the static forcefield params
+		indicesStatic = new IndicesStatic[forcefieldIds.length];
+		for (int ffi=0; ffi<forcefieldIds.length; ffi++) {
+
+			int num = in.readInt();
+			int[][] indices = new int[num][3];
+			for (int i=0; i<num; i++) {
+				indices[i][0] = in.readInt(); // atomi1
+				indices[i][1] = in.readInt(); // atomi2
+				indices[i][2] = in.readInt(); // parami
+			}
+
+			indicesStatic[ffi] = new IndicesStatic(indices);
 		}
 
 		// read pos and pos-static forcefield params
@@ -627,6 +657,39 @@ public class ConfSpace implements ConfSpaceIteration {
 		seqSpace = new SeqSpace(this);
 	}
 
+	private static DihedralAngle.Description readDihedralAngle(DataInput in)
+	throws IOException {
+		double minDegrees = in.readDouble();
+		double maxDegrees = in.readDouble();
+		int a = in.readInt();
+		int b = in.readInt();
+		int c = in.readInt();
+		int d = in.readInt();
+		int numRotated = in.readInt();
+		int[] rotated = new int[numRotated];
+		for (int roti=0; roti<numRotated; roti++) {
+			rotated[roti] = in.readInt();
+		}
+		return new DihedralAngle.Description(
+			minDegrees, maxDegrees,
+			a, b, c, d,
+			rotated
+		);
+	}
+
+	private static TranslationRotation.Description readTranslationRotation(DataInput in)
+	throws IOException {
+		return new TranslationRotation.Description(
+			in.readDouble(),
+			in.readDouble(),
+			new Vector3d(
+				in.readDouble(),
+				in.readDouble(),
+				in.readDouble()
+			)
+		);
+	}
+
 	/*
 	 * If we need a version 2 constructor in the future, it would look like this:
 	 *
@@ -643,6 +706,10 @@ public class ConfSpace implements ConfSpaceIteration {
 	 * Java doesn't support named constructors, so we have to differentiate by the function signature instead.
 	 * The extra integers are just dummy arguments to give us different constructor signatures,
 	 * but those extra arguments aren't needed for anything else.
+	 *
+	 * Ideally, we'd use named static factory methods here, except we have a ton of final fields,
+	 * and it would be a huge PITA to pass them all as constructor arguments,
+	 * so this constructor signature hack will have to do for now.
 	 */
 
 	private int posPairIndex(int posi1, int posi2) {
@@ -657,6 +724,10 @@ public class ConfSpace implements ConfSpaceIteration {
 		}
 
 		return posi1*(posi1 - 1)/2 + posi2;
+	}
+
+	public IndicesStatic indicesStatic(int ffi) {
+		return indicesStatic[ffi];
 	}
 
 	public IndicesSingle indicesSingles(int ffi, int posi, int confi) {

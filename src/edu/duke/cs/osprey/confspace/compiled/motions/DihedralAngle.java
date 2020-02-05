@@ -1,9 +1,6 @@
 package edu.duke.cs.osprey.confspace.compiled.motions;
 
-import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
-import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
-import edu.duke.cs.osprey.confspace.compiled.ContinuousMotion;
-import edu.duke.cs.osprey.confspace.compiled.DegreeOfFreedom;
+import edu.duke.cs.osprey.confspace.compiled.*;
 import edu.duke.cs.osprey.tools.Protractor;
 import org.joml.Quaterniond;
 import org.joml.Vector3d;
@@ -15,7 +12,7 @@ import java.util.Set;
 
 public class DihedralAngle implements ContinuousMotion {
 
-	public static class Description implements ContinuousMotion.ConfDescription {
+	public static class Description implements ContinuousMotion.ConfDescription, ContinuousMotion.MolDescription {
 
 		public final double minDegrees;
 		public final double maxDegrees;
@@ -45,13 +42,19 @@ public class DihedralAngle implements ContinuousMotion {
 		}
 
 		@Override
-		public ContinuousMotion build(AssignedCoords coords, ConfSpace.Pos pos) {
-			return new DihedralAngle(this, coords, pos.index);
+		public ContinuousMotion build(AssignedCoords conf, ConfSpace.Pos pos) {
+			return new DihedralAngle(this, conf, 0, pos.index);
+		}
+
+		@Override
+		public ContinuousMotion build(AssignedCoords conf, int molInfoIndex) {
+			return new DihedralAngle(this, conf, molInfoIndex, PosInter.StaticPos);
 		}
 	}
 
 	public final Description desc;
 	public final AssignedCoords coords;
+	public final int moli;
 	public final int posi;
 
 	private final int ai;
@@ -64,20 +67,21 @@ public class DihedralAngle implements ContinuousMotion {
 	public final double minAngleRadians;
 	public final double maxAngleRadians;
 
-	public DihedralAngle(Description desc, AssignedCoords coords, int posi) {
+	public DihedralAngle(Description desc, AssignedCoords coords, int moli, int posi) {
 
 		this.desc = desc;
 		this.coords = coords;
+		this.moli = moli;
 		this.posi = posi;
 
 		// cache all the atom indices
-		ai = getAtomIndex(posi, desc.a);
-		bi = getAtomIndex(posi, desc.b);
-		ci = getAtomIndex(posi, desc.c);
-		di = getAtomIndex(posi, desc.d);
+		ai = getAtomIndex(desc.a);
+		bi = getAtomIndex(desc.b);
+		ci = getAtomIndex(desc.c);
+		di = getAtomIndex(desc.d);
 		ri = new int[desc.rotated.length];
 		for (int i=0; i<ri.length; i++) {
-			ri[i] = getAtomIndex(posi, desc.rotated[i]);
+			ri[i] = getAtomIndex(desc.rotated[i]);
 		}
 
 		// TODO: profile and optimize this
@@ -97,23 +101,39 @@ public class DihedralAngle implements ContinuousMotion {
 		this.maxAngleRadians = Math.toRadians(desc.maxDegrees);
 	}
 
-	private int getAtomIndex(int posi, int atomi) {
-		if (atomi >= 0) {
-			// positive indices encode conformation atoms
-			return coords.getConfIndex(posi, atomi);
+	private String getName() {
+		if (posi == PosInter.StaticPos) {
+			return coords.confSpace.molInfos[moli].name;
 		} else {
-			// negative indices encode static atoms
-			return coords.getStaticIndex(-atomi - 1);
+			return coords.confSpace.name(posi);
 		}
 	}
 
-	private String getAtomName(int posi, int atomi) {
-		if (atomi >= 0) {
-			// positive indices encode conformation atoms
-			return coords.confSpace.positions[posi].confs[coords.assignments[posi]].atomNames[atomi];
+	private int getAtomIndex(int atomi) {
+		if (posi == PosInter.StaticPos) {
+			return coords.getStaticIndex(atomi);
 		} else {
-			// negative indices encode static atoms
-			return coords.confSpace.staticNames[-atomi - 1];
+			if (atomi >= 0) {
+				// positive indices encode conformation atoms
+				return coords.getConfIndex(posi, atomi);
+			} else {
+				// negative indices encode static atoms
+				return coords.getStaticIndex(-atomi - 1);
+			}
+		}
+	}
+
+	private String getAtomName(int atomi) {
+		if (posi == PosInter.StaticPos) {
+			return coords.confSpace.staticNames[atomi];
+		} else {
+			if (atomi >= 0) {
+				// positive indices encode conformation atoms
+				return coords.confSpace.positions[posi].confs[coords.assignments[posi]].atomNames[atomi];
+			} else {
+				// negative indices encode static atoms
+				return coords.confSpace.staticNames[-atomi - 1];
+			}
 		}
 	}
 
@@ -203,11 +223,11 @@ public class DihedralAngle implements ContinuousMotion {
 		@Override
 		public String name() {
 			return String.format("dihedral angle @ %s: %s-%s-%s-%s",
-				coords.confSpace.name(posi),
-				getAtomName(posi, desc.a),
-				getAtomName(posi, desc.b),
-				getAtomName(posi, desc.c),
-				getAtomName(posi, desc.d)
+				getName(),
+				getAtomName(desc.a),
+				getAtomName(desc.b),
+				getAtomName(desc.c),
+				getAtomName(desc.d)
 			);
 		}
 
@@ -243,11 +263,6 @@ public class DihedralAngle implements ContinuousMotion {
 		public double initialStepSize() {
 			return 0.004363323; // 0.25 degrees
 		}
-	}
-
-	@Override
-	public boolean isAbsolute() {
-		return false;
 	}
 
 	@Override

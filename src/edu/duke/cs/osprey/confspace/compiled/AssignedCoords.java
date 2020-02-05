@@ -13,8 +13,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static edu.duke.cs.osprey.tools.Log.log;
-
 
 /**
  * A copy of the conf space atom coords with the desired assignments.
@@ -79,8 +77,6 @@ public class AssignedCoords {
 			}
 		}
 
-		// TODO: make sure there's only "absolute" motion, and it always goes first?
-
 		// then, make motions for conformations
 		for (ConfSpace.Pos pos : confSpace.positions) {
 
@@ -112,6 +108,10 @@ public class AssignedCoords {
 		}
 
 		return confSpace.positions[posi].confs[confi].energies[ffi];
+	}
+
+	public ConfSpace.IndicesStatic getIndices(int ffi) {
+		return confSpace.indicesStatic(ffi);
 	}
 
 	public ConfSpace.IndicesSingle getIndices(int ffi, int posi) {

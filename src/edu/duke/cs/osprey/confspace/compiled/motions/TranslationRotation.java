@@ -14,7 +14,8 @@ import java.util.Set;
 public class TranslationRotation implements ContinuousMotion {
 
 	// TODO: is this actually correct when these Dofs get applied with other Dofs like dihedrals???
-	//   maybe?? test it!!
+	//   it's not...
+	//   redo this so the dofs can be applied relatively
 
 	// TODO: can optimize by skipping translation,rotation DoFs during minimization
 	//  when they don't effect the energy at all
@@ -181,13 +182,6 @@ public class TranslationRotation implements ContinuousMotion {
 		public double initialStepSize() {
 			return step;
 		}
-	}
-
-	@Override
-	public boolean isAbsolute() {
-		// these transformations assume the atom coords start in their original positions,
-		// as created by the conformation space, so we're an "absolute" transformation
-		return true;
 	}
 
 	@Override

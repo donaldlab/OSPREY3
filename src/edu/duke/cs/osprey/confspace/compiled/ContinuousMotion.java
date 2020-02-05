@@ -25,13 +25,6 @@ public interface ContinuousMotion {
 	}
 
 	/**
-	 * True if the motion assumes atom coordinates start in some canonical location.
-	 * Which means only one absolute motion is allowed per molecule,
-	 * and it must be the first motion applied.
-	 */
-	boolean isAbsolute();
-
-	/**
 	 * Create degrees of freedom from the motion and add them to the list.
 	 */
 	void appendDofs(List<DegreeOfFreedom> dofs);
