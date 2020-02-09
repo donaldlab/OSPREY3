@@ -16,18 +16,9 @@ public class StabilityDesign {
     @JsonProperty("design_name")
     public String designName;
 
-    @JsonProperty("residue_configurations")
-    public List<ResidueModifier> residueModifiers;
-
     public float epsilon;
 
-    public String molecule;
-
-    @JsonProperty("extra_templates")
-    public String extraTemplates;
-
-    @JsonProperty("extra_templates_coordinates")
-    public String extraTemplatesCoordinates;
+    public MoleculeDto molecule;
 
     public static StabilityDesign parse(File file) throws IOException {
         var mapper = new ObjectMapper(new YAMLFactory());
