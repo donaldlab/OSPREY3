@@ -5,7 +5,7 @@ plugins {
 }
 
 group 'edu.duke.cs'
-version '3.0-BETA'
+version '3.1-BETA'
 
 sourceCompatibility = 11
 
