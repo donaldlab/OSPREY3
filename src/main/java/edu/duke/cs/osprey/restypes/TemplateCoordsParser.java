@@ -52,10 +52,9 @@ public class TemplateCoordsParser {
 	public void parse(String text) {
 
 		Iterator<String> lines = FileTools.parseLines(text).iterator();
+		var curLine = lines.next();
+		if (curLine == null) return;
 
-		String curLine = null;
-
-		curLine = lines.next();
 		while (curLine.startsWith("#") || curLine.isEmpty()) {
 			curLine = lines.next();
 		}

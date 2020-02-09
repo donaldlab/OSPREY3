@@ -11,9 +11,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MainTest extends CapturedIOTest {
 
-    private final String ke07ApoPath = getClass().getResource("/ke07-apo.yaml").getPath();
-    private final String testDesignPath = getClass().getResource("/test-design.yaml").getPath();
-
     @Test
     void noArgumentsPrintsGeneralHelp() {
         String[] argv = {};
@@ -77,26 +74,5 @@ class MainTest extends CapturedIOTest {
         String[] argv = { commandName,  "--design", pathToDesignFile };
         assertNotEquals(Main.Success, new Main().run(argv));
         assertTrue(mockedOut.toString().contains("exist"));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {CommandBindingAffinity.CommandName, CommandPartitionFunction.CommandName})
-    void epsilonShouldBeAnOption(String commandName) {
-        String[] argv = { commandName, "--design", ke07ApoPath, "--epsilon", "0.7" };
-        assertEquals(Main.Success, new Main().run(argv));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {CommandBindingAffinity.CommandName, CommandPartitionFunction.CommandName})
-    void epsilonRequiresAnArgument(String commandName) {
-        String[] argv = { commandName, "--design", ke07ApoPath, "--epsilon" };
-        assertNotEquals(Main.Success, new Main().run(argv));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {CommandBindingAffinity.CommandName, CommandPartitionFunction.CommandName})
-    void epsilonMustBeAFloat(String commandName) {
-        String[] argv = { commandName, "--design", ke07ApoPath, "--epsilon", "one-point-oh" };
-        assertNotEquals(Main.Success, new Main().run(argv));
     }
 }
