@@ -33,11 +33,11 @@ public class CommandBindingAffinity extends RunnableCommand {
         }
 
         return parseAndValidate(delegate.design)
-                .map(this::runDesign)
+                .map(this::runAffinityDesign)
                 .orElse(Main.Failure);
     }
 
-    private int runDesign(AffinityDesign design) {
+    private int runAffinityDesign(AffinityDesign design) {
         var forcefieldParams = new ForcefieldParams();
         var confSpace1 = delegate.createConfSpace(design.protein, forcefieldParams);
         var confSpace2 = delegate.createConfSpace(design.ligand, forcefieldParams);
@@ -49,6 +49,12 @@ public class CommandBindingAffinity extends RunnableCommand {
         var complexConfSpace = new SimpleConfSpace.Builder()
                 .addStrands(strands)
                 .build();
+
+        // Exit early if just trying to validate input
+        if (delegate.verifyInput) {
+            System.out.println("Design file validated.");
+            return Main.Success;
+        }
 
         /* Decides whether to use CPU(s) and/or GPU(s) (purely implementation specific) */
         var parallelism = delegate.getParallelism();
@@ -68,26 +74,16 @@ public class CommandBindingAffinity extends RunnableCommand {
                     .setReferenceEnergies(referenceEnergies)
                     .build();
 
-            File tmpFile;
-            try {
-                tmpFile = File.createTempFile(String.format("emat.%s", info.id), ".dat");
-            } catch (IOException e) {
-                System.err.println("Could not create a temporary file to hold the energy matrix. Exiting.");
-                return Main.Failure;
-            }
-
-
             var energyMatrix = new SimplerEnergyMatrixCalculator.Builder(info.confSpace, energyCalculator)
-                    .setCacheFile(tmpFile)
                     .build()
                     .calcEnergyMatrix();
+
             info.confSearchFactory = rcs -> new ConfAStarTree.Builder(energyMatrix, rcs)
                     .setShowProgress(false)
                     .build();
         }
 
         printResults(kstar.run());
-
         return Main.Success;
     }
 
@@ -109,7 +105,6 @@ public class CommandBindingAffinity extends RunnableCommand {
     static Optional<AffinityDesign> parseAndValidate(File designSpec) {
 
         AffinityDesign design;
-
         try {
             design = AffinityDesign.parse(designSpec);
         } catch (IOException e) {
