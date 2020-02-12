@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.sharkstar;
 
-import EDU.oswego.cs.dl.util.concurrent.FJTask;
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -9,8 +8,6 @@ import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.markstar.prototype.SimpleConf;
-import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.math.BigDecimal;
@@ -323,6 +320,11 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             confBounds.put(seq, new MathTools.DoubleBounds(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
         }
         return confBounds.get(seq);
+    }
+
+    public boolean hasChildren(Sequence seq) {
+        return childrenBySequence.containsKey(seq) &&
+                !childrenBySequence.get(seq).isEmpty();
     }
 
     public List<MultiSequenceSHARKStarNode> getChildren(Sequence seq) {

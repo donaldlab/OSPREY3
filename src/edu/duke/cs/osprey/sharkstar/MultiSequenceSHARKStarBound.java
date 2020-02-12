@@ -122,7 +122,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{4, 5, 6, -1, -1, -1, -1};//-1, -1, 8, 18};
+    public static final int[] debugConf = new int[]{6, 5, 15, -1, -1, 8, -1};
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -320,7 +320,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     private void updatePrecomputedNode(MultiSequenceSHARKStarNode node, int[] permutation, int size) {
-        if (node.getChildren(precomputedSequence) != null) {
+        if (node.hasChildren(precomputedSequence)) {
             for (MultiSequenceSHARKStarNode child : node.getChildren(precomputedSequence)) {
                 updatePrecomputedNode(child, permutation, size);
             }
@@ -343,17 +343,20 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             curNode.setBoundsFromConfLowerAndUpper(confLowerBound, confUpperBound, bound.sequence);
             if(isDebugConf(confNode.assignments))
                 System.out.println("end result: "+curNode.toSeqString(bound.sequence));
-            correctionMatrix.setHigherOrder(curNode.toTuple(), confNode.getPartialConfLowerBound()
-                    - minimizingEmat.confE(confNode.assignments));
+            if(curNode.getChildren(null).isEmpty())
+                correctionMatrix.setHigherOrder(curNode.toTuple(), confNode.getPartialConfLowerBound()
+                        - minimizingEmat.confE(confNode.assignments));
             if(curNode.nextDesignPosition == null && curNode.level < confSpace.positions.size()) {
                 curNode.nextDesignPosition = confSpace.positions.get(order.getNextPos(context.index, rcs));
             }
-            if(bound.sequence.countMutations() < 1 && curNode.getChildren(bound.sequence).size() < 1 && curNode.getChildren(null).size() > 0) {
+            /*
+            if(bound.sequence.countMutations() < 1 && !curNode.hasChildren(bound.sequence) && curNode.getChildren(null).size() > 0) {
                 System.out.println("Gotta be careful here.");
                 printTree(bound.sequence, rootNode);
                 computeFringeForSequence(bound, curNode);
             }
-            if(curNode.getChildren(bound.sequence).size() < 1)
+             */
+            if(curNode.getChildren(bound.sequence).isEmpty())
                 bound.fringeNodes.add(curNode);
             else
                 for(MultiSequenceSHARKStarNode child: curNode.getChildren(bound.sequence))
@@ -709,7 +712,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                 new BigDecimal(1 - targetEpsilon))
                 ) {
                     loopTasks.submit(() -> {
-                        if(internalNode.getChildren(bound.sequence).size() > 0)
+                        if(internalNode.hasChildren(bound.sequence))
                             System.out.println("how?");
                         boundLowestBoundConfUnderNode(bound, internalNode, newNodes);
                         return null;
@@ -1052,7 +1055,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
      * Takes the full minimizations from this subtree, insert them into the correction matrix
      */
     private void captureSubtreeFullMinimizations(MultiSequenceSHARKStarNode subTreeRoot){
-        if (subTreeRoot.getChildren(precomputedSequence) == null || subTreeRoot.getChildren(precomputedSequence).size() ==0){
+        if (!subTreeRoot.hasChildren(precomputedSequence)){
             if (subTreeRoot.isMinimized(precomputedSequence)){
                 RCTuple tuple = subTreeRoot.toTuple();
                 double confEnergy = subTreeRoot.getConfLowerBound(precomputedSequence);
