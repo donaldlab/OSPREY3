@@ -17,7 +17,10 @@ kstar = osprey.KStar(
 	nadph06w,
 	complex,
 	epsilon=0.68,
-	writeSequencesToConsole=True
+	writeSequencesToConsole=True,
+
+	# turn this one off when you get tired of the log spam
+	showPfuncProgress=True
 )
 
 # configure K* inputs for each conf space
@@ -37,6 +40,7 @@ for info in kstar.confSpaceInfos():
 
 	# TODO: explain what this does
 	posInterDist = osprey.c.confspace.compiled.PosInterDist.DesmetEtAl1992
+	#posInterDist = osprey.c.confspace.compiled.PosInterDist.TighterBounds
 
 	# compute the energy matrix
 	emat = osprey.jvm.getInnerClass(osprey.c.ematrix.compiled.EmatCalculator, 'Builder')(ecalc) \
