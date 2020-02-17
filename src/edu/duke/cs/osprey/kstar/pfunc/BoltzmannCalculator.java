@@ -34,6 +34,8 @@ package edu.duke.cs.osprey.kstar.pfunc;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.util.ArrayList;
+import java.util.Collections;
 
 import ch.obermuhlner.math.big.BigDecimalMath;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
@@ -63,6 +65,24 @@ public class BoltzmannCalculator {
 	
 	public BigDecimal calc(double energy) {
 		return e.exp(-energy/constRT);
+	}
+
+	public double logSumExp(ArrayList<Double> list){
+		/** logSumExp
+		 *
+		 * Returns the free energy over a sum of energies. Uses the log sum exp trick.
+		 *
+		 * TODO: Make this documentation better
+		 */
+
+		double minEnergy = Collections.min(list);
+		BigDecimal runningSum = BigDecimal.ZERO;
+		for ( double e : list){
+			runningSum = runningSum.add(calc(e - minEnergy), this.mathContext);
+		}
+
+		return minEnergy + freeEnergy(runningSum);
+
 	}
 
 	public double freeEnergy(BigDecimal z) {
