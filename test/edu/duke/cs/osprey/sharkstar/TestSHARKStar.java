@@ -235,8 +235,11 @@ public class TestSHARKStar {
 		}
 	}
 
-
 	public static ConfSpaces loadFromCFS(String cfsFileName) throws FileNotFoundException {
+	    return loadFromCFS(cfsFileName, true);
+    }
+
+	public static ConfSpaces loadFromCFS(String cfsFileName, boolean minimize) throws FileNotFoundException {
 	    String fileContents = FileTools.readFile(cfsFileName);
 	    ConfSpaces confSpaces = new ConfSpaces();
 		confSpaces.ffparams = new ForcefieldParams();
@@ -290,8 +293,11 @@ public class TestSHARKStar {
 							allowedAAs = allowedAAs.replaceAll("'","");
 							strandMap.get(strandNum).flexibility.get(resNum)
 									.setLibraryRotamers(allowedAAs.split(", ?"))
-									.addWildTypeRotamers()
-									.setContinuous();
+									.addWildTypeRotamers();
+							if (minimize){
+								strandMap.get(strandNum).flexibility.get(resNum)
+										.setContinuous();
+							}
 						}
 						//Strand 0: protein
 						//Strant 1: ligand
@@ -721,7 +727,7 @@ public class TestSHARKStar {
 	@Test
 	public void test2rl0_UBerror() {
 		try {
-			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_11res_4.041E+09.cfs");
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_11res_4.041E+09.cfs", false);
 			runBBSHARKStar(confSpaces, 0.9999);
 			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
 		} catch (FileNotFoundException e) {
