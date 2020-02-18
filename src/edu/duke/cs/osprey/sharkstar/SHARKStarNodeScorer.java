@@ -178,7 +178,6 @@ public class SHARKStarNodeScorer implements AStarScorer {
     public double calc(ConfIndex confIndex, RCs rcs) {
         BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
         double freeEnergyBound = 0.0;
-        BigDecimal pfuncBound = BigDecimal.ONE;
 
         int[] conf = confIndex.makeConf();
         if(confMatch(conf, debugConf)){
@@ -190,10 +189,7 @@ public class SHARKStarNodeScorer implements AStarScorer {
         }
         for (int undefinedPosIndex1 = 0; undefinedPosIndex1 < confIndex.numUndefined; undefinedPosIndex1++) {
             int undefinedPos1 = confIndex.undefinedPos[undefinedPosIndex1];
-            BigDecimal residueSum = BigDecimal.ZERO;
-            // ArrayList to use the log-sum-exp trick
-            ArrayList <Double> rotEnergies = new ArrayList();
-
+            ArrayList <Double> rotEnergies = new ArrayList(); // ArrayList to use the log-sum-exp trick
             for (int rot1 : rcs.get(undefinedPos1)) {
                 //Iterate over the residues, computing bounds on the log partition function contributions...
                 double rotEnergy = emat.getEnergy(undefinedPos1, rot1); // get the singletons
@@ -221,29 +217,21 @@ public class SHARKStarNodeScorer implements AStarScorer {
                 }
                 // Store the rotamer energy for later residue energy calculation
                 rotEnergies.add(rotEnergy);
-                //OLD
-                residueSum = residueSum.add(bcalc.calc(rotEnergy),bcalc.mathContext);
             }
             // Compute the residue sum via logSumExp
             double residueFreeEnergy = bcalc.logSumExp(rotEnergies);
             if(confMatch(conf, debugConf)){
                 System.out.println("Gotcha-calc2");
-                System.out.println("End residue sum: "+residueSum);
-                System.out.println("End residue sum (via logsumexp): "+residueFreeEnergy);
-                System.out.println("bcalc residue sum (via logsumexp): "+bcalc.calc(residueFreeEnergy));
+                System.out.println("End residue free energy: "+ residueFreeEnergy);
+                System.out.println("End residue weight: "+bcalc.calc(residueFreeEnergy));
             }
-            //OLD
-            pfuncBound = pfuncBound.multiply(residueSum, PartitionFunction.decimalPrecision);
             // Add the residue sum to total bound
             freeEnergyBound += residueFreeEnergy;
         }
         if(confMatch(conf, debugConf)){
             System.out.println("Gotcha-calc3");
-            System.out.printf("End bound: %12.4e\n", pfuncBound);
-            System.out.println("End \'energy\': "+bcalc.freeEnergy(pfuncBound));
-            System.out.println("End \'energy\' (via logsumexp): "+freeEnergyBound);
+            System.out.println("End \'energy\': "+freeEnergyBound);
         }
-        //return bcalc.freeEnergy(pfuncBound);
         return freeEnergyBound;
     }
 

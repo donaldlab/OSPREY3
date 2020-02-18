@@ -67,17 +67,21 @@ public class BoltzmannCalculator {
 		return e.exp(-energy/constRT);
 	}
 
-	public double logSumExp(ArrayList<Double> list){
+	public double logSumExp(ArrayList<Double> energyList){
 		/** logSumExp
 		 *
-		 * Returns the free energy over a sum of energies. Uses the log sum exp trick.
+		 * Returns the free energy of a Boltzmann-weighted sum of energies.
 		 *
-		 * TODO: Make this documentation better
+		 * Uses the log-sum-exp trick:
+		 * 	Shifts sum of exponentials to start at zero. In doing so, avoids
+		 * 	some numerical instability issues.
+         *
+		 * 	TODO: Optimize this? It should get called a LOT
 		 */
 
-		double minEnergy = Collections.min(list);
+		double minEnergy = Collections.min(energyList);
 		BigDecimal runningSum = BigDecimal.ZERO;
-		for ( double e : list){
+		for ( double e : energyList){
 			runningSum = runningSum.add(calc(e - minEnergy), this.mathContext);
 		}
 
