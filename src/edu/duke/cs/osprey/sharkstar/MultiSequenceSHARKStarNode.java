@@ -145,11 +145,19 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public void updateSubtreeBounds(Sequence seq) {
+        if(!hasChildren(seq))
+            return;
         List<MultiSequenceSHARKStarNode> childrenForSequence = getChildren(seq);
         if(childrenForSequence != null && childrenForSequence.size() > 0) {
             BigDecimal errorUpperBound = BigDecimal.ZERO;
             BigDecimal errorLowerBound = BigDecimal.ZERO;
             for(MultiSequenceSHARKStarNode child: childrenForSequence) {
+                /*
+                // Don't bother with uninitialized children.
+                if(!MathTools.isFinite(child.getUpperBound(seq)))
+                    return;
+
+                 */
                 child.updateSubtreeBounds(seq);
                 errorUpperBound = MathTools.bigAdd(errorUpperBound, child.getSequenceBounds(seq).upper,
                         PartitionFunction.decimalPrecision);
@@ -267,7 +275,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             System.err.println("Re-exploring processed internal node for "+seq);
         }
          */
-        if(!getChildren(seq).contains(newChild))
+        if(!getOrMakeChildren(seq).contains(newChild))
             getChildren(seq).add(newChild);
         newChild.setBoundsFromConfLowerAndUpper(lowerBound, upperBound, seq);
         newChild.errorBound = getErrorBound(seq);
@@ -327,10 +335,19 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
                 !childrenBySequence.get(seq).isEmpty();
     }
 
+    public List<MultiSequenceSHARKStarNode> getOrMakeChildren(Sequence seq) {
+        if(seq == null)
+            return children;
+        if(!hasChildren(seq))
+            initChildren(seq);
+        if(debug)
+            checkChildren(seq);
+        return childrenBySequence.get(seq);
+    }
+
     public List<MultiSequenceSHARKStarNode> getChildren(Sequence seq) {
         if(seq == null)
             return children;
-        initChildren(seq);
         if(debug)
             checkChildren(seq);
         return childrenBySequence.get(seq);
@@ -345,6 +362,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     private void initChildren(Sequence seq) {
+        if(isDebugConf(confSearchNode.assignments))
+            System.out.println("Adding children for "+seq+" at "+toSeqString(seq));
         if(!childrenBySequence.containsKey(seq)) {
             if (level >= fullConfSpace.positions.size()) {
                 childrenBySequence.put(seq, new ArrayList<>());
@@ -378,9 +397,10 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     private void checkChildren(Sequence seq) {
         checkAllChildren();
-        initChildren(seq);
-        List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes = childrenBySequence.get(seq);
-        checkListForDupes(multiSequenceSHARKStarNodes, seq.toString());
+        if(hasChildren(seq)) {
+            List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes = childrenBySequence.get(seq);
+            checkListForDupes(multiSequenceSHARKStarNodes, seq.toString());
+        }
         checkAllChildren();
     }
 
@@ -394,9 +414,6 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         for(int rcInAA : seqRCs.get(nextDesignPosition.index)) {
             if(childrenByRC.containsKey(rcInAA) && childrenByRC.get(rcInAA) != null)
                 childrenForSeq.add(childrenByRC.get(rcInAA));
-            if((!childrenByRC.containsKey(rcInAA) || childrenByRC.get(rcInAA) == null) && children.size() > 0
-            &&  childrenBySequence.containsKey(seq.get(nextDesignPosition.resNum).name))
-                System.out.println("Null child. Make sure it should be null.");
         }
         /*
         for (MultiSequenceSHARKStarNode child: children) {
@@ -442,7 +459,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public void checkDescendents(Sequence seq) {
-        if(!getChildren(seq).isEmpty())
+        if(hasChildren(seq))
             System.out.println("Already expanded node?");
     }
 
@@ -475,7 +492,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     public BigDecimal getErrorBound(Sequence seq) {
         if(isMinimized(seq))
             return BigDecimal.ZERO;
-        if(getChildren(seq) == null || getChildren(seq).size() < 1) {
+        if(getChildren(seq) == null || !hasChildren(seq)) {
             return MathTools.bigSubtract(getUpperBound(seq), getLowerBound(seq), PartitionFunction.decimalPrecision);
         }
         BigDecimal errorSum = BigDecimal.ZERO;
@@ -507,7 +524,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     public void debugTree(Sequence seq) {
         debugChecks(seq, false);
-        if(!getChildren(seq).isEmpty()){
+        if(hasChildren(seq)){
             for(MultiSequenceSHARKStarNode child: getChildren(seq))
                 child.debugTree(seq);
         }

@@ -122,7 +122,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
     private List<MultiSequenceSHARKStarNode> precomputedFringe = new ArrayList<>();
 
-    public static final int[] debugConf = new int[]{6, 5, 15, -1, -1, 8, -1};
+    public static final int[] debugConf = new int[]{};//6, 5, 15, -1, -1, 8, -1};
     private boolean internalQueueWasEmpty = false;
     private String cachePattern = "NOT_INITIALIZED";
 
@@ -356,10 +356,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 computeFringeForSequence(bound, curNode);
             }
              */
-            if(curNode.getChildren(bound.sequence).isEmpty())
+            if(curNode.getOrMakeChildren(bound.sequence).isEmpty())
                 bound.fringeNodes.add(curNode);
             else
-                for(MultiSequenceSHARKStarNode child: curNode.getChildren(bound.sequence))
+                for(MultiSequenceSHARKStarNode child: curNode.getOrMakeChildren(bound.sequence))
                     computeFringeForSequence(bound, child);
         }
         curNode.updateSubtreeBounds(bound.sequence);
