@@ -29,6 +29,28 @@ public class MultiSequenceSHARKStarNodeStatistics {
         printTree("", null, null, seq, node, (node1)->node1.getLastSequenceBounds(seq));
     }
 
+    public static String treeString(String prefix, Sequence seq, MultiSequenceSHARKStarNode node) {
+        BoundGetter boundGetter = (node1) -> node1.getSequenceBounds(seq);
+        MathTools.BigDecimalBounds bounds = boundGetter.getBounds(node);
+        MultiSequenceSHARKStarNode.Node confSearchNode = node.getConfSearchNode();
+        String confString = confSearchNode.confToString();
+        String out = prefix+confString+":"
+                +"["+node.getConfLowerBound(seq)+","+node.getConfUpperBound(seq)+"]->"
+                +"["+formatBound(bounds.lower)
+                +","+formatBound(bounds.upper)+"]"+"\n";
+        if(MathTools.isLessThan(node.getUpperBound(seq), BigDecimal.ZERO))
+            return out;
+        List<MultiSequenceSHARKStarNode> children = node.getChildren(seq);
+        if( children != null && ! children.isEmpty()) {
+            BoundGetter finalBoundGetter = boundGetter;
+            Collections.sort( children, (a, b)->
+                    -MathTools.compare(finalBoundGetter.getBounds(a).upper, finalBoundGetter.getBounds(b).upper));
+            for (MultiSequenceSHARKStarNode child :  children)
+                out += treeString(prefix + "~+", seq, child);
+        }
+        return out;
+    }
+
     public static void printTree(String prefix, FileWriter writer, SimpleConfSpace confSpace, Sequence seq,
                                  MultiSequenceSHARKStarNode node, BoundGetter boundGetter)
     {
