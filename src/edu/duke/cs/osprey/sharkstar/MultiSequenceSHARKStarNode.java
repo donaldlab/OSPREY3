@@ -224,7 +224,9 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             printTree(seq, this);
             System.out.println("Last Tree:");
             printLastTree(seq, this);
-            throw new RuntimeException("Exiting due to increasing upper bound! This is bad!");
+            UpperBoundException exception = new UpperBoundException("Exiting due to increasing upper bound! This is bad!");
+            exception.setOffendingNode(this);
+            throw exception;
         }
         if(lastLower != null
                 && MathTools.isLessThan(getSequenceBounds(seq).lower,lastLower)

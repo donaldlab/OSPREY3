@@ -77,7 +77,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     // TODO: Implement new AStarPruner for MARK*?
     protected RCs fullRCs;
     protected Parallelism parallelism;
-    private ObjectPool<ScoreContext> contexts;
+    public ObjectPool<ScoreContext> contexts;
     private ScorerFactory gscorerFactory;
     private ScorerFactory rigidgscorerFactory;
     private ScorerFactory hscorerFactory;
