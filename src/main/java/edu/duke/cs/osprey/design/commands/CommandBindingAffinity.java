@@ -68,13 +68,13 @@ public class CommandBindingAffinity extends RunnableCommand {
         var kstar = new KStar(confSpace1, confSpace2, complexConfSpace, makeKStarSettings(epsilon));
 
         for (var info : kstar.confSpaceInfos()) {
-            var referenceEnergies = new SimpleReferenceEnergies.Builder(info.confSpace, energyCalculator).build();
+            var referenceEnergies = new SimpleReferenceEnergies.Builder(((SimpleConfSpace) info.confSpace), energyCalculator).build();
 
-            info.confEcalc = new ConfEnergyCalculator.Builder(info.confSpace, energyCalculator)
+            info.confEcalc = new ConfEnergyCalculator.Builder(((SimpleConfSpace) info.confSpace), energyCalculator)
                     .setReferenceEnergies(referenceEnergies)
                     .build();
 
-            var energyMatrix = new SimplerEnergyMatrixCalculator.Builder(info.confSpace, energyCalculator)
+            var energyMatrix = new SimplerEnergyMatrixCalculator.Builder(((SimpleConfSpace) info.confSpace), energyCalculator)
                     .build()
                     .calcEnergyMatrix();
 

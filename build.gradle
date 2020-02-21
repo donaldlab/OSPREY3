@@ -36,6 +36,8 @@ dependencies {
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.9'
     implementation 'com.beust:jcommander:1.72'
     implementation 'org.tomlj:tomlj:1.0.0'
+    implementation 'org.joml:joml:1.9.19'
+    implementation 'org.tukaani:xz:1.8'
     compile "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
     annotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
 
