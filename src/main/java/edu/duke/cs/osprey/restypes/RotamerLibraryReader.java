@@ -111,7 +111,7 @@ public class RotamerLibraryReader implements Serializable {
             boolean foundTemplate = false;
             
             for(ResidueTemplate template : templates){
-                if(template.name.equalsIgnoreCase(aaName)){
+                if(!foundTemplate && template.name.equalsIgnoreCase(aaName)){
                     
                     //record information in template
                     template.numDihedrals = numDihedrals;
