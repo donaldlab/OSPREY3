@@ -45,6 +45,8 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.util.*;
 
+import static edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory.makeConfSearchFactory;
+
 
 /**
  * Implementation of the BBK* algorithm to predict protein sequence mutations that improve
@@ -108,6 +110,9 @@ public class BBKStar {
 		/** A ConfEnergyCalculator that computes minimized energies */
 		public ConfEnergyCalculator confEcalcMinimized = null;
 
+		/** A ConfEnergyCalculator that computes rigid energies */
+		public ConfEnergyCalculator confEcalcRigid= null;
+
 		/** A ConfSearch that minimizes over conformation scores from minimized tuples */
 		public ConfSearchFactory confSearchFactoryMinimized = null;
 
@@ -131,6 +136,9 @@ public class BBKStar {
 			if (confEcalcMinimized == null) {
 				throw new KStar.InitException(type, "confEcalcMinimized");
 			}
+			if (confEcalcRigid== null) {
+				throw new KStar.InitException(type, "confEcalcRigid");
+			}
 			if (pfuncFactory == null) {
 				throw new KStar.InitException(type, "pfuncFactory");
 			}
@@ -138,6 +146,18 @@ public class BBKStar {
 
 		public void setConfDBFile(String path) {
 			confDBFile = new File(path);
+		}
+
+		public ConfSearch getMinimizedConfSearch(RCs rcs) {
+		    if(confSearchFactoryMinimized == null)
+				confSearchFactoryMinimized = makeConfSearchFactory(confEcalcMinimized);
+		    return  confSearchFactoryMinimized.make(rcs);
+		}
+
+		public ConfSearch getRigidConfSearch(RCs rcs) {
+			if(confSearchFactoryRigid == null)
+				confSearchFactoryRigid = makeConfSearchFactory(confEcalcRigid);
+			return confSearchFactoryRigid.make(rcs);
 		}
 	}
 
@@ -309,7 +329,7 @@ public class BBKStar {
 			// but use rigid energies instead of minimized energies
 
 			RCs rcs = sequence.makeRCs(info.confSpace);
-			ConfSearch astar = info.confSearchFactoryRigid.make(rcs);
+			ConfSearch astar = info.getRigidConfSearch(rcs);
 			BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
 			BigMath m = new BigMath(PartitionFunction.decimalPrecision)
@@ -332,7 +352,7 @@ public class BBKStar {
 
 			RCs rcs = sequence.makeRCs(info.confSpace);
 			UpperBoundCalculator calc = new UpperBoundCalculator(
-				info.confSearchFactoryMinimized.make(rcs),
+				info.getMinimizedConfSearch(rcs),
 				rcs.getNumConformations()
 			);
 			calc.run(numConfs);

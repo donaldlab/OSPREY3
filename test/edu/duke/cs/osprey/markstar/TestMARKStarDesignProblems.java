@@ -94,7 +94,7 @@ public class TestMARKStarDesignProblems {
         double epsilon = 0.99;
         String kstartime = "(Not run)";
         Stopwatch watch = new Stopwatch();
-        boolean runkstar = true;
+        boolean runkstar = false;
         if(runkstar) {
             watch.start();
             runBBKStar(confSpaces, numSequences, epsilon, null, 1, false);
@@ -129,7 +129,8 @@ public class TestMARKStarDesignProblems {
                 .build();
         protein.flexibility.get("P219").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
         protein.flexibility.get("P220").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
-        protein.flexibility.get("P222").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+        protein.flexibility.get("P222").setLibraryRotamers(Strand.WildType, "ALA", "VAL").addWildTypeRotamers().setContinuous();
+        //protein.flexibility.get("P222").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
         protein.flexibility.get("P223").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "ILE", "PHE", "TYR",
                 "TRP", "CYS", "MET", "SER", "THR", "LYS", "ARG", "HIP", "HIE", "HID", "ASP", "GLU", "ASN", "GLN",
                 "GLY").addWildTypeRotamers().setContinuous();

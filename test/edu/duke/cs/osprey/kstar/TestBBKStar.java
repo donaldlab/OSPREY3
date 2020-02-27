@@ -100,15 +100,16 @@ public class TestBBKStar {
 						.calcReferenceEnergies()
 					).build();
 
+
 				// BBK* needs rigid energies too
 				EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
 					.setIsMinimizing(false)
 					.build();
-				ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
+				info.confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
 
 				if(runMARKStar) {
 					PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id);
-					pfuncFactory.setUseMARKStar(confEcalcRigid);
+					pfuncFactory.setUseMARKStar(info.confEcalcRigid);
 					info.pfuncFactory = pfuncFactory;
 				}
 				else {
@@ -119,7 +120,7 @@ public class TestBBKStar {
 							new ConfAStarTree.Builder(ematMinimized, rcs)
 							.setTraditional()
 							.build();
-					EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
+					EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcRigid)
 							.build()
 							.calcEnergyMatrix();
 					info.confSearchFactoryRigid = (rcs) ->
