@@ -99,6 +99,7 @@ public class CommandPartitionFunction extends RunnableCommand {
         var confSpace = delegate.createConfSpace(design.molecule, ffParams);
 
         if (delegate.verifyInput) {
+            System.out.println("The stability design input file is valid.");
             return Main.Success;
         }
 
