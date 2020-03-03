@@ -176,7 +176,7 @@ public class TestSHARKStarNodeScorer {
     }
 
     @Test
-    public void testLevel1Bound_allatonece(){
+    public void testLevel1Bound_allatonce(){
         BigDecimal pfuncSum_upper = BigDecimal.ZERO;
         BigDecimal pfuncSum_lower = BigDecimal.ZERO;
         for (MultiSequenceSHARKStarNode.Node node : levelOne){
@@ -189,5 +189,79 @@ public class TestSHARKStarNodeScorer {
             pfuncSum_lower = pfuncSum_lower.add(pfuncLower);
         }
         System.out.println(String.format("Level 1 sum bounds: [%.3e, %.3e]", pfuncSum_lower.doubleValue(), pfuncSum_upper.doubleValue()));
+    }
+
+    private class TestContext{
+        private String design;
+        private String state;
+        private int[] order;
+
+        private MultiSequenceSHARKStarNode.Node rootNode;
+        private List<MultiSequenceSHARKStarNode.Node> list;
+
+        private SimpleConfSpace confSpace;
+        private RCs rcs;
+        private BoltzmannCalculator bc;
+        private ConfIndex confIndex;
+
+        private SHARKStarNodeScorer lbScorer;
+        private SHARKStarNodeScorer ubScorer;
+        private AStarScorer lbGScorer;
+        private AStarScorer ubGScorer;
+
+        private TestContext( String design, String state, int[] order ){
+            this.design = design;
+            this.state = state;
+            this.order = order;
+        }
+
+        private void init() throws FileNotFoundException{
+            // Make confspace
+            if(state.equals("complex"))
+                this.confSpace = loadFromCFS(design).complex;
+            else if(state.equals("protein"))
+                this.confSpace = loadFromCFS(design).protein;
+            else
+                this.confSpace = loadFromCFS(design).ligand;
+            // Define forcefield parameters
+            ForcefieldParams ffparams = new ForcefieldParams();
+            // Define the minimizing energy calculator
+            EnergyCalculator minimizingEcalc = new EnergyCalculator.Builder(confSpace, ffparams)
+                    .setParallelism(Parallelism.makeCpu(2))
+                    .build();
+            // Define the rigid energy calculator
+            EnergyCalculator rigidEcalc = new EnergyCalculator.Builder(confSpace, ffparams)
+                    .setParallelism(Parallelism.makeCpu(2))
+                    .setIsMinimizing(false)
+                    .build();
+            // Define the method to make confEnergyCalculators (with reference energies)
+            BBSHARKStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
+                return new ConfEnergyCalculator.Builder(confSpaceArg, ecalcArg)
+                        .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaceArg, minimizingEcalc)
+                                .build()
+                                .calcReferenceEnergies()
+                        )
+                        .build();
+            };
+            // Make the confEnergyCalculators
+            ConfEnergyCalculator rigidConfEcalc = confEcalcFactory.make(confSpace, rigidEcalc);
+            ConfEnergyCalculator minimizingConfEcalc = confEcalcFactory.make(confSpace, minimizingEcalc);
+            // Make the energy matrices
+            EnergyMatrix rigidEmat = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc).build().calcEnergyMatrix();
+            EnergyMatrix minimizingEmat = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc).build().calcEnergyMatrix();
+            EnergyMatrix correctionEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
+
+            Sequence wildType = confSpace.makeWildTypeSequence();
+            this.rcs = wildType.makeRCs(confSpace);
+            rootNode = new MultiSequenceSHARKStarNode.Node(confSpace.positions.size(), 0, new MathTools.DoubleBounds());
+            levelOne = getLevelOne(rootNode);
+
+            this.bc = new BoltzmannCalculator(new MathContext(BigDecimal.ROUND_HALF_UP));
+            this.lbScorer = new SHARKStarNodeScorer(minimizingEmat, false);
+            this.ubScorer = new SHARKStarNodeScorer(rigidEmat, true);
+            this.lbGScorer = new PairwiseGScorer(minimizingEmat);
+            this.ubGScorer = new PairwiseGScorer(rigidEmat);
+            this.confIndex = new ConfIndex(rcs.getNumPos());
+        }
     }
 }
