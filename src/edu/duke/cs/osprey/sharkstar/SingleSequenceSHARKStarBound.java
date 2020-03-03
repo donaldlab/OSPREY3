@@ -10,6 +10,9 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -142,6 +145,21 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
                 }
 
             }
+            try {
+                //Serialize and write the corrections matrix
+                String filename = String.format("%s.correctionMatrix.emat",multisequenceBound.stateName);
+                FileOutputStream file = new FileOutputStream(filename);
+                ObjectOutputStream out = new ObjectOutputStream(file);
+
+                out.writeObject(multisequenceBound.correctionMatrix);
+                out.close();
+                file.close();
+            }catch (IOException e){
+                System.err.println(e.getMessage());
+            }
+
+
+            throw exception;
         }
         if (getSequenceEpsilon() < multiSequenceSHARKStarBound.targetEpsilon) {
             setStatus(Status.Estimated);

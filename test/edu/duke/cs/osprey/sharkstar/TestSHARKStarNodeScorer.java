@@ -18,8 +18,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.*;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
@@ -41,7 +40,8 @@ public class TestSHARKStarNodeScorer {
                 "protein",
                 new HashMap<String,String>(),
                 new int[] {-1, -1, -1, -1, -1, -1, -1},
-                new int[] { 4, 5, 6, 0, 2, 1, 3}
+                new int[] { 4, 5, 6, 0, 2, 1, 3},
+                ""
         ));
         Map<String,String> test_muts = new HashMap<>();
         test_muts.put("C354", "phe");
@@ -50,7 +50,8 @@ public class TestSHARKStarNodeScorer {
                 "complex",
                 test_muts,
                 new int[] {7, 8, 7, 202, 3, -1, 3, 34, 7, 13, 5, 5, 1, 3, 1, 7},
-                new int[] {0, 1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 3, 5}
+                new int[] {0, 1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 3, 5},
+                ""
         ));
     }
 
@@ -172,6 +173,7 @@ public class TestSHARKStarNodeScorer {
         private Map<String, String> mutations;
         private int[] subtreeRoot;
         private int[] order;
+        private String correctionsCache;
 
         private MultiSequenceSHARKStarNode.Node rootNode;
 
@@ -184,13 +186,15 @@ public class TestSHARKStarNodeScorer {
         private SHARKStarNodeScorer ubScorer;
         private AStarScorer lbGScorer;
         private AStarScorer ubGScorer;
+        private UpdatingEnergyMatrix correctionEmat;
 
-        private TestContext( String design, String state, Map<String, String> mutations, int[] subtreeRoot, int[] order){
+        private TestContext( String design, String state, Map<String, String> mutations, int[] subtreeRoot, int[] order, String correctionsCache){
             this.design = design;
             this.state = state;
             this.mutations = mutations;
             this.subtreeRoot = subtreeRoot;
             this.order = order;
+            this.correctionsCache = correctionsCache;
 
             try {
                 init();
@@ -236,7 +240,30 @@ public class TestSHARKStarNodeScorer {
                     .setCacheFile(new File(String.format("%s.%s.emat",shortName,"rigid"))).build().calcEnergyMatrix();
             EnergyMatrix minimizingEmat = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc)
                     .setCacheFile(new File(String.format("%s.%s.emat",shortName,"minim"))).build().calcEnergyMatrix();
-            EnergyMatrix correctionEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
+            if (!correctionsCache.equals("")){
+                this.correctionEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
+            }else{
+                try
+                {
+                    // Reading the object from a file
+                    FileInputStream file = new FileInputStream(correctionsCache);
+                    ObjectInputStream in = new ObjectInputStream(file);
+
+                    // Method for deserialization of object
+                    this.correctionEmat = (UpdatingEnergyMatrix) in.readObject();
+
+                    in.close();
+                    file.close();
+                }
+
+                catch(IOException ex)
+                {
+                    System.out.println("IOException is caught");
+                }
+                catch(ClassNotFoundException ex){
+                    System.out.println("ClassNotFoundException is caught");
+                }
+            }
 
             // Set the correct sequence
             Sequence seq = confSpace.makeWildTypeSequence();
