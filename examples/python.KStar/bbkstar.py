@@ -70,7 +70,7 @@ for info in bbkstar.confSpaceInfos():
 
 	# BBK* needs rigid energies too
 	info.confEcalcRigid = osprey.ConfEnergyCalculatorCopy(info.confEcalcMinimized, rigidEcalc)
-	rigidEmat = osprey.EnergyMatrix(rigidConfEcalc, cacheFile='emat.%s.rigid.dat' % info.id)
+	rigidEmat = osprey.EnergyMatrix(info.confEcalcRigid, cacheFile='emat.%s.rigid.dat' % info.id)
 
 	# how should partition functions be computed?
 	info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id)
