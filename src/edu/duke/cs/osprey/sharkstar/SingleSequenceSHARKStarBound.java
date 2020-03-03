@@ -107,8 +107,8 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
 
     @Override
     public void compute(int maxNumConfs) {
-        multisequenceBound.computeForSequence(maxNumConfs, this);
         try {
+            multisequenceBound.computeForSequence(maxNumConfs, this);
             updateBound();
         }catch(UpperBoundException exception){
             System.out.println("Gross debugging incoming!");
@@ -138,7 +138,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
                     }
 
                     System.out.println(String.format("Child conf: %s with gscore: %.3f, hscore: %.3f, and corrected gscore: %.3f, minimEnergy: %.3f",
-                            confNode.confToString(), gscore, hscore, confCorrection, minEnergy));
+                            childConfNode.confToString(), gscore, hscore, confCorrection, minEnergy));
                 }
 
             }

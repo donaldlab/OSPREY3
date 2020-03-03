@@ -728,6 +728,18 @@ public class TestSHARKStar {
 	public void test2rl0_UBerror() {
 		try {
 			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_11res_4.041E+09.cfs", false);
+			//runBBSHARKStar(confSpaces, 0.9999);
+			runBBSHARKStar(confSpaces, 0.68);
+			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+	}
+	@Test
+	public void test2rl0_UBerror_another() {
+		try {
+			ConfSpaces confSpaces = loadFromCFS("test-resources/2rl0_A_13res_3.218E+12.cfs");
 			runBBSHARKStar(confSpaces, 0.9999);
 			//runBBKStar(confSpaces, 5, 0.99, null, 5, true);
 		} catch (FileNotFoundException e) {
