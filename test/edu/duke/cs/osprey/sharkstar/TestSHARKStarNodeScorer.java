@@ -18,6 +18,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -38,14 +39,31 @@ public class TestSHARKStarNodeScorer {
         systems = new ArrayList<>();
         systems.add(new TestContext("test-resources/3bua_B_10res_4.363E+11.cfs",
                 "protein",
-                new int[] { 4, 5, 6, 0, 2, 1, 3},
-                new HashMap<String,String>()
+                new HashMap<String,String>(),
+                new int[] {-1, -1, -1, -1, -1, -1, -1},
+                new int[] { 4, 5, 6, 0, 2, 1, 3}
+        ));
+        Map<String,String> test_muts = new HashMap<>();
+        test_muts.put("C354", "phe");
+        test_muts.put("C358", "phe");
+        systems.add(new TestContext("test-resources/3k3q_C_16res_1.047E+16.cfs",
+                "complex",
+                test_muts,
+                new int[] {7, 8, 7, 202, 3, -1, 3, 34, 7, 13, 5, 5, 1, 3, 1, 7},
+                new int[] {0, 1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 3, 5}
         ));
     }
 
     private static List<MultiSequenceSHARKStarNode.Node> getLevelOne(TestContext testContext, MultiSequenceSHARKStarNode.Node rootNode){
         List<MultiSequenceSHARKStarNode.Node> children = new ArrayList<>();
-        int nextPos = testContext.order[0];
+        int numUnassigned = 0;
+        for(int i=0; i < testContext.subtreeRoot.length; i++){
+            if (testContext.subtreeRoot[i]==-1) {
+                numUnassigned = numUnassigned + 1;
+            }
+        }
+        int nextPosIndex = testContext.subtreeRoot.length - numUnassigned;
+        int nextPos = testContext.order[nextPosIndex];
         for(int nextRC : testContext.rcs.get(nextPos)){
             MultiSequenceSHARKStarNode.Node child = rootNode.assign(nextPos, nextRC);
             children.add(child);
@@ -151,8 +169,9 @@ public class TestSHARKStarNodeScorer {
     private static class TestContext{
         private String design;
         private String state;
-        private int[] order;
         private Map<String, String> mutations;
+        private int[] subtreeRoot;
+        private int[] order;
 
         private MultiSequenceSHARKStarNode.Node rootNode;
 
@@ -166,11 +185,12 @@ public class TestSHARKStarNodeScorer {
         private AStarScorer lbGScorer;
         private AStarScorer ubGScorer;
 
-        private TestContext( String design, String state, int[] order, Map<String, String> mutations){
+        private TestContext( String design, String state, Map<String, String> mutations, int[] subtreeRoot, int[] order){
             this.design = design;
             this.state = state;
-            this.order = order;
             this.mutations = mutations;
+            this.subtreeRoot = subtreeRoot;
+            this.order = order;
 
             try {
                 init();
@@ -211,8 +231,11 @@ public class TestSHARKStarNodeScorer {
             ConfEnergyCalculator rigidConfEcalc = confEcalcFactory.make(confSpace, rigidEcalc);
             ConfEnergyCalculator minimizingConfEcalc = confEcalcFactory.make(confSpace, minimizingEcalc);
             // Make the energy matrices
-            EnergyMatrix rigidEmat = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc).build().calcEnergyMatrix();
-            EnergyMatrix minimizingEmat = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc).build().calcEnergyMatrix();
+            String shortName = design.replaceAll(".*/","").replaceAll("\\+.*","");
+            EnergyMatrix rigidEmat = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc)
+                    .setCacheFile(new File(String.format("%s.%s.emat",shortName,"rigid"))).build().calcEnergyMatrix();
+            EnergyMatrix minimizingEmat = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc)
+                    .setCacheFile(new File(String.format("%s.%s.emat",shortName,"minim"))).build().calcEnergyMatrix();
             EnergyMatrix correctionEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
 
             // Set the correct sequence
@@ -221,7 +244,11 @@ public class TestSHARKStarNodeScorer {
                 seq = seq.set(entry, mutations.get(entry));
             }
             this.rcs = seq.makeRCs(confSpace);
+            // Set the correct subtree rootnode
             rootNode = new MultiSequenceSHARKStarNode.Node(confSpace.positions.size(), 0, new MathTools.DoubleBounds());
+            for(int i = 0; i < subtreeRoot.length; i++){
+                rootNode = rootNode.assign(i, subtreeRoot[i]);
+            }
 
             this.bc = new BoltzmannCalculator(new MathContext(BigDecimal.ROUND_HALF_UP));
             this.lbScorer = new SHARKStarNodeScorer(minimizingEmat, false);
