@@ -389,7 +389,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                 int nextIndex = tupleIndex + 1;
                 if(position + 1 < currentPos)
                     nextIndex = tupleIndex;
-                if(children.containsKey(currentRC))
+                if(position + 1 == currentPos && children.containsKey(currentRC))
                     children.get(currentRC).populateCorrections(query, output, nextIndex);
                 // Also branch on wildcard.
                 if(!children.containsKey(WILDCARD_RC))
