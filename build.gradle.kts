@@ -43,14 +43,14 @@ import java.nio.file.Path
 plugins {
 	application
 	idea
-    id("org.openjfx.javafxplugin") version("0.0.7")
+	id("org.openjfx.javafxplugin") version("0.0.7")
 }
 
 javafx {
-        version = "11"
-        modules("javafx.controls")
-    } 
-    
+	version = "11"
+	modules("javafx.controls")
+}
+
 val projectDir = project.projectDir.toPath().toAbsolutePath()
 val pythonSrcDir = projectDir.resolve("python")
 val pythonBuildDir = projectDir.resolve("build/python")

@@ -7,10 +7,12 @@ Prerequisites
 
 To devleop Osprey, you'll need to have the following software packages installed:
 
+ * `Java JDK 11`_ (or higher)
  * `Python 2.7`_ (not Python 3+)
  * `pip`_
  * Sphinx (for building documentation. see `Documentation`_ section below)
 
+.. _Java JDK 11: https://adoptopenjdk.net/
 .. _Python 2.7: https://www.python.org/download/releases/2.7/
 .. _pip: https://pip.pypa.io/en/stable/
 
