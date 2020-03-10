@@ -484,7 +484,7 @@ public class Sequence {
 		Assignment {
 			@Override
 			public String render(Sequence.Assignment assignment) {
-				return ResNum.render(assignment) + "=" + ResType.render(assignment);
+				return ResNum.render(assignment) + ResType.render(assignment);
 			}
 		},
 
@@ -495,7 +495,7 @@ public class Sequence {
 		AssignmentMutations {
 			@Override
 			public String render(Sequence.Assignment assignment) {
-				return ResNum.render(assignment) + "=" + ResTypeMutations.render(assignment);
+				return ResNum.render(assignment) + ResTypeMutations.render(assignment);
 			}
 		};
 

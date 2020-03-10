@@ -36,7 +36,7 @@ public class CommandPartitionFunction extends RunnableCommand {
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfCollection") // Ignored because updated by command line arguments
     @Parameter(names = "--energy", description = "Analyze the energy of conformation(s).")
-    private List<Integer> captureEnergies = new ArrayList<>();
+    private List<Long> captureEnergies = new ArrayList<>();
 
     @Parameter(names = "--max-num-confs", description = "Sets an upper bound on the number of conformations evaluated.")
     private int maxNumberConfs = -1;
@@ -127,7 +127,7 @@ public class CommandPartitionFunction extends RunnableCommand {
             var partitionFnBuilder = new PartitionFunctionFactory(confSpace, confEnergyCalc, design.designName);
             partitionFnBuilder.setUseGradientDescent();
             var pfunc = partitionFnBuilder.makePartitionFunctionFor(rc, epsilon);
-            addListeners(pfunc);
+            addListeners(pfunc, seq.toString());
             pfunc.compute(maxNumberConfs > 0 ? maxNumberConfs : Integer.MAX_VALUE);
             printResults(seq, rc, pfunc);
         }
@@ -147,7 +147,13 @@ public class CommandPartitionFunction extends RunnableCommand {
         }
     }
 
-    private void addListeners(PartitionFunction pfunc) {
+    private void addListeners(PartitionFunction pfunc, String sequenceDescription) {
+
+        for (var listener : delegate.makeListeners(pfunc, confEnergyCalc, sequenceDescription)) {
+            pfunc.addConfListener(listener);
+            confListeners.add(listener);
+        }
+
         if (!captureEnergies.isEmpty()) {
             final var oneIndexed = captureEnergies.stream().map(x -> x - 1).collect(Collectors.toList());
             final var listener = new EnergyAnalysisConfListener(confEnergyCalc, oneIndexed);

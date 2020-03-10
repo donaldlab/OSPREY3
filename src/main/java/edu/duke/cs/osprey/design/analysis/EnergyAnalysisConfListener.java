@@ -8,21 +8,28 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 
 public class EnergyAnalysisConfListener implements CommandAnalysis {
 
     private final ConfEnergyCalculator eCalc;
-    private final List<Integer> indices;
+    private final List<Long> indices;
     private List<ConfSearch.EnergiedConf> confs = new ArrayList<>();
+    private long currentIdx;
 
-    public EnergyAnalysisConfListener(ConfEnergyCalculator eCalc, List<Integer> indicesToAnalyze) {
+    public EnergyAnalysisConfListener(ConfEnergyCalculator eCalc, List<Long> indicesToAnalyze) {
         this.eCalc = eCalc;
         this.indices = indicesToAnalyze;
     }
 
     @Override
     public void onConf(ConfSearch.ScoredConf conf) {
-        confs.add((ConfSearch.EnergiedConf) conf);
+        if (indices.contains(currentIdx)) {
+            confs.add((ConfSearch.EnergiedConf) conf);
+            indices.remove(currentIdx);
+        }
+
+        currentIdx++;
     }
 
     @Override
@@ -38,7 +45,7 @@ public class EnergyAnalysisConfListener implements CommandAnalysis {
     @Override
     public void printResults() {
         System.out.println("Energy analysis follows:\n");
-        for (var idx : indices) {
+        for (var idx : IntStream.range(0, indices.size()).toArray()) {
             var analysis = analyzeConf(idx);
             System.out.println(String.format("Energy Analysis of %d sequence", idx + 1));
             System.out.println(analysis + "\n");

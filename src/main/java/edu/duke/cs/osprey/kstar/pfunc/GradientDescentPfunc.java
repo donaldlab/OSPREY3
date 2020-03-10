@@ -233,7 +233,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 	private double targetEpsilon = Double.NaN;
 	private BigDecimal stabilityThreshold = BigDecimal.ZERO;
-	private ConfListener confListener = null;
+	private List<ConfListener> confListeners = new ArrayList<>();
 	private boolean isReportingProgress = false;
 	private Stopwatch stopwatch = new Stopwatch().start();
 	private ConfSearch scoreConfs = null;
@@ -268,7 +268,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 	@Override
 	public void addConfListener(ConfListener val) {
-		confListener = val;
+		confListeners.add(val);
 	}
 
 	@Override
@@ -604,8 +604,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		}
 
 		// report confs if needed
-		if (confListener != null) {
-			confListener.onConf(econf);
+        for (var listener : confListeners) {
+			listener.onConf(econf);
 		}
 	}
 

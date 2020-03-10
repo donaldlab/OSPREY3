@@ -4,8 +4,12 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.converters.FileConverter;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.design.analysis.CommandAnalysis;
+import edu.duke.cs.osprey.design.analysis.EnsembleAnalysisListener;
 import edu.duke.cs.osprey.design.models.MoleculeDto;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -13,6 +17,8 @@ import jcuda.runtime.JCuda;
 import jcuda.runtime.cudaDeviceProp;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static jcuda.runtime.JCuda.cudaGetDeviceCount;
@@ -34,6 +40,12 @@ public class DesignFileDelegate {
 
     @Parameter(names = {"--cuda", "-c"})
     boolean useCuda;
+
+    @Parameter(names = {"--save-confs"})
+    public int numConfs = -1;
+
+    @Parameter(names = {"--ensemble-dir"})
+    public String saveDir = "ensemble";
 
     int getNumGpu() {
         var deviceCount = new int[]{0};
@@ -106,10 +118,18 @@ public class DesignFileDelegate {
         }
 
         /* Maintains flexibility information with the molecule, and can use that to make new molecules */
-
         return new SimpleConfSpace.Builder()
                 .addStrand(protein)
                 .build();
     }
 
+    public List<CommandAnalysis> makeListeners(PartitionFunction pfunc, ConfEnergyCalculator calc, String sequenceDescription) {
+        var list = new ArrayList<CommandAnalysis>();
+
+        if (numConfs > 0) {
+            list.add(new EnsembleAnalysisListener(pfunc, calc, numConfs, saveDir + File.separator + sequenceDescription));
+        }
+
+        return list;
+    }
 }
