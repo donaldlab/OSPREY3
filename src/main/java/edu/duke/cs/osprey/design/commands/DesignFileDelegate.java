@@ -127,7 +127,7 @@ public class DesignFileDelegate {
         var list = new ArrayList<CommandAnalysis>();
 
         if (numConfs > 0) {
-            list.add(new EnsembleAnalysisListener(pfunc, calc, numConfs, saveDir + File.separator + sequenceDescription));
+            list.add(new EnsembleAnalysisListener(calc, numConfs, saveDir + File.separator + sequenceDescription));
         }
 
         return list;

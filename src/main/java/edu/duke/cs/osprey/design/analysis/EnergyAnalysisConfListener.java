@@ -6,30 +6,27 @@ import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 
 public class EnergyAnalysisConfListener implements CommandAnalysis {
 
     private final ConfEnergyCalculator eCalc;
-    private final List<Long> indices;
-    private List<ConfSearch.EnergiedConf> confs = new ArrayList<>();
-    private long currentIdx;
+    private final List<Integer> indices;
+    private final EnergiedConfQueue confQueue;
 
-    public EnergyAnalysisConfListener(ConfEnergyCalculator eCalc, List<Long> indicesToAnalyze) {
+    // indices are one-indexed
+    public EnergyAnalysisConfListener(ConfEnergyCalculator eCalc, List<Integer> indicesToAnalyze) {
         this.eCalc = eCalc;
         this.indices = indicesToAnalyze;
+        this.confQueue = new EnergiedConfQueue(Collections.max(indicesToAnalyze));
     }
 
     @Override
     public void onConf(ConfSearch.ScoredConf conf) {
-        if (indices.contains(currentIdx)) {
-            confs.add((ConfSearch.EnergiedConf) conf);
-            indices.remove(currentIdx);
-        }
-
-        currentIdx++;
+        var eConf = ((ConfSearch.EnergiedConf) conf);
+        confQueue.add(eConf);
     }
 
     @Override
@@ -37,16 +34,18 @@ public class EnergyAnalysisConfListener implements CommandAnalysis {
 
     }
 
-    ConfAnalyzer.ConfAnalysis analyzeConf(int idx) {
+    ConfAnalyzer.ConfAnalysis analyzeConf(List<ConfSearch.EnergiedConf> sortedConfs, int idx) {
         final var analyzer = new ConfAnalyzer(eCalc);
-        return analyzer.analyze(confs.get(idx));
+        return analyzer.analyze(sortedConfs.get(idx - 1)); // (one-indexed)
     }
 
     @Override
     public void printResults() {
         System.out.println("Energy analysis follows:\n");
-        for (var idx : IntStream.range(0, indices.size()).toArray()) {
-            var analysis = analyzeConf(idx);
+        var sortedConfs = confQueue.toOrderedList();
+
+        for (var idx : indices) {
+            var analysis = analyzeConf(sortedConfs, idx);
             System.out.println(String.format("Energy Analysis of %d sequence", idx + 1));
             System.out.println(analysis + "\n");
 

@@ -36,7 +36,7 @@ public class CommandPartitionFunction extends RunnableCommand {
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfCollection") // Ignored because updated by command line arguments
     @Parameter(names = "--energy", description = "Analyze the energy of conformation(s).")
-    private List<Long> captureEnergies = new ArrayList<>();
+    private List<Integer> captureEnergies = new ArrayList<>();
 
     @Parameter(names = "--max-num-confs", description = "Sets an upper bound on the number of conformations evaluated.")
     private int maxNumberConfs = -1;
@@ -155,8 +155,7 @@ public class CommandPartitionFunction extends RunnableCommand {
         }
 
         if (!captureEnergies.isEmpty()) {
-            final var oneIndexed = captureEnergies.stream().map(x -> x - 1).collect(Collectors.toList());
-            final var listener = new EnergyAnalysisConfListener(confEnergyCalc, oneIndexed);
+            final var listener = new EnergyAnalysisConfListener(confEnergyCalc, captureEnergies);
             confListeners.add(listener);
             pfunc.addConfListener(listener);
         }

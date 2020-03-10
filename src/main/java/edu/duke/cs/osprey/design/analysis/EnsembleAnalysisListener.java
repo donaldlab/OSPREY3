@@ -7,38 +7,32 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 
 import java.io.File;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 
 public class EnsembleAnalysisListener implements CommandAnalysis {
 
-    private final int maxConfs;
-    private final PartitionFunction pfunc;
     private final ConfEnergyCalculator eCalc;
     private final String outputDir;
-    private List<ConfSearch.ScoredConf> confs = new ArrayList<>();
+    private final EnergiedConfQueue confs;
 
-    public EnsembleAnalysisListener(PartitionFunction pfunc, ConfEnergyCalculator eCalc, int maxConfs, String outputDir) {
-        this.pfunc = pfunc;
+    public EnsembleAnalysisListener(ConfEnergyCalculator eCalc, int maxConfs, String outputDir) {
         this.eCalc = eCalc;
-        this.maxConfs = maxConfs;
         this.outputDir = Paths.get(outputDir).toAbsolutePath().toString();
+        this.confs = new EnergiedConfQueue(maxConfs);
     }
 
     @Override
     public void printResults() {
         var path = String.format("%s%s%s", outputDir, File.separator, "conf-*.pdb");
         System.out.println(String.format("Writing ensemble out to %s", path));
-        var analysis = new ConfAnalyzer(eCalc).analyzeEnsemble(confs.iterator(), maxConfs);
+        var lst = confs.toOrderedList();
+        var analysis = new ConfAnalyzer(eCalc).analyzeEnsemble(lst.iterator(), lst.size());
         analysis.writePdbs(path);
     }
 
     @Override
     public void onConf(ConfSearch.ScoredConf conf) {
-        if (confs.size() > maxConfs) {
-            return;
-        }
-        confs.add(conf);
+        var eConf = ((ConfSearch.EnergiedConf) conf);
+        confs.add(eConf);
     }
 
     @Override
