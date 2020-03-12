@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.markstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -43,12 +44,14 @@ import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
+import edu.duke.cs.osprey.gmec.GMECFinder;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.TestBBKStar;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.markstar.visualizer.KStarTreeManipulator;
 import edu.duke.cs.osprey.markstar.visualizer.KStarTreeNode;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -226,6 +229,82 @@ public class TestMARKStar {
 	    return confSpaces;
 	}
 
+	protected static TestKStar.ConfSpaces makeCOVIDManual() {
+		ConfSpaces confSpaces = new ConfSpaces();
+
+		// configure the forcefield
+		confSpaces.ffparams = new ForcefieldParams();
+
+		Molecule mol = PDBIO.read(FileTools.readFile("test-resources/SARS2RBD_peptide_complex_wangetal.prepared.minimized.pdb"));
+
+		// make sure all strands share the same template library
+		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
+				.build();
+
+
+		// define the protein strand
+		Strand protein = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("A19", "A83")
+				.build();
+		protein.flexibility.get("A28").setLibraryRotamers(Strand.WildType, "ALA").addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A76").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A79").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		protein.flexibility.get("A82").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		ArrayList<String> bbflexlist = new ArrayList<>();
+
+
+		// define the ligand strand
+		Strand ligand = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("E333", "E526")
+				.build();
+		ligand.flexibility.get("E486").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+										//.setContinuous();
+		ligand.flexibility.get("E489").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+										//.setContinuous();
+
+		// make the complex conf space ("complex" SimpleConfSpace, har har!)
+		confSpaces.protein = new SimpleConfSpace.Builder()
+				.addStrand(protein)
+				.build();
+		confSpaces.ligand = new SimpleConfSpace.Builder()
+				.addStrand(ligand)
+				.build();
+		confSpaces.complex = new SimpleConfSpace.Builder()
+				.addStrand(protein)
+				.addStrand(ligand)
+				.build();
+
+		return confSpaces;
+	}
+	@Test
+	public void testCOVIDManual() {
+		TestKStar.ConfSpaces confSpaces = makeCOVIDManual();
+		EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+				.setParallelism(Parallelism.makeCpu(4))
+				.build();
+		ConfEnergyCalculator confEcalc =  new ConfEnergyCalculator.Builder(confSpaces.ligand, ecalcMinimized)
+						.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaces.ligand, ecalcMinimized)
+								.build()
+								.calcReferenceEnergies()
+						).build();
+		ConfSearch gmeccer = PartitionFunctionFactory.makeConfSearchFactory(confEcalc).make(new RCs(confSpaces.ligand));
+		ConfSearch.ScoredConf firstConf = gmeccer.nextConf();
+		ConfAnalyzer analyzer = new ConfAnalyzer(confEcalc);
+		ConfAnalyzer.ConfAnalysis analysis = analyzer.analyze(firstConf);
+		System.out.println("All:");
+		System.out.println(analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All));
+		System.out.println("VdW:");
+		System.out.println(analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.VanDerWaals));
+		System.out.println("Electrostatics:");
+		System.out.println(analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.Electrostatics));
+		System.out.println("Solvation:");
+		System.out.println(analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.Solvation));
+		System.out.println("Offsets:");
+		System.out.println(analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.Offsets));
+	}
+
 	@Test
 	public void testConfSpaceParse() {
 		try {
@@ -250,8 +329,8 @@ public class TestMARKStar {
 		    String lineType = parts[0];
 		    switch(lineType) {
 				case "mol":
-					String pdbName = parts[1].substring(parts[1].lastIndexOf('/')+1, parts[1].length()-1);
-					Molecule mol = PDBIO.readFile("examples/python.KStar/"+pdbName);
+					String pdbName = parts[1].replaceAll("\"","");
+					Molecule mol = PDBIO.readFile(pdbName);
 					strandBuilderMap.put("strand0", new Strand.Builder(mol).setTemplateLibrary(templateLib));
 					strandBuilderMap.put("strand1", new Strand.Builder(mol).setTemplateLibrary(templateLib));
 					break;
@@ -273,9 +352,9 @@ public class TestMARKStar {
 				case "strand_flex":
 					String content = parts[1];
 					boolean match0 = content.matches(".*\\'strand\\d\\'.*");
-					boolean match1 = content.matches(".*'strand\\d': ?\\{'\\w+': ?\\['\\w+',.*");
-					boolean match2 = content.matches(".*'strand\\d': ?\\{'\\w+': ?\\[(('\\w+', ?)*)'\\w+'\\].*");
-					definitionPattern = Pattern.compile("'(strand\\d)': ?\\{(('\\w+': ?\\[(('\\w+', ?)*)'\\w+'], ?)*'\\w+': ?\\[(('\\w+', ?)*)'\\w+']+\\s*)}");
+					boolean match1 = content.matches(".*'strand\\d': ?\\{ ?'\\w+': ?\\['\\w+',.*");
+					boolean match2 = content.matches(".*'strand\\d': ?\\{ ?'\\w+': ?\\[(('\\w+', ?)*)'\\w+'\\].*");
+					definitionPattern = Pattern.compile("'(strand\\d)': ?\\{ ?(('\\w+': ?\\[(('\\w+', ?)*)'\\w+'], ?)*'\\w+': ?\\[(('\\w+', ?)*)'\\w+']+\\s*)}");
 					matcher = definitionPattern.matcher(parts[1]);
 					while(matcher.find()) {
 					    String strandNum = matcher.group(1);
@@ -286,6 +365,7 @@ public class TestMARKStar {
 							String resNum = resDefMatcher.group(1);
 							String allowedAAs = resDefMatcher.group(2);
 							allowedAAs = allowedAAs.replaceAll("'","");
+							allowedAAs = allowedAAs.replaceAll("WT","__WT__");
 							strandMap.get(strandNum).flexibility.get(resNum)
 									.setLibraryRotamers(allowedAAs.split(", ?"))
 									.addWildTypeRotamers()

@@ -1,0 +1,63 @@
+#The following information is sufficient to generate an OSPREY 3.0
+#configuration space
+#'A132': ['ALA', 'VAL', 'LEU', 'ILE', 'PHE', 'TYR', 'TRP', 'CYS', 'MET', 'SER', 'THR', 'LYS', 'ARG', 'HIP', 'HIE', 'HID', 'ASP', 'GLU', 'ASN', 'GLN', 'GLY'], 
+structure_dir = "test-resources/"
+mol = "test-resources/SARS2RBD_peptide_complex_qietal.prepared.minimized.pdb"
+# For SARS, we don't have a separate structure for the unbound state
+complex = structure_dir+"SARS2RBD_peptide_complex_qietal.prepared.minimized.pdb"
+protein = structure_dir+"SARS2RBD_peptide_complex_qietal.prepared.minimized.pdb"
+ligand = structure_dir+"SARS2RBD_peptide_complex_qietal.prepared.minimized.pdb"
+strand_defs = {'strand1': ['A19', 'A83'], 'strand0': ['B333', 'B527']}
+strand_flex = {'strand1': {'A37':['ARG', 'TRP', 'PHE', 'TYR', 'LYS', 'HIP', 'HIE', 'HID', 'MET', 'ASP', 'ASN', 'GLU', 'GLN'], 'A33':['WT'], 'A41':['WT']}, 'strand0': {'B403':['WT'], 'B505':['WT']}}
+#strand_flex = {'strand1': {
+#                            #mutable
+#                            'A37':['ARG', 'TRP', 'PHE', 'TYR', 'LYS', 'HIP', 'HIE', 'HID', 'MET', 'ASP', 'ASN', 'GLU', 'GLN'],
+#                            # flexible
+#                            'A33':['WT'],
+#                            'A41':['WT'],
+#                           },
+#                'strand0': {
+#                            'B403':['WT'],
+#                            'B505':['WT'],
+#                            }
+#                }
+#mutable
+#'A19':['ARG', 'TRP', 'PHE', 'TYR', 'LYS', 'HIP', 'HIE', 'HID', 'MET', 'ASP', 'ASN', 'GLU', 'GLN'],
+#'A21':['ARG', 'TRP', 'PHE', 'TYR', 'LYS', 'HIP', 'HIE', 'HID', 'MET', 'ASP', 'ASN', 'GLU', 'GLN'],
+#'A37':['ARG', 'TRP', 'PHE', 'TYR', 'LYS', 'HIP', 'HIE', 'HID', 'MET', 'ASP', 'ASN', 'GLU', 'GLN'],
+#'A45':['ARG', 'TRP', 'PHE', 'TYR', 'LYS', 'HIP', 'HIE', 'HID', 'MET', 'ASP', 'ASN', 'GLU', 'GLN'],
+#'A49':['ARG', 'TRP', 'PHE', 'TYR', 'LYS', 'HIP', 'HIE', 'HID', 'MET', 'ASP', 'ASN', 'GLU', 'GLN'],
+#'A79':['ARG', 'TRP', 'PHE', 'TYR', 'LYS', 'HIP', 'HIE', 'HID', 'MET', 'ASP', 'ASN', 'GLU', 'GLN'],
+#
+# shell for A45+A49:
+# 'A41':['WT'],
+# 'A42':['WT'],
+# 'A48':['WT'],
+# 'A79':['WT'],
+# 'B445':['WT'],
+# 'B446':['WT'],
+# 'B498':['WT'],
+# 'B499':['WT'],
+# 'B500':['WT'],
+# 'B501':['WT'],
+#
+# shell for A37:
+# 'A33':['WT'],
+# 'A41':['WT'],
+# 'B403':['WT'],
+# 'B505':['WT'],
+#
+# shell for A19+A21:
+# 'A20':['WT'],
+# 'A23':['WT'],
+# 'A24':['WT'],
+# 'B476':['WT'],
+# 'B477':['WT'],
+# 'B487':['WT'],
+#
+# shell for A79:
+# 'A28':['WT'],
+# 'A76':['WT'],
+# 'A82':['WT'],
+# 'B485':['WT'],
+# 'B489':['WT'],

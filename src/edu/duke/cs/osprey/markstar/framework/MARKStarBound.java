@@ -73,7 +73,7 @@ import java.util.*;
 public class MARKStarBound implements PartitionFunction {
 
     protected double targetEpsilon = 1;
-    public boolean debug = false;
+    public boolean debug = true;
     public boolean profileOutput = false;
     private Status status = null;
     private Values values = null;
