@@ -197,7 +197,8 @@ public class AtomConnectivity {
 				);
 			}
 		}
-	
+
+		/* TEMP
 		// are they bonded together?
 		if (isInterResBondedForward(res1, res2)) {
 			// yup, in forward order
@@ -221,6 +222,10 @@ public class AtomConnectivity {
 				);
 			}
 		}
+		*/
+
+		// TEMP: don't try to cache the atom pairs, since this design is near a disulfide bond
+		return makeAtomPairs(res1, res2);
 	}
 
 	private boolean isInterResBondedForward(Residue res1, Residue res2) {
