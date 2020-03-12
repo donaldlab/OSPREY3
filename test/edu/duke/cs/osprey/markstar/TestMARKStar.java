@@ -235,7 +235,7 @@ public class TestMARKStar {
 		// configure the forcefield
 		confSpaces.ffparams = new ForcefieldParams();
 
-		Molecule mol = PDBIO.read(FileTools.readFile("test-resources/SARS2RBD_peptide_complex_wangetal.prepared.minimized.pdb"));
+		Molecule mol = PDBIO.read(FileTools.readFile("test-resources/SARS2RBD_peptide_complex_qietal.prepared.minimized.pdb"));
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
@@ -257,11 +257,11 @@ public class TestMARKStar {
 		// define the ligand strand
 		Strand ligand = new Strand.Builder(mol)
 				.setTemplateLibrary(templateLib)
-				.setResidues("E333", "E526")
+				.setResidues("B333", "B527")
 				.build();
-		ligand.flexibility.get("E486").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		ligand.flexibility.get("B486").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
 										//.setContinuous();
-		ligand.flexibility.get("E489").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
+		ligand.flexibility.get("B489").setLibraryRotamers(Strand.WildType).addWildTypeRotamers();
 										//.setContinuous();
 
 		// make the complex conf space ("complex" SimpleConfSpace, har har!)
@@ -281,15 +281,24 @@ public class TestMARKStar {
 	@Test
 	public void testCOVIDManual() {
 		TestKStar.ConfSpaces confSpaces = makeCOVIDManual();
-		EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+		System.out.println("===================== Ligand Breakdown (RBD) =======================");
+		breakdownEnergies(confSpaces.ligand, confSpaces.ffparams);
+		System.out.println("===================== Protein Breakdown (ACE2 peptide) =======================");
+		breakdownEnergies(confSpaces.protein, confSpaces.ffparams);
+		System.out.println("===================== Complex Breakdown (ACE2 peptide:RBD) =======================");
+		breakdownEnergies(confSpaces.complex, confSpaces.ffparams);
+	}
+
+	private void breakdownEnergies(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
+		EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
 				.setParallelism(Parallelism.makeCpu(4))
 				.build();
-		ConfEnergyCalculator confEcalc =  new ConfEnergyCalculator.Builder(confSpaces.ligand, ecalcMinimized)
-						.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpaces.ligand, ecalcMinimized)
+		ConfEnergyCalculator confEcalc =  new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
+						.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
 								.build()
 								.calcReferenceEnergies()
 						).build();
-		ConfSearch gmeccer = PartitionFunctionFactory.makeConfSearchFactory(confEcalc).make(new RCs(confSpaces.ligand));
+		ConfSearch gmeccer = PartitionFunctionFactory.makeConfSearchFactory(confEcalc).make(new RCs(confSpace));
 		ConfSearch.ScoredConf firstConf = gmeccer.nextConf();
 		ConfAnalyzer analyzer = new ConfAnalyzer(confEcalc);
 		ConfAnalyzer.ConfAnalysis analysis = analyzer.analyze(firstConf);
