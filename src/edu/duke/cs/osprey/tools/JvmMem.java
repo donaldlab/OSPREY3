@@ -100,6 +100,8 @@ public class JvmMem {
 			G1 Old Gen
 			G1 Survivor Space
 			CodeHeap 'non-profiled nmethods'
+
+		v14 JVMs seem have the same default GC settings as the v11 JVMs
 	*/
 
 	public static MemInfo getEdenPool() {

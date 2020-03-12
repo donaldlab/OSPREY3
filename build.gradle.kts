@@ -44,6 +44,7 @@ plugins {
 	application
 	idea
 	id("org.openjfx.javafxplugin") version("0.0.7")
+	id("org.beryx.runtime") version "1.8.0"
 }
 
 javafx {
@@ -174,6 +175,21 @@ dependencies {
 tasks.withType<Test> {
 	// the default 512m is too little memory to run test designs
 	maxHeapSize = "2g"
+}
+
+runtime {
+	options.set(listOf("--strip-debug", "--compress", "2", "--no-header-files", "--no-man-pages"))
+	modules.set(listOf(
+		// TODO: these modules were suggested, see if we really need all of them
+		"java.desktop",
+		"java.xml",
+		"jdk.unsupported",
+		"java.logging",
+		"java.sql",
+		"java.naming",
+		"java.management",
+		"jdk.httpserver"
+	))
 }
 
 distributions {
