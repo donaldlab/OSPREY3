@@ -20,9 +20,9 @@ public class TestConfSpace {
 	@Test
 	public void check2RL0() {
 
-		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.complex.ccs.xz"));
-		ConfSpace chainA = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.A.ccs.xz"));
-		ConfSpace chainG = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.G.ccs.xz"));
+		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.complex.ccsx"));
+		ConfSpace chainA = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.A.ccsx"));
+		ConfSpace chainG = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.G.ccsx"));
 
 		Consumer<ConfSpace> assertG = (confSpace) -> {
 			assertPosition(confSpace, "649 PHE", "PHE", 29, Arrays.asList("PHE:5",  "TYR:8",  "ALA:1", "VAL:3", "ILE:7", "LEU:5"));

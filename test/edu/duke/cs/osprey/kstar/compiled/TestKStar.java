@@ -26,9 +26,9 @@ public class TestKStar {
 	@Test
 	public void test2RL0() {
 
-		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.complex.ccs.xz"));
-		ConfSpace chainA = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.A.ccs.xz"));
-		ConfSpace chainG = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.G.ccs.xz"));
+		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.complex.ccsx"));
+		ConfSpace chainA = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.A.ccsx"));
+		ConfSpace chainG = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.G.ccsx"));
 
 		final double epsilon = 0.99;
 		run(chainG, chainA, complex, epsilon);
@@ -37,9 +37,9 @@ public class TestKStar {
 	@Test
 	public void testF98Y() {
 
-		ConfSpace complex = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.complex.ccs.xz"));
-		ConfSpace dhfr = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.DHFR.ccs.xz"));
-		ConfSpace nadph06w = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.NADPH.06W.ccs.xz"));
+		ConfSpace complex = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.complex.ccsx"));
+		ConfSpace dhfr = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.DHFR.ccsx"));
+		ConfSpace nadph06w = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.NADPH.06W.ccsx"));
 
 		final double epsilon = 0.05;
 		run(dhfr, nadph06w, complex, epsilon);

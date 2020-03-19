@@ -29,7 +29,7 @@ import org.junit.Test;
 @SuppressWarnings("deprecation") // yes, we're using the deprecated adapter class: we're testing it
 public class TestConfEnergyCalculatorAdapter {
 
-	private static ConfSpace confSpace = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/dipeptide.5hydrophobic.ccs.xz"));
+	private static ConfSpace confSpace = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/dipeptide.5hydrophobic.ccsx"));
 
 	@Test
 	public void energyMatrixRigid() {
