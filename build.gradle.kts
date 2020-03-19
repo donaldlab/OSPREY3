@@ -44,6 +44,7 @@ plugins {
 	application
 	idea
 	id("org.openjfx.javafxplugin") version("0.0.7")
+	id("org.beryx.runtime") version "1.8.0"
 }
 
 javafx {
@@ -174,6 +175,26 @@ dependencies {
 tasks.withType<Test> {
 	// the default 512m is too little memory to run test designs
 	maxHeapSize = "2g"
+}
+
+runtime {
+	options.addAll(
+		"--strip-debug",
+		"--compress", "2",
+		"--no-header-files",
+		"--no-man-pages"
+	)
+	modules.addAll(
+		// TODO: do we really need all of these?
+		"java.desktop",
+		"java.xml",
+		"jdk.unsupported",
+		"java.logging",
+		"java.sql",
+		"java.naming",
+		"java.management",
+		"jdk.httpserver"
+	)
 }
 
 distributions {
@@ -365,16 +386,19 @@ tasks {
 	val pythonWheel by creating(Exec::class) {
 		group = "build"
 		description = "Build python wheel"
+		dependsOn("runtime")
 		inputs.files(jar.outputs.files)
 		outputs.dir(pythonWheelDir)
 		doFirst {
 
 			// delete old cruft
 			delete {
-				delete(pythonWheelDir) // TODO: this apparently does not delete the folder at all??!
 				delete(fileTree(pythonBuildDir) {
 					include("*.whl")
 				})
+			}
+			delete {
+				delete(pythonWheelDir)
 			}
 
 			// copy python sources
@@ -383,10 +407,19 @@ tasks {
 					includeEmptyDirs = false
 					include("osprey/*.py")
 				}
+				into(pythonWheelDir.toFile())
+			}
+
+			val wheelOspreyDir = pythonWheelDir.resolve("osprey")
+
+			// copy the documentation
+			copy {
 				from(".") {
 					include("*.rst")
+					include("CITING_OSPREY.txt")
+					include("LICENSE.txt")
 				}
-				into(pythonWheelDir.toFile())
+				into(wheelOspreyDir.toFile())
 			}
 
 			// copy setup.py, but change the rootDir
@@ -404,7 +437,7 @@ tasks {
 				}
 			}
 
-			val libDir = pythonWheelDir.resolve("osprey/lib")
+			val libDir = wheelOspreyDir.resolve("lib")
 
 			// copy osprey jar
 			copy {
@@ -418,6 +451,12 @@ tasks {
 					.filter { it.extension == "jar" }
 				)
 				into(libDir.toFile())
+			}
+
+			// copy the jre folder
+			copy {
+				from(runtime.get().jreDir)
+				into(wheelOspreyDir.resolve("jre").toFile())
 			}
 		}
 		workingDir = pythonWheelDir.toFile()

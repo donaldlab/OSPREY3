@@ -66,11 +66,16 @@ def setNativesDir(path):
 	_nativesDir = path
 
 
-def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, garbageSizeMiB=None, allowRemoteManagement=False):
+def start(jrePath, heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, garbageSizeMiB=None, allowRemoteManagement=False):
+
+	# if no path to a JRE was given, assume Java is installed somewhere,
+	# and try to determine the path automatically
+	if jrePath is None:
+		jrePath = jpype.getDefaultJVMPath()
 
 	# build JVM launch args
 	args = [
-		jpype.getDefaultJVMPath(),
+		jrePath,
 		'-Xmx%dM' % heapSizeMiB,
 		'-Djava.class.path=%s' % makeClasspath()
 	]

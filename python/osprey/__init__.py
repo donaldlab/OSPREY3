@@ -132,8 +132,25 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 		for path in open(classpath_path, 'r').readlines():
 			jvm.addClasspath(path.strip())
 
+	# build the JRE path
+	if no_escape_from_reality:
+
+		# release environment: use the bundled JRE
+		if sys.platform in ('win32', 'cygwin'):
+			lib_name = 'jvm.dll'
+		elif sys.platform == 'darwin':
+			lib_name = 'libjvm.dylib'
+		else:
+			lib_name = 'libjvm.so'
+		jre_path = os.path.join(os.path.dirname(__file__), 'jre', 'lib', 'server', lib_name)
+
+	else:
+
+		# development environment: use the system JRE
+		jre_path = None
+
 	# start the jvm
-	jvm.start(heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB, allowRemoteManagement)
+	jvm.start(jre_path, heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB, allowRemoteManagement)
 
 	# set up class factories
 	global c
@@ -162,7 +179,10 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 	Parallelism.make = c.parallelism.Parallelism.make
 
 	# print the preamble
-	print("OSPREY %s" % c.control.Main.Version)
+	osprey_version = c.control.Main.Version
+	python_version = '.'.join([str(x) for x in sys.version_info[0:3]])
+	java_version = jpype.java.lang.System.getProperty('java.version')
+	print("OSPREY %s, Python %s, Java %s" % (osprey_version, python_version, java_version))
 	print("Using up to %d MiB heap memory: %d MiB for garbage, %d MiB for storage" % (
 		heapSizeMiB, garbageSizeMiB, heapSizeMiB - garbageSizeMiB
 	))

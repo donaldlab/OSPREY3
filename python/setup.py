@@ -68,7 +68,14 @@ setuptools.setup(
 	python_requires='>=2.7,<3',
 	install_requires=['JPype-py2>=0.5.8'],
 	package_data={
-		'osprey': ['lib/*.jar', 'README.rst', 'LICENSE.txt']
+		'osprey': [
+			'lib/*.jar',
+			'*.rst',
+			'*.txt',
+			# the runtime's support for globs leaves much to be desired...
+			#'jre/**/*'
+			'jre/*', 'jre/*/*', 'jre/*/*/*', 'jre/*/*/*/*', 'jre/*/*/*/*/*', 'jre/*/*/*/*/*/*'
+		]
 	},
 	classifiers=[
 		'Programming Language :: Python :: 2.7',
