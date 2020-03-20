@@ -9,7 +9,7 @@ else
 fi
 
 # get the build file (just the python build for now)
-DIST=$(find ./build/distributions -maxdepth 1 -name "osprey-python-*.zip")
+DIST=$(find ./build/distributions -maxdepth 1 -name "osprey-*-python*-*.zip")
 echo "Found distribution file: $DIST"
 
 # add the build number to the filename
