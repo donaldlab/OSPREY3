@@ -28,8 +28,12 @@
 ## <signature of Bruce Donald>, Mar 1, 2018
 ## Bruce Donald, Professor of Computer Science
 
+from __future__ import absolute_import
+
 import sys, os, jpype, traceback
-import jvm, wraps
+
+from . import jvm
+from . import wraps
 
 
 # NOTE: These classes exists only to talk to the docstring processors.
@@ -105,7 +109,22 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 	'''
 
 	# disable buffered output on stdout, so python log messages line up with java log messages
-	sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+	class Unbuffered(object):
+		def __init__(self, stream):
+			self.stream = stream
+
+		def write(self, data):
+			self.stream.write(data)
+			self.stream.flush()
+
+		def writelines(self, datas):
+			self.stream.writelines(datas)
+			self.stream.flush()
+
+		def __getattr__(self, attr):
+			return getattr(self.stream, attr)
+
+	sys.stdout = Unbuffered(sys.stdout)
 
 	# setup a global exception handler to show java exception info
 	sys.excepthook = _java_aware_excepthook
@@ -921,10 +940,10 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	return bbflex
 
 def Paste(complexConfSpace, numPDBs, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, useWindowCriterion=useJavaDefault, maxNumPfConfs=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, mutFile=useJavaDefault):
-    '''
-    :java:classdoc:`.paste.Paste`
+	'''
+	:java:classdoc:`.paste.Paste`
 
-    For examples using PAStE, see the examples/python.Paste directory in your Osprey distribution.
+	For examples using PAStE, see the examples/python.Paste directory in your Osprey distribution.
 
 	:param complexConfSpace: :java:fielddoc:`.paste.Paste#protein`
 	:type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
@@ -942,18 +961,18 @@ def Paste(complexConfSpace, numPDBs, epsilon=useJavaDefault, stabilityThreshold=
 	:rtype: :java:ref:`.paste.Paste`
 	'''
 
-    # build settings
-    settingsBuilder = _get_builder(jvm.getInnerClass(c.paste.Paste, 'Settings'))()
-    if useWindowCriterion is not useJavaDefault:
-        settingsBuilder.setUseWindowCriterion(useWindowCriterion)
-    if mutFile is not useJavaDefault:
-        settingsBuilder.addMutFile(jvm.toFile(mutFile))
-    if epsilon is not useJavaDefault:
-        settingsBuilder.setEpsilon(epsilon)
+	# build settings
+	settingsBuilder = _get_builder(jvm.getInnerClass(c.paste.Paste, 'Settings'))()
+	if useWindowCriterion is not useJavaDefault:
+		settingsBuilder.setUseWindowCriterion(useWindowCriterion)
+	if mutFile is not useJavaDefault:
+		settingsBuilder.addMutFile(jvm.toFile(mutFile))
+	if epsilon is not useJavaDefault:
+		settingsBuilder.setEpsilon(epsilon)
 	if stabilityThreshold is not useJavaDefault:
 		settingsBuilder.setStabilityThreshold(jvm.boxDouble(stabilityThreshold))
 	if maxNumPfConfs is not useJavaDefault:
-	    settingsBuilder.setPfConfs(maxNumPfConfs)
+		settingsBuilder.setPfConfs(maxNumPfConfs)
 	if maxSimultaneousMutations is not useJavaDefault:
 		settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
 	if writeSequencesToConsole:
@@ -1454,20 +1473,20 @@ def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSi
 	return builder.build()
 
 def PartitionFunctionFactory(confSpace, confEcalc, state, confUpperBoundcalc=None):
-    pfuncFactory = c.kstar.pfunc.PartitionFunctionFactory(confSpace, confEcalc, state)
-    if confUpperBoundcalc is not None:
-        pfuncFactory.setUseMARKStar(confUpperBoundcalc)
-    else:
-        pfuncFactory.setUseGradientDescent()
+	pfuncFactory = c.kstar.pfunc.PartitionFunctionFactory(confSpace, confEcalc, state)
+	if confUpperBoundcalc is not None:
+		pfuncFactory.setUseMARKStar(confUpperBoundcalc)
+	else:
+		pfuncFactory.setUseGradientDescent()
 
-    return pfuncFactory
+	return pfuncFactory
 
 def EwakstarDoer_ConfSearchFactory(func):
 
-    # convert the python lambda to a JVM interface implementation
-    return jpype.JProxy(
-        jvm.c.java.util.function.Function,
-        dict={ 'apply': func }
+	# convert the python lambda to a JVM interface implementation
+	return jpype.JProxy(
+		jvm.c.java.util.function.Function,
+		dict={ 'apply': func }
 	)
 
 def EwakstarDoer_State(name, confSpace):
@@ -1476,43 +1495,43 @@ def EwakstarDoer_State(name, confSpace):
 
 def EwakstarDoer(state, smaNodes, useSMA=useJavaDefault, printPDBs=useJavaDefault, useWtBenchmark=useJavaDefault, numEWAKStarSeqs=useJavaDefault, logFile=None, epsilon=useJavaDefault, pfEw=useJavaDefault, eW=useJavaDefault, orderOfMag=useJavaDefault, numPfConfs=useJavaDefault, numTopSeqs=useJavaDefault, mutableType=useJavaDefault, numMutable=useJavaDefault, seqFilterOnly=useJavaDefault, numCPUs=useJavaDefault):
 
-    builder = _get_builder(c.ewakstar.EwakstarDoer)()
+	builder = _get_builder(c.ewakstar.EwakstarDoer)()
 
-    builder.addState(state)
+	builder.addState(state)
 
-    if useSMA is not useJavaDefault:
-        builder.setupSMA(useSMA, smaNodes)
-    if useWtBenchmark is not useJavaDefault:
-        builder.setUseWtBenchmark(useWtBenchmark)
-    if printPDBs is not useJavaDefault:
-        builder.setPrintPDBs(printPDBs)
-    if epsilon is not useJavaDefault:
-        builder.setEpsilon(epsilon)
-    if pfEw is not useJavaDefault:
-        builder.setPfEw(pfEw)
-    if eW is not useJavaDefault:
-        builder.setEw(eW)
-    if orderOfMag is not useJavaDefault:
-        builder.setOrderOfMag(orderOfMag)
-    if numPfConfs is not useJavaDefault:
-        builder.setNumPfConfs(numPfConfs)
-    if numTopSeqs is not useJavaDefault:
-        builder.setNumTopOverallSeqs(numTopSeqs)
-    if mutableType is not useJavaDefault:
-        builder.setMutableType(mutableType)
-    if numMutable is not useJavaDefault:
-        builder.setNumMutable(numMutable)
-    if seqFilterOnly is not useJavaDefault:
-        builder.setSeqFilterOnly(seqFilterOnly)
-    if numCPUs is not useJavaDefault:
-        builder.setNumCpus(numCPUs)
-    if numEWAKStarSeqs is not useJavaDefault:
-        builder.setNumEWAKStarSeqs(numEWAKStarSeqs)
+	if useSMA is not useJavaDefault:
+		builder.setupSMA(useSMA, smaNodes)
+	if useWtBenchmark is not useJavaDefault:
+		builder.setUseWtBenchmark(useWtBenchmark)
+	if printPDBs is not useJavaDefault:
+		builder.setPrintPDBs(printPDBs)
+	if epsilon is not useJavaDefault:
+		builder.setEpsilon(epsilon)
+	if pfEw is not useJavaDefault:
+		builder.setPfEw(pfEw)
+	if eW is not useJavaDefault:
+		builder.setEw(eW)
+	if orderOfMag is not useJavaDefault:
+		builder.setOrderOfMag(orderOfMag)
+	if numPfConfs is not useJavaDefault:
+		builder.setNumPfConfs(numPfConfs)
+	if numTopSeqs is not useJavaDefault:
+		builder.setNumTopOverallSeqs(numTopSeqs)
+	if mutableType is not useJavaDefault:
+		builder.setMutableType(mutableType)
+	if numMutable is not useJavaDefault:
+		builder.setNumMutable(numMutable)
+	if seqFilterOnly is not useJavaDefault:
+		builder.setSeqFilterOnly(seqFilterOnly)
+	if numCPUs is not useJavaDefault:
+		builder.setNumCpus(numCPUs)
+	if numEWAKStarSeqs is not useJavaDefault:
+		builder.setNumEWAKStarSeqs(numEWAKStarSeqs)
 
-    if logFile is not None:
-        builder.setLogFile(jvm.toFile(logFile))
+	if logFile is not None:
+		builder.setLogFile(jvm.toFile(logFile))
 
-    return builder.build()
+	return builder.build()
 
 
 

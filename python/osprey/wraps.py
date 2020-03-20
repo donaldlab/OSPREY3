@@ -28,14 +28,20 @@
 ## <signature of Bruce Donald>, Mar 1, 2018
 ## Bruce Donald, Professor of Computer Science
 
-import jvm
+from __future__ import absolute_import
+
+from . import jvm
 
 
 def wrapMethod(obj, name, newMethod):
-	oldMethod = getattr(obj, name)
-	def curried(self, *args):
-		return newMethod(oldMethod, self, *args)
-	setattr(obj, name, curried)
+	try:
+		oldMethod = getattr(obj, name)
+		def curried(self, *args):
+			return newMethod(oldMethod, self, *args)
+		setattr(obj, name, curried)
+	except AttributeError:
+		# python 3 doesn't support this kind of thing anymore =(
+		pass
 
 
 def wrapProperty(obj, name, getter, setter=None):
@@ -71,8 +77,15 @@ def checkDeprecatedResNumbers(resNums, fnnames):
 	import traceback
 
 	hasIntResNum = False
+
+	try:
+		number_types = (int, long, float)
+	except NameError:
+		# python 3 doesn't have a long type anymore
+		number_types = (int, float)
+
 	for key in resNums:
-		if isinstance(key, (int, long, float)):
+		if isinstance(key, number_types):
 			hasIntResNum = True
 			break
 
@@ -104,7 +117,12 @@ def wrapStrandFlex(c):
 		checkDeprecatedResNumbers([key], ['checkDeprecatedResNumbers', 'getItem'])
 
 		return self.get(key)
-	jtype.__getitem__ = getItem
+	try:
+		jtype.__getitem__ = getItem
+	except:
+		# python 3 doesn't support this kind of stuff anymore,
+		# so just fail silently
+		pass
 
 
 def wrapResidueFlex(c):

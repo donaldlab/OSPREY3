@@ -96,8 +96,12 @@ def start(jrePath, heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, 
 		args.append('-Dcom.sun.management.jmxremote.local.only=false')
 
 	# start the JVM
-	jpype.startJVM(*args)
-	
+	try:
+		jpype.startJVM(*args, convertStrings=True)
+	except TypeError:
+		# JPype-py2 doesn't support the convertStrings kwarg
+		jpype.startJVM(*args)
+
 	# set up class factories
 	global c
 	c = Packages()
@@ -143,11 +147,13 @@ def getInnerClass(jclass, inner_class_name):
 	# get the class name, if this is even a class
 	try:
 		classname = jclass.__javaclass__.getName()
+		return getJavaClass('%s$%s' % (classname, inner_class_name))
+	except AttributeError:
+		# must be a new version of jpype, try the newer API
+		classname = jclass.class_.getName()
+		return jpype.JClass(getJavaClass('%s$%s' % (classname, inner_class_name)))
 	except TypeError:
 		raise ValueError('%s is not a recognized Java class' % jclass)
-
-	# get the inner class
-	return getJavaClass('%s$%s' % (classname, inner_class_name))
 
 
 def boxDouble(val):

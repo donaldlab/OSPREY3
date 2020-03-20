@@ -30,11 +30,13 @@
 
 import setuptools
 import os
+import sys
 
 
 # relevant docs for making python packages:
 # https://packaging.python.org/tutorials/distributing-packages/
 # https://pip.pypa.io/en/stable/user_guide/#installing-packages
+# https://pypi.org/classifiers/
 
 
 # this script gets run in multiple folders by different gradle tasks,
@@ -44,19 +46,32 @@ rootDir = '../'
 # when run in the current folder by the gradle task `pythonDevelop`, we keep this rootDir
 # the gradle task `pythonBdist` will re-write rootDir when it copies this script to the build dir
 
-# the build dir should look like this when setup.py is called:
-# build/python/bdist/
-#    osprey/
-#       *.py
-#       lib/
-#    setup.py
-#    README.rst
-#    LICENSE.txt
-
 
 # read the osprey version
 with open(os.path.join(rootDir, 'resources/config/version'), 'r') as file:
 	version = file.read()
+
+
+# get python details
+python_version = sys.version_info[0]
+if python_version == 2:
+	python_requires = '>=2.7,<3'
+	install_requires = ['JPype-py2>=0.5.8']
+	classifiers = ['Programming Language :: Python :: 2.7']
+elif python_version == 3:
+	python_requires = '>=3'
+	install_requires = ['JPype1>=0.7.2']
+	classifiers = ['Programming Language :: Python :: 3']
+else:
+	raise Exception('unrecognized Python version: %d' % python_version)
+
+# get OS details
+if sys.platform in ('win32', 'cygwin'):
+	classifiers += ['Operating System :: Microsoft :: Windows']
+elif sys.platform == 'darwin':
+	classifiers += ['Operating System :: MacOS']
+else:
+	classifiers += ['Operating System :: POSIX :: Linux']
 
 
 setuptools.setup(
@@ -65,8 +80,8 @@ setuptools.setup(
 	description='Open-Source Protein Redesign for You',
 	url='https://github.com/donaldlab/OSPREY_refactor',
 	packages=['osprey'],
-	python_requires='>=2.7,<3',
-	install_requires=['JPype-py2>=0.5.8'],
+	python_requires=python_requires,
+	install_requires=install_requires,
 	package_data={
 		'osprey': [
 			'lib/*.jar',
@@ -77,8 +92,5 @@ setuptools.setup(
 			'jre/*', 'jre/*/*', 'jre/*/*/*', 'jre/*/*/*/*', 'jre/*/*/*/*/*', 'jre/*/*/*/*/*/*'
 		]
 	},
-	classifiers=[
-		'Programming Language :: Python :: 2.7',
-		'Operating System :: OS Independent'
-	]
+	classifiers=classifiers + ['License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)']
 )

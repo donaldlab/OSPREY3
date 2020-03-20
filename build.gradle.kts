@@ -32,12 +32,15 @@
 
 import java.io.BufferedWriter
 import java.io.OutputStreamWriter
+import java.io.ByteArrayOutputStream
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.StandardCopyOption
 import java.nio.file.Files
 import java.nio.file.Path
+import org.gradle.internal.os.OperatingSystem
+
 
 
 plugins {
@@ -197,6 +200,35 @@ runtime {
 	)
 }
 
+val pythonCmd = "python"
+val pipCmd = "pip"
+
+val pythonVersion: Int by lazy {
+	ByteArrayOutputStream().use { stdout ->
+		exec {
+			commandLine(pythonCmd, "--version")
+			standardOutput = stdout
+			errorOutput = stdout
+		}
+		// should return something like "Python 2.7.17"
+		return@lazy stdout.toString()
+			.split(" ")[1]
+			.split(".")[0]
+			.toInt()
+	}
+}
+
+// get the OS name
+val osname: String by lazy {
+	when (val os = OperatingSystem.current()) {
+		OperatingSystem.LINUX -> "linux"
+		OperatingSystem.WINDOWS -> "win"
+		OperatingSystem.MAC_OS -> "osx"
+		else -> throw Error("unrecognized operating system: $os")
+	}
+}
+
+
 distributions {
 
 	get("main").apply {
@@ -216,7 +248,7 @@ distributions {
 	}
 
 	create("python").apply {
-		baseName = "osprey-python"
+		baseName = "osprey-$osname-python$pythonVersion"
 		contents {
 			into("") { // project root
 				from("README.rst")
@@ -282,9 +314,6 @@ distributions {
 		}
 	}
 }
-
-val pythonCmd = "python2"
-val pipCmd = "pip2"
 
 tasks {
 
@@ -367,7 +396,7 @@ tasks {
 		commandLine(pipCmd, "install",
 			"--user", "--editable",
 			".", // path to package to install, ie osprey
-			"--no-index", "--find-links=$pythonWheelhouseDir" // only use wheelhouse to resolve dependencies
+			"--find-links=$pythonWheelhouseDir" // add a wheelhouse dir to find our Jpype-py2
 		)
 		doLast {
 			Files.createDirectories(pythonBuildDir)
@@ -469,11 +498,19 @@ tasks {
 		doLast {
 			writeScripts(
 				"install",
-				"""
-				|$pipCmd uninstall -y osprey JPype-py2
-				|$pipCmd install --user 'numpy>=1.6,<1.16'
-				|$pipCmd install --user osprey --no-index --find-link=wheelhouse --pre
-				""".trimMargin()
+				when (pythonVersion) {
+					2 -> """
+							|$pipCmd uninstall -y osprey JPype-py2
+							|$pipCmd install --user 'numpy>=1.6,<1.16'
+							|$pipCmd install --user osprey --no-index --find-link=wheelhouse --pre
+						""".trimMargin()
+					3 -> """
+							|$pipCmd uninstall -y osprey
+							|$pipCmd install --user 'numpy>=1.6,<1.16'
+							|$pipCmd install --user osprey --find-link=wheelhouse --pre
+						""".trimMargin()
+					else -> throw Error("unknown python version")
+				}
 			)
 		}
 	}
@@ -484,7 +521,11 @@ tasks {
 		doLast {
 			writeScripts(
 				"uninstall",
-				"$pipCmd uninstall -y osprey JPype-py2"
+				when (pythonVersion) {
+					2 -> "$pipCmd uninstall -y osprey JPype-py2"
+					3 -> "$pipCmd uninstall -y osprey"
+					else -> throw Error("unknown python version")
+				}
 			)
 		}
 	}
