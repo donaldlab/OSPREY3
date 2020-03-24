@@ -174,7 +174,7 @@ public class ResPairCache {
 			throw new RuntimeException("Atom connectivity was not correctly calculated."
 					+ " Can't find atom pairs for residues: " + res1.fullName + ", " + res2.fullName);
 		}
-		
+
 		// look in the cache
 		AtomPairInfo info = infos.get(atomPairs);
 		if (info == null) {
@@ -186,10 +186,13 @@ public class ResPairCache {
 				atomPairs,
 				solvInfo
 			);
-			
+
+			/* TEMP: AtomConnectivity cache is disabled, so don't populate the ResPairCache
+			     otherwise, we'll have a memory leak
 			infos.put(atomPairs, info);
+			*/
 		}
-	
+
 		return new ResPair(
 			indxe1, index2,
 			res1, res2,
