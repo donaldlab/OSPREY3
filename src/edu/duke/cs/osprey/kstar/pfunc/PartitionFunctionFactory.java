@@ -68,6 +68,7 @@ public class PartitionFunctionFactory {
     private PartitionFunctionImpl pfuncImpl = PartitionFunctionImpl.GradientDescent;
     private UpdatingEnergyMatrix MARKStarEmat = null;
     private String state = "(undefined)";
+    private String cachePattern;
 
     public PartitionFunctionFactory(SimpleConfSpace confSpace, ConfEnergyCalculator confECalc, String state) {
         this.state = state;
@@ -145,7 +146,10 @@ public class PartitionFunctionFactory {
     private EnergyMatrix makeEmat(ConfEnergyCalculator confECalc, String name) {
         if(!emats.containsKey(confECalc)) {
             System.out.println("Making energy matrix for "+confECalc);
-            EnergyMatrix emat = PartitionFunction.makeEmat(confECalc, state, name);
+            EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc)
+                    .setCacheFile(new File(cachePattern+"."+name+".emat"))
+                    .build()
+                    .calcEnergyMatrix();
             emats.put(confECalc, emat);
         }
         return emats.get(confECalc);
@@ -161,4 +165,7 @@ public class PartitionFunctionFactory {
                         .build();
     }
 
+    public void setCachePattern(String pattern){
+        cachePattern = pattern;
+    }
 }
