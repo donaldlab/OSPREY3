@@ -155,6 +155,14 @@ public class PartitionFunctionFactory {
         return emats.get(confECalc);
     }
 
+    public EnergyMatrix getOrMakeEmat(ConfEnergyCalculator confEcalc, String name) {
+        return makeEmat(confEcalc, name);
+    }
+
+    public EnergyMatrix getEmat(ConfEnergyCalculator confEcalc) {
+        return emats.get(confEcalc);
+    }
+
     public static KStar.ConfSearchFactory makeConfSearchFactory(ConfEnergyCalculator confEcalc) {
         EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
                 .build()
