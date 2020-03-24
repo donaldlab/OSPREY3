@@ -38,6 +38,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -80,6 +81,16 @@ public class TestSHARKStarDesignProblems {
         try {
             ConfSpaces confSpaces = loadFromCFS("examples/python.KStar/5ucf.cfs");
             runBBSHARKStar(confSpaces, 0.01);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void test1a0r_B_12res_13() {
+        try {
+            TestKStar.ConfSpaces confSpaces = loadFromCFS("test-resources/1a0r_B_12res_3.930E+13.cfs");
+            runBBKStar(confSpaces, 5, 0.999999999, null, 10, true);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
