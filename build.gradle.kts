@@ -200,27 +200,75 @@ runtime {
 	)
 }
 
-val pythonCmd = "python"
-val pipCmd = "pip"
 
-val pythonVersion: Int by lazy {
+val os = OperatingSystem.current()
+
+fun isCommand(cmd: String) =
+	exec {
+		when (os) {
+			OperatingSystem.MAC_OS,
+			OperatingSystem.LINUX -> commandLine("/bin/sh", "-c", "type $cmd > /dev/null")
+			OperatingSystem.WINDOWS -> commandLine("where /q", cmd)
+			else -> throw Error("unrecognized operating system: $os")
+		}
+	}.exitValue == 0
+
+fun pythonVersion(cmd: String): Int {
 	ByteArrayOutputStream().use { stdout ->
 		exec {
-			commandLine(pythonCmd, "--version")
+			commandLine(cmd, "--version")
 			standardOutput = stdout
 			errorOutput = stdout
 		}
 		// should return something like "Python 2.7.17"
-		return@lazy stdout.toString()
+		return stdout.toString()
 			.split(" ")[1]
 			.split(".")[0]
 			.toInt()
 	}
 }
 
+class Python(val cmd: String, version: Int? = null) {
+
+	val exists = isCommand(cmd)
+
+	val version = version ?: pythonVersion(cmd)
+
+	val pipCmd by lazy {
+		"pip$version".takeIf { isCommand(it) }
+	}
+
+	override fun toString() = "Python $version"
+}
+
+// find out what pythons are available
+val pythons by lazy {
+	listOf(
+		Python("python3", 3),
+		Python("python2", 2),
+		Python("python")
+	)
+	.filter { it.exists }
+}
+
+// try to find python 2 and 3
+val python2 by lazy {
+	pythons.find { it.version == 2 }
+}
+val python3 by lazy {
+	pythons.find { it.version == 3 }
+}
+
+// get the default python, prefer v3 over v2
+val defaultPython by lazy {
+	python3
+		?: python2
+		?: throw Error("No python detected")
+}
+
 // get the OS name
 val osname: String by lazy {
-	when (val os = OperatingSystem.current()) {
+	when (os) {
 		OperatingSystem.LINUX -> "linux"
 		OperatingSystem.WINDOWS -> "win"
 		OperatingSystem.MAC_OS -> "osx"
@@ -247,34 +295,46 @@ distributions {
 		}
 	}
 
-	create("python").apply {
-		baseName = "osprey-$osname-python$pythonVersion"
-		contents {
-			into("") { // project root
-				from("README.rst")
-				from("LICENSE.txt")
-				from("CONTRIBUTING.rst")
-				from(pythonBuildDir) {
-					include("install.sh")
-					include("install.bat")
-					include("uninstall.sh")
-					include("uninstall.bat")
+	// make distributions for both python versions
+	for (version in listOf(2, 3)) {
+
+		create("python$version").apply {
+			baseName = "osprey-$osname-python$version"
+			contents {
+				into("") { // project root
+					from("README.rst")
+					from("LICENSE.txt")
+					from("CONTRIBUTING.rst")
+					from(pythonBuildDir) {
+						include("install.sh")
+						include("install.bat")
+						include("uninstall.sh")
+						include("uninstall.bat")
+					}
 				}
-			}
-			into("doc") {
-				from(docBuildDir) {
-					exclude(".doctrees")
+				into("doc") {
+					from(docBuildDir) {
+						exclude(".doctrees")
+					}
 				}
-			}
-			listOf("python.GMEC", "python.KStar", "gpu").forEach {
-				into("examples/$it") {
-					from("examples/$it")
+				listOf("python.GMEC", "python.KStar", "gpu").forEach {
+					into("examples/$it") {
+						from("examples/$it")
+					}
 				}
-			}
-			into("wheelhouse") {
-				from(pythonWheelhouseDir)
-				from(pythonBuildDir) {
-					include("*.whl")
+				into("wheelhouse") {
+					if (version == 2) {
+						from(pythonWheelhouseDir) {
+							when (os) {
+								OperatingSystem.MAC_OS -> include("JPype_py2-*-macosx_*.whl")
+								OperatingSystem.LINUX -> include("JPype_py2-*-linux_*.whl")
+								OperatingSystem.WINDOWS -> include("JPype_py2-*-win_*.whl")
+							}
+						}
+					}
+					from(pythonBuildDir) {
+						include("osprey-*.whl")
+					}
 				}
 			}
 		}
@@ -317,16 +377,9 @@ distributions {
 
 tasks {
 
-	// turn off tar distributions
-	"distTar" {
-		enabled = false
-	}
-	"pythonDistTar" {
-		enabled = false
-	}
-	"testDistTar" {
-		enabled = false
-	}
+	// turn off tar files for all distributions
+	filterIsInstance<Tar>()
+		.forEach { it.enabled = false }
 
 	val testClasses = "testClasses" {}
 
@@ -393,7 +446,9 @@ tasks {
 		group = "develop"
 		description = "Install python package in development mode"
 		workingDir = pythonSrcDir.toFile()
-		commandLine(pipCmd, "install",
+		commandLine(
+			defaultPython.pipCmd,
+			"install",
 			"--user", "--editable",
 			".", // path to package to install, ie osprey
 			"--find-links=$pythonWheelhouseDir" // add a wheelhouse dir to find our Jpype-py2
@@ -402,6 +457,7 @@ tasks {
 			Files.createDirectories(pythonBuildDir)
 			val classpathPath = pythonBuildDir.resolve("classpath.txt")
 			Files.write(classpathPath, sourceSets["main"].runtimeClasspath.files.map { it.toString() })
+			println("Installed development Osprey package for $defaultPython")
 		}
 	}
 
@@ -409,15 +465,24 @@ tasks {
 		group = "develop"
 		description = "Uninstall development mode python package"
 		workingDir = pythonSrcDir.toFile()
-		commandLine(pipCmd, "uninstall", "--yes", "osprey")
+		commandLine(
+			defaultPython.pipCmd,
+			"uninstall",
+			"--yes", "osprey"
+		)
+		doLast {
+			println("Uninstalled development Osprey package for $defaultPython")
+		}
 	}
 
-	val pythonWheel by creating(Exec::class) {
+	fun Exec.pythonWheel(python: Python) {
 		group = "build"
-		description = "Build python wheel"
+		description = "Build $python wheel"
 		dependsOn("runtime")
+
 		inputs.files(jar.outputs.files)
 		outputs.dir(pythonWheelDir)
+
 		doFirst {
 
 			// delete old cruft
@@ -489,50 +554,90 @@ tasks {
 			}
 		}
 		workingDir = pythonWheelDir.toFile()
-		commandLine(pythonCmd, "setup.py", "bdist_wheel", "--dist-dir", pythonBuildDir.toString())
+		commandLine(python.cmd, "setup.py", "bdist_wheel", "--dist-dir", pythonBuildDir.toString())
 	}
 
-	val pythonInstallScripts by creating {
+	val python2Wheel by creating(Exec::class) {
+		python2
+			?.let { pythonWheel(it) }
+			?: doLast {
+				throw Error("no python 2 detected")
+			}
+	}
+	val python3Wheel by creating(Exec::class) {
+		python3
+			?.let { pythonWheel(it) }
+			?: doLast {
+				throw Error("no python 3 detected")
+			}
+	}
+
+	val python2InstallScripts by creating {
 		group = "build"
-		description = "Make install scripts for python distribution"
+		description = "Make install scripts for python 2 distribution"
 		doLast {
-			writeScripts(
-				"install",
-				when (pythonVersion) {
-					2 -> """
-							|$pipCmd uninstall -y osprey JPype-py2
-							|$pipCmd install --user 'numpy>=1.6,<1.16'
-							|$pipCmd install --user osprey --no-index --find-link=wheelhouse --pre
-						""".trimMargin()
-					3 -> """
-							|$pipCmd uninstall -y osprey
-							|$pipCmd install --user 'numpy>=1.6,<1.16'
-							|$pipCmd install --user osprey --find-link=wheelhouse --pre
-						""".trimMargin()
-					else -> throw Error("unknown python version")
-				}
+			writeScript(
+				pythonBuildDir, "install",
+				"""
+					|pip2 uninstall -y osprey JPype-py2
+					|pip2 install --user 'numpy>=1.6,<1.16'
+					|pip2 install --user osprey --no-index --find-link=wheelhouse --pre
+				""".trimMargin()
 			)
 		}
 	}
 
-	val pythonUninstallScripts by creating {
+	val python3InstallScripts by creating {
 		group = "build"
-		description = "Make uninstall scripts for python distribution"
+		description = "Make install scripts for python 3 distribution"
 		doLast {
-			writeScripts(
-				"uninstall",
-				when (pythonVersion) {
-					2 -> "$pipCmd uninstall -y osprey JPype-py2"
-					3 -> "$pipCmd uninstall -y osprey"
-					else -> throw Error("unknown python version")
-				}
+			writeScript(
+				pythonBuildDir, "install",
+				"""
+					|pip3 uninstall -y osprey
+					|pip3 install --user 'numpy>=1.6,<1.16'
+					|pip3 install --user osprey --find-link=wheelhouse --pre
+				""".trimMargin()
+			)
+		}
+	}
+
+	val python2UninstallScripts by creating {
+		group = "build"
+		description = "Make uninstall scripts for python 2 distribution"
+		doLast {
+			writeScript(
+				pythonBuildDir, "uninstall",
+				"pip2 uninstall -y osprey JPype-py2"
+			)
+		}
+	}
+
+	val python3UninstallScripts by creating {
+		group = "build"
+		description = "Make uninstall scripts for python 3 distribution"
+		doLast {
+			writeScript(
+				pythonBuildDir, "uninstall",
+				"pip3 uninstall -y osprey"
 			)
 		}
 	}
 
 	// insert some build steps before we build the python dist
-	"pythonDistZip" {
-		dependsOn(pythonWheel, makeDoc, pythonInstallScripts, pythonUninstallScripts)
+	"python2DistZip" {
+		if (python2 != null) {
+			dependsOn(python2Wheel, makeDoc, python2InstallScripts, python2UninstallScripts)
+		} else {
+			enabled = false
+		}
+	}
+	"python3DistZip" {
+		if (python2 != null) {
+			dependsOn(python3Wheel, makeDoc, python3InstallScripts, python3UninstallScripts)
+		} else {
+			enabled = false
+		}
 	}
 
 	val testRunScript by creating {
@@ -547,8 +652,8 @@ tasks {
 				)
 				.joinToString(":")
 
-			writeShellScript(
-				"run",
+			writeScript(
+				pythonBuildDir, "run",
 				"java -cp \"$classpath\" $@"
 			)
 		}
@@ -558,6 +663,8 @@ tasks {
 		dependsOn(testClasses, testRunScript)
 	}
 
+	// TODO: replace this with the nifty licenser plugin?
+	//   https://github.com/Minecrell/licenser
 	val updateLicenseHeaders by creating {
 		group = "build"
 		description = "updates license headers in all source files"
@@ -602,47 +709,45 @@ fun nvcc(exec: Exec, kernelName: String, maxRegisters: Int? = null, profile: Boo
 	exec.commandLine(args)
 }
 
-fun List<String>.writeToFile(path: Path, newline: String) {
+fun String.writeToFile(path: Path, newline: String) {
 	BufferedWriter(OutputStreamWriter(Files.newOutputStream(path), StandardCharsets.UTF_8.newEncoder())).use { out ->
-		for (line in this) {
+		for (line in split("\n")) {
 			out.append(line)
 			out.append(newline)
 		}
 	}
 }
 
-fun writeShellScript(filename: String, cmd: String) {
+fun writeScript(dir: Path, filename: String, cmd: String) {
+	when (os) {
+		OperatingSystem.MAC_OS,
+		OperatingSystem.LINUX -> {
 
-	val file = pythonBuildDir.resolve("$filename.sh")
+			val file = dir.resolve("$filename.sh")
 
-	"""
-		|#! /bin/sh
-		|$cmd
-	""".trimMargin()
-		.split("\n")
-		.writeToFile(file, "\n")
+			"""
+				|#! /bin/sh
+				|$cmd
+			""".trimMargin()
+			.writeToFile(file, "\n")
 
-	// set the shell script executable
-	Files.setPosixFilePermissions(file, Files.getPosixFilePermissions(file).apply {
-		add(PosixFilePermission.OWNER_EXECUTE)
-	})
-}
+			// set the shell script executable
+			Files.setPosixFilePermissions(file, Files.getPosixFilePermissions(file).apply {
+				add(PosixFilePermission.OWNER_EXECUTE)
+			})
+		}
+		OperatingSystem.WINDOWS -> {
 
-fun writeBatchScript(filename: String, cmd: String) {
+			val file = dir.resolve("$filename.bat")
 
-	val file = pythonBuildDir.resolve("$filename.bat")
-
-	"""
-		|@echo off
-		|$cmd
-	""".trimMargin()
-		.split("\n")
-		.writeToFile(file, "\r\n")
-}
-
-fun writeScripts(filename: String, cmd: String) {
-	writeShellScript(filename, cmd)
-	writeBatchScript(filename, cmd)
+			"""
+				|@echo off
+				|$cmd
+			""".trimMargin()
+			.writeToFile(file, "\r\n")
+		}
+		else -> throw Error("unrecognized operating system: $os")
+	}
 }
 
 
