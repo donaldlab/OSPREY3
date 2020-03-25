@@ -30,7 +30,7 @@
 
 from __future__ import absolute_import
 
-import sys, os, jpype, traceback
+import sys, os, platform, jpype, traceback
 
 from . import jvm
 from . import wraps
@@ -201,7 +201,7 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 	osprey_version = c.control.Main.Version
 	python_version = '.'.join([str(x) for x in sys.version_info[0:3]])
 	java_version = jpype.java.lang.System.getProperty('java.version')
-	print("OSPREY %s, Python %s, Java %s" % (osprey_version, python_version, java_version))
+	print("OSPREY %s, Python %s, Java %s, %s" % (osprey_version, python_version, java_version, platform.platform()))
 	print("Using up to %d MiB heap memory: %d MiB for garbage, %d MiB for storage" % (
 		heapSizeMiB, garbageSizeMiB, heapSizeMiB - garbageSizeMiB
 	))
