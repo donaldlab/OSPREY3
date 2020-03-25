@@ -58,7 +58,7 @@ to setup Osprey for compilation and testing.
 
 Osprey's build scripts use a bunch of Python build tools, so you'll need to install those::
 
-    $ pip install setuptools wheel sphinx guzzle_sphinx_theme javalang
+    $ pip install setuptools wheel sphinx==1.8 guzzle_sphinx_theme javalang
 
 
 Once your build environment is set up, setup the Osprey Python development environment with the

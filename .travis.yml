@@ -25,8 +25,8 @@ cache:
 
 # install java and python dependencies before building
 before_install:
-    - sudo apt-get install -y openjfx
-    - sudo pip install setuptools wheel sphinx guzzle_sphinx_theme javalang
+    - sudo apt install -y openjfx
+    - sudo pip3 install setuptools wheel sphinx==1.8 guzzle_sphinx_theme javalang
 
 # disable tests in automatic builds
 # they take too long to run and require specialized hardware

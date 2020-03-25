@@ -543,6 +543,7 @@ tasks {
 			copy {
 				from(sourceSets["main"].runtimeClasspath.files
 					.filter { it.extension == "jar" }
+					// TODO: filter down to "natives" jars only for this OS
 				)
 				into(libDir.toFile())
 			}
