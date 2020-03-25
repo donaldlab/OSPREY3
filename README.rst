@@ -99,13 +99,14 @@ Make sure you're running 64-bit Linux. Osprey is not supported on 32-bit Linux.
 
  #. Install `Python`_.
      * For Debian-like distributions, including Ubuntu and Mint, run::
-	   $ sudo apt install python3 python3-pip
 
-        or::
+       $ sudo apt install python3 python3-pip
 
-	   $ sudo apt install python2.7 python-pip
+       or::
 
-        depending on which version of Python you want to use.
+       $ sudo apt install python2.7 python-pip
+
+       depending on which version of Python you want to use.
 
  #. Download the `newest Osprey Python release`_.
      * Download either `osprey-linux-python2` or `osprey-linux-python3` to match your Python version.
@@ -117,6 +118,23 @@ Make sure you're running 64-bit Linux. Osprey is not supported on 32-bit Linux.
 
 .. _Python: https://www.python.org/downloads/
 .. _newest Osprey Python release: https://github.com/donaldlab/OSPREY_refactor/releases
+
+
+To check your installation:
+---------------------------
+
+From the command line, run:
+
+.. code:: pycon
+
+	python3
+	>>> import osprey
+	>>> osprey.start()
+
+If successful, should should be greeted with a message something like the following::
+
+	OSPREY 3.2-beta1-dev, Python 3.6.9, Java 11.0.6, Linux-4.15.0-91-generic-x86_64-with-LinuxMint-19-tara
+	Using up to 1024 MiB heap memory: 128 MiB for garbage, 896 MiB for storage
 
 
 Upgrading from an older version
