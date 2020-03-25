@@ -66,13 +66,15 @@ Installation
 on OSX:
 -------
 
- #. Install `Python`_.
+ #. Install `Python`_, if not installed already.
      * Both v2 and v3 are supported.
      * Install the `64-bit` verison, not the `32-bit` version.
  #. Download the `newest Osprey Python release`_.
      * Download either `osprey-osx-python2` or `osprey-osx-python3` to match your Python version.
      * Extract the acrhive to your favorite folder.
- #. Run the ``install.sh`` script to install Osprey.
+ #. Run the ``install.sh`` script to install Osprey.::
+ 
+     $ ./install.sh
 
 
 on Windows:
@@ -111,7 +113,7 @@ Make sure you're running 64-bit Linux. Osprey is not supported on 32-bit Linux.
  #. Download the `newest Osprey Python release`_.
      * Download either `osprey-linux-python2` or `osprey-linux-python3` to match your Python version.
      * Extract the acrhive to your favorite folder.
- #. Run the ``install`` script to install Osprey.
+ #. Run the ``install`` script to install Osprey.::
 
  	$ ./install.sh
 
