@@ -156,12 +156,11 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 
 		# release environment: use the bundled JRE
 		if sys.platform in ('win32', 'cygwin'):
-			lib_name = 'jvm.dll'
+			jre_path = os.path.join(os.path.dirname(__file__), 'jre', 'bin', 'server', 'jvm.dll')
 		elif sys.platform == 'darwin':
-			lib_name = 'libjvm.dylib'
+			jre_path = os.path.join(os.path.dirname(__file__), 'jre', 'lib', 'server', 'libjvm.dylib')
 		else:
-			lib_name = 'libjvm.so'
-		jre_path = os.path.join(os.path.dirname(__file__), 'jre', 'lib', 'server', lib_name)
+			jre_path = os.path.join(os.path.dirname(__file__), 'jre', 'lib', 'server', 'libjvm.so')
 
 	else:
 

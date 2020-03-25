@@ -205,34 +205,37 @@ val os = OperatingSystem.current()
 
 fun isCommand(cmd: String) =
 	exec {
+		isIgnoreExitValue = true
 		when (os) {
 			OperatingSystem.MAC_OS,
 			OperatingSystem.LINUX -> commandLine("/bin/sh", "-c", "type $cmd > /dev/null")
-			OperatingSystem.WINDOWS -> commandLine("where /q", cmd)
+			OperatingSystem.WINDOWS -> commandLine("where", "/q", cmd)
 			else -> throw Error("unrecognized operating system: $os")
 		}
 	}.exitValue == 0
 
-fun pythonVersion(cmd: String): Int {
-	ByteArrayOutputStream().use { stdout ->
-		exec {
-			commandLine(cmd, "--version")
-			standardOutput = stdout
-			errorOutput = stdout
+class Python(val cmd: String) {
+
+	// find out the version
+	val version = if (isCommand(cmd)) {
+		ByteArrayOutputStream().use { stdout ->
+			exec {
+				commandLine(cmd, "--version")
+				standardOutput = stdout
+				errorOutput = stdout
+				isIgnoreExitValue = true
+			}
+			// should return something like "Python 2.7.17"
+			// Except: Microsoft (in their infinite wisdom) has decided to install a fake python by default
+			// This fake python writes some garbage message to stdout, so make sure we ignore it by checking the version
+			stdout.toString()
+				.split(" ").getOrNull(1)
+				?.split(".")?.getOrNull(0)
+				?.toIntOrNull()
 		}
-		// should return something like "Python 2.7.17"
-		return stdout.toString()
-			.split(" ")[1]
-			.split(".")[0]
-			.toInt()
+	} else {
+		null
 	}
-}
-
-class Python(val cmd: String, version: Int? = null) {
-
-	val exists = isCommand(cmd)
-
-	val version = version ?: pythonVersion(cmd)
 
 	val pipCmd by lazy {
 		"pip$version".takeIf { isCommand(it) }
@@ -244,11 +247,11 @@ class Python(val cmd: String, version: Int? = null) {
 // find out what pythons are available
 val pythons by lazy {
 	listOf(
-		Python("python3", 3),
-		Python("python2", 2),
+		Python("python3"),
+		Python("python2"),
 		Python("python")
 	)
-	.filter { it.exists }
+	.filter { it.version != null }
 }
 
 // try to find python 2 and 3
@@ -265,6 +268,13 @@ val defaultPython by lazy {
 		?: python2
 		?: throw Error("No python detected")
 }
+
+println("""
+	|         Pythons:  ${pythons.map { it.cmd }}
+	|        Python 2:  ${if (python2 != null) "X" else ""}
+	|        Python 3:  ${if (python3 != null) "X" else ""}
+	|  default Python:  $defaultPython = ${defaultPython.cmd}
+""".trimMargin())
 
 // get the OS name
 val osname: String by lazy {
@@ -367,7 +377,7 @@ distributions {
 
 			// add the run script
 			into("bin") {
-				from(pythonBuildDir) {
+				from(buildDir) {
 					include("run.*")
 				}
 			}
@@ -524,7 +534,8 @@ tasks {
 				into(pythonWheelDir.toFile())
 				filter { line ->
 					if (line.startsWith("rootDir = ")) {
-						"rootDir = \"$projectDir\""
+						// make sure to escape backslashes in windows paths
+						"rootDir = \"${projectDir.toString().replace("\\", "\\\\")}\""
 					} else {
 						line
 					}
@@ -634,7 +645,7 @@ tasks {
 		}
 	}
 	"python3DistZip" {
-		if (python2 != null) {
+		if (python3 != null) {
 			dependsOn(python3Wheel, makeDoc, python3InstallScripts, python3UninstallScripts)
 		} else {
 			enabled = false
@@ -654,7 +665,7 @@ tasks {
 				.joinToString(":")
 
 			writeScript(
-				pythonBuildDir, "run",
+				buildDir.toPath(), "run",
 				"java -cp \"$classpath\" $@"
 			)
 		}
