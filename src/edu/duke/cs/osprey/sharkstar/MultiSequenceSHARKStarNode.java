@@ -465,6 +465,9 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             System.out.println("Already expanded node?");
     }
 
+    public void setBoundsFromConfLowerAndUpperWithHistory(double newConfLower, double newConfUpper, Sequence sequence, String confData) {
+    }
+
     public static enum Type {
         internal,
         boundedLeaf,
