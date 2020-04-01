@@ -47,6 +47,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
 
     // Debugging variables
     private Map<Sequence, MathTools.BigDecimalBounds> lastSequenceBounds = new HashMap<>();
+    private Map<Sequence, List<String>> nodeHistory = new HashMap<>();
     private double lastEpsilon = nodeEpsilon;
 
     private MultiSequenceSHARKStarNode(Node confNode, MultiSequenceSHARKStarNode parent, SimpleConfSpace fullConfSpace,
@@ -466,6 +467,15 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public void setBoundsFromConfLowerAndUpperWithHistory(double newConfLower, double newConfUpper, Sequence sequence, String confData) {
+        if(!nodeHistory.containsKey(sequence))
+            nodeHistory.put(sequence, new ArrayList<>());
+        nodeHistory.get(sequence).add(confData);
+        setBoundsFromConfLowerAndUpper(newConfLower, newConfUpper, sequence);
+    }
+
+    public void dumpHistory(Sequence sequence) {
+        for(String history: nodeHistory.get(sequence))
+            System.out.println(history);
     }
 
     public static enum Type {

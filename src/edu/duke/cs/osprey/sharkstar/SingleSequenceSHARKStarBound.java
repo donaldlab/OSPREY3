@@ -115,6 +115,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
             updateBound();
         }catch(UpperBoundException exception){
             System.out.println("Gross debugging incoming!");
+            exception.offendingNode.dumpHistory(sequence);
             MultiSequenceSHARKStarNode.Node confNode = exception.offendingNode.getConfSearchNode();
 
             try (ObjectPool.Checkout<MultiSequenceSHARKStarBound.ScoreContext> checkout = multisequenceBound.contexts.autoCheckout()) {
