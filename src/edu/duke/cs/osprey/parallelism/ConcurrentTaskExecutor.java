@@ -64,7 +64,26 @@ public abstract class ConcurrentTaskExecutor extends TaskExecutor {
 		finishedTask();
 	}
 
-	protected <T> void taskFailure(Task<T> task, TaskListener<T> listener, Throwable t) {
+	protected void taskSuccessCoerceTypes(Task<?> task, TaskListener<?> listener, Object result) {
+
+		try {
+
+			// need to work around the compiler's type system here
+			@SuppressWarnings("unchecked")
+			TaskListener<Object> listenerObj = (TaskListener<Object>)listener;
+
+			// run the listener
+			listenerObj.onFinished(result);
+
+		} catch (Throwable t) {
+			recordException(task, listener, t);
+		}
+
+		// tell anyone waiting that we finished a task
+		finishedTask();
+	}
+
+	protected void taskFailure(Task<?> task, TaskListener<?> listener, Throwable t) {
 		recordException(task, listener, t);
 
 		// the task failed, but still report finish
