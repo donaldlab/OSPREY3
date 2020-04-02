@@ -40,15 +40,13 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 import edu.duke.cs.tpie.Cleaner;
 import edu.duke.cs.tpie.Cleaner.Cleanable;
 import edu.duke.cs.tpie.Cleaner.GarbageDetectable;
 
 
-public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetectable {
+public class ThreadPoolTaskExecutor extends ConcurrentTaskExecutor implements GarbageDetectable {
 	
 	private static class Threads implements Cleanable {
 		
@@ -115,17 +113,9 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	public int queueSize = 0;
 	
 	private Threads threads;
-	private AtomicLong numTasksStarted;
-	private AtomicLong numTasksFinished;
-	private AtomicReference<TaskException> exception;
-	private Signal taskSignal;
-	
+
 	public ThreadPoolTaskExecutor() {
 		threads = null;
-		numTasksStarted = new AtomicLong(0);
-		numTasksFinished = new AtomicLong(0);
-		exception = new AtomicReference<>(null);
-		taskSignal = new Signal();
 	}
 	
 	public void start(int numThreads) {
@@ -158,28 +148,14 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	}
 
 	@Override
-	public boolean isBusy() {
-		return getNumRunningTasks() >= getParallelism();
-	}
-	
-	@Override
-	public boolean isWorking() {
-		return getNumRunningTasks() > 0;
-	}
-	
-	@Override
 	public <T> void submit(Task<T> task, TaskListener<T> listener) {
 		try {
 			
 			boolean wasAdded = false;
 			while (!wasAdded) {
 				
-				// check for exceptions
-				// NOTE: waitForFinish will throw the exception
-				if (exception.get() != null) {
-					waitForFinish();
-				}
-				
+				checkException();
+
 				// NOTE: don't use ThreadPoolExecutor.submit() to send tasks, because it won't let us block.
 				// access the work queue directly instead, so we can block if the thread pool isn't ready yet.
 				wasAdded = threads.queue.offer(() -> {
@@ -191,69 +167,21 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 						
 						// send the result to the listener thread
 						threads.listener.submit(() -> {
-							
-							try {
-								
-								// run the listener
-								listener.onFinished(result);
-								
-							} catch (Throwable t) {
-								recordException(task, listener, t);
-							}
-							
-							// tell anyone waiting that we finished a task
-							finishedTask();
+							taskSuccess(task, listener, result);
 						});
 						
 					} catch (Throwable t) {
-						recordException(task, listener, t);
-	
-						// the task failed, but still report finish
-						finishedTask();
+						taskFailure(task, listener, t);
 					}
 					
 				}, 400, TimeUnit.MILLISECONDS);
 			}
 			
 			// the task was started successfully, hooray!
-			numTasksStarted.incrementAndGet();
+			startedTask();
 			
 		} catch (InterruptedException ex) {
 			throw new Error(ex);
 		}
-	}
-	
-	@Override
-	public void waitForFinish() {
-		
-		long numTasks = numTasksStarted.get();
-		
-		while (numTasksFinished.get() < numTasks) {
-			
-			// wait a bit before checking again, unless a task finishes
-			taskSignal.waitForSignal(100);
-		}
-		
-		// check for exceptions
-		TaskException t = exception.get();
-		if (t != null) {
-			throw t;
-		}
-	}
-	
-	public long getNumRunningTasks() {
-		return numTasksStarted.get() - numTasksFinished.get();
-	}
-	
-	private void recordException(Task<?> task, TaskListener<?> listener, Throwable t) {
-		
-		// record the exception, but don't overwrite any existing exceptions
-		// TODO: keep a list of all exceptions?
-		exception.compareAndSet(null, new TaskException(task, listener, t));
-	}
-	
-	private void finishedTask() {
-		numTasksFinished.incrementAndGet();
-		taskSignal.sendSignal();
 	}
 }

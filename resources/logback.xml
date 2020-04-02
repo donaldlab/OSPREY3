@@ -14,4 +14,7 @@
     <logger name="smile.math.matrix.BiconjugateGradient" level="warn"/>
     <logger name="smile.regression.LASSO" level="warn"/>
 
+    <!-- turn off annoying log spam for Hazelcast -->
+    <logger name="com.hazelcast" level="error"/>
+
 </configuration>
