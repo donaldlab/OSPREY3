@@ -7,7 +7,6 @@ import edu.duke.cs.osprey.energy.*;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.io.File;
@@ -89,35 +88,31 @@ public class ClusterLab {
 
 	private static void run(int id, int size) {
 
-		// TEMP
-		Parallelism parallelism = new Parallelism(
-			4, 0, 0,
-			new Parallelism.ClusterInfo("Osprey", id, size, false)
-		);
-		//Parallelism parallelism = Parallelism.makeCpu(4);
+		Parallelism parallelism = Parallelism.makeCpu(4);
+		Cluster cluster = new Cluster("Osprey", id, size, parallelism, true);
 
 		// set up a toy design
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 
-		// how should we compute energies of molecules?
-		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
-			.setParallelism(parallelism)
-			.build()) {
+		if (id > 0) {
 
-			EnergyTask.Context ctx = new EnergyTask.Context(confSpaces.complex, ecalc);
+			// run as a pure member node
+			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams).build()) {
 
-			if (id > 0) {
+				Cluster.Member member = cluster.new Member();
+				member.putTaskContext(EnergyTask.class, new EnergyTask.Context(confSpaces.complex, ecalc));
+				member.run();
+			}
 
-				// run as a pure member node
-				Cluster.Member member = new Cluster.Member(parallelism.clusterInfo);
-				member.putTaskContext(EnergyTask.class, ctx);
-				member.run(parallelism.getParallelism());
+		} else {
 
-			} else {
+			// run as a client/member node
+			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+				.setCluster(cluster)
+				.build()) {
 
-				// run as a client/member node
-				TaskExecutor.WithContext tasks = (TaskExecutor.WithContext)ecalc.tasks;
-				tasks.putContext(EnergyTask.class, ctx);
+				Cluster.Client tasks = (Cluster.Client)ecalc.tasks;
+				tasks.putContext(EnergyTask.class, new EnergyTask.Context(confSpaces.complex, ecalc));
 
 				int[][] confs = {
 					{ 0, 0, 0, 0, 0, 0, 0, 0 },
@@ -138,9 +133,75 @@ public class ClusterLab {
 					);
 				}
 				tasks.waitForFinish();
-
-				log("CLIENT: K* finished!");
 			}
+		}
+
+		/* TODO: NEXTTIME: try to get K* working
+		// run K*
+		KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) -> {
+
+			Function<PartitionFunction.Result,String> formatPfunc = (pfuncResult) -> {
+				if (pfuncResult.status == PartitionFunction.Status.Estimated) {
+					return String.format("%12e", pfuncResult.values.qstar.doubleValue());
+				}
+				return "null";
+			};
+
+			return String.format("assertSequence(result, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon); // protein %s ligand %s complex %s K* = %s",
+				info.sequenceNumber,
+				info.sequence.toString(Sequence.Renderer.ResType),
+				formatPfunc.apply(info.kstarScore.protein),
+				formatPfunc.apply(info.kstarScore.ligand),
+				formatPfunc.apply(info.kstarScore.complex),
+				info.kstarScore.protein.toString(),
+				info.kstarScore.ligand.toString(),
+				info.kstarScore.complex.toString(),
+				info.kstarScore.toString()
+			);
+		};
+
+		// configure K*
+		KStar.Settings settings = new KStar.Settings.Builder()
+			.setEpsilon(0.95)
+			.setStabilityThreshold(null)
+			.addScoreConsoleWriter(testFormatter)
+			.setMaxSimultaneousMutations(1)
+			.build();
+		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
+		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+
+			SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+
+			// how should we define energies of conformations?
+			info.confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+				.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+					.build()
+					.calcReferenceEnergies()
+				)
+				.build();
+
+			// calc energy matrix
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
+				.build()
+				.calcEnergyMatrix();
+
+			// how should confs be ordered and searched?
+			info.confSearchFactory = (rcs) ->
+				new ConfAStarTree.Builder(emat, rcs)
+					.setTraditional()
+					.build();
+		}
+
+		// run K*
+		TestKStar.Result result = new TestKStar.Result();
+		result.kstar = kstar;
+		result.scores = kstar.run();
+		*/
+
+		if (id > 0) {
+			log("MEMBER %d: finished", id);
+		} else {
+			log("CLIENT: finished");
 		}
 	}
 }

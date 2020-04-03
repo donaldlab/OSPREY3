@@ -25,6 +25,34 @@ public class Cluster {
 	private static final String TasksScatterName = "tasks-scatter";
 	private static final String TasksGatherName = "tasks-gather";
 
+	public final String name;
+	public final int nodeId;
+	public final int numNodes;
+	public final Parallelism parallelism;
+	public final boolean clientIsMember;
+
+	public static final boolean DefaultClientIsMember = true;
+
+	public Cluster(String name, int nodeId, int numNodes, Parallelism parallelism) {
+		this(name, nodeId, numNodes, parallelism, DefaultClientIsMember);
+	}
+
+	public Cluster(String name, int nodeId, int numNodes, Parallelism parallelism, boolean clientIsMember) {
+		this.name = name;
+		this.nodeId = nodeId;
+		this.numNodes = numNodes;
+		this.parallelism = parallelism;
+		this.clientIsMember = clientIsMember;
+	}
+
+	public int numMembers() {
+		if (clientIsMember) {
+			return numNodes;
+		} else {
+			return numNodes - 1;
+		}
+	}
+
 	private static void sleep(int ms) {
 		try {
 			Thread.sleep(ms);
@@ -33,29 +61,17 @@ public class Cluster {
 		}
 	}
 
-	public static class Member {
+	public class Member {
 
-		public final String clusterName;
-		public final int nodeId;
-		public final int numMembers;
+		private final HazelcastInstance inst;
 
-		public final HazelcastInstance inst;
-
-		public Member(Parallelism.ClusterInfo info) {
-			this(info.name, info.nodeId, info.numMembers());
-		}
-
-		public Member(String clusterName, int nodeId, int numMembers) {
-
-			this.clusterName = clusterName;
-			this.nodeId = nodeId;
-			this.numMembers = numMembers;
+		public Member() {
 
 			// configure the cluster
 			Config cfg = new Config();
-			cfg.setClusterName(clusterName);
-			cfg.setInstanceName(String.format("%s-%d", clusterName, nodeId));
-			cfg.getQueueConfig(TasksScatterName).setMaxSize(numMembers*2);
+			cfg.setClusterName(name);
+			cfg.setInstanceName(String.format("%s-%d", name, nodeId));
+			cfg.getQueueConfig(TasksScatterName).setMaxSize(numMembers()*2);
 
 			// disable Hazelcast's automatic phone home "feature", which is on by default
 			cfg.setProperty("hazelcast.phone.home.enabled", "false");
@@ -74,17 +90,17 @@ public class Cluster {
 			Cluster.Task.putContext(inst, taskClass, ctx);
 		}
 
-		public void run(int numThreads) {
-			run(numThreads, DefaultTimeoutS);
+		public void run() {
+			run(DefaultTimeoutS);
 		}
 
-		public void run(int numThreads, int timeoutS) {
+		public void run(int timeoutS) {
 
 			log("Member node ready");
 
 			// start a thread pool
 			AtomicInteger threadId = new AtomicInteger(0);
-			ExecutorService threads = Executors.newFixedThreadPool(numThreads, (runnable) -> {
+			ExecutorService threads = Executors.newFixedThreadPool(parallelism.getParallelism(), (runnable) -> {
 				Thread thread = Executors.defaultThreadFactory().newThread(runnable);
 				thread.setDaemon(true);
 				thread.setName(String.format("ClusterMemberPool-%d", threadId.getAndIncrement()));
@@ -180,14 +196,10 @@ public class Cluster {
 		}
 	}
 
-	public static class Client extends ConcurrentTaskExecutor implements AutoCloseable {
+	public class Client extends ConcurrentTaskExecutor implements AutoCloseable {
 
-		public final String clusterName;
-		public final int nodeId;
-		public final int numNodes;
-
-		public final Member member;
-		public final HazelcastInstance inst;
+		private final Member member;
+		private final HazelcastInstance inst;
 
 		private final IMap<Integer,Boolean> alive;
 		private final IQueue<Cluster.Task<?,?>> scatter;
@@ -197,22 +209,13 @@ public class Cluster {
 		private final AtomicBoolean isActive = new AtomicBoolean(true);
 		private final Thread listener;
 
-		public Client(Parallelism.ClusterInfo info, int memberThreads) {
-			this(info.name, info.nodeId, info.numNodes, memberThreads);
-		}
-
-		public Client(String clusterName, int nodeId, int numNodes, int memberThreads) {
-
-			this.clusterName = clusterName;
-			this.nodeId = nodeId;
-			this.numNodes = numNodes;
+		public Client() {
 
 			// make a member first, if needed
-			if (memberThreads > 0) {
-				member = new Member(clusterName, nodeId, numNodes);
-				Thread memberThread = new Thread(() -> member.run(memberThreads));
+			if (clientIsMember) {
+				member = new Member();
+				Thread memberThread = new Thread(() -> member.run(parallelism.getParallelism()));
 				memberThread.setName("ClusterClientMember");
-				memberThread.setDaemon(true);
 				memberThread.start();
 			} else {
 				member = null;
@@ -220,7 +223,7 @@ public class Cluster {
 
 			// configure the cluster
 			ClientConfig cfg = new ClientConfig();
-			cfg.setClusterName(clusterName);
+			cfg.setClusterName(name);
 
 			// disable Hazelcast's automatic phone home "feature", which is on by default
 			cfg.setProperty("hazelcast.phone.home.enabled", "false");
@@ -279,7 +282,7 @@ public class Cluster {
 		}
 
 		private void log(String fmt, Object ... args) {
-			Log.log(clusterName + "-client: " + fmt, args);
+			Log.log(name + "-client: " + fmt, args);
 		}
 
 		@Override
