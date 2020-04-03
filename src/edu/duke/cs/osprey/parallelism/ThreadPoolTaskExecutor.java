@@ -32,6 +32,8 @@
 
 package edu.duke.cs.osprey.parallelism;
 
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
@@ -163,7 +165,13 @@ public class ThreadPoolTaskExecutor extends ConcurrentTaskExecutor implements Ga
 					try {
 					
 						// run the task
-						T result = task.run();
+						T result;
+						if (task instanceof Task.WithContext) {
+							Task.WithContext<T,Object> taskWithContext = (Task.WithContext<T,Object>)task;
+							result = taskWithContext.run(getContext(taskWithContext));
+						} else {
+							result = task.run();
+						}
 						
 						// send the result to the listener thread
 						threads.listener.submit(() -> {
@@ -183,5 +191,17 @@ public class ThreadPoolTaskExecutor extends ConcurrentTaskExecutor implements Ga
 		} catch (InterruptedException ex) {
 			throw new Error(ex);
 		}
+	}
+
+	private Map<Class<?>,Object> contexts = new IdentityHashMap<>();
+
+	@Override
+	public void putContext(Class<?> taskClass, Object ctx) {
+		contexts.put(taskClass, ctx);
+	}
+
+	@Override
+	public Object getContext(Class<?> taskClass) {
+		return contexts.get(taskClass);
 	}
 }

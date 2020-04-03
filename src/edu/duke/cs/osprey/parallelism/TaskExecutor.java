@@ -35,12 +35,39 @@ package edu.duke.cs.osprey.parallelism;
 import edu.duke.cs.osprey.tools.AutoCleanable;
 
 public class TaskExecutor implements AutoCleanable {
-	
-	public static interface Task<T> {
+
+	public interface Task<T> {
+
 		T run();
+
+		interface WithContext<T,C> extends Task<T> {
+
+			T run(C ctx);
+
+			default T run() {
+				return run(null);
+			}
+		}
 	}
-	
-	public static interface TaskListener<T> {
+
+	/**
+	 * A TaskExecutor that lets all tasks run with a shared a context object.
+	 */
+	public static abstract class WithContext extends TaskExecutor {
+
+		public abstract void putContext(Class<?> taskClass, Object ctx);
+		public abstract Object getContext(Class<?> taskClass);
+
+		public <C> C getContext(Task.WithContext<?,C> task) {
+
+			@SuppressWarnings("unchecked")
+			C ctx = (C)getContext(task.getClass());
+
+			return ctx;
+		}
+	}
+
+	public interface TaskListener<T> {
 		void onFinished(T result);
 	}
 	

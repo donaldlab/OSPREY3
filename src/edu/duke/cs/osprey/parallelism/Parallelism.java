@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.parallelism;
 
 import edu.duke.cs.osprey.control.ConfigFileParser;
 
+
 /** Specified how Osprey should use available hardware. */
 public class Parallelism {
 	
@@ -47,6 +48,8 @@ public class Parallelism {
 		
 		/** The number of simultaneous tasks that should be given to each GPU */
 		private int numStreamsPerGpu = 1;
+
+		private ClusterInfo clusterInfo = null;
 		
 		public Builder setNumCpus(int val) {
 			numCpus = val;
@@ -62,9 +65,43 @@ public class Parallelism {
 			numStreamsPerGpu = val;
 			return this;
 		}
+
+		public Builder setCluster(ClusterInfo val) {
+			clusterInfo = val;
+			return this;
+		}
 		
 		public Parallelism build() {
-			return new Parallelism(numCpus, numGpus, numStreamsPerGpu);
+			return new Parallelism(numCpus, numGpus, numStreamsPerGpu, clusterInfo);
+		}
+	}
+
+	public static class ClusterInfo {
+
+		public final String name;
+		public final int nodeId;
+		public final int numNodes;
+		public final boolean clientIsMember;
+
+		public static final boolean DefaultClientIsMember = true;
+
+		public ClusterInfo(String name, int nodeId, int numNodes) {
+			this(name, nodeId, numNodes, DefaultClientIsMember);
+		}
+
+		public ClusterInfo(String name, int nodeId, int numNodes, boolean clientIsMember) {
+			this.name = name;
+			this.nodeId = nodeId;
+			this.numNodes = numNodes;
+			this.clientIsMember = clientIsMember;
+		}
+
+		public int numMembers() {
+			if (clientIsMember) {
+				return numNodes;
+			} else {
+				return numNodes - 1;
+			}
 		}
 	}
 	
@@ -104,20 +141,27 @@ public class Parallelism {
 		return new Parallelism(
 			cfp.params.getInt("MinimizationThreads", 1),
 			cfp.params.getInt("MinimizationGpus", 0),
-			cfp.params.getInt("MinimizationStreamsPerGpu", 1)
+			cfp.params.getInt("MinimizationStreamsPerGpu", 1),
+			null
 		);
 	}
 	
 	public final int numThreads;
 	public final int numGpus;
 	public final int numStreamsPerGpu;
+	public final ClusterInfo clusterInfo;
 	
 	public final Type type;
-	
+
 	public Parallelism(int numThreads, int numGpus, int numStreamsPerGpu) {
+		this(numThreads, numGpus, numStreamsPerGpu, null);
+	}
+
+	public Parallelism(int numThreads, int numGpus, int numStreamsPerGpu, ClusterInfo clusterInfo) {
 		this.numThreads = numThreads;
 		this.numGpus = numGpus;
 		this.numStreamsPerGpu = numStreamsPerGpu;
+		this.clusterInfo = clusterInfo;
 		
 		// prefer gpus over threads
 		if (numGpus > 0) {
@@ -133,30 +177,41 @@ public class Parallelism {
 		}
 	}
 	
-	/** get the maximum number of tasks to be be executed in parallel */
+	/** get the maximum number of tasks to be be executed in parallel, on a single node */
 	public int getParallelism() {
 		return type.getParallelism(this);
 	}
-	
+
 	public TaskExecutor makeTaskExecutor() {
 		return makeTaskExecutor(null);
 	}
 	
 	/**
 	 * Makes a TaskExecutor to process tasks, possibly in parallel
-	 * @param useQueue true to buffer tasks in a queue before processing (can be faster),
-	 *                 false to only submit a task when a thread is ready (prevents extra tasks)
+	 * @param queueSize >0 value to buffer tasks in a queue before processing (can be faster),
+	 *                 null or 0 to only submit a task when a thread is ready (prevents extra tasks)
 	 */
 	public TaskExecutor makeTaskExecutor(Integer queueSize) {
-		if (getParallelism() > 1) {
-			ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-			if (queueSize != null) {
-				tasks.queueSize = queueSize;
-			}
-			tasks.start(getParallelism());
-			return tasks;
+		if (clusterInfo != null && clusterInfo.nodeId == 0) {
+
+			// make a cluster client
+			return new Cluster.Client(clusterInfo,
+				clusterInfo.clientIsMember ? getParallelism() : 0
+			);
+
 		} else {
-			return new TaskExecutor();
+
+			// otherwise, make a thread/gpu-scoped task executor
+			if (getParallelism() > 1) {
+				ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+				if (queueSize != null) {
+					tasks.queueSize = queueSize;
+				}
+				tasks.start(getParallelism());
+				return tasks;
+			} else {
+				return new TaskExecutor();
+			}
 		}
 	}
 }

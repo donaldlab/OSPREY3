@@ -1,6 +1,12 @@
 package edu.duke.cs.osprey;
 
+import edu.duke.cs.osprey.confspace.ParametricMolecule;
+import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.energy.*;
+import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.parallelism.Cluster;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
@@ -15,8 +21,6 @@ import static edu.duke.cs.osprey.tools.Log.log;
 
 
 public class ClusterLab {
-
-	private static final String ClusterName = "ClusterLab";
 
 	public static void main(String[] args)
 	throws Exception {
@@ -33,11 +37,7 @@ public class ClusterLab {
 			int id = Integer.parseInt(idStr);
 			int size = Integer.parseInt(System.getProperty("fork.size"));
 
-			if (id == 0) {
-				client(id, size);
-			} else {
-				member(id, size);
-			}
+			run(id, size);
 			return;
 		}
 
@@ -46,7 +46,7 @@ public class ClusterLab {
 		// fork into multiple processes
 		// (please don't fork bomb. please, please, please...)
 		log("MAIN: forking ...");
-		int numForks = 3;
+		int numForks = 2;
 		List<Fork> forks = IntStream.range(0, numForks)
 			.mapToObj(id -> new Fork(id, numForks))
 			.collect(Collectors.toList());
@@ -87,51 +87,97 @@ public class ClusterLab {
 		}
 	}
 
-	private static void member(int id, int size) {
-		new Cluster.Member(ClusterName, id, size).run();
-	}
+	private static void run(int id, int size) {
 
-	private static void client(int id, int size) {
+		// TEMP
+		Parallelism parallelism = new Parallelism(
+			4, 0, 0,
+			new Parallelism.ClusterInfo("Osprey", id, size, false)
+		);
+		//Parallelism parallelism = Parallelism.makeCpu(4);
 
-		log("CLIENT: start");
+		// set up a toy design
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 
-		try (Cluster.Client client = new Cluster.Client(ClusterName, id, size)) {
+		// how should we compute energies of molecules?
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+			.setParallelism(parallelism)
+			.build()) {
 
-			log("CLIENT: ready");
+			EnergyTask.Context ctx = new EnergyTask.Context(confSpaces.complex, ecalc);
 
-			// damn, Java is so verbose sometimes...
-			class FooTask extends Cluster.Task<String> {
+			if (id > 0) {
 
-				final int i;
+				// run as a pure member node
+				Cluster.Member member = new Cluster.Member(parallelism.clusterInfo);
+				member.putTaskContext(EnergyTask.class, ctx);
+				member.run(parallelism.getParallelism());
 
-				FooTask(int i) {
-					this.i = i;
-				}
+			} else {
 
-				@Override
-				public String run() {
-					try { Thread.sleep(2000); } catch (Throwable t) {} // TEMP
-					return "Foo" + i;
-				}
-			}
+				// run as a client/member node
+				TaskExecutor.WithContext tasks = (TaskExecutor.WithContext)ecalc.tasks;
+				tasks.putContext(EnergyTask.class, ctx);
 
-			try (TaskExecutor tasks = client.tasks()) {
-
-				log("CLIENT: sending tasks to %d nodes ...", tasks.getParallelism());
-				for (int i=0; i<10; i++) {
+				int[][] confs = {
+					{ 0, 0, 0, 0, 0, 0, 0, 0 },
+					{ 1, 0, 0, 0, 0, 0, 0, 0 },
+					{ 0, 1, 0, 0, 0, 0, 0, 0 },
+					{ 0, 0, 1, 0, 0, 0, 0, 0 },
+					{ 0, 0, 0, 1, 0, 0, 0, 0 },
+					{ 0, 0, 0, 0, 1, 0, 0, 0 },
+					{ 0, 0, 0, 0, 0, 1, 0, 0 },
+					{ 0, 0, 0, 0, 0, 0, 1, 0 },
+					{ 0, 0, 0, 0, 0, 0, 0, 1 }
+				};
+				for (int i=0; i<100; i++) {
+					final int fi = i;
 					tasks.submit(
-						new FooTask(i),
-						(result) -> {
-							log("CLIENT: result = %s", result);
-						}
+						new EnergyTask(i, confs[i % confs.length]),
+						energy -> log("CLIENT: conf %d energy = %f", fi, energy)
 					);
-					log("CLIENT: submitted %d", i);
 				}
-				log("CLIENT: all submitted, waiting ...");
 				tasks.waitForFinish();
+
+				log("CLIENT: K* finished!");
 			}
 		}
+	}
+}
 
-		log("CLIENT: finished");
+
+class EnergyTask extends Cluster.Task<Double,EnergyTask.Context> {
+
+	public static class Context {
+
+		final SimpleConfSpace confSpace;
+		final EnergyCalculator ecalc;
+
+		public Context(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
+			this.confSpace = confSpace;
+			this.ecalc = ecalc;
+		}
+	}
+
+	final int i;
+	final int[] conf;
+
+	EnergyTask(int i, int[] conf) {
+		this.i = i;
+		this.conf = conf;
+	}
+
+	@Override
+	public Double run(Context ctx) {
+
+		RCTuple frag = new RCTuple(conf);
+		ParametricMolecule pmol = ctx.confSpace.makeMolecule(conf);
+		ResidueInteractions inters = ResInterGen.of(ctx.confSpace)
+			.addIntras(frag)
+			.addInters(frag)
+			.addShell(frag)
+			.make();
+
+		return ctx.ecalc.calcEnergy(pmol, inters).energy;
 	}
 }

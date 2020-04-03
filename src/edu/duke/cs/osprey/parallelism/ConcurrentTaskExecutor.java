@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 
-public abstract class ConcurrentTaskExecutor extends TaskExecutor {
+public abstract class ConcurrentTaskExecutor extends TaskExecutor.WithContext {
 
 	private final AtomicLong numTasksStarted = new AtomicLong(0);
 	private final AtomicLong numTasksFinished = new AtomicLong(0);
