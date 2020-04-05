@@ -67,6 +67,10 @@ public class TestKStar {
 		public SimpleConfSpace protein;
 		public SimpleConfSpace ligand;
 		public SimpleConfSpace complex;
+
+		public List<SimpleConfSpace> asList() {
+			return Arrays.asList(protein, ligand, complex);
+		}
 	}
 
 	public static class Result {

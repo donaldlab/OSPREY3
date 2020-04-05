@@ -555,7 +555,11 @@ public class EnergyCalculator implements AutoCleanable {
 		this.parallelism = parallelism;
 		this.cluster = cluster;
 		if (cluster != null) {
-			this.tasks = cluster.new Client();
+			if (cluster.nodeId == 0) {
+				this.tasks = cluster.new Client();
+			} else {
+				this.tasks = cluster.new Member();
+			}
 		} else {
 			this.tasks = parallelism.makeTaskExecutor();
 		}
@@ -594,6 +598,25 @@ public class EnergyCalculator implements AutoCleanable {
 	public void clean() {
 		context.cleanup();
 		tasks.clean();
+	}
+
+	/**
+	 * Create a copy of the energy calculator whose TaskExecutor will only run locally on this cluster node.
+	 */
+	public EnergyCalculator local() {
+		return new EnergyCalculator(this, parallelism.makeTaskExecutor());
+	}
+	private EnergyCalculator(EnergyCalculator parent, TaskExecutor tasks) {
+		this.parallelism = parent.parallelism;
+		this.cluster = parent.cluster;
+		this.tasks = tasks;
+		this.type = parent.type;
+		this.context = parent.context;
+		this.resPairCache = parent.resPairCache;
+		this.isMinimizing = parent.isMinimizing;
+		this.infiniteWellEnergy = parent.infiniteWellEnergy;
+		this.alwaysResolveClashesEnergy = parent.alwaysResolveClashesEnergy;
+		this.cpuContext = parent.cpuContext;
 	}
 
 	/**

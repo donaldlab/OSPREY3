@@ -32,76 +32,13 @@
 
 package edu.duke.cs.osprey.parallelism;
 
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import edu.duke.cs.tpie.Cleaner;
-import edu.duke.cs.tpie.Cleaner.Cleanable;
 import edu.duke.cs.tpie.Cleaner.GarbageDetectable;
 
 
 public class ThreadPoolTaskExecutor extends ConcurrentTaskExecutor implements GarbageDetectable {
-	
-	private static class Threads implements Cleanable {
-		
-		private static int nextId = 0;
-		
-		final int poolId = nextId++;
-		final ThreadPoolExecutor pool;
-		final ThreadPoolExecutor listener;
-		final BlockingQueue<Runnable> queue;
-		
-		public Threads(int numThreads, int queueSize) {
-			
-			if (queueSize <= 0) {
-				queue = new SynchronousQueue<>();
-			} else {
-				queue = new ArrayBlockingQueue<>(queueSize);
-			}
-			AtomicInteger threadId = new AtomicInteger(0);
-			pool = new ThreadPoolExecutor(numThreads, numThreads, 0, TimeUnit.DAYS, queue, (runnable) -> {
-				Thread thread = Executors.defaultThreadFactory().newThread(runnable);
-				thread.setDaemon(true);
-				thread.setName(String.format("pool-%d-%d", poolId, threadId.getAndIncrement()));
-				return thread;
-			});
-			pool.prestartAllCoreThreads();
-			
-			// use an unbounded queue for the listener thread
-			// let task results pile up until the listener thread can process them
-			listener = new ThreadPoolExecutor(1, 1, 0, TimeUnit.DAYS, new LinkedBlockingQueue<>(), (runnable) -> {
-				Thread thread = Executors.defaultThreadFactory().newThread(runnable);
-				thread.setDaemon(true);
-				thread.setName(String.format("pool-%d-listener", poolId));
-				return thread;
-			});
-			listener.prestartAllCoreThreads();
-		}
-		
-		@Override
-		public void clean() {
-			pool.shutdown();
-			listener.shutdown();
-		}
-		
-		public void cleanAndWait(int timeoutMs) {
-			clean();
-			try {
-				pool.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS);
-				listener.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS);
-			} catch (InterruptedException ex) {
-				throw new Error(ex);
-			}
-		}
-	}
 	
 	/**
 	 * Controls task queue size.
@@ -165,14 +102,8 @@ public class ThreadPoolTaskExecutor extends ConcurrentTaskExecutor implements Ga
 					try {
 					
 						// run the task
-						T result;
-						if (task instanceof Task.WithContext) {
-							Task.WithContext<T,Object> taskWithContext = (Task.WithContext<T,Object>)task;
-							result = taskWithContext.run(getContext(taskWithContext));
-						} else {
-							result = task.run();
-						}
-						
+						T result = runTask(task);
+
 						// send the result to the listener thread
 						threads.listener.submit(() -> {
 							taskSuccess(task, listener, result);
@@ -191,17 +122,5 @@ public class ThreadPoolTaskExecutor extends ConcurrentTaskExecutor implements Ga
 		} catch (InterruptedException ex) {
 			throw new Error(ex);
 		}
-	}
-
-	private Map<Class<?>,Object> contexts = new IdentityHashMap<>();
-
-	@Override
-	public void putContext(Class<?> taskClass, Object ctx) {
-		contexts.put(taskClass, ctx);
-	}
-
-	@Override
-	public Object getContext(Class<?> taskClass) {
-		return contexts.get(taskClass);
 	}
 }

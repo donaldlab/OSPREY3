@@ -42,10 +42,12 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
+import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Progress;
 
 import static edu.duke.cs.osprey.tools.Log.log;
+
 
 public class SimplerEnergyMatrixCalculator {
 	
@@ -116,17 +118,24 @@ public class SimplerEnergyMatrixCalculator {
 			return new SimplerEnergyMatrixCalculator(confEcalc, cacheFile, tripleCorrectionThreshold, quadCorrectionThreshold);
 		}
 	}
+
+	private static int nextInstanceId = 0;
 	
 	public final ConfEnergyCalculator confEcalc;
 	public final File cacheFile;
 	public final Double tripleCorrectionThreshold;
 	public final Double quadCorrectionThreshold;
 
+	private final int instanceId = nextInstanceId++;
+
 	private SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile, Double tripleCorrectionThreshold, Double quadCorrectionThreshold) {
+
 		this.confEcalc = confEcalc;
 		this.cacheFile = cacheFile;
 		this.tripleCorrectionThreshold = tripleCorrectionThreshold;
 		this.quadCorrectionThreshold = quadCorrectionThreshold;
+
+		confEcalc.tasks.putContext(instanceId, BatchTask.class, new BatchTask.Context(confEcalc));
 	}
 	
 	/**
@@ -148,7 +157,14 @@ public class SimplerEnergyMatrixCalculator {
 	}
 	
 	private EnergyMatrix reallyCalcEnergyMatrix() {
-		
+
+		// if this is a member node, just skip the calculation
+		// TODO: send the energy matrix from the client to the member nodes?
+		//  and use some kind of barrier synchronization?
+		if (confEcalc.tasks instanceof Cluster.Member) {
+			return null;
+		}
+
 		// allocate the new matrix
 		EnergyMatrix emat = new EnergyMatrix(confEcalc.confSpaceIteration());
 
@@ -189,41 +205,7 @@ public class SimplerEnergyMatrixCalculator {
 
 			void submitTask() {
 				confEcalc.tasks.submit(
-					() -> {
-						
-						// calculate all the fragment energies
-						List<Double> energies = new ArrayList<>();
-						for (RCTuple frag : fragments) {
-
-							double energy;
-
-							// are there any RCs are from two different backbone states that can't connect?
-							if (isParametricallyIncompatible(frag)) {
-
-								// yup, give this frag an infinite energy so we never choose it
-								energy = Double.POSITIVE_INFINITY;
-
-							} else {
-
-								// nope, calculate the usual fragment energy
-								switch (frag.size()) {
-									case 1: {
-										energy = confEcalc.calcSingleEnergy(frag).energy;
-									} break;
-									case 2: {
-										energy = confEcalc.calcPairEnergy(frag).energy;
-									} break;
-									default: {
-										energy = confEcalc.calcEnergy(frag).energy;
-									}
-								}
-							}
-
-							energies.add(energy);
-						}
-						
-						return energies;
-					},
+					new BatchTask(instanceId, fragments),
 					(List<Double> energies) -> {
 						
 						// update the energy matrix
@@ -305,6 +287,62 @@ public class SimplerEnergyMatrixCalculator {
 		return emat;
 	}
 
+	private static class BatchTask extends Cluster.Task<List<Double>,BatchTask.Context> {
+
+		static class Context {
+
+			ConfEnergyCalculator confEcalc;
+
+			public Context(ConfEnergyCalculator confEcalc) {
+				this.confEcalc = confEcalc;
+			}
+		}
+
+		List<RCTuple> fragments;
+
+		BatchTask(int ctxid, List<RCTuple> fragments) {
+			super(ctxid);
+			this.fragments = fragments;
+		}
+
+		@Override
+		public List<Double> run(Context ctx) {
+
+			// calculate all the fragment energies
+			List<Double> energies = new ArrayList<>();
+			for (RCTuple frag : fragments) {
+
+				double energy;
+
+				// are there any RCs are from two different backbone states that can't connect?
+				if (isParametricallyIncompatible(ctx.confEcalc, frag)) {
+
+					// yup, give this frag an infinite energy so we never choose it
+					energy = Double.POSITIVE_INFINITY;
+
+				} else {
+
+					// nope, calculate the usual fragment energy
+					switch (frag.size()) {
+						case 1: {
+							energy = ctx.confEcalc.calcSingleEnergy(frag).energy;
+						} break;
+						case 2: {
+							energy = ctx.confEcalc.calcPairEnergy(frag).energy;
+						} break;
+						default: {
+							energy = ctx.confEcalc.calcEnergy(frag).energy;
+						}
+					}
+				}
+
+				energies.add(energy);
+			}
+
+			return energies;
+		}
+	}
+
 	// TODO: improve progress bar performance by pre-counting the tuples that pass the threshold
 
 	private void calcTripleCorrections(EnergyMatrix emat) {
@@ -337,7 +375,7 @@ public class SimplerEnergyMatrixCalculator {
 								final RCTuple triple = new RCTuple(pos3, rc3, pos2, rc2, pos1, rc1);
 
 								// check the triple for parametric incompatibilities
-								if (isParametricallyIncompatible(triple)) {
+								if (isParametricallyIncompatible(confEcalc, triple)) {
 									synchronized (progress) {
 										progress.incrementProgress();
 									}
@@ -416,7 +454,7 @@ public class SimplerEnergyMatrixCalculator {
 										final RCTuple quad = new RCTuple(pos4, rc4, pos3, rc3, pos2, rc2, pos1, rc1);
 
 										// check the quad for parametric incompatibilities
-										if (isParametricallyIncompatible(quad)) {
+										if (isParametricallyIncompatible(confEcalc, quad)) {
 											synchronized (progress) {
 												progress.incrementProgress();
 											}
@@ -500,18 +538,19 @@ public class SimplerEnergyMatrixCalculator {
 		return eref;
 	}
 
-	private boolean isParametricallyIncompatible(RCTuple tuple) {
+	private static boolean isParametricallyIncompatible(ConfEnergyCalculator confEcalc, RCTuple tuple) {
 
 		// if we don't have an old-style conf space, that means we must have a new compiled conf space
 		// the new conf spaces don't have incompatible conformations (yet?)
 		if (confEcalc.confSpace == null) {
 			return false;
 		}
+		SimpleConfSpace confSpace = confEcalc.confSpace;
 
 		for (int i1=0; i1<tuple.size(); i1++) {
-			SimpleConfSpace.ResidueConf rc1 = getRC(tuple, i1);
+			SimpleConfSpace.ResidueConf rc1 = getRC(confSpace, tuple, i1);
 			for (int i2=0; i2<i1; i2++) {
-				SimpleConfSpace.ResidueConf rc2 = getRC(tuple, i2);
+				SimpleConfSpace.ResidueConf rc2 = getRC(confSpace, tuple, i2);
 				if (!isPairParametricallyCompatible(rc1, rc2)) {
 					return true;
 				}
@@ -520,11 +559,11 @@ public class SimplerEnergyMatrixCalculator {
 		return false;
 	}
 
-	private SimpleConfSpace.ResidueConf getRC(RCTuple tuple, int index) {
-		return confEcalc.confSpace.positions.get(tuple.pos.get(index)).resConfs.get(tuple.RCs.get(index));
+	private static SimpleConfSpace.ResidueConf getRC(SimpleConfSpace confSpace, RCTuple tuple, int index) {
+		return confSpace.positions.get(tuple.pos.get(index)).resConfs.get(tuple.RCs.get(index));
 	}
 
-	private boolean isPairParametricallyCompatible(SimpleConfSpace.ResidueConf rc1, SimpleConfSpace.ResidueConf rc2) {
+	private static boolean isPairParametricallyCompatible(SimpleConfSpace.ResidueConf rc1, SimpleConfSpace.ResidueConf rc2) {
 		for(String dofName : rc1.dofBounds.keySet()){
 			if(rc2.dofBounds.containsKey(dofName)){
 				//shared DOF between the RCs; make sure the interval matches

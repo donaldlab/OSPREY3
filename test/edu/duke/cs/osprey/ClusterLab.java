@@ -1,10 +1,18 @@
 package edu.duke.cs.osprey;
 
-import edu.duke.cs.osprey.confspace.ParametricMolecule;
-import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.*;
+import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.TestKStar;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -13,6 +21,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -41,15 +50,18 @@ public class ClusterLab {
 		}
 
 		// not a fork, so do the forking
+		int numNodes = 2;
 
 		// fork into multiple processes
 		// (please don't fork bomb. please, please, please...)
 		log("MAIN: forking ...");
-		int numForks = 2;
-		List<Fork> forks = IntStream.range(0, numForks)
-			.mapToObj(id -> new Fork(id, numForks))
+		List<Fork> forks = IntStream.range(1, numNodes)
+			.mapToObj(id -> new Fork(id, numNodes))
 			.collect(Collectors.toList());
 		log("MAIN: forked!");
+
+		// run the client here
+		run(0, numNodes);
 
 		// wait for the forks to finish
 		for (Fork fork : forks) {
@@ -94,151 +106,107 @@ public class ClusterLab {
 		// set up a toy design
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 
-		if (id > 0) {
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.asList(), confSpaces.ffparams)
+			.setCluster(cluster)
+			.setParallelism(parallelism)
+			.build()) {
 
-			// run as a pure member node
-			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams).build()) {
+			// run K*
+			KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) -> {
 
-				Cluster.Member member = cluster.new Member();
-				member.putTaskContext(EnergyTask.class, new EnergyTask.Context(confSpaces.complex, ecalc));
-				member.run();
-			}
-
-		} else {
-
-			// run as a client/member node
-			try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
-				.setCluster(cluster)
-				.build()) {
-
-				Cluster.Client tasks = (Cluster.Client)ecalc.tasks;
-				tasks.putContext(EnergyTask.class, new EnergyTask.Context(confSpaces.complex, ecalc));
-
-				int[][] confs = {
-					{ 0, 0, 0, 0, 0, 0, 0, 0 },
-					{ 1, 0, 0, 0, 0, 0, 0, 0 },
-					{ 0, 1, 0, 0, 0, 0, 0, 0 },
-					{ 0, 0, 1, 0, 0, 0, 0, 0 },
-					{ 0, 0, 0, 1, 0, 0, 0, 0 },
-					{ 0, 0, 0, 0, 1, 0, 0, 0 },
-					{ 0, 0, 0, 0, 0, 1, 0, 0 },
-					{ 0, 0, 0, 0, 0, 0, 1, 0 },
-					{ 0, 0, 0, 0, 0, 0, 0, 1 }
+				Function<PartitionFunction.Result,String> formatPfunc = (pfuncResult) -> {
+					if (pfuncResult.status == PartitionFunction.Status.Estimated) {
+						return String.format("%12e", pfuncResult.values.qstar.doubleValue());
+					}
+					return "null";
 				};
-				for (int i=0; i<100; i++) {
-					final int fi = i;
-					tasks.submit(
-						new EnergyTask(i, confs[i % confs.length]),
-						energy -> log("CLIENT: conf %d energy = %f", fi, energy)
-					);
-				}
-				tasks.waitForFinish();
-			}
-		}
 
-		/* TODO: NEXTTIME: try to get K* working
-		// run K*
-		KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) -> {
-
-			Function<PartitionFunction.Result,String> formatPfunc = (pfuncResult) -> {
-				if (pfuncResult.status == PartitionFunction.Status.Estimated) {
-					return String.format("%12e", pfuncResult.values.qstar.doubleValue());
-				}
-				return "null";
+				return String.format("assertSequence(result, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon); // protein %s ligand %s complex %s K* = %s",
+					info.sequenceNumber,
+					info.sequence.toString(Sequence.Renderer.ResType),
+					formatPfunc.apply(info.kstarScore.protein),
+					formatPfunc.apply(info.kstarScore.ligand),
+					formatPfunc.apply(info.kstarScore.complex),
+					info.kstarScore.protein.toString(),
+					info.kstarScore.ligand.toString(),
+					info.kstarScore.complex.toString(),
+					info.kstarScore.toString()
+				);
 			};
 
-			return String.format("assertSequence(result, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon); // protein %s ligand %s complex %s K* = %s",
-				info.sequenceNumber,
-				info.sequence.toString(Sequence.Renderer.ResType),
-				formatPfunc.apply(info.kstarScore.protein),
-				formatPfunc.apply(info.kstarScore.ligand),
-				formatPfunc.apply(info.kstarScore.complex),
-				info.kstarScore.protein.toString(),
-				info.kstarScore.ligand.toString(),
-				info.kstarScore.complex.toString(),
-				info.kstarScore.toString()
-			);
-		};
-
-		// configure K*
-		KStar.Settings settings = new KStar.Settings.Builder()
-			.setEpsilon(0.95)
-			.setStabilityThreshold(null)
-			.addScoreConsoleWriter(testFormatter)
-			.setMaxSimultaneousMutations(1)
-			.build();
-		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
-		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
-
-			SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
-
-			// how should we define energies of conformations?
-			info.confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
-				.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
-					.build()
-					.calcReferenceEnergies()
-				)
+			// configure K*
+			KStar.Settings settings = new KStar.Settings.Builder()
+				.setEpsilon(0.95)
+				.setStabilityThreshold(null)
+				.addScoreConsoleWriter(testFormatter)
+				.setMaxSimultaneousMutations(1)
 				.build();
+			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
+			// TEMP
+			//for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+			{ KStar.ConfSpaceInfo info = kstar.getConfSpaceInfo(confSpaces.complex);
 
-			// calc energy matrix
-			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
-				.build()
-				.calcEnergyMatrix();
+				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
-			// how should confs be ordered and searched?
-			info.confSearchFactory = (rcs) ->
-				new ConfAStarTree.Builder(emat, rcs)
-					.setTraditional()
+				// compute reference energies locally on each node
+				SimpleReferenceEnergies eref;
+				try (EnergyCalculator localEcalc = ecalc.local()) {
+					eref = new SimplerEnergyMatrixCalculator.Builder(confSpace, localEcalc)
+						.build()
+						.calcReferenceEnergies();
+				}
+
+				// how should we define energies of conformations?
+				info.confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+					.setReferenceEnergies(eref)
 					.build();
-		}
 
-		// run K*
-		TestKStar.Result result = new TestKStar.Result();
-		result.kstar = kstar;
-		result.scores = kstar.run();
-		*/
+				// calc the energy matrix
+				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
+					.build()
+					.calcEnergyMatrix();
+
+				// how should confs be ordered and searched?
+				info.confSearchFactory = (rcs) ->
+					new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional()
+						.build();
+			}
+
+			// TEMP: try to compute the pfunc of the wt seq
+			SimpleConfSpace confSpace = confSpaces.complex;
+			KStar.ConfSpaceInfo info = kstar.getConfSpaceInfo(confSpaces.complex);
+			GradientDescentPfunc pfunc = new GradientDescentPfunc(info.confEcalc, 0);
+
+			if (id == 0) {
+
+				// run as a client node
+				log("CLIENT: ready to run");
+
+				Sequence seq = confSpace.seqSpace.makeWildTypeSequence();
+				RCs rcs = seq.makeRCs(confSpace);
+				pfunc.init(
+					info.confSearchFactory.make(rcs),
+					info.confSearchFactory.make(rcs),
+					rcs.getNumConformations(),
+				0.9
+				);
+				pfunc.setReportProgress(true);
+				pfunc.compute();
+			}
+
+			// TODO: run K*
+			//kstar.run();
+
+			if (id > 0) {
+				log("MEMBER %d: configured", id);
+			}
+		}
 
 		if (id > 0) {
 			log("MEMBER %d: finished", id);
 		} else {
 			log("CLIENT: finished");
 		}
-	}
-}
-
-
-class EnergyTask extends Cluster.Task<Double,EnergyTask.Context> {
-
-	public static class Context {
-
-		final SimpleConfSpace confSpace;
-		final EnergyCalculator ecalc;
-
-		public Context(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
-			this.confSpace = confSpace;
-			this.ecalc = ecalc;
-		}
-	}
-
-	final int i;
-	final int[] conf;
-
-	EnergyTask(int i, int[] conf) {
-		this.i = i;
-		this.conf = conf;
-	}
-
-	@Override
-	public Double run(Context ctx) {
-
-		RCTuple frag = new RCTuple(conf);
-		ParametricMolecule pmol = ctx.confSpace.makeMolecule(conf);
-		ResidueInteractions inters = ResInterGen.of(ctx.confSpace)
-			.addIntras(frag)
-			.addInters(frag)
-			.addShell(frag)
-			.make();
-
-		return ctx.ecalc.calcEnergy(pmol, inters).energy;
 	}
 }

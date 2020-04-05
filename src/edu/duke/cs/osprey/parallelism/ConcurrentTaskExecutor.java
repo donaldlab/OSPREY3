@@ -3,8 +3,10 @@ package edu.duke.cs.osprey.parallelism;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static edu.duke.cs.osprey.tools.Log.log;
 
-public abstract class ConcurrentTaskExecutor extends TaskExecutor.WithContext {
+
+public abstract class ConcurrentTaskExecutor extends TaskExecutor {
 
 	private final AtomicLong numTasksStarted = new AtomicLong(0);
 	private final AtomicLong numTasksFinished = new AtomicLong(0);

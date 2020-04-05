@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -61,11 +60,20 @@ public class Cluster {
 		}
 	}
 
-	public class Member {
+	public class Member extends ConcurrentTaskExecutor {
 
+		private final int timeoutS;
 		private final HazelcastInstance inst;
 
+		public static final int DefaultTimeoutS = 60*5; // 5 minutes
+
 		public Member() {
+			this(DefaultTimeoutS);
+		}
+
+		public Member(int timeoutS) {
+
+			this.timeoutS = timeoutS;
 
 			// configure the cluster
 			Config cfg = new Config();
@@ -84,32 +92,39 @@ public class Cluster {
 			System.out.flush();
 		}
 
-		public static final int DefaultTimeoutS = 60*5; // 5 minutes
-
-		public void putTaskContext(Class<?> taskClass, Object ctx) {
-			Cluster.Task.putContext(inst, taskClass, ctx);
+		@Override
+		public int getParallelism() {
+			return parallelism.getParallelism();
 		}
 
-		public void run() {
-			run(DefaultTimeoutS);
+		@Override
+		public <T> void submit(TaskExecutor.Task<T> task, TaskListener<T> listener) {
+			throw new UnsupportedOperationException("Member nodes accept tasks from the Client node, not the TaskExecutor interface");
 		}
 
-		public void run(int timeoutS) {
+		@Override
+		public void putContext(ContextId ctxid, Object ctx) {
+			Cluster.Task.putContext(inst, ctxid, ctx);
+		}
+
+		@Override
+		public Object getContext(ContextId ctxid) {
+			return Cluster.Task.getContext(inst, ctxid);
+		}
+
+		@Override
+		public void clean() {
+			run();
+		}
+
+		private void run() {
 
 			log("Member node ready");
 
 			// start a thread pool
-			AtomicInteger threadId = new AtomicInteger(0);
-			ExecutorService threads = Executors.newFixedThreadPool(parallelism.getParallelism(), (runnable) -> {
-				Thread thread = Executors.defaultThreadFactory().newThread(runnable);
-				thread.setDaemon(true);
-				thread.setName(String.format("ClusterMemberPool-%d", threadId.getAndIncrement()));
-				return thread;
-			});
+			try (Threads threads = new Threads(parallelism.getParallelism(), 0)) {
 
-			try {
-
-				IQueue<Cluster.Task<?,?>> scatter = inst.getQueue(TasksScatterName);
+				IQueue<Cluster.Task<?,Object>> scatter = inst.getQueue(TasksScatterName);
 				IQueue<TaskResult<?>> gather = inst.getQueue(TasksGatherName);
 
 				// wait as long as the cluster is alive
@@ -117,7 +132,7 @@ public class Cluster {
 				while (isAlive(alive, timeoutS)) {
 
 					// look for tasks in the queue to process
-					Cluster.Task<?,?> task;
+					Cluster.Task<?,Object> task;
 					try {
 						task = scatter.poll(1000, TimeUnit.MILLISECONDS);
 					} catch (InterruptedException ex) {
@@ -128,40 +143,52 @@ public class Cluster {
 					if (task != null) {
 
 						// process the task on the thread pool
-						threads.submit(() -> {
+						try {
 
-							TaskResult<?> result;
-							try {
-								result = new TaskResult<>(
-									task.id,
-									task.call(),
-									null
-								);
-							} catch (Throwable t) {
-								result = new TaskResult<>(
-									task.id,
-									null,
-									t
-								);
+							boolean wasAdded = false;
+							while (!wasAdded) {
+
+								// NOTE: don't use ThreadPoolExecutor.submit() to send tasks, because it won't let us block.
+								// access the work queue directly instead, so we can block if the thread pool isn't ready yet.
+								wasAdded = threads.queue.offer(() -> {
+
+									// run the task
+									TaskResult<?> result;
+									try {
+										result = TaskResult.success(task.id, runTask(task));
+									} catch (Throwable t) {
+										result = TaskResult.failure(task.id, t);
+									}
+
+									// send the result back
+									// TODO: what if the queue is full?
+									try {
+										boolean wasOffered = false;
+										while (!wasOffered) {
+											wasOffered = gather.offer(result, 1000, TimeUnit.MILLISECONDS);
+										}
+									} catch (InterruptedException ex) {
+										// we're in a thread pool, just abort this task
+									} catch (Exception ex) {
+										log("ERROR: can't send task result to client node");
+										ex.printStackTrace(System.out);
+									}
+
+								}, 400, TimeUnit.MILLISECONDS);
 							}
 
-							// send the result back
-							// TODO: what if the queue is full?
-							try {
-								boolean wasOffered = false;
-								while (!wasOffered) {
-									wasOffered = gather.offer(result, 1000, TimeUnit.MILLISECONDS);
-								}
-							} catch (InterruptedException ex) {
-								// we're in a thread pool, just abort this task
-							}
-						});
+						} catch (InterruptedException ex) {
+							throw new Error(ex);
+						}
 					}
 				}
 
-			} finally {
+			} catch (Throwable t) {
 
-				threads.shutdown();
+				log("Error on member thread");
+				t.printStackTrace(System.out);
+
+			} finally {
 
 				// cluster isn't alive anymore (or never was), take down this cluster node
 				inst.getLifecycleService().shutdown();
@@ -196,7 +223,7 @@ public class Cluster {
 		}
 	}
 
-	public class Client extends ConcurrentTaskExecutor implements AutoCloseable {
+	public class Client extends ConcurrentTaskExecutor {
 
 		private final Member member;
 		private final HazelcastInstance inst;
@@ -211,10 +238,10 @@ public class Cluster {
 
 		public Client() {
 
-			// make a member first, if needed
+			// make a member first, if needed, on another thread
 			if (clientIsMember) {
 				member = new Member();
-				Thread memberThread = new Thread(() -> member.run(parallelism.getParallelism()));
+				Thread memberThread = new Thread(() -> member.clean());
 				memberThread.setName("ClusterClientMember");
 				memberThread.start();
 			} else {
@@ -286,16 +313,16 @@ public class Cluster {
 		}
 
 		@Override
-		public void putContext(Class<?> taskClass, Object ctx) {
-			Cluster.Task.putContext(inst, taskClass, ctx);
+		public void putContext(ContextId ctxid, Object ctx) {
+			Cluster.Task.putContext(inst, ctxid, ctx);
 			if (member != null) {
-				Cluster.Task.putContext(member.inst, taskClass, ctx);
+				Cluster.Task.putContext(member.inst, ctxid, ctx);
 			}
 		}
 
 		@Override
-		public Object getContext(Class<?> taskClass) {
-			return Cluster.Task.getContext(inst, taskClass);
+		public Object getContext(ContextId ctxid) {
+			return Cluster.Task.getContext(inst, ctxid);
 		}
 
 		@Override
@@ -322,7 +349,7 @@ public class Cluster {
 		/**
 		 * Submits a task to run on the cluster.
 		 * The parameter type must be Serializable.
-		 * The task must have context or an exception will be thrown.
+		 * The task must extend Cluster.Task or an exception will be thrown.
 		 */
 		@Override
 		public <T> void submit(TaskExecutor.Task<T> task, TaskListener<T> listener) {
@@ -349,11 +376,16 @@ public class Cluster {
 
 	private static long nextTaskId = 0L;
 
-	public static abstract class Task<T,C> implements TaskExecutor.Task.WithContext<T,C>, Callable<T>, Serializable, HazelcastInstanceAware {
+	public static abstract class Task<T,C> implements TaskExecutor.Task.WithContext<T,C>, Serializable, HazelcastInstanceAware {
 
 		protected transient HazelcastInstance inst;
 
-		private final long id = nextTaskId++;
+		public final long id = nextTaskId++;
+		public final int instanceId;
+
+		protected Task(int instanceId) {
+			this.instanceId = instanceId;
+		}
 
 		@Override
 		public void setHazelcastInstance(HazelcastInstance inst) {
@@ -361,20 +393,20 @@ public class Cluster {
 		}
 
 		@Override
-		public T call() {
-			return run(getContext(inst, getClass()));
+		public int instanceId() {
+			return instanceId;
 		}
 
-		static void putContext(HazelcastInstance inst, Class<?> taskClass, Object ctx) {
-			inst.getUserContext().put(taskClass.getName(), ctx);
+		private static String ctxidStr(TaskExecutor.ContextId ctxid) {
+			return String.format("%d_%s", ctxid.instanceId, ctxid.taskClass.getName());
 		}
 
-		static <C> C getContext(HazelcastInstance inst, Class<?> taskClass) {
+		static void putContext(HazelcastInstance inst, TaskExecutor.ContextId ctxid, Object ctx) {
+			inst.getUserContext().put(ctxidStr(ctxid), ctx);
+		}
 
-			@SuppressWarnings("unchecked")
-			C ctx = (C)inst.getUserContext().get(taskClass.getName());
-
-			return ctx;
+		static Object getContext(HazelcastInstance inst, TaskExecutor.ContextId ctxid) {
+			return inst.getUserContext().get(ctxidStr(ctxid));
 		}
 
 		/**
@@ -390,10 +422,10 @@ public class Cluster {
 
 	private static class TaskAndListener<T,C> {
 
-		public final Task.WithContext<T,C> task;
+		public final Cluster.Task<T,C> task;
 		public final TaskExecutor.TaskListener<T> listener;
 
-		public TaskAndListener(Task.WithContext<T,C> task, TaskExecutor.TaskListener<T> listener) {
+		public TaskAndListener(Cluster.Task<T,C> task, TaskExecutor.TaskListener<T> listener) {
 			this.task = task;
 			this.listener = listener;
 		}
@@ -417,6 +449,11 @@ public class Cluster {
 
 		public static <T> TaskResult<T> failure(long taskId, Throwable t) {
 			return new TaskResult<>(taskId, null, t);
+		}
+
+		@Override
+		public String toString() {
+			return String.format("TaskResult[id=%d, %s]", taskId, t == null ? "success" : "failure");
 		}
 	}
 }

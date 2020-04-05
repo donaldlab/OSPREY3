@@ -33,6 +33,10 @@
 package edu.duke.cs.osprey.parallelism;
 
 import edu.duke.cs.osprey.tools.AutoCleanable;
+import edu.duke.cs.osprey.tools.HashCalculator;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class TaskExecutor implements AutoCleanable {
 
@@ -42,7 +46,12 @@ public class TaskExecutor implements AutoCleanable {
 
 		interface WithContext<T,C> extends Task<T> {
 
+			int instanceId();
 			T run(C ctx);
+
+			default ContextId contextId() {
+				return new ContextId(instanceId(), getClass());
+			}
 
 			default T run() {
 				return run(null);
@@ -50,29 +59,56 @@ public class TaskExecutor implements AutoCleanable {
 		}
 	}
 
-	/**
-	 * A TaskExecutor that lets all tasks run with a shared a context object.
-	 */
-	public static abstract class WithContext extends TaskExecutor {
+	public static class ContextId {
 
-		public abstract void putContext(Class<?> taskClass, Object ctx);
-		public abstract Object getContext(Class<?> taskClass);
+		public final int instanceId;
+		public final Class<?> taskClass;
 
-		public <C> C getContext(Task.WithContext<?,C> task) {
+		public ContextId(int instanceId, Class<?> taskClass) {
+			this.instanceId = instanceId;
+			this.taskClass = taskClass;
+		}
 
-			@SuppressWarnings("unchecked")
-			C ctx = (C)getContext(task.getClass());
+		@Override
+		public int hashCode() {
+			return HashCalculator.combineHashes(instanceId, taskClass.hashCode());
+		}
 
-			return ctx;
+		@Override
+		public boolean equals(Object other) {
+			return other instanceof ContextId && equals((ContextId)other);
+		}
+
+		public boolean equals(ContextId other) {
+			return this.instanceId == other.instanceId
+				&& this.taskClass.equals(other.taskClass);
 		}
 	}
 
 	public interface TaskListener<T> {
 		void onFinished(T result);
 	}
-	
+
 	public int getParallelism() {
 		return 1;
+	}
+
+	private Map<ContextId,Object> contexts = new HashMap<>();
+
+	public void putContext(ContextId ctxid, Object ctx) {
+		contexts.put(ctxid, ctx);
+	}
+
+	public void putContext(int instanceId, Class<?> taskClass, Object ctx) {
+		putContext(new ContextId(instanceId, taskClass), ctx);
+	}
+
+	public Object getContext(ContextId ctxid) {
+		return contexts.get(ctxid);
+	}
+
+	public Object getContext(int instanceId, Class<?> taskClass) {
+		return getContext(new ContextId(instanceId, taskClass));
 	}
 
 	public boolean isBusy() {
@@ -84,8 +120,16 @@ public class TaskExecutor implements AutoCleanable {
 	}
 
 	public <T> void submit(Task<T> task, TaskListener<T> listener) {
-		T result = task.run();
-		listener.onFinished(result);
+		listener.onFinished(runTask(task));
+	}
+
+	protected <T> T runTask(Task<T> task) {
+		if (task instanceof Task.WithContext) {
+			Task.WithContext<T,Object> taskWithContext = (Task.WithContext<T,Object>)task;
+			return taskWithContext.run(getContext(taskWithContext.contextId()));
+		} else {
+			return task.run();
+		}
 	}
 	
 	public void waitForFinish() {
