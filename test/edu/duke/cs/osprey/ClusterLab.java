@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -11,11 +10,9 @@ import edu.duke.cs.osprey.energy.*;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.TestKStar;
-import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.io.File;
@@ -102,7 +99,7 @@ public class ClusterLab {
 	private static void run(int id, int size) {
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
-		Cluster cluster = new Cluster("Osprey", id, size, parallelism, true);
+		Cluster cluster = new Cluster("Osprey", id, size, parallelism, false);
 
 		// set up a toy design
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
@@ -143,9 +140,7 @@ public class ClusterLab {
 				.setMaxSimultaneousMutations(1)
 				.build();
 			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
-			// TEMP
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
-			//{ KStar.ConfSpaceInfo info = kstar.getConfSpaceInfo(confSpaces.complex);
 
 				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
@@ -174,31 +169,8 @@ public class ClusterLab {
 						.build();
 			}
 
-			// TEMP: try to compute the pfunc of the wt seq
-			try (TaskExecutor.ContextGroup contexts = ecalc.tasks.contextGroup()) {
-
-				SimpleConfSpace confSpace = confSpaces.complex;
-				KStar.ConfSpaceInfo info = kstar.getConfSpaceInfo(confSpaces.complex);
-				GradientDescentPfunc pfunc = new GradientDescentPfunc(info.confEcalc);
-				pfunc.putTaskContexts(contexts, 0);
-
-				if (id == 0) {
-
-					Sequence seq = confSpace.seqSpace.makeWildTypeSequence();
-					RCs rcs = seq.makeRCs(confSpace);
-					pfunc.init(
-						info.confSearchFactory.make(rcs),
-						info.confSearchFactory.make(rcs),
-						rcs.getNumConformations(),
-					0.9
-					);
-					pfunc.setReportProgress(true);
-					pfunc.compute();
-				}
-			}
-
-			// TODO: run K*
-			//kstar.run();
+			// run K*
+			kstar.run();
 		}
 
 		if (id > 0) {

@@ -212,7 +212,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	private Stopwatch stopwatch = new Stopwatch().start();
 	private ConfSearch scoreConfs = null;
 	private ConfSearch energyConfs = null;
-	private BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
+	private static BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
 	private Status status = null;
 	private Values values = null;
@@ -237,8 +238,12 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 	private Integer instanceId = null;
 
-	public void putTaskContexts(TaskExecutor.ContextGroup contexts, int instanceId) {
+	@Override
+	public void setInstanceId(int instanceId) {
 		this.instanceId = instanceId;
+	}
+
+	public void putTaskContexts(TaskExecutor.ContextGroup contexts) {
 		// TODO: how to support conf tables correctly, when the energies are distributed across the cluster?
 		contexts.putContext(instanceId, EnergyTask.class, new EnergyTask.Context(ecalc, bcalc, confTable));
 		contexts.putContext(instanceId, ScoreTask.class, new ScoreTask.Context(bcalc));
