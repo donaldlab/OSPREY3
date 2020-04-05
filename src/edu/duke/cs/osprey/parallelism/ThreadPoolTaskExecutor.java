@@ -83,44 +83,35 @@ public class ThreadPoolTaskExecutor extends ConcurrentTaskExecutor implements Ga
 	
 	@Override
 	public int getParallelism() {
-		return threads.pool.getCorePoolSize();
+		return threads.size();
 	}
 
 	@Override
 	public <T> void submit(Task<T> task, TaskListener<T> listener) {
-		try {
-			
-			boolean wasAdded = false;
-			while (!wasAdded) {
-				
-				checkException();
 
-				// NOTE: don't use ThreadPoolExecutor.submit() to send tasks, because it won't let us block.
-				// access the work queue directly instead, so we can block if the thread pool isn't ready yet.
-				wasAdded = threads.queue.offer(() -> {
-					
-					try {
-					
-						// run the task
-						T result = runTask(task);
+		boolean wasAdded = false;
+		while (!wasAdded) {
 
-						// send the result to the listener thread
-						threads.listener.submit(() -> {
-							taskSuccess(task, listener, result);
-						});
-						
-					} catch (Throwable t) {
-						taskFailure(task, listener, t);
-					}
-					
-				}, 400, TimeUnit.MILLISECONDS);
-			}
-			
-			// the task was started successfully, hooray!
-			startedTask();
-			
-		} catch (InterruptedException ex) {
-			throw new Error(ex);
+			checkException();
+
+			wasAdded = threads.submit(400, TimeUnit.MILLISECONDS, () -> {
+				try {
+
+					// run the task
+					T result = runTask(task);
+
+					// send the result to the listener thread
+					threads.submitToListener(() -> {
+						taskSuccess(task, listener, result);
+					});
+
+				} catch (Throwable t) {
+					taskFailure(task, listener, t);
+				}
+			});
 		}
+
+		// the task was started successfully, hooray!
+		startedTask();
 	}
 }

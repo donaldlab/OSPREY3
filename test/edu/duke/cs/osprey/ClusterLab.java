@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.io.File;
@@ -143,8 +144,8 @@ public class ClusterLab {
 				.build();
 			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 			// TEMP
-			//for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
-			{ KStar.ConfSpaceInfo info = kstar.getConfSpaceInfo(confSpaces.complex);
+			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+			//{ KStar.ConfSpaceInfo info = kstar.getConfSpaceInfo(confSpaces.complex);
 
 				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
@@ -174,33 +175,30 @@ public class ClusterLab {
 			}
 
 			// TEMP: try to compute the pfunc of the wt seq
-			SimpleConfSpace confSpace = confSpaces.complex;
-			KStar.ConfSpaceInfo info = kstar.getConfSpaceInfo(confSpaces.complex);
-			GradientDescentPfunc pfunc = new GradientDescentPfunc(info.confEcalc, 0);
+			try (TaskExecutor.ContextGroup contexts = ecalc.tasks.contextGroup()) {
 
-			if (id == 0) {
+				SimpleConfSpace confSpace = confSpaces.complex;
+				KStar.ConfSpaceInfo info = kstar.getConfSpaceInfo(confSpaces.complex);
+				GradientDescentPfunc pfunc = new GradientDescentPfunc(info.confEcalc);
+				pfunc.putTaskContexts(contexts, 0);
 
-				// run as a client node
-				log("CLIENT: ready to run");
+				if (id == 0) {
 
-				Sequence seq = confSpace.seqSpace.makeWildTypeSequence();
-				RCs rcs = seq.makeRCs(confSpace);
-				pfunc.init(
-					info.confSearchFactory.make(rcs),
-					info.confSearchFactory.make(rcs),
-					rcs.getNumConformations(),
-				0.9
-				);
-				pfunc.setReportProgress(true);
-				pfunc.compute();
+					Sequence seq = confSpace.seqSpace.makeWildTypeSequence();
+					RCs rcs = seq.makeRCs(confSpace);
+					pfunc.init(
+						info.confSearchFactory.make(rcs),
+						info.confSearchFactory.make(rcs),
+						rcs.getNumConformations(),
+					0.9
+					);
+					pfunc.setReportProgress(true);
+					pfunc.compute();
+				}
 			}
 
 			// TODO: run K*
 			//kstar.run();
-
-			if (id > 0) {
-				log("MEMBER %d: configured", id);
-			}
 		}
 
 		if (id > 0) {

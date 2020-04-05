@@ -10,10 +10,11 @@ public class Threads implements AutoCleanable {
 
 	private static int nextId = 0;
 
-	final int poolId = nextId++;
-	final ThreadPoolExecutor pool;
-	final ThreadPoolExecutor listener;
-	final BlockingQueue<Runnable> queue;
+	private final int poolId = nextId++;
+	private final ThreadPoolExecutor pool;
+	private final ThreadPoolExecutor listener;
+
+	public final BlockingQueue<Runnable> queue;
 
 	public Threads(int numThreads, int queueSize) {
 
@@ -56,5 +57,30 @@ public class Threads implements AutoCleanable {
 		} catch (InterruptedException ex) {
 			throw new Error(ex);
 		}
+	}
+
+	public int size() {
+		return pool.getCorePoolSize();
+	}
+
+	public boolean submit(long timeout, TimeUnit timeUnit, Runnable runnable) {
+		// NOTE: don't use ThreadPoolExecutor.submit() to send tasks, because it won't let us block.
+		// access the work queue directly instead, so we can block if the thread pool isn't ready yet.
+		try {
+			return queue.offer(runnable, timeout, timeUnit);
+		} catch (InterruptedException ex) {
+			throw new RuntimeException("can't submit runnable to threads", ex);
+		}
+	}
+
+	public void submitLoop(long interval, TimeUnit timeUnit, Runnable runnable) {
+		boolean wasAdded = false;
+		while (!wasAdded) {
+			wasAdded = submit(interval, timeUnit, runnable);
+		}
+	}
+
+	public void submitToListener(Runnable runnable) {
+		listener.submit(runnable);
 	}
 }

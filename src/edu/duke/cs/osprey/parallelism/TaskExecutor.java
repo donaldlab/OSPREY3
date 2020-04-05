@@ -93,22 +93,52 @@ public class TaskExecutor implements AutoCleanable {
 		return 1;
 	}
 
-	private Map<ContextId,Object> contexts = new HashMap<>();
+	private ContextGroup contextGroup = null;
 
-	public void putContext(ContextId ctxid, Object ctx) {
-		contexts.put(ctxid, ctx);
+	public class ContextGroup implements AutoCloseable {
+
+		private Map<ContextId,Object> contexts = new HashMap<>();
+
+		protected ContextGroup() {
+			contextGroup = this;
+		}
+
+		public void putContext(ContextId ctxid, Object ctx) {
+			contexts.put(ctxid, ctx);
+		}
+
+		public void putContext(int instanceId, Class<?> taskClass, Object ctx) {
+			putContext(new ContextId(instanceId, taskClass), ctx);
+		}
+
+		public Object getContext(ContextId ctxid) {
+			return contexts.get(ctxid);
+		}
+
+		public Object getContext(int instanceId, Class<?> taskClass) {
+			return getContext(new ContextId(instanceId, taskClass));
+		}
+
+		public <T,C> C getContext(Task.WithContext<T,C> task) {
+			@SuppressWarnings("unchecked")
+			C ctx = (C)getContext(task.contextId());
+			return ctx;
+		}
+
+		@Override
+		public void close() {
+			contextGroup = null;
+		}
 	}
 
-	public void putContext(int instanceId, Class<?> taskClass, Object ctx) {
-		putContext(new ContextId(instanceId, taskClass), ctx);
-	}
+	public ContextGroup contextGroup() {
 
-	public Object getContext(ContextId ctxid) {
-		return contexts.get(ctxid);
-	}
+		// there can be only one
+		if (contextGroup != null) {
+			throw new IllegalStateException("only one context group can be active at a time");
+		}
 
-	public Object getContext(int instanceId, Class<?> taskClass) {
-		return getContext(new ContextId(instanceId, taskClass));
+		return new ContextGroup();
 	}
 
 	public boolean isBusy() {
@@ -126,12 +156,19 @@ public class TaskExecutor implements AutoCleanable {
 	protected <T> T runTask(Task<T> task) {
 		if (task instanceof Task.WithContext) {
 			Task.WithContext<T,Object> taskWithContext = (Task.WithContext<T,Object>)task;
-			return taskWithContext.run(getContext(taskWithContext.contextId()));
+
+			// get the context
+			if (contextGroup == null) {
+				throw new IllegalStateException("task with context was submitted, but no context group was active");
+			}
+			Object ctx = contextGroup.getContext(taskWithContext);
+
+			return taskWithContext.run(ctx);
 		} else {
 			return task.run();
 		}
 	}
-	
+
 	public void waitForFinish() {
 		// nothing to do
 	}

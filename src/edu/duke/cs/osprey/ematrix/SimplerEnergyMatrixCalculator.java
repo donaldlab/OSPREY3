@@ -43,6 +43,7 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.parallelism.Cluster;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Progress;
 
@@ -119,14 +120,10 @@ public class SimplerEnergyMatrixCalculator {
 		}
 	}
 
-	private static int nextInstanceId = 0;
-	
 	public final ConfEnergyCalculator confEcalc;
 	public final File cacheFile;
 	public final Double tripleCorrectionThreshold;
 	public final Double quadCorrectionThreshold;
-
-	private final int instanceId = nextInstanceId++;
 
 	private SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile, Double tripleCorrectionThreshold, Double quadCorrectionThreshold) {
 
@@ -134,36 +131,38 @@ public class SimplerEnergyMatrixCalculator {
 		this.cacheFile = cacheFile;
 		this.tripleCorrectionThreshold = tripleCorrectionThreshold;
 		this.quadCorrectionThreshold = quadCorrectionThreshold;
-
-		confEcalc.tasks.putContext(instanceId, BatchTask.class, new BatchTask.Context(confEcalc));
 	}
 	
 	/**
 	 * Computes a matrix of energies between pairs of residue conformations to be used by A* search.
 	 */
 	public EnergyMatrix calcEnergyMatrix() {
-		
-		if (cacheFile != null) {
-			return ObjectIO.readOrMake(
-				cacheFile,
-				EnergyMatrix.class,
-				"energy matrix",
-				(emat) -> emat.matches(confEcalc.confSpace),
-				(context) -> reallyCalcEnergyMatrix()
-			);
-		} else {
-			return reallyCalcEnergyMatrix();
+
+		// make a context group for the task executor
+		try (TaskExecutor.ContextGroup ctxGroup = confEcalc.tasks.contextGroup()) {
+			ctxGroup.putContext(0, BatchTask.class, new BatchTask.Context(confEcalc));
+
+			// skip the calculation on member nodes
+			if (confEcalc.tasks instanceof Cluster.Member) {
+				// TODO: try to get the energy matrix from the client?
+				return null;
+			}
+
+			if (cacheFile != null) {
+				return ObjectIO.readOrMake(
+					cacheFile,
+					EnergyMatrix.class,
+					"energy matrix",
+					(emat) -> emat.matches(confEcalc.confSpace),
+					(context) -> reallyCalcEnergyMatrix()
+				);
+			} else {
+				return reallyCalcEnergyMatrix();
+			}
 		}
 	}
 	
 	private EnergyMatrix reallyCalcEnergyMatrix() {
-
-		// if this is a member node, just skip the calculation
-		// TODO: send the energy matrix from the client to the member nodes?
-		//  and use some kind of barrier synchronization?
-		if (confEcalc.tasks instanceof Cluster.Member) {
-			return null;
-		}
 
 		// allocate the new matrix
 		EnergyMatrix emat = new EnergyMatrix(confEcalc.confSpaceIteration());
@@ -205,7 +204,7 @@ public class SimplerEnergyMatrixCalculator {
 
 			void submitTask() {
 				confEcalc.tasks.submit(
-					new BatchTask(instanceId, fragments),
+					new BatchTask(fragments),
 					(List<Double> energies) -> {
 						
 						// update the energy matrix
@@ -300,8 +299,8 @@ public class SimplerEnergyMatrixCalculator {
 
 		List<RCTuple> fragments;
 
-		BatchTask(int ctxid, List<RCTuple> fragments) {
-			super(ctxid);
+		BatchTask(List<RCTuple> fragments) {
+			super(0);
 			this.fragments = fragments;
 		}
 

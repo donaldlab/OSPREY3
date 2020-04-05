@@ -39,6 +39,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.parallelism.Cluster;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.*;
 
 import java.io.Serializable;
@@ -230,26 +231,17 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	private PfuncSurface surf = null;
 	private PfuncSurface.Trace trace = null;
 
-	private static int nextInstanceId = 0;
-	private int instanceId;
-
 	public GradientDescentPfunc(ConfEnergyCalculator ecalc) {
-		this(ecalc, nextInstanceId++);
-	}
-
-	/**
-	 * Useful when you want different instances to share the same task context
-	 */
-	public GradientDescentPfunc(ConfEnergyCalculator ecalc, int instanceId) {
 		this.ecalc = ecalc;
-		this.instanceId = instanceId;
-		putTaskContexts();
 	}
 
-	private void putTaskContexts() {
+	private Integer instanceId = null;
+
+	public void putTaskContexts(TaskExecutor.ContextGroup contexts, int instanceId) {
+		this.instanceId = instanceId;
 		// TODO: how to support conf tables correctly, when the energies are distributed across the cluster?
-		ecalc.tasks.putContext(instanceId, EnergyTask.class, new EnergyTask.Context(ecalc, bcalc, confTable));
-		ecalc.tasks.putContext(instanceId, ScoreTask.class, new ScoreTask.Context(bcalc));
+		contexts.putContext(instanceId, EnergyTask.class, new EnergyTask.Context(ecalc, bcalc, confTable));
+		contexts.putContext(instanceId, ScoreTask.class, new ScoreTask.Context(bcalc));
 	}
 	
 	@Override
@@ -286,7 +278,6 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	@Override
 	public void setConfTable(ConfDB.ConfTable val) {
 		confTable = val;
-		putTaskContexts();
 	}
 
 	@Override
