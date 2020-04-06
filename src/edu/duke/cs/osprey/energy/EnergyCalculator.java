@@ -555,7 +555,7 @@ public class EnergyCalculator implements AutoCleanable {
 		this.parallelism = parallelism;
 		this.cluster = cluster;
 		if (cluster != null) {
-			this.tasks = cluster.makeTaskExecutor();
+			this.tasks = cluster.makeTaskExecutor(parallelism);
 		} else {
 			this.tasks = parallelism.makeTaskExecutor();
 		}

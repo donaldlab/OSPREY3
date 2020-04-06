@@ -374,8 +374,9 @@ distributions {
 				from(files
 					.filter { it.isDirectory }
 					// exclude resources dirs, they're apparently already in the classes dirs
-					.filter { !it.endsWith("resources/main") }
-					.filter { !it.endsWith("resources/test") }
+					// except this time they're not?
+					//.filter { !it.endsWith("resources/main") }
+					//.filter { !it.endsWith("resources/test") }
 				)
 			}
 

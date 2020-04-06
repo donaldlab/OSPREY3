@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.tools.Stopwatch;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.io.File;
@@ -35,6 +36,19 @@ public class ClusterLab {
 		SLF4JBridgeHandler.removeHandlersForRootLogger();
 		SLF4JBridgeHandler.install();
 
+		//forkCluster();
+		//multiProcessCluster(args);
+		slurmCluster();
+	}
+
+	private static void forkCluster()
+	throws Exception {
+
+		final String clusterName = "ForkCluster";
+		final String jobId = "fork";
+		final int numNodes = 2;
+		final boolean clientIsMember = false;
+
 		// if this is a fork, jump to the fork code
 		String idStr = System.getProperty("fork.id");
 		if (idStr != null) {
@@ -43,12 +57,11 @@ public class ClusterLab {
 			int id = Integer.parseInt(idStr);
 			int size = Integer.parseInt(System.getProperty("fork.size"));
 
-			run(id, size);
+			run(new Cluster(clusterName, jobId, id, size, clientIsMember));
 			return;
 		}
 
 		// not a fork, so do the forking
-		int numNodes = 2;
 
 		// fork into multiple processes
 		// (please don't fork bomb. please, please, please...)
@@ -58,8 +71,8 @@ public class ClusterLab {
 			.collect(Collectors.toList());
 		log("MAIN: forked!");
 
-		// run the client here
-		run(0, numNodes);
+		// run the client here, so we can cancel it from the IDE
+		run(new Cluster(clusterName, jobId, 0, numNodes, clientIsMember));
 
 		// wait for the forks to finish
 		for (Fork fork : forks) {
@@ -96,10 +109,26 @@ public class ClusterLab {
 		}
 	}
 
-	private static void run(int id, int size) {
+	private static void multiProcessCluster(String[] args) {
+
+		// parse the args to get nodeId and cluster size
+		String jobId = args[0];
+		int nodeId = Integer.parseInt(args[1]);
+		int numNodes = Integer.parseInt(args[2]);
+		boolean clientIsMember = false;
+
+		run(new Cluster("MultiProcessCluster", jobId, nodeId, numNodes, clientIsMember));
+	}
+
+	private static void slurmCluster() {
+		run(Cluster.fromSLURM(true));
+	}
+
+	private static void run(Cluster cluster) {
+
+		Stopwatch stopwatch = new Stopwatch().start();
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
-		Cluster cluster = new Cluster("Osprey", id, size, parallelism, false);
 
 		// set up a toy design
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
@@ -173,10 +202,10 @@ public class ClusterLab {
 			kstar.run();
 		}
 
-		if (id > 0) {
-			log("MEMBER %d: finished", id);
+		if (cluster.nodeId > 0) {
+			log("MEMBER %d: finished in %s", cluster.nodeId, stopwatch.stop().getTime(2));
 		} else {
-			log("CLIENT: finished");
+			log("CLIENT: finished in %s", stopwatch.stop().getTime(2));
 		}
 	}
 }

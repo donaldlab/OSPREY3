@@ -6,13 +6,11 @@ import com.hazelcast.collection.IList;
 import com.hazelcast.collection.IQueue;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.*;
-import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.Log;
 
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -34,41 +32,34 @@ public class Cluster {
 	public final String name;
 	public final int nodeId;
 	public final int numNodes;
-	public final Parallelism parallelism;
 	public final boolean clientIsMember;
 
 	public final String id;
 
-	public Cluster(String name, int nodeId, int numNodes, Parallelism parallelism) {
-		this(name, nodeId, numNodes, parallelism, DefaultClientIsMember);
+	public Cluster(String name, String jobId, int nodeId, int numNodes) {
+		this(name, jobId, nodeId, numNodes, DefaultClientIsMember);
 	}
 
-	public Cluster(String name, int nodeId, int numNodes, Parallelism parallelism, boolean clientIsMember) {
+	public Cluster(String name, String jobId, int nodeId, int numNodes, boolean clientIsMember) {
 
 		this.name = name;
 		this.nodeId = nodeId;
 		this.numNodes = numNodes;
-		this.parallelism = parallelism;
 		this.clientIsMember = clientIsMember;
 
-		// generate an arbitrary id for the cluster, that has a chance of unique on a local network
-		// 4 chars like this is about a 1/1M chance of collision
-		// sadly, it can't actually be a random id, since the cluster nodes still need to agree on what the ID is
-		long seed = HashCalculator.hashIds(
-			numNodes,
-			parallelism.numThreads,
-			parallelism.numGpus,
-			parallelism.numStreamsPerGpu,
-			clientIsMember ? 1 : 0
-		);
-		String chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-		Random rand = new Random(seed);
-		this.id = String.format("%s-%c%c%c%c",
-			name,
-			chars.charAt(rand.nextInt(chars.length())),
-			chars.charAt(rand.nextInt(chars.length())),
-			chars.charAt(rand.nextInt(chars.length())),
-			chars.charAt(rand.nextInt(chars.length()))
+		// append the job id to the cluster name,
+		// so the cluster id will be unique on the local network
+		this.id = String.format("%s-%s", name, jobId);
+	}
+
+	/** Read environment variables to determine cluster properties */
+	public static Cluster fromSLURM(boolean clientIsMember) {
+		return new Cluster(
+			"SLURM",
+			System.getenv("SLURM_JOB_ID"),
+			Integer.parseInt(System.getenv("SLURM_PROCID")),
+			Integer.parseInt(System.getenv("SLURM_NPROCS")),
+			clientIsMember
 		);
 	}
 
@@ -88,11 +79,11 @@ public class Cluster {
 		}
 	}
 
-	public TaskExecutor makeTaskExecutor() {
+	public TaskExecutor makeTaskExecutor(Parallelism parallelism) {
 		if (nodeId == 0) {
-			return new Client();
+			return new Client(parallelism);
 		} else {
-			return new Member();
+			return new Member(parallelism);
 		}
 	}
 
@@ -138,7 +129,11 @@ public class Cluster {
 
 	public class Member extends ConcurrentTaskExecutor {
 
-		private final int timeoutS;
+		public final Parallelism parallelism;
+
+		public static final int DefaultTimeoutS = 60*5; // 5 minutes
+		public int timeoutS = DefaultTimeoutS;
+
 		private final String name;
 		private final HazelcastInstance inst;
 		private final Value<ActiveId> activeId;
@@ -148,15 +143,9 @@ public class Cluster {
 		private int nextContextGroupId = 0;
 		private Cluster.Task<?,Object> deferredTask = null;
 
-		public static final int DefaultTimeoutS = 60*5; // 5 minutes
+		public Member(Parallelism parallelism) {
 
-		public Member() {
-			this(DefaultTimeoutS);
-		}
-
-		public Member(int timeoutS) {
-
-			this.timeoutS = timeoutS;
+			this.parallelism = parallelism;
 			this.name = String.format("%s-member-%d", Cluster.this.name, nodeId);
 
 			// configure the cluster
@@ -319,6 +308,8 @@ public class Cluster {
 
 	public class Client extends ConcurrentTaskExecutor {
 
+		public final Parallelism parallelism;
+
 		private final String name;
 		private final Member member;
 		private final HazelcastInstance inst;
@@ -333,13 +324,15 @@ public class Cluster {
 
 		private int nextContextGroupId = 0;
 
-		public Client() {
+		public Client(Parallelism parallelism) {
+
+			this.parallelism = parallelism;
 
 			this.name = String.format("%s-client-%d", Cluster.this.name, nodeId);
 
 			// make a member first, if needed
 			if (clientIsMember) {
-				member = new Member();
+				member = new Member(parallelism);
 			} else {
 				member = null;
 			}
