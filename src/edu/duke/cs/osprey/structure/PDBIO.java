@@ -33,17 +33,19 @@
 package edu.duke.cs.osprey.structure;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.TreeSet;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import edu.duke.cs.osprey.control.Main;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.tools.HashCalculator;
+import edu.duke.cs.osprey.tools.VectorAlgebra;
 import org.apache.commons.lang3.text.WordUtils;
 
 import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
 import edu.duke.cs.osprey.tools.FileTools;
+
 
 /**
  * this is a clean PDB reader that doesn't know anything about templates or bonds
@@ -362,8 +364,12 @@ public class PDBIO {
 	public static String write(Molecule mol) {
 		return write(mol, null, null, false);
 	}
-	
+
 	public static String write(Molecule mol, String comment, Double energy, boolean includeTer) {
+		return write(mol, comment, energy, includeTer, false);
+	}
+
+	public static String write(Molecule mol, String comment, Double energy, boolean includeTer, boolean includeSSBondConect) {
 	
 		StringBuilder buf = new StringBuilder();
 		
@@ -386,19 +392,21 @@ public class PDBIO {
 			buf.append("REMARK   3\n");
 		}
 
-		appendMol(buf, mol, includeTer);
+		appendMol(buf, mol, includeTer, includeSSBondConect);
 
 		buf.append("END\n");
 
 		return buf.toString();
 	}
 
-	private static void appendMol(StringBuilder buf, Molecule mol, boolean includeTer) {
+	private static void appendMol(StringBuilder buf, Molecule mol, boolean includeTer, boolean includeSSBondConect) {
 
 		// we'll use a char array to represent each line
 		char[] line = new char[80];
 
 		int atomCounter = 1;
+
+		Map<Atom,Integer> atomIndices = new IdentityHashMap<>();
 
 		for (Residue res : mol.residues) {
 			for (Atom atom : res.atoms) {
@@ -417,6 +425,7 @@ public class PDBIO {
 				setField(line, "0.00", 62, 65, Justify.Left);
 
 				// write the atom number
+				atomIndices.put(atom, atomCounter);
 				setField(line, atomCounter++, 6, 10, Justify.Right);
 				
 				// writing the atom name is a little fuzzy, although the
@@ -453,6 +462,114 @@ public class PDBIO {
 				}
 			}
 		}
+
+		if (includeSSBondConect) {
+			// include SSBOND and CONECT records in the PDB file, needed by some Amber tools
+
+			// find all the cysteines
+			List<Residue> cysteines = mol.residues.stream()
+				.filter(res -> res.getType().equals("CYS") || res.getType().equals("CYX"))
+				.collect(Collectors.toList());
+
+			class SSBond {
+				final Residue resa;
+				final Atom atoma;
+				final Residue resb;
+				final Atom atomb;
+				SSBond(Residue resa, Atom atoma, Residue resb, Atom atomb) {
+					this.resa = resa;
+					this.atoma = atoma;
+					this.resb = resb;
+					this.atomb = atomb;
+				}
+				@Override
+				public int hashCode() {
+					return HashCalculator.combineHashesCommutative(
+						HashCalculator.combineObjHashes(resa, atoma),
+						HashCalculator.combineObjHashes(resb, atomb)
+					);
+				}
+				@Override
+				public boolean equals(Object other) {
+					return other instanceof SSBond && equals((SSBond)other);
+				}
+				public boolean equals(SSBond other) {
+					return (this.resa == other.resa && this.atoma == other.atoma && this.resb == other.resb && this.atomb == other.atomb)
+						|| (this.resa == other.resb && this.atoma == other.atomb && this.resb == other.resa && this.atomb == other.atoma);
+				}
+			}
+
+			// find all the ssbonds
+			List<SSBond> ssbonds = cysteines.stream()
+				.flatMap(resa -> resa.atoms.stream()
+					.filter(Atom::isSulfur)
+					.flatMap(atoma -> atoma.bonds.stream()
+						.filter(Atom::isSulfur)
+						.map(atomb -> new SSBond(resa, atoma, atomb.res, atomb))
+					)
+				)
+				.distinct()
+				.sorted(Comparator.comparing(ssbond -> ssbond.resa.fullName))
+				.collect(Collectors.toList());
+
+
+			// render the ssbonds into PDB records
+			int ssbondCounter = 0;
+			for (SSBond ssbond : ssbonds) {
+
+				Function<Residue,String> resname = res -> {
+					String name = res.fullName.substring(5);
+					if (name.length() == 4) {
+						// add a blank insertion code if needed
+						name = name + " ";
+					}
+					return name;
+				};
+
+				// write the SSBOND record, eg:
+				//          1         2         3         4         5         6         7
+				//01234567890123456789012345678901234567890123456789012345678901234567890123456789
+				//SSBOND   1 CYS A    6    CYS A  127                          1555   1555  2.03
+				// see: https://www.wwpdb.org/documentation/file-format-content/format33/sect6.html
+				Arrays.fill(line, ' ');
+				setField(line, "SSBOND", 0, 5, Justify.Left);
+				setField(line, ssbondCounter++, 7, 9, Justify.Right);
+				setField(line, ssbond.resa.getType(), 11, 13, Justify.Left);
+				setField(line, ssbond.resa.getChainId(), 15);
+				setField(line, resname.apply(ssbond.resa), 17, 21, Justify.Right);
+				setField(line, ssbond.resb.getType(), 25, 27, Justify.Left);
+				setField(line, ssbond.resb.getChainId(), 29);
+				setField(line, resname.apply(ssbond.resb), 31, 35, Justify.Right);
+				setField(line, 1555, 59, 64, Justify.Right);
+				setField(line, 1555, 66, 71, Justify.Right);
+				double dist = VectorAlgebra.distance(
+					ssbond.resa.coords, ssbond.atoma.indexInRes,
+					ssbond.resb.coords, ssbond.atomb.indexInRes
+				);
+				setField(line, dist, 2, 73, 77, Justify.Right);
+				buf.append(line);
+				buf.append("\n");
+
+				// write two CONECT records, eg:
+				//          1         2         3         4         5         6         7
+				//01234567890123456789012345678901234567890123456789012345678901234567890123456789
+				//CONECT 1179  746
+				//CONECT  746 1179
+				// see: https://www.wwpdb.org/documentation/file-format-content/format33/sect10.html
+				Arrays.fill(line, ' ');
+				setField(line, "CONECT", 0, 5, Justify.Left);
+				setField(line, atomIndices.get(ssbond.atoma), 6, 10, Justify.Right);
+				setField(line, atomIndices.get(ssbond.atomb), 11, 15, Justify.Right);
+				buf.append(line);
+				buf.append("\n");
+				Arrays.fill(line, ' ');
+				setField(line, "CONECT", 0, 5, Justify.Left);
+				setField(line, atomIndices.get(ssbond.atomb), 6, 10, Justify.Right);
+				setField(line, atomIndices.get(ssbond.atoma), 11, 15, Justify.Right);
+				buf.append(line);
+				buf.append("\n");
+			}
+		}
 	}
 	
 	private static enum Justify {
@@ -484,7 +601,11 @@ public class PDBIO {
 		
 		public abstract String apply(String in, int size);
 	}
-	
+
+	private static void setField(char[] line, char value, int pos) {
+		line[pos] = value;
+	}
+
 	private static void setField(char[] line, int field, int start, int stop, Justify justify) {
 		setField(line, Integer.toString(field), start, stop, justify);
 	}
@@ -562,7 +683,7 @@ public class PDBIO {
 		int modelNum = 1;
 		for (EnergyCalculator.EnergiedParametricMolecule epmol : epmols) {
 			buf.append(String.format("MODEL %4d\n", modelNum++));
-			appendMol(buf, epmol.pmol.mol, false);
+			appendMol(buf, epmol.pmol.mol, false, false);
 			buf.append("ENDMDL\n");
 		}
 
