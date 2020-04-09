@@ -56,6 +56,7 @@ import edu.duke.cs.osprey.gpu.cuda.kernels.ResidueCudaCCDMinimizer;
 import edu.duke.cs.osprey.gpu.cuda.kernels.ResidueForcefieldEnergyCuda;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.minimization.*;
+import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
@@ -90,6 +91,11 @@ public class EnergyCalculator implements AutoCleanable {
 		 * If you need more control, try the setType() option directly.
 		 */
 		private Parallelism parallelism = Parallelism.makeCpu(1);
+
+		/**
+		 * Pass a Cluster instance to make this TaskExecutor send jobs to a cluster.
+		 */
+		private Cluster cluster = null;
 		
 		/**
 		 * Directly choose the energy calculator implementation.
@@ -170,6 +176,11 @@ public class EnergyCalculator implements AutoCleanable {
 			parallelism = val;
 			return this;
 		}
+
+		public Builder setCluster(Cluster val) {
+			cluster = val;
+			return this;
+		}
 		
 		public Builder setType(Type val) {
 			type = val;
@@ -223,7 +234,7 @@ public class EnergyCalculator implements AutoCleanable {
 				resPairCache = new ResPairCache(ffparams, atomConnectivityBuilder.build());
 			}
 			
-			return new EnergyCalculator(parallelism, type, resPairCache, isMinimizing, infiniteWellEnergy, alwaysResolveClashesEnergy);
+			return new EnergyCalculator(parallelism, cluster, type, resPairCache, isMinimizing, infiniteWellEnergy, alwaysResolveClashesEnergy);
 		}
 	}
 
@@ -528,6 +539,7 @@ public class EnergyCalculator implements AutoCleanable {
 
 
 	public final Parallelism parallelism;
+	public final Cluster cluster;
 	public final TaskExecutor tasks;
 	public final Type type;
 	public final Type.Context context;
@@ -538,10 +550,15 @@ public class EnergyCalculator implements AutoCleanable {
 
 	private final Type.Context cpuContext; // for vdW forcefields
 	
-	private EnergyCalculator(Parallelism parallelism, Type type, ResPairCache resPairCache, boolean isMinimizing, Double infiniteWellEnergy, Double alwaysResolveClashesEnergy) {
+	private EnergyCalculator(Parallelism parallelism, Cluster cluster, Type type, ResPairCache resPairCache, boolean isMinimizing, Double infiniteWellEnergy, Double alwaysResolveClashesEnergy) {
 
 		this.parallelism = parallelism;
-		this.tasks = parallelism.makeTaskExecutor();
+		this.cluster = cluster;
+		if (cluster != null) {
+			this.tasks = cluster.makeTaskExecutor(parallelism);
+		} else {
+			this.tasks = parallelism.makeTaskExecutor();
+		}
 		this.type = type;
 		this.context = type.makeContext(parallelism, resPairCache);
 		this.resPairCache = resPairCache;
@@ -561,6 +578,7 @@ public class EnergyCalculator implements AutoCleanable {
 	private EnergyCalculator(EnergyCalculator parent, boolean isMinimizing) {
 
 		this.parallelism = parent.parallelism;
+		this.cluster = parent.cluster;
 		this.tasks = parent.tasks;
 		this.type = parent.type;
 		this.context = parent.context;
@@ -576,6 +594,25 @@ public class EnergyCalculator implements AutoCleanable {
 	public void clean() {
 		context.cleanup();
 		tasks.clean();
+	}
+
+	/**
+	 * Create a copy of the energy calculator whose TaskExecutor will only run locally on this cluster node.
+	 */
+	public EnergyCalculator local() {
+		return new EnergyCalculator(this, parallelism.makeTaskExecutor());
+	}
+	private EnergyCalculator(EnergyCalculator parent, TaskExecutor tasks) {
+		this.parallelism = parent.parallelism;
+		this.cluster = parent.cluster;
+		this.tasks = tasks;
+		this.type = parent.type;
+		this.context = parent.context;
+		this.resPairCache = parent.resPairCache;
+		this.isMinimizing = parent.isMinimizing;
+		this.infiniteWellEnergy = parent.infiniteWellEnergy;
+		this.alwaysResolveClashesEnergy = parent.alwaysResolveClashesEnergy;
+		this.cpuContext = parent.cpuContext;
 	}
 
 	/**

@@ -73,8 +73,8 @@ repositories {
 }
 
 java {
-	sourceCompatibility = JavaVersion.VERSION_1_8
-	targetCompatibility = JavaVersion.VERSION_1_8
+	sourceCompatibility = JavaVersion.VERSION_11
+	targetCompatibility = JavaVersion.VERSION_11
 	sourceSets {
 		get("main").apply {
 			java.srcDir("src")
@@ -106,6 +106,10 @@ dependencies {
 	testCompile("org.hamcrest:hamcrest-all:1.3")
 	testCompile("junit:junit:4.12")
 
+	// handle logging
+	implementation("ch.qos.logback:logback-classic:1.2.3")
+	implementation("org.slf4j:jul-to-slf4j:1.7.30")
+
 	// compile dependencies
 	compile("colt:colt:1.2.0")
 	compile("org.apache.commons:commons-math3:3.6.1")
@@ -120,12 +124,12 @@ dependencies {
 	compile("org.apache.xmlgraphics:batik-svg-dom:1.9.1")
 	compile("com.github.haifengl:smile-core:1.5.1")
 	compile("com.github.haifengl:smile-netlib:1.5.1")
-	compile("ch.qos.logback:logback-classic:1.2.3")
 	compile("de.lmu.ifi.dbs.elki:elki:0.7.1")
 	compile("ch.obermuhlner:big-math:2.0.1")
 	compile("org.tomlj:tomlj:1.0.0")
 	compile("org.joml:joml:1.9.19")
 	compile("org.tukaani:xz:1.8")
+	compile("com.hazelcast:hazelcast:4.0")
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
 	// so turn off transitive dependencies. we'll deal with natives manually
@@ -370,8 +374,9 @@ distributions {
 				from(files
 					.filter { it.isDirectory }
 					// exclude resources dirs, they're apparently already in the classes dirs
-					.filter { !it.endsWith("resources/main") }
-					.filter { !it.endsWith("resources/test") }
+					// except this time they're not?
+					//.filter { !it.endsWith("resources/main") }
+					//.filter { !it.endsWith("resources/test") }
 				)
 			}
 

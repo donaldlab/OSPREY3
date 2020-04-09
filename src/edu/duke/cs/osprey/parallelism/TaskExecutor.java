@@ -33,19 +33,112 @@
 package edu.duke.cs.osprey.parallelism;
 
 import edu.duke.cs.osprey.tools.AutoCleanable;
+import edu.duke.cs.osprey.tools.HashCalculator;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class TaskExecutor implements AutoCleanable {
-	
-	public static interface Task<T> {
+
+	public interface Task<T> {
+
 		T run();
+
+		interface WithContext<T,C> extends Task<T> {
+
+			int instanceId();
+			T run(C ctx);
+
+			default ContextId contextId() {
+				return new ContextId(instanceId(), getClass());
+			}
+
+			default T run() {
+				return run(null);
+			}
+		}
 	}
-	
-	public static interface TaskListener<T> {
+
+	public static class ContextId {
+
+		public final int instanceId;
+		public final Class<?> taskClass;
+
+		public ContextId(int instanceId, Class<?> taskClass) {
+			this.instanceId = instanceId;
+			this.taskClass = taskClass;
+		}
+
+		@Override
+		public int hashCode() {
+			return HashCalculator.combineHashes(instanceId, taskClass.hashCode());
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			return other instanceof ContextId && equals((ContextId)other);
+		}
+
+		public boolean equals(ContextId other) {
+			return this.instanceId == other.instanceId
+				&& this.taskClass.equals(other.taskClass);
+		}
+	}
+
+	public interface TaskListener<T> {
 		void onFinished(T result);
 	}
-	
+
 	public int getParallelism() {
 		return 1;
+	}
+
+	private ContextGroup contextGroup = null;
+
+	public class ContextGroup implements AutoCloseable {
+
+		private Map<ContextId,Object> contexts = new HashMap<>();
+
+		protected ContextGroup() {
+			contextGroup = this;
+		}
+
+		public void putContext(ContextId ctxid, Object ctx) {
+			contexts.put(ctxid, ctx);
+		}
+
+		public void putContext(int instanceId, Class<?> taskClass, Object ctx) {
+			putContext(new ContextId(instanceId, taskClass), ctx);
+		}
+
+		public Object getContext(ContextId ctxid) {
+			return contexts.get(ctxid);
+		}
+
+		public Object getContext(int instanceId, Class<?> taskClass) {
+			return getContext(new ContextId(instanceId, taskClass));
+		}
+
+		public <T,C> C getContext(Task.WithContext<T,C> task) {
+			@SuppressWarnings("unchecked")
+			C ctx = (C)getContext(task.contextId());
+			return ctx;
+		}
+
+		@Override
+		public void close() {
+			contextGroup = null;
+		}
+	}
+
+	public ContextGroup contextGroup() {
+
+		// there can be only one
+		if (contextGroup != null) {
+			throw new IllegalStateException("only one context group can be active at a time");
+		}
+
+		return new ContextGroup();
 	}
 
 	public boolean isBusy() {
@@ -57,10 +150,25 @@ public class TaskExecutor implements AutoCleanable {
 	}
 
 	public <T> void submit(Task<T> task, TaskListener<T> listener) {
-		T result = task.run();
-		listener.onFinished(result);
+		listener.onFinished(runTask(task));
 	}
-	
+
+	protected <T> T runTask(Task<T> task) {
+		if (task instanceof Task.WithContext) {
+			Task.WithContext<T,Object> taskWithContext = (Task.WithContext<T,Object>)task;
+
+			// get the context
+			if (contextGroup == null) {
+				throw new IllegalStateException("task with context was submitted, but no context group was active");
+			}
+			Object ctx = contextGroup.getContext(taskWithContext);
+
+			return taskWithContext.run(ctx);
+		} else {
+			return task.run();
+		}
+	}
+
 	public void waitForFinish() {
 		// nothing to do
 	}

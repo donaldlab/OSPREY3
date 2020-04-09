@@ -54,6 +54,7 @@ import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEPfunc;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -348,5 +349,15 @@ public interface PartitionFunction {
 				.setCacheFile(new File(state+"."+name+".emat"))
 				.build()
 				.calcEnergyMatrix();
+	}
+
+	/** Override to support task contexts, for contextual task executors */
+	default void setInstanceId(int val) {
+		// ignored by default
+	}
+
+	/** Override to support task contexts, for contextual task executors */
+	default void putTaskContexts(TaskExecutor.ContextGroup contexts) {
+		// ignored by default
 	}
 }

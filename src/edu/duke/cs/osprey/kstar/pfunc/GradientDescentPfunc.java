@@ -38,8 +38,11 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
+import edu.duke.cs.osprey.parallelism.Cluster;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.*;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -100,6 +103,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		double prevDelta = 1.0;
 		double dEnergy = -1.0;
 		double dScore = -1.0;
+
+		long lastReportNs = 0;
 
 		State(BigInteger numConfs) {
 			this.numConfs = new BigDecimal(numConfs);
@@ -207,7 +212,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	private Stopwatch stopwatch = new Stopwatch().start();
 	private ConfSearch scoreConfs = null;
 	private ConfSearch energyConfs = null;
-	private BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
+	private static BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
 	private Status status = null;
 	private Values values = null;
@@ -228,6 +234,19 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 	public GradientDescentPfunc(ConfEnergyCalculator ecalc) {
 		this.ecalc = ecalc;
+	}
+
+	private Integer instanceId = null;
+
+	@Override
+	public void setInstanceId(int instanceId) {
+		this.instanceId = instanceId;
+	}
+
+	public void putTaskContexts(TaskExecutor.ContextGroup contexts) {
+		// TODO: how to support conf tables correctly, when the energies are distributed across the cluster?
+		contexts.putContext(instanceId, EnergyTask.class, new EnergyTask.Context(ecalc, bcalc, confTable));
+		contexts.putContext(instanceId, ScoreTask.class, new ScoreTask.Context(bcalc));
 	}
 	
 	@Override
@@ -395,27 +414,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 					numConfsEnergied++;
 
-					class EnergyResult {
-						ConfSearch.EnergiedConf econf;
-						BigDecimal scoreWeight;
-						BigDecimal energyWeight;
-						Stopwatch stopwatch = new Stopwatch();
-					}
-
 					ecalc.tasks.submit(
-						() -> {
-							// compute one energy and weights (and time it)
-							EnergyResult result = new EnergyResult();
-							result.stopwatch.start();
-							result.econf = ecalc.calcEnergy(conf, confTable);
-							result.scoreWeight = bcalc.calc(result.econf.getScore());
-							result.energyWeight = bcalc.calc(result.econf.getEnergy());
-							result.stopwatch.stop();
-							return result;
-						},
-						(result) -> {
-							onEnergy(result.econf, result.scoreWeight, result.energyWeight, result.stopwatch.getTimeS());
-						}
+						new EnergyTask(instanceId, conf, new Stopwatch().start()),
+						(result) -> onEnergy(result.econf, result.scoreWeight, result.energyWeight, result.stopwatch.getTimeS())
 					);
 
 					break;
@@ -424,7 +425,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 				case Score: {
 
 					// gather the scores
-					List<ConfSearch.ScoredConf> confs = new ArrayList<>();
+					List<Double> confs = new ArrayList<>();
 					for (int i=0; i<numScores; i++) {
 
 						// get the next score conf, if any
@@ -437,30 +438,12 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 							break;
 						}
 
-						confs.add(conf);
-					}
-
-					class ScoreResult {
-						public List<Double> scores = new ArrayList<>();
-						List<BigDecimal> scoreWeights = new ArrayList<>();
-						Stopwatch stopwatch = new Stopwatch();
+						confs.add(conf.getScore());
 					}
 
 					ecalc.tasks.submit(
-						() -> {
-							// compute the weights (and time it)
-							ScoreResult result = new ScoreResult();
-							result.stopwatch.start();
-							for (ConfSearch.ScoredConf conf : confs) {
-								result.scoreWeights.add(bcalc.calc(conf.getScore()));
-								result.scores.add(conf.getScore());
-							}
-							result.stopwatch.stop();
-							return result;
-						},
-						(result) -> {
-							onScores(result.scoreWeights, result.stopwatch.getTimeS());
-						}
+						new ScoreTask(instanceId, confs, new Stopwatch().start()),
+						(result) -> onScores(result.scoreWeights, result.stopwatch.getTimeS())
 					);
 
 					break;
@@ -511,6 +494,90 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		}
 	}
 
+	private static class EnergyTask extends Cluster.Task<EnergyTask.Result,EnergyTask.Context> {
+
+		static class Result implements Serializable {
+			ConfSearch.EnergiedConf econf;
+			BigDecimal scoreWeight;
+			BigDecimal energyWeight;
+			Stopwatch stopwatch = new Stopwatch();
+		}
+
+		static class Context {
+
+			ConfEnergyCalculator confEcalc;
+			BoltzmannCalculator bcalc;
+			ConfDB.ConfTable confTable;
+
+			public Context(ConfEnergyCalculator confEcalc, BoltzmannCalculator bcalc, ConfDB.ConfTable confTable) {
+				this.confEcalc = confEcalc;
+				this.bcalc = bcalc;
+				this.confTable = confTable;
+			}
+		}
+
+		public final ConfSearch.ScoredConf conf;
+		public final Stopwatch stopwatch;
+
+		public EnergyTask(int instanceId, ConfSearch.ScoredConf conf, Stopwatch stopwatch) {
+			super(instanceId);
+			this.conf = conf;
+			this.stopwatch = stopwatch;
+		}
+
+		@Override
+		public Result run(Context ctx) {
+			// compute one energy and weights (and time it)
+			Result result = new Result();
+			result.stopwatch = stopwatch;
+			result.econf = ctx.confEcalc.calcEnergy(conf, ctx.confTable);
+			result.scoreWeight = ctx.bcalc.calc(result.econf.getScore());
+			result.energyWeight = ctx.bcalc.calc(result.econf.getEnergy());
+			return result;
+		}
+	}
+
+	private static class ScoreTask extends Cluster.Task<ScoreTask.Result,ScoreTask.Context> {
+
+		static class Result implements Serializable {
+			List<Double> scores = new ArrayList<>();
+			List<BigDecimal> scoreWeights = new ArrayList<>();
+			Stopwatch stopwatch = new Stopwatch();
+		}
+
+		static class Context {
+
+			BoltzmannCalculator bcalc;
+
+			public Context(BoltzmannCalculator bcalc) {
+				this.bcalc = bcalc;
+			}
+		}
+
+		public final List<Double> scores;
+		public final Stopwatch stopwatch;
+
+		public ScoreTask(int instanceId, List<Double> scores, Stopwatch stopwatch) {
+			super(instanceId);
+			this.scores = scores;
+			this.stopwatch = stopwatch;
+		}
+
+		@Override
+		public Result run(Context ctx) {
+
+			// compute the weights (and time it)
+			Result result = new Result();
+			result.stopwatch = stopwatch;
+			for (double score : scores) {
+				result.scoreWeights.add(ctx.bcalc.calc(score));
+				result.scores.add(score);
+			}
+
+			return result;
+		}
+	}
+
 	private void onEnergy(ConfSearch.EnergiedConf econf, BigDecimal scoreWeight, BigDecimal energyWeight, double seconds) {
 
 		synchronized (this) { // don't race the main thread
@@ -551,11 +618,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 			// the other direction could be different now, let's be more likely to explore it
 			state.dScore *= 2.0;
 
-
 			// report progress if needed
 			if (isReportingProgress) {
-				log("[%s] conf:%4d, score:%12.6f, energy:%12.6f, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
+				log("[%s] scores:%8d, confs:%4d, score:%12.6f, energy:%12.6f, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
 					SimpleConfSpace.formatConfRCs(econf),
+					state.numScoredConfs,
 					state.numEnergiedConfs,
 					econf.getScore(), econf.getEnergy(),
 					MathTools.log10p1(state.getLowerBound()), MathTools.log10p1(state.getUpperBound()),
@@ -564,6 +631,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 					JvmMem.getOldPool(),
 					ExternalMemory.getUsageReport()
 				);
+				state.lastReportNs = System.nanoTime();
 			}
 
 			// update the trace if needed
@@ -607,6 +675,25 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 			// the other direction could be different now, let's be more likely to explore it
 			state.dEnergy *= 2.0;
+
+			// report progress if needed (but not more than once every second)
+			if (isReportingProgress) {
+				long nowNs = System.nanoTime();
+				if (nowNs - state.lastReportNs > 1_000_000_000L) {
+					log("[%s] scores:%8d, confs:%4d, score:%12s, energy:%12s, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
+						String.format("%" + (ecalc.confSpace.positions.size()*6 - 1) + "s", ""),
+						state.numScoredConfs,
+						state.numEnergiedConfs,
+						"", "",
+						MathTools.log10p1(state.getLowerBound()), MathTools.log10p1(state.getUpperBound()),
+						state.calcDelta(),
+						stopwatch.getTime(2),
+						JvmMem.getOldPool(),
+						ExternalMemory.getUsageReport()
+					);
+					state.lastReportNs = nowNs;
+				}
+			}
 
 			// update the trace if needed
 			if (trace != null) {
