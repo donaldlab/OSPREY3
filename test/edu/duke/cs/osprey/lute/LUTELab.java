@@ -219,6 +219,9 @@ public class LUTELab {
 			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+				// turn off the default confdb for tests
+				info.confDBFile = null;
+
 				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
 				// how should we define energies of conformations?
@@ -266,6 +269,9 @@ public class LUTELab {
 			BBKStar bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, kstarSettings, bbkstarSettings);
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+
+				// turn off default confDB for tests
+				info.confDBFile = null;
 
 				// how should we define energies of conformations?
 				LUTEState luteState = LUTEIO.read(new File(String.format("LUTE.%s.dat", info.id)));

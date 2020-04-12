@@ -71,6 +71,9 @@ public class TestBBKStar {
 
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
+				// turn off default confDB for tests
+				info.confDBFile = null;
+
 				ConfSpace confSpace = (ConfSpace)info.confSpace;
 
 				PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;

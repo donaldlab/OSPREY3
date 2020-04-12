@@ -186,6 +186,9 @@ public class EnergyCalculator implements AutoCleanable {
 			type = val;
 			return this;
 		}
+		public Type getType() {
+			return type;
+		}
 		
 		public Builder setDofTypes(DofTypes val) {
 			dofTypes = val;

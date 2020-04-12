@@ -172,6 +172,9 @@ public class ClusterLab {
 			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+				// turn off the default confdb for tests
+				info.confDBFile = null;
+
 				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
 				// compute reference energies locally on each node

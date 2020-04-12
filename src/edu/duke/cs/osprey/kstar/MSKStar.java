@@ -635,7 +635,7 @@ public class MSKStar {
 	 */
 	public List<SequenceInfo> findBestSequences(int numSequences) {
 
-		if (true) throw new Error("This implementation doesn't work yet, don't use it!");
+		if (true) throw new UnsupportedOperationException("This MSK* implementation doesn't work yet, don't use it!");
 
 		// reset any previous state
 		stateConfsCache.clear();

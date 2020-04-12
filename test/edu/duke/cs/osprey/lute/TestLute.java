@@ -267,6 +267,9 @@ public class TestLute {
 				KStar kstar = new KStar(protein, ligand, complex, settings);
 				for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+					// turn off the default confdb for tests
+					info.confDBFile = null;
+
 					SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
 					info.confEcalc = makeConfEcalc(confSpace, ecalc);
@@ -302,6 +305,9 @@ public class TestLute {
 					.build();
 				BBKStar bbkstar = new BBKStar(protein, ligand, complex, kstarSettings, bbkstarSettings);
 				for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
+
+					// turn off default confDB for tests
+					info.confDBFile = null;
 
 					// minimized energies
 					info.confEcalcMinimized = makeConfEcalc((SimpleConfSpace)info.confSpace, ecalc);
@@ -490,6 +496,9 @@ public class TestLute {
 			KStar kstar = new KStar(protein, ligand, complex, settings);
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+				// turn off the default confdb for tests
+				info.confDBFile = null;
+
 				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
 				info.confEcalc = makeConfEcalc(confSpace, ecalc);
@@ -550,6 +559,9 @@ public class TestLute {
 			BBKStar bbkstar = new BBKStar(protein, ligand, complex, kstarSettings, bbkstarSettings);
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+
+				// turn off default confDB for tests
+				info.confDBFile = null;
 
 				info.confEcalcMinimized = makeConfEcalc(confSpace, ecalc);
 				EnergyMatrix emat = calcEmat(info.confEcalcMinimized);

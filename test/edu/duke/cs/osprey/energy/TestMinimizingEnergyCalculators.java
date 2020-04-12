@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.energy;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -200,9 +201,13 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	}
 	
 	private void assertEnergies(EnergyCalculator.Builder builder) {
-		
+
+		// skip the test if the ecalc isn't supported on this platform
+		assumeTrue(builder.getType() == null || builder.getType().isSupported());
+
 		for (EnergyPartition epart : Arrays.asList(EnergyPartition.Traditional, EnergyPartition.AllOnPairs)) {
 			builder.use((ecalc) -> {
+
 				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
 					.setEnergyPartition(epart)
 					.build();
@@ -210,7 +215,7 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 			});
 		}
 	}
-	
+
 	private void assertEnergies(ConfEnergyCalculator confEcalc) {
 		
 		List<EnergiedConf> econfs = confEcalc.calcAllEnergies(confs);
@@ -298,7 +303,10 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	
 	@Test
 	public void cleanup() {
-		
+
+		// skip the test if the ecalc isn't supported on this platform
+		assumeTrue(EnergyCalculator.Type.Cuda.isSupported());
+
 		new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.Cuda)
 			.setParallelism(Parallelism.make(4, 1, 2))
@@ -329,6 +337,8 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	
 	@Test
 	public void cleanupWithExceptions() {
+
+		assumeTrue(EnergyCalculator.Type.Cuda.isSupported());
 		
 		new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.Cuda)
@@ -364,7 +374,9 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	
 	@Test
 	public void cleanupWithExceptionsInListener() {
-		
+
+		assumeTrue(EnergyCalculator.Type.Cuda.isSupported());
+
 		new EnergyCalculator.Builder(confSpace, ffparams)
 			.setType(EnergyCalculator.Type.Cuda)
 			.setParallelism(Parallelism.make(4, 1, 2))
@@ -417,6 +429,10 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	}
 
 	public static void checkFinalPose(EnergyCalculator.Builder builder) {
+
+		// skip the test if the ecalc isn't supported on this platform
+		assumeTrue(builder.getType() == null || builder.getType().isSupported());
+
 		builder.use((ecalc) -> {
 
 			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)

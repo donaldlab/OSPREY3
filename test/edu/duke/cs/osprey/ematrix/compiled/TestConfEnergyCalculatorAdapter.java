@@ -236,7 +236,7 @@ public class TestConfEnergyCalculatorAdapter {
 
 				// make sure we got the right conformation and energy
 				// TODO: these conf indices change every time we re-compile the conf space, need to make them deterministic
-				assertThat(gmec.getAssignments(), is(new int[] { 5, 0 }));
+				assertThat(gmec.getAssignments(), is(new int[] { 4, 0 }));
 				assertThat(gmec.getScore(), isAbsolutely(20.894928, 1e-6));
 				assertThat(gmec.getEnergy(), isAbsolutely(20.948575, 1e-6));
 			}
@@ -259,28 +259,33 @@ public class TestConfEnergyCalculatorAdapter {
 					.build()
 					.calcEnergyMatrix();
 
-				// compute the partition function
-				RCs rcs = new RCs(confSpace);
-				GradientDescentPfunc pfunc = new GradientDescentPfunc(
-					adapter,
-					new ConfAStarTree.Builder(emat, rcs)
-						.setTraditional()
-						.build(),
-					new ConfAStarTree.Builder(emat, rcs)
-						.setTraditional()
-						.build(),
-					rcs.getNumConformations()
-				);
-				pfunc.init(0.68);
-				pfunc.compute();
-				PartitionFunction.Result result = pfunc.makeResult();
+				try (TaskExecutor.ContextGroup contexts = tasks.contextGroup()) {
 
-				// make sure we got the right answer
-				assertThat(result.status, is(PartitionFunction.Status.Estimated));
-				assertThat(result.values.calcFreeEnergyBounds(), isAbsoluteBound(new MathTools.DoubleBounds(
-					-24.381189,
-					-24.375781
-				), 1e-6));
+					// compute the partition function
+					RCs rcs = new RCs(confSpace);
+					GradientDescentPfunc pfunc = new GradientDescentPfunc(
+						adapter,
+						new ConfAStarTree.Builder(emat, rcs)
+							.setTraditional()
+							.build(),
+						new ConfAStarTree.Builder(emat, rcs)
+							.setTraditional()
+							.build(),
+						rcs.getNumConformations()
+					);
+					pfunc.setInstanceId(0);
+					pfunc.putTaskContexts(contexts);
+					pfunc.init(0.68);
+					pfunc.compute();
+					PartitionFunction.Result result = pfunc.makeResult();
+
+					// make sure we got the right answer
+					assertThat(result.status, is(PartitionFunction.Status.Estimated));
+					assertThat(result.values.calcFreeEnergyBounds(), isAbsoluteBound(new MathTools.DoubleBounds(
+						-24.381189,
+						-24.375781
+					), 1e-6));
+				}
 			}
 		}
 	}

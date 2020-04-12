@@ -310,25 +310,28 @@ public class TestMSKStar {
 		});
 	}
 
-	@Test
+	// MSK* has been short-circuited until it can be fixed,
+	// so all these tests are supposed to fail
+
+	@Test(expected = UnsupportedOperationException.class)
 	public void test2RL0() {
 		Problem problem = make2RL0PPI(false);
 		prepStates(problem, () -> check2RL0PPI(problem.mskstar));
 	}
 
-	@Test
+	@Test(expected = UnsupportedOperationException.class)
 	public void test2RL0BoundedMemory() {
 		Problem problem = make2RL0PPI(true);
 		prepStates(problem, () -> check2RL0PPI(problem.mskstar));
 	}
 
-	@Test
+	@Test(expected = UnsupportedOperationException.class)
 	public void test2RL0OnlyOneMutant() {
 		Problem problem = make2RL0OnlyOneMutant();
 		prepStates(problem, () -> check2RL0OnlyOneMutant(problem.mskstar));
 	}
 
-	@Test
+	@Test(expected = UnsupportedOperationException.class)
 	public void test2RL0SpaceWithoutWildType() {
 	Problem problem = make2RL0SpaceWithoutWildType();
 		prepStates(problem, () -> check2RL0WithoutWildType(problem.mskstar));

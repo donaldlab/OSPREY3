@@ -1140,6 +1140,9 @@ public class TestMARKStar {
 		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+			// turn off the default confdb for tests
+			info.confDBFile = null;
+
 			SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
 			// how should we define energies of conformations?
@@ -1193,6 +1196,9 @@ public class TestMARKStar {
 				.build();
 		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+
+			// turn off the default confdb for tests
+			info.confDBFile = null;
 
 			SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 

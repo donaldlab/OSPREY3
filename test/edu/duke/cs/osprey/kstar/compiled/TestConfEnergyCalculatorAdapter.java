@@ -78,6 +78,9 @@ public class TestConfEnergyCalculatorAdapter {
 
 			for (KStar.ConfSpaceInfo info : result.kstar.confSpaceInfos()) {
 
+				// turn off the default confdb for tests
+				info.confDBFile = null;
+
 				ConfSpace confSpace = (ConfSpace)info.confSpace;
 
 				PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;

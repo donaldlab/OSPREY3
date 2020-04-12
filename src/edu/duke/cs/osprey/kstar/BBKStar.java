@@ -124,9 +124,12 @@ public class BBKStar {
 		private BigDecimal stabilityThreshold = null;
 
 		public ConfSpaceInfo(ConfSpaceIteration confSpace, KStar.ConfSpaceType type) {
+
 			this.confSpace = confSpace;
 			this.type = type;
 			this.id = type.name().toLowerCase();
+
+			confDBFile = new File(String.format(kstarSettings.confDBPattern, id));
 		}
 
 		private void check() {
