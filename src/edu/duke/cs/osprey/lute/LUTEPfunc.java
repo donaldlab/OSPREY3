@@ -69,8 +69,16 @@ public class LUTEPfunc implements PartitionFunction {
 	private int numConfsEvaluated;
 	private Stopwatch stopwatch = new Stopwatch();
 
-	public LUTEPfunc(LUTEConfEnergyCalculator ecalc) {
+	public LUTEPfunc(LUTEConfEnergyCalculator ecalc, ConfAStarTree astar, BigInteger numConfsBeforePruning) {
+
 		this.ecalc = ecalc;
+		this.astar = astar;
+		this.numConfsBeforePruning = numConfsBeforePruning;
+
+		// make sure we got a LUTE-capable astar search
+		if (!(astar.gscorer instanceof LUTEGScorer) || !(astar.hscorer instanceof LUTEHScorer)) {
+			throw new IllegalArgumentException("needs LUTE-capable A* search");
+		}
 	}
 
 	@Override
@@ -84,18 +92,8 @@ public class LUTEPfunc implements PartitionFunction {
 	}
 
 	@Override
-	public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double epsilon) {
+	public void init(double epsilon) {
 
-		// make sure we got a LUTE-capable astar search
-		if (!(confSearch instanceof ConfAStarTree)) {
-			throw new IllegalArgumentException("needs LUTE-capable A* search");
-		}
-		this.astar = (ConfAStarTree)confSearch;
-		if (!(astar.gscorer instanceof LUTEGScorer) || !(astar.hscorer instanceof LUTEHScorer)) {
-			throw new IllegalArgumentException("needs LUTE-capable A* search");
-		}
-
-		this.numConfsBeforePruning = numConfsBeforePruning;
 		this.epsilon = epsilon;
 
 		status = Status.Estimating;

@@ -260,18 +260,18 @@ public class TestConfEnergyCalculatorAdapter {
 					.calcEnergyMatrix();
 
 				// compute the partition function
-				GradientDescentPfunc pfunc = new GradientDescentPfunc(adapter);
 				RCs rcs = new RCs(confSpace);
-				pfunc.init(
+				GradientDescentPfunc pfunc = new GradientDescentPfunc(
+					adapter,
 					new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
 						.build(),
 					new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
 						.build(),
-					rcs.getNumConformations(),
-					0.68
+					rcs.getNumConformations()
 				);
+				pfunc.init(0.68);
 				pfunc.compute();
 				PartitionFunction.Result result = pfunc.makeResult();
 

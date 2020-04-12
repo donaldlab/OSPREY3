@@ -34,6 +34,7 @@ package edu.duke.cs.osprey;
 
 import static org.junit.Assert.*;
 import static org.hamcrest.Matchers.*;
+import static org.junit.Assume.assumeTrue;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -45,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -918,6 +920,12 @@ public class TestBase {
 		@Override
 		public void close() {
 			delete();
+		}
+	}
+
+	public static void skipGPUTestsIfNeeded(Parallelism parallelism) {
+		if (parallelism.type == Parallelism.Type.Gpu) {
+			assumeTrue(Parallelism.hasGPUs());
 		}
 	}
 }

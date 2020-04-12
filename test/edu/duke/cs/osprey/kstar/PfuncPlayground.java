@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -93,12 +94,17 @@ public class PfuncPlayground {
 
 		final double epsilon = 0.01;
 
-		ConfAStarTree astar = new ConfAStarTree.Builder(emat, confEcalc.confSpace)
-			.setTraditional()
-			.build();
-
-		GradientDescentPfunc pfunc = new GradientDescentPfunc(confEcalc);
-		pfunc.init(astar, astar.getNumConformations(), epsilon);
+		GradientDescentPfunc pfunc = new GradientDescentPfunc(
+			confEcalc,
+			new ConfAStarTree.Builder(emat, confEcalc.confSpace)
+				.setTraditional()
+				.build(),
+			new ConfAStarTree.Builder(emat, confEcalc.confSpace)
+				.setTraditional()
+				.build(),
+			new RCs(confEcalc.confSpace).getNumConformations()
+		);
+		pfunc.init(epsilon);
 		pfunc.traceTo(surf);
 		pfunc.compute(surf.numEnergies);
 	}

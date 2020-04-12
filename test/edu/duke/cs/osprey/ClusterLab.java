@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.energy.*;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.TestKStar;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -191,15 +192,20 @@ public class ClusterLab {
 					.build()
 					.calcEnergyMatrix();
 
-				// how should confs be ordered and searched?
-				info.confSearchFactory = (rcs) ->
+				info.pfuncFactory = rcs -> new GradientDescentPfunc(
+					info.confEcalc,
 					new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
-						.build();
+						.build(),
+					new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional()
+						.build(),
+					rcs.getNumConformations()
+				);
 			}
 
 			// run K*
-			kstar.run();
+			kstar.run(ecalc.tasks);
 		}
 
 		if (cluster.nodeId > 0) {

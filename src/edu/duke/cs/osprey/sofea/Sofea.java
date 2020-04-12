@@ -884,7 +884,7 @@ public class Sofea {
 		}
 
 		public ConfDB.ConfTable get(MultiStateConfSpace.State state) {
-			return confsByState[state.index].table;
+			return confsByState[state.index].table();
 		}
 	}
 
@@ -1749,7 +1749,7 @@ public class Sofea {
 		StateInfo stateInfo = stateInfos.get(state.index);
 		try (StateInfo.Confs confs = stateInfo.new Confs()) {
 			RCs rcs = seq.makeRCs(state.confSpace);
-			return stateInfo.calcZSum(stateInfo.makeConfIndex(), rcs, confs.table);
+			return stateInfo.calcZSum(stateInfo.makeConfIndex(), rcs, confs.table());
 		}
 	}
 
@@ -1757,25 +1757,29 @@ public class Sofea {
 
 		class Confs implements AutoCloseable {
 
-			final ConfDB confdb;
-			final ConfDB.ConfTable table;
+			final ConfDB db;
+			final ConfDB.Key key;
 
 			Confs() {
 				StateConfig config = stateConfigs.get(state.index);
 				if (config.confDBFile != null) {
-					confdb = new ConfDB(state.confSpace, config.confDBFile);
-					table = confdb.new ConfTable("sofea");
+					db = new ConfDB(state.confSpace, config.confDBFile);
+					key = new ConfDB.Key("sofea");
 				} else {
-					confdb = null;
-					table = null;
+					db = null;
+					key = null;
 				}
 			}
 
 			@Override
 			public void close() {
-				if (confdb != null) {
-					confdb.close();
+				if (db != null) {
+					db.close();
 				}
+			}
+
+			public ConfDB.ConfTable table() {
+				return db.get(key);
 			}
 		}
 

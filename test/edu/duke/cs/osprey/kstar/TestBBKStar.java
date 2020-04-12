@@ -39,11 +39,15 @@ import static org.junit.Assert.*;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import org.junit.Test;
@@ -92,54 +96,73 @@ public class TestBBKStar {
 				.build();
 			BBKStar bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, kstarSettings, bbkstarSettings);
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
+				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
 				// how should we define energies of conformations?
-				info.confEcalcMinimized = new ConfEnergyCalculator.Builder(info.confSpace, ecalcMinimized)
-					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(info.confSpace, ecalcMinimized)
+				info.confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
+					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
 						.build()
 						.calcReferenceEnergies()
 					).build();
 
+				// how should conformations be ordered and searched?
+				EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
+					.build()
+					.calcEnergyMatrix();
+				info.confSearchFactoryMinimized = (rcs) ->
+					new ConfAStarTree.Builder(ematMinimized, rcs)
+						.setTraditional()
+						.build();
 
 				// BBK* needs rigid energies too
 				EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
 					.setIsMinimizing(false)
 					.build();
-				info.confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
+				ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(info.confEcalcMinimized, ecalcRigid);
+				EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
+					.build()
+					.calcEnergyMatrix();
+				info.confSearchFactoryRigid = (rcs) ->
+					new ConfAStarTree.Builder(ematRigid, rcs)
+						.setTraditional()
+						.build();
 
-				if(runMARKStar) {
-					PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id);
-					pfuncFactory.setUseMARKStar(info.confEcalcRigid);
-					info.pfuncFactory = pfuncFactory;
-				}
-				else {
-					EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcMinimized)
-							.build()
-							.calcEnergyMatrix();
-					info.confSearchFactoryMinimized = (rcs) ->
-							new ConfAStarTree.Builder(ematMinimized, rcs)
-							.setTraditional()
-							.build();
-					EnergyMatrix ematRigid = new SimplerEnergyMatrixCalculator.Builder(info.confEcalcRigid)
-							.build()
-							.calcEnergyMatrix();
-					info.confSearchFactoryRigid = (rcs) ->
-							new ConfAStarTree.Builder(ematRigid, rcs)
-							.setTraditional()
-							.build();
-
-				}
+				info.pfuncFactory = rcs -> {
+					if (runMARKStar) {
+						MARKStarBound pfunc = new MARKStarBoundFastQueues(
+							confSpace,
+							ematRigid,
+							ematMinimized,
+							info.confEcalcMinimized,
+							rcs,
+							ecalcMinimized.parallelism
+						);
+						pfunc.setCorrections(new UpdatingEnergyMatrix(confSpace, ematMinimized, info.confEcalcMinimized));
+						pfunc.init(epsilon);
+						return pfunc;
+					} else {
+						return new GradientDescentPfunc(
+							info.confEcalcMinimized,
+							info.confSearchFactoryMinimized.make(rcs),
+							info.confSearchFactoryMinimized.make(rcs),
+							rcs.getNumConformations()
+						);
+					}
+				};
 
 				// add the ConfDB file if needed
 				if (confdbPattern != null) {
 					info.confDBFile = new File(confdbPattern.replace("*", info.type.name().toLowerCase()));
+				} else {
+					// otherwise, turn off the default ConfDB
+					info.confDBFile = null;
 				}
 			}
 
 			// run BBK*
 			Results results = new Results();
 			results.bbkstar = bbkstar;
-			results.sequences = bbkstar.run();
+			results.sequences = bbkstar.run(ecalcMinimized.tasks);
 			return results;
 		}
 	}
@@ -154,7 +177,20 @@ public class TestBBKStar {
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 		final double epsilon = 0.99;
 		final int numSequences = 25;
-		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 10, true);
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1);
+
+		assert2RL0(results, numSequences);
+	}
+
+	@Test
+	public void test2RL0_MARKStar() {
+
+		// TODO: this test fails ... I don't know how MARK* works, so I don't know why
+
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
+		final double epsilon = 0.99;
+		final int numSequences = 25;
+		Results results = runBBKStar(confSpaces, numSequences, epsilon, null, 1, true);
 
 		assert2RL0(results, numSequences);
 	}

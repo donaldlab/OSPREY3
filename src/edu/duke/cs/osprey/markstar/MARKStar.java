@@ -346,7 +346,6 @@ public class MARKStar {
 				return builder.build();
 			};
 			RCs rcs = sequence.makeRCs(confSpace);
-			ConfSearch astar = confSearchFactory.make(minimizingEmat, rcs);
 			//GradientDescentMARKStarPfunc pfunc = new GradientDescentMARKStarPfunc(confSpace, rigidEmat, minimizingEmat,
 			//		rcs, minimizingConfEcalc);
 			pfunc.reduceMinimizations = settings.reduceMinimizations;
@@ -362,7 +361,7 @@ public class MARKStar {
 			}
 
 			// compute it
-			pfunc.init(astar, rcs.getNumConformations(), settings.epsilon);
+			pfunc.init(settings.epsilon);
 			Stopwatch computeTimer = new Stopwatch().start();
 			pfunc.compute();
 			computeTimer.stop();

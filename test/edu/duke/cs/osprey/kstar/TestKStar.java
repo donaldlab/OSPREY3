@@ -43,6 +43,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.*;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
@@ -136,26 +137,46 @@ public class TestKStar {
 					.build()
 					.calcEnergyMatrix();
 
-				// how should confs be ordered and searched?
-				info.confSearchFactory = (rcs) -> {
-					ConfAStarTree.Builder builder = new ConfAStarTree.Builder(emat, rcs)
-						.setTraditional();
-					if (useExternalMemory) {
-						builder.useExternalMemory();
-					}
-					return builder.build();
-				};
+				// how should we score a sequence?
+				if (useExternalMemory) {
+					info.pfuncFactory = (rcs) -> {
+						GradientDescentPfunc pfunc = new GradientDescentPfunc(
+							info.confEcalc,
+							new ConfAStarTree.Builder(emat, rcs)
+								.useExternalMemory()
+								.setTraditional()
+								.build(),
+							rcs.getNumConformations()
+						);
+						pfunc.setUseExternalMemory(true, rcs);
+						return pfunc;
+					};
+				} else {
+					info.pfuncFactory = (rcs) -> new GradientDescentPfunc(
+						info.confEcalc,
+						new ConfAStarTree.Builder(emat, rcs)
+							.setTraditional()
+							.build(),
+						new ConfAStarTree.Builder(emat, rcs)
+							.setTraditional()
+							.build(),
+						rcs.getNumConformations()
+					);
+				}
 
 				// set ConfDB if needed
 				if (confDBPattern != null) {
-					info.confDBFile = new File(confDBPattern.replace("*", info.type.name().toLowerCase()));
+					info.confDBFile = new File(String.format(confDBPattern, info.type.name().toLowerCase()));
+				} else {
+					// otherwise, turn off the default ConfDB
+					info.confDBFile = null;
 				}
 			}
 
 			// run K*
 			Result result = new Result();
 			result.kstar = kstar;
-			result.scores = kstar.run();
+			result.scores = kstar.run(ecalc.tasks);
 			return result;
 		}
 	}
@@ -356,7 +377,7 @@ public class TestKStar {
 		assertThat(confSpaces.complex.countSingles(), is(200));
 		assertThat(confSpaces.complex.countPairs(), is(16734));
 
-		runKStar(confSpaces, 0.1, null, false, 1);
+		// TODO: check atom counts and positions are the same?
 	}
 
 	@Test
@@ -370,7 +391,7 @@ public class TestKStar {
 	@Test
 	public void test2RL0WithExternalMemory() {
 
-		ExternalMemory.use(128, () -> {
+		ExternalMemory.use(512, () -> {
 			double epsilon = 0.95;
 			Result result = runKStar(make2RL0(), epsilon, null, true, 1);
 			assert2RL0(result, epsilon);
@@ -473,13 +494,12 @@ public class TestKStar {
 	public void test2RL0WithConfDB() {
 
 		final double epsilon = 0.95;
-		final String confdbPattern = "kstar.*.conf.db";
+		final String confdbPattern = "kstar.%s.conf.db";
 		final ConfSpaces confSpaces = make2RL0();
 
 		try (TempFile proteinDBFile = new TempFile("kstar.protein.conf.db")) {
 			try (TempFile ligandDBFile = new TempFile("kstar.ligand.conf.db")) {
 				try (TempFile complexDBFile = new TempFile("kstar.complex.conf.db")) {
-
 					// run with empty dbs
 					Stopwatch sw = new Stopwatch().start();
 					Result result = runKStar(confSpaces, epsilon, confdbPattern, false, 1);
@@ -487,6 +507,10 @@ public class TestKStar {
 					System.out.println(sw.getTime(2));
 
 					// the dbs should have stuff in them
+
+					assertThat(proteinDBFile.exists(), is(true));
+					assertThat(ligandDBFile.exists(), is(true));
+					assertThat(complexDBFile.exists(), is(true));
 
 					try (ConfDB confdb = new ConfDB(confSpaces.protein, proteinDBFile)) {
 						assertThat(confdb.getNumSequences(), greaterThan(0L));
@@ -508,10 +532,6 @@ public class TestKStar {
 							assertThat(confdb.getSequence(sequence).size(), greaterThan(0L));
 						}
 					}
-
-					assertThat(proteinDBFile.exists(), is(true));
-					assertThat(ligandDBFile.exists(), is(true));
-					assertThat(complexDBFile.exists(), is(true));
 
 					// run again with full dbs
 					sw = new Stopwatch().start();

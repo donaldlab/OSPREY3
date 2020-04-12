@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.parallelism;
 
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.gpu.cuda.Gpus;
 
 
 /** Specified how Osprey should use available hardware. */
@@ -107,6 +108,10 @@ public class Parallelism {
 			cfp.params.getInt("MinimizationGpus", 0),
 			cfp.params.getInt("MinimizationStreamsPerGpu", 1)
 		);
+	}
+
+	public static boolean hasGPUs() {
+		return !Gpus.get().getGpus().isEmpty();
 	}
 	
 	public final int numThreads;

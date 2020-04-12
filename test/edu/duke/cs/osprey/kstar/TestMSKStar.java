@@ -286,8 +286,13 @@ public class TestMSKStar {
 
 					// calculate the pfunc
 					RCs rcs = sequence.makeRCs(state.confSpace);
-					GradientDescentPfunc pfunc = new GradientDescentPfunc(state.confEcalc);
-					pfunc.init(state.confTreeFactory.apply(rcs), rcs.getNumConformations(), epsilon);
+					GradientDescentPfunc pfunc = new GradientDescentPfunc(
+						state.confEcalc,
+						state.confTreeFactory.apply(rcs),
+						state.confTreeFactory.apply(rcs),
+						rcs.getNumConformations()
+					);
+					pfunc.init(epsilon);
 					pfunc.compute();
 					stateBounds.put(state, pfunc.makeResult().values.calcFreeEnergyBounds());
 				}

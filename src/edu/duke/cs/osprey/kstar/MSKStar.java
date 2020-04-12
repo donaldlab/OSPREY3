@@ -72,7 +72,7 @@ public class MSKStar {
 	 */
 	public static class State {
 
-		public PartitionFunctionFactory pfuncFactory;
+		public KStar.PfuncFactory pfuncFactory;
 
 		public static class InitException extends RuntimeException {
 
@@ -341,11 +341,15 @@ public class MSKStar {
 
 			// init pfunc calculation
 			RCs rcs = sequence.makeRCs(state.confSpace);
-			pfunc = state.pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
+			pfunc = state.pfuncFactory.make(rcs);
 
+			/* TODO: update MSK* to new ConfDB API
 			if (confTable != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confTable);
 			}
+			*/
+
+			pfunc.init(epsilon);
 		}
 
 		void refineBounds() {
@@ -630,6 +634,8 @@ public class MSKStar {
 	 * searches all sequences within the objective window
 	 */
 	public List<SequenceInfo> findBestSequences(int numSequences) {
+
+		if (true) throw new Error("This implementation doesn't work yet, don't use it!");
 
 		// reset any previous state
 		stateConfsCache.clear();

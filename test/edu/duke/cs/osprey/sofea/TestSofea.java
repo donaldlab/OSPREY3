@@ -581,7 +581,7 @@ public class TestSofea {
 				try (Sofea.StateInfo.Confs confs = stateInfo.new Confs()) {
 
 					forEachNode(stateInfo, index -> {
-						BigDecimalBounds exactBigDecimal = stateInfo.calcZPathBoundsExact(index, stateInfo.rcs, confs.table);
+						BigDecimalBounds exactBigDecimal = stateInfo.calcZPathBoundsExact(index, stateInfo.rcs, confs.table());
 						BigExp.Bounds exact = new BigExp.Bounds(
 							new BigExp(exactBigDecimal.lower),
 							new BigExp(exactBigDecimal.upper)
@@ -614,7 +614,7 @@ public class TestSofea {
 							new BigExp(0.0),
 							stateInfo.calcZSumUpper(index, stateInfo.rcs)
 						);
-						BigExp exact = new BigExp(stateInfo.calcZSum(index, stateInfo.rcs, confs.table));
+						BigExp exact = new BigExp(stateInfo.calcZSum(index, stateInfo.rcs, confs.table()));
 						assertThat(bounds, isRelativeBound(exact, 1e-4));
 					});
 				}
@@ -655,17 +655,23 @@ public class TestSofea {
 				.mapToDouble(state -> {
 
 					RCs rcs = seq.makeRCs(state.confSpace);
-					ConfAStarTree astar = new ConfAStarTree.Builder(design.emats[state.index], rcs)
-						.setTraditional()
-						.build();
 
 					try (Sofea.StateInfo.Confs confs = sofea.getStateInfo(state).new Confs()) {
 
 						// TODO: GradientDescentPfunc is returing some bad answers in multi-thread mode?
 						// TODO: the pfunc used to work... What broke it?
-						GradientDescentPfunc pfunc = new GradientDescentPfunc(ecalcs.getConfEcalc(state));
-						pfunc.setConfTable(confs.table);
-						pfunc.init(astar, rcs.getNumConformations(), 0.00001);
+						GradientDescentPfunc pfunc = new GradientDescentPfunc(
+							ecalcs.getConfEcalc(state),
+							new ConfAStarTree.Builder(design.emats[state.index], rcs)
+								.setTraditional()
+								.build(),
+							new ConfAStarTree.Builder(design.emats[state.index], rcs)
+								.setTraditional()
+								.build(),
+							rcs.getNumConformations()
+						);
+						pfunc.setConfDB(confs.db, confs.key);
+						pfunc.init(0.00001);
 						pfunc.setStabilityThreshold(null); // turn the damn thing off!
 						pfunc.compute();
 						PartitionFunction.Result result = pfunc.makeResult();

@@ -33,34 +33,22 @@
 package edu.duke.cs.osprey.paste;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.FileTools;
-import edu.duke.cs.osprey.tools.MathTools;
-import edu.duke.cs.osprey.tools.SVG;
-import edu.duke.cs.osprey.tools.SVGPlot;
 
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-
-import static edu.duke.cs.osprey.tools.Log.log;
 
 
 public class PasteRunner {
@@ -184,11 +172,18 @@ public class PasteRunner {
 						.build()
 						.calcEnergyMatrix();
 
-				info.confSearchFactory = (rcs) -> new ConfAStarTree.Builder(emat, rcs)
+				info.pfuncFactory = rcs -> new GradientDescentPfunc(
+					info.confEcalc,
+					new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
-						.build();
+						.build(),
+					new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional()
+						.build(),
+					rcs.getNumConformations()
+				);
 			}
-			kstar.run();
+			kstar.run(ecalc.tasks);
 		}
 	}
 }

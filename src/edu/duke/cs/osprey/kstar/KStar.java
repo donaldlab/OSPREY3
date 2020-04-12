@@ -34,12 +34,12 @@ package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
-import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.tools.AutoCloseableNoEx;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -106,6 +106,11 @@ public class KStar {
 			 */
 			private boolean useExternalMemory = false;
 
+			/**
+			 * Pattern for ConfDB filename, where the first %s is replaced with the state name.
+			 */
+			private String confDBPattern = "%s.confdb";
+
 			public Builder setEpsilon(double val) {
 				epsilon = val;
 				return this;
@@ -155,8 +160,13 @@ public class KStar {
 				return this;
 			}
 
+			public Builder setConfDBPattern(String val) {
+				confDBPattern = val;
+				return this;
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory);
+				return new Settings(epsilon, stabilityThreshold, maxSimultaneousMutations, scoreWriters, showPfuncProgress, useExternalMemory, confDBPattern);
 			}
 		}
 
@@ -166,15 +176,16 @@ public class KStar {
 		public final KStarScoreWriter.Writers scoreWriters;
 		public final boolean showPfuncProgress;
 		public final boolean useExternalMemory;
+		public final String confDBPattern;
 
-
-		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory) {
+		public Settings(double epsilon, Double stabilityThreshold, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs, boolean useExternalMemory, String confDBPattern) {
 			this.epsilon = epsilon;
 			this.stabilityThreshold = stabilityThreshold;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
 			this.scoreWriters = scoreWriters;
 			this.showPfuncProgress = dumpPfuncConfs;
 			this.useExternalMemory = useExternalMemory;
+			this.confDBPattern = confDBPattern;
 		}
 	}
 
@@ -198,7 +209,7 @@ public class KStar {
 		}
 	}
 
-	public static enum ConfSpaceType {
+	public enum ConfSpaceType {
 		Protein,
 		Ligand,
 		Complex
@@ -211,8 +222,8 @@ public class KStar {
 		}
 	}
 
-	public static interface ConfSearchFactory {
-		public ConfSearch make(RCs rcs);
+	public interface PfuncFactory {
+		PartitionFunction make(RCs rcs);
 	}
 
 	public class ConfSpaceInfo {
@@ -223,43 +234,69 @@ public class KStar {
 
 		public final Map<Sequence,PartitionFunction.Result> pfuncResults = new HashMap<>();
 
-		public ConfEnergyCalculator confEcalc = null;
-		public ConfEnergyCalculator rigidConfEcalc = null;
-		public ConfSearchFactory confSearchFactory = null;
 		public File confDBFile = null;
+		public ConfEnergyCalculator confEcalc = null;
+		public PfuncFactory pfuncFactory = null;
+
+		private ConfDB confDB = null;
 
 		public ConfSpaceInfo(ConfSpaceIteration confSpace, ConfSpaceType type) {
 			this.confSpace = confSpace;
 			this.type = type;
 			this.id = type.name().toLowerCase();
+
+			confDBFile = new File(String.format(settings.confDBPattern, id));
 		}
 
 		private void check() {
 			if (confEcalc == null) {
 				throw new InitException(type, "confEcalc");
 			}
-			if (confSearchFactory == null) {
-				throw new InitException(type, "confSearchFactory");
+			if (pfuncFactory == null) {
+				throw new InitException(type, "pfuncFactory");
 			}
 		}
 
-		private PartitionFunction makePfunc(Sequence sequence) {
-			PartitionFunction pfunc = PartitionFunction.makeBestFor(confEcalc, rigidConfEcalc, sequence, type.name());
-			pfunc.setInstanceId(type.ordinal());
-			return pfunc;
+		private AutoCloseableNoEx openConfDB() {
+			if (confDBFile != null) {
+				confDB = new ConfDB(confSpace, confDBFile);
+			}
+			return () -> {
+				if (confDB != null) {
+					confDB.close();
+					confDB = null;
+				}
+			};
 		}
 
-		private int instanceId() {
-			return type.ordinal();
+		private PartitionFunction makePfunc(Sequence seq) {
+
+			RCs rcs = seq.makeRCs(confSpace);
+
+			PartitionFunction pfunc = pfuncFactory.make(rcs);
+
+			pfunc.setReportProgress(settings.showPfuncProgress);
+			if (settings.useExternalMemory) {
+				PartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
+			}
+			if (confDB != null) {
+				PartitionFunction.WithConfDB.cast(pfunc).setConfDB(confDB, seq);
+			}
+
+			pfunc.setInstanceId(type.ordinal());
+
+			pfunc.init(settings.epsilon);
+
+			return pfunc;
 		}
 
 		public void clear() {
 			pfuncResults.clear();
 		}
 
-		public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold, ConfDB confDB) {
+		public PartitionFunction.Result calcPfunc(Sequence globalSequence, BigDecimal stabilityThreshold) {
 
-			Sequence sequence = sequences.get(sequenceIndex).filter(confSpace.seqSpace());
+			Sequence sequence = globalSequence.filter(confSpace.seqSpace());
 
 			// check the cache first
 			PartitionFunction.Result result = pfuncResults.get(sequence);
@@ -269,24 +306,9 @@ public class KStar {
 
 			// cache miss, need to compute the partition function
 
-			// make the partition function
+			// compute the partition function
 			PartitionFunction pfunc = makePfunc(sequence);
-			pfunc.setReportProgress(settings.showPfuncProgress);
-			if (confDB != null) {
-				PartitionFunction.WithConfTable.setOrThrow(pfunc, confDB.getSequence(sequence));
-			}
-			RCs rcs = sequence.makeRCs(confSpace);
-			if (settings.useExternalMemory) {
-				PartitionFunction.WithExternalMemory.setOrThrow(pfunc, true, rcs);
-			}
-			ConfSearch astar = confSearchFactory.make(rcs);
-			pfunc.init(astar, rcs.getNumConformations(), settings.epsilon);
 			pfunc.setStabilityThreshold(stabilityThreshold);
-
-			// set task context info if needed
-			pfunc.setInstanceId(instanceId());
-
-			// compute it
 			pfunc.compute();
 
 			// save the result
@@ -303,15 +325,19 @@ public class KStar {
 			*/
 			Runtime.getRuntime().gc();
 
-			return result;
-		}
+			// newer JVMs have more concurrent garbage collectors
+			// give it a little time to finish cleaning up the pfunc
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException ex) {
+				throw new RuntimeException(ex);
+			}
 
-		public void setConfDBFile(String path) {
-			confDBFile = new File(path);
+			return result;
 		}
 	}
 
-	private static interface Scorer {
+	private interface Scorer {
 		KStarScore score(int sequenceNumber, PartitionFunction.Result proteinResult, PartitionFunction.Result ligandResult, PartitionFunction.Result complexResult);
 	}
 
@@ -353,88 +379,124 @@ public class KStar {
 		}
 	}
 
-	public List<ScoredSequence> run() {
+	public ScoredSequence score(Sequence seq, TaskExecutor tasks) {
 
 		// make a context group for the task executor
-		try (TaskExecutor.ContextGroup ctxGroup = complex.confEcalc.tasks.contextGroup()) {
-
-			// put the three contexts for the conf spaces to the context group
-			for (ConfSpaceInfo info : Arrays.asList(protein, ligand, complex)) {
-
-				// get any arbitrary sequence in the seq space
-				Sequence seq = protein.confSpace.seqSpace().makeUnassignedSequence();
-				info.makePfunc(seq).putTaskContexts(ctxGroup);
-			}
-
-			// skip the calculation on member nodes
-			if (complex.confEcalc.tasks instanceof Cluster.Member) {
-				// TODO: try to get the sequences from the client?
-				return null;
-			}
-
-			// check the conf space infos to make sure we have all the inputs
-			protein.check();
-			ligand.check();
-			complex.check();
-
-			// reset any previous state
-			sequences.clear();
-			protein.clear();
-			ligand.clear();
-			complex.clear();
-
-			List<ScoredSequence> scores = new ArrayList<>();
-
-			// collect all the sequences explicitly
-			if (complex.confSpace.seqSpace().containsWildTypeSequence()) {
-				sequences.add(complex.confSpace.seqSpace().makeWildTypeSequence());
-			}
-			sequences.addAll(complex.confSpace.seqSpace().getMutants(settings.maxSimultaneousMutations, true));
-
-			// TODO: sequence filtering? do we need to reject some mutation combinations for some reason?
-
-			// now we know how many sequences there are in total
-			int n = sequences.size();
-
-			// make the sequence scorer and reporter
-			Scorer scorer = (sequenceNumber, proteinResult, ligandResult, complexResult) -> {
-
-				// compute the K* score
-				KStarScore kstarScore = new KStarScore(proteinResult, ligandResult, complexResult);
-				Sequence sequence = sequences.get(sequenceNumber);
-				scores.add(new ScoredSequence(sequence, kstarScore));
-
-				// report scores
-				settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
-					sequenceNumber,
-					n,
-					sequence,
-					kstarScore
-				));
-
-				return kstarScore;
-			};
-
-			System.out.println("computing K* scores for " + sequences.size() + " sequences to epsilon = " + settings.epsilon + " ...");
-			settings.scoreWriters.writeHeader();
-			// TODO: progress bar?
+		try (TaskExecutor.ContextGroup ctxGroup = tasks.contextGroup()) {
 
 			// open the conf databases if needed
-			try (ConfDB.DBs confDBs = new ConfDB.DBs()
-				.add(protein.confSpace, protein.confDBFile)
-				.add(ligand.confSpace, ligand.confDBFile)
-				.add(complex.confSpace, complex.confDBFile)
-			) {
-				ConfDB proteinConfDB = confDBs.get(protein.confSpace);
-				ConfDB ligandConfDB = confDBs.get(ligand.confSpace);
-				ConfDB complexConfDB = confDBs.get(complex.confSpace);
+			try (AutoCloseableNoEx proteinCloser = protein.openConfDB()) {
+			try (AutoCloseableNoEx ligandCloser = ligand.openConfDB()) {
+			try (AutoCloseableNoEx complexCloser = complex.openConfDB()) {
+
+				// check the conf space infos to make sure we have all the inputs
+				protein.check();
+				ligand.check();
+				complex.check();
+
+				// reset any previous state
+				sequences.clear();
+				protein.clear();
+				ligand.clear();
+				complex.clear();
+
+				// put the three contexts for the conf spaces to the context group
+				for (ConfSpaceInfo info : Arrays.asList(protein, ligand, complex)) {
+					info.makePfunc(seq).putTaskContexts(ctxGroup);
+				}
+
+				// skip the calculation on member nodes
+				if (tasks instanceof Cluster.Member) {
+					// TODO: try to get the scored sequence from the client?
+					return null;
+				}
+
+				return new ScoredSequence(seq, new KStarScore(
+					protein.calcPfunc(seq, BigDecimal.ZERO),
+					ligand.calcPfunc(seq, BigDecimal.ZERO),
+					complex.calcPfunc(seq, BigDecimal.ZERO)
+				));
+			}}}
+		}
+	}
+
+	public List<ScoredSequence> run(TaskExecutor tasks) {
+
+		// make a context group for the task executor
+		try (TaskExecutor.ContextGroup ctxGroup = tasks.contextGroup()) {
+
+			// open the conf databases if needed
+			try (AutoCloseableNoEx proteinCloser = protein.openConfDB()) {
+			try (AutoCloseableNoEx ligandCloser = ligand.openConfDB()) {
+			try (AutoCloseableNoEx complexCloser = complex.openConfDB()) {
+
+				// check the conf space infos to make sure we have all the inputs
+				protein.check();
+				ligand.check();
+				complex.check();
+
+				// reset any previous state
+				sequences.clear();
+				protein.clear();
+				ligand.clear();
+				complex.clear();
+
+				// put the three contexts for the conf spaces to the context group
+				for (ConfSpaceInfo info : Arrays.asList(protein, ligand, complex)) {
+
+					// get any arbitrary sequence in the seq space
+					Sequence seq = info.confSpace.seqSpace().makeUnassignedSequence();
+					info.makePfunc(seq).putTaskContexts(ctxGroup);
+				}
+
+				// skip the calculation on member nodes
+				if (tasks instanceof Cluster.Member) {
+					// TODO: try to get the scored sequences from the client?
+					return null;
+				}
+
+				List<ScoredSequence> scores = new ArrayList<>();
+
+				// collect all the sequences explicitly
+				if (complex.confSpace.seqSpace().containsWildTypeSequence()) {
+					sequences.add(complex.confSpace.seqSpace().makeWildTypeSequence());
+				}
+				sequences.addAll(complex.confSpace.seqSpace().getMutants(settings.maxSimultaneousMutations, true));
+
+				// TODO: sequence filtering? do we need to reject some mutation combinations for some reason?
+
+				// now we know how many sequences there are in total
+				int n = sequences.size();
+
+				// make the sequence scorer and reporter
+				Scorer scorer = (sequenceNumber, proteinResult, ligandResult, complexResult) -> {
+
+					// compute the K* score
+					KStarScore kstarScore = new KStarScore(proteinResult, ligandResult, complexResult);
+					Sequence sequence = sequences.get(sequenceNumber);
+					scores.add(new ScoredSequence(sequence, kstarScore));
+
+					// report scores
+					settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
+						sequenceNumber,
+						n,
+						sequence,
+						kstarScore
+					));
+
+					return kstarScore;
+				};
+
+				System.out.println("computing K* scores for " + sequences.size() + " sequences to epsilon = " + settings.epsilon + " ...");
+				settings.scoreWriters.writeHeader();
+				// TODO: progress bar?
 
 				// compute wild type partition functions first (always at pos 0)
 				KStarScore wildTypeScore = scorer.score(
 					0,
-					protein.calcPfunc(0, BigDecimal.ZERO, proteinConfDB),
-					ligand.calcPfunc(0, BigDecimal.ZERO, ligandConfDB),
-					complex.calcPfunc(0, BigDecimal.ZERO, complexConfDB)
+					protein.calcPfunc(sequences.get(0), BigDecimal.ZERO),
+					ligand.calcPfunc(sequences.get(0), BigDecimal.ZERO),
+					complex.calcPfunc(sequences.get(0), BigDecimal.ZERO)
 				);
 				BigDecimal proteinStabilityThreshold = null;
 				BigDecimal ligandStabilityThreshold = null;
@@ -446,28 +508,29 @@ public class KStar {
 
 				// compute all the partition functions and K* scores for the rest of the sequences
 				for (int i=1; i<n; i++) {
+					Sequence seq = sequences.get(i);
 
 					// get the pfuncs, with short circuits as needed
-					final PartitionFunction.Result proteinResult = protein.calcPfunc(i, proteinStabilityThreshold, proteinConfDB);
+					final PartitionFunction.Result proteinResult = protein.calcPfunc(seq, proteinStabilityThreshold);
 					final PartitionFunction.Result ligandResult;
 					final PartitionFunction.Result complexResult;
 					if (!KStarScore.isLigandComplexUseful(proteinResult)) {
 						ligandResult = PartitionFunction.Result.makeAborted();
 						complexResult = PartitionFunction.Result.makeAborted();
 					} else {
-						ligandResult = ligand.calcPfunc(i, ligandStabilityThreshold, ligandConfDB);
+						ligandResult = ligand.calcPfunc(seq, ligandStabilityThreshold);
 						if (!KStarScore.isComplexUseful(proteinResult, ligandResult)) {
 							complexResult = PartitionFunction.Result.makeAborted();
 						} else {
-							complexResult = complex.calcPfunc(i, BigDecimal.ZERO, complexConfDB);
+							complexResult = complex.calcPfunc(seq, BigDecimal.ZERO);
 						}
 					}
 
 					scorer.score(i, proteinResult, ligandResult, complexResult);
 				}
-			}
 
-			return scores;
+				return scores;
+			}}}
 		}
 	}
 }

@@ -26,7 +26,7 @@ public class TestConfSpace {
 
 		Consumer<ConfSpace> assertG = (confSpace) -> {
 			assertPosition(confSpace, "649 PHE", "PHE", 29, Arrays.asList("PHE:5",  "TYR:8",  "ALA:1", "VAL:3", "ILE:7", "LEU:5"));
-			assertPosition(confSpace, "650 ASP", "ASP",  14, Arrays.asList("ASP:6",  "GLU:8"));
+			assertPosition(confSpace, "650 ASP", "ASP", 14, Arrays.asList("ASP:6",  "GLU:8"));
 			assertPosition(confSpace, "651 GLU", "GLU", 14, Arrays.asList("GLU:9",  "ASP:5"));
 		};
 
@@ -55,6 +55,8 @@ public class TestConfSpace {
 		assertA.accept(complex);
 		assertThat(complex.countSingles(), is(200));
 		assertThat(complex.countPairs(), is(16734));
+
+		// TODO: check atom counts and positions are the same?
 	}
 
 	private static void assertPosition(ConfSpace confSpace, String name, String wildType, int numConfs, List<String> descriptions) {

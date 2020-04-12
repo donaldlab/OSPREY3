@@ -33,6 +33,8 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
@@ -41,6 +43,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -56,6 +59,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Function;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 
@@ -142,11 +146,18 @@ public class KStarRunner {
 					.build()
 					.calcEnergyMatrix();
 
-				info.confSearchFactory = (rcs) -> new ConfAStarTree.Builder(emat, rcs)
+				Function<RCs,ConfSearch> confSearchFactory = (rcs) -> new ConfAStarTree.Builder(emat, rcs)
 					.setTraditional()
 					.build();
+
+				info.pfuncFactory = rcs -> new GradientDescentPfunc(
+					info.confEcalc,
+					confSearchFactory.apply(rcs),
+					confSearchFactory.apply(rcs),
+					rcs.getNumConformations()
+				);
 			}
-			kstar.run();
+			kstar.run(ecalc.tasks);
 		}
 	}
 

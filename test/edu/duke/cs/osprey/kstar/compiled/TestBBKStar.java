@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar.compiled;
 
+
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
@@ -11,6 +12,7 @@ import edu.duke.cs.osprey.ematrix.compiled.ErefCalculator;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
+import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
@@ -23,14 +25,11 @@ import org.junit.rules.Timeout;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-
-public class TestKStar {
+public class TestBBKStar {
 
 	@Rule
 	public Timeout globalTimeout = new Timeout(2, TimeUnit.MINUTES);
 
-	// TODO: this test is really slow! Probably need to optimize energy calculation
-	//  or look into the pfunc calculator... it's getting stuck somehow
 	@Test
 	public void test2RL0() {
 
@@ -40,17 +39,6 @@ public class TestKStar {
 
 		final double epsilon = 0.99;
 		run(chainG, chainA, complex, epsilon);
-	}
-
-	@Test
-	public void testF98Y() {
-
-		ConfSpace complex = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.complex.ccsx"));
-		ConfSpace dhfr = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.DHFR.ccsx"));
-		ConfSpace nadph06w = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.NADPH.06W.ccsx"));
-
-		final double epsilon = 0.05;
-		run(dhfr, nadph06w, complex, epsilon);
 	}
 
 	private static List<KStar.ScoredSequence> run(ConfSpace protein, ConfSpace ligand, ConfSpace complex, double epsilon) {
@@ -65,68 +53,84 @@ public class TestKStar {
 				info.kstarScore.toString()
 			);
 
-		KStar.Settings settings = new KStar.Settings.Builder()
+		KStar.Settings kstarSettings = new KStar.Settings.Builder()
 			.setEpsilon(epsilon)
 			.setStabilityThreshold(null)
 			.setMaxSimultaneousMutations(1)
 			//.setShowPfuncProgress(true)
 			.addScoreConsoleWriter(testFormatter)
 			.build();
-		KStar kstar = new KStar(protein, ligand, complex, settings);
+		BBKStar.Settings bbkstarSettings = new BBKStar.Settings.Builder()
+			.setNumBestSequences(5)
+			.setNumConfsPerBatch(8)
+			.build();
+		BBKStar bbkstar = new BBKStar(protein, ligand, complex, kstarSettings, bbkstarSettings);
 
 		try (ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor()) {
 			tasks.start(4);
 
-			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
 				ConfSpace confSpace = (ConfSpace)info.confSpace;
 
 				PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
-				boolean minimize = true;
 				boolean includeStaticStatic = true;
 				ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace, tasks);
 
 				SimpleReferenceEnergies eref = new ErefCalculator.Builder(ecalc)
-					.setMinimize(minimize)
+					.setMinimize(true)
 					.build()
 					.calc();
 
-				EnergyMatrix emat = new EmatCalculator.Builder(ecalc)
+				info.confEcalcMinimized = new ConfEnergyCalculatorAdapter.Builder(ecalc)
 					.setPosInterDist(posInterDist)
 					.setReferenceEnergies(eref)
-					.setMinimize(minimize)
-					.setIncludeStaticStatic(includeStaticStatic)
-					.build()
-					.calc();
-
-				info.confEcalc = new ConfEnergyCalculatorAdapter.Builder(ecalc)
-					.setPosInterDist(posInterDist)
-					.setReferenceEnergies(eref)
-					.setMinimize(minimize)
+					.setMinimize(true)
 					.setIncludeStaticStatic(includeStaticStatic)
 					.build();
 
+				EnergyMatrix ematMinimized = new EmatCalculator.Builder(ecalc)
+					.setPosInterDist(posInterDist)
+					.setReferenceEnergies(eref)
+					.setMinimize(true)
+					.setIncludeStaticStatic(includeStaticStatic)
+					.build()
+					.calc();
+				info.confSearchFactoryMinimized = (rcs) ->
+					new ConfAStarTree.Builder(ematMinimized, rcs)
+						.setTraditional()
+						.build();
+
+				// BBK* needs rigid energies too
+				EnergyMatrix ematRigid = new EmatCalculator.Builder(ecalc)
+					.setPosInterDist(posInterDist)
+					.setReferenceEnergies(eref)
+					.setMinimize(false)
+					.setIncludeStaticStatic(includeStaticStatic)
+					.build()
+					.calc();
+				info.confSearchFactoryRigid = (rcs) ->
+					new ConfAStarTree.Builder(ematRigid, rcs)
+						.setTraditional()
+						.build();
+
 				info.pfuncFactory = rcs -> new GradientDescentPfunc(
-					info.confEcalc,
-					new ConfAStarTree.Builder(emat, rcs)
-						.setTraditional()
-						.build(),
-					new ConfAStarTree.Builder(emat, rcs)
-						.setTraditional()
-						.build(),
+					info.confEcalcMinimized,
+					info.confSearchFactoryMinimized.make(rcs),
+					info.confSearchFactoryMinimized.make(rcs),
 					rcs.getNumConformations()
 				);
 			}
 
 			// run K*
-			return kstar.run(tasks);
+			return bbkstar.run(tasks);
 
 		} finally {
 
 			// cleanup
-			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
-				if (info.confEcalc != null) {
-					((ConfEnergyCalculatorAdapter)info.confEcalc).confEcalc.close();
+			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
+				if (info.confEcalcMinimized != null) {
+					((ConfEnergyCalculatorAdapter)info.confEcalcMinimized).confEcalc.close();
 				}
 			}
 		}

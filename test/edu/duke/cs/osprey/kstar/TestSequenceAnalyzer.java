@@ -37,14 +37,20 @@ import static org.junit.Assert.*;
 import static edu.duke.cs.osprey.TestBase.*;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import org.junit.Test;
+
+import java.io.File;
+import java.util.function.Function;
 
 public class TestSequenceAnalyzer {
 
@@ -58,83 +64,107 @@ public class TestSequenceAnalyzer {
 		Parallelism parallelism = Parallelism.makeCpu(4);
 		//Parallelism parallelism = Parallelism.make(4, 1, 8);
 
-		// how should we compute energies of molecules?
-		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
-			.setParallelism(parallelism)
-			.build()) {
+		final String confdbPattern = "kstar.%s.conf.db";
+		try (TempFile proteinDBFile = new TempFile("kstar.protein.conf.db")) {
+			try (TempFile ligandDBFile = new TempFile("kstar.ligand.conf.db")) {
+				try (TempFile complexDBFile = new TempFile("kstar.complex.conf.db")) {
 
-			KStar.Settings settings = new KStar.Settings.Builder().build();
-			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
-			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
+					// how should we compute energies of molecules?
+					try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
+						.setParallelism(parallelism)
+						.build()) {
 
-				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+						KStar.Settings settings = new KStar.Settings.Builder()
+							.setShowPfuncProgress(true)
+							.build();
+						KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
+						for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
-				info.confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
-					.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
-						.build()
-						.calcReferenceEnergies()
-					).build();
+							SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
-				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
-					.build()
-					.calcEnergyMatrix();
+							info.confDBFile = new File(String.format(confdbPattern, info.type.name().toLowerCase()));
 
-				info.confSearchFactory = (rcs) ->
-					new ConfAStarTree.Builder(emat, rcs)
-						.setTraditional()
-						.build();
+							info.confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+								.setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+									.build()
+									.calcReferenceEnergies()
+								).build();
+
+							EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(info.confEcalc)
+								.build()
+								.calcEnergyMatrix();
+
+							Function<RCs,ConfSearch> confSearchFactory = (rcs) ->
+								new ConfAStarTree.Builder(emat, rcs)
+									.setTraditional()
+									.build();
+
+							info.pfuncFactory = rcs -> new GradientDescentPfunc(
+								info.confEcalc,
+								confSearchFactory.apply(rcs),
+								confSearchFactory.apply(rcs),
+								rcs.getNumConformations()
+							);
+						}
+
+						// score just a few sequences
+						Sequence[] seqs = {
+							confSpaces.complex.makeWildTypeSequence(),
+							confSpaces.complex.makeWildTypeSequence().set("G649", "ILE"),
+							confSpaces.protein.makeWildTypeSequence().set("G649", "ILE")
+						};
+
+						kstar.score(seqs[0], ecalc.tasks);
+						kstar.score(seqs[1], ecalc.tasks);
+						// don't score seq 2, it's just for the protein conf space
+
+						assertThat(proteinDBFile.exists(), is(true));
+						assertThat(ligandDBFile.exists(), is(true));
+						assertThat(complexDBFile.exists(), is(true));
+
+						SequenceAnalyzer analyzer = new SequenceAnalyzer(kstar);
+						SequenceAnalyzer.Analysis analysis;
+
+						// analyze seq 0
+						analysis = analyzer.analyze(seqs[0], 4);
+						assertThat(analysis.info.id, is("complex"));
+						assertThat(analysis.sequence.toString(Sequence.Renderer.ResTypeMutations), is("phe asp glu thr phe lys ile thr"));
+						assertThat(analysis.ensemble.analyses.size(), is(4));
+						assertThat(analysis.ensemble.analyses.get(0).epmol.energy, isAbsolutely(-68.416267, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(1).epmol.energy, isAbsolutely(-68.244583, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(2).epmol.energy, isAbsolutely(-68.114214, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(3).epmol.energy, isAbsolutely(-67.945550, EnergyEpsilon));
+
+						analysis = analyzer.analyze(seqs[1], 12);
+						assertThat(analysis.info.id, is("complex"));
+						assertThat(analysis.sequence.toString(Sequence.Renderer.ResTypeMutations), is("ILE asp glu thr phe lys ile thr"));
+						assertThat(analysis.ensemble.analyses.size(), is(12));
+						assertThat(analysis.ensemble.analyses.get(0).epmol.energy, isAbsolutely(-61.938135, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(1).epmol.energy, isAbsolutely(-61.905580, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(2).epmol.energy, isAbsolutely(-61.890854, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(3).epmol.energy, isAbsolutely(-61.639204, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(4).epmol.energy, isAbsolutely(-61.637555, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(5).epmol.energy, isAbsolutely(-61.608625, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(6).epmol.energy, isAbsolutely(-61.593341, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(7).epmol.energy, isAbsolutely(-61.591667, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(8).epmol.energy, isAbsolutely(-61.586393, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(9).epmol.energy, isAbsolutely(-61.335184, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(10).epmol.energy, isAbsolutely(-61.311892, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(11).epmol.energy, isAbsolutely(-61.247090, EnergyEpsilon));
+
+						analysis = analyzer.analyze(seqs[2], 6);
+						assertThat(analysis.info.id, is("protein"));
+						assertThat(analysis.sequence.toString(Sequence.Renderer.ResTypeMutations), is("ILE asp glu thr"));
+						assertThat(analysis.ensemble.analyses.size(), is(6));
+						assertThat(analysis.ensemble.analyses.get(0).epmol.energy, isAbsolutely(-3.000911, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(1).epmol.energy, isAbsolutely(-2.903385, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(2).epmol.energy, isAbsolutely(-2.508572, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(3).epmol.energy, isAbsolutely(-2.418352, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(4).epmol.energy, isAbsolutely(-2.401930, EnergyEpsilon));
+						assertThat(analysis.ensemble.analyses.get(5).epmol.energy, isAbsolutely(-2.309892, EnergyEpsilon));
+					}
+				}
 			}
-
-			SequenceAnalyzer analyzer = new SequenceAnalyzer(kstar);
-
-			SequenceAnalyzer.Analysis analysis = analyzer.analyze(
-				confSpaces.complex.makeWildTypeSequence(),
-				1
-			);
-
-			assertThat(analysis.info.id, is("complex"));
-			assertThat(analysis.sequence.toString(Sequence.Renderer.ResTypeMutations), is("phe asp glu thr phe lys ile thr"));
-			assertThat(analysis.ensemble.analyses.size(), is(4));
-			assertThat(analysis.ensemble.analyses.get(0).epmol.energy, isAbsolutely(-68.416267, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(1).epmol.energy, isAbsolutely(-68.244583, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(2).epmol.energy, isAbsolutely(-68.114214, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(3).epmol.energy, isAbsolutely(-67.945550, EnergyEpsilon));
-
-			analysis = analyzer.analyze(
-				confSpaces.complex.makeWildTypeSequence().set("G649", "ILE"),
-				1
-			);
-
-			assertThat(analysis.info.id, is("complex"));
-			assertThat(analysis.sequence.toString(Sequence.Renderer.ResTypeMutations), is("ILE asp glu thr phe lys ile thr"));
-			assertThat(analysis.ensemble.analyses.size(), is(12));
-			assertThat(analysis.ensemble.analyses.get(0).epmol.energy, isAbsolutely(-61.938135, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(1).epmol.energy, isAbsolutely(-61.905580, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(2).epmol.energy, isAbsolutely(-61.890854, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(3).epmol.energy, isAbsolutely(-61.639204, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(4).epmol.energy, isAbsolutely(-61.637555, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(5).epmol.energy, isAbsolutely(-61.608625, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(6).epmol.energy, isAbsolutely(-61.593341, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(7).epmol.energy, isAbsolutely(-61.591667, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(8).epmol.energy, isAbsolutely(-61.586393, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(9).epmol.energy, isAbsolutely(-61.335184, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(10).epmol.energy, isAbsolutely(-61.311892, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(11).epmol.energy, isAbsolutely(-61.247090, EnergyEpsilon));
-
-			analysis = analyzer.analyze(
-				confSpaces.protein.makeWildTypeSequence().set("G649", "ILE"),
-				1
-			);
-
-			assertThat(analysis.info.id, is("protein"));
-			assertThat(analysis.sequence.toString(Sequence.Renderer.ResTypeMutations), is("ILE asp glu thr"));
-			assertThat(analysis.ensemble.analyses.size(), is(6));
-			assertThat(analysis.ensemble.analyses.get(0).epmol.energy, isAbsolutely(-3.000911, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(1).epmol.energy, isAbsolutely(-2.903385, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(2).epmol.energy, isAbsolutely(-2.508572, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(3).epmol.energy, isAbsolutely(-2.418352, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(4).epmol.energy, isAbsolutely(-2.401930, EnergyEpsilon));
-			assertThat(analysis.ensemble.analyses.get(5).epmol.energy, isAbsolutely(-2.309892, EnergyEpsilon));
 		}
 	}
 }

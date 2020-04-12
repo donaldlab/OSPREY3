@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.minimization;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -377,11 +378,14 @@ public class TestMinimization extends TestBase {
 	}
 	
 	private void check(MinimizerFactory factory) {
-		
+
 		for (boolean doSolv : Arrays.asList(true, false)) {
 			
 			Info info = Infos.get(doSolv);
 			ConfMinimizer minimizer = factory.make(info.ffparams, info.intergen, info.search.confSpace);
+			if (minimizer instanceof GpuConfMinimizer) {
+				assumeTrue(Parallelism.hasGPUs());
+			}
 			List<EnergiedConf> econfs = minimizer.minimize(info.confs);
 			minimizer.cleanup();
 			
@@ -390,7 +394,9 @@ public class TestMinimization extends TestBase {
 	}
 	
 	private void check(EnergyCalculator.Type type, Parallelism parallelism) {
-		
+
+		skipGPUTestsIfNeeded(parallelism);
+
 		for (boolean doSolv : Arrays.asList(true, false)) {
 			
 			Info info = Infos.get(doSolv);
