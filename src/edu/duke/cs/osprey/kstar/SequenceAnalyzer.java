@@ -177,6 +177,14 @@ public class SequenceAnalyzer {
 	 * database, so guaranteed to be fast.
 	 */
 	public Analysis analyze(Sequence sequence, int numConfs) {
+		return analyze(sequence, numConfs, null);
+	}
+
+	/**
+	 * Analyzes the sequence with the given energy calculator.
+	 * Useful for LUTE, whose KStar settings use the LUTE energy calculator, which can't return atomic models.
+	 */
+	public Analysis analyze(Sequence sequence, int numConfs, ConfEnergyCalculator confEcalc) {
 
 		ConfSpaceInfo info = finder.apply(sequence);
 
@@ -188,8 +196,12 @@ public class SequenceAnalyzer {
 				.energiedConfs(ConfDB.SortOrder.Energy)
 				.iterator();
 
+			if (confEcalc == null) {
+				confEcalc = info.confEcalc;
+			}
+
 			// return the analysis
-			ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc);
+			ConfAnalyzer analyzer = new ConfAnalyzer(confEcalc);
 			ConfAnalyzer.EnsembleAnalysis ensemble = analyzer.analyzeEnsemble(econfs, numConfs);
 			return new Analysis(info, sequence, ensemble);
 		}

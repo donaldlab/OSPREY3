@@ -3,3 +3,5 @@
 *.dat
 *.db
 ensemble-*/
+seq.*.pdb
+*.confdb

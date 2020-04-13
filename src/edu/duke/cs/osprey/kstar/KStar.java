@@ -420,6 +420,12 @@ public class KStar {
 		}
 	}
 
+	public List<ScoredSequence> run() {
+		// run without task contexts
+		// useful for LUTE ecalcs, which don't use parallelism at all
+		return run(new TaskExecutor());
+	}
+
 	public List<ScoredSequence> run(TaskExecutor tasks) {
 
 		// make a context group for the task executor

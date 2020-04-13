@@ -34,14 +34,12 @@ package edu.duke.cs.osprey.lute;
 
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.tools.BigMath;
-import edu.duke.cs.osprey.tools.JvmMem;
-import edu.duke.cs.osprey.tools.MathTools;
-import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tools.*;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -51,7 +49,7 @@ import java.math.BigInteger;
  * Since LUTE energies are assumed to be correct, we don't have to deal with
  * minimization and bounding, so it's vastly easier to estimate partition functions.
  */
-public class LUTEPfunc implements PartitionFunction {
+public class LUTEPfunc implements PartitionFunction.WithConfDB {
 
 	public final LUTEConfEnergyCalculator ecalc;
 
@@ -68,6 +66,9 @@ public class LUTEPfunc implements PartitionFunction {
 	private PartitionFunction.Values values;
 	private int numConfsEvaluated;
 	private Stopwatch stopwatch = new Stopwatch();
+
+	private ConfDB confDB;
+	private ConfDB.Key confDBKey;
 
 	public LUTEPfunc(LUTEConfEnergyCalculator ecalc, ConfAStarTree astar, BigInteger numConfsBeforePruning) {
 
@@ -89,6 +90,12 @@ public class LUTEPfunc implements PartitionFunction {
 	@Override
 	public void setConfListener(ConfListener val) {
 		confListener = val;
+	}
+
+	@Override
+	public void setConfDB(ConfDB confDB, ConfDB.Key key) {
+		this.confDB = confDB;
+		this.confDBKey = key;
 	}
 
 	@Override
@@ -142,6 +149,12 @@ public class LUTEPfunc implements PartitionFunction {
 			if (conf == null) {
 				status = Status.OutOfConformations;
 				break;
+			}
+
+			// update confdb, if needed
+			if (confDB != null && confDBKey != null) {
+				ConfDB.ConfTable table = confDB.get(confDBKey);
+				table.setUpperBound(conf.getAssignments(), conf.getScore(), TimeTools.getTimestampNs());
 			}
 
 			// confs are ordered by increasing score, so if we hit infinity, the rest of the confs are infinity too

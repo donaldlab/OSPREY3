@@ -80,7 +80,21 @@ def _java_aware_excepthook(exctype, value, traceback):
 
 	# try to print java exception info
 	try:
-		print('\n%s' % value.stacktrace())
+		ex = value.__javaobject__
+		ex.printStackTrace()
+
+		# NOTE: in JPype-py2, information about python Exceptions
+		# are not embedded within the Java exceptions from things like JProxy =(
+		# so we couldn't print it here even if we wanted to.
+		# But the Python3 version of JPype prints that info by default! =)
+
+		# print causes too, if any
+		ex = ex.getCause()
+		while ex is not None:
+			print('Caused by:')
+			ex.printStackTrace()
+			ex = ex.getCause()
+
 	except (AttributeError, TypeError):
 		# must not be a java exception
 		pass
@@ -1041,15 +1055,47 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDe
 	return c.kstar.KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, settings)
 
 
-def _KStarConfSearchFactory(func):
+def _KStarPfuncFactory(func):
 
 	# convert the python lambda to a JVM interface implementation
 	return jpype.JProxy(
-		jvm.getInnerClass(c.kstar.KStar, 'ConfSearchFactory'),
+		jvm.getInnerClass(c.kstar.KStar, 'PfuncFactory'),
 		dict={ 'make': func }
 	)
 
-KStar.ConfSearchFactory = _KStarConfSearchFactory
+KStar.PfuncFactory = _KStarPfuncFactory
+
+
+def PartitionFunction(confEcalc, confSearchUpper, confSearchLower, rcs):
+	'''
+	:java:classdoc:`.kstar.pfunc.GradientDescentPfunc`
+	TODO: docme
+	:rtype: :java:ref:`.kstar.pfunc.GradientDescentPfunc`
+	'''
+
+	return c.kstar.pfunc.GradientDescentPfunc(
+		confEcalc,
+		confSearchUpper,
+		confSearchLower,
+		rcs.getNumConformations()
+	)
+
+
+def MARKStarPfunc(confSpace, ematMinimized, confEcalcMinimized, ematRigid, confEcalcRigid, rcs):
+	'''
+	TODO: docme
+	'''
+
+	pfunc = c.markstar.framework.MARKStarBoundFastQueues(
+		confSpace,
+		ematRigid,
+		ematMinimized,
+		confEcalcMinimized,
+		rcs,
+		confEcalcMinimized.ecalc.parallelism
+	)
+	pfunc.setCorrections(c.ematrix.UpdatingEnergyMatrix(confSpace, ematMinimized, confEcalcMinimized))
+	return pfunc
 
 
 def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
@@ -1103,6 +1149,17 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJava
 	bbkstarSettings = bbkstarSettingsBuilder.build()
 
 	return c.kstar.BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, kstarSettings, bbkstarSettings)
+
+
+def _BBKStarConfSearchFactory(func):
+
+	# convert the python lambda to a JVM interface implementation
+	return jpype.JProxy(
+		jvm.getInnerClass(c.kstar.BBKStar, 'ConfSearchFactory'),
+		dict={ 'make': func }
+	)
+
+BBKStar.ConfSearchFactory = _BBKStarConfSearchFactory
 
 
 def ConfAnalyzer(confEcalc):
@@ -1265,6 +1322,15 @@ def LUTE_AStar(rcs, pmat, luteEcalc, showProgress=True):
 	builder.setLUTE(luteEcalc)
 
 	return builder.build()
+
+
+def LUTE_Pfunc(luteEcalc, astar, rcs):
+	'''
+	:java:classdoc:`.lute.LUTEPfunc`
+	TODO: docme
+	'''
+
+	return c.lute.LUTEPfunc(luteEcalc, astar, rcs.getNumConformations())
 
 
 def LUTE_GMECFinder(confSpace, model, pmat, confLog=useJavaDefault, printIntermediateConfs=useJavaDefault):
@@ -1471,14 +1537,6 @@ def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSi
 
 	return builder.build()
 
-def PartitionFunctionFactory(confSpace, confEcalc, state, confUpperBoundcalc=None):
-	pfuncFactory = c.kstar.pfunc.PartitionFunctionFactory(confSpace, confEcalc, state)
-	if confUpperBoundcalc is not None:
-		pfuncFactory.setUseMARKStar(confUpperBoundcalc)
-	else:
-		pfuncFactory.setUseGradientDescent()
-
-	return pfuncFactory
 
 def EwakstarDoer_ConfSearchFactory(func):
 

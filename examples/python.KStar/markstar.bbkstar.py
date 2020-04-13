@@ -53,7 +53,7 @@ bbkstar = osprey.BBKStar(
 	ligandConfSpace,
 	complexConfSpace,
 	numBestSequences=2,
-	epsilon=0.99, # you proabably want something more precise in your real designs
+	epsilon=0.95, # you proabably want something more precise in your real designs
 	writeSequencesToConsole=True,
 	writeSequencesToFile='bbkstar.results.tsv'
 )
@@ -83,11 +83,13 @@ for info in bbkstar.confSpaceInfos():
 
 	# how should we score each sequence?
 	# (since we're in a loop, need capture variables above by using defaulted arguments)
-	def makePfunc(rcs, confEcalc=info.confEcalcMinimized, emat=ematMinimized):
-		return osprey.PartitionFunction(
-			confEcalc,
-			osprey.AStarTraditional(emat, rcs, showProgress=False),
-			osprey.AStarTraditional(emat, rcs, showProgress=False),
+	def makePfunc(rcs, confEcalcMinimized=info.confEcalcMinimized, ematMinimized=ematMinimized, confEcalcRigid=confEcalcRigid, ematRigid=ematRigid):
+		return osprey.MARKStarPfunc(
+			confEcalcMinimized.confSpace,
+			ematMinimized,
+			confEcalcMinimized,
+			ematRigid,
+			confEcalcRigid,
 			rcs
 		)
 	info.pfuncFactory = osprey.KStar.PfuncFactory(makePfunc)

@@ -545,11 +545,12 @@ public class BBKStar {
 				+ " Please switch to regular K* with external memory, or keep using BBK* and disable external memory.");
 		}
 
+		this.kstarSettings = kstarSettings;
+		this.bbkstarSettings = bbkstarSettings;
+
 		this.protein = new ConfSpaceInfo(protein, KStar.ConfSpaceType.Protein);
 		this.ligand = new ConfSpaceInfo(ligand, KStar.ConfSpaceType.Ligand);
 		this.complex = new ConfSpaceInfo(complex, KStar.ConfSpaceType.Complex);
-		this.kstarSettings = kstarSettings;
-		this.bbkstarSettings = bbkstarSettings;
 
 		proteinPfuncs = new HashMap<>();
 		ligandPfuncs = new HashMap<>();
@@ -570,6 +571,12 @@ public class BBKStar {
 		} else {
 			throw new IllegalArgumentException("conf space does not match any known by this K* instance");
 		}
+	}
+
+	public List<KStar.ScoredSequence> run() {
+		// run without task contexts
+		// useful for LUTE ecalcs, which don't use parallelism at all
+		return run(new TaskExecutor());
 	}
 
 	public List<KStar.ScoredSequence> run(TaskExecutor tasks) {

@@ -770,12 +770,14 @@ public class ConfDB implements AutoCleanable {
 	}
 
 	public ConfTable table(String name) {
-		ConfTable table = tables.get(name);
-		if (table == null) {
-			table = new ConfTable(name);
-			tables.put(name, table);
+		synchronized (tables) {
+			ConfTable table = tables.get(name);
+			if (table == null) {
+				table = new ConfTable(name);
+				tables.put(name, table);
+			}
+			return table;
 		}
-		return table;
 	}
 
 	public long getNumSequences() {
@@ -796,15 +798,17 @@ public class ConfDB implements AutoCleanable {
 			throw new IllegalArgumentException("this sequence is from a different sequence space than the sequence space used by this db");
 		}
 
-		SequenceDB sdb = sequenceDBs.get(sequence);
-		if (sdb == null) {
-			sdb = new SequenceDB(sequence);
-			sequenceDBs.put(sequence, sdb);
-			if (!sequences.containsKey(sequence)) {
-				sequences.put(sequence, new SequenceInfo());
+		synchronized (sequenceDBs) {
+			SequenceDB sdb = sequenceDBs.get(sequence);
+			if (sdb == null) {
+				sdb = new SequenceDB(sequence);
+				sequenceDBs.put(sequence, sdb);
+				if (!sequences.containsKey(sequence)) {
+					sequences.put(sequence, new SequenceInfo());
+				}
 			}
+			return sdb;
 		}
-		return sdb;
 	}
 
 	public void flush() {
