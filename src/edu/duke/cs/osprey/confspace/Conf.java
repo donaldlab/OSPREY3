@@ -49,6 +49,12 @@ public class Conf {
 		return conf;
 	}
 
+	public static int[] make(ConfSpaceIteration confSpace) {
+		int[] conf = new int[confSpace.numPos()];
+		Arrays.fill(conf, Unassigned);
+		return conf;
+	}
+
 	public static int[] make(SimpleConfSpace confSpace, RCTuple frag) {
 
 		// start with an unassigned conf
