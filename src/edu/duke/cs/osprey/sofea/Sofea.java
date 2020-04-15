@@ -823,8 +823,11 @@ public class Sofea {
 
 			normalize();
 
+			// NOTE: don't read from fringetx here, only write
+			// since the order of reads to and writes from fringetx can be mixed up by concurrency
+
 			// start with the node's original zSumUpper
-			BigExp zSumUpper = fringetx.zSumUpper();
+			BigExp zSumUpper = this.zSumUpper;
 
 			// use replacement nodes and zPaths (that we'd otherwise throw away) to compute a tighter zSumUpper
 			// NOTE: need full precision of SeqDB's math context here to avoid some roundoff error
