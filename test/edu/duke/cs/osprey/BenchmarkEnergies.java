@@ -1,16 +1,19 @@
 package edu.duke.cs.osprey;
 
 
+import cuchaz.warpdrive.WarpDrive;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.confspace.compiled.TestConfSpace;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.compiled.EmatCalculator;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 
@@ -23,13 +26,16 @@ public class BenchmarkEnergies {
 
 	public static void main(String[] args) {
 
+		// TEMP
+		WarpDrive.INSTANCE.warp("workbox");
+
 		// make the conf spaces
 		TestConfSpace.AffinityClassic classic = TestConfSpace.Design2RL0Interface7Mut.makeClassic();
 		TestConfSpace.AffinityCompiled compiled = TestConfSpace.Design2RL0Interface7Mut.makeCompiled();
 
-		benchmarkEcalcCpu(classic, compiled);
+		//benchmarkEcalcCpu(classic, compiled);
+		benchmarkEmatCpu(classic, compiled);
 
-		// TODO: energy matrices
 		// TODO: pfuncs
 		// TODO: GPUs
 	}
@@ -62,7 +68,7 @@ public class BenchmarkEnergies {
 
 		// benchmark compiled rigid energies
 		try (TaskExecutor tasks = new TaskExecutor()) {
-			ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex, tasks);
+			CPUConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex, tasks);
 
 			bmCompiledRigid = new Benchmark(100, 5000, () -> {
 				ecalc.calcEnergy(compiledConf, compiledInters);
@@ -89,10 +95,88 @@ public class BenchmarkEnergies {
 
 		// benchmark compiled minimized energies
 		try (TaskExecutor tasks = new TaskExecutor()) {
-			ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex, tasks);
+			CPUConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex, tasks);
 
 			bmCompiledMinimized = new Benchmark(5, 80, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
+			});
+			log("\t%10s: %s", "compiled", bmCompiledMinimized.toString(bmClassicMinimized));
+		}
+	}
+
+	private static void benchmarkEmatCpu(TestConfSpace.AffinityClassic classic, TestConfSpace.AffinityCompiled compiled) {
+
+		log("Rigid energy:");
+		Benchmark bmClassicRigid;
+		Benchmark bmCompiledRigid;
+
+		// benchmark classic rigid energies
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(classic.complex, new ForcefieldParams())
+			.setIsMinimizing(false)
+			.build()) {
+
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(classic.complex, ecalc)
+				.setEnergyPartition(EnergyPartition.Traditional)
+				.build();
+			SimplerEnergyMatrixCalculator ematCalc = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+				.build();
+
+			bmClassicRigid = new Benchmark(1, 4, () -> {
+				ematCalc.calcEnergyMatrix();
+			});
+			log("\t%10s: %s", "classic", bmClassicRigid.toString());
+		}
+
+		// benchmark compiled rigid energies
+		try (TaskExecutor tasks = new TaskExecutor()) {
+
+			CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(compiled.complex, tasks);
+			EmatCalculator ematCalc = new EmatCalculator.Builder(confEcalc)
+				.setIncludeStaticStatic(false)
+				.setMinimize(false)
+				.setPosInterDist(PosInterDist.DesmetEtAl1992)
+				.build();
+
+			bmCompiledRigid = new Benchmark(1, 4, () -> {
+				ematCalc.calc();
+			});
+			log("\t%10s: %s", "compiled", bmCompiledRigid.toString(bmClassicRigid));
+		}
+
+
+		log("Minimized energy:");
+		Benchmark bmClassicMinimized;
+		Benchmark bmCompiledMinimized;
+
+		// benchmark classic minimized energies
+		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(classic.complex, new ForcefieldParams())
+			.setIsMinimizing(true)
+			.build()) {
+
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(classic.complex, ecalc)
+				.setEnergyPartition(EnergyPartition.Traditional)
+				.build();
+			SimplerEnergyMatrixCalculator ematCalc = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+				.build();
+
+			bmClassicMinimized = new Benchmark(1, 4, () -> {
+				ematCalc.calcEnergyMatrix();
+			});
+			log("\t%10s: %s", "classic", bmClassicMinimized.toString());
+		}
+
+		// benchmark compiled minimized energies
+		try (TaskExecutor tasks = new TaskExecutor()) {
+
+			CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(compiled.complex, tasks);
+			EmatCalculator ematCalc = new EmatCalculator.Builder(confEcalc)
+				.setIncludeStaticStatic(false)
+				.setMinimize(true)
+				.setPosInterDist(PosInterDist.DesmetEtAl1992)
+				.build();
+
+			bmCompiledMinimized = new Benchmark(1, 4, () -> {
+				ematCalc.calc();
 			});
 			log("\t%10s: %s", "compiled", bmCompiledMinimized.toString(bmClassicMinimized));
 		}
