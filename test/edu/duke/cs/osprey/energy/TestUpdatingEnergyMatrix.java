@@ -44,8 +44,9 @@ import edu.duke.cs.osprey.tools.FileTools;
 import org.junit.Test;
 
 import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.sharkstar.TestSHARKStar.loadFromCFS;
 import static org.hamcrest.Matchers.*;
@@ -233,5 +234,111 @@ public class TestUpdatingEnergyMatrix {
         }catch(FileNotFoundException e){
             System.out.println(e.getMessage());
         }
+    }
+
+    @Test
+    public void test3bua_weirdness_all(){
+        try{
+            TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
+            UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpaces.complex.positions);
+            trie.readCorrectionsFromFile("3bua_test_corrections.txt");
+            System.out.println(String.format("Read %d corrections from file.", trie.size()));
+
+            int[] parent = {4,24,-1,2,13,8,7,4,5,18};
+            int[] child_normal = {4,24,126,2,13,8,7,4,5,18};
+            int[] child_weird = {4,24,202,2,13,8,7,4,5,18};
+
+            List<TupE> parentList = trie.getCorrections(new RCTuple(parent));
+            List<TupE> childList = trie.getCorrections(new RCTuple(child_normal));
+            List<TupE> weirdList = trie.getCorrections(new RCTuple(child_weird));
+
+            parentList.sort(TupE::compareTo);
+            childList.sort(TupE::compareTo);
+            weirdList.sort(TupE::compareTo);
+
+            System.out.println("Corrections for parent:");
+            System.out.println(parentList.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
+            System.out.println("Corrections for child:");
+            System.out.println(childList.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
+            System.out.println("Corrections for weird child:");
+            System.out.println(weirdList.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
+
+
+        }catch(FileNotFoundException e){
+            System.out.println(e.getMessage());
+        }
+    }
+
+    @Test
+    public void test3bua_weirdness() {
+        try {
+            TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
+            UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpaces.complex.positions);
+            trie.readCorrectionsFromFile("3bua_test_corrections.txt");
+            System.out.println(String.format("Read %d corrections from file.", trie.size()));
+
+            int[] parent = {4, 24, -1, 2, 13, 8, 7, 4, 5, 18};
+            int[] child_normal = {4, 24, 126, 2, 13, 8, 7, 4, 5, 18};
+            int[] child_weird = {4, 24, 202, 2, 13, 8, 7, 4, 5, 18};
+
+            List<TupE> parentList = trie.getCorrections(new RCTuple(parent));
+            List<TupE> childList = trie.getCorrections(new RCTuple(child_normal));
+            List<TupE> weirdList = trie.getCorrections(new RCTuple(child_weird));
+
+            List<TupE> parentFinal = greedyGet(parentList, 9);
+            List<TupE> childFinal = greedyGet(childList, 9);
+            List<TupE> weirdFinal = greedyGet(weirdList, 9);
+
+            System.out.println("Corrections for parent:");
+            System.out.println(parentFinal.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
+            System.out.println("Corrections for child:");
+            System.out.println(childFinal.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
+            System.out.println("Corrections for weird child:");
+            System.out.println(weirdFinal.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
+
+            System.out.println("And, the million dollar question: Could the weird child get a better energy by using the parent corrections?");
+            if(weirdList.containsAll(parentFinal)){
+                System.out.println("Yes, greedy is hurting us.");
+            }else{
+                System.out.println("No, greedy is fine.");
+            }
+
+        } catch (FileNotFoundException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    public List<TupE> greedyGet(List<TupE> corrections, int numPos){
+        Collections.sort(corrections, (a, b)->-Double.compare(a.E,b.E));
+        ArrayList<TupE> sumList = new ArrayList<>();
+        double sum = 0;
+        // Attempt 1: be greedy and start from the largest correction you
+        // can get instead of trying to solve the NP-Complete problem.
+        Set<Integer> usedPositions = new HashSet<>();
+        List<TupE> usedCorrections = new ArrayList<>();
+        int numApplied = 0;
+        for(TupE correction: corrections) {
+            if (usedPositions.size() >= numPos) {
+                break;
+            }
+            Collection<Integer> positions = correction.tup.pos;
+            boolean noIntersections = true;
+            for(int position : positions) {
+                if(usedPositions.contains(position)) {
+                    noIntersections = false;
+                    break;
+                }
+            }
+            if(noIntersections) {
+                usedPositions.addAll(correction.tup.pos);
+                usedCorrections.add(correction);
+                //System.out.println("Applying correction "+correction.tup.stringListing()+":"+correction.E);
+                numApplied++;
+                sum += correction.E;
+                sumList.add(correction);
+            }
+        }
+        return sumList;
+
     }
 }
