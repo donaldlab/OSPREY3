@@ -34,7 +34,8 @@ public class TestConfEnergyCalculatorAdapter {
 	@Test
 	public void energyMatrixRigid() {
 
-		try (CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace, 1)) {
+		try (TaskExecutor tasks = new TaskExecutor()) {
+			CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace);
 
 			// compute the true energy matrix using the new calculator
 			PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
@@ -45,7 +46,7 @@ public class TestConfEnergyCalculatorAdapter {
 				.calc();
 
 			// compare to the energy matrix computed using the adapted old calculator
-			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setPosInterDist(posInterDist)
 				.setMinimize(false)
 				.build();
@@ -60,7 +61,7 @@ public class TestConfEnergyCalculatorAdapter {
 	private void energyMatrixMinimized(Parallelism parallelism) {
 
 		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
-			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism, tasks)) {
+			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
 
 				// compute the true energy matrix using the new calculator
 				PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
@@ -71,7 +72,7 @@ public class TestConfEnergyCalculatorAdapter {
 					.calc();
 
 				// compare to the energy matrix computed using the adapted old calculator
-				ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 					.setPosInterDist(posInterDist)
 					.setMinimize(true)
 					.build();
@@ -90,7 +91,8 @@ public class TestConfEnergyCalculatorAdapter {
 	@Test
 	public void referenceEnergyRigid() {
 
-		try (CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace, 1)) {
+		try (TaskExecutor tasks = new TaskExecutor()) {
+			CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace);
 
 			// compute the true reference energies using the new calculator
 			SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
@@ -99,7 +101,7 @@ public class TestConfEnergyCalculatorAdapter {
 				.calc();
 
 			// compare to the reference energies computed using the adapted old calculator
-			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setMinimize(false)
 				.build();
 			SimpleReferenceEnergies adaptedEref = new SimplerEnergyMatrixCalculator.Builder(adapter)
@@ -113,7 +115,8 @@ public class TestConfEnergyCalculatorAdapter {
 	@Test
 	public void referenceEnergyMinimized() {
 
-		try (CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace, 1)) {
+		try (TaskExecutor tasks = new TaskExecutor()) {
+			CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace);
 
 			// compute the true reference energies using the new calculator
 			SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
@@ -122,7 +125,7 @@ public class TestConfEnergyCalculatorAdapter {
 				.calc();
 
 			// compare to the reference energies computed using the adapted old calculator
-			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setMinimize(true)
 				.build();
 			SimpleReferenceEnergies adaptedEref = new SimplerEnergyMatrixCalculator.Builder(adapter)
@@ -136,7 +139,8 @@ public class TestConfEnergyCalculatorAdapter {
 	@Test
 	public void energyMatrixWithEref() {
 
-		try (CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace, 1)) {
+		try (TaskExecutor tasks = new TaskExecutor()) {
+			CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace);
 
 			// compute the true energy matrix using the new calculators
 			SimpleReferenceEnergies eref = new ErefCalculator.Builder(confEcalc)
@@ -152,7 +156,7 @@ public class TestConfEnergyCalculatorAdapter {
 				.calc();
 
 			// compare to the energy matrix computed using the adapted old calculator
-			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setPosInterDist(posInterDist)
 				.setReferenceEnergies(eref)
 				.setMinimize(false)
@@ -168,10 +172,11 @@ public class TestConfEnergyCalculatorAdapter {
 	@Test
 	public void astar() {
 
-		try (CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace, 1)) {
+		try (TaskExecutor tasks = new TaskExecutor()) {
+			CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(confSpace);
 
 			// compute the energy matrix
-			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+			ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 				.setMinimize(true)
 				.build();
 			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(adapter)
@@ -208,16 +213,16 @@ public class TestConfEnergyCalculatorAdapter {
 	public void findGMEC(Parallelism parallelism) {
 
 		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
-			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism, tasks)) {
+			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
 
 				// compute the energy matrix, with reference energies
-				ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 					.setMinimize(true)
 					.build();
 				SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(adapter)
 					.build()
 					.calcReferenceEnergies();
-				adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 					.setReferenceEnergies(eref)
 					.setMinimize(true)
 					.build();
@@ -235,8 +240,7 @@ public class TestConfEnergyCalculatorAdapter {
 				ConfSearch.EnergiedConf gmec = gmecFinder.find();
 
 				// make sure we got the right conformation and energy
-				// TODO: these conf indices change every time we re-compile the conf space, need to make them deterministic
-				assertThat(gmec.getAssignments(), is(new int[] { 4, 0 }));
+				assertThat(gmec.getAssignments(), is(new int[] { 3, 0 }));
 				assertThat(gmec.getScore(), isAbsolutely(20.894928, 1e-6));
 				assertThat(gmec.getEnergy(), isAbsolutely(20.948575, 1e-6));
 			}
@@ -249,10 +253,10 @@ public class TestConfEnergyCalculatorAdapter {
 	public void calcPfunc(Parallelism parallelism) {
 
 		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
-			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism, tasks)) {
+			try (ConfEnergyCalculator confEcalc = ConfEnergyCalculator.build(confSpace, parallelism)) {
 
 				// compute the energy matrix
-				ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc)
+				ConfEnergyCalculatorAdapter adapter = new ConfEnergyCalculatorAdapter.Builder(confEcalc, tasks)
 					.setMinimize(true)
 					.build();
 				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(adapter)

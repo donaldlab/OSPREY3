@@ -15,7 +15,6 @@ import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.parallelism.TaskExecutor;
 
 import java.util.List;
 
@@ -67,8 +66,8 @@ public class BenchmarkEnergies {
 		}
 
 		// benchmark compiled rigid energies
-		try (TaskExecutor tasks = new TaskExecutor()) {
-			CPUConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex, tasks);
+		{
+			CPUConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex);
 
 			bmCompiledRigid = new Benchmark(100, 5000, () -> {
 				ecalc.calcEnergy(compiledConf, compiledInters);
@@ -94,8 +93,8 @@ public class BenchmarkEnergies {
 		}
 
 		// benchmark compiled minimized energies
-		try (TaskExecutor tasks = new TaskExecutor()) {
-			CPUConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex, tasks);
+		{
+			CPUConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex);
 
 			bmCompiledMinimized = new Benchmark(5, 80, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
@@ -128,9 +127,8 @@ public class BenchmarkEnergies {
 		}
 
 		// benchmark compiled rigid energies
-		try (TaskExecutor tasks = new TaskExecutor()) {
-
-			CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(compiled.complex, tasks);
+		{
+			CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(compiled.complex);
 			EmatCalculator ematCalc = new EmatCalculator.Builder(confEcalc)
 				.setIncludeStaticStatic(false)
 				.setMinimize(false)
@@ -166,9 +164,8 @@ public class BenchmarkEnergies {
 		}
 
 		// benchmark compiled minimized energies
-		try (TaskExecutor tasks = new TaskExecutor()) {
-
-			CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(compiled.complex, tasks);
+		{
+			CPUConfEnergyCalculator confEcalc = new CPUConfEnergyCalculator(compiled.complex);
 			EmatCalculator ematCalc = new EmatCalculator.Builder(confEcalc)
 				.setIncludeStaticStatic(false)
 				.setMinimize(true)

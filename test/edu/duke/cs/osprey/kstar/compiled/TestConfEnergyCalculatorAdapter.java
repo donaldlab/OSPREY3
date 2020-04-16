@@ -85,7 +85,7 @@ public class TestConfEnergyCalculatorAdapter {
 
 				PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
 				boolean minimize = true;
-				ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace, tasks);
+				ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace);
 
 				SimpleReferenceEnergies eref = new ErefCalculator.Builder(ecalc)
 					.setMinimize(minimize)
@@ -99,7 +99,7 @@ public class TestConfEnergyCalculatorAdapter {
 					.build()
 					.calc();
 
-				info.confEcalc = new ConfEnergyCalculatorAdapter.Builder(ecalc)
+				info.confEcalc = new ConfEnergyCalculatorAdapter.Builder(ecalc, tasks)
 					.setPosInterDist(posInterDist)
 					.setReferenceEnergies(eref)
 					.setMinimize(minimize)
