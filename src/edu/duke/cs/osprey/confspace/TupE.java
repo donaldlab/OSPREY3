@@ -31,6 +31,11 @@
 */
 
 package edu.duke.cs.osprey.confspace;
+
+import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  *
  * Like ConfPair but with an (RCTuple,energy) pair
@@ -46,6 +51,26 @@ public class TupE implements Comparable<TupE> {
         this.tup = tup;
         this.E = E;
     }
+    public TupE(String repr){
+        String[] parts = repr.split("->");
+        String tupString = parts[0];
+        String eString = parts[1];
+
+        ArrayList <Integer> pos = new ArrayList<Integer>();
+        ArrayList <Integer> RCs = new ArrayList<Integer>();
+
+        // Form arrays from tupString
+        Pattern point = Pattern.compile("\\d+=\\d+");
+        Matcher m = point.matcher(tupString);
+        while (m.find()){
+            String[] splits = m.group().split("=");
+            pos.add(Integer.parseInt(splits[0]));
+            RCs.add(Integer.parseInt(splits[1]));
+        }
+
+        this.tup = new RCTuple(pos, RCs);
+        this.E = Double.parseDouble(eString);
+    }
 
     public TupE permute(int[] perm){
         return new TupE(this.tup.permutedCopy(perm), this.E);
@@ -60,6 +85,20 @@ public class TupE implements Comparable<TupE> {
     @Override
     public String toString() {
         return tup.stringListing()+"->"+E;
+    }
+
+    public String toString_short() {
+        return tup.toString()+"->"+E;
+    }
+
+    public boolean equals(TupE o ){
+        boolean value = false;
+        if (E == o.E){
+            if (tup.equals(o.tup)){
+                value =  true;
+            }
+        }
+        return value;
     }
     
 }

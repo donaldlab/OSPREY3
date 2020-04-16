@@ -118,6 +118,9 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
             exception.offendingNode.dumpHistory(sequence);
             MultiSequenceSHARKStarNode.Node confNode = exception.offendingNode.getConfSearchNode();
 
+            System.out.println("PRINTING CORRECTIONS:");
+            this.multisequenceBound.correctionMatrix.writeCorrectionsToFile("test_corrections.txt");
+
             try (ObjectPool.Checkout<MultiSequenceSHARKStarBound.ScoreContext> checkout = multisequenceBound.contexts.autoCheckout()) {
                 MultiSequenceSHARKStarBound.ScoreContext context = checkout.get();
                 confNode.index(context.index);

@@ -36,8 +36,11 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.confspace.TupE;
+import edu.duke.cs.osprey.tools.FileTools;
 
+import java.io.File;
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
@@ -208,7 +211,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     }
 
     @Override
-        public void setHigherOrder(RCTuple tup, Double val) {
+    public void setHigherOrder(RCTuple tup, Double val) {
         /*
         if(tup.size() < 3)
         {
@@ -219,6 +222,20 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         RCTuple orderedTup = tup.sorted();
         corrections.insert(new TupE(orderedTup, val));
     }
+
+    public void writeCorrectionsToFile(String filename){
+        corrections.writeCorrectionsToFile(filename);
+    }
+    public void writeCorrectionsToFile(File file){
+        corrections.writeCorrectionsToFile(file);
+    }
+    public void readCorrectionsFromFile(String filename){
+        corrections.readCorrectionsFromFile(filename);
+    }
+    public void readCorrectionsFromFile(File file){
+        corrections.readCorrectionsFromFile(file);
+    }
+
 
     public static class TupleTrie {
         public final static int WILDCARD_RC = -123;
@@ -277,6 +294,28 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
         public void clear() {
             root = createTrie(positions);
+        }
+
+        public void writeCorrectionsToFile(String filename){
+            File file = new File(filename);
+            writeCorrectionsToFile(file);
+        }
+        public void writeCorrectionsToFile(File f) {
+            List<String> lineList = getAllCorrections().stream()
+                    .distinct().map(TupE::toString_short).collect(Collectors.toList());
+            FileTools.writeFile(String.join("\n", lineList), f);
+        }
+
+        public void readCorrectionsFromFile(String filename){
+            File file = new File(filename);
+            readCorrectionsFromFile(file);
+        }
+        public void readCorrectionsFromFile(File f){
+            List<String> data = Arrays.asList(FileTools.readFile(f).split("\n"));
+            List<TupE> tupEList = data.stream().map(TupE::new).collect(Collectors.toList());
+            for (TupE tup : tupEList) {
+                insert(tup);
+            }
         }
 
 

@@ -35,7 +35,9 @@ package edu.duke.cs.osprey.energy;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.sharkstar.TestSHARKStar;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
@@ -201,5 +203,35 @@ public class TestUpdatingEnergyMatrix {
                 .build();
 
         return proteinConfSpace;
+    }
+
+    @Test
+    public void testTupEFromString(){
+        String tupString = "[5=8,6=8,7=4,8=5]->1.4466163083210901";
+        TupE test = new TupE(tupString);
+        System.out.println(test.toString());
+    }
+    @Test
+    public void testReadFromFile(){
+        try{
+            TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
+            UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpaces.complex.positions);
+            trie.readCorrectionsFromFile("3bua_test_corrections.txt");
+            System.out.println(String.format("Read %d corrections from file.", trie.size()));
+        }catch(FileNotFoundException e){
+            System.out.println(e.getMessage());
+        }
+    }
+    @Test
+    public void testWriteToFile(){
+        try{
+            TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
+            UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpaces.complex.positions);
+            trie.readCorrectionsFromFile("3bua_test_corrections.txt");
+            System.out.println(String.format("Read %d corrections from file.", trie.size()));
+            trie.writeCorrectionsToFile("test_corrections.txt");
+        }catch(FileNotFoundException e){
+            System.out.println(e.getMessage());
+        }
     }
 }
