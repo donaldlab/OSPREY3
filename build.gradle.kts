@@ -70,8 +70,8 @@ repositories {
 }
 
 java {
-	sourceCompatibility = JavaVersion.VERSION_1_8
-	targetCompatibility = JavaVersion.VERSION_1_8
+	sourceCompatibility = JavaVersion.VERSION_14
+	targetCompatibility = JavaVersion.VERSION_14
 	sourceSets {
 		get("main").apply {
 			java.srcDir("src")
@@ -100,33 +100,33 @@ application {
 dependencies {
 
 	// test dependencies
-	testCompile("org.hamcrest:hamcrest-all:1.3")
-	testCompile("junit:junit:4.12")
+	testImplementation("org.hamcrest:hamcrest-all:1.3")
+	testImplementation("junit:junit:4.12")
 
 	// compile dependencies
-	compile("colt:colt:1.2.0")
-	compile("org.apache.commons:commons-math3:3.6.1")
-	compile("org.apache.commons:commons-collections4:4.1")
-	compile("commons-io:commons-io:2.5")
-	compile("com.joptimizer:joptimizer:3.5.1")
-	compile("org.ojalgo:ojalgo:41.0.0")
-	compile("org.jogamp.gluegen:gluegen-rt:2.3.2")
-	compile("org.jogamp.jocl:jocl:2.3.2")
-	compile("org.mapdb:mapdb:3.0.5")
-	compile("org.apache.xmlgraphics:batik-svggen:1.9.1")
-	compile("org.apache.xmlgraphics:batik-svg-dom:1.9.1")
-	compile("com.github.haifengl:smile-core:1.5.1")
-	compile("com.github.haifengl:smile-netlib:1.5.1")
-	compile("ch.qos.logback:logback-classic:1.2.3")
-	compile("de.lmu.ifi.dbs.elki:elki:0.7.1")
-	compile("ch.obermuhlner:big-math:2.0.1")
-	compile("org.tomlj:tomlj:1.0.0")
-	compile("org.joml:joml:1.9.19")
-	compile("org.tukaani:xz:1.8")
+	implementation("colt:colt:1.2.0")
+	implementation("org.apache.commons:commons-math3:3.6.1")
+	implementation("org.apache.commons:commons-collections4:4.1")
+	implementation("commons-io:commons-io:2.5")
+	implementation("com.joptimizer:joptimizer:3.5.1")
+	implementation("org.ojalgo:ojalgo:41.0.0")
+	implementation("org.jogamp.gluegen:gluegen-rt:2.3.2")
+	implementation("org.jogamp.jocl:jocl:2.3.2")
+	implementation("org.mapdb:mapdb:3.0.5")
+	implementation("org.apache.xmlgraphics:batik-svggen:1.9.1")
+	implementation("org.apache.xmlgraphics:batik-svg-dom:1.9.1")
+	implementation("com.github.haifengl:smile-core:1.5.1")
+	implementation("com.github.haifengl:smile-netlib:1.5.1")
+	implementation("ch.qos.logback:logback-classic:1.2.3")
+	implementation("de.lmu.ifi.dbs.elki:elki:0.7.1")
+	implementation("ch.obermuhlner:big-math:2.0.1")
+	implementation("org.tomlj:tomlj:1.0.0")
+	implementation("org.joml:joml:1.9.19")
+	implementation("org.tukaani:xz:1.8")
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
 	// so turn off transitive dependencies. we'll deal with natives manually
-	compile("org.jcuda:jcuda:0.8.0") {
+	implementation("org.jcuda:jcuda:0.8.0") {
 		isTransitive = false
 	}
 
@@ -157,18 +157,18 @@ dependencies {
 	}
 
 	// TPIE-Java isn't in the maven/jcenter repos yet, download directly from Github
-	compile(url("https://github.com/donaldlab/TPIE-Java/releases/download/v1.1/edu.duke.cs.tpie-1.1.jar"))
+	implementation(url("https://github.com/donaldlab/TPIE-Java/releases/download/v1.1/edu.duke.cs.tpie-1.1.jar"))
 
 	// libs that have no authoritative source on the internet
-	compile(files("lib/kdtree.jar"))
+	implementation(files("lib/kdtree.jar"))
 
 	// native libs for GPU stuff
 	listOf("natives-linux-amd64", "natives-macosx-universal", "natives-windows-amd64").forEach {
-		runtime("org.jogamp.gluegen:gluegen-rt:2.3.2:$it")
-		runtime("org.jogamp.jocl:jocl:2.3.2:$it")
+		runtimeOnly("org.jogamp.gluegen:gluegen-rt:2.3.2:$it")
+		runtimeOnly("org.jogamp.jocl:jocl:2.3.2:$it")
 	}
 	listOf("linux-x86_64", "apple-x86_64", "windows-x86_64").forEach {
-		runtime("org.jcuda:jcuda-natives:0.8.0:$it")
+		runtimeOnly("org.jcuda:jcuda-natives:0.8.0:$it")
 	}
 }
 
@@ -195,7 +195,7 @@ runtime {
 distributions {
 
 	get("main").apply {
-		baseName = "osprey-cli"
+		distributionBaseName.set("osprey-cli")
 		contents {
 			into("") { // project root
 				from("README.rst")
@@ -211,7 +211,7 @@ distributions {
 	}
 
 	create("python").apply {
-		baseName = "osprey-python"
+		distributionBaseName.set("osprey-python")
 		contents {
 			into("") { // project root
 				from("README.rst")
@@ -245,7 +245,7 @@ distributions {
 
 	// for running tests on servers
 	create("test").apply {
-		baseName = "osprey-test"
+		distributionBaseName.set("osprey-test")
 		contents {
 
 			into("") { // project root
@@ -586,6 +586,10 @@ enum class HeaderResult {
 	Updated,
 	Ignored
 }
+
+
+// TODO: replace this custom license header code with the licenser plugin
+// https://github.com/Minecrell/licenser
 
 fun updateLicenseHeaders() {
 
