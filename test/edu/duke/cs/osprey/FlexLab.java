@@ -1714,7 +1714,7 @@ public class FlexLab {
 		// get examples of (hopefully close to ideal) backbone geometry from 1CC8
 		Molecule mol1cc8 = PDBIO.readResource("/1CC8.ss.pdb");
 
-		try (FileWriter out = new FileWriter("aminoAcids.conflib.toml")) {
+		try (FileWriter out = new FileWriter("aminoAcids.conflib")) {
 
 			for (TerminusType terminusType : TerminusType.values()) {
 

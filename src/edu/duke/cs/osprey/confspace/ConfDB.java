@@ -39,6 +39,7 @@ import org.mapdb.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -287,13 +288,17 @@ public class ConfDB implements AutoCleanable {
 		}
 	}
 
-	public class ConfTable implements Iterable<Conf> {
+	public class ConfTable implements Iterable<Conf>, AutoCloseable {
+
+		public final String id;
 
 		private final BTreeMap<int[],ConfInfo> btree;
 		private final EnergyIndex lowerIndex;
 		private final EnergyIndex upperIndex;
 
 		public ConfTable(String id) {
+
+			this.id = id;
 
 			// MapDB serializer for ConfInfo
 			final int ConfInfoBytes = Double.BYTES*2 + Long.BYTES*2;
@@ -327,6 +332,11 @@ public class ConfDB implements AutoCleanable {
 
 			this.lowerIndex = new EnergyIndex(id + "-lowerEnergy");
 			this.upperIndex = new EnergyIndex(id + "-upperEnergy");
+		}
+
+		@Override
+		public void close() {
+			btree.close();
 		}
 
 		public void setBounds(ConfSearch.EnergiedConf econf, long timestampNs) {
@@ -686,6 +696,7 @@ public class ConfDB implements AutoCleanable {
 	public final File file;
 
 	private final DB db;
+	private final Map<String,ConfTable> tables;
 	private final HTreeMap<Sequence,SequenceInfo> sequences;
 	private final Map<Sequence,SequenceDB> sequenceDBs;
 	private final IntEncoding assignmentEncoding;
@@ -737,11 +748,36 @@ public class ConfDB implements AutoCleanable {
 			db = DBMaker.memoryDB()
 				.make();
 		}
+		tables = new HashMap<>();
 		sequences = db.hashMap("sequences")
 			.keySerializer(sequenceSerializer)
 			.valueSerializer(infoSerializer)
 			.createOrOpen();
 		sequenceDBs = new HashMap<>();
+	}
+
+	public ConfTable get(Key key) {
+		if (key == null) {
+			return null;
+		}
+		if (key.rtIndices != null) {
+			return getSequence(new Sequence(confSpace.seqSpace(), key.rtIndices));
+		} else if (key.table != null) {
+			return table(key.table);
+		} else {
+			throw new UnpossibleError();
+		}
+	}
+
+	public ConfTable table(String name) {
+		synchronized (tables) {
+			ConfTable table = tables.get(name);
+			if (table == null) {
+				table = new ConfTable(name);
+				tables.put(name, table);
+			}
+			return table;
+		}
 	}
 
 	public long getNumSequences() {
@@ -762,15 +798,17 @@ public class ConfDB implements AutoCleanable {
 			throw new IllegalArgumentException("this sequence is from a different sequence space than the sequence space used by this db");
 		}
 
-		SequenceDB sdb = sequenceDBs.get(sequence);
-		if (sdb == null) {
-			sdb = new SequenceDB(sequence);
-			sequenceDBs.put(sequence, sdb);
-			if (!sequences.containsKey(sequence)) {
-				sequences.put(sequence, new SequenceInfo());
+		synchronized (sequenceDBs) {
+			SequenceDB sdb = sequenceDBs.get(sequence);
+			if (sdb == null) {
+				sdb = new SequenceDB(sequence);
+				sequenceDBs.put(sequence, sdb);
+				if (!sequences.containsKey(sequence)) {
+					sequences.put(sequence, new SequenceInfo());
+				}
 			}
+			return sdb;
 		}
-		return sdb;
 	}
 
 	public void flush() {
@@ -782,8 +820,12 @@ public class ConfDB implements AutoCleanable {
 
 	public void close() {
 		flush();
-		for (ConfTable sdb : sequenceDBs.values()) {
-			sdb.btree.close();
+		for (ConfTable table : tables.values()) {
+			table.close();
+		}
+		tables.clear();
+		for (SequenceDB sdb : sequenceDBs.values()) {
+			sdb.close();
 		}
 		sequenceDBs.clear();
 		db.close();
@@ -792,5 +834,29 @@ public class ConfDB implements AutoCleanable {
 	@Override
 	public void clean() {
 		close();
+	}
+
+	/**
+	 * Tracks all the info needed to create a ConfTable or SequenceDB,
+	 * but can be serialized and sent over a network.
+	 */
+	public static class Key implements Serializable {
+
+		public final int[] rtIndices;
+		public final String table;
+
+		public Key(Sequence seq) {
+			this(seq.rtIndices);
+		}
+
+		public Key(int[] rtIndices) {
+			this.rtIndices = rtIndices;
+			this.table = null;
+		}
+
+		public Key(String table) {
+			this.rtIndices = null;
+			this.table = table;
+		}
 	}
 }

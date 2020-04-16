@@ -5,18 +5,13 @@ branches:
     only:
         - master
 
-# only use the v8 JDK, otherwise the JavaFX stuff doesn't compile
-# (because they stopped shipping JavaFX in the JVM in v9+)
-# and also because we want to guarantee compatibility with a v8 JVM
+# it doesn't really matter what JDK we compile against anymore,
+# as long as it's v11 or newer
 jdk:
-    - openjdk8
+    - openjdk11
 
-# just in case, explicitly pick the xenial verison of Ubuntu, so we get the v8 OpenJFX
-# (later versions of Ubuntu ship a v11 by default, which doesn't work for us)
-# see: https://packages.ubuntu.com/xenial/openjfx
-# could use bionic (or anything after xenial),
-# but then we need to pass the v8 OpenJFX version explicitly to apt-get install
-dist: xenial
+# Ubuntu bionic is guaranteed to have OpenJDK 11
+dist: bionic
 
 # travis docs say we need this to prevent issues with gradle builds
 # https://docs.travis-ci.com/user/languages/java/
@@ -30,8 +25,11 @@ cache:
 
 # install java and python dependencies before building
 before_install:
-    - sudo apt-get install -y openjfx
-    - sudo pip install setuptools wheel sphinx guzzle_sphinx_theme javalang
+    - sudo apt-get install -y openjfx python-pip python3-pip
+    - sudo pip2 install setuptools
+    - sudo pip2 install wheel sphinx==1.8 guzzle_sphinx_theme javalang
+    - sudo pip3 install setuptools
+    - sudo pip3 install wheel sphinx==1.8 guzzle_sphinx_theme javalang
 
 # disable tests in automatic builds
 # they take too long to run and require specialized hardware

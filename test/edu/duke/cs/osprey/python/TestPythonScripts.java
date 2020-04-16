@@ -35,16 +35,34 @@ package edu.duke.cs.osprey.python;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.Test;
 
 public class TestPythonScripts {
 	
-	private void run(String dir, String script) {
+	private void run(String dirPath, String script) {
+
+		// delete any confdb files before running the script
+		Path dir = Paths.get(dirPath);
+		try {
+			List<Path> files = Files.list(dir)
+				.filter(file -> Files.isRegularFile(file) && file.getFileName().toString().endsWith(".confdb"))
+				.collect(Collectors.toList());
+			for (Path file : files) {
+				Files.delete(file);
+			}
+		} catch (IOException ex) {
+			throw new RuntimeException(ex);
+		}
 		
 		ProcessBuilder pb = new ProcessBuilder();
-		pb.directory(new File(dir));
+		pb.directory(dir.toFile());
 		pb.command("python", script);
 		pb.inheritIO();
 		try {
@@ -74,20 +92,17 @@ public class TestPythonScripts {
 	@Test public void templateLibrary() { runGMEC("templateLibrary.py"); }
 	@Test public void findGMECConfDB() { runGMEC("findGMEC.confDB.py"); }
 	@Test public void comets() { runGMEC("comets.py"); }
-	@Test public void cometsBoundedMemory() { runGMEC("comets.boudedMemory.py"); }
+	@Test public void cometsBoundedMemory() { runGMEC("comets.boundedMemory.py"); }
 
 	private void runKStar(String script) {
 		run("examples/python.KStar", script);
 	}
 
-	@Test public void analyzeSequence() { runKStar("analyzeSequence.py"); }
 	@Test public void bbkstar() { runKStar("bbkstar.py"); }
 	@Test public void kstar() { runKStar("kstar.py"); }
-	@Test public void kstarConfDB() { runKStar("kstar.confdb.py"); }
-	@Test public void bbkstarConfDB() { runKStar("bbkstar.confdb.py"); }
 	@Test public void LUTE() { runKStar("LUTE.train.py"); runKStar("LUTE.kstar.py"); runKStar("LUTE.bbkstar.py"); }
-	@Test public void mskstar() { runKStar("mskstar.py"); }
-	@Test public void mskstarBoudedMemory() { runKStar("mskstar.boundedMemory.py"); }
+	@Test public void MARKStarKStar() { runKStar("markstar.kstar.py"); }
+	@Test public void MARKStarBBKStar() { runKStar("markstar.bbkstar.py"); }
 
 	private void runSofea(String script) {
 		run("examples/python.SOFEA", script);

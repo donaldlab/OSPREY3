@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.energy.forcefield;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 
 import java.util.Arrays;
 
@@ -194,6 +195,10 @@ public class TestForcefieldEnergy extends TestBase {
 				
 				@Override
 				public void init() {
+
+					// skip tests if no CUDA GPUs
+					assumeTrue(edu.duke.cs.osprey.gpu.cuda.Gpus.get().getGpus().size() > 0);
+
 					streams = new GpuStreamPool(1, 1);
 				}
 				
@@ -223,6 +228,10 @@ public class TestForcefieldEnergy extends TestBase {
 				
 				@Override
 				public void init() {
+
+					// skip tests if no OpenCL GPUs
+					assumeTrue(edu.duke.cs.osprey.gpu.opencl.Gpus.get().getGpus().size() > 0);
+
 					queues = new GpuQueuePool(1, 1);
 				}
 				
@@ -274,6 +283,10 @@ public class TestForcefieldEnergy extends TestBase {
 			
 			@Override
 			public void init() {
+
+				// skip tests if no CUDA GPUs
+				assumeTrue(edu.duke.cs.osprey.gpu.cuda.Gpus.get().getGpus().size() > 0);
+
 				streams = new GpuStreamPool(1, 1);
 			}
 			

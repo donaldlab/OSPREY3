@@ -171,8 +171,12 @@ public class Sequence {
 	 */
 	public Sequence set(SeqSpace.Position pos, SeqSpace.ResType rt) {
 		checkPos(pos);
-		checkRT(pos, rt);
-		rtIndices[pos.index] = rt.index;
+		if (rt != null) {
+			checkRT(pos, rt);
+			rtIndices[pos.index] = rt.index;
+		} else {
+			rtIndices[pos.index] = Sequence.Unassigned;
+		}
 		return this;
 	}
 
@@ -182,8 +186,12 @@ public class Sequence {
 	 */
 	public Sequence set(SeqSpace.Position pos, String resType) {
 		checkPos(pos);
-		SeqSpace.ResType rt = pos.getResTypeOrThrow(resType);
-		rtIndices[pos.index] = rt.index;
+		if (resType != null) {
+			SeqSpace.ResType rt = pos.getResTypeOrThrow(resType);
+			rtIndices[pos.index] = rt.index;
+		} else {
+			rtIndices[pos.index] = Sequence.Unassigned;
+		}
 		return this;
 	}
 
@@ -193,8 +201,12 @@ public class Sequence {
 	 */
 	public Sequence set(String resNum, String resType) {
 		SeqSpace.Position pos = seqSpace.getPositionOrThrow(resNum);
-		SeqSpace.ResType rt = pos.getResTypeOrThrow(resType);
-		rtIndices[pos.index] = rt.index;
+		if (resType != null) {
+			SeqSpace.ResType rt = pos.getResTypeOrThrow(resType);
+			rtIndices[pos.index] = rt.index;
+		} else {
+			rtIndices[pos.index] = Sequence.Unassigned;
+		}
 		return this;
 	}
 
@@ -376,9 +388,10 @@ public class Sequence {
 		for (SeqSpace.Position smallerPos : smallerSeqSpace.positions) {
 			SeqSpace.Position biggerPos = seqSpace.getPositionOrThrow(smallerPos.resNum);
 			SeqSpace.ResType biggerRT = get(biggerPos);
-			if (biggerRT == null)
-				System.out.println("PROBLEM");
-			SeqSpace.ResType smallerRT = smallerPos.getResTypeOrThrow(biggerRT.name);
+			SeqSpace.ResType smallerRT = null;
+			if (biggerRT != null) {
+				smallerRT = smallerPos.getResTypeOrThrow(biggerRT.name);
+			}
 			seq.set(smallerPos, smallerRT);
 		}
 		return seq;

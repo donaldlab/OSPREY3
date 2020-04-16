@@ -59,16 +59,34 @@ for info in kstar.confSpaceInfos():
 	# compute the energy matrix
 	emat = osprey.EnergyMatrix(info.confEcalc, cacheFile='emat.%s.dat' % info.id)
 
-	# how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
-	def makeAStar(rcs, emat=emat):
-		return osprey.AStarTraditional(emat, rcs, showProgress=False)
-	info.confSearchFactory = osprey.KStar.ConfSearchFactory(makeAStar)
+	# how should we score each sequence?
+	# (since we're in a loop, need capture variables above by using defaulted arguments)
+	def makePfunc(rcs, confEcalc=info.confEcalc, emat=emat):
+		return osprey.PartitionFunction(
+			confEcalc,
+			osprey.AStarTraditional(emat, rcs, showProgress=False),
+			osprey.AStarTraditional(emat, rcs, showProgress=False),
+			rcs
+		)
+	info.pfuncFactory = osprey.KStar.PfuncFactory(makePfunc)
 
 # run K*
-scoredSequences = kstar.run()
+scoredSequences = kstar.run(ecalc.tasks)
+
+# make a sequence analyzer to look at the results
+analyzer = osprey.SequenceAnalyzer(kstar)
 
 # use results
 for scoredSequence in scoredSequences:
 	print("result:")
 	print("\tsequence: %s" % scoredSequence.sequence)
-	print("\tscore: %s" % scoredSequence.score)
+	print("\tK* score: %s" % scoredSequence.score)
+
+	# write the sequence ensemble, with up to 10 of the lowest-energy conformations
+	numConfs = 10
+	analysis = analyzer.analyze(scoredSequence.sequence, numConfs)
+	print(analysis)
+	analysis.writePdb(
+		'seq.%s.pdb' % scoredSequence.sequence,
+		'Top %d conformations for sequence %s' % (numConfs, scoredSequence.sequence)
+	)

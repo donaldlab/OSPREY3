@@ -49,7 +49,6 @@ import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import edu.duke.cs.osprey.kstar.*;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.pruning.SimpleDEE;
@@ -62,6 +61,7 @@ import org.junit.Test;
 
 import java.util.*;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -227,8 +227,8 @@ public class TestLute {
 						.build();
 
 					// estimate the pfunc
-					GradientDescentPfunc pfunc = new GradientDescentPfunc(confEcalc);
-					pfunc.init(astar, rcs.getNumConformations(), epsilon);
+					GradientDescentPfunc pfunc = new GradientDescentPfunc(confEcalc, astar, rcs.getNumConformations());
+					pfunc.init(epsilon);
 					pfunc.setStabilityThreshold(null);
 					pfunc.compute();
 
@@ -267,16 +267,26 @@ public class TestLute {
 				KStar kstar = new KStar(protein, ligand, complex, settings);
 				for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+					// turn off the default confdb for tests
+					info.confDBFile = null;
+
 					SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
 					info.confEcalc = makeConfEcalc(confSpace, ecalc);
 					EnergyMatrix emat = calcEmat(info.confEcalc);
-					info.confSearchFactory = (rcs) ->
+					Function<RCs,ConfSearch> confSearchFactory = (rcs) ->
 						new ConfAStarTree.Builder(emat, rcs)
 							.setTraditional()
 							.build();
+
+					info.pfuncFactory = (rcs) -> new GradientDescentPfunc(
+						info.confEcalc,
+						confSearchFactory.apply(rcs),
+						confSearchFactory.apply(rcs),
+						rcs.getNumConformations()
+					);
 				}
-				kstar.run();
+				kstar.run(ecalc.tasks);
 			}
 		}
 
@@ -296,8 +306,11 @@ public class TestLute {
 				BBKStar bbkstar = new BBKStar(protein, ligand, complex, kstarSettings, bbkstarSettings);
 				for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
+					// turn off default confDB for tests
+					info.confDBFile = null;
+
 					// minimized energies
-					info.confEcalcMinimized = makeConfEcalc(info.confSpace, ecalc);
+					info.confEcalcMinimized = makeConfEcalc((SimpleConfSpace)info.confSpace, ecalc);
 					EnergyMatrix emat = calcEmat(info.confEcalcMinimized);
 					info.confSearchFactoryMinimized = (rcs) ->
 						new ConfAStarTree.Builder(emat, rcs)
@@ -316,8 +329,15 @@ public class TestLute {
 						new ConfAStarTree.Builder(ematRigid, rcs)
 							.setTraditional()
 							.build();
+
+					info.pfuncFactory = rcs -> new GradientDescentPfunc(
+						info.confEcalcMinimized,
+						info.confSearchFactoryMinimized.make(rcs),
+						info.confSearchFactoryMinimized.make(rcs),
+						rcs.getNumConformations()
+					);
 				}
-				bbkstar.run();
+				bbkstar.run(ecalc.tasks);
 			}
 		}
 	}
@@ -436,8 +456,8 @@ public class TestLute {
 					.build();
 
 				// estimate the pfunc
-				LUTEPfunc pfunc = new LUTEPfunc(luteEcalc);
-				pfunc.init(astar, rcs.getNumConformations(), epsilon);
+				LUTEPfunc pfunc = new LUTEPfunc(luteEcalc, astar, rcs.getNumConformations());
+				pfunc.init(epsilon);
 				pfunc.setStabilityThreshold(null);
 				pfunc.setReportProgress(true);
 				pfunc.compute();
@@ -476,6 +496,9 @@ public class TestLute {
 			KStar kstar = new KStar(protein, ligand, complex, settings);
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+				// turn off the default confdb for tests
+				info.confDBFile = null;
+
 				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
 				info.confEcalc = makeConfEcalc(confSpace, ecalc);
@@ -485,13 +508,20 @@ public class TestLute {
 				// train LUTE
 				LUTEConfEnergyCalculator luteEcalc = train(confSpace, info.confEcalc, emat, pmat);
 
-				info.confSearchFactory = (rcs) ->
+				Function<RCs,ConfSearch> confSearchFactory = (rcs) ->
 					new ConfAStarTree.Builder(null, new RCs(rcs, pmat))
 						.setLUTE(luteEcalc)
 						.build();
+
+				info.pfuncFactory = rcs -> new GradientDescentPfunc(
+					info.confEcalc,
+					confSearchFactory.apply(rcs),
+					confSearchFactory.apply(rcs),
+					rcs.getNumConformations()
+				);
 			}
 
-			List<KStar.ScoredSequence> scoredSequences = kstar.run();
+			List<KStar.ScoredSequence> scoredSequences = kstar.run(ecalc.tasks);
 
 			// LUTE approximates energies, so it doesn't compute quite the same K* scores
 			final double fudge = 0.01;
@@ -528,23 +558,32 @@ public class TestLute {
 				.build();
 			BBKStar bbkstar = new BBKStar(protein, ligand, complex, kstarSettings, bbkstarSettings);
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
+				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
-				info.confEcalcMinimized = makeConfEcalc(info.confSpace, ecalc);
+				// turn off default confDB for tests
+				info.confDBFile = null;
+
+				info.confEcalcMinimized = makeConfEcalc(confSpace, ecalc);
 				EnergyMatrix emat = calcEmat(info.confEcalcMinimized);
-				PruningMatrix pmat = calcPmat(info.confSpace, emat);
+				PruningMatrix pmat = calcPmat((SimpleConfSpace)info.confSpace, emat);
 
 				// train LUTE
-				LUTEConfEnergyCalculator luteEcalc = train(info.confSpace, info.confEcalcMinimized, emat, pmat);
+				LUTEConfEnergyCalculator luteEcalc = train(confSpace, info.confEcalcMinimized, emat, pmat);
 
 				info.confSearchFactoryMinimized = (rcs) ->
 					new ConfAStarTree.Builder(null, new RCs(rcs, pmat))
 						.setLUTE(luteEcalc)
 						.build();
 				info.confSearchFactoryRigid = info.confSearchFactoryMinimized;
-				info.pfuncFactory = new PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id);
+				info.pfuncFactory = rcs -> new GradientDescentPfunc(
+					info.confEcalcMinimized,
+					info.confSearchFactoryMinimized.make(rcs),
+					info.confSearchFactoryMinimized.make(rcs),
+					rcs.getNumConformations()
+				);
 			}
 
-			List<KStar.ScoredSequence> scoredSequences = bbkstar.run();
+			List<KStar.ScoredSequence> scoredSequences = bbkstar.run(ecalc.tasks);
 
 			// LUTE approximates energies, so it doesn't compute quite the same K* scores
 			final double fudge = 0.01;

@@ -43,6 +43,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.confspace.ConfDB;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
@@ -85,7 +86,7 @@ import java.util.concurrent.PriorityBlockingQueue;
  * not orders of magnitude slower than operation 1 (when e.g. we're reading
  * energies out of a cache).
  */
-public class GradientDescentMARKStarPfunc implements PartitionFunction.WithConfTable, PartitionFunction.WithExternalMemory {
+public class GradientDescentMARKStarPfunc implements PartitionFunction.WithConfDB, PartitionFunction.WithExternalMemory {
 
 	private final AStarScorer gScorer;
 	private final AStarScorer rigidgScorer;
@@ -415,8 +416,8 @@ public class GradientDescentMARKStarPfunc implements PartitionFunction.WithConfT
 	}
 
 	@Override
-	public void setConfTable(ConfDB.ConfTable val) {
-		confTable = val;
+	public void setConfDB(ConfDB confDB, ConfDB.Key key) {
+		confTable = confDB.get(key);
 	}
 
 	@Override
@@ -430,24 +431,9 @@ public class GradientDescentMARKStarPfunc implements PartitionFunction.WithConfT
 	}
 
 	@Override
-	public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
+	public void init(double targetEpsilon) {
 
-		init(numConfsBeforePruning, targetEpsilon);
-
-		// split the confs between the upper and lower bounds
-		energyConfs = confSearch;
-	}
-
-	@Override
-	public void init(ConfSearch upperBoundConfs, ConfSearch lowerBoundConfs, BigInteger numConfsBeforePruning, double targetEpsilon) {
-
-		init(numConfsBeforePruning, targetEpsilon);
-
-		this.scoreConfs = upperBoundConfs;
-		this.energyConfs = lowerBoundConfs;
-	}
-
-	private void init(BigInteger numConfsBeforePruning, double targetEpsilon) {
+		if (true) throw new Error("If anyone ever uses this again, update it to the newest PartitionFunction api");
 
 		if (targetEpsilon <= 0.0) {
 			throw new IllegalArgumentException("target epsilon must be greater than zero");
@@ -457,7 +443,7 @@ public class GradientDescentMARKStarPfunc implements PartitionFunction.WithConfT
 
 		// init state
 		status = Status.Estimating;
-		state = new State(numConfsBeforePruning);
+		state = new State(scoreConfs.getNumConformations());
 		state.root = root;
 		values = Values.makeFullRange();
 		// don't explicitly check the pruned confs, just lump them together with the un-enumerated confs

@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -44,6 +45,8 @@ import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
+
+import java.util.function.Supplier;
 
 
 public class BenchmarkPartitionFunction {
@@ -69,21 +72,20 @@ public class BenchmarkPartitionFunction {
 				.build()
 				.calcEnergyMatrix();
 
-			benchmarkPfunc(confSpace, emat, new SimplePartitionFunction(confEcalc));
-			benchmarkPfunc(confSpace, emat, new GradientDescentPfunc(confEcalc));
+			RCs rcs = new RCs(confSpace);
+			Supplier<ConfAStarTree> astarFactory = () -> new ConfAStarTree.Builder(emat, rcs)
+				.setTraditional()
+				.build();
+
+			benchmarkPfunc(new SimplePartitionFunction(confEcalc, astarFactory.get(), rcs.getNumConformations()));
+			benchmarkPfunc(new GradientDescentPfunc(confEcalc, astarFactory.get(), astarFactory.get(), rcs.getNumConformations()));
 		}
 	}
 
-	private static void benchmarkPfunc(SimpleConfSpace confSpace, EnergyMatrix emat, PartitionFunction pfunc) {
-
-		// make the A* search
-		ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
-			.setTraditional()
-			.build();
+	private static void benchmarkPfunc(PartitionFunction pfunc) {
 
 		// compute pfunc
-		final double targetEpsilon = 0.05;
-		pfunc.init(astar, astar.getNumConformations(), targetEpsilon);
+		pfunc.init(0.05);
 		Stopwatch sw = new Stopwatch().start();
 		pfunc.compute();
 		System.out.println(String.format("%-30s %s", pfunc.getClass().getSimpleName(), sw.stop().getTime(2)));

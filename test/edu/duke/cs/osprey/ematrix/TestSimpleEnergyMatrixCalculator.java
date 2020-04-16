@@ -33,7 +33,9 @@
 package edu.duke.cs.osprey.ematrix;
 
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 
+import edu.duke.cs.osprey.gpu.cuda.Gpus;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -54,6 +56,7 @@ public class TestSimpleEnergyMatrixCalculator extends TestBase {
 		Gpu {
 			@Override
 			public SimpleEnergyMatrixCalculator make(SearchProblem search, int parallelism) {
+				assumeTrue(Gpus.get().getGpus().size() > 0);
 				return new SimpleEnergyMatrixCalculator.Cuda(1, parallelism, ffparams, search.confSpace, search.shellResidues);
 			}
 		};

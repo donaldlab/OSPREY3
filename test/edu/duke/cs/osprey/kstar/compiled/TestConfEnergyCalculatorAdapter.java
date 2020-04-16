@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey.kstar.compiled;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
@@ -14,6 +16,7 @@ import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
 import edu.duke.cs.osprey.kstar.TestKStar;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.FileTools;
@@ -32,9 +35,9 @@ public class TestConfEnergyCalculatorAdapter {
 	@Test
 	public void kstar() {
 
-		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.complex.ccs.xz"));
-		ConfSpace chainA = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.A.ccs.xz"));
-		ConfSpace chainG = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.G.ccs.xz"));
+		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.complex.ccsx"));
+		ConfSpace chainA = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.A.ccsx"));
+		ConfSpace chainG = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.G.ccsx"));
 
 		KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) -> {
 
@@ -75,11 +78,14 @@ public class TestConfEnergyCalculatorAdapter {
 
 			for (KStar.ConfSpaceInfo info : result.kstar.confSpaceInfos()) {
 
+				// turn off the default confdb for tests
+				info.confDBFile = null;
+
 				ConfSpace confSpace = (ConfSpace)info.confSpace;
 
 				PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
 				boolean minimize = true;
-				ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace, tasks);
+				ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace);
 
 				SimpleReferenceEnergies eref = new ErefCalculator.Builder(ecalc)
 					.setMinimize(minimize)
@@ -93,20 +99,27 @@ public class TestConfEnergyCalculatorAdapter {
 					.build()
 					.calc();
 
-				info.confEcalc = new ConfEnergyCalculatorAdapter.Builder(ecalc)
+				info.confEcalc = new ConfEnergyCalculatorAdapter.Builder(ecalc, tasks)
 					.setPosInterDist(posInterDist)
 					.setReferenceEnergies(eref)
 					.setMinimize(minimize)
 					.build();
 
-				info.confSearchFactory = (rcs) ->
+				Function<RCs,ConfSearch> confSearchFactory = (rcs) ->
 					new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
 						.build();
+
+				info.pfuncFactory = rcs -> new GradientDescentPfunc(
+					info.confEcalc,
+					confSearchFactory.apply(rcs),
+					confSearchFactory.apply(rcs),
+					rcs.getNumConformations()
+				);
 			}
 
 			// run K*
-			result.scores = result.kstar.run();
+			result.scores = result.kstar.run(tasks);
 
 			// cleanup
 			for (KStar.ConfSpaceInfo info : result.kstar.confSpaceInfos()) {

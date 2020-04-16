@@ -291,15 +291,21 @@ public class SofeaLab {
 
 				// using the gradient descent pfunc
 				if (true) {
-					GradientDescentPfunc pfunc = new GradientDescentPfunc(config.confEcalc);
 					RCs rcs = seq.makeRCs(state.confSpace);
-					ConfAStarTree astar = new ConfAStarTree.Builder(config.emat, rcs)
-						.setTraditional()
-						.build();
-					pfunc.init(astar, rcs.getNumConformations(), epsilon);
+					GradientDescentPfunc pfunc = new GradientDescentPfunc(
+						config.confEcalc,
+						new ConfAStarTree.Builder(config.emat, rcs)
+							.setTraditional()
+							.build(),
+						new ConfAStarTree.Builder(config.emat, rcs)
+							.setTraditional()
+							.build(),
+						rcs.getNumConformations()
+					);
+					pfunc.init(epsilon);
 					pfunc.setStabilityThreshold(null);
 					pfunc.setReportProgress(true);
-					pfunc.setConfTable(confTable);
+					pfunc.setConfDB(confdb, confTable.id);
 
 					Stopwatch sw = new Stopwatch().start();
 					pfunc.compute();

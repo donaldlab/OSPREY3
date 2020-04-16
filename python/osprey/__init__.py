@@ -28,8 +28,12 @@
 ## <signature of Bruce Donald>, Mar 1, 2018
 ## Bruce Donald, Professor of Computer Science
 
-import sys, os, jpype, traceback
-import jvm, wraps
+from __future__ import absolute_import
+
+import sys, os, platform, jpype, traceback
+
+from . import jvm
+from . import wraps
 
 
 # NOTE: These classes exists only to talk to the docstring processors.
@@ -76,7 +80,21 @@ def _java_aware_excepthook(exctype, value, traceback):
 
 	# try to print java exception info
 	try:
-		print('\n%s' % value.stacktrace())
+		ex = value.__javaobject__
+		ex.printStackTrace()
+
+		# NOTE: in JPype-py2, information about python Exceptions
+		# are not embedded within the Java exceptions from things like JProxy =(
+		# so we couldn't print it here even if we wanted to.
+		# But the Python3 version of JPype prints that info by default! =)
+
+		# print causes too, if any
+		ex = ex.getCause()
+		while ex is not None:
+			print('Caused by:')
+			ex.printStackTrace()
+			ex = ex.getCause()
+
 	except (AttributeError, TypeError):
 		# must not be a java exception
 		pass
@@ -105,7 +123,22 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 	'''
 
 	# disable buffered output on stdout, so python log messages line up with java log messages
-	sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+	class Unbuffered(object):
+		def __init__(self, stream):
+			self.stream = stream
+
+		def write(self, data):
+			self.stream.write(data)
+			self.stream.flush()
+
+		def writelines(self, datas):
+			self.stream.writelines(datas)
+			self.stream.flush()
+
+		def __getattr__(self, attr):
+			return getattr(self.stream, attr)
+
+	sys.stdout = Unbuffered(sys.stdout)
 
 	# setup a global exception handler to show java exception info
 	sys.excepthook = _java_aware_excepthook
@@ -132,8 +165,24 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 		for path in open(classpath_path, 'r').readlines():
 			jvm.addClasspath(path.strip())
 
+	# build the JRE path
+	if no_escape_from_reality:
+
+		# release environment: use the bundled JRE
+		if sys.platform in ('win32', 'cygwin'):
+			jre_path = os.path.join(os.path.dirname(__file__), 'jre', 'bin', 'server', 'jvm.dll')
+		elif sys.platform == 'darwin':
+			jre_path = os.path.join(os.path.dirname(__file__), 'jre', 'lib', 'server', 'libjvm.dylib')
+		else:
+			jre_path = os.path.join(os.path.dirname(__file__), 'jre', 'lib', 'server', 'libjvm.so')
+
+	else:
+
+		# development environment: use the system JRE
+		jre_path = None
+
 	# start the jvm
-	jvm.start(heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB, allowRemoteManagement)
+	jvm.start(jre_path, heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB, allowRemoteManagement)
 
 	# set up class factories
 	global c
@@ -162,7 +211,10 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 	Parallelism.make = c.parallelism.Parallelism.make
 
 	# print the preamble
-	print("OSPREY %s" % c.control.Main.Version)
+	osprey_version = c.control.Main.Version
+	python_version = '.'.join([str(x) for x in sys.version_info[0:3]])
+	java_version = jpype.java.lang.System.getProperty('java.version')
+	print("OSPREY %s, Python %s, Java %s, %s" % (osprey_version, python_version, java_version, platform.platform()))
 	print("Using up to %d MiB heap memory: %d MiB for garbage, %d MiB for storage" % (
 		heapSizeMiB, garbageSizeMiB, heapSizeMiB - garbageSizeMiB
 	))
@@ -901,10 +953,10 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	return bbflex
 
 def Paste(complexConfSpace, numPDBs, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, useWindowCriterion=useJavaDefault, maxNumPfConfs=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, mutFile=useJavaDefault):
-    '''
-    :java:classdoc:`.paste.Paste`
+	'''
+	:java:classdoc:`.paste.Paste`
 
-    For examples using PAStE, see the examples/python.Paste directory in your Osprey distribution.
+	For examples using PAStE, see the examples/python.Paste directory in your Osprey distribution.
 
 	:param complexConfSpace: :java:fielddoc:`.paste.Paste#protein`
 	:type complexConfSpace: :java:ref:`.confspace.SimpleConfSpace`
@@ -922,18 +974,18 @@ def Paste(complexConfSpace, numPDBs, epsilon=useJavaDefault, stabilityThreshold=
 	:rtype: :java:ref:`.paste.Paste`
 	'''
 
-    # build settings
-    settingsBuilder = _get_builder(jvm.getInnerClass(c.paste.Paste, 'Settings'))()
-    if useWindowCriterion is not useJavaDefault:
-        settingsBuilder.setUseWindowCriterion(useWindowCriterion)
-    if mutFile is not useJavaDefault:
-        settingsBuilder.addMutFile(jvm.toFile(mutFile))
-    if epsilon is not useJavaDefault:
-        settingsBuilder.setEpsilon(epsilon)
+	# build settings
+	settingsBuilder = _get_builder(jvm.getInnerClass(c.paste.Paste, 'Settings'))()
+	if useWindowCriterion is not useJavaDefault:
+		settingsBuilder.setUseWindowCriterion(useWindowCriterion)
+	if mutFile is not useJavaDefault:
+		settingsBuilder.addMutFile(jvm.toFile(mutFile))
+	if epsilon is not useJavaDefault:
+		settingsBuilder.setEpsilon(epsilon)
 	if stabilityThreshold is not useJavaDefault:
 		settingsBuilder.setStabilityThreshold(jvm.boxDouble(stabilityThreshold))
 	if maxNumPfConfs is not useJavaDefault:
-	    settingsBuilder.setPfConfs(maxNumPfConfs)
+		settingsBuilder.setPfConfs(maxNumPfConfs)
 	if maxSimultaneousMutations is not useJavaDefault:
 		settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
 	if writeSequencesToConsole:
@@ -1003,15 +1055,47 @@ def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDe
 	return c.kstar.KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, settings)
 
 
-def _KStarConfSearchFactory(func):
+def _KStarPfuncFactory(func):
 
 	# convert the python lambda to a JVM interface implementation
 	return jpype.JProxy(
-		jvm.getInnerClass(c.kstar.KStar, 'ConfSearchFactory'),
+		jvm.getInnerClass(c.kstar.KStar, 'PfuncFactory'),
 		dict={ 'make': func }
 	)
 
-KStar.ConfSearchFactory = _KStarConfSearchFactory
+KStar.PfuncFactory = _KStarPfuncFactory
+
+
+def PartitionFunction(confEcalc, confSearchUpper, confSearchLower, rcs):
+	'''
+	:java:classdoc:`.kstar.pfunc.GradientDescentPfunc`
+	TODO: docme
+	:rtype: :java:ref:`.kstar.pfunc.GradientDescentPfunc`
+	'''
+
+	return c.kstar.pfunc.GradientDescentPfunc(
+		confEcalc,
+		confSearchUpper,
+		confSearchLower,
+		rcs.getNumConformations()
+	)
+
+
+def MARKStarPfunc(confSpace, ematMinimized, confEcalcMinimized, ematRigid, confEcalcRigid, rcs):
+	'''
+	TODO: docme
+	'''
+
+	pfunc = c.markstar.framework.MARKStarBoundFastQueues(
+		confSpace,
+		ematRigid,
+		ematMinimized,
+		confEcalcMinimized,
+		rcs,
+		confEcalcMinimized.ecalc.parallelism
+	)
+	pfunc.setCorrections(c.ematrix.UpdatingEnergyMatrix(confSpace, ematMinimized, confEcalcMinimized))
+	return pfunc
 
 
 def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJavaDefault, stabilityThreshold=useJavaDefault, maxSimultaneousMutations=useJavaDefault, energyMatrixCachePattern=useJavaDefault, useExternalMemory=useJavaDefault, showPfuncProgress=useJavaDefault, numBestSequences=useJavaDefault, numConfsPerBatch=useJavaDefault, writeSequencesToConsole=False, writeSequencesToFile=None):
@@ -1065,6 +1149,17 @@ def BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon=useJava
 	bbkstarSettings = bbkstarSettingsBuilder.build()
 
 	return c.kstar.BBKStar(proteinConfSpace, ligandConfSpace, complexConfSpace, kstarSettings, bbkstarSettings)
+
+
+def _BBKStarConfSearchFactory(func):
+
+	# convert the python lambda to a JVM interface implementation
+	return jpype.JProxy(
+		jvm.getInnerClass(c.kstar.BBKStar, 'ConfSearchFactory'),
+		dict={ 'make': func }
+	)
+
+BBKStar.ConfSearchFactory = _BBKStarConfSearchFactory
 
 
 def ConfAnalyzer(confEcalc):
@@ -1227,6 +1322,15 @@ def LUTE_AStar(rcs, pmat, luteEcalc, showProgress=True):
 	builder.setLUTE(luteEcalc)
 
 	return builder.build()
+
+
+def LUTE_Pfunc(luteEcalc, astar, rcs):
+	'''
+	:java:classdoc:`.lute.LUTEPfunc`
+	TODO: docme
+	'''
+
+	return c.lute.LUTEPfunc(luteEcalc, astar, rcs.getNumConformations())
 
 
 def LUTE_GMECFinder(confSpace, model, pmat, confLog=useJavaDefault, printIntermediateConfs=useJavaDefault):
@@ -1433,21 +1537,13 @@ def MSKStar(objective, constraints=[], epsilon=useJavaDefault, objectiveWindowSi
 
 	return builder.build()
 
-def PartitionFunctionFactory(confSpace, confEcalc, state, confUpperBoundcalc=None):
-    pfuncFactory = c.kstar.pfunc.PartitionFunctionFactory(confSpace, confEcalc, state)
-    if confUpperBoundcalc is not None:
-        pfuncFactory.setUseMARKStar(confUpperBoundcalc)
-    else:
-        pfuncFactory.setUseGradientDescent()
-
-    return pfuncFactory
 
 def EwakstarDoer_ConfSearchFactory(func):
 
-    # convert the python lambda to a JVM interface implementation
-    return jpype.JProxy(
-        jvm.c.java.util.function.Function,
-        dict={ 'apply': func }
+	# convert the python lambda to a JVM interface implementation
+	return jpype.JProxy(
+		jvm.c.java.util.function.Function,
+		dict={ 'apply': func }
 	)
 
 def EwakstarDoer_State(name, confSpace):
@@ -1456,43 +1552,43 @@ def EwakstarDoer_State(name, confSpace):
 
 def EwakstarDoer(state, smaNodes, useSMA=useJavaDefault, printPDBs=useJavaDefault, useWtBenchmark=useJavaDefault, numEWAKStarSeqs=useJavaDefault, logFile=None, epsilon=useJavaDefault, pfEw=useJavaDefault, eW=useJavaDefault, orderOfMag=useJavaDefault, numPfConfs=useJavaDefault, numTopSeqs=useJavaDefault, mutableType=useJavaDefault, numMutable=useJavaDefault, seqFilterOnly=useJavaDefault, numCPUs=useJavaDefault):
 
-    builder = _get_builder(c.ewakstar.EwakstarDoer)()
+	builder = _get_builder(c.ewakstar.EwakstarDoer)()
 
-    builder.addState(state)
+	builder.addState(state)
 
-    if useSMA is not useJavaDefault:
-        builder.setupSMA(useSMA, smaNodes)
-    if useWtBenchmark is not useJavaDefault:
-        builder.setUseWtBenchmark(useWtBenchmark)
-    if printPDBs is not useJavaDefault:
-        builder.setPrintPDBs(printPDBs)
-    if epsilon is not useJavaDefault:
-        builder.setEpsilon(epsilon)
-    if pfEw is not useJavaDefault:
-        builder.setPfEw(pfEw)
-    if eW is not useJavaDefault:
-        builder.setEw(eW)
-    if orderOfMag is not useJavaDefault:
-        builder.setOrderOfMag(orderOfMag)
-    if numPfConfs is not useJavaDefault:
-        builder.setNumPfConfs(numPfConfs)
-    if numTopSeqs is not useJavaDefault:
-        builder.setNumTopOverallSeqs(numTopSeqs)
-    if mutableType is not useJavaDefault:
-        builder.setMutableType(mutableType)
-    if numMutable is not useJavaDefault:
-        builder.setNumMutable(numMutable)
-    if seqFilterOnly is not useJavaDefault:
-        builder.setSeqFilterOnly(seqFilterOnly)
-    if numCPUs is not useJavaDefault:
-        builder.setNumCpus(numCPUs)
-    if numEWAKStarSeqs is not useJavaDefault:
-        builder.setNumEWAKStarSeqs(numEWAKStarSeqs)
+	if useSMA is not useJavaDefault:
+		builder.setupSMA(useSMA, smaNodes)
+	if useWtBenchmark is not useJavaDefault:
+		builder.setUseWtBenchmark(useWtBenchmark)
+	if printPDBs is not useJavaDefault:
+		builder.setPrintPDBs(printPDBs)
+	if epsilon is not useJavaDefault:
+		builder.setEpsilon(epsilon)
+	if pfEw is not useJavaDefault:
+		builder.setPfEw(pfEw)
+	if eW is not useJavaDefault:
+		builder.setEw(eW)
+	if orderOfMag is not useJavaDefault:
+		builder.setOrderOfMag(orderOfMag)
+	if numPfConfs is not useJavaDefault:
+		builder.setNumPfConfs(numPfConfs)
+	if numTopSeqs is not useJavaDefault:
+		builder.setNumTopOverallSeqs(numTopSeqs)
+	if mutableType is not useJavaDefault:
+		builder.setMutableType(mutableType)
+	if numMutable is not useJavaDefault:
+		builder.setNumMutable(numMutable)
+	if seqFilterOnly is not useJavaDefault:
+		builder.setSeqFilterOnly(seqFilterOnly)
+	if numCPUs is not useJavaDefault:
+		builder.setNumCpus(numCPUs)
+	if numEWAKStarSeqs is not useJavaDefault:
+		builder.setNumEWAKStarSeqs(numEWAKStarSeqs)
 
-    if logFile is not None:
-        builder.setLogFile(jvm.toFile(logFile))
+	if logFile is not None:
+		builder.setLogFile(jvm.toFile(logFile))
 
-    return builder.build()
+	return builder.build()
 
 
 

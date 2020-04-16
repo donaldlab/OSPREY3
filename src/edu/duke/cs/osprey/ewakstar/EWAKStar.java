@@ -240,7 +240,6 @@ public class EWAKStar {
         public final Map<Sequence,EWAKStarGradientDescentPfunc.Result> pfuncResults = new HashMap<>();
 
         public ConfEnergyCalculator confEcalc = null;
-        public KStar.ConfSearchFactory confSearchFactory = null;
         public File confDBFile = null;
 
         public ConfSpaceInfo(SimpleConfSpace confSpace, ConfSpaceType type) {
@@ -252,9 +251,6 @@ public class EWAKStar {
         private void check() {
             if (confEcalc == null) {
                 throw new InitException(type, "confEcalc");
-            }
-            if (confSearchFactory == null) {
-                throw new InitException(type, "confSearchFactory");
             }
         }
 

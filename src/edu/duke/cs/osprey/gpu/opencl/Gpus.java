@@ -32,6 +32,8 @@
 
 package edu.duke.cs.osprey.gpu.opencl;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -61,44 +63,53 @@ public class Gpus {
 	private Gpus() {
 		
 		System.out.print("Discovering OpenCL GPUs...");
+
+		try {
 		
-		// get the gpus that support doubles
-		gpus = new ArrayList<>();
-		for (int i=0; i<CLPlatform.listCLPlatforms().length; i++) {
-			CLPlatform platform = CLPlatform.listCLPlatforms()[i];
-			for (CLDevice device : platform.listCLDevices()) {
-				
-				// CPUs are slow, don't even bother
-				if (device.getType() == CLDevice.Type.CPU) {
-					continue;
-				}
+			// get the gpus that support doubles
+			gpus = new ArrayList<>();
+			for (int i=0; i<CLPlatform.listCLPlatforms().length; i++) {
+				CLPlatform platform = CLPlatform.listCLPlatforms()[i];
+				for (CLDevice device : platform.listCLDevices()) {
 
-				try {
-					// make an independent context for each gpu
-					CLContext gpuContext = CLContext.create(device);
-					CLDevice isolatedDevice = gpuContext.getDevices()[0];
-
-					Gpu gpu = new Gpu(isolatedDevice);
-					if (gpu.supportsDoubles()) {
-
-						// we can use this gpu! save it and its context
-						gpus.add(gpu);
-
-					} else {
-
-						// can't use this gpu, clean it up
-						gpuContext.release();
+					// CPUs are slow, don't even bother
+					if (device.getType() == CLDevice.Type.CPU) {
+						continue;
 					}
-				} catch (CLException.CLInvalidDeviceException ex) {
-					// OpenCL doesn't work on this device, skip it
+
+					try {
+						// make an independent context for each gpu
+						CLContext gpuContext = CLContext.create(device);
+						CLDevice isolatedDevice = gpuContext.getDevices()[0];
+
+						Gpu gpu = new Gpu(isolatedDevice);
+						if (gpu.supportsDoubles()) {
+
+							// we can use this gpu! save it and its context
+							gpus.add(gpu);
+
+						} else {
+
+							// can't use this gpu, clean it up
+							gpuContext.release();
+						}
+					} catch (CLException.CLInvalidDeviceException ex) {
+						// OpenCL doesn't work on this device, skip it
+					}
 				}
 			}
-		}
-		
-		if (gpus.isEmpty()) {
-			System.out.println(" none found");
-		} else {
-			System.out.println(" found " + gpus.size());
+
+			if (gpus.isEmpty()) {
+				System.out.println(" none found");
+			} else {
+				System.out.println(" found " + gpus.size());
+			}
+
+		} catch (UnsatisfiedLinkError | CLException.CLPlatformNotFoundKhrException ex) {
+			System.out.println(" OpenCL is not supported on this system.");
+			StringWriter buf = new StringWriter();
+			ex.printStackTrace(new PrintWriter(buf));
+			System.out.println(buf.toString());
 		}
 	}
 	

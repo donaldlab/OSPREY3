@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 
 import java.util.Collections;
 import java.util.List;
@@ -29,6 +30,7 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 	public static class Builder {
 
 		public final ConfEnergyCalculator confEcalc;
+		public final TaskExecutor tasks;
 
 		/** Defines what position interactions should be used for conformations and conformation fragments */
 		private PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
@@ -41,8 +43,9 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 		/** True to include the static-static energies in conformation energies */
 		private boolean includeStaticStatic = false;
 
-		public Builder(ConfEnergyCalculator confEcalc) {
+		public Builder(ConfEnergyCalculator confEcalc, TaskExecutor tasks) {
 			this.confEcalc = confEcalc;
+			this.tasks = tasks;
 		}
 
 		public Builder setPosInterDist(PosInterDist val) {
@@ -68,6 +71,7 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 		public ConfEnergyCalculatorAdapter build() {
 			return new ConfEnergyCalculatorAdapter(
 				confEcalc,
+				tasks,
 				new PosInterGen(posInterDist, eref),
 				minimize,
 				includeStaticStatic
@@ -82,8 +86,8 @@ public class ConfEnergyCalculatorAdapter extends edu.duke.cs.osprey.energy.ConfE
 
 	// TODO: support approximator matrices?
 
-	private ConfEnergyCalculatorAdapter(ConfEnergyCalculator confEcalc, PosInterGen posInterGen, boolean minimize, boolean includeStaticStatic) {
-		super(confEcalc.tasks());
+	private ConfEnergyCalculatorAdapter(ConfEnergyCalculator confEcalc, TaskExecutor tasks, PosInterGen posInterGen, boolean minimize, boolean includeStaticStatic) {
+		super(tasks);
 
 		this.confEcalc = confEcalc;
 		this.posInterGen = posInterGen;

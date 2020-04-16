@@ -46,8 +46,9 @@ public class TestGNUPlot {
 
 		// no idea how to automate test checking here...
 		// I just look at the SVG file manually
-		FileTools.writeFile(plot.renderSvg(), new File(filename + ".svg"));
-		FileTools.writeFileBytes(plot.renderPng(), new File(filename + ".png"));
+		File tmpDir = new File(System.getProperty("java.io.tmpdir"));
+		FileTools.writeFile(plot.renderSvg(), new File(tmpDir, filename + ".svg"));
+		FileTools.writeFileBytes(plot.renderPng(), new File(tmpDir, filename + ".png"));
 	}
 
 	@Test

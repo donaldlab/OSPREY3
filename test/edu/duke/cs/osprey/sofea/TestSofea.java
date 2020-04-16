@@ -54,12 +54,9 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
-import edu.duke.cs.osprey.tools.BigExp;
-import edu.duke.cs.osprey.tools.BigMath;
-import edu.duke.cs.osprey.tools.Log;
+import edu.duke.cs.osprey.tools.*;
 import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.MathTools.DoubleBounds;
-import edu.duke.cs.osprey.tools.Streams;
 import org.junit.Test;
 
 import java.io.File;
@@ -67,6 +64,7 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -383,6 +381,76 @@ public class TestSofea {
 		);
 	}
 
+	@Test
+	public void test_Binding1CC8Mut2Flex2_Traditional_HiMem_minLMFE() {
+		minLMFE(
+			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
+			1024*1024,
+			4,
+			null,
+			(topSequences, results) -> {
+
+				// the bounds in seqdb for all sequences should always be correct
+				assertResults_Binding1CC8Mut2Flex2_Traditional(results);
+
+				// check the top sequences
+				assertThat(topSequences.sequences.get(0).sequence, is(results.makeSequence("GLN", "LEU")));
+				assertThat(topSequences.sequences.get(1).sequence, is(results.makeSequence("GLN", "VAL")));
+				assertThat(topSequences.sequences.get(2).sequence, is(results.makeSequence("VAL", "LEU")));
+				assertThat(topSequences.sequences.get(3).sequence, is(results.makeSequence("VAL", "VAL")));
+
+				// should only get 4 sequences
+				assertThat(topSequences.sequences.size(), is(4));
+
+				// check the objective bounds
+				assertThat(topSequences.sequences.get(0).lmfeFreeEnergy, isAbsoluteBound(-11.437, epsilonG));
+				assertThat(topSequences.sequences.get(1).lmfeFreeEnergy, isAbsoluteBound(-10.981, epsilonG));
+				assertThat(topSequences.sequences.get(2).lmfeFreeEnergy, isAbsoluteBound(-8.472, epsilonG));
+				assertThat(topSequences.sequences.get(3).lmfeFreeEnergy, isAbsoluteBound(-8.016, epsilonG));
+			}
+		);
+	}
+
+	@Test
+	public void test_Binding1CC8Mut2Flex2_Traditional_HiMem_minLMFE_stability() {
+		minLMFE(
+			Designs.Binding1CC8Mut2Flex2_Traditional.get(),
+			1024*1024,
+			4,
+			15.0, // Kcal/mol
+			(topSequences, results) -> {
+
+				// the bounds in seqdb for all sequences should always be correct
+				assertResults_Binding1CC8Mut2Flex2_Traditional(results);
+
+				// the wild-type sequence should be the top sequence
+				MultiStateConfSpace.State designState = results.design.confSpace.getState("design");
+				Sofea.SeqResult wtResult = topSequences.sequences.get(0);
+				assertThat(wtResult.sequence, is(results.design.confSpace.seqSpace.makeWildTypeSequence()));
+				double designThreshold = wtResult.stateFreeEnergies[designState.index].upper + 15.0;
+
+				// check the top sequences
+				assertThat(topSequences.sequences.get(1).sequence, is(results.makeSequence("GLN", "VAL")));
+				assertThat(topSequences.sequences.get(2).sequence, is(results.makeSequence("VAL", "LEU")));
+				assertThat(topSequences.sequences.get(3).sequence, is(results.makeSequence("LEU", "LEU")));
+
+				// check for stabilty
+				for (var result : topSequences.sequences) {
+					assertThat(result.stateFreeEnergies[designState.index].lower, lessThanOrEqualTo(designThreshold));
+				}
+
+				// should only get 4 sequences
+				assertThat(topSequences.sequences.size(), is(4));
+
+				// check the objective bounds
+				assertThat(topSequences.sequences.get(0).lmfeFreeEnergy, isAbsoluteBound(-11.437, epsilonG));
+				assertThat(topSequences.sequences.get(1).lmfeFreeEnergy, isAbsoluteBound(-10.981, epsilonG));
+				assertThat(topSequences.sequences.get(2).lmfeFreeEnergy, isAbsoluteBound(-8.472, epsilonG));
+				assertThat(topSequences.sequences.get(3).lmfeFreeEnergy, isAbsoluteBound(-4.533, epsilonG));
+			}
+		);
+	}
+
 
 	@Test
 	public void test_Binding1CC8Mut2Flex1_AllOnPairs_LeafCounts() {
@@ -581,7 +649,7 @@ public class TestSofea {
 				try (Sofea.StateInfo.Confs confs = stateInfo.new Confs()) {
 
 					forEachNode(stateInfo, index -> {
-						BigDecimalBounds exactBigDecimal = stateInfo.calcZPathBoundsExact(index, stateInfo.rcs, confs.table);
+						BigDecimalBounds exactBigDecimal = stateInfo.calcZPathBoundsExact(index, stateInfo.rcs, confs.table());
 						BigExp.Bounds exact = new BigExp.Bounds(
 							new BigExp(exactBigDecimal.lower),
 							new BigExp(exactBigDecimal.upper)
@@ -614,7 +682,7 @@ public class TestSofea {
 							new BigExp(0.0),
 							stateInfo.calcZSumUpper(index, stateInfo.rcs)
 						);
-						BigExp exact = new BigExp(stateInfo.calcZSum(index, stateInfo.rcs, confs.table));
+						BigExp exact = new BigExp(stateInfo.calcZSum(index, stateInfo.rcs, confs.table()));
 						assertThat(bounds, isRelativeBound(exact, 1e-4));
 					});
 				}
@@ -655,17 +723,23 @@ public class TestSofea {
 				.mapToDouble(state -> {
 
 					RCs rcs = seq.makeRCs(state.confSpace);
-					ConfAStarTree astar = new ConfAStarTree.Builder(design.emats[state.index], rcs)
-						.setTraditional()
-						.build();
 
 					try (Sofea.StateInfo.Confs confs = sofea.getStateInfo(state).new Confs()) {
 
 						// TODO: GradientDescentPfunc is returing some bad answers in multi-thread mode?
 						// TODO: the pfunc used to work... What broke it?
-						GradientDescentPfunc pfunc = new GradientDescentPfunc(ecalcs.getConfEcalc(state));
-						pfunc.setConfTable(confs.table);
-						pfunc.init(astar, rcs.getNumConformations(), 0.00001);
+						GradientDescentPfunc pfunc = new GradientDescentPfunc(
+							ecalcs.getConfEcalc(state),
+							new ConfAStarTree.Builder(design.emats[state.index], rcs)
+								.setTraditional()
+								.build(),
+							new ConfAStarTree.Builder(design.emats[state.index], rcs)
+								.setTraditional()
+								.build(),
+							rcs.getNumConformations()
+						);
+						pfunc.setConfDB(confs.db, confs.key);
+						pfunc.init(0.00001);
 						pfunc.setStabilityThreshold(null); // turn the damn thing off!
 						pfunc.compute();
 						PartitionFunction.Result result = pfunc.makeResult();
@@ -770,6 +844,10 @@ public class TestSofea {
 				DoubleBounds obsG = bcalc.freeEnergyPrecise(seqInfo.get(state));
 				assertThat(obsG, isAbsoluteBound(expG, epsilonG));
 			}
+		}
+
+		public Sequence makeSequence(String ... resTypes) {
+			return design.confSpace.seqSpace.makeSequence(resTypes);
 		}
 	}
 
@@ -960,6 +1038,51 @@ public class TestSofea {
 			// check results once more at end, just for good measure
 			try (SeqDB seqdb = sofea.openSeqDB()) {
 				checker.check(new Results(design, seqdb));
+			}
+		}}}}
+	}
+
+	public void minLMFE(Design design, long fringeDBBytes, int numSequences, Double stabilityGap, BiConsumer<MinLMFE.TopSequences,Results> resultor) {
+		try (TempFile fringedbLowerFile = new TempFile(tmpdir, "fringe.lower.db")) {
+		try (TempFile fringedbUpperFile = new TempFile(tmpdir, "fringe.upper.db")) {
+		try (TempFile seqdbFile = new TempFile(tmpdir, "seq.db")) {
+		try (Ecalcs ecalcs = design.makeEcalcs(Parallelism.makeCpu(1))) {
+
+			Sofea sofea = new Sofea.Builder(design.confSpace)
+				.setFringeDBLowerFile(fringedbLowerFile)
+				.setFringeDBLowerBytes(fringeDBBytes)
+				.setFringeDBUpperFile(fringedbUpperFile)
+				.setFringeDBUpperBytes(fringeDBBytes)
+				.setSeqDBFile(seqdbFile)
+				.configEachState(state -> design.configState(state, ecalcs))
+				.build();
+
+			sofea.init(true);
+
+			// setup the criterion
+			MinLMFE minLMFE = new MinLMFE(
+				design.confSpace.lmfe()
+					.addPositive("complex")
+					.addNegative("design")
+					.addNegative("target")
+					.build(),
+				numSequences,
+				epsilonG
+			);
+
+			// add the stability filter if needed
+			if (stabilityGap != null) {
+				minLMFE.stabilityFunction = design.confSpace.lmfe()
+					.addPositive("design")
+					.build();
+				minLMFE.stabilityGap = stabilityGap;
+			}
+
+			sofea.refine(minLMFE);
+
+			// pass back the results
+			try (SeqDB seqdb = sofea.openSeqDB()) {
+				resultor.accept(minLMFE.getTopSequences(seqdb, sofea.bcalc), new Results(design, seqdb));
 			}
 		}}}}
 	}

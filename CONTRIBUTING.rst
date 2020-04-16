@@ -8,12 +8,12 @@ Prerequisites
 To devleop Osprey, you'll need to have the following software packages installed:
 
  * `Java JDK 11`_ (or higher)
- * `Python 2.7`_ (not Python 3+)
+ * `Python`_ (2.7, or 3+)
  * `pip`_
  * Sphinx (for building documentation. see `Documentation`_ section below)
 
 .. _Java JDK 11: https://adoptopenjdk.net/
-.. _Python 2.7: https://www.python.org/download/releases/2.7/
+.. _Python: https://www.python.org/downloads/
 .. _pip: https://pip.pypa.io/en/stable/
 
 
@@ -58,7 +58,7 @@ to setup Osprey for compilation and testing.
 
 Osprey's build scripts use a bunch of Python build tools, so you'll need to install those::
 
-    $ pip install setuptools wheel sphinx guzzle_sphinx_theme javalang
+    $ pip install setuptools wheel sphinx==1.8 guzzle_sphinx_theme javalang
 
 
 Once your build environment is set up, setup the Osprey Python development environment with the

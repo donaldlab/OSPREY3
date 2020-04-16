@@ -130,11 +130,6 @@ public class MARKStarBoundRigid implements PartitionFunction {
         }
     }
 
-    @Override
-    public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon){
-        init(targetEpsilon);
-    }
-
     public void setRCs(RCs rcs) {
         RCs = rcs;
     }
@@ -157,6 +152,7 @@ public class MARKStarBoundRigid implements PartitionFunction {
         this.maxNumConfs = maxNumConfs;
     }
 
+    @Override
     public void init(double targetEpsilon) {
         this.targetEpsilon = targetEpsilon;
         status = Status.Estimating;

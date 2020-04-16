@@ -32,12 +32,15 @@
 
 import java.io.BufferedWriter
 import java.io.OutputStreamWriter
+import java.io.ByteArrayOutputStream
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.StandardCopyOption
 import java.nio.file.Files
 import java.nio.file.Path
+import org.gradle.internal.os.OperatingSystem
+
 
 
 plugins {
@@ -103,6 +106,10 @@ dependencies {
 	testImplementation("org.hamcrest:hamcrest-all:1.3")
 	testImplementation("junit:junit:4.12")
 
+	// handle logging
+	implementation("ch.qos.logback:logback-classic:1.2.3")
+	implementation("org.slf4j:jul-to-slf4j:1.7.30")
+
 	// compile dependencies
 	implementation("colt:colt:1.2.0")
 	implementation("org.apache.commons:commons-math3:3.6.1")
@@ -117,12 +124,12 @@ dependencies {
 	implementation("org.apache.xmlgraphics:batik-svg-dom:1.9.1")
 	implementation("com.github.haifengl:smile-core:1.5.1")
 	implementation("com.github.haifengl:smile-netlib:1.5.1")
-	implementation("ch.qos.logback:logback-classic:1.2.3")
 	implementation("de.lmu.ifi.dbs.elki:elki:0.7.1")
 	implementation("ch.obermuhlner:big-math:2.0.1")
 	implementation("org.tomlj:tomlj:1.0.0")
 	implementation("org.joml:joml:1.9.19")
 	implementation("org.tukaani:xz:1.8")
+	implementation("com.hazelcast:hazelcast:4.0")
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
 	// so turn off transitive dependencies. we'll deal with natives manually
@@ -178,9 +185,14 @@ tasks.withType<Test> {
 }
 
 runtime {
-	options.set(listOf("--strip-debug", "--compress", "2", "--no-header-files", "--no-man-pages"))
-	modules.set(listOf(
-		// TODO: these modules were suggested, see if we really need all of them
+	options.addAll(
+		"--strip-debug",
+		"--compress", "2",
+		"--no-header-files",
+		"--no-man-pages"
+	)
+	modules.addAll(
+		// TODO: do we really need all of these?
 		"java.desktop",
 		"java.xml",
 		"jdk.unsupported",
@@ -189,8 +201,95 @@ runtime {
 		"java.naming",
 		"java.management",
 		"jdk.httpserver"
-	))
+	)
 }
+
+
+val os = OperatingSystem.current()
+
+fun isCommand(cmd: String) =
+	exec {
+		isIgnoreExitValue = true
+		when (os) {
+			OperatingSystem.MAC_OS,
+			OperatingSystem.LINUX -> commandLine("/bin/sh", "-c", "type $cmd > /dev/null")
+			OperatingSystem.WINDOWS -> commandLine("where", "/q", cmd)
+			else -> throw Error("unrecognized operating system: $os")
+		}
+	}.exitValue == 0
+
+class Python(val cmd: String) {
+
+	// find out the version
+	val version = if (isCommand(cmd)) {
+		ByteArrayOutputStream().use { stdout ->
+			exec {
+				commandLine(cmd, "--version")
+				standardOutput = stdout
+				errorOutput = stdout
+				isIgnoreExitValue = true
+			}
+			// should return something like "Python 2.7.17"
+			// Except: Microsoft (in their infinite wisdom) has decided to install a fake python by default
+			// This fake python writes some garbage message to stdout, so make sure we ignore it by checking the version
+			stdout.toString()
+				.split(" ").getOrNull(1)
+				?.split(".")?.getOrNull(0)
+				?.toIntOrNull()
+		}
+	} else {
+		null
+	}
+
+	val pipCmd by lazy {
+		"pip$version".takeIf { isCommand(it) }
+	}
+
+	override fun toString() = "Python $version"
+}
+
+// find out what pythons are available
+val pythons by lazy {
+	listOf(
+		Python("python3"),
+		Python("python2"),
+		Python("python")
+	)
+	.filter { it.version != null }
+}
+
+// try to find python 2 and 3
+val python2 by lazy {
+	pythons.find { it.version == 2 }
+}
+val python3 by lazy {
+	pythons.find { it.version == 3 }
+}
+
+// get the default python, prefer v3 over v2
+val defaultPython by lazy {
+	python3
+		?: python2
+		?: throw Error("No python detected")
+}
+
+println("""
+	|         Pythons:  ${pythons.map { it.cmd }}
+	|        Python 2:  ${if (python2 != null) "X" else ""}
+	|        Python 3:  ${if (python3 != null) "X" else ""}
+	|  default Python:  $defaultPython = ${defaultPython.cmd}
+""".trimMargin())
+
+// get the OS name
+val osname: String by lazy {
+	when (os) {
+		OperatingSystem.LINUX -> "linux"
+		OperatingSystem.WINDOWS -> "win"
+		OperatingSystem.MAC_OS -> "osx"
+		else -> throw Error("unrecognized operating system: $os")
+	}
+}
+
 
 distributions {
 
@@ -210,34 +309,46 @@ distributions {
 		}
 	}
 
-	create("python").apply {
-		distributionBaseName.set("osprey-python")
-		contents {
-			into("") { // project root
-				from("README.rst")
-				from("LICENSE.txt")
-				from("CONTRIBUTING.rst")
-				from(pythonBuildDir) {
-					include("install.sh")
-					include("install.bat")
-					include("uninstall.sh")
-					include("uninstall.bat")
+	// make distributions for both python versions
+	for (version in listOf(2, 3)) {
+
+		create("python$version").apply {
+			distributionBaseName.set("osprey-$osname-python$version")
+			contents {
+				into("") { // project root
+					from("README.rst")
+					from("LICENSE.txt")
+					from("CONTRIBUTING.rst")
+					from(pythonBuildDir) {
+						include("install.sh")
+						include("install.bat")
+						include("uninstall.sh")
+						include("uninstall.bat")
+					}
 				}
-			}
-			into("doc") {
-				from(docBuildDir) {
-					exclude(".doctrees")
+				into("doc") {
+					from(docBuildDir) {
+						exclude(".doctrees")
+					}
 				}
-			}
-			listOf("python.GMEC", "python.KStar", "gpu").forEach {
-				into("examples/$it") {
-					from("examples/$it")
+				listOf("python.GMEC", "python.KStar", "gpu").forEach {
+					into("examples/$it") {
+						from("examples/$it")
+					}
 				}
-			}
-			into("wheelhouse") {
-				from(pythonWheelhouseDir)
-				from(pythonBuildDir) {
-					include("*.whl")
+				into("wheelhouse") {
+					if (version == 2) {
+						from(pythonWheelhouseDir) {
+							when (os) {
+								OperatingSystem.MAC_OS -> include("JPype_py2-*-macosx_*.whl")
+								OperatingSystem.LINUX -> include("JPype_py2-*-linux_*.whl")
+								OperatingSystem.WINDOWS -> include("JPype_py2-*-win_*.whl")
+							}
+						}
+					}
+					from(pythonBuildDir) {
+						include("osprey-*.whl")
+					}
 				}
 			}
 		}
@@ -263,14 +374,15 @@ distributions {
 				from(files
 					.filter { it.isDirectory }
 					// exclude resources dirs, they're apparently already in the classes dirs
-					.filter { !it.endsWith("resources/main") }
-					.filter { !it.endsWith("resources/test") }
+					// except this time they're not?
+					//.filter { !it.endsWith("resources/main") }
+					//.filter { !it.endsWith("resources/test") }
 				)
 			}
 
 			// add the run script
 			into("bin") {
-				from(pythonBuildDir) {
+				from(buildDir) {
 					include("run.*")
 				}
 			}
@@ -278,21 +390,11 @@ distributions {
 	}
 }
 
-val pythonCmd = "python2"
-val pipCmd = "pip2"
-
 tasks {
 
-	// turn off tar distributions
-	"distTar" {
-		enabled = false
-	}
-	"pythonDistTar" {
-		enabled = false
-	}
-	"testDistTar" {
-		enabled = false
-	}
+	// turn off tar files for all distributions
+	filterIsInstance<Tar>()
+		.forEach { it.enabled = false }
 
 	val testClasses = "testClasses" {}
 
@@ -359,15 +461,18 @@ tasks {
 		group = "develop"
 		description = "Install python package in development mode"
 		workingDir = pythonSrcDir.toFile()
-		commandLine(pipCmd, "install",
+		commandLine(
+			defaultPython.pipCmd,
+			"install",
 			"--user", "--editable",
 			".", // path to package to install, ie osprey
-			"--no-index", "--find-links=$pythonWheelhouseDir" // only use wheelhouse to resolve dependencies
+			"--find-links=$pythonWheelhouseDir" // add a wheelhouse dir to find our Jpype-py2
 		)
 		doLast {
 			Files.createDirectories(pythonBuildDir)
 			val classpathPath = pythonBuildDir.resolve("classpath.txt")
 			Files.write(classpathPath, sourceSets["main"].runtimeClasspath.files.map { it.toString() })
+			println("Installed development Osprey package for $defaultPython")
 		}
 	}
 
@@ -375,22 +480,34 @@ tasks {
 		group = "develop"
 		description = "Uninstall development mode python package"
 		workingDir = pythonSrcDir.toFile()
-		commandLine(pipCmd, "uninstall", "--yes", "osprey")
+		commandLine(
+			defaultPython.pipCmd,
+			"uninstall",
+			"--yes", "osprey"
+		)
+		doLast {
+			println("Uninstalled development Osprey package for $defaultPython")
+		}
 	}
 
-	val pythonWheel by creating(Exec::class) {
+	fun Exec.pythonWheel(python: Python) {
 		group = "build"
-		description = "Build python wheel"
+		description = "Build $python wheel"
+		dependsOn("runtime")
+
 		inputs.files(jar.outputs.files)
 		outputs.dir(pythonWheelDir)
+
 		doFirst {
 
 			// delete old cruft
 			delete {
-				delete(pythonWheelDir) // TODO: this apparently does not delete the folder at all??!
 				delete(fileTree(pythonBuildDir) {
 					include("*.whl")
 				})
+			}
+			delete {
+				delete(pythonWheelDir)
 			}
 
 			// copy python sources
@@ -399,10 +516,19 @@ tasks {
 					includeEmptyDirs = false
 					include("osprey/*.py")
 				}
+				into(pythonWheelDir.toFile())
+			}
+
+			val wheelOspreyDir = pythonWheelDir.resolve("osprey")
+
+			// copy the documentation
+			copy {
 				from(".") {
 					include("*.rst")
+					include("CITING_OSPREY.txt")
+					include("LICENSE.txt")
 				}
-				into(pythonWheelDir.toFile())
+				into(wheelOspreyDir.toFile())
 			}
 
 			// copy setup.py, but change the rootDir
@@ -413,14 +539,15 @@ tasks {
 				into(pythonWheelDir.toFile())
 				filter { line ->
 					if (line.startsWith("rootDir = ")) {
-						"rootDir = \"$projectDir\""
+						// make sure to escape backslashes in windows paths
+						"rootDir = \"${projectDir.toString().replace("\\", "\\\\")}\""
 					} else {
 						line
 					}
 				}
 			}
 
-			val libDir = pythonWheelDir.resolve("osprey/lib")
+			val libDir = wheelOspreyDir.resolve("lib")
 
 			// copy osprey jar
 			copy {
@@ -432,43 +559,102 @@ tasks {
 			copy {
 				from(sourceSets["main"].runtimeClasspath.files
 					.filter { it.extension == "jar" }
+					// TODO: filter down to "natives" jars only for this OS
 				)
 				into(libDir.toFile())
 			}
+
+			// copy the jre folder
+			copy {
+				from(runtime.get().jreDir)
+				into(wheelOspreyDir.resolve("jre").toFile())
+			}
 		}
 		workingDir = pythonWheelDir.toFile()
-		commandLine(pythonCmd, "setup.py", "bdist_wheel", "--dist-dir", pythonBuildDir.toString())
+		commandLine(python.cmd, "setup.py", "bdist_wheel", "--dist-dir", pythonBuildDir.toString())
 	}
 
-	val pythonInstallScripts by creating {
+	val python2Wheel by creating(Exec::class) {
+		python2
+			?.let { pythonWheel(it) }
+			?: doLast {
+				throw Error("no python 2 detected")
+			}
+	}
+	val python3Wheel by creating(Exec::class) {
+		python3
+			?.let { pythonWheel(it) }
+			?: doLast {
+				throw Error("no python 3 detected")
+			}
+	}
+
+	val python2InstallScripts by creating {
 		group = "build"
-		description = "Make install scripts for python distribution"
+		description = "Make install scripts for python 2 distribution"
 		doLast {
-			writeScripts(
-				"install",
+			writeScript(
+				pythonBuildDir, "install",
 				"""
-				|$pipCmd uninstall -y osprey JPype-py2
-				|$pipCmd install --user 'numpy>=1.6,<1.16'
-				|$pipCmd install --user osprey --no-index --find-link=wheelhouse --pre
+					|pip2 uninstall -y osprey JPype-py2
+					|pip2 install --user 'numpy>=1.6,<1.16'
+					|pip2 install --user osprey --no-index --find-link=wheelhouse --pre
 				""".trimMargin()
 			)
 		}
 	}
 
-	val pythonUninstallScripts by creating {
+	val python3InstallScripts by creating {
 		group = "build"
-		description = "Make uninstall scripts for python distribution"
+		description = "Make install scripts for python 3 distribution"
 		doLast {
-			writeScripts(
-				"uninstall",
-				"$pipCmd uninstall -y osprey JPype-py2"
+			writeScript(
+				pythonBuildDir, "install",
+				"""
+					|pip3 uninstall -y osprey
+					|pip3 install --user 'numpy>=1.6,<1.16'
+					|pip3 install --user osprey --find-link=wheelhouse --pre
+				""".trimMargin()
+			)
+		}
+	}
+
+	val python2UninstallScripts by creating {
+		group = "build"
+		description = "Make uninstall scripts for python 2 distribution"
+		doLast {
+			writeScript(
+				pythonBuildDir, "uninstall",
+				"pip2 uninstall -y osprey JPype-py2"
+			)
+		}
+	}
+
+	val python3UninstallScripts by creating {
+		group = "build"
+		description = "Make uninstall scripts for python 3 distribution"
+		doLast {
+			writeScript(
+				pythonBuildDir, "uninstall",
+				"pip3 uninstall -y osprey"
 			)
 		}
 	}
 
 	// insert some build steps before we build the python dist
-	"pythonDistZip" {
-		dependsOn(pythonWheel, makeDoc, pythonInstallScripts, pythonUninstallScripts)
+	"python2DistZip" {
+		if (python2 != null) {
+			dependsOn(python2Wheel, makeDoc, python2InstallScripts, python2UninstallScripts)
+		} else {
+			enabled = false
+		}
+	}
+	"python3DistZip" {
+		if (python3 != null) {
+			dependsOn(python3Wheel, makeDoc, python3InstallScripts, python3UninstallScripts)
+		} else {
+			enabled = false
+		}
 	}
 
 	val testRunScript by creating {
@@ -483,8 +669,8 @@ tasks {
 				)
 				.joinToString(":")
 
-			writeShellScript(
-				"run",
+			writeScript(
+				buildDir.toPath(), "run",
 				"java -cp \"$classpath\" $@"
 			)
 		}
@@ -494,6 +680,8 @@ tasks {
 		dependsOn(testClasses, testRunScript)
 	}
 
+	// TODO: replace this with the nifty licenser plugin?
+	//   https://github.com/Minecrell/licenser
 	val updateLicenseHeaders by creating {
 		group = "build"
 		description = "updates license headers in all source files"
@@ -538,47 +726,45 @@ fun nvcc(exec: Exec, kernelName: String, maxRegisters: Int? = null, profile: Boo
 	exec.commandLine(args)
 }
 
-fun List<String>.writeToFile(path: Path, newline: String) {
+fun String.writeToFile(path: Path, newline: String) {
 	BufferedWriter(OutputStreamWriter(Files.newOutputStream(path), StandardCharsets.UTF_8.newEncoder())).use { out ->
-		for (line in this) {
+		for (line in split("\n")) {
 			out.append(line)
 			out.append(newline)
 		}
 	}
 }
 
-fun writeShellScript(filename: String, cmd: String) {
+fun writeScript(dir: Path, filename: String, cmd: String) {
+	when (os) {
+		OperatingSystem.MAC_OS,
+		OperatingSystem.LINUX -> {
 
-	val file = pythonBuildDir.resolve("$filename.sh")
+			val file = dir.resolve("$filename.sh")
 
-	"""
-		|#! /bin/sh
-		|$cmd
-	""".trimMargin()
-		.split("\n")
-		.writeToFile(file, "\n")
+			"""
+				|#! /bin/sh
+				|$cmd
+			""".trimMargin()
+			.writeToFile(file, "\n")
 
-	// set the shell script executable
-	Files.setPosixFilePermissions(file, Files.getPosixFilePermissions(file).apply {
-		add(PosixFilePermission.OWNER_EXECUTE)
-	})
-}
+			// set the shell script executable
+			Files.setPosixFilePermissions(file, Files.getPosixFilePermissions(file).apply {
+				add(PosixFilePermission.OWNER_EXECUTE)
+			})
+		}
+		OperatingSystem.WINDOWS -> {
 
-fun writeBatchScript(filename: String, cmd: String) {
+			val file = dir.resolve("$filename.bat")
 
-	val file = pythonBuildDir.resolve("$filename.bat")
-
-	"""
-		|@echo off
-		|$cmd
-	""".trimMargin()
-		.split("\n")
-		.writeToFile(file, "\r\n")
-}
-
-fun writeScripts(filename: String, cmd: String) {
-	writeShellScript(filename, cmd)
-	writeBatchScript(filename, cmd)
+			"""
+				|@echo off
+				|$cmd
+			""".trimMargin()
+			.writeToFile(file, "\r\n")
+		}
+		else -> throw Error("unrecognized operating system: $os")
+	}
 }
 
 

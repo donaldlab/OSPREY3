@@ -121,7 +121,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	}
 
 	@Override
-	public void init(ConfSearch confSearchIgnored, BigInteger numConfsBeforePruningIgnored, double targetEpsilon) {
+	public void init(double targetEpsilon) {
 
 		this.targetEpsilon = targetEpsilon;
 

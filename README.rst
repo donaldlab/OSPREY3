@@ -33,7 +33,7 @@ Available here:
 
 
 Citation requirements
-~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 We require everyone who publishes or presents results from OSPREY to please mention the name "OSPREY," and to cite our papers as described in CITING_OSPREY.txt (especially our new paper introducing OSPREY 3.0). 
 
 
@@ -63,51 +63,80 @@ The full text of the GPLv2 is included in the accompanying `LICENSE.txt`_
 Installation
 ~~~~~~~~~~~~
 
+on OSX:
+-------
+
+ #. Install `Python`_, if not installed already.
+     * Both v2 and v3 are supported.
+     * Install the `64-bit` verison, not the `32-bit` version.
+ #. Download the `newest Osprey Python release`_.
+     * Download either `osprey-osx-python2` or `osprey-osx-python3` to match your Python version.
+     * Extract the acrhive to your favorite folder.
+ #. Run the ``install.sh`` script to install Osprey.::
+ 
+     $ ./install.sh
+
+
 on Windows:
 -----------
 
 Make sure you're running 64-bit Windows. Osprey is not supported on 32-bit Windows.
 
- 1. Install `Python 2.7 x86-64`_, choose the ``Windows x86-64 MSI Installer`` option, not Python 3+ or 32-bit version.
- 2. During Python installation, enable the option to ``Add python.exe to Path``.
- 3. Install `Java 8 64-bit`_, choose the ``Windows Offline (64-bit)`` option, not 32-bit version.
- 4. After installing Java, add the ``C:\Program Files\Java\jre1.8.0_151\bin`` folder to your ``PATH`` environment variable.
-    (`See how to set the PATH Environment Variable`_) Be sure to replace the ``jre1.8.0_151`` part with the actual Java
-    installation folder on your computer. Tragically, the Java installer does not do this for you.
- 5. Download the `newest Osprey Python release`_ (not the source files) and extract it to your favorite folder.
- 6. Run the ``install`` batch script to install Osprey.
+ #. Install `Python`_.
+     * Both v2 and v3 are supported.
+     * Install the `x86-64` verison, not the `x86` version.
+     * During Python installation, enable the option to ``Add python.exe to Path``.
+ #. Download the `newest Osprey Python release`_.
+     * Download either `osprey-win-python2` or `osprey-win-python3` to match your Python version.
+     * Extract the acrhive to your favorite folder.
+ #. Run the ``install`` batch script to install Osprey.
 
-.. _Python 2.7 x86-64: https://www.python.org/downloads/release/python-2714/
-.. _pip: https://pip.pypa.io/en/stable/
-.. _Java 8 64-bit: https://www.java.com/en/download/manual.jsp
-.. _See how to set the PATH Environment Variable: https://www.java.com/EN/DOWNLOAD/HELP/PATH.XML
-.. _newest Osprey Python release: https://github.com/donaldlab/OSPREY_refactor/releases
 
-on Debian-like Linux:
+on Linux:
 ---------------------
 
 *Including distributions like Ubuntu and Mint*
 
 Make sure you're running 64-bit Linux. Osprey is not supported on 32-bit Linux.
 
- 1. Install prerequisites::
+ #. Install `Python`_.
+     * For Debian-like distributions, including Ubuntu and Mint, run::
 
-	$ sudo apt-get install python2.7 python-pip openjdk-8-jre
+       $ sudo apt install python3 python3-pip
 
- 2. Download the `newest Osprey Python release`_ (not the source files) and extract it to your favorite folder.
- 3. Run the install shell script to install Osprey::
+       or::
+
+       $ sudo apt install python2.7 python-pip
+
+       depending on which version of Python you want to use.
+
+ #. Download the `newest Osprey Python release`_.
+     * Download either `osprey-linux-python2` or `osprey-linux-python3` to match your Python version.
+     * Extract the acrhive to your favorite folder.
+ #. Run the ``install`` script to install Osprey.::
 
  	$ ./install.sh
 
 
-manually using ``pip``:
------------------------
+.. _Python: https://www.python.org/downloads/
+.. _newest Osprey Python release: https://github.com/donaldlab/OSPREY_refactor/releases
 
-The install scripts use ``pip`` internally to install the Python package. If you want to customize
-the installation of the python package, you can ingore the install scripts and call ``pip`` directly.
-First download the `newest Osprey Python release`_ and extract it to your favorite folder. Then call ``pip``::
 
-	$ pip2 install osprey --user --pre --no-index --use-wheel --find-link=wheelhouse
+To check your installation:
+---------------------------
+
+From the command line, run:
+
+.. code:: pycon
+
+	python3
+	>>> import osprey
+	>>> osprey.start()
+
+If successful, should should be greeted with a message something like the following::
+
+	OSPREY 3.2-beta1-dev, Python 3.6.9, Java 11.0.6, Linux-4.15.0-91-generic-x86_64-with-LinuxMint-19-tara
+	Using up to 1024 MiB heap memory: 128 MiB for garbage, 896 MiB for storage
 
 
 Upgrading from an older version

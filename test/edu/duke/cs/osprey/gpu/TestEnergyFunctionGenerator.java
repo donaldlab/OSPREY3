@@ -33,9 +33,11 @@
 package edu.duke.cs.osprey.gpu;
 
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 
 import java.util.ArrayList;
 
+import edu.duke.cs.osprey.gpu.opencl.Gpus;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -87,6 +89,10 @@ public class TestEnergyFunctionGenerator extends TestBase {
 	}
 	
 	private GpuEnergyFunctionGenerator makeGpuEgen() {
+
+		// skip the test if we don't have any OpenCL GPUs
+		assumeTrue(Gpus.get().getGpus().size() > 0);
+
 		return new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(1, 1));
 	}
 	

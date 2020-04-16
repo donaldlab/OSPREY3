@@ -55,6 +55,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -194,9 +195,9 @@ public class LUTELab {
 					.setLUTE(luteEcalc)
 					.build();
 
-				LUTEPfunc pfunc = new LUTEPfunc(luteEcalc);
+				LUTEPfunc pfunc = new LUTEPfunc(luteEcalc, astar, unprunedRCs.getNumConformations());
 				pfunc.setReportProgress(false);
-				pfunc.init(astar, unprunedRCs.getNumConformations(), 0.01);
+				pfunc.init(0.01);
 				pfunc.compute();
 				log("LUTE pfunc bounds for %s: %s", sequence.toString(Sequence.Renderer.ResTypeMutations), pfunc.makeResult());
 			}
@@ -218,6 +219,9 @@ public class LUTELab {
 			KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+				// turn off the default confdb for tests
+				info.confDBFile = null;
+
 				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
 				// how should we define energies of conformations?
@@ -229,14 +233,21 @@ public class LUTELab {
 				PruningMatrix pmat = SimpleDEE.read(confSpace, new File(String.format("LUTE.%s.pmat.dat", info.id)));
 
 				// how should confs be ordered and searched?
-				info.confSearchFactory = (rcs) -> {
+				Function<RCs,ConfSearch> confSearchFactory = (rcs) -> {
 					rcs = new RCs(rcs, pmat);
 					return new ConfAStarTree.Builder(null, rcs)
 						.setLUTE(luteConfEcalc)
 						.build();
 				};
+
+				info.pfuncFactory = rcs -> new GradientDescentPfunc(
+					info.confEcalc,
+					confSearchFactory.apply(rcs),
+					confSearchFactory.apply(rcs),
+					rcs.getNumConformations()
+				);
 			}
-			kstar.run();
+			kstar.run(ecalc.tasks);
 		}
 	}
 
@@ -257,14 +268,18 @@ public class LUTELab {
 				.build();
 			BBKStar bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, kstarSettings, bbkstarSettings);
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
+				SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
+
+				// turn off default confDB for tests
+				info.confDBFile = null;
 
 				// how should we define energies of conformations?
 				LUTEState luteState = LUTEIO.read(new File(String.format("LUTE.%s.dat", info.id)));
-				LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(info.confSpace, luteState);
+				LUTEConfEnergyCalculator luteConfEcalc = new LUTEConfEnergyCalculator(confSpace, luteState);
 				info.confEcalcMinimized = luteConfEcalc;
 
 				// load the pruning matrix
-				PruningMatrix pmat = SimpleDEE.read(info.confSpace, new File(String.format("LUTE.%s.pmat.dat", info.id)));
+				PruningMatrix pmat = SimpleDEE.read(confSpace, new File(String.format("LUTE.%s.pmat.dat", info.id)));
 
 				// how should confs be ordered and searched?
 				info.confSearchFactoryMinimized = (rcs) -> {
@@ -276,8 +291,15 @@ public class LUTELab {
 
 				// for rigid energies, just use the minimized energies, since they're all the same for LUTE
 				info.confSearchFactoryRigid = info.confSearchFactoryMinimized;
+
+				info.pfuncFactory = rcs -> new GradientDescentPfunc(
+					info.confEcalcMinimized,
+					info.confSearchFactoryMinimized.make(rcs),
+					info.confSearchFactoryMinimized.make(rcs),
+					rcs.getNumConformations()
+				);
 			}
-			bbkstar.run();
+			bbkstar.run(ecalcMinimized.tasks);
 		}
 	}
 
@@ -463,23 +485,23 @@ public class LUTELab {
 			.build();
 
 		// calc a pfunc
-		LUTEPfunc pfunc = new LUTEPfunc(luteEcalc);
+		LUTEPfunc pfunc = new LUTEPfunc(luteEcalc, astar, new RCs(confSpace).getNumConformations());
 		pfunc.setReportProgress(true);
-		pfunc.init(astar, astar.getNumConformations(), epsilon);
+		pfunc.init(epsilon);
 		pfunc.compute();
 
 		log("LUTE pfunc bounds: %s", pfunc.makeResult());
 
 		// check the pfunc using traditional methods
-		GradientDescentPfunc tpfunc = new GradientDescentPfunc(confEcalc);
-		tpfunc.setReportProgress(true);
-		tpfunc.init(
+		GradientDescentPfunc tpfunc = new GradientDescentPfunc(
+			confEcalc,
 			new ConfAStarTree.Builder(emat, pmat)
 				.setTraditional()
 				.build(),
-			new RCs(confSpace).getNumConformations(),
-			epsilon
+			new RCs(confSpace).getNumConformations()
 		);
+		tpfunc.setReportProgress(true);
+		tpfunc.init(epsilon);
 		tpfunc.compute();
 		log("traditional pfunc bounds: %s", tpfunc.makeResult());
 	}

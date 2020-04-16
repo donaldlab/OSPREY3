@@ -39,12 +39,15 @@ complexConfSpace = osprey.ConfSpace([protein, ligand])
 parallelism = osprey.Parallelism(cpuCores=4)
 ecalc = osprey.EnergyCalculator(complexConfSpace, ffparams, parallelism=parallelism)
 
+# MARK* needs a rigid energy calculator too
+ecalcRigid = osprey.SharedEnergyCalculator(ecalc, isMinimizing=False)
+
 # configure K*
 kstar = osprey.KStar(
     proteinConfSpace,
     ligandConfSpace,
     complexConfSpace,
-    epsilon=0.99, # you proabably want something more precise in your real designs
+    epsilon=0.95, # you proabably want something more precise in your real designs
     writeSequencesToConsole=True,
     writeSequencesToFile='kstar.results.tsv'
 )
@@ -56,23 +59,43 @@ for info in kstar.confSpaceInfos():
     eref = osprey.ReferenceEnergies(info.confSpace, ecalc)
     info.confEcalc = osprey.ConfEnergyCalculator(info.confSpace, ecalc, referenceEnergies=eref)
 
-    # if you want to use MARK*, pass in a rigid energy calculator as well
-    rigidEcalc = osprey.SharedEnergyCalculator(ecalc, isMinimizing=False)
-    info.rigidConfEcalc = osprey.ConfEnergyCalculatorCopy(info.confEcalc, rigidEcalc)
+    # compute the minimized energy matrix
+    ematMinimized = osprey.EnergyMatrix(info.confEcalc, cacheFile='emat.%s.dat' % info.id)
 
-    # compute the energy matrix
-    emat = osprey.EnergyMatrix(info.confEcalc, cacheFile='emat.%s.dat' % info.id)
+    # if you want to use MARK*, pass in a rigid energy calculator and energy matrix as well
+    confEcalcRigid = osprey.ConfEnergyCalculatorCopy(info.confEcalc, ecalcRigid)
+    ematRigid = osprey.EnergyMatrix(confEcalcRigid, cacheFile='emat.%s.rigid.dat' % info.id)
 
-    # how should confs be ordered and searched? (don't forget to capture emat by using a defaulted argument)
-    def makeAStar(rcs, emat=emat):
-        return osprey.AStarTraditional(emat, rcs, showProgress=False)
-    info.confSearchFactory = osprey.KStar.ConfSearchFactory(makeAStar)
+    # how should we score each sequence?
+    # (since we're in a loop, need capture variables above by using defaulted arguments)
+    def makePfunc(rcs, confEcalcMinimized=info.confEcalc, ematMinimized=ematMinimized, confEcalcRigid=confEcalcRigid, ematRigid=ematRigid):
+        return osprey.MARKStarPfunc(
+            confEcalcMinimized.confSpace,
+            ematMinimized,
+            confEcalcMinimized,
+            ematRigid,
+            confEcalcRigid,
+            rcs
+        )
+    info.pfuncFactory = osprey.KStar.PfuncFactory(makePfunc)
 
 # run K*
-scoredSequences = kstar.run()
+scoredSequences = kstar.run(ecalc.tasks)
+
+# make a sequence analyzer to look at the results
+analyzer = osprey.SequenceAnalyzer(kstar)
 
 # use results
 for scoredSequence in scoredSequences:
     print("result:")
     print("\tsequence: %s" % scoredSequence.sequence)
-    print("\tscore: %s" % scoredSequence.score)
+    print("\tK* score: %s" % scoredSequence.score)
+
+    # write the sequence ensemble, with up to 10 of the lowest-energy conformations
+    numConfs = 10
+    analysis = analyzer.analyze(scoredSequence.sequence, numConfs)
+    print(analysis)
+    analysis.writePdb(
+        'seq.%s.pdb' % scoredSequence.sequence,
+        'Top %d conformations for sequence %s' % (numConfs, scoredSequence.sequence)
+    )

@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.kstar;
 
 import static edu.duke.cs.osprey.TestBase.TempFile;
+import static edu.duke.cs.osprey.TestBase.skipGPUTestsIfNeeded;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
@@ -50,6 +51,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -70,10 +72,13 @@ public class TestSimplePartitionFunction {
 	}
 
 	private static interface PfuncFactory {
-		PartitionFunction make(ConfEnergyCalculator confEcalc);
+		PartitionFunction make(ConfEnergyCalculator confEcalc, ConfSearch confSearch);
 	}
 
 	public static EnergyMatrix calcEmat(ForcefieldParams ffparams, SimpleConfSpace confSpace, Parallelism parallelism) {
+
+		skipGPUTestsIfNeeded(parallelism);
+
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
 			.setParallelism(parallelism)
 			.build()
@@ -94,9 +99,11 @@ public class TestSimplePartitionFunction {
 		}
 	}
 
-	public static PartitionFunction calcPfunc(ForcefieldParams ffparams, SimpleConfSpace confSpace, Parallelism parallelism, double targetEpsilon, EnergyMatrix emat, PfuncFactory pfuncs, Consumer<PartitionFunction> pfuncComputer) {
+	public static PartitionFunction calcPfunc(ForcefieldParams ffparams, SimpleConfSpace confSpace, Parallelism parallelism, double targetEpsilon, EnergyMatrix emat, PfuncFactory pfuncs, Consumer<PartitionFunction> pfuncConfiger, Consumer<PartitionFunction> pfuncComputer) {
 
 		AtomicReference<PartitionFunction> pfuncRef = new AtomicReference<>(null);
+
+		skipGPUTestsIfNeeded(parallelism);
 
 		new EnergyCalculator.Builder(confSpace, ffparams)
 			.setParallelism(parallelism)
@@ -115,38 +122,50 @@ public class TestSimplePartitionFunction {
 					.setTraditional()
 					.build();
 
-				// make the partition function
-				PartitionFunction pfunc = pfuncs.make(confEcalc);
-				pfunc.setReportProgress(true);
+				try (TaskExecutor.ContextGroup contexts = ecalc.tasks.contextGroup()) {
 
-				// compute pfunc for protein
-				pfunc.init(astar, astar.getNumConformations(), targetEpsilon);
-				pfuncComputer.accept(pfunc);
-				pfuncRef.set(pfunc);
+					// make the partition function
+					PartitionFunction pfunc = pfuncs.make(confEcalc, astar);
+					pfunc.setReportProgress(true);
+
+					pfuncConfiger.accept(pfunc);
+
+					pfunc.setInstanceId(0);
+					pfunc.putTaskContexts(contexts);
+
+					// compute pfunc for protein
+					pfunc.init(targetEpsilon);
+					pfuncComputer.accept(pfunc);
+					pfuncRef.set(pfunc);
+				}
 			});
 
 		return pfuncRef.get();
 	}
 
-	private static PfuncFactory simplePfuncs = (confEcalc) -> new SimplePartitionFunction(confEcalc);
-	private static PfuncFactory gdPfuncs = (confEcalc) -> new GradientDescentPfunc(confEcalc);
+	private static PfuncFactory simplePfuncs = (confEcalc, confSearch) -> new SimplePartitionFunction(confEcalc, confSearch, new RCs(confEcalc.confSpace).getNumConformations());
+	private static PfuncFactory gdPfuncs = (confEcalc, confSearch) -> new GradientDescentPfunc(confEcalc, confSearch, new RCs(confEcalc.confSpace).getNumConformations());
 
 	public static void testStrand(ForcefieldParams ffparams, SimpleConfSpace confSpace, Parallelism parallelism, double targetEpsilon, String approxQStar, EnergyMatrix emat, PfuncFactory pfuncs) {
 
 		PartitionFunction pfunc;
 
 		// calculate the pfunc all at once, like for K*
-		pfunc = calcPfunc(ffparams, confSpace, parallelism, targetEpsilon, emat, pfuncs, (p) -> {
-			p.compute();
-		});
+		pfunc = calcPfunc(ffparams, confSpace, parallelism, targetEpsilon, emat, pfuncs,
+			p -> {},
+			p -> p.compute()
+		);
 		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
 
 		// calculate the pfunc in waves, like for BBK*
-		pfunc = calcPfunc(ffparams, confSpace, parallelism, targetEpsilon, emat, pfuncs, (p) -> {
-			while (p.getStatus().canContinue()) {
-				p.compute(4);
+		pfunc = calcPfunc(ffparams, confSpace, parallelism, targetEpsilon, emat, pfuncs,
+			p -> {},
+			p -> {
+				while (p.getStatus().canContinue()) {
+					p.compute(4);
+				}
 			}
-		});
+		);
 		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
 	}
 
@@ -257,6 +276,7 @@ public class TestSimplePartitionFunction {
 		final String approxQStar = "3.5213742379e+54"; // e=0.05
 		testStrand(info.ffparams, confSpace, parallelism, targetEpsilon, approxQStar, calc2RL0ComplexEmat, pfuncs);
 	}
+
 	@Test public void test2RL0ComplexSimple1Cpu() { calc2RL0Complex(simplePfuncs, Parallelism.make(1, 0, 0)); }
 	@Test public void test2RL0ComplexSimple2Cpus() { calc2RL0Complex(simplePfuncs, Parallelism.make(2, 0, 0)); }
 	@Test public void test2RL0ComplexSimple4Cpus() { calc2RL0Complex(simplePfuncs, Parallelism.make(4, 0, 0)); }
@@ -365,12 +385,13 @@ public class TestSimplePartitionFunction {
 			final String approxQStar = "4.467797e+30"; // e=0.001
 
 			// calc the pfunc with an empty db
-			PartitionFunction pfunc = calcPfunc(new ForcefieldParams(), confSpace, parallelism, targetEpsilon, emat, pfuncs, (p) -> {
-				try (ConfDB confdb = new ConfDB(confSpace, confdbFile)) {
-					((PartitionFunction.WithConfTable)p).setConfTable(confdb.new ConfTable("test"));
-					p.compute();
-				}
-			});
+			PartitionFunction pfunc;
+			try (ConfDB confdb = new ConfDB(confSpace, confdbFile)) {
+				pfunc = calcPfunc(new ForcefieldParams(), confSpace, parallelism, targetEpsilon, emat, pfuncs,
+					p -> ((PartitionFunction.WithConfDB)p).setConfDB(confdb, "test"),
+					p -> p.compute()
+				);
+			}
 			assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
 
 			// the db should have stuff in it
@@ -380,12 +401,12 @@ public class TestSimplePartitionFunction {
 			}
 
 			// calc the pfunc with a full db
-			pfunc = calcPfunc(new ForcefieldParams(), confSpace, parallelism, targetEpsilon, emat, pfuncs, (p) -> {
-				try (ConfDB confdb = new ConfDB(confSpace, confdbFile)) {
-					((PartitionFunction.WithConfTable)p).setConfTable(confdb.new ConfTable("test"));
-					p.compute();
-				}
-			});
+			try (ConfDB confdb = new ConfDB(confSpace, confdbFile)) {
+				pfunc = calcPfunc(new ForcefieldParams(), confSpace, parallelism, targetEpsilon, emat, pfuncs,
+					p -> ((PartitionFunction.WithConfDB)p).setConfDB(confdb, "test"),
+					p -> p.compute()
+				);
+			}
 			assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
 		}
 	}
@@ -426,15 +447,20 @@ public class TestSimplePartitionFunction {
 					.setTraditional()
 					.build();
 
-				// make the partition function
-				PartitionFunction pfunc = new GradientDescentPfunc(confEcalc);
-				pfunc.setReportProgress(true);
+				try (TaskExecutor.ContextGroup contexts = ecalc.tasks.contextGroup()) {
 
-				// compute pfunc for protein
-				pfunc.init(astar, rcs.getNumConformations(), targetEpsilon);
-				pfunc.compute();
+					// make the partition function
+					PartitionFunction pfunc = new GradientDescentPfunc(confEcalc, astar, rcs.getNumConformations());
+					pfunc.setReportProgress(true);
+					pfunc.setInstanceId(0);
+					pfunc.putTaskContexts(contexts);
 
-				assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
+					// compute pfunc for protein
+					pfunc.init(targetEpsilon);
+					pfunc.compute();
+
+					assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
+				}
 			}
 		});
 	}

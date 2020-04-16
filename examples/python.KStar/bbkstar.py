@@ -66,20 +66,49 @@ for info in bbkstar.confSpaceInfos():
 	info.confEcalcMinimized = osprey.ConfEnergyCalculator(info.confSpace, minimizingEcalc, referenceEnergies=eref)
 
 	# compute the energy matrix
-	emat = osprey.EnergyMatrix(info.confEcalcMinimized, cacheFile='emat.%s.dat' % info.id)
+	ematMinimized = osprey.EnergyMatrix(info.confEcalcMinimized, cacheFile='emat.%s.dat' % info.id)
+
+	# how should confs be ordered and searched?
+	# (since we're in a loop, need capture variables above by using defaulted arguments)
+	def makeAStarMinimized(rcs, emat=ematMinimized):
+		return osprey.AStarTraditional(emat, rcs, showProgress=False)
+	info.confSearchFactoryMinimized = osprey.BBKStar.ConfSearchFactory(makeAStarMinimized)
 
 	# BBK* needs rigid energies too
-	info.confEcalcRigid = osprey.ConfEnergyCalculatorCopy(info.confEcalcMinimized, rigidEcalc)
-	rigidEmat = osprey.EnergyMatrix(info.confEcalcRigid, cacheFile='emat.%s.rigid.dat' % info.id)
+	confEcalcRigid = osprey.ConfEnergyCalculatorCopy(info.confEcalcMinimized, rigidEcalc)
+	ematRigid = osprey.EnergyMatrix(confEcalcRigid, cacheFile='emat.%s.rigid.dat' % info.id)
+	def makeAStarRigid(rcs, emat=ematRigid):
+		return osprey.AStarTraditional(emat, rcs, showProgress=False)
+	info.confSearchFactoryRigid = osprey.BBKStar.ConfSearchFactory(makeAStarRigid)
 
-	# how should partition functions be computed?
-	info.pfuncFactory = osprey.PartitionFunctionFactory(info.confSpace, info.confEcalcMinimized, info.id)
+	# how should we score each sequence?
+	# (since we're in a loop, need capture variables above by using defaulted arguments)
+	def makePfunc(rcs, confEcalc=info.confEcalcMinimized, emat=ematMinimized):
+		return osprey.PartitionFunction(
+			confEcalc,
+			osprey.AStarTraditional(emat, rcs, showProgress=False),
+			osprey.AStarTraditional(emat, rcs, showProgress=False),
+			rcs
+		)
+	info.pfuncFactory = osprey.KStar.PfuncFactory(makePfunc)
 
 # run BBK*
-scoredSequences = bbkstar.run()
+scoredSequences = bbkstar.run(minimizingEcalc.tasks)
+
+# make a sequence analyzer to look at the results
+analyzer = osprey.SequenceAnalyzer(bbkstar)
 
 # use results
 for scoredSequence in scoredSequences:
 	print("result:")
 	print("\tsequence: %s" % scoredSequence.sequence)
-	print("\tscore: %s" % scoredSequence.score)
+	print("\tK* score: %s" % scoredSequence.score)
+
+	# write the sequence ensemble, with up to 10 of the lowest-energy conformations
+	numConfs = 10
+	analysis = analyzer.analyze(scoredSequence.sequence, numConfs)
+	print(analysis)
+	analysis.writePdb(
+		'seq.%s.pdb' % scoredSequence.sequence,
+		'Top %d conformations for sequence %s' % (numConfs, scoredSequence.sequence)
+	)

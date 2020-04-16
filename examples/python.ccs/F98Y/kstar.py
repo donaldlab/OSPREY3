@@ -3,9 +3,9 @@ import osprey
 osprey.start()
 
 # load the conformation spaces
-complex = osprey.readConfSpace("4tu5.complex.ccs.xz")
-dhfr = osprey.readConfSpace("4tu5.DHFR.ccs.xz")
-nadph06w = osprey.readConfSpace("4tu5.NADPH.06W.ccs.xz")
+complex = osprey.readConfSpace("4tu5.complex.ccsx")
+dhfr = osprey.readConfSpace("4tu5.DHFR.ccsx")
+nadph06w = osprey.readConfSpace("4tu5.NADPH.06W.ccsx")
 
 # more cores is more faster
 parallelism = osprey.Parallelism(cpuCores=4)

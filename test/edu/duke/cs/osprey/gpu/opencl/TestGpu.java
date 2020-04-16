@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.gpu.opencl;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 
 import java.util.Random;
 
@@ -62,6 +63,8 @@ public class TestGpu {
 		}
 		
 		final int NumRuns = 10;
+
+		assumeTrue(Gpus.get().getGpus().size() > 0);
 		
 		GpuQueue queue = new GpuQueue(Gpus.get().getGpus().get(0));
 		TestFancyKernel kernel = new TestFancyKernel(queue);

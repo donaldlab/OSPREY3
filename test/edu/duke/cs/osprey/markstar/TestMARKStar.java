@@ -33,6 +33,7 @@
 package edu.duke.cs.osprey.markstar;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -48,6 +49,7 @@ import edu.duke.cs.osprey.kstar.TestBBKStar;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.TestKStar.ConfSpaces;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.markstar.visualizer.KStarTreeManipulator;
 import edu.duke.cs.osprey.markstar.visualizer.KStarTreeNode;
@@ -58,7 +60,9 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -66,6 +70,8 @@ import java.math.BigInteger;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -77,6 +83,11 @@ import static org.junit.Assert.assertThat;
 //import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 
 public class TestMARKStar {
+
+	// some of these tests take longer than 30 minutes on my laptop!
+	// long tests do not a good test case make
+	@Rule
+	public Timeout globalTimeout = new Timeout(2, TimeUnit.MINUTES);
 
 	public static final int NUM_CPUs = 4;
 	public static boolean REUDCE_MINIMIZATIONS = true;
@@ -1129,6 +1140,9 @@ public class TestMARKStar {
 		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+			// turn off the default confdb for tests
+			info.confDBFile = null;
+
 			SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
 			// how should we define energies of conformations?
@@ -1145,17 +1159,24 @@ public class TestMARKStar {
 					.calcEnergyMatrix();
 
 			// how should confs be ordered and searched?
-			info.confSearchFactory = (rcs) -> {
+			Function<RCs,ConfSearch> confSearchFactory = (rcs) -> {
 				ConfAStarTree.Builder builder = new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional();
 				return builder.build();
 			};
+
+			info.pfuncFactory = rcs -> new GradientDescentPfunc(
+				info.confEcalc,
+				confSearchFactory.apply(rcs),
+				confSearchFactory.apply(rcs),
+				rcs.getNumConformations()
+			);
 		}
 
 		// run K*
 		KstarResult result = new KstarResult();
 		result.kstar = kstar;
-		result.scores = kstar.run();
+		result.scores = kstar.run(minimizingEcalc.tasks);
 		return result.scores;
 	}
 
@@ -1176,6 +1197,9 @@ public class TestMARKStar {
 		KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, settings);
 		for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+			// turn off the default confdb for tests
+			info.confDBFile = null;
+
 			SimpleConfSpace confSpace = (SimpleConfSpace)info.confSpace;
 
 			// how should we define energies of conformations?
@@ -1193,17 +1217,24 @@ public class TestMARKStar {
 					.calcEnergyMatrix();
 
 			// how should confs be ordered and searched?
-			info.confSearchFactory = (rcs) -> {
+			Function<RCs,ConfSearch> confSearchFactory = (rcs) -> {
 				ConfAStarTree.Builder builder = new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional();
 				return builder.build();
 			};
+
+			info.pfuncFactory = rcs -> new GradientDescentPfunc(
+				info.confEcalc,
+				confSearchFactory.apply(rcs),
+				confSearchFactory.apply(rcs),
+				rcs.getNumConformations()
+			);
 		}
 
 		// run K*
 		KstarResult result = new KstarResult();
 		result.kstar = kstar;
-		result.scores = kstar.run();
+		result.scores = kstar.run(minimizingEcalc.tasks);
 		return result.scores;
 	}
 

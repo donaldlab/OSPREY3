@@ -38,8 +38,11 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
+import edu.duke.cs.osprey.parallelism.Cluster;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.*;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -67,7 +70,7 @@ import static edu.duke.cs.osprey.tools.Log.log;
  * not orders of magnitude slower than operation 1 (when e.g. we're reading
  * energies out of a cache).
  */
-public class GradientDescentPfunc implements PartitionFunction.WithConfTable, PartitionFunction.WithExternalMemory {
+public class GradientDescentPfunc implements PartitionFunction.WithConfDB, PartitionFunction.WithExternalMemory {
 
 	private static BigMath bigMath() {
 		return new BigMath(PartitionFunction.decimalPrecision);
@@ -100,6 +103,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		double prevDelta = 1.0;
 		double dEnergy = -1.0;
 		double dScore = -1.0;
+
+		long lastReportNs = 0;
 
 		State(BigInteger numConfs) {
 			this.numConfs = new BigDecimal(numConfs);
@@ -159,15 +164,15 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 			return bigMath()
 
-					// unscored bound
-					.set(numConfs)
-					.sub(numScoredConfs)
-					.mult(minUpperScoreWeight)
+				// unscored bound
+				.set(numConfs)
+				.sub(numScoredConfs)
+				.mult(minUpperScoreWeight)
 
-					// with scored bound
-					.add(upperScoreWeightSum)
+				// with scored bound
+				.add(upperScoreWeightSum)
 
-					.get();
+				.get();
 		}
 
 		boolean epsilonReached(double targetEpsilon) {
@@ -199,6 +204,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 
     public final ConfEnergyCalculator ecalc;
+	public final BigInteger numConfsBeforePruning;
 
 	private double targetEpsilon = Double.NaN;
 	private BigDecimal stabilityThreshold = BigDecimal.ZERO;
@@ -207,7 +213,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	private Stopwatch stopwatch = new Stopwatch().start();
 	private ConfSearch scoreConfs = null;
 	private ConfSearch energyConfs = null;
-	private BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
+	private static BoltzmannCalculator bcalc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
 	private Status status = null;
 	private Values values = null;
@@ -218,7 +225,8 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	private long numEnergyConfsEnumerated = 0;
 	private long numScoreConfsEnumerated = 0;
 
-	private ConfDB.ConfTable confTable = null;
+	private ConfDB confDB = null;
+	private ConfDB.Key confDBKey = null;
 
 	private boolean useExternalMemory = false;
 	private RCs rcs = null;
@@ -226,30 +234,61 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	private PfuncSurface surf = null;
 	private PfuncSurface.Trace trace = null;
 
-	public GradientDescentPfunc(ConfEnergyCalculator ecalc) {
+	public GradientDescentPfunc(ConfEnergyCalculator ecalc, ConfSearch confSearch, BigInteger numConfsBeforePruning) {
 		this.ecalc = ecalc;
+		this.scoreConfs = confSearch;
+		this.energyConfs = null;
+		this.numConfsBeforePruning = numConfsBeforePruning;
 	}
-	
+
+	public GradientDescentPfunc(ConfEnergyCalculator ecalc, ConfSearch upperBoundConfs, ConfSearch lowerBoundConfs, BigInteger numConfsBeforePruning) {
+		this.ecalc = ecalc;
+		this.scoreConfs = upperBoundConfs;
+		this.energyConfs = lowerBoundConfs;
+		this.numConfsBeforePruning = numConfsBeforePruning;
+	}
+
+	private Integer instanceId = null;
+
+	@Override
+	public void setInstanceId(int instanceId) {
+		this.instanceId = instanceId;
+	}
+
+	public int instanceIdOrThrow() {
+		if (instanceId == null) {
+			throw new IllegalStateException("no instance ID set, task doesn't know what context to use");
+		}
+		return instanceId;
+	}
+
+	@Override
+	public void putTaskContexts(TaskExecutor.ContextGroup contexts) {
+		// TODO: how to support conf tables correctly, when the energies are distributed across the cluster?
+		contexts.putContext(instanceIdOrThrow(), EnergyTask.class, new EnergyTask.Context(ecalc, bcalc, confDB));
+		contexts.putContext(instanceIdOrThrow(), ScoreTask.class, new ScoreTask.Context(bcalc));
+	}
+
 	@Override
 	public void setReportProgress(boolean val) {
 		isReportingProgress = val;
 	}
-	
+
 	@Override
 	public void setConfListener(ConfListener val) {
 		confListener = val;
 	}
-	
+
 	@Override
 	public Status getStatus() {
 		return status;
 	}
-	
+
 	@Override
 	public Values getValues() {
 		return values;
 	}
-	
+
 	@Override
 	public int getNumConfsEvaluated() {
 		// TODO: this might overflow for big pfunc calculations, upgrade the interface type?
@@ -262,8 +301,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	}
 
 	@Override
-	public void setConfTable(ConfDB.ConfTable val) {
-		confTable = val;
+	public void setConfDB(ConfDB confDB, ConfDB.Key key) {
+		this.confDB = confDB;
+		this.confDBKey = key;
 	}
 
 	@Override
@@ -277,31 +317,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 	}
 
 	@Override
-	public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
-
-		init(numConfsBeforePruning, targetEpsilon);
-
-		// split the confs between the upper and lower bounds
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch, useExternalMemory, rcs);
-		scoreConfs = confsSplitter.first;
-		energyConfs = confsSplitter.second;
-	}
-
-	@Override
-	public void init(ConfSearch upperBoundConfs, ConfSearch lowerBoundConfs, BigInteger numConfsBeforePruning, double targetEpsilon) {
-
-		init(numConfsBeforePruning, targetEpsilon);
-
-		this.scoreConfs = upperBoundConfs;
-		this.energyConfs = lowerBoundConfs;
-	}
-
-	private void init(BigInteger numConfsBeforePruning, double targetEpsilon) {
+	public void init(double targetEpsilon) {
 
 		if (targetEpsilon <= 0.0) {
 			throw new IllegalArgumentException("target epsilon must be greater than zero");
 		}
-
 		this.targetEpsilon = targetEpsilon;
 
 		// init state
@@ -315,6 +335,13 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		hasScoreConfs = true;
 		numEnergyConfsEnumerated = 0;
 		numScoreConfsEnumerated = 0;
+
+		// split the confs between the upper and lower bounds if needed
+		if (energyConfs == null) {
+			ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(scoreConfs, useExternalMemory, rcs);
+			scoreConfs = confsSplitter.first;
+			energyConfs = confsSplitter.second;
+		}
 	}
 
 	@Override
@@ -395,27 +422,9 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 					numConfsEnergied++;
 
-					class EnergyResult {
-						ConfSearch.EnergiedConf econf;
-						BigDecimal scoreWeight;
-						BigDecimal energyWeight;
-						Stopwatch stopwatch = new Stopwatch();
-					}
-
 					ecalc.tasks.submit(
-						() -> {
-							// compute one energy and weights (and time it)
-							EnergyResult result = new EnergyResult();
-							result.stopwatch.start();
-							result.econf = ecalc.calcEnergy(conf, confTable);
-							result.scoreWeight = bcalc.calc(result.econf.getScore());
-							result.energyWeight = bcalc.calc(result.econf.getEnergy());
-							result.stopwatch.stop();
-							return result;
-						},
-						(result) -> {
-							onEnergy(result.econf, result.scoreWeight, result.energyWeight, result.stopwatch.getTimeS());
-						}
+						new EnergyTask(instanceIdOrThrow(), conf, new Stopwatch().start(), confDBKey),
+						(result) -> onEnergy(result.econf, result.scoreWeight, result.energyWeight, result.stopwatch.getTimeS())
 					);
 
 					break;
@@ -424,7 +433,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 				case Score: {
 
 					// gather the scores
-					List<ConfSearch.ScoredConf> confs = new ArrayList<>();
+					List<Double> confs = new ArrayList<>();
 					for (int i=0; i<numScores; i++) {
 
 						// get the next score conf, if any
@@ -437,30 +446,12 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 							break;
 						}
 
-						confs.add(conf);
-					}
-
-					class ScoreResult {
-						public List<Double> scores = new ArrayList<>();
-						List<BigDecimal> scoreWeights = new ArrayList<>();
-						Stopwatch stopwatch = new Stopwatch();
+						confs.add(conf.getScore());
 					}
 
 					ecalc.tasks.submit(
-						() -> {
-							// compute the weights (and time it)
-							ScoreResult result = new ScoreResult();
-							result.stopwatch.start();
-							for (ConfSearch.ScoredConf conf : confs) {
-								result.scoreWeights.add(bcalc.calc(conf.getScore()));
-								result.scores.add(conf.getScore());
-							}
-							result.stopwatch.stop();
-							return result;
-						},
-						(result) -> {
-							onScores(result.scoreWeights, result.stopwatch.getTimeS());
-						}
+						new ScoreTask(instanceIdOrThrow(), confs, new Stopwatch().start()),
+						(result) -> onScores(result.scoreWeights, result.stopwatch.getTimeS())
 					);
 
 					break;
@@ -500,14 +491,108 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 		// did we hit the epsilon target?
 		if (state.epsilonReached(targetEpsilon)) {
 			status = Status.Estimated;
-			// TODO: cut back on debug spam?
-			log("Total Z upper bound reduction through minimizations: %12.6e", state.cumulativeZReduction);
-			log("Average Z upper bound reduction per minimizations: %12.6e", bigMath().set(state.cumulativeZReduction).div(state.numEnergiedConfs).get());
+			if (isReportingProgress) {
+				log("Total Z upper bound reduction through minimizations: %12.6e", state.cumulativeZReduction);
+				log("Average Z upper bound reduction per minimizations: %12.6e", bigMath().set(state.cumulativeZReduction).div(state.numEnergiedConfs).get());
+			}
 		}
 
 		// did we drop below the stability threshold?
 		if (!state.isStable(stabilityThreshold)) {
 			status = Status.Unstable;
+		}
+	}
+
+	private static class EnergyTask extends Cluster.Task<EnergyTask.Result,EnergyTask.Context> {
+
+		static class Result implements Serializable {
+			ConfSearch.EnergiedConf econf;
+			BigDecimal scoreWeight;
+			BigDecimal energyWeight;
+			Stopwatch stopwatch = new Stopwatch();
+		}
+
+		static class Context {
+
+			ConfEnergyCalculator confEcalc;
+			BoltzmannCalculator bcalc;
+			ConfDB confDB;
+
+			public Context(ConfEnergyCalculator confEcalc, BoltzmannCalculator bcalc, ConfDB confDB) {
+				this.confEcalc = confEcalc;
+				this.bcalc = bcalc;
+				this.confDB = confDB;
+			}
+
+			public ConfDB.ConfTable confTable(ConfDB.Key key) {
+				if (confDB == null) {
+					return null;
+				}
+				return confDB.get(key);
+			}
+		}
+
+		public final ConfSearch.ScoredConf conf;
+		public final Stopwatch stopwatch;
+		public final ConfDB.Key confDBKey;
+
+		public EnergyTask(int instanceId, ConfSearch.ScoredConf conf, Stopwatch stopwatch, ConfDB.Key confDBKey) {
+			super(instanceId);
+			this.conf = conf;
+			this.stopwatch = stopwatch;
+			this.confDBKey = confDBKey;
+		}
+
+		@Override
+		public Result run(Context ctx) {
+			// compute one energy and weights (and time it)
+			Result result = new Result();
+			result.stopwatch = stopwatch;
+			result.econf = ctx.confEcalc.calcEnergy(conf, ctx.confTable(confDBKey));
+			result.scoreWeight = ctx.bcalc.calc(result.econf.getScore());
+			result.energyWeight = ctx.bcalc.calc(result.econf.getEnergy());
+			return result;
+		}
+	}
+
+	private static class ScoreTask extends Cluster.Task<ScoreTask.Result,ScoreTask.Context> {
+
+		static class Result implements Serializable {
+			List<Double> scores = new ArrayList<>();
+			List<BigDecimal> scoreWeights = new ArrayList<>();
+			Stopwatch stopwatch = new Stopwatch();
+		}
+
+		static class Context {
+
+			BoltzmannCalculator bcalc;
+
+			public Context(BoltzmannCalculator bcalc) {
+				this.bcalc = bcalc;
+			}
+		}
+
+		public final List<Double> scores;
+		public final Stopwatch stopwatch;
+
+		public ScoreTask(int instanceId, List<Double> scores, Stopwatch stopwatch) {
+			super(instanceId);
+			this.scores = scores;
+			this.stopwatch = stopwatch;
+		}
+
+		@Override
+		public Result run(Context ctx) {
+
+			// compute the weights (and time it)
+			Result result = new Result();
+			result.stopwatch = stopwatch;
+			for (double score : scores) {
+				result.scoreWeights.add(ctx.bcalc.calc(score));
+				result.scores.add(score);
+			}
+
+			return result;
 		}
 	}
 
@@ -551,11 +636,11 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 			// the other direction could be different now, let's be more likely to explore it
 			state.dScore *= 2.0;
 
-
 			// report progress if needed
 			if (isReportingProgress) {
-				log("[%s] conf:%4d, score:%12.6f, energy:%12.6f, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
+				log("[%s] scores:%8d, confs:%4d, score:%12.6f, energy:%12.6f, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
 					SimpleConfSpace.formatConfRCs(econf),
+					state.numScoredConfs,
 					state.numEnergiedConfs,
 					econf.getScore(), econf.getEnergy(),
 					MathTools.log10p1(state.getLowerBound()), MathTools.log10p1(state.getUpperBound()),
@@ -564,6 +649,7 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 					JvmMem.getOldPool(),
 					ExternalMemory.getUsageReport()
 				);
+				state.lastReportNs = System.nanoTime();
 			}
 
 			// update the trace if needed
@@ -607,6 +693,25 @@ public class GradientDescentPfunc implements PartitionFunction.WithConfTable, Pa
 
 			// the other direction could be different now, let's be more likely to explore it
 			state.dEnergy *= 2.0;
+
+			// report progress if needed (but not more than once every second)
+			if (isReportingProgress) {
+				long nowNs = System.nanoTime();
+				if (nowNs - state.lastReportNs > 1_000_000_000L) {
+					log("[%s] scores:%8d, confs:%4d, score:%12s, energy:%12s, bounds:[%12f,%12f] (log10p1), delta:%.6f, time:%10s, heapMem:%s, extMem:%s",
+						String.format("%" + (ecalc.confSpace.positions.size()*6 - 1) + "s", ""),
+						state.numScoredConfs,
+						state.numEnergiedConfs,
+						"", "",
+						MathTools.log10p1(state.getLowerBound()), MathTools.log10p1(state.getUpperBound()),
+						state.calcDelta(),
+						stopwatch.getTime(2),
+						JvmMem.getOldPool(),
+						ExternalMemory.getUsageReport()
+					);
+					state.lastReportNs = nowNs;
+				}
+			}
 
 			// update the trace if needed
 			if (trace != null) {

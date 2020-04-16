@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.minimization;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -281,31 +282,37 @@ public class TestMinimization extends TestBase {
 	
 	@Test
 	public void testCudaConfMinmizer1Stream() {
+		assumeTrue(edu.duke.cs.osprey.gpu.cuda.Gpus.get().getGpus().size() > 0);
 		check((ffparams, intergen, confSpace) -> new GpuConfMinimizer.Builder(ffparams, intergen, confSpace).setGpuInfo(GpuConfMinimizer.Type.Cuda, 1, 1).build());
 	}
 	
 	@Test
 	public void testCudaConfMinmizer2Streams() {
+		assumeTrue(edu.duke.cs.osprey.gpu.cuda.Gpus.get().getGpus().size() > 0);
 		check((ffparams, intergen, confSpace) -> new GpuConfMinimizer.Builder(ffparams, intergen, confSpace).setGpuInfo(GpuConfMinimizer.Type.Cuda, 1, 2).build());
 	}
 	
 	@Test
 	public void testCudaCCDConfMinmizer1Stream() {
+		assumeTrue(edu.duke.cs.osprey.gpu.cuda.Gpus.get().getGpus().size() > 0);
 		check((ffparams, intergen, confSpace) -> new GpuConfMinimizer.Builder(ffparams, intergen, confSpace).setGpuInfo(GpuConfMinimizer.Type.CudaCCD, 1, 1).build());
 	}
 	
 	@Test
 	public void testCudaCCDConfMinmizer2Streams() {
+		assumeTrue(edu.duke.cs.osprey.gpu.cuda.Gpus.get().getGpus().size() > 0);
 		check((ffparams, intergen, confSpace) -> new GpuConfMinimizer.Builder(ffparams, intergen, confSpace).setGpuInfo(GpuConfMinimizer.Type.CudaCCD, 1, 2).build());
 	}
 	
 	@Test
 	public void testOpenCLConfMinmizer1Stream() {
+		assumeTrue(edu.duke.cs.osprey.gpu.opencl.Gpus.get().getGpus().size() > 0);
 		check((ffparams, intergen, confSpace) -> new GpuConfMinimizer.Builder(ffparams, intergen, confSpace).setGpuInfo(GpuConfMinimizer.Type.OpenCL, 1, 1).build());
 	}
 	
 	@Test
 	public void testOpenCLConfMinmizer2Streams() {
+		assumeTrue(edu.duke.cs.osprey.gpu.opencl.Gpus.get().getGpus().size() > 0);
 		check((ffparams, intergen, confSpace) -> new GpuConfMinimizer.Builder(ffparams, intergen, confSpace).setGpuInfo(GpuConfMinimizer.Type.OpenCL, 1, 2).build());
 	}
 	
@@ -377,7 +384,7 @@ public class TestMinimization extends TestBase {
 	}
 	
 	private void check(MinimizerFactory factory) {
-		
+
 		for (boolean doSolv : Arrays.asList(true, false)) {
 			
 			Info info = Infos.get(doSolv);
@@ -390,7 +397,9 @@ public class TestMinimization extends TestBase {
 	}
 	
 	private void check(EnergyCalculator.Type type, Parallelism parallelism) {
-		
+
+		skipGPUTestsIfNeeded(parallelism);
+
 		for (boolean doSolv : Arrays.asList(true, false)) {
 			
 			Info info = Infos.get(doSolv);

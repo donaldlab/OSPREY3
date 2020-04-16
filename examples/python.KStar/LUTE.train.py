@@ -7,7 +7,7 @@ osprey.start()
 parallelism = osprey.Parallelism(cpuCores=4)
 
 # import our conf spaces from another file
-execfile('LUTE.confSpaces.py')
+exec(open("LUTE.confSpaces.py").read())
 
 # train each conf space separately
 for (id, confSpace) in confSpaces.items():

@@ -71,7 +71,7 @@ public class PFAdapter extends PFAbstract {
 	public void start() {
 		
 		setRunState(RunState.STARTED);
-		pfunc.init(null, null, PFAbstract.targetEpsilon);
+		pfunc.init(PFAbstract.targetEpsilon);
 		
 		// report top confs if needed
 		if (isFullyDefined() && saveTopConfsAsPDB) {

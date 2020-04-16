@@ -32,15 +32,9 @@
 
 package edu.duke.cs.osprey.kstar;
 
-import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.*;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
-import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.util.*;
@@ -48,7 +42,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory.makeConfSearchFactory;
 
 /**
  * Shows information about a single sequence.
@@ -115,7 +108,6 @@ public class SequenceAnalyzer {
 		public ConfSpaceIteration confSpace;
 		public String id;
 		public ConfEnergyCalculator confEcalc;
-		public KStar.ConfSearchFactory confSearchFactory;
 		public File confDBFile;
 	}
 
@@ -146,7 +138,6 @@ public class SequenceAnalyzer {
 				adapter.confSpace = info.confSpace;
 				adapter.id = info.id;
 				adapter.confEcalc = info.confEcalc;
-				adapter.confSearchFactory = info.confSearchFactory;
 				adapter.confDBFile = info.confDBFile;
 				return adapter;
 			}
@@ -164,7 +155,7 @@ public class SequenceAnalyzer {
 
 			for (BBKStar.ConfSpaceInfo info : bbkstar.confSpaceInfos()) {
 
-				if (info.confSpace.seqSpace != sequence.seqSpace) {
+				if (info.confSpace.seqSpace() != sequence.seqSpace) {
 					continue;
 				}
 
@@ -172,9 +163,6 @@ public class SequenceAnalyzer {
 				adapter.confSpace = info.confSpace;
 				adapter.id = info.id;
 				adapter.confEcalc = info.confEcalcMinimized;
-				adapter.confSearchFactory = info.confSearchFactoryMinimized;
-				if(adapter.confSearchFactory == null)
-					adapter.confSearchFactory = makeConfSearchFactory(info.confEcalcMinimized);
 				adapter.confDBFile = info.confDBFile;
 				return adapter;
 			}
@@ -184,34 +172,19 @@ public class SequenceAnalyzer {
 	}
 
 	/**
-	 * Analyzes the sequence by computing an ensemble within the specified energy window to the GMEC.
-	 * Uses the conformation database, if available to speed up energy calculations.
-	 * May need to calculate structures for many conformations not in the low-energy ensemble though,
-	 * so could be very slow!
-	 */
-	public Analysis analyze(Sequence sequence, double energyWindowSize) {
-
-		ConfSpaceInfo info = finder.apply(sequence);
-
-		// find the GMEC for this sequence
-		ConfSearch astar = info.confSearchFactory.make(sequence.makeRCs(info.confSpace));
-		SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(astar, info.confEcalc)
-			.setConfDB(info.confDBFile)
-			.build();
-		Queue.FIFO<ConfSearch.EnergiedConf> econfs = gmecFinder.find(energyWindowSize);
-
-		// return the analysis
-		ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc);
-		ConfAnalyzer.EnsembleAnalysis ensemble = analyzer.analyzeEnsemble(econfs, Integer.MAX_VALUE);
-		return new Analysis(info, sequence, ensemble);
-	}
-
-	/**
 	 * Analyzes the sequence by getting the ensemble purely from the conformation database.
 	 * Will only calculate structures for the low-energy conformations in the conformation
 	 * database, so guaranteed to be fast.
 	 */
 	public Analysis analyze(Sequence sequence, int numConfs) {
+		return analyze(sequence, numConfs, null);
+	}
+
+	/**
+	 * Analyzes the sequence with the given energy calculator.
+	 * Useful for LUTE, whose KStar settings use the LUTE energy calculator, which can't return atomic models.
+	 */
+	public Analysis analyze(Sequence sequence, int numConfs, ConfEnergyCalculator confEcalc) {
 
 		ConfSpaceInfo info = finder.apply(sequence);
 
@@ -223,8 +196,12 @@ public class SequenceAnalyzer {
 				.energiedConfs(ConfDB.SortOrder.Energy)
 				.iterator();
 
+			if (confEcalc == null) {
+				confEcalc = info.confEcalc;
+			}
+
 			// return the analysis
-			ConfAnalyzer analyzer = new ConfAnalyzer(info.confEcalc);
+			ConfAnalyzer analyzer = new ConfAnalyzer(confEcalc);
 			ConfAnalyzer.EnsembleAnalysis ensemble = analyzer.analyzeEnsemble(econfs, numConfs);
 			return new Analysis(info, sequence, ensemble);
 		}

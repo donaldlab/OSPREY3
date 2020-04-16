@@ -360,6 +360,10 @@ public class SeqSpace implements Serializable {
 		return seq;
 	}
 
+	public Sequence makeSequence(String ... resTypes) {
+		return makeSequence(Arrays.asList(resTypes));
+	}
+
 	public Sequence makeSequence(SimpleConfSpace confSpace, int[] conf) {
 		Sequence seq = makeUnassignedSequence();
 		for (SimpleConfSpace.Position confPos : confSpace.positions) {

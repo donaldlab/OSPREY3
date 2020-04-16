@@ -11,24 +11,32 @@ import edu.duke.cs.osprey.ematrix.compiled.ErefCalculator;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculatorAdapter;
-import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.KStarScoreWriter;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.FileTools;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 
 public class TestKStar {
 
+	@Rule
+	public Timeout globalTimeout = new Timeout(2, TimeUnit.MINUTES);
+
+	// TODO: this test is really slow! Probably need to optimize energy calculation
+	//  or look into the pfunc calculator... it's getting stuck somehow
 	@Test
 	public void test2RL0() {
 
-		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.complex.ccs.xz"));
-		ConfSpace chainA = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.A.ccs.xz"));
-		ConfSpace chainG = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.G.ccs.xz"));
+		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.complex.ccsx"));
+		ConfSpace chainA = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.A.ccsx"));
+		ConfSpace chainG = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.G.ccsx"));
 
 		final double epsilon = 0.99;
 		run(chainG, chainA, complex, epsilon);
@@ -37,9 +45,9 @@ public class TestKStar {
 	@Test
 	public void testF98Y() {
 
-		ConfSpace complex = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.complex.ccs.xz"));
-		ConfSpace dhfr = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.DHFR.ccs.xz"));
-		ConfSpace nadph06w = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.NADPH.06W.ccs.xz"));
+		ConfSpace complex = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.complex.ccsx"));
+		ConfSpace dhfr = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.DHFR.ccsx"));
+		ConfSpace nadph06w = ConfSpace.fromBytes(FileTools.readFileBytes("examples/python.ccs/F98Y/4tu5.NADPH.06W.ccsx"));
 
 		final double epsilon = 0.05;
 		run(dhfr, nadph06w, complex, epsilon);
@@ -71,12 +79,15 @@ public class TestKStar {
 
 			for (KStar.ConfSpaceInfo info : kstar.confSpaceInfos()) {
 
+				// turn off the default confdb for tests
+				info.confDBFile = null;
+
 				ConfSpace confSpace = (ConfSpace)info.confSpace;
 
 				PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
 				boolean minimize = true;
 				boolean includeStaticStatic = true;
-				ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace, tasks);
+				ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace);
 
 				SimpleReferenceEnergies eref = new ErefCalculator.Builder(ecalc)
 					.setMinimize(minimize)
@@ -91,21 +102,27 @@ public class TestKStar {
 					.build()
 					.calc();
 
-				info.confEcalc = new ConfEnergyCalculatorAdapter.Builder(ecalc)
+				info.confEcalc = new ConfEnergyCalculatorAdapter.Builder(ecalc, tasks)
 					.setPosInterDist(posInterDist)
 					.setReferenceEnergies(eref)
 					.setMinimize(minimize)
 					.setIncludeStaticStatic(includeStaticStatic)
 					.build();
 
-				info.confSearchFactory = (rcs) ->
+				info.pfuncFactory = rcs -> new GradientDescentPfunc(
+					info.confEcalc,
 					new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
-						.build();
+						.build(),
+					new ConfAStarTree.Builder(emat, rcs)
+						.setTraditional()
+						.build(),
+					rcs.getNumConformations()
+				);
 			}
 
 			// run K*
-			return kstar.run();
+			return kstar.run(tasks);
 
 		} finally {
 
