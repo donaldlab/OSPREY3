@@ -10,7 +10,6 @@ import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -27,25 +26,184 @@ import java.util.stream.IntStream;
 
 public class TestConfSpace {
 
+	public static class AffinityClassic {
+
+		public final SimpleConfSpace complex;
+		public final SimpleConfSpace chainA;
+		public final SimpleConfSpace chainB;
+		public final ForcefieldParams ffparams;
+
+		public AffinityClassic(SimpleConfSpace complex, SimpleConfSpace chainA, SimpleConfSpace chainB, ForcefieldParams ffparams) {
+			this.complex = complex;
+			this.chainA = chainA;
+			this.chainB = chainB;
+			this.ffparams = ffparams;
+		}
+
+		public int[] makeConfComplexWt() {
+
+			SimpleConfSpace confSpace = complex;
+
+			int[] conf = Conf.make(confSpace);
+			for (int posi=0; posi<confSpace.numPos(); posi++) {
+				SimpleConfSpace.ResidueConf resConf = confSpace.positions.get(posi).resConfs.stream()
+					.filter(rc -> rc.type == SimpleConfSpace.ResidueConf.Type.WildType)
+					.findFirst()
+					.orElseThrow();
+				conf[posi] = resConf.index;
+			}
+
+			return conf;
+		}
+	}
+
+	public static class AffinityCompiled {
+
+		public final ConfSpace complex;
+		public final ConfSpace chainA;
+		public final ConfSpace chainB;
+
+		public AffinityCompiled(ConfSpace complex, ConfSpace chainA, ConfSpace chainB) {
+			this.complex = complex;
+			this.chainA = chainA;
+			this.chainB = chainB;
+		}
+
+		public int[] makeConfComplexWt() {
+
+			ConfSpace confSpace = complex;
+
+			int[] conf = Conf.make(confSpace);
+			for (int posi=0; posi<confSpace.numPos(); posi++) {
+				int fposi = posi;
+				conf[posi] = IntStream.range(0, confSpace.numConf(posi))
+					.filter(confi -> confSpace.confId(fposi, confi).startsWith("wt-"))
+					.findFirst()
+					.orElseThrow();
+			}
+
+			return conf;
+		}
+	}
+
+	public static class Design2RL0Interface7Mut {
+
+		public static AffinityClassic makeClassic() {
+
+			// configure the forcefield
+			ForcefieldParams ffparams = new ForcefieldParams();
+
+			Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
+
+			// make sure all strands share the same template library
+			ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld)
+				.clearTemplateCoords()
+				.addTemplateCoords(FileTools.readResource("/config/template_coords_v2.txt"))
+				// add a special template so we don't delete the un-protonated terminal residues
+				// (they're missing the amide protons for some reason ...)
+				.addTemplates(
+					"\n" +
+					"\n" +
+					"GLYCINE un-capped                                               \n" +
+					"                                                                \n" +
+					" GLY  INT     1                                                 \n" +
+					" CORR OMIT DU   BEG                                             \n" +
+					"   0.00000                                                      \n" +
+					"   1  DUMM  DU    M    0  -1  -2     0.000     0.000     0.000   0.00000\n" +
+					"   2  DUMM  DU    M    1   0  -1     1.449     0.000     0.000   0.00000\n" +
+					"   3  DUMM  DU    M    2   1   0     1.522   111.100     0.000   0.00000\n" +
+					"   4  N     N     M    3   2   1     1.335   116.600   180.000  -0.41570\n" +
+					"   5  CA    CT    M    4   3   2     1.449   121.900   180.000  -0.02520\n" +
+					"   6  HA2   H1    E    5   4   3     1.090   109.500   300.000   0.06980\n" +
+					"   7  HA3   H1    E    5   4   3     1.090   109.500    60.000   0.06980\n" +
+					"   8  C     C     M    5   4   3     1.522   110.400   180.000   0.59730\n" +
+					"   9  O     O     E    8   5   4     1.229   120.500     0.000  -0.56790\n" +
+					"                                                                \n" +
+					"IMPROPER                                                        \n" +
+					" CA   +M   C    O                                               \n" +
+					"                                                                \n" +
+					"DONE\n" +
+					"GLUTAMIC ACID un-capped                                         \n" +
+					"                                                                \n" +
+					" GLU  INT     1                                                 \n" +
+					" CORR OMIT DU   BEG                                             \n" +
+					"   0.00000                                                      \n" +
+					"   1  DUMM  DU    M    0  -1  -2     0.000     0.000     0.000   0.00000\n" +
+					"   2  DUMM  DU    M    1   0  -1     1.449     0.000     0.000   0.00000\n" +
+					"   3  DUMM  DU    M    2   1   0     1.522   111.100     0.000   0.00000\n" +
+					"   4  N     N     M    3   2   1     1.335   116.600   180.000  -0.51630\n" +
+					"   5  CA    CT    M    4   3   2     1.449   121.900   180.000   0.03970\n" +
+					"   6  HA    H1    E    5   4   3     1.090   109.500   300.000   0.11050\n" +
+					"   7  CB    CT    3    5   4   3     1.525   111.100    60.000   0.05600\n" +
+					"   8  HB2   HC    E    7   5   4     1.090   109.500   300.000  -0.01730\n" +
+					"   9  HB3   HC    E    7   5   4     1.090   109.500    60.000  -0.01730\n" +
+					"  10  CG    CT    3    7   5   4     1.510   109.470   180.000   0.01360\n" +
+					"  11  HG2   HC    E   10   7   5     1.090   109.500   300.000  -0.04250\n" +
+					"  12  HG3   HC    E   10   7   5     1.090   109.500    60.000  -0.04250\n" +
+					"  13  CD    C     B   10   7   5     1.527   109.470   180.000   0.80540\n" +
+					"  14  OE1   O2    E   13  10   7     1.260   117.200    90.000  -0.81880\n" +
+					"  15  OE2   O2    E   13  10   7     1.260   117.200   270.000  -0.81880\n" +
+					"  16  C     C     M    5   4   3     1.522   111.100   180.000   0.53660\n" +
+					"  17  O     O     E   16   5   4     1.229   120.500     0.000  -0.58190\n" +
+					"                                                                \n" +
+					"IMPROPER                                                        \n" +
+					" CA   +M   C    O                                               \n" +
+					" CG   OE1  CD   OE2                                             \n" +
+					"                                                                \n" +
+					"DONE\n"
+				)
+				.build();
+
+			Strand chainG = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("G638", "G654")
+				.build();
+			chainG.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+			chainG.flexibility.get("G650").setLibraryRotamers(Strand.WildType, "GLU").addWildTypeRotamers().setContinuous();
+			chainG.flexibility.get("G651").setLibraryRotamers(Strand.WildType, "ASP").addWildTypeRotamers().setContinuous();
+
+			Strand chainA = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("A153", "A241")
+				.build();
+			chainA.flexibility.get("A156").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+			chainA.flexibility.get("A172").setLibraryRotamers(Strand.WildType, "ASP", "GLU").addWildTypeRotamers().setContinuous();
+			chainA.flexibility.get("A192").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "PHE", "TYR").addWildTypeRotamers().setContinuous();
+			chainA.flexibility.get("A193").setLibraryRotamers(Strand.WildType, "SER", "ASN").addWildTypeRotamers().setContinuous();
+
+			return new AffinityClassic(
+				new SimpleConfSpace.Builder()
+					.addStrands(chainG, chainA)
+					.build(),
+				new SimpleConfSpace.Builder()
+					.addStrand(chainA)
+					.build(),
+				new SimpleConfSpace.Builder()
+					.addStrand(chainG)
+					.build(),
+				ffparams
+			);
+		}
+
+		public static AffinityCompiled makeCompiled() {
+			return new AffinityCompiled(
+				ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.complex.ccsx")),
+				ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.A.ccsx")),
+				ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.G.ccsx"))
+			);
+		}
+	}
+
 	@Test
 	public void check2RL0_compiled() {
 
-		ConfSpace complex = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.complex.ccsx"));
-		ConfSpace chainA = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.A.ccsx"));
-		ConfSpace chainG = ConfSpace.fromBytes(FileTools.readResourceBytes("/confSpaces/2RL0.G.ccsx"));
+		AffinityCompiled design = Design2RL0Interface7Mut.makeCompiled();
 
-		assert2RL0(chainG, chainA, complex);
+		assert2RL0(design.chainB, design.chainA, design.complex);
 
 		// make a molecule of the wild-type complex
-		ConfSpace confSpace = complex;
-		int[] conf = Conf.make(confSpace);
-		for (int posi=0; posi<confSpace.numPos(); posi++) {
-			int fposi = posi;
-			conf[posi] = IntStream.range(0, confSpace.numConf(posi))
-				.filter(confi -> complex.confId(fposi, confi).startsWith("wt-"))
-				.findFirst()
-				.orElseThrow();
-		}
+		ConfSpace confSpace = design.complex;
+		int[] conf = design.makeConfComplexWt();
 		AssignedCoords coords = new AssignedCoords(confSpace, conf);
 		Molecule mol = coords.toMol();
 
@@ -73,114 +231,14 @@ public class TestConfSpace {
 
 		// make a version of the 2RL0 "design" that matches the conf spaces prepped by the GUI
 
-		TestKStar.ConfSpaces confSpaces = new TestKStar.ConfSpaces();
+		AffinityClassic design = Design2RL0Interface7Mut.makeClassic();
 
-		// configure the forcefield
-		confSpaces.ffparams = new ForcefieldParams();
 
-		Molecule mol = PDBIO.readResource("/2RL0.min.reduce.pdb");
-
-		// make sure all strands share the same template library
-		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld)
-			.clearTemplateCoords()
-			.addTemplateCoords(FileTools.readFile("../osprey3/template coords.v2.txt"))
-			// add a special template so we don't delete the un-protonated N-terminal GLY
-			.addTemplates(
-				"\n" +
-				"\n" +
-				"GLYCINE un-capped                                               \n" +
-				"                                                                \n" +
-				" GLY  INT     1                                                 \n" +
-				" CORR OMIT DU   BEG                                             \n" +
-				"   0.00000                                                      \n" +
-				"   1  DUMM  DU    M    0  -1  -2     0.000     0.000     0.000   0.00000\n" +
-				"   2  DUMM  DU    M    1   0  -1     1.449     0.000     0.000   0.00000\n" +
-				"   3  DUMM  DU    M    2   1   0     1.522   111.100     0.000   0.00000\n" +
-				"   4  N     N     M    3   2   1     1.335   116.600   180.000  -0.41570\n" +
-				"   5  CA    CT    M    4   3   2     1.449   121.900   180.000  -0.02520\n" +
-				"   6  HA2   H1    E    5   4   3     1.090   109.500   300.000   0.06980\n" +
-				"   7  HA3   H1    E    5   4   3     1.090   109.500    60.000   0.06980\n" +
-				"   8  C     C     M    5   4   3     1.522   110.400   180.000   0.59730\n" +
-				"   9  O     O     E    8   5   4     1.229   120.500     0.000  -0.56790\n" +
-				"                                                                \n" +
-				"IMPROPER                                                        \n" +
-				" CA   +M   C    O                                               \n" +
-				"                                                                \n" +
-				"DONE\n" +
-				"GLUTAMIC ACID un-capped                                         \n" +
-				"                                                                \n" +
-				" GLU  INT     1                                                 \n" +
-				" CORR OMIT DU   BEG                                             \n" +
-				"   0.00000                                                      \n" +
-				"   1  DUMM  DU    M    0  -1  -2     0.000     0.000     0.000   0.00000\n" +
-				"   2  DUMM  DU    M    1   0  -1     1.449     0.000     0.000   0.00000\n" +
-				"   3  DUMM  DU    M    2   1   0     1.522   111.100     0.000   0.00000\n" +
-				"   4  N     N     M    3   2   1     1.335   116.600   180.000  -0.51630\n" +
-				"   5  CA    CT    M    4   3   2     1.449   121.900   180.000   0.03970\n" +
-				"   6  HA    H1    E    5   4   3     1.090   109.500   300.000   0.11050\n" +
-				"   7  CB    CT    3    5   4   3     1.525   111.100    60.000   0.05600\n" +
-				"   8  HB2   HC    E    7   5   4     1.090   109.500   300.000  -0.01730\n" +
-				"   9  HB3   HC    E    7   5   4     1.090   109.500    60.000  -0.01730\n" +
-				"  10  CG    CT    3    7   5   4     1.510   109.470   180.000   0.01360\n" +
-				"  11  HG2   HC    E   10   7   5     1.090   109.500   300.000  -0.04250\n" +
-				"  12  HG3   HC    E   10   7   5     1.090   109.500    60.000  -0.04250\n" +
-				"  13  CD    C     B   10   7   5     1.527   109.470   180.000   0.80540\n" +
-				"  14  OE1   O2    E   13  10   7     1.260   117.200    90.000  -0.81880\n" +
-				"  15  OE2   O2    E   13  10   7     1.260   117.200   270.000  -0.81880\n" +
-				"  16  C     C     M    5   4   3     1.522   111.100   180.000   0.53660\n" +
-				"  17  O     O     E   16   5   4     1.229   120.500     0.000  -0.58190\n" +
-				"                                                                \n" +
-				"IMPROPER                                                        \n" +
-				" CA   +M   C    O                                               \n" +
-				" CG   OE1  CD   OE2                                             \n" +
-				"                                                                \n" +
-				"DONE\n"
-			)
-			.build();
-
-		// define the protein strand
-		Strand protein = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("G638", "G654")
-			.build();
-		protein.flexibility.get("G649").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("G650").setLibraryRotamers(Strand.WildType, "GLU").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get("G651").setLibraryRotamers(Strand.WildType, "ASP").addWildTypeRotamers().setContinuous();
-
-		// define the ligand strand
-		Strand ligand = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues("A153", "A241")
-			.build();
-		ligand.flexibility.get("A156").setLibraryRotamers(Strand.WildType, "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("A172").setLibraryRotamers(Strand.WildType, "ASP", "GLU").addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("A192").setLibraryRotamers(Strand.WildType, "ALA", "VAL", "LEU", "PHE", "TYR").addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get("A193").setLibraryRotamers(Strand.WildType, "SER", "ASN").addWildTypeRotamers().setContinuous();
-
-		// make the conf spaces ("complex" SimpleConfSpace, har har!)
-		confSpaces.protein = new SimpleConfSpace.Builder()
-			.addStrand(protein)
-			.build();
-		confSpaces.ligand = new SimpleConfSpace.Builder()
-			.addStrand(ligand)
-			.build();
-		confSpaces.complex = new SimpleConfSpace.Builder()
-			.addStrands(protein, ligand)
-			.build();
-
-		assert2RL0(confSpaces.protein, confSpaces.ligand, confSpaces.complex);
+		assert2RL0(design.chainB, design.chainA, design.complex);
 
 		// make a molecule of the wild-type complex
-		SimpleConfSpace confSpace = confSpaces.complex;
-		int[] conf = Conf.make(confSpace);
-		for (int posi=0; posi<confSpace.numPos(); posi++) {
-			SimpleConfSpace.ResidueConf resConf = confSpace.positions.get(posi).resConfs.stream()
-				.filter(rc -> rc.type == SimpleConfSpace.ResidueConf.Type.WildType)
-				.findFirst()
-				.orElseThrow();
-			conf[posi] = resConf.index;
-		}
-		ParametricMolecule pmol = confSpace.makeMolecule(conf);
+		SimpleConfSpace confSpace = design.complex;
+		ParametricMolecule pmol = confSpace.makeMolecule(design.makeConfComplexWt());
 
 		assert2RL0WildType(pmol.mol);
 
@@ -190,7 +248,7 @@ public class TestConfSpace {
 			.build()) {
 
 			ResidueInteractions inters = new ResidueInteractions();
-			inters.addComplete(mol.residues);
+			inters.addComplete(pmol.mol.residues);
 			double energy = ecalc.calcEnergy(pmol, inters).energy;
 
 			assertThat(energy, isAbsolutely(-1548.4851738174825, 1e-6));
