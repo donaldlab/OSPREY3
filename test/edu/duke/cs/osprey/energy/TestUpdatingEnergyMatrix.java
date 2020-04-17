@@ -236,8 +236,7 @@ public class TestUpdatingEnergyMatrix {
         }
     }
 
-    @Test
-    public void test3bua_weirdness_all(){
+    public void test3bua_corrections_all(){
         try{
             TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
             UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpaces.complex.positions);
@@ -270,7 +269,11 @@ public class TestUpdatingEnergyMatrix {
     }
 
     @Test
-    public void test3bua_weirdness() {
+
+    public void test3bua_greedy() {
+        /** The greedy algorithm for finding the best energy corrections fails when a large correction is less
+         * favorable than two disjoint small corrections. This test case documents that behavior.
+         */
         try {
             TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
             UpdatingEnergyMatrix.TupleTrie trie = new UpdatingEnergyMatrix.TupleTrie(confSpaces.complex.positions);
@@ -296,12 +299,7 @@ public class TestUpdatingEnergyMatrix {
             System.out.println("Corrections for weird child:");
             System.out.println(weirdFinal.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
 
-            System.out.println("And, the million dollar question: Could the weird child get a better energy by using the parent corrections?");
-            if(weirdList.containsAll(parentFinal)){
-                System.out.println("Yes, greedy is hurting us.");
-            }else{
-                System.out.println("No, greedy is fine.");
-            }
+            assertThat(weirdList.containsAll(parentFinal), is(true));
 
         } catch (FileNotFoundException e) {
             System.out.println(e.getMessage());
