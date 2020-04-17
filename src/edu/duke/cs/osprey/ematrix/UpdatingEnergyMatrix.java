@@ -97,9 +97,53 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         /**
          * Due to the greedy edge case, we need to ensure that our corrections never decrease
          */
-        return Math.max(getInternalEnergy(new RCTuple(conf)), parentCorrect) + constTerm;
+        return getInternalEnergy(new RCTuple(conf), parentCorrect) + constTerm;
+    }
+    public double getInternalEnergy(RCTuple tup, double parentCorrect){
+        //internal energy of a tuple of residues when they're in the specified RCs
+
+        // OPTIMIZATION: don't even check higher terms if the energy matrix doesn't have any
+        // this does wonders to CPU cache performance!
+        boolean useHigherOrderTerms = hasHigherOrderTerms();
+
+        ArrayList<Integer> tuppos = tup.pos;
+        ArrayList<Integer> tupRCs = tup.RCs;
+
+        // OPTIMIZATION: split oneBody and pairwise energies into separate loops
+        // to improve CPU cache performance
+
+        int numPosInTuple = tup.pos.size();
+        double energy = 0;
+
+        for(int indexInTuple=0; indexInTuple<numPosInTuple; indexInTuple++){
+            int posNum = tuppos.get(indexInTuple);
+            int RCNum = tupRCs.get(indexInTuple);
+
+            energy += getOneBody(posNum,RCNum);
+        }
+
+        for(int indexInTuple=0; indexInTuple<numPosInTuple; indexInTuple++){
+            int posNum = tuppos.get(indexInTuple);
+            int RCNum = tupRCs.get(indexInTuple);
+
+            for(int index2=0; index2<indexInTuple; index2++){
+                int pos2 = tuppos.get(index2);
+                int rc2 = tupRCs.get(index2);
+
+                energy += getPairwise(posNum,RCNum,pos2,rc2);
+
+            }
+        }
+        if (useHigherOrderTerms) {
+            // Since our corrections greediness can get us into trouble, don't accept corrections smaller than the parent
+            double newCorrect = internalEHigherOrder(tup);
+            energy+=Math.max(newCorrect, parentCorrect);
+        }
+
+        return energy;
     }
 
+    @Deprecated
     public double getInternalEnergy(RCTuple tup){
         //internal energy of a tuple of residues when they're in the specified RCs
 
@@ -154,7 +198,12 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
      */
     //intra+shell similar...
 
-    double internalEHigherOrder(RCTuple tup){
+    public double getCorrection(int[] conf){
+        // Used so I don't have to recalculate parent corrections a ton
+       return internalEHigherOrder(new RCTuple(conf));
+    }
+
+    private double internalEHigherOrder(RCTuple tup){
         //Computes the portion of the internal energy for tuple tup
         //that consists of interactions in htf (corresponds to some sub-tuple of tup)
         //with RCs whose indices in tup are < curIndex

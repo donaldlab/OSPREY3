@@ -343,7 +343,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             if(isDebugConf(confNode.assignments))
                 System.out.println("Gotcha-fringe");
 
-            double parentConfCorrection = correctionMatrix.confE(parentConfNode.assignments); // Necessary for correctionMatrix hack
+            double parentConfCorrection = correctionMatrix.getCorrection(parentConfNode.assignments); // Necessary for correctionMatrix hack
             double confCorrection = correctionMatrix.confE(confNode.assignments, parentConfCorrection); // Necessary for correctionMatrix hack
 
             double gscore = context.partialConfLowerBoundScorer.calc(context.index, rcs);
@@ -779,7 +779,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
             node.index(index);
 
-            double parentConfCorrection = correctionMatrix.confE(parentNode.assignments); // Necessary for correctionMatrix hack
+            double parentConfCorrection = correctionMatrix.getCorrection(parentNode.assignments); // Necessary for correctionMatrix hack
             double correctgscore = correctionMatrix.confE(node.assignments, parentConfCorrection);// Necessary for correctionMatrix hack
 
             double hscore = curNode.getConfLowerBound(bound.sequence) - node.getPartialConfLowerBound();
@@ -878,7 +878,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         assert (curNode != null && node != null);
 
         Node parentNode = curNode.getParentConfSearchNode(); //Necessary for correctionMatrix hack
-        double parentConfCorrection = correctionMatrix.confE(parentNode.assignments); // Necessary for correctionMatrix hack
+        double parentConfCorrection = correctionMatrix.getCorrection(parentNode.assignments); // Necessary for correctionMatrix hack
         double confCorrection = correctionMatrix.confE(node.assignments, parentConfCorrection);
 
         if (node.getPartialConfLowerBound() < confCorrection) {
@@ -906,7 +906,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             ScoreContext context = checkout.get();
             node.index(context.index);
             //Store the parent conf correction for later use
-            double parentConfCorrection = correctionMatrix.confE(node.assignments); // Necessary for correctionMatrix hack
+            double parentConfCorrection = correctionMatrix.getCorrection(node.assignments); // Necessary for correctionMatrix hack
 
             // which pos to expand next?
             int nextPos = order.getNextPos(context.index, RCs);
@@ -1180,7 +1180,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             System.out.println("Gotcha-processPartial");
 
         //Store parent conf correction for future use
-        double parentConfCorrection = correctionMatrix.confE(node.assignments); // Necessary for correctionMatrix hack
+        double parentConfCorrection = correctionMatrix.getCorrection(node.assignments); // Necessary for correctionMatrix hack
 
         // score child nodes with tasks (possibly in parallel)
         List<MultiSequenceSHARKStarNode> children = new ArrayList<>();
@@ -1350,7 +1350,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             return;
         }
         Node parentConfNode = curNode.getParentConfSearchNode(); // Necessary for correctionMatrix hack
-        double parentConfCorrection = correctionMatrix.confE(parentConfNode.assignments); // Necessary for correctionMatrix hack
+        double parentConfCorrection = correctionMatrix.getCorrection(parentConfNode.assignments); // Necessary for correctionMatrix hack
         double confCorrection = correctionMatrix.confE(node.assignments, parentConfCorrection);// Necessary for correctionMatrix hack
 
         if (curNode.getConfLowerBound(bound.sequence) < confCorrection || node.getPartialConfLowerBound() < confCorrection) {

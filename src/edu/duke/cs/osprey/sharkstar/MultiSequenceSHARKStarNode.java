@@ -268,6 +268,10 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public Node getParentConfSearchNode(){
+        // Hack for root node
+        if (parent == null){
+            return getConfSearchNode();
+        }
         return parent.getConfSearchNode();
     }
 
