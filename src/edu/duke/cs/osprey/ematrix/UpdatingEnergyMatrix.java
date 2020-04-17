@@ -93,6 +93,12 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             return out;
     }
 
+    public double confE(int conf[], double parentCorrect){
+        /**
+         * Due to the greedy edge case, we need to ensure that our corrections never decrease
+         */
+        return Math.max(getInternalEnergy(new RCTuple(conf)), parentCorrect) + constTerm;
+    }
 
     public double getInternalEnergy(RCTuple tup){
         //internal energy of a tuple of residues when they're in the specified RCs

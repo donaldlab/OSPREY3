@@ -59,7 +59,7 @@ public class EnergyMatrix extends TupleMatrixDouble implements FragmentEnergies 
 		ObjectIO.write(emat, file);
 	}
 
-	private double constTerm = 0;
+	protected double constTerm = 0;
     
     //we may want to have reference energies associated with this matrix
     private ReferenceEnergies eRefMat = null;

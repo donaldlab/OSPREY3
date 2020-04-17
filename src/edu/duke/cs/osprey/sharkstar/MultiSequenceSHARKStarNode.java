@@ -267,6 +267,10 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return confSearchNode;
     }
 
+    public Node getParentConfSearchNode(){
+        return parent.getConfSearchNode();
+    }
+
     public MultiSequenceSHARKStarNode makeOrUpdateChild(Node child, Sequence seq, double lowerBound, double upperBound,
                                                         SimpleConfSpace.Position designPosition,
                                                         SimpleConfSpace.Position nextDesignPosition) {
