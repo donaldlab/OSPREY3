@@ -304,13 +304,13 @@ public class ClusterLab {
 			// mutable
 			protein.flexibility.get("B123").setLibraryRotamers("ARG").setContinuous();
 			protein.flexibility.get("B125").setLibraryRotamers("HIP").setContinuous();
-			protein.flexibility.get("B126").setLibraryRotamers("HIP").addWildTypeRotamers().setContinuous();
-			protein.flexibility.get("B129").setLibraryRotamers("ARG").addWildTypeRotamers().setContinuous();
-			protein.flexibility.get("B130").setLibraryRotamers("ARG").addWildTypeRotamers().setContinuous();
-			protein.flexibility.get("B133").setLibraryRotamers("THR").addWildTypeRotamers().setContinuous();
-			protein.flexibility.get("B134").setLibraryRotamers("HIP").addWildTypeRotamers().setContinuous();
-			protein.flexibility.get("B136").setLibraryRotamers("ARG").addWildTypeRotamers().setContinuous();
-			protein.flexibility.get("B138").setLibraryRotamers("ARG").addWildTypeRotamers().setContinuous();
+			protein.flexibility.get("B126").setLibraryRotamers("HIP").setContinuous();
+			protein.flexibility.get("B129").setLibraryRotamers("ARG").setContinuous();
+			protein.flexibility.get("B130").setLibraryRotamers("ARG").setContinuous();
+			protein.flexibility.get("B133").setLibraryRotamers("THR").setContinuous();
+			protein.flexibility.get("B134").setLibraryRotamers("HIP").setContinuous();
+			protein.flexibility.get("B136").setLibraryRotamers("ARG").setContinuous();
+			protein.flexibility.get("B138").setLibraryRotamers("ARG").setContinuous();
 			// flexible
 			protein.flexibility.get("B124").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
 			protein.flexibility.get("B139").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
