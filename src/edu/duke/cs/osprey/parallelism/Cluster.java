@@ -189,6 +189,14 @@ public class Cluster {
 			throw new UnsupportedOperationException("Member nodes accept tasks from the Client node, not the TaskExecutor interface");
 		}
 
+		/* TODO: there's a big flaw in the design of the ContextGroup!!
+		    Member nodes start their processing loop on the close() of the ContextGroup().
+		    But if the try block throws an exception,
+		    the ContextGroup.close() starts the processing loop anyway, which is wrong.
+		    Java doesn't give us a way to tell inside a close() if an exception was thrown in the try block or not.
+		    So the try-with-resources mechanism is totally inappropriate for this purpose.
+		    Need to find another mechanism to synchronize blocks of code across the cluster!
+		*/
 		private class ContextGroup extends TaskExecutor.ContextGroup {
 
 			private final int contextGroupId = nextContextGroupId++;

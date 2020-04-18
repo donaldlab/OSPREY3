@@ -300,6 +300,8 @@ public class TestMARKStar {
 	}
 
 	private void breakdownEnergies(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
+		throw new Error();
+    	/* TEMP: doesn't compile
 		EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
 				.setParallelism(Parallelism.makeCpu(4))
 				.build();
@@ -322,6 +324,7 @@ public class TestMARKStar {
 		System.out.println(analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.Solvation));
 		System.out.println("Offsets:");
 		System.out.println(analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.Offsets));
+    	*/
 	}
 
 	@Test

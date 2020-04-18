@@ -221,10 +221,11 @@ public class ClusterLab {
 
 				info.pfuncFactory = rcs -> new GradientDescentPfunc(
 					info.confEcalc,
-					new ConfAStarTree.Builder(emat, rcs)
+					// HACKHACK: don't make A* trees on member nodes, we don't have the energy matrix
+					cluster.nodeId > 0 ? null : new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
 						.build(),
-					new ConfAStarTree.Builder(emat, rcs)
+					cluster.nodeId > 0 ? null : new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
 						.build(),
 					rcs.getNumConformations()

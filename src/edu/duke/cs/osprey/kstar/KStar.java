@@ -45,6 +45,8 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.util.*;
 
+import static edu.duke.cs.osprey.tools.Log.log;
+
 
 /**
  * Implementation of the K* algorithm to predict protein sequence mutations that improve
@@ -537,6 +539,11 @@ public class KStar {
 
 				return scores;
 			}}}
+		// TEMP: explicitly dump exceptions now,
+		//  before the member nodes have a chance to enter their processing loops
+		} catch (Throwable t) {
+			t.printStackTrace();
+			throw new Error("FAILED");
 		}
 	}
 }

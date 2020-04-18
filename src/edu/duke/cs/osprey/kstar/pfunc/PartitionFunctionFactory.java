@@ -108,6 +108,8 @@ public class PartitionFunctionFactory {
     }
 
     public PartitionFunction makePartitionFunctionFor(RCs rcs, BigInteger confSpaceSize, double epsilon, PruningMatrix pmat) {
+		throw new Error();
+    	/* TEMP: doesn't compile
         PartitionFunction pfunc = null;
         switch (pfuncImpl) {
             case GradientDescent:
@@ -136,7 +138,7 @@ public class PartitionFunctionFactory {
                 break;
         }
         return pfunc;
-
+		*/
     }
 
     private EnergyMatrix makeEmat(ConfEnergyCalculator confECalc) {
@@ -163,6 +165,7 @@ public class PartitionFunctionFactory {
         return emats.get(confEcalc);
     }
 
+	/* TEMP: doesn't compile
     public static KStar.ConfSearchFactory makeConfSearchFactory(ConfEnergyCalculator confEcalc) {
         EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
                 .build()
@@ -172,6 +175,7 @@ public class PartitionFunctionFactory {
                         .setTraditional()
                         .build();
     }
+    */
 
     public void setCachePattern(String pattern){
         cachePattern = pattern;
