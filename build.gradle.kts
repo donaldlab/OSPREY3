@@ -130,6 +130,7 @@ dependencies {
 	implementation("org.joml:joml:1.9.19")
 	implementation("org.tukaani:xz:1.8")
 	implementation("com.hazelcast:hazelcast:4.0")
+	implementation("net.java.dev.jna:jna:5.5.0")
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
 	// so turn off transitive dependencies. we'll deal with natives manually
@@ -177,6 +178,42 @@ dependencies {
 	listOf("linux-x86_64", "apple-x86_64", "windows-x86_64").forEach {
 		runtimeOnly("org.jcuda:jcuda-natives:0.8.0:$it")
 	}
+}
+
+// add the module dependencies directly to the javac args
+// I don't think gradle has a good way to handle this yet?
+val moduleArgs = listOf(
+	"--add-modules=jdk.incubator.foreign"
+)
+// TODO: add the module args for distributions too?
+
+tasks.withType<JavaExec> {
+	doFirst {
+
+		// add the module args, if not already there
+		for (arg in moduleArgs) {
+			if (arg !in jvmArgs!!) {
+				jvmArgs!!.add(arg)
+			}
+		}
+
+		// make Gradle dump the java command to the console when running
+		// since IntelliJ doesn't do it when using Gradle as the runner
+		val jvmArgsStr = jvmArgs!!.joinToString(" ")
+		val classpathStr = classpath.joinToString(File.pathSeparatorChar.toString())
+		val argsStr = args!!.joinToString(" ")
+		println("""
+			|Java:
+			|	$workingDir
+			|	$executable
+			|	$jvmArgsStr -cp "$classpathStr" $main $argsStr
+		""".trimMargin())
+	}
+}
+
+
+tasks.withType<JavaCompile> {
+	options.compilerArgs.addAll(moduleArgs)
 }
 
 tasks.withType<Test> {

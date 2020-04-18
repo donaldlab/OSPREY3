@@ -1,11 +1,9 @@
 package edu.duke.cs.osprey;
 
 
-import cuchaz.warpdrive.WarpDrive;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.compiled.PosInter;
-import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
+import edu.duke.cs.osprey.confspace.compiled.*;
 import edu.duke.cs.osprey.confspace.compiled.TestConfSpace;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.compiled.EmatCalculator;
@@ -14,6 +12,7 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 
 import java.util.List;
@@ -25,17 +24,18 @@ public class BenchmarkEnergies {
 
 	public static void main(String[] args) {
 
-		// TEMP
-		WarpDrive.INSTANCE.warp("workbox");
-
 		// make the conf spaces
 		TestConfSpace.AffinityClassic classic = TestConfSpace.Design2RL0Interface7Mut.makeClassic();
 		TestConfSpace.AffinityCompiled compiled = TestConfSpace.Design2RL0Interface7Mut.makeCompiled();
 
 		//benchmarkEcalcCpu(classic, compiled);
-		benchmarkEmatCpu(classic, compiled);
+		//benchmarkEmatCpu(classic, compiled);
 
+		nativeLab(compiled);
+
+		// TODO: with static-static energies on compiled ecalcs?
 		// TODO: pfuncs
+		// TODO: native
 		// TODO: GPUs
 	}
 
@@ -177,5 +177,15 @@ public class BenchmarkEnergies {
 			});
 			log("\t%10s: %s", "compiled", bmCompiledMinimized.toString(bmClassicMinimized));
 		}
+	}
+
+	private static void nativeLab(TestConfSpace.AffinityCompiled compiled) {
+
+		var confEcalc = new NativeConfEnergyCalculator(compiled.complex, NativeConfEnergyCalculator.Precision.Double);
+
+		// compare the coords
+		int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };
+		CoordsList obs = confEcalc.assign(conf);
+		CoordsList exp = new AssignedCoords(confEcalc.confSpace, conf).coords;
 	}
 }

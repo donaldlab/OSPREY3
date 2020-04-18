@@ -167,6 +167,8 @@ public class ConfSpace implements ConfSpaceIteration {
 	public final double[] staticEnergies;
 
 	public final Pos[] positions;
+	public final int maxNumConfAtoms;
+	public final int[] confAtomOffsetsByPos;
 	public final SeqSpace seqSpace;
 
 	public class IndicesStatic {
@@ -551,6 +553,15 @@ public class ConfSpace implements ConfSpaceIteration {
 				confs
 			);
 		}
+
+		// compute the conf atoms offsets
+		confAtomOffsetsByPos = new int[positions.length];
+		int maxNumConfAtoms = staticCoords.size;
+		for (ConfSpace.Pos pos : positions) {
+			confAtomOffsetsByPos[pos.index] = maxNumConfAtoms;
+			maxNumConfAtoms += pos.maxNumAtoms;
+		}
+		this.maxNumConfAtoms = maxNumConfAtoms;
 
 		// read the static forcefield params
 		indicesStatic = new IndicesStatic[forcefieldIds.length];

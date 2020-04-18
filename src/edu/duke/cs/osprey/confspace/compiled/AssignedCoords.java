@@ -19,13 +19,10 @@ import java.util.function.Supplier;
  */
 public class AssignedCoords {
 
-
 	public final ConfSpace confSpace;
 
 	/** conf indices for the design positions, in order */
 	public final int[] assignments;
-
-	private final int[] atomOffsetsByPos;
 
 	/** atom coords for the static atoms and the conformation atoms */
 	public final CoordsList coords;
@@ -38,16 +35,7 @@ public class AssignedCoords {
 		this.confSpace = confSpace;
 		this.assignments = assignments;
 
-		// how many atoms do we need for conformation coords?
-		// (also compute conformation atom offets)
-		atomOffsetsByPos = new int[confSpace.positions.length];
-		int numConfCoords = 0;
-		for (ConfSpace.Pos pos : confSpace.positions) {
-			atomOffsetsByPos[pos.index] = confSpace.staticCoords.size + numConfCoords;
-			numConfCoords += pos.maxNumAtoms;
-		}
-
-		coords = new CoordsList(confSpace.staticCoords.size + numConfCoords);
+		coords = new CoordsList(confSpace.maxNumConfAtoms);
 
 		// copy over the static atoms first, so DoFs can modify them
 		coords.copyFrom(confSpace.staticCoords, 0);
@@ -63,7 +51,7 @@ public class AssignedCoords {
 			ConfSpace.Conf conf = pos.confs[confi];
 
 			// copy over the coords
-			coords.copyFrom(conf.coords, atomOffsetsByPos[pos.index]);
+			coords.copyFrom(conf.coords, confSpace.confAtomOffsetsByPos[pos.index]);
 		}
 
 		dofs = new ArrayList<>();
@@ -147,7 +135,7 @@ public class AssignedCoords {
 	}
 
 	public int getConfIndex(int posi, int atomi) {
-		return atomOffsetsByPos[posi] + atomi;
+		return confSpace.confAtomOffsetsByPos[posi] + atomi;
 	}
 
 	/**

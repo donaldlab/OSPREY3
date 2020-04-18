@@ -1,8 +1,8 @@
 package edu.duke.cs.osprey.confspace.compiled;
 
-
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
+
 
 /**
  * A supremely efficient representation for atomic coordinates.
@@ -67,5 +67,30 @@ public class CoordsList {
 
 	public void copyFrom(CoordsList src, int destIndex) {
 		System.arraycopy(src.coords, 0, coords, destIndex*3, src.size*3);
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		return other instanceof CoordsList && equals((CoordsList)other);
+	}
+
+	public boolean equals(CoordsList other) {
+
+		if (this.size != other.size) {
+			return false;
+		}
+
+		for (int i=0; i<coords.length; i++) {
+			if (this.coords[i] != other.coords[i]) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	@Override
+	public String toString() {
+		return String.format("CoordsList[n=%d]", size);
 	}
 }
