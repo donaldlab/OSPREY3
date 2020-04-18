@@ -50,6 +50,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -79,6 +80,21 @@ public class TestMARKStarDesignProblems {
         try {
             ConfSpaces confSpaces = loadSSFromCFS("examples/python.KStar/5ucf.cfs");
             runMARKStar(confSpaces, 0.01);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testCOVID19_small() {
+
+    }
+
+    @Test
+    public void testCOVID19() {
+        try {
+            ConfSpaces confSpaces = loadFromCFS("test-resources/SARS2RBD_peptide_79.cfs");
+            runBBKStar(confSpaces, 5, 0.68, null, 10, true);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
