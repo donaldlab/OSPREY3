@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey;
 
-import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
@@ -9,11 +8,8 @@ import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.*;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.kstar.KStar;
-import edu.duke.cs.osprey.kstar.KStarScoreWriter;
+import edu.duke.cs.osprey.gmec.MALEEC;
 import edu.duke.cs.osprey.kstar.TestKStar;
-import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
@@ -26,7 +22,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -49,9 +44,9 @@ public class ClusterLab {
 		SLF4JBridgeHandler.removeHandlersForRootLogger();
 		SLF4JBridgeHandler.install();
 
-		//forkCluster();
+		forkCluster();
 		//multiProcessCluster(args);
-		slurmCluster();
+		//slurmCluster();
 	}
 
 	private static void forkCluster()
@@ -59,8 +54,8 @@ public class ClusterLab {
 
 		final String clusterName = "ForkCluster";
 		final String jobId = "fork";
-		final int numNodes = 2;
-		final boolean clientIsMember = false;
+		final int numNodes = 1;
+		final boolean clientIsMember = true;
 
 		// if this is a fork, jump to the fork code
 		String idStr = System.getProperty("fork.id");
@@ -163,7 +158,8 @@ public class ClusterLab {
 			.setParallelism(parallelism)
 			.build()) {
 
-			// run K*
+			/* run K*
+				or not. LEEC to the rescue!!
 			KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) -> {
 
 				Function<PartitionFunction.Result,String> formatPfunc = (pfuncResult) -> {
@@ -234,6 +230,41 @@ public class ClusterLab {
 
 			// run K*
 			kstar.run(ecalc.tasks);
+			*/
+
+			// we want the complex conf space, right?
+			SimpleConfSpace confSpace = confSpaces.complex;
+			
+			// pick your favorite sequence
+			Sequence seq = confSpace.seqSpace.makeWildTypeSequence()
+				.set("G649", "LEU")
+				.set("G654", "SER");
+
+			// compute reference energies locally on each node
+			SimpleReferenceEnergies eref;
+			try (EnergyCalculator localEcalc = ecalc.local()) {
+				eref = new SimplerEnergyMatrixCalculator.Builder(confSpace, localEcalc)
+					.build()
+					.calcReferenceEnergies();
+			}
+
+			// how should we define energies of conformations?
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+				.setReferenceEnergies(eref)
+				.build();
+
+			// calc the energy matrix
+			// PROTIP: If your conformation space has only one sequence in it,
+			// emat calculation this will go waaaay faster
+			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+				.setCacheFile(new File("maleek.emat"))
+				// TODO: turn on all the fancy options
+				.build()
+				.calcEnergyMatrix();
+
+			// massively awesome low-energy ensemble calculator
+			MALEEC maleec = new MALEEC(ecalc.tasks, confEcalc, emat);
+			maleec.doEeet(seq, 10, 60);
 		}
 
 		if (cluster.nodeId > 0) {
