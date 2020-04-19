@@ -133,6 +133,8 @@ public interface TupleMatrix<T> {
 				int rc1 = tuple.RCs.get(0);
 				int pos2 = tuple.pos.get(1);
 				int rc2 = tuple.RCs.get(1);
+				assert (pos1 < pos2); // just in case ...
+				assert (pos2 < tuple.pos.get(2));
 				TupleTree<T> tree = getHigherOrderTuples(pos1, rc1, pos2, rc2);
 				if (tree != null) {
 					return tree.get(tuple);

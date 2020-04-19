@@ -140,7 +140,9 @@ public class SimplerEnergyMatrixCalculator {
 
 		// make a context group for the task executor
 		try (TaskExecutor.ContextGroup ctxGroup = confEcalc.tasks.contextGroup()) {
-			ctxGroup.putContext(0, BatchTask.class, new BatchTask.Context(confEcalc));
+			var ctx = new TaskContext(confEcalc);
+			ctxGroup.putContext(0, BatchTask.class, ctx);
+			ctxGroup.putContext(0, TripleTask.class, ctx);
 
 			// skip the calculation on member nodes
 			if (confEcalc.tasks instanceof Cluster.Member) {
@@ -286,16 +288,16 @@ public class SimplerEnergyMatrixCalculator {
 		return emat;
 	}
 
-	private static class BatchTask extends Cluster.Task<List<Double>,BatchTask.Context> {
+	static class TaskContext {
 
-		static class Context {
+		ConfEnergyCalculator confEcalc;
 
-			ConfEnergyCalculator confEcalc;
-
-			public Context(ConfEnergyCalculator confEcalc) {
-				this.confEcalc = confEcalc;
-			}
+		public TaskContext(ConfEnergyCalculator confEcalc) {
+			this.confEcalc = confEcalc;
 		}
+	}
+
+	private static class BatchTask extends Cluster.Task<List<Double>,TaskContext> {
 
 		List<RCTuple> fragments;
 
@@ -305,7 +307,7 @@ public class SimplerEnergyMatrixCalculator {
 		}
 
 		@Override
-		public List<Double> run(Context ctx) {
+		public List<Double> run(TaskContext ctx) {
 
 			// calculate all the fragment energies
 			List<Double> energies = new ArrayList<>();
@@ -381,12 +383,11 @@ public class SimplerEnergyMatrixCalculator {
 									continue;
 								}
 
-								ResidueInteractions inters = confEcalc.makeTripleCorrectionInters(pos1, rc1, pos2, rc2, pos3, rc3);
 								double tripleEnergyOffset = confEcalc.epart.offsetTripleEnergy(pos1, rc1, pos2, rc2, pos3, rc3, emat);
 
 								// calc the energy
 								confEcalc.tasks.submit(
-									() -> confEcalc.calcEnergy(triple, inters).energy,
+									new TripleTask(triple),
 									(tripleEnergy) -> {
 
 										// convert the triple energy into a correction
@@ -413,6 +414,26 @@ public class SimplerEnergyMatrixCalculator {
 		confEcalc.tasks.waitForFinish();
 
 		log("calculated %d/%d useful triple corrections", numCorrections[0], progress.getTotalWork());
+	}
+
+	private static class TripleTask extends Cluster.Task<Double,TaskContext> {
+
+		final RCTuple triple;
+
+		public TripleTask(RCTuple triple) {
+			super(0);
+			this.triple = triple;
+		}
+
+		@Override
+		public Double run(TaskContext ctx) {
+			ResidueInteractions inters = ctx.confEcalc.makeTripleCorrectionInters(
+				triple.pos.get(0), triple.RCs.get(0),
+				triple.pos.get(1), triple.RCs.get(1),
+				triple.pos.get(2), triple.RCs.get(2)
+			);
+			return ctx.confEcalc.calcEnergy(triple, inters).energy;
+		}
 	}
 
 	private void calcQuadCorrections(EnergyMatrix emat) {

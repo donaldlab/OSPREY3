@@ -2,6 +2,9 @@ package edu.duke.cs.osprey.gmec;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.scoring.HigherOrderGScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -10,12 +13,16 @@ import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.JvmMem;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.Streams;
 
 import java.io.File;
+import java.io.Serializable;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
@@ -47,33 +54,44 @@ public class MALEEC {
 	 * LEEEEEEROOYYYY!!!
 	 */
 	// at least I've got chicken
-	public void doEeet(Sequence seq, int maxNumConfs, int outputIntervalSeconds) {
+	public void doEeet(Sequence seq, int numConfs, int outputIntervalSeconds) {
 
 		long outputIntervalNs = outputIntervalSeconds * 1_000_000_000L;
 
 		try (TaskExecutor.ContextGroup contexts = tasks.contextGroup()) {
 
 			// set up task contexts
-			contexts.putContext(0, EnergyTask.class, new EnergyTask.Context(confEcalc));
+			contexts.putContext(0, EnergyTask.class, new TaskContext(confEcalc));
+			contexts.putContext(0, ConfTask.class, new TaskContext(confEcalc));
 
 			// skip the calculation on member nodes
 			if (tasks instanceof Cluster.Member) {
 				return;
 			}
 
-			// configure A* to go BRRRRRRR
+			// make A* go BRRRRRRR
 			RCs rcs = seq.makeRCs(confEcalc.confSpace);
 			ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
-				.setTraditional() // TODO: update A* to use triples and quads
+				.setCustom(
+					new DynamicHMeanAStarOrder(MathTools.Optimizer.Minimize),
+					new HigherOrderGScorer(emat),
+					// TODO: the H-scorer is a bottleneck, needs to be optimized
+					//new TriplewiseHScorer(emat)
+					// luckily, the usual pairwise H-scorer is still a decently fast heuristic,
+					// even with the higher-order G-scorer!
+					// but it will cause A* to eat more memory than usual =(
+					new TraditionalPairwiseHScorer(emat, rcs)
+				)
 				.build();
 
 			Stats stats = new Stats();
 
-			// make an extra thread to collect the ensembles
+			log("Searching for %d lowest-energy conformations", numConfs);
+
+			Stopwatch stopwatch = new Stopwatch().start();
+
 			try (ThreadPoolTaskExecutor ensembleTasks = new ThreadPoolTaskExecutor()) {
 				ensembleTasks.start(1);
-
-				Stopwatch stopwatch = new Stopwatch().start();
 
 				AtomicBoolean keepSearching = new AtomicBoolean(true);
 				while (keepSearching.get()) {
@@ -95,9 +113,24 @@ public class MALEEC {
 							stats.maxScore = conf.getScore();
 
 							// write the output ensemble if needed
-							if (nowNs > stats.lastOutputNs + outputIntervalNs) {
-								writeEnsemble(ensembleTasks, seq, stats.bestConfs.values());
-								stats.lastOutputNs = nowNs;
+							if (stats.needsOutput && nowNs > stats.lastOutputNs + outputIntervalNs) {
+
+								// copy the confs before giving them to another thread
+								var bestConfs = new ArrayList<>(stats.bestConfs.values());
+
+								ensembleTasks.submit(
+									() -> {
+										writeEnsemble(seq, bestConfs);
+										return 42; // it's the answer
+									},
+									answer -> {
+										synchronized (stats) { // don't race the main thread
+											stats.lastOutputNs = System.nanoTime();
+											stats.needsOutput = true;
+										}
+									}
+								);
+								stats.needsOutput = false;
 							}
 						}
 					}
@@ -115,13 +148,23 @@ public class MALEEC {
 
 								// update the best confs
 								stats.bestConfs.put(econf.getEnergy(), econf);
-								while (stats.bestConfs.size() > maxNumConfs) {
+								while (stats.bestConfs.size() > numConfs) {
 									stats.bestConfs.pollLastEntry();
+								}
+
+								// show every minimization?
+								if (false) {
+									log("conf %10d   score %12.6f   energy %12.6f   gap %12.6f",
+										stats.numConfsEnergied,
+										econf.getScore(),
+										econf.getEnergy(),
+										econf.getEnergy() - econf.getScore()
+									);
 								}
 
 								// should we show progress?
 								long nowNs = System.nanoTime();
-								final double reportIntervalS = 1.0;
+								final double reportIntervalS = 5.0;
 								final long reportIntervalNs = (long)(reportIntervalS * 1e9);
 								if (nowNs > stats.lastReportNs + reportIntervalNs) {
 
@@ -152,7 +195,7 @@ public class MALEEC {
 								}
 
 								// if all the best confs have energies below the max score, we're done
-								boolean isDone = stats.bestConfs.size() >= maxNumConfs
+								boolean isDone = stats.bestConfs.size() >= numConfs
 									&& stats.bestConfs.keySet().stream().allMatch(energy -> energy < stats.maxScore);
 								if (isDone) {
 									keepSearching.set(false);
@@ -163,14 +206,14 @@ public class MALEEC {
 				}
 
 				tasks.waitForFinish();
+				ensembleTasks.waitForFinish();
 
 				log("Found %d lowest-energy confs in %s! We're done here!",
-					maxNumConfs, stopwatch.stop().getTime(2)
+					numConfs, stopwatch.stop().getTime(2)
 				);
 
 				// write the ensemble one final time
-				writeEnsemble(ensembleTasks, seq, stats.bestConfs.values());
-				ensembleTasks.waitForFinish();
+				writeEnsemble(seq, stats.bestConfs.values());
 			}
 
 		} catch (Throwable t) {
@@ -190,18 +233,19 @@ public class MALEEC {
 		long lastReportConfsEnergied = 0;
 		Deque<Long> confsEnergiedHistory = new ArrayDeque<>();
 		long lastOutputNs = System.nanoTime();
+		boolean needsOutput = true;
 	}
 
-	private static class EnergyTask extends Cluster.Task<ConfSearch.EnergiedConf,EnergyTask.Context> {
+	private static class TaskContext {
 
-		static class Context {
+		final ConfEnergyCalculator confEcalc;
 
-			final ConfEnergyCalculator confEcalc;
-
-			public Context(ConfEnergyCalculator confEcalc) {
-				this.confEcalc = confEcalc;
-			}
+		public TaskContext(ConfEnergyCalculator confEcalc) {
+			this.confEcalc = confEcalc;
 		}
+	}
+
+	private static class EnergyTask extends Cluster.Task<ConfSearch.EnergiedConf,TaskContext> {
 
 		final ConfSearch.ScoredConf conf;
 
@@ -211,54 +255,97 @@ public class MALEEC {
 		}
 
 		@Override
-		public ConfSearch.EnergiedConf run(Context ctx) {
+		public ConfSearch.EnergiedConf run(TaskContext ctx) {
 			return ctx.confEcalc.calcEnergy(conf);
 		}
 	}
 
-	private void writeEnsemble(TaskExecutor tasks, Sequence seq, Collection<ConfSearch.EnergiedConf> econfs) {
+	private static class ConfResult implements Serializable {
 
-		// copy the confs for the task thread
-		var econfsCopy = new ArrayList<>(econfs);
+		final double[][] coords;
+		final double energy;
 
-		tasks.submit(
-			() -> {
-				log("Collecting latest ensemble ...");
+		public ConfResult(EnergyCalculator.EnergiedParametricMolecule epmol) {
 
-				// sort the confs by energy
-				List<EnergyCalculator.EnergiedParametricMolecule> epmols = econfsCopy.stream()
-					.sorted(Comparator.comparing(econf -> econf.getEnergy()))
-					.map(econf -> {
-						RCTuple tuple = new RCTuple(econf.getAssignments());
-						return confEcalc.calcEnergy(tuple);
-					})
-					.collect(Collectors.toList());
+			// gather all the residue coords, for simple serialization
+			coords = new double[epmol.pmol.mol.residues.size()][];
+			for (Residue res : epmol.pmol.mol.residues) {
+				coords[res.indexInMolecule] = res.coords;
+			}
 
-				// get a useful id for the sequence
-				String seqId = Streams.of(seq.assignments())
-					.filter(assignment -> assignment.isMutated())
-					.map(assignment -> ResNum.render(assignment) + "=" + ResTypeMutations.render(assignment))
-					.collect(Collectors.joining(" "));
-				if (seqId.isEmpty()) {
-					seqId = "wild-type";
+			this.energy = epmol.energy;
+		}
+
+		public EnergyCalculator.EnergiedParametricMolecule makeEpmol(ParametricMolecule pmol) {
+			for (Residue res : pmol.mol.residues) {
+				res.coords = coords[res.indexInMolecule];
+			}
+			return new EnergyCalculator.EnergiedParametricMolecule(pmol, null, energy);
+		}
+	}
+
+	private static class ConfTask extends Cluster.Task<ConfResult,TaskContext> {
+
+		final ConfSearch.ScoredConf conf;
+
+		ConfTask(ConfSearch.ScoredConf conf) {
+			super(0);
+			this.conf = conf;
+		}
+
+		@Override
+		public ConfResult run(TaskContext ctx) {
+			return new ConfResult(ctx.confEcalc.calcEnergy(new RCTuple(conf.getAssignments())));
+		}
+	}
+
+	private void writeEnsemble(Sequence seq, Collection<ConfSearch.EnergiedConf> econfs) {
+
+		log("Collecting latest ensemble ...");
+
+		CountDownLatch latch = new CountDownLatch(econfs.size());
+
+		// minimize all the conformations (again) to get the coords
+		List<EnergyCalculator.EnergiedParametricMolecule> epmols = new ArrayList<>(econfs.size());
+		for (ConfSearch.EnergiedConf econf : econfs) {
+			tasks.submit(
+				new ConfTask(econf),
+				confResult -> {
+					epmols.add(confResult.makeEpmol(confEcalc.confSpace.makeMolecule(econf)));
+					latch.countDown();
 				}
+			);
+		}
 
-				// convert the sequence into a filename
-				File file = new File(String.format("seq.%s.pdb", seqId));
+		// wait for the minimizations to finish
+		// NOTE: can't use tasks.waitForFinish() here, since the main thread is still using tasks
+		try {
+			latch.await();
+		} catch (InterruptedException ex) {
+			throw new RuntimeException("interrupted waiting for ensemble minimizations", ex);
+		}
 
-				// write the PDB
-				PDBIO.writeFile(
-					epmols, file,
-					String.format("Ensemble of %d lowest-energy conformations for sequence: %s",
-						econfsCopy.size(), seq.toString(Sequence.Renderer.AssignmentMutations)
-					)
-				);
+		// sort the confs by energy
+		epmols.sort(Comparator.comparing(epmol -> epmol.energy));
 
-				log("Wrote sequences ensemble to %s", file.getAbsolutePath());
+		// get a useful id for the sequence
+		String seqId = Streams.of(seq.assignments())
+			.filter(assignment -> assignment.isMutated())
+			.map(assignment -> ResNum.render(assignment) + "=" + ResTypeMutations.render(assignment))
+			.collect(Collectors.joining(" "));
+		if (seqId.isEmpty()) {
+			seqId = "wild-type";
+		}
 
-				return 42; // it's the answer
-			},
-			answer -> {} // don't need the listener thread here
+		// write the PDB
+		File file = new File(String.format("seq.%s.pdb", seqId));
+		PDBIO.writeFile(
+			epmols, file,
+			String.format("Ensemble of %d lowest-energy conformations for sequence: %s",
+				epmols.size(), seq.toString(Sequence.Renderer.AssignmentMutations)
+			)
 		);
+
+		log("Wrote sequences ensemble to %s", file.getAbsolutePath());
 	}
 }

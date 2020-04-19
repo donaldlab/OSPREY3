@@ -44,9 +44,9 @@ public class ClusterLab {
 		SLF4JBridgeHandler.removeHandlersForRootLogger();
 		SLF4JBridgeHandler.install();
 
-		forkCluster();
+		//forkCluster();
 		//multiProcessCluster(args);
-		//slurmCluster();
+		slurmCluster();
 	}
 
 	private static void forkCluster()
@@ -136,22 +136,25 @@ public class ClusterLab {
 
 		Stopwatch stopwatch = new Stopwatch().start();
 
-		Parallelism parallelism = Parallelism.makeCpu(4);
-
-		// set up a toy design
-		TestKStar.ConfSpaces confSpaces = null;
-		SourceConfSpace source = SourceConfSpace.Test2RL0;
-		switch (source) {
-			case Test2RL0:
-			// set up a toy design
-			confSpaces = TestKStar.make2RL0();
-			break;
-			case TestCOVIDSmall:
-			confSpaces = TestCOVID.makeCOVIDSmall();
-			break;
-			case TestCOVIDActual:
-			confSpaces = TestCOVID.makeMakeCOVIDActual();
+		int threads;
+		try {
+			// try to read the threads from SLURM, if possible
+			threads = Integer.parseInt(System.getenv("SLURM_CPUS_PER_TASK"));
+		} catch (Throwable t) {
+			threads = 4;
 		}
+		Parallelism parallelism = Parallelism.makeCpu(threads);
+
+		if (cluster.nodeId > 0) {
+			log("MEMBER %d: started with %d threads", cluster.nodeId, threads);
+		} else {
+			log("CLIENT: started with %d threads", threads);
+		}
+
+		//TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
+		//TestKStar.ConfSpaces confSpaces = TestCOVID.makeCOVIDSmall();
+		//TestKStar.ConfSpaces confSpaces = TestCOVID.makeMakeCOVIDComplexMedium();
+		TestKStar.ConfSpaces confSpaces = TestCOVID.makeMakeCOVIDActual();
 
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.asList(), confSpaces.ffparams)
 			.setCluster(cluster)
@@ -159,7 +162,7 @@ public class ClusterLab {
 			.build()) {
 
 			/* run K*
-				or not. LEEC to the rescue!!
+				or not. MALEEC to the rescue!!
 			KStarScoreWriter.Formatter testFormatter = (KStarScoreWriter.ScoreInfo info) -> {
 
 				Function<PartitionFunction.Result,String> formatPfunc = (pfuncResult) -> {
@@ -234,11 +237,22 @@ public class ClusterLab {
 
 			// we want the complex conf space, right?
 			SimpleConfSpace confSpace = confSpaces.complex;
-			
+
 			// pick your favorite sequence
-			Sequence seq = confSpace.seqSpace.makeWildTypeSequence()
-				.set("G649", "LEU")
-				.set("G654", "SER");
+			Sequence seq = confSpace.seqSpace.makeUnassignedSequence()
+				.set("B123", "ARG")
+				.set("B125", "HIP")
+				.set("B126", "HIP") // hooray!
+				//.set("B129", "ARG") same as wt, seq space sees it as merely flexible residue
+				.set("B130", "ARG")
+				.set("B133", "THR")
+				.set("B134", "HIP")
+				.set("B136", "ARG")
+				.set("B138", "ARG");
+
+			if (!seq.isFullyAssigned()) {
+				throw new Error();
+			}
 
 			// compute reference energies locally on each node
 			SimpleReferenceEnergies eref;
@@ -251,20 +265,21 @@ public class ClusterLab {
 			// how should we define energies of conformations?
 			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
 				.setReferenceEnergies(eref)
+				.setEnergyPartition(EnergyPartition.AllOnPairs) // get tigher lower bounds on energies!
 				.build();
 
 			// calc the energy matrix
 			// PROTIP: If your conformation space has only one sequence in it,
-			// emat calculation this will go waaaay faster
+			// emat calculation will go waaaay faster
 			EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-				.setCacheFile(new File("maleek.emat"))
-				// TODO: turn on all the fancy options
+				.setCacheFile(new File("maleec.emat"))
+				//.setTripleCorrectionThreshold(1.0)
 				.build()
 				.calcEnergyMatrix();
 
 			// massively awesome low-energy ensemble calculator
 			MALEEC maleec = new MALEEC(ecalc.tasks, confEcalc, emat);
-			maleec.doEeet(seq, 10, 60);
+			maleec.doEeet(seq, 50, 60*10 /* 10 minutes */);
 		}
 
 		if (cluster.nodeId > 0) {
@@ -282,7 +297,7 @@ public class ClusterLab {
 			// configure the forcefield
 			confSpaces.ffparams = new ForcefieldParams();
 
-			Molecule mol = PDBIO.readResource("test-resources/ACE2_1r4l_peptide5vay_complex_model_leidosprep_declashed4.pdb");
+			Molecule mol = PDBIO.readResource("/ACE2_1r4l_peptide5vay_complex_model_leidosprep_declashed4.pdb");
 
 			// make sure all strands share the same template library
 			ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
@@ -317,13 +332,76 @@ public class ClusterLab {
 			return confSpaces;
 		}
 
+		public static TestKStar.ConfSpaces makeMakeCOVIDComplexMedium() {
+			TestKStar.ConfSpaces confSpaces = new TestKStar.ConfSpaces();
+
+			// configure the forcefield
+			confSpaces.ffparams = new ForcefieldParams();
+
+			Molecule mol = PDBIO.readResource("/ACE2_1r4l_peptide5vay_complex_model_leidosprep_declashed4.pdb");
+
+			// make sure all strands share the same template library
+			ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
+
+			// define the protein strand
+			Strand protein = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("B123", "B139")
+				.build();
+			// mutable
+			protein.flexibility.get("B123").setLibraryRotamers("ARG").setContinuous(); // wt=ASN
+			protein.flexibility.get("B125").setLibraryRotamers("HIP").setContinuous(); // wt=THR
+			protein.flexibility.get("B126").setLibraryRotamers("HIP").setContinuous(); // wt=ALA
+			protein.flexibility.get("B129").setLibraryRotamers("ARG").setContinuous(); // wt=ARG *same*
+			protein.flexibility.get("B130").setLibraryRotamers("ARG").setContinuous(); // wt=PHE
+			protein.flexibility.get("B133").setLibraryRotamers("THR").setContinuous(); // wt=ALA
+			protein.flexibility.get("B134").setLibraryRotamers("HIP").setContinuous(); // wt=VAL
+			protein.flexibility.get("B136").setLibraryRotamers("ARG").setContinuous(); // wt=GLU
+			protein.flexibility.get("B138").setLibraryRotamers("ARG").setContinuous(); // wt=PHE
+			// flexible
+			//protein.flexibility.get("B124").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			//protein.flexibility.get("B139").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+			// define the ligand strand
+			Strand ligand = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues("A19", "A615")
+				.build();
+			ligand.flexibility.get("A34").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A35").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A37").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A38").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			//ligand.flexibility.get("A41").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			//ligand.flexibility.get("A42").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			//ligand.flexibility.get("A45").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			//ligand.flexibility.get("A49").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			//ligand.flexibility.get("A329").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			//ligand.flexibility.get("A330").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			//ligand.flexibility.get("A352").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			//ligand.flexibility.get("A353").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			//ligand.flexibility.get("A354").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			//ligand.flexibility.get("A355").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			//ligand.flexibility.get("A357").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+			// make the conf spaces ("complex" SimpleConfSpace, har har!)
+			confSpaces.complex = new SimpleConfSpace.Builder()
+				.addStrands(protein, ligand)
+				.build();
+
+			// the others can't be left null, so just make it complexes all the way down
+			confSpaces.protein = confSpaces.complex;
+			confSpaces.ligand = confSpaces.complex;
+
+			return confSpaces;
+		}
+
 		public static TestKStar.ConfSpaces makeMakeCOVIDActual() {
 			TestKStar.ConfSpaces confSpaces = new TestKStar.ConfSpaces();
 
 			// configure the forcefield
 			confSpaces.ffparams = new ForcefieldParams();
 
-			Molecule mol = PDBIO.readResource("test-resources/ACE2_1r4l_peptide5vay_complex_model_leidosprep_declashed4.pdb");
+			Molecule mol = PDBIO.readResource("/ACE2_1r4l_peptide5vay_complex_model_leidosprep_declashed4.pdb");
 
 			// make sure all strands share the same template library
 			ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
