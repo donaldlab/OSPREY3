@@ -279,7 +279,7 @@ public class ClusterLab {
 
 			// massively awesome low-energy ensemble calculator
 			MALEEC maleec = new MALEEC(ecalc.tasks, confEcalc, emat);
-			maleec.doEeet(seq, 50, 60*10 /* 10 minutes */);
+			maleec.doEeet(seq, 50, 60*10 /* 10 minutes */, "");
 		}
 
 		if (cluster.nodeId > 0) {

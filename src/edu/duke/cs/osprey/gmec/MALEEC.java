@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.tools.Streams;
 
 import java.io.File;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -338,7 +339,12 @@ public class MALEEC {
 		}
 
 		// write the PDB
-		File file = new File(String.format("%s/seq.%s.pdb", pdbPath, seqId));
+        LocalDateTime currTime = LocalDateTime.now();
+		String nowDirName = String.format("%02d-%02d-%02d", currTime.getHour(), currTime.getMinute(), currTime.getSecond());
+		File nowDir = new File(String.format("%s/%s", pdbPath, nowDirName));
+		if(!nowDir.exists())
+			nowDir.mkdir();
+		File file = new File(String.format("%s/%s/seq.%s.pdb", pdbPath, nowDirName, seqId));
 		PDBIO.writeFile(
 			epmols, file,
 			String.format("Ensemble of %d lowest-energy conformations for sequence: %s",
