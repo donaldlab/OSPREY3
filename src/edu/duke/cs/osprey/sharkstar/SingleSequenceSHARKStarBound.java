@@ -125,18 +125,18 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
                 MultiSequenceSHARKStarBound.ScoreContext context = checkout.get();
                 confNode.index(context.index);
 
-                double confCorrection = multisequenceBound.correctionMatrix.confE(confNode.assignments);
+                double confCorrection = multisequenceBound.correctionMatrix.getCorrection(confNode.assignments);
                 double gscore = context.partialConfLowerBoundScorer.calc(context.index, this.seqRCs);
                 double hscore = context.lowerBoundScorer.calc(context.index, this.seqRCs);
 
-                System.out.println(String.format("Parent conf: %s with gscore: %.3f, hscore: %.3f, and corrected gscore: %.3f",
+                System.out.println(String.format("Parent conf: %s with gscore: %.3f, hscore: %.3f, and correction: %.3f",
                         confNode.confToString(), gscore, hscore, confCorrection));
 
                 for (MultiSequenceSHARKStarNode child : exception.offendingNode.getChildren(this.sequence)){
                     MultiSequenceSHARKStarNode.Node childConfNode = child.getConfSearchNode();
                     childConfNode.index(context.index);
 
-                    confCorrection = multisequenceBound.correctionMatrix.confE(childConfNode.assignments);
+                    confCorrection = multisequenceBound.correctionMatrix.getCorrection(confNode.assignments);
                     gscore = context.partialConfLowerBoundScorer.calc(context.index, this.seqRCs);
                     hscore = context.lowerBoundScorer.calc(context.index, this.seqRCs);
                     double minEnergy = 0.0;
@@ -144,7 +144,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
                         minEnergy = child.getConfLowerBound(sequence);
                     }
 
-                    System.out.println(String.format("Child conf: %s with gscore: %.3f, hscore: %.3f, and corrected gscore: %.3f, minimEnergy: %.3f",
+                    System.out.println(String.format("Child conf: %s with gscore: %.3f, hscore: %.3f, and correction: %.3f, minimEnergy: %.3f",
                             childConfNode.confToString(), gscore, hscore, confCorrection, minEnergy));
                 }
 

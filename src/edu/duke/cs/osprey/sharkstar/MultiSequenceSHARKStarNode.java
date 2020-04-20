@@ -60,6 +60,13 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         this.designPosition = designPosition;
         this.nextDesignPosition = nextDesignPosition;
         this.childrenByRC = new HashMap<>();
+
+        // HOTCorrections propagate from parents to children, so enforce this if not root
+        if (this.parent != null){
+            this.confSearchNode.setHOTCorrectionOrNOOP(this.parent.confSearchNode.getHOTCorrection());
+        }else{
+            this.confSearchNode.setHOTCorrectionOrNOOP(0.0);
+        }
     }
 
     /**
@@ -268,6 +275,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public Node getParentConfSearchNode(){
+        //TODO: Delete this method
+
         // Hack for root node
         if (parent == null){
             return getConfSearchNode();
@@ -593,6 +602,9 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         private double partialConfUpperBound = Double.NaN;
         private double confLowerBound = Double.MAX_VALUE;
         private double confUpperBound = Double.MIN_VALUE;
+        //TODO: Determine whether memory optimization requires deleting HOTCorrection and minE
+        private double HOTCorrection = 0.0;
+        private double minE = Double.NaN;
         public int[] assignments;
         public int pos = Unassigned;
         public int rc = Unassigned;
@@ -615,6 +627,28 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             if(this.level == 0) {
                 partialConfUpperBound = 0;
                 partialConfLowerBound = 0;
+            }
+        }
+
+        public double getHOTCorrection(){
+            return this.HOTCorrection;
+        }
+
+        public void setHOTCorrectionOrNOOP(double corr){
+            /**
+             * Update the Higher-order tuple correction for Node
+             *
+             * By the nature of Higher-order tuple corrections, the correction applied to a node should NEVER decrease.
+             * However, due to the greedy strategy of UpdatingEnergyMatrix.java::processCorrections, we sometimes try to
+             * decrease this value.
+             *
+             * Therefore, if we try to update a correction with
+             */
+            if (this.HOTCorrection > corr){
+                System.err.println("Attempting to update Node correction " + this.HOTCorrection
+                        + " with " + corr + ", which is smaller.");
+            }else{
+                this.HOTCorrection = corr;
             }
         }
 

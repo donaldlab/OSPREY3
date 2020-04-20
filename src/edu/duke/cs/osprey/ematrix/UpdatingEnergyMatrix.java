@@ -99,6 +99,23 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
          */
         return getInternalEnergy(new RCTuple(conf), parentCorrect) + constTerm;
     }
+
+    /*
+    We don't want to use this like an energyMatrix, we want to just get corrections. This
+    is essentially because we can't trust the greedy heuristic, so we can't feed it only
+    the conformation and expect to get good results.
+     */
+    @Deprecated
+    @Override
+    public double confE(int[] conf){
+        throw new UnsupportedOperationException();
+    }
+    /*
+    We don't want to use this like an energyMatrix, we want to just get corrections. This
+    is essentially because we can't trust the greedy heuristic, so we can't feed it only
+    the conformation and expect to get good results.
+     */
+    @Deprecated
     public double getInternalEnergy(RCTuple tup, double parentCorrect){
         //internal energy of a tuple of residues when they're in the specified RCs
 
@@ -199,16 +216,25 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     //intra+shell similar...
 
     public double getCorrection(int[] conf){
-        // Used so I don't have to recalculate parent corrections a ton
+        /**
+         * Returns a Higher-Order Tuple energy correction for the input conf.
+         *
+         * Although ideally we would want this to be the *largest* possible HOT correction,
+         * AFAIK that currently requires solving the maximum weighted set-packing problem.
+         *
+         */
        return internalEHigherOrder(new RCTuple(conf));
     }
 
     private double internalEHigherOrder(RCTuple tup){
-        //Computes the portion of the internal energy for tuple tup
-        //that consists of interactions in htf (corresponds to some sub-tuple of tup)
-        //with RCs whose indices in tup are < curIndex
+        /**
+         * Returns a Higher-Order Tuple energy correction for the input RCTuple.
+         *
+         * Although ideally we would want this to be the *largest* possible HOT correction,
+         * AFAIK that currently requires solving the maximum weighted set-packing problem.
+         *
+         */
         double E = 0;
-        //E += super.internalEHigherOrder(tup, curIndex, htf);
         List<TupE> confCorrections = corrections.getCorrections(tup);
         if(confCorrections.size() > 0) {
             double corr = processCorrections(confCorrections);
@@ -219,6 +245,17 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     }
 
     private double processCorrections(List<TupE> confCorrections) {
+        /**
+         * Returns a high-weight set packing of the list of corrections.
+         *
+         * Although ideally we would want this to be the *heaviest* possible set packing,
+         * AFAIK that currently requires solving the maximum weighted set-packing problem,
+         * which is in NP-hard.
+         *
+         * So, this uses a greedy strategy for now. This does not always return the optimal solution
+         * in practice. Beware.
+         *
+         */
         Collections.sort(confCorrections, (a,b)->-Double.compare(a.E,b.E));
         double sum = 0;
         // Attempt 1: be greedy and start from the largest correction you
