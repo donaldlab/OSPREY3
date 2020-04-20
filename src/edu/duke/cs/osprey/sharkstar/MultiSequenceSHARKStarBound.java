@@ -814,21 +814,22 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
         }
 
-        ZSums[0] = fillListFromQueue(internalNodes, bound.internalQueue, maxNodes, bound.sequence);
-        ZSums[1] = fillListFromQueue(leafNodes, bound.leafQueue, bound.maxMinimizations, bound.sequence);
+        ZSums[0] = fillListFromQueue(internalNodes, bound.internalQueue, maxNodes, bound);
+        ZSums[1] = fillListFromQueue(leafNodes, bound.leafQueue, bound.maxMinimizations, bound);
         if(!bound.internalQueue.isEmpty() &&
                 MathTools.isLessThan(ZSums[0], bound.internalQueue.peek().getErrorBound(bound.sequence)))
             System.out.println("Should have used a node from the internal queue. How??");
         queue.addAll(leftoverLeaves);
     }
 
-    private BigDecimal fillListFromQueue(List<MultiSequenceSHARKStarNode> list, Queue<MultiSequenceSHARKStarNode> queue, int max, Sequence seq) {
+    private BigDecimal fillListFromQueue(List<MultiSequenceSHARKStarNode> list, Queue<MultiSequenceSHARKStarNode> queue, int max, SingleSequenceSHARKStarBound bound) {
         BigDecimal sum = BigDecimal.ZERO;
         List<MultiSequenceSHARKStarNode> leftovers = new ArrayList<>();
         while (!queue.isEmpty() && list.size() < max ) {
             MultiSequenceSHARKStarNode curNode = queue.poll();
             if(confMatch(debugConf, curNode.getConfSearchNode().assignments))
                 System.out.println("Gotcha-fillList");
+            /* change this to use the new applyCorrections method
             if (correctedNode(leftovers, curNode, curNode.getConfSearchNode(), seq)) {
                 BigDecimal diff = curNode.getUpperBound(seq).subtract(curNode.getLowerBound(seq));
                 if(MathTools.isGreaterThan(diff, sum)) {
@@ -837,7 +838,16 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 }
                 continue;
             }
-            BigDecimal diff = curNode.getUpperBound(seq).subtract(curNode.getLowerBound(seq));
+             */
+            if (applyCorrectionsOrNOOP(curNode, bound)){
+                BigDecimal diff = curNode.getUpperBound(bound.sequence).subtract(curNode.getLowerBound(bound.sequence));
+                if(MathTools.isGreaterThan(diff, sum)) {
+                    leftovers.remove(curNode);
+                    queue.add(curNode);
+                }
+                continue;
+            }
+            BigDecimal diff = curNode.getUpperBound(bound.sequence).subtract(curNode.getLowerBound(bound.sequence));
             sum = sum.add(diff);
             list.add(curNode);
         }
@@ -875,9 +885,8 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     protected boolean correctedNode(List<MultiSequenceSHARKStarNode> newNodes, MultiSequenceSHARKStarNode curNode, Node node, Sequence seq) {
         assert (curNode != null && node != null);
 
-        Node parentNode = curNode.getParentConfSearchNode(); //Necessary for correctionMatrix hack
-        double parentConfCorrection = correctionMatrix.getCorrection(parentNode.assignments); // Necessary for correctionMatrix hack
-        double confCorrection = correctionMatrix.confE(node.assignments, parentConfCorrection);
+        double HOTCorrection = correctionMatrix.getCorrection(node.assignments);
+        double confCorrection = HOTCorrection + node.getPartialConfLowerBound();
 
         if (node.getPartialConfLowerBound() < confCorrection) {
             if(isDebugConf(node.assignments)) {
@@ -1595,11 +1604,11 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             curNode is not minimized
             The HOT correction is correcting the energy upward (i.e., not getting more negative)
             The HOT correction is larger than 1e-5
-            The HOT correction is not smaller than the previous
+            The HOT correction is larger than the previous
          */
         if (!curNode.isMinimized(bound.sequence) &&
                 HOTCorrection > 1e-5 &&
-                HOTCorrection >= node.getHOTCorrection()
+                HOTCorrection > node.getHOTCorrection()
         ){
 
             if (HOTCorrection < 0) {
