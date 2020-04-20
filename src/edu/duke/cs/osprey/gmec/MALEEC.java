@@ -54,7 +54,7 @@ public class MALEEC {
 	 * LEEEEEEROOYYYY!!!
 	 */
 	// at least I've got chicken
-	public void doEeet(Sequence seq, int numConfs, int outputIntervalSeconds) {
+	public void doEeet(Sequence seq, int numConfs, int outputIntervalSeconds, String pdbPath) {
 
 		long outputIntervalNs = outputIntervalSeconds * 1_000_000_000L;
 
@@ -120,7 +120,7 @@ public class MALEEC {
 
 								ensembleTasks.submit(
 									() -> {
-										writeEnsemble(seq, bestConfs);
+										writeEnsemble(seq, bestConfs, pdbPath);
 										return 42; // it's the answer
 									},
 									answer -> {
@@ -213,7 +213,7 @@ public class MALEEC {
 				);
 
 				// write the ensemble one final time
-				writeEnsemble(seq, stats.bestConfs.values());
+				writeEnsemble(seq, stats.bestConfs.values(), pdbPath);
 			}
 
 		} catch (Throwable t) {
@@ -299,7 +299,7 @@ public class MALEEC {
 		}
 	}
 
-	private void writeEnsemble(Sequence seq, Collection<ConfSearch.EnergiedConf> econfs) {
+	private void writeEnsemble(Sequence seq, Collection<ConfSearch.EnergiedConf> econfs, String pdbPath) {
 
 		log("Collecting latest ensemble ...");
 
@@ -338,7 +338,7 @@ public class MALEEC {
 		}
 
 		// write the PDB
-		File file = new File(String.format("seq.%s.pdb", seqId));
+		File file = new File(String.format("%s/seq.%s.pdb", pdbPath, seqId));
 		PDBIO.writeFile(
 			epmols, file,
 			String.format("Ensemble of %d lowest-energy conformations for sequence: %s",
