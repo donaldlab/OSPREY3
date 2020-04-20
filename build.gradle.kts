@@ -187,15 +187,23 @@ val moduleArgs = listOf(
 )
 // TODO: add the module args for distributions too?
 
+/* NOTE: the IDE thinks `jvmArgs` and `args` are not nullable and shows warnings
+	(and the Kotlin language rules agree with that, as far as I can tell),
+	but for some reason, the Kotlin compiler thinks they are nullable
+	so we need the not null assertions (ie !!). Maybe a compiler bug?
+*/
+@Suppress("UNNECESSARY_NOT_NULL_ASSERTION")
 tasks.withType<JavaExec> {
-	doFirst {
 
-		// add the module args, if not already there
-		for (arg in moduleArgs) {
-			if (arg !in jvmArgs!!) {
-				jvmArgs!!.add(arg)
-			}
+	// add the module args, if not already there
+	for (arg in moduleArgs) {
+		if (arg !in jvmArgs!!) {
+			jvmArgs = jvmArgs!! + listOf(arg)
+			// NOTE: for some reason, .add() and += don't work here
 		}
+	}
+
+	doFirst {
 
 		// make Gradle dump the java command to the console when running
 		// since IntelliJ doesn't do it when using Gradle as the runner

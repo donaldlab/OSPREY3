@@ -28,7 +28,9 @@ public class Structs {
 			for (int i=0; i<fieldNames.length; i++) {
 				String fieldName = fieldNames[i];
 				try {
-					fields[i] = (Field)c.getDeclaredField(fieldName).get(this);
+					var declaredField = c.getDeclaredField(fieldName);
+					declaredField.setAccessible(true);
+					fields[i] = (Field)declaredField.get(this);
 					fields[i].name = fieldName;
 				} catch (NoSuchFieldException ex) {
 					throw new Error("Can't initialize field: " + fieldName, ex);
@@ -38,14 +40,15 @@ public class Structs {
 			}
 
 			// find any missing fields
-			if (fields.length != c.getDeclaredFields().length) {
-				Set<String> names = Arrays.stream(c.getDeclaredFields())
-					.map(f -> f.getName())
-					.collect(Collectors.toSet());
-				for (String name : fieldNames) {
-					names.remove(name);
-				}
-				throw new IllegalArgumentException("no order given for fields: " + names);
+			Set<String> missingFields = Arrays.stream(c.getDeclaredFields())
+				.map(f -> f.getName())
+				.collect(Collectors.toSet());
+			for (String name : fieldNames) {
+				missingFields.remove(name);
+			}
+			missingFields.remove("this$0");
+			if (!missingFields.isEmpty()) {
+				throw new IllegalArgumentException("no order given for fields: " + missingFields);
 			}
 
 			@SuppressWarnings("unchecked")

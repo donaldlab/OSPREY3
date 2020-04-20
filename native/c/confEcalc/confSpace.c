@@ -4,6 +4,10 @@
 #include "confSpace.h"
 
 
+// the FN macros really confused the IDE though, so turn off some warnings
+#pragma ide diagnostic ignored "InfiniteRecursion"
+
+
 const int32_t UNASSIGNED = -1;
 const int32_t STATIC_POS = -1;
 
@@ -66,21 +70,25 @@ AssignedCoords * conf_space_assign(const ConfSpace * conf_space, const int32_t c
 		int32_t confi = conf[posi];
 
 		// set the position atom pointers
-		coords->pos_atoms[posi] = ((real3 *)&coords->atoms->coords) + atoms_offset;
+		coords->pos_atoms[posi] = &coords->atoms->coords[atoms_offset];
+        atoms_offset += pos->max_num_atoms;
 
 		// get the assigned conformation at this position, if any
-		if (confi == UNASSIGNED) {
-			continue;
+		if (confi != UNASSIGNED) {
+
+            // copy the atom coords
+            const Conf * posConf = conf_space_conf(conf_space, pos, confi);
+            const Coords * atoms = conf_space_conf_atoms(conf_space, posConf);
+            coords_copy(coords->pos_atoms[posi], atoms->coords, atoms->num_atoms);
+
+            // zero out any remaining space for this pos
+            memset(&coords->pos_atoms[posi][atoms->num_atoms], 0, (pos->max_num_atoms - atoms->num_atoms)*sizeof(real3));
+
+        } else {
+
+		    // otherwise, just zero out the coords for this pos
+            memset(coords->pos_atoms[posi], 0, pos->max_num_atoms*sizeof(real3));
 		}
-		const Conf * conf = conf_space_conf(conf_space, pos, confi);
-
-		// copy the atom coords
-		const Coords * atoms = conf_space_conf_atoms(conf_space, conf);
-		coords_copy(coords->pos_atoms[posi], atoms->coords, atoms->num_atoms);
-		atoms_offset += pos->max_num_atoms;
-
-		// zero out any remaining space for this pos
-		memset(coords->pos_atoms[posi] + atoms->num_atoms, 0, (pos->max_num_atoms - atoms->num_atoms)*sizeof(real3));
 	}
 
 	return coords;
@@ -93,4 +101,3 @@ real3 * assigned_coords_atoms(AssignedCoords * assigned_coords, uint32_t posi) {
 		return assigned_coords->pos_atoms[posi];
 	}
 }
-

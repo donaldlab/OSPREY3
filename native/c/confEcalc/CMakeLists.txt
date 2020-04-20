@@ -23,7 +23,8 @@ set(OspreyBuildPath ${OspreyPath}/build/resources/main/${JnaPlatform})
 set(LIBRARY_OUTPUT_PATH ${OspreyPath}/resources/${JnaPlatform})
 
 # make targets for each value of REAL
-foreach(Real f64 f32)
+set(Reals f64 f32)
+foreach(Real ${Reals})
 
     # make a library target
     add_library(ConfEcalc_${Real} SHARED ${CFiles})
@@ -39,4 +40,15 @@ foreach(Real f64 f32)
             COMMAND cp ${LIBRARY_OUTPUT_PATH}/$<TARGET_FILE_NAME:ConfEcalc_${Real}> ${OspreyBuildPath}
     )
 
+endforeach(Real)
+
+# make a target to compile all the libs
+add_custom_target(ConfEcalc)
+foreach(Real ${Reals})
+    add_dependencies(ConfEcalc ConfEcalc_${Real})
+endforeach(Real)
+
+add_custom_target(ConfEcalc_CopyLibs)
+foreach(Real ${Reals})
+    add_dependencies(ConfEcalc_CopyLibs ConfEcalc_${Real}_CopyLibs)
 endforeach(Real)

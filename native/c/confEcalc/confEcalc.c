@@ -37,12 +37,9 @@ void print_conf(const uint32_t * conf, uint32_t size) {
 	printf("]");
 }
 
-int32_t version_major() {
-    return ConfEcalc_VERSION_MAJOR;
-}
-
-int32_t version_minor() {
-    return ConfEcalc_VERSION_MINOR;
+void print_info() {
+	printf("ConfEcalc " VAL(REAL) "  v" VAL(ConfEcalc_VERSION_MAJOR) "." VAL(ConfEcalc_VERSION_MINOR) "\n");
+	fflush(stdout);
 }
 
 void assign(const ConfSpace * conf_space, const int32_t conf[], real3 out[]) {

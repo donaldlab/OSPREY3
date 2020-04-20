@@ -2,6 +2,8 @@
 // make it easy to switch the precision of a "real" type
 // between double/float at compile-time
 
+// ie, this is a really hacky attempt at templated functions in C
+
 #ifndef REAL
 	#error "REAL must be either 'f64' or 'f32'"
 #endif
@@ -33,3 +35,8 @@
 	#error "Unknown REAL type"
 #endif
 
+// add a macro to mangle function names,
+// so we can avoid function collisions when multiple libraries are loaded
+#define __FN2(name, real) name ## _ ## real
+#define __FN(name, real) __FN2(name, real)
+#define FN(name) __FN(name, REAL)

@@ -9,8 +9,13 @@ typedef struct Coords {
 	real3 coords[];
 } ALIGN_8 Coords;
 
-Coords * coords_malloc(uint32_t num_atoms);
-void coords_copy(real3 * dst, const real3 * src, uint64_t num_atoms);
+Coords * FN(coords_malloc)(uint32_t num_atoms);
+void FN(coords_copy)(real3 * dst, const real3 * src, uint64_t num_atoms);
+
+#define coords_malloc(...) FN(coords_malloc)(__VA_ARGS__)
+#define coords_copy(...) FN(coords_copy)(__VA_ARGS__)
+
+// TODO: NEXTTIME: this REAL/FN stuff is getting out of hand... maybe switch to C++ ?
 
 
 typedef struct Conf {
@@ -31,10 +36,15 @@ typedef struct ConfSpace {
 } ALIGN_8 ConfSpace;
 
 
-const Pos * conf_space_pos(const ConfSpace * conf_space, int posi);
-const Coords * conf_space_static_atoms(const ConfSpace * conf_space);
-const Conf * conf_space_conf(const ConfSpace * conf_space, const Pos * pos, int confi);
-const Coords * conf_space_conf_atoms(const ConfSpace * conf_space, const Conf * conf);
+const Pos * FN(conf_space_pos)(const ConfSpace * conf_space, int posi);
+const Coords * FN(conf_space_static_atoms)(const ConfSpace * conf_space);
+const Conf * FN(conf_space_conf)(const ConfSpace * conf_space, const Pos * pos, int confi);
+const Coords * FN(conf_space_conf_atoms)(const ConfSpace * conf_space, const Conf * conf);
+
+#define conf_space_pos(...) FN(conf_space_pos)(__VA_ARGS__)
+#define conf_space_static_atoms(...) FN(conf_space_static_atoms)(__VA_ARGS__)
+#define conf_space_conf(...) FN(conf_space_conf)(__VA_ARGS__)
+#define conf_space_conf_atoms(...) FN(conf_space_conf_atoms)(__VA_ARGS__)
 
 
 extern const int32_t UNASSIGNED;
@@ -49,10 +59,13 @@ typedef struct AssignedCoords {
 } AssignedCoords;
 
 
-void assigned_coords_free(AssignedCoords * coords);
-AssignedCoords * conf_space_assign(const ConfSpace * conf_space, const int32_t conf[]);
-real3 * assigned_coords_atoms(AssignedCoords * assigned_coords, uint32_t posi);
+void FN(assigned_coords_free)(AssignedCoords * coords);
+AssignedCoords * FN(conf_space_assign)(const ConfSpace * conf_space, const int32_t conf[]);
+real3 * FN(assigned_coords_atoms)(AssignedCoords * assigned_coords, uint32_t posi);
 
+#define assigned_coords_free(...) FN(assigned_coords_free)(__VA_ARGS__)
+#define conf_space_assign(...) FN(conf_space_assign)(__VA_ARGS__)
+#define assigned_coords_atoms(...) FN(assigned_coords_atoms)(__VA_ARGS__)
 
 #endif // _CONFSPACE_
 
