@@ -345,12 +345,22 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 System.out.println("Gotcha-fringe");
 
             // Score and correct potential fringe nodes
+            // TODO: make it so we don't have to recalculate information
             double gscore = context.partialConfLowerBoundScorer.calc(context.index, rcs);
             double hscore = context.lowerBoundScorer.calc(context.index, rcs);
-            double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, rcs);
-            double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, rcs);
-            String historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score N/A, from %s",
-                    confNode.confToString(), curNode.getConfLowerBound(bound.sequence), gscore, hscore, gscore+hscore, getStackTrace());
+            double gscoreUB = context.partialConfUpperBoundScorer.calc(context.index, rcs);
+            double hscoreUB = context.upperBoundScorer.calc(context.index, rcs);
+            double confLowerBound = gscore+hscore;
+            double confUpperBound = gscoreUB + hscoreUB;
+            /*
+            Currently, the confNode gscores have corrections already applied (partially minimized I think)
+             */
+            //double confLowerBound = confNode.getPartialConfLowerBound() + context.lowerBoundScorer.calc(context.index, rcs);
+            //double confUpperBound = confNode.getPartialConfUpperBound() + context.upperBoundScorer.calc(context.index, rcs);
+
+            String historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score N/A, prev gscore %f, from %s",
+                    confNode.confToString(), curNode.getConfLowerBound(bound.sequence), gscore, hscore, confLowerBound, confNode.getPartialConfLowerBound(), getStackTrace());
+            // Use the new scores, since the old ones have issues
             curNode.setBoundsFromConfLowerAndUpperWithHistory(confLowerBound, confUpperBound, bound.sequence, historyString);
 
             // Correct potential fringe nodes
@@ -1606,13 +1616,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
             // Change node gscore bounds
             // TODO: change how energies are reported so we don't need to change the gscores
-            node.setPartialConfLowerAndUpper(correctGScore, node.getPartialConfUpperBound());
+            //node.setPartialConfLowerAndUpper(correctGScore, node.getPartialConfUpperBound());
 
             // Change total node bounds
             String historyString = String.format("%s: previous lower bound %f, g score %f, hscore %f, f score %f corrected score %f, from %s",
                     node.confToString(), curNode.getConfLowerBound(bound.sequence), correctGScore, hscore, correctGScore + hscore, correctedEnergyLB, getStackTrace());
-            curNode.setBoundsFromConfLowerAndUpperWithHistory(correctedEnergyLB, curNode.getConfUpperBound(bound.sequence), bound.sequence, historyString);
-            node.setBoundsFromConfLowerAndUpper(correctedEnergyLB, curNode.getConfUpperBound(bound.sequence));
+            //curNode.setBoundsFromConfLowerAndUpperWithHistory(correctedEnergyLB, curNode.getConfUpperBound(bound.sequence), bound.sequence, historyString);
+            //node.setBoundsFromConfLowerAndUpper(correctedEnergyLB, curNode.getConfUpperBound(bound.sequence));
 
             // Mark that node has changed
             curNode.markUpdated();
