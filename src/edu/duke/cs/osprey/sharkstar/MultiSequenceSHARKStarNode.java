@@ -343,8 +343,10 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         BigDecimal tighterUpper = bc.calc(confLower + HOTCorrection);
 
         // note: if the conf is minimized, we won't be adding the HOT correction
-        if (isMinimized(seq))
-            tighterUpper = bc.calc(confLower);
+        if (isMinimized(seq)) {
+            tighterLower = bc.calc(this.confSearchNode.minE);
+            tighterUpper = bc.calc(this.confSearchNode.minE);
+        }
 
         // test here
         //BigDecimal tighterUpper = bc.calc(confLower);
@@ -386,7 +388,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         // TODO: Remove this check because I don't understand it
         if(MathTools.isLessThan(tighterUpper, BigDecimal.ONE) && confLower < 0)
             for(Sequence boundedSeq: sequenceBounds.keySet())
-                System.out.println(toSeqString(seq)+"-"+boundedSeq+":"+sequenceBounds.get(boundedSeq));
+                System.out.println(toSeqString(seq)+"-"+boundedSeq+":"+convertMagicBigDecimalToString(sequenceBounds.get(boundedSeq).lower)+", "+convertMagicBigDecimalToString(sequenceBounds.get(boundedSeq).upper));
 
         //=========================================//
         // Actually set the bounds
@@ -658,9 +660,25 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public boolean isMinimized(Sequence seq) {
-        double confLowerBound = getSequenceConfBounds(seq).lower;
-        double confUpperBound = getSequenceConfBounds(seq).upper;
-        return Math.abs(confLowerBound - confUpperBound) < 1e-5;
+        /**
+         * True if this node is minimized, false otherwise
+         *
+         * For now, let's store minimized energy in a different variable
+         * I should note that by definition minimized nodes should be single sequence nodes...
+         */
+        //double confLowerBound = getSequenceConfBounds(seq).lower;
+        //double confUpperBound = getSequenceConfBounds(seq).upper;
+        //return Math.abs(confLowerBound - confUpperBound) < 1e-5;
+        return this.getConfSearchNode().isMinimized();
+    }
+
+    public boolean isMinimized(){
+        /**
+         * True if this node is minimized, false otherwise
+         *
+         * For now, let's store minimized energy in a different variable
+         */
+        return this.getConfSearchNode().isMinimized();
     }
 
     public static class Node implements ConfAStarNode {
@@ -670,9 +688,12 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         private double partialConfUpperBound = Double.NaN;
         private double confLowerBound = Double.MAX_VALUE;
         private double confUpperBound = Double.MIN_VALUE;
-        //TODO: Determine whether memory optimization requires deleting HOTCorrection and minE
+        //TODO: Determine whether memory optimization requires deleting HOTCorrection, minE, and isMinimized
         private double HOTCorrection = 0.0;
         private double minE = Double.NaN;
+        private boolean isMinimized = false;
+
+
         public int[] assignments;
         public int pos = Unassigned;
         public int rc = Unassigned;
@@ -852,6 +873,22 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
             }
             //updateConfLowerBound(lowerBound);
             //updateConfUpperBound(upperBound);
+        }
+
+        public double getMinE(){
+            return this.minE;
+        }
+
+        public void setMinE(double energy){
+            this.minE = energy;
+        }
+
+        public boolean isMinimized(){
+            return this.isMinimized;
+        }
+
+        public void setMinimized(boolean val){
+           this.isMinimized = val;
         }
     }
 }

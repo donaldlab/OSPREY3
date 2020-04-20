@@ -332,6 +332,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         }
         node.makeNodeCompatibleWithConfSpace(permutation, size, this.fullRCs);
         node.setNewConfSpace(confSpace);
+
+        //TODO: make sure we aren't missing corrections by setting no minimized here
+        node.getConfSearchNode().setMinimized(false);
+        node.getConfSearchNode().setMinE(Double.NaN);
     }
 
     private void computeFringeForSequence(SingleSequenceSHARKStarBound bound, MultiSequenceSHARKStarNode curNode) {
@@ -1464,17 +1468,21 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                                     + " > " + (oldConfUpper) + ". Rejecting minimized energy.");
                             System.err.println("Node info: " + curNode.toSeqString(bound.sequence));
 
-                            newConfUpper = oldConfUpper;
-                            newConfLower = oldConfUpper;
                         }
 
                         String historyString = String.format("minimimized %s to %s from %s",
                                 node.confToString(), energy, getStackTrace());
 
-                        curNode.setBoundsFromConfLowerAndUpperWithHistory(newConfLower, newConfUpper, bound.sequence, historyString);
+                        // Don't set bounds, use the new minimized energy variable
+                        //curNode.setBoundsFromConfLowerAndUpperWithHistory(newConfLower, newConfUpper, bound.sequence, historyString);
+                        node.setMinE(energy);
+                        node.setMinimized(true);
+                        curNode.updateZBounds(bound.sequence);
+
                         double oldgscore = node.getPartialConfLowerBound();
-                        node.setPartialConfLowerAndUpper(newConfLower, newConfUpper);
-                        String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (curNode.getConfLowerBound(bound.sequence)) + "," + (curNode.getConfUpperBound(bound.sequence)) + "]";
+                        //Again, don't change the bounds
+                        //node.setPartialConfLowerAndUpper(newConfLower, newConfUpper);
+                        String out = "Energy = " + String.format("%6.3e", energy) + ", [" + (curNode.getConfSearchNode().getMinE()) + "," + (curNode.getConfSearchNode().getMinE()) + "]";
                         debugPrint(out);
                         //ensembleAnalyzer.analyzeFullConf(analysis, conf);
                         curNode.markUpdated();
