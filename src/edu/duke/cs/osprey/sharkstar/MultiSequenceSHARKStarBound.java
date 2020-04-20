@@ -930,10 +930,19 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                     // Do basic scoring
                     //double diff = confCorrection;
+                    // TODO: move this back to calcDifferential
+                    /*
                     double diff = context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     double rigiddiff = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     double hdiff = context.lowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                     double maxhdiff = context.upperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                     */
+                    child.index(context.index);
+                    double diff = context.partialConfLowerBoundScorer.calc(context.index, RCs);
+                    double rigiddiff = context.partialConfUpperBoundScorer.calc(context.index, RCs);
+                    double hdiff = context.lowerBoundScorer.calc(context.index, RCs);
+                    double maxhdiff = context.upperBoundScorer.calc(context.index, RCs);
+                    node.index(context.index);
 
                     // set gscore bounds
                     child.setPartialConfLowerAndUpper(diff, rigiddiff);
@@ -962,7 +971,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 if (child.getLevel() == RCs.getNumPos()) {
                     if(isDebugConf(child.assignments))
                         System.out.println("Gotcha-drilldown-leaf");
+                    //TODO: move this back to calcDifferential
+                    /*
                     double confRigid = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                     */
+                    child.index(context.index);
+                    double confRigid = context.partialConfUpperBoundScorer.calc(context.index, RCs);
+                    node.index(context.index);
                     //confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
 
                     child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
@@ -1210,10 +1225,21 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
 
                     // score the child node differentially against the parent node
                     if (child.getLevel() < RCs.getNumPos()) {
+                        //TODO: move this back to calcDifferential
+                        /*
                         double diff = context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double rigiddiff = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double hdiff = context.lowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
                         double maxhdiff = context.upperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+
+                         */
+                        child.index(context.index);
+                        double diff = context.partialConfLowerBoundScorer.calc(context.index, RCs);
+                        double rigiddiff = context.partialConfUpperBoundScorer.calc(context.index, RCs);
+                        double hdiff = context.lowerBoundScorer.calc(context.index, RCs);
+                        double maxhdiff = context.upperBoundScorer.calc(context.index, RCs);
+                        node.index(context.index);
+
                         double checkNum = 0;
                         //Correct for incorrect gscore.
                         //rigiddiff = rigiddiff - node.partialConfLowerbound + node.partialConfUpperBound;
@@ -1239,11 +1265,24 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         result.upperBound = confUpperbound;
                     }
                     if (child.getLevel() == RCs.getNumPos()) {
+                        //TODO: move this back to calcDifferential
+                        /*
                         double confRigid = context.partialConfUpperBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                         */
+                        child.index(context.index);
+                        double confRigid = context.partialConfUpperBoundScorer.calc(context.index, RCs);
+                        node.index(context.index);
                         //confRigid = confRigid - node.partialConfLowerbound + node.partialConfUpperBound;
 
                         child.computeNumConformations(RCs); // Shouldn't this always eval to 1, given that we are looking at leaf nodes?
+                        //TODO: move this back to calcDifferential
+                        /*
                         double confLower = context.partialConfLowerBoundScorer.calcDifferential(context.index, RCs, nextPos, nextRc);
+                         */
+                        child.index(context.index);
+                        double confLower = context.partialConfLowerBoundScorer.calc(context.index, RCs);
+                        node.index(context.index);
+
                         double lowerbound = Math.max(minimizingEmat.confE(child.assignments), confLower);
 
                         /* deferring this to later
