@@ -65,10 +65,9 @@ public class MultiSequenceSHARKStarNodeStatistics {
         String confString = confSearchNode.confToString();
         if(confSpace != null)
             confString = confString+"->("+confSpace.formatConfRotamersWithResidueNumbers(confSearchNode.assignments)+")";
-        String out = prefix+confString+":"
-                +"["+node.getConfLowerBound(seq)+","+node.getConfUpperBound(seq)+"]->"
-                +"["+formatBound(bounds.lower)
-                +","+formatBound(bounds.upper)+"]"+"\n";
+        String out = prefix+confString+String.format(":[%.3f + %.3f, %.3f]->[%s, %s]\n",
+                node.getConfLowerBound(seq), node.getConfSearchNode().getHOTCorrection(), node.getConfUpperBound(seq),
+                formatBound(bounds.lower), formatBound(bounds.upper));
         if(MathTools.isLessThan(node.getUpperBound(seq), BigDecimal.ZERO))
             return;
         if(writer != null) {

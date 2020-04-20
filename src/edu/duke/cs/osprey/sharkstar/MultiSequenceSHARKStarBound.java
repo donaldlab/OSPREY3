@@ -1623,6 +1623,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             // Set node correction
             node.setHOTCorrectionOrNOOP(HOTCorrection);
 
+            // Update node
+            curNode.updateZBounds(bound.sequence);
+
             // Change node gscore bounds
             // TODO: change how energies are reported so we don't need to change the gscores
             //node.setPartialConfLowerAndUpper(correctGScore, node.getPartialConfUpperBound());

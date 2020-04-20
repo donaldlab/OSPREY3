@@ -116,6 +116,7 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
         return errorBound;
     }
 
+    //TODO: Remove this method
     private void setSubtreeBounds(Sequence seq, BigDecimal lower, BigDecimal upper) {
         double tolerance = 0.01;
         if(isDebugConf(confSearchNode.assignments) && MathTools.isLessThan(upper, BigDecimal.ONE))
@@ -315,32 +316,99 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     public void setBoundsFromConfLowerAndUpper(double lowerBound, double upperBound, Sequence seq) {
-        if(isDebugConf(confSearchNode.assignments))
-            System.out.println("Gotcha-boundset");
-        MathTools.BigDecimalBounds bounds = getSequenceBounds(seq);
-        BigDecimal subtreeLowerBound = bounds.lower;
-        BigDecimal subtreeUpperBound = bounds.upper;
-        BigDecimal tighterLower = bc.calc(upperBound);
-        BigDecimal tighterUpper = bc.calc(lowerBound);
-        if(MathTools.isLessThan(tighterUpper, BigDecimal.ONE) && lowerBound < 0 && isDebugConf(confSearchNode.assignments))
-            System.out.println("Setting "+toSeqString(seq)+" to ["+convertMagicBigDecimalToString(tighterLower)+","
-                    +convertMagicBigDecimalToString(tighterUpper)+"] for sequence"+seq);
-        if (subtreeLowerBound != null && MathTools.isGreaterThan(subtreeLowerBound, tighterLower))
-            System.err.println("Updating subtree lower bound " + convertMagicBigDecimalToString(subtreeLowerBound)
-                    + " with " + tighterLower + ", which is lower!?");
-        if (subtreeUpperBound != null && MathTools.isLessThan(subtreeUpperBound, tighterUpper)) {
-            System.err.println("Updating subtree upper bound " + convertMagicBigDecimalToString(subtreeUpperBound)
-                    + " with " + convertMagicBigDecimalToString(tighterUpper) + ", which is greater!?");
-            updateSubtreeBoundsAndLog(seq);
-            printTree(seq, this);
-            printLastTree(seq, this);
-        }
+        // Set the confBounds for this node
         getSequenceConfBounds(seq).lower = lowerBound;
         getSequenceConfBounds(seq).upper = upperBound;
-        setSubtreeBounds(seq, tighterLower, tighterUpper);
-        if(MathTools.isLessThan(tighterUpper, BigDecimal.ONE) && lowerBound < 0)
+
+        // Propagate the change to the Z bounds
+        updateZBounds(seq);
+    }
+
+    public void updateZBounds(Sequence seq){
+        /**
+         * updates the Z bounds stored in sequenceBounds with given conf bounds, performing
+         * debug checks along the way.
+         *
+         * This should eventually be the *only* setter method for sequenceBounds
+         *
+         * Currently, the SetSubtreeBounds method also does this, it is used to update bounds up the tree.
+         * This will eventually become unnecessary
+         */
+        double confLower = getSequenceConfBounds(seq).lower;
+        double confUpper = getSequenceConfBounds(seq).upper;
+        double HOTCorrection = this.confSearchNode.getHOTCorrection();
+
+        // boltzmann-weight the conf upper and lower bounds to get the new Z bounds
+        BigDecimal tighterLower = bc.calc(confUpper);
+        BigDecimal tighterUpper = bc.calc(confLower + HOTCorrection);
+
+        // note: if the conf is minimized, we won't be adding the HOT correction
+        if (isMinimized(seq))
+            tighterUpper = bc.calc(confLower);
+
+        // test here
+        //BigDecimal tighterUpper = bc.calc(confLower);
+
+        //=========================================//
+        // Compare with the old Z bounds to ensure that bounds are not getting looser
+        //=========================================//
+        MathTools.BigDecimalBounds bounds = getSequenceBounds(seq);
+        BigDecimal oldLowerBound = bounds.lower;
+        BigDecimal oldUpperBound = bounds.upper;
+
+        // if the old lower bound is greater than the new one then throw an exception
+        if (oldLowerBound != null && MathTools.isGreaterThan(oldLowerBound, tighterLower)){
+            String message = "Updating subtree lower bound " + convertMagicBigDecimalToString(oldLowerBound)
+                    + " with " + tighterLower + ", which is lower!?";
+            //updateSubtreeBoundsAndLog(seq);
+            printTree(seq, this);
+            printLastTree(seq, this);
+            LowerBoundException ex = new LowerBoundException(message);
+            ex.setOffendingNode(this);
+            throw ex;
+        }
+        // if the old upper bound is less than the new one then throw an exception
+        if (oldUpperBound != null && MathTools.isLessThan(oldUpperBound, tighterUpper)) {
+            String message = "Updating subtree upper bound " + convertMagicBigDecimalToString(oldUpperBound)
+                    + " with " + convertMagicBigDecimalToString(tighterUpper) + ", which is greater!?";
+            //updateSubtreeBoundsAndLog(seq);
+            printTree(seq, this);
+            printLastTree(seq, this);
+            UpperBoundException ex = new UpperBoundException(message);
+            ex.setOffendingNode(this);
+            throw ex;
+        }
+
+        // TODO: Remove this check because I don't understand it
+        if(MathTools.isLessThan(tighterUpper, BigDecimal.ONE) && confLower < 0 && isDebugConf(confSearchNode.assignments))
+            System.out.println("Setting "+toSeqString(seq)+" to ["+convertMagicBigDecimalToString(tighterLower)+","
+                    +convertMagicBigDecimalToString(tighterUpper)+"] for sequence"+seq);
+        // TODO: Remove this check because I don't understand it
+        if(MathTools.isLessThan(tighterUpper, BigDecimal.ONE) && confLower < 0)
             for(Sequence boundedSeq: sequenceBounds.keySet())
                 System.out.println(toSeqString(seq)+"-"+boundedSeq+":"+sequenceBounds.get(boundedSeq));
+
+        //=========================================//
+        // Actually set the bounds
+        //=========================================//
+        // log setting Z bounds for debug
+        if(isDebugConf(confSearchNode.assignments))
+            System.out.println("Gotcha-boundset");
+
+        // If the bounds are basically the same, don't bother setting them
+        //double tolerance = 0.01;
+        //if(MathTools.isRelativelySame(getSequenceBounds(seq).lower, tighterLower, PartitionFunction.decimalPrecision, tolerance)
+                //&& MathTools.isRelativelySame(getSequenceBounds(seq).upper, tighterUpper, PartitionFunction.decimalPrecision, tolerance))
+            //return;
+
+        // Set the bounds with history
+        getLastSequenceBounds(seq).upper = getSequenceBounds(seq).upper;
+        getLastSequenceBounds(seq).lower = getSequenceBounds(seq).lower;
+        getSequenceBounds(seq).upper = tighterUpper;
+        getSequenceBounds(seq).lower = tighterLower;
+
+        // do more extensive debug checks
+        debugChecks(seq);
     }
 
     private MathTools.DoubleBounds getSequenceConfBounds(Sequence seq) {
