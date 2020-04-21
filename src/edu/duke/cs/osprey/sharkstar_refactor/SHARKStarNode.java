@@ -5,6 +5,7 @@ import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarNode;
+import edu.duke.cs.osprey.sharkstar.SHARKStar;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.util.*;
@@ -105,6 +106,10 @@ public class SHARKStarNode implements ConfAStarNode {
     public void getConf(int[] conf) {
         // I don't know what this method is supposed to do
         throw new NotImplementedException();
+    }
+
+    public int[] getAssignments(){
+        return this.assignments;
     }
 
     /**
@@ -228,5 +233,35 @@ public class SHARKStarNode implements ConfAStarNode {
 
     public double getUnassignedConfUB(Sequence seq){
         return this.unassignedConfUB.get(seq);
+    }
+
+    public Map<Sequence, List<SHARKStarNode>> getChildren(){
+        return this.children;
+    }
+
+    public List<SHARKStarNode> getChildren(Sequence seq){
+        return this.children.get(seq);
+    }
+
+    public double getFreeEnergyLB(Sequence seq){
+        if (this.isMinimized){
+            return this.minE;
+        }else if (this.isCorrected){
+            //TODO: This will change when I implement upperbound corrections
+            return this.partialConfLB + this.HOTCorrection + this.unassignedConfLB.get(seq);
+        }else{
+            return this.partialConfLB + this.unassignedConfLB.get(seq);
+        }
+    }
+
+    public double getFreeEnergyUB(Sequence seq){
+        if (this.isMinimized){
+            return this.minE;
+        }else if (this.isCorrected){
+            //TODO: This will change when I implement upperbound corrections
+            return this.partialConfUB + this.unassignedConfUB.get(seq);
+        }else{
+            return this.partialConfUB + this.unassignedConfUB.get(seq);
+        }
     }
 }
