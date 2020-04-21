@@ -24,19 +24,19 @@ public class SHARKStarNode implements ConfAStarNode {
      * TODO: probably could optimize the memory usage
      */
     // Final variables
-    private static final int Unassigned = -1;
-    private static final boolean debug = true;
+    public static final int Unassigned = -1;
+    private static final boolean debug = MultiSequenceSHARKStarBound_refactor.debug;
 
     // Conformation variables
     private int[] assignments;
 
     // Score variables
-    private double partialConfLB; // the pairwise-minimized free energy of the assigned residues
-    private double partialConfUB; // the rigid pairwise free energy of the assigned residues
-    private Map<Sequence, Double> unassignedConfLB; // the lower bound on the free energy of all full conformations
-                                                    // compatible with this node (by sequence)
-    private Map<Sequence, Double> unassignedConfUB; // the lower bound on the free energy of all full conformations
-                                                    // compatible with this node (by sequence)
+    private double partialConfLB;                           // the pairwise-minimized free energy of the assigned residues
+    private double partialConfUB;                           // the rigid pairwise free energy of the assigned residues
+    private final Map<Sequence, Double> unassignedConfLB;   // the lower bound on the free energy of all full conformations
+                                                                // compatible with this node (by sequence)
+    private final Map<Sequence, Double> unassignedConfUB;   // the lower bound on the free energy of all full conformations
+                                                                // compatible with this node (by sequence)
     //TODO: Determine whether memory optimization requires deleting HOTCorrection, minE, and isMinimized
     private double HOTCorrection;
     private boolean isCorrected;
@@ -44,12 +44,12 @@ public class SHARKStarNode implements ConfAStarNode {
     private boolean isMinimized;
 
     // Tree variables
-    private int level;
-    private SHARKStarNode parent;
-    private Map<Sequence, List<SHARKStarNode>> children;
+    private final int level;
+    private final SHARKStarNode parent;
+    private final Map<Sequence, List<SHARKStarNode>> children;
 
     // Debug variables
-    private List<String> history;
+    private final List<String> history;
 
 
     public SHARKStarNode(int[] assignments, int level, SHARKStarNode parent){
@@ -70,7 +70,11 @@ public class SHARKStarNode implements ConfAStarNode {
 
         if(debug){
             this.history = new ArrayList<>();
-            history.add(String.format("Created node from parent %s", SimpleConfSpace.formatConfRCs(parent.assignments)));
+            if(this.parent != null) {
+                history.add(String.format("Created node from parent %s", SimpleConfSpace.formatConfRCs(parent.assignments)));
+            }else{
+                history.add("Created root node.");
+            }
         }
     }
 
