@@ -3,12 +3,11 @@ package edu.duke.cs.osprey.sharkstar_refactor;
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarNode;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class SHARKStarNode implements ConfAStarNode {
     /**
@@ -25,6 +24,7 @@ public class SHARKStarNode implements ConfAStarNode {
      */
     // Final variables
     private static final int Unassigned = -1;
+    private static final boolean debug = true;
 
     // Conformation variables
     private int[] assignments;
@@ -44,9 +44,14 @@ public class SHARKStarNode implements ConfAStarNode {
 
     // Tree variables
     private int level;
+    private SHARKStarNode parent;
     private Map<Sequence, List<SHARKStarNode>> children;
 
-    public SHARKStarNode(int[] assignments, int level){
+    // Debug variables
+    private List<String> history;
+
+
+    public SHARKStarNode(int[] assignments, int level, SHARKStarNode parent){
         this.assignments = assignments;
 
         this.partialConfLB = Double.NaN;
@@ -59,7 +64,13 @@ public class SHARKStarNode implements ConfAStarNode {
         this.isMinimized = false;
 
         this.level = level;
+        this.parent = parent;
         this.children = new HashMap<>();
+
+        if(debug){
+            this.history = new ArrayList<>();
+            history.add(String.format("Created node from parent %s", SimpleConfSpace.formatConfRCs(parent.assignments)));
+        }
     }
 
     /**
@@ -72,7 +83,7 @@ public class SHARKStarNode implements ConfAStarNode {
         int[] newAssignments = new int[this.assignments.length];
         System.arraycopy(this.assignments, 0, newAssignments, 0, this.assignments.length);
         newAssignments[pos] = rc;
-        return new SHARKStarNode(newAssignments, this.level + 1);
+        return new SHARKStarNode(newAssignments, this.level + 1, this);
     }
 
     /**
@@ -84,7 +95,7 @@ public class SHARKStarNode implements ConfAStarNode {
         int[] newAssignments = new int[this.assignments.length];
         System.arraycopy(this.assignments, 0, newAssignments, 0, this.assignments.length);
         newAssignments[pos] = rc;
-        SHARKStarNode child = new SHARKStarNode(newAssignments, this.level + 1);
+        SHARKStarNode child = new SHARKStarNode(newAssignments, this.level + 1, this);
         // Store the new node as a child
         this.children.get(seq).add(child);
         return child;
@@ -177,5 +188,45 @@ public class SHARKStarNode implements ConfAStarNode {
     @Override
     public int getLevel() {
         return this.level;
+    }
+
+    public void setPartialConfLB(double val){
+        if(debug)
+            this.history.add(String.format("Setting partialConfLB <- %.3f", val));
+        this.partialConfLB = val;
+    }
+
+    public double getPartialConfLB(){
+        return this.partialConfLB;
+    }
+
+    public void setPartialConfUB(double val){
+        if(debug)
+            this.history.add(String.format("Setting partialConfUB <- %.3f", val));
+        this.partialConfUB = val;
+    }
+
+    public double getPartialConfUB(){
+        return this.partialConfUB;
+    }
+
+    public void setUnassignedConfLB(double val, Sequence seq){
+        if(debug)
+            this.history.add(String.format("Setting unassignedConfLB( %s ) <- %.3f", seq, val));
+            this.unassignedConfLB.put(seq, val);
+    }
+
+    public double getUnassignedConfLB(Sequence seq){
+        return this.unassignedConfLB.get(seq);
+    }
+
+    public void setUnassignedConfUB(double val, Sequence seq){
+        if(debug)
+            this.history.add(String.format("Setting unassignedConfUB( %s ) <- %.3f", seq, val));
+        this.unassignedConfUB.put(seq, val);
+    }
+
+    public double getUnassignedConfUB(Sequence seq){
+        return this.unassignedConfUB.get(seq);
     }
 }
