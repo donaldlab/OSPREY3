@@ -152,8 +152,6 @@ public class StaticBiggestLowerboundDifferenceOrder implements edu.duke.cs.ospre
 	double scorePos(ConfIndex confIndex, RCs rcs, int pos) {
 
 		// check all the RCs at this pos and aggregate the energies
-		double parentScore = confIndex.node.getScore();
-		double reciprocalSum = 0;
 		double maxLower= Double.NEGATIVE_INFINITY;
 		double minLower = Double.POSITIVE_INFINITY;
 		for (int rc : rcs.get(pos)) {
