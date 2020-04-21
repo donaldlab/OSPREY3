@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey;
 
 
-import cuchaz.warpdrive.WarpDrive;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
@@ -24,9 +23,6 @@ import static edu.duke.cs.osprey.tools.Log.log;
 public class BenchmarkEnergies {
 
 	public static void main(String[] args) {
-
-		// TEMP
-		WarpDrive.INSTANCE.warp("workbox");
 
 		// make the conf spaces
 		TestConfSpace.AffinityClassic classic = TestConfSpace.Design2RL0Interface7Mut.makeClassic();
