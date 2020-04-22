@@ -49,7 +49,8 @@ public class SHARKStarTreeDebugger {
      */
     public void travelNode(SHARKStarNode node, Sequence seq){
         // Get the children
-        List<SHARKStarNode> children = node.getChildren(seq);
+        //TODO: Make this get children compatible with sequence
+        List<SHARKStarNode> children = node.getChildren();
         // if there are children
         if(children != null) {
             // run debug checks on the children
