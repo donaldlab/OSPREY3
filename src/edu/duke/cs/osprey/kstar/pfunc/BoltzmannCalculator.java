@@ -36,6 +36,8 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 import ch.obermuhlner.math.big.BigDecimalMath;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
@@ -67,18 +69,40 @@ public class BoltzmannCalculator {
 		return e.exp(-energy/constRT);
 	}
 
-	public double logSumExp(ArrayList<Double> energyList){
-		/** logSumExp
-		 *
-		 * Returns the free energy of a Boltzmann-weighted sum of energies.
-		 *
-		 * Uses the log-sum-exp trick:
-		 * 	Shifts sum of exponentials to start at zero. In doing so, avoids
-		 * 	some numerical instability issues.
-         *
-		 * 	TODO: Optimize this? It should get called a LOT
-		 */
+	/** logSumExp
+	 *
+	 * Returns the free energy of a Boltzmann-weighted sum of energies using a
+	 * streams implementation.
+     *
+	 * Uses the log-sum-exp trick:
+	 * 	Shifts sum of exponentials to start at zero. In doing so, avoids
+	 * 	some numerical instability issues.
+	 *
+	 * 	TODO: Benchmark and make sure that parallel streams are actually faster in this case
+	 */
+	public double logSumExpStream(Stream<Double> energyStream){
+		Optional<Double> minEnergy = energyStream.parallel().min(Double::compareTo);
+		if (minEnergy.isPresent()){
+			BigDecimal zSum = energyStream.parallel()
+					.map( e -> calc(e - minEnergy.get()))
+					.reduce(BigDecimal.ZERO, BigDecimal::add);
+			return minEnergy.get() + freeEnergy(zSum);
+		}else{
+			throw new RuntimeException("Failed to find minimum element using streams");
+		}
+	}
 
+	/** logSumExp
+	 *
+	 * Returns the free energy of a Boltzmann-weighted sum of energies.
+	 *
+	 * Uses the log-sum-exp trick:
+	 * 	Shifts sum of exponentials to start at zero. In doing so, avoids
+	 * 	some numerical instability issues.
+	 *
+	 * 	TODO: Optimize this? It should get called a LOT
+	 */
+	public double logSumExp(ArrayList<Double> energyList){
 		double minEnergy = Collections.min(energyList);
 		BigDecimal runningSum = BigDecimal.ZERO;
 		for ( double e : energyList){
@@ -86,6 +110,19 @@ public class BoltzmannCalculator {
 		}
 
 		return minEnergy + freeEnergy(runningSum);
+
+	}
+
+	/**
+	 * Computes the natural log of partition function error
+	 * @param freeEnergyLower	variable x
+	 * @param freeEnergyUpper	variable y
+	 * @return					ln( exp(-x/RT) - exp(-y/RT) )
+     *
+	 * 	TODO: Optimize this? It should get called a LOT
+	 */
+	public double calc_lnZDiff(double freeEnergyLower, double freeEnergyUpper){
+		return (-freeEnergyLower/constRT) + freeEnergy(BigDecimal.ONE.subtract(calc(freeEnergyUpper-freeEnergyLower), mathContext));
 
 	}
 
