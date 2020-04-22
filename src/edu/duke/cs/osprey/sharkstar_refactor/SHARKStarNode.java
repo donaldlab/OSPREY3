@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.sharkstar_refactor;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarNode;
@@ -13,12 +14,6 @@ import java.util.*;
 public class SHARKStarNode implements ConfAStarNode {
     /**
      * Node in a Multi-sequence conformation tree
-     *
-     * SHARK* explores the conformation tree in order of free energy approximation error (equivalently, partition
-     * function approximation error). This means that the 'GScore' for a SHARK*Node is actually the difference between
-     * the upper and lower bounds on the partial conformation energy. Similarly, the 'HScore' is the difference between
-     * the upper and lower bounds on the unassigned conformation free energy. In essence, the scores for these nodes are
-     * measures of *error*, not energy.
      *
      * TODO: Implement upper bound corrections
      * TODO: probably could optimize the memory usage
@@ -46,7 +41,7 @@ public class SHARKStarNode implements ConfAStarNode {
     // Tree variables
     private final int level;
     private final SHARKStarNode parent;
-    private final Map<Sequence, List<SHARKStarNode>> children;
+    private final List<SHARKStarNode> children;
 
     // Debug variables
     private final List<String> history;
@@ -66,7 +61,7 @@ public class SHARKStarNode implements ConfAStarNode {
 
         this.level = level;
         this.parent = parent;
-        this.children = new HashMap<>();
+        this.children = new ArrayList<>();
 
         if(debug){
             this.history = new ArrayList<>();
@@ -83,28 +78,15 @@ public class SHARKStarNode implements ConfAStarNode {
      */
     @Override
     public SHARKStarNode assign(int pos, int rc) {
-        System.err.println("WARNING: Making child without sequence. This will break the tree links.");
-
-        int[] newAssignments = new int[this.assignments.length];
-        System.arraycopy(this.assignments, 0, newAssignments, 0, this.assignments.length);
-        newAssignments[pos] = rc;
-        return new SHARKStarNode(newAssignments, this.level + 1, this);
-    }
-
-    /**
-     * Make a child node from this node and assign it to this node's children list
-     * TODO: Determine whether this method is useful
-     */
-    public SHARKStarNode assign(int pos, int rc, Sequence seq) {
-        // Make the new node
         int[] newAssignments = new int[this.assignments.length];
         System.arraycopy(this.assignments, 0, newAssignments, 0, this.assignments.length);
         newAssignments[pos] = rc;
         SHARKStarNode child = new SHARKStarNode(newAssignments, this.level + 1, this);
         // Store the new node as a child
-        this.children.get(seq).add(child);
+        this.children.add(child);
         return child;
     }
+
 
     @Override
     public void getConf(int[] conf) {
@@ -137,19 +119,9 @@ public class SHARKStarNode implements ConfAStarNode {
         index.node = this;
     }
 
-    /**
-     * Returns the free energy approximation error in the partial conformation
-     */
     @Override
     public double getGScore() {
-        if (this.isMinimized){
-            return 0.0;
-        }else if (this.isCorrected){
-            //TODO: This will change when I implement upperbound corrections
-            return this.partialConfUB - this.partialConfLB + this.HOTCorrection;
-        }else{
-            return this.partialConfUB - this.partialConfLB;
-        }
+        throw new NotImplementedException();
     }
 
     @Override
@@ -160,22 +132,7 @@ public class SHARKStarNode implements ConfAStarNode {
 
     @Override
     public double getHScore() {
-        System.out.println("WARNING: Getting HScore of a Multi-sequence node without specifying sequence. This probably isn't what you want to do.");
         throw new NotImplementedException();
-    }
-
-    /**
-     * Returns the free energy approximation error in the unassigned conformation
-     */
-    public double getHScore(Sequence seq) {
-        if (this.isMinimized){
-            return 0.0;
-        }else if (this.isCorrected){
-            //TODO: This will change when I implement upperbound corrections
-            return this.unassignedConfUB.get(seq) - this.unassignedConfLB.get(seq);
-        }else{
-            return this.unassignedConfUB.get(seq) - this.unassignedConfLB.get(seq);
-        }
     }
 
     @Override
@@ -188,10 +145,6 @@ public class SHARKStarNode implements ConfAStarNode {
     public double getScore(){
         System.out.println("WARNING: Getting Score of a Multi-sequence node without specifying sequence. This probably isn't what you want to do.");
         throw new NotImplementedException();
-    }
-
-    public double getScore(Sequence seq){
-        return getGScore() + getHScore(seq);
     }
 
     @Override
@@ -239,12 +192,16 @@ public class SHARKStarNode implements ConfAStarNode {
         return this.unassignedConfUB.get(seq);
     }
 
-    public Map<Sequence, List<SHARKStarNode>> getChildren(){
-        return this.children;
+    public Map<Sequence, Double> getUnassignedConfLB(){
+        return this.unassignedConfLB;
     }
 
-    public List<SHARKStarNode> getChildren(Sequence seq){
-        return this.children.get(seq);
+    public Map<Sequence, Double> getUnassignedConfUB(){
+        return this.unassignedConfUB;
+    }
+
+    public List<SHARKStarNode> getChildren(){
+        return this.children;
     }
 
     public double getFreeEnergyLB(Sequence seq){
