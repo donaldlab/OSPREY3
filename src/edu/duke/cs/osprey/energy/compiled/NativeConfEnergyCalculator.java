@@ -3,19 +3,16 @@ package edu.duke.cs.osprey.energy.compiled;
 import com.sun.jna.*;
 
 import static edu.duke.cs.osprey.gpu.Structs.*;
-import static edu.duke.cs.osprey.tools.Log.log;
 
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Arrays;
 import java.util.List;
 
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.CoordsList;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.gpu.BufWriter;
-import edu.duke.cs.osprey.gpu.Structs;
 import jdk.incubator.foreign.*;
 
 
@@ -79,51 +76,18 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		return new Real();
 	}
 
-	public class RealArray extends Structs.Array {
 
-		public RealArray(long size) {
-			super(size, precision.bytes);
-		}
-
-		public double get(long i) {
-			return (double)precision.handle.get(offset(i));
-		}
-
-		public void set(long i, double value) {
-			precision.handle.set(offset(i), precision.fromDouble(value));
-		}
-	}
-	public RealArray realarray(long size) {
-		return new RealArray(size);
-	}
-
-
-	private static class NativeF64 {
+	private static class NativeLib {
 
 		static {
-			Native.register("ConfEcalc_f64");
+			Native.register("ConfEcalc");
 		}
 
-		// NOTE: there's no way to share these declarations between f64 and f32
-		// JNA won't look at methods from base classes
-
-		public static native void print_info();
-		public static native void assign(ByteBuffer conf_space, int[] conf, ByteBuffer out);
-		public static native double calc(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size);
-	}
-
-	private static class NativeF32 {
-
-		static {
-			Native.register("ConfEcalc_f32");
-		}
-
-		// NOTE: there's no way to share these declarations between f64 and f32
-		// JNA won't look at methods from base classes
-
-		public static native void print_info();
-		public static native void assign(ByteBuffer conf_space, int[] conf, ByteBuffer out);
-		public static native double calc(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size);
+		public static native int version_major();
+		public static native int version_minor();
+		public static native void assign_f32(ByteBuffer conf_space, int[] conf, ByteBuffer out);
+		public static native void assign_f64(ByteBuffer conf_space, int[] conf, ByteBuffer out);
+		//public static native double calc(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size);
 	}
 
 	private static final long alignment = 8; // bytes
@@ -136,41 +100,53 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	// NOTE: prefix the struct classes with S to avoid name collisions with the related Java classes
 
 	static class SConfSpace extends Struct {
-		final Uint32 num_pos = uint32();
-		final Uint32 max_num_conf_atoms = uint32();
+		final Int32 num_pos = int32();
+		final Int32 max_num_conf_atoms = int32();
 		final Int64 positions_offset = int64();
 		final Int64 static_atoms_offset = int64();
 	}
 	private final SConfSpace confSpaceStruct = new SConfSpace().init(
-		"num_pos", "max_num_conf_atoms", "positions_offset", "static_atoms_offset"
+		24, "num_pos", "max_num_conf_atoms", "positions_offset", "static_atoms_offset"
 	);
 
 	static class SPos extends Struct {
-		final Uint32 num_confs = uint32();
-		final Uint32 max_num_atoms = uint32();
-		final Int64.Array conf_offsets = int64array(Field.UnknownSize);
+		final Int32 num_confs = int32();
+		final Int32 max_num_atoms = int32();
 	}
 	private final SPos posStruct = new SPos().init(
-		"num_confs", "max_num_atoms", "conf_offsets"
+		8, "num_confs", "max_num_atoms"
 	);
 
 	static class SConf extends Struct {
-		final Int64 coords_offset = int64();
+		final Int64 atoms_offset = int64();
 	}
 	private final SConf confStruct = new SConf().init(
-		"coords_offset"
+		8, "atoms_offset"
 	);
 
-	class SCoords extends Struct {
-		final Uint32 num_atoms = uint32();
+	static class SAtoms extends Struct {
+		final Int32 num_atoms = int32();
 		final Pad pad = pad(4);
-		final RealArray coords = realarray(Field.UnknownSize);
+		final Int64 coords = int64();
 	}
-	private final SCoords coordsStruct;
+	private final SAtoms atomsStruct = new SAtoms().init(
+		16, "num_atoms", "pad", "coords"
+	);
+
+	class SReal3 extends Struct {
+		final Real x = real();
+		final Real y = real();
+		final Real z = real();
+		final Pad pad = pad(switch (precision) {
+			case Single -> 4;
+			case Double -> 0;
+		});
+	}
+	private final SReal3 real3Struct;
 
 	class SPosInter extends Struct {
-		final Uint32 posi1 = uint32();
-		final Uint32 posi2 = uint32();
+		final Int32 posi1 = int32();
+		final Int32 posi2 = int32();
 		final Real weight = real();
 		final Real offset = real();
 	}
@@ -181,40 +157,39 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		this.confSpace = confSpace;
 		this.precision = precision;
 
-		switch (precision) {
-			case Single: NativeF32.print_info(); break;
-			case Double: NativeF64.print_info(); break;
-		}
-
 		// once we know the precision, init the rest of the structs
-		coordsStruct = new SCoords().init(
-			"num_atoms", "pad", "coords"
+		real3Struct = new SReal3().init(
+			switch (precision) {
+				case Single -> 16;
+				case Double -> 24;
+			}, "x", "y", "z", "pad"
 		);
 		posInterStruct = new SPosInter().init(
-			"posi1", "posi2", "weight", "offset"
+			switch (precision) {
+				case Single -> 16;
+				case Double -> 24;
+			}, "posi1", "posi2", "weight", "offset"
 		);
 
-		Int64.Array posOffsets = int64array(confSpace.positions.length);
+		Int64.Array posOffsets = int64array();
+		Int64.Array confOffsets = int64array();
 
 		// calculate how much memory we need for the conf space buffer
-		// TODO: make this easier to read?
-		// TODO: add alignment to bytes(size) for structs with arrays at the end
-		// TODO: add alignment to bytes() for fixed arrays
 		long bufSize = confSpaceStruct.bytes()
-			+ BufWriter.padToAlignment(posOffsets.bytes(), alignment)
-			+ Arrays.stream(confSpace.positions)
-				.mapToLong(pos ->
-					posStruct.bytes(pos.confs.length)
-					+ Arrays.stream(pos.confs)
-						.mapToLong(conf ->
-							confStruct.bytes()
-							+ BufWriter.padToAlignment(coordsStruct.bytes(conf.coords.size*3), alignment)
-						)
-						.sum()
+			+ posOffsets.bytes(confSpace.positions.length)
+			+ sum(confSpace.positions, pos ->
+				posStruct.bytes()
+				+ confOffsets.bytes(pos.confs.length)
+				+ sum(pos.confs, conf ->
+					confStruct.bytes()
+					+ atomsStruct.bytes()
+					+ real3Struct.bytes()*conf.coords.size
 				)
-				.sum()
-			+ BufWriter.padToAlignment(coordsStruct.bytes(confSpace.staticCoords.size*3), alignment);
+			)
+			+ atomsStruct.bytes()
+			+ real3Struct.bytes()*confSpace.staticCoords.size;
 
+		// allocate the buffer for the conf space
 		confSpaceMem = MemorySegment.allocateNative(bufSize, alignment);
 		BufWriter buf = new BufWriter(confSpaceMem);
 
@@ -226,51 +201,53 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 		// leave space for the position offsets
 		confSpaceStruct.positions_offset.set(buf.pos);
-		buf.place(posOffsets);
-		buf.skipToAlignment(alignment);
+		buf.place(posOffsets, confSpace.positions.length);
 
 		// write the positions
 		for (ConfSpace.Pos pos : confSpace.positions) {
 			posOffsets.set(pos.index, buf.pos);
-			buf.place(posStruct, pos.confs.length);
+			buf.place(posStruct);
 			posStruct.num_confs.set(pos.confs.length);
 			posStruct.max_num_atoms.set(pos.maxNumAtoms);
-			buf.skipToAlignment(alignment);
+
+			// put the conf offsets
+			buf.place(confOffsets, pos.confs.length);
+			// we'll go back and write them later though
 
 			// write the confs
 			for (ConfSpace.Conf conf : pos.confs) {
-				posStruct.conf_offsets.set(conf.index, buf.pos);
+				confOffsets.set(conf.index, buf.pos);
 				buf.place(confStruct);
 
 				// write the atoms
-				confStruct.coords_offset.set(buf.pos);
-				buf.place(coordsStruct, conf.coords.size*3);
-				coordsStruct.num_atoms.set(conf.coords.size);
+				confStruct.atoms_offset.set(buf.pos);
+				buf.place(atomsStruct);
+				atomsStruct.num_atoms.set(conf.coords.size);
+				atomsStruct.coords.set(0);
 				for (int i=0; i<conf.coords.size; i++) {
-					coordsStruct.coords.set(i*3,     conf.coords.x(i));
-					coordsStruct.coords.set(i*3 + 1, conf.coords.y(i));
-					coordsStruct.coords.set(i*3 + 2, conf.coords.z(i));
-					// TODO: padding when real_t = float
+					buf.place(real3Struct);
+					real3Struct.x.set(conf.coords.x(i));
+					real3Struct.y.set(conf.coords.y(i));
+					real3Struct.z.set(conf.coords.z(i));
 				}
-				buf.skipToAlignment(alignment);
 			}
 		}
 
 		// write the static atoms
 		confSpaceStruct.static_atoms_offset.set(buf.pos);
-		buf.place(coordsStruct, confSpace.staticCoords.size*3);
-		coordsStruct.num_atoms.set(confSpace.staticCoords.size);
+		buf.place(atomsStruct);
+		atomsStruct.num_atoms.set(confSpace.staticCoords.size);
+		atomsStruct.coords.set(0);
 		for (int i=0; i<confSpace.staticCoords.size; i++) {
-			coordsStruct.coords.set(i*3,     confSpace.staticCoords.x(i));
-			coordsStruct.coords.set(i*3 + 1, confSpace.staticCoords.y(i));
-			coordsStruct.coords.set(i*3 + 2, confSpace.staticCoords.z(i));
-			// TODO: padding when real_t = float
+			buf.place(real3Struct);
+			real3Struct.x.set(confSpace.staticCoords.x(i));
+			real3Struct.y.set(confSpace.staticCoords.y(i));
+			real3Struct.z.set(confSpace.staticCoords.z(i));
 		}
-		buf.skipToAlignment(alignment);
 
 		assert(buf.pos == bufSize);
 
-		/* TEMP
+		/* TODO: position interactions
 		int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };
 		var inters = Arrays.asList(
 			new PosInter(1, 2, 3.0, 4.0),
@@ -286,35 +263,40 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		*/
 	}
 
+	public String version() {
+		return String.format("%d.%d", NativeLib.version_major(), NativeLib.version_minor());
+	}
+
 	private void assign(int[] conf, ByteBuffer coords) {
 		switch (precision) {
-			case Single: NativeF32.assign(confSpaceMem.asByteBuffer(), conf, coords); break;
-			case Double: NativeF64.assign(confSpaceMem.asByteBuffer(), conf, coords); break;
+			case Single: NativeLib.assign_f32(confSpaceMem.asByteBuffer(), conf, coords); break;
+			case Double: NativeLib.assign_f64(confSpaceMem.asByteBuffer(), conf, coords); break;
 		}
 	}
 
 	public CoordsList assign(int[] conf) {
-		try (var coordsMem = MemorySegment.allocateNative(confSpace.maxNumConfAtoms*3*8, alignment)) {
+		try (var coordsMem = MemorySegment.allocateNative(real3Struct.bytes()*confSpace.maxNumConfAtoms, alignment)) {
 
 			// run the native code
 			assign(conf, coordsMem.asByteBuffer());
-			var nums = realarray(confSpace.maxNumConfAtoms);
-			nums.setAddress(coordsMem.baseAddress());
 
 			// copy the coords into a CoordsList
 			CoordsList coords = new CoordsList(confSpace.maxNumConfAtoms);
+			var addr = coordsMem.baseAddress();
 			for (int i=0; i<confSpace.maxNumConfAtoms; i++) {
+				real3Struct.setAddress(addr.addOffset(i*real3Struct.bytes()));
 				coords.set(
 					i,
-					nums.get(i*3),
-					nums.get(i*3 + 1),
-					nums.get(i*3 + 2)
+					real3Struct.x.get(),
+					real3Struct.y.get(),
+					real3Struct.z.get()
 				);
 			}
 			return coords;
 		}
 	}
 
+	// TODO: update me!
 	private MemorySegment makeIntersBuf(List<PosInter> inters) {
 		MemorySegment mem = MemorySegment.allocateNative(posInterStruct.bytes()*inters.size(), alignment);
 		BufWriter buf = new BufWriter(mem);

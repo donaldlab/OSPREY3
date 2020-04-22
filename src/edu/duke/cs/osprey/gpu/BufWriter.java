@@ -131,16 +131,6 @@ public class BufWriter {
 		skip(struct.bytes());
 	}
 
-	public void place(Structs.Struct struct, long size) {
-		struct.setAddress(address());
-		skip(struct.bytes(size));
-	}
-
-	public void place(Structs.Array array) {
-		array.setAddress(address());
-		skip(array.bytes());
-	}
-
 	public void place(Structs.Array array, long size) {
 		array.setAddress(address());
 		skip(array.bytes(size));

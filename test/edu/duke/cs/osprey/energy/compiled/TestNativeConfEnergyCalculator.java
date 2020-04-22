@@ -38,37 +38,39 @@ public class TestNativeConfEnergyCalculator {
 			var exp = new AssignedCoords(confEcalc.confSpace, conf).coords;
 
 			// convert the expected coords to the needed precision
-			var coords = new AssignedCoords(confEcalc.confSpace, conf).coords;
-			for (int i=0; i<coords.size; i++) {
-				coords.setX(i, precision.toDouble(precision.fromDouble(coords.x(i))));
-				coords.setY(i, precision.toDouble(precision.fromDouble(coords.y(i))));
-				coords.setZ(i, precision.toDouble(precision.fromDouble(coords.z(i))));
+			for (int i=0; i<exp.size; i++) {
+				exp.setX(i, precision.toDouble(precision.fromDouble(exp.x(i))));
+				exp.setY(i, precision.toDouble(precision.fromDouble(exp.y(i))));
+				exp.setZ(i, precision.toDouble(precision.fromDouble(exp.z(i))));
 			}
 
 			var obs = confEcalc.assign(conf);
 
 			// diff the two coord lists
-			List<String> diffs = IntStream.range(0, confSpace.maxNumConfAtoms)
+			int[] indices = IntStream.range(0, confSpace.maxNumConfAtoms)
 				.filter(i ->
 					exp.x(i) != obs.x(i)
 					|| exp.y(i) != obs.y(i)
 					|| exp.z(i) != obs.z(i)
 				)
-				.mapToObj(i ->
-					String.format("%4d   EXP: %10.6f, %10.6f, %10.6f    OBS: %10.6f, %10.6f, %10.6f",
-						i,
-						exp.x(i), exp.y(i), exp.z(i),
-						obs.x(i), obs.y(i), obs.z(i)
-					)
-				)
+				.toArray();
+			List<String> diffs = IntStream.range(0, indices.length)
+				.mapToObj(i -> {
+					int prevAtomi = i > 0 ? indices[i - 1] : -1;
+					int atomi = indices[i];
+					return String.format("%s%4d   EXP: %10.6f, %10.6f, %10.6f    OBS: %10.6f, %10.6f, %10.6f",
+						atomi - prevAtomi > 1 ? "...\n" : "",
+						atomi,
+						exp.x(atomi), exp.y(atomi), exp.z(atomi),
+						obs.x(atomi), obs.y(atomi), obs.z(atomi)
+					);
+				})
 				.collect(Collectors.toList());
 			String diffMsg = String.format("Coords are different at %d/%d positions:\n%s",
 				diffs.size(),
 				confSpace.maxNumConfAtoms,
 				String.join("\n", diffs)
 			);
-
-			// TODO: position coords being written too early in the list, even in f64
 
 			assertThat(diffMsg, diffs.size(), is(0));
 		}

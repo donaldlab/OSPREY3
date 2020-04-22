@@ -2,3 +2,4 @@
 // cmake inputs
 #define ConfEcalc_VERSION_MAJOR @ConfEcalc_VERSION_MAJOR@
 #define ConfEcalc_VERSION_MINOR @ConfEcalc_VERSION_MINOR@
+

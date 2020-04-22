@@ -7,6 +7,8 @@ import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 
 
@@ -20,7 +22,7 @@ public class Structs {
 
 		private Field[] fields = null;
 
-		public <T extends Struct> T init(String ... fieldNames) {
+		public <T extends Struct> T init(int bytes, String ... fieldNames) {
 
 			// get the fields
 			Class<?> c = getClass();
@@ -51,6 +53,11 @@ public class Structs {
 				throw new IllegalArgumentException("no order given for fields: " + missingFields);
 			}
 
+			// check the field sizes
+			if (bytes != bytes()) {
+				throw new IllegalArgumentException("struct size (" + bytes() + ") is not expected size (" + bytes + ")");
+			}
+
 			@SuppressWarnings("unchecked")
 			T struct = (T)this;
 			return struct;
@@ -67,28 +74,17 @@ public class Structs {
 		 * Calculates the static size of the struct.
 		 */
 		public long bytes() {
-			return Arrays.stream(fields)
-				.mapToLong(Field::bytes)
-				.sum();
-		}
-
-		/**
-		 * Calculates the size of the struct assuming
-		 * the last field is a dynamically-sized array.
-		 */
-		public long bytes(long arraySize) {
-			long bytes = 0;
-			for (int i=0; i<fields.length - 1; i++) {
-				bytes += fields[i].bytes();
-			}
-			bytes += ((Array)fields[fields.length - 1]).bytes(arraySize);
-			return bytes;
+			return sum(fields, f -> f.bytes);
 		}
 	}
 
-	public static abstract class Field {
+	public static <T> long sum(T[] things, ToLongFunction<? super T> converter) {
+		return Arrays.stream(things)
+			.mapToLong(converter)
+			.sum();
+	}
 
-		public static final long UnknownSize = -1;
+	public static abstract class Field {
 
 		private final long bytes;
 
@@ -98,30 +94,18 @@ public class Structs {
 		public Field(long bytes) {
 			this.bytes = bytes;
 		}
-
-		public long bytes() {
-			if (bytes == UnknownSize) {
-				throw new IllegalStateException("field is dynamically sized");
-			}
-			return bytes;
-		}
 	}
 
-	public static abstract class Array extends Field {
+	public static abstract class Array {
 
-		public long staticSize;
 		public final long itemBytes;
+		protected MemoryAddress addr;
 
-		public Array(long staticSize, long itemBytes) {
-			super(staticSize == Field.UnknownSize ? Field.UnknownSize : staticSize*itemBytes);
-			this.staticSize = staticSize;
+		public Array(long itemBytes) {
 			this.itemBytes = itemBytes;
 		}
 
 		public long bytes(long size) {
-			if (size == Field.UnknownSize) {
-				throw new IllegalArgumentException("size must be known");
-			}
 			return size*itemBytes;
 		}
 
@@ -164,30 +148,6 @@ public class Structs {
 		return new Int32();
 	}
 
-	public static class Uint32 extends Field {
-
-		private static final VarHandle handle = MemoryHandles.varHandle(int.class, ByteOrder.nativeOrder());
-
-		public Uint32() {
-			super(4);
-		}
-
-		public long get() {
-			return (int)handle.get(addr) & 0x00000000ffffffffL;
-		}
-
-		public void set(int value) {
-			handle.set(addr, value);
-		}
-
-		public void set(long value) {
-			handle.set(addr, (int)(value & 0x00000000ffffffffL));
-		}
-	}
-	public static Uint32 uint32() {
-		return new Uint32();
-	}
-
 	public static class Int64 extends Field {
 
 		private static final VarHandle handle = MemoryHandles.varHandle(long.class, ByteOrder.nativeOrder());
@@ -206,8 +166,8 @@ public class Structs {
 
 		public static class Array extends Structs.Array {
 
-			public Array(long size) {
-				super(size, 8);
+			public Array() {
+				super(8);
 			}
 
 			public long get(long i) {
@@ -222,11 +182,9 @@ public class Structs {
 	public static Int64 int64() {
 		return new Int64();
 	}
-	public static Int64.Array int64array(long size) {
-		return new Int64.Array(size);
+	public static Int64.Array int64array() {
+		return new Int64.Array();
 	}
-
-	// sadly, Java can't represent a uint64
 
 
 	public static class Float32 extends Field {
@@ -247,8 +205,8 @@ public class Structs {
 
 		public static class Array extends Structs.Array {
 
-			public Array(long size) {
-				super(size, 4);
+			public Array() {
+				super(4);
 			}
 
 			public float get(long i) {
@@ -263,8 +221,8 @@ public class Structs {
 	public static Float32 float32() {
 		return new Float32();
 	}
-	public static Float32.Array float32array(long size) {
-		return new Float32.Array(size);
+	public static Float32.Array float32array() {
+		return new Float32.Array();
 	}
 
 	public static class Float64 extends Field {
@@ -285,8 +243,8 @@ public class Structs {
 
 		public static class Array extends Structs.Array {
 
-			public Array(long size) {
-				super(size, 8);
+			public Array() {
+				super(8);
 			}
 
 			public double get(long i) {
@@ -301,9 +259,29 @@ public class Structs {
 	public static Float64 float64() {
 		return new Float64();
 	}
-	public static Float64.Array float64array(long size) {
-		return new Float64.Array(size);
+	public static Float64.Array float64array() {
+		return new Float64.Array();
 	}
 
-	// TODO: add more types
+	public static class Bool extends Field {
+
+		private static final VarHandle handle = MemoryHandles.varHandle(byte.class, ByteOrder.nativeOrder());
+
+		public Bool() {
+			super(1);
+		}
+
+		public boolean get() {
+			return (byte)handle.get(addr) != 0;
+		}
+
+		public void set(boolean value) {
+			handle.set(addr, value ? (byte)1 : (byte)0);
+		}
+
+		// TODO: need bool array?
+	}
+	public static Bool bool() {
+		return new Bool();
+	}
 }
