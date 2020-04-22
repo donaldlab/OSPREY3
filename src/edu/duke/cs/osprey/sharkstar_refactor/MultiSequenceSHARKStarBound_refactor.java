@@ -37,7 +37,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      *
      */
 
+    // Debug variables
     public static final boolean debug = true;
+    public final SHARKStarTreeDebugger pilotFish;
     public boolean profileOutput = false;
 
     protected double targetEpsilon = 1;
@@ -131,6 +133,10 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         progress = new MARKStarProgress(fullRCs.getNumPos());
 
+        // Initialize debugger if necessary
+        if(debug)
+            pilotFish = new SHARKStarTreeDebugger(decimalPrecision);
+
         //TODO: Does this stuff belong in init?
 
         // No precomputed sequence means the "precomputed" sequence is empty
@@ -140,6 +146,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         int[] rootConf = new int[confSpace.getNumPos()];
         Arrays.fill(rootConf,SHARKStarNode.Unassigned);
         this.rootNode = new SHARKStarNode(rootConf, 0, null);
+        if(debug)
+            pilotFish.setRootNode(this.rootNode);
 
         // Initialize residue ordering
         this.order = new StaticBiggestLowerboundDifferenceOrder();
@@ -184,7 +192,6 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 this.rootNode.getFreeEnergyLB(this.precomputedSequence),
                 this.rootNode.getFreeEnergyUB(this.precomputedSequence)));
 
-        //TODO: Add the SHARKStarTreeDebugger in
         //TODO: Start adding other methods, flesh out
 
     }
