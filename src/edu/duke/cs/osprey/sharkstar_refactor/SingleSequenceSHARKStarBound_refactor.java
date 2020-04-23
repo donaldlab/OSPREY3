@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.PriorityQueue;
@@ -125,6 +126,24 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
 
         return multisequenceBound.bc.calc(multisequenceBound.bc.logSumExpStream(allNodesEnergyLB));
 
+    }
+
+    public double getSequenceEpsilon(){
+        BigDecimal upperBound = fringeNodes.getPartitionFunctionUpperBound()
+                .add(internalQueue.getPartitionFunctionUpperBound())
+                .add(leafQueue.getPartitionFunctionUpperBound())
+                .add(finishedNodeZ);
+        BigDecimal lowerBound = fringeNodes.getPartitionFunctionLowerBound()
+                .add(internalQueue.getPartitionFunctionLowerBound())
+                .add(leafQueue.getPartitionFunctionLowerBound())
+                .add(finishedNodeZ);
+
+        if (upperBound.subtract(lowerBound).compareTo(BigDecimal.ONE) < 1) {
+            return 0;
+        } else {
+            return upperBound.subtract(lowerBound)
+                    .divide(upperBound, RoundingMode.HALF_UP).doubleValue();
+        }
     }
 
 }

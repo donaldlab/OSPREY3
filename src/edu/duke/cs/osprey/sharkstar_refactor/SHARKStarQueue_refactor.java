@@ -14,13 +14,15 @@ import java.util.PriorityQueue;
 import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.debug;
 
 class SHARKStarQueue_refactor extends PriorityQueue<SHARKStarNode> {
+    /**
+     * TODO: Try to batch the boltzmann calculator calls?
+     */
     private BigDecimal partitionFunctionUpperSum = BigDecimal.ZERO;
     private BigDecimal partitionFunctionLowerSum = BigDecimal.ZERO;
     private final Sequence seq;
     private final BoltzmannCalculator bc;
 
     public SHARKStarQueue_refactor(Sequence seq, BoltzmannCalculator bc) {
-        //TODO: Is this extra logging / exping worth it? Is it slow?
         super((o1, o2) -> -Double.compare(o1.getScore(seq), o2.getScore(seq)));
         this.seq = seq;
         this.bc = bc;
@@ -34,12 +36,10 @@ class SHARKStarQueue_refactor extends PriorityQueue<SHARKStarNode> {
         return partitionFunctionLowerSum;
     }
 
-    /*
-    @Override
     public boolean add(SHARKStarNode node) {
         debugCheck();
-        partitionFunctionUpperSum = partitionFunctionUpperSum.add(node.getUpperBound(seq));
-        partitionFunctionLowerSum = partitionFunctionLowerSum.add(node.getLowerBound(seq));
+        partitionFunctionUpperSum = partitionFunctionUpperSum.add(bc.calc(node.getFreeEnergyLB(seq)));
+        partitionFunctionLowerSum = partitionFunctionLowerSum.add(bc.calc(node.getFreeEnergyUB(seq)));
         debugCheck();
         return super.add(node);
     }
@@ -48,8 +48,10 @@ class SHARKStarQueue_refactor extends PriorityQueue<SHARKStarNode> {
     public SHARKStarNode poll() {
         SHARKStarNode node = super.poll();
         debugCheck();
-        partitionFunctionUpperSum = partitionFunctionUpperSum.subtract(node.getUpperBound(seq));
-        partitionFunctionLowerSum = partitionFunctionLowerSum.subtract(node.getLowerBound(seq));
+        if (node != null) {
+            partitionFunctionUpperSum = partitionFunctionUpperSum.subtract(bc.calc(node.getFreeEnergyLB(seq)));
+            partitionFunctionLowerSum = partitionFunctionLowerSum.subtract(bc.calc(node.getFreeEnergyUB(seq)));
+        }
         debugCheck();
         return node;
     }
@@ -68,25 +70,25 @@ class SHARKStarQueue_refactor extends PriorityQueue<SHARKStarNode> {
             System.err.println("Invalid bounds. Lower bound is greater than upper bound.");
         if (partitionFunctionLowerSum.compareTo(BigDecimal.ZERO) < 0)
             System.err.println("Invalid bounds. Lower bound is less than zero.");
-        if (!isEmpty() && peek().getLowerBound(seq).compareTo(partitionFunctionLowerSum) > 0)
+        if (!isEmpty() && peek().getFreeEnergyUB(seq) < bc.freeEnergy(partitionFunctionLowerSum))
             System.err.println("The top element is bigger than the entire lower bound sum.");
         assert (sumDifference.compareTo(BigDecimal.ZERO) > 0 || sumDifference.compareTo(BigDecimal.valueOf(1e-5)) <= 0);
         assert (partitionFunctionLowerSum.compareTo(BigDecimal.ZERO) >= 0);
         System.out.println("Queue: bounds " + toString());
-        List<MultiSequenceSHARKStarNode> nodes = new ArrayList<>();
+        List<SHARKStarNode> nodes = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             if (isEmpty())
                 break;
-            MultiSequenceSHARKStarNode next = super.poll();
-            System.out.println(next.toSeqString(seq));
+            SHARKStarNode next = super.poll();
+            //this is a good place for more debugging info
+            //System.out.println(next.toSeqString(seq));
             nodes.add(next);
         }
-        for (MultiSequenceSHARKStarNode node : nodes)
+        for (SHARKStarNode node : nodes)
             super.add(node);
     }
 
     private void debugCheck() {
         debugCheck(false);
     }
-     */
 }

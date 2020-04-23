@@ -42,7 +42,6 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      *
      * TODO: Implement updatePrecomputedNode
      * TODO: Work through tightenBoundinPhases
-     * TODO: put running sum back into SHARKStarQueue
      *
      * TODO: When do I use loopTasks.waitForFinish?
      */
@@ -233,7 +232,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         computeFringeForSequence(newBound, this.rootNode);
         // Wait for scoring to be done, if applicable
         loopTasks.waitForFinish();
-        double boundEps = newBound.calcEpsilon();
+        double boundEps = newBound.getSequenceEpsilon();
         if(boundEps == 0) {
             System.err.println("Perfectly bounded sequence? how?");
         }else{
@@ -591,7 +590,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         System.out.println("Tightening bound for " + bound.sequence);
         debugPrint("Num conformations: " + bound.numConformations);
 
-        double lastEps = bound.calcEpsilon();
+        double lastEps = bound.getSequenceEpsilon();
         if (lastEps == 0)
             System.err.println("ERROR: Computing for a partition function with epsilon=0");
 
@@ -617,7 +616,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             tightenBoundInPhases(bound);
 
             // do some debug checks
-            double newEps = bound.calcEpsilon();
+            double newEps = bound.getSequenceEpsilon();
             debugPrint("Errorbound is now " + newEps);
             debugPrint("Bound reduction: " + (lastEps - newEps));
             if (lastEps < newEps && newEps - lastEps > 0.01
