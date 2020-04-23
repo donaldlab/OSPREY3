@@ -7,6 +7,7 @@ import static edu.duke.cs.osprey.gpu.Structs.*;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.List;
 
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
@@ -87,13 +88,34 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		public static native int version_minor();
 		public static native void assign_f32(ByteBuffer conf_space, int[] conf, ByteBuffer out);
 		public static native void assign_f64(ByteBuffer conf_space, int[] conf, ByteBuffer out);
-		//public static native double calc(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size);
+		public static native float calc_amber_eef1_f32(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size);
+		public static native double calc_amber_eef1_f64(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size);
 	}
 
-	private static final long alignment = 8; // bytes
+	public enum Forcefield {
+
+		AmberEef1(AmberEnergyCalculator.type, EEF1EnergyCalculator.type) {
+			double calcEnergy(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize, Precision precision) {
+				return switch (precision) {
+					case Single -> NativeLib.calc_amber_eef1_f32(confSpaceBuf, conf, intersBuf, intersSize);
+					case Double -> NativeLib.calc_amber_eef1_f64(confSpaceBuf, conf, intersBuf, intersSize);
+				};
+			}
+		};
+
+		public final EnergyCalculator.Type[] types;
+
+		Forcefield(EnergyCalculator.Type ... types) {
+			this.types = types;
+		}
+
+		abstract double calcEnergy(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize, Precision precision);
+	}
+
 
 	public final ConfSpace confSpace;
 	public final Precision precision;
+	public final Forcefield forcefield;
 
 	private final MemorySegment confSpaceMem;
 
@@ -157,6 +179,16 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		this.confSpace = confSpace;
 		this.precision = precision;
 
+		// find the forcefield implementation, or die trying
+		EnergyCalculator.Type[] ecalcTypes = Arrays.stream(confSpace.ecalcs)
+			.map(EnergyCalculator::type)
+			.toArray(EnergyCalculator.Type[]::new);
+		this.forcefield = Arrays.stream(Forcefield.values())
+			.filter(ff -> Arrays.equals(ecalcTypes, ff.types))
+			.findAny()
+			.orElseThrow(() -> new IllegalArgumentException("No native implementation for forcefields: "
+				+ Arrays.toString(ecalcTypes)));
+
 		// once we know the precision, init the rest of the structs
 		real3Struct = new SReal3().init(
 			switch (precision) {
@@ -190,7 +222,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			+ real3Struct.bytes()*confSpace.staticCoords.size;
 
 		// allocate the buffer for the conf space
-		confSpaceMem = MemorySegment.allocateNative(bufSize, alignment);
+		confSpaceMem = MemorySegment.allocateNative(bufSize);
 		BufWriter buf = new BufWriter(confSpaceMem);
 
 		// write the header
@@ -269,13 +301,13 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 	private void assign(int[] conf, ByteBuffer coords) {
 		switch (precision) {
-			case Single: NativeLib.assign_f32(confSpaceMem.asByteBuffer(), conf, coords); break;
-			case Double: NativeLib.assign_f64(confSpaceMem.asByteBuffer(), conf, coords); break;
+			case Single -> NativeLib.assign_f32(confSpaceMem.asByteBuffer(), conf, coords);
+			case Double -> NativeLib.assign_f64(confSpaceMem.asByteBuffer(), conf, coords);
 		}
 	}
 
 	public CoordsList assign(int[] conf) {
-		try (var coordsMem = MemorySegment.allocateNative(real3Struct.bytes()*confSpace.maxNumConfAtoms, alignment)) {
+		try (var coordsMem = MemorySegment.allocateNative(real3Struct.bytes()*confSpace.maxNumConfAtoms)) {
 
 			// run the native code
 			assign(conf, coordsMem.asByteBuffer());
@@ -296,20 +328,6 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 	}
 
-	// TODO: update me!
-	private MemorySegment makeIntersBuf(List<PosInter> inters) {
-		MemorySegment mem = MemorySegment.allocateNative(posInterStruct.bytes()*inters.size(), alignment);
-		BufWriter buf = new BufWriter(mem);
-		for (var inter : inters) {
-			buf.place(posInterStruct);
-			posInterStruct.posi1.set(inter.posi1);
-			posInterStruct.posi2.set(inter.posi2);
-			posInterStruct.weight.set(inter.weight);
-			posInterStruct.offset.set(inter.offset);
-		}
-		return mem;
-	}
-
 	@Override
 	public void close() {
 		confSpaceMem.close();
@@ -327,8 +345,28 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	}
 
 	@Override
+	public double calcEnergy(int[] conf, List<PosInter> inters) {
+		try (MemorySegment intersMem = makeIntersMem(inters)) {
+			return forcefield.calcEnergy(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), inters.size(), precision);
+		}
+	}
+
+	@Override
 	public EnergiedCoords minimize(int[] conf, List<PosInter> inters) {
 		// TODO
 		throw new Error();
+	}
+
+	private MemorySegment makeIntersMem(List<PosInter> inters) {
+		MemorySegment mem = MemorySegment.allocateNative(posInterStruct.bytes()*inters.size());
+		BufWriter buf = new BufWriter(mem);
+		for (var inter : inters) {
+			buf.place(posInterStruct);
+			posInterStruct.posi1.set(inter.posi1);
+			posInterStruct.posi2.set(inter.posi2);
+			posInterStruct.weight.set(inter.weight);
+			posInterStruct.offset.set(inter.offset);
+		}
+		return mem;
 	}
 }

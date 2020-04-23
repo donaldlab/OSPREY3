@@ -5,6 +5,8 @@
 #include "atoms.h"
 #include "confspace.h"
 #include "assignment.h"
+#include "energy.h"
+#include "energy_ambereef1.h"
 
 
 #define API extern "C" [[maybe_unused]]
@@ -29,4 +31,12 @@ API void assign_f32(const osprey::ConfSpace<float32_t> & conf_space, const int32
 }
 API void assign_f64(const osprey::ConfSpace<float64_t> & conf_space, const int32_t conf[], osprey::Real3<float64_t> out[]) {
 	assign(conf_space, conf, out);
+}
+
+
+API float calc_amber_eef1_f32(const osprey::ConfSpace<float32_t> & conf_space, const int32_t conf[], const osprey::PosInter<float32_t> inters[], int64_t inters_size) {
+	return osprey::calc_amber_eef1<float32_t>(conf_space, conf, inters, inters_size);
+}
+API float calc_amber_eef1_f64(const osprey::ConfSpace<float64_t> & conf_space, const int32_t conf[], const osprey::PosInter<float64_t> inters[], int64_t inters_size) {
+	return osprey::calc_amber_eef1<float64_t>(conf_space, conf, inters, inters_size);
 }

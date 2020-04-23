@@ -9,7 +9,7 @@ import java.io.IOException;
  */
 public class AmberEnergyCalculator implements EnergyCalculator {
 
-	public static final String implementation = "amber";
+	public static final Type type = Type.Amber;
 
 	public final String id;
 	public final int ffi;
@@ -25,6 +25,11 @@ public class AmberEnergyCalculator implements EnergyCalculator {
 	@Override
 	public String id() {
 		return id;
+	}
+
+	@Override
+	public Type type() {
+		return type;
 	}
 
 	@Override

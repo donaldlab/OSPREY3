@@ -47,7 +47,7 @@ public class BenchmarkEnergies {
 
 		// make interactions for the classic design case (ie, without the static-static contribution)
 		ResidueInteractions classicInters = EnergyPartition.makeFragment(classic.complex, null, false, new RCTuple(classicConf));
-		List<PosInter> compiledInters = PosInterDist.dynamic(compiled.complex, null, compiledConf);
+		List<PosInter> compiledInters = PosInterDist.dynamic(compiled.complex);
 
 		log("Rigid energy:");
 		Benchmark bmClassicRigid;

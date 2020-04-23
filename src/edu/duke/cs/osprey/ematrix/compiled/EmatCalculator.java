@@ -150,7 +150,7 @@ public class EmatCalculator {
 
 		// static-static energy
 		if (includeStaticStatic) {
-			List<PosInter> inters = posInterGen.staticStatic(confSpace);
+			List<PosInter> inters = posInterGen.staticStatic();
 			int[] conf = confSpace.assign();
 			double energy = confEcalc.calcOrMinimizeEnergy(conf, inters, minimize);
 			emat.setConstTerm(energy);

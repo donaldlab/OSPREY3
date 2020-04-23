@@ -8,6 +8,7 @@ import org.joml.Vector3d;
 
 import java.io.DataInput;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -17,8 +18,32 @@ import java.util.Set;
  */
 public interface EnergyCalculator {
 
+	enum Type {
+
+		// NOTE: these ids are defined by the conf space compiler in the GUI code
+		Amber("amber"),
+		EEF1("eef1");
+
+		public final String id;
+
+		Type(String id) {
+			this.id = id;
+		}
+
+		public static Type get(String id) {
+			return Arrays.stream(values())
+				.filter(type -> type.id.equals(id))
+				.findAny()
+				.orElseThrow(() -> new UnsupportedOperationException("forcefield type '" + id + "' is not supported"));
+		}
+	}
+
+
 	/** get the id of this energy calculator, that matches the forcefield ids in the conf space */
 	String id();
+
+	/** get the type of this energy calculator */
+	Type type();
 
 	/** get the index of this forcefield in the conf space */
 	int ffi();

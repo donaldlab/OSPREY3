@@ -31,8 +31,8 @@ public class PosInterGen {
 		return dist.pair(confSpace, eref, posi1, confi1, posi2, confi2);
 	}
 
-	public List<PosInter> staticStatic(ConfSpace confSpace) {
-		return PosInterDist.staticStatic(confSpace);
+	public List<PosInter> staticStatic() {
+		return PosInterDist.staticStatic();
 	}
 
 	public List<PosInter> all(ConfSpace confSpace, int[] conf) {

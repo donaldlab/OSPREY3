@@ -84,7 +84,7 @@ public enum PosInterDist {
 		}
 	};
 
-	public static List<PosInter> staticStatic(ConfSpace confSpace) {
+	public static List<PosInter> staticStatic() {
 		List<PosInter> inters = new ArrayList<>();
 
 		// include the static energy
@@ -105,7 +105,7 @@ public enum PosInterDist {
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 
 			// pos and pos-static interactions go on singles
-			inters.add(new PosInter(posi1, posi1, 1.0, getErefOffset(confSpace, eref, posi1, conf[posi1])));
+			inters.add(new PosInter(posi1, posi1, 1.0, getErefOffset(confSpace, eref, posi1, conf)));
 			inters.add(new PosInter(posi1, PosInter.StaticPos, 1.0, 0.0));
 
 			// pos-pos interactions go on pairs
@@ -114,6 +114,10 @@ public enum PosInterDist {
 			}
 		}
 		return inters;
+	}
+
+	public static List<PosInter> all(ConfSpace confSpace) {
+		return all(confSpace, null, null);
 	}
 
 	/**
@@ -125,7 +129,7 @@ public enum PosInterDist {
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 
 			// pos and pos-static interactions go on singles
-			inters.add(new PosInter(posi1, posi1, 1.0, getErefOffset(confSpace, eref, posi1, conf[posi1])));
+			inters.add(new PosInter(posi1, posi1, 1.0, getErefOffset(confSpace, eref, posi1, conf)));
 			inters.add(new PosInter(posi1, PosInter.StaticPos, 1.0, 0.0));
 
 			// pos-pos interactions go on pairs
@@ -136,9 +140,20 @@ public enum PosInterDist {
 		return inters;
 	}
 
+	public static List<PosInter> dynamic(ConfSpace confSpace) {
+		return dynamic(confSpace, null, null);
+	}
+
 	private static double getErefOffset(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi, int confi) {
 		if (eref != null) {
 			return eref.getOffset(posi, confSpace.confType(posi, confi));
+		}
+		return 0.0;
+	}
+
+	private static double getErefOffset(ConfSpace confSpace, SimpleReferenceEnergies eref, int posi, int[] conf) {
+		if (conf != null) {
+			return getErefOffset(confSpace, eref, posi, conf[posi]);
 		}
 		return 0.0;
 	}

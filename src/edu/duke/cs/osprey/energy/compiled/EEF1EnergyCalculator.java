@@ -6,7 +6,7 @@ package edu.duke.cs.osprey.energy.compiled;
  */
 public class EEF1EnergyCalculator implements EnergyCalculator {
 
-	public static final String implementation = "eef1";
+	public static final Type type = Type.EEF1;
 
 	// Only need to count interactions with 9 A.
 	// Farther interactions are already counted in the pre-calculated internal energy.
@@ -23,6 +23,11 @@ public class EEF1EnergyCalculator implements EnergyCalculator {
 	@Override
 	public String id() {
 		return id;
+	}
+
+	@Override
+	public Type type() {
+		return type;
 	}
 
 	@Override

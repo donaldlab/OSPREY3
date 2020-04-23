@@ -363,23 +363,10 @@ public class ConfSpace implements ConfSpaceIteration {
 			forcefieldIds[ffi] = id;
 
 			// build the forcefield implementation
-			// TODO: make a better way to register and instantiate ecalc implementations?
-			String type = in.readUTF();
-			switch (type) {
-
-				// NOTE: these string values are defined by the conf space compiler in the GUI code
-
-				case "amber":
-					ecalcs[ffi] = new AmberEnergyCalculator(id, ffi);
-				break;
-
-				case "eef1":
-					ecalcs[ffi] = new EEF1EnergyCalculator(id, ffi);
-				break;
-
-				default:
-					throw new UnsupportedOperationException("forcefield type '" + type + "' is not supported");
-			}
+			ecalcs[ffi] = switch (EnergyCalculator.Type.get(in.readUTF())) {
+				case Amber -> new AmberEnergyCalculator(id, ffi);
+				case EEF1 -> new EEF1EnergyCalculator(id, ffi);
+			};
 		}
 
 		// read the forcefield settings, when needed
