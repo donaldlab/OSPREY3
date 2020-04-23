@@ -42,6 +42,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      *
      * TODO: Implement updatePrecomputedNode
      * TODO: Work through tightenBoundinPhases
+     * TODO: put running sum back into SHARKStarQueue
      *
      * TODO: When do I use loopTasks.waitForFinish?
      */
@@ -315,6 +316,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         result.partialUB = context.partialConfUBScorer.calc(context.index, this.fullRCs);
                         result.unassignLB = context.unassignedConfLBScorer.calc(context.index, this.fullRCs);
                         result.unassignUB = context.unassignedConfUBScorer.calc(context.index, this.fullRCs);
+                        // Compute the node partition function error
+                        result.score = bc.calc_lnZDiff(result.partialLB + result.unassignLB,
+                                result.partialUB + result.unassignUB);
 
                         return result;
                     }
@@ -327,6 +331,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     result.resultNode.setPartialConfUB(result.partialUB);
                     result.resultNode.setUnassignedConfLB(result.unassignLB, this.precomputedSequence);
                     result.resultNode.setUnassignedConfUB(result.unassignUB, this.precomputedSequence);
+                    result.resultNode.setScore(result.score, this.precomputedSequence);
                 }
         );
         loopTasks.waitForFinish();
@@ -514,7 +519,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             if (!node.getUnassignedConfLB().containsKey(bound.sequence) &&
                     !node.getUnassignedConfUB().containsKey(bound.sequence)){
                 // If there is not, score the node
-                scoreNodeForSeqRCs(node, bound.seqRCs);
+                scoreNodeForSeq(node, bound.sequence, bound.seqRCs);
                 //TODO: determine whether I'll have thread issues by not waiting till this is finished to add the node to fringe
             }
             // add to sequence fringe nodes
@@ -533,7 +538,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param node      The node to score
      * @param seqRCs    The seqRCs to score over
      */
-    public void scoreNodeForSeqRCs(SHARKStarNode node, RCs seqRCs){
+    public void scoreNodeForSeq(SHARKStarNode node, Sequence seq, RCs seqRCs){
         loopTasks.submit(
                 () -> {
                     try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
@@ -548,18 +553,23 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         result.partialUB = context.partialConfUBScorer.calc(context.index, seqRCs);
                         result.unassignLB = context.unassignedConfLBScorer.calc(context.index, seqRCs);
                         result.unassignUB = context.unassignedConfUBScorer.calc(context.index, seqRCs);
+                        // Compute the node partition function error
+                        result.score = bc.calc_lnZDiff(result.partialLB + result.unassignLB,
+                                result.partialUB + result.unassignUB);
 
                         return result;
                     }
                 },
                 (result) -> {
                     if(!result.isValid())
-                        throw new RuntimeException("Error in root node scoring");
+                        throw new RuntimeException(String.format("Error in node scoring for %s",
+                                this.confSpace.formatConf(result.resultNode.getAssignments())));
 
                     result.resultNode.setPartialConfLB(result.partialLB);
                     result.resultNode.setPartialConfUB(result.partialUB);
-                    result.resultNode.setUnassignedConfLB(result.unassignLB, this.precomputedSequence);
-                    result.resultNode.setUnassignedConfUB(result.unassignUB, this.precomputedSequence);
+                    result.resultNode.setUnassignedConfLB(result.unassignLB, seq);
+                    result.resultNode.setUnassignedConfUB(result.unassignUB, seq);
+                    result.resultNode.setScore(result.score, seq);
                 }
         );
     }
@@ -668,10 +678,11 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         double partialUB = Double.NaN;
         double unassignLB = Double.NaN;
         double unassignUB = Double.NaN;
+        double score = Double.NaN;
         String historyString = "Error!!";
 
         public boolean isValid() {
-            return resultNode != null && !Double.isNaN(partialLB) && !Double.isNaN(partialUB) && !Double.isNaN(unassignLB) && !Double.isNaN(unassignUB) ;
+            return resultNode != null && !Double.isNaN(partialLB) && !Double.isNaN(partialUB) && !Double.isNaN(unassignLB) && !Double.isNaN(unassignUB) && !Double.isNaN(score);
         }
     }
 }

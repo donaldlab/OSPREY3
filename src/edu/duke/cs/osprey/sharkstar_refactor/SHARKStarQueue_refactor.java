@@ -21,10 +21,7 @@ class SHARKStarQueue_refactor extends PriorityQueue<SHARKStarNode> {
 
     public SHARKStarQueue_refactor(Sequence seq, BoltzmannCalculator bc) {
         //TODO: Is this extra logging / exping worth it? Is it slow?
-        super((o1, o2) -> -Double.compare(
-                bc.calc_lnZDiff(o1.getFreeEnergyLB(seq), o1.getFreeEnergyUB(seq)),
-                bc.calc_lnZDiff(o2.getFreeEnergyLB(seq), o2.getFreeEnergyUB(seq))
-        ));
+        super((o1, o2) -> -Double.compare(o1.getScore(seq), o2.getScore(seq)));
         this.seq = seq;
         this.bc = bc;
     }

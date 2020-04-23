@@ -32,6 +32,8 @@ public class SHARKStarNode implements ConfAStarNode {
                                                                 // compatible with this node (by sequence)
     private final Map<Sequence, Double> unassignedConfUB;   // the lower bound on the free energy of all full conformations
                                                                 // compatible with this node (by sequence)
+    private final Map<Sequence,Double> score;               // The ln of the partition function approximation error
+
     //TODO: Determine whether memory optimization requires deleting HOTCorrection, minE, and isMinimized
     private double HOTCorrection;
     private boolean isCorrected;
@@ -54,6 +56,7 @@ public class SHARKStarNode implements ConfAStarNode {
         this.partialConfUB = Double.NaN;
         this.unassignedConfLB = new HashMap<>();
         this.unassignedConfUB = new HashMap<>();
+        this.score = new HashMap<>();
         this.HOTCorrection = 0.0;
         this.isCorrected = false;
         this.minE = Double.NaN;
@@ -145,6 +148,14 @@ public class SHARKStarNode implements ConfAStarNode {
     public double getScore(){
         System.out.println("WARNING: Getting Score of a Multi-sequence node without specifying sequence. This probably isn't what you want to do.");
         throw new NotImplementedException();
+    }
+
+    public double getScore(Sequence seq){
+        return this.score.get(seq);
+    }
+
+    public void setScore(double score, Sequence seq){
+        this.score.put(seq, score);
     }
 
     @Override
