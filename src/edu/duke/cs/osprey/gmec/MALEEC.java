@@ -5,7 +5,6 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.HigherOrderGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -21,8 +20,8 @@ import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.Streams;
 
-import java.io.File;
 import java.io.Serializable;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
@@ -343,11 +342,9 @@ public class MALEEC {
 
 		// write the PDB
         LocalDateTime currTime = LocalDateTime.now();
-		String nowDirName = String.format("%02d-%02d-%02d", currTime.getHour(), currTime.getMinute(), currTime.getSecond());
-		File nowDir = new File(String.format("%s/%s", pdbPath, nowDirName));
-		if(!nowDir.exists())
-			nowDir.mkdir();
-		File file = new File(String.format("%s/%s/seq.%s.pdb", pdbPath, nowDirName, seqId));
+		var dir = Paths.get(pdbPath).resolve(String.format("%02d-%02d-%02d", currTime.getHour(), currTime.getMinute(), currTime.getSecond()));
+		dir.toFile().mkdirs();
+		var file = dir.resolve(String.format("seq.%s.pdb", seqId)).toFile();
 		PDBIO.writeFile(
 			epmols, file,
 			String.format("Ensemble of %d lowest-energy conformations for sequence: %s",
