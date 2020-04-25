@@ -9,10 +9,10 @@ import com.hazelcast.core.*;
 import edu.duke.cs.osprey.tools.Log;
 
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 
 /**
@@ -31,43 +31,39 @@ public class Cluster {
 
 	public final String name;
 	public final int nodeId;
-	public final int numNodes;
+	public final List<String> nodes;
 	public final boolean clientIsMember;
 
 	public final String id;
 
-	public Cluster(String name, String jobId, int nodeId, int numNodes) {
-		this(name, jobId, nodeId, numNodes, DefaultClientIsMember);
+	private final int port;
+
+	public Cluster(String name, String jobId, int nodeId, List<String> nodes) {
+		this(name, jobId, nodeId, nodes, DefaultClientIsMember);
 	}
 
-	public Cluster(String name, String jobId, int nodeId, int numNodes, boolean clientIsMember) {
+	public Cluster(String name, String jobId, int nodeId, List<String> nodes, boolean clientIsMember) {
 
 		this.name = name;
 		this.nodeId = nodeId;
-		this.numNodes = numNodes;
+		this.nodes = nodes;
 		this.clientIsMember = clientIsMember;
 
 		// append the job id to the cluster name,
 		// so the cluster id will be unique on the local network
 		this.id = String.format("%s-%s", name, jobId);
-	}
 
-	/** Read environment variables to determine cluster properties */
-	public static Cluster fromSLURM(boolean clientIsMember) {
-		return new Cluster(
-			"SLURM",
-			System.getenv("SLURM_JOB_ID"),
-			Integer.parseInt(System.getenv("SLURM_PROCID")),
-			Integer.parseInt(System.getenv("SLURM_NPROCS")),
-			clientIsMember
-		);
+		// use the cluster ID to pick a base port that (hopefully) isn't used much on the nodes
+		port =
+			5701 // default port used by Hazelcast
+			+ (id.hashCode() & 0xfff); // determinstic offset based on cluster Id
 	}
 
 	public int numMembers() {
 		if (clientIsMember) {
-			return numNodes;
+			return nodes.size();
 		} else {
-			return numNodes - 1;
+			return nodes.size() - 1;
 		}
 	}
 
@@ -157,9 +153,17 @@ public class Cluster {
 			// disable Hazelcast's automatic phone home "feature", which is on by default
 			cfg.setProperty("hazelcast.phone.home.enabled", "false");
 
+			// configure discovery to use the explicit host list and chosen port
+			var cfgNet = cfg.getNetworkConfig();
+			cfgNet.getJoin().getMulticastConfig().setEnabled(false);
+			var cfgIp = cfgNet.getJoin().getTcpIpConfig();
+			cfgIp.setMembers(nodes);
+			cfgNet.setPort(port);
+			cfgNet.setPortAutoIncrement(false);
+
 			inst = Hazelcast.newHazelcastInstance(cfg);
 
-			log("node started on cluster %s", id);
+			log("node started on cluster %s, listening on port %d", id, port);
 
 			activeId = new Value<>(inst, TasksActiveIdName);
 			scatter = inst.getQueue(TasksScatterName);
@@ -353,7 +357,14 @@ public class Cluster {
 			// disable Hazelcast's automatic phone home "feature", which is on by default
 			cfg.setProperty("hazelcast.phone.home.enabled", "false");
 
-			log("node looking for cluster named %s ...", id);
+			// tell the client where the cluster nodes are
+			cfg.getNetworkConfig().setAddresses(
+				nodes.stream()
+					.map(node -> node + ":" + port)
+					.collect(Collectors.toList())
+			);
+
+			log("node looking for cluster named %s on port %d ...", id, port);
 
 			inst = HazelcastClient.newHazelcastClient(cfg);
 

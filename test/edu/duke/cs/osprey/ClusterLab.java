@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.gmec.MALEEC;
 import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.Slurm;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -21,6 +22,7 @@ import org.slf4j.bridge.SLF4JBridgeHandler;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -33,8 +35,7 @@ public class ClusterLab {
 	enum SourceConfSpace {
 		Test2RL0,
 		TestCOVIDSmall,
-		TestCOVIDActual,
-
+		TestCOVIDActual
 	}
 
 	public static void main(String[] args)
@@ -55,6 +56,9 @@ public class ClusterLab {
 		final String clusterName = "ForkCluster";
 		final String jobId = "fork";
 		final int numNodes = 1;
+		List<String> nodes = IntStream.range(0, numNodes)
+			.mapToObj(i -> "localhost")
+			.collect(Collectors.toList());
 		final boolean clientIsMember = true;
 
 		// if this is a fork, jump to the fork code
@@ -63,9 +67,8 @@ public class ClusterLab {
 
 			// get the fork id and size
 			int id = Integer.parseInt(idStr);
-			int size = Integer.parseInt(System.getProperty("fork.size"));
 
-			run(new Cluster(clusterName, jobId, id, size, clientIsMember));
+			run(new Cluster(clusterName, jobId, id, nodes, clientIsMember));
 			return;
 		}
 
@@ -75,12 +78,12 @@ public class ClusterLab {
 		// (please don't fork bomb. please, please, please...)
 		log("MAIN: forking ...");
 		List<Fork> forks = IntStream.range(1, numNodes)
-			.mapToObj(id -> new Fork(id, numNodes))
+			.mapToObj(Fork::new)
 			.collect(Collectors.toList());
 		log("MAIN: forked!");
 
 		// run the client here, so we can cancel it from the IDE
-		run(new Cluster(clusterName, jobId, 0, numNodes, clientIsMember));
+		run(new Cluster(clusterName, jobId, 0, nodes, clientIsMember));
 
 		// wait for the forks to finish
 		for (Fork fork : forks) {
@@ -94,7 +97,7 @@ public class ClusterLab {
 		final int id;
 		final Process process;
 
-		Fork(int id, int size) {
+		Fork(int id) {
 
 			this.id = id;
 
@@ -103,7 +106,6 @@ public class ClusterLab {
 				Paths.get(System.getProperty("java.home")).resolve("bin").resolve("java").toString(),
 				"-cp", System.getProperty("java.class.path"),
 				"-Dfork.id=" + id,
-				"-Dfork.size=" + size,
 				ClusterLab.class.getCanonicalName()
 			);
 			pb.directory(new File(System.getProperty("user.dir")));
@@ -122,14 +124,14 @@ public class ClusterLab {
 		// parse the args to get nodeId and cluster size
 		String jobId = args[0];
 		int nodeId = Integer.parseInt(args[1]);
-		int numNodes = Integer.parseInt(args[2]);
 		boolean clientIsMember = false;
+		List<String> nodes = Arrays.asList("localhost");
 
-		run(new Cluster("MultiProcessCluster", jobId, nodeId, numNodes, clientIsMember));
+		run(new Cluster("MultiProcessCluster", jobId, nodeId, nodes, clientIsMember));
 	}
 
 	private static void slurmCluster() {
-		run(Cluster.fromSLURM(true));
+		run(Slurm.makeCluster(true));
 	}
 
 	private static void run(Cluster cluster) {
@@ -151,10 +153,10 @@ public class ClusterLab {
 			log("CLIENT: started with %d threads", threads);
 		}
 
-		//TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 		//TestKStar.ConfSpaces confSpaces = TestCOVID.makeCOVIDSmall();
 		//TestKStar.ConfSpaces confSpaces = TestCOVID.makeMakeCOVIDComplexMedium();
-		TestKStar.ConfSpaces confSpaces = TestCOVID.makeMakeCOVIDActual();
+		//TestKStar.ConfSpaces confSpaces = TestCOVID.makeMakeCOVIDActual();
 
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.asList(), confSpaces.ffparams)
 			.setCluster(cluster)
@@ -238,7 +240,7 @@ public class ClusterLab {
 			// we want the complex conf space, right?
 			SimpleConfSpace confSpace = confSpaces.complex;
 
-			// pick your favorite sequence
+			/* pick your favorite sequence
 			Sequence seq = confSpace.seqSpace.makeUnassignedSequence()
 				.set("B123", "ARG")
 				.set("B125", "HIP")
@@ -249,6 +251,8 @@ public class ClusterLab {
 				.set("B134", "HIP")
 				.set("B136", "ARG")
 				.set("B138", "ARG");
+			*/
+			Sequence seq = confSpace.seqSpace.makeWildTypeSequence();
 
 			if (!seq.isFullyAssigned()) {
 				throw new Error();
@@ -265,7 +269,7 @@ public class ClusterLab {
 			// how should we define energies of conformations?
 			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
 				.setReferenceEnergies(eref)
-				.setEnergyPartition(EnergyPartition.AllOnPairs) // get tigher lower bounds on energies!
+				//.setEnergyPartition(EnergyPartition.AllOnPairs) // get tigher lower bounds on energies!
 				.build();
 
 			// calc the energy matrix
