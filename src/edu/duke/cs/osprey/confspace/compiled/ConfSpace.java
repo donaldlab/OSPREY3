@@ -733,6 +733,10 @@ public class ConfSpace implements ConfSpaceIteration {
 		// convert the conf index to a frag index
 		int fragi = positions[posi].confs[confi].fragIndex;
 
+		return indicesSinglesByFrag(ffi, posi, fragi);
+	}
+
+	public IndicesSingle indicesSinglesByFrag(int ffi, int posi, int fragi) {
 		return indicesSingles[ffi][posi][fragi];
 	}
 
@@ -742,7 +746,20 @@ public class ConfSpace implements ConfSpaceIteration {
 		int fragi1 = positions[posi1].confs[confi1].fragIndex;
 		int fragi2 = positions[posi2].confs[confi2].fragIndex;
 
+		return indicesPairsByFrags(ffi, posi1, fragi1, posi2, fragi2);
+	}
+
+	public IndicesPair indicesPairsByFrags(int ffi, int posi1, int fragi1, int posi2, int fragi2) {
 		return indicesPairs[ffi][posPairIndex(posi1, posi2)][fragi1][fragi2];
+	}
+
+	public int getStaticAtomIndex(int atomi) {
+		// easy peasy
+		return atomi;
+	}
+
+	public int getConfAtomIndex(int posi, int atomi) {
+		return confAtomOffsetsByPos[posi] + atomi;
 	}
 
 	public double[] ffparams(int ffi, int paramsi) {
@@ -777,6 +794,10 @@ public class ConfSpace implements ConfSpaceIteration {
 	@Override
 	public int numConf(int posi) {
 		return positions[posi].confs.length;
+	}
+
+	public int numFrag(int posi) {
+		return positions[posi].numFrags;
 	}
 
 	@Override

@@ -13,6 +13,8 @@ namespace osprey {
 				: num_atoms(_num_atoms), coords(new Real3<T>[_num_atoms]) {
 			}
 
+			Atoms(const Atoms & other) = delete;
+
 			~Atoms() {
 				if (coords != nullptr) {
 					delete[] coords;
@@ -24,9 +26,19 @@ namespace osprey {
 			}
 
 			inline Real3<T> & operator [] (int i) {
+
+				// just in case ...
+				assert (i >= 0);
+				assert (i < num_atoms);
+
 				return coords_pointer()[i];
 			}
 			inline const Real3<T> & operator [] (int i) const {
+
+				// just in case ...
+				assert (i >= 0);
+				assert (i < num_atoms);
+
 				return coords_pointer()[i];
 			}
 

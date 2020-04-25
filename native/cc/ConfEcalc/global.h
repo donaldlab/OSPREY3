@@ -9,6 +9,7 @@
 #include <cassert>
 #include <iterator>
 #include <cstring>
+#include <cmath>
 
 
 // define some types for fixed-size floating point types

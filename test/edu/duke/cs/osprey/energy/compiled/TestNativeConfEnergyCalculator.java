@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.energy.compiled;
 
 import static edu.duke.cs.osprey.TestBase.isAbsolutely;
+import static edu.duke.cs.osprey.TestBase.isRelatively;
 import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -88,15 +89,14 @@ public class TestNativeConfEnergyCalculator {
 		switch (precision) {
 			case Single -> {
 				final double epsilon = 1e-5;
-				// TODO: update these energies with float precision
-				assertThat(confEcalc.calcEnergy(confs[0], inters), isAbsolutely(   2199.44093411, epsilon));
-				assertThat(confEcalc.calcEnergy(confs[1], inters), isAbsolutely(   2205.48998686, epsilon));
-				assertThat(confEcalc.calcEnergy(confs[2], inters), isAbsolutely(   2607.45981769, epsilon));
-				assertThat(confEcalc.calcEnergy(confs[3], inters), isAbsolutely(   2307.90672767, epsilon));
-				assertThat(confEcalc.calcEnergy(confs[4], inters), isAbsolutely( 749133.92904943, epsilon));
-				assertThat(confEcalc.calcEnergy(confs[5], inters), isAbsolutely(   2241.54003600, epsilon));
-				assertThat(confEcalc.calcEnergy(confs[6], inters), isAbsolutely(   2179.54796288, epsilon));
-				assertThat(confEcalc.calcEnergy(confs[7], inters), isAbsolutely(   2171.14773794, epsilon));
+				assertThat(confEcalc.calcEnergy(confs[0], inters), isRelatively(   2199.44093411, epsilon));
+				assertThat(confEcalc.calcEnergy(confs[1], inters), isRelatively(   2205.48998686, epsilon));
+				assertThat(confEcalc.calcEnergy(confs[2], inters), isRelatively(   2607.45981769, epsilon));
+				assertThat(confEcalc.calcEnergy(confs[3], inters), isRelatively(   2307.90672767, epsilon));
+				assertThat(confEcalc.calcEnergy(confs[4], inters), isRelatively( 749133.92904943, epsilon));
+				assertThat(confEcalc.calcEnergy(confs[5], inters), isRelatively(   2241.54003600, epsilon));
+				assertThat(confEcalc.calcEnergy(confs[6], inters), isRelatively(   2179.54796288, epsilon));
+				assertThat(confEcalc.calcEnergy(confs[7], inters), isRelatively(   2171.14773794, epsilon));
 			}
 			case Double -> {
 				final double epsilon = 1e-8;

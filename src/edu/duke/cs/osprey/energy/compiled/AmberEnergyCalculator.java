@@ -14,8 +14,11 @@ public class AmberEnergyCalculator implements EnergyCalculator {
 	public final String id;
 	public final int ffi;
 
-	private boolean hasSettings = false;
-	private boolean distanceDependentDielectric;
+	public static class Settings {
+		boolean distanceDependentDielectric;
+	}
+
+	public Settings settings = null;
 
 	public AmberEnergyCalculator(String id, int ffi) {
 		this.id = id;
@@ -40,22 +43,12 @@ public class AmberEnergyCalculator implements EnergyCalculator {
 	@Override
 	public void readSettings(DataInput in)
 	throws IOException {
-		distanceDependentDielectric = in.readBoolean();
-		hasSettings = true;
-	}
-
-	private void checkSettings() {
-		// make sure we've read settings, or throw
-		if (!hasSettings) {
-			throw new IllegalStateException("haven't read settings yet");
-		}
+		settings = new Settings();
+		settings.distanceDependentDielectric = in.readBoolean();
 	}
 
 	@Override
 	public double calcEnergy(double r, double r2, double[] params) {
-
-		// just in case ...
-		checkSettings();
 
 		double esQ = params[0];
 		double vdwA = params[1];
@@ -63,7 +56,7 @@ public class AmberEnergyCalculator implements EnergyCalculator {
 
 		// calculate the electrostatics energy
 		double es;
-		if (distanceDependentDielectric) {
+		if (settings.distanceDependentDielectric) {
 			es = esQ/r2;
 		} else {
 			es = esQ/r;

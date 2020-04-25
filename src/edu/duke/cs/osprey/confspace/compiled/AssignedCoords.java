@@ -130,12 +130,11 @@ public class AssignedCoords {
 	}
 
 	public int getStaticIndex(int atomi) {
-		// easy peasy
-		return atomi;
+		return confSpace.getStaticAtomIndex(atomi);
 	}
 
 	public int getConfIndex(int posi, int atomi) {
-		return confSpace.confAtomOffsetsByPos[posi] + atomi;
+		return confSpace.getConfAtomIndex(posi, atomi);
 	}
 
 	/**
