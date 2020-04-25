@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.parallelism;
 
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -69,51 +70,73 @@ public class Slurm {
 		// gpu-compute7
 		// jerry1
 		// a,b,c
+		// grisman-[37-40],jerry[1-6]
 
-		// but not:
-		// a[4-5],b[4-5]
-		// right?
-
-		// check for simple list first
-		int open = nodelist.indexOf('[');
-		int close = nodelist.indexOf(']');
-		if (open < 0 || close < 0 || close <= open) {
-
-			// easy peasy
-			return Arrays.stream(nodelist.split(","))
-				.collect(Collectors.toList());
+		// first, split the nodelist by the out delimiters
+		List<String> segments = new ArrayList<>();
+		int prevPos = 0;
+		boolean inBrackets = false;
+		for (int i=0; i<nodelist.length(); i++) {
+			switch (nodelist.charAt(i)) {
+				case '[':
+					inBrackets = true;
+				break;
+				case ']':
+					inBrackets = false;
+				break;
+				case ',':
+					if (!inBrackets) {
+						segments.add(nodelist.substring(prevPos, i));
+						prevPos = i + 1;
+					}
+				break;
+			}
 		}
+		segments.add(nodelist.substring(prevPos));
 
-		// ok, now deal with the ranges
-		String prefix = nodelist.substring(0, open);
-		String content = nodelist.substring(open + 1, close);
-		return Arrays.stream(content.split(","))
-			.flatMap(val -> {
+		// then expand each segment into a list of nodes, and flatten
+		return segments.stream()
+			.flatMap(segment -> {
 
-				// val will be eg:
-				// 45
-				// apple
-				// 9-32
+				// check for a range
+				int open = segment.indexOf('[');
+				int close = segment.indexOf(']');
+				if (open >= 0 && close > open) {
 
-				// is this a range?
-				int dash = val.indexOf('-');
-				if (dash < 0) {
+					String prefix = segment.substring(0, open);
+					String content = segment.substring(open + 1, close);
+					return Arrays.stream(content.split(","))
+						.flatMap(val -> {
 
-					// nope, easy peasy
-					return Stream.of(prefix + val);
+							// val will be eg:
+							// 45
+							// apple
+							// 9-32
+
+							// is this a range?
+							int dash = val.indexOf('-');
+							if (dash < 0) {
+
+								// nope, easy peasy
+								return Stream.of(prefix + val);
+							}
+
+							// hard case, handle the range
+							String start = val.substring(0, dash);
+							String stop = val.substring(dash + 1);
+							try {
+								int istart = Integer.parseInt(start);
+								int istop = Integer.parseInt(stop);
+								return IntStream.rangeClosed(istart, istop)
+									.mapToObj(i -> prefix + i);
+							} catch (NumberFormatException ex) {
+								throw new SlurmException("don't know how to parse nodelist segment: " + val);
+							}
+						});
 				}
 
-				// hard case, handle the range
-				String start = val.substring(0, dash);
-				String stop = val.substring(dash + 1);
-				try {
-					int istart = Integer.parseInt(start);
-					int istop = Integer.parseInt(stop);
-					return IntStream.rangeClosed(istart, istop)
-						.mapToObj(i -> prefix + i);
-				} catch (NumberFormatException ex) {
-					throw new SlurmException("don't know how to parse nodelist segment: " + val);
-				}
+				// no range, easy peasy
+				return Stream.of(segment);
 			})
 			.collect(Collectors.toList());
 	}
