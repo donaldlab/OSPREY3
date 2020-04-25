@@ -5,7 +5,8 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.HigherOrderGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
+import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -74,6 +75,7 @@ public class MALEEC {
 			// make A* go BRRRRRRR
 			RCs rcs = seq.makeRCs(confEcalc.confSpace);
 			ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
+				/*
 				.setCustom(
 					new DynamicHMeanAStarOrder(MathTools.Optimizer.Minimize),
 					new HigherOrderGScorer(emat),
@@ -82,8 +84,11 @@ public class MALEEC {
 					// luckily, the usual pairwise H-scorer is still a decently fast heuristic,
 					// even with the higher-order G-scorer!
 					// but it will cause A* to eat more memory than usual =(
-					//new TraditionalPairwiseHScorer(emat, rcs)
-						new MPLPPairwiseHScorer(new EdgeUpdater(), emat, 20, 0.0001)
+					new TraditionalPairwiseHScorer(emat, rcs)
+				)
+				*/
+				.setMPLP(new ConfAStarTree.MPLPBuilder()
+					.setNumIterations(10)
 				)
 				.build();
 
