@@ -13,6 +13,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 /**
@@ -36,7 +37,7 @@ public class Cluster {
 
 	public final String id;
 
-	private final int port;
+	private final int[] ports;
 
 	public Cluster(String name, String jobId, int nodeId, List<String> nodes) {
 		this(name, jobId, nodeId, nodes, DefaultClientIsMember);
@@ -54,9 +55,23 @@ public class Cluster {
 		this.id = String.format("%s-%s", name, jobId);
 
 		// use the cluster ID to pick a base port that (hopefully) isn't used much on the nodes
-		port =
+		int basePort =
 			5701 // default port used by Hazelcast
 			+ (id.hashCode() & 0xfff); // determinstic offset based on cluster Id
+
+		// assign ports to nodes, but don't re-use ports on the same host
+		Map<String,Integer> nodeOffsets = new HashMap<>();
+		ports = nodes.stream()
+			.mapToInt(node -> {
+				int offset = nodeOffsets.compute(node, (key, old) -> {
+					if (old == null) {
+						return 0;
+					}
+					return old + 1;
+				});
+				return basePort + offset;
+			})
+			.toArray();
 	}
 
 	public int numMembers() {
@@ -158,12 +173,12 @@ public class Cluster {
 			cfgNet.getJoin().getMulticastConfig().setEnabled(false);
 			var cfgIp = cfgNet.getJoin().getTcpIpConfig();
 			cfgIp.setMembers(nodes);
-			cfgNet.setPort(port);
+			cfgNet.setPort(ports[nodeId]);
 			cfgNet.setPortAutoIncrement(false);
 
 			inst = Hazelcast.newHazelcastInstance(cfg);
 
-			log("node started on cluster %s, listening on port %d", id, port);
+			log("node started on cluster %s, listening to %s", id, inst.getLocalEndpoint().getSocketAddress());
 
 			activeId = new Value<>(inst, TasksActiveIdName);
 			scatter = inst.getQueue(TasksScatterName);
@@ -359,12 +374,12 @@ public class Cluster {
 
 			// tell the client where the cluster nodes are
 			cfg.getNetworkConfig().setAddresses(
-				nodes.stream()
-					.map(node -> node + ":" + port)
+				IntStream.range(0, nodes.size())
+					.mapToObj(i -> String.format("%s:%d", nodes.get(i), ports[i]))
 					.collect(Collectors.toList())
 			);
 
-			log("node looking for cluster named %s on port %d ...", id, port);
+			log("node looking for cluster named %s ...", id);
 
 			inst = HazelcastClient.newHazelcastClient(cfg);
 
