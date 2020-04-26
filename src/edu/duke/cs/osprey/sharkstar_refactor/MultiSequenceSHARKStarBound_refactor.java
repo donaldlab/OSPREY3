@@ -567,6 +567,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         node.index(context.index);
 
                         // Score the node
+                        //TODO: move whatever possible back to calcDifferential
                         result.partialLB = context.partialConfLBScorer.calc(context.index, seqRCs);
                         result.partialUB = context.partialConfUBScorer.calc(context.index, seqRCs);
                         result.unassignLB = context.unassignedConfLBScorer.calc(context.index, seqRCs);
@@ -596,6 +597,70 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         scoringTimeTotal += result.time;
                         numScores += 1;
                     }
+                }
+        );
+    }
+
+    /**
+     * Make a child node and score it
+     * @param parent    The parent of this child
+     * @param nextPos   The residue position to assign for the child
+     * @param nextRC    The residue conformation to assign to the child
+     * @param seq       The sequence for the child
+     * @param seqRCs    The seqRCs to score over
+     */
+    public void makeAndScoreChildForSeq(SHARKStarNode parent, int nextPos, int nextRC, Sequence seq, RCs seqRCs, List<SHARKStarNode> children){
+
+        loopTasks.submit(
+                () -> {
+                    try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                        // Timing
+                        /* Note: this is probably inefficient to create new stopwatches, but they aren't threadsafe,
+                        so I'm doing this for now
+                         */
+                        Stopwatch scoreWatch = new Stopwatch();
+                        scoreWatch.start();
+
+                        ScoreContext context = checkout.get();
+
+                        ScoringResult result = new ScoringResult();
+                        parent.index(context.index);
+                        SHARKStarNode child = parent.assign(nextPos, nextRC);
+                        result.resultNode = child;
+
+                        // Score the child node
+                        result.partialLB = context.partialConfLBScorer.calcDifferential(context.index, seqRCs, nextPos, nextRC);
+                        result.partialUB = context.partialConfUBScorer.calcDifferential(context.index, seqRCs, nextPos, nextRC);
+                        child.index(context.index); // We don't implement calcDifferential for the SHARKStarNodeScorer yet, so probably faster to do this
+                        result.unassignLB = context.unassignedConfLBScorer.calc(context.index, seqRCs);
+                        result.unassignUB = context.unassignedConfUBScorer.calc(context.index, seqRCs);
+                        // Compute the node partition function error
+                        result.score = bc.calc_lnZDiff(result.partialLB + result.unassignLB,
+                                result.partialUB + result.unassignUB);
+
+                        scoreWatch.stop();
+                        result.time = scoreWatch.getTimeS();
+
+                        return result;
+                    }
+                },
+                (result) -> {
+                    if(!result.isValid())
+                        throw new RuntimeException(String.format("Error in node scoring for %s",
+                                this.confSpace.formatConf(result.resultNode.getAssignments())));
+
+                    result.resultNode.setPartialConfLB(result.partialLB);
+                    result.resultNode.setPartialConfUB(result.partialUB);
+                    result.resultNode.setUnassignedConfLB(result.unassignLB, seq);
+                    result.resultNode.setUnassignedConfUB(result.unassignUB, seq);
+                    result.resultNode.setScore(result.score, seq);
+
+                    synchronized(this){
+                        scoringTimeTotal += result.time;
+                        numScores += 1;
+                    }
+
+                    children.add(result.resultNode);
                 }
         );
     }
@@ -911,10 +976,29 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param newNodes      A list to track the new nodes created by this action
      * @param partialConfNode  The partial conformation node to process
      *
-     * TODO: implement me
      */
     public void processPartialConfNode(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, SHARKStarNode partialConfNode){
-        throw new NotImplementedException();
+        // Get the next position
+        ScoreContext context = contexts.checkout();
+        int nextPos = order.getNextPos(context.index, seqBound.seqRCs);
+        contexts.release(context);
+
+        // score child nodes with tasks (possibly in parallel)
+        List<SHARKStarNode> children = new ArrayList<>();
+        for (int nextRC : seqBound.seqRCs.get(nextPos)) {
+            // Actually score the child
+            makeAndScoreChildForSeq(partialConfNode, nextPos, nextRC, seqBound.sequence, seqBound.seqRCs, children);
+            }
+        // reporting
+        //TODO: maybe separate scoring tasks from minimization tasks?
+        loopTasks.waitForFinish();
+        //TODO: fix this reporting process, it's almost certainly slowing things down
+        for (SHARKStarNode child : children){
+            progress.reportInternalNode(child.getLevel(), child.getPartialConfLB(),
+                    child.getFreeEnergyLB(seqBound.sequence), seqBound.fringeNodes.size(), children.size(),
+                    seqBound.getSequenceEpsilon());
+            newNodes.addAll(children);
+        }
     }
 
     /**
