@@ -207,8 +207,16 @@ public class SHARKStarNode implements ConfAStarNode {
         this.minE = val;
     }
 
+    public double getMinE(){
+        return this.minE;
+    }
+
     public void setIsMinimized(boolean val){
         this.isMinimized = val;
+    }
+
+    public boolean isMinimized(){
+        return this.isMinimized;
     }
 
     public Map<Sequence, Double> getUnassignedConfLB(){

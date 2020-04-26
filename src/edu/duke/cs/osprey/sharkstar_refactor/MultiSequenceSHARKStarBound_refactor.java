@@ -865,7 +865,36 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * TODO: implement me
      */
     public void processFullConfNode(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, SHARKStarNode fullConfNode){
-        throw new NotImplementedException();
+        //Sanity check, this should eventually never happen
+        if(fullConfNode.isMinimized()) {
+            seqBound.addFinishedNode(fullConfNode);
+            return;
+        }
+        //Sanity check, this should eventually never happen
+        if(fullConfNode.getFreeEnergyLB(seqBound.sequence) > 10 &&
+                (!seqBound.fringeNodes.isEmpty() && seqBound.fringeNodes.peek().getFreeEnergyLB(seqBound.sequence) < 0
+                        || !seqBound.internalQueue.isEmpty() && seqBound.internalQueue.peek().getFreeEnergyLB(seqBound.sequence) < 0
+                        || !seqBound.leafQueue.isEmpty() && seqBound.leafQueue.peek().getFreeEnergyLB(seqBound.sequence) < 0)) {
+            System.err.println("not processing high-energy conformation");
+            newNodes.add(fullConfNode);
+            return;
+        }
+        /*
+        // try to apply corrections to nodes
+        boolean correctedNode = applyCorrectionsOrNOOP(curNode, bound);
+        // if we applied a correction, done with the node
+        if (correctedNode){
+            newNodes.add(curNode);
+            return;
+        }
+         */
+
+        // Minimize the node
+        minimizeNodeForSeq(fullConfNode, seqBound.sequence, seqBound.seqRCs);
+        progress.reportLeafNode(fullConfNode.getMinE(), seqBound.fringeNodes.size(), seqBound.getSequenceEpsilon());
+
+        // Add to trackers
+        seqBound.addFinishedNode(fullConfNode);
     }
 
     /**
