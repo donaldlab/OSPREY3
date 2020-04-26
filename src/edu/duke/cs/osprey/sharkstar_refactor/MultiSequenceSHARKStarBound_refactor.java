@@ -93,6 +93,14 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private SHARKStarEnsembleAnalyzer ensembleAnalyzer;
 
     // Global tracking variables
+    double minimizationTimeTotal = 0.0;
+    double scoringTimeTotal = 0.0;
+    double correctionTimeTotal = 0.0;
+
+    double numMinimizations = 0;
+    double numScores = 0;
+    double numCorrections = 0;
+
     double leafTimeAverage;
     double internalTimeAverage;
     int numInternalNodesProcessed;
@@ -149,6 +157,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         // Initialize things for analyzing energies
         confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
         ensembleAnalyzer = new SHARKStarEnsembleAnalyzer(minimizingEcalc, minimizingEmat);
+        //energyMatrixCorrector = new EnergyMatrixCorrector(this);
 
         progress = new MARKStarProgress(fullRCs.getNumPos());
 
@@ -544,6 +553,13 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         loopTasks.submit(
                 () -> {
                     try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                        // Timing
+                        /* Note: this is probably inefficient to create new stopwatches, but they aren't threadsafe,
+                        so I'm doing this for now
+                         */
+                        Stopwatch scoreWatch = new Stopwatch();
+                        scoreWatch.start();
+
                         ScoreContext context = checkout.get();
 
                         ScoringResult result = new ScoringResult();
@@ -559,6 +575,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         result.score = bc.calc_lnZDiff(result.partialLB + result.unassignLB,
                                 result.partialUB + result.unassignUB);
 
+                        scoreWatch.stop();
+                        result.time = scoreWatch.getTimeS();
+
                         return result;
                     }
                 },
@@ -572,8 +591,62 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     result.resultNode.setUnassignedConfLB(result.unassignLB, seq);
                     result.resultNode.setUnassignedConfUB(result.unassignUB, seq);
                     result.resultNode.setScore(result.score, seq);
+
+                    synchronized(this){
+                        scoringTimeTotal += result.time;
+                        numScores += 1;
+                    }
                 }
         );
+    }
+
+    public void minimizeNodeForSeq(SHARKStarNode node, Sequence seq, RCs seqRCs){
+        loopTasks.submit(
+            () -> {
+                try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                    //Timing
+                    Stopwatch minimizationTimer = new Stopwatch();
+                    Stopwatch correctionTimer = new Stopwatch();
+                    minimizationTimer.start();
+
+                    ScoreContext context = checkout.get();
+                    MinimizationResult result = new MinimizationResult();
+                    result.resultNode = node;
+                    node.index(context.index);
+
+                    ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.getAssignments(), node.getFreeEnergyLB(seq));
+                    ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
+                    result.minimizedEnergy = analysis.epmol.energy;
+
+                    minimizationTimer.stop();
+                    result.minimizationTime = minimizationTimer.getTimeS();
+                    /*
+                    //TODO: add corrections back in
+                    correctionTimer.start();
+
+                    energyMatrixCorrector.computeEnergyCorrection(analysis, conf, bound.getSequenceEpsilon(),
+                            context.batcher);
+
+                     */
+
+                    return result;
+                }
+            },
+            (result) -> {
+                if(!result.isValid())
+                    throw new RuntimeException(String.format("Error in node scoring for %s",
+                            this.confSpace.formatConf(result.resultNode.getAssignments())));
+
+                System.out.println("Minimized "+this.confSpace.formatConf(result.resultNode.getAssignments()));
+
+                result.resultNode.setMinE(result.minimizedEnergy);
+                result.resultNode.setIsMinimized(true);
+
+                synchronized(this){
+                    minimizationTimeTotal += result.minimizationTime;
+                    numMinimizations += 1;
+                }
+            });
     }
 
     @Override
@@ -863,10 +936,22 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         double unassignLB = Double.NaN;
         double unassignUB = Double.NaN;
         double score = Double.NaN;
+        double time = Double.NaN;
         String historyString = "Error!!";
 
         public boolean isValid() {
             return resultNode != null && !Double.isNaN(partialLB) && !Double.isNaN(partialUB) && !Double.isNaN(unassignLB) && !Double.isNaN(unassignUB) && !Double.isNaN(score);
+        }
+    }
+    private class MinimizationResult {
+        SHARKStarNode resultNode = null;
+        double minimizedEnergy = Double.NaN;
+        double minimizationTime = Double.NaN;
+        double correctionTime = Double.NaN;
+        String historyString = "Error!!";
+
+        public boolean isValid() {
+            return resultNode != null && !Double.isNaN(minimizedEnergy);
         }
     }
 }
