@@ -600,7 +600,14 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         );
     }
 
-    public void minimizeNodeForSeq(SHARKStarNode node, Sequence seq, RCs seqRCs){
+    /**
+     * Use the scoreContext to minimize a single node with tasks
+     * @param node      The node to minimize
+     * @param seq       The sequence whose score we will compare to the minimized energy
+     *
+     * TODO: remove the dependency on sequence, it's not necessary
+     */
+    public void minimizeNodeForSeq(SHARKStarNode node, Sequence seq){
         loopTasks.submit(
             () -> {
                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
@@ -890,7 +897,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
          */
 
         // Minimize the node
-        minimizeNodeForSeq(fullConfNode, seqBound.sequence, seqBound.seqRCs);
+        minimizeNodeForSeq(fullConfNode, seqBound.sequence);
         progress.reportLeafNode(fullConfNode.getMinE(), seqBound.fringeNodes.size(), seqBound.getSequenceEpsilon());
 
         // Add to trackers
