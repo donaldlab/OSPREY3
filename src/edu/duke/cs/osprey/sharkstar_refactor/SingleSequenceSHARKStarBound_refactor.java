@@ -114,7 +114,7 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
 
     }
 
-    private BigDecimal calcZBound(Function<SHARKStarNode, Double> energyMapper){
+    public BigDecimal calcZBound(Function<SHARKStarNode, Double> energyMapper){
         Stream<Double> allNodesEnergyLB = Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes)
                 .flatMap(Collection::stream)
                 .parallel()
@@ -144,6 +144,12 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
             return upperBound.subtract(lowerBound)
                     .divide(upperBound, RoundingMode.HALF_UP).doubleValue();
         }
+    }
+
+    public boolean isEmpty() {
+        return fringeNodes.isEmpty()
+                && internalQueue.isEmpty()
+                && leafQueue.isEmpty();
     }
 
 }

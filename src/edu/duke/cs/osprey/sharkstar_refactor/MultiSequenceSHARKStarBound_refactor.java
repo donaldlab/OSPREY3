@@ -25,14 +25,12 @@ import edu.duke.cs.osprey.sharkstar.*;
 import edu.duke.cs.osprey.sharkstar.tools.SHARKStarEnsembleAnalyzer;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
+import edu.duke.cs.osprey.tools.Stopwatch;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
@@ -93,6 +91,11 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     // Not sure where these should go
     private ConfAnalyzer confAnalyzer;
     private SHARKStarEnsembleAnalyzer ensembleAnalyzer;
+
+    // Global tracking variables
+    double leafTimeAverage;
+    double internalTimeAverage;
+    int numInternalNodesProcessed;
 
 
     /**
@@ -639,12 +642,194 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     }
 
     /**
-     * Tighten bounds on a pfunc by choosing from the following steps:
+     * Tighten bounds on a pfunc by following and choosing from the following steps:
+     *
+     * 1.   Determine which nodes we want to process
+     * 2.   Choose from choices A or B below
+     *      A) Process leaf nodes
+     *      B) Process internal nodes
+     * 3.   Cleanup
      *
      * @param bound     A single-sequence partition function
-     * TODO: Implement me
      */
     private void tightenBoundInPhases(SingleSequenceSHARKStarBound_refactor bound){
+        assert (!bound.isEmpty());
+        System.out.println(String.format("Current overall error bound: %12.10f, spread of [%12.6e, %12.6e]",
+                bound.getSequenceEpsilon(), bound.getValues().calcLowerBound(),
+                bound.getValues().calcUpperBound()));
+
+        // Initialize lists to track nodes
+        List<SHARKStarNode> internalNodes = new ArrayList<>(); // List of internal nodes to score and correct
+        List<SHARKStarNode> leafNodes = new ArrayList<>();     // List of leaf nodes to correct or minimize
+        List<SHARKStarNode> newNodes = Collections.synchronizedList(new ArrayList<>()); // List of nodes to put back into the single-sequence bound fringe queue
+
+        // Initialize tracking variables
+        // NB: each of these variables tracks the Z *error* not the Z contribution
+        BigDecimal internalZ = BigDecimal.ONE;
+        BigDecimal leafZ = BigDecimal.ONE;
+        BigDecimal[] ZSums = new BigDecimal[]{internalZ, leafZ};
+        int numNodes = 0;
+
+        // Initialize stopwatches and variables for timing
+        Stopwatch loopWatch = new Stopwatch();
+        loopWatch.start();
+        Stopwatch internalTime = new Stopwatch();
+        Stopwatch leafTime = new Stopwatch();
+        double leafTimeSum = 0;
+        double internalTimeSum = 0;
+
+        /*
+        Read the bound fringeNodes and decide which nodes we want to process
+         */
+        populateQueues(bound, internalNodes, leafNodes, ZSums);
+
+        // debugging the populateQueues method
+        internalZ = ZSums[0];
+        leafZ = ZSums[1];
+        // If we don't have any nodes to process, try again
+        if(leafNodes.isEmpty() && internalNodes.isEmpty()) {
+            System.out.println("Nothing was populated?");
+            populateQueues(bound, internalNodes, leafNodes, ZSums);
+        }
+        if(MathTools.isRelativelySame(internalZ, leafZ, PartitionFunction.decimalPrecision, 1e-3)
+                && MathTools.isRelativelySame(leafZ, BigDecimal.ZERO, PartitionFunction.decimalPrecision, 1e-3)) {
+            pilotFish.travelTree(bound.sequence);
+            //printTree(bound.sequence, rootNode);
+            System.out.println("This is a bad time.");
+            populateQueues(bound, new ArrayList<>(), new ArrayList<>(), ZSums);
+        }
+        System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
+        if(!bound.internalQueue.isEmpty() &&
+                MathTools.isLessThan(internalZ, bc.calc(bound.internalQueue.peek().getFreeEnergyLB(bound.sequence))))
+            System.out.println("Should have used a node from the internal queue. How??");
+
+        /*
+            If the internal nodes have less error than the leaf nodes, tighten bounds on leaf nodes
+         */
+        if (MathTools.isLessThan(internalZ, leafZ)) {
+            numNodes = leafNodes.size();
+            System.out.println("Processing " + numNodes + " leaf nodes...");
+            leafTime.reset();
+            leafTime.start();
+            for (SHARKStarNode leafNode : leafNodes) {
+                //debugPrint("Processing Node: " + leafNode.toSeqString(bound.sequence));
+                processFullConfNode(bound, newNodes, leafNode);
+                // do we need a markupdated method?
+            }
+            loopTasks.waitForFinish();
+            leafTime.stop();
+            leafTimeAverage = leafTime.getTimeS();
+            System.out.println("Processed " + numNodes + " leaves in " + leafTimeAverage + " seconds.");
+            /*
+             Experiment: assume we do enough work per conf to make additional parallelization unnecessary.
+            if (bound.maxMinimizations < parallelism.numThreads/5)
+                bound.maxMinimizations++;
+             */
+            bound.internalQueue.addAll(internalNodes);
+        /*
+            If the leaf nodes have less error than the internal nodes, tighten bounds on internal nodes
+         */
+        } else {
+            numNodes = internalNodes.size();
+            System.out.println("Processing " + numNodes + " internal nodes...");
+            internalTime.reset();
+            internalTime.start();
+            for (SHARKStarNode internalNode : internalNodes) {
+                //TODO: test to make sure there are no children compatible
+
+                /*
+                if the pfunc lowerbound is greater than 1 and the node pfunc upper bound is a significant percentage of the whole pfunc upperbound
+                then dive in a DFS manner to quickly tighten the node bound
+                 */
+                if (!MathTools.isGreaterThan(bc.calc(internalNode.getFreeEnergyUB(bound.sequence)), BigDecimal.ONE) &&
+                        MathTools.isGreaterThan(
+                                MathTools.bigDivide(bc.calc(internalNode.getFreeEnergyLB(bound.sequence)), bound.calcZBound(e -> e.getFreeEnergyLB(bound.sequence)),
+                                        PartitionFunction.decimalPrecision),
+                                new BigDecimal(1 - targetEpsilon))
+                ) {
+                    loopTasks.submit(() -> {
+                        boundLowestBoundConfUnderNode(bound, internalNode, newNodes);
+                        return null;
+                    }, (ignored) -> {
+                    });
+                } else {
+                    processPartialConfNode(bound, newNodes, internalNode);
+                }
+            }
+            loopTasks.waitForFinish();
+            internalTime.stop();
+            internalTimeSum = internalTime.getTimeS();
+            internalTimeAverage = internalTimeSum / Math.max(1, internalNodes.size());
+            debugPrint("Internal node time :" + internalTimeSum + ", average " + internalTimeAverage);
+            numInternalNodesProcessed += internalNodes.size();
+            bound.leafQueue.addAll(leafNodes);
+        }
+        loopCleanup(bound, newNodes, loopWatch, numNodes);
+    }
+
+    /**
+     * Get two lists of nodes that we would like to process
+     *
+     * @param seqBound          The single-sequence pfunc bound
+     * @param internalNodes     The list of internal nodes to return
+     * @param leafNodes         The list of leaf nodes to return
+     * @param zSums             Tracking variables for the above lists containing the partition function error
+     *                          Associated with each list
+     *
+     * TODO: implement me
+     */
+    public void populateQueues(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> internalNodes, List<SHARKStarNode> leafNodes, BigDecimal[] zSums){
+        throw new NotImplementedException();
+    }
+
+    /**
+     * Do scoring and checks for a conformation with all residues assigned a rotamer
+     *
+     * @param seqBound      The single-sequence pfunc bound
+     * @param newNodes      A list to track the new nodes created by this action
+     * @param fullConfNode  The full conformation node to process
+     *
+     * TODO: implement me
+     */
+    public void processFullConfNode(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, SHARKStarNode fullConfNode){
+        throw new NotImplementedException();
+    }
+
+    /**
+     * Do scoring and checks for a conformation with some residues unassigned
+     *
+     * @param seqBound      The single-sequence pfunc bound
+     * @param newNodes      A list to track the new nodes created by this action
+     * @param partialConfNode  The partial conformation node to process
+     *
+     * TODO: implement me
+     */
+    public void processPartialConfNode(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, SHARKStarNode partialConfNode){
+        throw new NotImplementedException();
+    }
+
+    /**
+     * Drill down in a DFS manner and bound the best full conformation in the subtree defined by internalNode
+     *
+     * @param seqBound      The single-sequence pfunc bound
+     * @param internalNode  The node defining the subtree
+     * @param newNodes      The new nodes generated during this process
+     */
+    public void boundLowestBoundConfUnderNode(SingleSequenceSHARKStarBound_refactor seqBound, SHARKStarNode internalNode, List<SHARKStarNode> newNodes){
+        throw new NotImplementedException();
+    }
+
+    /**
+     * Do cleanup after one loop iteration
+     *
+     * @param seqBound  The single-sequence pfunc bound
+     * @param newNodes  A list of new nodes created during the loop iteration
+     * @param timer     The timer telling us how long the loop took
+     * @param numNodes  The number of nodes we processed during the loop
+     *
+     * TODO: implement me
+     */
+    public void loopCleanup(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, Stopwatch timer, int numNodes){
         throw new NotImplementedException();
     }
 
