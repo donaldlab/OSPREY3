@@ -5,9 +5,7 @@ import com.sun.jna.*;
 import static edu.duke.cs.osprey.gpu.Structs.*;
 import static edu.duke.cs.osprey.tools.Log.log;
 
-import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.List;
 
@@ -19,65 +17,6 @@ import jdk.incubator.foreign.*;
 
 
 public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
-
-	public enum Precision {
-
-		Double(8, MemoryHandles.varHandle(double.class, ByteOrder.nativeOrder())) {
-
-			@Override
-			Object fromDouble(double val) {
-				return val;
-			}
-
-			@Override
-			double toDouble(Object val) {
-				return (Double)val;
-			}
-		},
-
-		Single(4, MemoryHandles.varHandle(float.class, ByteOrder.nativeOrder())) {
-
-			@Override
-			Object fromDouble(double val) {
-				return (float)val;
-			}
-
-			@Override
-			double toDouble(Object val) {
-				return (double)(Float)val;
-			}
-		};
-
-		public final int bytes;
-		public final VarHandle handle;
-
-		Precision(int bytes, VarHandle handle) {
-			this.bytes = bytes;
-			this.handle = handle;
-		}
-
-		abstract Object fromDouble(double val);
-		abstract double toDouble(Object val);
-	}
-
-	public class Real extends Field {
-
-		private Real() {
-			super(precision.bytes);
-		}
-
-		public double get() {
-			return (double)precision.handle.get(addr);
-		}
-
-		public void set(double value) {
-			precision.handle.set(addr, precision.fromDouble(value));
-		}
-	}
-	public Real real() {
-		return new Real();
-	}
-
 
 	private static class NativeLib {
 
@@ -112,29 +51,35 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		class SParamsAmberEef1 extends Struct {
 			Bool distance_dependent_dielectric = bool();
 			Pad pad = pad(7);
+			void init() {
+				init(8, "distance_dependent_dielectric", "pad");
+			}
 		}
-		SParamsAmberEef1 paramsStruct = new SParamsAmberEef1().init(
-			8, "distance_dependent_dielectric", "pad"
-		);
+		final SParamsAmberEef1 paramsStruct = new SParamsAmberEef1();
 
 		class SAtomPairs extends Struct {
 			final Int32 num_amber = int32();
 			final Int32 num_eef1 = int32();
+			void init() {
+				init(8, "num_amber", "num_eef1");
+			}
 		}
-		SAtomPairs atomPairsStruct = new SAtomPairs().init(
-			8, "num_amber", "num_eef1"
-		);
+		final SAtomPairs atomPairsStruct = new SAtomPairs();
 
 		class SAtomPairAmber extends Struct {
 			final Int32 atomi1 = int32();
 			final Int32 atomi2 = int32();
-			final Real esQ = real();
-			final Real vdwA = real();
-			final Real vdwB = real();
-			final Pad pad = pad(switch (precision) {
-				case Single -> 4;
-				case Double -> 0;
-			});
+			final Real esQ = real(precision);
+			final Real vdwA = real(precision);
+			final Real vdwB = real(precision);
+			final Pad pad = pad(precision.map(4, 0));
+
+			void init() {
+				init(
+					precision.map(24, 32),
+				"atomi1", "atomi2", "esQ", "vdwA", "vdwB", "pad"
+				);
+			}
 
 			void setParams(double[] params) {
 				esQ.set(params[0]);
@@ -142,17 +87,24 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 				vdwB.set(params[2]);
 			}
 		}
-		SAtomPairAmber amberStruct;
+		final SAtomPairAmber amberStruct = new SAtomPairAmber();
 
 		class SAtomPairEef1 extends Struct {
 			final Int32 atomi1 = int32();
 			final Int32 atomi2 = int32();
-			final Real vdwRadius1 = real();
-			final Real lambda1 = real();
-			final Real vdwRadius2 = real();
-			final Real lambda2 = real();
-			final Real alpha1 = real();
-			final Real alpha2 = real();
+			final Real vdwRadius1 = real(precision);
+			final Real lambda1 = real(precision);
+			final Real vdwRadius2 = real(precision);
+			final Real lambda2 = real(precision);
+			final Real alpha1 = real(precision);
+			final Real alpha2 = real(precision);
+
+			void init() {
+				init(
+					precision.map(32, 56),
+					"atomi1", "atomi2", "vdwRadius1", "lambda1", "vdwRadius2", "lambda2", "alpha1", "alpha2"
+				);
+			}
 
 			void setParams(double[] params) {
 				vdwRadius1.set(params[0]);
@@ -163,31 +115,22 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 				alpha2.set(params[5]);
 			}
 		}
-		SAtomPairEef1 eef1Struct;
+		final SAtomPairEef1 eef1Struct = new SAtomPairEef1();
 
-		AmberEef1(Precision precision) {
+		AmberEef1() {
 
-			// once we know the precision, init the rest of the structs
-			amberStruct = new SAtomPairAmber().init(
-				switch (precision) {
-					case Single -> 24;
-					case Double -> 32;
-				}, "atomi1", "atomi2", "esQ", "vdwA", "vdwB", "pad"
-			);
-
-			eef1Struct = new SAtomPairEef1().init(
-				switch (precision) {
-					case Single -> 32;
-					case Double -> 56;
-				}, "atomi1", "atomi2", "vdwRadius1", "lambda1", "vdwRadius2", "lambda2", "alpha1", "alpha2"
-			);
+			// once we know the precision, init the structs
+			paramsStruct.init();
+			atomPairsStruct.init();
+			amberStruct.init();
+			eef1Struct.init();
 		}
 
 		@Override
 		public double calcEnergy(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize) {
 			return switch (precision) {
-				case Single -> NativeLib.calc_energy_amber_eef1_f32(confSpaceBuf, conf, intersBuf, intersSize);
-				case Double -> NativeLib.calc_energy_amber_eef1_f64(confSpaceBuf, conf, intersBuf, intersSize);
+				case Float32 -> NativeLib.calc_energy_amber_eef1_f32(confSpaceBuf, conf, intersBuf, intersSize);
+				case Float64 -> NativeLib.calc_energy_amber_eef1_f64(confSpaceBuf, conf, intersBuf, intersSize);
 			};
 		}
 
@@ -346,68 +289,102 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	// NOTE: prefix the struct classes with S to avoid name collisions with the related Java classes
 
 	class SConfSpace extends Struct {
-		final Int32 num_pos = int32();
-		final Int32 max_num_conf_atoms = int32();
-		final Int64 positions_offset = int64();
-		final Int64 static_atoms_offset = int64();
-		final Int64 params_offset = int64();
-		final Int64 pos_pairs_offset = int64();
-		final Real static_energy = real();
-		final Pad pad = pad(switch (precision) {
-			case Single -> 4;
-			case Double -> 0;
-		});
+		Int32 num_pos = int32();
+		Int32 max_num_conf_atoms = int32();
+		Int64 positions_offset = int64();
+		Int64 static_atoms_offset = int64();
+		Int64 params_offset = int64();
+		Int64 pos_pairs_offset = int64();
+		Real static_energy;
+		Pad pad;
+		void init() {
+			static_energy = real(precision);
+			pad = pad(precision.map(4, 0));
+			init(
+				precision.map(48, 48),
+				"num_pos", "max_num_conf_atoms",
+				"positions_offset", "static_atoms_offset", "params_offset", "pos_pairs_offset",
+				"static_energy", "pad"
+			);
+		}
 	}
-	private final SConfSpace confSpaceStruct;
+	private final SConfSpace confSpaceStruct = new SConfSpace();
 
 	static class SPos extends Struct {
-		final Int32 num_confs = int32();
-		final Int32 max_num_atoms = int32();
-		final Int32 num_frags = int32();
-		final Pad pad = pad(4);
+		Int32 num_confs = int32();
+		Int32 max_num_atoms = int32();
+		Int32 num_frags = int32();
+		Pad pad;
+		void init() {
+			pad = pad(4);
+			init(
+				16, "num_confs", "max_num_atoms", "num_frags", "pad"
+			);
+		}
 	}
-	private final SPos posStruct = new SPos().init(
-		16, "num_confs", "max_num_atoms", "num_frags", "pad"
-	);
+	private final SPos posStruct = new SPos();
 
 	class SConf extends Struct {
-		final Int64 atoms_offset = int64();
-		final Int32 frag_index = int32();
-		final Pad pad = pad(switch (precision) {
-			case Single -> 0;
-			case Double -> 4;
-		});
-		final Real internal_energy = real();
+		Int64 atoms_offset = int64();
+		Int32 frag_index = int32();
+		Pad pad;
+		Real internal_energy;
+		void init() {
+			pad = pad(precision.map(0, 4));
+			internal_energy = real(precision);
+			init(
+				precision.map(16, 24),
+				"atoms_offset", "frag_index", "pad", "internal_energy"
+			);
+		}
 	}
-	private final SConf confStruct;
+	private final SConf confStruct = new SConf();
 
 	static class SAtoms extends Struct {
-		final Int32 num_atoms = int32();
-		final Pad pad = pad(4);
-		final Int64 coords = int64();
+		Int32 num_atoms = int32();
+		Pad pad = pad(4);
+		Int64 coords = int64();
+		void init() {
+			init(
+				16, "num_atoms", "pad", "coords"
+			);
+		}
 	}
-	private final SAtoms atomsStruct = new SAtoms().init(
-		16, "num_atoms", "pad", "coords"
-	);
+	private final SAtoms atomsStruct = new SAtoms();
 
 	class SReal3 extends Struct {
-		final Real x = real();
-		final Real y = real();
-		final Real z = real();
-		final Pad pad = pad(switch (precision) {
-			case Single -> 4;
-			case Double -> 0;
-		});
+		Real x;
+		Real y;
+		Real z;
+		Pad pad;
+		void init() {
+			x = real(precision);
+			y = real(precision);
+			z = real(precision);
+			pad = pad(precision.map(4, 0));
+			init(
+				precision.map(16, 24),
+				"x", "y", "z", "pad"
+			);
+		}
 	}
-	private final SReal3 real3Struct;
+	private final SReal3 real3Struct = new SReal3();
 
 	class SPosInter extends Struct {
-		final Int32 posi1 = int32();
-		final Int32 posi2 = int32();
-		final Real weight = real();
-		final Real offset = real();
+		Int32 posi1 = int32();
+		Int32 posi2 = int32();
+		Real weight;
+		Real offset;
+		void init() {
+			weight = real(precision);
+			offset = real(precision);
+			init(
+				precision.map(16, 24),
+				"posi1", "posi2", "weight", "offset"
+			);
+		}
 	}
-	private final SPosInter posInterStruct;
+	private final SPosInter posInterStruct = new SPosInter();
 
 	public NativeConfEnergyCalculator(ConfSpace confSpace, Precision precision) {
 
@@ -419,39 +396,18 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			.map(EnergyCalculator::type)
 			.toArray(EnergyCalculator.Type[]::new);
 		if (ecalcTypes.length == 2 && ecalcTypes[0] == AmberEnergyCalculator.type && ecalcTypes[1] == EEF1EnergyCalculator.type) {
-			forcefieldsImpl = new AmberEef1(precision);
+			forcefieldsImpl = new AmberEef1();
 		} else {
 			throw new IllegalArgumentException("No native implementation for forcefields: " + Arrays.toString(ecalcTypes));
 		}
 
 		// once we know the precision, init the rest of the structs
-		confSpaceStruct = new SConfSpace().init(
-			switch (precision) {
-				case Single -> 48;
-				case Double -> 48;
-			},
-			"num_pos", "max_num_conf_atoms",
-			"positions_offset", "static_atoms_offset", "params_offset", "pos_pairs_offset",
-			"static_energy", "pad"
-		);
-		confStruct = new SConf().init(
-			switch (precision) {
-				case Single -> 16;
-				case Double -> 24;
-			}, "atoms_offset", "frag_index", "pad", "internal_energy"
-		);
-		real3Struct = new SReal3().init(
-			switch (precision) {
-				case Single -> 16;
-				case Double -> 24;
-			}, "x", "y", "z", "pad"
-		);
-		posInterStruct = new SPosInter().init(
-			switch (precision) {
-				case Single -> 16;
-				case Double -> 24;
-			}, "posi1", "posi2", "weight", "offset"
-		);
+		confSpaceStruct.init();
+		posStruct.init();
+		confStruct.init();
+		atomsStruct.init();
+		real3Struct.init();
+		posInterStruct.init();
 
 		Int64.Array posOffsets = int64array();
 		Int64.Array confOffsets = int64array();
@@ -631,8 +587,8 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 	private void assign(int[] conf, ByteBuffer coords) {
 		switch (precision) {
-			case Single -> NativeLib.assign_f32(confSpaceMem.asByteBuffer(), conf, coords);
-			case Double -> NativeLib.assign_f64(confSpaceMem.asByteBuffer(), conf, coords);
+			case Float32 -> NativeLib.assign_f32(confSpaceMem.asByteBuffer(), conf, coords);
+			case Float64 -> NativeLib.assign_f64(confSpaceMem.asByteBuffer(), conf, coords);
 		}
 	}
 

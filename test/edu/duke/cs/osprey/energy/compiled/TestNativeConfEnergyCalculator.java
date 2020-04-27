@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.confspace.compiled.*;
+import edu.duke.cs.osprey.gpu.Structs;
 import org.junit.Test;
 
 import java.util.List;
@@ -28,7 +29,7 @@ public class TestNativeConfEnergyCalculator {
 		{ 0, 0, 0, 0, 0, 0, 1 }
 	};
 
-	private void assign(ConfSpace confSpace, int[][] confs, NativeConfEnergyCalculator.Precision precision) {
+	private void assign(ConfSpace confSpace, int[][] confs, Structs.Precision precision) {
 
 		var confEcalc = new NativeConfEnergyCalculator(confSpace, precision);
 
@@ -76,10 +77,10 @@ public class TestNativeConfEnergyCalculator {
 			assertThat(diffMsg, diffs.size(), is(0));
 		}
 	}
-	@Test public void assign_2RL0_f32() { assign(confSpace_2RL0, confs_2RL0, NativeConfEnergyCalculator.Precision.Single); }
-	@Test public void assign_2RL0_f64() { assign(confSpace_2RL0, confs_2RL0, NativeConfEnergyCalculator.Precision.Double); }
+	@Test public void assign_2RL0_f32() { assign(confSpace_2RL0, confs_2RL0, Structs.Precision.Float32); }
+	@Test public void assign_2RL0_f64() { assign(confSpace_2RL0, confs_2RL0, Structs.Precision.Float64); }
 
-	private void calc_all(ConfSpace confSpace, int[][] confs, NativeConfEnergyCalculator.Precision precision) {
+	private void calc_all(ConfSpace confSpace, int[][] confs, Structs.Precision precision) {
 
 		var confEcalc = new NativeConfEnergyCalculator(confSpace, precision);
 
@@ -87,7 +88,7 @@ public class TestNativeConfEnergyCalculator {
 		List<PosInter> inters = PosInterDist.all(confSpace);
 
 		switch (precision) {
-			case Single -> {
+			case Float32 -> {
 				final double epsilon = 1e-5;
 				assertThat(confEcalc.calcEnergy(confs[0], inters), isRelatively(   2199.44093411, epsilon));
 				assertThat(confEcalc.calcEnergy(confs[1], inters), isRelatively(   2205.48998686, epsilon));
@@ -98,7 +99,7 @@ public class TestNativeConfEnergyCalculator {
 				assertThat(confEcalc.calcEnergy(confs[6], inters), isRelatively(   2179.54796288, epsilon));
 				assertThat(confEcalc.calcEnergy(confs[7], inters), isRelatively(   2171.14773794, epsilon));
 			}
-			case Double -> {
+			case Float64 -> {
 				final double epsilon = 1e-8;
 				assertThat(confEcalc.calcEnergy(confs[0], inters), isAbsolutely(   2199.44093411, epsilon));
 				assertThat(confEcalc.calcEnergy(confs[1], inters), isAbsolutely(   2205.48998686, epsilon));
@@ -111,8 +112,8 @@ public class TestNativeConfEnergyCalculator {
 			}
 		}
 	}
-	@Test public void calc_complete_2RL0_f32() { calc_all(confSpace_2RL0, confs_2RL0, NativeConfEnergyCalculator.Precision.Single); }
-	@Test public void calc_complete_2RL0_f64() { calc_all(confSpace_2RL0, confs_2RL0, NativeConfEnergyCalculator.Precision.Double); }
+	@Test public void calc_complete_2RL0_f32() { calc_all(confSpace_2RL0, confs_2RL0, Structs.Precision.Float32); }
+	@Test public void calc_complete_2RL0_f64() { calc_all(confSpace_2RL0, confs_2RL0, Structs.Precision.Float64); }
 
 
 	public static void main(String[] args) {

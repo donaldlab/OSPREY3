@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gpu.Structs;
 
 import java.util.List;
 
@@ -181,7 +182,7 @@ public class BenchmarkEnergies {
 
 	private static void nativeLab(TestConfSpace.AffinityCompiled compiled) {
 
-		var confEcalc = new NativeConfEnergyCalculator(compiled.complex, NativeConfEnergyCalculator.Precision.Double);
+		var confEcalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
 
 		// compare the coords
 		int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };

@@ -288,4 +288,73 @@ public class Structs {
 	public static Bool bool() {
 		return new Bool();
 	}
+
+
+	public enum Precision {
+
+		Float32(4, MemoryHandles.varHandle(float.class, ByteOrder.nativeOrder())) {
+
+			@Override
+			public Object fromDouble(double val) {
+				return (float)val;
+			}
+
+			@Override
+			public double toDouble(Object val) {
+				return (double)(Float)val;
+			}
+		},
+
+		Float64(8, MemoryHandles.varHandle(double.class, ByteOrder.nativeOrder())) {
+
+			@Override
+			public Object fromDouble(double val) {
+				return val;
+			}
+
+			@Override
+			public double toDouble(Object val) {
+				return (Double)val;
+			}
+		};
+
+		public final int bytes;
+		public final VarHandle handle;
+
+		Precision(int bytes, VarHandle handle) {
+			this.bytes = bytes;
+			this.handle = handle;
+		}
+
+		public abstract Object fromDouble(double val);
+		public abstract double toDouble(Object val);
+
+		public <T> T map(T f32, T f64) {
+			return switch (this) {
+				case Float32 -> f32;
+				case Float64 -> f64;
+			};
+		}
+	}
+
+	public static class Real extends Field {
+
+		public final Precision precision;
+
+		private Real(Precision precision) {
+			super(precision.bytes);
+			this.precision = precision;
+		}
+
+		public double get() {
+			return (double)precision.handle.get(addr);
+		}
+
+		public void set(double value) {
+			precision.handle.set(addr, precision.fromDouble(value));
+		}
+	}
+	public static Real real(Precision precision) {
+		return new Real(precision);
+	}
 }
