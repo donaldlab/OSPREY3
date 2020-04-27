@@ -1,17 +1,20 @@
 package edu.duke.cs.osprey.energy.compiled;
 
+import cern.colt.matrix.DoubleFactory1D;
+import cern.colt.matrix.DoubleMatrix1D;
 import com.sun.jna.*;
 
 import static edu.duke.cs.osprey.gpu.Structs.*;
-import static edu.duke.cs.osprey.tools.Log.log;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.List;
 
+import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
-import edu.duke.cs.osprey.confspace.compiled.CoordsList;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
+import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle;
 import edu.duke.cs.osprey.gpu.BufWriter;
 import jdk.incubator.foreign.*;
 
@@ -28,12 +31,15 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		public static native int version_minor();
 		public static native void assign_f32(ByteBuffer conf_space, int[] conf, ByteBuffer out);
 		public static native void assign_f64(ByteBuffer conf_space, int[] conf, ByteBuffer out);
-		public static native float calc_energy_amber_eef1_f32(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size);
-		public static native double calc_energy_amber_eef1_f64(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size);
+		public static native float calc_amber_eef1_f32(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size, ByteBuffer out_coords);
+		public static native double calc_amber_eef1_f64(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size, ByteBuffer out_coords);
+		public static native float minimize_amber_eef1_f32(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size, ByteBuffer out_coords, ByteBuffer out_dofs);
+		public static native double minimize_amber_eef1_f64(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size, ByteBuffer out_coords, ByteBuffer out_dofs);
 	}
 
 	private interface ForcefieldsImpl {
-		double calcEnergy(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize);
+		double calc(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize, ByteBuffer coords);
+		double minimize(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize, ByteBuffer coords, ByteBuffer dofs);
 		long paramsBytes();
 		void writeParams(ConfSpace confSpace, BufWriter buf);
 		long staticStaticBytes(ConfSpace confSpace);
@@ -127,10 +133,18 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		@Override
-		public double calcEnergy(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize) {
+		public double calc(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize, ByteBuffer coords) {
 			return switch (precision) {
-				case Float32 -> NativeLib.calc_energy_amber_eef1_f32(confSpaceBuf, conf, intersBuf, intersSize);
-				case Float64 -> NativeLib.calc_energy_amber_eef1_f64(confSpaceBuf, conf, intersBuf, intersSize);
+				case Float32 -> NativeLib.calc_amber_eef1_f32(confSpaceBuf, conf, intersBuf, intersSize, coords);
+				case Float64 -> NativeLib.calc_amber_eef1_f64(confSpaceBuf, conf, intersBuf, intersSize, coords);
+			};
+		}
+
+		@Override
+		public double minimize(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize, ByteBuffer coords, ByteBuffer dofs) {
+			return switch (precision) {
+				case Float32 -> NativeLib.minimize_amber_eef1_f32(confSpaceBuf, conf, intersBuf, intersSize, coords, dofs);
+				case Float64 -> NativeLib.minimize_amber_eef1_f64(confSpaceBuf, conf, intersBuf, intersSize, coords, dofs);
 			};
 		}
 
@@ -295,15 +309,18 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		Int64 static_atoms_offset = int64();
 		Int64 params_offset = int64();
 		Int64 pos_pairs_offset = int64();
+		Int64 molecule_motions_offset = int64();
+		Int64 conf_motions_offset = int64();
 		Real static_energy;
 		Pad pad;
 		void init() {
 			static_energy = real(precision);
 			pad = pad(precision.map(4, 0));
 			init(
-				precision.map(48, 48),
+				precision.map(64, 64),
 				"num_pos", "max_num_conf_atoms",
 				"positions_offset", "static_atoms_offset", "params_offset", "pos_pairs_offset",
+				"molecule_motions_offset", "conf_motions_offset",
 				"static_energy", "pad"
 			);
 		}
@@ -329,12 +346,15 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		Int32 frag_index = int32();
 		Pad pad;
 		Real internal_energy;
+		Int64 num_motions = int64();
+		Int64 motions_offset = int64();
 		void init() {
 			pad = pad(precision.map(0, 4));
 			internal_energy = real(precision);
 			init(
-				precision.map(16, 24),
-				"atoms_offset", "frag_index", "pad", "internal_energy"
+				precision.map(32, 40),
+				"atoms_offset", "frag_index", "pad", "internal_energy",
+				"num_motions", "motions_offset"
 			);
 		}
 	}
@@ -386,6 +406,54 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	}
 	private final SPosInter posInterStruct = new SPosInter();
 
+	class SDihedral extends Struct {
+		Real min_radians;
+		Real max_radians;
+		Int32 a = int32();
+		Int32 b = int32();
+		Int32 c = int32();
+		Int32 d = int32();
+		Int32 num_rotated = int32();
+		Int32 modified_posi = int32();
+
+		void init() {
+			min_radians = real(precision);
+			max_radians = real(precision);
+			init(
+				precision.map(32, 40),
+				"min_radians", "max_radians",
+				"a", "b", "c", "d", "num_rotated",
+				"modified_posi"
+			);
+		}
+
+		long bytes(int numRotated) {
+			return bytes() + BufWriter.padToAlignment(Int32.bytes*numRotated, 8);
+		}
+	}
+	private final SDihedral dihedralStruct = new SDihedral();
+	private static final int dihedralId = 0;
+
+	class STranslationRotation extends Struct {
+		Real max_distance;
+		Real max_radians;
+		StructField<SReal3> centroid;
+		Int32 num_atoms = int32();
+		Int32 num_modified_pos = int32();
+		void init() {
+			max_distance = real(precision);
+			max_radians = real(precision);
+			centroid = struct(real3Struct);
+			init(
+				precision.map(32, 48),
+				"max_distance", "max_radians", "centroid",
+				"num_atoms", "num_modified_pos"
+			);
+		}
+	}
+	private final STranslationRotation transRotStruct = new STranslationRotation();
+	private static final int transRotId = 1;
+
 	public NativeConfEnergyCalculator(ConfSpace confSpace, Precision precision) {
 
 		this.confSpace = confSpace;
@@ -401,17 +469,24 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			throw new IllegalArgumentException("No native implementation for forcefields: " + Arrays.toString(ecalcTypes));
 		}
 
-		// once we know the precision, init the rest of the structs
+		// once we know the precision, init the structs
 		confSpaceStruct.init();
 		posStruct.init();
 		confStruct.init();
 		atomsStruct.init();
 		real3Struct.init();
 		posInterStruct.init();
+		dihedralStruct.init();
+		transRotStruct.init();
 
 		Int64.Array posOffsets = int64array();
 		Int64.Array confOffsets = int64array();
 		Int64.Array posPairOffsets = int64array();
+		Int64.Array fragOffsets = int64array();
+		Int64.Array molMotionOffsets = int64array();
+		Int64.Array confMotionOffsets = int64array();
+
+		long motionIdBytes = Int64.bytes;
 
 		// calculate how much memory we need for the conf space buffer
 		long bufSize = confSpaceStruct.bytes()
@@ -423,6 +498,16 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 					confStruct.bytes()
 					+ atomsStruct.bytes()
 					+ real3Struct.bytes()*conf.coords.size
+					+ confMotionOffsets.bytes(conf.motions.length)
+					+ motionIdBytes*conf.motions.length
+					+ sum(conf.motions, motion -> {
+						if (motion instanceof DihedralAngle.Description) {
+							var dihedral = (DihedralAngle.Description)motion;
+							return dihedralStruct.bytes(dihedral.rotated.length);
+						} else {
+							throw new UnsupportedOperationException(motion.getClass().getName());
+						}
+					})
 				)
 			)
 			+ atomsStruct.bytes()
@@ -442,7 +527,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 		// add space for the static-pos pairs and offsets
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
-			bufSize += Int64.bytes*confSpace.numFrag(posi1);
+			bufSize += fragOffsets.itemBytes*confSpace.numFrag(posi1);
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 				bufSize += forcefieldsImpl.staticPosBytes(confSpace, posi1, fragi1);
 			}
@@ -450,7 +535,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 		// add space for the pos pairs and offsets
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
-			bufSize += Int64.bytes*confSpace.numFrag(posi1);
+			bufSize += fragOffsets.itemBytes*confSpace.numFrag(posi1);
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 				bufSize += forcefieldsImpl.posBytes(confSpace, posi1, fragi1);
 
@@ -460,7 +545,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		// add space for the pos-pos pairs and offsets
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 			for (int posi2=0; posi2<posi1; posi2++) {
-				bufSize += Int64.bytes*confSpace.numFrag(posi1)*confSpace.numFrag(posi2);
+				bufSize += fragOffsets.itemBytes*confSpace.numFrag(posi1)*confSpace.numFrag(posi2);
 				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 					for (int fragi2=0; fragi2<confSpace.numFrag(posi2); fragi2++) {
 						bufSize += forcefieldsImpl.posPosBytes(confSpace, posi1, fragi1, posi2, fragi2);
@@ -468,6 +553,24 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 				}
 			}
 		}
+
+		// add space for the molecule motions
+		int numMolMotions = 0;
+		for (var molInfo : confSpace.molInfos) {
+			for (var motion : molInfo.motions) {
+				numMolMotions += 1;
+				if (motion instanceof DihedralAngle.Description) {
+					var dihedral = (DihedralAngle.Description)motion;
+					bufSize += dihedralStruct.bytes(dihedral.rotated.length);
+				} else {
+					throw new UnsupportedOperationException(motion.getClass().getName());
+				}
+			}
+		}
+		bufSize += molMotionOffsets.bytes(numMolMotions)
+			+ motionIdBytes*numMolMotions;
+
+		// TODO: add space for the conf motions
 
 		// allocate the buffer for the conf space
 		confSpaceMem = MemorySegment.allocateNative(bufSize);
@@ -498,10 +601,12 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 			// write the confs
 			for (ConfSpace.Conf conf : pos.confs) {
+
 				confOffsets.set(conf.index, buf.pos);
 				buf.place(confStruct);
 				confStruct.frag_index.set(conf.fragIndex);
 				confStruct.internal_energy.set(Arrays.stream(conf.energies).sum());
+				confStruct.num_motions.set(conf.motions.length);
 
 				// write the atoms
 				confStruct.atoms_offset.set(buf.pos);
@@ -513,6 +618,19 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 					real3Struct.x.set(conf.coords.x(i));
 					real3Struct.y.set(conf.coords.y(i));
 					real3Struct.z.set(conf.coords.z(i));
+				}
+
+				// write the motions
+				confStruct.motions_offset.set(buf.pos);
+				buf.place(confMotionOffsets, conf.motions.length);
+				for (int i=0; i<conf.motions.length; i++) {
+					var motion = conf.motions[i];
+					confMotionOffsets.set(i, buf.pos);
+					if (motion instanceof DihedralAngle.Description) {
+						writeDihedral((DihedralAngle.Description)motion, pos.index, buf);
+					} else {
+						throw new UnsupportedOperationException(motion.getClass().getName());
+					}
 				}
 			}
 		}
@@ -544,7 +662,6 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		// write the static-pos pairs
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 			posPairOffsets.set(1 + posi1, buf.pos);
-			Int64.Array fragOffsets = new Int64.Array();
 			buf.place(fragOffsets, confSpace.numFrag(posi1));
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 				fragOffsets.set(fragi1, buf.pos);
@@ -555,7 +672,6 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		// write the pos pairs
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 			posPairOffsets.set(1 + confSpace.positions.length + posi1, buf.pos);
-			Int64.Array fragOffsets = new Int64.Array();
 			buf.place(fragOffsets, confSpace.numFrag(posi1));
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 				fragOffsets.set(fragi1, buf.pos);
@@ -567,7 +683,6 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 			for (int posi2=0; posi2<posi1; posi2++) {
 				posPairOffsets.set(1 + 2*confSpace.positions.length + posi1*(posi1 - 1)/2 + posi2, buf.pos);
-				Int64.Array fragOffsets = new Int64.Array();
 				buf.place(fragOffsets, confSpace.numFrag(posi1)*confSpace.numFrag(posi2));
 				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 					for (int fragi2=0; fragi2<confSpace.numFrag(posi2); fragi2++) {
@@ -578,40 +693,79 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			}
 		}
 
-		assert(buf.pos == bufSize);
+		// write the molecule motions
+		confSpaceStruct.molecule_motions_offset.set(buf.pos);
+		buf.place(molMotionOffsets, numMolMotions);
+		int molMotionIndex = 0;
+		for (var molInfo : confSpace.molInfos) {
+			for (var motion : molInfo.motions) {
+				molMotionOffsets.set(molMotionIndex++, buf.pos);
+				if (motion instanceof DihedralAngle.Description) {
+					writeDihedral((DihedralAngle.Description)motion, PosInter.StaticPos, buf);
+				} else {
+					throw new UnsupportedOperationException(motion.getClass().getName());
+				}
+			}
+		}
+
+		assert(buf.pos == bufSize) : String.format("%d bytes leftover", bufSize - buf.pos);
+	}
+
+	private void writeDihedral(DihedralAngle.Description desc, int posi, BufWriter buf) {
+
+		// write the motion id
+		buf.int64(0);
+
+		buf.place(dihedralStruct);
+		dihedralStruct.min_radians.set(Math.toRadians(desc.minDegrees));
+		dihedralStruct.max_radians.set(Math.toRadians(desc.maxDegrees));
+		dihedralStruct.a.set(confSpace.getStaticAtomIndex(desc.a));
+		dihedralStruct.b.set(confSpace.getStaticAtomIndex(desc.b));
+		dihedralStruct.c.set(confSpace.getStaticAtomIndex(desc.c));
+		dihedralStruct.d.set(confSpace.getStaticAtomIndex(desc.d));
+		dihedralStruct.num_rotated.set(desc.rotated.length);
+		dihedralStruct.modified_posi.set(posi);
+
+		var rotatedIndices = int32array();
+		buf.place(rotatedIndices, desc.rotated.length);
+		for (int i=0; i<desc.rotated.length; i++) {
+			rotatedIndices.set(i, desc.rotated[i]);
+		}
+
+		buf.skipToAlignment(8);
 	}
 
 	public String version() {
 		return String.format("%d.%d", NativeLib.version_major(), NativeLib.version_minor());
 	}
 
-	private void assign(int[] conf, ByteBuffer coords) {
-		switch (precision) {
-			case Float32 -> NativeLib.assign_f32(confSpaceMem.asByteBuffer(), conf, coords);
-			case Float64 -> NativeLib.assign_f64(confSpaceMem.asByteBuffer(), conf, coords);
+	public AssignedCoords assign(int[] conf) {
+		try (var coordsMem = MemorySegment.allocateNative(real3Struct.bytes()*confSpace.maxNumConfAtoms)) {
+			switch (precision) {
+				case Float32 -> NativeLib.assign_f32(confSpaceMem.asByteBuffer(), conf, coordsMem.asByteBuffer());
+				case Float64 -> NativeLib.assign_f64(confSpaceMem.asByteBuffer(), conf, coordsMem.asByteBuffer());
+			}
+			return makeCoords(coordsMem, conf);
 		}
 	}
 
-	public CoordsList assign(int[] conf) {
-		try (var coordsMem = MemorySegment.allocateNative(real3Struct.bytes()*confSpace.maxNumConfAtoms)) {
+	private AssignedCoords makeCoords(MemorySegment mem, int[] assignments) {
 
-			// run the native code
-			assign(conf, coordsMem.asByteBuffer());
+		AssignedCoords coords = new AssignedCoords(confSpace, assignments);
 
-			// copy the coords into a CoordsList
-			CoordsList coords = new CoordsList(confSpace.maxNumConfAtoms);
-			var addr = coordsMem.baseAddress();
-			for (int i=0; i<confSpace.maxNumConfAtoms; i++) {
-				real3Struct.setAddress(addr.addOffset(i*real3Struct.bytes()));
-				coords.set(
-					i,
-					real3Struct.x.get(),
-					real3Struct.y.get(),
-					real3Struct.z.get()
-				);
-			}
-			return coords;
+		// copy the coords from the native memory
+		var addr = mem.baseAddress();
+		for (int i=0; i<confSpace.maxNumConfAtoms; i++) {
+			real3Struct.setAddress(addr.addOffset(i*real3Struct.bytes()));
+			coords.coords.set(
+				i,
+				real3Struct.x.get(),
+				real3Struct.y.get(),
+				real3Struct.z.get()
+			);
 		}
+
+		return coords;
 	}
 
 	@Override
@@ -626,21 +780,67 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 	@Override
 	public EnergiedCoords calc(int[] conf, List<PosInter> inters) {
-		// TODO
-		throw new Error();
+		try (MemorySegment intersMem = makeIntersMem(inters)) {
+			try (var coordsMem = MemorySegment.allocateNative(real3Struct.bytes()*confSpace.maxNumConfAtoms)) {
+				double energy = forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), inters.size(), coordsMem.asByteBuffer());
+				return new EnergiedCoords(
+					makeCoords(coordsMem, conf),
+					energy
+				);
+			}
+		}
 	}
 
 	@Override
 	public double calcEnergy(int[] conf, List<PosInter> inters) {
 		try (MemorySegment intersMem = makeIntersMem(inters)) {
-			return forcefieldsImpl.calcEnergy(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), inters.size());
+			return forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), inters.size(), null);
 		}
+	}
+
+	private DoubleMatrix1D makeDofs(MemorySegment mem) {
+
+		var h = MemoryHandles.varHandle(long.class, ByteOrder.nativeOrder());
+		int size = (int)(long)h.get(mem.baseAddress());
+		DoubleMatrix1D vals = DoubleFactory1D.dense.make(size);
+
+		Real.Array floats = realarray(precision);
+		for (int i=0; i<size; i++) {
+			vals.set(i, floats.get(i));
+		}
+
+		return vals;
 	}
 
 	@Override
 	public EnergiedCoords minimize(int[] conf, List<PosInter> inters) {
-		// TODO
-		throw new Error();
+		try (MemorySegment intersMem = makeIntersMem(inters)) {
+			try (var coordsMem = MemorySegment.allocateNative(real3Struct.bytes()*confSpace.maxNumConfAtoms)) {
+				try (var dofsMem = MemorySegment.allocateNative(Int64.bytes + precision.bytes*confSpace.maxNumDofs)) {
+					double energy = forcefieldsImpl.minimize(
+						confSpaceMem.asByteBuffer(), conf,
+						intersMem.asByteBuffer(), inters.size(),
+						coordsMem.asByteBuffer(), dofsMem.asByteBuffer()
+					);
+					return new EnergiedCoords(
+						makeCoords(coordsMem, conf),
+						energy,
+						makeDofs(dofsMem)
+					);
+				}
+			}
+		}
+	}
+
+	@Override
+	public double minimizeEnergy(int[] conf, List<PosInter> inters) {
+		try (MemorySegment intersMem = makeIntersMem(inters)) {
+			return forcefieldsImpl.minimize(
+				confSpaceMem.asByteBuffer(), conf,
+				intersMem.asByteBuffer(), inters.size(),
+				null, null
+			);
+		}
 	}
 
 	private MemorySegment makeIntersMem(List<PosInter> inters) {

@@ -13,6 +13,9 @@ namespace osprey {
 		T offset;
 	};
 	ASSERT_JAVA_COMPATIBLE_REALS(PosInter, 16, 24);
+
+	template<typename T>
+	using EnergyFunction = T (*)(Assignment<T> &, const PosInter<T>[], int64_t);
 }
 
 

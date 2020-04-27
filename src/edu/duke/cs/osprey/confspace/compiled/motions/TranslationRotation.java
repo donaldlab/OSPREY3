@@ -13,10 +13,6 @@ import java.util.Set;
 
 public class TranslationRotation implements ContinuousMotion {
 
-	// TODO: is this actually correct when these Dofs get applied with other Dofs like dihedrals???
-	//   it's not...
-	//   redo this so the dofs can be applied relatively
-
 	// TODO: can optimize by skipping translation,rotation DoFs during minimization
 	//  when they don't effect the energy at all
 	//  eg, when we're only minimizing a single molecule
@@ -41,22 +37,28 @@ public class TranslationRotation implements ContinuousMotion {
 		public ContinuousMotion build(AssignedCoords coords, int molInfoIndex) {
 			return new TranslationRotation(this, coords, molInfoIndex);
 		}
+
+		@Override
+		public int maxNumDofs() {
+			return 6;
+		}
 	}
 
 	public final Description desc;
 	public final AssignedCoords coords;
 
-	private final List<Integer> atomIndices = new ArrayList<>();
-	private final Set<Integer> modifiedPosIndices = new HashSet<>();
+	public final List<Integer> atomIndices = new ArrayList<>();
+	public final Set<Integer> modifiedPosIndices = new HashSet<>();
 
-	private final CoordsList originalCoords;
+	public final Dof dofPsi;
+	public final Dof dofTheta;
+	public final Dof dofPhi;
+	public final Dof dofX;
+	public final Dof dofY;
+	public final Dof dofZ;
 
-	private final Dof dofPsi;
-	private final Dof dofTheta;
-	private final Dof dofPhi;
-	private final Dof dofX;
-	private final Dof dofY;
-	private final Dof dofZ;
+	private final Quaterniond rotationInverse;
+	private final Vector3d translation;
 
 	public TranslationRotation(Description desc, AssignedCoords coords, int molInfoIndex) {
 
@@ -92,9 +94,10 @@ public class TranslationRotation implements ContinuousMotion {
 			}
 		}
 
-		// copy all the coordinates for our absolute referencing
-		originalCoords = new CoordsList(coords.coords.size);
-		originalCoords.copyFrom(coords.coords, 0);
+		// init state to the identity transformation
+		rotationInverse = new Quaterniond();
+		rotationInverse.identity();
+		translation = new Vector3d(0 , 0, 0);
 
 		// make the dofs
 		// for the rotations, we'll use x-y-z Tait-Bryan angles
@@ -112,22 +115,33 @@ public class TranslationRotation implements ContinuousMotion {
 	private void apply() {
 
 		Vector3d pos = new Vector3d();
-		Quaterniond qPsi = new Quaterniond().rotationX(dofPsi.value);
-		Quaterniond qTheta = new Quaterniond().rotationY(dofTheta.value);
-		Quaterniond qPhi = new Quaterniond().rotationZ(dofPhi.value);
+		Quaterniond q = new Quaterniond(new Quaterniond().rotationX(dofPsi.value))
+			.premul(new Quaterniond().rotationY(dofTheta.value))
+			.premul(new Quaterniond().rotationZ(dofPhi.value));
 		Vector3d t = new Vector3d(dofX.value, dofY.value, dofZ.value);
 
 		// transform each atom
 		for (int atomi : atomIndices) {
-			originalCoords.get(atomi, pos);
+			coords.coords.get(atomi, pos);
+
+			// undo the previous transformation
+			pos.sub(translation);
 			pos.sub(desc.centroid);
-			pos.rotate(qPsi);
-			pos.rotate(qTheta);
-			pos.rotate(qPhi);
+			pos.rotate(rotationInverse);
+			pos.add(desc.centroid);
+
+			// apply the new transformation
+			pos.sub(desc.centroid);
+			pos.rotate(q);
 			pos.add(desc.centroid);
 			pos.add(t);
+
 			coords.coords.set(atomi, pos);
 		}
+
+		// update state
+		translation.set(t);
+		rotationInverse.set(q).invert();
 	}
 
 

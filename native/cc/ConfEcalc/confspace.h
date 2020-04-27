@@ -13,8 +13,10 @@ namespace osprey {
 		int32_t frag_index;
 		// 4 bytes pad if T = float32_t
 		T internal_energy;
+		int64_t num_motions;
+		int64_t motions_offset;
 	};
-	ASSERT_JAVA_COMPATIBLE_REALS(Conf, 16, 24);
+	ASSERT_JAVA_COMPATIBLE_REALS(Conf, 32, 40);
 
 	struct alignas(8) Pos {
 		int32_t num_confs;
@@ -119,6 +121,8 @@ namespace osprey {
 			int64_t static_atoms_offset;
 			int64_t params_offset;
 			int64_t pos_pairs_offset;
+			int64_t molecule_motions_offset;
+			int64_t conf_motions_offset;
 			T static_energy;
 			// 4 byte pad, if T = float32_t
 
@@ -130,7 +134,7 @@ namespace osprey {
 				return reinterpret_cast<const int64_t *>(offset(pos_pairs_offset));
 			}
 	};
-	ASSERT_JAVA_COMPATIBLE_REALS(ConfSpace, 48, 48);
+	ASSERT_JAVA_COMPATIBLE_REALS(ConfSpace, 64, 64);
 
 	template<typename T>
 	std::ostream & operator << (std::ostream & out, const ConfSpace<T> & conf_space) {

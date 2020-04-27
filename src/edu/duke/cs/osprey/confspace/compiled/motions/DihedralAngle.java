@@ -50,6 +50,11 @@ public class DihedralAngle implements ContinuousMotion {
 		public ContinuousMotion build(AssignedCoords conf, int molInfoIndex) {
 			return new DihedralAngle(this, conf, molInfoIndex, PosInter.StaticPos);
 		}
+
+		@Override
+		public int maxNumDofs() {
+			return 1;
+		}
 	}
 
 	public final Description desc;

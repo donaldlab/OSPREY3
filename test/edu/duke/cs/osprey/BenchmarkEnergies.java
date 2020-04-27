@@ -186,7 +186,7 @@ public class BenchmarkEnergies {
 
 		// compare the coords
 		int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };
-		CoordsList obs = confEcalc.assign(conf);
-		CoordsList exp = new AssignedCoords(confEcalc.confSpace, conf).coords;
+		CoordsList obs = confEcalc.assign(conf).coords;
+		CoordsList exp = confEcalc.confSpace.makeCoords(conf).coords;
 	}
 }

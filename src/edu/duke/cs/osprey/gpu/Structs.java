@@ -32,6 +32,9 @@ public class Structs {
 					var declaredField = c.getDeclaredField(fieldName);
 					declaredField.setAccessible(true);
 					fields[i] = (Field)declaredField.get(this);
+					if (fields[i] == null) {
+						throw new Error("Field hasn't been assigned yet: " + fieldName);
+					}
 					fields[i].name = fieldName;
 				} catch (NoSuchFieldException ex) {
 					throw new Error("Can't initialize field: " + fieldName, ex);
@@ -93,6 +96,10 @@ public class Structs {
 		public Field(long bytes) {
 			this.bytes = bytes;
 		}
+
+		public void assertAlignment(int alignment) {
+			assert (addr.offset() % alignment == 0);
+		}
 	}
 
 	public static abstract class Array {
@@ -143,9 +150,27 @@ public class Structs {
 		public void set(int value) {
 			handle.set(addr, value);
 		}
+
+		public static class Array extends Structs.Array {
+
+			public Array() {
+				super(bytes);
+			}
+
+			public int get(long i) {
+				return (int)handle.get(offset(i));
+			}
+
+			public void set(long i, int value) {
+				handle.set(offset(i), value);
+			}
+		}
 	}
 	public static Int32 int32() {
 		return new Int32();
+	}
+	public static Int32.Array int32array() {
+		return new Int32.Array();
 	}
 
 	public static class Int64 extends Field {
@@ -289,6 +314,15 @@ public class Structs {
 		return new Bool();
 	}
 
+	public static class StructField<T extends Struct> extends Field {
+
+		public StructField(T struct) {
+			super(struct.bytes());
+		}
+	}
+	public static <T extends Struct> StructField<T> struct(T struct) {
+		return new StructField<>(struct);
+	}
 
 	public enum Precision {
 
@@ -353,8 +387,29 @@ public class Structs {
 		public void set(double value) {
 			precision.handle.set(addr, precision.fromDouble(value));
 		}
+
+		public static class Array extends Structs.Array {
+
+			public final Precision precision;
+
+			public Array(Precision precision) {
+				super(precision.bytes);
+				this.precision = precision;
+			}
+
+			public double get(long i) {
+				return (double)precision.handle.get(offset(i));
+			}
+
+			public void set(long i, double value) {
+				precision.handle.set(offset(i), value);
+			}
+		}
 	}
 	public static Real real(Precision precision) {
 		return new Real(precision);
+	}
+	public static Real.Array realarray(Precision precision) {
+		return new Real.Array(precision);
 	}
 }

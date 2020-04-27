@@ -14,6 +14,7 @@ public interface ContinuousMotion {
 	 */
 	interface ConfDescription {
 		ContinuousMotion build(AssignedCoords conf, ConfSpace.Pos pos);
+		int maxNumDofs();
 	}
 
 	/**
@@ -22,6 +23,7 @@ public interface ContinuousMotion {
 	 */
 	interface MolDescription {
 		ContinuousMotion build(AssignedCoords conf, int molInfoIndex);
+		int maxNumDofs();
 	}
 
 	/**

@@ -28,7 +28,7 @@ public class AssignedCoords {
 	public final CoordsList coords;
 
 	/** degrees of freedom that modify the atom coords */
-	public final List<DegreeOfFreedom> dofs;
+	public final List<DegreeOfFreedom> dofs = new ArrayList<>();
 
 	public AssignedCoords(ConfSpace confSpace, int[] assignments) {
 
@@ -36,6 +36,9 @@ public class AssignedCoords {
 		this.assignments = assignments;
 
 		coords = new CoordsList(confSpace.maxNumConfAtoms);
+	}
+
+	public void copyCoords() {
 
 		// copy over the static atoms first, so DoFs can modify them
 		coords.copyFrom(confSpace.staticCoords, 0);
@@ -53,13 +56,17 @@ public class AssignedCoords {
 			// copy over the coords
 			coords.copyFrom(conf.coords, confSpace.confAtomOffsetsByPos[pos.index]);
 		}
+	}
 
-		dofs = new ArrayList<>();
+	public void makeDofs() {
+
+		dofs.clear();
 
 		// first, make the molecule motions and convert them into degrees of freedom
 		for (int moli=0; moli<confSpace.molInfos.length; moli++) {
 			ConfSpace.MolInfo molInfo = confSpace.molInfos[moli];
 			for (int i=0; i<molInfo.motions.length; i++) {
+				// TODO: do we always need this motion?
 				ContinuousMotion motion = molInfo.motions[i].build(this, moli);
 				motion.appendDofs(dofs);
 			}

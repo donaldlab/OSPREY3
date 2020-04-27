@@ -203,7 +203,7 @@ public class TestConfSpace {
 		// make a molecule of the wild-type complex
 		ConfSpace confSpace = design.complex;
 		int[] conf = design.makeConfComplexWt();
-		AssignedCoords coords = new AssignedCoords(confSpace, conf);
+		AssignedCoords coords = confSpace.makeCoords(conf);
 		Molecule mol = coords.toMol();
 
 		assert2RL0WildType(mol);

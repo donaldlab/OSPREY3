@@ -169,6 +169,7 @@ public class ConfSpace implements ConfSpaceIteration {
 	public final Pos[] positions;
 	public final int maxNumConfAtoms;
 	public final int[] confAtomOffsetsByPos;
+	public final int maxNumDofs;
 	public final SeqSpace seqSpace;
 
 	public class IndicesStatic {
@@ -652,6 +653,23 @@ public class ConfSpace implements ConfSpaceIteration {
 			}
 		}
 
+		// count the max number of dofs in a conformation
+		this.maxNumDofs =
+			Arrays.stream(molInfos)
+				.flatMap(info -> Arrays.stream(info.motions))
+				.mapToInt(motion -> motion.maxNumDofs())
+				.sum()
+			+ Arrays.stream(positions)
+				.mapToInt(pos -> Arrays.stream(pos.confs)
+					.mapToInt(conf -> Arrays.stream(conf.motions)
+						.mapToInt(motion -> motion.maxNumDofs())
+						.sum()
+					)
+					.max()
+					.orElse(0)
+				)
+				.sum();
+
 		seqSpace = new SeqSpace(this);
 	}
 
@@ -895,6 +913,9 @@ public class ConfSpace implements ConfSpaceIteration {
 
 	/** Makes coordinates with the given assignments */
 	public AssignedCoords makeCoords(int[] assignments) {
-		return new AssignedCoords(this, assignments);
+		AssignedCoords coords = new AssignedCoords(this, assignments);
+		coords.copyCoords();
+		coords.makeDofs();
+		return coords;
 	}
 }
