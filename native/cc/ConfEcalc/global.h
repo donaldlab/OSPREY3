@@ -10,6 +10,7 @@
 #include <iterator>
 #include <cstring>
 #include <cmath>
+#include <stdexcept>
 
 
 // define some types for fixed-size floating point types

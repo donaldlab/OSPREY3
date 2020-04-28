@@ -5,17 +5,6 @@
 
 namespace osprey {
 
-	// degree of freedom
-	template<typename T>
-	struct alignas(8) Dof {
-		T min;
-		T max;
-		T initial_step_size;
-		uint32_t num_modified_pos;
-		// 4 bytes pad, if T = float32_t
-	};
-	ASSERT_JAVA_COMPATIBLE_REALS(Dof, 16, 32);
-
 	template<typename T>
 	class Minimization {
 		public:
@@ -24,11 +13,44 @@ namespace osprey {
 				assignment(assignment), inters(inters), inters_size(inters_size) {
 
 				energy = 0.0;
+				num_dofs = 0;
 
-				// TODO: make all the DoFs
+				// allocate space for the dofs
+				auto max_num_dofs = assignment.conf_space.max_num_dofs;
+				dofs = new motions::Dof<T> *[max_num_dofs];
+				dof_values = new T[max_num_dofs];
 
-				num_dofs = 5;
-				dofs = new T[num_dofs];
+				// make molecule dofs
+				for (int motioni=0; motioni < assignment.conf_space.num_molecule_motions; motioni++) {
+					switch (assignment.conf_space.get_molecule_motion_id(motioni)) {
+
+						case motions::Dihedral<T>::id: {
+							const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_molecule_motion(motioni));
+							dofs[num_dofs] = dihedral.make_dof(assignment);
+							num_dofs += 1;
+						} break;
+
+						default: throw std::invalid_argument("unrecognized motion id");
+					}
+				}
+
+				// make the conf dofs
+				for (int posi=0; posi<assignment.conf_space.num_pos; posi++) {
+					const Pos & pos = assignment.conf_space.get_pos(posi);
+					const Conf<T> & conf = assignment.conf_space.get_conf(pos, assignment.conf[posi]);
+					for (int motioni=0; motioni<conf.num_motions; motioni++) {
+						switch (assignment.conf_space.get_conf_motion_id(conf, motioni)) {
+
+							case motions::Dihedral<T>::id: {
+								const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
+								dofs[num_dofs] = dihedral.make_dof(assignment);
+								num_dofs += 1;
+							} break;
+
+							default: throw std::invalid_argument("unrecognized motion id");
+						}
+					}
+				}
 			}
 
 			Minimization(const Minimization & other) = delete;
@@ -53,24 +75,26 @@ namespace osprey {
 				assert (i >= 0);
 				assert (i < num_dofs);
 
-				return dofs[i];
+				return dof_values[i];
 			}
 
 			void minimize(EnergyFunction<T> efunc) {
 
-				// TEMP
+				// init the dofs to the center of the voxel
 				for (int i=0; i<num_dofs; i++) {
-					dofs[i] = 5.6;
+					dof_values[i] = dofs[i]->center();
 				}
 
-				// TODO: init dof values to centers
+				// TODO: implement CCD
 
+				// TEMP: just call the energy function
 				energy = efunc(assignment, inters, inters_size);
 			}
 
 		private:
 			int num_dofs;
-			T * dofs;
+			motions::Dof<T> ** dofs;
+			T * dof_values;
 	};
 }
 

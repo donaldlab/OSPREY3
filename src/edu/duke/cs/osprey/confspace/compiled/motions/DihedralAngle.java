@@ -55,6 +55,20 @@ public class DihedralAngle implements ContinuousMotion {
 		public int maxNumDofs() {
 			return 1;
 		}
+
+		public int getAtomIndex(ConfSpace confSpace, int posi, int atomi) {
+			if (posi == PosInter.StaticPos) {
+				return confSpace.getStaticAtomIndex(atomi);
+			} else {
+				if (atomi >= 0) {
+					// positive indices encode conformation atoms
+					return confSpace.getConfAtomIndex(posi, atomi);
+				} else {
+					// negative indices encode static atoms
+					return confSpace.getStaticAtomIndex(-atomi - 1);
+				}
+			}
+		}
 	}
 
 	public final Description desc;
@@ -115,17 +129,7 @@ public class DihedralAngle implements ContinuousMotion {
 	}
 
 	private int getAtomIndex(int atomi) {
-		if (posi == PosInter.StaticPos) {
-			return coords.getStaticIndex(atomi);
-		} else {
-			if (atomi >= 0) {
-				// positive indices encode conformation atoms
-				return coords.getConfIndex(posi, atomi);
-			} else {
-				// negative indices encode static atoms
-				return coords.getStaticIndex(-atomi - 1);
-			}
-		}
+		return desc.getAtomIndex(coords.confSpace, posi, atomi);
 	}
 
 	private String getAtomName(int atomi) {

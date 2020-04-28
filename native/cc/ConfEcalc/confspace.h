@@ -115,14 +115,57 @@ namespace osprey {
 				return offset(frag_offsets[fragi1*get_pos(posi2).num_frags + fragi2]);
 			}
 
+			inline int64_t get_molecule_motion_id(int i) const {
+
+				// just in case ...
+				assert (i >= 0);
+				assert (i < num_molecule_motions);
+
+				auto offsets = reinterpret_cast<const int64_t *>(offset(molecule_motions_offset));
+				return *reinterpret_cast<const int64_t *>(offset(offsets[i]));
+			}
+
+			inline const void * get_molecule_motion(int i) const {
+
+				// just in case ...
+				assert (i >= 0);
+				assert (i < num_molecule_motions);
+
+				auto offsets = reinterpret_cast<const int64_t *>(offset(molecule_motions_offset));
+				auto p = reinterpret_cast<const int64_t *>(offset(offsets[i]));
+				return reinterpret_cast<const void *>(p + 1);
+			}
+
+			inline int64_t get_conf_motion_id(const Conf<T> & conf, int i) const {
+
+				// just in case ...
+				assert (i >= 0);
+				assert (i < conf.num_motions);
+
+				auto offsets = reinterpret_cast<const int64_t *>(offset(conf.motions_offset));
+				return *reinterpret_cast<const int64_t *>(offset(offsets[i]));
+			}
+
+			inline const void * get_conf_motion(const Conf<T> & conf, int i) const {
+
+				// just in case ...
+				assert (i >= 0);
+				assert (i < conf.num_motions);
+
+				auto offsets = reinterpret_cast<const int64_t *>(offset(conf.motions_offset));
+				auto p = reinterpret_cast<const int64_t *>(offset(offsets[i]));
+				return reinterpret_cast<const void *>(p + 1);
+			}
+
 			int32_t num_pos;
 			int32_t max_num_conf_atoms;
+			int32_t max_num_dofs;
+			int32_t num_molecule_motions;
 			int64_t positions_offset;
 			int64_t static_atoms_offset;
 			int64_t params_offset;
 			int64_t pos_pairs_offset;
 			int64_t molecule_motions_offset;
-			int64_t conf_motions_offset;
 			T static_energy;
 			// 4 byte pad, if T = float32_t
 

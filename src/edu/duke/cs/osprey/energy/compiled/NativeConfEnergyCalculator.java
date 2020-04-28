@@ -305,12 +305,13 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	class SConfSpace extends Struct {
 		Int32 num_pos = int32();
 		Int32 max_num_conf_atoms = int32();
+		Int32 max_num_dofs = int32();
+		Int32 num_molecule_motions = int32();
 		Int64 positions_offset = int64();
 		Int64 static_atoms_offset = int64();
 		Int64 params_offset = int64();
 		Int64 pos_pairs_offset = int64();
 		Int64 molecule_motions_offset = int64();
-		Int64 conf_motions_offset = int64();
 		Real static_energy;
 		Pad pad;
 		void init() {
@@ -318,9 +319,9 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			pad = pad(precision.map(4, 0));
 			init(
 				precision.map(64, 64),
-				"num_pos", "max_num_conf_atoms",
+				"num_pos", "max_num_conf_atoms", "max_num_dofs", "num_molecule_motions",
 				"positions_offset", "static_atoms_offset", "params_offset", "pos_pairs_offset",
-				"molecule_motions_offset", "conf_motions_offset",
+				"molecule_motions_offset",
 				"static_energy", "pad"
 			);
 		}
@@ -580,6 +581,8 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		buf.place(confSpaceStruct);
 		confSpaceStruct.num_pos.set(confSpace.positions.length);
 		confSpaceStruct.max_num_conf_atoms.set(confSpace.maxNumConfAtoms);
+		confSpaceStruct.max_num_dofs.set(confSpace.maxNumDofs);
+		confSpaceStruct.num_molecule_motions.set(numMolMotions);
 		// we'll go back and write the offsets later
 		confSpaceStruct.static_energy.set(Arrays.stream(confSpace.staticEnergies).sum());
 
@@ -719,17 +722,17 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		buf.place(dihedralStruct);
 		dihedralStruct.min_radians.set(Math.toRadians(desc.minDegrees));
 		dihedralStruct.max_radians.set(Math.toRadians(desc.maxDegrees));
-		dihedralStruct.a.set(confSpace.getStaticAtomIndex(desc.a));
-		dihedralStruct.b.set(confSpace.getStaticAtomIndex(desc.b));
-		dihedralStruct.c.set(confSpace.getStaticAtomIndex(desc.c));
-		dihedralStruct.d.set(confSpace.getStaticAtomIndex(desc.d));
+		dihedralStruct.a.set(desc.getAtomIndex(confSpace, posi, desc.a));
+		dihedralStruct.b.set(desc.getAtomIndex(confSpace, posi, desc.b));
+		dihedralStruct.c.set(desc.getAtomIndex(confSpace, posi, desc.c));
+		dihedralStruct.d.set(desc.getAtomIndex(confSpace, posi, desc.d));
 		dihedralStruct.num_rotated.set(desc.rotated.length);
 		dihedralStruct.modified_posi.set(posi);
 
 		var rotatedIndices = int32array();
 		buf.place(rotatedIndices, desc.rotated.length);
 		for (int i=0; i<desc.rotated.length; i++) {
-			rotatedIndices.set(i, desc.rotated[i]);
+			rotatedIndices.set(i, desc.getAtomIndex(confSpace, posi, desc.rotated[i]));
 		}
 
 		buf.skipToAlignment(8);

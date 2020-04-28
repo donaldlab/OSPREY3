@@ -2,6 +2,7 @@
 #include "global.h"
 #include "formats.h"
 #include "real3.h"
+#include "rotation.h"
 #include "atoms.h"
 #include "confspace.h"
 #include "assignment.h"
