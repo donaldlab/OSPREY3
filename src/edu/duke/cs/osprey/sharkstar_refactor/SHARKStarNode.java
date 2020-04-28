@@ -252,4 +252,22 @@ public class SHARKStarNode implements ConfAStarNode {
             return this.partialConfUB + this.unassignedConfUB.get(seq);
         }
     }
+
+    public String confToString() {
+        String out = "(";
+        for (int i = 0; i < assignments.length; i++) {
+            out += assignments[i] + ", ";
+        }
+        out += ")";
+        return out;
+    }
+
+    public String toSeqString(Sequence seq){
+        String out = String.format("%s -> [%.3f + %.3f, %.3f]",
+                confToString(), getFreeEnergyLB(seq), HOTCorrection, getFreeEnergyUB(seq));
+        if (isMinimized){
+            out += String.format(" -> (minimized) %.3f", getMinE());
+        }
+        return out;
+    }
 }
