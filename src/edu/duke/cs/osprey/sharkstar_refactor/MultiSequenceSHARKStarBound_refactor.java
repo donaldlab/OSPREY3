@@ -20,8 +20,7 @@ import edu.duke.cs.osprey.markstar.MARKStarProgress;
 import edu.duke.cs.osprey.markstar.framework.StaticBiggestLowerboundDifferenceOrder;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
-import edu.duke.cs.osprey.partcr.splitters.RCSplitter;
-import edu.duke.cs.osprey.sharkstar.*;
+import edu.duke.cs.osprey.sharkstar.SHARKStarNodeScorer;
 import edu.duke.cs.osprey.sharkstar.tools.SHARKStarEnsembleAnalyzer;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
@@ -930,7 +929,84 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * TODO: implement me
      */
     public void populateQueues(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> internalNodes, List<SHARKStarNode> leafNodes, BigDecimal[] zSums){
-        throw new NotImplementedException();
+        List<SHARKStarNode> leftoverLeaves = new ArrayList<>();
+        PriorityQueue<SHARKStarNode> queue = seqBound.fringeNodes;
+        int maxNodes = 1000;
+        if (leafTimeAverage > 0)
+            maxNodes = Math.max(maxNodes, (int) Math.floor(0.1 * leafTimeAverage / internalTimeAverage));
+        while (!queue.isEmpty() && (seqBound.internalQueue.size() < maxNodes
+                || (!seqBound.leafQueue.isEmpty() && queue.peek().getScore(seqBound.sequence) >
+                seqBound.leafQueue.peek().getScore(seqBound.sequence))
+                || (!seqBound.internalQueue.isEmpty() && queue.peek().getScore(seqBound.sequence) >
+                seqBound.internalQueue.peek().getScore(seqBound.sequence))
+                || seqBound.leafQueue.size() < seqBound.maxMinimizations)) {
+            SHARKStarNode curNode = queue.poll();
+
+            // TODO: are these next two lines necessary at all?
+            ConfIndex index = new ConfIndex(fullRCs.getNumPos());
+            curNode.index(index);
+
+            // Apply corrections to nodes
+            /*
+            boolean nodeCorrected = applyCorrectionsOrNOOP(curNode, seqBound);
+
+            // If we corrected a node, then move to the next node
+            if (nodeCorrected){
+                leftoverLeaves.add(curNode);
+                continue;
+            }
+             */
+
+            if (curNode.getLevel() < fullRCs.getNumPos()) {
+                seqBound.internalQueue.add(curNode);
+                //} else if (shouldMinimize(curNode, seqBound.sequence) && !correctedNode(leftoverLeaves, curNode, node, seqBound.sequence)) {
+                //TODO: Make sure the correctedNode method is doing what I think it is
+                //} else if (shouldMinimize(curNode, seqBound.sequence) && !nodeCorrected){
+            }else{
+                seqBound.leafQueue.add(curNode);
+            }
+
+        }
+
+        zSums[0] = fillListFromQueue(internalNodes, seqBound.internalQueue, maxNodes, seqBound);
+        zSums[1] = fillListFromQueue(leafNodes, seqBound.leafQueue, seqBound.maxMinimizations, seqBound);
+        if(!seqBound.internalQueue.isEmpty() &&
+                MathTools.isLessThan(zSums[0], bc.calc(seqBound.internalQueue.peek().getScore(seqBound.sequence))))
+            System.out.println("Should have used a node from the internal queue. How??");
+        queue.addAll(leftoverLeaves);
+    }
+
+    private BigDecimal fillListFromQueue(List<SHARKStarNode> list, Queue<SHARKStarNode> queue, int max, SingleSequenceSHARKStarBound_refactor bound) {
+        BigDecimal sum = BigDecimal.ZERO;
+        List<SHARKStarNode> leftovers = new ArrayList<>();
+        while (!queue.isEmpty() && list.size() < max ) {
+            SHARKStarNode curNode = queue.poll();
+            /* change this to use the new applyCorrections method
+            if (correctedNode(leftovers, curNode, curNode.getConfSearchNode(), seq)) {
+                BigDecimal diff = curNode.getUpperBound(seq).subtract(curNode.getLowerBound(seq));
+                if(MathTools.isGreaterThan(diff, sum)) {
+                    leftovers.remove(curNode);
+                    queue.add(curNode);
+                }
+                continue;
+            }
+             */
+            /*
+            if (applyCorrectionsOrNOOP(curNode, bound)){
+                BigDecimal diff = curNode.getUpperBound(bound.sequence).subtract(curNode.getLowerBound(bound.sequence));
+                if(MathTools.isGreaterThan(diff, sum)) {
+                    leftovers.remove(curNode);
+                    queue.add(curNode);
+                }
+                continue;
+            }
+             */
+            BigDecimal diff = bc.calc(curNode.getFreeEnergyLB(bound.sequence)).subtract(bc.calc(curNode.getFreeEnergyUB(bound.sequence)));
+            sum = sum.add(diff);
+            list.add(curNode);
+        }
+        queue.addAll(leftovers);
+        return sum;
     }
 
     /**
@@ -1085,7 +1161,28 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * TODO: implement me
      */
     public void loopCleanup(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, Stopwatch timer, int numNodes){
-        throw new NotImplementedException();
+        PriorityQueue<SHARKStarNode> queue = seqBound.fringeNodes;
+        for (SHARKStarNode node : newNodes) {
+            if (node != null){
+                if(node.isMinimized())
+                    seqBound.addFinishedNode(node);
+                else
+                    queue.add(node);
+            }
+        }
+        timer.stop();
+        double loopTime = timer.getTimeS();
+        System.out.println("Processed " + numNodes + " this loop, spawning " + newNodes.size() + " in " + loopTime );
+        timer.reset();
+        timer.start();
+        //energyMatrixCorrector.processPreminimization(seqBound, minimizingEcalc);
+        //profilePrint("Preminimization time : " + timer.getTime(2));
+        //printTree(seqBound.sequence, rootNode);
+        timer.stop();
+        //cleanupTime = timer.getTimeS();
+        //double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, correctiongscorer, correctionhscorer);
+        System.out.println(String.format("Loop complete. Bounds are now [%12.6e,%12.6e]", seqBound.calcZBound(e-> e.getFreeEnergyUB(seqBound.sequence)),
+                seqBound.calcZBound(e->e.getFreeEnergyLB(seqBound.sequence))));
     }
 
     protected void debugPrint(String s) {
