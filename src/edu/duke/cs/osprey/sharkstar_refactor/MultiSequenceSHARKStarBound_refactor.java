@@ -711,8 +711,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
                 System.out.println("Minimized "+this.confSpace.formatConf(result.resultNode.getAssignments()));
 
-                result.resultNode.setMinE(result.minimizedEnergy);
-                result.resultNode.setIsMinimized(true);
+                result.resultNode.setMinE(result.minimizedEnergy); // set the energy
+                result.resultNode.setIsMinimized(true); // set the minimized flag
+                result.resultNode.setScore(0.0,seq); // Since the node is minimized, the score (error) is 0
 
                 synchronized(this){
                     minimizationTimeTotal += result.minimizationTime;
