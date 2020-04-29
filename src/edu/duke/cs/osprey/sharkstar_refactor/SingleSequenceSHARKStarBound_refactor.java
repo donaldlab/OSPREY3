@@ -10,10 +10,7 @@ import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.PriorityQueue;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -114,18 +111,38 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
 
     }
 
-    public BigDecimal calcZBound(Function<SHARKStarNode, Double> energyMapper){
-        Stream<Double> allNodesEnergyLB = Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes)
-                .flatMap(Collection::stream)
-                .parallel()
-                .map(energyMapper);
+    public double calcEBound(Function<SHARKStarNode, Double> energyMapper){
+        // If the queues are empty, treat this as positive infinity
+        if (fringeNodes.isEmpty() && internalQueue.isEmpty() && leafQueue.isEmpty() && finishedNodes.isEmpty()){
+            return Double.POSITIVE_INFINITY;
+        }else {
+            Optional<Double> minElement = Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes)
+                    .flatMap(Collection::stream)
+                    .parallel()
+                    .map(energyMapper)
+                    .min(Double::compareTo);
 
-       if (!allNodesEnergyLB.isParallel()){
-            System.err.println("ERROR: stream is not parallel");
+            if (minElement.isPresent()) {
+                Stream<Double> allNodesEnergyLB = Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes)
+                        .flatMap(Collection::stream)
+                        .parallel()
+                        .map(energyMapper);
+
+                if (!allNodesEnergyLB.isParallel()) {
+                    System.err.println("ERROR: stream is not parallel");
+                }
+
+                return multisequenceBound.bc.logSumExpStream(allNodesEnergyLB, minElement.get());
+            }
+            else{
+                throw new RuntimeException("Could not find min element of stream");
+            }
         }
 
-        return multisequenceBound.bc.calc(multisequenceBound.bc.logSumExpStream(allNodesEnergyLB));
+    }
 
+    public BigDecimal calcZBound(Function <SHARKStarNode, Double> energyMapper){
+        return multisequenceBound.bc.calc(calcEBound(energyMapper));
     }
 
     public double getSequenceEpsilon(){

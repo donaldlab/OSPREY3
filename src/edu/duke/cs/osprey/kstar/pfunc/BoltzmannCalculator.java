@@ -80,16 +80,11 @@ public class BoltzmannCalculator {
 	 *
 	 * 	TODO: Benchmark and make sure that parallel streams are actually faster in this case
 	 */
-	public double logSumExpStream(Stream<Double> energyStream){
-		Optional<Double> minEnergy = energyStream.parallel().min(Double::compareTo);
-		if (minEnergy.isPresent()){
-			BigDecimal zSum = energyStream.parallel()
-					.map( e -> calc(e - minEnergy.get()))
-					.reduce(BigDecimal.ZERO, BigDecimal::add);
-			return minEnergy.get() + freeEnergy(zSum);
-		}else{
-			throw new RuntimeException("Failed to find minimum element using streams");
-		}
+	public double logSumExpStream(Stream<Double> energyStream, double minEnergy){
+		BigDecimal zSum = energyStream.parallel()
+				.map( e -> calc(e - minEnergy))
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		return minEnergy+ freeEnergy(zSum);
 	}
 
 	/** logSumExp
