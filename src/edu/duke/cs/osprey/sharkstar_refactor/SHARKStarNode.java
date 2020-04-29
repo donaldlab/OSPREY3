@@ -124,7 +124,8 @@ public class SHARKStarNode implements ConfAStarNode {
 
     @Override
     public double getGScore() {
-        throw new NotImplementedException();
+        // Needed for calcOrder
+        return this.partialConfLB;
     }
 
     @Override
@@ -254,12 +255,12 @@ public class SHARKStarNode implements ConfAStarNode {
     }
 
     public String confToString() {
-        String out = "(";
-        for (int i = 0; i < assignments.length; i++) {
-            out += assignments[i] + ", ";
+        StringBuilder out = new StringBuilder("(");
+        for (int assignment : assignments) {
+            out.append(assignment).append(", ");
         }
-        out += ")";
-        return out;
+        out.append(")");
+        return out.toString();
     }
 
     public String toSeqString(Sequence seq){
