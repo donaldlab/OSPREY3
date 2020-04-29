@@ -42,12 +42,12 @@ namespace osprey {
 				return *reinterpret_cast<const Conf<T> *>(offset(conf_offsets[confi]));
 			}
 
-			inline const Atoms<T> & get_static_atoms() const {
-				return *reinterpret_cast<const Atoms<T> *>(offset(static_atoms_offset));
+			inline const Array<Real3<T>> & get_static_atoms() const {
+				return *reinterpret_cast<const Array<Real3<T>> *>(offset(static_atoms_offset));
 			}
 
-			inline const Atoms<T> & get_conf_atoms(const Conf<T> & conf) const {
-				return *reinterpret_cast<const Atoms<T> *>(offset(conf.atoms_offset));
+			inline const Array<Real3<T>> & get_conf_atoms(const Conf<T> & conf) const {
+				return *reinterpret_cast<const Array<Real3<T>> *>(offset(conf.atoms_offset));
 			}
 
 			inline const void * get_params() const {
@@ -192,7 +192,7 @@ namespace osprey {
 
 			for (int confi=0; confi<pos.num_confs; confi++) {
 				const Conf<T> & conf = conf_space.get_conf(pos, confi);
-				const Atoms<T> & atoms = conf_space.get_conf_atoms(conf);
+				const Array<Real3<T>> & atoms = conf_space.get_conf_atoms(conf);
 				out << "\t\tConf[" << confi << "]:" << std::endl;
 				out << "\t\t\tatoms: " << atoms.size() << std::endl;
 				out << fmt::set_indents(4) << atoms << fmt::set_indents(0);
@@ -200,7 +200,7 @@ namespace osprey {
 		}
 
 		// show the static atoms
-		const Atoms<T> & static_atoms = conf_space.get_static_atoms();
+		const Array<Real3<T>> & static_atoms = conf_space.get_static_atoms();
 		out << "\tstatic atoms: " << static_atoms.size() << std::endl;
 		out << fmt::set_indents(2) << static_atoms << fmt::set_indents(0);
 

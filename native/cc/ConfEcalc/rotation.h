@@ -46,8 +46,8 @@ namespace osprey {
 			inline void set_z(T radians) {
 				T sin = std::sin(radians);
 				T cos = std::cos(radians);
-				xaxis = { cos, sin, 0 };
-				yaxis = { -sin, cos, 0 };
+				xaxis = { cos, -sin, 0 };
+				yaxis = { sin, cos, 0 };
 				zaxis = { 0, 0, 1 };
 			}
 

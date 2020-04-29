@@ -35,10 +35,10 @@ namespace osprey {
 			}
 
 			inline T len_sq() const {
-				return x*x + y+y + z*z;
+				return x*x + y*y + z*z;
 			}
 			inline T len() const {
-				return sqrt(len_sq());
+				return std::sqrt(len_sq());
 			}
 
 			inline void normalize() {
@@ -48,7 +48,7 @@ namespace osprey {
 				z *= invlen;
 			}
 
-			inline void invert() {
+			inline void negate() {
 				x = -x;
 				y = -y;
 				z = -z;
@@ -56,6 +56,10 @@ namespace osprey {
 
 			inline T dot(const Real3<T> v) const {
 				return x*v.x + y*v.y + z*v.z;
+			}
+
+			inline bool isnan() const {
+				return std::isnan(x) || std::isnan(y) || std::isnan(z);
 			}
 	};
 	ASSERT_JAVA_COMPATIBLE_REALS(Real3, 16, 24);
@@ -106,6 +110,20 @@ namespace osprey {
 			<< std::setw(w) << v.z << ")";
 		return out;
 	}
+
+	template<typename T>
+	static T distance_sq(const Real3<T> & a, const Real3<T> & b) {
+		T dx = a.x - b.x;
+		T dy = a.y - b.y;
+		T dz = a.z - b.z;
+		return dx*dx + dy*dy + dz*dz;
+	}
+
+	template<typename T>
+	static T distance(const Real3<T> & a, const Real3<T> & b) {
+		return std::sqrt(distance_sq(a, b));
+	}
+
 }
 
 #endif //CONFECALC_REAL3_H

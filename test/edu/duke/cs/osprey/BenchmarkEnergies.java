@@ -182,11 +182,19 @@ public class BenchmarkEnergies {
 
 	private static void nativeLab(TestConfSpace.AffinityCompiled compiled) {
 
-		var confEcalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
+		ConfSpace confSpace = compiled.complex;
+
+		var cpuConfEcalc = new CPUConfEnergyCalculator(confSpace);
+		var nativeConfEcalc = new NativeConfEnergyCalculator(confSpace, Structs.Precision.Float64);
+
+		// use all the interactions
+		List<PosInter> inters = PosInterDist.all(confSpace);
 
 		// compare the coords
 		int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };
-		CoordsList obs = confEcalc.assign(conf).coords;
-		CoordsList exp = confEcalc.confSpace.makeCoords(conf).coords;
+		log("\n\njava");
+		cpuConfEcalc.minimize(conf, inters);
+		log("\n\nc++");
+		nativeConfEcalc.minimize(conf, inters);
 	}
 }

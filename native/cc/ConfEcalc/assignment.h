@@ -68,7 +68,7 @@ namespace osprey {
 
 			const ConfSpace<T> & conf_space;
 			const int32_t * conf;
-			Atoms<T> atoms;
+			Array<Real3<T>> atoms;
 
 		private:
 			const void ** atom_pairs;

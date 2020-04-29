@@ -86,15 +86,7 @@ namespace osprey::ambereef1 {
 	ASSERT_JAVA_COMPATIBLE_REALS(AtomPairEef1, 32, 56);
 
 	template<typename T>
-	static T distance_sq(const Real3<T> & a, const Real3<T> & b) {
-		T dx = a.x - b.x;
-		T dy = a.y - b.y;
-		T dz = a.z - b.z;
-		return dx*dx + dy*dy + dz*dz;
-	}
-
-	template<typename T>
-	static T calc(const Atoms<T> & atoms, const Params & params, const AtomPairs & pairs) {
+	static T calc(const Array<Real3<T>> & atoms, const Params & params, const AtomPairs & pairs) {
 
 		T energy = 0.0;
 
@@ -104,7 +96,8 @@ namespace osprey::ambereef1 {
 			Real3<T> atom1 = atoms[pair_amber->atomi1];
 			Real3<T> atom2 = atoms[pair_amber->atomi2];
 			T r2 = distance_sq(atom1, atom2);
-			T r = sqrt(r2);
+			assert (!std::isnan(r2));
+			T r = std::sqrt(r2);
 			energy += pair_amber->calc(r, r2, params.distance_dependent_dielectric);
 			pair_amber += 1;
 		}
@@ -115,7 +108,8 @@ namespace osprey::ambereef1 {
 			Real3<T> atom1 = atoms[pair_eef1->atomi1];
 			Real3<T> atom2 = atoms[pair_eef1->atomi2];
 			T r2 = distance_sq(atom1, atom2);
-			T r = sqrt(r2);
+			assert (!std::isnan(r2));
+			T r = std::sqrt(r2);
 			energy += pair_eef1->calc(r, r2);
 			pair_eef1 += 1;
 		}
@@ -124,13 +118,13 @@ namespace osprey::ambereef1 {
 	}
 
 	template<typename T>
-	T calc_energy(Assignment<T> & assignment, const PosInter<T> inters[], int64_t inters_size) {
+	T calc_energy(Assignment<T> & assignment, const Array<PosInter<T>> & inters) {
 
 		const Params & params = *reinterpret_cast<const Params *>(assignment.conf_space.get_params());
 
 		// sum all the interaction energies
 		T energy = 0.0;
-		for (int i=0; i<inters_size; i++) {
+		for (int i=0; i<inters.get_size(); i++) {
 			PosInter<T> inter = inters[i];
 
 			T inter_energy = 0.0;

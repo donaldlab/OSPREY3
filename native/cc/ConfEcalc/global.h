@@ -11,6 +11,7 @@
 #include <cstring>
 #include <cmath>
 #include <stdexcept>
+#include <algorithm>
 
 
 // define some types for fixed-size floating point types
@@ -18,6 +19,7 @@ static_assert(sizeof(float) == 4, "float type is not 32 bits");
 typedef float float32_t;
 static_assert(sizeof(double) == 8, "double type is not 64 bits");
 typedef double float64_t;
+
 
 #include "config.h"
 

@@ -326,4 +326,20 @@ public class AssignedCoords {
 
 		return mol;
 	}
+
+	public String getAtomName(int atomi) {
+		int posi = confSpace.findPosIndex(atomi);
+		if (posi == PosInter.StaticPos) {
+			return String.format("Static:%s",
+				confSpace.staticNames[atomi]
+			);
+		} else {
+			int confi = assignments[posi];
+			int offset = atomi - confSpace.getConfAtomIndex(posi, confi);
+			return String.format("%s:%s",
+				confSpace.positions[posi].name,
+				confSpace.positions[posi].confs[confi].atomNames[offset]
+			);
+		}
+	}
 }

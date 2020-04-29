@@ -31,15 +31,15 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		public static native int version_minor();
 		public static native void assign_f32(ByteBuffer conf_space, int[] conf, ByteBuffer out);
 		public static native void assign_f64(ByteBuffer conf_space, int[] conf, ByteBuffer out);
-		public static native float calc_amber_eef1_f32(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size, ByteBuffer out_coords);
-		public static native double calc_amber_eef1_f64(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size, ByteBuffer out_coords);
-		public static native float minimize_amber_eef1_f32(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size, ByteBuffer out_coords, ByteBuffer out_dofs);
-		public static native double minimize_amber_eef1_f64(ByteBuffer conf_space, int[] conf, ByteBuffer inters, int inters_size, ByteBuffer out_coords, ByteBuffer out_dofs);
+		public static native float calc_amber_eef1_f32(ByteBuffer conf_space, int[] conf, ByteBuffer inters, ByteBuffer out_coords);
+		public static native double calc_amber_eef1_f64(ByteBuffer conf_space, int[] conf, ByteBuffer inters, ByteBuffer out_coords);
+		public static native float minimize_amber_eef1_f32(ByteBuffer conf_space, int[] conf, ByteBuffer inters, ByteBuffer out_coords, ByteBuffer out_dofs);
+		public static native double minimize_amber_eef1_f64(ByteBuffer conf_space, int[] conf, ByteBuffer inters, ByteBuffer out_coords, ByteBuffer out_dofs);
 	}
 
 	private interface ForcefieldsImpl {
-		double calc(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize, ByteBuffer coords);
-		double minimize(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize, ByteBuffer coords, ByteBuffer dofs);
+		double calc(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, ByteBuffer coords);
+		double minimize(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, ByteBuffer coords, ByteBuffer dofs);
 		long paramsBytes();
 		void writeParams(ConfSpace confSpace, BufWriter buf);
 		long staticStaticBytes(ConfSpace confSpace);
@@ -133,18 +133,18 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		@Override
-		public double calc(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize, ByteBuffer coords) {
+		public double calc(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, ByteBuffer coords) {
 			return switch (precision) {
-				case Float32 -> NativeLib.calc_amber_eef1_f32(confSpaceBuf, conf, intersBuf, intersSize, coords);
-				case Float64 -> NativeLib.calc_amber_eef1_f64(confSpaceBuf, conf, intersBuf, intersSize, coords);
+				case Float32 -> NativeLib.calc_amber_eef1_f32(confSpaceBuf, conf, intersBuf, coords);
+				case Float64 -> NativeLib.calc_amber_eef1_f64(confSpaceBuf, conf, intersBuf, coords);
 			};
 		}
 
 		@Override
-		public double minimize(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, int intersSize, ByteBuffer coords, ByteBuffer dofs) {
+		public double minimize(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, ByteBuffer coords, ByteBuffer dofs) {
 			return switch (precision) {
-				case Float32 -> NativeLib.minimize_amber_eef1_f32(confSpaceBuf, conf, intersBuf, intersSize, coords, dofs);
-				case Float64 -> NativeLib.minimize_amber_eef1_f64(confSpaceBuf, conf, intersBuf, intersSize, coords, dofs);
+				case Float32 -> NativeLib.minimize_amber_eef1_f32(confSpaceBuf, conf, intersBuf, coords, dofs);
+				case Float64 -> NativeLib.minimize_amber_eef1_f64(confSpaceBuf, conf, intersBuf, coords, dofs);
 			};
 		}
 
@@ -410,10 +410,10 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	class SDihedral extends Struct {
 		Real min_radians;
 		Real max_radians;
-		Int32 a = int32();
-		Int32 b = int32();
-		Int32 c = int32();
-		Int32 d = int32();
+		Int32 a_index = int32();
+		Int32 b_index = int32();
+		Int32 c_index = int32();
+		Int32 d_index = int32();
 		Int32 num_rotated = int32();
 		Int32 modified_posi = int32();
 
@@ -423,7 +423,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			init(
 				precision.map(32, 40),
 				"min_radians", "max_radians",
-				"a", "b", "c", "d", "num_rotated",
+				"a_index", "b_index", "c_index", "d_index", "num_rotated",
 				"modified_posi"
 			);
 		}
@@ -722,10 +722,10 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		buf.place(dihedralStruct);
 		dihedralStruct.min_radians.set(Math.toRadians(desc.minDegrees));
 		dihedralStruct.max_radians.set(Math.toRadians(desc.maxDegrees));
-		dihedralStruct.a.set(desc.getAtomIndex(confSpace, posi, desc.a));
-		dihedralStruct.b.set(desc.getAtomIndex(confSpace, posi, desc.b));
-		dihedralStruct.c.set(desc.getAtomIndex(confSpace, posi, desc.c));
-		dihedralStruct.d.set(desc.getAtomIndex(confSpace, posi, desc.d));
+		dihedralStruct.a_index.set(desc.getAtomIndex(confSpace, posi, desc.a));
+		dihedralStruct.b_index.set(desc.getAtomIndex(confSpace, posi, desc.b));
+		dihedralStruct.c_index.set(desc.getAtomIndex(confSpace, posi, desc.c));
+		dihedralStruct.d_index.set(desc.getAtomIndex(confSpace, posi, desc.d));
 		dihedralStruct.num_rotated.set(desc.rotated.length);
 		dihedralStruct.modified_posi.set(posi);
 
@@ -743,7 +743,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	}
 
 	public AssignedCoords assign(int[] conf) {
-		try (var coordsMem = MemorySegment.allocateNative(real3Struct.bytes()*confSpace.maxNumConfAtoms)) {
+		try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
 			switch (precision) {
 				case Float32 -> NativeLib.assign_f32(confSpaceMem.asByteBuffer(), conf, coordsMem.asByteBuffer());
 				case Float64 -> NativeLib.assign_f64(confSpaceMem.asByteBuffer(), conf, coordsMem.asByteBuffer());
@@ -783,9 +783,9 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 	@Override
 	public EnergiedCoords calc(int[] conf, List<PosInter> inters) {
-		try (MemorySegment intersMem = makeIntersMem(inters)) {
-			try (var coordsMem = MemorySegment.allocateNative(real3Struct.bytes()*confSpace.maxNumConfAtoms)) {
-				double energy = forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), inters.size(), coordsMem.asByteBuffer());
+		try (var intersMem = makeIntersMem(inters)) {
+			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
+				double energy = forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), coordsMem.asByteBuffer());
 				return new EnergiedCoords(
 					makeCoords(coordsMem, conf),
 					energy
@@ -796,18 +796,18 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 	@Override
 	public double calcEnergy(int[] conf, List<PosInter> inters) {
-		try (MemorySegment intersMem = makeIntersMem(inters)) {
-			return forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), inters.size(), null);
+		try (var intersMem = makeIntersMem(inters)) {
+			return forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), null);
 		}
 	}
 
 	private DoubleMatrix1D makeDofs(MemorySegment mem) {
 
-		var h = MemoryHandles.varHandle(long.class, ByteOrder.nativeOrder());
-		int size = (int)(long)h.get(mem.baseAddress());
+		int size = (int)getArraySize(mem);
 		DoubleMatrix1D vals = DoubleFactory1D.dense.make(size);
 
 		Real.Array floats = realarray(precision);
+		floats.setAddress(getArrayAddress(mem));
 		for (int i=0; i<size; i++) {
 			vals.set(i, floats.get(i));
 		}
@@ -817,12 +817,12 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 	@Override
 	public EnergiedCoords minimize(int[] conf, List<PosInter> inters) {
-		try (MemorySegment intersMem = makeIntersMem(inters)) {
-			try (var coordsMem = MemorySegment.allocateNative(real3Struct.bytes()*confSpace.maxNumConfAtoms)) {
-				try (var dofsMem = MemorySegment.allocateNative(Int64.bytes + precision.bytes*confSpace.maxNumDofs)) {
+		try (var intersMem = makeIntersMem(inters)) {
+			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
+				try (var dofsMem = makeArray(confSpace.maxNumDofs, precision.bytes)) {
 					double energy = forcefieldsImpl.minimize(
 						confSpaceMem.asByteBuffer(), conf,
-						intersMem.asByteBuffer(), inters.size(),
+						intersMem.asByteBuffer(),
 						coordsMem.asByteBuffer(), dofsMem.asByteBuffer()
 					);
 					return new EnergiedCoords(
@@ -837,18 +837,19 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 	@Override
 	public double minimizeEnergy(int[] conf, List<PosInter> inters) {
-		try (MemorySegment intersMem = makeIntersMem(inters)) {
+		try (var intersMem = makeIntersMem(inters)) {
 			return forcefieldsImpl.minimize(
 				confSpaceMem.asByteBuffer(), conf,
-				intersMem.asByteBuffer(), inters.size(),
+				intersMem.asByteBuffer(),
 				null, null
 			);
 		}
 	}
 
 	private MemorySegment makeIntersMem(List<PosInter> inters) {
-		MemorySegment mem = MemorySegment.allocateNative(posInterStruct.bytes()*inters.size());
+		MemorySegment mem = makeArray(inters.size(), posInterStruct.bytes());
 		BufWriter buf = new BufWriter(mem);
+		buf.pos = getArrayAddress(mem).offset();
 		for (var inter : inters) {
 			buf.place(posInterStruct);
 			posInterStruct.posi1.set(inter.posi1);
@@ -857,5 +858,24 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			posInterStruct.offset.set(inter.offset);
 		}
 		return mem;
+	}
+
+	// helpers for the Array class on the c++ size
+
+	private MemorySegment makeArray(long size, long itemBytes) {
+		MemorySegment mem = MemorySegment.allocateNative(Int64.bytes*2 + size*itemBytes);
+		BufWriter buf = new BufWriter(mem);
+		buf.int64(size);
+		buf.int64(0); // write 0 here so the c++ side knows the array came from the Java side
+		return mem;
+	}
+
+	private long getArraySize(MemorySegment mem) {
+		var h = MemoryHandles.varHandle(long.class, ByteOrder.nativeOrder());
+		return (long)h.get(mem.baseAddress());
+	}
+
+	private MemoryAddress getArrayAddress(MemorySegment mem) {
+		return mem.baseAddress().addOffset(Int64.bytes*2);
 	}
 }

@@ -780,6 +780,27 @@ public class ConfSpace implements ConfSpaceIteration {
 		return confAtomOffsetsByPos[posi] + atomi;
 	}
 
+	public Integer findPosIndex(int atomi) {
+
+		// look in the static range
+		if (atomi < confAtomOffsetsByPos[0]) {
+			return PosInter.StaticPos;
+		}
+
+		// look in the conf ranges
+		for (int posi=0; posi<positions.length - 1; posi++) {
+			if (atomi < confAtomOffsetsByPos[posi + 1]) {
+				return posi;
+			}
+		}
+		if (atomi < maxNumConfAtoms) {
+			return positions.length - 1;
+		}
+
+		// not in any range
+		return null;
+	}
+
 	public double[] ffparams(int ffi, int paramsi) {
 		return ffparams[ffi][paramsi];
 	}

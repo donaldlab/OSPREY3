@@ -128,7 +128,7 @@ public class TestNativeConfEnergyCalculator {
 		for (int i=0; i<confs.length; i++) {
 			double energy = confEcalc.minimizeEnergy(confs[i], inters);
 			switch (precision) {
-				case Float32 -> assertThat(energy, isRelatively(energies[i], 1e-5));
+				case Float32 -> assertThat(energy, isRelatively(energies[i], 1e-4));
 				case Float64 -> assertThat(energy, isAbsolutely(energies[i], 1e-8));
 			}
 		}
