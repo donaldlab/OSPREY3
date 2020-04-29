@@ -86,6 +86,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private Sequence precomputedSequence;
     private MultiSequenceSHARKStarBound_refactor precomputedPfunc;
     public final BoltzmannCalculator bc;
+    private double drillDownDifference; //The freeEnergy difference corresponding to target epsilon
 
     // Not sure where these should go
     private ConfAnalyzer confAnalyzer;
@@ -269,6 +270,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      */
     public void init(double targetEpsilon) {
         this.targetEpsilon = targetEpsilon;
+        this.drillDownDifference = bc.freeEnergy(new BigDecimal(1-targetEpsilon));
         this.status = Status.Estimating;
         makeAndScoreRootNode();
         if(precomputedPfunc == null)
@@ -428,7 +430,6 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         int[] permutationArray = genConfSpaceMapping();
         updatePrecomputedNode(precomputedRootNode, permutationArray, this.confSpace.getNumPos());
         this.rootNode = precomputedRootNode;
-        throw new NotImplementedException();
     }
 
     /**
@@ -757,7 +758,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         ) {
             debugPrint("Tightening from epsilon of " + lastEps);
             if (debug) {
-                pilotFish.travelTree(bound.sequence);
+                //pilotFish.travelTree(bound.sequence);
             }
             // run method
             tightenBoundInPhases(bound);
@@ -798,9 +799,6 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      */
     private void tightenBoundInPhases(SingleSequenceSHARKStarBound_refactor bound){
         assert (!bound.isEmpty());
-        System.out.println(String.format("Current overall error bound: %12.10f, spread of [%12.6e, %12.6e]",
-                bound.getSequenceEpsilon(), bound.getValues().calcLowerBound(),
-                bound.getValues().calcUpperBound()));
 
         // Initialize lists to track nodes
         List<SHARKStarNode> internalNodes = new ArrayList<>(); // List of internal nodes to score and correct
@@ -822,6 +820,14 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         double leafTimeSum = 0;
         double internalTimeSum = 0;
 
+        // Record the current Z bounds before taking nodes out
+        double startingELB = bound.calcEBound(e->e.getFreeEnergyLB(bound.sequence));
+        double startingEUB = bound.calcEBound(e->e.getFreeEnergyUB(bound.sequence));
+
+        System.out.println(String.format("Current overall error bound: %12.10f, spread of [%.3f, %.3f]",
+                bound.getSequenceEpsilon(),
+                startingELB,
+                startingEUB));
         /*
         Read the bound fringeNodes and decide which nodes we want to process
          */
@@ -881,16 +887,21 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             for (SHARKStarNode internalNode : internalNodes) {
                 //TODO: test to make sure there are no children compatible
 
+                System.out.println(String.format("Internal node: %s with free energy bounds [%.3f, %.3f]",
+                        Arrays.toString(internalNode.getAssignments()),
+                        internalNode.getFreeEnergyLB(bound.sequence),
+                        internalNode.getFreeEnergyUB(bound.sequence)
+                        ));
+
+
                 /*
-                if the pfunc lowerbound is greater than 1 and the node pfunc upper bound is a significant percentage of the whole pfunc upperbound
+                If the conformation has negative free energy and the bounds on that conf are loose enough that
+                the subtree epsilon is worse than the targetEpsilon,
                 then dive in a DFS manner to quickly tighten the node bound
                  */
-                if (!MathTools.isGreaterThan(bc.calc(internalNode.getFreeEnergyUB(bound.sequence)), BigDecimal.ONE) &&
-                        MathTools.isGreaterThan(
-                                MathTools.bigDivide(bc.calc(internalNode.getFreeEnergyLB(bound.sequence)), bound.calcZBound(e -> e.getFreeEnergyLB(bound.sequence)),
-                                        PartitionFunction.decimalPrecision),
-                                new BigDecimal(1 - targetEpsilon))
-                ) {
+
+                if( internalNode.getFreeEnergyUB(bound.sequence) < 0 &&
+                        internalNode.getFreeEnergyLB(bound.sequence) - startingELB > drillDownDifference){
                     //TODO: Put this back in possibly
                     /*
                     loopTasks.submit(() -> {
@@ -931,7 +942,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     public void populateQueues(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> internalNodes, List<SHARKStarNode> leafNodes, BigDecimal[] zSums){
         List<SHARKStarNode> leftoverLeaves = new ArrayList<>();
         PriorityQueue<SHARKStarNode> queue = seqBound.fringeNodes;
-        int maxNodes = 1000;
+        //int maxNodes = 1000;
+        int maxNodes = 10;
         if (leafTimeAverage > 0)
             maxNodes = Math.max(maxNodes, (int) Math.floor(0.1 * leafTimeAverage / internalTimeAverage));
         while (!queue.isEmpty() && (seqBound.internalQueue.size() < maxNodes
@@ -1181,8 +1193,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         timer.stop();
         //cleanupTime = timer.getTimeS();
         //double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, correctiongscorer, correctionhscorer);
-        System.out.println(String.format("Loop complete. Bounds are now [%12.6e,%12.6e]", seqBound.calcZBound(e-> e.getFreeEnergyUB(seqBound.sequence)),
-                seqBound.calcZBound(e->e.getFreeEnergyLB(seqBound.sequence))));
+        System.out.println(String.format("Loop complete. Bounds are now [%.3f,%.3f]", seqBound.calcEBound(e-> e.getFreeEnergyLB(seqBound.sequence)),
+                seqBound.calcEBound(e->e.getFreeEnergyUB(seqBound.sequence))));
     }
 
     protected void debugPrint(String s) {
