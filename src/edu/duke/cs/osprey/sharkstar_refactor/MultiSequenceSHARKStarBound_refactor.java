@@ -5,10 +5,7 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseRigidGScorer;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.TupE;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.BatchCorrectionMinimizer;
@@ -437,16 +434,24 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param node          The current node to update
      * @param permutation   The permutation matrix for mapping the precomputed RCs to the current RCs
      * @param size          The size of the new confSpace
-     *
-     * TODO: Implement me by making the commented methods
      */
     private void updatePrecomputedNode(SHARKStarNode node, int[] permutation, int size) {
-        //node.makeNodeCompatibleWithConfSpace(permutation, size, this.fullRCs);
-        //node.setNewConfSpace(confSpace);
+        // permute the assignments to the new confspace
+        node.makeNodeCompatibleWithConfSpace(permutation, size);
 
-        //TODO: make sure we aren't missing corrections by setting no minimized here
-        //node.getConfSearchNode().setMinimized(false);
-        //node.getConfSearchNode().setMinE(Double.NaN);
+        //set corrections if node is minimized
+        if (node.isMinimized()){
+            correctionMatrix.setHigherOrder(new RCTuple(node.getAssignments()), node.getMinE()
+                    - node.getPartialConfLB());
+        }
+        /*
+        Reset minimized energies and unassignedConf bounds, since these will no longer be valid.
+        Partial conf bounds should still be valid
+         */
+        node.setIsMinimized(false);
+        node.setMinE(Double.NaN);
+        node.setUnassignedConfLB(Double.NaN, precomputedSequence);
+        node.setUnassignedConfUB(Double.NaN, precomputedSequence);
 
         // Recurse
         if (!node.getChildren().isEmpty()) {

@@ -277,4 +277,24 @@ public class SHARKStarNode implements ConfAStarNode {
         }
         return out;
     }
+
+    /**
+     * Makes a SHARKStarNode generated during flexible precomputation compatible with a new conformation space
+     *
+     * @param permutation   The permutation array that maps the precomputed flexible positions to the positions in the new confSpace
+     *                      so, permutation[i] gives the new ConfSpace index for residue i.
+     * @param size  The size of the new confSpace
+     */
+    public void makeNodeCompatibleWithConfSpace(int[] permutation, int size){
+        // first change the confSearch information
+
+        // we copy over the new RCs based on permutation information
+        int[] newAssignments = new int[size];
+        Arrays.fill(newAssignments, -1);
+        for (int i =0; i < this.assignments.length; i++){
+            newAssignments[permutation[i]] = this.assignments[i];
+        }
+        // Now I'm going to be hacky and just copy over the assignments
+        this.assignments = newAssignments;
+    }
 }
