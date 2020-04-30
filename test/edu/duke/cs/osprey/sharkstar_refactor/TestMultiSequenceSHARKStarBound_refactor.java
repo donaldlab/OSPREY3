@@ -78,15 +78,36 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
      */
     public SimpleConfSpace make1CC8Flexible(){
         Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A10").build();
-        strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType);
-        strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType);
-        strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType);
-        strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType);
-        strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType);
+        strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType).setContinuous();
 
         return new SimpleConfSpace.Builder()
                 .addStrands(strand1)
-                .setShellDistance(9)
+                .build();
+
+    }
+
+    /**
+     * Creates a mutable confspace with one chain using 10 residues from 1CC8
+     */
+    private SimpleConfSpace make1CC8Mutable(){
+        Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A20").build();
+        strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG").setContinuous();
+        strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "ILE").setContinuous();
+        strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType, "MET").setContinuous();
+        strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A7").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A8").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A9").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A10").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A11").setLibraryRotamers(Strand.WildType).setContinuous();
+
+        return new SimpleConfSpace.Builder()
+                .addStrands(strand1)
                 .build();
 
     }
@@ -95,6 +116,13 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
     public void testMakePfunc(){
         SimpleConfSpace confSpace = make1CC8Flexible();
         Sequence wildType = confSpace.makeWildTypeSequence();
-        makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.99, null, null);
+        MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.99, null, null);
+    }
+    @Test
+    public void testPrecomputeFlexible(){
+        SimpleConfSpace confSpace = make1CC8Mutable();
+        Sequence wildType = confSpace.makeWildTypeSequence();
+        MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.99, null, null);
+        bound.init(0.68);
     }
 }
