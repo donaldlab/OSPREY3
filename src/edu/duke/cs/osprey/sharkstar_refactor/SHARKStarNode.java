@@ -124,8 +124,14 @@ public class SHARKStarNode implements ConfAStarNode {
 
     @Override
     public double getGScore() {
-        // Needed for calcOrder
+        // Needed for calcOrder and calcDifferential
         return this.partialConfLB;
+    }
+
+    @Override
+    public double getRigidGScore(){
+        // needed for calcDifferential
+        return this.partialConfUB;
     }
 
     @Override
