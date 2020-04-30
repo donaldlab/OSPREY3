@@ -709,7 +709,12 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     throw new RuntimeException(String.format("Error in node scoring for %s",
                             this.confSpace.formatConf(result.resultNode.getAssignments())));
 
-                System.out.println("Minimized "+this.confSpace.formatConf(result.resultNode.getAssignments()));
+                System.out.println(String.format("Minimized %s --> %.3f in [%.3f, %.3f]",
+                        result.resultNode.confToString(),
+                        result.minimizedEnergy,
+                        result.resultNode.getFreeEnergyLB(seq),
+                        result.resultNode.getFreeEnergyUB(seq)
+                        ));
 
                 result.resultNode.setMinE(result.minimizedEnergy); // set the energy
                 result.resultNode.setIsMinimized(true); // set the minimized flag
@@ -821,12 +826,13 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         double leafTimeSum = 0;
         double internalTimeSum = 0;
 
-        // Record the current Z bounds before taking nodes out
+        // Record the current information before taking nodes out
         double startingELB = bound.calcEBound(e->e.getFreeEnergyLB(bound.sequence));
         double startingEUB = bound.calcEBound(e->e.getFreeEnergyUB(bound.sequence));
+        double startingEps = bound.getSequenceEpsilon();
 
-        System.out.println(String.format("Current overall error bound: %12.10f, spread of [%.3f, %.3f]",
-                bound.getSequenceEpsilon(),
+        System.out.println(String.format("Current overall error bound: %.10f, spread of [%.3f, %.3f]",
+                startingEps,
                 startingELB,
                 startingEUB));
         /*
@@ -927,6 +933,10 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             bound.leafQueue.addAll(leafNodes);
         }
         loopCleanup(bound, newNodes, loopWatch, numNodes);
+
+        if (bound.getSequenceEpsilon() > startingEps){
+            throw new RuntimeException("ERROR! bounds got looser");
+        }
     }
 
     /**
@@ -1075,6 +1085,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     public void processPartialConfNode(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, SHARKStarNode partialConfNode){
         // Get the next position
         ScoreContext context = contexts.checkout();
+        partialConfNode.index(context.index);
         int nextPos = order.getNextPos(context.index, seqBound.seqRCs);
         contexts.release(context);
 
@@ -1194,7 +1205,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         timer.stop();
         //cleanupTime = timer.getTimeS();
         //double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, correctiongscorer, correctionhscorer);
-        System.out.println(String.format("Loop complete. Bounds are now [%.3f,%.3f]", seqBound.calcEBound(e-> e.getFreeEnergyLB(seqBound.sequence)),
+
+        System.out.println(String.format("Loop complete. Epsilon is now %.10f, Bounds are now [%.3f,%.3f]", seqBound.getSequenceEpsilon(), seqBound.calcEBound(e-> e.getFreeEnergyLB(seqBound.sequence)),
                 seqBound.calcEBound(e->e.getFreeEnergyUB(seqBound.sequence))));
     }
 
