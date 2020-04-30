@@ -244,7 +244,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         computeFringeForSequence(newBound, this.rootNode);
         // Wait for scoring to be done, if applicable
         loopTasks.waitForFinish();
-        double boundEps = newBound.getSequenceEpsilon();
+        double boundEps = newBound.calcEpsilon();
         if(boundEps == 0) {
             System.err.println("Perfectly bounded sequence? how?");
         }else{
@@ -744,7 +744,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         System.out.println("Tightening bound for " + bound.sequence);
         debugPrint("Num conformations: " + bound.numConformations);
 
-        double lastEps = bound.getSequenceEpsilon();
+        double lastEps = bound.calcEpsilon();
         if (lastEps == 0)
             System.err.println("ERROR: Computing for a partition function with epsilon=0");
 
@@ -770,7 +770,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             tightenBoundInPhases(bound);
 
             // do some debug checks
-            double newEps = bound.getSequenceEpsilon();
+            double newEps = bound.calcEpsilon();
             debugPrint("Errorbound is now " + newEps);
             debugPrint("Bound reduction: " + (lastEps - newEps));
             if (lastEps < newEps && newEps - lastEps > 0.01
@@ -829,7 +829,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         // Record the current information before taking nodes out
         double startingELB = bound.calcEBound(e->e.getFreeEnergyLB(bound.sequence));
         double startingEUB = bound.calcEBound(e->e.getFreeEnergyUB(bound.sequence));
-        double startingEps = bound.getSequenceEpsilon();
+        double startingEps = bound.calcEpsilon();
 
         System.out.println(String.format("Current overall error bound: %.10f, spread of [%.3f, %.3f]",
                 startingEps,
@@ -934,7 +934,16 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         }
         loopCleanup(bound, newNodes, loopWatch, numNodes);
 
-        if (bound.getSequenceEpsilon() > startingEps){
+        double endingELB = bound.calcEBound(e->e.getFreeEnergyLB(bound.sequence));
+        double endingEUB = bound.calcEBound(e->e.getFreeEnergyUB(bound.sequence));
+        double endingEps = bound.calcEpsilon();
+
+        System.out.println(String.format("Ending error: %.10f, spread of [%.3f, %.3f]",
+                endingEps,
+                endingELB,
+                endingEUB));
+
+        if (endingEps> startingEps){
             throw new RuntimeException("ERROR! bounds got looser");
         }
     }
@@ -1068,7 +1077,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         // Minimize the node
         minimizeNodeForSeq(fullConfNode, seqBound.sequence);
-        progress.reportLeafNode(fullConfNode.getMinE(), seqBound.fringeNodes.size(), seqBound.getSequenceEpsilon());
+        progress.reportLeafNode(fullConfNode.getMinE(), seqBound.fringeNodes.size(), seqBound.calcEpsilon());
 
         // Add to trackers
         seqBound.addFinishedNode(fullConfNode);
@@ -1099,11 +1108,13 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         //TODO: maybe separate scoring tasks from minimization tasks?
         loopTasks.waitForFinish();
         //TODO: fix this reporting process, it's almost certainly slowing things down
+        /*
         for (SHARKStarNode child : children){
             progress.reportInternalNode(child.getLevel(), child.getPartialConfLB(),
                     child.getFreeEnergyLB(seqBound.sequence), seqBound.fringeNodes.size(), children.size(),
-                    seqBound.getSequenceEpsilon());
+                    seqBound.calcEpsilon());
         }
+         */
         newNodes.addAll(children);
     }
 
@@ -1206,7 +1217,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         //cleanupTime = timer.getTimeS();
         //double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, correctiongscorer, correctionhscorer);
 
-        System.out.println(String.format("Loop complete. Epsilon is now %.10f, Bounds are now [%.3f,%.3f]", seqBound.getSequenceEpsilon(), seqBound.calcEBound(e-> e.getFreeEnergyLB(seqBound.sequence)),
+        System.out.println(String.format("Loop complete. Epsilon is now %.10f, Bounds are now [%.3f,%.3f]", seqBound.calcEpsilon(), seqBound.calcEBound(e-> e.getFreeEnergyLB(seqBound.sequence)),
                 seqBound.calcEBound(e->e.getFreeEnergyUB(seqBound.sequence))));
     }
 

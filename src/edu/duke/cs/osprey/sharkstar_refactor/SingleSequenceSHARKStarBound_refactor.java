@@ -108,7 +108,6 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
         BigDecimal ZUB = calcZBound(e -> e.getFreeEnergyLB(sequence));
         return ZUB.subtract(calcZBound(e -> e.getFreeEnergyUB(sequence)), decimalPrecision)
                 .divide(ZUB, decimalPrecision).doubleValue();
-
     }
 
     public double calcEBound(Function<SHARKStarNode, Double> energyMapper){
@@ -145,6 +144,7 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
         return multisequenceBound.bc.calc(calcEBound(energyMapper));
     }
 
+    @Deprecated
     public double getSequenceEpsilon(){
         BigDecimal upperBound = fringeNodes.getPartitionFunctionUpperBound()
                 .add(internalQueue.getPartitionFunctionUpperBound())
