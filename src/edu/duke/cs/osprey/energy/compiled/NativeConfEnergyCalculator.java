@@ -745,8 +745,8 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	public AssignedCoords assign(int[] conf) {
 		try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
 			switch (precision) {
-				case Float32 -> NativeLib.assign_f32(confSpaceMem.asByteBuffer(), conf, coordsMem.asByteBuffer());
-				case Float64 -> NativeLib.assign_f64(confSpaceMem.asByteBuffer(), conf, coordsMem.asByteBuffer());
+				case Float32 -> NativeLib.assign_f32(confSpaceBuf(), conf, coordsMem.asByteBuffer());
+				case Float64 -> NativeLib.assign_f64(confSpaceBuf(), conf, coordsMem.asByteBuffer());
 			}
 			return makeCoords(coordsMem, conf);
 		}
@@ -781,11 +781,15 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		return confSpace;
 	}
 
+	private ByteBuffer confSpaceBuf() {
+		return confSpaceMem.acquire().asByteBuffer();
+	}
+
 	@Override
 	public EnergiedCoords calc(int[] conf, List<PosInter> inters) {
 		try (var intersMem = makeIntersMem(inters)) {
 			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
-				double energy = forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), coordsMem.asByteBuffer());
+				double energy = forcefieldsImpl.calc(confSpaceBuf(), conf, intersMem.asByteBuffer(), coordsMem.asByteBuffer());
 				return new EnergiedCoords(
 					makeCoords(coordsMem, conf),
 					energy
@@ -797,7 +801,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	@Override
 	public double calcEnergy(int[] conf, List<PosInter> inters) {
 		try (var intersMem = makeIntersMem(inters)) {
-			return forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), null);
+			return forcefieldsImpl.calc(confSpaceBuf(), conf, intersMem.asByteBuffer(), null);
 		}
 	}
 
@@ -821,7 +825,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
 				try (var dofsMem = makeArray(confSpace.maxNumDofs, precision.bytes)) {
 					double energy = forcefieldsImpl.minimize(
-						confSpaceMem.asByteBuffer(), conf,
+						confSpaceBuf(), conf,
 						intersMem.asByteBuffer(),
 						coordsMem.asByteBuffer(), dofsMem.asByteBuffer()
 					);
@@ -839,7 +843,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	public double minimizeEnergy(int[] conf, List<PosInter> inters) {
 		try (var intersMem = makeIntersMem(inters)) {
 			return forcefieldsImpl.minimize(
-				confSpaceMem.asByteBuffer(), conf,
+				confSpaceBuf(), conf,
 				intersMem.asByteBuffer(),
 				null, null
 			);

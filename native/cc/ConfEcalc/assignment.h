@@ -30,7 +30,9 @@ namespace osprey {
 
 					// zero out the rest of the space for this pos
 					int64_t atoms_remaining = pos1.max_num_atoms - num_copied;
-					std::memset(&atoms[offset], 0, sizeof(Real3<T>)*atoms_remaining);
+					if (atoms_remaining > 0) {
+						std::memset(&atoms[offset], 0, sizeof(Real3<T>)*atoms_remaining);
+					}
 					offset += atoms_remaining;
 
 					// collect the conf internal energies

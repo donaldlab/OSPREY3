@@ -29,14 +29,13 @@ public class BenchmarkEnergies {
 		TestConfSpace.AffinityClassic classic = TestConfSpace.Design2RL0Interface7Mut.makeClassic();
 		TestConfSpace.AffinityCompiled compiled = TestConfSpace.Design2RL0Interface7Mut.makeCompiled();
 
-		//benchmarkEcalcCpu(classic, compiled);
+		benchmarkEcalcCpu(classic, compiled);
 		//benchmarkEmatCpu(classic, compiled);
 
-		nativeLab(compiled);
+		//nativeLab(compiled);
 
 		// TODO: with static-static energies on compiled ecalcs?
 		// TODO: pfuncs
-		// TODO: native
 		// TODO: GPUs
 	}
 
@@ -53,6 +52,8 @@ public class BenchmarkEnergies {
 		log("Rigid energy:");
 		Benchmark bmClassicRigid;
 		Benchmark bmCompiledRigid;
+		Benchmark bmCompiledf32Rigid;
+		Benchmark bmCompiledf64Rigid;
 
 		// benchmark classic rigid energies
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(classic.complex, new ForcefieldParams())
@@ -66,20 +67,35 @@ public class BenchmarkEnergies {
 			log("\t%10s: %s", "classic", bmClassicRigid.toString());
 		}
 
-		// benchmark compiled rigid energies
-		{
+		{ // benchmark compiled rigid energies
 			CPUConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex);
-
 			bmCompiledRigid = new Benchmark(100, 5000, () -> {
 				ecalc.calcEnergy(compiledConf, compiledInters);
 			});
 			log("\t%10s: %s", "compiled", bmCompiledRigid.toString(bmClassicRigid));
 		}
 
+		{ // benchmark compiled native f32 rigid energies
+			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float32);
+			bmCompiledf32Rigid = new Benchmark(100, 5000, () -> {
+				ecalc.calcEnergy(compiledConf, compiledInters);
+			});
+			log("\t%10s: %s", "compiled f32", bmCompiledf32Rigid.toString(bmClassicRigid));
+		}
+		{ // benchmark compiled native f64 rigid energies
+			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
+			bmCompiledf64Rigid = new Benchmark(100, 5000, () -> {
+				ecalc.calcEnergy(compiledConf, compiledInters);
+			});
+			log("\t%10s: %s", "compiled f64", bmCompiledf64Rigid.toString(bmClassicRigid));
+		}
+
 
 		log("Minimized energy:");
 		Benchmark bmClassicMinimized;
 		Benchmark bmCompiledMinimized;
+		Benchmark bmCompiledf32Minimized;
+		Benchmark bmCompiledf64Minimized;
 
 		// benchmark classic minimized energies
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(classic.complex, new ForcefieldParams())
@@ -93,14 +109,27 @@ public class BenchmarkEnergies {
 			log("\t%10s: %s", "classic", bmClassicMinimized.toString());
 		}
 
-		// benchmark compiled minimized energies
-		{
+		{ // benchmark compiled minimized energies
 			CPUConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex);
-
 			bmCompiledMinimized = new Benchmark(5, 80, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
 			});
 			log("\t%10s: %s", "compiled", bmCompiledMinimized.toString(bmClassicMinimized));
+		}
+
+		{ // benchmark compiled native f32 minimized energies
+			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float32);
+			bmCompiledf32Minimized = new Benchmark(5, 80, () -> {
+				ecalc.minimizeEnergy(compiledConf, compiledInters);
+			});
+			log("\t%10s: %s", "compiled f32", bmCompiledf32Minimized.toString(bmClassicMinimized));
+		}
+		{ // benchmark compiled native f64 minimized energies
+			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
+			bmCompiledf64Minimized = new Benchmark(5, 80, () -> {
+				ecalc.minimizeEnergy(compiledConf, compiledInters);
+			});
+			log("\t%10s: %s", "compiled f64", bmCompiledf64Minimized.toString(bmClassicMinimized));
 		}
 	}
 
