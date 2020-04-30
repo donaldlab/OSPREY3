@@ -5,6 +5,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
+import edu.duke.cs.osprey.gpu.Structs;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 
 import java.util.List;
@@ -36,6 +37,7 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 
 
 	ConfSpace confSpace();
+	Structs.Precision precision();
 
 	/**
 	 * Build the conformation and calculate its rigid (ie unminimized) energy, using the provided interactions.

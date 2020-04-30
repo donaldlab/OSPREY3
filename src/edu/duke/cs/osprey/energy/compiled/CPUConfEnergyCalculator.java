@@ -5,6 +5,7 @@ import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
+import edu.duke.cs.osprey.gpu.Structs;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
@@ -28,6 +29,11 @@ public class CPUConfEnergyCalculator implements ConfEnergyCalculator {
 	@Override
 	public ConfSpace confSpace() {
 		return confSpace;
+	}
+
+	@Override
+	public Structs.Precision precision() {
+		return Structs.Precision.Float64;
 	}
 
 	@Override

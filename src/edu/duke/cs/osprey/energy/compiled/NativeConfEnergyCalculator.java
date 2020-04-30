@@ -738,15 +738,22 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		buf.skipToAlignment(8);
 	}
 
+	@Override
+	public Precision precision() {
+		return precision;
+	}
+
 	public String version() {
 		return String.format("%d.%d", NativeLib.version_major(), NativeLib.version_minor());
 	}
 
 	public AssignedCoords assign(int[] conf) {
 		try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
-			switch (precision) {
-				case Float32 -> NativeLib.assign_f32(confSpaceBuf(), conf, coordsMem.asByteBuffer());
-				case Float64 -> NativeLib.assign_f64(confSpaceBuf(), conf, coordsMem.asByteBuffer());
+			try (var confSpaceMem = this.confSpaceMem.acquire()) {
+				switch (precision) {
+					case Float32 -> NativeLib.assign_f32(confSpaceMem.asByteBuffer(), conf, coordsMem.asByteBuffer());
+					case Float64 -> NativeLib.assign_f64(confSpaceMem.asByteBuffer(), conf, coordsMem.asByteBuffer());
+				}
 			}
 			return makeCoords(coordsMem, conf);
 		}
@@ -757,7 +764,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		AssignedCoords coords = new AssignedCoords(confSpace, assignments);
 
 		// copy the coords from the native memory
-		var addr = mem.baseAddress();
+		var addr = getArrayAddress(mem);
 		for (int i=0; i<confSpace.maxNumConfAtoms; i++) {
 			real3Struct.setAddress(addr.addOffset(i*real3Struct.bytes()));
 			coords.coords.set(
@@ -781,19 +788,17 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		return confSpace;
 	}
 
-	private ByteBuffer confSpaceBuf() {
-		return confSpaceMem.acquire().asByteBuffer();
-	}
-
 	@Override
 	public EnergiedCoords calc(int[] conf, List<PosInter> inters) {
 		try (var intersMem = makeIntersMem(inters)) {
 			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
-				double energy = forcefieldsImpl.calc(confSpaceBuf(), conf, intersMem.asByteBuffer(), coordsMem.asByteBuffer());
-				return new EnergiedCoords(
-					makeCoords(coordsMem, conf),
-					energy
-				);
+				try (var confSpaceMem = this.confSpaceMem.acquire()) {
+					double energy = forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), coordsMem.asByteBuffer());
+					return new EnergiedCoords(
+						makeCoords(coordsMem, conf),
+						energy
+					);
+				}
 			}
 		}
 	}
@@ -801,7 +806,9 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	@Override
 	public double calcEnergy(int[] conf, List<PosInter> inters) {
 		try (var intersMem = makeIntersMem(inters)) {
-			return forcefieldsImpl.calc(confSpaceBuf(), conf, intersMem.asByteBuffer(), null);
+			try (var confSpaceMem = this.confSpaceMem.acquire()) {
+				return forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), null);
+			}
 		}
 	}
 
@@ -824,11 +831,14 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		try (var intersMem = makeIntersMem(inters)) {
 			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
 				try (var dofsMem = makeArray(confSpace.maxNumDofs, precision.bytes)) {
-					double energy = forcefieldsImpl.minimize(
-						confSpaceBuf(), conf,
-						intersMem.asByteBuffer(),
-						coordsMem.asByteBuffer(), dofsMem.asByteBuffer()
-					);
+					double energy;
+					try (var confSpaceMem = this.confSpaceMem.acquire()) {
+						energy = forcefieldsImpl.minimize(
+							confSpaceMem.asByteBuffer(), conf,
+							intersMem.asByteBuffer(),
+							coordsMem.asByteBuffer(), dofsMem.asByteBuffer()
+						);
+					}
 					return new EnergiedCoords(
 						makeCoords(coordsMem, conf),
 						energy,
@@ -842,11 +852,13 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 	@Override
 	public double minimizeEnergy(int[] conf, List<PosInter> inters) {
 		try (var intersMem = makeIntersMem(inters)) {
-			return forcefieldsImpl.minimize(
-				confSpaceBuf(), conf,
-				intersMem.asByteBuffer(),
-				null, null
-			);
+			try (var confSpaceMem = this.confSpaceMem.acquire()) {
+				return forcefieldsImpl.minimize(
+					confSpaceMem.asByteBuffer(), conf,
+					intersMem.asByteBuffer(),
+					null, null
+				);
+			}
 		}
 	}
 
