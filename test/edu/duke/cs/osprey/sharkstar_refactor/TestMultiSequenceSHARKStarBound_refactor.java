@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound;
@@ -112,17 +113,48 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
 
     }
 
+    private SimpleConfSpace make1CC8MutableContinuousSmall() {
+        Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A10").build();
+        strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "ILE").setContinuous();
+        strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType).setContinuous();
+
+        return new SimpleConfSpace.Builder()
+                .addStrands(strand1)
+                .build();
+
+    }
+
     @Test
     public void testMakePfunc(){
         SimpleConfSpace confSpace = make1CC8Flexible();
         Sequence wildType = confSpace.makeWildTypeSequence();
         MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.99, null, null);
     }
+
     @Test
     public void testPrecomputeFlexible(){
         SimpleConfSpace confSpace = make1CC8Mutable();
         Sequence wildType = confSpace.makeWildTypeSequence();
         MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.99, null, null);
         bound.init(0.68);
+    }
+
+    @Test
+    public void testPrecomputeFlexible_small(){
+        SimpleConfSpace confSpace = make1CC8MutableContinuousSmall();
+        Sequence wildType = confSpace.makeWildTypeSequence();
+        MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.99, null, null);
+        bound.init(0.68);
+    }
+
+    @Test
+    public void testComputeForSequence(){
+        SimpleConfSpace confSpace = make1CC8Mutable();
+        Sequence wildType = confSpace.makeWildTypeSequence();
+        MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.99, null, null);
+        bound.init(0.99);
+        PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
+        ssbound.compute();
     }
 }
