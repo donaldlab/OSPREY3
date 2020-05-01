@@ -249,10 +249,11 @@ public class TestSHARKStarBound extends TestBase {
     public void testComputeSingleSequencePfunc(){
         SimpleConfSpace flexConfSpace = make1CC8Flexible();
         Sequence wildType = flexConfSpace.makeWildTypeSequence();
-        PartitionFunction pfunc = makeSHARKStarPfuncForConfSpace(flexConfSpace, wildType, 0.68, null, null);
-        pfunc.compute();
+        MultiSequenceSHARKStarBound pfunc = makeSHARKStarPfuncForConfSpace(flexConfSpace, wildType, 0.68, null, null);
+        pfunc.init(0.68);
+        PartitionFunction sspfunc = pfunc.getPartitionFunctionForSequence(wildType);
+        sspfunc.compute();
 
-        assertThat(pfunc.getStatus(), is(PartitionFunction.Status.Estimated));
     }
 
     /**
@@ -362,6 +363,15 @@ public class TestSHARKStarBound extends TestBase {
         fullPfunc.compute();
     }
 
+    @Test
+    public void testComputeForSequence(){
+        SimpleConfSpace confSpace = make1CC8MutableContinuous();
+        Sequence wildType = confSpace.makeWildTypeSequence();
+        MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.90, null, null);
+        bound.init(0.90);
+        PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
+        ssbound.compute();
+    }
     /**
      * Test to make sure that the 2-step computed partition functions return the same bounds as the one-step pfunc
      */

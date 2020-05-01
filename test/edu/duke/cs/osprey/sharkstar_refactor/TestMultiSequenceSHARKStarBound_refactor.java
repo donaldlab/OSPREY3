@@ -11,6 +11,8 @@ import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -33,6 +35,31 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
     public static void beforeClass() {
         metallochaperone = PDBIO.readFile("examples/1CC8/1CC8.ss.pdb");
         //protein_1a0r = PDBIO.readFile("examples//1a0r_prepped.pdb");
+    }
+
+    private GradientDescentPfunc makeGradientDescentPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon){
+        // Set up partition function requirements
+        Parallelism parallelism = Parallelism.makeCpu(4);
+        ForcefieldParams ffparams = new ForcefieldParams();
+
+        // how should we compute energies of molecules?
+        EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
+                .setParallelism(parallelism)
+                .build();
+        // how should we define energies of conformations?
+        ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
+                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
+                        .build()
+                        .calcReferenceEnergies()
+                )
+                .build();
+
+        PartitionFunctionFactory pfuncFactory = new PartitionFunctionFactory(confSpace, confEcalcMinimized, "pfunc");
+        // filter the global sequence to this conf space
+        // make the partition function
+        RCs rcs = sequence.makeRCs(confSpace);
+
+        return (GradientDescentPfunc) pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
     }
 
     private MultiSequenceSHARKStarBound_refactor makeSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon, MultiSequenceSHARKStarBound_refactor preComputedFlex, UpdatingEnergyMatrix preCompCorrections){
@@ -152,9 +179,29 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
     public void testComputeForSequence(){
         SimpleConfSpace confSpace = make1CC8Mutable();
         Sequence wildType = confSpace.makeWildTypeSequence();
-        MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.99, null, null);
-        bound.init(0.99);
+        MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.90, null, null);
+        bound.init(0.90);
         PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
         ssbound.compute();
+    }
+
+    @Test
+    public void testComputeForSequenceCorrectness(){
+        SimpleConfSpace confSpace = make1CC8Mutable();
+        Sequence wildType = confSpace.makeWildTypeSequence();
+
+        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(confSpace, wildType, .90);
+        traditionalPfunc.setReportProgress(true);
+        traditionalPfunc.compute();
+
+        BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
+        System.out.println(String.format("Gradient Descent pfunc: [%.3f, %.3f]",
+                bc.freeEnergy(traditionalPfunc.getValues().calcLowerBound()),
+                bc.freeEnergy(traditionalPfunc.getValues().calcUpperBound())));
+        //MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.99, null, null);
+        //bound.init(0.99);
+        //PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
+        //ssbound.compute();
     }
 }
