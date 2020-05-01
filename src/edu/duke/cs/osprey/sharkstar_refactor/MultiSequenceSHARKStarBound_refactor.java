@@ -772,7 +772,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 //pilotFish.travelTree(bound.sequence);
             }
             // run method
-            tightenBoundInPhases(bound);
+            //tightenBoundInPhases(bound);
+            simpleTightenBound(bound);
 
             // do some debug checks
             double newEps = bound.calcEpsilon();
@@ -795,6 +796,38 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
          */
         loopTasks.waitForFinish();
         minimizingEcalc.tasks.waitForFinish();
+        System.out.println(String.format("Final E bounds [%.3f, %.3f]]",
+                bound.calcEBound(e-> e.getFreeEnergyLB(bound.sequence)),
+                bound.calcEBound(e-> e.getFreeEnergyUB(bound.sequence))
+                ));
+        System.out.println(String.format("Final Z bounds [%9.10e, %9.10e]]",
+                bound.calcZBound(e-> e.getFreeEnergyUB(bound.sequence)),
+                bound.calcZBound(e-> e.getFreeEnergyLB(bound.sequence))
+        ));
+        System.out.println(String.format("Alternate computation of Z bounds [%9.10e, %9.10e]]",
+                bound.calcZLBDirect().doubleValue(),
+                bound.calcZUBDirect().doubleValue()));
+    }
+
+    private void simpleTightenBound(SingleSequenceSHARKStarBound_refactor bound){
+        int numConfsToProcess = 10;
+        int numConfsProcessed = 0;
+
+        while (numConfsProcessed < numConfsToProcess){
+            SHARKStarNode node = bound.fringeNodes.poll();
+
+            List<SHARKStarNode> newNodes = Collections.synchronizedList(new ArrayList<>());
+
+            if (node.getLevel() < bound.seqRCs.getNumPos()){
+                processPartialConfNode(bound,newNodes, node);
+            }else{
+                processFullConfNode(bound,newNodes, node);
+            }
+            loopTasks.waitForFinish();
+            bound.fringeNodes.addAll(newNodes);
+
+            numConfsProcessed++;
+        }
     }
 
     /**
@@ -855,7 +888,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         }
         if(MathTools.isRelativelySame(internalZ, leafZ, PartitionFunction.decimalPrecision, 1e-3)
                 && MathTools.isRelativelySame(leafZ, BigDecimal.ZERO, PartitionFunction.decimalPrecision, 1e-3)) {
-            pilotFish.travelTree(bound.sequence);
+            //pilotFish.travelTree(bound.sequence);
             //printTree(bound.sequence, rootNode);
             System.out.println("This is a bad time.");
             populateQueues(bound, new ArrayList<>(), new ArrayList<>(), ZSums);
