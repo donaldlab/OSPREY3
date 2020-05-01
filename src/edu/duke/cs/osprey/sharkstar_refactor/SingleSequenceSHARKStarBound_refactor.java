@@ -110,6 +110,22 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
                 .divide(ZUB, decimalPrecision).doubleValue();
     }
 
+    public BigDecimal calcZUBDirect(){
+        return Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes)
+                .flatMap(Collection::stream)
+                .parallel()
+                .map(e -> multisequenceBound.bc.calc(e.getFreeEnergyLB(sequence)))
+                .reduce(BigDecimal.ZERO,BigDecimal::add);
+    }
+
+    public BigDecimal calcZLBDirect(){
+        return Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes)
+                .flatMap(Collection::stream)
+                .parallel()
+                .map(e -> multisequenceBound.bc.calc(e.getFreeEnergyUB(sequence)))
+                .reduce(BigDecimal.ZERO,BigDecimal::add);
+    }
+
     public double calcEBound(Function<SHARKStarNode, Double> energyMapper){
         // If the queues are empty, treat this as positive infinity
         if (fringeNodes.isEmpty() && internalQueue.isEmpty() && leafQueue.isEmpty() && finishedNodes.isEmpty()){
