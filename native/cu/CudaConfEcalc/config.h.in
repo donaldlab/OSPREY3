@@ -1,0 +1,5 @@
+
+// cmake inputs
+#define CudaConfEcalc_VERSION_MAJOR @CudaConfEcalc_VERSION_MAJOR@
+#define CudaConfEcalc_VERSION_MINOR @CudaConfEcalc_VERSION_MINOR@
+
