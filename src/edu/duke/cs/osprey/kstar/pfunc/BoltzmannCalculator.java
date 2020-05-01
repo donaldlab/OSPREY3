@@ -117,7 +117,7 @@ public class BoltzmannCalculator {
 	 * 	TODO: Optimize this? It should get called a LOT
 	 */
 	public double calc_lnZDiff(double freeEnergyLower, double freeEnergyUpper){
-		return (-freeEnergyLower/constRT) + freeEnergy(BigDecimal.ONE.subtract(calc(freeEnergyUpper-freeEnergyLower), mathContext));
+		return (-freeEnergyLower/constRT) + ln(BigDecimal.ONE.subtract(calc(freeEnergyUpper-freeEnergyLower), mathContext));
 
 	}
 
