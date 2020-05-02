@@ -161,6 +161,11 @@ public class SimplerEnergyMatrixCalculator {
 			} else {
 				return reallyCalcEnergyMatrix();
 			}
+
+		} catch (Throwable t) {
+			// explicitly show exceptions now, before the ContextGroup close()es and hides them
+			t.printStackTrace();
+			throw new Error();
 		}
 	}
 	

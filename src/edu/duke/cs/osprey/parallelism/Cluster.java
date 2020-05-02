@@ -47,7 +47,6 @@ public class Cluster {
 
 		this.name = name;
 		this.nodeId = nodeId;
-		this.nodes = nodes;
 		this.clientIsMember = clientIsMember;
 
 		// append the job id to the cluster name,
@@ -72,6 +71,11 @@ public class Cluster {
 				return basePort + offset;
 			})
 			.toArray();
+
+		// add the ports to the nodes
+		this.nodes = IntStream.range(0, nodes.size())
+			.mapToObj(i -> String.format("%s:%d", nodes.get(i), ports[i]))
+			.collect(Collectors.toList());
 	}
 
 	public int numMembers() {
@@ -172,6 +176,7 @@ public class Cluster {
 			var cfgNet = cfg.getNetworkConfig();
 			cfgNet.getJoin().getMulticastConfig().setEnabled(false);
 			var cfgIp = cfgNet.getJoin().getTcpIpConfig();
+			cfgIp.setEnabled(true);
 			cfgIp.setMembers(nodes);
 			cfgNet.setPort(ports[nodeId]);
 			cfgNet.setPortAutoIncrement(false);
@@ -373,11 +378,7 @@ public class Cluster {
 			cfg.setProperty("hazelcast.phone.home.enabled", "false");
 
 			// tell the client where the cluster nodes are
-			cfg.getNetworkConfig().setAddresses(
-				IntStream.range(0, nodes.size())
-					.mapToObj(i -> String.format("%s:%d", nodes.get(i), ports[i]))
-					.collect(Collectors.toList())
-			);
+			cfg.getNetworkConfig().setAddresses(nodes);
 
 			log("node looking for cluster named %s ...", id);
 

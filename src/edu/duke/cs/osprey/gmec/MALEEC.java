@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.parallelism.Cluster;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -91,6 +92,10 @@ public class MALEEC {
 					.setNumIterations(10)
 				)
 				.build();
+			astar.setParallelism(Parallelism.makeCpu(Parallelism.getMaxNumCPUs()));
+
+			// turn on A* progress reports until we get the first conformation
+			astar.initProgress();
 
 			Stats stats = new Stats();
 
@@ -110,6 +115,9 @@ public class MALEEC {
 						log("A* ran out of confs. Hooray!");
 						break;
 					}
+
+					// got a node, turn off A* progress
+					astar.stopProgress();
 
 					{
 						long nowNs = System.nanoTime();
