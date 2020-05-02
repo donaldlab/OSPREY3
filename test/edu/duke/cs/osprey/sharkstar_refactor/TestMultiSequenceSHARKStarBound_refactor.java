@@ -91,7 +91,7 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
                 .calcEnergyMatrix();
 
         EnergyMatrix rigidEmat = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
-                .setCacheFile(new File("test"+"."+"minimizing"+".emat"))
+                .setCacheFile(new File("test"+"."+"rigid"+".emat"))
                 .build()
                 .calcEnergyMatrix();
 
