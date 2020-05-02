@@ -461,6 +461,152 @@ public class ClusterLab {
 
 			return confSpaces;
 		}
+
+		public static TestKStar.ConfSpaces makeMakeCOVIDSmallerMonster() {
+			TestKStar.ConfSpaces confSpaces = new TestKStar.ConfSpaces();
+
+			// configure the forcefield
+			confSpaces.ffparams = new ForcefieldParams();
+
+			Molecule mol = PDBIO.readResource("/ACE2_1r42_peptide3qf7_complex_model_leidosprep_declashed_trimmed3.pdb");
+
+			// make sure all strands share the same template library
+			ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
+
+			// define the protein strand
+			Strand protein = new Strand.Builder(mol)
+					.setTemplateLibrary(templateLib)
+					.setResidues("B166", "B190")
+					.build();
+			// mutable
+			protein.flexibility.get("B166").setLibraryRotamers("SER").setContinuous();
+			protein.flexibility.get("B169").setLibraryRotamers("ARG").setContinuous();
+			protein.flexibility.get("B170").setLibraryRotamers("GLN").setContinuous();
+			protein.flexibility.get("B173").setLibraryRotamers("HIP").setContinuous();
+			protein.flexibility.get("B176").setLibraryRotamers("ARG").setContinuous();
+			protein.flexibility.get("B177").setLibraryRotamers("ASN").setContinuous();
+			protein.flexibility.get("B180").setLibraryRotamers("LYS").setContinuous();
+			protein.flexibility.get("B181").setLibraryRotamers("TYR").setContinuous();
+			protein.flexibility.get("B184").setLibraryRotamers("GLN").setContinuous();
+			protein.flexibility.get("B185").setLibraryRotamers("GLU").setContinuous();
+			protein.flexibility.get("B187").setLibraryRotamers("ARG").setContinuous();
+			protein.flexibility.get("B188").setLibraryRotamers("ARG").setContinuous();
+			// flexible
+			protein.flexibility.get("B167").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+			// define the ligand strand
+			Strand ligand = new Strand.Builder(mol)
+					.setTemplateLibrary(templateLib)
+					.setResidues("A19", "A615")
+					.build();
+			setMonsterFlexFirstForm(ligand);
+
+			// make the conf spaces ("complex" SimpleConfSpace, har har!)
+			confSpaces.protein = new SimpleConfSpace.Builder()
+					.addStrand(protein)
+					.build();
+			confSpaces.ligand = new SimpleConfSpace.Builder()
+					.addStrand(ligand)
+					.build();
+			confSpaces.complex = new SimpleConfSpace.Builder()
+					.addStrands(protein, ligand)
+					.build();
+
+			return confSpaces;
+		}
+
+		public static TestKStar.ConfSpaces makeMakeCOVIDBossMonster() {
+			TestKStar.ConfSpaces confSpaces = new TestKStar.ConfSpaces();
+
+			// configure the forcefield
+			confSpaces.ffparams = new ForcefieldParams();
+
+			Molecule mol = PDBIO.readResource("/ACE2_1r42_peptide3qf7_complex_model_leidosprep_declashed_trimmed3.pdb");
+
+			// make sure all strands share the same template library
+			ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(confSpaces.ffparams.forcefld).build();
+
+			// define the protein strand
+			Strand protein = new Strand.Builder(mol)
+					.setTemplateLibrary(templateLib)
+					.setResidues("B166", "B190")
+					.build();
+			setMonterSeq1(protein);
+			// flexible
+			protein.flexibility.get("B168").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			protein.flexibility.get("B171").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			protein.flexibility.get("B172").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			protein.flexibility.get("B174").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			protein.flexibility.get("B178").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			protein.flexibility.get("B183").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+
+			// define the ligand strand
+			Strand ligand = new Strand.Builder(mol)
+					.setTemplateLibrary(templateLib)
+					.setResidues("A19", "A615")
+					.build();
+			setMonsterFlexFirstForm(ligand);
+
+			// Second form revealed!
+			ligand.flexibility.get("A53").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A57").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A58").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A64").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A68").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A334").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+
+			// make the conf spaces ("complex" SimpleConfSpace, har har!)
+			confSpaces.protein = new SimpleConfSpace.Builder()
+					.addStrand(protein)
+					.build();
+			confSpaces.ligand = new SimpleConfSpace.Builder()
+					.addStrand(ligand)
+					.build();
+			confSpaces.complex = new SimpleConfSpace.Builder()
+					.addStrands(protein, ligand)
+					.build();
+
+			return confSpaces;
+		}
+
+		private static void setMonsterFlexFirstForm(Strand ligand) {
+			ligand.flexibility.get("A35").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A38").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A39").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A41").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A42").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A45").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A46").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A48").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A49").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A52").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A61").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A329").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A330").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A331").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A332").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A340").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A353").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A355").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+			ligand.flexibility.get("A357").setLibraryRotamers(Strand.WildType).addWildTypeRotamers().setContinuous();
+		}
+
+		private static void setMonterSeq1(Strand protein) {
+			// mutable
+			protein.flexibility.get("B166").setLibraryRotamers("SER").setContinuous();
+			protein.flexibility.get("B169").setLibraryRotamers("ARG").setContinuous();
+			protein.flexibility.get("B170").setLibraryRotamers("GLN").setContinuous();
+			protein.flexibility.get("B173").setLibraryRotamers("HIP").setContinuous();
+			protein.flexibility.get("B176").setLibraryRotamers("ARG").setContinuous();
+			protein.flexibility.get("B177").setLibraryRotamers("ASN").setContinuous();
+			protein.flexibility.get("B180").setLibraryRotamers("LYS").setContinuous();
+			protein.flexibility.get("B181").setLibraryRotamers("TYR").setContinuous();
+			protein.flexibility.get("B184").setLibraryRotamers("GLN").setContinuous();
+			protein.flexibility.get("B185").setLibraryRotamers("GLU").setContinuous();
+			protein.flexibility.get("B187").setLibraryRotamers("ARG").setContinuous();
+			protein.flexibility.get("B188").setLibraryRotamers("ARG").setContinuous();
+		}
 	}
 }
 
