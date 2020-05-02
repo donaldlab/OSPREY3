@@ -260,6 +260,10 @@ public class SHARKStarNode implements ConfAStarNode {
         }
     }
 
+    public double getHOTCorrection(){
+        return this.HOTCorrection;
+    }
+
     public String confToString() {
         StringBuilder out = new StringBuilder("(");
         for (int assignment : assignments) {

@@ -36,7 +36,7 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
     public final RCs seqRCs;
 
     //debug variable
-    private Set<SHARKStarNode> finishedNodes = new HashSet<>();
+    public Set<SHARKStarNode> finishedNodes = new HashSet<>();
     private boolean errors;
 
     public SingleSequenceSHARKStarBound_refactor(MultiSequenceSHARKStarBound_refactor multiSequenceSHARKStarBound, Sequence seq, BoltzmannCalculator bc) {

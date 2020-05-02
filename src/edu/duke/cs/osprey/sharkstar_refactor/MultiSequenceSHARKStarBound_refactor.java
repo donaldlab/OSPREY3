@@ -149,6 +149,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         bc = new BoltzmannCalculator(decimalPrecision);
 
         // Setting parallelism requires the ObjectPool being defined
+        this.parallelism = parallelism;
         setParallelism(this.parallelism);
 
         // Initialize things for analyzing energies
@@ -634,6 +635,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         result.resultNode = child;
 
                         // Score the child node
+                        //TODO move back to calcDifferential if possible
                         result.partialLB = context.partialConfLBScorer.calcDifferential(context.index, seqRCs, nextPos, nextRC);
                         result.partialUB = context.partialConfUBScorer.calcDifferential(context.index, seqRCs, nextPos, nextRC);
                         child.index(context.index); // We don't implement calcDifferential for the SHARKStarNodeScorer yet, so probably faster to do this
@@ -807,10 +809,26 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         System.out.println(String.format("Alternate computation of Z bounds [%9.10e, %9.10e]]",
                 bound.calcZLBDirect().doubleValue(),
                 bound.calcZUBDirect().doubleValue()));
+
+        if (SHARKStarQueueDebugger.hasDuplicateNodes(bound.fringeNodes)){
+            System.out.println("Queue has duplicates");
+        }else{
+            System.out.println("Queue does not have duplicates");
+        }
+
+        SHARKStarQueueDebugger.printLevelBreakdown(bound.fringeNodes);
+
+        System.out.println(String.format("Minimized %d conformations.",
+                bound.finishedNodes.size()));
     }
 
+    /**
+     * Uses the simplest possible scheme to tighten the bounds on the partition function
+     *
+     * @param bound  A single-sequence partition function
+     */
     private void simpleTightenBound(SingleSequenceSHARKStarBound_refactor bound){
-        int numConfsToProcess = 10;
+        int numConfsToProcess = 1000;
         int numConfsProcessed = 0;
 
         while (numConfsProcessed < numConfsToProcess){
