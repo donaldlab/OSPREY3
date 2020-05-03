@@ -540,7 +540,11 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 //TODO: determine whether I'll have thread issues by not waiting till this is finished to add the node to fringe
             }
             // add to sequence fringe nodes
-            bound.fringeNodes.add(node);
+            if(node.getLevel() < bound.seqRCs.getNumPos()){
+                bound.internalQueue.add(node);
+            }else{
+                bound.leafQueue.add(node);
+            }
         }else{
             // If there are compatible children, recurse
             for(SHARKStarNode child: compatibleChildren){
@@ -810,16 +814,16 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 bound.calcZLBDirect().doubleValue(),
                 bound.calcZUBDirect().doubleValue()));
 
-        if (SHARKStarQueueDebugger.hasDuplicateNodes(bound.fringeNodes)){
-            System.out.println("Queue has duplicates");
+        if (SHARKStarQueueDebugger.hasDuplicateNodes(bound.internalQueue)){
+            System.out.println("Internal Queue has duplicates");
         }else{
-            System.out.println("Queue does not have duplicates");
+            System.out.println("Internal Queue does not have duplicates");
         }
 
-        SHARKStarQueueDebugger.printLevelBreakdown(bound.fringeNodes);
+        SHARKStarQueueDebugger.printLevelBreakdown(bound.internalQueue);
 
         System.out.println(String.format("Minimized %d conformations.",
-                bound.finishedNodes.size()));
+                bound.leafQueue.stream().filter(SHARKStarNode::isMinimized).count()));
     }
 
     /**
@@ -832,17 +836,27 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         int numConfsProcessed = 0;
 
         while (numConfsProcessed < numConfsToProcess){
-            SHARKStarNode node = bound.fringeNodes.poll();
-
+            SHARKStarNode node;
             List<SHARKStarNode> newNodes = Collections.synchronizedList(new ArrayList<>());
-
+            if(bound.leafQueue.isEmpty() || bound.internalQueue.peek().getScore(bound.sequence) > bound.leafQueue.peek().getScore(bound.sequence)){
+                node = bound.internalQueue.poll();
+            }else{
+                node = bound.leafQueue.poll();
+            }
             if (node.getLevel() < bound.seqRCs.getNumPos()){
                 processPartialConfNode(bound,newNodes, node);
-            }else{
-                processFullConfNode(bound,newNodes, node);
+            }else {
+                processFullConfNode(bound, newNodes, node);
             }
+
             loopTasks.waitForFinish();
-            bound.fringeNodes.addAll(newNodes);
+            for (SHARKStarNode newNode : newNodes) {
+                if (node.getLevel() < bound.seqRCs.getNumPos()) {
+                    bound.internalQueue.add(newNode);
+                } else {
+                    bound.leafQueue.add(newNode);
+                }
+            }
 
             numConfsProcessed++;
         }
@@ -1017,7 +1031,10 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      */
     public void populateQueues(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> internalNodes, List<SHARKStarNode> leafNodes, BigDecimal[] zSums){
         List<SHARKStarNode> leftoverLeaves = new ArrayList<>();
-        PriorityQueue<SHARKStarNode> queue = seqBound.fringeNodes;
+        //PriorityQueue<SHARKStarNode> queue = seqBound.fringeNodes;
+        // temporary fix
+        PriorityQueue<SHARKStarNode> queue = null;
+
         //int maxNodes = 1000;
         int maxNodes = 10;
         if (leafTimeAverage > 0)
@@ -1108,14 +1125,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      */
     public void processFullConfNode(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, SHARKStarNode fullConfNode){
         //Sanity check, this should eventually never happen
-        if(fullConfNode.isMinimized()) {
-            seqBound.addFinishedNode(fullConfNode);
-            return;
-        }
-        //Sanity check, this should eventually never happen
         if(fullConfNode.getFreeEnergyLB(seqBound.sequence) > 10 &&
-                (!seqBound.fringeNodes.isEmpty() && seqBound.fringeNodes.peek().getFreeEnergyLB(seqBound.sequence) < 0
-                        || !seqBound.internalQueue.isEmpty() && seqBound.internalQueue.peek().getFreeEnergyLB(seqBound.sequence) < 0
+                (!seqBound.internalQueue.isEmpty() && seqBound.internalQueue.peek().getFreeEnergyLB(seqBound.sequence) < 0
                         || !seqBound.leafQueue.isEmpty() && seqBound.leafQueue.peek().getFreeEnergyLB(seqBound.sequence) < 0)) {
             System.err.println("not processing high-energy conformation");
             newNodes.add(fullConfNode);
@@ -1133,10 +1144,10 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         // Minimize the node
         minimizeNodeForSeq(fullConfNode, seqBound.sequence);
-        progress.reportLeafNode(fullConfNode.getMinE(), seqBound.fringeNodes.size(), seqBound.calcEpsilon());
+        //progress.reportLeafNode(fullConfNode.getMinE(), seqBound.fringeNodes.size(), seqBound.calcEpsilon());
 
-        // Add to trackers
-        seqBound.addFinishedNode(fullConfNode);
+        // Add back to leaf Queue
+        seqBound.leafQueue.add(fullConfNode);
     }
 
     /**
@@ -1252,7 +1263,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * TODO: implement me
      */
     public void loopCleanup(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, Stopwatch timer, int numNodes){
-        PriorityQueue<SHARKStarNode> queue = seqBound.fringeNodes;
+        //PriorityQueue<SHARKStarNode> queue = seqBound.fringeNodes;
+        // Temporary fix
+        PriorityQueue<SHARKStarNode> queue = null;
         for (SHARKStarNode node : newNodes) {
             if (node != null){
                 if(node.isMinimized())

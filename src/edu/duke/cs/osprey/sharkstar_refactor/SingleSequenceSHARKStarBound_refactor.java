@@ -28,9 +28,8 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
     private MultiSequenceSHARKStarBound_refactor.Values values;
     private int numConfsEvaluated = 0;
     public final BigInteger numConformations;
-    public SHARKStarQueue_refactor fringeNodes;
-    public SHARKStarQueue_refactor internalQueue;
-    public SHARKStarQueue_refactor leafQueue;
+    public SHARKStarQueue_refactor internalQueue; // queue containing the internal node fringe
+    public SHARKStarQueue_refactor leafQueue; // queue containing the leaf node fringe
     private double sequenceEpsilon = 1;
     private BigDecimal finishedNodeZ = BigDecimal.ZERO;
     public final RCs seqRCs;
@@ -44,7 +43,6 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
         this.sequence = seq;
         this.seqRCs = seq.makeRCs(multisequenceBound.getConfSpace());
         this.numConformations = seqRCs.getNumConformations();
-        this.fringeNodes = new SHARKStarQueue_refactor(seq, bc);
         this.internalQueue = new SHARKStarQueue_refactor(seq, bc);
         this.leafQueue = new SHARKStarQueue_refactor(seq, bc);
     }
@@ -98,7 +96,7 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
     }
 
     public void addFinishedNode(SHARKStarNode node) {
-        System.out.println("Adding "+node.toString()+" to finished set for " + sequence);
+        //System.out.println("Adding "+node.toString()+" to finished set for " + sequence);
         if(finishedNodes.contains(node))
             System.err.println("Dupe node addition.");
         finishedNodes.add(node);
@@ -111,7 +109,7 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
     }
 
     public BigDecimal calcZUBDirect(){
-        return Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes)
+        return Stream.of(internalQueue, leafQueue, finishedNodes)
                 .flatMap(Collection::stream)
                 .parallel()
                 .map(e -> multisequenceBound.bc.calc(e.getFreeEnergyLB(sequence)))
@@ -119,7 +117,7 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
     }
 
     public BigDecimal calcZLBDirect(){
-        return Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes)
+        return Stream.of(internalQueue, leafQueue, finishedNodes)
                 .flatMap(Collection::stream)
                 .parallel()
                 .map(e -> multisequenceBound.bc.calc(e.getFreeEnergyUB(sequence)))
@@ -128,17 +126,17 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
 
     public double calcEBound(Function<SHARKStarNode, Double> energyMapper){
         // If the queues are empty, treat this as positive infinity
-        if (fringeNodes.isEmpty() && internalQueue.isEmpty() && leafQueue.isEmpty() && finishedNodes.isEmpty()){
+        if (internalQueue.isEmpty() && leafQueue.isEmpty() && finishedNodes.isEmpty()){
             return Double.POSITIVE_INFINITY;
         }else {
-            Optional<Double> minElement = Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes)
+            Optional<Double> minElement = Stream.of(internalQueue, leafQueue, finishedNodes)
                     .flatMap(Collection::stream)
                     .parallel()
                     .map(energyMapper)
                     .min(Double::compareTo);
 
             if (minElement.isPresent()) {
-                Stream<Double> allNodesEnergyLB = Stream.of(fringeNodes, internalQueue, leafQueue, finishedNodes)
+                Stream<Double> allNodesEnergyLB = Stream.of(internalQueue, leafQueue, finishedNodes)
                         .flatMap(Collection::stream)
                         .parallel()
                         .map(energyMapper);
@@ -162,12 +160,10 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
 
     @Deprecated
     public double getSequenceEpsilon(){
-        BigDecimal upperBound = fringeNodes.getPartitionFunctionUpperBound()
-                .add(internalQueue.getPartitionFunctionUpperBound())
+        BigDecimal upperBound = internalQueue.getPartitionFunctionUpperBound()
                 .add(leafQueue.getPartitionFunctionUpperBound())
                 .add(finishedNodeZ);
-        BigDecimal lowerBound = fringeNodes.getPartitionFunctionLowerBound()
-                .add(internalQueue.getPartitionFunctionLowerBound())
+        BigDecimal lowerBound = internalQueue.getPartitionFunctionLowerBound()
                 .add(leafQueue.getPartitionFunctionLowerBound())
                 .add(finishedNodeZ);
 
@@ -180,8 +176,7 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
     }
 
     public boolean isEmpty() {
-        return fringeNodes.isEmpty()
-                && internalQueue.isEmpty()
+        return internalQueue.isEmpty()
                 && leafQueue.isEmpty();
     }
 
