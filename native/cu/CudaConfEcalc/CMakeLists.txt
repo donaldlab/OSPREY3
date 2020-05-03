@@ -33,15 +33,15 @@ target_include_directories(CudaConfEcalc PUBLIC "${PROJECT_BINARY_DIR}")
 # set the CUDA options to build for all modern GPU architectures
 # see compatibilty guide:
 # https://docs.nvidia.com/cuda/turing-compatibility-guide/index.html
-target_compile_options(CudaConfEcalc PUBLIC
-        -gencode=arch=compute_50,code=sm_50
-        -gencode=arch=compute_52,code=sm_52
-        -gencode=arch=compute_60,code=sm_60
-        -gencode=arch=compute_61,code=sm_61
-        -gencode=arch=compute_70,code=sm_70
-        -gencode=arch=compute_75,code=sm_75
-        -gencode=arch=compute_75,code=compute_75
-        )
+set(CMAKE_CUDA_FLAGS "\
+        -gencode=arch=compute_50,code=sm_50 \
+        -gencode=arch=compute_52,code=sm_52 \
+        -gencode=arch=compute_60,code=sm_60 \
+        -gencode=arch=compute_61,code=sm_61 \
+        -gencode=arch=compute_70,code=sm_70 \
+        -gencode=arch=compute_75,code=sm_75 \
+        -gencode=arch=compute_75,code=compute_75 \
+        ")
 set_target_properties(CudaConfEcalc PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
         POSITION_INDEPENDENT_CODE ON
