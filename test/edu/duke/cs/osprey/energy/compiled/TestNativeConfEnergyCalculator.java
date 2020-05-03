@@ -6,6 +6,7 @@ import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
+import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.compiled.*;
 import edu.duke.cs.osprey.gpu.Structs;
 import org.junit.Test;
@@ -50,7 +51,7 @@ public class TestNativeConfEnergyCalculator {
 		-1360.70959143
 	};
 
-	public static void assertCoords(ConfSpace confSpace, CoordsList exp, CoordsList obs) {
+	public static void assertCoords(int[] conf, ConfSpace confSpace, CoordsList exp, CoordsList obs) {
 
 		// diff the two coord lists
 		int[] indices = IntStream.range(0, confSpace.maxNumConfAtoms)
@@ -72,10 +73,11 @@ public class TestNativeConfEnergyCalculator {
 				);
 			})
 			.collect(Collectors.toList());
-		String diffMsg = String.format("Coords are different at %d/%d positions:\n%s",
+		String diffMsg = String.format("Coords are different at %d/%d positions:\n%s\nfor conformation: %s",
 			diffs.size(),
 			confSpace.maxNumConfAtoms,
-			String.join("\n", diffs)
+			String.join("\n", diffs),
+			Conf.toString(conf)
 		);
 
 		assertThat(diffMsg, diffs.size(), is(0));
@@ -96,7 +98,7 @@ public class TestNativeConfEnergyCalculator {
 			setPrecision(exp, confEcalc.precision());
 
 			var obs = f.apply(conf);
-			assertCoords(confEcalc.confSpace(), exp, obs);
+			assertCoords(conf, confEcalc.confSpace(), exp, obs);
 		}
 	}
 

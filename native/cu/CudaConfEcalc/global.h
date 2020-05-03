@@ -12,6 +12,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <algorithm>
+#include <cstdarg>
 
 
 // define some types for fixed-size floating point types

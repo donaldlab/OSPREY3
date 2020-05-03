@@ -13,6 +13,7 @@ configure_file(config.h.in config.h)
 # define the source files to compile
 set(CXXFiles
         confecalc.cu
+        cuda.cu
         )
 
 SET(CMAKE_CXX_FLAGS -pedantic-errors)
@@ -28,6 +29,23 @@ set(LIBRARY_OUTPUT_PATH ${OspreyPath}/resources/${JnaPlatform})
 # make a library target
 add_library(CudaConfEcalc SHARED ${CXXFiles})
 target_include_directories(CudaConfEcalc PUBLIC "${PROJECT_BINARY_DIR}")
+
+# set the CUDA options to build for all modern GPU architectures
+# see compatibilty guide:
+# https://docs.nvidia.com/cuda/turing-compatibility-guide/index.html
+target_compile_options(CudaConfEcalc PUBLIC
+        -gencode=arch=compute_50,code=sm_50
+        -gencode=arch=compute_52,code=sm_52
+        -gencode=arch=compute_60,code=sm_60
+        -gencode=arch=compute_61,code=sm_61
+        -gencode=arch=compute_70,code=sm_70
+        -gencode=arch=compute_75,code=sm_75
+        -gencode=arch=compute_75,code=compute_75
+        )
+set_target_properties(CudaConfEcalc PROPERTIES
+        CUDA_SEPARABLE_COMPILATION ON
+        POSITION_INDEPENDENT_CODE ON
+        )
 
 # add another target to copy the libraries from the resources path to the build path
 # so we can run java with newly-compiled libraries without having to run gradle to process the resources

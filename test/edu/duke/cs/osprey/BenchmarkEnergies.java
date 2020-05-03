@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.CudaConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gpu.Structs;
@@ -29,10 +30,10 @@ public class BenchmarkEnergies {
 		TestConfSpace.AffinityClassic classic = TestConfSpace.Design2RL0Interface7Mut.makeClassic();
 		TestConfSpace.AffinityCompiled compiled = TestConfSpace.Design2RL0Interface7Mut.makeCompiled();
 
-		benchmarkEcalcCpu(classic, compiled);
+		//benchmarkEcalcCpu(classic, compiled);
 		//benchmarkEmatCpu(classic, compiled);
 
-		//nativeLab(compiled);
+		nativeLab(compiled);
 
 		// TODO: with static-static energies on compiled ecalcs?
 		// TODO: pfuncs
@@ -213,17 +214,14 @@ public class BenchmarkEnergies {
 
 		ConfSpace confSpace = compiled.complex;
 
-		var cpuConfEcalc = new CPUConfEnergyCalculator(confSpace);
-		var nativeConfEcalc = new NativeConfEnergyCalculator(confSpace, Structs.Precision.Float64);
+		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, Structs.Precision.Float64)) {
 
-		// use all the interactions
-		List<PosInter> inters = PosInterDist.all(confSpace);
+			// use all the interactions
+			//List<PosInter> inters = PosInterDist.all(confSpace);
 
-		// compare the coords
-		int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };
-		log("\n\njava");
-		cpuConfEcalc.minimize(conf, inters);
-		log("\n\nc++");
-		nativeConfEcalc.minimize(conf, inters);
+			int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };
+
+			confEcalc.assign(conf);
+		}
 	}
 }

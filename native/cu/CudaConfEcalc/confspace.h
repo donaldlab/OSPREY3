@@ -31,41 +31,50 @@ namespace osprey {
 		public:
 			ConfSpace() = delete; // created only on the Java side
 
+			__host__ __device__
 			inline const Pos & get_pos(int posi) const {
 				auto offsets = reinterpret_cast<const int64_t *>(offset(positions_offset));
 				return *reinterpret_cast<const Pos *>(offset(offsets[posi]));
 			}
 
+			__host__ __device__
 			inline const Conf<T> & get_conf(const Pos & pos, int confi) const {
 				// the java side puts the conf offsets right after the Pos struct
 				auto conf_offsets = reinterpret_cast<const int64_t *>(&pos + 1);
 				return *reinterpret_cast<const Conf<T> *>(offset(conf_offsets[confi]));
 			}
 
+			__host__ __device__
 			inline const Array<Real3<T>> & get_static_atoms() const {
 				return *reinterpret_cast<const Array<Real3<T>> *>(offset(static_atoms_offset));
 			}
 
+			__host__ __device__
 			inline const Array<Real3<T>> & get_conf_atoms(const Conf<T> & conf) const {
 				return *reinterpret_cast<const Array<Real3<T>> *>(offset(conf.atoms_offset));
 			}
 
+			__host__ __device__
 			inline const void * get_params() const {
 				return reinterpret_cast<const void *>(offset(params_offset));
 			}
 
+			__host__ __device__
 			inline int64_t index_static_static() const {
 				return 0;
 			}
 
+			__host__ __device__
 			inline int64_t index_static_pos(int posi1) const {
 				return 1 + posi1;
 			}
 
+			__host__ __device__
 			inline int64_t index_pos(int posi1) const {
 				return 1 + num_pos + posi1;
 			}
 
+			__host__ __device__
 			inline int64_t index_pos_pos(int posi1, int posi2) const {
 				if (posi2 > posi1) {
 					int swap = posi1;
@@ -75,6 +84,7 @@ namespace osprey {
 				return 1 + 2*num_pos + posi1*(posi1 - 1)/2 + posi2;
 			}
 
+			__host__ __device__
 			inline int64_t index(int posi1, int posi2) const {
 				if (posi1 == posi2) {
 					if (posi1 == StaticPos) {
@@ -91,20 +101,24 @@ namespace osprey {
 				}
 			}
 
+			__host__ __device__
 			inline const void * get_static_static_pair() const {
 				return reinterpret_cast<const void *>(offset(pos_pairs()[index_static_static()]));
 			}
 
+			__host__ __device__
 			inline const void * get_static_pos_pairs(int posi1, int fragi1) const {
 				auto frag_offsets = reinterpret_cast<const int64_t *>(offset(pos_pairs()[index_static_pos(posi1)]));
 				return offset(frag_offsets[fragi1]);
 			}
 
+			__host__ __device__
 			inline const void * get_pos_pairs(int posi1, int fragi1) const {
 				auto frag_offsets = reinterpret_cast<const int64_t *>(offset(pos_pairs()[index_pos(posi1)]));
 				return offset(frag_offsets[fragi1]);
 			}
 
+			__host__ __device__
 			inline const void * get_pos_pos_pairs(int posi1, int fragi1, int posi2, int fragi2) const {
 				if (posi2 > posi1) {
 					int swap = posi1;
@@ -115,6 +129,7 @@ namespace osprey {
 				return offset(frag_offsets[fragi1*get_pos(posi2).num_frags + fragi2]);
 			}
 
+			__host__ __device__
 			inline int64_t get_molecule_motion_id(int i) const {
 
 				// just in case ...
@@ -125,6 +140,7 @@ namespace osprey {
 				return *reinterpret_cast<const int64_t *>(offset(offsets[i]));
 			}
 
+			__host__ __device__
 			inline const void * get_molecule_motion(int i) const {
 
 				// just in case ...
@@ -136,6 +152,7 @@ namespace osprey {
 				return reinterpret_cast<const void *>(p + 1);
 			}
 
+			__host__ __device__
 			inline int64_t get_conf_motion_id(const Conf<T> & conf, int i) const {
 
 				// just in case ...
@@ -146,6 +163,7 @@ namespace osprey {
 				return *reinterpret_cast<const int64_t *>(offset(offsets[i]));
 			}
 
+			__host__ __device__
 			inline const void * get_conf_motion(const Conf<T> & conf, int i) const {
 
 				// just in case ...
@@ -161,6 +179,7 @@ namespace osprey {
 			int32_t max_num_conf_atoms;
 			int32_t max_num_dofs;
 			int32_t num_molecule_motions;
+			int64_t size;
 			int64_t positions_offset;
 			int64_t static_atoms_offset;
 			int64_t params_offset;
@@ -169,15 +188,17 @@ namespace osprey {
 			T static_energy;
 			// 4 byte pad, if T = float32_t
 
+			__host__ __device__
 			inline const uint8_t * offset(int64_t offset) const {
 				return reinterpret_cast<const uint8_t *>(this) + offset;
 			}
 
+			__host__ __device__
 			inline const int64_t * pos_pairs() const {
 				return reinterpret_cast<const int64_t *>(offset(pos_pairs_offset));
 			}
 	};
-	ASSERT_JAVA_COMPATIBLE_REALS(ConfSpace, 64, 64);
+	ASSERT_JAVA_COMPATIBLE_REALS(ConfSpace, 72, 72);
 
 	template<typename T>
 	std::ostream & operator << (std::ostream & out, const ConfSpace<T> & conf_space) {
