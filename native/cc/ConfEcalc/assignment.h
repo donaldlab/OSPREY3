@@ -58,6 +58,7 @@ namespace osprey {
 
 			~Assignment() {
 				delete[] atom_pairs;
+				delete[] conf_energies;
 			}
 
 			inline const void * get_atom_pairs(int posi1, int posi2) const {
