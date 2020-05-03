@@ -217,11 +217,12 @@ public class BenchmarkEnergies {
 		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, Structs.Precision.Float64)) {
 
 			// use all the interactions
-			//List<PosInter> inters = PosInterDist.all(confSpace);
+			List<PosInter> inters = PosInterDist.all(confSpace);
 
 			int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };
 
-			confEcalc.assign(conf);
+			double energy = confEcalc.calcEnergy(conf, inters);
+			log("energy = %f", energy);
 		}
 	}
 }

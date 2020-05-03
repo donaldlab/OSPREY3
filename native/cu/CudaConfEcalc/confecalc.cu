@@ -7,9 +7,9 @@
 #include "atoms.h"
 #include "confspace.h"
 #include "assignment.h"
-/* TEMP
 #include "energy.h"
 #include "energy_ambereef1.h"
+/* TEMP
 #include "motions.h"
 #include "minimization.h"
 */
@@ -95,7 +95,9 @@ void assign_kernel(const osprey::ConfSpace<T> * conf_space, const osprey::Array<
 }
 
 template<typename T>
-static void assign(const osprey::ConfSpace<T> * d_conf_space, const osprey::Array<int32_t> & conf, osprey::Array<osprey::Real3<T>> & out_coords) {
+static void assign(const osprey::ConfSpace<T> * d_conf_space,
+                   const osprey::Array<int32_t> & conf,
+                   osprey::Array<osprey::Real3<T>> & out_coords) {
 
 	// upload the arguments
 	size_t conf_bytes = conf.get_bytes();
@@ -118,7 +120,7 @@ static void assign(const osprey::ConfSpace<T> * d_conf_space, const osprey::Arra
 
 	// launch the kernel
 	int num_threads = cuda::optimize_threads(assign_kernel<T>, shared_size);
-	assign_kernel<<<1,num_threads, shared_size>>>(d_conf_space, d_conf, d_out_coords);
+	assign_kernel<<<1, num_threads, shared_size>>>(d_conf_space, d_conf, d_out_coords);
 	cuda::check_error();
 
 	// download the coords
@@ -130,38 +132,137 @@ static void assign(const osprey::ConfSpace<T> * d_conf_space, const osprey::Arra
 	cudaFree(d_out_coords);
 }
 
-API void assign_f32(const osprey::ConfSpace<float32_t> * d_conf_space, const osprey::Array<int32_t> & conf, osprey::Array<osprey::Real3<float32_t>> & out_coords) {
+API void assign_f32(const osprey::ConfSpace<float32_t> * d_conf_space,
+                    const osprey::Array<int32_t> & conf,
+                    osprey::Array<osprey::Real3<float32_t>> & out_coords) {
 	assign(d_conf_space, conf, out_coords);
 }
-API void assign_f64(const osprey::ConfSpace<float64_t> * d_conf_space, const osprey::Array<int32_t> & conf, osprey::Array<osprey::Real3<float64_t>> & out_coords) {
+API void assign_f64(const osprey::ConfSpace<float64_t> * d_conf_space,
+                    const osprey::Array<int32_t> & conf,
+                    osprey::Array<osprey::Real3<float64_t>> & out_coords) {
 	assign(d_conf_space, conf, out_coords);
+}
+
+
+template<typename T>
+using CalcKernel = void (*)(const osprey::ConfSpace<T> *,
+                            const osprey::Array<int32_t> *,
+                            const osprey::Array<osprey::PosInter<T>> *,
+                            osprey::Array<osprey::Real3<T>> *,
+                            T *);
+
+template<typename T>
+__global__
+void calc_kernel_amber_eef1(const osprey::ConfSpace<T> * conf_space,
+                            const osprey::Array<int32_t> * conf,
+                            const osprey::Array<osprey::PosInter<T>> * inters,
+                            osprey::Array<osprey::Real3<T>> * out_coords,
+                            T * out_energy) {
+
+	cg::thread_block threads = cg::this_thread_block();
+
+	// slice up the shared memory
+	extern __shared__ int8_t shared[];
+	int64_t shared_offset = 0;
+	auto shared_atom_pairs = reinterpret_cast<const void **>(shared + shared_offset);
+	shared_offset += osprey::Assignment<T>::sizeof_atom_pairs(conf_space->num_pos);
+	auto shared_conf_energies = reinterpret_cast<T *>(shared + shared_offset);
+
+	// init the sizes for device-allocated Array instances
+	out_coords->init(conf_space->max_num_conf_atoms, threads);
+
+	// make the atoms
+	osprey::Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_atom_pairs, shared_conf_energies, threads);
+
+	// call the energy function
+	*out_energy = osprey::ambereef1::calc_energy(assignment, *inters);
+}
+
+template<typename T>
+static T calc(const osprey::ConfSpace<T> * d_conf_space,
+              const osprey::Array<int32_t> & conf,
+              const osprey::Array<osprey::PosInter<T>> & inters,
+              osprey::Array<osprey::Real3<T>> * out_coords,
+              int64_t num_atoms,
+              CalcKernel<T> kernel) {
+
+	// upload the arguments
+	size_t conf_bytes = conf.get_bytes();
+	osprey::Array<int32_t> * d_conf;
+	cudaMalloc(&d_conf, conf_bytes);
+	cuda::check_error();
+	cudaMemcpy(d_conf, &conf, conf_bytes, cudaMemcpyHostToDevice);
+	cuda::check_error();
+
+	size_t inters_bytes = inters.get_bytes();
+	osprey::Array<osprey::PosInter<T>> * d_inters;
+	cudaMalloc(&d_inters, inters_bytes);
+	cuda::check_error();
+	cudaMemcpy(d_inters, &inters, inters_bytes, cudaMemcpyHostToDevice);
+	cuda::check_error();
+
+	// TODO: combine allocations/transfers for speed?
+
+	// allocate space for the coords
+	size_t out_coords_bytes = osprey::Array<osprey::Real3<T>>::get_bytes(num_atoms);
+	osprey::Array<osprey::Real3<T>> * d_out_coords;
+	cudaMalloc(&d_out_coords, out_coords_bytes);
+	cuda::check_error();
+
+	// allocate space for the energy
+	size_t out_energy_bytes = sizeof(T);
+	T * d_out_energy;
+	cudaMalloc(&d_out_energy, out_energy_bytes);
+	cuda::check_error();
+
+	// compute the shared memory size
+	int64_t shared_size = 0
+		+ osprey::Assignment<T>::sizeof_atom_pairs(conf.get_size())
+		+ osprey::Assignment<T>::sizeof_conf_energies(conf.get_size());
+
+	// launch the kernel
+	// TODO: cache thread optimization
+	int num_threads = cuda::optimize_threads(*kernel, shared_size);
+	kernel<<<1, num_threads, shared_size>>>(d_conf_space, d_conf, d_inters, d_out_coords, d_out_energy);
+	cuda::check_error();
+
+	// download the energy
+	T out_energy;
+	cudaMemcpy(&out_energy, d_out_energy, out_energy_bytes, cudaMemcpyDeviceToHost);
+	cuda::check_error();
+
+	// download the coords, if needed
+	if (out_coords != nullptr) {
+		cudaMemcpy(out_coords, d_out_coords, out_coords_bytes, cudaMemcpyDeviceToHost);
+		cuda::check_error();
+	}
+
+	// cleanup
+	cudaFree(d_conf);
+	cudaFree(d_inters);
+	cudaFree(d_out_coords);
+	cudaFree(d_out_energy);
+
+	return out_energy;
+}
+
+API float32_t calc_amber_eef1_f32(const osprey::ConfSpace<float32_t> * d_conf_space,
+                                  const osprey::Array<int32_t> & conf,
+                                  const osprey::Array<osprey::PosInter<float32_t>> & inters,
+                                  osprey::Array<osprey::Real3<float32_t>> * out_coords,
+                                  int64_t num_atoms) {
+	return calc<float32_t>(d_conf_space, conf, inters, out_coords, num_atoms, calc_kernel_amber_eef1);
+}
+API float64_t calc_amber_eef1_f64(const osprey::ConfSpace<float64_t> * d_conf_space,
+								  const osprey::Array<int32_t> & conf,
+                                  const osprey::Array<osprey::PosInter<float64_t>> & inters,
+                                  osprey::Array<osprey::Real3<float64_t>> * out_coords,
+                                  int64_t num_atoms) {
+	return calc<float64_t>(d_conf_space, conf, inters, out_coords, num_atoms, calc_kernel_amber_eef1);
 }
 
 
 /* TODO
-
-template<typename T>
-static T calc(const osprey::ConfSpace<T> & conf_space, const int32_t conf[], const osprey::Array<osprey::PosInter<T>> & inters,
-              osprey::EnergyFunction<T> efunc, osprey::Array<osprey::Real3<T>> * out_coords) {
-
-	osprey::Assignment<T> assignment(conf_space, conf);
-	T energy = efunc(assignment, inters);
-	if (out_coords != nullptr) {
-		out_coords->copy_from(assignment.atoms);
-	}
-	return energy;
-}
-
-API float32_t calc_amber_eef1_f32(const osprey::ConfSpace<float32_t> & conf_space, const int32_t conf[],
-                                  const osprey::Array<osprey::PosInter<float32_t>> & inters,
-                                  osprey::Array<osprey::Real3<float32_t>> * out_coords) {
-	return calc<float32_t>(conf_space, conf, inters, osprey::ambereef1::calc_energy, out_coords);
-}
-API float64_t calc_amber_eef1_f64(const osprey::ConfSpace<float64_t> & conf_space, const int32_t conf[],
-                                  const osprey::Array<osprey::PosInter<float64_t>> & inters,
-                                  osprey::Array<osprey::Real3<float64_t>> * out_coords) {
-	return calc<float64_t>(conf_space, conf, inters, osprey::ambereef1::calc_energy, out_coords);
-}
 
 template<typename T>
 static T minimize(const osprey::ConfSpace<T> & conf_space, const int32_t conf[],

@@ -43,6 +43,8 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 		public static native void assign_f32(Pointer conf_space, ByteBuffer conf, ByteBuffer out);
 		public static native void assign_f64(Pointer conf_space, ByteBuffer conf, ByteBuffer out);
+		public static native float calc_amber_eef1_f32(Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
+		public static native double calc_amber_eef1_f64(Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
 	}
 
 	public static boolean isSupported() {
@@ -75,7 +77,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	}
 
 	private interface ForcefieldsImpl {
-		double calc(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, ByteBuffer coords);
+		double calc(Pointer pConfSpace, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms);
 		double minimize(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, ByteBuffer coords, ByteBuffer dofs);
 		long paramsBytes();
 		void writeParams(ConfSpace confSpace, BufWriter buf);
@@ -170,14 +172,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		@Override
-		public double calc(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, ByteBuffer coords) {
-			/* TODO
+		public double calc(Pointer pConfSpace, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms) {
 			return switch (precision) {
-				case Float32 -> NativeLib.calc_amber_eef1_f32(confSpaceBuf, conf, intersBuf, coords);
-				case Float64 -> NativeLib.calc_amber_eef1_f64(confSpaceBuf, conf, intersBuf, coords);
+				case Float32 -> NativeLib.calc_amber_eef1_f32(pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
+				case Float64 -> NativeLib.calc_amber_eef1_f64(pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
 			};
-			*/
-			throw new Error("TODO");
 		}
 
 		@Override
@@ -856,11 +855,10 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	@Override
 	public EnergiedCoords calc(int[] conf, List<PosInter> inters) {
-		/* TODO
-		try (var intersMem = makeIntersMem(inters)) {
-			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
-				try (var confSpaceMem = this.confSpaceMem.acquire()) {
-					double energy = forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), coordsMem.asByteBuffer());
+		try (var confMem = makeConf(conf)) {
+			try (var intersMem = makeIntersMem(inters)) {
+				try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
+					double energy = forcefieldsImpl.calc(pConfSpace, confMem.asByteBuffer(), intersMem.asByteBuffer(), coordsMem.asByteBuffer(), confSpace.maxNumConfAtoms);
 					return new EnergiedCoords(
 						makeCoords(coordsMem, conf),
 						energy
@@ -868,20 +866,15 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 				}
 			}
 		}
-		*/
-		throw new Error("TODO");
 	}
 
 	@Override
 	public double calcEnergy(int[] conf, List<PosInter> inters) {
-		/* TODO
-		try (var intersMem = makeIntersMem(inters)) {
-			try (var confSpaceMem = this.confSpaceMem.acquire()) {
-				return forcefieldsImpl.calc(confSpaceMem.asByteBuffer(), conf, intersMem.asByteBuffer(), null);
+		try (var confMem = makeConf(conf)) {
+			try (var intersMem = makeIntersMem(inters)) {
+				return forcefieldsImpl.calc(pConfSpace, confMem.asByteBuffer(), intersMem.asByteBuffer(), null, confSpace.maxNumConfAtoms);
 			}
 		}
-		*/
-		throw new Error("TODO");
 	}
 
 	private DoubleMatrix1D makeDofs(MemorySegment mem) {

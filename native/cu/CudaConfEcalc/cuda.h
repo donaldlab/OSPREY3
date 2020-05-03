@@ -45,6 +45,24 @@ namespace osprey {
 
 	static_assert(sizeof(Real3<float64_t>) == 24);
 	static_assert(alignof(Real3<float64_t>) == 8);
+
+
+	// add math functions for Real3, since CUDA apparently doesn't have them in the stdlib ;_;
+
+	template<typename T>
+	__device__
+	inline T dot(const Real3<T> & a, const Real3<T> & b) {
+		return a.x*b.x + a.y*b.y + a.z*b.z;
+	}
+
+	template<typename T>
+	__device__
+	inline T distance_sq(const Real3<T> & a, const Real3<T> & b) {
+		T dx = a.x - b.x;
+		T dy = a.y - b.y;
+		T dz = a.z - b.z;
+		return dx*dx + dy*dy + dz*dz;
+	}
 }
 
 

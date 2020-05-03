@@ -150,6 +150,44 @@ public class TestNativeConfEnergyCalculator {
 	@Test public void calcEnergy_cuda_all_2RL0_f32() { calcEnergy_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32); }
 	@Test public void calcEnergy_cuda_all_2RL0_f64() { calcEnergy_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64); }
 
+	private void calc_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies) {
+
+		// make complete position interactions
+		List<PosInter> inters = PosInterDist.all(confEcalc.confSpace());
+
+		assertThat(energies.length, is(confs.length));
+
+		for (int i=0; i<confs.length; i++) {
+			ConfEnergyCalculator.EnergiedCoords energiedCoords = confEcalc.calc(confs[i], inters);
+
+			switch (confEcalc.precision()) {
+				case Float32 -> assertThat(energiedCoords.energy, isRelatively(energies[i], 1e-5));
+				case Float64 -> assertThat(energiedCoords.energy, isAbsolutely(energies[i], 1e-8));
+			}
+
+			var expCoords = confEcalc.confSpace().makeCoords(confs[i]).coords;
+			setPrecision(expCoords, confEcalc.precision());
+			assertCoords(confs[i], confEcalc.confSpace(), expCoords, energiedCoords.coords.coords);
+		}
+	}
+
+	private void calc_native_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision) {
+		try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
+			calc_all(confEcalc, confs, energies);
+		}
+	}
+	@Test public void calc_native_all_2RL0_f32() { calc_native_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32); }
+	@Test public void calc_native_all_2RL0_f64() { calc_native_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64); }
+
+	private void calc_cuda_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision) {
+		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
+			calc_all(confEcalc, confs, energies);
+		}
+	}
+	@Test public void calc_cuda_all_2RL0_f32() { calc_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32); }
+	@Test public void calc_cuda_all_2RL0_f64() { calc_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64); }
+
+
 	private void minimizeEnergy_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies) {
 
 		// make complete position interactions

@@ -35,10 +35,15 @@ namespace osprey {
 				return size;
 			}
 
+			__host__
+			static inline int64_t get_bytes(int64_t size) {
+				return sizeof(Array<T>) + size*sizeof(T);
+			}
+
 			// get the total allocated size of the array, in bytes
 			__host__
 			inline int64_t get_bytes() const {
-				return sizeof(Array<T>) + size*sizeof(T);
+				return get_bytes(size);
 			}
 
 			__host__ __device__
@@ -161,7 +166,7 @@ namespace osprey {
 	// so add some specializations to override the default sizes/alignments
 	template<>
 	__host__
-	inline int64_t Array<float3>::get_bytes() const {
+	inline int64_t Array<float3>::get_bytes(int64_t size) {
 		return sizeof(Array<float3>) + size*Real3Map<float32_t>::size;
 	}
 

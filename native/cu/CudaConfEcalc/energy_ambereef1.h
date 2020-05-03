@@ -26,6 +26,7 @@ namespace osprey { namespace ambereef1 {
 		T vdwB;
 		// 4 bytes pad, if T = float32_t
 
+		__device__
 		inline T calc(T r, T r2, bool distance_dependent_dielectric) const {
 
 			// just in case ...
@@ -63,6 +64,7 @@ namespace osprey { namespace ambereef1 {
 		T alpha1;
 		T alpha2;
 
+		__device__
 		inline T calc(T r, T r2) const {
 
 			// just in case ...
@@ -86,6 +88,7 @@ namespace osprey { namespace ambereef1 {
 	ASSERT_JAVA_COMPATIBLE_REALS(AtomPairEef1, 32, 56);
 
 	template<typename T>
+	__device__
 	static T calc(const Array<Real3<T>> & atoms, const Params & params, const AtomPairs & pairs) {
 
 		T energy = 0.0;
@@ -95,7 +98,7 @@ namespace osprey { namespace ambereef1 {
 		for (int i=0; i<pairs.num_amber; i++) {
 			Real3<T> atom1 = atoms[pair_amber->atomi1];
 			Real3<T> atom2 = atoms[pair_amber->atomi2];
-			T r2 = distance_sq(atom1, atom2);
+			T r2 = distance_sq<T>(atom1, atom2);
 			assert (!std::isnan(r2));
 			T r = std::sqrt(r2);
 			energy += pair_amber->calc(r, r2, params.distance_dependent_dielectric);
@@ -107,7 +110,7 @@ namespace osprey { namespace ambereef1 {
 		for (int i=0; i<pairs.num_eef1; i++) {
 			Real3<T> atom1 = atoms[pair_eef1->atomi1];
 			Real3<T> atom2 = atoms[pair_eef1->atomi2];
-			T r2 = distance_sq(atom1, atom2);
+			T r2 = distance_sq<T>(atom1, atom2);
 			assert (!std::isnan(r2));
 			T r = std::sqrt(r2);
 			energy += pair_eef1->calc(r, r2);
@@ -118,6 +121,7 @@ namespace osprey { namespace ambereef1 {
 	}
 
 	template<typename T>
+	__device__
 	T calc_energy(Assignment<T> & assignment, const Array<PosInter<T>> & inters) {
 
 		const Params & params = *reinterpret_cast<const Params *>(assignment.conf_space.get_params());
@@ -141,7 +145,7 @@ namespace osprey { namespace ambereef1 {
 
 			// add the energy for the atom pairs
 			const AtomPairs & atom_pairs = *reinterpret_cast<const AtomPairs *>(assignment.get_atom_pairs(inter.posi1, inter.posi2));
-			inter_energy += calc(assignment.atoms, params, atom_pairs);
+			inter_energy += calc<T>(assignment.atoms, params, atom_pairs);
 
 			// apply weight and offset
 			energy += inter.weight*(inter_energy + inter.offset);

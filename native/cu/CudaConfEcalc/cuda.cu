@@ -27,7 +27,7 @@ namespace cuda {
 			int num_blocks;
 			cudaOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks, func, block_size, shared_mem_size);
 			check_error();
-			if (block_size <= 0) {
+			if (num_blocks <= 0) {
 				break;
 			} else {
 				best_block_size = block_size;
