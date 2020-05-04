@@ -6,6 +6,7 @@
 namespace osprey {
 
 	// degree of freedom
+	// make sure to only construct/destruct on one thread!
 	template<typename T>
 	class Dof {
 		public:
@@ -13,61 +14,73 @@ namespace osprey {
 			const T min;
 			const T max;
 			const T initial_step_size;
-			Array<int32_t> modified_posi;
 
-			Dof(T min, T max, T initial_step_size, int num_modified_posi):
-					min(min), max(max), initial_step_size(initial_step_size),
-					modified_posi(num_modified_posi) {}
+			__device__
+			Dof(T min, T max, T initial_step_size):
+					min(min), max(max), initial_step_size(initial_step_size) {}
 
+			__device__
 			Dof(const Dof & other) = delete;
+			~Dof() = default;
 
-			~Dof() {
-				if (inters != nullptr) {
-					delete inters;
-				}
-			}
-
+			__device__
 			virtual T get() const = 0;
-			virtual void set(T val) = 0;
 
+			__device__
+			virtual void set(T val, cg::thread_group threads) = 0;
+
+			__device__
 			inline T center() const {
 				return (min + max)/2;
 			}
 
-			void set_inters(const Array<PosInter<T>> & all_inters) {
-
-				// how many of the interactions are affected by this degree of freedom?
-				int inters_size = 0;
-				for (int i=0; i<all_inters.get_size(); i++) {
-					if (is_inter_affected(all_inters[i])) {
-						inters_size += 1;
-					}
-				}
-
-				// allocate space for the filtered interactions
-				inters = new Array<PosInter<T>>(inters_size);
-
-				// copy the interactions
-				inters_size = 0;
-				for (int i=0; i<all_inters.get_size(); i++) {
-					if (is_inter_affected(all_inters[i])) {
-						(*inters)[inters_size++] = all_inters[i];
-					}
-				}
-			}
-
+			__device__
 			const Array<PosInter<T>> & get_inters() const {
 				assert (inters != nullptr);
 				return *inters;
 			}
 
+			__device__
+			inline void free() {
+				if (inters != nullptr) {
+					std::free(inters);
+					inters = nullptr;
+				}
+			}
+
+		protected:
+
+			__device__
+			void make_inters(const Array<PosInter<T>> & all_inters, const int32_t modified_posi[], int num_modified) {
+
+				// how many of the interactions are affected by this degree of freedom?
+				int inters_size = 0;
+				for (int i=0; i<all_inters.get_size(); i++) {
+					if (is_inter_affected(all_inters[i], modified_posi, num_modified)) {
+						inters_size += 1;
+					}
+				}
+
+				// allocate space for the filtered interactions
+				inters = Array<PosInter<T>>::make(inters_size);
+
+				// copy the interactions
+				inters_size = 0;
+				for (int i=0; i<all_inters.get_size(); i++) {
+					if (is_inter_affected(all_inters[i], modified_posi, num_modified)) {
+						(*inters)[inters_size++] = all_inters[i];
+					}
+				}
+			}
+
 		private:
 			Array<PosInter<T>> * inters;
 
-			bool is_inter_affected(const PosInter<T> & inter) const {
+			__device__
+			static bool is_inter_affected(const PosInter<T> & inter, const int32_t modified_posi[], int num_modified) {
 
 				// is one of the modified positions in this interaction?
-				for (int i=0; i < modified_posi.get_size(); i++) {
+				for (int i=0; i<num_modified; i++) {
 					int posi = modified_posi[i];
 					if (inter.posi1 == posi || inter.posi2 == posi) {
 						return true;
@@ -98,6 +111,7 @@ namespace osprey {
 			// only created by java side
 			Dihedral() = delete;
 
+			__device__
 			inline int32_t get_rotated_index(int i) const {
 
 				// just in case ...
@@ -112,17 +126,19 @@ namespace osprey {
 
 					static constexpr T step_size = 0.004363323; // 0.25 degrees
 
-					Dof(const Dihedral<T> & dihedral, Assignment<T> & assignment):
-						osprey::Dof<T>(dihedral.min_radians, dihedral.max_radians, step_size, 1),
+					__device__
+					Dof(const Dihedral<T> & dihedral, Assignment<T> & assignment, const Array<PosInter<T>> & inters):
+						osprey::Dof<T>(dihedral.min_radians, dihedral.max_radians, step_size),
 						dihedral(dihedral), assignment(assignment) {
 
-						// set the modified position indices
-						Dof::modified_posi[0] = dihedral.modified_posi;
+						// filter the inters
+						make_inters(inters, &dihedral.modified_posi, 1);
 					}
 
 					const Dihedral<T> & dihedral;
 					Assignment<T> & assignment;
 
+					__device__
 					virtual T get() const {
 
 						Real3<T> a = assignment.atoms[dihedral.a_index];
@@ -145,7 +161,8 @@ namespace osprey {
 						return HalfPi<T> - atan2(d.y, d.x);
 					}
 
-					virtual void set(T radians) {
+					__device__
+					virtual void set(T radians, cg::thread_group threads) {
 
 						Real3<T> a = assignment.atoms[dihedral.a_index];
 						Real3<T> b = assignment.atoms[dihedral.b_index];
@@ -172,59 +189,23 @@ namespace osprey {
 						Rotation<T> r_out(r_in);
 						r_out.invert();
 
-						// transform all the rotated atoms
-						for (int i=0; i<dihedral.num_rotated; i++) {
+						// transform all the rotated atoms, in parallel
+						for (int i=threads.thread_rank(); i<dihedral.num_rotated; i+=threads.size()) {
 							Real3<T> & p = assignment.atoms[dihedral.get_rotated_index(i)];
-							assert (!p.isnan());
+							assert (!isnan3<T>(p));
 							p = r_out*(r_z*(r_in*(p - b))) + b;
-							assert (!p.isnan());
+							assert (!isnan3<T>(p));
 						}
+						threads.sync();
 					}
 			};
 
-			inline Dof * make_dof(Assignment<T> & assignment) const {
-				return new Dof(*this, assignment);
+			__device__
+			inline Dof * make_dof(Assignment<T> & assignment, const Array<PosInter<T>> & inters) const {
+				return new Dof(*this, assignment, inters);
 			}
 		};
 		ASSERT_JAVA_COMPATIBLE_REALS(Dihedral, 32, 40);
-
-		template<typename T>
-		struct alignas(8) TranslationRotation {
-
-			const static int32_t id = 1;
-
-			T max_distance;
-			T max_radians;
-			Real3<T> centroid;
-			int32_t num_atoms; // TODO: switch to array
-			int32_t num_modified_pos;
-
-			// only created by java side
-			TranslationRotation() = delete;
-
-			inline int32_t get_atomi(int i) const {
-
-				// just in case ...
-				assert (i >= 0);
-				assert (i < num_atoms);
-
-				// atom indices are right after the struct
-				return reinterpret_cast<const int32_t *>(this + 1)[i];
-			}
-
-			inline int32_t get_modified_posi(int i) const {
-
-				// just in case ...
-				assert (i >= 0);
-				assert (i > num_modified_pos);
-
-				// modified position indices are right after the atom indices
-				return reinterpret_cast<const int32_t *>(this + 1)[num_atoms + i];
-			}
-
-			// TODO: implement DoFs
-		};
-		ASSERT_JAVA_COMPATIBLE_REALS(TranslationRotation, 32, 48);
 	}
 }
 

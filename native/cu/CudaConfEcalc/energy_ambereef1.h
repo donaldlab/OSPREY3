@@ -100,7 +100,7 @@ namespace osprey { namespace ambereef1 {
 			Real3<T> atom1 = atoms[pair.atomi1];
 			Real3<T> atom2 = atoms[pair.atomi2];
 			T r2 = distance_sq<T>(atom1, atom2);
-			assert (!std::isnan(r2));
+			assert (!isnan<T>(r2));
 			T r = std::sqrt(r2);
 			energy += pair.calc(r, r2, params.distance_dependent_dielectric);
 		}
@@ -112,7 +112,7 @@ namespace osprey { namespace ambereef1 {
 			Real3<T> atom1 = atoms[pair.atomi1];
 			Real3<T> atom2 = atoms[pair.atomi2];
 			T r2 = distance_sq<T>(atom1, atom2);
-			assert (!std::isnan(r2));
+			assert (!isnan<T>(r2));
 			T r = std::sqrt(r2);
 			energy += pair.calc(r, r2);
 		}
@@ -163,6 +163,8 @@ namespace osprey { namespace ambereef1 {
 			// add the energy for the atom pairs
 			const AtomPairs & atom_pairs = *reinterpret_cast<const AtomPairs *>(assignment.get_atom_pairs(inter.posi1, inter.posi2));
 			inter_energy += calc<T>(assignment.atoms, params, atom_pairs, threads, thread_energy);
+
+			// TODO: inline calc, move the reduction to the end
 
 			// apply weight and offset
 			energy += inter.weight*(inter_energy + inter.offset);

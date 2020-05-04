@@ -25,6 +25,7 @@ typedef double float64_t;
 // add some missing std functions
 
 template<typename T>
+__host__ __device__
 inline T clamp(const T & val, const T & min, const T & max) {
 	if (val < min) {
 		return min;
@@ -33,6 +34,28 @@ inline T clamp(const T & val, const T & min, const T & max) {
 	} else {
 		return val;
 	}
+}
+
+template<typename T>
+__host__ __device__
+inline void swap(T & a, T & b) {
+	T temp = a;
+	a = b;
+	b = temp;
+}
+
+// calling std::isinf(T) or std::isnan(T) directly causes a compiler crash in nvcc V10.2.89:
+// Error: Internal Compiler Error (codegen): "there was an error in verifying the lgenfe output!"
+// wrapping it in a templated function seems to avoid the problem though
+template<typename T>
+__host__ __device__
+inline bool isinf(const T & val) {
+	return std::isinf(val);
+}
+template<typename T>
+__host__ __device__
+inline bool isnan(const T & val) {
+	return std::isnan(val);
 }
 
 
@@ -44,14 +67,17 @@ template<int N> constexpr char print_size_as_warning_char = N + 256;
 #define WARN_SIZEOF(type) static char print_size_as_warning_var = print_size_as_warning_char<sizeof(type)>
 
 
-// java compatibility-checking macros
-#define ASSERT_JAVA_COMPATIBLE(type, size) \
+#define ASSERT_MALLOCABLE(type, size) \
 	static_assert(std::is_standard_layout<type>(), #type " should have standard layout"); \
 	static_assert(sizeof(type) == size, #type " has unexpected size")
 
-#define ASSERT_JAVA_COMPATIBLE_REALS(type, size_float32, size_float64) \
-	ASSERT_JAVA_COMPATIBLE(type<float32_t>, size_float32); \
-	ASSERT_JAVA_COMPATIBLE(type<float64_t>, size_float64)
+#define ASSERT_MALLOCABLE_REALS(type, size_float32, size_float64) \
+	ASSERT_MALLOCABLE(type<float32_t>, size_float32); \
+	ASSERT_MALLOCABLE(type<float64_t>, size_float64)
+
+// java compatibility-checking macros
+#define ASSERT_JAVA_COMPATIBLE(type, size) ASSERT_MALLOCABLE(type, size)
+#define ASSERT_JAVA_COMPATIBLE_REALS(type, size_float32, size_float64) ASSERT_MALLOCABLE_REALS(type, size_float32, size_float64)
 
 // other type-checking macros
 #define ASSERT_COPYABLE(type) static_assert(std::is_trivially_copyable<type>(), #type " should be trivially copyable")

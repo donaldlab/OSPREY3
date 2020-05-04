@@ -214,6 +214,7 @@ public class BenchmarkEnergies {
 
 		ConfSpace confSpace = compiled.complex;
 
+		//try (var confEcalc = new CudaConfEnergyCalculator(confSpace, Structs.Precision.Float32)) {
 		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, Structs.Precision.Float64)) {
 
 			// use all the interactions
@@ -221,7 +222,7 @@ public class BenchmarkEnergies {
 
 			int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };
 
-			double energy = confEcalc.calcEnergy(conf, inters);
+			double energy = confEcalc.minimizeEnergy(conf, inters);
 			log("energy = %f", energy);
 		}
 	}

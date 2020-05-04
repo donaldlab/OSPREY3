@@ -9,20 +9,54 @@ namespace osprey {
 	class DofValues {
 		public:
 
-			explicit DofValues(int size): f(0.0), x(size) {}
-			DofValues(const DofValues<T> & other) : DofValues(other.size) {
-				set(other);
-			}
+			// created only by malloc-style allocations
+			__device__
+			DofValues() = delete;
+			__device__
+			DofValues(const DofValues<T> & other) = delete;
 			~DofValues() = default;
 
-			inline void set(const DofValues<T> & other) {
-				f = other.f;
-				x.copy_from(other.x);
+			__device__
+			inline void set(const DofValues<T> & other, cg::thread_group threads) {
+
+				// TODO: do all the copies simultaneously, but on different threads?
+				if (threads.thread_rank() == 0) {
+					f = other.f;
+				}
+				threads.sync();
+
+				assert (x.get_size() == other.x.get_size());
+				x.copy_from_device(other.x, threads);
 			}
 
 			T f;
 			Array<T> x;
+
+			__device__
+			static inline DofValues<T> make(int size, cg::thread_group threads, void * shared_ptr) {
+				if (threads.thread_rank() == 0) {
+					shared_ptr = std::malloc(get_bytes(size));
+				}
+				threads.sync();
+				return reinterpret_cast<DofValues<T> *>(shared_ptr);
+			}
+
+			__host__ __device__
+			static inline int64_t get_bytes(int size) {
+				return 8 + Array<T>::get_bytes(size);
+			}
+
+			__host__
+			static inline const T * f_ptr(const DofValues<T> * p) {
+				return reinterpret_cast<const T *>(p);
+			}
+
+			__host__
+			static inline const T * x_ptr(const DofValues<T> * p) {
+				return reinterpret_cast<const T *>(reinterpret_cast<const int8_t *>(p) + 8);
+			}
 	};
+	ASSERT_MALLOCABLE_REALS(DofValues, 8 + sizeof(Array<float32_t>), 8 + sizeof(Array<float64_t>));
 
 	template<typename T>
 	class Dofs {
@@ -31,27 +65,36 @@ namespace osprey {
 			Assignment<T> & assignment;
 			const Array<PosInter<T>> & inters;
 			const EnergyFunction<T> efunc;
+			T * thread_energy;
 
-			Dofs(Assignment<T> & assignment, const Array<PosInter<T>> & inters, EnergyFunction<T> efunc):
-				assignment(assignment), efunc(efunc), inters(inters) {
+			__device__
+			Dofs(Assignment<T> & assignment,
+			     const Array<PosInter<T>> & inters,
+			     EnergyFunction<T> efunc,
+			     cg::thread_group threads,
+			     T thread_energy[],
+			     Dof<T> * shared_dofs[]):
+					assignment(assignment), efunc(efunc), thread_energy(thread_energy), inters(inters), shared_dofs(shared_dofs) {
 
-				// allocate space for the dofs
-				dofs = new Dof<T> *[assignment.conf_space.max_num_dofs];
 				size = 0;
+
+				// TODO: parallelize, so thread 0 isn't doing all the work
 
 				// make molecule dofs
 				for (int motioni=0; motioni < assignment.conf_space.num_molecule_motions; motioni++) {
 					switch (assignment.conf_space.get_molecule_motion_id(motioni)) {
 
 						case motions::Dihedral<T>::id: {
-							const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_molecule_motion(motioni));
-							dofs[size] = dihedral.make_dof(assignment);
+							if (threads.thread_rank() == 0) {
+								const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_molecule_motion(motioni));
+								shared_dofs[size] = dihedral.make_dof(assignment, inters);
+							}
 							size += 1;
 						} break;
 
 						// TODO: translation/rotation
 
-						default: throw std::invalid_argument("unrecognized motion id");
+						default: assert(false);
 					}
 				}
 
@@ -63,56 +106,73 @@ namespace osprey {
 						switch (assignment.conf_space.get_conf_motion_id(conf, motioni)) {
 
 							case motions::Dihedral<T>::id: {
-								const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
-								dofs[size] = dihedral.make_dof(assignment);
+								if (threads.thread_rank() == 0) {
+									const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
+									shared_dofs[size] = dihedral.make_dof(assignment, inters);
+								}
 								size += 1;
 							} break;
 
-							default: throw std::invalid_argument("unrecognized motion id");
+							default: assert(false);
 						}
 					}
 				}
 
-				// make the inters for each dof
-				for (int d=0; d<size; d++) {
-					dofs[d]->set_inters(inters);
-				}
+				// sync the writes to shared_dofs
+				threads.sync();
 			}
 
+			__device__
 			Dofs(const Dofs<T> & other) = delete;
+			~Dofs() = default;
 
-			~Dofs() {
-				delete[] dofs;
+			__device__
+			inline void free(cg::thread_group threads) const {
+				for (int d=threads.thread_rank(); d<size; d+=threads.size()) {
+					shared_dofs[d]->free();
+				}
+				threads.sync();
 			}
 
+			__device__
 			inline int get_size() const {
 				return size;
 			}
 
+			__device__
 			Dof<T> & operator [] (int i) {
-				return *dofs[i];
+				return *shared_dofs[i];
 			}
 
-			inline void set(const Array<T> & x) {
+			__device__
+			inline void set(const Array<T> & x, cg::thread_group threads) {
+
+				// WARNING: it may be tempting to set dofs in parallel here
+				// but don't do it: different dofs can move the same atoms! it'll race!
+
+				assert (x.get_size() == size);
 				for (int d=0; d<x.get_size(); d++) {
-					dofs[d]->set(x[d]);
+					assert (shared_dofs[d] != nullptr);
+					shared_dofs[d]->set(x[d], threads);
 				}
 			}
 
-			inline T eval_efunc(Array<T> & x) {
-				set(x);
-				return efunc(assignment, inters);
+			__device__
+			inline T eval_efunc(Array<T> & x, cg::thread_group threads) {
+				set(x, threads);
+				return efunc(assignment, inters, threads, thread_energy);
 			}
 
-			inline T eval_efunc(int d, T x) {
-				Dof<T> & dof = *dofs[d];
-				dof.set(x);
-				return efunc(assignment, dof.get_inters());
+			__device__
+			inline T eval_efunc(int d, T x, cg::thread_group threads) {
+				Dof<T> & dof = *shared_dofs[d];
+				dof.set(x, threads);
+				return efunc(assignment, dof.get_inters(), threads, thread_energy);
 			}
 
 		private:
 			int size;
-			Dof<T> ** dofs;
+			Dof<T> ** shared_dofs;
 	};
 
 
@@ -125,17 +185,19 @@ namespace osprey {
 
 	// scale abs(f) by tolerance, unless f is very small
 	template<typename T>
+	__device__
 	static T scaled_tolerance(T f) {
-		return tolerance<T>*std::max(static_cast<T>(1.0), std::abs(f));
+		return tolerance<T>*max(static_cast<T>(1.0), std::abs(f));
 	}
 
 
 	// search the line by fitting a local quadratic model, taking a step, and then surfing the slope
 	template<typename T>
-	static T line_search_surf(Dofs<T> & dofs, int d, T x, T & step) {
+	__device__
+	static T line_search_surf(Dofs<T> & dofs, int d, T x, T & step, cg::thread_group threads) {
 
-		auto f = [&dofs, d](T x) -> T {
-			return dofs.eval_efunc(d, x);
+		auto f = [&dofs, d, threads](T x) -> T {
+			return dofs.eval_efunc(d, x, threads);
 		};
 
 		T fx = f(x);
@@ -153,11 +215,11 @@ namespace osprey {
 		// get the positive (p) and negative (n) neighbors for our current pos
 		T xp = x + step;
 		T xm = x - step;
-		T fxp = std::numeric_limits<T>::infinity();
+		T fxp = INFINITY;
 		if (xp <= xmax) {
 			fxp = f(xp);
 		}
-		T fxm = std::numeric_limits<T>::infinity();
+		T fxm = INFINITY;
 		if (xm >= xmin) {
 			fxm = f(xm);
 		}
@@ -171,7 +233,7 @@ namespace osprey {
 		T shape = fxp + fxm - 2*fx;
 		const T shape_epsilon = 1e-12;
 		T xstar;
-		if ((shape < -shape_epsilon) || std::isnan(shape) || std::isinf(shape)) {
+		if ((shape < -shape_epsilon) || isnan<T>(shape) || isinf<T>(shape)) {
 
 			// negative shape means quadratic is concave down
 			// infinite or nan a means we're hitting a constraint or impossible conformation
@@ -213,7 +275,7 @@ namespace osprey {
 				if (xsurfNext < xmin) {
 
 					// if the min is better, go there instead
-					if (std::isnan(fxmin)) {
+					if (isnan<T>(fxmin)) {
 						fxmin = f(xmin);
 					}
 					if (fxmin < fxsurfHere) {
@@ -227,7 +289,7 @@ namespace osprey {
 				} else if (xsurfNext > xmax) {
 
 					// if the max is better, go there instead
-					if (std::isnan(fxmax)) {
+					if (isnan<T>(fxmax)) {
 						fxmax = f(xmax);
 					}
 					if (fxmax < fxsurfHere) {
@@ -258,7 +320,7 @@ namespace osprey {
 			xstar = xsurfHere;
 			fxstar = fxsurfHere;
 
-			// did we go significantly uphill?
+		// did we go significantly uphill?
 		} else if (fxstar > fx + tolerance<T>) {
 
 			// try to surf back downhill
@@ -335,7 +397,7 @@ namespace osprey {
 		}
 
 		// set the coords back to the best option
-		dofs[d].set(xstar);
+		dofs[d].set(xstar, threads);
 
 		return xstar;
 	}
@@ -347,13 +409,22 @@ namespace osprey {
 	};
 
 	template<typename T>
-	using LineSearchFunction = T (*)(Dofs<T> &, int, T, T &);
+	using LineSearchFunction = T (*)(Dofs<T> &, int, T, T&, cg::thread_group);
+
+	// TODO: use launch bounds to limit register usage?
+	//__launch_bounds__(maxThreadsPerBlock, minBlocksPerMultiprocessor)
+	// see: https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#launch-bounds
 
 	template<typename T>
-	static void minimize_ccd(Dofs<T> & dofs, DofValues<T> & here) {
+	__device__
+	static void minimize_ccd(Dofs<T> & dofs,
+	                         DofValues<T> & here,
+	                         DofValues<T> & next,
+	                         LineSearchState<T> shared_line_search_states[],
+	                         cg::thread_group threads) {
 
 		// get the current objective function value
-		here.f = dofs.eval_efunc(here.x);
+		here.f = dofs.eval_efunc(here.x, threads);
 
 		// ccd is pretty simple actually
 		// just do a line search along each dimension until we stop improving
@@ -362,19 +433,16 @@ namespace osprey {
 		const int max_iterations = 30;
 		const T convergence_threshold = 0.001;
 
-		// init line search
-		Array<LineSearchState<T>> line_search_states(dofs.get_size());
-		LineSearchFunction<T> line_search = line_search_surf;
+		const LineSearchFunction<T> line_search = line_search_surf;
 
-		DofValues<T> next(dofs.get_size());
 		for (int iter=0; iter<max_iterations; iter++) {
 
 			// update all the dofs using line search
-			next.set(here);
+			next.set(here, threads);
 			for (int d=0; d<dofs.get_size(); d++) {
 
 				Dof<T> & dof = dofs[d];
-				LineSearchState<T> & state = line_search_states[d];
+				LineSearchState<T> & state = shared_line_search_states[d];
 
 				// get the step size, try to make it adaptive (based on historical steps if possible; else on step #)
 				T step;
@@ -385,21 +453,25 @@ namespace osprey {
 				}
 
 				// get the next x value for this dof
-				next.x[d] = line_search(dofs, d, next.x[d], step);
+				next.x[d] = line_search(dofs, d, next.x[d], step, threads);
 
-				if (iter == 0) {
-					state.first_step = step;
+				// update step stats
+				if (threads.thread_rank() == 0) {
+					if (iter == 0) {
+						state.first_step = step;
+					}
+					state.last_step = step;
 				}
-				state.last_step = step;
+				threads.sync();
 			}
 
 			// how much did we improve?
-			next.f = dofs.eval_efunc(next.x);
+			next.f = dofs.eval_efunc(next.x, threads);
 			T improvement = here.f - next.f;
 			if (improvement > 0) {
 
 				// take the step
-				here.set(next);
+				here.set(next, threads);
 
 				if (improvement < convergence_threshold) {
 					break;
@@ -408,7 +480,7 @@ namespace osprey {
 			} else {
 
 				// don't take the step, revert the coords
-				dofs.set(here.x);
+				dofs.set(here.x, threads);
 
 				break;
 			}

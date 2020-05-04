@@ -21,6 +21,7 @@ namespace osprey {
 			// host/device annotions not needed here for some reason
 			~Array() = default;
 
+			// set the size when the Array is in shared or global memory
 			__device__
 			inline void init(int64_t _size, cg::thread_group threads) {
 				if (threads.thread_rank() == 0) {
@@ -29,19 +30,27 @@ namespace osprey {
 				threads.sync();
 			}
 
+			// for allocating on a single thread
+			__device__
+			static inline Array<T> * make(int64_t size) {
+				auto out = reinterpret_cast<Array<T> *>(std::malloc(get_bytes(size)));
+				out->size = size;
+				return out;
+			}
+
 			// get the number of items in the array
 			__host__ __device__
 			inline int64_t get_size() const {
 				return size;
 			}
 
-			__host__
+			__host__ __device__
 			static inline int64_t get_bytes(int64_t size) {
-				return sizeof(Array<T>) + size*sizeof(T);
+				return cuda::pad_to_alignment(sizeof(Array<T>) + size*sizeof(T), 8);
 			}
 
 			// get the total allocated size of the array, in bytes
-			__host__
+			__host__ __device__
 			inline int64_t get_bytes() const {
 				return get_bytes(size);
 			}
@@ -70,10 +79,10 @@ namespace osprey {
 			inline int64_t copy_from_host(const Array<T> & src, int64_t srci, int64_t count, int64_t dsti) {
 
 				// just in case...
-				assert(dsti >= 0);
-				assert(dsti + count <= size);
-				assert(srci >= 0);
-				assert(srci + count <= src.size);
+				assert (dsti >= 0);
+				assert (dsti + count <= size);
+				assert (srci >= 0);
+				assert (srci + count <= src.size);
 
 				std::copy(src.pointer() + srci, src.pointer() + srci + count, pointer() + dsti);
 
@@ -94,10 +103,10 @@ namespace osprey {
 			inline int64_t copy_from_device(const Array<T> & src, int64_t srci, int64_t count, int64_t dsti, cg::thread_group threads) {
 
 				// just in case...
-				assert(dsti >= 0);
-				assert(dsti + count <= size);
-				assert(srci >= 0);
-				assert(srci + count <= src.size);
+				assert (dsti >= 0);
+				assert (dsti + count <= size);
+				assert (srci >= 0);
+				assert (srci + count <= src.size);
 
 				for (int i=threads.thread_rank(); i<count; i += threads.size()) {
 					operator[](dsti + i) = src[srci + i];
@@ -121,8 +130,8 @@ namespace osprey {
 			inline int64_t fill_device(int64_t dsti, int64_t count, const T & val, cg::thread_group threads) {
 
 				// just in case...
-				assert(dsti >= 0);
-				assert(dsti + count <= size);
+				assert (dsti >= 0);
+				assert (dsti + count <= size);
 
 				for (int i=threads.thread_rank(); i<count; i += threads.size()) {
 					operator[](dsti + i) = val;

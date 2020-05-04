@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.function.Function;
 
 import static edu.duke.cs.osprey.gpu.Structs.*;
-import static edu.duke.cs.osprey.tools.Log.log;
 
 
 public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
@@ -45,6 +44,8 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		public static native void assign_f64(Pointer conf_space, ByteBuffer conf, ByteBuffer out);
 		public static native float calc_amber_eef1_f32(Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
 		public static native double calc_amber_eef1_f64(Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
+		public static native float minimize_amber_eef1_f32(Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long numDofs);
+		public static native double minimize_amber_eef1_f64(Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long numDofs);
 	}
 
 	public static boolean isSupported() {
@@ -78,7 +79,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	private interface ForcefieldsImpl {
 		double calc(Pointer pConfSpace, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms);
-		double minimize(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, ByteBuffer coords, ByteBuffer dofs);
+		double minimize(Pointer pConfSpace, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms, ByteBuffer dofsBuf, long numDofs);
 		long paramsBytes();
 		void writeParams(ConfSpace confSpace, BufWriter buf);
 		long staticStaticBytes(ConfSpace confSpace);
@@ -180,14 +181,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		@Override
-		public double minimize(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, ByteBuffer coords, ByteBuffer dofs) {
-			/*
+		public double minimize(Pointer pConfSpace, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms, ByteBuffer dofsBuf, long numDofs) {
 			return switch (precision) {
-				case Float32 -> NativeLib.minimize_amber_eef1_f32(confSpaceBuf, conf, intersBuf, coords, dofs);
-				case Float64 -> NativeLib.minimize_amber_eef1_f64(confSpaceBuf, conf, intersBuf, coords, dofs);
+				case Float32 -> NativeLib.minimize_amber_eef1_f32(pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms, dofsBuf, numDofs);
+				case Float64 -> NativeLib.minimize_amber_eef1_f64(pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms, dofsBuf, numDofs);
 			};
-			*/
-			throw new Error("TODO");
 		}
 
 		@Override
@@ -919,18 +917,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	@Override
 	public double minimizeEnergy(int[] conf, List<PosInter> inters) {
-		/* TODO
-		try (var intersMem = makeIntersMem(inters)) {
-			try (var confSpaceMem = this.confSpaceMem.acquire()) {
-				return forcefieldsImpl.minimize(
-					confSpaceMem.asByteBuffer(), conf,
-					intersMem.asByteBuffer(),
-					null, null
-				);
+		try (var confMem = makeConf(conf)) {
+			try (var intersMem = makeIntersMem(inters)) {
+				return forcefieldsImpl.minimize(pConfSpace, confMem.asByteBuffer(), intersMem.asByteBuffer(), null, confSpace.maxNumConfAtoms, null, confSpace.maxNumDofs);
 			}
 		}
-		*/
-		throw new Error("TODO");
 	}
 
 	private MemorySegment makeIntersMem(List<PosInter> inters) {
