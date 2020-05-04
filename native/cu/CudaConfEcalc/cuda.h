@@ -72,12 +72,12 @@ namespace cuda {
 	void check_error();
 
 	__host__
-	int optimize_threads_void(const void * func, size_t shared_mem_size);
+	int optimize_threads_void(const void * func, size_t shared_size_static, size_t shared_size_per_thread);
 
 	// pick the greatest number of the threads that keeps occupancy above 0
 	template<typename T>
-	int optimize_threads(const T & func, size_t shared_mem_size) {
-		return optimize_threads_void(reinterpret_cast<const void *>(&func), shared_mem_size);
+	int optimize_threads(const T & func, size_t shared_size_static, size_t shared_size_per_thread) {
+		return optimize_threads_void(reinterpret_cast<const void *>(&func), shared_size_static, shared_size_per_thread);
 	}
 }
 

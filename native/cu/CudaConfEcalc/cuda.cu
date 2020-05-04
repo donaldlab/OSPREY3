@@ -14,7 +14,7 @@ namespace cuda {
 	}
 
 	__host__
-	int optimize_threads_void(const void * func, size_t shared_mem_size) {
+	int optimize_threads_void(const void * func, size_t shared_size_static, size_t shared_size_per_thread) {
 
 		// TODO: device selection
 
@@ -25,7 +25,8 @@ namespace cuda {
 		int best_block_size = 0;
 		for (int block_size=1; block_size<=max_block_size; block_size*=2) {
 			int num_blocks;
-			cudaOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks, func, block_size, shared_mem_size);
+			size_t shared_size = shared_size_static + shared_size_per_thread*block_size;
+			cudaOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks, func, block_size, shared_size);
 			check_error();
 			if (num_blocks <= 0) {
 				break;
