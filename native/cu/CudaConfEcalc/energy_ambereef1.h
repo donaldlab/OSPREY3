@@ -25,31 +25,6 @@ namespace osprey { namespace ambereef1 {
 		T vdwA;
 		T vdwB;
 		// 4 bytes pad, if T = float32_t
-
-		__device__
-		inline T calc(T r, T r2, bool distance_dependent_dielectric) const {
-
-			// just in case ...
-			assert(r >= 0.0);
-			assert(r2 >= 0.0);
-
-			// TODO: optimize out division?
-
-			// calculate the electrostatics energy
-			T es;
-			if (distance_dependent_dielectric) {
-				es = esQ/r2;
-			} else {
-				es = esQ/r;
-			}
-
-			// calculate the van der Waals energy
-			T r6 = r2*r2*r2;
-			T r12 = r6*r6;
-			T vdw = vdwA/r12 - vdwB/r6;
-
-			return es + vdw;
-		}
 	};
 	ASSERT_JAVA_COMPATIBLE_REALS(AtomPairAmber, 24, 32);
 
@@ -131,7 +106,7 @@ namespace osprey { namespace ambereef1 {
 				if (interi >= inters.get_size()) {
 					goto finish_eef1; // break out of both loops
 				}
-				PosInter<T> inter = inters[interi];
+				const PosInter<T> & inter = inters[interi];
 				inter_weight = inter.weight;
 
 				// update the pair index range
@@ -146,7 +121,9 @@ namespace osprey { namespace ambereef1 {
 
 			// calculate energy for the next atom pair
 			auto pair = pairs_eef1[global_pairi - start_global_pairi];
-			T r2 = distance_sq<T>(assignment.atoms[pair.atomi1], assignment.atoms[pair.atomi2]);
+			const Real3<T> & atom1 = assignment.atoms[pair.atomi1];
+			const Real3<T> & atom2 = assignment.atoms[pair.atomi2];
+			T r2 = distance_sq<T>(atom1, atom2);
 			assert (!isnan<T>(r2));
 			T r = std::sqrt(r2);
 			energy += pair.calc(r, r2)*inter_weight;
@@ -191,13 +168,28 @@ namespace osprey { namespace ambereef1 {
 			}
 
 			// TODO: OPTIMIZATION: optimize memory access patterns here
+			//  put atom pairs in a struct
+			//  put amber params in another struct
 
-			// calculate energy for the next atom pair
-			auto pair = pairs_amber[global_pairi - start_global_pairi];
-			T r2 = distance_sq<T>(assignment.atoms[pair.atomi1], assignment.atoms[pair.atomi2]);
+			// get the radius for the next atom pair
+			const AtomPairAmber<T> & pair = pairs_amber[global_pairi - start_global_pairi];
+			const Real3<T> & atom1 = assignment.atoms[pair.atomi1];
+			const Real3<T> & atom2 = assignment.atoms[pair.atomi2];
+			T oor2 = 1.0/distance_sq<T>(atom1, atom2);
 			assert (!isnan<T>(r2));
-			T r = std::sqrt(r2);
-			energy += pair.calc(r, r2, params.distance_dependent_dielectric)*inter_weight;
+
+			// calculate the electrostatics energy
+			if (params.distance_dependent_dielectric) {
+				energy += pair.esQ*oor2*inter_weight;
+			} else {
+				energy += pair.esQ*std::sqrt(oor2)*inter_weight;
+			}
+
+			// calculate the van der Waals energy
+			T oor6 = oor2*oor2*oor2;
+			energy -= pair.vdwB*oor6*inter_weight;
+			T oor12 = oor6*oor6;
+			energy += pair.vdwA*oor12*inter_weight;
 
 			// advance to the next atom pair
 			global_pairi += blockDim.x;
