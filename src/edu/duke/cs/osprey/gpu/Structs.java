@@ -363,6 +363,10 @@ public class Structs {
 		public abstract Object fromDouble(double val);
 		public abstract double toDouble(Object val);
 
+		public double cast(double val) {
+			return toDouble(fromDouble(val));
+		}
+
 		public <T> T map(T f32, T f64) {
 			return switch (this) {
 				case Float32 -> f32;

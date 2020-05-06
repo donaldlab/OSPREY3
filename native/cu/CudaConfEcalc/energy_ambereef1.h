@@ -89,13 +89,13 @@ namespace osprey { namespace ambereef1 {
 
 	template<typename T>
 	__device__
-	static T calc(const Array<Real3<T>> & atoms, const Params & params, const AtomPairs & pairs, cg::thread_group threads, T thread_energy[]) {
+	static T calc(const Array<Real3<T>> & atoms, const Params & params, const AtomPairs & pairs, T thread_energy[]) {
 
 		T energy = 0.0;
 
 		// add the amber interactions
 		auto pairs_amber = reinterpret_cast<const AtomPairAmber<T> *>(&pairs + 1);
-		for (int i=threads.thread_rank(); i<pairs.num_amber; i+=threads.size()) {
+		for (uint i=threadIdx.x; i<pairs.num_amber; i+=blockDim.x) {
 			auto pair = pairs_amber[i];
 			Real3<T> atom1 = atoms[pair.atomi1];
 			Real3<T> atom2 = atoms[pair.atomi2];
@@ -107,7 +107,7 @@ namespace osprey { namespace ambereef1 {
 
 		// add the eef1 interactions
 		auto pairs_eef1 = reinterpret_cast<const AtomPairEef1<T> *>(&pairs_amber[pairs.num_amber]);
-		for (int i=threads.thread_rank(); i<pairs.num_eef1; i+=threads.size()) {
+		for (uint i=threadIdx.x; i<pairs.num_eef1; i+=blockDim.x) {
 			auto pair = pairs_eef1[i];
 			Real3<T> atom1 = atoms[pair.atomi1];
 			Real3<T> atom2 = atoms[pair.atomi2];
@@ -118,20 +118,20 @@ namespace osprey { namespace ambereef1 {
 		}
 
 		// do a sum reduction across all threads
-		thread_energy[threads.thread_rank()] = energy;
-		threads.sync();
+		thread_energy[threadIdx.x] = energy;
+		__syncthreads();
 
-		for (uint offset=1; offset<threads.size(); offset<<=1) {
+		for (uint offset=1; offset<blockDim.x; offset<<=1) {
 
 			// sum this level of the reduction tree
 			int mask = (offset << 1) - 1;
-			if ((threads.thread_rank() & mask) == 0) {
-				int pos = threads.thread_rank() + offset;
-				if (pos < threads.size()) {
-					thread_energy[threads.thread_rank()] += thread_energy[pos];
+			if ((threadIdx.x & mask) == 0) {
+				int pos = threadIdx.x + offset;
+				if (pos < blockDim.x) {
+					thread_energy[threadIdx.x] += thread_energy[pos];
 				}
 			}
-			threads.sync();
+			__syncthreads();
 		}
 
 		return thread_energy[0];
@@ -139,7 +139,7 @@ namespace osprey { namespace ambereef1 {
 
 	template<typename T>
 	__device__
-	T calc_energy(Assignment<T> & assignment, const Array<PosInter<T>> & inters, cg::thread_group threads, T thread_energy[]) {
+	T calc_energy(Assignment<T> & assignment, const Array<PosInter<T>> & inters, T thread_energy[]) {
 
 		const Params & params = *reinterpret_cast<const Params *>(assignment.conf_space.get_params());
 
@@ -162,7 +162,7 @@ namespace osprey { namespace ambereef1 {
 
 			// add the energy for the atom pairs
 			const AtomPairs & atom_pairs = *reinterpret_cast<const AtomPairs *>(assignment.get_atom_pairs(inter.posi1, inter.posi2));
-			inter_energy += calc<T>(assignment.atoms, params, atom_pairs, threads, thread_energy);
+			inter_energy += calc<T>(assignment.atoms, params, atom_pairs, thread_energy);
 
 			// TODO: inline calc, move the reduction to the end
 

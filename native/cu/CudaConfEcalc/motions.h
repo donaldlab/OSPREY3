@@ -27,7 +27,7 @@ namespace osprey {
 			virtual T get() const = 0;
 
 			__device__
-			virtual void set(T val, cg::thread_group threads) = 0;
+			virtual void set(T val) = 0;
 
 			__device__
 			inline T center() const {
@@ -162,41 +162,36 @@ namespace osprey {
 					}
 
 					__device__
-					virtual void set(T radians, cg::thread_group threads) {
+					virtual void set(T radians) {
 
-						Real3<T> a = assignment.atoms[dihedral.a_index];
-						Real3<T> b = assignment.atoms[dihedral.b_index];
-						Real3<T> c = assignment.atoms[dihedral.c_index];
-						Real3<T> d = assignment.atoms[dihedral.d_index];
-
-						// translate so b is at the origin
-						a -= b;
-						c -= b;
-						d -= b;
+						const Real3<T> & b = assignment.atoms[dihedral.b_index];
+						const Real3<T> & a = assignment.atoms[dihedral.a_index];
+						const Real3<T> & c = assignment.atoms[dihedral.c_index];
+						const Real3<T> & d = assignment.atoms[dihedral.d_index];
 
 						// rotate into a coordinate system where:
 						//   b->c is along the -z axis
 						//   b->a is in the yz plane
-						Rotation<T> r_in;
-						r_in.set_look(c, a);
-						d = r_in*d;
+						Rotation<T> r;
+						r.set_look(c - b, a - b);
 
 						// rotate about z to set the desired dihedral angle
-						Rotation<T> r_z;
-						r_z.set_z(HalfPi<T> - radians - atan2(d.y, d.x));
-
-						// rotate back into the world frame
-						Rotation<T> r_out(r_in);
-						r_out.invert();
+						T dx = dot<T>(r.xaxis, d - b);
+						T dy = dot<T>(r.yaxis, d - b);
+						RotationZ<T> r_z(HalfPi<T> - radians - atan2(dy, dx));
 
 						// transform all the rotated atoms, in parallel
-						for (int i=threads.thread_rank(); i<dihedral.num_rotated; i+=threads.size()) {
+						for (uint i=threadIdx.x; i<dihedral.num_rotated; i+=blockDim.x) {
 							Real3<T> & p = assignment.atoms[dihedral.get_rotated_index(i)];
 							assert (!isnan3<T>(p));
-							p = r_out*(r_z*(r_in*(p - b))) + b;
+							p -= b;
+							p *= r;
+							p *= r_z;
+							r.mul_inv(p); // p = r^T p
+							p += b;
 							assert (!isnan3<T>(p));
 						}
-						threads.sync();
+						__syncthreads();
 					}
 			};
 

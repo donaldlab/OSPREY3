@@ -85,9 +85,9 @@ public class TestNativeConfEnergyCalculator {
 
 	public static void setPrecision(CoordsList coords, Structs.Precision precision) {
 		for (int i=0; i<coords.size; i++) {
-			coords.setX(i, precision.toDouble(precision.fromDouble(coords.x(i))));
-			coords.setY(i, precision.toDouble(precision.fromDouble(coords.y(i))));
-			coords.setZ(i, precision.toDouble(precision.fromDouble(coords.z(i))));
+			coords.setX(i, precision.cast(coords.x(i)));
+			coords.setY(i, precision.cast(coords.y(i)));
+			coords.setZ(i, precision.cast(coords.z(i)));
 		}
 	}
 

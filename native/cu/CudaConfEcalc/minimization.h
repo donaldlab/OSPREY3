@@ -17,27 +17,27 @@ namespace osprey {
 			~DofValues() = default;
 
 			__device__
-			inline void set(const DofValues<T> & other, cg::thread_group threads) {
+			inline void set(const DofValues<T> & other) {
 
 				// TODO: do all the copies simultaneously, but on different threads?
-				if (threads.thread_rank() == 0) {
+				if (threadIdx.x == 0) {
 					f = other.f;
 				}
-				threads.sync();
+				__syncthreads();
 
 				assert (x.get_size() == other.x.get_size());
-				x.copy_from_device(other.x, threads);
+				x.copy_from_device(other.x);
 			}
 
 			T f;
 			Array<T> x;
 
 			__device__
-			static inline DofValues<T> make(int size, cg::thread_group threads, void * shared_ptr) {
-				if (threads.thread_rank() == 0) {
+			static inline DofValues<T> make(int size, void * shared_ptr) {
+				if (threadIdx.x == 0) {
 					shared_ptr = std::malloc(get_bytes(size));
 				}
-				threads.sync();
+				__syncthreads();
 				return reinterpret_cast<DofValues<T> *>(shared_ptr);
 			}
 
@@ -71,7 +71,6 @@ namespace osprey {
 			Dofs(Assignment<T> & assignment,
 			     const Array<PosInter<T>> & inters,
 			     EnergyFunction<T> efunc,
-			     cg::thread_group threads,
 			     T thread_energy[],
 			     Dof<T> * shared_dofs[]):
 					assignment(assignment), efunc(efunc), thread_energy(thread_energy), inters(inters), shared_dofs(shared_dofs) {
@@ -85,7 +84,7 @@ namespace osprey {
 					switch (assignment.conf_space.get_molecule_motion_id(motioni)) {
 
 						case motions::Dihedral<T>::id: {
-							if (threads.thread_rank() == 0) {
+							if (threadIdx.x == 0) {
 								const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_molecule_motion(motioni));
 								shared_dofs[size] = dihedral.make_dof(assignment, inters);
 							}
@@ -106,7 +105,7 @@ namespace osprey {
 						switch (assignment.conf_space.get_conf_motion_id(conf, motioni)) {
 
 							case motions::Dihedral<T>::id: {
-								if (threads.thread_rank() == 0) {
+								if (threadIdx.x == 0) {
 									const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
 									shared_dofs[size] = dihedral.make_dof(assignment, inters);
 								}
@@ -119,7 +118,7 @@ namespace osprey {
 				}
 
 				// sync the writes to shared_dofs
-				threads.sync();
+				__syncthreads();
 			}
 
 			__device__
@@ -127,11 +126,11 @@ namespace osprey {
 			~Dofs() = default;
 
 			__device__
-			inline void free(cg::thread_group threads) const {
-				for (int d=threads.thread_rank(); d<size; d+=threads.size()) {
+			inline void free() const {
+				for (int d=threadIdx.x; d<size; d+=blockDim.x) {
 					shared_dofs[d]->free();
 				}
-				threads.sync();
+				__syncthreads();
 			}
 
 			__device__
@@ -145,7 +144,7 @@ namespace osprey {
 			}
 
 			__device__
-			inline void set(const Array<T> & x, cg::thread_group threads) {
+			inline void set(const Array<T> & x) {
 
 				// WARNING: it may be tempting to set dofs in parallel here
 				// but don't do it: different dofs can move the same atoms! it'll race!
@@ -153,21 +152,21 @@ namespace osprey {
 				assert (x.get_size() == size);
 				for (int d=0; d<x.get_size(); d++) {
 					assert (shared_dofs[d] != nullptr);
-					shared_dofs[d]->set(x[d], threads);
+					shared_dofs[d]->set(x[d]);
 				}
 			}
 
 			__device__
-			inline T eval_efunc(Array<T> & x, cg::thread_group threads) {
-				set(x, threads);
-				return efunc(assignment, inters, threads, thread_energy);
+			inline T eval_efunc(Array<T> & x) {
+				set(x);
+				return efunc(assignment, inters, thread_energy);
 			}
 
 			__device__
-			inline T eval_efunc(int d, T x, cg::thread_group threads) {
+			inline T eval_efunc(int d, T x) {
 				Dof<T> & dof = *shared_dofs[d];
-				dof.set(x, threads);
-				return efunc(assignment, dof.get_inters(), threads, thread_energy);
+				dof.set(x);
+				return efunc(assignment, dof.get_inters(), thread_energy);
 			}
 
 		private:
@@ -194,10 +193,10 @@ namespace osprey {
 	// search the line by fitting a local quadratic model, taking a step, and then surfing the slope
 	template<typename T>
 	__device__
-	static T line_search_surf(Dofs<T> & dofs, int d, T x, T & step, cg::thread_group threads) {
+	static T line_search_surf(Dofs<T> & dofs, int d, T x, T & step) {
 
-		auto f = [&dofs, d, threads](T x) -> T {
-			return dofs.eval_efunc(d, x, threads);
+		auto f = [&dofs, d](T x) -> T {
+			return dofs.eval_efunc(d, x);
 		};
 
 		T fx = f(x);
@@ -397,7 +396,7 @@ namespace osprey {
 		}
 
 		// set the coords back to the best option
-		dofs[d].set(xstar, threads);
+		dofs[d].set(xstar);
 
 		return xstar;
 	}
@@ -409,7 +408,7 @@ namespace osprey {
 	};
 
 	template<typename T>
-	using LineSearchFunction = T (*)(Dofs<T> &, int, T, T&, cg::thread_group);
+	using LineSearchFunction = T (*)(Dofs<T> &, int, T, T&);
 
 	// TODO: use launch bounds to limit register usage?
 	//__launch_bounds__(maxThreadsPerBlock, minBlocksPerMultiprocessor)
@@ -420,11 +419,10 @@ namespace osprey {
 	static void minimize_ccd(Dofs<T> & dofs,
 	                         DofValues<T> & here,
 	                         DofValues<T> & next,
-	                         LineSearchState<T> shared_line_search_states[],
-	                         cg::thread_group threads) {
+	                         LineSearchState<T> shared_line_search_states[]) {
 
 		// get the current objective function value
-		here.f = dofs.eval_efunc(here.x, threads);
+		here.f = dofs.eval_efunc(here.x);
 
 		// ccd is pretty simple actually
 		// just do a line search along each dimension until we stop improving
@@ -438,7 +436,7 @@ namespace osprey {
 		for (int iter=0; iter<max_iterations; iter++) {
 
 			// update all the dofs using line search
-			next.set(here, threads);
+			next.set(here);
 			for (int d=0; d<dofs.get_size(); d++) {
 
 				Dof<T> & dof = dofs[d];
@@ -453,25 +451,25 @@ namespace osprey {
 				}
 
 				// get the next x value for this dof
-				next.x[d] = line_search(dofs, d, next.x[d], step, threads);
+				next.x[d] = line_search(dofs, d, next.x[d], step);
 
 				// update step stats
-				if (threads.thread_rank() == 0) {
+				if (threadIdx.x == 0) {
 					if (iter == 0) {
 						state.first_step = step;
 					}
 					state.last_step = step;
 				}
-				threads.sync();
+				__syncthreads();
 			}
 
 			// how much did we improve?
-			next.f = dofs.eval_efunc(next.x, threads);
+			next.f = dofs.eval_efunc(next.x);
 			T improvement = here.f - next.f;
 			if (improvement > 0) {
 
 				// take the step
-				here.set(next, threads);
+				here.set(next);
 
 				if (improvement < convergence_threshold) {
 					break;
@@ -480,7 +478,7 @@ namespace osprey {
 			} else {
 
 				// don't take the step, revert the coords
-				dofs.set(here.x, threads);
+				dofs.set(here.x);
 
 				break;
 			}

@@ -14,6 +14,20 @@ namespace cuda {
 	}
 
 	__host__
+	int get_arch() {
+
+		int major;
+		cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, 0);
+		check_error();
+
+		int minor;
+		cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, 0);
+		check_error();
+
+		return major*100 + minor*10;
+	}
+
+	__host__
 	int optimize_threads_void(const void * func, size_t shared_size_static, size_t shared_size_per_thread) {
 
 		// TODO: device selection

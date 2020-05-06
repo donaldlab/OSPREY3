@@ -23,11 +23,11 @@ namespace osprey {
 
 			// set the size when the Array is in shared or global memory
 			__device__
-			inline void init(int64_t _size, cg::thread_group threads) {
-				if (threads.thread_rank() == 0) {
+			inline void init(int64_t _size) {
+				if (threadIdx.x == 0) {
 					size = _size;
 				}
-				threads.sync();
+				__syncthreads();
 			}
 
 			// for allocating on a single thread
@@ -100,7 +100,7 @@ namespace osprey {
 			}
 
 			__device__
-			inline int64_t copy_from_device(const Array<T> & src, int64_t srci, int64_t count, int64_t dsti, cg::thread_group threads) {
+			inline int64_t copy_from_device(const Array<T> & src, int64_t srci, int64_t count, int64_t dsti) {
 
 				// just in case...
 				assert (dsti >= 0);
@@ -108,35 +108,35 @@ namespace osprey {
 				assert (srci >= 0);
 				assert (srci + count <= src.size);
 
-				for (int i=threads.thread_rank(); i<count; i += threads.size()) {
+				for (uint i=threadIdx.x; i<count; i += blockDim.x) {
 					operator[](dsti + i) = src[srci + i];
 				}
-				threads.sync();
+				__syncthreads();
 
 				return count;
 			}
 
 			__device__
-			inline int64_t copy_from_device(const Array<T> & src, int64_t dsti, cg::thread_group threads) {
-				return copy_from_device(src, 0, src.get_size(), dsti, threads);
+			inline int64_t copy_from_device(const Array<T> & src, int64_t dsti) {
+				return copy_from_device(src, 0, src.get_size(), dsti);
 			}
 
 			__device__
-			inline int64_t copy_from_device(const Array<T> & src, cg::thread_group threads) {
-				return copy_from_device(src, 0, threads);
+			inline int64_t copy_from_device(const Array<T> & src) {
+				return copy_from_device(src, 0);
 			}
 
 			__device__
-			inline int64_t fill_device(int64_t dsti, int64_t count, const T & val, cg::thread_group threads) {
+			inline int64_t fill_device(int64_t dsti, int64_t count, const T & val) {
 
 				// just in case...
 				assert (dsti >= 0);
 				assert (dsti + count <= size);
 
-				for (int i=threads.thread_rank(); i<count; i += threads.size()) {
+				for (uint i=threadIdx.x; i<count; i += blockDim.x) {
 					operator[](dsti + i) = val;
 				}
-				threads.sync();
+				__syncthreads();
 
 				return count;
 			}

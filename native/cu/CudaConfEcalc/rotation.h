@@ -30,7 +30,7 @@ namespace osprey {
 		return radians;
 	}
 
-	// a 3x3 matrix representation of a rotation
+	// a 3x3 column-major matrix representation of a rotation
 	template<typename T>
 	class Rotation {
 		public:
@@ -90,6 +90,24 @@ namespace osprey {
 				swap(xaxis.z, zaxis.x);
 				swap(yaxis.z, zaxis.y);
 			}
+
+			__device__
+			inline void mul(Real3<T> & v) {
+				v = real3<T>(
+					dot<T>(xaxis, v),
+					dot<T>(yaxis, v),
+					dot<T>(zaxis, v)
+				);
+			}
+
+			__device__
+			inline void mul_inv(Real3<T> & v) {
+				v = real3<T>(
+					xaxis.x*v.x + yaxis.x*v.y + zaxis.x*v.z,
+					xaxis.y*v.x + yaxis.y*v.y + zaxis.y*v.z,
+					xaxis.z*v.x + yaxis.z*v.y + zaxis.z*v.z
+				);
+			}
 	};
 
 	template<typename T>
@@ -100,6 +118,44 @@ namespace osprey {
 			dot<T>(r.yaxis, v),
 			dot<T>(r.zaxis, v)
 		);
+	}
+
+	template<typename T>
+	__device__
+	inline Real3<T> & operator *= (Real3<T> & v, const Rotation<T> & r) {
+		v = r*v;
+		return v;
+	}
+
+	// a 2x2 column-major matrix representation of a rotation
+	template<typename T>
+	class RotationZ {
+		public:
+			T cos;
+			T sin;
+
+			__device__
+			inline explicit RotationZ(T radians):
+				sin(std::sin(radians)), cos(std::cos(radians)) {}
+
+		private:
+	};
+
+	template<typename T>
+	__device__
+	inline Real3<T> operator * (const RotationZ<T> & r, const Real3<T> & v) {
+		return real3<T>(
+			r.cos*v.x - r.sin*v.y,
+			r.sin*v.x + r.cos*v.y,
+			v.z
+		);
+	}
+
+	template<typename T>
+	__device__
+	inline Real3<T> & operator *= (Real3<T> & v, const RotationZ<T> & r) {
+		v = r*v;
+		return v;
 	}
 }
 

@@ -15,7 +15,7 @@ namespace osprey {
 	ASSERT_JAVA_COMPATIBLE_REALS(PosInter, 16, 24);
 
 	template<typename T>
-	using EnergyFunction = T (*)(Assignment<T> &, const Array<PosInter<T>> &, cg::thread_group, T[]);
+	using EnergyFunction = T (*)(Assignment<T> &, const Array<PosInter<T>> &, T[]);
 }
 
 

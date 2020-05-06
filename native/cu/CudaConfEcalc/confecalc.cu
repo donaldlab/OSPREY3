@@ -82,8 +82,6 @@ namespace osprey {
 	__global__
 	void assign_kernel(const ConfSpace<T> * conf_space, const Array<int32_t> * conf, Array<osprey::Real3<T>> * out_coords) {
 
-		cg::thread_block threads = cg::this_thread_block();
-
 		// slice up the shared memory
 		extern __shared__ int8_t shared[];
 		int64_t shared_offset = 0;
@@ -92,9 +90,9 @@ namespace osprey {
 		auto shared_conf_energies = reinterpret_cast<T *>(shared + shared_offset);
 
 		// init the sizes for cudaMalloc'd Array instances
-		out_coords->init(conf_space->max_num_conf_atoms, threads);
+		out_coords->init(conf_space->max_num_conf_atoms);
 
-		Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_atom_pairs, shared_conf_energies, threads);
+		Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_atom_pairs, shared_conf_energies);
 	}
 
 	template<typename T>
@@ -158,8 +156,6 @@ namespace osprey {
 	                 osprey::Array<osprey::Real3<T>> * out_coords,
 	                 T * out_energy) {
 
-		cg::thread_block threads = cg::this_thread_block();
-
 		// slice up the shared memory
 		extern __shared__ int8_t shared[];
 		int64_t shared_offset = 0;
@@ -170,13 +166,13 @@ namespace osprey {
 		auto thread_energy = reinterpret_cast<T *>(shared + shared_offset);
 
 		// init the sizes for cudaMalloc'd Array instances
-		out_coords->init(conf_space->max_num_conf_atoms, threads);
+		out_coords->init(conf_space->max_num_conf_atoms);
 
 		// make the atoms
-		osprey::Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_atom_pairs, shared_conf_energies, threads);
+		osprey::Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_atom_pairs, shared_conf_energies);
 
 		// call the energy function
-		*out_energy = efunc(assignment, *inters, threads, thread_energy);
+		*out_energy = efunc(assignment, *inters, thread_energy);
 	}
 
 	template<typename T, osprey::EnergyFunction<T> efunc>
@@ -268,15 +264,43 @@ API float64_t calc_amber_eef1_f64(const osprey::ConfSpace<float64_t> * d_conf_sp
 
 namespace osprey {
 
+	#if __CUDA_ARCH__ >= 700 // volta
+		#define MINIMIZE_THREADS 1024 // TODO: optimize for volta
+		#define MINIMIZE_BLOCKS 1
+	#elif __CUDA_ARCH__ >= 600 // pascal
+		#define MINIMIZE_THREADS 1024
+		#define MINIMIZE_BLOCKS 1
+	#elif __CUDA_ARCH__ >= 500 // maxwell
+		#define MINIMIZE_THREADS 1024 // TODO: optimize for maxwell?
+		#define MINIMIZE_BLOCKS 1
+	#else
+		// host side
+		#define MINIMIZE_THREADS -1
+		#define MINIMIZE_BLOCKS -1
+	#endif
+
+	__host__
+	int get_minimize_threads() {
+		int arch = cuda::get_arch();
+		if (arch >= 700) { // volta
+			return 1024;
+		} else if (arch >= 600) { // pascal
+			return 1024;
+		} else if (arch >= 500) { // maxwell
+			return 1024;
+		} else {
+			throw std::runtime_error("unsupported CUDA architecture");
+		}
+	}
+
 	template<typename T, EnergyFunction<T> efunc>
 	__global__
+	__launch_bounds__(MINIMIZE_THREADS, MINIMIZE_BLOCKS)
 	void minimize_kernel(const ConfSpace<T> * conf_space,
 	                     const Array<int32_t> * conf,
 	                     const Array<PosInter<T>> * inters,
 	                     Array<Real3<T>> * out_coords,
 	                     DofValues<T> * out_dof_values) {
-
-		cg::thread_block threads = cg::this_thread_block();
 
 		// slice up the shared memory
 		extern __shared__ int8_t shared[];
@@ -296,39 +320,39 @@ namespace osprey {
 		auto thread_energy = reinterpret_cast<T *>(shared + shared_offset);
 
 		// init the sizes for cudaMalloc'd Array instances
-		out_coords->init(conf_space->max_num_conf_atoms, threads);
-		out_dof_values->x.init(conf_space->max_num_dofs, threads);
+		out_coords->init(conf_space->max_num_conf_atoms);
+		out_dof_values->x.init(conf_space->max_num_dofs);
 
 		// init sizes for Array instances in shared memory
-		shared_here->x.init(conf_space->max_num_dofs, threads);
-		shared_next->x.init(conf_space->max_num_dofs, threads);
+		shared_here->x.init(conf_space->max_num_dofs);
+		shared_next->x.init(conf_space->max_num_dofs);
 
 		// make the atoms and the degrees of freedom
-		Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_atom_pairs, shared_conf_energies, threads);
-		Dofs<T> dofs(assignment, *inters, efunc, threads, thread_energy, shared_dofs);
+		Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_atom_pairs, shared_conf_energies);
+		Dofs<T> dofs(assignment, *inters, efunc, thread_energy, shared_dofs);
 
 		// truncate the dof values to match the actual number of dofs
-		if (threads.thread_rank() == 0) {
+		if (threadIdx.x == 0) {
 			out_dof_values->x.truncate(dofs.get_size());
 			shared_here->x.truncate(dofs.get_size());
 			shared_next->x.truncate(dofs.get_size());
 		}
-		threads.sync();
+		__syncthreads();
 
 		// init the dofs to the center of the voxel
-		for (int d=threads.thread_rank(); d<dofs.get_size(); d+=threads.size()) {
+		for (int d=threadIdx.x; d<dofs.get_size(); d+=blockDim.x) {
 			shared_here->x[d] = dofs[d].center();
 		}
-		threads.sync();
+		__syncthreads();
 
 		// use CCD to do the minimization
-		minimize_ccd(dofs, *shared_here, *shared_next, shared_line_search_states, threads);
+		minimize_ccd(dofs, *shared_here, *shared_next, shared_line_search_states);
 
 		// cleanup
-		dofs.free(threads);
+		dofs.free();
 
 		// copy dof values to global memory
-		out_dof_values->set(*shared_here, threads);
+		out_dof_values->set(*shared_here);
 	}
 
 	template<typename T, EnergyFunction<T> efunc>
@@ -380,9 +404,8 @@ namespace osprey {
 		int64_t shared_size_per_thread = sizeof(T);
 
 		// launch the kernel
-		// TODO: cache thread optimization
 		auto kernel = minimize_kernel<T,efunc>;
-		int num_threads = cuda::optimize_threads(*kernel, shared_size_static, shared_size_per_thread);
+		int num_threads = get_minimize_threads();
 		int64_t shared_size = shared_size_static + shared_size_per_thread*num_threads;
 		kernel<<<1, num_threads, shared_size>>>(d_conf_space, d_conf, d_inters, d_out_coords, d_out_dof_values);
 		cuda::check_error();

@@ -249,6 +249,9 @@ namespace cuda {
 	void check_error();
 
 	__host__
+	int get_arch();
+
+	__host__
 	int optimize_threads_void(const void * func, size_t shared_size_static, size_t shared_size_per_thread);
 
 	// pick the greatest number of the threads that keeps occupancy above 0
@@ -267,8 +270,8 @@ namespace cuda {
 }
 
 
-#define PRINTF0(threads, fmt, ...) \
-	if (threads.thread_rank() == 0) { \
+#define PRINTF0(fmt, ...) \
+	if (threadIdx.x == 0) { \
 		printf(fmt, __VA_ARGS__); \
 	}
 
