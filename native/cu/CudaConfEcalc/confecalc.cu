@@ -120,6 +120,7 @@ namespace osprey {
 			+ Assignment<T>::sizeof_conf_energies(conf.get_size());
 
 		// launch the kernel
+		// TODO: optimize launch bounds
 		int num_threads = cuda::optimize_threads(assign_kernel<T>, shared_size, 0);
 		assign_kernel<<<1, num_threads, shared_size>>>(d_conf_space, d_conf, d_out_coords);
 		cuda::check_error();
@@ -218,7 +219,7 @@ namespace osprey {
 		int64_t shared_size_per_thread = sizeof(T);
 
 		// launch the kernel
-		// TODO: cache thread optimization
+		// TODO: optimize launch bounds
 		auto kernel = calc_kernel<T,efunc>;
 		int num_threads = cuda::optimize_threads(*kernel, shared_size_static, shared_size_per_thread);
 		int64_t shared_size = shared_size_static + shared_size_per_thread*num_threads;
