@@ -881,6 +881,7 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
         
         
     private List<HashMap<String,double[]>> listBackboneVoxels(Position pos){
+
         var bbVoxels = strandFlex.get(pos.strand)
                                  .stream()
                                  .map((flex) -> flex.listBackboneVoxels(pos))
@@ -888,15 +889,19 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
                                  .flatMap(Collection::stream)
                                  .collect(Collectors.toList());
 
-        if (bbVoxels.size() > 1) {
-            throw new RuntimeException("ERROR: Can't have multiple types of backbone flexibility for the same residue");
-            //not supported, because current backbone DOF implementations depend on the DOF block
-            //keeping track of the unperturbed backbone conformation, so if another type of motion
-            //changes that unperturbed bb conf, then there will be errors
-            //Mutations and sidechain dihedrals don't move the backbone so no issue there
-        }
+        if (bbVoxels.isEmpty()) {
+			bbVoxels.add(new HashMap<>());
+		}
 
-        return bbVoxels;
+        if (bbVoxels.size() == 1) {
+			return bbVoxels;
+		}
+
+		//not supported, because current backbone DOF implementations depend on the DOF block
+		//keeping track of the unperturbed backbone conformation, so if another type of motion
+		//changes that unperturbed bb conf, then there will be errors
+		//Mutations and sidechain dihedrals don't move the backbone so no issue there
+		throw new RuntimeException("ERROR: Can't have multiple types of backbone flexibility for the same residue");
     }
 
 	public SimpleConfSpace makeSubspace(Strand strand) {
