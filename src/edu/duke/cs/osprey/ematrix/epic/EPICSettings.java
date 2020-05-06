@@ -67,7 +67,7 @@ public class EPICSettings implements Serializable {
     boolean useSAPE = true;
     boolean usePC = true;//use principal-component polynomials
     
-    boolean quadOnly = false;//use only quadratic polynomials + SAPE
+    public boolean quadOnly = false;//use only quadratic polynomials + SAPE
     
     public boolean minPartialConfs = true;//In A*, minimize sum of polynomial fits for partially
     //defined conformations, as well as for fully enumerated ones.  Increase A* lower bounds
