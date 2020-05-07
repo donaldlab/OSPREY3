@@ -106,6 +106,10 @@ public class BufWriter {
 		return pos;
 	}
 
+	public boolean isAligned(long alignment) {
+		return pos % alignment == 0;
+	}
+
 	public void skipToAlignment(long alignment) {
 		pos = padToAlignment(pos, alignment);
 	}
@@ -134,5 +138,11 @@ public class BufWriter {
 	public void place(Structs.Array array, long size) {
 		array.setAddress(address());
 		skip(array.bytes(size));
+	}
+
+	public void place(Structs.Array array, long size, long align) {
+		array.setAddress(address());
+		skip(array.bytes(size));
+		skipToAlignment(align);
 	}
 }

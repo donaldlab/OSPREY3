@@ -266,7 +266,7 @@ API float64_t calc_amber_eef1_f64(const osprey::ConfSpace<float64_t> * d_conf_sp
 namespace osprey {
 
 	#if __CUDA_ARCH__ >= 700 // volta
-		#define MINIMIZE_THREADS 1024 // TODO: optimize for volta
+		#define MINIMIZE_THREADS 512 // TODO: optimize for volta
 		#define MINIMIZE_BLOCKS 1
 	#elif __CUDA_ARCH__ >= 600 // pascal
 		#define MINIMIZE_THREADS 1024
@@ -284,7 +284,7 @@ namespace osprey {
 	int get_minimize_threads() {
 		int arch = cuda::get_arch();
 		if (arch >= 700) { // volta
-			return 1024;
+			return 512;
 		} else if (arch >= 600) { // pascal
 			return 1024;
 		} else if (arch >= 500) { // maxwell

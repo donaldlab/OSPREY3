@@ -48,6 +48,14 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		public static native double minimize_amber_eef1_f64(Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long numDofs);
 	}
 
+	// biggest LD instruction we can use, in bytes
+	// to make sure structs get aligned so we can minimize LD instructions needed
+	private static final long WidestGpuLoad = 16;
+
+	private static long padToGpuAlignment(long pos) {
+		return BufWriter.padToAlignment(pos, WidestGpuLoad);
+	}
+
 	public static boolean isSupported() {
 		return NativeLib.cuda_version_driver() > 0 && NativeLib.cuda_version_runtime() > 0;
 	}
@@ -81,15 +89,22 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		double calc(Pointer pConfSpace, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms);
 		double minimize(Pointer pConfSpace, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms, ByteBuffer dofsBuf, long numDofs);
 		long paramsBytes();
-		void writeParams(ConfSpace confSpace, BufWriter buf);
-		long staticStaticBytes(ConfSpace confSpace);
-		long staticPosBytes(ConfSpace confSpace, int posi1, int fragi1);
-		long posBytes(ConfSpace confSpace, int posi1, int fragi1);
-		long posPosBytes(ConfSpace confSpace, int posi1, int fragi1, int posi2, int fragi2);
-		void writeStaticStatic(ConfSpace confSpace, BufWriter buf);
-		void writeStaticPos(ConfSpace confSpace, int posi1, int fragi1, BufWriter buf);
-		void writePos(ConfSpace confSpace, int posi1, int fragi1, BufWriter buf);
-		void writePosPos(ConfSpace confSpace, int posi1, int fragi1, int posi2, int fragi2, BufWriter buf);
+		void writeParams(BufWriter buf);
+		long staticStaticBytes();
+		long staticPosBytes(int posi1, int fragi1);
+		long posBytes(int posi1, int fragi1);
+		long posPosBytes(int posi1, int fragi1, int posi2, int fragi2);
+		void writeStaticStatic(BufWriter buf);
+		void writeStaticPos(int posi1, int fragi1, BufWriter buf);
+		void writePos(int posi1, int fragi1, BufWriter buf);
+		void writePosPos(int posi1, int fragi1, int posi2, int fragi2, BufWriter buf);
+	}
+
+	private interface AtomPairWriter {
+		int size();
+		int atomi1(int i);
+		int atomi2(int i);
+		double[] params(int i);
 	}
 
 	private class AmberEef1 implements ForcefieldsImpl {
@@ -106,34 +121,63 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		class SAtomPairs extends Struct {
 			final Int32 num_amber = int32();
 			final Int32 num_eef1 = int32();
+			final Pad pad = pad(8);
 			void init() {
-				init(8, "num_amber", "num_eef1");
+				init(16, "num_amber", "num_eef1", "pad");
 			}
 		}
 		final SAtomPairs atomPairsStruct = new SAtomPairs();
 
-		class SAtomPairAmber extends Struct {
+		class SAtomPairAmberF32a extends Struct {
 			final Int32 atomi1 = int32();
 			final Int32 atomi2 = int32();
-			final Real esQ = real(precision);
-			final Real vdwA = real(precision);
-			final Real vdwB = real(precision);
-			final Pad pad = pad(precision.map(4, 0));
-
 			void init() {
-				init(
-					precision.map(24, 32),
-				"atomi1", "atomi2", "esQ", "vdwA", "vdwB", "pad"
-				);
+				init(8, "atomi1", "atomi2");
 			}
+		}
+		final SAtomPairAmberF32a amberF32aStruct = new SAtomPairAmberF32a();
 
+		class SAtomPairAmberF32b extends Struct {
+			final Float32 esQ = float32();
+			final Float32 vdwA = float32();
+			final Float32 vdwB = float32();
+			final Pad pad = pad(4);
+			void init() {
+				init(16, "esQ", "vdwA", "vdwB", "pad");
+			}
+			void setParams(double[] params) {
+				esQ.set((float)params[0]);
+				vdwA.set((float)params[1]);
+				vdwB.set((float)params[2]);
+			}
+		}
+		final SAtomPairAmberF32b amberF32bStruct = new SAtomPairAmberF32b();
+
+		class SAtomPairAmberF64a extends Struct {
+			final Int32 atomi1 = int32();
+			final Int32 atomi2 = int32();
+			final Float64 esQ = float64();
 			void setParams(double[] params) {
 				esQ.set(params[0]);
+			}
+			void init() {
+				init(16, "atomi1", "atomi2", "esQ");
+			}
+		}
+		final SAtomPairAmberF64a amberF64aStruct = new SAtomPairAmberF64a();
+
+		class SAtomPairAmberF64b extends Struct {
+			final Float64 vdwA = float64();
+			final Float64 vdwB = float64();
+			void init() {
+				init(16, "vdwA", "vdwB");
+			}
+			void setParams(double[] params) {
 				vdwA.set(params[1]);
 				vdwB.set(params[2]);
 			}
 		}
-		final SAtomPairAmber amberStruct = new SAtomPairAmber();
+		final SAtomPairAmberF64b amberF64bStruct = new SAtomPairAmberF64b();
 
 		class SAtomPairEef1 extends Struct {
 			final Int32 atomi1 = int32();
@@ -168,7 +212,10 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			// once we know the precision, init the structs
 			paramsStruct.init();
 			atomPairsStruct.init();
-			amberStruct.init();
+			amberF32aStruct.init();
+			amberF32bStruct.init();
+			amberF64aStruct.init();
+			amberF64bStruct.init();
 			eef1Struct.init();
 		}
 
@@ -194,7 +241,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		@Override
-		public void writeParams(ConfSpace confSpace, BufWriter buf) {
+		public void writeParams(BufWriter buf) {
 
 			buf.place(paramsStruct);
 
@@ -205,132 +252,202 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			// no EEF1 params to write
 		}
 
-		@Override
-		public long staticStaticBytes(ConfSpace confSpace) {
+		private long atomPairsBytes(int numAmber, int numEef1) {
 			return atomPairsStruct.bytes()
-				+ confSpace.indicesStatic(0).size()*amberStruct.bytes()
-				+ confSpace.indicesStatic(1).size()*eef1Struct.bytes();
+				+ switch (precision) {
+					case Float32 -> padToGpuAlignment(numAmber*amberF32aStruct.bytes())
+						+ numAmber*amberF32bStruct.bytes();
+					case Float64 -> numAmber*amberF64aStruct.bytes()
+						+ numAmber*amberF64bStruct.bytes();
+				}
+				+ padToGpuAlignment(numEef1*eef1Struct.bytes());
 		}
 
 		@Override
-		public long staticPosBytes(ConfSpace confSpace, int posi1, int fragi1) {
-			return atomPairsStruct.bytes()
-				+ confSpace.indicesSinglesByFrag(0, posi1, fragi1).sizeStatics()*amberStruct.bytes()
-				+ confSpace.indicesSinglesByFrag(1, posi1, fragi1).sizeStatics()*eef1Struct.bytes();
+		public long staticStaticBytes() {
+			return atomPairsBytes(
+				confSpace.indicesStatic(0).size(),
+				confSpace.indicesStatic(1).size()
+			);
 		}
 
 		@Override
-		public long posBytes(ConfSpace confSpace, int posi1, int fragi1) {
-			return atomPairsStruct.bytes()
-				+ confSpace.indicesSinglesByFrag(0, posi1, fragi1).sizeInternals()*amberStruct.bytes()
-				+ confSpace.indicesSinglesByFrag(1, posi1, fragi1).sizeInternals()*eef1Struct.bytes();
+		public long staticPosBytes(int posi1, int fragi1) {
+			return atomPairsBytes(
+				confSpace.indicesSinglesByFrag(0, posi1, fragi1).sizeStatics(),
+				confSpace.indicesSinglesByFrag(1, posi1, fragi1).sizeStatics()
+			);
 		}
 
 		@Override
-		public long posPosBytes(ConfSpace confSpace, int posi1, int fragi1, int posi2, int fragi2) {
-			return atomPairsStruct.bytes()
-				+ confSpace.indicesPairsByFrags(0, posi1, fragi1, posi2, fragi2).size()*amberStruct.bytes()
-				+ confSpace.indicesPairsByFrags(1, posi1, fragi1, posi2, fragi2).size()*eef1Struct.bytes();
+		public long posBytes(int posi1, int fragi1) {
+			return atomPairsBytes(
+				confSpace.indicesSinglesByFrag(0, posi1, fragi1).sizeInternals(),
+				confSpace.indicesSinglesByFrag(1, posi1, fragi1).sizeInternals()
+			);
 		}
 
 		@Override
-		public void writeStaticStatic(ConfSpace confSpace, BufWriter buf) {
+		public long posPosBytes(int posi1, int fragi1, int posi2, int fragi2) {
+			return atomPairsBytes(
+				confSpace.indicesPairsByFrags(0, posi1, fragi1, posi2, fragi2).size(),
+				confSpace.indicesPairsByFrags(1, posi1, fragi1, posi2, fragi2).size()
+			);
+		}
+
+		private void writeAtomPairs(AtomPairWriter amber, AtomPairWriter eef1, BufWriter buf) {
+
+			// make sure we're starting at optimal alignment for GPU loads
+			assert (buf.isAligned(WidestGpuLoad)) : "Not aligned!";
+			long firstPos = buf.pos;
+
+			buf.place(atomPairsStruct);
+			atomPairsStruct.num_amber.set(amber.size());
+			atomPairsStruct.num_eef1.set(eef1.size());
+
+			switch (precision) {
+
+				case Float32 -> {
+					for (int i=0; i<amber.size(); i++) {
+						buf.place(amberF32aStruct);
+						int atomi1 = amber.atomi1(i);
+						int atomi2 = amber.atomi2(i);
+						assert (atomi1 != atomi2);
+						amberF32aStruct.atomi1.set(atomi1);
+						amberF32aStruct.atomi2.set(atomi2);
+					}
+					buf.skipToAlignment(WidestGpuLoad);
+
+					for (int i=0; i<amber.size(); i++) {
+						buf.place(amberF32bStruct);
+						amberF32bStruct.setParams(amber.params(i));
+					}
+				}
+
+				case Float64 -> {
+					for (int i=0; i<amber.size(); i++) {
+						buf.place(amberF64aStruct);
+						int atomi1 = amber.atomi1(i);
+						int atomi2 = amber.atomi2(i);
+						assert (atomi1 != atomi2);
+						amberF64aStruct.atomi1.set(atomi1);
+						amberF64aStruct.atomi2.set(atomi2);
+						amberF64aStruct.setParams(amber.params(i));
+					}
+					for (int i=0; i<amber.size(); i++) {
+						buf.place(amberF64bStruct);
+						amberF64bStruct.setParams(amber.params(i));
+					}
+				}
+			}
+
+			for (int i=0; i<eef1.size(); i++) {
+				buf.place(eef1Struct);
+				int atomi1 = eef1.atomi1(i);
+				int atomi2 = eef1.atomi2(i);
+				assert (atomi1 != atomi2);
+				eef1Struct.atomi1.set(atomi1);
+				eef1Struct.atomi2.set(atomi2);
+				eef1Struct.setParams(eef1.params(i));
+			}
+			buf.skipToAlignment(WidestGpuLoad);
+
+			// make sure we ended at optimal alignment for GPU loads
+			assert (buf.pos - firstPos == atomPairsBytes(amber.size(), eef1.size()))
+				: String.format("overshot by %d bytes", buf.pos - firstPos - atomPairsBytes(amber.size(), eef1.size()));
+			assert (buf.isAligned(WidestGpuLoad)) : "Not aligned!";
+		}
+
+		@Override
+		public void writeStaticStatic(BufWriter buf) {
 
 			ConfSpace.IndicesStatic amberIndices = confSpace.indicesStatic(0);
 			ConfSpace.IndicesStatic eef1Indices = confSpace.indicesStatic(1);
 
-			buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(amberIndices.size());
-			atomPairsStruct.num_eef1.set(eef1Indices.size());
-
-			for (int i=0; i<amberIndices.size(); i++) {
-				buf.place(amberStruct);
-				amberStruct.atomi1.set(confSpace.getStaticAtomIndex(amberIndices.getStaticAtom1Index(i)));
-				amberStruct.atomi2.set(confSpace.getStaticAtomIndex(amberIndices.getStaticAtom2Index(i)));
-				amberStruct.setParams(confSpace.ffparams(0, amberIndices.getParamsIndex(i)));
-			}
-
-			for (int i=0; i<eef1Indices.size(); i++) {
-				buf.place(eef1Struct);
-				eef1Struct.atomi1.set(confSpace.getStaticAtomIndex(eef1Indices.getStaticAtom1Index(i)));
-				eef1Struct.atomi2.set(confSpace.getStaticAtomIndex(eef1Indices.getStaticAtom2Index(i)));
-				eef1Struct.setParams(confSpace.ffparams(1, eef1Indices.getParamsIndex(i)));
-			}
+			writeAtomPairs(
+				new AtomPairWriter() {
+					@Override public int size() { return amberIndices.size(); }
+					@Override public int atomi1(int i) { return confSpace.getStaticAtomIndex(amberIndices.getStaticAtom1Index(i)); }
+					@Override public int atomi2(int i) { return confSpace.getStaticAtomIndex(amberIndices.getStaticAtom2Index(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(0, amberIndices.getParamsIndex(i)); }
+				},
+				new AtomPairWriter() {
+					@Override public int size() { return eef1Indices.size(); }
+					@Override public int atomi1(int i) { return confSpace.getStaticAtomIndex(eef1Indices.getStaticAtom1Index(i)); }
+					@Override public int atomi2(int i) { return confSpace.getStaticAtomIndex(eef1Indices.getStaticAtom2Index(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(1, eef1Indices.getParamsIndex(i)); }
+				},
+				buf
+			);
 		}
 
 		@Override
-		public void writeStaticPos(ConfSpace confSpace, int posi1, int fragi1, BufWriter buf) {
+		public void writeStaticPos(int posi1, int fragi1, BufWriter buf) {
 
 			ConfSpace.IndicesSingle amberIndices = confSpace.indicesSinglesByFrag(0, posi1, fragi1);
 			ConfSpace.IndicesSingle eef1Indices = confSpace.indicesSinglesByFrag(1, posi1, fragi1);
 
-			buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(amberIndices.sizeStatics());
-			atomPairsStruct.num_eef1.set(eef1Indices.sizeStatics());
-
-			for (int i=0; i<amberIndices.sizeStatics(); i++) {
-				buf.place(amberStruct);
-				amberStruct.atomi1.set(confSpace.getStaticAtomIndex(amberIndices.getStaticStaticAtomIndex(i)));
-				amberStruct.atomi2.set(confSpace.getConfAtomIndex(posi1, amberIndices.getStaticConfAtomIndex(i)));
-				amberStruct.setParams(confSpace.ffparams(0, amberIndices.getStaticParamsIndex(i)));
-			}
-
-			for (int i=0; i<eef1Indices.sizeStatics(); i++) {
-				buf.place(eef1Struct);
-				eef1Struct.atomi1.set(confSpace.getStaticAtomIndex(eef1Indices.getStaticStaticAtomIndex(i)));
-				eef1Struct.atomi2.set(confSpace.getConfAtomIndex(posi1, eef1Indices.getStaticConfAtomIndex(i)));
-				eef1Struct.setParams(confSpace.ffparams(1, eef1Indices.getStaticParamsIndex(i)));
-			}
+			writeAtomPairs(
+				new AtomPairWriter() {
+					@Override public int size() { return amberIndices.sizeStatics(); }
+					@Override public int atomi1(int i) { return confSpace.getStaticAtomIndex(amberIndices.getStaticStaticAtomIndex(i)); }
+					@Override public int atomi2(int i) { return confSpace.getConfAtomIndex(posi1, amberIndices.getStaticConfAtomIndex(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(0, amberIndices.getStaticParamsIndex(i)); }
+				},
+				new AtomPairWriter() {
+					@Override public int size() { return eef1Indices.sizeStatics(); }
+					@Override public int atomi1(int i) { return confSpace.getStaticAtomIndex(eef1Indices.getStaticStaticAtomIndex(i)); }
+					@Override public int atomi2(int i) { return confSpace.getConfAtomIndex(posi1, eef1Indices.getStaticConfAtomIndex(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(1, eef1Indices.getStaticParamsIndex(i)); }
+				},
+				buf
+			);
 		}
 
 		@Override
-		public void writePos(ConfSpace confSpace, int posi1, int fragi1, BufWriter buf) {
+		public void writePos(int posi1, int fragi1, BufWriter buf) {
 
 			ConfSpace.IndicesSingle amberIndices = confSpace.indicesSinglesByFrag(0, posi1, fragi1);
 			ConfSpace.IndicesSingle eef1Indices = confSpace.indicesSinglesByFrag(1, posi1, fragi1);
 
-			buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(amberIndices.sizeInternals());
-			atomPairsStruct.num_eef1.set(eef1Indices.sizeInternals());
-
-			for (int i=0; i<amberIndices.sizeInternals(); i++) {
-				buf.place(amberStruct);
-				amberStruct.atomi1.set(confSpace.getConfAtomIndex(posi1, amberIndices.getInternalConfAtom1Index(i)));
-				amberStruct.atomi2.set(confSpace.getConfAtomIndex(posi1, amberIndices.getInternalConfAtom2Index(i)));
-				amberStruct.setParams(confSpace.ffparams(0, amberIndices.getInternalParamsIndex(i)));
-			}
-
-			for (int i=0; i<eef1Indices.sizeInternals(); i++) {
-				buf.place(eef1Struct);
-				eef1Struct.atomi1.set(confSpace.getConfAtomIndex(posi1, eef1Indices.getInternalConfAtom1Index(i)));
-				eef1Struct.atomi2.set(confSpace.getConfAtomIndex(posi1, eef1Indices.getInternalConfAtom2Index(i)));
-				eef1Struct.setParams(confSpace.ffparams(1, eef1Indices.getInternalParamsIndex(i)));
-			}
+			writeAtomPairs(
+				new AtomPairWriter() {
+					@Override public int size() { return amberIndices.sizeInternals(); }
+					@Override public int atomi1(int i) { return confSpace.getConfAtomIndex(posi1, amberIndices.getInternalConfAtom1Index(i)); }
+					@Override public int atomi2(int i) { return confSpace.getConfAtomIndex(posi1, amberIndices.getInternalConfAtom2Index(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(0, amberIndices.getInternalParamsIndex(i)); }
+				},
+				new AtomPairWriter() {
+					@Override public int size() { return eef1Indices.sizeInternals(); }
+					@Override public int atomi1(int i) { return confSpace.getConfAtomIndex(posi1, eef1Indices.getInternalConfAtom1Index(i)); }
+					@Override public int atomi2(int i) { return confSpace.getConfAtomIndex(posi1, eef1Indices.getInternalConfAtom2Index(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(1, eef1Indices.getInternalParamsIndex(i)); }
+				},
+				buf
+			);
 		}
 
 		@Override
-		public void writePosPos(ConfSpace confSpace, int posi1, int fragi1, int posi2, int fragi2, BufWriter buf) {
+		public void writePosPos(int posi1, int fragi1, int posi2, int fragi2, BufWriter buf) {
 
 			ConfSpace.IndicesPair amberIndices = confSpace.indicesPairsByFrags(0, posi1, fragi1, posi2, fragi2);
 			ConfSpace.IndicesPair eef1Indices = confSpace.indicesPairsByFrags(1, posi1, fragi1, posi2, fragi2);
 
-			buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(amberIndices.size());
-			atomPairsStruct.num_eef1.set(eef1Indices.size());
-
-			for (int i=0; i<amberIndices.size(); i++) {
-				buf.place(amberStruct);
-				amberStruct.atomi1.set(confSpace.getConfAtomIndex(posi1, amberIndices.getConfAtom1Index(i)));
-				amberStruct.atomi2.set(confSpace.getConfAtomIndex(posi2, amberIndices.getConfAtom2Index(i)));
-				amberStruct.setParams(confSpace.ffparams(0, amberIndices.getParamsIndex(i)));
-			}
-
-			for (int i=0; i<eef1Indices.size(); i++) {
-				buf.place(eef1Struct);
-				eef1Struct.atomi1.set(confSpace.getConfAtomIndex(posi1, eef1Indices.getConfAtom1Index(i)));
-				eef1Struct.atomi2.set(confSpace.getConfAtomIndex(posi2, eef1Indices.getConfAtom2Index(i)));
-				eef1Struct.setParams(confSpace.ffparams(1, eef1Indices.getParamsIndex(i)));
-			}
+			writeAtomPairs(
+				new AtomPairWriter() {
+					@Override public int size() { return amberIndices.size(); }
+					@Override public int atomi1(int i) { return confSpace.getConfAtomIndex(posi1, amberIndices.getConfAtom1Index(i)); }
+					@Override public int atomi2(int i) { return confSpace.getConfAtomIndex(posi2, amberIndices.getConfAtom2Index(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(0, amberIndices.getParamsIndex(i)); }
+				},
+				new AtomPairWriter() {
+					@Override public int size() { return eef1Indices.size(); }
+					@Override public int atomi1(int i) { return confSpace.getConfAtomIndex(posi1, eef1Indices.getConfAtom1Index(i)); }
+					@Override public int atomi2(int i) { return confSpace.getConfAtomIndex(posi2, eef1Indices.getConfAtom2Index(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(1, eef1Indices.getParamsIndex(i)); }
+				},
+				buf
+			);
 		}
 	}
 
@@ -566,22 +683,25 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			+ confSpace.numPos()*(confSpace.numPos() - 1)/2; // pos-pos
 		bufSize += posPairOffsets.bytes(numPosPairs);
 
+		// make sure all the atom pairs are aligned for optimal GPU loads
+		bufSize = padToGpuAlignment(bufSize);
+
 		// add space for the static-static pairs
-		bufSize += forcefieldsImpl.staticStaticBytes(confSpace);
+		bufSize += forcefieldsImpl.staticStaticBytes();
 
 		// add space for the static-pos pairs and offsets
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
-			bufSize += fragOffsets.itemBytes*confSpace.numFrag(posi1);
+			bufSize += padToGpuAlignment(fragOffsets.itemBytes*confSpace.numFrag(posi1));
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
-				bufSize += forcefieldsImpl.staticPosBytes(confSpace, posi1, fragi1);
+				bufSize += forcefieldsImpl.staticPosBytes(posi1, fragi1);
 			}
 		}
 
 		// add space for the pos pairs and offsets
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
-			bufSize += fragOffsets.itemBytes*confSpace.numFrag(posi1);
+			bufSize += padToGpuAlignment(fragOffsets.itemBytes*confSpace.numFrag(posi1));
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
-				bufSize += forcefieldsImpl.posBytes(confSpace, posi1, fragi1);
+				bufSize += forcefieldsImpl.posBytes(posi1, fragi1);
 
 			}
 		}
@@ -589,10 +709,10 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		// add space for the pos-pos pairs and offsets
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 			for (int posi2=0; posi2<posi1; posi2++) {
-				bufSize += fragOffsets.itemBytes*confSpace.numFrag(posi1)*confSpace.numFrag(posi2);
+				bufSize += padToGpuAlignment(fragOffsets.itemBytes*confSpace.numFrag(posi1)*confSpace.numFrag(posi2));
 				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 					for (int fragi2=0; fragi2<confSpace.numFrag(posi2); fragi2++) {
-						bufSize += forcefieldsImpl.posPosBytes(confSpace, posi1, fragi1, posi2, fragi2);
+						bufSize += forcefieldsImpl.posPosBytes(posi1, fragi1, posi2, fragi2);
 					}
 				}
 			}
@@ -613,8 +733,6 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 		bufSize += molMotionOffsets.bytes(numMolMotions)
 			+ motionIdBytes*numMolMotions;
-
-		// TODO: add space for the conf motions
 
 		// allocate the buffer for the conf space
 		try (MemorySegment confSpaceMem = MemorySegment.allocateNative(bufSize)) {
@@ -696,33 +814,36 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 			// write the forcefield params
 			confSpaceStruct.params_offset.set(buf.pos);
-			forcefieldsImpl.writeParams(confSpace, buf);
+			forcefieldsImpl.writeParams(buf);
 
 			// write the pos pairs
 			confSpaceStruct.pos_pairs_offset.set(buf.pos);
 			buf.place(posPairOffsets, numPosPairs);
 
+			// make sure atom pairs get written at a GPU-friendly alignment
+			buf.skipToAlignment(WidestGpuLoad);
+
 			// write the static-static pair
 			posPairOffsets.set(0, buf.pos);
-			forcefieldsImpl.writeStaticStatic(confSpace, buf);
+			forcefieldsImpl.writeStaticStatic(buf);
 
 			// write the static-pos pairs
 			for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 				posPairOffsets.set(1 + posi1, buf.pos);
-				buf.place(fragOffsets, confSpace.numFrag(posi1));
+				buf.place(fragOffsets, confSpace.numFrag(posi1), WidestGpuLoad);
 				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 					fragOffsets.set(fragi1, buf.pos);
-					forcefieldsImpl.writeStaticPos(confSpace, posi1, fragi1, buf);
+					forcefieldsImpl.writeStaticPos(posi1, fragi1, buf);
 				}
 			}
 
 			// write the pos pairs
 			for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 				posPairOffsets.set(1 + confSpace.positions.length + posi1, buf.pos);
-				buf.place(fragOffsets, confSpace.numFrag(posi1));
+				buf.place(fragOffsets, confSpace.numFrag(posi1), WidestGpuLoad);
 				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 					fragOffsets.set(fragi1, buf.pos);
-					forcefieldsImpl.writePos(confSpace, posi1, fragi1, buf);
+					forcefieldsImpl.writePos(posi1, fragi1, buf);
 				}
 			}
 
@@ -730,11 +851,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 				for (int posi2=0; posi2<posi1; posi2++) {
 					posPairOffsets.set(1 + 2*confSpace.positions.length + posi1*(posi1 - 1)/2 + posi2, buf.pos);
-					buf.place(fragOffsets, confSpace.numFrag(posi1)*confSpace.numFrag(posi2));
+					buf.place(fragOffsets, confSpace.numFrag(posi1)*confSpace.numFrag(posi2), WidestGpuLoad);
 					for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 						for (int fragi2=0; fragi2<confSpace.numFrag(posi2); fragi2++) {
 							fragOffsets.set(fragi1*confSpace.numFrag(posi2) + fragi2, buf.pos);
-							forcefieldsImpl.writePosPos(confSpace, posi1, fragi1, posi2, fragi2, buf);
+							forcefieldsImpl.writePosPos(posi1, fragi1, posi2, fragi2, buf);
 						}
 					}
 				}
@@ -755,6 +876,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 				}
 			}
 
+			// make sure we used the whole buffer
 			assert(buf.pos == bufSize) : String.format("%d bytes leftover", bufSize - buf.pos);
 
 			// upload the conf space to the GPU

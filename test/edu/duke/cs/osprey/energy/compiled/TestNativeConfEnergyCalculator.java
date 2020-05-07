@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.energy.compiled;
 
-import static edu.duke.cs.osprey.TestBase.isAbsolutely;
 import static edu.duke.cs.osprey.TestBase.isRelatively;
 import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
@@ -127,10 +126,7 @@ public class TestNativeConfEnergyCalculator {
 
 		for (int i=0; i<confs.length; i++) {
 			double energy = confEcalc.calcEnergy(confs[i], inters);
-			switch (confEcalc.precision()) {
-				case Float32 -> assertThat("conf " + i, energy, isRelatively(energies[i], epsilon));
-				case Float64 -> assertThat("conf " + i, energy, isAbsolutely(energies[i], epsilon));
-			}
+			assertThat("conf " + i, energy, isRelatively(energies[i], epsilon));
 		}
 	}
 
@@ -148,7 +144,7 @@ public class TestNativeConfEnergyCalculator {
 		}
 	}
 	@Test public void calcEnergy_cuda_all_2RL0_f32() { calcEnergy_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
-	@Test public void calcEnergy_cuda_all_2RL0_f64() { calcEnergy_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-8); }
+	@Test public void calcEnergy_cuda_all_2RL0_f64() { calcEnergy_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-6); }
 
 	private void calc_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
 
@@ -159,11 +155,7 @@ public class TestNativeConfEnergyCalculator {
 
 		for (int i=0; i<confs.length; i++) {
 			ConfEnergyCalculator.EnergiedCoords energiedCoords = confEcalc.calc(confs[i], inters);
-
-			switch (confEcalc.precision()) {
-				case Float32 -> assertThat("conf " + i, energiedCoords.energy, isRelatively(energies[i], epsilon));
-				case Float64 -> assertThat("conf " + i, energiedCoords.energy, isAbsolutely(energies[i], epsilon));
-			}
+			assertThat("conf " + i, energiedCoords.energy, isRelatively(energies[i], epsilon));
 
 			var expCoords = confEcalc.confSpace().makeCoords(confs[i]).coords;
 			setPrecision(expCoords, confEcalc.precision());
@@ -185,7 +177,7 @@ public class TestNativeConfEnergyCalculator {
 		}
 	}
 	@Test public void calc_cuda_all_2RL0_f32() { calc_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
-	@Test public void calc_cuda_all_2RL0_f64() { calc_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-8); }
+	@Test public void calc_cuda_all_2RL0_f64() { calc_cuda_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-6); }
 
 
 	private void minimizeEnergy_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
@@ -197,10 +189,7 @@ public class TestNativeConfEnergyCalculator {
 
 		for (int i=0; i<confs.length; i++) {
 			double energy = confEcalc.minimizeEnergy(confs[i], inters);
-			switch (confEcalc.precision()) {
-				case Float32 -> assertThat("conf " + i, energy, isRelatively(energies[i], epsilon));
-				case Float64 -> assertThat("conf " + i, energy, isAbsolutely(energies[i], epsilon));
-			}
+			assertThat("conf " + i, energy, isRelatively(energies[i], epsilon));
 		}
 	}
 
