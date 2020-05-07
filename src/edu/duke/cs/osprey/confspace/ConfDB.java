@@ -288,10 +288,6 @@ public class ConfDB implements AutoCleanable {
 		}
 	}
 
-	public ConfTable makeTable(String id) {
-	    return new ConfTable(id);
-	}
-
 	public class ConfTable implements Iterable<Conf>, AutoCloseable {
 
 		public final String id;
