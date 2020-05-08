@@ -42,6 +42,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     // Debug variables
     public static final boolean debug = true;
+    public static final boolean doExtraTupleCorrections = true;
     public final SHARKStarTreeDebugger pilotFish;
     public boolean profileOutput = false;
 
@@ -57,7 +58,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private SimpleConfSpace confSpace;
     private EnergyMatrix rigidEmat;
     private EnergyMatrix minimizingEmat;
-    private ConfEnergyCalculator minimizingEcalc;
+    public ConfEnergyCalculator minimizingEcalc;
     protected RCs fullRCs;
     protected Parallelism parallelism;
 
@@ -75,8 +76,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private ScorerFactory nhscorerFactory;
 
     // Matrix and corrector for energy corrections
-    private UpdatingEnergyMatrix correctionMatrix;
-    //private final EnergyMatrixCorrector energyMatrixCorrector;//TODO: we will need this to make corrections work again
+    public final UpdatingEnergyMatrix correctionMatrix;
+    private final EnergyMatrixCorrector_refactor energyMatrixCorrector;
 
     // SHARK* specific variables
     public SHARKStarNode rootNode;
@@ -90,17 +91,24 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private SHARKStarEnsembleAnalyzer ensembleAnalyzer;
 
     // Global tracking variables
-    double minimizationTimeTotal = 0.0;
-    double scoringTimeTotal = 0.0;
-    double correctionTimeTotal = 0.0;
+    private double minimizationTimeTotal = 0.0;
+    private double scoringTimeTotal = 0.0;
+    private double correctionComputationTimeTotal = 0.0;
 
-    double numMinimizations = 0;
-    double numScores = 0;
-    double numCorrections = 0;
+    private double numMinimizations = 0;
+    private double numScores = 0;
+    private double numCorrections = 0;
 
-    double leafTimeAverage;
-    double internalTimeAverage;
-    int numInternalNodesProcessed;
+    private double leafTimeAverage;
+    private double internalTimeAverage;
+    private int numInternalNodesProcessed;
+
+    public List<Integer> minList;
+
+    // Corrections variables
+    private boolean computedCorrections = false;
+    private int numPartialMinimizations;
+    private Set<String> correctedTuples;
 
 
     /**
@@ -114,7 +122,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param parallelism         information for threading
      */
     public MultiSequenceSHARKStarBound_refactor(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
-                                       ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
+                                                ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
         // Set the basic needs
         this.confSpace = confSpace;
         this.rigidEmat = rigidEmat;
@@ -123,8 +131,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         this.fullRCs = rcs;
 
         // Initialize the correctionMatrix and the Corrector
+        this.minList = new ArrayList<>(Collections.nCopies(rcs.getNumPos(), 0));
         this.correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
-        //this.energyMatrixCorrector = new EnergyMatrixCorrector(this); //TODO: we will need this to make corrections work again
 
         // Set up the scoring machinery
         this.gscorerFactory = (emats) -> new PairwiseGScorer(emats);
@@ -135,12 +143,12 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         this.contexts = new ObjectPool<>((lingored) -> {
             ScoreContext context = new ScoreContext();
             context.index = new ConfIndex(rcs.getNumPos());
-            context.partialConfLBScorer = gscorerFactory.make(minimizingEmat);
-            context.unassignedConfLBScorer = hscorerFactory.make(minimizingEmat);
-            context.partialConfUBScorer = rigidgscorerFactory.make(rigidEmat);
-            context.unassignedConfUBScorer = nhscorerFactory.make(rigidEmat); //this is used for upper bounds, so we want it rigid
+            context.partialConfLBScorer = gscorerFactory.make(this.minimizingEmat);
+            context.unassignedConfLBScorer = hscorerFactory.make(this.minimizingEmat);
+            context.partialConfUBScorer = rigidgscorerFactory.make(this.rigidEmat);
+            context.unassignedConfUBScorer = nhscorerFactory.make(this.rigidEmat); //this is used for upper bounds, so we want it rigid
             context.ecalc = minimizingConfEcalc;
-            context.batcher = new BatchCorrectionMinimizer(minimizingConfEcalc, correctionMatrix, minimizingEmat);
+            context.batcher = new BatchCorrectionMinimizer(minimizingConfEcalc, this.correctionMatrix, this.minimizingEmat);
 
             return context;
         });
@@ -155,21 +163,16 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         // Initialize things for analyzing energies
         confAnalyzer = new ConfAnalyzer(minimizingConfEcalc);
         ensembleAnalyzer = new SHARKStarEnsembleAnalyzer(minimizingEcalc, minimizingEmat);
-        //energyMatrixCorrector = new EnergyMatrixCorrector(this);
+        energyMatrixCorrector = new EnergyMatrixCorrector_refactor(this);
 
         progress = new MARKStarProgress(fullRCs.getNumPos());
 
         // Initialize debugger if necessary
-        if(debug)
+        if (debug)
             pilotFish = new SHARKStarTreeDebugger(decimalPrecision);
 
         // No precomputed sequence means the "precomputed" sequence is empty
         this.precomputedSequence = confSpace.makeUnassignedSequence();
-
-        //TODO: Does this stuff belong in init?
-
-
-        //TODO: Start adding other methods, flesh out
 
     }
 
@@ -196,7 +199,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     }
 
-    public void setCachePattern(String pattern){
+    public void setCachePattern(String pattern) {
         this.cachePattern = pattern;
     }
 
@@ -225,7 +228,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         return 0;
     }
 
-    public SimpleConfSpace getConfSpace(){
+    public SimpleConfSpace getConfSpace() {
         return this.confSpace;
     }
 
@@ -236,16 +239,16 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     public PartitionFunction getPartitionFunctionForSequence(Sequence seq) {
         SingleSequenceSHARKStarBound_refactor newBound = new SingleSequenceSHARKStarBound_refactor(this, seq, this.bc);
         newBound.init(null, null, targetEpsilon);
-        System.out.println("Creating new pfunc for sequence "+seq);
-        System.out.println("Full RCs: "+fullRCs);
-        System.out.println("Sequence RCs: "+newBound.seqRCs);
+        System.out.println("Creating new pfunc for sequence " + seq);
+        System.out.println("Full RCs: " + fullRCs);
+        System.out.println("Sequence RCs: " + newBound.seqRCs);
         computeFringeForSequence(newBound, this.rootNode);
         // Wait for scoring to be done, if applicable
         loopTasks.waitForFinish();
         double boundEps = newBound.calcEpsilon();
-        if(boundEps == 0) {
+        if (boundEps == 0) {
             System.err.println("Perfectly bounded sequence? how?");
-        }else{
+        } else {
             System.out.println(String.format("Pfunc for %s created with epsilon of %.3f", seq, boundEps));
         }
         return newBound;
@@ -253,6 +256,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     /**
      * init
+     *
      * @param confSearch            We don't use this in SHARK*
      * @param numConfsBeforePruning We don't use this in SHARK*
      * @param targetEpsilon         The approximation error target
@@ -264,30 +268,30 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     /**
      * initialize partition function
+     *
      * @param targetEpsilon Approximation error target
      */
     public void init(double targetEpsilon) {
         this.targetEpsilon = targetEpsilon;
-        this.drillDownDifference = bc.freeEnergy(new BigDecimal(1-targetEpsilon));
+        this.drillDownDifference = bc.freeEnergy(new BigDecimal(1 - targetEpsilon));
         this.status = Status.Estimating;
         makeAndScoreRootNode();
-        if(precomputedPfunc == null)
+        if (precomputedPfunc == null)
             precomputeFlexible();
     }
 
     /**
      * initialize partition function
-     *
+     * <p>
      * This should *only* be called if this is a flexible (non-mutable) partition function
-     * @param epsilon               Approximation error target
-     * @param stabilityThreshold    Minimum acceptable partition function value
-     * @param correctionMatrix      Matrix to store energy corrections
+     *
+     * @param epsilon            Approximation error target
+     * @param stabilityThreshold Minimum acceptable partition function value
      */
-    private void initFlex(double epsilon, BigDecimal stabilityThreshold, UpdatingEnergyMatrix correctionMatrix) {
+    private void initFlex(double epsilon, BigDecimal stabilityThreshold) {
         this.targetEpsilon = epsilon;
         this.status = Status.Estimating;
         this.stabilityThreshold = stabilityThreshold;
-        this.correctionMatrix = correctionMatrix;
         makeAndScoreRootNode();
     }
 
@@ -295,12 +299,12 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * Make and get starting bounds for the root node of the multi-sequence tree. Also initializes the residue ordering
      * so that using precomputed flexibility works properly.
      */
-    public void makeAndScoreRootNode(){
+    public void makeAndScoreRootNode() {
         // Make the root node
         int[] rootConf = new int[confSpace.getNumPos()];
-        Arrays.fill(rootConf,SHARKStarNode.Unassigned);
+        Arrays.fill(rootConf, SHARKStarNode.Unassigned);
         this.rootNode = new SHARKStarNode(rootConf, 0, null);
-        if(debug)
+        if (debug)
             pilotFish.setRootNode(this.rootNode);
 
         // Initialize residue ordering
@@ -334,7 +338,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     }
                 },
                 (result) -> {
-                    if(!result.isValid())
+                    if (!result.isValid())
                         throw new RuntimeException("Error in root node scoring");
 
                     result.resultNode.setPartialConfLB(result.partialLB);
@@ -353,22 +357,22 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     /**
      * Precompute the partition function for the flexible residues
-     *
+     * <p>
      * We are recomputing the energy matrices here because there's some
      * stupidly nontrivial parallel array mapping to be done to ensure that
      * the extensive energy calculation features we rely on are
      * computing the right energy for the flexible conf space.
-     *
+     * <p>
      * I'm sure this could be optimized, but I doubt that it's worth it,
      * since this only happens once per state.
      */
-    public void precomputeFlexible(){
+    public void precomputeFlexible() {
         // Make a copy of the confSpace without mutable residues
         SimpleConfSpace flexConfSpace = confSpace.makeFlexibleCopy();
         Sequence unassignedFlex = flexConfSpace.makeUnassignedSequence();
 
         // Sometimes our designs don't have immutable residues on one side.
-        if(flexConfSpace.positions.size() > 0) {
+        if (flexConfSpace.positions.size() > 0) {
             System.out.println("Making flexible confspace bound...");
 
             // Make an all-new SHARKStarBound for the flexible partition function
@@ -378,8 +382,6 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             ConfEnergyCalculator rigidConfECalc = FlexEmatMaker.makeRigidConfEcalc(flexMinimizingConfECalc);
             EnergyMatrix flexMinimizingEmat = FlexEmatMaker.makeEmat(flexMinimizingConfECalc, "minimized", cachePattern + ".flex");
             EnergyMatrix flexRigidEmat = FlexEmatMaker.makeEmat(rigidConfECalc, "rigid", cachePattern + ".flex");
-            UpdatingEnergyMatrix flexCorrection = new UpdatingEnergyMatrix(flexConfSpace, flexMinimizingEmat,
-                    flexMinimizingConfECalc);
 
             // Construct the bound
             MultiSequenceSHARKStarBound_refactor precompFlex = new MultiSequenceSHARKStarBound_refactor(
@@ -388,18 +390,19 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             // Set settings
             precompFlex.setCachePattern(cachePattern);
             // initialize
-            precompFlex.initFlex(this.targetEpsilon, this.stabilityThreshold, flexCorrection);
-            PartitionFunction flexBound =
-                    precompFlex.getPartitionFunctionForSequence(unassignedFlex);
+            precompFlex.initFlex(this.targetEpsilon, this.stabilityThreshold);
+            PartitionFunction flexBound = precompFlex.getPartitionFunctionForSequence(unassignedFlex);
             flexBound.compute();
             precompFlex.printEnsembleAnalysis();
             processPrecomputedFlex(precompFlex);
+            System.out.println(String.format("Precomputation of flexible residues resulted in %d partial minimizations", correctionMatrix.getAllCorrections().size()));
         }
     }
 
     /**
      * Cannibalizes a precomputed pfunc to start this pfunc
-     * @param precomputedFlex   The precomputed partition function
+     *
+     * @param precomputedFlex The precomputed partition function
      */
     private void processPrecomputedFlex(MultiSequenceSHARKStarBound_refactor precomputedFlex) {
         precomputedPfunc = precomputedFlex;
@@ -416,15 +419,15 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     /**
      * Makes the precomputed confTree consistent with the full confSpace
-     *
+     * <p>
      * When we precompute flexible residues, we will have a tree that is for a flexible confspace.
      * However, when we want to compute for mutable residues, we need to extend the length of assignments in our tree
      *
-     * @param precomputedRootNode   The root of the precomputed partition function
-     *
-     * TODO: Make this work even if we stop storing root nodes
+     * @param precomputedRootNode The root of the precomputed partition function
+     *                            <p>
+     *                            TODO: Make this work even if we stop storing root nodes
      */
-    private void updatePrecomputedConfTree(SHARKStarNode precomputedRootNode){
+    private void updatePrecomputedConfTree(SHARKStarNode precomputedRootNode) {
         int[] permutationArray = genConfSpaceMapping();
         updatePrecomputedNode(precomputedRootNode, permutationArray, this.confSpace.getNumPos());
         this.rootNode = precomputedRootNode;
@@ -432,16 +435,17 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     /**
      * Recursive helper function for updatePrecomputedConfTree
-     * @param node          The current node to update
-     * @param permutation   The permutation matrix for mapping the precomputed RCs to the current RCs
-     * @param size          The size of the new confSpace
+     *
+     * @param node        The current node to update
+     * @param permutation The permutation matrix for mapping the precomputed RCs to the current RCs
+     * @param size        The size of the new confSpace
      */
     private void updatePrecomputedNode(SHARKStarNode node, int[] permutation, int size) {
         // permute the assignments to the new confspace
         node.makeNodeCompatibleWithConfSpace(permutation, size);
 
         //set corrections if node is minimized
-        if (node.isMinimized()){
+        if (node.isMinimized()) {
             correctionMatrix.setHigherOrder(new RCTuple(node.getAssignments()), node.getMinE()
                     - node.getPartialConfLB());
         }
@@ -477,14 +481,14 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * Takes partial minimizations from the precomputed correctionMatrix, maps them to the new confspace, and
      * stores them in this correctionMatrix
      */
-    public void mergeCorrections(UpdatingEnergyMatrix precomputedCorrections, int[] confSpacePermutation){
+    public void mergeCorrections(UpdatingEnergyMatrix precomputedCorrections, int[] confSpacePermutation) {
         List<TupE> corrections = precomputedCorrections.getAllCorrections().stream()
                 .map((tup) -> tup.permute(confSpacePermutation))
                 .collect(Collectors.toList());
-        if (corrections.size()!=0) {
+        if (corrections.size() != 0) {
             int TestNumCorrections = corrections.size();
             this.correctionMatrix.insertAll(corrections);
-        }else
+        } else
             System.out.println("No corrections to insert");
     }
 
@@ -497,7 +501,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      *
      * TODO: Determine whether it is better to have a datastructure in the node that keeps track of this info
      */
-    public List<SHARKStarNode> getChildrenCompatibleWithSeqRCs(SHARKStarNode node, RCs seqRCs){
+    public List<SHARKStarNode> getChildrenCompatibleWithSeqRCs(SHARKStarNode node, RCs seqRCs) {
         try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
             ScoreContext context = checkout.get();
             node.index(context.index);
@@ -526,28 +530,28 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      *
      * TODO: Make this just look through the fringe instead of starting from the root
      */
-    public void computeFringeForSequence(SingleSequenceSHARKStarBound_refactor bound, SHARKStarNode node){
+    public void computeFringeForSequence(SingleSequenceSHARKStarBound_refactor bound, SHARKStarNode node) {
         RCs rcs = bound.seqRCs;
         // Get a list of sequence-compatible children for this node
         List<SHARKStarNode> compatibleChildren = getChildrenCompatibleWithSeqRCs(node, rcs);
         // If no compatible children, this could be a fringe node
-        if (compatibleChildren.isEmpty()){
+        if (compatibleChildren.isEmpty()) {
             // Check to see if there is currently an unassigned energy calculated for this sequence
             if (!node.getUnassignedConfLB().containsKey(bound.sequence) &&
-                    !node.getUnassignedConfUB().containsKey(bound.sequence)){
+                    !node.getUnassignedConfUB().containsKey(bound.sequence)) {
                 // If there is not, score the node
                 scoreNodeForSeq(node, bound.sequence, bound.seqRCs);
                 //TODO: determine whether I'll have thread issues by not waiting till this is finished to add the node to fringe
             }
             // add to sequence fringe nodes
-            if(node.getLevel() < bound.seqRCs.getNumPos()){
+            if (node.getLevel() < bound.seqRCs.getNumPos()) {
                 bound.internalQueue.add(node);
-            }else{
+            } else {
                 bound.leafQueue.add(node);
             }
-        }else{
+        } else {
             // If there are compatible children, recurse
-            for(SHARKStarNode child: compatibleChildren){
+            for (SHARKStarNode child : compatibleChildren) {
                 computeFringeForSequence(bound, child);
             }
         }
@@ -556,10 +560,11 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     /**
      * Use the Score context to score a single node (possibly parallel)
-     * @param node      The node to score
-     * @param seqRCs    The seqRCs to score over
+     *
+     * @param node   The node to score
+     * @param seqRCs The seqRCs to score over
      */
-    public void scoreNodeForSeq(SHARKStarNode node, Sequence seq, RCs seqRCs){
+    public void scoreNodeForSeq(SHARKStarNode node, Sequence seq, RCs seqRCs) {
         loopTasks.submit(
                 () -> {
                     try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
@@ -593,7 +598,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     }
                 },
                 (result) -> {
-                    if(!result.isValid())
+                    if (!result.isValid())
                         throw new RuntimeException(String.format("Error in node scoring for %s",
                                 this.confSpace.formatConf(result.resultNode.getAssignments())));
 
@@ -603,7 +608,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     result.resultNode.setUnassignedConfUB(result.unassignUB, seq);
                     result.resultNode.setScore(result.score, seq);
 
-                    synchronized(this){
+                    synchronized (this) {
                         scoringTimeTotal += result.time;
                         numScores += 1;
                     }
@@ -613,13 +618,14 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     /**
      * Make a child node and score it
-     * @param parent    The parent of this child
-     * @param nextPos   The residue position to assign for the child
-     * @param nextRC    The residue conformation to assign to the child
-     * @param seq       The sequence for the child
-     * @param seqRCs    The seqRCs to score over
+     *
+     * @param parent  The parent of this child
+     * @param nextPos The residue position to assign for the child
+     * @param nextRC  The residue conformation to assign to the child
+     * @param seq     The sequence for the child
+     * @param seqRCs  The seqRCs to score over
      */
-    public void makeAndScoreChildForSeq(SHARKStarNode parent, int nextPos, int nextRC, Sequence seq, RCs seqRCs, List<SHARKStarNode> children){
+    public void makeAndScoreChildForSeq(SHARKStarNode parent, int nextPos, int nextRC, Sequence seq, RCs seqRCs, List<SHARKStarNode> children) {
 
         loopTasks.submit(
                 () -> {
@@ -638,6 +644,12 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         SHARKStarNode child = parent.assign(nextPos, nextRC);
                         result.resultNode = child;
 
+                        // Try to apply partial minimization correction to child
+                        double HOTCorrection = correctionMatrix.getCorrection(child.getAssignments());
+                        if (HOTCorrection > parent.getHOTCorrection()){
+                            result.HOTCorrection = HOTCorrection;
+                        }
+
                         // Score the child node
                         //TODO move back to calcDifferential if possible
                         result.partialLB = context.partialConfLBScorer.calcDifferential(context.index, seqRCs, nextPos, nextRC);
@@ -646,7 +658,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         result.unassignLB = context.unassignedConfLBScorer.calc(context.index, seqRCs);
                         result.unassignUB = context.unassignedConfUBScorer.calc(context.index, seqRCs);
                         // Compute the node partition function error
-                        result.score = bc.calc_lnZDiff(result.partialLB + result.unassignLB,
+                        result.score = bc.calc_lnZDiff(result.partialLB + result.unassignLB + result.HOTCorrection,
                                 result.partialUB + result.unassignUB);
 
                         scoreWatch.stop();
@@ -656,7 +668,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     }
                 },
                 (result) -> {
-                    if(!result.isValid())
+                    if (!result.isValid())
                         throw new RuntimeException(String.format("Error in node scoring for %s",
                                 this.confSpace.formatConf(result.resultNode.getAssignments())));
 
@@ -664,9 +676,10 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     result.resultNode.setPartialConfUB(result.partialUB);
                     result.resultNode.setUnassignedConfLB(result.unassignLB, seq);
                     result.resultNode.setUnassignedConfUB(result.unassignUB, seq);
+                    result.resultNode.setHOTCorrection(result.HOTCorrection);
                     result.resultNode.setScore(result.score, seq);
 
-                    synchronized(this){
+                    synchronized (this) {
                         scoringTimeTotal += result.time;
                         numScores += 1;
                     }
@@ -678,31 +691,39 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     /**
      * Use the scoreContext to minimize a single node with tasks
-     * @param node      The node to minimize
-     * @param seq       The sequence whose score we will compare to the minimized energy
      *
-     * TODO: remove the dependency on sequence, it's not necessary
+     * @param node The node to minimize
+     * @param seq  The sequence whose score we will compare to the minimized energy
+     *             <p>
+     *             TODO: remove the dependency on sequence, it's not necessary
      */
-    public void minimizeNodeForSeq(SHARKStarNode node, Sequence seq){
+    public void minimizeNodeForSeq(SHARKStarNode node, Sequence seq) {
         loopTasks.submit(
-            () -> {
-                try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
-                    //Timing
-                    Stopwatch minimizationTimer = new Stopwatch();
-                    Stopwatch correctionTimer = new Stopwatch();
-                    minimizationTimer.start();
+                () -> {
+                    try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                        //Timing
+                        Stopwatch minimizationTimer = new Stopwatch();
+                        Stopwatch correctionTimer = new Stopwatch();
+                        minimizationTimer.start();
 
-                    ScoreContext context = checkout.get();
-                    MinimizationResult result = new MinimizationResult();
-                    result.resultNode = node;
-                    node.index(context.index);
+                        ScoreContext context = checkout.get();
+                        MinimizationResult result = new MinimizationResult();
+                        result.resultNode = node;
+                        node.index(context.index);
 
-                    ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.getAssignments(), node.getFreeEnergyLB(seq));
-                    ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
-                    result.minimizedEnergy = analysis.epmol.energy;
+                        ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.getAssignments(), node.getFreeEnergyLB(seq));
+                        ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
+                        result.minimizedEnergy = analysis.epmol.energy;
 
-                    minimizationTimer.stop();
-                    result.minimizationTime = minimizationTimer.getTimeS();
+                        minimizationTimer.stop();
+                        if (doExtraTupleCorrections) {
+                            correctionTimer.start();
+                            energyMatrixCorrector.computeEnergyCorrection(analysis, conf, 1.0,
+                                    context.batcher);
+                            correctionTimer.stop();
+                        }
+                        result.minimizationTime = minimizationTimer.getTimeS();
+                        result.correctionTime = correctionTimer.getTimeS();
                     /*
                     //TODO: add corrections back in
                     correctionTimer.start();
@@ -712,30 +733,33 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
                      */
 
-                    return result;
-                }
-            },
-            (result) -> {
-                if(!result.isValid())
-                    throw new RuntimeException(String.format("Error in node scoring for %s",
-                            this.confSpace.formatConf(result.resultNode.getAssignments())));
+                        return result;
+                    }
+                },
+                (result) -> {
+                    if (!result.isValid())
+                        throw new RuntimeException(String.format("Error in node scoring for %s",
+                                this.confSpace.formatConf(result.resultNode.getAssignments())));
 
-                System.out.println(String.format("Minimized %s --> %.3f in [%.3f, %.3f]",
-                        result.resultNode.confToString(),
-                        result.minimizedEnergy,
-                        result.resultNode.getFreeEnergyLB(seq),
-                        result.resultNode.getFreeEnergyUB(seq)
-                        ));
+                    System.out.println(String.format("Minimized %s --> %.3f in [%.3f, %.3f]",
+                            result.resultNode.confToString(),
+                            result.minimizedEnergy,
+                            result.resultNode.getFreeEnergyLB(seq),
+                            result.resultNode.getFreeEnergyUB(seq)
+                    ));
 
-                result.resultNode.setMinE(result.minimizedEnergy); // set the energy
-                result.resultNode.setIsMinimized(true); // set the minimized flag
-                result.resultNode.setScore(0.0,seq); // Since the node is minimized, the score (error) is 0
+                    result.resultNode.setMinE(result.minimizedEnergy); // set the energy
+                    result.resultNode.setIsMinimized(true); // set the minimized flag
+                    result.resultNode.setScore(0.0, seq); // Since the node is minimized, the score (error) is 0
 
-                synchronized(this){
-                    minimizationTimeTotal += result.minimizationTime;
-                    numMinimizations += 1;
-                }
-            });
+                    minList.set(result.resultNode.getAssignments().length - 1, minList.get(result.resultNode.getAssignments().length - 1) + 1);
+
+                    synchronized (this) {
+                        minimizationTimeTotal += result.minimizationTime;
+                        correctionComputationTimeTotal += result.correctionTime;
+                        numMinimizations += 1;
+                    }
+                });
     }
 
     @Override
@@ -748,8 +772,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * Compute the partition function for a given sequence using the multi-sequence tree. Halts once it reaches
      * maxNumConfs or when it reaches this.targetEpsilon, whichever comes first.
      *
-     * @param maxNumConfs   The maximum number of conformations to evaluate (minimize?)
-     * @param bound         The SingleSequence partition function (defines the sequence we are after)
+     * @param maxNumConfs The maximum number of conformations to evaluate (minimize?)
+     * @param bound       The SingleSequence partition function (defines the sequence we are after)
      */
     public void computeForSequence(int maxNumConfs, SingleSequenceSHARKStarBound_refactor bound) {
         Stopwatch computeWatch = new Stopwatch().start();
@@ -806,22 +830,22 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         minimizingEcalc.tasks.waitForFinish();
         computeWatch.stop();
 
-        System.out.println(String.format("Finished computatin in %.3f secions", computeWatch.getTimeS()));
+        System.out.println(String.format("Finished computation in %.3f seconds", computeWatch.getTimeS()));
         System.out.println(String.format("Final E bounds [%.3f, %.3f]]",
-                bound.calcEBound(e-> e.getFreeEnergyLB(bound.sequence)),
-                bound.calcEBound(e-> e.getFreeEnergyUB(bound.sequence))
-                ));
+                bound.calcEBound(e -> e.getFreeEnergyLB(bound.sequence)),
+                bound.calcEBound(e -> e.getFreeEnergyUB(bound.sequence))
+        ));
         System.out.println(String.format("Final Z bounds [%9.10e, %9.10e]]",
-                bound.calcZBound(e-> e.getFreeEnergyUB(bound.sequence)),
-                bound.calcZBound(e-> e.getFreeEnergyLB(bound.sequence))
+                bound.calcZBound(e -> e.getFreeEnergyUB(bound.sequence)),
+                bound.calcZBound(e -> e.getFreeEnergyLB(bound.sequence))
         ));
         System.out.println(String.format("Alternate computation of Z bounds [%9.10e, %9.10e]]",
                 bound.calcZLBDirect().doubleValue(),
                 bound.calcZUBDirect().doubleValue()));
 
-        if (SHARKStarQueueDebugger.hasDuplicateNodes(bound.internalQueue)){
+        if (SHARKStarQueueDebugger.hasDuplicateNodes(bound.internalQueue)) {
             System.out.println("Internal Queue has duplicates");
-        }else{
+        } else {
             System.out.println("Internal Queue does not have duplicates");
         }
 
@@ -834,23 +858,23 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     /**
      * Uses the simplest possible scheme to tighten the bounds on the partition function
      *
-     * @param bound  A single-sequence partition function
+     * @param bound A single-sequence partition function
      */
-    private void simpleTightenBound(SingleSequenceSHARKStarBound_refactor bound){
+    private void simpleTightenBound(SingleSequenceSHARKStarBound_refactor bound) {
         int numConfsToProcess = 1000;
         int numConfsProcessed = 0;
 
-        while (numConfsProcessed < numConfsToProcess){
+        while (numConfsProcessed < numConfsToProcess) {
             SHARKStarNode node;
             List<SHARKStarNode> newNodes = Collections.synchronizedList(new ArrayList<>());
-            if(bound.leafQueue.isEmpty() || bound.internalQueue.peek().getScore(bound.sequence) > bound.leafQueue.peek().getScore(bound.sequence)){
+            if (bound.leafQueue.isEmpty() || bound.internalQueue.peek().getScore(bound.sequence) > bound.leafQueue.peek().getScore(bound.sequence)) {
                 node = bound.internalQueue.poll();
-            }else{
+            } else {
                 node = bound.leafQueue.poll();
             }
-            if (node.getLevel() < bound.seqRCs.getNumPos()){
-                processPartialConfNode(bound,newNodes, node);
-            }else {
+            if (node.getLevel() < bound.seqRCs.getNumPos()) {
+                processPartialConfNode(bound, newNodes, node);
+            } else {
                 processFullConfNode(bound, newNodes, node);
             }
 
@@ -869,16 +893,16 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     /**
      * Tighten bounds on a pfunc by following and choosing from the following steps:
-     *
+     * <p>
      * 1.   Determine which nodes we want to process
      * 2.   Choose from choices A or B below
-     *      A) Process leaf nodes
-     *      B) Process internal nodes
+     * A) Process leaf nodes
+     * B) Process internal nodes
      * 3.   Cleanup
      *
-     * @param bound     A single-sequence partition function
+     * @param bound A single-sequence partition function
      */
-    private void tightenBoundInPhases(SingleSequenceSHARKStarBound_refactor bound){
+    private void tightenBoundInPhases(SingleSequenceSHARKStarBound_refactor bound) {
         assert (!bound.isEmpty());
 
         // Initialize lists to track nodes
@@ -902,8 +926,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         double internalTimeSum = 0;
 
         // Record the current information before taking nodes out
-        double startingELB = bound.calcEBound(e->e.getFreeEnergyLB(bound.sequence));
-        double startingEUB = bound.calcEBound(e->e.getFreeEnergyUB(bound.sequence));
+        double startingELB = bound.calcEBound(e -> e.getFreeEnergyLB(bound.sequence));
+        double startingEUB = bound.calcEBound(e -> e.getFreeEnergyUB(bound.sequence));
         double startingEps = bound.calcEpsilon();
 
         System.out.println(String.format("Current overall error bound: %.10f, spread of [%.3f, %.3f]",
@@ -919,11 +943,11 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         internalZ = ZSums[0];
         leafZ = ZSums[1];
         // If we don't have any nodes to process, try again
-        if(leafNodes.isEmpty() && internalNodes.isEmpty()) {
+        if (leafNodes.isEmpty() && internalNodes.isEmpty()) {
             System.out.println("Nothing was populated?");
             populateQueues(bound, internalNodes, leafNodes, ZSums);
         }
-        if(MathTools.isRelativelySame(internalZ, leafZ, PartitionFunction.decimalPrecision, 1e-3)
+        if (MathTools.isRelativelySame(internalZ, leafZ, PartitionFunction.decimalPrecision, 1e-3)
                 && MathTools.isRelativelySame(leafZ, BigDecimal.ZERO, PartitionFunction.decimalPrecision, 1e-3)) {
             //pilotFish.travelTree(bound.sequence);
             //printTree(bound.sequence, rootNode);
@@ -931,7 +955,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             populateQueues(bound, new ArrayList<>(), new ArrayList<>(), ZSums);
         }
         System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
-        if(!bound.internalQueue.isEmpty() &&
+        if (!bound.internalQueue.isEmpty() &&
                 MathTools.isLessThan(internalZ, bc.calc(bound.internalQueue.peek().getFreeEnergyLB(bound.sequence))))
             System.out.println("Should have used a node from the internal queue. How??");
 
@@ -973,7 +997,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         Arrays.toString(internalNode.getAssignments()),
                         internalNode.getFreeEnergyLB(bound.sequence),
                         internalNode.getFreeEnergyUB(bound.sequence)
-                        ));
+                ));
 
 
                 /*
@@ -982,8 +1006,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 then dive in a DFS manner to quickly tighten the node bound
                  */
 
-                if( internalNode.getFreeEnergyUB(bound.sequence) < 0 &&
-                        internalNode.getFreeEnergyLB(bound.sequence) - startingELB > drillDownDifference){
+                if (internalNode.getFreeEnergyUB(bound.sequence) < 0 &&
+                        internalNode.getFreeEnergyLB(bound.sequence) - startingELB > drillDownDifference) {
                     //TODO: Put this back in possibly
                     /*
                     loopTasks.submit(() -> {
@@ -1009,8 +1033,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         }
         loopCleanup(bound, newNodes, loopWatch, numNodes);
 
-        double endingELB = bound.calcEBound(e->e.getFreeEnergyLB(bound.sequence));
-        double endingEUB = bound.calcEBound(e->e.getFreeEnergyUB(bound.sequence));
+        double endingELB = bound.calcEBound(e -> e.getFreeEnergyLB(bound.sequence));
+        double endingEUB = bound.calcEBound(e -> e.getFreeEnergyUB(bound.sequence));
         double endingEps = bound.calcEpsilon();
 
         System.out.println(String.format("Ending error: %.10f, spread of [%.3f, %.3f]",
@@ -1018,7 +1042,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 endingELB,
                 endingEUB));
 
-        if (endingEps> startingEps){
+        if (endingEps > startingEps) {
             throw new RuntimeException("ERROR! bounds got looser");
         }
     }
@@ -1026,15 +1050,15 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     /**
      * Get two lists of nodes that we would like to process
      *
-     * @param seqBound          The single-sequence pfunc bound
-     * @param internalNodes     The list of internal nodes to return
-     * @param leafNodes         The list of leaf nodes to return
-     * @param zSums             Tracking variables for the above lists containing the partition function error
-     *                          Associated with each list
-     *
-     * TODO: implement me
+     * @param seqBound      The single-sequence pfunc bound
+     * @param internalNodes The list of internal nodes to return
+     * @param leafNodes     The list of leaf nodes to return
+     * @param zSums         Tracking variables for the above lists containing the partition function error
+     *                      Associated with each list
+     *                      <p>
+     *                      TODO: implement me
      */
-    public void populateQueues(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> internalNodes, List<SHARKStarNode> leafNodes, BigDecimal[] zSums){
+    public void populateQueues(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> internalNodes, List<SHARKStarNode> leafNodes, BigDecimal[] zSums) {
         List<SHARKStarNode> leftoverLeaves = new ArrayList<>();
         //PriorityQueue<SHARKStarNode> queue = seqBound.fringeNodes;
         // temporary fix
@@ -1072,7 +1096,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 //} else if (shouldMinimize(curNode, seqBound.sequence) && !correctedNode(leftoverLeaves, curNode, node, seqBound.sequence)) {
                 //TODO: Make sure the correctedNode method is doing what I think it is
                 //} else if (shouldMinimize(curNode, seqBound.sequence) && !nodeCorrected){
-            }else{
+            } else {
                 seqBound.leafQueue.add(curNode);
             }
 
@@ -1080,7 +1104,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         zSums[0] = fillListFromQueue(internalNodes, seqBound.internalQueue, maxNodes, seqBound);
         zSums[1] = fillListFromQueue(leafNodes, seqBound.leafQueue, seqBound.maxMinimizations, seqBound);
-        if(!seqBound.internalQueue.isEmpty() &&
+        if (!seqBound.internalQueue.isEmpty() &&
                 MathTools.isLessThan(zSums[0], bc.calc(seqBound.internalQueue.peek().getScore(seqBound.sequence))))
             System.out.println("Should have used a node from the internal queue. How??");
         queue.addAll(leftoverLeaves);
@@ -1089,7 +1113,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private BigDecimal fillListFromQueue(List<SHARKStarNode> list, Queue<SHARKStarNode> queue, int max, SingleSequenceSHARKStarBound_refactor bound) {
         BigDecimal sum = BigDecimal.ZERO;
         List<SHARKStarNode> leftovers = new ArrayList<>();
-        while (!queue.isEmpty() && list.size() < max ) {
+        while (!queue.isEmpty() && list.size() < max) {
             SHARKStarNode curNode = queue.poll();
             /* change this to use the new applyCorrections method
             if (correctedNode(leftovers, curNode, curNode.getConfSearchNode(), seq)) {
@@ -1122,30 +1146,30 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     /**
      * Do scoring and checks for a conformation with all residues assigned a rotamer
      *
-     * @param seqBound      The single-sequence pfunc bound
-     * @param newNodes      A list to track the new nodes created by this action
-     * @param fullConfNode  The full conformation node to process
-     *
-     * TODO: implement me
+     * @param seqBound     The single-sequence pfunc bound
+     * @param newNodes     A list to track the new nodes created by this action
+     * @param fullConfNode The full conformation node to process
+     *                     <p>
+     *                     TODO: implement me
      */
-    public void processFullConfNode(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, SHARKStarNode fullConfNode){
+    public void processFullConfNode(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, SHARKStarNode fullConfNode) {
         //Sanity check, this should eventually never happen
-        if(fullConfNode.getFreeEnergyLB(seqBound.sequence) > 10 &&
+        if (fullConfNode.getFreeEnergyLB(seqBound.sequence) > 10 &&
                 (!seqBound.internalQueue.isEmpty() && seqBound.internalQueue.peek().getFreeEnergyLB(seqBound.sequence) < 0
                         || !seqBound.leafQueue.isEmpty() && seqBound.leafQueue.peek().getFreeEnergyLB(seqBound.sequence) < 0)) {
             System.err.println("not processing high-energy conformation");
             newNodes.add(fullConfNode);
             return;
         }
-        /*
-        // try to apply corrections to nodes
-        boolean correctedNode = applyCorrectionsOrNOOP(curNode, bound);
-        // if we applied a correction, done with the node
-        if (correctedNode){
-            newNodes.add(curNode);
+
+        // Try to apply partial minimization correction to child
+        double HOTCorrection = correctionMatrix.getCorrection(fullConfNode.getAssignments());
+        if (HOTCorrection > fullConfNode.getHOTCorrection()){
+            fullConfNode.setHOTCorrection(HOTCorrection);
+            // if we applied a correction, done with the node
+            newNodes.add(fullConfNode);
             return;
         }
-         */
 
         // Minimize the node
         minimizeNodeForSeq(fullConfNode, seqBound.sequence);
@@ -1158,12 +1182,18 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     /**
      * Do scoring and checks for a conformation with some residues unassigned
      *
-     * @param seqBound         The single-sequence pfunc bound
-     * @param newNodes         A list to track the new nodes created by this action
-     * @param partialConfNode  The partial conformation node to process
-     *
+     * @param seqBound        The single-sequence pfunc bound
+     * @param newNodes        A list to track the new nodes created by this action
+     * @param partialConfNode The partial conformation node to process
      */
-    public void processPartialConfNode(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, SHARKStarNode partialConfNode){
+    public void processPartialConfNode(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, SHARKStarNode partialConfNode) {
+        //Try just correcting it
+        double HOTCorrection = correctionMatrix.getCorrection(partialConfNode.getAssignments());
+        if(HOTCorrection > partialConfNode.getHOTCorrection()){
+            partialConfNode.setHOTCorrection(HOTCorrection);
+            return;
+        }
+
         // Get the next position
         ScoreContext context = contexts.checkout();
         partialConfNode.index(context.index);
@@ -1175,7 +1205,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         for (int nextRC : seqBound.seqRCs.get(nextPos)) {
             // Actually score the child
             makeAndScoreChildForSeq(partialConfNode, nextPos, nextRC, seqBound.sequence, seqBound.seqRCs, children);
-            }
+        }
         // reporting
         //TODO: maybe separate scoring tasks from minimization tasks?
         loopTasks.waitForFinish();
@@ -1194,12 +1224,12 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * Drill down in a standard A* manner and bound the lowest-energy full conformation in the subtree
      * defined by internalNode
      *
-     * @param seqBound      The single-sequence pfunc bound
-     * @param internalNode  The node defining the subtree
-     * @param newNodes      A list to which we add the new nodes generated by this process
+     * @param seqBound     The single-sequence pfunc bound
+     * @param internalNode The node defining the subtree
+     * @param newNodes     A list to which we add the new nodes generated by this process
      */
-    public void boundLowestBoundConfUnderNode(SingleSequenceSHARKStarBound_refactor seqBound, SHARKStarNode internalNode, List<SHARKStarNode> newNodes){
-        System.out.println("Bounding "+internalNode.toSeqString(seqBound.sequence));
+    public void boundLowestBoundConfUnderNode(SingleSequenceSHARKStarBound_refactor seqBound, SHARKStarNode internalNode, List<SHARKStarNode> newNodes) {
+        System.out.println("Bounding " + internalNode.toSeqString(seqBound.sequence));
 
         // Set up custom queue that mimics usual A* behavior
         Comparator<SHARKStarNode> confBoundComparator = Comparator.comparingDouble(o -> o.getFreeEnergyLB(seqBound.sequence));
@@ -1219,7 +1249,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             if (curNode.getLevel() < seqBound.seqRCs.getNumPos()) {
                 SHARKStarNode nextNode = drillDown(seqBound, generatedNodes, curNode);
                 // Sometimes there are no good leaf nodes. Weird.
-                if(nextNode != null) {
+                if (nextNode != null) {
                     generatedNodes.remove(nextNode);
                     drillQueue.add(nextNode);
                 }
@@ -1237,7 +1267,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         overallLoop.getTime(2),
                         seqBound.calcZBound(e -> e.getFreeEnergyUB(seqBound.sequence)),
                         seqBound.calcZBound(e -> e.getFreeEnergyLB(seqBound.sequence))
-                        ));
+                ));
             }
         }
         newNodes.addAll(generatedNodes);
@@ -1245,35 +1275,35 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     /**
      * A* search using energy lower bound for a leaf node
-     * @param seqBound          The single-sequence pfunc bound
-     * @param generatedNodes    A list to which we add new nodes found during this process
-     * @param node              The node to start the drillDown process from
      *
+     * @param seqBound       The single-sequence pfunc bound
+     * @param generatedNodes A list to which we add new nodes found during this process
+     * @param node           The node to start the drillDown process from
      * @return the lowest-energy leaf node
-     *
+     * <p>
      * TODO: Implement me
      */
-    public SHARKStarNode drillDown(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> generatedNodes, SHARKStarNode node){
+    public SHARKStarNode drillDown(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> generatedNodes, SHARKStarNode node) {
         throw new NotImplementedException();
     }
 
     /**
      * Do cleanup after one loop iteration
      *
-     * @param seqBound  The single-sequence pfunc bound
-     * @param newNodes  A list of new nodes created during the loop iteration
-     * @param timer     The timer telling us how long the loop took
-     * @param numNodes  The number of nodes we processed during the loop
-     *
-     * TODO: implement me
+     * @param seqBound The single-sequence pfunc bound
+     * @param newNodes A list of new nodes created during the loop iteration
+     * @param timer    The timer telling us how long the loop took
+     * @param numNodes The number of nodes we processed during the loop
+     *                 <p>
+     *                 TODO: implement me
      */
-    public void loopCleanup(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, Stopwatch timer, int numNodes){
+    public void loopCleanup(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, Stopwatch timer, int numNodes) {
         //PriorityQueue<SHARKStarNode> queue = seqBound.fringeNodes;
         // Temporary fix
         PriorityQueue<SHARKStarNode> queue = null;
         for (SHARKStarNode node : newNodes) {
-            if (node != null){
-                if(node.isMinimized())
+            if (node != null) {
+                if (node.isMinimized())
                     seqBound.addFinishedNode(node);
                 else
                     queue.add(node);
@@ -1281,7 +1311,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         }
         timer.stop();
         double loopTime = timer.getTimeS();
-        System.out.println("Processed " + numNodes + " this loop, spawning " + newNodes.size() + " in " + loopTime );
+        System.out.println("Processed " + numNodes + " this loop, spawning " + newNodes.size() + " in " + loopTime);
         timer.reset();
         timer.start();
         //energyMatrixCorrector.processPreminimization(seqBound, minimizingEcalc);
@@ -1291,8 +1321,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         //cleanupTime = timer.getTimeS();
         //double scoreChange = rootNode.updateAndReportConfBoundChange(new ConfIndex(RCs.getNumPos()), RCs, correctiongscorer, correctionhscorer);
 
-        System.out.println(String.format("Loop complete. Epsilon is now %.10f, Bounds are now [%.3f,%.3f]", seqBound.calcEpsilon(), seqBound.calcEBound(e-> e.getFreeEnergyLB(seqBound.sequence)),
-                seqBound.calcEBound(e->e.getFreeEnergyUB(seqBound.sequence))));
+        System.out.println(String.format("Loop complete. Epsilon is now %.10f, Bounds are now [%.3f,%.3f]", seqBound.calcEpsilon(), seqBound.calcEBound(e -> e.getFreeEnergyLB(seqBound.sequence)),
+                seqBound.calcEBound(e -> e.getFreeEnergyUB(seqBound.sequence))));
     }
 
     protected void debugPrint(String s) {
@@ -1302,6 +1332,42 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
     public void printEnsembleAnalysis() {
         ensembleAnalyzer.printStats();
+    }
+
+    public int getNumPartialMinimizations() {
+        return numPartialMinimizations;
+    }
+
+    public MARKStarProgress getProgress() {
+        return progress;
+    }
+
+    public EnergyMatrix getRigidEmat() {
+        return rigidEmat;
+    }
+
+    public EnergyMatrix getMinimizingEmat() {
+        return minimizingEmat;
+    }
+
+    public ConfEnergyCalculator getMinimizingEcalc() {
+        return minimizingEcalc;
+    }
+
+    public Set<String> getCorrectedTuples() {
+        return correctedTuples;
+    }
+
+    public UpdatingEnergyMatrix getCorrectionMatrix() {
+        return correctionMatrix;
+    }
+
+    public void setNumPartialMinimizations(int numPartialMinimizations) {
+        this.numPartialMinimizations = numPartialMinimizations;
+    }
+
+    public void setComputedCorrections(boolean computedCorrections) {
+        this.computedCorrections = computedCorrections;
     }
 
     protected static class ScoreContext {
@@ -1324,6 +1390,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         double partialUB = Double.NaN;
         double unassignLB = Double.NaN;
         double unassignUB = Double.NaN;
+        double HOTCorrection = 0.0;
         double score = Double.NaN;
         double time = Double.NaN;
         String historyString = "Error!!";
@@ -1332,6 +1399,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             return resultNode != null && !Double.isNaN(partialLB) && !Double.isNaN(partialUB) && !Double.isNaN(unassignLB) && !Double.isNaN(unassignUB) && !Double.isNaN(score);
         }
     }
+
     private class MinimizationResult {
         SHARKStarNode resultNode = null;
         double minimizedEnergy = Double.NaN;
@@ -1344,3 +1412,4 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         }
     }
 }
+

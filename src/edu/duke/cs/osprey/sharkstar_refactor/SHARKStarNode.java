@@ -301,4 +301,9 @@ public class SHARKStarNode implements ConfAStarNode {
         // Now I'm going to be hacky and just copy over the assignments
         this.assignments = newAssignments;
     }
+
+    public void setHOTCorrection(double HOTCorrection) {
+        this.HOTCorrection = HOTCorrection;
+        this.isCorrected = true;
+    }
 }
