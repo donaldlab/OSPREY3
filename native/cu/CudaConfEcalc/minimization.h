@@ -29,34 +29,29 @@ namespace osprey {
 				x.copy_from_device(other.x);
 			}
 
-			T f;
-			Array<T> x;
-
-			__device__
-			static inline DofValues<T> make(int size, void * shared_ptr) {
-				if (threadIdx.x == 0) {
-					shared_ptr = std::malloc(get_bytes(size));
-				}
-				__syncthreads();
-				return reinterpret_cast<DofValues<T> *>(shared_ptr);
-			}
+			alignas(16) T f;
+			alignas(16) Array<T> x;
 
 			__host__ __device__
 			static inline int64_t get_bytes(int size) {
-				return 8 + Array<T>::get_bytes(size);
+				return 16 + Array<T>::get_bytes(size);
 			}
 
 			__host__
 			static inline const T * f_ptr(const DofValues<T> * p) {
+				assert (cuda::is_aligned<16>(p));
 				return reinterpret_cast<const T *>(p);
 			}
 
 			__host__
 			static inline const T * x_ptr(const DofValues<T> * p) {
-				return reinterpret_cast<const T *>(reinterpret_cast<const int8_t *>(p) + 8);
+				assert (cuda::is_aligned<16>(p));
+				return reinterpret_cast<const T *>(reinterpret_cast<const int8_t *>(p) + 16);
 			}
 	};
-	ASSERT_MALLOCABLE_REALS(DofValues, 8 + sizeof(Array<float32_t>), 8 + sizeof(Array<float64_t>));
+	ASSERT_MALLOCABLE_REALS(DofValues, 16 + sizeof(Array<float32_t>), 16 + sizeof(Array<float64_t>));
+	static_assert(offsetof(DofValues<float32_t>, x) == 16);
+	static_assert(offsetof(DofValues<float64_t>, x) == 16);
 
 	template<typename T>
 	class Dofs {
@@ -83,7 +78,7 @@ namespace osprey {
 				for (int motioni=0; motioni < assignment.conf_space.num_molecule_motions; motioni++) {
 					switch (assignment.conf_space.get_molecule_motion_id(motioni)) {
 
-						case motions::Dihedral<T>::id: {
+						case motions::Dihedral<T>::Id: {
 							if (threadIdx.x == 0) {
 								const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_molecule_motion(motioni));
 								shared_dofs[size] = dihedral.make_dof(assignment, inters);
@@ -104,7 +99,7 @@ namespace osprey {
 					for (int motioni=0; motioni<conf.num_motions; motioni++) {
 						switch (assignment.conf_space.get_conf_motion_id(conf, motioni)) {
 
-							case motions::Dihedral<T>::id: {
+							case motions::Dihedral<T>::Id: {
 								if (threadIdx.x == 0) {
 									const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
 									shared_dofs[size] = dihedral.make_dof(assignment, inters);
@@ -157,7 +152,7 @@ namespace osprey {
 			}
 
 			__device__
-			inline T eval_efunc(Array<T> & x) {
+			inline T eval_efunc(const Array<T> & x) {
 				set(x);
 				return efunc(assignment, inters, thread_energy);
 			}

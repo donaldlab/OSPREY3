@@ -8,17 +8,18 @@ namespace osprey {
 	const int32_t StaticPos = -1;
 
 	template<typename T>
-	struct Conf {
+	struct alignas(16) Conf {
 		int64_t atoms_offset;
 		int32_t frag_index;
-		// 4 bytes pad if T = float32_t
+		// 4 bytes pad if T = float64_t
 		T internal_energy;
 		int64_t num_motions;
 		int64_t motions_offset;
+		// 8 bytes pad if T = float64_t
 	};
-	ASSERT_JAVA_COMPATIBLE_REALS(Conf, 32, 40);
+	ASSERT_JAVA_COMPATIBLE_REALS(Conf, 32, 48);
 
-	struct alignas(8) Pos {
+	struct alignas(16) Pos {
 		int32_t num_confs;
 		int32_t max_num_atoms;
 		int32_t num_frags;
@@ -27,7 +28,7 @@ namespace osprey {
 	ASSERT_JAVA_COMPATIBLE(Pos, 16);
 
 	template<typename T>
-	class ConfSpace {
+	class alignas(16) ConfSpace {
 		public:
 			ConfSpace() = delete; // created only on the Java side
 
@@ -171,8 +172,7 @@ namespace osprey {
 				assert (i < conf.num_motions);
 
 				auto offsets = reinterpret_cast<const int64_t *>(offset(conf.motions_offset));
-				auto p = reinterpret_cast<const int64_t *>(offset(offsets[i]));
-				return reinterpret_cast<const void *>(p + 1);
+				return reinterpret_cast<const void *>(offset(offsets[i]));
 			}
 
 			int32_t num_pos;
@@ -198,7 +198,7 @@ namespace osprey {
 				return reinterpret_cast<const int64_t *>(offset(pos_pairs_offset));
 			}
 	};
-	ASSERT_JAVA_COMPATIBLE_REALS(ConfSpace, 72, 72);
+	ASSERT_JAVA_COMPATIBLE_REALS(ConfSpace, 80, 80);
 
 	template<typename T>
 	std::ostream & operator << (std::ostream & out, const ConfSpace<T> & conf_space) {

@@ -16,7 +16,7 @@ namespace osprey {
 
 			__host__ __device__
 			static int64_t sizeof_conf_energies(int num_pos) {
-				return cuda::pad_to_alignment(num_pos*sizeof(T), 8);
+				return num_pos*sizeof(T);
 			}
 
 			__device__

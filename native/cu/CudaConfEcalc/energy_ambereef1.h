@@ -5,11 +5,11 @@
 
 namespace osprey { namespace ambereef1 {
 
-	struct alignas(8) Params {
+	struct alignas(16) Params {
 		bool distance_dependent_dielectric;
-		// 7 bytes pad
+		// 15 bytes pad
 	};
-	ASSERT_JAVA_COMPATIBLE(Params, 8);
+	ASSERT_JAVA_COMPATIBLE(Params, 16);
 
 	struct alignas(16) AtomPairs {
 		int32_t num_amber;
@@ -107,7 +107,7 @@ namespace osprey { namespace ambereef1 {
 
 		// read the amber params for this atom pair
 		const AtomPairAmberF32b pairb = *reinterpret_cast<const AtomPairAmberF32b *>(p
-			+ cuda::pad_to_alignment(sizeof(AtomPairAmberF32a)*atom_pairs.num_amber, alignof(AtomPairAmberF32b))
+			+ cuda::pad_to_alignment<alignof(AtomPairAmberF32b)>(sizeof(AtomPairAmberF32a)*atom_pairs.num_amber)
 			+ sizeof(AtomPairAmberF32b)*pairi);
 
 		// calculate the electrostatics energy
@@ -178,7 +178,7 @@ namespace osprey { namespace ambereef1 {
 		// eef1 atom pairs are placed right after the AtomPairs struct and the amber atom pairs
 		auto p = reinterpret_cast<const int8_t *>(&atom_pairs + 1);
 		auto pairs_eef1 = reinterpret_cast<const AtomPairEef1<float32_t> *>(p
-			+ cuda::pad_to_alignment(sizeof(AtomPairAmberF32a)*atom_pairs.num_amber, alignof(AtomPairAmberF32b))
+			+ cuda::pad_to_alignment<alignof(AtomPairAmberF32b)>(sizeof(AtomPairAmberF32a)*atom_pairs.num_amber)
 			+ sizeof(AtomPairAmberF32b)*atom_pairs.num_amber
 		);
 
@@ -203,7 +203,7 @@ namespace osprey { namespace ambereef1 {
 		// eef1 atom pairs are placed right after the AtomPairs struct and the amber atom pairs
 		auto p = reinterpret_cast<const int8_t *>(&atom_pairs + 1);
 		const AtomPairEef1<float64_t> * pairs_eef1 = reinterpret_cast<const AtomPairEef1<float64_t> *>(p
-			+ cuda::pad_to_alignment(sizeof(AtomPairAmberF64a)*atom_pairs.num_amber, alignof(AtomPairAmberF64b))
+			+ cuda::pad_to_alignment<alignof(AtomPairAmberF64b)>(sizeof(AtomPairAmberF64a)*atom_pairs.num_amber)
 			+ sizeof(AtomPairAmberF64b)*atom_pairs.num_amber
 		);
 

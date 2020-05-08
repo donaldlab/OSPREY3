@@ -95,10 +95,11 @@ namespace osprey {
 	namespace motions {
 
 		template<typename T>
-		struct alignas(8) Dihedral {
+		struct alignas(16) Dihedral {
 
-			const static int32_t id = 0;
+			const static int64_t Id = 0;
 
+			int64_t id;
 			T min_radians;
 			T max_radians;
 			int32_t a_index;
@@ -107,6 +108,7 @@ namespace osprey {
 			int32_t d_index;
 			int32_t num_rotated;
 			int32_t modified_posi;
+			// 8 bytes padding if T = float32_t
 
 			// only created by java side
 			Dihedral() = delete;
@@ -200,7 +202,7 @@ namespace osprey {
 				return new Dof(*this, assignment, inters);
 			}
 		};
-		ASSERT_JAVA_COMPATIBLE_REALS(Dihedral, 32, 40);
+		ASSERT_JAVA_COMPATIBLE_REALS(Dihedral, 48, 48);
 	}
 }
 

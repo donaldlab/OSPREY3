@@ -20,28 +20,25 @@ namespace osprey {
 
 	template<>
 	struct Real3Map<float32_t> {
-		typedef float3 type;
-
-		// yes, a float3 is only 12 bytes,
+		typedef float4 type;
+		// yes, we really only need float3 here
 		// but actually loading exactly 3 floats requires 2 load instructions
 		// eg in PTX: ld.global.v2.f32 and ld.global.f32
-		// so pretend a float3 is 16 bytes so we can use 1 load instruction
+		// use a float4 instead so we can use 1 load instruction
 		// eg in PTX: ld.global.v4.f32
-		const static size_t size = 16;
 	};
 
 	template<>
 	struct Real3Map<float64_t> {
 		typedef double3 type;
-		const static size_t size = 24;
 	};
 
 	template<typename T>
 	using Real3 = typename Real3Map<T>::type;
 
 	// these are the sizes and alignments the compiler actually uses
-	static_assert(sizeof(Real3<float32_t>) == 12);
-	static_assert(alignof(Real3<float32_t>) == 4);
+	static_assert(sizeof(Real3<float32_t>) == 16);
+	static_assert(alignof(Real3<float32_t>) == 16);
 
 	static_assert(sizeof(Real3<float64_t>) == 24);
 	static_assert(alignof(Real3<float64_t>) == 8);
@@ -55,8 +52,8 @@ namespace osprey {
 
 	template<>
 	__device__
-	inline float3 real3<float32_t>(const float32_t & x, const float32_t & y, const float32_t & z) {
-		return make_float3(x, y, z);
+	inline float4 real3<float32_t>(const float32_t & x, const float32_t & y, const float32_t & z) {
+		return make_float4(x, y, z, 0.0);
 	}
 
 	template<>
@@ -71,7 +68,7 @@ namespace osprey {
 
 	template<>
 	__device__
-	inline float3 real3<float32_t>(const int & x, const int & y, const int & z) {
+	inline float4 real3<float32_t>(const int & x, const int & y, const int & z) {
 		return real3(
 			static_cast<float32_t>(x),
 			static_cast<float32_t>(y),
@@ -117,7 +114,7 @@ namespace osprey {
 
 	// nvcc can't find the templated operator for some reason, so explicitly instantiate it here
 	__device__
-	inline void operator += (float3 & self, const float3 & other) {
+	inline void operator += (float4 & self, const float4 & other) {
 		operator +=<float32_t>(self, other);
 	}
 	__device__
@@ -136,7 +133,7 @@ namespace osprey {
 
 	// nvcc can't find the templated operator for some reason, so explicitly instantiate it here
 	__device__
-	inline void operator -= (float3 & self, const float3 & other) {
+	inline void operator -= (float4 & self, const float4 & other) {
 		operator -=<float32_t>(self, other);
 	}
 	__device__
@@ -156,7 +153,7 @@ namespace osprey {
 
 	// nvcc can't find the templated operator for some reason, so explicitly instantiate it here
 	__device__
-	inline Real3<float32_t> operator - (const float3 & v) {
+	inline Real3<float32_t> operator - (const float4 & v) {
 		return operator -<float32_t>(v);
 	}
 	__device__
@@ -176,7 +173,7 @@ namespace osprey {
 
 	// nvcc can't find the templated operator for some reason, so explicitly instantiate it here
 	__device__
-	inline float3 operator + (const float3 & a, const float3 & b) {
+	inline float4 operator + (const float4 & a, const float4 & b) {
 		return operator +<float32_t>(a, b);
 	}
 	__device__
@@ -196,7 +193,7 @@ namespace osprey {
 
 	// nvcc can't find the templated operator for some reason, so explicitly instantiate it here
 	__device__
-	inline float3 operator - (const float3 & a, const float3 & b) {
+	inline float4 operator - (const float4 & a, const float4 & b) {
 		return operator -<float32_t>(a, b);
 	}
 	__device__
@@ -265,8 +262,30 @@ namespace cuda {
 	__device__
 	int num_tiles(cg::thread_group parent, cg::thread_group child);
 
+	template<int A>
 	__host__ __device__
-	int64_t pad_to_alignment(int64_t size, int64_t alignment);
+	inline int64_t pad_to_alignment(int64_t size);
+
+	template<>
+	__host__ __device__
+	inline int64_t pad_to_alignment<16>(int64_t size) {
+		int8_t lsb = size & 0b1111;
+		if (lsb == 0) {
+			return size;
+		} else {
+			return size + 16 - lsb;
+		}
+	}
+
+	template<int A>
+	__host__ __device__
+	inline bool is_aligned(const void * p);
+
+	template<>
+	__host__ __device__
+	inline bool is_aligned<16>(const void * p) {
+		return (reinterpret_cast<int64_t>(p) & 0b1111) == 0;
+	}
 }
 
 

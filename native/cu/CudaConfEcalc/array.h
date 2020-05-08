@@ -46,7 +46,7 @@ namespace osprey {
 
 			__host__ __device__
 			static inline int64_t get_bytes(int64_t size) {
-				return cuda::pad_to_alignment(sizeof(Array<T>) + size*sizeof(T), 8);
+				return cuda::pad_to_alignment<16>(sizeof(Array<T>) + size*sizeof(T));
 			}
 
 			// get the total allocated size of the array, in bytes
@@ -56,7 +56,7 @@ namespace osprey {
 			}
 
 			__host__ __device__
-			inline T & operator[] (int64_t i) {
+			inline T & operator [] (int64_t i) {
 
 				// just in case ...
 				assert (i >= 0);
@@ -156,52 +156,26 @@ namespace osprey {
 
 			__host__ __device__
 			inline T * pointer() {
+
+				// make sure we're 16-byte aligned
+				assert (cuda::is_aligned<16>(this));
+
 				// the coords follow the class layout
 				return reinterpret_cast<T *>(this + 1);
 			}
 
 			__host__ __device__
 			inline const T * pointer() const {
+
+				// make sure we're 16-byte aligned
+				assert (cuda::is_aligned<16>(this));
+
 				// the coords follow the class layout
 				return reinterpret_cast<const T *>(this + 1);
 			}
 	};
 	ASSERT_JAVA_COMPATIBLE(Array<int>, 16);
-	// NOTE: the array header *must* be a multiple of 16 bytes for float3 alignment to be correct
-
-
-	// the compiler thinks float3 is 12 bytes, and should be 4-byte aligned
-	// it doesn't know that we're actually pretending float3 is 16 bytes, and should be 16-byte aligned
-	// so add some specializations to override the default sizes/alignments
-	template<>
-	__host__
-	inline int64_t Array<float3>::get_bytes(int64_t size) {
-		return sizeof(Array<float3>) + size*Real3Map<float32_t>::size;
-	}
-
-	template<>
-	__host__ __device__
-	inline float3 & Array<float3>::operator[] (int64_t i) {
-
-		// just in case ...
-		assert (i >= 0);
-		assert (i < size);
-
-		auto p = reinterpret_cast<int8_t *>(pointer());
-		return *reinterpret_cast<float3 *>(p + Real3Map<float32_t>::size*i);
-	}
-
-	template<>
-	__host__ __device__
-	inline const float3 & Array<float3>::operator[] (int64_t i) const {
-
-		// just in case ...
-		assert (i >= 0);
-		assert (i < size);
-
-		auto p = reinterpret_cast<const int8_t *>(pointer());
-		return *reinterpret_cast<const float3 *>(p + Real3Map<float32_t>::size*i);
-	}
+	// NOTE: the array header *must* be a multiple of 16 bytes for Real3<T> alignment to be correct
 }
 
 

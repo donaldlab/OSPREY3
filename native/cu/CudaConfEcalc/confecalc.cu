@@ -265,6 +265,8 @@ API float64_t calc_amber_eef1_f64(const osprey::ConfSpace<float64_t> * d_conf_sp
 
 namespace osprey {
 
+	// TODO: try to optimize register usage so we can hit 1024 threads on volta
+
 	#if __CUDA_ARCH__ >= 700 // volta
 		#define MINIMIZE_THREADS 512 // TODO: optimize for volta
 		#define MINIMIZE_BLOCKS 1
@@ -305,20 +307,34 @@ namespace osprey {
 
 		// slice up the shared memory
 		extern __shared__ int8_t shared[];
+
 		int64_t shared_offset = 0;
 		auto shared_atom_pairs = reinterpret_cast<const void **>(shared + shared_offset);
-		shared_offset += Assignment<T>::sizeof_atom_pairs(conf_space->num_pos);
+		assert (cuda::is_aligned<16>(shared_atom_pairs));
+
+		shared_offset += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf_space->num_pos));
 		auto shared_conf_energies = reinterpret_cast<T *>(shared + shared_offset);
-		shared_offset += Assignment<T>::sizeof_conf_energies(conf_space->num_pos);
+		assert (cuda::is_aligned<16>(shared_conf_energies));
+
+		shared_offset += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf_space->num_pos));
 		auto shared_dofs = reinterpret_cast<Dof<T> **>(shared + shared_offset);
-		shared_offset += sizeof(Dof<T> *)*conf_space->max_num_dofs;
+		assert (cuda::is_aligned<16>(shared_dofs));
+
+		shared_offset += cuda::pad_to_alignment<16>(sizeof(Dof<T> *)*conf_space->max_num_dofs);
 		auto shared_line_search_states = reinterpret_cast<LineSearchState<T> *>(shared + shared_offset);
-		shared_offset += sizeof(LineSearchState<T>)*conf_space->max_num_dofs;
+		assert (cuda::is_aligned<16>(shared_line_search_states));
+
+		shared_offset += cuda::pad_to_alignment<16>(sizeof(LineSearchState<T>)*conf_space->max_num_dofs);
 		auto shared_here = reinterpret_cast<DofValues<T> *>(shared + shared_offset);
+		assert (cuda::is_aligned<16>(shared_here));
+
 		shared_offset += DofValues<T>::get_bytes(conf_space->max_num_dofs);
 		auto shared_next = reinterpret_cast<DofValues<T> *>(shared + shared_offset);
+		assert (cuda::is_aligned<16>(shared_next));
+
 		shared_offset += DofValues<T>::get_bytes(conf_space->max_num_dofs);
 		auto thread_energy = reinterpret_cast<T *>(shared + shared_offset);
+		assert (cuda::is_aligned<16>(thread_energy));
 
 		// init the sizes for cudaMalloc'd Array instances
 		out_coords->init(conf_space->max_num_conf_atoms);
@@ -396,10 +412,10 @@ namespace osprey {
 
 		// compute the shared memory size
 		int64_t shared_size_static = 0
-			+ Assignment<T>::sizeof_atom_pairs(conf.get_size())
-			+ Assignment<T>::sizeof_conf_energies(conf.get_size())
-			+ sizeof(Dof<T> *)*num_dofs // thread_energy
-			+ sizeof(LineSearchState<T>)*num_dofs // line_search_states
+			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf.get_size()))
+			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf.get_size()))
+			+ cuda::pad_to_alignment<16>(sizeof(Dof<T> *)*num_dofs) // thread_energy
+			+ cuda::pad_to_alignment<16>(sizeof(LineSearchState<T>)*num_dofs) // line_search_states
 			+ DofValues<T>::get_bytes(num_dofs) // here
 			+ DofValues<T>::get_bytes(num_dofs); // next
 		int64_t shared_size_per_thread = sizeof(T);

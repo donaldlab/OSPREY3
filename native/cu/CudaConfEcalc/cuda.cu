@@ -61,14 +61,4 @@ namespace cuda {
 	int num_tiles(cg::thread_group parent, cg::thread_group child) {
 		return parent.size()/child.size();
 	}
-
-	__host__ __device__
-	int64_t pad_to_alignment(int64_t size, int64_t alignment) {
-		// alignment won't be very big, so this is good enough for now
-		while (size % alignment != 0) {
-			size++;
-		}
-		assert (size % alignment == 0);
-		return size;
-	}
 }
