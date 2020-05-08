@@ -442,7 +442,9 @@ namespace osprey {
 				if (std::abs(state.last_step) > tolerance<T> && std::abs(state.first_step) > tolerance<T>) {
 					step = dof.initial_step_size*std::abs(state.last_step/state.first_step);
 				} else {
-					step = dof.initial_step_size/std::pow(iter + 1, 3);
+					int base = iter + 1;
+					base *= 3;
+					step = dof.initial_step_size/base;
 				}
 
 				// get the next x value for this dof

@@ -59,7 +59,7 @@ public class BenchmarkEnergies {
 		Benchmark bmCompiledCudaf64Rigid;
 
 		int numWarmupsRigid = 100;
-		int numRunsRigid = 2000;
+		int numRunsRigid = 4000;
 
 		// benchmark classic rigid energies
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(classic.complex, new ForcefieldParams())
@@ -121,7 +121,7 @@ public class BenchmarkEnergies {
 		Benchmark bmCompiledCudaf64Minimized;
 
 		int numWarmupsMinimized = 2;
-		int numRunsMinimized = 20;
+		int numRunsMinimized = 40;
 
 		// benchmark classic minimized energies
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(classic.complex, new ForcefieldParams())
@@ -262,8 +262,12 @@ public class BenchmarkEnergies {
 
 			int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };
 
-			double energy = confEcalc.minimizeEnergy(conf, inters);
-			log("energy = %f", energy);
+			// TEMP
+			//log("energy = %f", confEcalc.calcEnergy(conf, inters));
+			//log("   exp = %f", 2199.44093411);
+
+			log("energy = %f", confEcalc.minimizeEnergy(conf, inters));
+			log("   exp = %f", -1359.27208010);
 		}
 	}
 }

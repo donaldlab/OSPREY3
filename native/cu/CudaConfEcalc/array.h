@@ -62,7 +62,7 @@ namespace osprey {
 				assert (i >= 0);
 				assert (i < size);
 
-				return pointer()[i];
+				return items()[i];
 			}
 
 			__host__ __device__
@@ -72,7 +72,27 @@ namespace osprey {
 				assert (i >= 0);
 				assert (i < size);
 
-				return pointer()[i];
+				return items()[i];
+			}
+
+			__host__ __device__
+			inline T * items() {
+
+				// make sure we're 16-byte aligned
+				assert (cuda::is_aligned<16>(this));
+
+				// the coords follow the class layout
+				return reinterpret_cast<T *>(this + 1);
+			}
+
+			__host__ __device__
+			inline const T * items() const {
+
+				// make sure we're 16-byte aligned
+				assert (cuda::is_aligned<16>(this));
+
+				// the coords follow the class layout
+				return reinterpret_cast<const T *>(this + 1);
 			}
 
 			__host__
@@ -84,7 +104,7 @@ namespace osprey {
 				assert (srci >= 0);
 				assert (srci + count <= src.size);
 
-				std::copy(src.pointer() + srci, src.pointer() + srci + count, pointer() + dsti);
+				std::copy(src.items() + srci, src.pointer() + srci + count, items() + dsti);
 
 				return count;
 			}
@@ -109,7 +129,7 @@ namespace osprey {
 				assert (srci + count <= src.size);
 
 				for (uint i=threadIdx.x; i<count; i += blockDim.x) {
-					operator[](dsti + i) = src[srci + i];
+					items()[dsti + i] = src.items()[srci + i];
 				}
 				__syncthreads();
 
@@ -134,7 +154,7 @@ namespace osprey {
 				assert (dsti + count <= size);
 
 				for (uint i=threadIdx.x; i<count; i += blockDim.x) {
-					operator[](dsti + i) = val;
+					items()[dsti + i] = val;
 				}
 				__syncthreads();
 
@@ -153,26 +173,6 @@ namespace osprey {
 
 			int64_t size;
 			int64_t pad; // need to pad to 16 bytes
-
-			__host__ __device__
-			inline T * pointer() {
-
-				// make sure we're 16-byte aligned
-				assert (cuda::is_aligned<16>(this));
-
-				// the coords follow the class layout
-				return reinterpret_cast<T *>(this + 1);
-			}
-
-			__host__ __device__
-			inline const T * pointer() const {
-
-				// make sure we're 16-byte aligned
-				assert (cuda::is_aligned<16>(this));
-
-				// the coords follow the class layout
-				return reinterpret_cast<const T *>(this + 1);
-			}
 	};
 	ASSERT_JAVA_COMPATIBLE(Array<int>, 16);
 	// NOTE: the array header *must* be a multiple of 16 bytes for Real3<T> alignment to be correct
