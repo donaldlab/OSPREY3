@@ -752,6 +752,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param bound         The SingleSequence partition function (defines the sequence we are after)
      */
     public void computeForSequence(int maxNumConfs, SingleSequenceSHARKStarBound_refactor bound) {
+        Stopwatch computeWatch = new Stopwatch().start();
+
         System.out.println("Tightening bound for " + bound.sequence);
         debugPrint("Num conformations: " + bound.numConformations);
 
@@ -802,6 +804,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
          */
         loopTasks.waitForFinish();
         minimizingEcalc.tasks.waitForFinish();
+        computeWatch.stop();
+
+        System.out.println(String.format("Finished computatin in %.3f secions", computeWatch.getTimeS()));
         System.out.println(String.format("Final E bounds [%.3f, %.3f]]",
                 bound.calcEBound(e-> e.getFreeEnergyLB(bound.sequence)),
                 bound.calcEBound(e-> e.getFreeEnergyUB(bound.sequence))
