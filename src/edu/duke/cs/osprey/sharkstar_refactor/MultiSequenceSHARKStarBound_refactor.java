@@ -649,6 +649,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         double HOTCorrection = correctionMatrix.getCorrection(child.getAssignments());
                         if (HOTCorrection > parent.getHOTCorrection()){
                             result.HOTCorrection = HOTCorrection;
+                        }else{  // If the parent correction is larger, just use the parent correction, since it must be valid
+                            result.HOTCorrection = parent.getHOTCorrection();
                         }
 
                         // Score the child node
