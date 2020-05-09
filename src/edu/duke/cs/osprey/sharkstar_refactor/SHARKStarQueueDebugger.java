@@ -73,7 +73,7 @@ public class SHARKStarQueueDebugger {
                 .collect(Collectors.toList());
     }
 
-    public static void recalculateScoresForNode(SHARKStarNode node, RCs seqRCs, ObjectPool<MultiSequenceSHARKStarBound_refactor.ScoreContext> contexts){
+    public static void recalculateScoresForNode(SHARKStarNode node, RCs seqRCs, ObjectPool<MultiSequenceSHARKStarBound_refactor.ScoreContext> contexts, ConfAnalyzer confAnalyzer){
         try (ObjectPool.Checkout<MultiSequenceSHARKStarBound_refactor.ScoreContext> checkout = contexts.autoCheckout()) {
             MultiSequenceSHARKStarBound_refactor.ScoreContext context = checkout.get();
             node.index(context.index);
@@ -81,13 +81,17 @@ public class SHARKStarQueueDebugger {
             double partialUB = context.partialConfUBScorer.calc(context.index, seqRCs);
             double unassignLB = context.unassignedConfLBScorer.calc(context.index, seqRCs);
             double unassignUB = context.unassignedConfUBScorer.calc(context.index, seqRCs);
+            ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.getAssignments(), partialLB+unassignLB);
+            ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
+            double minimizedEnergy = analysis.epmol.energy;
 
-            System.out.println(String.format("Recalculating %s: gscores [%.3f, %.3f], hscores [%.3f, %.3f]",
+            System.out.println(String.format("Recalculating %s: gscores [%.3f, %.3f], hscores [%.3f, %.3f], minE %.3f",
                     node.confToString(),
                     partialLB,
                     partialUB,
                     unassignLB,
-                    unassignUB));
+                    unassignUB,
+                    minimizedEnergy));
         }
     }
 }

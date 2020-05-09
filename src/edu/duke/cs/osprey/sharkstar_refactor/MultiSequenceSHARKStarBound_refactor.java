@@ -95,9 +95,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private double scoringTimeTotal = 0.0;
     private double correctionComputationTimeTotal = 0.0;
 
-    private double numMinimizations = 0;
-    private double numScores = 0;
-    private double numCorrections = 0;
+    private int numMinimizations = 0;
+    private int numScores = 0;
+    private int numCorrections = 0;
 
     private double leafTimeAverage;
     private double internalTimeAverage;
@@ -244,6 +244,13 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         System.out.println("Full RCs: " + fullRCs);
         System.out.println("Sequence RCs: " + newBound.seqRCs);
         computeFringeForSequence(newBound, this.rootNode);
+        if(debug){
+            System.out.println("Fringe created, printing fringe level breakdown");
+            System.out.println("Internal Queue:");
+            SHARKStarQueueDebugger.printLevelBreakdown(newBound.internalQueue);
+            System.out.println("Leaf Queue:");
+            SHARKStarQueueDebugger.printLevelBreakdown(newBound.leafQueue);
+        }
         // Wait for scoring to be done, if applicable
         loopTasks.waitForFinish();
         double boundEps = newBound.calcEpsilon();
@@ -647,11 +654,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
                         // Try to apply partial minimization correction to child
                         double HOTCorrection = correctionMatrix.getCorrection(child.getAssignments());
-                        if (HOTCorrection > parent.getHOTCorrection()){
-                            result.HOTCorrection = HOTCorrection;
-                        }else{  // If the parent correction is larger, just use the parent correction, since it must be valid
-                            result.HOTCorrection = parent.getHOTCorrection();
-                        }
+                        // If the parent correction is larger, just use the parent correction, since it must be valid
+                        result.HOTCorrection = Math.max(HOTCorrection, parent.getHOTCorrection());
 
                         // Score the child node
                         //TODO move back to calcDifferential if possible
@@ -776,7 +780,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * maxNumConfs or when it reaches this.targetEpsilon, whichever comes first.
      *
      * @param maxNumConfs The maximum number of conformations to evaluate (minimize?)
-     * @param bound       The SingleSequence partition function (defines the sequence we are after)
+     * @param bound       The SingleSequence partition function (defin                        result.unassignLB = context.unassignedConfLBScorer.calc(context.index, seqRCs);
+                        result.unassignUB = context.unassignedConfUBScorer.calc(context.index, seqRCs);es the sequence we are after)
      */
     public void computeForSequence(int maxNumConfs, SingleSequenceSHARKStarBound_refactor bound) {
         if (debug){
@@ -857,11 +862,13 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         SHARKStarQueueDebugger.printLevelBreakdown(bound.internalQueue);
 
-        System.out.println(String.format("Minimized %d conformations.",
-                bound.leafQueue.stream().filter(SHARKStarNode::isMinimized).count()));
+        System.out.println(String.format("Minimized %d conformations.",numMinimizations));
 
-        if(debug)
+        if(debug) {
             pilotFish.travelTree(bound.sequence);
+            //pilotFish.printLeaves(bound.sequence);
+        }
+
     }
 
     /**
@@ -889,7 +896,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
             loopTasks.waitForFinish();
             for (SHARKStarNode newNode : newNodes) {
-                if (node.getLevel() < bound.seqRCs.getNumPos()) {
+                if (newNode.getLevel() < bound.seqRCs.getNumPos()) {
                     bound.internalQueue.add(newNode);
                 } else {
                     bound.leafQueue.add(newNode);
@@ -1185,7 +1192,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         //progress.reportLeafNode(fullConfNode.getMinE(), seqBound.fringeNodes.size(), seqBound.calcEpsilon());
 
         // Add back to leaf Queue
-        seqBound.leafQueue.add(fullConfNode);
+        //seqBound.leafQueue.add(fullConfNode);
+        newNodes.add(fullConfNode);
     }
 
     /**
@@ -1200,6 +1208,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         double HOTCorrection = correctionMatrix.getCorrection(partialConfNode.getAssignments());
         if(HOTCorrection > partialConfNode.getHOTCorrection()){
             partialConfNode.setHOTCorrection(HOTCorrection);
+            newNodes.add(partialConfNode);
             return;
         }
 

@@ -5,7 +5,9 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.sharkstar.LowerBoundException;
 import edu.duke.cs.osprey.sharkstar.SHARKStar;
 import edu.duke.cs.osprey.sharkstar.UpperBoundException;
+import edu.duke.cs.osprey.tools.BigMath;
 
+import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.*;
 import java.util.function.BiFunction;
@@ -24,11 +26,17 @@ public class SHARKStarTreeDebugger {
     private SHARKStarNode rootNode;
     private Sequence precomputedSequence;
 
+    // User settings
     private final double boundTolerance = -1e-12;
+
+    // variables
+    private Map<Sequence, List<String>> minimizedNodes;
 
     public SHARKStarTreeDebugger(MathContext mathContext){
         this.mc = mathContext;
         this.bc = new BoltzmannCalculator(this.mc);
+
+        this.minimizedNodes = new HashMap<>();
     }
 
     public void setRootNode(SHARKStarNode node){
@@ -41,6 +49,13 @@ public class SHARKStarTreeDebugger {
      * @param seq The sequence to look at
      */
     public void travelTree(Sequence seq){
+        // Initialize trackers
+        if(this.minimizedNodes.containsKey(seq)){
+            // reset minimized nodes
+            this.minimizedNodes.remove(seq);
+        }else{
+            this.minimizedNodes.put(seq, new ArrayList<>());
+        }
         // skip the root node because we have issues with weird sequences and such
         for( SHARKStarNode child : rootNode.getChildren()){
             travelNode(child, seq);
@@ -76,9 +91,13 @@ public class SHARKStarTreeDebugger {
         enforceDecreasingUpperBounds(parent, children, seq);
         enforceIncreasingLowerBounds(parent, children, seq);
         enforceNoDuplicateChildren(children);
+        enforceBoundSanity(parent, seq);
     }
 
     public void leafDebugChecks(SHARKStarNode leaf, Sequence seq){
+        enforceBoundSanityLeaf(leaf, seq);
+        if (leaf.isMinimized())
+            minimizedNodes.get(seq).add(leaf.toSeqString(seq));
     }
 
     /**
@@ -86,7 +105,7 @@ public class SHARKStarTreeDebugger {
      * @param parent    The parent SHARKStarNode
      * @param children  A list of child SHARKStarNodes
      * @param seq       The sequence for which to test energy bounds
-     * @throws LowerBoundException
+     * @throws LowerBoundException  Exception indicating an issue with a lower bound
      */
     public void enforceIncreasingLowerBounds(SHARKStarNode parent, List<SHARKStarNode> children, Sequence seq) throws LowerBoundException{
         // compute the child energies for sequence children
@@ -124,7 +143,7 @@ public class SHARKStarTreeDebugger {
      * @param parent    The parent SHARKStarNode
      * @param children  A list of child SHARKStarNodes
      * @param seq       The sequence for which to test energy bounds
-     * @throws UpperBoundException
+     * @throws UpperBoundException  Exception indicating an issue with an upper bound
      */
     public void enforceDecreasingUpperBounds(SHARKStarNode parent, List<SHARKStarNode> children, Sequence seq) throws UpperBoundException{
         // compute the child energies for sequence children
@@ -167,7 +186,64 @@ public class SHARKStarTreeDebugger {
         }
     }
 
+    public void enforceBoundSanity(SHARKStarNode node, Sequence seq){
+        if (!(node.getFreeEnergyLB(seq) <= node.getFreeEnergyUB(seq))){
+            System.err.println("ERROR: Insane bounds!");
+            System.out.println(node.toSeqString(seq));
+            throw new LowerBoundException();
+        }
+    }
+
+    public void enforceBoundSanityLeaf(SHARKStarNode leaf, Sequence seq){
+        if (leaf.isMinimized()) {
+            if (!((leaf.getPartialConfLB() + leaf.getUnassignedConfLB(seq) + leaf.getHOTCorrection() <= leaf.getMinE()) &&
+                    (leaf.getMinE() <= leaf.getPartialConfUB() + leaf.getUnassignedConfUB(seq)))) {
+                System.err.println("ERROR: Insane bounds!");
+                System.out.println(leaf.toSeqString(seq));
+                throw new LowerBoundException();
+            }
+        }else{
+            enforceBoundSanity(leaf,seq);
+        }
+    }
+
     public void setPrecomputedSequence(Sequence seq){
         this.precomputedSequence = seq;
+    }
+
+    public void printLeaves(Sequence seq){
+        this.minimizedNodes.get(seq).forEach(System.out::println);
+    }
+
+    /**
+     * Compute the Z bound by recursively moving through tree
+     *
+     * Probably only works for single-sequence trees
+     * @param startNode     The node for which to compute Z bounds
+     * @param seq           The sequence for which to compute Z bounds
+     * @param energyMapper  A function that maps nodes to energies
+     * @return              A partition function bound based on the energyMapper
+     */
+    public BigDecimal recursiveComputeZBound(SHARKStarNode startNode, Sequence seq, Function<SHARKStarNode, Double> energyMapper){
+        List<SHARKStarNode> children = startNode.getChildren();
+        if(children == null || children.size() == 0){
+            if(startNode.getSequences().contains(seq)){
+                return bc.calc(energyMapper.apply(startNode));
+            }else{
+                // This might be the wrong behavior for multi-sequence trees
+                throw new RuntimeException(String.format("Reached dead node at %s",startNode.confToString()));
+            }
+        }else{
+            BigMath sum = new BigMath(mc).set(0.0);
+            for( SHARKStarNode child : children){
+                sum.add(recursiveComputeZBound(child, seq, energyMapper));
+            }
+            return sum.get();
+        }
+
+    }
+
+    public BigDecimal recursiveComputeZBound(Sequence seq, Function<SHARKStarNode, Double> energyMapper){
+        return recursiveComputeZBound(this.rootNode, seq, energyMapper);
     }
 }

@@ -244,6 +244,7 @@ public class SHARKStarNode implements ConfAStarNode {
         }else if (this.isCorrected){
             //TODO: This will change when I implement upperbound corrections
             return this.partialConfLB + this.HOTCorrection + this.unassignedConfLB.get(seq);
+            //return this.partialConfLB + this.unassignedConfLB.get(seq);
         }else{
             return this.partialConfLB + this.unassignedConfLB.get(seq);
         }
@@ -275,7 +276,7 @@ public class SHARKStarNode implements ConfAStarNode {
 
     public String toSeqString(Sequence seq){
         String out = String.format("%s -> [%.3f + %.3f, %.3f]",
-                confToString(), getFreeEnergyLB(seq), HOTCorrection, getFreeEnergyUB(seq));
+                confToString(), getPartialConfLB()+ getUnassignedConfLB(seq), HOTCorrection, getPartialConfUB() + getUnassignedConfUB(seq));
         if (isMinimized){
             out += String.format(" -> (minimized) %.3f", getMinE());
         }
