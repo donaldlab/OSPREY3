@@ -34,6 +34,7 @@ target_include_directories(CudaConfEcalc PUBLIC "${PROJECT_BINARY_DIR}")
 # see compatibilty guide:
 # https://docs.nvidia.com/cuda/turing-compatibility-guide/index.html
 set(CMAKE_CUDA_FLAGS "\
+        -Xcudafe --display_error_number \
         -gencode=arch=compute_50,code=sm_50 \
         -gencode=arch=compute_52,code=sm_52 \
         -gencode=arch=compute_60,code=sm_60 \

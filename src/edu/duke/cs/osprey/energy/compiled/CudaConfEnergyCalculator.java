@@ -179,33 +179,74 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 		final SAtomPairAmberF64b amberF64bStruct = new SAtomPairAmberF64b();
 
-		class SAtomPairEef1 extends Struct {
+		class SAtomPairEef1F32a extends Struct {
 			final Int32 atomi1 = int32();
 			final Int32 atomi2 = int32();
-			final Real vdwRadius1 = real(precision);
-			final Real lambda1 = real(precision);
-			final Real vdwRadius2 = real(precision);
-			final Real lambda2 = real(precision);
-			final Real alpha1 = real(precision);
-			final Real alpha2 = real(precision);
-
 			void init() {
-				init(
-					precision.map(32, 56),
-					"atomi1", "atomi2", "vdwRadius1", "lambda1", "vdwRadius2", "lambda2", "alpha1", "alpha2"
-				);
+				init(8, "atomi1", "atomi2");
 			}
+		}
+		final SAtomPairEef1F32a eef1F32aStruct = new SAtomPairEef1F32a();
 
+		class SAtomPairEef1F32b extends Struct {
+			final Float32 vdwRadius = float32();
+			final Float32 oolambda = float32();
+			final Float32 alpha = float32();
+			final Pad pad = pad(4);
+			void init() {
+				init(16, "vdwRadius", "oolambda", "alpha", "pad");
+			}
+			void setParams1(double[] params) {
+				vdwRadius.set((float)params[0]);
+				oolambda.set((float)(1.0/params[1]));
+				alpha.set((float)params[4]);
+			}
+			void setParams2(double[] params) {
+				vdwRadius.set((float)params[2]);
+				oolambda.set((float)(1.0/params[3]));
+				alpha.set((float)params[5]);
+			}
+		}
+		final SAtomPairEef1F32b eef1F32bStruct = new SAtomPairEef1F32b();
+
+		class SAtomPairEef1F64a extends Struct {
+			final Int32 atomi1 = int32();
+			final Int32 atomi2 = int32();
+			void init() {
+				init(8, "atomi1", "atomi2");
+			}
+		}
+		final SAtomPairEef1F64a eef1F64aStruct = new SAtomPairEef1F64a();
+
+		class SAtomPairEef1F64b extends Struct {
+			final Float64 vdwRadius = float64();
+			final Float64 oolambda = float64();
+			void init() {
+				init(16, "vdwRadius", "oolambda");
+			}
+			void setParams1(double[] params) {
+				vdwRadius.set(params[0]);
+				oolambda.set(1.0/params[1]);
+			}
+			void setParams2(double[] params) {
+				vdwRadius.set(params[2]);
+				oolambda.set(1.0/params[3]);
+			}
+		}
+		final SAtomPairEef1F64b eef1F64bStruct = new SAtomPairEef1F64b();
+
+		class SAtomPairEef1F64c extends Struct {
+			final Float64 alpha1 = float64();
+			final Float64 alpha2 = float64();
+			void init() {
+				init(16, "alpha1", "alpha2");
+			}
 			void setParams(double[] params) {
-				vdwRadius1.set(params[0]);
-				lambda1.set(params[1]);
-				vdwRadius2.set(params[2]);
-				lambda2.set(params[3]);
 				alpha1.set(params[4]);
 				alpha2.set(params[5]);
 			}
 		}
-		final SAtomPairEef1 eef1Struct = new SAtomPairEef1();
+		final SAtomPairEef1F64c eef1F64cStruct = new SAtomPairEef1F64c();
 
 		AmberEef1() {
 
@@ -216,7 +257,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			amberF32bStruct.init();
 			amberF64aStruct.init();
 			amberF64bStruct.init();
-			eef1Struct.init();
+			eef1F32aStruct.init();
+			eef1F32bStruct.init();
+			eef1F64aStruct.init();
+			eef1F64bStruct.init();
+			eef1F64cStruct.init();
 		}
 
 		@Override
@@ -255,12 +300,20 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		private long atomPairsBytes(int numAmber, int numEef1) {
 			return atomPairsStruct.bytes()
 				+ switch (precision) {
-					case Float32 -> padToGpuAlignment(numAmber*amberF32aStruct.bytes())
-						+ numAmber*amberF32bStruct.bytes();
-					case Float64 -> numAmber*amberF64aStruct.bytes()
-						+ numAmber*amberF64bStruct.bytes();
-				}
-				+ padToGpuAlignment(numEef1*eef1Struct.bytes());
+					case Float32 ->
+						padToGpuAlignment(numAmber*amberF32aStruct.bytes())
+						+ numAmber*amberF32bStruct.bytes()
+						+ padToGpuAlignment(numEef1*eef1F32aStruct.bytes())
+						+ numEef1*eef1F32bStruct.bytes()
+						+ numEef1*eef1F32bStruct.bytes();
+					case Float64 ->
+						padToGpuAlignment(numAmber*amberF64aStruct.bytes())
+						+ numAmber*amberF64bStruct.bytes()
+						+ padToGpuAlignment(numEef1*eef1F64aStruct.bytes())
+						+ numEef1*eef1F64bStruct.bytes()
+						+ numEef1*eef1F64bStruct.bytes()
+						+ numEef1*eef1F64cStruct.bytes();
+				};
 		}
 
 		@Override
@@ -308,6 +361,9 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			switch (precision) {
 
 				case Float32 -> {
+
+					assert (buf.isAligned(WidestGpuLoad));
+
 					for (int i=0; i<amber.size(); i++) {
 						buf.place(amberF32aStruct);
 						int atomi1 = amber.atomi1(i);
@@ -322,9 +378,38 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 						buf.place(amberF32bStruct);
 						amberF32bStruct.setParams(amber.params(i));
 					}
+
+					assert (buf.isAligned(WidestGpuLoad));
+
+					for (int i=0; i<eef1.size(); i++) {
+						buf.place(eef1F32aStruct);
+						int atomi1 = eef1.atomi1(i);
+						int atomi2 = eef1.atomi2(i);
+						assert (atomi1 != atomi2);
+						eef1F32aStruct.atomi1.set(atomi1);
+						eef1F32aStruct.atomi2.set(atomi2);
+					}
+					buf.skipToAlignment(WidestGpuLoad);
+
+					for (int i=0; i<eef1.size(); i++) {
+						buf.place(eef1F32bStruct);
+						eef1F32bStruct.setParams1(eef1.params(i));
+					}
+
+					assert (buf.isAligned(WidestGpuLoad));
+
+					for (int i=0; i<eef1.size(); i++) {
+						buf.place(eef1F32bStruct);
+						eef1F32bStruct.setParams2(eef1.params(i));
+					}
+
+					assert (buf.isAligned(WidestGpuLoad));
 				}
 
 				case Float64 -> {
+
+					assert (buf.isAligned(WidestGpuLoad));
+
 					for (int i=0; i<amber.size(); i++) {
 						buf.place(amberF64aStruct);
 						int atomi1 = amber.atomi1(i);
@@ -334,23 +419,49 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 						amberF64aStruct.atomi2.set(atomi2);
 						amberF64aStruct.setParams(amber.params(i));
 					}
+
+					assert (buf.isAligned(WidestGpuLoad));
+
 					for (int i=0; i<amber.size(); i++) {
 						buf.place(amberF64bStruct);
 						amberF64bStruct.setParams(amber.params(i));
 					}
+
+					assert (buf.isAligned(WidestGpuLoad));
+
+					for (int i=0; i<eef1.size(); i++) {
+						buf.place(eef1F64aStruct);
+						int atomi1 = eef1.atomi1(i);
+						int atomi2 = eef1.atomi2(i);
+						assert (atomi1 != atomi2);
+						eef1F64aStruct.atomi1.set(atomi1);
+						eef1F64aStruct.atomi2.set(atomi2);
+					}
+					buf.skipToAlignment(WidestGpuLoad);
+
+					for (int i=0; i<eef1.size(); i++) {
+						buf.place(eef1F64bStruct);
+						eef1F64bStruct.setParams1(eef1.params(i));
+					}
+
+					assert (buf.isAligned(WidestGpuLoad));
+
+					for (int i=0; i<eef1.size(); i++) {
+						buf.place(eef1F64bStruct);
+						eef1F64bStruct.setParams2(eef1.params(i));
+					}
+
+					assert (buf.isAligned(WidestGpuLoad));
+
+					for (int i=0; i<eef1.size(); i++) {
+						buf.place(eef1F64cStruct);
+						eef1F64cStruct.setParams(eef1.params(i));
+					}
+
+					assert (buf.isAligned(WidestGpuLoad));
 				}
 			}
 
-			for (int i=0; i<eef1.size(); i++) {
-				buf.place(eef1Struct);
-				int atomi1 = eef1.atomi1(i);
-				int atomi2 = eef1.atomi2(i);
-				assert (atomi1 != atomi2);
-				eef1Struct.atomi1.set(atomi1);
-				eef1Struct.atomi2.set(atomi2);
-				eef1Struct.setParams(eef1.params(i));
-			}
-			buf.skipToAlignment(WidestGpuLoad);
 
 			// make sure we ended at optimal alignment for GPU loads
 			assert (buf.pos - firstPos == atomPairsBytes(amber.size(), eef1.size()))

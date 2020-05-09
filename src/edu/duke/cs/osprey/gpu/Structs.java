@@ -100,6 +100,10 @@ public class Structs {
 		public void assertAlignment(int alignment) {
 			assert (addr.offset() % alignment == 0);
 		}
+
+		public MemoryAddress addr() {
+			return addr;
+		}
 	}
 
 	public static abstract class Array {

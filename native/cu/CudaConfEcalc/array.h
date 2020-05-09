@@ -13,7 +13,7 @@ namespace osprey {
 
 			// only created via malloc-style allocations
 			__host__ __device__
-			Array(int64_t size) = delete;
+			Array() = delete;
 
 			__host__ __device__
 			Array(const Array<T> & other) = delete;

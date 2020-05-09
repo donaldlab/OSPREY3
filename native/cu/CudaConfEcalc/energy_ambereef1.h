@@ -21,6 +21,8 @@ namespace osprey { namespace ambereef1 {
 	// (less is ok, but not more!)
 	// so we can efficiently coalesce LDs in a warp
 
+	// Amber atom pair structs
+
 	struct alignas(8) AtomPairAmberF32a {
 		int32_t atomi1;
 		int32_t atomi2;
@@ -48,41 +50,6 @@ namespace osprey { namespace ambereef1 {
 	};
 	ASSERT_JAVA_COMPATIBLE(AtomPairAmberF64b, 16);
 
-	// TODO: optimize EEF1 memory layout
-	template<typename T>
-	struct alignas(8) AtomPairEef1 {
-		int32_t atomi1;
-		int32_t atomi2;
-		T vdwRadius1;
-		T lambda1;
-		T vdwRadius2;
-		T lambda2;
-		T alpha1;
-		T alpha2;
-
-		__device__
-		inline T calc(T r, T r2) const {
-
-			// just in case ...
-			assert(r >= 0.0);
-			assert(r2 >= 0.0);
-			assert(lambda1 >= 0.0);
-			assert(lambda2 >= 0.0);
-
-			const T cutoff = 9.0;
-			if (r > cutoff) {
-				return 0.0;
-			}
-
-			// TODO: optimize out division?
-
-			T Xij = (r - vdwRadius1)/lambda1;
-			T Xji = (r - vdwRadius2)/lambda2;
-			return -(alpha1*exp(-Xij*Xij) + alpha2*exp(-Xji*Xji))/r2;
-		}
-	};
-	ASSERT_JAVA_COMPATIBLE_REALS(AtomPairEef1, 32, 56);
-
 	class AmberAtomPairPtrs {
 		public:
 			const void * a;
@@ -103,8 +70,8 @@ namespace osprey { namespace ambereef1 {
 	inline void AmberAtomPairPtrs::set<float32_t>(const AtomPairs * atom_pairs) {
 		auto p = reinterpret_cast<const int8_t *>(atom_pairs + 1);
 		a = reinterpret_cast<const void *>(p);
-		b = reinterpret_cast<const void *>(p
-			+ cuda::pad_to_alignment<alignof(AtomPairAmberF32b)>(sizeof(AtomPairAmberF32a)*atom_pairs->num_amber));
+		p += cuda::pad_to_alignment<alignof(AtomPairAmberF32b)>(sizeof(AtomPairAmberF32a)*atom_pairs->num_amber);
+		b = reinterpret_cast<const void *>(p);
 	}
 
 	template<>
@@ -112,8 +79,8 @@ namespace osprey { namespace ambereef1 {
 	inline void AmberAtomPairPtrs::set<float64_t>(const AtomPairs * atom_pairs) {
 		auto p = reinterpret_cast<const int8_t *>(atom_pairs + 1);
 		a = reinterpret_cast<const void *>(p);
-		b = reinterpret_cast<const void *>(p
-			+ cuda::pad_to_alignment<alignof(AtomPairAmberF64b)>(sizeof(AtomPairAmberF64a)*atom_pairs->num_amber));
+		p += cuda::pad_to_alignment<alignof(AtomPairAmberF64b)>(sizeof(AtomPairAmberF64a)*atom_pairs->num_amber);
+		b = reinterpret_cast<const void *>(p);
 	}
 
 	template<typename T>
@@ -190,57 +157,159 @@ namespace osprey { namespace ambereef1 {
 		return energy;
 	}
 
-	template<typename T>
-	__device__
-	inline static T calc_eef1(const AtomPairs & atom_pairs, int pairi, const Real3<T> * atoms) {}
+
+	// EEF1 atom pair structs
+
+	struct alignas(8) AtomPairEef1F32a {
+		int32_t atomi1;
+		int32_t atomi2;
+	};
+	ASSERT_JAVA_COMPATIBLE(AtomPairEef1F32a, 8);
+
+	struct alignas(16) AtomPairEef1F32b {
+		float32_t vdwRadius;
+		float32_t oolambda; // 1/lambda
+		float32_t alpha;
+		// 4 byte pad
+	};
+	ASSERT_JAVA_COMPATIBLE(AtomPairEef1F32b, 16);
+
+	struct alignas(8) AtomPairEef1F64a {
+		int32_t atomi1;
+		int32_t atomi2;
+	};
+	ASSERT_JAVA_COMPATIBLE(AtomPairEef1F64a, 8);
+
+	struct alignas(16) AtomPairEef1F64b {
+		float64_t vdwRadius;
+		float64_t oolambda; // 1/lambda
+	};
+	ASSERT_JAVA_COMPATIBLE(AtomPairEef1F64b, 16);
+
+	struct alignas(16) AtomPairEef1F64c {
+		float64_t alpha1;
+		float64_t alpha2;
+	};
+	ASSERT_JAVA_COMPATIBLE(AtomPairEef1F64c, 16);
+
+	class Eef1AtomPairPtrs {
+		public:
+			const void * a;
+			const void * b;
+			const void * c;
+			const void * d;
+
+			__device__
+			Eef1AtomPairPtrs(): a(nullptr), b(nullptr), c(nullptr), d(nullptr) {}
+			Eef1AtomPairPtrs(const Eef1AtomPairPtrs & other) = default;
+			~Eef1AtomPairPtrs() = default;
+
+			template<typename T>
+			__device__
+			inline void set(const AtomPairs * atom_pairs);
+	};
 
 	template<>
 	__device__
-	inline float32_t calc_eef1<float32_t>(const AtomPairs & atom_pairs, int pairi, const Real3<float32_t> * atoms) {
+	inline void Eef1AtomPairPtrs::set<float32_t>(const AtomPairs * atom_pairs) {
+		auto p = reinterpret_cast<const int8_t *>(atom_pairs + 1);
 
-		// TODO: optimize memory accesses
+		// skip all the amber atom pairs
+		p += cuda::pad_to_alignment<alignof(AtomPairAmberF32b)>(sizeof(AtomPairAmberF32a)*atom_pairs->num_amber);
+		p += sizeof(AtomPairAmberF32b)*atom_pairs->num_amber;
 
-		// eef1 atom pairs are placed right after the AtomPairs struct and the amber atom pairs
-		auto p = reinterpret_cast<const int8_t *>(&atom_pairs + 1);
-		auto pairs_eef1 = reinterpret_cast<const AtomPairEef1<float32_t> *>(p
-			+ cuda::pad_to_alignment<alignof(AtomPairAmberF32b)>(sizeof(AtomPairAmberF32a)*atom_pairs.num_amber)
-			+ sizeof(AtomPairAmberF32b)*atom_pairs.num_amber
-		);
-
-		// calculate energy for the next atom pair
-		auto pair = pairs_eef1[pairi];
-		const Real3<float32_t> & atom1 = atoms[pair.atomi1];
-		const Real3<float32_t> & atom2 = atoms[pair.atomi2];
-		float32_t r2 = distance_sq<float32_t>(atom1, atom2);
-		assert (!isnan<float32_t>(r2));
-		assert (r2 > 0.0);
-		float32_t r = std::sqrt(r2);
-
-		return pair.calc(r, r2);
+		a = reinterpret_cast<const void *>(p);
+		p += cuda::pad_to_alignment<alignof(AtomPairEef1F32b)>(sizeof(AtomPairEef1F32a)*atom_pairs->num_eef1);
+		b = reinterpret_cast<const void *>(p);
+		p += sizeof(AtomPairEef1F32b)*atom_pairs->num_eef1;
+		c = reinterpret_cast<const void *>(p);
+		d = nullptr;
 	}
 
 	template<>
 	__device__
-	inline float64_t calc_eef1<float64_t>(const AtomPairs & atom_pairs, int pairi, const Real3<float64_t> * atoms) {
+	inline void Eef1AtomPairPtrs::set<float64_t>(const AtomPairs * atom_pairs) {
+		auto p = reinterpret_cast<const int8_t *>(atom_pairs + 1);
 
-		// TODO: optimize memory accesses
+		// skip all the amber atom pairs
+		p += cuda::pad_to_alignment<alignof(AtomPairAmberF64b)>(sizeof(AtomPairAmberF64a)*atom_pairs->num_amber);
+		p += sizeof(AtomPairAmberF64b)*atom_pairs->num_amber;
 
-		// eef1 atom pairs are placed right after the AtomPairs struct and the amber atom pairs
-		auto p = reinterpret_cast<const int8_t *>(&atom_pairs + 1);
-		const AtomPairEef1<float64_t> * pairs_eef1 = reinterpret_cast<const AtomPairEef1<float64_t> *>(p
-			+ cuda::pad_to_alignment<alignof(AtomPairAmberF64b)>(sizeof(AtomPairAmberF64a)*atom_pairs.num_amber)
-			+ sizeof(AtomPairAmberF64b)*atom_pairs.num_amber
-		);
+ 		a = reinterpret_cast<const void *>(p);
+		p += cuda::pad_to_alignment<alignof(AtomPairEef1F64b)>(sizeof(AtomPairEef1F64a)*atom_pairs->num_eef1);
+		b = reinterpret_cast<const void *>(p);
+		p += cuda::pad_to_alignment<alignof(AtomPairEef1F64b)>(sizeof(AtomPairEef1F64b)*atom_pairs->num_eef1);
+		c = reinterpret_cast<const void *>(p);
+		p += cuda::pad_to_alignment<alignof(AtomPairEef1F64c)>(sizeof(AtomPairEef1F64b)*atom_pairs->num_eef1);
+		d = reinterpret_cast<const void *>(p);
+	}
 
-		// calculate energy for the next atom pair
-		auto pair = pairs_eef1[pairi];
-		const Real3<float64_t> & atom1 = atoms[pair.atomi1];
-		const Real3<float64_t> & atom2 = atoms[pair.atomi2];
+	template<typename T>
+	__device__
+	inline static T calc_eef1(const Eef1AtomPairPtrs & pair_ptrs, int pairi, const Real3<T> * atoms) {}
+
+	template<>
+	__device__
+	inline float32_t calc_eef1<float32_t>(const Eef1AtomPairPtrs & pair_ptrs, int pairi, const Real3<float32_t> * atoms) {
+
+		// read the atom indices for this atom pair
+		const AtomPairEef1F32a paira = reinterpret_cast<const AtomPairEef1F32a *>(pair_ptrs.a)[pairi];
+
+		// calculate the radius
+		const Real3<float32_t> atom1 = atoms[paira.atomi1];
+		const Real3<float32_t> atom2 = atoms[paira.atomi2];
+		float32_t r2 = distance_sq<float32_t>(atom1, atom2);
+		assert (!isnan<float32_t>(r2));
+		assert (r2 > 0.0);
+
+		// cutoff when r > 9
+		if (r2 > 81.0) {
+			return 0.0;
+		}
+
+		float32_t r = std::sqrt(r2);
+		float32_t oor2 = 1.0/r2;
+
+		const AtomPairEef1F32b pairb = reinterpret_cast<const AtomPairEef1F32b *>(pair_ptrs.b)[pairi];
+		float32_t Xij = (r - pairb.vdwRadius)*pairb.oolambda;
+		float32_t energy = -pairb.alpha*exp(-Xij*Xij)*oor2;
+
+		const AtomPairEef1F32b pairc = reinterpret_cast<const AtomPairEef1F32b *>(pair_ptrs.c)[pairi];
+		float32_t Xji = (r - pairc.vdwRadius)*pairc.oolambda;
+		energy -= pairc.alpha*exp(-Xji*Xji)*oor2;
+
+		return energy;
+	}
+
+	template<>
+	__device__
+	inline float64_t calc_eef1<float64_t>(const Eef1AtomPairPtrs & pair_ptrs, int pairi, const Real3<float64_t> * atoms) {
+
+		// read the atom indices for this atom pair
+		const AtomPairEef1F64a paira = reinterpret_cast<const AtomPairEef1F64a *>(pair_ptrs.a)[pairi];
+
+		// calculate the radius
+		const Real3<float64_t> atom1 = atoms[paira.atomi1];
+		const Real3<float64_t> atom2 = atoms[paira.atomi2];
 		float64_t r2 = distance_sq<float64_t>(atom1, atom2);
 		assert (!isnan<float64_t>(r2));
 		assert (r2 > 0.0);
+
+		// cutoff when r > 9
+		if (r2 > 81.0) {
+			return 0.0;
+		}
+
 		float64_t r = std::sqrt(r2);
-		return pair.calc(r, r2);
+
+		const AtomPairEef1F64b pairb = reinterpret_cast<const AtomPairEef1F64b *>(pair_ptrs.b)[pairi];
+		float64_t Xij = (r - pairb.vdwRadius)*pairb.oolambda;
+
+		const AtomPairEef1F64b pairc = reinterpret_cast<const AtomPairEef1F64b *>(pair_ptrs.c)[pairi];
+		float64_t Xji = (r - pairc.vdwRadius)*pairc.oolambda;
+
+		const AtomPairEef1F64c paird = reinterpret_cast<const AtomPairEef1F64c *>(pair_ptrs.d)[pairi];
+		return -(paird.alpha1*exp(-Xij*Xij) + paird.alpha2*exp(-Xji*Xji))/r2;
 	}
 
 	template<typename T>
@@ -271,11 +340,12 @@ namespace osprey { namespace ambereef1 {
 
 		const Real3<T> * atoms = assignment.atoms.items();
 
-		const AtomPairs * atom_pairs = nullptr;
 		int64_t start_global_pairi = 0;
 		int64_t stop_global_pairi = 0;
 		int interi = -1;
 		T inter_weight = 0.0;
+
+		Eef1AtomPairPtrs eef1_pairs;
 
 		// sum all the EEF1 energies
 		for (int64_t global_pairi = threadIdx.x; ; global_pairi += blockDim.x) {
@@ -289,22 +359,28 @@ namespace osprey { namespace ambereef1 {
 					goto finish_eef1; // break out of both loops
 				}
 				const PosInter<T> & inter = inters[interi];
-				inter_weight = inter.weight;
 
 				// update the pair index range
-				atom_pairs = reinterpret_cast<const AtomPairs *>(assignment.get_atom_pairs(inter.posi1, inter.posi2));
+				auto atom_pairs = reinterpret_cast<const AtomPairs *>(assignment.get_atom_pairs(inter.posi1, inter.posi2));
 				start_global_pairi = stop_global_pairi;
 				stop_global_pairi += atom_pairs->num_eef1;
+
+				// continue early, if possible
+				if (global_pairi >= stop_global_pairi) {
+					continue;
+				}
+
+				eef1_pairs.set<T>(atom_pairs);
+				inter_weight = inter.weight;
 			}
 
 			int64_t pairi = global_pairi - start_global_pairi;
-			energy += calc_eef1<T>(*atom_pairs, pairi, atoms)*inter_weight;
+			energy += calc_eef1<T>(eef1_pairs, pairi, atoms)*inter_weight;
 		}
 
 		finish_eef1:
 
 		// reset the counters
-		atom_pairs = nullptr;
 		start_global_pairi = 0;
 		stop_global_pairi = 0;
 		interi = -1;
@@ -312,7 +388,6 @@ namespace osprey { namespace ambereef1 {
 
 		const Params & params = *reinterpret_cast<const Params *>(assignment.conf_space.get_params());
 		bool distance_dependent_dielectric = params.distance_dependent_dielectric;
-
 		AmberAtomPairPtrs amber_pairs;
 
 		// sum all the Amber energies
@@ -327,13 +402,19 @@ namespace osprey { namespace ambereef1 {
 					goto finish_amber; // break out of both loops
 				}
 				PosInter<T> inter = inters[interi];
-				inter_weight = inter.weight;
 
 				// update the pair index range
-				atom_pairs = reinterpret_cast<const AtomPairs *>(assignment.get_atom_pairs(inter.posi1, inter.posi2));
+				auto atom_pairs = reinterpret_cast<const AtomPairs *>(assignment.get_atom_pairs(inter.posi1, inter.posi2));
 				start_global_pairi = stop_global_pairi;
 				stop_global_pairi += atom_pairs->num_amber;
+
+				// continue early, if possible
+				if (global_pairi >= stop_global_pairi) {
+					continue;
+				}
+
 				amber_pairs.set<T>(atom_pairs);
+				inter_weight = inter.weight;
 			}
 
 			int64_t pairi = global_pairi - start_global_pairi;

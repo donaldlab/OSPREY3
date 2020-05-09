@@ -14,7 +14,7 @@ namespace osprey {
 			DofValues() = delete;
 			__device__
 			DofValues(const DofValues<T> & other) = delete;
-			~DofValues() = default;
+			~DofValues() = delete;
 
 			__device__
 			inline void set(const DofValues<T> & other) {
@@ -50,8 +50,13 @@ namespace osprey {
 			}
 	};
 	ASSERT_MALLOCABLE_REALS(DofValues, 16 + sizeof(Array<float32_t>), 16 + sizeof(Array<float64_t>));
-	static_assert(offsetof(DofValues<float32_t>, x) == 16);
-	static_assert(offsetof(DofValues<float64_t>, x) == 16);
+	// DofValues is technically not POD because its member Array has a deleted constructor
+	// but it's still standard_layout, so offsetof should be safe
+	#pragma diag_suppress 1427
+	static_assert(offsetof(DofValues<float32_t>, f) == 0, "f has unexpected offset");
+	static_assert(offsetof(DofValues<float64_t>, f) == 0, "f has unexpected offset");
+	static_assert(offsetof(DofValues<float32_t>, x) == 16, "x has unexpected offset");
+	static_assert(offsetof(DofValues<float64_t>, x) == 16, "x has unexpected offset");
 
 	template<typename T>
 	class Dofs {

@@ -254,20 +254,25 @@ public class BenchmarkEnergies {
 
 		ConfSpace confSpace = compiled.complex;
 
-		Structs.Precision precision = Structs.Precision.Float32;
-		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
+		for (Structs.Precision precision : Structs.Precision.values()) {
+		//{ Structs.Precision precision = Structs.Precision.Float32;
+		//{ Structs.Precision precision = Structs.Precision.Float64;
+			try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
 
-			// use all the interactions
-			List<PosInter> inters = PosInterDist.all(confSpace);
+				// use all the interactions
+				List<PosInter> inters = PosInterDist.all(confSpace);
 
-			int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };
+				int[] conf = new int[] { 0, 0, 0, 0, 0, 0, 0 };
 
-			// TEMP
-			//log("energy = %f", confEcalc.calcEnergy(conf, inters));
-			//log("   exp = %f", 2199.44093411);
+				log("precision = %s", precision);
 
-			log("energy = %f", confEcalc.minimizeEnergy(conf, inters));
-			log("   exp = %f", -1359.27208010);
+				// TEMP
+				log("energy = %f", confEcalc.calcEnergy(conf, inters));
+				log("   exp = %f", 2199.44093411);
+
+				log("energy = %f", confEcalc.minimizeEnergy(conf, inters));
+				log("   exp = %f", -1359.27208010);
+			}
 		}
 	}
 }
