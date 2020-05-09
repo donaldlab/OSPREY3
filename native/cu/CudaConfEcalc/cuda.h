@@ -271,7 +271,56 @@ namespace osprey {
 	inline float64_t rsqrt_intr<float64_t>(float64_t val) {
 		return __drcp_rn(__dsqrt_rn(val));
 	}
-	// TODO: add wrappers for intrinsics like rcp and sqrt
+
+	template<typename T>
+	__device__
+	inline T sqrt_intr(T val);
+
+	template<>
+	__device__
+	inline float32_t sqrt_intr<float32_t>(float32_t val) {
+		return __fsqrt_rn(val);
+	}
+
+	template<>
+	__device__
+	inline float64_t sqrt_intr<float64_t>(float64_t val) {
+		return __dsqrt_rn(val);
+	}
+
+	template<typename T>
+	__device__
+	inline T rcp_intr(T val);
+
+	template<>
+	__device__
+	inline float32_t rcp_intr<float32_t>(float32_t val) {
+		return __frcp_rn(val);
+	}
+
+	template<>
+	__device__
+	inline float64_t rcp_intr<float64_t>(float64_t val) {
+		return __drcp_rn(val);
+	}
+
+
+	template<typename T>
+	__device__
+	inline T exp_intr(T val);
+
+	template<>
+	__device__
+	inline float32_t exp_intr<float32_t>(float32_t val) {
+		return __expf(val);
+	}
+
+	template<>
+	__device__
+	inline float64_t exp_intr<float64_t>(float64_t val) {
+		// no intrinsic for doubles here ;_;
+		return std::exp(val);
+	}
 }
 
 

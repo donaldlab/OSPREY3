@@ -99,7 +99,7 @@ namespace osprey { namespace ambereef1 {
 		// calculate the radius
 		const Real3<float32_t> atom1 = atoms[paira.atomi1];
 		const Real3<float32_t> atom2 = atoms[paira.atomi2];
-		float32_t oor2 = 1.0f/distance_sq<float32_t>(atom1, atom2);
+		float32_t oor2 = rcp_intr<float32_t>(distance_sq<float32_t>(atom1, atom2));
 		assert (!isnan<float32_t>(oor2));
 		assert (!isinf<float32_t>(oor2));
 
@@ -111,7 +111,7 @@ namespace osprey { namespace ambereef1 {
 		if (distance_dependent_dielectric) {
 			energy *= oor2;
 		} else {
-			energy *= std::sqrt(oor2);
+			energy *= sqrt_intr<float32_t>(oor2);
 		}
 
 		// calculate the van der Waals energy
@@ -133,7 +133,7 @@ namespace osprey { namespace ambereef1 {
 		// calculate the radius
 		const Real3<float64_t> atom1 = atoms[paira.atomi1];
 		const Real3<float64_t> atom2 = atoms[paira.atomi2];
-		float64_t oor2 = 1.0/distance_sq<float64_t>(atom1, atom2);
+		float64_t oor2 = rcp_intr<float64_t>(distance_sq<float64_t>(atom1, atom2));
 		assert (!isnan<float32_t>(oor2));
 		assert (!isinf<float32_t>(oor2));
 
@@ -142,7 +142,7 @@ namespace osprey { namespace ambereef1 {
 		if (distance_dependent_dielectric) {
 			energy *= oor2;
 		} else {
-			energy *= std::sqrt(oor2);
+			energy *= sqrt_intr<float64_t>(oor2);
 		}
 
 		// read the amber params for this atom pair
@@ -267,16 +267,16 @@ namespace osprey { namespace ambereef1 {
 			return 0.0;
 		}
 
-		float32_t r = std::sqrt(r2);
-		float32_t oor2 = 1.0/r2;
+		float32_t r = sqrt_intr<float32_t>(r2);
+		float32_t oor2 = rcp_intr(r2);
 
 		const AtomPairEef1F32b pairb = reinterpret_cast<const AtomPairEef1F32b *>(pair_ptrs.b)[pairi];
 		float32_t Xij = (r - pairb.vdwRadius)*pairb.oolambda;
-		float32_t energy = -pairb.alpha*exp(-Xij*Xij)*oor2;
+		float32_t energy = -pairb.alpha*exp_intr<float32_t>(-Xij*Xij)*oor2;
 
 		const AtomPairEef1F32b pairc = reinterpret_cast<const AtomPairEef1F32b *>(pair_ptrs.c)[pairi];
 		float32_t Xji = (r - pairc.vdwRadius)*pairc.oolambda;
-		energy -= pairc.alpha*exp(-Xji*Xji)*oor2;
+		energy -= pairc.alpha*exp_intr<float32_t>(-Xji*Xji)*oor2;
 
 		return energy;
 	}
@@ -300,7 +300,7 @@ namespace osprey { namespace ambereef1 {
 			return 0.0;
 		}
 
-		float64_t r = std::sqrt(r2);
+		float64_t r = sqrt_intr<float64_t>(r2);
 
 		const AtomPairEef1F64b pairb = reinterpret_cast<const AtomPairEef1F64b *>(pair_ptrs.b)[pairi];
 		float64_t Xij = (r - pairb.vdwRadius)*pairb.oolambda;
@@ -309,7 +309,7 @@ namespace osprey { namespace ambereef1 {
 		float64_t Xji = (r - pairc.vdwRadius)*pairc.oolambda;
 
 		const AtomPairEef1F64c paird = reinterpret_cast<const AtomPairEef1F64c *>(pair_ptrs.d)[pairi];
-		return -(paird.alpha1*exp(-Xij*Xij) + paird.alpha2*exp(-Xji*Xji))/r2;
+		return -(paird.alpha1*exp_intr<float64_t>(-Xij*Xij) + paird.alpha2*exp_intr<float64_t>(-Xji*Xji))*rcp_intr(r2);
 	}
 
 	template<typename T>
