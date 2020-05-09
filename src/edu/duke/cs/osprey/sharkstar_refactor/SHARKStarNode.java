@@ -306,4 +306,10 @@ public class SHARKStarNode implements ConfAStarNode {
         this.HOTCorrection = HOTCorrection;
         this.isCorrected = true;
     }
+
+    public Set<Sequence> getSequences(){
+        Set<Sequence> intersect = this.unassignedConfLB.keySet();
+        intersect.retainAll(this.unassignedConfUB.keySet());
+        return intersect;
+    }
 }

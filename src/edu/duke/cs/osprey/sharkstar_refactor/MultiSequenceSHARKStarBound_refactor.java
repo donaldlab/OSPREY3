@@ -173,6 +173,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         // No precomputed sequence means the "precomputed" sequence is empty
         this.precomputedSequence = confSpace.makeUnassignedSequence();
+        pilotFish.setPrecomputedSequence(this.precomputedSequence);
 
     }
 
@@ -776,6 +777,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param bound       The SingleSequence partition function (defines the sequence we are after)
      */
     public void computeForSequence(int maxNumConfs, SingleSequenceSHARKStarBound_refactor bound) {
+        if (debug){
+            pilotFish.setRootNode(this.rootNode);
+        }
         Stopwatch computeWatch = new Stopwatch().start();
 
         System.out.println("Tightening bound for " + bound.sequence);
@@ -811,7 +815,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             double newEps = bound.calcEpsilon();
             debugPrint("Errorbound is now " + newEps);
             debugPrint("Bound reduction: " + (lastEps - newEps));
-            if (lastEps < newEps && newEps - lastEps > 0.01
+            if (lastEps < newEps
                 //|| bound.errors()
             ) {
                 System.err.println("Error. Bounds got looser.");
@@ -853,6 +857,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         System.out.println(String.format("Minimized %d conformations.",
                 bound.leafQueue.stream().filter(SHARKStarNode::isMinimized).count()));
+
+        if(debug)
+            pilotFish.travelTree(bound.sequence);
     }
 
     /**
