@@ -62,18 +62,24 @@ namespace osprey {
 	class Dofs {
 		public:
 
+			// bytes of shared memory for all threads
+			static const int32_t dofs_shared_size = 1024;
+
 			Assignment<T> & assignment;
 			const Array<PosInter<T>> & inters;
 			const EnergyFunction<T> efunc;
 			T * thread_energy;
+			int8_t * dofs_shared_mem;
 
 			__device__
 			Dofs(Assignment<T> & assignment,
 			     const Array<PosInter<T>> & inters,
 			     EnergyFunction<T> efunc,
 			     T thread_energy[],
+				 int8_t * dofs_shared_mem,
 			     Dof<T> * shared_dofs[]):
-					assignment(assignment), efunc(efunc), thread_energy(thread_energy), inters(inters), shared_dofs(shared_dofs) {
+					assignment(assignment), efunc(efunc), thread_energy(thread_energy), dofs_shared_mem(dofs_shared_mem),
+					inters(inters), shared_dofs(shared_dofs) {
 
 				size = 0;
 
@@ -152,8 +158,13 @@ namespace osprey {
 				assert (x.get_size() == size);
 				for (int d=0; d<x.get_size(); d++) {
 					assert (shared_dofs[d] != nullptr);
-					shared_dofs[d]->set(x[d]);
+					shared_dofs[d]->set(x[d], dofs_shared_mem);
 				}
+			}
+
+			__device__
+			inline void set(int d, T xd) {
+				shared_dofs[d]->set(xd, dofs_shared_mem);
 			}
 
 			__device__
@@ -165,7 +176,7 @@ namespace osprey {
 			__device__
 			inline T eval_efunc(int d, T x) {
 				Dof<T> & dof = *shared_dofs[d];
-				dof.set(x);
+				dof.set(x, dofs_shared_mem);
 				return efunc(assignment, dof.get_inters(), thread_energy);
 			}
 
@@ -396,7 +407,7 @@ namespace osprey {
 		}
 
 		// set the coords back to the best option
-		dofs[d].set(xstar);
+		dofs.set(d, xstar);
 
 		return xstar;
 	}

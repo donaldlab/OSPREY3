@@ -237,6 +237,41 @@ namespace osprey {
 	inline bool isnan3(const Real3<T> & v) {
 		return isnan<T>(v.x) || isnan<T>(v.y) || isnan<T>(v.z);
 	}
+
+	template<typename T>
+	__device__
+	inline void sincos_intr(T radians, T & sin, T & cos);
+
+	template<>
+	__device__
+	inline void sincos_intr<float32_t>(float32_t radians, float32_t & sin, float32_t & cos) {
+		__sincosf(radians, &sin, &cos);
+	}
+
+	template<>
+	__device__
+	inline void sincos_intr<float64_t>(float64_t radians, float64_t & sin, float64_t & cos) {
+		// no intrinsics for double-precision ;_;
+		sin = std::sin(radians);
+		cos = std::cos(radians);
+	}
+
+	template<typename T>
+	__device__
+	inline T rsqrt_intr(T val);
+
+	template<>
+	__device__
+	inline float32_t rsqrt_intr<float32_t>(float32_t val) {
+		return __frsqrt_rn(val);
+	}
+
+	template<>
+	__device__
+	inline float64_t rsqrt_intr<float64_t>(float64_t val) {
+		return __drcp_rn(__dsqrt_rn(val));
+	}
+	// TODO: add wrappers for intrinsics like rcp and sqrt
 }
 
 

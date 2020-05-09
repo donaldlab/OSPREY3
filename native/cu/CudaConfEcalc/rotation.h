@@ -39,18 +39,13 @@ namespace osprey {
 			Real3<T> yaxis;
 			Real3<T> zaxis;
 
-			__device__
-			inline Rotation(const Real3<T> & xaxis, const Real3<T> & yaxis, const Real3<T> & zaxis):
-				xaxis(xaxis), yaxis(yaxis), zaxis(zaxis) {}
-			__device__
-			inline Rotation(const Rotation<T> & other):
-				xaxis(other.xaxis), yaxis(other.yaxis), zaxis(other.zaxis) {}
+			inline Rotation() = default;
+			inline Rotation(const Rotation<T> & other) = default;
 			~Rotation() = default;
 
 			__device__
-			inline Rotation() {
-				set_identity();
-			}
+			inline Rotation(const Real3<T> & xaxis, const Real3<T> & yaxis, const Real3<T> & zaxis):
+				xaxis(xaxis), yaxis(yaxis), zaxis(zaxis) {}
 
 			__device__
 			inline void set_identity() {
@@ -60,27 +55,18 @@ namespace osprey {
 			}
 
 			__device__
-			inline void set_z(T radians) {
-				T sin = std::sin(radians);
-				T cos = std::cos(radians);
-				xaxis = real3<T>(cos, -sin, 0.0);
-				yaxis = real3<T>(sin, cos, 0.0);
-				zaxis = real3<T>(0, 0, 1);
-			}
+			inline void set_look(const Real3<T> & zaxis_unnorm, const Real3<T> & xaxis_unnorm) {
 
-			__device__
-			inline void set_look(const Real3<T> & zaxis_unnorm, const Real3<T> & yaxis_unnorm) {
-
-				// normalize z and negate it
+				// normalize Z and negate it
 				zaxis = -zaxis_unnorm;
 				normalize<T>(zaxis);
 
-				// x = y x z
-				xaxis = cross<T>(yaxis_unnorm, zaxis);
-				normalize<T>(xaxis);
+				// Y = ZxX
+				yaxis = cross<T>(zaxis, xaxis_unnorm);
+				normalize<T>(yaxis);
 
-				// y = z x x
-				yaxis = cross<T>(zaxis, xaxis);
+				// X = YxZ
+				xaxis = cross<T>(yaxis, zaxis);
 			}
 
 			__device__
@@ -93,70 +79,60 @@ namespace osprey {
 
 			__device__
 			inline void mul(Real3<T> & v) {
-				v = real3<T>(
-					dot<T>(xaxis, v),
-					dot<T>(yaxis, v),
-					dot<T>(zaxis, v)
-				);
+				T x = dot<T>(xaxis, v);
+				T y = dot<T>(yaxis, v);
+				v.z = dot<T>(zaxis, v);
+				v.x = x;
+				v.y = y;
 			}
 
 			__device__
 			inline void mul_inv(Real3<T> & v) {
-				v = real3<T>(
-					xaxis.x*v.x + yaxis.x*v.y + zaxis.x*v.z,
-					xaxis.y*v.x + yaxis.y*v.y + zaxis.y*v.z,
-					xaxis.z*v.x + yaxis.z*v.y + zaxis.z*v.z
-				);
+				T x = xaxis.x*v.x + yaxis.x*v.y + zaxis.x*v.z;
+				T y = xaxis.y*v.x + yaxis.y*v.y + zaxis.y*v.z;
+				v.z = xaxis.z*v.x + yaxis.z*v.y + zaxis.z*v.z;
+				v.x = x;
+				v.y = y;
 			}
 	};
 
-	template<typename T>
-	__device__
-	inline Real3<T> operator * (const Rotation<T> & r, const Real3<T> & v) {
-		return real3<T>(
-			dot<T>(r.xaxis, v),
-			dot<T>(r.yaxis, v),
-			dot<T>(r.zaxis, v)
-		);
-	}
-
-	template<typename T>
-	__device__
-	inline Real3<T> & operator *= (Real3<T> & v, const Rotation<T> & r) {
-		v = r*v;
-		return v;
-	}
-
 	// a 2x2 column-major matrix representation of a rotation
 	template<typename T>
-	class RotationZ {
+	class alignas(16) RotationZ {
 		public:
-			T cos;
 			T sin;
+			T cos;
+
+			inline RotationZ() = default;
+			inline RotationZ(const RotationZ<T> & other) = default;
+			~RotationZ() = default;
 
 			__device__
-			inline explicit RotationZ(T radians):
-				sin(std::sin(radians)), cos(std::cos(radians)) {}
+			inline void set(T radians) {
+				sincos_intr(radians, sin, cos);
+			}
 
-		private:
+			__device__
+			inline void set(T srcx, T srcy, T radians) {
+				T oolen = rsqrt_intr(srcx*srcx + srcy*srcy);
+				T sinsrc = srcy*oolen;
+				T cossrc = srcx*oolen;
+				T sindst;
+				T cosdst;
+				sincos_intr(radians, sindst, cosdst);
+				sin = sindst*cossrc;
+				sin -= cosdst*sinsrc;
+				cos = cosdst*cossrc;
+				cos += sindst*sinsrc;
+			}
+
+			__device__
+			inline void mul(Real3<T> & v) {
+				T x = cos*v.x - sin*v.y;
+				v.y = sin*v.x + cos*v.y;
+				v.x = x;
+			}
 	};
-
-	template<typename T>
-	__device__
-	inline Real3<T> operator * (const RotationZ<T> & r, const Real3<T> & v) {
-		return real3<T>(
-			r.cos*v.x - r.sin*v.y,
-			r.sin*v.x + r.cos*v.y,
-			v.z
-		);
-	}
-
-	template<typename T>
-	__device__
-	inline Real3<T> & operator *= (Real3<T> & v, const RotationZ<T> & r) {
-		v = r*v;
-		return v;
-	}
 }
 
 

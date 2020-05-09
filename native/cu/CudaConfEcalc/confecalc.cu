@@ -149,8 +149,12 @@ API void assign_f64(const osprey::ConfSpace<float64_t> * d_conf_space,
 
 namespace osprey {
 
+	#define CALC_THREADS 1024
+	#define CALC_BLOCKS 1
+
 	template<typename T, osprey::EnergyFunction<T> efunc>
 	__global__
+	__launch_bounds__(CALC_THREADS, CALC_BLOCKS)
 	void calc_kernel(const osprey::ConfSpace<T> * conf_space,
 	                 const osprey::Array<int32_t> * conf,
 	                 const osprey::Array<osprey::PosInter<T>> * inters,
@@ -158,13 +162,19 @@ namespace osprey {
 	                 T * out_energy) {
 
 		// slice up the shared memory
-		extern __shared__ int8_t shared[];
-		int64_t shared_offset = 0;
-		auto shared_atom_pairs = reinterpret_cast<const void **>(shared + shared_offset);
-		shared_offset += osprey::Assignment<T>::sizeof_atom_pairs(conf_space->num_pos);
-		auto shared_conf_energies = reinterpret_cast<T *>(shared + shared_offset);
-		shared_offset += osprey::Assignment<T>::sizeof_conf_energies(conf_space->num_pos);
-		auto thread_energy = reinterpret_cast<T *>(shared + shared_offset);
+		extern __shared__ int8_t _shared[];
+		auto shared = _shared;
+
+		auto shared_atom_pairs = reinterpret_cast<const void **>(shared);
+		assert (cuda::is_aligned<16>(shared_atom_pairs));
+		shared += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf_space->num_pos));
+
+		auto shared_conf_energies = reinterpret_cast<T *>(shared);
+		assert (cuda::is_aligned<16>(shared_conf_energies));
+		shared += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf_space->num_pos));
+
+		auto thread_energy = reinterpret_cast<T *>(shared);
+		assert (cuda::is_aligned<16>(shared_conf_energies));
 
 		// init the sizes for cudaMalloc'd Array instances
 		out_coords->init(conf_space->max_num_conf_atoms);
@@ -214,16 +224,14 @@ namespace osprey {
 
 		// compute the shared memory size
 		int64_t shared_size_static = 0
-			+ osprey::Assignment<T>::sizeof_atom_pairs(conf.get_size())
-			+ osprey::Assignment<T>::sizeof_conf_energies(conf.get_size());
+			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf.get_size()))
+			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf.get_size()));
 		int64_t shared_size_per_thread = sizeof(T);
 
 		// launch the kernel
-		// TODO: optimize launch bounds
-		auto kernel = calc_kernel<T,efunc>;
-		int num_threads = cuda::optimize_threads(*kernel, shared_size_static, shared_size_per_thread);
+		int num_threads = CALC_THREADS;
 		int64_t shared_size = shared_size_static + shared_size_per_thread*num_threads;
-		kernel<<<1, num_threads, shared_size>>>(d_conf_space, d_conf, d_inters, d_out_coords, d_out_energy);
+		calc_kernel<T,efunc><<<1, num_threads, shared_size>>>(d_conf_space, d_conf, d_inters, d_out_coords, d_out_energy);
 		cuda::check_error();
 
 		// download the energy
@@ -265,75 +273,107 @@ API float64_t calc_amber_eef1_f64(const osprey::ConfSpace<float64_t> * d_conf_sp
 
 namespace osprey {
 
-	// TODO: try to optimize register usage so we can hit 1024 threads on volta
+	// configure the launch bounds, so the compiler knows how many registers to use
+	#define MINIMIZE_THREADS_F32_VOLTA 1024
+	#define MINIMIZE_THREADS_F64_VOLTA 1024
+	#define MINIMIZE_THREADS_F32_PASCAL 1024 // TODO: optimize for pascal?
+	#define MINIMIZE_THREADS_F64_PASCAL 1024
+	#define MINIMIZE_THREADS_F32_MAXWELL 1024 // TODO: optimize for maxwell?
+	#define MINIMIZE_THREADS_F64_MAXWELL 1024
+
+	// the kernels use __syncthreads a lot, so they're designed to take up an entire SM
+	#define MINIMIZE_BLOCKS 1
 
 	#if __CUDA_ARCH__ >= 700 // volta
-		#define MINIMIZE_THREADS 512 // TODO: optimize for volta
-		#define MINIMIZE_BLOCKS 1
+		#define MINIMIZE_THREADS_F32 MINIMIZE_THREADS_F32_VOLTA
+		#define MINIMIZE_THREADS_F64 MINIMIZE_THREADS_F64_VOLTA
 	#elif __CUDA_ARCH__ >= 600 // pascal
-		#define MINIMIZE_THREADS 1024
-		#define MINIMIZE_BLOCKS 1
+		#define MINIMIZE_THREADS_F32 MINIMIZE_THREADS_F32_PASCAL
+		#define MINIMIZE_THREADS_F64 MINIMIZE_THREADS_F64_PASCAL
 	#elif __CUDA_ARCH__ >= 500 // maxwell
-		#define MINIMIZE_THREADS 1024 // TODO: optimize for maxwell?
-		#define MINIMIZE_BLOCKS 1
+		#define MINIMIZE_THREADS_F32 MINIMIZE_THREADS_F32_MAXWELL
+		#define MINIMIZE_THREADS_F64 MINIMIZE_THREADS_F64_MAXWELL
 	#else
 		// host side
-		#define MINIMIZE_THREADS -1
-		#define MINIMIZE_BLOCKS -1
+		#define MINIMIZE_THREADS_F32 -1
+		#define MINIMIZE_THREADS_F64 -1
 	#endif
 
+	template<typename T>
 	__host__
-	int get_minimize_threads() {
+	inline int get_minimize_threads();
+
+	template<>
+	__host__
+	inline int get_minimize_threads<float32_t>() {
 		int arch = cuda::get_arch();
-		if (arch >= 700) { // volta
-			return 512;
-		} else if (arch >= 600) { // pascal
-			return 1024;
-		} else if (arch >= 500) { // maxwell
-			return 1024;
+		if (arch >= 700) {
+			return MINIMIZE_THREADS_F32_VOLTA;
+		} else if (arch >= 600) {
+			return MINIMIZE_THREADS_F32_PASCAL;
+		} else if (arch >= 500) {
+			return MINIMIZE_THREADS_F32_MAXWELL;
+		} else {
+			throw std::runtime_error("unsupported CUDA architecture");
+		}
+	}
+
+	template<>
+	__host__
+	inline int get_minimize_threads<float64_t>() {
+		int arch = cuda::get_arch();
+		if (arch >= 700) {
+			return MINIMIZE_THREADS_F64_VOLTA;
+		} else if (arch >= 600) {
+			return MINIMIZE_THREADS_F64_PASCAL;
+		} else if (arch >= 500) {
+			return MINIMIZE_THREADS_F64_MAXWELL;
 		} else {
 			throw std::runtime_error("unsupported CUDA architecture");
 		}
 	}
 
 	template<typename T, EnergyFunction<T> efunc>
-	__global__
-	__launch_bounds__(MINIMIZE_THREADS, MINIMIZE_BLOCKS)
-	void minimize_kernel(const ConfSpace<T> * conf_space,
-	                     const Array<int32_t> * conf,
-	                     const Array<PosInter<T>> * inters,
-	                     Array<Real3<T>> * out_coords,
-	                     DofValues<T> * out_dof_values) {
+	__device__
+	void minimize_kernel_impl(const ConfSpace<T> * conf_space,
+	                          const Array<int32_t> * conf,
+	                          const Array<PosInter<T>> * inters,
+	                          Array<Real3<T>> * out_coords,
+	                          DofValues<T> * out_dof_values) {
 
 		// slice up the shared memory
-		extern __shared__ int8_t shared[];
+		extern __shared__ int8_t _shared[];
+		auto shared = _shared;
 
-		int64_t shared_offset = 0;
-		auto shared_atom_pairs = reinterpret_cast<const void **>(shared + shared_offset);
+		auto shared_atom_pairs = reinterpret_cast<const void **>(shared);
 		assert (cuda::is_aligned<16>(shared_atom_pairs));
+		shared += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf_space->num_pos));
 
-		shared_offset += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf_space->num_pos));
-		auto shared_conf_energies = reinterpret_cast<T *>(shared + shared_offset);
+		auto shared_conf_energies = reinterpret_cast<T *>(shared);
 		assert (cuda::is_aligned<16>(shared_conf_energies));
+		shared += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf_space->num_pos));
 
-		shared_offset += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf_space->num_pos));
-		auto shared_dofs = reinterpret_cast<Dof<T> **>(shared + shared_offset);
+		auto shared_dofs_mem = reinterpret_cast<int8_t *>(shared);
+		assert (cuda::is_aligned<16>(shared_dof_mem));
+		shared += Dofs<T>::dofs_shared_size;
+
+		auto shared_dofs = reinterpret_cast<Dof<T> **>(shared);
 		assert (cuda::is_aligned<16>(shared_dofs));
+		shared += cuda::pad_to_alignment<16>(sizeof(Dof<T> *)*conf_space->max_num_dofs);
 
-		shared_offset += cuda::pad_to_alignment<16>(sizeof(Dof<T> *)*conf_space->max_num_dofs);
-		auto shared_line_search_states = reinterpret_cast<LineSearchState<T> *>(shared + shared_offset);
+		auto shared_line_search_states = reinterpret_cast<LineSearchState<T> *>(shared);
 		assert (cuda::is_aligned<16>(shared_line_search_states));
+		shared += cuda::pad_to_alignment<16>(sizeof(LineSearchState<T>)*conf_space->max_num_dofs);
 
-		shared_offset += cuda::pad_to_alignment<16>(sizeof(LineSearchState<T>)*conf_space->max_num_dofs);
-		auto shared_here = reinterpret_cast<DofValues<T> *>(shared + shared_offset);
+		auto shared_here = reinterpret_cast<DofValues<T> *>(shared);
 		assert (cuda::is_aligned<16>(shared_here));
+		shared += DofValues<T>::get_bytes(conf_space->max_num_dofs);
 
-		shared_offset += DofValues<T>::get_bytes(conf_space->max_num_dofs);
-		auto shared_next = reinterpret_cast<DofValues<T> *>(shared + shared_offset);
+		auto shared_next = reinterpret_cast<DofValues<T> *>(shared);
 		assert (cuda::is_aligned<16>(shared_next));
+		shared += DofValues<T>::get_bytes(conf_space->max_num_dofs);
 
-		shared_offset += DofValues<T>::get_bytes(conf_space->max_num_dofs);
-		auto thread_energy = reinterpret_cast<T *>(shared + shared_offset);
+		auto thread_energy = reinterpret_cast<T *>(shared);
 		assert (cuda::is_aligned<16>(thread_energy));
 
 		// init the sizes for cudaMalloc'd Array instances
@@ -346,7 +386,7 @@ namespace osprey {
 
 		// make the atoms and the degrees of freedom
 		Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_atom_pairs, shared_conf_energies);
-		Dofs<T> dofs(assignment, *inters, efunc, thread_energy, shared_dofs);
+		Dofs<T> dofs(assignment, *inters, efunc, thread_energy, shared_dofs_mem, shared_dofs);
 
 		// truncate the dof values to match the actual number of dofs
 		if (threadIdx.x == 0) {
@@ -370,6 +410,38 @@ namespace osprey {
 
 		// copy dof values to global memory
 		out_dof_values->set(*shared_here);
+	}
+
+	// set kernel launch bounds for each real type
+
+	template<typename T, EnergyFunction<T> efunc>
+	__global__
+	void minimize_kernel(const ConfSpace<T> * conf_space,
+	                     const Array<int32_t> * conf,
+	                     const Array<PosInter<T>> * inters,
+	                     Array<Real3<T>> * out_coords,
+	                     DofValues<T> * out_dof_values);
+
+	template<>
+	__global__
+	__launch_bounds__(MINIMIZE_THREADS_F32, MINIMIZE_BLOCKS)
+	void minimize_kernel<float32_t,osprey::ambereef1::calc_energy>(const ConfSpace<float32_t> * conf_space,
+	                                                               const Array<int32_t> * conf,
+	                                                               const Array<PosInter<float32_t>> * inters,
+	                                                               Array<Real3<float32_t>> * out_coords,
+	                                                               DofValues<float32_t> * out_dof_values) {
+		minimize_kernel_impl<float32_t,osprey::ambereef1::calc_energy>(conf_space, conf, inters, out_coords, out_dof_values);
+	}
+
+	template<>
+	__global__
+	__launch_bounds__(MINIMIZE_THREADS_F64, MINIMIZE_BLOCKS)
+	void minimize_kernel<float64_t,osprey::ambereef1::calc_energy>(const ConfSpace<float64_t> * conf_space,
+	                                                               const Array<int32_t> * conf,
+	                                                               const Array<PosInter<float64_t>> * inters,
+	                                                               Array<Real3<float64_t>> * out_coords,
+	                                                               DofValues<float64_t> * out_dof_values) {
+		minimize_kernel_impl<float64_t,osprey::ambereef1::calc_energy>(conf_space, conf, inters, out_coords, out_dof_values);
 	}
 
 	template<typename T, EnergyFunction<T> efunc>
@@ -414,17 +486,17 @@ namespace osprey {
 		int64_t shared_size_static = 0
 			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf.get_size()))
 			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf.get_size()))
-			+ cuda::pad_to_alignment<16>(sizeof(Dof<T> *)*num_dofs) // thread_energy
+			+ cuda::pad_to_alignment<16>(sizeof(Dof<T> *)*num_dofs)
+			+ Dofs<T>::dofs_shared_size
 			+ cuda::pad_to_alignment<16>(sizeof(LineSearchState<T>)*num_dofs) // line_search_states
 			+ DofValues<T>::get_bytes(num_dofs) // here
 			+ DofValues<T>::get_bytes(num_dofs); // next
 		int64_t shared_size_per_thread = sizeof(T);
 
 		// launch the kernel
-		auto kernel = minimize_kernel<T,efunc>;
-		int num_threads = get_minimize_threads();
+		int num_threads = get_minimize_threads<T>();
 		int64_t shared_size = shared_size_static + shared_size_per_thread*num_threads;
-		kernel<<<1, num_threads, shared_size>>>(d_conf_space, d_conf, d_inters, d_out_coords, d_out_dof_values);
+		minimize_kernel<T,efunc><<<1, num_threads, shared_size>>>(d_conf_space, d_conf, d_inters, d_out_coords, d_out_dof_values);
 		cuda::check_error();
 
 		// download the energy

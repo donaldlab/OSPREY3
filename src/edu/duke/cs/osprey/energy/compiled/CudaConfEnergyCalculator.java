@@ -1158,7 +1158,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	// helpers for the Array class on the c++ size
 
 	private MemorySegment makeArray(long size, long itemBytes) {
-		MemorySegment mem = MemorySegment.allocateNative(Int64.bytes*2 + size*itemBytes);
+		MemorySegment mem = MemorySegment.allocateNative(padToGpuAlignment(Int64.bytes*2 + size*itemBytes));
 		BufWriter buf = new BufWriter(mem);
 		buf.int64(size);
 		buf.skip(8); // padding
