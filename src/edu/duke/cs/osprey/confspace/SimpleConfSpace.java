@@ -35,6 +35,7 @@ package edu.duke.cs.osprey.confspace;
 import java.math.BigInteger;
 import java.util.*;
 
+import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.dof.*;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
@@ -185,8 +186,9 @@ public class SimpleConfSpace implements Serializable {
 		public static enum Type {
 			
 			Library('L'),
-			WildType('W');
-			
+			WildType('W'),
+			Custom('C');
+
 			public final char letter;
 			
 			private Type(char letter) {
@@ -237,6 +239,25 @@ public class SimpleConfSpace implements Serializable {
 
 			this.dofBounds = sidechainDOFBounds(pos,template,rotamerIndex);
 			this.dofBounds.putAll(bbVoxel);
+		}
+
+		/**
+		 * Just copy, probably not good form to do it in constructor
+		 * @param other
+         *
+		 * //TODO: implement a saner deep copy
+		 */
+		public ResidueConf(ResidueConf other, int index, Type type, int rotamerIndex){
+			this.index = index;
+			this.template = other.template;
+			this.type = type;
+			this.rotamerIndex = rotamerIndex;
+			this.postTemplateModifier = other.postTemplateModifier;
+			this.dofBounds = new HashMap<>();
+			other.dofBounds.entrySet()
+					.stream()
+					.forEach(entry -> this.dofBounds.put(entry.getKey(), entry.getValue()));
+
 		}
 
 		public void updateResidue(ResidueTemplateLibrary templateLib, Residue res, MutAlignmentCache mutAlignmentCache) {
@@ -905,7 +926,49 @@ public class SimpleConfSpace implements Serializable {
 
 		return new ParametricMolecule(mol, dofs, dofBounds);
 	}
-	
+
+	/**
+	 * Reverse engineer a {@link ResidueConf} from an {@link RCTuple} and a list of assignments to dofs.
+	 *
+	 * This is used to add rigid rotamers that correspond to partially minimized conformations
+	 *
+	 * @param conf
+	 * @param dofAssignments
+	 */
+	public void addResidueConfFromMinimization(RCTuple conf, List<DegreeOfFreedom> dofs,DoubleMatrix1D dofAssignments){
+		// Check to make sure we have all confDOFNames represented in the dofAssignments
+		if(dofs.size() < dofAssignments.size())
+			throw new IllegalArgumentException("ERROR: mismatch in number of degrees of freedom");
+
+		// create assignment map
+		HashMap<String,Integer> name2Index = DegreeOfFreedom.nameToIndexMap(dofs);//map DOF names to their indices in DOFs
+
+		// Create residue conf copies for each position
+		for (int i=0; i<conf.size(); i++) {
+			Position pos = positions.get(conf.pos.get(i));
+			ResidueConf oldResConf = pos.resConfs.get(conf.RCs.get(i));
+			// If this position doesn't have any DOFs that we are interested in, just skip it
+			if(Collections.disjoint(oldResConf.dofBounds.keySet(),dofs.stream().map(DegreeOfFreedom::getName).collect(Collectors.toSet()))){
+				continue;
+			}
+			// Otherwise, start making a new residue conf
+			ResidueConf newResConf = new ResidueConf(oldResConf,
+					pos.resConfs.size(),
+					ResidueConf.Type.Custom,
+					pos.resConfs.stream().filter(rc -> rc.type == ResidueConf.Type.Custom).collect(Collectors.toList()).size());
+			// Replace dof bounds with dofAssignments
+			for (String key : newResConf.dofBounds.keySet()){
+				newResConf.dofBounds.replace(key, new double[]{dofAssignments.get(name2Index.get(key)), dofAssignments.get(name2Index.get(key))});
+			}
+			pos.resConfs.add(newResConf);
+		}
+
+		// Update the numResConfsByPos variable
+		for (int i=0; i<positions.size(); i++) {
+			numResConfsByPos[i] = positions.get(i).resConfs.size();
+		}
+	}
+
 	/** @see #isContinuouslyFlexible(RCTuple) */
 	public boolean isContinuouslyFlexible(int[] conf) {
 		return isContinuouslyFlexible(new RCTuple(conf));
