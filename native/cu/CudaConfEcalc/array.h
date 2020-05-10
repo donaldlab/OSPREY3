@@ -31,7 +31,7 @@ namespace osprey {
 			}
 
 			// for allocating on a single thread
-			__device__
+			__host__ __device__
 			static inline Array<T> * make(int64_t size) {
 				auto out = reinterpret_cast<Array<T> *>(std::malloc(get_bytes(size)));
 				out->size = size;

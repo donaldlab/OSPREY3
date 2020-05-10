@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.gpu;
 
 import jdk.incubator.foreign.MemoryAddress;
 import jdk.incubator.foreign.MemoryHandles;
+import kotlin.text.Charsets;
 
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
@@ -88,7 +89,7 @@ public class Structs {
 
 	public static abstract class Field {
 
-		private final long bytes;
+		public final long bytes;
 
 		protected String name;
 		protected MemoryAddress addr;
@@ -419,5 +420,58 @@ public class Structs {
 	}
 	public static Real.Array realarray(Precision precision) {
 		return new Real.Array(precision);
+	}
+
+
+	public static class Char8 extends Field {
+
+		public static final long bytes = 1;
+		private static final VarHandle handle = MemoryHandles.varHandle(byte.class, ByteOrder.nativeOrder());
+
+		public Char8() {
+			super(bytes);
+		}
+
+		public char get() {
+			return (char)handle.get(addr);
+		}
+
+		public void set(char value) {
+			handle.set(addr, value);
+		}
+
+		public static class Array extends Structs.Array {
+
+			public Array() {
+				super(bytes);
+			}
+
+			public char get(long i) {
+				return (char)handle.get(offset(i));
+			}
+
+			public void set(long i, double value) {
+				handle.set(offset(i), value);
+			}
+
+			public String getNullTerminated(int maxLen) {
+				byte[] bytes = new byte[maxLen];
+				for (int i=0; i<maxLen; i++) {
+					bytes[i] = (byte)handle.get(offset(i));
+					if (bytes[i] == 0) {
+						return new String(bytes, 0, i, Charsets.US_ASCII);
+					}
+				}
+				return new String(bytes, Charsets.US_ASCII);
+			}
+
+			// TODO: set?
+		}
+	}
+	public static Char8 char8() {
+		return new Char8();
+	}
+	public static Char8.Array char8array() {
+		return new Char8.Array();
 	}
 }

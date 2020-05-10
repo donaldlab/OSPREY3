@@ -45,10 +45,64 @@ API int cuda_version_required() {
 	return CUDART_VERSION;
 }
 
+struct GpuInfo {
+	char bus_id[16];
+	char name[256];
+	int integrated;
+	int concurrent_kernels;
+	int num_processors;
+	// 4 bytes pad
+	int64_t mem_total;
+	int64_t mem_free;
+};
+ASSERT_JAVA_COMPATIBLE(GpuInfo, 304);
+
+API osprey::Array<GpuInfo> * alloc_gpu_infos() {
+
+	int num_gpus;
+	cudaGetDeviceCount(&num_gpus);
+	cuda::check_error();
+
+	osprey::Array<GpuInfo> * infos = osprey::Array<GpuInfo>::make(num_gpus);
+	for (int device=0; device<num_gpus; device++) {
+		GpuInfo & info = (*infos)[device];
+
+		cudaDeviceGetPCIBusId(reinterpret_cast<char *>(&info.bus_id), 16, device);
+		cuda::check_error();
+
+		cudaDeviceProp props {};
+		cudaGetDeviceProperties(&props, device);
+		cuda::check_error();
+
+		memcpy(&info.name, props.name, 256);
+		info.integrated = props.integrated;
+		info.concurrent_kernels = props.concurrentKernels;
+		info.num_processors = props.multiProcessorCount;
+
+		size_t mem_free;
+		size_t mem_total;
+		cudaMemGetInfo(&mem_free, &mem_total);
+		cuda::check_error();
+
+		info.mem_free = mem_free;
+		info.mem_total = mem_total;
+	}
+
+	return infos;
+}
+
+API void free_gpu_infos(osprey::Array<GpuInfo> * p) {
+	delete[] p;
+}
+
+
 namespace osprey {
 
 	template<typename T>
-	static void * alloc_conf_space(const ConfSpace<T> & conf_space) {
+	static void * alloc_conf_space(int device, const ConfSpace<T> & conf_space) {
+
+		cudaSetDevice(device);
+		cuda::check_error();
 
 		// allocate the device memory
 		void * p_device;
@@ -63,15 +117,39 @@ namespace osprey {
 	}
 }
 
-API void * alloc_conf_space_f32(const osprey::ConfSpace<float32_t> & conf_space) {
-	return osprey::alloc_conf_space(conf_space);
+API void * alloc_conf_space_f32(int device, const osprey::ConfSpace<float32_t> & conf_space) {
+	return osprey::alloc_conf_space(device, conf_space);
 }
-API void * alloc_conf_space_f64(const osprey::ConfSpace<float64_t> & conf_space) {
-	return osprey::alloc_conf_space(conf_space);
+API void * alloc_conf_space_f64(int device, const osprey::ConfSpace<float64_t> & conf_space) {
+	return osprey::alloc_conf_space(device, conf_space);
 }
 
-API void free_conf_space(void * p) {
+API void free_conf_space(int device, void * p) {
+
+	cudaSetDevice(device);
+	cuda::check_error();
+
 	cudaFree(p);
+	cuda::check_error();
+}
+
+API cudaStream_t alloc_stream(int device) {
+
+	cudaSetDevice(device);
+	cuda::check_error();
+
+	cudaStream_t stream;
+	cudaStreamCreate(&stream);
+	cuda::check_error();
+	return stream;
+}
+
+API void free_stream(int device, cudaStream_t stream) {
+
+	cudaSetDevice(device);
+	cuda::check_error();
+
+	cudaStreamDestroy(stream);
 	cuda::check_error();
 }
 
@@ -96,9 +174,14 @@ namespace osprey {
 	}
 
 	template<typename T>
-	static void assign(const ConfSpace<T> * d_conf_space,
+	static void assign(int device,
+	                   cudaStream_t stream,
+	                   const ConfSpace<T> * d_conf_space,
 	                   const Array<int32_t> & conf,
 	                   Array<Real3<T>> & out_coords) {
+
+		cudaSetDevice(device);
+		cuda::check_error();
 
 		// upload the arguments
 		size_t conf_bytes = conf.get_bytes();
@@ -122,7 +205,7 @@ namespace osprey {
 		// launch the kernel
 		// TODO: optimize launch bounds
 		int num_threads = cuda::optimize_threads(assign_kernel<T>, shared_size, 0);
-		assign_kernel<<<1, num_threads, shared_size>>>(d_conf_space, d_conf, d_out_coords);
+		assign_kernel<<<1, num_threads, shared_size, stream>>>(d_conf_space, d_conf, d_out_coords);
 		cuda::check_error();
 
 		// download the coords
@@ -135,15 +218,19 @@ namespace osprey {
 	}
 }
 
-API void assign_f32(const osprey::ConfSpace<float32_t> * d_conf_space,
+API void assign_f32(int device,
+                    cudaStream_t stream,
+                    const osprey::ConfSpace<float32_t> * d_conf_space,
                     const osprey::Array<int32_t> & conf,
                     osprey::Array<osprey::Real3<float32_t>> & out_coords) {
-	osprey::assign(d_conf_space, conf, out_coords);
+	osprey::assign(device, stream, d_conf_space, conf, out_coords);
 }
-API void assign_f64(const osprey::ConfSpace<float64_t> * d_conf_space,
+API void assign_f64(int device,
+                    cudaStream_t stream,
+                    const osprey::ConfSpace<float64_t> * d_conf_space,
                     const osprey::Array<int32_t> & conf,
                     osprey::Array<osprey::Real3<float64_t>> & out_coords) {
-	osprey::assign(d_conf_space, conf, out_coords);
+	osprey::assign(device, stream, d_conf_space, conf, out_coords);
 }
 
 
@@ -187,11 +274,16 @@ namespace osprey {
 	}
 
 	template<typename T, osprey::EnergyFunction<T> efunc>
-	static T calc(const osprey::ConfSpace<T> * d_conf_space,
+	static T calc(int device,
+	              cudaStream_t stream,
+	              const osprey::ConfSpace<T> * d_conf_space,
 	              const osprey::Array<int32_t> & conf,
 	              const osprey::Array<osprey::PosInter<T>> & inters,
 	              osprey::Array<osprey::Real3<T>> * out_coords,
 	              int64_t num_atoms) {
+
+		cudaSetDevice(device);
+		cuda::check_error();
 
 		// upload the arguments
 		size_t conf_bytes = conf.get_bytes();
@@ -231,7 +323,7 @@ namespace osprey {
 		// launch the kernel
 		int num_threads = CALC_THREADS;
 		int64_t shared_size = shared_size_static + shared_size_per_thread*num_threads;
-		calc_kernel<T,efunc><<<1, num_threads, shared_size>>>(d_conf_space, d_conf, d_inters, d_out_coords, d_out_energy);
+		calc_kernel<T,efunc><<<1, num_threads, shared_size, stream>>>(d_conf_space, d_conf, d_inters, d_out_coords, d_out_energy);
 		cuda::check_error();
 
 		// download the energy
@@ -255,19 +347,23 @@ namespace osprey {
 	}
 }
 
-API float32_t calc_amber_eef1_f32(const osprey::ConfSpace<float32_t> * d_conf_space,
+API float32_t calc_amber_eef1_f32(int device,
+                                  cudaStream_t stream,
+                                  const osprey::ConfSpace<float32_t> * d_conf_space,
                                   const osprey::Array<int32_t> & conf,
                                   const osprey::Array<osprey::PosInter<float32_t>> & inters,
                                   osprey::Array<osprey::Real3<float32_t>> * out_coords,
                                   int64_t num_atoms) {
-	return osprey::calc<float32_t,osprey::ambereef1::calc_energy>(d_conf_space, conf, inters, out_coords, num_atoms);
+	return osprey::calc<float32_t,osprey::ambereef1::calc_energy>(device, stream, d_conf_space, conf, inters, out_coords, num_atoms);
 }
-API float64_t calc_amber_eef1_f64(const osprey::ConfSpace<float64_t> * d_conf_space,
+API float64_t calc_amber_eef1_f64(int device,
+                                  cudaStream_t stream,
+                                  const osprey::ConfSpace<float64_t> * d_conf_space,
                                   const osprey::Array<int32_t> & conf,
                                   const osprey::Array<osprey::PosInter<float64_t>> & inters,
                                   osprey::Array<osprey::Real3<float64_t>> * out_coords,
                                   int64_t num_atoms) {
-	return osprey::calc<float64_t,osprey::ambereef1::calc_energy>(d_conf_space, conf, inters, out_coords, num_atoms);
+	return osprey::calc<float64_t,osprey::ambereef1::calc_energy>(device, stream, d_conf_space, conf, inters, out_coords, num_atoms);
 }
 
 
@@ -354,7 +450,7 @@ namespace osprey {
 		shared += cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf_space->num_pos));
 
 		auto shared_dofs_mem = reinterpret_cast<int8_t *>(shared);
-		assert (cuda::is_aligned<16>(shared_dof_mem));
+		assert (cuda::is_aligned<16>(shared_dofs_mem));
 		shared += Dofs<T>::dofs_shared_size;
 
 		auto shared_dofs = reinterpret_cast<Dof<T> **>(shared);
@@ -445,13 +541,18 @@ namespace osprey {
 	}
 
 	template<typename T, EnergyFunction<T> efunc>
-	static T minimize(const ConfSpace<T> * d_conf_space,
+	static T minimize(int device,
+	                  cudaStream_t stream,
+	                  const ConfSpace<T> * d_conf_space,
 	                  const Array<int32_t> & conf,
 	                  const Array<PosInter<T>> & inters,
 	                  Array<Real3<T>> * out_coords,
 	                  int64_t num_atoms,
 	                  Array<T> * out_dofs,
 	                  int64_t num_dofs) {
+
+		cudaSetDevice(device);
+		cuda::check_error();
 
 		// upload the arguments
 		size_t conf_bytes = conf.get_bytes();
@@ -496,7 +597,7 @@ namespace osprey {
 		// launch the kernel
 		int num_threads = get_minimize_threads<T>();
 		int64_t shared_size = shared_size_static + shared_size_per_thread*num_threads;
-		minimize_kernel<T,efunc><<<1, num_threads, shared_size>>>(d_conf_space, d_conf, d_inters, d_out_coords, d_out_dof_values);
+		minimize_kernel<T,efunc><<<1, num_threads, shared_size, stream>>>(d_conf_space, d_conf, d_inters, d_out_coords, d_out_dof_values);
 		cuda::check_error();
 
 		// download the energy
@@ -527,21 +628,25 @@ namespace osprey {
 	}
 }
 
-API float32_t minimize_amber_eef1_f32(const osprey::ConfSpace<float32_t> * d_conf_space,
+API float32_t minimize_amber_eef1_f32(int device,
+                                      cudaStream_t stream,
+                                      const osprey::ConfSpace<float32_t> * d_conf_space,
                                       const osprey::Array<int32_t> & conf,
                                       const osprey::Array<osprey::PosInter<float32_t>> & inters,
                                       osprey::Array<osprey::Real3<float32_t>> * out_coords,
                                       int64_t num_atoms,
                                       osprey::Array<float32_t> * out_dofs,
                                       int64_t num_dofs) {
-	return osprey::minimize<float32_t,osprey::ambereef1::calc_energy>(d_conf_space, conf, inters, out_coords, num_atoms, out_dofs, num_dofs);
+	return osprey::minimize<float32_t,osprey::ambereef1::calc_energy>(device, stream, d_conf_space, conf, inters, out_coords, num_atoms, out_dofs, num_dofs);
 }
-API float64_t minimize_amber_eef1_f64(const osprey::ConfSpace<float64_t> * d_conf_space,
+API float64_t minimize_amber_eef1_f64(int device,
+                                      cudaStream_t stream,
+                                      const osprey::ConfSpace<float64_t> * d_conf_space,
                                       const osprey::Array<int32_t> & conf,
                                       const osprey::Array<osprey::PosInter<float64_t>> & inters,
                                       osprey::Array<osprey::Real3<float64_t>> * out_coords,
                                       int64_t num_atoms,
                                       osprey::Array<float64_t> * out_dofs,
                                       int64_t num_dofs) {
-	return osprey::minimize<float64_t,osprey::ambereef1::calc_energy>(d_conf_space, conf, inters, out_coords, num_atoms, out_dofs, num_dofs);
+	return osprey::minimize<float64_t,osprey::ambereef1::calc_energy>(device, stream, d_conf_space, conf, inters, out_coords, num_atoms, out_dofs, num_dofs);
 }

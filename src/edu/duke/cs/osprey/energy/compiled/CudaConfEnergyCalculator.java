@@ -15,9 +15,10 @@ import jdk.incubator.foreign.MemorySegment;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static edu.duke.cs.osprey.gpu.Structs.*;
 
@@ -36,16 +37,155 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		public static native int cuda_version_runtime();
 		public static native int cuda_version_required();
 
-		public static native Pointer alloc_conf_space_f32(ByteBuffer conf_space);
-		public static native Pointer alloc_conf_space_f64(ByteBuffer conf_space);
-		public static native void free_conf_space(Pointer p);
+		public static native Pointer alloc_gpu_infos();
+		public static native void free_gpu_infos(Pointer p);
 
-		public static native void assign_f32(Pointer conf_space, ByteBuffer conf, ByteBuffer out);
-		public static native void assign_f64(Pointer conf_space, ByteBuffer conf, ByteBuffer out);
-		public static native float calc_amber_eef1_f32(Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
-		public static native double calc_amber_eef1_f64(Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
-		public static native float minimize_amber_eef1_f32(Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long numDofs);
-		public static native double minimize_amber_eef1_f64(Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long numDofs);
+		public static native Pointer alloc_conf_space_f32(int device, ByteBuffer conf_space);
+		public static native Pointer alloc_conf_space_f64(int device, ByteBuffer conf_space);
+		public static native void free_conf_space(int device, Pointer p);
+
+		public static native Pointer alloc_stream(int device);
+		public static native void free_stream(int device, Pointer stream);
+
+		public static native void assign_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer out);
+		public static native void assign_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer out);
+		public static native float calc_amber_eef1_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
+		public static native double calc_amber_eef1_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
+		public static native float minimize_amber_eef1_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long numDofs);
+		public static native double minimize_amber_eef1_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long numDofs);
+	}
+
+	// TODO: could use records for this? It's a "preview" feature in JDK 14
+	public static class GpuInfo {
+
+		final int id;
+		final String busId;
+		final String name;
+		final boolean integrated;
+		final boolean concurrentKernels;
+		final int numProcessors;
+		final long memTotal;
+		final long memFree;
+
+		public GpuInfo(int id, String busId, String name, boolean integrated, boolean concurrentKernels, int numProcessors, long memTotal, long memFree) {
+			this.id = id;
+			this.busId = busId;
+			this.name = name;
+			this.integrated = integrated;
+			this.concurrentKernels = concurrentKernels;
+			this.numProcessors = numProcessors;
+			this.memTotal = memTotal;
+			this.memFree = memFree;
+		}
+
+		@Override
+		public int hashCode() {
+			return busId.hashCode();
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			return other instanceof GpuInfo && equals((GpuInfo)other);
+		}
+
+		public boolean equals(GpuInfo other) {
+			return this.busId.equals(other.busId);
+		}
+
+		@Override
+		public String toString() {
+			// this would be much easier with text block literals... sigh, at least it's a "preview" feature
+			return "GPU[\n"
+			+ String.format("%20s: %s\n", "id", id)
+			+ String.format("%20s: %s\n", "bus id", busId)
+			+ String.format("%20s: %s\n", "name", name)
+			+ String.format("%20s: %b\n", "integrated", integrated)
+			+ String.format("%20s: %b\n", "concurrent kernels", concurrentKernels)
+			+ String.format("%20s: %d\n", "num processors", numProcessors)
+			+ String.format("%20s: %d B, %.1f GiB\n", "memory total", memTotal, memTotal/1024.0/1024.0/1024.0)
+			+ String.format("%20s: %d B, %.1f GiB\n", "memory free", memFree, memFree/1024.0/1024.0/1024.0)
+			+ "]";
+		}
+	}
+
+	static class SArray extends Struct {
+		Int64 size = int64();
+		Pad pad = pad(8);
+		SArray init() {
+			init(16, "size", "pad");
+			return this;
+		}
+		long bytes(long numItems, long itemBytes) {
+			return bytes() + padToGpuAlignment(numItems*itemBytes);
+		}
+	}
+	private static final SArray arrayStruct = new SArray().init();
+
+	static class SGpuInfo extends Struct {
+		Pad bus_id = pad(16);
+		Pad name = pad(256);
+		Int32 integrated = int32();
+		Int32 concurrent_kernels = int32();
+		Int32 num_processors = int32();
+		Pad pad = pad(4);
+		Int64 mem_total = int64();
+		Int64 mem_free = int64();
+		SGpuInfo init() {
+			init(304,
+				"bus_id", "name", "integrated", "concurrent_kernels", "num_processors",
+				"pad", "mem_total", "mem_free"
+			);
+			return this;
+		}
+	}
+	static final SGpuInfo gpuInfoStruct = new SGpuInfo().init();
+
+	public static List<GpuInfo> getGpusInfos() {
+
+		if (!isSupported()) {
+			return Collections.emptyList();
+		}
+
+		Pointer pArray = NativeLib.alloc_gpu_infos();
+
+		try {
+			// convert the pointer to a byte buffer we can read in java-land
+			int size = (int)pArray.getLong(0);
+			ByteBuffer buf = pArray.getByteBuffer(0, arrayStruct.bytes(size, gpuInfoStruct.bytes()));
+
+			List<GpuInfo> infos = new ArrayList<>(size);
+
+			try (var mem = MemorySegment.ofByteBuffer(buf)) {
+
+				var p = getArrayAddress(mem);
+				var charsBusId = char8array();
+				var charsName = char8array();
+
+				for (int device=0; device<size; device++) {
+
+					gpuInfoStruct.setAddress(p);
+					charsBusId.setAddress(gpuInfoStruct.bus_id.addr());
+					charsName.setAddress(gpuInfoStruct.name.addr());
+
+					infos.add(new GpuInfo(
+						device,
+						charsBusId.getNullTerminated((int)gpuInfoStruct.bus_id.bytes),
+						charsName.getNullTerminated((int)gpuInfoStruct.name.bytes),
+						gpuInfoStruct.integrated.get() != 0,
+						gpuInfoStruct.concurrent_kernels.get() != 0,
+						gpuInfoStruct.num_processors.get(),
+						gpuInfoStruct.mem_total.get(),
+						gpuInfoStruct.mem_free.get()
+					));
+
+					p = p.addOffset(gpuInfoStruct.bytes());
+				}
+
+				return infos;
+			}
+		} finally {
+			NativeLib.free_gpu_infos(pArray);
+		}
 	}
 
 	// biggest LD instruction we can use, in bytes
@@ -86,8 +226,8 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	}
 
 	private interface ForcefieldsImpl {
-		double calc(Pointer pConfSpace, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms);
-		double minimize(Pointer pConfSpace, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms, ByteBuffer dofsBuf, long numDofs);
+		double calc(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms);
+		double minimize(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms, ByteBuffer dofsBuf, long numDofs);
 		long paramsBytes();
 		void writeParams(BufWriter buf);
 		long staticStaticBytes();
@@ -265,18 +405,20 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		@Override
-		public double calc(Pointer pConfSpace, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms) {
+		public double calc(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms) {
+			Stream stream = threadStream.get();
 			return switch (precision) {
-				case Float32 -> NativeLib.calc_amber_eef1_f32(pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
-				case Float64 -> NativeLib.calc_amber_eef1_f64(pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
+				case Float32 -> NativeLib.calc_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
+				case Float64 -> NativeLib.calc_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
 			};
 		}
 
 		@Override
-		public double minimize(Pointer pConfSpace, ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms, ByteBuffer dofsBuf, long numDofs) {
+		public double minimize(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms, ByteBuffer dofsBuf, long numDofs) {
+			Stream stream = threadStream.get();
 			return switch (precision) {
-				case Float32 -> NativeLib.minimize_amber_eef1_f32(pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms, dofsBuf, numDofs);
-				case Float64 -> NativeLib.minimize_amber_eef1_f64(pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms, dofsBuf, numDofs);
+				case Float32 -> NativeLib.minimize_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms, dofsBuf, numDofs);
+				case Float64 -> NativeLib.minimize_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms, dofsBuf, numDofs);
 			};
 		}
 
@@ -564,9 +706,10 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	public final ConfSpace confSpace;
 	public final Precision precision;
+	public final List<GpuStreams> gpuStreams;
 	public final ForcefieldsImpl forcefieldsImpl;
 
-	private final Pointer pConfSpace;
+	private final Map<GpuInfo,Pointer> pConfSpace = new HashMap<>();
 
 	// NOTE: prefix the struct classes with S to avoid name collisions with the related Java classes
 
@@ -631,17 +774,6 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 	}
 	private final SConf confStruct = new SConf();
-
-	static class SArray extends Struct {
-		Int64 size = int64();
-		Pad pad = pad(8);
-		void init() {
-			init(
-				16, "size", "pad"
-			);
-		}
-	}
-	private final SArray arrayStruct = new SArray();
 
 	class SReal3 extends Struct {
 		Real x;
@@ -708,10 +840,32 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	private final SDihedral dihedralStruct = new SDihedral();
 	private static final int dihedralId = 0;
 
+	public static class GpuStreams {
+
+		public final GpuInfo gpuInfo;
+		public final int numStreams;
+
+		public GpuStreams(GpuInfo gpuInfo, int numStreams) {
+			this.gpuInfo = gpuInfo;
+			this.numStreams = numStreams;
+		}
+	}
+
+	public static List<GpuStreams> allStreams() {
+		return getGpusInfos().stream()
+			.map(it -> new GpuStreams(it, it.numProcessors))
+			.collect(Collectors.toList());
+	}
+
 	public CudaConfEnergyCalculator(ConfSpace confSpace, Precision precision) {
+		this(confSpace, precision, allStreams());
+	}
+
+	public CudaConfEnergyCalculator(ConfSpace confSpace, Precision precision, List<GpuStreams> gpuStreams) {
 
 		this.confSpace = confSpace;
 		this.precision = precision;
+		this.gpuStreams = gpuStreams;
 
 		checkSupported();
 
@@ -729,7 +883,6 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		confSpaceStruct.init();
 		posStruct.init();
 		confStruct.init();
-		arrayStruct.init();
 		real3Struct.init();
 		posInterStruct.init();
 		dihedralStruct.init();
@@ -750,8 +903,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			+ padToGpuAlignment(confOffsets.bytes(pos.confs.length))
 			+ sum(pos.confs, conf ->
 				confStruct.bytes()
-				+ arrayStruct.bytes()
-				+ padToGpuAlignment(real3Struct.bytes()*conf.coords.size)
+				+ arrayStruct.bytes(conf.coords.size, real3Struct.bytes())
 				+ padToGpuAlignment(confMotionOffsets.bytes(conf.motions.length))
 				+ sum(conf.motions, motion -> {
 					if (motion instanceof DihedralAngle.Description) {
@@ -764,8 +916,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			)
 		);
 
-		long staticCoordsSize = arrayStruct.bytes()
-			+ padToGpuAlignment(real3Struct.bytes()*confSpace.staticCoords.size);
+		long staticCoordsSize = arrayStruct.bytes(confSpace.staticCoords.size, real3Struct.bytes());
 
 		long forcefieldSize = forcefieldsImpl.paramsBytes();
 
@@ -976,11 +1127,54 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			// make sure we used the whole buffer
 			assert(buf.pos == bufSize) : String.format("%d bytes leftover", bufSize - buf.pos);
 
-			// upload the conf space to the GPU
-			pConfSpace = switch (precision) {
-				case Float32 -> NativeLib.alloc_conf_space_f32(confSpaceMem.asByteBuffer());
-				case Float64 -> NativeLib.alloc_conf_space_f64(confSpaceMem.asByteBuffer());
-			};
+			// upload the conf space to the GPU for each device
+			var confSpaceBuf = confSpaceMem.asByteBuffer();
+			for (var it : gpuStreams) {
+				Pointer p = switch (precision) {
+					case Float32 -> NativeLib.alloc_conf_space_f32(it.gpuInfo.id, confSpaceBuf);
+					case Float64 -> NativeLib.alloc_conf_space_f64(it.gpuInfo.id, confSpaceBuf);
+				};
+				pConfSpace.put(it.gpuInfo, p);
+			}
+		}
+
+		// keep track of how many streams are left to give out
+		class StreamsLeft {
+			final GpuInfo gpuInfo;
+			int numStreams;
+			StreamsLeft(GpuStreams gpuStreams) {
+				this.gpuInfo = gpuStreams.gpuInfo;
+				this.numStreams = gpuStreams.numStreams;
+			}
+		}
+		var gpuStreamsLeft = gpuStreams.stream()
+			.map(StreamsLeft::new)
+			.collect(Collectors.toList());
+
+		// layout the gpu streams in a round-robin order
+		int gpui = 0;
+		while (true) {
+
+			// find the next device with a stream left, if any
+			StreamsLeft hasStreams = null;
+			for (int i=0; i<gpuStreams.size() && hasStreams == null; i++) {
+				var it = gpuStreamsLeft.get((gpui + i) % gpuStreams.size());
+				if (it.numStreams > 0) {
+					hasStreams = it;
+				}
+			}
+
+			// if no streams left to distribute, we're done here
+			if (hasStreams == null) {
+				break;
+			}
+
+			// allocate a stream
+			hasStreams.numStreams -= 1;
+			streams.add(new Stream(hasStreams.gpuInfo.id, pConfSpace.get(hasStreams.gpuInfo)));
+
+			// try the next gpu first next time
+			gpui += 1;
 		}
 	}
 
@@ -1015,12 +1209,59 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		return String.format("%d.%d", NativeLib.version_major(), NativeLib.version_minor());
 	}
 
+	@Override
+	public ConfSpace confSpace() {
+		return confSpace;
+	}
+
+	private static class Stream implements AutoCloseable {
+
+		public final int device;
+		public final Pointer pConfSpace;
+		public final Pointer stream;
+
+		public Stream(int device, Pointer pConfSpace) {
+			this.device = device;
+			this.pConfSpace = pConfSpace;
+			this.stream = NativeLib.alloc_stream(device);
+		}
+
+		@Override
+		public void close() {
+			NativeLib.free_stream(device, stream);
+		}
+	}
+
+	private final List<Stream> streams = new ArrayList<>();
+	private final AtomicInteger streami = new AtomicInteger(0);
+	private final ThreadLocal<Stream> threadStream = ThreadLocal.withInitial(() -> {
+
+		// find the next available stream, if any
+		int streami = this.streami.getAndIncrement();
+		if (streami >= streams.size()) {
+			throw new IllegalStateException("exhausted all GPU streams");
+		}
+
+		return streams.get(streami);
+	});
+
+	@Override
+	public void close() {
+		for (var it : gpuStreams) {
+			NativeLib.free_conf_space(it.gpuInfo.id, pConfSpace.get(it.gpuInfo));
+		}
+		for (Stream stream : streams) {
+			stream.close();
+		}
+	}
+
 	public AssignedCoords assign(int[] conf) {
 		try (var confMem = makeConf(conf)) {
 			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
+				Stream stream = threadStream.get();
 				switch (precision) {
-					case Float32 -> NativeLib.assign_f32(pConfSpace, confMem.asByteBuffer(), coordsMem.asByteBuffer());
-					case Float64 -> NativeLib.assign_f64(pConfSpace, confMem.asByteBuffer(), coordsMem.asByteBuffer());
+					case Float32 -> NativeLib.assign_f32(stream.device, stream.stream, stream.pConfSpace, confMem.asByteBuffer(), coordsMem.asByteBuffer());
+					case Float64 -> NativeLib.assign_f64(stream.device, stream.stream, stream.pConfSpace, confMem.asByteBuffer(), coordsMem.asByteBuffer());
 				}
 				return makeCoords(coordsMem, conf);
 			}
@@ -1059,21 +1300,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	}
 
 	@Override
-	public void close() {
-		NativeLib.free_conf_space(pConfSpace);
-	}
-
-	@Override
-	public ConfSpace confSpace() {
-		return confSpace;
-	}
-
-	@Override
 	public EnergiedCoords calc(int[] conf, List<PosInter> inters) {
 		try (var confMem = makeConf(conf)) {
 			try (var intersMem = makeIntersMem(inters)) {
 				try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
-					double energy = forcefieldsImpl.calc(pConfSpace, confMem.asByteBuffer(), intersMem.asByteBuffer(), coordsMem.asByteBuffer(), confSpace.maxNumConfAtoms);
+					double energy = forcefieldsImpl.calc(confMem.asByteBuffer(), intersMem.asByteBuffer(), coordsMem.asByteBuffer(), confSpace.maxNumConfAtoms);
 					return new EnergiedCoords(
 						makeCoords(coordsMem, conf),
 						energy
@@ -1087,7 +1318,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	public double calcEnergy(int[] conf, List<PosInter> inters) {
 		try (var confMem = makeConf(conf)) {
 			try (var intersMem = makeIntersMem(inters)) {
-				return forcefieldsImpl.calc(pConfSpace, confMem.asByteBuffer(), intersMem.asByteBuffer(), null, confSpace.maxNumConfAtoms);
+				return forcefieldsImpl.calc(confMem.asByteBuffer(), intersMem.asByteBuffer(), null, confSpace.maxNumConfAtoms);
 			}
 		}
 	}
@@ -1136,7 +1367,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	public double minimizeEnergy(int[] conf, List<PosInter> inters) {
 		try (var confMem = makeConf(conf)) {
 			try (var intersMem = makeIntersMem(inters)) {
-				return forcefieldsImpl.minimize(pConfSpace, confMem.asByteBuffer(), intersMem.asByteBuffer(), null, confSpace.maxNumConfAtoms, null, confSpace.maxNumDofs);
+				return forcefieldsImpl.minimize(confMem.asByteBuffer(), intersMem.asByteBuffer(), null, confSpace.maxNumConfAtoms, null, confSpace.maxNumDofs);
 			}
 		}
 	}
@@ -1157,7 +1388,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	// helpers for the Array class on the c++ size
 
-	private MemorySegment makeArray(long size, long itemBytes) {
+	private static MemorySegment makeArray(long size, long itemBytes) {
 		MemorySegment mem = MemorySegment.allocateNative(padToGpuAlignment(Int64.bytes*2 + size*itemBytes));
 		BufWriter buf = new BufWriter(mem);
 		buf.int64(size);
@@ -1165,12 +1396,12 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		return mem;
 	}
 
-	private long getArraySize(MemorySegment mem) {
+	private static long getArraySize(MemorySegment mem) {
 		var h = MemoryHandles.varHandle(long.class, ByteOrder.nativeOrder());
 		return (long)h.get(mem.baseAddress());
 	}
 
-	private MemoryAddress getArrayAddress(MemorySegment mem) {
+	private static MemoryAddress getArrayAddress(MemorySegment mem) {
 		return mem.baseAddress().addOffset(Int64.bytes*2);
 	}
 }

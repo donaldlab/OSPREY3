@@ -252,6 +252,12 @@ public class BenchmarkEnergies {
 
 	private static void nativeLab(TestConfSpace.AffinityCompiled compiled) {
 
+		List<CudaConfEnergyCalculator.GpuInfo> gpus = CudaConfEnergyCalculator.getGpusInfos();
+		log("found %d GPUs", gpus.size());
+		for (var gpu : gpus) {
+			log(gpu.toString());
+		}
+
 		ConfSpace confSpace = compiled.complex;
 
 		for (Structs.Precision precision : Structs.Precision.values()) {
