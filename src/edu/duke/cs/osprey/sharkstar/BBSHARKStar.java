@@ -37,6 +37,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimpleUpdatingEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -319,7 +320,7 @@ public class BBSHARKStar {
 			}
 			rigidEmat = rigidBuilder.build().calcEnergyMatrix();
 			minimizingEmat = minimizingBuilder.build().calcEnergyMatrix();
-			correctionEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
+			correctionEmat = new SimpleUpdatingEnergyMatrix(confSpace, minimizingEmat);
 		}
 
 		public PartitionFunction.Result calcPfunc(int sequenceIndex, BigDecimal stabilityThreshold) {

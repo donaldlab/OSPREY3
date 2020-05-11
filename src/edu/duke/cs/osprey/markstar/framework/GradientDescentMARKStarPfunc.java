@@ -46,6 +46,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimpleUpdatingEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
@@ -246,7 +247,7 @@ public class GradientDescentMARKStarPfunc implements PartitionFunction.WithConfT
 				new TraditionalPairwiseHScorer(new NegatedEnergyMatrix(confSpace, rigidEmat), rcs), true);
         order = new UpperLowerAStarOrder();
         this.rcs = rcs;
-        this.correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEnergyMatrix);
+        this.correctionMatrix = new SimpleUpdatingEnergyMatrix(confSpace, minimizingEnergyMatrix);
 		this.progress = new MARKStarProgress(rcs.getNumPos());
 	}
 

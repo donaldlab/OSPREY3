@@ -36,6 +36,7 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimpleUpdatingEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -272,7 +273,7 @@ public class SofeaLab {
 				pfunc.init(epsilon);
 				pfunc.setStabilityThreshold(null);
 				pfunc.setReportProgress(true);
-				pfunc.setCorrections(new UpdatingEnergyMatrix(state.confSpace, config.emat));
+				pfunc.setCorrections(new SimpleUpdatingEnergyMatrix(state.confSpace, config.emat));
 				//pfunc.reduceMinimizations = true or false?
 				pfunc.stateName = state.name;
 

@@ -4,14 +4,13 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TupE;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
+import edu.duke.cs.osprey.confspace.SimpleTupETrie;
+import edu.duke.cs.osprey.ematrix.SimpleUpdatingEnergyMatrix;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static edu.duke.cs.osprey.tools.Log.log;
 
 public class BatchCorrectionMinimizer {
 
@@ -19,15 +18,15 @@ public class BatchCorrectionMinimizer {
     public final int CostThreshold = 1000;
     public final int[] costs = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     private Batch batch = null;
-    private UpdatingEnergyMatrix.TupleTrie submittedConfs;
-    private UpdatingEnergyMatrix correctionMatrix;
-    private EnergyMatrix minimizingEnergyMatrix;
-    public BatchCorrectionMinimizer(ConfEnergyCalculator confEcalc, UpdatingEnergyMatrix correctionMatrix,
+    private final SimpleTupETrie submittedConfs;
+    private final SimpleUpdatingEnergyMatrix correctionMatrix;
+    private final EnergyMatrix minimizingEnergyMatrix;
+    public BatchCorrectionMinimizer(ConfEnergyCalculator confEcalc, SimpleUpdatingEnergyMatrix correctionMatrix,
                                     EnergyMatrix minimizingEnergyMatrix) {
         this.confEcalc = confEcalc;
         this.correctionMatrix = correctionMatrix;
         this.minimizingEnergyMatrix = minimizingEnergyMatrix;
-        submittedConfs = new UpdatingEnergyMatrix.TupleTrie(confEcalc.confSpace.positions);
+        submittedConfs = new SimpleTupETrie(confEcalc.confSpace.positions);
     }
 
     public Batch getBatch() {

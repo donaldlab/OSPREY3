@@ -34,6 +34,7 @@ package edu.duke.cs.osprey.ematrix;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.TupETrie;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.confspace.TupE;
 import edu.duke.cs.osprey.tools.FileTools;
@@ -43,18 +44,22 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 
-public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
+public abstract class UpdatingEnergyMatrix<T extends TupE> extends ProxyEnergyMatrix {
     // Store the seen confs in a trie with wildcards.
     public static boolean debug = false;
-    private TupleTrie corrections;
+    private TupETrie<T> corrections;
     private int numPos;
     
     //debug variable
     public final ConfEnergyCalculator sourceECalc;
 
+    //Abstract constructors for the type of TupE we want to use
+    protected abstract T makeT(RCTuple tup, double val);
+    protected abstract TupETrie<T> makeTrie(List<SimpleConfSpace.Position> positions);
+
     public UpdatingEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix target, ConfEnergyCalculator confECalc) {
         super(confSpace, target);
-        corrections = new TupleTrie(confSpace.positions);
+        this.corrections = makeTrie(confSpace.positions);
         this.numPos = confSpace.getNumPos();
         this.sourceECalc = confECalc;
 
@@ -64,11 +69,11 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         super(confSpace, target);
         this.numPos = confSpace.getNumPos();
         this.sourceECalc = null;
-        corrections = new TupleTrie(confSpace.positions);
+        this.corrections = makeTrie(confSpace.positions);
     }
 
-    public List<TupE> getAllCorrections(){
-        return corrections.getAllCorrections();
+    public List<T> getAllCorrections(){
+        return corrections.getAllEntries();
     }
 
     public int getTrieSize(){
@@ -86,9 +91,9 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         return corrections.contains(query);
     }
 
-    public String formatCorrections(List<TupE> corrections) {
+    public String formatCorrections(List<T> corrections) {
         String out = "";
-        for(TupE correction:corrections)
+        for(T correction:corrections)
             out+=correction.tup.stringListing()+":"+correction.E+"\n";
             return out;
     }
@@ -235,7 +240,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
          *
          */
         double E = 0;
-        List<TupE> confCorrections = corrections.getCorrections(tup);
+        List<T> confCorrections = corrections.getEntries(tup);
         if(confCorrections.size() > 0) {
             double corr = processCorrections(confCorrections);
             E += corr;
@@ -244,7 +249,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         return E;
     }
 
-    private double processCorrections(List<TupE> confCorrections) {
+    private double processCorrections(List<T> confCorrections) {
         /**
          * Returns a high-weight set packing of the list of corrections.
          *
@@ -261,9 +266,9 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         // Attempt 1: be greedy and start from the largest correction you
         // can get instead of trying to solve the NP-Complete problem.
         Set<Integer> usedPositions = new HashSet<>();
-        List<TupE> usedCorrections = new ArrayList<>();
+        List<T> usedCorrections = new ArrayList<>();
         int numApplied = 0;
-        for(TupE correction: confCorrections) {
+        for(T correction: confCorrections) {
             if (usedPositions.size() >= numPos) {
                 break;
             }
@@ -286,7 +291,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         if(debug)
         {
             Set<Integer> positionCheck = new HashSet<>();
-            for(TupE correction: usedCorrections) {
+            for(T correction: usedCorrections) {
                 for(int pos: correction.tup.pos) {
                     if (positionCheck.contains(pos))
                         System.err.println("REUSING POSITION "+pos);
@@ -296,8 +301,8 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         return sum;
     }
 
-    public void insertAll(List<TupE> corrList){
-        for (TupE correction : corrList){
+    public void insertAll(List<T> corrList){
+        for (T correction : corrList){
             corrections.insert(correction);
         }
     }
@@ -312,266 +317,21 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         }
         */
         RCTuple orderedTup = tup.sorted();
-        corrections.insert(new TupE(orderedTup, val));
+        corrections.insert(makeT(orderedTup, val));
     }
 
     public void writeCorrectionsToFile(String filename){
-        corrections.writeCorrectionsToFile(filename);
+        corrections.writeEntriesToFile(filename);
     }
-    public void writeCorrectionsToFile(File file){
-        corrections.writeCorrectionsToFile(file);
+    public void writeCorrectionsToFile(File f) {
+        corrections.writeEntriesToFile(f);
     }
+
     public void readCorrectionsFromFile(String filename){
-        corrections.readCorrectionsFromFile(filename);
+        corrections.readEntriesFromFile(filename);
     }
-    public void readCorrectionsFromFile(File file){
-        corrections.readCorrectionsFromFile(file);
-    }
-
-
-    public static class TupleTrie {
-        public final static int WILDCARD_RC = -123;
-        TupleTrieNode root;
-        List<SimpleConfSpace.Position> positions;
-        private int numCorrections;
-        public TupleTrie(List<SimpleConfSpace.Position> positions)
-        {
-            this.positions = positions;
-            root = createTrie(positions);
-        }
-
-        private TupleTrieNode createTrie(List<SimpleConfSpace.Position> positions) {
-            root = new TupleTrieNode(positions, -1);
-            return root;
-        }
-
-        public void insert(TupE correction) {
-            if(debug)
-                checkRCTuple(correction.tup);
-            root.insert(correction, 0);
-            numCorrections++;
-        }
-
-        private void checkRCTuple(RCTuple tup) {
-            int lastIndex = 0;
-            for(int i = 0; i < tup.size(); i++)
-            {
-                int index = positions.indexOf(tup.pos.get(i));
-                if(index > -1 && lastIndex > index)
-                    System.err.println("Tuple and confspace are not ordered the same way.");
-                lastIndex = index;
-            }
-        }
-
-        public List<TupE> getCorrections(RCTuple query) {
-            List<TupE> corrections = new ArrayList<>();
-            root.populateCorrections(query.sorted(), corrections);
-            return corrections;
-        }
-
-        public boolean contains(RCTuple query) {
-            return root.contains(query.sorted(), 0);
-
-        }
-
-        public int size() {
-            return numCorrections;
-        }
-
-        public List<TupE> getAllCorrections(){
-            List<TupE> output = new ArrayList<>();
-            root.getAllCorrections(output);
-            return output;
-        }
-
-        public void clear() {
-            root = createTrie(positions);
-        }
-
-        public void writeCorrectionsToFile(String filename){
-            File file = new File(filename);
-            writeCorrectionsToFile(file);
-        }
-        public void writeCorrectionsToFile(File f) {
-            List<String> lineList = getAllCorrections().stream()
-                    .distinct().map(TupE::toString_short).collect(Collectors.toList());
-            FileTools.writeFile(String.join("\n", lineList), f);
-        }
-
-        public void readCorrectionsFromFile(String filename){
-            File file = new File(filename);
-            readCorrectionsFromFile(file);
-        }
-        public void readCorrectionsFromFile(File f){
-            List<String> data = Arrays.asList(FileTools.readFile(f).split("\n"));
-            List<TupE> tupEList = data.stream().map(TupE::new).collect(Collectors.toList());
-            for (TupE tup : tupEList) {
-                insert(tup);
-            }
-        }
-
-
-        private class TupleTrieNode {
-            // Wildcard rc
-            int rc = WILDCARD_RC;
-            int positionIndex = -1;
-            int position = -1;
-            List<SimpleConfSpace.Position> positions;
-            List<TupE> corrections = new ArrayList<>();
-            Map<Integer, TupleTrieNode> children = new HashMap<>();
-
-            private TupleTrieNode(List<SimpleConfSpace.Position> positions, int positionIndex) {
-                this.positions = positions;
-                this.positionIndex = positionIndex;
-                if(positionIndex >= 0)
-                    this.position = positions.get(positionIndex).index;
-                if(positionIndex+1 < positions.size())
-                    children.put(WILDCARD_RC, new TupleTrieNode(positions, positionIndex+1));
-            }
-
-            public boolean contains(RCTuple query, int tupleIndex) {
-                /*
-                if(query.size() != positions.size())
-                    System.err.println("Querying corrections for a partial conf. This is likely unintentional.");
-                    */
-                debugPrint("Currently at "+this);
-                if(tupleIndex >= query.size())
-                    return true;
-                int currentRC = query.RCs.get(tupleIndex);
-                int currentPos = query.pos.get(tupleIndex);
-                int indexedPos = -1;
-                int indexedRC = WILDCARD_RC;
-                if(tupleIndex > 0) {
-                    indexedRC = query.RCs.get(tupleIndex-1);
-                    indexedPos = query.pos.get(tupleIndex-1);
-                }
-                if(tupleIndex + 1 == positions.size())
-                    return true;
-                int nextIndex = tupleIndex + 1;
-                if(position + 1 < currentPos) {
-                    if(children.get(WILDCARD_RC) == null)
-                        return false;
-                    return children.get(WILDCARD_RC).contains(query, tupleIndex);
-                }
-                if(!children.containsKey(currentRC))
-                    return false;
-                if(children.get(currentRC) == null)
-                    return false;
-                return children.get(currentRC).contains(query, nextIndex);
-            }
-
-            public String toString()
-            {
-                String rcString = "*";
-                if(rc > -1)
-                    rcString = ""+rc;
-                return ""+position+":"+rcString;
-            }
-
-            private void debugPrint(String s)
-            {if(debug)System.out.println(s);}
-
-            public void insert(TupE correction, int tupIndex)
-            {
-                for(TupleTrieNode child: children.values()) {
-                    debugPrint(this+"->"+child);
-                }
-                for(TupE corr: corrections)
-                {
-                   debugPrint(corr.tup.stringListing()+":"+corr.E);
-                }
-                RCTuple tup = correction.tup;
-                if(tupIndex >= tup.size()) {
-                    debugPrint("Reached end of tuple, inserting correction at "+this+".");
-                    corrections.add(correction);
-                    for(TupE corr: corrections)
-                    {
-                        debugPrint(corr.tup.stringListing()+":"+corr.E);
-                    }
-                    return;
-                }
-                int currentIndex = -1;
-                int nodeIndex = position;
-                int currentRC = WILDCARD_RC;
-                if(tupIndex > 0) {
-                    currentIndex = tup.pos.get(tupIndex - 1);
-                    currentRC = tup.pos.get(tupIndex - 1);
-                }
-                int childIndex = tup.pos.get(tupIndex);
-                int childRC = tup.RCs.get(tupIndex);
-                if(nodeIndex+1 != childIndex) {
-                   debugPrint((nodeIndex+1)+"!="+childIndex+", continuing...");
-                    children.get(WILDCARD_RC).insert(correction, tupIndex);
-                }
-                else
-                {
-                    if(!children.containsKey(childRC)) {
-                        TupleTrieNode newChild = new TupleTrieNode(positions, positionIndex+1);
-                        newChild.rc = childRC;
-                        children.put(childRC, newChild);
-                        debugPrint("Added child "+newChild+" to "+this);
-                    }
-                    children.get(childRC).insert(correction, tupIndex+1);
-                }
-
-            }
-
-
-            public void populateCorrections (RCTuple query, List<TupE> output) {
-                debugPrint("Matching corrections for "+query.stringListing());
-                populateCorrections(query, output, 0);
-            }
-
-            private void populateCorrections(RCTuple query, List<TupE> output, int tupleIndex) {
-                debugPrint("Currently at "+this);
-                if(corrections.size() > 0)
-                {
-                    output.addAll(corrections);
-                    debugPrint("Adding corrections from "+this);
-                    if(debug)
-                    for(TupE correction:corrections) {
-                        System.out.println(correction);
-                    }
-                }
-                if(tupleIndex >= query.size())
-                    return;
-                int currentRC = query.RCs.get(tupleIndex);
-                int currentPos = query.pos.get(tupleIndex);
-                int indexedPos = -1;
-                int indexedRC = WILDCARD_RC;
-                if(tupleIndex > 0) {
-                    indexedRC = query.RCs.get(tupleIndex-1);
-                    indexedPos = query.pos.get(tupleIndex-1);
-                }
-                if(indexedPos > position || (indexedPos == position && indexedRC!= rc && rc != WILDCARD_RC))
-                    System.err.println("Error in trie traversal.");
-                if(tupleIndex + 1 > positions.size())
-                    return;
-                int nextIndex = tupleIndex + 1;
-                if(position + 1 < currentPos)
-                    nextIndex = tupleIndex;
-                if(position + 1 ==  currentPos && children.containsKey(currentRC))
-                    children.get(currentRC).populateCorrections(query, output, nextIndex);
-                // Also branch on wildcard.
-                if(!children.containsKey(WILDCARD_RC))
-                    children.put(WILDCARD_RC, new TupleTrieNode(positions, positionIndex+1));
-                children.get(WILDCARD_RC).populateCorrections(query, output, nextIndex);
-            }
-
-            public void getAllCorrections(List<TupE> output){
-                if(corrections.size() > 0)
-                {
-                    output.addAll(corrections);
-                    debugPrint("Adding corrections from "+this);
-                }
-
-                for (TupleTrieNode child : this.children.values()){
-                    child.getAllCorrections(output);
-                }
-            }
-
-        }
-
+    public void readCorrectionsFromFile(File f){
+        corrections.readEntriesFromFile(f);
     }
 
 }

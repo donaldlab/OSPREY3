@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimpleUpdatingEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -241,7 +242,7 @@ public class TestSHARKStarNodeScorer {
             EnergyMatrix minimizingEmat = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc)
                     .setCacheFile(new File(String.format("%s.%s.emat",shortName,"minim"))).build().calcEnergyMatrix();
             if (!correctionsCache.equals("")){
-                this.correctionEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
+                this.correctionEmat = new SimpleUpdatingEnergyMatrix(confSpace, minimizingEmat);
             }else{
                 try
                 {

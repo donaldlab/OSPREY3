@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimpleUpdatingEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.BatchCorrectionMinimizer;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -89,7 +90,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private ConfAnalyzer confAnalyzer;
     EnergyMatrix minimizingEmat;
     EnergyMatrix rigidEmat;
-    UpdatingEnergyMatrix correctionMatrix;
+    SimpleUpdatingEnergyMatrix correctionMatrix;
     ConfEnergyCalculator minimizingEcalc;
 
     private SHARKStarEnsembleAnalyzer ensembleAnalyzer;
@@ -155,7 +156,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.rigidEmat = rigidEmat;
         this.fullRCs = rcs;
         this.pruner = null;
-        this.correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
+        this.correctionMatrix = new SimpleUpdatingEnergyMatrix(confSpace, minimizingEmat);
 
         confIndex = new ConfIndex(rcs.getNumPos());
         Node rootConfNode = new Node(confSpace.positions.size(), 0, new MathTools.DoubleBounds());
@@ -237,7 +238,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
      * Takes partial minimizations from the precomputed correctionMatrix, maps them to the new confspace, and
      * stores them in this correctionMatrix
      */
-    public void mergeCorrections(UpdatingEnergyMatrix precomputedCorrections, int[] confSpacePermutation){
+    public void mergeCorrections(SimpleUpdatingEnergyMatrix precomputedCorrections, int[] confSpacePermutation){
         List<TupE> corrections = precomputedCorrections.getAllCorrections().stream()
                 .map((tup) -> {
                     return tup.permute(confSpacePermutation);
@@ -441,7 +442,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         ConfEnergyCalculator rigidConfECalc = FlexEmatMaker.makeRigidConfEcalc(flexMinimizingConfECalc);
         EnergyMatrix flexMinimizingEmat = FlexEmatMaker.makeEmat(flexMinimizingConfECalc, "minimized", cachePattern+".flex");
         EnergyMatrix flexRigidEmat = FlexEmatMaker.makeEmat(rigidConfECalc, "rigid", cachePattern+".flex");
-        UpdatingEnergyMatrix flexCorrection = new UpdatingEnergyMatrix(flexConfSpace, flexMinimizingEmat,
+        SimpleUpdatingEnergyMatrix flexCorrection = new SimpleUpdatingEnergyMatrix(flexConfSpace, flexMinimizingEmat,
                 flexMinimizingConfECalc);
 
 
@@ -464,7 +465,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         this.stabilityThreshold = stabilityThreshold;
     }
 
-    private void initFlex(double epsilon, BigDecimal stabilityThreshold, UpdatingEnergyMatrix correctionMatrix) {
+    private void initFlex(double epsilon, BigDecimal stabilityThreshold, SimpleUpdatingEnergyMatrix correctionMatrix) {
         this.targetEpsilon = epsilon;
         this.status = Status.Estimating;
         this.stabilityThreshold = stabilityThreshold;
@@ -1547,7 +1548,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         return false;
     }
 
-    public void setCorrections(UpdatingEnergyMatrix cachedCorrections) {
+    public void setCorrections(SimpleUpdatingEnergyMatrix cachedCorrections) {
         correctionMatrix = cachedCorrections;
     }
 

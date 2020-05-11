@@ -37,6 +37,7 @@ import java.io.File;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimpleUpdatingEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -160,7 +161,7 @@ public class PartitionFunctionFactory {
             case MARKStar:
                 EnergyMatrix minimizingEmat = makeEmat(confEcalc, "minimizing");
                 if(MARKStarEmat == null)
-                    MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
+                    MARKStarEmat = new SimpleUpdatingEnergyMatrix(confSpace, minimizingEmat, confEcalc);
                 MARKStarBound MARKStarBound = new MARKStarBoundFastQueues(confSpace, makeEmat(confUpperBoundECalc, "rigid"),
                         minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
                 MARKStarBound.setCorrections(MARKStarEmat);

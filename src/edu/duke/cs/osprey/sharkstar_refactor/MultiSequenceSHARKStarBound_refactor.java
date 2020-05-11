@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseRigidGScorer;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimpleUpdatingEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.BatchCorrectionMinimizer;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -76,7 +77,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private ScorerFactory nhscorerFactory;
 
     // Matrix and corrector for energy corrections
-    public final UpdatingEnergyMatrix correctionMatrix;
+    public final SimpleUpdatingEnergyMatrix correctionMatrix;
     private final EnergyMatrixCorrector_refactor energyMatrixCorrector;
 
     // SHARK* specific variables
@@ -132,7 +133,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         // Initialize the correctionMatrix and the Corrector
         this.minList = new ArrayList<>(Collections.nCopies(rcs.getNumPos(), 0));
-        this.correctionMatrix = new UpdatingEnergyMatrix(confSpace, minimizingEmat);
+        this.correctionMatrix = new SimpleUpdatingEnergyMatrix(confSpace, minimizingEmat);
 
         // Set up the scoring machinery
         this.gscorerFactory = (emats) -> new PairwiseGScorer(emats);
@@ -489,7 +490,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * Takes partial minimizations from the precomputed correctionMatrix, maps them to the new confspace, and
      * stores them in this correctionMatrix
      */
-    public void mergeCorrections(UpdatingEnergyMatrix precomputedCorrections, int[] confSpacePermutation) {
+    public void mergeCorrections(SimpleUpdatingEnergyMatrix precomputedCorrections, int[] confSpacePermutation) {
         List<TupE> corrections = precomputedCorrections.getAllCorrections().stream()
                 .map((tup) -> tup.permute(confSpacePermutation))
                 .collect(Collectors.toList());
