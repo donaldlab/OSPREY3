@@ -73,7 +73,7 @@ public class BatchCorrectionMinimizer {
                     () -> {
 
                         // calculate all the fragment energies
-                        Map<RCTuple, EnergyCalculator.EnergiedParametricMolecule> confs = new HashMap<>();
+                        Map<RCTuple, Double> confs = new HashMap<>();
                         for (RCTuple frag : fragments) {
 
                             double energy;
@@ -87,17 +87,19 @@ public class BatchCorrectionMinimizer {
                             } else {
 
                                 // nope, calculate the usual fragment energy
-                                confs.put(frag, confEcalc.calcEnergy(frag));
+                                energy = confEcalc.calcEnergy(frag).energy;
                             }
+                            // Record the filtered (possibly infinite) energy
+                            confs.put(frag, energy);
                         }
                         System.out.println("Minimized "+fragments.size()+" tuples.");
                         return confs;
                     },
-                    (Map<RCTuple, EnergyCalculator.EnergiedParametricMolecule> confs) -> {
+                    (Map<RCTuple, Double> confs) -> {
                         // update the energy matrix
                         for(RCTuple tuple : confs.keySet()) {
                             double lowerbound = minimizingEnergyMatrix.getInternalEnergy(tuple);
-                            double tupleEnergy = confs.get(tuple).energy;
+                            double tupleEnergy = confs.get(tuple);
                             if (tupleEnergy - lowerbound > 0) {
                                 double correction = tupleEnergy - lowerbound;
                                 correctionMatrix.setHigherOrder(tuple, correction);
