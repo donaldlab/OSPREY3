@@ -215,10 +215,10 @@ public class RCTuple implements Serializable {
         
         //tuples are well-defined and same size...check position by position
         for(int index=0; index<pos.size(); index++){
-            if(pos.get(index)!=tuple2.pos.get(index))
+            if(!pos.get(index).equals(tuple2.pos.get(index)))
                 return false;
-            if(RCs.get(index)!=tuple2.RCs.get(index))
-                return false;
+            if(!RCs.get(index).equals(tuple2.RCs.get(index)))
+				return false;
         }
         
         //if we get here they're the same
