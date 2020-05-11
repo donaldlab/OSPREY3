@@ -164,14 +164,32 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
         SimpleConfSpace confSpace = make1CC8Mutable();
         Sequence wildType = confSpace.makeWildTypeSequence();
         MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.99, null, null);
-        bound.init(0.68);
+        bound.init(0.90);
+    }
+
+    @Test
+    public void testPrecomputeFlexibleTraditional(){
+        SimpleConfSpace confSpace = make1CC8Mutable();
+        SimpleConfSpace flexCopy = confSpace.makeFlexibleCopy();
+        Sequence wildType = flexCopy.makeWildTypeSequence();
+        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(flexCopy, wildType, .68);
+        traditionalPfunc.setReportProgress(true);
+        traditionalPfunc.compute();
+
+        BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
+
+        System.out.println(String.format("Gradient Descent pfunc: [%.3f, %.3f]",
+                bc.freeEnergy(traditionalPfunc.getValues().calcLowerBound()),
+                bc.freeEnergy(traditionalPfunc.getValues().calcUpperBound())));
+
+        traditionalPfunc.printStats();
     }
 
     @Test
     public void testPrecomputeFlexible_small(){
         SimpleConfSpace confSpace = make1CC8MutableContinuousSmall();
         Sequence wildType = confSpace.makeWildTypeSequence();
-        MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.99, null, null);
+        MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.68, null, null);
         bound.init(0.68);
     }
 
@@ -190,7 +208,7 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
         SimpleConfSpace confSpace = make1CC8Mutable();
         Sequence wildType = confSpace.makeWildTypeSequence();
 
-        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(confSpace, wildType, .90);
+        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(confSpace, wildType, .1);
         traditionalPfunc.setReportProgress(true);
         traditionalPfunc.compute();
 
@@ -199,6 +217,8 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
         System.out.println(String.format("Gradient Descent pfunc: [%.3f, %.3f]",
                 bc.freeEnergy(traditionalPfunc.getValues().calcLowerBound()),
                 bc.freeEnergy(traditionalPfunc.getValues().calcUpperBound())));
+
+        traditionalPfunc.printStats();
         //MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.99, null, null);
         //bound.init(0.99);
         //PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
