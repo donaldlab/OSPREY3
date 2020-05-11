@@ -87,10 +87,10 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 				);
 			}
 
-			void setParams(double[] params) {
-				esQ.set(params[0]);
-				vdwA.set(params[1]);
-				vdwB.set(params[2]);
+			void setParams(MemoryAddress addr, double[] params) {
+				esQ.set(addr, params[0]);
+				vdwA.set(addr, params[1]);
+				vdwB.set(addr, params[2]);
 			}
 		}
 		final SAtomPairAmber amberStruct = new SAtomPairAmber();
@@ -112,13 +112,13 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 				);
 			}
 
-			void setParams(double[] params) {
-				vdwRadius1.set(params[0]);
-				lambda1.set(params[1]);
-				vdwRadius2.set(params[2]);
-				lambda2.set(params[3]);
-				alpha1.set(params[4]);
-				alpha2.set(params[5]);
+			void setParams(MemoryAddress addr, double[] params) {
+				vdwRadius1.set(addr, params[0]);
+				lambda1.set(addr, params[1]);
+				vdwRadius2.set(addr, params[2]);
+				lambda2.set(addr, params[3]);
+				alpha1.set(addr, params[4]);
+				alpha2.set(addr, params[5]);
 			}
 		}
 		final SAtomPairEef1 eef1Struct = new SAtomPairEef1();
@@ -156,11 +156,11 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		@Override
 		public void writeParams(ConfSpace confSpace, BufWriter buf) {
 
-			buf.place(paramsStruct);
+			var addr = buf.place(paramsStruct);
 
 			// write the amber params
 			AmberEnergyCalculator.Settings amberSettings = ((AmberEnergyCalculator)confSpace.ecalcs[0]).settings;
-			paramsStruct.distance_dependent_dielectric.set(amberSettings.distanceDependentDielectric);
+			paramsStruct.distance_dependent_dielectric.set(addr, amberSettings.distanceDependentDielectric);
 
 			// no EEF1 params to write
 		}
@@ -199,22 +199,22 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			ConfSpace.IndicesStatic amberIndices = confSpace.indicesStatic(0);
 			ConfSpace.IndicesStatic eef1Indices = confSpace.indicesStatic(1);
 
-			buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(amberIndices.size());
-			atomPairsStruct.num_eef1.set(eef1Indices.size());
+			var pairsAddr = buf.place(atomPairsStruct);
+			atomPairsStruct.num_amber.set(pairsAddr, amberIndices.size());
+			atomPairsStruct.num_eef1.set(pairsAddr, eef1Indices.size());
 
 			for (int i=0; i<amberIndices.size(); i++) {
-				buf.place(amberStruct);
-				amberStruct.atomi1.set(confSpace.getStaticAtomIndex(amberIndices.getStaticAtom1Index(i)));
-				amberStruct.atomi2.set(confSpace.getStaticAtomIndex(amberIndices.getStaticAtom2Index(i)));
-				amberStruct.setParams(confSpace.ffparams(0, amberIndices.getParamsIndex(i)));
+				var addr = buf.place(amberStruct);
+				amberStruct.atomi1.set(addr, confSpace.getStaticAtomIndex(amberIndices.getStaticAtom1Index(i)));
+				amberStruct.atomi2.set(addr, confSpace.getStaticAtomIndex(amberIndices.getStaticAtom2Index(i)));
+				amberStruct.setParams(addr, confSpace.ffparams(0, amberIndices.getParamsIndex(i)));
 			}
 
 			for (int i=0; i<eef1Indices.size(); i++) {
-				buf.place(eef1Struct);
-				eef1Struct.atomi1.set(confSpace.getStaticAtomIndex(eef1Indices.getStaticAtom1Index(i)));
-				eef1Struct.atomi2.set(confSpace.getStaticAtomIndex(eef1Indices.getStaticAtom2Index(i)));
-				eef1Struct.setParams(confSpace.ffparams(1, eef1Indices.getParamsIndex(i)));
+				var addr = buf.place(eef1Struct);
+				eef1Struct.atomi1.set(addr, confSpace.getStaticAtomIndex(eef1Indices.getStaticAtom1Index(i)));
+				eef1Struct.atomi2.set(addr, confSpace.getStaticAtomIndex(eef1Indices.getStaticAtom2Index(i)));
+				eef1Struct.setParams(addr, confSpace.ffparams(1, eef1Indices.getParamsIndex(i)));
 			}
 		}
 
@@ -224,22 +224,22 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			ConfSpace.IndicesSingle amberIndices = confSpace.indicesSinglesByFrag(0, posi1, fragi1);
 			ConfSpace.IndicesSingle eef1Indices = confSpace.indicesSinglesByFrag(1, posi1, fragi1);
 
-			buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(amberIndices.sizeStatics());
-			atomPairsStruct.num_eef1.set(eef1Indices.sizeStatics());
+			var pairsAddr = buf.place(atomPairsStruct);
+			atomPairsStruct.num_amber.set(pairsAddr, amberIndices.sizeStatics());
+			atomPairsStruct.num_eef1.set(pairsAddr, eef1Indices.sizeStatics());
 
 			for (int i=0; i<amberIndices.sizeStatics(); i++) {
-				buf.place(amberStruct);
-				amberStruct.atomi1.set(confSpace.getStaticAtomIndex(amberIndices.getStaticStaticAtomIndex(i)));
-				amberStruct.atomi2.set(confSpace.getConfAtomIndex(posi1, amberIndices.getStaticConfAtomIndex(i)));
-				amberStruct.setParams(confSpace.ffparams(0, amberIndices.getStaticParamsIndex(i)));
+				var addr = buf.place(amberStruct);
+				amberStruct.atomi1.set(addr, confSpace.getStaticAtomIndex(amberIndices.getStaticStaticAtomIndex(i)));
+				amberStruct.atomi2.set(addr, confSpace.getConfAtomIndex(posi1, amberIndices.getStaticConfAtomIndex(i)));
+				amberStruct.setParams(addr, confSpace.ffparams(0, amberIndices.getStaticParamsIndex(i)));
 			}
 
 			for (int i=0; i<eef1Indices.sizeStatics(); i++) {
-				buf.place(eef1Struct);
-				eef1Struct.atomi1.set(confSpace.getStaticAtomIndex(eef1Indices.getStaticStaticAtomIndex(i)));
-				eef1Struct.atomi2.set(confSpace.getConfAtomIndex(posi1, eef1Indices.getStaticConfAtomIndex(i)));
-				eef1Struct.setParams(confSpace.ffparams(1, eef1Indices.getStaticParamsIndex(i)));
+				var addr = buf.place(eef1Struct);
+				eef1Struct.atomi1.set(addr, confSpace.getStaticAtomIndex(eef1Indices.getStaticStaticAtomIndex(i)));
+				eef1Struct.atomi2.set(addr, confSpace.getConfAtomIndex(posi1, eef1Indices.getStaticConfAtomIndex(i)));
+				eef1Struct.setParams(addr, confSpace.ffparams(1, eef1Indices.getStaticParamsIndex(i)));
 			}
 		}
 
@@ -249,22 +249,22 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			ConfSpace.IndicesSingle amberIndices = confSpace.indicesSinglesByFrag(0, posi1, fragi1);
 			ConfSpace.IndicesSingle eef1Indices = confSpace.indicesSinglesByFrag(1, posi1, fragi1);
 
-			buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(amberIndices.sizeInternals());
-			atomPairsStruct.num_eef1.set(eef1Indices.sizeInternals());
+			var pairsAddr = buf.place(atomPairsStruct);
+			atomPairsStruct.num_amber.set(pairsAddr, amberIndices.sizeInternals());
+			atomPairsStruct.num_eef1.set(pairsAddr, eef1Indices.sizeInternals());
 
 			for (int i=0; i<amberIndices.sizeInternals(); i++) {
-				buf.place(amberStruct);
-				amberStruct.atomi1.set(confSpace.getConfAtomIndex(posi1, amberIndices.getInternalConfAtom1Index(i)));
-				amberStruct.atomi2.set(confSpace.getConfAtomIndex(posi1, amberIndices.getInternalConfAtom2Index(i)));
-				amberStruct.setParams(confSpace.ffparams(0, amberIndices.getInternalParamsIndex(i)));
+				var addr = buf.place(amberStruct);
+				amberStruct.atomi1.set(addr, confSpace.getConfAtomIndex(posi1, amberIndices.getInternalConfAtom1Index(i)));
+				amberStruct.atomi2.set(addr, confSpace.getConfAtomIndex(posi1, amberIndices.getInternalConfAtom2Index(i)));
+				amberStruct.setParams(addr, confSpace.ffparams(0, amberIndices.getInternalParamsIndex(i)));
 			}
 
 			for (int i=0; i<eef1Indices.sizeInternals(); i++) {
-				buf.place(eef1Struct);
-				eef1Struct.atomi1.set(confSpace.getConfAtomIndex(posi1, eef1Indices.getInternalConfAtom1Index(i)));
-				eef1Struct.atomi2.set(confSpace.getConfAtomIndex(posi1, eef1Indices.getInternalConfAtom2Index(i)));
-				eef1Struct.setParams(confSpace.ffparams(1, eef1Indices.getInternalParamsIndex(i)));
+				var addr = buf.place(eef1Struct);
+				eef1Struct.atomi1.set(addr, confSpace.getConfAtomIndex(posi1, eef1Indices.getInternalConfAtom1Index(i)));
+				eef1Struct.atomi2.set(addr, confSpace.getConfAtomIndex(posi1, eef1Indices.getInternalConfAtom2Index(i)));
+				eef1Struct.setParams(addr, confSpace.ffparams(1, eef1Indices.getInternalParamsIndex(i)));
 			}
 		}
 
@@ -274,22 +274,22 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			ConfSpace.IndicesPair amberIndices = confSpace.indicesPairsByFrags(0, posi1, fragi1, posi2, fragi2);
 			ConfSpace.IndicesPair eef1Indices = confSpace.indicesPairsByFrags(1, posi1, fragi1, posi2, fragi2);
 
-			buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(amberIndices.size());
-			atomPairsStruct.num_eef1.set(eef1Indices.size());
+			var pairsAddr = buf.place(atomPairsStruct);
+			atomPairsStruct.num_amber.set(pairsAddr, amberIndices.size());
+			atomPairsStruct.num_eef1.set(pairsAddr, eef1Indices.size());
 
 			for (int i=0; i<amberIndices.size(); i++) {
-				buf.place(amberStruct);
-				amberStruct.atomi1.set(confSpace.getConfAtomIndex(posi1, amberIndices.getConfAtom1Index(i)));
-				amberStruct.atomi2.set(confSpace.getConfAtomIndex(posi2, amberIndices.getConfAtom2Index(i)));
-				amberStruct.setParams(confSpace.ffparams(0, amberIndices.getParamsIndex(i)));
+				var addr = buf.place(amberStruct);
+				amberStruct.atomi1.set(addr, confSpace.getConfAtomIndex(posi1, amberIndices.getConfAtom1Index(i)));
+				amberStruct.atomi2.set(addr, confSpace.getConfAtomIndex(posi2, amberIndices.getConfAtom2Index(i)));
+				amberStruct.setParams(addr, confSpace.ffparams(0, amberIndices.getParamsIndex(i)));
 			}
 
 			for (int i=0; i<eef1Indices.size(); i++) {
-				buf.place(eef1Struct);
-				eef1Struct.atomi1.set(confSpace.getConfAtomIndex(posi1, eef1Indices.getConfAtom1Index(i)));
-				eef1Struct.atomi2.set(confSpace.getConfAtomIndex(posi2, eef1Indices.getConfAtom2Index(i)));
-				eef1Struct.setParams(confSpace.ffparams(1, eef1Indices.getParamsIndex(i)));
+				var addr = buf.place(eef1Struct);
+				eef1Struct.atomi1.set(addr, confSpace.getConfAtomIndex(posi1, eef1Indices.getConfAtom1Index(i)));
+				eef1Struct.atomi2.set(addr, confSpace.getConfAtomIndex(posi2, eef1Indices.getConfAtom2Index(i)));
+				eef1Struct.setParams(addr, confSpace.ffparams(1, eef1Indices.getParamsIndex(i)));
 			}
 		}
 	}
@@ -578,57 +578,57 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		BufWriter buf = new BufWriter(confSpaceMem);
 
 		// write the header
-		buf.place(confSpaceStruct);
-		confSpaceStruct.num_pos.set(confSpace.positions.length);
-		confSpaceStruct.max_num_conf_atoms.set(confSpace.maxNumConfAtoms);
-		confSpaceStruct.max_num_dofs.set(confSpace.maxNumDofs);
-		confSpaceStruct.num_molecule_motions.set(numMolMotions);
+		var confSpaceAddr = buf.place(confSpaceStruct);
+		confSpaceStruct.num_pos.set(confSpaceAddr, confSpace.positions.length);
+		confSpaceStruct.max_num_conf_atoms.set(confSpaceAddr, confSpace.maxNumConfAtoms);
+		confSpaceStruct.max_num_dofs.set(confSpaceAddr, confSpace.maxNumDofs);
+		confSpaceStruct.num_molecule_motions.set(confSpaceAddr, numMolMotions);
 		// we'll go back and write the offsets later
-		confSpaceStruct.static_energy.set(Arrays.stream(confSpace.staticEnergies).sum());
+		confSpaceStruct.static_energy.set(confSpaceAddr, Arrays.stream(confSpace.staticEnergies).sum());
 
 		// leave space for the position offsets
-		confSpaceStruct.positions_offset.set(buf.pos);
-		buf.place(posOffsets, confSpace.positions.length);
+		confSpaceStruct.positions_offset.set(confSpaceAddr, buf.pos);
+		var posOffsetsAddr = buf.place(posOffsets, confSpace.positions.length);
 
 		// write the positions
 		for (ConfSpace.Pos pos : confSpace.positions) {
-			posOffsets.set(pos.index, buf.pos);
-			buf.place(posStruct);
-			posStruct.num_confs.set(pos.confs.length);
-			posStruct.max_num_atoms.set(pos.maxNumAtoms);
-			posStruct.num_frags.set(pos.numFrags);
+			posOffsets.set(posOffsetsAddr, pos.index, buf.pos);
+			var posAddr = buf.place(posStruct);
+			posStruct.num_confs.set(posAddr, pos.confs.length);
+			posStruct.max_num_atoms.set(posAddr, pos.maxNumAtoms);
+			posStruct.num_frags.set(posAddr, pos.numFrags);
 
 			// put the conf offsets
-			buf.place(confOffsets, pos.confs.length);
+			var confOffsetsAddr = buf.place(confOffsets, pos.confs.length);
 			// we'll go back and write them later though
 
 			// write the confs
 			for (ConfSpace.Conf conf : pos.confs) {
 
-				confOffsets.set(conf.index, buf.pos);
-				buf.place(confStruct);
-				confStruct.frag_index.set(conf.fragIndex);
-				confStruct.internal_energy.set(Arrays.stream(conf.energies).sum());
-				confStruct.num_motions.set(conf.motions.length);
+				confOffsets.set(confOffsetsAddr, conf.index, buf.pos);
+				var confAddr = buf.place(confStruct);
+				confStruct.frag_index.set(confAddr, conf.fragIndex);
+				confStruct.internal_energy.set(confAddr, Arrays.stream(conf.energies).sum());
+				confStruct.num_motions.set(confAddr, conf.motions.length);
 
 				// write the atoms
-				confStruct.atoms_offset.set(buf.pos);
-				buf.place(atomsStruct);
-				atomsStruct.num_atoms.set(conf.coords.size);
-				atomsStruct.coords.set(0);
+				confStruct.atoms_offset.set(confAddr, buf.pos);
+				var atomsAddr = buf.place(atomsStruct);
+				atomsStruct.num_atoms.set(atomsAddr, conf.coords.size);
+				atomsStruct.coords.set(atomsAddr, 0);
 				for (int i=0; i<conf.coords.size; i++) {
-					buf.place(real3Struct);
-					real3Struct.x.set(conf.coords.x(i));
-					real3Struct.y.set(conf.coords.y(i));
-					real3Struct.z.set(conf.coords.z(i));
+					var addr = buf.place(real3Struct);
+					real3Struct.x.set(addr, conf.coords.x(i));
+					real3Struct.y.set(addr, conf.coords.y(i));
+					real3Struct.z.set(addr, conf.coords.z(i));
 				}
 
 				// write the motions
-				confStruct.motions_offset.set(buf.pos);
-				buf.place(confMotionOffsets, conf.motions.length);
+				confStruct.motions_offset.set(confAddr, buf.pos);
+				var confMotionAddr = buf.place(confMotionOffsets, conf.motions.length);
 				for (int i=0; i<conf.motions.length; i++) {
 					var motion = conf.motions[i];
-					confMotionOffsets.set(i, buf.pos);
+					confMotionOffsets.set(confMotionAddr, i, buf.pos);
 					if (motion instanceof DihedralAngle.Description) {
 						writeDihedral((DihedralAngle.Description)motion, pos.index, buf);
 					} else {
@@ -639,45 +639,45 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		// write the static atoms
-		confSpaceStruct.static_atoms_offset.set(buf.pos);
-		buf.place(atomsStruct);
-		atomsStruct.num_atoms.set(confSpace.staticCoords.size);
-		atomsStruct.coords.set(0);
+		confSpaceStruct.static_atoms_offset.set(confSpaceAddr, buf.pos);
+		var atomsAddr = buf.place(atomsStruct);
+		atomsStruct.num_atoms.set(atomsAddr, confSpace.staticCoords.size);
+		atomsStruct.coords.set(atomsAddr, 0);
 		for (int i=0; i<confSpace.staticCoords.size; i++) {
-			buf.place(real3Struct);
-			real3Struct.x.set(confSpace.staticCoords.x(i));
-			real3Struct.y.set(confSpace.staticCoords.y(i));
-			real3Struct.z.set(confSpace.staticCoords.z(i));
+			var addr = buf.place(real3Struct);
+			real3Struct.x.set(addr, confSpace.staticCoords.x(i));
+			real3Struct.y.set(addr, confSpace.staticCoords.y(i));
+			real3Struct.z.set(addr, confSpace.staticCoords.z(i));
 		}
 
 		// write the forcefield params
-		confSpaceStruct.params_offset.set(buf.pos);
+		confSpaceStruct.params_offset.set(confSpaceAddr, buf.pos);
 		forcefieldsImpl.writeParams(confSpace, buf);
 
 		// write the pos pairs
-		confSpaceStruct.pos_pairs_offset.set(buf.pos);
-		buf.place(posPairOffsets, numPosPairs);
+		confSpaceStruct.pos_pairs_offset.set(confSpaceAddr, buf.pos);
+		var posPairOffsetsAddr = buf.place(posPairOffsets, numPosPairs);
 
 		// write the static-static pair
-		posPairOffsets.set(0, buf.pos);
+		posPairOffsets.set(posPairOffsetsAddr, 0, buf.pos);
 		forcefieldsImpl.writeStaticStatic(confSpace, buf);
 
 		// write the static-pos pairs
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
-			posPairOffsets.set(1 + posi1, buf.pos);
-			buf.place(fragOffsets, confSpace.numFrag(posi1));
+			posPairOffsets.set(posPairOffsetsAddr, 1 + posi1, buf.pos);
+			var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1));
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
-				fragOffsets.set(fragi1, buf.pos);
+				fragOffsets.set(fragOffsetsAddr, fragi1, buf.pos);
 				forcefieldsImpl.writeStaticPos(confSpace, posi1, fragi1, buf);
 			}
 		}
 
 		// write the pos pairs
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
-			posPairOffsets.set(1 + confSpace.positions.length + posi1, buf.pos);
-			buf.place(fragOffsets, confSpace.numFrag(posi1));
+			posPairOffsets.set(posPairOffsetsAddr, 1 + confSpace.positions.length + posi1, buf.pos);
+			var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1));
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
-				fragOffsets.set(fragi1, buf.pos);
+				fragOffsets.set(fragOffsetsAddr, fragi1, buf.pos);
 				forcefieldsImpl.writePos(confSpace, posi1, fragi1, buf);
 			}
 		}
@@ -685,11 +685,11 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		// write the pos-pos pairs
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 			for (int posi2=0; posi2<posi1; posi2++) {
-				posPairOffsets.set(1 + 2*confSpace.positions.length + posi1*(posi1 - 1)/2 + posi2, buf.pos);
-				buf.place(fragOffsets, confSpace.numFrag(posi1)*confSpace.numFrag(posi2));
+				posPairOffsets.set(posPairOffsetsAddr, 1 + 2*confSpace.positions.length + posi1*(posi1 - 1)/2 + posi2, buf.pos);
+				var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1)*confSpace.numFrag(posi2));
 				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 					for (int fragi2=0; fragi2<confSpace.numFrag(posi2); fragi2++) {
-						fragOffsets.set(fragi1*confSpace.numFrag(posi2) + fragi2, buf.pos);
+						fragOffsets.set(fragOffsetsAddr, fragi1*confSpace.numFrag(posi2) + fragi2, buf.pos);
 						forcefieldsImpl.writePosPos(confSpace, posi1, fragi1, posi2, fragi2, buf);
 					}
 				}
@@ -697,12 +697,12 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		// write the molecule motions
-		confSpaceStruct.molecule_motions_offset.set(buf.pos);
-		buf.place(molMotionOffsets, numMolMotions);
+		confSpaceStruct.molecule_motions_offset.set(confSpaceAddr, buf.pos);
+		var molMotionOffsetsAddr = buf.place(molMotionOffsets, numMolMotions);
 		int molMotionIndex = 0;
 		for (var molInfo : confSpace.molInfos) {
 			for (var motion : molInfo.motions) {
-				molMotionOffsets.set(molMotionIndex++, buf.pos);
+				molMotionOffsets.set(molMotionOffsetsAddr, molMotionIndex++, buf.pos);
 				if (motion instanceof DihedralAngle.Description) {
 					writeDihedral((DihedralAngle.Description)motion, PosInter.StaticPos, buf);
 				} else {
@@ -719,20 +719,20 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		// write the motion id
 		buf.int64(0);
 
-		buf.place(dihedralStruct);
-		dihedralStruct.min_radians.set(Math.toRadians(desc.minDegrees));
-		dihedralStruct.max_radians.set(Math.toRadians(desc.maxDegrees));
-		dihedralStruct.a_index.set(desc.getAtomIndex(confSpace, posi, desc.a));
-		dihedralStruct.b_index.set(desc.getAtomIndex(confSpace, posi, desc.b));
-		dihedralStruct.c_index.set(desc.getAtomIndex(confSpace, posi, desc.c));
-		dihedralStruct.d_index.set(desc.getAtomIndex(confSpace, posi, desc.d));
-		dihedralStruct.num_rotated.set(desc.rotated.length);
-		dihedralStruct.modified_posi.set(posi);
+		var dihedralAddr = buf.place(dihedralStruct);
+		dihedralStruct.min_radians.set(dihedralAddr, Math.toRadians(desc.minDegrees));
+		dihedralStruct.max_radians.set(dihedralAddr, Math.toRadians(desc.maxDegrees));
+		dihedralStruct.a_index.set(dihedralAddr, desc.getAtomIndex(confSpace, posi, desc.a));
+		dihedralStruct.b_index.set(dihedralAddr, desc.getAtomIndex(confSpace, posi, desc.b));
+		dihedralStruct.c_index.set(dihedralAddr, desc.getAtomIndex(confSpace, posi, desc.c));
+		dihedralStruct.d_index.set(dihedralAddr, desc.getAtomIndex(confSpace, posi, desc.d));
+		dihedralStruct.num_rotated.set(dihedralAddr, desc.rotated.length);
+		dihedralStruct.modified_posi.set(dihedralAddr, posi);
 
 		var rotatedIndices = int32array();
-		buf.place(rotatedIndices, desc.rotated.length);
+		var indicesAddr = buf.place(rotatedIndices, desc.rotated.length);
 		for (int i=0; i<desc.rotated.length; i++) {
-			rotatedIndices.set(i, desc.getAtomIndex(confSpace, posi, desc.rotated[i]));
+			rotatedIndices.set(indicesAddr, i, desc.getAtomIndex(confSpace, posi, desc.rotated[i]));
 		}
 
 		buf.skipToAlignment(8);
@@ -764,14 +764,14 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		AssignedCoords coords = new AssignedCoords(confSpace, assignments);
 
 		// copy the coords from the native memory
-		var addr = getArrayAddress(mem);
+		var arrayAddr = getArrayAddress(mem);
 		for (int i=0; i<confSpace.maxNumConfAtoms; i++) {
-			real3Struct.setAddress(addr.addOffset(i*real3Struct.bytes()));
+			var addr = arrayAddr.addOffset(i*real3Struct.bytes());
 			coords.coords.set(
 				i,
-				real3Struct.x.get(),
-				real3Struct.y.get(),
-				real3Struct.z.get()
+				real3Struct.x.get(addr),
+				real3Struct.y.get(addr),
+				real3Struct.z.get(addr)
 			);
 		}
 
@@ -818,9 +818,9 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		DoubleMatrix1D vals = DoubleFactory1D.dense.make(size);
 
 		Real.Array floats = realarray(precision);
-		floats.setAddress(getArrayAddress(mem));
+		var addr = getArrayAddress(mem);
 		for (int i=0; i<size; i++) {
-			vals.set(i, floats.get(i));
+			vals.set(i, floats.get(addr, i));
 		}
 
 		return vals;
@@ -867,11 +867,11 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		BufWriter buf = new BufWriter(mem);
 		buf.pos = getArrayAddress(mem).offset();
 		for (var inter : inters) {
-			buf.place(posInterStruct);
-			posInterStruct.posi1.set(inter.posi1);
-			posInterStruct.posi2.set(inter.posi2);
-			posInterStruct.weight.set(inter.weight);
-			posInterStruct.offset.set(inter.offset);
+			var addr = buf.place(posInterStruct);
+			posInterStruct.posi1.set(addr, inter.posi1);
+			posInterStruct.posi2.set(addr, inter.posi2);
+			posInterStruct.weight.set(addr, inter.weight);
+			posInterStruct.offset.set(addr, inter.offset);
 		}
 		return mem;
 	}

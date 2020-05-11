@@ -130,19 +130,22 @@ public class BufWriter {
 	 * Sets the address of the header to the current position in the buffer,
 	 * and increments the current position by the size of the header.
 	 */
-	public void place(Structs.Struct struct) {
-		struct.setAddress(address());
+	public MemoryAddress place(Structs.Struct struct) {
+		MemoryAddress addr = address();
 		skip(struct.bytes());
+		return addr;
 	}
 
-	public void place(Structs.Array array, long size) {
-		array.setAddress(address());
+	public MemoryAddress place(Structs.Array array, long size) {
+		MemoryAddress addr = address();
 		skip(array.bytes(size));
+		return addr;
 	}
 
-	public void place(Structs.Array array, long size, long align) {
-		array.setAddress(address());
+	public MemoryAddress place(Structs.Array array, long size, long align) {
+		MemoryAddress addr = address();
 		skip(array.bytes(size));
 		skipToAlignment(align);
+		return addr;
 	}
 }

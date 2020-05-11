@@ -61,16 +61,16 @@ public class Structs {
 				throw new IllegalArgumentException("struct size (" + bytes() + ") is not expected size (" + bytes + ")");
 			}
 
+			// set the field offsets
+			long offset = 0;
+			for (var field : fields) {
+				field.offset = offset;
+				offset += field.bytes;
+			}
+
 			@SuppressWarnings("unchecked")
 			T struct = (T)this;
 			return struct;
-		}
-
-		public void setAddress(MemoryAddress addr) {
-			for (Field field : fields) {
-				field.addr = addr;
-				addr = addr.addOffset(field.bytes);
-			}
 		}
 
 		/**
@@ -92,25 +92,28 @@ public class Structs {
 		public final long bytes;
 
 		protected String name;
-		protected MemoryAddress addr;
+		protected long offset;
 
 		public Field(long bytes) {
 			this.bytes = bytes;
 		}
 
-		public void assertAlignment(int alignment) {
-			assert (addr.offset() % alignment == 0);
+		public String name() {
+			return name;
 		}
 
-		public MemoryAddress addr() {
-			return addr;
+		public long offset() {
+			return offset;
+		}
+
+		public void assertAlignment(MemoryAddress addr, int alignment) {
+			assert (addr.offset() % alignment == 0);
 		}
 	}
 
 	public static abstract class Array {
 
 		public final long itemBytes;
-		protected MemoryAddress addr;
 
 		public Array(long itemBytes) {
 			this.itemBytes = itemBytes;
@@ -118,14 +121,6 @@ public class Structs {
 
 		public long bytes(long size) {
 			return size*itemBytes;
-		}
-
-		public MemoryAddress offset(long i) {
-			return addr.addOffset(i*itemBytes);
-		}
-
-		public void setAddress(MemoryAddress addr) {
-			this.addr = addr;
 		}
 	}
 
@@ -148,12 +143,12 @@ public class Structs {
 			super(bytes);
 		}
 
-		public int get() {
-			return (int)handle.get(addr);
+		public int get(MemoryAddress addr) {
+			return (int)handle.get(addr.addOffset(offset));
 		}
 
-		public void set(int value) {
-			handle.set(addr, value);
+		public void set(MemoryAddress addr, int value) {
+			handle.set(addr.addOffset(offset), value);
 		}
 
 		public static class Array extends Structs.Array {
@@ -162,12 +157,12 @@ public class Structs {
 				super(bytes);
 			}
 
-			public int get(long i) {
-				return (int)handle.get(offset(i));
+			public int get(MemoryAddress addr, long i) {
+				return (int)handle.get(addr.addOffset(i*bytes));
 			}
 
-			public void set(long i, int value) {
-				handle.set(offset(i), value);
+			public void set(MemoryAddress addr, long i, int value) {
+				handle.set(addr.addOffset(i*bytes), value);
 			}
 		}
 	}
@@ -187,12 +182,12 @@ public class Structs {
 			super(bytes);
 		}
 
-		public long get() {
-			return (long)handle.get(addr);
+		public long get(MemoryAddress addr) {
+			return (long)handle.get(addr.addOffset(offset));
 		}
 
-		public void set(long value) {
-			handle.set(addr, value);
+		public void set(MemoryAddress addr, long value) {
+			handle.set(addr.addOffset(offset), value);
 		}
 
 		public static class Array extends Structs.Array {
@@ -201,12 +196,12 @@ public class Structs {
 				super(bytes);
 			}
 
-			public long get(long i) {
-				return (long)handle.get(offset(i));
+			public long get(MemoryAddress addr, long i) {
+				return (long)handle.get(addr.addOffset(i*bytes));
 			}
 
-			public void set(long i, long value) {
-				handle.set(offset(i), value);
+			public void set(MemoryAddress addr, long i, long value) {
+				handle.set(addr.addOffset(i*bytes), value);
 			}
 		}
 	}
@@ -227,12 +222,12 @@ public class Structs {
 			super(bytes);
 		}
 
-		public float get() {
-			return (float)handle.get(addr);
+		public float get(MemoryAddress addr) {
+			return (float)handle.get(addr.addOffset(offset));
 		}
 
-		public void set(float value) {
-			handle.set(addr, value);
+		public void set(MemoryAddress addr, float value) {
+			handle.set(addr.addOffset(offset), value);
 		}
 
 		public static class Array extends Structs.Array {
@@ -241,12 +236,12 @@ public class Structs {
 				super(bytes);
 			}
 
-			public float get(long i) {
-				return (float)handle.get(offset(i));
+			public float get(MemoryAddress addr, long i) {
+				return (float)handle.get(addr.addOffset(i*bytes));
 			}
 
-			public void set(long i, float value) {
-				handle.set(offset(i), value);
+			public void set(MemoryAddress addr, long i, float value) {
+				handle.set(addr.addOffset(i*bytes), value);
 			}
 		}
 	}
@@ -266,12 +261,12 @@ public class Structs {
 			super(bytes);
 		}
 
-		public double get() {
-			return (double)handle.get(addr);
+		public double get(MemoryAddress addr) {
+			return (double)handle.get(addr.addOffset(offset));
 		}
 
-		public void set(double value) {
-			handle.set(addr, value);
+		public void set(MemoryAddress addr, double value) {
+			handle.set(addr.addOffset(offset), value);
 		}
 
 		public static class Array extends Structs.Array {
@@ -280,12 +275,12 @@ public class Structs {
 				super(bytes);
 			}
 
-			public double get(long i) {
-				return (double)handle.get(offset(i));
+			public double get(MemoryAddress addr, long i) {
+				return (double)handle.get(addr.addOffset(i*bytes));
 			}
 
-			public void set(long i, double value) {
-				handle.set(offset(i), value);
+			public void set(MemoryAddress addr, long i, double value) {
+				handle.set(addr.addOffset(i*bytes), value);
 			}
 		}
 	}
@@ -305,12 +300,12 @@ public class Structs {
 			super(bytes);
 		}
 
-		public boolean get() {
-			return (byte)handle.get(addr) != 0;
+		public boolean get(MemoryAddress addr) {
+			return (byte)handle.get(addr.addOffset(offset)) != 0;
 		}
 
-		public void set(boolean value) {
-			handle.set(addr, value ? (byte)1 : (byte)0);
+		public void set(MemoryAddress addr, boolean value) {
+			handle.set(addr.addOffset(offset), value ? (byte)1 : (byte)0);
 		}
 
 		// TODO: need bool array?
@@ -389,12 +384,12 @@ public class Structs {
 			this.precision = precision;
 		}
 
-		public double get() {
-			return (double)precision.handle.get(addr);
+		public double get(MemoryAddress addr) {
+			return (double)precision.handle.get(addr.addOffset(offset));
 		}
 
-		public void set(double value) {
-			precision.handle.set(addr, precision.fromDouble(value));
+		public void set(MemoryAddress addr, double value) {
+			precision.handle.set(addr.addOffset(offset), precision.fromDouble(value));
 		}
 
 		public static class Array extends Structs.Array {
@@ -406,12 +401,12 @@ public class Structs {
 				this.precision = precision;
 			}
 
-			public double get(long i) {
-				return (double)precision.handle.get(offset(i));
+			public double get(MemoryAddress addr, long i) {
+				return (double)precision.handle.get(addr.addOffset(i*precision.bytes));
 			}
 
-			public void set(long i, double value) {
-				precision.handle.set(offset(i), value);
+			public void set(MemoryAddress addr, long i, double value) {
+				precision.handle.set(addr.addOffset(i*precision.bytes), value);
 			}
 		}
 	}
@@ -432,12 +427,12 @@ public class Structs {
 			super(bytes);
 		}
 
-		public char get() {
-			return (char)handle.get(addr);
+		public char get(MemoryAddress addr) {
+			return (char)handle.get(addr.addOffset(offset));
 		}
 
-		public void set(char value) {
-			handle.set(addr, value);
+		public void set(MemoryAddress addr, char value) {
+			handle.set(addr.addOffset(offset), value);
 		}
 
 		public static class Array extends Structs.Array {
@@ -446,23 +441,23 @@ public class Structs {
 				super(bytes);
 			}
 
-			public char get(long i) {
-				return (char)handle.get(offset(i));
+			public char get(MemoryAddress addr, long i) {
+				return (char)handle.get(addr.addOffset(i*bytes));
 			}
 
-			public void set(long i, double value) {
-				handle.set(offset(i), value);
+			public void set(MemoryAddress addr, long i, double value) {
+				handle.set(addr.addOffset(i*bytes), value);
 			}
 
-			public String getNullTerminated(int maxLen) {
-				byte[] bytes = new byte[maxLen];
+			public String getNullTerminated(MemoryAddress addr, int maxLen) {
+				byte[] strbuf = new byte[maxLen];
 				for (int i=0; i<maxLen; i++) {
-					bytes[i] = (byte)handle.get(offset(i));
-					if (bytes[i] == 0) {
-						return new String(bytes, 0, i, Charsets.US_ASCII);
+					strbuf[i] = (byte)handle.get(addr.addOffset(i*bytes));
+					if (strbuf[i] == 0) {
+						return new String(strbuf, 0, i, Charsets.US_ASCII);
 					}
 				}
-				return new String(bytes, Charsets.US_ASCII);
+				return new String(strbuf, Charsets.US_ASCII);
 			}
 
 			// TODO: set?

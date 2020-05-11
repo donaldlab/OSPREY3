@@ -163,19 +163,15 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 				for (int device=0; device<size; device++) {
 
-					gpuInfoStruct.setAddress(p);
-					charsBusId.setAddress(gpuInfoStruct.bus_id.addr());
-					charsName.setAddress(gpuInfoStruct.name.addr());
-
 					infos.add(new GpuInfo(
 						device,
-						charsBusId.getNullTerminated((int)gpuInfoStruct.bus_id.bytes),
-						charsName.getNullTerminated((int)gpuInfoStruct.name.bytes),
-						gpuInfoStruct.integrated.get() != 0,
-						gpuInfoStruct.concurrent_kernels.get() != 0,
-						gpuInfoStruct.num_processors.get(),
-						gpuInfoStruct.mem_total.get(),
-						gpuInfoStruct.mem_free.get()
+						charsBusId.getNullTerminated(p.addOffset(gpuInfoStruct.bus_id.offset()), (int)gpuInfoStruct.bus_id.bytes),
+						charsName.getNullTerminated(p.addOffset(gpuInfoStruct.name.offset()), (int)gpuInfoStruct.name.bytes),
+						gpuInfoStruct.integrated.get(p) != 0,
+						gpuInfoStruct.concurrent_kernels.get(p) != 0,
+						gpuInfoStruct.num_processors.get(p),
+						gpuInfoStruct.mem_total.get(p),
+						gpuInfoStruct.mem_free.get(p)
 					));
 
 					p = p.addOffset(gpuInfoStruct.bytes());
@@ -285,10 +281,10 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			void init() {
 				init(16, "esQ", "vdwA", "vdwB", "pad");
 			}
-			void setParams(double[] params) {
-				esQ.set((float)params[0]);
-				vdwA.set((float)params[1]);
-				vdwB.set((float)params[2]);
+			void setParams(MemoryAddress addr, double[] params) {
+				esQ.set(addr, (float)params[0]);
+				vdwA.set(addr, (float)params[1]);
+				vdwB.set(addr, (float)params[2]);
 			}
 		}
 		final SAtomPairAmberF32b amberF32bStruct = new SAtomPairAmberF32b();
@@ -297,8 +293,8 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			final Int32 atomi1 = int32();
 			final Int32 atomi2 = int32();
 			final Float64 esQ = float64();
-			void setParams(double[] params) {
-				esQ.set(params[0]);
+			void setParams(MemoryAddress addr, double[] params) {
+				esQ.set(addr, params[0]);
 			}
 			void init() {
 				init(16, "atomi1", "atomi2", "esQ");
@@ -312,9 +308,9 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			void init() {
 				init(16, "vdwA", "vdwB");
 			}
-			void setParams(double[] params) {
-				vdwA.set(params[1]);
-				vdwB.set(params[2]);
+			void setParams(MemoryAddress addr, double[] params) {
+				vdwA.set(addr, params[1]);
+				vdwB.set(addr, params[2]);
 			}
 		}
 		final SAtomPairAmberF64b amberF64bStruct = new SAtomPairAmberF64b();
@@ -336,15 +332,15 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			void init() {
 				init(16, "vdwRadius", "oolambda", "alpha", "pad");
 			}
-			void setParams1(double[] params) {
-				vdwRadius.set((float)params[0]);
-				oolambda.set((float)(1.0/params[1]));
-				alpha.set((float)params[4]);
+			void setParams1(MemoryAddress addr, double[] params) {
+				vdwRadius.set(addr, (float)params[0]);
+				oolambda.set(addr, (float)(1.0/params[1]));
+				alpha.set(addr, (float)params[4]);
 			}
-			void setParams2(double[] params) {
-				vdwRadius.set((float)params[2]);
-				oolambda.set((float)(1.0/params[3]));
-				alpha.set((float)params[5]);
+			void setParams2(MemoryAddress addr, double[] params) {
+				vdwRadius.set(addr, (float)params[2]);
+				oolambda.set(addr, (float)(1.0/params[3]));
+				alpha.set(addr, (float)params[5]);
 			}
 		}
 		final SAtomPairEef1F32b eef1F32bStruct = new SAtomPairEef1F32b();
@@ -364,13 +360,13 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			void init() {
 				init(16, "vdwRadius", "oolambda");
 			}
-			void setParams1(double[] params) {
-				vdwRadius.set(params[0]);
-				oolambda.set(1.0/params[1]);
+			void setParams1(MemoryAddress addr, double[] params) {
+				vdwRadius.set(addr, params[0]);
+				oolambda.set(addr, 1.0/params[1]);
 			}
-			void setParams2(double[] params) {
-				vdwRadius.set(params[2]);
-				oolambda.set(1.0/params[3]);
+			void setParams2(MemoryAddress addr, double[] params) {
+				vdwRadius.set(addr, params[2]);
+				oolambda.set(addr, 1.0/params[3]);
 			}
 		}
 		final SAtomPairEef1F64b eef1F64bStruct = new SAtomPairEef1F64b();
@@ -381,9 +377,9 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			void init() {
 				init(16, "alpha1", "alpha2");
 			}
-			void setParams(double[] params) {
-				alpha1.set(params[4]);
-				alpha2.set(params[5]);
+			void setParams(MemoryAddress addr, double[] params) {
+				alpha1.set(addr, params[4]);
+				alpha2.set(addr, params[5]);
 			}
 		}
 		final SAtomPairEef1F64c eef1F64cStruct = new SAtomPairEef1F64c();
@@ -430,11 +426,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		@Override
 		public void writeParams(BufWriter buf) {
 
-			buf.place(paramsStruct);
+			var addr = buf.place(paramsStruct);
 
 			// write the amber params
 			AmberEnergyCalculator.Settings amberSettings = ((AmberEnergyCalculator)confSpace.ecalcs[0]).settings;
-			paramsStruct.distance_dependent_dielectric.set(amberSettings.distanceDependentDielectric);
+			paramsStruct.distance_dependent_dielectric.set(addr, amberSettings.distanceDependentDielectric);
 
 			// no EEF1 params to write
 		}
@@ -496,9 +492,9 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			assert (buf.isAligned(WidestGpuLoad)) : "Not aligned!";
 			long firstPos = buf.pos;
 
-			buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(amber.size());
-			atomPairsStruct.num_eef1.set(eef1.size());
+			var atomPairsAddr = buf.place(atomPairsStruct);
+			atomPairsStruct.num_amber.set(atomPairsAddr, amber.size());
+			atomPairsStruct.num_eef1.set(atomPairsAddr, eef1.size());
 
 			switch (precision) {
 
@@ -507,42 +503,42 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 					assert (buf.isAligned(WidestGpuLoad));
 
 					for (int i=0; i<amber.size(); i++) {
-						buf.place(amberF32aStruct);
+						var addr = buf.place(amberF32aStruct);
 						int atomi1 = amber.atomi1(i);
 						int atomi2 = amber.atomi2(i);
 						assert (atomi1 != atomi2);
-						amberF32aStruct.atomi1.set(atomi1);
-						amberF32aStruct.atomi2.set(atomi2);
+						amberF32aStruct.atomi1.set(addr, atomi1);
+						amberF32aStruct.atomi2.set(addr, atomi2);
 					}
 					buf.skipToAlignment(WidestGpuLoad);
 
 					for (int i=0; i<amber.size(); i++) {
-						buf.place(amberF32bStruct);
-						amberF32bStruct.setParams(amber.params(i));
+						var addr = buf.place(amberF32bStruct);
+						amberF32bStruct.setParams(addr, amber.params(i));
 					}
 
 					assert (buf.isAligned(WidestGpuLoad));
 
 					for (int i=0; i<eef1.size(); i++) {
-						buf.place(eef1F32aStruct);
+						var addr = buf.place(eef1F32aStruct);
 						int atomi1 = eef1.atomi1(i);
 						int atomi2 = eef1.atomi2(i);
 						assert (atomi1 != atomi2);
-						eef1F32aStruct.atomi1.set(atomi1);
-						eef1F32aStruct.atomi2.set(atomi2);
+						eef1F32aStruct.atomi1.set(addr, atomi1);
+						eef1F32aStruct.atomi2.set(addr, atomi2);
 					}
 					buf.skipToAlignment(WidestGpuLoad);
 
 					for (int i=0; i<eef1.size(); i++) {
-						buf.place(eef1F32bStruct);
-						eef1F32bStruct.setParams1(eef1.params(i));
+						var addr = buf.place(eef1F32bStruct);
+						eef1F32bStruct.setParams1(addr, eef1.params(i));
 					}
 
 					assert (buf.isAligned(WidestGpuLoad));
 
 					for (int i=0; i<eef1.size(); i++) {
-						buf.place(eef1F32bStruct);
-						eef1F32bStruct.setParams2(eef1.params(i));
+						var addr = buf.place(eef1F32bStruct);
+						eef1F32bStruct.setParams2(addr, eef1.params(i));
 					}
 
 					assert (buf.isAligned(WidestGpuLoad));
@@ -553,51 +549,51 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 					assert (buf.isAligned(WidestGpuLoad));
 
 					for (int i=0; i<amber.size(); i++) {
-						buf.place(amberF64aStruct);
+						var addr = buf.place(amberF64aStruct);
 						int atomi1 = amber.atomi1(i);
 						int atomi2 = amber.atomi2(i);
 						assert (atomi1 != atomi2);
-						amberF64aStruct.atomi1.set(atomi1);
-						amberF64aStruct.atomi2.set(atomi2);
-						amberF64aStruct.setParams(amber.params(i));
+						amberF64aStruct.atomi1.set(addr, atomi1);
+						amberF64aStruct.atomi2.set(addr, atomi2);
+						amberF64aStruct.setParams(addr, amber.params(i));
 					}
 
 					assert (buf.isAligned(WidestGpuLoad));
 
 					for (int i=0; i<amber.size(); i++) {
-						buf.place(amberF64bStruct);
-						amberF64bStruct.setParams(amber.params(i));
+						var addr = buf.place(amberF64bStruct);
+						amberF64bStruct.setParams(addr, amber.params(i));
 					}
 
 					assert (buf.isAligned(WidestGpuLoad));
 
 					for (int i=0; i<eef1.size(); i++) {
-						buf.place(eef1F64aStruct);
+						var addr = buf.place(eef1F64aStruct);
 						int atomi1 = eef1.atomi1(i);
 						int atomi2 = eef1.atomi2(i);
 						assert (atomi1 != atomi2);
-						eef1F64aStruct.atomi1.set(atomi1);
-						eef1F64aStruct.atomi2.set(atomi2);
+						eef1F64aStruct.atomi1.set(addr, atomi1);
+						eef1F64aStruct.atomi2.set(addr, atomi2);
 					}
 					buf.skipToAlignment(WidestGpuLoad);
 
 					for (int i=0; i<eef1.size(); i++) {
-						buf.place(eef1F64bStruct);
-						eef1F64bStruct.setParams1(eef1.params(i));
+						var addr = buf.place(eef1F64bStruct);
+						eef1F64bStruct.setParams1(addr, eef1.params(i));
 					}
 
 					assert (buf.isAligned(WidestGpuLoad));
 
 					for (int i=0; i<eef1.size(); i++) {
-						buf.place(eef1F64bStruct);
-						eef1F64bStruct.setParams2(eef1.params(i));
+						var addr = buf.place(eef1F64bStruct);
+						eef1F64bStruct.setParams2(addr, eef1.params(i));
 					}
 
 					assert (buf.isAligned(WidestGpuLoad));
 
 					for (int i=0; i<eef1.size(); i++) {
-						buf.place(eef1F64cStruct);
-						eef1F64cStruct.setParams(eef1.params(i));
+						var addr = buf.place(eef1F64cStruct);
+						eef1F64cStruct.setParams(addr, eef1.params(i));
 					}
 
 					assert (buf.isAligned(WidestGpuLoad));
@@ -970,20 +966,20 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			assert (buf.isAligned(WidestGpuLoad));
 
 			// write the header
-			buf.place(confSpaceStruct);
-			confSpaceStruct.num_pos.set(confSpace.positions.length);
-			confSpaceStruct.max_num_conf_atoms.set(confSpace.maxNumConfAtoms);
-			confSpaceStruct.max_num_dofs.set(confSpace.maxNumDofs);
-			confSpaceStruct.num_molecule_motions.set(0);
-			confSpaceStruct.size.set(bufSize);
+			var confSpaceAddr = buf.place(confSpaceStruct);
+			confSpaceStruct.num_pos.set(confSpaceAddr, confSpace.positions.length);
+			confSpaceStruct.max_num_conf_atoms.set(confSpaceAddr, confSpace.maxNumConfAtoms);
+			confSpaceStruct.max_num_dofs.set(confSpaceAddr, confSpace.maxNumDofs);
+			confSpaceStruct.num_molecule_motions.set(confSpaceAddr, 0);
+			confSpaceStruct.size.set(confSpaceAddr, bufSize);
 			// we'll go back and write the offsets later
-			confSpaceStruct.static_energy.set(Arrays.stream(confSpace.staticEnergies).sum());
+			confSpaceStruct.static_energy.set(confSpaceAddr, Arrays.stream(confSpace.staticEnergies).sum());
 
 			assert (buf.isAligned(WidestGpuLoad));
 
 			// leave space for the position offsets
-			confSpaceStruct.positions_offset.set(buf.pos);
-			buf.place(posOffsets, confSpace.positions.length, WidestGpuLoad);
+			confSpaceStruct.positions_offset.set(confSpaceAddr, buf.pos);
+			var posOffsetsAddr = buf.place(posOffsets, confSpace.positions.length, WidestGpuLoad);
 
 			assert (buf.pos == confSpaceSize);
 			assert (buf.isAligned(WidestGpuLoad));
@@ -993,16 +989,16 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 				assert (buf.isAligned(WidestGpuLoad));
 
-				posOffsets.set(pos.index, buf.pos);
-				buf.place(posStruct);
-				posStruct.num_confs.set(pos.confs.length);
-				posStruct.max_num_atoms.set(pos.maxNumAtoms);
-				posStruct.num_frags.set(pos.numFrags);
+				posOffsets.set(posOffsetsAddr, pos.index, buf.pos);
+				var posAddr = buf.place(posStruct);
+				posStruct.num_confs.set(posAddr, pos.confs.length);
+				posStruct.max_num_atoms.set(posAddr, pos.maxNumAtoms);
+				posStruct.num_frags.set(posAddr, pos.numFrags);
 
 				assert (buf.isAligned(WidestGpuLoad));
 
 				// put the conf offsets
-				buf.place(confOffsets, pos.confs.length, WidestGpuLoad);
+				var confOffsetsAddr = buf.place(confOffsets, pos.confs.length, WidestGpuLoad);
 				// we'll go back and write them later though
 
 				assert (buf.isAligned(WidestGpuLoad));
@@ -1012,34 +1008,34 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 					assert (buf.isAligned(WidestGpuLoad));
 
-					confOffsets.set(conf.index, buf.pos);
-					buf.place(confStruct);
-					confStruct.frag_index.set(conf.fragIndex);
-					confStruct.internal_energy.set(Arrays.stream(conf.energies).sum());
-					confStruct.num_motions.set(conf.motions.length);
+					confOffsets.set(confOffsetsAddr, conf.index, buf.pos);
+					var confAddr = buf.place(confStruct);
+					confStruct.frag_index.set(confAddr, conf.fragIndex);
+					confStruct.internal_energy.set(confAddr, Arrays.stream(conf.energies).sum());
+					confStruct.num_motions.set(confAddr, conf.motions.length);
 
 					assert (buf.isAligned(WidestGpuLoad));
 
 					// write the atoms
-					confStruct.atoms_offset.set(buf.pos);
-					buf.place(arrayStruct);
-					arrayStruct.size.set(conf.coords.size);
+					confStruct.atoms_offset.set(confAddr, buf.pos);
+					var atomsAddr = buf.place(arrayStruct);
+					arrayStruct.size.set(atomsAddr, conf.coords.size);
 					for (int i=0; i<conf.coords.size; i++) {
-						buf.place(real3Struct);
-						real3Struct.x.set(conf.coords.x(i));
-						real3Struct.y.set(conf.coords.y(i));
-						real3Struct.z.set(conf.coords.z(i));
+						var addr = buf.place(real3Struct);
+						real3Struct.x.set(addr, conf.coords.x(i));
+						real3Struct.y.set(addr, conf.coords.y(i));
+						real3Struct.z.set(addr, conf.coords.z(i));
 					}
 					buf.skipToAlignment(WidestGpuLoad);
 
 					assert (buf.isAligned(WidestGpuLoad));
 
 					// write the motions
-					confStruct.motions_offset.set(buf.pos);
-					buf.place(confMotionOffsets, conf.motions.length, WidestGpuLoad);
+					confStruct.motions_offset.set(confAddr, buf.pos);
+					var confMotionOffsetsAddr = buf.place(confMotionOffsets, conf.motions.length, WidestGpuLoad);
 					for (int i=0; i<conf.motions.length; i++) {
 						var motion = conf.motions[i];
-						confMotionOffsets.set(i, buf.pos);
+						confMotionOffsets.set(confMotionOffsetsAddr, i, buf.pos);
 						if (motion instanceof DihedralAngle.Description) {
 							writeDihedral((DihedralAngle.Description)motion, pos.index, buf);
 						} else {
@@ -1055,14 +1051,14 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			assert (buf.isAligned(WidestGpuLoad));
 
 			// write the static atoms
-			confSpaceStruct.static_atoms_offset.set(buf.pos);
-			buf.place(arrayStruct);
-			arrayStruct.size.set(confSpace.staticCoords.size);
+			confSpaceStruct.static_atoms_offset.set(confSpaceAddr, buf.pos);
+			var arrayAddr = buf.place(arrayStruct);
+			arrayStruct.size.set(arrayAddr, confSpace.staticCoords.size);
 			for (int i=0; i<confSpace.staticCoords.size; i++) {
-				buf.place(real3Struct);
-				real3Struct.x.set(confSpace.staticCoords.x(i));
-				real3Struct.y.set(confSpace.staticCoords.y(i));
-				real3Struct.z.set(confSpace.staticCoords.z(i));
+				var addr = buf.place(real3Struct);
+				real3Struct.x.set(addr, confSpace.staticCoords.x(i));
+				real3Struct.y.set(addr, confSpace.staticCoords.y(i));
+				real3Struct.z.set(addr, confSpace.staticCoords.z(i));
 			}
 			buf.skipToAlignment(WidestGpuLoad);
 
@@ -1070,25 +1066,25 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			assert (buf.isAligned(WidestGpuLoad));
 
 			// write the forcefield params
-			confSpaceStruct.params_offset.set(buf.pos);
+			confSpaceStruct.params_offset.set(confSpaceAddr, buf.pos);
 			forcefieldsImpl.writeParams(buf);
 
 			// write the pos pairs
-			confSpaceStruct.pos_pairs_offset.set(buf.pos);
-			buf.place(posPairOffsets, numPosPairs, WidestGpuLoad);
+			confSpaceStruct.pos_pairs_offset.set(confSpaceAddr, buf.pos);
+			var posPairOffsetsAddr = buf.place(posPairOffsets, numPosPairs, WidestGpuLoad);
 
 			assert (buf.isAligned(WidestGpuLoad));
 
 			// write the static-static pair
-			posPairOffsets.set(0, buf.pos);
+			posPairOffsets.set(posPairOffsetsAddr, 0, buf.pos);
 			forcefieldsImpl.writeStaticStatic(buf);
 
 			// write the static-pos pairs
 			for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
-				posPairOffsets.set(1 + posi1, buf.pos);
-				buf.place(fragOffsets, confSpace.numFrag(posi1), WidestGpuLoad);
+				posPairOffsets.set(posPairOffsetsAddr, 1 + posi1, buf.pos);
+				var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1), WidestGpuLoad);
 				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
-					fragOffsets.set(fragi1, buf.pos);
+					fragOffsets.set(fragOffsetsAddr, fragi1, buf.pos);
 					forcefieldsImpl.writeStaticPos(posi1, fragi1, buf);
 				}
 			}
@@ -1097,10 +1093,10 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 			// write the pos pairs
 			for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
-				posPairOffsets.set(1 + confSpace.positions.length + posi1, buf.pos);
-				buf.place(fragOffsets, confSpace.numFrag(posi1), WidestGpuLoad);
+				posPairOffsets.set(posPairOffsetsAddr, 1 + confSpace.positions.length + posi1, buf.pos);
+				var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1), WidestGpuLoad);
 				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
-					fragOffsets.set(fragi1, buf.pos);
+					fragOffsets.set(fragOffsetsAddr, fragi1, buf.pos);
 					forcefieldsImpl.writePos(posi1, fragi1, buf);
 				}
 			}
@@ -1110,11 +1106,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			// write the pos-pos pairs
 			for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 				for (int posi2=0; posi2<posi1; posi2++) {
-					posPairOffsets.set(1 + 2*confSpace.positions.length + posi1*(posi1 - 1)/2 + posi2, buf.pos);
-					buf.place(fragOffsets, confSpace.numFrag(posi1)*confSpace.numFrag(posi2), WidestGpuLoad);
+					posPairOffsets.set(posPairOffsetsAddr, 1 + 2*confSpace.positions.length + posi1*(posi1 - 1)/2 + posi2, buf.pos);
+					var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1)*confSpace.numFrag(posi2), WidestGpuLoad);
 					for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 						for (int fragi2=0; fragi2<confSpace.numFrag(posi2); fragi2++) {
-							fragOffsets.set(fragi1*confSpace.numFrag(posi2) + fragi2, buf.pos);
+							fragOffsets.set(fragOffsetsAddr, fragi1*confSpace.numFrag(posi2) + fragi2, buf.pos);
 							forcefieldsImpl.writePosPos(posi1, fragi1, posi2, fragi2, buf);
 						}
 					}
@@ -1125,7 +1121,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			buf.skipToAlignment(WidestGpuLoad);
 
 			// make sure we used the whole buffer
-			assert(buf.pos == bufSize) : String.format("%d bytes leftover", bufSize - buf.pos);
+			assert (buf.pos == bufSize) : String.format("%d bytes leftover", bufSize - buf.pos);
 
 			// upload the conf space to the GPU for each device
 			var confSpaceBuf = confSpaceMem.asByteBuffer();
@@ -1180,21 +1176,21 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	private void writeDihedral(DihedralAngle.Description desc, int posi, BufWriter buf) {
 
-		buf.place(dihedralStruct);
-		dihedralStruct.id.set(dihedralId);
-		dihedralStruct.min_radians.set(Math.toRadians(desc.minDegrees));
-		dihedralStruct.max_radians.set(Math.toRadians(desc.maxDegrees));
-		dihedralStruct.a_index.set(desc.getAtomIndex(confSpace, posi, desc.a));
-		dihedralStruct.b_index.set(desc.getAtomIndex(confSpace, posi, desc.b));
-		dihedralStruct.c_index.set(desc.getAtomIndex(confSpace, posi, desc.c));
-		dihedralStruct.d_index.set(desc.getAtomIndex(confSpace, posi, desc.d));
-		dihedralStruct.num_rotated.set(desc.rotated.length);
-		dihedralStruct.modified_posi.set(posi);
+		var dihedralAddr = buf.place(dihedralStruct);
+		dihedralStruct.id.set(dihedralAddr, dihedralId);
+		dihedralStruct.min_radians.set(dihedralAddr, Math.toRadians(desc.minDegrees));
+		dihedralStruct.max_radians.set(dihedralAddr, Math.toRadians(desc.maxDegrees));
+		dihedralStruct.a_index.set(dihedralAddr, desc.getAtomIndex(confSpace, posi, desc.a));
+		dihedralStruct.b_index.set(dihedralAddr, desc.getAtomIndex(confSpace, posi, desc.b));
+		dihedralStruct.c_index.set(dihedralAddr, desc.getAtomIndex(confSpace, posi, desc.c));
+		dihedralStruct.d_index.set(dihedralAddr, desc.getAtomIndex(confSpace, posi, desc.d));
+		dihedralStruct.num_rotated.set(dihedralAddr, desc.rotated.length);
+		dihedralStruct.modified_posi.set(dihedralAddr, posi);
 
 		var rotatedIndices = int32array();
-		buf.place(rotatedIndices, desc.rotated.length, WidestGpuLoad);
+		var indicesAddr = buf.place(rotatedIndices, desc.rotated.length, WidestGpuLoad);
 		for (int i=0; i<desc.rotated.length; i++) {
-			rotatedIndices.set(i, desc.getAtomIndex(confSpace, posi, desc.rotated[i]));
+			rotatedIndices.set(indicesAddr, i, desc.getAtomIndex(confSpace, posi, desc.rotated[i]));
 		}
 
 		buf.skipToAlignment(WidestGpuLoad);
@@ -1245,6 +1241,10 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		return streams.get(streami);
 	});
 
+	public void recycleStreams() {
+		streami.set(0);
+	}
+
 	@Override
 	public void close() {
 		for (var it : gpuStreams) {
@@ -1272,9 +1272,9 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 		MemorySegment mem = makeArray(confSpace.positions.length, Int32.bytes);
 		var array = int32array();
-		array.setAddress(getArrayAddress(mem));
+		var addr = getArrayAddress(mem);
 		for (int posi=0; posi<confSpace.positions.length; posi++) {
-			array.set(posi, conf[posi]);
+			array.set(addr, posi, conf[posi]);
 		}
 
 		return mem;
@@ -1285,14 +1285,14 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		AssignedCoords coords = new AssignedCoords(confSpace, assignments);
 
 		// copy the coords from the native memory
-		var addr = getArrayAddress(mem);
+		var arrayAddr = getArrayAddress(mem);
 		for (int i=0; i<confSpace.maxNumConfAtoms; i++) {
-			real3Struct.setAddress(addr.addOffset(i*real3Struct.bytes()));
+			var addr = arrayAddr.addOffset(i*real3Struct.bytes());
 			coords.coords.set(
 				i,
-				real3Struct.x.get(),
-				real3Struct.y.get(),
-				real3Struct.z.get()
+				real3Struct.x.get(addr),
+				real3Struct.y.get(addr),
+				real3Struct.z.get(addr)
 			);
 		}
 
@@ -1329,9 +1329,9 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		DoubleMatrix1D vals = DoubleFactory1D.dense.make(size);
 
 		Real.Array floats = realarray(precision);
-		floats.setAddress(getArrayAddress(mem));
+		var addr = getArrayAddress(mem);
 		for (int i=0; i<size; i++) {
-			vals.set(i, floats.get(i));
+			vals.set(i, floats.get(addr, i));
 		}
 
 		return vals;
@@ -1377,11 +1377,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		BufWriter buf = new BufWriter(mem);
 		buf.pos = getArrayAddress(mem).offset();
 		for (var inter : inters) {
-			buf.place(posInterStruct);
-			posInterStruct.posi1.set(inter.posi1);
-			posInterStruct.posi2.set(inter.posi2);
-			posInterStruct.weight.set(inter.weight);
-			posInterStruct.offset.set(inter.offset);
+			var addr = buf.place(posInterStruct);
+			posInterStruct.posi1.set(addr, inter.posi1);
+			posInterStruct.posi2.set(addr, inter.posi2);
+			posInterStruct.weight.set(addr, inter.weight);
+			posInterStruct.offset.set(addr, inter.offset);
 		}
 		return mem;
 	}
