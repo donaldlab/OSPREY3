@@ -204,45 +204,24 @@ public class TestUpperBoundCorrections {
         List<DoubleMatrix1D> minDOFs = new ArrayList<>();
         List<ObjectiveFunction.DofBounds> rigidDOFs = new ArrayList<>();
 
+        //Record new rotamerAssignments
+        List<RCTuple> mapTupList = new ArrayList<>();
+
         // Add new RCs from confspace
-        confList.stream().map( c -> analyzer.analyze(c)).forEach( analysis -> {
-            confSpace.addResidueConfFromMinimization(new RCTuple(analysis.assignments), analysis.epmol.pmol.dofs,analysis.epmol.params);
+        for (ConfSearch.ScoredConf scoredConf: confList){
+            ConfAnalyzer.ConfAnalysis analysis = analyzer.analyze((scoredConf));
+            mapTupList.add(confSpace.addResidueConfFromMinimization(new RCTuple(analysis.assignments), analysis.epmol.pmol.dofs, analysis.epmol.params));
             minDOFs.add(analysis.epmol.params);
-        });
-
-        // Sort to get the new rotamer "assignment list"
-        class forSort{
-            public int rotIndex;
-            public int posIndex;
-            public int globalRCIndex;
-            public SimpleConfSpace.ResidueConf.Type type;
-
-            public forSort(int rotIndex, int posIndex, int globIndex, SimpleConfSpace.ResidueConf.Type type){
-                this.rotIndex = rotIndex;
-                this.posIndex = posIndex;
-                this.globalRCIndex = globIndex;
-                this.type = type;
-            }
-            public int getRotIndex(){return this.rotIndex;}
-            public int getPosIndex(){return this.posIndex;}
-            public int getGlobalRCIndex(){return this.globalRCIndex;}
-            public SimpleConfSpace.ResidueConf.Type getType(){return this.type;}
         }
-
-        Map<Integer, int []> confMap = new HashMap<>();
-        confSpace.positions.stream()
-                .flatMap(pos -> pos.resConfs.stream().map( rc -> new forSort(rc.rotamerIndex, pos.index, rc.index, rc.type)))
-                .filter(e -> e.getType() == SimpleConfSpace.ResidueConf.Type.Custom)  // filter so only customs remain
-                .collect(Collectors.groupingBy(forSort::getRotIndex))
-                .forEach((i, l) -> {
-                    l.sort(Comparator.comparingInt(forSort::getPosIndex));
-                    confMap.put(i, l.stream().mapToInt(forSort::getGlobalRCIndex).toArray());
-                });
+        minDOFs.forEach(System.out::println);
+        mapTupList.forEach(System.out::println);
 
 
         // For testing, make molecules from "rotamers" for minimized conformations
-        for (int confIndex : confMap.keySet()){
-            rigidDOFs.add(confSpace.makeMolecule(confMap.get(confIndex)).dofBounds);
+        for (RCTuple tup : mapTupList){
+            ConfIndex index = new ConfIndex(confSpace.getNumPos());
+            tup.pasteToIndex(index);
+            rigidDOFs.add(confSpace.makeMolecule(index.makeConf()).dofBounds);
         }
 
         // Check to make sure that the DOFS for these new "rotamers" match the minmized DOF values
@@ -255,7 +234,9 @@ public class TestUpperBoundCorrections {
         // Check to make sure the energies look the same
         ConfAnalyzer rigidAnalyzer = makeRigidAnalyzerForConfSpace(confSpace);
         for (int i=0; i < confList.size(); i++){
-            ConfAnalyzer.ConfAnalysis rigidAnalysis = rigidAnalyzer.analyze(confMap.get(i));
+            ConfIndex index = new ConfIndex(confSpace.getNumPos());
+            mapTupList.get(i).pasteToIndex(index);
+            ConfAnalyzer.ConfAnalysis rigidAnalysis = rigidAnalyzer.analyze(index.makeConf());
             assertThat(rigidAnalysis.epmol.energy, isAbsolutely(minConfEs.get(i), 0.001));
         }
     }
@@ -279,6 +260,9 @@ public class TestUpperBoundCorrections {
         List<DoubleMatrix1D> minDOFs = new ArrayList<>();
         List<ObjectiveFunction.DofBounds> rigidDOFs = new ArrayList<>();
 
+        //Record new rotamerAssignments
+        List<RCTuple> mapTupList = new ArrayList<>();
+
         //Generate the array to map from the flex confspace to the full confspace
         int[] permArray = flexCopy.positions.stream()
                 .mapToInt(confSpace.positions::indexOf)
@@ -299,50 +283,15 @@ public class TestUpperBoundCorrections {
             fullAssignments.add(permutedAss);
 
             //Add the new RCs from the partial minimization into the full confspace
-            confSpace.addResidueConfFromMinimization(new RCTuple(permutedAss), analysis.epmol.pmol.dofs,analysis.epmol.params);
+            mapTupList.add(confSpace.addResidueConfFromMinimization(new RCTuple(permutedAss), analysis.epmol.pmol.dofs,analysis.epmol.params));
         }
-
-
-        // Sort to get the new rotamer "assignment list"
-        class forSort{
-            public int rotIndex;
-            public int posIndex;
-            public int globalRCIndex;
-            public SimpleConfSpace.ResidueConf.Type type;
-
-            public forSort(int rotIndex, int posIndex, int globIndex){
-                this.rotIndex = rotIndex;
-                this.posIndex = posIndex;
-                this.globalRCIndex = globIndex;
-            }
-            public int getRotIndex(){return this.rotIndex;}
-            public int getPosIndex(){return this.posIndex;}
-            public int getGlobalRCIndex(){return this.globalRCIndex;}
-        }
-
-        // Actually do the sorting to get the new rotamer assignment list
-        Map<Integer, int []> confMap = new HashMap<>();
-        confSpace.positions.stream()
-                .flatMap(pos-> pos.resConfs.stream()
-                        .filter(rc -> rc.type == SimpleConfSpace.ResidueConf.Type.Custom) // have to filter first because some rcs have null rotamer index
-                        .map(rc -> new forSort(rc.rotamerIndex,pos.index,rc.index)))
-                .collect(Collectors.groupingBy(forSort::getRotIndex))
-                .forEach((i, l) -> {
-                    l.sort(Comparator.comparingInt(forSort::getPosIndex));
-                    // Do some permutation to get assignments for the full confspace
-                    int[] unpermutedAss = l.stream().mapToInt(forSort::getGlobalRCIndex).toArray();
-                    int[] permutedAss = new int[confSpace.getNumPos()];
-                    Arrays.fill(permutedAss, -1);
-                    for (int j =0; j < unpermutedAss.length; j++){
-                        permutedAss[permArray[j]] = unpermutedAss[j];
-                    }
-                    confMap.put(i, permutedAss);
-                });
 
 
         // For testing, make molecules from "rotamers" for minimized conformations
-        for (int confIndex : confMap.keySet()){
-            rigidDOFs.add(confSpace.makeMolecule(confMap.get(confIndex)).dofBounds);
+        for (RCTuple tup : mapTupList){
+            ConfIndex index = new ConfIndex(confSpace.getNumPos());
+            tup.pasteToIndex(index);
+            rigidDOFs.add(confSpace.makeMolecule(index.makeConf()).dofBounds);
         }
 
         // Check to make sure that the DOFS for these new "rotamers" match the minmized DOF values
@@ -353,17 +302,22 @@ public class TestUpperBoundCorrections {
         }
 
         // Check to make sure the energies look the same
+        ConfAnalyzer rigidAnalyzer = makeRigidAnalyzerForConfSpace(confSpace);
+        for (int i=0; i < confList.size(); i++){
+            ConfIndex index = new ConfIndex(confSpace.getNumPos());
+            mapTupList.get(i).pasteToIndex(index);
+            ConfAnalyzer.ConfAnalysis rigidAnalysis = rigidAnalyzer.analyze(index.makeConf());
+            assertThat(rigidAnalysis.epmol.energy, isAbsolutely(minConfEs.get(i), 0.001));
+        }
+        // Check to make sure the energies look the same
         Sequence wildType = confSpace.makeWildTypeSequence();
         RCs seqRCs = wildType.makeRCs(confSpace);
         EnergyMatrix fancyRigidEmat = makeRigidEmatForConfSpace(confSpace);
         PairwiseGScorer betterGscorer = new PairwiseGScorer(fancyRigidEmat);
         for (int i=0; i < confList.size(); i++){
             //update the index
-            ConfIndex index = new ConfIndex(seqRCs.getNumPos());
-            for (int j =0; j< confMap.get(i).length; j++){
-                if(confMap.get(i)[j] > 0)
-                    index.assignInPlace(j,confMap.get(i)[j]);
-            }
+            ConfIndex index = new ConfIndex(confSpace.getNumPos());
+            mapTupList.get(i).pasteToIndex(index);
             assertThat(betterGscorer.calc(index,seqRCs), isAbsolutely(minConfEs.get(i), 0.001));
         }
 
@@ -385,10 +339,7 @@ public class TestUpperBoundCorrections {
             // Now, score the new style
             //update the index
             ConfIndex index_better = new ConfIndex(seqRCs.getNumPos());
-            for (int j =0; j< confMap.get(i).length; j++){
-                if(confMap.get(i)[j] > 0)
-                    index_better.assignInPlace(j,confMap.get(i)[j]);
-            }
+            mapTupList.get(i).pasteToIndex(index_better);
             double newGScore = betterGscorer.calc(index_better, seqRCs);
             double newHScore = betterHScorer.calc(index_better, seqRCs);
             System.out.println(String.format("Old way: %.3f + %.3f = %.3f", oldgscore, oldhscore, oldgscore+oldhscore));
@@ -413,12 +364,13 @@ public class TestUpperBoundCorrections {
             // Now, score the new style
             //update the index
             ConfIndex index_better = new ConfIndex(seqRCs.getNumPos());
-            for (int j =0; j< confMap.get(i).length; j++){
-                if(confMap.get(i)[j] > 0)
-                    index_better.assignInPlace(j,confMap.get(i)[j]);
+            for (int j =0; j< fullAssignments.get(i).length; j++){
+                if(fullAssignments.get(i)[j] > 0)
+                    index_better.assignInPlace(j,fullAssignments.get(i)[j]);
                 else
                     index_better.assignInPlace(j,0);
             }
+            mapTupList.get(i).pasteToIndex(index_better);
             double newGScore = betterGscorer.calc(index_better, seqRCs);
             double newHScore = betterHScorer.calc(index_better, seqRCs);
             System.out.println(String.format("Old way: %.3f + %.3f = %.3f", oldgscore, oldhscore, oldgscore+oldhscore));

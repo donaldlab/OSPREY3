@@ -296,29 +296,50 @@ public class SimpleConfSpace implements Serializable {
 			return template.name + " " + getRotamerCode();
 		}
                 
-                public boolean isParametricallyIncompatibleWith(ResidueConf rc2){
-                    //Two RCs are parametrically incompatible if and only if there is a DOF that they share
-                    //for which they have different intervals
-                    //Thus, a conformation has a well-defined voxel if and only if it contains no parametrically
-                    //incompatible pairs of RCs
+		public boolean isParametricallyIncompatibleWith(ResidueConf rc2){
+			//Two RCs are parametrically incompatible if and only if there is a DOF that they share
+			//for which they have different intervals
+			//Thus, a conformation has a well-defined voxel if and only if it contains no parametrically
+			//incompatible pairs of RCs
 
-                    final double tol = 1e-8;
-                    for(String dofName1 : dofBounds.keySet()){
-                        for(String dofName2 : rc2.dofBounds.keySet()){
-                            if(dofName1.equalsIgnoreCase(dofName2)){
-                                double bounds1[] = dofBounds.get(dofName1);
-                                double bounds2[] = dofBounds.get(dofName2);
-                                for(int a=0; a<2; a++){//look for min or max not matching
-                                    if( Math.abs( bounds1[a]-bounds2[a] ) > tol )
-                                        return true;
-                                }
-                            }
-                        }
-                    }
+			final double tol = 1e-8;
+			for(String dofName1 : dofBounds.keySet()){
+				for(String dofName2 : rc2.dofBounds.keySet()){
+					if(dofName1.equalsIgnoreCase(dofName2)){
+						double bounds1[] = dofBounds.get(dofName1);
+						//TODO: I think line below contains a bug - shouldn't it be rc2.dofBounds.get.... ? GTH
+						double bounds2[] = dofBounds.get(dofName2);
+						for(int a=0; a<2; a++){//look for min or max not matching
+							if( Math.abs( bounds1[a]-bounds2[a] ) > tol )
+								return true;
+						}
+					}
+				}
+			}
 
-                    //no incompatibility found!
-                    return false;
-                }
+			//no incompatibility found!
+			return false;
+		}
+
+		public boolean isParametricallyIdenticalTo(ResidueConf rc2){
+			//Two RCs are parametrically identical if and only if there is no DOF that they differ at
+			final double tol = 1e-8;
+			for(String dofName1 : dofBounds.keySet()){
+				for(String dofName2 : rc2.dofBounds.keySet()){
+					if(dofName1.equalsIgnoreCase(dofName2)){
+						double bounds1[] = dofBounds.get(dofName1);
+						double bounds2[] = rc2.dofBounds.get(dofName2);
+						for(int a=0; a<2; a++){//look for min or max not matching
+							if( Math.abs( bounds1[a]-bounds2[a] ) > tol )
+								return false;
+						}
+					}
+				}
+			}
+
+			//no differences found!
+			return true;
+		}
 	}
 	
 	/**
@@ -935,7 +956,10 @@ public class SimpleConfSpace implements Serializable {
 	 * @param conf
 	 * @param dofAssignments
 	 */
-	public void addResidueConfFromMinimization(RCTuple conf, List<DegreeOfFreedom> dofs,DoubleMatrix1D dofAssignments){
+	public RCTuple addResidueConfFromMinimization(RCTuple conf, List<DegreeOfFreedom> dofs,DoubleMatrix1D dofAssignments){
+		// Make the output RCTuple information
+		ArrayList<Integer> newPos = new ArrayList<>();
+		ArrayList<Integer> newRC = new ArrayList<>();
 		// Check to make sure we have all confDOFNames represented in the dofAssignments
 		if(dofs.size() < dofAssignments.size())
 			throw new IllegalArgumentException("ERROR: mismatch in number of degrees of freedom");
@@ -947,26 +971,45 @@ public class SimpleConfSpace implements Serializable {
 		for (int i=0; i<conf.size(); i++) {
 			Position pos = positions.get(conf.pos.get(i));
 			ResidueConf oldResConf = pos.resConfs.get(conf.RCs.get(i));
-			// If this position doesn't have any DOFs that we are interested in, just skip it
+			// If this position doesn't have any DOFs that we are interested in, just skip it - this really shouldn't ever happen
 			if(Collections.disjoint(oldResConf.dofBounds.keySet(),dofs.stream().map(DegreeOfFreedom::getName).collect(Collectors.toSet()))){
 				continue;
 			}
+			// add the pos index to the output tuple
+			newPos.add(conf.pos.get(i));
 			// Otherwise, start making a new residue conf
 			ResidueConf newResConf = new ResidueConf(oldResConf,
 					pos.resConfs.size(),
 					ResidueConf.Type.Custom,
-					pos.resConfs.stream().filter(rc -> rc.type == ResidueConf.Type.Custom).collect(Collectors.toList()).size());
+					(int) pos.resConfs.stream().filter(rc -> rc.type == ResidueConf.Type.Custom).count());
 			// Replace dof bounds with dofAssignments
 			for (String key : newResConf.dofBounds.keySet()){
 				newResConf.dofBounds.replace(key, new double[]{dofAssignments.get(name2Index.get(key)), dofAssignments.get(name2Index.get(key))});
 			}
-			pos.resConfs.add(newResConf);
+
+			// If this position already has a custom residue conf that has identical DOFS to the old one, skip adding the new one
+            List<ResidueConf> previousCustomRCS = pos.resConfs.stream().filter(rc -> rc.type.equals(ResidueConf.Type.Custom)).collect(Collectors.toList());
+			int identicalIndex = -1;
+			for(ResidueConf rc : previousCustomRCS){
+				if(rc.isParametricallyIdenticalTo(newResConf)){
+				    identicalIndex = rc.index;
+					break;
+				}
+			}
+			if(identicalIndex>0){
+				newRC.add(identicalIndex);
+			}else{
+				// add the RC to the output tuple
+				newRC.add(pos.resConfs.size());
+				pos.resConfs.add(newResConf);
+			}
 		}
 
 		// Update the numResConfsByPos variable
 		for (int i=0; i<positions.size(); i++) {
 			numResConfsByPos[i] = positions.get(i).resConfs.size();
 		}
+		return new RCTuple(newPos, newRC);
 	}
 
 	/** @see #isContinuouslyFlexible(RCTuple) */
