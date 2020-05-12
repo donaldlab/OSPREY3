@@ -565,4 +565,74 @@ public class TestUpperBoundCorrections {
         }
 
     }
+
+    @Test
+    public void testScoreCorrectorEarlyMake(){
+        // Make the confspace
+        SimpleConfSpace confSpace = make1CC8Mutable();
+        SimpleConfSpace confSpaceUntouched = make1CC8Mutable();
+        SimpleConfSpace flexCopy = confSpace.makeFlexibleCopy();
+        // Get the analyzer
+        ConfAnalyzer analyzer = makeMinimizerForConfSpace(flexCopy);
+
+        // make the upperBoundCorrector early
+        DependentScoreCorrector upperBoundCorrector = new DependentScoreCorrector(confSpace, MathTools.Optimizer.Minimize);
+
+        List<int[]> fullAssignments = new ArrayList<>();
+        //Corrections list
+        ArrayList<MappableTupE> corrList = new ArrayList<>();
+
+        //Generate the array to map from the flex confspace to the full confspace
+        int[] permArray = flexCopy.positions.stream()
+                .mapToInt(confSpace.positions::indexOf)
+                .toArray();
+
+        // Score the flexible confspace leaves
+        for (TestConfInfo conf : flexibleConfList){
+            ConfAnalyzer.ConfAnalysis analysis = analyzer.analyze(new ConfSearch.ScoredConf(conf.assignments, conf.ELB));
+
+            // permute the flex leaf into the full confspace internal node
+            int[] permutedAss = new int[confSpace.getNumPos()];
+            Arrays.fill(permutedAss, -1);
+            for (int j =0; j < analysis.assignments.length; j++){
+                permutedAss[permArray[j]] = analysis.assignments[j];
+            }
+            fullAssignments.add(permutedAss);
+            RCTuple originalTup = new RCTuple(permutedAss);
+
+            //Add the new RCs from the partial minimization into the full confspace
+            RCTuple mappedTup = confSpace.addResidueConfFromMinimization(originalTup, analysis.epmol.pmol.dofs,analysis.epmol.params);
+            upperBoundCorrector.insertCorrection(new MappableTupE(originalTup, mappedTup, analysis.epmol.energy - analysis.score));
+        }
+
+        // Make the new emat
+        Sequence wildType = confSpace.makeWildTypeSequence();
+        RCs seqRCs = wildType.makeRCs(confSpace);
+        EnergyMatrix fancyRigidEmat = makeRigidEmatForConfSpace(confSpace);
+        ScorerFactory gScorerFactory = (emat) -> new PairwiseRigidGScorer(emat);
+        ScorerFactory hScorerFactory = (emat) -> new SHARKStarNodeScorer(emat, true);
+
+        // Set the stuff
+        upperBoundCorrector.setMappedEmat(fancyRigidEmat);
+        upperBoundCorrector.setGScorerFactory(gScorerFactory);
+        upperBoundCorrector.setHScorerFactory(hScorerFactory);
+
+        // Do testing
+        for (TestConfInfo fullConf: fullConfList){
+            RCTuple tupQuery = new RCTuple(fullConf.assignments);
+            ConfIndex index = new ConfIndex(seqRCs.getNumPos());
+            tupQuery.pasteToIndex(index);
+
+            double correction = upperBoundCorrector.getCorrection(tupQuery,fullConf.EUB,index, seqRCs);
+            assert(correction <= 0);
+            System.out.println("------");
+            System.out.println(String.format("Correction for %s -> %.3f", tupQuery.toString(), correction));
+            System.out.println(String.format("Results in %.3f in [%.3f, %.3f] corrected -> [%.3f, %.3f]",
+                    fullConf.minE,
+                    fullConf.ELB, fullConf.EUB,
+                    fullConf.ELB, fullConf.EUB+correction
+            ));
+        }
+
+    }
 }
