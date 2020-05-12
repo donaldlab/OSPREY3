@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.*;
 import edu.duke.cs.osprey.energy.BatchCorrectionMinimizer;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -43,6 +44,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     // Debug variables
     public static final boolean debug = true;
     public static final boolean doExtraTupleCorrections = true;
+    public static final boolean doUpperBoundCorrections = true;
     public final SHARKStarTreeDebugger pilotFish;
     public boolean profileOutput = false;
 
@@ -86,6 +88,12 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     public final BoltzmannCalculator bc;
     private double drillDownDifference; //The freeEnergy difference corresponding to target epsilon
 
+    // Variables for upper bound corrections
+    private RigidEmatFactory customEmatFactory;
+    private SimpleConfSpace mutatedConfSpace;
+    private boolean saveEPMOLsForMinimization = false;
+    private Map<int[], EnergyCalculator.EnergiedParametricMolecule> epmolsMap;
+
     // Not sure where these should go
     private ConfAnalyzer confAnalyzer;
     private SHARKStarEnsembleAnalyzer ensembleAnalyzer;
@@ -122,7 +130,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param parallelism         information for threading
      */
     public MultiSequenceSHARKStarBound_refactor(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
-                                                ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
+                                                ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism, RigidEmatFactory customEmatFactory) {
         // Set the basic needs
         this.confSpace = confSpace;
         this.rigidEmat = rigidEmat;
@@ -133,6 +141,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         // Initialize the correctionMatrix and the Corrector
         this.minList = new ArrayList<>(Collections.nCopies(rcs.getNumPos(), 0));
         this.lowerBoundCorrector = new IndependentScoreCorrector(confSpace, MathTools.Optimizer.Maximize);
+        //Intialize stuff for upperBoundCorrections
+        this.customEmatFactory = customEmatFactory;
+        this.mutatedConfSpace = this.confSpace.makeCopy();
 
         // Set up the scoring machinery
         this.gscorerFactory = (emats) -> new PairwiseGScorer(emats);
@@ -140,7 +151,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         this.hscorerFactory = (emats) -> new SHARKStarNodeScorer(emats, false);
         this.nhscorerFactory = (emats) -> new SHARKStarNodeScorer(emats, true);
 
-        this.contexts = new ObjectPool<>((lingored) -> {
+        this.contexts = new ObjectPool<>((ignored) -> {
             ScoreContext context = new ScoreContext();
             context.index = new ConfIndex(rcs.getNumPos());
             context.partialConfLBScorer = gscorerFactory.make(this.minimizingEmat);
@@ -149,6 +160,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             context.unassignedConfUBScorer = nhscorerFactory.make(this.rigidEmat); //this is used for upper bounds, so we want it rigid
             context.ecalc = minimizingConfEcalc;
             context.batcher = new BatchCorrectionMinimizer(minimizingConfEcalc, this.lowerBoundCorrector, this.minimizingEmat);
+            context.upperBoundCorrector = new DependentScoreCorrector(this.confSpace, MathTools.Optimizer.Minimize); // Minimize for upper bounds, maximize for lower
 
             return context;
         });
@@ -296,10 +308,13 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param epsilon            Approximation error target
      * @param stabilityThreshold Minimum acceptable partition function value
      */
-    private void initFlex(double epsilon, BigDecimal stabilityThreshold) {
+    private void initFlex(double epsilon, BigDecimal stabilityThreshold, boolean saveEPMOLsForMinimization) {
         this.targetEpsilon = epsilon;
         this.status = Status.Estimating;
         this.stabilityThreshold = stabilityThreshold;
+        this.saveEPMOLsForMinimization = saveEPMOLsForMinimization;
+        if (this.saveEPMOLsForMinimization)
+            this.epmolsMap = new HashMap<>();
         makeAndScoreRootNode();
     }
 
@@ -394,15 +409,25 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             // Construct the bound
             MultiSequenceSHARKStarBound_refactor precompFlex = new MultiSequenceSHARKStarBound_refactor(
                     flexConfSpace, flexRigidEmat, flexMinimizingEmat,
-                    flexMinimizingConfECalc, flexRCs, this.parallelism);
+                    flexMinimizingConfECalc, flexRCs, this.parallelism, null);
             // Set settings
             precompFlex.setCachePattern(cachePattern);
             // initialize
-            precompFlex.initFlex(this.targetEpsilon, this.stabilityThreshold);
+            precompFlex.initFlex(this.targetEpsilon, this.stabilityThreshold, MultiSequenceSHARKStarBound_refactor.doUpperBoundCorrections);
             PartitionFunction flexBound = precompFlex.getPartitionFunctionForSequence(unassignedFlex);
             flexBound.compute();
             precompFlex.printEnsembleAnalysis();
+            // Copy over the minimized fragments
+            this.epmolsMap = precompFlex.epmolsMap;
             processPrecomputedFlex(precompFlex);
+            if(doUpperBoundCorrections){
+                try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                    ScoreContext context = checkout.get();
+                    context.upperBoundCorrector.setMappedEmat(this.customEmatFactory.make(mutatedConfSpace));
+                    context.upperBoundCorrector.setGScorerFactory(this.rigidgscorerFactory);
+                    context.upperBoundCorrector.setHScorerFactory(this.nhscorerFactory);
+                }
+            }
             System.out.println(String.format("Precomputation of flexible residues resulted in %d partial minimizations", lowerBoundCorrector.getNumCorrections()));
         }
     }
@@ -454,17 +479,29 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         //set corrections if node is minimized
         if (node.isMinimized()) {
-            lowerBoundCorrector.insertCorrection(new TupE(new RCTuple(node.getAssignments()), node.getMinE()
+            RCTuple nodeTup = new RCTuple(node.getAssignments());
+            lowerBoundCorrector.insertCorrection(new TupE(nodeTup, node.getMinE()
                     - node.getPartialConfLB()));
+            if(doUpperBoundCorrections && epmolsMap.containsKey(node.getAssignments())){
+                // Add minimized fragment to mutated confspace
+                RCTuple mappedTup = mutatedConfSpace.addResidueConfsFromEPMOL(nodeTup, epmolsMap.get(node.getAssignments()));
+                // Insert the correction
+                try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                    ScoreContext context = checkout.get();
+                    context.upperBoundCorrector.insertCorrection(new MappableTupE(nodeTup, mappedTup, node.getMinE() - node.getFreeEnergyUB(precomputedSequence)));
+                }
+            }
         }
         /*
         Reset minimized energies and unassignedConf bounds, since these will no longer be valid.
         Partial conf bounds should still be valid
+        Also reset upperbound corrections, which will be invalid
          */
         node.setIsMinimized(false);
         node.setMinE(Double.NaN);
         node.setUnassignedConfLB(Double.NaN, precomputedSequence);
         node.setUnassignedConfUB(Double.NaN, precomputedSequence);
+        node.unsetHOTCorrectionUB();
 
         // Recurse
         if (!node.getChildren().isEmpty()) {
@@ -652,10 +689,6 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         SHARKStarNode child = parent.assign(nextPos, nextRC);
                         result.resultNode = child;
 
-                        // Try to apply partial minimization correction to child
-                        double HOTCorrection = lowerBoundCorrector.getCorrection(child.getAssignments());
-                        // If the parent correction is larger, just use the parent correction, since it must be valid
-                        result.HOTCorrection = Math.max(HOTCorrection, parent.getHOTCorrection());
 
                         // Score the child node
                         //TODO move back to calcDifferential if possible
@@ -664,15 +697,32 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         child.index(context.index); // We don't implement calcDifferential for the SHARKStarNodeScorer yet, so probably faster to do this
                         result.unassignLB = context.unassignedConfLBScorer.calc(context.index, seqRCs);
                         result.unassignUB = context.unassignedConfUBScorer.calc(context.index, seqRCs);
-                        // Compute the node partition function error
-                        result.score = bc.calc_lnZDiff(result.partialLB + result.unassignLB + result.HOTCorrection,
-                                result.partialUB + result.unassignUB);
 
                         scoreWatch.stop();
                         result.time = scoreWatch.getTimeS();
 
-                        return result;
-                    }
+                        // Try to apply partial minimization correction to child (Lowerbound)
+                        double HOTCorrection = lowerBoundCorrector.getCorrection(child.getAssignments());
+                        // If the parent correction is larger, just use the parent correction, since it must be valid for lowerbound
+                        result.HOTCorrectionLB = Math.max(HOTCorrection, parent.getHOTCorrectionLB());
+
+                        if(doUpperBoundCorrections) {
+                            // Try to apply correction to child (upperbound), this is max 0
+                            result.HOTCorrectionUB = context.upperBoundCorrector.getCorrection(
+                                    child.getAssignments(),
+                                    result.partialUB + result.unassignUB,
+                                    context.index,
+                                    seqRCs);
+                        }else{
+                            result.HOTCorrectionUB=0;
+                        }
+
+                        // Compute the node partition function error
+                        result.score = bc.calc_lnZDiff(result.partialLB + result.unassignLB + result.HOTCorrectionLB,
+                                result.partialUB + result.unassignUB + result.HOTCorrectionUB);
+
+                            return result;
+                        }
                 },
                 (result) -> {
                     if (!result.isValid())
@@ -683,7 +733,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     result.resultNode.setPartialConfUB(result.partialUB);
                     result.resultNode.setUnassignedConfLB(result.unassignLB, seq);
                     result.resultNode.setUnassignedConfUB(result.unassignUB, seq);
-                    result.resultNode.setHOTCorrection(result.HOTCorrection);
+                    result.resultNode.setHOTCorrectionLB(result.HOTCorrectionLB);
+                    if(result.HOTCorrectionUB < 0)
+                        result.resultNode.setHOTCorrectionUB(result.HOTCorrectionUB);
                     result.resultNode.setScore(result.score, seq);
 
                     synchronized (this) {
@@ -721,6 +773,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.getAssignments(), node.getFreeEnergyLB(seq));
                         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
                         result.minimizedEnergy = analysis.epmol.energy;
+                        if(this.saveEPMOLsForMinimization)
+                            result.epmol = analysis.epmol;
 
                         minimizationTimer.stop();
                         if (doExtraTupleCorrections) {
@@ -761,10 +815,15 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
                     minList.set(result.resultNode.getAssignments().length - 1, minList.get(result.resultNode.getAssignments().length - 1) + 1);
 
+
                     synchronized (this) {
                         minimizationTimeTotal += result.minimizationTime;
                         correctionComputationTimeTotal += result.correctionTime;
                         numMinimizations += 1;
+                        // Save epmol if we are keeping it
+                        if(result.epmol != null){
+                            epmolsMap.put(result.resultNode.getAssignments(), result.epmol);
+                        }
                     }
                 });
     }
@@ -1178,11 +1237,33 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             return;
         }
 
+        //TODO: move this into its own method
+
         // Try to apply partial minimization correction to child
+        boolean didCorrect = false;
+        // Try LB
         double HOTCorrection = lowerBoundCorrector.getCorrection(fullConfNode.getAssignments());
-        if (HOTCorrection > fullConfNode.getHOTCorrection()){
-            fullConfNode.setHOTCorrection(HOTCorrection);
+        if (HOTCorrection > fullConfNode.getHOTCorrectionLB()){
+            fullConfNode.setHOTCorrectionLB(HOTCorrection);
             // if we applied a correction, done with the node
+        }
+        if (doUpperBoundCorrections) {
+            // Try correcting UB
+            try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                ScoreContext context = checkout.get();
+                fullConfNode.index(context.index);
+                double HOTCorrectionUB = context.upperBoundCorrector.getCorrection(
+                        fullConfNode.getAssignments(),
+                        fullConfNode.getFreeEnergyUB(seqBound.sequence),
+                        context.index,
+                        seqBound.seqRCs);
+                if(HOTCorrectionUB < 0){
+                    fullConfNode.setHOTCorrectionUB(HOTCorrectionUB);
+                    didCorrect = true;
+                }
+            }
+        }
+        if (didCorrect == true){
             newNodes.add(fullConfNode);
             return;
         }
@@ -1204,10 +1285,32 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param partialConfNode The partial conformation node to process
      */
     public void processPartialConfNode(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, SHARKStarNode partialConfNode) {
+        //TODO: move this into its own method
         //Try just correcting it
-        double HOTCorrection = lowerBoundCorrector.getCorrection(partialConfNode.getAssignments());
-        if(HOTCorrection > partialConfNode.getHOTCorrection()){
-            partialConfNode.setHOTCorrection(HOTCorrection);
+        boolean didCorrect = false;
+        // Try correcting LB
+        double HOTCorrectionLB = lowerBoundCorrector.getCorrection(partialConfNode.getAssignments());
+        if(HOTCorrectionLB > partialConfNode.getHOTCorrectionLB()){
+            partialConfNode.setHOTCorrectionLB(HOTCorrectionLB);
+            didCorrect = true;
+        }
+        if(doUpperBoundCorrections){
+            // Try correcting UB
+            try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+                ScoreContext context = checkout.get();
+                partialConfNode.index(context.index);
+                double HOTCorrectionUB = context.upperBoundCorrector.getCorrection(
+                        partialConfNode.getAssignments(),
+                        partialConfNode.getFreeEnergyUB(seqBound.sequence),
+                        context.index,
+                        seqBound.seqRCs);
+                if(HOTCorrectionUB < 0){
+                    partialConfNode.setHOTCorrectionUB(HOTCorrectionUB);
+                    didCorrect = true;
+                }
+            }
+        }
+        if (didCorrect == true){
             newNodes.add(partialConfNode);
             return;
         }
@@ -1396,6 +1499,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         public AStarScorer unassignedConfUBScorer;
         public ConfEnergyCalculator ecalc;
         public BatchCorrectionMinimizer batcher;
+        // Putting this here because it has internal state that could screw things up if it's accessed by multiple threads
+        public DependentScoreCorrector upperBoundCorrector;
     }
 
     private class ScoringResult {
@@ -1404,7 +1509,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         double partialUB = Double.NaN;
         double unassignLB = Double.NaN;
         double unassignUB = Double.NaN;
-        double HOTCorrection = 0.0;
+        double HOTCorrectionLB = 0.0;
+        double HOTCorrectionUB = 0.0;
         double score = Double.NaN;
         double time = Double.NaN;
         String historyString = "Error!!";
@@ -1419,11 +1525,16 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         double minimizedEnergy = Double.NaN;
         double minimizationTime = Double.NaN;
         double correctionTime = Double.NaN;
+        EnergyCalculator.EnergiedParametricMolecule epmol = null;
         String historyString = "Error!!";
 
         public boolean isValid() {
             return resultNode != null && !Double.isNaN(minimizedEnergy);
         }
+    }
+
+    public static interface RigidEmatFactory{
+        EnergyMatrix make(SimpleConfSpace confSpace);
     }
 }
 

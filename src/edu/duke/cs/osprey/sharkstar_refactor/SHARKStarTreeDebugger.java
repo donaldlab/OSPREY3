@@ -196,8 +196,8 @@ public class SHARKStarTreeDebugger {
 
     public void enforceBoundSanityLeaf(SHARKStarNode leaf, Sequence seq){
         if (leaf.isMinimized()) {
-            if (!((leaf.getPartialConfLB() + leaf.getUnassignedConfLB(seq) + leaf.getHOTCorrection() <= leaf.getMinE()) &&
-                    (leaf.getMinE() <= leaf.getPartialConfUB() + leaf.getUnassignedConfUB(seq)))) {
+            if (!((leaf.getPartialConfLB() + leaf.getUnassignedConfLB(seq) + leaf.getHOTCorrectionLB() <= leaf.getMinE()) &&
+                    (leaf.getMinE() <= leaf.getPartialConfUB() + leaf.getUnassignedConfUB(seq) + leaf.getHOTCorrectionUB()))) {
                 System.err.println("ERROR: Insane bounds!");
                 System.out.println(leaf.toSeqString(seq));
                 throw new LowerBoundException();

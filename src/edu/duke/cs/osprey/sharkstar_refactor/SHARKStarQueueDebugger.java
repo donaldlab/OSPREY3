@@ -53,12 +53,13 @@ public class SHARKStarQueueDebugger {
      */
     public static void printNodesAtLevel(SHARKStarQueue_refactor queue, int level, Sequence seq){
         System.out.println(String.format("Printing all nodes at level %d:", level));
-        getNodesAtLevel(queue, level).forEach(node -> System.out.println(String.format("%s: [%.3f, %.3f], correct: %.3f, minE: %.3f",
-                        node.confToString(),
-                        node.getFreeEnergyLB(seq),
-                        node.getFreeEnergyUB(seq),
-                        node.getHOTCorrection(),
-                        node.getMinE()
+        getNodesAtLevel(queue, level).forEach(node -> System.out.println(String.format("%s: [%.3f, %.3f], correct[LB,UB]: [%.3f, %.3f], minE: %.3f",
+                node.confToString(),
+                node.getFreeEnergyLB(seq),
+                node.getFreeEnergyUB(seq),
+                node.getHOTCorrectionLB(),
+                node.getHOTCorrectionUB(),
+                node.getMinE()
                         )));
     }
 

@@ -97,7 +97,31 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
 
         RCs rcs = sequence.makeRCs(confSpace);
 
-        return new MultiSequenceSHARKStarBound_refactor(confSpace, rigidEmat, minEmat, confEcalcMinimized, rcs, parallelism );
+        MultiSequenceSHARKStarBound_refactor.RigidEmatFactory customFact = (SimpleConfSpace customConfSpace) ->{
+            // how should we compute energies of molecules?
+            EnergyCalculator ecalcMinimized_temp = new EnergyCalculator.Builder(customConfSpace, ffparams)
+                    .setParallelism(parallelism)
+                    .build();
+            // how should we define energies of conformations?
+            ConfEnergyCalculator confEcalcMinimized_temp = new ConfEnergyCalculator.Builder(customConfSpace, ecalcMinimized_temp)
+                    .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(customConfSpace, ecalcMinimized_temp)
+                            .build()
+                            .calcReferenceEnergies()
+                    )
+                    .build();
+
+            // BBK* needs rigid energies too
+            EnergyCalculator ecalcRigid_temp = new EnergyCalculator.SharedBuilder(ecalcMinimized_temp)
+                    .setIsMinimizing(false)
+                    .build();
+            ConfEnergyCalculator confEcalcRigid_temp = new ConfEnergyCalculator(confEcalcMinimized_temp, ecalcRigid_temp);
+            EnergyMatrix rigidEmat_temp = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid_temp)
+                    .build()
+                    .calcEnergyMatrix();
+            return rigidEmat_temp;
+        };
+
+        return new MultiSequenceSHARKStarBound_refactor(confSpace, rigidEmat, minEmat, confEcalcMinimized, rcs, parallelism, customFact );
 
     }
 

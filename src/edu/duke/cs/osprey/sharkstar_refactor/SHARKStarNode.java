@@ -35,8 +35,10 @@ public class SHARKStarNode implements ConfAStarNode {
     private final Map<Sequence,Double> score;               // The ln of the partition function approximation error
 
     //TODO: Determine whether memory optimization requires deleting HOTCorrection, minE, and isMinimized
-    private double HOTCorrection;
-    private boolean isCorrected;
+    private double HOTCorrectionLB;
+    private double HOTCorrectionUB;
+    private boolean isCorrectedLB;
+    private boolean isCorrectedUB;
     private double minE;
     private boolean isMinimized;
 
@@ -57,8 +59,10 @@ public class SHARKStarNode implements ConfAStarNode {
         this.unassignedConfLB = new HashMap<>();
         this.unassignedConfUB = new HashMap<>();
         this.score = new HashMap<>();
-        this.HOTCorrection = 0.0;
-        this.isCorrected = false;
+        this.HOTCorrectionLB = 0.0;
+        this.HOTCorrectionUB = 0.0;
+        this.isCorrectedLB = false;
+        this.isCorrectedUB = false;
         this.minE = Double.NaN;
         this.isMinimized = false;
 
@@ -241,9 +245,9 @@ public class SHARKStarNode implements ConfAStarNode {
     public double getFreeEnergyLB(Sequence seq){
         if (this.isMinimized){
             return this.minE;
-        }else if (this.isCorrected){
+        }else if (this.isCorrectedLB){
             //TODO: This will change when I implement upperbound corrections
-            return this.partialConfLB + this.HOTCorrection + this.unassignedConfLB.get(seq);
+            return this.partialConfLB + this.HOTCorrectionLB + this.unassignedConfLB.get(seq);
             //return this.partialConfLB + this.unassignedConfLB.get(seq);
         }else{
             return this.partialConfLB + this.unassignedConfLB.get(seq);
@@ -253,16 +257,20 @@ public class SHARKStarNode implements ConfAStarNode {
     public double getFreeEnergyUB(Sequence seq){
         if (this.isMinimized){
             return this.minE;
-        }else if (this.isCorrected){
+        }else if (this.isCorrectedUB){
             //TODO: This will change when I implement upperbound corrections
-            return this.partialConfUB + this.unassignedConfUB.get(seq);
+            return this.partialConfUB + this.unassignedConfUB.get(seq) + this.HOTCorrectionUB;
         }else{
             return this.partialConfUB + this.unassignedConfUB.get(seq);
         }
     }
 
-    public double getHOTCorrection(){
-        return this.HOTCorrection;
+    public double getHOTCorrectionLB(){
+        return this.HOTCorrectionLB;
+    }
+
+    public double getHOTCorrectionUB(){
+        return this.HOTCorrectionLB;
     }
 
     public String confToString() {
@@ -275,8 +283,8 @@ public class SHARKStarNode implements ConfAStarNode {
     }
 
     public String toSeqString(Sequence seq){
-        String out = String.format("%s -> [%.3f + %.3f, %.3f]",
-                confToString(), getPartialConfLB()+ getUnassignedConfLB(seq), HOTCorrection, getPartialConfUB() + getUnassignedConfUB(seq));
+        String out = String.format("%s -> [%.3f + %.3f, %.3f + %.3f]",
+                confToString(), getPartialConfLB()+ getUnassignedConfLB(seq), HOTCorrectionLB, getPartialConfUB() + getUnassignedConfUB(seq), HOTCorrectionUB);
         if (isMinimized){
             out += String.format(" -> (minimized) %.3f", getMinE());
         }
@@ -303,9 +311,19 @@ public class SHARKStarNode implements ConfAStarNode {
         this.assignments = newAssignments;
     }
 
-    public void setHOTCorrection(double HOTCorrection) {
-        this.HOTCorrection = HOTCorrection;
-        this.isCorrected = true;
+    public void setHOTCorrectionLB(double HOTCorrectionLB) {
+        this.HOTCorrectionLB = HOTCorrectionLB;
+        this.isCorrectedLB = true;
+    }
+
+    public void setHOTCorrectionUB(double HOTCorrectionUB) {
+        this.HOTCorrectionUB = HOTCorrectionUB;
+        this.isCorrectedUB = true;
+    }
+
+    public void unsetHOTCorrectionUB() {
+        this.HOTCorrectionUB = 0;
+        this.isCorrectedUB = false;
     }
 
     public Set<Sequence> getSequences(){

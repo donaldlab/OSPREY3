@@ -38,6 +38,7 @@ import java.util.*;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.dof.*;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
@@ -594,6 +595,14 @@ public class SimpleConfSpace implements Serializable {
 			}
 		}
 	}
+
+	/**
+	 * Make as deep a copy as convenient
+	 * @return
+	 */
+	public SimpleConfSpace makeCopy(){
+		return new SimpleConfSpace(this.strands, this.strandFlex, this.shellDist);
+	}
 	/**
 	 * Make a copy of this confspace augmented by the larger confspace
 	 *
@@ -946,6 +955,10 @@ public class SimpleConfSpace implements Serializable {
 		}
 
 		return new ParametricMolecule(mol, dofs, dofBounds);
+	}
+
+	public RCTuple addResidueConfsFromEPMOL(RCTuple conf, EnergyCalculator.EnergiedParametricMolecule epmol){
+		return addResidueConfFromMinimization(conf, epmol.pmol.dofs, epmol.params);
 	}
 
 	/**
