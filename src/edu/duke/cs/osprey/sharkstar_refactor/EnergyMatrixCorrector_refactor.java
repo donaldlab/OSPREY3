@@ -100,7 +100,7 @@ public class EnergyMatrixCorrector_refactor {
             if (curTuple.pos.contains(nextPos))
                 continue;
             RCTuple tuple = curTuple.addRC(nextPos, conf.getAssignments()[nextPos]).sorted();
-            if(tuple.pos.size() > 2 && !multiSequenceSHARKStarBound.correctionMatrix.hasHigherOrderTermFor(tuple)) {
+            if(tuple.pos.size() > 2 && !multiSequenceSHARKStarBound.lowerBoundCorrector.containsCorrectionFor(tuple)) {
                 double tupleBounds = multiSequenceSHARKStarBound.getRigidEmat().getInternalEnergy(tuple) - multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(tuple);
                 if (tupleBounds < minTupleDiff)
                     continue;
@@ -147,14 +147,15 @@ public class EnergyMatrixCorrector_refactor {
         if (multiSequenceSHARKStarBound.getCorrectedTuples().contains(tuple.stringListing()))
             return;
         multiSequenceSHARKStarBound.getCorrectedTuples().add(tuple.stringListing());
-        if (multiSequenceSHARKStarBound.getCorrectionMatrix().hasHigherOrderTermFor(tuple))
+        if (multiSequenceSHARKStarBound.getCorrectionMatrix().containsCorrectionFor(tuple))
             return;
         double tripleEnergy = minimizingEcalc.calcEnergy(tuple).energy;
 
         double lowerbound = multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(tuple);
         if (tripleEnergy - lowerbound > 0) {
             double correction = tripleEnergy - lowerbound;
-            multiSequenceSHARKStarBound.getCorrectionMatrix().setHigherOrder(tuple, correction);
+            RCTuple sortedTup = tuple.sorted();
+            multiSequenceSHARKStarBound.getCorrectionMatrix().insertCorrection(new TupE(sortedTup, correction));
         } else
             System.err.println("Negative correction for " + tuple.stringListing());
 
@@ -195,7 +196,7 @@ public class EnergyMatrixCorrector_refactor {
             }
         }
         //minimizingEcalc.tasks.waitForFinish();
-        if (overlap.size() > 3 && !multiSequenceSHARKStarBound.getCorrectionMatrix().hasHigherOrderTermFor(overlap)
+        if (overlap.size() > 3 && !multiSequenceSHARKStarBound.getCorrectionMatrix().containsCorrectionFor(overlap)
                 && multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(overlap) != multiSequenceSHARKStarBound.getRigidEmat().getInternalEnergy(overlap)) {
             multiSequenceSHARKStarBound.getMinimizingEcalc().tasks.submit(() -> {
                 computeTupleCorrection(ecalc, overlap, bound.getSequenceEpsilon());
@@ -207,14 +208,15 @@ public class EnergyMatrixCorrector_refactor {
     }
 
     void computeTupleCorrection(ConfEnergyCalculator ecalc, RCTuple overlap, double epsilonBound) {
-        if (multiSequenceSHARKStarBound.getCorrectionMatrix().hasHigherOrderTermFor(overlap))
+        if (multiSequenceSHARKStarBound.getCorrectionMatrix().containsCorrectionFor(overlap))
             return;
         double pairwiseLower = multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(overlap);
         double partiallyMinimizedLower = ecalc.calcEnergy(overlap).energy;
         multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
         if (partiallyMinimizedLower > pairwiseLower)
             synchronized (multiSequenceSHARKStarBound.getCorrectionMatrix()) {
-                multiSequenceSHARKStarBound.getCorrectionMatrix().setHigherOrder(overlap, partiallyMinimizedLower - pairwiseLower);
+                RCTuple sortedOverlap = overlap.sorted();
+                multiSequenceSHARKStarBound.getCorrectionMatrix().insertCorrection(new TupE(overlap, partiallyMinimizedLower - pairwiseLower));
             }
         multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
     }

@@ -246,7 +246,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 .collect(Collectors.toList());
         if (corrections.size()!=0) {
             int TestNumCorrections = corrections.size();
-            this.correctionMatrix.insertAll(corrections);
+            this.correctionMatrix.insertAllCorrections(corrections);
         }else
             System.out.println("No corrections to insert");
     }

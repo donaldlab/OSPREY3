@@ -370,4 +370,19 @@ public class RCTuple implements Serializable {
 		}
 		return new RCTuple(newPos, this.RCs);
 	}
+
+	/**
+	 * Paste the current tuple on top of the confIndex
+	 *
+	 * This is destructive
+	 * @param index
+	 */
+	public void pasteToIndex(ConfIndex index){
+		for (int i=0; i< size(); i++){
+			if(index.isDefined(pos.get(i)))
+				index.unassignInPlace(pos.get(i));
+			index.assignInPlace(pos.get(i), RCs.get(i));
+		}
+
+	}
 }

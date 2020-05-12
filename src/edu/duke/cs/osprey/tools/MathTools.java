@@ -655,6 +655,31 @@ public class MathTools {
 			}
 
 			@Override
+			public int compare(float newval, float oldval) {
+				return Float.compare(newval, oldval);
+			}
+
+			@Override
+			public int compare(double newval, double oldval) {
+			    return Double.compare(newval, oldval);
+			}
+
+			@Override
+			public int compare(int newval, int oldval) {
+			    return Integer.compare(newval, oldval);
+			}
+
+			@Override
+			public int compare(long newval, long oldval) {
+			    return Long.compare(newval, oldval);
+			}
+
+			@Override
+			public int compare(BigDecimal newval, BigDecimal oldval) {
+				return MathTools.compare(newval, oldval);
+			}
+
+			@Override
 			public Optimizer reverse() {
 				return Maximize;
 			}
@@ -713,6 +738,31 @@ public class MathTools {
 			}
 
 			@Override
+			public int compare(float newval, float oldval) {
+				return -Float.compare(newval, oldval);
+			}
+
+			@Override
+			public int compare(double newval, double oldval) {
+				return -Double.compare(newval, oldval);
+			}
+
+			@Override
+			public int compare(int newval, int oldval) {
+				return -Integer.compare(newval, oldval);
+			}
+
+			@Override
+			public int compare(long newval, long oldval) {
+				return -Long.compare(newval, oldval);
+			}
+
+			@Override
+			public int compare(BigDecimal newval, BigDecimal oldval) {
+				return -MathTools.compare(newval, oldval);
+			}
+
+			@Override
 			public Optimizer reverse() {
 				return Minimize;
 			}
@@ -749,6 +799,12 @@ public class MathTools {
 		public abstract boolean isBetter(int newval, int oldval);
 		public abstract boolean isBetter(long newval, long oldval);
 		public abstract boolean isBetter(BigDecimal newval, BigDecimal oldval);
+
+		public abstract int compare(float newval, float oldval);
+		public abstract int compare(double newval, double oldval);
+		public abstract int compare(int newval, int oldval);
+		public abstract int compare(long newval, long oldval);
+		public abstract int compare(BigDecimal newval, BigDecimal oldval);
 
 		public abstract Optimizer reverse();
 	}

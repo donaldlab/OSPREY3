@@ -44,7 +44,21 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 
-public abstract class UpdatingEnergyMatrix<T extends TupE> extends ProxyEnergyMatrix {
+/**
+ * Wrap an energy matrix with a ScoreCorrector so we can just use Scorer classes directly
+ *
+ * WARNING: Currently doesn't work as expected because the {@link ScoreCorrector} isn't guaranteed to find
+ * the best correction. This means that bounds will sometimes get looser. As a workaround, store corrections
+ * in individual nodes and use a {@link ScoreCorrector} directly so we can catch this case.
+ * See {@link edu.duke.cs.osprey.sharkstar_refactor.SHARKStarNode} and
+ * {@link edu.duke.cs.osprey.sharkstar_refactor.MultiSequenceSHARKStarBound_refactor} for an example of this.
+ *
+ * @param <T>   The class (extends TupE) to use to store correction information
+ *
+ * TODO: make this not reimplement many methods
+ */
+@Deprecated
+public abstract class UpdatingEnergyMatrix<T extends TupE> extends ProxyEnergyMatrix implements Correctable<T>{
     // Store the seen confs in a trie with wildcards.
     public static boolean debug = false;
     private TupETrie<T> corrections;
@@ -88,6 +102,10 @@ public abstract class UpdatingEnergyMatrix<T extends TupE> extends ProxyEnergyMa
 
     @Override
     public boolean hasHigherOrderTermFor(RCTuple query) {
+        return corrections.contains(query);
+    }
+
+    public boolean containsCorrectionFor(RCTuple query){
         return corrections.contains(query);
     }
 
@@ -301,10 +319,14 @@ public abstract class UpdatingEnergyMatrix<T extends TupE> extends ProxyEnergyMa
         return sum;
     }
 
-    public void insertAll(List<T> corrList){
+    public void insertAllCorrections(List<T> corrList){
         for (T correction : corrList){
             corrections.insert(correction);
         }
+    }
+
+    public void insertCorrection(T correction){
+        corrections.insert(correction);
     }
 
     @Override
@@ -317,7 +339,7 @@ public abstract class UpdatingEnergyMatrix<T extends TupE> extends ProxyEnergyMa
         }
         */
         RCTuple orderedTup = tup.sorted();
-        corrections.insert(makeT(orderedTup, val));
+        insertCorrection(makeT(orderedTup, val));
     }
 
     public void writeCorrectionsToFile(String filename){

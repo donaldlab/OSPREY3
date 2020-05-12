@@ -3,9 +3,9 @@ package edu.duke.cs.osprey.energy;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TupE;
+import edu.duke.cs.osprey.ematrix.Correctable;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.confspace.SimpleTupETrie;
-import edu.duke.cs.osprey.ematrix.SimpleUpdatingEnergyMatrix;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,12 +19,12 @@ public class BatchCorrectionMinimizer {
     public final int[] costs = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     private Batch batch = null;
     private final SimpleTupETrie submittedConfs;
-    private final SimpleUpdatingEnergyMatrix correctionMatrix;
+    private final Correctable correctionStorage;
     private final EnergyMatrix minimizingEnergyMatrix;
-    public BatchCorrectionMinimizer(ConfEnergyCalculator confEcalc, SimpleUpdatingEnergyMatrix correctionMatrix,
+    public BatchCorrectionMinimizer(ConfEnergyCalculator confEcalc, Correctable correctionStorage,
                                     EnergyMatrix minimizingEnergyMatrix) {
         this.confEcalc = confEcalc;
-        this.correctionMatrix = correctionMatrix;
+        this.correctionStorage = correctionStorage;
         this.minimizingEnergyMatrix = minimizingEnergyMatrix;
         submittedConfs = new SimpleTupETrie(confEcalc.confSpace.positions);
     }
@@ -102,7 +102,8 @@ public class BatchCorrectionMinimizer {
                             double tupleEnergy = confs.get(tuple);
                             if (tupleEnergy - lowerbound > 0) {
                                 double correction = tupleEnergy - lowerbound;
-                                correctionMatrix.setHigherOrder(tuple, correction);
+                                RCTuple orderedTup = tuple.sorted();
+                                correctionStorage.insertCorrection(new TupE(orderedTup, correction));
                             } else
                                 System.err.println("Negative correction for " + tuple.stringListing());
 

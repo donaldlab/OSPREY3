@@ -5,10 +5,9 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseRigidGScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.ScorerFactory;
 import edu.duke.cs.osprey.confspace.*;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimpleUpdatingEnergyMatrix;
-import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
+import edu.duke.cs.osprey.ematrix.*;
 import edu.duke.cs.osprey.energy.BatchCorrectionMinimizer;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
@@ -77,7 +76,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private ScorerFactory nhscorerFactory;
 
     // Matrix and corrector for energy corrections
-    public final SimpleUpdatingEnergyMatrix correctionMatrix;
+    public final IndependentScoreCorrector lowerBoundCorrector;
     private final EnergyMatrixCorrector_refactor energyMatrixCorrector;
 
     // SHARK* specific variables
@@ -133,7 +132,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         // Initialize the correctionMatrix and the Corrector
         this.minList = new ArrayList<>(Collections.nCopies(rcs.getNumPos(), 0));
-        this.correctionMatrix = new SimpleUpdatingEnergyMatrix(confSpace, minimizingEmat);
+        this.lowerBoundCorrector = new IndependentScoreCorrector(confSpace, MathTools.Optimizer.Maximize);
 
         // Set up the scoring machinery
         this.gscorerFactory = (emats) -> new PairwiseGScorer(emats);
@@ -149,7 +148,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             context.partialConfUBScorer = rigidgscorerFactory.make(this.rigidEmat);
             context.unassignedConfUBScorer = nhscorerFactory.make(this.rigidEmat); //this is used for upper bounds, so we want it rigid
             context.ecalc = minimizingConfEcalc;
-            context.batcher = new BatchCorrectionMinimizer(minimizingConfEcalc, this.correctionMatrix, this.minimizingEmat);
+            context.batcher = new BatchCorrectionMinimizer(minimizingConfEcalc, this.lowerBoundCorrector, this.minimizingEmat);
 
             return context;
         });
@@ -404,7 +403,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             flexBound.compute();
             precompFlex.printEnsembleAnalysis();
             processPrecomputedFlex(precompFlex);
-            System.out.println(String.format("Precomputation of flexible residues resulted in %d partial minimizations", correctionMatrix.getAllCorrections().size()));
+            System.out.println(String.format("Precomputation of flexible residues resulted in %d partial minimizations", lowerBoundCorrector.getNumCorrections()));
         }
     }
 
@@ -418,7 +417,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         //precomputedRootNode = precomputedFlex.rootNode;
         this.precomputedSequence = precomputedFlex.confSpace.makeWildTypeSequence();
         updatePrecomputedConfTree(precomputedFlex.rootNode);
-        mergeCorrections(precomputedFlex.correctionMatrix, genConfSpaceMapping());
+        mergeCorrections(precomputedFlex.lowerBoundCorrector, genConfSpaceMapping());
 
         // Fix order issues. Hacky hack
         ConfIndex rootIndex = new ConfIndex(fullRCs.getNumPos());
@@ -455,8 +454,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         //set corrections if node is minimized
         if (node.isMinimized()) {
-            correctionMatrix.setHigherOrder(new RCTuple(node.getAssignments()), node.getMinE()
-                    - node.getPartialConfLB());
+            lowerBoundCorrector.insertCorrection(new TupE(new RCTuple(node.getAssignments()), node.getMinE()
+                    - node.getPartialConfLB()));
         }
         /*
         Reset minimized energies and unassignedConf bounds, since these will no longer be valid.
@@ -490,13 +489,13 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * Takes partial minimizations from the precomputed correctionMatrix, maps them to the new confspace, and
      * stores them in this correctionMatrix
      */
-    public void mergeCorrections(SimpleUpdatingEnergyMatrix precomputedCorrections, int[] confSpacePermutation) {
+    public void mergeCorrections(IndependentScoreCorrector precomputedCorrections, int[] confSpacePermutation) {
         List<TupE> corrections = precomputedCorrections.getAllCorrections().stream()
                 .map((tup) -> tup.permute(confSpacePermutation))
                 .collect(Collectors.toList());
         if (corrections.size() != 0) {
             int TestNumCorrections = corrections.size();
-            this.correctionMatrix.insertAll(corrections);
+            this.lowerBoundCorrector.insertAllCorrections(corrections);
         } else
             System.out.println("No corrections to insert");
     }
@@ -654,7 +653,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         result.resultNode = child;
 
                         // Try to apply partial minimization correction to child
-                        double HOTCorrection = correctionMatrix.getCorrection(child.getAssignments());
+                        double HOTCorrection = lowerBoundCorrector.getCorrection(child.getAssignments());
                         // If the parent correction is larger, just use the parent correction, since it must be valid
                         result.HOTCorrection = Math.max(HOTCorrection, parent.getHOTCorrection());
 
@@ -1180,7 +1179,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         }
 
         // Try to apply partial minimization correction to child
-        double HOTCorrection = correctionMatrix.getCorrection(fullConfNode.getAssignments());
+        double HOTCorrection = lowerBoundCorrector.getCorrection(fullConfNode.getAssignments());
         if (HOTCorrection > fullConfNode.getHOTCorrection()){
             fullConfNode.setHOTCorrection(HOTCorrection);
             // if we applied a correction, done with the node
@@ -1206,7 +1205,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      */
     public void processPartialConfNode(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> newNodes, SHARKStarNode partialConfNode) {
         //Try just correcting it
-        double HOTCorrection = correctionMatrix.getCorrection(partialConfNode.getAssignments());
+        double HOTCorrection = lowerBoundCorrector.getCorrection(partialConfNode.getAssignments());
         if(HOTCorrection > partialConfNode.getHOTCorrection()){
             partialConfNode.setHOTCorrection(HOTCorrection);
             newNodes.add(partialConfNode);
@@ -1377,8 +1376,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         return correctedTuples;
     }
 
-    public UpdatingEnergyMatrix getCorrectionMatrix() {
-        return correctionMatrix;
+    public IndependentScoreCorrector getCorrectionMatrix() {
+        return lowerBoundCorrector;
     }
 
     public void setNumPartialMinimizations(int numPartialMinimizations) {
@@ -1397,10 +1396,6 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         public AStarScorer unassignedConfUBScorer;
         public ConfEnergyCalculator ecalc;
         public BatchCorrectionMinimizer batcher;
-    }
-
-    public interface ScorerFactory {
-        AStarScorer make(EnergyMatrix emat);
     }
 
     private class ScoringResult {
