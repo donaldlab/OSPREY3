@@ -610,7 +610,7 @@ public class EnergyCalculator implements AutoCleanable {
 		this.cluster = parent.cluster;
 		this.tasks = tasks;
 		this.type = parent.type;
-		this.context = parent.context;
+		this.context = type.makeContext(parallelism, parent.resPairCache);
 		this.resPairCache = parent.resPairCache;
 		this.isMinimizing = parent.isMinimizing;
 		this.infiniteWellEnergy = parent.infiniteWellEnergy;

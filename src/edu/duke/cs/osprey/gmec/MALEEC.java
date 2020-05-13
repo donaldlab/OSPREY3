@@ -15,6 +15,8 @@ import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.pruning.SimpleDEE;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.JvmMem;
@@ -22,6 +24,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.Streams;
 
+import java.io.File;
 import java.io.Serializable;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -73,8 +76,18 @@ public class MALEEC {
 				return;
 			}
 
+			// try DEE?
+			PruningMatrix pmat = new SimpleDEE.Runner()
+				.setParallelism(Parallelism.makeCpu(Parallelism.getMaxNumCPUs()))
+				.setGoldsteinDiffThreshold(10.0)
+				.setTypeDependent(true)
+				.setTransitivePruning(true)
+				.setShowProgress(true)
+				.setCacheFile(new File("maleec.pmat"))
+				.run(confEcalc.confSpace, emat);
+
 			// make A* go BRRRRRRR
-			RCs rcs = seq.makeRCs(confEcalc.confSpace);
+			RCs rcs = new RCs(seq.makeRCs(confEcalc.confSpace), pmat);
 			ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
 				/*
 				.setCustom(
@@ -89,7 +102,7 @@ public class MALEEC {
 				)
 				*/
 				.setMPLP(new ConfAStarTree.MPLPBuilder()
-					.setNumIterations(10)
+					.setNumIterations(20)
 				)
 				.build();
 			astar.setParallelism(Parallelism.makeCpu(Parallelism.getMaxNumCPUs()));

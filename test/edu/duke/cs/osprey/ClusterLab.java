@@ -267,7 +267,7 @@ public class ClusterLab {
 			// how should we define energies of conformations?
 			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
 				.setReferenceEnergies(eref)
-				//.setEnergyPartition(EnergyPartition.AllOnPairs) // get tigher lower bounds on energies!
+				.setEnergyPartition(EnergyPartition.AllOnPairs) // get tigher lower bounds on energies!
 				.build();
 
 			// calc the energy matrix
