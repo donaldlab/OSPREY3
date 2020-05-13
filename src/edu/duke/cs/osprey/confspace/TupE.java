@@ -42,34 +42,26 @@ import java.util.regex.Pattern;
  * 
  * @author mhall44
  */
-public class TupE implements Comparable<TupE> {
+public class TupE extends RCTupleContainer implements Comparable<TupE> {
     
-    public RCTuple tup;
     public double E;
 
+    public TupE(RCTuple tup){
+        super(tup);
+        this.E = Double.NaN;
+    }
+
     public TupE(RCTuple tup, double E) {
-        this.tup = tup;
+        super(tup);
         this.E = E;
     }
-    public TupE(String repr){
+
+    public static TupE fromString(String repr){
         String[] parts = repr.split("->");
         String tupString = parts[0];
         String eString = parts[1];
 
-        ArrayList <Integer> pos = new ArrayList<Integer>();
-        ArrayList <Integer> RCs = new ArrayList<Integer>();
-
-        // Form arrays from tupString
-        Pattern point = Pattern.compile("\\d+=\\d+");
-        Matcher m = point.matcher(tupString);
-        while (m.find()){
-            String[] splits = m.group().split("=");
-            pos.add(Integer.parseInt(splits[0]));
-            RCs.add(Integer.parseInt(splits[1]));
-        }
-
-        this.tup = new RCTuple(pos, RCs);
-        this.E = Double.parseDouble(eString);
+        return new TupE(RCTuple.fromString(parts[0]), Double.parseDouble(eString));
     }
 
     public TupE permute(int[] perm){
@@ -84,10 +76,6 @@ public class TupE implements Comparable<TupE> {
 
     @Override
     public String toString() {
-        return tup.stringListing()+"->"+E;
-    }
-
-    public String toString_short() {
         return tup.toString()+"->"+E;
     }
 

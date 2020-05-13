@@ -1,9 +1,6 @@
 package edu.duke.cs.osprey.ematrix;
 
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.TupE;
-import edu.duke.cs.osprey.confspace.TupETrie;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -17,12 +14,12 @@ import java.util.*;
 public abstract class ScoreCorrector <T extends TupE> implements Correctable<T>{
     protected static boolean debug = false;
 
-    protected TupETrie<T> corrections;
+    protected TupleTrie<T> corrections;
     protected int numPos;
     protected MathTools.Optimizer opt; // are we correcting up or down?
 
     //Abstract constructors for the type of TupE we want to use
-    protected abstract TupETrie<T> makeTrie(List<SimpleConfSpace.Position> positions);
+    protected abstract TupleTrie<T> makeTrie(List<SimpleConfSpace.Position> positions);
 
     //Abstract methods that will depend on the type of corrector we are making
     protected abstract double correctionSize(T correction);

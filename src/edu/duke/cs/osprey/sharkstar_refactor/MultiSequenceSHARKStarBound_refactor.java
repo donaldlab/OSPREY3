@@ -488,7 +488,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 // Insert the correction
                 try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                     ScoreContext context = checkout.get();
-                    context.upperBoundCorrector.insertCorrection(new MappableTupE(nodeTup, mappedTup, node.getMinE() - node.getFreeEnergyUB(precomputedSequence)));
+                    context.upperBoundCorrector.insertCorrection(new TupEMapping(nodeTup, mappedTup, node.getMinE() - node.getFreeEnergyUB(precomputedSequence)));
                 }
             }
         }

@@ -38,6 +38,8 @@ import edu.duke.cs.osprey.tools.HashCalculator;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -297,6 +299,21 @@ public class RCTuple implements Serializable {
 		}
 		buf.append("]");
 		return buf.toString();
+	}
+
+	public static RCTuple fromString(String repr){
+		ArrayList<Integer> pos = new ArrayList<Integer>();
+		ArrayList <Integer> RCs = new ArrayList<Integer>();
+
+		// Form arrays from tupString
+		Pattern point = Pattern.compile("\\d+=\\d+");
+		Matcher m = point.matcher(repr);
+		while (m.find()){
+			String[] splits = m.group().split("=");
+			pos.add(Integer.parseInt(splits[0]));
+			RCs.add(Integer.parseInt(splits[1]));
+		}
+		return new RCTuple(pos, RCs);
 	}
 
 	public void sortPositions() {

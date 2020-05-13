@@ -27,7 +27,6 @@ import static edu.duke.cs.osprey.TestBase.isAbsolutely;
 import static org.junit.Assert.assertThat;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class TestUpperBoundCorrections {
     private static Molecule metallochaperone;
@@ -512,7 +511,7 @@ public class TestUpperBoundCorrections {
 
         List<int[]> fullAssignments = new ArrayList<>();
         //Corrections list
-        ArrayList<MappableTupE> corrList = new ArrayList<>();
+        ArrayList<TupEMapping> corrList = new ArrayList<>();
 
         //Generate the array to map from the flex confspace to the full confspace
         int[] permArray = flexCopy.positions.stream()
@@ -534,7 +533,7 @@ public class TestUpperBoundCorrections {
 
             //Add the new RCs from the partial minimization into the full confspace
             RCTuple mappedTup = confSpace.addResidueConfFromMinimization(originalTup, analysis.epmol.pmol.dofs,analysis.epmol.params);
-            corrList.add(new MappableTupE(originalTup, mappedTup, analysis.epmol.energy - analysis.score));
+            corrList.add(new TupEMapping(originalTup, mappedTup, analysis.epmol.energy - analysis.score));
         }
 
         // Make the new emat
@@ -580,7 +579,7 @@ public class TestUpperBoundCorrections {
 
         List<int[]> fullAssignments = new ArrayList<>();
         //Corrections list
-        ArrayList<MappableTupE> corrList = new ArrayList<>();
+        ArrayList<TupEMapping> corrList = new ArrayList<>();
 
         //Generate the array to map from the flex confspace to the full confspace
         int[] permArray = flexCopy.positions.stream()
@@ -602,7 +601,7 @@ public class TestUpperBoundCorrections {
 
             //Add the new RCs from the partial minimization into the full confspace
             RCTuple mappedTup = confSpace.addResidueConfFromMinimization(originalTup, analysis.epmol.pmol.dofs,analysis.epmol.params);
-            upperBoundCorrector.insertCorrection(new MappableTupE(originalTup, mappedTup, analysis.epmol.energy - analysis.score));
+            upperBoundCorrector.insertCorrection(new TupEMapping(originalTup, mappedTup, analysis.epmol.energy - analysis.score));
         }
 
         // Make the new emat

@@ -14,7 +14,7 @@ import java.util.List;
  * Score corrector for quantities that are dependent on assignments outside the tuple, and
  * therefore need to score on a new energy matrix
  */
-public class DependentScoreCorrector extends ScoreCorrector<MappableTupE> {
+public class DependentScoreCorrector extends ScoreCorrector<TupEMapping> {
     protected EnergyMatrix mappedEmat;
     protected AStarScorer corrGScorer;
     protected AStarScorer corrHScorer;
@@ -56,12 +56,12 @@ public class DependentScoreCorrector extends ScoreCorrector<MappableTupE> {
     }
 
     @Override
-    protected TupETrie<MappableTupE> makeTrie(List<SimpleConfSpace.Position> positions) {
-        return new MappableTupETrie(positions);
+    protected TupleTrieImplementations.TupEMappingTrie makeTrie(List<SimpleConfSpace.Position> positions) {
+        return new TupleTrieImplementations.TupEMappingTrie(positions);
     }
 
     @Override
-    protected double correctionSize(MappableTupE correction) {
+    protected double correctionSize(TupEMapping correction) {
         correction.mappedTup.pasteToIndex(this.index);
         double correctScore = this.corrGScorer.calc(this.index, this.rcs) + this.corrHScorer.calc(this.index, this.rcs);
         return correctScore - this.unCorrectedScore;
@@ -72,9 +72,9 @@ public class DependentScoreCorrector extends ScoreCorrector<MappableTupE> {
         setRequiredInformation(unCorrectedScore, index, rcs);
 
         // go ahead and get the corrections
-        List<MappableTupE> cover = getBestCorrectionsFor(query);
+        List<TupEMapping> cover = getBestCorrectionsFor(query);
         double sum = 0.0;
-        for (MappableTupE correction : cover){
+        for (TupEMapping correction : cover){
             //TODO: again, if we store these correction sizes per access this should be speedier
             sum += correctionSize(correction);
         }

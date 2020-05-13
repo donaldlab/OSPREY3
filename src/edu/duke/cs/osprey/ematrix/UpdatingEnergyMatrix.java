@@ -32,11 +32,8 @@
 
 package edu.duke.cs.osprey.ematrix;
 
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.TupETrie;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.confspace.TupE;
 import edu.duke.cs.osprey.tools.FileTools;
 
 import java.io.File;
@@ -61,7 +58,7 @@ import java.util.stream.Collectors;
 public abstract class UpdatingEnergyMatrix<T extends TupE> extends ProxyEnergyMatrix implements Correctable<T>{
     // Store the seen confs in a trie with wildcards.
     public static boolean debug = false;
-    private TupETrie<T> corrections;
+    private TupleTrie<T> corrections;
     private int numPos;
     
     //debug variable
@@ -69,7 +66,7 @@ public abstract class UpdatingEnergyMatrix<T extends TupE> extends ProxyEnergyMa
 
     //Abstract constructors for the type of TupE we want to use
     protected abstract T makeT(RCTuple tup, double val);
-    protected abstract TupETrie<T> makeTrie(List<SimpleConfSpace.Position> positions);
+    protected abstract TupleTrie<T> makeTrie(List<SimpleConfSpace.Position> positions);
 
     public UpdatingEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix target, ConfEnergyCalculator confECalc) {
         super(confSpace, target);

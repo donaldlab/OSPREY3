@@ -14,8 +14,8 @@ public class IndependentScoreCorrector extends ScoreCorrector<TupE> {
     }
 
     @Override
-    protected TupETrie<TupE> makeTrie(List<SimpleConfSpace.Position> positions) {
-        return new SimpleTupETrie(positions);
+    protected TupleTrieImplementations.TupETrie makeTrie(List<SimpleConfSpace.Position> positions) {
+        return new TupleTrieImplementations.TupETrie(positions);
     }
 
     @Override

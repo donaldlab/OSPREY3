@@ -16,7 +16,7 @@ public class TestTupE {
     @Test
     public void testTupEFromString(){
         String tupString = "[5=8,6=8,7=4,8=5]->1.4466163083210901";
-        TupE test = new TupE(tupString);
+        TupE test = TupE.fromString(tupString);
         System.out.println(test.toString());
     }
 
@@ -28,9 +28,9 @@ public class TestTupE {
         String tupString = "[5=8,6=8,7=4,8=5]->[5=124,6=1091,8=0]->1.4466163083210901";
         RCTuple tup = new RCTuple(5,8,6,8,7,4,8,5);
         RCTuple mapTup = new RCTuple(5,124,6,1091,8,0);
-        MappableTupE test = new MappableTupE(tupString);
+        TupEMapping test = TupEMapping.fromString(tupString);
 
-        assertThat(test.toString_short(), is(tupString));
+        assertThat(test.toString(), is(tupString));
         assert(test.tup.equals(tup));
         System.out.println(test.mappedTup);
         System.out.println(mapTup);

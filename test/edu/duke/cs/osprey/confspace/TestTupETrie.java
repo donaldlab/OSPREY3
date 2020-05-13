@@ -133,7 +133,7 @@ public class TestTupETrie {
     }
 
     // Method to help manual tests
-    private void runManual(SimpleTupETrie trie, List<TupE> tupleList) {
+    private void runManual(TupleTrieImplementations.TupETrie trie, List<TupE> tupleList) {
         for(TupE tupE : tupleList) {
             System.out.println("Inserting "+tupE.tup.stringListing()+":"+tupE.E);
             trie.insert(tupE);
@@ -156,13 +156,13 @@ public class TestTupETrie {
     }
 
     /*
-    Testing for SimpleTupETries
+    Testing for TupETries
      */
     @Test
-    public void testSimpleTupETrieRandom()
+    public void testTupETrieRandom()
     {
         SimpleConfSpace confSpace = make1GUASmall(NUM_FLEX);
-        SimpleTupETrie trie = new SimpleTupETrie(confSpace.positions);
+        TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpace.positions);
         runManual(trie, makeManualTupE());
         for(int i = 0; i < NUM_TUPS; i++)
         {
@@ -178,17 +178,17 @@ public class TestTupETrie {
     }
 
     @Test
-    public void testSimpleTupETrieManual () {
+    public void testTupETrieManual () {
         SimpleConfSpace confSpace = make1GUASmall(4);
-        SimpleTupETrie trie = new SimpleTupETrie(confSpace.positions);
+        TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpace.positions);
         runManual(trie, makeManualTupE());
     }
 
     @Test
-    public void testSimpleTupETrieManual2 () {
+    public void testTupETrieManual2 () {
         try {
             SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs").complex;
-            SimpleTupETrie trie = new SimpleTupETrie(mutableConfSpace.positions);
+            TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(mutableConfSpace.positions);
             runManual(trie, makeManualTupE2());
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -197,9 +197,9 @@ public class TestTupETrie {
     }
 
     @Test
-    public void testSimpleTupETrieGetAllCorrections(){
+    public void testTupETrieGetAllCorrections(){
         SimpleConfSpace confSpace = make1GUASmall(4);
-        SimpleTupETrie trie = new SimpleTupETrie(confSpace.positions);
+        TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpace.positions);
         runManual(trie, makeManualTupE());
 
         for(int i = 0; i < NUM_TUPS; i++)
@@ -215,10 +215,10 @@ public class TestTupETrie {
     }
 
     @Test
-    public void testSimpleTupETrieReadFromFile(){
+    public void testTupETrieReadFromFile(){
         try{
             TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
-            SimpleTupETrie trie = new SimpleTupETrie(confSpaces.complex.positions);
+            TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpaces.complex.positions);
             trie.readEntriesFromFile("test-resources/3bua_test_corrections.txt");
             System.out.println(String.format("Read %d corrections from file.", trie.size()));
         }catch(FileNotFoundException e){
@@ -226,10 +226,10 @@ public class TestTupETrie {
         }
     }
     @Test
-    public void testSimpleTupETrieWriteToFile(){
+    public void testTupETrieWriteToFile(){
         try{
             TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
-            SimpleTupETrie trie = new SimpleTupETrie(confSpaces.complex.positions);
+            TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpaces.complex.positions);
             trie.readEntriesFromFile("test-resources/3bua_test_corrections.txt");
             System.out.println(String.format("Read %d corrections from file.", trie.size()));
             trie.writeEntriesToFile("test_corrections.txt");
@@ -239,10 +239,10 @@ public class TestTupETrie {
     }
 
     @Test
-    public void testSimpleTupETrie3bua_corrections_all(){
+    public void testTupETrie3bua_corrections_all(){
         try{
             TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
-            SimpleTupETrie trie = new SimpleTupETrie(confSpaces.complex.positions);
+            TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpaces.complex.positions);
             trie.readEntriesFromFile("test-resources/3bua_test_corrections.txt");
             System.out.println(String.format("Read %d corrections from file.", trie.size()));
 
@@ -259,11 +259,11 @@ public class TestTupETrie {
             weirdList.sort(TupE::compareTo);
 
             System.out.println("Corrections for parent:");
-            System.out.println(parentList.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
+            System.out.println(parentList.stream().map(TupE::toString).collect(Collectors.joining("\n")));
             System.out.println("Corrections for child:");
-            System.out.println(childList.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
+            System.out.println(childList.stream().map(TupE::toString).collect(Collectors.joining("\n")));
             System.out.println("Corrections for weird child:");
-            System.out.println(weirdList.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
+            System.out.println(weirdList.stream().map(TupE::toString).collect(Collectors.joining("\n")));
 
 
         }catch(FileNotFoundException e){
@@ -306,13 +306,13 @@ public class TestTupETrie {
 
     }
     @Test
-    public void testSimpleTupETrie3bua_greedy() {
+    public void testTupETrie3bua_greedy() {
         /** The greedy algorithm for finding the best energy corrections fails when a large correction is less
          * favorable than two disjoint small corrections. This test case documents that behavior.
          */
         try {
             TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
-            SimpleTupETrie trie = new SimpleTupETrie(confSpaces.complex.positions);
+            TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpaces.complex.positions);
             trie.readEntriesFromFile("test-resources/3bua_test_corrections.txt");
             System.out.println(String.format("Read %d corrections from file.", trie.size()));
 
@@ -329,11 +329,11 @@ public class TestTupETrie {
             List<TupE> weirdFinal = greedyGet(weirdList, 9);
 
             System.out.println("Corrections for parent:");
-            System.out.println(parentFinal.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
+            System.out.println(parentFinal.stream().map(TupE::toString).collect(Collectors.joining("\n")));
             System.out.println("Corrections for child:");
-            System.out.println(childFinal.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
+            System.out.println(childFinal.stream().map(TupE::toString).collect(Collectors.joining("\n")));
             System.out.println("Corrections for weird child:");
-            System.out.println(weirdFinal.stream().map(TupE::toString_short).collect(Collectors.joining("\n")));
+            System.out.println(weirdFinal.stream().map(TupE::toString).collect(Collectors.joining("\n")));
 
             assertThat(weirdList.containsAll(parentFinal), is(true));
 

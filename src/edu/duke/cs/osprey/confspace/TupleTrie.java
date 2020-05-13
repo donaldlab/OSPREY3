@@ -7,25 +7,20 @@ import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public abstract class TupETrie<T extends TupE> {
+public abstract class TupleTrie<T extends RCTupleContainer> {
     public final static int WILDCARD_RC = -123;
-    public static boolean debug = UpdatingEnergyMatrix.debug;
-    TupETrieNode root;
+    public static boolean debug = false;
+    TupleTrieNode root;
     List<SimpleConfSpace.Position> positions;
     private int numEntries;
 
-    public TupETrie(List<SimpleConfSpace.Position> positions)
+    public TupleTrie(List<SimpleConfSpace.Position> positions)
     {
         this.positions = positions;
-        root = createTrie(positions);
+        this.root = new TupleTrieNode(positions, -1);
     }
 
     protected abstract T makeT(String repr);
-
-    private TupETrieNode createTrie(List<SimpleConfSpace.Position> positions) {
-        root = new TupETrieNode(positions, -1);
-        return root;
-    }
 
     public void insert(T entry) {
         if(debug)
@@ -67,27 +62,47 @@ public abstract class TupETrie<T extends TupE> {
     }
 
     public void clear() {
-        root = createTrie(positions);
+        this.root = new TupleTrieNode(positions, -1);
     }
 
+    public void writeEntriesToFile(String filename){
+        File file = new File(filename);
+        writeEntriesToFile(file);
+    }
+    public void writeEntriesToFile(File f) {
+        List<String> lineList = getAllEntries().stream()
+                .distinct().map(T::toString).collect(Collectors.toList());
+        FileTools.writeFile(String.join("\n", lineList), f);
+    }
 
+    public void readEntriesFromFile(String filename){
+        File file = new File(filename);
+        readEntriesFromFile(file);
+    }
+    public void readEntriesFromFile(File f){
+        List<String> data = Arrays.asList(FileTools.readFile(f).split("\n"));
+        List<T> tupList = data.stream().map(this::makeT).collect(Collectors.toList());
+        for (T tup : tupList) {
+            insert(tup);
+        }
+    }
 
-    private class TupETrieNode {
+    private class TupleTrieNode {
         // Wildcard rc
         int rc = WILDCARD_RC;
         int positionIndex = -1;
         int position = -1;
         List<SimpleConfSpace.Position> positions;
         List<T> entries = new ArrayList<>();
-        Map<Integer, TupETrieNode> children = new HashMap<>();
+        Map<Integer, TupleTrieNode> children = new HashMap<>();
 
-        private TupETrieNode(List<SimpleConfSpace.Position> positions, int positionIndex) {
+        private TupleTrieNode(List<SimpleConfSpace.Position> positions, int positionIndex) {
             this.positions = positions;
             this.positionIndex = positionIndex;
             if(positionIndex >= 0)
                 this.position = positions.get(positionIndex).index;
             if(positionIndex+1 < positions.size())
-                children.put(WILDCARD_RC, new TupETrieNode(positions, positionIndex+1));
+                children.put(WILDCARD_RC, new TupleTrieNode(positions, positionIndex+1));
         }
 
         public boolean contains(RCTuple query, int tupleIndex) {
@@ -134,12 +149,12 @@ public abstract class TupETrie<T extends TupE> {
 
         public void insert(T entry, int tupIndex)
         {
-            for(TupETrieNode child: children.values()) {
+            for(TupleTrieNode child: children.values()) {
                 debugPrint(this+"->"+child);
             }
             for(T e: entries)
             {
-                debugPrint(e.tup.stringListing()+":"+e.E);
+                debugPrint(e.toString());
             }
             RCTuple tup = entry.tup;
             if(tupIndex >= tup.size()) {
@@ -147,7 +162,7 @@ public abstract class TupETrie<T extends TupE> {
                 entries.add(entry);
                 for(T e: entries)
                 {
-                    debugPrint(e.tup.stringListing()+":"+e.E);
+                    debugPrint(e.toString());
                 }
                 return;
             }
@@ -167,7 +182,7 @@ public abstract class TupETrie<T extends TupE> {
             else
             {
                 if(!children.containsKey(childRC)) {
-                    TupETrieNode newChild = new TupETrieNode(positions, positionIndex+1);
+                    TupleTrieNode newChild = new TupleTrieNode(positions, positionIndex+1);
                     newChild.rc = childRC;
                     children.put(childRC, newChild);
                     debugPrint("Added child "+newChild+" to "+this);
@@ -215,7 +230,7 @@ public abstract class TupETrie<T extends TupE> {
                 children.get(currentRC).populateEntries(query, output, nextIndex);
             // Also branch on wildcard.
             if(!children.containsKey(WILDCARD_RC))
-                children.put(WILDCARD_RC, new TupETrieNode(positions, positionIndex+1));
+                children.put(WILDCARD_RC, new TupleTrieNode(positions, positionIndex+1));
             children.get(WILDCARD_RC).populateEntries(query, output, nextIndex);
         }
 
@@ -226,33 +241,10 @@ public abstract class TupETrie<T extends TupE> {
                 debugPrint("Adding entries from "+this);
             }
 
-            for (TupETrieNode child : this.children.values()){
+            for (TupleTrieNode child : this.children.values()){
                 child.getAllEntries(output);
             }
         }
 
     }
-
-    public void writeEntriesToFile(String filename){
-        File file = new File(filename);
-        writeEntriesToFile(file);
-    }
-    public void writeEntriesToFile(File f) {
-        List<String> lineList = getAllEntries().stream()
-                .distinct().map(T::toString_short).collect(Collectors.toList());
-        FileTools.writeFile(String.join("\n", lineList), f);
-    }
-
-    public void readEntriesFromFile(String filename){
-        File file = new File(filename);
-        readEntriesFromFile(file);
-    }
-    public void readEntriesFromFile(File f){
-        List<String> data = Arrays.asList(FileTools.readFile(f).split("\n"));
-        List<T> tupEList = data.stream().map(this::makeT).collect(Collectors.toList());
-        for (T tup : tupEList) {
-            insert(tup);
-        }
-    }
-
 }

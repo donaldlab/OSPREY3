@@ -1,11 +1,8 @@
 package edu.duke.cs.osprey.energy;
 
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.TupE;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.Correctable;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.confspace.SimpleTupETrie;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,7 +15,7 @@ public class BatchCorrectionMinimizer {
     public final int CostThreshold = 1000;
     public final int[] costs = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     private Batch batch = null;
-    private final SimpleTupETrie submittedConfs;
+    private final TupleTrieImplementations.TupETrie submittedConfs;
     private final Correctable correctionStorage;
     private final EnergyMatrix minimizingEnergyMatrix;
     public BatchCorrectionMinimizer(ConfEnergyCalculator confEcalc, Correctable correctionStorage,
@@ -26,7 +23,7 @@ public class BatchCorrectionMinimizer {
         this.confEcalc = confEcalc;
         this.correctionStorage = correctionStorage;
         this.minimizingEnergyMatrix = minimizingEnergyMatrix;
-        submittedConfs = new SimpleTupETrie(confEcalc.confSpace.positions);
+        submittedConfs = new TupleTrieImplementations.TupETrie(confEcalc.confSpace.positions);
     }
 
     public Batch getBatch() {
