@@ -5,26 +5,35 @@
 
 namespace osprey {
 
-	// degree of freedom
-	// make sure to only construct/destruct on one thread!
 	template<typename T>
-	class Dof {
+	using DofSetter = void (*)(Assignment<T> & assignment, void * dof, T val, int8_t * shared_mem);
+
+	// degree of freedom
+	// uses C style polymorphism (rather than C++ style)
+	// since we need to pre-allocate all the shared memory
+	template<typename T>
+	class alignas(16) Dof {
 		public:
 
-			const T min;
-			const T max;
-			const T initial_step_size;
+			// size of shared memory for each dof
+			static const int64_t buf_size = 128;
 
-			__device__
-			Dof(T min, T max, T initial_step_size):
-					min(min), max(max), initial_step_size(initial_step_size) {}
-
-			__device__
+			// only allocated in shared memory
+			Dof() = delete;
 			Dof(const Dof & other) = delete;
-			~Dof() = default;
+			~Dof() = delete;
+
+			T min;
+			T max;
+			T initial_step_size;
+			DofSetter<T> setter;
+			Array<PosInter<T>> * inters;
 
 			__device__
-			virtual void set(T val, int8_t * shared_mem) = 0;
+			inline void set(Assignment<T> & assignment, T val, int8_t * shared_mem) {
+				assert (setter != nullptr);
+				setter(assignment, this, val, shared_mem);
+			}
 
 			__device__
 			inline T center() const {
@@ -38,28 +47,18 @@ namespace osprey {
 			}
 
 			__device__
-			inline void free() {
-				if (inters != nullptr) {
-					std::free(inters);
-					inters = nullptr;
-				}
-			}
-
-		protected:
-
-			__device__
 			void make_inters(const Array<PosInter<T>> & all_inters, const int32_t modified_posi[], int num_modified) {
 
 				// how many of the interactions are affected by this degree of freedom?
-				int inters_size = 0;
+				int64_t inters_size = 0;
 				for (int i=0; i<all_inters.get_size(); i++) {
 					if (is_inter_affected(all_inters[i], modified_posi, num_modified)) {
 						inters_size += 1;
 					}
 				}
 
-				// allocate space for the filtered interactions
-				inters = Array<PosInter<T>>::make(inters_size);
+				assert (inters != nullptr);
+				inters->init0(inters_size);
 
 				// copy the interactions
 				inters_size = 0;
@@ -69,9 +68,6 @@ namespace osprey {
 					}
 				}
 			}
-
-		private:
-			Array<PosInter<T>> * inters;
 
 			__device__
 			static bool is_inter_affected(const PosInter<T> & inter, const int32_t modified_posi[], int num_modified) {
@@ -124,45 +120,57 @@ namespace osprey {
 			inline const int32_t * get_rotated_indices() const {
 				return reinterpret_cast<const int32_t *>(this + 1);
 			}
-
-			class Dof: public osprey::Dof<T> {
-				public:
-
-					static constexpr T step_size = 0.004363323; // 0.25 degrees
-
-					__device__
-					Dof(const Dihedral<T> & dihedral, Assignment<T> & assignment, const Array<PosInter<T>> & inters):
-						osprey::Dof<T>(dihedral.min_radians, dihedral.max_radians, step_size),
-						dihedral(dihedral), assignment(assignment) {
-
-						// filter the inters
-						make_inters(inters, &dihedral.modified_posi, 1);
-					}
-
-					const Dihedral<T> & dihedral;
-					Assignment<T> & assignment;
-
-					__device__
-					virtual void set(T radians, int8_t * shared_mem);
-			};
-
-			__device__
-			inline Dof * make_dof(Assignment<T> & assignment, const Array<PosInter<T>> & inters) const {
-				return new Dof(*this, assignment, inters);
-			}
 		};
 		ASSERT_JAVA_COMPATIBLE_REALS(Dihedral, 48, 48);
 
+
+		template<typename T>
+		class alignas(16) DihedralDof {
+
+			public:
+
+				// only allocated in shared memory
+				DihedralDof() = delete;
+				DihedralDof(const DihedralDof & other) = delete;
+				~DihedralDof() = delete;
+
+				Dof<T> base;
+				const Dihedral<T> * dihedral;
+
+				__device__
+				void init(const Dihedral<T> * _dihedral, const Array<PosInter<T>> & inters) {
+
+					dihedral = _dihedral;
+
+					base.min = dihedral->min_radians;
+					base.max = dihedral->max_radians;
+					base.initial_step_size = 0.004363323; // 0.25 degrees, in radians
+					base.setter = set;
+					base.inters = reinterpret_cast<Array<PosInter<T>> *>(this + 1);
+
+					// filter the inters
+					base.make_inters(inters, &dihedral->modified_posi, 1);
+				}
+
+				__device__
+				static void set(Assignment<T> & assignment, void * dof, T radians, int8_t * shared_mem);
+		};
+		static_assert(sizeof(DihedralDof<float32_t>) <= Dof<float32_t>::buf_size);
+		static_assert(sizeof(DihedralDof<float64_t>) <= Dof<float64_t>::buf_size);
+		static_assert(offsetof(DihedralDof<float32_t>, base) == 0);
+		static_assert(offsetof(DihedralDof<float64_t>, base) == 0);
+
 		template<>
 		__device__
-		void Dihedral<float32_t>::Dof::set(float32_t radians, int8_t * shared_mem) {
+		void DihedralDof<float32_t>::set(Assignment<float32_t> & assignment, void * pdof, float32_t radians, int8_t * shared_mem) {
 
+			auto dof = reinterpret_cast<DihedralDof<float32_t> *>(pdof);
 			Real3<float32_t> * atoms = assignment.atoms.items();
 
-			Real3<float32_t> & a = atoms[dihedral.a_index];
-			Real3<float32_t> & b = atoms[dihedral.b_index];
-			Real3<float32_t> & c = atoms[dihedral.c_index];
-			Real3<float32_t> & d = atoms[dihedral.d_index];
+			Real3<float32_t> & a = atoms[dof->dihedral->a_index];
+			Real3<float32_t> & b = atoms[dof->dihedral->b_index];
+			Real3<float32_t> & c = atoms[dof->dihedral->c_index];
+			Real3<float32_t> & d = atoms[dof->dihedral->d_index];
 
 			// rotate into a coordinate system where:
 			//   b->c is along the -z axis
@@ -177,8 +185,8 @@ namespace osprey {
 			r_z.set(dx, dy, -radians);
 
 			// transform all the rotated atoms, in parallel
-			for (uint i=threadIdx.x; i<dihedral.num_rotated; i+=blockDim.x) {
-				Real3<float32_t> & p = atoms[dihedral.get_rotated_index(i)];
+			for (uint i=threadIdx.x; i<dof->dihedral->num_rotated; i+=blockDim.x) {
+				Real3<float32_t> & p = atoms[dof->dihedral->get_rotated_index(i)];
 				assert (!isnan3<float32_t>(p));
 				p -= b;
 				r.mul(p);
@@ -192,12 +200,16 @@ namespace osprey {
 
 		template<>
 		__device__
-		void Dihedral<float64_t>::Dof::set(float64_t radians, int8_t * shared_mem) {
+		void DihedralDof<float64_t>::set(Assignment<float64_t> & assignment, void * pdof, float64_t radians, int8_t * shared_mem) {
+
+			// TODO: go back and clean this up?
 
 			// NOTE: doubles use twice as many registers as floats
 			// so this function causes a *lot* of register pressure!
 			// this function has been heavily optimized to reduce register usage.
 			// that's why it looks so weird!
+
+			auto dof = reinterpret_cast<DihedralDof<float64_t> *>(pdof);
 
 			// slice up the shared memory
 			auto b = reinterpret_cast<Real3<float64_t> *>(shared_mem);
@@ -209,21 +221,24 @@ namespace osprey {
 
 			// copy b to shared mem
 			Real3<float64_t> * atoms = assignment.atoms.items();
-			*b = atoms[dihedral.b_index];
+			if (threadIdx.x == 0) {
+				*b = atoms[dof->dihedral->b_index];
+			}
+			__syncthreads();
 
 			// rotate into a coordinate system where:
 			//   b->c is along the -z axis
 			//   b->a is in the xz plane
 			if (threadIdx.x == 0) {
-				Real3<float64_t> & a = atoms[dihedral.a_index];
-				Real3<float64_t> & c = atoms[dihedral.c_index];
+				Real3<float64_t> & a = atoms[dof->dihedral->a_index];
+				Real3<float64_t> & c = atoms[dof->dihedral->c_index];
 				r->set_look(c - *b, a - *b);
 			}
 			__syncthreads();
 
 			// rotate about z to set the desired dihedral angle
 			if (threadIdx.x == 0) {
-				Real3<float64_t> & d = atoms[dihedral.d_index];
+				Real3<float64_t> & d = atoms[dof->dihedral->d_index];
 				float64_t dx = dot<float64_t>(r->xaxis, d - *b);
 				float64_t dy = dot<float64_t>(r->yaxis, d - *b);
 				r_z->set(dx, dy, -radians);
@@ -231,8 +246,8 @@ namespace osprey {
 			__syncthreads();
 
 			// transform all the rotated atoms, in parallel
-			for (uint i=threadIdx.x; i<dihedral.num_rotated; i+=blockDim.x) {
-				Real3<float64_t> & p = atoms[dihedral.get_rotated_index(i)];
+			for (uint i=threadIdx.x; i<dof->dihedral->num_rotated; i+=blockDim.x) {
+				Real3<float64_t> & p = atoms[dof->dihedral->get_rotated_index(i)];
 				assert (!isnan3<float64_t>(p));
 				p -= *b;
 				r->mul(p);

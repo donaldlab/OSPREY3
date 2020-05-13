@@ -10,16 +10,13 @@ namespace osprey {
 		public:
 
 			// created only by malloc-style allocations
-			__device__
 			DofValues() = delete;
-			__device__
 			DofValues(const DofValues<T> & other) = delete;
 			~DofValues() = delete;
 
 			__device__
 			inline void set(const DofValues<T> & other) {
 
-				// TODO: do all the copies simultaneously, but on different threads?
 				if (threadIdx.x == 0) {
 					f = other.f;
 				}
@@ -76,44 +73,28 @@ namespace osprey {
 			     const Array<PosInter<T>> & inters,
 			     EnergyFunction<T> efunc,
 			     T thread_energy[],
-				 int8_t * dofs_shared_mem,
-			     Dof<T> * shared_dofs[]):
-					assignment(assignment), efunc(efunc), thread_energy(thread_energy), dofs_shared_mem(dofs_shared_mem),
-					inters(inters), shared_dofs(shared_dofs) {
+			     int8_t * dof_bufs,
+			     int8_t * dofs_shared_mem):
+					assignment(assignment), inters(inters), efunc(efunc), thread_energy(thread_energy),
+					dof_bufs(dof_bufs), dofs_shared_mem(dofs_shared_mem) {
 
 				size = 0;
-
-				// TODO: parallelize, so thread 0 isn't doing all the work
-
-				// make molecule dofs
-				for (int motioni=0; motioni < assignment.conf_space.num_molecule_motions; motioni++) {
-					switch (assignment.conf_space.get_molecule_motion_id(motioni)) {
-
-						case motions::Dihedral<T>::Id: {
-							if (threadIdx.x == 0) {
-								const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_molecule_motion(motioni));
-								shared_dofs[size] = dihedral.make_dof(assignment, inters);
-							}
-							size += 1;
-						} break;
-
-						// TODO: translation/rotation
-
-						default: assert(false);
-					}
-				}
 
 				// make the conf dofs
 				for (int posi=0; posi<assignment.conf_space.num_pos; posi++) {
 					const Pos & pos = assignment.conf_space.get_pos(posi);
 					const Conf<T> & conf = assignment.conf_space.get_conf(pos, assignment.conf[posi]);
 					for (int motioni=0; motioni<conf.num_motions; motioni++) {
+
+						assert (size < assignment.conf_space.max_num_dofs);
+
 						switch (assignment.conf_space.get_conf_motion_id(conf, motioni)) {
 
 							case motions::Dihedral<T>::Id: {
 								if (threadIdx.x == 0) {
-									const motions::Dihedral<T> & dihedral = *reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
-									shared_dofs[size] = dihedral.make_dof(assignment, inters);
+									auto dihedral = reinterpret_cast<const motions::Dihedral<T> *>(assignment.conf_space.get_conf_motion(conf, motioni));
+									auto dof = reinterpret_cast<motions::DihedralDof<T> *>(get(size));
+									dof->init(dihedral, inters);
 								}
 								size += 1;
 							} break;
@@ -122,22 +103,11 @@ namespace osprey {
 						}
 					}
 				}
-
-				// sync the writes to shared_dofs
 				__syncthreads();
 			}
 
-			__device__
 			Dofs(const Dofs<T> & other) = delete;
 			~Dofs() = default;
-
-			__device__
-			inline void free() const {
-				for (int d=threadIdx.x; d<size; d+=blockDim.x) {
-					shared_dofs[d]->free();
-				}
-				__syncthreads();
-			}
 
 			__device__
 			inline int get_size() const {
@@ -145,8 +115,14 @@ namespace osprey {
 			}
 
 			__device__
-			Dof<T> & operator [] (int i) {
-				return *shared_dofs[i];
+			inline Dof<T> & operator [] (int d) {
+				return *get(d);
+			}
+
+			__device__
+			inline Dof<T> * get(int d) {
+				int64_t buf_size = Dof<T>::buf_size + Array<const PosInter<T> *>::get_bytes(inters.get_size());
+				return reinterpret_cast<Dof<T> *>(dof_bufs + buf_size*d);
 			}
 
 			__device__
@@ -157,32 +133,34 @@ namespace osprey {
 
 				assert (x.get_size() == size);
 				for (int d=0; d<x.get_size(); d++) {
-					assert (shared_dofs[d] != nullptr);
-					shared_dofs[d]->set(x[d], dofs_shared_mem);
+					set(d, x[d]);
 				}
 			}
 
 			__device__
 			inline void set(int d, T xd) {
-				shared_dofs[d]->set(xd, dofs_shared_mem);
+				(*this)[d].set(assignment, xd, dofs_shared_mem);
 			}
 
 			__device__
-			inline T eval_efunc(const Array<T> & x) {
-				set(x);
-				return efunc(assignment, inters, thread_energy);
+			inline void eval_efunc(DofValues<T> & dofs) {
+				set(dofs.x);
+				T energy = efunc(assignment, inters, thread_energy);
+				if (threadIdx.x == 0) {
+					dofs.f = energy;
+				}
+				__syncthreads();
 			}
 
 			__device__
 			inline T eval_efunc(int d, T x) {
-				Dof<T> & dof = *shared_dofs[d];
-				dof.set(x, dofs_shared_mem);
-				return efunc(assignment, dof.get_inters(), thread_energy);
+				set(d, x);
+				return efunc(assignment, (*this)[d].get_inters(), thread_energy);
 			}
 
 		private:
 			int size;
-			Dof<T> ** shared_dofs;
+			int8_t * dof_bufs;
 	};
 
 
@@ -215,9 +193,10 @@ namespace osprey {
 		T fxmin = NAN;
 		T fxmax = NAN;
 
-		// make sure the step isn't so big that the quadratic approximation is worthless
 		T xmin = dofs[d].min;
 		T xmax = dofs[d].max;
+
+		// make sure the step isn't so big that the quadratic approximation is worthless
 		while (x - step < xmin && x + step > xmax) {
 			step /= 2;
 		}
@@ -421,10 +400,6 @@ namespace osprey {
 	template<typename T>
 	using LineSearchFunction = T (*)(Dofs<T> &, int, T, T&);
 
-	// TODO: use launch bounds to limit register usage?
-	//__launch_bounds__(maxThreadsPerBlock, minBlocksPerMultiprocessor)
-	// see: https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#launch-bounds
-
 	template<typename T>
 	__device__
 	static void minimize_ccd(Dofs<T> & dofs,
@@ -433,7 +408,7 @@ namespace osprey {
 	                         LineSearchState<T> shared_line_search_states[]) {
 
 		// get the current objective function value
-		here.f = dofs.eval_efunc(here.x);
+		dofs.eval_efunc(here);
 
 		// ccd is pretty simple actually
 		// just do a line search along each dimension until we stop improving
@@ -453,13 +428,22 @@ namespace osprey {
 				Dof<T> & dof = dofs[d];
 				LineSearchState<T> & state = shared_line_search_states[d];
 
+				// init the line search state
+				if (iter == 0) {
+					if (threadIdx.x == 0) {
+						state.first_step = 0.0;
+						state.last_step = 0.0;
+					}
+					__syncthreads();
+				}
+
 				// get the step size, try to make it adaptive (based on historical steps if possible; else on step #)
 				T step;
 				if (std::abs(state.last_step) > tolerance<T> && std::abs(state.first_step) > tolerance<T>) {
 					step = dof.initial_step_size*std::abs(state.last_step/state.first_step);
 				} else {
 					int base = iter + 1;
-					base *= 3;
+					base = base*base*base;
 					step = dof.initial_step_size/base;
 				}
 
@@ -477,7 +461,7 @@ namespace osprey {
 			}
 
 			// how much did we improve?
-			next.f = dofs.eval_efunc(next.x);
+			dofs.eval_efunc(next);
 			T improvement = here.f - next.f;
 			if (improvement > 0) {
 

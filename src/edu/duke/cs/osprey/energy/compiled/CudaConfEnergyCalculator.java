@@ -51,29 +51,31 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		public static native void assign_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer out);
 		public static native float calc_amber_eef1_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
 		public static native double calc_amber_eef1_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
-		public static native float minimize_amber_eef1_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long numDofs);
-		public static native double minimize_amber_eef1_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long numDofs);
+		public static native float minimize_amber_eef1_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long maxNumDofs);
+		public static native double minimize_amber_eef1_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long maxNumDofs);
 	}
 
 	// TODO: could use records for this? It's a "preview" feature in JDK 14
 	public static class GpuInfo {
 
-		final int id;
-		final String busId;
-		final String name;
-		final boolean integrated;
-		final boolean concurrentKernels;
-		final int numProcessors;
-		final long memTotal;
-		final long memFree;
+		public final int id;
+		public final String busId;
+		public final String name;
+		public final boolean integrated;
+		public final boolean concurrentKernels;
+		public final int numProcessors;
+		public final int numAsyncEngines;
+		public final long memTotal;
+		public final long memFree;
 
-		public GpuInfo(int id, String busId, String name, boolean integrated, boolean concurrentKernels, int numProcessors, long memTotal, long memFree) {
+		public GpuInfo(int id, String busId, String name, boolean integrated, boolean concurrentKernels, int numProcessors, int numAsyncEngines, long memTotal, long memFree) {
 			this.id = id;
 			this.busId = busId;
 			this.name = name;
 			this.integrated = integrated;
 			this.concurrentKernels = concurrentKernels;
 			this.numProcessors = numProcessors;
+			this.numAsyncEngines = numAsyncEngines;
 			this.memTotal = memTotal;
 			this.memFree = memFree;
 		}
@@ -102,6 +104,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			+ String.format("%20s: %b\n", "integrated", integrated)
 			+ String.format("%20s: %b\n", "concurrent kernels", concurrentKernels)
 			+ String.format("%20s: %d\n", "num processors", numProcessors)
+			+ String.format("%20s: %d\n", "async engines", numAsyncEngines)
 			+ String.format("%20s: %d B, %.1f GiB\n", "memory total", memTotal, memTotal/1024.0/1024.0/1024.0)
 			+ String.format("%20s: %d B, %.1f GiB\n", "memory free", memFree, memFree/1024.0/1024.0/1024.0)
 			+ "]";
@@ -127,13 +130,13 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		Int32 integrated = int32();
 		Int32 concurrent_kernels = int32();
 		Int32 num_processors = int32();
-		Pad pad = pad(4);
+		Int32 num_async_engines = int32();
 		Int64 mem_total = int64();
 		Int64 mem_free = int64();
 		SGpuInfo init() {
 			init(304,
-				"bus_id", "name", "integrated", "concurrent_kernels", "num_processors",
-				"pad", "mem_total", "mem_free"
+				"bus_id", "name", "integrated", "concurrent_kernels",
+				"num_processors", "num_async_engines", "mem_total", "mem_free"
 			);
 			return this;
 		}
@@ -170,6 +173,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 						gpuInfoStruct.integrated.get(p) != 0,
 						gpuInfoStruct.concurrent_kernels.get(p) != 0,
 						gpuInfoStruct.num_processors.get(p),
+						gpuInfoStruct.num_async_engines.get(p),
 						gpuInfoStruct.mem_total.get(p),
 						gpuInfoStruct.mem_free.get(p)
 					));
@@ -410,11 +414,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		@Override
-		public double minimize(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms, ByteBuffer dofsBuf, long numDofs) {
+		public double minimize(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms, ByteBuffer dofsBuf, long maxNumDofs) {
 			Stream stream = threadStream.get();
 			return switch (precision) {
-				case Float32 -> NativeLib.minimize_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms, dofsBuf, numDofs);
-				case Float64 -> NativeLib.minimize_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms, dofsBuf, numDofs);
+				case Float32 -> NativeLib.minimize_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms, dofsBuf, maxNumDofs);
+				case Float64 -> NativeLib.minimize_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms, dofsBuf, maxNumDofs);
 			};
 		}
 

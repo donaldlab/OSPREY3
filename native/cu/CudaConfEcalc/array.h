@@ -25,15 +25,22 @@ namespace osprey {
 			__device__
 			inline void init(int64_t _size) {
 				if (threadIdx.x == 0) {
-					size = _size;
+					init0(_size);
 				}
 				__syncthreads();
 			}
 
-			// for allocating on a single thread
-			__host__ __device__
+			// set the size when the Array is in shared or global memory
+			__device__
+			inline void init0(int64_t _size) {
+				assert (threadIdx.x == 0);
+				size = _size;
+			}
+
+			__host__
 			static inline Array<T> * make(int64_t size) {
 				auto out = reinterpret_cast<Array<T> *>(std::malloc(get_bytes(size)));
+				assert (out != nullptr);
 				out->size = size;
 				return out;
 			}

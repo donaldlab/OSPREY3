@@ -17,9 +17,11 @@ import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gpu.Structs;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static edu.duke.cs.osprey.tools.Log.log;
+import static edu.duke.cs.osprey.tools.Log.logf;
 
 
 public class BenchmarkEnergies {
@@ -30,17 +32,38 @@ public class BenchmarkEnergies {
 		TestConfSpace.AffinityClassic classic = TestConfSpace.Design2RL0Interface7Mut.makeClassic();
 		TestConfSpace.AffinityCompiled compiled = TestConfSpace.Design2RL0Interface7Mut.makeCompiled();
 
-		//benchmarkEcalc(classic, compiled);
+		benchmarkMinimize(classic, compiled);
 		//benchmarkEmatCpu(classic, compiled);
 
-		nativeLab(compiled);
+		//nativeLab(compiled);
 
 		// TODO: with static-static energies on compiled ecalcs?
 		// TODO: pfuncs
-		// TODO: GPUs
 	}
 
-	private static void benchmarkEcalc(TestConfSpace.AffinityClassic classic, TestConfSpace.AffinityCompiled compiled) {
+	private static void benchmark(String name, Benchmark[] bm, Benchmark base, int[] threadSizes, int numWarmups, int numRuns, Runnable task) {
+		benchmark(name, bm, base, threadSizes, numWarmups, numRuns, task, () -> {});
+	}
+
+	private static void benchmark(String name, Benchmark[] bm, Benchmark base, int[] threadSizes, int numWarmups, int numRuns, Runnable task, Runnable cleanup) {
+		log("%s:", name);
+		for (int i=0; i<threadSizes.length; i++) {
+			bm[i] = new Benchmark(threadSizes[i], numWarmups, numRuns, task);
+			cleanup.run();
+			logf("\t%2d threads: %s", threadSizes[i], bm[i].toString());
+			if (base != null) {
+				logf(", speedup over base %.2fx", bm[i].opsPerSecond/base.opsPerSecond);
+			}
+			if (i > 0) {
+				logf(", speedup over single %.2fx", bm[i].opsPerSecond/bm[0].opsPerSecond);
+			}
+			logf("\n");
+		}
+	}
+
+	private static void benchmarkMinimize(TestConfSpace.AffinityClassic classic, TestConfSpace.AffinityCompiled compiled) {
+
+		log("Minimize:");
 
 		// make the wild-type conformations
 		int[] classicConf = classic.makeConfComplexWt();
@@ -50,127 +73,63 @@ public class BenchmarkEnergies {
 		ResidueInteractions classicInters = EnergyPartition.makeFragment(classic.complex, null, false, new RCTuple(classicConf));
 		List<PosInter> compiledInters = PosInterDist.dynamic(compiled.complex);
 
-		log("Rigid energy:");
-		Benchmark bmClassicRigid;
-		Benchmark bmCompiledRigid;
-		Benchmark bmCompiledf32Rigid;
-		Benchmark bmCompiledf64Rigid;
-		Benchmark bmCompiledCudaf32Rigid;
-		Benchmark bmCompiledCudaf64Rigid;
+		// NOTE: workbox has 12 cores, and 15 SMs
+		// NOTE: jerrys have 48 cores, and 4x80 SMs
+		int[] threadSizes = { 1, 3, 6, 12, 24, 48 };
+		int[] streamSizes = { 1, 2, 4, 8, 16, 32, 64, 128, 256, 320 };
+		int numWarmups = 2;
+		int numRuns = 10;
 
-		int numWarmupsRigid = 100;
-		int numRunsRigid = 4000;
+		Benchmark[] bmClassic = new Benchmark[threadSizes.length];
+		Benchmark[] bmCompiled = new Benchmark[threadSizes.length];
+		Benchmark[] bmCompiledf32 = new Benchmark[threadSizes.length];
+		Benchmark[] bmCompiledf64 = new Benchmark[threadSizes.length];
+		Benchmark[] bmCompiledCudaf32 = new Benchmark[streamSizes.length];
+		Benchmark[] bmCompiledCudaf64 = new Benchmark[streamSizes.length];
 
-		// benchmark classic rigid energies
-		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(classic.complex, new ForcefieldParams())
-			.setIsMinimizing(false)
-			.build()) {
-
-			bmClassicRigid = new Benchmark(numWarmupsRigid, numRunsRigid, () -> {
-				ParametricMolecule pmol = classic.complex.makeMolecule(classicConf);
-				ecalc.calcEnergy(pmol, classicInters);
-			});
-			log("\t%20s: %s", "classic", bmClassicRigid.toString());
-		}
-
-		{ // benchmark compiled rigid energies
-			CPUConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex);
-			bmCompiledRigid = new Benchmark(numWarmupsRigid, numRunsRigid, () -> {
-				ecalc.calcEnergy(compiledConf, compiledInters);
-			});
-			log("\t%20s: %s", "compiled", bmCompiledRigid.toString(bmClassicRigid));
-		}
-
-		{ // benchmark compiled native f32 rigid energies
-			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float32);
-			bmCompiledf32Rigid = new Benchmark(numWarmupsRigid, numRunsRigid, () -> {
-				ecalc.calcEnergy(compiledConf, compiledInters);
-			});
-			log("\t%20s: %s", "compiled f32", bmCompiledf32Rigid.toString(bmClassicRigid));
-		}
-		{ // benchmark compiled native f64 rigid energies
-			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
-			bmCompiledf64Rigid = new Benchmark(numWarmupsRigid, numRunsRigid, () -> {
-				ecalc.calcEnergy(compiledConf, compiledInters);
-			});
-			log("\t%20s: %s", "compiled f64", bmCompiledf64Rigid.toString(bmClassicRigid));
-		}
-
-		{ // benchmark compiled gpu f32 rigid energies
-			CudaConfEnergyCalculator ecalc = new CudaConfEnergyCalculator(compiled.complex, Structs.Precision.Float32);
-			bmCompiledCudaf32Rigid = new Benchmark(numWarmupsRigid, numRunsRigid, () -> {
-				ecalc.calcEnergy(compiledConf, compiledInters);
-			});
-			log("\t%20s: %s", "compiled CUDA f32", bmCompiledCudaf32Rigid.toString(bmClassicRigid));
-		}
-		{ // benchmark compiled gpu f64 rigid energies
-			CudaConfEnergyCalculator ecalc = new CudaConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
-			bmCompiledCudaf64Rigid = new Benchmark(numWarmupsRigid, numRunsRigid, () -> {
-				ecalc.calcEnergy(compiledConf, compiledInters);
-			});
-			log("\t%20s: %s", "compiled CUDA f64", bmCompiledCudaf64Rigid.toString(bmClassicRigid));
-		}
-
-
-		log("Minimized energy:");
-		Benchmark bmClassicMinimized;
-		Benchmark bmCompiledMinimized;
-		Benchmark bmCompiledf32Minimized;
-		Benchmark bmCompiledf64Minimized;
-		Benchmark bmCompiledCudaf32Minimized;
-		Benchmark bmCompiledCudaf64Minimized;
-
-		int numWarmupsMinimized = 2;
-		int numRunsMinimized = 40;
-
-		// benchmark classic minimized energies
+		// classic
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(classic.complex, new ForcefieldParams())
 			.setIsMinimizing(true)
 			.build()) {
 
-			bmClassicMinimized = new Benchmark(numWarmupsMinimized, numRunsMinimized, () -> {
+			benchmark("classic", bmClassic, null, threadSizes, numWarmups, numRuns, () -> {
 				ParametricMolecule pmol = classic.complex.makeMolecule(classicConf);
 				ecalc.calcEnergy(pmol, classicInters);
 			});
-			log("\t%20s: %s", "classic", bmClassicMinimized.toString());
 		}
 
-		{ // benchmark compiled minimized energies
+		{ // compiled
 			CPUConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex);
-			bmCompiledMinimized = new Benchmark(numWarmupsMinimized, numRunsMinimized, () -> {
+			benchmark("compiled", bmCompiled, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
 			});
-			log("\t%20s: %s", "compiled", bmCompiledMinimized.toString(bmClassicMinimized));
 		}
 
-		{ // benchmark compiled native f32 minimized energies
+		{ // compiled native f32
 			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float32);
-			bmCompiledf32Minimized = new Benchmark(numWarmupsMinimized, numRunsMinimized, () -> {
+			benchmark("compiled f32", bmCompiledf32, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
 			});
-			log("\t%20s: %s", "compiled f32", bmCompiledf32Minimized.toString(bmClassicMinimized));
 		}
-		{ // benchmark compiled native f64 minimized energies
+		{ // compiled native f64
 			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
-			bmCompiledf64Minimized = new Benchmark(numWarmupsMinimized, numRunsMinimized, () -> {
+			benchmark("compiled f64", bmCompiledf64, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
 			});
-			log("\t%20s: %s", "compiled f64", bmCompiledf64Minimized.toString(bmClassicMinimized));
 		}
 
-		{ // benchmark compiled CUDA f32 minimized energies
+		{ // compiled CUDA f32
 			CudaConfEnergyCalculator ecalc = new CudaConfEnergyCalculator(compiled.complex, Structs.Precision.Float32);
-			bmCompiledCudaf32Minimized = new Benchmark(numWarmupsMinimized, numRunsMinimized, () -> {
+			benchmark("compiled CUDA f32", bmCompiledCudaf32, bmClassic[0], streamSizes, numWarmups, numRuns, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
-			});
-			log("\t%20s: %s", "compiled CUDA f32", bmCompiledCudaf32Minimized.toString(bmClassicMinimized));
+			}, ecalc::recycleStreams);
 		}
-		{ // benchmark compiled CUDA f64 minimized energies
+
+		{ // compiled CUDA f64
 			CudaConfEnergyCalculator ecalc = new CudaConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
-			bmCompiledCudaf64Minimized = new Benchmark(numWarmupsMinimized, numRunsMinimized, () -> {
+			benchmark("compiled CUDA f64", bmCompiledCudaf64, bmClassic[0], streamSizes, numWarmups, numRuns, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
-			});
-			log("\t%20s: %s", "compiled CUDA f64", bmCompiledCudaf64Minimized.toString(bmClassicMinimized));
+			}, ecalc::recycleStreams);
 		}
 	}
 
@@ -272,7 +231,6 @@ public class BenchmarkEnergies {
 
 				log("precision = %s", precision);
 
-				// TEMP
 				log("energy = %f", confEcalc.calcEnergy(conf, inters));
 				log("   exp = %f", 2199.44093411);
 

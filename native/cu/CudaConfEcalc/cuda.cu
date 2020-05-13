@@ -17,12 +17,10 @@ namespace cuda {
 	int get_arch() {
 
 		int major;
-		cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, 0);
-		check_error();
+		CUDACHECK(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, 0));
 
 		int minor;
-		cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, 0);
-		check_error();
+		CUDACHECK(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, 0));
 
 		return major*100 + minor*10;
 	}
@@ -30,18 +28,14 @@ namespace cuda {
 	__host__
 	int optimize_threads_void(const void * func, size_t shared_size_static, size_t shared_size_per_thread) {
 
-		// TODO: device selection
-
 		int max_block_size;
-		cudaDeviceGetAttribute(&max_block_size, cudaDevAttrMaxThreadsPerBlock, 0);
-		check_error();
+		CUDACHECK(cudaDeviceGetAttribute(&max_block_size, cudaDevAttrMaxThreadsPerBlock, 0));
 
 		int best_block_size = 0;
 		for (int block_size=1; block_size<=max_block_size; block_size*=2) {
 			int num_blocks;
 			size_t shared_size = shared_size_static + shared_size_per_thread*block_size;
-			cudaOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks, func, block_size, shared_size);
-			check_error();
+			CUDACHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&num_blocks, func, block_size, shared_size));
 			if (num_blocks <= 0) {
 				break;
 			} else {
@@ -50,15 +44,5 @@ namespace cuda {
 		}
 
 		return best_block_size;
-	}
-
-	__device__
-	int tile_rank(cg::thread_group parent, cg::thread_group child) {
-		return parent.thread_rank()/child.size();
-	}
-
-	__device__
-	int num_tiles(cg::thread_group parent, cg::thread_group child) {
-		return parent.size()/child.size();
 	}
 }

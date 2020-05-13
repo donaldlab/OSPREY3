@@ -114,6 +114,14 @@ namespace osprey {
 
 			__device__
 			inline void set(T srcx, T srcy, T radians) {
+
+				// just in case ... because it actually happened
+				assert (!isnan<T>(srcx));
+				assert (!isnan<T>(srcy));
+				assert (!isnan<T>(radians));
+				assert (!(srcx == 0 && srcy == 0));
+				assert (srcx*srcx + srcy*srcy > 0);
+
 				T oolen = rsqrt_intr(srcx*srcx + srcy*srcy);
 				T sinsrc = srcy*oolen;
 				T cossrc = srcx*oolen;

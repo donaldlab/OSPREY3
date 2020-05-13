@@ -32,9 +32,7 @@
 
 package edu.duke.cs.osprey;
 
-import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.parallelism.TimingThread;
-import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.util.ArrayList;
@@ -61,9 +59,6 @@ public class Benchmark {
 		List<TimingThread> threads = new ArrayList<>();
 		for (int i=0; i<numThreads; i++) {
 			threads.add(new TimingThread("Benchmark-" + i) {
-
-				private Molecule mol;
-				private EnergyFunction efunc;
 
 				@Override
 				public void warmup() {

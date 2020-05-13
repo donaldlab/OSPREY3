@@ -62,6 +62,12 @@ inline bool isnan(const T & val) {
 #include "config.h"
 
 
+// use the double expansion trick so we can use __LINE__ in strings
+#define __STR(x) #x
+#define _STR(x) __STR(x)
+#define S__LINE__ _STR(__LINE__)
+
+
 // HACKS! useful for debugging though
 template<int N> constexpr char print_size_as_warning_char = N + 256;
 #define WARN_SIZEOF(type) static char print_size_as_warning_var = print_size_as_warning_char<sizeof(type)>

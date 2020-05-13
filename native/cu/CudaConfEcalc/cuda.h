@@ -106,6 +106,38 @@ namespace osprey {
 
 	template<typename T>
 	__device__
+	inline bool operator == (const Real3<T> & a, const Real3<T> & b) {
+		return a.x == b.x && a.y == b.y && a.z == b.z;
+	}
+
+	// nvcc can't find the templated operator for some reason, so explicitly instantiate it here
+	__device__
+	inline bool operator == (float4 & a, const float4 & b) {
+		return operator ==<float32_t>(a, b);
+	}
+	__device__
+	inline bool operator == (double3 & a, const double3 & b) {
+		return operator ==<float64_t>(a, b);
+	}
+
+	template<typename T>
+	__device__
+	inline bool operator != (const Real3<T> & a, const Real3<T> & b) {
+		return a.x != b.x || a.y != b.y || a.z != b.z;
+	}
+
+	// nvcc can't find the templated operator for some reason, so explicitly instantiate it here
+	__device__
+	inline bool operator != (float4 & a, const float4 & b) {
+		return operator !=<float32_t>(a, b);
+	}
+	__device__
+	inline bool operator != (double3 & a, const double3 & b) {
+		return operator !=<float64_t>(a, b);
+	}
+
+	template<typename T>
+	__device__
 	inline void operator += (Real3<T> & self, const Real3<T> & other) {
 		self.x += other.x;
 		self.y += other.y;
@@ -372,6 +404,15 @@ namespace cuda {
 	}
 }
 
+#define CUDACHECK(call)  \
+	do { \
+		cudaError_t result = call; \
+		if (result != cudaSuccess) { \
+			auto msg = cudaGetErrorString(result); \
+			std::cerr << "CUDA error @ " __FILE__ ":" S__LINE__ " " << msg << std::endl; \
+			throw std::runtime_error(msg); \
+		} \
+	} while(0)
 
 #define PRINTF0(fmt, ...) \
 	if (threadIdx.x == 0) { \

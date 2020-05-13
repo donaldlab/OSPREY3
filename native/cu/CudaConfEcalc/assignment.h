@@ -71,6 +71,8 @@ namespace osprey {
 			__device__
 			Assignment(const Assignment & other) = delete;
 
+			~Assignment() = default;
+
 			__device__
 			inline const void * get_atom_pairs(int posi1, int posi2) const {
 				return atom_pairs[conf_space.index(posi1, posi2)];
