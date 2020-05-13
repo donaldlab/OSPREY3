@@ -227,6 +227,14 @@ namespace osprey {
 
 		return out;
 	}
+
+	struct ConfSpaceSizes {
+		int64_t num_pos;
+		int64_t max_num_inters;
+		int64_t num_atoms;
+		int64_t max_num_dofs;
+	};
+	ASSERT_JAVA_COMPATIBLE(ConfSpaceSizes, 32);
 }
 
 #endif //CONFECALC_CONFSPACE_H

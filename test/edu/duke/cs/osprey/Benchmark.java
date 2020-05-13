@@ -54,6 +54,10 @@ public class Benchmark {
 	}
 
 	public Benchmark(int numThreads, int numWarmups, int numRuns, Runnable task) {
+		this(numThreads, numWarmups, numRuns, 1, task);
+	}
+
+	public Benchmark(int numThreads, int numWarmups, int numRuns, int batchSize, Runnable task) {
 
 		// make the threads
 		List<TimingThread> threads = new ArrayList<>();
@@ -80,7 +84,7 @@ public class Benchmark {
 		stopwatch = TimingThread.timeThreads(threads);
 
 		// compute the summary statistics
-		numOps = numThreads*numRuns;
+		numOps = numThreads*numRuns*batchSize;
 		opsPerSecond = numOps/stopwatch.getTimeS();
 	}
 

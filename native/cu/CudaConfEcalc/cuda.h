@@ -373,11 +373,6 @@ namespace cuda {
 		return optimize_threads_void(reinterpret_cast<const void *>(&func), shared_size_static, shared_size_per_thread);
 	}
 
-	__device__
-	int tile_rank(cg::thread_group parent, cg::thread_group child);
-	__device__
-	int num_tiles(cg::thread_group parent, cg::thread_group child);
-
 	template<int A>
 	__host__ __device__
 	inline int64_t pad_to_alignment(int64_t size);
@@ -395,12 +390,18 @@ namespace cuda {
 
 	template<int A>
 	__host__ __device__
-	inline bool is_aligned(const void * p);
+	inline bool is_aligned(int64_t offset);
 
 	template<>
 	__host__ __device__
-	inline bool is_aligned<16>(const void * p) {
-		return (reinterpret_cast<int64_t>(p) & 0b1111) == 0;
+	inline bool is_aligned<16>(int64_t offset) {
+		return (offset & 0b1111) == 0;
+	}
+
+	template<int A>
+	__host__ __device__
+	inline bool is_aligned(const void * p) {
+		return is_aligned<A>(reinterpret_cast<int64_t>(p));
 	}
 }
 

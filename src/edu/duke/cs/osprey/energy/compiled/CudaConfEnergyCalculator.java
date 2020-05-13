@@ -44,15 +44,20 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		public static native Pointer alloc_conf_space_f64(int device, ByteBuffer conf_space);
 		public static native void free_conf_space(int device, Pointer p);
 
-		public static native Pointer alloc_stream(int device);
+		public static native long minimize_batch_bufsize_device_f32(ByteBuffer conf_space_sizes, long batch_size);
+		public static native long minimize_batch_bufsize_device_f64(ByteBuffer conf_space_sizes, long batch_size);
+		public static native long minimize_batch_bufsize_host_f32(ByteBuffer conf_space_sizes, long batch_size);
+		public static native long minimize_batch_bufsize_host_f64(ByteBuffer conf_space_sizes, long batch_size);
+
+		public static native Pointer alloc_stream(int device, long host_bytes, long device_bytes);
 		public static native void free_stream(int device, Pointer stream);
 
 		public static native void assign_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer out);
 		public static native void assign_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer out);
 		public static native float calc_amber_eef1_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
 		public static native double calc_amber_eef1_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
-		public static native float minimize_amber_eef1_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long maxNumDofs);
-		public static native double minimize_amber_eef1_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms, ByteBuffer dofsBuf, long maxNumDofs);
+		public static native void minimize_batch_amber_eef1_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf_space_sizes, ByteBuffer jobs, ByteBuffer out_energies);
+		public static native void minimize_batch_amber_eef1_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf_space_sizes, ByteBuffer jobs, ByteBuffer out_energies);
 	}
 
 	// TODO: could use records for this? It's a "preview" feature in JDK 14
@@ -78,6 +83,16 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			this.numAsyncEngines = numAsyncEngines;
 			this.memTotal = memTotal;
 			this.memFree = memFree;
+		}
+
+		/** Returns the best number of streams/threads for saturating the device with work */
+		public int bestNumStreams() {
+			return 3;
+		}
+
+		/** Returns the best batch size for saturating the device with work */
+		public int bestBatchSize() {
+			return numProcessors/2;
 		}
 
 		@Override
@@ -227,7 +242,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	private interface ForcefieldsImpl {
 		double calc(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms);
-		double minimize(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms, ByteBuffer dofsBuf, long numDofs);
+		void minimizeBatch(ByteBuffer jobsBuf, ByteBuffer energiesBuf);
 		long paramsBytes();
 		void writeParams(BufWriter buf);
 		long staticStaticBytes();
@@ -414,12 +429,12 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		@Override
-		public double minimize(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms, ByteBuffer dofsBuf, long maxNumDofs) {
+		public void minimizeBatch(ByteBuffer jobsBuf, ByteBuffer energiesBuf) {
 			Stream stream = threadStream.get();
-			return switch (precision) {
-				case Float32 -> NativeLib.minimize_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms, dofsBuf, maxNumDofs);
-				case Float64 -> NativeLib.minimize_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms, dofsBuf, maxNumDofs);
-			};
+			switch (precision) {
+				case Float32 -> NativeLib.minimize_batch_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, energiesBuf);
+				case Float64 -> NativeLib.minimize_batch_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, energiesBuf);
+			}
 		}
 
 		@Override
@@ -707,9 +722,12 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	public final ConfSpace confSpace;
 	public final Precision precision;
 	public final List<GpuStreams> gpuStreams;
+	public final long maxBatchSize;
 	public final ForcefieldsImpl forcefieldsImpl;
 
 	private final Map<GpuInfo,Pointer> pConfSpace = new HashMap<>();
+	private final MemorySegment confSpaceSizesMem;
+	private final ByteBuffer confSpaceSizesBuf;
 
 	// NOTE: prefix the struct classes with S to avoid name collisions with the related Java classes
 
@@ -739,6 +757,18 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 	}
 	private final SConfSpace confSpaceStruct = new SConfSpace();
+
+	static class SConfSpaceSizes extends Struct {
+		Int64 num_pos = int64();
+		Int64 max_num_inters = int64();
+		Int64 num_atoms = int64();
+		Int64 max_num_dofs = int64();
+		SConfSpaceSizes init() {
+			init(32, "num_pos", "max_num_inters", "num_atoms", "max_num_dofs");
+			return this;
+		}
+	}
+	private static final SConfSpaceSizes confSpaceSizesStruct = new SConfSpaceSizes().init();
 
 	static class SPos extends Struct {
 		Int32 num_confs = int32();
@@ -851,21 +881,36 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 	}
 
-	public static List<GpuStreams> allStreams() {
-		return getGpusInfos().stream()
-			.map(it -> new GpuStreams(it, it.numProcessors))
-			.collect(Collectors.toList());
-	}
-
+	/** use all the GPUs by default */
 	public CudaConfEnergyCalculator(ConfSpace confSpace, Precision precision) {
-		this(confSpace, precision, allStreams());
+		this(confSpace, precision, getGpusInfos());
 	}
 
-	public CudaConfEnergyCalculator(ConfSpace confSpace, Precision precision, List<GpuStreams> gpuStreams) {
+	/** use just the given GPUs */
+	public CudaConfEnergyCalculator(ConfSpace confSpace, Precision precision, List<GpuInfo> gpus) {
+		this(
+			confSpace,
+			precision,
+			gpus.stream()
+				.map(gpu -> new CudaConfEnergyCalculator.GpuStreams(gpu, gpu.bestNumStreams()))
+				.collect(Collectors.toList()),
+			gpus.stream()
+				.mapToInt(gpu -> gpu.bestBatchSize())
+				.max()
+				.orElse(Integer.MAX_VALUE)
+		);
+	}
+
+	public CudaConfEnergyCalculator(ConfSpace confSpace, Precision precision, List<GpuStreams> gpuStreams, long maxBatchSize) {
+
+		if (gpuStreams == null || gpuStreams.isEmpty()) {
+			throw new IllegalArgumentException("0 GPUs selected");
+		}
 
 		this.confSpace = confSpace;
 		this.precision = precision;
 		this.gpuStreams = gpuStreams;
+		this.maxBatchSize = maxBatchSize;
 
 		checkSupported();
 
@@ -891,7 +936,6 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		Int64.Array confOffsets = int64array();
 		Int64.Array posPairOffsets = int64array();
 		Int64.Array fragOffsets = int64array();
-		Int64.Array molMotionOffsets = int64array();
 		Int64.Array confMotionOffsets = int64array();
 
 		// calculate how much memory we need for the conf space buffer
@@ -1136,6 +1180,14 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 				};
 				pConfSpace.put(it.gpuInfo, p);
 			}
+
+			// make the conf space sizes struct
+			confSpaceSizesMem = MemorySegment.allocateNative(confSpaceSizesStruct.bytes());
+			confSpaceSizesStruct.num_pos.set(confSpaceSizesMem.baseAddress(), confSpace.numPos());
+			confSpaceSizesStruct.max_num_inters.set(confSpaceSizesMem.baseAddress(), numPosPairs);
+			confSpaceSizesStruct.num_atoms.set(confSpaceSizesMem.baseAddress(), confSpace.maxNumConfAtoms);
+			confSpaceSizesStruct.max_num_dofs.set(confSpaceSizesMem.baseAddress(), confSpace.maxNumDofs);
+			confSpaceSizesBuf = confSpaceSizesMem.asByteBuffer();
 		}
 
 		// keep track of how many streams are left to give out
@@ -1150,6 +1202,16 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		var gpuStreamsLeft = gpuStreams.stream()
 			.map(StreamsLeft::new)
 			.collect(Collectors.toList());
+
+		// how big should the stream transfer buffers be?
+		long hostBytes = switch (precision) {
+			case Float32 -> NativeLib.minimize_batch_bufsize_host_f32(confSpaceSizesMem.asByteBuffer(), maxBatchSize);
+			case Float64 -> NativeLib.minimize_batch_bufsize_host_f64(confSpaceSizesMem.asByteBuffer(), maxBatchSize);
+		};
+		long deviceBytes = switch (precision) {
+			case Float32 -> NativeLib.minimize_batch_bufsize_device_f32(confSpaceSizesMem.asByteBuffer(), maxBatchSize);
+			case Float64 -> NativeLib.minimize_batch_bufsize_device_f64(confSpaceSizesMem.asByteBuffer(), maxBatchSize);
+		};
 
 		// layout the gpu streams in a round-robin order
 		int gpui = 0;
@@ -1171,7 +1233,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 			// allocate a stream
 			hasStreams.numStreams -= 1;
-			streams.add(new Stream(hasStreams.gpuInfo.id, pConfSpace.get(hasStreams.gpuInfo)));
+			streams.add(new Stream(hasStreams.gpuInfo.id, pConfSpace.get(hasStreams.gpuInfo), hostBytes, deviceBytes));
 
 			// try the next gpu first next time
 			gpui += 1;
@@ -1220,10 +1282,10 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		public final Pointer pConfSpace;
 		public final Pointer stream;
 
-		public Stream(int device, Pointer pConfSpace) {
+		public Stream(int device, Pointer pConfSpace, long hostBytes, long deviceBytes) {
 			this.device = device;
 			this.pConfSpace = pConfSpace;
-			this.stream = NativeLib.alloc_stream(device);
+			this.stream = NativeLib.alloc_stream(device, hostBytes, deviceBytes);
 		}
 
 		@Override
@@ -1254,6 +1316,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		for (var it : gpuStreams) {
 			NativeLib.free_conf_space(it.gpuInfo.id, pConfSpace.get(it.gpuInfo));
 		}
+		confSpaceSizesMem.close();
 		for (Stream stream : streams) {
 			stream.close();
 		}
@@ -1369,11 +1432,95 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	@Override
 	public double minimizeEnergy(int[] conf, List<PosInter> inters) {
-		try (var confMem = makeConf(conf)) {
-			try (var intersMem = makeIntersMem(inters)) {
-				return forcefieldsImpl.minimize(confMem.asByteBuffer(), intersMem.asByteBuffer(), null, confSpace.maxNumConfAtoms, null, confSpace.maxNumDofs);
+		MinimizationJob job = new MinimizationJob(conf, inters);
+		minimizeEnergies(Collections.singletonList(job));
+		return job.energy;
+	}
+
+	@Override
+	public void minimizeEnergies(List<MinimizationJob> jobs) {
+
+		// check the batch size
+		if (jobs.size() > maxBatchSize) {
+			throw new IllegalArgumentException(String.format("too many jobs for batch: %d, max allocated is %d",
+				jobs.size(), maxBatchSize
+			));
+		}
+
+		try (var jobsMem = makeMinimizationJobsMem(jobs)) {
+			try (var energiesMem = makeArray(jobs.size(), precision.bytes)) {
+
+				forcefieldsImpl.minimizeBatch(jobsMem.asByteBuffer(), energiesMem.asByteBuffer());
+
+				// read the energies back into the jobs
+				Real.Array energies = realarray(precision);
+				var addr = getArrayAddress(energiesMem);
+				for (int i=0; i<jobs.size(); i++) {
+					jobs.get(i).energy = energies.get(addr, i);
+				}
 			}
 		}
+	}
+
+	private MemorySegment makeMinimizationJobsMem(List<MinimizationJob> jobs) {
+
+		long memBytes =
+			getArrayBytes(jobs.size(), Int64.bytes) // job offsets
+			+ jobs.stream()
+				.mapToLong(job ->
+					getArrayBytes(confSpace.positions.length, Int32.bytes) // conf
+					+ getArrayBytes(job.inters.size(), posInterStruct.bytes()) // inters
+				)
+				.sum();
+
+		MemorySegment mem = MemorySegment.allocateNative(memBytes);
+		BufWriter buf = new BufWriter(mem);
+
+		var addr = buf.place(arrayStruct);
+		arrayStruct.size.set(addr, jobs.size());
+
+		assert (buf.isAligned(WidestGpuLoad));
+
+		var offsetsArray = int64array();
+		var offsetsAddr = buf.place(offsetsArray, jobs.size(), WidestGpuLoad);
+
+		assert (buf.isAligned(WidestGpuLoad));
+
+		var confArray = int32array();
+		for (int j=0; j<jobs.size(); j++) {
+			var job = jobs.get(j);
+
+			offsetsArray.set(offsetsAddr, j, buf.pos);
+
+			assert (buf.isAligned(WidestGpuLoad));
+
+			// write the conf
+			addr = buf.place(arrayStruct);
+			arrayStruct.size.set(addr, job.conf.length);
+			addr = buf.place(confArray, job.conf.length, WidestGpuLoad);
+			for (int i=0; i<job.conf.length; i++) {
+				confArray.set(addr, i, job.conf[i]);
+			}
+
+			assert (buf.isAligned(WidestGpuLoad));
+
+			// write the inters
+			addr = buf.place(arrayStruct);
+			arrayStruct.size.set(addr, job.inters.size());
+			for (var inter : job.inters) {
+				addr = buf.place(posInterStruct);
+				posInterStruct.posi1.set(addr, inter.posi1);
+				posInterStruct.posi2.set(addr, inter.posi2);
+				posInterStruct.weight.set(addr, inter.weight);
+				posInterStruct.offset.set(addr, inter.offset);
+			}
+			buf.skipToAlignment(WidestGpuLoad);
+		}
+
+		// make sure we used the whole buffer
+		assert (buf.pos == memBytes);
+
+		return mem;
 	}
 
 	private MemorySegment makeIntersMem(List<PosInter> inters) {
@@ -1392,8 +1539,12 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	// helpers for the Array class on the c++ size
 
+	private static long getArrayBytes(long size, long itemBytes) {
+		return padToGpuAlignment(Int64.bytes*2 + size*itemBytes);
+	}
+
 	private static MemorySegment makeArray(long size, long itemBytes) {
-		MemorySegment mem = MemorySegment.allocateNative(padToGpuAlignment(Int64.bytes*2 + size*itemBytes));
+		MemorySegment mem = MemorySegment.allocateNative(getArrayBytes(size, itemBytes));
 		BufWriter buf = new BufWriter(mem);
 		buf.int64(size);
 		buf.skip(8); // padding

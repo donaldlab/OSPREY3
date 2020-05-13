@@ -71,6 +71,32 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 		return minimize(conf, inters).energy;
 	}
 
+	class MinimizationJob {
+
+		public final int[] conf;
+		public final List<PosInter> inters;
+
+		public double energy;
+
+		public MinimizationJob(int[] conf, List<PosInter> inters) {
+
+			this.conf = conf;
+			this.inters = inters;
+
+			energy = Double.NaN;
+		}
+	}
+
+	/**
+	 * Calculate the minimized enegries of a batch of conformations and interactions.
+	 * This will be the fastest minimization option by far on some implementations.
+	 */
+	default void minimizeEnergies(List<MinimizationJob> jobs) {
+		for (var job : jobs) {
+			job.energy = minimizeEnergy(job.conf, job.inters);
+		}
+	}
+
 	default double calcOrMinimizeEnergy(int[] conf, List<PosInter> inters, boolean minimize) {
 		if (minimize) {
 			return minimizeEnergy(conf, inters);

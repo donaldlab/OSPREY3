@@ -129,14 +129,11 @@ API void free_conf_space(int device, void * p) {
 class Stream {
 	public:
 
-		static const size_t d_buf_size = 2*1024*1024; // 8 MiB, big enough to hold all the coords
-		static const size_t h_buf_size = 16; // just big enough to hold the resulting energy
-
 		__host__
-		inline Stream() {
+		inline Stream(int64_t host_bytes, int64_t device_bytes) {
 			CUDACHECK(cudaStreamCreate(&stream));
-			CUDACHECK(cudaMallocHost(&h_buf, h_buf_size));
-			CUDACHECK(cudaMalloc(&d_buf, d_buf_size));
+			CUDACHECK(cudaMallocHost(&h_buf, host_bytes));
+			CUDACHECK(cudaMalloc(&d_buf, device_bytes));
 		}
 
 		Stream(const Stream & other) = delete;
@@ -166,9 +163,9 @@ class Stream {
 		int8_t * d_buf;
 };
 
-API Stream * alloc_stream(int device) {
+API Stream * alloc_stream(int device, int64_t host_bytes, int64_t device_bytes) {
 	CUDACHECK(cudaSetDevice(device));
-	return new Stream();
+	return new Stream(host_bytes, device_bytes);
 }
 
 API void free_stream(int device, Stream * stream) {
@@ -438,14 +435,95 @@ namespace osprey {
 		}
 	}
 
+	template<typename T>
+	class MinimizationBuffers {
+		public:
+			int64_t conf_bytes;
+			int64_t inters_bytes;
+			int64_t coords_bytes;
+			int64_t dof_values_bytes;
+			int64_t batch_size;
+
+			__host__
+			inline MinimizationBuffers(const ConfSpaceSizes * sizes, int64_t _batch_size) {
+				conf_bytes = Array<int32_t>::get_bytes(sizes->num_pos);
+				inters_bytes = Array<PosInter<T>>::get_bytes(sizes->max_num_inters);
+				coords_bytes = Array<Real3<T>>::get_bytes(sizes->num_atoms);
+				dof_values_bytes = DofValues<T>::get_bytes(sizes->max_num_dofs);
+				batch_size = _batch_size;
+				check_alignments();
+			}
+
+			__device__
+			inline MinimizationBuffers(const ConfSpace<T> * conf_space, int64_t max_num_inters, int64_t _batch_size) {
+				conf_bytes = Array<int32_t>::get_bytes(conf_space->num_pos);
+				inters_bytes = Array<PosInter<T>>::get_bytes(max_num_inters);
+				coords_bytes = Array<Real3<T>>::get_bytes(conf_space->max_num_conf_atoms);
+				dof_values_bytes = DofValues<T>::get_bytes(conf_space->max_num_dofs);
+				batch_size = _batch_size;
+				check_alignments();
+			}
+
+			MinimizationBuffers(const MinimizationBuffers & other) = default;
+			~MinimizationBuffers() = default;
+
+			__host__
+			inline int64_t get_bytes_device() const {
+				return (conf_bytes + inters_bytes + coords_bytes + dof_values_bytes)*batch_size;
+			}
+
+			__host__
+			inline int64_t get_bytes_host() const {
+				return cuda::pad_to_alignment<16>(sizeof(T)*batch_size);
+			}
+
+			__host__ __device__
+			inline Array<int32_t> * get_conf_buf(int job, int8_t * buf) const {
+				return reinterpret_cast<Array<int32_t> *>(get_job_buf(job, buf));
+			}
+
+			__host__ __device__
+			inline Array<PosInter<T>> * get_inters_buf(int job, int8_t * buf) const {
+				return reinterpret_cast<Array<PosInter<T>> *>(get_job_buf(job, buf) + conf_bytes);
+			}
+
+			__host__ __device__
+			inline Array<Real3<T>> * get_coords_buf(int job, int8_t * buf) const {
+				return reinterpret_cast<Array<Real3<T>> *>(get_job_buf(job, buf) + conf_bytes + inters_bytes);
+			}
+
+			__host__
+			inline T * get_energy_buf(int job, int8_t * buf) const {
+				return reinterpret_cast<T *>(buf + sizeof(T)*job);
+			}
+
+			__host__ __device__
+			inline DofValues<T> * get_dof_values_buf(int job, int8_t * buf) const {
+				return reinterpret_cast<DofValues<T> *>(get_job_buf(job, buf) + conf_bytes + inters_bytes + coords_bytes);
+			}
+
+		private:
+
+			__host__ __device__
+			inline void check_alignments() const {
+				assert (cuda::is_aligned<16>(conf_bytes));
+				assert (cuda::is_aligned<16>(inters_bytes));
+				assert (cuda::is_aligned<16>(coords_bytes));
+				assert (cuda::is_aligned<16>(dof_values_bytes));
+			}
+
+			__host__ __device__
+			inline int8_t * get_job_buf(int job, int8_t * buf) const {
+				return buf + (conf_bytes + inters_bytes + coords_bytes + dof_values_bytes)*job;
+			}
+	};
+
 	template<typename T, EnergyFunction<T> efunc>
 	__device__
 	void minimize_kernel_impl(int64_t shared_size,
 	                          const ConfSpace<T> * conf_space,
-	                          const Array<int32_t> * conf,
-	                          const Array<PosInter<T>> * inters,
-	                          Array<Real3<T>> * out_coords,
-	                          DofValues<T> * out_dof_values) {
+	                          int64_t max_num_inters,
+	                          int8_t * xfer_buf) {
 
 		// slice up the shared memory
 		extern __shared__ int8_t shared[];
@@ -465,7 +543,7 @@ namespace osprey {
 
 		auto shared_dof_bufs = reinterpret_cast<int8_t *>(shared + offset);
 		assert (cuda::is_aligned<16>(shared_dof_bufs));
-		offset += (Dof<T>::buf_size + Array<const PosInter<T> *>::get_bytes(inters->get_size()))*conf_space->max_num_dofs;
+		offset += (Dof<T>::buf_size + Array<const PosInter<T> *>::get_bytes(max_num_inters))*conf_space->max_num_dofs;
 
 		auto shared_line_search_states = reinterpret_cast<LineSearchState<T> *>(shared + offset);
 		assert (cuda::is_aligned<16>(shared_line_search_states));
@@ -485,21 +563,37 @@ namespace osprey {
 
 		assert (offset == shared_size);
 
-		// init the sizes for cudaMalloc'd Array instances
-		out_coords->init(conf_space->max_num_conf_atoms);
-		out_dof_values->x.init(conf_space->max_num_dofs);
+		// slice up the transfer buf: one minimization job per block
+		MinimizationBuffers<T> bufs(conf_space, max_num_inters, gridDim.x);
+
+		// init the sizes for Array instances in the transfer buffer
+		bufs.get_coords_buf(blockIdx.x, xfer_buf)->init(conf_space->max_num_conf_atoms);
+		bufs.get_dof_values_buf(blockIdx.x, xfer_buf)->x.init(conf_space->max_num_dofs);
 
 		// init sizes for Array instances in shared memory
 		shared_here->x.init(conf_space->max_num_dofs);
 		shared_next->x.init(conf_space->max_num_dofs);
 
 		// make the atoms and the degrees of freedom
-		Assignment<T> assignment(*conf_space, *conf, *out_coords, shared_atom_pairs, shared_conf_energies);
-		Dofs<T> dofs(assignment, *inters, efunc, thread_energy, shared_dof_bufs, shared_dofs_mem);
+		Assignment<T> assignment(
+			*conf_space,
+			*bufs.get_conf_buf(blockIdx.x, xfer_buf),
+			*bufs.get_coords_buf(blockIdx.x, xfer_buf),
+			shared_atom_pairs,
+			shared_conf_energies
+		);
+		Dofs<T> dofs(
+			assignment,
+			*bufs.get_inters_buf(blockIdx.x, xfer_buf),
+			efunc,
+			thread_energy,
+			shared_dof_bufs,
+			shared_dofs_mem
+		);
 
 		// truncate the dof values to match the actual number of dofs
 		if (threadIdx.x == 0) {
-			out_dof_values->x.truncate(dofs.get_size());
+			bufs.get_dof_values_buf(blockIdx.x, xfer_buf)->x.truncate(dofs.get_size());
 			shared_here->x.truncate(dofs.get_size());
 			shared_next->x.truncate(dofs.get_size());
 		}
@@ -515,7 +609,7 @@ namespace osprey {
 		minimize_ccd(dofs, *shared_here, *shared_next, shared_line_search_states);
 
 		// copy dof values to global memory
-		out_dof_values->set(*shared_here);
+		bufs.get_dof_values_buf(blockIdx.x, xfer_buf)->set(*shared_here);
 	}
 
 	// set kernel launch bounds for each real type
@@ -524,21 +618,17 @@ namespace osprey {
 	__global__
 	void minimize_kernel(int64_t shared_size,
 	                     const ConfSpace<T> * conf_space,
-	                     const Array<int32_t> * conf,
-	                     const Array<PosInter<T>> * inters,
-	                     Array<Real3<T>> * out_coords,
-	                     DofValues<T> * out_dof_values);
+	                     int64_t max_num_inters,
+	                     int8_t * xfer_buf);
 
 	template<>
 	__global__
 	__launch_bounds__(MINIMIZE_THREADS_F32, MINIMIZE_BLOCKS)
 	void minimize_kernel<float32_t,osprey::ambereef1::calc_energy>(int64_t shared_size,
 	                                                               const ConfSpace<float32_t> * conf_space,
-	                                                               const Array<int32_t> * conf,
-	                                                               const Array<PosInter<float32_t>> * inters,
-	                                                               Array<Real3<float32_t>> * out_coords,
-	                                                               DofValues<float32_t> * out_dof_values) {
-		minimize_kernel_impl<float32_t,osprey::ambereef1::calc_energy>(shared_size, conf_space, conf, inters, out_coords, out_dof_values);
+	                                                               int64_t max_num_inters,
+	                                                               int8_t * xfer_buf) {
+		minimize_kernel_impl<float32_t,osprey::ambereef1::calc_energy>(shared_size, conf_space, max_num_inters, xfer_buf);
 	}
 
 	template<>
@@ -546,115 +636,136 @@ namespace osprey {
 	__launch_bounds__(MINIMIZE_THREADS_F64, MINIMIZE_BLOCKS)
 	void minimize_kernel<float64_t,osprey::ambereef1::calc_energy>(int64_t shared_size,
 	                                                               const ConfSpace<float64_t> * conf_space,
-	                                                               const Array<int32_t> * conf,
-	                                                               const Array<PosInter<float64_t>> * inters,
-	                                                               Array<Real3<float64_t>> * out_coords,
-	                                                               DofValues<float64_t> * out_dof_values) {
-		minimize_kernel_impl<float64_t,osprey::ambereef1::calc_energy>(shared_size, conf_space, conf, inters, out_coords, out_dof_values);
+	                                                               int64_t max_num_inters,
+	                                                               int8_t * xfer_buf) {
+		minimize_kernel_impl<float64_t,osprey::ambereef1::calc_energy>(shared_size, conf_space, max_num_inters, xfer_buf);
 	}
 
+	template<typename T>
+	class alignas(16) MinimizationJobs {
+		public:
+
+			MinimizationJobs() = delete; // created only on the Java side
+
+			__host__
+			inline int64_t get_size() const {
+				return num_jobs;
+			}
+
+			__host__
+			inline const Array<int32_t> * get_conf(int j) const {
+				auto p = job_offset(j);
+				return reinterpret_cast<const Array<int32_t> *>(p);
+			}
+
+			__host__
+			inline const Array<PosInter<T>> * get_inters(int j) const {
+				auto conf = get_conf(j);
+				auto p = reinterpret_cast<const int8_t *>(conf) + conf->get_bytes();
+				return reinterpret_cast<const Array<PosInter<T>> *>(p);
+			}
+
+		private:
+			int64_t num_jobs;
+
+			__host__
+			inline const int8_t * job_offset(int j) const {
+				auto offsets = reinterpret_cast<const Array<int64_t> *>(this);
+				return reinterpret_cast<const int8_t *>(this) + (*offsets)[j];
+			}
+	};
+	ASSERT_JAVA_COMPATIBLE_REALS(MinimizationJobs, 16, 16);
+
 	template<typename T, EnergyFunction<T> efunc>
-	static T minimize(int device,
-	                  Stream * stream,
-	                  const ConfSpace<T> * d_conf_space,
-	                  const Array<int32_t> & conf,
-	                  const Array<PosInter<T>> & inters,
-	                  Array<Real3<T>> * out_coords,
-	                  int64_t num_atoms,
-	                  Array<T> * out_dofs,
-	                  int64_t max_num_dofs) {
+	static void minimize_batch(int device,
+	                           Stream * stream,
+	                           const ConfSpace<T> * d_conf_space,
+	                           const ConfSpaceSizes * conf_space_sizes,
+	                           const MinimizationJobs<T> * jobs,
+	                           Array<T> * out_energies) {
 
 		CUDACHECK(cudaSetDevice(device));
 
-		// split up the transfer buffer
-		size_t conf_bytes = conf.get_bytes();
-		size_t inters_bytes = inters.get_bytes();
-		size_t out_coords_bytes = Array<Real3<T>>::get_bytes(num_atoms);
-		size_t out_dof_values_bytes = DofValues<T>::get_bytes(max_num_dofs);
-		if (conf_bytes + inters_bytes + out_coords_bytes + out_dof_values_bytes > Stream::d_buf_size) {
-			throw std::runtime_error("exceeded transfer buffer size");
-		}
-
-		int8_t * d_xfer_buf = stream->get_d_buf();
-
-		auto d_conf = reinterpret_cast<Array<int32_t> *>(d_xfer_buf);
-		assert (cuda::is_aligned<16>(d_conf));
-		d_xfer_buf += conf_bytes;
-
-		auto d_inters = reinterpret_cast<Array<PosInter<T>> *>(d_xfer_buf);
-		assert (cuda::is_aligned<16>(d_inters));
-		d_xfer_buf += inters_bytes;
-
-		auto d_out_coords = reinterpret_cast<Array<Real3<T>> *>(d_xfer_buf);
-		assert (cuda::is_aligned<16>(d_out_coords));
-		d_xfer_buf += out_coords_bytes;
-
-		auto d_out_dof_values = reinterpret_cast<DofValues<T> *>(d_xfer_buf);
-		assert (cuda::is_aligned<16>(d_out_dof_values));
-
 		// upload the arguments
-		CUDACHECK(cudaMemcpyAsync(d_conf, &conf, conf_bytes, cudaMemcpyHostToDevice, stream->get_stream()));
-		CUDACHECK(cudaMemcpyAsync(d_inters, &inters, inters_bytes, cudaMemcpyHostToDevice, stream->get_stream()));
+		MinimizationBuffers<T> buf(conf_space_sizes, jobs->get_size());
+		for (int j=0; j<jobs->get_size(); j++) {
+
+			const Array<int32_t> * h_conf = jobs->get_conf(j);
+			Array<int32_t> * d_conf = buf.get_conf_buf(j, stream->get_d_buf());
+			CUDACHECK(cudaMemcpyAsync(d_conf, h_conf, buf.conf_bytes, cudaMemcpyHostToDevice, stream->get_stream()));
+
+			const Array<PosInter<T>> * h_inters = jobs->get_inters(j);
+			Array<PosInter<T>> * d_inters = buf.get_inters_buf(j, stream->get_d_buf());
+			CUDACHECK(cudaMemcpyAsync(d_inters, h_inters, buf.inters_bytes, cudaMemcpyHostToDevice, stream->get_stream()));
+		}
 
 		// compute the shared memory size
 		int64_t shared_size_static = 0
-			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf.get_size()))
-			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf.get_size()))
-			+ (Dof<T>::buf_size + Array<const PosInter<T> *>::get_bytes(inters.get_size()))*max_num_dofs
+			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_atom_pairs(conf_space_sizes->num_pos))
+			+ cuda::pad_to_alignment<16>(Assignment<T>::sizeof_conf_energies(conf_space_sizes->num_pos))
+			+ (Dof<T>::buf_size + Array<const PosInter<T> *>::get_bytes(conf_space_sizes->max_num_inters))*conf_space_sizes->max_num_dofs
 			+ Dofs<T>::dofs_shared_size
-			+ cuda::pad_to_alignment<16>(sizeof(LineSearchState<T>)*max_num_dofs) // line_search_states
-			+ DofValues<T>::get_bytes(max_num_dofs) // here
-			+ DofValues<T>::get_bytes(max_num_dofs); // next
+			+ cuda::pad_to_alignment<16>(sizeof(LineSearchState<T>)*conf_space_sizes->max_num_dofs) // line_search_states
+			+ DofValues<T>::get_bytes(conf_space_sizes->max_num_dofs) // here
+			+ DofValues<T>::get_bytes(conf_space_sizes->max_num_dofs); // next
 		int64_t shared_size_per_thread = sizeof(T);
 
 		// launch the kernel
 		int num_threads = get_minimize_threads<T>();
 		int64_t shared_size = shared_size_static + shared_size_per_thread*num_threads;
-		minimize_kernel<T,efunc><<<1, num_threads, shared_size, stream->get_stream()>>>(shared_size, d_conf_space, d_conf, d_inters, d_out_coords, d_out_dof_values);
+		minimize_kernel<T,efunc><<<jobs->get_size(), num_threads, shared_size, stream->get_stream()>>>(
+			shared_size,
+			d_conf_space,
+			conf_space_sizes->max_num_inters,
+			stream->get_d_buf()
+		);
 		cuda::check_error();
 
-		// download the energy
-		CUDACHECK(cudaMemcpyAsync(stream->get_h_buf(), DofValues<T>::f_ptr(d_out_dof_values), sizeof(T), cudaMemcpyDeviceToHost, stream->get_stream()));
-
-		// download the coords, if needed
-		if (out_coords != nullptr) {
-			CUDACHECK(cudaMemcpyAsync(out_coords, d_out_coords, out_coords_bytes, cudaMemcpyDeviceToHost, stream->get_stream()));
-		}
-
-		// download the dofs, if needed
-		if (out_dofs != nullptr) {
-			// TODO: does this work?
-			CUDACHECK(cudaMemcpyAsync(out_dofs, DofValues<T>::x_ptr(d_out_dof_values), Array<T>::get_bytes(max_num_dofs), cudaMemcpyDeviceToHost, stream->get_stream()));
+		// download the energies
+		for (int j=0; j<jobs->get_size(); j++) {
+			auto h_out_energy = buf.get_energy_buf(j, stream->get_h_buf());
+			auto d_out_energy = DofValues<T>::f_ptr(buf.get_dof_values_buf(j, stream->get_d_buf()));
+			CUDACHECK(cudaMemcpyAsync(h_out_energy, d_out_energy, sizeof(T), cudaMemcpyDeviceToHost, stream->get_stream()));
 		}
 
 		// wait for the downloads to finish
 		CUDACHECK(cudaStreamSynchronize(stream->get_stream()));
 
-		// finally, return the minimized energy
-		const T * out_energy = reinterpret_cast<const T *>(stream->get_h_buf());
-		return *out_energy;
+		// finally, copy out the minimized energies
+		for (int j=0; j<jobs->get_size(); j++) {
+			auto h_out_energy = buf.get_energy_buf(j, stream->get_h_buf());
+			(*out_energies)[j] = *reinterpret_cast<const T *>(h_out_energy);
+		}
 	}
 }
 
-API float32_t minimize_amber_eef1_f32(int device,
-                                      Stream * stream,
-                                      const osprey::ConfSpace<float32_t> * d_conf_space,
-                                      const osprey::Array<int32_t> & conf,
-                                      const osprey::Array<osprey::PosInter<float32_t>> & inters,
-                                      osprey::Array<osprey::Real3<float32_t>> * out_coords,
-                                      int64_t num_atoms,
-                                      osprey::Array<float32_t> * out_dofs,
-                                      int64_t max_num_dofs) {
-	return osprey::minimize<float32_t,osprey::ambereef1::calc_energy>(device, stream, d_conf_space, conf, inters, out_coords, num_atoms, out_dofs, max_num_dofs);
+API void minimize_batch_amber_eef1_f32(int device,
+                                       Stream * stream,
+                                       const osprey::ConfSpace<float32_t> * d_conf_space,
+                                       const osprey::ConfSpaceSizes * conf_space_sizes,
+                                       const osprey::MinimizationJobs<float32_t> * jobs,
+                                       osprey::Array<float32_t> * out_energies) {
+	osprey::minimize_batch<float32_t,osprey::ambereef1::calc_energy>(device, stream, d_conf_space, conf_space_sizes, jobs, out_energies);
 }
-API float64_t minimize_amber_eef1_f64(int device,
-                                      Stream * stream,
-                                      const osprey::ConfSpace<float64_t> * d_conf_space,
-                                      const osprey::Array<int32_t> & conf,
-                                      const osprey::Array<osprey::PosInter<float64_t>> & inters,
-                                      osprey::Array<osprey::Real3<float64_t>> * out_coords,
-                                      int64_t num_atoms,
-                                      osprey::Array<float64_t> * out_dofs,
-                                      int64_t max_num_dofs) {
-	return osprey::minimize<float64_t,osprey::ambereef1::calc_energy>(device, stream, d_conf_space, conf, inters, out_coords, num_atoms, out_dofs, max_num_dofs);
+API void minimize_batch_amber_eef1_f64(int device,
+                                       Stream * stream,
+                                       const osprey::ConfSpace<float64_t> * d_conf_space,
+                                       const osprey::ConfSpaceSizes * conf_space_sizes,
+                                       const osprey::MinimizationJobs<float64_t> * jobs,
+                                       osprey::Array<float64_t> * out_energies) {
+	osprey::minimize_batch<float64_t,osprey::ambereef1::calc_energy>(device, stream, d_conf_space, conf_space_sizes, jobs, out_energies);
+}
+
+API int64_t minimize_batch_bufsize_device_f32(const osprey::ConfSpaceSizes * sizes, int64_t batch_size) {
+	return osprey::MinimizationBuffers<float32_t>(sizes, batch_size).get_bytes_device();
+}
+API int64_t minimize_batch_bufsize_device_f64(const osprey::ConfSpaceSizes * sizes, int64_t batch_size) {
+	return osprey::MinimizationBuffers<float64_t>(sizes, batch_size).get_bytes_device();
+}
+
+API int64_t minimize_batch_bufsize_host_f32(const osprey::ConfSpaceSizes * sizes, int64_t batch_size) {
+	return osprey::MinimizationBuffers<float32_t>(sizes, batch_size).get_bytes_host();
+}
+API int64_t minimize_batch_bufsize_host_f64(const osprey::ConfSpaceSizes * sizes, int64_t batch_size) {
+	return osprey::MinimizationBuffers<float64_t>(sizes, batch_size).get_bytes_host();
 }

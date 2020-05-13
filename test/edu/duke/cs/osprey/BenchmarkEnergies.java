@@ -11,14 +11,18 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
+import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator.MinimizationJob;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.CudaConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gpu.Structs;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static edu.duke.cs.osprey.tools.Log.log;
 import static edu.duke.cs.osprey.tools.Log.logf;
@@ -41,15 +45,14 @@ public class BenchmarkEnergies {
 		// TODO: pfuncs
 	}
 
-	private static void benchmark(String name, Benchmark[] bm, Benchmark base, int[] threadSizes, int numWarmups, int numRuns, Runnable task) {
-		benchmark(name, bm, base, threadSizes, numWarmups, numRuns, task, () -> {});
-	}
-
-	private static void benchmark(String name, Benchmark[] bm, Benchmark base, int[] threadSizes, int numWarmups, int numRuns, Runnable task, Runnable cleanup) {
+	private static void benchmarkThreads(String name, Benchmark[] bm, Benchmark base, int[] threadSizes, int numWarmups, int numRuns, Runnable task) {
 		log("%s:", name);
 		for (int i=0; i<threadSizes.length; i++) {
-			bm[i] = new Benchmark(threadSizes[i], numWarmups, numRuns, task);
-			cleanup.run();
+
+			// run the benchmark
+			bm[i] = new Benchmark(threadSizes[i], numWarmups, numRuns, 1, task);
+
+			// show the results
 			logf("\t%2d threads: %s", threadSizes[i], bm[i].toString());
 			if (base != null) {
 				logf(", speedup over base %.2fx", bm[i].opsPerSecond/base.opsPerSecond);
@@ -60,6 +63,36 @@ public class BenchmarkEnergies {
 			logf("\n");
 		}
 	}
+
+	private static <T extends AutoCloseable> void benchmarkGpus(String name, Benchmark[] bm, Benchmark base, int[] gpuSizes, int threadsPerGpu, int batchSize, int numWarmups, int numRuns, Function<Integer,T> init, Consumer<T> task) {
+		log("%s:", name);
+		for (int i=0; i<gpuSizes.length; i++) {
+
+			int numGpus = gpuSizes[i];
+			int numThreads = numGpus*threadsPerGpu;
+
+			// do the init
+			try (T ctx = init.apply(numGpus)) {
+
+				// run the benchmark
+				bm[i] = new Benchmark(numThreads, numWarmups, numRuns, batchSize, () -> task.accept(ctx));
+
+			} catch (Exception ex) {
+				throw new RuntimeException(ex);
+			}
+
+			// show the results
+			logf("\t%1d gpus (%2d threads): %s", gpuSizes[i], numThreads, bm[i].toString());
+			if (base != null) {
+				logf(", speedup over base %.2fx", bm[i].opsPerSecond/base.opsPerSecond);
+			}
+			if (i > 0) {
+				logf(", speedup over single %.2fx", bm[i].opsPerSecond/bm[0].opsPerSecond);
+			}
+			logf("\n");
+		}
+	}
+
 
 	private static void benchmarkMinimize(TestConfSpace.AffinityClassic classic, TestConfSpace.AffinityCompiled compiled) {
 
@@ -73,26 +106,36 @@ public class BenchmarkEnergies {
 		ResidueInteractions classicInters = EnergyPartition.makeFragment(classic.complex, null, false, new RCTuple(classicConf));
 		List<PosInter> compiledInters = PosInterDist.dynamic(compiled.complex);
 
-		// NOTE: workbox has 12 cores, and 15 SMs
-		// NOTE: jerrys have 48 cores, and 4x80 SMs
+		// NOTE: the jerrys have 48 cores, 4 GPUs
 		int[] threadSizes = { 1, 3, 6, 12, 24, 48 };
-		int[] streamSizes = { 1, 2, 4, 8, 16, 32, 64, 128, 256, 320 };
+		int[] gpuSizes = { 1, 2, 4 };
 		int numWarmups = 2;
 		int numRuns = 10;
+
+		// assume all the GPUs are the same to get the best batch size
+		var gpus = CudaConfEnergyCalculator.getGpusInfos();
+		int batchSize = gpus.get(0).bestBatchSize();
+		int threadsPerGpu = gpus.get(0).bestNumStreams();
+
+		// set up the minimization jobs
+		var jobs = new ArrayList<MinimizationJob>();
+		for (int i=0; i<batchSize; i++) {
+			jobs.add(new MinimizationJob(compiledConf, compiledInters));
+		}
 
 		Benchmark[] bmClassic = new Benchmark[threadSizes.length];
 		Benchmark[] bmCompiled = new Benchmark[threadSizes.length];
 		Benchmark[] bmCompiledf32 = new Benchmark[threadSizes.length];
 		Benchmark[] bmCompiledf64 = new Benchmark[threadSizes.length];
-		Benchmark[] bmCompiledCudaf32 = new Benchmark[streamSizes.length];
-		Benchmark[] bmCompiledCudaf64 = new Benchmark[streamSizes.length];
+		Benchmark[] bmCompiledCudaf32 = new Benchmark[gpuSizes.length];
+		Benchmark[] bmCompiledCudaf64 = new Benchmark[gpuSizes.length];
 
 		// classic
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(classic.complex, new ForcefieldParams())
 			.setIsMinimizing(true)
 			.build()) {
 
-			benchmark("classic", bmClassic, null, threadSizes, numWarmups, numRuns, () -> {
+			benchmarkThreads("classic", bmClassic, null, threadSizes, numWarmups, numRuns, () -> {
 				ParametricMolecule pmol = classic.complex.makeMolecule(classicConf);
 				ecalc.calcEnergy(pmol, classicInters);
 			});
@@ -100,36 +143,36 @@ public class BenchmarkEnergies {
 
 		{ // compiled
 			CPUConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(compiled.complex);
-			benchmark("compiled", bmCompiled, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
+			benchmarkThreads("compiled", bmCompiled, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
 			});
 		}
 
 		{ // compiled native f32
 			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float32);
-			benchmark("compiled f32", bmCompiledf32, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
+			benchmarkThreads("compiled f32", bmCompiledf32, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
 			});
 		}
 		{ // compiled native f64
 			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
-			benchmark("compiled f64", bmCompiledf64, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
+			benchmarkThreads("compiled f64", bmCompiledf64, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
 			});
 		}
 
 		{ // compiled CUDA f32
-			CudaConfEnergyCalculator ecalc = new CudaConfEnergyCalculator(compiled.complex, Structs.Precision.Float32);
-			benchmark("compiled CUDA f32", bmCompiledCudaf32, bmClassic[0], streamSizes, numWarmups, numRuns, () -> {
-				ecalc.minimizeEnergy(compiledConf, compiledInters);
-			}, ecalc::recycleStreams);
+			benchmarkGpus("compiled CUDA f32", bmCompiledCudaf32, bmClassic[0], gpuSizes, threadsPerGpu, batchSize, numWarmups, numRuns,
+				numGpus -> new CudaConfEnergyCalculator(compiled.complex, Structs.Precision.Float32, gpus.subList(0, numGpus)),
+				ecalc -> ecalc.minimizeEnergies(jobs)
+			);
 		}
 
 		{ // compiled CUDA f64
-			CudaConfEnergyCalculator ecalc = new CudaConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
-			benchmark("compiled CUDA f64", bmCompiledCudaf64, bmClassic[0], streamSizes, numWarmups, numRuns, () -> {
-				ecalc.minimizeEnergy(compiledConf, compiledInters);
-			}, ecalc::recycleStreams);
+			benchmarkGpus("compiled CUDA f64", bmCompiledCudaf64, bmClassic[0], gpuSizes, threadsPerGpu, batchSize, numWarmups, numRuns,
+				numGpus -> new CudaConfEnergyCalculator(compiled.complex, Structs.Precision.Float64, gpus.subList(0, numGpus)),
+				ecalc -> ecalc.minimizeEnergies(jobs)
+			);
 		}
 	}
 
@@ -219,10 +262,15 @@ public class BenchmarkEnergies {
 
 		ConfSpace confSpace = compiled.complex;
 
-		for (Structs.Precision precision : Structs.Precision.values()) {
+		var gpuStreams = Collections.singletonList(
+			new CudaConfEnergyCalculator.GpuStreams(CudaConfEnergyCalculator.getGpusInfos().get(0), 1)
+		);
+		int batchSize = 10;
+
+		//for (Structs.Precision precision : Structs.Precision.values()) {
 		//{ Structs.Precision precision = Structs.Precision.Float32;
-		//{ Structs.Precision precision = Structs.Precision.Float64;
-			try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
+		{ Structs.Precision precision = Structs.Precision.Float64;
+			try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision, gpuStreams, batchSize)) {
 
 				// use all the interactions
 				List<PosInter> inters = PosInterDist.all(confSpace);
@@ -231,11 +279,21 @@ public class BenchmarkEnergies {
 
 				log("precision = %s", precision);
 
-				log("energy = %f", confEcalc.calcEnergy(conf, inters));
-				log("   exp = %f", 2199.44093411);
+				//log("energy = %f", confEcalc.calcEnergy(conf, inters));
+				//log("   exp = %f", 2199.44093411);
 
-				log("energy = %f", confEcalc.minimizeEnergy(conf, inters));
-				log("   exp = %f", -1359.27208010);
+				//log("energy = %f", confEcalc.minimizeEnergy(conf, inters));
+
+				var jobs = new ArrayList<MinimizationJob>(batchSize);
+				for (int i=0; i<batchSize; i++) {
+					jobs.add(new MinimizationJob(conf, inters));
+				}
+				confEcalc.minimizeEnergies(jobs);
+				for (int i=0; i<batchSize; i++) {
+					log("energy[%2d] = %f", i, jobs.get(i).energy);
+				}
+
+				//log("   exp = %f", -1359.27208010);
 			}
 		}
 	}
