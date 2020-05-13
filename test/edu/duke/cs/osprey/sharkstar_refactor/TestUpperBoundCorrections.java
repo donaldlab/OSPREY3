@@ -543,7 +543,7 @@ public class TestUpperBoundCorrections {
         ScorerFactory gScorerFactory = (emat) -> new PairwiseRigidGScorer(emat);
         ScorerFactory hScorerFactory = (emat) -> new SHARKStarNodeScorer(emat, true);
 
-        DependentScoreCorrector upperBoundCorrector = new DependentScoreCorrector(confSpace, MathTools.Optimizer.Minimize, fancyRigidEmat, gScorerFactory, hScorerFactory);
+        DependentScoreCorrector upperBoundCorrector = new DependentScoreCorrector(confSpace.positions, MathTools.Optimizer.Minimize, fancyRigidEmat, gScorerFactory, hScorerFactory);
         upperBoundCorrector.insertAllCorrections(corrList);
 
         // Do testing
@@ -575,7 +575,7 @@ public class TestUpperBoundCorrections {
         ConfAnalyzer analyzer = makeMinimizerForConfSpace(flexCopy);
 
         // make the upperBoundCorrector early
-        DependentScoreCorrector upperBoundCorrector = new DependentScoreCorrector(confSpace, MathTools.Optimizer.Minimize);
+        DependentScoreCorrector upperBoundCorrector = new DependentScoreCorrector(confSpace.positions, MathTools.Optimizer.Minimize);
 
         List<int[]> fullAssignments = new ArrayList<>();
         //Corrections list

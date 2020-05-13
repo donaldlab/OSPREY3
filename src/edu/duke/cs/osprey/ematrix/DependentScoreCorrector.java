@@ -27,8 +27,8 @@ public class DependentScoreCorrector extends ScoreCorrector<TupEMapping> {
     // Needed to be polite
     protected int[] oldAssignments;
 
-    public DependentScoreCorrector(SimpleConfSpace confSpace, MathTools.Optimizer opt) {
-        super(confSpace, opt);
+    public DependentScoreCorrector(List<SimpleConfSpace.Position> positions, MathTools.Optimizer opt) {
+        super(positions, opt);
         this.mappedEmat = null;
         this.corrGScorer = null;
         this.corrHScorer = null;
@@ -37,12 +37,12 @@ public class DependentScoreCorrector extends ScoreCorrector<TupEMapping> {
         this.rcs = null;
         this.unCorrectedScore = Double.NaN;
 
-        this.oldAssignments = new int[confSpace.getNumPos()];
+        this.oldAssignments = new int[positions.size()];
         Arrays.fill(this.oldAssignments, -1);
     }
 
-    public DependentScoreCorrector(SimpleConfSpace confSpace, MathTools.Optimizer opt, EnergyMatrix mappedEmat, ScorerFactory gScorerFactory, ScorerFactory hScorerFactory){
-        super(confSpace, opt);
+    public DependentScoreCorrector(List<SimpleConfSpace.Position> positions, MathTools.Optimizer opt, EnergyMatrix mappedEmat, ScorerFactory gScorerFactory, ScorerFactory hScorerFactory){
+        super(positions, opt);
         this.mappedEmat = mappedEmat;
         this.corrGScorer = gScorerFactory.make(mappedEmat);
         this.corrHScorer = hScorerFactory.make(mappedEmat);
@@ -51,7 +51,7 @@ public class DependentScoreCorrector extends ScoreCorrector<TupEMapping> {
         this.rcs = null;
         this.unCorrectedScore = Double.NaN;
 
-        this.oldAssignments = new int[confSpace.getNumPos()];
+        this.oldAssignments = new int[positions.size()];
         Arrays.fill(this.oldAssignments, -1);
     }
 

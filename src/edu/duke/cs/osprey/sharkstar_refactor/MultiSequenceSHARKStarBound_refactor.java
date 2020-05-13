@@ -140,7 +140,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         // Initialize the correctionMatrix and the Corrector
         this.minList = new ArrayList<>(Collections.nCopies(rcs.getNumPos(), 0));
-        this.lowerBoundCorrector = new IndependentScoreCorrector(confSpace, MathTools.Optimizer.Maximize);
+        this.lowerBoundCorrector = new IndependentScoreCorrector(confSpace.positions, MathTools.Optimizer.Maximize);
         //Intialize stuff for upperBoundCorrections
         this.customEmatFactory = customEmatFactory;
         this.mutatedConfSpace = this.confSpace.makeCopy();
@@ -160,7 +160,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             context.unassignedConfUBScorer = nhscorerFactory.make(this.rigidEmat); //this is used for upper bounds, so we want it rigid
             context.ecalc = minimizingConfEcalc;
             context.batcher = new BatchCorrectionMinimizer(minimizingConfEcalc, this.lowerBoundCorrector, this.minimizingEmat);
-            context.upperBoundCorrector = new DependentScoreCorrector(this.confSpace, MathTools.Optimizer.Minimize); // Minimize for upper bounds, maximize for lower
+            context.upperBoundCorrector = new DependentScoreCorrector(this.confSpace.positions, MathTools.Optimizer.Minimize); // Minimize for upper bounds, maximize for lower
 
             return context;
         });

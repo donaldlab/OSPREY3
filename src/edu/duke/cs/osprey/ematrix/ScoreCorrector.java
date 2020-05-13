@@ -15,8 +15,8 @@ public abstract class ScoreCorrector <T extends TupE> implements Correctable<T>{
     protected static boolean debug = false;
 
     protected TupleTrie<T> corrections;
-    protected int numPos;
     protected MathTools.Optimizer opt; // are we correcting up or down?
+    protected int numPos;
 
     //Abstract constructors for the type of TupE we want to use
     protected abstract TupleTrie<T> makeTrie(List<SimpleConfSpace.Position> positions);
@@ -24,10 +24,28 @@ public abstract class ScoreCorrector <T extends TupE> implements Correctable<T>{
     //Abstract methods that will depend on the type of corrector we are making
     protected abstract double correctionSize(T correction);
 
-    public ScoreCorrector(SimpleConfSpace confSpace, MathTools.Optimizer opt) {
-        this.corrections = makeTrie(confSpace.positions);
-        this.numPos = confSpace.getNumPos();
+    public ScoreCorrector(List<SimpleConfSpace.Position> positions, MathTools.Optimizer opt) {
+        this.corrections = makeTrie(positions);
+        this.numPos = positions.size();
         this.opt = opt;
+    }
+
+    public double getCorrection(int[] assignments){
+        return getCorrection(new RCTuple(assignments));
+    }
+
+    public double getCorrection(RCTuple query){
+        List<T> cover = getBestCorrectionsFor(query);
+        double sum = 0.0;
+        for (T correction : cover){
+            //TODO: again, if we store these correction sizes per access this should be speedier
+            sum += correctionSize(correction);
+        }
+        // We never want to loosen bounds
+        if(opt.isBetter(sum, 0.0))
+            return sum;
+        else
+            return 0.0;
     }
 
     public List<T> getAllCorrections(){
