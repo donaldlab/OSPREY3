@@ -32,6 +32,7 @@
 
 package edu.duke.cs.osprey.kstar.pfunc;
 
+import edu.duke.cs.osprey.astar.AStarTree;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import java.io.File;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -41,6 +42,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
 import edu.duke.cs.osprey.lute.LUTEPfunc;
@@ -108,14 +110,11 @@ public class PartitionFunctionFactory {
     }
 
     public PartitionFunction makePartitionFunctionFor(RCs rcs, BigInteger confSpaceSize, double epsilon, PruningMatrix pmat) {
-		throw new Error();
-    	/* TEMP: doesn't compile
         PartitionFunction pfunc = null;
         switch (pfuncImpl) {
             case GradientDescent:
-                pfunc = new GradientDescentPfunc(confEcalc);
                 ConfSearch AStarSearch = makeConfSearch(makeEmat(confEcalc), rcs);
-                pfunc.init(AStarSearch, rcs.getNumConformations(), epsilon);
+                pfunc = new GradientDescentPfunc(confEcalc, AStarSearch, rcs.getNumConformations());
                 break;
             case MARKStar:
                 EnergyMatrix minimizingEmat = makeEmat(confEcalc, "minimizing");
@@ -128,17 +127,10 @@ public class PartitionFunctionFactory {
                 pfunc = MARKStarBound;
                 break;
             case LUTE:
-                pfunc = new LUTEPfunc((LUTEConfEnergyCalculator) confEcalc);
-                pfunc.init(
-                        makeConfSearch(makeEmat(confEcalc), rcs),
-                        makeConfSearch(makeEmat(confEcalc), rcs),
-                        rcs.getNumConformations(),
-                        epsilon
-                );
+                pfunc = new LUTEPfunc((LUTEConfEnergyCalculator) confEcalc, (ConfAStarTree)makeConfSearch(makeEmat(confEcalc), rcs), rcs.getNumConformations());
                 break;
         }
         return pfunc;
-		*/
     }
 
     private EnergyMatrix makeEmat(ConfEnergyCalculator confECalc) {
@@ -165,8 +157,7 @@ public class PartitionFunctionFactory {
         return emats.get(confEcalc);
     }
 
-	/* TEMP: doesn't compile
-    public static KStar.ConfSearchFactory makeConfSearchFactory(ConfEnergyCalculator confEcalc) {
+    public static BBKStar.ConfSearchFactory makeConfSearchFactory(ConfEnergyCalculator confEcalc) {
         EnergyMatrix ematMinimized = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
                 .build()
                 .calcEnergyMatrix();
@@ -175,7 +166,6 @@ public class PartitionFunctionFactory {
                         .setTraditional()
                         .build();
     }
-    */
 
     public void setCachePattern(String pattern){
         cachePattern = pattern;

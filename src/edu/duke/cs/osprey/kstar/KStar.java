@@ -259,6 +259,10 @@ public class KStar {
 			}
 		}
 
+		public void setConfDBFile(String path) {
+			confDBFile = new File(path);
+		}
+
 		private AutoCloseableNoEx openConfDB() {
 			if (confDBFile != null) {
 				confDB = new ConfDB(confSpace, confDBFile);

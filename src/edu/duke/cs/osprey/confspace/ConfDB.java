@@ -705,6 +705,20 @@ public class ConfDB implements AutoCleanable {
 		this(confSpace, null);
 	}
 
+	public static ConfDB fromFiles(ConfSpaceIteration confSpace, String mergedDBName, Iterable<String> fileNames) {
+	    ConfDB newDB = new ConfDB(confSpace, new File(mergedDBName));
+		for(String fileName: fileNames) {
+			ConfDB nextDB = new ConfDB(confSpace, new File(fileName));
+			nextDB.tables.forEach((string, table) -> {
+				table.iterator().forEachRemaining(conf-> {
+					newDB.table(string).setBounds(conf.toEnergiedConf(), table.btree.get(conf.assignments).lowerTimestampNs);
+				});
+			});
+
+		}
+		return newDB;
+	}
+
 	public ConfDB(ConfSpaceIteration confSpace, File file) {
 
 		this.confSpace = confSpace;
