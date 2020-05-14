@@ -18,14 +18,11 @@ public abstract class ScoreCorrector <T extends TupE> implements Correctable<T>{
     protected MathTools.Optimizer opt; // are we correcting up or down?
     protected int numPos;
 
-    //Abstract constructors for the type of TupE we want to use
-    protected abstract TupleTrie<T> makeTrie(List<SimpleConfSpace.Position> positions);
-
     //Abstract methods that will depend on the type of corrector we are making
     protected abstract double correctionSize(T correction);
 
     public ScoreCorrector(List<SimpleConfSpace.Position> positions, MathTools.Optimizer opt) {
-        this.corrections = makeTrie(positions);
+        this.corrections = new TupleTrie<>(positions);
         this.numPos = positions.size();
         this.opt = opt;
     }
@@ -133,13 +130,6 @@ public abstract class ScoreCorrector <T extends TupE> implements Correctable<T>{
     }
     public void writeCorrectionsToFile(File f) {
         corrections.writeEntriesToFile(f);
-    }
-
-    public void readCorrectionsFromFile(String filename){
-        corrections.readEntriesFromFile(filename);
-    }
-    public void readCorrectionsFromFile(File f){
-        corrections.readEntriesFromFile(f);
     }
 
 }

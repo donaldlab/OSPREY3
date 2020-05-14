@@ -18,9 +18,4 @@ public class SimpleUpdatingEnergyMatrix extends UpdatingEnergyMatrix<TupE> {
     protected TupE makeT(RCTuple tup, double val) {
         return new TupE(tup, val);
     }
-
-    @Override
-    protected TupleTrieImplementations.TupETrie makeTrie(List<SimpleConfSpace.Position> positions) {
-        return new TupleTrieImplementations.TupETrie(positions);
-    }
 }

@@ -8,14 +8,9 @@ import java.util.List;
 /**
  * Score corrector for quantities that are independent of assignments outside the tuple
  */
-public class IndependentScoreCorrector extends ScoreCorrector<TupE> {
-    public IndependentScoreCorrector(List<SimpleConfSpace.Position> positions, MathTools.Optimizer opt) {
+public class SimpleScoreCorrector extends ScoreCorrector<TupE> {
+    public SimpleScoreCorrector(List<SimpleConfSpace.Position> positions, MathTools.Optimizer opt) {
         super(positions, opt);
-    }
-
-    @Override
-    protected TupleTrieImplementations.TupETrie makeTrie(List<SimpleConfSpace.Position> positions) {
-        return new TupleTrieImplementations.TupETrie(positions);
     }
 
     @Override

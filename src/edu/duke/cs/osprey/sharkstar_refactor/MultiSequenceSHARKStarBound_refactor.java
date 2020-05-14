@@ -78,7 +78,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private ScorerFactory nhscorerFactory;
 
     // Matrix and corrector for energy corrections
-    public final IndependentScoreCorrector lowerBoundCorrector;
+    public final SimpleScoreCorrector lowerBoundCorrector;
     private final EnergyMatrixCorrector_refactor energyMatrixCorrector;
 
     // SHARK* specific variables
@@ -89,6 +89,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private double drillDownDifference; //The freeEnergy difference corresponding to target epsilon
 
     // Variables for upper bound corrections
+    private TupleTrie<TupMapping> upperBoundCorrectionMaps;
     private RigidEmatFactory customEmatFactory;
     private SimpleConfSpace mutatedConfSpace;
     private boolean saveEPMOLsForMinimization = false;
@@ -140,10 +141,11 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         // Initialize the correctionMatrix and the Corrector
         this.minList = new ArrayList<>(Collections.nCopies(rcs.getNumPos(), 0));
-        this.lowerBoundCorrector = new IndependentScoreCorrector(confSpace.positions, MathTools.Optimizer.Maximize);
+        this.lowerBoundCorrector = new SimpleScoreCorrector(confSpace.positions, MathTools.Optimizer.Maximize);
         //Intialize stuff for upperBoundCorrections
         this.customEmatFactory = customEmatFactory;
         this.mutatedConfSpace = this.confSpace.makeCopy();
+        this.upperBoundCorrectionMaps = new TupleTrie<>(confSpace.positions);
 
         // Set up the scoring machinery
         this.gscorerFactory = (emats) -> new PairwiseGScorer(emats);
@@ -526,7 +528,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * Takes partial minimizations from the precomputed correctionMatrix, maps them to the new confspace, and
      * stores them in this correctionMatrix
      */
-    public void mergeCorrections(IndependentScoreCorrector precomputedCorrections, int[] confSpacePermutation) {
+    public void mergeCorrections(SimpleScoreCorrector precomputedCorrections, int[] confSpacePermutation) {
         List<TupE> corrections = precomputedCorrections.getAllCorrections().stream()
                 .map((tup) -> tup.permute(confSpacePermutation))
                 .collect(Collectors.toList());
@@ -1479,7 +1481,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         return correctedTuples;
     }
 
-    public IndependentScoreCorrector getCorrectionMatrix() {
+    public SimpleScoreCorrector getCorrectionMatrix() {
         return lowerBoundCorrector;
     }
 

@@ -56,11 +56,6 @@ public class DependentScoreCorrector extends ScoreCorrector<TupEMapping> {
     }
 
     @Override
-    protected TupleTrieImplementations.TupEMappingTrie makeTrie(List<SimpleConfSpace.Position> positions) {
-        return new TupleTrieImplementations.TupEMappingTrie(positions);
-    }
-
-    @Override
     protected double correctionSize(TupEMapping correction) {
         correction.mappedTup.pasteToIndex(this.index);
         double correctScore = this.corrGScorer.calc(this.index, this.rcs) + this.corrHScorer.calc(this.index, this.rcs);

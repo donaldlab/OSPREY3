@@ -66,11 +66,10 @@ public abstract class UpdatingEnergyMatrix<T extends TupE> extends ProxyEnergyMa
 
     //Abstract constructors for the type of TupE we want to use
     protected abstract T makeT(RCTuple tup, double val);
-    protected abstract TupleTrie<T> makeTrie(List<SimpleConfSpace.Position> positions);
 
     public UpdatingEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix target, ConfEnergyCalculator confECalc) {
         super(confSpace, target);
-        this.corrections = makeTrie(confSpace.positions);
+        this.corrections = new TupleTrie<>(confSpace.positions);
         this.numPos = confSpace.getNumPos();
         this.sourceECalc = confECalc;
 
@@ -80,7 +79,7 @@ public abstract class UpdatingEnergyMatrix<T extends TupE> extends ProxyEnergyMa
         super(confSpace, target);
         this.numPos = confSpace.getNumPos();
         this.sourceECalc = null;
-        this.corrections = makeTrie(confSpace.positions);
+        this.corrections = new TupleTrie<>(confSpace.positions);
     }
 
     public List<T> getAllCorrections(){
@@ -344,13 +343,6 @@ public abstract class UpdatingEnergyMatrix<T extends TupE> extends ProxyEnergyMa
     }
     public void writeCorrectionsToFile(File f) {
         corrections.writeEntriesToFile(f);
-    }
-
-    public void readCorrectionsFromFile(String filename){
-        corrections.readEntriesFromFile(filename);
-    }
-    public void readCorrectionsFromFile(File f){
-        corrections.readEntriesFromFile(f);
     }
 
 }

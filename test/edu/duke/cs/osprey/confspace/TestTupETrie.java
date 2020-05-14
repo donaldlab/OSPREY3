@@ -41,6 +41,7 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
 import org.junit.Test;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -59,6 +60,16 @@ public class TestTupETrie {
     /*
     Test helper methods
      */
+    // Read from file
+    public List<TupE> readTupEFromFile(String filename){
+        File file = new File(filename);
+        return readTupEFromFile(file);
+    }
+    public List<TupE> readTupEFromFile(File f){
+        List<String> data = Arrays.asList(FileTools.readFile(f).split("\n"));
+        return data.stream().map(TupE::fromString).collect(Collectors.toList());
+    }
+
     // Method to make the basic confspace
     private static SimpleConfSpace make1GUASmall(int numFlex) {
 
@@ -133,7 +144,7 @@ public class TestTupETrie {
     }
 
     // Method to help manual tests
-    private void runManual(TupleTrieImplementations.TupETrie trie, List<TupE> tupleList) {
+    private void runManual(TupleTrie<TupE> trie, List<TupE> tupleList) {
         for(TupE tupE : tupleList) {
             System.out.println("Inserting "+tupE.tup.stringListing()+":"+tupE.E);
             trie.insert(tupE);
@@ -162,7 +173,7 @@ public class TestTupETrie {
     public void testTupETrieRandom()
     {
         SimpleConfSpace confSpace = make1GUASmall(NUM_FLEX);
-        TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpace.positions);
+        TupleTrie<TupE> trie = new TupleTrie<>(confSpace.positions);
         runManual(trie, makeManualTupE());
         for(int i = 0; i < NUM_TUPS; i++)
         {
@@ -180,7 +191,7 @@ public class TestTupETrie {
     @Test
     public void testTupETrieManual () {
         SimpleConfSpace confSpace = make1GUASmall(4);
-        TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpace.positions);
+        TupleTrie<TupE> trie = new TupleTrie<>(confSpace.positions);
         runManual(trie, makeManualTupE());
     }
 
@@ -188,7 +199,7 @@ public class TestTupETrie {
     public void testTupETrieManual2 () {
         try {
             SimpleConfSpace mutableConfSpace = loadFromCFS("test-resources/3ma2_A_6res_3.157E+06.cfs").complex;
-            TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(mutableConfSpace.positions);
+            TupleTrie<TupE> trie = new TupleTrie<>(mutableConfSpace.positions);
             runManual(trie, makeManualTupE2());
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -199,7 +210,7 @@ public class TestTupETrie {
     @Test
     public void testTupETrieGetAllCorrections(){
         SimpleConfSpace confSpace = make1GUASmall(4);
-        TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpace.positions);
+        TupleTrie<TupE> trie = new TupleTrie<>(confSpace.positions);
         runManual(trie, makeManualTupE());
 
         for(int i = 0; i < NUM_TUPS; i++)
@@ -218,8 +229,9 @@ public class TestTupETrie {
     public void testTupETrieReadFromFile(){
         try{
             TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
-            TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpaces.complex.positions);
-            trie.readEntriesFromFile("test-resources/3bua_test_corrections.txt");
+            TupleTrie<TupE> trie = new TupleTrie<>(confSpaces.complex.positions);
+            for (TupE tup: readTupEFromFile("test-resources/3bua_test_corrections.txt"))
+                trie.insert(tup);
             System.out.println(String.format("Read %d corrections from file.", trie.size()));
         }catch(FileNotFoundException e){
             System.out.println(e.getMessage());
@@ -229,8 +241,9 @@ public class TestTupETrie {
     public void testTupETrieWriteToFile(){
         try{
             TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
-            TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpaces.complex.positions);
-            trie.readEntriesFromFile("test-resources/3bua_test_corrections.txt");
+            TupleTrie<TupE> trie = new TupleTrie<>(confSpaces.complex.positions);
+            for (TupE tup: readTupEFromFile("test-resources/3bua_test_corrections.txt"))
+                trie.insert(tup);
             System.out.println(String.format("Read %d corrections from file.", trie.size()));
             trie.writeEntriesToFile("test_corrections.txt");
         }catch(FileNotFoundException e){
@@ -242,8 +255,9 @@ public class TestTupETrie {
     public void testTupETrie3bua_corrections_all(){
         try{
             TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
-            TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpaces.complex.positions);
-            trie.readEntriesFromFile("test-resources/3bua_test_corrections.txt");
+            TupleTrie<TupE> trie = new TupleTrie<>(confSpaces.complex.positions);
+            for (TupE tup: readTupEFromFile("test-resources/3bua_test_corrections.txt"))
+                trie.insert(tup);
             System.out.println(String.format("Read %d corrections from file.", trie.size()));
 
             int[] parent = {4,24,-1,2,13,8,7,4,5,18};
@@ -312,8 +326,9 @@ public class TestTupETrie {
          */
         try {
             TestKStar.ConfSpaces confSpaces = TestSHARKStar.loadFromCFS("test-resources/3bua_B_10res_4.363E+11.cfs");
-            TupleTrieImplementations.TupETrie trie = new TupleTrieImplementations.TupETrie(confSpaces.complex.positions);
-            trie.readEntriesFromFile("test-resources/3bua_test_corrections.txt");
+            TupleTrie<TupE> trie = new TupleTrie<>(confSpaces.complex.positions);
+            for (TupE tup: readTupEFromFile("test-resources/3bua_test_corrections.txt"))
+                trie.insert(tup);
             System.out.println(String.format("Read %d corrections from file.", trie.size()));
 
             int[] parent = {4, 24, -1, 2, 13, 8, 7, 4, 5, 18};

@@ -15,15 +15,15 @@ public class BatchCorrectionMinimizer {
     public final int CostThreshold = 1000;
     public final int[] costs = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     private Batch batch = null;
-    private final TupleTrieImplementations.TupETrie submittedConfs;
-    private final Correctable correctionStorage;
+    private final TupleTrie<TupE> submittedConfs;
+    private final Correctable<TupE> correctionStorage;
     private final EnergyMatrix minimizingEnergyMatrix;
-    public BatchCorrectionMinimizer(ConfEnergyCalculator confEcalc, Correctable correctionStorage,
+    public BatchCorrectionMinimizer(ConfEnergyCalculator confEcalc, Correctable<TupE> correctionStorage,
                                     EnergyMatrix minimizingEnergyMatrix) {
         this.confEcalc = confEcalc;
         this.correctionStorage = correctionStorage;
         this.minimizingEnergyMatrix = minimizingEnergyMatrix;
-        submittedConfs = new TupleTrieImplementations.TupETrie(confEcalc.confSpace.positions);
+        submittedConfs = new TupleTrie<>(confEcalc.confSpace.positions);
     }
 
     public Batch getBatch() {

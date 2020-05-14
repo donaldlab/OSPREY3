@@ -7,7 +7,7 @@ import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public abstract class TupleTrie<T extends RCTupleContainer> {
+public class TupleTrie<T extends RCTupleContainer> {
     public final static int WILDCARD_RC = -123;
     public static boolean debug = false;
     TupleTrieNode root;
@@ -19,8 +19,6 @@ public abstract class TupleTrie<T extends RCTupleContainer> {
         this.positions = positions;
         this.root = new TupleTrieNode(positions, -1);
     }
-
-    protected abstract T makeT(String repr);
 
     public void insert(T entry) {
         if(debug)
@@ -73,18 +71,6 @@ public abstract class TupleTrie<T extends RCTupleContainer> {
         List<String> lineList = getAllEntries().stream()
                 .distinct().map(T::toString).collect(Collectors.toList());
         FileTools.writeFile(String.join("\n", lineList), f);
-    }
-
-    public void readEntriesFromFile(String filename){
-        File file = new File(filename);
-        readEntriesFromFile(file);
-    }
-    public void readEntriesFromFile(File f){
-        List<String> data = Arrays.asList(FileTools.readFile(f).split("\n"));
-        List<T> tupList = data.stream().map(this::makeT).collect(Collectors.toList());
-        for (T tup : tupList) {
-            insert(tup);
-        }
     }
 
     private class TupleTrieNode {
