@@ -11,7 +11,7 @@ import java.util.*;
  *
  * @param <T>   extends TupE, the class that we use to map RCTuples to score corrections
  */
-public abstract class ScoreCorrector <T extends TupE> implements Correctable<T>{
+public abstract class ScoreCorrector <T extends RCTupleContainer> implements Correctable<T>{
     protected static boolean debug = false;
 
     protected TupleTrie<T> corrections;
