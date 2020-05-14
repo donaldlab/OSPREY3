@@ -270,7 +270,7 @@ public class SHARKStarNode implements ConfAStarNode {
     }
 
     public double getHOTCorrectionUB(){
-        return this.HOTCorrectionLB;
+        return this.HOTCorrectionUB;
     }
 
     public String confToString() {

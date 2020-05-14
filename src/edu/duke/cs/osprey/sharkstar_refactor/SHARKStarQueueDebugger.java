@@ -4,9 +4,13 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import org.jetbrains.annotations.NotNull;
 
+import java.math.BigDecimal;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -16,6 +20,7 @@ public class SHARKStarQueueDebugger {
      * A class to debug a SHARKStarQueue_refactor object
      */
 
+    private static BoltzmannCalculator bc = new BoltzmannCalculator(PartitionFunction.decimalPrecision);
 
     public SHARKStarQueueDebugger(){
 
@@ -94,5 +99,55 @@ public class SHARKStarQueueDebugger {
                     unassignUB,
                     minimizedEnergy));
         }
+    }
+
+    public static BigDecimal getZErrorReductionFromCorrections(SHARKStarQueue_refactor queue, Sequence seq){
+        return queue.parallelStream()
+                .map( (node) -> new BigMath(PartitionFunction.decimalPrecision).set(0.0)
+                        .add(bc.calc(node.getPartialConfLB() + node.getUnassignedConfLB(seq)))
+                        .sub(bc.calc(node.getPartialConfLB() + node.getUnassignedConfLB(seq) + node.getHOTCorrectionLB()))
+                        .add(bc.calc(node.getPartialConfUB() + node.getUnassignedConfUB(seq) + node.getHOTCorrectionUB()))
+                        .sub(bc.calc(node.getPartialConfUB() + node.getUnassignedConfUB(seq)))
+                        .get()
+                ).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public static BigDecimal getZErrorReductionFromLowerCorrections(SHARKStarQueue_refactor queue, Sequence seq){
+        return queue.parallelStream()
+                .map( (node) -> new BigMath(PartitionFunction.decimalPrecision).set(0.0)
+                        .add(bc.calc(node.getPartialConfLB() + node.getUnassignedConfLB(seq)))
+                        .sub(bc.calc(node.getPartialConfLB() + node.getUnassignedConfLB(seq) + node.getHOTCorrectionLB()))
+                        .get()
+                ).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public static BigDecimal getZErrorReductionFromUpperCorrections(SHARKStarQueue_refactor queue, Sequence seq){
+        return queue.parallelStream()
+                .map( (node) -> new BigMath(PartitionFunction.decimalPrecision).set(0.0)
+                        .add(bc.calc(node.getPartialConfUB() + node.getUnassignedConfUB(seq) + node.getHOTCorrectionUB()))
+                        .sub(bc.calc(node.getPartialConfUB() + node.getUnassignedConfUB(seq)))
+                        .get()
+                ).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public static BigDecimal getZErrorReductionFromMinimizations(SHARKStarQueue_refactor queue, Sequence seq){
+        return queue.parallelStream()
+                .map( (node) -> {
+                    if(node.isMinimized()){
+                        return new BigMath(PartitionFunction.decimalPrecision).set(0.0)
+                                .add(bc.calc(node.getPartialConfLB() + node.getUnassignedConfLB(seq) + node.getHOTCorrectionLB()))
+                                .sub(bc.calc(node.getPartialConfUB() + node.getUnassignedConfUB(seq) + node.getHOTCorrectionUB()))
+                                .get();
+                    }else{
+                        return BigDecimal.ZERO;
+                    }
+                        }
+                ).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public static double getSumEnergyUpperCorrection(SHARKStarQueue_refactor queue, Sequence seq){
+        return queue.parallelStream()
+                .map(SHARKStarNode::getHOTCorrectionUB)
+                .reduce(0.0, Double::sum);
     }
 }

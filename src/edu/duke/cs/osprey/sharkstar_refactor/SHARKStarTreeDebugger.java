@@ -92,12 +92,14 @@ public class SHARKStarTreeDebugger {
         enforceIncreasingLowerBounds(parent, children, seq);
         enforceNoDuplicateChildren(children);
         enforceBoundSanity(parent, seq);
+        enforceUpperBoundCorrections(parent);
     }
 
     public void leafDebugChecks(SHARKStarNode leaf, Sequence seq){
         enforceBoundSanityLeaf(leaf, seq);
         if (leaf.isMinimized())
             minimizedNodes.get(seq).add(leaf.toSeqString(seq));
+        enforceUpperBoundCorrections(leaf);
     }
 
     /**
@@ -245,5 +247,15 @@ public class SHARKStarTreeDebugger {
 
     public BigDecimal recursiveComputeZBound(Sequence seq, Function<SHARKStarNode, Double> energyMapper){
         return recursiveComputeZBound(this.rootNode, seq, energyMapper);
+    }
+
+    public void enforceUpperBoundCorrections(SHARKStarNode node){
+        if(node.getHOTCorrectionUB()>0){
+            throw new RuntimeException("Found an increasing upperbound correction");
+        }
+        if(node.getHOTCorrectionUB() != 0 && !MultiSequenceSHARKStarBound_refactor.doUpperBoundCorrections){
+            throw new RuntimeException("Setting HOTCorrections when we shouldn't");
+        }
+
     }
 }

@@ -476,6 +476,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param size        The size of the new confSpace
      */
     private void updatePrecomputedNode(SHARKStarNode node, int[] permutation, int size) {
+        // Store old assignments for epmolsMap
+        int[] oldAssignments = node.getAssignments();
         // permute the assignments to the new confspace
         node.makeNodeCompatibleWithConfSpace(permutation, size);
 
@@ -484,9 +486,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             RCTuple nodeTup = new RCTuple(node.getAssignments());
             lowerBoundCorrector.insertCorrection(new TupE(nodeTup, node.getMinE()
                     - node.getPartialConfLB()));
-            if(doUpperBoundCorrections && !saveEPMOLsForMinimization && epmolsMap.containsKey(node.getAssignments())){
+            if(doUpperBoundCorrections && !saveEPMOLsForMinimization && epmolsMap.containsKey(oldAssignments)){
                 // Add minimized fragment to mutated confspace
-                RCTuple mappedTup = mutatedConfSpace.addResidueConfsFromEPMOL(nodeTup, epmolsMap.get(node.getAssignments()));
+                RCTuple mappedTup = mutatedConfSpace.addResidueConfsFromEPMOL(nodeTup, epmolsMap.get(oldAssignments));
                 // Insert the correction
                 this.upperBoundCorrector.insert(new TupMapping(nodeTup, mappedTup));
             }
@@ -705,7 +707,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         // If the parent correction is larger, just use the parent correction, since it must be valid for lowerbound
                         result.HOTCorrectionLB = Math.max(HOTCorrection, parent.getHOTCorrectionLB());
 
-                        if(doUpperBoundCorrections && !saveEPMOLsForMinimization && upperBoundCorrector.contains(new RCTuple(child.getAssignments()))) {
+                        if(doUpperBoundCorrections && !saveEPMOLsForMinimization && upperBoundCorrector.getEntries(new RCTuple(child.getAssignments())).size()>0) {
                             // Try to apply correction to child (upperbound)
                             RCTuple mappedTup = upperBoundCorrector.getEntries(new RCTuple(context.index.makeConf())).get(0).mapTup;
                             mappedTup.pasteToIndex(context.index);
@@ -735,7 +737,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     result.resultNode.setUnassignedConfLB(result.unassignLB, seq);
                     result.resultNode.setUnassignedConfUB(result.unassignUB, seq);
                     result.resultNode.setHOTCorrectionLB(result.HOTCorrectionLB);
-                    if(result.HOTCorrectionUB < 0)
+                    if(doUpperBoundCorrections && result.HOTCorrectionUB < 0)
                         result.resultNode.setHOTCorrectionUB(result.HOTCorrectionUB);
                     result.resultNode.setScore(result.score, seq);
 
@@ -929,6 +931,20 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             //pilotFish.printLeaves(bound.sequence);
         }
 
+        System.out.println(String.format("For internal queue:\n\t Z reduction from corrections: %1.5e, [lower, upper] = [%1.5e, %1.5e]"+
+                "\n\t Z reduction from minimizations: %1.5e",
+                SHARKStarQueueDebugger.getZErrorReductionFromCorrections(bound.internalQueue, bound.sequence).doubleValue(),
+                SHARKStarQueueDebugger.getZErrorReductionFromLowerCorrections(bound.internalQueue, bound.sequence).doubleValue(),
+                SHARKStarQueueDebugger.getZErrorReductionFromUpperCorrections(bound.internalQueue, bound.sequence).doubleValue(),
+                SHARKStarQueueDebugger.getZErrorReductionFromMinimizations(bound.internalQueue, bound.sequence).doubleValue()
+                ));
+        System.out.println(String.format("For leaf queue:\n\t Z reduction from corrections: %1.5e, [lower, upper] = [%1.5e, %1.5e]"+
+                        "\n\t Z reduction from minimizations: %1.5e",
+                SHARKStarQueueDebugger.getZErrorReductionFromCorrections(bound.leafQueue, bound.sequence).doubleValue(),
+                SHARKStarQueueDebugger.getZErrorReductionFromLowerCorrections(bound.leafQueue, bound.sequence).doubleValue(),
+                SHARKStarQueueDebugger.getZErrorReductionFromUpperCorrections(bound.leafQueue, bound.sequence).doubleValue(),
+                SHARKStarQueueDebugger.getZErrorReductionFromMinimizations(bound.leafQueue, bound.sequence).doubleValue()
+        ));
     }
 
     /**
@@ -939,6 +955,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private void simpleTightenBound(SingleSequenceSHARKStarBound_refactor bound) {
         int numConfsToProcess = 1000;
         int numConfsProcessed = 0;
+        System.out.println(String.format("Internal Queue: %d nodes, Leaf Queue: %d nodes",bound.internalQueue.size(), bound.leafQueue.size()));
 
         while (numConfsProcessed < numConfsToProcess) {
             SHARKStarNode node;
@@ -1246,24 +1263,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         double HOTCorrection = lowerBoundCorrector.getCorrection(fullConfNode.getAssignments());
         if (HOTCorrection > fullConfNode.getHOTCorrectionLB()){
             fullConfNode.setHOTCorrectionLB(HOTCorrection);
+            didCorrect=true;
             // if we applied a correction, done with the node
-        }
-        if (doUpperBoundCorrections && !saveEPMOLsForMinimization && upperBoundCorrector.contains(new RCTuple(fullConfNode.getAssignments()))) {
-            // Try correcting UB
-            try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
-                ScoreContext context = checkout.get();
-                fullConfNode.index(context.index);
-                // Try to apply correction to child (upperbound), this is max 0
-                RCTuple mappedTup = upperBoundCorrector.getEntries(new RCTuple(context.index.makeConf())).get(0).mapTup;
-                mappedTup.pasteToIndex(context.index);
-                double correctedPartialUB = context.upperCorrectionGScorer.calc(context.index, seqBound.seqRCs);
-                double correctedUnnasignedUB = context.upperCorrectionHScorer.calc(context.index, seqBound.seqRCs);
-                double HOTCorrectionUB = correctedPartialUB + correctedUnnasignedUB - (fullConfNode.getFreeEnergyUB(seqBound.sequence));
-                if(HOTCorrectionUB < 0){
-                    fullConfNode.setHOTCorrectionUB(HOTCorrectionUB);
-                    didCorrect = true;
-                }
-            }
         }
         if (didCorrect == true){
             newNodes.add(fullConfNode);
@@ -1295,23 +1296,6 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         if(HOTCorrectionLB > partialConfNode.getHOTCorrectionLB()){
             partialConfNode.setHOTCorrectionLB(HOTCorrectionLB);
             didCorrect = true;
-        }
-        if(doUpperBoundCorrections && !saveEPMOLsForMinimization && upperBoundCorrector.contains(new RCTuple(partialConfNode.getAssignments()))){
-            // Try correcting UB
-            try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
-                ScoreContext context = checkout.get();
-                partialConfNode.index(context.index);
-                // Try to apply correction to child (upperbound), this is max 0
-                RCTuple mappedTup = upperBoundCorrector.getEntries(new RCTuple(context.index.makeConf())).get(0).mapTup;
-                mappedTup.pasteToIndex(context.index);
-                double correctedPartialUB = context.upperCorrectionGScorer.calc(context.index, seqBound.seqRCs);
-                double correctedUnnasignedUB = context.upperCorrectionHScorer.calc(context.index, seqBound.seqRCs);
-                double HOTCorrectionUB = correctedPartialUB + correctedUnnasignedUB - (partialConfNode.getFreeEnergyUB(seqBound.sequence));
-                if(HOTCorrectionUB < 0){
-                    partialConfNode.setHOTCorrectionUB(HOTCorrectionUB);
-                    didCorrect = true;
-                }
-            }
         }
         if (didCorrect == true){
             newNodes.add(partialConfNode);
