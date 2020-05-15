@@ -44,7 +44,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     // Debug variables
     public static final boolean debug = true;
     public static final boolean doExtraTupleCorrections = true;
-    public static final boolean doUpperBoundCorrections = true;
+    public static final boolean doUpperBoundCorrections = false;
     public final SHARKStarTreeDebugger pilotFish;
     public boolean profileOutput = false;
 
