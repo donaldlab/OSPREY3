@@ -90,7 +90,7 @@ public class SHARKStarTreeDebugger {
     public void debugChecks(SHARKStarNode parent, List<SHARKStarNode> children, Sequence seq){
         enforceDecreasingUpperBounds(parent, children, seq);
         enforceIncreasingLowerBounds(parent, children, seq);
-        enforceNoDuplicateChildren(children);
+        enforceNoDuplicateChildren(children, seq);
         enforceBoundSanity(parent, seq);
         enforceUpperBoundCorrections(parent);
     }
@@ -178,12 +178,13 @@ public class SHARKStarTreeDebugger {
         }
     }
 
-    public void enforceNoDuplicateChildren(List<SHARKStarNode> children){
+    public void enforceNoDuplicateChildren(List<SHARKStarNode> children, Sequence seq){
         ArrayList<int[]> childAssignmentsList = children.stream()
                 .map(SHARKStarNode::getAssignments)
                 .collect(Collectors.toCollection(ArrayList::new));
         Set<int[]> childAssignmentsSet = new HashSet<>(childAssignmentsList);
         if (childAssignmentsList.size() != childAssignmentsSet.size()){
+            children.stream().map(c -> c.toSeqString(seq)).forEach(System.out::println);
             throw new RuntimeException("Detected duplicate children!");
         }
     }

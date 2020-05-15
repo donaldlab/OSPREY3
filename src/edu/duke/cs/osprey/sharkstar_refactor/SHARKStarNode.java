@@ -88,10 +88,15 @@ public class SHARKStarNode implements ConfAStarNode {
         int[] newAssignments = new int[this.assignments.length];
         System.arraycopy(this.assignments, 0, newAssignments, 0, this.assignments.length);
         newAssignments[pos] = rc;
-        SHARKStarNode child = new SHARKStarNode(newAssignments, this.level + 1, this);
-        // Store the new node as a child
+        return new SHARKStarNode(newAssignments, this.level + 1, this);
+    }
+
+    public void addChild(SHARKStarNode child){
         this.children.add(child);
-        return child;
+    }
+
+    public void addChildren(List<SHARKStarNode> children){
+        this.children.addAll(children);
     }
 
 

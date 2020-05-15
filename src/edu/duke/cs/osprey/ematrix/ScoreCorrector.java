@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.ematrix;
 
+import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.tools.MathTools;
 
@@ -29,6 +30,10 @@ public abstract class ScoreCorrector <T extends RCTupleContainer> implements Cor
 
     public double getCorrection(int[] assignments){
         return getCorrection(new RCTuple(assignments));
+    }
+
+    public double getCorrection(ConfIndex index){
+        return getCorrection(index.makeConf());
     }
 
     public double getCorrection(RCTuple query){

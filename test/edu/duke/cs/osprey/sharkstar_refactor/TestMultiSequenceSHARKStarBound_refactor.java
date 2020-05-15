@@ -39,7 +39,7 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
 
     private GradientDescentPfunc makeGradientDescentPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon){
         // Set up partition function requirements
-        Parallelism parallelism = Parallelism.makeCpu(4);
+        Parallelism parallelism = Parallelism.makeCpu(1);
         ForcefieldParams ffparams = new ForcefieldParams();
 
         // how should we compute energies of molecules?
@@ -64,7 +64,7 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
 
     private MultiSequenceSHARKStarBound_refactor makeSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon, MultiSequenceSHARKStarBound_refactor preComputedFlex, UpdatingEnergyMatrix preCompCorrections){
         // Set up partition function requirements
-        Parallelism parallelism = Parallelism.makeCpu(1);
+        Parallelism parallelism = Parallelism.makeCpu(4);
         ForcefieldParams ffparams = new ForcefieldParams();
 
         // how should we compute energies of molecules?
@@ -232,7 +232,7 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
         SimpleConfSpace confSpace = make1CC8Mutable();
         Sequence wildType = confSpace.makeWildTypeSequence();
 
-        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(confSpace, wildType, .1);
+        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(confSpace, wildType, .90);
         traditionalPfunc.setReportProgress(true);
         traditionalPfunc.compute();
 

@@ -589,6 +589,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 scoreNodeForSeq(node, bound.sequence, bound.seqRCs);
                 //TODO: determine whether I'll have thread issues by not waiting till this is finished to add the node to fringe
             }
+            loopTasks.waitForFinish();
             // add to sequence fringe nodes
             if (node.getLevel() < bound.seqRCs.getNumPos()) {
                 bound.internalQueue.add(node);
@@ -675,6 +676,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         loopTasks.submit(
                 () -> {
+                    ScoringResult result = new ScoringResult();
                     try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
                         // Timing
                         /* Note: this is probably inefficient to create new stopwatches, but they aren't threadsafe,
@@ -685,17 +687,14 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
                         ScoreContext context = checkout.get();
 
-                        ScoringResult result = new ScoringResult();
                         parent.index(context.index);
-                        SHARKStarNode child = parent.assign(nextPos, nextRC);
-                        result.resultNode = child;
-
+                        result.resultNode = parent.assign(nextPos, nextRC);
 
                         // Score the child node
                         //TODO move back to calcDifferential if possible
                         result.partialLB = context.partialConfLBScorer.calcDifferential(context.index, seqRCs, nextPos, nextRC);
                         result.partialUB = context.partialConfUBScorer.calcDifferential(context.index, seqRCs, nextPos, nextRC);
-                        child.index(context.index); // We don't implement calcDifferential for the SHARKStarNodeScorer yet, so probably faster to do this
+                        result.resultNode.index(context.index); // We don't implement calcDifferential for the SHARKStarNodeScorer yet, so probably faster to do this
                         result.unassignLB = context.unassignedConfLBScorer.calc(context.index, seqRCs);
                         result.unassignUB = context.unassignedConfUBScorer.calc(context.index, seqRCs);
 
@@ -703,11 +702,10 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         result.time = scoreWatch.getTimeS();
 
                         // Try to apply partial minimization correction to child (Lowerbound)
-                        double HOTCorrection = lowerBoundCorrector.getCorrection(child.getAssignments());
                         // If the parent correction is larger, just use the parent correction, since it must be valid for lowerbound
-                        result.HOTCorrectionLB = Math.max(HOTCorrection, parent.getHOTCorrectionLB());
+                        result.HOTCorrectionLB = Math.max(lowerBoundCorrector.getCorrection(context.index), parent.getHOTCorrectionLB());
 
-                        if(doUpperBoundCorrections && !saveEPMOLsForMinimization && upperBoundCorrector.getEntries(new RCTuple(child.getAssignments())).size()>0) {
+                        if(doUpperBoundCorrections && !saveEPMOLsForMinimization && upperBoundCorrector.getEntries(new RCTuple(context.index.makeConf())).size()>0) {
                             // Try to apply correction to child (upperbound)
                             RCTuple mappedTup = upperBoundCorrector.getEntries(new RCTuple(context.index.makeConf())).get(0).mapTup;
                             mappedTup.pasteToIndex(context.index);
@@ -724,29 +722,29 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         result.score = bc.calc_lnZDiff(result.partialLB + result.unassignLB + result.HOTCorrectionLB,
                                 result.partialUB + result.unassignUB + result.HOTCorrectionUB);
 
-                            return result;
                         }
+                    return result;
                 },
                 (result) -> {
                     if (!result.isValid())
                         throw new RuntimeException(String.format("Error in node scoring for %s",
                                 this.confSpace.formatConf(result.resultNode.getAssignments())));
 
-                    result.resultNode.setPartialConfLB(result.partialLB);
-                    result.resultNode.setPartialConfUB(result.partialUB);
-                    result.resultNode.setUnassignedConfLB(result.unassignLB, seq);
-                    result.resultNode.setUnassignedConfUB(result.unassignUB, seq);
-                    result.resultNode.setHOTCorrectionLB(result.HOTCorrectionLB);
-                    if(doUpperBoundCorrections && result.HOTCorrectionUB < 0)
-                        result.resultNode.setHOTCorrectionUB(result.HOTCorrectionUB);
-                    result.resultNode.setScore(result.score, seq);
+                        result.resultNode.setPartialConfLB(result.partialLB);
+                        result.resultNode.setPartialConfUB(result.partialUB);
+                        result.resultNode.setUnassignedConfLB(result.unassignLB, seq);
+                        result.resultNode.setUnassignedConfUB(result.unassignUB, seq);
+                        result.resultNode.setHOTCorrectionLB(result.HOTCorrectionLB);
+                        if (doUpperBoundCorrections && result.HOTCorrectionUB < 0)
+                            result.resultNode.setHOTCorrectionUB(result.HOTCorrectionUB);
+                        result.resultNode.setScore(result.score, seq);
 
                     synchronized (this) {
                         scoringTimeTotal += result.time;
                         numScores += 1;
+                        children.add(result.resultNode);
                     }
 
-                    children.add(result.resultNode);
                 }
         );
     }
@@ -842,8 +840,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * maxNumConfs or when it reaches this.targetEpsilon, whichever comes first.
      *
      * @param maxNumConfs The maximum number of conformations to evaluate (minimize?)
-     * @param bound       The SingleSequence partition function (defin                        result.unassignLB = context.unassignedConfLBScorer.calc(context.index, seqRCs);
-                        result.unassignUB = context.unassignedConfUBScorer.calc(context.index, seqRCs);es the sequence we are after)
+     * @param bound       The SingleSequence partition function
      */
     public void computeForSequence(int maxNumConfs, SingleSequenceSHARKStarBound_refactor bound) {
         if (debug){
@@ -1303,10 +1300,12 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         }
 
         // Get the next position
-        ScoreContext context = contexts.checkout();
-        partialConfNode.index(context.index);
-        int nextPos = order.getNextPos(context.index, seqBound.seqRCs);
-        contexts.release(context);
+        int nextPos;
+        try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+            ScoreContext context = checkout.get();
+            partialConfNode.index(context.index);
+            nextPos = order.getNextPos(context.index, seqBound.seqRCs);
+        }
 
         // score child nodes with tasks (possibly in parallel)
         List<SHARKStarNode> children = new ArrayList<>();
@@ -1314,6 +1313,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             // Actually score the child
             makeAndScoreChildForSeq(partialConfNode, nextPos, nextRC, seqBound.sequence, seqBound.seqRCs, children);
         }
+        loopTasks.waitForFinish();
+        //children.stream().map(c -> c.toSeqString(seqBound.sequence)).forEach(System.out::println);
+        partialConfNode.addChildren(children);
         // reporting
         //TODO: maybe separate scoring tasks from minimization tasks?
         loopTasks.waitForFinish();
