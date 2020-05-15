@@ -121,6 +121,24 @@ public class BoltzmannCalculator {
 
 	}
 
+	/**
+	 * Computes the free energy of partition function error
+	 * @param x	variable x
+	 * @param y variable y
+	 * @return  -RTln( exp(-x/RT) - exp(-y/RT) )
+	 *
+	 * 	TODO: Optimize this? It should get called a LOT
+	 */
+	public double calc_EDiff(double x, double y){
+		if(x < y)
+			return x + freeEnergy(BigDecimal.ONE.subtract(calc(y-x), mathContext));
+		else if(x>y)
+			return y + freeEnergy(BigDecimal.ONE.subtract(calc(x-y), mathContext));
+		else
+			return 0;
+
+	}
+
 	public double freeEnergy(BigDecimal z) {
 		return -constRT*e.log(z).doubleValue();
 	}

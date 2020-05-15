@@ -28,6 +28,7 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
@@ -949,22 +950,42 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      *
      * @param bound A single-sequence partition function
      */
-    private void simpleTightenBound(SingleSequenceSHARKStarBound_refactor bound) {
+    private void moreComplicatedTightenBound(SingleSequenceSHARKStarBound_refactor bound) {
         int numConfsToProcess = 1000;
-        int numConfsProcessed = 0;
+        AtomicInteger numConfsProcessed = new AtomicInteger();
+        boolean leavesExist = false;
+        double bestInternalScore = Double.NEGATIVE_INFINITY;
+        double bestLeafScore = Double.NEGATIVE_INFINITY;
+
         System.out.println(String.format("Internal Queue: %d nodes, Leaf Queue: %d nodes",bound.internalQueue.size(), bound.leafQueue.size()));
 
-        while (numConfsProcessed < numConfsToProcess) {
+        while (numConfsProcessed.get() < numConfsToProcess) {
             SHARKStarNode node;
             List<SHARKStarNode> newNodes = Collections.synchronizedList(new ArrayList<>());
-            if (bound.leafQueue.isEmpty() || bound.internalQueue.peek().getScore(bound.sequence) > bound.leafQueue.peek().getScore(bound.sequence)) {
+            leavesExist = !bound.leafQueue.isEmpty();
+            bestInternalScore = bound.internalQueue.peek().getScore(bound.sequence);
+            if(leavesExist)
+                bestLeafScore = bound.leafQueue.peek().getScore(bound.sequence);
+
+            if (!leavesExist || bestInternalScore > bestLeafScore) {
+                /*
                 node = bound.internalQueue.poll();
+                processPartialConfNode(bound, newNodes, node);
+
+                 */
+                double finalBestLeafScore = bestLeafScore;
+                loopTasks.submit( () -> processPartialConfNodes(bound, 250, finalBestLeafScore),
+
+                        (result) -> {
+                            synchronized(this){
+                                numConfsProcessed.addAndGet(result.numNodesCreated);
+                            }
+                        }
+                );
+
+
             } else {
                 node = bound.leafQueue.poll();
-            }
-            if (node.getLevel() < bound.seqRCs.getNumPos()) {
-                processPartialConfNode(bound, newNodes, node);
-            } else {
                 processFullConfNode(bound, newNodes, node);
             }
 
@@ -977,7 +998,50 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 }
             }
 
-            numConfsProcessed++;
+            numConfsProcessed.getAndIncrement();
+        }
+    }
+
+    /**
+     * Uses the simplest possible scheme to tighten the bounds on the partition function
+     *
+     * @param bound A single-sequence partition function
+     */
+    private void simpleTightenBound(SingleSequenceSHARKStarBound_refactor bound) {
+        int numConfsToProcess = 1000;
+        AtomicInteger numConfsProcessed = new AtomicInteger();
+        boolean leavesExist = false;
+        double bestInternalScore = Double.NEGATIVE_INFINITY;
+        double bestLeafScore = Double.NEGATIVE_INFINITY;
+
+        System.out.println(String.format("Internal Queue: %d nodes, Leaf Queue: %d nodes",bound.internalQueue.size(), bound.leafQueue.size()));
+
+        while (numConfsProcessed.get() < numConfsToProcess) {
+            SHARKStarNode node;
+            List<SHARKStarNode> newNodes = Collections.synchronizedList(new ArrayList<>());
+            leavesExist = !bound.leafQueue.isEmpty();
+            bestInternalScore = bound.internalQueue.peek().getScore(bound.sequence);
+            if(leavesExist)
+                bestLeafScore = bound.leafQueue.peek().getScore(bound.sequence);
+
+            if (!leavesExist || bestInternalScore > bestLeafScore) {
+                node = bound.internalQueue.poll();
+                processPartialConfNode(bound, newNodes, node);
+            } else {
+                node = bound.leafQueue.poll();
+                processFullConfNode(bound, newNodes, node);
+            }
+
+            loopTasks.waitForFinish();
+            for (SHARKStarNode newNode : newNodes) {
+                if (newNode.getLevel() < bound.seqRCs.getNumPos()) {
+                    bound.internalQueue.add(newNode);
+                } else {
+                    bound.leafQueue.add(newNode);
+                }
+            }
+
+            numConfsProcessed.getAndIncrement();
         }
     }
 
@@ -1331,6 +1395,142 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     }
 
     /**
+     * Expand partial conformation nodes until either the numNodesCeiling is met or the next partial Conf error is below the errorFloor
+     * @param bound
+     * @param numNodesCeiling   A soft ceiling on the number of nodes we are allowed to create this round
+     * @param errorFloor
+     */
+    private PartialResult processPartialConfNodes(SingleSequenceSHARKStarBound_refactor bound, int numNodesCeiling, double errorFloor) {
+        PartialResult result = new PartialResult();
+        try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+            ScoreContext context = checkout.get();
+
+            Stopwatch partialWatch = new Stopwatch().start();
+
+            int numNodesCreated = 0;
+            while (numNodesCreated < numNodesCeiling) {     // Stop if we create enough nodes
+                SHARKStarNode parent = bound.internalQueue.poll();
+
+                // Stop if the node error falls below our cutoff
+                if(parent.getScore(bound.sequence) < errorFloor)
+                    return result;
+
+                //Record starting parent energy bounds
+                double parentLB = parent.getFreeEnergyLB(bound.sequence);
+                double parentUB = parent.getFreeEnergyUB(bound.sequence);
+
+                // Try to correct node
+                boolean correctedParent = correctNodeOrNOOP(parent, parent.getHOTCorrectionLB(), bound, context);
+                if(correctedParent){
+                    result.lowerBoundDeltas.add(bc.calc_EDiff(parentLB, parent.getFreeEnergyLB(bound.sequence)));
+                    result.upperBoundDeltas.add(bc.calc_EDiff(parentUB, parent.getFreeEnergyUB(bound.sequence)));
+                    bound.internalQueue.add(parent);
+                    numNodesCreated++; // technically we didn't create it, but we updated
+                    continue;
+                }
+
+                parent.index(context.index);
+                int nextPos = order.getNextPos(context.index, bound.seqRCs);
+
+                // Create list for finding out the delta pfunc upper and lower
+                ArrayList<Double> childLBs = new ArrayList<>();
+                ArrayList<Double> childUBs = new ArrayList<>();
+
+                // score child nodes
+                int[] nextRCs = bound.seqRCs.get(nextPos);
+                for (int nextRC : nextRCs) {
+                    // Make the child node
+                    parent.index(context.index);    // this is because the index will change in the loop
+                    SHARKStarNode child = parent.assign(nextPos, nextRC);
+                    // Score the child node
+                    child.setPartialConfLB(context.partialConfLBScorer.calcDifferential(context.index, bound.seqRCs, nextPos, nextRC));
+                    child.setPartialConfUB(context.partialConfUBScorer.calcDifferential(context.index, bound.seqRCs, nextPos, nextRC));
+                    child.index(context.index); // We don't implement calcDifferential for the SHARKStarNodeScorer yet, so probably faster to do this
+                    child.setUnassignedConfLB(context.unassignedConfLBScorer.calc(context.index, bound.seqRCs), bound.sequence);
+                    child.setUnassignedConfUB(context.unassignedConfUBScorer.calc(context.index, bound.seqRCs), bound.sequence);
+
+                    // Try to apply corrections to child
+                    correctNodeOrNOOP(child, parent.getHOTCorrectionLB(), bound, context);
+
+                    // Now we have good bounds on child energy
+                    double childLB = child.getFreeEnergyLB(bound.sequence);
+                    double childUB = child.getFreeEnergyUB(bound.sequence);
+
+                    // Compute the node partition function error
+                    child.setScore(
+                            bc.calc_lnZDiff(childLB, childUB),
+                            bound.sequence);
+                    childLBs.add(childLB);
+                    // Record child bounds for use in this method
+                    childLBs.add(childLB);
+                    childUBs.add(childUB);
+
+                    // Add child to parent's children ( we can get rid of this eventually)
+                    parent.addChild(child);
+
+                    // Add child back to queue
+                    if(child.getLevel() < bound.seqRCs.getNumPos())
+                        bound.internalQueue.add(child);
+                    else{
+                        bound.leafQueue.add(child);
+                    }
+
+                    numNodesCreated++;
+                }
+
+                //Now we are done making children for the parent node, let's update the result
+                //Compute the delta E bounds
+                result.lowerBoundDeltas.add(bc.calc_EDiff(parentLB, bc.logSumExp(childLBs)));
+                result.upperBoundDeltas.add(bc.calc_EDiff(parentUB, bc.logSumExp(childUBs)));
+            }
+            partialWatch.stop();
+            result.time = partialWatch.getTimeS();
+            result.numNodesCreated = numNodesCreated;
+        }
+        return result;
+    }
+
+    /**
+     * Try to apply corrections to node.
+     *
+     * SIDE EFFECT: Changes context.index
+     *
+     * @param node
+     * @param lowerCorrectionFloor
+     * @param bound
+     * @param context
+     * @return
+     */
+    private boolean correctNodeOrNOOP(SHARKStarNode node, double lowerCorrectionFloor, SingleSequenceSHARKStarBound_refactor bound, ScoreContext context){
+        boolean corrected = false;
+        node.index(context.index);
+        // Try to apply partial minimization correction to child (Lowerbound)
+        // If the parent correction is larger, just use the parent correction, since it must be valid for lowerbound
+        double HOTCorrectionLB = Math.max(lowerBoundCorrector.getCorrection(context.index), lowerCorrectionFloor);
+        if (HOTCorrectionLB > node.getHOTCorrectionLB()){
+            node.setHOTCorrectionLB(HOTCorrectionLB);
+            corrected = true;
+        }
+
+        // Try to apply correction to child (upperbound)
+        if(doUpperBoundCorrections && !saveEPMOLsForMinimization && upperBoundCorrector.getEntries(new RCTuple(context.index.makeConf())).size()>0) {
+            RCTuple mappedTup = upperBoundCorrector.getEntries(new RCTuple(context.index.makeConf())).get(0).mapTup;
+            mappedTup.pasteToIndex(context.index);
+            double correctedPartialUB = context.upperCorrectionGScorer.calc(context.index, bound.seqRCs);
+            double correctedUnassignedUB = context.upperCorrectionHScorer.calc(context.index, bound.seqRCs);
+            double HOTCorrectionUB = correctedPartialUB + correctedUnassignedUB - node.getFreeEnergyUB(bound.sequence);
+            // Filter out positive upper bound corrections
+            //TODO: make this sequence dependent
+            if (HOTCorrectionUB < 0) {
+                node.setHOTCorrectionUB(HOTCorrectionUB);
+                corrected = true;
+            }
+        }
+        node.index(context.index);
+        return corrected;
+    }
+
+    /**
      * Drill down in a standard A* manner and bound the lowest-energy full conformation in the subtree
      * defined by internalNode
      *
@@ -1520,6 +1720,13 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         public boolean isValid() {
             return resultNode != null && !Double.isNaN(minimizedEnergy);
         }
+    }
+
+    private class PartialResult{
+        double time;
+        int numNodesCreated;
+        List<Double> lowerBoundDeltas = new ArrayList<>();
+        List<Double> upperBoundDeltas = new ArrayList<>();
     }
 
     public static interface RigidEmatFactory{
