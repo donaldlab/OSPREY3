@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimpleUpdatingEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -15,6 +16,8 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound;
 import edu.duke.cs.osprey.sharkstar.TestSHARKStarBound;
@@ -60,6 +63,49 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
         RCs rcs = sequence.makeRCs(confSpace);
 
         return (GradientDescentPfunc) pfuncFactory.makePartitionFunctionFor(rcs, rcs.getNumConformations(), epsilon);
+    }
+
+    private MARKStarBound makeMARKStarPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon, MultiSequenceSHARKStarBound_refactor preComputedFlex, UpdatingEnergyMatrix preCompCorrections){
+        // Set up partition function requirements
+        Parallelism parallelism = Parallelism.makeCpu(4);
+        ForcefieldParams ffparams = new ForcefieldParams();
+
+        // how should we compute energies of molecules?
+        EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
+                .setParallelism(parallelism)
+                .build();
+        // how should we define energies of conformations?
+        ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
+                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
+                        .build()
+                        .calcReferenceEnergies()
+                )
+                .build();
+
+        // BBK* needs rigid energies too
+        EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
+                .setIsMinimizing(false)
+                .build();
+        ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(confEcalcMinimized, ecalcRigid);
+
+        EnergyMatrix minEmat = new SimplerEnergyMatrixCalculator.Builder(confEcalcMinimized)
+                .setCacheFile(new File("test"+"."+"minimizing"+".emat"))
+                .build()
+                .calcEnergyMatrix();
+
+        EnergyMatrix rigidEmat = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
+                .setCacheFile(new File("test"+"."+"rigid"+".emat"))
+                .build()
+                .calcEnergyMatrix();
+
+        RCs rcs = sequence.makeRCs(confSpace);
+
+        SimpleUpdatingEnergyMatrix MARKStarEmat = new SimpleUpdatingEnergyMatrix(confSpace, minEmat, confEcalcMinimized);
+        MARKStarBound MARKStarBound = new MARKStarBoundFastQueues(confSpace, rigidEmat,
+                minEmat, confEcalcMinimized, rcs, parallelism);
+        MARKStarBound.setCorrections(MARKStarEmat);
+        MARKStarBound.init(epsilon);
+        return MARKStarBound;
     }
 
     private MultiSequenceSHARKStarBound_refactor makeSHARKStarPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon, MultiSequenceSHARKStarBound_refactor preComputedFlex, UpdatingEnergyMatrix preCompCorrections){
@@ -225,6 +271,14 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
         bound.init(0.90);
         PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
         ssbound.compute();
+    }
+
+    @Test
+    public void testComputeForSequenceMARK(){
+        SimpleConfSpace confSpace = make1CC8Mutable();
+        Sequence wildType = confSpace.makeWildTypeSequence();
+        MARKStarBound bound = makeMARKStarPfuncForConfSpace(confSpace, wildType, 0.90, null, null);
+        bound.compute();
     }
 
     @Test

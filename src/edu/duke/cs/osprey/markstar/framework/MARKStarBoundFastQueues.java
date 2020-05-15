@@ -149,7 +149,7 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
             Node node = curNode.getConfSearchNode();
             ConfIndex index = new ConfIndex(super.RCs.getNumPos());
             node.index(index);
-            double correctgscore = correctionMatrix.confE(node.assignments);
+            double correctgscore = node.gscore + correctionMatrix.getCorrection(node.assignments);
             double hscore = node.getConfLowerBound() - node.gscore;
             double confCorrection = Math.min(correctgscore, node.rigidScore) + hscore;
             if(!node.isMinimized() && node.getConfLowerBound() < confCorrection
