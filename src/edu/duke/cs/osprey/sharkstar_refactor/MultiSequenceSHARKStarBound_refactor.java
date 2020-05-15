@@ -593,9 +593,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             loopTasks.waitForFinish();
             // add to sequence fringe nodes
             if (node.getLevel() < bound.seqRCs.getNumPos()) {
-                bound.internalQueue.add(node);
+                bound.internalQueue.put(node);
             } else {
-                bound.leafQueue.add(node);
+                bound.leafQueue.put(node);
             }
         } else {
             // If there are compatible children, recurse
@@ -774,7 +774,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
                         ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.getAssignments(), node.getFreeEnergyLB(seq));
                         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
+                        node.setMinE(analysis.epmol.energy);
                         result.minimizedEnergy = analysis.epmol.energy;
+                        node.setScore(0.0, seq);
                         if(this.saveEPMOLsForMinimization)
                             result.epmol = analysis.epmol;
 
@@ -876,7 +878,12 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             }
             // run method
             //tightenBoundInPhases(bound);
-            simpleTightenBound(bound);
+            //simpleTightenBound(bound);
+            try {
+                moreComplicatedTightenBound(bound);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
             // do some debug checks
             double newEps = bound.calcEpsilon();
@@ -950,56 +957,76 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      *
      * @param bound A single-sequence partition function
      */
-    private void moreComplicatedTightenBound(SingleSequenceSHARKStarBound_refactor bound) {
+    private void moreComplicatedTightenBound(SingleSequenceSHARKStarBound_refactor bound) throws InterruptedException {
         int numConfsToProcess = 1000;
         AtomicInteger numConfsProcessed = new AtomicInteger();
         boolean leavesExist = false;
         double bestInternalScore = Double.NEGATIVE_INFINITY;
         double bestLeafScore = Double.NEGATIVE_INFINITY;
 
+
         System.out.println(String.format("Internal Queue: %d nodes, Leaf Queue: %d nodes",bound.internalQueue.size(), bound.leafQueue.size()));
 
         while (numConfsProcessed.get() < numConfsToProcess) {
             SHARKStarNode node;
             List<SHARKStarNode> newNodes = Collections.synchronizedList(new ArrayList<>());
-            leavesExist = !bound.leafQueue.isEmpty();
-            bestInternalScore = bound.internalQueue.peek().getScore(bound.sequence);
-            if(leavesExist)
-                bestLeafScore = bound.leafQueue.peek().getScore(bound.sequence);
 
-            if (!leavesExist || bestInternalScore > bestLeafScore) {
-                /*
-                node = bound.internalQueue.poll();
-                processPartialConfNode(bound, newNodes, node);
-
-                 */
-                double finalBestLeafScore = bestLeafScore;
-                loopTasks.submit( () -> processPartialConfNodes(bound, 250, finalBestLeafScore),
-
-                        (result) -> {
-                            synchronized(this){
-                                numConfsProcessed.addAndGet(result.numNodesCreated);
-                            }
-                        }
-                );
-
-
-            } else {
-                node = bound.leafQueue.poll();
-                processFullConfNode(bound, newNodes, node);
+            Step step = Step.None;
+            synchronized(bound.leafQueue) {
+                leavesExist = !bound.leafQueue.isEmpty();
+                if (leavesExist)
+                    bestLeafScore = bound.leafQueue.peek().getScore(bound.sequence);
             }
+            synchronized(bound.internalQueue) {
+                if (bound.internalQueue.isEmpty())
+                    wait(10);
+                bestInternalScore = bound.internalQueue.peek().getScore(bound.sequence);
+            }
+            synchronized(this){
+                //System.out.println(String.format("Leaf queue score %.3f, internal queue score %.3f", bestLeafScore, bestInternalScore));
 
-            loopTasks.waitForFinish();
-            for (SHARKStarNode newNode : newNodes) {
-                if (newNode.getLevel() < bound.seqRCs.getNumPos()) {
-                    bound.internalQueue.add(newNode);
-                } else {
-                    bound.leafQueue.add(newNode);
+                if (!leavesExist || bestInternalScore > bestLeafScore) {
+                    step = Step.Score;
+                }else {
+                    step = Step.Energy;
                 }
             }
 
-            numConfsProcessed.getAndIncrement();
+            switch(step) {
+                case Score: {
+                    double finalBestLeafScore = bestLeafScore;
+                    loopTasks.submit( () -> processPartialConfNodes(bound, 200, finalBestLeafScore),
+
+                            (result) -> {
+                                synchronized(this){
+                                    numConfsProcessed.addAndGet(result.numNodesCreated);
+                                }
+                            }
+                    );
+                    break;
+                }
+                case Energy: {
+                    loopTasks.submit( () -> minimizeNode(bound),
+
+                            (result) -> {
+                                synchronized (this) {
+                                    //minList.set(result.resultNode.getAssignments().length - 1, minList.get(result.resultNode.getAssignments().length - 1) + 1);
+                                    minimizationTimeTotal += result.minimizationTime;
+                                    correctionComputationTimeTotal += result.correctionTime;
+                                    numMinimizations += 1;
+                                    numConfsProcessed.addAndGet(1);
+
+                                }
+                            }
+                    );
+                    break;
+                }
+                case None: {
+                    break;
+                }
+            }
         }
+        loopTasks.waitForFinish();
     }
 
     /**
@@ -1035,9 +1062,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             loopTasks.waitForFinish();
             for (SHARKStarNode newNode : newNodes) {
                 if (newNode.getLevel() < bound.seqRCs.getNumPos()) {
-                    bound.internalQueue.add(newNode);
+                    bound.internalQueue.put(newNode);
                 } else {
-                    bound.leafQueue.add(newNode);
+                    bound.leafQueue.put(newNode);
                 }
             }
 
@@ -1197,6 +1224,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 endingEUB));
 
         if (endingEps > startingEps) {
+            pilotFish.travelTree(bound.sequence);
             throw new RuntimeException("ERROR! bounds got looser");
         }
     }
@@ -1409,11 +1437,14 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
             int numNodesCreated = 0;
             while (numNodesCreated < numNodesCeiling) {     // Stop if we create enough nodes
-                SHARKStarNode parent = bound.internalQueue.poll();
+                SHARKStarNode parent = bound.internalQueue.take();
 
                 // Stop if the node error falls below our cutoff
-                if(parent.getScore(bound.sequence) < errorFloor)
+                if(parent.getScore(bound.sequence) < errorFloor){
+                    bound.internalQueue.put(parent);
                     return result;
+                }
+
 
                 //Record starting parent energy bounds
                 double parentLB = parent.getFreeEnergyLB(bound.sequence);
@@ -1424,7 +1455,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 if(correctedParent){
                     result.lowerBoundDeltas.add(bc.calc_EDiff(parentLB, parent.getFreeEnergyLB(bound.sequence)));
                     result.upperBoundDeltas.add(bc.calc_EDiff(parentUB, parent.getFreeEnergyUB(bound.sequence)));
-                    bound.internalQueue.add(parent);
+                    bound.internalQueue.put(parent);
                     numNodesCreated++; // technically we didn't create it, but we updated
                     continue;
                 }
@@ -1470,9 +1501,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
                     // Add child back to queue
                     if(child.getLevel() < bound.seqRCs.getNumPos())
-                        bound.internalQueue.add(child);
+                        bound.internalQueue.put(child);
                     else{
-                        bound.leafQueue.add(child);
+                        bound.leafQueue.put(child);
                     }
 
                     numNodesCreated++;
@@ -1486,6 +1517,62 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             partialWatch.stop();
             result.time = partialWatch.getTimeS();
             result.numNodesCreated = numNodesCreated;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    public MinResult minimizeNode(SingleSequenceSHARKStarBound_refactor bound){
+        MinResult result = new MinResult();
+        try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+            //Timing
+            SHARKStarNode node = bound.leafQueue.take();
+            Stopwatch minimizationTimer = new Stopwatch();
+            Stopwatch correctionTimer = new Stopwatch();
+
+            ScoreContext context = checkout.get();
+            node.index(context.index);
+
+            double prevLB = node.getFreeEnergyLB(bound.sequence);
+            double prevUB = node.getFreeEnergyUB(bound.sequence);
+
+            ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.getAssignments(), node.getFreeEnergyLB(bound.sequence));
+            minimizationTimer.start();
+            ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
+            node.setMinE(analysis.epmol.energy);
+            node.setIsMinimized(true);
+            node.setScore(0.0, bound.sequence);
+
+            System.out.println(String.format("Minimized %s --> %.3f in [%.3f, %.3f]",
+                    node.confToString(),
+                    node.getMinE(),
+                    prevLB,
+                    prevUB
+            ));
+
+            if (this.saveEPMOLsForMinimization) {
+                synchronized (this) {
+                    if (analysis.epmol != null) {
+                        epmolsMap.put(node.getAssignments(), analysis.epmol);
+                    }
+                }
+            }
+
+            minimizationTimer.stop();
+            bound.leafQueue.put(node);
+            if (doExtraTupleCorrections) {
+                correctionTimer.start();
+                energyMatrixCorrector.computeEnergyCorrection(analysis, conf, 1.0,
+                        context.batcher);
+                correctionTimer.stop();
+            }
+            result.minimizationTime = minimizationTimer.getTimeS();
+            result.correctionTime = correctionTimer.getTimeS();
+
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
         return result;
     }
@@ -1729,8 +1816,22 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         List<Double> upperBoundDeltas = new ArrayList<>();
     }
 
+    private class MinResult{
+        double minimizationTime;
+        double correctionTime;
+        int numNodesCreated = 1;
+        double lowerBoundDelta;
+        double upperBoundDelta;
+    }
+
     public static interface RigidEmatFactory{
         EnergyMatrix make(SimpleConfSpace confSpace);
+    }
+
+    private static enum Step {
+        None,
+        Score,
+        Energy
     }
 }
 

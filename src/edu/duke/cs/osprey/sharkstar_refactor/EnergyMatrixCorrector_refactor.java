@@ -107,7 +107,7 @@ public class EnergyMatrixCorrector_refactor {
                 multiSequenceSHARKStarBound.minList.set(tuple.size() - 1, multiSequenceSHARKStarBound.minList.get(tuple.size() - 1) + 1);
                 scheduledMinimizations.add(tuple);
                 multiSequenceSHARKStarBound.setNumPartialMinimizations(multiSequenceSHARKStarBound.getNumPartialMinimizations() + 1);
-                multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
+                //multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
             }
             recursePartialCorrection(conf, epsilonBound, diff, minTupleDiff, maxTupleSize, tuple, scheduledMinimizations);
         }

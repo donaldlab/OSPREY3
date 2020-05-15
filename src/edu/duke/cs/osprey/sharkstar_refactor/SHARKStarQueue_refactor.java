@@ -10,10 +10,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.concurrent.PriorityBlockingQueue;
 
 import static edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound.debug;
 
-class SHARKStarQueue_refactor extends PriorityQueue<SHARKStarNode> {
+class SHARKStarQueue_refactor extends PriorityBlockingQueue<SHARKStarNode> {
     /**
      * TODO: Try to batch the boltzmann calculator calls?
      */
@@ -23,7 +24,7 @@ class SHARKStarQueue_refactor extends PriorityQueue<SHARKStarNode> {
     private final BoltzmannCalculator bc;
 
     public SHARKStarQueue_refactor(Sequence seq, BoltzmannCalculator bc) {
-        super((o1, o2) -> -Double.compare(o1.getScore(seq), o2.getScore(seq)));
+        super(100,(o1, o2) -> -Double.compare(o1.getScore(seq), o2.getScore(seq)));
         this.seq = seq;
         this.bc = bc;
     }
@@ -35,27 +36,6 @@ class SHARKStarQueue_refactor extends PriorityQueue<SHARKStarNode> {
     public BigDecimal getPartitionFunctionLowerBound() {
         return partitionFunctionLowerSum;
     }
-
-    public boolean add(SHARKStarNode node) {
-        debugCheck();
-        partitionFunctionUpperSum = partitionFunctionUpperSum.add(bc.calc(node.getFreeEnergyLB(seq)));
-        partitionFunctionLowerSum = partitionFunctionLowerSum.add(bc.calc(node.getFreeEnergyUB(seq)));
-        debugCheck();
-        return super.add(node);
-    }
-
-    @Override
-    public SHARKStarNode poll() {
-        SHARKStarNode node = super.poll();
-        debugCheck();
-        if (node != null) {
-            partitionFunctionUpperSum = partitionFunctionUpperSum.subtract(bc.calc(node.getFreeEnergyLB(seq)));
-            partitionFunctionLowerSum = partitionFunctionLowerSum.subtract(bc.calc(node.getFreeEnergyUB(seq)));
-        }
-        debugCheck();
-        return node;
-    }
-
 
     public String toString() {
         return "" + size() + " nodes->" + new MathTools.BigDecimalBounds(partitionFunctionLowerSum, partitionFunctionUpperSum);
