@@ -334,12 +334,16 @@ public class AssignedCoords {
 				confSpace.staticNames[atomi]
 			);
 		} else {
+			var pos = confSpace.positions[posi];
 			int confi = assignments[posi];
+			var conf = pos.confs[confi];
 			int offset = atomi - confSpace.getConfAtomIndex(posi, confi);
-			return String.format("%s:%s",
-				confSpace.positions[posi].name,
-				confSpace.positions[posi].confs[confi].atomNames[offset]
-			);
+			// TODO: why is this offset out of range?
+			String atomName = "??";
+			if (offset < conf.atomNames.length) {
+				atomName = conf.atomNames[offset];
+			}
+			return String.format("%s:%s", pos.name, atomName);
 		}
 	}
 }

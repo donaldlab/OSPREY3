@@ -734,6 +734,48 @@ public class TestBase {
 	}
 
 
+	private static class DoubleMatchingDoubleBounds extends BaseMatcher<Double> {
+
+		private EpsilonApplier<DoubleBounds> epsilonApplier;
+		private DoubleBounds expected;
+
+		public DoubleMatchingDoubleBounds(EpsilonApplier<DoubleBounds> epsilonApplier, DoubleBounds expected) {
+			this.epsilonApplier = epsilonApplier;
+			this.expected = expected;
+		}
+
+		@Override
+		public boolean matches(Object obj) {
+			Double observed = (Double)obj;
+			return epsilonApplier.apply(expected).contains(observed);
+		}
+
+		@Override
+		public void describeTo(Description desc) {
+			desc.appendText("within bound ").appendValue(expected)
+				.appendText(" " + epsilonApplier.term() + " within epsilon ").appendValue(epsilonApplier.epsilon);
+		}
+
+		@Override
+		public void describeMismatch(Object obj, Description desc) {
+			Double observed = (Double)obj;
+			if (!epsilonApplier.apply(expected).contains(observed)) {
+				desc.appendValue(observed)
+					.appendText(" is not bounded " + epsilonApplier.term() + " by ")
+					.appendValue(expected)
+					.appendText(" with epsilon: ")
+					.appendValue(epsilonApplier.epsilon);
+			}
+		}
+	}
+	public static Matcher<Double> isAbsolutelyBounded(DoubleBounds expected, double epsilon) {
+		return new DoubleMatchingDoubleBounds(EpsilonApplier.doubleBoundsAbsolute(epsilon), expected);
+	}
+	public static Matcher<Double> isRelativelyBounded(DoubleBounds expected, double epsilon) {
+		return new DoubleMatchingDoubleBounds(EpsilonApplier.doubleBoundsRelative(epsilon), expected);
+	}
+
+
 	public static Matcher<Double> isDegrees(double expected) {
 		return isDegrees(expected, DefaultEpsilon);
 	}

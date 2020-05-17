@@ -56,6 +56,8 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		public static native void assign_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer out);
 		public static native float calc_amber_eef1_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
 		public static native double calc_amber_eef1_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf, ByteBuffer inters, ByteBuffer out_coords, long num_atoms);
+		public static native float minimize_amber_eef1_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf_space_sizes, ByteBuffer jobs, ByteBuffer out_coords, ByteBuffer out_dofs);
+		public static native double minimize_amber_eef1_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf_space_sizes, ByteBuffer jobs, ByteBuffer out_coords, ByteBuffer out_dofs);
 		public static native void minimize_batch_amber_eef1_f32(int device, Pointer stream, Pointer conf_space, ByteBuffer conf_space_sizes, ByteBuffer jobs, ByteBuffer out_energies);
 		public static native void minimize_batch_amber_eef1_f64(int device, Pointer stream, Pointer conf_space, ByteBuffer conf_space_sizes, ByteBuffer jobs, ByteBuffer out_energies);
 	}
@@ -242,6 +244,7 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	private interface ForcefieldsImpl {
 		double calc(ByteBuffer confBuf, ByteBuffer intersBuf, ByteBuffer coordsBuf, long numAtoms);
+		double minimize(ByteBuffer jobsBuf, ByteBuffer coordsBuf, ByteBuffer dofsBuf);
 		void minimizeBatch(ByteBuffer jobsBuf, ByteBuffer energiesBuf);
 		long paramsBytes();
 		void writeParams(BufWriter buf);
@@ -425,6 +428,15 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 			return switch (precision) {
 				case Float32 -> NativeLib.calc_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
 				case Float64 -> NativeLib.calc_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confBuf, intersBuf, coordsBuf, numAtoms);
+			};
+		}
+
+		@Override
+		public double minimize(ByteBuffer jobsBuf, ByteBuffer coordsBuf, ByteBuffer dofsBuf) {
+			Stream stream = threadStream.get();
+			return switch (precision) {
+				case Float32 -> NativeLib.minimize_amber_eef1_f32(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, coordsBuf, dofsBuf);
+				case Float64 -> NativeLib.minimize_amber_eef1_f64(stream.device, stream.stream, stream.pConfSpace, confSpaceSizesBuf, jobsBuf, coordsBuf, dofsBuf);
 			};
 		}
 
@@ -1406,18 +1418,13 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 
 	@Override
 	public EnergiedCoords minimize(int[] conf, List<PosInter> inters) {
-		/* TODO
-		try (var intersMem = makeIntersMem(inters)) {
+		List<MinimizationJob> jobs = Collections.singletonList(new MinimizationJob(conf, inters));
+		try (var jobsMem = makeMinimizationJobsMem(jobs)) {
 			try (var coordsMem = makeArray(confSpace.maxNumConfAtoms, real3Struct.bytes())) {
 				try (var dofsMem = makeArray(confSpace.maxNumDofs, precision.bytes)) {
-					double energy;
-					try (var confSpaceMem = this.confSpaceMem.acquire()) {
-						energy = forcefieldsImpl.minimize(
-							confSpaceMem.asByteBuffer(), conf,
-							intersMem.asByteBuffer(),
-							coordsMem.asByteBuffer(), dofsMem.asByteBuffer()
-						);
-					}
+
+					double energy = forcefieldsImpl.minimize(jobsMem.asByteBuffer(), coordsMem.asByteBuffer(), dofsMem.asByteBuffer());
+
 					return new EnergiedCoords(
 						makeCoords(coordsMem, conf),
 						energy,
@@ -1426,8 +1433,6 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 				}
 			}
 		}
-		*/
-		throw new Error("TODO");
 	}
 
 	@Override

@@ -1,6 +1,6 @@
 package edu.duke.cs.osprey.energy.compiled;
 
-import static edu.duke.cs.osprey.TestBase.isRelatively;
+import static edu.duke.cs.osprey.TestBase.*;
 import static edu.duke.cs.osprey.tools.Log.log;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -8,8 +8,11 @@ import static org.junit.Assert.*;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.compiled.*;
 import edu.duke.cs.osprey.gpu.Structs;
+import edu.duke.cs.osprey.tools.MathTools;
+import org.joml.Vector3d;
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -50,36 +53,43 @@ public class TestNativeConfEnergyCalculator {
 		-1360.70959143
 	};
 
-	public static void assertCoords(int[] conf, ConfSpace confSpace, CoordsList exp, CoordsList obs) {
+	public static void assertCoords(int[] conf, AssignedCoords exp, CoordsList obs, double maxDist) {
 
 		// diff the two coord lists
-		int[] indices = IntStream.range(0, confSpace.maxNumConfAtoms)
-			.filter(i ->
-				exp.x(i) != obs.x(i)
-					|| exp.y(i) != obs.y(i)
-					|| exp.z(i) != obs.z(i)
-			)
+		int[] indices = IntStream.range(0, exp.confSpace.maxNumConfAtoms)
+			.filter(i -> {
+				Vector3d expa = new Vector3d();
+				Vector3d obsa = new Vector3d();
+				exp.coords.get(i, expa);
+				obs.get(i, obsa);
+				return expa.distance(obsa) > maxDist;
+			})
 			.toArray();
 		List<String> diffs = IntStream.range(0, indices.length)
 			.mapToObj(i -> {
 				int prevAtomi = i > 0 ? indices[i - 1] : -1;
 				int atomi = indices[i];
-				return String.format("%s%4d   EXP: %10.6f, %10.6f, %10.6f    OBS: %10.6f, %10.6f, %10.6f",
+				return String.format("%s%4d   EXP: %10.6f, %10.6f, %10.6f    OBS: %10.6f, %10.6f, %10.6f   %s",
 					atomi - prevAtomi > 1 ? "...\n" : "",
 					atomi,
-					exp.x(atomi), exp.y(atomi), exp.z(atomi),
-					obs.x(atomi), obs.y(atomi), obs.z(atomi)
+					exp.coords.x(atomi), exp.coords.y(atomi), exp.coords.z(atomi),
+					obs.x(atomi), obs.y(atomi), obs.z(atomi),
+					exp.getAtomName(i)
 				);
 			})
 			.collect(Collectors.toList());
 		String diffMsg = String.format("Coords are different at %d/%d positions:\n%s\nfor conformation: %s",
 			diffs.size(),
-			confSpace.maxNumConfAtoms,
+			exp.confSpace.maxNumConfAtoms,
 			String.join("\n", diffs),
 			Conf.toString(conf)
 		);
 
 		assertThat(diffMsg, diffs.size(), is(0));
+	}
+
+	public static void assertCoords(int[] conf, AssignedCoords exp, CoordsList obs) {
+		assertCoords(conf, exp, obs, 0.0);
 	}
 
 	public static void setPrecision(CoordsList coords, Structs.Precision precision) {
@@ -93,11 +103,11 @@ public class TestNativeConfEnergyCalculator {
 	private void assign(ConfEnergyCalculator confEcalc, int[][] confs, Function<int[],CoordsList> f) {
 		for (int[] conf : confs) {
 
-			var exp = confEcalc.confSpace().makeCoords(conf).coords;
-			setPrecision(exp, confEcalc.precision());
+			var exp = confEcalc.confSpace().makeCoords(conf);
+			setPrecision(exp.coords, confEcalc.precision());
 
 			var obs = f.apply(conf);
-			assertCoords(conf, confEcalc.confSpace(), exp, obs);
+			assertCoords(conf, exp, obs);
 		}
 	}
 
@@ -157,9 +167,9 @@ public class TestNativeConfEnergyCalculator {
 			ConfEnergyCalculator.EnergiedCoords energiedCoords = confEcalc.calc(confs[i], inters);
 			assertThat("conf " + i, energiedCoords.energy, isRelatively(energies[i], epsilon));
 
-			var expCoords = confEcalc.confSpace().makeCoords(confs[i]).coords;
-			setPrecision(expCoords, confEcalc.precision());
-			assertCoords(confs[i], confEcalc.confSpace(), expCoords, energiedCoords.coords.coords);
+			var expCoords = confEcalc.confSpace().makeCoords(confs[i]);
+			setPrecision(expCoords.coords, confEcalc.precision());
+			assertCoords(confs[i], expCoords, energiedCoords.coords.coords);
 		}
 	}
 
@@ -198,20 +208,98 @@ public class TestNativeConfEnergyCalculator {
 			minimizeEnergy_all(confEcalc, confs, energies, epsilon);
 		}
 	}
-	@Test public void confDihedrals_native_2RL0_f32() { minimizeEnergy_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
-	@Test public void confDihedrals_native_2RL0_f64() { minimizeEnergy_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
+	@Test public void confDihedralsEnergy_native_2RL0_f32() { minimizeEnergy_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
+	@Test public void confDihedralsEnergy_native_2RL0_f64() { minimizeEnergy_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
 
 	private void minimizeEnergy_cuda_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
 		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
 			minimizeEnergy_all(confEcalc, confs, energies, epsilon);
 		}
 	}
-	@Test public void confDihedrals_cuda_2RL0_f32() { minimizeEnergy_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-2); }
-	@Test public void confDihedrals_cuda_2RL0_f64() { minimizeEnergy_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-2); }
-	// NOTE: The minimizer is very ill-conditioned, so small differences in roundoff error can cause different areas of voxel space to be explored.
-	// It's hard to precisely say what's "correct" here, so use a somewhat larger epsilon for tests.
+	@Test public void confDihedralsEnergy_cuda_2RL0_f32() { minimizeEnergy_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
+	@Test public void confDihedralsEnergy_cuda_2RL0_f64() { minimizeEnergy_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-7); }
 
-	// TODO: test minimize(), ie not just minimizeEnergy()
+
+	private void minimize_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
+
+		// make complete position interactions
+		List<PosInter> inters = PosInterDist.all(confEcalc.confSpace());
+
+		assertThat(energies.length, is(confs.length));
+
+		for (int i=0; i<confs.length; i++) {
+			int[] conf = confs[i];
+
+			AssignedCoords coords = confEcalc.confSpace().makeCoords(conf);
+
+			var energiedCoords = confEcalc.minimize(conf, inters);
+
+			// check the energy, obviously
+			assertThat("conf " + i, energiedCoords.energy, isRelatively(energies[i], epsilon));
+
+			// make sure we have coords that look reasonable
+			assertCoords(conf, coords, energiedCoords.coords.coords, 10.0);
+
+			// make sure the final dof values are still in range
+			for (int d=0; d<coords.dofs.size(); d++) {
+				assertThat(energiedCoords.dofValues.get(i), isAbsolutelyBounded(new MathTools.DoubleBounds(
+					coords.dofs.get(i).min(),
+					coords.dofs.get(i).max()
+				), 1e-4));
+			}
+		}
+	}
+
+	private void minimize_native_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
+			minimize_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void confDihedrals_native_2RL0_f32() { minimize_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
+	@Test public void confDihedrals_native_2RL0_f64() { minimize_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
+
+	private void minimize_cuda_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
+			minimize_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void confDihedrals_cuda_2RL0_f32() { minimize_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
+	@Test public void confDihedrals_cuda_2RL0_f64() { minimize_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-7); }
+
+
+	private void minimizeEnergies_all(ConfEnergyCalculator confEcalc, int[][] confs, double[] energies, double epsilon) {
+
+		// make complete position interactions
+		List<PosInter> inters = PosInterDist.all(confEcalc.confSpace());
+
+		assertThat(energies.length, is(confs.length));
+
+		// make the minimization jobs
+		List<ConfEnergyCalculator.MinimizationJob> jobs = Arrays.stream(confs)
+			.map(conf -> new ConfEnergyCalculator.MinimizationJob(conf, inters))
+			.collect(Collectors.toList());
+
+		confEcalc.minimizeEnergies(jobs);
+		for (int i=0; i<confs.length; i++) {
+			assertThat("conf " + i, jobs.get(i).energy, isRelatively(energies[i], epsilon));
+		}
+	}
+
+	private void minimizeEnergies_native_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
+			minimizeEnergies_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void confDihedralsEnergies_native_2RL0_f32() { minimizeEnergies_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
+	@Test public void confDihedralsEnergies_native_2RL0_f64() { minimizeEnergies_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
+
+	private void minimizeEnergies_cuda_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
+			minimizeEnergies_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void confDihedralsEnergies_cuda_2RL0_f32() { minimizeEnergies_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-2); }
+	@Test public void confDihedralsEnergies_cuda_2RL0_f64() { minimizeEnergies_cuda_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-2); }
 
 
 	public static void main(String[] args) {
