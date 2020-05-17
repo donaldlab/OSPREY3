@@ -98,6 +98,9 @@ public class BoltzmannCalculator {
 	 * 	TODO: Optimize this? It should get called a LOT
 	 */
 	public double logSumExp(ArrayList<Double> energyList){
+		if(energyList.size()==1){
+			return energyList.get(0);
+		}
 		double minEnergy = Collections.min(energyList);
 		BigDecimal runningSum = BigDecimal.ZERO;
 		for ( double e : energyList){
@@ -125,11 +128,30 @@ public class BoltzmannCalculator {
 	 * Computes the free energy of partition function error
 	 * @param x	variable x
 	 * @param y variable y
+	 * @return  -RTln( exp(-x/RT) + exp(-y/RT) )
+	 *
+	 * 	TODO: Optimize this? It should get called a LOT
+	 */
+	public double calc_ESum(double x, double y){
+		if(x < y)
+			return x + freeEnergy(BigDecimal.ONE.add(calc(y-x), mathContext));
+		else if(x>y)
+			return y + freeEnergy(BigDecimal.ONE.add(calc(x-y), mathContext));
+		else
+			return 0;
+
+	}
+
+	/**
+	 * Computes the free energy of partition function error
+	 * @param x	variable x
+	 * @param y variable y
 	 * @return  -RTln( exp(-x/RT) - exp(-y/RT) )
 	 *
 	 * 	TODO: Optimize this? It should get called a LOT
 	 */
 	public double calc_EDiff(double x, double y){
+	    /*
 		if(x < y)
 			return x + freeEnergy(BigDecimal.ONE.subtract(calc(y-x), mathContext));
 		else if(x>y)
@@ -137,6 +159,15 @@ public class BoltzmannCalculator {
 		else
 			return 0;
 
+	     */
+		if(y - x < 0){
+		    if(y - x > -1e-10){
+		    	return 0;
+			}else{
+		    	throw new IllegalArgumentException();
+			}
+		}
+		return x + freeEnergy(BigDecimal.ONE.subtract(calc(y - x), mathContext));
 	}
 
 	public double freeEnergy(BigDecimal z) {

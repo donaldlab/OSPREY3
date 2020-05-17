@@ -33,10 +33,35 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
     private double sequenceEpsilon = 1;
     private BigDecimal finishedNodeZ = BigDecimal.ZERO;
     public final RCs seqRCs;
+    public State state;
 
     //debug variable
     public Set<SHARKStarNode> finishedNodes = new HashSet<>();
     private boolean errors;
+
+    public static class State{
+        private double lowerBound;
+        private double upperBound;
+        private BoltzmannCalculator bc;
+
+        public State(BoltzmannCalculator bc){
+            this.bc = bc;
+            lowerBound = Double.NEGATIVE_INFINITY;
+            upperBound = Double.POSITIVE_INFINITY;
+        }
+
+        public void setInitialBounds(double lowerBound, double upperBound){
+            this.lowerBound = lowerBound;
+            this.upperBound = upperBound;
+        }
+
+        public void addDiffToLB(double diff){
+            this.lowerBound = bc.calc_EDiff(lowerBound, diff);
+        }
+        public void subtractDiffFromUB(double diff){
+            this.upperBound = bc.calc_ESum(upperBound, diff);
+        }
+    }
 
     public SingleSequenceSHARKStarBound_refactor(MultiSequenceSHARKStarBound_refactor multiSequenceSHARKStarBound, Sequence seq, BoltzmannCalculator bc) {
         this.multisequenceBound = multiSequenceSHARKStarBound;
@@ -45,6 +70,7 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
         this.numConformations = seqRCs.getNumConformations();
         this.internalQueue = new SHARKStarQueue_refactor(seq, bc);
         this.leafQueue = new SHARKStarQueue_refactor(seq, bc);
+        this.state = new State(multiSequenceSHARKStarBound.bc);
     }
     @Override
     public void setReportProgress(boolean val) {
@@ -103,8 +129,20 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
     }
 
     public double calcEpsilon(){
+        return getSequenceEpsilon();
+        /*
         BigDecimal ZUB = calcZBound(e -> e.getFreeEnergyLB(sequence));
-        return ZUB.subtract(calcZBound(e -> e.getFreeEnergyUB(sequence)), decimalPrecision)
+        BigDecimal ZLB = calcZBound(e -> e.getFreeEnergyUB(sequence));
+        return ZUB.subtract(ZLB, decimalPrecision)
+                .divide(ZUB, decimalPrecision).doubleValue();
+
+         */
+    }
+
+    public double calcEpsilonDirect(){
+        BigDecimal ZUB = calcZBound(e -> e.getFreeEnergyLB(sequence));
+        BigDecimal ZLB = calcZBound(e -> e.getFreeEnergyUB(sequence));
+        return ZUB.subtract(ZLB, decimalPrecision)
                 .divide(ZUB, decimalPrecision).doubleValue();
     }
 
@@ -158,20 +196,30 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
         return multisequenceBound.bc.calc(calcEBound(energyMapper));
     }
 
+    public double getELB(){
+        return state.lowerBound;
+    }
+
+    public double getEUB(){
+        return state.upperBound;
+    }
+
+    public BigDecimal getZLB(){
+        return multisequenceBound.bc.calc(getEUB());
+    }
+    public BigDecimal getZUB(){
+        return multisequenceBound.bc.calc(getELB());
+    }
+
     @Deprecated
     public double getSequenceEpsilon(){
-        BigDecimal upperBound = internalQueue.getPartitionFunctionUpperBound()
-                .add(leafQueue.getPartitionFunctionUpperBound())
-                .add(finishedNodeZ);
-        BigDecimal lowerBound = internalQueue.getPartitionFunctionLowerBound()
-                .add(leafQueue.getPartitionFunctionLowerBound())
-                .add(finishedNodeZ);
-
-        if (upperBound.subtract(lowerBound).compareTo(BigDecimal.ONE) < 1) {
+        BigDecimal ZUB = state.bc.calc(state.lowerBound);
+        BigDecimal ZLB = state.bc.calc(state.upperBound);
+        if (ZUB.subtract(ZLB).compareTo(BigDecimal.ONE) < 1) {
             return 0;
         } else {
-            return upperBound.subtract(lowerBound)
-                    .divide(upperBound, RoundingMode.HALF_UP).doubleValue();
+            return ZUB.subtract(ZLB)
+                    .divide(ZUB, RoundingMode.HALF_UP).doubleValue();
         }
     }
 

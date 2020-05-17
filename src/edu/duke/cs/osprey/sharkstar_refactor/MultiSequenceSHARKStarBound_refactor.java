@@ -259,6 +259,10 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         System.out.println("Full RCs: " + fullRCs);
         System.out.println("Sequence RCs: " + newBound.seqRCs);
         computeFringeForSequence(newBound, this.rootNode);
+        newBound.state.setInitialBounds(
+                newBound.calcEBound(n -> n.getFreeEnergyLB(newBound.sequence)),
+                newBound.calcEBound(n -> n.getFreeEnergyUB(newBound.sequence))
+        );
         if(debug){
             System.out.println("Fringe created, printing fringe level breakdown");
             System.out.println("Internal Queue:");
@@ -910,16 +914,17 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         System.out.println(String.format("Finished computation in %.3f seconds", computeWatch.getTimeS()));
         System.out.println(String.format("Final E bounds [%.3f, %.3f]]",
-                bound.calcEBound(e -> e.getFreeEnergyLB(bound.sequence)),
-                bound.calcEBound(e -> e.getFreeEnergyUB(bound.sequence))
+                bound.getELB(),
+                bound.getEUB()
         ));
         System.out.println(String.format("Final Z bounds [%9.10e, %9.10e]]",
-                bound.calcZBound(e -> e.getFreeEnergyUB(bound.sequence)),
-                bound.calcZBound(e -> e.getFreeEnergyLB(bound.sequence))
+                bound.getZLB(),
+                bound.getZUB()
         ));
-        System.out.println(String.format("Alternate computation of Z bounds [%9.10e, %9.10e]]",
+        System.out.println(String.format("Direct computation of Z bounds [%9.10e, %9.10e], eps %.9f",
                 bound.calcZLBDirect().doubleValue(),
-                bound.calcZUBDirect().doubleValue()));
+                bound.calcZUBDirect().doubleValue(),
+                bound.calcEpsilonDirect()));
 
         if (SHARKStarQueueDebugger.hasDuplicateNodes(bound.internalQueue)) {
             System.out.println("Internal Queue has duplicates");
@@ -978,9 +983,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     bestLeafScore = bound.leafQueue.peek().getScore(bound.sequence);
             }
             synchronized(bound.internalQueue) {
-                if (bound.internalQueue.isEmpty())
-                    wait(10);
-                bestInternalScore = bound.internalQueue.peek().getScore(bound.sequence);
+                if (!bound.internalQueue.isEmpty())
+                    bestInternalScore = bound.internalQueue.peek().getScore(bound.sequence);
             }
             synchronized(this){
                 //System.out.println(String.format("Leaf queue score %.3f, internal queue score %.3f", bestLeafScore, bestInternalScore));
@@ -1001,6 +1005,12 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                                 synchronized(this){
                                     numConfsProcessed.addAndGet(result.numNodesCreated);
                                 }
+                                synchronized (bound){
+                                    if(result.numNodesCreated > 0){
+                                        bound.state.addDiffToLB(bc.logSumExp(result.lowerBoundDeltas));
+                                        bound.state.subtractDiffFromUB(bc.logSumExp(result.upperBoundDeltas));
+                                    }
+                                }
                             }
                     );
                     break;
@@ -1016,6 +1026,10 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                                     numMinimizations += 1;
                                     numConfsProcessed.addAndGet(1);
 
+                                }
+                                synchronized (bound){
+                                    bound.state.addDiffToLB(result.lowerBoundDelta);
+                                    bound.state.subtractDiffFromUB(result.upperBoundDelta);
                                 }
                             }
                     );
@@ -1445,7 +1459,6 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     return result;
                 }
 
-
                 //Record starting parent energy bounds
                 double parentLB = parent.getFreeEnergyLB(bound.sequence);
                 double parentUB = parent.getFreeEnergyUB(bound.sequence);
@@ -1491,7 +1504,6 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     child.setScore(
                             bc.calc_lnZDiff(childLB, childUB),
                             bound.sequence);
-                    childLBs.add(childLB);
                     // Record child bounds for use in this method
                     childLBs.add(childLB);
                     childUBs.add(childUB);
@@ -1512,7 +1524,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 //Now we are done making children for the parent node, let's update the result
                 //Compute the delta E bounds
                 result.lowerBoundDeltas.add(bc.calc_EDiff(parentLB, bc.logSumExp(childLBs)));
-                result.upperBoundDeltas.add(bc.calc_EDiff(parentUB, bc.logSumExp(childUBs)));
+                result.upperBoundDeltas.add(bc.calc_EDiff(bc.logSumExp(childUBs), parentUB));
             }
             partialWatch.stop();
             result.time = partialWatch.getTimeS();
@@ -1543,6 +1555,10 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             node.setMinE(analysis.epmol.energy);
             node.setIsMinimized(true);
             node.setScore(0.0, bound.sequence);
+
+            // Compute deltas
+            result.lowerBoundDelta = bc.calc_EDiff(prevLB, analysis.epmol.energy);
+            result.upperBoundDelta = bc.calc_EDiff(analysis.epmol.energy, prevUB);
 
             System.out.println(String.format("Minimized %s --> %.3f in [%.3f, %.3f]",
                     node.confToString(),
@@ -1812,8 +1828,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private class PartialResult{
         double time;
         int numNodesCreated;
-        List<Double> lowerBoundDeltas = new ArrayList<>();
-        List<Double> upperBoundDeltas = new ArrayList<>();
+        ArrayList<Double> lowerBoundDeltas = new ArrayList<>();
+        ArrayList<Double> upperBoundDeltas = new ArrayList<>();
     }
 
     private class MinResult{

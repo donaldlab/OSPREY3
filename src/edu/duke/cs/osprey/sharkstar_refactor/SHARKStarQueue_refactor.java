@@ -71,4 +71,5 @@ class SHARKStarQueue_refactor extends PriorityBlockingQueue<SHARKStarNode> {
     private void debugCheck() {
         debugCheck(false);
     }
+
 }
