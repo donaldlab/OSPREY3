@@ -102,8 +102,12 @@ public class BoltzmannCalculator {
 			return energyList.get(0);
 		}
 		double minEnergy = Collections.min(energyList);
+		if(minEnergy == Double.POSITIVE_INFINITY){
+			return Double.POSITIVE_INFINITY;
+		}
 		BigDecimal runningSum = BigDecimal.ZERO;
 		for ( double e : energyList){
+			BigDecimal addend = BigDecimal.ZERO;
 			runningSum = runningSum.add(calc(e - minEnergy), this.mathContext);
 		}
 
@@ -167,7 +171,7 @@ public class BoltzmannCalculator {
 		    	throw new IllegalArgumentException();
 			}
 		}
-		return x + freeEnergy(BigDecimal.ONE.subtract(calc(y - x), mathContext));
+		return  x + freeEnergy(BigDecimal.ONE.subtract(calc(y - x), mathContext));
 	}
 
 	public double freeEnergy(BigDecimal z) {

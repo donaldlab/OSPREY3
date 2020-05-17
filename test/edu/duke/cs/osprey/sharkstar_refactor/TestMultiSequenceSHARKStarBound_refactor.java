@@ -25,6 +25,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
     private static Molecule metallochaperone;
@@ -228,11 +230,34 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
     }
 
     @Test
+    public void testComputeMultiSequence(){
+        SimpleConfSpace confSpace = make1CC8Mutable();
+        Sequence wildType = confSpace.makeWildTypeSequence();
+        List<String> seqList = new ArrayList();
+        seqList.add("ARG");
+        seqList.add("ILE");
+        seqList.add("MET");
+        Sequence seq1 = confSpace.seqSpace.makeSequence(seqList);
+        MultiSequenceSHARKStarBound_refactor bound = makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.90, null, null);
+        bound.init(0.90);
+        PartitionFunction anotherBound = bound.getPartitionFunctionForSequence(seq1);
+        anotherBound.compute();
+        //PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
+        //ssbound.compute();
+    }
+
+    @Test
     public void testComputeForSequenceCorrectness(){
         SimpleConfSpace confSpace = make1CC8Mutable();
         Sequence wildType = confSpace.makeWildTypeSequence();
+        List<String> seqList = new ArrayList();
+        seqList.add("ARG");
+        seqList.add("ILE");
+        seqList.add("MET");
+        Sequence seq1 = confSpace.seqSpace.makeSequence(seqList);
 
-        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(confSpace, wildType, .90);
+        //PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(confSpace, wildType, .90);
+        PartitionFunction traditionalPfunc = makeGradientDescentPfuncForConfSpace(confSpace, seq1, .90);
         traditionalPfunc.setReportProgress(true);
         traditionalPfunc.compute();
 
