@@ -19,6 +19,19 @@ import edu.duke.cs.osprey.gpu.BufWriter;
 import jdk.incubator.foreign.*;
 
 
+/**
+ * A reference implementation of a conformation minimizer and energy calculator in C++.
+ *
+ * This is the Java side, which is mostly responsible for converting the Java objects into
+ * something C++ can understand (and dealing with memory layouts, etc), calling the C++ library
+ * over Java's FFI, and then convertering the C++ results back into something Java can understand.
+ *
+ * The FFI in this case is based on JNA. The memory is managed by a bunch of custom
+ * struct-emulation code on top of the Foreign Memory Access API in JDK 14.
+ *
+ * This implementation is correct (as best as I can tell),
+ * but it's very naive and totally unoptimized.
+ */
 public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 	private static class NativeLib {
