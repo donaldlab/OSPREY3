@@ -105,9 +105,23 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
     }
 
     public double calcEpsilon(){
-        BigDecimal ZUB = calcZBound(e -> e.getFreeEnergyLB(sequence));
-        return ZUB.subtract(calcZBound(e -> e.getFreeEnergyUB(sequence)), decimalPrecision)
-                .divide(ZUB, decimalPrecision).doubleValue();
+        BigDecimal ZUB = fringeNodes.getPartitionFunctionUpperBound()
+                .add(internalQueue.getPartitionFunctionUpperBound())
+                .add(leafQueue.getPartitionFunctionUpperBound())
+                .add(finishedNodeZ);
+        BigDecimal ZLB = fringeNodes.getPartitionFunctionLowerBound()
+                .add(internalQueue.getPartitionFunctionLowerBound())
+                .add(leafQueue.getPartitionFunctionLowerBound())
+                .add(finishedNodeZ);
+        //BigDecimal ZUB = calcZBound(e -> e.getFreeEnergyLB(sequence));
+        //BigDecimal ZLB = calcZBound(e -> e.getFreeEnergyUB(sequence));
+        if (ZUB.subtract(ZLB).compareTo(BigDecimal.ONE) < 1) {
+            sequenceEpsilon = 0;
+        } else {
+            sequenceEpsilon = ZUB.subtract(calcZBound(e -> e.getFreeEnergyUB(sequence)), decimalPrecision)
+                    .divide(ZUB, decimalPrecision).doubleValue();
+        }
+        return sequenceEpsilon;
     }
 
     public BigDecimal calcZUBDirect(){
@@ -128,7 +142,7 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
 
     public double calcEBound(Function<SHARKStarNode, Double> energyMapper){
         // If the queues are empty, treat this as positive infinity
-        if (internalQueue.isEmpty() && leafQueue.isEmpty() && finishedNodes.isEmpty()){
+        if (internalQueue.isEmpty() && leafQueue.isEmpty() && finishedNodes.isEmpty() && fringeNodes.isEmpty()){
             return Double.POSITIVE_INFINITY;
         }else {
             Optional<Double> minElement = Stream.of(internalQueue, leafQueue, finishedNodes, fringeNodes)
