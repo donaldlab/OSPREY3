@@ -54,15 +54,22 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		double calc(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, ByteBuffer coords);
 		double minimize(ByteBuffer confSpaceBuf, int[] conf, ByteBuffer intersBuf, ByteBuffer coords, ByteBuffer dofs);
 		long paramsBytes();
-		void writeParams(ConfSpace confSpace, BufWriter buf);
-		long staticStaticBytes(ConfSpace confSpace);
-		long staticPosBytes(ConfSpace confSpace, int posi1, int fragi1);
-		long posBytes(ConfSpace confSpace, int posi1, int fragi1);
-		long posPosBytes(ConfSpace confSpace, int posi1, int fragi1, int posi2, int fragi2);
-		void writeStaticStatic(ConfSpace confSpace, BufWriter buf);
-		void writeStaticPos(ConfSpace confSpace, int posi1, int fragi1, BufWriter buf);
-		void writePos(ConfSpace confSpace, int posi1, int fragi1, BufWriter buf);
-		void writePosPos(ConfSpace confSpace, int posi1, int fragi1, int posi2, int fragi2, BufWriter buf);
+		void writeParams(BufWriter buf);
+		long staticStaticBytes();
+		long staticPosBytes(int posi1, int fragi1);
+		long posBytes(int posi1, int fragi1);
+		long posPosBytes(int posi1, int fragi1, int posi2, int fragi2);
+		void writeStaticStatic(BufWriter buf);
+		void writeStaticPos(int posi1, int fragi1, BufWriter buf);
+		void writePos(int posi1, int fragi1, BufWriter buf);
+		void writePosPos(int posi1, int fragi1, int posi2, int fragi2, BufWriter buf);
+	}
+
+	private interface AtomPairWriter {
+		int size();
+		int atomi1(int i);
+		int atomi2(int i);
+		double[] params(int i);
 	}
 
 	private class AmberEef1 implements ForcefieldsImpl {
@@ -167,7 +174,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 
 		@Override
-		public void writeParams(ConfSpace confSpace, BufWriter buf) {
+		public void writeParams(BufWriter buf) {
 
 			var addr = buf.place(paramsStruct);
 
@@ -178,132 +185,166 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			// no EEF1 params to write
 		}
 
-		@Override
-		public long staticStaticBytes(ConfSpace confSpace) {
+		private long atomPairsBytes(int numAmber, int numEef1) {
 			return atomPairsStruct.bytes()
-				+ confSpace.indicesStatic(0).size()*amberStruct.bytes()
-				+ confSpace.indicesStatic(1).size()*eef1Struct.bytes();
+				+ numAmber*amberStruct.bytes()
+				+ numEef1*eef1Struct.bytes();
 		}
 
 		@Override
-		public long staticPosBytes(ConfSpace confSpace, int posi1, int fragi1) {
-			return atomPairsStruct.bytes()
-				+ confSpace.indicesSinglesByFrag(0, posi1, fragi1).sizeStatics()*amberStruct.bytes()
-				+ confSpace.indicesSinglesByFrag(1, posi1, fragi1).sizeStatics()*eef1Struct.bytes();
+		public long staticStaticBytes() {
+			return atomPairsBytes(
+				confSpace.indicesStatic(0).size(),
+				confSpace.indicesStatic(1).size()
+			);
 		}
 
 		@Override
-		public long posBytes(ConfSpace confSpace, int posi1, int fragi1) {
-			return atomPairsStruct.bytes()
-				+ confSpace.indicesSinglesByFrag(0, posi1, fragi1).sizeInternals()*amberStruct.bytes()
-				+ confSpace.indicesSinglesByFrag(1, posi1, fragi1).sizeInternals()*eef1Struct.bytes();
+		public long staticPosBytes(int posi1, int fragi1) {
+			return atomPairsBytes(
+				confSpace.indicesSinglesByFrag(0, posi1, fragi1).sizeStatics(),
+				confSpace.indicesSinglesByFrag(1, posi1, fragi1).sizeStatics()
+			);
 		}
 
 		@Override
-		public long posPosBytes(ConfSpace confSpace, int posi1, int fragi1, int posi2, int fragi2) {
-			return atomPairsStruct.bytes()
-				+ confSpace.indicesPairsByFrags(0, posi1, fragi1, posi2, fragi2).size()*amberStruct.bytes()
-				+ confSpace.indicesPairsByFrags(1, posi1, fragi1, posi2, fragi2).size()*eef1Struct.bytes();
+		public long posBytes(int posi1, int fragi1) {
+			return atomPairsBytes(
+				confSpace.indicesSinglesByFrag(0, posi1, fragi1).sizeInternals(),
+				confSpace.indicesSinglesByFrag(1, posi1, fragi1).sizeInternals()
+			);
 		}
 
 		@Override
-		public void writeStaticStatic(ConfSpace confSpace, BufWriter buf) {
+		public long posPosBytes(int posi1, int fragi1, int posi2, int fragi2) {
+			return atomPairsBytes(
+				confSpace.indicesPairsByFrags(0, posi1, fragi1, posi2, fragi2).size(),
+				confSpace.indicesPairsByFrags(1, posi1, fragi1, posi2, fragi2).size()
+			);
+		}
+
+		private void writeAtomPairs(AtomPairWriter amber, AtomPairWriter eef1, BufWriter buf) {
+
+			long firstPos = buf.pos;
+
+			var atomPairsAddr = buf.place(atomPairsStruct);
+			atomPairsStruct.num_amber.set(atomPairsAddr, amber.size());
+			atomPairsStruct.num_eef1.set(atomPairsAddr, eef1.size());
+
+			for (int i=0; i<amber.size(); i++) {
+				var addr = buf.place(amberStruct);
+				int atomi1 = amber.atomi1(i);
+				int atomi2 = amber.atomi2(i);
+				assert (atomi1 != atomi2);
+				amberStruct.atomi1.set(addr, atomi1);
+				amberStruct.atomi2.set(addr, atomi2);
+				amberStruct.setParams(addr, amber.params(i));
+			}
+
+			for (int i=0; i<eef1.size(); i++) {
+				var addr = buf.place(eef1Struct);
+				int atomi1 = eef1.atomi1(i);
+				int atomi2 = eef1.atomi2(i);
+				assert (atomi1 != atomi2);
+				eef1Struct.atomi1.set(addr, atomi1);
+				eef1Struct.atomi2.set(addr, atomi2);
+				eef1Struct.setParams(addr, eef1.params(i));
+			}
+
+			assert (buf.pos - firstPos == atomPairsBytes(amber.size(), eef1.size()))
+				: String.format("overshot by %d bytes", buf.pos - firstPos - atomPairsBytes(amber.size(), eef1.size()));
+		}
+
+		@Override
+		public void writeStaticStatic(BufWriter buf) {
 
 			ConfSpace.IndicesStatic amberIndices = confSpace.indicesStatic(0);
 			ConfSpace.IndicesStatic eef1Indices = confSpace.indicesStatic(1);
 
-			var pairsAddr = buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(pairsAddr, amberIndices.size());
-			atomPairsStruct.num_eef1.set(pairsAddr, eef1Indices.size());
-
-			for (int i=0; i<amberIndices.size(); i++) {
-				var addr = buf.place(amberStruct);
-				amberStruct.atomi1.set(addr, confSpace.getStaticAtomIndex(amberIndices.getStaticAtom1Index(i)));
-				amberStruct.atomi2.set(addr, confSpace.getStaticAtomIndex(amberIndices.getStaticAtom2Index(i)));
-				amberStruct.setParams(addr, confSpace.ffparams(0, amberIndices.getParamsIndex(i)));
-			}
-
-			for (int i=0; i<eef1Indices.size(); i++) {
-				var addr = buf.place(eef1Struct);
-				eef1Struct.atomi1.set(addr, confSpace.getStaticAtomIndex(eef1Indices.getStaticAtom1Index(i)));
-				eef1Struct.atomi2.set(addr, confSpace.getStaticAtomIndex(eef1Indices.getStaticAtom2Index(i)));
-				eef1Struct.setParams(addr, confSpace.ffparams(1, eef1Indices.getParamsIndex(i)));
-			}
+			writeAtomPairs(
+				new AtomPairWriter() {
+					@Override public int size() { return amberIndices.size(); }
+					@Override public int atomi1(int i) { return confSpace.getStaticAtomIndex(amberIndices.getStaticAtom1Index(i)); }
+					@Override public int atomi2(int i) { return confSpace.getStaticAtomIndex(amberIndices.getStaticAtom2Index(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(0, amberIndices.getParamsIndex(i)); }
+				},
+				new AtomPairWriter() {
+					@Override public int size() { return eef1Indices.size(); }
+					@Override public int atomi1(int i) { return confSpace.getStaticAtomIndex(eef1Indices.getStaticAtom1Index(i)); }
+					@Override public int atomi2(int i) { return confSpace.getStaticAtomIndex(eef1Indices.getStaticAtom2Index(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(1, eef1Indices.getParamsIndex(i)); }
+				},
+				buf
+			);
 		}
 
 		@Override
-		public void writeStaticPos(ConfSpace confSpace, int posi1, int fragi1, BufWriter buf) {
+		public void writeStaticPos(int posi1, int fragi1, BufWriter buf) {
 
 			ConfSpace.IndicesSingle amberIndices = confSpace.indicesSinglesByFrag(0, posi1, fragi1);
 			ConfSpace.IndicesSingle eef1Indices = confSpace.indicesSinglesByFrag(1, posi1, fragi1);
 
-			var pairsAddr = buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(pairsAddr, amberIndices.sizeStatics());
-			atomPairsStruct.num_eef1.set(pairsAddr, eef1Indices.sizeStatics());
-
-			for (int i=0; i<amberIndices.sizeStatics(); i++) {
-				var addr = buf.place(amberStruct);
-				amberStruct.atomi1.set(addr, confSpace.getStaticAtomIndex(amberIndices.getStaticStaticAtomIndex(i)));
-				amberStruct.atomi2.set(addr, confSpace.getConfAtomIndex(posi1, amberIndices.getStaticConfAtomIndex(i)));
-				amberStruct.setParams(addr, confSpace.ffparams(0, amberIndices.getStaticParamsIndex(i)));
-			}
-
-			for (int i=0; i<eef1Indices.sizeStatics(); i++) {
-				var addr = buf.place(eef1Struct);
-				eef1Struct.atomi1.set(addr, confSpace.getStaticAtomIndex(eef1Indices.getStaticStaticAtomIndex(i)));
-				eef1Struct.atomi2.set(addr, confSpace.getConfAtomIndex(posi1, eef1Indices.getStaticConfAtomIndex(i)));
-				eef1Struct.setParams(addr, confSpace.ffparams(1, eef1Indices.getStaticParamsIndex(i)));
-			}
+			writeAtomPairs(
+				new AtomPairWriter() {
+					@Override public int size() { return amberIndices.sizeStatics(); }
+					@Override public int atomi1(int i) { return confSpace.getStaticAtomIndex(amberIndices.getStaticStaticAtomIndex(i)); }
+					@Override public int atomi2(int i) { return confSpace.getConfAtomIndex(posi1, amberIndices.getStaticConfAtomIndex(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(0, amberIndices.getStaticParamsIndex(i)); }
+				},
+				new AtomPairWriter() {
+					@Override public int size() { return eef1Indices.sizeStatics(); }
+					@Override public int atomi1(int i) { return confSpace.getStaticAtomIndex(eef1Indices.getStaticStaticAtomIndex(i)); }
+					@Override public int atomi2(int i) { return confSpace.getConfAtomIndex(posi1, eef1Indices.getStaticConfAtomIndex(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(1, eef1Indices.getStaticParamsIndex(i)); }
+				},
+				buf
+			);
 		}
 
 		@Override
-		public void writePos(ConfSpace confSpace, int posi1, int fragi1, BufWriter buf) {
+		public void writePos(int posi1, int fragi1, BufWriter buf) {
 
 			ConfSpace.IndicesSingle amberIndices = confSpace.indicesSinglesByFrag(0, posi1, fragi1);
 			ConfSpace.IndicesSingle eef1Indices = confSpace.indicesSinglesByFrag(1, posi1, fragi1);
 
-			var pairsAddr = buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(pairsAddr, amberIndices.sizeInternals());
-			atomPairsStruct.num_eef1.set(pairsAddr, eef1Indices.sizeInternals());
-
-			for (int i=0; i<amberIndices.sizeInternals(); i++) {
-				var addr = buf.place(amberStruct);
-				amberStruct.atomi1.set(addr, confSpace.getConfAtomIndex(posi1, amberIndices.getInternalConfAtom1Index(i)));
-				amberStruct.atomi2.set(addr, confSpace.getConfAtomIndex(posi1, amberIndices.getInternalConfAtom2Index(i)));
-				amberStruct.setParams(addr, confSpace.ffparams(0, amberIndices.getInternalParamsIndex(i)));
-			}
-
-			for (int i=0; i<eef1Indices.sizeInternals(); i++) {
-				var addr = buf.place(eef1Struct);
-				eef1Struct.atomi1.set(addr, confSpace.getConfAtomIndex(posi1, eef1Indices.getInternalConfAtom1Index(i)));
-				eef1Struct.atomi2.set(addr, confSpace.getConfAtomIndex(posi1, eef1Indices.getInternalConfAtom2Index(i)));
-				eef1Struct.setParams(addr, confSpace.ffparams(1, eef1Indices.getInternalParamsIndex(i)));
-			}
+			writeAtomPairs(
+				new AtomPairWriter() {
+					@Override public int size() { return amberIndices.sizeInternals(); }
+					@Override public int atomi1(int i) { return confSpace.getConfAtomIndex(posi1, amberIndices.getInternalConfAtom1Index(i)); }
+					@Override public int atomi2(int i) { return confSpace.getConfAtomIndex(posi1, amberIndices.getInternalConfAtom2Index(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(0, amberIndices.getInternalParamsIndex(i)); }
+				},
+				new AtomPairWriter() {
+					@Override public int size() { return eef1Indices.sizeInternals(); }
+					@Override public int atomi1(int i) { return confSpace.getConfAtomIndex(posi1, eef1Indices.getInternalConfAtom1Index(i)); }
+					@Override public int atomi2(int i) { return confSpace.getConfAtomIndex(posi1, eef1Indices.getInternalConfAtom2Index(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(1, eef1Indices.getInternalParamsIndex(i)); }
+				},
+				buf
+			);
 		}
 
 		@Override
-		public void writePosPos(ConfSpace confSpace, int posi1, int fragi1, int posi2, int fragi2, BufWriter buf) {
+		public void writePosPos(int posi1, int fragi1, int posi2, int fragi2, BufWriter buf) {
 
 			ConfSpace.IndicesPair amberIndices = confSpace.indicesPairsByFrags(0, posi1, fragi1, posi2, fragi2);
 			ConfSpace.IndicesPair eef1Indices = confSpace.indicesPairsByFrags(1, posi1, fragi1, posi2, fragi2);
 
-			var pairsAddr = buf.place(atomPairsStruct);
-			atomPairsStruct.num_amber.set(pairsAddr, amberIndices.size());
-			atomPairsStruct.num_eef1.set(pairsAddr, eef1Indices.size());
-
-			for (int i=0; i<amberIndices.size(); i++) {
-				var addr = buf.place(amberStruct);
-				amberStruct.atomi1.set(addr, confSpace.getConfAtomIndex(posi1, amberIndices.getConfAtom1Index(i)));
-				amberStruct.atomi2.set(addr, confSpace.getConfAtomIndex(posi2, amberIndices.getConfAtom2Index(i)));
-				amberStruct.setParams(addr, confSpace.ffparams(0, amberIndices.getParamsIndex(i)));
-			}
-
-			for (int i=0; i<eef1Indices.size(); i++) {
-				var addr = buf.place(eef1Struct);
-				eef1Struct.atomi1.set(addr, confSpace.getConfAtomIndex(posi1, eef1Indices.getConfAtom1Index(i)));
-				eef1Struct.atomi2.set(addr, confSpace.getConfAtomIndex(posi2, eef1Indices.getConfAtom2Index(i)));
-				eef1Struct.setParams(addr, confSpace.ffparams(1, eef1Indices.getParamsIndex(i)));
-			}
+			writeAtomPairs(
+				new AtomPairWriter() {
+					@Override public int size() { return amberIndices.size(); }
+					@Override public int atomi1(int i) { return confSpace.getConfAtomIndex(posi1, amberIndices.getConfAtom1Index(i)); }
+					@Override public int atomi2(int i) { return confSpace.getConfAtomIndex(posi2, amberIndices.getConfAtom2Index(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(0, amberIndices.getParamsIndex(i)); }
+				},
+				new AtomPairWriter() {
+					@Override public int size() { return eef1Indices.size(); }
+					@Override public int atomi1(int i) { return confSpace.getConfAtomIndex(posi1, eef1Indices.getConfAtom1Index(i)); }
+					@Override public int atomi2(int i) { return confSpace.getConfAtomIndex(posi2, eef1Indices.getConfAtom2Index(i)); }
+					@Override public double[] params(int i) { return confSpace.ffparams(1, eef1Indices.getParamsIndex(i)); }
+				},
+				buf
+			);
 		}
 	}
 
@@ -537,13 +578,13 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		bufSize += posPairOffsets.bytes(numPosPairs);
 
 		// add space for the static-static pairs
-		bufSize += forcefieldsImpl.staticStaticBytes(confSpace);
+		bufSize += forcefieldsImpl.staticStaticBytes();
 
 		// add space for the static-pos pairs and offsets
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 			bufSize += fragOffsets.itemBytes*confSpace.numFrag(posi1);
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
-				bufSize += forcefieldsImpl.staticPosBytes(confSpace, posi1, fragi1);
+				bufSize += forcefieldsImpl.staticPosBytes(posi1, fragi1);
 			}
 		}
 
@@ -551,7 +592,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
 			bufSize += fragOffsets.itemBytes*confSpace.numFrag(posi1);
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
-				bufSize += forcefieldsImpl.posBytes(confSpace, posi1, fragi1);
+				bufSize += forcefieldsImpl.posBytes(posi1, fragi1);
 
 			}
 		}
@@ -562,7 +603,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 				bufSize += fragOffsets.itemBytes*confSpace.numFrag(posi1)*confSpace.numFrag(posi2);
 				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 					for (int fragi2=0; fragi2<confSpace.numFrag(posi2); fragi2++) {
-						bufSize += forcefieldsImpl.posPosBytes(confSpace, posi1, fragi1, posi2, fragi2);
+						bufSize += forcefieldsImpl.posPosBytes( posi1, fragi1, posi2, fragi2);
 					}
 				}
 			}
@@ -665,7 +706,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 		// write the forcefield params
 		confSpaceStruct.params_offset.set(confSpaceAddr, buf.pos);
-		forcefieldsImpl.writeParams(confSpace, buf);
+		forcefieldsImpl.writeParams(buf);
 
 		// write the pos pairs
 		confSpaceStruct.pos_pairs_offset.set(confSpaceAddr, buf.pos);
@@ -673,7 +714,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 
 		// write the static-static pair
 		posPairOffsets.set(posPairOffsetsAddr, 0, buf.pos);
-		forcefieldsImpl.writeStaticStatic(confSpace, buf);
+		forcefieldsImpl.writeStaticStatic(buf);
 
 		// write the static-pos pairs
 		for (int posi1=0; posi1<confSpace.positions.length; posi1++) {
@@ -681,7 +722,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1));
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 				fragOffsets.set(fragOffsetsAddr, fragi1, buf.pos);
-				forcefieldsImpl.writeStaticPos(confSpace, posi1, fragi1, buf);
+				forcefieldsImpl.writeStaticPos(posi1, fragi1, buf);
 			}
 		}
 
@@ -691,7 +732,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 			var fragOffsetsAddr = buf.place(fragOffsets, confSpace.numFrag(posi1));
 			for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 				fragOffsets.set(fragOffsetsAddr, fragi1, buf.pos);
-				forcefieldsImpl.writePos(confSpace, posi1, fragi1, buf);
+				forcefieldsImpl.writePos(posi1, fragi1, buf);
 			}
 		}
 
@@ -703,7 +744,7 @@ public class NativeConfEnergyCalculator implements ConfEnergyCalculator {
 				for (int fragi1=0; fragi1<confSpace.numFrag(posi1); fragi1++) {
 					for (int fragi2=0; fragi2<confSpace.numFrag(posi2); fragi2++) {
 						fragOffsets.set(fragOffsetsAddr, fragi1*confSpace.numFrag(posi2) + fragi2, buf.pos);
-						forcefieldsImpl.writePosPos(confSpace, posi1, fragi1, posi2, fragi2, buf);
+						forcefieldsImpl.writePosPos(posi1, fragi1, posi2, fragi2, buf);
 					}
 				}
 			}
