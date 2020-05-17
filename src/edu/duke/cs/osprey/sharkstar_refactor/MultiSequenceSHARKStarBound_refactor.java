@@ -875,8 +875,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 //pilotFish.travelTree(bound.sequence);
             }
             // run method
-            //tightenBoundInPhases(bound);
-            simpleTightenBound(bound);
+            tightenBoundInPhases(bound);
+            //simpleTightenBound(bound);
 
             // do some debug checks
             double newEps = bound.calcEpsilon();
@@ -1214,12 +1214,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      */
     public void populateQueues(SingleSequenceSHARKStarBound_refactor seqBound, List<SHARKStarNode> internalNodes, List<SHARKStarNode> leafNodes, BigDecimal[] zSums) {
         List<SHARKStarNode> leftoverLeaves = new ArrayList<>();
-        //PriorityQueue<SHARKStarNode> queue = seqBound.fringeNodes;
-        // temporary fix
-        PriorityQueue<SHARKStarNode> queue = null;
+        PriorityQueue<SHARKStarNode> queue = seqBound.fringeNodes;
 
-        //int maxNodes = 1000;
-        int maxNodes = 10;
+        int maxNodes = 1000;
         if (leafTimeAverage > 0)
             maxNodes = Math.max(maxNodes, (int) Math.floor(0.1 * leafTimeAverage / internalTimeAverage));
         while (!queue.isEmpty() && (seqBound.internalQueue.size() < maxNodes
