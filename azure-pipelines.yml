@@ -40,16 +40,44 @@ pool:
   vmImage: $(imageName)
 
 steps:
+
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+    addToPath: true
+    architecture: 'x64'
+
 - task: CmdLine@2
+  displayName: Install Python Dependencies
   inputs:
     script: |
-      echo "Installing python 2 dependencies"
-      $(python2Name) -m pip install --user setuptools wheel
-      $(python2Name) -m pip install --user $(pythonDependencies)
-
       echo "Installing python 3 dependencies"
-      $(python3Name) -m pip install --user setuptools wheel
-      $(python3Name) -m pip install --user $(pythonDependencies)
+      python -m pip install --user setuptools wheel
+      python -m pip install --user $(pythonDependencies)
+
+# - task: CmdLine@2
+#   displayName: Install Python Dependencies
+#   inputs:
+#     script: |
+#       echo "Installing python 2 dependencies"
+#       $(python2Name) -m pip install --user setuptools wheel
+#       $(python2Name) -m pip install --user $(pythonDependencies)
+
+#       echo "Installing python 3 dependencies"
+#       $(python3Name) -m pip install --user setuptools wheel
+#       $(python3Name) -m pip install --user $(pythonDependencies)
+
+# - task: CmdLine@2
+#   displayName: Install Python Dependencies
+#   inputs:
+#     script: |
+#       echo "Installing python 2 dependencies"
+#       $(python2Name) -m pip install --user setuptools wheel
+#       $(python2Name) -m pip install --user $(pythonDependencies)
+
+#       echo "Installing python 3 dependencies"
+#       $(python3Name) -m pip install --user setuptools wheel
+#       $(python3Name) -m pip install --user $(pythonDependencies)
 
 - task: CmdLine@2
   inputs:
