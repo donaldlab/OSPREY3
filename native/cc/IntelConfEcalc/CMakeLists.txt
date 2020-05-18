@@ -11,14 +11,6 @@ project(IntelConfEcalc VERSION 0.1 DESCRIPTION "native conformation energy calcu
 
 set(CMAKE_CXX_STANDARD 17)
 
-# set Intel compiler flags
-set(icc_flags "\
-        -static-intel \
-        ")
-set(CMAKE_CXX_FLAGS_RELEASE "${icc_flags} -O3")
-set(CMAKE_CXX_FLAGS_DEBUG "${icc_flags} -g")
-
-
 # let CMake create defines we can use in the code
 configure_file(config.h.in config.h)
 
@@ -27,7 +19,15 @@ set(CXXFiles
         confecalc.cc
         )
 
-SET(CMAKE_CXX_FLAGS -pedantic-errors)
+# set Intel compiler flags
+set(CMAKE_CXX_FLAGS "\
+        -pedantic-errors \
+        -static-intel \
+        -qopt-report=5 \
+        -qopt-report-phase=vec \
+        ")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
 
 # get paths into the parent Osprey project
 set(OspreyPath ../../../..)
