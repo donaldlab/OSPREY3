@@ -62,31 +62,33 @@ steps:
       $(GetPython2.pythonLocation)/python -m pip install setuptools wheel
       $(GetPython2.pythonLocation)/python -m pip install $(pythonDependencies)
 
+# Download the JDK
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: 'curl --silent --remote-name $(openJdkUrl)$(jdkName)'
+    workingDirectory: '$(Build.BinariesDirectory)'
+  displayName: Download OpenJDK
+
+- task: ExtractFiles@1
+  inputs:
+    archiveFilePatterns: |
+      $(Build.BinariesDirectory)/*.zip
+      $(Build.BinariesDirectory)/*.tar.gz
+    destinationFolder: $(Build.BinariesDirectory)/java
+    cleanDestinationFolder: true
+
 - task: Gradle@2
   inputs:
     gradleWrapperFile: ./$(gradleWrapper)
     options: -POSPREY_PYTHON3=$(GetPython3.pythonLocation) -POSPREY_PYTHON2=$(GetPython2.pythonLocation)
-    tasks: 'tasks'
+    tasks: 'assemble'
     publishJUnitResults: false
     javaHomeOption: 'Path'
     jdkDirectory: $(javaHome)
     sonarQubeRunAnalysis: false
 
-# Download the JDK
-# - task: Bash@3
-#   inputs:
-#     targetType: 'inline'
-#     script: 'curl --silent --remote-name $(openJdkUrl)$(jdkName)'
-#     workingDirectory: '$(Build.BinariesDirectory)'
-#   displayName: Download OpenJDK
 
-# - task: ExtractFiles@1
-#   inputs:
-#     archiveFilePatterns: |
-#       $(Build.BinariesDirectory)/*.zip
-#       $(Build.BinariesDirectory)/*.tar.gz
-#     destinationFolder: $(Build.BinariesDirectory)/java
-#     cleanDestinationFolder: true
 
 # - task: Gradle@2
 #   inputs:
