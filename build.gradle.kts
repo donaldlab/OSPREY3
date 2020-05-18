@@ -413,15 +413,8 @@ tasks {
 			val versionFile = projectDir.resolve("build/resources/main/config/version").toFile()
 			var version = versionFile.readText()
 
-			// append the travis build number if available
-			val travisBuildNumber = System.getenv("TRAVIS_BUILD_NUMBER")
-			if (travisBuildNumber != null) {
-				version += "-b$travisBuildNumber"
-
-				// otherwise, use a "-dev" build number
-			} else {
-				version += "-dev"
-			}
+			// append the CI build ID, if available
+            version += findProperty("AZURE_BUILD_ID")?.toString() ?: "dev"
 
 			versionFile.writeText(version)
 		}
