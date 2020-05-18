@@ -88,20 +88,17 @@ steps:
     jdkDirectory: $(javaHome)
     sonarQubeRunAnalysis: false
 
-# - task: CopyFiles@2
-#   inputs:
-#     SourceFolder: 'osprey-gui/build/jpackage'
-#     Contents: |
-#       *.deb
-#       *.msi
-#       *.dmg
-#     TargetFolder: '$(Build.ArtifactStagingDirectory)'
-#   displayName: Copy jpackage output to staging dir
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: 'build/distributions'
+    Contents: |
+      *.zip
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+  displayName: Copy distributions to staging dir
 
-
-# - task: PublishBuildArtifacts@1
-#   inputs:
-#     PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-#     ArtifactName: $(Agent.OS)
-#     publishLocation: 'Container'
-#   displayName: Make staging dir an artifact
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: $(Agent.OS)
+    publishLocation: 'Container'
+  displayName: Make staging dir an artifact
