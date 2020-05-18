@@ -7,7 +7,7 @@ trigger:
 - master
 
 variables:
-  pythonDependencies: "setuptools wheel sphinx==1.8 guzzle_sphinx_theme javalang"
+  pythonDependencies: "wheel sphinx==1.8 guzzle_sphinx_theme javalang"
 
 strategy:
   matrix:
@@ -40,8 +40,11 @@ pool:
   vmImage: $(imageName)
 
 steps:
-- script: $(python2Name) -m pip install --user $(pythonDependencies)
-  displayName: 'Install python2 dependencies'
-
-- script: $(python3Name) -m pip install --user $(pythonDependencies)
-  displayName: 'Install python3 dependencies'
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: |
+      $(python2Name) -m pip install --user setuptools
+      $(python3Name) -m pip install --user setuptools
+      $(python2Name) -m pip install --user $(pythonDependencies)
+      $(python3Name) -m pip install --user $(pythonDependencies)
