@@ -7,7 +7,7 @@ trigger:
 - master
 
 variables:
-  pythonDependencies: "wheel sphinx==1.8 guzzle_sphinx_theme javalang"
+  pythonDependencies: "sphinx==1.8 guzzle_sphinx_theme javalang"
 
 strategy:
   matrix:
@@ -43,32 +43,43 @@ steps:
 - task: CmdLine@2
   inputs:
     script: |
+      echo "Installing python 2 dependencies"
       $(python2Name) -m pip install --user setuptools wheel
-      $(python3Name) -m pip install --user setuptools wheel
       $(python2Name) -m pip install --user $(pythonDependencies)
+
+      echo "Installing python 3 dependencies"
+      $(python3Name) -m pip install --user setuptools wheel
       $(python3Name) -m pip install --user $(pythonDependencies)
 
+- task: CmdLine@2
+  inputs:
+    script: |
+      echo Testing sphinx-build
+      
+      sphinx-build
+
 # Download the JDK
-- task: Bash@3
-  inputs:
-    targetType: 'inline'
-    script: 'curl --silent --remote-name $(openJdkUrl)$(jdkName)'
-    workingDirectory: '$(Build.BinariesDirectory)'
-  displayName: Download OpenJDK
+# - task: Bash@3
+#   inputs:
+#     targetType: 'inline'
+#     script: 'curl --silent --remote-name $(openJdkUrl)$(jdkName)'
+#     workingDirectory: '$(Build.BinariesDirectory)'
+#   displayName: Download OpenJDK
 
-- task: ExtractFiles@1
-  inputs:
-    archiveFilePatterns: |
-      $(Build.BinariesDirectory)/*.zip
-      $(Build.BinariesDirectory)/*.tar.gz
-    destinationFolder: $(Build.BinariesDirectory)/java
-    cleanDestinationFolder: true
+# - task: ExtractFiles@1
+#   inputs:
+#     archiveFilePatterns: |
+#       $(Build.BinariesDirectory)/*.zip
+#       $(Build.BinariesDirectory)/*.tar.gz
+#     destinationFolder: $(Build.BinariesDirectory)/java
+#     cleanDestinationFolder: true
 
-- task: Gradle@2
-  inputs:
-    gradleWrapperFile: ./$(gradleWrapper)
-    tasks: 'assemble'
-    publishJUnitResults: false
-    javaHomeOption: 'Path'
-    jdkDirectory: $(javaHome)
-    sonarQubeRunAnalysis: false
+# - task: Gradle@2
+#   inputs:
+#     gradleWrapperFile: ./$(gradleWrapper)
+#     tasks: 'assemble'
+#     publishJUnitResults: false
+#     javaHomeOption: 'Path'
+#     jdkDirectory: $(javaHome)
+#     sonarQubeRunAnalysis: false
+    
