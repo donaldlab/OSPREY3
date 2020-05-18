@@ -133,7 +133,9 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param parallelism         information for threading
      */
     public MultiSequenceSHARKStarBound_refactor(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
-                                                ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism, RigidEmatFactory upperCorrectionEmatFactory) {
+                                                ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
+        //, RigidEmatFactory upperCorrectionEmatFactory){
+
         // Set the basic needs
         this.confSpace = confSpace;
         this.rigidEmat = rigidEmat;
@@ -145,7 +147,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
         this.minList = new ArrayList<>(Collections.nCopies(rcs.getNumPos(), 0));
         this.lowerBoundCorrector = new SimpleScoreCorrector(confSpace.positions, MathTools.Optimizer.Maximize);
         //Intialize stuff for upperBoundCorrections
-        this.upperCorrectionEmatFactory = upperCorrectionEmatFactory;
+        //this.upperCorrectionEmatFactory = upperCorrectionEmatFactory;
+        this.upperCorrectionEmatFactory = null;
         this.mutatedConfSpace = this.confSpace.makeCopy();
         this.upperBoundCorrector = new TupleTrie<>(confSpace.positions);
 
@@ -416,7 +419,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             // Construct the bound
             MultiSequenceSHARKStarBound_refactor precompFlex = new MultiSequenceSHARKStarBound_refactor(
                     flexConfSpace, flexRigidEmat, flexMinimizingEmat,
-                    flexMinimizingConfECalc, flexRCs, this.parallelism, null);
+                    flexMinimizingConfECalc, flexRCs, this.parallelism);
             // Set settings
             precompFlex.setCachePattern(cachePattern);
             // initialize

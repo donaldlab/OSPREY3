@@ -99,6 +99,7 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
 
         RCs rcs = sequence.makeRCs(confSpace);
 
+        /*
         MultiSequenceSHARKStarBound_refactor.RigidEmatFactory customFact = (SimpleConfSpace customConfSpace) ->{
             // how should we compute energies of molecules?
             EnergyCalculator ecalcMinimized_temp = new EnergyCalculator.Builder(customConfSpace, ffparams)
@@ -122,8 +123,10 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
                     .calcEnergyMatrix();
             return rigidEmat_temp;
         };
+         */
 
-        return new MultiSequenceSHARKStarBound_refactor(confSpace, rigidEmat, minEmat, confEcalcMinimized, rcs, parallelism, customFact );
+        //return new MultiSequenceSHARKStarBound_refactor(confSpace, rigidEmat, minEmat, confEcalcMinimized, rcs, parallelism, customFact );
+        return new MultiSequenceSHARKStarBound_refactor(confSpace, rigidEmat, minEmat, confEcalcMinimized, rcs, parallelism);
 
     }
 
@@ -233,7 +236,7 @@ public class TestMultiSequenceSHARKStarBound_refactor extends TestBase {
     public void testComputeMultiSequence(){
         SimpleConfSpace confSpace = make1CC8Mutable();
         Sequence wildType = confSpace.makeWildTypeSequence();
-        List<String> seqList = new ArrayList();
+        List<String> seqList = new ArrayList<>();
         seqList.add("ARG");
         seqList.add("ILE");
         seqList.add("MET");
