@@ -209,10 +209,14 @@ val os = OperatingSystem.current()
 
 fun isCommand(cmd: String) =
 	exec {
+		val output = ByteArrayOutputStream()
 		isIgnoreExitValue = true
+        standardOutput = output
+		errorOutput = output
+
 		when (os) {
 			OperatingSystem.MAC_OS,
-			OperatingSystem.LINUX -> commandLine("/bin/sh", "-c", "type $cmd > /dev/null")
+			OperatingSystem.LINUX -> commandLine("which", cmd)
 			OperatingSystem.WINDOWS -> commandLine("where", "/q", cmd)
 			else -> throw Error("unrecognized operating system: $os")
 		}
@@ -242,7 +246,7 @@ class Python(val cmd: String) {
 	}
 
 	val pipCmd by lazy {
-		"-m pip".takeIf { isCommand(it) }
+		"-m pip"
 	}
 
 	override fun toString() = "Python $version"
