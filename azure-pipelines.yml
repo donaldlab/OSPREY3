@@ -62,13 +62,6 @@ steps:
       $(GetPython2.pythonLocation)/python -m pip install setuptools wheel
       $(GetPython2.pythonLocation)/python -m pip install $(pythonDependencies)
 
-- task: CmdLine@2
-  inputs:
-    script: |
-      echo Testing sphinx-build
-      
-      sphinx-build
-
 - task: Gradle@2
   inputs:
     gradleWrapperFile: ./$(gradleWrapper)
