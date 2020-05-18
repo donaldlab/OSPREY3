@@ -6,6 +6,9 @@
 trigger:
 - master
 
+variables:
+  pythonDependencies: "setuptools wheel sphinx==1.8 guzzle_sphinx_theme javalang"
+
 strategy:
   matrix:
     linux:
@@ -37,8 +40,8 @@ pool:
   vmImage: $(imageName)
 
 steps:
-- script: $(python2Name) --version
-  displayName: 'Show python2 version'
+- script: $(python2Name) -m pip install --user $(pythonDependencies)
+  displayName: 'Install python2 dependencies'
 
-- script: $(python3Name) --version
-  displayName: 'Show python version'
+- script: $(python3Name) -m pip install --user $(pythonDependencies)
+  displayName: 'Install python3 dependencies'
