@@ -119,6 +119,14 @@ public class TestNativeConfEnergyCalculator {
 	@Test public void assign_native_2RL0_f32() { assign_native(confSpace_2RL0, confs_2RL0, Structs.Precision.Float32); }
 	@Test public void assign_native_2RL0_f64() { assign_native(confSpace_2RL0, confs_2RL0, Structs.Precision.Float64); }
 
+	private void assign_intel(ConfSpace confSpace, int[][] confs, Structs.Precision precision) {
+		try (var confEcalc = new IntelConfEnergyCalculator(confSpace, precision)) {
+			assign(confEcalc, confs, conf -> confEcalc.assign(conf).coords);
+		}
+	}
+	@Test public void assign_intel_2RL0_f32() { assign_intel(confSpace_2RL0, confs_2RL0, Structs.Precision.Float32); }
+	@Test public void assign_intel_2RL0_f64() { assign_intel(confSpace_2RL0, confs_2RL0, Structs.Precision.Float64); }
+
 	private void assign_cuda(ConfSpace confSpace, int[][] confs, Structs.Precision precision) {
 		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
 			assign(confEcalc, confs, conf -> confEcalc.assign(conf).coords);
@@ -147,6 +155,14 @@ public class TestNativeConfEnergyCalculator {
 	}
 	@Test public void calcEnergy_native_all_2RL0_f32() { calcEnergy_native_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
 	@Test public void calcEnergy_native_all_2RL0_f64() { calcEnergy_native_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-8); }
+
+	private void calcEnergy_intel_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		try (var confEcalc = new IntelConfEnergyCalculator(confSpace, precision)) {
+			calcEnergy_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calcEnergy_intel_all_2RL0_f32() { calcEnergy_intel_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
+	@Test public void calcEnergy_intel_all_2RL0_f64() { calcEnergy_intel_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-8); }
 
 	private void calcEnergy_cuda_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
 		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
@@ -181,6 +197,14 @@ public class TestNativeConfEnergyCalculator {
 	@Test public void calc_native_all_2RL0_f32() { calc_native_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
 	@Test public void calc_native_all_2RL0_f64() { calc_native_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-8); }
 
+	private void calc_intel_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		try (var confEcalc = new IntelConfEnergyCalculator(confSpace, precision)) {
+			calc_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void calc_intel_all_2RL0_f32() { calc_intel_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float32, 1e-5); }
+	@Test public void calc_intel_all_2RL0_f64() { calc_intel_all(confSpace_2RL0, confs_2RL0, calcEnergy_all_2RL0, Structs.Precision.Float64, 1e-8); }
+
 	private void calc_cuda_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
 		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
 			calc_all(confEcalc, confs, energies, epsilon);
@@ -210,6 +234,14 @@ public class TestNativeConfEnergyCalculator {
 	}
 	@Test public void confDihedralsEnergy_native_2RL0_f32() { minimizeEnergy_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
 	@Test public void confDihedralsEnergy_native_2RL0_f64() { minimizeEnergy_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
+
+	private void minimizeEnergy_intel_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		try (var confEcalc = new IntelConfEnergyCalculator(confSpace, precision)) {
+			minimizeEnergy_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void confDihedralsEnergy_intel_2RL0_f32() { minimizeEnergy_intel_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
+	@Test public void confDihedralsEnergy_intel_2RL0_f64() { minimizeEnergy_intel_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
 
 	private void minimizeEnergy_cuda_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
 		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
@@ -258,6 +290,14 @@ public class TestNativeConfEnergyCalculator {
 	@Test public void confDihedrals_native_2RL0_f32() { minimize_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
 	@Test public void confDihedrals_native_2RL0_f64() { minimize_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
 
+	private void minimize_intel_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		try (var confEcalc = new IntelConfEnergyCalculator(confSpace, precision)) {
+			minimize_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void confDihedrals_intel_2RL0_f32() { minimize_intel_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
+	@Test public void confDihedrals_intel_2RL0_f64() { minimize_intel_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
+
 	private void minimize_cuda_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
 		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {
 			minimize_all(confEcalc, confs, energies, epsilon);
@@ -292,6 +332,14 @@ public class TestNativeConfEnergyCalculator {
 	}
 	@Test public void confDihedralsEnergies_native_2RL0_f32() { minimizeEnergies_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
 	@Test public void confDihedralsEnergies_native_2RL0_f64() { minimizeEnergies_native_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
+
+	private void minimizeEnergies_intel_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
+		try (var confEcalc = new IntelConfEnergyCalculator(confSpace, precision)) {
+			minimizeEnergies_all(confEcalc, confs, energies, epsilon);
+		}
+	}
+	@Test public void confDihedralsEnergies_intel_2RL0_f32() { minimizeEnergies_intel_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float32, 1e-4); }
+	@Test public void confDihedralsEnergies_intel_2RL0_f64() { minimizeEnergies_intel_all(confSpace_2RL0, confs_2RL0, minimize_all_2RL0, Structs.Precision.Float64, 1e-8); }
 
 	private void minimizeEnergies_cuda_all(ConfSpace confSpace, int[][] confs, double[] energies, Structs.Precision precision, double epsilon) {
 		try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision)) {

@@ -14,12 +14,13 @@ import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator.MinimizationJob;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.CudaConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.compiled.IntelConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.NativeConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gpu.Structs;
+import org.joml.Vector3d;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -127,6 +128,8 @@ public class BenchmarkEnergies {
 		Benchmark[] bmCompiled = new Benchmark[threadSizes.length];
 		Benchmark[] bmCompiledf32 = new Benchmark[threadSizes.length];
 		Benchmark[] bmCompiledf64 = new Benchmark[threadSizes.length];
+		Benchmark[] bmCompiledIntelf32 = new Benchmark[threadSizes.length];
+		Benchmark[] bmCompiledIntelf64 = new Benchmark[threadSizes.length];
 		Benchmark[] bmCompiledCudaf32 = new Benchmark[gpuSizes.length];
 		Benchmark[] bmCompiledCudaf64 = new Benchmark[gpuSizes.length];
 
@@ -150,13 +153,26 @@ public class BenchmarkEnergies {
 
 		{ // compiled native f32
 			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float32);
-			benchmarkThreads("compiled f32", bmCompiledf32, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
+			benchmarkThreads("compiled reference f32", bmCompiledf32, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
 			});
 		}
 		{ // compiled native f64
 			NativeConfEnergyCalculator ecalc = new NativeConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
-			benchmarkThreads("compiled f64", bmCompiledf64, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
+			benchmarkThreads("compiled reference f64", bmCompiledf64, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
+				ecalc.minimizeEnergy(compiledConf, compiledInters);
+			});
+		}
+
+		{ // compiled Intel f32
+			IntelConfEnergyCalculator ecalc = new IntelConfEnergyCalculator(compiled.complex, Structs.Precision.Float32);
+			benchmarkThreads("compiled Intel f32", bmCompiledIntelf32, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
+				ecalc.minimizeEnergy(compiledConf, compiledInters);
+			});
+		}
+		{ // compiled Intel f64
+			IntelConfEnergyCalculator ecalc = new IntelConfEnergyCalculator(compiled.complex, Structs.Precision.Float64);
+			benchmarkThreads("compiled Intel f64", bmCompiledIntelf64, bmClassic[0], threadSizes, numWarmups, numRuns, () -> {
 				ecalc.minimizeEnergy(compiledConf, compiledInters);
 			});
 		}
@@ -262,15 +278,18 @@ public class BenchmarkEnergies {
 
 		ConfSpace confSpace = compiled.complex;
 
+		/* TEMP
 		var gpuStreams = Collections.singletonList(
 			new CudaConfEnergyCalculator.GpuStreams(CudaConfEnergyCalculator.getGpusInfos().get(0), 1)
 		);
 		int batchSize = 10;
+		*/
 
 		//for (Structs.Precision precision : Structs.Precision.values()) {
 		//{ Structs.Precision precision = Structs.Precision.Float32;
 		{ Structs.Precision precision = Structs.Precision.Float64;
-			try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision, gpuStreams, batchSize)) {
+			//try (var confEcalc = new CudaConfEnergyCalculator(confSpace, precision, gpuStreams, batchSize)) {
+			try (var confEcalc = new NativeConfEnergyCalculator(confSpace, precision)) {
 
 				// use all the interactions
 				List<PosInter> inters = PosInterDist.all(confSpace);
@@ -284,6 +303,7 @@ public class BenchmarkEnergies {
 
 				//log("energy = %f", confEcalc.minimizeEnergy(conf, inters));
 
+				/* TEMP
 				var jobs = new ArrayList<MinimizationJob>(batchSize);
 				for (int i=0; i<batchSize; i++) {
 					jobs.add(new MinimizationJob(conf, inters));
@@ -291,6 +311,19 @@ public class BenchmarkEnergies {
 				confEcalc.minimizeEnergies(jobs);
 				for (int i=0; i<batchSize; i++) {
 					log("energy[%2d] = %f", i, jobs.get(i).energy);
+				}
+				*/
+
+				var econf = confEcalc.minimize(conf, inters);
+				log("energy = %f", econf.energy);
+
+				Vector3d pos = new Vector3d();
+				for (int i=0; i<10; i++) {
+					econf.coords.coords.get(i, pos);
+					log("\tpos[%2d] = %8.3f,%8.3f,%8.3f", i, pos.x, pos.y, pos.z);
+				}
+				for (int i=0; i<econf.dofValues.size(); i++) {
+					log("\tdofs[%2d] = %12.6f", i, econf.dofValues.get(i));
 				}
 
 				//log("   exp = %f", -1359.27208010);
