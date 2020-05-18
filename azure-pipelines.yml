@@ -1,8 +1,3 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
 - master
 
@@ -35,7 +30,6 @@ pool:
   vmImage: $(imageName)
 
 steps:
-
 - task: UsePythonVersion@0
   name: GetPython3
   inputs:
@@ -81,21 +75,25 @@ steps:
 - task: Gradle@2
   inputs:
     gradleWrapperFile: ./$(gradleWrapper)
-    options: -POSPREY_PYTHON3=$(GetPython3.pythonLocation) -POSPREY_PYTHON2=$(GetPython2.pythonLocation)
+    options: -POSPREY_PYTHON3=$(GetPython3.pythonLocation)/python -POSPREY_PYTHON2=$(GetPython2.pythonLocation)/python
     tasks: 'assemble'
     publishJUnitResults: false
     javaHomeOption: 'Path'
     jdkDirectory: $(javaHome)
     sonarQubeRunAnalysis: false
 
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: 'build/distributions'
+    Contents: |
+      *.zip
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+  displayName: Copy distributions to staging dir
 
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: $(Agent.OS)
+    publishLocation: 'Container'
+  displayName: Make staging dir an artifact
 
-# - task: Gradle@2
-#   inputs:
-#     gradleWrapperFile: ./$(gradleWrapper)
-#     tasks: 'assemble'
-#     publishJUnitResults: false
-#     javaHomeOption: 'Path'
-#     jdkDirectory: $(javaHome)
-#     sonarQubeRunAnalysis: false
-    
