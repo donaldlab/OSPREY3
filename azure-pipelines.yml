@@ -44,7 +44,7 @@ steps:
   inputs:
     targetType: 'inline'
     script: |
-      $(python2Name) -m pip install --user setuptools wheel $(pythonDependencies)
-      $(python3Name) -m pip install --user setuptools wheel $(pythonDependencies)
-      # $(python2Name) -m pip install --user $(pythonDependencies)
-      # $(python3Name) -m pip install --user $(pythonDependencies)
+      $(python2Name) -m pip install --user setuptools wheel
+      $(python3Name) -m pip install --user setuptools wheel
+      $(python2Name) -m pip install --user $(pythonDependencies)
+      $(python3Name) -m pip install --user $(pythonDependencies)
