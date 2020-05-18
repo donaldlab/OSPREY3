@@ -47,3 +47,28 @@ steps:
       $(python3Name) -m pip install --user setuptools wheel
       $(python2Name) -m pip install --user $(pythonDependencies)
       $(python3Name) -m pip install --user $(pythonDependencies)
+
+# Download the JDK
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: 'curl --silent --remote-name $(openJdkUrl)$(jdkName)'
+    workingDirectory: '$(Build.BinariesDirectory)'
+  displayName: Download OpenJDK
+
+- task: ExtractFiles@1
+  inputs:
+    archiveFilePatterns: |
+      $(Build.BinariesDirectory)/*.zip
+      $(Build.BinariesDirectory)/*.tar.gz
+    destinationFolder: $(Build.BinariesDirectory)/java
+    cleanDestinationFolder: true
+
+- task: Gradle@2
+  inputs:
+    gradleWrapperFile: ./$(gradleWrapper)
+    tasks: 'assemble'
+    publishJUnitResults: false
+    javaHomeOption: 'Path'
+    jdkDirectory: $(javaHome)
+    sonarQubeRunAnalysis: false
