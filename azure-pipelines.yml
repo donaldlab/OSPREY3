@@ -81,21 +81,27 @@ steps:
 - task: Gradle@2
   inputs:
     gradleWrapperFile: ./$(gradleWrapper)
-    options: -POSPREY_PYTHON3=$(GetPython3.pythonLocation) -POSPREY_PYTHON2=$(GetPython2.pythonLocation)
+    options: -POSPREY_PYTHON3=$(GetPython3.pythonLocation)/python -POSPREY_PYTHON2=$(GetPython2.pythonLocation)/python
     tasks: 'assemble'
     publishJUnitResults: false
     javaHomeOption: 'Path'
     jdkDirectory: $(javaHome)
     sonarQubeRunAnalysis: false
 
-
-
-# - task: Gradle@2
+# - task: CopyFiles@2
 #   inputs:
-#     gradleWrapperFile: ./$(gradleWrapper)
-#     tasks: 'assemble'
-#     publishJUnitResults: false
-#     javaHomeOption: 'Path'
-#     jdkDirectory: $(javaHome)
-#     sonarQubeRunAnalysis: false
-    
+#     SourceFolder: 'osprey-gui/build/jpackage'
+#     Contents: |
+#       *.deb
+#       *.msi
+#       *.dmg
+#     TargetFolder: '$(Build.ArtifactStagingDirectory)'
+#   displayName: Copy jpackage output to staging dir
+
+
+# - task: PublishBuildArtifacts@1
+#   inputs:
+#     PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+#     ArtifactName: $(Agent.OS)
+#     publishLocation: 'Container'
+#   displayName: Make staging dir an artifact
