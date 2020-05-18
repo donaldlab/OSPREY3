@@ -242,7 +242,7 @@ class Python(val cmd: String) {
 	}
 
 	val pipCmd by lazy {
-		"pip$version".takeIf { isCommand(it) }
+		"-m pip".takeIf { isCommand(it) }
 	}
 
 	override fun toString() = "Python $version"
@@ -250,9 +250,12 @@ class Python(val cmd: String) {
 
 // find out what pythons are available
 val pythons by lazy {
+	val python3 = findProperty("OSPREY_PYTHON3")?.toString() ?: "python3"
+	val python2 = findProperty("OSPREY_PYTHON2")?.toString() ?: "python2"
+
 	listOf(
-		Python("python3"),
-		Python("python2"),
+		Python(python3),
+		Python(python2),
 		Python("python")
 	)
 	.filter { it.version != null }
@@ -275,8 +278,8 @@ val defaultPython by lazy {
 
 println("""
 	|         Pythons:  ${pythons.map { it.cmd }}
-	|        Python 2:  ${if (python2 != null) "X" else ""}
-	|        Python 3:  ${if (python3 != null) "X" else ""}
+	|        Python 2:  ${if (python2 != null) "✓" else "✗"}
+	|        Python 3:  ${if (python3 != null) "✓" else "✗"}
 	|  default Python:  $defaultPython = ${defaultPython.cmd}
 """.trimMargin())
 
@@ -596,9 +599,9 @@ tasks {
 			writeScript(
 				pythonBuildDir, "install",
 				"""
-					|pip2 uninstall -y osprey JPype-py2
-					|pip2 install --user 'numpy>=1.6,<1.16'
-					|pip2 install --user osprey --no-index --find-link=wheelhouse --pre
+					|python -m pip uninstall -y osprey JPype-py2
+					|python -m pip install --user 'numpy>=1.6,<1.16'
+					|python -m pip install --user osprey --no-index --find-link=wheelhouse --pre
 				""".trimMargin()
 			)
 		}
@@ -611,9 +614,8 @@ tasks {
 			writeScript(
 				pythonBuildDir, "install",
 				"""
-					|pip3 uninstall -y osprey
-					|pip3 install --user 'numpy>=1.6,<1.16'
-					|pip3 install --user osprey --find-link=wheelhouse --pre
+					|python -m pip uninstall -y osprey
+					|python -m pip install --user osprey --find-link=wheelhouse --pre
 				""".trimMargin()
 			)
 		}
@@ -625,7 +627,7 @@ tasks {
 		doLast {
 			writeScript(
 				pythonBuildDir, "uninstall",
-				"pip2 uninstall -y osprey JPype-py2"
+				"python -m pip uninstall -y osprey JPype-py2"
 			)
 		}
 	}
@@ -636,7 +638,7 @@ tasks {
 		doLast {
 			writeScript(
 				pythonBuildDir, "uninstall",
-				"pip3 uninstall -y osprey"
+				"python -m pip uninstall -y osprey"
 			)
 		}
 	}
