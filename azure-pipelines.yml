@@ -19,6 +19,7 @@ strategy:
       gradleWrapper: gradlew
       python2Name: python2
       python3Name: python3
+      pythonBinDir: /home/vsts/.local/bin
     mac:
       imageName: macos-latest
       openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
@@ -27,6 +28,7 @@ strategy:
       gradleWrapper: gradlew
       python2Name: python2
       python3Name: python3
+      pythonBinDir: /Users/runner/.local/bin
     windows:
       imageName: windows-latest
       openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
@@ -52,8 +54,8 @@ steps:
   inputs:
     script: |
       echo "Installing python 3 dependencies"
-      python -m pip install --user setuptools wheel
-      python -m pip install --user $(pythonDependencies)
+      python -m pip install setuptools wheel
+      python -m pip install $(pythonDependencies)
 
 # - task: CmdLine@2
 #   displayName: Install Python Dependencies
