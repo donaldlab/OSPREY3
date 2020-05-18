@@ -40,9 +40,8 @@ pool:
   vmImage: $(imageName)
 
 steps:
-- task: Bash@3
+- task: CmdLine@2
   inputs:
-    targetType: 'inline'
     script: |
       $(python2Name) -m pip install --user setuptools wheel
       $(python3Name) -m pip install --user setuptools wheel
