@@ -33,7 +33,7 @@ strategy:
       jdkName: openjdk-14.0.1_windows-x64_bin.zip
       javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1
       gradleWrapper: gradlew.bat
-      python2Name: python2
+      python2Name: "C:\hostedtoolcache\windows\Python\2.7.18\x64\python"
       python3Name: python
 
 pool:
