@@ -17,26 +17,19 @@ strategy:
       jdkName: openjdk-14.0.1_linux-x64_bin.tar.gz
       javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1
       gradleWrapper: gradlew
-      python2Name: python2
-      python3Name: python3
-      pythonBinDir: /home/vsts/.local/bin
     mac:
       imageName: macos-latest
       openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
       jdkName: openjdk-14.0.1_osx-x64_bin.tar.gz
       javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1.jdk/Contents/Home/
       gradleWrapper: gradlew
-      python2Name: python2
-      python3Name: python3
-      pythonBinDir: /Users/runner/.local/bin
+
     windows:
       imageName: windows-latest
       openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
       jdkName: openjdk-14.0.1_windows-x64_bin.zip
       javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1
       gradleWrapper: gradlew.bat
-      python2Name: 'C:\hostedtoolcache\windows\Python\2.7.18\x64\python'
-      python3Name: python
 
 pool:
   vmImage: $(imageName)
@@ -44,42 +37,30 @@ pool:
 steps:
 
 - task: UsePythonVersion@0
+  name: GetPython3
   inputs:
     versionSpec: '3.x'
     addToPath: true
+    architecture: 'x64'
+
+- task: UsePythonVersion@0
+  name: GetPython2
+  inputs:
+    versionSpec: '2.x'
+    addToPath: false
     architecture: 'x64'
 
 - task: CmdLine@2
   displayName: Install Python Dependencies
   inputs:
     script: |
-      echo "Installing python 3 dependencies"
-      python -m pip install setuptools wheel
-      python -m pip install $(pythonDependencies)
+      echo "Installing Python 3 dependencies"
+      $(GetPython3.pythonLocation)/python -m pip install setuptools wheel
+      $(GetPython3.pythonLocation)/python -m pip install $(pythonDependencies)
 
-# - task: CmdLine@2
-#   displayName: Install Python Dependencies
-#   inputs:
-#     script: |
-#       echo "Installing python 2 dependencies"
-#       $(python2Name) -m pip install --user setuptools wheel
-#       $(python2Name) -m pip install --user $(pythonDependencies)
-
-#       echo "Installing python 3 dependencies"
-#       $(python3Name) -m pip install --user setuptools wheel
-#       $(python3Name) -m pip install --user $(pythonDependencies)
-
-# - task: CmdLine@2
-#   displayName: Install Python Dependencies
-#   inputs:
-#     script: |
-#       echo "Installing python 2 dependencies"
-#       $(python2Name) -m pip install --user setuptools wheel
-#       $(python2Name) -m pip install --user $(pythonDependencies)
-
-#       echo "Installing python 3 dependencies"
-#       $(python3Name) -m pip install --user setuptools wheel
-#       $(python3Name) -m pip install --user $(pythonDependencies)
+      echo "Installing Python 2 dependencies"
+      $(GetPython2.pythonLocation)/python -m pip install setuptools wheel
+      $(GetPython2.pythonLocation)/python -m pip install $(pythonDependencies)
 
 - task: CmdLine@2
   inputs:
@@ -87,6 +68,16 @@ steps:
       echo Testing sphinx-build
       
       sphinx-build
+
+- task: Gradle@2
+  inputs:
+    gradleWrapperFile: ./$(gradleWrapper)
+    options: -POSPREY_PYTHON3=$(GetPython3.pythonLocation) -POSPREY_PYTHON2=$(GetPython2.pythonLocation)
+    tasks: 'tasks'
+    publishJUnitResults: false
+    javaHomeOption: 'Path'
+    jdkDirectory: $(javaHome)
+    sonarQubeRunAnalysis: false
 
 # Download the JDK
 # - task: Bash@3
