@@ -21,7 +21,6 @@ import java.util.stream.Stream;
  */
 public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction {
     public int maxMinimizations = 1;
-    private MultiSequenceSHARKStarBound_refactor multiSequenceSHARKStarBound;
     public final Sequence sequence;
     private MultiSequenceSHARKStarBound_refactor multisequenceBound;
     private Status status;
@@ -56,7 +55,11 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
         }
 
         public void addDiffToLB(double diff){
-            this.lowerBound = bc.calc_EDiff(lowerBound, diff);
+            // Weird case, probable bug here
+            if(diff < this.lowerBound) {
+                this.lowerBound = Double.POSITIVE_INFINITY;
+            }else
+                this.lowerBound = bc.calc_EDiff(this.lowerBound, diff);
         }
         public void subtractDiffFromUB(double diff){
             this.upperBound = bc.calc_ESum(upperBound, diff);
@@ -115,6 +118,18 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
     @Override
     public void compute(int maxNumConfs) {
         multisequenceBound.computeForSequence(maxNumConfs, this);
+        //values.pstar = getZUB();
+        //values.qstar = getZLB();
+        //values.qprime = getZUB();
+        values.pstar = calcZUBDirect();
+        values.qstar = calcZLBDirect();
+        values.qprime = calcZUBDirect();
+        if (calcEpsilon() < multisequenceBound.targetEpsilon) {
+            setStatus(Status.Estimated);
+            if (values.qstar.compareTo(BigDecimal.ZERO) == 0 || values.pstar.compareTo(BigDecimal.ZERO) == 0) {
+                setStatus(Status.Unstable);
+            }
+        }
     }
 
     public void compute(){
@@ -129,14 +144,12 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
     }
 
     public double calcEpsilon(){
-        return getSequenceEpsilon();
-        /*
+        //return getSequenceEpsilon();
         BigDecimal ZUB = calcZBound(e -> e.getFreeEnergyLB(sequence));
         BigDecimal ZLB = calcZBound(e -> e.getFreeEnergyUB(sequence));
         return ZUB.subtract(ZLB, decimalPrecision)
                 .divide(ZUB, decimalPrecision).doubleValue();
 
-         */
     }
 
     public double calcEpsilonDirect(){
@@ -228,4 +241,27 @@ public class SingleSequenceSHARKStarBound_refactor implements PartitionFunction 
                 && leafQueue.isEmpty();
     }
 
+    public Result makeResult() {
+        values.pstar = getZUB();
+        values.qstar = getZLB();
+        values.qprime = getZUB();
+        //values.pstar = calcZUBDirect();
+        //values.qstar = calcZLBDirect();
+        //values.qprime = calcZUBDirect();
+
+        Result result = new Result(getStatus(), getValues(), getNumConfsEvaluated());
+        /*
+        result.setWorkInfo(numPartialMinimizations, numConfsScored,minList);
+        result.setZInfo(lowerReduction_FullMin, lowerReduction_ConfUpperBound, upperReduction_FullMin, upperReduction_PartialMin, upperReduction_ConfLowerBound);
+        result.setOrigBounds(startUpperBound, startLowerBound);
+        result.setTimeInfo(stopwatch.getTimeNs());
+        result.setMiscInfo(new BigDecimal(rootNode.getNumConfs()));
+        */
+        return result;
+    }
+
+    @Override
+    public void setStabilityThreshold(BigDecimal stabilityThreshold) {
+        multisequenceBound.setStabilityThreshold(stabilityThreshold);
+    }
 }

@@ -556,14 +556,18 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * TODO: Determine whether it is better to have a datastructure in the node that keeps track of this info
      */
     public List<SHARKStarNode> getChildrenCompatibleWithSeqRCs(SHARKStarNode node, RCs seqRCs) {
+        ArrayList<SHARKStarNode> compatibleChildren = new ArrayList<>();
         try (ObjectPool.Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
             ScoreContext context = checkout.get();
             node.index(context.index);
             // It shouldn't matter whether we use fullRCs or seqRCs here, since this position should already be defined
             int nextPos = order.getNextPos(context.index, fullRCs);
+            // If the next pos doesn't exist, just return an empty list
+            if(nextPos == -1){
+                return compatibleChildren;
+            }
             // Get the RCs allowed at the given Pos
             int[] allowedRCsAtPos = seqRCs.get(nextPos);
-            ArrayList<SHARKStarNode> compatibleChildren = new ArrayList<>();
             // Check children using loops, since it's probably fastest
             for (SHARKStarNode child : node.getChildren()) {
                 int childRCAtPos = child.getAssignments()[nextPos];
@@ -966,7 +970,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param bound A single-sequence partition function
      */
     private void moreComplicatedTightenBound(SingleSequenceSHARKStarBound_refactor bound) throws InterruptedException {
-        int numConfsToProcess = 1000;
+        int numConfsToProcess = 10;
         AtomicInteger numConfsProcessed = new AtomicInteger();
         boolean leavesExist = false;
         double bestInternalScore = Double.NEGATIVE_INFINITY;
@@ -980,17 +984,22 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             List<SHARKStarNode> newNodes = Collections.synchronizedList(new ArrayList<>());
 
             Step step = Step.None;
-            synchronized(bound.leafQueue) {
+            synchronized(this) {
                 leavesExist = !bound.leafQueue.isEmpty();
                 if (leavesExist)
                     bestLeafScore = bound.leafQueue.peek().getScore(bound.sequence);
+                else
+                    bestLeafScore = Double.NEGATIVE_INFINITY;
             }
-            synchronized(bound.internalQueue) {
+            synchronized(this) {
                 if (!bound.internalQueue.isEmpty())
                     bestInternalScore = bound.internalQueue.peek().getScore(bound.sequence);
+                else
+                    bestInternalScore = Double.NEGATIVE_INFINITY;
             }
             synchronized(this){
-                //System.out.println(String.format("Leaf queue score %.3f, internal queue score %.3f", bestLeafScore, bestInternalScore));
+                System.out.println(String.format("Leaf queue score %.3f contains %d nodes, internal queue score %.3f contains %d nodes",
+                        bestLeafScore, bound.leafQueue.size(), bestInternalScore, bound.internalQueue.size()));
 
                 if (!leavesExist || bestInternalScore > bestLeafScore) {
                     step = Step.Score;
@@ -1453,7 +1462,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             Stopwatch partialWatch = new Stopwatch().start();
 
             int numNodesCreated = 0;
-            while (numNodesCreated < numNodesCeiling) {     // Stop if we create enough nodes
+            while (numNodesCreated < numNodesCeiling && !bound.internalQueue.isEmpty()) {     // Stop if we create enough nodes, or if there are no more nodes
                 SHARKStarNode parent = bound.internalQueue.take();
 
                 // Stop if the node error falls below our cutoff
@@ -1557,11 +1566,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
             node.setMinE(analysis.epmol.energy);
             node.setIsMinimized(true);
-            node.setScore(0.0, bound.sequence);
-
-            // Compute deltas
-            result.lowerBoundDelta = bc.calc_EDiff(prevLB, analysis.epmol.energy);
-            result.upperBoundDelta = bc.calc_EDiff(analysis.epmol.energy, prevUB);
+            node.setScore(Double.NEGATIVE_INFINITY, bound.sequence);
 
             System.out.println(String.format("Minimized %s --> %.3f in [%.3f, %.3f]",
                     node.confToString(),
@@ -1569,6 +1574,10 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     prevLB,
                     prevUB
             ));
+
+            // Compute deltas
+            result.lowerBoundDelta = bc.calc_EDiff(prevLB, analysis.epmol.energy);
+            result.upperBoundDelta = bc.calc_EDiff(analysis.epmol.energy, prevUB);
 
             if (this.saveEPMOLsForMinimization) {
                 synchronized (this) {

@@ -124,11 +124,14 @@ public abstract class UpdatingEnergyMatrix<T extends TupE> extends ProxyEnergyMa
     is essentially because we can't trust the greedy heuristic, so we can't feed it only
     the conformation and expect to get good results.
      */
+    /*
     @Deprecated
     @Override
     public double confE(int[] conf){
         throw new UnsupportedOperationException();
     }
+
+     */
     /*
     We don't want to use this like an energyMatrix, we want to just get corrections. This
     is essentially because we can't trust the greedy heuristic, so we can't feed it only

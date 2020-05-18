@@ -165,10 +165,11 @@ public class BoltzmannCalculator {
 
 	     */
 		if(y - x < 0){
-		    if(y - x > -1e-10){
+		    if(y - x > -1e-10 || y > 100000){
 		    	return 0;
 			}else{
-		    	throw new IllegalArgumentException();
+		    	System.err.println(y-x);
+		    	throw new IllegalArgumentException(String.format("can't compute from %f - %f = %f", y, x, y-x));
 			}
 		}
 		return  x + freeEnergy(BigDecimal.ONE.subtract(calc(y - x), mathContext));

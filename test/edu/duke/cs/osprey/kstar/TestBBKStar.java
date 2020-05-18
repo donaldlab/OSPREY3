@@ -110,6 +110,8 @@ public class TestBBKStar {
 				info.pfuncFactory = pfuncFactory;
 				if(runSHARKStar) {
 					pfuncFactory.setUseMSSHARKStar(confEcalcRigid);
+				}else{
+					pfuncFactory.setUseMARKStar(confEcalcRigid);
 				}
 				info.pfuncFactory.setCachePattern(info.id);
 				EnergyMatrix ematMinimized = info.pfuncFactory.getOrMakeEmat(info.confEcalcMinimized, "minimized");

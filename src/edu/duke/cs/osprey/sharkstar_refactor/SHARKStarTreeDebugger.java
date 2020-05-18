@@ -71,7 +71,7 @@ public class SHARKStarTreeDebugger {
     public void travelNode(SHARKStarNode node, Sequence seq){
         boolean nodeContainsSeq = node.getSequences().contains(seq);
         // Get the children
-        List<SHARKStarNode> children = node.getChildren();
+        List<SHARKStarNode> children = node.getChildren().stream().filter(c -> c.getSequences().contains(seq)).collect(Collectors.toList());
         // if there are multiple children
         if(children.size() > 0) {
             // run debug checks on the children if the node has an entry for seq
@@ -155,7 +155,7 @@ public class SHARKStarTreeDebugger {
                     .filter(n -> n.getSequences().contains(seq))
                     .map(n -> n.getFreeEnergyUB(seq))
                     .collect(Collectors.toCollection(ArrayList::new));
-            childE= bc.logSumExp(childEnergies);
+                    childE= bc.logSumExp(childEnergies);
         }else{
             childE= children.get(0).getFreeEnergyUB(seq);
         }
@@ -164,7 +164,7 @@ public class SHARKStarTreeDebugger {
         double parentE = parent.getFreeEnergyUB(seq);
 
         // check to make sure the bounds are decreasing
-        if (!(parentE - childE > boundTolerance)){ // parentE > childE
+        if (!(parentE - childE > boundTolerance) && parentE < 100){ // parentE > childE
             //Print info
             System.err.println(String.format("ERROR: Upper bounds are increasing from parent to children! %.16f < %.16f", parentE, childE));
             System.out.println(String.format("Difference of %2.3e",parentE - childE));

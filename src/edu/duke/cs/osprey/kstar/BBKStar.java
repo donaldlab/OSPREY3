@@ -683,7 +683,7 @@ public class BBKStar {
 				}
 			}
 			System.out.println("Trying to print ensemble stats.");
-			lastPfunc.printStats();
+			//lastPfunc.printStats();
 		}
 
 		return scoredSequences;
