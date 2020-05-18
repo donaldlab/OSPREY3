@@ -83,7 +83,7 @@ public class SequenceLMFE implements Sofea.Criterion {
 		}
 
 		// is this a sequence we care about?
-		Sequence nodeSeq = state.confSpace.seqSpace.makeSequence(state.confSpace, conf);
+		Sequence nodeSeq = state.confSpace.seqSpace().makeSequence(state.confSpace, conf);
 		if (!seq.isSubsequenceOf(nodeSeq)) {
 			return Filter.Requeue;
 		}

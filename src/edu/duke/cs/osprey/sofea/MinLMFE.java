@@ -219,7 +219,7 @@ public class MinLMFE implements Sofea.Criterion {
 		boolean isFinished;
 		if (state.isSequenced) {
 
-			Sequence seq = state.confSpace.seqSpace.makeSequence(state.confSpace, conf);
+			Sequence seq = state.confSpace.seqSpace().makeSequence(state.confSpace, conf);
 			isFinished = finishedSequenced.contains(new StateSeq(state, seq)) || unstableSequences.contains(seq);
 
 		} else {

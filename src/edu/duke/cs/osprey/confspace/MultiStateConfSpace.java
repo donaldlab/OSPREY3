@@ -55,10 +55,10 @@ public class MultiStateConfSpace {
 		public final int sequencedIndex;
 		public final int unsequencedIndex;
 		public final String name;
-		public final SimpleConfSpace confSpace;
+		public final ConfSpaceIteration confSpace;
 		public final boolean isSequenced;
 
-		private State(int index, int sequencedIndex, int unsequencedIndex, String name, SimpleConfSpace confSpace) {
+		private State(int index, int sequencedIndex, int unsequencedIndex, String name, ConfSpaceIteration confSpace) {
 			this.index = index;
 			this.sequencedIndex = sequencedIndex;
 			this.unsequencedIndex = unsequencedIndex;
@@ -88,25 +88,24 @@ public class MultiStateConfSpace {
 		private final List<State> states = new ArrayList<>();
 		private final List<State> sequencedStates = new ArrayList<>();
 		private final List<State> unsequencedStates = new ArrayList<>();
-		private Double fixedResiduesCutoff = null;
 
 		/** adds the inital mutable state that defines the sequence space */
-		public Builder(String name, SimpleConfSpace confSpace) {
+		public Builder(String name, ConfSpaceIteration confSpace) {
 			sequencedState = new State(states.size(), sequencedStates.size(), -1, name, confSpace);
 			states.add(sequencedState);
 			sequencedStates.add(sequencedState);
 		}
 
-		public Builder addMutableState(String name, SimpleConfSpace confSpace) {
+		public Builder addMutableState(String name, ConfSpaceIteration confSpace) {
 
 			// make sure this conf space matches the sequence space
-			if (!confSpace.seqSpace.equals(sequencedState.confSpace.seqSpace)) {
+			if (!confSpace.seqSpace().equals(sequencedState.confSpace.seqSpace())) {
 				throw new IllegalArgumentException(String.format(
 					"sequence space for state \"%s\" doesn't match state \"%s\"\nexpected:%s\nobserved:%s",
 					name,
 					sequencedState.name,
-					sequencedState.confSpace.seqSpace,
-					confSpace.seqSpace
+					sequencedState.confSpace.seqSpace(),
+					confSpace.seqSpace()
 				));
 			}
 
@@ -117,10 +116,10 @@ public class MultiStateConfSpace {
 			return this;
 		}
 
-		public Builder addUnmutableState(String name, SimpleConfSpace confSpace) {
+		public Builder addUnmutableState(String name, ConfSpaceIteration confSpace) {
 
 			// this conf space should have no mutants
-			if (confSpace.seqSpace.hasMutants()) {
+			if (confSpace.seqSpace().hasMutants()) {
 				throw new IllegalArgumentException("unmutable conf space can't have any mutants");
 			}
 
@@ -132,7 +131,7 @@ public class MultiStateConfSpace {
 		}
 
 		public MultiStateConfSpace build() {
-			return new MultiStateConfSpace(sequencedState.confSpace.seqSpace, states, sequencedStates, unsequencedStates);
+			return new MultiStateConfSpace(sequencedState.confSpace.seqSpace(), states, sequencedStates, unsequencedStates);
 		}
 	}
 

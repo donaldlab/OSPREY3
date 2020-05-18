@@ -55,6 +55,7 @@ import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 /**
@@ -76,7 +77,7 @@ public class Sofea {
 
 		public final MultiStateConfSpace confSpace;
 
-		private StateConfig[] stateConfigs;
+		private final StateConfig[] stateConfigs;
 
 		/**
 		 * File for the sequence database
@@ -553,7 +554,7 @@ public class Sofea {
 				// init the fringes with the root node
 				fringetxLower.writeRootNode(state, zSumUpper);
 				fringetxUpper.writeRootNode(state, zSumUpper);
-				seqtx.addZSumUpper(state, state.confSpace.makeUnassignedSequence(), zSumUpper);
+				seqtx.addZSumUpper(state, state.confSpace.seqSpace().makeUnassignedSequence(), zSumUpper);
 			}
 			fringetxLower.commit();
 			fringedbLower.finishStep();
@@ -621,7 +622,7 @@ public class Sofea {
 			this.conf = conf;
 			this.zSumUpper = zSumUpper;
 
-			index = new ConfIndex(state.confSpace.positions.size());
+			index = new ConfIndex(state.confSpace.numPos());
 			Conf.index(conf, index);
 		}
 
@@ -1823,20 +1824,21 @@ public class Sofea {
 			this.rcs = new RCs(state.confSpace);
 
 			// calculate all the RTs by RC and pos
-			rtsByRcByPos = new int[state.confSpace.positions.size()][];
-			numRtsByPos = new int[state.confSpace.positions.size()];
-			for (SimpleConfSpace.Position confPos : state.confSpace.positions) {
-				rtsByRcByPos[confPos.index] = new int[confPos.resConfs.size()];
-				SeqSpace.Position seqPos = confSpace.seqSpace.getPosition(confPos.resNum);
+			rtsByRcByPos = new int[state.confSpace.numPos()][];
+			numRtsByPos = new int[state.confSpace.numPos()];
+			for (int posi=0; posi<state.confSpace.numPos(); posi++) {
+
+				rtsByRcByPos[posi] = new int[state.confSpace.numConf(posi)];
+				SeqSpace.Position seqPos = confSpace.seqSpace.getPosition(state.confSpace.name(posi));
 				if (seqPos != null) {
-					numRtsByPos[confPos.index] = seqPos.resTypes.size();
-					for (SimpleConfSpace.ResidueConf rc : confPos.resConfs) {
-						SeqSpace.ResType rt = seqPos.getResTypeOrThrow(rc.template.name);
-						rtsByRcByPos[confPos.index][rc.index] = rt.index;
+					numRtsByPos[posi] = seqPos.resTypes.size();
+					for (int confi=0; confi<state.confSpace.numConf(posi); confi++) {
+						SeqSpace.ResType rt = seqPos.getResTypeOrThrow(state.confSpace.confType(posi, confi));
+						rtsByRcByPos[posi][confi] = rt.index;
 					}
 				} else {
-					numRtsByPos[confPos.index] = 0;
-					Arrays.fill(rtsByRcByPos[confPos.index], Sequence.Unassigned);
+					numRtsByPos[posi] = 0;
+					Arrays.fill(rtsByRcByPos[posi], Sequence.Unassigned);
 				}
 			}
 
@@ -1859,13 +1861,17 @@ public class Sofea {
 			}
 
 			// sort positions so multi-sequence layers are first
-			posPermutation = state.confSpace.positions.stream()
+			posPermutation = IntStream.range(0, state.confSpace.numPos())
+				.boxed()
 				.sorted((a, b) -> {
 
+					boolean amut = state.confSpace.hasMutations(a);
+					boolean bmut = state.confSpace.hasMutations(b);
+
 					// prefer mutable positions first
-					if (a.hasMutations() && !b.hasMutations()) {
+					if (amut && !bmut) {
 						return -1;
-					} else if (!a.hasMutations() && b.hasMutations()) {
+					} else if (!amut && bmut) {
 						return +1;
 					}
 
@@ -1877,13 +1883,13 @@ public class Sofea {
 					}
 
 					// otherwise, sort by index
-					return a.index - b.index;
+					return a - b;
 				})
-				.mapToInt(pos -> pos.index)
+				.mapToInt(i -> i)
 				.toArray();
 		}
 
-		double calcOrderHeuristic(SimpleConfSpace.Position pos) {
+		double calcOrderHeuristic(int posi) {
 
 			// TODO: what heuristic works best here?
 			// hard to experiment on small test cases, since position ordering seems to have little effect on performance
@@ -1931,7 +1937,7 @@ public class Sofea {
 		}
 
 		ConfIndex makeConfIndex() {
-			ConfIndex index = new ConfIndex(state.confSpace.positions.size());
+			ConfIndex index = new ConfIndex(state.confSpace.numPos());
 			index.updateUndefined();
 			return index;
 		}

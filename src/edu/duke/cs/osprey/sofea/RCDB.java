@@ -108,12 +108,12 @@ public class RCDB implements AutoCloseable {
 			this.id = id;
 
 			// assign ids to all the rcs
-			rcIds = new int[state.confSpace.positions.size()][];
+			rcIds = new int[state.confSpace.numPos()][];
 			int nextId = 0;
-			for (SimpleConfSpace.Position pos : state.confSpace.positions) {
-				rcIds[pos.index] = new int[pos.resConfs.size()];
-				for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
-					rcIds[pos.index][rc.index] = nextId++;
+			for (int posi=0; posi<state.confSpace.numPos(); posi++) {
+				rcIds[posi] = new int[state.confSpace.numConf(posi)];
+				for (int confi=0; confi<state.confSpace.numConf(posi); confi++) {
+					rcIds[posi][confi] = nextId++;
 				}
 			}
 
@@ -190,10 +190,10 @@ public class RCDB implements AutoCloseable {
 				throw new IllegalArgumentException("Z must be finite: " + zPath + ", " + zSumUpper);
 			}
 
-			for (SimpleConfSpace.Position opos : state.confSpace.positions) {
-				int rc = conf[opos.index];
+			for (int posi=0; posi<state.confSpace.numPos(); posi++) {
+				int rc = conf[posi];
 
-				update(opos.index, rc, sum -> {
+				update(posi, rc, sum -> {
 					sum.lower = bigMath()
 						.set(sum.lower)
 						.add(zPath)

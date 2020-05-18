@@ -161,7 +161,7 @@ public class EnergyCalculator implements AutoCleanable {
 		public Builder(MultiStateConfSpace confSpace, ForcefieldParams ffparams) {
 			this(
 				confSpace.states.stream()
-					.map(state -> state.confSpace)
+					.map(state -> (SimpleConfSpace)state.confSpace)
 					.collect(Collectors.toList()),
 				ffparams
 			);

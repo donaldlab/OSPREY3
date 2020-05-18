@@ -960,7 +960,7 @@ public class TestSofea {
 						assertThat(seqZSumBounds.lower, isRelatively(seqZSumBounds.upper, 1e-10));
 
 						RCs rcs = seq.makeRCs(state.confSpace);
-						for (SimpleConfSpace.Position pos : state.confSpace.positions) {
+						for (SimpleConfSpace.Position pos : ((SimpleConfSpace)state.confSpace).positions) {
 
 							// add bounds for all the RCs at a position in this sequence
 							BigMath lower = rcdb.bigMath();
@@ -1372,7 +1372,7 @@ public class TestSofea {
 
 			confEcalcs = new ConfEnergyCalculator[confSpace.states.size()];
 			for (MultiStateConfSpace.State state : confSpace.states) {
-				confEcalcs[state.index] = new ConfEnergyCalculator.Builder(state.confSpace, ecalc)
+				confEcalcs[state.index] = new ConfEnergyCalculator.Builder((SimpleConfSpace)state.confSpace, ecalc)
 					.setEnergyPartition(epart)
 					.build();
 			}

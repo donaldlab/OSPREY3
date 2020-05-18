@@ -262,7 +262,7 @@ public class SofeaLab {
 
 				RCs rcs = seq.makeRCs(state.confSpace);
 				MARKStarBoundFastQueues pfunc = new MARKStarBoundFastQueues(
-					state.confSpace,
+					(SimpleConfSpace)state.confSpace,
 					ematUpper,
 					config.emat,
 					config.confEcalc,
@@ -272,7 +272,7 @@ public class SofeaLab {
 				pfunc.init(epsilon);
 				pfunc.setStabilityThreshold(null);
 				pfunc.setReportProgress(true);
-				pfunc.setCorrections(new UpdatingEnergyMatrix(state.confSpace, config.emat));
+				pfunc.setCorrections(new UpdatingEnergyMatrix((SimpleConfSpace)state.confSpace, config.emat));
 				//pfunc.reduceMinimizations = true or false?
 				pfunc.stateName = state.name;
 
@@ -335,7 +335,7 @@ public class SofeaLab {
 						m.add(sofea.bcalc.calcPrecise(econf.getEnergy()));
 						log("\tconf   %4d   [%32s]   energy=%9.3f   lower=%9.3f   gap=%7.3f   corrected=%9.3f   gap=%7.3f",
 							++numConfs,
-							Streams.joinToString(state.confSpace.positions, ", ", pos -> {
+							Streams.joinToString(((SimpleConfSpace)state.confSpace).positions, ", ", pos -> {
 								int rc = econf.getAssignments()[pos.index];
 								return pos.resConfs.get(rc).getRotamerCode();
 							}),
@@ -386,5 +386,13 @@ public class SofeaLab {
 
 		ConfEnergyCalculator make(SimpleConfSpace confSpace, EnergyCalculator ecalc, ApproximatorMatrix amat);
 
+		default ConfEnergyCalculator make(ConfSpaceIteration confSpace, EnergyCalculator ecalc) {
+			return make(confSpace, ecalc, null);
+		}
+
+		default ConfEnergyCalculator make(ConfSpaceIteration confSpace, EnergyCalculator ecalc, ApproximatorMatrix amat) {
+			// assume we're only dealing with the old-style "simple" conformation spaces here
+			return make((SimpleConfSpace)confSpace, ecalc, amat);
+		}
 	}
 }

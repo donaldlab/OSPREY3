@@ -52,8 +52,8 @@ import java.util.Arrays;
 
 public class TestSeqDB {
 
-	private static MathContext mathContext = new MathContext(16, RoundingMode.HALF_UP);
-	private static BigDecimalBounds emptySum = new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
+	private static final MathContext mathContext = new MathContext(16, RoundingMode.HALF_UP);
+	private static final BigDecimalBounds emptySum = new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
 
 	@Test
 	public void empty() {
@@ -105,7 +105,7 @@ public class TestSeqDB {
 				SeqDB.Transaction tx = seqdb.transaction();
 				assertThat(tx.isEmpty(), is(true));
 
-				tx.addZPath(design, design.confSpace.makeUnassignedSequence(), new BigExp(1.0), new BigExp(1.0));
+				tx.addZPath(design, design.confSpace.seqSpace().makeUnassignedSequence(), new BigExp(1.0), new BigExp(1.0));
 
 				assertThat(tx.isEmpty(), is(false));
 

@@ -33,10 +33,7 @@
 package edu.duke.cs.osprey.sofea;
 
 
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.TupleMatrixGeneric;
-import edu.duke.cs.osprey.confspace.TupleTree;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.tools.BigExp;
@@ -51,7 +48,7 @@ public class ZMatrix extends TupleMatrixGeneric<BigExp> {
 	// since we're outputting BigExp values, we only need about 16 decimal digits of precision
 	private final BoltzmannCalculator bcalc = new BoltzmannCalculator(new MathContext(16, RoundingMode.HALF_UP));
 
-	public ZMatrix(SimpleConfSpace confSpace) {
+	public ZMatrix(ConfSpaceIteration confSpace) {
 		super(confSpace);
 	}
 

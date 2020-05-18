@@ -39,6 +39,7 @@ import edu.duke.cs.osprey.tools.*;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
+import java.util.stream.IntStream;
 
 
 /**
@@ -147,7 +148,7 @@ public class FringeDB implements AutoCloseable {
 			// how many bytes per conf?
 			IntEncoding confEncoding = getConfEncoding(confSpace);
 			int maxConfSize = confSpace.states.stream()
-				.mapToInt(state -> state.confSpace.positions.size())
+				.mapToInt(state -> state.confSpace.numPos())
 				.max()
 				.orElse(0);
 			io.writeInt(confEncoding.numBytes*maxConfSize);
@@ -199,9 +200,8 @@ public class FringeDB implements AutoCloseable {
 		assert (Conf.Unassigned == -1);
 
 		return IntEncoding.get(1 + confSpace.states.stream()
-			.mapToInt(state -> state.confSpace.positions.stream()
-				.mapToInt(pos -> pos.resConfs.stream()
-					.mapToInt(rc -> rc.index)
+			.mapToInt(state -> IntStream.range(0, state.confSpace.numPos())
+				.map(posi -> IntStream.range(0, state.confSpace.numConf(posi))
 					.max()
 					.orElse(0)
 				)
@@ -447,7 +447,7 @@ public class FringeDB implements AutoCloseable {
 				state = confSpace.states.get(stateEncoding.read(readIn));
 
 				// read the conf, and undo the shift
-				conf = new int[state.confSpace.positions.size()];
+				conf = new int[state.confSpace.numPos()];
 				for (int i=0; i<conf.length; i++) {
 					conf[i] = confEncoding.read(readIn) - 1;
 				}

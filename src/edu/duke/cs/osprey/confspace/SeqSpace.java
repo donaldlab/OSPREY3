@@ -364,14 +364,13 @@ public class SeqSpace implements Serializable {
 		return makeSequence(Arrays.asList(resTypes));
 	}
 
-	public Sequence makeSequence(SimpleConfSpace confSpace, int[] conf) {
+	public Sequence makeSequence(ConfSpaceIteration confSpace, int[] conf) {
 		Sequence seq = makeUnassignedSequence();
-		for (SimpleConfSpace.Position confPos : confSpace.positions) {
-			SeqSpace.Position seqPos = getPosition(confPos.resNum);
-			int rc = conf[confPos.index];
-			if (seqPos != null && rc != Conf.Unassigned) {
-				SimpleConfSpace.ResidueConf resConf = confPos.resConfs.get(rc);
-				seq.set(seqPos, resConf.template.name);
+		for (int posi=0; posi<confSpace.numPos(); posi++) {
+			SeqSpace.Position seqPos = getPosition(confSpace.name(posi));
+			int confi = conf[posi];
+			if (seqPos != null && confi != Conf.Unassigned) {
+				seq.set(seqPos, confSpace.confType(posi, confi));
 			}
 		}
 		return seq;
