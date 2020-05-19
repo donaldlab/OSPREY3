@@ -970,38 +970,34 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
      * @param bound A single-sequence partition function
      */
     private void moreComplicatedTightenBound(SingleSequenceSHARKStarBound_refactor bound) throws InterruptedException {
-        int numConfsToProcess = 10;
+        int numConfsToProcess = 100;
         AtomicInteger numConfsProcessed = new AtomicInteger();
-        boolean leavesExist = false;
-        double bestInternalScore = Double.NEGATIVE_INFINITY;
-        double bestLeafScore = Double.NEGATIVE_INFINITY;
-
 
         System.out.println(String.format("Internal Queue: %d nodes, Leaf Queue: %d nodes",bound.internalQueue.size(), bound.leafQueue.size()));
 
         while (numConfsProcessed.get() < numConfsToProcess) {
-            SHARKStarNode node;
+            double bestInternalScore = Double.NEGATIVE_INFINITY;
+            double bestLeafScore = Double.NEGATIVE_INFINITY;
+
             List<SHARKStarNode> newNodes = Collections.synchronizedList(new ArrayList<>());
 
             Step step = Step.None;
             synchronized(this) {
-                leavesExist = !bound.leafQueue.isEmpty();
-                if (leavesExist)
-                    bestLeafScore = bound.leafQueue.peek().getScore(bound.sequence);
-                else
-                    bestLeafScore = Double.NEGATIVE_INFINITY;
-            }
-            synchronized(this) {
-                if (!bound.internalQueue.isEmpty())
-                    bestInternalScore = bound.internalQueue.peek().getScore(bound.sequence);
-                else
-                    bestInternalScore = Double.NEGATIVE_INFINITY;
-            }
-            synchronized(this){
-                System.out.println(String.format("Leaf queue score %.3f contains %d nodes, internal queue score %.3f contains %d nodes",
-                        bestLeafScore, bound.leafQueue.size(), bestInternalScore, bound.internalQueue.size()));
+                if (!bound.leafQueue.isEmpty()){
+                    SHARKStarNode leaf = bound.leafQueue.take();
+                    bestLeafScore = leaf.getScore(bound.sequence);
+                    bound.leafQueue.put(leaf);
+                }
+                if (!bound.internalQueue.isEmpty()){
+                    SHARKStarNode internal = bound.internalQueue.take();
+                    bestInternalScore = internal.getScore(bound.sequence);
+                    bound.internalQueue.put(internal);
+                }
 
-                if (!leavesExist || bestInternalScore > bestLeafScore) {
+                //System.out.println(String.format("Leaf queue score %.3f contains %d nodes, internal queue score %.3f contains %d nodes",
+                        //bestLeafScore, bound.leafQueue.size(), bestInternalScore, bound.internalQueue.size()));
+
+                if (bestInternalScore > bestLeafScore) {
                     step = Step.Score;
                 }else {
                     step = Step.Energy;
