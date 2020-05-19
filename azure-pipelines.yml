@@ -101,10 +101,7 @@ jobs:
 - job: CreateRelease
   pool:
     vmImage: ubuntu-latest
-  dependsOn:
-  - Assemble Linux
-  - Assemble Windows
-  - Assemble Mac
+  dependsOn: Assemble
   steps:
   - task: DownloadBuildArtifacts@0
     inputs:
