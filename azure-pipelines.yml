@@ -8,18 +8,18 @@ jobs:
     pythonDependencies: "sphinx==1.8 guzzle_sphinx_theme javalang"
   strategy:
     matrix:
-      # Linux:
-      #   imageName: ubuntu-latest
-      #   openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
-      #   jdkName: openjdk-14.0.1_linux-x64_bin.tar.gz
-      #   javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1
-      #   gradleWrapper: gradlew
-      # Mac:
-      #   imageName: macos-latest
-      #   openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
-      #   jdkName: openjdk-14.0.1_osx-x64_bin.tar.gz
-      #   javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1.jdk/Contents/Home/
-      #   gradleWrapper: gradlew
+      Linux:
+        imageName: ubuntu-latest
+        openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
+        jdkName: openjdk-14.0.1_linux-x64_bin.tar.gz
+        javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1
+        gradleWrapper: gradlew
+      Mac:
+        imageName: macos-latest
+        openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
+        jdkName: openjdk-14.0.1_osx-x64_bin.tar.gz
+        javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1.jdk/Contents/Home/
+        gradleWrapper: gradlew
       Windows:
         imageName: windows-latest
         openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
@@ -57,23 +57,25 @@ jobs:
         p2=`standardize_path '$(GetPython2.pythonLocation)/python'`
         p3=`standardize_path '$(GetPython3.pythonLocation)/python'`
         JAVA_HOME=`standardize_path '$(javaHome)'`
-        echo "Python2 -> ${p2}\nPython3 -> ${p3})\nJAVA_HOME -> ${JAVA_HOME}"
+        echo "Python2 -> ${p2}"
+        echo "Python3 -> ${p3})"
+        echo "JAVA_HOME -> ${JAVA_HOME}"
         
         echo "##vso[task.setvariable variable=python2]${p2}"
         echo "##vso[task.setvariable variable=python3]${p3}"
         echo "##vso[task.setvariable variable=JAVA_HOME]${JAVA_HOME}"
 
-  # - task: CmdLine@2
-  #   displayName: Install Python Dependencies
-  #   inputs:
-  #     script: |
-  #       echo "Installing Python 3 dependencies"
-  #       $(python3) -m pip install setuptools wheel
-  #       $(python3) -m pip install $(pythonDependencies)
+  - task: CmdLine@2
+    displayName: Install Python Dependencies
+    inputs:
+      script: |
+        echo "Installing Python 3 dependencies"
+        $(python3) -m pip install setuptools wheel
+        $(python3) -m pip install $(pythonDependencies)
 
-  #       echo "Installing Python 2 dependencies"
-  #       $(python2) -m pip install setuptools wheel
-  #       $(python2) -m pip install $(pythonDependencies)
+        echo "Installing Python 2 dependencies"
+        $(python2) -m pip install setuptools wheel
+        $(python2) -m pip install $(pythonDependencies)
 
   # Download the JDK
   - task: Bash@3
@@ -98,55 +100,49 @@ jobs:
       targetType: 'inline'
       script: |
         export JAVA_HOME=$(JAVA_HOME)
-        echo "Python3: $(python3)"
-        echo "Python2: $(python2)"
-        $(python3) --version
-        $(python2) --version
-        
         ./$(gradleWrapper) -POSPREY_PYTHON3=$(python3) -POSPREY_PYTHON2=$(python2) -PAZURE_BUILD_ID=$(Build.BuildId) tasks
 
-#   - task: CopyFiles@2
-#     inputs:
-#       SourceFolder: 'build/distributions'
-#       Contents: |
-#         *.zip
-#       TargetFolder: '$(Build.ArtifactStagingDirectory)'
-#     displayName: Copy distributions to staging dir
+  - task: CopyFiles@2
+    inputs:
+      SourceFolder: 'build/distributions'
+      Contents: |
+        *.zip
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy distributions to staging dir
 
-#   - task: PublishBuildArtifacts@1
-#     inputs:
-#       PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-#       ArtifactName: $(Agent.OS)
-#       publishLocation: 'Container'
-#     displayName: Make staging dir an artifact
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: $(Agent.OS)
+      publishLocation: 'Container'
+    displayName: Make staging dir an artifact
 
-# - job: CreateRelease
-#   pool:
-#     vmImage: ubuntu-latest
-#   dependsOn: Assemble
-#   steps:
-#   # Create a variable
-#   - bash: |
-#       version=$(<resources/config/version)
-#       echo "##vso[task.setvariable variable=version]${version}"
-#     displayName: Set version from version file
-#   - task: DownloadBuildArtifacts@0
-#     inputs:
-#       buildType: 'current'
-#       downloadType: 'specific'
-#       downloadPath: '$(System.ArtifactsDirectory)'
-#     displayName: Download assembled artifacts
-#   - task: GitHubRelease@1
-#     inputs:
-#       gitHubConnection: 'github.com_gusennan'
-#       repositoryName: '$(Build.Repository.Name)'
-#       action: 'create'
-#       target: '$(Build.SourceVersion)'
-#       tagSource: 'userSpecifiedTag'
-#       tag: '$(version).$(Build.BuildId)'
-#       assets: '$(System.ArtifactsDirectory)/**/osprey-*python*.zip'
-#       isDraft: true
-#       changeLogCompareToRelease: 'lastFullRelease'
-#       changeLogType: 'commitBased'
-#       title: '$(version).$(Build.BuildId)'
-#     displayName: Push draft release $(version).$(Build.BuildId)
+- job: CreateRelease
+  pool:
+    vmImage: ubuntu-latest
+  dependsOn: Assemble
+  steps:
+  - bash: |
+      version=$(<resources/config/version)
+      echo "##vso[task.setvariable variable=version]${version}"
+    displayName: Set version variable from version file
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      buildType: 'current'
+      downloadType: 'specific'
+      downloadPath: '$(System.ArtifactsDirectory)'
+    displayName: Download assembled artifacts
+  - task: GitHubRelease@1
+    inputs:
+      gitHubConnection: 'github.com_gusennan'
+      repositoryName: '$(Build.Repository.Name)'
+      action: 'create'
+      target: '$(Build.SourceVersion)'
+      tagSource: 'userSpecifiedTag'
+      tag: '$(version).$(Build.BuildId)'
+      assets: '$(System.ArtifactsDirectory)/**/osprey-*python*.zip'
+      isDraft: true
+      changeLogCompareToRelease: 'lastFullRelease'
+      changeLogType: 'commitBased'
+      title: '$(version).$(Build.BuildId)'
+    displayName: Push draft release $(version).$(Build.BuildId)
