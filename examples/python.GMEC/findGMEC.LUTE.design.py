@@ -3,7 +3,7 @@ import osprey
 
 osprey.start()
 
-# run this example AFTER you've trained a LUTE model using findGMEC.LUTE.design.py
+# run this example AFTER you've trained a LUTE model using findGMEC.LUTE.train.py
 
 # define the same conformation space as the training script
 strand = osprey.Strand('1CC8.ss.pdb')

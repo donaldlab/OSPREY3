@@ -411,10 +411,15 @@ tasks {
 
 			// read the version number
 			val versionFile = projectDir.resolve("build/resources/main/config/version").toFile()
-			var version = versionFile.readText()
+			var version = versionFile.readText().trim()
 
 			// append the CI build ID, if available
-			version += "." + (findProperty("AZURE_BUILD_ID")?.toString()?.trim() ?: "dev")
+			version += if (hasProperty("AZURE_BUILD_ID")) {
+				val versionId = property("AZURE_BUILD_ID")
+				".$versionId"
+			} else {
+				"-dev"
+			}
 			versionFile.writeText(version)
 		}
 	}
