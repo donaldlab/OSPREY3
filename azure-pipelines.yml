@@ -50,7 +50,7 @@ jobs:
       targetType: 'inline'
       script: |
         function standardize_path {
-            echo `echo "$1" | sed 's/\\\/\\//g'`
+            echo `echo "$1" | tr '\\' '/'`
         }
         
         p2=`standardize_path $(GetPython2.pythonLocation)/python`
