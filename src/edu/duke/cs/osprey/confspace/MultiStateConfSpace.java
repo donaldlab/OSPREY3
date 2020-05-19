@@ -99,7 +99,7 @@ public class MultiStateConfSpace {
 		public Builder addMutableState(String name, ConfSpaceIteration confSpace) {
 
 			// make sure this conf space matches the sequence space
-			if (!confSpace.seqSpace().equals(sequencedState.confSpace.seqSpace())) {
+			if (!confSpace.seqSpace().isSubsetOf(sequencedState.confSpace.seqSpace())) {
 				throw new IllegalArgumentException(String.format(
 					"sequence space for state \"%s\" doesn't match state \"%s\"\nexpected:%s\nobserved:%s",
 					name,

@@ -35,6 +35,7 @@ package edu.duke.cs.osprey.tools;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -52,7 +53,7 @@ import java.math.RoundingMode;
  * Benchmarking indicates BigExp is roughly 30x faster than BigDecimal multiplication
  * and roughly 2.4x slower than native double multiplication
  */
-public class BigExp implements Comparable<BigExp>, IOable {
+public class BigExp implements Comparable<BigExp>, IOable, Serializable {
 
 	// since we're using doubles for the significand, we only ever need ~16 digits of precision
 	public static final MathContext mathContext = new MathContext(16, RoundingMode.HALF_UP);

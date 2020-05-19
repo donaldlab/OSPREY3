@@ -1467,6 +1467,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 		}
 	}
 
+	@Override
+	public int maxBatchSize() {
+		return (int)maxBatchSize;
+	}
+
 	private MemorySegment makeMinimizationJobsMem(List<MinimizationJob> jobs) {
 
 		long memBytes =

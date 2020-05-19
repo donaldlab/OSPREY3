@@ -97,6 +97,10 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 		}
 	}
 
+	default int maxBatchSize() {
+		return 1;
+	}
+
 	default double calcOrMinimizeEnergy(int[] conf, List<PosInter> inters, boolean minimize) {
 		if (minimize) {
 			return minimizeEnergy(conf, inters);

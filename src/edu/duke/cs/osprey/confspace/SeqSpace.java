@@ -519,4 +519,20 @@ public class SeqSpace implements Serializable {
 	public boolean equals(SeqSpace other) {
 		return this.positions.equals(other.positions);
 	}
+
+	/**
+	 * Returns true iff every position in this space is in the other space, with the same residue types
+	 */
+	public boolean isSubsetOf(SeqSpace other) {
+		for (Position pos : positions) {
+			Position otherPos = other.getPosition(pos.resNum);
+			if (otherPos == null) {
+				return false;
+			}
+			if (!pos.resTypes.equals(otherPos.resTypes)) {
+				return false;
+			}
+		}
+		return true;
+	}
 }

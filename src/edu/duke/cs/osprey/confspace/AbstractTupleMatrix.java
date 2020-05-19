@@ -56,6 +56,7 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     
     // index the arrays
     private int[] oneBodyOffsets;
+    private int numOneBodyTerms;
     private int[] pairwiseOffsets;
     private int numPairwiseTerms;
     
@@ -113,6 +114,7 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
         	oneBodyOffsets[res1] = oneBodyOffset;
         	oneBodyOffset += numConfAtPos[res1];
         }
+		numOneBodyTerms = oneBodyOffset;
         
         // then pairwise offsets
         pairwiseOffsets = new int[numPos*(numPos - 1)/2];
@@ -127,7 +129,7 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
         numPairwiseTerms = pairwiseOffset;
         assert (pairwiseIndex == pairwiseOffsets.length);
         
-        allocate(oneBodyOffset, numPairwiseTerms);
+        allocate(numOneBodyTerms, numPairwiseTerms);
         
     	// don't allocate space for higher terms right now
         // wait till we write something
@@ -172,6 +174,14 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
 
 	public int[] getNumConfAtPos() {//get em all
 		return numConfAtPos;
+	}
+
+	protected int getNumOneBody() {
+    	return numOneBodyTerms;
+	}
+
+	protected int getNumPairwise() {
+    	return numPairwiseTerms;
 	}
     
     protected int getOneBodyIndex(int res, int conf) {
