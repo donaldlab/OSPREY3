@@ -414,8 +414,7 @@ tasks {
 			var version = versionFile.readText()
 
 			// append the CI build ID, if available
-            version += findProperty("AZURE_BUILD_ID")?.toString() ?: "dev"
-
+			version += findProperty("AZURE_BUILD_ID")?.toString() ?: "dev"
 			versionFile.writeText(version)
 		}
 	}
