@@ -66,6 +66,8 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.ObjectPool.Checkout;
+import edu.duke.cs.osprey.tools.Stopwatch;
+import org.jetbrains.annotations.NotNull;
 
 
 public class ConfAStarTree implements ConfSearch {
@@ -464,6 +466,173 @@ public class ConfAStarTree implements ConfSearch {
 	private interface AStarImpl {
 
 		ScoredConf nextConf();
+	}
+
+	private class IterativeImpl implements AStarImpl {
+
+		private final Queue<ConfAStarNode> queue;
+		Queue<ConfAStarNode> drillQueue;
+		Stopwatch confTimer = new Stopwatch();
+
+		private ConfAStarNode rootNode = null;
+
+		IterativeImpl() {
+			this.queue = factory.makeQueue(rcs);
+			this.drillQueue = factory.makeQueue(rcs);
+		}
+
+		@Override
+		public ScoredConf nextConf() {
+
+			// do we have a root node yet?
+			if (rootNode == null) {
+
+				// should we have one?
+				if (!rcs.hasConfs()) {
+					confTimer.stop();
+					confTimer.reset();
+					return null;
+				}
+
+				rootNode = factory.makeRootNode(rcs.getNumPos());
+
+				// pick all the single-rotamer positions now, regardless of order chosen
+				// if we do them first, we basically get them for free
+				// so we don't have to worry about them later in the search at all
+				ConfAStarNode node = rootNode;
+				for (int pos=0; pos<rcs.getNumPos(); pos++) {
+					if (rcs.getNum(pos) == 1) {
+						node = node.assign(pos, rcs.get(pos)[0]);
+					}
+				}
+				assert (node.getLevel() == rcs.getNumTrivialPos());
+
+				// score and add the tail node of the chain we just created
+				node.index(confIndex);
+				node.setGScore(gscorer.calc(confIndex, rcs), optimizer);
+				node.setHScore(hscorer.calc(confIndex, rcs), optimizer);
+				queue.push(node);
+			}
+
+			confTimer.start();
+			while (true) {
+
+				// no nodes left? we're done
+				if (queue.isEmpty()) {
+					return null;
+				}
+
+				// get the next node to expand
+				ConfAStarNode node = queue.poll();
+
+				// if this node was pruned dynamically, then ignore it
+				if (pruner != null && pruner.isPruned(node)) {
+					continue;
+				}
+
+				// leaf node? report it
+				if (node.getLevel() == rcs.getNumPos()) {
+
+					if (progress != null) {
+						progress.reportLeafNode(node.getGScore(optimizer), queue.size());
+					}
+
+					confTimer.stop();
+					confTimer.reset();
+					return new ScoredConf(
+							node.makeConf(rcs.getNumPos()),
+							node.getGScore(optimizer)
+					);
+				}
+
+				// if it's been 10 minutes, get a conformation anyway
+				if(confTimer.getTimeS() > 600) {
+					confTimer.stop();
+					confTimer.reset();
+					return drillDown(node);
+				}
+
+				// which pos to expand next?
+				int numChildren = 0;
+				List<ConfAStarNode> children = makeChildren(node);
+				numChildren += children.size();
+				queue.pushAll(children);
+
+				if (progress != null) {
+					progress.reportInternalNode(node.getLevel(), node.getGScore(optimizer), node.getHScore(optimizer), queue.size(), numChildren);
+				}
+			}
+		}
+
+		@NotNull
+		private List<ConfAStarNode> makeChildren(ConfAStarNode node) {
+			node.index(confIndex);
+			int nextPos = order.getNextPos(confIndex, rcs);
+			assert (!confIndex.isDefined(nextPos));
+			assert (confIndex.isUndefined(nextPos));
+
+			// score child nodes with tasks (possibly in parallel)
+			List<ConfAStarNode> children = new ArrayList<>();
+			for (int nextRc : rcs.get(nextPos)) {
+
+				// if this child was pruned by the pruning matrix, then skip it
+				if (isPruned(confIndex, nextPos, nextRc)) {
+					continue;
+				}
+
+				// if this child was pruned dynamically, then don't score it
+				if (pruner != null && pruner.isPruned(node, nextPos, nextRc)) {
+					continue;
+				}
+
+				tasks.submit(() -> {
+
+					try (Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
+						ScoreContext context = checkout.get();
+
+						// score the child node differentially against the parent node
+						node.index(context.index);
+						ConfAStarNode child = node.assign(nextPos, nextRc);
+						child.setGScore(context.gscorer.calcDifferential(context.index, rcs, nextPos, nextRc), optimizer);
+						child.setHScore(context.hscorer.calcDifferential(context.index, rcs, nextPos, nextRc), optimizer);
+						return child;
+					}
+
+				}, (ConfAStarNode child) -> {
+
+					// collect the possible children
+					if (Double.isFinite(child.getScore())) {
+						children.add(child);
+					}
+				});
+			}
+			tasks.waitForFinish();
+			return children;
+		}
+
+		private ScoredConf drillDown(ConfAStarNode node) {
+			assert(drillQueue.isEmpty());
+			ConfAStarNode curNode = node;
+			while(curNode.getLevel() < rcs.getNumPos()) {
+			    List<ConfAStarNode> children = makeChildren(curNode);
+			    ConfAStarNode bestChild = children.get(0);
+			    for(ConfAStarNode child: children)
+			    	if(bestChild.compareTo(child) < 0)
+			    		bestChild = child;
+				curNode = bestChild;
+				for(ConfAStarNode child: children) {
+					if (bestChild == child)
+						continue;
+					drillQueue.push(child);
+				}
+			}
+			while(!drillQueue.isEmpty())
+			    queue.push(drillQueue.poll());
+			return new ScoredConf(
+					curNode.makeConf(rcs.getNumPos()),
+					curNode.getGScore(optimizer)
+			);
+		}
 	}
 
 	/**

@@ -76,6 +76,7 @@ public class MALEEC {
 				return;
 			}
 
+			/*
 			// try DEE?
 			PruningMatrix pmat = new SimpleDEE.Runner()
 				.setParallelism(Parallelism.makeCpu(Parallelism.getMaxNumCPUs()))
@@ -85,9 +86,10 @@ public class MALEEC {
 				.setShowProgress(true)
 				.setCacheFile(new File("maleec.pmat"))
 				.run(confEcalc.confSpace, emat);
+			 */
 
 			// make A* go BRRRRRRR
-			RCs rcs = new RCs(seq.makeRCs(confEcalc.confSpace), pmat);
+			RCs rcs = new RCs(seq.makeRCs(confEcalc.confSpace));
 			ConfAStarTree astar = new ConfAStarTree.Builder(emat, rcs)
 				/*
 				.setCustom(
