@@ -2,26 +2,25 @@ trigger:
 - master
 
 jobs:
-- job: AssembleDistributables
+- job: Assemble
   timeoutInMinutes: 10
   variables:
     pythonDependencies: "sphinx==1.8 guzzle_sphinx_theme javalang"
   strategy:
     matrix:
-      linux:
+      Linux:
         imageName: ubuntu-latest
         openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
         jdkName: openjdk-14.0.1_linux-x64_bin.tar.gz
         javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1
         gradleWrapper: gradlew
-      mac:
+      Mac:
         imageName: macos-latest
         openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
         jdkName: openjdk-14.0.1_osx-x64_bin.tar.gz
         javaHome: $(Build.BinariesDirectory)/java/jdk-14.0.1.jdk/Contents/Home/
         gradleWrapper: gradlew
-
-      windows:
+      Windows:
         imageName: windows-latest
         openJdkUrl: https://download.java.net/java/GA/jdk14.0.1/664493ef4a6946b186ff29eb326336a2/7/GPL/
         jdkName: openjdk-14.0.1_windows-x64_bin.zip
@@ -77,7 +76,7 @@ jobs:
   - task: Gradle@2
     inputs:
       gradleWrapperFile: ./$(gradleWrapper)
-      options: "-POSPREY_PYTHON3='$(GetPython3.pythonLocation)/python' -POSPREY_PYTHON2='$(GetPython2.pythonLocation)/python' -PAZURE_BUILD_ID='$(Build.BuildId)'"
+      options: "-POSPREY_PYTHON3=$(GetPython3.pythonLocation)/python -POSPREY_PYTHON2=$(GetPython2.pythonLocation)/python -PAZURE_BUILD_ID=$(Build.BuildId)"
       tasks: 'assemble'
       publishJUnitResults: false
       javaHomeOption: 'Path'
@@ -98,3 +97,28 @@ jobs:
       ArtifactName: $(Agent.OS)
       publishLocation: 'Container'
     displayName: Make staging dir an artifact
+
+- job: CreateRelease
+  pool:
+    vmImage: ubuntu-latest
+  dependsOn:
+  - Assemble Linux
+  - Assemble Windows
+  - Assemble Mac
+  steps:
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      buildType: 'current'
+      downloadType: 'specific'
+      downloadPath: '$(System.ArtifactsDirectory)'
+  - task: GitHubRelease@1
+    inputs:
+      gitHubConnection: 'github.com_gusennan'
+      repositoryName: '$(Build.Repository.Name)'
+      action: 'create'
+      target: '$(Build.SourceVersion)'
+      tagSource: 'gitTag'
+      assets: '$(Build.ArtifactsDirectory)/*'
+      isDraft: true
+      changeLogCompareToRelease: 'lastFullRelease'
+      changeLogType: 'commitBased'
