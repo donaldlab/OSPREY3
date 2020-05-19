@@ -217,7 +217,7 @@ fun isCommand(cmd: String) =
 		when (os) {
 			OperatingSystem.MAC_OS,
 			OperatingSystem.LINUX -> commandLine("which", cmd)
-			OperatingSystem.WINDOWS -> commandLine("where", "/q", cmd)
+			OperatingSystem.WINDOWS -> commandLine("powershell", "get-command", cmd)
 			else -> throw Error("unrecognized operating system: $os")
 		}
 	}.exitValue == 0
