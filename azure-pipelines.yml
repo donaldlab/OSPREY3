@@ -103,6 +103,10 @@ jobs:
     vmImage: ubuntu-latest
   dependsOn: Assemble
   steps:
+  # Create a variable
+  - bash: |
+      version=$(<resources/config/version)
+      echo "##vso[task.setvariable variable=version]${version}"
   - task: DownloadBuildArtifacts@0
     inputs:
       buildType: 'current'
@@ -115,9 +119,9 @@ jobs:
       action: 'create'
       target: '$(Build.SourceVersion)'
       tagSource: 'userSpecifiedTag'
-      tag: 'azureci-$(Build.BuildId)'
-      assets: '$(System.ArtifactsDirectory)/**'
+      tag: '$(version)-$(Build.BuildId)'
+      assets: '$(System.ArtifactsDirectory)/**/osprey-*python*.zip'
       isDraft: true
       changeLogCompareToRelease: 'lastFullRelease'
       changeLogType: 'commitBased'
-      title: 'azureci-$(Build.BuildId)'
+      title: '$(version)-$(Build.BuildId)'
