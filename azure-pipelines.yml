@@ -121,6 +121,7 @@ jobs:
   pool:
     vmImage: ubuntu-latest
   dependsOn: Assemble
+  condition: ne(variables['Build.Reason'], 'PullRequest')
   steps:
   - bash: |
       version=$(<resources/config/version)
