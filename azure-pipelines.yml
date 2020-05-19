@@ -46,7 +46,7 @@ jobs:
       architecture: 'x64'
 
   - task: Bash@3
-    displayName: Standardize Python3 and Python2 paths
+    displayName: Standardize Java and Python Paths
     inputs:
       targetType: 'inline'
       script: |
