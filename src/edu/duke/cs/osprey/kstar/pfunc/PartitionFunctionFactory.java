@@ -47,6 +47,7 @@ import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.sharkstar.MultiSequenceSHARKStarBound;
+import edu.duke.cs.osprey.sharkstar_refactor.MultiSequenceSHARKStarBound_refactor;
 
 import java.math.BigInteger;
 import java.util.HashMap;
@@ -54,7 +55,7 @@ import java.util.Map;
 
 public class PartitionFunctionFactory {
 
-    private Map<String, MultiSequenceSHARKStarBound> stateBounds = new HashMap<>();
+    private Map<String, MultiSequenceSHARKStarBound_refactor> stateBounds = new HashMap<>();
     private Map<String, EnergyMatrix> rigidMatrices = new HashMap<>();
     private Map<String, EnergyMatrix> pairwiseMinmizedMatrices = new HashMap<>();
     private String cachePattern;
@@ -180,10 +181,10 @@ public class PartitionFunctionFactory {
             case MSSHARKStar:
                 String RCString = ""+rcs.getNumPos()+cachePattern;
                 if(!stateBounds.containsKey(RCString)) {
-                    MultiSequenceSHARKStarBound stateMSBound;
+                    MultiSequenceSHARKStarBound_refactor stateMSBound;
                     minimizingEmat = makeEmat(confEcalc, "minimized");
                     EnergyMatrix rigidEmat = makeEmat(confUpperBoundECalc);
-                    stateMSBound = new MultiSequenceSHARKStarBound(confSpace, rigidEmat,
+                    stateMSBound = new MultiSequenceSHARKStarBound_refactor(confSpace, rigidEmat,
                             minimizingEmat, confEcalc, rcs, confEcalc.ecalc.parallelism);
                     stateMSBound.setCachePattern(cachePattern);
                     stateMSBound.init(epsilon);
