@@ -46,6 +46,7 @@ jobs:
       architecture: 'x64'
 
   - task: Bash@3
+    displayName: Standardize Python3 and Python2 paths
     inputs:
       targetType: 'inline'
       script: |
@@ -53,8 +54,8 @@ jobs:
             echo `echo "$1" | tr '\\' '/'`
         }
         
-        p2=`standardize_path $(GetPython2.pythonLocation)/python`
-        p3=`standardize_path $(GetPython3.pythonLocation)/python`
+        p2=`standardize_path '$(GetPython2.pythonLocation)/python'`
+        p3=`standardize_path '$(GetPython3.pythonLocation)/python'`
         echo "Python2 (${p2}) and Python3 (${p3})"
         
         echo "##vso[task.setvariable variable=python2]${p2}"
@@ -81,6 +82,7 @@ jobs:
     displayName: Download OpenJDK
 
   - task: ExtractFiles@1
+    displayName: Extract OpenJDK
     inputs:
       archiveFilePatterns: |
         $(Build.BinariesDirectory)/*.zip
@@ -89,6 +91,7 @@ jobs:
       cleanDestinationFolder: true
 
   - task: Gradle@2
+    displayName: ./gradlew assemble
     inputs:
       gradleWrapperFile: ./$(gradleWrapper)
       options: "-POSPREY_PYTHON3=$(python3) -POSPREY_PYTHON2=$(python2) -PAZURE_BUILD_ID=$(Build.BuildId)"
@@ -122,11 +125,13 @@ jobs:
   - bash: |
       version=$(<resources/config/version)
       echo "##vso[task.setvariable variable=version]${version}"
+    displayName: Set version from version file
   - task: DownloadBuildArtifacts@0
     inputs:
       buildType: 'current'
       downloadType: 'specific'
       downloadPath: '$(System.ArtifactsDirectory)'
+    displayName: Download assembled artifacts
   - task: GitHubRelease@1
     inputs:
       gitHubConnection: 'github.com_gusennan'
@@ -140,3 +145,4 @@ jobs:
       changeLogCompareToRelease: 'lastFullRelease'
       changeLogType: 'commitBased'
       title: '$(version).$(Build.BuildId)'
+    displayName: Push draft release $(version).$(Build.BuildId)
