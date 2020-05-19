@@ -75,7 +75,7 @@ steps:
 - task: Gradle@2
   inputs:
     gradleWrapperFile: ./$(gradleWrapper)
-    options: '-POSPREY_PYTHON3=$(GetPython3.pythonLocation)/python -POSPREY_PYTHON2=$(GetPython2.pythonLocation)/python -PAZURE_BUILD_ID=$(Build.BuildId)'
+    options: "'-POSPREY_PYTHON3=$(GetPython3.pythonLocation)/python' '-POSPREY_PYTHON2=$(GetPython2.pythonLocation)/python' '-PAZURE_BUILD_ID=$(Build.BuildId)'"
     tasks: 'assemble'
     publishJUnitResults: false
     javaHomeOption: 'Path'
