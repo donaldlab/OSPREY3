@@ -546,6 +546,7 @@ public class ConfAStarTree implements ConfSearch {
 				}
 
 				// if it's been 10 minutes, get a conformation anyway
+				System.out.println("Time check: "+confTimer.getTimeS());
 				if(confTimer.getTimeS() > 600) {
 					confTimer.stop();
 					confTimer.reset();
