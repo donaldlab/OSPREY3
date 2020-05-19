@@ -211,7 +211,7 @@ fun isCommand(cmd: String) =
 	exec {
 		val output = ByteArrayOutputStream()
 		isIgnoreExitValue = true
-        standardOutput = output
+		standardOutput = output
 		errorOutput = output
 
 		when (os) {
@@ -414,7 +414,7 @@ tasks {
 			var version = versionFile.readText()
 
 			// append the CI build ID, if available
-			version += findProperty("AZURE_BUILD_ID")?.toString() ?: "dev"
+			version += "." + (findProperty("AZURE_BUILD_ID")?.toString()?.trim() ?: "dev")
 			versionFile.writeText(version)
 		}
 	}
