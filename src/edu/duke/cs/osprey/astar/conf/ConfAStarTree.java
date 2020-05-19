@@ -342,7 +342,7 @@ public class ConfAStarTree implements ConfSearch {
 		if (maxNumNodes != null) {
 			this.impl = new SimplifiedBoundedImpl(maxNumNodes);
 		} else {
-			this.impl = new UnboundedImpl();
+			this.impl = new IterativeImpl();
 		}
 		this.confIndex = new ConfIndex(this.rcs.getNumPos());
 		
