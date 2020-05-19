@@ -114,7 +114,8 @@ jobs:
       repositoryName: '$(Build.Repository.Name)'
       action: 'create'
       target: '$(Build.SourceVersion)'
-      tagSource: 'gitTag'
+      tagSource: 'userSpecifiedTag'
+      tag: 'azureci-$(Build.BuildId)'
       assets: '$(Build.ArtifactsDirectory)/*'
       isDraft: true
       changeLogCompareToRelease: 'lastFullRelease'
