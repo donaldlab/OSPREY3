@@ -53,8 +53,8 @@ jobs:
             echo `echo "$1" | sed 's/\\\/\\//g'`
         }
         
-        echo ##vso[task.setvariable variable=python2]`standardize_path "$(GetPython2.pythonLocation)/python"`
-        echo ##vso[task.setvariable variable=python3]`standardize_path "$(GetPython3.pythonLocation)/python"`  
+        echo ##vso[task.setvariable variable=python2]`standardize_path $(GetPython2.pythonLocation)/python`
+        echo ##vso[task.setvariable variable=python3]`standardize_path $(GetPython3.pythonLocation)/python`  
 
   - task: CmdLine@2
     displayName: Install Python Dependencies
