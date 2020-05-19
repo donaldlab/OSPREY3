@@ -63,11 +63,11 @@ The full text of the GPLv2 is included in the accompanying `LICENSE.txt`_
 Installation
 ~~~~~~~~~~~~
 
-on OSX:
+on macOS:
 -------
 
  #. Install `Python`_, if not installed already.
-     * Both v2 and v3 are supported.
+     * While macOS comes with a python 2.7 interpreter, it's old and doesn't have the `pip` module OSPREY installation requires. If you're still using Python 2, only the latest maintenance release will work.  In any case, we highly recommend installing Python3, either using homebrew or directly from the Python website.
      * Install the `64-bit` verison, not the `32-bit` version.
  #. Download the `newest Osprey Python release`_.
      * Download either `osprey-osx-python2` or `osprey-osx-python3` to match your Python version.
@@ -83,7 +83,7 @@ on Windows:
 Make sure you're running 64-bit Windows. Osprey is not supported on 32-bit Windows.
 
  #. Install `Python`_.
-     * Both v2 and v3 are supported.
+     * Both v2 and v3 are supported. We highly recommend Python 3. Python 3 can be installed using the scoop package manager or directly from the Python website.
      * Install the `x86-64` verison, not the `x86` version.
      * During Python installation, enable the option to ``Add python.exe to Path``.
  #. Download the `newest Osprey Python release`_.
