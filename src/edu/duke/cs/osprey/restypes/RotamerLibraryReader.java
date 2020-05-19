@@ -102,7 +102,7 @@ public class RotamerLibraryReader implements Serializable {
 			for(int q=0;q<numRotamers;q++) {
 				line = lines.next();
 				for(int w=0;w<numDihedrals;w++) {
-					rotamerValues[q][w] = Integer.parseInt(StringParsing.getToken(line,(w+1)));
+					rotamerValues[q][w] = Double.parseDouble(StringParsing.getToken(line,(w+1)));
 				}
 			}
 			
