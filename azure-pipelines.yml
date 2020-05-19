@@ -61,7 +61,7 @@ jobs:
         
         echo "##vso[task.setvariable variable=python2]${p2}"
         echo "##vso[task.setvariable variable=python3]${p3}"
-        echo "##vso[task.setvariable variable=python3]${p3}"
+        echo "##vso[task.setvariable variable=JAVA_HOME]${JAVA_HOME}"
 
   - task: CmdLine@2
     displayName: Install Python Dependencies
