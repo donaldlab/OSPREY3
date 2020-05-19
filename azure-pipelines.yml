@@ -116,7 +116,7 @@ jobs:
       target: '$(Build.SourceVersion)'
       tagSource: 'userSpecifiedTag'
       tag: 'azureci-$(Build.BuildId)'
-      assets: '$(Build.ArtifactsDirectory)/*'
+      assets: '$(System.ArtifactsDirectory)/*'
       isDraft: true
       changeLogCompareToRelease: 'lastFullRelease'
       changeLogType: 'commitBased'
