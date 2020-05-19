@@ -1,11 +1,14 @@
 package edu.duke.cs.osprey.sharkstar_refactor;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.Sequence;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.sharkstar.LowerBoundException;
 import edu.duke.cs.osprey.sharkstar.SHARKStar;
 import edu.duke.cs.osprey.sharkstar.UpperBoundException;
 import edu.duke.cs.osprey.tools.BigMath;
+import edu.duke.cs.osprey.tools.ObjectPool;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -25,16 +28,21 @@ public class SHARKStarTreeDebugger {
     private final BoltzmannCalculator bc;
     private SHARKStarNode rootNode;
     private Sequence precomputedSequence;
+    private ObjectPool<MultiSequenceSHARKStarBound_refactor.ScoreContext> contexts;
+    private SimpleConfSpace confSpace;
 
     // User settings
-    private final double boundTolerance = -1e-12;
+    private final double boundTolerance = -1e-10;
+    private final BigDecimal boundTol = new BigDecimal(boundTolerance);
 
     // variables
     private Map<Sequence, List<String>> minimizedNodes;
 
-    public SHARKStarTreeDebugger(MathContext mathContext){
+    public SHARKStarTreeDebugger(MathContext mathContext, ObjectPool<MultiSequenceSHARKStarBound_refactor.ScoreContext> contexts, SimpleConfSpace confSpace){
         this.mc = mathContext;
         this.bc = new BoltzmannCalculator(this.mc);
+        this.contexts = contexts;
+        this.confSpace = confSpace;
 
         this.minimizedNodes = new HashMap<>();
     }
@@ -126,7 +134,7 @@ public class SHARKStarTreeDebugger {
         double parentE = parent.getFreeEnergyLB(seq);
 
         // check to make sure the bounds are decreasing
-        if (!(childE - parentE > boundTolerance)){ // parentE < childE
+        if (!(childE - parentE > boundTolerance) && parentE < 100){ // parentE < childE
             //Print info
             System.err.println(String.format("ERROR: Lower bounds are decreasing from parent to children! %.16f > %.16f", parentE, childE));
             System.out.println(String.format("Difference of %2.3e",childE - parentE));
@@ -136,6 +144,7 @@ public class SHARKStarTreeDebugger {
                     .flatMap(Collection::stream)
                     .filter(n -> n.getSequences().contains(seq))
                     .forEach(e -> System.out.println(e.toSeqString(seq)));
+            recalculateLowersForList(parent, children, seq);
             throw new LowerBoundException();
         }
     }
@@ -258,5 +267,28 @@ public class SHARKStarTreeDebugger {
             throw new RuntimeException("Setting HOTCorrections when we shouldn't");
         }
 
+    }
+
+    public void recalculateLowersForList(SHARKStarNode parent, List<SHARKStarNode> children, Sequence seq){
+        try (ObjectPool.Checkout<MultiSequenceSHARKStarBound_refactor.ScoreContext> checkout = contexts.autoCheckout()) {
+            MultiSequenceSHARKStarBound_refactor.ScoreContext context = checkout.get();
+
+            RCs seqRCs = seq.makeRCs(confSpace);
+            parent.index(context.index);
+            double parentG = context.partialConfLBScorer.calc(context.index, seqRCs);
+            double parentH = context.unassignedConfLBScorer.calc(context.index, seqRCs);
+            BigDecimal parentZ = bc.calc(parentG+parentH);
+
+            BigDecimal childZsum = children.stream()
+                    .map(n -> {
+                        n.index(context.index);
+                        double gscore = context.partialConfLBScorer.calc(context.index, seqRCs);
+                        double hscore = context.unassignedConfLBScorer.calc(context.index, seqRCs);
+                        return bc.calc(gscore+hscore);
+                    })
+                    .reduce(BigDecimal.ZERO, (a,b) -> a.add(b, mc));
+            System.out.println(String.format("%.9e - %.9e = %.9e", parentZ.doubleValue(), childZsum.doubleValue(),
+                    parentZ.subtract(childZsum, mc).doubleValue()));
+        }
     }
 }

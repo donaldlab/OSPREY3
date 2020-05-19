@@ -187,7 +187,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
         // Initialize debugger if necessary
         if (debug)
-            pilotFish = new SHARKStarTreeDebugger(decimalPrecision);
+            pilotFish = new SHARKStarTreeDebugger(decimalPrecision, contexts, confSpace);
 
         // No precomputed sequence means the "precomputed" sequence is empty
         this.precomputedSequence = confSpace.makeUnassignedSequence();
