@@ -46,8 +46,8 @@ import java.util.stream.Collectors;
 public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     // Store the seen confs in a trie with wildcards.
     public static boolean debug = false;
-    private TupleTrie corrections;
-    private TupleTrie cache;
+    private final TupleTrie corrections;
+    private final TupleTrie cache;
     private int numPos;
     
     //debug variable
@@ -167,7 +167,9 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             }
             double finalCorrection = Math.max(corr, cacheCorr);
             if (finalCorrection > cacheCorr)
-                cache.insert(new TupE(tup, corr));
+                synchronized(this.cache){ // Will collisions here be a problem? Something to think about
+                    cache.insert(new TupE(tup, corr));
+                }
             E += finalCorrection;
         }
 
