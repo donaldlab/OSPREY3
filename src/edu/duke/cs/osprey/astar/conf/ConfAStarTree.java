@@ -545,8 +545,8 @@ public class ConfAStarTree implements ConfSearch {
 					);
 				}
 
-				// if it's been 10 minutes, get a conformation anyway
-				if(confTimer.getTimeS() > 0) {
+				// conformation every second, principles be damned!
+				if(confTimer.getTimeS() > 1) {
 					confTimer.stop();
 					confTimer.reset();
 					return drillDown(node);
