@@ -15,8 +15,9 @@ Osprey's purpose in life is to find protein sequences that have properties we're
 interested in, like stability or affinity with other molecules. Osprey does this
 by doing two basic tasks over and over:
 
-1. Find a conformation
-2. Compute the minimized energy of that conformation
+**Task 1:** Find a conformation
+
+**Task 2:** Evaluate the conformation
 
 In this case, a *conformation* is a molecule, but we've replaced some of the atoms
 in it with a different set of atoms. This allows us to describe mutations to a
@@ -25,7 +26,7 @@ Osprey finds these conformations using various graph algorithms operating on a
 *conformation space*. A conformation space is the set of all mutations we can make
 to a molecule, and all the ways we allow the atom coordinates to change within a mutation.
 
-Once Osprey has a conformation, it computes the energy of that conformation according to
+Once Osprey has a conformation, it evaluates that conformation according to
 a physical forcefield to update its scoring model about that conformation, and the
 sequence of which the conformation is a part. To model the possibility that the
 conformation we actually want isn't perfectly represented by the atom coordinates
@@ -39,9 +40,19 @@ Once Osprey has enough information about different conformations and their minim
 energies, it can claim that a certain sequence has or doesn't have the properties
 that the design project seeks.
 
-For now, 2 is the main performance bottleneck in the Osprey code.
-This document will describe enough background to understand how 2
-works, and give an overview of the code that implements it.
+For now, task 2 is the main performance bottleneck in the Osprey code.
+Making Osprey faster at task 2 usually translates well into overall reductions
+in running time.
+
+Task 1 can be very memory hungry though, since the space of all possible conformations
+is exponentially large. So as designs include more and more choices for mutations,
+we can easily exaust all the RAM available in even large server machines trying
+to find conformations before even getting to task 2.
+
+This document will describe enough background to understand how both tasks
+work, and give an overview of the code that implements them.
+
+But first, some preliminaries that are common to both tasks:
 
 
 ### Conformations and conformation spaces in more detail
@@ -58,7 +69,8 @@ different conformational states for the residue.
 
 Here's a description of a conformation space that includes the design
 position we described above that contains the mutation from Alanine to Valine,
-and also another design position at residue 17 that only has discrete flexibility:
+and also another design position at residue 17 that only has discrete flexibility
+for the wild-type amino acid, Tyrosine:
 
  * Residue 42
    * Alanine (wild-type)
@@ -82,6 +94,13 @@ that can be swapped in.
 In this example conformation space, there are a total of 4 * 8 = 32 conformations,
 since Residue 42 can be one of 4 different options, Reisdue 17 can be one of 8 different
 options, and both of these choices are completely independent.
+
+Also in this example conformation, there are a total of 2*1 = 1 sequences. The sequences
+are (in no particular order):
+ * Alanine @ Residue 42, Tyrosine @ Residue 17
+   * (this sequence has 1*8 = 8 conformations)
+ * Valine @ Residue 42, Tyrosine @ Residue 17
+   * (this sequence has 3*8 = 24 conformations)
 
 To describe these conformations compactly, we index everything in the conformation space
 with integers. So the example conformation space becomes:
@@ -111,7 +130,201 @@ the atoms in the molecule that lie outside any design positions. The state of th
 inside the design positions is undefined. Or rather, unassigned.
 
 
-### Conformations and forcefields in more detail
+### Overview of Task 1: Find a conformation
+
+Osprey uses several graph algorithms to find conformations to evaluate in the conformation
+space, including primarily [A* search](https://en.wikipedia.org/wiki/A*_search_algorithm).
+
+Once we know enough of the lowest-energy conformations in the conformation space for a
+given sequence, that gives us enough information to characterize that sequence.
+So the main goal of task 1 is to quickly find the lowest energy conformations in the
+conformation space. Either in the whole space, or in the subspace that describes a
+particular sequence.
+
+
+#### How Osprey uses A* search
+
+If we totally order the design positions in the conformation space (an arbitrary decision,
+there's no natural order to the design positions), the conformations at each design position
+become the nodes at one level of the tree. Our example conformation space can be
+represented by the following tree.
+
+ * root
+   * Alanine, conf 1 `posi=0,confi=0`
+     * Tyrosine, conf 1 `posi=1,confi=0`
+     * Tyrosine, conf 2 `posi=1,confi=1`
+     * ...
+     * Tyrosine, conf 8 `posi=1,confi=7`
+   * Valine, conf 1 `posi=0,confi=1`
+     * Tyrosine, conf 1 `posi=1,confi=0`
+     * Tyrosine, conf 2 `posi=1,confi=1`
+     * ...
+     * Tyrosine, conf 8 `posi=1,confi=7`
+   * Valine, conf 2 `posi=0,confi=2`
+     * Tyrosine, conf 1 `posi=1,confi=0`
+     * Tyrosine, conf 2 `posi=1,confi=1`
+     * ...
+     * Tyrosine, conf 8 `posi=1,confi=7`
+   * Valine, conf 3 `posi=0,confi=3`
+     * Tyrosine, conf 1 `posi=1,confi=0`
+     * Tyrosine, conf 2 `posi=1,confi=1`
+     * ...
+     * Tyrosine, conf 8 `posi=1,confi=7`
+
+If we had chosen the opposite order for the design positions, we would have gotten
+a different tree, but the set of conformations represented (and crucially their energies)
+are still the same. So the order of the tree does not affect the solution to the problem,
+so therefore we can optimize the position ordering in any way we like using heuristics.
+
+The path from the root node to any leaf node in the tree describes a unique conformation.
+For example, The path `root` -> `posi=0,confi=0` -> `posi=1,confi=7`
+corresponds to the conformation `[0,7]` where the implicit order of design positions
+is `[0,1]`.
+
+Osprey uses A* search to essentially sort the leaf nodes (corresponding to conformations)
+according to a scoring function that is a *lower bound* on the minimized energy
+of the conformation. If you run A* the first time, you'll get the optimal leaf node in
+the tree (assuming the heuristic function is sound). But if you keep iterating A* search
+beyond the optimal solution, you'll get the *next* lowest scoring node, and the next
+lowest scoring node, and so on in order.
+
+The hope is that by sorting the conformations by lower bounds on their energies,
+the lower bounds will be close to the real energies, and we can find the low-energy
+conformations quickly.
+
+However, in practice, it's often the case the the lower bounds are very loose.
+We may do all the work of sorting the conformations by lower bound and enumerating
+them in order only to find their minimized energies are much higher than the bound.
+We may have to enumerate and minimzie many many conformations before we find the
+conformations that are truly low-energy.
+
+
+#### Graph structure of the A* scoring function
+
+The scoring function we use to sort leaf nodes is based on a different graph.
+Each node in the graph corresponds to a design position in the conformation space,
+plus we'll add one more node for a "static" design position, which represents
+all the atoms that aren't in any of the design positions. The graph for our
+example conformation space looks like this:
+```
+   S
+  /  \
+ 0 -- 1
+```
+Where `S` is the "static" design position, and `0` and `1` are the design positions
+corresponding to residues 42 and 17 in the protein respectively.
+
+The edges in the graph represent interactions between the design positions.
+The edges between the numbered design positions form a complete graph in general.
+And each numbered design position has an edge to the static design position.
+There are also self edges for each node, but I haven't shown them here
+because ASCII art is hard.
+
+In this graph, a conformation is represented by making an assignment to each design
+position. For example, the conformation `[3,7]` induces this graph:
+```
+     S
+  /     \
+ 0=3 -- 1=7
+```
+Therefore, each edge in the graph is represented not only by its incident nodes,
+but also the assignments at those nodes.
+
+The scoring function works by computing a scalar weight for each possible edge in the
+graph. For example:
+ * the `(S,0=3)` edge might have a weight of `5.0`
+ * the `(S,0=5)` edge might have a weight of `4.2`
+ * the `(0=3,1=4)` edge might have a weight of `3.5`
+ * the `(0=3,0=3)` edge might have a weight of `8.3`
+ 
+and so on. However, there are no self edges between different assignments of the same
+design position. For example, there is no `(0=3,0=4)` edge.
+
+The score of a conformation is simply the sum of all edge weights after all
+design positions have been assigned. Due to the way we compute the edge
+weights for this graph, the sum of weights is guaranteed to be a lower bound
+on the minimized energy of the entire conformation.
+
+
+#### The computed edge weights form an "energy matrix"
+
+Edge weights are computed by miniming only part of a conformation, rather than
+minimizing an entire conformation. For example, for the edge `(S,0=3)`, Osprey
+creates a partial molecule containing the atoms for position `S` and position `0`.
+Then osprey computes the minimized energy for this partial molecule and stores the
+result in a lookup table. This lookup table is called an "energy matrix".
+
+For more details on the energy minimization process, see the later section on Task 2.
+
+The energy matrix is a simplfication of the graph where the "static" position/node
+has been removed. Therefore, we have to distribute the edge weights from the edges
+incident to the "static" position to other edges in the graph.
+
+The simplest way Osprey does this is by moving all the static-incident edge weights
+onto the self edges. So the energy matrix is a collection of two different types of
+edge weights:
+ * **singles:** (or "one body" energies)
+   * for example `(S,0=3) + (0=3,0=3)`
+   * indexed in two dimensions: `posi1,confi1`
+ * **pairs:** (or "pairwise" energies)
+   * for example `(0=3,1=2)`
+   * indexed in four dimensions: `posi1,confi1,posi2,confi2`
+   
+Osprey also has settings to use different distributions of edges onto the energy
+matrix that can result in much tighter lower bounds for the A* search, but those
+distribution schemes are much more complicated to explain, so they're omitted here.
+
+Once the energy matrix is computed, Osprey has enough information to run the A* algorithm
+and sort the conformations by their A* scores. All the edge weights are readily available
+in a lookup table.
+
+
+#### The energy matrix is the basis for the A* scoring function
+
+The A* scoring function is broken into two parts:
+ * "G" score
+   * The G score is simply the summed energy matrix entries
+     corresponding to the assigned design positions.
+ * "H" score, or "heuristic" score
+   * The H score is a lower bound on the summed energy matrix entries
+     where at least one design position is unassigned.
+   * This is the "heuristic" function of A* search.
+
+The G score simply reads the values out of the energy matrix
+corresponding to the node assignments. The G scoring function implementation
+is linear in the number of design positions and is very fast to compute.
+
+Opsrey's implementation of the H score is polynomial in the number of design positions
+and is by far the bottleneck of the A* computation. The H function must optimize over
+the possible choices avaiable to each design position to compute the lower bound on the
+scoring function for the whole conformation.
+
+The heuristic function used to be the main bottleneck in Osprey overall,
+but much work has gone into optimizing the Java code, so it's no longer the main
+bottleneck in modern versions of Osprey.
+
+
+### A* is a total memory hog
+
+In a design with many design positions, A* can eat an insanely huge amount of
+memory very quickly, so we've tried lots of different tricks to deal with that.
+
+We've optimized our A* node implementation to save as much memory as possible
+(at least as well as you can do in Java, which is admittedly not the best
+language for memory efficiency).
+We've integrated an I/O-efficient implementation
+of a priority queue into Osprey to spill A* memory to local storage (eg SSD, NVME).
+
+The newest design algorithms we're working on in Osprey do away with A* completely.
+We're trying to relax the requirements of "best-first" search when sometimes
+all we really need is "good enough-soon". This makes it much easier to store
+A* memory in local storage and recall it when needed, since strict sorting is no
+longer required.
+
+
+### Overview of Task 2: Evaluate the conformation
+
+#### Forcefields in more detail
 
 Once we have a conformation, we want to score it to see how biophysically likely it
 is to occur in some assumed environment, like the aqueous interior of a cell.
@@ -152,7 +365,7 @@ The conformation space also contains the lists of atom pairs for each interactio
 between design positions, and the forcefield parameters for each atom pair.
 
 
-### Energetic interactions between design positions
+#### Energetic interactions between design positions
 
 Since atoms in the molecule change depending on which conformation we're looking at,
 the list of atom pairs and forcefield parameters must change too. Groups of atom pairs
@@ -192,7 +405,7 @@ independently of the other interactions. So our energy calculators need to suppo
 compute energies on aritrary subsets of the position interactions.
 
 
-### Computing minimized energies for conformations 
+#### Computing minimized energies for conformations 
 
 Computing the energy from the atom coordinates exactly as described by the conformation
 space is a crude model of molecular conformational flexibility. Often, small overlaps
@@ -275,7 +488,10 @@ Osprey's basic features. The class names will be given by Java's verbose Fully-Q
 class name, but the common package `edu.duke.cs.osprey` has been omitted.
 
 These classes are all in the `jdk14` branch of the git repo for reasons that will be
-explained later.
+explained in the later section on compilation.
+
+
+#### Code shared between both tasks
 
  * **Conformation Space** `confspace.compiled.ConfSpace`
    * This class reads the conformation space description from a file that's
@@ -287,7 +503,54 @@ explained later.
      
  * **Conformation** `confspace.compiled.AssignedCoords`
    * The atom coordinates and degrees of freedom that embody a conformation.
+
+ * **Thread Pool** `parallelism.ThreadPoolTaskExecutor`
+   * Osprey's main tool for task-level parallelism and distributing work across
+     parallel hardware.
+   * In a nutshell, a task is shipped off to a worker thread where it gets processed.
+     Then the task's result is put on a queue where a single listener thread drains the queue
+     and sends the result to a callback function specified by the submitter of the task.
+   * The benchmarks don't actually use this mechanism now that I think about it.
+     They use something simpler that makes repeating and timing the workload easier.
+
+ * **Parallelism** `parallelism.Parallelism`
+   * A simpler helper class that describes options for parallelism, like
+     the desired size of the thread pool.
+   * I don't think the minimizer tests or the benchmarks actually use this,
+     but all the design algorithms themselves do.
+   * The `streamsPerGpu` option isn't used anymore in the latest CUDA code.
+     Stream management is handled internally by the CUDA code now based on
+     hardware specs queried at runtime.
      
+
+#### Task 1: A* search
+
+ * **Energy Matrix** `ematrix.EnergyMatrix`
+   * Implementation of the lookup table for the A* scoring function
+ 
+ * **Energy matrix calculator** `ematrix.compiled.EmatCalculator`
+   * Functions to compute the energy matrix from a conformation space
+     and a conformation energy calculator instance.
+   * Energy matrix calculation can take a long time to finish,
+     so some work has been done to parallelize and optimize this,
+     but it's typically not the overall bottleneck of a design.
+   * I actually haven't finished the parallelization of the newest
+     energy matrix calculator yet. That's still on the TODO list.
+     
+ * **A\* search** `astar.conf.ConfAStarTree`
+   * Osprey's implemenation of A* search
+   * There's also an implementation of a memory-bounded version of A*
+     in there too, that trades time for space.
+   * There are options to choose different heuristics for A* too.
+    
+ * **A\* Correctness/regression tests** `TestAStar` (in `/test` not `/src`)
+   * This code is quite old now, so it uses the old system of defining
+     conformation spaces.
+   * But the A* code is old too. We haven't updated it very recently.
+    
+
+#### Task 2: energy minimization
+
  * **Conformation energy calculator** `energy.compiled.CPUConfEnergyCalculator`
    * This is the Java implementation of the newest energy calculator and minimizer.
      It's the slowest option available, but it's accessible to students,
@@ -342,24 +605,6 @@ explained later.
      (hopefully) phasing out when the new conformation space tools are more
      production-ready.
    
- * **Thread Pool** `parallelism.ThreadPoolTaskExecutor`
-   * Osprey's main tool for task-level parallelism and distributing work across
-     parallel hardware.
-   * In a nutshell, a task is shipped off to a worker thread where it gets processed.
-     Then the task's result is put on a queue where a single listener thread drains the queue
-     and sends the result to a callback function specified by the submitter of the task.
-   * The benchmarks don't actually use this mechanism now that I think about it.
-     They use something simpler that makes repeating and timing the workload easier.
-
- * **Parallelism** `parallelism.Parallelism`
-   * A simpler helper class that describes options for parallelism, like
-     the desired size of the thread pool.
-   * I don't think the minimizer tests or the benchmarks actually use this,
-     but all the design algorithms themselves do.
-   * The `streamsPerGpu` option isn't used anymore in the latest CUDA code.
-     Stream management is handled internally by the CUDA code now based on
-     hardware specs queried at runtime.
-
 
 ### How does Osprey handle high-level concurrency and parallelism?
 
