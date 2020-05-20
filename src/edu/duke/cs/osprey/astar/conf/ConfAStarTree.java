@@ -546,7 +546,7 @@ public class ConfAStarTree implements ConfSearch {
 				}
 
 				// if it's been 10 minutes, get a conformation anyway
-				if(confTimer.getTimeS() > 60) {
+				if(confTimer.getTimeS() > 0) {
 					confTimer.stop();
 					confTimer.reset();
 					return drillDown(node);
@@ -617,7 +617,7 @@ public class ConfAStarTree implements ConfSearch {
 			    List<ConfAStarNode> children = makeChildren(curNode);
 			    ConfAStarNode bestChild = children.get(0);
 			    for(ConfAStarNode child: children)
-			    	if(bestChild.compareTo(child) < 0)
+			    	if(bestChild.compareTo(child) > 0)
 			    		bestChild = child;
 				curNode = bestChild;
 				for(ConfAStarNode child: children) {

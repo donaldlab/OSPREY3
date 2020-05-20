@@ -45,9 +45,9 @@ public class ClusterLab {
 		SLF4JBridgeHandler.removeHandlersForRootLogger();
 		SLF4JBridgeHandler.install();
 
-		//forkCluster();
+		forkCluster();
 		//multiProcessCluster(args);
-		slurmCluster();
+		//slurmCluster();
 	}
 
 	private static void forkCluster()
@@ -153,13 +153,12 @@ public class ClusterLab {
 			log("CLIENT: started with %d threads", threads);
 		}
 
-		//TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
+		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
 		//TestKStar.ConfSpaces confSpaces = TestCOVID.makeCOVIDSmall();
 		//TestKStar.ConfSpaces confSpaces = TestCOVID.makeMakeCOVIDComplexMedium();
-		TestKStar.ConfSpaces confSpaces = TestCOVID.makeMakeCOVIDActual();
+		//TestKStar.ConfSpaces confSpaces = TestCOVID.makeMakeCOVIDActual();
 
 		try (EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces.asList(), confSpaces.ffparams)
-			.setCluster(cluster)
 			.setParallelism(parallelism)
 			.build()) {
 
@@ -241,16 +240,8 @@ public class ClusterLab {
 			SimpleConfSpace confSpace = confSpaces.complex;
 
 			// pick your favorite sequence
-			Sequence seq = confSpace.seqSpace.makeUnassignedSequence()
-				.set("B123", "ARG")
-				.set("B125", "HIP")
-				.set("B126", "HIP") // hooray!
-				//.set("B129", "ARG") same as wt, seq space sees it as merely flexible residue
-				.set("B130", "ARG")
-				.set("B133", "THR")
-				.set("B134", "HIP")
-				.set("B136", "ARG")
-				.set("B138", "ARG");
+			Sequence seq = confSpace.seqSpace.makeWildTypeSequence()
+				.set("G649", "TYR");
 
 			if (!seq.isFullyAssigned()) {
 				throw new Error();
