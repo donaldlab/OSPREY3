@@ -47,6 +47,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
     // Store the seen confs in a trie with wildcards.
     public static boolean debug = false;
     private TupleTrie corrections;
+    private TupleTrie cache;
     private int numPos;
     
     //debug variable
@@ -54,7 +55,8 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
     public UpdatingEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix target, ConfEnergyCalculator confECalc) {
         super(confSpace, target);
-        corrections = new TupleTrie(confSpace.positions);
+        this.corrections = new TupleTrie(confSpace.positions);
+        this.cache = new TupleTrie(confSpace.positions);
         this.numPos = confSpace.getNumPos();
         this.sourceECalc = confECalc;
 
@@ -64,7 +66,8 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         super(confSpace, target);
         this.numPos = confSpace.getNumPos();
         this.sourceECalc = null;
-        corrections = new TupleTrie(confSpace.positions);
+        this.corrections = new TupleTrie(confSpace.positions);
+        this.cache = new TupleTrie(confSpace.positions);
     }
 
     public List<TupE> getAllCorrections(){
@@ -155,9 +158,17 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
         double E = 0;
         //E += super.internalEHigherOrder(tup, curIndex, htf);
         List<TupE> confCorrections = corrections.getCorrections(tup);
+        List<TupE> cacheConfCorrections = cache.getCorrections(tup);
         if(confCorrections.size() > 0) {
             double corr = processCorrections(confCorrections);
-            E += corr;
+            double cacheCorr = 0.0;
+            if(cacheConfCorrections.size() > 0) {
+                cacheCorr = processCorrections(cacheConfCorrections);
+            }
+            double finalCorrection = Math.max(corr, cacheCorr);
+            if (finalCorrection > cacheCorr)
+                cache.insert(new TupE(tup, corr));
+            E += finalCorrection;
         }
 
         return E;
