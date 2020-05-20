@@ -102,8 +102,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
     private SHARKStarEnsembleAnalyzer ensembleAnalyzer;
 
     // Global tracking variables
-    private double minimizationTimeTotal = 0.0;
-    private double scoringTimeTotal = 0.0;
+    private double leafTimeTotal = 0.0;
+    private double internalTimeTotal = 0.0;
     private double correctionComputationTimeTotal = 0.0;
 
     private int numMinimizations = 0;
@@ -668,7 +668,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                     result.resultNode.setScore(result.score, seq);
 
                     synchronized (this) {
-                        scoringTimeTotal += result.time;
+                        internalTimeTotal += result.time;
                         numScores += 1;
                     }
                 }
@@ -752,7 +752,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                         result.resultNode.setScore(result.score, seq);
 
                     synchronized (this) {
-                        scoringTimeTotal += result.time;
+                        internalTimeTotal += result.time;
                         numScores += 1;
                         children.add(result.resultNode);
                     }
@@ -832,7 +832,7 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
 
                     synchronized (this) {
-                        minimizationTimeTotal += result.minimizationTime;
+                        leafTimeTotal += result.minimizationTime;
                         correctionComputationTimeTotal += result.correctionTime;
                         numMinimizations += 1;
                         // Save epmol if we are keeping it
@@ -1015,8 +1015,11 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                                 }
                                 synchronized (bound){
                                     if(result.numNodesCreated > 0){
-                                        bound.state.addDiffToLB(bc.logSumExp(result.lowerBoundDeltas));
-                                        bound.state.subtractDiffFromUB(bc.logSumExp(result.upperBoundDeltas));
+                                        internalTimeTotal += result.time;
+                                        numInternalNodesProcessed += result.numNodesCreated;
+                                        internalTimeAverage = internalTimeTotal / numInternalNodesProcessed;
+                                        //bound.state.addDiffToLB(bc.logSumExp(result.lowerBoundDeltas));
+                                        //bound.state.subtractDiffFromUB(bc.logSumExp(result.upperBoundDeltas));
                                     }
                                 }
                             }
@@ -1029,15 +1032,16 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                             (result) -> {
                                 synchronized (this) {
                                     //minList.set(result.resultNode.getAssignments().length - 1, minList.get(result.resultNode.getAssignments().length - 1) + 1);
-                                    minimizationTimeTotal += result.minimizationTime;
+                                    leafTimeTotal += result.minimizationTime;
                                     correctionComputationTimeTotal += result.correctionTime;
                                     numMinimizations += 1;
+                                    leafTimeAverage = leafTimeTotal / numMinimizations;
                                     numConfsProcessed.addAndGet(1);
 
                                 }
                                 synchronized (bound){
-                                    bound.state.addDiffToLB(result.lowerBoundDelta);
-                                    bound.state.subtractDiffFromUB(result.upperBoundDelta);
+                                    //bound.state.addDiffToLB(result.lowerBoundDelta);
+                                    //bound.state.subtractDiffFromUB(result.upperBoundDelta);
                                 }
                             }
                     );
@@ -1474,8 +1478,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
                 // Try to correct node
                 boolean correctedParent = correctNodeOrNOOP(parent, parent.getHOTCorrectionLB(), bound, context);
                 if(correctedParent){
-                    result.lowerBoundDeltas.add(bc.calc_EDiff(parentLB, parent.getFreeEnergyLB(bound.sequence)));
-                    result.upperBoundDeltas.add(bc.calc_EDiff(parentUB, parent.getFreeEnergyUB(bound.sequence)));
+                    //result.lowerBoundDeltas.add(bc.calc_EDiff(parentLB, parent.getFreeEnergyLB(bound.sequence)));
+                    //result.upperBoundDeltas.add(bc.calc_EDiff(parentUB, parent.getFreeEnergyUB(bound.sequence)));
                     bound.internalQueue.put(parent);
                     numNodesCreated++; // technically we didn't create it, but we updated
                     continue;
@@ -1531,8 +1535,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
 
                 //Now we are done making children for the parent node, let's update the result
                 //Compute the delta E bounds
-                result.lowerBoundDeltas.add(bc.calc_EDiff(parentLB, bc.logSumExp(childLBs)));
-                result.upperBoundDeltas.add(bc.calc_EDiff(bc.logSumExp(childUBs), parentUB));
+                //result.lowerBoundDeltas.add(bc.calc_EDiff(parentLB, bc.logSumExp(childLBs)));
+                //result.upperBoundDeltas.add(bc.calc_EDiff(bc.logSumExp(childUBs), parentUB));
             }
             partialWatch.stop();
             result.time = partialWatch.getTimeS();
@@ -1572,8 +1576,8 @@ public class MultiSequenceSHARKStarBound_refactor implements PartitionFunction {
             ));
 
             // Compute deltas
-            result.lowerBoundDelta = bc.calc_EDiff(prevLB, analysis.epmol.energy);
-            result.upperBoundDelta = bc.calc_EDiff(analysis.epmol.energy, prevUB);
+            //result.lowerBoundDelta = bc.calc_EDiff(prevLB, analysis.epmol.energy);
+            //result.upperBoundDelta = bc.calc_EDiff(analysis.epmol.energy, prevUB);
 
             if (this.saveEPMOLsForMinimization) {
                 synchronized (this) {
