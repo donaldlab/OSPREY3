@@ -1,5 +1,5 @@
 
-# Overview of Task 1: Find a conformation
+# Task 1: Find a conformation using graph theory
 
 *This document focuses on just the graph algorithms in Osprey.
 You'll want to read [the general overview](optimizing.md) first.*

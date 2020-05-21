@@ -15,9 +15,9 @@ Osprey's purpose in life is to find protein sequences that have properties we're
 interested in, like stability or affinity with other molecules. Osprey does this
 by doing two basic tasks over and over:
 
-**Task 1:** [Find a conformation](optimizing-graphs.md)
+**Task 1:** [Find a conformation using graph theory](optimizing-graphs.md)
 
-**Task 2:** [Evaluate the conformation](optimizing-minimizers.md)
+**Task 2:** [Evaluate a conformation using physics](optimizing-minimizers.md)
 
 In this case, a *conformation* is a molecule, but we've replaced some of the atoms
 in it with a different set of atoms. This allows us to describe mutations to a
@@ -135,9 +135,9 @@ inside the design positions is undefined. Or rather, unassigned.
 That's it for the preliminaries.
 From here, head over to either task to dive deeper.
 
-**Task 1:** [Find a conformation](optimizing-graphs.md)
+**Task 1:** [Find a conformation using graph theory](optimizing-graphs.md)
 
-**Task 2:** [Evaluate the conformation](optimizing-minimizers.md)
+**Task 2:** [Evaluate a conformation using physics](optimizing-minimizers.md)
 
 
 ## Part 2. The code

@@ -1,5 +1,5 @@
 
-# Overview of Task 2: Evaluate the conformation
+# Task 2: Evaluate a conformation using physics
 
 *This document focuses on just the minimization bottlenecks in Osprey.
 You'll want to read [the general overview](optimizing.md) first.*
