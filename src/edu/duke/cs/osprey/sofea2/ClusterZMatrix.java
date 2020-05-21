@@ -67,7 +67,9 @@ public class ClusterZMatrix {
 
 		// make a replicated map, so hazelcast will sync everything to all members for us
 		member.log0("computing %d singles ...", zmat.numSingles());
-		ReplicatedMap<Integer,BigExp> map = member.inst.getReplicatedMap(member.makeName("zmat-singles"));
+		member.barrier();
+
+		ReplicatedMap<Integer,BigExp> map = member.inst.getReplicatedMap("zmat");
 
 		var range = member.simplePartition(zmat.numSingles());
 
@@ -110,9 +112,10 @@ public class ClusterZMatrix {
 			}
 		}
 
+		member.barrier();
+
 		// cleanup
 		map.destroy();
-		member.barrier();
 
 		member.log0("singles finished");
 	}
@@ -121,7 +124,8 @@ public class ClusterZMatrix {
 
 		// make a replicated map, so hazelcast will sync everything to all members for us
 		member.log0("computing %d pairs ...", zmat.numPairs());
-		ReplicatedMap<Integer,BigExp> map = member.inst.getReplicatedMap(member.makeName("zmat-pairs"));
+		member.barrier();
+		ReplicatedMap<Integer,BigExp> map = member.inst.getReplicatedMap("zmat");
 
 		var range = member.simplePartition(zmat.numPairs());
 
@@ -172,9 +176,10 @@ public class ClusterZMatrix {
 			}
 		}
 
+		member.barrier();
+
 		// cleanup
 		map.destroy();
-		member.barrier();
 
 		member.log0("pairs finished");
 	}

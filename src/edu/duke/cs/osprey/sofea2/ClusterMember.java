@@ -111,16 +111,4 @@ public class ClusterMember implements AutoCloseable {
 	}
 
 	private int nextObjectId;
-
-	/**
-	 * There's something weird about cluster object lifecycles in Hazelcast.
-	 * Even though we explicitly create and destroy object, if we re-use object names,
-	 * Hazelcast can still get confused.
-	 * Probably because the old instances and the new instances are fighting somehow.
-	 *
-	 * So, solve that problem by forcing each object to have a unique name.
-	 */
-	public String makeName(String name) {
-		return name + "-" + (nextObjectId++);
-	}
 }
