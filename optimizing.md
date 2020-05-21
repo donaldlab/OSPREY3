@@ -321,6 +321,28 @@ all we really need is "good enough-soon". This makes it much easier to store
 A* memory in local storage and recall it when needed, since strict sorting is no
 longer required.
 
+### Not all pairwise energies are equal
+
+As the size of the design grows, the effect of mutations at one residue on other residues
+can become negligible due to the presence of solvent, the quadratic reduction (1/r^2) of
+electrostatic effects, and the presence of other residues between a particular residue
+pair. When this reduction of effect can be captured, pairwise energy terms can be
+omitted from the energy function, and the resulting sparse energy function induces
+optimal substructure. This means that two conformations with different rotamers
+may have the same energy, because the differing rotamers do not interact, and thus
+dynamic programming strategies are possible. In fact, the lowest-energy conformation
+can be found in time exponential only in the hardest subproblem, and conformations
+can be enumerated in logn time!
+
+When moving from computing conformations to computing Boltzmann-weighted partition 
+functions, however, the optimal substructure may be less common. Namely, although
+conformational energies are additive, partition functions become multiplicative
+due to the boltzmann weighting of each conformation's energy. As an example, residues
+r1, r2, and r3 may have rotamers such that the energy of any pair can be very low,
+but the pairwise energies rely on different rotamers, and the energy of all possible 
+combinations of rotamers at the three residues is much higher. Finding a way to
+efficiently determine if a design could be divided into smaller designs and 
+reassembled would be very valuable graph theoretical insight!
 
 ### Overview of Task 2: Evaluate the conformation
 
