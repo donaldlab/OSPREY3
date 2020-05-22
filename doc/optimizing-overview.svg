@@ -17,8 +17,8 @@
    sodipodi:docname="optimizing-overview.svg"
    inkscape:version="0.92.3 (2405546, 2018-03-11)"
    inkscape:export-filename="/home/jeff/dlab/osprey3/doc/optimizing-overview.png"
-   inkscape:export-xdpi="107.13"
-   inkscape:export-ydpi="107.13">
+   inkscape:export-xdpi="171.41"
+   inkscape:export-ydpi="171.41">
   <defs
      id="defs2">
     <marker
@@ -537,10 +537,10 @@
      pagecolor="#ffffff"
      bordercolor="#666666"
      borderopacity="1.0"
-     inkscape:pageopacity="0.0"
+     inkscape:pageopacity="1"
      inkscape:pageshadow="2"
      inkscape:zoom="1"
-     inkscape:cx="230.38088"
+     inkscape:cx="36.38088"
      inkscape:cy="271.29167"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -583,7 +583,7 @@
            height="132.85715"
            x="138.57143"
            y="241.09111" /></flowRegion><flowPara
-         id="flowPara818"></flowPara></flowRoot>    <flowRoot
+         id="flowPara818" /></flowRoot>    <flowRoot
        xml:space="preserve"
        id="flowRoot820"
        style="font-style:normal;font-weight:normal;font-size:10.66666698px;line-height:345.8999939;font-family:sans-serif;letter-spacing:1px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
@@ -627,7 +627,7 @@
            x="146.07143"
            y="324.66251"
            style="font-size:8px" /></flowRegion><flowPara
-         id="flowPara907"></flowPara></flowRoot>    <flowRoot
+         id="flowPara907" /></flowRoot>    <flowRoot
        xml:space="preserve"
        id="flowRoot828"
        style="font-style:normal;font-weight:normal;font-size:10.66666698px;line-height:1;font-family:sans-serif;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
@@ -977,7 +977,7 @@
          y="505.34375"
          x="131.33624"
          id="tspan7178"
-         sodipodi:role="line"></tspan></text>
+         sodipodi:role="line" /></text>
     <flowRoot
        xml:space="preserve"
        id="flowRoot933-2-7-8-8-3"
