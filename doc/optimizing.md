@@ -11,8 +11,7 @@ so you can get started optimizing quickly.
 
 ## Part 1. A high-level overview of how Osprey designs molecules
 
-![High-level overview of Osprey components](optimizing-overview.png)
-*[SVG version](optimizing-overview.svg)*
+![High-level overview of Osprey components](optimizing-overview.plain.svg)
 
 Osprey's purpose in life is to find protein sequences that have properties we're
 interested in, like stability or affinity with other molecules. Osprey does this
