@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.sofea2;
+package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
@@ -12,7 +12,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 
-public class Sofea2Lab {
+public class CoffeeLab {
 
 	public static void main(String[] args) {
 
@@ -21,7 +21,7 @@ public class Sofea2Lab {
 		SLF4JBridgeHandler.install();
 
 		// run in a pseudo-cluster
-		ForkCluster.run(2, true, Sofea2Lab.class, Sofea2Lab::run);
+		ForkCluster.run(2, true, CoffeeLab.class, CoffeeLab::run);
 	}
 
 	private static void run(Cluster cluster) {
@@ -39,7 +39,7 @@ public class Sofea2Lab {
 		var posInterDist = PosInterDist.DesmetEtAl1992;
 		//var posInterDist = PosInterDist.TighterBounds;
 
-		Sofea2 sofea = new Sofea2.Builder(confSpace)
+		Coffee coffee = new Coffee.Builder(confSpace)
 			.setCluster(cluster)
 			.setParallelism(parallelism)
 			.configEachState(config -> {
@@ -48,6 +48,6 @@ public class Sofea2Lab {
 			})
 			.build();
 
-		sofea.refine();
+		coffee.refine();
 	}
 }

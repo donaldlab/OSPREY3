@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.sofea2;
+package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.confspace.*;
@@ -15,9 +15,12 @@ import java.util.function.Consumer;
 
 
 /**
- * A clusterized version of SOFEA that uses compiled conformation spaces.
+ * A clusterized successor to SOFEA that uses compiled conformation spaces.
+ *
+ * It's basically just a fancy implementation of MARK*
+ * that doesn't rely on the traditional DEE->A* pipeline
  */
-public class Sofea2 {
+public class Coffee {
 
 	public static class Builder {
 
@@ -56,7 +59,7 @@ public class Sofea2 {
 			return this;
 		}
 
-		public Sofea2 build() {
+		public Coffee build() {
 
 			// check the state configs
 			for (var config : stateConfigs) {
@@ -65,7 +68,7 @@ public class Sofea2 {
 
 			// make a single-node cluster if needed
 			if (cluster == null) {
-				cluster = new Cluster("SOFEA2", "job", 0, 1);
+				cluster = new Cluster("COFFEE", "job", 0, 1);
 			}
 
 			// make default parallelism if needed
@@ -73,7 +76,7 @@ public class Sofea2 {
 				parallelism = Parallelism.makeCpu(1);
 			}
 
-			return new Sofea2(confSpace, stateConfigs, cluster, parallelism);
+			return new Coffee(confSpace, stateConfigs, cluster, parallelism);
 		}
 	}
 
@@ -107,26 +110,28 @@ public class Sofea2 {
 
 
 	/**
-	 * Tells SOFEA when to stop refining
+	 * Tells when to stop refining
 	 */
 	public interface Criterion {
 		boolean isFinished();
 	}
 
 	public final MultiStateConfSpace confSpace;
+	public final StateConfig[] stateConfigs;
 	public final Cluster cluster;
 	public final Parallelism parallelism;
+
+	public final StateInfo[] infos;
 
 	public final MathContext mathContext = BigExp.mathContext;
 	public final BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
 
-	private final StateInfo[] infos;
-
-	private Sofea2(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism) {
+	private Coffee(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism) {
 		this.confSpace = confSpace;
+		this.stateConfigs = stateConfigs;
 		this.cluster = cluster;
 		this.parallelism = parallelism;
-		this.infos = Arrays.stream(stateConfigs)
+		infos = Arrays.stream(stateConfigs)
 			.map(config -> new StateInfo(config, bcalc))
 			.toArray(StateInfo[]::new);
 	}
@@ -135,6 +140,8 @@ public class Sofea2 {
 		try (var member = new ClusterMember(cluster)) {
 			try (var tasks = parallelism.makeTaskExecutor()) {
 
+				NodeDB nodedb = new NodeDB(confSpace, member, null);
+
 				// wait for everyone to get here
 				member.log0("waiting for cluster to assemble ...");
 				member.barrier();
@@ -142,27 +149,27 @@ public class Sofea2 {
 				// pre-compute the Z matrices
 				for (var info : infos) {
 					member.log0("computing Z matrix for state: %s", info.config.state.name);
-					info.makeZmat(member, tasks);
+					info.zmat.compute(member, tasks);
 				}
 
 				// compute bounds on free energies at the root nodes
-				for (MultiStateConfSpace.State state : confSpace.states) {
-					var stateInfo = infos[state.index];
+				for (int statei=0; statei<confSpace.states.size(); statei++) {
+					var stateInfo = infos[statei];
 
 					// get a multi-sequence Z bound on the root node
 					ConfIndex index = stateInfo.makeConfIndex();
 					BigExp zSumUpper = stateInfo.zSumUpper(index);
 
-					member.log0("state: %10s, zSumUpper: %s", state.name, zSumUpper);
+					member.log0("state: %10s, zSumUpper: %s", confSpace.states.get(statei).name, zSumUpper);
 
-					/* TODO
 					// make sure BigExp values are fully normalized before writing to the databases to avoid some roundoff error
 					zSumUpper.normalize(true);
 
-					// init the fringe set with the root node
-					fringetxLower.writeRootNode(state, zSumUpper);
-					seqtx.addZSumUpper(state, state.confSpace.seqSpace().makeUnassignedSequence(), zSumUpper);
-					*/
+					// init the nodedb with the root node
+					nodedb.init(statei, Conf.make(index), zSumUpper);
+
+					// TODO: init sequence database?
+					//seqtx.addZSumUpper(state, state.confSpace.seqSpace().makeUnassignedSequence(), zSumUpper);
 				}
 
 				/* TODO: criterion, sweep thresholds, and refinement

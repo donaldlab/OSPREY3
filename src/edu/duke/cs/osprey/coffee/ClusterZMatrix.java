@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.sofea2;
+package edu.duke.cs.osprey.coffee;
 
 import com.hazelcast.replicatedmap.ReplicatedMap;
 import edu.duke.cs.osprey.confspace.TupleMatrixGeneric;

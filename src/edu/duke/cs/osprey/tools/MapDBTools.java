@@ -39,11 +39,14 @@ import org.jetbrains.annotations.NotNull;
 import org.mapdb.DataIO;
 import org.mapdb.DataInput2;
 import org.mapdb.DataOutput2;
+import org.mapdb.serializer.GroupSerializer;
 import org.mapdb.serializer.GroupSerializerObjectArray;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 
 public class MapDBTools {
@@ -93,7 +96,7 @@ public class MapDBTools {
 
 		@Override
 		public void serialize(@NotNull DataOutput2 out, @NotNull int[] data)
-			throws IOException {
+		throws IOException {
 			assert (data.length == numPos);
 			for (int i=0; i<numPos; i++) {
 				encoding.write(out, data[i] + 1);
@@ -102,7 +105,7 @@ public class MapDBTools {
 
 		@Override
 		public int[] deserialize(@NotNull DataInput2 in, int available)
-			throws IOException {
+		throws IOException {
 			int[] data = new int[numPos];
 			for (int i=0; i<numPos; i++) {
 				data[i] = encoding.read(in) - 1;
@@ -126,6 +129,35 @@ public class MapDBTools {
 		}
 	}
 
+	public static class ValuesSerializer<T> extends SimpleSerializer<List<T>> {
+
+		private final GroupSerializer<T> valueSerializer;
+
+		public ValuesSerializer(GroupSerializer<T> valueSerializer) {
+			this.valueSerializer = valueSerializer;
+		}
+
+		@Override
+		public void serialize(@NotNull DataOutput2 out, @NotNull List<T> data)
+		throws IOException {
+			out.writeInt(data.size());
+			for (T value : data) {
+				valueSerializer.serialize(out, value);
+			}
+		}
+
+		@Override
+		public List<T> deserialize(@NotNull DataInput2 in, int available)
+		throws IOException {
+			int size = in.readInt();
+			var data = new ArrayList<T>(size);
+			for (int i=0; i<size; i++) {
+				data.add(valueSerializer.deserialize(in, available));
+			}
+			return data;
+		}
+	}
+
 	public static class SequenceSerializer extends SimpleSerializer<Sequence> {
 
 		public final SeqSpace seqSpace;
@@ -137,13 +169,13 @@ public class MapDBTools {
 
 		@Override
 		public void serialize(@NotNull DataOutput2 out, @NotNull Sequence sequence)
-			throws IOException {
+		throws IOException {
 			out.writeUTF(getSequenceId(sequence));
 		}
 
 		@Override
 		public Sequence deserialize(@NotNull DataInput2 in, int available)
-			throws IOException {
+		throws IOException {
 			return makeSequenceFromId(in.readUTF());
 		}
 
@@ -198,17 +230,17 @@ public class MapDBTools {
 
 	public static class BigDecimalSerializer extends SimpleSerializer<BigDecimal> {
 
-		private BigDecimalIO io = new BigDecimalIO.Variable();
+		private final BigDecimalIO io = new BigDecimalIO.Variable();
 
 		@Override
 		public void serialize(@NotNull DataOutput2 out, @NotNull BigDecimal data)
-			throws IOException {
+		throws IOException {
 			io.write(out, data);
 		}
 
 		@Override
 		public BigDecimal deserialize(@NotNull DataInput2 in, int available)
-			throws IOException {
+		throws IOException {
 			return io.read(in);
 		}
 
@@ -234,14 +266,14 @@ public class MapDBTools {
 
 		@Override
 		public void serialize(@NotNull DataOutput2 out, @NotNull MathTools.BigDecimalBounds data)
-			throws IOException {
+		throws IOException {
 			s.serialize(out, data.lower);
 			s.serialize(out, data.upper);
 		}
 
 		@Override
 		public MathTools.BigDecimalBounds deserialize(@NotNull DataInput2 in, int available)
-			throws IOException {
+		throws IOException {
 			return new MathTools.BigDecimalBounds(
 				s.deserialize(in, available),
 				s.deserialize(in, available)
@@ -261,6 +293,39 @@ public class MapDBTools {
 		@Override
 		public int hashCode(@NotNull MathTools.BigDecimalBounds data, int seed) {
 			return DataIO.intHash(data.hashCode() + seed);
+		}
+	}
+
+	public static class BigExpSerializer extends MapDBTools.SimpleSerializer<BigExp> {
+
+		public BigExpSerializer() {
+			super(Double.BYTES + Integer.BYTES);
+		}
+
+		@Override
+		public void serialize(@NotNull DataOutput2 out, @NotNull BigExp value)
+		throws IOException {
+			out.writeDouble(value.fp);
+			out.writeInt(value.exp);
+		}
+
+		@Override
+		public BigExp deserialize(@NotNull DataInput2 input, int available)
+		throws IOException {
+			return new BigExp(
+				input.readDouble(),
+				input.readInt()
+			);
+		}
+
+		@Override
+		public int compare(BigExp a, BigExp b) {
+			return a.compareTo(b);
+		}
+
+		@Override
+		public boolean equals(BigExp a, BigExp b) {
+			return a.equals(b);
 		}
 	}
 }

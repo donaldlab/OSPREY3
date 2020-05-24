@@ -1,15 +1,24 @@
-package edu.duke.cs.osprey.sofea2;
+package edu.duke.cs.osprey.coffee;
 
+import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.cp.ICountDownLatch;
+import com.hazelcast.instance.impl.HazelcastInstanceProxy;
+import com.hazelcast.spi.impl.operationservice.Operation;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
+import com.hazelcast.spi.impl.operationservice.impl.OperationServiceImpl;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.tools.IntRange;
 import edu.duke.cs.osprey.tools.Log;
 import edu.duke.cs.osprey.tools.MathTools;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 
 public class ClusterMember implements AutoCloseable {
@@ -18,6 +27,8 @@ public class ClusterMember implements AutoCloseable {
 
 	public final String name;
 	public final HazelcastInstance inst;
+
+	private final OperationServiceImpl service;
 
 	public ClusterMember(Cluster cluster) {
 
@@ -34,6 +45,7 @@ public class ClusterMember implements AutoCloseable {
 		cfg.setProperty("hazelcast.phone.home.enabled", "false");
 
 		inst = Hazelcast.newHazelcastInstance(cfg);
+		service = ((HazelcastInstanceProxy)inst).getOriginal().node.getNodeEngine().getOperationService();
 
 		log("node started on cluster %s", cluster.id);
 	}
@@ -111,4 +123,19 @@ public class ClusterMember implements AutoCloseable {
 	}
 
 	private int nextObjectId;
+
+	public <T> InvocationFuture<T> sendToAll(Operation op) {
+		return service.invokeOnPartition(op);
+	}
+
+	public <T> InvocationFuture<T> sendTo(Operation op, Address address) {
+		return service.invokeOnTarget(null, op, address);
+	}
+
+	public List<Address> memberAddresses() {
+		return inst.getCluster().getMembers().stream()
+			.sorted(Comparator.comparing(Member::getUuid))
+			.map(Member::getAddress)
+			.collect(Collectors.toList());
+	}
 }

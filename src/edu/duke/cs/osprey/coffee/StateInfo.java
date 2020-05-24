@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.sofea2;
+package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -8,7 +8,6 @@ import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
-import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.BigExp;
 
 import java.util.Arrays;
@@ -18,26 +17,27 @@ import java.util.stream.IntStream;
 
 public class StateInfo {
 
-	public final Sofea2.StateConfig config;
+	public final Coffee.StateConfig config;
 	public final BoltzmannCalculator bcalc;
 
 	public final ConfSpace confSpace;
 	public final RCs rcs;
+	public final ClusterZMatrix zmat;
 
 	private final int[][] typesByConfByPos;
 	private final int[] numTypesByPos;
 	private final int[] posPermutation;
 	// TODO: who should use the permutation?
 
-	private ClusterZMatrix zmat;
 
-	public StateInfo(Sofea2.StateConfig config, BoltzmannCalculator bcalc) {
+	public StateInfo(Coffee.StateConfig config, BoltzmannCalculator bcalc) {
 
 		this.config = config;
 		this.bcalc = bcalc;
 
 		confSpace = (ConfSpace)config.state.confSpace;
 		rcs = new RCs(confSpace);
+		zmat = new ClusterZMatrix(config.ecalc, config.posInterGen, bcalc);
 
 		// calculate all the conf types by conf and pos
 		typesByConfByPos = new int[confSpace.numPos()][];
@@ -85,19 +85,12 @@ public class StateInfo {
 			})
 			.mapToInt(i -> i)
 			.toArray();
-
-		zmat = null;
 	}
 
 	private double calcOrderHeuristic(int posi) {
 
 		// TODO: find a heuristic that works well here
 		return 0.0;
-	}
-
-	public void makeZmat(ClusterMember member, TaskExecutor tasks) {
-		zmat = new ClusterZMatrix(config.ecalc, config.posInterGen, bcalc);
-		zmat.compute(member, tasks);
 	}
 
 	public ConfIndex makeConfIndex() {
