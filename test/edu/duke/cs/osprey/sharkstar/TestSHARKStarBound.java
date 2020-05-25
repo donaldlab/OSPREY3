@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.sharkstar;
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.*;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -12,6 +13,8 @@ import edu.duke.cs.osprey.kstar.TestKStar;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
+import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -19,6 +22,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
@@ -38,6 +42,49 @@ public class TestSHARKStarBound extends TestBase {
     public static void beforeClass() {
         metallochaperone = PDBIO.readFile("examples/1CC8/1CC8.ss.pdb");
         //protein_1a0r = PDBIO.readFile("examples//1a0r_prepped.pdb");
+    }
+
+    private MARKStarBound makeMARKStarPfuncForConfSpace(SimpleConfSpace confSpace, @NotNull Sequence sequence, double epsilon){
+        // Set up partition function requirements
+        Parallelism parallelism = Parallelism.makeCpu(4);
+        ForcefieldParams ffparams = new ForcefieldParams();
+
+        // how should we compute energies of molecules?
+        EnergyCalculator ecalcMinimized = new EnergyCalculator.Builder(confSpace, ffparams)
+                .setParallelism(parallelism)
+                .build();
+        // how should we define energies of conformations?
+        ConfEnergyCalculator confEcalcMinimized = new ConfEnergyCalculator.Builder(confSpace, ecalcMinimized)
+                .setReferenceEnergies(new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalcMinimized)
+                        .build()
+                        .calcReferenceEnergies()
+                )
+                .build();
+
+        // BBK* needs rigid energies too
+        EnergyCalculator ecalcRigid = new EnergyCalculator.SharedBuilder(ecalcMinimized)
+                .setIsMinimizing(false)
+                .build();
+        ConfEnergyCalculator confEcalcRigid = new ConfEnergyCalculator(confEcalcMinimized, ecalcRigid);
+
+        EnergyMatrix minEmat = new SimplerEnergyMatrixCalculator.Builder(confEcalcMinimized)
+                .setCacheFile(new File("test"+"."+"minimizing"+".emat"))
+                .build()
+                .calcEnergyMatrix();
+
+        EnergyMatrix rigidEmat = new SimplerEnergyMatrixCalculator.Builder(confEcalcRigid)
+                .setCacheFile(new File("test"+"."+"rigid"+".emat"))
+                .build()
+                .calcEnergyMatrix();
+
+        RCs rcs = sequence.makeRCs(confSpace);
+
+        UpdatingEnergyMatrix MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minEmat, confEcalcMinimized);
+        MARKStarBound MARKStarBound = new MARKStarBoundFastQueues(confSpace, rigidEmat,
+                minEmat, confEcalcMinimized, rcs, parallelism);
+        MARKStarBound.setCorrections(MARKStarEmat);
+        MARKStarBound.init(epsilon);
+        return MARKStarBound;
     }
 
     /**
@@ -827,5 +874,13 @@ public class TestSHARKStarBound extends TestBase {
         ssbound.compute();
     }
 
+    @Test
+    public void testComputeForSequenceMARK(){
+        SimpleConfSpace confSpace = make1CC8MutableContinuous();
+        Sequence wildType = confSpace.makeWildTypeSequence();
+        MARKStarBound bound= makeMARKStarPfuncForConfSpace(confSpace, wildType, 0.90);
+        bound.init(0.90);
+        bound.compute();
+    }
 }
 
