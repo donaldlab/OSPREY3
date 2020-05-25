@@ -817,6 +817,15 @@ public class TestSHARKStarBound extends TestBase {
         }
     }
 
+    @Test
+    public void testComputeForSequence(){
+        SimpleConfSpace confSpace = make1CC8MutableContinuous();
+        Sequence wildType = confSpace.makeWildTypeSequence();
+        MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.90, null, null);
+        bound.init(0.90);
+        PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
+        ssbound.compute();
+    }
 
 }
 
