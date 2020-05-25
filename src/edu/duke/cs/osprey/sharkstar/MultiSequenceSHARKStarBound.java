@@ -30,6 +30,9 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 import jdk.nashorn.internal.runtime.regexp.joni.exception.ValueException;
 import org.graalvm.compiler.core.common.type.ArithmeticOpTable;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -127,6 +130,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private boolean internalQueueWasEmpty = false;
     private Map<Sequence, List<String>> scoreHistory = new HashMap<>();
     private String cachePattern = "NOT_INITIALIZED";
+
+    public static final boolean writeTimes = true;
+    private BufferedWriter writer;
 
     /**
      * Constructor to make a default SHARKStarBound Class
@@ -507,6 +513,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public void computeForSequence(int maxNumConfs, SingleSequenceSHARKStarBound sequenceBound) {
+        try {
+            writer = new BufferedWriter(new FileWriter(stateName.concat("_shark.debug")));
+            writer.write("popQueues time, internal time, internal nodes, leaf time, leaf nodes, cleanup time, total time, epsilon change\n");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         System.out.println("Tightening bound for "+sequenceBound.sequence);
         debugPrint("Num conformations: " + sequenceBound.numConformations);
         sequenceBound.updateBound();
@@ -521,6 +534,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             sequenceBound.updateBound();
         }
 
+        Stopwatch loopTimer = new Stopwatch();
         while (sequenceBound.getSequenceEpsilon() > targetEpsilon &&
                 workDone() - previousConfCount < maxNumConfs
                 && isStable(stabilityThreshold, sequenceBound.sequence)) {
@@ -533,9 +547,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 internalQueueWasEmpty = sequenceBound.internalQueue.isEmpty();
                 rootNode.debugTree(sequenceBound.sequence);
             }
+            loopTimer.reset();
+            loopTimer.start();
             tightenBoundInPhases(sequenceBound);
+            loopTimer.stop();
             debugPrint("Errorbound is now " + sequenceBound.getSequenceEpsilon());
-            debugPrint("Bound reduction: "+(lastEps - sequenceBound.getSequenceEpsilon()));
+            double delEps = lastEps - sequenceBound.getSequenceEpsilon();
+            debugPrint("Bound reduction: "+delEps);
             if (lastEps < sequenceBound.getSequenceEpsilon() && sequenceBound.getSequenceEpsilon() - lastEps > 0.01
                 || sequenceBound.errors()) {
                 System.err.println("Error. Bounds got looser.");
@@ -544,6 +562,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 System.exit(-1);
             }
             lastEps = sequenceBound.getSequenceEpsilon();
+
+            try {
+                writer.write(String.format(", %f, %.10f\n", loopTimer.getTimeS(), delEps));
+                writer.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
         if (!isStable(stabilityThreshold, sequenceBound.sequence))
             sequenceBound.setStatus(Status.Unstable);
@@ -555,6 +580,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             averageReduction = cumulativeZCorrection
                     .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));
         debugPrint(String.format("Average Z reduction per minimization: %12.6e", averageReduction));
+
+        try {
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     protected void debugPrint(String s) {
@@ -661,11 +692,17 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         int numNodes = 0;
         Stopwatch loopWatch = new Stopwatch();
         loopWatch.start();
+        Stopwatch popQueuesTimer = new Stopwatch();
         Stopwatch internalTime = new Stopwatch();
         Stopwatch leafTime = new Stopwatch();
+        Stopwatch cleanupTime = new Stopwatch();
+        int numInternals = 0;
+        int numLeaves = 0;
         double leafTimeSum = 0;
         double internalTimeSum = 0;
         BigDecimal[] ZSums = new BigDecimal[]{internalZ, leafZ};
+
+        popQueuesTimer.start();
         populateQueues(bound, internalNodes, leafNodes, ZSums);
         //bound.updateBound();
         //debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]", bound.getValues().calcLowerBound(),
@@ -684,11 +721,14 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             populateQueues(bound, new ArrayList<>(), new ArrayList<>(), ZSums);
         }
         System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
+        popQueuesTimer.stop();
+
         if(!bound.internalQueue.isEmpty() &&
                 MathTools.isLessThan(internalZ, bound.internalQueue.peek().getUpperBound(bound.sequence)))
             System.out.println("Should have used a node from the internal queue. How??");
         if (MathTools.isLessThan(internalZ, leafZ)) {
             numNodes = leafNodes.size();
+            numLeaves = numNodes;
             System.out.println("Processing " + numNodes + " leaf nodes...");
             leafTime.reset();
             leafTime.start();
@@ -709,6 +749,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             bound.internalQueue.addAll(internalNodes);
         } else {
             numNodes = internalNodes.size();
+            numInternals = numNodes;
             System.out.println("Processing " + numNodes + " internal nodes...");
             internalTime.reset();
             internalTime.start();
@@ -740,7 +781,22 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             numInternalNodesProcessed += internalNodes.size();
             bound.leafQueue.addAll(leafNodes);
         }
+        cleanupTime.start();
         loopCleanup(bound, newNodes, loopWatch, numNodes);
+        cleanupTime.stop();
+
+        try {
+            writer.write(String.format("%f, %f, %d, %f, %d, %f",
+                    popQueuesTimer.getTimeS(),
+                    internalTime.getTimeS(),
+                    numInternals,
+                    leafTime.getTimeS(),
+                    numLeaves,
+                    cleanupTime.getTimeS()
+                    ));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     protected void debugHeap(SHARKStarQueue queue) {
