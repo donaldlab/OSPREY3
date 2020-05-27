@@ -32,30 +32,19 @@
 
 package edu.duke.cs.osprey.kstar.pfunc;
 
-import java.io.File;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.function.Function;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.ConfDB;
-import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
-import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
-import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KStarScore;
-import edu.duke.cs.osprey.lute.LUTEConfEnergyCalculator;
-import edu.duke.cs.osprey.lute.LUTEPfunc;
-import edu.duke.cs.osprey.markstar.framework.MARKStarBound;
-import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.BigMath;
 import edu.duke.cs.osprey.tools.MathTools;
+
 
 public interface PartitionFunction {
 	
@@ -82,22 +71,10 @@ public interface PartitionFunction {
 	public final MathContext decimalPrecision = new MathContext(64, RoundingMode.HALF_UP);
 	
 	public static class Values {
-
-		/**
-		 * pfunc value of all evaluated confs
-		 */
-		public BigDecimal qstar;
-
-		/**
-		 * pfunc value of all unpruned, but unevaluated confs
-		 */
-		public BigDecimal qprime;
-
-
-		/**
-		 * pfunc value of all pruned confs
-		 */
-		public BigDecimal pstar;
+		
+		public BigDecimal qstar; // pfunc value of all evaluated confs
+		public BigDecimal qprime; // pfunc value of all unpruned, but unevaluated confs
+		public BigDecimal pstar; // pfunc value of all pruned confs
 		
 		public Values() {
 			qstar = BigDecimal.ZERO;
@@ -166,11 +143,11 @@ public interface PartitionFunction {
 		}
 
 		public double calcFreeEnergyLowerBound() {
-			return new BoltzmannCalculator(PartitionFunction.decimalPrecision).helmholtzFreeEnergy(calcUpperBound());
+			return new BoltzmannCalculator(PartitionFunction.decimalPrecision).freeEnergy(calcUpperBound());
 		}
 
 		public double calcFreeEnergyUpperBound() {
-			return new BoltzmannCalculator(PartitionFunction.decimalPrecision).helmholtzFreeEnergy(calcLowerBound());
+			return new BoltzmannCalculator(PartitionFunction.decimalPrecision).freeEnergy(calcLowerBound());
 		}
 
 		public MathTools.DoubleBounds calcFreeEnergyBounds(MathTools.DoubleBounds dest) {
@@ -202,8 +179,11 @@ public interface PartitionFunction {
 		@Override
 		public String toString() {
 			Function<String,String> trim = (s) -> {
-				var atMostNineChars = Math.min(s.length(), 9);
-				return s.substring(0, atMostNineChars);
+				if (s.length() > 9) {
+					return s.substring(0, 9);
+				} else {
+					return s;
+				}
 			};
 			StringBuilder buf = new StringBuilder();
 			buf.append(String.format("[%-9s,%9s]",
@@ -225,39 +205,16 @@ public interface PartitionFunction {
 	
 	public static interface ConfListener {
 		void onConf(ScoredConf conf);
-
-		void finished(PartitionFunction pfunc);
 	}
 	
 	void setReportProgress(boolean val);
-	void addConfListener(ConfListener val);
+	void setConfListener(ConfListener val);
 
 	/**
 	 * Initializes the partition function for calculation.
-	 *
-	 * Deprecated in favor of the two ConfSearch version, which allows computing pfuncs in constant memory
-	 *
-	 * @param confSearch The A* tree of conformations to enumerate (which may have been pruned)
-	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
-	 *                               including any conformations removed by pruned tuples.
 	 * @param targetEpsilon The accuracy with which to estimate the partition function.
 	 */
-	@Deprecated
-	void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon);
-
-	/**
-	 * Initializes the partition function for calculation using separate trees for computing upper bounds,
-	 * and for lower bounds. Avoids the need to buffer conformations between the upper and lower bound calculations
-	 * (either in internal or external memory), and allows running partition function calculations in constant memory.
-	 * @param upperBoundConfs The A* tree of conformations to enumerate for computing upper bounds
-	 * @param lowerBoundConfs The A* tree of conformations to enumerate for computing lower bounds
-	 * @param numConfsBeforePruning The total number of conformations in the conformation space for this search,
-	 *                               including any conformations removed by pruned tuples.
-	 * @param targetEpsilon The accuracy with which to estimate the partition function.
-	 */
-	default void init(ConfSearch upperBoundConfs, ConfSearch lowerBoundConfs, BigInteger numConfsBeforePruning, double targetEpsilon) {
-		throw new UnsupportedOperationException("This pfunc calculator (" + getClass().getSimpleName() + ") doesn't support two-tree initialization.");
-	}
+	void init(double targetEpsilon);
 
 	/**
 	 * Sets the stability threshold for this PartitionFunction, if supported
@@ -283,56 +240,31 @@ public interface PartitionFunction {
 		return new Result(getStatus(), getValues(), getNumConfsEvaluated());
 	}
 
+	interface WithConfDB extends PartitionFunction {
 
-	public static interface WithConfTable extends PartitionFunction {
+		void setConfDB(ConfDB confDB, ConfDB.Key key);
 
-		void setConfTable(ConfDB.ConfTable table);
+		default void setConfDB(ConfDB confDB, String table) {
+			setConfDB(confDB, new ConfDB.Key(table));
+		}
 
-		public static void setOrThrow(PartitionFunction pfunc, ConfDB.ConfTable table) {
-			if (pfunc instanceof PartitionFunction.WithConfTable) {
-				((PartitionFunction.WithConfTable)pfunc).setConfTable(table);
+		default void setConfDB(ConfDB confDB, Sequence seq) {
+			setConfDB(confDB, new ConfDB.Key(seq));
+		}
+
+		/**
+		 * Try to cast the pfunc to WithConfDB,
+		 * but throw a nice error if the cast fails.
+		 */
+		static WithConfDB cast(PartitionFunction pfunc) {
+			if (pfunc instanceof PartitionFunction.WithConfDB) {
+				return (PartitionFunction.WithConfDB)pfunc;
 			} else {
-				throw new PartitionFunction.WithConfTable.UnsupportedException(pfunc);
+				throw new UnsupportedOperationException(
+					"This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support conformation databases"
+				);
 			}
 		}
-
-		public static class UnsupportedException extends RuntimeException {
-			public UnsupportedException(PartitionFunction pfunc) {
-				super("This partition function implementation (" + pfunc.getClass().getSimpleName() + ") doesn't support conformation database tables");
-			}
-		}
-	}
-
-	/**
-	 * Factory method to make the best pfunc calculator based on the conf ecalc
-	 */
-	public static PartitionFunction makeBestFor(ConfEnergyCalculator confEcalc) {
-		if (confEcalc instanceof LUTEConfEnergyCalculator) {
-			// LUTE needs its own calculator, since it doesn't use energy bounds
-			return new LUTEPfunc((LUTEConfEnergyCalculator)confEcalc);
-		} else {
-			// algorithms based on energy bounds can use the GD calculator, it's the most recent pfunc calculator
-			return new GradientDescentPfunc(confEcalc);
-		}
-	}
-
-	/**
-	 * Factory method to make the best pfunc calculator based on the conf ecalc.
-	 * Overloads previous function to allow for MARKStar.
-	 */
-	public static PartitionFunction makeBestFor(ConfEnergyCalculator minimizingConfEcalc,
-												ConfEnergyCalculator rigidConfEcalc,
-												Sequence sequence, String state) {
-	    if(rigidConfEcalc == null)
-	    	return makeBestFor(minimizingConfEcalc);
-		SimpleConfSpace confSpace = minimizingConfEcalc.confSpace;
-		EnergyMatrix minimizingEmat = makeEmat(minimizingConfEcalc, state, "minimizing");
-		UpdatingEnergyMatrix MARKStarEmat = new UpdatingEnergyMatrix(confSpace, minimizingEmat, minimizingConfEcalc);
-		RCs rcs = sequence.makeRCs(confSpace);
-		MARKStarBound MARKStarBound = new MARKStarBoundFastQueues(confSpace, makeEmat(rigidConfEcalc, state, "rigid"),
-				minimizingEmat, minimizingConfEcalc, rcs, minimizingConfEcalc.ecalc.parallelism);
-		MARKStarBound.setCorrections(MARKStarEmat);
-		return MARKStarBound;
 	}
 
 	public static interface WithExternalMemory extends PartitionFunction {
@@ -354,10 +286,13 @@ public interface PartitionFunction {
 		}
 	}
 
-	public static EnergyMatrix makeEmat(ConfEnergyCalculator confECalc, String state, String name) {
-		return new SimplerEnergyMatrixCalculator.Builder(confECalc)
-				.setCacheFile(new File(state+"."+name+".emat"))
-				.build()
-				.calcEnergyMatrix();
+	/** Override to support task contexts, for contextual task executors */
+	default void setInstanceId(int val) {
+		// ignored by default
+	}
+
+	/** Override to support task contexts, for contextual task executors */
+	default void putTaskContexts(TaskExecutor.ContextGroup contexts) {
+		// ignored by default
 	}
 }

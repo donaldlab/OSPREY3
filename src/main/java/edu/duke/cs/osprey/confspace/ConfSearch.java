@@ -32,6 +32,7 @@
 
 package edu.duke.cs.osprey.confspace;
 
+import java.io.Serializable;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,7 +54,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 //call nextConf to get the GMEC for the model being searched,
 //and then successive calls to nextConf() return the next conformation in the gap-free list
 /**
- * A generic interface for A* searches over a conformation space.
+ * A generic interface for A* searches over a conformatio space.
  * 
  * Each search defines an order for all conformations in the conformation space,
  * and enumerates those conformations order of increasing score.
@@ -116,7 +117,7 @@ public interface ConfSearch {
     /**
      * A conformation from a conformation space with an associated score.
      */
-    public static class ScoredConf {
+    public static class ScoredConf implements Serializable {
         
         private int[] assignments;
         private double score;
@@ -180,7 +181,7 @@ public interface ConfSearch {
      * and an associated energy. The definition of "energy" in this context
      * depends on the conformation energy calculator used in the design.
      */
-    public static class EnergiedConf extends ScoredConf {
+    public static class EnergiedConf extends ScoredConf implements Serializable {
         
         private double energy;
         

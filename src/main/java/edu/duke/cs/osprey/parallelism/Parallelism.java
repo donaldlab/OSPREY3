@@ -33,6 +33,8 @@
 package edu.duke.cs.osprey.parallelism;
 
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.gpu.cuda.Gpus;
+
 
 /** Specified how Osprey should use available hardware. */
 public class Parallelism {
@@ -47,7 +49,7 @@ public class Parallelism {
 		
 		/** The number of simultaneous tasks that should be given to each GPU */
 		private int numStreamsPerGpu = 1;
-		
+
 		public Builder setNumCpus(int val) {
 			numCpus = val;
 			return this;
@@ -62,12 +64,12 @@ public class Parallelism {
 			numStreamsPerGpu = val;
 			return this;
 		}
-		
+
 		public Parallelism build() {
 			return new Parallelism(numCpus, numGpus, numStreamsPerGpu);
 		}
 	}
-	
+
 	public static enum Type {
 		
 		Cpu {
@@ -107,18 +109,22 @@ public class Parallelism {
 			cfp.params.getInt("MinimizationStreamsPerGpu", 1)
 		);
 	}
+
+	public static boolean hasGPUs() {
+		return !Gpus.get().getGpus().isEmpty();
+	}
 	
 	public final int numThreads;
 	public final int numGpus;
 	public final int numStreamsPerGpu;
-	
+
 	public final Type type;
-	
+
 	public Parallelism(int numThreads, int numGpus, int numStreamsPerGpu) {
 		this.numThreads = numThreads;
 		this.numGpus = numGpus;
 		this.numStreamsPerGpu = numStreamsPerGpu;
-		
+
 		// prefer gpus over threads
 		if (numGpus > 0) {
 			type = Type.Gpu;
@@ -133,19 +139,19 @@ public class Parallelism {
 		}
 	}
 	
-	/** get the maximum number of tasks to be be executed in parallel */
+	/** get the maximum number of tasks to be be executed in parallel, on a single node */
 	public int getParallelism() {
 		return type.getParallelism(this);
 	}
-	
+
 	public TaskExecutor makeTaskExecutor() {
 		return makeTaskExecutor(null);
 	}
 	
 	/**
 	 * Makes a TaskExecutor to process tasks, possibly in parallel
-	 * @param queueSize true to buffer tasks in a queue before processing (can be faster),
-	 *                 false to only submit a task when a thread is ready (prevents extra tasks)
+	 * @param queueSize >0 value to buffer tasks in a queue before processing (can be faster),
+	 *                 null or 0 to only submit a task when a thread is ready (prevents extra tasks)
 	 */
 	public TaskExecutor makeTaskExecutor(Integer queueSize) {
 		if (getParallelism() > 1) {

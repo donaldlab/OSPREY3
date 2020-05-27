@@ -29,11 +29,6 @@ public class EnergyAnalysisConfListener implements CommandAnalysis {
         confQueue.add(eConf);
     }
 
-    @Override
-    public void finished(PartitionFunction pfunc) {
-
-    }
-
     ConfAnalyzer.ConfAnalysis analyzeConf(List<ConfSearch.EnergiedConf> sortedConfs, int idx) {
         final var analyzer = new ConfAnalyzer(eCalc);
         return analyzer.analyze(sortedConfs.get(idx - 1)); // (one-indexed)

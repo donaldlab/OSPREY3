@@ -41,37 +41,29 @@ public class JvmMem {
 
 	public static class MemInfo {
 
+		public final String name;
 		public final long usedBytes;
 		public final long maxBytes;
 		public final double usedPercent;
 
-		public MemInfo(long usedBytes, long maxBytes) {
+		public MemInfo(String name, long usedBytes, long maxBytes) {
+			this.name = name;
 			this.usedBytes = usedBytes;
 			this.maxBytes = maxBytes;
 			this.usedPercent = 100.0*usedBytes/maxBytes;
 		}
 
 		public MemInfo(MemoryPoolMXBean pool) {
-			this(pool.getUsage());
+			this(pool.getName(), pool.getUsage());
 		}
 
-		public MemInfo(MemoryUsage usage) {
-			this(usage.getUsed(), usage.getMax());
-		}
-
-		public MemInfo(MemoryPoolMXBean a, MemoryPoolMXBean b) {
-			this(a.getUsage(), b.getUsage());
-		}
-
-		public MemInfo(MemoryUsage a, MemoryUsage b) {
-			this(
-				new MemInfo(a),
-				new MemInfo(b)
-			);
+		public MemInfo(String name, MemoryUsage usage) {
+			this(name, usage.getUsed(), usage.getMax());
 		}
 
 		public MemInfo(MemInfo a, MemInfo b) {
 			this(
+				String.format("%s, %s", a.name, b.name),
 				a.usedBytes + b.usedBytes,
 				a.maxBytes + b.maxBytes
 			);
@@ -90,12 +82,32 @@ public class JvmMem {
 			.orElseThrow(() -> new NoSuchElementException("no memory pool named " + name));
 	}
 
+	/*
+		On v8 JVMs with the default garbage collector (Parallel GC), the memory pool names are:
+			Code Cache
+			Metaspace
+			Compressed Class Space
+			PS Eden Space
+			PS Survivor Space
+			PS Old Gen
+
+		On v11 JVMs with the default garbage collector (G1 GC), the memory pool names are:
+			CodeHeap 'non-nmethods'
+			Metaspace
+			CodeHeap 'profiled nmethods'
+			Compressed Class Space
+			G1 Eden Space
+			G1 Old Gen
+			G1 Survivor Space
+			CodeHeap 'non-profiled nmethods'
+	*/
+
 	public static MemInfo getEdenPool() {
 		return new MemInfo(getPool("Eden Space"));
 	}
 
 	public static MemInfo getSurvivorPool() {
-		return new MemInfo(getPool("Eden Space"));
+		return new MemInfo(getPool("Survivor Space"));
 	}
 
 	public static MemInfo getYoungPool() {

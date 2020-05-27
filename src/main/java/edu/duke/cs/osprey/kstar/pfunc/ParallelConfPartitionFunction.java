@@ -103,7 +103,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	}
 	
 	@Override
-	public void addConfListener(ConfListener val) {
+	public void setConfListener(ConfListener val) {
 		confListener = val;
 	}
 	
@@ -128,7 +128,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	}
 
 	@Override
-	public void init(ConfSearch confSearchIgnored, BigInteger numConfsBeforePruningIgnored, double targetEpsilon) {
+	public void init(double targetEpsilon) {
 		
 		this.targetEpsilon = targetEpsilon;
 		

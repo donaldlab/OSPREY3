@@ -32,9 +32,11 @@
 
 package edu.duke.cs.osprey.tools;
 
+import java.io.Serializable;
 import java.util.concurrent.TimeUnit;
 
-public class Stopwatch {
+
+public class Stopwatch implements Serializable {
 
 	private boolean isRunning;
 	private long startTime;

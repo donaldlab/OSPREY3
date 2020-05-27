@@ -383,7 +383,6 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
 		positions = new ArrayList<>();
 		mutablePositions = new ArrayList<>();
 		immutablePositions = new ArrayList<>();
-
 		for (Strand strand : strands) {
 
 			for (String resNum : strand.flexibility.getFlexibleResidueNumbers()) {
@@ -702,10 +701,10 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
 	
 	/**
 	 * create a new {@link ParametricMolecule} in the specified conformation
-	 * for analysis (e.g., energy calculation, minimization).
+	 * for analysis (e.g., energy calculation, minimization)
 	 * 
 	 * To increase stability of analysis, each analysis should be conducted
-	 * with a new molecule instance. This completely prevents roundoff error
+	 * with a new molecule instance. this completely prevents roundoff error
 	 * from accumulating across separate analyses. 
 	 */
 	public ParametricMolecule makeMolecule(RCTuple conf) {
@@ -859,11 +858,11 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
 		return info;
 	}
         
-        public int getNumPos(){
-            return positions.size();
-        }
-        
-        private static HashMap<String,double[]> sidechainDOFBounds(Position pos, ResidueTemplate template, Integer rotamerIndex){
+    public int getNumPos(){
+        return positions.size();
+    }
+
+      private static HashMap<String,double[]> sidechainDOFBounds(Position pos, ResidueTemplate template, Integer rotamerIndex){
             //get bounds on the sidechain dihedrals associated with a particular rotamer
             if(rotamerIndex==null)//no dihedrals
                 return new HashMap<>();
@@ -881,27 +880,29 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
         }
         
         
-        private ArrayList<HashMap<String,double[]>> listBackboneVoxels(Position pos){
-            ArrayList<HashMap<String,double[]> > ans = new ArrayList<>();
-            
-            for(StrandFlex flexType : strandFlex.get(pos.strand)){
-                ArrayList<HashMap<String,double[]> > flexTypeVox = flexType.listBackboneVoxels(pos);
-                if( (!flexTypeVox.isEmpty()) && (!ans.isEmpty()) ){
-                    throw new RuntimeException("ERROR: Can't have multiple types of backbone flexibility for the same residue");
-                    //not supported, because current backbone DOF implementations depend on the DOF block
-                    //keeping track of the unperturbed backbone conformation, so if another type of motion
-                    //changes that unperturbed bb conf, then there will be errors
-                    //Mutations and sidechain dihedrals don't move the backbone so no issue there
-                }
-                else
-                    ans = flexTypeVox;
-            }
-            
-            if(ans.isEmpty())//no backbone flexibility
-                return new ArrayList(Arrays.asList(new HashMap<>()));
-            else
-                return ans;
-        }
+    private List<HashMap<String,double[]>> listBackboneVoxels(Position pos){
+
+        var bbVoxels = strandFlex.get(pos.strand)
+                                 .stream()
+                                 .map((flex) -> flex.listBackboneVoxels(pos))
+                                 .filter((lst) -> !lst.isEmpty())
+                                 .flatMap(Collection::stream)
+                                 .collect(Collectors.toList());
+
+        if (bbVoxels.isEmpty()) {
+			bbVoxels.add(new HashMap<>());
+		}
+
+        if (bbVoxels.size() == 1) {
+			return bbVoxels;
+		}
+
+		//not supported, because current backbone DOF implementations depend on the DOF block
+		//keeping track of the unperturbed backbone conformation, so if another type of motion
+		//changes that unperturbed bb conf, then there will be errors
+		//Mutations and sidechain dihedrals don't move the backbone so no issue there
+		throw new RuntimeException("ERROR: Can't have multiple types of backbone flexibility for the same residue");
+    }
 
 	public SimpleConfSpace makeSubspace(Strand strand) {
 		return new Builder()
@@ -1028,11 +1029,13 @@ public class SimpleConfSpace implements Serializable, ConfSpaceIteration {
 		return numSequences;
 	}
 
+
+
 	public BigInteger getNumConformations() {
-		return positions.stream()
-				.map(pos -> pos.resConfs.size())
-				.map(BigInteger::valueOf)
-				.reduce(BigInteger::multiply)
-				.orElseThrow();
+		   return positions.stream()
+							.map(pos -> pos.resConfs.size())
+							.map(BigInteger::valueOf)
+							.reduce(BigInteger::multiply)
+							.orElseThrow();
 	}
 }

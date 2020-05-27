@@ -34,9 +34,4 @@ public class EnsembleAnalysisListener implements CommandAnalysis {
         var eConf = ((ConfSearch.EnergiedConf) conf);
         confs.add(eConf);
     }
-
-    @Override
-    public void finished(PartitionFunction pfunc) {
-
-    }
 }

@@ -130,12 +130,6 @@ public class MARKStarBoundAsync implements PartitionFunction {
         }
     }
 
-    @Override
-    public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon){
-        state = new State(numConfsBeforePruning);
-        init(targetEpsilon);
-    }
-
     public void setRCs(RCs rcs) {
         RCs = rcs;
     }
@@ -145,7 +139,7 @@ public class MARKStarBoundAsync implements PartitionFunction {
     }
 
     @Override
-    public void addConfListener(ConfListener val) {
+    public void setConfListener(ConfListener val) {
 
     }
 
@@ -158,6 +152,7 @@ public class MARKStarBoundAsync implements PartitionFunction {
         this.maxNumConfs = maxNumConfs;
     }
 
+    @Override
     public void init(double targetEpsilon) {
         this.targetEpsilon = targetEpsilon;
         this.targetEpsilonAsBD = new BigDecimal(targetEpsilon);
@@ -314,7 +309,8 @@ public class MARKStarBoundAsync implements PartitionFunction {
     }
 
     public MARKStarBoundAsync(SimpleConfSpace confSpace, EnergyMatrix rigidEmat, EnergyMatrix minimizingEmat,
-                              ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism) {
+                              ConfEnergyCalculator minimizingConfEcalc, RCs rcs, Parallelism parallelism, BigInteger numConfsBeforePruning) {
+		state = new State(numConfsBeforePruning);
         this.queue = new PriorityQueue<>();
         this.minimizingEcalc = minimizingConfEcalc;
         gscorerFactory = (emats) -> new PairwiseGScorer(emats);

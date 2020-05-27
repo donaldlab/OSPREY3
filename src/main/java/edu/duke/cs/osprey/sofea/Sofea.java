@@ -823,8 +823,11 @@ public class Sofea {
 
 			normalize();
 
+			// NOTE: don't read from fringetx here, only write
+			// since the order of reads to and writes from fringetx can be mixed up by concurrency
+
 			// start with the node's original zSumUpper
-			BigExp zSumUpper = fringetx.zSumUpper();
+			BigExp zSumUpper = this.zSumUpper;
 
 			// use replacement nodes and zPaths (that we'd otherwise throw away) to compute a tighter zSumUpper
 			// NOTE: need full precision of SeqDB's math context here to avoid some roundoff error
@@ -884,7 +887,7 @@ public class Sofea {
 		}
 
 		public ConfDB.ConfTable get(MultiStateConfSpace.State state) {
-			return confsByState[state.index].table;
+			return confsByState[state.index].table();
 		}
 	}
 
@@ -1541,34 +1544,43 @@ public class Sofea {
 			stats[state.index] = new StateStats();
 		}
 
+		// set up a queue to submit minimization jobs
+		// that runs on the main thread, since the listener thread can't submit jobs
 		Deque<NodeTransaction> minimizationQueue = new ArrayDeque<>();
-
 		Runnable processMinimizationQueue = () -> {
-			synchronized (Sofea.this) { // don't race the listener thread
-				while (!minimizationQueue.isEmpty()) {
-					NodeTransaction nodetx = minimizationQueue.pollFirst();
+			while (true) {
 
-					// process the minimization queue before exiting the loop
-					tasks.submit(
-						() -> {
-							ConfDB.ConfTable confTable = confTables.get(nodetx.state);
-							StateInfo stateInfo = getStateInfo(nodetx.state);
-							for (ZPath zPath : nodetx.zPaths) {
-								zPath.zPath = new BigExp(stateInfo.calcZPath(zPath.conf, confTable));
-							}
-							return 42; // it's the answer
-						},
-						(theAnswer) -> {
-							synchronized (Sofea.this) { // don't race the main thread
-								nodesInFlight[0] -= nodetx.replacementNodes.size();
-								stats[nodetx.state.index].expanded++;
-								stats[nodetx.state.index].added += nodetx.numReplacementNodes();
-								stats[nodetx.state.index].minimized += nodetx.zPaths.size();
-								nodetx.replacePass2(fringetx, seqtx, rcdb);
-							}
-						}
-					);
+				// get the next minimization to submit
+				NodeTransaction nodetx;
+				synchronized (minimizationQueue) {
+					nodetx = minimizationQueue.pollFirst();
 				}
+
+				// stop submitting if we ran out of minimizations
+				if (nodetx == null) {
+					break;
+				}
+
+				// submit the minimization
+				tasks.submit(
+					() -> {
+						ConfDB.ConfTable confTable = confTables.get(nodetx.state);
+						StateInfo stateInfo = getStateInfo(nodetx.state);
+						for (ZPath zPath : nodetx.zPaths) {
+							zPath.zPath = new BigExp(stateInfo.calcZPath(zPath.conf, confTable));
+						}
+						return 42; // it's the answer
+					},
+					(theAnswer) -> {
+						synchronized (Sofea.this) { // don't race the main thread
+							nodesInFlight[0] -= nodetx.replacementNodes.size();
+							stats[nodetx.state.index].expanded++;
+							stats[nodetx.state.index].added += nodetx.numReplacementNodes();
+							stats[nodetx.state.index].minimized += nodetx.zPaths.size();
+							nodetx.replacePass2(fringetx, seqtx, rcdb);
+						}
+					}
+				);
 			}
 		};
 
@@ -1614,10 +1626,11 @@ public class Sofea {
 					nodetx,
 					zThresholds[nodetx.state.index],
 					nodetx.index,
-					nodetx.zSumUpper,
-					confTables.get(nodetx.state)
+					nodetx.zSumUpper
 				),
 				(result) -> {
+
+					boolean needsMinimization = false;
 
 					synchronized (Sofea.this) { // don't race the main thread
 
@@ -1640,16 +1653,22 @@ public class Sofea {
 							} else {
 
 								// now we know we won't have to throw away info, we can do the minimizations
-								// but tell the main thread to send the tasks,
-								// since the listener thread can deadlock if it tries
 								nodesInFlight[0] += nodetx.replacementNodes.size();
-								minimizationQueue.add(nodetx);
+								needsMinimization = true;
 							}
 
 						} else {
 
 							stats[nodetx.state.index].requeuedForSpace++;
 							nodetx.requeuePass2(fringetx, seqtx, rcdb);
+						}
+					}
+
+					if (needsMinimization) {
+						// but tell the main thread to send the tasks,
+						// since the listener thread can deadlock if it tries
+						synchronized (minimizationQueue) {
+							minimizationQueue.add(nodetx);
 						}
 					}
 				}
@@ -1661,11 +1680,12 @@ public class Sofea {
 		processMinimizationQueue.run();
 		tasks.waitForFinish();
 
-		fringetx.commit();
-		seqtx.commit();
-
 		// there shouldn't be any leftover minimizations
 		assert (minimizationQueue.isEmpty());
+		assert (nodesInFlight[0] == 0);
+
+		fringetx.commit();
+		seqtx.commit();
 
 		// show stats if needed
 		if (showProgress) {
@@ -1695,7 +1715,7 @@ public class Sofea {
 		}
 	}
 
-	private NodeResult refineZSumLower(NodeTransaction nodetx, BigExp zSumThreshold, ConfIndex index, BigExp zSumUpper, ConfDB.ConfTable confTable) {
+	private NodeResult refineZSumLower(NodeTransaction nodetx, BigExp zSumThreshold, ConfIndex index, BigExp zSumUpper) {
 
 		// forget any subtree if it's below the pruning threshold
 		if (zSumUpper.lessThan(zPruneThreshold)) {
@@ -1730,8 +1750,7 @@ public class Sofea {
 				nodetx,
 				zSumThreshold,
 				index,
-				stateInfo.calcZSumUpper(index, stateInfo.rcs),
-				confTable
+				stateInfo.calcZSumUpper(index, stateInfo.rcs)
 			);
 			index.unassignInPlace(pos);
 
@@ -1749,7 +1768,7 @@ public class Sofea {
 		StateInfo stateInfo = stateInfos.get(state.index);
 		try (StateInfo.Confs confs = stateInfo.new Confs()) {
 			RCs rcs = seq.makeRCs(state.confSpace);
-			return stateInfo.calcZSum(stateInfo.makeConfIndex(), rcs, confs.table);
+			return stateInfo.calcZSum(stateInfo.makeConfIndex(), rcs, confs.table());
 		}
 	}
 
@@ -1757,25 +1776,29 @@ public class Sofea {
 
 		class Confs implements AutoCloseable {
 
-			final ConfDB confdb;
-			final ConfDB.ConfTable table;
+			final ConfDB db;
+			final ConfDB.Key key;
 
 			Confs() {
 				StateConfig config = stateConfigs.get(state.index);
 				if (config.confDBFile != null) {
-					confdb = new ConfDB(state.confSpace, config.confDBFile);
-					table = confdb.new ConfTable("sofea");
+					db = new ConfDB(state.confSpace, config.confDBFile);
+					key = new ConfDB.Key("sofea");
 				} else {
-					confdb = null;
-					table = null;
+					db = null;
+					key = null;
 				}
 			}
 
 			@Override
 			public void close() {
-				if (confdb != null) {
-					confdb.close();
+				if (db != null) {
+					db.close();
 				}
+			}
+
+			public ConfDB.ConfTable table() {
+				return db.get(key);
 			}
 		}
 

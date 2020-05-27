@@ -60,7 +60,7 @@ import static edu.duke.cs.osprey.tools.Log.log;
 public class MinLMFE implements Sofea.Criterion {
 
 	/**
-	 * The multi-state objective function.
+	 * The multi-state objective function to be minimized.
 	 */
 	public final MultiStateConfSpace.LMFE objective;
 
@@ -74,8 +74,23 @@ public class MinLMFE implements Sofea.Criterion {
 	 */
 	public final double minFreeEnergyWidth;
 
+	/**
+	 * A function to represent the stability of a sequence.
+	 * Used for pruning sequences w.r.t. the wild-type sequence.
+	 */
+	public MultiStateConfSpace.LMFE stabilityFunction = null;
+
+	/**
+	 * A sequence is stable iff:
+	 *    stability(sequence) <= stability(wild-type) + gap
+	 * for at least one value in the uncertainty ranges of the stability functions.
+	 * The gap is in free energy units (Kcal/mol).
+	 */
+	public double stabilityGap = 0.0;
+
 	private final HashSet<StateSeq> finishedSequenced = new HashSet<>();
 	private final HashSet<Integer> finishedUnsequenced = new HashSet<>();
+	private final HashSet<Sequence> unstableSequences = new HashSet<>();
 
 	private static class StateSeq {
 
@@ -199,14 +214,13 @@ public class MinLMFE implements Sofea.Criterion {
 	public Filter filterNode(MultiStateConfSpace.State state, int[] conf, BoltzmannCalculator bcalc) {
 
 		// filter out nodes for sequences we've determined sufficiently already!!
+		// also filter out nodes for sequences we've deemed unstable
 		// we're spending too much time minizing confs that don't help us get to the termination criterion
 		boolean isFinished;
 		if (state.isSequenced) {
 
-			isFinished = finishedSequenced.contains(new StateSeq(
-				state,
-				state.confSpace.seqSpace.makeSequence(state.confSpace, conf)
-			));
+			Sequence seq = state.confSpace.seqSpace.makeSequence(state.confSpace, conf);
+			isFinished = finishedSequenced.contains(new StateSeq(state, seq)) || unstableSequences.contains(seq);
 
 		} else {
 
@@ -254,6 +268,21 @@ public class MinLMFE implements Sofea.Criterion {
 			unsequencedFreeEnergy[state.unsequencedIndex] = freeEnergyBounds;
 		}
 
+		// find bounds on the stability function for the wild-type sequence
+		DoubleBounds wtStabilityBounds = null;
+		if (stabilityFunction != null) {
+			Sequence seq = confSpace.seqSpace.makeWildTypeSequence();
+			SeqDB.SeqInfo seqInfo = seqdb.getSequencedZSumBounds(seq);
+			DoubleBounds[] stateFreeEnergies = objective.collectFreeEnergies(state -> {
+				if (state.isSequenced) {
+					return bcalc.freeEnergyPrecise(seqInfo.zSumBounds[state.sequencedIndex]);
+				} else {
+					return unsequencedFreeEnergy[state.unsequencedIndex];
+				}
+			});
+			wtStabilityBounds = stabilityFunction.calc().addAll(stateFreeEnergies).bounds;
+		}
+
 		// for each sequence and partial sequence encountered so far...
 		for (Map.Entry<Sequence,SeqDB.SeqInfo> entry : seqdb.getSequencedZSumBounds()) {
 
@@ -271,6 +300,19 @@ public class MinLMFE implements Sofea.Criterion {
 			// keep track of sequences that are sufficiently precise
 			for (MultiStateConfSpace.State state : confSpace.sequencedStates) {
 				updateFinished(state, seq, stateFreeEnergies[state.index]);
+			}
+
+			// prune unstable sequences, if needed
+			if (stabilityFunction != null && seq.isFullyAssigned()) {
+
+				DoubleBounds stabilityBounds = stabilityFunction.calc().addAll(stateFreeEnergies).bounds;
+				boolean isStable = stabilityBounds.lower <= wtStabilityBounds.upper + stabilityGap;
+				if (!isStable) {
+					unstableSequences.add(seq);
+
+					// unstable sequences can't be top sequences, so skip the top sequence check
+					continue;
+				}
 			}
 
 			// compute bounds on the objective function
@@ -367,7 +409,10 @@ public class MinLMFE implements Sofea.Criterion {
 		}
 
 		// if all possible sequences are already top, we're done
-		if (BigInteger.valueOf(topSequences.sequences.size()).compareTo(confSpace.seqSpace.getNumSequences()) >= 0) {
+		BigInteger numTop = BigInteger.valueOf(topSequences.sequences.size());
+		BigInteger numUnstable = BigInteger.valueOf(unstableSequences.size());
+		BigInteger numSeqs = confSpace.seqSpace.getNumSequences();
+		if (numTop.add(numUnstable).compareTo(numSeqs) >= 0) {
 			log("All sequences found, terminating");
 			return Satisfied.Terminate;
 

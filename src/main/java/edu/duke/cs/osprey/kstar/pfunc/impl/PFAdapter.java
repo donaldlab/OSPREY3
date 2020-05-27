@@ -71,27 +71,18 @@ public class PFAdapter extends PFAbstract {
 	public void start() {
 		
 		setRunState(RunState.STARTED);
-		pfunc.init(null, null, PFAbstract.targetEpsilon);
+		pfunc.init(PFAbstract.targetEpsilon);
 		
 		// report top confs if needed
 		if (isFullyDefined() && saveTopConfsAsPDB) {
-
-			var listener = new PartitionFunction.ConfListener() {
-				@Override
-				public void onConf(ScoredConf sconf) {
-					double energy = sconf instanceof EnergiedConf ? ((EnergiedConf)sconf).getEnergy() : sconf.getScore();
-					saveTopConf(new KSConf(
-							((EnergiedConf)sconf).getAssignments(),
-							((EnergiedConf)sconf).getScore(),
-							energy
-					));
-				}
-
-				@Override
-				public void finished(PartitionFunction pfunc) { }
-			};
-
-			pfunc.addConfListener(listener);
+			pfunc.setConfListener((ScoredConf sconf) -> {	
+				double energy = sconf instanceof EnergiedConf ? ((EnergiedConf)sconf).getEnergy() : sconf.getScore();
+				saveTopConf(new KSConf(
+					((EnergiedConf)sconf).getAssignments(),
+					((EnergiedConf)sconf).getScore(),
+					energy
+				));
+			});
 		}
 	}
 

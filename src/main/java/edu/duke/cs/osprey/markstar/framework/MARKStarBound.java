@@ -43,10 +43,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.TupE;
+import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.NegatedEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
@@ -64,13 +61,14 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tools.TimeTools;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.*;
 
-public class MARKStarBound implements PartitionFunction {
+public class MARKStarBound implements PartitionFunction.WithConfDB {
 
     protected double targetEpsilon = 1;
     public boolean debug = false;
@@ -102,6 +100,9 @@ public class MARKStarBound implements PartitionFunction {
     private boolean nonZeroLower;
     protected static TaskExecutor loopTasks;
 
+    private ConfDB confDB;
+    private ConfDB.Key confDBKey;
+
     public void setCorrections(UpdatingEnergyMatrix cachedCorrections) {
         correctionMatrix = cachedCorrections;
     }
@@ -129,11 +130,6 @@ public class MARKStarBound implements PartitionFunction {
         }
     }
 
-    @Override
-    public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon){
-        init(targetEpsilon);
-    }
-
     public void setRCs(RCs rcs) {
         RCs = rcs;
     }
@@ -143,7 +139,7 @@ public class MARKStarBound implements PartitionFunction {
     }
 
     @Override
-    public void addConfListener(ConfListener val) {
+    public void setConfListener(ConfListener val) {
 
     }
 
@@ -156,6 +152,20 @@ public class MARKStarBound implements PartitionFunction {
         this.maxNumConfs = maxNumConfs;
     }
 
+    @Override
+	public void setConfDB(ConfDB confDB, ConfDB.Key key) {
+    	this.confDB = confDB;
+    	this.confDBKey = key;
+	}
+
+	private ConfDB.ConfTable confTable() {
+    	if (confDB == null || confDBKey == null) {
+    		return null;
+		}
+    	return confDB.get(confDBKey);
+	}
+
+    @Override
     public void init(double targetEpsilon) {
         this.targetEpsilon = targetEpsilon;
         status = Status.Estimating;
@@ -891,6 +901,15 @@ public class MARKStarBound implements PartitionFunction {
 
                 ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, node.getConfLowerBound());
                 ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
+                
+                // record the conf energy in the ConfDB, if needed
+                ConfDB.ConfTable confTable = confTable();
+                if (confTable != null) {
+                	long timestamp = TimeTools.getTimestampNs();
+                	confTable.setLowerBound(conf.getAssignments(), conf.getScore(), timestamp);
+                    confTable.setUpperBound(conf.getAssignments(), analysis.epmol.energy, timestamp);
+                }
+                
                 Stopwatch correctionTimer = new Stopwatch().start();
                 computeEnergyCorrection(analysis, conf, context.ecalc);
 

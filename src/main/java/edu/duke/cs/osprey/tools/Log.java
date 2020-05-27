@@ -70,7 +70,15 @@ public class Log {
 		if (f == null) {
 			return "null";
 		} else {
-			return String.format("%e (%.2f)", f, MathTools.log10p1(f));
+			return String.format("%s (%.2f)", formatBigEngineering(f), MathTools.log10p1(f));
+		}
+	}
+
+	public static String formatBigEngineering(BigDecimal f) {
+		if (f instanceof MathTools.MagicBigDecimal) {
+			return f.toString();
+		} else {
+			return String.format("%e", f);
 		}
 	}
 

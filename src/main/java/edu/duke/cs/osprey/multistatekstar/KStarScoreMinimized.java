@@ -139,7 +139,7 @@ public class KStarScoreMinimized implements KStarScore {
 		partitionFunctions[state].setReportProgress(settings.isReportingProgress);
 
 		//init partition function
-		partitionFunctions[state].init(null, null, settings.targetEpsilon);
+		partitionFunctions[state].init(settings.targetEpsilon);
 
 		//create priority queue for top confs if requested
 		if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0) {
@@ -152,17 +152,10 @@ public class KStarScoreMinimized implements KStarScore {
 			partitionFunctions[state].maxNumTopConfs = settings.numTopConfsToSave;
 
 			final int pfState = state;
-			var listener = new PartitionFunction.ConfListener() {
-				@Override
-				public void onConf(ScoredConf conf) {
-					partitionFunctions[pfState].saveConf(conf);
-				}
+			partitionFunctions[state].setConfListener((ScoredConf conf) -> {
+				partitionFunctions[pfState].saveConf(conf);
+			});
 
-				@Override
-				public void finished(PartitionFunction pfunc) { }
-			};
-
-			partitionFunctions[state].addConfListener(listener);
 		}
 
 		return true;
@@ -245,7 +238,7 @@ public class KStarScoreMinimized implements KStarScore {
 				settings.ecalcs[state]
 				);
 
-		p2pf.init(null, null, targetEpsilon);//enumerating over pstar, energies can be high
+		p2pf.init(targetEpsilon);//enumerating over pstar, energies can be high
 		p2pf.getValues().qstar = qstar;//keep old qstar
 		p2pf.compute(targetScoreWeights);
 		return p2pf;
@@ -330,7 +323,6 @@ public class KStarScoreMinimized implements KStarScore {
 	 * see if partition function satisfies either lower or upper bound 
 	 * constraints involving this state only
 	 * @param state
-	 * @param lbConstr: true=lb, false=ub
 	 * @return
 	 */
 	protected boolean checkConstraints(int state, boolean negCoeff) {

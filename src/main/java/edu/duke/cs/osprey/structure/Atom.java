@@ -173,6 +173,10 @@ public class Atom implements Serializable {
 		return elementType.equalsIgnoreCase("O");
 	}
 
+	public boolean isSulfur() {
+    	return elementType.equalsIgnoreCase("S");
+	}
+
 	@Override
 	public String toString() {
     	if (res != null) {

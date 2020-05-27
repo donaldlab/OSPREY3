@@ -88,11 +88,15 @@ public class SimplePartitionFunction implements PartitionFunction {
 	private ConfListener confListener = null;
 	private boolean isReportingProgress = false;
 	private Stopwatch stopwatch = new Stopwatch().start();
-	private ConfDB confDB = null;
 
 
-	public SimplePartitionFunction(ConfEnergyCalculator ecalc) {
+	public SimplePartitionFunction(ConfEnergyCalculator ecalc, ConfSearch confSearch, BigInteger numConfsBeforePruning) {
+
 		this.ecalc = ecalc;
+		// split the confs between the bound calculators
+		ConfSearch.MultiSplitter confsSplitter = new ConfSearch.MultiSplitter(confSearch);
+		lowerBound = new LowerBoundCalculator(confsSplitter.makeStream(), ecalc);
+		upperBound = new UpperBoundCalculator(confsSplitter.makeStream(), numConfsBeforePruning);
 	}
 	
 	@Override
@@ -101,7 +105,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 	}
 	
 	@Override
-	public void addConfListener(ConfListener val) {
+	public void setConfListener(ConfListener val) {
 		confListener = val;
 	}
 	
@@ -126,7 +130,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 	}
 
 	@Override
-	public void init(ConfSearch confSearch, BigInteger numConfsBeforePruning, double targetEpsilon) {
+	public void init(double targetEpsilon) {
 
 		this.targetEpsilon = targetEpsilon;
 
@@ -135,12 +139,6 @@ public class SimplePartitionFunction implements PartitionFunction {
 
 		// don't explicitly check the pruned confs, just lump them together with the un-enumerated confs
 		values.pstar = BigDecimal.ZERO;
-
-		// split the confs between the bound calculators
-		ConfSearch.MultiSplitter confsSplitter = new ConfSearch.MultiSplitter(confSearch);
-		lowerBound = new LowerBoundCalculator(confsSplitter.makeStream(), ecalc);
-		lowerBound.confDB = confDB;
-		upperBound = new UpperBoundCalculator(confsSplitter.makeStream(), numConfsBeforePruning);
 	}
 
 	@Override

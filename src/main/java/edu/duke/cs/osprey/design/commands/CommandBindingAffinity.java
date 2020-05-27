@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 
 import java.io.File;
 import java.io.IOException;
@@ -78,12 +79,15 @@ public class CommandBindingAffinity extends RunnableCommand {
                     .build()
                     .calcEnergyMatrix();
 
-            info.confSearchFactory = rcs -> new ConfAStarTree.Builder(energyMatrix, rcs)
-                    .setShowProgress(false)
-                    .build();
+            info.pfuncFactory = (rcs) -> new GradientDescentPfunc(
+                    info.confEcalc,
+                    new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build(),
+                    new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build(),
+                    rcs.getNumConformations()
+            );
         }
 
-        printResults(kstar.run());
+        printResults(kstar.run(energyCalculator.tasks));
         return Main.Success;
     }
 

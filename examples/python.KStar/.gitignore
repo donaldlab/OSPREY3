@@ -1,0 +1,7 @@
+*.tsv
+*.emat
+*.dat
+*.db
+ensemble-*/
+seq.*.pdb
+*.confdb

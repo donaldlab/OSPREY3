@@ -95,7 +95,7 @@ public class PerturbationSelector {
         this.selectLCAs = selectLCAs;
         this.flexibleRes = flexibleRes;
         
-        strand = new Strand.Builder(PDBIO.read(FileTools.readResource(PDBFile)))
+        strand = new Strand.Builder(PDBIO.read(FileTools.readFile(PDBFile)))
             .setTemplateLibrary(templateLib)
             .setResidues(termini)
             .build();

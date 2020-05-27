@@ -126,11 +126,17 @@ public class ConfEnergyCalculator {
 	protected final AtomicLong numConfDBReads = new AtomicLong(0L);
 
 	protected ConfEnergyCalculator(SimpleConfSpace confSpace, TaskExecutor tasks) {
-		this(confSpace, null, null, null, false, null, Double.NaN);
+		this.confSpace = confSpace;
+		this.ecalc = null;
+		this.epart = null;
+		this.eref = null;
+		this.addResEntropy = false;
+		this.amat = null;
+		this.approximationErrorBudget = Double.NaN;
+		this.tasks = tasks;
 	}
 
 	protected ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy, ApproximatorMatrix amat, double approximationErrorBudget) {
-
 		this.confSpace = confSpace;
 		this.ecalc = ecalc;
 		this.epart = epart;
@@ -138,7 +144,6 @@ public class ConfEnergyCalculator {
 		this.addResEntropy = addResEntropy;
 		this.amat = amat;
 		this.approximationErrorBudget = approximationErrorBudget;
-
 		this.tasks = ecalc.tasks;
 	}
 

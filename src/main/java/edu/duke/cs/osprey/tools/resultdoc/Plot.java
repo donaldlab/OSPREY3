@@ -316,8 +316,10 @@ public class Plot {
 				c.xtics.set(makeIndexedTics(xlabels));
 			}
 			addInfLabels(Axis.X, c, c.xtics, neginfVals, posinfVals);
-			// negate the rotation here so positive rotations don't clash with the plot
-			c.xtics.rotate.set(-xlabelrotate);
+			if (xlabelrotate != null) {
+				// negate the rotation here so positive rotations don't clash with the plot
+				c.xtics.rotate.set(-xlabelrotate);
+			}
 		} else {
 			c.xtics.hide();
 		}

@@ -1,20 +1,23 @@
 package edu.duke.cs.osprey.design.commands;
 
+
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.design.Main;
 import edu.duke.cs.osprey.design.analysis.CommandAnalysis;
 import edu.duke.cs.osprey.design.analysis.EnergyAnalysisConfListener;
 import edu.duke.cs.osprey.design.analysis.ThermodynamicsConfListener;
 import edu.duke.cs.osprey.design.models.StabilityDesign;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.tools.BigMath;
 
 import java.io.IOException;
@@ -45,6 +48,8 @@ public class CommandPartitionFunction extends RunnableCommand {
     private boolean printDesignInfo;
 
     private ConfEnergyCalculator confEnergyCalc;
+    private PartitionFunction pFunc;
+    private RCs rcs;
 
     @Override
     public int run(JCommander commander, String[] args) {
@@ -97,7 +102,6 @@ public class CommandPartitionFunction extends RunnableCommand {
         var confSpace = delegate.createConfSpace(design.molecule, ffParams);
 
         if (delegate.verifyInput) {
-            System.out.println("The stability design input file is valid.");
             return Main.Success;
         }
 
@@ -119,52 +123,47 @@ public class CommandPartitionFunction extends RunnableCommand {
         confEnergyCalc = new ConfEnergyCalculator.Builder(confSpace, energyCalculator)
                 .build();
 
-        final var sequences = confSpace.seqSpace.getSequences();
-        final var epsilon = delegate.epsilon > 0 ? delegate.epsilon : design.epsilon;
+        /* Contains the confSpace and a pruning matrix */
+        rcs = new RCs(confSpace);
 
-        for (Sequence seq : sequences) {
-            var rc = seq.makeRCs(confSpace);
-            var partitionFnBuilder = new PartitionFunctionFactory(confSpace, confEnergyCalc, design.designName);
-            partitionFnBuilder.setUseGradientDescent();
-            var pfunc = partitionFnBuilder.makePartitionFunctionFor(rc, epsilon);
-            addListeners(pfunc, seq.toString());
-            pfunc.compute(maxNumberConfs > 0 ? maxNumberConfs : Integer.MAX_VALUE);
-            printResults(seq, rc, pfunc);
-        }
+        var epsilon = delegate.epsilon > 0 ? delegate.epsilon : design.epsilon;
+        var energyMatrix = new EnergyMatrix(confSpace);
+        var lowerAStarTree = new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build();
+        var upperAStarTree = new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build();
+        pFunc = new GradientDescentPfunc(confEnergyCalc, lowerAStarTree, upperAStarTree, rcs.getNumConformations());
+        pFunc.init(epsilon);
 
+        addListeners();
+        pFunc.compute(maxNumberConfs > 0 ? maxNumberConfs : Integer.MAX_VALUE);
+
+        printResults();
         return Main.Success;
     }
 
-    private void printResults(Sequence seq, RCs rc, PartitionFunction pf) {
+    private void printResults() {
         var numberFormat = NumberFormat.getPercentInstance();
-        var percentEvaluated = numberFormat.format(new BigMath(PartitionFunction.decimalPrecision).set(pf.getNumConfsEvaluated()).div(rc.getNumConformations().doubleValue()).get());
-        System.out.println(String.format("Evaluated %s of conf space (%d / %s)", percentEvaluated, pf.getNumConfsEvaluated(), rc.getNumConformations().toString()));
-        System.out.println(seq.toString(Sequence.Renderer.AssignmentMutations));
-        System.out.println(pf.makeResult());
+        var percentEvaluated = numberFormat.format(new BigMath(PartitionFunction.decimalPrecision).set(pFunc.getNumConfsEvaluated()).div(rcs.getNumConformations().doubleValue()).get());
+
+        System.out.println(String.format("Evaluated %s of conf space (%d / %s)", percentEvaluated, pFunc.getNumConfsEvaluated(), rcs.getNumConformations().toString()));
+        System.out.println(pFunc.makeResult());
 
         for (var listener : confListeners) {
             listener.printResults();
         }
     }
 
-    private void addListeners(PartitionFunction pfunc, String sequenceDescription) {
-
-        for (var listener : delegate.makeListeners(pfunc, confEnergyCalc, sequenceDescription)) {
-            pfunc.addConfListener(listener);
-            confListeners.add(listener);
-        }
-
+    private void addListeners() {
         if (!captureEnergies.isEmpty()) {
-            final var listener = new EnergyAnalysisConfListener(confEnergyCalc, captureEnergies);
+            final var oneIndexed = captureEnergies.stream().map(x -> x - 1).collect(Collectors.toList());
+            final var listener = new EnergyAnalysisConfListener(confEnergyCalc, oneIndexed);
             confListeners.add(listener);
-            pfunc.addConfListener(listener);
+            pFunc.setConfListener(listener);
         }
 
         if (captureThermodynamics) {
             final var listener = new ThermodynamicsConfListener();
             confListeners.add(listener);
-            pfunc.addConfListener(listener);
+            pFunc.setConfListener(listener);
         }
     }
 }
-

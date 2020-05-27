@@ -62,7 +62,7 @@ public class BoltzmannCalculator {
 		return e.exp(-energy/constRT);
 	}
 
-	public double helmholtzFreeEnergy(BigDecimal z) {
+	public double freeEnergy(BigDecimal z) {
 		return -constRT*e.log(z).doubleValue();
 	}
 

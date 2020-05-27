@@ -42,6 +42,7 @@ import edu.duke.cs.osprey.ematrix.NewEPICMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.ematrix.epic.NewEPICMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -250,9 +251,16 @@ public class PrecomputedMatrices {
         
         String matrixFileName = name + "." + type.name() + ".dat";
         //matrix file names are determined by the name of the search problem
-        
+
         if(!loadMatrixFromFile( type, matrixFileName )){
             TupleMatrix<?> matrix = calcMatrix(type);
+
+            // work around to avoid trying to save/load objects that aren't serializable
+            if (matrix instanceof NewEPICMatrix) {
+                epicMat = ((NewEPICMatrix) matrix);
+                return;
+            }
+
             ObjectIO.writeObject( matrix, matrixFileName );
             loadMatrixFromFile( type, matrixFileName );
         }
