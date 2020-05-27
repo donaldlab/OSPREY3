@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.BBKStar;
 import edu.duke.cs.osprey.kstar.KStar;
 import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 
@@ -61,33 +62,45 @@ public class CommandBindingAffinity extends RunnableCommand {
         var parallelism = delegate.getParallelism();
 
         /* Used to calculate energies of a molecule, also used to minimize the molecule */
-        var energyCalculator = new EnergyCalculator.Builder(complexConfSpace, forcefieldParams)
+        var minimizingECalc = new EnergyCalculator.Builder(complexConfSpace, forcefieldParams)
                 .setParallelism(parallelism)
                 .build();
 
+        var rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingECalc)
+                .setIsMinimizing(false)
+                .build();
+
         var epsilon = delegate.epsilon > 0 ? delegate.epsilon : design.epsilon;
-        var kstar = new KStar(confSpace1, confSpace2, complexConfSpace, makeKStarSettings(epsilon));
+        var bbkstar = new BBKStar(confSpace1, confSpace2, complexConfSpace, makeKStarSettings(epsilon), makeBBKStarSettings());
 
-        for (var info : kstar.confSpaceInfos()) {
-            var referenceEnergies = new SimpleReferenceEnergies.Builder(((SimpleConfSpace) info.confSpace), energyCalculator).build();
+        for (var info : bbkstar.confSpaceInfos()) {
 
-            info.confEcalc = new ConfEnergyCalculator.Builder(((SimpleConfSpace) info.confSpace), energyCalculator)
+            var referenceEnergies = new SimpleReferenceEnergies.Builder(((SimpleConfSpace) info.confSpace), minimizingECalc).build();
+            var confECalcMinimized = new ConfEnergyCalculator.Builder(((SimpleConfSpace) info.confSpace), minimizingECalc)
                     .setReferenceEnergies(referenceEnergies)
                     .build();
 
-            var energyMatrix = new SimplerEnergyMatrixCalculator.Builder(((SimpleConfSpace) info.confSpace), energyCalculator)
+            var minimizedEnergyMatrix = new SimplerEnergyMatrixCalculator.Builder(((SimpleConfSpace) info.confSpace), minimizingECalc)
                     .build()
                     .calcEnergyMatrix();
 
+            var rigidEnergyMatrix = new SimplerEnergyMatrixCalculator.Builder(((SimpleConfSpace) info.confSpace), rigidEcalc)
+                    .build()
+                    .calcEnergyMatrix();
+
+            info.confEcalcMinimized = confECalcMinimized;
+            info.confSearchFactoryMinimized = rcs -> new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setTraditional().build();
+            info.confSearchFactoryRigid = rcs -> new ConfAStarTree.Builder(rigidEnergyMatrix, rcs).setTraditional().build();
+
             info.pfuncFactory = (rcs) -> new GradientDescentPfunc(
-                    info.confEcalc,
-                    new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build(),
-                    new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build(),
+                    info.confEcalcMinimized,
+                    new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setTraditional().build(),
+                    new ConfAStarTree.Builder(minimizedEnergyMatrix, rcs).setTraditional().build(),
                     rcs.getNumConformations()
             );
         }
 
-        printResults(kstar.run(energyCalculator.tasks));
+        printResults(bbkstar.run(minimizingECalc.tasks));
         return Main.Success;
     }
 
@@ -104,6 +117,10 @@ public class CommandBindingAffinity extends RunnableCommand {
                 .setEpsilon(epsilon)
                 .addScoreConsoleWriter()
                 .build();
+    }
+
+    private BBKStar.Settings makeBBKStarSettings() {
+        return new BBKStar.Settings.Builder().build();
     }
 
     static Optional<AffinityDesign> parseAndValidate(File designSpec) {
