@@ -408,6 +408,7 @@ public class MinLMFE implements Sofea.Criterion {
 			}
 		}
 
+		/*
 		// if all possible sequences are already top, we're done
 		BigInteger numTop = BigInteger.valueOf(topSequences.sequences.size());
 		BigInteger numUnstable = BigInteger.valueOf(unstableSequences.size());
@@ -417,6 +418,8 @@ public class MinLMFE implements Sofea.Criterion {
 			return Satisfied.Terminate;
 
 		}
+
+		 */
 
 		// if we don't have enough sequences, keep going
 		if (topSequences.nextLowest == null) {
