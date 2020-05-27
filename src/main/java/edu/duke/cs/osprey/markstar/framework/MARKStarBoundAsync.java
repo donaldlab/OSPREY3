@@ -139,7 +139,7 @@ public class MARKStarBoundAsync implements PartitionFunction {
     }
 
     @Override
-    public void addConfListener(ConfListener val) {
+    public void setConfListener(ConfListener val) {
 
     }
 

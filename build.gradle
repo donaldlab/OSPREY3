@@ -38,6 +38,9 @@ dependencies {
     implementation 'org.tomlj:tomlj:1.0.0'
     implementation 'org.joml:joml:1.9.19'
     implementation 'org.tukaani:xz:1.8'
+    implementation "ch.qos.logback:logback-classic:1.2.3"
+    implementation "org.slf4j:jul-to-slf4j:1.7.30"
+    compile "com.hazelcast:hazelcast:4.0"
     compile "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
     annotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
 

@@ -4,17 +4,20 @@ package edu.duke.cs.osprey.design.commands;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.design.Main;
 import edu.duke.cs.osprey.design.analysis.CommandAnalysis;
 import edu.duke.cs.osprey.design.analysis.EnergyAnalysisConfListener;
 import edu.duke.cs.osprey.design.analysis.ThermodynamicsConfListener;
 import edu.duke.cs.osprey.design.models.StabilityDesign;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.KStar;
+import edu.duke.cs.osprey.kstar.pfunc.GradientDescentPfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunctionFactory;
 import edu.duke.cs.osprey.tools.BigMath;
 
 import java.io.IOException;
@@ -124,9 +127,12 @@ public class CommandPartitionFunction extends RunnableCommand {
         rcs = new RCs(confSpace);
 
         var epsilon = delegate.epsilon > 0 ? delegate.epsilon : design.epsilon;
-        var partitionFnBuilder = new PartitionFunctionFactory(confSpace, confEnergyCalc, design.designName);
-        partitionFnBuilder.setUseGradientDescent();
-        pFunc = partitionFnBuilder.makePartitionFunctionFor(rcs, epsilon);
+        var energyMatrix = new EnergyMatrix(confSpace);
+        var lowerAStarTree = new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build();
+        var upperAStarTree = new ConfAStarTree.Builder(energyMatrix, rcs).setTraditional().build();
+        pFunc = new GradientDescentPfunc(confEnergyCalc, lowerAStarTree, upperAStarTree, rcs.getNumConformations());
+        pFunc.init(epsilon);
+
         addListeners();
         pFunc.compute(maxNumberConfs > 0 ? maxNumberConfs : Integer.MAX_VALUE);
 
@@ -151,13 +157,13 @@ public class CommandPartitionFunction extends RunnableCommand {
             final var oneIndexed = captureEnergies.stream().map(x -> x - 1).collect(Collectors.toList());
             final var listener = new EnergyAnalysisConfListener(confEnergyCalc, oneIndexed);
             confListeners.add(listener);
-            pFunc.addConfListener(listener);
+            pFunc.setConfListener(listener);
         }
 
         if (captureThermodynamics) {
             final var listener = new ThermodynamicsConfListener();
             confListeners.add(listener);
-            pFunc.addConfListener(listener);
+            pFunc.setConfListener(listener);
         }
     }
 }

@@ -78,9 +78,12 @@ public class CommandBindingAffinity extends RunnableCommand {
                     .build()
                     .calcEnergyMatrix();
 
+            // TODO: Fix this
+            /*
             info.confSearchFactory = rcs -> new ConfAStarTree.Builder(energyMatrix, rcs)
                     .setShowProgress(false)
                     .build();
+             */
         }
 
         printResults(kstar.run());

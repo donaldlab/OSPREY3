@@ -25,10 +25,12 @@ public class EnergyAnalysisConfListener implements CommandAnalysis {
         confs.add((ConfSearch.EnergiedConf) conf);
     }
 
+    /*
     @Override
     public void finished(PartitionFunction pfunc) {
 
     }
+     */
 
     ConfAnalyzer.ConfAnalysis analyzeConf(int idx) {
         final var analyzer = new ConfAnalyzer(eCalc);

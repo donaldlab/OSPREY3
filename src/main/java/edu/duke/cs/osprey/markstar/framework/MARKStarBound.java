@@ -139,7 +139,7 @@ public class MARKStarBound implements PartitionFunction.WithConfDB {
     }
 
     @Override
-    public void addConfListener(ConfListener val) {
+    public void setConfListener(ConfListener val) {
 
     }
 

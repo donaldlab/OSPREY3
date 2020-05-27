@@ -103,7 +103,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	}
 	
 	@Override
-	public void addConfListener(ConfListener val) {
+	public void setConfListener(ConfListener val) {
 		confListener = val;
 	}
 	

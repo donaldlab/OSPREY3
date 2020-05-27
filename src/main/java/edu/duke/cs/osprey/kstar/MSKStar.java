@@ -72,7 +72,7 @@ public class MSKStar {
 	 */
 	public static class State {
 
-		public PartitionFunctionFactory pfuncFactory;
+		public KStar.PfuncFactory pfuncFactory;
 
 		public static class InitException extends RuntimeException {
 
@@ -251,7 +251,7 @@ public class MSKStar {
 					ubcalc.run(upperBatchSize);
 
 					// add the bound to our estimate of the objective LMFE
-					lowerBound += wstate.weight*bcalc.helmholtzFreeEnergy(ubcalc.totalBound);
+					lowerBound += wstate.weight*bcalc.freeEnergy(ubcalc.totalBound);
 
 				} else {
 
@@ -263,7 +263,7 @@ public class MSKStar {
 					}
 
 					// add the weighted bound to our estimate of the objective LMFE
-					lowerBound += wstate.weight*bcalc.helmholtzFreeEnergy(lbcalc.weightedEnergySum);
+					lowerBound += wstate.weight*bcalc.freeEnergy(lbcalc.weightedEnergySum);
 				}
 			}
 
@@ -341,11 +341,15 @@ public class MSKStar {
 
 			// init pfunc calculation
 			RCs rcs = sequence.makeRCs(state.confSpace);
-			pfunc = state.pfuncFactory.makePartitionFunctionFor(rcs, epsilon);
+			pfunc = state.pfuncFactory.make(rcs);
 
+			/* TODO: update MSK* to new ConfDB API
 			if (confTable != null) {
 				PartitionFunction.WithConfTable.setOrThrow(pfunc, confTable);
 			}
+			*/
+
+			pfunc.init(epsilon);
 		}
 
 		void refineBounds() {
@@ -630,6 +634,8 @@ public class MSKStar {
 	 * searches all sequences within the objective window
 	 */
 	public List<SequenceInfo> findBestSequences(int numSequences) {
+
+		if (true) throw new UnsupportedOperationException("This MSK* implementation doesn't work yet, don't use it!");
 
 		// reset any previous state
 		stateConfsCache.clear();

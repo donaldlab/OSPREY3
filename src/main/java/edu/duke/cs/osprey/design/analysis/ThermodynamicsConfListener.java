@@ -29,12 +29,14 @@ public class ThermodynamicsConfListener implements CommandAnalysis {
         confs.add((ConfSearch.EnergiedConf) conf);
     }
 
+    /*
     @Override
     public void finished(PartitionFunction pfunc) {
         var values = pfunc.getValues();
         pFuncUpperBound = values.calcUpperBound();
         pFuncLowerBound = pfunc.getValues().calcLowerBound();
     }
+     */
 
     private static BigMath makeBigMath() {
         return new BigMath(PartitionFunction.decimalPrecision);

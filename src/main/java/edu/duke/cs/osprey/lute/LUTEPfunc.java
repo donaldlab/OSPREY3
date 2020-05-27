@@ -88,7 +88,7 @@ public class LUTEPfunc implements PartitionFunction.WithConfDB {
 	}
 
 	@Override
-	public void addConfListener(ConfListener val) {
+	public void setConfListener(ConfListener val) {
 		confListener = val;
 	}
 
