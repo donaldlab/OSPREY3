@@ -47,12 +47,13 @@ dependencies {
     }
 
     // JCUDA stuff, see https://github.com/jcuda/jcuda-main/blob/master/USAGE.md#using-jcuda-with-gradle
-    implementation('org.jcuda:jcuda:0.8.0') {
+    implementation('org.jcuda:jcuda:10.2.0') {
             transitive = false
     }
+
     runtime 'org.jogamp.gluegen:gluegen-rt:2.3.2:natives-linux-amd64'
     runtime 'org.jogamp.jocl:jocl:2.3.2:natives-linux-amd64'
-    runtime 'org.jcuda:jcuda-natives:0.8.0:linux-x86_64'
+    runtime 'org.jcuda:jcuda-natives:10.2.0:linux-x86_64'
 
     compileOnly 'org.jetbrains:annotations:17.0.0'
 
