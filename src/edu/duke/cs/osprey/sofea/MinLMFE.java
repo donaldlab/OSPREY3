@@ -408,18 +408,23 @@ public class MinLMFE implements Sofea.Criterion {
 			}
 		}
 
-		/*
 		// if all possible sequences are already top, we're done
 		BigInteger numTop = BigInteger.valueOf(topSequences.sequences.size());
 		BigInteger numUnstable = BigInteger.valueOf(unstableSequences.size());
 		BigInteger numSeqs = confSpace.seqSpace.getNumSequences();
-		if (numTop.add(numUnstable).compareTo(numSeqs) >= 0) {
+		Function<Sofea.SeqResult,Boolean> seqFinished = result ->
+				confSpace.states.stream().allMatch(state -> {
+					if (state.isSequenced) {
+						return finishedSequenced.contains(new StateSeq(state, result.sequence));
+					} else {
+						return finishedUnsequenced.contains(state.unsequencedIndex);
+					}
+				});
+		boolean allPrecise = topSequences.sequences.stream().allMatch(result -> seqFinished.apply(result));
+		if (numTop.add(numUnstable).compareTo(numSeqs) >= 0 && allPrecise) {
 			log("All sequences found, terminating");
 			return Satisfied.Terminate;
-
 		}
-
-		 */
 
 		// if we don't have enough sequences, keep going
 		if (topSequences.nextLowest == null) {
@@ -427,14 +432,6 @@ public class MinLMFE implements Sofea.Criterion {
 		}
 
 		// if all top sequences are sufficiently precise, we're done (because no more refinement is possible)
-		Function<Sofea.SeqResult,Boolean> seqFinished = result ->
-			confSpace.states.stream().allMatch(state -> {
-				if (state.isSequenced) {
-					return finishedSequenced.contains(new StateSeq(state, result.sequence));
-				} else {
-					return finishedUnsequenced.contains(state.unsequencedIndex);
-				}
-			});
 		boolean allFinished = seqFinished.apply(topSequences.nextLowest)
 			&& topSequences.sequences.stream().allMatch(result -> seqFinished.apply(result));
 		if (allFinished) {
