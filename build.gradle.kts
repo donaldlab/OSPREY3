@@ -268,8 +268,8 @@ val python3 by lazy {
 
 // get the default python, prefer v3 over v2
 val defaultPython by lazy {
-	python3
-		?: python2
+	python2
+		?: python3
 		?: throw Error("No python detected")
 }
 
@@ -466,7 +466,8 @@ tasks {
 			"install",
 			"--user", "--editable",
 			".", // path to package to install, ie osprey
-			"--find-links=$pythonWheelhouseDir" // add a wheelhouse dir to find our Jpype-py2
+			"--find-links=$pythonWheelhouseDir",// add a wheelhouse dir to find our Jpype-py2
+			"--no-index"
 		)
 		doLast {
 			Files.createDirectories(pythonBuildDir)
