@@ -6,7 +6,6 @@ import edu.duke.cs.osprey.confspace.compiled.AssignedCoords;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.parallelism.TaskExecutor;
 
 import java.util.List;
 
@@ -37,7 +36,6 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 
 
 	ConfSpace confSpace();
-	TaskExecutor tasks();
 
 	/**
 	 * Build the conformation and calculate its rigid (ie unminimized) energy, using the provided interactions.
@@ -98,12 +96,12 @@ public interface ConfEnergyCalculator extends AutoCloseable {
 	/**
 	 * Builds the appropriate conformation energy calculator based on the desired parallelism.
 	 */
-	static ConfEnergyCalculator build(ConfSpace confSpace, Parallelism parallelism, TaskExecutor tasks) {
+	static ConfEnergyCalculator build(ConfSpace confSpace, Parallelism parallelism) {
 		if (parallelism.numGpus > 0) {
 			// TODO
 			throw new UnsupportedOperationException("GPU energy calculation not implement yet");
 		} else {
-			return new CPUConfEnergyCalculator(confSpace, tasks);
+			return new CPUConfEnergyCalculator(confSpace);
 		}
 	}
 }

@@ -66,7 +66,7 @@ def setNativesDir(path):
 	_nativesDir = path
 
 
-def start(jrePath, heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, garbageSizeMiB=None, allowRemoteManagement=False):
+def start(jrePath, heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, garbageSizeMiB=None, allowRemoteManagement=False, attachJvmDebugger=False):
 
 	# if no path to a JRE was given, assume Java is installed somewhere,
 	# and try to determine the path automatically
@@ -94,6 +94,13 @@ def start(jrePath, heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, 
 		args.append('-Dcom.sun.management.jmxremote.rmi.port=9011')
 		args.append('-Djava.rmi.server.hostname=localhost')
 		args.append('-Dcom.sun.management.jmxremote.local.only=false')
+	if attachJvmDebugger:
+		# See https://jpype.readthedocs.io/en/latest/userguide.html#attaching-a-debugger for how to attach
+		# a java debugger to the running process
+		args.append("-Xdebug")
+		args.append("-Xnoagent")
+		args.append("-Xrunjdwp:transport=dt_socket,server=y,address=12999,suspend=n")
+
 
 	# start the JVM
 	try:
@@ -101,6 +108,11 @@ def start(jrePath, heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=None, 
 	except TypeError:
 		# JPype-py2 doesn't support the convertStrings kwarg
 		jpype.startJVM(*args)
+
+	if attachJvmDebugger:
+	    input("Attach the JVM debugger now, set your breakpoints, and hit [enter] to continue:")
+
+	
 
 	# set up class factories
 	global c

@@ -100,7 +100,7 @@ def _java_aware_excepthook(exctype, value, traceback):
 		pass
 
 
-def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSizeMiB=128, allowRemoteManagement=False):
+def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSizeMiB=128, allowRemoteManagement=False, attachJvmDebugger=False):
 	'''
 	Starts the Java Virtual Machine (JVM) that runs Osprey's computation libraries.
 
@@ -182,7 +182,7 @@ def start(heapSizeMiB=1024, enableAssertions=False, stackSizeMiB=16, garbageSize
 		jre_path = None
 
 	# start the jvm
-	jvm.start(jre_path, heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB, allowRemoteManagement)
+	jvm.start(jre_path, heapSizeMiB, enableAssertions, stackSizeMiB, garbageSizeMiB, allowRemoteManagement, attachJvmDebugger)
 
 	# set up class factories
 	global c

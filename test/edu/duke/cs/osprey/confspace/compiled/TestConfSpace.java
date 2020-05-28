@@ -10,7 +10,6 @@ import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -210,20 +209,17 @@ public class TestConfSpace {
 		assert2RL0WildType(mol);
 
 		// check the rigid energy
-		try (TaskExecutor tasks = new TaskExecutor()) {
+		ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace);
 
-			ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace, tasks);
+		List<PosInter> inters = PosInterDist.all(confSpace, null, conf);
+		double energy = ecalc.calcEnergy(conf, inters);
 
-			List<PosInter> inters = PosInterDist.all(confSpace, null, conf);
-			double energy = ecalc.calcEnergy(conf, inters);
-
-			// This energy is off from the classic OSPREY's energy by about 8.5 kcal/mol.
-			// As far as I can tell, the difference in energy is entirely due to differences in
-			// electrostatic charges (with premultiplied Coulomb factors)
-			// between osprey classic and AmberTools19.
-			// So this energy value is as correct as we're going to get.
-			assertThat(energy, isAbsolutely(-1556.9551045257604, 1e-9));
-		}
+		// This energy is off from the classic OSPREY's energy by about 8.5 kcal/mol.
+		// As far as I can tell, the difference in energy is entirely due to differences in
+		// electrostatic charges (with premultiplied Coulomb factors)
+		// between osprey classic and AmberTools19.
+		// So this energy value is as correct as we're going to get.
+		assertThat(energy, isAbsolutely(-1556.9551045257604, 1e-9));
 	}
 
 	@Test

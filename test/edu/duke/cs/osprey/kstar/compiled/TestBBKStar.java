@@ -78,14 +78,14 @@ public class TestBBKStar {
 
 				PosInterDist posInterDist = PosInterDist.DesmetEtAl1992;
 				boolean includeStaticStatic = true;
-				ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace, tasks);
+				ConfEnergyCalculator ecalc = new CPUConfEnergyCalculator(confSpace);
 
 				SimpleReferenceEnergies eref = new ErefCalculator.Builder(ecalc)
 					.setMinimize(true)
 					.build()
 					.calc();
 
-				info.confEcalcMinimized = new ConfEnergyCalculatorAdapter.Builder(ecalc)
+				info.confEcalcMinimized = new ConfEnergyCalculatorAdapter.Builder(ecalc, tasks)
 					.setPosInterDist(posInterDist)
 					.setReferenceEnergies(eref)
 					.setMinimize(true)

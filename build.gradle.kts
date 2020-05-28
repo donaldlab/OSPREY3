@@ -209,11 +209,15 @@ val os = OperatingSystem.current()
 
 fun isCommand(cmd: String) =
 	exec {
+		val output = ByteArrayOutputStream()
 		isIgnoreExitValue = true
+		standardOutput = output
+		errorOutput = output
+
 		when (os) {
 			OperatingSystem.MAC_OS,
-			OperatingSystem.LINUX -> commandLine("/bin/sh", "-c", "type $cmd > /dev/null")
-			OperatingSystem.WINDOWS -> commandLine("where", "/q", cmd)
+			OperatingSystem.LINUX -> commandLine("which", cmd)
+			OperatingSystem.WINDOWS -> commandLine("powershell", "get-command", cmd)
 			else -> throw Error("unrecognized operating system: $os")
 		}
 	}.exitValue == 0
@@ -242,7 +246,7 @@ class Python(val cmd: String) {
 	}
 
 	val pipCmd by lazy {
-		"pip$version".takeIf { isCommand(it) }
+		"-m pip"
 	}
 
 	override fun toString() = "Python $version"
@@ -250,9 +254,12 @@ class Python(val cmd: String) {
 
 // find out what pythons are available
 val pythons by lazy {
+	val python3 = findProperty("OSPREY_PYTHON3")?.toString() ?: "python3"
+	val python2 = findProperty("OSPREY_PYTHON2")?.toString() ?: "python2"
+
 	listOf(
-		Python("python3"),
-		Python("python2"),
+		Python(python3),
+		Python(python2),
 		Python("python")
 	)
 	.filter { it.version != null }
@@ -275,8 +282,8 @@ val defaultPython by lazy {
 
 println("""
 	|         Pythons:  ${pythons.map { it.cmd }}
-	|        Python 2:  ${if (python2 != null) "X" else ""}
-	|        Python 3:  ${if (python3 != null) "X" else ""}
+	|        Python 2:  ${if (python2 != null) "✓" else "✗"}
+	|        Python 3:  ${if (python3 != null) "✓" else "✗"}
 	|  default Python:  $defaultPython = ${defaultPython.cmd}
 """.trimMargin())
 
@@ -404,18 +411,15 @@ tasks {
 
 			// read the version number
 			val versionFile = projectDir.resolve("build/resources/main/config/version").toFile()
-			var version = versionFile.readText()
+			var version = versionFile.readText().trim()
 
-			// append the travis build number if available
-			val travisBuildNumber = System.getenv("TRAVIS_BUILD_NUMBER")
-			if (travisBuildNumber != null) {
-				version += "-b$travisBuildNumber"
-
-				// otherwise, use a "-dev" build number
+			// append the CI build ID, if available
+			version += if (hasProperty("AZURE_BUILD_ID")) {
+				val versionId = property("AZURE_BUILD_ID")
+				".$versionId"
 			} else {
-				version += "-dev"
+				"-dev"
 			}
-
 			versionFile.writeText(version)
 		}
 	}
@@ -597,9 +601,9 @@ tasks {
 			writeScript(
 				pythonBuildDir, "install",
 				"""
-					|pip2 uninstall -y osprey JPype-py2
-					|pip2 install --user 'numpy>=1.6,<1.16'
-					|pip2 install --user osprey --no-index --find-link=wheelhouse --pre
+					|python -m pip uninstall -y osprey JPype-py2
+					|python -m pip install --user 'numpy>=1.6,<1.16'
+					|python -m pip install --user osprey --no-index --find-link=wheelhouse --pre
 				""".trimMargin()
 			)
 		}
@@ -612,9 +616,8 @@ tasks {
 			writeScript(
 				pythonBuildDir, "install",
 				"""
-					|pip3 uninstall -y osprey
-					|pip3 install --user 'numpy>=1.6,<1.16'
-					|pip3 install --user osprey --find-link=wheelhouse --pre
+					|python -m pip uninstall -y osprey
+					|python -m pip install --user osprey --find-link=wheelhouse --pre
 				""".trimMargin()
 			)
 		}
@@ -626,7 +629,7 @@ tasks {
 		doLast {
 			writeScript(
 				pythonBuildDir, "uninstall",
-				"pip2 uninstall -y osprey JPype-py2"
+				"python -m pip uninstall -y osprey JPype-py2"
 			)
 		}
 	}
@@ -637,7 +640,7 @@ tasks {
 		doLast {
 			writeScript(
 				pythonBuildDir, "uninstall",
-				"pip3 uninstall -y osprey"
+				"python -m pip uninstall -y osprey"
 			)
 		}
 	}
