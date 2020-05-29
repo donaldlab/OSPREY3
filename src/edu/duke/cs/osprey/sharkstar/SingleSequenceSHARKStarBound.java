@@ -110,61 +110,8 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
 
     @Override
     public void compute(int maxNumConfs) {
-        try {
             multisequenceBound.computeForSequence(maxNumConfs, this);
             updateBound();
-        }catch(UpperBoundException exception){
-            System.out.println("Gross debugging incoming!");
-            exception.offendingNode.dumpHistory(sequence);
-            MultiSequenceSHARKStarNode.Node confNode = exception.offendingNode.getConfSearchNode();
-
-            System.out.println("PRINTING CORRECTIONS:");
-            this.multisequenceBound.correctionMatrix.writeCorrectionsToFile("test_corrections.txt");
-
-            try (ObjectPool.Checkout<MultiSequenceSHARKStarBound.ScoreContext> checkout = multisequenceBound.contexts.autoCheckout()) {
-                MultiSequenceSHARKStarBound.ScoreContext context = checkout.get();
-                confNode.index(context.index);
-
-                double confCorrection = multisequenceBound.correctionMatrix.confE(confNode.assignments);
-                double gscore = context.partialConfLowerBoundScorer.calc(context.index, this.seqRCs);
-                double hscore = context.lowerBoundScorer.calc(context.index, this.seqRCs);
-
-                System.out.println(String.format("Parent conf: %s with gscore: %.3f, hscore: %.3f, and corrected gscore: %.3f",
-                        confNode.confToString(), gscore, hscore, confCorrection));
-
-                for (MultiSequenceSHARKStarNode child : exception.offendingNode.getChildren(this.sequence)){
-                    MultiSequenceSHARKStarNode.Node childConfNode = child.getConfSearchNode();
-                    childConfNode.index(context.index);
-
-                    confCorrection = multisequenceBound.correctionMatrix.confE(childConfNode.assignments);
-                    gscore = context.partialConfLowerBoundScorer.calc(context.index, this.seqRCs);
-                    hscore = context.lowerBoundScorer.calc(context.index, this.seqRCs);
-                    double minEnergy = 0.0;
-                    if(child.isMinimized(this.sequence)){
-                        minEnergy = child.getConfLowerBound(sequence);
-                    }
-
-                    System.out.println(String.format("Child conf: %s with gscore: %.3f, hscore: %.3f, and corrected gscore: %.3f, minimEnergy: %.3f",
-                            childConfNode.confToString(), gscore, hscore, confCorrection, minEnergy));
-                }
-
-            }
-            try {
-                //Serialize and write the corrections matrix
-                String filename = String.format("%s.correctionMatrix.emat",multisequenceBound.stateName);
-                FileOutputStream file = new FileOutputStream(filename);
-                ObjectOutputStream out = new ObjectOutputStream(file);
-
-                out.writeObject(multisequenceBound.correctionMatrix);
-                out.close();
-                file.close();
-            }catch (IOException e){
-                System.err.println(e.getMessage());
-            }
-
-
-            throw exception;
-        }
         if (getSequenceEpsilon() < multiSequenceSHARKStarBound.targetEpsilon) {
             setStatus(Status.Estimated);
             if (values.qstar.compareTo(BigDecimal.ZERO) == 0) {
