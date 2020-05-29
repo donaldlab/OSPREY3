@@ -882,5 +882,23 @@ public class TestSHARKStarBound extends TestBase {
         bound.init(0.90);
         bound.compute();
     }
+
+    @Test
+    public void testComputeFlexible(){
+        SimpleConfSpace confSpace = make1CC8MutableContinuous();
+        Sequence wildType = confSpace.makeWildTypeSequence();
+        MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.90, null, null);
+        bound.init(0.90);
+        //PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
+    }
+
+    @Test
+    public void testComputeFlexibleMARK(){
+        SimpleConfSpace confSpace = make1CC8MutableContinuous().makeFlexibleCopy();
+        Sequence wildType = confSpace.makeWildTypeSequence();
+        MARKStarBound bound= makeMARKStarPfuncForConfSpace(confSpace, wildType, 0.90);
+        bound.init(0.90);
+        bound.compute();
+    }
 }
 
