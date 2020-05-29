@@ -45,6 +45,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
 
@@ -72,12 +73,18 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
         int numNodes = 0;
         Stopwatch loopWatch = new Stopwatch();
         loopWatch.start();
+        Stopwatch popQueuesTimer = new Stopwatch();
         Stopwatch internalTime = new Stopwatch();
         Stopwatch leafTime = new Stopwatch();
+        Stopwatch cleanupTime = new Stopwatch();
         double leafTimeSum = 0;
         double internalTimeSum = 0;
+        int numInternals = 0;
+        int numLeaves = 0;
         BigDecimal[] ZSums = new BigDecimal[]{internalZ,leafZ};
+        popQueuesTimer.start();
         populateQueues(queue, internalNodes, leafNodes, internalZ, leafZ, ZSums);
+        popQueuesTimer.stop();
         updateBound();
         debugPrint(String.format("After corrections, bounds are now [%12.6e,%12.6e]",rootNode.getLowerBound(),rootNode.getUpperBound()));
         internalZ = ZSums[0];// MathTools.bigDivide(ZSums[0], new BigDecimal(Math.max(1,internalTimeAverage*internalNodes.size())), PartitionFunction.decimalPrecision);
@@ -85,6 +92,7 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
         System.out.println(String.format("Z Comparison: %12.6e, %12.6e", internalZ, leafZ));
         if(MathTools.isLessThan(internalZ, leafZ)) {
             numNodes = leafNodes.size();
+            numLeaves = numNodes;
             System.out.println("Processing "+numNodes+" leaf nodes...");
             leafTime.reset();
             leafTime.start();
@@ -103,6 +111,7 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
         }
         else {
             numNodes = internalNodes.size();
+            numInternals = numNodes;
             System.out.println("Processing "+numNodes+" internal nodes...");
             internalTime.reset();
             internalTime.start();
@@ -134,7 +143,22 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
         }
         if (epsilonBound <= targetEpsilon)
             return;
+        cleanupTime.start();
         loopCleanup(newNodes, loopWatch, numNodes);
+        cleanupTime.stop();
+
+        try {
+            writer.write(String.format("%f, %f, %d, %f, %d, %f",
+                    popQueuesTimer.getTimeS(),
+                    internalTime.getTimeS(),
+                    numInternals,
+                    leafTime.getTimeS(),
+                    numLeaves,
+                    cleanupTime.getTimeS()
+            ));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

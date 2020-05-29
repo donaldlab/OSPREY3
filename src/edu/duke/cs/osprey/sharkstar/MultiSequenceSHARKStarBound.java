@@ -534,7 +534,6 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             sequenceBound.updateBound();
         }
 
-        Stopwatch loopTimer = new Stopwatch();
         while (sequenceBound.getSequenceEpsilon() > targetEpsilon &&
                 workDone() - previousConfCount < maxNumConfs
                 && isStable(stabilityThreshold, sequenceBound.sequence)) {
@@ -547,7 +546,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                 internalQueueWasEmpty = sequenceBound.internalQueue.isEmpty();
                 rootNode.debugTree(sequenceBound.sequence);
             }
-            loopTimer.reset();
+            Stopwatch loopTimer = new Stopwatch();
             loopTimer.start();
             tightenBoundInPhases(sequenceBound);
             loopTimer.stop();
