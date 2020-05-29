@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.UpdatingEnergyMatrix;
 import edu.duke.cs.osprey.energy.BatchCorrectionMinimizer;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.ResidueForcefieldBreakdown;
 import edu.duke.cs.osprey.gmec.ConfAnalyzer;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -1408,8 +1409,9 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                         ConfSearch.ScoredConf conf = new ConfSearch.ScoredConf(node.assignments, curNode.getConfLowerBound(bound.sequence));
                         ConfAnalyzer.ConfAnalysis analysis = confAnalyzer.analyze(conf);
                         Stopwatch correctionTimer = new Stopwatch().start();
-                        energyMatrixCorrector.computeEnergyCorrection(analysis, conf, bound.getSequenceEpsilon(),
-                                context.batcher);
+                        //energyMatrixCorrector.computeEnergyCorrection(analysis, conf, bound.getSequenceEpsilon(),
+                                //context.batcher);
+                        computeEnergyCorrectionWithoutBatcher(analysis, conf, context.ecalc);
 
                         double energy = analysis.epmol.energy;
                         double newConfUpper = energy;
@@ -1551,6 +1553,99 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         return Arrays.stream(Thread.currentThread().getStackTrace())
                 .map(Object::toString)
                 .collect(Collectors.joining("\n"));
+    }
+
+    private void computeEnergyCorrectionWithoutBatcher(ConfAnalyzer.ConfAnalysis analysis, ConfSearch.ScoredConf conf,
+                                         ConfEnergyCalculator ecalc) {
+        if(conf.getAssignments().length < 3)
+            return;
+        //System.out.println("Analysis:"+analysis);
+        EnergyMatrix energyAnalysis = analysis.breakdownEnergyByPosition(ResidueForcefieldBreakdown.Type.All);
+        EnergyMatrix scoreAnalysis = analysis.breakdownScoreByPosition(minimizingEmat);
+        Stopwatch correctionTime = new Stopwatch().start();
+        //System.out.println("Energy Analysis: "+energyAnalysis);
+        //System.out.println("Score Analysis: "+scoreAnalysis);
+        EnergyMatrix diff = energyAnalysis.diff(scoreAnalysis);
+        //System.out.println("Difference Analysis " + diff);
+        List<TupE> sortedPairwiseTerms2 = new ArrayList<>();
+        for (int pos = 0; pos < diff.getNumPos(); pos++)
+        {
+            for (int rc = 0; rc < diff.getNumConfAtPos(pos); rc++)
+            {
+                for (int pos2 = 0; pos2 < diff.getNumPos(); pos2++)
+                {
+                    for (int rc2 = 0; rc2 < diff.getNumConfAtPos(pos2); rc2++)
+                    {
+                        if(pos >= pos2)
+                            continue;
+                        double sum = 0;
+                        sum+=diff.getOneBody(pos, rc);
+                        sum+=diff.getPairwise(pos, rc, pos2, rc2);
+                        sum+=diff.getOneBody(pos2,rc2);
+                        TupE tupe = new TupE(new RCTuple(pos, rc, pos2, rc2), sum);
+                        sortedPairwiseTerms2.add(tupe);
+                    }
+                }
+            }
+        }
+        Collections.sort(sortedPairwiseTerms2);
+
+        double threshhold = 0.1;
+        double minDifference = 0.9;
+        double triplethreshhold = 0.3;
+        double maxDiff = sortedPairwiseTerms2.get(0).E;
+        for(int i = 0; i < sortedPairwiseTerms2.size(); i++)
+        {
+            TupE tupe = sortedPairwiseTerms2.get(i);
+            double pairDiff = tupe.E;
+            if(pairDiff < minDifference &&  maxDiff - pairDiff > threshhold)
+                continue;
+            maxDiff = Math.max(maxDiff, tupe.E);
+            int pos1 = tupe.tup.pos.get(0);
+            int pos2 = tupe.tup.pos.get(1);
+            int localMinimizations = 0;
+            for(int pos3 = 0; pos3 < diff.getNumPos(); pos3++) {
+                if (pos3 == pos2 || pos3 == pos1)
+                    continue;
+                RCTuple tuple = makeTuple(conf, pos1, pos2, pos3);
+                double tupleBounds = rigidEmat.getInternalEnergy(tuple) - minimizingEmat.getInternalEnergy(tuple);
+                if(tupleBounds < triplethreshhold)
+                    continue;
+                minList.set(tuple.size()-1,minList.get(tuple.size()-1)+1);
+                computeDifference(tuple, minimizingEcalc);
+                localMinimizations++;
+            }
+            numPartialMinimizations+=localMinimizations;
+            progress.reportPartialMinimization(localMinimizations, 0.0);
+        }
+        correctionTime.stop();
+        ecalc.tasks.waitForFinish();
+    }
+
+    private RCTuple makeTuple(ConfSearch.ScoredConf conf, int... positions) {
+        RCTuple out = new RCTuple();
+        for(int pos: positions)
+            out = out.addRC(pos, conf.getAssignments()[pos]);
+        return out;
+    }
+    private void computeDifference(RCTuple tuple, ConfEnergyCalculator ecalc) {
+        computedCorrections = true;
+        if(correctedTuples.contains(tuple.stringListing()))
+            return;
+        correctedTuples.add(tuple.stringListing());
+        if(correctionMatrix.hasHigherOrderTermFor(tuple))
+            return;
+        minimizingEcalc.calcEnergyAsync(tuple, (minimizedTuple) -> {
+            double tripleEnergy = minimizedTuple.energy;
+
+            double lowerbound = minimizingEmat.getInternalEnergy(tuple);
+            if (tripleEnergy - lowerbound > 0) {
+                double correction = tripleEnergy - lowerbound;
+                correctionMatrix.setHigherOrder(tuple, correction);
+            }
+            else
+                System.err.println("Negative correction for "+tuple.stringListing());
+        });
     }
 
 }
