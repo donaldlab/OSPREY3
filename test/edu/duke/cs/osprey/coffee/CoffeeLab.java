@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.coffee;
 
+import edu.duke.cs.osprey.coffee.drivers.AffinityDriver;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
@@ -48,6 +49,7 @@ public class CoffeeLab {
 			})
 			.build();
 
-		coffee.refine();
+		var driver = new AffinityDriver(confSpace, "complex", "design", "target", 5);
+		coffee.refine(driver);
 	}
 }

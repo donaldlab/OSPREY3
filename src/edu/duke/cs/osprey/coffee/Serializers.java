@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
+import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.tools.IntEncoding;
 import edu.duke.cs.osprey.tools.MapDBTools;
 import org.jetbrains.annotations.NotNull;
@@ -26,39 +27,14 @@ public class Serializers {
 		);
 	}
 
-	public static class StateConfSerializer extends MapDBTools.SimpleSerializer<NodeIndex.StateConf> {
-
-		public final MultiStateConfSpace confSpace;
-
-		private final IntEncoding stateiEncoding;
-		private final MapDBTools.IntArraySerializer[] arraySerializers;
-
-		public StateConfSerializer(MultiStateConfSpace confSpace) {
-
-			this.confSpace = confSpace;
-
-			stateiEncoding = IntEncoding.get(confSpace.states.size() - 1);
-			arraySerializers = confSpace.states.stream()
-				.map(state -> conf(state.confSpace))
-				.toArray(MapDBTools.IntArraySerializer[]::new);
-		}
-
-		@Override
-		public void serialize(@NotNull DataOutput2 out, @NotNull NodeIndex.StateConf data)
-		throws IOException {
-			stateiEncoding.write(out, data.statei);
-			arraySerializers[data.statei].serialize(out, data.conf);
-		}
-
-		@Override
-		public NodeIndex.StateConf deserialize(@NotNull DataInput2 in, int available)
-		throws IOException {
-			int statei = stateiEncoding.read(in);
-			int[] conf = arraySerializers[statei].deserialize(in, available);
-			return new NodeIndex.StateConf(statei,conf);
-		}
-	}
-	public static StateConfSerializer stateConf(MultiStateConfSpace confSpace) {
-		return new StateConfSerializer(confSpace);
+	public static MapDBTools.IntArraySerializer seq(SeqSpace seqSpace) {
+		return new MapDBTools.IntArraySerializer(
+			seqSpace.positions.stream()
+				.flatMap(pos -> pos.resTypes.stream())
+				.mapToInt(resType -> resType.index)
+				.max()
+				.orElse(-1),
+			seqSpace.positions.size()
+		);
 	}
 }

@@ -3,15 +3,11 @@ package edu.duke.cs.osprey.coffee;
 import edu.duke.cs.osprey.tools.MapDBTools;
 import org.mapdb.*;
 import org.mapdb.serializer.GroupSerializer;
-import org.mapdb.volume.FixedFileVolume;
-import org.mapdb.volume.FixedMemVolume;
-import org.mapdb.volume.Volume;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 
 /**
@@ -22,47 +18,25 @@ import java.util.function.Consumer;
  */
 public class FixedIndex<K extends Comparable<K>,V> {
 
-	public final File file;
-	public final long maxBytes;
-	public final Consumer<V> evictionListener;
+	public final FixedDB db;
+	public final String name;
+	public final BiConsumer<K,V> evictionListener;
 
-	private final DB db;
 	private final BTreeMap<K,List<V>> map;
-	private final StoreDirect store;
 
-	public FixedIndex(File file, long maxBytes, GroupSerializer<K> keySerializer, GroupSerializer<V> valueSerializer, Consumer<V> evictionListener) {
+	public FixedIndex(FixedDB db, String name, GroupSerializer<K> keySerializer, GroupSerializer<V> valueSerializer, BiConsumer<K,V> evictionListener) {
 
-		// MapDB requires at least 2 MiB
-		if (maxBytes < 2*1024*1024) {
-			throw new IllegalArgumentException("NodeIndex must have at least 2 MiB of space");
-		}
-
-		this.file = file;
-		this.maxBytes = maxBytes;
+		this.db = db;
+		this.name = name;
 		this.evictionListener = evictionListener;
 
-		// find out how many pages fit in the space
-		long numPages = maxBytes/CC.PAGE_SIZE;
-		long volSize = numPages*CC.PAGE_SIZE;
+		// TODO: allow re-opening existing table?
 
-		Volume vol;
-		if (file != null) {
-			vol = new FixedFileVolume(file, volSize, volSize);
-		} else {
-			vol = new FixedMemVolume(volSize, volSize);
-		}
-
-		// TODO: allow re-opening existing database?
-
-		db = DBMaker
-			.volumeDB(vol, false)
-			.make();
-		map = db.treeMap("index")
+		map = db.mapdb.treeMap(name)
 			.keySerializer(keySerializer)
 			.valueSerializer(new MapDBTools.ValuesSerializer<>(valueSerializer))
 			.counterEnable()
 			.create();
-		store = (StoreDirect)db.getStore();
 	}
 
 	public long size() {
@@ -98,35 +72,32 @@ public class FixedIndex<K extends Comparable<K>,V> {
 			// out of space!
 			freeUpSpace();
 
-			try {
-
-				// try again
-				if (!wasRemoved) {
-					values = map.remove(key);
-					values = appendValue(values, value);
-				}
-				map.put(key, values);
-
-			} catch (DBException.VolumeMaxSizeExceeded ex2) {
-				throw new Error("Can't add entry to index even after freeing up space. This is a bug.");
+			// try again
+			if (!wasRemoved) {
+				values = map.remove(key);
+				values = appendValue(values, value);
 			}
+			map.put(key, values);
 		}
 	}
 
-	private void freeUpSpace() {
+	public void freeUpSpace() {
 		try {
+
+			// TODO: optimize by using bulk inserter
 
 			// compact the tree so we can free up some space
 			// since when we try to remove, sometimes MapDB still asks for more space
-			store.compact();
+			db.store.compact();
 
 			// remove 10% of the worst entries to make space
 			long toRemove = (long)(map.sizeLong()*0.1);
 			for (int i=0; i<toRemove; i++) {
-				List<V> values = map.remove(map.firstKey());
+				K key = map.firstKey();
+				List<V> values = map.remove(key);
 				if (evictionListener != null) {
 					for (V value : values) {
-						evictionListener.accept(value);
+						evictionListener.accept(key, value);
 					}
 				}
 			}
@@ -174,31 +145,25 @@ public class FixedIndex<K extends Comparable<K>,V> {
 			// out of space!
 			freeUpSpace();
 
-			try {
+			if (!wasRemoved) {
 
-				if (!wasRemoved) {
-
-					// try to remove it again
-					values = map.remove(key);
-					value = pollValue(values);
-					if (values != null && !values.isEmpty()) {
-						map.put(key, values);
-					}
-
-				} else {
-
-					assert (values != null);
-					assert (value != null);
-
-					// just need to try to put the rest of the values back
+				// try to remove it again
+				values = map.remove(key);
+				value = pollValue(values);
+				if (values != null && !values.isEmpty()) {
 					map.put(key, values);
 				}
 
-				return value;
+			} else {
 
-			} catch (DBException.VolumeMaxSizeExceeded exAgain) {
-				throw new Error("Can't remove entry from index even after freeing up space. This is a bug.");
+				assert (values != null);
+				assert (value != null);
+
+				// just need to try to put the rest of the values back
+				map.put(key, values);
 			}
+
+			return value;
 		}
 	}
 

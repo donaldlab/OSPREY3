@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.BigExp;
 
+import java.io.File;
 import java.math.MathContext;
 import java.util.Arrays;
 import java.util.function.Consumer;
@@ -18,7 +19,7 @@ import java.util.function.Consumer;
  * A clusterized successor to SOFEA that uses compiled conformation spaces.
  *
  * It's basically just a fancy implementation of MARK*
- * that doesn't rely on the traditional DEE->A* pipeline
+ * that has better memory usage than the traditional DEE->A* pipeline
  */
 public class Coffee {
 
@@ -29,6 +30,9 @@ public class Coffee {
 		private final StateConfig[] stateConfigs;
 		private Cluster cluster;
 		private Parallelism parallelism;
+		private File dbFile = null;
+		private long dbFileBytes = 0;
+		private long dbMemBytes = 2*1024*1024; // 2 MiB
 
 		public Builder(MultiStateConfSpace confSpace) {
 			this.confSpace = confSpace;
@@ -59,6 +63,17 @@ public class Coffee {
 			return this;
 		}
 
+		public Builder setDBFile(File file, long bytes) {
+			dbFile = file;
+			dbFileBytes = bytes;
+			return this;
+		}
+
+		public Builder setDBMem(long bytes) {
+			dbMemBytes = bytes;
+			return this;
+		}
+
 		public Coffee build() {
 
 			// check the state configs
@@ -76,7 +91,7 @@ public class Coffee {
 				parallelism = Parallelism.makeCpu(1);
 			}
 
-			return new Coffee(confSpace, stateConfigs, cluster, parallelism);
+			return new Coffee(confSpace, stateConfigs, cluster, parallelism, dbFile, dbFileBytes, dbMemBytes);
 		}
 	}
 
@@ -110,37 +125,43 @@ public class Coffee {
 
 
 	/**
-	 * Tells when to stop refining
+	 * Tells COFFEE what nodes to look for and when to stop looking
 	 */
-	public interface Criterion {
-		boolean isFinished();
+	public interface Driver {
+		// TODO
 	}
 
 	public final MultiStateConfSpace confSpace;
 	public final StateConfig[] stateConfigs;
 	public final Cluster cluster;
 	public final Parallelism parallelism;
+	public final File dbFile;
+	public final long dbFileBytes;
+	public final long dbMemBytes;
 
 	public final StateInfo[] infos;
 
 	public final MathContext mathContext = BigExp.mathContext;
 	public final BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
 
-	private Coffee(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism) {
+	private Coffee(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, File dbFile, long dbFileBytes, long dbMemBytes) {
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
 		this.cluster = cluster;
 		this.parallelism = parallelism;
+		this.dbFile = dbFile;
+		this.dbFileBytes = dbFileBytes;
+		this.dbMemBytes = dbMemBytes;
 		infos = Arrays.stream(stateConfigs)
 			.map(config -> new StateInfo(config, bcalc))
 			.toArray(StateInfo[]::new);
 	}
 
-	public void refine() {
+	public void refine(Driver driver) {
 		try (var member = new ClusterMember(cluster)) {
 			try (var tasks = parallelism.makeTaskExecutor()) {
 
-				NodeDB nodedb = new NodeDB(confSpace, member, null);
+				NodeDB nodedb = new NodeDB(confSpace, member, dbFile, dbFileBytes, dbMemBytes);
 
 				// wait for everyone to get here
 				member.log0("waiting for cluster to assemble ...");
@@ -151,6 +172,8 @@ public class Coffee {
 					member.log0("computing Z matrix for state: %s", info.config.state.name);
 					info.zmat.compute(member, tasks);
 				}
+
+				// TODO: only init once
 
 				// compute bounds on free energies at the root nodes
 				for (int statei=0; statei<confSpace.states.size(); statei++) {
@@ -166,7 +189,7 @@ public class Coffee {
 					zSumUpper.normalize(true);
 
 					// init the nodedb with the root node
-					nodedb.init(statei, Conf.make(index), zSumUpper);
+					nodedb.addLocal(new NodeIndex.Node(statei, Conf.make(index), zSumUpper));
 
 					// TODO: init sequence database?
 					//seqtx.addZSumUpper(state, state.confSpace.seqSpace().makeUnassignedSequence(), zSumUpper);
