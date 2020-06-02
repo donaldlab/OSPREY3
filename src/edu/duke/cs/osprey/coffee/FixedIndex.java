@@ -1,179 +1,227 @@
 package edu.duke.cs.osprey.coffee;
 
-import edu.duke.cs.osprey.tools.MapDBTools;
-import org.mapdb.*;
-import org.mapdb.serializer.GroupSerializer;
+import edu.duke.cs.osprey.coffee.db.BlockStore;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.function.BiConsumer;
+import java.nio.ByteBuffer;
+import java.util.*;
 
 
 /**
- * An index that allows quick queries for entries with high and low keys,
- * but discards entries with low keys when it runs out of space
+ * An index that allows queries for items with high scores,
+ * but discards items with low scores when it runs out of space.
+ *
+ * Performance-wise, the index is designed for fast add (and freeUpSpace) speeds,
+ * perhaps at the expense of remove speeds.
  *
  * This implementation is NOT thread-safe!
  */
-public class FixedIndex<K extends Comparable<K>,V> {
+public class FixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<S>> {
 
-	public final FixedDB db;
-	public final String name;
-	public final BiConsumer<K,V> evictionListener;
+	// TODO: make thread-safe?
 
-	private final BTreeMap<K,List<V>> map;
+	public interface Indexable<S> {
+		S score();
+	}
 
-	public FixedIndex(FixedDB db, String name, GroupSerializer<K> keySerializer, GroupSerializer<V> valueSerializer, BiConsumer<K,V> evictionListener) {
+	public interface Serializer<T> {
+		int bytes();
+		void serialize(ByteBuffer out, T data);
+		T deserialize(ByteBuffer in);
+	}
 
-		this.db = db;
-		this.name = name;
-		this.evictionListener = evictionListener;
+	private static class Block<S extends Comparable<S>> {
 
-		// TODO: allow re-opening existing table?
+		final long id;
+		int size;
+		S min;
+		S max;
 
-		map = db.mapdb.treeMap(name)
-			.keySerializer(keySerializer)
-			.valueSerializer(new MapDBTools.ValuesSerializer<>(valueSerializer))
-			.counterEnable()
-			.create();
+		public Block(long id) {
+			this.id = id;
+			size = 1;
+			min = null;
+			max = null;
+		}
+
+		public <T extends Indexable<S>> void add(BlockStore store, Serializer<T> serializer, T item) {
+
+			// append the item to the block
+			ByteBuffer buf = store.get(id);
+			int bytes = serializer.bytes();
+			buf.position(bytes*size);
+			serializer.serialize(buf, item);
+
+			// update block metadata
+			size += 1;
+			S score = item.score();
+			if (min == null || score.compareTo(min) < 0) {
+				min = score;
+			}
+			if (max == null || score.compareTo(max) > 0) {
+				max = score;
+			}
+		}
+
+		public <T extends Indexable<S>> T removeHighest(BlockStore store, Serializer<T> serializer) {
+
+			ByteBuffer buf = store.get(id);
+			int itemSize = serializer.bytes();
+
+			T bestItem = null;
+			S secondBestScore = null;
+			int bestIndex = 0;
+
+			// find the best and second-best items in the block
+			buf.position(0);
+			for (int i=0; i<size; i++) {
+				T item = serializer.deserialize(buf);
+				if (bestItem == null) {
+					bestItem = item;
+					bestIndex = i;
+				} else if (item.score().compareTo(bestItem.score()) > 0) {
+					secondBestScore = bestItem.score();
+					bestItem = item;
+					bestIndex = i;
+				} else if (secondBestScore == null || item.score().compareTo(secondBestScore) > 0) {
+					secondBestScore = item.score();
+				}
+			}
+
+			// remove it, shift the remaining items down
+			for (int i=bestIndex; i<size - 1; i++) {
+				buf.position((i + 1)*itemSize);
+				T item = serializer.deserialize(buf);
+				buf.position(i*itemSize);
+				serializer.serialize(buf, item);
+			}
+			size -= 1;
+			max = secondBestScore;
+
+			return bestItem;
+		}
+	}
+
+	public final BlockStore store;
+	public final Serializer<T> serializer;
+
+	public final int blockCapacity;
+
+	// keep the blocks sorted by max val
+	private final TreeSet<Block<S>> packedBlocks = new TreeSet<>(Comparator.comparing(block -> block.max));
+
+	private Block<S> unpackedBlock = null;
+	private long size = 0;
+
+	public FixedIndex(BlockStore store, Serializer<T> serializer) {
+
+		this.store = store;
+		this.serializer = serializer;
+
+		blockCapacity = store.blockSize/serializer.bytes();
 	}
 
 	public long size() {
-		return map.sizeLong();
+		return size;
 	}
 
-	public K lowestKey() {
-		return map.firstKey();
-	}
+	/**
+	 * Adds the item to the index.
+	 * Returns true if the item was added, false if there wasn't enough space.
+	 */
+	public boolean add(T item) {
 
-	public K highestKey() {
-		return map.lastKey();
-	}
+		if (unpackedBlock == null) {
 
-	public void add(K key, V value) {
-
-		List<V> values = null;
-		boolean wasRemoved = false;
-
-		try {
-
-			// try to remove the values for this key
-			// this can actually cause allocations and OOM exceptions
-			values = map.remove(key);
-			wasRemoved = true;
-			values = appendValue(values, value);
-
-			// try to add the score if there's space
-			map.put(key, values);
-
-		} catch (DBException.VolumeMaxSizeExceeded ex) {
-
-			// out of space!
-			freeUpSpace();
-
-			// try again
-			if (!wasRemoved) {
-				values = map.remove(key);
-				values = appendValue(values, value);
+			// allocate a new block
+			long blockid = store.allocateBlock();
+			if (blockid == -1) {
+				freeUpSpace();
+				blockid = store.allocateBlock();
+				if (blockid == -1) {
+					return false;
+				}
 			}
-			map.put(key, values);
+			unpackedBlock = new Block<>(blockid);
 		}
+
+		assert (unpackedBlock.size < blockCapacity);
+
+		// add the item to the block
+		unpackedBlock.add(store, serializer, item);
+
+		assert (unpackedBlock.size <= blockCapacity);
+
+		// if we packed the block, put it on the tree
+		if (unpackedBlock.size == blockCapacity) {
+			packedBlocks.add(unpackedBlock);
+			unpackedBlock = null;
+		}
+
+		size += 1;
+
+		return true;
 	}
 
 	public void freeUpSpace() {
-		try {
 
-			// TODO: optimize by using bulk inserter
+		// easy peasy, just remove the block with the lowest scores
+		Block<S> block = packedBlocks.pollFirst();
+		store.freeBlock(block.id);
 
-			// compact the tree so we can free up some space
-			// since when we try to remove, sometimes MapDB still asks for more space
-			db.store.compact();
-
-			// remove 10% of the worst entries to make space
-			long toRemove = (long)(map.sizeLong()*0.1);
-			for (int i=0; i<toRemove; i++) {
-				K key = map.firstKey();
-				List<V> values = map.remove(key);
-				if (evictionListener != null) {
-					for (V value : values) {
-						evictionListener.accept(key, value);
-					}
-				}
-			}
-
-		} catch (DBException.VolumeMaxSizeExceeded ex) {
-			// this shouldn't happen, right?
-			throw new Error("Paradoxically, we ran out of space while trying to free up space in the index", ex);
-		}
+		size -= block.size;
 	}
 
-	private List<V> appendValue(List<V> values, V value) {
+	public T removeHighest() {
 
-		if (values == null) {
-			return Collections.singletonList(value);
-		}
+		if (unpackedBlock == null) {
 
-		// in general, values ArrayList intances will be exactly sized to their contents,
-		// so calling add() will usually allocate more memory than we really need
-
-		var newValues = new ArrayList<V>(values.size() + 1);
-		newValues.addAll(values);
-		newValues.add(value);
-		return newValues;
-	}
-
-	public V remove(K key) {
-
-		boolean wasRemoved = false;
-		V value = null;
-		List<V> values = null;
-
-		try {
-
-			// try to remove it
-			values = map.remove(key);
-			wasRemoved = true;
-			value = pollValue(values);
-			if (values != null && !values.isEmpty()) {
-				map.put(key, values);
+			// find the block with the highest scores
+			Block<S> block = packedBlocks.pollLast();
+			if (block == null) {
+				return null;
 			}
-			return value;
 
-		} catch (DBException.VolumeMaxSizeExceeded ex) {
+			// remove the highest-scoring item from the block
+			T item = block.removeHighest(store, serializer);
+			size -= 1;
+			assert (block.size > 0);
+			unpackedBlock = block;
 
-			// out of space!
-			freeUpSpace();
+			return item;
 
-			if (!wasRemoved) {
+		} else {
 
-				// try to remove it again
-				values = map.remove(key);
-				value = pollValue(values);
-				if (values != null && !values.isEmpty()) {
-					map.put(key, values);
+			// find the block with the highest scores
+			if (!packedBlocks.isEmpty() && packedBlocks.last().max.compareTo(unpackedBlock.max) > 0) {
+
+				// it's a packed block
+				Block<S> block = packedBlocks.pollLast();
+
+				// replace its highest-scoring item with something from the unpacked block
+				T item = block.removeHighest(store, serializer);
+				size -= 1;
+				block.add(store, serializer, unpackedBlock.removeHighest(store, serializer));
+				assert (block.size == blockCapacity);
+				if (unpackedBlock.size == 0) {
+					store.freeBlock(unpackedBlock.id);
+					unpackedBlock = null;
 				}
+				packedBlocks.add(block);
+
+				return item;
 
 			} else {
 
-				assert (values != null);
-				assert (value != null);
+				// it's the unpacked block, remove its highest item
+				T item = unpackedBlock.removeHighest(store, serializer);
+				size -= 1;
+				if (unpackedBlock.size == 0) {
+					store.freeBlock(unpackedBlock.id);
+					unpackedBlock = null;
+				}
 
-				// just need to try to put the rest of the values back
-				map.put(key, values);
+				return item;
 			}
-
-			return value;
-		}
-	}
-
-	private V pollValue(List<V> values) {
-		if (values == null) {
-			return null;
-		} else {
-			V value = values.get(0);
-			values.remove(0);
-			return value;
 		}
 	}
 }

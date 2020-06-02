@@ -1,8 +1,7 @@
 package edu.duke.cs.osprey.coffee;
 
+import edu.duke.cs.osprey.coffee.db.BlockStore;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
-import org.mapdb.CC;
-import org.mapdb.DBException;
 
 import java.io.File;
 
@@ -15,7 +14,7 @@ public class NodeDB {
 	public final long fileBytes;
 	public final long memBytes;
 
-	private final FixedDB db;
+	private final BlockStore store;
 	private final NodeIndex[] indices;
 
 	public NodeDB(MultiStateConfSpace confSpace, ClusterMember member, File file, long fileBytes, long memBytes) {
@@ -32,17 +31,19 @@ public class NodeDB {
 			throw new Error("implement me");
 		}
 
-		// make sure there's at least 1 page for the db, and 2 pages for each index
-		long minBytes = CC.PAGE_SIZE*(1 + 2*confSpace.states.size());
+		// allocate the block store
+		store = new BlockStore(null, memBytes);
+
+		// make sure there's at least 2 blocks for each index
+		long minBytes = store.blockSize*confSpace.states.size()*2;
 		if (memBytes < minBytes) {
 			throw new IllegalArgumentException(String.format("NodeDB should have at least %d bytes for %d states",
 				minBytes, confSpace.states.size()
 			));
 		}
 
-		db = new FixedDB(null, memBytes);
 		indices = confSpace.states.stream()
-			.map(state -> new NodeIndex(db, "nodeindex-" + state.name, state, null))
+			.map(state -> new NodeIndex(store, state))
 			.toArray(NodeIndex[]::new);
 	}
 
@@ -54,12 +55,10 @@ public class NodeDB {
 	 * Add the node to the local store
 	 */
 	public void addLocal(NodeIndex.Node node) {
-		try {
 
-			// add the node, if there's space
-			indices[node.statei].add(node);
-
-		} catch (DBException.VolumeMaxSizeExceeded ex) {
+		// add the node, if there's space
+		boolean wasAdded = indices[node.statei].add(node);
+		if (!wasAdded) {
 
 			// free up space in all the other indices
 			for (var state : confSpace.states) {
@@ -68,19 +67,17 @@ public class NodeDB {
 				}
 			}
 
-			try {
-				// try again
-				indices[node.statei].add(node);
-
-			} catch (DBException.VolumeMaxSizeExceeded ex2) {
+			// try again
+			wasAdded = indices[node.statei].add(node);
+			if (!wasAdded) {
 				throw new Error("Couldn't find/make space for a new node in the local store. This is a bug.");
 			}
 		}
 	}
 
-	public NodeIndex.Node pollHighestLocal(int statei) {
+	public NodeIndex.Node removeHighestLocal(int statei) {
 		var index = indices[statei];
-		return index.remove(index.highestScore());
+		return index.removeHighest();
 	}
 
 	// querying node:

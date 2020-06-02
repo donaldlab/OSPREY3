@@ -36,7 +36,7 @@ public class TestNodeDB {
 	public void add1Poll1Local() {
 
 		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
-		withLocalMemNodeDB(confSpace, 7*MiB, nodedb -> {
+		withLocalMemNodeDB(confSpace, MiB, nodedb -> {
 
 			for (var state : confSpace.states) {
 
@@ -50,7 +50,7 @@ public class TestNodeDB {
 				assertThat(nodedb.size(state.index), is(1L));
 
 				// remove the node
-				var node2 = nodedb.pollHighestLocal(state.index);
+				var node2 = nodedb.removeHighestLocal(state.index);
 				assertThat(node2, is(node));
 				assertThat(nodedb.size(state.index), is(0L));
 			}
@@ -61,7 +61,7 @@ public class TestNodeDB {
 	public void fillStateLocal() {
 
 		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
-		withLocalMemNodeDB(confSpace, 7*MiB, nodedb -> {
+		withLocalMemNodeDB(confSpace, MiB, nodedb -> {
 
 			var state = confSpace.states.get(0);
 

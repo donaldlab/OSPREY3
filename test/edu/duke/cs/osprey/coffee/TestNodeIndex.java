@@ -4,30 +4,167 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.TestBase;
+import edu.duke.cs.osprey.coffee.db.BlockStore;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.tools.BigExp;
 import org.junit.Test;
 
 import java.io.File;
+import java.util.Comparator;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
+import java.util.TreeSet;
+import java.util.stream.IntStream;
 
 
 public class TestNodeIndex {
 
-	private void add(File file) {
+	private void addOneRemoveOne(File file) {
 
 		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
 		var state = confSpace.getState("complex");
 
-		// track the number of evicted nodes
-		AtomicLong numEvicted = new AtomicLong(0);
-		Consumer<NodeIndex.Node> evictionListener = node -> numEvicted.incrementAndGet();
+		var store = new BlockStore(file, 1024*1024);
+		var index = new NodeIndex(store, state);
 
-		var db = new FixedDB(file, 2*1024*1024);
-		var index = new NodeIndex(db, "index", state, evictionListener);
+		var node = new NodeIndex.Node(
+			state.index,
+			Conf.make(state.confSpace),
+			new BigExp(1.0, 42)
+		);
+		index.add(node);
+
+		assertThat(index.removeHighest(), is(node));
+	}
+
+	@Test
+	public void addOneRemoveOne_mem() {
+		addOneRemoveOne(null);
+	}
+
+	@Test
+	public void addOneRemoveOne_file() {
+		try (var file = new TestBase.TempFile("node.index")) {
+			addOneRemoveOne(file);
+		}
+	}
+
+	private void addFiveRemoveAll(File file) {
+
+		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
+		var state = confSpace.getState("complex");
+
+		var store = new BlockStore(file, 1024*1024);
+		var index = new NodeIndex(store, state);
+
+		var nodes = new NodeIndex.Node[] {
+			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 1)),
+			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 2)),
+			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 3)),
+			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 4)),
+			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 5))
+		};
+
+		// add in ascending order
+		index.add(nodes[0]);
+		index.add(nodes[1]);
+		index.add(nodes[2]);
+		index.add(nodes[3]);
+		index.add(nodes[4]);
+		assertThat(index.size(), is(5L));
+
+		assertThat(index.removeHighest(), is(nodes[4]));
+		assertThat(index.removeHighest(), is(nodes[3]));
+		assertThat(index.removeHighest(), is(nodes[2]));
+		assertThat(index.removeHighest(), is(nodes[1]));
+		assertThat(index.removeHighest(), is(nodes[0]));
+		assertThat(index.size(), is(0L));
+
+		// add in descending order
+		index.add(nodes[4]);
+		index.add(nodes[3]);
+		index.add(nodes[2]);
+		index.add(nodes[1]);
+		index.add(nodes[0]);
+		assertThat(index.size(), is(5L));
+
+		assertThat(index.removeHighest(), is(nodes[4]));
+		assertThat(index.removeHighest(), is(nodes[3]));
+		assertThat(index.removeHighest(), is(nodes[2]));
+		assertThat(index.removeHighest(), is(nodes[1]));
+		assertThat(index.removeHighest(), is(nodes[0]));
+		assertThat(index.size(), is(0L));
+	}
+
+	@Test
+	public void addFiveRemoveAll_mem() {
+		addFiveRemoveAll(null);
+	}
+
+	@Test
+	public void addFiveRemoveAll_file() {
+		try (var file = new TestBase.TempFile("node.index")) {
+			addFiveRemoveAll(file);
+		}
+	}
+
+	private void addBlocksRemoveAll(File file) {
+
+		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
+		var state = confSpace.getState("complex");
+
+		var store = new BlockStore(file, 1024*1024);
+		var index = new NodeIndex(store, state);
+
+		// make enough node to fill more than one block
+		var nodesPerBlock = index.nodesPerBlock();
+		var nodes = IntStream.range(0, nodesPerBlock*2)
+			.mapToObj(i -> new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, i)))
+			.toArray(NodeIndex.Node[]::new);
+
+		// add in ascending order
+		for (int i=0; i<nodes.length; i++) {
+			index.add(nodes[i]);
+		}
+		assertThat(index.size(), is((long)nodes.length));
+
+		for (int i=0; i<nodes.length; i++) {
+			assertThat("node " + i, index.removeHighest(), is(nodes[nodes.length - i - 1]));
+		}
+		assertThat(index.size(), is(0L));
+
+		// add in descending order
+		for (int i=0; i<nodes.length; i++) {
+			index.add(nodes[nodes.length - i - 1]);
+		}
+		assertThat(index.size(), is((long)nodes.length));
+
+		for (int i=0; i<nodes.length; i++) {
+			assertThat("node " + i, index.removeHighest(), is(nodes[nodes.length - i - 1]));
+		}
+		assertThat(index.size(), is(0L));
+	}
+
+	@Test
+	public void addBlocksRemoveAll_mem() {
+		addBlocksRemoveAll(null);
+	}
+
+	@Test
+	public void addBlocksRemoveAll_file() {
+		try (var file = new TestBase.TempFile("node.index")) {
+			addBlocksRemoveAll(file);
+		}
+	}
+
+
+	private void addLots(File file) {
+
+		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
+		var state = confSpace.getState("complex");
+
+		var store = new BlockStore(file, 1024*1024);
+		var index = new NodeIndex(store, state);
 
 		// add a bunch of random nodes
 		Random rand = new Random(12345);
@@ -39,61 +176,70 @@ public class TestNodeIndex {
 			));
 		}
 
-		assertThat(numEvicted.get(), greaterThan(0L));
-
-		// there's only room for ~30k nodes in the index
-		assertThat(index.size(), lessThan(40_000L));
+		// there's only room for ~55k nodes in the index
+		assertThat(index.size(), lessThan(60_000L));
 	}
 
 	@Test
-	public void add_mem() {
-		add(null);
+	public void addLots_mem() {
+		addLots(null);
 	}
 
 	@Test
-	public void add_file() {
+	public void addLots_file() {
 		try (var file = new TestBase.TempFile("node.index")) {
-			add(file);
+			addLots(file);
 		}
 	}
 
-	public void remove(File file) {
+	public void addLotsRemoveSome(File file) {
 
 		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
 		var state = confSpace.getState("complex");
 
-		var db = new FixedDB(file, 2*1024*1024);
-		var index = new NodeIndex(db, "index", state, null);
+		var store = new BlockStore(file, 1024*1024);
+		var index = new NodeIndex(store, state);
+
+		TreeSet<NodeIndex.Node> highestNodes = new TreeSet<>(Comparator.comparing(node -> node.score));
+		final int numNodes = 10;
 
 		// add a bunch of random nodes, fill up all the space
 		Random rand = new Random(12345);
-		for (int i=0; i<50_000; i++) {
-			index.add(new NodeIndex.Node(
+		for (int i=0; i<100_000; i++) {
+
+			NodeIndex.Node node = new NodeIndex.Node(
 				state.index,
 				Conf.make(state.confSpace),
 				new BigExp(rand.nextDouble(), rand.nextInt())
-			));
+			);
+			index.add(node);
+
+			highestNodes.add(node);
+			while (highestNodes.size() > numNodes) {
+				highestNodes.pollFirst();
+			}
 		}
 
-		// poll some nodes
+		// TODO: NEXTTIME: the index isn't removing the nodes in the right order
+
+		// poll some nodes, check the scores
 		long size = index.size();
-		long numPolled = 10;
-		for (int i=0; i<numPolled; i++) {
-			index.remove(index.highestScore());
+		for (int i=0; i<numNodes; i++) {
+			assertThat(index.removeHighest().score, is(highestNodes.pollLast().score));
 		}
 
-		assertThat(index.size(), is(size - numPolled));
+		assertThat(index.size(), is(size - numNodes));
 	}
 
 	@Test
-	public void remove_mem() {
-		remove(null);
+	public void addLotsRemoveSome_mem() {
+		addLotsRemoveSome(null);
 	}
 
 	@Test
-	public void remove_file() {
+	public void addLotsRemoveSome_file() {
 		try (var file = new TestBase.TempFile("node.index")) {
-			remove(file);
+			addLotsRemoveSome(file);
 		}
 	}
 }

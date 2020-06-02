@@ -1,15 +1,9 @@
 package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
-import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.SeqSpace;
-import edu.duke.cs.osprey.tools.IntEncoding;
 import edu.duke.cs.osprey.tools.MapDBTools;
-import org.jetbrains.annotations.NotNull;
-import org.mapdb.DataInput2;
-import org.mapdb.DataOutput2;
 
-import java.io.IOException;
 import java.util.stream.IntStream;
 
 

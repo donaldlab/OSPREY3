@@ -1,15 +1,18 @@
 package edu.duke.cs.osprey.coffee;
 
+import edu.duke.cs.osprey.coffee.db.BlockStore;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.IntEncoding;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 
 public class NodeIndex {
 
-	public static class Node {
+	public static class Node implements FixedIndex.Indexable<BigExp> {
 
 		final int statei;
 		final int[] conf;
@@ -19,6 +22,11 @@ public class NodeIndex {
 			this.statei = statei;
 			this.conf = conf;
 			this.score = score;
+		}
+
+		@Override
+		public BigExp score() {
+			return score;
 		}
 
 		@Override
@@ -36,52 +44,87 @@ public class NodeIndex {
 		public String toString() {
 			return String.format("Node[%d,%s,%s]", statei, Arrays.toString(conf), score);
 		}
+
+		private static class Serializer implements FixedIndex.Serializer<Node> {
+
+			final MultiStateConfSpace.State state;
+			final IntEncoding confEncoding;
+
+			Serializer(MultiStateConfSpace.State state) {
+				this.state = state;
+				confEncoding = IntEncoding.get(
+					IntStream.range(0, state.confSpace.numPos())
+						.map(posi -> state.confSpace.numConf(posi) - 1)
+						.max()
+						.orElse(-1)
+				);
+			}
+
+			@Override
+			public int bytes() {
+				return 4+8 // BigExp
+					+ state.confSpace.numPos()*confEncoding.numBytes; // conf
+			}
+
+			@Override
+			public void serialize(ByteBuffer out, Node node) {
+				out.putInt(node.score.exp);
+				out.putDouble(node.score.fp);
+				for (int i=0; i<state.confSpace.numPos(); i++) {
+					switch (confEncoding) {
+						case Byte -> out.put((byte)node.conf[i]);
+						case Short -> out.putShort((short)node.conf[i]);
+						case Int -> out.putInt(node.conf[i]);
+					}
+				}
+			}
+
+			@Override
+			public Node deserialize(ByteBuffer in) {
+				int exp = in.getInt();
+				double fp = in.getDouble();
+				BigExp score = new BigExp(fp, exp);
+				int[] conf = new int[state.confSpace.numPos()];
+				for (int i=0; i<conf.length; i++) {
+					switch (confEncoding) {
+						case Byte -> conf[i] = in.get();
+						case Short -> conf[i] = in.getShort();
+						case Int -> conf[i] = in.getInt();
+					}
+				}
+				return new Node(state.index, conf, score);
+			}
+		}
 	}
 
-	public final FixedDB db;
-	public final String name;
+	public final BlockStore store;
 	public final MultiStateConfSpace.State state;
-	public final Consumer<Node> evictionListener;
 
-	private final FixedIndex<BigExp,int[]> index;
+	private final FixedIndex<BigExp,Node> index;
 
-	public NodeIndex(FixedDB db, String name, MultiStateConfSpace.State state, Consumer<Node> evictionListener) {
+	public NodeIndex(BlockStore store, MultiStateConfSpace.State state) {
 
-		this.db = db;
-		this.name = name;
+		this.store = store;
 		this.state = state;
-		this.evictionListener = evictionListener;
 
-		index = new FixedIndex<>(
-			db,
-			name,
-			Serializers.BigExp,
-			Serializers.conf(state.confSpace),
-			evictionListener == null ? null : (score, conf) ->
-				evictionListener.accept(new Node(state.index, conf, score))
-		);
+		index = new FixedIndex<>(store, new Node.Serializer(state));
+	}
+
+	protected int nodesPerBlock() {
+		return index.blockCapacity;
 	}
 
 	public long size() {
 		return index.size();
 	}
 
-	public BigExp lowestScore() {
-		return index.lowestKey();
-	}
-
-	public BigExp highestScore() {
-		return index.highestKey();
-	}
-
-	public void add(Node node) {
+	public boolean add(Node node) {
 		assert (node.statei == state.index);
-		index.add(node.score, node.conf);
+		return index.add(node);
 	}
 
-	public Node remove(BigExp score) {
-		int[] conf = index.remove(score);
-		return new Node(state.index, conf, score);
+	public Node removeHighest() {
+		return index.removeHighest();
 	}
 
 	public void freeUpSpace() {
