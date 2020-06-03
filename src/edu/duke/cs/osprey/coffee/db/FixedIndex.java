@@ -1,6 +1,4 @@
-package edu.duke.cs.osprey.coffee;
-
-import edu.duke.cs.osprey.coffee.db.BlockStore;
+package edu.duke.cs.osprey.coffee.db;
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -65,7 +63,6 @@ public class FixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<
 		public <T extends Indexable<S>> T removeHighest(BlockStore store, Serializer<T> serializer) {
 
 			ByteBuffer buf = store.get(id);
-			int itemSize = serializer.bytes();
 
 			T bestItem = null;
 			S secondBestScore = null;
@@ -88,6 +85,7 @@ public class FixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<
 			}
 
 			// remove it, shift the remaining items down
+			int itemSize = serializer.bytes();
 			for (int i=bestIndex; i<size - 1; i++) {
 				buf.position((i + 1)*itemSize);
 				T item = serializer.deserialize(buf);
@@ -122,6 +120,17 @@ public class FixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<
 
 	public long size() {
 		return size;
+	}
+
+	/**
+	 * Returns the number of items that can be added without freeing up space.
+	 */
+	public long freeSpace() {
+		long freeSpace = store.numFreeBlocks()*blockCapacity;
+		if (unpackedBlock != null) {
+			freeSpace += blockCapacity - unpackedBlock.size;
+		}
+		return freeSpace;
 	}
 
 	/**
@@ -169,6 +178,33 @@ public class FixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<
 		store.freeBlock(block.id);
 
 		size -= block.size;
+	}
+
+	public S highestScore() {
+
+		S packedScore = null;
+		if (!packedBlocks.isEmpty()) {
+			packedScore = packedBlocks.last().max;
+		}
+
+		S unpackedScore = null;
+		if (unpackedBlock != null) {
+			unpackedScore = unpackedBlock.max;
+		}
+
+		if (packedScore != null && unpackedScore != null) {
+
+			if (packedScore.compareTo(unpackedScore) > 0) {
+				return packedScore;
+			} else {
+				return unpackedScore;
+			}
+
+		} else if (packedScore != null) {
+			return packedScore;
+		} else {
+			return unpackedScore;
+		}
 	}
 
 	public T removeHighest() {

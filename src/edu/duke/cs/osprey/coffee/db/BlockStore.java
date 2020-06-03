@@ -63,6 +63,14 @@ public class BlockStore implements AutoCloseable {
 		mem.close();
 	}
 
+	public long numUsedBlocks() {
+		return nextBlockid - freeBlockids.size();
+	}
+
+	public long numFreeBlocks() {
+		return freeBlockids.size() + numBlocks - nextBlockid;
+	}
+
 	/**
 	 * If there's space, allocates a block and returns its block id.
 	 * Otherwise, returns -1

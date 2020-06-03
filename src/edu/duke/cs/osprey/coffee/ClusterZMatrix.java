@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.tools.Progress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 
@@ -67,7 +68,7 @@ public class ClusterZMatrix {
 
 		// make a replicated map, so hazelcast will sync everything to all members for us
 		member.log0("computing %d singles ...", zmat.numSingles());
-		member.barrier();
+		member.barrier(1, TimeUnit.MINUTES);
 
 		ReplicatedMap<Integer,BigExp> map = member.inst.getReplicatedMap("zmat");
 
@@ -101,7 +102,7 @@ public class ClusterZMatrix {
 
 		// wait for all the members to finish
 		member.log0("synchronizing nodes ...");
-		member.barrier();
+		member.barrier(1, TimeUnit.MINUTES);
 
 		// copy the replicated map into the local zmat
 		index = 0;
@@ -112,7 +113,7 @@ public class ClusterZMatrix {
 			}
 		}
 
-		member.barrier();
+		member.barrier(1, TimeUnit.MINUTES);
 
 		// cleanup
 		map.destroy();
@@ -124,7 +125,7 @@ public class ClusterZMatrix {
 
 		// make a replicated map, so hazelcast will sync everything to all members for us
 		member.log0("computing %d pairs ...", zmat.numPairs());
-		member.barrier();
+		member.barrier(1, TimeUnit.MINUTES);
 		ReplicatedMap<Integer,BigExp> map = member.inst.getReplicatedMap("zmat");
 
 		var range = member.simplePartition(zmat.numPairs());
@@ -161,7 +162,7 @@ public class ClusterZMatrix {
 
 		// wait for all the members to finish
 		member.log0("synchronizing nodes ...");
-		member.barrier();
+		member.barrier(1, TimeUnit.MINUTES);
 
 		// copy the replicated map into the local zmat
 		index = 0;
@@ -176,7 +177,7 @@ public class ClusterZMatrix {
 			}
 		}
 
-		member.barrier();
+		member.barrier(1, TimeUnit.MINUTES);
 
 		// cleanup
 		map.destroy();

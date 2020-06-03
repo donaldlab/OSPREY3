@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.coffee.db.NodeDB;
+import edu.duke.cs.osprey.coffee.db.NodeIndex;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
@@ -12,6 +14,7 @@ import edu.duke.cs.osprey.tools.BigExp;
 import java.io.File;
 import java.math.MathContext;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 
@@ -161,11 +164,14 @@ public class Coffee {
 		try (var member = new ClusterMember(cluster)) {
 			try (var tasks = parallelism.makeTaskExecutor()) {
 
-				NodeDB nodedb = new NodeDB(confSpace, member, dbFile, dbFileBytes, dbMemBytes);
-
 				// wait for everyone to get here
 				member.log0("waiting for cluster to assemble ...");
-				member.barrier();
+				member.barrier(1, TimeUnit.MINUTES);
+
+				NodeDB nodedb = new NodeDB.Builder(confSpace, member)
+					.setFile(dbFile, dbFileBytes)
+					.setMem(dbMemBytes)
+					.build();
 
 				// pre-compute the Z matrices
 				for (var info : infos) {

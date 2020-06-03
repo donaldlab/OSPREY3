@@ -7,28 +7,82 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.cp.ICountDownLatch;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
+import com.hazelcast.internal.serialization.impl.AbstractSerializationService;
+import com.hazelcast.nio.serialization.StreamSerializer;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.Operation;
-import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import com.hazelcast.spi.impl.operationservice.impl.OperationServiceImpl;
+import com.hazelcast.spi.impl.servicemanager.impl.ServiceManagerImpl;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.tools.IntRange;
 import edu.duke.cs.osprey.tools.Log;
 import edu.duke.cs.osprey.tools.MathTools;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 public class ClusterMember implements AutoCloseable {
+
+	/**
+	 * Launch a pseudo-cluster on different threads.
+	 */
+	public static List<Throwable> launchPseudoCluster(int numMembers, Consumer<ClusterMember> block) {
+
+		List<Throwable> exceptions = new ArrayList<>();
+
+		var threads = IntStream.range(0, numMembers)
+			.mapToObj(memberi -> {
+				Thread thread = new Thread(() -> {
+
+					try (var member = new ClusterMember(new Cluster("NodeDB", "job", memberi, numMembers))) {
+
+						// wait for all the members to be ready
+						member.barrier(1, TimeUnit.MINUTES);
+
+						block.accept(member);
+
+					} catch (Throwable t) {
+						synchronized (exceptions) {
+							exceptions.add(t);
+						}
+					}
+
+				});
+				thread.setDaemon(false);
+				thread.setName("ClusterMember-" + memberi);
+				thread.start();
+				return thread;
+			})
+			.toArray(Thread[]::new);
+
+		for (var thread : threads) {
+			try {
+				thread.join();
+			} catch (InterruptedException ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+
+		return exceptions;
+	}
 
 	public final Cluster cluster;
 
 	public final String name;
 	public final HazelcastInstance inst;
 
-	private final OperationServiceImpl service;
+	private final NodeEngineImpl nodeEngine;
+	private final OperationServiceImpl opService;
+	private final ServiceManagerImpl serviceManager;
+	private final AbstractSerializationService serializationService;
 
 	public ClusterMember(Cluster cluster) {
 
@@ -44,10 +98,15 @@ public class ClusterMember implements AutoCloseable {
 		// disable Hazelcast's automatic phone home "feature", which is on by default
 		cfg.setProperty("hazelcast.phone.home.enabled", "false");
 
+		// Hazelcast's "SPI" (service programming interface) is a total mess.
+		// I think they've actually started removing it, but it's still there. Sort of.
 		inst = Hazelcast.newHazelcastInstance(cfg);
-		service = ((HazelcastInstanceProxy)inst).getOriginal().node.getNodeEngine().getOperationService();
+		nodeEngine = ((HazelcastInstanceProxy)inst).getOriginal().node.getNodeEngine();
+		opService = nodeEngine.getOperationService();
+		serviceManager = (ServiceManagerImpl)nodeEngine.getServiceManager();
+		serializationService = (AbstractSerializationService)nodeEngine.getSerializationService();
 
-		log("node started on cluster %s", cluster.id);
+		log("node started on cluster %s, addr=%s", cluster.id, nodeEngine.getThisAddress());
 	}
 
 	@Override
@@ -92,13 +151,13 @@ public class ClusterMember implements AutoCloseable {
 		);
 	}
 
-	public void barrier() {
+	public void barrier(long timeout, TimeUnit timeUnit) {
 
 		ICountDownLatch latch = inst.getCPSubsystem().getCountDownLatch("barrier-" + barrierId);
 		try {
 			latch.trySetCount(cluster.numNodes);
 			latch.countDown();
-			boolean isSynced = latch.await(1, TimeUnit.MINUTES);
+			boolean isSynced = latch.await(timeout, timeUnit);
 			if (!isSynced) {
 				throwTimeout("timed out waiting for barrier");
 			}
@@ -124,16 +183,56 @@ public class ClusterMember implements AutoCloseable {
 
 	private int nextObjectId;
 
-	public <T> InvocationFuture<T> sendToAll(Operation op) {
-		return service.invokeOnPartition(op);
+	public void registerService(String name, Object service) {
+		serviceManager.registerService(name, service);
 	}
 
-	public <T> InvocationFuture<T> sendTo(Operation op, Address address) {
-		return service.invokeOnTarget(null, op, address);
+	public <T> void registerSerializer(Class<T> c, StreamSerializer<T> serializer) {
+		serializationService.register(c, serializer);
 	}
 
-	public List<Address> memberAddresses() {
+	public void sendToOthers(Supplier<Operation> op) {
+		// TODO: isn't there some kind of IP broadcast we can use here?
+		for (var addr : otherMemberAddresses()) {
+			sendTo(op.get(), addr);
+		}
+	}
+
+	public void sendTo(Operation op, Address address) {
+		nodeEngine.getOperationService().invokeOnTarget(null, op, address);
+		// NOTE: the future returned from invokeXXX() isn't useful unless the operation sends a response back
+		// we don't really use responses, so just ignore the future
+	}
+
+	public <T> T requestFrom(Operation op, Address address, long timeout, TimeUnit timeUnit) {
+
+		// just in case...
+		if (!op.returnsResponse()) {
+			throw new IllegalArgumentException(String.format("operation %s does not return a response",
+				op.getClass().getSimpleName()
+			));
+		}
+
+		try {
+			var future = nodeEngine.getOperationService().invokeOnTarget(null, op, address);
+			@SuppressWarnings("unchecked")
+			T response = (T)future.get(timeout, timeUnit);
+			return response;
+		} catch (InterruptedException | ExecutionException | java.util.concurrent.TimeoutException ex) {
+			throw new RuntimeException(String.format("%s request to %s failed",
+				op.getClass().getSimpleName(), address
+			), ex);
+		}
+	}
+
+	public Address address() {
+		return nodeEngine.getThisAddress();
+	}
+
+	public List<Address> otherMemberAddresses() {
+		// TODO: cache this somehow? and update when cluster membership changes?
 		return inst.getCluster().getMembers().stream()
+			.filter(member -> !member.getAddress().equals(address()))
 			.sorted(Comparator.comparing(Member::getUuid))
 			.map(Member::getAddress)
 			.collect(Collectors.toList());

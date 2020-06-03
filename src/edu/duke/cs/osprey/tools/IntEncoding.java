@@ -35,6 +35,7 @@ package edu.duke.cs.osprey.tools;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 public enum IntEncoding {
 
@@ -43,14 +44,24 @@ public enum IntEncoding {
 
 		@Override
 		public void write(DataOutput out, int val)
-			throws IOException {
+		throws IOException {
 			out.writeByte(val);
 		}
 
 		@Override
 		public int read(DataInput in)
-			throws IOException {
+		throws IOException {
 			return in.readUnsignedByte();
+		}
+
+		@Override
+		public void write(ByteBuffer out, int val) {
+			out.put((byte)val);
+		}
+
+		@Override
+		public int read(ByteBuffer in) {
+			return in.get();
 		}
 	},
 	Short(2, 32767) {
@@ -66,6 +77,17 @@ public enum IntEncoding {
 			throws IOException {
 			return in.readUnsignedShort();
 		}
+
+		@Override
+		public void write(ByteBuffer out, int val) {
+			out.putShort((short)val);
+		}
+
+		@Override
+		public int read(ByteBuffer in) {
+			return in.getShort();
+		}
+
 	},
 	Int(4, Integer.MAX_VALUE) {
 
@@ -79,6 +101,16 @@ public enum IntEncoding {
 		public int read(DataInput in)
 			throws IOException {
 			return in.readInt();
+		}
+
+		@Override
+		public void write(ByteBuffer out, int val) {
+			out.putInt(val);
+		}
+
+		@Override
+		public int read(ByteBuffer in) {
+			return in.getInt();
 		}
 	};
 
@@ -104,4 +136,6 @@ public enum IntEncoding {
 
 	public abstract void write(DataOutput out, int val) throws IOException;
 	public abstract int read(DataInput in) throws IOException;
+	public abstract void write(ByteBuffer out, int val);
+	public abstract int read(ByteBuffer in);
 }

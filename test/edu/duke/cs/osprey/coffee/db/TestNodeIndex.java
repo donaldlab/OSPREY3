@@ -1,10 +1,10 @@
-package edu.duke.cs.osprey.coffee;
+package edu.duke.cs.osprey.coffee.db;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.TestBase;
-import edu.duke.cs.osprey.coffee.db.BlockStore;
+import edu.duke.cs.osprey.coffee.TestCoffee;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.tools.BigExp;

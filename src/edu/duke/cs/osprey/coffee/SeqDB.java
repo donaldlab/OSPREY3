@@ -134,7 +134,7 @@ public class SeqDB implements AutoCloseable {
 		// open the tables
 
 		sequencedSums = db.hashMap("sequenced-sums")
-			.keySerializer(Serializers.seq(confSpace.seqSpace))
+			.keySerializer(Serializers.mapdbSeq(confSpace.seqSpace))
 			.valueSerializer(new SeqInfo.Serializer(confSpace.sequencedStates.size()))
 			.createOrOpen();
 
