@@ -38,13 +38,13 @@ public class DesignFileDelegate {
     @Parameter(names = "--verify-design", description = "Verifies input parameters, but does not run the design")
     boolean verifyInput;
 
-    @Parameter(names = {"--cuda", "-c"})
+    @Parameter(names = {"--cuda", "-c"}, description = "Enable CUDA GPU acceleration. By default uses all available GPUs at max number of streams.")
     boolean useCuda;
 
-    @Parameter(names = {"--save-confs"})
+    @Parameter(names = {"--save-confs"}, description = "Number of lowest energy conformations to save")
     public int numConfs = -1;
 
-    @Parameter(names = {"--ensemble-dir"})
+    @Parameter(names = {"--ensemble-dir"}, description = "Directory in which to write saved structures")
     public String saveDir = "ensemble";
 
     int getNumGpu() {
