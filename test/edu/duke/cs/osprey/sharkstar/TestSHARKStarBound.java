@@ -18,6 +18,7 @@ import edu.duke.cs.osprey.markstar.framework.MARKStarBoundFastQueues;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.Stopwatch;
 import org.jetbrains.annotations.NotNull;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -888,8 +889,24 @@ public class TestSHARKStarBound extends TestBase {
         SimpleConfSpace confSpace = make1CC8MutableContinuous();
         Sequence wildType = confSpace.makeWildTypeSequence();
         MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.90, null, null);
-        bound.init(0.90);
+        //bound.init(0.90);
         //PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
+    }
+
+    @Test
+    public void compareSHARKandMARKFlexible() {
+        Stopwatch timer = new Stopwatch().start();
+        testComputeFlexible();
+        timer.stop();
+        double sharkTime = timer.getTimeS();
+        timer.start();
+        testComputeFlexibleMARK();
+        timer.stop();
+        double markTime = timer.getTimeS();
+        System.out.println("SHARK Time: "+sharkTime);
+        System.out.println("MARK Time:"+ markTime);
+        System.out.println("Done");
+        throw new RuntimeException("SHARK Time "+sharkTime+", MARK time "+markTime);
     }
 
     @Test

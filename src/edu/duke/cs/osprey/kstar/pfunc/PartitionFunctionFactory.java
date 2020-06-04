@@ -81,7 +81,7 @@ public class PartitionFunctionFactory {
         this.state = state;
         this.confSpace = confSpace;
         this.confEcalc = confECalc;
-        this.cachePattern = state+confSpace.hashCode();
+        this.cachePattern = state;//+confSpace.hashCode();
     }
 
     public void setUseMARKStar(ConfEnergyCalculator rigidConfECalc) {

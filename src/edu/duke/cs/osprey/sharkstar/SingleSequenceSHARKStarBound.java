@@ -55,7 +55,7 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
 
     public void addFinishedNode(MultiSequenceSHARKStarNode node) {
         finishedNodeZ = finishedNodeZ.add(node.getUpperBound(sequence));
-        System.out.println("Adding "+node.toSeqString(sequence)+" to finished set");
+        //System.out.println("Adding "+node.toSeqString(sequence)+" to finished set");
         if(finishedNodes.contains(node))
             System.err.println("Dupe node addition.");
         finishedNodes.add(node);
@@ -144,8 +144,16 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
         return result;
     }
 
+    public BigDecimal getUpperBound(){
+        return values.pstar;
+    }
+
+    public BigDecimal getLowerBound(){
+        return values.qstar;
+    }
+
     public void updateBound() {
-        multiSequenceSHARKStarBound.rootNode.computeEpsilonErrorBounds(sequence);
+        //multiSequenceSHARKStarBound.rootNode.computeEpsilonErrorBounds(sequence);
         BigDecimal lastUpper = values.pstar;
         BigDecimal lastLower = values.qstar;
         BigDecimal upperBound = fringeNodes.getPartitionFunctionUpperBound()
@@ -216,11 +224,9 @@ public class SingleSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public boolean nonZeroLower() {
-        return this.fringeNodes.getPartitionFunctionLowerBound().compareTo(BigDecimal.ZERO) > 0;
-        /* This should be correct, but it broke everything. Fix this.
+        return this.fringeNodes.getPartitionFunctionLowerBound().compareTo(BigDecimal.ZERO) > 0
                 || internalQueue.getPartitionFunctionLowerBound().compareTo(BigDecimal.ZERO) > 0
                 || leafQueue.getPartitionFunctionLowerBound().compareTo(BigDecimal.ZERO) > 0 ;
-         */
     }
 
     @Override
