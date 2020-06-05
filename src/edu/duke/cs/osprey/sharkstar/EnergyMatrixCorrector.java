@@ -57,6 +57,7 @@ public class EnergyMatrixCorrector {
         double minDifference = 0.9;
         double triplethreshhold = 0.3;
         Set<RCTuple> scheduledMinimizations = new HashSet<>();
+        /* push test */
         // storePartialConfCorrections(conf, epsilonBound, diff, sortedPairwiseTerms2, threshhold, minDifference, triplethreshhold);
             storePartialConfCorrections(conf, epsilonBound, diff, sortedPairwiseTerms2, threshhold, minDifference, triplethreshhold,
                     3, scheduledMinimizations);
