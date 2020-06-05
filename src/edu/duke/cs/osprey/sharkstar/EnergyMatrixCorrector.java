@@ -92,13 +92,6 @@ public class EnergyMatrixCorrector {
                                           Set<RCTuple> scheduledMinimizations) {
         if(curTuple.size() > maxTupleSize)
             return;
-        if(curTuple.size() == maxTupleSize) {
-            multiSequenceSHARKStarBound.minList.set(curTuple.size() - 1, multiSequenceSHARKStarBound.minList.get(curTuple.size() - 1) + 1);
-            scheduledMinimizations.add(curTuple);
-            multiSequenceSHARKStarBound.setNumPartialMinimizations(multiSequenceSHARKStarBound.getNumPartialMinimizations() + 1);
-            multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
-            return;
-        }
         for (int nextPos = 0; nextPos < diff.getNumPos(); nextPos++) {
             if (curTuple.pos.contains(nextPos))
                 continue;
@@ -107,6 +100,12 @@ public class EnergyMatrixCorrector {
                 double tupleBounds = multiSequenceSHARKStarBound.getRigidEmat().getInternalEnergy(tuple) - multiSequenceSHARKStarBound.getMinimizingEmat().getInternalEnergy(tuple);
                 if (tupleBounds < minTupleDiff)
                     continue;
+                if(tuple.size() <= maxTupleSize) {
+                    multiSequenceSHARKStarBound.minList.set(tuple.size() - 1, multiSequenceSHARKStarBound.minList.get(tuple.size() - 1) + 1);
+                    scheduledMinimizations.add(tuple);
+                    multiSequenceSHARKStarBound.setNumPartialMinimizations(multiSequenceSHARKStarBound.getNumPartialMinimizations() + 1);
+                    multiSequenceSHARKStarBound.getProgress().reportPartialMinimization(1, epsilonBound);
+                }
             }
             recursePartialCorrection(conf, epsilonBound, diff, minTupleDiff, maxTupleSize, tuple, scheduledMinimizations);
         }
