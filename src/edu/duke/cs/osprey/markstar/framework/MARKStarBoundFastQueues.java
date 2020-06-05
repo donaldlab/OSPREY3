@@ -147,17 +147,19 @@ public class MARKStarBoundFastQueues extends MARKStarBound {
         loopCleanup(newNodes, loopWatch, numNodes);
         cleanupTime.stop();
 
-        try {
-            writer.write(String.format("%f, %f, %d, %f, %d, %f",
-                    popQueuesTimer.getTimeS(),
-                    internalTime.getTimeS(),
-                    numInternals,
-                    leafTime.getTimeS(),
-                    numLeaves,
-                    cleanupTime.getTimeS()
-            ));
-        } catch (IOException e) {
-            e.printStackTrace();
+        if(writeTimes) {
+            try {
+                writer.write(String.format("%f, %f, %d, %f, %d, %f",
+                        popQueuesTimer.getTimeS(),
+                        internalTime.getTimeS(),
+                        numInternals,
+                        leafTime.getTimeS(),
+                        numLeaves,
+                        cleanupTime.getTimeS()
+                ));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

@@ -132,7 +132,7 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     private Map<Sequence, List<String>> scoreHistory = new HashMap<>();
     private String cachePattern = "NOT_INITIALIZED";
 
-    public static final boolean writeTimes = true;
+    public static final boolean writeTimes = false;
     private BufferedWriter writer;
 
     /**
@@ -510,11 +510,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
     }
 
     public void computeForSequence(int maxNumConfs, SingleSequenceSHARKStarBound sequenceBound) {
-        try {
-            writer = new BufferedWriter(new FileWriter(stateName.concat("_shark.debug")));
-            writer.write("popQueues time, internal time, internal nodes, leaf time, leaf nodes, cleanup time, total time, epsilon change\n");
-        } catch (IOException e) {
-            e.printStackTrace();
+        if(writeTimes) {
+            try {
+                writer = new BufferedWriter(new FileWriter(stateName.concat("_shark.debug")));
+                writer.write("popQueues time, internal time, internal nodes, leaf time, leaf nodes, cleanup time, total time, epsilon change\n");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
         System.out.println("Tightening bound for "+sequenceBound.sequence);
@@ -559,11 +561,13 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             }
             lastEps = sequenceBound.getSequenceEpsilon();
 
-            try {
-                writer.write(String.format(", %f, %.10f\n", loopTimer.getTimeS(), delEps));
-                writer.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
+            if(writeTimes) {
+                try {
+                    writer.write(String.format(", %f, %.10f\n", loopTimer.getTimeS(), delEps));
+                    writer.flush();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
         if (!isStable(stabilityThreshold, sequenceBound))
@@ -577,10 +581,12 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
                     .divide(new BigDecimal(totalMinimizations), new MathContext(BigDecimal.ROUND_HALF_UP));
         debugPrint(String.format("Average Z reduction per minimization: %12.6e", averageReduction));
 
-        try {
-            writer.close();
-        } catch (IOException e) {
-            e.printStackTrace();
+        if(writeTimes) {
+            try {
+                writer.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -783,17 +789,19 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
         loopCleanup(bound, newNodes, loopWatch, numNodes);
         cleanupTime.stop();
 
-        try {
-            writer.write(String.format("%f, %f, %d, %f, %d, %f",
-                    popQueuesTimer.getTimeS(),
-                    internalTime.getTimeS(),
-                    numInternals,
-                    leafTime.getTimeS(),
-                    numLeaves,
-                    cleanupTime.getTimeS()
-                    ));
-        } catch (IOException e) {
-            e.printStackTrace();
+        if(writeTimes) {
+            try {
+                writer.write(String.format("%f, %f, %d, %f, %d, %f",
+                        popQueuesTimer.getTimeS(),
+                        internalTime.getTimeS(),
+                        numInternals,
+                        leafTime.getTimeS(),
+                        numLeaves,
+                        cleanupTime.getTimeS()
+                ));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

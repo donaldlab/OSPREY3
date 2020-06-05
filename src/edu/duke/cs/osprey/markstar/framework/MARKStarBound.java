@@ -203,11 +203,13 @@ public class MARKStarBound implements PartitionFunction {
 
     @Override
     public void compute(int maxNumConfs) {
-        try {
-            writer = new BufferedWriter(new FileWriter(stateName.concat("_mark.debug")));
-            writer.write("popQueues time, internal time, internal nodes, leaf time, leaf nodes, cleanup time, total time, epsilon change\n");
-        } catch (IOException e) {
-            e.printStackTrace();
+        if(writeTimes) {
+            try {
+                writer = new BufferedWriter(new FileWriter(stateName.concat("_mark.debug")));
+                writer.write("popQueues time, internal time, internal nodes, leaf time, leaf nodes, cleanup time, total time, epsilon change\n");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
         debugPrint("Num conformations: "+rootNode.getConfSearchNode().getNumConformations());
@@ -223,25 +225,27 @@ public class MARKStarBound implements PartitionFunction {
                 workDone()-previousConfCount < maxNumConfs
                 && isStable(stabilityThreshold)) {
             Stopwatch loopTimer = new Stopwatch();
-            debugPrint("Tightening from epsilon of "+epsilonBound);
-            if(debug)
+            debugPrint("Tightening from epsilon of " + epsilonBound);
+            if (debug)
                 debugHeap(queue);
             loopTimer.start();
             tightenBoundInPhases();
             loopTimer.stop();
-            debugPrint("Errorbound is now "+epsilonBound);
+            debugPrint("Errorbound is now " + epsilonBound);
             double delEps = lastEps - epsilonBound;
-            if(lastEps < epsilonBound && epsilonBound - lastEps > 0.01) {
+            if (lastEps < epsilonBound && epsilonBound - lastEps > 0.01) {
                 System.err.println("Error. Bounds got looser.");
                 //System.exit(-1);
             }
             lastEps = epsilonBound;
 
-            try {
-                writer.write(String.format(", %f, %.10f\n", loopTimer.getTimeS(), delEps));
-                writer.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
+            if (writeTimes) {
+                try {
+                    writer.write(String.format(", %f, %.10f\n", loopTimer.getTimeS(), delEps));
+                    writer.flush();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
         if(!isStable(stabilityThreshold))
@@ -264,6 +268,13 @@ public class MARKStarBound implements PartitionFunction {
                 status = Status.Unstable;
             }
             //rootNode.printTree(stateName, minimizingEcalc.confSpace);
+        }
+        if(writeTimes) {
+            try {
+                writer.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -347,7 +358,7 @@ public class MARKStarBound implements PartitionFunction {
     private int numLeavesScored = 0;
     private int numInternalScored = 0;
 
-    public static final boolean writeTimes = true;
+    public static final boolean writeTimes = false;
     public BufferedWriter writer;
 
     public static MARKStarBound makeFromConfSpaceInfo(BBKStar.ConfSpaceInfo info, RCs rcs) {
