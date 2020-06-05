@@ -276,6 +276,28 @@ public class TestSHARKStarBound extends TestBase {
                 .build();
 
     }
+    private SimpleConfSpace make1CC8MutableBiggerContinuous(){
+        Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A20").build();
+        strand1.flexibility.get("A2").setLibraryRotamers(Strand.WildType, "ARG").setContinuous();
+        strand1.flexibility.get("A3").setLibraryRotamers(Strand.WildType, "ILE").setContinuous();
+        strand1.flexibility.get("A4").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A5").setLibraryRotamers(Strand.WildType, "MET").setContinuous();
+        strand1.flexibility.get("A6").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A7").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A8").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A9").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A10").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A11").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A12").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A13").setLibraryRotamers(Strand.WildType).setContinuous();
+        strand1.flexibility.get("A14").setLibraryRotamers(Strand.WildType).setContinuous();
+
+        return new SimpleConfSpace.Builder()
+                .addStrands(strand1)
+                .setShellDistance(9)
+                .build();
+
+    }
 
     private SimpleConfSpace make1CC8MutableContinuousSmall() {
         Strand strand1 = new Strand.Builder(metallochaperone).setResidues("A2", "A10").build();
@@ -884,37 +906,39 @@ public class TestSHARKStarBound extends TestBase {
         bound.compute();
     }
 
-    @Test
-    public void testComputeFlexible(){
-        SimpleConfSpace confSpace = make1CC8MutableContinuous();
+    public void testComputeFlexible(SimpleConfSpace confSpace, double epsilon){
         Sequence wildType = confSpace.makeWildTypeSequence();
-        MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpace, wildType, 0.90, null, null);
+        MultiSequenceSHARKStarBound bound= makeSHARKStarPfuncForConfSpace(confSpace, wildType, epsilon, null, null);
         //bound.init(0.90);
         //PartitionFunction ssbound = bound.getPartitionFunctionForSequence(wildType);
     }
 
     @Test
+    public void testComputeFlexible() {
+        testComputeFlexible(make1CC8MutableContinuous(), 0.9);
+    }
+
+    @Test
     public void compareSHARKandMARKFlexible() {
+        double epsilon = 0.9;
+        SimpleConfSpace confSpace = make1CC8MutableContinuous();
         Stopwatch timer = new Stopwatch().start();
-        testComputeFlexible();
+        testComputeFlexible(confSpace, epsilon);
         timer.stop();
         double sharkTime = timer.getTimeS();
         timer.start();
-        testComputeFlexibleMARK();
+        testComputeFlexibleMARK(confSpace.makeFlexibleCopy(), epsilon);
         timer.stop();
         double markTime = timer.getTimeS();
         System.out.println("SHARK Time: "+sharkTime);
         System.out.println("MARK Time:"+ markTime);
         System.out.println("Done");
-        throw new RuntimeException("SHARK Time "+sharkTime+", MARK time "+markTime);
     }
 
-    @Test
-    public void testComputeFlexibleMARK(){
-        SimpleConfSpace confSpace = make1CC8MutableContinuous().makeFlexibleCopy();
+    public void testComputeFlexibleMARK(SimpleConfSpace confSpace, double epsilon){
         Sequence wildType = confSpace.makeWildTypeSequence();
-        MARKStarBound bound= makeMARKStarPfuncForConfSpace(confSpace, wildType, 0.90);
-        bound.init(0.90);
+        MARKStarBound bound= makeMARKStarPfuncForConfSpace(confSpace, wildType, epsilon);
+        bound.init(epsilon);
         bound.compute();
     }
 }

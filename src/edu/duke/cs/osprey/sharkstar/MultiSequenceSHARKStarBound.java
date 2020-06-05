@@ -728,6 +728,10 @@ public class MultiSequenceSHARKStarBound implements PartitionFunction {
             System.out.println("Processing " + numNodes + " leaf nodes...");
             leafTime.reset();
             leafTime.start();
+            /*
+            if(bound.maxMinimizations < parallelism.numThreads)
+                bound.maxMinimizations++;
+             */
             for (MultiSequenceSHARKStarNode leafNode : leafNodes) {
                 //debugPrint("Processing Node: " + leafNode.toSeqString(bound.sequence));
                 processFullConfNode(bound, newNodes, leafNode, leafNode.getConfSearchNode());

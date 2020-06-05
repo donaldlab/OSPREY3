@@ -24,7 +24,7 @@ import static edu.duke.cs.osprey.sharkstar.tools.MultiSequenceSHARKStarNodeStati
 public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARKStarNode> {
 
 
-    static boolean debug = true;
+    static boolean debug = false;
     private boolean updated = true;
 
     private BigDecimal errorBound = BigDecimal.ONE;
@@ -399,6 +399,8 @@ public class MultiSequenceSHARKStarNode implements Comparable<MultiSequenceSHARK
     }
 
     private void checkChildren(Sequence seq) {
+        if(!debug)
+            return;
         checkAllChildren();
         if(hasChildren(seq)) {
             List<MultiSequenceSHARKStarNode> multiSequenceSHARKStarNodes = childrenBySequence.get(seq);

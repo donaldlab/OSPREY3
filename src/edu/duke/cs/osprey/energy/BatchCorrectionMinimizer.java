@@ -16,7 +16,7 @@ import static edu.duke.cs.osprey.tools.Log.log;
 public class BatchCorrectionMinimizer {
 
     private final ConfEnergyCalculator confEcalc;
-    public final int CostThreshold = 1000;
+    public final int CostThreshold = 100;
     public final int[] costs = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
     private Batch batch = null;
     private UpdatingEnergyMatrix.TupleTrie submittedConfs;
@@ -91,7 +91,6 @@ public class BatchCorrectionMinimizer {
                                 confs.put(frag, confEcalc.calcEnergy(frag));
                             }
                         }
-                        System.out.println("Minimized "+fragments.size()+" tuples.");
                         return confs;
                     },
                     (Map<RCTuple, EnergyCalculator.EnergiedParametricMolecule> confs) -> {
