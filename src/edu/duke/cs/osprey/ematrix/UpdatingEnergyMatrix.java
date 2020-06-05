@@ -474,9 +474,11 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                 if(position + 1 ==  currentPos && children.containsKey(currentRC))
                     children.get(currentRC).populateCorrections(query, output, nextIndex);
                 // Also branch on wildcard.
-                if(!children.containsKey(WILDCARD_RC))
-                    children.put(WILDCARD_RC, new TupleTrieNode(positions, positionIndex+1));
-                children.get(WILDCARD_RC).populateCorrections(query, output, nextIndex);
+                synchronized(this){
+                    if(!children.containsKey(WILDCARD_RC))
+                        children.put(WILDCARD_RC, new TupleTrieNode(positions, positionIndex+1));
+                    children.get(WILDCARD_RC).populateCorrections(query, output, nextIndex);
+                }
             }
 
             public void getAllCorrections(List<TupE> output){
