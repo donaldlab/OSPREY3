@@ -30,6 +30,8 @@ public class ClusterZMatrix {
 
 	private class ZMat extends TupleMatrixGeneric<BigExp> {
 
+		BigExp staticStatic;
+
 		private ZMat() {
 			super(ecalc.confSpace());
 		}
@@ -58,10 +60,40 @@ public class ClusterZMatrix {
 
 	public void compute(ClusterMember member, TaskExecutor tasks) {
 
-		// TODO: static-static energy?
-
+		computeStaticStatic(member, tasks);
 		computeSingles(member, tasks);
 		computePairs(member, tasks);
+	}
+
+	private void computeStaticStatic(ClusterMember member, TaskExecutor tasks) {
+
+		// make a replicated map, so hazelcast will sync everything to all members for us
+		member.log0("computing static-static ...");
+		member.barrier(1, TimeUnit.MINUTES);
+
+		ReplicatedMap<Integer,BigExp> map = member.inst.getReplicatedMap("zmat");
+
+		// only one energy to compute, so do it on member 0
+		if (member.id() == 0) {
+			Batch batch = new Batch();
+			batch.addStaticStatic(0);
+			batch.submit(tasks, map, null);
+			tasks.waitForFinish();
+		}
+
+		// wait for all the members to finish
+		member.log0("synchronizing nodes ...");
+		member.barrier(5, TimeUnit.MINUTES);
+
+		// copy the replicated map into the local zmat
+		zmat.staticStatic = getOrWait(member, map, 0);
+
+		member.barrier(1, TimeUnit.MINUTES);
+
+		// cleanup
+		map.destroy();
+
+		member.log0("static-static finished");
 	}
 	
 	private void computeSingles(ClusterMember member, TaskExecutor tasks) {
@@ -102,7 +134,7 @@ public class ClusterZMatrix {
 
 		// wait for all the members to finish
 		member.log0("synchronizing nodes ...");
-		member.barrier(1, TimeUnit.MINUTES);
+		member.barrier(5, TimeUnit.MINUTES);
 
 		// copy the replicated map into the local zmat
 		index = 0;
@@ -218,6 +250,14 @@ public class ClusterZMatrix {
 			jobs = new ArrayList<>(capacity);
 		}
 
+		void addStaticStatic(int index) {
+			indices.add(index);
+			jobs.add(new ConfEnergyCalculator.MinimizationJob(
+				ecalc.confSpace().assign(),
+				posInterGen.staticStatic()
+			));
+		}
+
 		void addSingle(int index, int posi, int confi) {
 			indices.add(index);
 			jobs.add(new ConfEnergyCalculator.MinimizationJob(
@@ -239,7 +279,7 @@ public class ClusterZMatrix {
 		}
 
 		public boolean isEmpty() {
-			return size() > 0;
+			return size() == 0;
 		}
 
 		boolean isFull() {
@@ -247,6 +287,7 @@ public class ClusterZMatrix {
 		}
 
 		void submit(TaskExecutor tasks, Map<Integer,BigExp> map, Progress progress) {
+			assert (!isEmpty());
 			tasks.submit(
 				() -> {
 					ecalc.minimizeEnergies(jobs);
@@ -259,11 +300,16 @@ public class ClusterZMatrix {
 						map.put(indices.get(j), zs.get(j));
 					}
 					if (progress != null) {
+						assert (size() != 0);
 						progress.incrementProgress(size());
 					}
 				}
 			);
 		}
+	}
+
+	public BigExp staticStatic() {
+		return zmat.staticStatic;
 	}
 
 	public BigExp single(int posi, int confi) {

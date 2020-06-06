@@ -254,9 +254,6 @@ public class NodeDB implements AutoCloseable {
 			.map(NodeIndex::highestScore)
 			.toArray(BigExp[]::new);
 
-		// TEMP
-		member.log("broadcasting %s", Arrays.toString(freeSpaces));
-
 		// broadcast
 		member.sendToOthers(() -> new BroadcastOperation(freeSpaces, maxScores));
 		lastBroadcastNs = System.nanoTime();

@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.tools.BigExp;
 
 import java.io.File;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -33,9 +34,11 @@ public class Coffee {
 		private final StateConfig[] stateConfigs;
 		private Cluster cluster;
 		private Parallelism parallelism;
-		private File dbFile = null;
-		private long dbFileBytes = 0;
-		private long dbMemBytes = 2*1024*1024; // 2 MiB
+		private File nodedbFile = null;
+		private long nodedbFileBytes = 0;
+		private long nodedbMemBytes = 2*1024*1024; // 2 MiB
+		private File seqdbFile = null;
+		private MathContext seqdbMathContext = new MathContext(128, RoundingMode.HALF_UP);
 
 		public Builder(MultiStateConfSpace confSpace) {
 			this.confSpace = confSpace;
@@ -66,14 +69,24 @@ public class Coffee {
 			return this;
 		}
 
-		public Builder setDBFile(File file, long bytes) {
-			dbFile = file;
-			dbFileBytes = bytes;
+		public Builder setNodeDBFile(File file, long bytes) {
+			nodedbFile = file;
+			nodedbFileBytes = bytes;
 			return this;
 		}
 
-		public Builder setDBMem(long bytes) {
-			dbMemBytes = bytes;
+		public Builder setNodeDBMem(long bytes) {
+			nodedbMemBytes = bytes;
+			return this;
+		}
+
+		public Builder setSeqDBFile(File file) {
+			seqdbFile = file;
+			return this;
+		}
+
+		public Builder setSeqDBMathContext(MathContext val) {
+			seqdbMathContext = val;
 			return this;
 		}
 
@@ -94,7 +107,7 @@ public class Coffee {
 				parallelism = Parallelism.makeCpu(1);
 			}
 
-			return new Coffee(confSpace, stateConfigs, cluster, parallelism, dbFile, dbFileBytes, dbMemBytes);
+			return new Coffee(confSpace, stateConfigs, cluster, parallelism, nodedbFile, nodedbFileBytes, nodedbMemBytes, seqdbFile, seqdbMathContext);
 		}
 	}
 
@@ -141,13 +154,15 @@ public class Coffee {
 	public final File dbFile;
 	public final long dbFileBytes;
 	public final long dbMemBytes;
+	public final File seqdbFile;
+	public final MathContext seqdbMathContext;
 
 	public final StateInfo[] infos;
 
 	public final MathContext mathContext = BigExp.mathContext;
 	public final BoltzmannCalculator bcalc = new BoltzmannCalculator(mathContext);
 
-	private Coffee(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, File dbFile, long dbFileBytes, long dbMemBytes) {
+	private Coffee(MultiStateConfSpace confSpace, StateConfig[] stateConfigs, Cluster cluster, Parallelism parallelism, File dbFile, long dbFileBytes, long dbMemBytes, File seqdbFile, MathContext seqdbMathContext) {
 		this.confSpace = confSpace;
 		this.stateConfigs = stateConfigs;
 		this.cluster = cluster;
@@ -155,12 +170,14 @@ public class Coffee {
 		this.dbFile = dbFile;
 		this.dbFileBytes = dbFileBytes;
 		this.dbMemBytes = dbMemBytes;
+		this.seqdbFile = seqdbFile;
+		this.seqdbMathContext = seqdbMathContext;
 		infos = Arrays.stream(stateConfigs)
 			.map(config -> new StateInfo(config, bcalc))
 			.toArray(StateInfo[]::new);
 	}
 
-	public void refine(Driver driver) {
+	public void run(Driver driver) {
 		try (var member = new ClusterMember(cluster)) {
 			try (var tasks = parallelism.makeTaskExecutor()) {
 
@@ -168,67 +185,80 @@ public class Coffee {
 				member.log0("waiting for cluster to assemble ...");
 				member.barrier(1, TimeUnit.MINUTES);
 
-				NodeDB nodedb = new NodeDB.Builder(confSpace, member)
-					.setFile(dbFile, dbFileBytes)
-					.setMem(dbMemBytes)
-					.build();
-
 				// pre-compute the Z matrices
 				for (var info : infos) {
 					member.log0("computing Z matrix for state: %s", info.config.state.name);
 					info.zmat.compute(member, tasks);
 				}
 
-				// TODO: only init once
-
-				// compute bounds on free energies at the root nodes
-				for (int statei=0; statei<confSpace.states.size(); statei++) {
-					var stateInfo = infos[statei];
-
-					// get a multi-sequence Z bound on the root node
-					ConfIndex index = stateInfo.makeConfIndex();
-					BigExp zSumUpper = stateInfo.zSumUpper(index);
-
-					member.log0("state: %10s, zSumUpper: %s", confSpace.states.get(statei).name, zSumUpper);
-
-					// make sure BigExp values are fully normalized before writing to the databases to avoid some roundoff error
-					zSumUpper.normalize(true);
-
-					// init the nodedb with the root node
-					nodedb.addLocal(new NodeIndex.Node(statei, Conf.make(index), zSumUpper));
-
-					// TODO: init sequence database?
-					//seqtx.addZSumUpper(state, state.confSpace.seqSpace().makeUnassignedSequence(), zSumUpper);
+				// open the sequence database on the driver member
+				SeqDB seqdb = null;
+				if (member.isDriver()) {
+					seqdb = new SeqDB(confSpace, seqdbMathContext, seqdbFile);
 				}
+				try {
 
-				/* TODO: criterion, sweep thresholds, and refinement
-				// init sweep thresholds for each state
-				Double[] gThresholds = confSpace.states.stream()
-					.map(state -> {
-						return 5.0; // TODO
-					})
-					.toArray(Double[]::new);
+					// open the node database
+					try (var nodedb = new NodeDB.Builder(confSpace, member)
+						.setFile(dbFile, dbFileBytes)
+						.setMem(dbMemBytes)
+						.build()
+					) {
 
-				while (true) {
+						if (member.isDriver()) {
 
-					// check the criterion
-					if (criterion.isFinished()) {
-						break;
-					}
+							var tx = seqdb.transaction();
 
-					// update the sweep threshold
-					for (MultiStateConfSpace.State state : confSpace.states) {
-						if (gThresholds[state.index] != null) {
-							if (gThresholds[state.index] > gThresholdUpper) {
-								gThresholds[state.index] = null;
-							} else {
-								gThresholds[state.index] += sweepIncrement;
+							// compute bounds on free energies at the root nodes
+							for (int statei=0; statei<confSpace.states.size(); statei++) {
+								var stateInfo = infos[statei];
+
+								// start with the static-static energy
+								BigExp zSumUpper = stateInfo.zmat.staticStatic();
+
+								// get a multi-sequence Z bound on the root node
+								ConfIndex index = stateInfo.makeConfIndex();
+								zSumUpper.mult(stateInfo.zSumUpper(index));
+
+								// make sure BigExp values are fully normalized before writing to the databases to avoid some roundoff error
+								zSumUpper.normalize(true);
+
+								// TEMP
+								member.log("state root bound: %s = %s", stateInfo.config.state.name, zSumUpper);
+
+								// init the nodedb with the root node
+								nodedb.addLocal(new NodeIndex.Node(statei, Conf.make(index), zSumUpper));
+
+								// init sequence database
+								tx.addZSumUpper(
+									stateInfo.config.state,
+									confSpace.seqSpace.makeUnassignedSequence(),
+									zSumUpper
+								);
 							}
+
+							tx.commit();
+
+							// TEMP
+							member.log("seqdb: %s", seqdb.dump());
+
+							// let the rest of the cluster know we have the root nodes
+							nodedb.broadcast();
 						}
+
+						// wait for the root nodes calculation to finish
+						member.barrier(1, TimeUnit.MINUTES);
+
+						// TEMP
+						member.log("COFFEE done!");
+
+					} // nodedb
+				} finally { // seqdb
+					if (seqdb != null) {
+						seqdb.close();
 					}
 				}
-				*/
-			}
-		}
+			} // tasks
+		} // cluster member
 	}
 }

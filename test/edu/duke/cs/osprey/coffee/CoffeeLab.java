@@ -8,7 +8,6 @@ import edu.duke.cs.osprey.confspace.compiled.TestConfSpace;
 import edu.duke.cs.osprey.energy.compiled.CPUConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.parallelism.Cluster;
-import edu.duke.cs.osprey.parallelism.ForkCluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
@@ -21,13 +20,10 @@ public class CoffeeLab {
 		SLF4JBridgeHandler.removeHandlersForRootLogger();
 		SLF4JBridgeHandler.install();
 
-		// run in a pseudo-cluster
-		ForkCluster.run(2, true, CoffeeLab.class, CoffeeLab::run);
+		ClusterMember.launchPseudoCluster(2, cluster -> run(cluster, Parallelism.makeCpu(2)));
 	}
 
-	private static void run(Cluster cluster) {
-
-		Parallelism parallelism = Parallelism.makeCpu(2);
+	private static void run(Cluster cluster, Parallelism parallelism) {
 
 		// load a multi-state conf space
 		var confSpaces = TestConfSpace.Design2RL0Interface7Mut.makeCompiled();
@@ -50,6 +46,6 @@ public class CoffeeLab {
 			.build();
 
 		var driver = new AffinityDriver(confSpace, "complex", "design", "target", 5);
-		coffee.refine(driver);
+		coffee.run(driver);
 	}
 }

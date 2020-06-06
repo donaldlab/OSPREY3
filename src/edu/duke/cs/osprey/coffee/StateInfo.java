@@ -224,7 +224,7 @@ public class StateInfo {
 			throw new IllegalArgumentException("not a full conf");
 		}
 
-		List<PosInter> inters = config.posInterGen.dynamic(confSpace, conf);
+		List<PosInter> inters = config.posInterGen.all(confSpace, conf);
 		double e = config.ecalc.minimizeEnergy(conf, inters);
 		return new BigExp(bcalc.calcPrecise(e));
 	}

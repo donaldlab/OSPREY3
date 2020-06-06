@@ -32,24 +32,23 @@ public class TestNodeDB {
 	}
 
 	private static void withLocalMemNodeDBs(MultiStateConfSpace confSpace, long dbBytes, int numMembers, Consumer<NodeDB> block) {
-		var exceptions = ClusterMember.launchPseudoCluster(numMembers, member -> {
+		var exceptions = ClusterMember.launchPseudoCluster(numMembers, cluster -> {
+			try (var member = new ClusterMember(cluster)) {
 
-			// make the node database
-			try (var nodedb = new NodeDB.Builder(confSpace, member)
-				.setMem(dbBytes)
-				.build()
-			) {
+				// make the node database
+				try (var nodedb = new NodeDB.Builder(confSpace, member)
+					.setMem(dbBytes)
+					.build()
+				) {
 
-				// wait for all the database instances to be ready
-				member.barrier(1, TimeUnit.MINUTES);
+					// wait for all the database instances to be ready
+					member.barrier(1, TimeUnit.MINUTES);
 
-				block.accept(nodedb);
+					block.accept(nodedb);
+				}
 			}
 		});
 		if (!exceptions.isEmpty()) {
-			for (var t : exceptions) {
-				t.printStackTrace();
-			}
 			fail("Cluster threads encountered exceptions");
 		}
 	}

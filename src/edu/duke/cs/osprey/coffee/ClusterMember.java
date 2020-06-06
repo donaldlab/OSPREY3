@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -34,22 +35,25 @@ public class ClusterMember implements AutoCloseable {
 	/**
 	 * Launch a pseudo-cluster on different threads.
 	 */
-	public static List<Throwable> launchPseudoCluster(int numMembers, Consumer<ClusterMember> block) {
+	public static List<Throwable> launchPseudoCluster(int numMembers, Consumer<Cluster> block) {
 
 		List<Throwable> exceptions = new ArrayList<>();
+
+		var latch = new CountDownLatch(numMembers);
 
 		var threads = IntStream.range(0, numMembers)
 			.mapToObj(memberi -> {
 				Thread thread = new Thread(() -> {
+					try {
 
-					try (var member = new ClusterMember(new Cluster("NodeDB", "job", memberi, numMembers))) {
+						// wait for all the threads to be ready
+						latch.countDown();
+						latch.await();
 
-						// wait for all the members to be ready
-						member.barrier(1, TimeUnit.MINUTES);
-
-						block.accept(member);
+						block.accept(new Cluster("NodeDB", "job", memberi, numMembers));
 
 					} catch (Throwable t) {
+						t.printStackTrace();
 						synchronized (exceptions) {
 							exceptions.add(t);
 						}
@@ -138,6 +142,10 @@ public class ClusterMember implements AutoCloseable {
 
 	public int id() {
 		return cluster.nodeId;
+	}
+
+	public boolean isDriver() {
+		return cluster.nodeId == 0;
 	}
 
 	/**
