@@ -351,6 +351,8 @@ public class BigExp implements Comparable<BigExp>, IOable, Serializable {
 			// fully normalize before converting to big decimal,
 			// to avoid some roundoff error when different normalization states get convert to big decimals
 			normalize(true);
+			// TODO: optimization: call the String constructor of BigDecimal directly, since valueOf() calls it already
+			// ie: return new BigDecimal("" + fp + "e" + exp);
 			BigDecimal bd = BigDecimal.valueOf(fp);
 			return new BigDecimal(bd.unscaledValue(), bd.scale() - exp, mc);
 		}

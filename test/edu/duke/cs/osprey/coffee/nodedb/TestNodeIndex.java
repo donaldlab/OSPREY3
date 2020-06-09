@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.coffee.db;
+package edu.duke.cs.osprey.coffee.nodedb;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;

@@ -1,47 +1,51 @@
-package edu.duke.cs.osprey.coffee.db;
+package edu.duke.cs.osprey.coffee.nodedb;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.spi.impl.operationservice.Operation;
+import edu.duke.cs.osprey.coffee.Serializers;
 
 import java.io.IOException;
 
 
 /**
- * Returns the highest-scoring node from a cluster member.
+ * Adds a node to the cluster member.
  */
-public class GetHighestNodeOperation extends Operation {
+public class AddNodeOperation extends Operation {
 
-	private int statei;
-
-	private NodeIndex.Node node = null;
+	private NodeIndex.Node node;
 
 	@SuppressWarnings("unused") // used by hazelcast
-	public GetHighestNodeOperation() {
-		this.statei = -1;
+	public AddNodeOperation() {
+		this.node = null;
 	}
 
-	public GetHighestNodeOperation(int statei) {
-		this.statei = statei;
+	public AddNodeOperation(NodeIndex.Node node) {
+		this.node = node;
 	}
 
 	@Override
 	public final boolean returnsResponse() {
-		return true;
+		return false;
 	}
 
 	@Override
 	protected void writeInternal(ObjectDataOutput out)
 	throws IOException {
 		super.writeInternal(out);
-		out.writeInt(statei);
+
+		NodeDB nodedb = getService();
+		Serializers.hazelcastNodeSerializeDeNovo(out, nodedb.confSpace, node);
 	}
 
 	@Override
 	protected void readInternal(ObjectDataInput in)
 	throws IOException {
 		super.readInternal(in);
-		statei = in.readInt();
+
+		// NOTE: can't getService() here  ;_;
+
+		node = Serializers.hazelcastNodeDeserializeDeNovo(in);
 	}
 
 	@Override
@@ -52,11 +56,6 @@ public class GetHighestNodeOperation extends Operation {
 	@Override
 	public final void run() {
 		NodeDB nodedb = getService();
-		node = nodedb.removeHighestLocal(statei);
-	}
-
-	@Override
-	public Object getResponse() {
-		return node;
+		nodedb.addLocal(node);
 	}
 }

@@ -1,8 +1,9 @@
 package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
-import edu.duke.cs.osprey.coffee.db.NodeDB;
-import edu.duke.cs.osprey.coffee.db.NodeIndex;
+import edu.duke.cs.osprey.coffee.nodedb.NodeDB;
+import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
+import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
 import edu.duke.cs.osprey.confspace.*;
 import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
@@ -185,18 +186,20 @@ public class Coffee {
 				member.log0("waiting for cluster to assemble ...");
 				member.barrier(1, TimeUnit.MINUTES);
 
+				// TEMP
+				for (var m : member.inst.getCluster().getMembers()) {
+					member.log("m: %s attr=%s", m.getUuid(), m.getAttributes());
+				}
+				if (true) return;
+
 				// pre-compute the Z matrices
 				for (var info : infos) {
 					member.log0("computing Z matrix for state: %s", info.config.state.name);
 					info.zmat.compute(member, tasks);
 				}
 
-				// open the sequence database on the driver member
-				SeqDB seqdb = null;
-				if (member.isDriver()) {
-					seqdb = new SeqDB(confSpace, seqdbMathContext, seqdbFile);
-				}
-				try {
+				// open the sequence database
+				try (SeqDB seqdb = new SeqDB(confSpace, seqdbMathContext, seqdbFile, member)) {
 
 					// open the node database
 					try (var nodedb = new NodeDB.Builder(confSpace, member)
@@ -207,7 +210,7 @@ public class Coffee {
 
 						if (member.isDriver()) {
 
-							var tx = seqdb.transaction();
+							var batch = seqdb.batch();
 
 							// compute bounds on free energies at the root nodes
 							for (int statei=0; statei<confSpace.states.size(); statei++) {
@@ -230,14 +233,14 @@ public class Coffee {
 								nodedb.addLocal(new NodeIndex.Node(statei, Conf.make(index), zSumUpper));
 
 								// init sequence database
-								tx.addZSumUpper(
+								batch.addZSumUpper(
 									stateInfo.config.state,
 									confSpace.seqSpace.makeUnassignedSequence(),
 									zSumUpper
 								);
 							}
 
-							tx.commit();
+							batch.save();
 
 							// TEMP
 							member.log("seqdb: %s", seqdb.dump());
@@ -253,11 +256,7 @@ public class Coffee {
 						member.log("COFFEE done!");
 
 					} // nodedb
-				} finally { // seqdb
-					if (seqdb != null) {
-						seqdb.close();
-					}
-				}
+				} // seqdb
 			} // tasks
 		} // cluster member
 	}

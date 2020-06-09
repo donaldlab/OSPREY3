@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.coffee;
 
+import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
+import edu.duke.cs.osprey.coffee.seqdb.SeqInfo;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
@@ -27,14 +29,14 @@ public class BestSequences {
 		// get the unsequenced z values
 		MathTools.DoubleBounds[] unsequencedFreeEnergy = new MathTools.DoubleBounds[seqdb.confSpace.unsequencedStates.size()];
 		for (MultiStateConfSpace.State state : seqdb.confSpace.unsequencedStates) {
-			MathTools.DoubleBounds freeEnergyBounds = bcalc.freeEnergyPrecise(seqdb.getUnsequencedZSumBounds(state));
+			MathTools.DoubleBounds freeEnergyBounds = bcalc.freeEnergyPrecise(seqdb.boundsUnsequenced(state));
 			unsequencedFreeEnergy[state.unsequencedIndex] = freeEnergyBounds;
 		}
 
 		// for each sequence and partial sequence encountered so far...
-		for (var entry : seqdb.getSequencedZSumBounds()) {
+		for (var entry : seqdb.boundsSequenced()) {
 			Sequence seq = entry.getKey();
-			SeqDB.SeqInfo seqInfo = entry.getValue();
+			SeqInfo seqInfo = entry.getValue();
 
 			MathTools.DoubleBounds[] stateFreeEnergies = objective.collectFreeEnergies(state -> {
 				if (state.isSequenced) {

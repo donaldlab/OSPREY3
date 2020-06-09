@@ -909,7 +909,15 @@ public class MathTools {
 
 		@Override
 		public String toString() {
-			return String.format("[%e,%e]", lower, upper);
+			return String.format("[%s,%s]", Log.formatBigEngineering(lower), Log.formatBigEngineering(upper));
+		}
+
+		public boolean isZero() {
+			return MathTools.isZero(lower) && MathTools.isZero(upper);
+		}
+
+		public static BigDecimalBounds makeZero() {
+			return new BigDecimalBounds(BigDecimal.ZERO, BigDecimal.ZERO);
 		}
 	}
 

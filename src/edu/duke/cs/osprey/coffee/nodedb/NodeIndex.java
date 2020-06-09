@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.coffee.db;
+package edu.duke.cs.osprey.coffee.nodedb;
 
 import edu.duke.cs.osprey.coffee.Serializers;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;

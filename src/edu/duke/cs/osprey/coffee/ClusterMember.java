@@ -10,6 +10,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.internal.serialization.impl.AbstractSerializationService;
 import com.hazelcast.nio.serialization.StreamSerializer;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.spi.impl.operationexecutor.OperationRunner;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.OperationServiceImpl;
 import com.hazelcast.spi.impl.servicemanager.impl.ServiceManagerImpl;
@@ -18,9 +19,7 @@ import edu.duke.cs.osprey.tools.IntRange;
 import edu.duke.cs.osprey.tools.Log;
 import edu.duke.cs.osprey.tools.MathTools;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -87,6 +86,7 @@ public class ClusterMember implements AutoCloseable {
 	private final OperationServiceImpl opService;
 	private final ServiceManagerImpl serviceManager;
 	private final AbstractSerializationService serializationService;
+	private final OperationRunner[] operationRunners;
 
 	public ClusterMember(Cluster cluster) {
 
@@ -102,13 +102,19 @@ public class ClusterMember implements AutoCloseable {
 		// disable Hazelcast's automatic phone home "feature", which is on by default
 		cfg.setProperty("hazelcast.phone.home.enabled", "false");
 
+		// let the cluster know which member is the driver
+		cfg.getMemberAttributeConfig().setAttribute("driver", Boolean.toString(isDriver()));
+
+		// actually start hazelcast
+		inst = Hazelcast.newHazelcastInstance(cfg);
+
 		// Hazelcast's "SPI" (service programming interface) is a total mess.
 		// I think they've actually started removing it, but it's still there. Sort of.
-		inst = Hazelcast.newHazelcastInstance(cfg);
 		nodeEngine = ((HazelcastInstanceProxy)inst).getOriginal().node.getNodeEngine();
 		opService = nodeEngine.getOperationService();
 		serviceManager = (ServiceManagerImpl)nodeEngine.getServiceManager();
 		serializationService = (AbstractSerializationService)nodeEngine.getSerializationService();
+		operationRunners = nodeEngine.getOperationService().getOperationExecutor().getGenericOperationRunners();
 
 		log("node started on cluster %s, addr=%s", cluster.id, nodeEngine.getThisAddress());
 	}
@@ -138,6 +144,10 @@ public class ClusterMember implements AutoCloseable {
 		}
 	}
 
+	public void sleep(long duration, TimeUnit timeUnit) {
+		sleep((int)timeUnit.toMillis(duration));
+	}
+
 	private long barrierId = 0;
 
 	public int id() {
@@ -146,6 +156,14 @@ public class ClusterMember implements AutoCloseable {
 
 	public boolean isDriver() {
 		return cluster.nodeId == 0;
+	}
+
+	public Address driverAddress() {
+		return inst.getCluster().getMembers().stream()
+			.filter(member -> Boolean.parseBoolean(member.getAttribute("driver")))
+			.findFirst()
+			.orElseThrow(() -> new NoSuchElementException("can't find driver cluster member"))
+			.getAddress();
 	}
 
 	/**
@@ -244,5 +262,28 @@ public class ClusterMember implements AutoCloseable {
 			.sorted(Comparator.comparing(Member::getUuid))
 			.map(Member::getAddress)
 			.collect(Collectors.toList());
+	}
+
+	public long finishedOperations() {
+		return Arrays.stream(operationRunners)
+			.mapToLong(runner -> runner.executedOperationsCount())
+			.sum();
+	}
+
+	public void waitForOperation(long operationNum, long timeout, TimeUnit timeUnit) {
+
+		long startNs = System.nanoTime();
+		long stopNs = startNs + timeUnit.toNanos(timeout);
+
+		while (finishedOperations() < operationNum) {
+
+			// operation not done yet, stop waiting?
+			if (System.nanoTime() >= stopNs) {
+				throwTimeout("timed out waiting for operations to finish");
+			}
+
+			// keep waiting
+			sleep(50);
+		}
 	}
 }

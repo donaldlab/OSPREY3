@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.coffee.db;
+package edu.duke.cs.osprey.coffee.nodedb;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -27,11 +27,11 @@ public class TestNodeDB {
 
 	private static final long MiB = 1024*1024;
 
-	private static void withLocalMemNodeDB(MultiStateConfSpace confSpace, long dbBytes, Consumer<NodeDB> block) {
-		withLocalMemNodeDBs(confSpace, dbBytes, 1, block);
+	private static void withMemNodeDB(MultiStateConfSpace confSpace, long dbBytes, Consumer<NodeDB> block) {
+		withMemNodeDBs(confSpace, dbBytes, 1, block);
 	}
 
-	private static void withLocalMemNodeDBs(MultiStateConfSpace confSpace, long dbBytes, int numMembers, Consumer<NodeDB> block) {
+	private static void withMemNodeDBs(MultiStateConfSpace confSpace, long dbBytes, int numMembers, Consumer<NodeDB> block) {
 		var exceptions = ClusterMember.launchPseudoCluster(numMembers, cluster -> {
 			try (var member = new ClusterMember(cluster)) {
 
@@ -57,7 +57,7 @@ public class TestNodeDB {
 	public void add1Poll1Local() {
 
 		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
-		withLocalMemNodeDB(confSpace, MiB, nodedb -> {
+		withMemNodeDB(confSpace, MiB, nodedb -> {
 
 			for (var state : confSpace.states) {
 
@@ -82,7 +82,7 @@ public class TestNodeDB {
 	public void fillLocal() {
 
 		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
-		withLocalMemNodeDB(confSpace, MiB, nodedb -> {
+		withMemNodeDB(confSpace, MiB, nodedb -> {
 
 			var state = confSpace.states.get(0);
 
@@ -114,7 +114,7 @@ public class TestNodeDB {
 			new BigExp(rand.nextDouble(), rand.nextInt())
 		);
 
-		withLocalMemNodeDBs(confSpace, MiB, 2, nodedb -> {
+		withMemNodeDBs(confSpace, MiB, 2, nodedb -> {
 
 			// add the node to member 0
 			if (nodedb.member.id() == 0) {
@@ -143,7 +143,7 @@ public class TestNodeDB {
 
 		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
 
-		withLocalMemNodeDBs(confSpace, MiB, 2, nodedb -> {
+		withMemNodeDBs(confSpace, MiB, 2, nodedb -> {
 
 			var state = confSpace.states.get(0);
 
@@ -178,7 +178,7 @@ public class TestNodeDB {
 
 		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
 
-		withLocalMemNodeDBs(confSpace, MiB, 4, nodedb -> {
+		withMemNodeDBs(confSpace, MiB, 4, nodedb -> {
 
 			var state = confSpace.states.get(0);
 
