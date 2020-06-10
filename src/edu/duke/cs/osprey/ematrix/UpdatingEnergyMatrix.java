@@ -339,7 +339,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             int position = -1;
             List<SimpleConfSpace.Position> positions;
             List<TupE> corrections = new ArrayList<>();
-            Map<Integer, TupleTrieNode> children = new HashMap<>();
+            final Map<Integer, TupleTrieNode> children = new HashMap<>();
 
             private TupleTrieNode(List<SimpleConfSpace.Position> positions, int positionIndex) {
                 this.positions = positions;
@@ -394,20 +394,22 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
 
             public void insert(TupE correction, int tupIndex)
             {
-                for(TupleTrieNode child: children.values()) {
-                    debugPrint(this+"->"+child);
-                }
-                for(TupE corr: corrections)
-                {
-                   debugPrint(corr.tup.stringListing()+":"+corr.E);
+                if(debug) {
+                    for (TupleTrieNode child : children.values()) {
+                        debugPrint(this + "->" + child);
+                    }
+                    for (TupE corr : corrections) {
+                        debugPrint(corr.tup.stringListing() + ":" + corr.E);
+                    }
                 }
                 RCTuple tup = correction.tup;
                 if(tupIndex >= tup.size()) {
                     debugPrint("Reached end of tuple, inserting correction at "+this+".");
                     corrections.add(correction);
-                    for(TupE corr: corrections)
-                    {
-                        debugPrint(corr.tup.stringListing()+":"+corr.E);
+                    if(debug) {
+                        for (TupE corr : corrections) {
+                            debugPrint(corr.tup.stringListing() + ":" + corr.E);
+                        }
                     }
                     return;
                 }
@@ -474,7 +476,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                 if(position + 1 ==  currentPos && children.containsKey(currentRC))
                     children.get(currentRC).populateCorrections(query, output, nextIndex);
                 // Also branch on wildcard.
-                synchronized(this){
+                synchronized(children){
                     if(!children.containsKey(WILDCARD_RC))
                         children.put(WILDCARD_RC, new TupleTrieNode(positions, positionIndex+1));
                     children.get(WILDCARD_RC).populateCorrections(query, output, nextIndex);

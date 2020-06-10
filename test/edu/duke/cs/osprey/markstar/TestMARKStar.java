@@ -1420,5 +1420,15 @@ public class TestMARKStar {
 		}
 	}
 
+	@Test
+	public void testUpdatingEnergyMatrixNullPointer(){
+		try {
+			ConfSpaces confSpace= loadFromCFS("test-resources/2rl0_D_6res_6.366E+06.cfs");
+			runMARKStar(confSpace, 0.68);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
+
 
 }
