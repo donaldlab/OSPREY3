@@ -35,7 +35,7 @@ public class SeqDB implements AutoCloseable {
 		this.member = member;
 
 		// open the DB, but only on the driver member
-		if (member.isDriver()) {
+		if (member.isDirector()) {
 
 			if (file != null) {
 				db = DBMaker.fileDB(file)
@@ -140,9 +140,9 @@ public class SeqDB implements AutoCloseable {
 		}
 	}
 
-	private void checkDriver() {
-		if (!member.isDriver()) {
-			throw new IllegalStateException("Tried to access SeqDB directly on non-driver cluster member " + member.name);
+	private void checkDirector() {
+		if (!member.isDirector()) {
+			throw new IllegalStateException("Tried to access SeqDB directly on non-director cluster member " + member.name);
 		}
 	}
 
@@ -153,7 +153,7 @@ public class SeqDB implements AutoCloseable {
 	 */
 	BigDecimalBounds getSum(MultiStateConfSpace.State state) {
 
-		checkDriver();
+		checkDirector();
 
 		return unsequencedSums.get(state.unsequencedIndex);
 	}
@@ -163,7 +163,7 @@ public class SeqDB implements AutoCloseable {
 	 */
 	public BigDecimalBounds boundsUnsequenced(MultiStateConfSpace.State state) {
 
-		checkDriver();
+		checkDirector();
 
 		BigDecimalBounds z = getSum(state);
 		if (z == null) {
@@ -179,7 +179,7 @@ public class SeqDB implements AutoCloseable {
 	 */
 	SeqInfo getSums(Sequence seq) {
 
-		checkDriver();
+		checkDirector();
 
 		return sequencedSums.get(seq.rtIndices);
 	}
@@ -190,7 +190,7 @@ public class SeqDB implements AutoCloseable {
 	 */
 	Iterable<Map.Entry<Sequence,SeqInfo>> getSums() {
 
-		checkDriver();
+		checkDirector();
 
 		return () -> new Iterator<>() {
 
@@ -221,7 +221,7 @@ public class SeqDB implements AutoCloseable {
 	 */
 	public SeqInfo boundsUnexplored(Sequence seq) {
 
-		checkDriver();
+		checkDirector();
 
 		if (seq.isFullyAssigned()) {
 			throw new IllegalArgumentException("need partially-assigned sequence");
@@ -244,7 +244,7 @@ public class SeqDB implements AutoCloseable {
 	 */
 	public SeqInfo bounds(Sequence seq) {
 
-		checkDriver();
+		checkDirector();
 
 		if (!seq.isFullyAssigned()) {
 			throw new IllegalArgumentException("need fully-assigned sequence");
@@ -269,7 +269,7 @@ public class SeqDB implements AutoCloseable {
 	 */
 	public Iterable<Map.Entry<Sequence,SeqInfo>> boundsSequenced() {
 
-		checkDriver();
+		checkDirector();
 
 		return () -> new Iterator<>() {
 
@@ -323,7 +323,7 @@ public class SeqDB implements AutoCloseable {
 
 	public String dump() {
 
-		checkDriver();
+		checkDirector();
 
 		StringBuilder buf = new StringBuilder();
 		buf.append("Unsequenced");

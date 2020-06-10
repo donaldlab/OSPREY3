@@ -116,12 +116,12 @@ public class Batch {
 
 		var op = new SaveOperation(seqdb.confSpace, this);
 
-		if (seqdb.member.isDriver()) {
+		if (seqdb.member.isDirector()) {
 			// save locally
 			seqdb.commitBatch(op);
 		} else {
 			// relay batch save to the driver member
-			seqdb.member.sendTo(op, seqdb.member.driverAddress());
+			seqdb.member.sendTo(op, seqdb.member.directorAddress());
 		}
 	}
 }

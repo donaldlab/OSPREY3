@@ -36,7 +36,7 @@ public class FixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<
 
 		public Block(long id) {
 			this.id = id;
-			size = 1;
+			size = 0;
 			min = null;
 			max = null;
 		}

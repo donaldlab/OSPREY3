@@ -1,6 +1,6 @@
 package edu.duke.cs.osprey.coffee;
 
-import edu.duke.cs.osprey.coffee.drivers.AffinityDriver;
+import edu.duke.cs.osprey.coffee.directors.AffinityDirector;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInterDist;
@@ -26,12 +26,7 @@ public class CoffeeLab {
 	private static void run(Cluster cluster, Parallelism parallelism) {
 
 		// load a multi-state conf space
-		var confSpaces = TestConfSpace.Design2RL0Interface7Mut.makeCompiled();
-		MultiStateConfSpace confSpace = new MultiStateConfSpace
-			.Builder("complex", confSpaces.complex)
-			.addMutableState("design", confSpaces.chainA)
-			.addMutableState("target", confSpaces.chainB)
-			.build();
+		var confSpace = TestCoffee.affinity_6ov7_1mut2flex();
 
 		var posInterDist = PosInterDist.DesmetEtAl1992;
 		//var posInterDist = PosInterDist.TighterBounds;
@@ -45,7 +40,7 @@ public class CoffeeLab {
 			})
 			.build();
 
-		var driver = new AffinityDriver(confSpace, "complex", "design", "target", 5);
-		coffee.run(driver);
+		var director = new AffinityDirector(confSpace, "complex", "design", "target", 5);
+		coffee.run(director);
 	}
 }

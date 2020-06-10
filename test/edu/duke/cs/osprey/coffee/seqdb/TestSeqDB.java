@@ -146,7 +146,7 @@ public class TestSeqDB {
 			
 			long ops = seqdb.member.finishedOperations();
 
-			if (!seqdb.member.isDriver()) {
+			if (!seqdb.member.isDirector()) {
 				// add one value for each state
 				var batch = seqdb.batch();
 				batch.addZSumUpper(complex, seq, new BigExp(3.0));
@@ -156,12 +156,12 @@ public class TestSeqDB {
 			}
 
 			// wait for the save to finish
-			if (seqdb.member.isDriver()) {
+			if (seqdb.member.isDirector()) {
 				seqdb.member.waitForOperation(ops + 1, 2, TimeUnit.SECONDS);
 			}
 			seqdb.member.barrier(2, TimeUnit.SECONDS);
 
-			if (seqdb.member.isDriver()) {
+			if (seqdb.member.isDirector()) {
 				// should have been added
 				assertThat(seqdb.getSums(seq).get(complex), is(new BigDecimalBounds(0.0, 3.0)));
 				assertThat(seqdb.getSums(seq).get(design), is(new BigDecimalBounds(0.0, 5.0)));

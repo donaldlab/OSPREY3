@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
+import edu.duke.cs.osprey.coffee.commands.Commands;
 import edu.duke.cs.osprey.coffee.nodedb.NodeDB;
 import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
@@ -144,8 +145,8 @@ public class Coffee {
 	/**
 	 * Tells COFFEE what nodes to look for and when to stop looking
 	 */
-	public interface Driver {
-		// TODO
+	public interface Director {
+		void direct(Commands commands, NodeProcessor processor);
 	}
 
 	public final MultiStateConfSpace confSpace;
@@ -178,19 +179,13 @@ public class Coffee {
 			.toArray(StateInfo[]::new);
 	}
 
-	public void run(Driver driver) {
+	public void run(Director director) {
 		try (var member = new ClusterMember(cluster)) {
 			try (var tasks = parallelism.makeTaskExecutor()) {
 
 				// wait for everyone to get here
 				member.log0("waiting for cluster to assemble ...");
 				member.barrier(1, TimeUnit.MINUTES);
-
-				// TEMP
-				for (var m : member.inst.getCluster().getMembers()) {
-					member.log("m: %s attr=%s", m.getUuid(), m.getAttributes());
-				}
-				if (true) return;
 
 				// pre-compute the Z matrices
 				for (var info : infos) {
@@ -208,7 +203,7 @@ public class Coffee {
 						.build()
 					) {
 
-						if (member.isDriver()) {
+						if (member.isDirector()) {
 
 							var batch = seqdb.batch();
 
@@ -225,9 +220,6 @@ public class Coffee {
 
 								// make sure BigExp values are fully normalized before writing to the databases to avoid some roundoff error
 								zSumUpper.normalize(true);
-
-								// TEMP
-								member.log("state root bound: %s = %s", stateInfo.config.state.name, zSumUpper);
 
 								// init the nodedb with the root node
 								nodedb.addLocal(new NodeIndex.Node(statei, Conf.make(index), zSumUpper));
@@ -253,11 +245,49 @@ public class Coffee {
 						member.barrier(1, TimeUnit.MINUTES);
 
 						// TEMP
-						member.log("COFFEE done!");
+						member.log("starting computation");
+
+						// prep complete! now we can start the real computation
+						var commands = new Commands(member);
+						var nodeProcessor = new NodeProcessor(tasks, seqdb, nodedb);
+						if (member.isDirector()) {
+							director.direct(commands, nodeProcessor);
+						} else {
+							follow(commands, nodeProcessor);
+						}
+
+						// TEMP
+						member.log("finished computation");
+
+						// wait for the computation to finish before cleaning up databases
+						member.barrier(5, TimeUnit.MINUTES);
 
 					} // nodedb
 				} // seqdb
 			} // tasks
 		} // cluster member
+	}
+
+	private void follow(Commands commands, NodeProcessor processor) {
+
+		while (commands.isRunning()) {
+
+			// get the currently focused state, or wait for one to happen
+			int statei = commands.getFocusedStatei();
+			if (statei < 0) {
+				commands.member.sleep(500, TimeUnit.MILLISECONDS);
+				continue;
+			}
+
+			// get the next node from that staet, or wait for one to happen
+			NodeIndex.Node node = processor.nodedb.removeHigh(statei);
+			if (node == null) {
+				commands.member.sleep(500, TimeUnit.MILLISECONDS);
+				continue;
+			}
+
+			// TODO: use tasks?
+			processor.process(node);
+		}
 	}
 }

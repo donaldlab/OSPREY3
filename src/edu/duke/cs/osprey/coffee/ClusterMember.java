@@ -102,8 +102,8 @@ public class ClusterMember implements AutoCloseable {
 		// disable Hazelcast's automatic phone home "feature", which is on by default
 		cfg.setProperty("hazelcast.phone.home.enabled", "false");
 
-		// let the cluster know which member is the driver
-		cfg.getMemberAttributeConfig().setAttribute("driver", Boolean.toString(isDriver()));
+		// let the cluster know which member is the director
+		cfg.getMemberAttributeConfig().setAttribute("director", Boolean.toString(isDirector()));
 
 		// actually start hazelcast
 		inst = Hazelcast.newHazelcastInstance(cfg);
@@ -154,15 +154,15 @@ public class ClusterMember implements AutoCloseable {
 		return cluster.nodeId;
 	}
 
-	public boolean isDriver() {
+	public boolean isDirector() {
 		return cluster.nodeId == 0;
 	}
 
-	public Address driverAddress() {
+	public Address directorAddress() {
 		return inst.getCluster().getMembers().stream()
-			.filter(member -> Boolean.parseBoolean(member.getAttribute("driver")))
+			.filter(member -> Boolean.parseBoolean(member.getAttribute("director")))
 			.findFirst()
-			.orElseThrow(() -> new NoSuchElementException("can't find driver cluster member"))
+			.orElseThrow(() -> new NoSuchElementException("can't find director cluster member"))
 			.getAddress();
 	}
 

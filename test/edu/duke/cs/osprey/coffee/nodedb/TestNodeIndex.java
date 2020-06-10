@@ -19,6 +19,30 @@ import java.util.stream.IntStream;
 
 public class TestNodeIndex {
 
+	private void empty(File file) {
+
+		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
+		var state = confSpace.getState("complex");
+
+		var store = new BlockStore(file, 1024*1024);
+		var index = new NodeIndex(store, state);
+
+		assertThat(index.size(), is(0L));
+		assertThat(index.removeHighest(), is(nullValue()));
+	}
+
+	@Test
+	public void empty_mem() {
+		empty(null);
+	}
+
+	@Test
+	public void empty_file() {
+		try (var file = new TestBase.TempFile("node.index")) {
+			empty(file);
+		}
+	}
+
 	private void addOneRemoveOne(File file) {
 
 		MultiStateConfSpace confSpace = TestCoffee.affinity_2RL0_7mut();
@@ -34,7 +58,11 @@ public class TestNodeIndex {
 		);
 		index.add(node);
 
+		assertThat(index.size(), is(1L));
 		assertThat(index.removeHighest(), is(node));
+
+		assertThat(index.size(), is(0L));
+		assertThat(index.removeHighest(), is(nullValue()));
 	}
 
 	@Test
@@ -79,6 +107,7 @@ public class TestNodeIndex {
 		assertThat(index.removeHighest(), is(nodes[1]));
 		assertThat(index.removeHighest(), is(nodes[0]));
 		assertThat(index.size(), is(0L));
+		assertThat(index.removeHighest(), is(nullValue()));
 
 		// add in descending order
 		index.add(nodes[4]);
@@ -94,6 +123,7 @@ public class TestNodeIndex {
 		assertThat(index.removeHighest(), is(nodes[1]));
 		assertThat(index.removeHighest(), is(nodes[0]));
 		assertThat(index.size(), is(0L));
+		assertThat(index.removeHighest(), is(nullValue()));
 	}
 
 	@Test
