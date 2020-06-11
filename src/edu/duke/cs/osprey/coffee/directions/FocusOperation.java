@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.coffee.commands;
+package edu.duke.cs.osprey.coffee.directions;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -11,6 +11,7 @@ public class FocusOperation extends Operation {
 
 	private int statei;
 
+	@SuppressWarnings("unused") // used by hazelcast
 	public FocusOperation() {
 		statei = -1;
 	}
@@ -26,7 +27,7 @@ public class FocusOperation extends Operation {
 
 	@Override
 	public String getServiceName() {
-		return Commands.ServiceName;
+		return Directions.ServiceName;
 	}
 
 	@Override
@@ -47,7 +48,7 @@ public class FocusOperation extends Operation {
 
 	@Override
 	public final void run() {
-		Commands commands = getService();
-		commands.receiveFocus(statei);
+		Directions directions = getService();
+		directions.receiveFocus(statei);
 	}
 }

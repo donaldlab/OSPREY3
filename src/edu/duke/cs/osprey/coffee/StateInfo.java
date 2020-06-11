@@ -21,7 +21,6 @@ public class StateInfo {
 	public final BoltzmannCalculator bcalc;
 
 	public final ConfSpace confSpace;
-	public final RCs rcs;
 	public final ClusterZMatrix zmat;
 
 	private final int[][] typesByConfByPos;
@@ -36,7 +35,6 @@ public class StateInfo {
 		this.bcalc = bcalc;
 
 		confSpace = (ConfSpace)config.state.confSpace;
-		rcs = new RCs(confSpace);
 		zmat = new ClusterZMatrix(config.ecalc, config.posInterGen, bcalc);
 
 		// calculate all the conf types by conf and pos
@@ -99,7 +97,7 @@ public class StateInfo {
 		return index;
 	}
 
-	public BigExp leavesBySequenceUpper(ConfIndex index) {
+	public BigExp leavesBySequenceUpper(ConfIndex index, RCs rcs) {
 
 		BigExp count = new BigExp(1.0);
 
@@ -130,22 +128,25 @@ public class StateInfo {
 		return count;
 	}
 
-	public BigExp zSumUpper(ConfIndex index) {
+	public BigExp zSumUpper(ConfIndex index, RCs rcs) {
 		BigExp out = zPathHead(index);
-		out.mult(zPathTailUpper(index));
-		out.mult(leavesBySequenceUpper(index));
+		out.mult(zPathTailUpper(index, rcs));
+		out.mult(leavesBySequenceUpper(index, rcs));
 		return out;
 	}
 
-	public BigExp zPathUpper(ConfIndex index) {
+	public BigExp zPathUpper(ConfIndex index, RCs rcs) {
 		BigExp out = zPathHead(index);
-		out.mult(zPathTailUpper(index));
+		out.mult(zPathTailUpper(index, rcs));
 		return out;
 	}
 
 	public BigExp zPathHead(ConfIndex index) {
 
 		BigExp z = new BigExp(1.0);
+
+		// start with the static-static energy
+		z.mult(zmat.staticStatic());
 
 		// multiply all the singles and pairs
 		for (int i1=0; i1<index.numDefined; i1++) {
@@ -167,7 +168,7 @@ public class StateInfo {
 		return z;
 	}
 
-	public BigExp zPathTailUpper(ConfIndex index) {
+	public BigExp zPathTailUpper(ConfIndex index, RCs rcs) {
 
 		// this is the usual A* heuristic
 

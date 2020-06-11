@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.UnpossibleError;
 
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -17,12 +18,18 @@ import java.util.List;
 public class BestSequences {
 
 	// TODO: keep this in sync with SeqDB instead of reading the whole SeqDB every time?
+	// TODO: is this really useful for affinity designs?
+	//  LMFE isn't quite what we want...
+	//  what we really want is a bi-criterion optimization of the complex and design states
+	//  without necessarily choosing a weighting between the two criteria beforehand
 
 	/**
 	 * Get the best K sequences by LMFE upper bound from the sequence database
 	 */
-	public static BestSequences getK(SeqDB seqdb, int K, MultiStateConfSpace.LMFE objective, MathContext mc) {
+	public static BestSequences getK(SeqDB seqdb, int K, MultiStateConfSpace.LMFE objective) {
 
+		// only computing ln, so only need enough precision to fill a double
+		var mc = new MathContext(16, RoundingMode.HALF_UP);
 		var bcalc = new BoltzmannCalculator(mc);
 		var bestSeqs = new BestSequences(K);
 

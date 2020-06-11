@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.coffee;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
-import edu.duke.cs.osprey.coffee.commands.Commands;
+import edu.duke.cs.osprey.coffee.directions.Directions;
 import edu.duke.cs.osprey.coffee.nodedb.NodeDB;
 import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
@@ -146,7 +146,16 @@ public class Coffee {
 	 * Tells COFFEE what nodes to look for and when to stop looking
 	 */
 	public interface Director {
-		void direct(Commands commands, NodeProcessor processor);
+
+		/**
+		 * Prepare all the databases and cluster members for computation.
+		 */
+		void init(Directions directions, NodeProcessor processor);
+
+		/**
+		 * Start the computation, manage the cluster members, and finish the computation.
+		 */
+		void direct(Directions directions, NodeProcessor processor);
 	}
 
 	public final MultiStateConfSpace confSpace;
@@ -188,6 +197,7 @@ public class Coffee {
 				member.barrier(1, TimeUnit.MINUTES);
 
 				// pre-compute the Z matrices
+				// TODO: allow director to only compute subsets of the Z matrices?
 				for (var info : infos) {
 					member.log0("computing Z matrix for state: %s", info.config.state.name);
 					info.zmat.compute(member, tasks);
@@ -203,61 +213,37 @@ public class Coffee {
 						.build()
 					) {
 
+						var nodeProcessor = new NodeProcessor(tasks, seqdb, nodedb, infos);
+						var directions = new Directions(member);
+
+						// wait for all members to initialize the directions
+						member.barrier(5, TimeUnit.MINUTES);
+
+						// TEMP
+						member.log("initializing computation ...");
+
+						// initialize the computation
 						if (member.isDirector()) {
-
-							var batch = seqdb.batch();
-
-							// compute bounds on free energies at the root nodes
-							for (int statei=0; statei<confSpace.states.size(); statei++) {
-								var stateInfo = infos[statei];
-
-								// start with the static-static energy
-								BigExp zSumUpper = stateInfo.zmat.staticStatic();
-
-								// get a multi-sequence Z bound on the root node
-								ConfIndex index = stateInfo.makeConfIndex();
-								zSumUpper.mult(stateInfo.zSumUpper(index));
-
-								// make sure BigExp values are fully normalized before writing to the databases to avoid some roundoff error
-								zSumUpper.normalize(true);
-
-								// init the nodedb with the root node
-								nodedb.addLocal(new NodeIndex.Node(statei, Conf.make(index), zSumUpper));
-
-								// init sequence database
-								batch.addZSumUpper(
-									stateInfo.config.state,
-									confSpace.seqSpace.makeUnassignedSequence(),
-									zSumUpper
-								);
-							}
-
-							batch.save();
-
-							// TEMP
-							member.log("seqdb: %s", seqdb.dump());
-
-							// let the rest of the cluster know we have the root nodes
-							nodedb.broadcast();
+							director.init(directions, nodeProcessor);
+							initRootNodes(directions, nodeProcessor);
 						}
 
 						// wait for the root nodes calculation to finish
-						member.barrier(1, TimeUnit.MINUTES);
+						// TODO: do we need to configure the init time here for different init procedures?
+						member.barrier(5, TimeUnit.MINUTES);
 
 						// TEMP
-						member.log("starting computation");
+						member.log("starting computation ...");
 
 						// prep complete! now we can start the real computation
-						var commands = new Commands(member);
-						var nodeProcessor = new NodeProcessor(tasks, seqdb, nodedb);
 						if (member.isDirector()) {
-							director.direct(commands, nodeProcessor);
+							director.direct(directions, nodeProcessor);
 						} else {
-							follow(commands, nodeProcessor);
+							followDirections(directions, nodeProcessor);
 						}
 
 						// TEMP
-						member.log("finished computation");
+						member.log("finished computation!");
 
 						// wait for the computation to finish before cleaning up databases
 						member.barrier(5, TimeUnit.MINUTES);
@@ -268,26 +254,51 @@ public class Coffee {
 		} // cluster member
 	}
 
-	private void follow(Commands commands, NodeProcessor processor) {
+	private void initRootNodes(Directions directions, NodeProcessor processor) {
 
-		while (commands.isRunning()) {
+		// compute bounds on free energies at the root nodes
+		var batch = processor.seqdb.batch();
+		for (int statei=0; statei<confSpace.states.size(); statei++) {
+			var stateInfo = infos[statei];
 
-			// get the currently focused state, or wait for one to happen
-			int statei = commands.getFocusedStatei();
-			if (statei < 0) {
-				commands.member.sleep(500, TimeUnit.MILLISECONDS);
-				continue;
+			// get a (possibly) multi-sequence Z bound on the root node
+			ConfIndex index = stateInfo.makeConfIndex();
+			var tree = directions.getTreeOrThrow(statei);
+			BigExp zSumUpper = stateInfo.zSumUpper(index, tree).normalize(true);
+
+			// init the node database
+			var node = new NodeIndex.Node(statei, Conf.make(index), zSumUpper);
+			processor.nodedb.addLocal(node);
+
+			// init sequence database
+			batch.addZSumUpper(
+				stateInfo.config.state,
+				confSpace.seqSpace.makeUnassignedSequence(),
+				node.score
+			);
+		}
+		batch.save();
+
+		// TEMP
+		directions.member.log("seqdb: %s", processor.seqdb.dump());
+
+		// let the rest of the cluster know right away we have the root nodes
+		processor.nodedb.broadcast();
+	}
+
+	private void followDirections(Directions directions, NodeProcessor processor) {
+
+		while (directions.isRunning()) {
+
+			// try to process a node
+			// TEMP
+			//var result = processor.process(directions);
+			var result = NodeProcessor.Result.NoNode;
+
+			// if it didn't happen, wait a bit and try again
+			if (!result.processedNode) {
+				directions.member.sleep(500, TimeUnit.MILLISECONDS);
 			}
-
-			// get the next node from that staet, or wait for one to happen
-			NodeIndex.Node node = processor.nodedb.removeHigh(statei);
-			if (node == null) {
-				commands.member.sleep(500, TimeUnit.MILLISECONDS);
-				continue;
-			}
-
-			// TODO: use tasks?
-			processor.process(node);
 		}
 	}
 }

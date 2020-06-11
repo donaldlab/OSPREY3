@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.coffee.commands;
+package edu.duke.cs.osprey.coffee.directions;
 
 import com.hazelcast.spi.impl.operationservice.Operation;
 
@@ -12,12 +12,12 @@ public class StopOperation extends Operation {
 
 	@Override
 	public String getServiceName() {
-		return Commands.ServiceName;
+		return Directions.ServiceName;
 	}
 
 	@Override
 	public final void run() {
-		Commands commands = getService();
-		commands.receiveStop();
+		Directions directions = getService();
+		directions.receiveStop();
 	}
 }

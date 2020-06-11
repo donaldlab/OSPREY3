@@ -116,11 +116,11 @@ public class BigExp implements Comparable<BigExp>, IOable, Serializable {
 		set(new BigDecimal(bi));
 	}
 
-	public void normalize(boolean fully) {
+	public BigExp normalize(boolean fully) {
 
 		if (!Double.isFinite(fp) || fp == 0.0) {
 			exp = 0;
-			return;
+			return this;
 		}
 
 		// this is super naive, but it works and it's actually really fast! =D
@@ -205,6 +205,8 @@ public class BigExp implements Comparable<BigExp>, IOable, Serializable {
 				}
 			}
 		}
+
+		return this;
 	}
 
 	public void mult(BigExp other) {

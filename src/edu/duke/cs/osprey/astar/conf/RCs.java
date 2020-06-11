@@ -47,7 +47,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 public class RCs {
 	
 	private PruningMatrix pruneMat = null;
-	private int[][] unprunedRCsAtPos;
+	private final int[][] unprunedRCsAtPos;
 
 	/** use the ConfSpaceIteration constructors instead */
 	@Deprecated
@@ -88,6 +88,14 @@ public class RCs {
 			unprunedRCsAtPos[pos] = rcsAtPos.get(pos).stream()
 				.mapToInt((i) -> i)
 				.toArray();
+		}
+	}
+
+	public RCs(int[][] rcsAtPos) {
+		// make a defensive copy for immutablility
+		unprunedRCsAtPos = new int[rcsAtPos.length][];
+		for (int posi=0; posi<rcsAtPos.length; posi++) {
+			unprunedRCsAtPos[posi] = rcsAtPos[posi].clone();
 		}
 	}
 	

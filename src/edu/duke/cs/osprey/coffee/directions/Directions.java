@@ -1,9 +1,10 @@
-package edu.duke.cs.osprey.coffee.commands;
+package edu.duke.cs.osprey.coffee.directions;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.coffee.ClusterMember;
 
 
-public class Commands {
+public class Directions {
 
 	static final String ServiceName = "Coffee";
 
@@ -11,8 +12,9 @@ public class Commands {
 
 	private boolean isRunning = true;
 	private int focusedStatei = -1;
+	private RCs[] trees = null;
 
-	public Commands(ClusterMember member) {
+	public Directions(ClusterMember member) {
 
 		this.member = member;
 
@@ -39,7 +41,7 @@ public class Commands {
 	 * Tell all cluster members to process nodes in the specified state.
 	 */
 	public void focus(int statei) {
-		focusedStatei = statei;
+		receiveFocus(statei);
 		member.sendToOthers(() -> new FocusOperation(statei));
 	}
 
@@ -49,6 +51,30 @@ public class Commands {
 
 	public int getFocusedStatei() {
 		return focusedStatei;
+	}
+
+	/**
+	 * Tell all cluster members the node tree topology for each state.
+	 */
+	public void setTrees(RCs[] trees) {
+		receiveTrees(trees);
+		member.sendToOthers(() -> new TreesOperation(trees));
+	}
+
+	void receiveTrees(RCs[] trees) {
+		this.trees = trees;
+	}
+
+	public RCs getTree(int statei) {
+		return trees[statei];
+	}
+
+	public RCs getTreeOrThrow(int statei) {
+		RCs tree = getTree(statei);
+		if (tree != null) {
+			return tree;
+		}
+		throw new IllegalStateException("no node tree set for state " + statei);
 	}
 
 	// TODO: ignore sequences

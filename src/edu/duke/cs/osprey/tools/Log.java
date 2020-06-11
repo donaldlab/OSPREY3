@@ -74,6 +74,10 @@ public class Log {
 		}
 	}
 
+	public static String formatBigEngineering(MathTools.BigDecimalBounds f) {
+		return String.format("[%s,%s]", formatBigEngineering(f.lower), formatBigEngineering(f.upper));
+	}
+
 	public static String formatBigEngineering(BigDecimal f) {
 		if (f instanceof MathTools.MagicBigDecimal) {
 			return f.toString();
