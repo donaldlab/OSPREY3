@@ -40,6 +40,7 @@ import edu.duke.cs.osprey.tools.FileTools;
 
 import java.io.File;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 
@@ -167,9 +168,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             }
             double finalCorrection = Math.max(corr, cacheCorr);
             if (finalCorrection > cacheCorr)
-                synchronized(this.cache){ // Will collisions here be a problem? Something to think about
                     cache.insert(new TupE(tup, corr));
-                }
             E += finalCorrection;
         }
 
@@ -270,7 +269,9 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             if(debug)
                 checkRCTuple(correction.tup);
             root.insert(correction, 0);
-            numCorrections++;
+            synchronized(this){
+                numCorrections++;
+            }
         }
 
         private void checkRCTuple(RCTuple tup) {
@@ -339,7 +340,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
             int position = -1;
             List<SimpleConfSpace.Position> positions;
             List<TupE> corrections = new ArrayList<>();
-            final Map<Integer, TupleTrieNode> children = new HashMap<>();
+            final Map<Integer, TupleTrieNode> children = new ConcurrentHashMap<>();
 
             private TupleTrieNode(List<SimpleConfSpace.Position> positions, int positionIndex) {
                 this.positions = positions;
@@ -405,7 +406,9 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                 RCTuple tup = correction.tup;
                 if(tupIndex >= tup.size()) {
                     debugPrint("Reached end of tuple, inserting correction at "+this+".");
-                    corrections.add(correction);
+                    synchronized(this){
+                        corrections.add(correction);
+                    }
                     if(debug) {
                         for (TupE corr : corrections) {
                             debugPrint(corr.tup.stringListing() + ":" + corr.E);
@@ -476,11 +479,7 @@ public class UpdatingEnergyMatrix extends ProxyEnergyMatrix {
                 if(position + 1 ==  currentPos && children.containsKey(currentRC))
                     children.get(currentRC).populateCorrections(query, output, nextIndex);
                 // Also branch on wildcard.
-                synchronized(children){
-                    if(!children.containsKey(WILDCARD_RC))
-                        children.put(WILDCARD_RC, new TupleTrieNode(positions, positionIndex+1));
-                    children.get(WILDCARD_RC).populateCorrections(query, output, nextIndex);
-                }
+                children.get(WILDCARD_RC).populateCorrections(query, output, nextIndex);
             }
 
             public void getAllCorrections(List<TupE> output){
