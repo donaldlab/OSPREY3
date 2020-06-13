@@ -219,9 +219,6 @@ public class Coffee {
 						// wait for all members to initialize the directions
 						member.barrier(5, TimeUnit.MINUTES);
 
-						// TEMP
-						member.log("initializing computation ...");
-
 						// initialize the computation
 						if (member.isDirector()) {
 							director.init(directions, nodeProcessor);
@@ -232,18 +229,12 @@ public class Coffee {
 						// TODO: do we need to configure the init time here for different init procedures?
 						member.barrier(5, TimeUnit.MINUTES);
 
-						// TEMP
-						member.log("starting computation ...");
-
 						// prep complete! now we can start the real computation
 						if (member.isDirector()) {
 							director.direct(directions, nodeProcessor);
 						} else {
 							followDirections(directions, nodeProcessor);
 						}
-
-						// TEMP
-						member.log("finished computation!");
 
 						// wait for the computation to finish before cleaning up databases
 						member.barrier(5, TimeUnit.MINUTES);
@@ -273,14 +264,11 @@ public class Coffee {
 			// init sequence database
 			batch.addZSumUpper(
 				stateInfo.config.state,
-				confSpace.seqSpace.makeUnassignedSequence(),
+				stateInfo.config.state.isSequenced ? confSpace.seqSpace.makeUnassignedSequence() : null,
 				node.score
 			);
 		}
 		batch.save();
-
-		// TEMP
-		directions.member.log("seqdb: %s", processor.seqdb.dump());
 
 		// let the rest of the cluster know right away we have the root nodes
 		processor.nodedb.broadcast();

@@ -17,6 +17,10 @@ public class SequenceDirector implements Coffee.Director {
 	public final Sequence seq;
 	public final double gWidthMax;
 
+	private final FreeEnergyCalculator gcalc = new FreeEnergyCalculator();
+
+	private DoubleBounds[] freeEnergies;
+
 	public SequenceDirector(MultiStateConfSpace confSpace, Sequence seq, double gWidthMax) {
 		this.confSpace = confSpace;
 		this.seq = seq;
@@ -57,14 +61,10 @@ public class SequenceDirector implements Coffee.Director {
 		// all done, stop the computation
 		directions.stop();
 
-		// TEMP
-		directions.member.log("seqdb: %s", processor.seqdb.dump());
-
-		// show the results
-		for (var state : confSpace.states) {
-			var g = getFreeEnergy(processor, state);
-			directions.member.log("%20s   G = %s  w=%.2f", state.name, g, g.size());
-		}
+		// collect the results
+		freeEnergies = confSpace.states.stream()
+			.map(state -> getFreeEnergy(processor, state))
+			.toArray(DoubleBounds[]::new);
 	}
 
 	private DoubleBounds getFreeEnergy(NodeProcessor processor, MultiStateConfSpace.State state) {
@@ -77,6 +77,10 @@ public class SequenceDirector implements Coffee.Director {
 			zSum = processor.seqdb.boundsUnsequenced(state);
 		}
 
-		return new FreeEnergyCalculator().calc(zSum);
+		return gcalc.calc(zSum);
+	}
+
+	public DoubleBounds getFreeEnergy(MultiStateConfSpace.State state) {
+		return freeEnergies[state.index];
 	}
 }

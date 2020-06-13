@@ -10,6 +10,8 @@ import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
+import static edu.duke.cs.osprey.tools.Log.log;
+
 
 public class CoffeeLab {
 
@@ -42,5 +44,11 @@ public class CoffeeLab {
 		//var director = new AffinityDirector(confSpace, "complex", "design", "target", 5);
 		var director = new SequenceDirector(confSpace, confSpace.seqSpace.makeWildTypeSequence(), 0.1);
 		coffee.run(director);
+
+		// show the results
+		for (var state : confSpace.states) {
+			var g = director.getFreeEnergy(state);
+			log("%20s   G = %s  w=%.2f", state.name, g, g.size());
+		}
 	}
 }

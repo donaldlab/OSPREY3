@@ -42,7 +42,11 @@ public class NodeProcessor {
 	}
 
 	public Sequence makeSeq(int statei, int[] conf) {
-		return seqdb.confSpace.seqSpace.makeSequence(stateInfos[statei].confSpace, conf);
+		if (stateInfos[statei].config.state.isSequenced) {
+			return seqdb.confSpace.seqSpace.makeSequence(stateInfos[statei].confSpace, conf);
+		} else {
+			return null;
+		}
 	}
 
 	public Result process(Directions directions) {
