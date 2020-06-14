@@ -44,6 +44,7 @@ import org.gradle.internal.os.OperatingSystem
 
 
 plugins {
+	`java-library`
 	application
 	idea
 	id("org.openjfx.javafxplugin") version("0.0.7")
@@ -110,11 +111,10 @@ dependencies {
 	implementation("ch.qos.logback:logback-classic:1.2.3")
 	implementation("org.slf4j:jul-to-slf4j:1.7.30")
 
-	// compile dependencies
+	// internal osprey libs
 	implementation("colt:colt:1.2.0")
 	implementation("org.apache.commons:commons-math3:3.6.1")
 	implementation("org.apache.commons:commons-collections4:4.1")
-	implementation("commons-io:commons-io:2.5")
 	implementation("com.joptimizer:joptimizer:3.5.1")
 	implementation("org.ojalgo:ojalgo:41.0.0")
 	implementation("org.jogamp.gluegen:gluegen-rt:2.3.2")
@@ -126,11 +126,16 @@ dependencies {
 	implementation("com.github.haifengl:smile-netlib:1.5.1")
 	implementation("de.lmu.ifi.dbs.elki:elki:0.7.1")
 	implementation("ch.obermuhlner:big-math:2.0.1")
-	implementation("org.tomlj:tomlj:1.0.0")
 	implementation("org.joml:joml:1.9.19")
 	implementation("org.tukaani:xz:1.8")
 	implementation("com.hazelcast:hazelcast:4.0")
 	implementation("net.java.dev.jna:jna:5.5.0")
+
+	// libs used by the GUI
+	api("org.apache.commons:commons-lang3:3.4")
+	api("commons-io:commons-io:2.5")
+	api("org.tomlj:tomlj:1.0.0")
+	api(files("lib/kdtree.jar")) // no authoritative source on the internet
 
 	// for JCuda, gradle tries (and fails) download the natives jars automatically,
 	// so turn off transitive dependencies. we'll deal with natives manually
@@ -166,9 +171,6 @@ dependencies {
 
 	// TPIE-Java isn't in the maven/jcenter repos yet, download directly from Github
 	implementation(url("https://github.com/donaldlab/TPIE-Java/releases/download/v1.1/edu.duke.cs.tpie-1.1.jar"))
-
-	// libs that have no authoritative source on the internet
-	implementation(files("lib/kdtree.jar"))
 
 	// native libs for GPU stuff
 	listOf("natives-linux-amd64", "natives-macosx-universal", "natives-windows-amd64").forEach {
