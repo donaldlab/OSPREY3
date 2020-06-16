@@ -2,51 +2,42 @@ package edu.duke.cs.osprey.coffee.seqdb;
 
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.tools.HashCalculator;
-import edu.duke.cs.osprey.tools.Log;
-import edu.duke.cs.osprey.tools.MathTools;
-import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 import edu.duke.cs.osprey.tools.Streams;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 
 
 public class SeqInfo {
 
-	public final BigDecimalBounds[] zSumBounds;
+	public final StateZ[] statezs;
 
 	public SeqInfo(MultiStateConfSpace confSpace) {
-		this.zSumBounds = new BigDecimalBounds[confSpace.sequencedStates.size()];
+		statezs = new StateZ[confSpace.sequencedStates.size()];
 	}
 
-	public void setEmpty() {
-		for (int i=0; i<zSumBounds.length; i++) {
-			zSumBounds[i] = BigDecimalBounds.makeZero();
+	public static SeqInfo makeUnknown(MultiStateConfSpace confSpace) {
+		var info = new SeqInfo(confSpace);
+		for (int i = 0; i<info.statezs.length; i++) {
+			info.statezs[i] = StateZ.makeUnknown();
 		}
+		return info;
 	}
 
-	public void setUnknown() {
-		for (int i=0; i<zSumBounds.length; i++) {
-			zSumBounds[i] = new BigDecimalBounds(BigDecimal.ZERO, MathTools.BigPositiveInfinity);
+	public static SeqInfo makeZero(MultiStateConfSpace confSpace) {
+		var info = new SeqInfo(confSpace);
+		for (int i = 0; i<info.statezs.length; i++) {
+			info.statezs[i] = StateZ.makeZero();
 		}
+		return info;
 	}
 
-	public boolean isEmpty() {
-		for (BigDecimalBounds b : zSumBounds) {
-			if (!b.isZero()) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	public BigDecimalBounds get(MultiStateConfSpace.State state) {
-		return zSumBounds[state.sequencedIndex];
+	public StateZ get(MultiStateConfSpace.State state) {
+		return statezs[state.sequencedIndex];
 	}
 
 	@Override
 	public int hashCode() {
-		return HashCalculator.combineObjHashes(zSumBounds);
+		return HashCalculator.combineObjHashes(statezs);
 	}
 
 	@Override
@@ -55,11 +46,11 @@ public class SeqInfo {
 	}
 
 	public boolean equals(SeqInfo other) {
-		return Arrays.equals(this.zSumBounds, other.zSumBounds);
+		return Arrays.equals(this.statezs, other.statezs);
 	}
 
 	@Override
 	public String toString() {
-		return Streams.joinToString(zSumBounds, ", ", b -> Log.formatBigLn(b));
+		return Streams.joinToString(statezs, ", ", s -> s.toString());
 	}
 }

@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.coffee.nodedb.FixedIndex;
 import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.coffee.seqdb.SaveOperation;
 import edu.duke.cs.osprey.coffee.seqdb.SeqInfo;
+import edu.duke.cs.osprey.coffee.seqdb.StateZ;
 import edu.duke.cs.osprey.confspace.ConfSpaceIteration;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.SeqSpace;
@@ -219,26 +220,52 @@ public class Serializers {
 		return new NodeIndex.Node(statei, conf, score);
 	}
 
+	public static MapDBTools.SimpleSerializer<StateZ> mapdbStateZ = new MapDBTools.SimpleSerializer<>() {
+
+		private final MapDBTools.BigDecimalSerializer s = new MapDBTools.BigDecimalSerializer();
+
+		@Override
+		public void serialize(@NotNull DataOutput2 out, @NotNull StateZ data)
+		throws IOException {
+			s.serialize(out, data.zSumBounds.lower);
+			s.serialize(out, data.zSumBounds.upper);
+			s.serialize(out, data.zSumDropped);
+		}
+
+		@Override
+		public StateZ deserialize(@NotNull DataInput2 in, int available)
+		throws IOException {
+			var lower = s.deserialize(in, available);
+			var upper = s.deserialize(in, available);
+			var dropped = s.deserialize(in, available);
+			return new StateZ(new BigDecimalBounds(lower, upper), dropped);
+		}
+
+		@Override
+		public int compare(StateZ a, StateZ b) {
+			throw new UnsupportedOperationException();
+		}
+	};
 
 	public static MapDBTools.SimpleSerializer<SeqInfo> mapdbSeqInfo(MultiStateConfSpace confSpace) {
 		return new MapDBTools.SimpleSerializer<>() {
 
-			private final MapDBTools.BigDecimalBoundsSerializer s = new MapDBTools.BigDecimalBoundsSerializer();
+			private final MapDBTools.SimpleSerializer<StateZ> s = mapdbStateZ;
 
 			@Override
 			public void serialize(@NotNull DataOutput2 out, @NotNull SeqInfo data)
-				throws IOException {
+			throws IOException {
 				for (int statei=0; statei<confSpace.sequencedStates.size(); statei++) {
-					s.serialize(out, data.zSumBounds[statei]);
+					s.serialize(out, data.statezs[statei]);
 				}
 			}
 
 			@Override
 			public SeqInfo deserialize(@NotNull DataInput2 in, int available)
-				throws IOException {
+			throws IOException {
 				SeqInfo data = new SeqInfo(confSpace);
 				for (int statei=0; statei<confSpace.sequencedStates.size(); statei++) {
-					data.zSumBounds[statei] = s.deserialize(in, available);
+					data.statezs[statei] = s.deserialize(in, available);
 				}
 				return data;
 			}
@@ -273,8 +300,10 @@ public class Serializers {
 				seqEncoding.write(out, writeSeq(sum.seq[posi]));
 			}
 			for (int statei=0; statei<numSequencedStates; statei++) {
-				out.writeObject(sum.boundsByState[statei].lower);
-				out.writeObject(sum.boundsByState[statei].upper);
+				var statez = sum.statezs[statei];
+				out.writeObject(statez.zSumBounds.lower);
+				out.writeObject(statez.zSumBounds.upper);
+				out.writeObject(statez.zSumDropped);
 			}
 		}
 
@@ -283,8 +312,9 @@ public class Serializers {
 		for (int sumi=0; sumi<op.unsequencedSums.length; sumi++) {
 			var sum = op.unsequencedSums[sumi];
 			stateEncoding.write(out, sum.unsequencedIndex);
-			out.writeObject(sum.bounds.lower);
-			out.writeObject(sum.bounds.upper);
+			out.writeObject(sum.statez.zSumBounds.lower);
+			out.writeObject(sum.statez.zSumBounds.upper);
+			out.writeObject(sum.statez.zSumDropped);
 		}
 	}
 
@@ -304,13 +334,17 @@ public class Serializers {
 			for (int posi=0; posi<numPos; posi++) {
 				seq[posi] = readSeq(seqEncoding.read(in));
 			}
-			var boundsByState = new BigDecimalBounds[numSequencedStates];
+			var statezs = new StateZ[numSequencedStates];
 			for (int statei=0; statei<numSequencedStates; statei++) {
 				BigDecimal lower = in.readObject();
 				BigDecimal upper = in.readObject();
-				boundsByState[statei] = new BigDecimalBounds(lower, upper);
+				BigDecimal dropped = in.readObject();
+				statezs[statei] = new StateZ(
+					new BigDecimalBounds(lower, upper),
+					dropped
+				);
 			}
-			op.sequencedSums[sumi] = new SaveOperation.SequencedSum(seq, boundsByState);
+			op.sequencedSums[sumi] = new SaveOperation.SequencedSum(seq, statezs);
 		}
 
 		// read the unsequenced sums
@@ -319,7 +353,12 @@ public class Serializers {
 			int sequencedIndex = stateEncoding.read(in);
 			BigDecimal lower = in.readObject();
 			BigDecimal upper = in.readObject();
-			op.unsequencedSums[sumi] = new SaveOperation.UnsequencedSum(sequencedIndex, new BigDecimalBounds(lower, upper));
+			BigDecimal dropped = in.readObject();
+			var statez = new StateZ(
+				new BigDecimalBounds(lower, upper),
+				dropped
+			);
+			op.unsequencedSums[sumi] = new SaveOperation.UnsequencedSum(sequencedIndex, statez);
 		}
 	}
 }

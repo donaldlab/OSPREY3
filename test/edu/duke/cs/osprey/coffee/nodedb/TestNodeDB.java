@@ -13,6 +13,7 @@ import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 
@@ -86,6 +87,10 @@ public class TestNodeDB {
 
 			var state = confSpace.states.get(0);
 
+			// count dropped nodes
+			var numDropped = new AtomicLong(0);
+			nodedb.dropHandler = nodes -> numDropped.addAndGet(nodes.count());
+
 			// add a bunch of random nodes
 			Random rand = new Random(12345);
 			for (int i=0; i<600_000; i++) {
@@ -96,7 +101,11 @@ public class TestNodeDB {
 				));
 			}
 
+			// most of the nodes should get dropped
+			assertThat(nodedb.size(state.index), greaterThan(10_000L));
 			assertThat(nodedb.size(state.index), lessThan(600_000L));
+			assertThat(numDropped.get(), greaterThan(400_000L));
+			assertThat(numDropped.get(), lessThan(600_000L));
 		});
 	}
 

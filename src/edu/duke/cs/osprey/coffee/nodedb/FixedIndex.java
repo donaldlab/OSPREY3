@@ -2,6 +2,8 @@ package edu.duke.cs.osprey.coffee.nodedb;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 /**
@@ -14,8 +16,6 @@ import java.util.*;
  * This implementation is NOT thread-safe!
  */
 public class FixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<S>> {
-
-	// TODO: make thread-safe?
 
 	public interface Indexable<S> {
 		S score();
@@ -97,12 +97,23 @@ public class FixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<
 
 			return bestItem;
 		}
+
+		public <T extends Indexable<S>> void getAll(BlockStore store, Serializer<T> serializer, Deque<T> dropped) {
+
+			ByteBuffer buf = store.get(id);
+
+			buf.position(0);
+			for (int i=0; i<size; i++) {
+				dropped.add(serializer.deserialize(buf));
+			}
+		}
 	}
 
 	public final BlockStore store;
 	public final Serializer<T> serializer;
 
 	public final int blockCapacity;
+	public final Deque<T> dropped;
 
 	// keep the blocks sorted by max val
 	private final TreeSet<Block<S>> packedBlocks = new TreeSet<>(Comparator.comparing(block -> block.max));
@@ -116,6 +127,7 @@ public class FixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<
 		this.serializer = serializer;
 
 		blockCapacity = store.blockSize/serializer.bytes();
+		dropped = new ArrayDeque<>(blockCapacity);
 	}
 
 	public long size() {
@@ -178,6 +190,13 @@ public class FixedIndex<S extends Comparable<S>, T extends FixedIndex.Indexable<
 		store.freeBlock(block.id);
 
 		size -= block.size;
+
+		// put the items in the dropped queue
+		if (dropped.isEmpty()) {
+			block.getAll(store, serializer, dropped);
+		} else {
+			throw new IllegalStateException("dropped queue was not cleared before freeing up more space");
+		}
 	}
 
 	public S highestScore() {

@@ -184,6 +184,11 @@ public class BigMath {
 		return div(MathTools.biggen(val));
 	}
 
+	public BigMath recip() {
+		d = MathTools.bigDivide(BigDecimal.ONE, d, context);
+		return this;
+	}
+
 	public BigMath atLeast(BigDecimal val) {
 		if (MathTools.isGreaterThan(val, d)) {
 			d = val;

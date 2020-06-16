@@ -42,6 +42,9 @@ public class BlockStore implements AutoCloseable {
 		// how many blocks can we have?
 		blockSize = 1 << blockShift;
 		numBlocks = bytes/blockSize;
+		if (numBlocks <= 0) {
+			throw new IllegalArgumentException("need at least " + blockSize + " bytes for BlockStore");
+		}
 
 		// allocate the memory, either in memory, or in storage
 		if (file != null) {
@@ -65,6 +68,10 @@ public class BlockStore implements AutoCloseable {
 
 	public long numUsedBlocks() {
 		return nextBlockid - freeBlockids.size();
+	}
+
+	public long numUsedBytes() {
+		return numUsedBlocks()*blockSize;
 	}
 
 	public long numFreeBlocks() {

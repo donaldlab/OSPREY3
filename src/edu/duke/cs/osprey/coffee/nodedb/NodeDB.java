@@ -9,12 +9,12 @@ import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.BigExp;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 public class NodeDB implements AutoCloseable {
@@ -69,13 +69,16 @@ public class NodeDB implements AutoCloseable {
 		final long[] freeSpaces;
 		final BigExp[] maxScores;
 
+		long usedBytes;
+		long totalBytes;
+
 		public Neighbor(Address addr) {
 			this.addr = addr;
 			freeSpaces = new long[confSpace.states.size()];
 			maxScores = new BigExp[confSpace.states.size()];
 		}
 
-		public void broadcasted(long[] freeSpaces, BigExp[] maxScores) {
+		public void broadcasted(long[] freeSpaces, BigExp[] maxScores, long usedBytes, long totalBytes) {
 
 			// update the free spaces
 			assert (freeSpaces.length == confSpace.states.size());
@@ -84,6 +87,9 @@ public class NodeDB implements AutoCloseable {
 			// update the max scores
 			assert (maxScores.length == confSpace.states.size());
 			System.arraycopy(maxScores, 0, this.maxScores, 0, confSpace.states.size());
+
+			this.usedBytes = usedBytes;
+			this.totalBytes = totalBytes;
 		}
 
 		public NodeIndex.Node removeHighest(int statei) {
@@ -103,6 +109,12 @@ public class NodeDB implements AutoCloseable {
 	public final long fileBytes;
 	public final long memBytes;
 	public final long broadcastNs;
+
+	/**
+	 * Function to call when dropped nodes need to be processed.
+	 * Called from the NodeDB thread, not the caller thread!
+	 **/
+	public Consumer<Stream<NodeIndex.Node>> dropHandler = null;
 
 	private final ThreadPoolTaskExecutor tasks;
 	private Map<Address,Neighbor> neighbors;
@@ -202,9 +214,7 @@ public class NodeDB implements AutoCloseable {
 	 * Add the node to the local store
 	 */
 	public void addLocal(NodeIndex.Node node) {
-		threadExec(() -> {
-			addLocalOnThread(node);
-		});
+		threadExec(() -> addLocalOnThread(node));
 	}
 
 	private void addLocalOnThread(NodeIndex.Node node) {
@@ -224,6 +234,22 @@ public class NodeDB implements AutoCloseable {
 			wasAdded = indices[node.statei].add(node);
 			if (!wasAdded) {
 				throw new Error("Couldn't find/make space for a new node in the local store. This is a bug.");
+			}
+		}
+
+		// handle dropped nodes
+		if (Arrays.stream(indices).anyMatch(index -> !index.dropped().isEmpty())) {
+
+			// call the drop handler if possible
+			if (dropHandler != null) {
+				dropHandler.accept(Arrays.stream(indices)
+					.flatMap(index -> index.dropped().stream())
+				);
+			}
+
+			// forget the nodes
+			for (var index : indices) {
+				index.dropped().clear();
 			}
 		}
 
@@ -255,13 +281,13 @@ public class NodeDB implements AutoCloseable {
 			.toArray(BigExp[]::new);
 
 		// broadcast
-		member.sendToOthers(() -> new BroadcastOperation(freeSpaces, maxScores));
+		member.sendToOthers(() -> new BroadcastOperation(freeSpaces, maxScores, store.numUsedBytes(), memBytes));
 		lastBroadcastNs = System.nanoTime();
 	}
 
-	public void receiveBroadcast(Address src, long[] freeSpaces, BigExp[] maxScores) {
+	public void receiveBroadcast(Address src, long[] freeSpaces, BigExp[] maxScores, long usedBytes, long totalBytes) {
 		threadExec(() ->
-			getNeighbor(src).broadcasted(freeSpaces, maxScores)
+			getNeighbor(src).broadcasted(freeSpaces, maxScores, usedBytes, totalBytes)
 		);
 	}
 
@@ -364,5 +390,24 @@ public class NodeDB implements AutoCloseable {
 	public long nodesPerBlock(int statei) {
 		// constant lookup, don't need to synchronize
 		return indices[statei].nodesPerBlock();
+	}
+
+	/**
+	 * Returns the ratio of used space to total space.
+	 */
+	public float usage() {
+
+		// start with the local usage
+		long usedBytes = store.numUsedBytes();
+		long totalBytes = memBytes;
+
+		// add usage from neighbors
+		for (var n : neighbors.values()) {
+			usedBytes += n.usedBytes;
+			totalBytes += n.totalBytes;
+		}
+
+		// convert to a ratio
+		return (float)usedBytes/(float)totalBytes;
 	}
 }

@@ -204,6 +204,7 @@ public class TestNodeIndex {
 				Conf.make(state.confSpace),
 				new BigExp(rand.nextDouble(), rand.nextInt())
 			));
+			index.dropped().clear();
 		}
 
 		// there's only room for ~55k nodes in the index
@@ -243,6 +244,7 @@ public class TestNodeIndex {
 				new BigExp(rand.nextDouble(), rand.nextInt())
 			);
 			index.add(node);
+			index.dropped().clear();
 
 			highestNodes.add(node);
 			while (highestNodes.size() > numNodes) {

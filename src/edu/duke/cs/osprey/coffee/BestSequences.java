@@ -36,18 +36,18 @@ public class BestSequences {
 		// get the unsequenced z values
 		MathTools.DoubleBounds[] unsequencedFreeEnergy = new MathTools.DoubleBounds[seqdb.confSpace.unsequencedStates.size()];
 		for (MultiStateConfSpace.State state : seqdb.confSpace.unsequencedStates) {
-			MathTools.DoubleBounds freeEnergyBounds = bcalc.freeEnergyPrecise(seqdb.boundsUnsequenced(state));
+			MathTools.DoubleBounds freeEnergyBounds = bcalc.freeEnergyPrecise(seqdb.getUnsequenced(state).zSumBounds);
 			unsequencedFreeEnergy[state.unsequencedIndex] = freeEnergyBounds;
 		}
 
 		// for each sequence and partial sequence encountered so far...
-		for (var entry : seqdb.boundsSequenced()) {
+		for (var entry : seqdb.getSequenced()) {
 			Sequence seq = entry.getKey();
 			SeqInfo seqInfo = entry.getValue();
 
 			MathTools.DoubleBounds[] stateFreeEnergies = objective.collectFreeEnergies(state -> {
 				if (state.isSequenced) {
-					return bcalc.freeEnergyPrecise(seqInfo.zSumBounds[state.sequencedIndex]);
+					return bcalc.freeEnergyPrecise(seqInfo.statezs[state.sequencedIndex].zSumBounds);
 				} else {
 					return unsequencedFreeEnergy[state.unsequencedIndex];
 				}
@@ -63,7 +63,7 @@ public class BestSequences {
 				for (MultiStateConfSpace.State state : seqdb.confSpace.states) {
 					if (stateFreeEnergies[state.index] == null) {
 						if (state.isSequenced) {
-							stateFreeEnergies[state.index] = bcalc.freeEnergyPrecise(seqInfo.zSumBounds[state.sequencedIndex]);
+							stateFreeEnergies[state.index] = bcalc.freeEnergyPrecise(seqInfo.statezs[state.sequencedIndex].zSumBounds);
 						} else {
 							stateFreeEnergies[state.index] = unsequencedFreeEnergy[state.unsequencedIndex];
 						}

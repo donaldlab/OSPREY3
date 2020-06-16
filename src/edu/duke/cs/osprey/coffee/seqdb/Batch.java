@@ -3,7 +3,6 @@ package edu.duke.cs.osprey.coffee.seqdb;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.tools.BigExp;
-import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -15,7 +14,7 @@ public class Batch {
 	public final SeqDB seqdb;
 
 	final Map<Sequence,SeqInfo> sequencedSums = new HashMap<>();
-	final Map<Integer,BigDecimalBounds> unsequencedSums = new HashMap<>();
+	final Map<Integer,StateZ> unsequencedSums = new HashMap<>();
 
 	private boolean isEmpty = true;
 
@@ -23,7 +22,7 @@ public class Batch {
 		this.seqdb = seqdb;
 	}
 
-	private void updateZSumBounds(MultiStateConfSpace.State state, Sequence seq, Consumer<BigDecimalBounds> f) {
+	private void update(MultiStateConfSpace.State state, Sequence seq, Consumer<StateZ> f) {
 
 		if (state.isSequenced) {
 
@@ -32,8 +31,7 @@ public class Batch {
 			// get the batch seq info, or empty sums
 			SeqInfo seqInfo = sequencedSums.get(seq);
 			if (seqInfo == null) {
-				seqInfo = new SeqInfo(seqdb.confSpace);
-				seqInfo.setEmpty();
+				seqInfo = SeqInfo.makeZero(seqdb.confSpace);
 			}
 
 			f.accept(seqInfo.get(state));
@@ -44,13 +42,13 @@ public class Batch {
 			assert (seq == null);
 
 			// get the batch sum, or empty
-			BigDecimalBounds sum = unsequencedSums.get(state.unsequencedIndex);
-			if (sum == null) {
-				sum = BigDecimalBounds.makeZero();
+			var statez = unsequencedSums.get(state.unsequencedIndex);
+			if (statez == null) {
+				statez = StateZ.makeZero();
 			}
 
-			f.accept(sum);
-			unsequencedSums.put(state.unsequencedIndex, sum);
+			f.accept(statez);
+			unsequencedSums.put(state.unsequencedIndex, statez);
 		}
 
 		isEmpty = false;
@@ -62,13 +60,13 @@ public class Batch {
 			throw new IllegalArgumentException("Z must be finite: " + zConf + ", " + zSumUpper);
 		}
 
-		updateZSumBounds(state, seq, sum -> {
-			sum.lower = seqdb.bigMath()
-				.set(sum.lower)
+		update(state, seq, statez -> {
+			statez.zSumBounds.lower = seqdb.bigMath()
+				.set(statez.zSumBounds.lower)
 				.add(zConf)
 				.get();
-			sum.upper = seqdb.bigMath()
-				.set(sum.upper)
+			statez.zSumBounds.upper = seqdb.bigMath()
+				.set(statez.zSumBounds.upper)
 				.add(zConf)
 				.sub(zSumUpper)
 				.get();
@@ -81,9 +79,9 @@ public class Batch {
 			throw new IllegalArgumentException("Z must be finite: " + zSumUpper);
 		}
 
-		updateZSumBounds(state, seq, sum ->
-			sum.upper = seqdb.bigMath()
-				.set(sum.upper)
+		update(state, seq, statez ->
+			statez.zSumBounds.upper = seqdb.bigMath()
+				.set(statez.zSumBounds.upper)
 				.add(zSumUpper)
 				.get()
 		);
@@ -95,10 +93,24 @@ public class Batch {
 			throw new IllegalArgumentException("Z must be finite: " + zSumUpper);
 		}
 
-		updateZSumBounds(state, seq, sum ->
-			sum.upper = seqdb.bigMath()
-				.set(sum.upper)
+		update(state, seq, statez ->
+			statez.zSumBounds.upper = seqdb.bigMath()
+				.set(statez.zSumBounds.upper)
 				.sub(zSumUpper)
+				.get()
+		);
+	}
+
+	public void drop(MultiStateConfSpace.State state, Sequence seq, BigExp zSumUpper) {
+
+		if (!zSumUpper.isFinite()) {
+			throw new IllegalArgumentException("Z must be finite: " + zSumUpper);
+		}
+
+		update(state, seq, statez ->
+			statez.zSumDropped = seqdb.bigMath()
+				.set(statez.zSumDropped)
+				.add(zSumUpper)
 				.get()
 		);
 	}

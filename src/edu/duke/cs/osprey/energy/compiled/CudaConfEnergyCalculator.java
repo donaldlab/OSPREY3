@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
 import edu.duke.cs.osprey.confspace.compiled.motions.DihedralAngle;
 import edu.duke.cs.osprey.gpu.BufWriter;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import jdk.incubator.foreign.MemoryAddress;
 import jdk.incubator.foreign.MemoryHandles;
 import jdk.incubator.foreign.MemorySegment;
@@ -896,6 +897,11 @@ public class CudaConfEnergyCalculator implements ConfEnergyCalculator {
 	/** use all the GPUs by default */
 	public CudaConfEnergyCalculator(ConfSpace confSpace, Precision precision) {
 		this(confSpace, precision, getGpusInfos());
+	}
+
+	/** get GPU info from the Parallelism instance */
+	public CudaConfEnergyCalculator(ConfSpace confSpace, Precision precision, Parallelism parallelism) {
+		this(confSpace, precision, getGpusInfos().subList(0, parallelism.numGpus));
 	}
 
 	/** use just the given GPUs */

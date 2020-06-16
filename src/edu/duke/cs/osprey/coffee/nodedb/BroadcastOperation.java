@@ -15,6 +15,8 @@ public class BroadcastOperation extends Operation {
 
 	private long[] freeSpaces;
 	private BigExp[] maxScores;
+	private long usedBytes;
+	private long totalBytes;
 
 	@SuppressWarnings("unused") // used by hazelcast
 	public BroadcastOperation() {
@@ -22,9 +24,11 @@ public class BroadcastOperation extends Operation {
 		this.maxScores = null;
 	}
 
-	public BroadcastOperation(long[] freeSpaces, BigExp[] maxScores) {
+	public BroadcastOperation(long[] freeSpaces, BigExp[] maxScores, long usedBytes, long totalBytes) {
 		this.freeSpaces = freeSpaces;
 		this.maxScores = maxScores;
+		this.usedBytes = usedBytes;
+		this.totalBytes = totalBytes;
 	}
 
 	@Override
@@ -54,6 +58,9 @@ public class BroadcastOperation extends Operation {
 				out.writeBoolean(false);
 			}
 		}
+
+		out.writeLong(usedBytes);
+		out.writeLong(totalBytes);
 	}
 
 	@Override
@@ -77,6 +84,9 @@ public class BroadcastOperation extends Operation {
 				maxScores[statei] = new BigExp(fp, exp);
 			}
 		}
+
+		usedBytes = in.readLong();
+		totalBytes = in.readLong();
 	}
 
 	@Override
@@ -87,6 +97,6 @@ public class BroadcastOperation extends Operation {
 	@Override
 	public final void run() {
 		NodeDB nodedb = getService();
-		nodedb.receiveBroadcast(getCallerAddress(), freeSpaces, maxScores);
+		nodedb.receiveBroadcast(getCallerAddress(), freeSpaces, maxScores, usedBytes, totalBytes);
 	}
 }

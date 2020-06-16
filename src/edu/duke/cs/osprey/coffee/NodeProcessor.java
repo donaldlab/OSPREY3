@@ -9,6 +9,10 @@ import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
+
 
 public class NodeProcessor {
 
@@ -28,16 +32,61 @@ public class NodeProcessor {
 		nodedb.member.log(msg, args);
 	}
 
+	public boolean processFor(Directions directions, long duration, TimeUnit timeUnit) {
+
+		boolean foundNodes = false;
+
+		long stopNs = System.nanoTime() + timeUnit.toNanos(duration);
+		while (System.nanoTime() < stopNs) {
+
+			var nodeInfo = getNode(directions);
+			switch (nodeInfo.result) {
+
+				// process the node in a task
+				case GotNode -> {
+					foundNodes = true;
+					tasks.submit(
+						() -> process(nodeInfo),
+						ignored -> {}
+					);
+				}
+
+				// otherwise, wait a bit and try again
+				default -> directions.member.sleep(100, TimeUnit.MILLISECONDS);
+			}
+		}
+		tasks.waitForFinish();
+
+		return foundNodes;
+	}
+
 	public enum Result {
 
-		ProcessedNode(true),
-		NeedInfo(false),
+		GotNode(true),
+		NoInfo(false),
 		NoNode(false);
 
-		public final boolean processedNode;
+		public final boolean gotNode;
 
-		Result(boolean processedNode) {
-			this.processedNode = processedNode;
+		Result(boolean gotNode) {
+			this.gotNode = gotNode;
+		}
+	}
+
+	public static class NodeInfo {
+
+		public final Result result;
+		public final NodeIndex.Node node;
+		public final RCs tree;
+
+		public NodeInfo(Result result, NodeIndex.Node node, RCs tree) {
+			this.result = result;
+			this.node = node;
+			this.tree = tree;
+		}
+
+		public NodeInfo(Result result) {
+			this(result, null, null);
 		}
 	}
 
@@ -49,29 +98,38 @@ public class NodeProcessor {
 		}
 	}
 
-	public Result process(Directions directions) {
+	public NodeInfo getNode(Directions directions) {
 
 		// get the currently focused state
 		int statei = directions.getFocusedStatei();
 		if (statei < 0) {
-			return Result.NeedInfo;
+			return new NodeInfo(Result.NoInfo);
 		}
-		var stateInfo = stateInfos[statei];
 
 		// get the tree for this state
 		RCs tree = directions.getTree(statei);
 		if (tree == null) {
-			return Result.NeedInfo;
+			return new NodeInfo(Result.NoInfo);
 		}
 
-		// get the next node from that state, or wait for one to happen
-		NodeIndex.Node node = nodedb.removeHigh(statei);
+		// get the next node from that state
+		var node = nodedb.removeHigh(statei);
 		if (node == null) {
-			return Result.NoNode;
+			return new NodeInfo(Result.NoNode);
 		}
+
+		// all is well
+		return new NodeInfo(Result.GotNode, node, tree);
+	}
+
+	public NodeInfo process(NodeInfo nodeInfo) {
+
+		// TODO: NEXTTIME: something in here is racing!!
+
+		var stateInfo = stateInfos[nodeInfo.node.statei];
 
 		var confIndex = stateInfo.makeConfIndex();
-		Conf.index(node.conf, confIndex);
+		Conf.index(nodeInfo.node.conf, confIndex);
 
 		var seqdbBatch = seqdb.batch();
 
@@ -79,13 +137,13 @@ public class NodeProcessor {
 		if (confIndex.isFullyDefined()) {
 
 			// compute the full conf weighted energy
-			var z = stateInfo.zPath(node.conf);
+			var z = stateInfo.zPath(nodeInfo.node.conf);
 
 			seqdbBatch.addZConf(
 				stateInfo.config.state,
-				makeSeq(statei, node.conf),
+				makeSeq(nodeInfo.node.statei, nodeInfo.node.conf),
 				z,
-				node.score
+				nodeInfo.node.score
 			);
 
 		} else {
@@ -93,8 +151,8 @@ public class NodeProcessor {
 			// remove the old bound from SeqDB
 			seqdbBatch.subZSumUpper(
 				stateInfo.config.state,
-				makeSeq(statei, node.conf),
-				node.score
+				makeSeq(nodeInfo.node.statei, nodeInfo.node.conf),
+				nodeInfo.node.score
 			);
 
 			// pick the next position to expand
@@ -102,20 +160,20 @@ public class NodeProcessor {
 			int posi = confIndex.numDefined;
 
 			// expand the node
-			for (int confi : tree.get(posi)) {
+			for (int confi : nodeInfo.tree.get(posi)) {
 				confIndex.assignInPlace(posi, confi);
 
 				// compute an upper bound for the assignment
-				var zSumUpper = stateInfo.zSumUpper(confIndex, tree).normalize(true);
+				var zSumUpper = stateInfo.zSumUpper(confIndex, nodeInfo.tree).normalize(true);
 
 				// update nodedb
-				var childNode = new NodeIndex.Node(statei, Conf.make(confIndex), zSumUpper);
+				var childNode = new NodeIndex.Node(nodeInfo.node.statei, Conf.make(confIndex), zSumUpper);
 				nodedb.addLocal(childNode);
 
 				// add the new bound
 				seqdbBatch.addZSumUpper(
 					stateInfo.config.state,
-					makeSeq(statei, childNode.conf),
+					makeSeq(nodeInfo.node.statei, childNode.conf),
 					childNode.score
 				);
 
@@ -125,6 +183,21 @@ public class NodeProcessor {
 
 		seqdbBatch.save();
 
-		return Result.ProcessedNode;
+		return nodeInfo;
+	}
+
+	public void handleDrops(Stream<NodeIndex.Node> nodes) {
+
+		// NOTE: this is called on the NodeDB thread!
+
+		var batch = seqdb.batch();
+		nodes.forEach(node ->
+			batch.drop(
+				stateInfos[node.statei].config.state,
+				makeSeq(node.statei, node.conf),
+				node.score
+			)
+		);
+		batch.save();
 	}
 }

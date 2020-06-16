@@ -7,11 +7,13 @@ import edu.duke.cs.osprey.confspace.SeqSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.confspace.compiled.ConfSpace;
 import edu.duke.cs.osprey.confspace.compiled.PosInter;
+import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.tools.BigExp;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 
@@ -228,5 +230,20 @@ public class StateInfo {
 		List<PosInter> inters = config.posInterGen.all(confSpace, conf);
 		double e = config.ecalc.minimizeEnergy(conf, inters);
 		return new BigExp(bcalc.calcPrecise(e));
+	}
+
+	public List<BigExp> zPaths(List<int[]> confs) {
+
+		// convert confs to minimization jobs
+		var jobs = confs.stream()
+			.map(conf -> new ConfEnergyCalculator.MinimizationJob(conf, config.posInterGen.all(confSpace, conf)))
+			.collect(Collectors.toList());
+
+		config.ecalc.minimizeEnergies(jobs);
+
+		// calculate the free energies
+		return jobs.stream()
+			.map(job -> new BigExp(bcalc.calcPrecise(job.energy)))
+			.collect(Collectors.toList());
 	}
 }

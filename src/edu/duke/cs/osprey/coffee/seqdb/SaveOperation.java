@@ -6,7 +6,6 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import edu.duke.cs.osprey.coffee.Serializers;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
-import edu.duke.cs.osprey.tools.MathTools.BigDecimalBounds;
 
 import java.io.IOException;
 
@@ -16,22 +15,22 @@ public class SaveOperation extends Operation {
 	public static class SequencedSum {
 
 		public final int[] seq;
-		public final BigDecimalBounds[] boundsByState;
+		public final StateZ[] statezs;
 
-		public SequencedSum(int[] seq, BigDecimalBounds[] boundsByState) {
+		public SequencedSum(int[] seq, StateZ[] statezs) {
 			this.seq = seq;
-			this.boundsByState = boundsByState;
+			this.statezs = statezs;
 		}
 	}
 
 	public static class UnsequencedSum {
 
 		public final int unsequencedIndex;
-		public final BigDecimalBounds bounds;
+		public final StateZ statez;
 
-		public UnsequencedSum(int unsequencedIndex, BigDecimalBounds bounds) {
+		public UnsequencedSum(int unsequencedIndex, StateZ statez) {
 			this.unsequencedIndex = unsequencedIndex;
-			this.bounds = bounds;
+			this.statez = statez;
 		}
 	}
 
@@ -53,16 +52,16 @@ public class SaveOperation extends Operation {
 			.map(entry -> {
 				Sequence seq = entry.getKey();
 				SeqInfo info = entry.getValue();
-				assert (info.zSumBounds.length == numSequencedStates);
-				return new SequencedSum(seq.rtIndices, info.zSumBounds);
+				assert (info.statezs.length == numSequencedStates);
+				return new SequencedSum(seq.rtIndices, info.statezs);
 			})
 			.toArray(SequencedSum[]::new);
 
 		unsequencedSums = batch.unsequencedSums.entrySet().stream()
 			.map(entry -> {
 				int unsequencedIndex = entry.getKey();
-				BigDecimalBounds bounds = entry.getValue();
-				return new UnsequencedSum(unsequencedIndex, bounds);
+				StateZ statez = entry.getValue();
+				return new UnsequencedSum(unsequencedIndex, statez);
 			})
 			.toArray(UnsequencedSum[]::new);
 	}

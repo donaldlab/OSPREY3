@@ -216,6 +216,9 @@ public class Coffee {
 						var nodeProcessor = new NodeProcessor(tasks, seqdb, nodedb, infos);
 						var directions = new Directions(member);
 
+						// report dropped nodes to the sequence database
+						nodedb.dropHandler = nodeProcessor::handleDrops;
+
 						// wait for all members to initialize the directions
 						member.barrier(5, TimeUnit.MINUTES);
 
@@ -281,11 +284,14 @@ public class Coffee {
 			// try to process a node
 			// TEMP
 			//var result = processor.process(directions);
-			var result = NodeProcessor.Result.NoNode;
+			var result = NodeProcessor.Result.NoInfo;
 
-			// if it didn't happen, wait a bit and try again
-			if (!result.processedNode) {
-				directions.member.sleep(500, TimeUnit.MILLISECONDS);
+			switch (result) {
+
+				// TODO
+
+				// wait a bit and try again
+				case NoInfo -> directions.member.sleep(500, TimeUnit.MILLISECONDS);
 			}
 		}
 	}

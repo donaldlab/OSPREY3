@@ -5,6 +5,7 @@ import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.tools.BigExp;
 
 import java.util.Arrays;
+import java.util.Deque;
 
 
 /**
@@ -86,5 +87,9 @@ public class NodeIndex {
 
 	public void freeUpSpace() {
 		index.freeUpSpace();
+	}
+
+	public Deque<Node> dropped() {
+		return index.dropped;
 	}
 }
