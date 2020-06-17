@@ -11,6 +11,8 @@ import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.parallelism.Cluster;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
+import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.tools.BigExp;
 
 import java.io.File;
@@ -190,61 +192,77 @@ public class Coffee {
 
 	public void run(Director director) {
 		try (var member = new ClusterMember(cluster)) {
-			try (var tasks = parallelism.makeTaskExecutor()) {
 
-				// wait for everyone to get here
-				member.log0("waiting for cluster to assemble ...");
-				member.barrier(1, TimeUnit.MINUTES);
+			// wait for everyone to get here
+			member.log0("waiting for cluster to assemble ...");
+			member.barrier(1, TimeUnit.MINUTES);
+
+			try (var zmatTasks = parallelism.makeTaskExecutor()) {
 
 				// pre-compute the Z matrices
 				// TODO: allow director to only compute subsets of the Z matrices?
 				for (var info : infos) {
 					member.log0("computing Z matrix for state: %s", info.config.state.name);
-					info.zmat.compute(member, tasks);
+					info.zmat.compute(member, zmatTasks);
 				}
+			}
 
-				// open the sequence database
-				try (SeqDB seqdb = new SeqDB(confSpace, seqdbMathContext, seqdbFile, member)) {
+			// split the thread pool between node and minimizations
+			int nodeThreads = parallelism.numThreads/2;
+			// TEMP
+			nodeThreads = 1;
+			// TODO: fixed partitions of resources are never optimal, find a dynamic system
+			int minimizationThreads = parallelism.numThreads - nodeThreads;
+			try (var nodeTasks = new ThreadPoolTaskExecutor()) {
+				nodeTasks.start(nodeThreads);
+				try (var minimizationTasks = new ThreadPoolTaskExecutor()) {
+					minimizationTasks.start(minimizationThreads);
 
-					// open the node database
-					try (var nodedb = new NodeDB.Builder(confSpace, member)
-						.setFile(dbFile, dbFileBytes)
-						.setMem(dbMemBytes)
-						.build()
-					) {
+					// open the sequence database
+					try (SeqDB seqdb = new SeqDB(confSpace, seqdbMathContext, seqdbFile, member)) {
 
-						var nodeProcessor = new NodeProcessor(tasks, seqdb, nodedb, infos);
-						var directions = new Directions(member);
+						// open the node database
+						try (var nodedb = new NodeDB.Builder(confSpace, member)
+							.setFile(dbFile, dbFileBytes)
+							.setMem(dbMemBytes)
+							.build()
+						) {
 
-						// report dropped nodes to the sequence database
-						nodedb.dropHandler = nodeProcessor::handleDrops;
+							// make the node processor, and the minimization threads
+							try (var nodeProcessor = new NodeProcessor(nodeTasks, minimizationTasks, seqdb, nodedb, infos)) {
+								var directions = new Directions(member);
 
-						// wait for all members to initialize the directions
-						member.barrier(5, TimeUnit.MINUTES);
+								// report dropped nodes to the sequence database
+								nodedb.dropHandler = nodeProcessor::handleDrops;
 
-						// initialize the computation
-						if (member.isDirector()) {
-							director.init(directions, nodeProcessor);
-							initRootNodes(directions, nodeProcessor);
-						}
+								// wait for all members to initialize the directions
+								member.barrier(5, TimeUnit.MINUTES);
 
-						// wait for the root nodes calculation to finish
-						// TODO: do we need to configure the init time here for different init procedures?
-						member.barrier(5, TimeUnit.MINUTES);
+								// initialize the computation
+								if (member.isDirector()) {
+									director.init(directions, nodeProcessor);
+									initRootNodes(directions, nodeProcessor);
+								}
 
-						// prep complete! now we can start the real computation
-						if (member.isDirector()) {
-							director.direct(directions, nodeProcessor);
-						} else {
-							followDirections(directions, nodeProcessor);
-						}
+								// wait for the root nodes calculation to finish
+								// TODO: do we need to configure the init time here for different init procedures?
+								member.barrier(5, TimeUnit.MINUTES);
 
-						// wait for the computation to finish before cleaning up databases
-						member.barrier(5, TimeUnit.MINUTES);
+								// prep complete! now we can start the real computation
+								if (member.isDirector()) {
+									director.direct(directions, nodeProcessor);
+								} else {
+									followDirections(directions, nodeProcessor);
+								}
 
-					} // nodedb
-				} // seqdb
-			} // tasks
+								// wait for the computation to finish before cleaning up databases
+								member.barrier(5, TimeUnit.MINUTES);
+
+							} // node processor
+						} // nodedb
+					} // seqdb
+				} // minimization tasks
+			} // node tasks
 		} // cluster member
 	}
 
@@ -291,7 +309,7 @@ public class Coffee {
 				// TODO
 
 				// wait a bit and try again
-				case NoInfo -> directions.member.sleep(500, TimeUnit.MILLISECONDS);
+				case NoInfo -> ThreadTools.sleep(500, TimeUnit.MILLISECONDS);
 			}
 		}
 	}

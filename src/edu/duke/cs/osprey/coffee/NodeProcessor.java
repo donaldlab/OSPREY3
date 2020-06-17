@@ -8,24 +8,48 @@ import edu.duke.cs.osprey.coffee.seqdb.SeqDB;
 import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.parallelism.ThreadTools;
 
+import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
-public class NodeProcessor {
+public class NodeProcessor implements AutoCloseable {
 
-	public final TaskExecutor tasks;
+	public final TaskExecutor nodeTasks;
+	public final TaskExecutor minimizationTasks;
 	public final SeqDB seqdb;
 	public final NodeDB nodedb;
 	public final StateInfo[] stateInfos;
 
-	public NodeProcessor(TaskExecutor tasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos) {
-		this.tasks = tasks;
+	private final List<MinimizationThread> minimizationThreads;
+
+	public NodeProcessor(TaskExecutor nodeTasks, TaskExecutor minimizationTasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos) {
+
+		this.nodeTasks = nodeTasks;
+		this.minimizationTasks = minimizationTasks;
 		this.seqdb = seqdb;
 		this.nodedb = nodedb;
 		this.stateInfos = stateInfos;
+
+		// start the minimization threads
+		minimizationThreads = Arrays.stream(stateInfos)
+			.map(stateInfo -> new MinimizationThread(stateInfo, this, minimizationTasks))
+			.collect(Collectors.toList());
+	}
+
+	@Override
+	public void close() {
+
+		// clean up the minimization threads
+		for (var thread : minimizationThreads) {
+			thread.askToStop();
+		}
+		for (var thread : minimizationThreads) {
+			thread.join();
+		}
 	}
 
 	private void log(String msg, Object ... args) {
@@ -45,17 +69,17 @@ public class NodeProcessor {
 				// process the node in a task
 				case GotNode -> {
 					foundNodes = true;
-					tasks.submit(
+					nodeTasks.submit(
 						() -> process(nodeInfo),
 						ignored -> {}
 					);
 				}
 
 				// otherwise, wait a bit and try again
-				default -> directions.member.sleep(100, TimeUnit.MILLISECONDS);
+				default -> ThreadTools.sleep(100, TimeUnit.MILLISECONDS);
 			}
 		}
-		tasks.waitForFinish();
+		nodeTasks.waitForFinish();
 
 		return foundNodes;
 	}
@@ -131,22 +155,15 @@ public class NodeProcessor {
 		var confIndex = stateInfo.makeConfIndex();
 		Conf.index(nodeInfo.node.conf, confIndex);
 
-		var seqdbBatch = seqdb.batch();
-
 		// is this a leaf node?
 		if (confIndex.isFullyDefined()) {
 
-			// compute the full conf weighted energy
-			var z = stateInfo.zPath(nodeInfo.node.conf);
-
-			seqdbBatch.addZConf(
-				stateInfo.config.state,
-				makeSeq(nodeInfo.node.statei, nodeInfo.node.conf),
-				z,
-				nodeInfo.node.score
-			);
+			// yup, add it to the minimization queue
+			minimizationThreads.get(nodeInfo.node.statei).addNode(nodeInfo.node);
 
 		} else {
+
+			var seqdbBatch = seqdb.batch();
 
 			// remove the old bound from SeqDB
 			seqdbBatch.subZSumUpper(
@@ -179,9 +196,9 @@ public class NodeProcessor {
 
 				confIndex.unassignInPlace(posi);
 			}
-		}
 
-		seqdbBatch.save();
+			seqdbBatch.save();
+		}
 
 		return nodeInfo;
 	}

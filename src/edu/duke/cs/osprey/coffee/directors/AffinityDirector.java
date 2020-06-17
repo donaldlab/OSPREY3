@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.coffee.Coffee;
 import edu.duke.cs.osprey.coffee.NodeProcessor;
 import edu.duke.cs.osprey.coffee.directions.Directions;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
+import edu.duke.cs.osprey.parallelism.ThreadTools;
 
 import java.util.concurrent.TimeUnit;
 
@@ -82,7 +83,7 @@ public class AffinityDirector implements Coffee.Director {
 		directions.focus(complex.index);
 
 		// TEMP: wait 5 seconds, then stop
-		directions.member.sleep(5, TimeUnit.SECONDS);
+		ThreadTools.sleep(5, TimeUnit.SECONDS);
 		directions.stop();
 
 		// TEMP: output results

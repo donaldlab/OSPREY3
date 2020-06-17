@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.energy.compiled.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.compiled.PosInterGen;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.tools.BigExp;
 import edu.duke.cs.osprey.tools.Progress;
 
@@ -231,7 +232,7 @@ public class ClusterZMatrix {
 			if (elapsedNs > maxWaitNs) {
 				member.throwTimeout("timed out waiting for matrix element from cluster");
 			}
-			ClusterMember.sleep(500);
+			ThreadTools.sleep(500);
 			z = map.get(index);
 		}
 

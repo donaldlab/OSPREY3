@@ -15,6 +15,7 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.OperationServiceImpl;
 import com.hazelcast.spi.impl.servicemanager.impl.ServiceManagerImpl;
 import edu.duke.cs.osprey.parallelism.Cluster;
+import edu.duke.cs.osprey.parallelism.ThreadTools;
 import edu.duke.cs.osprey.tools.IntRange;
 import edu.duke.cs.osprey.tools.Log;
 import edu.duke.cs.osprey.tools.MathTools;
@@ -134,18 +135,6 @@ public class ClusterMember implements AutoCloseable {
 		if (cluster.nodeId == 0) {
 			log(fmt, args);
 		}
-	}
-
-	public static void sleep(int ms) {
-		try {
-			Thread.sleep(ms);
-		} catch (InterruptedException ex) {
-			throw new RuntimeException(ex);
-		}
-	}
-
-	public void sleep(long duration, TimeUnit timeUnit) {
-		sleep((int)timeUnit.toMillis(duration));
 	}
 
 	private long barrierId = 0;
@@ -283,7 +272,7 @@ public class ClusterMember implements AutoCloseable {
 			}
 
 			// keep waiting
-			sleep(50);
+			ThreadTools.sleep(50);
 		}
 	}
 }

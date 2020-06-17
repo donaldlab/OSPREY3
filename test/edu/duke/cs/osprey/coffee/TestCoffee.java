@@ -358,6 +358,6 @@ public class TestCoffee {
 	@Test public void seqFreeEnergy_affinity_6ov7_1mut6flex_wt_01_1x1_1m() {
 		// TEMP
 		//seqFreeEnergy_affinity_6ov7_1mut6flex_wt(1024*1024, 0.1, 1, oneCpu);
-		seqFreeEnergy_affinity_6ov7_1mut6flex_wt(96*1024, 0.1, 1, oneCpu);
+		seqFreeEnergy_affinity_6ov7_1mut6flex_wt(96*1024, 0.1, 1, allCpus);
 	}
 }
