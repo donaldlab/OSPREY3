@@ -9,6 +9,9 @@ import edu.duke.cs.osprey.confspace.Conf;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
+import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.Log;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -25,6 +28,7 @@ public class NodeProcessor implements AutoCloseable {
 	public final StateInfo[] stateInfos;
 
 	private final List<MinimizationThread> minimizationThreads;
+	private final List<int[]> posPermutations;
 
 	public NodeProcessor(TaskExecutor nodeTasks, TaskExecutor minimizationTasks, SeqDB seqdb, NodeDB nodedb, StateInfo[] stateInfos) {
 
@@ -37,6 +41,17 @@ public class NodeProcessor implements AutoCloseable {
 		// start the minimization threads
 		minimizationThreads = Arrays.stream(stateInfos)
 			.map(stateInfo -> new MinimizationThread(stateInfo, this, minimizationTasks))
+			.collect(Collectors.toList());
+
+		// pick an ordering of the positions that speeds things up
+		// for now, sequence positions at the top is a good heuristic
+		// TODO: within seq/conf strata, high branch factor at the top?
+		posPermutations = Arrays.stream(stateInfos)
+			.map(stateInfo -> Arrays.stream(stateInfo.confSpace.positions)
+				.sorted(Comparator.comparing(pos -> !pos.hasMutations))
+				.mapToInt(pos -> pos.index)
+				.toArray()
+			)
 			.collect(Collectors.toList());
 	}
 
@@ -150,7 +165,8 @@ public class NodeProcessor implements AutoCloseable {
 
 		// TODO: NEXTTIME: something in here is racing!!
 
-		var stateInfo = stateInfos[nodeInfo.node.statei];
+		var statei = nodeInfo.node.statei;
+		var stateInfo = stateInfos[statei];
 
 		var confIndex = stateInfo.makeConfIndex();
 		Conf.index(nodeInfo.node.conf, confIndex);
@@ -158,25 +174,52 @@ public class NodeProcessor implements AutoCloseable {
 		// is this a leaf node?
 		if (confIndex.isFullyDefined()) {
 
-			// yup, add it to the minimization queue
-			minimizationThreads.get(nodeInfo.node.statei).addNode(nodeInfo.node);
+			// yup, see if this node's score is roughly as good as current predictions
+			var currentScore = nodedb.perf.score(statei, nodeInfo.node.conf, nodeInfo.node.zSumUpper);
+			if (nodeInfo.node.score.exp - currentScore.exp > 1) {
 
+				// TEMP
+				int diff = nodeInfo.node.score.exp - currentScore.exp;
+
+				// nope, it should have a much worse score
+				// re-score it and put it back into nodedb
+				nodedb.add(new NodeIndex.Node(statei, nodeInfo.node.conf, nodeInfo.node.zSumUpper, currentScore));
+
+				/* TEMP
+				log("rescore node: %s  %s -> %s   diff %d %b",
+					Arrays.toString(nodeInfo.node.conf),
+					nodeInfo.node.score,
+					currentScore,
+					diff, Math.abs(currentScore.exp - nodeInfo.node.score.exp) > 1
+				);
+				*/
+
+			} else {
+
+				// the score look good, add it to the minimization queue
+				minimizationThreads.get(statei).addNode(nodeInfo.node);
+
+			}
 		} else {
 
-			var seqdbBatch = seqdb.batch();
+			// get timing info for the node expansion
+			Stopwatch stopwatch = new Stopwatch().start();
 
 			// remove the old bound from SeqDB
+			var seqdbBatch = seqdb.batch();
 			seqdbBatch.subZSumUpper(
 				stateInfo.config.state,
-				makeSeq(nodeInfo.node.statei, nodeInfo.node.conf),
-				nodeInfo.node.score
+				makeSeq(statei, nodeInfo.node.conf),
+				nodeInfo.node.zSumUpper
 			);
 
-			// pick the next position to expand
-			// TODO: allow permuting the positions
-			int posi = confIndex.numDefined;
+			// track the reduction in uncertainty for this node
+			var reduction = new BigExp(nodeInfo.node.zSumUpper);
 
-			// expand the node
+			// pick the next position to expand, according to the position permutation
+			int posi = posPermutations.get(statei)[confIndex.numDefined];
+
+			// expand the node at the picked position
 			for (int confi : nodeInfo.tree.get(posi)) {
 				confIndex.assignInPlace(posi, confi);
 
@@ -184,18 +227,41 @@ public class NodeProcessor implements AutoCloseable {
 				var zSumUpper = stateInfo.zSumUpper(confIndex, nodeInfo.tree).normalize(true);
 
 				// update nodedb
-				var childNode = new NodeIndex.Node(nodeInfo.node.statei, Conf.make(confIndex), zSumUpper);
-				nodedb.addLocal(childNode);
+				var conf = Conf.make(confIndex);
+				var childNode = new NodeIndex.Node(
+					statei, conf, zSumUpper,
+					nodedb.perf.score(statei, conf, zSumUpper)
+				);
+				nodedb.add(childNode);
 
 				// add the new bound
 				seqdbBatch.addZSumUpper(
 					stateInfo.config.state,
-					makeSeq(nodeInfo.node.statei, childNode.conf),
-					childNode.score
+					makeSeq(statei, conf),
+					zSumUpper
 				);
+
+				// update the reduction calculation
+				reduction.sub(zSumUpper);
 
 				confIndex.unassignInPlace(posi);
 			}
+
+			// compute the uncertainty reduction and update the node performance
+			stopwatch.stop();
+			nodedb.perf.update(nodeInfo.node, stopwatch.getTimeNs(), reduction);
+
+			/* TEMP
+			log("node expansion:   r %s  %10s  r/s %s",
+				reduction,
+				stopwatch.getTime(2),
+				Log.formatBigEngineering(seqdb.bigMath()
+					.set(reduction)
+					.div(stopwatch.getTimeNs())
+					.get()
+				)
+			);
+			*/
 
 			seqdbBatch.save();
 		}
@@ -212,7 +278,7 @@ public class NodeProcessor implements AutoCloseable {
 			batch.drop(
 				stateInfos[node.statei].config.state,
 				makeSeq(node.statei, node.conf),
-				node.score
+				node.zSumUpper
 			)
 		);
 		batch.save();

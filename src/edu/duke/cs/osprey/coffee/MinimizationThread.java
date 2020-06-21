@@ -3,14 +3,16 @@ package edu.duke.cs.osprey.coffee;
 import edu.duke.cs.osprey.coffee.nodedb.NodeIndex;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadTools;
+import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.Log;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+
+import static edu.duke.cs.osprey.tools.Log.log;
 
 
 public class MinimizationThread {
@@ -97,14 +99,19 @@ public class MinimizationThread {
 				continue;
 			}
 
-			// minimize them
+			// minimize the nodes
 			tasks.submit(
-				() -> stateInfo.zPaths(nodeBatch.stream()
-					.map(node -> node.conf)
-					.collect(Collectors.toList())),
-				zs -> {
+				() -> {
 
-					// update seqdb
+					// collect timing info for the minimizations
+					Stopwatch stopwatch = new Stopwatch().start();
+
+					// actually do the minimizations
+					var zs = stateInfo.zPaths(nodeBatch.stream()
+						.map(node -> node.conf)
+						.collect(Collectors.toList()));
+
+					// prep the seqdb batch
 					var seqdbBatch = processor.seqdb.batch();
 					for (int i=0; i<nodeBatch.size(); i++) {
 						var node = nodeBatch.get(i);
@@ -112,11 +119,37 @@ public class MinimizationThread {
 							stateInfo.config.state,
 							processor.makeSeq(node.statei, node.conf),
 							zs.get(i),
-							node.score
+							node.zSumUpper
 						);
 					}
+
+					// update node performance
+					stopwatch.stop();
+					for (int i=0; i<nodeBatch.size(); i++) {
+						var node = nodeBatch.get(i);
+						var reduction = new BigExp(node.zSumUpper);
+						reduction.sub(zs.get(i));
+						long ns = stopwatch.getTimeNs()/nodeBatch.size();
+						processor.nodedb.perf.update(node, ns, reduction);
+
+						/* TEMP
+						log("            minimization:   r %s  %10s  r/t %s",
+							reduction,
+							stopwatch.getTime(2),
+							Log.formatBigEngineering(processor.seqdb.bigMath()
+								.set(reduction)
+								.div(stopwatch.getTimeNs())
+								.get()
+							)
+						);
+						*/
+					}
+
 					seqdbBatch.save();
-				}
+
+					return 42;
+				},
+				theAnswer -> {}
 			);
 		}
 	}

@@ -69,6 +69,12 @@ public class Coffee {
 		}
 
 		public Builder setParallelism(Parallelism val) {
+
+			// make sure we have at least parallelism for two tasks
+			if (val.getParallelism() < 2) {
+				throw new IllegalArgumentException("need at least parallelism for two tasks");
+			}
+
 			parallelism = val;
 			return this;
 		}
@@ -108,7 +114,7 @@ public class Coffee {
 
 			// make default parallelism if needed
 			if (parallelism == null) {
-				parallelism = Parallelism.makeCpu(1);
+				parallelism = Parallelism.makeCpu(2);
 			}
 
 			return new Coffee(confSpace, stateConfigs, cluster, parallelism, nodedbFile, nodedbFileBytes, nodedbMemBytes, seqdbFile, seqdbMathContext);
@@ -207,11 +213,14 @@ public class Coffee {
 				}
 			}
 
-			// split the thread pool between node and minimizations
+			// split the thread pool between nodes and minimizations
 			int nodeThreads = parallelism.numThreads/2;
 			// TEMP
 			nodeThreads = 1;
 			// TODO: fixed partitions of resources are never optimal, find a dynamic system
+			// TODO: NEXTTIME: do minimnizations on the node threads
+			//   fill batches locally on a node thread
+			//   when the batch fills, process it right on that thread
 			int minimizationThreads = parallelism.numThreads - nodeThreads;
 			try (var nodeTasks = new ThreadPoolTaskExecutor()) {
 				nodeTasks.start(nodeThreads);
@@ -279,7 +288,7 @@ public class Coffee {
 			BigExp zSumUpper = stateInfo.zSumUpper(index, tree).normalize(true);
 
 			// init the node database
-			var node = new NodeIndex.Node(statei, Conf.make(index), zSumUpper);
+			var node = new NodeIndex.Node(statei, Conf.make(index), zSumUpper, zSumUpper);
 			processor.nodedb.addLocal(node);
 
 			// init sequence database

@@ -189,6 +189,11 @@ public class BigMath {
 		return this;
 	}
 
+	public BigMath negate() {
+		d = MathTools.bigNegate(d);
+		return this;
+	}
+
 	public BigMath atLeast(BigDecimal val) {
 		if (MathTools.isGreaterThan(val, d)) {
 			d = val;

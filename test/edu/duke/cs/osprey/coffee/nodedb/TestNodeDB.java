@@ -66,7 +66,8 @@ public class TestNodeDB {
 				var node = new NodeIndex.Node(
 					state.index,
 					Conf.make(state.confSpace),
-					new BigExp(1.24, 6)
+					new BigExp(1.24, 6),
+					new BigExp(6.8, 3)
 				);
 				nodedb.addLocal(node);
 				assertThat(nodedb.size(state.index), is(1L));
@@ -97,6 +98,7 @@ public class TestNodeDB {
 				nodedb.addLocal(new NodeIndex.Node(
 					state.index,
 					Conf.make(state.confSpace),
+					new BigExp(rand.nextDouble(), rand.nextInt()),
 					new BigExp(rand.nextDouble(), rand.nextInt())
 				));
 			}
@@ -120,6 +122,7 @@ public class TestNodeDB {
 		var node = new NodeIndex.Node(
 			state.index,
 			Conf.make(state.confSpace),
+			new BigExp(rand.nextDouble(), rand.nextInt()),
 			new BigExp(rand.nextDouble(), rand.nextInt())
 		);
 
@@ -166,6 +169,7 @@ public class TestNodeDB {
 					nodedb.add(new NodeIndex.Node(
 						state.index,
 						Conf.make(state.confSpace),
+						new BigExp(rand.nextDouble(), rand.nextInt()),
 						new BigExp(rand.nextDouble(), rand.nextInt())
 					));
 				}
@@ -198,6 +202,7 @@ public class TestNodeDB {
 				nodedb.add(new NodeIndex.Node(
 					state.index,
 					Conf.make(state.confSpace),
+					new BigExp(rand.nextDouble(), rand.nextInt()),
 					new BigExp(rand.nextDouble(), rand.nextInt())
 				));
 			}

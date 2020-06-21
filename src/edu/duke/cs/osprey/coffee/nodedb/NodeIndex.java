@@ -17,11 +17,13 @@ public class NodeIndex {
 
 		public final int statei;
 		public final int[] conf;
+		public final BigExp zSumUpper;
 		public final BigExp score;
 
-		public Node(int statei, int[] conf, BigExp score) {
+		public Node(int statei, int[] conf, BigExp zSumUpper, BigExp score) {
 			this.statei = statei;
 			this.conf = conf;
+			this.zSumUpper = zSumUpper;
 			this.score = score;
 		}
 
@@ -38,12 +40,13 @@ public class NodeIndex {
 		public boolean equals(Node other) {
 			return this.statei == other.statei
 				&& Arrays.equals(this.conf, other.conf)
+				&& this.zSumUpper.equals(other.zSumUpper)
 				&& this.score.equals(other.score);
 		}
 
 		@Override
 		public String toString() {
-			return String.format("Node[%d,%s,%s]", statei, Arrays.toString(conf), score);
+			return String.format("Node[%d,%s,%s,%s]", statei, Arrays.toString(conf), zSumUpper, score);
 		}
 	}
 

@@ -149,6 +149,16 @@ public class Conf {
 		return true;
 	}
 
+	public static int countAssignments(int[] conf) {
+		int count = 0;
+		for (int i : conf) {
+			if (i != Unassigned) {
+				count++;
+			}
+		}
+		return count;
+	}
+
 	public static List<RCTuple> getPairs(int[] conf) {
 
 		List<RCTuple> pairs = new ArrayList<>();

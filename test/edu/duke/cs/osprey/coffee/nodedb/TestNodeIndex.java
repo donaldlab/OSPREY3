@@ -54,7 +54,8 @@ public class TestNodeIndex {
 		var node = new NodeIndex.Node(
 			state.index,
 			Conf.make(state.confSpace),
-			new BigExp(1.0, 42)
+			new BigExp(1.0, 42),
+			new BigExp(4.2, 10)
 		);
 		index.add(node);
 
@@ -86,11 +87,11 @@ public class TestNodeIndex {
 		var index = new NodeIndex(store, state);
 
 		var nodes = new NodeIndex.Node[] {
-			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 1)),
-			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 2)),
-			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 3)),
-			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 4)),
-			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 5))
+			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 1), new BigExp(4.2, 9)),
+			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 2), new BigExp(4.2, 8)),
+			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 3), new BigExp(4.2, 7)),
+			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 4), new BigExp(4.2, 6)),
+			new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, 5), new BigExp(4.2, 5))
 		};
 
 		// add in ascending order
@@ -149,7 +150,7 @@ public class TestNodeIndex {
 		// make enough node to fill more than one block
 		var nodesPerBlock = index.nodesPerBlock();
 		var nodes = IntStream.range(0, nodesPerBlock*2)
-			.mapToObj(i -> new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(1.0, i)))
+			.mapToObj(i -> new NodeIndex.Node(state.index, Conf.make(state.confSpace), new BigExp(4.2, 7), new BigExp(1.0, i)))
 			.toArray(NodeIndex.Node[]::new);
 
 		// add in ascending order
@@ -202,6 +203,7 @@ public class TestNodeIndex {
 			index.add(new NodeIndex.Node(
 				state.index,
 				Conf.make(state.confSpace),
+				new BigExp(rand.nextDouble(), rand.nextInt()),
 				new BigExp(rand.nextDouble(), rand.nextInt())
 			));
 			index.dropped().clear();
@@ -241,6 +243,7 @@ public class TestNodeIndex {
 			NodeIndex.Node node = new NodeIndex.Node(
 				state.index,
 				Conf.make(state.confSpace),
+				new BigExp(rand.nextDouble(), rand.nextInt()),
 				new BigExp(rand.nextDouble(), rand.nextInt())
 			);
 			index.add(node);

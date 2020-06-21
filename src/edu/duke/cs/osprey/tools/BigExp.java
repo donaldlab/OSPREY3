@@ -259,6 +259,10 @@ public class BigExp implements Comparable<BigExp>, IOable, Serializable {
 		set(this.toBigDecimal().subtract(other.toBigDecimal(), mathContext));
 	}
 
+	public void negate() {
+		fp = -fp;
+	}
+
 	public void abs() {
 		fp = Math.abs(fp);
 	}

@@ -18,13 +18,15 @@ public class BroadcastOperation extends Operation {
 	private long usedBytes;
 	private long totalBytes;
 
+	// TODO: serialize node performance
+
 	@SuppressWarnings("unused") // used by hazelcast
 	public BroadcastOperation() {
 		this.freeSpaces = null;
 		this.maxScores = null;
 	}
 
-	public BroadcastOperation(long[] freeSpaces, BigExp[] maxScores, long usedBytes, long totalBytes) {
+	public BroadcastOperation(long[] freeSpaces, BigExp[] maxScores, long usedBytes, long totalBytes, NodePerformance nodePerformance) {
 		this.freeSpaces = freeSpaces;
 		this.maxScores = maxScores;
 		this.usedBytes = usedBytes;

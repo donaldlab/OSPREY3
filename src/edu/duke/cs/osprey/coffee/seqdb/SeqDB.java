@@ -75,7 +75,7 @@ public class SeqDB implements AutoCloseable {
 	}
 
 	void commitBatch(SaveOperation op) {
-		// TEMP: having concurrency issues
+		// TODO: NEXTTIME: fix the concurrency issues, not sure what's going wrong yet
 		synchronized (this) {
 
 			for (var sum : op.sequencedSums) {

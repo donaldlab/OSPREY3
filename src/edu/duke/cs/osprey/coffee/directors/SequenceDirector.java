@@ -56,7 +56,9 @@ public class SequenceDirector implements Coffee.Director {
 			while (true) {
 
 				// process nodes for a little bit
-				var foundNodes = processor.processFor(directions, 5, TimeUnit.SECONDS);
+				// within the first 5 minutes of computation, use smaller batches, but gradually grow to 1 min batches
+				long nodesTimeMs = Math.max(500L, (long)(Math.min(stopwatch.getTimeM()/5.0, 1.0)*60_000));
+				var foundNodes = processor.processFor(directions, nodesTimeMs, TimeUnit.MILLISECONDS);
 				if (!foundNodes) {
 					break;
 				}
@@ -70,14 +72,14 @@ public class SequenceDirector implements Coffee.Director {
 					double gWidth = g.size();
 
 					// what's the best precision we could ever get given the nodes we've already dropped?
-					double gWidthMin = -gcalc.calc(
+					double gWidthMin = Math.abs(gcalc.calc(
 						processor.seqdb.bigMath()
 							.set(statez.zSumBounds.upper)
 							.sub(statez.zSumDropped)
 							.recip()
 							.mult(statez.zSumBounds.upper)
 							.get()
-					);
+					));
 
 					/* PROOF:
 						At step i, zSum_i is bounded by [min_i, max_i].
@@ -121,11 +123,11 @@ public class SequenceDirector implements Coffee.Director {
 						- 1.0;
 
 					// report progress
-					directions.member.log("\tfree energy %s   width %.6f of %.6f  nodedb usage %.1f%%   time %s   r %.6f",
+					directions.member.log("\tfree energy %s   width %.6f of %.6f  nodedb usage %5.1f%%   r %.6f   time %s",
 						g.toString(6), gWidth, gWidthMin,
 						processor.nodedb.usage()*100f,
-						stopwatch.getTime(2),
-						reducibleRatio
+						reducibleRatio,
+						stopwatch.getTime(2)
 					);
 					// TODO: show node processing speeds?
 

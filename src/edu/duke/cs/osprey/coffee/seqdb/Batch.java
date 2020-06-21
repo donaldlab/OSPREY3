@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.coffee.seqdb;
 import edu.duke.cs.osprey.confspace.MultiStateConfSpace;
 import edu.duke.cs.osprey.confspace.Sequence;
 import edu.duke.cs.osprey.tools.BigExp;
+import edu.duke.cs.osprey.tools.Log;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -135,5 +136,32 @@ public class Batch {
 			// relay batch save to the driver member
 			seqdb.member.sendTo(op, seqdb.member.directorAddress());
 		}
+	}
+
+	@Override
+	public String toString() {
+		var buf = new StringBuilder();
+		unsequencedSums.forEach((statei, statez) -> {
+			var state = seqdb.confSpace.states.get(statei);
+			buf.append(String.format("%10s   bounds %s   dropped %s\n",
+				state.name,
+				Log.formatBigEngineering(statez.zSumBounds),
+				Log.formatBigEngineering(statez.zSumDropped)
+			));
+		});
+		sequencedSums.forEach((seq, seqInfo) -> {
+			for (var state : seqdb.confSpace.sequencedStates) {
+				var statez = seqInfo.get(state);
+				if (!statez.zSumBounds.isZero()) {
+					buf.append(String.format("%10s   bounds %s   dropped %s   [%s]\n",
+						state.name,
+						Log.formatBigEngineering(statez.zSumBounds),
+						Log.formatBigEngineering(statez.zSumDropped),
+						seq
+					));
+				}
+			}
+		});
+		return buf.toString();
 	}
 }

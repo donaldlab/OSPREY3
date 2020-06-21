@@ -97,29 +97,35 @@ public class Serializers {
 
 			@Override
 			public int bytes() {
-				return 8+4 // BigExp
-					+ state.confSpace.numPos()*confEncoding.numBytes; // conf
+				return state.confSpace.numPos()*confEncoding.numBytes // conf
+					+ 8+4 // zSumUpper
+					+ 8+4; // score
 			}
 
 			@Override
 			public void serialize(ByteBuffer out, NodeIndex.Node node) {
-				out.putDouble(node.score.fp);
-				out.putInt(node.score.exp);
 				for (int i=0; i<state.confSpace.numPos(); i++) {
 					confEncoding.write(out, writeConf(node.conf[i]));
 				}
+				out.putDouble(node.zSumUpper.fp);
+				out.putInt(node.zSumUpper.exp);
+				out.putDouble(node.score.fp);
+				out.putInt(node.score.exp);
 			}
 
 			@Override
 			public NodeIndex.Node deserialize(ByteBuffer in) {
-				double fp = in.getDouble();
-				int exp = in.getInt();
-				BigExp score = new BigExp(fp, exp);
 				int[] conf = new int[state.confSpace.numPos()];
 				for (int i=0; i<conf.length; i++) {
 					conf[i] = readConf(confEncoding.read(in));
 				}
-				return new NodeIndex.Node(state.index, conf, score);
+				double fp = in.getDouble();
+				int exp = in.getInt();
+				BigExp zSumUpper = new BigExp(fp, exp);
+				fp = in.getDouble();
+				exp = in.getInt();
+				BigExp score = new BigExp(fp, exp);
+				return new NodeIndex.Node(state.index, conf, zSumUpper, score);
 			}
 		};
 	}
@@ -163,27 +169,32 @@ public class Serializers {
 			public void write(ObjectDataOutput out, NodeIndex.Node node)
 			throws IOException {
 				stateEncoding.write(out, node.statei);
-				out.writeDouble(node.score.fp);
-				out.writeInt(node.score.exp);
 				int numPos = confSpace.states.get(node.statei).confSpace.numPos();
 				for (int posi=0; posi<numPos; posi++) {
 					confEncoding.write(out, writeConf(node.conf[posi]));
 				}
+				out.writeDouble(node.zSumUpper.fp);
+				out.writeInt(node.zSumUpper.exp);
+				out.writeDouble(node.score.fp);
+				out.writeInt(node.score.exp);
 			}
 
 			@Override
 			public NodeIndex.Node read(ObjectDataInput in)
 			throws IOException {
 				int statei = stateEncoding.read(in);
-				double fp = in.readDouble();
-				int exp = in.readInt();
-				BigExp score = new BigExp(fp, exp);
 				int numPos = confSpace.states.get(statei).confSpace.numPos();
 				int[] conf = new int[numPos];
 				for (int posi=0; posi<numPos; posi++) {
 					conf[posi] = readConf(confEncoding.read(in));
 				}
-				return new NodeIndex.Node(statei, conf, score);
+				double fp = in.readDouble();
+				int exp = in.readInt();
+				BigExp zSumUpper = new BigExp(fp, exp);
+				fp = in.readDouble();
+				exp = in.readInt();
+				BigExp score = new BigExp(fp, exp);
+				return new NodeIndex.Node(statei, conf, zSumUpper, score);
 			}
 		};
 	}
@@ -195,29 +206,34 @@ public class Serializers {
 		// so we can't use any fancy compression techniques based on knowing details of the conf space =(
 
 		out.writeInt(node.statei);
-		out.writeDouble(node.score.fp);
-		out.writeInt(node.score.exp);
 		int numPos = confSpace.states.get(node.statei).confSpace.numPos();
 		out.writeInt(numPos);
 		for (int posi=0; posi<numPos; posi++) {
 			out.writeInt(writeConf(node.conf[posi]));
 		}
+		out.writeDouble(node.zSumUpper.fp);
+		out.writeInt(node.zSumUpper.exp);
+		out.writeDouble(node.score.fp);
+		out.writeInt(node.score.exp);
 	}
 
 	public static NodeIndex.Node hazelcastNodeDeserializeDeNovo(ObjectDataInput in)
 	throws IOException {
 
 		int statei = in.readInt();
-		double fp = in.readDouble();
-		int exp = in.readInt();
-		BigExp score = new BigExp(fp, exp);
 		int numPos = in.readInt();
 		int[] conf = new int[numPos];
 		for (int posi=0; posi<numPos; posi++) {
 			conf[posi] = readConf(in.readInt());
 		}
+		double fp = in.readDouble();
+		int exp = in.readInt();
+		BigExp zSumUpper = new BigExp(fp, exp);
+		fp = in.readDouble();
+		exp = in.readInt();
+		BigExp score = new BigExp(fp, exp);
 
-		return new NodeIndex.Node(statei, conf, score);
+		return new NodeIndex.Node(statei, conf, zSumUpper, score);
 	}
 
 	public static MapDBTools.SimpleSerializer<StateZ> mapdbStateZ = new MapDBTools.SimpleSerializer<>() {

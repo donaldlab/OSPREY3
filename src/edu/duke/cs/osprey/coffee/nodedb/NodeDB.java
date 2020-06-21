@@ -116,6 +116,8 @@ public class NodeDB implements AutoCloseable {
 	 **/
 	public Consumer<Stream<NodeIndex.Node>> dropHandler = null;
 
+	public final NodePerformance perf;
+
 	private final ThreadPoolTaskExecutor tasks;
 	private Map<Address,Neighbor> neighbors;
 	private BlockStore store;
@@ -149,6 +151,8 @@ public class NodeDB implements AutoCloseable {
 		this.fileBytes = fileBytes;
 		this.memBytes = memBytes;
 		this.broadcastNs = broadcastNs;
+
+		perf = new NodePerformance(confSpace);
 
 		// TODO: implement memory-buffered disk-backed options
 		// TEMP
@@ -281,7 +285,7 @@ public class NodeDB implements AutoCloseable {
 			.toArray(BigExp[]::new);
 
 		// broadcast
-		member.sendToOthers(() -> new BroadcastOperation(freeSpaces, maxScores, store.numUsedBytes(), memBytes));
+		member.sendToOthers(() -> new BroadcastOperation(freeSpaces, maxScores, store.numUsedBytes(), memBytes, perf));
 		lastBroadcastNs = System.nanoTime();
 	}
 
@@ -358,7 +362,7 @@ public class NodeDB implements AutoCloseable {
 	 * Next, remote storage is preferred if there's space.
 	 * Otherwise, space will be evicted from local storage to make room.
 	 */
-	void add(NodeIndex.Node node) {
+	public void add(NodeIndex.Node node) {
 		threadExec(() -> {
 
 			// prefer local storage first
